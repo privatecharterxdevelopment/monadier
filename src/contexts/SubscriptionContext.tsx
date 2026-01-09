@@ -15,6 +15,7 @@ import {
   createFreeSubscription,
   PlanFeatures
 } from '../lib/subscription';
+import { supabase } from '../lib/supabase';
 
 // Legacy types for backwards compatibility
 export interface Subscription {
@@ -105,30 +106,72 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState('');
 
-  // Load new subscription from localStorage or create free tier
+  // Load subscription from Supabase (with localStorage fallback)
   useEffect(() => {
     const loadSubscription = async () => {
       try {
         setIsLoading(true);
+
+        // Check if user is authenticated
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (user) {
+          // Fetch subscription from Supabase
+          const { data: dbSub, error: dbError } = await supabase
+            .from('subscriptions')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+
+          if (dbSub && !dbError) {
+            // Convert database record to UserSubscription
+            const sub: UserSubscription = {
+              id: dbSub.id,
+              userId: dbSub.user_id,
+              walletAddress: dbSub.wallet_address || '',
+              planTier: dbSub.plan_tier as PlanTier,
+              billingCycle: dbSub.billing_cycle as BillingCycle,
+              status: dbSub.status as 'active' | 'expired' | 'cancelled' | 'pending',
+              startDate: new Date(dbSub.start_date),
+              endDate: new Date(dbSub.end_date),
+              autoRenew: dbSub.auto_renew,
+              licenseCode: dbSub.license_code || undefined,
+              dailyTradesUsed: dbSub.daily_trades_used,
+              dailyTradesResetAt: new Date(dbSub.daily_trades_reset_at)
+            };
+
+            // Reset daily trades if needed
+            const now = new Date();
+            if (now > sub.dailyTradesResetAt) {
+              sub.dailyTradesUsed = 0;
+              sub.dailyTradesResetAt = new Date(now.setHours(24, 0, 0, 0));
+
+              // Update in database
+              await supabase.from('subscriptions').update({
+                daily_trades_used: 0,
+                daily_trades_reset_at: sub.dailyTradesResetAt.toISOString()
+              }).eq('id', dbSub.id);
+            }
+
+            // Check if expired (except lifetime/free)
+            if (sub.billingCycle !== 'lifetime' && sub.planTier !== 'free' && now > sub.endDate && sub.status === 'active') {
+              sub.status = 'expired';
+              await supabase.from('subscriptions').update({ status: 'expired' }).eq('id', dbSub.id);
+            }
+
+            setSubscription(sub);
+            localStorage.setItem('monadier_subscription', JSON.stringify(sub));
+            return;
+          }
+        }
+
+        // Fallback: Load from localStorage or create free tier
         const stored = localStorage.getItem('monadier_subscription');
         if (stored) {
           const sub = JSON.parse(stored);
           sub.startDate = new Date(sub.startDate);
           sub.endDate = new Date(sub.endDate);
           sub.dailyTradesResetAt = new Date(sub.dailyTradesResetAt);
-
-          // Reset daily trades if needed
-          const now = new Date();
-          if (now > sub.dailyTradesResetAt) {
-            sub.dailyTradesUsed = 0;
-            sub.dailyTradesResetAt = new Date(now.setHours(24, 0, 0, 0));
-          }
-
-          // Check if expired (except lifetime/free)
-          if (sub.billingCycle !== 'lifetime' && now > sub.endDate && sub.status === 'active') {
-            sub.status = 'expired';
-          }
-
           setSubscription(sub);
         } else {
           // No subscription found - create FREE tier for new users
@@ -148,6 +191,17 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     };
 
     loadSubscription();
+
+    // Listen for auth changes to reload subscription
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        loadSubscription();
+      }
+    });
+
+    return () => {
+      authSub.unsubscribe();
+    };
   }, []);
 
   // Save subscriptions to localStorage
@@ -293,13 +347,30 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return isChainAllowed(planTier, chainId);
   }, [planTier]);
 
-  // Record a trade
-  const recordTrade = useCallback(() => {
+  // Record a trade (updates both local state and Supabase)
+  const recordTrade = useCallback(async () => {
     if (!subscription) return;
+
+    const newCount = subscription.dailyTradesUsed + 1;
+
+    // Update local state
     setSubscription(prev => {
       if (!prev) return prev;
-      return { ...prev, dailyTradesUsed: prev.dailyTradesUsed + 1 };
+      return { ...prev, dailyTradesUsed: newCount };
     });
+
+    // Update Supabase
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('subscriptions').update({
+          daily_trades_used: newCount,
+          updated_at: new Date().toISOString()
+        }).eq('user_id', user.id);
+      }
+    } catch (err) {
+      console.error('Failed to record trade in database:', err);
+    }
   }, [subscription]);
 
   // Activate license code

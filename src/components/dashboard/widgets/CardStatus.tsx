@@ -31,14 +31,14 @@ const CardStatus: React.FC<CardStatusProps> = ({
         {/* Gold accent element */}
         <div 
           className={`absolute top-[15%] -right-6 w-16 h-32 rounded-full ${
-            isSignature ? 'bg-accent/30' : 'bg-gray-600'
+            isSignature ? 'bg-white/15' : 'bg-gray-600'
           } blur-xl`}
         ></div>
         
         <div className="absolute inset-0 p-4 flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-center">
-              <div className="w-10 h-6 rounded-md bg-accent/10"></div>
+              <div className="w-10 h-6 rounded-md bg-white/5"></div>
               <div className="text-xs uppercase">
                 {isSignature ? 'Signature' : 'Essential'}
               </div>
@@ -63,8 +63,8 @@ const CardStatus: React.FC<CardStatusProps> = ({
                 <div className="text-xs text-secondary">CVV</div>
                 <div className="text-sm">•••</div>
               </div>
-              <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
-                <div className="w-6 h-6 rounded-full bg-accent/20"></div>
+              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
+                <div className="w-6 h-6 rounded-full bg-white/10"></div>
               </div>
             </div>
           </div>

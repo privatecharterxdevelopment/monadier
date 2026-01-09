@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, Wallet, Shield, Layers, Coins, Bot, Globe, Lock, Zap } from 'lucide-react';
+import { ArrowRight, Wallet, Shield, Layers, Coins, Bot, Globe, Lock, Zap, Download } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Logo from '../components/ui/Logo';
 import PhoneMockup from '../components/ui/PhoneMockup';
 import CookieConsent from '../components/ui/CookieConsent';
+import DownloadModal from '../components/ui/DownloadModal';
 import { useAuth } from '../contexts/AuthContext';
 
 const LandingPage: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
 
   const mockupScreens = [
     '/dashboard-mockup.png',
@@ -42,6 +44,13 @@ const LandingPage: React.FC = () => {
             <Link to="/saving" className="text-secondary hover:text-primary transition-colors">Saving</Link>
             <Link to="/investing" className="text-secondary hover:text-primary transition-colors">Investing</Link>
             <Link to="/about" className="text-secondary hover:text-primary transition-colors">About</Link>
+            <button
+              onClick={() => setShowDownloadModal(true)}
+              className="flex items-center gap-2 text-secondary hover:text-primary transition-colors"
+            >
+              <Download size={16} />
+              Download
+            </button>
             <Link to="/register">
               <Button variant="primary" size="md">Open an account</Button>
             </Link>
@@ -98,7 +107,7 @@ const LandingPage: React.FC = () => {
               className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8"
             >
               <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
                   <Lock className="text-accent" size={24} />
                 </div>
                 <div>
@@ -108,7 +117,7 @@ const LandingPage: React.FC = () => {
               </div>
 
               <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
                   <Layers className="text-accent" size={24} />
                 </div>
                 <div>
@@ -118,7 +127,7 @@ const LandingPage: React.FC = () => {
               </div>
 
               <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
                   <Bot className="text-accent" size={24} />
                 </div>
                 <div>
@@ -173,13 +182,13 @@ const LandingPage: React.FC = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="bg-card-dark border border-gray-800 rounded-2xl p-8 hover:border-accent/50 transition-colors"
+              className="bg-[#141414] border border-gray-800/50 rounded-2xl p-8 hover:border-white/20 transition-colors"
             >
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-6">
-                <Wallet className="text-white" size={28} />
+              <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-6">
+                <Wallet className="text-white/70" size={24} />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-3">Non-Custodial</h3>
-              <p className="text-gray-400">
+              <h3 className="text-lg font-medium text-white mb-3 tracking-wide">Non-Custodial</h3>
+              <p className="text-gray-500 text-sm leading-relaxed">
                 Trade directly from your own wallet. We never hold your funds. Your keys, your crypto, always.
               </p>
             </motion.div>
@@ -190,13 +199,13 @@ const LandingPage: React.FC = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-card-dark border border-gray-800 rounded-2xl p-8 hover:border-accent/50 transition-colors"
+              className="bg-[#141414] border border-gray-800/50 rounded-2xl p-8 hover:border-white/20 transition-colors"
             >
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center mb-6">
-                <Layers className="text-white" size={28} />
+              <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-6">
+                <Layers className="text-white/70" size={24} />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-3">Multi-Chain Support</h3>
-              <p className="text-gray-400">
+              <h3 className="text-lg font-medium text-white mb-3 tracking-wide">Multi-Chain</h3>
+              <p className="text-gray-500 text-sm leading-relaxed">
                 Trade on Ethereum, BNB Chain, Arbitrum, Base, and Polygon. Switch networks instantly.
               </p>
             </motion.div>
@@ -207,13 +216,13 @@ const LandingPage: React.FC = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-card-dark border border-gray-800 rounded-2xl p-8 hover:border-accent/50 transition-colors"
+              className="bg-[#141414] border border-gray-800/50 rounded-2xl p-8 hover:border-white/20 transition-colors"
             >
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center mb-6">
-                <Globe className="text-white" size={28} />
+              <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-6">
+                <Globe className="text-white/70" size={24} />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-3">Real Blockchain Balances</h3>
-              <p className="text-gray-400">
+              <h3 className="text-lg font-medium text-white mb-3 tracking-wide">Live Balances</h3>
+              <p className="text-gray-500 text-sm leading-relaxed">
                 See your actual token balances fetched directly from the blockchain. Real-time and accurate.
               </p>
             </motion.div>
@@ -224,13 +233,13 @@ const LandingPage: React.FC = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className="bg-card-dark border border-gray-800 rounded-2xl p-8 hover:border-accent/50 transition-colors"
+              className="bg-[#141414] border border-gray-800/50 rounded-2xl p-8 hover:border-white/20 transition-colors"
             >
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center mb-6">
-                <Zap className="text-white" size={28} />
+              <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-6">
+                <Zap className="text-white/70" size={24} />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-3">DEX Integration</h3>
-              <p className="text-gray-400">
+              <h3 className="text-lg font-medium text-white mb-3 tracking-wide">DEX Integration</h3>
+              <p className="text-gray-500 text-sm leading-relaxed">
                 Trade on Uniswap V3 and PancakeSwap. Best prices and liquidity from top decentralized exchanges.
               </p>
             </motion.div>
@@ -241,13 +250,13 @@ const LandingPage: React.FC = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.5 }}
-              className="bg-card-dark border border-gray-800 rounded-2xl p-8 hover:border-accent/50 transition-colors"
+              className="bg-[#141414] border border-gray-800/50 rounded-2xl p-8 hover:border-white/20 transition-colors"
             >
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-pink-500 to-pink-600 flex items-center justify-center mb-6">
-                <Coins className="text-white" size={28} />
+              <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-6">
+                <Coins className="text-white/70" size={24} />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-3">Crypto Payments</h3>
-              <p className="text-gray-400">
+              <h3 className="text-lg font-medium text-white mb-3 tracking-wide">Crypto Payments</h3>
+              <p className="text-gray-500 text-sm leading-relaxed">
                 Pay for subscriptions with USDT or USDC directly from your wallet. No credit cards needed.
               </p>
             </motion.div>
@@ -258,13 +267,13 @@ const LandingPage: React.FC = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.6 }}
-              className="bg-card-dark border border-gray-800 rounded-2xl p-8 hover:border-accent/50 transition-colors"
+              className="bg-[#141414] border border-gray-800/50 rounded-2xl p-8 hover:border-white/20 transition-colors"
             >
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center mb-6">
-                <Shield className="text-white" size={28} />
+              <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-6">
+                <Shield className="text-white/70" size={24} />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-3">Secure & Private</h3>
-              <p className="text-gray-400">
+              <h3 className="text-lg font-medium text-white mb-3 tracking-wide">Secure & Private</h3>
+              <p className="text-gray-500 text-sm leading-relaxed">
                 No KYC for trading. Connect your wallet and start trading immediately. Full privacy.
               </p>
             </motion.div>
@@ -278,20 +287,14 @@ const LandingPage: React.FC = () => {
             transition={{ duration: 0.8 }}
             className="mt-24 text-center"
           >
-            <p className="text-gray-500 mb-8">Supported Networks</p>
-            <div className="flex flex-wrap justify-center gap-6">
-              {[
-                { name: 'Ethereum', color: 'bg-blue-500/10 text-blue-400 border-blue-500/30' },
-                { name: 'BNB Chain', color: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' },
-                { name: 'Arbitrum', color: 'bg-blue-500/10 text-blue-400 border-blue-500/30' },
-                { name: 'Base', color: 'bg-blue-500/10 text-blue-400 border-blue-500/30' },
-                { name: 'Polygon', color: 'bg-purple-500/10 text-purple-400 border-purple-500/30' }
-              ].map((chain) => (
+            <p className="text-gray-600 mb-8 text-sm tracking-wide">SUPPORTED NETWORKS</p>
+            <div className="flex flex-wrap justify-center gap-4">
+              {['Ethereum', 'BNB Chain', 'Arbitrum', 'Base', 'Polygon'].map((chain) => (
                 <div
-                  key={chain.name}
-                  className={`px-6 py-3 rounded-full border ${chain.color} font-medium`}
+                  key={chain}
+                  className="px-5 py-2.5 rounded-full border border-white/10 bg-white/5 text-white/60 text-sm font-medium"
                 >
-                  {chain.name}
+                  {chain}
                 </div>
               ))}
             </div>
@@ -320,6 +323,12 @@ const LandingPage: React.FC = () => {
 
       {/* Cookie Consent */}
       <CookieConsent />
+
+      {/* Download Modal */}
+      <DownloadModal
+        isOpen={showDownloadModal}
+        onClose={() => setShowDownloadModal(false)}
+      />
     </div>
   );
 };

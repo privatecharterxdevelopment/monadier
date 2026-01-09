@@ -94,7 +94,7 @@ export const LicenseActivation: React.FC<LicenseActivationProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-accent/20 rounded-lg">
+              <div className="p-2 bg-white/10 rounded-lg">
                 <Key className="w-5 h-5 text-accent" />
               </div>
               <h2 className="text-xl font-bold text-white">Activate License</h2>
@@ -145,7 +145,7 @@ export const LicenseActivation: React.FC<LicenseActivationProps> = ({
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center gap-3 p-3 bg-accent/10 border border-accent/20 rounded-lg"
+                    className="flex items-center gap-3 p-3 bg-white/5 border border-accent/20 rounded-lg"
                   >
                     <Sparkles className="w-5 h-5 text-accent" />
                     <div>

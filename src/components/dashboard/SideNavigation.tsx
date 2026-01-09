@@ -50,7 +50,7 @@ const SideNavigation: React.FC = () => {
                 >
                   <div className={`
                     w-11 h-11 rounded-xl flex items-center justify-center
-                    ${isActive ? 'bg-accent/10' : 'hover:bg-surface-hover'}
+                    ${isActive ? 'bg-white/5' : 'hover:bg-surface-hover'}
                     transition-all duration-300
                   `}>
                     <IconComponent

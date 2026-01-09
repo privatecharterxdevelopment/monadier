@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Package,
@@ -15,15 +15,20 @@ import {
   Monitor,
   Wallet,
   Loader2,
-  ExternalLink
+  ExternalLink,
+  Copy,
+  Apple,
+  MonitorDown
 } from 'lucide-react';
 import { useSubscription, Subscription } from '../../contexts/SubscriptionContext';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useAppKit } from '@reown/appkit/react';
 import Card from '../../components/ui/Card';
+import { supabase } from '../../lib/supabase';
+import { generateLicenseCode } from '../../lib/subscription';
 
 // Payment receiving address (treasury)
-const TREASURY_ADDRESS = '0x742d35Cc6634C0532925a3b844Bc9e7595f5bC12';
+const TREASURY_ADDRESS = '0xF7351a5C63e0403F6F7FC77d31B5e17A229C469c';
 
 const SubscriptionsPage: React.FC = () => {
   const {
@@ -39,6 +44,7 @@ const SubscriptionsPage: React.FC = () => {
     tokenBalances,
     currentChain,
     approveToken,
+    transferToken,
     refreshBalances
   } = useWeb3();
   const { open } = useAppKit();
@@ -49,6 +55,30 @@ const SubscriptionsPage: React.FC = () => {
   const [isPaying, setIsPaying] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'approving' | 'paying' | 'success' | 'error'>('idle');
   const [txHash, setTxHash] = useState<string | null>(null);
+  const [generatedLicense, setGeneratedLicense] = useState<string | null>(null);
+  const [desktopLicense, setDesktopLicense] = useState<{ code: string; createdAt: string } | null>(null);
+  const [copiedLicense, setCopiedLicense] = useState(false);
+
+  // Fetch existing desktop license on mount
+  useEffect(() => {
+    const fetchDesktopLicense = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from('subscriptions')
+          .select('license_code, created_at')
+          .eq('user_id', user.id)
+          .eq('plan_tier', 'desktop')
+          .eq('status', 'active')
+          .single();
+
+        if (data?.license_code) {
+          setDesktopLicense({ code: data.license_code, createdAt: data.created_at });
+        }
+      }
+    };
+    fetchDesktopLicense();
+  }, []);
 
   // Get available stablecoin balance
   const stablecoinBalance = tokenBalances
@@ -64,52 +94,49 @@ const SubscriptionsPage: React.FC = () => {
     {
       id: 'starter',
       name: 'Starter',
-      price: 99,
+      price: 29,
       billingCycle: 'monthly' as const,
-      icon: <Zap className="w-8 h-8" />,
-      color: 'from-blue-500 to-blue-600',
+      icon: <Zap className="w-6 h-6" />,
       features: [
-        'Up to $1,000 trading limit',
-        'Basic trading pairs (6 pairs)',
-        '5 trades per day',
-        'Email support',
-        '$1,000 credit line'
+        '25 trades per day',
+        'Base & Polygon chains',
+        'Spot & DCA strategies',
+        '3 connected wallets',
+        'Email support'
       ],
       creditLine: 1000
     },
     {
       id: 'pro',
       name: 'Professional',
-      price: 199,
+      price: 79,
       billingCycle: 'monthly' as const,
-      icon: <Crown className="w-8 h-8" />,
-      color: 'from-purple-500 to-purple-600',
+      icon: <Crown className="w-6 h-6" />,
       popular: true,
       features: [
-        'Up to $5,000 trading limit',
-        'All trading pairs',
-        '50 trades per day',
+        '100 trades per day',
+        'All chains supported',
+        'Grid & DCA strategies',
+        '10 connected wallets',
         'Priority support',
-        'Advanced analytics',
-        '$5,000 credit line'
+        'Performance analytics'
       ],
       creditLine: 5000
     },
     {
       id: 'elite',
       name: 'Elite',
-      price: 699,
+      price: 199,
       billingCycle: 'monthly' as const,
-      icon: <Rocket className="w-8 h-8" />,
-      color: 'from-amber-500 to-amber-600',
+      icon: <Rocket className="w-6 h-6" />,
       features: [
-        'Up to $10,000 trading limit',
-        'All trading pairs',
         'Unlimited trades',
+        'All chains supported',
+        'All strategies + Arbitrage',
+        'Unlimited wallets',
         '24/7 VIP support',
-        'AI-powered strategies',
-        'Custom alerts',
-        '$15,000 credit line'
+        'API access & Webhooks',
+        'Custom strategies'
       ],
       creditLine: 15000
     }
@@ -118,24 +145,21 @@ const SubscriptionsPage: React.FC = () => {
   const softwarePlans = [
     {
       id: 'lifetime',
-      name: 'Lifetime License',
-      price: 999,
+      name: 'Desktop License',
+      price: 499,
       billingCycle: 'one_time' as const,
-      icon: <Download className="w-8 h-8" />,
-      color: 'from-emerald-500 to-emerald-600',
+      icon: <Download className="w-6 h-6" />,
       features: [
-        'Downloadable desktop software',
+        'One-time payment',
         'Run locally on your machine',
         'Offline trading capability',
         'Lifetime updates included',
-        'No monthly fees',
-        'All trading pairs',
+        'All strategies unlocked',
         'Unlimited trades',
-        'Priority email support',
-        '$25,000 credit line'
+        'No subscription fees'
       ],
       creditLine: 25000,
-      badge: 'One-Time Payment'
+      badge: 'Best Value'
     }
   ];
 
@@ -153,10 +177,10 @@ const SubscriptionsPage: React.FC = () => {
       setIsPaying(true);
       setPaymentStatus('approving');
 
-      // In production, this would:
+      // Get token decimals (USDC/USDT = 6, DAI = 18)
+      const decimals = bestStablecoin.symbol === 'DAI' ? 18 : 6;
+
       // 1. Approve the token transfer
-      // 2. Call a payment contract or transfer to treasury
-      // For now, simulate the approval process
       await approveToken(
         bestStablecoin.address,
         TREASURY_ADDRESS,
@@ -165,16 +189,18 @@ const SubscriptionsPage: React.FC = () => {
 
       setPaymentStatus('paying');
 
-      // Simulate payment transaction
-      // In production: transfer tokens to treasury
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // 2. Transfer tokens to treasury
+      const hash = await transferToken(
+        bestStablecoin.address,
+        TREASURY_ADDRESS,
+        selectedPlan.price.toString(),
+        decimals
+      );
 
-      // Simulated tx hash
-      const hash = '0x' + Math.random().toString(16).slice(2, 66);
       setTxHash(hash);
       setPaymentStatus('success');
 
-      // Add subscription after successful payment
+      // Add subscription to local state
       addSubscription({
         type: selectedPlan.type,
         tier: selectedPlan.id,
@@ -184,15 +210,67 @@ const SubscriptionsPage: React.FC = () => {
         features: selectedPlan.features
       });
 
+      // Save subscription to Supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const endDate = new Date();
+        if (selectedPlan.billingCycle === 'monthly') {
+          endDate.setMonth(endDate.getMonth() + 1);
+        } else if (selectedPlan.billingCycle === 'yearly') {
+          endDate.setFullYear(endDate.getFullYear() + 1);
+        } else {
+          endDate.setFullYear(endDate.getFullYear() + 100); // lifetime
+        }
+
+        // Generate license code for desktop purchases
+        let licenseCode: string | null = null;
+        if (selectedPlan.id === 'lifetime' || selectedPlan.type === 'software_license') {
+          licenseCode = generateLicenseCode('desktop', 'lifetime');
+          setGeneratedLicense(licenseCode);
+          setDesktopLicense({ code: licenseCode, createdAt: new Date().toISOString() });
+        }
+
+        // Upsert subscription record
+        await supabase.from('subscriptions').upsert({
+          user_id: user.id,
+          wallet_address: address,
+          plan_tier: selectedPlan.id === 'lifetime' ? 'desktop' : selectedPlan.id,
+          billing_cycle: selectedPlan.billingCycle === 'one_time' ? 'lifetime' : selectedPlan.billingCycle,
+          status: 'active',
+          start_date: new Date().toISOString(),
+          end_date: endDate.toISOString(),
+          auto_renew: selectedPlan.billingCycle !== 'lifetime' && selectedPlan.billingCycle !== 'one_time',
+          daily_trades_used: 0,
+          license_code: licenseCode,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
+
+        // Also insert into licenses table for desktop licenses
+        if (licenseCode) {
+          await supabase.from('licenses').insert({
+            code: licenseCode,
+            plan_tier: 'desktop',
+            billing_cycle: 'lifetime',
+            is_active: true,
+            activated_at: new Date().toISOString(),
+            activated_by: user.id
+          });
+        }
+
+        // Record the payment
+        await supabase.from('payments').insert({
+          user_id: user.id,
+          amount: Math.round(selectedPlan.price * 100), // cents
+          currency: bestStablecoin.symbol.toLowerCase(),
+          status: 'succeeded',
+          plan_tier: selectedPlan.id === 'lifetime' ? 'desktop' : selectedPlan.id,
+          billing_cycle: selectedPlan.billingCycle === 'one_time' ? 'lifetime' : selectedPlan.billingCycle,
+          stripe_payment_id: hash // tx hash as payment reference
+        });
+      }
+
       // Refresh balances
       await refreshBalances();
-
-      // Close modal after 3 seconds on success
-      setTimeout(() => {
-        setShowPurchaseModal(false);
-        setSelectedPlan(null);
-        setSelectedTab('current');
-      }, 3000);
 
     } catch (error) {
       console.error('Payment error:', error);
@@ -228,7 +306,7 @@ const SubscriptionsPage: React.FC = () => {
       case 'starter':
         return <Zap className="w-5 h-5 text-blue-400" />;
       case 'pro':
-        return <Crown className="w-5 h-5 text-purple-400" />;
+        return <Crown className="w-5 h-5 text-white" />;
       case 'elite':
         return <Rocket className="w-5 h-5 text-amber-400" />;
       case 'lifetime':
@@ -289,7 +367,7 @@ const SubscriptionsPage: React.FC = () => {
                           <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                             subscription.tier === 'lifetime' ? 'bg-emerald-500/10' :
                             subscription.tier === 'elite' ? 'bg-amber-500/10' :
-                            subscription.tier === 'pro' ? 'bg-purple-500/10' :
+                            subscription.tier === 'pro' ? 'bg-white/5' :
                             'bg-blue-500/10'
                           }`}>
                             {getTierIcon(subscription.tier)}
@@ -438,39 +516,41 @@ const SubscriptionsPage: React.FC = () => {
               key={plan.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              whileHover={{ scale: 1.02 }}
-              className={`relative bg-card-dark rounded-xl border ${
+              whileHover={{ y: -4 }}
+              className={`relative bg-[#141414] rounded-2xl border ${
                 activeSubscription?.tier === plan.id
-                  ? 'border-accent'
-                  : 'border-gray-800'
-              } p-6 transition-all`}
+                  ? 'border-white/20'
+                  : 'border-gray-800/50'
+              } p-8 transition-all`}
             >
               {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-accent text-white text-xs font-medium rounded-full">
-                  Popular
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-white text-black text-xs font-medium rounded-full tracking-wide">
+                  RECOMMENDED
                 </div>
               )}
 
               {activeSubscription?.tier === plan.id && (
-                <div className="absolute -top-3 right-4 px-3 py-1 bg-green-500 text-white text-xs font-medium rounded-full">
-                  Current
+                <div className="absolute -top-3 right-4 px-3 py-1 bg-white/10 text-white text-xs font-medium rounded-full border border-white/20">
+                  Active
                 </div>
               )}
 
-              <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center text-white mb-4`}>
+              <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/70 mb-6">
                 {plan.icon}
               </div>
 
-              <h3 className="text-xl font-semibold text-white mb-1">{plan.name}</h3>
-              <div className="flex items-baseline gap-1 mb-4">
-                <span className="text-3xl font-light text-white">${plan.price}</span>
-                <span className="text-gray-400">/month</span>
+              <h3 className="text-lg font-medium text-white mb-2 tracking-wide">{plan.name}</h3>
+              <div className="flex items-baseline gap-1 mb-6">
+                <span className="text-4xl font-light text-white">${plan.price}</span>
+                <span className="text-gray-500 text-sm">/month</span>
               </div>
 
-              <ul className="space-y-3 mb-6">
+              <div className="h-px bg-gray-800/50 mb-6" />
+
+              <ul className="space-y-4 mb-8">
                 {plan.features.map((feature, idx) => (
-                  <li key={idx} className="flex items-center gap-2 text-sm text-gray-400">
-                    <Check className="w-4 h-4 text-green-400 flex-shrink-0" />
+                  <li key={idx} className="flex items-start gap-3 text-sm text-gray-400">
+                    <div className="w-1.5 h-1.5 rounded-full bg-white/40 mt-1.5 flex-shrink-0" />
                     {feature}
                   </li>
                 ))}
@@ -479,13 +559,13 @@ const SubscriptionsPage: React.FC = () => {
               <button
                 onClick={() => handlePurchase(plan, 'trading_bot')}
                 disabled={activeSubscription?.tier === plan.id}
-                className={`w-full py-3 rounded-lg font-medium transition-all ${
+                className={`w-full py-3.5 rounded-xl font-medium transition-all text-sm tracking-wide ${
                   activeSubscription?.tier === plan.id
-                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                    : 'bg-accent hover:bg-accent-hover text-white'
+                    ? 'bg-white/5 text-gray-600 cursor-not-allowed border border-gray-800'
+                    : 'bg-white text-black hover:bg-gray-100'
                 }`}
               >
-                {activeSubscription?.tier === plan.id ? 'Current Plan' : 'Subscribe'}
+                {activeSubscription?.tier === plan.id ? 'Current Plan' : 'Get Started'}
               </button>
             </motion.div>
           ))}
@@ -494,66 +574,139 @@ const SubscriptionsPage: React.FC = () => {
 
       {/* Software License */}
       {selectedTab === 'software' && (
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto space-y-6">
+          {/* Show License & Downloads if already owned */}
+          {desktopLicense && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-[#141414] rounded-2xl border border-white/20 p-8"
+            >
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
+                  <Check className="w-6 h-6 text-green-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-white">Desktop License Active</h3>
+                  <p className="text-gray-500 text-sm">Lifetime access - never expires</p>
+                </div>
+              </div>
+
+              <div className="bg-background rounded-xl p-5 mb-6">
+                <p className="text-gray-400 text-xs mb-2">Your License Code</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 bg-black/50 px-4 py-3 rounded-lg text-white font-mono text-sm tracking-wider break-all">
+                    {desktopLicense.code}
+                  </code>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(desktopLicense.code);
+                      setCopiedLicense(true);
+                      setTimeout(() => setCopiedLicense(false), 2000);
+                    }}
+                    className="p-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+                  >
+                    {copiedLicense ? <Check size={18} className="text-green-400" /> : <Copy size={18} className="text-gray-400" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-white font-medium mb-3">Download Desktop App</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <a
+                    href="#"
+                    className="flex items-center justify-center gap-3 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-colors"
+                  >
+                    <Apple size={22} className="text-white/70" />
+                    <div className="text-left">
+                      <p className="text-white text-sm font-medium">macOS</p>
+                      <p className="text-gray-500 text-xs">Intel & Apple Silicon</p>
+                    </div>
+                  </a>
+                  <a
+                    href="#"
+                    className="flex items-center justify-center gap-3 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-colors"
+                  >
+                    <MonitorDown size={22} className="text-white/70" />
+                    <div className="text-left">
+                      <p className="text-white text-sm font-medium">Windows</p>
+                      <p className="text-gray-500 text-xs">Windows 10/11</p>
+                    </div>
+                  </a>
+                </div>
+              </div>
+
+              <p className="text-gray-500 text-xs">
+                Activated on {new Date(desktopLicense.createdAt).toLocaleDateString()}
+              </p>
+            </motion.div>
+          )}
+
+          {/* Purchase Section */}
           {softwarePlans.map(plan => (
             <motion.div
               key={plan.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="relative bg-card-dark rounded-xl border border-gray-800 p-8"
+              className={`relative bg-[#141414] rounded-2xl border ${desktopLicense ? 'border-gray-800/30 opacity-60' : 'border-gray-800/50'} p-10`}
             >
-              <div className="absolute -top-3 left-6 px-3 py-1 bg-emerald-500 text-white text-xs font-medium rounded-full">
-                {plan.badge}
-              </div>
+              {!desktopLicense && (
+                <div className="absolute -top-3 left-8 px-4 py-1 bg-white text-black text-xs font-medium rounded-full tracking-wide">
+                  {plan.badge?.toUpperCase()}
+                </div>
+              )}
 
-              <div className="flex items-start gap-6 mb-6">
-                <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center text-white`}>
+              <div className="flex items-start gap-6 mb-8">
+                <div className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/70">
                   {plan.icon}
                 </div>
                 <div>
-                  <h3 className="text-2xl font-semibold text-white mb-1">{plan.name}</h3>
-                  <p className="text-gray-400">
+                  <h3 className="text-2xl font-medium text-white mb-1 tracking-wide">{plan.name}</h3>
+                  <p className="text-gray-500">
                     Own the software forever with a single payment
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-baseline gap-2 mb-6">
+              <div className="flex items-baseline gap-2 mb-8">
                 <span className="text-5xl font-light text-white">${plan.price.toLocaleString()}</span>
-                <span className="text-gray-400">one-time payment</span>
+                <span className="text-gray-500">one-time</span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
+              <div className="h-px bg-gray-800/50 mb-8" />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                 {plan.features.map((feature, idx) => (
-                  <div key={idx} className="flex items-center gap-2 text-sm text-gray-400">
-                    <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <div key={idx} className="flex items-start gap-3 text-sm text-gray-400">
+                    <div className="w-1.5 h-1.5 rounded-full bg-white/40 mt-1.5 flex-shrink-0" />
                     {feature}
                   </div>
                 ))}
               </div>
 
-              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4 mb-6">
+              <div className="bg-white/5 border border-white/10 rounded-xl p-5 mb-8">
                 <div className="flex items-center gap-2 mb-2">
-                  <Star className="w-5 h-5 text-emerald-400" />
-                  <span className="text-emerald-400 font-medium">Best Value</span>
+                  <Star className="w-4 h-4 text-white/60" />
+                  <span className="text-white/80 font-medium text-sm">Why Desktop?</span>
                 </div>
-                <p className="text-gray-400 text-sm">
-                  Save over $7,000 compared to paying monthly for the Elite plan over 1 year.
-                  Run the trading bot locally on your own machine with full privacy.
+                <p className="text-gray-500 text-sm leading-relaxed">
+                  Run the trading bot locally on your machine. Full privacy, no subscription fees,
+                  and lifetime updates included.
                 </p>
               </div>
 
-              {subscriptions.find(s => s.tier === 'lifetime' && s.status === 'active') ? (
+              {desktopLicense || subscriptions.find(s => s.tier === 'lifetime' && s.status === 'active') ? (
                 <button
                   disabled
-                  className="w-full py-4 bg-gray-700 text-gray-500 rounded-lg font-medium cursor-not-allowed"
+                  className="w-full py-4 bg-white/5 text-gray-600 rounded-xl font-medium cursor-not-allowed border border-gray-800"
                 >
                   Already Owned
                 </button>
               ) : (
                 <button
                   onClick={() => handlePurchase(plan, 'software_license')}
-                  className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-medium transition-colors"
+                  className="w-full py-4 bg-white text-black rounded-xl font-medium transition-colors hover:bg-gray-100 text-sm tracking-wide"
                 >
                   Purchase License
                 </button>
@@ -578,22 +731,86 @@ const SubscriptionsPage: React.FC = () => {
             onClick={(e) => e.stopPropagation()}
           >
             {paymentStatus === 'success' ? (
-              <div className="text-center py-8">
+              <div className="text-center py-6">
                 <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
                   <Check className="w-10 h-10 text-green-400" />
                 </div>
                 <h2 className="text-2xl font-semibold text-white mb-2">Payment Successful!</h2>
                 <p className="text-gray-400 mb-4">Your {selectedPlan.name} subscription is now active</p>
+
+                {/* License Code Display for Desktop */}
+                {generatedLicense && (
+                  <div className="bg-background rounded-xl p-5 mb-6 text-left">
+                    <p className="text-gray-400 text-xs mb-2">Your License Code</p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 bg-black/50 px-4 py-3 rounded-lg text-white font-mono text-sm tracking-wider break-all">
+                        {generatedLicense}
+                      </code>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(generatedLicense);
+                          setCopiedLicense(true);
+                          setTimeout(() => setCopiedLicense(false), 2000);
+                        }}
+                        className="p-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+                      >
+                        {copiedLicense ? <Check size={18} className="text-green-400" /> : <Copy size={18} className="text-gray-400" />}
+                      </button>
+                    </div>
+                    <p className="text-gray-500 text-xs mt-3">
+                      Save this code! You'll need it to activate the desktop app.
+                    </p>
+                  </div>
+                )}
+
                 {txHash && currentChain && (
                   <a
                     href={`${currentChain.blockExplorer}/tx/${txHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-accent hover:text-accent-hover"
+                    className="inline-flex items-center gap-2 text-accent hover:text-accent-hover text-sm"
                   >
                     View Transaction <ExternalLink size={14} />
                   </a>
                 )}
+
+                {/* Download Links for Desktop */}
+                {generatedLicense && (
+                  <div className="mt-6 pt-6 border-t border-gray-800">
+                    <p className="text-white font-medium mb-3">Download Desktop App</p>
+                    <div className="flex gap-3">
+                      <a
+                        href="#"
+                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors text-sm text-gray-300"
+                      >
+                        <Apple size={18} />
+                        macOS
+                      </a>
+                      <a
+                        href="#"
+                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors text-sm text-gray-300"
+                      >
+                        <MonitorDown size={18} />
+                        Windows
+                      </a>
+                    </div>
+                    <p className="text-gray-500 text-xs mt-3">
+                      Also available in your account settings
+                    </p>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => {
+                    setShowPurchaseModal(false);
+                    setSelectedPlan(null);
+                    setGeneratedLicense(null);
+                    setSelectedTab('current');
+                  }}
+                  className="mt-6 w-full py-3 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors"
+                >
+                  Done
+                </button>
               </div>
             ) : (
               <>

@@ -3,6 +3,7 @@ import { useAccount, useBalance, useChainId, useSwitchChain, usePublicClient, us
 import { formatUnits, parseUnits, erc20Abi } from 'viem';
 import { SUPPORTED_CHAINS, getChainById, ChainConfig } from '../lib/chains';
 import { createDexRouter, createGridBot, DexRouter, GridBot, SwapResult, TradeRecord } from '../lib/dex';
+import { calculateTradeFee, TREASURY_ADDRESS, TRADE_FEE_PERCENT } from '../lib/fees';
 
 export interface TokenBalance {
   symbol: string;
@@ -30,6 +31,9 @@ export interface RealSwapResult {
   amountOut: string;
   gasCost: string;
   blockExplorerUrl: string;
+  feeAmount: string;
+  feePercent: number;
+  feeTxHash?: string;
 }
 
 interface Web3ContextType {
@@ -66,6 +70,9 @@ interface Web3ContextType {
   approveToken: (tokenAddress: string, spenderAddress: string, amount: string) => Promise<string>;
   checkAllowance: (tokenAddress: string, spenderAddress: string) => Promise<string>;
 
+  // Transfer
+  transferToken: (tokenAddress: string, toAddress: string, amount: string, decimals?: number) => Promise<string>;
+
   // DEX Router instance
   dexRouter: DexRouter | null;
 
@@ -87,9 +94,10 @@ const Web3Context = createContext<Web3ContextType>({
   refreshBalances: async () => {},
   getTokenBalance: async () => '0',
   getSwapQuote: async () => null,
-  executeRealSwap: async () => ({ txHash: '', amountIn: '', amountOut: '', gasCost: '', blockExplorerUrl: '' }),
+  executeRealSwap: async () => ({ txHash: '', amountIn: '', amountOut: '', gasCost: '', blockExplorerUrl: '', feeAmount: '0', feePercent: 0.5 }),
   approveToken: async () => '',
   checkAllowance: async () => '0',
+  transferToken: async () => '',
   dexRouter: null,
   createTradingBot: () => null
 });
@@ -324,14 +332,14 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [dexRouter, currentChain, publicClient]);
 
-  // Execute REAL swap on-chain via DEX router
+  // Execute REAL swap on-chain via DEX router with 0.5% fee collection
   const executeRealSwap = useCallback(async (
     tokenIn: string,
     tokenOut: string,
     amountIn: string,
     slippagePercent: number
   ): Promise<RealSwapResult> => {
-    if (!dexRouter || !address || !currentChain || !publicClient) {
+    if (!dexRouter || !address || !currentChain || !publicClient || !walletClient) {
       throw new Error('Wallet not connected or DEX not available');
     }
 
@@ -344,11 +352,15 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const amountInWei = parseUnits(amountIn, decimals);
 
-    // Execute REAL swap on-chain
+    // Calculate 0.5% platform fee (deducted from input amount)
+    const feeAmount = calculateTradeFee(amountInWei);
+    const netAmountIn = amountInWei - feeAmount;
+
+    // Execute REAL swap on-chain with net amount (after fee)
     const result = await dexRouter.executeSwap({
       tokenIn: tokenIn as `0x${string}`,
       tokenOut: tokenOut as `0x${string}`,
-      amountIn: amountInWei,
+      amountIn: netAmountIn,
       slippagePercent,
       recipient: address as `0x${string}`
     });
@@ -360,14 +372,33 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
       functionName: 'decimals'
     });
 
+    // Collect fee by transferring from user's input token to treasury
+    let feeTxHash: string | undefined;
+    if (feeAmount > 0n) {
+      try {
+        feeTxHash = await walletClient.writeContract({
+          address: tokenIn as `0x${string}`,
+          abi: erc20Abi,
+          functionName: 'transfer',
+          args: [TREASURY_ADDRESS, feeAmount]
+        });
+      } catch (feeError) {
+        console.error('Fee collection failed:', feeError);
+        // Swap still succeeded, log fee collection failure
+      }
+    }
+
     return {
       txHash: result.txHash,
       amountIn: formatUnits(result.amountIn, decimals),
       amountOut: formatUnits(result.amountOut, outDecimals),
       gasCost: formatUnits(result.gasCostWei, 18),
-      blockExplorerUrl: `${currentChain.blockExplorer}/tx/${result.txHash}`
+      blockExplorerUrl: `${currentChain.blockExplorer}/tx/${result.txHash}`,
+      feeAmount: formatUnits(feeAmount, decimals),
+      feePercent: TRADE_FEE_PERCENT,
+      feeTxHash
     };
-  }, [dexRouter, address, currentChain, publicClient]);
+  }, [dexRouter, address, currentChain, publicClient, walletClient]);
 
   // Approve token
   const approveToken = useCallback(async (
@@ -416,6 +447,32 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [publicClient, address]);
 
+  // Transfer token to address
+  const transferToken = useCallback(async (
+    tokenAddress: string,
+    toAddress: string,
+    amount: string,
+    decimals: number = 6 // USDC/USDT typically use 6 decimals
+  ): Promise<string> => {
+    if (!walletClient || !address) {
+      throw new Error('Wallet not connected');
+    }
+
+    try {
+      const hash = await walletClient.writeContract({
+        address: tokenAddress as `0x${string}`,
+        abi: erc20Abi,
+        functionName: 'transfer',
+        args: [toAddress as `0x${string}`, parseUnits(amount, decimals)]
+      });
+
+      return hash;
+    } catch (error) {
+      console.error('Error transferring token:', error);
+      throw error;
+    }
+  }, [walletClient, address]);
+
   // Initial price fetch
   useEffect(() => {
     fetchTokenPrices();
@@ -447,6 +504,7 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
     executeRealSwap,
     approveToken,
     checkAllowance,
+    transferToken,
     dexRouter,
     createTradingBot
   };

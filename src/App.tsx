@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+import { useDesktopLicense, isDesktopApp } from './hooks/useDesktopLicense';
 import Logo from './components/ui/Logo';
 import ScrollToTop from './components/animations/ScrollToTop';
 import PageTransition from './components/animations/PageTransition';
+import LicenseActivation from './components/desktop/LicenseActivation';
 
 // Pages
 import LandingPage from './pages/LandingPage';
@@ -22,8 +24,11 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 function App() {
   const { isLoading } = useAuth();
   const location = useLocation();
+  const { isDesktop, isLicensed, isLoading: licenseLoading } = useDesktopLicense();
+  const [licenseActivated, setLicenseActivated] = useState(false);
 
-  if (isLoading) {
+  // Show loading while checking auth and license
+  if (isLoading || (isDesktop && licenseLoading)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="animate-pulse">
@@ -31,6 +36,11 @@ function App() {
         </div>
       </div>
     );
+  }
+
+  // Desktop mode: show license activation if not licensed
+  if (isDesktop && !isLicensed && !licenseActivated) {
+    return <LicenseActivation onActivated={() => setLicenseActivated(true)} />;
   }
 
   return (

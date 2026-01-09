@@ -66,14 +66,14 @@ const CardPage: React.FC = () => {
             {/* Gold accent element */}
             <div 
               className={`absolute top-[20%] -right-10 w-32 h-56 rounded-full ${
-                isSignature ? 'bg-accent/30' : 'bg-gray-600'
+                isSignature ? 'bg-white/15' : 'bg-gray-600'
               } blur-xl`}
             ></div>
             
             <div className="absolute inset-0 p-6 flex flex-col justify-between">
               <div>
                 <div className="flex justify-between items-center">
-                  <div className="w-14 h-8 rounded-md bg-accent/10"></div>
+                  <div className="w-14 h-8 rounded-md bg-white/5"></div>
                   <div className="text-sm uppercase font-medium">
                     {isSignature ? 'Signature' : 'Essential'}
                   </div>
@@ -105,8 +105,8 @@ const CardPage: React.FC = () => {
                     <div className="text-xs text-secondary">CVV</div>
                     <div className="text-sm">•••</div>
                   </div>
-                  <div className="w-14 h-14 rounded-full bg-accent/10 flex items-center justify-center">
-                    <div className="w-8 h-8 rounded-full bg-accent/20"></div>
+                  <div className="w-14 h-14 rounded-full bg-white/5 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-white/10"></div>
                   </div>
                 </div>
               </div>

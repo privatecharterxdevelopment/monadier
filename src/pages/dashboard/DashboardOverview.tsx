@@ -73,7 +73,7 @@ const DashboardOverview: React.FC = () => {
                     <div className="flex items-center gap-2 mb-1">
                       <p className="text-gray-500 text-sm">Wallet Balance</p>
                       {currentChain && (
-                        <span className="px-2 py-0.5 bg-accent/20 text-accent text-xs rounded-full">
+                        <span className="px-2 py-0.5 bg-white/10 text-accent text-xs rounded-full">
                           {currentChain.shortName}
                         </span>
                       )}
@@ -123,7 +123,7 @@ const DashboardOverview: React.FC = () => {
               </>
             ) : (
               <div className="flex flex-col items-center justify-center py-8">
-                <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mb-4">
+                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
                   <Wallet size={32} className="text-accent" />
                 </div>
                 <h3 className="text-xl font-medium text-white mb-2">Connect Your Wallet</h3>
@@ -145,7 +145,7 @@ const DashboardOverview: React.FC = () => {
         <motion.div variants={itemAnimation}>
           <Card className="p-6 h-full">
             <div className="flex space-x-4 items-start">
-              <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
                 <BadgeCheck size={24} className="text-accent" />
               </div>
               <div>
@@ -190,7 +190,7 @@ const DashboardOverview: React.FC = () => {
                 {kycStatus !== 'verified' && (
                   <button
                     onClick={verifyKYC}
-                    className="px-3 py-1 bg-accent/20 text-accent text-xs rounded-lg hover:bg-accent/30 transition-colors"
+                    className="px-3 py-1 bg-white/10 text-accent text-xs rounded-lg hover:bg-white/15 transition-colors"
                   >
                     Verify
                   </button>
@@ -217,7 +217,7 @@ const DashboardOverview: React.FC = () => {
               {/* Active Subscription */}
               <div className="flex space-x-4">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  activeSubscription ? 'bg-accent/10' : 'bg-gray-500/10'
+                  activeSubscription ? 'bg-white/5' : 'bg-gray-500/10'
                 }`}>
                   <Package size={16} className={activeSubscription ? 'text-accent' : 'text-gray-500'} />
                 </div>
@@ -255,7 +255,7 @@ const DashboardOverview: React.FC = () => {
                 { name: 'BNB Chain', symbol: 'BSC', dex: 'PancakeSwap', color: 'bg-yellow-500/10 text-yellow-400' },
                 { name: 'Arbitrum', symbol: 'ARB', dex: 'Uniswap V3', color: 'bg-blue-500/10 text-blue-400' },
                 { name: 'Base', symbol: 'BASE', dex: 'Uniswap V3', color: 'bg-blue-500/10 text-blue-400' },
-                { name: 'Polygon', symbol: 'MATIC', dex: 'Uniswap V3', color: 'bg-purple-500/10 text-purple-400' }
+                { name: 'Polygon', symbol: 'MATIC', dex: 'Uniswap V3', color: 'bg-white/5 text-white' }
               ].map((chain) => (
                 <div
                   key={chain.symbol}
@@ -295,7 +295,7 @@ const DashboardOverview: React.FC = () => {
                 className="flex items-center justify-between p-3 bg-background rounded-lg hover:bg-surface-hover transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
                     <Bot size={16} className="text-accent" />
                   </div>
                   <span className="text-white">Trading Bot</span>
@@ -321,8 +321,8 @@ const DashboardOverview: React.FC = () => {
                 className="flex items-center justify-between p-3 bg-background rounded-lg hover:bg-surface-hover transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center">
-                    <History size={16} className="text-purple-400" />
+                  <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
+                    <History size={16} className="text-white" />
                   </div>
                   <span className="text-white">Trading History</span>
                 </div>

@@ -17,8 +17,8 @@ const SettingsPage: React.FC = () => {
           Your account settings will be available once your account is fully verified.
         </p>
         
-        <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-accent/10 flex items-center justify-center">
-          <div className="w-12 h-12 rounded-full bg-accent/20"></div>
+        <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-white/5 flex items-center justify-center">
+          <div className="w-12 h-12 rounded-full bg-white/10"></div>
         </div>
         
         <p className="text-accent">Coming Soon</p>

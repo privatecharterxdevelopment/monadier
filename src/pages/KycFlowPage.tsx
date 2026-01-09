@@ -194,7 +194,7 @@ const KycFlowPage: React.FC = () => {
             <div className="border-2 border-dashed border-gray-700 rounded-lg p-8 text-center mb-6">
               {idDocument ? (
                 <div className="flex flex-col items-center">
-                  <div className="w-12 h-12 bg-accent/20 rounded-full flex items-center justify-center mb-4">
+                  <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mb-4">
                     <Check size={24} className="text-accent" />
                   </div>
                   <p className="text-primary mb-2">{idDocument.name}</p>
@@ -244,7 +244,7 @@ const KycFlowPage: React.FC = () => {
             <div className="border-2 border-dashed border-gray-700 rounded-lg p-8 text-center mb-6">
               {residenceDocument ? (
                 <div className="flex flex-col items-center">
-                  <div className="w-12 h-12 bg-accent/20 rounded-full flex items-center justify-center mb-4">
+                  <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mb-4">
                     <Check size={24} className="text-accent" />
                   </div>
                   <p className="text-primary mb-2">{residenceDocument.name}</p>
@@ -324,7 +324,7 @@ const KycFlowPage: React.FC = () => {
       case 4: // Completion
         return (
           <div className="text-center">
-            <div className="w-20 h-20 bg-accent/20 rounded-full mx-auto flex items-center justify-center mb-6">
+            <div className="w-20 h-20 bg-white/10 rounded-full mx-auto flex items-center justify-center mb-6">
               <Check size={40} className="text-accent" />
             </div>
             

@@ -59,7 +59,7 @@ const DashboardHeader: React.FC = () => {
             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
               isConnected
                 ? 'bg-green-500/10 text-green-400 border border-green-500/30 hover:bg-green-500/20'
-                : 'bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20'
+                : 'bg-white/5 text-accent border border-white/20 hover:bg-white/10'
             }`}
           >
             <Wallet size={18} />

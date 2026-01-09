@@ -4,18 +4,20 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: '#0f0f0f',
-        surface: '#1a1a1a',
-        'surface-hover': '#252525',
+        background: '#0a0a0a',
+        surface: '#141414',
+        'surface-hover': '#1a1a1a',
         primary: '#ffffff',
-        secondary: '#bbbbbb',
-        accent: '#8b5cf6',
-        'accent-hover': '#7c3aed',
-        success: '#34D399',
-        warning: '#FBBF24',
-        error: '#EF4444',
-        'card-dark': '#141414',
-        'card-light': '#1e1e1e'
+        secondary: '#888888',
+        accent: '#ffffff',
+        'accent-hover': '#e5e5e5',
+        success: '#22c55e',
+        warning: '#eab308',
+        error: '#ef4444',
+        'card-dark': '#0f0f0f',
+        'card-light': '#171717',
+        border: '#262626',
+        muted: '#525252'
       },
       fontFamily: {
         sans: ['Space Grotesk', 'sans-serif'],

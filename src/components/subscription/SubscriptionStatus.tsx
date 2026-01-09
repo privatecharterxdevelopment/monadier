@@ -87,7 +87,7 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
       case 'desktop':
         return 'bg-yellow-500/20';
       case 'pro':
-        return 'bg-accent/20';
+        return 'bg-white/10';
       case 'starter':
         return 'bg-blue-500/20';
       default:
@@ -99,11 +99,11 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
     switch (planTier) {
       case 'elite':
       case 'desktop':
-        return 'bg-gradient-to-r from-yellow-500/20 to-orange-500/20';
+        return 'bg-white/5';
       case 'pro':
-        return 'bg-gradient-to-r from-accent/20 to-purple-500/20';
+        return 'bg-white/5';
       case 'starter':
-        return 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20';
+        return 'bg-white/5';
       default:
         return 'bg-gray-800/50';
     }
@@ -127,7 +127,7 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
               </span>
             )}
             {plan.badge && (
-              <span className={`px-1.5 py-0.5 text-xs rounded ${plan.popular ? 'bg-accent/20 text-accent' : 'bg-green-500/20 text-green-400'}`}>
+              <span className={`px-1.5 py-0.5 text-xs rounded ${plan.popular ? 'bg-white/10 text-accent' : 'bg-green-500/20 text-green-400'}`}>
                 {plan.badge}
               </span>
             )}
@@ -159,7 +159,7 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
         {isFree && (
           <button
             onClick={onUpgrade}
-            className="w-full mt-2 py-1.5 text-xs bg-accent/20 hover:bg-accent/30 text-accent rounded transition-colors"
+            className="w-full mt-2 py-1.5 text-xs bg-white/10 hover:bg-white/15 text-accent rounded transition-colors"
           >
             Upgrade for Real Trading
           </button>
@@ -209,7 +209,7 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
           {planTier !== 'elite' && planTier !== 'desktop' && (
             <button
               onClick={onUpgrade}
-              className="flex items-center gap-1 px-3 py-1.5 bg-accent/20 hover:bg-accent/30 text-accent rounded-lg transition-colors text-sm"
+              className="flex items-center gap-1 px-3 py-1.5 bg-white/10 hover:bg-white/15 text-accent rounded-lg transition-colors text-sm"
             >
               <Sparkles className="w-4 h-4" />
               Upgrade
@@ -221,7 +221,7 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
 
       {/* Free tier upgrade prompt */}
       {isFree && (
-        <div className="p-4 bg-gradient-to-r from-accent/10 to-purple-500/10 border-b border-gray-800">
+        <div className="p-4 bg-white/5 border-b border-gray-800">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white font-medium">Ready for real trading?</p>
@@ -331,7 +331,7 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
           {/* Chains */}
           <div className="p-3 bg-background rounded-lg">
             <div className="flex items-center gap-2 mb-2">
-              <BarChart3 className="w-4 h-4 text-purple-400" />
+              <BarChart3 className="w-4 h-4 text-white" />
               <span className="text-sm text-gray-400">Chains</span>
             </div>
             <p className="text-white font-bold">{plan.features.chains.length} chains</p>

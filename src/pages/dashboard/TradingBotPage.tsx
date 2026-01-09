@@ -7,6 +7,7 @@ import { useAppKit } from '@reown/appkit/react';
 import { SUPPORTED_CHAINS, TESTNET_CHAINS, getChainById, getAllChains, isTestnet, CHAIN_GAS_ESTIMATES } from '../../lib/chains';
 import { parseUnits, formatUnits } from 'viem';
 import { TradingSettings, GasEstimator, getDefaultConfig, TradingConfig, TradeHistoryItem } from '../../components/trading';
+import { verifyTrade } from '../../lib/api/subscription';
 
 interface TradingPair {
   symbol: string;
@@ -152,7 +153,7 @@ const TradingBotPage: React.FC = () => {
       price: 99,
       priceToken: '0.05 ETH',
       icon: <Zap className="w-8 h-8" />,
-      color: 'from-blue-500 to-blue-600',
+      color: 'from-gray-600 to-gray-700',
       features: ['Up to $1,000 per trade', 'Basic pairs', '5 trades/day']
     },
     {
@@ -161,7 +162,7 @@ const TradingBotPage: React.FC = () => {
       price: 199,
       priceToken: '0.1 ETH',
       icon: <Crown className="w-8 h-8" />,
-      color: 'from-purple-500 to-purple-600',
+      color: 'from-gray-400 to-gray-500',
       popular: true,
       features: ['Up to $5,000 per trade', 'All pairs', '50 trades/day', 'Priority execution']
     },
@@ -171,7 +172,7 @@ const TradingBotPage: React.FC = () => {
       price: 699,
       priceToken: '0.35 ETH',
       icon: <Rocket className="w-8 h-8" />,
-      color: 'from-amber-500 to-amber-600',
+      color: 'from-white to-gray-300',
       features: ['Up to $10,000 per trade', 'All pairs', 'Unlimited trades', 'MEV protection']
     }
   ];
@@ -576,6 +577,23 @@ const TradingBotPage: React.FC = () => {
     setIsExecuting(true);
 
     try {
+      // Verify subscription allows this trade (server-side check)
+      const isPaperTrade = isTestnet(currentChain.id);
+      const verification = await verifyTrade(currentChain.id, isPaperTrade);
+
+      if (!verification.allowed) {
+        alert(verification.reason || 'Trade not allowed. Please check your subscription.');
+        setIsExecuting(false);
+        return;
+      }
+
+      // Show paper trading notice for free tier
+      if (verification.isPaperOnly && !isPaperTrade) {
+        alert('Free tier only supports paper trading. Please use a testnet or upgrade your plan.');
+        setIsExecuting(false);
+        return;
+      }
+
       const currentPrice = candles[candles.length - 1]?.close || selectedPair.price;
 
       // Get token addresses from current chain
@@ -594,6 +612,7 @@ const TradingBotPage: React.FC = () => {
       console.log(`Executing REAL ${analyzeMarket.direction} trade on ${currentChain.dex.name}`);
       console.log(`Swapping ${tradeAmount} of ${tokenIn} for ${tokenOut}`);
       console.log(`Slippage: ${tradingConfig.slippagePercent}%`);
+      console.log(`Daily trades remaining: ${verification.dailyTradesRemaining}`);
 
       // Execute REAL swap on-chain with user's slippage setting
       const swapResult = await executeRealSwap(
@@ -1090,7 +1109,7 @@ const TradingBotPage: React.FC = () => {
                     {topPerformers.slice(0, 8).map((trade, idx) => (
                       <motion.tr
                         key={trade.id}
-                        initial={idx === 0 ? { opacity: 0, backgroundColor: 'rgba(139, 92, 246, 0.2)' } : { opacity: 1 }}
+                        initial={idx === 0 ? { opacity: 0, backgroundColor: 'rgba(255, 255, 255, 0.1)' } : { opacity: 1 }}
                         animate={{ opacity: 1, backgroundColor: 'transparent' }}
                         className="border-b border-gray-800/50"
                       >
@@ -1112,7 +1131,7 @@ const TradingBotPage: React.FC = () => {
           </div>
 
           {/* YOUR TRADES - Real transaction history */}
-          <div className="bg-card-dark rounded-xl border border-accent/30 overflow-hidden">
+          <div className="bg-card-dark rounded-xl border border-white/20 overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-800 bg-accent/5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1221,7 +1240,7 @@ const TradingBotPage: React.FC = () => {
                           return (
                             <motion.tr
                               key={trade.id}
-                              initial={idx === 0 ? { opacity: 0, backgroundColor: 'rgba(139, 92, 246, 0.2)' } : { opacity: 1 }}
+                              initial={idx === 0 ? { opacity: 0, backgroundColor: 'rgba(255, 255, 255, 0.1)' } : { opacity: 1 }}
                               animate={{ opacity: 1, backgroundColor: 'transparent' }}
                               className="border-b border-gray-800/50 hover:bg-accent/5"
                             >
@@ -1310,7 +1329,7 @@ const TradingBotPage: React.FC = () => {
           ) : !activeSubscription ? (
             <div className="bg-card-dark rounded-xl border border-gray-800 p-6">
               <div className="text-center mb-6">
-                <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
                   <Lock className="w-8 h-8 text-accent" />
                 </div>
                 <h3 className="text-xl font-semibold text-white mb-2">Unlock Trading</h3>
@@ -1327,7 +1346,7 @@ const TradingBotPage: React.FC = () => {
             <div className="bg-card-dark rounded-xl border border-gray-800 p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-white">Trade</h3>
-                <span className="px-2 py-1 bg-accent/20 text-accent text-xs rounded">{activeSubscription.tier}</span>
+                <span className="px-2 py-1 bg-white/10 text-accent text-xs rounded">{activeSubscription.tier}</span>
               </div>
 
               {!botActive ? (

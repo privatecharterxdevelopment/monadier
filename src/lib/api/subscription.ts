@@ -232,3 +232,53 @@ export async function openCustomerPortal(): Promise<void> {
   const { url } = await getCustomerPortalUrl();
   window.open(url, '_blank');
 }
+
+// Verify trade response
+export interface VerifyTradeResponse {
+  allowed: boolean;
+  reason?: string;
+  planTier: string;
+  isPaperOnly?: boolean;
+  dailyTradesUsed?: number;
+  dailyTradeLimit?: number;
+  dailyTradesRemaining?: number;
+  resetsAt?: string;
+  allowedChains?: number[];
+}
+
+// Verify if user can make a trade (server-side verification)
+export async function verifyTrade(
+  chainId: number,
+  isPaperTrade: boolean = false
+): Promise<VerifyTradeResponse> {
+  const token = await getAuthToken();
+
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/verify-trade`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      chainId,
+      isPaperTrade,
+    }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    return {
+      allowed: false,
+      reason: data.reason || data.error || 'Failed to verify trade',
+      planTier: data.planTier || 'free',
+      isPaperOnly: data.isPaperOnly,
+      dailyTradesUsed: data.dailyTradesUsed,
+      dailyTradeLimit: data.dailyTradeLimit,
+      resetsAt: data.resetsAt,
+      allowedChains: data.allowedChains,
+    };
+  }
+
+  return data;
+}

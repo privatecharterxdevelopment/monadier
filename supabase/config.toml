@@ -1,9 +1,5 @@
 # Supabase Configuration for Monadier
 
-[project]
-id = "monadier"
-name = "Monadier Trading Bot"
-
 [api]
 enabled = true
 port = 54321
@@ -33,7 +29,9 @@ site_url = "http://localhost:5173"
 additional_redirect_urls = ["http://localhost:5173/auth/callback"]
 jwt_expiry = 3600
 enable_signup = true
-enable_email_autoconfirm = false
+
+[auth.email]
+enable_confirmations = true
 
 [auth.external.google]
 enabled = false

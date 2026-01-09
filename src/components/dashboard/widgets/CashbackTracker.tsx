@@ -115,7 +115,7 @@ const CashbackTracker: React.FC<CashbackTrackerProps> = ({
     <Card className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-secondary font-medium text-sm">Cashback Rewards</h3>
-        <div className="bg-accent/10 text-accent px-2 py-1 rounded text-xs">
+        <div className="bg-white/5 text-accent px-2 py-1 rounded text-xs">
           {percentage}% Rate
         </div>
       </div>

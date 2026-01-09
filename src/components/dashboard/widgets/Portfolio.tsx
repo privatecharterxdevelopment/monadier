@@ -34,7 +34,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ metals, totalValue }) => {
             <div className="flex items-center">
               <div 
                 className={`w-10 h-10 rounded-full ${
-                  metal.type === 'gold' ? 'bg-accent/20' : 'bg-gray-500/20'
+                  metal.type === 'gold' ? 'bg-white/10' : 'bg-gray-500/20'
                 } flex items-center justify-center mr-3`}
               >
                 <span 

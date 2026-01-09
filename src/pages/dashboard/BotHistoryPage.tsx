@@ -130,7 +130,7 @@ const BotHistoryPage: React.FC = () => {
   const getTierIcon = (tier: string) => {
     switch (tier) {
       case 'starter': return <Zap className="w-4 h-4 text-blue-400" />;
-      case 'pro': return <Crown className="w-4 h-4 text-purple-400" />;
+      case 'pro': return <Crown className="w-4 h-4 text-white" />;
       case 'elite': return <Rocket className="w-4 h-4 text-amber-400" />;
       default: return null;
     }
@@ -139,7 +139,7 @@ const BotHistoryPage: React.FC = () => {
   const getTierColor = (tier: string) => {
     switch (tier) {
       case 'starter': return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
-      case 'pro': return 'bg-purple-500/10 text-purple-400 border-purple-500/20';
+      case 'pro': return 'bg-white/5 text-white border-white/10';
       case 'elite': return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
       default: return '';
     }
@@ -169,7 +169,7 @@ const BotHistoryPage: React.FC = () => {
 
   const TradeRow: React.FC<{ trade: Trade; isNew?: boolean }> = ({ trade, isNew }) => (
     <motion.div
-      initial={isNew ? { opacity: 0, x: -20, backgroundColor: 'rgba(139, 92, 246, 0.2)' } : { opacity: 1 }}
+      initial={isNew ? { opacity: 0, x: -20, backgroundColor: 'rgba(255, 255, 255, 0.1)' } : { opacity: 1 }}
       animate={{ opacity: 1, x: 0, backgroundColor: 'transparent' }}
       transition={{ duration: 0.5 }}
       className="grid grid-cols-6 gap-4 px-4 py-3 border-b border-gray-800 hover:bg-surface-hover transition-colors items-center"
@@ -296,8 +296,8 @@ const BotHistoryPage: React.FC = () => {
 
           <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-purple-400" />
+              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-white" />
               </div>
               <div>
                 <p className="text-sm text-secondary">Total Volume (24h)</p>

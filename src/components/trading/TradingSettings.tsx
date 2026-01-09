@@ -251,7 +251,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                         onClick={() => onConfigChange({ ...config, botMode: mode.id as any })}
                         className={`p-2 rounded-lg border text-center transition-all ${
                           config.botMode === mode.id
-                            ? 'border-accent bg-accent/10 text-accent'
+                            ? 'border-accent bg-white/5 text-accent'
                             : 'border-gray-700 text-gray-400 hover:border-gray-600'
                         }`}
                       >
@@ -276,7 +276,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                         onClick={() => onConfigChange({ ...config, strategy: strat.id as any })}
                         className={`p-2 rounded-lg border text-center transition-all ${
                           config.strategy === strat.id
-                            ? 'border-accent bg-accent/10 text-accent'
+                            ? 'border-accent bg-white/5 text-accent'
                             : 'border-gray-700 text-gray-400 hover:border-gray-600'
                         }`}
                       >
@@ -295,7 +295,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                         onClick={() => onConfigChange({ ...config, strategy: strat.id as any })}
                         className={`p-2 rounded-lg border text-center transition-all ${
                           config.strategy === strat.id
-                            ? 'border-accent bg-accent/10 text-accent'
+                            ? 'border-accent bg-white/5 text-accent'
                             : 'border-gray-700 text-gray-400 hover:border-gray-600'
                         }`}
                       >
@@ -587,7 +587,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                           onClick={() => handleChainSelect(chain.id)}
                           className={`p-3 rounded-lg border transition-all text-left ${
                             isSelected
-                              ? 'border-accent bg-accent/10'
+                              ? 'border-accent bg-white/5'
                               : 'border-gray-700 hover:border-gray-600'
                           }`}
                         >

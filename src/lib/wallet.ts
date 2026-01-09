@@ -33,7 +33,7 @@ createAppKit({
   },
   themeMode: 'dark',
   themeVariables: {
-    '--w3m-accent': '#8b5cf6',
+    '--w3m-accent': '#ffffff',
     '--w3m-border-radius-master': '8px'
   }
 });
