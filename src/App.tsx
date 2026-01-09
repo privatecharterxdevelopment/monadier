@@ -11,9 +11,9 @@ import LicenseActivation from './components/desktop/LicenseActivation';
 
 // Pages
 import LandingPage from './pages/LandingPage';
-import BankingPage from './pages/BankingPage';
-import SavingPage from './pages/SavingPage';
-import InvestingPage from './pages/InvestingPage';
+import HowItWorksPage from './pages/HowItWorksPage';
+import CardPage from './pages/CardPage';
+import BotTradingPage from './pages/BotTradingPage';
 import AboutPage from './pages/AboutPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -53,19 +53,19 @@ function App() {
               <LandingPage />
             </PageTransition>
           } />
-          <Route path="/banking" element={
+          <Route path="/how-it-works" element={
             <PageTransition>
-              <BankingPage />
+              <HowItWorksPage />
             </PageTransition>
           } />
-          <Route path="/saving" element={
+          <Route path="/card" element={
             <PageTransition>
-              <SavingPage />
+              <CardPage />
             </PageTransition>
           } />
-          <Route path="/investing" element={
+          <Route path="/trading-bot" element={
             <PageTransition>
-              <InvestingPage />
+              <BotTradingPage />
             </PageTransition>
           } />
           <Route path="/about" element={

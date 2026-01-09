@@ -1,132 +1,292 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Users, Building, Globe, ArrowRight, Shield, Award } from 'lucide-react';
+import { MapPin, Briefcase, TrendingUp, ArrowRight, Shield, Zap, Globe, Download, Sparkles } from 'lucide-react';
 import Logo from '../components/ui/Logo';
-import Button from '../components/ui/Button';
-import FadeIn from '../components/animations/FadeIn';
 import CookieConsent from '../components/ui/CookieConsent';
+import DownloadModal from '../components/ui/DownloadModal';
 
 const AboutPage: React.FC = () => {
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-gray-900">
-      <header className="relative z-10 container-custom py-8">
-        <nav className="flex justify-between items-center">
-          <Logo size="md" />
-          <div className="hidden md:flex items-center space-x-8">
-            <Link to="/banking" className="text-secondary hover:text-primary transition-colors">Banking</Link>
-            <Link to="/saving" className="text-secondary hover:text-primary transition-colors">Saving</Link>
-            <Link to="/investing" className="text-secondary hover:text-primary transition-colors">Investing</Link>
-            <Link to="/about" className="text-white hover:text-primary transition-colors">About</Link>
-            <Link to="/register">
-              <Button variant="primary" size="md">Open an account</Button>
-            </Link>
-          </div>
-        </nav>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-white/5">
+        <div className="container-custom">
+          <nav className="flex justify-between items-center h-20">
+            <Logo size="md" />
+            <div className="hidden md:flex items-center space-x-10">
+              <Link to="/how-it-works" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+                How it works
+              </Link>
+              <Link to="/card" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+                +DebitCard
+              </Link>
+              <Link to="/trading-bot" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+                Bot Trading
+              </Link>
+              <Link to="/about" className="text-white transition-colors text-sm font-medium">
+                About
+              </Link>
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setShowDownloadModal(true)}
+                className="hidden md:flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-medium"
+              >
+                <Download size={16} />
+                Download
+              </button>
+              <Link to="/login" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+                Sign in
+              </Link>
+              <Link to="/register">
+                <button className="px-4 py-2 bg-white text-gray-900 rounded-full text-sm font-medium hover:bg-gray-100 transition-colors">
+                  Trade now
+                </button>
+              </Link>
+            </div>
+          </nav>
+        </div>
       </header>
 
-      <main className="container-custom py-20">
-        <FadeIn>
-          <div className="max-w-4xl">
-            <h1 className="text-4xl md:text-6xl font-display mb-8">Redefining private banking</h1>
-            <p className="text-xl text-secondary mb-12">
-              We combine Swiss banking excellence with cutting-edge technology to deliver an unmatched financial experience.
+      <main className="pt-32 pb-24">
+        {/* Hero Section */}
+        <section className="container-custom mb-24">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="max-w-4xl mx-auto text-center"
+          >
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-medium leading-[1.1] mb-8 tracking-tight">
+              About <span className="text-gray-500">+Monadier</span>
+            </h1>
+            <p className="text-lg md:text-xl text-gray-400 mb-12 max-w-2xl mx-auto leading-relaxed">
+              Making automated crypto trading accessible to everyone — no experience required. Whether you're a complete beginner or seasoned trader, start earning passive income in minutes.
             </p>
-          </div>
-        </FadeIn>
+          </motion.div>
+        </section>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
-          <FadeIn delay={0.2}>
-            <div className="bg-card-dark p-8 rounded-2xl border border-gray-800">
-              <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mb-6">
-                <Users className="text-white" size={24} />
+        {/* Founder Section */}
+        <section className="container-custom mb-24">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="grid md:grid-cols-2 gap-12 p-8 md:p-12 rounded-3xl bg-white/[0.02] border border-white/5"
+          >
+            <div className="flex flex-col justify-center">
+              <span className="text-xs text-gray-500 uppercase tracking-wider mb-4">Founder</span>
+              <h2 className="text-3xl md:text-4xl font-display font-medium text-white mb-4">
+                Lorenzo Vanza
+              </h2>
+              <p className="text-gray-400 leading-relaxed mb-6">
+                Entrepreneur and crypto enthusiast, Lorenzo founded +Monadier with one clear mission: making professional-grade trading tools accessible to complete beginners. No trading experience? No problem. His goal is enabling anyone — from students to retirees — to generate passive income while travelling, working, or simply living their lives.
+              </p>
+              <p className="text-gray-400 leading-relaxed mb-6">
+                Originally from Lugano and raised in Zurich, Lorenzo brings deep roots in Swiss innovation and precision. His background in cryptocurrency trading and blockchain research shaped the foundation of what +Monadier is today.
+              </p>
+              <div className="flex flex-wrap gap-4">
+                <div className="flex items-center gap-2 text-gray-500 text-sm">
+                  <MapPin size={16} />
+                  <span>Lugano / Zurich, Switzerland</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-500 text-sm">
+                  <Briefcase size={16} />
+                  <span>Entrepreneur</span>
+                </div>
               </div>
-              <h2 className="text-2xl font-display mb-4">Our Team</h2>
-              <p className="text-secondary mb-6">Expert professionals with decades of banking and technology experience.</p>
-              <Link to="/team">
-                <Button variant="secondary" fullWidth>
-                  Meet the team
-                  <ArrowRight size={20} className="ml-2" />
-                </Button>
-              </Link>
             </div>
-          </FadeIn>
-
-          <FadeIn delay={0.3}>
-            <div className="bg-card-dark p-8 rounded-2xl border border-gray-800">
-              <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mb-6">
-                <Building className="text-white" size={24} />
-              </div>
-              <h2 className="text-2xl font-display mb-4">Our Story</h2>
-              <p className="text-secondary mb-6">Founded in 2023 with a mission to modernize private banking.</p>
-              <Link to="/story">
-                <Button variant="secondary" fullWidth>
-                  Learn more
-                  <ArrowRight size={20} className="ml-2" />
-                </Button>
-              </Link>
-            </div>
-          </FadeIn>
-
-          <FadeIn delay={0.4}>
-            <div className="bg-card-dark p-8 rounded-2xl border border-gray-800">
-              <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mb-6">
-                <Globe className="text-white" size={24} />
-              </div>
-              <h2 className="text-2xl font-display mb-4">Global Reach</h2>
-              <p className="text-secondary mb-6">Serving clients in over 30 countries with local expertise.</p>
-              <Link to="/locations">
-                <Button variant="secondary" fullWidth>
-                  Our locations
-                  <ArrowRight size={20} className="ml-2" />
-                </Button>
-              </Link>
-            </div>
-          </FadeIn>
-        </div>
-
-        <FadeIn delay={0.5}>
-          <div className="bg-card-dark p-12 rounded-2xl border border-gray-800">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-              <div>
-                <h2 className="text-3xl font-display mb-6">Our Values</h2>
-                <ul className="space-y-6">
-                  <li className="flex items-start">
-                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center mr-4 mt-1">
-                      <Shield className="text-white" size={18} />
-                    </div>
-                    <div>
-                      <h3 className="font-medium mb-2">Trust & Security</h3>
-                      <p className="text-secondary">Your assets are protected by Swiss banking regulations.</p>
-                    </div>
-                  </li>
-                  <li className="flex items-start">
-                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center mr-4 mt-1">
-                      <Award className="text-white" size={18} />
-                    </div>
-                    <div>
-                      <h3 className="font-medium mb-2">Excellence</h3>
-                      <p className="text-secondary">Committed to delivering exceptional service and results.</p>
-                    </div>
-                  </li>
-                </ul>
-              </div>
+            <div className="flex items-center justify-center bg-white/5 rounded-2xl p-12 min-h-[320px]">
               <div className="text-center">
-                <div className="text-5xl font-display mb-4">2023</div>
-                <p className="text-xl text-secondary mb-8">Founded in Zug, Switzerland</p>
-                <Link to="/register">
-                  <Button variant="primary" size="lg">
-                    Join us
-                    <ArrowRight size={20} className="ml-2" />
-                  </Button>
-                </Link>
+                <div className="w-32 h-32 rounded-full bg-white/10 mx-auto mb-6 flex items-center justify-center">
+                  <span className="text-4xl font-display text-white/40">LV</span>
+                </div>
+                <p className="text-white font-medium">Lorenzo Vanza</p>
+                <p className="text-gray-500 text-sm">Founder & CEO</p>
               </div>
             </div>
+          </motion.div>
+        </section>
+
+        {/* Journey Timeline */}
+        <section className="container-custom mb-24">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="max-w-3xl mb-16"
+          >
+            <h2 className="text-3xl md:text-4xl font-display font-medium mb-6">
+              The journey
+            </h2>
+            <p className="text-gray-400 text-lg leading-relaxed">
+              From crypto research to building a platform that empowers traders worldwide.
+            </p>
+          </motion.div>
+
+          <div className="space-y-6">
+            {[
+              {
+                year: '2022-2023',
+                title: 'Crypto Valley Research',
+                location: 'Zug, Switzerland',
+                description: 'Deep immersion in blockchain technology and DeFi protocols while working with a leading crypto company in Zug. Extensive research into decentralized exchanges, smart contracts, and automated trading systems.'
+              },
+              {
+                year: '2024',
+                title: 'Building +Monadier',
+                location: 'Switzerland',
+                description: 'Combining years of crypto trading experience with technical expertise to create a platform that automates DEX trading. Focus on non-custodial security and user-friendly interfaces.'
+              },
+              {
+                year: '2025',
+                title: 'Launch & Growth',
+                location: 'Global',
+                description: 'Launching +Monadier to help traders automate their strategies across multiple chains. Expanding support for Ethereum, BNB Chain, Arbitrum, Base, and Polygon.'
+              }
+            ].map((item, index) => (
+              <motion.div
+                key={item.year}
+                initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="flex gap-8 p-6 rounded-2xl border border-white/5 hover:border-white/10 hover:bg-white/[0.02] transition-all"
+              >
+                <div className="flex-shrink-0">
+                  <span className="text-2xl font-display font-medium text-white/40">{item.year}</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-white mb-1">{item.title}</h3>
+                  <p className="text-gray-500 text-sm mb-3 flex items-center gap-2">
+                    <MapPin size={14} />
+                    {item.location}
+                  </p>
+                  <p className="text-gray-400 leading-relaxed">{item.description}</p>
+                </div>
+              </motion.div>
+            ))}
           </div>
-        </FadeIn>
+        </section>
+
+        {/* Vision Section */}
+        <section className="container-custom mb-24">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="p-8 md:p-12 rounded-3xl bg-white/[0.02] border border-white/5"
+          >
+            <div className="max-w-3xl mx-auto text-center">
+              <h2 className="text-3xl md:text-4xl font-display font-medium mb-6">
+                Our vision
+              </h2>
+              <p className="text-gray-400 text-lg leading-relaxed mb-12">
+                "You don't need to be a trading expert. You don't need to understand charts or technical analysis. With +Monadier, even complete beginners can set up automated trading in minutes. Whether you're travelling, sleeping, or enjoying life — your portfolio keeps working for you."
+              </p>
+              <p className="text-gray-500 text-sm">— Lorenzo Vanza, Founder</p>
+            </div>
+          </motion.div>
+        </section>
+
+        {/* Values */}
+        <section className="container-custom mb-24">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              {
+                icon: Sparkles,
+                title: 'Beginner Friendly',
+                description: 'No trading experience needed. Our simple interface guides you through setup in minutes, not hours.'
+              },
+              {
+                icon: Shield,
+                title: 'Non-Custodial Security',
+                description: 'Your keys, your crypto. We never have access to your funds or private keys. Trade with confidence.'
+              },
+              {
+                icon: Zap,
+                title: 'Set & Forget',
+                description: 'Configure once, earn passively. No charts to watch, no complex decisions. The bot handles everything.'
+              },
+              {
+                icon: Globe,
+                title: 'Global Freedom',
+                description: 'Trade from anywhere in the world. No borders, no restrictions. True financial freedom.'
+              }
+            ].map((value, index) => (
+              <motion.div
+                key={value.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="p-8 rounded-2xl border border-white/5 hover:border-white/10 hover:bg-white/[0.02] transition-all text-center"
+              >
+                <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center mb-6 mx-auto">
+                  <value.icon className="text-white/60" size={24} />
+                </div>
+                <h3 className="text-lg font-medium text-white mb-3">{value.title}</h3>
+                <p className="text-gray-500 text-sm leading-relaxed">{value.description}</p>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section className="container-custom">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="max-w-3xl mx-auto text-center"
+          >
+            <h2 className="text-3xl md:text-4xl font-display font-medium mb-6">
+              Ready to start your journey?
+            </h2>
+            <p className="text-gray-400 text-lg mb-10">
+              Join thousands of beginners and pros who are already earning passive income with +Monadier. No experience needed.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link to="/register">
+                <button className="px-5 py-2.5 bg-white text-gray-900 rounded-full text-sm font-medium hover:bg-gray-100 transition-colors inline-flex items-center gap-2">
+                  Get started
+                  <ArrowRight size={14} />
+                </button>
+              </Link>
+              <Link to="/how-it-works">
+                <button className="px-5 py-2.5 text-gray-400 hover:text-white transition-colors text-sm font-medium">
+                  Learn how it works
+                </button>
+              </Link>
+            </div>
+          </motion.div>
+        </section>
       </main>
 
+      {/* Footer */}
+      <footer className="border-t border-white/5 py-12">
+        <div className="container-custom">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+            <Logo size="sm" />
+            <div className="flex items-center gap-8">
+              <Link to="/about" className="text-gray-500 hover:text-white text-sm transition-colors">About</Link>
+              <Link to="/terms" className="text-gray-500 hover:text-white text-sm transition-colors">Terms</Link>
+              <Link to="/privacy" className="text-gray-500 hover:text-white text-sm transition-colors">Privacy</Link>
+            </div>
+            <p className="text-gray-600 text-sm">&copy; 2026 Monadier. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
+
       <CookieConsent />
+      <DownloadModal isOpen={showDownloadModal} onClose={() => setShowDownloadModal(false)} />
     </div>
   );
 };

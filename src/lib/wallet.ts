@@ -34,7 +34,10 @@ createAppKit({
   themeMode: 'dark',
   themeVariables: {
     '--w3m-accent': '#ffffff',
-    '--w3m-border-radius-master': '8px'
+    '--w3m-color-mix': '#1a1a1a',
+    '--w3m-color-mix-strength': 0,
+    '--w3m-border-radius-master': '8px',
+    '--w3m-font-family': 'inherit'
   }
 });
 

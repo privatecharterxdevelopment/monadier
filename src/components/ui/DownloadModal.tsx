@@ -9,13 +9,18 @@ interface DownloadModalProps {
 
 const DownloadModal: React.FC<DownloadModalProps> = ({ isOpen, onClose }) => {
   const handleDownloadMac = () => {
-    // Replace with actual hosted DMG URL (e.g., GitHub releases, S3, etc.)
-    window.open('/downloads/Monadier_1.0.0_aarch64.dmg', '_blank');
+    // Create a temporary link and trigger download
+    const link = document.createElement('a');
+    link.href = '/downloads/Monadier_1.0.0_aarch64.dmg';
+    link.download = 'Monadier_1.0.0_aarch64.dmg';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleDownloadWindows = () => {
-    // Replace with actual hosted MSI/EXE URL
-    window.open('/downloads/Monadier_1.0.0_x64.msi', '_blank');
+    // Windows version coming soon
+    return;
   };
 
   return (
@@ -43,7 +48,7 @@ const DownloadModal: React.FC<DownloadModalProps> = ({ isOpen, onClose }) => {
               <div className="flex items-center justify-between p-6 border-b border-gray-800">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-                    <Monitor className="w-5 h-5 text-accent" />
+                    <Monitor className="w-5 h-5 text-white" />
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-white">Download Desktop App</h2>
@@ -87,7 +92,7 @@ const DownloadModal: React.FC<DownloadModalProps> = ({ isOpen, onClose }) => {
                       <p className="text-white font-medium">macOS</p>
                       <p className="text-gray-500 text-sm">Apple Silicon (M1/M2/M3)</p>
                     </div>
-                    <Download className="w-5 h-5 text-gray-400 group-hover:text-accent transition-colors" />
+                    <Download className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
                   </button>
 
                   {/* Windows */}
@@ -121,7 +126,7 @@ const DownloadModal: React.FC<DownloadModalProps> = ({ isOpen, onClose }) => {
               <div className="px-6 py-4 bg-white/5 border-t border-gray-800">
                 <p className="text-gray-500 text-xs text-center">
                   By downloading, you agree to our{' '}
-                  <a href="/terms" className="text-accent hover:underline">Terms of Service</a>
+                  <a href="/terms" className="text-white hover:underline">Terms of Service</a>
                 </p>
               </div>
             </div>
