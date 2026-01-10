@@ -31,7 +31,7 @@ export default {
         'pulse-subtle': 'pulse-subtle 4s ease-in-out infinite',
         'slide-up': 'slide-up 0.5s ease-out',
         'fade-in': 'fade-in 0.8s ease-out',
-        'scroll': 'scroll 30s linear infinite'
+        'scroll': 'scroll 40s linear infinite'
       },
       keyframes: {
         'pulse-subtle': {

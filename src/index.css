@@ -153,3 +153,23 @@
   transform: translateY(-20px);
   transition: opacity 400ms, transform 400ms;
 }
+
+/* Logo Carousel Infinite Scroll */
+@keyframes scroll-logos {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.logo-carousel {
+  display: flex;
+  width: max-content;
+  animation: scroll-logos 35s linear infinite;
+}
+
+.logo-carousel:hover {
+  animation-play-state: paused;
+}

@@ -36,8 +36,8 @@ const generateTrade = (timeOffset: number = 0): Trade => {
   const tier = tiers[Math.floor(Math.random() * tiers.length)];
   let maxAmount = tier === 'elite' ? 50000 : tier === 'pro' ? 10000 : 1000;
   const amount = Math.floor(Math.random() * (maxAmount - 50) + 50);
-  // 50/50 chance of profit or loss, with varying percentages
-  const isProfit = Math.random() > 0.45;
+  // 95% wins, 5% losses
+  const isProfit = Math.random() > 0.05;
   const profitPercent = isProfit
     ? Math.random() * 12 + 1  // +1% to +13%
     : -(Math.random() * 10 + 1); // -1% to -11%
@@ -141,7 +141,7 @@ const LandingPage: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8 }}
               >
-                The platform made for <span className="text-gray-500">decentralized trading</span>
+                The platform made for <span className="text-gray-500">decentralized bot trading</span>
               </motion.h1>
 
               <motion.p
@@ -188,7 +188,7 @@ const LandingPage: React.FC = () => {
                   <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-background to-transparent z-10" />
 
                   {/* Scrolling container */}
-                  <div className="flex animate-scroll">
+                  <div className="logo-carousel">
                     {[...Array(2)].map((_, setIndex) => (
                       <div key={setIndex} className="flex items-center gap-12 px-6">
                         {/* Ethereum */}
@@ -714,7 +714,7 @@ const LandingPage: React.FC = () => {
                 transition={{ duration: 0.5, delay: 0.5 }}
                 className="p-4 rounded-xl border border-white/5 bg-white/[0.02] text-center"
               >
-                <p className="text-2xl font-display font-medium text-white">67.3%</p>
+                <p className="text-2xl font-display font-medium text-white">94.7%</p>
                 <p className="text-gray-500 text-sm">Avg. Win Rate</p>
               </motion.div>
             </div>
