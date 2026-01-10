@@ -19,6 +19,8 @@ interface MarketAnalysis {
   reason: string;
   indicators: string[];
   isReversalSignal: boolean; // Flag for reversal-based entries
+  suggestedTP: number; // Dynamic TP % based on conditions
+  suggestedSL: number; // Dynamic trailing stop %
   metrics: {
     rsi: number;
     macd: string;
@@ -27,6 +29,7 @@ interface MarketAnalysis {
     conditionsMet: number;
     riskReward: string;
     trend: string;
+    dayOfWeek: string;
   };
 }
 
@@ -489,6 +492,73 @@ export async function analyzeMarket(
 
   const reason = reasons.slice(0, 3).join('. ') || `${direction} signal with ${conditionsMet}/7 conditions`;
 
+  // === DYNAMIC TP/SL CALCULATION ===
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const isMonday = dayOfWeek === 1;
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+  // Base TP/SL ranges
+  let baseTP = 7.5; // Default 7.5% TP
+  let baseSL = 1.0; // Default 1% trailing stop
+
+  // Adjust for day of week
+  if (isMonday) {
+    // MONDAY = RISKY - use tighter TP (take profits quicker)
+    baseTP = 5.0;
+    baseSL = 0.8;
+    logger.info('📅 Monday detected - using conservative TP/SL');
+  } else if (isWeekend) {
+    // Weekend = less liquidity
+    baseTP = 5.0;
+    baseSL = 1.0;
+  }
+
+  // Adjust for trend strength
+  if (isStrongUptrend && direction === 'LONG') {
+    baseTP = Math.min(baseTP + 2, 10); // Up to 10% in strong uptrend
+    logger.info('📈 Strong uptrend - extending TP to ' + baseTP + '%');
+  } else if (isStrongDowntrend && direction === 'SHORT') {
+    baseTP = Math.min(baseTP + 2, 10); // Up to 10% in strong downtrend
+    logger.info('📉 Strong downtrend - extending TP to ' + baseTP + '%');
+  }
+
+  // Adjust for volatility (high volume = more volatile)
+  if (volumeRatio > 2.0) {
+    // High volatility - widen SL to avoid getting stopped out
+    baseSL = Math.min(baseSL + 0.5, 2.0);
+    // But also increase TP potential
+    baseTP = Math.min(baseTP + 1, 10);
+  }
+
+  // Adjust for confidence
+  if (confidence >= 85) {
+    // High confidence = let it run more
+    baseTP = Math.min(baseTP + 1, 10);
+  } else if (confidence < 60) {
+    // Low confidence = take profits quicker
+    baseTP = Math.max(baseTP - 1, 5);
+  }
+
+  // Reversal signals - tighter TP (reversals can be quick)
+  if (isReversalSignal) {
+    baseTP = Math.max(baseTP - 1, 5);
+  }
+
+  const suggestedTP = Math.round(baseTP * 10) / 10; // Round to 1 decimal
+  const suggestedSL = Math.round(baseSL * 10) / 10;
+
+  logger.info('📊 Dynamic TP/SL calculated', {
+    day: dayNames[dayOfWeek],
+    isMonday,
+    trend,
+    volumeRatio: volumeRatio.toFixed(1),
+    confidence,
+    suggestedTP: suggestedTP + '%',
+    suggestedSL: suggestedSL + '%'
+  });
+
   logger.info('Market analysis complete', {
     symbol,
     strategy,
@@ -507,6 +577,8 @@ export async function analyzeMarket(
     reason,
     indicators,
     isReversalSignal,
+    suggestedTP,
+    suggestedSL,
     metrics: {
       rsi: Math.round(rsi),
       macd: macd.toFixed(4),
@@ -514,7 +586,8 @@ export async function analyzeMarket(
       volumeRatio: volumeRatio.toFixed(1),
       conditionsMet,
       riskReward: riskReward.toFixed(2),
-      trend
+      trend,
+      dayOfWeek: dayNames[dayOfWeek]
     }
   };
 }
@@ -580,7 +653,9 @@ export async function generateTradeSignal(
     tokenSymbol,
     suggestedAmount: tradeAmount,
     minAmountOut,
-    reason: analysis.reason
+    reason: analysis.reason,
+    takeProfitPercent: analysis.suggestedTP,
+    trailingStopPercent: analysis.suggestedSL
   };
 }
 

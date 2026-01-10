@@ -139,6 +139,8 @@ export interface TradeSignal {
   suggestedAmount: bigint;
   minAmountOut: bigint;
   reason: string;
+  takeProfitPercent: number; // Dynamic TP based on market
+  trailingStopPercent: number; // Dynamic SL based on market
 }
 
 export interface TradeResult {
@@ -397,8 +399,13 @@ export class TradingService {
         entryAmount,
         tokenAmount: estimatedTokens,
         txHash,
-        trailingStopPercent: 1.0, // Default 1% trailing stop
-        takeProfitPercent: 5.0 // Default 5% take profit
+        trailingStopPercent: signal.trailingStopPercent, // Dynamic SL from market analysis
+        takeProfitPercent: signal.takeProfitPercent // Dynamic TP from market analysis
+      });
+
+      logger.info('Position opened with dynamic TP/SL', {
+        takeProfitPercent: signal.takeProfitPercent + '%',
+        trailingStopPercent: signal.trailingStopPercent + '%'
       });
 
       // 8. Record the trade in subscription
