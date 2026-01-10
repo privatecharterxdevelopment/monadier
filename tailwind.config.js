@@ -30,7 +30,8 @@ export default {
       animation: {
         'pulse-subtle': 'pulse-subtle 4s ease-in-out infinite',
         'slide-up': 'slide-up 0.5s ease-out',
-        'fade-in': 'fade-in 0.8s ease-out'
+        'fade-in': 'fade-in 0.8s ease-out',
+        'scroll': 'scroll 30s linear infinite'
       },
       keyframes: {
         'pulse-subtle': {
@@ -44,6 +45,10 @@ export default {
         'fade-in': {
           '0%': { opacity: 0 },
           '100%': { opacity: 1 }
+        },
+        'scroll': {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' }
         }
       }
     }

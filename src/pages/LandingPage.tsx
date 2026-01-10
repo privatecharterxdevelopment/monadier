@@ -173,6 +173,117 @@ const LandingPage: React.FC = () => {
                   Download the app
                 </button>
               </motion.div>
+
+              {/* Powered by & Logo Carousel */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.6 }}
+                className="mt-16"
+              >
+                <p className="text-gray-600 text-xs uppercase tracking-wider mb-6">Powered by Reown</p>
+                <div className="relative overflow-hidden">
+                  {/* Gradient masks */}
+                  <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-background to-transparent z-10" />
+                  <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-background to-transparent z-10" />
+
+                  {/* Scrolling container */}
+                  <div className="flex animate-scroll">
+                    {[...Array(2)].map((_, setIndex) => (
+                      <div key={setIndex} className="flex items-center gap-12 px-6">
+                        {/* Ethereum */}
+                        <div className="flex items-center gap-2 text-gray-500 whitespace-nowrap">
+                          <svg className="w-5 h-5" viewBox="0 0 32 32" fill="currentColor">
+                            <path d="M16 0l-0.2 0.7v21.2l0.2 0.2 9.8-5.8z"/>
+                            <path d="M16 0l-9.8 16.3 9.8 5.8v-10.5z" fillOpacity="0.6"/>
+                          </svg>
+                          <span className="text-sm">Ethereum</span>
+                        </div>
+                        {/* BNB Chain */}
+                        <div className="flex items-center gap-2 text-gray-500 whitespace-nowrap">
+                          <svg className="w-5 h-5" viewBox="0 0 32 32" fill="currentColor">
+                            <path d="M16 4l3 3-6 6-3-3zm0 24l-3-3 6-6 3 3zM4 16l3-3 6 6-3 3zm24 0l-3 3-6-6 3-3zM16 13l3 3-3 3-3-3z"/>
+                          </svg>
+                          <span className="text-sm">BNB Chain</span>
+                        </div>
+                        {/* Arbitrum */}
+                        <div className="flex items-center gap-2 text-gray-500 whitespace-nowrap">
+                          <svg className="w-5 h-5" viewBox="0 0 32 32" fill="currentColor">
+                            <path d="M16 4L6 26h5l5-14 5 14h5L16 4z"/>
+                          </svg>
+                          <span className="text-sm">Arbitrum</span>
+                        </div>
+                        {/* Base */}
+                        <div className="flex items-center gap-2 text-gray-500 whitespace-nowrap">
+                          <svg className="w-5 h-5" viewBox="0 0 32 32" fill="currentColor">
+                            <circle cx="16" cy="16" r="12" fill="none" stroke="currentColor" strokeWidth="2"/>
+                          </svg>
+                          <span className="text-sm">Base</span>
+                        </div>
+                        {/* Polygon */}
+                        <div className="flex items-center gap-2 text-gray-500 whitespace-nowrap">
+                          <svg className="w-5 h-5" viewBox="0 0 32 32" fill="currentColor">
+                            <path d="M21 11l-5-3-5 3v6l5 3 5-3v-6z"/>
+                          </svg>
+                          <span className="text-sm">Polygon</span>
+                        </div>
+                        {/* MetaMask */}
+                        <div className="flex items-center gap-2 text-gray-500 whitespace-nowrap">
+                          <svg className="w-5 h-5" viewBox="0 0 32 32" fill="currentColor">
+                            <path d="M26 5L17 11l2-4zM6 5l9 6.1L13 7zm18 16l-2.5 3.5 5.3 1.5 1.5-5zm-21 0l1.5 5 5.3-1.5L7 21z"/>
+                          </svg>
+                          <span className="text-sm">MetaMask</span>
+                        </div>
+                        {/* WalletConnect */}
+                        <div className="flex items-center gap-2 text-gray-500 whitespace-nowrap">
+                          <svg className="w-5 h-5" viewBox="0 0 32 32" fill="currentColor">
+                            <path d="M9 13c3.9-3.5 10.2-3.5 14 0l.4.4-1.5 1.5-.6-.6c-2.7-2.6-7.1-2.6-9.8 0l-.7.6-1.5-1.5zm17.3 3.3l1.3 1.3-6 6-4.2-4.2-.2.2-4.2 4.2-6-6 1.3-1.3 4.2 4.2.2-.2 4.2-4.2 4.2 4.2z"/>
+                          </svg>
+                          <span className="text-sm">WalletConnect</span>
+                        </div>
+                        {/* Coinbase */}
+                        <div className="flex items-center gap-2 text-gray-500 whitespace-nowrap">
+                          <svg className="w-5 h-5" viewBox="0 0 32 32" fill="currentColor">
+                            <circle cx="16" cy="16" r="12" fill="none" stroke="currentColor" strokeWidth="2"/>
+                            <rect x="12" y="12" width="8" height="8" rx="1"/>
+                          </svg>
+                          <span className="text-sm">Coinbase</span>
+                        </div>
+                        {/* Trust Wallet */}
+                        <div className="flex items-center gap-2 text-gray-500 whitespace-nowrap">
+                          <svg className="w-5 h-5" viewBox="0 0 32 32" fill="currentColor">
+                            <path d="M16 4C10 4 6 8 6 8v10c0 6 10 10 10 10s10-4 10-10V8s-4-4-10-4zm0 3c4 0 7 3 7 3v8c0 4-7 7-7 7s-7-3-7-7v-8s3-3 7-3z"/>
+                          </svg>
+                          <span className="text-sm">Trust Wallet</span>
+                        </div>
+                        {/* Rainbow */}
+                        <div className="flex items-center gap-2 text-gray-500 whitespace-nowrap">
+                          <svg className="w-5 h-5" viewBox="0 0 32 32" fill="currentColor">
+                            <path d="M16 6C10.5 6 6 10.5 6 16h4c0-3.3 2.7-6 6-6s6 2.7 6 6h4c0-5.5-4.5-10-10-10z"/>
+                            <circle cx="16" cy="16" r="4"/>
+                          </svg>
+                          <span className="text-sm">Rainbow</span>
+                        </div>
+                        {/* Phantom */}
+                        <div className="flex items-center gap-2 text-gray-500 whitespace-nowrap">
+                          <svg className="w-5 h-5" viewBox="0 0 32 32" fill="currentColor">
+                            <path d="M16 4c-6.6 0-12 5.4-12 12 0 5 3.1 9.3 7.5 11l.5-2c-3.4-1.3-5.8-4.6-5.8-8.5C6.2 10.8 10.5 6.5 16 6.5s9.8 4.3 9.8 9.5c0 3.9-2.4 7.2-5.8 8.5l.5 2c4.4-1.7 7.5-6 7.5-11 0-6.6-5.4-12-12-12z"/>
+                          </svg>
+                          <span className="text-sm">Phantom</span>
+                        </div>
+                        {/* Ledger */}
+                        <div className="flex items-center gap-2 text-gray-500 whitespace-nowrap">
+                          <svg className="w-5 h-5" viewBox="0 0 32 32" fill="currentColor">
+                            <rect x="6" y="6" width="20" height="20" rx="2" fill="none" stroke="currentColor" strokeWidth="2"/>
+                            <rect x="10" y="14" width="12" height="8" rx="1"/>
+                          </svg>
+                          <span className="text-sm">Ledger</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
             </div>
           </div>
         </section>
