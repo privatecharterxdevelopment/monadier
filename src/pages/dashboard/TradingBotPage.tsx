@@ -1360,45 +1360,45 @@ const TradingBotPage: React.FC = () => {
         </div>
 
         {/* Real-time Indicators Panel */}
-        <div className="absolute top-2 left-2 bg-gray-900/90 backdrop-blur-sm rounded-lg border border-gray-700 p-2 text-[10px]">
-          <div className="grid grid-cols-3 gap-x-3 gap-y-1">
+        <div className="absolute top-3 right-3 bg-black/80 backdrop-blur-md rounded-xl border border-gray-700/50 p-3 text-xs z-10 shadow-lg">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2">
             {/* RSI */}
-            <div className="flex items-center gap-1">
-              <span className="text-gray-500">RSI</span>
-              <span className={`font-mono font-medium ${chartRsi > 70 ? 'text-red-400' : chartRsi < 30 ? 'text-green-400' : 'text-white'}`}>
+            <div className="flex items-center justify-between gap-2 min-w-[80px]">
+              <span className="text-gray-400 text-[11px]">RSI</span>
+              <span className={`font-mono font-semibold ${chartRsi > 70 ? 'text-red-400' : chartRsi < 30 ? 'text-green-400' : 'text-white'}`}>
                 {chartRsi.toFixed(0)}
               </span>
             </div>
             {/* MACD */}
-            <div className="flex items-center gap-1">
-              <span className="text-gray-500">MACD</span>
-              <span className={`font-mono font-medium ${chartMacd >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            <div className="flex items-center justify-between gap-2 min-w-[80px]">
+              <span className="text-gray-400 text-[11px]">MACD</span>
+              <span className={`font-mono font-semibold ${chartMacd >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                 {chartMacd >= 0 ? '+' : ''}{chartMacd.toFixed(2)}
               </span>
             </div>
             {/* Volume */}
-            <div className="flex items-center gap-1">
-              <span className="text-gray-500">Vol</span>
-              <span className={`font-mono font-medium ${volumeRatio > 1.5 ? 'text-yellow-400' : 'text-white'}`}>
+            <div className="flex items-center justify-between gap-2 min-w-[80px]">
+              <span className="text-gray-400 text-[11px]">Vol</span>
+              <span className={`font-mono font-semibold ${volumeRatio > 1.5 ? 'text-yellow-400' : 'text-white'}`}>
                 {volumeRatio.toFixed(1)}x
               </span>
             </div>
-            {/* SMA7 */}
-            <div className="flex items-center gap-1">
-              <span className="text-amber-500">SMA7</span>
-              <span className="text-white font-mono">{`$${(sma7[sma7.length - 1] || 0).toFixed(0)}`}</span>
-            </div>
-            {/* SMA20 */}
-            <div className="flex items-center gap-1">
-              <span className="text-blue-500">SMA20</span>
-              <span className="text-white font-mono">{`$${(sma20[sma20.length - 1] || 0).toFixed(0)}`}</span>
-            </div>
-            {/* Bollinger */}
-            <div className="flex items-center gap-1">
-              <span className="text-purple-400">BB</span>
-              <span className="text-white font-mono">
+            {/* Bollinger % */}
+            <div className="flex items-center justify-between gap-2 min-w-[80px]">
+              <span className="text-purple-400 text-[11px]">BB%</span>
+              <span className="text-white font-mono font-semibold">
                 {bbData[bbData.length - 1] ? `${((currentPrice - (bbData[bbData.length - 1]?.lower || 0)) / ((bbData[bbData.length - 1]?.upper || 1) - (bbData[bbData.length - 1]?.lower || 0)) * 100).toFixed(0)}%` : '-'}
               </span>
+            </div>
+            {/* SMA7 */}
+            <div className="flex items-center justify-between gap-2 min-w-[80px]">
+              <span className="text-amber-400 text-[11px]">SMA7</span>
+              <span className="text-white font-mono font-semibold">${(sma7[sma7.length - 1] || 0).toFixed(0)}</span>
+            </div>
+            {/* SMA20 */}
+            <div className="flex items-center justify-between gap-2 min-w-[80px]">
+              <span className="text-blue-400 text-[11px]">SMA20</span>
+              <span className="text-white font-mono font-semibold">${(sma20[sma20.length - 1] || 0).toFixed(0)}</span>
             </div>
           </div>
         </div>

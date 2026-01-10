@@ -435,24 +435,33 @@ const SubscriptionsPage: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 bg-card-dark p-1 rounded-lg w-fit flex-wrap">
+      <div className="flex gap-2 bg-card-dark p-1.5 rounded-xl w-fit flex-wrap">
         {[
-          { id: 'current', label: 'Current Plans', icon: Package },
-          { id: 'trading', label: 'Trading Bot', icon: Bot },
-          { id: 'forex', label: 'Forex MT5', icon: BarChart3 },
-          { id: 'software', label: 'Software License', icon: Monitor }
+          { id: 'current', label: 'My Plans', icon: Package, badge: null },
+          { id: 'trading', label: 'Crypto DEX', icon: Bot, badge: 'CRYPTO' },
+          { id: 'forex', label: 'Forex MT5', icon: BarChart3, badge: 'FOREX' },
+          { id: 'software', label: 'Desktop App', icon: Monitor, badge: null }
         ].map(tab => (
           <button
             key={tab.id}
             onClick={() => setSelectedTab(tab.id as typeof selectedTab)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`relative flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
               selectedTab === tab.id
-                ? 'bg-white text-gray-900'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                ? 'bg-white text-gray-900 shadow-lg'
+                : 'text-gray-400 hover:text-white hover:bg-white/5'
             }`}
           >
             <tab.icon size={16} />
             {tab.label}
+            {tab.badge && (
+              <span className={`ml-1 px-1.5 py-0.5 text-[9px] font-bold rounded ${
+                tab.badge === 'CRYPTO'
+                  ? selectedTab === tab.id ? 'bg-orange-500 text-white' : 'bg-orange-500/20 text-orange-400'
+                  : selectedTab === tab.id ? 'bg-blue-500 text-white' : 'bg-blue-500/20 text-blue-400'
+              }`}>
+                {tab.badge}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -625,7 +634,22 @@ const SubscriptionsPage: React.FC = () => {
 
       {/* Trading Bot Plans */}
       {selectedTab === 'trading' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="space-y-6">
+          {/* Crypto DEX Header */}
+          <div className="flex items-center gap-3 pb-4 border-b border-gray-800">
+            <div className="w-12 h-12 rounded-xl bg-orange-500/20 flex items-center justify-center">
+              <Bot className="w-6 h-6 text-orange-400" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                Crypto DEX Trading Bot
+                <span className="px-2 py-0.5 text-xs font-bold bg-orange-500/20 text-orange-400 rounded">CRYPTO</span>
+              </h2>
+              <p className="text-gray-400 text-sm">Automated trading on Uniswap, PancakeSwap & more DEXs</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {tradingBotPlans.map(plan => (
             <motion.div
               key={plan.id}
@@ -684,6 +708,7 @@ const SubscriptionsPage: React.FC = () => {
               </button>
             </motion.div>
           ))}
+          </div>
         </div>
       )}
 
@@ -834,6 +859,20 @@ const SubscriptionsPage: React.FC = () => {
       {/* Forex MT5 Plans */}
       {selectedTab === 'forex' && (
         <div className="space-y-6">
+          {/* Forex MT5 Header */}
+          <div className="flex items-center gap-3 pb-4 border-b border-gray-800">
+            <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center">
+              <BarChart3 className="w-6 h-6 text-blue-400" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                Forex MT5 Expert Advisor
+                <span className="px-2 py-0.5 text-xs font-bold bg-blue-500/20 text-blue-400 rounded">FOREX</span>
+              </h2>
+              <p className="text-gray-400 text-sm">Automated trading on MetaTrader 5 for forex pairs</p>
+            </div>
+          </div>
+
           {/* Show existing forex license if owned */}
           {forexLicense && (
             <motion.div
