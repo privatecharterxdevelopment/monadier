@@ -77,6 +77,12 @@ export interface TradingConfig {
   autoPauseOnHighGas: boolean;
   gasThresholdGwei: number;
   autoTradeEnabled: boolean;
+
+  // Signal filtering (AI Quality Control)
+  minConfidence: number; // Minimum confidence % to execute trade (default 75)
+  minRiskReward: number; // Minimum risk/reward ratio (default 1.5)
+  volumeFilterEnabled: boolean; // Require volume confirmation
+  trendFilterEnabled: boolean; // Don't trade against strong trends
 }
 
 export interface CustomCondition {
@@ -146,7 +152,12 @@ const DEFAULT_CONFIG: TradingConfig = {
   customConditions: [],
   autoPauseOnHighGas: true,
   gasThresholdGwei: 50,
-  autoTradeEnabled: false
+  autoTradeEnabled: false,
+  // Signal filtering defaults
+  minConfidence: 75,
+  minRiskReward: 1.5,
+  volumeFilterEnabled: true,
+  trendFilterEnabled: true
 };
 
 export const getDefaultConfig = (): TradingConfig => {
@@ -924,6 +935,104 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                       config.autoPauseOnHighGas ? 'translate-x-6' : 'translate-x-0.5'
                     }`} />
                   </button>
+                </div>
+
+                {/* Signal Quality Controls */}
+                <div className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Shield className="w-4 h-4 text-blue-400" />
+                    <span className="text-white text-sm font-medium">AI Signal Quality Filters</span>
+                  </div>
+
+                  {/* Min Confidence */}
+                  <div>
+                    <label className="block text-gray-400 text-xs mb-2">
+                      Min Confidence: {config.minConfidence}% (4+ indicators needed for 85%+)
+                    </label>
+                    <input
+                      type="range"
+                      min="50"
+                      max="90"
+                      step="5"
+                      value={config.minConfidence}
+                      onChange={(e) => onConfigChange({
+                        ...config,
+                        minConfidence: parseInt(e.target.value)
+                      })}
+                      className="w-full accent-blue-500"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>50% (More trades)</span>
+                      <span>75%</span>
+                      <span>90% (Quality)</span>
+                    </div>
+                  </div>
+
+                  {/* Min Risk/Reward */}
+                  <div>
+                    <label className="block text-gray-400 text-xs mb-2">
+                      Min Risk/Reward Ratio: {config.minRiskReward.toFixed(1)}x
+                    </label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="3"
+                      step="0.1"
+                      value={config.minRiskReward}
+                      onChange={(e) => onConfigChange({
+                        ...config,
+                        minRiskReward: parseFloat(e.target.value)
+                      })}
+                      className="w-full accent-blue-500"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>1.0x</span>
+                      <span>1.5x</span>
+                      <span>3.0x</span>
+                    </div>
+                  </div>
+
+                  {/* Volume Filter */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-white text-sm">Volume Confirmation</span>
+                      <p className="text-gray-500 text-xs">Require 1.2x avg volume</p>
+                    </div>
+                    <button
+                      onClick={() => onConfigChange({
+                        ...config,
+                        volumeFilterEnabled: !config.volumeFilterEnabled
+                      })}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        config.volumeFilterEnabled ? 'bg-blue-500' : 'bg-gray-600'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        config.volumeFilterEnabled ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </div>
+
+                  {/* Trend Filter */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-white text-sm">Trend Protection</span>
+                      <p className="text-gray-500 text-xs">Don't trade against strong trends</p>
+                    </div>
+                    <button
+                      onClick={() => onConfigChange({
+                        ...config,
+                        trendFilterEnabled: !config.trendFilterEnabled
+                      })}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        config.trendFilterEnabled ? 'bg-blue-500' : 'bg-gray-600'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        config.trendFilterEnabled ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import {
   LayoutDashboard,
   LogOut,
-  Settings,
   Bot,
   History,
   Package,
@@ -23,8 +22,7 @@ const SideNavigation: React.FC = () => {
     { path: '/dashboard/trading-bot', label: 'Trading Bot', icon: Bot },
     { path: '/dashboard/bot-history', label: 'Bot History', icon: History },
     { path: '/dashboard/downloads', label: 'Downloads', icon: Download },
-    { path: '/dashboard/subscriptions', label: 'Subscriptions', icon: Package },
-    { path: '/dashboard/settings', label: 'Settings', icon: Settings }
+    { path: '/dashboard/subscriptions', label: 'Subscriptions', icon: Package }
   ];
 
   const handleSignOut = async () => {

@@ -40,10 +40,34 @@ interface TopPerformerTrade {
 }
 
 interface Strategy {
-  direction: 'LONG' | 'SHORT';
+  direction: 'LONG' | 'SHORT' | 'HOLD';
   confidence: number;
   reason: string;
   indicators: string[];
+  metrics?: {
+    rsi: number;
+    macd: string;
+    priceChange1h: string;
+    priceChange24h: string;
+    volumeRatio: string;
+    conditionsMet?: number;
+    riskReward?: string;
+    trend?: string;
+  };
+  qualityMetrics?: {
+    conditionsMet: number;
+    totalConditions: number;
+    riskReward: number;
+    volumeRatio: number;
+    isQualitySignal: boolean;
+    rejectionReason: string;
+    suggestedTP: number;
+    suggestedSL: number;
+  };
+  scores?: {
+    bullishScore: number;
+    bearishScore: number;
+  };
 }
 
 interface ActiveTrade {
@@ -190,7 +214,17 @@ const TradingBotPage: React.FC = () => {
     return stables.reduce((sum, t) => sum + parseFloat(t.balance), 0);
   }, [tokenBalances]);
 
-  // Analyze market with multiple indicators
+  // State for rejected trade logging
+  const [lastRejectedTrade, setLastRejectedTrade] = useState<{
+    signal: string;
+    confidence: number;
+    riskReward: number;
+    volumeRatio: number;
+    reason: string;
+    timestamp: Date;
+  } | null>(null);
+
+  // Analyze market with MULTI-FACTOR CONFIRMATION SYSTEM
   const analyzeMarket = useMemo(() => {
     if (candles.length < 50) return null;
 
@@ -200,10 +234,6 @@ const TradingBotPage: React.FC = () => {
     const lows = recentCandles.map(c => c.low);
     const volumes = recentCandles.map(c => c.volume);
     const currentPrice = closes[closes.length - 1];
-
-    // Timeframe-specific weights - shorter timeframes need more responsive signals
-    const isShortTimeframe = timeframe === '1m' || timeframe === '5m';
-    const momentumWeight = isShortTimeframe ? 25 : 10; // More weight to recent price action on short TF
 
     // === MOVING AVERAGES ===
     const sma7 = closes.slice(-7).reduce((a, b) => a + b, 0) / 7;
@@ -232,6 +262,22 @@ const TradingBotPage: React.FC = () => {
     const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
     const rsi = 100 - (100 / (1 + rs));
 
+    // RSI momentum (is it rising or falling?)
+    const rsiPrev = (() => {
+      let g = 0, l = 0;
+      for (let i = closes.length - 15; i < closes.length - 1; i++) {
+        const diff = closes[i] - closes[i - 1];
+        if (diff > 0) g += diff;
+        else l += Math.abs(diff);
+      }
+      const avgG = g / 14;
+      const avgL = l / 14;
+      const rsP = avgL === 0 ? 100 : avgG / avgL;
+      return 100 - (100 / (1 + rsP));
+    })();
+    const rsiRising = rsi > rsiPrev + 2;
+    const rsiFalling = rsi < rsiPrev - 2;
+
     // === MACD ===
     const macd = ema12 - ema26;
     const prevEma12 = closes.slice(-13, -1).reduce((acc, val, i, arr) => {
@@ -245,6 +291,7 @@ const TradingBotPage: React.FC = () => {
     const prevMacd = prevEma12 - prevEma26;
     const macdCrossover = macd > 0 && prevMacd <= 0;
     const macdCrossunder = macd < 0 && prevMacd >= 0;
+    const macdStrong = Math.abs(macd) > 0.5;
 
     // === BOLLINGER BANDS (20 period, 2 std) ===
     const sma20Bb = closes.slice(-20).reduce((a, b) => a + b, 0) / 20;
@@ -259,6 +306,7 @@ const TradingBotPage: React.FC = () => {
     const currentVolume = volumes[volumes.length - 1];
     const volumeRatio = currentVolume / avgVolume;
     const isHighVolume = volumeRatio > 1.5;
+    const isAdequateVolume = volumeRatio > 1.2;
 
     // === PRICE CHANGE ===
     const priceChange1h = ((currentPrice - closes[closes.length - 4]) / closes[closes.length - 4]) * 100;
@@ -269,10 +317,15 @@ const TradingBotPage: React.FC = () => {
     const recentHigh = Math.max(...highs.slice(-20));
     const nearSupport = currentPrice < recentLow * 1.02;
     const nearResistance = currentPrice > recentHigh * 0.98;
+    const distanceToResistance = ((recentHigh - currentPrice) / currentPrice) * 100;
+    const distanceToSupport = ((currentPrice - recentLow) / currentPrice) * 100;
 
     // === CANDLE PATTERNS ===
     const lastCandle = recentCandles[recentCandles.length - 1];
     const prevCandle = recentCandles[recentCandles.length - 2];
+    const thirdCandle = recentCandles[recentCandles.length - 3];
+
+    // Engulfing patterns
     const isBullishEngulfing = lastCandle.close > lastCandle.open &&
                                prevCandle.close < prevCandle.open &&
                                lastCandle.close > prevCandle.open &&
@@ -282,195 +335,232 @@ const TradingBotPage: React.FC = () => {
                                lastCandle.close < prevCandle.open &&
                                lastCandle.open > prevCandle.close;
 
-    // === SIGNAL SCORING ===
+    // Doji detection (small body, long wicks)
+    const lastCandleBody = Math.abs(lastCandle.close - lastCandle.open);
+    const lastCandleRange = lastCandle.high - lastCandle.low;
+    const isDoji = lastCandleBody < lastCandleRange * 0.1 && lastCandleRange > 0;
+
+    // Long wick rejection patterns
+    const upperWick = lastCandle.high - Math.max(lastCandle.open, lastCandle.close);
+    const lowerWick = Math.min(lastCandle.open, lastCandle.close) - lastCandle.low;
+    const hasLongUpperWick = upperWick > lastCandleBody * 2 && upperWick > lastCandleRange * 0.3;
+    const hasLongLowerWick = lowerWick > lastCandleBody * 2 && lowerWick > lastCandleRange * 0.3;
+
+    // === TREND ANALYSIS (Higher Highs/Lower Lows) ===
+    const last10Highs = highs.slice(-10);
+    const last10Lows = lows.slice(-10);
+
+    // Check for higher lows (uptrend)
+    let higherLowsCount = 0;
+    for (let i = 1; i < last10Lows.length; i++) {
+      if (last10Lows[i] > last10Lows[i - 1]) higherLowsCount++;
+    }
+    const isFormingHigherLows = higherLowsCount >= 6;
+
+    // Check for lower highs (downtrend)
+    let lowerHighsCount = 0;
+    for (let i = 1; i < last10Highs.length; i++) {
+      if (last10Highs[i] < last10Highs[i - 1]) lowerHighsCount++;
+    }
+    const isFormingLowerHighs = lowerHighsCount >= 6;
+
+    // Determine overall trend
+    const isStrongUptrend = isFormingHigherLows && sma7 > sma20 && sma20 > sma50;
+    const isStrongDowntrend = isFormingLowerHighs && sma7 < sma20 && sma20 < sma50;
+    const trend = isStrongUptrend ? 'STRONG_UPTREND' : isStrongDowntrend ? 'STRONG_DOWNTREND' : 'NEUTRAL';
+
+    // === MULTI-FACTOR CONFIRMATION SYSTEM ===
+    // For HIGH confidence, we need 4/5 conditions to align
+
+    // SHORT CONDITIONS
+    const shortConditions = {
+      rsiOverbought: rsi > 70 || (rsi > 60 && rsiFalling),
+      macdBearish: macd < -0.5 || (macdCrossunder && Math.abs(macd) > 0.2),
+      volumeConfirmed: isHighVolume && priceChange1h < 0,
+      priceRejectedResistance: nearResistance && (isBearishEngulfing || hasLongUpperWick),
+      lowerHighsForming: isFormingLowerHighs
+    };
+    const shortConditionsMet = Object.values(shortConditions).filter(Boolean).length;
+
+    // LONG CONDITIONS
+    const longConditions = {
+      rsiOversold: rsi < 30 || (rsi < 40 && rsiRising),
+      macdBullish: macd > 0.5 || (macdCrossover && Math.abs(macd) > 0.2),
+      volumeConfirmed: isHighVolume && priceChange1h > 0,
+      priceBouncingSupport: nearSupport && (isBullishEngulfing || hasLongLowerWick),
+      higherLowsForming: isFormingHigherLows
+    };
+    const longConditionsMet = Object.values(longConditions).filter(Boolean).length;
+
+    // === CONFIDENCE SCORING BASED ON CONDITIONS MET ===
+    const calculateConfidence = (conditionsMet: number, volumeRatio: number, volumeFilterEnabled: boolean): number => {
+      let baseConfidence: number;
+
+      if (conditionsMet >= 5) baseConfidence = 92;
+      else if (conditionsMet >= 4) baseConfidence = 85;
+      else if (conditionsMet === 3) baseConfidence = 65;
+      else if (conditionsMet === 2) baseConfidence = 45;
+      else baseConfidence = 25;
+
+      // Volume penalty if filter enabled and volume is low
+      if (volumeFilterEnabled && volumeRatio < 1.2) {
+        baseConfidence -= 20;
+      } else if (volumeRatio >= 1.5) {
+        baseConfidence += 5; // Bonus for strong volume
+      }
+
+      return Math.max(20, Math.min(95, baseConfidence));
+    };
+
+    // Determine direction based on which has more conditions met
+    let direction: 'LONG' | 'SHORT' | 'HOLD' = 'HOLD';
+    let conditionsMet = 0;
+    let conditions: Record<string, boolean> = {};
+
+    if (longConditionsMet > shortConditionsMet && longConditionsMet >= 2) {
+      direction = 'LONG';
+      conditionsMet = longConditionsMet;
+      conditions = longConditions;
+    } else if (shortConditionsMet > longConditionsMet && shortConditionsMet >= 2) {
+      direction = 'SHORT';
+      conditionsMet = shortConditionsMet;
+      conditions = shortConditions;
+    } else if (longConditionsMet === shortConditionsMet && longConditionsMet >= 2) {
+      // Tie-breaker: use recent momentum
+      const momentum3 = ((closes[closes.length - 1] - closes[closes.length - 3]) / closes[closes.length - 3]) * 100;
+      direction = momentum3 > 0 ? 'LONG' : 'SHORT';
+      conditionsMet = longConditionsMet;
+      conditions = momentum3 > 0 ? longConditions : shortConditions;
+    }
+
+    // Calculate confidence
+    const confidence = calculateConfidence(conditionsMet, volumeRatio, tradingConfig.volumeFilterEnabled);
+
+    // === RISK/REWARD CALCULATION ===
+    const takeProfitDistance = direction === 'LONG' ? distanceToResistance : distanceToSupport;
+    const stopLossDistance = direction === 'LONG' ? distanceToSupport : distanceToResistance;
+    const riskReward = stopLossDistance > 0 ? takeProfitDistance / stopLossDistance : 0;
+
+    // Suggested TP/SL levels
+    const suggestedTP = direction === 'LONG' ? recentHigh : recentLow;
+    const suggestedSL = direction === 'LONG' ? recentLow : recentHigh;
+
+    // === TREND FILTER CHECK ===
+    let trendWarning: string | null = null;
+    if (tradingConfig.trendFilterEnabled) {
+      if (direction === 'SHORT' && isStrongUptrend) {
+        trendWarning = "Warning: Shorting in strong uptrend";
+      } else if (direction === 'LONG' && isStrongDowntrend) {
+        trendWarning = "Warning: Longing in strong downtrend";
+      }
+    }
+
+    // === BUILD INDICATORS LIST ===
     const indicators: string[] = [];
     const reasons: string[] = [];
-    let bullishScore = 0;
-    let bearishScore = 0;
 
-    // SMA Trend
-    if (sma7 > sma20 && sma20 > sma50) {
-      indicators.push('SMA Uptrend');
-      reasons.push('Moving averages aligned bullish (7 > 20 > 50)');
-      bullishScore += 15;
-    } else if (sma7 < sma20 && sma20 < sma50) {
-      indicators.push('SMA Downtrend');
-      reasons.push('Moving averages aligned bearish (7 < 20 < 50)');
-      bearishScore += 15;
+    if (direction === 'LONG') {
+      if (conditions.rsiOversold) {
+        indicators.push(`RSI ${rsi.toFixed(0)} ${rsiRising ? '↗' : ''}`);
+        reasons.push(`RSI at ${rsi.toFixed(0)}${rsiRising ? ' and rising' : ''} - oversold`);
+      }
+      if (conditions.macdBullish) {
+        indicators.push(macdCrossover ? 'MACD Cross ↑' : 'MACD Bullish');
+        reasons.push(macdCrossover ? 'MACD bullish crossover' : 'Strong bullish MACD');
+      }
+      if (conditions.volumeConfirmed) {
+        indicators.push(`Vol ${volumeRatio.toFixed(1)}x ↑`);
+        reasons.push(`Volume ${volumeRatio.toFixed(1)}x with buying pressure`);
+      }
+      if (conditions.priceBouncingSupport) {
+        indicators.push('Support Bounce');
+        reasons.push('Price bouncing from support with bullish pattern');
+      }
+      if (conditions.higherLowsForming) {
+        indicators.push('Higher Lows');
+        reasons.push('Forming higher lows - uptrend structure');
+      }
+    } else if (direction === 'SHORT') {
+      if (conditions.rsiOverbought) {
+        indicators.push(`RSI ${rsi.toFixed(0)} ${rsiFalling ? '↘' : ''}`);
+        reasons.push(`RSI at ${rsi.toFixed(0)}${rsiFalling ? ' and falling' : ''} - overbought`);
+      }
+      if (conditions.macdBearish) {
+        indicators.push(macdCrossunder ? 'MACD Cross ↓' : 'MACD Bearish');
+        reasons.push(macdCrossunder ? 'MACD bearish crossover' : 'Strong bearish MACD');
+      }
+      if (conditions.volumeConfirmed) {
+        indicators.push(`Vol ${volumeRatio.toFixed(1)}x ↓`);
+        reasons.push(`Volume ${volumeRatio.toFixed(1)}x with selling pressure`);
+      }
+      if (conditions.priceRejectedResistance) {
+        indicators.push('Resistance Rejection');
+        reasons.push('Price rejected at resistance with bearish pattern');
+      }
+      if (conditions.lowerHighsForming) {
+        indicators.push('Lower Highs');
+        reasons.push('Forming lower highs - downtrend structure');
+      }
     }
 
-    // Price vs SMA
-    if (currentPrice > sma20 && currentPrice > sma50) {
-      indicators.push('Above MAs');
-      bullishScore += 10;
-    } else if (currentPrice < sma20 && currentPrice < sma50) {
-      indicators.push('Below MAs');
-      bearishScore += 10;
-    }
-
-    // RSI
-    if (rsi < 30) {
-      indicators.push(`RSI ${rsi.toFixed(0)} (Oversold)`);
-      reasons.push(`RSI at ${rsi.toFixed(0)} indicates oversold - potential bounce`);
-      bullishScore += 20;
-    } else if (rsi > 70) {
-      indicators.push(`RSI ${rsi.toFixed(0)} (Overbought)`);
-      reasons.push(`RSI at ${rsi.toFixed(0)} indicates overbought - potential pullback`);
-      bearishScore += 20;
-    } else if (rsi > 50) {
-      bullishScore += 5;
-    } else {
-      bearishScore += 5;
-    }
-
-    // MACD
-    if (macdCrossover) {
-      indicators.push('MACD Cross Up');
-      reasons.push('MACD crossed above signal line - bullish momentum');
-      bullishScore += 15;
-    } else if (macdCrossunder) {
-      indicators.push('MACD Cross Down');
-      reasons.push('MACD crossed below signal line - bearish momentum');
-      bearishScore += 15;
-    } else if (macd > 0) {
-      bullishScore += 5;
-    } else {
-      bearishScore += 5;
-    }
-
-    // Bollinger Bands
-    if (bbPosition < 0.2) {
-      indicators.push('Near Lower BB');
-      reasons.push('Price near lower Bollinger Band - potential reversal up');
-      bullishScore += 10;
-    } else if (bbPosition > 0.8) {
-      indicators.push('Near Upper BB');
-      reasons.push('Price near upper Bollinger Band - potential reversal down');
-      bearishScore += 10;
-    }
-
-    // Volume
-    if (isHighVolume) {
-      indicators.push(`Vol ${volumeRatio.toFixed(1)}x`);
-      if (priceChange1h > 0) bullishScore += 10;
-      else bearishScore += 10;
-    }
-
-    // Support/Resistance
-    if (nearSupport) {
-      indicators.push('Near Support');
-      reasons.push('Price testing support level - potential bounce');
-      bullishScore += 10;
-    }
-    if (nearResistance) {
-      indicators.push('Near Resistance');
-      reasons.push('Price testing resistance - potential rejection');
-      bearishScore += 10;
-    }
-
-    // Candle Patterns
-    if (isBullishEngulfing) {
+    // Add candle pattern bonuses
+    if (isBullishEngulfing && direction === 'LONG') {
       indicators.push('Bullish Engulfing');
-      reasons.push('Bullish engulfing pattern detected');
-      bullishScore += 15;
     }
-    if (isBearishEngulfing) {
+    if (isBearishEngulfing && direction === 'SHORT') {
       indicators.push('Bearish Engulfing');
-      reasons.push('Bearish engulfing pattern detected');
-      bearishScore += 15;
     }
-
-    // === RECENT CANDLE MOMENTUM (CRITICAL for short timeframes) ===
-    // On 1m/5m charts, recent price action should DOMINATE the signal
-    const last3Candles = recentCandles.slice(-3);
-    const last5Candles = recentCandles.slice(-5);
-    const bullishCandles3 = last3Candles.filter(c => c.close > c.open).length;
-    const bearishCandles3 = last3Candles.filter(c => c.close < c.open).length;
-    const bullishCandles5 = last5Candles.filter(c => c.close > c.open).length;
-    const bearishCandles5 = last5Candles.filter(c => c.close < c.open).length;
-
-    // Calculate momentum over last 3 and 5 candles
-    const momentum3 = ((closes[closes.length - 1] - closes[closes.length - 3]) / closes[closes.length - 3]) * 100;
-    const momentum5 = ((closes[closes.length - 1] - closes[closes.length - 5]) / closes[closes.length - 5]) * 100;
-
-    // Last candle direction (most recent)
-    const lastCandleBullish = lastCandle.close > lastCandle.open;
-    const lastCandleStrength = Math.abs((lastCandle.close - lastCandle.open) / lastCandle.open) * 100;
-
-    // === 1M CHART OVERRIDE: Recent momentum is KING ===
-    if (isShortTimeframe) {
-      // Strong bullish momentum - 3 green candles going up
-      if (bullishCandles3 >= 2 && momentum3 > 0.05 && lastCandleBullish) {
-        const overrideWeight = 50; // Very high weight to override other signals
-        indicators.push('🚀 Bullish Momentum');
-        reasons.push(`Price rising: ${bullishCandles3}/3 green candles (+${momentum3.toFixed(2)}%)`);
-        bullishScore += overrideWeight;
-      }
-      // Strong bearish momentum - 3 red candles going down
-      else if (bearishCandles3 >= 2 && momentum3 < -0.05 && !lastCandleBullish) {
-        const overrideWeight = 50;
-        indicators.push('📉 Bearish Momentum');
-        reasons.push(`Price falling: ${bearishCandles3}/3 red candles (${momentum3.toFixed(2)}%)`);
-        bearishScore += overrideWeight;
-      }
-      // Medium bullish - price going up
-      else if (momentum3 > 0.03 && lastCandleBullish) {
-        bullishScore += 30;
-        indicators.push('↗️ Rising');
-      }
-      // Medium bearish - price going down
-      else if (momentum3 < -0.03 && !lastCandleBullish) {
-        bearishScore += 30;
-        indicators.push('↘️ Falling');
-      }
-    } else {
-      // Longer timeframes: standard momentum scoring
-      if (bullishCandles5 >= 4 && momentum5 > 0) {
-        indicators.push('Strong Momentum Up');
-        reasons.push(`${bullishCandles5}/5 recent candles bullish (+${momentum5.toFixed(2)}%)`);
-        bullishScore += momentumWeight;
-      } else if (bearishCandles5 >= 4 && momentum5 < 0) {
-        indicators.push('Strong Momentum Down');
-        reasons.push(`${bearishCandles5}/5 recent candles bearish (${momentum5.toFixed(2)}%)`);
-        bearishScore += momentumWeight;
-      } else if (bullishCandles5 >= 3 && momentum5 > 0.5) {
-        bullishScore += Math.floor(momentumWeight * 0.6);
-      } else if (bearishCandles5 >= 3 && momentum5 < -0.5) {
-        bearishScore += Math.floor(momentumWeight * 0.6);
-      }
-    }
-
-    // Price momentum
-    if (priceChange1h > 1) {
-      reasons.push(`+${priceChange1h.toFixed(1)}% in last 1h - strong upward momentum`);
-      bullishScore += 5;
-    } else if (priceChange1h < -1) {
-      reasons.push(`${priceChange1h.toFixed(1)}% in last 1h - strong downward momentum`);
-      bearishScore += 5;
-    }
-
-    // Determine direction and confidence
-    const totalScore = bullishScore + bearishScore;
-    const direction: 'LONG' | 'SHORT' = bullishScore > bearishScore ? 'LONG' : 'SHORT';
-    const winningScore = Math.max(bullishScore, bearishScore);
-
-    // Confidence based on signal strength difference
-    let confidence = 50;
-    if (totalScore > 0) {
-      const scoreDiff = Math.abs(bullishScore - bearishScore);
-      confidence = Math.min(92, Math.max(35, 50 + (scoreDiff / totalScore) * 40 + (winningScore / 100) * 20));
+    if (isDoji && (nearSupport || nearResistance)) {
+      indicators.push('Doji @ S/R');
     }
 
     // Build detailed reason
     const topReasons = reasons.slice(0, 3);
-    const detailedReason = topReasons.length > 0
+    let detailedReason = topReasons.length > 0
       ? topReasons.join('. ') + '.'
-      : direction === 'LONG'
-        ? 'Mixed signals with slight bullish bias.'
-        : 'Mixed signals with slight bearish bias.';
+      : direction === 'HOLD'
+        ? 'Insufficient confirmation - waiting for better setup.'
+        : 'Mixed signals.';
+
+    if (trendWarning) {
+      detailedReason += ` ${trendWarning}.`;
+    }
+
+    // === FINAL SIGNAL QUALITY CHECK ===
+    const meetsMinConfidence = confidence >= tradingConfig.minConfidence;
+    const meetsMinRiskReward = riskReward >= tradingConfig.minRiskReward;
+    const passesVolumeFilter = !tradingConfig.volumeFilterEnabled || isAdequateVolume;
+    const passesTrendFilter = !tradingConfig.trendFilterEnabled || !trendWarning;
+
+    const isQualitySignal = meetsMinConfidence && meetsMinRiskReward && passesVolumeFilter && passesTrendFilter;
+
+    // If signal doesn't meet quality thresholds, change to HOLD
+    let finalDirection = direction;
+    let rejectionReason = '';
+
+    if (direction !== 'HOLD' && !isQualitySignal) {
+      const rejectionReasons: string[] = [];
+      if (!meetsMinConfidence) rejectionReasons.push(`Confidence ${confidence}% < ${tradingConfig.minConfidence}%`);
+      if (!meetsMinRiskReward) rejectionReasons.push(`R/R ${riskReward.toFixed(2)} < ${tradingConfig.minRiskReward}`);
+      if (!passesVolumeFilter) rejectionReasons.push(`Volume ${volumeRatio.toFixed(1)}x < 1.2x`);
+      if (!passesTrendFilter) rejectionReasons.push(trendWarning || 'Trend conflict');
+
+      rejectionReason = rejectionReasons.join(', ');
+
+      // Log rejected trade
+      console.log(`🚫 Trade rejected:
+        - Signal: ${direction}
+        - Confidence: ${confidence}% (threshold: ${tradingConfig.minConfidence}%)
+        - R/R: ${riskReward.toFixed(2)} (threshold: ${tradingConfig.minRiskReward})
+        - Volume: ${volumeRatio.toFixed(1)}x
+        - Reason: ${rejectionReason}`);
+
+      finalDirection = 'HOLD';
+      detailedReason = `Setup rejected: ${rejectionReason}. Waiting for better opportunity.`;
+    }
 
     return {
-      direction,
+      direction: finalDirection as 'LONG' | 'SHORT',
       confidence: Math.round(confidence),
       reason: detailedReason,
       indicators: indicators.slice(0, 6),
@@ -480,11 +570,28 @@ const TradingBotPage: React.FC = () => {
         priceChange1h: priceChange1h.toFixed(2),
         priceChange24h: priceChange24h.toFixed(2),
         volumeRatio: volumeRatio.toFixed(1),
-        bullishScore,
-        bearishScore
+        conditionsMet,
+        riskReward: riskReward.toFixed(2),
+        trend
+      },
+      // Quality metrics for display
+      qualityMetrics: {
+        conditionsMet,
+        totalConditions: 5,
+        riskReward,
+        volumeRatio,
+        isQualitySignal,
+        rejectionReason,
+        suggestedTP,
+        suggestedSL
+      },
+      // For backward compatibility
+      scores: {
+        bullishScore: longConditionsMet * 20,
+        bearishScore: shortConditionsMet * 20
       }
     };
-  }, [candles, timeframe]);
+  }, [candles, timeframe, tradingConfig.minConfidence, tradingConfig.minRiskReward, tradingConfig.volumeFilterEnabled, tradingConfig.trendFilterEnabled]);
 
   // Fetch candles
   const fetchCandles = async (symbol: string, interval: string) => {
@@ -963,6 +1070,34 @@ const TradingBotPage: React.FC = () => {
     }
 
     if (!analyzeMarket || !currentChain) return;
+
+    // Check if signal is HOLD (rejected by quality filters)
+    if (analyzeMarket.direction === 'HOLD') {
+      const qualityInfo = analyzeMarket.qualityMetrics;
+      const message = qualityInfo?.rejectionReason
+        ? `Trade rejected by AI quality filters:\n\n${qualityInfo.rejectionReason}\n\nConditions met: ${qualityInfo.conditionsMet}/${qualityInfo.totalConditions}\nR/R Ratio: ${qualityInfo.riskReward.toFixed(2)}\nVolume: ${qualityInfo.volumeRatio.toFixed(1)}x\n\nWaiting for a higher quality setup.`
+        : 'Insufficient signal quality. Waiting for better setup.';
+
+      alert(message);
+
+      // Log the rejected trade
+      setLastRejectedTrade({
+        signal: 'HOLD',
+        confidence: analyzeMarket.confidence,
+        riskReward: qualityInfo?.riskReward || 0,
+        volumeRatio: qualityInfo?.volumeRatio || 0,
+        reason: qualityInfo?.rejectionReason || 'Insufficient confirmation',
+        timestamp: new Date()
+      });
+
+      return;
+    }
+
+    // Check minimum confidence threshold
+    if (analyzeMarket.confidence < tradingConfig.minConfidence) {
+      alert(`Signal confidence (${analyzeMarket.confidence}%) is below your minimum threshold (${tradingConfig.minConfidence}%).\n\nAdjust your settings or wait for a higher confidence signal.`);
+      return;
+    }
 
     setIsExecuting(true);
 
@@ -1696,42 +1831,95 @@ const TradingBotPage: React.FC = () => {
               <div className="flex items-center gap-2 mb-4">
                 <Activity className="w-5 h-5 text-accent" />
                 <span className="text-white font-medium">AI Strategy</span>
+                {analyzeMarket.qualityMetrics?.isQualitySignal && (
+                  <span className="ml-auto px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">High Quality</span>
+                )}
+                {!analyzeMarket.qualityMetrics?.isQualitySignal && analyzeMarket.direction !== 'HOLD' && (
+                  <span className="ml-auto px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">Filtered</span>
+                )}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-background rounded-lg p-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className={`bg-background rounded-lg p-4 ${analyzeMarket.direction === 'HOLD' ? 'border border-gray-600' : ''}`}>
                   <div className="flex items-center gap-2 mb-2">
                     {analyzeMarket.direction === 'LONG' ? (
                       <TrendingUp className="w-5 h-5 text-green-400" />
-                    ) : (
+                    ) : analyzeMarket.direction === 'SHORT' ? (
                       <TrendingDown className="w-5 h-5 text-red-400" />
+                    ) : (
+                      <Pause className="w-5 h-5 text-gray-400" />
                     )}
-                    <span className={`text-lg font-semibold ${analyzeMarket.direction === 'LONG' ? 'text-green-400' : 'text-red-400'}`}>
+                    <span className={`text-lg font-semibold ${
+                      analyzeMarket.direction === 'LONG' ? 'text-green-400' :
+                      analyzeMarket.direction === 'SHORT' ? 'text-red-400' :
+                      'text-gray-400'
+                    }`}>
                       {analyzeMarket.direction}
                     </span>
                   </div>
                   <p className="text-gray-400 text-sm">{analyzeMarket.reason}</p>
                 </div>
                 <div className="bg-background rounded-lg p-4">
-                  <p className="text-gray-400 text-sm mb-2">Confidence</p>
+                  <p className="text-gray-400 text-sm mb-2">Confidence ({analyzeMarket.qualityMetrics?.conditionsMet || 0}/5 conditions)</p>
                   <div className="flex items-center gap-3">
                     <div className="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
                       <div
-                        className={`h-full rounded-full ${analyzeMarket.confidence > 75 ? 'bg-green-500' : analyzeMarket.confidence > 60 ? 'bg-yellow-500' : 'bg-orange-500'}`}
+                        className={`h-full rounded-full ${
+                          analyzeMarket.confidence >= 85 ? 'bg-green-500' :
+                          analyzeMarket.confidence >= 65 ? 'bg-yellow-500' :
+                          'bg-orange-500'
+                        }`}
                         style={{ width: `${analyzeMarket.confidence}%` }}
                       />
                     </div>
-                    <span className="text-white font-semibold">{analyzeMarket.confidence}%</span>
+                    <span className={`font-semibold ${analyzeMarket.confidence >= tradingConfig.minConfidence ? 'text-white' : 'text-orange-400'}`}>
+                      {analyzeMarket.confidence}%
+                    </span>
                   </div>
+                  <p className="text-gray-500 text-xs mt-1">Min: {tradingConfig.minConfidence}%</p>
+                </div>
+                <div className="bg-background rounded-lg p-4">
+                  <p className="text-gray-400 text-sm mb-2">Risk/Reward</p>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-lg font-semibold ${
+                      (analyzeMarket.qualityMetrics?.riskReward || 0) >= tradingConfig.minRiskReward ? 'text-green-400' : 'text-orange-400'
+                    }`}>
+                      {analyzeMarket.qualityMetrics?.riskReward?.toFixed(2) || '0.00'}x
+                    </span>
+                    <span className="text-gray-500 text-xs">(min: {tradingConfig.minRiskReward}x)</span>
+                  </div>
+                  <p className="text-gray-500 text-xs mt-1">
+                    Vol: {analyzeMarket.qualityMetrics?.volumeRatio?.toFixed(1) || '0.0'}x
+                    {tradingConfig.volumeFilterEnabled && (analyzeMarket.qualityMetrics?.volumeRatio || 0) < 1.2 && (
+                      <span className="text-orange-400 ml-1">(low)</span>
+                    )}
+                  </p>
                 </div>
                 <div className="bg-background rounded-lg p-4">
                   <p className="text-gray-400 text-sm mb-2">Indicators</p>
                   <div className="flex flex-wrap gap-1">
-                    {analyzeMarket.indicators.map((ind, i) => (
-                      <span key={i} className="px-2 py-0.5 bg-gray-700 text-gray-300 text-xs rounded">{ind}</span>
-                    ))}
+                    {analyzeMarket.indicators.length > 0 ? (
+                      analyzeMarket.indicators.map((ind, i) => (
+                        <span key={i} className="px-2 py-0.5 bg-gray-700 text-gray-300 text-xs rounded">{ind}</span>
+                      ))
+                    ) : (
+                      <span className="text-gray-500 text-xs">Waiting for signals...</span>
+                    )}
                   </div>
                 </div>
               </div>
+              {analyzeMarket.metrics?.trend && analyzeMarket.metrics.trend !== 'NEUTRAL' && (
+                <div className={`mt-3 px-3 py-2 rounded-lg text-xs ${
+                  analyzeMarket.metrics.trend === 'STRONG_UPTREND' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
+                }`}>
+                  Trend: {analyzeMarket.metrics.trend.replace('_', ' ')}
+                  {tradingConfig.trendFilterEnabled && (
+                    (analyzeMarket.direction === 'SHORT' && analyzeMarket.metrics.trend === 'STRONG_UPTREND') ||
+                    (analyzeMarket.direction === 'LONG' && analyzeMarket.metrics.trend === 'STRONG_DOWNTREND')
+                  ) && (
+                    <span className="ml-2 text-yellow-400">- Trading against trend blocked</span>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
