@@ -45,9 +45,6 @@ const BotTradingPage: React.FC = () => {
               <Link to="/how-it-works" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
                 How it works
               </Link>
-              <Link to="/card" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
-                +DebitCard
-              </Link>
               <Link to="/trading-bot" className="text-white transition-colors text-sm font-medium">
                 Bot Trading
               </Link>

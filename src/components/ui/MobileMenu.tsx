@@ -13,7 +13,6 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick }) => {
 
   const navLinks = [
     { path: '/how-it-works', label: 'How it works' },
-    { path: '/card', label: '+DebitCard' },
     { path: '/trading-bot', label: 'Bot Trading' },
     { path: '/about', label: 'About' },
   ];

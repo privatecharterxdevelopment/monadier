@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Wallet, Settings, Bot, TrendingUp, Shield, Zap, ArrowRight, CheckCircle, Download } from 'lucide-react';
+import { Wallet, Settings, Bot, ArrowRight, CheckCircle, Download } from 'lucide-react';
 import Logo from '../components/ui/Logo';
 import CookieConsent from '../components/ui/CookieConsent';
 import DownloadModal from '../components/ui/DownloadModal';
@@ -67,9 +67,6 @@ const HowItWorksPage: React.FC = () => {
             <div className="hidden md:flex items-center space-x-10">
               <Link to="/how-it-works" className="text-white transition-colors text-sm font-medium">
                 How it works
-              </Link>
-              <Link to="/card" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
-                +DebitCard
               </Link>
               <Link to="/trading-bot" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
                 Bot Trading
@@ -160,135 +157,51 @@ const HowItWorksPage: React.FC = () => {
           </div>
         </section>
 
-        {/* Key Features */}
+        {/* Lifestyle Cards - 3 in a row with image overlay */}
         <section className="container-custom mb-24">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-3xl md:text-4xl font-display font-medium mb-6">
-              Why traders choose Monadier
-            </h2>
-          </motion.div>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
               {
-                icon: Shield,
-                title: 'Non-Custodial',
-                description: 'Your funds stay in your wallet. We never have access to your private keys or assets.'
+                title: 'No expertise needed',
+                description: 'As easy as using a smartphone. Basic config, full control.',
+                image: 'https://gbgafseabgqinnvlfslc.supabase.co/storage/v1/object/public/monadier/Whisk_2ae04f0ee31316d85fb4aac391681850dr.png'
               },
               {
-                icon: Zap,
-                title: 'Lightning Fast',
-                description: 'Sub-second trade execution directly on-chain. No delays, no missed opportunities.'
+                title: 'Focus on what matters',
+                description: 'The bot trades while you enjoy time with family.',
+                image: 'https://gbgafseabgqinnvlfslc.supabase.co/storage/v1/object/public/monadier/cute-emotional-grandfather-sitting-indoors-gazed-with-affection-his-cute-grandchild-hands-loving-cherished-time-spent-with-his-infant-grandson_176532-30614%20(1).avif'
               },
               {
-                icon: TrendingUp,
-                title: 'Proven Strategies',
-                description: 'Battle-tested trading strategies used by professionals. DCA, Grid, and custom conditions.'
+                title: 'Trade while traveling',
+                description: 'Stabilize finances remotely from anywhere in the world.',
+                image: 'https://gbgafseabgqinnvlfslc.supabase.co/storage/v1/object/public/monadier/Whisk_8f7d9d31b5e186782df43bfb25e2f6c6dr.png'
               }
-            ].map((feature, index) => (
+            ].map((card, index) => (
               <motion.div
-                key={feature.title}
-                initial={{ opacity: 0, y: 20 }}
+                key={card.title}
+                initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="p-8 rounded-2xl border border-white/5 hover:border-white/10 hover:bg-white/[0.02] transition-all text-center"
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+                className="relative rounded-2xl overflow-hidden border border-white/10 aspect-[3/4]"
               >
-                <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center mb-6 mx-auto">
-                  <feature.icon className="text-white/60" size={24} />
+                <img
+                  src={card.image}
+                  alt={card.title}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-6">
+                  <h3 className="text-xl font-display font-medium text-white mb-2">
+                    {card.title}
+                  </h3>
+                  <p className="text-gray-300 text-sm leading-relaxed">
+                    {card.description}
+                  </p>
                 </div>
-                <h3 className="text-lg font-medium text-white mb-3">{feature.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{feature.description}</p>
               </motion.div>
             ))}
           </div>
-        </section>
-
-        {/* Lifestyle Cards */}
-        <section className="container-custom mb-24 space-y-8">
-          {/* Card 1 - No Expertise Needed */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="grid md:grid-cols-2 gap-8 p-8 md:p-12 rounded-3xl bg-white/[0.02] border border-white/5"
-          >
-            <div className="flex flex-col justify-center">
-              <span className="text-xs text-gray-500 uppercase tracking-wider mb-4">Easy Setup</span>
-              <h3 className="text-2xl md:text-3xl font-display font-medium text-white mb-4">
-                No expertise needed
-              </h3>
-              <p className="text-gray-400 leading-relaxed">
-                As easy to use as a smartphone. The bot needs only basic configuration and runs your trades under your full control. No trading experience required.
-              </p>
-            </div>
-            <div className="rounded-2xl overflow-hidden min-h-[280px]">
-              <img
-                src="https://gbgafseabgqinnvlfslc.supabase.co/storage/v1/object/public/monadier/Whisk_2ae04f0ee31316d85fb4aac391681850dr.png"
-                alt="Easy to use trading bot"
-                className="w-full h-full object-cover"
-              />
-            </div>
-          </motion.div>
-
-          {/* Card 2 - Focus on What Matters */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="grid md:grid-cols-2 gap-8 p-8 md:p-12 rounded-3xl bg-white/[0.02] border border-white/5"
-          >
-            <div className="flex flex-col justify-center md:order-2">
-              <span className="text-xs text-gray-500 uppercase tracking-wider mb-4">Passive Income</span>
-              <h3 className="text-2xl md:text-3xl font-display font-medium text-white mb-4">
-                Focus on what matters
-              </h3>
-              <p className="text-gray-400 leading-relaxed">
-                While the bot executes trades and keeps your finances balanced, you can spend quality time with family, pursue hobbies, or simply enjoy life.
-              </p>
-            </div>
-            <div className="rounded-2xl overflow-hidden min-h-[280px] md:order-1">
-              <img
-                src="https://gbgafseabgqinnvlfslc.supabase.co/storage/v1/object/public/monadier/cute-emotional-grandfather-sitting-indoors-gazed-with-affection-his-cute-grandchild-hands-loving-cherished-time-spent-with-his-infant-grandson_176532-30614%20(1).avif"
-                alt="Focus on what matters"
-                className="w-full h-full object-cover"
-              />
-            </div>
-          </motion.div>
-
-          {/* Card 3 - Trade While Traveling */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="grid md:grid-cols-2 gap-8 p-8 md:p-12 rounded-3xl bg-white/[0.02] border border-white/5"
-          >
-            <div className="flex flex-col justify-center">
-              <span className="text-xs text-gray-500 uppercase tracking-wider mb-4">Global Freedom</span>
-              <h3 className="text-2xl md:text-3xl font-display font-medium text-white mb-4">
-                Trade while traveling
-              </h3>
-              <p className="text-gray-400 leading-relaxed">
-                Stabilize your travel finances while trading remotely from anywhere in the world. Your bot works 24/7, no matter where you are.
-              </p>
-            </div>
-            <div className="rounded-2xl overflow-hidden min-h-[280px]">
-              <img
-                src="https://gbgafseabgqinnvlfslc.supabase.co/storage/v1/object/public/monadier/Whisk_8f7d9d31b5e186782df43bfb25e2f6c6dr.png"
-                alt="Trade while traveling"
-                className="w-full h-full object-cover"
-              />
-            </div>
-          </motion.div>
         </section>
 
         {/* Supported Networks */}
