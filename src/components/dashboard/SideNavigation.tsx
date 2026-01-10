@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   CreditCard,
@@ -15,6 +15,7 @@ import { signOut } from '../../lib/supabase';
 
 const SideNavigation: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const currentPath = location.pathname;
 
   const mainNavItems = [
@@ -27,8 +28,13 @@ const SideNavigation: React.FC = () => {
   ];
 
   const handleSignOut = async () => {
-    await signOut();
-    window.location.href = '/';
+    try {
+      await signOut();
+      navigate('/', { replace: true });
+    } catch (error) {
+      console.error('Sign out error:', error);
+      navigate('/', { replace: true });
+    }
   };
 
   return (
