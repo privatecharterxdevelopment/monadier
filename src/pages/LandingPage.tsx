@@ -1,23 +1,89 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ArrowRight, Shield, Layers, Bot, Globe, Lock, Zap, Download, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowRight, Shield, Layers, Bot, Globe, Lock, Zap, Download, ChevronRight, TrendingUp, TrendingDown, Trophy, Crown, Rocket } from 'lucide-react';
 import Logo from '../components/ui/Logo';
 import CookieConsent from '../components/ui/CookieConsent';
 import DownloadModal from '../components/ui/DownloadModal';
 import MobileMenu from '../components/ui/MobileMenu';
 import { useAuth } from '../contexts/AuthContext';
 
+// Trade types and generators for live feed
+interface Trade {
+  id: string;
+  amount: number;
+  pair: string;
+  type: 'buy' | 'sell';
+  profit: number;
+  date: Date;
+  walletAddress: string;
+  tier: 'starter' | 'pro' | 'elite';
+}
+
+const tradingPairs = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT', 'XRP/USDT', 'DOGE/USDT', 'AVAX/USDT', 'MATIC/USDT'];
+
+const generateWalletAddress = (): string => {
+  const chars = '0123456789abcdef';
+  let address = '0x';
+  for (let i = 0; i < 6; i++) address += chars[Math.floor(Math.random() * chars.length)];
+  address += '...';
+  for (let i = 0; i < 4; i++) address += chars[Math.floor(Math.random() * chars.length)];
+  return address;
+};
+
+const generateTrade = (): Trade => {
+  const tiers: ('starter' | 'pro' | 'elite')[] = ['starter', 'pro', 'elite'];
+  const tier = tiers[Math.floor(Math.random() * tiers.length)];
+  let maxAmount = tier === 'elite' ? 50000 : tier === 'pro' ? 10000 : 1000;
+  const amount = Math.floor(Math.random() * (maxAmount - 50) + 50);
+  const profitPercent = (Math.random() - 0.25) * 15;
+  return {
+    id: Math.random().toString(36).substr(2, 9),
+    amount,
+    pair: tradingPairs[Math.floor(Math.random() * tradingPairs.length)],
+    type: Math.random() > 0.5 ? 'buy' : 'sell',
+    profit: amount * (profitPercent / 100),
+    date: new Date(),
+    walletAddress: generateWalletAddress(),
+    tier
+  };
+};
+
 const LandingPage: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [liveTrades, setLiveTrades] = useState<Trade[]>([]);
 
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/dashboard');
     }
   }, [isAuthenticated, navigate]);
+
+  // Initialize and update live trades
+  useEffect(() => {
+    const initialTrades: Trade[] = [];
+    for (let i = 0; i < 8; i++) {
+      initialTrades.push({ ...generateTrade(), date: new Date(Date.now() - Math.random() * 60000) });
+    }
+    setLiveTrades(initialTrades);
+
+    const addNewTrade = () => {
+      setLiveTrades(prev => [generateTrade(), ...prev.slice(0, 7)]);
+    };
+
+    const scheduleNextTrade = () => {
+      const delay = Math.floor(Math.random() * 8000) + 3000;
+      return setTimeout(() => {
+        addNewTrade();
+        timeoutId = scheduleNextTrade();
+      }, delay);
+    };
+
+    let timeoutId = scheduleNextTrade();
+    return () => clearTimeout(timeoutId);
+  }, []);
 
   return (
     <div className="relative min-h-screen bg-background">
@@ -392,6 +458,154 @@ const LandingPage: React.FC = () => {
                   <p className="text-gray-500 text-xs">{chain.dex}</p>
                 </motion.div>
               ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Live Top Performers Section */}
+        <section className="py-24 md:py-32 border-t border-white/5">
+          <div className="container-custom">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="text-center mb-12"
+            >
+              <div className="inline-flex items-center gap-2 mb-4">
+                <Trophy className="w-5 h-5 text-white/60" />
+                <span className="text-sm text-gray-400 uppercase tracking-wider">Live Feed</span>
+                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              </div>
+              <h2 className="text-3xl md:text-4xl font-display font-medium mb-4">
+                Top performers right now
+              </h2>
+              <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+                See what our traders are achieving with automated strategies
+              </p>
+            </motion.div>
+
+            {/* Trade Table */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="rounded-2xl border border-white/5 overflow-hidden bg-white/[0.02]"
+            >
+              {/* Table Header */}
+              <div className="hidden md:grid grid-cols-6 gap-4 px-6 py-4 border-b border-white/5 text-sm font-medium text-gray-500">
+                <div>Trade</div>
+                <div>Amount</div>
+                <div>Profit/Loss</div>
+                <div>Tier</div>
+                <div>Wallet</div>
+                <div>Time</div>
+              </div>
+
+              {/* Table Body */}
+              <div className="divide-y divide-white/5">
+                <AnimatePresence mode="popLayout">
+                  {liveTrades.map((trade, index) => {
+                    const getTierIcon = (tier: string) => {
+                      switch (tier) {
+                        case 'starter': return <Zap className="w-3 h-3 text-blue-400" />;
+                        case 'pro': return <Crown className="w-3 h-3 text-white" />;
+                        case 'elite': return <Rocket className="w-3 h-3 text-amber-400" />;
+                        default: return null;
+                      }
+                    };
+                    const getTierColor = (tier: string) => {
+                      switch (tier) {
+                        case 'starter': return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+                        case 'pro': return 'bg-white/5 text-white border-white/10';
+                        case 'elite': return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+                        default: return '';
+                      }
+                    };
+                    const timeDiff = Date.now() - trade.date.getTime();
+                    const timeAgo = timeDiff < 60000 ? 'Just now' : `${Math.floor(timeDiff / 60000)}m ago`;
+
+                    return (
+                      <motion.div
+                        key={trade.id}
+                        initial={index === 0 ? { opacity: 0, x: -20, backgroundColor: 'rgba(255, 255, 255, 0.05)' } : { opacity: 1 }}
+                        animate={{ opacity: 1, x: 0, backgroundColor: 'transparent' }}
+                        exit={{ opacity: 0, x: 20 }}
+                        transition={{ duration: 0.4 }}
+                        className="grid grid-cols-2 md:grid-cols-6 gap-2 md:gap-4 px-4 md:px-6 py-4 hover:bg-white/[0.02] transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            trade.type === 'buy' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                          }`}>
+                            {trade.type.toUpperCase()}
+                          </span>
+                          <span className="text-white font-medium text-sm">{trade.pair}</span>
+                        </div>
+
+                        <div className="text-white font-mono text-sm">
+                          ${trade.amount.toLocaleString()}
+                        </div>
+
+                        <div className={`flex items-center gap-1 font-mono text-sm ${trade.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {trade.profit >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                          {trade.profit >= 0 ? '+' : ''}${trade.profit.toFixed(2)}
+                        </div>
+
+                        <div className="hidden md:flex">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${getTierColor(trade.tier)}`}>
+                            {getTierIcon(trade.tier)}
+                            <span className="capitalize">{trade.tier}</span>
+                          </span>
+                        </div>
+
+                        <div className="hidden md:block text-gray-500 font-mono text-sm">
+                          {trade.walletAddress}
+                        </div>
+
+                        <div className="text-gray-500 text-sm text-right md:text-left">
+                          {timeAgo}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+
+            {/* Stats Row */}
+            <div className="grid grid-cols-3 gap-4 mt-8">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                className="p-4 rounded-xl border border-white/5 bg-white/[0.02] text-center"
+              >
+                <p className="text-2xl font-display font-medium text-white">2,847</p>
+                <p className="text-gray-500 text-sm">Active Traders</p>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.4 }}
+                className="p-4 rounded-xl border border-white/5 bg-white/[0.02] text-center"
+              >
+                <p className="text-2xl font-display font-medium text-white">$4.2M</p>
+                <p className="text-gray-500 text-sm">24h Volume</p>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.5 }}
+                className="p-4 rounded-xl border border-white/5 bg-white/[0.02] text-center"
+              >
+                <p className="text-2xl font-display font-medium text-white">67.3%</p>
+                <p className="text-gray-500 text-sm">Avg. Win Rate</p>
+              </motion.div>
             </div>
           </div>
         </section>

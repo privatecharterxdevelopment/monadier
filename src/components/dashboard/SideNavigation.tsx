@@ -33,7 +33,7 @@ const SideNavigation: React.FC = () => {
 
   return (
     <div className="h-screen fixed left-0 top-0 w-20 bg-card-dark border-r border-gray-800 flex flex-col items-center py-8">
-      <Logo size="sm" />
+      <Logo size="sm" iconOnly />
 
       <nav className="mt-16 flex-grow">
         <ul className="space-y-6">
