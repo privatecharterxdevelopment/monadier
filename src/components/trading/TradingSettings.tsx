@@ -164,7 +164,17 @@ export const getDefaultConfig = (): TradingConfig => {
   const saved = localStorage.getItem('tradingConfig');
   if (saved) {
     try {
-      return { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
+      const parsed = JSON.parse(saved);
+      // Migration: if old maxPositionPercent was 25% (old default), update to 100%
+      if (parsed.maxPositionPercent === 25) {
+        parsed.maxPositionPercent = 100;
+      }
+      // Migration: add new signal filter settings if missing
+      if (parsed.minConfidence === undefined) parsed.minConfidence = 75;
+      if (parsed.minRiskReward === undefined) parsed.minRiskReward = 1.5;
+      if (parsed.volumeFilterEnabled === undefined) parsed.volumeFilterEnabled = true;
+      if (parsed.trendFilterEnabled === undefined) parsed.trendFilterEnabled = true;
+      return { ...DEFAULT_CONFIG, ...parsed };
     } catch {
       return DEFAULT_CONFIG;
     }

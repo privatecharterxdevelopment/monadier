@@ -2323,26 +2323,28 @@ const TradingBotPage: React.FC = () => {
                   )}
 
                   <div>
-                    <label className="block text-sm text-gray-400 mb-2">Amount (USD)</label>
+                    <label className="block text-sm text-gray-400 mb-2">
+                      Amount (USD) - Max: ${Math.min(availableBalance, getMaxAmount()).toFixed(2)}
+                    </label>
                     <input
                       type="number"
                       value={tradeAmount}
-                      onChange={(e) => setTradeAmount(Math.min(Math.max(Number(e.target.value), 5), getMaxAmount()))}
+                      onChange={(e) => setTradeAmount(Math.min(Math.max(Number(e.target.value), 5), Math.min(availableBalance, getMaxAmount())))}
                       min={5}
-                      max={getMaxAmount()}
+                      max={Math.min(availableBalance, getMaxAmount())}
                       className="w-full bg-background border border-gray-700 rounded-lg px-3 py-2 text-white"
                     />
                     <input
                       type="range"
                       min={5}
-                      max={getMaxAmount() || 1000}
+                      max={Math.max(5, Math.min(availableBalance, getMaxAmount()))}
                       value={tradeAmount}
                       onChange={(e) => setTradeAmount(Number(e.target.value))}
                       className="w-full mt-2 accent-accent"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>$10</span>
-                      <span>{`$${getMaxAmount().toLocaleString()}`}</span>
+                      <span>$5</span>
+                      <span>${Math.min(availableBalance, getMaxAmount()).toFixed(2)}</span>
                     </div>
                   </div>
 
