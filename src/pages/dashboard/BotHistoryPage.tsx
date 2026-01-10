@@ -1,371 +1,368 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { History, TrendingUp, TrendingDown, Users, Trophy, Zap, Crown, Rocket, ExternalLink } from 'lucide-react';
-import { TradeHistoryItem } from '../../components/trading';
+import { History, TrendingUp, TrendingDown, Users, Trophy, Zap, Crown, Rocket, ExternalLink, RefreshCw, Activity } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { useAccount } from 'wagmi';
 
-interface Trade {
+interface Position {
   id: string;
-  amount: number;
-  pair: string;
-  type: 'buy' | 'sell';
-  profit: number;
-  date: Date;
-  walletAddress: string;
-  tier: 'starter' | 'pro' | 'elite';
+  wallet_address: string;
+  chain_id: number;
+  token_address: string;
+  token_symbol: string;
+  direction: 'LONG' | 'SHORT';
+  entry_price: number;
+  entry_amount: number;
+  token_amount: number;
+  highest_price: number;
+  lowest_price: number;
+  trailing_stop_price: number | null;
+  trailing_stop_percent: number;
+  take_profit_price: number | null;
+  take_profit_percent: number;
+  stop_activated: boolean;
+  exit_price: number | null;
+  exit_amount: number | null;
+  profit_loss: number | null;
+  profit_loss_percent: number | null;
+  status: 'open' | 'closing' | 'closed' | 'failed';
+  close_reason: string | null;
+  created_at: string;
+  closed_at: string | null;
 }
 
-const tradingPairs = [
-  'BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT', 'XRP/USDT', 'ADA/USDT',
-  'EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF', 'AUD/USD', 'USD/CAD',
-  'DOGE/USDT', 'AVAX/USDT', 'DOT/USDT', 'MATIC/USDT'
-];
-
-const generateWalletAddress = (): string => {
-  const chars = '0123456789abcdef';
-  let address = '0x';
-  for (let i = 0; i < 8; i++) {
-    address += chars[Math.floor(Math.random() * chars.length)];
-  }
-  address += '...';
-  for (let i = 0; i < 4; i++) {
-    address += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return address;
-};
-
-const generateTrade = (): Trade => {
-  const tiers: ('starter' | 'pro' | 'elite')[] = ['starter', 'pro', 'elite'];
-  const tier = tiers[Math.floor(Math.random() * tiers.length)];
-
-  let maxAmount = 1000;
-  if (tier === 'pro') maxAmount = 10000;
-  if (tier === 'elite') maxAmount = 50000;
-
-  const amount = Math.floor(Math.random() * (maxAmount - 5) + 5);
-  const profitPercent = (Math.random() - 0.3) * 20; // Slightly biased towards profit
-  const profit = amount * (profitPercent / 100);
-
-  return {
-    id: Math.random().toString(36).substr(2, 9),
-    amount,
-    pair: tradingPairs[Math.floor(Math.random() * tradingPairs.length)],
-    type: Math.random() > 0.5 ? 'buy' : 'sell',
-    profit,
-    date: new Date(),
-    walletAddress: generateWalletAddress(),
-    tier
-  };
-};
-
 const BotHistoryPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'my-trades' | 'top-performers'>('my-trades');
-  const [topPerformerTrades, setTopPerformerTrades] = useState<Trade[]>([]);
-  const [realTradeHistory, setRealTradeHistory] = useState<TradeHistoryItem[]>([]);
+  const { address } = useAccount();
+  const [activeTab, setActiveTab] = useState<'open' | 'closed' | 'all'>('open');
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalProfit: 0,
+    winRate: 0,
+    totalTrades: 0,
+    openPositions: 0
+  });
 
-  // Load real trade history from localStorage
-  useEffect(() => {
-    const loadTradeHistory = () => {
-      const saved = localStorage.getItem('tradeHistory');
-      if (saved) {
-        try {
-          setRealTradeHistory(JSON.parse(saved));
-        } catch {
-          setRealTradeHistory([]);
-        }
+  const fetchPositions = async () => {
+    if (!address) return;
+
+    setLoading(true);
+    try {
+      let query = supabase
+        .from('positions')
+        .select('*')
+        .eq('wallet_address', address.toLowerCase())
+        .order('created_at', { ascending: false });
+
+      if (activeTab === 'open') {
+        query = query.eq('status', 'open');
+      } else if (activeTab === 'closed') {
+        query = query.eq('status', 'closed');
       }
-    };
 
-    loadTradeHistory();
+      const { data, error } = await query;
 
-    // Listen for storage changes (real-time sync)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'tradeHistory') {
-        loadTradeHistory();
+      if (error) {
+        console.error('Error fetching positions:', error);
+        return;
       }
-    };
-    window.addEventListener('storage', handleStorageChange);
 
-    // Also poll every 2 seconds for same-tab updates
-    const interval = setInterval(loadTradeHistory, 2000);
+      setPositions(data || []);
 
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
-    };
-  }, []);
+      // Calculate stats
+      const allPositions = data || [];
+      const closedPositions = allPositions.filter(p => p.status === 'closed');
+      const totalProfit = closedPositions.reduce((sum, p) => sum + (p.profit_loss || 0), 0);
+      const wins = closedPositions.filter(p => (p.profit_loss || 0) > 0).length;
+      const winRate = closedPositions.length > 0 ? (wins / closedPositions.length) * 100 : 0;
 
-  // Load initial trades
-  useEffect(() => {
-    const initialTrades: Trade[] = [];
-    for (let i = 0; i < 10; i++) {
-      initialTrades.push({
-        ...generateTrade(),
-        date: new Date(Date.now() - Math.random() * 60000)
+      setStats({
+        totalProfit,
+        winRate,
+        totalTrades: closedPositions.length,
+        openPositions: allPositions.filter(p => p.status === 'open').length
       });
+    } catch (err) {
+      console.error('Error:', err);
+    } finally {
+      setLoading(false);
     }
-    setTopPerformerTrades(initialTrades);
-  }, []);
+  };
 
-  // Add new trades every 5-20 seconds
   useEffect(() => {
-    if (activeTab !== 'top-performers') return;
+    fetchPositions();
 
-    const addNewTrade = () => {
-      const newTrade = generateTrade();
-      setTopPerformerTrades(prev => [newTrade, ...prev.slice(0, 49)]);
-    };
+    // Refresh every 10 seconds
+    const interval = setInterval(fetchPositions, 10000);
+    return () => clearInterval(interval);
+  }, [address, activeTab]);
 
-    const scheduleNextTrade = () => {
-      const delay = Math.floor(Math.random() * 15000) + 5000; // 5-20 seconds
-      return setTimeout(() => {
-        addNewTrade();
-        timeoutId = scheduleNextTrade();
-      }, delay);
-    };
-
-    let timeoutId = scheduleNextTrade();
-
-    return () => clearTimeout(timeoutId);
-  }, [activeTab]);
-
-  const getTierIcon = (tier: string) => {
-    switch (tier) {
-      case 'starter': return <Zap className="w-4 h-4 text-blue-400" />;
-      case 'pro': return <Crown className="w-4 h-4 text-white" />;
-      case 'elite': return <Rocket className="w-4 h-4 text-amber-400" />;
-      default: return null;
-    }
-  };
-
-  const getTierColor = (tier: string) => {
-    switch (tier) {
-      case 'starter': return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
-      case 'pro': return 'bg-white/5 text-white border-white/10';
-      case 'elite': return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-      default: return '';
-    }
-  };
-
-  const formatDate = (date: Date) => {
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
 
-    if (diff < 60000) {
-      return 'Just now';
-    } else if (diff < 3600000) {
-      const mins = Math.floor(diff / 60000);
-      return `${mins}m ago`;
-    } else if (diff < 86400000) {
-      const hours = Math.floor(diff / 3600000);
-      return `${hours}h ago`;
-    } else {
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    }
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
-  const TradeRow: React.FC<{ trade: Trade; isNew?: boolean }> = ({ trade, isNew }) => (
-    <motion.div
-      initial={isNew ? { opacity: 0, x: -20, backgroundColor: 'rgba(255, 255, 255, 0.1)' } : { opacity: 1 }}
-      animate={{ opacity: 1, x: 0, backgroundColor: 'transparent' }}
-      transition={{ duration: 0.5 }}
-      className="grid grid-cols-6 gap-4 px-4 py-3 border-b border-gray-800 hover:bg-surface-hover transition-colors items-center"
-    >
-      <div className="flex items-center gap-2">
-        <span className={`px-2 py-1 rounded text-xs font-medium ${
-          trade.type === 'buy' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-        }`}>
-          {trade.type.toUpperCase()}
-        </span>
-        <span className="text-white font-medium">{trade.pair}</span>
-      </div>
+  const getCurrentProfit = (position: Position) => {
+    if (position.status === 'closed') {
+      return position.profit_loss || 0;
+    }
+    // For open positions, estimate based on highest price
+    const currentValue = position.token_amount * position.highest_price;
+    return currentValue - position.entry_amount;
+  };
 
-      <div className="text-white font-mono">
-        ${trade.amount.toLocaleString()}
-      </div>
-
-      <div className={`flex items-center gap-1 font-mono ${trade.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-        {trade.profit >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-        {trade.profit >= 0 ? '+' : ''}${trade.profit.toFixed(2)}
-      </div>
-
-      <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full border text-xs font-medium w-fit ${getTierColor(trade.tier)}`}>
-        {getTierIcon(trade.tier)}
-        <span className="capitalize">{trade.tier}</span>
-      </div>
-
-      <div className="text-secondary font-mono text-sm">
-        {trade.walletAddress}
-      </div>
-
-      <div className="text-secondary text-sm">
-        {formatDate(trade.date)}
-      </div>
-    </motion.div>
-  );
+  const getProfitPercent = (position: Position) => {
+    if (position.status === 'closed') {
+      return position.profit_loss_percent || 0;
+    }
+    const profit = getCurrentProfit(position);
+    return (profit / position.entry_amount) * 100;
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Trading History</h1>
-          <p className="text-secondary mt-1">View your trades and top performers</p>
+          <h1 className="text-2xl font-bold text-white">Bot Trading History</h1>
+          <p className="text-secondary mt-1">View your positions and profits</p>
+        </div>
+        <button
+          onClick={fetchPositions}
+          className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white transition-colors"
+        >
+          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          Refresh
+        </button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${stats.totalProfit >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+              {stats.totalProfit >= 0 ? (
+                <TrendingUp className="w-5 h-5 text-green-400" />
+              ) : (
+                <TrendingDown className="w-5 h-5 text-red-400" />
+              )}
+            </div>
+            <div>
+              <p className="text-sm text-secondary">Total P/L</p>
+              <p className={`text-xl font-bold ${stats.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {stats.totalProfit >= 0 ? '+' : ''}${stats.totalProfit.toFixed(2)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
+              <Trophy className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <p className="text-sm text-secondary">Win Rate</p>
+              <p className="text-xl font-bold text-white">{stats.winRate.toFixed(1)}%</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
+              <History className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="text-sm text-secondary">Total Trades</p>
+              <p className="text-xl font-bold text-white">{stats.totalTrades}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+              <Activity className="w-5 h-5 text-blue-400" />
+            </div>
+            <div>
+              <p className="text-sm text-secondary">Open Positions</p>
+              <p className="text-xl font-bold text-white">{stats.openPositions}</p>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Tab Switcher */}
       <div className="flex gap-2 p-1 bg-card-dark rounded-lg w-fit border border-gray-800">
         <button
-          onClick={() => setActiveTab('my-trades')}
+          onClick={() => setActiveTab('open')}
           className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-all ${
-            activeTab === 'my-trades'
+            activeTab === 'open'
+              ? 'bg-white text-gray-900'
+              : 'text-secondary hover:text-white'
+          }`}
+        >
+          <Activity size={18} />
+          Open
+          {stats.openPositions > 0 && (
+            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('closed')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-all ${
+            activeTab === 'closed'
               ? 'bg-white text-gray-900'
               : 'text-secondary hover:text-white'
           }`}
         >
           <History size={18} />
-          My Trades
+          Closed
         </button>
         <button
-          onClick={() => setActiveTab('top-performers')}
+          onClick={() => setActiveTab('all')}
           className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-all ${
-            activeTab === 'top-performers'
+            activeTab === 'all'
               ? 'bg-white text-gray-900'
               : 'text-secondary hover:text-white'
           }`}
         >
-          <Trophy size={18} />
-          Top Performers
-          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+          All
         </button>
       </div>
 
-      {/* Trade Table */}
+      {/* Positions Table */}
       <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-6 gap-4 px-4 py-3 bg-background border-b border-gray-800 text-sm font-medium text-secondary">
-          <div>Trade</div>
-          <div>Amount</div>
-          <div>Profit/Loss</div>
-          <div>Tier</div>
-          <div>Wallet</div>
+        <div className="grid grid-cols-8 gap-4 px-4 py-3 bg-background border-b border-gray-800 text-sm font-medium text-secondary">
+          <div>Token</div>
+          <div>Direction</div>
+          <div>Entry</div>
+          <div>Size</div>
+          <div>TP / SL</div>
+          <div>P/L</div>
+          <div>Status</div>
           <div>Date</div>
         </div>
 
         {/* Body */}
-        <div className="max-h-[600px] overflow-y-auto">
-          <AnimatePresence>
-            {activeTab === 'my-trades' ? (
-              realTradeHistory.length > 0 ? (
-                realTradeHistory.map((trade, index) => (
+        <div className="max-h-[500px] overflow-y-auto">
+          {loading ? (
+            <div className="py-12 text-center">
+              <RefreshCw className="w-8 h-8 text-gray-600 mx-auto mb-3 animate-spin" />
+              <p className="text-secondary">Loading positions...</p>
+            </div>
+          ) : positions.length === 0 ? (
+            <div className="py-12 text-center">
+              <History className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+              <p className="text-secondary">No {activeTab} positions</p>
+              <p className="text-sm text-gray-600 mt-1">
+                {activeTab === 'open' ? 'The bot will open positions when signals are detected' : 'Completed trades will appear here'}
+              </p>
+            </div>
+          ) : (
+            <AnimatePresence>
+              {positions.map((position, index) => {
+                const profit = getCurrentProfit(position);
+                const profitPercent = getProfitPercent(position);
+                const isProfit = profit >= 0;
+
+                return (
                   <motion.div
-                    key={trade.id}
-                    initial={index === 0 ? { opacity: 0, x: -20, backgroundColor: 'rgba(255, 255, 255, 0.1)' } : { opacity: 1 }}
-                    animate={{ opacity: 1, x: 0, backgroundColor: 'transparent' }}
-                    transition={{ duration: 0.5 }}
-                    className="grid grid-cols-6 gap-4 px-4 py-3 border-b border-gray-800 hover:bg-surface-hover transition-colors items-center"
+                    key={position.id}
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="grid grid-cols-8 gap-4 px-4 py-3 border-b border-gray-800 hover:bg-surface-hover transition-colors items-center"
                   >
+                    {/* Token */}
                     <div className="flex items-center gap-2">
+                      <span className="text-white font-medium">{position.token_symbol}</span>
+                    </div>
+
+                    {/* Direction */}
+                    <div>
                       <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        trade.type === 'buy' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                        position.direction === 'LONG'
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-red-500/20 text-red-400'
                       }`}>
-                        {trade.type.toUpperCase()}
+                        {position.direction}
                       </span>
-                      <span className="text-white font-medium">{trade.tokenIn}/{trade.tokenOut}</span>
                     </div>
 
-                    <div className="text-white font-mono">
-                      {trade.amountIn}
+                    {/* Entry Price */}
+                    <div className="text-white font-mono text-sm">
+                      ${position.entry_price.toFixed(2)}
                     </div>
 
-                    <div className={`flex items-center gap-1 font-mono ${(trade.profit || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {(trade.profit || 0) >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                      {(trade.profit || 0) >= 0 ? '+' : ''}${(trade.profit || 0).toFixed(2)}
+                    {/* Size */}
+                    <div className="text-white font-mono text-sm">
+                      ${position.entry_amount.toFixed(2)}
                     </div>
 
-                    <div className="text-secondary text-sm">
-                      {trade.chainName}
+                    {/* TP / SL */}
+                    <div className="text-xs">
+                      <div className="text-green-400">
+                        TP: {position.take_profit_percent}%
+                      </div>
+                      <div className={position.stop_activated ? 'text-amber-400' : 'text-gray-500'}>
+                        SL: {position.trailing_stop_percent}% {position.stop_activated ? '(active)' : ''}
+                      </div>
                     </div>
 
-                    <div className="text-secondary text-sm">
-                      Gas: ${trade.gasCostUsd?.toFixed(2) || '0.00'}
+                    {/* P/L */}
+                    <div className={`flex items-center gap-1 font-mono text-sm ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
+                      {isProfit ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                      <div>
+                        <div>{isProfit ? '+' : ''}${profit.toFixed(2)}</div>
+                        <div className="text-xs opacity-75">
+                          ({isProfit ? '+' : ''}{profitPercent.toFixed(1)}%)
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <span className="text-secondary text-sm">
-                        {new Date(trade.timestamp).toLocaleTimeString()}
+                    {/* Status */}
+                    <div>
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        position.status === 'open' ? 'bg-blue-500/20 text-blue-400' :
+                        position.status === 'closed' ? 'bg-gray-500/20 text-gray-400' :
+                        position.status === 'closing' ? 'bg-amber-500/20 text-amber-400' :
+                        'bg-red-500/20 text-red-400'
+                      }`}>
+                        {position.status.toUpperCase()}
                       </span>
-                      <a
-                        href={trade.blockExplorerUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-accent hover:text-accent-hover"
-                      >
-                        <ExternalLink size={14} />
-                      </a>
+                      {position.close_reason && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          {position.close_reason}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Date */}
+                    <div className="text-secondary text-sm">
+                      {formatDate(position.created_at)}
                     </div>
                   </motion.div>
-                ))
-              ) : (
-                <div className="py-12 text-center">
-                  <History className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                  <p className="text-secondary">No trades yet</p>
-                  <p className="text-sm text-gray-600">Start the trading bot to see your trades here</p>
-                </div>
-              )
-            ) : (
-              topPerformerTrades.map((trade, index) => (
-                <TradeRow key={trade.id} trade={trade} isNew={index === 0} />
-              ))
-            )}
-          </AnimatePresence>
+                );
+              })}
+            </AnimatePresence>
+          )}
         </div>
       </div>
-
-      {/* Stats Cards */}
-      {activeTab === 'top-performers' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
-                <Users className="w-5 h-5 text-green-400" />
-              </div>
-              <div>
-                <p className="text-sm text-secondary">Active Traders</p>
-                <p className="text-xl font-bold text-white">2,847</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <p className="text-sm text-secondary">Total Volume (24h)</p>
-                <p className="text-xl font-bold text-white">$4.2M</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
-                <Trophy className="w-5 h-5 text-amber-400" />
-              </div>
-              <div>
-                <p className="text-sm text-secondary">Avg. Win Rate</p>
-                <p className="text-xl font-bold text-white">67.3%</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
