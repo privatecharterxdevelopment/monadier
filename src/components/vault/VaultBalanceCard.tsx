@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Wallet, ArrowUpRight, ArrowDownLeft, Settings, Zap, Lock, AlertTriangle } from 'lucide-react';
+import { Wallet, ArrowUpRight, ArrowDownLeft, Settings, Zap, Lock, AlertTriangle, RefreshCw, ArrowRight } from 'lucide-react';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { SUBSCRIPTION_PLANS } from '../../lib/subscription';
-import { VaultClient, VAULT_ADDRESSES, VAULT_V2_ADDRESSES, getPlatformFeeForChain, USDC_DECIMALS } from '../../lib/vault';
+import { VaultClient, VAULT_ADDRESSES, VAULT_V2_ADDRESSES, getPlatformFeeForChain, USDC_DECIMALS, VAULT_ABI } from '../../lib/vault';
 import { formatUnits } from 'viem';
 import VaultDepositModal from './VaultDepositModal';
 import VaultWithdrawModal from './VaultWithdrawModal';
@@ -47,9 +47,15 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
+  // V1 Migration state
+  const [v1Balance, setV1Balance] = useState<string>('0.00');
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [migrationError, setMigrationError] = useState<string | null>(null);
+
   // Check if user has paid subscription (not free)
   const isPaidUser = isSubscribed && planTier && planTier !== 'free';
   const isVaultAvailable = chainId ? (VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null) : false;
+  const hasV1Funds = parseFloat(v1Balance) > 0;
 
   // Get platform fee for current chain
   const platformFee = chainId ? getPlatformFeeForChain(chainId) : { percentFormatted: '—' };
@@ -80,6 +86,23 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
         setAutoTradeEnabled(status.autoTradeEnabled);
         setRiskLevelPercent(status.riskLevelPercent);
         setMaxTradeSize(status.maxTradeSizeFormatted);
+
+        // Check V1 vault balance if V2 exists (migration scenario)
+        const v1Address = VAULT_ADDRESSES[chainId];
+        const v2Address = VAULT_V2_ADDRESSES[chainId];
+        if (v1Address && v2Address && v1Address !== v2Address) {
+          try {
+            const v1BalanceRaw = await publicClient.readContract({
+              address: v1Address,
+              abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'balances', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' }] as const,
+              functionName: 'balances',
+              args: [address as `0x${string}`]
+            });
+            setV1Balance(formatUnits(v1BalanceRaw, USDC_DECIMALS));
+          } catch (e) {
+            console.log('No V1 balance or V1 vault not accessible');
+          }
+        }
       } catch (err) {
         console.error('Failed to load vault data:', err);
         setError('Failed to load vault');
@@ -90,6 +113,43 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
 
     loadVaultData();
   }, [isConnected, chainId, address, publicClient, walletClient, isVaultAvailable]);
+
+  // Migrate from V1 to V2 (withdraw from V1)
+  const handleMigrateFromV1 = async () => {
+    if (!chainId || !address || !publicClient || !walletClient) return;
+
+    const v1Address = VAULT_ADDRESSES[chainId];
+    if (!v1Address) return;
+
+    try {
+      setIsMigrating(true);
+      setMigrationError(null);
+
+      // Call withdrawAll on V1 vault
+      const hash = await walletClient.writeContract({
+        address: v1Address,
+        abi: VAULT_ABI,
+        functionName: 'withdrawAll',
+        args: [],
+        chain: null,
+        account: address as `0x${string}`
+      });
+
+      // Wait for confirmation
+      await publicClient.waitForTransactionReceipt({ hash });
+
+      // Reset V1 balance
+      setV1Balance('0.00');
+
+      // Reload page to refresh all balances
+      window.location.reload();
+    } catch (err: any) {
+      console.error('Migration failed:', err);
+      setMigrationError(err.message || 'Failed to withdraw from V1');
+    } finally {
+      setIsMigrating(false);
+    }
+  };
 
   // Handle upgrade click
   const handleUpgradeClick = () => {
@@ -234,6 +294,42 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
           <div className="flex items-center gap-2 p-2 mb-3 bg-red-500/10 border border-red-500/20 rounded-lg">
             <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
             <span className="text-red-400 text-xs">Daily trade limit reached. Resets at midnight UTC.</span>
+          </div>
+        )}
+
+        {/* V1 Migration Banner */}
+        {hasV1Funds && !isPreviewMode && (
+          <div className="mb-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                <span className="text-yellow-400 text-sm font-medium">Funds in Old Vault</span>
+              </div>
+              <span className="text-yellow-400 text-sm font-bold">${parseFloat(v1Balance).toFixed(2)}</span>
+            </div>
+            <p className="text-yellow-400/80 text-xs mb-3">
+              You have funds in the V1 vault. Withdraw to your wallet, then deposit to the new V2 vault.
+            </p>
+            {migrationError && (
+              <p className="text-red-400 text-xs mb-2">{migrationError}</p>
+            )}
+            <button
+              onClick={handleMigrateFromV1}
+              disabled={isMigrating}
+              className="w-full py-2 bg-yellow-500 text-black font-medium rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isMigrating ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Withdrawing...
+                </>
+              ) : (
+                <>
+                  <ArrowRight className="w-4 h-4" />
+                  Withdraw ${parseFloat(v1Balance).toFixed(2)} from V1
+                </>
+              )}
+            </button>
           </div>
         )}
 
