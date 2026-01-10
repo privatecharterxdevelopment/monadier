@@ -1,10 +1,23 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Bell, ChevronDown, Clock, DollarSign, Lock, ShieldCheck } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatCurrency } from '../../utils/formatters';
+
+// Add noindex meta tag to exclude from search engines
+const useNoIndex = () => {
+  useEffect(() => {
+    const meta = document.createElement('meta');
+    meta.name = 'robots';
+    meta.content = 'noindex, nofollow';
+    document.head.appendChild(meta);
+    return () => {
+      document.head.removeChild(meta);
+    };
+  }, []);
+};
 
 // Mock transaction data
 const recentTransactions = [
@@ -43,9 +56,10 @@ const recentTransactions = [
 ];
 
 const CardPage: React.FC = () => {
+  useNoIndex(); // Exclude this page from search engines
   const { profile } = useAuth();
   const isSignature = profile?.membership_tier === 'signature';
-  
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="lg:col-span-2">

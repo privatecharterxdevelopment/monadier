@@ -24,6 +24,9 @@ const AboutPage: React.FC = () => {
               <Link to="/trading-bot" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
                 Bot Trading
               </Link>
+              <Link to="/forex" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+                Forex MT5
+              </Link>
               <Link to="/about" className="text-white transition-colors text-sm font-medium">
                 About
               </Link>

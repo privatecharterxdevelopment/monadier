@@ -3,9 +3,9 @@ import { Route, Routes } from 'react-router-dom';
 import DashboardHeader from '../components/dashboard/DashboardHeader';
 import SideNavigation from '../components/dashboard/SideNavigation';
 import DashboardOverview from './dashboard/DashboardOverview';
-import CardPage from './dashboard/CardPage';
 import TradingBotPage from './dashboard/TradingBotPage';
 import BotHistoryPage from './dashboard/BotHistoryPage';
+import DownloadsPage from './dashboard/DownloadsPage';
 import SubscriptionsPage from './dashboard/SubscriptionsPage';
 import SettingsPage from './dashboard/SettingsPage';
 
@@ -21,9 +21,9 @@ const DashboardPage: React.FC = () => {
           <main className="py-8">
             <Routes>
               <Route path="/" element={<DashboardOverview />} />
-              <Route path="/card" element={<CardPage />} />
               <Route path="/trading-bot" element={<TradingBotPage />} />
               <Route path="/bot-history" element={<BotHistoryPage />} />
+              <Route path="/downloads" element={<DownloadsPage />} />
               <Route path="/subscriptions" element={<SubscriptionsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Routes>

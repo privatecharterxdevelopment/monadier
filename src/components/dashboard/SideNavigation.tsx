@@ -2,13 +2,13 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  CreditCard,
   LayoutDashboard,
   LogOut,
   Settings,
   Bot,
   History,
-  Package
+  Package,
+  Download
 } from 'lucide-react';
 import Logo from '../ui/Logo';
 import { signOut } from '../../lib/supabase';
@@ -20,9 +20,9 @@ const SideNavigation: React.FC = () => {
 
   const mainNavItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/dashboard/card', label: 'Card', icon: CreditCard },
     { path: '/dashboard/trading-bot', label: 'Trading Bot', icon: Bot },
     { path: '/dashboard/bot-history', label: 'Bot History', icon: History },
+    { path: '/dashboard/downloads', label: 'Downloads', icon: Download },
     { path: '/dashboard/subscriptions', label: 'Subscriptions', icon: Package },
     { path: '/dashboard/settings', label: 'Settings', icon: Settings }
   ];

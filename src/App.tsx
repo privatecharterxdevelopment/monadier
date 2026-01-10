@@ -14,6 +14,7 @@ import LandingPage from './pages/LandingPage';
 import HowItWorksPage from './pages/HowItWorksPage';
 import CardPage from './pages/CardPage';
 import BotTradingPage from './pages/BotTradingPage';
+import ForexPage from './pages/ForexPage';
 import AboutPage from './pages/AboutPage';
 import SupportPage from './pages/SupportPage';
 import LoginPage from './pages/LoginPage';
@@ -75,6 +76,11 @@ function App() {
           <Route path="/trading-bot" element={
             <PageTransition>
               <BotTradingPage />
+            </PageTransition>
+          } />
+          <Route path="/forex" element={
+            <PageTransition>
+              <ForexPage />
             </PageTransition>
           } />
           <Route path="/about" element={

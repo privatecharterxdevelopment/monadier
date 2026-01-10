@@ -1,12 +1,24 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRightIcon, BadgeCheck, Clock, Shield, Bot, History, AlertCircle, Package, Wallet, RefreshCw } from 'lucide-react';
+import { ArrowRightIcon, BadgeCheck, Clock, Shield, Bot, History, AlertCircle, Package, Wallet, RefreshCw, CreditCard, ExternalLink } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import Card from '../../components/ui/Card';
 import { Link } from 'react-router-dom';
 import { useAppKit } from '@reown/appkit/react';
+import { supabase } from '../../lib/supabase';
+
+interface Payment {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  plan_tier: string;
+  billing_cycle: string;
+  stripe_payment_id: string;
+  created_at: string;
+}
 
 const DashboardOverview: React.FC = () => {
   const { profile } = useAuth();
@@ -23,6 +35,35 @@ const DashboardOverview: React.FC = () => {
   const { kycStatus, creditLine, activeSubscription, verifyKYC } = useSubscription();
   const { open } = useAppKit();
   const isSignatureMember = profile?.membership_tier === 'signature';
+
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [loadingPayments, setLoadingPayments] = useState(true);
+
+  // Fetch payment history
+  useEffect(() => {
+    const fetchPayments = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data, error } = await supabase
+            .from('payments')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+          if (!error && data) {
+            setPayments(data);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching payments:', err);
+      } finally {
+        setLoadingPayments(false);
+      }
+    };
+    fetchPayments();
+  }, []);
 
   // Calculate stablecoin balance
   const stablecoinBalance = tokenBalances
@@ -278,6 +319,78 @@ const DashboardOverview: React.FC = () => {
                 >
                   Connect Wallet
                 </button>
+              </div>
+            )}
+          </div>
+        </Card>
+      </motion.div>
+
+      {/* Payment History */}
+      <motion.div variants={itemAnimation} className="mb-6">
+        <Card className="overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-white" />
+              <h3 className="font-medium text-white">Payment History</h3>
+            </div>
+            <Link to="/dashboard/subscriptions" className="text-sm text-gray-400 hover:text-white">
+              View All
+            </Link>
+          </div>
+
+          <div className="p-6">
+            {loadingPayments ? (
+              <div className="text-center py-8">
+                <RefreshCw className="w-6 h-6 text-gray-500 animate-spin mx-auto" />
+              </div>
+            ) : payments.length > 0 ? (
+              <div className="space-y-3">
+                {payments.map((payment) => (
+                  <div
+                    key={payment.id}
+                    className="flex items-center justify-between p-4 bg-background rounded-lg"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        payment.status === 'succeeded' ? 'bg-green-500/10' : 'bg-yellow-500/10'
+                      }`}>
+                        <CreditCard size={18} className={
+                          payment.status === 'succeeded' ? 'text-green-400' : 'text-yellow-400'
+                        } />
+                      </div>
+                      <div>
+                        <p className="text-white font-medium">
+                          {payment.plan_tier.charAt(0).toUpperCase() + payment.plan_tier.slice(1)} Plan
+                        </p>
+                        <p className="text-gray-500 text-sm">
+                          {new Date(payment.created_at).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-white font-medium">
+                        ${(payment.amount / 100).toFixed(2)} {payment.currency.toUpperCase()}
+                      </p>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        payment.status === 'succeeded'
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-yellow-500/20 text-yellow-400'
+                      }`}>
+                        {payment.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <CreditCard className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                <p className="text-gray-400 mb-1">No payments yet</p>
+                <p className="text-gray-500 text-sm">Your payment history will appear here</p>
               </div>
             )}
           </div>

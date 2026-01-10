@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Wallet, Settings, Bot, ArrowRight, CheckCircle, Download, TrendingUp } from 'lucide-react';
+import { Wallet, Settings, Bot, ArrowRight, CheckCircle, Download, TrendingUp, Bitcoin, BarChart3 } from 'lucide-react';
 import Logo from '../components/ui/Logo';
 import CookieConsent from '../components/ui/CookieConsent';
 import DownloadModal from '../components/ui/DownloadModal';
@@ -71,6 +71,9 @@ const HowItWorksPage: React.FC = () => {
               <Link to="/trading-bot" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
                 Bot Trading
               </Link>
+              <Link to="/forex" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+                Forex MT5
+              </Link>
               <Link to="/about" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
                 About
               </Link>
@@ -113,6 +116,95 @@ const HowItWorksPage: React.FC = () => {
               From connecting your wallet to automated trading in minutes. Here's everything you need to know.
             </p>
           </motion.div>
+        </section>
+
+        {/* Trading Type Cards */}
+        <section className="container-custom mb-24">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Crypto Trading Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="relative p-8 md:p-10 rounded-3xl bg-gradient-to-br from-orange-500/10 via-yellow-500/5 to-transparent border border-orange-500/20 overflow-hidden group hover:border-orange-500/40 transition-colors"
+            >
+              <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+              <div className="relative z-10">
+                <div className="w-16 h-16 rounded-2xl bg-orange-500/20 flex items-center justify-center mb-6">
+                  <Bitcoin className="w-8 h-8 text-orange-400" />
+                </div>
+                <h3 className="text-2xl md:text-3xl font-display font-medium text-white mb-4">
+                  Crypto Trading
+                </h3>
+                <p className="text-gray-400 leading-relaxed mb-6">
+                  Trade on decentralized exchanges across multiple blockchains. Connect your wallet and let our AI-powered bot execute trades automatically on Uniswap, PancakeSwap, and more.
+                </p>
+                <ul className="space-y-3 mb-8">
+                  <li className="flex items-center gap-3 text-gray-400 text-sm">
+                    <CheckCircle size={16} className="text-orange-400" />
+                    5 supported networks (ETH, BNB, ARB, Base, Polygon)
+                  </li>
+                  <li className="flex items-center gap-3 text-gray-400 text-sm">
+                    <CheckCircle size={16} className="text-orange-400" />
+                    Non-custodial - you keep your keys
+                  </li>
+                  <li className="flex items-center gap-3 text-gray-400 text-sm">
+                    <CheckCircle size={16} className="text-orange-400" />
+                    DCA, Grid, and custom strategies
+                  </li>
+                </ul>
+                <Link to="/dashboard/trading-bot">
+                  <button className="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-full text-sm font-medium transition-colors inline-flex items-center gap-2">
+                    Start Crypto Trading
+                    <ArrowRight size={14} />
+                  </button>
+                </Link>
+              </div>
+            </motion.div>
+
+            {/* Forex Trading MT5 Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="relative p-8 md:p-10 rounded-3xl bg-gradient-to-br from-blue-500/10 via-cyan-500/5 to-transparent border border-blue-500/20 overflow-hidden group hover:border-blue-500/40 transition-colors"
+            >
+              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+              <div className="relative z-10">
+                <div className="w-16 h-16 rounded-2xl bg-blue-500/20 flex items-center justify-center mb-6">
+                  <BarChart3 className="w-8 h-8 text-blue-400" />
+                </div>
+                <h3 className="text-2xl md:text-3xl font-display font-medium text-white mb-4">
+                  Forex Trading MT5
+                </h3>
+                <p className="text-gray-400 leading-relaxed mb-6">
+                  Professional forex trading with MetaTrader 5 integration. Download our expert advisor (EA) bot and automate your forex strategies on the world's most popular trading platform.
+                </p>
+                <ul className="space-y-3 mb-8">
+                  <li className="flex items-center gap-3 text-gray-400 text-sm">
+                    <CheckCircle size={16} className="text-blue-400" />
+                    MetaTrader 5 Expert Advisor bot
+                  </li>
+                  <li className="flex items-center gap-3 text-gray-400 text-sm">
+                    <CheckCircle size={16} className="text-blue-400" />
+                    Major forex pairs & commodities
+                  </li>
+                  <li className="flex items-center gap-3 text-gray-400 text-sm">
+                    <CheckCircle size={16} className="text-blue-400" />
+                    Personal license key included
+                  </li>
+                </ul>
+                <Link to="/forex">
+                  <button className="px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-sm font-medium transition-colors inline-flex items-center gap-2">
+                    Get MT5 Bot
+                    <ArrowRight size={14} />
+                  </button>
+                </Link>
+              </div>
+            </motion.div>
+          </div>
         </section>
 
         {/* Steps */}

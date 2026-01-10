@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, Lock, Zap, Crown, Rocket, Check, Play, Square, Clock, Users, Wallet, ArrowUp, ArrowDown, ZoomIn, ZoomOut, TrendingUp, TrendingDown, Activity, ExternalLink, RefreshCw, AlertCircle, Loader2, Settings, Pause, TestTube, History, Timer, Bell } from 'lucide-react';
 import { useWeb3, RealSwapResult } from '../../contexts/Web3Context';
@@ -96,6 +97,7 @@ const generateTopPerformerTrade = (pairs: TradingPair[]): TopPerformerTrade => {
 };
 
 const TradingBotPage: React.FC = () => {
+  const navigate = useNavigate();
   const { open } = useAppKit();
   const {
     isConnected,
@@ -155,29 +157,26 @@ const TradingBotPage: React.FC = () => {
       id: 'starter',
       name: 'Starter',
       price: 99,
-      priceToken: '0.05 ETH',
       icon: <Zap className="w-8 h-8" />,
       color: 'from-gray-600 to-gray-700',
-      features: ['Up to $1,000 per trade', 'Basic pairs', '5 trades/day']
+      features: ['25 trades per day', 'Base & Polygon', 'Spot & DCA strategies']
     },
     {
       id: 'pro',
       name: 'Professional',
-      price: 199,
-      priceToken: '0.1 ETH',
+      price: 79,
       icon: <Crown className="w-8 h-8" />,
       color: 'from-gray-400 to-gray-500',
       popular: true,
-      features: ['Up to $5,000 per trade', 'All pairs', '50 trades/day', 'Priority execution']
+      features: ['100 trades per day', 'All chains', 'Grid & DCA strategies', 'Priority support']
     },
     {
       id: 'elite',
       name: 'Elite',
-      price: 699,
-      priceToken: '0.35 ETH',
+      price: 199,
       icon: <Rocket className="w-8 h-8" />,
       color: 'from-white to-gray-300',
-      features: ['Up to $10,000 per trade', 'All pairs', 'Unlimited trades', 'MEV protection']
+      features: ['Unlimited trades', 'All chains', 'All strategies + Arbitrage', 'API access']
     }
   ];
 
@@ -983,8 +982,8 @@ const TradingBotPage: React.FC = () => {
 
   const handlePurchase = (planId: string) => {
     setSelectedPlan(planId);
-    // In real implementation, this would trigger a crypto payment
     setShowPlans(false);
+    navigate('/dashboard/subscriptions');
   };
 
   const getMaxAmount = () => {
@@ -1032,9 +1031,135 @@ const TradingBotPage: React.FC = () => {
 
     const candleWidth = Math.max(4, Math.floor((100 / displayCandles.length) * 8));
 
+    // === CALCULATE INDICATORS FOR VISUAL OVERLAYS ===
+    const closes = displayCandles.map(c => c.close);
+    const highs = displayCandles.map(c => c.high);
+    const lows = displayCandles.map(c => c.low);
+    const currentPrice = closes[closes.length - 1];
+
+    // Moving Averages (calculate for visible candles)
+    const calcSMA = (data: number[], period: number) => {
+      const result: (number | null)[] = [];
+      for (let i = 0; i < data.length; i++) {
+        if (i < period - 1) {
+          result.push(null);
+        } else {
+          const sum = data.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0);
+          result.push(sum / period);
+        }
+      }
+      return result;
+    };
+
+    const sma7 = calcSMA(closes, 7);
+    const sma20 = calcSMA(closes, 20);
+    const sma50 = calcSMA(closes, Math.min(50, closes.length));
+
+    // Bollinger Bands (20 period, 2 std)
+    const bbData = closes.map((_, i) => {
+      if (i < 19) return null;
+      const slice = closes.slice(i - 19, i + 1);
+      const mean = slice.reduce((a, b) => a + b, 0) / 20;
+      const squaredDiffs = slice.map(c => Math.pow(c - mean, 2));
+      const stdDev = Math.sqrt(squaredDiffs.reduce((a, b) => a + b, 0) / 20);
+      return { upper: mean + 2 * stdDev, middle: mean, lower: mean - 2 * stdDev };
+    });
+
+    // Support/Resistance levels
+    const support = Math.min(...lows.slice(-20));
+    const resistance = Math.max(...highs.slice(-20));
+
+    // Calculate real-time RSI (14 period)
+    let chartRsi = 50;
+    if (closes.length >= 15) {
+      let gains = 0, losses = 0;
+      for (let i = closes.length - 14; i < closes.length; i++) {
+        const diff = closes[i] - closes[i - 1];
+        if (diff > 0) gains += diff;
+        else losses += Math.abs(diff);
+      }
+      const avgGain = gains / 14;
+      const avgLoss = losses / 14;
+      const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+      chartRsi = 100 - (100 / (1 + rs));
+    }
+
+    // Calculate real-time MACD
+    const calcEMA = (data: number[], period: number) => {
+      if (data.length < period) return data[data.length - 1];
+      return data.slice(-period).reduce((acc, val, i, arr) => {
+        const multiplier = 2 / (arr.length + 1);
+        return i === 0 ? val : val * multiplier + acc * (1 - multiplier);
+      }, data[data.length - period]);
+    };
+    const chartEma12 = calcEMA(closes, 12);
+    const chartEma26 = calcEMA(closes, 26);
+    const chartMacd = chartEma12 - chartEma26;
+
+    // Volume analysis
+    const volumes = displayCandles.map(c => c.volume);
+    const avgVolume = volumes.slice(-20).reduce((a, b) => a + b, 0) / Math.min(20, volumes.length);
+    const currentVolume = volumes[volumes.length - 1] || 0;
+    const volumeRatio = avgVolume > 0 ? currentVolume / avgVolume : 1;
+
+    // Generate SVG path for indicator line
+    const generatePath = (values: (number | null)[]) => {
+      let path = '';
+      let started = false;
+      values.forEach((val, i) => {
+        if (val === null) return;
+        const x = (i / displayCandles.length) * 100 + (candleWidth / 2) / 10;
+        const y = scaleY(val);
+        if (!started) {
+          path += `M ${x} ${y}`;
+          started = true;
+        } else {
+          path += ` L ${x} ${y}`;
+        }
+      });
+      return path;
+    };
+
+    // Grid strategy levels
+    const gridLevels: number[] = [];
+    if (tradingConfig.strategy === 'grid' && currentPrice > 0) {
+      const spread = (tradingConfig.gridSpreadPercent / 100) * currentPrice;
+      const halfLevels = Math.floor(tradingConfig.gridLevels / 2);
+      for (let i = -halfLevels; i <= halfLevels; i++) {
+        gridLevels.push(currentPrice + i * spread / halfLevels);
+      }
+    }
+
+    // DCA levels
+    const dcaLevels: number[] = [];
+    if (tradingConfig.strategy === 'dca' && currentPrice > 0) {
+      const dropPercents = [0, -2, -5, -10, -15, -20];
+      dropPercents.forEach(pct => {
+        dcaLevels.push(currentPrice * (1 + pct / 100));
+      });
+    }
+
+    // Signal arrows (based on candle patterns)
+    const signalArrows: { idx: number; type: 'buy' | 'sell'; price: number }[] = [];
+    for (let i = 1; i < displayCandles.length; i++) {
+      const curr = displayCandles[i];
+      const prev = displayCandles[i - 1];
+      // Bullish engulfing
+      if (curr.close > curr.open && prev.close < prev.open &&
+          curr.close > prev.open && curr.open < prev.close) {
+        signalArrows.push({ idx: i, type: 'buy', price: curr.low });
+      }
+      // Bearish engulfing
+      if (curr.close < curr.open && prev.close > prev.open &&
+          curr.close < prev.open && curr.open > prev.close) {
+        signalArrows.push({ idx: i, type: 'sell', price: curr.high });
+      }
+    }
+
     return (
       <div className="relative w-full h-full overflow-hidden">
         <svg width="100%" height={chartHeight} className="overflow-visible">
+          {/* Price grid lines */}
           {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
             const price = minPrice - padding + (priceRange + padding * 2) * (1 - ratio);
             const y = ratio * chartHeight;
@@ -1042,12 +1167,124 @@ const TradingBotPage: React.FC = () => {
               <g key={i}>
                 <line x1="0" y1={y} x2="100%" y2={y} stroke="#374151" strokeWidth="0.5" strokeDasharray="4" />
                 <text x="100%" y={y} dx="-4" dy="4" className="text-[10px] fill-gray-500" textAnchor="end">
-                  ${formatPrice(price, 2)}
+                  {`$${formatPrice(price, 2)}`}
                 </text>
               </g>
             );
           })}
 
+          {/* Bollinger Bands - shaded area */}
+          {bbData.filter(b => b !== null).length > 1 && (
+            <g opacity="0.15">
+              <path
+                d={`${generatePath(bbData.map(b => b?.upper ?? null))} ${generatePath(bbData.map(b => b?.lower ?? null).reverse()).replace('M', 'L')} Z`}
+                fill="#a855f7"
+              />
+            </g>
+          )}
+
+          {/* Bollinger Bands - lines */}
+          <path d={generatePath(bbData.map(b => b?.upper ?? null))} fill="none" stroke="#a855f7" strokeWidth="1" strokeDasharray="2,2" opacity="0.5" />
+          <path d={generatePath(bbData.map(b => b?.middle ?? null))} fill="none" stroke="#a855f7" strokeWidth="1" opacity="0.5" />
+          <path d={generatePath(bbData.map(b => b?.lower ?? null))} fill="none" stroke="#a855f7" strokeWidth="1" strokeDasharray="2,2" opacity="0.5" />
+
+          {/* Moving Averages */}
+          <path d={generatePath(sma7)} fill="none" stroke="#f59e0b" strokeWidth="1.5" opacity="0.8" />
+          <path d={generatePath(sma20)} fill="none" stroke="#3b82f6" strokeWidth="1.5" opacity="0.8" />
+          <path d={generatePath(sma50)} fill="none" stroke="#ec4899" strokeWidth="1.5" opacity="0.6" />
+
+          {/* Support/Resistance Lines */}
+          <line x1="0" y1={scaleY(support)} x2="100%" y2={scaleY(support)} stroke="#22c55e" strokeWidth="1" strokeDasharray="8,4" opacity="0.6" />
+          <line x1="0" y1={scaleY(resistance)} x2="100%" y2={scaleY(resistance)} stroke="#ef4444" strokeWidth="1" strokeDasharray="8,4" opacity="0.6" />
+          <rect x="calc(100% - 70px)" y={scaleY(support) - 8} width="65" height="16" fill="#22c55e" rx="2" opacity="0.2" />
+          <text x="calc(100% - 38px)" y={scaleY(support) + 4} className="text-[8px] fill-green-400 font-medium" textAnchor="middle">{`S: $${support.toFixed(0)}`}</text>
+          <rect x="calc(100% - 70px)" y={scaleY(resistance) - 8} width="65" height="16" fill="#ef4444" rx="2" opacity="0.2" />
+          <text x="calc(100% - 38px)" y={scaleY(resistance) + 4} className="text-[8px] fill-red-400 font-medium" textAnchor="middle">{`R: $${resistance.toFixed(0)}`}</text>
+
+          {/* Grid Strategy Lines - Green (buy) below price, Red (sell) above price */}
+          {tradingConfig.strategy === 'grid' && gridLevels.map((level, i) => {
+            const isBuyZone = level < currentPrice;
+            const gridColor = isBuyZone ? '#22c55e' : '#ef4444';
+            const gridLabel = isBuyZone ? 'BUY' : 'SELL';
+            return (
+              <g key={`grid-${i}`} opacity="0.5">
+                <line
+                  x1="0"
+                  y1={scaleY(level)}
+                  x2="100%"
+                  y2={scaleY(level)}
+                  stroke={gridColor}
+                  strokeWidth="1"
+                  strokeDasharray="6,3"
+                />
+                <rect x="4" y={scaleY(level) - 8} width="38" height="16" fill={gridColor} rx="2" opacity="0.3" />
+                <text x="23" y={scaleY(level) + 3} className={`text-[7px] font-bold ${isBuyZone ? 'fill-green-300' : 'fill-red-300'}`} textAnchor="middle">
+                  {gridLabel}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* DCA Strategy Levels */}
+          {tradingConfig.strategy === 'dca' && dcaLevels.map((level, i) => (
+            <g key={`dca-${i}`} opacity="0.5">
+              <line
+                x1="0"
+                y1={scaleY(level)}
+                x2="100%"
+                y2={scaleY(level)}
+                stroke="#8b5cf6"
+                strokeWidth="1.5"
+                strokeDasharray={i === 0 ? "none" : "6,3"}
+              />
+              <rect x="calc(100% - 60px)" y={scaleY(level) - 8} width="55" height="16" fill="#8b5cf6" rx="2" opacity="0.4" />
+              <text x="calc(100% - 32px)" y={scaleY(level) + 3} className="text-[8px] fill-violet-300 font-medium" textAnchor="middle">
+                {i === 0 ? 'Entry' : `DCA ${i}`}
+              </text>
+            </g>
+          ))}
+
+          {/* Arbitrage Strategy - spread indicator */}
+          {tradingConfig.strategy === 'arbitrage' && (
+            <g>
+              <rect x="4" y="4" width="80" height="32" fill="#1f2937" rx="4" stroke="#374151" />
+              <text x="44" y="16" className="text-[9px] fill-gray-400" textAnchor="middle">Arb Spread</text>
+              <text x="44" y="28" className="text-[11px] fill-emerald-400 font-medium" textAnchor="middle">
+                {(Math.random() * tradingConfig.arbitrageMinSpread * 2).toFixed(2)}%
+              </text>
+            </g>
+          )}
+
+          {/* Signal Arrows */}
+          {signalArrows.map((signal, i) => {
+            const x = (signal.idx / displayCandles.length) * 100 + (candleWidth / 2) / 10;
+            const y = scaleY(signal.price);
+            return (
+              <g key={`signal-${i}`}>
+                {signal.type === 'buy' ? (
+                  <>
+                    <polygon
+                      points={`${x - 0.8}%,${y + 20} ${x + 0.8}%,${y + 20} ${x}%,${y + 8}`}
+                      fill="#22c55e"
+                      opacity="0.9"
+                    />
+                    <circle cx={`${x}%`} cy={y + 24} r="3" fill="#22c55e" opacity="0.6" />
+                  </>
+                ) : (
+                  <>
+                    <polygon
+                      points={`${x - 0.8}%,${y - 20} ${x + 0.8}%,${y - 20} ${x}%,${y - 8}`}
+                      fill="#ef4444"
+                      opacity="0.9"
+                    />
+                    <circle cx={`${x}%`} cy={y - 24} r="3" fill="#ef4444" opacity="0.6" />
+                  </>
+                )}
+              </g>
+            );
+          })}
+
+          {/* Candlesticks */}
           {displayCandles.map((candle, idx) => {
             const isGreen = candle.close >= candle.open;
             const x = (idx / displayCandles.length) * 100;
@@ -1100,31 +1337,11 @@ const TradingBotPage: React.FC = () => {
                 rx="4"
               />
               <text x="45" y={scaleY(entryPrice) + 4} className="text-[10px] fill-white font-medium" textAnchor="middle">
-                {strategy?.direction} ${formatPrice(entryPrice, 2)}
+                {`${strategy?.direction} $${formatPrice(entryPrice, 2)}`}
               </text>
             </g>
           )}
 
-          {candles.length > 0 && (
-            <g>
-              <rect
-                x="calc(100% - 75px)"
-                y={scaleY(candles[candles.length - 1].close) - 10}
-                width="70"
-                height="20"
-                fill={candles[candles.length - 1].close >= candles[candles.length - 1].open ? '#22c55e' : '#ef4444'}
-                rx="4"
-              />
-              <text
-                x="calc(100% - 40px)"
-                y={scaleY(candles[candles.length - 1].close) + 4}
-                className="text-[10px] fill-white font-medium"
-                textAnchor="middle"
-              >
-                ${formatPrice(candles[candles.length - 1].close, 2)}
-              </text>
-            </g>
-          )}
         </svg>
 
         <div className="absolute bottom-0 left-0 right-16 h-10 flex items-end gap-[1px] opacity-30">
@@ -1140,6 +1357,50 @@ const TradingBotPage: React.FC = () => {
               />
             );
           })}
+        </div>
+
+        {/* Real-time Indicators Panel */}
+        <div className="absolute top-2 left-2 bg-gray-900/90 backdrop-blur-sm rounded-lg border border-gray-700 p-2 text-[10px]">
+          <div className="grid grid-cols-3 gap-x-3 gap-y-1">
+            {/* RSI */}
+            <div className="flex items-center gap-1">
+              <span className="text-gray-500">RSI</span>
+              <span className={`font-mono font-medium ${chartRsi > 70 ? 'text-red-400' : chartRsi < 30 ? 'text-green-400' : 'text-white'}`}>
+                {chartRsi.toFixed(0)}
+              </span>
+            </div>
+            {/* MACD */}
+            <div className="flex items-center gap-1">
+              <span className="text-gray-500">MACD</span>
+              <span className={`font-mono font-medium ${chartMacd >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {chartMacd >= 0 ? '+' : ''}{chartMacd.toFixed(2)}
+              </span>
+            </div>
+            {/* Volume */}
+            <div className="flex items-center gap-1">
+              <span className="text-gray-500">Vol</span>
+              <span className={`font-mono font-medium ${volumeRatio > 1.5 ? 'text-yellow-400' : 'text-white'}`}>
+                {volumeRatio.toFixed(1)}x
+              </span>
+            </div>
+            {/* SMA7 */}
+            <div className="flex items-center gap-1">
+              <span className="text-amber-500">SMA7</span>
+              <span className="text-white font-mono">{`$${(sma7[sma7.length - 1] || 0).toFixed(0)}`}</span>
+            </div>
+            {/* SMA20 */}
+            <div className="flex items-center gap-1">
+              <span className="text-blue-500">SMA20</span>
+              <span className="text-white font-mono">{`$${(sma20[sma20.length - 1] || 0).toFixed(0)}`}</span>
+            </div>
+            {/* Bollinger */}
+            <div className="flex items-center gap-1">
+              <span className="text-purple-400">BB</span>
+              <span className="text-white font-mono">
+                {bbData[bbData.length - 1] ? `${((currentPrice - (bbData[bbData.length - 1]?.lower || 0)) / ((bbData[bbData.length - 1]?.upper || 1) - (bbData[bbData.length - 1]?.lower || 0)) * 100).toFixed(0)}%` : '-'}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -1163,7 +1424,7 @@ const TradingBotPage: React.FC = () => {
             ))}
           </select>
           <div>
-            <span className="text-2xl font-light text-white">${formatPrice(selectedPair.price, 2)}</span>
+            <span className="text-2xl font-light text-white">{`$${formatPrice(selectedPair.price, 2)}`}</span>
             <span className={`ml-2 text-sm ${selectedPair.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
               {selectedPair.change >= 0 ? '+' : ''}{selectedPair.change.toFixed(2)}%
             </span>
@@ -1198,46 +1459,8 @@ const TradingBotPage: React.FC = () => {
             </div>
           )}
 
-          {/* Wallet Balance */}
-          <div className="flex items-center gap-2 px-4 py-2 bg-card-dark rounded-lg border border-gray-700">
-            <Wallet className="w-4 h-4 text-accent" />
-            {isConnected ? (
-              <div className="flex items-center gap-2">
-                <span className="text-white font-light">${formatPrice(availableBalance, 2)}</span>
-                <button
-                  onClick={() => refreshBalances()}
-                  className="text-gray-500 hover:text-white"
-                  disabled={isLoadingBalances}
-                >
-                  <RefreshCw size={14} className={isLoadingBalances ? 'animate-spin' : ''} />
-                </button>
-              </div>
-            ) : (
-              <span className="text-gray-500">Not connected</span>
-            )}
-          </div>
-
-          {!isConnected && (
-            <button
-              onClick={() => open()}
-              className="px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-lg font-medium transition-colors"
-            >
-              Connect Wallet
-            </button>
-          )}
         </div>
       </div>
-
-      {/* Not Connected Warning */}
-      {!isConnected && (
-        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-yellow-400" />
-          <div>
-            <p className="text-yellow-400 font-medium">Wallet Not Connected</p>
-            <p className="text-gray-400 text-sm">Connect your wallet to start trading with real funds on DEX</p>
-          </div>
-        </div>
-      )}
 
       {/* Network Mismatch Warning */}
       {isConnected && currentChain && tradingConfig.selectedChainId !== currentChain.id && (
@@ -1264,18 +1487,19 @@ const TradingBotPage: React.FC = () => {
         {/* Chart Section */}
         <div className="lg:col-span-3 space-y-4">
           <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <span className="text-white font-medium">Price Chart</span>
-                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                <span className="text-xs text-gray-500">Live</span>
-                {currentChain && (
-                  <span className="px-2 py-0.5 bg-gray-800 text-gray-400 text-xs rounded">
-                    {currentChain.dex.name}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
+            <div className="px-4 py-3 border-b border-gray-800 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <span className="text-white font-medium">Price Chart</span>
+                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  <span className="text-xs text-gray-500">Live</span>
+                  {currentChain && (
+                    <span className="px-2 py-0.5 bg-gray-800 text-gray-400 text-xs rounded">
+                      {currentChain.dex.name}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1 mr-4 bg-gray-800 rounded-lg p-1">
                   <button onClick={() => setZoomLevel(prev => Math.max(prev - 0.25, 0.5))} className="p-1.5 rounded hover:bg-gray-700 text-gray-400 hover:text-white">
                     <ZoomOut size={16} />
@@ -1298,6 +1522,52 @@ const TradingBotPage: React.FC = () => {
                     </button>
                   ))}
                 </div>
+                </div>
+              </div>
+              {/* Chart Legend */}
+              <div className="flex items-center gap-4 flex-wrap text-[10px]">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-0.5 bg-amber-500 rounded" />
+                  <span className="text-gray-400">SMA7</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-0.5 bg-blue-500 rounded" />
+                  <span className="text-gray-400">SMA20</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-0.5 bg-pink-500 rounded" />
+                  <span className="text-gray-400">SMA50</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-0.5 bg-purple-500 rounded" style={{ opacity: 0.5 }} />
+                  <span className="text-gray-400">BB</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-0.5 bg-green-500 rounded" style={{ borderStyle: 'dashed' }} />
+                  <span className="text-gray-400">Support</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-0.5 bg-red-500 rounded" style={{ borderStyle: 'dashed' }} />
+                  <span className="text-gray-400">Resistance</span>
+                </div>
+                {tradingConfig.strategy === 'grid' && (
+                  <>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-0.5 bg-green-500 rounded" />
+                      <span className="text-green-400">Buy Grid</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-0.5 bg-red-500 rounded" />
+                      <span className="text-red-400">Sell Grid</span>
+                    </div>
+                  </>
+                )}
+                {tradingConfig.strategy === 'dca' && (
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-0.5 bg-violet-500 rounded" />
+                    <span className="text-violet-400">DCA</span>
+                  </div>
+                )}
               </div>
             </div>
             <div className="p-4" style={{ height: chartHeight + 40 }}>
@@ -1383,9 +1653,9 @@ const TradingBotPage: React.FC = () => {
                         <td className="px-4 py-2 text-center">
                           <span className="px-2 py-0.5 bg-gray-800 text-gray-400 text-xs rounded">{trade.chain}</span>
                         </td>
-                        <td className="px-4 py-2 text-right text-white font-mono">${trade.amount.toLocaleString()}</td>
+                        <td className="px-4 py-2 text-right text-white font-mono">{`$${trade.amount.toLocaleString()}`}</td>
                         <td className={`px-4 py-2 text-right font-mono ${trade.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {trade.profit >= 0 ? '+' : ''}${trade.profit.toFixed(2)}
+                          {trade.profit >= 0 ? '+' : ''}{`$${trade.profit.toFixed(2)}`}
                         </td>
                       </motion.tr>
                     ))}
@@ -1445,13 +1715,13 @@ const TradingBotPage: React.FC = () => {
                       tradeHistory.reduce((sum, t) => sum + (t.profit || 0), 0) >= 0 ? 'text-green-400' : 'text-red-400'
                     }`}>
                       {tradeHistory.reduce((sum, t) => sum + (t.profit || 0), 0) >= 0 ? '+' : ''}
-                      ${tradeHistory.reduce((sum, t) => sum + (t.profit || 0), 0).toFixed(2)}
+                      {`$${tradeHistory.reduce((sum, t) => sum + (t.profit || 0), 0).toFixed(2)}`}
                     </p>
                   </div>
                   <div className="text-center">
                     <p className="text-gray-500 text-xs">Gas Spent</p>
                     <p className="text-orange-400 font-medium">
-                      ${tradeHistory.reduce((sum, t) => sum + (t.gasCostUsd || 0), 0).toFixed(2)}
+                      {`$${tradeHistory.reduce((sum, t) => sum + (t.gasCostUsd || 0), 0).toFixed(2)}`}
                     </p>
                   </div>
                   <div className="text-center">
@@ -1460,7 +1730,7 @@ const TradingBotPage: React.FC = () => {
                       (tradeHistory.reduce((sum, t) => sum + (t.profit || 0), 0) - tradeHistory.reduce((sum, t) => sum + (t.gasCostUsd || 0), 0)) >= 0
                         ? 'text-green-400' : 'text-red-400'
                     }`}>
-                      ${(tradeHistory.reduce((sum, t) => sum + (t.profit || 0), 0) - tradeHistory.reduce((sum, t) => sum + (t.gasCostUsd || 0), 0)).toFixed(2)}
+                      {`$${(tradeHistory.reduce((sum, t) => sum + (t.profit || 0), 0) - tradeHistory.reduce((sum, t) => sum + (t.gasCostUsd || 0), 0)).toFixed(2)}`}
                     </p>
                   </div>
                 </div>
@@ -1525,15 +1795,15 @@ const TradingBotPage: React.FC = () => {
                                 </span>
                               </td>
                               <td className="px-4 py-2 text-right text-white font-mono text-xs">
-                                ${parseFloat(trade.amountIn).toFixed(2)}
+                                {`$${parseFloat(trade.amountIn).toFixed(2)}`}
                               </td>
                               <td className="px-4 py-2 text-right text-orange-400 font-mono text-xs">
-                                ${(trade.gasCostUsd || 0).toFixed(2)}
+                                {`$${(trade.gasCostUsd || 0).toFixed(2)}`}
                               </td>
                               <td className={`px-4 py-2 text-right font-mono text-xs ${
                                 (trade.profit || 0) >= 0 ? 'text-green-400' : 'text-red-400'
                               }`}>
-                                {(trade.profit || 0) >= 0 ? '+' : ''}${(trade.profit || 0).toFixed(2)}
+                                {(trade.profit || 0) >= 0 ? '+' : ''}{`$${(trade.profit || 0).toFixed(2)}`}
                               </td>
                               <td className={`px-4 py-2 text-right font-mono text-xs ${
                                 roi >= 0 ? 'text-green-400' : 'text-red-400'
@@ -1586,7 +1856,7 @@ const TradingBotPage: React.FC = () => {
               <p className="text-gray-400 text-sm mb-4">Connect your wallet to trade on DEX</p>
               <button
                 onClick={() => open()}
-                className="w-full py-3 bg-accent hover:bg-accent-hover text-white font-medium rounded-lg transition-colors"
+                className="w-full py-3 bg-white/10 hover:bg-white/20 text-white border border-white/20 font-medium rounded-lg transition-colors"
               >
                 Connect Wallet
               </button>
@@ -1602,7 +1872,7 @@ const TradingBotPage: React.FC = () => {
               </div>
               <button
                 onClick={() => setShowPlans(true)}
-                className="w-full py-3 bg-accent hover:bg-accent-hover text-white font-medium rounded-lg transition-colors"
+                className="w-full py-3 bg-white/10 hover:bg-white/20 text-white border border-white/20 font-medium rounded-lg transition-colors"
               >
                 View Plans
               </button>
@@ -1656,7 +1926,7 @@ const TradingBotPage: React.FC = () => {
                         </div>
                       )}
                       <p className="text-gray-500 text-xs">
-                        Interval: {tradingConfig.tradingInterval} | Amount: ${tradeAmount}
+                        Interval: {tradingConfig.tradingInterval} | Amount: {`$${tradeAmount}`}
                       </p>
                     </div>
                   )}
@@ -1706,7 +1976,7 @@ const TradingBotPage: React.FC = () => {
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
                       <span>$10</span>
-                      <span>${getMaxAmount().toLocaleString()}</span>
+                      <span>{`$${getMaxAmount().toLocaleString()}`}</span>
                     </div>
                   </div>
 
@@ -1739,7 +2009,7 @@ const TradingBotPage: React.FC = () => {
                   {/* Quick cost estimate */}
                   {estimatedCosts.gasCostPerTrade > 0 && (
                     <div className="text-center text-xs text-gray-500">
-                      Est. gas: ${estimatedCosts.gasCostPerTrade.toFixed(2)} ({estimatedCosts.gasPercentage.toFixed(1)}% of trade)
+                      {`Est. gas: $${estimatedCosts.gasCostPerTrade.toFixed(2)} (${estimatedCosts.gasPercentage.toFixed(1)}% of trade)`}
                     </div>
                   )}
 
@@ -1780,11 +2050,11 @@ const TradingBotPage: React.FC = () => {
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
                         <p className="text-gray-500 text-xs">Size</p>
-                        <p className="text-white font-medium">${tradeAmount.toLocaleString()}</p>
+                        <p className="text-white font-medium">{`$${tradeAmount.toLocaleString()}`}</p>
                       </div>
                       <div>
                         <p className="text-gray-500 text-xs">Entry</p>
-                        <p className="text-white font-medium">${formatPrice(entryPrice, 2)}</p>
+                        <p className="text-white font-medium">{`$${formatPrice(entryPrice, 2)}`}</p>
                       </div>
                     </div>
 
@@ -1875,6 +2145,24 @@ const TradingBotPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Need Help Support Section */}
+      <div className="mt-6 bg-card-dark rounded-xl border border-gray-800 p-6">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h3 className="text-lg font-semibold text-white mb-1">Need Help?</h3>
+            <p className="text-gray-400 text-sm">
+              Our dedicated support team is available 24/7 to assist you with any trading-related issues.
+            </p>
+          </div>
+          <a
+            href="/support"
+            className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg font-medium transition-colors"
+          >
+            Contact Support
+          </a>
+        </div>
+      </div>
+
       {/* Risk Warning Modal */}
       {showRiskWarning && (
         <motion.div
@@ -1903,7 +2191,7 @@ const TradingBotPage: React.FC = () => {
               <div className="p-3 bg-background rounded-lg">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Gas per trade:</span>
-                  <span className="text-white font-mono">${estimatedCosts.gasCostPerTrade.toFixed(2)}</span>
+                  <span className="text-white font-mono">{`$${estimatedCosts.gasCostPerTrade.toFixed(2)}`}</span>
                 </div>
               </div>
 
@@ -2004,9 +2292,8 @@ const TradingBotPage: React.FC = () => {
 
                   <h3 className="text-xl font-semibold text-white mb-1">{plan.name}</h3>
                   <div className="mb-4">
-                    <span className="text-3xl font-light text-white">${plan.price}</span>
+                    <span className="text-3xl font-light text-white">{`$${plan.price}`}</span>
                     <span className="text-gray-400">/mo</span>
-                    <p className="text-gray-500 text-sm">~{plan.priceToken}</p>
                   </div>
 
                   <ul className="space-y-2 mb-6">

@@ -94,7 +94,7 @@ const SubscriptionsPage: React.FC = () => {
     {
       id: 'starter',
       name: 'Starter',
-      price: 29,
+      price: 99,
       billingCycle: 'monthly' as const,
       icon: <Zap className="w-6 h-6" />,
       features: [
@@ -851,7 +851,7 @@ const SubscriptionsPage: React.FC = () => {
                 {!isConnected ? (
                   <button
                     onClick={() => open()}
-                    className="w-full py-4 bg-accent hover:bg-accent-hover text-white font-medium rounded-lg transition-colors mb-3 flex items-center justify-center gap-2"
+                    className="w-full py-4 bg-white/10 hover:bg-white/20 text-white border border-white/20 font-medium rounded-lg transition-colors mb-3 flex items-center justify-center gap-2"
                   >
                     <Wallet size={18} />
                     Connect Wallet to Pay
