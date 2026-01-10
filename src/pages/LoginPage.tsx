@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -12,9 +12,12 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated } = useAuth();
+
+  const successMessage = (location.state as any)?.message;
 
   React.useEffect(() => {
     if (isAuthenticated) {
@@ -56,7 +59,13 @@ const LoginPage: React.FC = () => {
         >
           <div className="card shadow-lg">
             <h1 className="font-display text-3xl mb-6 text-center">Welcome Back</h1>
-            
+
+            {successMessage && (
+              <div className="mb-6 p-3 bg-success/10 border border-success/30 rounded-md text-success text-sm">
+                {successMessage}
+              </div>
+            )}
+
             {error && (
               <div className="mb-6 p-3 bg-error/10 border border-error/30 rounded-md text-error text-sm">
                 {error}

@@ -30,16 +30,25 @@ const RegisterPage: React.FC = () => {
     }
     
     try {
-      const { error } = await signUp(email, password, fullName, country);
-      
+      const { data, error } = await signUp(email, password, fullName, country);
+
       if (error) {
         throw error;
       }
-      
-      // Redirect directly to dashboard
+
+      // Check if email confirmation is required
+      if (data?.user && !data.session) {
+        // Email confirmation required - show success message
+        setError('');
+        navigate('/login', { state: { message: 'Please check your email to confirm your account before signing in.' } });
+        return;
+      }
+
+      // Redirect directly to dashboard if auto-confirmed
       navigate('/dashboard');
     } catch (error: any) {
-      setError(error.message || 'Failed to create account');
+      console.error('Registration error:', error);
+      setError(error.message || 'Failed to create account. Please try again.');
       setIsLoading(false);
     }
   };

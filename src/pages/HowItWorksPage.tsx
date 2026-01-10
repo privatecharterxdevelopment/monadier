@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Wallet, Settings, Bot, ArrowRight, CheckCircle, Download } from 'lucide-react';
+import { Wallet, Settings, Bot, ArrowRight, CheckCircle, Download, TrendingUp } from 'lucide-react';
 import Logo from '../components/ui/Logo';
 import CookieConsent from '../components/ui/CookieConsent';
 import DownloadModal from '../components/ui/DownloadModal';
