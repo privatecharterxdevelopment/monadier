@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { MapPin, Briefcase, TrendingUp, ArrowRight, Shield, Zap, Globe, Download, Sparkles } from 'lucide-react';
+import { MapPin, ArrowRight, Shield, Zap, Globe, Download, Sparkles } from 'lucide-react';
 import Logo from '../components/ui/Logo';
 import CookieConsent from '../components/ui/CookieConsent';
 import DownloadModal from '../components/ui/DownloadModal';
@@ -68,49 +68,6 @@ const AboutPage: React.FC = () => {
             <p className="text-lg md:text-xl text-gray-400 mb-12 max-w-2xl mx-auto leading-relaxed">
               Making automated crypto trading accessible to everyone — no experience required. Whether you're a complete beginner or seasoned trader, start earning passive income in minutes.
             </p>
-          </motion.div>
-        </section>
-
-        {/* Founder Section */}
-        <section className="container-custom mb-24">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="grid md:grid-cols-2 gap-12 p-8 md:p-12 rounded-3xl bg-white/[0.02] border border-white/5"
-          >
-            <div className="flex flex-col justify-center">
-              <span className="text-xs text-gray-500 uppercase tracking-wider mb-4">Founder</span>
-              <h2 className="text-3xl md:text-4xl font-display font-medium text-white mb-4">
-                Lorenzo Vanza
-              </h2>
-              <p className="text-gray-400 leading-relaxed mb-6">
-                Entrepreneur and crypto enthusiast, Lorenzo founded +Monadier with one clear mission: making professional-grade trading tools accessible to complete beginners. No trading experience? No problem. His goal is enabling anyone — from students to retirees — to generate passive income while travelling, working, or simply living their lives.
-              </p>
-              <p className="text-gray-400 leading-relaxed mb-6">
-                Originally from Lugano and raised in Zurich, Lorenzo brings deep roots in Swiss innovation and precision. His background in cryptocurrency trading and blockchain research shaped the foundation of what +Monadier is today.
-              </p>
-              <div className="flex flex-wrap gap-4">
-                <div className="flex items-center gap-2 text-gray-500 text-sm">
-                  <MapPin size={16} />
-                  <span>Lugano / Zurich, Switzerland</span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-500 text-sm">
-                  <Briefcase size={16} />
-                  <span>Entrepreneur</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-center bg-white/5 rounded-2xl p-12 min-h-[320px]">
-              <div className="text-center">
-                <div className="w-32 h-32 rounded-full bg-white/10 mx-auto mb-6 flex items-center justify-center">
-                  <span className="text-4xl font-display text-white/40">LV</span>
-                </div>
-                <p className="text-white font-medium">Lorenzo Vanza</p>
-                <p className="text-gray-500 text-sm">Founder & CEO</p>
-              </div>
-            </div>
           </motion.div>
         </section>
 
@@ -189,10 +146,9 @@ const AboutPage: React.FC = () => {
               <h2 className="text-3xl md:text-4xl font-display font-medium mb-6">
                 Our vision
               </h2>
-              <p className="text-gray-400 text-lg leading-relaxed mb-12">
+              <p className="text-gray-400 text-lg leading-relaxed">
                 "You don't need to be a trading expert. You don't need to understand charts or technical analysis. With +Monadier, even complete beginners can set up automated trading in minutes. Whether you're travelling, sleeping, or enjoying life — your portfolio keeps working for you."
               </p>
-              <p className="text-gray-500 text-sm">— Lorenzo Vanza, Founder</p>
             </div>
           </motion.div>
         </section>
