@@ -497,28 +497,82 @@ export class VaultClient {
   }
 
   /**
-   * Get user's vault status
+   * Get user's vault status (compatible with V1 and V2)
    */
   async getUserStatus(userAddress: `0x${string}`): Promise<VaultUserStatus> {
-    const [balance, autoTradeOn, riskLevelBps, maxTrade, timeToNextTrade, canTrade] =
-      await this.publicClient.readContract({
-        address: this.vaultAddress,
-        abi: VAULT_ABI,
-        functionName: 'getUserStatus',
-        args: [userAddress]
-      });
+    // Try individual calls first (works on V2)
+    // V2 has public mappings: balances, autoTradeEnabled, userRiskLevel
+    // And view functions: canTradeNow, getMaxTradeSize
+    try {
+      const [balance, autoTradeOn, riskLevelBps, canTrade, maxTrade] = await Promise.all([
+        this.publicClient.readContract({
+          address: this.vaultAddress,
+          abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'balances', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' }] as const,
+          functionName: 'balances',
+          args: [userAddress]
+        }),
+        this.publicClient.readContract({
+          address: this.vaultAddress,
+          abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'autoTradeEnabled', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' }] as const,
+          functionName: 'autoTradeEnabled',
+          args: [userAddress]
+        }),
+        this.publicClient.readContract({
+          address: this.vaultAddress,
+          abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'userRiskLevel', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' }] as const,
+          functionName: 'userRiskLevel',
+          args: [userAddress]
+        }),
+        this.publicClient.readContract({
+          address: this.vaultAddress,
+          abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'canTradeNow', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' }] as const,
+          functionName: 'canTradeNow',
+          args: [userAddress]
+        }),
+        this.publicClient.readContract({
+          address: this.vaultAddress,
+          abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'getMaxTradeSize', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' }] as const,
+          functionName: 'getMaxTradeSize',
+          args: [userAddress]
+        })
+      ]);
 
-    return {
-      balance,
-      balanceFormatted: formatUnits(balance, USDC_DECIMALS),
-      autoTradeEnabled: autoTradeOn,
-      riskLevelBps: Number(riskLevelBps),
-      riskLevelPercent: Number(riskLevelBps) / 100,
-      maxTradeSize: maxTrade,
-      maxTradeSizeFormatted: formatUnits(maxTrade, USDC_DECIMALS),
-      timeToNextTrade: Number(timeToNextTrade),
-      canTrade
-    };
+      // Default risk level is 5% (500 bps) if not set
+      const effectiveRiskBps = Number(riskLevelBps) || 500;
+
+      return {
+        balance,
+        balanceFormatted: formatUnits(balance, USDC_DECIMALS),
+        autoTradeEnabled: autoTradeOn,
+        riskLevelBps: effectiveRiskBps,
+        riskLevelPercent: effectiveRiskBps / 100,
+        maxTradeSize: maxTrade,
+        maxTradeSizeFormatted: formatUnits(maxTrade, USDC_DECIMALS),
+        timeToNextTrade: 0, // V2 doesn't track this per-user externally
+        canTrade
+      };
+    } catch (err) {
+      // Fallback to V1 getUserStatus if individual calls fail
+      const [balance, autoTradeOn, riskLevelBps, maxTrade, timeToNextTrade, canTrade] =
+        await this.publicClient.readContract({
+          address: this.vaultAddress,
+          abi: VAULT_ABI,
+          functionName: 'getUserStatus',
+          args: [userAddress]
+        });
+
+      return {
+        balance,
+        balanceFormatted: formatUnits(balance, USDC_DECIMALS),
+        autoTradeEnabled: autoTradeOn,
+        riskLevelBps: Number(riskLevelBps),
+        riskLevelPercent: Number(riskLevelBps) / 100,
+        maxTradeSize: maxTrade,
+        maxTradeSizeFormatted: formatUnits(maxTrade, USDC_DECIMALS),
+        timeToNextTrade: Number(timeToNextTrade),
+        canTrade
+      };
+    }
   }
 
   /**
