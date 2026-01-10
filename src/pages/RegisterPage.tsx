@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Logo from '../components/ui/Logo';
-import { signUp, signInWithGoogle } from '../lib/supabase';
+import { signUp, signInWithGoogle, sendWelcomeEmail } from '../lib/supabase';
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -46,15 +46,10 @@ const RegisterPage: React.FC = () => {
         throw error;
       }
 
-      // Check if email confirmation is required
-      if (data?.user && !data.session) {
-        // Email confirmation required - show success message
-        setError('');
-        navigate('/login', { state: { message: 'Please check your email to confirm your account before signing in.' } });
-        return;
-      }
+      // Send welcome email (fire and forget)
+      sendWelcomeEmail(email, fullName).catch(console.error);
 
-      // Redirect directly to dashboard if auto-confirmed
+      // Redirect directly to dashboard
       navigate('/dashboard');
     } catch (error: any) {
       console.error('Registration error:', error);

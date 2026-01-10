@@ -46,6 +46,13 @@ export const signInWithGoogle = async () => {
   return { data, error };
 };
 
+export const sendWelcomeEmail = async (email: string, name: string) => {
+  const { data, error } = await supabase.functions.invoke('send-welcome-email', {
+    body: { email, name }
+  });
+  return { data, error };
+};
+
 export const getCurrentUser = async () => {
   const { data: { user } } = await supabase.auth.getUser();
   return user;
