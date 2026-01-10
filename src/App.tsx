@@ -15,11 +15,13 @@ import HowItWorksPage from './pages/HowItWorksPage';
 import CardPage from './pages/CardPage';
 import BotTradingPage from './pages/BotTradingPage';
 import AboutPage from './pages/AboutPage';
+import SupportPage from './pages/SupportPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import KycFlowPage from './pages/KycFlowPage';
 import DashboardPage from './pages/DashboardPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import SupportWidget from './components/ui/SupportWidget';
 
 function App() {
   const { isLoading } = useAuth();
@@ -43,9 +45,16 @@ function App() {
     return <LicenseActivation onActivated={() => setLicenseActivated(true)} />;
   }
 
+  // Show support widget on public pages only
+  const showSupportWidget = !location.pathname.startsWith('/dashboard') &&
+    !location.pathname.startsWith('/login') &&
+    !location.pathname.startsWith('/register') &&
+    !location.pathname.startsWith('/kyc');
+
   return (
     <>
       <ScrollToTop />
+      {showSupportWidget && <SupportWidget />}
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={
@@ -71,6 +80,11 @@ function App() {
           <Route path="/about" element={
             <PageTransition>
               <AboutPage />
+            </PageTransition>
+          } />
+          <Route path="/support" element={
+            <PageTransition>
+              <SupportPage />
             </PageTransition>
           } />
           <Route path="/login" element={
