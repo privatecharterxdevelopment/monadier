@@ -124,7 +124,7 @@ const DEFAULT_CONFIG: TradingConfig = {
   strategy: 'spot',
   tradingInterval: '1h',
   slippagePercent: 0.5,
-  maxPositionPercent: 25,
+  maxPositionPercent: 100, // Allow full balance by default
   maxDailyLossPercent: 10,
   maxGasPercent: 5,
   // Take Profit & Stop Loss

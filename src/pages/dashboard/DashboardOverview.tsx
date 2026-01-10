@@ -32,9 +32,14 @@ const DashboardOverview: React.FC = () => {
     isLoadingBalances,
     refreshBalances
   } = useWeb3();
-  const { kycStatus, creditLine, activeSubscription, verifyKYC } = useSubscription();
+  const { kycStatus, creditLine, activeSubscription, verifyKYC, planTier, isSubscribed, dailyTradesRemaining } = useSubscription();
   const { open } = useAppKit();
-  const isSignatureMember = profile?.membership_tier === 'signature';
+
+  // Get membership display name based on subscription tier
+  const getMembershipName = () => {
+    if (!planTier || planTier === 'free') return 'Free';
+    return planTier.charAt(0).toUpperCase() + planTier.slice(1);
+  };
 
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loadingPayments, setLoadingPayments] = useState(true);
@@ -191,18 +196,20 @@ const DashboardOverview: React.FC = () => {
               </div>
               <div>
                 <h3 className="font-display text-xl mb-1">
-                  {activeSubscription ? activeSubscription.name : (isSignatureMember ? 'Signature' : 'Essential')} Member
+                  {getMembershipName()} Member
                 </h3>
                 <p className="text-gray-500 text-sm mb-4">
-                  {activeSubscription
-                    ? `${activeSubscription.tier.charAt(0).toUpperCase() + activeSubscription.tier.slice(1)} tier benefits`
-                    : (isSignatureMember
-                      ? 'Exclusive benefits & priority service'
-                      : 'Core benefits & credit line access')}
+                  {planTier === 'elite' || planTier === 'desktop'
+                    ? 'Unlimited trades & all features'
+                    : planTier === 'pro'
+                      ? '100 trades/day & auto-trading'
+                      : planTier === 'starter'
+                        ? '25 trades/day & real trading'
+                        : '5 paper trades/day'}
                 </p>
 
                 <Link to="/dashboard/subscriptions" className="flex items-center text-white text-sm hover:text-white-hover">
-                  <span>View benefits</span>
+                  <span>{isSubscribed ? 'Manage plan' : 'Upgrade now'}</span>
                   <ArrowRightIcon size={14} className="ml-1" />
                 </Link>
               </div>
@@ -258,19 +265,38 @@ const DashboardOverview: React.FC = () => {
               {/* Active Subscription */}
               <div className="flex space-x-4">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  activeSubscription ? 'bg-white/5' : 'bg-gray-500/10'
+                  isSubscribed ? 'bg-green-500/10' : 'bg-gray-500/10'
                 }`}>
-                  <Package size={16} className={activeSubscription ? 'text-white' : 'text-gray-500'} />
+                  <Package size={16} className={isSubscribed ? 'text-green-400' : 'text-gray-500'} />
                 </div>
                 <div>
                   <h4 className="font-medium text-sm text-white">Subscription</h4>
                   <p className="text-gray-500 text-xs">
-                    {activeSubscription
-                      ? `${activeSubscription.name} - Active`
-                      : 'No active plan'}
+                    {isSubscribed && planTier
+                      ? `${getMembershipName()} - Active`
+                      : planTier === 'free'
+                        ? 'Free tier (paper trading)'
+                        : 'No active plan'}
                   </p>
                 </div>
               </div>
+
+              {/* Daily Trades Remaining */}
+              {planTier && (
+                <div className="flex space-x-4 mt-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/5">
+                    <Bot size={16} className="text-white" />
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-sm text-white">Daily Trades</h4>
+                    <p className="text-gray-500 text-xs">
+                      {dailyTradesRemaining === -1
+                        ? 'Unlimited'
+                        : `${dailyTradesRemaining} remaining today`}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
         </motion.div>
@@ -480,9 +506,9 @@ const DashboardOverview: React.FC = () => {
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <div className={`w-2 h-2 rounded-full ${activeSubscription ? 'bg-green-400' : 'bg-gray-500'}`}></div>
+                <div className={`w-2 h-2 rounded-full ${isSubscribed || planTier === 'free' ? 'bg-green-400' : 'bg-gray-500'}`}></div>
                 <span className="text-gray-400 text-sm">
-                  {activeSubscription ? 'Bot License Active' : 'Subscribe for Bot'}
+                  {isSubscribed ? `${getMembershipName()} Plan Active` : planTier === 'free' ? 'Free Plan (Paper Trading)' : 'Subscribe for Bot'}
                 </span>
               </div>
               <div className="flex items-center gap-3">

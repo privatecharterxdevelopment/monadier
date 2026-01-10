@@ -7,8 +7,11 @@ import Button from '../ui/Button';
 import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 
 const DashboardHeader: React.FC = () => {
-  const { profile } = useAuth();
-  const { kycStatus, verifyKYC } = useSubscription();
+  const { profile, user } = useAuth();
+  const { kycStatus, verifyKYC, planTier, isSubscribed } = useSubscription();
+
+  // Get display name - prefer full_name, then email username, then fallback
+  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Member';
   const { notifications, unreadCount, markAsRead, markAllAsRead, clearNotifications } = useNotifications();
   const { open } = useAppKit();
   const { address, isConnected } = useAppKitAccount();
@@ -48,7 +51,7 @@ const DashboardHeader: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="font-display text-2xl text-white">
-            Welcome, {profile?.full_name || 'Member'}
+            Welcome, {displayName}
           </h1>
           <p className="text-gray-500 text-sm">
             {new Date().toLocaleDateString('en-US', {
@@ -183,12 +186,15 @@ const DashboardHeader: React.FC = () => {
 
           <div className="flex items-center space-x-3 cursor-pointer hover:bg-white/5 px-3 py-2 rounded-lg transition-colors">
             <div className="w-9 h-9 bg-white/10 rounded-full flex items-center justify-center text-white font-medium">
-              {profile?.full_name?.charAt(0) || 'M'}
+              {displayName.charAt(0).toUpperCase()}
             </div>
             <div className="hidden md:block">
-              <p className="text-sm font-medium text-white">{profile?.full_name || 'Monadier User'}</p>
+              <p className="text-sm font-medium text-white">{displayName}</p>
               <p className="text-xs text-gray-500">
-                {profile?.membership_tier === 'signature' ? 'Signature Member' : 'Essential Member'}
+                {planTier === 'elite' || planTier === 'desktop' ? 'Elite Member' :
+                 planTier === 'pro' ? 'Pro Member' :
+                 planTier === 'starter' ? 'Starter Member' :
+                 'Free Member'}
               </p>
             </div>
             <ChevronDown size={16} className="text-gray-500" />

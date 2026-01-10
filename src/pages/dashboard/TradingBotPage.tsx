@@ -112,13 +112,13 @@ const TradingBotPage: React.FC = () => {
     executeRealSwap,
     dexRouter
   } = useWeb3();
-  const { activeSubscription } = useSubscription();
+  const { activeSubscription, isSubscribed, planTier, dailyTradesRemaining, subscription } = useSubscription();
   const { addNotification } = useNotifications();
 
   const [showPlans, setShowPlans] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [botActive, setBotActive] = useState(false);
-  const [tradeAmount, setTradeAmount] = useState(100);
+  const [tradeAmount, setTradeAmount] = useState(50);
   const [pairs, setPairs] = useState<TradingPair[]>(tradingPairs);
   const [selectedPair, setSelectedPair] = useState<TradingPair>(tradingPairs[0]);
   const [candles, setCandles] = useState<Candle[]>([]);
@@ -149,14 +149,16 @@ const TradingBotPage: React.FC = () => {
   const [showRiskWarning, setShowRiskWarning] = useState(false);
   const [sessionTradeCount, setSessionTradeCount] = useState(0);
   const [pendingReopen, setPendingReopen] = useState(false);
+  const [turboMode, setTurboMode] = useState(false);
 
-  const MIN_TRADE_TIME = 15 * 60;
+  // Minimum trade time - very short for aggressive trading
+  const MIN_TRADE_TIME = turboMode ? 3 : 30; // 3 seconds in turbo, 30 seconds normal
 
   const planTiers = [
     {
       id: 'starter',
       name: 'Starter',
-      price: 99,
+      price: 19,
       icon: <Zap className="w-8 h-8" />,
       color: 'from-gray-600 to-gray-700',
       features: ['25 trades per day', 'Base & Polygon', 'Spot & DCA strategies']
@@ -198,6 +200,10 @@ const TradingBotPage: React.FC = () => {
     const lows = recentCandles.map(c => c.low);
     const volumes = recentCandles.map(c => c.volume);
     const currentPrice = closes[closes.length - 1];
+
+    // Timeframe-specific weights - shorter timeframes need more responsive signals
+    const isShortTimeframe = timeframe === '1m' || timeframe === '5m';
+    const momentumWeight = isShortTimeframe ? 25 : 10; // More weight to recent price action on short TF
 
     // === MOVING AVERAGES ===
     const sma7 = closes.slice(-7).reduce((a, b) => a + b, 0) / 7;
@@ -374,6 +380,66 @@ const TradingBotPage: React.FC = () => {
       bearishScore += 15;
     }
 
+    // === RECENT CANDLE MOMENTUM (CRITICAL for short timeframes) ===
+    // On 1m/5m charts, recent price action should DOMINATE the signal
+    const last3Candles = recentCandles.slice(-3);
+    const last5Candles = recentCandles.slice(-5);
+    const bullishCandles3 = last3Candles.filter(c => c.close > c.open).length;
+    const bearishCandles3 = last3Candles.filter(c => c.close < c.open).length;
+    const bullishCandles5 = last5Candles.filter(c => c.close > c.open).length;
+    const bearishCandles5 = last5Candles.filter(c => c.close < c.open).length;
+
+    // Calculate momentum over last 3 and 5 candles
+    const momentum3 = ((closes[closes.length - 1] - closes[closes.length - 3]) / closes[closes.length - 3]) * 100;
+    const momentum5 = ((closes[closes.length - 1] - closes[closes.length - 5]) / closes[closes.length - 5]) * 100;
+
+    // Last candle direction (most recent)
+    const lastCandleBullish = lastCandle.close > lastCandle.open;
+    const lastCandleStrength = Math.abs((lastCandle.close - lastCandle.open) / lastCandle.open) * 100;
+
+    // === 1M CHART OVERRIDE: Recent momentum is KING ===
+    if (isShortTimeframe) {
+      // Strong bullish momentum - 3 green candles going up
+      if (bullishCandles3 >= 2 && momentum3 > 0.05 && lastCandleBullish) {
+        const overrideWeight = 50; // Very high weight to override other signals
+        indicators.push('🚀 Bullish Momentum');
+        reasons.push(`Price rising: ${bullishCandles3}/3 green candles (+${momentum3.toFixed(2)}%)`);
+        bullishScore += overrideWeight;
+      }
+      // Strong bearish momentum - 3 red candles going down
+      else if (bearishCandles3 >= 2 && momentum3 < -0.05 && !lastCandleBullish) {
+        const overrideWeight = 50;
+        indicators.push('📉 Bearish Momentum');
+        reasons.push(`Price falling: ${bearishCandles3}/3 red candles (${momentum3.toFixed(2)}%)`);
+        bearishScore += overrideWeight;
+      }
+      // Medium bullish - price going up
+      else if (momentum3 > 0.03 && lastCandleBullish) {
+        bullishScore += 30;
+        indicators.push('↗️ Rising');
+      }
+      // Medium bearish - price going down
+      else if (momentum3 < -0.03 && !lastCandleBullish) {
+        bearishScore += 30;
+        indicators.push('↘️ Falling');
+      }
+    } else {
+      // Longer timeframes: standard momentum scoring
+      if (bullishCandles5 >= 4 && momentum5 > 0) {
+        indicators.push('Strong Momentum Up');
+        reasons.push(`${bullishCandles5}/5 recent candles bullish (+${momentum5.toFixed(2)}%)`);
+        bullishScore += momentumWeight;
+      } else if (bearishCandles5 >= 4 && momentum5 < 0) {
+        indicators.push('Strong Momentum Down');
+        reasons.push(`${bearishCandles5}/5 recent candles bearish (${momentum5.toFixed(2)}%)`);
+        bearishScore += momentumWeight;
+      } else if (bullishCandles5 >= 3 && momentum5 > 0.5) {
+        bullishScore += Math.floor(momentumWeight * 0.6);
+      } else if (bearishCandles5 >= 3 && momentum5 < -0.5) {
+        bearishScore += Math.floor(momentumWeight * 0.6);
+      }
+    }
+
     // Price momentum
     if (priceChange1h > 1) {
       reasons.push(`+${priceChange1h.toFixed(1)}% in last 1h - strong upward momentum`);
@@ -418,7 +484,7 @@ const TradingBotPage: React.FC = () => {
         bearishScore
       }
     };
-  }, [candles]);
+  }, [candles, timeframe]);
 
   // Fetch candles
   const fetchCandles = async (symbol: string, interval: string) => {
@@ -586,7 +652,7 @@ const TradingBotPage: React.FC = () => {
       tradingConfig.botMode === 'auto' &&
       tradingConfig.autoTradeEnabled &&
       isConnected &&
-      activeSubscription &&
+      (isSubscribed || planTier === 'free') &&
       !botActive &&
       analyzeMarket
     ) {
@@ -616,7 +682,8 @@ const TradingBotPage: React.FC = () => {
     tradingConfig.autoTradeEnabled,
     tradingConfig.tradingInterval,
     isConnected,
-    activeSubscription,
+    isSubscribed,
+    planTier,
     botActive
   ]);
 
@@ -661,15 +728,28 @@ const TradingBotPage: React.FC = () => {
     return getChainById(currentChain.id);
   }, [currentChain]);
 
+  // Sync tradingConfig with wallet's current chain when connected
+  useEffect(() => {
+    if (isConnected && currentChain && currentChain.id !== tradingConfig.selectedChainId) {
+      // Check if the wallet's chain is supported
+      const isSupported = getAllChains(tradingConfig.useTestnet).some(c => c.id === currentChain.id);
+      if (isSupported) {
+        setTradingConfig(prev => ({ ...prev, selectedChainId: currentChain.id }));
+      }
+    }
+  }, [isConnected, currentChain?.id]);
+
   useEffect(() => {
     const interval = setInterval(fetchPrices, 5000);
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch candles - faster in turbo mode for real-time decisions
   useEffect(() => {
-    const interval = setInterval(() => fetchCandles(selectedPair.binanceSymbol, timeframe), 10000);
+    const refreshRate = turboMode && botActive ? 2000 : 10000; // 2s in turbo, 10s normal
+    const interval = setInterval(() => fetchCandles(selectedPair.binanceSymbol, timeframe), refreshRate);
     return () => clearInterval(interval);
-  }, [selectedPair.binanceSymbol, timeframe]);
+  }, [selectedPair.binanceSymbol, timeframe, turboMode, botActive]);
 
   useEffect(() => {
     const addTrade = () => {
@@ -696,9 +776,9 @@ const TradingBotPage: React.FC = () => {
     setCurrentPnL(tradeAmount * (priceChange / 100));
   }, [candles, botActive, entryPrice, tradeAmount, selectedPair.price, strategy]);
 
-  // Auto-close on Take Profit or Stop Loss
+  // AUTO-CLOSE LOGIC - AI decides when to close for WINNING trades
   useEffect(() => {
-    if (!botActive || !activeTrade || entryPrice === 0 || timeRemaining > 0 || isExecuting) return;
+    if (!botActive || !activeTrade || entryPrice === 0 || isExecuting) return;
 
     const currentPrice = candles[candles.length - 1]?.close || selectedPair.price;
     let priceChangePercent: number;
@@ -708,58 +788,134 @@ const TradingBotPage: React.FC = () => {
       priceChangePercent = ((entryPrice - currentPrice) / entryPrice) * 100;
     }
 
-    // Check Take Profit
-    if (tradingConfig.takeProfitEnabled && priceChangePercent >= tradingConfig.takeProfitPercent) {
-      console.log(`Take Profit triggered at ${priceChangePercent.toFixed(2)}%`);
-      addNotification({
-        type: 'take_profit',
-        title: 'Take Profit Triggered',
-        message: `${selectedPair.symbol} hit +${priceChangePercent.toFixed(1)}% target. Auto-closing position.`,
-        data: { profit: currentPnL, pair: selectedPair.symbol }
-      });
-      setPendingReopen(tradingConfig.autoReopenEnabled);
-      handleStopBot();
-      return;
+    const isInProfit = priceChangePercent > 0;
+    const minWinPercent = tradingConfig.takeProfitPercent || 0.1; // Minimum win target
+
+    // === TURBO MODE: AI-DRIVEN WIN-ONLY CLOSING ===
+    if (turboMode) {
+      // PRIORITY 1: Close in profit when we hit minimum win target
+      if (isInProfit && priceChangePercent >= minWinPercent) {
+        console.log(`✅ WIN: Closing at +${priceChangePercent.toFixed(3)}% profit`);
+        addNotification({
+          type: 'take_profit',
+          title: 'Win Locked In',
+          message: `${selectedPair.symbol} +${priceChangePercent.toFixed(2)}% profit secured!`,
+          data: { profit: currentPnL, pair: selectedPair.symbol }
+        });
+        setPendingReopen(true);
+        handleStopBot();
+        return;
+      }
+
+      // PRIORITY 2: Close in ANY profit if signal is flipping against us
+      if (isInProfit && priceChangePercent > 0.01 && analyzeMarket && strategy) {
+        const signalFlipping = analyzeMarket.direction !== strategy.direction;
+        const momentumWeakening =
+          (strategy.direction === 'LONG' && analyzeMarket.scores && analyzeMarket.scores.bearishScore > analyzeMarket.scores.bullishScore) ||
+          (strategy.direction === 'SHORT' && analyzeMarket.scores && analyzeMarket.scores.bullishScore > analyzeMarket.scores.bearishScore);
+
+        if (signalFlipping || momentumWeakening) {
+          console.log(`🔄 Securing profit before reversal: +${priceChangePercent.toFixed(3)}%`);
+          addNotification({
+            type: 'take_profit',
+            title: 'Profit Secured',
+            message: `${selectedPair.symbol} +${priceChangePercent.toFixed(2)}% - closed before signal flip`,
+            data: { profit: currentPnL, pair: selectedPair.symbol }
+          });
+          setPendingReopen(true);
+          handleStopBot();
+          return;
+        }
+      }
+
+      // PRIORITY 3: EMERGENCY STOP LOSS - only if loss exceeds max allowed
+      const maxLossPercent = tradingConfig.stopLossPercent || 2;
+      if (priceChangePercent <= -maxLossPercent) {
+        console.log(`🛑 EMERGENCY: Max loss hit at ${priceChangePercent.toFixed(2)}%`);
+        addNotification({
+          type: 'stop_loss',
+          title: 'Emergency Stop',
+          message: `${selectedPair.symbol} hit -${maxLossPercent}% emergency stop`,
+          data: { profit: currentPnL, pair: selectedPair.symbol }
+        });
+        setPendingReopen(true);
+        handleStopBot();
+        return;
+      }
+
+      // If in loss but not at emergency stop - HOLD and wait for recovery
+      if (!isInProfit) {
+        // Just waiting for price to recover...
+        return;
+      }
     }
 
-    // Check Stop Loss
-    if (tradingConfig.stopLossEnabled && priceChangePercent <= -tradingConfig.stopLossPercent) {
-      console.log(`Stop Loss triggered at ${priceChangePercent.toFixed(2)}%`);
-      addNotification({
-        type: 'stop_loss',
-        title: 'Stop Loss Triggered',
-        message: `${selectedPair.symbol} hit ${priceChangePercent.toFixed(1)}% stop. Auto-closing position.`,
-        data: { profit: currentPnL, pair: selectedPair.symbol }
-      });
-      setPendingReopen(tradingConfig.autoReopenEnabled && tradingConfig.autoReopenOnLoss);
-      handleStopBot();
-      return;
-    }
-  }, [currentPnL, botActive, activeTrade, entryPrice, timeRemaining, isExecuting, tradingConfig, candles, selectedPair.price, strategy]);
+    // === NORMAL MODE: Standard TP/SL logic ===
+    if (!turboMode && timeRemaining <= 0) {
+      // Check Take Profit
+      if (tradingConfig.takeProfitEnabled && priceChangePercent >= tradingConfig.takeProfitPercent) {
+        console.log(`🎯 Take Profit triggered at ${priceChangePercent.toFixed(2)}%`);
+        addNotification({
+          type: 'take_profit',
+          title: 'Take Profit Triggered',
+          message: `${selectedPair.symbol} hit +${priceChangePercent.toFixed(1)}% target.`,
+          data: { profit: currentPnL, pair: selectedPair.symbol }
+        });
+        setPendingReopen(tradingConfig.autoReopenEnabled);
+        handleStopBot();
+        return;
+      }
 
-  // Auto-reopen after closing in profit
+      // Check Stop Loss
+      if (tradingConfig.stopLossEnabled && priceChangePercent <= -tradingConfig.stopLossPercent) {
+        console.log(`🛑 Stop Loss triggered at ${priceChangePercent.toFixed(2)}%`);
+        addNotification({
+          type: 'stop_loss',
+          title: 'Stop Loss Triggered',
+          message: `${selectedPair.symbol} hit ${priceChangePercent.toFixed(1)}% stop.`,
+          data: { profit: currentPnL, pair: selectedPair.symbol }
+        });
+        setPendingReopen(tradingConfig.autoReopenEnabled && tradingConfig.autoReopenOnLoss);
+        handleStopBot();
+        return;
+      }
+    }
+  }, [currentPnL, botActive, activeTrade, entryPrice, timeRemaining, isExecuting, tradingConfig, candles, selectedPair.price, strategy, turboMode, analyzeMarket]);
+
+  // Auto-reopen after closing - INSTANT in turbo mode
   useEffect(() => {
     if (!pendingReopen || botActive || isExecuting) return;
 
-    // Check if we've hit max trades for session
-    if (tradingConfig.maxTradesPerSession > 0 && sessionTradeCount >= tradingConfig.maxTradesPerSession) {
+    // Check if we've hit max trades for session (skip check in turbo mode with 0 limit)
+    if (!turboMode && tradingConfig.maxTradesPerSession > 0 && sessionTradeCount >= tradingConfig.maxTradesPerSession) {
       console.log('Max trades per session reached, not reopening');
       setPendingReopen(false);
       return;
     }
 
-    // Wait for a good signal before reopening
-    if (analyzeMarket && analyzeMarket.confidence >= 60) {
-      console.log('Auto-reopening trade...');
+    // Turbo mode: reopen immediately with ANY signal
+    if (turboMode && analyzeMarket) {
+      console.log(`⚡ TURBO: Reopening ${analyzeMarket.direction} trade immediately`);
       setPendingReopen(false);
-      // Small delay before reopening
       setTimeout(() => {
         if (!botActive && !isExecuting) {
           handleStartBot();
         }
-      }, 2000);
+      }, 100); // Near instant - just 100ms delay
+      return;
     }
-  }, [pendingReopen, botActive, isExecuting, analyzeMarket, sessionTradeCount, tradingConfig.maxTradesPerSession]);
+
+    // Normal mode: Wait for a good signal before reopening
+    if (analyzeMarket && analyzeMarket.confidence >= 60) {
+      console.log('Auto-reopening trade...');
+      setPendingReopen(false);
+      setTimeout(() => {
+        if (!botActive && !isExecuting) {
+          handleStartBot();
+        }
+      }, 1000); // 1 second delay in normal mode
+    }
+  }, [pendingReopen, botActive, isExecuting, analyzeMarket, sessionTradeCount, tradingConfig.maxTradesPerSession, turboMode]);
 
   // Timer
   useEffect(() => {
@@ -777,7 +933,8 @@ const TradingBotPage: React.FC = () => {
       return;
     }
 
-    if (!activeSubscription) {
+    // Check subscription - allow if subscribed OR free tier (paper trading)
+    if (!isSubscribed && planTier !== 'free') {
       setShowPlans(true);
       return;
     }
@@ -987,11 +1144,13 @@ const TradingBotPage: React.FC = () => {
   };
 
   const getMaxAmount = () => {
-    if (!activeSubscription) return 0;
-    switch (activeSubscription.tier) {
+    if (!planTier) return 0;
+    switch (planTier) {
+      case 'free': return Math.min(100, availableBalance); // Paper trading limit
       case 'starter': return Math.min(1000, availableBalance);
       case 'pro': return Math.min(5000, availableBalance);
-      case 'elite': return Math.min(10000, availableBalance);
+      case 'elite':
+      case 'desktop': return Math.min(50000, availableBalance);
       default: return Math.min(1000, availableBalance);
     }
   };
@@ -1173,25 +1332,7 @@ const TradingBotPage: React.FC = () => {
             );
           })}
 
-          {/* Bollinger Bands - shaded area */}
-          {bbData.filter(b => b !== null).length > 1 && (
-            <g opacity="0.15">
-              <path
-                d={`${generatePath(bbData.map(b => b?.upper ?? null))} ${generatePath(bbData.map(b => b?.lower ?? null).reverse()).replace('M', 'L')} Z`}
-                fill="#a855f7"
-              />
-            </g>
-          )}
-
-          {/* Bollinger Bands - lines */}
-          <path d={generatePath(bbData.map(b => b?.upper ?? null))} fill="none" stroke="#a855f7" strokeWidth="1" strokeDasharray="2,2" opacity="0.5" />
-          <path d={generatePath(bbData.map(b => b?.middle ?? null))} fill="none" stroke="#a855f7" strokeWidth="1" opacity="0.5" />
-          <path d={generatePath(bbData.map(b => b?.lower ?? null))} fill="none" stroke="#a855f7" strokeWidth="1" strokeDasharray="2,2" opacity="0.5" />
-
-          {/* Moving Averages */}
-          <path d={generatePath(sma7)} fill="none" stroke="#f59e0b" strokeWidth="1.5" opacity="0.8" />
-          <path d={generatePath(sma20)} fill="none" stroke="#3b82f6" strokeWidth="1.5" opacity="0.8" />
-          <path d={generatePath(sma50)} fill="none" stroke="#ec4899" strokeWidth="1.5" opacity="0.6" />
+          {/* Technical indicator lines removed for cleaner chart view */}
 
           {/* Support/Resistance Lines */}
           <line x1="0" y1={scaleY(support)} x2="100%" y2={scaleY(support)} stroke="#22c55e" strokeWidth="1" strokeDasharray="8,4" opacity="0.6" />
@@ -1360,7 +1501,7 @@ const TradingBotPage: React.FC = () => {
         </div>
 
         {/* Real-time Indicators Panel */}
-        <div className="absolute top-3 right-3 bg-black/80 backdrop-blur-md rounded-xl border border-gray-700/50 p-3 text-xs z-10 shadow-lg">
+        <div className="absolute top-3 left-3 bg-black/80 backdrop-blur-md rounded-xl border border-gray-700/50 p-3 text-xs z-10 shadow-lg">
           <div className="grid grid-cols-2 gap-x-4 gap-y-2">
             {/* RSI */}
             <div className="flex items-center justify-between gap-2 min-w-[80px]">
@@ -1389,16 +1530,6 @@ const TradingBotPage: React.FC = () => {
               <span className="text-white font-mono font-semibold">
                 {bbData[bbData.length - 1] ? `${((currentPrice - (bbData[bbData.length - 1]?.lower || 0)) / ((bbData[bbData.length - 1]?.upper || 1) - (bbData[bbData.length - 1]?.lower || 0)) * 100).toFixed(0)}%` : '-'}
               </span>
-            </div>
-            {/* SMA7 */}
-            <div className="flex items-center justify-between gap-2 min-w-[80px]">
-              <span className="text-amber-400 text-[11px]">SMA7</span>
-              <span className="text-white font-mono font-semibold">${(sma7[sma7.length - 1] || 0).toFixed(0)}</span>
-            </div>
-            {/* SMA20 */}
-            <div className="flex items-center justify-between gap-2 min-w-[80px]">
-              <span className="text-blue-400 text-[11px]">SMA20</span>
-              <span className="text-white font-mono font-semibold">${(sma20[sma20.length - 1] || 0).toFixed(0)}</span>
             </div>
           </div>
         </div>
@@ -1526,22 +1657,6 @@ const TradingBotPage: React.FC = () => {
               </div>
               {/* Chart Legend */}
               <div className="flex items-center gap-4 flex-wrap text-[10px]">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-0.5 bg-amber-500 rounded" />
-                  <span className="text-gray-400">SMA7</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-0.5 bg-blue-500 rounded" />
-                  <span className="text-gray-400">SMA20</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-0.5 bg-pink-500 rounded" />
-                  <span className="text-gray-400">SMA50</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-0.5 bg-purple-500 rounded" style={{ opacity: 0.5 }} />
-                  <span className="text-gray-400">BB</span>
-                </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-0.5 bg-green-500 rounded" style={{ borderStyle: 'dashed' }} />
                   <span className="text-gray-400">Support</span>
@@ -1861,7 +1976,7 @@ const TradingBotPage: React.FC = () => {
                 Connect Wallet
               </button>
             </div>
-          ) : !activeSubscription ? (
+          ) : !isSubscribed && planTier !== 'free' ? (
             <div className="bg-card-dark rounded-xl border border-gray-800 p-6">
               <div className="text-center mb-6">
                 <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
@@ -1881,8 +1996,36 @@ const TradingBotPage: React.FC = () => {
             <div className="bg-card-dark rounded-xl border border-gray-800 p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-white">Trade</h3>
-                <span className="px-2 py-1 bg-white/10 text-accent text-xs rounded">{activeSubscription.tier}</span>
+                <span className={`px-2 py-1 text-xs rounded ${
+                  planTier === 'elite' || planTier === 'desktop' ? 'bg-purple-500/20 text-purple-400' :
+                  planTier === 'pro' ? 'bg-blue-500/20 text-blue-400' :
+                  planTier === 'starter' ? 'bg-green-500/20 text-green-400' :
+                  'bg-gray-500/20 text-gray-400'
+                }`}>
+                  {planTier?.toUpperCase() || 'FREE'}
+                </span>
               </div>
+
+              {/* Daily Trades Status */}
+              <div className="flex items-center justify-between p-2 bg-background rounded-lg">
+                <span className="text-gray-400 text-sm">Daily Trades</span>
+                <span className={`text-sm font-medium ${
+                  dailyTradesRemaining === -1 ? 'text-green-400' :
+                  dailyTradesRemaining > 5 ? 'text-white' :
+                  dailyTradesRemaining > 0 ? 'text-yellow-400' : 'text-red-400'
+                }`}>
+                  {dailyTradesRemaining === -1 ? 'Unlimited' :
+                   `${subscription?.dailyTradesUsed || 0} used / ${dailyTradesRemaining + (subscription?.dailyTradesUsed || 0)} limit`}
+                </span>
+              </div>
+
+              {/* Paper Trading Warning for Free Tier */}
+              {planTier === 'free' && (
+                <div className="flex items-center gap-2 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                  <AlertCircle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                  <span className="text-yellow-400 text-xs">Paper trading only. Upgrade to trade with real funds.</span>
+                </div>
+              )}
 
               {!botActive ? (
                 <>
@@ -1917,7 +2060,35 @@ const TradingBotPage: React.FC = () => {
                           }`} />
                         </button>
                       </div>
-                      {tradingConfig.autoTradeEnabled && (
+
+                      {/* TURBO MODE - Non-stop aggressive trading */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-yellow-400" />
+                          <span className="text-yellow-400 text-sm font-medium">Turbo Mode</span>
+                        </div>
+                        <button
+                          onClick={() => setTurboMode(!turboMode)}
+                          className={`w-12 h-6 rounded-full transition-colors ${
+                            turboMode ? 'bg-yellow-500' : 'bg-gray-600'
+                          }`}
+                        >
+                          <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                            turboMode ? 'translate-x-6' : 'translate-x-0.5'
+                          }`} />
+                        </button>
+                      </div>
+
+                      {turboMode && (
+                        <div className="p-2 bg-yellow-500/10 border border-yellow-500/20 rounded text-xs text-yellow-400">
+                          <p className="font-medium">⚡ WIN-ONLY MODE ACTIVE</p>
+                          <p className="text-yellow-400/80 mt-1">
+                            AI closes ONLY in profit • Holds through dips • Locks wins instantly • Non-stop trading
+                          </p>
+                        </div>
+                      )}
+
+                      {tradingConfig.autoTradeEnabled && !turboMode && (
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-gray-400">Next trade in:</span>
                           <span className="text-accent font-mono">
@@ -1926,7 +2097,7 @@ const TradingBotPage: React.FC = () => {
                         </div>
                       )}
                       <p className="text-gray-500 text-xs">
-                        Interval: {tradingConfig.tradingInterval} | Amount: {`$${tradeAmount}`}
+                        {turboMode ? 'Non-stop trading' : `Interval: ${tradingConfig.tradingInterval}`} | Amount: {`$${tradeAmount}`}
                       </p>
                     </div>
                   )}
@@ -1961,14 +2132,14 @@ const TradingBotPage: React.FC = () => {
                     <input
                       type="number"
                       value={tradeAmount}
-                      onChange={(e) => setTradeAmount(Math.min(Math.max(Number(e.target.value), 10), getMaxAmount()))}
-                      min={10}
+                      onChange={(e) => setTradeAmount(Math.min(Math.max(Number(e.target.value), 5), getMaxAmount()))}
+                      min={5}
                       max={getMaxAmount()}
                       className="w-full bg-background border border-gray-700 rounded-lg px-3 py-2 text-white"
                     />
                     <input
                       type="range"
-                      min={10}
+                      min={5}
                       max={getMaxAmount() || 1000}
                       value={tradeAmount}
                       onChange={(e) => setTradeAmount(Number(e.target.value))}

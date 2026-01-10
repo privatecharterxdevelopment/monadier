@@ -152,27 +152,6 @@ export const SOLANA_CONFIG = {
 // Testnet chains
 export const TESTNET_CHAINS: ChainConfig[] = [
   {
-    id: 11155111,
-    name: 'Sepolia Testnet',
-    shortName: 'SEP',
-    nativeCurrency: { name: 'Sepolia ETH', symbol: 'ETH', decimals: 18 },
-    rpcUrl: 'https://rpc.sepolia.org',
-    blockExplorer: 'https://sepolia.etherscan.io',
-    icon: '/chains/ethereum.svg',
-    dex: {
-      name: 'Uniswap V2 (Testnet)',
-      routerAddress: '0xC532a74256D3Db42D0Bf7a0400fEFDbad7694008',
-      factoryAddress: '0x7E0987E5b3a30e3f2828572Bb659A548460a3003',
-      type: 'uniswap-v2'
-    },
-    tokens: {
-      usdt: '0x7169D38820dfd117C3FA1f22a697dBA58d90BA06',
-      usdc: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
-      weth: '0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9',
-      wnative: '0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9'
-    }
-  },
-  {
     id: 97,
     name: 'BSC Testnet',
     shortName: 'tBSC',
@@ -201,7 +180,6 @@ export const CHAIN_GAS_ESTIMATES: Record<number, { swapGas: number; approveGas: 
   42161: { swapGas: 500000, approveGas: 100000, avgGasPrice: 0.1 }, // Arbitrum - very cheap
   8453: { swapGas: 150000, approveGas: 46000, avgGasPrice: 0.05 }, // Base - very cheap
   137: { swapGas: 200000, approveGas: 50000, avgGasPrice: 50 }, // Polygon - cheap in MATIC
-  11155111: { swapGas: 150000, approveGas: 46000, avgGasPrice: 10 }, // Sepolia testnet
   97: { swapGas: 150000, approveGas: 46000, avgGasPrice: 10 } // BSC testnet
 };
 

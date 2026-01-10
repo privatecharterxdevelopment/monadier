@@ -128,7 +128,7 @@ const SubscriptionsPage: React.FC = () => {
     {
       id: 'starter',
       name: 'Starter',
-      price: 99,
+      price: 19,
       billingCycle: 'monthly' as const,
       icon: <Zap className="w-6 h-6" />,
       features: [
