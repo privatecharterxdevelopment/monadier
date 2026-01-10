@@ -15,6 +15,7 @@ export interface Position {
   highest_price: number;
   trailing_stop_price: number | null;
   trailing_stop_percent: number;
+  stop_activated: boolean; // NEW: Only true once in profit
   exit_price: number | null;
   exit_amount: number | null;
   exit_tx_hash: string | null;
@@ -26,6 +27,9 @@ export interface Position {
   updated_at: string;
   closed_at: string | null;
 }
+
+// Minimum profit % before trailing stop activates
+const PROFIT_THRESHOLD_PERCENT = 1.0; // 1% profit required before stop activates
 
 export class PositionService {
   private supabase: SupabaseClient;
@@ -39,6 +43,7 @@ export class PositionService {
 
   /**
    * Open a new position
+   * Trailing stop is NOT active until position is in profit
    */
   async openPosition(params: {
     walletAddress: string;
@@ -52,7 +57,6 @@ export class PositionService {
     trailingStopPercent?: number;
   }): Promise<Position | null> {
     const trailingStopPercent = params.trailingStopPercent || 1.0; // Default 1%
-    const trailingStopPrice = params.entryPrice * (1 - trailingStopPercent / 100);
 
     try {
       const { data, error } = await this.supabase
@@ -67,8 +71,9 @@ export class PositionService {
           token_amount: params.tokenAmount,
           entry_tx_hash: params.txHash,
           highest_price: params.entryPrice,
-          trailing_stop_price: trailingStopPrice,
+          trailing_stop_price: null, // NO STOP until in profit
           trailing_stop_percent: trailingStopPercent,
+          stop_activated: false, // Not active yet
           status: 'open'
         })
         .select()
@@ -79,12 +84,12 @@ export class PositionService {
         return null;
       }
 
-      logger.info('Position opened', {
+      logger.info('Position opened (PROFIT-ONLY mode)', {
         id: data.id,
         wallet: params.walletAddress,
         token: params.tokenSymbol,
         entryPrice: params.entryPrice,
-        trailingStop: trailingStopPrice
+        stopActivatesAt: `+${PROFIT_THRESHOLD_PERCENT}% profit`
       });
 
       return data;
@@ -152,7 +157,9 @@ export class PositionService {
   }
 
   /**
-   * Update trailing stop when price goes higher
+   * Update trailing stop - PROFIT-ONLY logic
+   * Stop only activates once price is above entry + threshold
+   * Once activated, stop is always at least at entry price (break-even)
    */
   async updateTrailingStop(positionId: string, currentPrice: number): Promise<Position | null> {
     try {
@@ -168,21 +175,73 @@ export class PositionService {
         return null;
       }
 
-      // Only update if current price is higher than highest
-      if (currentPrice <= position.highest_price) {
+      const entryPrice = position.entry_price;
+      const profitPercent = ((currentPrice - entryPrice) / entryPrice) * 100;
+      const isInProfit = profitPercent >= PROFIT_THRESHOLD_PERCENT;
+
+      // If not yet in profit threshold, don't update anything - just hold
+      if (!isInProfit && !position.stop_activated) {
+        logger.debug('Position not yet in profit, holding...', {
+          positionId,
+          entryPrice,
+          currentPrice,
+          profitPercent: profitPercent.toFixed(2) + '%',
+          needsProfit: PROFIT_THRESHOLD_PERCENT + '%'
+        });
         return position;
       }
 
       // Calculate new trailing stop
-      const newTrailingStop = currentPrice * (1 - position.trailing_stop_percent / 100);
+      // Once in profit, stop is MAX(entry_price, current_price - trailing%)
+      // This ensures we NEVER close below entry once activated
+      const trailingStop = currentPrice * (1 - position.trailing_stop_percent / 100);
+      const newTrailingStop = Math.max(entryPrice, trailingStop);
+
+      // Only update if this is a new high OR first activation
+      const shouldUpdate = currentPrice > position.highest_price || !position.stop_activated;
+
+      if (!shouldUpdate) {
+        return position;
+      }
+
+      const updateData: any = {
+        updated_at: new Date().toISOString()
+      };
+
+      // First time activation
+      if (!position.stop_activated && isInProfit) {
+        updateData.stop_activated = true;
+        updateData.trailing_stop_price = newTrailingStop;
+        updateData.highest_price = currentPrice;
+
+        logger.info('🎯 TRAILING STOP ACTIVATED (in profit!)', {
+          positionId,
+          token: position.token_symbol,
+          entryPrice,
+          currentPrice,
+          profitPercent: profitPercent.toFixed(2) + '%',
+          trailingStop: newTrailingStop,
+          guaranteedProfit: ((newTrailingStop - entryPrice) / entryPrice * 100).toFixed(2) + '%'
+        });
+      }
+      // Already activated, update to new high
+      else if (position.stop_activated && currentPrice > position.highest_price) {
+        updateData.highest_price = currentPrice;
+        updateData.trailing_stop_price = newTrailingStop;
+
+        logger.info('📈 Trailing stop moved up (locking more profit)', {
+          positionId,
+          token: position.token_symbol,
+          oldHigh: position.highest_price,
+          newHigh: currentPrice,
+          newStop: newTrailingStop,
+          profitLocked: ((newTrailingStop - entryPrice) / entryPrice * 100).toFixed(2) + '%'
+        });
+      }
 
       const { data, error } = await this.supabase
         .from('positions')
-        .update({
-          highest_price: currentPrice,
-          trailing_stop_price: newTrailingStop,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', positionId)
         .select()
         .single();
@@ -192,13 +251,6 @@ export class PositionService {
         return null;
       }
 
-      logger.info('Trailing stop updated', {
-        positionId,
-        newHighest: currentPrice,
-        newStop: newTrailingStop,
-        profitLocked: ((newTrailingStop - position.entry_price) / position.entry_price * 100).toFixed(2) + '%'
-      });
-
       return data;
     } catch (err) {
       logger.error('Error updating trailing stop', { error: err });
@@ -207,11 +259,49 @@ export class PositionService {
   }
 
   /**
-   * Check if position should be closed (price hit trailing stop)
+   * Check if position should be closed
+   * ONLY closes if:
+   * 1. Stop is activated (position was in profit)
+   * 2. Price dropped to trailing stop
+   * 3. Trailing stop is at or above entry (guaranteed profit/break-even)
    */
   shouldClose(position: Position, currentPrice: number): boolean {
-    if (!position.trailing_stop_price) return false;
-    return currentPrice <= position.trailing_stop_price;
+    // Stop not activated = NEVER close (hold through dips)
+    if (!position.stop_activated || !position.trailing_stop_price) {
+      return false;
+    }
+
+    // Only close if price hit the trailing stop
+    if (currentPrice <= position.trailing_stop_price) {
+      // Double-check we're closing at profit or break-even
+      const wouldBeProfit = position.trailing_stop_price >= position.entry_price;
+      if (!wouldBeProfit) {
+        logger.warn('Stop triggered but would be a loss - NOT closing', {
+          positionId: position.id,
+          entryPrice: position.entry_price,
+          stopPrice: position.trailing_stop_price,
+          currentPrice
+        });
+        return false;
+      }
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if position is currently in profit
+   */
+  isInProfit(position: Position, currentPrice: number): boolean {
+    return currentPrice > position.entry_price;
+  }
+
+  /**
+   * Get current profit percentage
+   */
+  getProfitPercent(position: Position, currentPrice: number): number {
+    return ((currentPrice - position.entry_price) / position.entry_price) * 100;
   }
 
   /**
@@ -262,11 +352,13 @@ export class PositionService {
         return null;
       }
 
-      logger.info('Position closed', {
+      const emoji = profitLoss >= 0 ? '✅' : '❌';
+      logger.info(`${emoji} Position closed`, {
         positionId: params.positionId,
+        token: position.token_symbol,
         entryPrice: position.entry_price,
         exitPrice: params.exitPrice,
-        profitLoss: profitLoss.toFixed(2),
+        profitLoss: `$${profitLoss.toFixed(2)}`,
         profitLossPercent: profitLossPercent.toFixed(2) + '%',
         closeReason: params.closeReason
       });

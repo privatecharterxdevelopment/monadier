@@ -241,6 +241,51 @@ export async function analyzeMarket(
   const hasLongUpperWick = upperWick > lastCandleBody * 2;
   const hasLongLowerWick = lowerWick > lastCandleBody * 2;
 
+  // === REJECTION + REVERSAL PATTERNS ===
+
+  // Hammer (bullish reversal at support)
+  const isHammer = hasLongLowerWick &&
+    upperWick < lastCandleBody * 0.5 &&
+    lowerWick > lastCandleBody * 2 &&
+    nearSupport;
+
+  // Shooting Star (bearish reversal at resistance)
+  const isShootingStar = hasLongUpperWick &&
+    lowerWick < lastCandleBody * 0.5 &&
+    upperWick > lastCandleBody * 2 &&
+    nearResistance;
+
+  // Doji at key level (indecision, potential reversal)
+  const isDoji = lastCandleBody < lastCandleRange * 0.1;
+  const isDojiatSupport = isDoji && nearSupport;
+  const isDojiatResistance = isDoji && nearResistance;
+
+  // Double bottom detection (bullish reversal)
+  const last20Lows = lows.slice(-20);
+  const minLow = Math.min(...last20Lows);
+  const secondMinIndex = last20Lows.findIndex((l, i) => i > 5 && Math.abs(l - minLow) / minLow < 0.01);
+  const hasDoubleBottom = secondMinIndex > 0 && nearSupport;
+
+  // Support rejection (price touched support and bounced)
+  const touchedSupport = lastCandle.low <= recentLow * 1.005; // Within 0.5% of support
+  const bouncedFromSupport = touchedSupport && lastCandleIsBullish && lastCandle.close > lastCandle.open;
+  const supportRejection = bouncedFromSupport || (nearSupport && hasLongLowerWick);
+
+  // Resistance rejection (price touched resistance and rejected)
+  const touchedResistance = lastCandle.high >= recentHigh * 0.995; // Within 0.5% of resistance
+  const rejectedFromResistance = touchedResistance && lastCandleIsBearish && lastCandle.close < lastCandle.open;
+  const resistanceRejection = rejectedFromResistance || (nearResistance && hasLongUpperWick);
+
+  // Bullish reversal combo: RSI oversold + support rejection + bullish candle
+  const bullishReversalSignal = (rsi < 35 || rsiRising) &&
+    (supportRejection || isHammer || isBullishEngulfing || hasDoubleBottom) &&
+    (lastCandleIsBullish || hasLongLowerWick);
+
+  // Bearish reversal combo: RSI overbought + resistance rejection + bearish candle
+  const bearishReversalSignal = (rsi > 65 || rsiFalling) &&
+    (resistanceRejection || isShootingStar || isBearishEngulfing) &&
+    (lastCandleIsBearish || hasLongUpperWick);
+
   // Large candle detection
   const recentBodies = recentCandles.slice(-10).map(c => Math.abs(c.close - c.open));
   const avgBodySize = recentBodies.reduce((a, b) => a + b, 0) / recentBodies.length;
@@ -274,25 +319,27 @@ export async function analyzeMarket(
 
   // === MULTI-FACTOR SCORING ===
 
-  // SHORT CONDITIONS (6 factors)
+  // SHORT CONDITIONS (7 factors - added reversal)
   const shortConditions = {
     rsiOverbought: rsi > 70 || (rsi > 60 && rsiFalling),
     macdBearish: macd < -0.5 || (macdCrossunder && Math.abs(macd) > 0.2),
     volumeConfirmed: isHighVolume && priceChange1h < 0,
     priceRejectedResistance: nearResistance && (isBearishEngulfing || hasLongUpperWick),
     lowerHighsForming: isFormingLowerHighs,
-    immediateBearish: immediateBearishMomentum
+    immediateBearish: immediateBearishMomentum,
+    bearishReversal: bearishReversalSignal // NEW: Full reversal pattern
   };
   const shortConditionsMet = Object.values(shortConditions).filter(Boolean).length;
 
-  // LONG CONDITIONS (6 factors)
+  // LONG CONDITIONS (7 factors - added reversal)
   const longConditions = {
     rsiOversold: rsi < 30 || (rsi < 40 && rsiRising),
     macdBullish: macd > 0.5 || (macdCrossover && Math.abs(macd) > 0.2),
     volumeConfirmed: isHighVolume && priceChange1h > 0,
     priceBouncingSupport: nearSupport && (isBullishEngulfing || hasLongLowerWick),
     higherLowsForming: isFormingHigherLows,
-    immediateBullish: immediateBullishMomentum
+    immediateBullish: immediateBullishMomentum,
+    bullishReversal: bullishReversalSignal // NEW: Full reversal pattern
   };
   const longConditionsMet = Object.values(longConditions).filter(Boolean).length;
 
@@ -350,7 +397,28 @@ export async function analyzeMarket(
   if (volumeRatio < 1.2) baseConfidence -= 20;
   else if (volumeRatio >= 1.5) baseConfidence += 5;
 
-  const confidence = Math.max(20, Math.min(95, baseConfidence - confidencePenalty));
+  // REVERSAL SIGNAL BOOST: Strong reversal patterns get extra confidence
+  let reversalBoost = 0;
+  if (direction === 'LONG' && bullishReversalSignal) {
+    reversalBoost = 15;
+    logger.info('🔄 BULLISH REVERSAL detected!', {
+      supportRejection,
+      isHammer,
+      isBullishEngulfing,
+      hasDoubleBottom,
+      rsi: rsi.toFixed(0)
+    });
+  } else if (direction === 'SHORT' && bearishReversalSignal) {
+    reversalBoost = 15;
+    logger.info('🔄 BEARISH REVERSAL detected!', {
+      resistanceRejection,
+      isShootingStar,
+      isBearishEngulfing,
+      rsi: rsi.toFixed(0)
+    });
+  }
+
+  const confidence = Math.max(20, Math.min(95, baseConfidence - confidencePenalty + reversalBoost));
 
   // Risk/Reward
   const distanceToResistance = ((recentHigh - currentPrice) / currentPrice) * 100;
@@ -364,18 +432,23 @@ export async function analyzeMarket(
   const reasons: string[] = [];
 
   if (direction === 'LONG') {
+    if (conditions.bullishReversal) reasons.push('Bullish reversal at support');
     if (conditions.rsiOversold) reasons.push(`RSI at ${rsi.toFixed(0)} - oversold`);
     if (conditions.macdBullish) reasons.push('MACD bullish');
     if (conditions.volumeConfirmed) reasons.push(`Volume ${volumeRatio.toFixed(1)}x with buying`);
     if (conditions.higherLowsForming) reasons.push('Higher lows forming');
+    if (isHammer) reasons.push('Hammer candle');
+    if (hasDoubleBottom) reasons.push('Double bottom');
   } else {
+    if (conditions.bearishReversal) reasons.push('Bearish reversal at resistance');
     if (conditions.rsiOverbought) reasons.push(`RSI at ${rsi.toFixed(0)} - overbought`);
     if (conditions.macdBearish) reasons.push('MACD bearish');
     if (conditions.volumeConfirmed) reasons.push(`Volume ${volumeRatio.toFixed(1)}x with selling`);
     if (conditions.lowerHighsForming) reasons.push('Lower highs forming');
+    if (isShootingStar) reasons.push('Shooting star candle');
   }
 
-  const reason = reasons.slice(0, 3).join('. ') || `${direction} signal with ${conditionsMet}/6 conditions`;
+  const reason = reasons.slice(0, 3).join('. ') || `${direction} signal with ${conditionsMet}/7 conditions`;
 
   logger.info('Market analysis complete', {
     symbol,
