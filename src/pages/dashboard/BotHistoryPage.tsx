@@ -4,6 +4,21 @@ import { History, TrendingUp, TrendingDown, Users, Trophy, Zap, Crown, Rocket, E
 import { supabase } from '../../lib/supabase';
 import { useAccount } from 'wagmi';
 
+// Legacy trade format (from localStorage)
+interface LegacyTrade {
+  id: string;
+  type: 'buy' | 'sell';
+  tokenIn: string;
+  tokenOut: string;
+  amountIn: string;
+  amountOut: string;
+  profit?: number;
+  chainName: string;
+  gasCostUsd?: number;
+  timestamp: number;
+  blockExplorerUrl?: string;
+}
+
 interface Position {
   id: string;
   wallet_address: string;
@@ -33,8 +48,9 @@ interface Position {
 
 const BotHistoryPage: React.FC = () => {
   const { address } = useAccount();
-  const [activeTab, setActiveTab] = useState<'open' | 'closed' | 'all'>('open');
+  const [activeTab, setActiveTab] = useState<'open' | 'closed' | 'legacy' | 'all'>('open');
   const [positions, setPositions] = useState<Position[]>([]);
+  const [legacyTrades, setLegacyTrades] = useState<LegacyTrade[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalProfit: 0,
@@ -42,6 +58,19 @@ const BotHistoryPage: React.FC = () => {
     totalTrades: 0,
     openPositions: 0
   });
+
+  // Load legacy trades from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('tradeHistory');
+    if (saved) {
+      try {
+        const trades = JSON.parse(saved) as LegacyTrade[];
+        setLegacyTrades(trades);
+      } catch {
+        setLegacyTrades([]);
+      }
+    }
+  }, []);
 
   const fetchPositions = async () => {
     if (!address) return;
@@ -232,6 +261,17 @@ const BotHistoryPage: React.FC = () => {
           Closed
         </button>
         <button
+          onClick={() => setActiveTab('legacy')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-all ${
+            activeTab === 'legacy'
+              ? 'bg-white text-gray-900'
+              : 'text-secondary hover:text-white'
+          }`}
+        >
+          <Zap size={18} />
+          Previous ({legacyTrades.length})
+        </button>
+        <button
           onClick={() => setActiveTab('all')}
           className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-all ${
             activeTab === 'all'
@@ -259,7 +299,94 @@ const BotHistoryPage: React.FC = () => {
 
         {/* Body */}
         <div className="max-h-[500px] overflow-y-auto">
-          {loading ? (
+          {/* Legacy Trades Tab */}
+          {activeTab === 'legacy' ? (
+            legacyTrades.length === 0 ? (
+              <div className="py-12 text-center">
+                <History className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                <p className="text-secondary">No previous trades</p>
+              </div>
+            ) : (
+              <AnimatePresence>
+                {legacyTrades.map((trade, index) => {
+                  const profit = trade.profit || 0;
+                  const isProfit = profit >= 0;
+
+                  return (
+                    <motion.div
+                      key={trade.id}
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="grid grid-cols-8 gap-4 px-4 py-3 border-b border-gray-800 hover:bg-surface-hover transition-colors items-center"
+                    >
+                      {/* Token */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-medium">{trade.tokenIn}/{trade.tokenOut}</span>
+                      </div>
+
+                      {/* Direction */}
+                      <div>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          trade.type === 'buy'
+                            ? 'bg-green-500/20 text-green-400'
+                            : 'bg-red-500/20 text-red-400'
+                        }`}>
+                          {trade.type.toUpperCase()}
+                        </span>
+                      </div>
+
+                      {/* Amount In */}
+                      <div className="text-white font-mono text-sm">
+                        {trade.amountIn}
+                      </div>
+
+                      {/* Amount Out */}
+                      <div className="text-white font-mono text-sm">
+                        {trade.amountOut}
+                      </div>
+
+                      {/* Chain */}
+                      <div className="text-secondary text-sm">
+                        {trade.chainName}
+                      </div>
+
+                      {/* P/L */}
+                      <div className={`flex items-center gap-1 font-mono text-sm ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
+                        {isProfit ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                        <div>
+                          {isProfit ? '+' : ''}${profit.toFixed(2)}
+                        </div>
+                      </div>
+
+                      {/* Gas */}
+                      <div className="text-secondary text-sm">
+                        Gas: ${(trade.gasCostUsd || 0).toFixed(2)}
+                      </div>
+
+                      {/* Date + Link */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-secondary text-sm">
+                          {new Date(trade.timestamp).toLocaleString()}
+                        </span>
+                        {trade.blockExplorerUrl && (
+                          <a
+                            href={trade.blockExplorerUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-400 hover:text-blue-300"
+                          >
+                            <ExternalLink size={14} />
+                          </a>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            )
+          ) : loading ? (
             <div className="py-12 text-center">
               <RefreshCw className="w-8 h-8 text-gray-600 mx-auto mb-3 animate-spin" />
               <p className="text-secondary">Loading positions...</p>
