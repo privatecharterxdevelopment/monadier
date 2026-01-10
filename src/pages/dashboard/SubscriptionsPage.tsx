@@ -338,7 +338,7 @@ const SubscriptionsPage: React.FC = () => {
             onClick={() => setSelectedTab(tab.id as typeof selectedTab)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               selectedTab === tab.id
-                ? 'bg-accent text-white'
+                ? 'bg-white text-gray-900'
                 : 'text-gray-400 hover:text-white hover:bg-gray-800'
             }`}
           >

@@ -189,19 +189,35 @@ const TradingBotPage: React.FC = () => {
     return stables.reduce((sum, t) => sum + parseFloat(t.balance), 0);
   }, [tokenBalances]);
 
-  // Analyze market
+  // Analyze market with multiple indicators
   const analyzeMarket = useMemo(() => {
-    if (candles.length < 20) return null;
+    if (candles.length < 50) return null;
 
-    const recentCandles = candles.slice(-20);
+    const recentCandles = candles.slice(-50);
     const closes = recentCandles.map(c => c.close);
+    const highs = recentCandles.map(c => c.high);
+    const lows = recentCandles.map(c => c.low);
+    const volumes = recentCandles.map(c => c.volume);
+    const currentPrice = closes[closes.length - 1];
 
-    const sma5 = closes.slice(-5).reduce((a, b) => a + b, 0) / 5;
-    const sma10 = closes.slice(-10).reduce((a, b) => a + b, 0) / 10;
-    const sma20 = closes.reduce((a, b) => a + b, 0) / 20;
+    // === MOVING AVERAGES ===
+    const sma7 = closes.slice(-7).reduce((a, b) => a + b, 0) / 7;
+    const sma20 = closes.slice(-20).reduce((a, b) => a + b, 0) / 20;
+    const sma50 = closes.reduce((a, b) => a + b, 0) / 50;
 
+    // EMA calculation
+    const ema12 = closes.slice(-12).reduce((acc, val, i, arr) => {
+      const multiplier = 2 / (arr.length + 1);
+      return i === 0 ? val : val * multiplier + acc * (1 - multiplier);
+    }, closes[closes.length - 12]);
+    const ema26 = closes.slice(-26).reduce((acc, val, i, arr) => {
+      const multiplier = 2 / (arr.length + 1);
+      return i === 0 ? val : val * multiplier + acc * (1 - multiplier);
+    }, closes[closes.length - 26]);
+
+    // === RSI (14 period) ===
     let gains = 0, losses = 0;
-    for (let i = 1; i < closes.length; i++) {
+    for (let i = closes.length - 14; i < closes.length; i++) {
       const diff = closes[i] - closes[i - 1];
       if (diff > 0) gains += diff;
       else losses += Math.abs(diff);
@@ -211,48 +227,197 @@ const TradingBotPage: React.FC = () => {
     const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
     const rsi = 100 - (100 / (1 + rs));
 
-    const bullishCandles = recentCandles.filter(c => c.close > c.open).length;
-    const bearishCandles = recentCandles.filter(c => c.close < c.open).length;
+    // === MACD ===
+    const macd = ema12 - ema26;
+    const prevEma12 = closes.slice(-13, -1).reduce((acc, val, i, arr) => {
+      const multiplier = 2 / (arr.length + 1);
+      return i === 0 ? val : val * multiplier + acc * (1 - multiplier);
+    }, closes[closes.length - 13]);
+    const prevEma26 = closes.slice(-27, -1).reduce((acc, val, i, arr) => {
+      const multiplier = 2 / (arr.length + 1);
+      return i === 0 ? val : val * multiplier + acc * (1 - multiplier);
+    }, closes[closes.length - 27]);
+    const prevMacd = prevEma12 - prevEma26;
+    const macdCrossover = macd > 0 && prevMacd <= 0;
+    const macdCrossunder = macd < 0 && prevMacd >= 0;
 
+    // === BOLLINGER BANDS (20 period, 2 std) ===
+    const sma20Bb = closes.slice(-20).reduce((a, b) => a + b, 0) / 20;
+    const squaredDiffs = closes.slice(-20).map(c => Math.pow(c - sma20Bb, 2));
+    const stdDev = Math.sqrt(squaredDiffs.reduce((a, b) => a + b, 0) / 20);
+    const upperBand = sma20Bb + (2 * stdDev);
+    const lowerBand = sma20Bb - (2 * stdDev);
+    const bbPosition = (currentPrice - lowerBand) / (upperBand - lowerBand);
+
+    // === VOLUME ANALYSIS ===
+    const avgVolume = volumes.slice(-20).reduce((a, b) => a + b, 0) / 20;
+    const currentVolume = volumes[volumes.length - 1];
+    const volumeRatio = currentVolume / avgVolume;
+    const isHighVolume = volumeRatio > 1.5;
+
+    // === PRICE CHANGE ===
+    const priceChange1h = ((currentPrice - closes[closes.length - 4]) / closes[closes.length - 4]) * 100;
+    const priceChange24h = ((currentPrice - closes[0]) / closes[0]) * 100;
+
+    // === SUPPORT/RESISTANCE ===
+    const recentLow = Math.min(...lows.slice(-20));
+    const recentHigh = Math.max(...highs.slice(-20));
+    const nearSupport = currentPrice < recentLow * 1.02;
+    const nearResistance = currentPrice > recentHigh * 0.98;
+
+    // === CANDLE PATTERNS ===
+    const lastCandle = recentCandles[recentCandles.length - 1];
+    const prevCandle = recentCandles[recentCandles.length - 2];
+    const isBullishEngulfing = lastCandle.close > lastCandle.open &&
+                               prevCandle.close < prevCandle.open &&
+                               lastCandle.close > prevCandle.open &&
+                               lastCandle.open < prevCandle.close;
+    const isBearishEngulfing = lastCandle.close < lastCandle.open &&
+                               prevCandle.close > prevCandle.open &&
+                               lastCandle.close < prevCandle.open &&
+                               lastCandle.open > prevCandle.close;
+
+    // === SIGNAL SCORING ===
     const indicators: string[] = [];
-    let bullishSignals = 0;
-    let bearishSignals = 0;
+    const reasons: string[] = [];
+    let bullishScore = 0;
+    let bearishScore = 0;
 
-    if (sma5 > sma10 && sma10 > sma20) {
-      indicators.push('SMA Bullish');
-      bullishSignals += 2;
-    } else if (sma5 < sma10 && sma10 < sma20) {
-      indicators.push('SMA Bearish');
-      bearishSignals += 2;
+    // SMA Trend
+    if (sma7 > sma20 && sma20 > sma50) {
+      indicators.push('SMA Uptrend');
+      reasons.push('Moving averages aligned bullish (7 > 20 > 50)');
+      bullishScore += 15;
+    } else if (sma7 < sma20 && sma20 < sma50) {
+      indicators.push('SMA Downtrend');
+      reasons.push('Moving averages aligned bearish (7 < 20 < 50)');
+      bearishScore += 15;
     }
 
+    // Price vs SMA
+    if (currentPrice > sma20 && currentPrice > sma50) {
+      indicators.push('Above MAs');
+      bullishScore += 10;
+    } else if (currentPrice < sma20 && currentPrice < sma50) {
+      indicators.push('Below MAs');
+      bearishScore += 10;
+    }
+
+    // RSI
     if (rsi < 30) {
-      indicators.push('RSI Oversold');
-      bullishSignals += 2;
+      indicators.push(`RSI ${rsi.toFixed(0)} (Oversold)`);
+      reasons.push(`RSI at ${rsi.toFixed(0)} indicates oversold - potential bounce`);
+      bullishScore += 20;
     } else if (rsi > 70) {
-      indicators.push('RSI Overbought');
-      bearishSignals += 2;
+      indicators.push(`RSI ${rsi.toFixed(0)} (Overbought)`);
+      reasons.push(`RSI at ${rsi.toFixed(0)} indicates overbought - potential pullback`);
+      bearishScore += 20;
+    } else if (rsi > 50) {
+      bullishScore += 5;
+    } else {
+      bearishScore += 5;
     }
 
-    if (bullishCandles > bearishCandles * 1.5) {
-      indicators.push('Bullish Momentum');
-      bullishSignals += 2;
-    } else if (bearishCandles > bullishCandles * 1.5) {
-      indicators.push('Bearish Momentum');
-      bearishSignals += 2;
+    // MACD
+    if (macdCrossover) {
+      indicators.push('MACD Cross Up');
+      reasons.push('MACD crossed above signal line - bullish momentum');
+      bullishScore += 15;
+    } else if (macdCrossunder) {
+      indicators.push('MACD Cross Down');
+      reasons.push('MACD crossed below signal line - bearish momentum');
+      bearishScore += 15;
+    } else if (macd > 0) {
+      bullishScore += 5;
+    } else {
+      bearishScore += 5;
     }
 
-    const direction: 'LONG' | 'SHORT' = bullishSignals > bearishSignals ? 'LONG' : 'SHORT';
-    const totalSignals = bullishSignals + bearishSignals;
-    const confidence = Math.min(95, Math.max(55, (Math.max(bullishSignals, bearishSignals) / totalSignals) * 100));
+    // Bollinger Bands
+    if (bbPosition < 0.2) {
+      indicators.push('Near Lower BB');
+      reasons.push('Price near lower Bollinger Band - potential reversal up');
+      bullishScore += 10;
+    } else if (bbPosition > 0.8) {
+      indicators.push('Near Upper BB');
+      reasons.push('Price near upper Bollinger Band - potential reversal down');
+      bearishScore += 10;
+    }
+
+    // Volume
+    if (isHighVolume) {
+      indicators.push(`Vol ${volumeRatio.toFixed(1)}x`);
+      if (priceChange1h > 0) bullishScore += 10;
+      else bearishScore += 10;
+    }
+
+    // Support/Resistance
+    if (nearSupport) {
+      indicators.push('Near Support');
+      reasons.push('Price testing support level - potential bounce');
+      bullishScore += 10;
+    }
+    if (nearResistance) {
+      indicators.push('Near Resistance');
+      reasons.push('Price testing resistance - potential rejection');
+      bearishScore += 10;
+    }
+
+    // Candle Patterns
+    if (isBullishEngulfing) {
+      indicators.push('Bullish Engulfing');
+      reasons.push('Bullish engulfing pattern detected');
+      bullishScore += 15;
+    }
+    if (isBearishEngulfing) {
+      indicators.push('Bearish Engulfing');
+      reasons.push('Bearish engulfing pattern detected');
+      bearishScore += 15;
+    }
+
+    // Price momentum
+    if (priceChange1h > 1) {
+      reasons.push(`+${priceChange1h.toFixed(1)}% in last 1h - strong upward momentum`);
+      bullishScore += 5;
+    } else if (priceChange1h < -1) {
+      reasons.push(`${priceChange1h.toFixed(1)}% in last 1h - strong downward momentum`);
+      bearishScore += 5;
+    }
+
+    // Determine direction and confidence
+    const totalScore = bullishScore + bearishScore;
+    const direction: 'LONG' | 'SHORT' = bullishScore > bearishScore ? 'LONG' : 'SHORT';
+    const winningScore = Math.max(bullishScore, bearishScore);
+
+    // Confidence based on signal strength difference
+    let confidence = 50;
+    if (totalScore > 0) {
+      const scoreDiff = Math.abs(bullishScore - bearishScore);
+      confidence = Math.min(92, Math.max(35, 50 + (scoreDiff / totalScore) * 40 + (winningScore / 100) * 20));
+    }
+
+    // Build detailed reason
+    const topReasons = reasons.slice(0, 3);
+    const detailedReason = topReasons.length > 0
+      ? topReasons.join('. ') + '.'
+      : direction === 'LONG'
+        ? 'Mixed signals with slight bullish bias.'
+        : 'Mixed signals with slight bearish bias.';
 
     return {
       direction,
       confidence: Math.round(confidence),
-      reason: direction === 'LONG'
-        ? 'Bullish signals detected'
-        : 'Bearish signals detected',
-      indicators
+      reason: detailedReason,
+      indicators: indicators.slice(0, 6),
+      metrics: {
+        rsi: Math.round(rsi),
+        macd: macd.toFixed(4),
+        priceChange1h: priceChange1h.toFixed(2),
+        priceChange24h: priceChange24h.toFixed(2),
+        volumeRatio: volumeRatio.toFixed(1),
+        bullishScore,
+        bearishScore
+      }
     };
   }, [candles]);
 
@@ -1126,7 +1291,7 @@ const TradingBotPage: React.FC = () => {
                       key={tf}
                       onClick={() => setTimeframe(tf)}
                       className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                        timeframe === tf ? 'bg-accent text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                        timeframe === tf ? 'bg-white text-gray-900' : 'text-gray-400 hover:text-white hover:bg-gray-700'
                       }`}
                     >
                       {tf}
@@ -1237,7 +1402,7 @@ const TradingBotPage: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <Wallet className="w-4 h-4 text-accent" />
                   <span className="text-white font-medium">Your Trades</span>
-                  <span className="px-2 py-0.5 bg-accent text-white text-xs rounded-full font-medium">
+                  <span className="px-2 py-0.5 bg-white text-gray-900 text-xs rounded-full font-medium">
                     REAL
                   </span>
                   {tradeHistory.length > 0 && (
@@ -1791,7 +1956,7 @@ const TradingBotPage: React.FC = () => {
                   setShowRiskWarning(false);
                   handleStartBot();
                 }}
-                className="flex-1 py-3 bg-accent text-white rounded-lg font-medium hover:bg-accent-hover"
+                className="flex-1 py-3 bg-white text-gray-900 rounded-lg font-medium hover:bg-accent-hover"
               >
                 I Understand, Start
               </button>
@@ -1828,7 +1993,7 @@ const TradingBotPage: React.FC = () => {
                   onClick={() => setSelectedPlan(plan.id)}
                 >
                   {plan.popular && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-accent text-white text-xs font-medium rounded-full">
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-white text-gray-900 text-xs font-medium rounded-full">
                       Popular
                     </div>
                   )}
@@ -1855,7 +2020,7 @@ const TradingBotPage: React.FC = () => {
 
                   <button
                     onClick={(e) => { e.stopPropagation(); handlePurchase(plan.id); }}
-                    className={`w-full py-3 rounded-lg font-medium ${selectedPlan === plan.id ? 'bg-accent text-white' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
+                    className={`w-full py-3 rounded-lg font-medium ${selectedPlan === plan.id ? 'bg-white text-gray-900' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
                   >
                     Select
                   </button>

@@ -188,7 +188,7 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
               <div className="flex items-center gap-2">
                 <h3 className="text-white font-bold">{plan.name} Plan</h3>
                 {plan.badge && (
-                  <span className={`px-2 py-0.5 text-xs rounded-full ${plan.popular ? 'bg-accent text-white' : 'bg-green-500 text-white'}`}>
+                  <span className={`px-2 py-0.5 text-xs rounded-full ${plan.popular ? 'bg-white text-gray-900' : 'bg-green-500 text-white'}`}>
                     {plan.badge}
                   </span>
                 )}

@@ -141,7 +141,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
                 onClick={() => setTimeRange(range)}
                 className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
                   timeRange === range
-                    ? 'bg-accent text-white'
+                    ? 'bg-white text-gray-900'
                     : 'text-gray-400 hover:text-white'
                 }`}
               >

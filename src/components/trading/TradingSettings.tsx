@@ -338,7 +338,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                           onClick={() => onConfigChange({ ...config, tradingInterval: interval })}
                           className={`px-2 py-2 rounded-lg text-sm transition-colors ${
                             config.tradingInterval === interval
-                              ? 'bg-accent text-white'
+                              ? 'bg-white text-gray-900'
                               : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                           }`}
                         >
@@ -436,7 +436,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                             }}
                             className={`px-2 py-1 rounded text-xs capitalize transition-colors ${
                               config.arbitrageDexes.includes(dex)
-                                ? 'bg-accent text-white'
+                                ? 'bg-white text-gray-900'
                                 : 'bg-gray-700 text-gray-400'
                             }`}
                           >
@@ -476,7 +476,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                               customConditions: [...config.customConditions, newCondition]
                             });
                           }}
-                          className="px-3 py-1.5 bg-accent text-white text-sm rounded-lg"
+                          className="px-3 py-1.5 bg-white text-gray-900 text-sm rounded-lg"
                         >
                           + Add Condition
                         </button>
@@ -642,7 +642,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                         onClick={() => onConfigChange({ ...config, slippagePercent: value })}
                         className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
                           config.slippagePercent === value
-                            ? 'bg-accent text-white'
+                            ? 'bg-white text-gray-900'
                             : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                         }`}
                       >
