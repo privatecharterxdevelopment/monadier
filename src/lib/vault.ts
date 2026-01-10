@@ -238,12 +238,21 @@ export const ERC20_APPROVE_ABI = [
   }
 ] as const;
 
-// Vault addresses by chain (TO BE FILLED AFTER DEPLOYMENT)
+// Vault addresses by chain (V1 - instant trades)
 export const VAULT_ADDRESSES: Record<number, `0x${string}` | null> = {
   1: null,      // Ethereum - not deployed yet
   56: null,     // BNB Chain - not deployed yet
   42161: null,  // Arbitrum - not deployed yet
-  8453: '0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A',   // Base - LIVE
+  8453: '0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A',   // Base - LIVE (V1)
+  137: null,    // Polygon - not deployed yet
+};
+
+// V2 Vault addresses (position holding, trailing stops)
+export const VAULT_V2_ADDRESSES: Record<number, `0x${string}` | null> = {
+  1: null,      // Ethereum - not deployed yet
+  56: null,     // BNB Chain - not deployed yet
+  42161: null,  // Arbitrum - not deployed yet
+  8453: '0x5eF29B4348d31c311918438e92a5fae7641Bc00a',   // Base - LIVE (V2)
   137: null,    // Polygon - not deployed yet
 };
 
@@ -336,7 +345,8 @@ export class VaultClient {
     this.walletClient = walletClient;
     this.chainId = chainId;
 
-    const vaultAddr = VAULT_ADDRESSES[chainId];
+    // Prefer V2 vault address if available, fall back to V1
+    const vaultAddr = VAULT_V2_ADDRESSES[chainId] || VAULT_ADDRESSES[chainId];
     if (!vaultAddr) {
       throw new Error(`Vault not deployed on chain ${chainId}`);
     }
@@ -353,7 +363,7 @@ export class VaultClient {
    * Check if vault is available on this chain
    */
   static isAvailable(chainId: number): boolean {
-    return VAULT_ADDRESSES[chainId] !== null;
+    return VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null;
   }
 
   /**

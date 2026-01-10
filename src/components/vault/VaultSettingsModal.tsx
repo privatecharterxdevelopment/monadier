@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Settings, Loader2, AlertCircle, CheckCircle, Zap, Shield, AlertTriangle, Flame } from 'lucide-react';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { VaultClient } from '../../lib/vault';
+import { supabase } from '../../lib/supabase';
 
 interface VaultSettingsModalProps {
   currentRiskLevel: number;
@@ -57,6 +58,14 @@ export default function VaultSettingsModal({
       if (autoTrade !== initialAutoTrade) {
         const txHash = await vaultClient.setAutoTrade(autoTrade, address as `0x${string}`);
         await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+        // Sync to Supabase so bot can find this user
+        await supabase.rpc('upsert_vault_settings', {
+          p_wallet_address: address.toLowerCase(),
+          p_chain_id: chainId,
+          p_auto_trade_enabled: autoTrade,
+          p_risk_level_bps: riskLevel * 100 // Convert % to basis points
+        });
       }
 
       setSuccess(true);
@@ -81,6 +90,13 @@ export default function VaultSettingsModal({
       const vaultClient = new VaultClient(publicClient as any, walletClient as any, chainId);
       const txHash = await vaultClient.emergencyStop(address as `0x${string}`);
       await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+      // Sync to Supabase
+      await supabase.rpc('upsert_vault_settings', {
+        p_wallet_address: address.toLowerCase(),
+        p_chain_id: chainId,
+        p_auto_trade_enabled: false
+      });
 
       setAutoTrade(false);
       setSuccess(true);

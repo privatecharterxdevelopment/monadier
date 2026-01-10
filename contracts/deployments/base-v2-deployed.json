@@ -1,0 +1,20 @@
+{
+  "network": "base",
+  "chainId": "8453",
+  "vaultAddress": "0x5eF29B4348d31c311918438e92a5fae7641Bc00a",
+  "version": "V2",
+  "deployedAt": "2026-01-10T17:30:29.213Z",
+  "platformFee": "1.0%",
+  "features": [
+    "openPosition",
+    "closePosition",
+    "trailingStop"
+  ],
+  "config": {
+    "usdc": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "botAddress": "0xC9a6D02a04e3B2E8d3941615EfcBA67593F46b8E",
+    "router": "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24",
+    "treasuryAddress": "0xF7351a5C63e0403F6F7FC77d31B5e17A229C469c",
+    "wrappedNative": "0x4200000000000000000000000000000000000006"
+  }
+}

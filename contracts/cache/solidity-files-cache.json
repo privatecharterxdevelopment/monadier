@@ -308,6 +308,49 @@
       "artifacts": [
         "IERC20Permit"
       ]
+    },
+    "/Users/macbookair/monadier/contracts/contracts/MonadierTradingVaultV2.sol": {
+      "lastModificationDate": 1768066127028,
+      "contentHash": "c13db2106f055bb1499f3222e9dd5f21",
+      "sourceName": "contracts/MonadierTradingVaultV2.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+        "@openzeppelin/contracts/security/ReentrancyGuard.sol",
+        "@openzeppelin/contracts/security/Pausable.sol"
+      ],
+      "versionPragmas": [
+        "0.8.24"
+      ],
+      "artifacts": [
+        "IUniswapV2Router",
+        "MonadierTradingVaultV2"
+      ]
     }
   }
 }

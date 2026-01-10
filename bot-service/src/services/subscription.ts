@@ -199,19 +199,39 @@ export class SubscriptionService {
 
   /**
    * Get all users with auto-trade enabled
+   * Falls back to subscriptions table if vault_settings is empty
    */
   async getAutoTradeUsers(): Promise<string[]> {
-    // This would query the blockchain or a cache
-    // For now, we'll track this in Supabase
     try {
-      const { data, error } = await this.supabase
+      // First try vault_settings
+      const { data: vaultData } = await this.supabase
         .from('vault_settings')
         .select('wallet_address')
         .eq('auto_trade_enabled', true);
 
-      if (error || !data) return [];
+      if (vaultData && vaultData.length > 0) {
+        return vaultData.map(d => d.wallet_address);
+      }
 
-      return data.map(d => d.wallet_address);
+      // Fallback: get all users with active paid subscriptions
+      // They might have auto-trade enabled on-chain
+      const { data: subData } = await this.supabase
+        .from('subscriptions')
+        .select('wallet_address')
+        .eq('status', 'active')
+        .neq('plan_tier', 'free');
+
+      if (subData && subData.length > 0) {
+        const addresses = subData.map(d => d.wallet_address).filter(Boolean);
+        logger.info('Using subscriptions fallback for auto-trade users', {
+          count: subData.length,
+          withWallet: addresses.length,
+          addresses: addresses.slice(0, 5) // Log first 5
+        });
+        return addresses;
+      }
+
+      return [];
     } catch (err) {
       logger.error('Failed to get auto-trade users', { error: err });
       return [];

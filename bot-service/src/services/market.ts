@@ -439,10 +439,15 @@ export async function generateTradeSignal(
   // Calculate minAmountOut with 1% slippage
   const minAmountOut = (tradeAmount * 99n) / 100n;
 
+  // Get token symbol from the lookup
+  const symbol = TOKEN_SYMBOLS[chainId]?.[tokenAddress] || 'UNKNOWN';
+  const tokenSymbol = symbol.replace('USDT', ''); // Convert ETHUSDT -> ETH
+
   return {
     direction: analysis.direction,
     confidence: analysis.confidence,
     tokenAddress,
+    tokenSymbol,
     suggestedAmount: tradeAmount,
     minAmountOut,
     reason: analysis.reason
