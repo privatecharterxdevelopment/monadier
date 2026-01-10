@@ -43,6 +43,10 @@ interface Web3ContextType {
   chainId: number | undefined;
   currentChain: ChainConfig | undefined;
 
+  // Viem clients (for direct contract interaction)
+  publicClient: ReturnType<typeof usePublicClient> | undefined;
+  walletClient: ReturnType<typeof useWalletClient>['data'] | undefined;
+
   // Balances
   nativeBalance: string;
   tokenBalances: TokenBalance[];
@@ -66,6 +70,19 @@ interface Web3ContextType {
     slippagePercent: number
   ) => Promise<RealSwapResult>;
 
+  // Native token swaps
+  swapNativeForTokens: (
+    tokenOut: string,
+    amountIn: string,
+    slippagePercent: number
+  ) => Promise<RealSwapResult>;
+
+  swapTokensForNative: (
+    tokenIn: string,
+    amountIn: string,
+    slippagePercent: number
+  ) => Promise<RealSwapResult>;
+
   // Approval
   approveToken: (tokenAddress: string, spenderAddress: string, amount: string) => Promise<string>;
   checkAllowance: (tokenAddress: string, spenderAddress: string) => Promise<string>;
@@ -85,6 +102,8 @@ const Web3Context = createContext<Web3ContextType>({
   address: undefined,
   chainId: undefined,
   currentChain: undefined,
+  publicClient: undefined,
+  walletClient: undefined,
   nativeBalance: '0',
   tokenBalances: [],
   totalUsdValue: 0,
@@ -95,6 +114,8 @@ const Web3Context = createContext<Web3ContextType>({
   getTokenBalance: async () => '0',
   getSwapQuote: async () => null,
   executeRealSwap: async () => ({ txHash: '', amountIn: '', amountOut: '', gasCost: '', blockExplorerUrl: '', feeAmount: '0', feePercent: 0.5 }),
+  swapNativeForTokens: async () => ({ txHash: '', amountIn: '', amountOut: '', gasCost: '', blockExplorerUrl: '', feeAmount: '0', feePercent: 0.5 }),
+  swapTokensForNative: async () => ({ txHash: '', amountIn: '', amountOut: '', gasCost: '', blockExplorerUrl: '', feeAmount: '0', feePercent: 0.5 }),
   approveToken: async () => '',
   checkAllowance: async () => '0',
   transferToken: async () => '',
@@ -400,6 +421,91 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [dexRouter, address, currentChain, publicClient, walletClient]);
 
+  // Swap native token (ETH/BNB/MATIC) for ERC20 tokens
+  const swapNativeForTokens = useCallback(async (
+    tokenOut: string,
+    amountIn: string,
+    slippagePercent: number
+  ): Promise<RealSwapResult> => {
+    if (!dexRouter || !address || !currentChain || !publicClient) {
+      throw new Error('Wallet not connected or DEX not available');
+    }
+
+    // Native token uses 18 decimals
+    const amountInWei = parseUnits(amountIn, 18);
+
+    // Calculate 0.5% platform fee (deducted from input amount)
+    const feeAmount = calculateTradeFee(amountInWei);
+    const netAmountIn = amountInWei - feeAmount;
+
+    // Execute native token swap
+    const result = await dexRouter.swapNativeForTokens(
+      tokenOut as `0x${string}`,
+      netAmountIn,
+      slippagePercent,
+      address as `0x${string}`
+    );
+
+    // Get output token decimals
+    const outDecimals = await publicClient.readContract({
+      address: tokenOut as `0x${string}`,
+      abi: ERC20_ABI,
+      functionName: 'decimals'
+    });
+
+    return {
+      txHash: result.txHash,
+      amountIn: formatUnits(result.amountIn, 18),
+      amountOut: formatUnits(result.amountOut, outDecimals),
+      gasCost: formatUnits(result.gasCostWei, 18),
+      blockExplorerUrl: `${currentChain.blockExplorer}/tx/${result.txHash}`,
+      feeAmount: formatUnits(feeAmount, 18),
+      feePercent: TRADE_FEE_PERCENT
+    };
+  }, [dexRouter, address, currentChain, publicClient]);
+
+  // Swap ERC20 tokens for native token (ETH/BNB/MATIC)
+  const swapTokensForNative = useCallback(async (
+    tokenIn: string,
+    amountIn: string,
+    slippagePercent: number
+  ): Promise<RealSwapResult> => {
+    if (!dexRouter || !address || !currentChain || !publicClient) {
+      throw new Error('Wallet not connected or DEX not available');
+    }
+
+    // Get token decimals
+    const decimals = await publicClient.readContract({
+      address: tokenIn as `0x${string}`,
+      abi: ERC20_ABI,
+      functionName: 'decimals'
+    });
+
+    const amountInWei = parseUnits(amountIn, decimals);
+
+    // Calculate 0.5% platform fee (deducted from input amount)
+    const feeAmount = calculateTradeFee(amountInWei);
+    const netAmountIn = amountInWei - feeAmount;
+
+    // Execute swap to native token
+    const result = await dexRouter.swapTokensForNative(
+      tokenIn as `0x${string}`,
+      netAmountIn,
+      slippagePercent,
+      address as `0x${string}`
+    );
+
+    return {
+      txHash: result.txHash,
+      amountIn: formatUnits(result.amountIn, decimals),
+      amountOut: formatUnits(result.amountOut, 18), // Native uses 18 decimals
+      gasCost: formatUnits(result.gasCostWei, 18),
+      blockExplorerUrl: `${currentChain.blockExplorer}/tx/${result.txHash}`,
+      feeAmount: formatUnits(feeAmount, decimals),
+      feePercent: TRADE_FEE_PERCENT
+    };
+  }, [dexRouter, address, currentChain, publicClient]);
+
   // Approve token
   const approveToken = useCallback(async (
     tokenAddress: string,
@@ -492,6 +598,8 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
     address,
     chainId,
     currentChain,
+    publicClient,
+    walletClient,
     nativeBalance,
     tokenBalances,
     totalUsdValue,
@@ -502,6 +610,8 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
     getTokenBalance,
     getSwapQuote,
     executeRealSwap,
+    swapNativeForTokens,
+    swapTokensForNative,
     approveToken,
     checkAllowance,
     transferToken,

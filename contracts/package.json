@@ -1,0 +1,24 @@
+{
+  "name": "monadier-contracts",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy:base": "hardhat run scripts/deploy.js --network base",
+    "deploy:ethereum": "hardhat run scripts/deploy.js --network ethereum",
+    "deploy:polygon": "hardhat run scripts/deploy.js --network polygon",
+    "deploy:arbitrum": "hardhat run scripts/deploy.js --network arbitrum",
+    "deploy:bsc": "hardhat run scripts/deploy.js --network bsc",
+    "test": "hardhat test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Monadier Trading Vault Smart Contracts",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@openzeppelin/contracts": "^4.9.6",
+    "dotenv": "^17.2.3",
+    "hardhat": "^2.28.3"
+  }
+}

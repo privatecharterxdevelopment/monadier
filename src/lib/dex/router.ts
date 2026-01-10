@@ -4,8 +4,7 @@ import {
   parseUnits,
   formatUnits,
   encodeFunctionData,
-  getContract,
-  maxUint256
+  getContract
 } from 'viem';
 
 // Uniswap V2 Router ABI (same for PancakeSwap)
@@ -281,12 +280,13 @@ export class DexRouter {
       return null;
     }
 
-    // Approve max uint256 to avoid repeated approvals
+    // Approve exact amount so wallet shows the specific trade amount
+    // This is more transparent for users than unlimited approval
     const hash = await this.walletClient.writeContract({
       address: tokenAddress,
       abi: ERC20_ABI,
       functionName: 'approve',
-      args: [routerAddress, maxUint256],
+      args: [routerAddress, amount],
       chain: null,
       account: owner
     });

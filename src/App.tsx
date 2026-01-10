@@ -4,10 +4,12 @@ import { AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { useDesktopLicense, isDesktopApp } from './hooks/useDesktopLicense';
+import { TransactionProvider } from './contexts/TransactionContext';
 import Logo from './components/ui/Logo';
 import ScrollToTop from './components/animations/ScrollToTop';
 import PageTransition from './components/animations/PageTransition';
 import LicenseActivation from './components/desktop/LicenseActivation';
+import TransactionToast from './components/ui/TransactionToast';
 
 // Pages
 import LandingPage from './pages/LandingPage';
@@ -53,9 +55,10 @@ function App() {
     !location.pathname.startsWith('/kyc');
 
   return (
-    <>
+    <TransactionProvider>
       <ScrollToTop />
       {showSupportWidget && <SupportWidget />}
+      <TransactionToast />
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={
@@ -123,7 +126,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </AnimatePresence>
-    </>
+    </TransactionProvider>
   );
 }
 

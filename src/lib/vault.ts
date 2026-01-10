@@ -1,0 +1,613 @@
+// Vault Integration for MonadierTradingVault Smart Contract
+import { parseUnits, formatUnits, type PublicClient, type WalletClient } from 'viem';
+
+// Vault ABI (core functions only)
+export const VAULT_ABI = [
+  // Deposit/Withdraw
+  {
+    inputs: [{ name: 'amount', type: 'uint256' }],
+    name: 'deposit',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  {
+    inputs: [{ name: 'amount', type: 'uint256' }],
+    name: 'withdraw',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'withdrawAll',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  // Auto-trade
+  {
+    inputs: [{ name: 'enabled', type: 'bool' }],
+    name: 'setAutoTrade',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'emergencyStopAutoTrade',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  // Risk level
+  {
+    inputs: [{ name: 'riskLevelBps', type: 'uint256' }],
+    name: 'setRiskLevel',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  // View functions
+  {
+    inputs: [{ name: 'user', type: 'address' }],
+    name: 'getBalance',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [{ name: 'user', type: 'address' }],
+    name: 'autoTradeEnabled',
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [{ name: 'user', type: 'address' }],
+    name: 'userRiskLevel',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [{ name: 'user', type: 'address' }],
+    name: 'getRiskLevelPercent',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [{ name: 'user', type: 'address' }],
+    name: 'canTradeNow',
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [{ name: 'user', type: 'address' }],
+    name: 'getMaxTradeSize',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [{ name: 'user', type: 'address' }],
+    name: 'timeUntilNextTrade',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [{ name: 'user', type: 'address' }],
+    name: 'getUserStatus',
+    outputs: [
+      { name: 'balance', type: 'uint256' },
+      { name: 'autoTradeOn', type: 'bool' },
+      { name: 'riskLevelBps', type: 'uint256' },
+      { name: 'maxTrade', type: 'uint256' },
+      { name: 'timeToNextTrade', type: 'uint256' },
+      { name: 'canTrade', type: 'bool' }
+    ],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'getVaultStats',
+    outputs: [
+      { name: 'tvl', type: 'uint256' },
+      { name: 'totalFees', type: 'uint256' },
+      { name: 'isPaused', type: 'bool' },
+      { name: 'pauseTimeRemaining', type: 'uint256' }
+    ],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [
+      { name: 'tokenOut', type: 'address' },
+      { name: 'amountIn', type: 'uint256' },
+      { name: 'useWrappedPath', type: 'bool' }
+    ],
+    name: 'getExpectedOutput',
+    outputs: [
+      { name: 'expectedOut', type: 'uint256' },
+      { name: 'fee', type: 'uint256' }
+    ],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  // Constants
+  {
+    inputs: [],
+    name: 'USDC',
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'TREASURY_ADDRESS',
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'CHAIN_ID',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'BASE_CHAIN_ID',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'BASE_CHAIN_FEE',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'OTHER_CHAIN_FEE',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'getPlatformFee',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'getPlatformFeePercent',
+    outputs: [
+      { name: 'whole', type: 'uint256' },
+      { name: 'decimal', type: 'uint256' }
+    ],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'MAX_RISK_LEVEL',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'totalValueLocked',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  }
+] as const;
+
+// ERC20 ABI for USDC approval
+export const ERC20_APPROVE_ABI = [
+  {
+    inputs: [
+      { name: 'spender', type: 'address' },
+      { name: 'amount', type: 'uint256' }
+    ],
+    name: 'approve',
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  {
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' }
+    ],
+    name: 'allowance',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  }
+] as const;
+
+// Vault addresses by chain (TO BE FILLED AFTER DEPLOYMENT)
+export const VAULT_ADDRESSES: Record<number, `0x${string}` | null> = {
+  1: null,      // Ethereum - not deployed yet
+  56: null,     // BNB Chain - not deployed yet
+  42161: null,  // Arbitrum - not deployed yet
+  8453: '0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A',   // Base - LIVE
+  137: null,    // Polygon - not deployed yet
+};
+
+// USDC addresses by chain
+export const USDC_ADDRESSES: Record<number, `0x${string}`> = {
+  1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',      // Ethereum
+  56: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',     // BNB Chain
+  42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',  // Arbitrum (Native)
+  8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',   // Base (Native)
+  137: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',    // Polygon (Native)
+};
+
+// USDC decimals (6 for all chains)
+export const USDC_DECIMALS = 6;
+
+// Platform fee structure (basis points)
+export const PLATFORM_FEES = {
+  BASE_CHAIN_ID: 8453,
+  BASE_FEE_BPS: 100,      // 1.0% on Base
+  OTHER_FEE_BPS: 350,     // 3.5% on other chains
+} as const;
+
+/**
+ * Get platform fee for a chain
+ * @param chainId Chain ID
+ * @returns Fee in basis points and percentage
+ */
+export function getPlatformFeeForChain(chainId: number): {
+  bps: number;
+  percent: number;
+  percentFormatted: string;
+} {
+  const isBase = chainId === PLATFORM_FEES.BASE_CHAIN_ID;
+  const bps = isBase ? PLATFORM_FEES.BASE_FEE_BPS : PLATFORM_FEES.OTHER_FEE_BPS;
+  const percent = bps / 100;
+
+  return {
+    bps,
+    percent,
+    percentFormatted: `${percent.toFixed(1)}%`
+  };
+}
+
+// Risk level presets
+export const RISK_PRESETS = {
+  conservative: { bps: 100, percent: 1, label: 'Conservative (1%)' },
+  low: { bps: 500, percent: 5, label: 'Low (5%)' },
+  medium: { bps: 1500, percent: 15, label: 'Medium (15%)' },
+  high: { bps: 3000, percent: 30, label: 'High (30%)' },
+  maximum: { bps: 5000, percent: 50, label: 'Maximum (50%)' },
+} as const;
+
+export interface VaultUserStatus {
+  balance: bigint;
+  balanceFormatted: string;
+  autoTradeEnabled: boolean;
+  riskLevelBps: number;
+  riskLevelPercent: number;
+  maxTradeSize: bigint;
+  maxTradeSizeFormatted: string;
+  timeToNextTrade: number;
+  canTrade: boolean;
+}
+
+export interface VaultStats {
+  tvl: bigint;
+  tvlFormatted: string;
+  totalFees: bigint;
+  totalFeesFormatted: string;
+  isPaused: boolean;
+  pauseTimeRemaining: number;
+}
+
+/**
+ * Vault client for interacting with MonadierTradingVault
+ */
+export class VaultClient {
+  private publicClient: PublicClient;
+  private walletClient: WalletClient;
+  private chainId: number;
+  private vaultAddress: `0x${string}`;
+  private usdcAddress: `0x${string}`;
+
+  constructor(
+    publicClient: PublicClient,
+    walletClient: WalletClient,
+    chainId: number
+  ) {
+    this.publicClient = publicClient;
+    this.walletClient = walletClient;
+    this.chainId = chainId;
+
+    const vaultAddr = VAULT_ADDRESSES[chainId];
+    if (!vaultAddr) {
+      throw new Error(`Vault not deployed on chain ${chainId}`);
+    }
+    this.vaultAddress = vaultAddr;
+
+    const usdcAddr = USDC_ADDRESSES[chainId];
+    if (!usdcAddr) {
+      throw new Error(`USDC not configured for chain ${chainId}`);
+    }
+    this.usdcAddress = usdcAddr;
+  }
+
+  /**
+   * Check if vault is available on this chain
+   */
+  static isAvailable(chainId: number): boolean {
+    return VAULT_ADDRESSES[chainId] !== null;
+  }
+
+  /**
+   * Deposit USDC to vault
+   */
+  async deposit(amount: string, userAddress: `0x${string}`): Promise<`0x${string}`> {
+    const amountWei = parseUnits(amount, USDC_DECIMALS);
+
+    // First check/set approval
+    const allowance = await this.publicClient.readContract({
+      address: this.usdcAddress,
+      abi: ERC20_APPROVE_ABI,
+      functionName: 'allowance',
+      args: [userAddress, this.vaultAddress]
+    });
+
+    if (allowance < amountWei) {
+      // Approve exact amount
+      const approveTx = await this.walletClient.writeContract({
+        address: this.usdcAddress,
+        abi: ERC20_APPROVE_ABI,
+        functionName: 'approve',
+        args: [this.vaultAddress, amountWei],
+        chain: null,
+        account: userAddress
+      });
+
+      // Wait for approval
+      await this.publicClient.waitForTransactionReceipt({ hash: approveTx });
+    }
+
+    // Deposit to vault
+    const hash = await this.walletClient.writeContract({
+      address: this.vaultAddress,
+      abi: VAULT_ABI,
+      functionName: 'deposit',
+      args: [amountWei],
+      chain: null,
+      account: userAddress
+    });
+
+    return hash;
+  }
+
+  /**
+   * Withdraw USDC from vault
+   */
+  async withdraw(amount: string, userAddress: `0x${string}`): Promise<`0x${string}`> {
+    const amountWei = parseUnits(amount, USDC_DECIMALS);
+
+    const hash = await this.walletClient.writeContract({
+      address: this.vaultAddress,
+      abi: VAULT_ABI,
+      functionName: 'withdraw',
+      args: [amountWei],
+      chain: null,
+      account: userAddress
+    });
+
+    return hash;
+  }
+
+  /**
+   * Withdraw all funds from vault
+   */
+  async withdrawAll(userAddress: `0x${string}`): Promise<`0x${string}`> {
+    const hash = await this.walletClient.writeContract({
+      address: this.vaultAddress,
+      abi: VAULT_ABI,
+      functionName: 'withdrawAll',
+      args: [],
+      chain: null,
+      account: userAddress
+    });
+
+    return hash;
+  }
+
+  /**
+   * Enable/disable auto-trading
+   */
+  async setAutoTrade(enabled: boolean, userAddress: `0x${string}`): Promise<`0x${string}`> {
+    const hash = await this.walletClient.writeContract({
+      address: this.vaultAddress,
+      abi: VAULT_ABI,
+      functionName: 'setAutoTrade',
+      args: [enabled],
+      chain: null,
+      account: userAddress
+    });
+
+    return hash;
+  }
+
+  /**
+   * Emergency stop auto-trading
+   */
+  async emergencyStop(userAddress: `0x${string}`): Promise<`0x${string}`> {
+    const hash = await this.walletClient.writeContract({
+      address: this.vaultAddress,
+      abi: VAULT_ABI,
+      functionName: 'emergencyStopAutoTrade',
+      args: [],
+      chain: null,
+      account: userAddress
+    });
+
+    return hash;
+  }
+
+  /**
+   * Set risk level (1-50%)
+   */
+  async setRiskLevel(percent: number, userAddress: `0x${string}`): Promise<`0x${string}`> {
+    if (percent < 1 || percent > 50) {
+      throw new Error('Risk level must be between 1% and 50%');
+    }
+
+    const bps = BigInt(percent * 100);
+
+    const hash = await this.walletClient.writeContract({
+      address: this.vaultAddress,
+      abi: VAULT_ABI,
+      functionName: 'setRiskLevel',
+      args: [bps],
+      chain: null,
+      account: userAddress
+    });
+
+    return hash;
+  }
+
+  /**
+   * Get user's vault status
+   */
+  async getUserStatus(userAddress: `0x${string}`): Promise<VaultUserStatus> {
+    const [balance, autoTradeOn, riskLevelBps, maxTrade, timeToNextTrade, canTrade] =
+      await this.publicClient.readContract({
+        address: this.vaultAddress,
+        abi: VAULT_ABI,
+        functionName: 'getUserStatus',
+        args: [userAddress]
+      });
+
+    return {
+      balance,
+      balanceFormatted: formatUnits(balance, USDC_DECIMALS),
+      autoTradeEnabled: autoTradeOn,
+      riskLevelBps: Number(riskLevelBps),
+      riskLevelPercent: Number(riskLevelBps) / 100,
+      maxTradeSize: maxTrade,
+      maxTradeSizeFormatted: formatUnits(maxTrade, USDC_DECIMALS),
+      timeToNextTrade: Number(timeToNextTrade),
+      canTrade
+    };
+  }
+
+  /**
+   * Get vault statistics
+   */
+  async getVaultStats(): Promise<VaultStats> {
+    const [tvl, totalFees, isPaused, pauseTimeRemaining] =
+      await this.publicClient.readContract({
+        address: this.vaultAddress,
+        abi: VAULT_ABI,
+        functionName: 'getVaultStats',
+        args: []
+      });
+
+    return {
+      tvl,
+      tvlFormatted: formatUnits(tvl, USDC_DECIMALS),
+      totalFees,
+      totalFeesFormatted: formatUnits(totalFees, USDC_DECIMALS),
+      isPaused,
+      pauseTimeRemaining: Number(pauseTimeRemaining)
+    };
+  }
+
+  /**
+   * Get expected output for a trade
+   */
+  async getExpectedOutput(
+    tokenOut: `0x${string}`,
+    amountIn: string,
+    useWrappedPath: boolean = true
+  ): Promise<{ expectedOut: bigint; fee: bigint }> {
+    const amountWei = parseUnits(amountIn, USDC_DECIMALS);
+
+    const [expectedOut, fee] = await this.publicClient.readContract({
+      address: this.vaultAddress,
+      abi: VAULT_ABI,
+      functionName: 'getExpectedOutput',
+      args: [tokenOut, amountWei, useWrappedPath]
+    });
+
+    return { expectedOut, fee };
+  }
+
+  /**
+   * Get platform fee from contract
+   * @returns Fee in basis points and formatted percentage
+   */
+  async getPlatformFee(): Promise<{
+    bps: number;
+    percent: number;
+    percentFormatted: string;
+    isBaseChain: boolean;
+  }> {
+    const feeBps = await this.publicClient.readContract({
+      address: this.vaultAddress,
+      abi: VAULT_ABI,
+      functionName: 'getPlatformFee',
+      args: []
+    });
+
+    const bps = Number(feeBps);
+    const percent = bps / 100;
+    const isBaseChain = this.chainId === PLATFORM_FEES.BASE_CHAIN_ID;
+
+    return {
+      bps,
+      percent,
+      percentFormatted: `${percent.toFixed(1)}%`,
+      isBaseChain
+    };
+  }
+
+  /**
+   * Get platform fee without contract call (uses local constants)
+   */
+  getPlatformFeeLocal(): {
+    bps: number;
+    percent: number;
+    percentFormatted: string;
+    isBaseChain: boolean;
+  } {
+    return {
+      ...getPlatformFeeForChain(this.chainId),
+      isBaseChain: this.chainId === PLATFORM_FEES.BASE_CHAIN_ID
+    };
+  }
+}
+
+/**
+ * Create a VaultClient instance
+ */
+export function createVaultClient(
+  publicClient: PublicClient,
+  walletClient: WalletClient,
+  chainId: number
+): VaultClient | null {
+  if (!VaultClient.isAvailable(chainId)) {
+    return null;
+  }
+  return new VaultClient(publicClient, walletClient, chainId);
+}

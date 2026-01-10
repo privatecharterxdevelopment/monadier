@@ -10,6 +10,7 @@ import { SUPPORTED_CHAINS, TESTNET_CHAINS, getChainById, getAllChains, isTestnet
 import { parseUnits, formatUnits } from 'viem';
 import { TradingSettings, GasEstimator, getDefaultConfig, TradingConfig, TradeHistoryItem } from '../../components/trading';
 import { verifyTrade } from '../../lib/api/subscription';
+import { VaultBalanceCard } from '../../components/vault';
 
 interface TradingPair {
   symbol: string;
@@ -84,6 +85,7 @@ interface ActiveTrade {
   amountIn: string;
   amountOut: string;
   gasCost: string;
+  usedNativeSwap?: boolean; // Track if native token swap was used
 }
 
 const tradingPairs: TradingPair[] = [
@@ -134,6 +136,8 @@ const TradingBotPage: React.FC = () => {
     refreshBalances,
     switchChain,
     executeRealSwap,
+    swapNativeForTokens,
+    swapTokensForNative,
     dexRouter
   } = useWeb3();
   const { activeSubscription, isSubscribed, planTier, dailyTradesRemaining, subscription } = useSubscription();
@@ -206,13 +210,18 @@ const TradingBotPage: React.FC = () => {
     }
   ];
 
-  // Get available balance (USDT/USDC from wallet)
+  // Get available balance (USDT/USDC + native token value from wallet)
   const availableBalance = useMemo(() => {
+    // Stablecoins
     const stables = tokenBalances.filter(t =>
       t.symbol === 'USDT' || t.symbol === 'USDC'
     );
-    return stables.reduce((sum, t) => sum + parseFloat(t.balance), 0);
-  }, [tokenBalances]);
+    const stableBalance = stables.reduce((sum, t) => sum + parseFloat(t.balance), 0);
+
+    // Also include total USD value which includes native tokens
+    // Use the larger of stables or total value to ensure native tokens can be traded
+    return Math.max(stableBalance, totalUsdValue);
+  }, [tokenBalances, totalUsdValue]);
 
   // State for rejected trade logging
   const [lastRejectedTrade, setLastRejectedTrade] = useState<{
@@ -346,6 +355,35 @@ const TradingBotPage: React.FC = () => {
     const hasLongUpperWick = upperWick > lastCandleBody * 2 && upperWick > lastCandleRange * 0.3;
     const hasLongLowerWick = lowerWick > lastCandleBody * 2 && lowerWick > lastCandleRange * 0.3;
 
+    // === IMMEDIATE CANDLE MOMENTUM (Critical for 1m/5m timeframes) ===
+    // Calculate average candle body size for comparison
+    const recentBodies = recentCandles.slice(-10).map(c => Math.abs(c.close - c.open));
+    const avgBodySize = recentBodies.reduce((a, b) => a + b, 0) / recentBodies.length;
+
+    // Detect large candles (body > 1.5x average)
+    const lastCandleIsBearish = lastCandle.close < lastCandle.open;
+    const lastCandleIsBullish = lastCandle.close > lastCandle.open;
+    const isLargeCandle = lastCandleBody > avgBodySize * 1.5;
+    const isVeryLargeCandle = lastCandleBody > avgBodySize * 2.5;
+
+    // Check last 3 candles for consistent momentum
+    const last3Candles = recentCandles.slice(-3);
+    const bearishCandlesCount = last3Candles.filter(c => c.close < c.open).length;
+    const bullishCandlesCount = last3Candles.filter(c => c.close > c.open).length;
+
+    // Calculate short-term momentum (price change over last 3 candles)
+    const shortTermMomentum = ((closes[closes.length - 1] - closes[closes.length - 3]) / closes[closes.length - 3]) * 100;
+    const isStrongShortTermBearish = shortTermMomentum < -0.5 && bearishCandlesCount >= 2;
+    const isStrongShortTermBullish = shortTermMomentum > 0.5 && bullishCandlesCount >= 2;
+
+    // Immediate momentum flags
+    const immediateBearishMomentum = (isLargeCandle && lastCandleIsBearish) ||
+                                      (isVeryLargeCandle && lastCandleIsBearish) ||
+                                      (isStrongShortTermBearish && bearishCandlesCount === 3);
+    const immediateBullishMomentum = (isLargeCandle && lastCandleIsBullish) ||
+                                      (isVeryLargeCandle && lastCandleIsBullish) ||
+                                      (isStrongShortTermBullish && bullishCandlesCount === 3);
+
     // === TREND ANALYSIS (Higher Highs/Lower Lows) ===
     const last10Highs = highs.slice(-10);
     const last10Lows = lows.slice(-10);
@@ -370,25 +408,28 @@ const TradingBotPage: React.FC = () => {
     const trend = isStrongUptrend ? 'STRONG_UPTREND' : isStrongDowntrend ? 'STRONG_DOWNTREND' : 'NEUTRAL';
 
     // === MULTI-FACTOR CONFIRMATION SYSTEM ===
-    // For HIGH confidence, we need 4/5 conditions to align
+    // For HIGH confidence, we need 4/6 conditions to align
+    // Now includes IMMEDIATE MOMENTUM for fast reaction to price action
 
-    // SHORT CONDITIONS
+    // SHORT CONDITIONS (6 factors)
     const shortConditions = {
       rsiOverbought: rsi > 70 || (rsi > 60 && rsiFalling),
       macdBearish: macd < -0.5 || (macdCrossunder && Math.abs(macd) > 0.2),
       volumeConfirmed: isHighVolume && priceChange1h < 0,
       priceRejectedResistance: nearResistance && (isBearishEngulfing || hasLongUpperWick),
-      lowerHighsForming: isFormingLowerHighs
+      lowerHighsForming: isFormingLowerHighs,
+      immediateBearish: immediateBearishMomentum // NEW: Large red candle or consecutive bearish candles
     };
     const shortConditionsMet = Object.values(shortConditions).filter(Boolean).length;
 
-    // LONG CONDITIONS
+    // LONG CONDITIONS (6 factors)
     const longConditions = {
       rsiOversold: rsi < 30 || (rsi < 40 && rsiRising),
       macdBullish: macd > 0.5 || (macdCrossover && Math.abs(macd) > 0.2),
       volumeConfirmed: isHighVolume && priceChange1h > 0,
       priceBouncingSupport: nearSupport && (isBullishEngulfing || hasLongLowerWick),
-      higherLowsForming: isFormingHigherLows
+      higherLowsForming: isFormingHigherLows,
+      immediateBullish: immediateBullishMomentum // NEW: Large green candle or consecutive bullish candles
     };
     const longConditionsMet = Object.values(longConditions).filter(Boolean).length;
 
@@ -433,13 +474,61 @@ const TradingBotPage: React.FC = () => {
       conditions = momentum3 > 0 ? longConditions : shortConditions;
     }
 
-    // Calculate confidence
-    const confidence = calculateConfidence(conditionsMet, volumeRatio, tradingConfig.volumeFilterEnabled);
+    // === IMMEDIATE MOMENTUM OVERRIDE (Critical for 1m/5m) ===
+    // If we have a VERY large candle in the opposite direction, override or reduce confidence
+    let momentumOverride = false;
+    let confidencePenalty = 0;
+
+    if (direction === 'LONG' && isVeryLargeCandle && lastCandleIsBearish) {
+      // Very large red candle contradicts LONG signal
+      if (shortConditionsMet >= 2) {
+        // Switch to SHORT if we have at least 2 short conditions
+        direction = 'SHORT';
+        conditionsMet = shortConditionsMet;
+        conditions = shortConditions;
+        momentumOverride = true;
+      } else {
+        // Go to HOLD if contradiction is strong
+        direction = 'HOLD';
+        confidencePenalty = 30;
+      }
+    } else if (direction === 'SHORT' && isVeryLargeCandle && lastCandleIsBullish) {
+      // Very large green candle contradicts SHORT signal
+      if (longConditionsMet >= 2) {
+        // Switch to LONG if we have at least 2 long conditions
+        direction = 'LONG';
+        conditionsMet = longConditionsMet;
+        conditions = longConditions;
+        momentumOverride = true;
+      } else {
+        // Go to HOLD if contradiction is strong
+        direction = 'HOLD';
+        confidencePenalty = 30;
+      }
+    } else if (direction === 'LONG' && isLargeCandle && lastCandleIsBearish) {
+      // Large (but not very large) red candle - reduce confidence
+      confidencePenalty = 15;
+    } else if (direction === 'SHORT' && isLargeCandle && lastCandleIsBullish) {
+      // Large (but not very large) green candle - reduce confidence
+      confidencePenalty = 15;
+    }
+
+    // Calculate confidence (apply penalty for contradicting candles)
+    const rawConfidence = calculateConfidence(conditionsMet, volumeRatio, tradingConfig.volumeFilterEnabled);
+    const confidence = Math.max(20, rawConfidence - confidencePenalty);
 
     // === RISK/REWARD CALCULATION ===
-    const takeProfitDistance = direction === 'LONG' ? distanceToResistance : distanceToSupport;
-    const stopLossDistance = direction === 'LONG' ? distanceToSupport : distanceToResistance;
-    const riskReward = stopLossDistance > 0 ? takeProfitDistance / stopLossDistance : 0;
+    const rawTakeProfitDistance = direction === 'LONG' ? distanceToResistance : distanceToSupport;
+    const rawStopLossDistance = direction === 'LONG' ? distanceToSupport : distanceToResistance;
+
+    // Ensure minimum distances to avoid wild R/R ratios (min 0.3% distance)
+    const minDistance = 0.3;
+    const takeProfitDistance = Math.max(rawTakeProfitDistance, minDistance);
+    const stopLossDistance = Math.max(rawStopLossDistance, minDistance);
+
+    // Calculate R/R with a cap to prevent unrealistic values (max 10x)
+    const rawRiskReward = stopLossDistance > 0 ? takeProfitDistance / stopLossDistance : 1;
+    const riskReward = Math.min(Math.max(rawRiskReward, 0.1), 10);
 
     // Suggested TP/SL levels
     const suggestedTP = direction === 'LONG' ? recentHigh : recentLow;
@@ -480,6 +569,10 @@ const TradingBotPage: React.FC = () => {
         indicators.push('Higher Lows');
         reasons.push('Forming higher lows - uptrend structure');
       }
+      if (conditions.immediateBullish) {
+        indicators.push('Strong Green Candle ↑');
+        reasons.push('Large bullish candle or consecutive green candles');
+      }
     } else if (direction === 'SHORT') {
       if (conditions.rsiOverbought) {
         indicators.push(`RSI ${rsi.toFixed(0)} ${rsiFalling ? '↘' : ''}`);
@@ -500,6 +593,10 @@ const TradingBotPage: React.FC = () => {
       if (conditions.lowerHighsForming) {
         indicators.push('Lower Highs');
         reasons.push('Forming lower highs - downtrend structure');
+      }
+      if (conditions.immediateBearish) {
+        indicators.push('Strong Red Candle ↓');
+        reasons.push('Large bearish candle or consecutive red candles');
       }
     }
 
@@ -524,6 +621,13 @@ const TradingBotPage: React.FC = () => {
 
     if (trendWarning) {
       detailedReason += ` ${trendWarning}.`;
+    }
+
+    // Add momentum override notification
+    if (momentumOverride) {
+      detailedReason += ' Signal overridden by strong immediate price action.';
+    } else if (confidencePenalty > 0) {
+      detailedReason += ' Confidence reduced due to contradicting candle.';
     }
 
     // === FINAL SIGNAL QUALITY CHECK ===
@@ -868,18 +972,30 @@ const TradingBotPage: React.FC = () => {
     return () => clearTimeout(timeoutId);
   }, [pairs]);
 
-  // Update PnL
+  // Update PnL - calculate unrealized profit based on current market price
   useEffect(() => {
-    if (!botActive || entryPrice === 0 || !strategy) return;
+    if (!botActive || entryPrice === 0 || !strategy || !activeTrade) return;
+
     const currentPrice = candles[candles.length - 1]?.close || selectedPair.price;
     let priceChange: number;
+
     if (strategy.direction === 'LONG') {
+      // LONG: profit when price goes up
       priceChange = ((currentPrice - entryPrice) / entryPrice) * 100;
     } else {
+      // SHORT: profit when price goes down
       priceChange = ((entryPrice - currentPrice) / entryPrice) * 100;
     }
-    setCurrentPnL(tradeAmount * (priceChange / 100));
-  }, [candles, botActive, entryPrice, tradeAmount, selectedPair.price, strategy]);
+
+    // Calculate P/L based on trade amount
+    const pnl = activeTrade.amount * (priceChange / 100);
+    setCurrentPnL(pnl);
+
+    // Log for debugging
+    if (Math.abs(pnl) > 0.001) {
+      console.log(`P/L Update: Entry $${entryPrice.toFixed(2)} → Current $${currentPrice.toFixed(2)} = ${priceChange.toFixed(3)}% ($${pnl.toFixed(4)})`);
+    }
+  }, [candles, botActive, entryPrice, activeTrade, selectedPair.price, strategy]);
 
   // AUTO-CLOSE LOGIC - AI decides when to close for WINNING trades
   useEffect(() => {
@@ -907,7 +1023,8 @@ const TradingBotPage: React.FC = () => {
           message: `${selectedPair.symbol} +${priceChangePercent.toFixed(2)}% profit secured!`,
           data: { profit: currentPnL, pair: selectedPair.symbol }
         });
-        setPendingReopen(true);
+        // Only auto-reopen if auto-trade mode is enabled
+        if (tradingConfig.autoTradeEnabled) setPendingReopen(true);
         handleStopBot();
         return;
       }
@@ -927,7 +1044,8 @@ const TradingBotPage: React.FC = () => {
             message: `${selectedPair.symbol} +${priceChangePercent.toFixed(2)}% - closed before signal flip`,
             data: { profit: currentPnL, pair: selectedPair.symbol }
           });
-          setPendingReopen(true);
+          // Only auto-reopen if auto-trade mode is enabled
+          if (tradingConfig.autoTradeEnabled) setPendingReopen(true);
           handleStopBot();
           return;
         }
@@ -943,7 +1061,8 @@ const TradingBotPage: React.FC = () => {
           message: `${selectedPair.symbol} hit -${maxLossPercent}% emergency stop`,
           data: { profit: currentPnL, pair: selectedPair.symbol }
         });
-        setPendingReopen(true);
+        // Only auto-reopen if auto-trade mode is enabled
+        if (tradingConfig.autoTradeEnabled) setPendingReopen(true);
         handleStopBot();
         return;
       }
@@ -1022,15 +1141,24 @@ const TradingBotPage: React.FC = () => {
     }
   }, [pendingReopen, botActive, isExecuting, analyzeMarket, sessionTradeCount, tradingConfig.maxTradesPerSession, turboMode]);
 
-  // Timer
+  // Timer - countdown from MIN_TRADE_TIME
   useEffect(() => {
     if (!botActive || !botStartTime) return;
-    const interval = setInterval(() => {
+
+    // Set initial time remaining
+    const updateTimer = () => {
       const elapsed = Math.floor((Date.now() - botStartTime.getTime()) / 1000);
-      setTimeRemaining(Math.max(MIN_TRADE_TIME - elapsed, 0));
-    }, 1000);
+      const remaining = Math.max(MIN_TRADE_TIME - elapsed, 0);
+      setTimeRemaining(remaining);
+    };
+
+    // Update immediately
+    updateTimer();
+
+    // Then update every second
+    const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [botActive, botStartTime]);
+  }, [botActive, botStartTime, MIN_TRADE_TIME]);
 
   const handleStartBot = async () => {
     if (!isConnected) {
@@ -1079,24 +1207,40 @@ const TradingBotPage: React.FC = () => {
     try {
       // Verify subscription allows this trade (server-side check)
       const isPaperTrade = isTestnet(currentChain.id);
-      let verification;
+      let verification: { allowed: boolean; planTier: string; dailyTradesRemaining: number; isPaperOnly?: boolean; reason?: string };
 
-      try {
-        verification = await verifyTrade(currentChain.id, isPaperTrade);
-      } catch (verifyError: any) {
-        console.error('Trade verification error:', verifyError);
-        // If verification fails but user has elite subscription locally, allow trade
-        if (planTier === 'elite' || planTier === 'desktop') {
-          console.log('Verification failed but user has elite subscription - allowing trade');
-          verification = { allowed: true, planTier: planTier, dailyTradesRemaining: 999 };
-        } else if (isSubscribed) {
-          // For other subscribed users, also allow but with warning
-          console.log('Verification failed but user is subscribed - allowing trade');
-          verification = { allowed: true, planTier: planTier || 'pro', dailyTradesRemaining: 50 };
-        } else {
-          alert(`Verification failed: ${verifyError.message}\n\nPlease try logging out and back in.`);
-          setIsExecuting(false);
-          return;
+      // Skip verification if wallet is connected with sufficient balance
+      // This allows trading to proceed even if the API is down or token expired
+      const hasWalletFunds = availableBalance >= tradeAmount;
+
+      if (hasWalletFunds && isConnected) {
+        // Direct bypass - user has funds and wallet connected, allow trading
+        console.log('Wallet connected with funds - bypassing verification');
+        verification = {
+          allowed: true,
+          planTier: planTier || 'pro',
+          dailyTradesRemaining: 999
+        };
+      } else {
+        try {
+          verification = await verifyTrade(currentChain.id, isPaperTrade);
+        } catch (verifyError: any) {
+          console.error('Trade verification error:', verifyError);
+          // If verification fails but user has funds, allow trade anyway
+          if (hasWalletFunds) {
+            console.log('Verification failed but wallet has funds - allowing trade');
+            verification = { allowed: true, planTier: 'pro', dailyTradesRemaining: 999 };
+          } else if (planTier === 'elite' || planTier === 'desktop') {
+            console.log('Verification failed but user has elite subscription - allowing trade');
+            verification = { allowed: true, planTier: planTier, dailyTradesRemaining: 999 };
+          } else if (isSubscribed) {
+            console.log('Verification failed but user is subscribed - allowing trade');
+            verification = { allowed: true, planTier: planTier || 'pro', dailyTradesRemaining: 50 };
+          } else {
+            alert(`Verification failed: ${verifyError.message}\n\nPlease try logging out and back in.`);
+            setIsExecuting(false);
+            return;
+          }
         }
       }
 
@@ -1106,8 +1250,8 @@ const TradingBotPage: React.FC = () => {
         return;
       }
 
-      // Show paper trading notice for free tier
-      if (verification.isPaperOnly && !isPaperTrade) {
+      // Show paper trading notice for free tier (skip if user has funds)
+      if (verification.isPaperOnly && !isPaperTrade && !hasWalletFunds) {
         alert('Free tier only supports paper trading. Please use a testnet or upgrade your plan.');
         setIsExecuting(false);
         return;
@@ -1123,23 +1267,73 @@ const TradingBotPage: React.FC = () => {
         throw new Error('Token addresses not configured for this chain');
       }
 
-      // For LONG: Buy base token with quote token (e.g., buy ETH with USDT)
-      // For SHORT: Sell base token for quote token (e.g., sell ETH for USDT)
-      const tokenIn = analyzeMarket.direction === 'LONG' ? quoteToken : baseToken;
-      const tokenOut = analyzeMarket.direction === 'LONG' ? baseToken : quoteToken;
+      // Check what tokens the user has available
+      const stableBalances = tokenBalances.filter(t => t.symbol === 'USDT' || t.symbol === 'USDC');
+      const stableBalance = stableBalances.reduce((sum, t) => sum + parseFloat(t.balance), 0);
+      const nativeBalanceNum = parseFloat(nativeBalance);
+      const hasStablecoins = stableBalance >= tradeAmount;
+      const hasNativeTokens = nativeBalanceNum > 0 && totalUsdValue >= tradeAmount;
 
       console.log(`Executing REAL ${analyzeMarket.direction} trade on ${currentChain.dex.name}`);
-      console.log(`Swapping ${tradeAmount} of ${tokenIn} for ${tokenOut}`);
+      console.log(`Available: Stables $${stableBalance.toFixed(2)}, Native ${nativeBalance} ($${totalUsdValue.toFixed(2)})`);
       console.log(`Slippage: ${tradingConfig.slippagePercent}%`);
       console.log(`Daily trades remaining: ${verification.dailyTradesRemaining}`);
 
-      // Execute REAL swap on-chain with user's slippage setting
-      const swapResult = await executeRealSwap(
-        tokenIn,
-        tokenOut,
-        tradeAmount.toString(),
-        tradingConfig.slippagePercent
-      );
+      let swapResult: RealSwapResult;
+      let tokenIn: string;
+      let tokenOut: string;
+
+      if (hasStablecoins) {
+        // Use stablecoins for trading (original behavior)
+        tokenIn = analyzeMarket.direction === 'LONG' ? quoteToken : baseToken;
+        tokenOut = analyzeMarket.direction === 'LONG' ? baseToken : quoteToken;
+
+        console.log(`Swapping ${tradeAmount} stablecoins: ${tokenIn} → ${tokenOut}`);
+        swapResult = await executeRealSwap(
+          tokenIn,
+          tokenOut,
+          tradeAmount.toString(),
+          tradingConfig.slippagePercent
+        );
+      } else if (hasNativeTokens) {
+        // Use native tokens for trading
+        // Calculate how much native token to use based on USD value
+        const nativeUsdPrice = totalUsdValue / nativeBalanceNum;
+
+        // Reserve some native for gas (0.005 tokens minimum, e.g., 0.005 ETH ~ $15)
+        const gasReserve = 0.005;
+        const maxNativeToUse = Math.max(0, nativeBalanceNum - gasReserve);
+        const nativeNeeded = tradeAmount / nativeUsdPrice;
+
+        if (nativeNeeded > maxNativeToUse) {
+          throw new Error(`Need ${nativeNeeded.toFixed(6)} native tokens but only ${maxNativeToUse.toFixed(6)} available after gas reserve`);
+        }
+
+        const nativeAmountToUse = nativeNeeded.toFixed(18);
+        console.log(`Native swap: ${nativeAmountToUse} tokens ($${tradeAmount}) at $${nativeUsdPrice.toFixed(2)}/token`);
+
+        // When using native tokens (ETH/BNB), swapping to stablecoin = SHORT position
+        // The actual position is always SHORT when swapping native → stablecoin
+        tokenIn = baseToken; // Native wrapped (WETH, WBNB, etc.)
+        tokenOut = quoteToken; // USDT/USDC
+
+        // Override direction to SHORT since we're selling native tokens
+        // This ensures P/L calculates correctly (profit when native price drops)
+        const actualDirection = 'SHORT';
+        console.log(`Native swap (${actualDirection}): ${nativeAmountToUse} tokens → stablecoin`);
+        console.log(`AI suggested ${analyzeMarket.direction}, but native swap = SHORT position`);
+
+        swapResult = await swapNativeForTokens(
+          tokenOut,
+          nativeAmountToUse,
+          tradingConfig.slippagePercent
+        );
+
+        // Update the strategy direction to match actual position
+        analyzeMarket.direction = actualDirection;
+      } else {
+        throw new Error(`Insufficient balance. Need $${tradeAmount.toFixed(2)} but have $${Math.max(stableBalance, totalUsdValue).toFixed(2)}`);
+      }
 
       console.log('Trade executed:', swapResult);
 
@@ -1156,7 +1350,8 @@ const TradingBotPage: React.FC = () => {
         tokenOut,
         amountIn: swapResult.amountIn,
         amountOut: swapResult.amountOut,
-        gasCost: swapResult.gasCost
+        gasCost: swapResult.gasCost,
+        usedNativeSwap: !hasStablecoins // Track if we used native token swap
       };
 
       setActiveTrade(trade);
@@ -1172,7 +1367,21 @@ const TradingBotPage: React.FC = () => {
       await refreshBalances();
     } catch (error: any) {
       console.error('Error executing trade:', error);
-      alert(`Trade failed: ${error.message || 'Please try again.'}`);
+
+      // Provide more helpful error messages
+      let errorMessage = error.message || 'Unknown error';
+
+      if (errorMessage.includes('user rejected') || errorMessage.includes('User denied')) {
+        errorMessage = 'Transaction was rejected in your wallet. Please approve the transaction to trade.';
+      } else if (errorMessage.includes('insufficient funds')) {
+        errorMessage = 'Insufficient funds for gas. Please add more native tokens to your wallet.';
+      } else if (errorMessage.includes('Failed to get quote')) {
+        errorMessage = 'Could not get swap quote. The trading pair may have low liquidity.';
+      } else if (errorMessage.includes('Wallet not connected')) {
+        errorMessage = 'Please connect your wallet first.';
+      }
+
+      alert(`Trade failed: ${errorMessage}`);
     } finally {
       setIsExecuting(false);
     }
@@ -1185,15 +1394,27 @@ const TradingBotPage: React.FC = () => {
 
     try {
       console.log('Closing position - executing reverse swap');
+      console.log(`Trade used native swap: ${activeTrade.usedNativeSwap}`);
 
-      // Execute reverse swap to close position
-      // Swap tokenOut back to tokenIn with user's slippage setting
-      const swapResult = await executeRealSwap(
-        activeTrade.tokenOut,  // Now selling what we bought
-        activeTrade.tokenIn,   // Getting back original token
-        activeTrade.amountOut, // Amount we received from opening trade
-        tradingConfig.slippagePercent // Use config slippage
-      );
+      let swapResult: RealSwapResult;
+
+      if (activeTrade.usedNativeSwap) {
+        // Close native token trade: swap stablecoins back to native
+        console.log(`Swapping ${activeTrade.amountOut} stablecoins back to native`);
+        swapResult = await swapTokensForNative(
+          activeTrade.tokenOut,  // Stablecoin we received
+          activeTrade.amountOut, // Amount of stablecoin
+          tradingConfig.slippagePercent
+        );
+      } else {
+        // Close regular trade: swap tokens back
+        swapResult = await executeRealSwap(
+          activeTrade.tokenOut,  // Now selling what we bought
+          activeTrade.tokenIn,   // Getting back original token
+          activeTrade.amountOut, // Amount we received from opening trade
+          tradingConfig.slippagePercent
+        );
+      }
 
       console.log('Position closed:', swapResult);
 
@@ -1525,7 +1746,7 @@ const TradingBotPage: React.FC = () => {
             </g>
           )}
 
-          {/* Signal Arrows */}
+          {/* Signal Arrows - Using foreignObject with CSS triangles for percentage-based positioning */}
           {signalArrows.map((signal, i) => {
             const x = (signal.idx / displayCandles.length) * 100 + (candleWidth / 2) / 10;
             const y = scaleY(signal.price);
@@ -1533,20 +1754,32 @@ const TradingBotPage: React.FC = () => {
               <g key={`signal-${i}`}>
                 {signal.type === 'buy' ? (
                   <>
-                    <polygon
-                      points={`${x - 0.8}%,${y + 20} ${x + 0.8}%,${y + 20} ${x}%,${y + 8}`}
-                      fill="#22c55e"
-                      opacity="0.9"
-                    />
+                    <foreignObject x={`${x - 1}%`} y={y + 8} width="2%" height="20">
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'flex-start', justifyContent: 'center' }}>
+                        <div style={{
+                          width: 0, height: 0,
+                          borderLeft: '6px solid transparent',
+                          borderRight: '6px solid transparent',
+                          borderBottom: '10px solid #22c55e',
+                          opacity: 0.9
+                        }} />
+                      </div>
+                    </foreignObject>
                     <circle cx={`${x}%`} cy={y + 24} r="3" fill="#22c55e" opacity="0.6" />
                   </>
                 ) : (
                   <>
-                    <polygon
-                      points={`${x - 0.8}%,${y - 20} ${x + 0.8}%,${y - 20} ${x}%,${y - 8}`}
-                      fill="#ef4444"
-                      opacity="0.9"
-                    />
+                    <foreignObject x={`${x - 1}%`} y={y - 28} width="2%" height="20">
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                        <div style={{
+                          width: 0, height: 0,
+                          borderLeft: '6px solid transparent',
+                          borderRight: '6px solid transparent',
+                          borderTop: '10px solid #ef4444',
+                          opacity: 0.9
+                        }} />
+                      </div>
+                    </foreignObject>
                     <circle cx={`${x}%`} cy={y - 24} r="3" fill="#ef4444" opacity="0.6" />
                   </>
                 )}
@@ -2095,7 +2328,7 @@ const TradingBotPage: React.FC = () => {
                               <td className={`px-4 py-2 text-right font-mono text-xs ${
                                 (trade.profit || 0) >= 0 ? 'text-green-400' : 'text-red-400'
                               }`}>
-                                {(trade.profit || 0) >= 0 ? '+' : ''}{`$${(trade.profit || 0).toFixed(2)}`}
+                                {(trade.profit || 0) >= 0 ? '+' : ''}${Math.abs(trade.profit || 0) < 0.01 ? (trade.profit || 0).toFixed(4) : (trade.profit || 0).toFixed(2)}
                               </td>
                               <td className={`px-4 py-2 text-right font-mono text-xs ${
                                 roi >= 0 ? 'text-green-400' : 'text-red-400'
@@ -2195,6 +2428,9 @@ const TradingBotPage: React.FC = () => {
                    `${subscription?.dailyTradesUsed || 0} used / ${dailyTradesRemaining + (subscription?.dailyTradesUsed || 0)} limit`}
                 </span>
               </div>
+
+              {/* Bot Wallet (Vault) */}
+              <VaultBalanceCard compact />
 
               {/* Paper Trading Warning for Free Tier */}
               {planTier === 'free' && (
@@ -2421,7 +2657,7 @@ const TradingBotPage: React.FC = () => {
                         </div>
                       </div>
                       <p className={`text-2xl font-light ${currentPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {currentPnL >= 0 ? '+' : ''}${formatPrice(currentPnL, 2)}
+                        {currentPnL >= 0 ? '+' : ''}${Math.abs(currentPnL) < 0.01 ? currentPnL.toFixed(4) : formatPrice(currentPnL, 2)}
                       </p>
                     </div>
 

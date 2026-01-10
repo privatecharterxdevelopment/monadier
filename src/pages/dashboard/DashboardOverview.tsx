@@ -8,6 +8,7 @@ import Card from '../../components/ui/Card';
 import { Link } from 'react-router-dom';
 import { useAppKit } from '@reown/appkit/react';
 import { supabase } from '../../lib/supabase';
+import { VaultBalanceCard } from '../../components/vault';
 
 interface Payment {
   id: string;
@@ -301,6 +302,41 @@ const DashboardOverview: React.FC = () => {
           </Card>
         </motion.div>
       </div>
+
+      {/* Bot Wallet (Vault) - For Paid Users */}
+      <motion.div variants={itemAnimation} className="mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-1">
+            <VaultBalanceCard compact />
+          </div>
+          <div className="md:col-span-2">
+            <Card className="p-6 h-full">
+              <div className="flex items-center gap-2 mb-4">
+                <Bot className="w-5 h-5 text-white" />
+                <h3 className="font-medium text-white">Auto-Trading Vault</h3>
+              </div>
+              <p className="text-gray-500 text-sm mb-4">
+                Deposit USDC to the vault and let the bot trade automatically without signing each transaction.
+                Configure your risk level (1-50%) and enable auto-trading to get started.
+              </p>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-background rounded-lg p-3">
+                  <p className="text-gray-500 text-xs mb-1">Base Fee</p>
+                  <p className="text-white font-medium">1.0%</p>
+                </div>
+                <div className="bg-background rounded-lg p-3">
+                  <p className="text-gray-500 text-xs mb-1">Other Chains</p>
+                  <p className="text-white font-medium">3.5%</p>
+                </div>
+                <div className="bg-background rounded-lg p-3">
+                  <p className="text-gray-500 text-xs mb-1">Max Risk</p>
+                  <p className="text-white font-medium">50%</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Supported Chains */}
       <motion.div variants={itemAnimation} className="mb-6">
