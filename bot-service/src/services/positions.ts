@@ -8,14 +8,18 @@ export interface Position {
   chain_id: number;
   token_address: string;
   token_symbol: string;
+  direction: 'LONG' | 'SHORT'; // Trade direction
   entry_price: number;
   entry_amount: number;
   token_amount: number;
   entry_tx_hash: string | null;
   highest_price: number;
+  lowest_price: number; // For SHORT positions
   trailing_stop_price: number | null;
   trailing_stop_percent: number;
-  stop_activated: boolean; // NEW: Only true once in profit
+  take_profit_price: number | null; // Fixed TP level
+  take_profit_percent: number; // TP percentage from entry
+  stop_activated: boolean; // Only true once in profit
   exit_price: number | null;
   exit_amount: number | null;
   exit_tx_hash: string | null;
@@ -42,21 +46,30 @@ export class PositionService {
   }
 
   /**
-   * Open a new position
+   * Open a new position (LONG or SHORT)
    * Trailing stop is NOT active until position is in profit
+   * Take Profit is set immediately
    */
   async openPosition(params: {
     walletAddress: string;
     chainId: number;
     tokenAddress: string;
     tokenSymbol: string;
+    direction: 'LONG' | 'SHORT';
     entryPrice: number;
     entryAmount: number; // USDC spent
     tokenAmount: number; // Token received
     txHash: string;
     trailingStopPercent?: number;
+    takeProfitPercent?: number;
   }): Promise<Position | null> {
     const trailingStopPercent = params.trailingStopPercent || 1.0; // Default 1%
+    const takeProfitPercent = params.takeProfitPercent || 5.0; // Default 5% TP
+
+    // Calculate take profit price based on direction
+    const takeProfitPrice = params.direction === 'LONG'
+      ? params.entryPrice * (1 + takeProfitPercent / 100)
+      : params.entryPrice * (1 - takeProfitPercent / 100);
 
     try {
       const { data, error } = await this.supabase
@@ -66,13 +79,17 @@ export class PositionService {
           chain_id: params.chainId,
           token_address: params.tokenAddress,
           token_symbol: params.tokenSymbol,
+          direction: params.direction,
           entry_price: params.entryPrice,
           entry_amount: params.entryAmount,
           token_amount: params.tokenAmount,
           entry_tx_hash: params.txHash,
           highest_price: params.entryPrice,
+          lowest_price: params.entryPrice,
           trailing_stop_price: null, // NO STOP until in profit
           trailing_stop_percent: trailingStopPercent,
+          take_profit_price: takeProfitPrice,
+          take_profit_percent: takeProfitPercent,
           stop_activated: false, // Not active yet
           status: 'open'
         })
@@ -84,11 +101,13 @@ export class PositionService {
         return null;
       }
 
-      logger.info('Position opened (PROFIT-ONLY mode)', {
+      logger.info(`📈 ${params.direction} position opened (PROFIT-ONLY mode)`, {
         id: data.id,
         wallet: params.walletAddress,
         token: params.tokenSymbol,
+        direction: params.direction,
         entryPrice: params.entryPrice,
+        takeProfitPrice: takeProfitPrice.toFixed(4),
         stopActivatesAt: `+${PROFIT_THRESHOLD_PERCENT}% profit`
       });
 
@@ -157,8 +176,8 @@ export class PositionService {
   }
 
   /**
-   * Update trailing stop - PROFIT-ONLY logic
-   * Stop only activates once price is above entry + threshold
+   * Update trailing stop - PROFIT-ONLY logic (works for LONG and SHORT)
+   * Stop only activates once position is in profit by threshold
    * Once activated, stop is always at least at entry price (break-even)
    */
   async updateTrailingStop(positionId: string, currentPrice: number): Promise<Position | null> {
@@ -176,13 +195,20 @@ export class PositionService {
       }
 
       const entryPrice = position.entry_price;
-      const profitPercent = ((currentPrice - entryPrice) / entryPrice) * 100;
+      const direction = position.direction || 'LONG';
+
+      // Calculate profit based on direction
+      const profitPercent = direction === 'LONG'
+        ? ((currentPrice - entryPrice) / entryPrice) * 100
+        : ((entryPrice - currentPrice) / entryPrice) * 100;
+
       const isInProfit = profitPercent >= PROFIT_THRESHOLD_PERCENT;
 
       // If not yet in profit threshold, don't update anything - just hold
       if (!isInProfit && !position.stop_activated) {
         logger.debug('Position not yet in profit, holding...', {
           positionId,
+          direction,
           entryPrice,
           currentPrice,
           profitPercent: profitPercent.toFixed(2) + '%',
@@ -191,14 +217,21 @@ export class PositionService {
         return position;
       }
 
-      // Calculate new trailing stop
-      // Once in profit, stop is MAX(entry_price, current_price - trailing%)
-      // This ensures we NEVER close below entry once activated
-      const trailingStop = currentPrice * (1 - position.trailing_stop_percent / 100);
-      const newTrailingStop = Math.max(entryPrice, trailingStop);
+      // Calculate trailing stop based on direction
+      let newTrailingStop: number;
+      let shouldUpdate: boolean;
 
-      // Only update if this is a new high OR first activation
-      const shouldUpdate = currentPrice > position.highest_price || !position.stop_activated;
+      if (direction === 'LONG') {
+        // LONG: Stop below current price, minimum at entry
+        const trailingStop = currentPrice * (1 - position.trailing_stop_percent / 100);
+        newTrailingStop = Math.max(entryPrice, trailingStop);
+        shouldUpdate = currentPrice > position.highest_price || !position.stop_activated;
+      } else {
+        // SHORT: Stop above current price, maximum at entry
+        const trailingStop = currentPrice * (1 + position.trailing_stop_percent / 100);
+        newTrailingStop = Math.min(entryPrice, trailingStop);
+        shouldUpdate = currentPrice < position.lowest_price || !position.stop_activated;
+      }
 
       if (!shouldUpdate) {
         return position;
@@ -212,31 +245,57 @@ export class PositionService {
       if (!position.stop_activated && isInProfit) {
         updateData.stop_activated = true;
         updateData.trailing_stop_price = newTrailingStop;
-        updateData.highest_price = currentPrice;
 
-        logger.info('🎯 TRAILING STOP ACTIVATED (in profit!)', {
+        if (direction === 'LONG') {
+          updateData.highest_price = currentPrice;
+        } else {
+          updateData.lowest_price = currentPrice;
+        }
+
+        const guaranteedProfit = direction === 'LONG'
+          ? ((newTrailingStop - entryPrice) / entryPrice * 100)
+          : ((entryPrice - newTrailingStop) / entryPrice * 100);
+
+        logger.info(`🎯 ${direction} TRAILING STOP ACTIVATED (in profit!)`, {
           positionId,
           token: position.token_symbol,
+          direction,
           entryPrice,
           currentPrice,
           profitPercent: profitPercent.toFixed(2) + '%',
           trailingStop: newTrailingStop,
-          guaranteedProfit: ((newTrailingStop - entryPrice) / entryPrice * 100).toFixed(2) + '%'
+          guaranteedProfit: guaranteedProfit.toFixed(2) + '%'
         });
       }
-      // Already activated, update to new high
-      else if (position.stop_activated && currentPrice > position.highest_price) {
-        updateData.highest_price = currentPrice;
-        updateData.trailing_stop_price = newTrailingStop;
+      // Already activated, update to new extreme
+      else if (position.stop_activated) {
+        if (direction === 'LONG' && currentPrice > position.highest_price) {
+          updateData.highest_price = currentPrice;
+          updateData.trailing_stop_price = newTrailingStop;
+          const profitLocked = ((newTrailingStop - entryPrice) / entryPrice * 100);
 
-        logger.info('📈 Trailing stop moved up (locking more profit)', {
-          positionId,
-          token: position.token_symbol,
-          oldHigh: position.highest_price,
-          newHigh: currentPrice,
-          newStop: newTrailingStop,
-          profitLocked: ((newTrailingStop - entryPrice) / entryPrice * 100).toFixed(2) + '%'
-        });
+          logger.info('📈 LONG trailing stop moved up', {
+            positionId,
+            token: position.token_symbol,
+            oldHigh: position.highest_price,
+            newHigh: currentPrice,
+            newStop: newTrailingStop,
+            profitLocked: profitLocked.toFixed(2) + '%'
+          });
+        } else if (direction === 'SHORT' && currentPrice < position.lowest_price) {
+          updateData.lowest_price = currentPrice;
+          updateData.trailing_stop_price = newTrailingStop;
+          const profitLocked = ((entryPrice - newTrailingStop) / entryPrice * 100);
+
+          logger.info('📉 SHORT trailing stop moved down', {
+            positionId,
+            token: position.token_symbol,
+            oldLow: position.lowest_price,
+            newLow: currentPrice,
+            newStop: newTrailingStop,
+            profitLocked: profitLocked.toFixed(2) + '%'
+          });
+        }
       }
 
       const { data, error } = await this.supabase
@@ -259,35 +318,80 @@ export class PositionService {
   }
 
   /**
-   * Check if position should be closed
-   * ONLY closes if:
-   * 1. Stop is activated (position was in profit)
-   * 2. Price dropped to trailing stop
-   * 3. Trailing stop is at or above entry (guaranteed profit/break-even)
+   * Check if position should be closed (LONG or SHORT)
+   * Closes if:
+   * 1. Take Profit hit (immediate close at profit!)
+   * 2. Trailing stop triggered (only after activated = in profit)
    */
-  shouldClose(position: Position, currentPrice: number): boolean {
-    // Stop not activated = NEVER close (hold through dips)
-    if (!position.stop_activated || !position.trailing_stop_price) {
-      return false;
-    }
+  shouldClose(position: Position, currentPrice: number): { close: boolean; reason: 'take_profit' | 'trailing_stop' | null } {
+    const direction = position.direction || 'LONG';
 
-    // Only close if price hit the trailing stop
-    if (currentPrice <= position.trailing_stop_price) {
-      // Double-check we're closing at profit or break-even
-      const wouldBeProfit = position.trailing_stop_price >= position.entry_price;
-      if (!wouldBeProfit) {
-        logger.warn('Stop triggered but would be a loss - NOT closing', {
+    // Check Take Profit FIRST (immediate exit at profit target)
+    if (position.take_profit_price) {
+      if (direction === 'LONG' && currentPrice >= position.take_profit_price) {
+        logger.info('🎯 TAKE PROFIT HIT!', {
           positionId: position.id,
+          direction,
           entryPrice: position.entry_price,
-          stopPrice: position.trailing_stop_price,
-          currentPrice
+          currentPrice,
+          takeProfitPrice: position.take_profit_price,
+          profit: ((currentPrice - position.entry_price) / position.entry_price * 100).toFixed(2) + '%'
         });
-        return false;
+        return { close: true, reason: 'take_profit' };
       }
-      return true;
+      if (direction === 'SHORT' && currentPrice <= position.take_profit_price) {
+        logger.info('🎯 TAKE PROFIT HIT!', {
+          positionId: position.id,
+          direction,
+          entryPrice: position.entry_price,
+          currentPrice,
+          takeProfitPrice: position.take_profit_price,
+          profit: ((position.entry_price - currentPrice) / position.entry_price * 100).toFixed(2) + '%'
+        });
+        return { close: true, reason: 'take_profit' };
+      }
     }
 
-    return false;
+    // Stop not activated = NEVER close (hold through dips/spikes)
+    if (!position.stop_activated || !position.trailing_stop_price) {
+      return { close: false, reason: null };
+    }
+
+    // Check trailing stop based on direction
+    if (direction === 'LONG') {
+      if (currentPrice <= position.trailing_stop_price) {
+        // Double-check we're closing at profit or break-even
+        const wouldBeProfit = position.trailing_stop_price >= position.entry_price;
+        if (!wouldBeProfit) {
+          logger.warn('LONG stop triggered but would be a loss - NOT closing', {
+            positionId: position.id,
+            entryPrice: position.entry_price,
+            stopPrice: position.trailing_stop_price,
+            currentPrice
+          });
+          return { close: false, reason: null };
+        }
+        return { close: true, reason: 'trailing_stop' };
+      }
+    } else {
+      // SHORT: Close if price rises above stop
+      if (currentPrice >= position.trailing_stop_price) {
+        // Double-check we're closing at profit or break-even
+        const wouldBeProfit = position.trailing_stop_price <= position.entry_price;
+        if (!wouldBeProfit) {
+          logger.warn('SHORT stop triggered but would be a loss - NOT closing', {
+            positionId: position.id,
+            entryPrice: position.entry_price,
+            stopPrice: position.trailing_stop_price,
+            currentPrice
+          });
+          return { close: false, reason: null };
+        }
+        return { close: true, reason: 'trailing_stop' };
+      }
+    }
+
+    return { close: false, reason: null };
   }
 
   /**

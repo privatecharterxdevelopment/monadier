@@ -392,11 +392,13 @@ export class TradingService {
         chainId,
         tokenAddress: signal.tokenAddress,
         tokenSymbol: signal.tokenSymbol,
+        direction: signal.direction,
         entryPrice,
         entryAmount,
         tokenAmount: estimatedTokens,
         txHash,
-        trailingStopPercent: 1.0 // Default 1% trailing stop
+        trailingStopPercent: 1.0, // Default 1% trailing stop
+        takeProfitPercent: 5.0 // Default 5% take profit
       });
 
       // 8. Record the trade in subscription
@@ -537,30 +539,39 @@ export class TradingService {
           continue;
         }
 
-        // Check if we should close (price hit trailing stop)
-        if (positionService.shouldClose(position, currentPrice)) {
-          logger.info('Trailing stop triggered!', {
+        // Check if we should close (TP hit or trailing stop triggered)
+        const closeCheck = positionService.shouldClose(position, currentPrice);
+        if (closeCheck.close && closeCheck.reason) {
+          logger.info(`${closeCheck.reason === 'take_profit' ? '🎯 Take Profit' : '📉 Trailing Stop'} triggered!`, {
             positionId: position.id,
             token: position.token_symbol,
+            direction: position.direction || 'LONG',
             entryPrice: position.entry_price,
             currentPrice,
             trailingStop: position.trailing_stop_price,
-            highestPrice: position.highest_price
+            takeProfit: position.take_profit_price
           });
 
-          await this.closePosition(chainId, position, 'trailing_stop');
+          await this.closePosition(chainId, position, closeCheck.reason);
           continue;
         }
 
-        // Update trailing stop if price went higher
-        if (currentPrice > position.highest_price) {
-          const profitPercent = ((currentPrice - position.entry_price) / position.entry_price) * 100;
+        // Update trailing stop based on direction
+        const direction = position.direction || 'LONG';
+        const shouldUpdateStop = direction === 'LONG'
+          ? currentPrice > position.highest_price
+          : currentPrice < (position.lowest_price || position.entry_price);
 
-          logger.info('Price increased, updating trailing stop', {
+        if (shouldUpdateStop) {
+          const profitPercent = direction === 'LONG'
+            ? ((currentPrice - position.entry_price) / position.entry_price) * 100
+            : ((position.entry_price - currentPrice) / position.entry_price) * 100;
+
+          logger.info(`${direction} position price moved favorably`, {
             positionId: position.id,
             token: position.token_symbol,
-            oldHigh: position.highest_price,
-            newHigh: currentPrice,
+            direction,
+            currentPrice,
             profitPercent: profitPercent.toFixed(2) + '%'
           });
 

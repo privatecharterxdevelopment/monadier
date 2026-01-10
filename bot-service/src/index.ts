@@ -3,8 +3,11 @@ import { config, ChainId } from './config';
 import { logger } from './utils/logger';
 import { tradingService, TradeSignal } from './services/trading';
 import { subscriptionService } from './services/subscription';
-import { marketService } from './services/market';
+import { marketService, TradingStrategy } from './services/market';
 import { positionService } from './services/positions';
+
+// Default trading strategy - can be configured per user later
+const DEFAULT_STRATEGY: TradingStrategy = 'risky'; // RISKY = many trades!
 
 // Supported chains for auto-trading
 const ACTIVE_CHAINS: ChainId[] = [8453]; // Only Base for now with V2
@@ -41,14 +44,15 @@ async function generateTradeSignal(
   tokenAddress: `0x${string}`,
   tokenSymbol: string,
   userBalance: bigint,
-  riskLevelBps: number
+  riskLevelBps: number,
+  strategy: TradingStrategy = DEFAULT_STRATEGY
 ): Promise<TradeSignal | null> {
   const signal = await marketService.getSignal(
     chainId,
     tokenAddress,
     userBalance,
     riskLevelBps,
-    config.trading.minConfidence
+    strategy
   );
 
   if (signal) {
@@ -106,30 +110,23 @@ async function processUserTrades(
       return;
     }
 
-    // 5. Generate trade signal with user's risk level
+    // 5. Generate trade signal with user's risk level and RISKY strategy
     const riskLevelBps = vaultStatus.riskLevel * 100; // Convert % to bps
     const signal = await generateTradeSignal(
       chainId,
       tokenConfig.address,
       tokenConfig.symbol,
       vaultStatus.balance,
-      riskLevelBps
+      riskLevelBps,
+      DEFAULT_STRATEGY // RISKY mode = many trades!
     );
     if (!signal) {
       return;
     }
 
-    // 6. Only trade if confidence is high enough
-    if (signal.confidence < config.trading.minConfidence) {
-      logger.debug('Signal confidence too low', {
-        userAddress,
-        confidence: signal.confidence,
-        required: config.trading.minConfidence
-      });
-      return;
-    }
+    // Signal already passed minimum confidence check in generateTradeSignal
 
-    // 7. Open position (V2: buy and hold)
+    // 6. Open position (V2: buy and hold)
     logger.info('Opening position for user', {
       chainId,
       userAddress,
@@ -224,7 +221,7 @@ function logStartupInfo(): void {
   logger.info('Configuration:', {
     tradeInterval: `${config.trading.checkIntervalMs / 1000}s`,
     monitorInterval: '10s',
-    minConfidence: config.trading.minConfidence,
+    strategy: DEFAULT_STRATEGY,
     defaultSlippage: `${config.trading.defaultSlippage}%`
   });
 

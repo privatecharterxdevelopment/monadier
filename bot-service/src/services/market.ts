@@ -18,6 +18,7 @@ interface MarketAnalysis {
   confidence: number;
   reason: string;
   indicators: string[];
+  isReversalSignal: boolean; // Flag for reversal-based entries
   metrics: {
     rsi: number;
     macd: string;
@@ -28,6 +29,28 @@ interface MarketAnalysis {
     trend: string;
   };
 }
+
+// Strategy modes
+export type TradingStrategy = 'conservative' | 'normal' | 'risky';
+
+// Strategy configs
+const STRATEGY_CONFIGS = {
+  conservative: {
+    minConfidence: 80,
+    reversalBoost: 10,
+    minConditions: 4
+  },
+  normal: {
+    minConfidence: 70,
+    reversalBoost: 15,
+    minConditions: 3
+  },
+  risky: {
+    minConfidence: 40, // MUCH lower - more trades!
+    reversalBoost: 25, // Big boost for reversals
+    minConditions: 2   // Less conditions required
+  }
+};
 
 // Token config for different chains
 const TOKEN_SYMBOLS: Record<number, Record<string, string>> = {
@@ -149,12 +172,14 @@ function calculateMACD(closes: number[]): { macd: number; signal: number; histog
 
 /**
  * Analyze market conditions and generate signal
+ * @param strategy - 'risky' mode = more trades, lower confidence required
  */
 export async function analyzeMarket(
   chainId: number,
   tokenAddress: string,
-  minConfidence: number = 70
+  strategy: TradingStrategy = 'normal'
 ): Promise<MarketAnalysis | null> {
+  const strategyConfig = STRATEGY_CONFIGS[strategy];
   // Get trading symbol
   const symbol = TOKEN_SYMBOLS[chainId]?.[tokenAddress];
   if (!symbol) {
@@ -399,23 +424,37 @@ export async function analyzeMarket(
 
   // REVERSAL SIGNAL BOOST: Strong reversal patterns get extra confidence
   let reversalBoost = 0;
+  let isReversalSignal = false;
+
   if (direction === 'LONG' && bullishReversalSignal) {
-    reversalBoost = 15;
+    reversalBoost = strategyConfig.reversalBoost;
+    isReversalSignal = true;
     logger.info('🔄 BULLISH REVERSAL detected!', {
+      strategy,
       supportRejection,
       isHammer,
       isBullishEngulfing,
       hasDoubleBottom,
-      rsi: rsi.toFixed(0)
+      rsi: rsi.toFixed(0),
+      boost: `+${reversalBoost}%`
     });
   } else if (direction === 'SHORT' && bearishReversalSignal) {
-    reversalBoost = 15;
+    reversalBoost = strategyConfig.reversalBoost;
+    isReversalSignal = true;
     logger.info('🔄 BEARISH REVERSAL detected!', {
+      strategy,
       resistanceRejection,
       isShootingStar,
       isBearishEngulfing,
-      rsi: rsi.toFixed(0)
+      rsi: rsi.toFixed(0),
+      boost: `+${reversalBoost}%`
     });
+  }
+
+  // RISKY MODE: Extra boost if any reversal pattern found
+  if (strategy === 'risky' && isReversalSignal) {
+    reversalBoost += 15; // Extra 15% for risky mode reversals
+    logger.info('🔥 RISKY MODE: Extra reversal boost applied!', { totalBoost: reversalBoost });
   }
 
   const confidence = Math.max(20, Math.min(95, baseConfidence - confidencePenalty + reversalBoost));
@@ -452,9 +491,11 @@ export async function analyzeMarket(
 
   logger.info('Market analysis complete', {
     symbol,
+    strategy,
     direction,
     confidence,
     conditionsMet,
+    isReversalSignal,
     rsi: rsi.toFixed(0),
     macd: macd.toFixed(4),
     volumeRatio: volumeRatio.toFixed(2)
@@ -465,6 +506,7 @@ export async function analyzeMarket(
     confidence: Math.round(confidence),
     reason,
     indicators,
+    isReversalSignal,
     metrics: {
       rsi: Math.round(rsi),
       macd: macd.toFixed(4),
@@ -479,27 +521,42 @@ export async function analyzeMarket(
 
 /**
  * Generate trade signal for bot execution
+ * @param strategy - 'risky' mode opens more positions with lower confidence
  */
 export async function generateTradeSignal(
   chainId: number,
   tokenAddress: string,
   userBalance: bigint,
   riskLevelBps: number = 500, // Default 5%
-  minConfidence: number = 70
+  strategy: TradingStrategy = 'normal'
 ): Promise<TradeSignal | null> {
-  const analysis = await analyzeMarket(chainId, tokenAddress, minConfidence);
+  const strategyConfig = STRATEGY_CONFIGS[strategy];
+  const analysis = await analyzeMarket(chainId, tokenAddress, strategy);
 
   if (!analysis) {
     return null;
   }
 
+  // Determine minimum confidence based on strategy
+  const minConfidence = strategyConfig.minConfidence;
+
   // Only trade if confidence meets minimum
   if (analysis.confidence < minConfidence) {
     logger.debug('Signal confidence below minimum', {
       confidence: analysis.confidence,
-      required: minConfidence
+      required: minConfidence,
+      strategy
     });
     return null;
+  }
+
+  // RISKY MODE: Always open on reversal signals regardless of confidence
+  if (strategy === 'risky' && analysis.isReversalSignal) {
+    logger.info('🔥 RISKY MODE: Opening on reversal signal!', {
+      direction: analysis.direction,
+      confidence: analysis.confidence,
+      reason: analysis.reason
+    });
   }
 
   // Calculate trade amount based on risk level
@@ -534,15 +591,15 @@ export class MarketService {
   /**
    * Get market analysis with caching
    */
-  async getAnalysis(chainId: number, tokenAddress: string): Promise<MarketAnalysis | null> {
-    const cacheKey = `${chainId}-${tokenAddress}`;
+  async getAnalysis(chainId: number, tokenAddress: string, strategy: TradingStrategy = 'normal'): Promise<MarketAnalysis | null> {
+    const cacheKey = `${chainId}-${tokenAddress}-${strategy}`;
     const cached = this.analysisCache.get(cacheKey);
 
     if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
       return cached.analysis;
     }
 
-    const analysis = await analyzeMarket(chainId, tokenAddress);
+    const analysis = await analyzeMarket(chainId, tokenAddress, strategy);
 
     if (analysis) {
       this.analysisCache.set(cacheKey, { analysis, timestamp: Date.now() });
@@ -552,16 +609,17 @@ export class MarketService {
   }
 
   /**
-   * Generate signal with caching
+   * Generate signal with strategy support
+   * @param strategy - 'risky' = many trades, 'normal' = balanced, 'conservative' = few trades
    */
   async getSignal(
     chainId: number,
     tokenAddress: string,
     userBalance: bigint,
     riskLevelBps: number = 500,
-    minConfidence: number = 70
+    strategy: TradingStrategy = 'normal'
   ): Promise<TradeSignal | null> {
-    return generateTradeSignal(chainId, tokenAddress, userBalance, riskLevelBps, minConfidence);
+    return generateTradeSignal(chainId, tokenAddress, userBalance, riskLevelBps, strategy);
   }
 }
 
