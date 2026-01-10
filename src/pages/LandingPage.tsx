@@ -31,19 +31,23 @@ const generateWalletAddress = (): string => {
   return address;
 };
 
-const generateTrade = (): Trade => {
+const generateTrade = (timeOffset: number = 0): Trade => {
   const tiers: ('starter' | 'pro' | 'elite')[] = ['starter', 'pro', 'elite'];
   const tier = tiers[Math.floor(Math.random() * tiers.length)];
   let maxAmount = tier === 'elite' ? 50000 : tier === 'pro' ? 10000 : 1000;
   const amount = Math.floor(Math.random() * (maxAmount - 50) + 50);
-  const profitPercent = (Math.random() - 0.25) * 15;
+  // 50/50 chance of profit or loss, with varying percentages
+  const isProfit = Math.random() > 0.45;
+  const profitPercent = isProfit
+    ? Math.random() * 12 + 1  // +1% to +13%
+    : -(Math.random() * 10 + 1); // -1% to -11%
   return {
     id: Math.random().toString(36).substr(2, 9),
     amount,
     pair: tradingPairs[Math.floor(Math.random() * tradingPairs.length)],
     type: Math.random() > 0.5 ? 'buy' : 'sell',
     profit: amount * (profitPercent / 100),
-    date: new Date(),
+    date: new Date(Date.now() - timeOffset),
     walletAddress: generateWalletAddress(),
     tier
   };
@@ -63,18 +67,17 @@ const LandingPage: React.FC = () => {
 
   // Initialize and update live trades
   useEffect(() => {
-    const initialTrades: Trade[] = [];
-    for (let i = 0; i < 8; i++) {
-      initialTrades.push({ ...generateTrade(), date: new Date(Date.now() - Math.random() * 60000) });
-    }
+    // Generate 5 initial trades with times spread from just now to 15 minutes ago
+    const timeOffsets = [0, 2 * 60000, 5 * 60000, 9 * 60000, 14 * 60000]; // 0, 2m, 5m, 9m, 14m ago
+    const initialTrades: Trade[] = timeOffsets.map(offset => generateTrade(offset));
     setLiveTrades(initialTrades);
 
     const addNewTrade = () => {
-      setLiveTrades(prev => [generateTrade(), ...prev.slice(0, 7)]);
+      setLiveTrades(prev => [generateTrade(0), ...prev.slice(0, 4)]);
     };
 
     const scheduleNextTrade = () => {
-      const delay = Math.floor(Math.random() * 8000) + 3000;
+      const delay = Math.floor(Math.random() * 15000) + 10000; // 10-25 seconds
       return setTimeout(() => {
         addNewTrade();
         timeoutId = scheduleNextTrade();
