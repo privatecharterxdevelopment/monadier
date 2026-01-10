@@ -18,7 +18,12 @@ import {
   ExternalLink,
   Copy,
   Apple,
-  MonitorDown
+  MonitorDown,
+  BarChart3,
+  Infinity,
+  RefreshCw,
+  Key,
+  AlertCircle
 } from 'lucide-react';
 import { useSubscription, Subscription } from '../../contexts/SubscriptionContext';
 import { useWeb3 } from '../../contexts/Web3Context';
@@ -26,6 +31,15 @@ import { useAppKit } from '@reown/appkit/react';
 import Card from '../../components/ui/Card';
 import { supabase } from '../../lib/supabase';
 import { generateLicenseCode } from '../../lib/subscription';
+
+// Generate forex license key
+function generateForexLicenseKey(userId: string, planType: 'monthly' | 'lifetime'): string {
+  const prefix = planType === 'lifetime' ? 'FX-LT' : 'FX-MO';
+  const userPart = userId.replace(/-/g, '').substring(0, 8).toUpperCase();
+  const timestamp = Date.now().toString(36).toUpperCase().substring(0, 6);
+  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `${prefix}-${userPart}-${timestamp}-${random}`;
+}
 
 // Payment receiving address (treasury)
 const TREASURY_ADDRESS = '0xF7351a5C63e0403F6F7FC77d31B5e17A229C469c';
@@ -49,7 +63,7 @@ const SubscriptionsPage: React.FC = () => {
   } = useWeb3();
   const { open } = useAppKit();
 
-  const [selectedTab, setSelectedTab] = useState<'current' | 'trading' | 'software'>('current');
+  const [selectedTab, setSelectedTab] = useState<'current' | 'trading' | 'software' | 'forex'>('current');
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [isPaying, setIsPaying] = useState(false);
@@ -57,14 +71,16 @@ const SubscriptionsPage: React.FC = () => {
   const [txHash, setTxHash] = useState<string | null>(null);
   const [generatedLicense, setGeneratedLicense] = useState<string | null>(null);
   const [desktopLicense, setDesktopLicense] = useState<{ code: string; createdAt: string } | null>(null);
+  const [forexLicense, setForexLicense] = useState<{ code: string; planType: string; createdAt: string } | null>(null);
   const [copiedLicense, setCopiedLicense] = useState(false);
 
-  // Fetch existing desktop license on mount
+  // Fetch existing licenses on mount
   useEffect(() => {
-    const fetchDesktopLicense = async () => {
+    const fetchLicenses = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data } = await supabase
+        // Fetch desktop license
+        const { data: desktopData } = await supabase
           .from('subscriptions')
           .select('license_code, created_at')
           .eq('user_id', user.id)
@@ -72,12 +88,30 @@ const SubscriptionsPage: React.FC = () => {
           .eq('status', 'active')
           .single();
 
-        if (data?.license_code) {
-          setDesktopLicense({ code: data.license_code, createdAt: data.created_at });
+        if (desktopData?.license_code) {
+          setDesktopLicense({ code: desktopData.license_code, createdAt: desktopData.created_at });
+        }
+
+        // Fetch forex license
+        const { data: forexData } = await supabase
+          .from('forex_licenses')
+          .select('license_key, plan_type, created_at')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (forexData?.license_key) {
+          setForexLicense({
+            code: forexData.license_key,
+            planType: forexData.plan_type,
+            createdAt: forexData.created_at
+          });
         }
       }
     };
-    fetchDesktopLicense();
+    fetchLicenses();
   }, []);
 
   // Get available stablecoin balance
@@ -163,7 +197,41 @@ const SubscriptionsPage: React.FC = () => {
     }
   ];
 
-  const handlePurchase = (plan: any, type: 'trading_bot' | 'software_license') => {
+  const forexPlans = [
+    {
+      id: 'forex-monthly',
+      name: 'MT5 Monthly',
+      price: 29,
+      billingCycle: 'monthly' as const,
+      icon: <RefreshCw className="w-6 h-6" />,
+      features: [
+        'Full MT5 EA access',
+        'All trading strategies',
+        '5 trades per day limit',
+        'Regular updates',
+        'Email support'
+      ],
+      tradeLimit: 5
+    },
+    {
+      id: 'forex-lifetime',
+      name: 'MT5 Lifetime',
+      price: 199,
+      billingCycle: 'one_time' as const,
+      icon: <Infinity className="w-6 h-6" />,
+      features: [
+        'Lifetime MT5 EA access',
+        'All trading strategies',
+        'Unlimited trades',
+        'Free lifetime updates',
+        'Priority support'
+      ],
+      tradeLimit: -1,
+      badge: 'Best Value'
+    }
+  ];
+
+  const handlePurchase = (plan: any, type: 'trading_bot' | 'software_license' | 'forex_license') => {
     setSelectedPlan({ ...plan, type });
     setPaymentStatus('idle');
     setTxHash(null);
@@ -230,43 +298,83 @@ const SubscriptionsPage: React.FC = () => {
           setDesktopLicense({ code: licenseCode, createdAt: new Date().toISOString() });
         }
 
-        // Upsert subscription record
-        await supabase.from('subscriptions').upsert({
-          user_id: user.id,
-          wallet_address: address,
-          plan_tier: selectedPlan.id === 'lifetime' ? 'desktop' : selectedPlan.id,
-          billing_cycle: selectedPlan.billingCycle === 'one_time' ? 'lifetime' : selectedPlan.billingCycle,
-          status: 'active',
-          start_date: new Date().toISOString(),
-          end_date: endDate.toISOString(),
-          auto_renew: selectedPlan.billingCycle !== 'lifetime' && selectedPlan.billingCycle !== 'one_time',
-          daily_trades_used: 0,
-          license_code: licenseCode,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id' });
+        // Handle forex license purchase
+        if (selectedPlan.type === 'forex_license') {
+          const forexLicenseKey = generateForexLicenseKey(user.id, selectedPlan.id.includes('lifetime') ? 'lifetime' : 'monthly');
+          setGeneratedLicense(forexLicenseKey);
+          setForexLicense({
+            code: forexLicenseKey,
+            planType: selectedPlan.id.includes('lifetime') ? 'lifetime' : 'monthly',
+            createdAt: new Date().toISOString()
+          });
 
-        // Also insert into licenses table for desktop licenses
-        if (licenseCode) {
-          await supabase.from('licenses').insert({
-            code: licenseCode,
-            plan_tier: 'desktop',
-            billing_cycle: 'lifetime',
-            is_active: true,
-            activated_at: new Date().toISOString(),
-            activated_by: user.id
+          // Insert forex license
+          await supabase.from('forex_licenses').insert({
+            user_id: user.id,
+            license_key: forexLicenseKey,
+            plan_type: selectedPlan.id.includes('lifetime') ? 'lifetime' : 'monthly',
+            status: 'active',
+            payment_status: 'completed',
+            payment_id: hash,
+            payment_provider: 'crypto',
+            amount_paid: selectedPlan.price,
+            currency: bestStablecoin.symbol.toUpperCase(),
+            expires_at: selectedPlan.billingCycle === 'monthly'
+              ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+              : null,
+            trades_used_today: 0
+          });
+
+          // Record the payment
+          await supabase.from('payments').insert({
+            user_id: user.id,
+            amount: Math.round(selectedPlan.price * 100),
+            currency: bestStablecoin.symbol.toLowerCase(),
+            status: 'succeeded',
+            plan_tier: selectedPlan.id,
+            billing_cycle: selectedPlan.billingCycle === 'one_time' ? 'lifetime' : selectedPlan.billingCycle,
+            stripe_payment_id: hash
+          });
+        } else {
+          // Regular subscription flow
+          // Upsert subscription record
+          await supabase.from('subscriptions').upsert({
+            user_id: user.id,
+            wallet_address: address,
+            plan_tier: selectedPlan.id === 'lifetime' ? 'desktop' : selectedPlan.id,
+            billing_cycle: selectedPlan.billingCycle === 'one_time' ? 'lifetime' : selectedPlan.billingCycle,
+            status: 'active',
+            start_date: new Date().toISOString(),
+            end_date: endDate.toISOString(),
+            auto_renew: selectedPlan.billingCycle !== 'lifetime' && selectedPlan.billingCycle !== 'one_time',
+            daily_trades_used: 0,
+            license_code: licenseCode,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id' });
+
+          // Also insert into licenses table for desktop licenses
+          if (licenseCode) {
+            await supabase.from('licenses').insert({
+              code: licenseCode,
+              plan_tier: 'desktop',
+              billing_cycle: 'lifetime',
+              is_active: true,
+              activated_at: new Date().toISOString(),
+              activated_by: user.id
+            });
+          }
+
+          // Record the payment
+          await supabase.from('payments').insert({
+            user_id: user.id,
+            amount: Math.round(selectedPlan.price * 100), // cents
+            currency: bestStablecoin.symbol.toLowerCase(),
+            status: 'succeeded',
+            plan_tier: selectedPlan.id === 'lifetime' ? 'desktop' : selectedPlan.id,
+            billing_cycle: selectedPlan.billingCycle === 'one_time' ? 'lifetime' : selectedPlan.billingCycle,
+            stripe_payment_id: hash // tx hash as payment reference
           });
         }
-
-        // Record the payment
-        await supabase.from('payments').insert({
-          user_id: user.id,
-          amount: Math.round(selectedPlan.price * 100), // cents
-          currency: bestStablecoin.symbol.toLowerCase(),
-          status: 'succeeded',
-          plan_tier: selectedPlan.id === 'lifetime' ? 'desktop' : selectedPlan.id,
-          billing_cycle: selectedPlan.billingCycle === 'one_time' ? 'lifetime' : selectedPlan.billingCycle,
-          stripe_payment_id: hash // tx hash as payment reference
-        });
       }
 
       // Refresh balances
@@ -327,10 +435,11 @@ const SubscriptionsPage: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 bg-card-dark p-1 rounded-lg w-fit">
+      <div className="flex gap-2 bg-card-dark p-1 rounded-lg w-fit flex-wrap">
         {[
           { id: 'current', label: 'Current Plans', icon: Package },
           { id: 'trading', label: 'Trading Bot', icon: Bot },
+          { id: 'forex', label: 'Forex MT5', icon: BarChart3 },
           { id: 'software', label: 'Software License', icon: Monitor }
         ].map(tab => (
           <button
@@ -448,18 +557,24 @@ const SubscriptionsPage: React.FC = () => {
               <Package className="w-16 h-16 text-gray-600 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-white mb-2">No Active Subscriptions</h3>
               <p className="text-gray-400 mb-6">Choose a plan to get started with trading</p>
-              <div className="flex justify-center gap-3">
+              <div className="flex justify-center gap-3 flex-wrap">
                 <button
                   onClick={() => setSelectedTab('trading')}
-                  className="px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-lg font-medium transition-colors"
+                  className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg font-medium transition-colors"
                 >
-                  View Trading Plans
+                  Crypto Trading Bot
+                </button>
+                <button
+                  onClick={() => setSelectedTab('forex')}
+                  className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 rounded-lg font-medium transition-colors"
+                >
+                  Forex MT5
                 </button>
                 <button
                   onClick={() => setSelectedTab('software')}
-                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                  className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg font-medium transition-colors"
                 >
-                  View Software License
+                  Desktop License
                 </button>
               </div>
             </Card>
@@ -716,6 +831,164 @@ const SubscriptionsPage: React.FC = () => {
         </div>
       )}
 
+      {/* Forex MT5 Plans */}
+      {selectedTab === 'forex' && (
+        <div className="space-y-6">
+          {/* Show existing forex license if owned */}
+          {forexLicense && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-[#141414] rounded-2xl border border-blue-500/30 p-8"
+            >
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
+                  <Check className="w-6 h-6 text-green-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-white">MT5 License Active</h3>
+                  <p className="text-gray-500 text-sm">
+                    {forexLicense.planType === 'lifetime' ? 'Lifetime access' : 'Monthly subscription'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-background rounded-xl p-5 mb-6">
+                <p className="text-gray-400 text-xs mb-2">Your MT5 License Key</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 bg-black/50 px-4 py-3 rounded-lg text-white font-mono text-sm tracking-wider break-all">
+                    {forexLicense.code}
+                  </code>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(forexLicense.code);
+                      setCopiedLicense(true);
+                      setTimeout(() => setCopiedLicense(false), 2000);
+                    }}
+                    className="p-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+                  >
+                    {copiedLicense ? <Check size={18} className="text-green-400" /> : <Copy size={18} className="text-gray-400" />}
+                  </button>
+                </div>
+                <p className="text-gray-500 text-xs mt-3">
+                  Enter this key in your MT5 Expert Advisor to activate trading.
+                </p>
+              </div>
+
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <Key className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-blue-400 font-medium mb-1">How to use your license</p>
+                    <ol className="text-gray-400 text-sm space-y-1 list-decimal list-inside">
+                      <li>Open MetaTrader 5</li>
+                      <li>Add the Monadier EA to your chart</li>
+                      <li>Enter your license key in the EA settings</li>
+                      <li>Start automated trading</li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+            {forexPlans.map((plan, index) => (
+              <motion.div
+                key={plan.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className={`relative bg-[#141414] rounded-2xl border p-8 ${
+                  plan.badge ? 'border-blue-500/30' : 'border-gray-800/50'
+                }`}
+              >
+                {plan.badge && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-blue-500 text-white text-xs font-medium rounded-full">
+                    {plan.badge}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3 mb-6">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                    plan.billingCycle === 'one_time' ? 'bg-blue-500/20' : 'bg-purple-500/20'
+                  }`}>
+                    {plan.icon}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-white">{plan.name}</h3>
+                    <p className="text-gray-500 text-sm">
+                      {plan.billingCycle === 'one_time' ? 'One-time payment' : 'Cancel anytime'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mb-6">
+                  <span className="text-5xl font-display font-medium text-white">${plan.price}</span>
+                  {plan.billingCycle === 'monthly' && <span className="text-gray-500 ml-2">/month</span>}
+                </div>
+
+                <ul className="space-y-3 mb-8">
+                  {plan.features.map((feature, idx) => (
+                    <li key={idx} className="flex items-center gap-3 text-gray-400">
+                      <Check className={`w-5 h-5 flex-shrink-0 ${
+                        plan.billingCycle === 'one_time' ? 'text-blue-400' : 'text-purple-400'
+                      }`} />
+                      {feature}
+                    </li>
+                  ))}
+                  {plan.tradeLimit === 5 && (
+                    <li className="flex items-center gap-3 text-yellow-400">
+                      <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                      5 trades per day limit
+                    </li>
+                  )}
+                </ul>
+
+                {forexLicense ? (
+                  <button
+                    disabled
+                    className="w-full py-4 bg-white/5 text-gray-600 rounded-xl font-medium cursor-not-allowed border border-gray-800"
+                  >
+                    Already Owned
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handlePurchase(plan, 'forex_license')}
+                    className={`w-full py-4 rounded-xl font-medium transition-colors ${
+                      plan.billingCycle === 'one_time'
+                        ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                        : 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 border border-purple-500/30'
+                    }`}
+                  >
+                    {plan.billingCycle === 'one_time' ? 'Get Lifetime Access' : 'Start Monthly Plan'}
+                  </button>
+                )}
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Trade Limit Info */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="max-w-2xl mx-auto p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl"
+          >
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-yellow-400 font-medium mb-1">About Trade Limits</p>
+                <p className="text-gray-400 text-sm">
+                  Monthly plans are limited to 5 trades per day. Your license is validated on each trade.
+                  Demo account trades don't count toward this limit. Upgrade to lifetime for unlimited trading.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {/* Purchase Modal */}
       {showPurchaseModal && selectedPlan && (
         <motion.div
@@ -738,10 +1011,12 @@ const SubscriptionsPage: React.FC = () => {
                 <h2 className="text-2xl font-semibold text-white mb-2">Payment Successful!</h2>
                 <p className="text-gray-400 mb-4">Your {selectedPlan.name} subscription is now active</p>
 
-                {/* License Code Display for Desktop */}
+                {/* License Code Display */}
                 {generatedLicense && (
                   <div className="bg-background rounded-xl p-5 mb-6 text-left">
-                    <p className="text-gray-400 text-xs mb-2">Your License Code</p>
+                    <p className="text-gray-400 text-xs mb-2">
+                      {selectedPlan.type === 'forex_license' ? 'Your MT5 License Key' : 'Your License Code'}
+                    </p>
                     <div className="flex items-center gap-2">
                       <code className="flex-1 bg-black/50 px-4 py-3 rounded-lg text-white font-mono text-sm tracking-wider break-all">
                         {generatedLicense}
@@ -758,7 +1033,9 @@ const SubscriptionsPage: React.FC = () => {
                       </button>
                     </div>
                     <p className="text-gray-500 text-xs mt-3">
-                      Save this code! You'll need it to activate the desktop app.
+                      {selectedPlan.type === 'forex_license'
+                        ? 'Enter this key in your MT5 Expert Advisor settings to activate trading.'
+                        : 'Save this code! You\'ll need it to activate the desktop app.'}
                     </p>
                   </div>
                 )}
@@ -774,8 +1051,8 @@ const SubscriptionsPage: React.FC = () => {
                   </a>
                 )}
 
-                {/* Download Links for Desktop */}
-                {generatedLicense && (
+                {/* Download Links for Desktop (not for forex) */}
+                {generatedLicense && selectedPlan.type !== 'forex_license' && (
                   <div className="mt-6 pt-6 border-t border-gray-800">
                     <p className="text-white font-medium mb-3">Download Desktop App</p>
                     <div className="flex gap-3">
