@@ -47,6 +47,17 @@ export interface TradingConfig {
   maxDailyLossPercent: number; // Max daily loss before auto-stop
   maxGasPercent: number; // Warn if gas > this % of trade
 
+  // Take Profit & Stop Loss
+  takeProfitEnabled: boolean;
+  takeProfitPercent: number; // Auto-close when profit reaches this %
+  stopLossEnabled: boolean;
+  stopLossPercent: number; // Auto-close when loss reaches this %
+
+  // Auto-reopen settings
+  autoReopenEnabled: boolean; // Reopen new trade after closing in profit
+  autoReopenOnLoss: boolean; // Also reopen after stop loss
+  maxTradesPerSession: number; // Max trades before pausing (0 = unlimited)
+
   // Grid bot settings
   gridLevels: number; // Number of grid levels
   gridSpreadPercent: number; // Spread between levels
@@ -116,6 +127,16 @@ const DEFAULT_CONFIG: TradingConfig = {
   maxPositionPercent: 25,
   maxDailyLossPercent: 10,
   maxGasPercent: 5,
+  // Take Profit & Stop Loss
+  takeProfitEnabled: true,
+  takeProfitPercent: 5,
+  stopLossEnabled: true,
+  stopLossPercent: 3,
+  // Auto-reopen
+  autoReopenEnabled: false,
+  autoReopenOnLoss: false,
+  maxTradesPerSession: 10,
+  // Grid
   gridLevels: 5,
   gridSpreadPercent: 2,
   dcaAmount: 100,
@@ -669,6 +690,162 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                   </div>
                 )}
 
+                {/* Take Profit */}
+                <div className="p-3 bg-green-500/5 border border-green-500/20 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-green-400" />
+                      <span className="text-white text-sm font-medium">Take Profit</span>
+                    </div>
+                    <button
+                      onClick={() => onConfigChange({
+                        ...config,
+                        takeProfitEnabled: !config.takeProfitEnabled
+                      })}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        config.takeProfitEnabled ? 'bg-green-500' : 'bg-gray-600'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        config.takeProfitEnabled ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </div>
+                  {config.takeProfitEnabled && (
+                    <div>
+                      <label className="block text-gray-400 text-xs mb-2">
+                        Close at +{config.takeProfitPercent}% profit
+                      </label>
+                      <input
+                        type="range"
+                        min="1"
+                        max="25"
+                        step="0.5"
+                        value={config.takeProfitPercent}
+                        onChange={(e) => onConfigChange({
+                          ...config,
+                          takeProfitPercent: parseFloat(e.target.value)
+                        })}
+                        className="w-full accent-green-500"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>+1%</span>
+                        <span>+10%</span>
+                        <span>+25%</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Stop Loss */}
+                <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-red-400" />
+                      <span className="text-white text-sm font-medium">Stop Loss</span>
+                    </div>
+                    <button
+                      onClick={() => onConfigChange({
+                        ...config,
+                        stopLossEnabled: !config.stopLossEnabled
+                      })}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        config.stopLossEnabled ? 'bg-red-500' : 'bg-gray-600'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        config.stopLossEnabled ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </div>
+                  {config.stopLossEnabled && (
+                    <div>
+                      <label className="block text-gray-400 text-xs mb-2">
+                        Close at -{config.stopLossPercent}% loss
+                      </label>
+                      <input
+                        type="range"
+                        min="1"
+                        max="25"
+                        step="0.5"
+                        value={config.stopLossPercent}
+                        onChange={(e) => onConfigChange({
+                          ...config,
+                          stopLossPercent: parseFloat(e.target.value)
+                        })}
+                        className="w-full accent-red-500"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>-1%</span>
+                        <span>-10%</span>
+                        <span>-25%</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Auto-Reopen (Scalping Mode) */}
+                <div className="p-3 bg-accent/5 border border-accent/20 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-accent" />
+                      <span className="text-white text-sm font-medium">Auto-Reopen (Scalping)</span>
+                    </div>
+                    <button
+                      onClick={() => onConfigChange({
+                        ...config,
+                        autoReopenEnabled: !config.autoReopenEnabled
+                      })}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        config.autoReopenEnabled ? 'bg-accent' : 'bg-gray-600'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        config.autoReopenEnabled ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </div>
+                  {config.autoReopenEnabled && (
+                    <>
+                      <p className="text-gray-400 text-xs">
+                        Bot will automatically open a new trade after closing in profit
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400 text-xs">Also reopen after stop loss</span>
+                        <button
+                          onClick={() => onConfigChange({
+                            ...config,
+                            autoReopenOnLoss: !config.autoReopenOnLoss
+                          })}
+                          className={`w-10 h-5 rounded-full transition-colors ${
+                            config.autoReopenOnLoss ? 'bg-accent' : 'bg-gray-600'
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                            config.autoReopenOnLoss ? 'translate-x-5' : 'translate-x-0.5'
+                          }`} />
+                        </button>
+                      </div>
+                      <div>
+                        <label className="block text-gray-400 text-xs mb-2">
+                          Max trades per session: {config.maxTradesPerSession === 0 ? 'Unlimited' : config.maxTradesPerSession}
+                        </label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="50"
+                          value={config.maxTradesPerSession}
+                          onChange={(e) => onConfigChange({
+                            ...config,
+                            maxTradesPerSession: parseInt(e.target.value)
+                          })}
+                          className="w-full accent-accent"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+
                 {/* Max Position Size */}
                 <div>
                   <label className="block text-gray-400 text-xs mb-2">
@@ -731,7 +908,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                 {/* Auto-pause on high gas */}
                 <div className="flex items-center justify-between p-3 bg-background rounded-lg">
                   <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-yellow-400" />
+                    <Flame className="w-4 h-4 text-yellow-400" />
                     <span className="text-white text-sm">Auto-pause on high gas</span>
                   </div>
                   <button

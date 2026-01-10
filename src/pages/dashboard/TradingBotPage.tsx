@@ -143,6 +143,8 @@ const TradingBotPage: React.FC = () => {
   const [nextAutoTradeIn, setNextAutoTradeIn] = useState(0);
   const [tradeFilter, setTradeFilter] = useState<'all' | 'wins' | 'losses'>('all');
   const [showRiskWarning, setShowRiskWarning] = useState(false);
+  const [sessionTradeCount, setSessionTradeCount] = useState(0);
+  const [pendingReopen, setPendingReopen] = useState(false);
 
   const MIN_TRADE_TIME = 15 * 60;
 
@@ -528,6 +530,59 @@ const TradingBotPage: React.FC = () => {
     setCurrentPnL(tradeAmount * (priceChange / 100));
   }, [candles, botActive, entryPrice, tradeAmount, selectedPair.price, strategy]);
 
+  // Auto-close on Take Profit or Stop Loss
+  useEffect(() => {
+    if (!botActive || !activeTrade || entryPrice === 0 || timeRemaining > 0 || isExecuting) return;
+
+    const currentPrice = candles[candles.length - 1]?.close || selectedPair.price;
+    let priceChangePercent: number;
+    if (strategy?.direction === 'LONG') {
+      priceChangePercent = ((currentPrice - entryPrice) / entryPrice) * 100;
+    } else {
+      priceChangePercent = ((entryPrice - currentPrice) / entryPrice) * 100;
+    }
+
+    // Check Take Profit
+    if (tradingConfig.takeProfitEnabled && priceChangePercent >= tradingConfig.takeProfitPercent) {
+      console.log(`Take Profit triggered at ${priceChangePercent.toFixed(2)}%`);
+      setPendingReopen(tradingConfig.autoReopenEnabled);
+      handleStopBot();
+      return;
+    }
+
+    // Check Stop Loss
+    if (tradingConfig.stopLossEnabled && priceChangePercent <= -tradingConfig.stopLossPercent) {
+      console.log(`Stop Loss triggered at ${priceChangePercent.toFixed(2)}%`);
+      setPendingReopen(tradingConfig.autoReopenEnabled && tradingConfig.autoReopenOnLoss);
+      handleStopBot();
+      return;
+    }
+  }, [currentPnL, botActive, activeTrade, entryPrice, timeRemaining, isExecuting, tradingConfig, candles, selectedPair.price, strategy]);
+
+  // Auto-reopen after closing in profit
+  useEffect(() => {
+    if (!pendingReopen || botActive || isExecuting) return;
+
+    // Check if we've hit max trades for session
+    if (tradingConfig.maxTradesPerSession > 0 && sessionTradeCount >= tradingConfig.maxTradesPerSession) {
+      console.log('Max trades per session reached, not reopening');
+      setPendingReopen(false);
+      return;
+    }
+
+    // Wait for a good signal before reopening
+    if (analyzeMarket && analyzeMarket.confidence >= 60) {
+      console.log('Auto-reopening trade...');
+      setPendingReopen(false);
+      // Small delay before reopening
+      setTimeout(() => {
+        if (!botActive && !isExecuting) {
+          handleStartBot();
+        }
+      }, 2000);
+    }
+  }, [pendingReopen, botActive, isExecuting, analyzeMarket, sessionTradeCount, tradingConfig.maxTradesPerSession]);
+
   // Timer
   useEffect(() => {
     if (!botActive || !botStartTime) return;
@@ -647,6 +702,7 @@ const TradingBotPage: React.FC = () => {
       setTimeRemaining(MIN_TRADE_TIME);
       setStrategy(analyzeMarket);
       setBotActive(true);
+      setSessionTradeCount(prev => prev + 1);
 
       // Refresh wallet balances after trade
       await refreshBalances();
@@ -1535,6 +1591,30 @@ const TradingBotPage: React.FC = () => {
                         {currentPnL >= 0 ? '+' : ''}${formatPrice(currentPnL, 2)}
                       </p>
                     </div>
+
+                    {/* TP/SL Indicators */}
+                    {(tradingConfig.takeProfitEnabled || tradingConfig.stopLossEnabled) && (
+                      <div className="pt-3 border-t border-gray-700 space-y-2">
+                        {tradingConfig.takeProfitEnabled && (
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-green-400">Take Profit</span>
+                            <span className="text-gray-400">+{tradingConfig.takeProfitPercent}% (${(tradeAmount * tradingConfig.takeProfitPercent / 100).toFixed(2)})</span>
+                          </div>
+                        )}
+                        {tradingConfig.stopLossEnabled && (
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-red-400">Stop Loss</span>
+                            <span className="text-gray-400">-{tradingConfig.stopLossPercent}% (-${(tradeAmount * tradingConfig.stopLossPercent / 100).toFixed(2)})</span>
+                          </div>
+                        )}
+                        {tradingConfig.autoReopenEnabled && (
+                          <div className="flex items-center gap-1 text-xs text-accent">
+                            <Zap size={12} />
+                            <span>Auto-reopen enabled</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {activeTrade && (
                       <a
