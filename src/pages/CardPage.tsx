@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { CreditCard, Globe, Shield, Smartphone, Bell, ArrowRight, Lock, Sparkles } from 'lucide-react';
 import Logo from '../components/ui/Logo';
 import CookieConsent from '../components/ui/CookieConsent';
+import MobileMenu from '../components/ui/MobileMenu';
 
 const CardPage: React.FC = () => {
   return (
@@ -28,14 +29,15 @@ const CardPage: React.FC = () => {
               </Link>
             </div>
             <div className="flex items-center gap-4">
-              <Link to="/login" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+              <Link to="/login" className="hidden md:block text-gray-400 hover:text-white transition-colors text-sm font-medium">
                 Sign in
               </Link>
-              <Link to="/register">
+              <Link to="/register" className="hidden md:block">
                 <button className="px-4 py-2 bg-white text-gray-900 rounded-full text-sm font-medium hover:bg-gray-100 transition-colors">
                   Trade now
                 </button>
               </Link>
+              <MobileMenu />
             </div>
           </nav>
         </div>

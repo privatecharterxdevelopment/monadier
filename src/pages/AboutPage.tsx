@@ -5,6 +5,7 @@ import { MapPin, Briefcase, TrendingUp, ArrowRight, Shield, Zap, Globe, Download
 import Logo from '../components/ui/Logo';
 import CookieConsent from '../components/ui/CookieConsent';
 import DownloadModal from '../components/ui/DownloadModal';
+import MobileMenu from '../components/ui/MobileMenu';
 
 const AboutPage: React.FC = () => {
   const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -38,14 +39,15 @@ const AboutPage: React.FC = () => {
                 <Download size={16} />
                 Download
               </button>
-              <Link to="/login" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+              <Link to="/login" className="hidden md:block text-gray-400 hover:text-white transition-colors text-sm font-medium">
                 Sign in
               </Link>
-              <Link to="/register">
+              <Link to="/register" className="hidden md:block">
                 <button className="px-4 py-2 bg-white text-gray-900 rounded-full text-sm font-medium hover:bg-gray-100 transition-colors">
                   Trade now
                 </button>
               </Link>
+              <MobileMenu onDownloadClick={() => setShowDownloadModal(true)} />
             </div>
           </nav>
         </div>
