@@ -41,12 +41,33 @@ export interface LicenseActivationResponse {
   };
 }
 
-// Get auth token for API calls
+// Get auth token for API calls (with session refresh)
 async function getAuthToken(): Promise<string> {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) {
-    throw new Error('Not authenticated');
+  // Try to refresh the session first
+  const { data: { session }, error } = await supabase.auth.getSession();
+
+  if (error || !session?.access_token) {
+    // Try refreshing the session
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError || !refreshData.session?.access_token) {
+      throw new Error('Not authenticated - please log in again');
+    }
+    return refreshData.session.access_token;
   }
+
+  // Check if token is about to expire (within 5 minutes)
+  const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
+  const now = Date.now();
+  const fiveMinutes = 5 * 60 * 1000;
+
+  if (expiresAt - now < fiveMinutes) {
+    // Refresh the session
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    if (!refreshError && refreshData.session?.access_token) {
+      return refreshData.session.access_token;
+    }
+  }
+
   return session.access_token;
 }
 
