@@ -535,10 +535,11 @@ const TradingBotPage: React.FC = () => {
     const isQualitySignal = meetsMinConfidence && meetsMinRiskReward && passesVolumeFilter && passesTrendFilter;
 
     // If signal doesn't meet quality thresholds, change to HOLD
+    // EXCEPTION: In turbo mode, NEVER hold - always execute the signal
     let finalDirection = direction;
     let rejectionReason = '';
 
-    if (direction !== 'HOLD' && !isQualitySignal) {
+    if (direction !== 'HOLD' && !isQualitySignal && !turboMode) {
       const rejectionReasons: string[] = [];
       if (!meetsMinConfidence) rejectionReasons.push(`Confidence ${confidence}% < ${tradingConfig.minConfidence}%`);
       if (!meetsMinRiskReward) rejectionReasons.push(`R/R ${riskReward.toFixed(2)} < ${tradingConfig.minRiskReward}`);
@@ -557,6 +558,12 @@ const TradingBotPage: React.FC = () => {
 
       finalDirection = 'HOLD';
       detailedReason = `Setup rejected: ${rejectionReason}. Waiting for better opportunity.`;
+    }
+
+    // In turbo mode, if we somehow got HOLD, force to the stronger signal
+    if (turboMode && finalDirection === 'HOLD') {
+      finalDirection = longConditionsMet >= shortConditionsMet ? 'LONG' : 'SHORT';
+      detailedReason = `Turbo mode: Forcing ${finalDirection} signal (${Math.max(longConditionsMet, shortConditionsMet)}/5 conditions)`;
     }
 
     return {
@@ -591,7 +598,7 @@ const TradingBotPage: React.FC = () => {
         bearishScore: shortConditionsMet * 20
       }
     };
-  }, [candles, timeframe, tradingConfig.minConfidence, tradingConfig.minRiskReward, tradingConfig.volumeFilterEnabled, tradingConfig.trendFilterEnabled]);
+  }, [candles, timeframe, tradingConfig.minConfidence, tradingConfig.minRiskReward, tradingConfig.volumeFilterEnabled, tradingConfig.trendFilterEnabled, turboMode]);
 
   // Fetch candles
   const fetchCandles = async (symbol: string, interval: string) => {
