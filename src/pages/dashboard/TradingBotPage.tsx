@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, Lock, Zap, Crown, Rocket, Check, Play, Square, Clock, Users, Wallet, ArrowUp, ArrowDown, ZoomIn, ZoomOut, TrendingUp, TrendingDown, Activity, ExternalLink, RefreshCw, AlertCircle, Loader2, Settings, Pause, TestTube, History, Timer, Bell } from 'lucide-react';
 import { useWeb3, RealSwapResult } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 import { useAppKit } from '@reown/appkit/react';
 import { SUPPORTED_CHAINS, TESTNET_CHAINS, getChainById, getAllChains, isTestnet, CHAIN_GAS_ESTIMATES } from '../../lib/chains';
 import { parseUnits, formatUnits } from 'viem';
@@ -110,6 +111,7 @@ const TradingBotPage: React.FC = () => {
     dexRouter
   } = useWeb3();
   const { activeSubscription } = useSubscription();
+  const { addNotification } = useNotifications();
 
   const [showPlans, setShowPlans] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
@@ -545,6 +547,12 @@ const TradingBotPage: React.FC = () => {
     // Check Take Profit
     if (tradingConfig.takeProfitEnabled && priceChangePercent >= tradingConfig.takeProfitPercent) {
       console.log(`Take Profit triggered at ${priceChangePercent.toFixed(2)}%`);
+      addNotification({
+        type: 'take_profit',
+        title: 'Take Profit Triggered',
+        message: `${selectedPair.symbol} hit +${priceChangePercent.toFixed(1)}% target. Auto-closing position.`,
+        data: { profit: currentPnL, pair: selectedPair.symbol }
+      });
       setPendingReopen(tradingConfig.autoReopenEnabled);
       handleStopBot();
       return;
@@ -553,6 +561,12 @@ const TradingBotPage: React.FC = () => {
     // Check Stop Loss
     if (tradingConfig.stopLossEnabled && priceChangePercent <= -tradingConfig.stopLossPercent) {
       console.log(`Stop Loss triggered at ${priceChangePercent.toFixed(2)}%`);
+      addNotification({
+        type: 'stop_loss',
+        title: 'Stop Loss Triggered',
+        message: `${selectedPair.symbol} hit ${priceChangePercent.toFixed(1)}% stop. Auto-closing position.`,
+        data: { profit: currentPnL, pair: selectedPair.symbol }
+      });
       setPendingReopen(tradingConfig.autoReopenEnabled && tradingConfig.autoReopenOnLoss);
       handleStopBot();
       return;
@@ -751,8 +765,17 @@ const TradingBotPage: React.FC = () => {
         Net P/L: ${netPnL}
       `);
 
-      // Alert user of real result
-      alert(`Trade Closed!\n\nGross P/L: ${realPnL >= 0 ? '+' : ''}${realPnL.toFixed(4)}\nGas Used: ${totalGasCost.toFixed(6)} ${currentChain.nativeCurrency.symbol}\nNet P/L: ${netPnL >= 0 ? '+' : ''}${netPnL.toFixed(4)}\n\nTx: ${swapResult.txHash.slice(0, 10)}...`);
+      // Add notification
+      addNotification({
+        type: netPnL >= 0 ? 'take_profit' : 'stop_loss',
+        title: netPnL >= 0 ? 'Trade Closed in Profit' : 'Trade Closed in Loss',
+        message: `${selectedPair.symbol} ${activeTrade.direction} closed. Net P/L: ${netPnL >= 0 ? '+' : ''}$${netPnL.toFixed(2)}`,
+        data: {
+          profit: netPnL,
+          pair: selectedPair.symbol,
+          txHash: swapResult.txHash
+        }
+      });
 
       // Add trade to history
       const historyItem: TradeHistoryItem = {
@@ -1048,6 +1071,27 @@ const TradingBotPage: React.FC = () => {
             <p className="text-yellow-400 font-medium">Wallet Not Connected</p>
             <p className="text-gray-400 text-sm">Connect your wallet to start trading with real funds on DEX</p>
           </div>
+        </div>
+      )}
+
+      {/* Network Mismatch Warning */}
+      {isConnected && currentChain && tradingConfig.selectedChainId !== currentChain.id && (
+        <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-orange-400" />
+            <div>
+              <p className="text-orange-400 font-medium">Network Mismatch</p>
+              <p className="text-gray-400 text-sm">
+                Bot is set to {getChainById(tradingConfig.selectedChainId)?.name || 'Unknown'}, but wallet is on {currentChain.name}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => switchChain(tradingConfig.selectedChainId)}
+            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            Switch to {getChainById(tradingConfig.selectedChainId)?.shortName || 'Network'}
+          </button>
         </div>
       )}
 

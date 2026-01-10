@@ -7,6 +7,7 @@ import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { Web3Provider } from './contexts/Web3Context';
+import { NotificationProvider } from './contexts/NotificationContext';
 import { config } from './lib/wallet';
 import './index.css';
 
@@ -19,9 +20,11 @@ createRoot(document.getElementById('root')!).render(
         <BrowserRouter>
           <AuthProvider>
             <SubscriptionProvider>
-              <Web3Provider>
-                <App />
-              </Web3Provider>
+              <NotificationProvider>
+                <Web3Provider>
+                  <App />
+                </Web3Provider>
+              </NotificationProvider>
             </SubscriptionProvider>
           </AuthProvider>
         </BrowserRouter>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { History, TrendingUp, TrendingDown, Users, Trophy, Zap, Crown, Rocket } from 'lucide-react';
+import { History, TrendingUp, TrendingDown, Users, Trophy, Zap, Crown, Rocket, ExternalLink } from 'lucide-react';
+import { TradeHistoryItem } from '../../components/trading';
 
 interface Trade {
   id: string;
@@ -59,39 +60,39 @@ const generateTrade = (): Trade => {
 const BotHistoryPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'my-trades' | 'top-performers'>('my-trades');
   const [topPerformerTrades, setTopPerformerTrades] = useState<Trade[]>([]);
-  const [myTrades] = useState<Trade[]>([
-    // Sample user trades
-    {
-      id: '1',
-      amount: 500,
-      pair: 'BTC/USDT',
-      type: 'buy',
-      profit: 23.50,
-      date: new Date(Date.now() - 3600000),
-      walletAddress: '0x1a2b3c4d...5e6f',
-      tier: 'pro'
-    },
-    {
-      id: '2',
-      amount: 1200,
-      pair: 'ETH/USDT',
-      type: 'sell',
-      profit: -15.30,
-      date: new Date(Date.now() - 7200000),
-      walletAddress: '0x1a2b3c4d...5e6f',
-      tier: 'pro'
-    },
-    {
-      id: '3',
-      amount: 300,
-      pair: 'EUR/USD',
-      type: 'buy',
-      profit: 8.75,
-      date: new Date(Date.now() - 10800000),
-      walletAddress: '0x1a2b3c4d...5e6f',
-      tier: 'pro'
-    }
-  ]);
+  const [realTradeHistory, setRealTradeHistory] = useState<TradeHistoryItem[]>([]);
+
+  // Load real trade history from localStorage
+  useEffect(() => {
+    const loadTradeHistory = () => {
+      const saved = localStorage.getItem('tradeHistory');
+      if (saved) {
+        try {
+          setRealTradeHistory(JSON.parse(saved));
+        } catch {
+          setRealTradeHistory([]);
+        }
+      }
+    };
+
+    loadTradeHistory();
+
+    // Listen for storage changes (real-time sync)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'tradeHistory') {
+        loadTradeHistory();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    // Also poll every 2 seconds for same-tab updates
+    const interval = setInterval(loadTradeHistory, 2000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
 
   // Load initial trades
   useEffect(() => {
@@ -222,7 +223,7 @@ const BotHistoryPage: React.FC = () => {
           onClick={() => setActiveTab('my-trades')}
           className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-all ${
             activeTab === 'my-trades'
-              ? 'bg-accent text-white'
+              ? 'bg-white text-gray-900'
               : 'text-secondary hover:text-white'
           }`}
         >
@@ -233,7 +234,7 @@ const BotHistoryPage: React.FC = () => {
           onClick={() => setActiveTab('top-performers')}
           className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-all ${
             activeTab === 'top-performers'
-              ? 'bg-accent text-white'
+              ? 'bg-white text-gray-900'
               : 'text-secondary hover:text-white'
           }`}
         >
@@ -259,9 +260,55 @@ const BotHistoryPage: React.FC = () => {
         <div className="max-h-[600px] overflow-y-auto">
           <AnimatePresence>
             {activeTab === 'my-trades' ? (
-              myTrades.length > 0 ? (
-                myTrades.map((trade) => (
-                  <TradeRow key={trade.id} trade={trade} />
+              realTradeHistory.length > 0 ? (
+                realTradeHistory.map((trade, index) => (
+                  <motion.div
+                    key={trade.id}
+                    initial={index === 0 ? { opacity: 0, x: -20, backgroundColor: 'rgba(255, 255, 255, 0.1)' } : { opacity: 1 }}
+                    animate={{ opacity: 1, x: 0, backgroundColor: 'transparent' }}
+                    transition={{ duration: 0.5 }}
+                    className="grid grid-cols-6 gap-4 px-4 py-3 border-b border-gray-800 hover:bg-surface-hover transition-colors items-center"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        trade.type === 'buy' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                      }`}>
+                        {trade.type.toUpperCase()}
+                      </span>
+                      <span className="text-white font-medium">{trade.tokenIn}/{trade.tokenOut}</span>
+                    </div>
+
+                    <div className="text-white font-mono">
+                      {trade.amountIn}
+                    </div>
+
+                    <div className={`flex items-center gap-1 font-mono ${(trade.profit || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {(trade.profit || 0) >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                      {(trade.profit || 0) >= 0 ? '+' : ''}${(trade.profit || 0).toFixed(2)}
+                    </div>
+
+                    <div className="text-secondary text-sm">
+                      {trade.chainName}
+                    </div>
+
+                    <div className="text-secondary text-sm">
+                      Gas: ${trade.gasCostUsd?.toFixed(2) || '0.00'}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-secondary text-sm">
+                        {new Date(trade.timestamp).toLocaleTimeString()}
+                      </span>
+                      <a
+                        href={trade.blockExplorerUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-accent hover:text-accent-hover"
+                      >
+                        <ExternalLink size={14} />
+                      </a>
+                    </div>
+                  </motion.div>
                 ))
               ) : (
                 <div className="py-12 text-center">
