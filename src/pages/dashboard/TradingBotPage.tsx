@@ -40,7 +40,7 @@ interface TopPerformerTrade {
 }
 
 interface Strategy {
-  direction: 'LONG' | 'SHORT' | 'HOLD';
+  direction: 'LONG' | 'SHORT';
   confidence: number;
   reason: string;
   indicators: string[];
@@ -60,7 +60,7 @@ interface Strategy {
     riskReward: number;
     volumeRatio: number;
     isQualitySignal: boolean;
-    rejectionReason: string;
+    qualityWarning: string;
     suggestedTP: number;
     suggestedSL: number;
   };
@@ -534,36 +534,27 @@ const TradingBotPage: React.FC = () => {
 
     const isQualitySignal = meetsMinConfidence && meetsMinRiskReward && passesVolumeFilter && passesTrendFilter;
 
-    // If signal doesn't meet quality thresholds, change to HOLD
-    // EXCEPTION: In turbo mode, NEVER hold - always execute the signal
+    // ALWAYS show LONG or SHORT - never HOLD
+    // Quality metrics are informational only - don't block trading
     let finalDirection = direction;
-    let rejectionReason = '';
+    let qualityWarning = '';
 
-    if (direction !== 'HOLD' && !isQualitySignal && !turboMode) {
-      const rejectionReasons: string[] = [];
-      if (!meetsMinConfidence) rejectionReasons.push(`Confidence ${confidence}% < ${tradingConfig.minConfidence}%`);
-      if (!meetsMinRiskReward) rejectionReasons.push(`R/R ${riskReward.toFixed(2)} < ${tradingConfig.minRiskReward}`);
-      if (!passesVolumeFilter) rejectionReasons.push(`Volume ${volumeRatio.toFixed(1)}x < 1.2x`);
-      if (!passesTrendFilter) rejectionReasons.push(trendWarning || 'Trend conflict');
-
-      rejectionReason = rejectionReasons.join(', ');
-
-      // Log rejected trade
-      console.log(`🚫 Trade rejected:
-        - Signal: ${direction}
-        - Confidence: ${confidence}% (threshold: ${tradingConfig.minConfidence}%)
-        - R/R: ${riskReward.toFixed(2)} (threshold: ${tradingConfig.minRiskReward})
-        - Volume: ${volumeRatio.toFixed(1)}x
-        - Reason: ${rejectionReason}`);
-
-      finalDirection = 'HOLD';
-      detailedReason = `Setup rejected: ${rejectionReason}. Waiting for better opportunity.`;
+    // If direction is HOLD (not enough conditions), force to stronger signal
+    if (direction === 'HOLD') {
+      finalDirection = longConditionsMet >= shortConditionsMet ? 'LONG' : 'SHORT';
+      detailedReason = `Weak setup - ${finalDirection} has slightly more confirmation (${Math.max(longConditionsMet, shortConditionsMet)}/5)`;
     }
 
-    // In turbo mode, if we somehow got HOLD, force to the stronger signal
-    if (turboMode && finalDirection === 'HOLD') {
-      finalDirection = longConditionsMet >= shortConditionsMet ? 'LONG' : 'SHORT';
-      detailedReason = `Turbo mode: Forcing ${finalDirection} signal (${Math.max(longConditionsMet, shortConditionsMet)}/5 conditions)`;
+    // Log quality warnings but don't block
+    if (!isQualitySignal) {
+      const warnings: string[] = [];
+      if (!meetsMinConfidence) warnings.push(`Low confidence: ${confidence}%`);
+      if (!meetsMinRiskReward) warnings.push(`Low R/R: ${riskReward.toFixed(2)}`);
+      if (!passesVolumeFilter) warnings.push(`Low volume: ${volumeRatio.toFixed(1)}x`);
+      if (!passesTrendFilter && trendWarning) warnings.push(trendWarning);
+
+      qualityWarning = warnings.join(', ');
+      console.log(`⚠️ Signal quality warning: ${qualityWarning}`);
     }
 
     return {
@@ -581,14 +572,14 @@ const TradingBotPage: React.FC = () => {
         riskReward: riskReward.toFixed(2),
         trend
       },
-      // Quality metrics for display
+      // Quality metrics for display (informational only)
       qualityMetrics: {
         conditionsMet,
         totalConditions: 5,
         riskReward,
         volumeRatio,
         isQualitySignal,
-        rejectionReason,
+        qualityWarning,
         suggestedTP,
         suggestedSL
       },
@@ -1078,32 +1069,9 @@ const TradingBotPage: React.FC = () => {
 
     if (!analyzeMarket || !currentChain) return;
 
-    // Check if signal is HOLD (rejected by quality filters)
-    if (analyzeMarket.direction === 'HOLD') {
-      const qualityInfo = analyzeMarket.qualityMetrics;
-      const message = qualityInfo?.rejectionReason
-        ? `Trade rejected by AI quality filters:\n\n${qualityInfo.rejectionReason}\n\nConditions met: ${qualityInfo.conditionsMet}/${qualityInfo.totalConditions}\nR/R Ratio: ${qualityInfo.riskReward.toFixed(2)}\nVolume: ${qualityInfo.volumeRatio.toFixed(1)}x\n\nWaiting for a higher quality setup.`
-        : 'Insufficient signal quality. Waiting for better setup.';
-
-      alert(message);
-
-      // Log the rejected trade
-      setLastRejectedTrade({
-        signal: 'HOLD',
-        confidence: analyzeMarket.confidence,
-        riskReward: qualityInfo?.riskReward || 0,
-        volumeRatio: qualityInfo?.volumeRatio || 0,
-        reason: qualityInfo?.rejectionReason || 'Insufficient confirmation',
-        timestamp: new Date()
-      });
-
-      return;
-    }
-
-    // Check minimum confidence threshold
-    if (analyzeMarket.confidence < tradingConfig.minConfidence) {
-      alert(`Signal confidence (${analyzeMarket.confidence}%) is below your minimum threshold (${tradingConfig.minConfidence}%).\n\nAdjust your settings or wait for a higher confidence signal.`);
-      return;
+    // Log quality warning if signal is weak (but don't block trading)
+    if (!analyzeMarket.qualityMetrics?.isQualitySignal) {
+      console.log(`⚠️ Trading with weak signal: ${analyzeMarket.qualityMetrics?.qualityWarning || 'Low confidence'}`);
     }
 
     setIsExecuting(true);
@@ -1838,27 +1806,22 @@ const TradingBotPage: React.FC = () => {
               <div className="flex items-center gap-2 mb-4">
                 <Activity className="w-5 h-5 text-accent" />
                 <span className="text-white font-medium">AI Strategy</span>
-                {analyzeMarket.qualityMetrics?.isQualitySignal && (
+                {analyzeMarket.qualityMetrics?.isQualitySignal ? (
                   <span className="ml-auto px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">High Quality</span>
-                )}
-                {!analyzeMarket.qualityMetrics?.isQualitySignal && analyzeMarket.direction !== 'HOLD' && (
-                  <span className="ml-auto px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">Filtered</span>
+                ) : (
+                  <span className="ml-auto px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">Low Quality</span>
                 )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className={`bg-background rounded-lg p-4 ${analyzeMarket.direction === 'HOLD' ? 'border border-gray-600' : ''}`}>
+                <div className="bg-background rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-2">
                     {analyzeMarket.direction === 'LONG' ? (
                       <TrendingUp className="w-5 h-5 text-green-400" />
-                    ) : analyzeMarket.direction === 'SHORT' ? (
-                      <TrendingDown className="w-5 h-5 text-red-400" />
                     ) : (
-                      <Pause className="w-5 h-5 text-gray-400" />
+                      <TrendingDown className="w-5 h-5 text-red-400" />
                     )}
                     <span className={`text-lg font-semibold ${
-                      analyzeMarket.direction === 'LONG' ? 'text-green-400' :
-                      analyzeMarket.direction === 'SHORT' ? 'text-red-400' :
-                      'text-gray-400'
+                      analyzeMarket.direction === 'LONG' ? 'text-green-400' : 'text-red-400'
                     }`}>
                       {analyzeMarket.direction}
                     </span>
@@ -1919,11 +1882,11 @@ const TradingBotPage: React.FC = () => {
                   analyzeMarket.metrics.trend === 'STRONG_UPTREND' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
                 }`}>
                   Trend: {analyzeMarket.metrics.trend.replace('_', ' ')}
-                  {tradingConfig.trendFilterEnabled && (
+                  {(
                     (analyzeMarket.direction === 'SHORT' && analyzeMarket.metrics.trend === 'STRONG_UPTREND') ||
                     (analyzeMarket.direction === 'LONG' && analyzeMarket.metrics.trend === 'STRONG_DOWNTREND')
                   ) && (
-                    <span className="ml-2 text-yellow-400">- Trading against trend blocked</span>
+                    <span className="ml-2 text-yellow-400">- Counter-trend trade</span>
                   )}
                 </div>
               )}
@@ -2363,28 +2326,19 @@ const TradingBotPage: React.FC = () => {
 
                   <button
                     onClick={() => setShowRiskWarning(true)}
-                    disabled={!analyzeMarket || isExecuting || tradeAmount > availableBalance || analyzeMarket?.direction === 'HOLD'}
+                    disabled={!analyzeMarket || isExecuting || tradeAmount > availableBalance}
                     className={`w-full py-4 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                      analyzeMarket?.direction === 'HOLD'
-                        ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-                        : analyzeMarket?.direction === 'LONG'
-                          ? 'bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30'
-                          : 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
+                      analyzeMarket?.direction === 'LONG'
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30'
+                        : 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
                     }`}
                   >
                     {isExecuting ? (
                       <RefreshCw className="w-5 h-5 animate-spin" />
-                    ) : analyzeMarket?.direction === 'HOLD' ? (
-                      <Pause size={20} />
                     ) : (
                       <Play size={20} />
                     )}
-                    {isExecuting
-                      ? 'Executing...'
-                      : analyzeMarket?.direction === 'HOLD'
-                        ? 'HOLD - Waiting for Quality Signal'
-                        : `Open ${analyzeMarket?.direction || '...'}`
-                    }
+                    {isExecuting ? 'Executing...' : `Open ${analyzeMarket?.direction || '...'}`}
                   </button>
 
                   {/* Quick cost estimate */}
