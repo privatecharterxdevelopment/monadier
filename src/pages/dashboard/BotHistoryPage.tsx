@@ -578,14 +578,14 @@ const BotHistoryPage: React.FC = () => {
             <div>
               <p className="text-sm text-secondary">Total P/L (Live)</p>
               <p className={`text-xl font-bold ${stats.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {stats.totalProfit >= 0 ? '+' : ''}${Math.abs(stats.totalProfit) < 0.01 ? stats.totalProfit.toFixed(4) : stats.totalProfit.toFixed(2)}
+                {stats.totalProfit >= 0 ? '+' : ''}${stats.totalProfit.toFixed(4)}
               </p>
               <div className="flex gap-2 text-[10px] mt-1">
                 <span className={stats.realizedProfit >= 0 ? 'text-green-400' : 'text-red-400'}>
-                  Realized: {stats.realizedProfit >= 0 ? '+' : ''}${Math.abs(stats.realizedProfit) < 0.01 ? stats.realizedProfit.toFixed(4) : stats.realizedProfit.toFixed(2)}
+                  Realized: {stats.realizedProfit >= 0 ? '+' : ''}${stats.realizedProfit.toFixed(4)}
                 </span>
                 <span className={stats.unrealizedProfit >= 0 ? 'text-blue-400' : 'text-orange-400'}>
-                  Open: {stats.unrealizedProfit >= 0 ? '+' : ''}${Math.abs(stats.unrealizedProfit) < 0.01 ? stats.unrealizedProfit.toFixed(4) : stats.unrealizedProfit.toFixed(2)}
+                  Open: {stats.unrealizedProfit >= 0 ? '+' : ''}${stats.unrealizedProfit.toFixed(4)}
                 </span>
               </div>
             </div>
