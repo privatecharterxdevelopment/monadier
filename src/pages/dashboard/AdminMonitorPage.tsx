@@ -1,0 +1,616 @@
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import {
+  Activity,
+  Wallet,
+  Users,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  RefreshCw,
+  Zap,
+  Clock,
+  DollarSign,
+  Cpu,
+  Database,
+  Shield,
+  ExternalLink
+} from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { formatUnits } from 'viem';
+
+// Bot wallet address (from config)
+const BOT_WALLET = '0xC9a6D02a04e3B2E8d3941615EfcBA67593F46b8E';
+const TREASURY_WALLET = '0xF7351a5C63e0403F6F7FC77d31B5e17A229C469c';
+const V3_VAULT = '0x4DE3c142E866b38662F437d2285128C95d833f11';
+const V2_VAULT = '0x5eF29B4348d31c311918438e92a5fae7641Bc00a';
+
+interface SystemStats {
+  botBalance: string;
+  botBalanceUsd: string;
+  treasuryBalance: string;
+  ethPrice: number;
+  totalUsers: number;
+  activeUsers: number;
+  openPositions: number;
+  closedToday: number;
+  failedToday: number;
+  totalPnL: number;
+  winRate: number;
+  avgTradeSize: number;
+  lastTradeTime: string | null;
+  gasUsedToday: string;
+  estimatedTradesLeft: number;
+}
+
+interface RecentTrade {
+  id: string;
+  wallet_address: string;
+  token_symbol: string;
+  direction: string;
+  status: string;
+  entry_amount: number;
+  profit_loss: number | null;
+  created_at: string;
+  close_reason: string | null;
+}
+
+const AdminMonitorPage: React.FC = () => {
+  const [stats, setStats] = useState<SystemStats>({
+    botBalance: '0',
+    botBalanceUsd: '0',
+    treasuryBalance: '0',
+    ethPrice: 0,
+    totalUsers: 0,
+    activeUsers: 0,
+    openPositions: 0,
+    closedToday: 0,
+    failedToday: 0,
+    totalPnL: 0,
+    winRate: 0,
+    avgTradeSize: 0,
+    lastTradeTime: null,
+    gasUsedToday: '0',
+    estimatedTradesLeft: 0
+  });
+  const [recentTrades, setRecentTrades] = useState<RecentTrade[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+
+  const fetchBotBalance = async () => {
+    try {
+      // Fetch bot wallet ETH balance from Base
+      const response = await fetch(`https://base.blockscout.com/api/v2/addresses/${BOT_WALLET}`);
+      const data = await response.json();
+
+      if (data.coin_balance) {
+        const balanceWei = BigInt(data.coin_balance);
+        const balanceEth = formatUnits(balanceWei, 18);
+        return parseFloat(balanceEth);
+      }
+      return 0;
+    } catch (err) {
+      console.error('Error fetching bot balance:', err);
+      return 0;
+    }
+  };
+
+  const fetchTreasuryBalance = async () => {
+    try {
+      const response = await fetch(`https://base.blockscout.com/api/v2/addresses/${TREASURY_WALLET}`);
+      const data = await response.json();
+
+      if (data.coin_balance) {
+        const balanceWei = BigInt(data.coin_balance);
+        const balanceEth = formatUnits(balanceWei, 18);
+        return parseFloat(balanceEth);
+      }
+      return 0;
+    } catch (err) {
+      console.error('Error fetching treasury balance:', err);
+      return 0;
+    }
+  };
+
+  const fetchEthPrice = async () => {
+    try {
+      const response = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT');
+      const data = await response.json();
+      return parseFloat(data.price);
+    } catch {
+      return 3300; // Fallback
+    }
+  };
+
+  const fetchStats = async () => {
+    setLoading(true);
+    try {
+      // Fetch balances and prices in parallel
+      const [botBalance, treasuryBalance, ethPrice] = await Promise.all([
+        fetchBotBalance(),
+        fetchTreasuryBalance(),
+        fetchEthPrice()
+      ]);
+
+      // Fetch position stats from Supabase
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = today.toISOString();
+
+      const [
+        { data: allPositions },
+        { data: openPositions },
+        { data: closedToday },
+        { data: failedToday },
+        { data: uniqueUsers },
+        { data: recentTradesData }
+      ] = await Promise.all([
+        supabase.from('positions').select('*'),
+        supabase.from('positions').select('*').in('status', ['open', 'closing']),
+        supabase.from('positions').select('*').eq('status', 'closed').gte('closed_at', todayStr),
+        supabase.from('positions').select('*').eq('status', 'failed').gte('updated_at', todayStr),
+        supabase.from('positions').select('wallet_address').limit(1000),
+        supabase.from('positions').select('*').order('created_at', { ascending: false }).limit(20)
+      ]);
+
+      // Calculate stats
+      const positions = allPositions || [];
+      const closedPositions = positions.filter(p => p.status === 'closed');
+      const totalPnL = closedPositions.reduce((sum, p) => sum + (p.profit_loss || 0), 0);
+      const wins = closedPositions.filter(p => (p.profit_loss || 0) > 0).length;
+      const winRate = closedPositions.length > 0 ? (wins / closedPositions.length) * 100 : 0;
+      const avgTradeSize = positions.length > 0
+        ? positions.reduce((sum, p) => sum + (p.entry_amount || 0), 0) / positions.length
+        : 0;
+
+      // Unique users
+      const uniqueWallets = new Set(uniqueUsers?.map(u => u.wallet_address) || []);
+
+      // Last trade time
+      const lastTrade = positions.length > 0
+        ? positions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+        : null;
+
+      // Estimate gas: ~0.0001 ETH per trade on Base
+      const gasPerTrade = 0.0001;
+      const estimatedTradesLeft = Math.floor(botBalance / gasPerTrade);
+
+      setStats({
+        botBalance: botBalance.toFixed(6),
+        botBalanceUsd: (botBalance * ethPrice).toFixed(2),
+        treasuryBalance: treasuryBalance.toFixed(6),
+        ethPrice,
+        totalUsers: uniqueWallets.size,
+        activeUsers: (openPositions || []).length > 0 ? new Set((openPositions || []).map(p => p.wallet_address)).size : 0,
+        openPositions: (openPositions || []).length,
+        closedToday: (closedToday || []).length,
+        failedToday: (failedToday || []).length,
+        totalPnL,
+        winRate,
+        avgTradeSize,
+        lastTradeTime: lastTrade?.created_at || null,
+        gasUsedToday: ((closedToday || []).length * gasPerTrade).toFixed(6),
+        estimatedTradesLeft
+      });
+
+      setRecentTrades(recentTradesData || []);
+      setLastRefresh(new Date());
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+    const interval = setInterval(fetchStats, 30000); // Refresh every 30s
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatTimeAgo = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return `${Math.floor(diff / 86400000)}d ago`;
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'open': return 'text-blue-400 bg-blue-500/20';
+      case 'closed': return 'text-green-400 bg-green-500/20';
+      case 'closing': return 'text-amber-400 bg-amber-500/20';
+      case 'failed': return 'text-red-400 bg-red-500/20';
+      default: return 'text-gray-400 bg-gray-500/20';
+    }
+  };
+
+  const isLowGas = parseFloat(stats.botBalance) < 0.001;
+  const isCriticalGas = parseFloat(stats.botBalance) < 0.0005;
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">System Monitor</h1>
+          <p className="text-secondary mt-1">
+            Last updated: {lastRefresh.toLocaleTimeString()}
+          </p>
+        </div>
+        <button
+          onClick={fetchStats}
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white transition-colors"
+        >
+          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          Refresh
+        </button>
+      </div>
+
+      {/* Gas Warning Banner */}
+      {isLowGas && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`p-4 rounded-xl border flex items-center gap-3 ${
+            isCriticalGas
+              ? 'bg-red-500/10 border-red-500/30'
+              : 'bg-amber-500/10 border-amber-500/30'
+          }`}
+        >
+          <AlertTriangle className={isCriticalGas ? 'text-red-400' : 'text-amber-400'} size={24} />
+          <div>
+            <p className={`font-semibold ${isCriticalGas ? 'text-red-400' : 'text-amber-400'}`}>
+              {isCriticalGas ? 'CRITICAL: Bot wallet nearly empty!' : 'Low gas warning'}
+            </p>
+            <p className="text-sm text-secondary">
+              Bot wallet has {stats.botBalance} ETH (~{stats.estimatedTradesLeft} trades left).
+              Send ETH to <code className="text-white">{BOT_WALLET}</code>
+            </p>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Main Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Bot Wallet */}
+        <div className={`bg-card-dark rounded-xl border p-4 ${
+          isCriticalGas ? 'border-red-500' : isLowGas ? 'border-amber-500' : 'border-gray-800'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+              isCriticalGas ? 'bg-red-500/20' : isLowGas ? 'bg-amber-500/20' : 'bg-blue-500/10'
+            }`}>
+              <Wallet className={isCriticalGas ? 'text-red-400' : isLowGas ? 'text-amber-400' : 'text-blue-400'} size={20} />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-secondary">Bot Wallet</p>
+              <p className="text-xl font-bold text-white">{stats.botBalance} ETH</p>
+              <p className="text-xs text-secondary">${stats.botBalanceUsd} USD</p>
+            </div>
+            <a
+              href={`https://basescan.org/address/${BOT_WALLET}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-500 hover:text-white"
+            >
+              <ExternalLink size={16} />
+            </a>
+          </div>
+          <div className="mt-3 pt-3 border-t border-gray-800">
+            <div className="flex justify-between text-xs">
+              <span className="text-secondary">Est. trades left</span>
+              <span className={isCriticalGas ? 'text-red-400' : isLowGas ? 'text-amber-400' : 'text-green-400'}>
+                ~{stats.estimatedTradesLeft}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Open Positions */}
+        <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center">
+              <Activity className="text-purple-400" size={20} />
+            </div>
+            <div>
+              <p className="text-sm text-secondary">Open Positions</p>
+              <p className="text-xl font-bold text-white">{stats.openPositions}</p>
+              <p className="text-xs text-secondary">{stats.activeUsers} active users</p>
+            </div>
+          </div>
+          <div className="mt-3 pt-3 border-t border-gray-800 grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span className="text-secondary">Closed today</span>
+              <span className="text-green-400 ml-2">{stats.closedToday}</span>
+            </div>
+            <div>
+              <span className="text-secondary">Failed today</span>
+              <span className="text-red-400 ml-2">{stats.failedToday}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Total P/L */}
+        <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+              stats.totalPnL >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
+            }`}>
+              {stats.totalPnL >= 0 ? (
+                <TrendingUp className="text-green-400" size={20} />
+              ) : (
+                <TrendingDown className="text-red-400" size={20} />
+              )}
+            </div>
+            <div>
+              <p className="text-sm text-secondary">Total P/L (All Time)</p>
+              <p className={`text-xl font-bold ${stats.totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {stats.totalPnL >= 0 ? '+' : ''}${stats.totalPnL.toFixed(2)}
+              </p>
+              <p className="text-xs text-secondary">Win rate: {stats.winRate.toFixed(1)}%</p>
+            </div>
+          </div>
+          <div className="mt-3 pt-3 border-t border-gray-800">
+            <div className="flex justify-between text-xs">
+              <span className="text-secondary">Avg trade size</span>
+              <span className="text-white">${stats.avgTradeSize.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Users */}
+        <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center">
+              <Users className="text-cyan-400" size={20} />
+            </div>
+            <div>
+              <p className="text-sm text-secondary">Total Users</p>
+              <p className="text-xl font-bold text-white">{stats.totalUsers}</p>
+              <p className="text-xs text-secondary">ETH: ${stats.ethPrice.toFixed(0)}</p>
+            </div>
+          </div>
+          <div className="mt-3 pt-3 border-t border-gray-800">
+            <div className="flex justify-between text-xs">
+              <span className="text-secondary">Last trade</span>
+              <span className="text-white">
+                {stats.lastTradeTime ? formatTimeAgo(stats.lastTradeTime) : 'Never'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Contract Addresses */}
+      <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <Shield size={20} className="text-green-400" />
+          Contract Addresses
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+            <div>
+              <p className="text-xs text-secondary">V3 Vault (Active)</p>
+              <code className="text-sm text-green-400">{V3_VAULT}</code>
+            </div>
+            <a
+              href={`https://basescan.org/address/${V3_VAULT}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-500 hover:text-white"
+            >
+              <ExternalLink size={16} />
+            </a>
+          </div>
+          <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+            <div>
+              <p className="text-xs text-secondary">V2 Vault (Legacy)</p>
+              <code className="text-sm text-gray-400">{V2_VAULT}</code>
+            </div>
+            <a
+              href={`https://basescan.org/address/${V2_VAULT}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-500 hover:text-white"
+            >
+              <ExternalLink size={16} />
+            </a>
+          </div>
+          <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+            <div>
+              <p className="text-xs text-secondary">Bot Wallet</p>
+              <code className="text-sm text-blue-400">{BOT_WALLET}</code>
+            </div>
+            <a
+              href={`https://basescan.org/address/${BOT_WALLET}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-500 hover:text-white"
+            >
+              <ExternalLink size={16} />
+            </a>
+          </div>
+          <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+            <div>
+              <p className="text-xs text-secondary">Treasury</p>
+              <code className="text-sm text-amber-400">{TREASURY_WALLET}</code>
+            </div>
+            <a
+              href={`https://basescan.org/address/${TREASURY_WALLET}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-500 hover:text-white"
+            >
+              <ExternalLink size={16} />
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* System Health */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <Cpu size={20} className="text-purple-400" />
+            <span className="font-semibold text-white">Bot Service</span>
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-secondary">Trading Interval</span>
+              <span className="text-white">10s</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-secondary">Monitor Interval</span>
+              <span className="text-white">10s</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-secondary">Reconciliation</span>
+              <span className="text-white">5 min</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-secondary">Circuit Breaker</span>
+              <span className="text-green-400">2 failures</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <Database size={20} className="text-blue-400" />
+            <span className="font-semibold text-white">Analysis</span>
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-secondary">Candle Interval</span>
+              <span className="text-white">1 hour</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-secondary">Strategy</span>
+              <span className="text-amber-400">Risky</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-secondary">Max Positions</span>
+              <span className="text-white">1 per token</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-secondary">Tokens</span>
+              <span className="text-white">WETH, cbETH</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <Shield size={20} className="text-green-400" />
+            <span className="font-semibold text-white">Security (V3)</span>
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-secondary">User Withdraw</span>
+              <CheckCircle size={16} className="text-green-400" />
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-secondary">User Emergency Close</span>
+              <CheckCircle size={16} className="text-green-400" />
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-secondary">Owner Access Funds</span>
+              <XCircle size={16} className="text-red-400" />
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-secondary">Owner Withdraw Fees</span>
+              <CheckCircle size={16} className="text-green-400" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Trades */}
+      <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
+        <div className="p-4 border-b border-gray-800">
+          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+            <Clock size={20} className="text-gray-400" />
+            Recent Trades
+          </h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-background">
+              <tr className="text-left text-sm text-secondary">
+                <th className="px-4 py-3">Time</th>
+                <th className="px-4 py-3">User</th>
+                <th className="px-4 py-3">Token</th>
+                <th className="px-4 py-3">Direction</th>
+                <th className="px-4 py-3">Size</th>
+                <th className="px-4 py-3">P/L</th>
+                <th className="px-4 py-3">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentTrades.map((trade) => (
+                <tr key={trade.id} className="border-t border-gray-800 hover:bg-white/5">
+                  <td className="px-4 py-3 text-sm text-secondary">
+                    {formatTimeAgo(trade.created_at)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <code className="text-xs text-gray-400">
+                      {trade.wallet_address.slice(0, 6)}...{trade.wallet_address.slice(-4)}
+                    </code>
+                  </td>
+                  <td className="px-4 py-3 text-white font-medium">
+                    {trade.token_symbol || 'WETH'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      trade.direction === 'LONG'
+                        ? 'bg-green-500/20 text-green-400'
+                        : 'bg-red-500/20 text-red-400'
+                    }`}>
+                      {trade.direction || 'LONG'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-white font-mono text-sm">
+                    ${(trade.entry_amount || 0).toFixed(2)}
+                  </td>
+                  <td className="px-4 py-3">
+                    {trade.profit_loss !== null ? (
+                      <span className={`font-mono text-sm ${
+                        trade.profit_loss >= 0 ? 'text-green-400' : 'text-red-400'
+                      }`}>
+                        {trade.profit_loss >= 0 ? '+' : ''}${trade.profit_loss.toFixed(2)}
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">-</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(trade.status)}`}>
+                      {trade.status.toUpperCase()}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {recentTrades.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-secondary">
+                    No trades yet
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AdminMonitorPage;

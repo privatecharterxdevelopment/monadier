@@ -34,40 +34,66 @@ interface MarketAnalysis {
 }
 
 // Strategy modes
-export type TradingStrategy = 'conservative' | 'normal' | 'risky';
+export type TradingStrategy = 'conservative' | 'normal' | 'risky' | 'aggressive';
 
 // Strategy configs
 const STRATEGY_CONFIGS = {
   conservative: {
     minConfidence: 80,
-    minConditions: 4
+    minConditions: 4,
+    patternOnly: false,
+    profitLockPercent: 0.5
   },
   normal: {
     minConfidence: 60,
-    minConditions: 3
+    minConditions: 3,
+    patternOnly: false,
+    profitLockPercent: 0.5
   },
   risky: {
     minConfidence: 40,
-    minConditions: 2
+    minConditions: 2,
+    patternOnly: false,
+    profitLockPercent: 0.5
+  },
+  aggressive: {
+    minConfidence: 30, // Very low - patterns are the signal!
+    minConditions: 1,  // Just need pattern
+    patternOnly: true, // ONLY trade on patterns (chart arrows)
+    profitLockPercent: 0.2 // Lock profit at just 0.2%!
   }
 };
 
 // Token config for different chains
 const TOKEN_SYMBOLS: Record<number, Record<string, string>> = {
-  8453: { // Base
-    '0x4200000000000000000000000000000000000006': 'ETHUSDT', // WETH
+  // BASE - Currently Active
+  8453: {
+    '0x4200000000000000000000000000000000000006': 'ETHUSDT',
+    '0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22': 'ETHUSDT',   // cbETH tracks ETH
+    '0x0555E30da8f98308EdB960aa94C0Db47230d2B9c': 'BTCUSDT',
   },
-  1: { // Ethereum
+  // ETHEREUM
+  1: {
     '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2': 'ETHUSDT',
+    '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599': 'BTCUSDT',
   },
-  137: { // Polygon
+  // POLYGON
+  137: {
     '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619': 'ETHUSDT',
+    '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270': 'MATICUSDT',
+    '0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6': 'BTCUSDT',
   },
-  42161: { // Arbitrum
+  // ARBITRUM
+  42161: {
     '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1': 'ETHUSDT',
+    '0x912CE59144191C1204E64559FE8253a0e49E6548': 'ARBUSDT',
+    '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f': 'BTCUSDT',
   },
-  56: { // BSC
+  // BSC
+  56: {
+    '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c': 'BNBUSDT',
     '0x2170Ed0880ac9A755fd29B2688956BD959F933F8': 'ETHUSDT',
+    '0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c': 'BTCUSDT',
   }
 };
 
@@ -367,7 +393,11 @@ export async function analyzeMarket(
   });
 
   // === CONFIDENCE SCORING (now 7 factors with pattern bonus) ===
-  const calculateConfidence = (conditionsMet: number): number => {
+  const calculateConfidence = (conditionsMet: number, isPatternOnly: boolean): number => {
+    // For aggressive/pattern-only mode, patterns are the main signal
+    if (isPatternOnly) {
+      return conditionsMet >= 1 ? 80 : 30; // High confidence if pattern exists
+    }
     if (conditionsMet >= 6) return 95; // 6+ factors = very high confidence
     if (conditionsMet >= 5) return 90;
     if (conditionsMet >= 4) return 80;
@@ -375,6 +405,68 @@ export async function analyzeMarket(
     if (conditionsMet === 2) return 45;
     return 25;
   };
+
+  // === AGGRESSIVE MODE: PATTERN-ONLY TRADING ===
+  // If patternOnly is true, we ONLY look at candlestick patterns (the chart arrows!)
+  if (strategyConfig.patternOnly) {
+    if (hasBullishPattern) {
+      const patternName = isBullishEngulfing ? 'Bullish Engulfing' : isHammer ? 'Hammer' : 'Long Lower Wick';
+      logger.info(`🔥 AGGRESSIVE: ${patternName} detected - LONG signal!`, {
+        symbol,
+        pattern: patternName,
+        profitLock: strategyConfig.profitLockPercent + '%'
+      });
+      return {
+        direction: 'LONG',
+        confidence: 80,
+        reason: patternName,
+        indicators: [patternName],
+        isReversalSignal: true,
+        suggestedTP: 3.0, // Smaller TP for aggressive
+        suggestedSL: 0.5, // Tight SL
+        metrics: {
+          rsi: Math.round(rsi),
+          macd: macd.toFixed(4),
+          priceChange1h: priceChange1h.toFixed(2),
+          volumeRatio: volumeRatio.toFixed(1),
+          conditionsMet: 1,
+          riskReward: '2.0',
+          trend,
+          dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' })
+        }
+      };
+    }
+    if (hasBearishPattern) {
+      const patternName = isBearishEngulfing ? 'Bearish Engulfing' : isShootingStar ? 'Shooting Star' : 'Long Upper Wick';
+      logger.info(`🔥 AGGRESSIVE: ${patternName} detected - SHORT signal!`, {
+        symbol,
+        pattern: patternName,
+        profitLock: strategyConfig.profitLockPercent + '%'
+      });
+      return {
+        direction: 'SHORT',
+        confidence: 80,
+        reason: patternName,
+        indicators: [patternName],
+        isReversalSignal: true,
+        suggestedTP: 3.0,
+        suggestedSL: 0.5,
+        metrics: {
+          rsi: Math.round(rsi),
+          macd: macd.toFixed(4),
+          priceChange1h: priceChange1h.toFixed(2),
+          volumeRatio: volumeRatio.toFixed(1),
+          conditionsMet: 1,
+          riskReward: '2.0',
+          trend,
+          dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' })
+        }
+      };
+    }
+    // No pattern detected in aggressive mode - no trade
+    logger.debug('AGGRESSIVE: No pattern detected, waiting...');
+    return null;
+  }
 
   // === DIRECTION DETERMINATION (SAME AS UI) ===
   let direction: 'LONG' | 'SHORT' | 'HOLD' = 'HOLD';
@@ -430,7 +522,7 @@ export async function analyzeMarket(
   }
 
   // Calculate confidence with penalty
-  const rawConfidence = calculateConfidence(conditionsMet);
+  const rawConfidence = calculateConfidence(conditionsMet, false);
   const confidence = Math.max(20, rawConfidence - confidencePenalty);
 
   // If HOLD, force to stronger signal (same as UI)
@@ -604,7 +696,8 @@ export async function generateTradeSignal(
     minAmountOut,
     reason: analysis.reason,
     takeProfitPercent: analysis.suggestedTP,
-    trailingStopPercent: analysis.suggestedSL
+    trailingStopPercent: analysis.suggestedSL,
+    profitLockPercent: strategyConfig.profitLockPercent // Pass from strategy config
   };
 }
 

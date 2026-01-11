@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, ArrowDownLeft, Loader2, AlertCircle } from 'lucide-react';
+import { X, ArrowDownLeft, Loader2, AlertCircle, Coins } from 'lucide-react';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useTransactions } from '../../contexts/TransactionContext';
-import { VaultClient, VAULT_ADDRESSES, USDC_ADDRESSES, USDC_DECIMALS, getPlatformFeeForChain } from '../../lib/vault';
+import { VaultClient, USDC_ADDRESSES, USDC_DECIMALS, getPlatformFeeForChain } from '../../lib/vault';
 import { formatUnits } from 'viem';
 import { ERC20_ABI } from '../../lib/dex/router';
 
@@ -10,6 +10,8 @@ interface VaultDepositModalProps {
   onClose: () => void;
   onSuccess: () => void;
 }
+
+type DepositType = 'usdc' | 'eth';
 
 // Block explorer URLs by chain
 const BLOCK_EXPLORERS: Record<number, string> = {
@@ -24,44 +26,73 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
   const { chainId, address, publicClient, walletClient } = useWeb3();
   const { addTransaction, updateTransaction } = useTransactions();
 
+  const [depositType, setDepositType] = useState<DepositType>('usdc');
   const [amount, setAmount] = useState('');
   const [usdcBalance, setUsdcBalance] = useState<string>('0');
+  const [ethBalance, setEthBalance] = useState<string>('0');
+  const [ethPrice, setEthPrice] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingBalance, setIsLoadingBalance] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const platformFee = chainId ? getPlatformFeeForChain(chainId) : { percentFormatted: '1.0%' };
 
-  // Load USDC balance
+  // Calculate estimated USDC for ETH
+  const estimatedUsdc = depositType === 'eth' && amount && ethPrice > 0
+    ? (parseFloat(amount) * ethPrice).toFixed(2)
+    : '0';
+
+  // Load balances and ETH price
   useEffect(() => {
-    const loadBalance = async () => {
+    const loadBalances = async () => {
       if (!chainId || !address || !publicClient) return;
 
       try {
         setIsLoadingBalance(true);
+
+        // Load USDC balance
         const usdcAddress = USDC_ADDRESSES[chainId];
-        if (!usdcAddress) return;
+        if (usdcAddress) {
+          const balance = await publicClient.readContract({
+            address: usdcAddress,
+            abi: ERC20_ABI,
+            functionName: 'balanceOf',
+            args: [address as `0x${string}`]
+          });
+          setUsdcBalance(formatUnits(balance as bigint, USDC_DECIMALS));
+        }
 
-        const balance = await publicClient.readContract({
-          address: usdcAddress,
-          abi: ERC20_ABI,
-          functionName: 'balanceOf',
-          args: [address as `0x${string}`]
-        });
+        // Load ETH balance
+        const ethBal = await publicClient.getBalance({ address: address as `0x${string}` });
+        setEthBalance(formatUnits(ethBal, 18));
 
-        setUsdcBalance(formatUnits(balance as bigint, USDC_DECIMALS));
+        // Fetch ETH price from Binance
+        try {
+          const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDC');
+          const data = await res.json();
+          setEthPrice(parseFloat(data.price) || 0);
+        } catch (e) {
+          console.error('Failed to fetch ETH price:', e);
+          setEthPrice(3200); // Fallback
+        }
       } catch (err) {
-        console.error('Failed to load USDC balance:', err);
+        console.error('Failed to load balances:', err);
       } finally {
         setIsLoadingBalance(false);
       }
     };
 
-    loadBalance();
+    loadBalances();
   }, [chainId, address, publicClient]);
 
   const handleMaxClick = () => {
-    setAmount(usdcBalance);
+    if (depositType === 'usdc') {
+      setAmount(usdcBalance);
+    } else {
+      // Leave some ETH for gas (0.001 ETH)
+      const maxEth = Math.max(0, parseFloat(ethBalance) - 0.001);
+      setAmount(maxEth > 0 ? maxEth.toFixed(6) : '0');
+    }
   };
 
   const handleDeposit = async () => {
@@ -70,8 +101,10 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
       setError('Please enter a valid amount');
       return;
     }
-    if (parseFloat(amount) > parseFloat(usdcBalance)) {
-      setError('Insufficient USDC balance');
+
+    const currentBalance = depositType === 'usdc' ? usdcBalance : ethBalance;
+    if (parseFloat(amount) > parseFloat(currentBalance)) {
+      setError(`Insufficient ${depositType === 'usdc' ? 'USDC' : 'ETH'} balance`);
       return;
     }
 
@@ -82,17 +115,32 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
       const vaultClient = new VaultClient(publicClient as any, walletClient as any, chainId);
       const blockExplorer = BLOCK_EXPLORERS[chainId] || 'https://basescan.org';
 
-      // Execute deposit (includes approval if needed)
-      const txHash = await vaultClient.deposit(amount, address as `0x${string}`);
+      let txHash: `0x${string}`;
+      let description: string;
+      let tokenSymbol: string;
+
+      if (depositType === 'usdc') {
+        // USDC deposit
+        txHash = await vaultClient.deposit(amount, address as `0x${string}`);
+        description = `Depositing ${amount} USDC to vault`;
+        tokenSymbol = 'USDC';
+      } else {
+        // ETH deposit - calculate minUsdcOut with 2% slippage
+        const expectedUsdc = parseFloat(amount) * ethPrice;
+        const minUsdcOut = (expectedUsdc * 0.98).toFixed(2); // 2% slippage
+        txHash = await vaultClient.depositETH(amount, minUsdcOut, address as `0x${string}`);
+        description = `Depositing ${amount} ETH (~$${estimatedUsdc}) to vault`;
+        tokenSymbol = 'ETH';
+      }
 
       // Add transaction to toast - close modal immediately
       const txId = addTransaction({
         type: 'deposit',
         hash: txHash,
         status: 'confirming',
-        description: `Depositing ${amount} USDC to vault`,
-        amount: parseFloat(amount).toFixed(2),
-        token: 'USDC',
+        description,
+        amount: parseFloat(amount).toFixed(depositType === 'usdc' ? 2 : 6),
+        token: tokenSymbol,
         chainId,
         blockExplorerUrl: `${blockExplorer}/tx/${txHash}`
       });
@@ -104,7 +152,6 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
       try {
         await publicClient.waitForTransactionReceipt({ hash: txHash });
         updateTransaction(txId, { status: 'success' });
-        // Trigger success callback to refresh balances
         onSuccess();
       } catch (confirmError) {
         console.error('Transaction failed:', confirmError);
@@ -113,7 +160,6 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
     } catch (err: any) {
       console.error('Deposit failed:', err);
 
-      // User rejected or other error before tx was sent
       if (err.message?.includes('User rejected') || err.message?.includes('denied')) {
         setError('Transaction cancelled');
       } else {
@@ -134,7 +180,7 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
             </div>
             <div>
               <h2 className="text-lg font-semibold text-white">Deposit to Vault</h2>
-              <p className="text-xs text-zinc-500">USDC only</p>
+              <p className="text-xs text-zinc-500">USDC or ETH</p>
             </div>
           </div>
           <button
@@ -148,6 +194,36 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
 
         {/* Content */}
         <div className="p-4 space-y-4">
+          {/* Token Toggle */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setDepositType('usdc'); setAmount(''); setError(null); }}
+              disabled={isLoading}
+              className={`flex-1 py-2.5 px-4 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${
+                depositType === 'usdc'
+                  ? 'bg-white text-black'
+                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'
+              }`}
+            >
+              <Coins className="w-4 h-4" />
+              USDC
+            </button>
+            <button
+              onClick={() => { setDepositType('eth'); setAmount(''); setError(null); }}
+              disabled={isLoading}
+              className={`flex-1 py-2.5 px-4 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${
+                depositType === 'eth'
+                  ? 'bg-white text-black'
+                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'
+              }`}
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M11.944 17.97L4.58 13.62 11.943 24l7.37-10.38-7.372 4.35h.003zM12.056 0L4.69 12.223l7.365 4.354 7.365-4.35L12.056 0z"/>
+              </svg>
+              ETH
+            </button>
+          </div>
+
           {/* Amount Input */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -157,7 +233,10 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
                 disabled={isLoading || isLoadingBalance}
                 className="text-xs text-white hover:text-gray-300 transition-colors"
               >
-                Max: {isLoadingBalance ? '...' : parseFloat(usdcBalance).toFixed(2)} USDC
+                Max: {isLoadingBalance ? '...' : depositType === 'usdc'
+                  ? `${parseFloat(usdcBalance).toFixed(2)} USDC`
+                  : `${parseFloat(ethBalance).toFixed(4)} ETH`
+                }
               </button>
             </div>
             <div className="relative">
@@ -167,13 +246,32 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
                 onChange={(e) => setAmount(e.target.value)}
                 disabled={isLoading}
                 placeholder="0.00"
+                step={depositType === 'eth' ? '0.001' : '0.01'}
                 className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white text-lg placeholder-zinc-500 focus:outline-none focus:border-white transition-colors"
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 font-medium">
-                USDC
+                {depositType === 'usdc' ? 'USDC' : 'ETH'}
               </span>
             </div>
           </div>
+
+          {/* ETH to USDC estimate */}
+          {depositType === 'eth' && amount && parseFloat(amount) > 0 && (
+            <div className="bg-zinc-800/50 rounded-lg p-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-zinc-400">Estimated USDC</span>
+                <span className="text-white font-medium">~{estimatedUsdc} USDC</span>
+              </div>
+              <div className="flex items-center justify-between text-xs mt-1">
+                <span className="text-zinc-500">ETH Price</span>
+                <span className="text-zinc-400">${ethPrice.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs mt-1">
+                <span className="text-zinc-500">Slippage</span>
+                <span className="text-zinc-400">2% max</span>
+              </div>
+            </div>
+          )}
 
           {/* Fee Info */}
           <div className="bg-zinc-800/50 rounded-lg p-3 space-y-2">
@@ -185,17 +283,21 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
               <span className="text-zinc-400">Deposit Fee</span>
               <span className="text-green-500">Free</span>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-zinc-400">Withdraw Fee</span>
-              <span className="text-green-500">Free</span>
-            </div>
+            {depositType === 'eth' && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-zinc-400">Swap</span>
+                <span className="text-zinc-300">ETH auto-swaps to USDC</span>
+              </div>
+            )}
           </div>
 
           {/* Info Box */}
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
             <p className="text-xs text-blue-400">
-              Deposited funds will be used for automated trading. You can withdraw anytime.
-              The bot will trade based on AI signals using your configured risk level.
+              {depositType === 'usdc'
+                ? 'Deposited USDC will be used for automated trading. You can withdraw anytime.'
+                : 'ETH will be automatically swapped to USDC on deposit. Vault balance is always in USDC.'
+              }
             </p>
           </div>
 
@@ -223,7 +325,7 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
             ) : (
               <>
                 <ArrowDownLeft className="w-4 h-4" />
-                Deposit USDC
+                Deposit {depositType === 'usdc' ? 'USDC' : 'ETH'}
               </>
             )}
           </button>

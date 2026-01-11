@@ -11,6 +11,14 @@ export const VAULT_ABI = [
     stateMutability: 'nonpayable',
     type: 'function'
   },
+  // V3: Deposit ETH and auto-swap to USDC
+  {
+    inputs: [{ name: 'minUsdcOut', type: 'uint256' }],
+    name: 'depositETH',
+    outputs: [],
+    stateMutability: 'payable',
+    type: 'function'
+  },
   {
     inputs: [{ name: 'amount', type: 'uint256' }],
     name: 'withdraw',
@@ -23,6 +31,36 @@ export const VAULT_ABI = [
     name: 'withdrawAll',
     outputs: [],
     stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  // V3: Emergency close position (user can close without bot)
+  {
+    inputs: [{ name: 'token', type: 'address' }],
+    name: 'emergencyClosePosition',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  // V3: Get user positions
+  {
+    inputs: [
+      { name: 'user', type: 'address' },
+      { name: 'tokens', type: 'address[]' }
+    ],
+    name: 'getUserPositions',
+    outputs: [{ name: 'amounts', type: 'uint256[]' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  // V3: Get token balance
+  {
+    inputs: [
+      { name: 'user', type: 'address' },
+      { name: 'token', type: 'address' }
+    ],
+    name: 'getTokenBalance',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
     type: 'function'
   },
   // Auto-trade
@@ -256,6 +294,15 @@ export const VAULT_V2_ADDRESSES: Record<number, `0x${string}` | null> = {
   137: null,    // Polygon - not deployed yet
 };
 
+// V3 Vault addresses (secure - user can emergency close + ETH deposit)
+export const VAULT_V3_ADDRESSES: Record<number, `0x${string}` | null> = {
+  1: null,      // Ethereum - not deployed yet
+  56: null,     // BNB Chain - not deployed yet
+  42161: null,  // Arbitrum - not deployed yet
+  8453: '0xAd1F46B955b783c142ea9D2d3F221Ac2F3D63e79',   // Base - LIVE (V3 + ETH deposit)
+  137: null,    // Polygon - not deployed yet
+};
+
 // USDC addresses by chain
 export const USDC_ADDRESSES: Record<number, `0x${string}`> = {
   1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',      // Ethereum
@@ -345,8 +392,8 @@ export class VaultClient {
     this.walletClient = walletClient;
     this.chainId = chainId;
 
-    // Prefer V2 vault address if available, fall back to V1
-    const vaultAddr = VAULT_V2_ADDRESSES[chainId] || VAULT_ADDRESSES[chainId];
+    // Prefer V3 (secure) > V2 > V1
+    const vaultAddr = VAULT_V3_ADDRESSES[chainId] || VAULT_V2_ADDRESSES[chainId] || VAULT_ADDRESSES[chainId];
     if (!vaultAddr) {
       throw new Error(`Vault not deployed on chain ${chainId}`);
     }
@@ -363,7 +410,7 @@ export class VaultClient {
    * Check if vault is available on this chain
    */
   static isAvailable(chainId: number): boolean {
-    return VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null;
+    return VAULT_V3_ADDRESSES[chainId] !== null || VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null;
   }
 
   /**
@@ -409,6 +456,30 @@ export class VaultClient {
   }
 
   /**
+   * Deposit ETH to vault (auto-swaps to USDC)
+   * @param ethAmount ETH amount in ether units (e.g., "0.01" for 0.01 ETH)
+   * @param minUsdcOut Minimum USDC to receive (slippage protection) in USDC units
+   * @param userAddress User's wallet address
+   */
+  async depositETH(ethAmount: string, minUsdcOut: string, userAddress: `0x${string}`): Promise<`0x${string}`> {
+    const ethWei = parseUnits(ethAmount, 18); // ETH has 18 decimals
+    const minUsdcWei = parseUnits(minUsdcOut, USDC_DECIMALS);
+
+    const hash = await this.walletClient.writeContract({
+      address: this.vaultAddress,
+      abi: VAULT_ABI,
+      functionName: 'depositETH',
+      args: [minUsdcWei],
+      chain: null,
+      account: userAddress,
+      value: ethWei,
+      gas: 200000n // Higher gas for swap
+    });
+
+    return hash;
+  }
+
+  /**
    * Withdraw USDC from vault
    */
   async withdraw(amount: string, userAddress: `0x${string}`): Promise<`0x${string}`> {
@@ -420,7 +491,8 @@ export class VaultClient {
       functionName: 'withdraw',
       args: [amountWei],
       chain: null,
-      account: userAddress
+      account: userAddress,
+      gas: 150000n // Explicit gas limit to avoid estimation issues
     });
 
     return hash;
@@ -436,7 +508,8 @@ export class VaultClient {
       functionName: 'withdrawAll',
       args: [],
       chain: null,
-      account: userAddress
+      account: userAddress,
+      gas: 150000n // Explicit gas limit to avoid estimation issues
     });
 
     return hash;
@@ -472,6 +545,42 @@ export class VaultClient {
     });
 
     return hash;
+  }
+
+  /**
+   * Emergency close position - USER CAN CLOSE WITHOUT BOT (V3 only)
+   * @param tokenAddress The token to sell back to USDC
+   * @param userAddress User's wallet address
+   */
+  async emergencyClosePosition(tokenAddress: `0x${string}`, userAddress: `0x${string}`): Promise<`0x${string}`> {
+    const hash = await this.walletClient.writeContract({
+      address: this.vaultAddress,
+      abi: VAULT_ABI,
+      functionName: 'emergencyClosePosition',
+      args: [tokenAddress],
+      chain: null,
+      account: userAddress,
+      gas: 300000n // Higher gas for swap
+    });
+
+    return hash;
+  }
+
+  /**
+   * Get user's token balance in vault
+   */
+  async getTokenBalance(userAddress: `0x${string}`, tokenAddress: `0x${string}`): Promise<bigint> {
+    try {
+      const balance = await this.publicClient.readContract({
+        address: this.vaultAddress,
+        abi: VAULT_ABI,
+        functionName: 'getTokenBalance',
+        args: [userAddress, tokenAddress]
+      });
+      return balance as bigint;
+    } catch {
+      return 0n;
+    }
   }
 
   /**

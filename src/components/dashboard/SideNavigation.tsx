@@ -7,7 +7,8 @@ import {
   Bot,
   History,
   Package,
-  Download
+  Download,
+  Activity
 } from 'lucide-react';
 import Logo from '../ui/Logo';
 import { signOut } from '../../lib/supabase';
@@ -21,6 +22,7 @@ const SideNavigation: React.FC = () => {
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/dashboard/trading-bot', label: 'Trading Bot', icon: Bot },
     { path: '/dashboard/bot-history', label: 'Bot History', icon: History },
+    { path: '/dashboard/monitor', label: 'Monitor', icon: Activity },
     { path: '/dashboard/downloads', label: 'Downloads', icon: Download },
     { path: '/dashboard/subscriptions', label: 'Subscriptions', icon: Package }
   ];

@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { History, TrendingUp, TrendingDown, Users, Trophy, Zap, Crown, Rocket, ExternalLink, RefreshCw, Activity, Clock, Timer, CheckCircle, XCircle, X, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { useAccount } from 'wagmi';
+import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
+import { VAULT_ABI, VAULT_V3_ADDRESSES } from '../../lib/vault';
 
 // Legacy trade format (from localStorage)
 interface LegacyTrade {
@@ -19,13 +20,31 @@ interface LegacyTrade {
   blockExplorerUrl?: string;
 }
 
-// Token address to symbol mapping
+// Token address to symbol mapping (all chains)
 const TOKEN_SYMBOLS: Record<string, string> = {
+  // BASE
   '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': 'USDC',
   '0x4200000000000000000000000000000000000006': 'WETH',
   '0x50c5725949a6f0c72e6c4a641f24049a917db0cb': 'DAI',
   '0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22': 'cbETH',
   '0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca': 'USDbC',
+  '0x940181a94a35a4569e4529a3cdfb74e38fd98631': 'AERO',
+  '0x0555e30da8f98308edb960aa94c0db47230d2b9c': 'WBTC',
+  // ETHEREUM
+  '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': 'WETH',
+  '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599': 'WBTC',
+  // POLYGON
+  '0x7ceb23fd6bc0add59e62ac25578270cff1b9f619': 'WETH',
+  '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270': 'WMATIC',
+  '0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6': 'WBTC',
+  // ARBITRUM
+  '0x82af49447d8a07e3bd95bd0d56f35241523fbab1': 'WETH',
+  '0x912ce59144191c1204e64559fe8253a0e49e6548': 'ARB',
+  '0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f': 'WBTC',
+  // BSC
+  '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c': 'WBNB',
+  '0x2170ed0880ac9a755fd29b2688956bd959f933f8': 'WETH',
+  '0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c': 'BTCB',
 };
 
 // Get token symbol from address or return shortened address
@@ -67,7 +86,9 @@ interface Position {
 }
 
 const BotHistoryPage: React.FC = () => {
-  const { address } = useAccount();
+  const { address, chainId } = useAccount();
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
   const [activeTab, setActiveTab] = useState<'open' | 'closed' | 'legacy' | 'all'>('open');
   const [positions, setPositions] = useState<Position[]>([]);
   const [legacyTrades, setLegacyTrades] = useState<LegacyTrade[]>([]);
@@ -83,37 +104,107 @@ const BotHistoryPage: React.FC = () => {
     openWins: 0
   });
   const [closingPositionId, setClosingPositionId] = useState<string | null>(null);
-  const [confirmModal, setConfirmModal] = useState<{ show: boolean; positionId: string | null; token: string }>({
+  const [confirmModal, setConfirmModal] = useState<{ show: boolean; positionId: string | null; token: string; tokenAddress: string }>({
     show: false,
     positionId: null,
-    token: ''
+    token: '',
+    tokenAddress: ''
   });
 
   // Show confirmation modal
-  const showCloseConfirm = (positionId: string, token: string) => {
-    setConfirmModal({ show: true, positionId, token });
+  const showCloseConfirm = (positionId: string, token: string, tokenAddress: string) => {
+    setConfirmModal({ show: true, positionId, token, tokenAddress });
   };
 
-  // Emergency close position
+  // Emergency close position - CALLS V3 CONTRACT DIRECTLY
   const emergencyClose = async () => {
     const positionId = confirmModal.positionId;
-    if (!positionId) return;
+    const tokenAddress = confirmModal.tokenAddress;
+    if (!positionId || !tokenAddress || !walletClient || !address || !chainId) return;
 
-    setConfirmModal({ show: false, positionId: null, token: '' });
+    setConfirmModal({ show: false, positionId: null, token: '', tokenAddress: '' });
     setClosingPositionId(positionId);
 
     try {
-      // Mark position for closing - bot will pick this up
+      // Get V3 vault address
+      const vaultAddress = VAULT_V3_ADDRESSES[chainId as keyof typeof VAULT_V3_ADDRESSES];
+
+      if (vaultAddress) {
+        // V3: Call contract directly - USER CLOSES WITHOUT BOT
+        console.log('Calling V3 emergencyClosePosition directly...', { tokenAddress, vaultAddress });
+
+        const hash = await walletClient.writeContract({
+          address: vaultAddress,
+          abi: VAULT_ABI,
+          functionName: 'emergencyClosePosition',
+          args: [tokenAddress as `0x${string}`],
+          gas: 300000n
+        });
+
+        console.log('TX submitted:', hash);
+
+        // Wait for confirmation
+        if (publicClient) {
+          await publicClient.waitForTransactionReceipt({ hash });
+        }
+
+        // Update database to reflect closed position
+        await supabase
+          .from('positions')
+          .update({
+            status: 'closed',
+            close_reason: 'emergency_user_v3',
+            closed_at: new Date().toISOString()
+          })
+          .eq('id', positionId);
+
+        console.log('Position closed via V3 contract!');
+      } else {
+        // Fallback: Mark for bot to close (V2 behavior)
+        console.log('No V3 vault, falling back to bot close...');
+        await supabase
+          .from('positions')
+          .update({
+            status: 'closing',
+            close_reason: 'emergency_close'
+          })
+          .eq('id', positionId);
+      }
+
+      // Refresh positions
+      await fetchPositions();
+    } catch (err: any) {
+      console.error('Error closing position:', err);
+      // If contract call failed, mark as failed in DB
+      await supabase
+        .from('positions')
+        .update({
+          status: 'failed',
+          close_reason: `User close failed: ${err.message?.slice(0, 100) || 'Unknown error'}`
+        })
+        .eq('id', positionId);
+      await fetchPositions();
+    } finally {
+      setClosingPositionId(null);
+    }
+  };
+
+  // Retry closing a failed position
+  const retryClose = async (positionId: string) => {
+    setClosingPositionId(positionId);
+
+    try {
+      // Reset status to 'closing' so bot will retry with higher slippage
       const { error } = await supabase
         .from('positions')
         .update({
           status: 'closing',
-          close_reason: 'emergency_close'
+          close_reason: 'retry_close'
         })
         .eq('id', positionId);
 
       if (error) {
-        console.error('Error closing position:', error);
+        console.error('Error retrying close:', error);
       } else {
         // Refresh positions
         await fetchPositions();
@@ -231,17 +322,37 @@ const BotHistoryPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch live prices from Binance
+  // Fetch live prices from Binance for all tradable tokens
   const fetchLivePrices = async () => {
     try {
-      const response = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT');
+      // Fetch all prices we need in one call
+      const symbols = ['ETHUSDT', 'BTCUSDT', 'BNBUSDT', 'MATICUSDT', 'ARBUSDT'];
+      const response = await fetch(`https://api.binance.com/api/v3/ticker/price?symbols=${JSON.stringify(symbols)}`);
       const data = await response.json();
-      if (data.price) {
-        setLivePrices(prev => ({
-          ...prev,
-          'WETH': parseFloat(data.price),
-          'ETH': parseFloat(data.price)
-        }));
+
+      if (Array.isArray(data)) {
+        const ethPrice = data.find((t: any) => t.symbol === 'ETHUSDT')?.price;
+        const btcPrice = data.find((t: any) => t.symbol === 'BTCUSDT')?.price;
+        const bnbPrice = data.find((t: any) => t.symbol === 'BNBUSDT')?.price;
+        const maticPrice = data.find((t: any) => t.symbol === 'MATICUSDT')?.price;
+        const arbPrice = data.find((t: any) => t.symbol === 'ARBUSDT')?.price;
+
+        setLivePrices({
+          // ETH variants
+          'WETH': ethPrice ? parseFloat(ethPrice) : 0,
+          'ETH': ethPrice ? parseFloat(ethPrice) : 0,
+          'cbETH': ethPrice ? parseFloat(ethPrice) : 0,
+          // BTC variants
+          'WBTC': btcPrice ? parseFloat(btcPrice) : 0,
+          'BTC': btcPrice ? parseFloat(btcPrice) : 0,
+          'BTCB': btcPrice ? parseFloat(btcPrice) : 0,
+          // Other chains
+          'WBNB': bnbPrice ? parseFloat(bnbPrice) : 0,
+          'BNB': bnbPrice ? parseFloat(bnbPrice) : 0,
+          'WMATIC': maticPrice ? parseFloat(maticPrice) : 0,
+          'MATIC': maticPrice ? parseFloat(maticPrice) : 0,
+          'ARB': arbPrice ? parseFloat(arbPrice) : 0,
+        });
       }
     } catch (err) {
       console.error('Failed to fetch live prices:', err);
@@ -263,21 +374,33 @@ const BotHistoryPage: React.FC = () => {
     const failedPositions = allPositions.filter(p => p.status === 'failed');
     const openPositions = allPositions.filter(p => p.status === 'open' || p.status === 'closing');
 
-    // Closed P/L
+    // Closed P/L - sum of all recorded profit_loss from closed trades
     const closedProfit = closedPositions.reduce((sum, p) => sum + (p.profit_loss || 0), 0);
 
-    // Live P/L from open positions
+    // Live P/L from open positions (price-based calculation, direction-aware)
+    // Must match getCurrentProfit() logic exactly for consistency!
     const openProfit = openPositions.reduce((sum, p) => {
       const tokenSymbol = p.token_symbol || 'WETH';
-      const currentPrice = livePrices[tokenSymbol] || p.entry_price;
-      const currentValue = p.token_amount * currentPrice;
+      // Same fallback chain as getCurrentProfit: livePrices -> highest_price -> entry_price
+      const currentPrice = livePrices[tokenSymbol] || p.highest_price || p.entry_price;
 
-      if (p.direction === 'SHORT') {
-        const entryValue = p.token_amount * p.entry_price;
-        return sum + (entryValue - currentValue);
-      }
-      return sum + (currentValue - p.entry_amount);
+      // Calculate P/L based on price change (not token amounts - more accurate)
+      const priceChange = p.direction === 'SHORT'
+        ? p.entry_price - currentPrice  // SHORT: profit when price drops
+        : currentPrice - p.entry_price; // LONG: profit when price rises
+
+      const profitPercent = (priceChange / p.entry_price) * 100;
+      const positionPL = (p.entry_amount * profitPercent) / 100;
+
+      // Debug log each position's P/L calculation
+      console.log(`[Stats] ${p.token_symbol} ${p.direction}: entry=${p.entry_price}, current=${currentPrice}, PL=$${positionPL.toFixed(4)}`);
+
+      return sum + positionPL;
     }, 0);
+
+    // Debug log totals
+    console.log(`[Stats] closedPositions: ${closedPositions.length}, openPositions: ${openPositions.length}, failedPositions: ${failedPositions.length}`);
+    console.log(`[Stats] Closed P/L: $${closedProfit.toFixed(4)}, Open P/L: $${openProfit.toFixed(4)}, Total: $${(closedProfit + openProfit).toFixed(4)}`);
 
     // Total P/L = closed + open (live)
     const totalProfit = closedProfit + openProfit;
@@ -286,10 +409,10 @@ const BotHistoryPage: React.FC = () => {
     const closedWins = closedPositions.filter(p => (p.profit_loss || 0) > 0).length;
     const closedWinRate = closedPositions.length > 0 ? (closedWins / closedPositions.length) * 100 : 0;
 
-    // Open trades currently in profit
+    // Open trades currently in profit (same price logic as above)
     const openWins = openPositions.filter(p => {
       const tokenSymbol = p.token_symbol || 'WETH';
-      const currentPrice = livePrices[tokenSymbol] || p.entry_price;
+      const currentPrice = livePrices[tokenSymbol] || p.highest_price || p.entry_price;
       if (p.direction === 'SHORT') {
         return currentPrice < p.entry_price;
       }
@@ -317,18 +440,18 @@ const BotHistoryPage: React.FC = () => {
     if (position.status === 'failed') {
       return position.profit_loss || 0;
     }
-    // For open/closing positions, use live price from Binance
+    // For open/closing positions, calculate P/L based on PRICE change (not token amounts)
+    // This is more accurate since token amounts are estimated and don't account for swap fees
     const tokenSymbol = position.token_symbol || 'WETH';
     const currentPrice = livePrices[tokenSymbol] || position.highest_price || position.entry_price;
-    const currentValue = position.token_amount * currentPrice;
 
-    // For LONG: profit when price goes up
-    // For SHORT: profit when price goes down
-    if (position.direction === 'SHORT') {
-      const entryValue = position.token_amount * position.entry_price;
-      return entryValue - currentValue;
-    }
-    return currentValue - position.entry_amount;
+    // Calculate P/L based on price difference (direction-aware)
+    const priceChange = position.direction === 'SHORT'
+      ? position.entry_price - currentPrice  // SHORT: profit when price drops
+      : currentPrice - position.entry_price; // LONG: profit when price rises
+
+    const profitPercent = (priceChange / position.entry_price) * 100;
+    return (position.entry_amount * profitPercent) / 100;
   };
 
   const getProfitPercent = (position: Position) => {
@@ -485,12 +608,26 @@ const BotHistoryPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Fee Info Banner */}
-      <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-center gap-3">
-        <AlertTriangle size={18} className="text-amber-400 flex-shrink-0" />
-        <div className="text-xs text-amber-200">
-          <span className="font-semibold">Fee Structure:</span> 1% platform fee + 0.3% swap fee (×2) = <span className="font-bold">~1.6% breakeven threshold</span>.
-          Price must move +1.6% above entry to be net profitable after all fees.
+      {/* Info Banners */}
+      <div className="space-y-2">
+        {/* Fee Info */}
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-center gap-3">
+          <AlertTriangle size={18} className="text-amber-400 flex-shrink-0" />
+          <div className="text-xs text-amber-200">
+            <span className="font-semibold">Fee Structure:</span> 1% platform fee + 0.3% swap fee (×2) = <span className="font-bold">~1.6% breakeven threshold</span>.
+            Price must move +1.6% above entry to be net profitable after all fees.
+          </div>
+        </div>
+
+        {/* Slippage Info */}
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 flex items-center gap-3">
+          <Zap size={18} className="text-blue-400 flex-shrink-0" />
+          <div className="text-xs text-blue-200">
+            <span className="font-semibold">What is Slippage?</span> When you swap tokens, the price can move before your transaction confirms.
+            <span className="font-bold"> Slippage tolerance</span> is the maximum price movement you'll accept.
+            If price moves more than your slippage setting, the trade is <span className="text-red-400">rejected</span> to protect you from a bad price.
+            The bot auto-retries with higher tolerance (5% → 10% → 15% → 20%) if needed.
+          </div>
         </div>
       </div>
 
@@ -821,7 +958,7 @@ const BotHistoryPage: React.FC = () => {
                         )
                       ) : position.status === 'open' ? (
                         <button
-                          onClick={() => showCloseConfirm(position.id, position.token_symbol || 'WETH')}
+                          onClick={() => showCloseConfirm(position.id, position.token_symbol || 'WETH', position.token_address)}
                           disabled={closingPositionId === position.id}
                           className="flex items-center gap-1 px-2 py-1 bg-red-500/20 hover:bg-red-500/40 text-red-400 rounded text-xs font-medium transition-colors disabled:opacity-50"
                         >
@@ -843,14 +980,33 @@ const BotHistoryPage: React.FC = () => {
                           <span className="text-xs">Closing...</span>
                         </div>
                       ) : position.status === 'failed' ? (
-                        <div className="flex items-center gap-1.5 text-red-400" title={
-                          position.close_reason?.includes('INSUFFICIENT_OUTPUT') ? 'Slippage too high - price moved during swap' :
-                          position.close_reason?.includes('0xe4455cae') ? 'No tokens on-chain - position may have been closed already' :
-                          position.close_reason?.includes('State mismatch') ? 'Database out of sync with blockchain' :
-                          'Transaction failed'
-                        }>
-                          <AlertTriangle size={16} />
-                          <span className="text-xs">Error</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => retryClose(position.id)}
+                            disabled={closingPositionId === position.id}
+                            className="flex items-center gap-1 px-2 py-1 bg-amber-500/20 hover:bg-amber-500/40 text-amber-400 rounded text-xs font-medium transition-colors disabled:opacity-50"
+                            title="Retry closing this position with higher slippage tolerance"
+                          >
+                            {closingPositionId === position.id ? (
+                              <>
+                                <RefreshCw size={12} className="animate-spin" />
+                                Retrying...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw size={12} />
+                                Retry
+                              </>
+                            )}
+                          </button>
+                          <div className="text-red-400" title={
+                            position.close_reason?.includes('INSUFFICIENT_OUTPUT') ? 'Slippage: Price moved too much during swap. Click Retry to try with higher tolerance.' :
+                            position.close_reason?.includes('0xe4455cae') ? 'No tokens found on-chain. Position may already be closed.' :
+                            position.close_reason?.includes('State mismatch') ? 'Blockchain sync issue. Tokens may already be sold.' :
+                            'Transaction failed. Click Retry to try again.'
+                          }>
+                            <AlertTriangle size={16} />
+                          </div>
                         </div>
                       ) : (
                         <span className="text-gray-500">-</span>
@@ -872,7 +1028,7 @@ const BotHistoryPage: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
-            onClick={() => setConfirmModal({ show: false, positionId: null, token: '' })}
+            onClick={() => setConfirmModal({ show: false, positionId: null, token: '', tokenAddress: '' })}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -892,12 +1048,13 @@ const BotHistoryPage: React.FC = () => {
               </div>
 
               <p className="text-sm text-secondary mb-6">
-                This will immediately close your position at the current market price. This action cannot be undone.
+                This will close your position <strong className="text-white">directly via smart contract</strong> at the current market price.
+                No bot needed - you sign the transaction yourself. This action cannot be undone.
               </p>
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => setConfirmModal({ show: false, positionId: null, token: '' })}
+                  onClick={() => setConfirmModal({ show: false, positionId: null, token: '', tokenAddress: '' })}
                   className="flex-1 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg font-medium transition-colors"
                 >
                   Cancel

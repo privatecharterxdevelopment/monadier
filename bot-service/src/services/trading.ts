@@ -141,6 +141,7 @@ export interface TradeSignal {
   reason: string;
   takeProfitPercent: number; // Dynamic TP based on market
   trailingStopPercent: number; // Dynamic SL based on market
+  profitLockPercent?: number; // Min profit % before stop activates (0.2% for aggressive)
 }
 
 export interface TradeResult {
@@ -190,11 +191,12 @@ export class TradingService {
   }
 
   /**
-   * Get V2 vault address for a chain
+   * Get best vault address for a chain (prefers V3 > V2 > V1)
    */
   private getV2VaultAddress(chainId: ChainId): `0x${string}` | undefined {
     const chainConfig = config.chains[chainId] as any;
-    return chainConfig?.vaultV2Address || chainConfig?.vaultAddress;
+    // Prefer V3 (secure with user emergency close) > V2 > V1
+    return chainConfig?.vaultV3Address || chainConfig?.vaultV2Address || chainConfig?.vaultAddress;
   }
 
   /**
@@ -326,17 +328,29 @@ export class TradingService {
       return { success: false, error: 'No balance in vault' };
     }
 
-    // 3. Check position count for this token (allow max 2)
-    const MAX_POSITIONS_PER_TOKEN = 2;
-    const openPositions = await positionService.getOpenPositions(userAddress, chainId);
-    const tokenPositions = openPositions.filter(p =>
-      p.token_address.toLowerCase() === signal.tokenAddress.toLowerCase()
+    // 3. CRITICAL: Check for existing positions (prevents overlap bug)
+    const hasExisting = await positionService.hasAnyActivePosition(
+      userAddress,
+      chainId,
+      signal.tokenAddress
     );
-    if (tokenPositions.length >= MAX_POSITIONS_PER_TOKEN) {
-      return { success: false, error: `Max ${MAX_POSITIONS_PER_TOKEN} positions per token reached` };
+    if (hasExisting) {
+      return { success: false, error: 'Existing position for this token - wait for it to close' };
     }
 
-    // 4. Calculate trade amount based on risk level
+    // 4. SAFETY: Verify on-chain balance is 0 before opening
+    // This catches edge cases where contract has tokens but database doesn't know
+    const onChainTokenBalance = await this.getOnChainTokenBalance(chainId, userAddress, signal.tokenAddress as `0x${string}`);
+    if (onChainTokenBalance && onChainTokenBalance > 0n) {
+      logger.error('On-chain tokens exist but no database position - sync needed', {
+        userAddress,
+        token: signal.tokenSymbol,
+        onChainBalance: formatUnits(onChainTokenBalance, 18)
+      });
+      return { success: false, error: 'On-chain tokens exist without database record - cannot open new position' };
+    }
+
+    // 5. Calculate trade amount based on risk level
     const riskBps = vaultStatus.riskLevel || 500; // Default 5%
     const maxTradeSize = (vaultStatus.balance * BigInt(riskBps)) / 10000n;
     const tradeAmount = signal.suggestedAmount > maxTradeSize
@@ -404,12 +418,14 @@ export class TradingService {
         tokenAmount: estimatedTokens,
         txHash,
         trailingStopPercent: signal.trailingStopPercent, // Dynamic SL from market analysis
-        takeProfitPercent: signal.takeProfitPercent // Dynamic TP from market analysis
+        takeProfitPercent: signal.takeProfitPercent, // Dynamic TP from market analysis
+        profitLockPercent: signal.profitLockPercent // 0.2% for aggressive, 0.5% default
       });
 
       logger.info('Position opened with dynamic TP/SL', {
         takeProfitPercent: signal.takeProfitPercent + '%',
-        trailingStopPercent: signal.trailingStopPercent + '%'
+        trailingStopPercent: signal.trailingStopPercent + '%',
+        profitLock: (signal.profitLockPercent || 0.5) + '%'
       });
 
       // 8. Record the trade in subscription
@@ -501,9 +517,11 @@ export class TradingService {
           onChainBalance: onChainBalance?.toString() || 'null'
         });
 
-        // Mark position as failed due to sync error
-        await positionService.markFailed(position.id, 'State mismatch: No on-chain token balance');
-        return { success: false, error: 'State mismatch: No on-chain token balance. Position may have already been closed.' };
+        // SYNC FIX: Mark ALL positions for this token as failed (not just this one)
+        // This prevents orphaned positions when the contract closes everything at once
+        await positionService.syncPositionsWithChain(userAddress, chainId, tokenAddress);
+
+        return { success: false, error: 'State mismatch: On-chain balance is 0. All positions for this token have been synced.' };
       }
 
       logger.info('Closing position', {
@@ -518,8 +536,8 @@ export class TradingService {
       const currentPrice = await this.getTokenPrice(chainId, tokenAddress);
       const tokenValue = position.token_amount * (currentPrice || position.entry_price);
 
-      // Slippage levels to try: 3%, 5%, 10%, 15%
-      const slippageLevels = [0.97, 0.95, 0.90, 0.85];
+      // Slippage levels to try: 5%, 10%, 15%, 20% (crypto is volatile!)
+      const slippageLevels = [0.95, 0.90, 0.85, 0.80];
       let txHash: `0x${string}` | null = null;
       let lastError: string = '';
 

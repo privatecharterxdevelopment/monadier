@@ -32,6 +32,8 @@ export const config = {
       rpcUrl: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
       vaultAddress: process.env.BASE_VAULT_ADDRESS as `0x${string}` | undefined,
       vaultV2Address: process.env.BASE_VAULT_V2_ADDRESS as `0x${string}` || '0x5eF29B4348d31c311918438e92a5fae7641Bc00a',
+      // V3: Secure vault with user emergency close (TODO: Update after deployment)
+      vaultV3Address: process.env.BASE_VAULT_V3_ADDRESS as `0x${string}` | undefined,
       name: 'Base'
     },
     1: { // Ethereum

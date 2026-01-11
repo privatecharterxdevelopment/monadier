@@ -19,6 +19,7 @@ export interface Position {
   trailing_stop_percent: number;
   take_profit_price: number | null; // Fixed TP level
   take_profit_percent: number; // TP percentage from entry
+  profit_lock_percent: number; // Min profit % before stop activates (0.2% for aggressive)
   stop_activated: boolean; // Only true once in profit
   exit_price: number | null;
   exit_amount: number | null;
@@ -32,8 +33,8 @@ export interface Position {
   closed_at: string | null;
 }
 
-// Minimum profit % before trailing stop activates
-const PROFIT_THRESHOLD_PERCENT = 0.5; // 0.5% profit required before stop activates (risky mode)
+// Default profit % before trailing stop activates (can be overridden per position)
+const DEFAULT_PROFIT_THRESHOLD = 0.5; // 0.5% default
 
 export class PositionService {
   private supabase: SupabaseClient;
@@ -62,10 +63,12 @@ export class PositionService {
     txHash: string;
     trailingStopPercent?: number;
     takeProfitPercent?: number;
+    profitLockPercent?: number; // Min profit % before stop activates (0.2% for aggressive)
     entryReason?: string; // Why the bot opened this trade
   }): Promise<Position | null> {
     const trailingStopPercent = params.trailingStopPercent || 1.0; // Default 1%
     const takeProfitPercent = params.takeProfitPercent || 5.0; // Default 5% TP
+    const profitLockPercent = params.profitLockPercent || DEFAULT_PROFIT_THRESHOLD; // Default 0.5%
 
     // Calculate take profit price based on direction
     const takeProfitPrice = params.direction === 'LONG'
@@ -91,6 +94,7 @@ export class PositionService {
           trailing_stop_percent: trailingStopPercent,
           take_profit_price: takeProfitPrice,
           take_profit_percent: takeProfitPercent,
+          profit_lock_percent: profitLockPercent, // User configurable!
           stop_activated: false, // Not active yet
           status: 'open'
         })
@@ -109,7 +113,7 @@ export class PositionService {
         direction: params.direction,
         entryPrice: params.entryPrice,
         takeProfitPrice: takeProfitPrice.toFixed(4),
-        stopActivatesAt: `+${PROFIT_THRESHOLD_PERCENT}% profit`
+        stopActivatesAt: `+${profitLockPercent}% profit`
       });
 
       return data;
@@ -197,13 +201,15 @@ export class PositionService {
 
       const entryPrice = position.entry_price;
       const direction = position.direction || 'LONG';
+      // Use position-specific profit lock (0.2% for aggressive, 0.5% default)
+      const profitLockThreshold = position.profit_lock_percent || DEFAULT_PROFIT_THRESHOLD;
 
       // Calculate profit based on direction
       const profitPercent = direction === 'LONG'
         ? ((currentPrice - entryPrice) / entryPrice) * 100
         : ((entryPrice - currentPrice) / entryPrice) * 100;
 
-      const isInProfit = profitPercent >= PROFIT_THRESHOLD_PERCENT;
+      const isInProfit = profitPercent >= profitLockThreshold;
 
       // If not yet in profit threshold, don't update anything - just hold
       if (!isInProfit && !position.stop_activated) {
@@ -213,7 +219,7 @@ export class PositionService {
           entryPrice,
           currentPrice,
           profitPercent: profitPercent.toFixed(2) + '%',
-          needsProfit: PROFIT_THRESHOLD_PERCENT + '%'
+          needsProfit: profitLockThreshold + '%'
         });
         return position;
       }
@@ -396,17 +402,27 @@ export class PositionService {
   }
 
   /**
-   * Check if position is currently in profit
+   * Check if position is currently in profit (direction-aware)
    */
   isInProfit(position: Position, currentPrice: number): boolean {
-    return currentPrice > position.entry_price;
+    const direction = position.direction || 'LONG';
+    if (direction === 'LONG') {
+      return currentPrice > position.entry_price;
+    } else {
+      return currentPrice < position.entry_price;
+    }
   }
 
   /**
-   * Get current profit percentage
+   * Get current profit percentage (direction-aware)
    */
   getProfitPercent(position: Position, currentPrice: number): number {
-    return ((currentPrice - position.entry_price) / position.entry_price) * 100;
+    const direction = position.direction || 'LONG';
+    if (direction === 'LONG') {
+      return ((currentPrice - position.entry_price) / position.entry_price) * 100;
+    } else {
+      return ((position.entry_price - currentPrice) / position.entry_price) * 100;
+    }
   }
 
   /**
@@ -432,8 +448,15 @@ export class PositionService {
         return null;
       }
 
-      const profitLoss = params.exitAmount - position.entry_amount;
-      const profitLossPercent = (profitLoss / position.entry_amount) * 100;
+      // Calculate P/L based on price difference (accounts for direction)
+      // This is more accurate than amount-based calculation since token amounts are estimated
+      const direction = position.direction || 'LONG';
+      const priceChange = direction === 'LONG'
+        ? params.exitPrice - position.entry_price
+        : position.entry_price - params.exitPrice;
+
+      const profitLossPercent = (priceChange / position.entry_price) * 100;
+      const profitLoss = (position.entry_amount * profitLossPercent) / 100;
 
       const { data, error } = await this.supabase
         .from('positions')
@@ -503,6 +526,71 @@ export class PositionService {
       .limit(1);
 
     return (data && data.length > 0) || false;
+  }
+
+  /**
+   * Check if wallet has ANY non-closed position for a token
+   * This prevents opening new positions when there are pending/failed ones
+   */
+  async hasAnyActivePosition(walletAddress: string, chainId: number, tokenAddress: string): Promise<boolean> {
+    const { data } = await this.supabase
+      .from('positions')
+      .select('id, status')
+      .eq('wallet_address', walletAddress.toLowerCase())
+      .eq('chain_id', chainId)
+      .eq('token_address', tokenAddress.toLowerCase())
+      .in('status', ['open', 'closing', 'failed'])
+      .limit(1);
+
+    return (data && data.length > 0) || false;
+  }
+
+  /**
+   * Mark ALL positions for a user/token as synced (closed with 0 balance)
+   * Called when on-chain balance is 0 but database has open positions
+   */
+  async syncPositionsWithChain(walletAddress: string, chainId: number, tokenAddress: string): Promise<number> {
+    const { data, error } = await this.supabase
+      .from('positions')
+      .update({
+        status: 'failed',
+        close_reason: 'Sync: On-chain balance is 0',
+        updated_at: new Date().toISOString()
+      })
+      .eq('wallet_address', walletAddress.toLowerCase())
+      .eq('chain_id', chainId)
+      .eq('token_address', tokenAddress.toLowerCase())
+      .in('status', ['open', 'closing'])
+      .select('id');
+
+    if (error) {
+      logger.error('Failed to sync positions with chain', { error });
+      return 0;
+    }
+
+    const count = data?.length || 0;
+    if (count > 0) {
+      logger.warn(`Synced ${count} orphaned positions to failed status`, {
+        walletAddress,
+        tokenAddress,
+        count
+      });
+    }
+    return count;
+  }
+
+  /**
+   * Get count of all non-closed positions for a user
+   */
+  async getActivePositionCount(walletAddress: string, chainId: number): Promise<number> {
+    const { data } = await this.supabase
+      .from('positions')
+      .select('id')
+      .eq('wallet_address', walletAddress.toLowerCase())
+      .eq('chain_id', chainId)
+      .in('status', ['open', 'closing']);
+
+    return data?.length || 0;
   }
 }
 
