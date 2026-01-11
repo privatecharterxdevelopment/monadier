@@ -442,7 +442,7 @@ const LandingPage: React.FC = () => {
                   Automated strategies that work for you
                 </h3>
                 <p className="text-gray-400 leading-relaxed">
-                  Set up DCA, Grid trading, or custom conditions. Our bot executes trades 24/7 while you focus on what matters.
+                  Set up DCA, Grid trading, or custom conditions. Our bot executes trades 24/7 while you focus on what matters. Close positions manually anytime. Withdraw your funds anytime.
                 </p>
               </div>
               <div className="rounded-2xl overflow-hidden min-h-[240px]">
