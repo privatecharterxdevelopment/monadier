@@ -76,15 +76,25 @@ export default function VaultSettingsModal({
         }
       }
 
-      // Always sync settings to Supabase (including TP/SL)
-      await supabase.rpc('upsert_vault_settings', {
-        p_wallet_address: address.toLowerCase(),
-        p_chain_id: chainId,
-        p_auto_trade_enabled: autoTrade,
-        p_risk_level_bps: riskLevel * 100, // Convert % to basis points
-        p_take_profit_percent: takeProfit,
-        p_stop_loss_percent: stopLoss
-      });
+      // Sync settings to Supabase (including TP/SL)
+      const { error: upsertError } = await supabase
+        .from('vault_settings')
+        .upsert({
+          wallet_address: address.toLowerCase(),
+          chain_id: chainId,
+          auto_trade_enabled: autoTrade,
+          risk_level_bps: riskLevel * 100,
+          take_profit_percent: takeProfit,
+          stop_loss_percent: stopLoss,
+          updated_at: new Date().toISOString(),
+          synced_at: new Date().toISOString()
+        }, {
+          onConflict: 'wallet_address,chain_id'
+        });
+
+      if (upsertError) {
+        console.error('Failed to save vault settings:', upsertError);
+      }
 
       setSuccess(true);
       setTimeout(() => {
@@ -110,11 +120,14 @@ export default function VaultSettingsModal({
       await publicClient.waitForTransactionReceipt({ hash: txHash });
 
       // Sync to Supabase
-      await supabase.rpc('upsert_vault_settings', {
-        p_wallet_address: address.toLowerCase(),
-        p_chain_id: chainId,
-        p_auto_trade_enabled: false
-      });
+      await supabase
+        .from('vault_settings')
+        .update({
+          auto_trade_enabled: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('wallet_address', address.toLowerCase())
+        .eq('chain_id', chainId);
 
       setAutoTrade(false);
       setSuccess(true);
