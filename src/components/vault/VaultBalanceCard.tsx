@@ -3,7 +3,7 @@ import { Wallet, ArrowUpRight, ArrowDownLeft, Settings, Zap, Lock, AlertTriangle
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { SUBSCRIPTION_PLANS } from '../../lib/subscription';
-import { VaultClient, VAULT_ADDRESSES, VAULT_V2_ADDRESSES, getPlatformFeeForChain, USDC_DECIMALS, VAULT_ABI } from '../../lib/vault';
+import { VaultClient, VAULT_ADDRESSES, VAULT_V2_ADDRESSES, VAULT_V4_ADDRESSES, getPlatformFeeForChain, USDC_DECIMALS, VAULT_ABI } from '../../lib/vault';
 import { formatUnits } from 'viem';
 import VaultDepositModal from './VaultDepositModal';
 import VaultWithdrawModal from './VaultWithdrawModal';
@@ -57,7 +57,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
 
   // Check if user has paid subscription (not free)
   const isPaidUser = isSubscribed && planTier && planTier !== 'free';
-  const isVaultAvailable = chainId ? (VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null) : false;
+  const isVaultAvailable = chainId ? (VAULT_V4_ADDRESSES[chainId] !== null || VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null) : false;
   const hasV1Funds = parseFloat(v1Balance) > 0;
 
   // Get platform fee for current chain
@@ -75,7 +75,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
         setIsLoading(true);
         setError(null);
 
-        const vaultAddress = VAULT_V2_ADDRESSES[chainId] || VAULT_ADDRESSES[chainId];
+        const vaultAddress = VAULT_V4_ADDRESSES[chainId] || VAULT_V2_ADDRESSES[chainId] || VAULT_ADDRESSES[chainId];
         if (!vaultAddress) {
           setIsLoading(false);
           return;
