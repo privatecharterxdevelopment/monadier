@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { History, TrendingUp, TrendingDown, Users, Trophy, Zap, Crown, Rocket, ExternalLink, RefreshCw, Activity, Clock, Timer, CheckCircle, XCircle, X, AlertTriangle, Settings } from 'lucide-react';
+import { History, TrendingUp, TrendingDown, Users, Trophy, Zap, Crown, Rocket, ExternalLink, RefreshCw, Activity, Clock, Timer, CheckCircle, XCircle, X, AlertTriangle, Settings, Info } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { VAULT_ABI, VAULT_V3_ADDRESSES, VaultClient, VAULT_V2_ADDRESSES } from '../../lib/vault';
@@ -129,6 +129,7 @@ const BotHistoryPage: React.FC = () => {
 
   // Bot Settings state
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showInfoPopup, setShowInfoPopup] = useState(false);
   const [botSettings, setBotSettings] = useState({
     autoTradeEnabled: false,
     riskLevelPercent: 5,
@@ -627,6 +628,53 @@ const BotHistoryPage: React.FC = () => {
           <p className="text-secondary mt-1">View your positions and profits</p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="relative">
+            <button
+              onClick={() => setShowInfoPopup(!showInfoPopup)}
+              className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-zinc-400 hover:text-white transition-colors"
+              title="Trading Info"
+            >
+              <Info size={18} />
+            </button>
+            {/* Info Popup */}
+            <AnimatePresence>
+              {showInfoPopup && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute right-0 top-12 w-80 bg-zinc-900 border border-zinc-700 rounded-xl p-4 shadow-xl z-50"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-white font-medium">Trading Info</h4>
+                    <button onClick={() => setShowInfoPopup(false)} className="text-zinc-400 hover:text-white">
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <div className="space-y-3 text-xs">
+                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                      <div className="flex items-center gap-2 text-amber-400 font-medium mb-1">
+                        <AlertTriangle size={14} />
+                        Fee Structure
+                      </div>
+                      <p className="text-amber-200/80">
+                        1% platform fee + 0.3% swap fee (×2) = <strong>~1.6% breakeven</strong>. Price must move +1.6% above entry to be net profitable.
+                      </p>
+                    </div>
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                      <div className="flex items-center gap-2 text-blue-400 font-medium mb-1">
+                        <Zap size={14} />
+                        Slippage
+                      </div>
+                      <p className="text-blue-200/80">
+                        Price can move before your tx confirms. If it moves more than tolerance, trade is rejected. Bot auto-retries: 5% → 10% → 15% → 20%.
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           <button
             onClick={() => setShowSettingsModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 hover:border-blue-500/50 rounded-lg text-white transition-all"
@@ -751,29 +799,6 @@ const BotHistoryPage: React.FC = () => {
                 {stats.openPositions} open, {stats.closedTrades} closed
               </p>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Info Banners */}
-      <div className="space-y-2">
-        {/* Fee Info */}
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-center gap-3">
-          <AlertTriangle size={18} className="text-amber-400 flex-shrink-0" />
-          <div className="text-xs text-amber-200">
-            <span className="font-semibold">Fee Structure:</span> 1% platform fee + 0.3% swap fee (×2) = <span className="font-bold">~1.6% breakeven threshold</span>.
-            Price must move +1.6% above entry to be net profitable after all fees.
-          </div>
-        </div>
-
-        {/* Slippage Info */}
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 flex items-center gap-3">
-          <Zap size={18} className="text-blue-400 flex-shrink-0" />
-          <div className="text-xs text-blue-200">
-            <span className="font-semibold">What is Slippage?</span> When you swap tokens, the price can move before your transaction confirms.
-            <span className="font-bold"> Slippage tolerance</span> is the maximum price movement you'll accept.
-            If price moves more than your slippage setting, the trade is <span className="text-red-400">rejected</span> to protect you from a bad price.
-            The bot auto-retries with higher tolerance (5% → 10% → 15% → 20%) if needed.
           </div>
         </div>
       </div>

@@ -153,6 +153,32 @@ export class PositionService {
   }
 
   /**
+   * Get the most recently closed position for a wallet (for cooldown tracking)
+   */
+  async getLastClosedPosition(walletAddress: string, chainId: number): Promise<Position | null> {
+    try {
+      const { data, error } = await this.supabase
+        .from('positions')
+        .select('*')
+        .eq('wallet_address', walletAddress.toLowerCase())
+        .eq('chain_id', chainId)
+        .eq('status', 'closed')
+        .order('closed_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) {
+        // No closed positions is not an error
+        return null;
+      }
+
+      return data;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  /**
    * Get all open positions across all wallets
    */
   async getAllOpenPositions(chainId?: number): Promise<Position[]> {

@@ -23,6 +23,9 @@ const TRADE_COOLDOWN_MS = 120000; // 2 minute cooldown between trades
 const MAX_POSITIONS_TOTAL = 1; // Only 1 position at a time - SAFETY FIRST
 const MAX_FAILED_BEFORE_STOP = 2; // Stop trading after 2 failures
 
+// Post-close cooldown - 5 minutes after any position closes
+const POST_CLOSE_COOLDOWN_MS = 300000; // 5 minute cooldown after position closes
+
 // Circuit breaker - track recent failures
 let recentFailures = 0;
 let lastFailureTime = 0;
@@ -120,7 +123,21 @@ async function processUserTrades(
       canTradeNow: vaultStatus?.canTradeNow
     });
 
-    if (!vaultStatus || !vaultStatus.autoTradeEnabled || !vaultStatus.canTradeNow) {
+    if (!vaultStatus) {
+      return;
+    }
+
+    if (!vaultStatus.autoTradeEnabled) {
+      logger.debug('Auto-trade disabled for user', {
+        userAddress: userAddress.slice(0, 10)
+      });
+      return;
+    }
+
+    if (!vaultStatus.canTradeNow) {
+      logger.debug('Rate limited - waiting', {
+        userAddress: userAddress.slice(0, 10)
+      });
       return;
     }
 
@@ -159,6 +176,22 @@ async function processUserTrades(
         maxAllowed: MAX_POSITIONS_TOTAL
       });
       return;
+    }
+
+    // 5b. Check post-close cooldown - 5 minutes after any position closes
+    const lastClosedPosition = await positionService.getLastClosedPosition(userAddress, chainId);
+    if (lastClosedPosition && lastClosedPosition.closed_at) {
+      const closedAt = new Date(lastClosedPosition.closed_at).getTime();
+      const timeSinceClose = Date.now() - closedAt;
+      if (timeSinceClose < POST_CLOSE_COOLDOWN_MS) {
+        const remainingMs = POST_CLOSE_COOLDOWN_MS - timeSinceClose;
+        logger.info('Post-close cooldown active', {
+          userAddress: userAddress.slice(0, 10),
+          cooldownRemaining: Math.ceil(remainingMs / 60000) + 'm ' + Math.ceil((remainingMs % 60000) / 1000) + 's',
+          closedAt: lastClosedPosition.closed_at
+        });
+        return;
+      }
     }
 
     // 6. Try each token - find one with a good signal
