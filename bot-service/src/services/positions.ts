@@ -33,7 +33,7 @@ export interface Position {
 }
 
 // Minimum profit % before trailing stop activates
-const PROFIT_THRESHOLD_PERCENT = 1.0; // 1% profit required before stop activates
+const PROFIT_THRESHOLD_PERCENT = 0.5; // 0.5% profit required before stop activates (risky mode)
 
 export class PositionService {
   private supabase: SupabaseClient;
@@ -62,6 +62,7 @@ export class PositionService {
     txHash: string;
     trailingStopPercent?: number;
     takeProfitPercent?: number;
+    entryReason?: string; // Why the bot opened this trade
   }): Promise<Position | null> {
     const trailingStopPercent = params.trailingStopPercent || 1.0; // Default 1%
     const takeProfitPercent = params.takeProfitPercent || 5.0; // Default 5% TP
@@ -155,7 +156,7 @@ export class PositionService {
       let query = this.supabase
         .from('positions')
         .select('*')
-        .eq('status', 'open');
+        .in('status', ['open', 'closing']); // Include positions marked for emergency close
 
       if (chainId) {
         query = query.eq('chain_id', chainId);
@@ -416,7 +417,7 @@ export class PositionService {
     exitPrice: number;
     exitAmount: number; // USDC received
     txHash: string;
-    closeReason: 'trailing_stop' | 'take_profit' | 'manual' | 'stop_loss';
+    closeReason: 'trailing_stop' | 'take_profit' | 'manual' | 'stop_loss' | 'emergency_close';
   }): Promise<Position | null> {
     try {
       // Get position to calculate P/L

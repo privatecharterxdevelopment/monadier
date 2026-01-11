@@ -2,11 +2,18 @@ import winston from 'winston';
 
 const { combine, timestamp, printf, colorize } = winston.format;
 
+// Custom JSON serializer that handles BigInt
+const safeStringify = (obj: any): string => {
+  return JSON.stringify(obj, (_, value) =>
+    typeof value === 'bigint' ? value.toString() : value
+  );
+};
+
 const logFormat = printf(({ level, message, timestamp, ...metadata }) => {
   let msg = `${timestamp} [${level}]: ${message}`;
 
   if (Object.keys(metadata).length > 0) {
-    msg += ` ${JSON.stringify(metadata)}`;
+    msg += ` ${safeStringify(metadata)}`;
   }
 
   return msg;

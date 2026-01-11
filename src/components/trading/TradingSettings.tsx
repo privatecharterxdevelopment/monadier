@@ -279,29 +279,11 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
             {/* Settings Tab */}
             {activeTab === 'settings' && (
               <div className="space-y-4">
-                {/* Bot Mode Selector */}
-                <div>
-                  <label className="block text-gray-400 text-xs mb-2">Bot Mode</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: 'manual', label: 'Manual', desc: 'Click to trade' },
-                      { id: 'auto', label: 'Auto', desc: 'Trades at intervals' },
-                      { id: 'signals', label: 'Signals', desc: 'Alerts only' }
-                    ].map(mode => (
-                      <button
-                        key={mode.id}
-                        onClick={() => onConfigChange({ ...config, botMode: mode.id as any })}
-                        className={`p-2 rounded-lg border text-center transition-all ${
-                          config.botMode === mode.id
-                            ? 'border-accent bg-white/5 text-accent'
-                            : 'border-gray-700 text-gray-400 hover:border-gray-600'
-                        }`}
-                      >
-                        <p className="text-sm font-medium">{mode.label}</p>
-                        <p className="text-xs opacity-70">{mode.desc}</p>
-                      </button>
-                    ))}
-                  </div>
+                {/* Info: Auto trading is handled by Bot Service */}
+                <div className="p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                  <p className="text-xs text-blue-400">
+                    <span className="font-medium">Manual Trading Mode</span> - Auto trading is handled on the Bot History page
+                  </p>
                 </div>
 
                 {/* Trading Strategy Selector */}

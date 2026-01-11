@@ -260,8 +260,12 @@ export class TradingService {
       // Get price for 1 token via Uniswap router
       const oneToken = parseUnits('1', 18); // Assume 18 decimals
 
-      // Path: Token -> WETH -> USDC
-      const path = [tokenAddress, BASE_CONFIG.WETH, BASE_CONFIG.USDC];
+      // If token is WETH, use direct path to USDC
+      // Otherwise use Token -> WETH -> USDC
+      const isWeth = tokenAddress.toLowerCase() === BASE_CONFIG.WETH.toLowerCase();
+      const path = isWeth
+        ? [tokenAddress, BASE_CONFIG.USDC]
+        : [tokenAddress, BASE_CONFIG.WETH, BASE_CONFIG.USDC];
 
       const amounts = await clients.public.readContract({
         address: BASE_CONFIG.ROUTER,
@@ -437,12 +441,41 @@ export class TradingService {
   }
 
   /**
+   * Get user's on-chain token balance in the vault
+   */
+  async getOnChainTokenBalance(
+    chainId: ChainId,
+    userAddress: `0x${string}`,
+    tokenAddress: `0x${string}`
+  ): Promise<bigint | null> {
+    const clients = this.clients.get(chainId);
+    const vaultAddress = this.getV2VaultAddress(chainId);
+
+    if (!clients || !vaultAddress) {
+      return null;
+    }
+
+    try {
+      const balance = await clients.public.readContract({
+        address: vaultAddress,
+        abi: VAULT_V2_ABI,
+        functionName: 'tokenBalances',
+        args: [userAddress, tokenAddress]
+      });
+      return balance;
+    } catch (err) {
+      logger.error('Failed to get on-chain token balance', { userAddress, tokenAddress, error: err });
+      return null;
+    }
+  }
+
+  /**
    * Close a position (sell tokens back to USDC)
    */
   async closePosition(
     chainId: ChainId,
     position: Position,
-    closeReason: 'trailing_stop' | 'take_profit' | 'manual' | 'stop_loss'
+    closeReason: 'trailing_stop' | 'take_profit' | 'manual' | 'stop_loss' | 'emergency_close'
   ): Promise<TradeResult> {
     const clients = this.clients.get(chainId);
     const vaultAddress = this.getV2VaultAddress(chainId);
@@ -455,29 +488,88 @@ export class TradingService {
       const userAddress = position.wallet_address as `0x${string}`;
       const tokenAddress = position.token_address as `0x${string}`;
 
+      // Verify on-chain token balance BEFORE attempting to close
+      const onChainBalance = await this.getOnChainTokenBalance(chainId, userAddress, tokenAddress);
+
+      if (onChainBalance === null || onChainBalance === 0n) {
+        // State mismatch: Supabase says open, but on-chain has no tokens
+        logger.error('State mismatch: No on-chain token balance', {
+          positionId: position.id,
+          userAddress,
+          token: position.token_symbol,
+          supabaseStatus: position.status,
+          onChainBalance: onChainBalance?.toString() || 'null'
+        });
+
+        // Mark position as failed due to sync error
+        await positionService.markFailed(position.id, 'State mismatch: No on-chain token balance');
+        return { success: false, error: 'State mismatch: No on-chain token balance. Position may have already been closed.' };
+      }
+
       logger.info('Closing position', {
         positionId: position.id,
         userAddress,
         token: position.token_symbol,
-        closeReason
+        closeReason,
+        onChainBalance: formatUnits(onChainBalance, 18)
       });
 
-      // Close full position with 0.5% slippage tolerance
+      // Try to close with increasing slippage tolerance if needed
       const currentPrice = await this.getTokenPrice(chainId, tokenAddress);
       const tokenValue = position.token_amount * (currentPrice || position.entry_price);
-      const minUsdcOut = parseUnits(
-        (tokenValue * 0.995).toFixed(6), // 0.5% slippage
-        6
-      );
 
-      const txHash = await clients.wallet.writeContract({
-        address: vaultAddress,
-        abi: VAULT_V2_ABI,
-        functionName: 'closeFullPosition',
-        args: [userAddress, tokenAddress, minUsdcOut],
-        chain: CHAINS[chainId],
-        account: this.botAccount
-      });
+      // Slippage levels to try: 3%, 5%, 10%, 15%
+      const slippageLevels = [0.97, 0.95, 0.90, 0.85];
+      let txHash: `0x${string}` | null = null;
+      let lastError: string = '';
+
+      for (const slippageMultiplier of slippageLevels) {
+        const minUsdcOut = parseUnits(
+          (tokenValue * slippageMultiplier).toFixed(6),
+          6
+        );
+
+        const slippagePercent = ((1 - slippageMultiplier) * 100).toFixed(0);
+        logger.info(`Attempting close with ${slippagePercent}% slippage`, {
+          positionId: position.id,
+          minUsdcOut: formatUnits(minUsdcOut, 6)
+        });
+
+        try {
+          txHash = await clients.wallet.writeContract({
+            address: vaultAddress,
+            abi: VAULT_V2_ABI,
+            functionName: 'closeFullPosition',
+            args: [userAddress, tokenAddress, minUsdcOut],
+            chain: CHAINS[chainId],
+            account: this.botAccount
+          });
+
+          // If we get here, the transaction was submitted successfully
+          break;
+        } catch (attemptErr: any) {
+          lastError = attemptErr.message || 'Unknown error';
+          const isSlippageError = lastError.includes('INSUFFICIENT_OUTPUT_AMOUNT') ||
+                                   lastError.includes('slippage') ||
+                                   lastError.includes('output amount');
+
+          if (isSlippageError && slippageMultiplier !== slippageLevels[slippageLevels.length - 1]) {
+            logger.warn(`Slippage error with ${slippagePercent}%, trying higher slippage`, {
+              positionId: position.id,
+              error: lastError
+            });
+            continue; // Try next slippage level
+          }
+
+          // Not a slippage error or we've exhausted all levels
+          throw attemptErr;
+        }
+      }
+
+      if (!txHash) {
+        await positionService.markFailed(position.id, `All slippage levels failed: ${lastError}`);
+        return { success: false, error: `Failed to close: ${lastError}` };
+      }
 
       // Wait for confirmation
       const receipt = await clients.public.waitForTransactionReceipt({
@@ -491,7 +583,9 @@ export class TradingService {
 
       // Update position in database
       const exitPrice = currentPrice || position.entry_price;
-      const exitAmount = position.token_amount * exitPrice * 0.99; // Account for fees
+      // Calculate exit amount based on token amount and current price
+      // Uniswap fees are already deducted from the actual swap, no need to multiply by 0.99
+      const exitAmount = position.token_amount * exitPrice;
 
       await positionService.closePosition({
         positionId: position.id,
@@ -535,6 +629,17 @@ export class TradingService {
 
     for (const position of positions) {
       try {
+        // Check for emergency close first
+        if (position.status === 'closing') {
+          logger.info('🚨 Emergency close requested!', {
+            positionId: position.id,
+            token: position.token_symbol,
+            direction: position.direction || 'LONG'
+          });
+          await this.closePosition(chainId, position, 'emergency_close');
+          continue;
+        }
+
         const tokenAddress = position.token_address as `0x${string}`;
         const currentPrice = await this.getTokenPrice(chainId, tokenAddress);
 

@@ -11,6 +11,18 @@ import { parseUnits, formatUnits } from 'viem';
 import { TradingSettings, GasEstimator, getDefaultConfig, TradingConfig, TradeHistoryItem } from '../../components/trading';
 import { verifyTrade } from '../../lib/api/subscription';
 import { VaultBalanceCard } from '../../components/vault';
+import { supabase } from '../../lib/supabase';
+
+// Bot position from Supabase
+interface BotPosition {
+  id: string;
+  token_symbol: string;
+  direction: 'LONG' | 'SHORT';
+  entry_price: number;
+  status: 'open' | 'closing' | 'closed' | 'failed';
+  take_profit_price: number | null;
+  trailing_stop_price: number | null;
+}
 
 interface TradingPair {
   symbol: string;
@@ -178,6 +190,7 @@ const TradingBotPage: React.FC = () => {
   const [sessionTradeCount, setSessionTradeCount] = useState(0);
   const [pendingReopen, setPendingReopen] = useState(false);
   const [turboMode, setTurboMode] = useState(false);
+  const [botPositions, setBotPositions] = useState<BotPosition[]>([]);
 
   // Minimum trade time - very short for aggressive trading
   const MIN_TRADE_TIME = turboMode ? 3 : 30; // 3 seconds in turbo, 30 seconds normal
@@ -755,6 +768,33 @@ const TradingBotPage: React.FC = () => {
       initial.push({ ...generateTopPerformerTrade(tradingPairs), time: new Date(Date.now() - Math.random() * 300000) });
     }
     setTopPerformers(initial.sort((a, b) => b.time.getTime() - a.time.getTime()));
+  }, []);
+
+  // Fetch bot positions from Supabase
+  useEffect(() => {
+    const fetchBotPositions = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('positions')
+          .select('id, token_symbol, direction, entry_price, status, take_profit_price, trailing_stop_price')
+          .in('status', ['open', 'closing'])
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching bot positions:', error);
+          return;
+        }
+
+        setBotPositions(data || []);
+      } catch (err) {
+        console.error('Error fetching bot positions:', err);
+      }
+    };
+
+    fetchBotPositions();
+    // Refresh positions every 30 seconds
+    const interval = setInterval(fetchBotPositions, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -1692,6 +1732,84 @@ const TradingBotPage: React.FC = () => {
           <rect x="calc(100% - 70px)" y={scaleY(resistance) - 8} width="65" height="16" fill="#ef4444" rx="2" opacity="0.2" />
           <text x="calc(100% - 38px)" y={scaleY(resistance) + 4} className="text-[8px] fill-red-400 font-medium" textAnchor="middle">{`R: $${resistance.toFixed(0)}`}</text>
 
+          {/* Bot Position Entry Lines */}
+          {botPositions
+            .filter(pos => {
+              // Match positions to current chart pair
+              const pairBase = selectedPair.symbol.split('/')[0];
+              return (
+                (pairBase === 'ETH' && (pos.token_symbol === 'WETH' || pos.token_symbol === 'ETH')) ||
+                (pairBase === pos.token_symbol)
+              );
+            })
+            .map((pos, idx) => {
+              const lineColor = pos.direction === 'LONG' ? '#3b82f6' : '#f59e0b'; // Blue for long, amber for short
+              const entryY = scaleY(pos.entry_price);
+              const tpY = pos.take_profit_price ? scaleY(pos.take_profit_price) : null;
+              const slY = pos.trailing_stop_price ? scaleY(pos.trailing_stop_price) : null;
+
+              return (
+                <g key={`bot-pos-${pos.id}`}>
+                  {/* Entry line - solid thin line */}
+                  <line
+                    x1="0"
+                    y1={entryY}
+                    x2="100%"
+                    y2={entryY}
+                    stroke={lineColor}
+                    strokeWidth="1.5"
+                    opacity="0.8"
+                  />
+                  {/* Entry label */}
+                  <rect x="4" y={entryY - 9} width="50" height="18" fill={lineColor} rx="2" opacity="0.9" />
+                  <text x="29" y={entryY + 4} className="text-[8px] fill-white font-bold" textAnchor="middle">
+                    {pos.direction}
+                  </text>
+                  {/* Price label on right */}
+                  <rect x="calc(100% - 85px)" y={entryY - 9} width="80" height="18" fill={lineColor} rx="2" opacity="0.9" />
+                  <text x="calc(100% - 45px)" y={entryY + 4} className="text-[8px] fill-white font-medium" textAnchor="middle">
+                    Entry: ${pos.entry_price.toFixed(2)}
+                  </text>
+
+                  {/* Take Profit line - dashed green */}
+                  {tpY && (
+                    <>
+                      <line
+                        x1="0"
+                        y1={tpY}
+                        x2="100%"
+                        y2={tpY}
+                        stroke="#22c55e"
+                        strokeWidth="1"
+                        strokeDasharray="4,2"
+                        opacity="0.6"
+                      />
+                      <rect x="4" y={tpY - 8} width="28" height="16" fill="#22c55e" rx="2" opacity="0.7" />
+                      <text x="18" y={tpY + 4} className="text-[7px] fill-white font-bold" textAnchor="middle">TP</text>
+                    </>
+                  )}
+
+                  {/* Trailing Stop line - dashed red */}
+                  {slY && (
+                    <>
+                      <line
+                        x1="0"
+                        y1={slY}
+                        x2="100%"
+                        y2={slY}
+                        stroke="#ef4444"
+                        strokeWidth="1"
+                        strokeDasharray="4,2"
+                        opacity="0.6"
+                      />
+                      <rect x="4" y={slY - 8} width="28" height="16" fill="#ef4444" rx="2" opacity="0.7" />
+                      <text x="18" y={slY + 4} className="text-[7px] fill-white font-bold" textAnchor="middle">SL</text>
+                    </>
+                  )}
+                </g>
+              );
+            })}
+
           {/* Grid Strategy Lines - Green (buy) below price, Red (sell) above price */}
           {tradingConfig.strategy === 'grid' && gridLevels.map((level, i) => {
             const isBuyZone = level < currentPrice;
@@ -1822,25 +1940,70 @@ const TradingBotPage: React.FC = () => {
 
           {botActive && entryPrice > 0 && (
             <g>
+              {/* Take Profit Line */}
+              {(() => {
+                const tpPercent = tradingConfig.takeProfitPercent || 5;
+                const tpPrice = strategy?.direction === 'LONG'
+                  ? entryPrice * (1 + tpPercent / 100)
+                  : entryPrice * (1 - tpPercent / 100);
+                const tpY = scaleY(tpPrice);
+                // Only show if TP is within visible range
+                if (tpY >= 0 && tpY <= chartHeight) {
+                  return (
+                    <>
+                      <line x1="0" y1={tpY} x2="100%" y2={tpY} stroke="#22c55e" strokeWidth="1" strokeDasharray="4,4" opacity="0.8" />
+                      <rect x="calc(100% - 75px)" y={tpY - 8} width="70" height="16" fill="#22c55e" rx="3" opacity="0.9" />
+                      <text x="calc(100% - 40px)" y={tpY + 4} className="text-[9px] fill-white font-medium" textAnchor="middle">
+                        TP +{tpPercent}%
+                      </text>
+                    </>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* Stop Loss / Trailing Stop Line */}
+              {(() => {
+                const slPercent = tradingConfig.stopLossPercent || 1;
+                const slPrice = strategy?.direction === 'LONG'
+                  ? entryPrice * (1 - slPercent / 100)
+                  : entryPrice * (1 + slPercent / 100);
+                const slY = scaleY(slPrice);
+                // Only show if SL is within visible range
+                if (slY >= 0 && slY <= chartHeight) {
+                  return (
+                    <>
+                      <line x1="0" y1={slY} x2="100%" y2={slY} stroke="#ef4444" strokeWidth="1" strokeDasharray="4,4" opacity="0.8" />
+                      <rect x="calc(100% - 75px)" y={slY - 8} width="70" height="16" fill="#ef4444" rx="3" opacity="0.9" />
+                      <text x="calc(100% - 40px)" y={slY + 4} className="text-[9px] fill-white font-medium" textAnchor="middle">
+                        SL -{slPercent}%
+                      </text>
+                    </>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* Entry Line */}
               <line
                 x1="0"
                 y1={scaleY(entryPrice)}
                 x2="100%"
                 y2={scaleY(entryPrice)}
-                stroke={strategy?.direction === 'LONG' ? '#22c55e' : '#ef4444'}
+                stroke={strategy?.direction === 'LONG' ? '#3b82f6' : '#f97316'}
                 strokeWidth="1.5"
                 strokeDasharray="6,3"
               />
               <rect
                 x="0"
                 y={scaleY(entryPrice) - 10}
-                width="90"
+                width="95"
                 height="20"
-                fill={strategy?.direction === 'LONG' ? '#22c55e' : '#ef4444'}
+                fill={strategy?.direction === 'LONG' ? '#3b82f6' : '#f97316'}
                 rx="4"
               />
-              <text x="45" y={scaleY(entryPrice) + 4} className="text-[10px] fill-white font-medium" textAnchor="middle">
-                {`${strategy?.direction} $${formatPrice(entryPrice, 2)}`}
+              <text x="47" y={scaleY(entryPrice) + 4} className="text-[10px] fill-white font-medium" textAnchor="middle">
+                {`ENTRY $${formatPrice(entryPrice, 2)}`}
               </text>
             </g>
           )}
@@ -2442,91 +2605,21 @@ const TradingBotPage: React.FC = () => {
 
               {!botActive ? (
                 <>
-                  {/* Bot Mode Indicator */}
+                  {/* Manual Trading Mode */}
                   <div className="flex items-center justify-between p-2 bg-background rounded-lg">
                     <div className="flex items-center gap-2">
-                      {tradingConfig.botMode === 'auto' ? (
-                        <Timer className="w-4 h-4 text-accent" />
-                      ) : tradingConfig.botMode === 'signals' ? (
-                        <Bell className="w-4 h-4 text-yellow-400" />
-                      ) : (
-                        <Bot className="w-4 h-4 text-gray-400" />
-                      )}
-                      <span className="text-white text-sm capitalize">{tradingConfig.botMode} Mode</span>
+                      <Activity className="w-4 h-4 text-blue-400" />
+                      <span className="text-white text-sm">Manual Trading</span>
                     </div>
-                    <span className="text-gray-400 text-xs capitalize">{tradingConfig.strategy}</span>
+                    <span className="text-gray-400 text-xs capitalize">{tradingConfig.strategy} Strategy</span>
                   </div>
 
-                  {/* Auto-Trade Controls - Only for Auto Mode */}
-                  {tradingConfig.botMode === 'auto' && (
-                    <div className="p-3 bg-background rounded-lg space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-white text-sm">Auto-Trade</span>
-                        <button
-                          onClick={() => setTradingConfig(prev => ({ ...prev, autoTradeEnabled: !prev.autoTradeEnabled }))}
-                          className={`w-12 h-6 rounded-full transition-colors ${
-                            tradingConfig.autoTradeEnabled ? 'bg-accent' : 'bg-gray-600'
-                          }`}
-                        >
-                          <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                            tradingConfig.autoTradeEnabled ? 'translate-x-6' : 'translate-x-0.5'
-                          }`} />
-                        </button>
-                      </div>
-
-                      {/* TURBO MODE - Non-stop aggressive trading */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Zap className="w-4 h-4 text-yellow-400" />
-                          <span className="text-yellow-400 text-sm font-medium">Turbo Mode</span>
-                        </div>
-                        <button
-                          onClick={() => setTurboMode(!turboMode)}
-                          className={`w-12 h-6 rounded-full transition-colors ${
-                            turboMode ? 'bg-yellow-500' : 'bg-gray-600'
-                          }`}
-                        >
-                          <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                            turboMode ? 'translate-x-6' : 'translate-x-0.5'
-                          }`} />
-                        </button>
-                      </div>
-
-                      {turboMode && (
-                        <div className="p-2 bg-yellow-500/10 border border-yellow-500/20 rounded text-xs text-yellow-400">
-                          <p className="font-medium">⚡ WIN-ONLY MODE ACTIVE</p>
-                          <p className="text-yellow-400/80 mt-1">
-                            AI closes ONLY in profit • Holds through dips • Locks wins instantly • Non-stop trading
-                          </p>
-                        </div>
-                      )}
-
-                      {tradingConfig.autoTradeEnabled && !turboMode && (
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-400">Next trade in:</span>
-                          <span className="text-accent font-mono">
-                            {Math.floor(nextAutoTradeIn / 3600)}h {Math.floor((nextAutoTradeIn % 3600) / 60)}m {nextAutoTradeIn % 60}s
-                          </span>
-                        </div>
-                      )}
-                      <p className="text-gray-500 text-xs">
-                        {turboMode ? 'Non-stop trading' : `Interval: ${tradingConfig.tradingInterval}`} | Amount: {`$${tradeAmount}`}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Signals Mode Notice */}
-                  {tradingConfig.botMode === 'signals' && analyzeMarket && (
-                    <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                      <div className="flex items-center gap-2 text-yellow-400 text-sm">
-                        <Bell className="w-4 h-4" />
-                        <span>Signal Only Mode</span>
-                      </div>
-                      <p className="text-gray-400 text-xs mt-1">
-                        Bot shows signals but won't auto-execute trades
-                      </p>
-                    </div>
-                  )}
+                  {/* Info: Auto trading handled elsewhere */}
+                  <div className="p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                    <p className="text-xs text-blue-400">
+                      Auto trading runs in background. View positions on <span className="font-medium">Bot History</span> page.
+                    </p>
+                  </div>
 
                   {analyzeMarket && (
                     <div className={`p-3 rounded-lg border ${analyzeMarket.direction === 'LONG' ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>

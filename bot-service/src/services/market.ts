@@ -77,7 +77,7 @@ const TOKEN_SYMBOLS: Record<number, Record<string, string>> = {
 /**
  * Fetch candle data from Binance API
  */
-async function fetchCandles(symbol: string, interval: string = '5m', limit: number = 100): Promise<Candle[]> {
+async function fetchCandles(symbol: string, interval: string = '1h', limit: number = 30): Promise<Candle[]> {
   try {
     const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
     const response = await fetch(url);
@@ -191,8 +191,9 @@ export async function analyzeMarket(
   }
 
   // Fetch candle data
-  const candles = await fetchCandles(symbol, '5m', 100);
-  if (candles.length < 50) {
+  // Use 1h candles for more stable analysis (less noise)
+  const candles = await fetchCandles(symbol, '1h', 30);
+  if (candles.length < 20) {
     logger.warn('Insufficient candle data', { symbol, count: candles.length });
     return null;
   }
@@ -218,7 +219,7 @@ export async function analyzeMarket(
 
   // Price changes
   const currentPrice = closes[closes.length - 1];
-  const price1hAgo = closes[closes.length - 12] || currentPrice; // 12 x 5min = 1h
+  const price1hAgo = closes[closes.length - 2] || currentPrice; // Previous 1h candle
   const price24hAgo = closes[0] || currentPrice;
   const priceChange1h = ((currentPrice - price1hAgo) / price1hAgo) * 100;
   const priceChange24h = ((currentPrice - price24hAgo) / price24hAgo) * 100;
@@ -345,122 +346,117 @@ export async function analyzeMarket(
   const immediateBearishMomentum = (isLargeCandle && lastCandleIsBearish) || isStrongShortTermBearish;
   const immediateBullishMomentum = (isLargeCandle && lastCandleIsBullish) || isStrongShortTermBullish;
 
-  // === MULTI-FACTOR SCORING ===
+  // === SIMPLIFIED 3-FACTOR SYSTEM ===
+  // ALL 3 factors must be met for a valid signal
+  // This eliminates weak signals and trades only high-probability setups
 
-  // SHORT CONDITIONS (7 factors - added reversal)
-  const shortConditions = {
-    rsiOverbought: rsi > 70 || (rsi > 60 && rsiFalling),
-    macdBearish: macd < -0.5 || (macdCrossunder && Math.abs(macd) > 0.2),
-    volumeConfirmed: isHighVolume && priceChange1h < 0,
-    priceRejectedResistance: nearResistance && (isBearishEngulfing || hasLongUpperWick),
-    lowerHighsForming: isFormingLowerHighs,
-    immediateBearish: immediateBearishMomentum,
-    bearishReversal: bearishReversalSignal // NEW: Full reversal pattern
-  };
-  const shortConditionsMet = Object.values(shortConditions).filter(Boolean).length;
+  // Calculate ATR for volatility filter
+  const atrPeriod = 14;
+  const trueRanges: number[] = [];
+  for (let i = 1; i < candles.length; i++) {
+    const high = candles[i].high;
+    const low = candles[i].low;
+    const prevClose = candles[i - 1].close;
+    const tr = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
+    trueRanges.push(tr);
+  }
+  const atr = trueRanges.slice(-atrPeriod).reduce((a, b) => a + b, 0) / atrPeriod;
+  const atrPercent = (atr / currentPrice) * 100;
 
-  // LONG CONDITIONS (7 factors - added reversal)
-  const longConditions = {
-    rsiOversold: rsi < 30 || (rsi < 40 && rsiRising),
-    macdBullish: macd > 0.5 || (macdCrossover && Math.abs(macd) > 0.2),
-    volumeConfirmed: isHighVolume && priceChange1h > 0,
-    priceBouncingSupport: nearSupport && (isBullishEngulfing || hasLongLowerWick),
-    higherLowsForming: isFormingHigherLows,
-    immediateBullish: immediateBullishMomentum,
-    bullishReversal: bullishReversalSignal // NEW: Full reversal pattern
-  };
-  const longConditionsMet = Object.values(longConditions).filter(Boolean).length;
+  // Volatility filter: Skip ranging/low volatility markets
+  const minVolatility = 0.3; // Minimum 0.3% ATR
+  const isLowVolatility = atrPercent < minVolatility;
 
-  // Determine direction
-  let direction: 'LONG' | 'SHORT' = 'LONG';
+  if (isLowVolatility) {
+    logger.info('⏸️ Skipping: Low volatility market (ranging)', {
+      atrPercent: atrPercent.toFixed(3) + '%',
+      threshold: minVolatility + '%'
+    });
+    return null;
+  }
+
+  // === 3 CORE FACTORS (ALL must be true) ===
+
+  // Factor 1: RSI EXTREME (strict thresholds)
+  const rsiExtremeLong = rsi < 25;  // Very oversold only
+  const rsiExtremeShort = rsi > 75; // Very overbought only
+
+  // Factor 2: VOLUME SPIKE (2x average minimum)
+  const volumeSpike = volumeRatio >= 2.0;
+
+  // Factor 3: CANDLESTICK PATTERN (clear reversal)
+  // Bullish patterns: Bullish Engulfing, Hammer
+  const hasBullishPattern = isBullishEngulfing || isHammer || (hasLongLowerWick && lastCandleIsBullish);
+  // Bearish patterns: Bearish Engulfing, Shooting Star
+  const hasBearishPattern = isBearishEngulfing || isShootingStar || (hasLongUpperWick && lastCandleIsBearish);
+
+  // === SIGNAL GENERATION ===
+  let direction: 'LONG' | 'SHORT' | null = null;
   let conditionsMet = 0;
-  let conditions: Record<string, boolean> = {};
 
-  if (longConditionsMet > shortConditionsMet && longConditionsMet >= 2) {
+  // LONG: ALL 3 factors must be true
+  const longSignal = rsiExtremeLong && volumeSpike && hasBullishPattern;
+  // SHORT: ALL 3 factors must be true
+  const shortSignal = rsiExtremeShort && volumeSpike && hasBearishPattern;
+
+  // Log current state for debugging
+  logger.debug('Signal check', {
+    rsi: rsi.toFixed(1),
+    rsiExtremeLong,
+    rsiExtremeShort,
+    volumeRatio: volumeRatio.toFixed(2),
+    volumeSpike,
+    hasBullishPattern,
+    hasBearishPattern,
+    atrPercent: atrPercent.toFixed(3) + '%'
+  });
+
+  if (longSignal) {
     direction = 'LONG';
-    conditionsMet = longConditionsMet;
-    conditions = longConditions;
-  } else if (shortConditionsMet > longConditionsMet && shortConditionsMet >= 2) {
+    conditionsMet = 3;
+    logger.info('🟢 LONG SIGNAL: All 3 factors confirmed!', {
+      rsi: rsi.toFixed(1),
+      volumeRatio: volumeRatio.toFixed(2) + 'x',
+      pattern: isBullishEngulfing ? 'Bullish Engulfing' : isHammer ? 'Hammer' : 'Long Lower Wick'
+    });
+  } else if (shortSignal) {
     direction = 'SHORT';
-    conditionsMet = shortConditionsMet;
-    conditions = shortConditions;
-  } else if (longConditionsMet === shortConditionsMet) {
-    direction = shortTermMomentum > 0 ? 'LONG' : 'SHORT';
-    conditionsMet = Math.max(longConditionsMet, shortConditionsMet);
-    conditions = shortTermMomentum > 0 ? longConditions : shortConditions;
+    conditionsMet = 3;
+    logger.info('🔴 SHORT SIGNAL: All 3 factors confirmed!', {
+      rsi: rsi.toFixed(1),
+      volumeRatio: volumeRatio.toFixed(2) + 'x',
+      pattern: isBearishEngulfing ? 'Bearish Engulfing' : isShootingStar ? 'Shooting Star' : 'Long Upper Wick'
+    });
   } else {
-    direction = longConditionsMet >= shortConditionsMet ? 'LONG' : 'SHORT';
-    conditionsMet = Math.max(longConditionsMet, shortConditionsMet);
-  }
-
-  // Momentum override
-  let confidencePenalty = 0;
-  if (direction === 'LONG' && isVeryLargeCandle && lastCandleIsBearish) {
-    if (shortConditionsMet >= 2) {
-      direction = 'SHORT';
-      conditionsMet = shortConditionsMet;
-    } else {
-      confidencePenalty = 30;
-    }
-  } else if (direction === 'SHORT' && isVeryLargeCandle && lastCandleIsBullish) {
-    if (longConditionsMet >= 2) {
-      direction = 'LONG';
-      conditionsMet = longConditionsMet;
-    } else {
-      confidencePenalty = 30;
-    }
-  } else if ((direction === 'LONG' && isLargeCandle && lastCandleIsBearish) ||
-             (direction === 'SHORT' && isLargeCandle && lastCandleIsBullish)) {
-    confidencePenalty = 15;
-  }
-
-  // Calculate confidence
-  let baseConfidence: number;
-  if (conditionsMet >= 5) baseConfidence = 92;
-  else if (conditionsMet >= 4) baseConfidence = 85;
-  else if (conditionsMet === 3) baseConfidence = 65;
-  else if (conditionsMet === 2) baseConfidence = 45;
-  else baseConfidence = 25;
-
-  if (volumeRatio < 1.2) baseConfidence -= 20;
-  else if (volumeRatio >= 1.5) baseConfidence += 5;
-
-  // REVERSAL SIGNAL BOOST: Strong reversal patterns get extra confidence
-  let reversalBoost = 0;
-  let isReversalSignal = false;
-
-  if (direction === 'LONG' && bullishReversalSignal) {
-    reversalBoost = strategyConfig.reversalBoost;
-    isReversalSignal = true;
-    logger.info('🔄 BULLISH REVERSAL detected!', {
-      strategy,
-      supportRejection,
-      isHammer,
-      isBullishEngulfing,
-      hasDoubleBottom,
-      rsi: rsi.toFixed(0),
-      boost: `+${reversalBoost}%`
+    // No valid signal - not all 3 factors met
+    logger.debug('No signal: Waiting for all 3 factors', {
+      longFactors: `${rsiExtremeLong ? '✓' : '✗'} RSI | ${volumeSpike ? '✓' : '✗'} Volume | ${hasBullishPattern ? '✓' : '✗'} Pattern`,
+      shortFactors: `${rsiExtremeShort ? '✓' : '✗'} RSI | ${volumeSpike ? '✓' : '✗'} Volume | ${hasBearishPattern ? '✓' : '✗'} Pattern`
     });
-  } else if (direction === 'SHORT' && bearishReversalSignal) {
-    reversalBoost = strategyConfig.reversalBoost;
-    isReversalSignal = true;
-    logger.info('🔄 BEARISH REVERSAL detected!', {
-      strategy,
-      resistanceRejection,
-      isShootingStar,
-      isBearishEngulfing,
-      rsi: rsi.toFixed(0),
-      boost: `+${reversalBoost}%`
-    });
+    return null; // NO TRADE - wait for better setup
   }
 
-  // RISKY MODE: Extra boost if any reversal pattern found
-  if (strategy === 'risky' && isReversalSignal) {
-    reversalBoost += 15; // Extra 15% for risky mode reversals
-    logger.info('🔥 RISKY MODE: Extra reversal boost applied!', { totalBoost: reversalBoost });
+  // Trend alignment check (optional safety)
+  if (isStrongUptrend && direction === 'SHORT') {
+    logger.warn('⚠️ SHORT rejected: Against strong uptrend');
+    return null;
+  }
+  if (isStrongDowntrend && direction === 'LONG') {
+    logger.warn('⚠️ LONG rejected: Against strong downtrend');
+    return null;
   }
 
-  const confidence = Math.max(20, Math.min(95, baseConfidence - confidencePenalty + reversalBoost));
+  // Build conditions object for logging
+  const conditions = direction === 'LONG'
+    ? { rsiExtreme: rsiExtremeLong, volumeSpike, candlePattern: hasBullishPattern }
+    : { rsiExtreme: rsiExtremeShort, volumeSpike, candlePattern: hasBearishPattern };
+
+  // Confidence: Always 90% when all 3 core factors are met
+  // (We already returned null if factors weren't met)
+  const confidence = 90;
+
+  // In 3-factor system, all signals are reversal-based (RSI extreme + pattern)
+  const isReversalSignal = true;
 
   // Risk/Reward
   const distanceToResistance = ((recentHigh - currentPrice) / currentPrice) * 100;
@@ -469,28 +465,13 @@ export async function analyzeMarket(
   const stopLossDistance = Math.max(direction === 'LONG' ? distanceToSupport : distanceToResistance, 0.3);
   const riskReward = Math.min(Math.max(takeProfitDistance / stopLossDistance, 0.1), 10);
 
-  // Build indicators list
+  // Build reason string (3-factor system)
   const indicators: string[] = [];
-  const reasons: string[] = [];
+  const patternName = direction === 'LONG'
+    ? (isBullishEngulfing ? 'Bullish Engulfing' : isHammer ? 'Hammer' : 'Long Lower Wick')
+    : (isBearishEngulfing ? 'Bearish Engulfing' : isShootingStar ? 'Shooting Star' : 'Long Upper Wick');
 
-  if (direction === 'LONG') {
-    if (conditions.bullishReversal) reasons.push('Bullish reversal at support');
-    if (conditions.rsiOversold) reasons.push(`RSI at ${rsi.toFixed(0)} - oversold`);
-    if (conditions.macdBullish) reasons.push('MACD bullish');
-    if (conditions.volumeConfirmed) reasons.push(`Volume ${volumeRatio.toFixed(1)}x with buying`);
-    if (conditions.higherLowsForming) reasons.push('Higher lows forming');
-    if (isHammer) reasons.push('Hammer candle');
-    if (hasDoubleBottom) reasons.push('Double bottom');
-  } else {
-    if (conditions.bearishReversal) reasons.push('Bearish reversal at resistance');
-    if (conditions.rsiOverbought) reasons.push(`RSI at ${rsi.toFixed(0)} - overbought`);
-    if (conditions.macdBearish) reasons.push('MACD bearish');
-    if (conditions.volumeConfirmed) reasons.push(`Volume ${volumeRatio.toFixed(1)}x with selling`);
-    if (conditions.lowerHighsForming) reasons.push('Lower highs forming');
-    if (isShootingStar) reasons.push('Shooting star candle');
-  }
-
-  const reason = reasons.slice(0, 3).join('. ') || `${direction} signal with ${conditionsMet}/7 conditions`;
+  const reason = `RSI ${rsi.toFixed(0)} + Volume ${volumeRatio.toFixed(1)}x + ${patternName}`;
 
   // === DYNAMIC TP/SL CALCULATION ===
   const now = new Date();

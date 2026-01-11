@@ -12,6 +12,10 @@ const DEFAULT_STRATEGY: TradingStrategy = 'risky'; // RISKY = many trades!
 // Supported chains for auto-trading
 const ACTIVE_CHAINS: ChainId[] = [8453]; // Only Base for now with V2
 
+// Locks to prevent concurrent execution
+let isTradingCycleRunning = false;
+let isMonitoringCycleRunning = false;
+
 // Token addresses for trading (WETH on each chain)
 const TRADE_TOKENS: Record<ChainId, { address: `0x${string}`; symbol: string }> = {
   8453: {
@@ -164,12 +168,23 @@ async function processUserTrades(
  * This runs more frequently than opening new positions
  */
 async function runPositionMonitoringCycle(): Promise<void> {
-  for (const chainId of ACTIVE_CHAINS) {
-    try {
-      await tradingService.monitorPositions(chainId);
-    } catch (err) {
-      logger.error('Error monitoring positions', { chainId, error: err });
+  // Prevent concurrent monitoring
+  if (isMonitoringCycleRunning) {
+    logger.debug('Monitoring cycle already running, skipping');
+    return;
+  }
+
+  isMonitoringCycleRunning = true;
+  try {
+    for (const chainId of ACTIVE_CHAINS) {
+      try {
+        await tradingService.monitorPositions(chainId);
+      } catch (err) {
+        logger.error('Error monitoring positions', { chainId, error: err });
+      }
     }
+  } finally {
+    isMonitoringCycleRunning = false;
   }
 }
 
@@ -177,36 +192,47 @@ async function runPositionMonitoringCycle(): Promise<void> {
  * Main trading loop - runs on schedule to open new positions
  */
 async function runTradingCycle(): Promise<void> {
-  logger.info('Starting trading cycle');
-
-  for (const chainId of ACTIVE_CHAINS) {
-    const chainConfig = config.chains[chainId] as any;
-    const vaultAddress = chainConfig?.vaultV2Address || chainConfig?.vaultAddress;
-
-    if (!vaultAddress) {
-      continue;
-    }
-
-    try {
-      // Get all users with auto-trade enabled
-      const users = await tradingService.getAutoTradeUsers(chainId);
-
-      logger.info(`Processing ${users.length} users on ${chainConfig.name}`);
-
-      // Process each user (could be parallelized with rate limiting)
-      for (const userAddress of users) {
-        await processUserTrades(chainId, userAddress);
-      }
-    } catch (err) {
-      logger.error('Error in trading cycle for chain', {
-        chainId,
-        chainName: chainConfig.name,
-        error: err
-      });
-    }
+  // Prevent concurrent trading cycles (race condition prevention)
+  if (isTradingCycleRunning) {
+    logger.debug('Trading cycle already running, skipping');
+    return;
   }
 
-  logger.info('Trading cycle complete');
+  isTradingCycleRunning = true;
+  logger.info('Starting trading cycle');
+
+  try {
+    for (const chainId of ACTIVE_CHAINS) {
+      const chainConfig = config.chains[chainId] as any;
+      const vaultAddress = chainConfig?.vaultV2Address || chainConfig?.vaultAddress;
+
+      if (!vaultAddress) {
+        continue;
+      }
+
+      try {
+        // Get all users with auto-trade enabled
+        const users = await tradingService.getAutoTradeUsers(chainId);
+
+        logger.info(`Processing ${users.length} users on ${chainConfig.name}`);
+
+        // Process each user sequentially to prevent race conditions
+        for (const userAddress of users) {
+          await processUserTrades(chainId, userAddress);
+        }
+      } catch (err) {
+        logger.error('Error in trading cycle for chain', {
+          chainId,
+          chainName: chainConfig.name,
+          error: err
+        });
+      }
+    }
+
+    logger.info('Trading cycle complete');
+  } finally {
+    isTradingCycleRunning = false;
+  }
 }
 
 /**
