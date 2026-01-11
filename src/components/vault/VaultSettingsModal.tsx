@@ -132,10 +132,10 @@ export default function VaultSettingsModal({
   const selectedRiskLevel = RISK_LEVELS.find(r => r.value === riskLevel) || RISK_LEVELS[1];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md mx-4 overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+        {/* Header - Fixed */}
+        <div className="flex items-center justify-between p-4 border-b border-zinc-800 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-zinc-800 rounded-lg">
               <Settings className="w-5 h-5 text-white" />
@@ -154,8 +154,8 @@ export default function VaultSettingsModal({
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-4 space-y-6">
+        {/* Content - Scrollable */}
+        <div className="p-4 space-y-6 overflow-y-auto flex-1">
           {/* Auto-Trade Toggle */}
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -345,8 +345,8 @@ export default function VaultSettingsModal({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-zinc-800">
+        {/* Footer - Fixed */}
+        <div className="p-4 border-t border-zinc-800 flex-shrink-0">
           <button
             onClick={handleSave}
             disabled={isLoading || success}
