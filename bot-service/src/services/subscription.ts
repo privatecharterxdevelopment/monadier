@@ -20,6 +20,11 @@ export interface TradePermission {
   planTier: string;
 }
 
+export interface UserTradingSettings {
+  takeProfitPercent: number;
+  stopLossPercent: number;
+}
+
 export class SubscriptionService {
   private supabase: SupabaseClient;
 
@@ -196,6 +201,33 @@ export class SubscriptionService {
       .eq('user_id', userId);
 
     logger.info('Daily trades reset', { userId });
+  }
+
+  /**
+   * Get user's custom TP/SL settings from vault_settings
+   */
+  async getUserTradingSettings(walletAddress: string, chainId: number): Promise<UserTradingSettings> {
+    try {
+      const { data, error } = await this.supabase
+        .from('vault_settings')
+        .select('take_profit_percent, stop_loss_percent')
+        .eq('wallet_address', walletAddress.toLowerCase())
+        .eq('chain_id', chainId)
+        .single();
+
+      if (error || !data) {
+        // Return defaults if not found
+        return { takeProfitPercent: 5, stopLossPercent: 1 };
+      }
+
+      return {
+        takeProfitPercent: data.take_profit_percent || 5,
+        stopLossPercent: data.stop_loss_percent || 1
+      };
+    } catch (err) {
+      logger.error('Failed to get user trading settings', { walletAddress, error: err });
+      return { takeProfitPercent: 5, stopLossPercent: 1 };
+    }
   }
 
   /**

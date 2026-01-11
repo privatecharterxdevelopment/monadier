@@ -409,6 +409,19 @@ export class TradingService {
       // Estimate tokens received (we'd need to parse logs for exact amount)
       const estimatedTokens = entryPrice > 0 ? entryAmount / entryPrice : 0;
 
+      // 7a. Get user's custom TP/SL settings (overrides dynamic analysis)
+      const userSettings = await subscriptionService.getUserTradingSettings(userAddress, chainId);
+      const finalTakeProfit = userSettings.takeProfitPercent;
+      const finalStopLoss = userSettings.stopLossPercent;
+
+      logger.info('Using user TP/SL settings', {
+        userAddress: userAddress.slice(0, 10),
+        userTP: finalTakeProfit + '%',
+        userSL: finalStopLoss + '%',
+        signalTP: signal.takeProfitPercent + '%',
+        signalSL: signal.trailingStopPercent + '%'
+      });
+
       const position = await positionService.openPosition({
         walletAddress: userAddress,
         chainId,
@@ -419,14 +432,14 @@ export class TradingService {
         entryAmount,
         tokenAmount: estimatedTokens,
         txHash,
-        trailingStopPercent: signal.trailingStopPercent, // Dynamic SL from market analysis
-        takeProfitPercent: signal.takeProfitPercent, // Dynamic TP from market analysis
+        trailingStopPercent: finalStopLoss, // Use user's stop loss
+        takeProfitPercent: finalTakeProfit, // Use user's take profit
         profitLockPercent: signal.profitLockPercent // 0.2% for aggressive, 0.5% default
       });
 
-      logger.info('Position opened with dynamic TP/SL', {
-        takeProfitPercent: signal.takeProfitPercent + '%',
-        trailingStopPercent: signal.trailingStopPercent + '%',
+      logger.info('Position opened with user TP/SL', {
+        takeProfitPercent: finalTakeProfit + '%',
+        trailingStopPercent: finalStopLoss + '%',
         profitLock: (signal.profitLockPercent || 0.5) + '%'
       });
 

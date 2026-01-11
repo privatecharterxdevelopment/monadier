@@ -8,6 +8,7 @@ import { formatUnits } from 'viem';
 import VaultDepositModal from './VaultDepositModal';
 import VaultWithdrawModal from './VaultWithdrawModal';
 import VaultSettingsModal from './VaultSettingsModal';
+import { supabase } from '../../lib/supabase';
 
 interface VaultBalanceCardProps {
   compact?: boolean; // For dashboard view
@@ -40,6 +41,8 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   const [autoTradeEnabled, setAutoTradeEnabled] = useState(false);
   const [riskLevelPercent, setRiskLevelPercent] = useState(5);
   const [maxTradeSize, setMaxTradeSize] = useState<string>('0.00');
+  const [takeProfit, setTakeProfit] = useState(5);
+  const [stopLoss, setStopLoss] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -86,6 +89,23 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
         setAutoTradeEnabled(status.autoTradeEnabled);
         setRiskLevelPercent(status.riskLevelPercent);
         setMaxTradeSize(status.maxTradeSizeFormatted);
+
+        // Fetch TP/SL settings from Supabase
+        try {
+          const { data: vaultSettings } = await supabase
+            .from('vault_settings')
+            .select('take_profit_percent, stop_loss_percent')
+            .eq('wallet_address', address.toLowerCase())
+            .eq('chain_id', chainId)
+            .single();
+
+          if (vaultSettings) {
+            setTakeProfit(vaultSettings.take_profit_percent || 5);
+            setStopLoss(vaultSettings.stop_loss_percent || 1);
+          }
+        } catch (e) {
+          // Settings may not exist yet, use defaults
+        }
 
         // Check V1 vault balance if V2 exists (migration scenario)
         const v1Address = VAULT_ADDRESSES[chainId];
@@ -403,6 +423,8 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
         <VaultSettingsModal
           currentRiskLevel={riskLevelPercent}
           autoTradeEnabled={autoTradeEnabled}
+          currentTakeProfit={takeProfit}
+          currentStopLoss={stopLoss}
           onClose={() => setShowSettingsModal(false)}
           onSuccess={() => {
             setShowSettingsModal(false);

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Settings, Loader2, AlertCircle, CheckCircle, Zap, Shield, AlertTriangle, Flame } from 'lucide-react';
+import { X, Settings, Loader2, AlertCircle, CheckCircle, Zap, Shield, AlertTriangle, Flame, TrendingUp, TrendingDown } from 'lucide-react';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { VaultClient } from '../../lib/vault';
@@ -8,6 +8,8 @@ import { supabase } from '../../lib/supabase';
 interface VaultSettingsModalProps {
   currentRiskLevel: number;
   autoTradeEnabled: boolean;
+  currentTakeProfit?: number;
+  currentStopLoss?: number;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -23,6 +25,8 @@ const RISK_LEVELS = [
 export default function VaultSettingsModal({
   currentRiskLevel,
   autoTradeEnabled: initialAutoTrade,
+  currentTakeProfit = 5,
+  currentStopLoss = 1,
   onClose,
   onSuccess
 }: VaultSettingsModalProps) {
@@ -31,11 +35,16 @@ export default function VaultSettingsModal({
 
   const [riskLevel, setRiskLevel] = useState(currentRiskLevel);
   const [autoTrade, setAutoTrade] = useState(initialAutoTrade);
+  const [takeProfit, setTakeProfit] = useState(currentTakeProfit);
+  const [stopLoss, setStopLoss] = useState(currentStopLoss);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const hasChanges = riskLevel !== currentRiskLevel || autoTrade !== initialAutoTrade;
+  const hasChanges = riskLevel !== currentRiskLevel ||
+    autoTrade !== initialAutoTrade ||
+    takeProfit !== currentTakeProfit ||
+    stopLoss !== currentStopLoss;
 
   const handleSave = async () => {
     if (!chainId || !address || !publicClient || !walletClient) return;
@@ -61,19 +70,21 @@ export default function VaultSettingsModal({
         const txHash = await vaultClient.setAutoTrade(autoTrade, address as `0x${string}`);
         await publicClient.waitForTransactionReceipt({ hash: txHash });
 
-        // Sync to Supabase so bot can find this user
-        await supabase.rpc('upsert_vault_settings', {
-          p_wallet_address: address.toLowerCase(),
-          p_chain_id: chainId,
-          p_auto_trade_enabled: autoTrade,
-          p_risk_level_bps: riskLevel * 100 // Convert % to basis points
-        });
-
         // Link wallet to subscription for bot trading (critical for new users!)
         if (autoTrade) {
           await linkWallet(address);
         }
       }
+
+      // Always sync settings to Supabase (including TP/SL)
+      await supabase.rpc('upsert_vault_settings', {
+        p_wallet_address: address.toLowerCase(),
+        p_chain_id: chainId,
+        p_auto_trade_enabled: autoTrade,
+        p_risk_level_bps: riskLevel * 100, // Convert % to basis points
+        p_take_profit_percent: takeProfit,
+        p_stop_loss_percent: stopLoss
+      });
 
       setSuccess(true);
       setTimeout(() => {
@@ -237,6 +248,69 @@ export default function VaultSettingsModal({
                   </span>
                 )}
               </p>
+            </div>
+          </div>
+
+          {/* Take Profit & Stop Loss */}
+          <div className="border-t border-zinc-800 pt-4">
+            <h3 className="text-white font-medium mb-4">Take Profit & Stop Loss</h3>
+
+            {/* Take Profit Slider */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-green-400" />
+                  <span className="text-sm text-zinc-400">Take Profit</span>
+                </div>
+                <span className="text-sm font-medium text-green-400">{takeProfit}%</span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="20"
+                step="0.5"
+                value={takeProfit}
+                onChange={(e) => setTakeProfit(parseFloat(e.target.value))}
+                disabled={isLoading}
+                className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-green-500"
+              />
+              <div className="flex justify-between text-xs text-zinc-500 mt-1">
+                <span>1%</span>
+                <span>10%</span>
+                <span>20%</span>
+              </div>
+            </div>
+
+            {/* Stop Loss Slider */}
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <TrendingDown className="w-4 h-4 text-red-400" />
+                  <span className="text-sm text-zinc-400">Trailing Stop Loss</span>
+                </div>
+                <span className="text-sm font-medium text-red-400">{stopLoss}%</span>
+              </div>
+              <input
+                type="range"
+                min="0.5"
+                max="10"
+                step="0.5"
+                value={stopLoss}
+                onChange={(e) => setStopLoss(parseFloat(e.target.value))}
+                disabled={isLoading}
+                className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-red-500"
+              />
+              <div className="flex justify-between text-xs text-zinc-500 mt-1">
+                <span>0.5%</span>
+                <span>5%</span>
+                <span>10%</span>
+              </div>
+            </div>
+
+            {/* TP/SL Info */}
+            <div className="bg-zinc-800/50 rounded-lg p-3 text-xs text-zinc-400">
+              <p><strong className="text-zinc-300">Take Profit:</strong> Close position when price rises {takeProfit}% from entry.</p>
+              <p className="mt-1"><strong className="text-zinc-300">Trailing Stop:</strong> Auto-adjusts as price rises. Triggers when price drops {stopLoss}% from peak.</p>
             </div>
           </div>
 

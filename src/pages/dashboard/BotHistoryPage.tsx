@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { History, TrendingUp, TrendingDown, Users, Trophy, Zap, Crown, Rocket, ExternalLink, RefreshCw, Activity, Clock, Timer, CheckCircle, XCircle, X, AlertTriangle } from 'lucide-react';
+import { History, TrendingUp, TrendingDown, Users, Trophy, Zap, Crown, Rocket, ExternalLink, RefreshCw, Activity, Clock, Timer, CheckCircle, XCircle, X, AlertTriangle, Settings } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
-import { VAULT_ABI, VAULT_V3_ADDRESSES } from '../../lib/vault';
+import { VAULT_ABI, VAULT_V3_ADDRESSES, VaultClient, VAULT_V2_ADDRESSES } from '../../lib/vault';
+import VaultSettingsModal from '../../components/vault/VaultSettingsModal';
 
 // Legacy trade format (from localStorage)
 interface LegacyTrade {
@@ -125,6 +126,50 @@ const BotHistoryPage: React.FC = () => {
     token: '',
     tokenAddress: ''
   });
+
+  // Bot Settings state
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [botSettings, setBotSettings] = useState({
+    autoTradeEnabled: false,
+    riskLevelPercent: 5,
+    takeProfit: 5,
+    stopLoss: 1
+  });
+
+  // Fetch bot settings
+  useEffect(() => {
+    const fetchBotSettings = async () => {
+      if (!address || !chainId || !publicClient) return;
+
+      try {
+        // Get on-chain settings
+        const vaultAddress = VAULT_V2_ADDRESSES[chainId as keyof typeof VAULT_V2_ADDRESSES];
+        if (vaultAddress) {
+          const vaultClient = new VaultClient(publicClient as any, null, chainId);
+          const status = await vaultClient.getUserStatus(address as `0x${string}`);
+
+          // Get TP/SL from Supabase
+          const { data: vaultSettings } = await supabase
+            .from('vault_settings')
+            .select('take_profit_percent, stop_loss_percent')
+            .eq('wallet_address', address.toLowerCase())
+            .eq('chain_id', chainId)
+            .single();
+
+          setBotSettings({
+            autoTradeEnabled: status.autoTradeEnabled,
+            riskLevelPercent: status.riskLevelPercent,
+            takeProfit: vaultSettings?.take_profit_percent || 5,
+            stopLoss: vaultSettings?.stop_loss_percent || 1
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching bot settings:', err);
+      }
+    };
+
+    fetchBotSettings();
+  }, [address, chainId, publicClient]);
 
   // Show confirmation modal
   const showCloseConfirm = (positionId: string, token: string, tokenAddress: string) => {
@@ -581,13 +626,56 @@ const BotHistoryPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-white">Bot Trading History</h1>
           <p className="text-secondary mt-1">View your positions and profits</p>
         </div>
-        <button
-          onClick={fetchPositions}
-          className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white transition-colors"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowSettingsModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 hover:border-blue-500/50 rounded-lg text-white transition-all"
+          >
+            <Settings size={16} />
+            Bot Settings
+          </button>
+          <button
+            onClick={fetchPositions}
+            className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white transition-colors"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* Current Bot Settings Summary */}
+      <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`w-3 h-3 rounded-full ${botSettings.autoTradeEnabled ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
+            <span className="text-white font-medium">
+              {botSettings.autoTradeEnabled ? 'Auto-Trading Active' : 'Auto-Trading Off'}
+            </span>
+          </div>
+          <div className="flex items-center gap-6 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-zinc-400">Risk:</span>
+              <span className="text-white font-medium">{botSettings.riskLevelPercent}%</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <TrendingUp size={14} className="text-green-400" />
+              <span className="text-zinc-400">TP:</span>
+              <span className="text-green-400 font-medium">{botSettings.takeProfit}%</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <TrendingDown size={14} className="text-red-400" />
+              <span className="text-zinc-400">SL:</span>
+              <span className="text-red-400 font-medium">{botSettings.stopLoss}%</span>
+            </div>
+            <button
+              onClick={() => setShowSettingsModal(true)}
+              className="text-blue-400 hover:text-blue-300 text-xs underline"
+            >
+              Edit Settings
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Stats Cards - Row 1: Main Stats */}
@@ -1174,6 +1262,21 @@ const BotHistoryPage: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Bot Settings Modal */}
+      {showSettingsModal && (
+        <VaultSettingsModal
+          currentRiskLevel={botSettings.riskLevelPercent}
+          autoTradeEnabled={botSettings.autoTradeEnabled}
+          currentTakeProfit={botSettings.takeProfit}
+          currentStopLoss={botSettings.stopLoss}
+          onClose={() => setShowSettingsModal(false)}
+          onSuccess={() => {
+            setShowSettingsModal(false);
+            window.location.reload();
+          }}
+        />
+      )}
     </div>
   );
 };
