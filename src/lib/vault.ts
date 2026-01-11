@@ -299,7 +299,7 @@ export const VAULT_V3_ADDRESSES: Record<number, `0x${string}` | null> = {
   1: null,      // Ethereum - not deployed yet
   56: null,     // BNB Chain - not deployed yet
   42161: null,  // Arbitrum - not deployed yet
-  8453: '0xAd1F46B955b783c142ea9D2d3F221Ac2F3D63e79',   // Base - LIVE (V3 + ETH deposit)
+  8453: '0x08Afb514255187d664d6b250D699Edc51491E803',   // Base - LIVE (V3 + 100% risk)
   137: null,    // Polygon - not deployed yet
 };
 

@@ -1,9 +1,9 @@
 {
   "network": "base",
   "chainId": "8453",
-  "vaultAddress": "0xAd1F46B955b783c142ea9D2d3F221Ac2F3D63e79",
+  "vaultAddress": "0x08Afb514255187d664d6b250D699Edc51491E803",
   "version": "V3",
-  "deployedAt": "2026-01-11T13:23:14.101Z",
+  "deployedAt": "2026-01-11T16:36:07.187Z",
   "platformFee": "1.0%",
   "emergencyCloseFee": "0.5%",
   "features": [

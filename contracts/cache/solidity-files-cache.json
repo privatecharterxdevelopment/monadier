@@ -310,8 +310,8 @@
       ]
     },
     "/Users/macbookair/monadier/contracts/contracts/MonadierTradingVaultV2.sol": {
-      "lastModificationDate": 1768066127028,
-      "contentHash": "c13db2106f055bb1499f3222e9dd5f21",
+      "lastModificationDate": 1768147697365,
+      "contentHash": "7db2ea2a03445cf9192a6b63293491c1",
       "sourceName": "contracts/MonadierTradingVaultV2.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -353,8 +353,8 @@
       ]
     },
     "/Users/macbookair/monadier/contracts/contracts/MonadierTradingVaultV3.sol": {
-      "lastModificationDate": 1768137743094,
-      "contentHash": "c821d13cedd14cd77a857ef399bed601",
+      "lastModificationDate": 1768147739208,
+      "contentHash": "365ae7032fe237fd0a51014d7d1dadd1",
       "sourceName": "contracts/MonadierTradingVaultV3.sol",
       "solcConfig": {
         "version": "0.8.24",
