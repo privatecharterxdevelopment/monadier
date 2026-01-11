@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Wallet, Settings, Bot, ArrowRight, CheckCircle, Download, TrendingUp, Bitcoin, BarChart3, Brain, Shield, Activity } from 'lucide-react';
+import { Wallet, Settings, Bot, ArrowRight, CheckCircle, Download, TrendingUp, Bitcoin, BarChart3, Brain, Shield, Activity, Target, Clock, Zap, Eye, LineChart } from 'lucide-react';
 import Logo from '../components/ui/Logo';
 import CookieConsent from '../components/ui/CookieConsent';
 import DownloadModal from '../components/ui/DownloadModal';
@@ -263,6 +263,131 @@ const HowItWorksPage: React.FC = () => {
                 <div className="flex items-center gap-2 text-gray-400 text-sm">
                   <Shield className="w-4 h-4" />
                   <span>Only high-confidence trades execute</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </section>
+
+        {/* Why Monadier Section */}
+        <section className="container-custom mb-24">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-3xl md:text-4xl font-display font-medium text-white mb-4">
+              Why Monadier?
+            </h2>
+            <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+              Hedge fund-grade technology, now accessible to everyone
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              {
+                icon: Target,
+                title: 'High Confidence Entries Only',
+                description: 'Only trades when 4+ factors align (75%+ confidence). No guessing, no FOMO trades.'
+              },
+              {
+                icon: Shield,
+                title: 'Adaptive Risk Management',
+                description: 'Dynamic trailing stops adjust hourly to market conditions. Profit-only mode protects your capital.'
+              },
+              {
+                icon: Bot,
+                title: '100% Autopilot or Manual',
+                description: 'Set it and forget it with confidence, or take manual control whenever you want.'
+              },
+              {
+                icon: Eye,
+                title: 'Transparent Signals',
+                description: 'See exactly why the bot enters or waits. No black box — full visibility into every decision.'
+              },
+              {
+                icon: Zap,
+                title: 'Real-Time Execution',
+                description: '1-hour candle analysis with instant position management. Every 10 seconds, the bot monitors.'
+              },
+              {
+                icon: LineChart,
+                title: 'Institutional Algorithms',
+                description: 'The same quantitative approach used by Renaissance Technologies and Citadel. Math over emotions.'
+              }
+            ].map((feature, index) => (
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors"
+              >
+                <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center mb-4">
+                  <feature.icon className="w-6 h-6 text-white/60" />
+                </div>
+                <h3 className="text-lg font-medium text-white mb-2">{feature.title}</h3>
+                <p className="text-gray-500 text-sm leading-relaxed">{feature.description}</p>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+
+        {/* The Quant Advantage Section */}
+        <section className="container-custom mb-24">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="relative p-8 md:p-12 rounded-3xl bg-gradient-to-br from-green-500/10 via-emerald-500/5 to-transparent border border-green-500/20 overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 w-96 h-96 bg-green-500/10 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2" />
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
+                  <TrendingUp className="w-6 h-6 text-green-400" />
+                </div>
+                <div>
+                  <h3 className="text-2xl md:text-3xl font-display font-medium text-white">
+                    The Quant Advantage
+                  </h3>
+                  <p className="text-gray-400 text-sm">What Hedge Funds Know (That You Should Too)</p>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-8">
+                <div>
+                  <p className="text-gray-300 leading-relaxed mb-6">
+                    Elite funds like <span className="text-white font-medium">Renaissance Technologies</span> achieve 66% annual
+                    returns using quantitative algorithms. They hire mathematicians, not traders. They trust data, not gut feelings.
+                  </p>
+                  <p className="text-gray-400 leading-relaxed mb-6">
+                    Our algorithm analyzes 7 technical indicators in real-time, entering trades only at 75%+ confidence.
+                    Like Renaissance and Citadel, we let mathematics—not emotions—drive every decision.
+                  </p>
+                  <p className="text-green-400 font-medium">
+                    What was once exclusive to billionaires is now available starting at $49/month.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  {[
+                    'Pure mathematical signals',
+                    'Multiple confirmation factors',
+                    'Systematic risk management',
+                    'Zero emotional bias',
+                    '24/7 automated execution'
+                  ].map((item, index) => (
+                    <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.03]">
+                      <CheckCircle className="w-5 h-5 text-green-400" />
+                      <span className="text-white">{item}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

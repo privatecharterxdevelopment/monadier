@@ -540,6 +540,13 @@ const DashboardOverview: React.FC = () => {
           </Card>
         </motion.div>
       </div>
+
+      {/* Risk Disclaimer */}
+      <div className="mt-8 p-4 bg-zinc-900/50 border border-zinc-800 rounded-lg">
+        <p className="text-xs text-zinc-500 leading-relaxed">
+          <span className="text-zinc-400 font-medium">Risk Disclosure:</span> Cryptocurrency trading involves substantial risk of loss. Past performance does not guarantee future results. Monadier provides software tools only—not investment advice. Users maintain full control and responsibility for all trades. Only invest what you can afford to lose. Not available in restricted jurisdictions.
+        </p>
+      </div>
     </motion.div>
   );
 };
