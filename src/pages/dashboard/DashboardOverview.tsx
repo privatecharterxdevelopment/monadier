@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRightIcon, BadgeCheck, Clock, Shield, Bot, History, AlertCircle, Package, Wallet, RefreshCw, CreditCard, ExternalLink } from 'lucide-react';
+import { ArrowRightIcon, BadgeCheck, Shield, Bot, History, AlertCircle, Package, Wallet, RefreshCw, CreditCard, ExternalLink } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
@@ -33,7 +33,7 @@ const DashboardOverview: React.FC = () => {
     isLoadingBalances,
     refreshBalances
   } = useWeb3();
-  const { kycStatus, creditLine, activeSubscription, verifyKYC, planTier, isSubscribed, dailyTradesRemaining } = useSubscription();
+  const { kycStatus, activeSubscription, verifyKYC, planTier, isSubscribed, dailyTradesRemaining } = useSubscription();
   const { open } = useAppKit();
 
   // Get membership display name based on subscription tier
@@ -244,23 +244,6 @@ const DashboardOverview: React.FC = () => {
                     Verify
                   </button>
                 )}
-              </div>
-
-              {/* Credit Line */}
-              <div className="flex space-x-4 mb-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  creditLine > 0 ? 'bg-green-500/10' : 'bg-gray-500/10'
-                }`}>
-                  <Clock size={16} className={creditLine > 0 ? 'text-green-400' : 'text-gray-500'} />
-                </div>
-                <div>
-                  <h4 className="font-medium text-sm text-white">Creditline</h4>
-                  <p className="text-gray-500 text-xs">
-                    {creditLine > 0
-                      ? `$${creditLine.toLocaleString()} available`
-                      : 'Subscribe to unlock'}
-                  </p>
-                </div>
               </div>
 
               {/* Active Subscription */}
