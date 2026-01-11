@@ -10,19 +10,6 @@ import { SUPPORTED_CHAINS, TESTNET_CHAINS, getChainById, getAllChains, isTestnet
 import { parseUnits, formatUnits } from 'viem';
 import { TradingSettings, GasEstimator, getDefaultConfig, TradingConfig, TradeHistoryItem } from '../../components/trading';
 import { verifyTrade } from '../../lib/api/subscription';
-import { VaultBalanceCard } from '../../components/vault';
-import { supabase } from '../../lib/supabase';
-
-// Bot position from Supabase
-interface BotPosition {
-  id: string;
-  token_symbol: string;
-  direction: 'LONG' | 'SHORT';
-  entry_price: number;
-  status: 'open' | 'closing' | 'closed' | 'failed';
-  take_profit_price: number | null;
-  trailing_stop_price: number | null;
-}
 
 interface TradingPair {
   symbol: string;
@@ -190,7 +177,6 @@ const TradingBotPage: React.FC = () => {
   const [sessionTradeCount, setSessionTradeCount] = useState(0);
   const [pendingReopen, setPendingReopen] = useState(false);
   const [turboMode, setTurboMode] = useState(false);
-  const [botPositions, setBotPositions] = useState<BotPosition[]>([]);
 
   // Minimum trade time - very short for aggressive trading
   const MIN_TRADE_TIME = turboMode ? 3 : 30; // 3 seconds in turbo, 30 seconds normal
@@ -768,33 +754,6 @@ const TradingBotPage: React.FC = () => {
       initial.push({ ...generateTopPerformerTrade(tradingPairs), time: new Date(Date.now() - Math.random() * 300000) });
     }
     setTopPerformers(initial.sort((a, b) => b.time.getTime() - a.time.getTime()));
-  }, []);
-
-  // Fetch bot positions from Supabase
-  useEffect(() => {
-    const fetchBotPositions = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('positions')
-          .select('id, token_symbol, direction, entry_price, status, take_profit_price, trailing_stop_price')
-          .in('status', ['open', 'closing'])
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          console.error('Error fetching bot positions:', error);
-          return;
-        }
-
-        setBotPositions(data || []);
-      } catch (err) {
-        console.error('Error fetching bot positions:', err);
-      }
-    };
-
-    fetchBotPositions();
-    // Refresh positions every 30 seconds
-    const interval = setInterval(fetchBotPositions, 30000);
-    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -1732,84 +1691,6 @@ const TradingBotPage: React.FC = () => {
           <rect x="calc(100% - 70px)" y={scaleY(resistance) - 8} width="65" height="16" fill="#ef4444" rx="2" opacity="0.2" />
           <text x="calc(100% - 38px)" y={scaleY(resistance) + 4} className="text-[8px] fill-red-400 font-medium" textAnchor="middle">{`R: $${resistance.toFixed(0)}`}</text>
 
-          {/* Bot Position Entry Lines */}
-          {botPositions
-            .filter(pos => {
-              // Match positions to current chart pair
-              const pairBase = selectedPair.symbol.split('/')[0];
-              return (
-                (pairBase === 'ETH' && (pos.token_symbol === 'WETH' || pos.token_symbol === 'ETH')) ||
-                (pairBase === pos.token_symbol)
-              );
-            })
-            .map((pos, idx) => {
-              const lineColor = pos.direction === 'LONG' ? '#3b82f6' : '#f59e0b'; // Blue for long, amber for short
-              const entryY = scaleY(pos.entry_price);
-              const tpY = pos.take_profit_price ? scaleY(pos.take_profit_price) : null;
-              const slY = pos.trailing_stop_price ? scaleY(pos.trailing_stop_price) : null;
-
-              return (
-                <g key={`bot-pos-${pos.id}`}>
-                  {/* Entry line - solid thin line */}
-                  <line
-                    x1="0"
-                    y1={entryY}
-                    x2="100%"
-                    y2={entryY}
-                    stroke={lineColor}
-                    strokeWidth="1.5"
-                    opacity="0.8"
-                  />
-                  {/* Entry label */}
-                  <rect x="4" y={entryY - 9} width="50" height="18" fill={lineColor} rx="2" opacity="0.9" />
-                  <text x="29" y={entryY + 4} className="text-[8px] fill-white font-bold" textAnchor="middle">
-                    {pos.direction}
-                  </text>
-                  {/* Price label on right */}
-                  <rect x="calc(100% - 85px)" y={entryY - 9} width="80" height="18" fill={lineColor} rx="2" opacity="0.9" />
-                  <text x="calc(100% - 45px)" y={entryY + 4} className="text-[8px] fill-white font-medium" textAnchor="middle">
-                    Entry: ${pos.entry_price.toFixed(2)}
-                  </text>
-
-                  {/* Take Profit line - dashed green */}
-                  {tpY && (
-                    <>
-                      <line
-                        x1="0"
-                        y1={tpY}
-                        x2="100%"
-                        y2={tpY}
-                        stroke="#22c55e"
-                        strokeWidth="1"
-                        strokeDasharray="4,2"
-                        opacity="0.6"
-                      />
-                      <rect x="4" y={tpY - 8} width="28" height="16" fill="#22c55e" rx="2" opacity="0.7" />
-                      <text x="18" y={tpY + 4} className="text-[7px] fill-white font-bold" textAnchor="middle">TP</text>
-                    </>
-                  )}
-
-                  {/* Trailing Stop line - dashed red */}
-                  {slY && (
-                    <>
-                      <line
-                        x1="0"
-                        y1={slY}
-                        x2="100%"
-                        y2={slY}
-                        stroke="#ef4444"
-                        strokeWidth="1"
-                        strokeDasharray="4,2"
-                        opacity="0.6"
-                      />
-                      <rect x="4" y={slY - 8} width="28" height="16" fill="#ef4444" rx="2" opacity="0.7" />
-                      <text x="18" y={slY + 4} className="text-[7px] fill-white font-bold" textAnchor="middle">SL</text>
-                    </>
-                  )}
-                </g>
-              );
-            })}
-
           {/* Grid Strategy Lines - Green (buy) below price, Red (sell) above price */}
           {tradingConfig.strategy === 'grid' && gridLevels.map((level, i) => {
             const isBuyZone = level < currentPrice;
@@ -2592,9 +2473,6 @@ const TradingBotPage: React.FC = () => {
                 </span>
               </div>
 
-              {/* Bot Wallet (Vault) */}
-              <VaultBalanceCard compact />
-
               {/* Paper Trading Warning for Free Tier */}
               {planTier === 'free' && (
                 <div className="flex items-center gap-2 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
@@ -2614,10 +2492,10 @@ const TradingBotPage: React.FC = () => {
                     <span className="text-gray-400 text-xs capitalize">{tradingConfig.strategy} Strategy</span>
                   </div>
 
-                  {/* Info: Auto trading handled elsewhere */}
+                  {/* Info: This is for manual trading */}
                   <div className="p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
                     <p className="text-xs text-blue-400">
-                      Auto trading runs in background. View positions on <span className="font-medium">Bot History</span> page.
+                      This page is for <span className="font-medium">manual trading</span>. Auto trades appear on the <span className="font-medium">Bot History</span> page.
                     </p>
                   </div>
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Settings, Loader2, AlertCircle, CheckCircle, Zap, Shield, AlertTriangle, Flame } from 'lucide-react';
 import { useWeb3 } from '../../contexts/Web3Context';
+import { useSubscription } from '../../contexts/SubscriptionContext';
 import { VaultClient } from '../../lib/vault';
 import { supabase } from '../../lib/supabase';
 

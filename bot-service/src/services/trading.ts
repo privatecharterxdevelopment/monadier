@@ -167,7 +167,8 @@ export class TradingService {
       const chain = CHAINS[chainId];
 
       // Use V2 vault address if available
-      const vaultAddress = (chainConfig as any).vaultV2Address || chainConfig.vaultAddress;
+      // Prefer V3 > V2 > V1
+      const vaultAddress = (chainConfig as any).vaultV3Address || (chainConfig as any).vaultV2Address || chainConfig.vaultAddress;
       if (!chain || !vaultAddress) continue;
 
       const publicClient = createPublicClient({
@@ -186,7 +187,8 @@ export class TradingService {
         wallet: walletClient as WalletClient
       });
 
-      logger.info(`Initialized V2 client for ${chainConfig.name}`, { chainId, vaultAddress });
+      const version = (chainConfig as any).vaultV3Address ? 'V3' : (chainConfig as any).vaultV2Address ? 'V2' : 'V1';
+      logger.info(`Initialized ${version} client for ${chainConfig.name}`, { chainId, vaultAddress });
     }
   }
 

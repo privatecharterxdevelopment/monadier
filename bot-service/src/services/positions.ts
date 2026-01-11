@@ -592,6 +592,67 @@ export class PositionService {
 
     return data?.length || 0;
   }
+
+  /**
+   * Save bot analysis for UI display
+   */
+  async saveAnalysis(params: {
+    chainId: number;
+    tokenAddress: string;
+    tokenSymbol: string;
+    signal: 'LONG' | 'SHORT' | 'HOLD';
+    confidence: number;
+    currentPrice: number;
+    factors: {
+      rsi: number;
+      macdSignal: string;
+      volumeSpike: boolean;
+      trend: string;
+      pattern: string | null;
+      priceChange24h: number;
+    };
+    recommendation: string;
+  }): Promise<void> {
+    try {
+      // Upsert - update if exists, insert if not
+      await this.supabase
+        .from('bot_analysis')
+        .upsert({
+          chain_id: params.chainId,
+          token_address: params.tokenAddress,
+          token_symbol: params.tokenSymbol,
+          signal: params.signal,
+          confidence: params.confidence,
+          current_price: params.currentPrice,
+          rsi: params.factors.rsi,
+          macd_signal: params.factors.macdSignal,
+          volume_spike: params.factors.volumeSpike,
+          trend: params.factors.trend,
+          pattern: params.factors.pattern,
+          price_change_24h: params.factors.priceChange24h,
+          recommendation: params.recommendation,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'chain_id,token_address'
+        });
+    } catch (err) {
+      logger.error('Failed to save analysis', { error: err });
+    }
+  }
+
+  /**
+   * Get latest bot analysis for display
+   */
+  async getLatestAnalysis(chainId: number): Promise<any[]> {
+    const { data } = await this.supabase
+      .from('bot_analysis')
+      .select('*')
+      .eq('chain_id', chainId)
+      .order('updated_at', { ascending: false })
+      .limit(10);
+
+    return data || [];
+  }
 }
 
 export const positionService = new PositionService();

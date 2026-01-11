@@ -61,6 +61,7 @@ interface SubscriptionContextType {
   activateLicense: (code: string) => Promise<{ success: boolean; error?: string }>;
   recordTrade: () => void;
   refreshSubscription: () => Promise<void>;
+  linkWallet: (walletAddress: string) => Promise<void>;
 
   // Upgrade prompts
   showUpgradeModal: boolean;
@@ -458,6 +459,29 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, [subscription]);
 
+  // Link wallet to subscription (for bot trading)
+  const linkWallet = useCallback(async (walletAddress: string) => {
+    if (!subscription || !walletAddress) return;
+
+    // Skip if already linked
+    if (subscription.walletAddress?.toLowerCase() === walletAddress.toLowerCase()) return;
+
+    try {
+      // Update subscription with wallet address
+      const { error } = await supabase
+        .from('subscriptions')
+        .update({ wallet_address: walletAddress.toLowerCase() })
+        .eq('id', subscription.id);
+
+      if (!error) {
+        setSubscription(prev => prev ? { ...prev, walletAddress: walletAddress.toLowerCase() } : null);
+        console.log('Wallet linked to subscription:', walletAddress);
+      }
+    } catch (err) {
+      console.error('Failed to link wallet:', err);
+    }
+  }, [subscription]);
+
   // Upgrade modal
   const openUpgradeModal = useCallback((reason: string) => {
     setUpgradeReason(reason);
@@ -496,6 +520,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         activateLicense,
         recordTrade,
         refreshSubscription,
+        linkWallet,
         showUpgradeModal,
         upgradeReason,
         openUpgradeModal,

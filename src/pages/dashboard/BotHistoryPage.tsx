@@ -889,7 +889,7 @@ const BotHistoryPage: React.FC = () => {
                     <div className={`flex items-center gap-1 font-mono text-sm ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
                       {isProfit ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
                       <div>
-                        <div>{isProfit ? '+' : ''}${Math.abs(profit) < 0.01 ? profit.toFixed(4) : profit.toFixed(2)}</div>
+                        <div>{isProfit ? '+' : ''}${Math.abs(profit) < 0.001 ? profit.toFixed(4) : profit.toFixed(3)}</div>
                         <div className="text-xs opacity-75">
                           ({isProfit ? '+' : ''}{profitPercent.toFixed(3)}%)
                         </div>

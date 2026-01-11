@@ -1,6 +1,7 @@
 import { logger } from '../utils/logger';
 import { TradeSignal } from './trading';
 import { parseUnits } from 'viem';
+import { positionService } from './positions';
 
 // Candle data structure
 interface Candle {
@@ -669,6 +670,31 @@ export async function generateTradeSignal(
   const strategyConfig = STRATEGY_CONFIGS[strategy];
   const analysis = await analyzeMarket(chainId, tokenAddress, strategy);
 
+  // Get token symbol
+  const symbol = TOKEN_SYMBOLS[chainId]?.[tokenAddress] || 'UNKNOWN';
+  const tokenSymbol = symbol.replace('USDT', '');
+
+  // Save analysis to Supabase for UI display (even if no trade)
+  if (analysis) {
+    await positionService.saveAnalysis({
+      chainId,
+      tokenAddress,
+      tokenSymbol,
+      signal: analysis.direction,
+      confidence: analysis.confidence,
+      currentPrice: parseFloat(analysis.metrics.macd) || 0,
+      factors: {
+        rsi: analysis.metrics.rsi,
+        macdSignal: analysis.metrics.macd,
+        volumeSpike: parseFloat(analysis.metrics.volumeRatio) > 1.5,
+        trend: analysis.metrics.trend,
+        pattern: analysis.indicators[0] || null,
+        priceChange24h: parseFloat(analysis.metrics.priceChange1h) || 0
+      },
+      recommendation: `${analysis.direction} - ${analysis.reason} (${analysis.confidence}% confidence)`
+    });
+  }
+
   if (!analysis) {
     return null;
   }
@@ -682,10 +708,6 @@ export async function generateTradeSignal(
 
   // Calculate minAmountOut with 1% slippage
   const minAmountOut = (tradeAmount * 99n) / 100n;
-
-  // Get token symbol
-  const symbol = TOKEN_SYMBOLS[chainId]?.[tokenAddress] || 'UNKNOWN';
-  const tokenSymbol = symbol.replace('USDT', '');
 
   return {
     direction: analysis.direction,
