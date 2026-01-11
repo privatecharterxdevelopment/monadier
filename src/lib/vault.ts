@@ -584,11 +584,11 @@ export class VaultClient {
   }
 
   /**
-   * Set risk level (1-50%)
+   * Set risk level (1-100%)
    */
   async setRiskLevel(percent: number, userAddress: `0x${string}`): Promise<`0x${string}`> {
-    if (percent < 1 || percent > 50) {
-      throw new Error('Risk level must be between 1% and 50%');
+    if (percent < 1 || percent > 100) {
+      throw new Error('Risk level must be between 1% and 100%');
     }
 
     const bps = BigInt(percent * 100);
