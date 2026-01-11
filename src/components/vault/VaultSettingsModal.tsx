@@ -94,8 +94,10 @@ export default function VaultSettingsModal({
 
       if (upsertError) {
         console.error('Failed to save vault settings:', upsertError);
+        throw new Error('Failed to save settings to database');
       }
 
+      console.log('Settings saved successfully:', { takeProfit, stopLoss, riskLevel, autoTrade });
       setSuccess(true);
       setTimeout(() => {
         onSuccess();
