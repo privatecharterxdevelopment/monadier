@@ -24,7 +24,8 @@ import { formatUnits } from 'viem';
 // Bot wallet address (from config)
 const BOT_WALLET = '0xC9a6D02a04e3B2E8d3941615EfcBA67593F46b8E';
 const TREASURY_WALLET = '0xF7351a5C63e0403F6F7FC77d31B5e17A229C469c';
-const V3_VAULT = '0x4DE3c142E866b38662F437d2285128C95d833f11';
+const V4_VAULT = '0x08Afb514255187d664d6b250D699Edc51491E803';
+const V3_VAULT = '0xAd1F46B955b783c142ea9D2d3F221Ac2F3D63e79';
 const V2_VAULT = '0x5eF29B4348d31c311918438e92a5fae7641Bc00a';
 
 interface SystemStats {
@@ -398,11 +399,11 @@ const AdminMonitorPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
             <div>
-              <p className="text-xs text-secondary">V3 Vault (Active)</p>
-              <code className="text-sm text-green-400">{V3_VAULT}</code>
+              <p className="text-xs text-secondary">V4 Vault (Active)</p>
+              <code className="text-sm text-green-400">{V4_VAULT}</code>
             </div>
             <a
-              href={`https://basescan.org/address/${V3_VAULT}`}
+              href={`https://basescan.org/address/${V4_VAULT}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-gray-500 hover:text-white"
@@ -510,7 +511,7 @@ const AdminMonitorPage: React.FC = () => {
         <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
           <div className="flex items-center gap-3 mb-3">
             <Shield size={20} className="text-green-400" />
-            <span className="font-semibold text-white">Security (V3)</span>
+            <span className="font-semibold text-white">Security (V4)</span>
           </div>
           <div className="space-y-2">
             <div className="flex justify-between text-sm">

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { History, TrendingUp, TrendingDown, Users, Trophy, Zap, Crown, Rocket, ExternalLink, RefreshCw, Activity, Clock, Timer, CheckCircle, XCircle, X, AlertTriangle, Settings, Info } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
-import { VAULT_ABI, VAULT_V3_ADDRESSES, VaultClient, VAULT_V2_ADDRESSES } from '../../lib/vault';
+import { VAULT_ABI, VAULT_V4_ADDRESSES, VAULT_V3_ADDRESSES, VaultClient, VAULT_V2_ADDRESSES } from '../../lib/vault';
 import VaultSettingsModal from '../../components/vault/VaultSettingsModal';
 
 // Legacy trade format (from localStorage)
@@ -191,12 +191,12 @@ const BotHistoryPage: React.FC = () => {
       // Get the position data for P/L calculation
       const position = positions.find(p => p.id === positionId) || allPositions.find(p => p.id === positionId);
 
-      // Get V3 vault address
-      const vaultAddress = VAULT_V3_ADDRESSES[chainId as keyof typeof VAULT_V3_ADDRESSES];
+      // Get V4 vault address (fallback to V3)
+      const vaultAddress = VAULT_V4_ADDRESSES[chainId as keyof typeof VAULT_V4_ADDRESSES] || VAULT_V3_ADDRESSES[chainId as keyof typeof VAULT_V3_ADDRESSES];
 
       if (vaultAddress) {
-        // V3: Call contract directly - USER CLOSES WITHOUT BOT
-        console.log('Calling V3 emergencyClosePosition directly...', { tokenAddress, vaultAddress });
+        // V4/V3: Call contract directly - USER CLOSES WITHOUT BOT
+        console.log('Calling V4 emergencyClosePosition directly...', { tokenAddress, vaultAddress });
 
         const hash = await walletClient.writeContract({
           address: vaultAddress,
@@ -244,7 +244,7 @@ const BotHistoryPage: React.FC = () => {
           .from('positions')
           .update({
             status: 'closed',
-            close_reason: 'emergency_user_v3',
+            close_reason: 'emergency_user_v4',
             closed_at: new Date().toISOString(),
             exit_price: exitPrice,
             profit_loss: profitLoss,
@@ -252,10 +252,10 @@ const BotHistoryPage: React.FC = () => {
           })
           .eq('id', positionId);
 
-        console.log('Position closed via V3 contract!');
+        console.log('Position closed via V4 contract!');
       } else {
         // Fallback: Mark for bot to close (V2 behavior)
-        console.log('No V3 vault, falling back to bot close...');
+        console.log('No V4 vault, falling back to bot close...');
         await supabase
           .from('positions')
           .update({

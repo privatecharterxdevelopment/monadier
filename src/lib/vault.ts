@@ -358,7 +358,7 @@ export const RISK_PRESETS = {
   low: { bps: 500, percent: 5, label: 'Low (5%)' },
   medium: { bps: 1500, percent: 15, label: 'Medium (15%)' },
   high: { bps: 3000, percent: 30, label: 'High (30%)' },
-  maximum: { bps: 5000, percent: 50, label: 'Maximum (50%)' },
+  maximum: { bps: 10000, percent: 100, label: 'All-In (100%)' },
 } as const;
 
 export interface VaultUserStatus {

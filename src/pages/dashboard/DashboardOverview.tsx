@@ -313,7 +313,7 @@ const DashboardOverview: React.FC = () => {
                 </div>
                 <div className="bg-background rounded-lg p-3">
                   <p className="text-gray-500 text-xs mb-1">Max Risk</p>
-                  <p className="text-white font-medium">50%</p>
+                  <p className="text-white font-medium">100%</p>
                 </div>
               </div>
             </Card>
