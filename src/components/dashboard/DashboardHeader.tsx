@@ -1,14 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, ChevronDown, AlertTriangle, Wallet, CheckCircle, X, TrendingUp, TrendingDown, Check } from 'lucide-react';
+import { Bell, ChevronDown, AlertTriangle, Wallet, CheckCircle, X, TrendingUp, TrendingDown, Check, User, LogOut } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import Button from '../ui/Button';
 import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
+import { useNavigate } from 'react-router-dom';
+import { signOut } from '../../lib/supabase';
 
 const DashboardHeader: React.FC = () => {
   const { profile, user } = useAuth();
   const { kycStatus, verifyKYC, planTier, isSubscribed } = useSubscription();
+  const navigate = useNavigate();
 
   // Get display name - prefer full_name, then email username, then fallback
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Member';
@@ -17,18 +20,33 @@ const DashboardHeader: React.FC = () => {
   const { address, isConnected } = useAppKitAccount();
   const needsVerification = kycStatus !== 'verified';
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
         setShowNotifications(false);
       }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/', { replace: true });
+    } catch (error) {
+      console.error('Sign out error:', error);
+      navigate('/', { replace: true });
+    }
+  };
 
   const formatTimeAgo = (date: Date) => {
     const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
@@ -184,20 +202,50 @@ const DashboardHeader: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center space-x-3 cursor-pointer hover:bg-white/5 px-3 py-2 rounded-lg transition-colors">
-            <div className="w-9 h-9 bg-white/10 rounded-full flex items-center justify-center text-white font-medium">
-              {displayName.charAt(0).toUpperCase()}
+          {/* User Menu Dropdown */}
+          <div className="relative" ref={userMenuRef}>
+            <div
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center space-x-3 cursor-pointer hover:bg-white/5 px-3 py-2 rounded-lg transition-colors"
+            >
+              <div className="w-9 h-9 bg-white/10 rounded-full flex items-center justify-center text-white font-medium">
+                {displayName.charAt(0).toUpperCase()}
+              </div>
+              <div className="hidden md:block">
+                <p className="text-sm font-medium text-white">{displayName}</p>
+                <p className="text-xs text-gray-500">
+                  {planTier === 'elite' || planTier === 'desktop' ? 'Elite Member' :
+                   planTier === 'pro' ? 'Pro Member' :
+                   planTier === 'starter' ? 'Starter Member' :
+                   'Free Member'}
+                </p>
+              </div>
+              <ChevronDown size={16} className={`text-gray-500 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
             </div>
-            <div className="hidden md:block">
-              <p className="text-sm font-medium text-white">{displayName}</p>
-              <p className="text-xs text-gray-500">
-                {planTier === 'elite' || planTier === 'desktop' ? 'Elite Member' :
-                 planTier === 'pro' ? 'Pro Member' :
-                 planTier === 'starter' ? 'Starter Member' :
-                 'Free Member'}
-              </p>
-            </div>
-            <ChevronDown size={16} className="text-gray-500" />
+
+            {/* User Dropdown Menu */}
+            {showUserMenu && (
+              <div className="absolute right-0 mt-2 w-48 bg-card-dark border border-gray-800 rounded-xl shadow-2xl overflow-hidden z-50">
+                <button
+                  onClick={() => {
+                    navigate('/dashboard/profile');
+                    setShowUserMenu(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
+                >
+                  <User size={18} />
+                  <span>Profile</span>
+                </button>
+                <div className="border-t border-gray-800" />
+                <button
+                  onClick={handleSignOut}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-300 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                >
+                  <LogOut size={18} />
+                  <span>Logout</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

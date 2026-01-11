@@ -22,12 +22,12 @@ const DashboardPage: React.FC = () => {
           <main className="py-8">
             <Routes>
               <Route path="/" element={<DashboardOverview />} />
-              <Route path="/trading-bot" element={<TradingBotPage />} />
-              <Route path="/bot-history" element={<BotHistoryPage />} />
+              <Route path="/chart-trading" element={<TradingBotPage />} />
+              <Route path="/trading-bot" element={<BotHistoryPage />} />
               <Route path="/monitor" element={<AdminMonitorPage />} />
               <Route path="/downloads" element={<DownloadsPage />} />
               <Route path="/subscriptions" element={<SubscriptionsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/profile" element={<SettingsPage />} />
             </Routes>
           </main>
         </div>
