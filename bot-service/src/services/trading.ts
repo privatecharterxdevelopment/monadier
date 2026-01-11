@@ -326,14 +326,14 @@ export class TradingService {
       return { success: false, error: 'No balance in vault' };
     }
 
-    // 3. Check for existing position in this token
-    const hasPosition = await positionService.hasOpenPosition(
-      userAddress,
-      chainId,
-      signal.tokenAddress
+    // 3. Check position count for this token (allow max 2)
+    const MAX_POSITIONS_PER_TOKEN = 2;
+    const openPositions = await positionService.getOpenPositions(userAddress, chainId);
+    const tokenPositions = openPositions.filter(p =>
+      p.token_address.toLowerCase() === signal.tokenAddress.toLowerCase()
     );
-    if (hasPosition) {
-      return { success: false, error: 'Already have open position in this token' };
+    if (tokenPositions.length >= MAX_POSITIONS_PER_TOKEN) {
+      return { success: false, error: `Max ${MAX_POSITIONS_PER_TOKEN} positions per token reached` };
     }
 
     // 4. Calculate trade amount based on risk level

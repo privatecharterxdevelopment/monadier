@@ -58,7 +58,7 @@ export const config = {
 
   // Trading settings
   trading: {
-    checkIntervalMs: 30000, // Check every 30 seconds
+    checkIntervalMs: 10000, // Check every 10 seconds - faster trading!
     minConfidence: 70, // Minimum AI confidence to trade
     defaultSlippage: 0.5, // 0.5% default slippage
   },

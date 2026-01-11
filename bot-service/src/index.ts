@@ -16,6 +16,11 @@ const ACTIVE_CHAINS: ChainId[] = [8453]; // Only Base for now with V2
 let isTradingCycleRunning = false;
 let isMonitoringCycleRunning = false;
 
+// Cooldown tracking to prevent duplicate trades
+const lastTradeTimestamp: Map<string, number> = new Map();
+const TRADE_COOLDOWN_MS = 60000; // 60 second cooldown between trades for same token
+const MAX_POSITIONS_PER_TOKEN = 2; // Allow up to 2 positions per token
+
 // Token addresses for trading (WETH on each chain)
 const TRADE_TOKENS: Record<ChainId, { address: `0x${string}`; symbol: string }> = {
   8453: {
@@ -103,14 +108,31 @@ async function processUserTrades(
       return;
     }
 
-    // 4. Check if user already has an open position in this token
-    const hasPosition = await positionService.hasOpenPosition(
-      userAddress,
-      chainId,
-      tokenConfig.address
+    // 4. Check position count and cooldown
+    const openPositions = await positionService.getOpenPositions(userAddress, chainId);
+    const tokenPositions = openPositions.filter(p =>
+      p.token_address.toLowerCase() === tokenConfig.address.toLowerCase()
     );
-    if (hasPosition) {
-      logger.debug('User already has open position', { userAddress, token: tokenConfig.symbol });
+
+    // Max 2 positions per token
+    if (tokenPositions.length >= MAX_POSITIONS_PER_TOKEN) {
+      logger.debug('Max positions reached for token', {
+        userAddress,
+        token: tokenConfig.symbol,
+        count: tokenPositions.length
+      });
+      return;
+    }
+
+    // Check cooldown to prevent rapid duplicate trades
+    const cooldownKey = `${userAddress}-${chainId}-${tokenConfig.address}`;
+    const lastTrade = lastTradeTimestamp.get(cooldownKey);
+    if (lastTrade && Date.now() - lastTrade < TRADE_COOLDOWN_MS) {
+      logger.debug('Trade cooldown active', {
+        userAddress,
+        token: tokenConfig.symbol,
+        cooldownRemaining: Math.ceil((TRADE_COOLDOWN_MS - (Date.now() - lastTrade)) / 1000) + 's'
+      });
       return;
     }
 
@@ -142,11 +164,16 @@ async function processUserTrades(
     const result = await tradingService.openPosition(chainId, userAddress, signal);
 
     if (result.success) {
+      // Set cooldown to prevent immediate duplicate
+      const cooldownKey = `${userAddress}-${chainId}-${tokenConfig.address}`;
+      lastTradeTimestamp.set(cooldownKey, Date.now());
+
       logger.info('Position opened successfully', {
         userAddress,
         txHash: result.txHash,
         positionId: result.positionId,
-        amountIn: result.amountIn
+        amountIn: result.amountIn,
+        cooldown: '60s active'
       });
     } else {
       logger.warn('Failed to open position', {

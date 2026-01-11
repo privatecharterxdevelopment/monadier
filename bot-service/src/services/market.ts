@@ -312,26 +312,45 @@ export async function analyzeMarket(
   const trend = isStrongUptrend ? 'STRONG_UPTREND' : isStrongDowntrend ? 'STRONG_DOWNTREND' : 'NEUTRAL';
 
   // === 6-FACTOR CONFIRMATION SYSTEM (SAME AS UI) ===
+  // Pattern detection is SUPER important - these arrows work great!
 
-  // SHORT CONDITIONS (6 factors)
+  // Hammer pattern (bullish reversal)
+  const isHammer = hasLongLowerWick &&
+    upperWick < lastCandleBody * 0.5 &&
+    lowerWick > lastCandleBody * 2;
+
+  // Shooting star (bearish reversal)
+  const isShootingStar = hasLongUpperWick &&
+    lowerWick < lastCandleBody * 0.5 &&
+    upperWick > lastCandleBody * 2;
+
+  // Strong pattern detection (these are the chart arrows that work great!)
+  const hasBullishPattern = isBullishEngulfing || isHammer || (hasLongLowerWick && lastCandleIsBullish);
+  const hasBearishPattern = isBearishEngulfing || isShootingStar || (hasLongUpperWick && lastCandleIsBearish);
+
+  // SHORT CONDITIONS (6 factors) - Patterns get extra weight!
   const shortConditions = {
     rsiOverbought: rsi > 70 || (rsi > 60 && rsiFalling),
     macdBearish: macd < -0.5 || (macdCrossunder && Math.abs(macd) > 0.2),
     volumeConfirmed: isHighVolume && priceChange1h < 0,
     priceRejectedResistance: nearResistance && (isBearishEngulfing || hasLongUpperWick),
     lowerHighsForming: isFormingLowerHighs,
-    immediateBearish: immediateBearishMomentum
+    immediateBearish: immediateBearishMomentum,
+    // BONUS: Strong pattern detection (chart arrows!)
+    strongBearishPattern: hasBearishPattern
   };
   const shortConditionsMet = Object.values(shortConditions).filter(Boolean).length;
 
-  // LONG CONDITIONS (6 factors)
+  // LONG CONDITIONS (6 factors) - Patterns get extra weight!
   const longConditions = {
     rsiOversold: rsi < 30 || (rsi < 40 && rsiRising),
     macdBullish: macd > 0.5 || (macdCrossover && Math.abs(macd) > 0.2),
     volumeConfirmed: isHighVolume && priceChange1h > 0,
     priceBouncingSupport: nearSupport && (isBullishEngulfing || hasLongLowerWick),
     higherLowsForming: isFormingHigherLows,
-    immediateBullish: immediateBullishMomentum
+    immediateBullish: immediateBullishMomentum,
+    // BONUS: Strong pattern detection (chart arrows!)
+    strongBullishPattern: hasBullishPattern
   };
   const longConditionsMet = Object.values(longConditions).filter(Boolean).length;
 
@@ -347,10 +366,11 @@ export async function analyzeMarket(
     shortConditionsMet
   });
 
-  // === CONFIDENCE SCORING ===
+  // === CONFIDENCE SCORING (now 7 factors with pattern bonus) ===
   const calculateConfidence = (conditionsMet: number): number => {
-    if (conditionsMet >= 5) return 92;
-    if (conditionsMet >= 4) return 85;
+    if (conditionsMet >= 6) return 95; // 6+ factors = very high confidence
+    if (conditionsMet >= 5) return 90;
+    if (conditionsMet >= 4) return 80;
     if (conditionsMet === 3) return 65;
     if (conditionsMet === 2) return 45;
     return 25;
@@ -437,6 +457,12 @@ export async function analyzeMarket(
   const indicators: string[] = [];
 
   if (finalDirection === 'LONG') {
+    // Pattern first - these are the chart arrows that work great!
+    if (conditions.strongBullishPattern) {
+      if (isBullishEngulfing) indicators.push('Bullish Engulfing');
+      else if (isHammer) indicators.push('Hammer');
+      else indicators.push('Long Lower Wick');
+    }
     if (conditions.rsiOversold) indicators.push(`RSI ${rsi.toFixed(0)}${rsiRising ? ' ↗' : ''}`);
     if (conditions.macdBullish) indicators.push(macdCrossover ? 'MACD Cross ↑' : 'MACD Bullish');
     if (conditions.volumeConfirmed) indicators.push(`Vol ${volumeRatio.toFixed(1)}x ↑`);
@@ -444,6 +470,12 @@ export async function analyzeMarket(
     if (conditions.higherLowsForming) indicators.push('Higher Lows');
     if (conditions.immediateBullish) indicators.push('Strong Green Candle');
   } else {
+    // Pattern first - these are the chart arrows that work great!
+    if (conditions.strongBearishPattern) {
+      if (isBearishEngulfing) indicators.push('Bearish Engulfing');
+      else if (isShootingStar) indicators.push('Shooting Star');
+      else indicators.push('Long Upper Wick');
+    }
     if (conditions.rsiOverbought) indicators.push(`RSI ${rsi.toFixed(0)}${rsiFalling ? ' ↘' : ''}`);
     if (conditions.macdBearish) indicators.push(macdCrossunder ? 'MACD Cross ↓' : 'MACD Bearish');
     if (conditions.volumeConfirmed) indicators.push(`Vol ${volumeRatio.toFixed(1)}x ↓`);
@@ -451,10 +483,6 @@ export async function analyzeMarket(
     if (conditions.lowerHighsForming) indicators.push('Lower Highs');
     if (conditions.immediateBearish) indicators.push('Strong Red Candle');
   }
-
-  // Add candle pattern bonuses
-  if (isBullishEngulfing && finalDirection === 'LONG') indicators.push('Bullish Engulfing');
-  if (isBearishEngulfing && finalDirection === 'SHORT') indicators.push('Bearish Engulfing');
 
   // Build reason
   const reason = indicators.slice(0, 3).join(' + ') || `${conditionsMet}/6 factors`;
