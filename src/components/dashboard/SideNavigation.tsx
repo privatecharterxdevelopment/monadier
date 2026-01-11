@@ -23,8 +23,6 @@ const SideNavigation: React.FC = () => {
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/dashboard/trading-bot', label: 'Trading Bot', icon: Bot },
     { path: '/dashboard/chart-trading', label: 'Chart Trading', icon: LineChart },
-    { path: '/dashboard/monitor', label: 'Monitor', icon: Activity },
-    { path: '/dashboard/downloads', label: 'Downloads', icon: Download },
     { path: '/dashboard/subscriptions', label: 'Subscriptions', icon: Package },
     { path: '/dashboard/profile', label: 'Profile', icon: User }
   ];
