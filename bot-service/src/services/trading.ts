@@ -166,9 +166,9 @@ export class TradingService {
       const chainId = parseInt(chainIdStr) as ChainId;
       const chain = CHAINS[chainId];
 
-      // Use V2 vault address if available
-      // Prefer V3 > V2 > V1
-      const vaultAddress = (chainConfig as any).vaultV3Address || (chainConfig as any).vaultV2Address || chainConfig.vaultAddress;
+      // Use best vault address available
+      // Prefer V4 > V3 > V2 > V1
+      const vaultAddress = (chainConfig as any).vaultV4Address || (chainConfig as any).vaultV3Address || (chainConfig as any).vaultV2Address || chainConfig.vaultAddress;
       if (!chain || !vaultAddress) continue;
 
       const publicClient = createPublicClient({
@@ -187,18 +187,18 @@ export class TradingService {
         wallet: walletClient as WalletClient
       });
 
-      const version = (chainConfig as any).vaultV3Address ? 'V3' : (chainConfig as any).vaultV2Address ? 'V2' : 'V1';
+      const version = (chainConfig as any).vaultV4Address ? 'V4' : (chainConfig as any).vaultV3Address ? 'V3' : (chainConfig as any).vaultV2Address ? 'V2' : 'V1';
       logger.info(`Initialized ${version} client for ${chainConfig.name}`, { chainId, vaultAddress });
     }
   }
 
   /**
-   * Get best vault address for a chain (prefers V3 > V2 > V1)
+   * Get best vault address for a chain (prefers V4 > V3 > V2 > V1)
    */
   private getV2VaultAddress(chainId: ChainId): `0x${string}` | undefined {
     const chainConfig = config.chains[chainId] as any;
-    // Prefer V3 (secure with user emergency close) > V2 > V1
-    return chainConfig?.vaultV3Address || chainConfig?.vaultV2Address || chainConfig?.vaultAddress;
+    // Prefer V4 (100% risk) > V3 (secure) > V2 > V1
+    return chainConfig?.vaultV4Address || chainConfig?.vaultV3Address || chainConfig?.vaultV2Address || chainConfig?.vaultAddress;
   }
 
   /**

@@ -413,7 +413,7 @@ async function runTradingCycle(): Promise<void> {
   try {
     for (const chainId of ACTIVE_CHAINS) {
       const chainConfig = config.chains[chainId] as any;
-      const vaultAddress = chainConfig?.vaultV3Address || chainConfig?.vaultV2Address || chainConfig?.vaultAddress;
+      const vaultAddress = chainConfig?.vaultV4Address || chainConfig?.vaultV3Address || chainConfig?.vaultV2Address || chainConfig?.vaultAddress;
 
       if (!vaultAddress) {
         continue;
@@ -449,8 +449,8 @@ async function runTradingCycle(): Promise<void> {
  */
 function logStartupInfo(): void {
   logger.info('='.repeat(50));
-  logger.info('Monadier Trading Bot Service V3');
-  logger.info('Features: Position Holding + Trailing Stops + ETH Deposit');
+  logger.info('Monadier Trading Bot Service V4');
+  logger.info('Features: Position Holding + Trailing Stops + 100% Risk Level');
   logger.info('='.repeat(50));
 
   logger.info('Configuration:', {
@@ -462,10 +462,12 @@ function logStartupInfo(): void {
 
   for (const [chainIdStr, chainConfig] of Object.entries(config.chains)) {
     const cc = chainConfig as any;
+    const v4Address = cc.vaultV4Address;
     const v3Address = cc.vaultV3Address;
     const v2Address = cc.vaultV2Address;
     const v1Address = cc.vaultAddress;
-    const status = v3Address ? `V3 Active (${v3Address.slice(0, 10)}...)` :
+    const status = v4Address ? `V4 Active (${v4Address.slice(0, 10)}...)` :
+                   v3Address ? `V3 Active (${v3Address.slice(0, 10)}...)` :
                    v2Address ? `V2 Active (${v2Address.slice(0, 10)}...)` :
                    v1Address ? `V1 Only (${v1Address.slice(0, 10)}...)` : 'No Vault';
     logger.info(`Chain ${cc.name}: ${status}`);

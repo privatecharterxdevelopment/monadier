@@ -299,7 +299,16 @@ export const VAULT_V3_ADDRESSES: Record<number, `0x${string}` | null> = {
   1: null,      // Ethereum - not deployed yet
   56: null,     // BNB Chain - not deployed yet
   42161: null,  // Arbitrum - not deployed yet
-  8453: '0x08Afb514255187d664d6b250D699Edc51491E803',   // Base - LIVE (V3 + 100% risk)
+  8453: '0xAd1F46B955b783c142ea9D2d3F221Ac2F3D63e79',   // Base - OLD V3
+  137: null,    // Polygon - not deployed yet
+};
+
+// V4 Vault addresses (V3 + 100% risk level support)
+export const VAULT_V4_ADDRESSES: Record<number, `0x${string}` | null> = {
+  1: null,      // Ethereum - not deployed yet
+  56: null,     // BNB Chain - not deployed yet
+  42161: null,  // Arbitrum - not deployed yet
+  8453: '0x08Afb514255187d664d6b250D699Edc51491E803',   // Base - LIVE (V4)
   137: null,    // Polygon - not deployed yet
 };
 
@@ -392,8 +401,8 @@ export class VaultClient {
     this.walletClient = walletClient;
     this.chainId = chainId;
 
-    // Prefer V3 (secure) > V2 > V1
-    const vaultAddr = VAULT_V3_ADDRESSES[chainId] || VAULT_V2_ADDRESSES[chainId] || VAULT_ADDRESSES[chainId];
+    // Prefer V4 > V3 > V2 > V1
+    const vaultAddr = VAULT_V4_ADDRESSES[chainId] || VAULT_V3_ADDRESSES[chainId] || VAULT_V2_ADDRESSES[chainId] || VAULT_ADDRESSES[chainId];
     if (!vaultAddr) {
       throw new Error(`Vault not deployed on chain ${chainId}`);
     }
@@ -410,7 +419,7 @@ export class VaultClient {
    * Check if vault is available on this chain
    */
   static isAvailable(chainId: number): boolean {
-    return VAULT_V3_ADDRESSES[chainId] !== null || VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null;
+    return VAULT_V4_ADDRESSES[chainId] !== null || VAULT_V3_ADDRESSES[chainId] !== null || VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null;
   }
 
   /**
