@@ -58,6 +58,21 @@ const getTokenSymbol = (addressOrSymbol: string): string => {
   return TOKEN_SYMBOLS[lower] || `${addressOrSymbol.slice(0, 6)}...`;
 };
 
+// Block explorer URLs by chain ID
+const BLOCK_EXPLORERS: Record<number, string> = {
+  1: 'https://etherscan.io',
+  8453: 'https://basescan.org',
+  137: 'https://polygonscan.com',
+  42161: 'https://arbiscan.io',
+  56: 'https://bscscan.com',
+};
+
+// Get block explorer URL for address
+const getExplorerUrl = (chainId: number, address: string): string => {
+  const baseUrl = BLOCK_EXPLORERS[chainId] || 'https://basescan.org';
+  return `${baseUrl}/address/${address}`;
+};
+
 interface Position {
   id: string;
   wallet_address: string;
@@ -992,39 +1007,72 @@ const BotHistoryPage: React.FC = () => {
                     {/* Result / Actions */}
                     <div className="flex items-center gap-2">
                       {position.status === 'closed' ? (
-                        isProfit ? (
-                          <div className="flex items-center gap-1.5 text-green-400">
-                            <CheckCircle size={18} />
-                            <span className="font-medium">WIN</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5 text-red-400">
-                            <XCircle size={18} />
-                            <span className="font-medium">LOSS</span>
-                          </div>
-                        )
-                      ) : position.status === 'open' ? (
-                        <button
-                          onClick={() => showCloseConfirm(position.id, position.token_symbol || 'WETH', position.token_address)}
-                          disabled={closingPositionId === position.id}
-                          className="flex items-center gap-1 px-2 py-1 bg-red-500/20 hover:bg-red-500/40 text-red-400 rounded text-xs font-medium transition-colors disabled:opacity-50"
-                        >
-                          {closingPositionId === position.id ? (
-                            <>
-                              <RefreshCw size={12} className="animate-spin" />
-                              Closing...
-                            </>
+                        <div className="flex items-center gap-2">
+                          {isProfit ? (
+                            <div className="flex items-center gap-1.5 text-green-400">
+                              <CheckCircle size={18} />
+                              <span className="font-medium">WIN</span>
+                            </div>
                           ) : (
-                            <>
-                              <X size={12} />
-                              Close
-                            </>
+                            <div className="flex items-center gap-1.5 text-red-400">
+                              <XCircle size={18} />
+                              <span className="font-medium">LOSS</span>
+                            </div>
                           )}
-                        </button>
+                          <a
+                            href={getExplorerUrl(position.chain_id, position.wallet_address)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1 hover:bg-white/10 rounded text-blue-400 hover:text-blue-300 transition-colors"
+                            title="View on block explorer"
+                          >
+                            <ExternalLink size={14} />
+                          </a>
+                        </div>
+                      ) : position.status === 'open' ? (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => showCloseConfirm(position.id, position.token_symbol || 'WETH', position.token_address)}
+                            disabled={closingPositionId === position.id}
+                            className="flex items-center gap-1 px-2 py-1 bg-red-500/20 hover:bg-red-500/40 text-red-400 rounded text-xs font-medium transition-colors disabled:opacity-50"
+                          >
+                            {closingPositionId === position.id ? (
+                              <>
+                                <RefreshCw size={12} className="animate-spin" />
+                                Closing...
+                              </>
+                            ) : (
+                              <>
+                                <X size={12} />
+                                Close
+                              </>
+                            )}
+                          </button>
+                          <a
+                            href={getExplorerUrl(position.chain_id, position.wallet_address)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1 hover:bg-white/10 rounded text-blue-400 hover:text-blue-300 transition-colors"
+                            title="View on block explorer"
+                          >
+                            <ExternalLink size={14} />
+                          </a>
+                        </div>
                       ) : position.status === 'closing' ? (
-                        <div className="flex items-center gap-1.5 text-amber-400">
-                          <RefreshCw size={14} className="animate-spin" />
-                          <span className="text-xs">Closing...</span>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 text-amber-400">
+                            <RefreshCw size={14} className="animate-spin" />
+                            <span className="text-xs">Closing...</span>
+                          </div>
+                          <a
+                            href={getExplorerUrl(position.chain_id, position.wallet_address)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1 hover:bg-white/10 rounded text-blue-400 hover:text-blue-300 transition-colors"
+                            title="View on block explorer"
+                          >
+                            <ExternalLink size={14} />
+                          </a>
                         </div>
                       ) : position.status === 'failed' ? (
                         <div className="flex items-center gap-2">
@@ -1054,6 +1102,15 @@ const BotHistoryPage: React.FC = () => {
                           }>
                             <AlertTriangle size={16} />
                           </div>
+                          <a
+                            href={getExplorerUrl(position.chain_id, position.wallet_address)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1 hover:bg-white/10 rounded text-blue-400 hover:text-blue-300 transition-colors"
+                            title="View on block explorer"
+                          >
+                            <ExternalLink size={14} />
+                          </a>
                         </div>
                       ) : (
                         <span className="text-gray-500">-</span>

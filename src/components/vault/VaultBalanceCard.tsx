@@ -252,7 +252,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
           ) : (
             <>
               <p className={`text-2xl font-bold ${isPreviewMode ? 'text-zinc-500' : 'text-white'}`}>
-                ${isPreviewMode ? '0.00' : parseFloat(vaultBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ${isPreviewMode ? '0.00' : parseFloat(vaultBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
               </p>
               <p className="text-xs text-zinc-500">
                 USDC in Vault • Fee: {platformFee.percentFormatted}
