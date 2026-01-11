@@ -19,6 +19,26 @@ interface LegacyTrade {
   blockExplorerUrl?: string;
 }
 
+// Token address to symbol mapping
+const TOKEN_SYMBOLS: Record<string, string> = {
+  '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': 'USDC',
+  '0x4200000000000000000000000000000000000006': 'WETH',
+  '0x50c5725949a6f0c72e6c4a641f24049a917db0cb': 'DAI',
+  '0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22': 'cbETH',
+  '0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca': 'USDbC',
+};
+
+// Get token symbol from address or return shortened address
+const getTokenSymbol = (addressOrSymbol: string): string => {
+  if (!addressOrSymbol) return '???';
+
+  // If it's already a symbol (no 0x prefix), return it
+  if (!addressOrSymbol.startsWith('0x')) return addressOrSymbol;
+
+  const lower = addressOrSymbol.toLowerCase();
+  return TOKEN_SYMBOLS[lower] || `${addressOrSymbol.slice(0, 6)}...`;
+};
+
 interface Position {
   id: string;
   wallet_address: string;
@@ -323,7 +343,9 @@ const BotHistoryPage: React.FC = () => {
                     >
                       {/* Token */}
                       <div className="flex items-center gap-2">
-                        <span className="text-white font-medium">{trade.tokenIn}/{trade.tokenOut}</span>
+                        <span className="text-white font-medium">
+                          {getTokenSymbol(trade.tokenIn)}/{getTokenSymbol(trade.tokenOut)}
+                        </span>
                       </div>
 
                       {/* Direction */}
