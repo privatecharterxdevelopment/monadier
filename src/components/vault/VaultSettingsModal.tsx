@@ -17,9 +17,9 @@ interface VaultSettingsModalProps {
 const RISK_LEVELS = [
   { value: 1, label: 'Very Low', description: '1% per trade', icon: Shield, color: 'text-blue-400', bg: 'bg-blue-500/10' },
   { value: 5, label: 'Low', description: '5% per trade', icon: Shield, color: 'text-green-400', bg: 'bg-green-500/10' },
-  { value: 15, label: 'Medium', description: '15% per trade', icon: AlertTriangle, color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
-  { value: 30, label: 'High', description: '30% per trade', icon: Flame, color: 'text-orange-400', bg: 'bg-orange-500/10' },
-  { value: 50, label: 'Maximum', description: '50% per trade', icon: Flame, color: 'text-red-400', bg: 'bg-red-500/10' },
+  { value: 25, label: 'Medium', description: '25% per trade', icon: AlertTriangle, color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
+  { value: 50, label: 'High', description: '50% per trade', icon: Flame, color: 'text-orange-400', bg: 'bg-orange-500/10' },
+  { value: 100, label: 'All-In', description: '100% per trade', icon: Flame, color: 'text-purple-400', bg: 'bg-purple-500/10' },
 ];
 
 export default function VaultSettingsModal({
@@ -202,7 +202,7 @@ export default function VaultSettingsModal({
               <input
                 type="range"
                 min="1"
-                max="50"
+                max="100"
                 value={riskLevel}
                 onChange={(e) => setRiskLevel(parseInt(e.target.value))}
                 disabled={isLoading}
@@ -210,8 +210,8 @@ export default function VaultSettingsModal({
               />
               <div className="flex justify-between text-xs text-zinc-500 mt-1">
                 <span>1%</span>
-                <span>25%</span>
                 <span>50%</span>
+                <span>100%</span>
               </div>
             </div>
 
@@ -242,7 +242,7 @@ export default function VaultSettingsModal({
             <div className={`mt-3 p-3 rounded-lg ${selectedRiskLevel.bg}`}>
               <p className={`text-sm ${selectedRiskLevel.color}`}>
                 <strong>{selectedRiskLevel.label}:</strong> Each trade will use up to {riskLevel}% of your vault balance.
-                {riskLevel >= 30 && (
+                {riskLevel >= 50 && (
                   <span className="block mt-1 text-xs opacity-80">
                     Higher risk = higher potential gains, but also higher potential losses.
                   </span>

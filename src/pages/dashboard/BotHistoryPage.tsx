@@ -640,10 +640,10 @@ const BotHistoryPage: React.FC = () => {
             <AnimatePresence>
               {showInfoPopup && (
                 <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="absolute right-0 top-12 w-80 bg-zinc-900 border border-zinc-700 rounded-xl p-4 shadow-xl z-50"
+                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                  className="fixed right-4 top-32 w-80 bg-zinc-900 border border-zinc-700 rounded-xl p-4 shadow-xl z-50"
                 >
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-white font-medium">Trading Info</h4>
