@@ -27,6 +27,7 @@ export default function VaultSettingsModal({
   onSuccess
 }: VaultSettingsModalProps) {
   const { chainId, address, publicClient, walletClient } = useWeb3();
+  const { linkWallet } = useSubscription();
 
   const [riskLevel, setRiskLevel] = useState(currentRiskLevel);
   const [autoTrade, setAutoTrade] = useState(initialAutoTrade);
@@ -67,6 +68,11 @@ export default function VaultSettingsModal({
           p_auto_trade_enabled: autoTrade,
           p_risk_level_bps: riskLevel * 100 // Convert % to basis points
         });
+
+        // Link wallet to subscription for bot trading (critical for new users!)
+        if (autoTrade) {
+          await linkWallet(address);
+        }
       }
 
       setSuccess(true);

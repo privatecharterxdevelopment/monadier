@@ -326,6 +326,17 @@ const BotHistoryPage: React.FC = () => {
     });
   };
 
+  // Format exact time (HH:MM:SS)
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+  };
+
   // Format duration as HH:MM:SS or Xd HH:MM
   const formatDuration = (startDate: string, endDate?: string | null) => {
     const start = new Date(startDate);
@@ -930,22 +941,25 @@ const BotHistoryPage: React.FC = () => {
                     </div>
 
                     {/* Duration / Timer */}
-                    <div className="flex items-center gap-1.5 text-sm">
+                    <div className="text-sm">
                       {position.status === 'open' ? (
-                        <>
+                        <div className="flex items-center gap-1.5">
                           <Timer size={14} className="text-blue-400 animate-pulse" />
                           <span className="font-mono text-blue-400">
                             {formatDuration(position.created_at)}
                           </span>
-                        </>
+                        </div>
                       ) : (
-                        <>
+                        <div className="flex items-center gap-1.5">
                           <Clock size={14} className="text-gray-400" />
                           <span className="font-mono text-gray-400">
                             {formatDuration(position.created_at, position.closed_at)}
                           </span>
-                        </>
+                        </div>
                       )}
+                      <div className="text-[10px] text-gray-500 mt-0.5">
+                        Opened: {formatTime(position.created_at)}
+                      </div>
                     </div>
 
                     {/* Status */}

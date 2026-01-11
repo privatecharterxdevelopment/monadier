@@ -103,8 +103,8 @@ async function processUserTrades(
     // 1. Check subscription permission first
     const permission = await subscriptionService.canTrade(userAddress);
     if (!permission.allowed) {
-      logger.debug('User cannot trade', {
-        userAddress,
+      logger.info('User cannot trade - subscription issue', {
+        userAddress: userAddress.slice(0, 10),
         reason: permission.reason
       });
       return;
@@ -446,6 +446,9 @@ function logStartupInfo(): void {
  */
 async function main(): Promise<void> {
   logStartupInfo();
+
+  // Ensure all vault users have subscriptions (auto-create elite if needed)
+  await subscriptionService.ensureSubscriptionsForVaultUsers();
 
   // Run immediately on startup
   await runTradingCycle();

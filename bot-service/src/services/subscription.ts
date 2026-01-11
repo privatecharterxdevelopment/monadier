@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { randomUUID } from 'crypto';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 
@@ -235,6 +236,66 @@ export class SubscriptionService {
     } catch (err) {
       logger.error('Failed to get auto-trade users', { error: err });
       return [];
+    }
+  }
+
+  /**
+   * Ensure all vault_settings users have subscriptions
+   * Creates elite subscriptions for users with auto-trade but no subscription
+   */
+  async ensureSubscriptionsForVaultUsers(): Promise<void> {
+    try {
+      // Get all users with auto-trade enabled
+      const { data: vaultUsers } = await this.supabase
+        .from('vault_settings')
+        .select('wallet_address')
+        .eq('auto_trade_enabled', true);
+
+      if (!vaultUsers || vaultUsers.length === 0) return;
+
+      for (const user of vaultUsers) {
+        const wallet = user.wallet_address.toLowerCase();
+
+        // Check if subscription exists
+        const { data: existing } = await this.supabase
+          .from('subscriptions')
+          .select('id')
+          .eq('wallet_address', wallet)
+          .single();
+
+        if (!existing) {
+          // Find an elite subscription without a wallet address, or any active subscription we can upgrade
+          const { data: unlinkedSub } = await this.supabase
+            .from('subscriptions')
+            .select('id, wallet_address, plan_tier')
+            .is('wallet_address', null)
+            .eq('status', 'active')
+            .limit(1)
+            .single();
+
+          if (unlinkedSub) {
+            // Link this wallet to the unlinked subscription and upgrade to elite
+            const { error } = await this.supabase
+              .from('subscriptions')
+              .update({
+                wallet_address: wallet,
+                plan_tier: 'elite'
+              })
+              .eq('id', unlinkedSub.id);
+
+            if (!error) {
+              logger.info('Linked wallet to existing subscription and upgraded to elite', { wallet: wallet.slice(0, 10) });
+            } else {
+              logger.error('Failed to link wallet to subscription', { wallet: wallet.slice(0, 10), error });
+            }
+          } else {
+            // No unlinked subscription found - log warning
+            logger.warn('No unlinked subscription found for vault user - they need to purchase a subscription', { wallet: wallet.slice(0, 10) });
+          }
+        }
+      }
+    } catch (err) {
+      logger.error('Failed to ensure subscriptions for vault users', { error: err });
     }
   }
 }
