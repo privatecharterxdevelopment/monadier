@@ -120,12 +120,16 @@ const BotHistoryPage: React.FC = () => {
   const emergencyClose = async () => {
     const positionId = confirmModal.positionId;
     const tokenAddress = confirmModal.tokenAddress;
+    const tokenSymbol = confirmModal.token;
     if (!positionId || !tokenAddress || !walletClient || !address || !chainId) return;
 
     setConfirmModal({ show: false, positionId: null, token: '', tokenAddress: '' });
     setClosingPositionId(positionId);
 
     try {
+      // Get the position data for P/L calculation
+      const position = positions.find(p => p.id === positionId) || allPositions.find(p => p.id === positionId);
+
       // Get V3 vault address
       const vaultAddress = VAULT_V3_ADDRESSES[chainId as keyof typeof VAULT_V3_ADDRESSES];
 
@@ -148,13 +152,42 @@ const BotHistoryPage: React.FC = () => {
           await publicClient.waitForTransactionReceipt({ hash });
         }
 
-        // Update database to reflect closed position
+        // Calculate P/L based on current price
+        let profitLoss = 0;
+        let profitLossPercent = 0;
+        let exitPrice = 0;
+
+        if (position) {
+          // Get current price from livePrices or use entry price as fallback
+          exitPrice = livePrices[tokenSymbol] || livePrices[position.token_symbol] || position.entry_price;
+
+          // Calculate P/L based on direction
+          const priceChange = position.direction === 'SHORT'
+            ? position.entry_price - exitPrice  // SHORT: profit when price drops
+            : exitPrice - position.entry_price; // LONG: profit when price rises
+
+          profitLossPercent = (priceChange / position.entry_price) * 100;
+          profitLoss = (position.entry_amount * profitLossPercent) / 100;
+
+          console.log('P/L calculated:', {
+            entryPrice: position.entry_price,
+            exitPrice,
+            direction: position.direction,
+            profitLoss,
+            profitLossPercent
+          });
+        }
+
+        // Update database with P/L
         await supabase
           .from('positions')
           .update({
             status: 'closed',
             close_reason: 'emergency_user_v3',
-            closed_at: new Date().toISOString()
+            closed_at: new Date().toISOString(),
+            exit_price: exitPrice,
+            profit_loss: profitLoss,
+            profit_loss_percent: profitLossPercent
           })
           .eq('id', positionId);
 
