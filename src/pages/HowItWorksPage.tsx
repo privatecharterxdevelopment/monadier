@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Wallet, Settings, Bot, ArrowRight, CheckCircle, Download, TrendingUp, Bitcoin, BarChart3 } from 'lucide-react';
+import { Wallet, Settings, Bot, ArrowRight, CheckCircle, Download, TrendingUp, Bitcoin, BarChart3, Brain, Shield, Activity } from 'lucide-react';
 import Logo from '../components/ui/Logo';
 import CookieConsent from '../components/ui/CookieConsent';
 import DownloadModal from '../components/ui/DownloadModal';
@@ -205,6 +205,68 @@ const HowItWorksPage: React.FC = () => {
               </div>
             </motion.div>
           </div>
+        </section>
+
+        {/* AI Analysis Section */}
+        <section className="container-custom mb-24">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="relative p-8 md:p-12 rounded-3xl bg-gradient-to-br from-purple-500/10 via-indigo-500/5 to-transparent border border-purple-500/20 overflow-hidden"
+          >
+            <div className="absolute top-0 left-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/2" />
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                  <Brain className="w-6 h-6 text-purple-400" />
+                </div>
+                <h3 className="text-2xl md:text-3xl font-display font-medium text-white">
+                  AI-Powered Analysis
+                </h3>
+              </div>
+              <p className="text-gray-400 leading-relaxed mb-8 max-w-2xl">
+                Before every trade, our AI runs a comprehensive 6-factor analysis to ensure high-probability setups. Only trades that pass all criteria get executed.
+              </p>
+
+              {/* 6 Factors Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
+                {[
+                  { num: '01', label: 'RSI Analysis', desc: 'Oversold/Overbought' },
+                  { num: '02', label: 'MACD Signal', desc: 'Momentum crossover' },
+                  { num: '03', label: 'Volume Spike', desc: 'Buying/Selling pressure' },
+                  { num: '04', label: 'Price Action', desc: 'Support & Resistance' },
+                  { num: '05', label: 'Trend Structure', desc: 'Higher/Lower pivots' },
+                  { num: '06', label: 'Candle Pattern', desc: 'Engulfing & Momentum' }
+                ].map((factor) => (
+                  <div key={factor.num} className="p-4 rounded-xl bg-white/[0.03] border border-white/5 text-center">
+                    <span className="text-2xl font-display font-medium text-purple-400/60">{factor.num}</span>
+                    <p className="text-white text-sm font-medium mt-1">{factor.label}</p>
+                    <p className="text-gray-500 text-xs mt-0.5">{factor.desc}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Confidence meter */}
+              <div className="flex flex-col md:flex-row items-start md:items-center gap-6 p-5 rounded-xl bg-white/[0.02] border border-white/5">
+                <div className="flex items-center gap-3">
+                  <Activity className="w-5 h-5 text-purple-400" />
+                  <span className="text-white font-medium">Confidence Level</span>
+                </div>
+                <div className="flex-1 flex items-center gap-4">
+                  <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-purple-500 to-green-500 rounded-full" style={{ width: '85%' }} />
+                  </div>
+                  <span className="text-green-400 font-medium text-sm">85%+</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-400 text-sm">
+                  <Shield className="w-4 h-4" />
+                  <span>Only high-confidence trades execute</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
         </section>
 
         {/* Steps */}
