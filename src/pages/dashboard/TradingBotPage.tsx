@@ -2103,26 +2103,44 @@ const TradingBotPage: React.FC = () => {
                 <Activity className="w-5 h-5 text-accent" />
                 <span className="text-white font-medium">AI Strategy</span>
                 {analyzeMarket.qualityMetrics?.isQualitySignal ? (
-                  <span className="ml-auto px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">High Quality</span>
+                  <span className="ml-auto px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full flex items-center gap-1">
+                    <Check className="w-3 h-3" /> GO Signal
+                  </span>
                 ) : (
-                  <span className="ml-auto px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">Low Quality</span>
+                  <span className="ml-auto px-2 py-0.5 bg-zinc-700/50 text-zinc-400 text-xs rounded-full flex items-center gap-1">
+                    <Clock className="w-3 h-3" /> WAIT
+                  </span>
                 )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-background rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    {analyzeMarket.direction === 'LONG' ? (
-                      <TrendingUp className="w-5 h-5 text-green-400" />
-                    ) : (
-                      <TrendingDown className="w-5 h-5 text-red-400" />
-                    )}
-                    <span className={`text-lg font-semibold ${
-                      analyzeMarket.direction === 'LONG' ? 'text-green-400' : 'text-red-400'
-                    }`}>
-                      {analyzeMarket.direction}
-                    </span>
-                  </div>
-                  <p className="text-gray-400 text-sm">{analyzeMarket.reason}</p>
+                  {analyzeMarket.qualityMetrics?.isQualitySignal ? (
+                    <>
+                      <div className="flex items-center gap-2 mb-2">
+                        {analyzeMarket.direction === 'LONG' ? (
+                          <TrendingUp className="w-5 h-5 text-green-400" />
+                        ) : (
+                          <TrendingDown className="w-5 h-5 text-red-400" />
+                        )}
+                        <span className={`text-lg font-semibold ${
+                          analyzeMarket.direction === 'LONG' ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                          {analyzeMarket.direction}
+                        </span>
+                      </div>
+                      <p className="text-gray-400 text-sm">{analyzeMarket.reason}</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Clock className="w-5 h-5 text-zinc-500" />
+                        <span className="text-lg font-semibold text-zinc-400">WAIT</span>
+                      </div>
+                      <p className="text-gray-500 text-sm">
+                        {analyzeMarket.qualityMetrics?.qualityWarning || 'Waiting for better setup...'}
+                      </p>
+                    </>
+                  )}
                 </div>
                 <div className="bg-background rounded-lg p-4">
                   <p className="text-gray-400 text-sm mb-2">Confidence ({analyzeMarket.qualityMetrics?.conditionsMet || 0}/5 conditions)</p>
@@ -2500,14 +2518,33 @@ const TradingBotPage: React.FC = () => {
                   </div>
 
                   {analyzeMarket && (
-                    <div className={`p-3 rounded-lg border ${analyzeMarket.direction === 'LONG' ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+                    <div className={`p-3 rounded-lg border ${
+                      analyzeMarket.qualityMetrics?.isQualitySignal
+                        ? (analyzeMarket.direction === 'LONG' ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30')
+                        : 'bg-zinc-800/50 border-zinc-700'
+                    }`}>
                       <div className="flex items-center gap-2">
-                        {analyzeMarket.direction === 'LONG' ? <TrendingUp className="w-4 h-4 text-green-400" /> : <TrendingDown className="w-4 h-4 text-red-400" />}
-                        <span className={`font-semibold ${analyzeMarket.direction === 'LONG' ? 'text-green-400' : 'text-red-400'}`}>
-                          {analyzeMarket.direction} Signal
-                        </span>
+                        {analyzeMarket.qualityMetrics?.isQualitySignal ? (
+                          <>
+                            {analyzeMarket.direction === 'LONG' ? <TrendingUp className="w-4 h-4 text-green-400" /> : <TrendingDown className="w-4 h-4 text-red-400" />}
+                            <span className={`font-semibold ${analyzeMarket.direction === 'LONG' ? 'text-green-400' : 'text-red-400'}`}>
+                              {analyzeMarket.direction} Signal
+                            </span>
+                            <span className="ml-auto text-xs text-green-400 bg-green-500/20 px-2 py-0.5 rounded">GO</span>
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="w-4 h-4 text-zinc-500" />
+                            <span className="font-semibold text-zinc-400">WAIT</span>
+                            <span className="ml-auto text-xs text-zinc-500 bg-zinc-700 px-2 py-0.5 rounded">No Signal</span>
+                          </>
+                        )}
                       </div>
-                      <p className="text-gray-400 text-xs mt-1">Confidence: {analyzeMarket.confidence}%</p>
+                      <p className="text-gray-400 text-xs mt-1">
+                        {analyzeMarket.qualityMetrics?.isQualitySignal
+                          ? `Confidence: ${analyzeMarket.confidence}%`
+                          : analyzeMarket.qualityMetrics?.qualityWarning || 'Waiting for quality setup...'}
+                      </p>
                     </div>
                   )}
 
