@@ -240,10 +240,16 @@ export class TradingService {
         })
       ]);
 
+      // Also check database for auto_trade_enabled (in case on-chain is out of sync)
+      const dbAutoTrade = await subscriptionService.getAutoTradeStatus(userAddress);
+
+      // Trust database OR on-chain (either one being true means user wants auto-trade)
+      const effectiveAutoTrade = autoTradeEnabled || dbAutoTrade;
+
       return {
         balance,
         balanceFormatted: formatUnits(balance, 6),
-        autoTradeEnabled,
+        autoTradeEnabled: effectiveAutoTrade,
         riskLevel: Number(riskLevel),
         canTradeNow
       };

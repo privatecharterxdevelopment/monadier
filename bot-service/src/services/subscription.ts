@@ -231,6 +231,23 @@ export class SubscriptionService {
   }
 
   /**
+   * Get auto-trade status from database for a user
+   */
+  async getAutoTradeStatus(walletAddress: string): Promise<boolean> {
+    try {
+      const { data } = await this.supabase
+        .from('vault_settings')
+        .select('auto_trade_enabled')
+        .eq('wallet_address', walletAddress.toLowerCase())
+        .single();
+
+      return data?.auto_trade_enabled || false;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Get all users with auto-trade enabled
    * Falls back to subscriptions table if vault_settings is empty
    */
