@@ -300,7 +300,7 @@ const DashboardOverview: React.FC = () => {
               </div>
               <p className="text-gray-500 text-sm mb-4">
                 Deposit USDC to the vault and let the bot trade automatically without signing each transaction.
-                Configure your risk level (1-50%) and enable auto-trading to get started.
+                Configure your risk level (1-100%) and enable auto-trading to get started.
               </p>
               <div className="grid grid-cols-3 gap-4">
                 <div className="bg-background rounded-lg p-3">

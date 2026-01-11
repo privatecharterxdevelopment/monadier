@@ -66,7 +66,7 @@ contract MonadierTradingVaultV3 is ReentrancyGuard, Pausable, Ownable {
     uint256 public constant BASE_CHAIN_ID = 8453;
     uint256 public constant BASE_CHAIN_FEE = 100; // 1%
     uint256 public constant OTHER_CHAIN_FEE = 350; // 3.5%
-    uint256 public constant MAX_RISK_LEVEL = 5000; // 50%
+    uint256 public constant MAX_RISK_LEVEL = 10000; // 100%
     uint256 public constant MIN_RISK_LEVEL = 100; // 1%
     uint256 public constant DEFAULT_RISK_LEVEL = 500; // 5%
     uint256 public constant BASIS_POINTS = 10000;
@@ -249,7 +249,7 @@ contract MonadierTradingVaultV3 is ReentrancyGuard, Pausable, Ownable {
         emit AutoTradeToggled(msg.sender, enabled);
     }
 
-    /// @notice Set risk level (1-50%)
+    /// @notice Set risk level (1-100%)
     function setRiskLevel(uint256 levelBps) external {
         if (levelBps < MIN_RISK_LEVEL || levelBps > MAX_RISK_LEVEL) {
             revert InvalidRiskLevel();
