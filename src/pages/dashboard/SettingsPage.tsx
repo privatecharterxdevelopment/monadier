@@ -1,47 +1,56 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Wallet, Save, CheckCircle, AlertCircle, Loader2, Crown, Shield, Key, Copy, Check, Lock, Download, ExternalLink, FileCode, Monitor } from 'lucide-react';
+import { User, Wallet, Save, CheckCircle, AlertCircle, Loader2, Crown, Shield, Clock, TrendingUp, Users, Gift, Copy, Zap, Rocket, Calendar, CreditCard } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { supabase } from '../../lib/supabase';
+import { SUBSCRIPTION_PLANS } from '../../lib/subscription';
 import { Link } from 'react-router-dom';
 
+interface ReferralReward {
+  id: string;
+  referrer_id: string;
+  referred_id: string;
+  referral_code: string;
+  status: 'pending' | 'qualified' | 'paid' | 'expired';
+  referrer_reward_cents: number;
+  referred_reward_cents: number;
+  created_at: string;
+  referred_email?: string;
+}
+
 const SettingsPage: React.FC = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const { subscription, isSubscribed, planTier } = useSubscription();
 
+  // Profile fields
+  const [fullName, setFullName] = useState('');
+  const [country, setCountry] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
+
+  // UI state
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileSaveSuccess, setProfileSaveSuccess] = useState(false);
+  const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
+
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [licenseKey, setLicenseKey] = useState<string | null>(null);
 
-  const hasValidSubscription = isSubscribed && planTier !== 'free';
+  // Referral state
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [referrals, setReferrals] = useState<ReferralReward[]>([]);
+  const [isLoadingReferrals, setIsLoadingReferrals] = useState(true);
+  const [copiedCode, setCopiedCode] = useState(false);
 
-  // Generate/load license key for user
+  // Load profile data
   useEffect(() => {
-    if (user && isSubscribed && planTier !== 'free') {
-      const generateLicenseKey = () => {
-        const userId = user.id.replace(/-/g, '').substring(0, 8).toUpperCase();
-        const planCode = planTier === 'starter' ? 'ST' : planTier === 'pro' ? 'PR' : planTier === 'elite' ? 'EL' : 'DT';
-        const timestamp = subscription?.startDate
-          ? new Date(subscription.startDate).getTime().toString(36).toUpperCase().substring(0, 4)
-          : 'XXXX';
-        return `MON-${planCode}-${userId}-${timestamp}`;
-      };
-      setLicenseKey(generateLicenseKey());
+    if (profile) {
+      setFullName(profile.full_name || '');
+      setCountry(profile.country || '');
     }
-  }, [user, isSubscribed, planTier, subscription]);
-
-  const copyLicenseKey = () => {
-    if (licenseKey) {
-      navigator.clipboard.writeText(licenseKey);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
+  }, [profile]);
 
   // Load existing wallet address
   useEffect(() => {
@@ -52,8 +61,123 @@ const SettingsPage: React.FC = () => {
     }
   }, [profile, subscription]);
 
+  // Load referral code and referrals
+  useEffect(() => {
+    const loadReferralData = async () => {
+      if (!user?.id) return;
+
+      setIsLoadingReferrals(true);
+      try {
+        // Get or create referral code
+        const { data: codeData } = await supabase
+          .from('referral_codes')
+          .select('code')
+          .eq('user_id', user.id)
+          .single();
+
+        if (codeData?.code) {
+          setReferralCode(codeData.code);
+        } else {
+          // Generate new code via RPC
+          const { data: newCode } = await supabase.rpc('generate_referral_code', {
+            p_user_id: user.id
+          });
+          if (newCode) {
+            setReferralCode(newCode);
+          }
+        }
+
+        // Get referrals made by this user
+        const { data: referralsData } = await supabase
+          .from('referral_rewards')
+          .select(`
+            id,
+            referrer_id,
+            referred_id,
+            referral_code,
+            status,
+            referrer_reward_cents,
+            referred_reward_cents,
+            created_at
+          `)
+          .eq('referrer_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (referralsData) {
+          // Get emails for referred users
+          const referredIds = referralsData.map(r => r.referred_id);
+          if (referredIds.length > 0) {
+            const { data: profiles } = await supabase
+              .from('profiles')
+              .select('id, email')
+              .in('id', referredIds);
+
+            const emailMap = new Map(profiles?.map(p => [p.id, p.email]) || []);
+
+            setReferrals(referralsData.map(r => ({
+              ...r,
+              referred_email: emailMap.get(r.referred_id) || 'Unknown'
+            })));
+          } else {
+            setReferrals([]);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load referral data:', err);
+      } finally {
+        setIsLoadingReferrals(false);
+      }
+    };
+
+    loadReferralData();
+  }, [user?.id]);
+
   const isValidAddress = (address: string): boolean => {
     return /^0x[a-fA-F0-9]{40}$/.test(address);
+  };
+
+  // Save profile (name & country)
+  const handleSaveProfile = async () => {
+    if (!user?.id) return;
+
+    if (!fullName.trim()) {
+      setProfileSaveError('Please enter your full name');
+      return;
+    }
+
+    if (!country.trim()) {
+      setProfileSaveError('Please enter your country');
+      return;
+    }
+
+    setIsSavingProfile(true);
+    setProfileSaveError(null);
+    setProfileSaveSuccess(false);
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: fullName.trim(),
+          country: country.trim()
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setProfileSaveSuccess(true);
+      setTimeout(() => setProfileSaveSuccess(false), 3000);
+
+      // Refresh profile in context
+      if (refreshProfile) {
+        await refreshProfile();
+      }
+    } catch (err: any) {
+      console.error('Error saving profile:', err);
+      setProfileSaveError(err.message || 'Failed to save profile');
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   const handleSaveWallet = async () => {
@@ -141,13 +265,71 @@ const SettingsPage: React.FC = () => {
                 <User className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-white">{profile?.full_name || 'User'}</h3>
+                <h3 className="text-lg font-semibold text-white">{profile?.full_name || 'Complete your profile'}</h3>
                 <p className="text-gray-400 text-sm">{user?.email}</p>
                 <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${getTierBadge()}`}>
                   <Crown className="w-3 h-3" />
                   {actualTier.toUpperCase()}
                 </div>
               </div>
+            </div>
+
+            {/* Editable Profile Fields */}
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Full Name *</label>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => {
+                    setFullName(e.target.value);
+                    setProfileSaveError(null);
+                  }}
+                  placeholder="John Smith"
+                  className="w-full bg-white/5 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white/30"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Country *</label>
+                <input
+                  type="text"
+                  value={country}
+                  onChange={(e) => {
+                    setCountry(e.target.value);
+                    setProfileSaveError(null);
+                  }}
+                  placeholder="Switzerland"
+                  className="w-full bg-white/5 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white/30"
+                />
+              </div>
+
+              <button
+                onClick={handleSaveProfile}
+                disabled={isSavingProfile || !fullName.trim() || !country.trim()}
+                className="w-full px-4 py-3 bg-accent text-black font-semibold rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isSavingProfile ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : profileSaveSuccess ? (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    Profile Saved!
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Save Profile
+                  </>
+                )}
+              </button>
+
+              {profileSaveError && (
+                <div className="flex items-center gap-2 text-red-400 text-sm">
+                  <AlertCircle className="w-4 h-4" />
+                  {profileSaveError}
+                </div>
+              )}
             </div>
 
             {/* Subscription Status */}
@@ -228,98 +410,288 @@ const SettingsPage: React.FC = () => {
           </Card>
         </div>
 
-        {/* Right Column - Downloads */}
+        {/* Right Column - My Plan & Referrals */}
         <div className="space-y-6">
-          <h3 className="font-display text-xl text-white">Downloads</h3>
-
-          {/* License Key Section */}
-          {hasValidSubscription && licenseKey ? (
-            <Card className="p-6 border-green-500/20">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
-                  <Key className="w-5 h-5 text-green-400" />
+          {/* My Plan Card */}
+          <Card className="p-6">
+            {/* Plan Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  actualTier === 'elite' ? 'bg-amber-500/20' :
+                  actualTier === 'pro' ? 'bg-purple-500/20' :
+                  actualTier === 'starter' ? 'bg-blue-500/20' :
+                  actualTier === 'desktop' ? 'bg-emerald-500/20' :
+                  'bg-gray-500/20'
+                }`}>
+                  {actualTier === 'elite' ? <Rocket className="w-6 h-6 text-amber-400" /> :
+                   actualTier === 'pro' ? <Crown className="w-6 h-6 text-purple-400" /> :
+                   actualTier === 'starter' ? <Zap className="w-6 h-6 text-blue-400" /> :
+                   actualTier === 'desktop' ? <TrendingUp className="w-6 h-6 text-emerald-400" /> :
+                   <TrendingUp className="w-6 h-6 text-gray-400" />}
                 </div>
                 <div>
-                  <h4 className="font-semibold text-white">License Key</h4>
-                  <p className="text-gray-400 text-xs">For MT5 bot activation</p>
+                  <h4 className="font-semibold text-white text-lg">{SUBSCRIPTION_PLANS[actualTier]?.name || 'Free'} Plan</h4>
+                  <p className="text-gray-500 text-xs">{SUBSCRIPTION_PLANS[actualTier]?.description || 'Try 2 real trades for free'}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 p-3 bg-background rounded-lg border border-gray-700">
-                <code className="flex-1 text-sm font-mono text-green-400">{licenseKey}</code>
-                <button
-                  onClick={copyLicenseKey}
-                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                >
-                  {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-gray-400" />}
-                </button>
-              </div>
-            </Card>
-          ) : (
-            <Card className="p-6 border-yellow-500/20">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-yellow-500/20 flex items-center justify-center">
-                  <Lock className="w-5 h-5 text-yellow-400" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold text-white">License Required</h4>
-                  <p className="text-gray-400 text-xs">Subscribe to get your license key</p>
-                </div>
-              </div>
-            </Card>
-          )}
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                subscription?.status === 'active' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+              }`}>
+                {subscription?.status || 'active'}
+              </span>
+            </div>
 
-          {/* MetaTrader 5 Download */}
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                <Monitor className="w-5 h-5 text-blue-400" />
+            {/* Plan Details Grid */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              {/* Trade Limit */}
+              <div className="p-3 bg-white/5 rounded-lg">
+                <p className="text-gray-500 text-xs mb-1">Daily Trades</p>
+                <p className="text-white font-semibold">
+                  {actualTier === 'free' ? '2 total' :
+                   actualTier === 'elite' || actualTier === 'desktop' ? 'Unlimited' :
+                   `${SUBSCRIPTION_PLANS[actualTier]?.features.dailyTradeLimit}/day`}
+                </p>
               </div>
-              <div>
-                <h4 className="font-semibold text-white">MetaTrader 5</h4>
-                <p className="text-gray-400 text-xs">Trading Platform</p>
+
+              {/* Billing */}
+              <div className="p-3 bg-white/5 rounded-lg">
+                <p className="text-gray-500 text-xs mb-1">Billing</p>
+                <p className="text-white font-semibold">
+                  {actualTier === 'free' ? 'Free' :
+                   actualTier === 'desktop' ? 'Lifetime' :
+                   subscription?.billingCycle === 'yearly' ? 'Yearly' : 'Monthly'}
+                </p>
+              </div>
+
+              {/* Price */}
+              <div className="p-3 bg-white/5 rounded-lg">
+                <p className="text-gray-500 text-xs mb-1">Price</p>
+                <p className="text-white font-semibold">
+                  {actualTier === 'free' ? '$0' :
+                   `$${SUBSCRIPTION_PLANS[actualTier]?.monthlyPrice || 0}/mo`}
+                </p>
+              </div>
+
+              {/* Chains */}
+              <div className="p-3 bg-white/5 rounded-lg">
+                <p className="text-gray-500 text-xs mb-1">Chains</p>
+                <p className="text-white font-semibold">
+                  {actualTier === 'free' ? 'Base only' : 'All chains'}
+                </p>
               </div>
             </div>
-            <a
-              href="https://www.metatrader5.com/en/download"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-between p-3 bg-background rounded-lg border border-gray-700 hover:border-blue-500/50 transition-colors group"
-            >
-              <div className="flex items-center gap-3">
-                <Download className="w-4 h-4 text-blue-400" />
-                <span className="text-white text-sm">Download MT5</span>
-              </div>
-              <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-blue-400" />
-            </a>
-          </Card>
 
-          {/* MT5 Bot Download */}
-          <Card className={`p-6 ${!hasValidSubscription ? 'opacity-60' : ''}`}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                <FileCode className="w-5 h-5 text-purple-400" />
+            {/* Trade Usage */}
+            <div className="p-4 bg-white/5 rounded-lg mb-4">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-400 text-sm">
+                  {actualTier === 'free' ? 'Trades Used' : 'Daily Usage'}
+                </span>
+                <span className="text-white font-medium">
+                  {actualTier === 'free'
+                    ? `${subscription?.totalTradesUsed || 0} / 2`
+                    : actualTier === 'elite' || actualTier === 'desktop'
+                      ? 'Unlimited'
+                      : `${subscription?.dailyTradesUsed || 0} / ${SUBSCRIPTION_PLANS[actualTier]?.features.dailyTradeLimit || 0}`
+                  }
+                </span>
               </div>
-              <div>
-                <h4 className="font-semibold text-white">Monadier Bot</h4>
-                <p className="text-gray-400 text-xs">Expert Advisor (EA)</p>
-              </div>
-            </div>
-            {hasValidSubscription ? (
-              <button
-                className="w-full flex items-center justify-between p-3 bg-purple-500/10 rounded-lg border border-purple-500/30 hover:border-purple-500/50 transition-colors"
-                onClick={() => alert('Bot download will be available soon. Your license key: ' + licenseKey)}
-              >
-                <div className="flex items-center gap-3">
-                  <Download className="w-4 h-4 text-purple-400" />
-                  <span className="text-white text-sm">Download EA</span>
+
+              {/* Progress bar */}
+              {actualTier !== 'elite' && actualTier !== 'desktop' && (
+                <div className="w-full bg-gray-700 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full transition-all ${
+                      actualTier === 'free'
+                        ? (subscription?.totalTradesUsed || 0) >= 2 ? 'bg-red-500' : 'bg-accent'
+                        : (subscription?.dailyTradesUsed || 0) >= (SUBSCRIPTION_PLANS[actualTier]?.features.dailyTradeLimit || 1)
+                          ? 'bg-red-500' : 'bg-accent'
+                    }`}
+                    style={{
+                      width: actualTier === 'free'
+                        ? `${Math.min(100, ((subscription?.totalTradesUsed || 0) / 2) * 100)}%`
+                        : `${Math.min(100, ((subscription?.dailyTradesUsed || 0) / (SUBSCRIPTION_PLANS[actualTier]?.features.dailyTradeLimit || 1)) * 100)}%`
+                    }}
+                  />
                 </div>
-                <span className="text-purple-400 text-xs">v1.0.0</span>
-              </button>
-            ) : (
-              <div className="flex items-center justify-center p-4 text-center">
-                <p className="text-gray-500 text-sm">Requires subscription</p>
+              )}
+            </div>
+
+            {/* Reset Time - only for paid daily plans */}
+            {actualTier !== 'free' && actualTier !== 'elite' && actualTier !== 'desktop' && (
+              <div className="flex items-center gap-2 text-gray-400 text-sm mb-4">
+                <Clock className="w-4 h-4" />
+                <span>Resets: {subscription?.dailyTradesResetAt
+                  ? new Date(subscription.dailyTradesResetAt).toLocaleString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    })
+                  : 'Midnight'
+                }</span>
               </div>
             )}
+
+            {/* Status Messages */}
+            {actualTier === 'free' && (
+              <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg mb-4">
+                <p className="text-yellow-400 text-sm">
+                  {(subscription?.totalTradesUsed || 0) >= 2
+                    ? 'Free trial ended. Upgrade to continue trading!'
+                    : `${2 - (subscription?.totalTradesUsed || 0)} free trade${2 - (subscription?.totalTradesUsed || 0) === 1 ? '' : 's'} remaining`
+                  }
+                </p>
+              </div>
+            )}
+
+            {(actualTier === 'elite' || actualTier === 'desktop') && (
+              <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg mb-4">
+                <p className="text-green-400 text-sm">
+                  Unlimited trading with no daily limits
+                </p>
+              </div>
+            )}
+
+            {/* Upgrade/Manage Button */}
+            <Link
+              to="/dashboard/subscriptions"
+              className={`w-full py-3 rounded-lg font-medium text-center block transition-colors ${
+                actualTier === 'free'
+                  ? 'bg-accent text-black hover:bg-accent/90'
+                  : 'bg-white/5 text-white hover:bg-white/10 border border-gray-700'
+              }`}
+            >
+              {actualTier === 'free' ? 'Upgrade Plan' : 'Manage Subscription'}
+            </Link>
+          </Card>
+
+          {/* Referrals Card */}
+          <Card className="p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                <Users className="w-5 h-5 text-purple-400" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-white">Referrals</h4>
+                <p className="text-gray-500 text-xs">Earn $5 for each friend who subscribes</p>
+              </div>
+            </div>
+
+            {/* Referral Code */}
+            {referralCode && (
+              <div className="p-4 bg-white/5 rounded-lg mb-4">
+                <p className="text-gray-400 text-xs mb-2">Your Referral Code</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 bg-black/30 px-3 py-2 rounded text-white font-mono text-sm tracking-wider">
+                    {referralCode}
+                  </code>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(referralCode);
+                      setCopiedCode(true);
+                      setTimeout(() => setCopiedCode(false), 2000);
+                    }}
+                    className="p-2 bg-white/5 hover:bg-white/10 rounded transition-colors"
+                  >
+                    {copiedCode ? <CheckCircle size={16} className="text-green-400" /> : <Copy size={16} className="text-gray-400" />}
+                  </button>
+                </div>
+                <p className="text-gray-500 text-xs mt-2">
+                  Share this code with friends to earn rewards
+                </p>
+              </div>
+            )}
+
+            {/* Referrals List */}
+            <div className="space-y-2">
+              <p className="text-gray-400 text-xs font-medium">Your Referrals</p>
+
+              {isLoadingReferrals ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="w-5 h-5 text-gray-500 animate-spin" />
+                </div>
+              ) : referrals.length === 0 ? (
+                <div className="text-center py-6 bg-white/5 rounded-lg">
+                  <Gift className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                  <p className="text-gray-500 text-sm">No referrals yet</p>
+                  <p className="text-gray-600 text-xs">Share your code to start earning</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {referrals.map((referral) => (
+                    <div
+                      key={referral.id}
+                      className="flex items-center justify-between p-3 bg-white/5 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2 h-2 rounded-full ${
+                          referral.status === 'paid' ? 'bg-green-500' :
+                          referral.status === 'qualified' ? 'bg-yellow-500' :
+                          referral.status === 'pending' ? 'bg-blue-500' :
+                          'bg-gray-500'
+                        }`} />
+                        <div>
+                          <p className="text-white text-sm">
+                            {referral.referred_email ?
+                              referral.referred_email.replace(/(.{2})(.*)(@.*)/, '$1***$3') :
+                              'User'
+                            }
+                          </p>
+                          <p className="text-gray-500 text-xs">
+                            {new Date(referral.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                          referral.status === 'paid' ? 'bg-green-500/20 text-green-400' :
+                          referral.status === 'qualified' ? 'bg-yellow-500/20 text-yellow-400' :
+                          referral.status === 'pending' ? 'bg-blue-500/20 text-blue-400' :
+                          'bg-gray-500/20 text-gray-400'
+                        }`}>
+                          {referral.status === 'paid' ? 'Paid' :
+                           referral.status === 'qualified' ? 'Qualified' :
+                           referral.status === 'pending' ? 'Pending' :
+                           'Expired'}
+                        </span>
+                        {referral.status === 'paid' && (
+                          <p className="text-green-400 text-xs mt-1">
+                            +${(referral.referrer_reward_cents / 100).toFixed(2)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Stats Summary */}
+              {referrals.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-gray-800">
+                  <div className="text-center">
+                    <p className="text-white font-medium">{referrals.length}</p>
+                    <p className="text-gray-500 text-xs">Total</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-yellow-400 font-medium">
+                      {referrals.filter(r => r.status === 'pending' || r.status === 'qualified').length}
+                    </p>
+                    <p className="text-gray-500 text-xs">Pending</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-green-400 font-medium">
+                      ${(referrals.filter(r => r.status === 'paid').reduce((sum, r) => sum + r.referrer_reward_cents, 0) / 100).toFixed(2)}
+                    </p>
+                    <p className="text-gray-500 text-xs">Earned</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </Card>
         </div>
       </div>

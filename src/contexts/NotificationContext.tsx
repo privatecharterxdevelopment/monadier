@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 
 export interface Notification {
   id: string;
-  type: 'trade_closed' | 'take_profit' | 'stop_loss' | 'info' | 'warning' | 'error';
+  type: 'trade_closed' | 'take_profit' | 'stop_loss' | 'info' | 'warning' | 'error' | 'bonus';
   title: string;
   message: string;
   timestamp: Date;

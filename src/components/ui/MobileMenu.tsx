@@ -14,7 +14,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick }) => {
   const navLinks = [
     { path: '/how-it-works', label: 'How it works' },
     { path: '/trading-bot', label: 'Bot Trading' },
-    { path: '/forex', label: 'Forex MT5' },
+    // { path: '/forex', label: 'Forex MT5' }, // Coming soon
     { path: '/about', label: 'About' },
   ];
 

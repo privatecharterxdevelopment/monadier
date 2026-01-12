@@ -19,6 +19,7 @@ import BotTradingPage from './pages/BotTradingPage';
 import ForexPage from './pages/ForexPage';
 import AboutPage from './pages/AboutPage';
 import SupportPage from './pages/SupportPage';
+import PricingPage from './pages/PricingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import KycFlowPage from './pages/KycFlowPage';
@@ -94,6 +95,11 @@ function App() {
           <Route path="/support" element={
             <PageTransition>
               <SupportPage />
+            </PageTransition>
+          } />
+          <Route path="/pricing" element={
+            <PageTransition>
+              <PricingPage />
             </PageTransition>
           } />
           <Route path="/login" element={

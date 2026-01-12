@@ -2657,16 +2657,51 @@ const TradingBotPage: React.FC = () => {
                     </div>
 
                     <div className="pt-3 border-t border-gray-700">
+                      {/* Price Movement P/L */}
                       <div className="flex items-center justify-between mb-1">
-                        <p className="text-gray-500 text-xs">Unrealized P/L</p>
+                        <p className="text-gray-500 text-xs">Price Movement</p>
                         <div className={`flex items-center gap-1 text-xs ${currentPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                           {currentPnL >= 0 ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
                           {((currentPnL / tradeAmount) * 100).toFixed(2)}%
                         </div>
                       </div>
-                      <p className={`text-2xl font-light ${currentPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      <p className={`text-xl font-light ${currentPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                         {currentPnL >= 0 ? '+' : ''}${Math.abs(currentPnL) < 0.01 ? currentPnL.toFixed(4) : formatPrice(currentPnL, 2)}
                       </p>
+
+                      {/* Estimated Fees */}
+                      <div className="mt-2 p-2 bg-white/5 rounded text-xs space-y-1">
+                        <div className="flex justify-between text-gray-500">
+                          <span className="flex items-center gap-1">
+                            Gas Fee
+                            <span className="text-green-400 text-[10px]">(Covered)</span>
+                          </span>
+                          <span className="text-green-400/50 line-through">-${(estimatedCosts.gasCostPerTrade || 0.5).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-gray-500">
+                          <span className="flex items-center gap-1">
+                            Platform Fee
+                            <span className="text-green-400 text-[10px]">(Covered)</span>
+                          </span>
+                          <span className="text-green-400/50 line-through">-${(tradeAmount * 0.01).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-gray-500">
+                          <span>DEX Fee (0.6%)</span>
+                          <span className="text-orange-400">-${(tradeAmount * 0.006).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between pt-1 border-t border-gray-700">
+                          <span className="text-gray-400">Net P/L (est.)</span>
+                          {(() => {
+                            const fees = tradeAmount * 0.006; // Only DEX fee
+                            const netPnL = currentPnL - fees;
+                            return (
+                              <span className={netPnL >= 0 ? 'text-green-400 font-medium' : 'text-red-400 font-medium'}>
+                                {netPnL >= 0 ? '+' : ''}{netPnL.toFixed(2)}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                      </div>
                     </div>
 
                     {/* TP/SL Indicators */}

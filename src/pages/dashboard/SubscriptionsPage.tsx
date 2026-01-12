@@ -30,7 +30,7 @@ import { useWeb3 } from '../../contexts/Web3Context';
 import { useAppKit } from '@reown/appkit/react';
 import Card from '../../components/ui/Card';
 import { supabase } from '../../lib/supabase';
-import { generateLicenseCode } from '../../lib/subscription';
+import { generateLicenseCode, getUserTimezone } from '../../lib/subscription';
 
 // Generate forex license key
 function generateForexLicenseKey(userId: string, planType: 'monthly' | 'lifetime'): string {
@@ -63,7 +63,7 @@ const SubscriptionsPage: React.FC = () => {
   } = useWeb3();
   const { open } = useAppKit();
 
-  const [selectedTab, setSelectedTab] = useState<'current' | 'trading' | 'software' | 'forex'>('current');
+  const [selectedTab, setSelectedTab] = useState<'trading' | 'software' | 'forex'>('trading');
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [isPaying, setIsPaying] = useState(false);
@@ -268,7 +268,36 @@ const SubscriptionsPage: React.FC = () => {
       setTxHash(hash);
       setPaymentStatus('success');
 
-      // Add subscription to local state
+      // Create pending payment record BEFORE transaction
+      // Backend will verify the on-chain tx and activate subscription
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && address) {
+        // Create pending payment - backend will complete it when USDC arrives
+        await supabase.from('pending_payments').insert({
+          user_id: user.id,
+          wallet_address: address.toLowerCase(),
+          plan_tier: selectedPlan.id,
+          billing_cycle: selectedPlan.billingCycle === 'one_time' ? 'lifetime' : selectedPlan.billingCycle,
+          expected_amount: selectedPlan.price,
+          status: 'pending'
+        });
+
+        // Ensure user has a subscription record (will be updated by backend)
+        await supabase.from('subscriptions').upsert({
+          user_id: user.id,
+          wallet_address: address.toLowerCase(),
+          plan_tier: 'free', // Will be upgraded by backend after payment verified
+          status: 'pending',
+          daily_trades_used: 0,
+          total_trades_used: 0,
+          start_date: new Date().toISOString(),
+          end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          updated_at: new Date().toISOString(),
+          timezone: getUserTimezone() // Store user's timezone for daily reset
+        }, { onConflict: 'user_id' });
+      }
+
+      // Add to local state (optimistic update - backend will confirm)
       addSubscription({
         type: selectedPlan.type,
         tier: selectedPlan.id,
@@ -277,105 +306,6 @@ const SubscriptionsPage: React.FC = () => {
         billingCycle: selectedPlan.billingCycle,
         features: selectedPlan.features
       });
-
-      // Save subscription to Supabase
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const endDate = new Date();
-        if (selectedPlan.billingCycle === 'monthly') {
-          endDate.setMonth(endDate.getMonth() + 1);
-        } else if (selectedPlan.billingCycle === 'yearly') {
-          endDate.setFullYear(endDate.getFullYear() + 1);
-        } else {
-          endDate.setFullYear(endDate.getFullYear() + 100); // lifetime
-        }
-
-        // Generate license code for desktop purchases
-        let licenseCode: string | null = null;
-        if (selectedPlan.id === 'lifetime' || selectedPlan.type === 'software_license') {
-          licenseCode = generateLicenseCode('desktop', 'lifetime');
-          setGeneratedLicense(licenseCode);
-          setDesktopLicense({ code: licenseCode, createdAt: new Date().toISOString() });
-        }
-
-        // Handle forex license purchase
-        if (selectedPlan.type === 'forex_license') {
-          const forexLicenseKey = generateForexLicenseKey(user.id, selectedPlan.id.includes('lifetime') ? 'lifetime' : 'monthly');
-          setGeneratedLicense(forexLicenseKey);
-          setForexLicense({
-            code: forexLicenseKey,
-            planType: selectedPlan.id.includes('lifetime') ? 'lifetime' : 'monthly',
-            createdAt: new Date().toISOString()
-          });
-
-          // Insert forex license
-          await supabase.from('forex_licenses').insert({
-            user_id: user.id,
-            license_key: forexLicenseKey,
-            plan_type: selectedPlan.id.includes('lifetime') ? 'lifetime' : 'monthly',
-            status: 'active',
-            payment_status: 'completed',
-            payment_id: hash,
-            payment_provider: 'crypto',
-            amount_paid: selectedPlan.price,
-            currency: bestStablecoin.symbol.toUpperCase(),
-            expires_at: selectedPlan.billingCycle === 'monthly'
-              ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-              : null,
-            trades_used_today: 0
-          });
-
-          // Record the payment
-          await supabase.from('payments').insert({
-            user_id: user.id,
-            amount: Math.round(selectedPlan.price * 100),
-            currency: bestStablecoin.symbol.toLowerCase(),
-            status: 'succeeded',
-            plan_tier: selectedPlan.id,
-            billing_cycle: selectedPlan.billingCycle === 'one_time' ? 'lifetime' : selectedPlan.billingCycle,
-            stripe_payment_id: hash
-          });
-        } else {
-          // Regular subscription flow
-          // Upsert subscription record
-          await supabase.from('subscriptions').upsert({
-            user_id: user.id,
-            wallet_address: address,
-            plan_tier: selectedPlan.id === 'lifetime' ? 'desktop' : selectedPlan.id,
-            billing_cycle: selectedPlan.billingCycle === 'one_time' ? 'lifetime' : selectedPlan.billingCycle,
-            status: 'active',
-            start_date: new Date().toISOString(),
-            end_date: endDate.toISOString(),
-            auto_renew: selectedPlan.billingCycle !== 'lifetime' && selectedPlan.billingCycle !== 'one_time',
-            daily_trades_used: 0,
-            license_code: licenseCode,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'user_id' });
-
-          // Also insert into licenses table for desktop licenses
-          if (licenseCode) {
-            await supabase.from('licenses').insert({
-              code: licenseCode,
-              plan_tier: 'desktop',
-              billing_cycle: 'lifetime',
-              is_active: true,
-              activated_at: new Date().toISOString(),
-              activated_by: user.id
-            });
-          }
-
-          // Record the payment
-          await supabase.from('payments').insert({
-            user_id: user.id,
-            amount: Math.round(selectedPlan.price * 100), // cents
-            currency: bestStablecoin.symbol.toLowerCase(),
-            status: 'succeeded',
-            plan_tier: selectedPlan.id === 'lifetime' ? 'desktop' : selectedPlan.id,
-            billing_cycle: selectedPlan.billingCycle === 'one_time' ? 'lifetime' : selectedPlan.billingCycle,
-            stripe_payment_id: hash // tx hash as payment reference
-          });
-        }
-      }
 
       // Refresh balances
       await refreshBalances();
@@ -434,203 +364,7 @@ const SubscriptionsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 bg-card-dark p-1.5 rounded-xl w-fit flex-wrap">
-        {[
-          { id: 'current', label: 'My Plans', icon: Package, badge: null },
-          { id: 'trading', label: 'Crypto DEX', icon: Bot, badge: 'CRYPTO' },
-          { id: 'forex', label: 'Forex MT5', icon: BarChart3, badge: 'FOREX' },
-          { id: 'software', label: 'Desktop App', icon: Monitor, badge: null }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setSelectedTab(tab.id as typeof selectedTab)}
-            className={`relative flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              selectedTab === tab.id
-                ? 'bg-white text-gray-900 shadow-lg'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <tab.icon size={16} />
-            {tab.label}
-            {tab.badge && (
-              <span className={`ml-1 px-1.5 py-0.5 text-[9px] font-bold rounded ${
-                tab.badge === 'CRYPTO'
-                  ? selectedTab === tab.id ? 'bg-orange-500 text-white' : 'bg-orange-500/20 text-orange-400'
-                  : selectedTab === tab.id ? 'bg-blue-500 text-white' : 'bg-blue-500/20 text-blue-400'
-              }`}>
-                {tab.badge}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Current Subscriptions */}
-      {selectedTab === 'current' && (
-        <div className="space-y-4">
-          {subscriptions.filter(s => s.status === 'active').length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {subscriptions
-                .filter(s => s.status === 'active')
-                .map(subscription => (
-                  <motion.div
-                    key={subscription.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    <Card className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                            subscription.tier === 'lifetime' ? 'bg-emerald-500/10' :
-                            subscription.tier === 'elite' ? 'bg-amber-500/10' :
-                            subscription.tier === 'pro' ? 'bg-white/5' :
-                            'bg-blue-500/10'
-                          }`}>
-                            {getTierIcon(subscription.tier)}
-                          </div>
-                          <div>
-                            <h3 className="text-lg font-semibold text-white">{subscription.name}</h3>
-                            <p className="text-gray-400 text-sm">
-                              {subscription.type === 'trading_bot' ? 'Trading Bot' : 'Software License'}
-                            </p>
-                          </div>
-                        </div>
-                        <span className={`px-2 py-1 rounded-full text-xs border ${getStatusColor(subscription.status)}`}>
-                          {subscription.status}
-                        </span>
-                      </div>
-
-                      <div className="space-y-3 mb-4">
-                        <div className="flex items-center gap-2 text-sm">
-                          <CreditCard className="w-4 h-4 text-gray-500" />
-                          <span className="text-gray-400">
-                            ${subscription.price}
-                            {subscription.billingCycle !== 'one_time' && `/${subscription.billingCycle === 'monthly' ? 'mo' : 'yr'}`}
-                            {subscription.billingCycle === 'one_time' && ' (Lifetime)'}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Calendar className="w-4 h-4 text-gray-500" />
-                          <span className="text-gray-400">
-                            Started {formatDate(subscription.startDate)}
-                          </span>
-                        </div>
-                        {subscription.endDate && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Calendar className="w-4 h-4 text-gray-500" />
-                            <span className="text-gray-400">
-                              Renews {formatDate(subscription.endDate)}
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2 text-sm">
-                          <Shield className="w-4 h-4 text-gray-500" />
-                          <span className="text-gray-400">
-                            Credit Line: ${getCreditLineByTier(subscription.tier).toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="pt-4 border-t border-gray-800">
-                        <p className="text-gray-400 text-xs mb-2">Features</p>
-                        <div className="flex flex-wrap gap-1">
-                          {subscription.features.slice(0, 3).map((feature, i) => (
-                            <span key={i} className="px-2 py-0.5 bg-gray-800 text-gray-300 text-xs rounded">
-                              {feature}
-                            </span>
-                          ))}
-                          {subscription.features.length > 3 && (
-                            <span className="px-2 py-0.5 bg-gray-800 text-gray-400 text-xs rounded">
-                              +{subscription.features.length - 3} more
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {subscription.billingCycle !== 'one_time' && (
-                        <button
-                          onClick={() => cancelSubscription(subscription.id)}
-                          className="mt-4 w-full py-2 text-red-400 text-sm hover:bg-red-500/10 rounded-lg transition-colors"
-                        >
-                          Cancel Subscription
-                        </button>
-                      )}
-                    </Card>
-                  </motion.div>
-                ))}
-            </div>
-          ) : (
-            <Card className="p-12 text-center">
-              <Package className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">No Active Subscriptions</h3>
-              <p className="text-gray-400 mb-6">Choose a plan to get started with trading</p>
-              <div className="flex justify-center gap-3 flex-wrap">
-                <button
-                  onClick={() => setSelectedTab('trading')}
-                  className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg font-medium transition-colors"
-                >
-                  Crypto Trading Bot
-                </button>
-                <button
-                  onClick={() => setSelectedTab('forex')}
-                  className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 rounded-lg font-medium transition-colors"
-                >
-                  Forex MT5
-                </button>
-                <button
-                  onClick={() => setSelectedTab('software')}
-                  className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg font-medium transition-colors"
-                >
-                  Desktop License
-                </button>
-              </div>
-            </Card>
-          )}
-
-          {/* Subscription History */}
-          {subscriptions.filter(s => s.status !== 'active').length > 0 && (
-            <div className="mt-8">
-              <h3 className="text-lg font-medium text-white mb-4">History</h3>
-              <Card className="overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="text-gray-400 text-xs border-b border-gray-800 bg-card-dark">
-                    <tr>
-                      <th className="text-left px-4 py-3">Plan</th>
-                      <th className="text-left px-4 py-3">Type</th>
-                      <th className="text-right px-4 py-3">Price</th>
-                      <th className="text-center px-4 py-3">Status</th>
-                      <th className="text-right px-4 py-3">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {subscriptions
-                      .filter(s => s.status !== 'active')
-                      .map(subscription => (
-                        <tr key={subscription.id} className="border-b border-gray-800/50">
-                          <td className="px-4 py-3 text-white">{subscription.name}</td>
-                          <td className="px-4 py-3 text-gray-400">
-                            {subscription.type === 'trading_bot' ? 'Trading Bot' : 'Software'}
-                          </td>
-                          <td className="px-4 py-3 text-right text-white">${subscription.price}</td>
-                          <td className="px-4 py-3 text-center">
-                            <span className={`px-2 py-0.5 rounded-full text-xs border ${getStatusColor(subscription.status)}`}>
-                              {subscription.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right text-gray-400">
-                            {formatDate(subscription.startDate)}
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </Card>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Note: My Plans moved to Profile page */}
 
       {/* Trading Bot Plans */}
       {selectedTab === 'trading' && (

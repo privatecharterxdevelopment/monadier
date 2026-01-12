@@ -9,6 +9,8 @@ import { Link } from 'react-router-dom';
 import { useAppKit } from '@reown/appkit/react';
 import { supabase } from '../../lib/supabase';
 import { VaultBalanceCard } from '../../components/vault';
+import OnboardingBanner from '../../components/onboarding/OnboardingBanner';
+import ReferralCard from '../../components/referral/ReferralCard';
 
 interface Payment {
   id: string;
@@ -109,6 +111,9 @@ const DashboardOverview: React.FC = () => {
       initial="hidden"
       animate="show"
     >
+      {/* Onboarding Progress Banner */}
+      <OnboardingBanner />
+
       {/* Wallet Balance Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <motion.div variants={itemAnimation} className="md:col-span-2">
@@ -440,6 +445,11 @@ const DashboardOverview: React.FC = () => {
             )}
           </div>
         </Card>
+      </motion.div>
+
+      {/* Referral Card */}
+      <motion.div variants={itemAnimation} className="mb-6">
+        <ReferralCard />
       </motion.div>
 
       {/* Quick Actions */}

@@ -5,6 +5,7 @@ import { tradingService, TradeSignal } from './services/trading';
 import { subscriptionService } from './services/subscription';
 import { marketService, TradingStrategy } from './services/market';
 import { positionService } from './services/positions';
+import { paymentService } from './services/payments';
 
 // Default trading strategy - can be configured per user later
 const DEFAULT_STRATEGY: TradingStrategy = 'risky'; // RISKY = many trades!
@@ -482,6 +483,10 @@ function logStartupInfo(): void {
 async function main(): Promise<void> {
   logStartupInfo();
 
+  // Start payment monitoring (listens for USDC transfers to treasury)
+  await paymentService.startMonitoring();
+  logger.info('Payment monitoring started - watching treasury for incoming USDC');
+
   // Ensure all vault users have subscriptions (auto-create elite if needed)
   await subscriptionService.ensureSubscriptionsForVaultUsers();
 
@@ -508,6 +513,7 @@ async function main(): Promise<void> {
   });
 
   logger.info(`Bot service started.`);
+  logger.info(`- Payment monitoring: ACTIVE (treasury watched)`);
   logger.info(`- New positions: every ${tradeIntervalSeconds}s`);
   logger.info(`- Position monitoring: every 10s`);
   logger.info(`- Reconciliation: every 5 minutes`);

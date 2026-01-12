@@ -5,6 +5,7 @@ export type BillingCycle = 'monthly' | 'yearly' | 'lifetime';
 
 export interface PlanFeatures {
   dailyTradeLimit: number; // -1 = unlimited
+  totalTradeLimit: number; // For free tier: total lifetime trades, -1 = unlimited
   maxActiveStrategies: number;
   strategies: string[];
   chains: number[]; // chain IDs allowed
@@ -16,7 +17,6 @@ export interface PlanFeatures {
   webhooks: boolean;
   multiWallet: boolean;
   maxWallets: number;
-  paperTrading: boolean; // simulated trading only
   performanceAnalytics: boolean;
   whiteLabel: boolean;
 }
@@ -41,18 +41,19 @@ export interface SubscriptionPlan {
 export const SUBSCRIPTION_PLANS: Record<PlanTier, SubscriptionPlan> = {
   free: {
     id: 'free',
-    name: 'Free',
-    description: 'Try before you buy - paper trading only',
+    name: 'Free Trial',
+    description: 'Try 2 real trades for free',
     monthlyPrice: 0,
     yearlyPrice: 0,
     lifetimePrice: 0,
     yearlyDiscount: 0,
     features: {
-      dailyTradeLimit: 5,
+      dailyTradeLimit: -1, // No daily limit
+      totalTradeLimit: 2, // 2 trades total, then subscription required
       maxActiveStrategies: 1,
       strategies: ['spot'],
-      chains: [8453, 137], // Base, Polygon (cheap gas chains)
-      autoTrading: false,
+      chains: [8453], // Base only (cheap gas)
+      autoTrading: true, // Allow bot trading in free trial
       arbitrage: false,
       customStrategies: false,
       prioritySupport: false,
@@ -60,7 +61,6 @@ export const SUBSCRIPTION_PLANS: Record<PlanTier, SubscriptionPlan> = {
       webhooks: false,
       multiWallet: false,
       maxWallets: 1,
-      paperTrading: true, // FREE = paper trading only
       performanceAnalytics: false,
       whiteLabel: false
     }
@@ -75,10 +75,11 @@ export const SUBSCRIPTION_PLANS: Record<PlanTier, SubscriptionPlan> = {
     yearlyDiscount: 17,
     features: {
       dailyTradeLimit: 25,
+      totalTradeLimit: -1, // Unlimited total
       maxActiveStrategies: 2,
       strategies: ['spot', 'dca'],
       chains: [1, 56, 42161, 8453, 137], // All chains
-      autoTrading: false,
+      autoTrading: true,
       arbitrage: false,
       customStrategies: false,
       prioritySupport: false,
@@ -86,7 +87,6 @@ export const SUBSCRIPTION_PLANS: Record<PlanTier, SubscriptionPlan> = {
       webhooks: false,
       multiWallet: true,
       maxWallets: 3,
-      paperTrading: false,
       performanceAnalytics: false,
       whiteLabel: false
     }
@@ -103,6 +103,7 @@ export const SUBSCRIPTION_PLANS: Record<PlanTier, SubscriptionPlan> = {
     badge: 'Most Popular',
     features: {
       dailyTradeLimit: 100,
+      totalTradeLimit: -1, // Unlimited total
       maxActiveStrategies: 5,
       strategies: ['spot', 'grid', 'dca'],
       chains: [1, 56, 42161, 8453, 137], // All EVM chains
@@ -114,7 +115,6 @@ export const SUBSCRIPTION_PLANS: Record<PlanTier, SubscriptionPlan> = {
       webhooks: false,
       multiWallet: true,
       maxWallets: 10,
-      paperTrading: false,
       performanceAnalytics: true,
       whiteLabel: false
     }
@@ -129,6 +129,7 @@ export const SUBSCRIPTION_PLANS: Record<PlanTier, SubscriptionPlan> = {
     yearlyDiscount: 17,
     features: {
       dailyTradeLimit: -1, // unlimited
+      totalTradeLimit: -1, // Unlimited total
       maxActiveStrategies: -1, // unlimited
       strategies: ['spot', 'grid', 'dca', 'arbitrage', 'custom'],
       chains: [1, 56, 42161, 8453, 137], // All chains
@@ -140,7 +141,6 @@ export const SUBSCRIPTION_PLANS: Record<PlanTier, SubscriptionPlan> = {
       webhooks: true,
       multiWallet: true,
       maxWallets: -1, // unlimited
-      paperTrading: false,
       performanceAnalytics: true,
       whiteLabel: true
     }
@@ -157,6 +157,7 @@ export const SUBSCRIPTION_PLANS: Record<PlanTier, SubscriptionPlan> = {
     badge: 'Best Value',
     features: {
       dailyTradeLimit: -1, // unlimited
+      totalTradeLimit: -1, // Unlimited total
       maxActiveStrategies: -1, // unlimited
       strategies: ['spot', 'grid', 'dca', 'arbitrage', 'custom'],
       chains: [1, 56, 42161, 8453, 137],
@@ -168,7 +169,6 @@ export const SUBSCRIPTION_PLANS: Record<PlanTier, SubscriptionPlan> = {
       webhooks: true,
       multiWallet: true,
       maxWallets: -1, // unlimited
-      paperTrading: false,
       performanceAnalytics: true,
       whiteLabel: false
     }
@@ -177,13 +177,12 @@ export const SUBSCRIPTION_PLANS: Record<PlanTier, SubscriptionPlan> = {
 
 // Pricing comparison data for UI
 export const PRICING_TABLE = {
-  columns: ['Plan', 'Monthly', 'Yearly', 'Lifetime', 'Trades/Day'],
+  columns: ['Plan', 'Monthly', 'Yearly', 'Lifetime', 'Trades'],
   rows: [
-    { plan: 'Free', monthly: '$0', yearly: '$0', lifetime: '-', trades: '5 (paper only)' },
-    { plan: 'Starter', monthly: '$29', yearly: '$290', lifetime: '$299', trades: '25' },
-    { plan: 'Pro', monthly: '$79', yearly: '$790', lifetime: '$799', trades: '100', popular: true },
-    { plan: 'Elite', monthly: '$199', yearly: '$1,990', lifetime: '$1,999', trades: 'Unlimited' },
-    { plan: 'Desktop', monthly: '-', yearly: '-', lifetime: '$499', trades: 'Unlimited', bestValue: true }
+    { plan: 'Free Trial', monthly: '$0', yearly: '-', lifetime: '-', trades: '2 total' },
+    { plan: 'Starter', monthly: '$29', yearly: '$290', lifetime: '$299', trades: '25/day' },
+    { plan: 'Pro', monthly: '$79', yearly: '$790', lifetime: '$799', trades: '100/day', popular: true },
+    { plan: 'Elite', monthly: '$199', yearly: '$1,990', lifetime: '$1,999', trades: 'Unlimited' }
   ]
 };
 
@@ -287,24 +286,27 @@ export interface UserSubscription {
   nextPaymentDate?: Date;
   dailyTradesUsed: number;
   dailyTradesResetAt: Date;
-  isPaperTrading?: boolean;
+  totalTradesUsed: number; // For free tier: lifetime trade count
+  timezone: string; // User's timezone (e.g., 'America/New_York')
 }
 
 // Check if user can make a trade
-export function canMakeTrade(subscription: UserSubscription): { allowed: boolean; reason?: string; isPaperOnly?: boolean } {
+export function canMakeTrade(subscription: UserSubscription): { allowed: boolean; reason?: string; remainingTrades?: number } {
   const plan = SUBSCRIPTION_PLANS[subscription.planTier];
 
-  // Free tier = paper trading only
+  // Free tier = 2 total trades, then subscription required
   if (subscription.planTier === 'free') {
-    // Check daily limit for free tier
-    if (subscription.dailyTradesUsed >= plan.features.dailyTradeLimit) {
+    const totalLimit = plan.features.totalTradeLimit;
+    const totalUsed = subscription.totalTradesUsed || 0;
+
+    if (totalUsed >= totalLimit) {
       return {
         allowed: false,
-        reason: `Daily trade limit reached (${plan.features.dailyTradeLimit} trades/day). Upgrade to Starter for more trades.`,
-        isPaperOnly: true
+        reason: `Free trial ended. You've used your ${totalLimit} free trades. Subscribe to continue trading!`,
+        remainingTrades: 0
       };
     }
-    return { allowed: true, isPaperOnly: true };
+    return { allowed: true, remainingTrades: totalLimit - totalUsed };
   }
 
   // Check if subscription is active
@@ -317,7 +319,7 @@ export function canMakeTrade(subscription: UserSubscription): { allowed: boolean
     return { allowed: false, reason: 'Subscription has expired' };
   }
 
-  // Check daily trade limit
+  // Check daily trade limit (for paid plans)
   if (plan.features.dailyTradeLimit !== -1) {
     // Reset daily trades if needed
     const now = new Date();
@@ -329,12 +331,15 @@ export function canMakeTrade(subscription: UserSubscription): { allowed: boolean
     if (subscription.dailyTradesUsed >= plan.features.dailyTradeLimit) {
       return {
         allowed: false,
-        reason: `Daily trade limit reached (${plan.features.dailyTradeLimit} trades/day). Upgrade to increase limit.`
+        reason: `Daily trade limit reached (${plan.features.dailyTradeLimit} trades/day). Upgrade to increase limit.`,
+        remainingTrades: 0
       };
     }
+
+    return { allowed: true, remainingTrades: plan.features.dailyTradeLimit - subscription.dailyTradesUsed };
   }
 
-  return { allowed: true, isPaperOnly: false };
+  return { allowed: true, remainingTrades: -1 }; // -1 = unlimited
 }
 
 // Check if a feature is available for the plan
@@ -527,10 +532,13 @@ export function canActivateDesktopLicense(
 }
 
 // Create a free tier subscription for new users
-export function createFreeSubscription(walletAddress: string): UserSubscription {
+export function createFreeSubscription(walletAddress: string, timezone?: string): UserSubscription {
   const now = new Date();
   const endDate = new Date(now);
   endDate.setFullYear(endDate.getFullYear() + 100); // Effectively never expires
+
+  // Get user's timezone from browser if not provided
+  const userTimezone = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
   return {
     id: `free_${Date.now()}`,
@@ -544,6 +552,56 @@ export function createFreeSubscription(walletAddress: string): UserSubscription 
     autoRenew: false,
     dailyTradesUsed: 0,
     dailyTradesResetAt: new Date(now.setHours(24, 0, 0, 0)),
-    isPaperTrading: true
+    totalTradesUsed: 0, // Start with 0, max 2 for free tier
+    timezone: userTimezone
   };
 }
+
+// Get user's browser timezone
+export function getUserTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return 'UTC';
+  }
+}
+
+// Format reset time for display in user's timezone
+export function formatResetTime(resetAt: Date, timezone: string): string {
+  try {
+    return resetAt.toLocaleTimeString('en-US', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch {
+    return resetAt.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  }
+}
+
+// Get common timezones for dropdown
+export const COMMON_TIMEZONES = [
+  { value: 'America/New_York', label: 'Eastern Time (ET)' },
+  { value: 'America/Chicago', label: 'Central Time (CT)' },
+  { value: 'America/Denver', label: 'Mountain Time (MT)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+  { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii Time (HT)' },
+  { value: 'Europe/London', label: 'London (GMT/BST)' },
+  { value: 'Europe/Paris', label: 'Central European (CET)' },
+  { value: 'Europe/Berlin', label: 'Berlin (CET)' },
+  { value: 'Europe/Moscow', label: 'Moscow (MSK)' },
+  { value: 'Asia/Dubai', label: 'Dubai (GST)' },
+  { value: 'Asia/Singapore', label: 'Singapore (SGT)' },
+  { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
+  { value: 'Asia/Shanghai', label: 'China (CST)' },
+  { value: 'Asia/Kolkata', label: 'India (IST)' },
+  { value: 'Australia/Sydney', label: 'Sydney (AEST)' },
+  { value: 'Pacific/Auckland', label: 'New Zealand (NZST)' },
+  { value: 'UTC', label: 'UTC' }
+];

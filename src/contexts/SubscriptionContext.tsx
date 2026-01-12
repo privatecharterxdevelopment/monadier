@@ -138,7 +138,9 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
               autoRenew: dbSub.auto_renew,
               licenseCode: dbSub.license_code || undefined,
               dailyTradesUsed: dbSub.daily_trades_used,
-              dailyTradesResetAt: new Date(dbSub.daily_trades_reset_at)
+              dailyTradesResetAt: new Date(dbSub.daily_trades_reset_at),
+              totalTradesUsed: dbSub.total_trades_used || 0,
+              timezone: dbSub.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
             };
 
             // Reset daily trades if needed
@@ -284,7 +286,9 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         endDate,
         autoRenew: subscriptionData.billingCycle !== 'one_time',
         dailyTradesUsed: 0,
-        dailyTradesResetAt: new Date(now.setHours(24, 0, 0, 0))
+        dailyTradesResetAt: new Date(now.setHours(24, 0, 0, 0)),
+        totalTradesUsed: 0,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
       };
 
       setSubscription(newSub);
@@ -352,12 +356,17 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const recordTrade = useCallback(async () => {
     if (!subscription) return;
 
-    const newCount = subscription.dailyTradesUsed + 1;
+    const newDailyCount = subscription.dailyTradesUsed + 1;
+    const newTotalCount = (subscription.totalTradesUsed || 0) + 1;
 
     // Update local state
     setSubscription(prev => {
       if (!prev) return prev;
-      return { ...prev, dailyTradesUsed: newCount };
+      return {
+        ...prev,
+        dailyTradesUsed: newDailyCount,
+        totalTradesUsed: newTotalCount
+      };
     });
 
     // Update Supabase
@@ -365,7 +374,8 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         await supabase.from('subscriptions').update({
-          daily_trades_used: newCount,
+          daily_trades_used: newDailyCount,
+          total_trades_used: newTotalCount,
           updated_at: new Date().toISOString()
         }).eq('user_id', user.id);
       }
@@ -416,7 +426,9 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         autoRenew: tier !== 'desktop',
         licenseCode: code,
         dailyTradesUsed: 0,
-        dailyTradesResetAt: new Date(now.setHours(24, 0, 0, 0))
+        dailyTradesResetAt: new Date(now.setHours(24, 0, 0, 0)),
+        totalTradesUsed: 0,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
       };
 
       setSubscription(newSubscription);

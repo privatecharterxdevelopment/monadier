@@ -1,22 +1,37 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Logo from '../components/ui/Logo';
-import { signUp, signInWithGoogle, sendWelcomeEmail } from '../lib/supabase';
+import { signUp, signInWithGoogle, sendWelcomeEmail, supabase } from '../lib/supabase';
+import { Gift } from 'lucide-react';
+import { useNotifications } from '../contexts/NotificationContext';
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  
+  const [searchParams] = useSearchParams();
+  const { addNotification } = useNotifications();
+
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [country, setCountry] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  
+  const [referralCode, setReferralCode] = useState('');
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Check for referral code in URL
+  useEffect(() => {
+    const ref = searchParams.get('ref');
+    if (ref) {
+      setReferralCode(ref.toUpperCase());
+      // Store in localStorage for Google OAuth flow
+      localStorage.setItem('referral_code', ref.toUpperCase());
+    }
+  }, [searchParams]);
 
   const handleGoogleSignIn = async () => {
     setError('');
@@ -49,6 +64,30 @@ const RegisterPage: React.FC = () => {
       // Send welcome email (fire and forget)
       sendWelcomeEmail(email, fullName).catch(console.error);
 
+      // Apply referral code if present
+      if (referralCode && data?.user?.id) {
+        try {
+          const result = await supabase.rpc('apply_referral_code', {
+            p_referred_user_id: data.user.id,
+            p_referral_code: referralCode
+          });
+          localStorage.removeItem('referral_code');
+
+          // Trigger notification for the $5 bonus
+          if (result.data?.success) {
+            addNotification({
+              type: 'bonus',
+              title: '$5 USDC Bonus!',
+              message: 'Welcome bonus credited! Connect your wallet to receive payout.',
+              data: { profit: 5 }
+            });
+          }
+        } catch (refError) {
+          console.error('Referral code error:', refError);
+          // Don't block registration if referral fails
+        }
+      }
+
       // Redirect directly to dashboard
       navigate('/dashboard');
     } catch (error: any) {
@@ -73,7 +112,18 @@ const RegisterPage: React.FC = () => {
         >
           <div className="card shadow-lg">
             <h1 className="font-display text-3xl mb-6 text-center">Apply for Access</h1>
-            
+
+            {/* Referral Code Banner */}
+            {referralCode && (
+              <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center gap-3">
+                <Gift className="w-5 h-5 text-green-400 flex-shrink-0" />
+                <div>
+                  <p className="text-green-400 font-medium text-sm">$5 USDC Bonus!</p>
+                  <p className="text-xs text-zinc-400">You'll receive $5 USDC after signing up</p>
+                </div>
+              </div>
+            )}
+
             {error && (
               <div className="mb-6 p-3 bg-error/10 border border-error/30 rounded-md text-error text-sm">
                 {error}
@@ -121,7 +171,7 @@ const RegisterPage: React.FC = () => {
                 onChange={(e) => setCountry(e.target.value)}
                 required
               />
-              
+
               <div className="mb-6">
                 <label className="flex items-start space-x-3">
                   <input 

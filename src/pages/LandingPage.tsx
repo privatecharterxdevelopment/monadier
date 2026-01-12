@@ -103,8 +103,8 @@ const LandingPage: React.FC = () => {
               <Link to="/trading-bot" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
                 Bot Trading
               </Link>
-              <Link to="/forex" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
-                Forex MT5
+              <Link to="/pricing" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+                Pricing
               </Link>
               <Link to="/about" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
                 About
@@ -112,13 +112,7 @@ const LandingPage: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-4">
-              <button
-                onClick={() => setShowDownloadModal(true)}
-                className="hidden md:flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-medium"
-              >
-                <Download size={16} />
-                Download
-              </button>
+              {/* Download button hidden - MT5 coming soon */}
               <Link to="/login" className="hidden md:block text-gray-400 hover:text-white transition-colors text-sm font-medium">
                 Sign in
               </Link>
@@ -127,7 +121,7 @@ const LandingPage: React.FC = () => {
                   Trade now
                 </button>
               </Link>
-              <MobileMenu onDownloadClick={() => setShowDownloadModal(true)} />
+              <MobileMenu />
             </div>
           </nav>
         </div>
@@ -168,13 +162,7 @@ const LandingPage: React.FC = () => {
                     <ArrowRight size={14} />
                   </button>
                 </Link>
-                <button
-                  onClick={() => setShowDownloadModal(true)}
-                  className="px-5 py-2.5 border border-white/20 rounded-full text-sm text-white hover:bg-white/5 transition-colors font-medium inline-flex items-center gap-2"
-                >
-                  <Download size={14} />
-                  Download the app
-                </button>
+                {/* Download button hidden - Desktop app coming soon */}
               </motion.div>
 
               {/* Powered by & Logo Carousel */}
@@ -776,11 +764,11 @@ const LandingPage: React.FC = () => {
       {/* Cookie Consent */}
       <CookieConsent />
 
-      {/* Download Modal */}
-      <DownloadModal
+      {/* Download Modal - Hidden, Desktop app coming soon */}
+      {/* <DownloadModal
         isOpen={showDownloadModal}
         onClose={() => setShowDownloadModal(false)}
-      />
+      /> */}
     </div>
   );
 };

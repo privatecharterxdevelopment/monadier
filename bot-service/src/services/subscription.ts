@@ -10,7 +10,9 @@ export interface UserSubscription {
   status: 'active' | 'expired' | 'cancelled';
   dailyTradesUsed: number;
   dailyTradesResetAt: Date;
+  totalTradesUsed: number; // For free tier: lifetime trade count
   endDate: Date;
+  timezone: string; // User's timezone for daily reset (e.g., 'America/New_York')
 }
 
 export interface TradePermission {
@@ -57,7 +59,9 @@ export class SubscriptionService {
         status: data.status,
         dailyTradesUsed: data.daily_trades_used,
         dailyTradesResetAt: new Date(data.daily_trades_reset_at),
-        endDate: new Date(data.end_date)
+        totalTradesUsed: data.total_trades_used || 0,
+        endDate: new Date(data.end_date),
+        timezone: data.timezone || 'UTC'
       };
     } catch (err) {
       logger.error('Failed to get subscription', { walletAddress, error: err });
@@ -102,12 +106,24 @@ export class SubscriptionService {
       };
     }
 
-    // Free tier cannot use auto-trading
+    // Free tier: check total trades limit (2 trades total, then subscription required)
     if (subscription.planTier === 'free') {
+      const FREE_TIER_TOTAL_LIMIT = 2;
+      const totalUsed = subscription.totalTradesUsed || 0;
+
+      if (totalUsed >= FREE_TIER_TOTAL_LIMIT) {
+        return {
+          allowed: false,
+          reason: `Free trial ended. You've used your ${FREE_TIER_TOTAL_LIMIT} free trades. Subscribe to continue!`,
+          dailyTradesRemaining: 0,
+          planTier: subscription.planTier
+        };
+      }
+
+      // Free tier can trade (within limit)
       return {
-        allowed: false,
-        reason: 'Free tier does not have access to auto-trading',
-        dailyTradesRemaining: 0,
+        allowed: true,
+        dailyTradesRemaining: FREE_TIER_TOTAL_LIMIT - totalUsed,
         planTier: subscription.planTier
       };
     }
@@ -125,7 +141,7 @@ export class SubscriptionService {
 
     // Reset daily trades if needed
     if (now > subscription.dailyTradesResetAt) {
-      await this.resetDailyTrades(subscription.userId);
+      await this.resetDailyTrades(subscription.userId, subscription.timezone);
       subscription.dailyTradesUsed = 0;
     }
 
@@ -152,17 +168,21 @@ export class SubscriptionService {
   }
 
   /**
-   * Record a trade (increment daily counter)
+   * Record a trade (increment daily and total counters)
    */
   async recordTrade(walletAddress: string): Promise<boolean> {
     try {
       const subscription = await this.getSubscription(walletAddress);
       if (!subscription) return false;
 
+      const newDailyCount = subscription.dailyTradesUsed + 1;
+      const newTotalCount = (subscription.totalTradesUsed || 0) + 1;
+
       const { error } = await this.supabase
         .from('subscriptions')
         .update({
-          daily_trades_used: subscription.dailyTradesUsed + 1,
+          daily_trades_used: newDailyCount,
+          total_trades_used: newTotalCount,
           updated_at: new Date().toISOString()
         })
         .eq('user_id', subscription.userId);
@@ -174,7 +194,9 @@ export class SubscriptionService {
 
       logger.info('Trade recorded', {
         walletAddress,
-        newCount: subscription.dailyTradesUsed + 1
+        dailyCount: newDailyCount,
+        totalCount: newTotalCount,
+        planTier: subscription.planTier
       });
 
       return true;
@@ -186,21 +208,70 @@ export class SubscriptionService {
 
   /**
    * Reset daily trades counter
+   * Calculates next midnight in user's timezone
    */
-  private async resetDailyTrades(userId: string): Promise<void> {
-    const tomorrow = new Date();
-    tomorrow.setUTCHours(0, 0, 0, 0);
-    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  private async resetDailyTrades(userId: string, timezone: string = 'UTC'): Promise<void> {
+    // Calculate next midnight in user's timezone
+    const nextResetAt = this.getNextMidnight(timezone);
 
     await this.supabase
       .from('subscriptions')
       .update({
         daily_trades_used: 0,
-        daily_trades_reset_at: tomorrow.toISOString()
+        daily_trades_reset_at: nextResetAt.toISOString()
       })
       .eq('user_id', userId);
 
-    logger.info('Daily trades reset', { userId });
+    logger.info('Daily trades reset', { userId, timezone, nextReset: nextResetAt.toISOString() });
+  }
+
+  /**
+   * Calculate next midnight in a given timezone
+   */
+  private getNextMidnight(timezone: string): Date {
+    try {
+      // Get current time in user's timezone
+      const now = new Date();
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+
+      // Get parts in user's timezone
+      const parts = formatter.formatToParts(now);
+      const get = (type: string) => parts.find(p => p.type === type)?.value || '0';
+
+      // Calculate tomorrow's date in user's timezone
+      const year = parseInt(get('year'));
+      const month = parseInt(get('month')) - 1;
+      const day = parseInt(get('day')) + 1;
+
+      // Create a Date at midnight tomorrow in user's timezone
+      // This requires converting from user's local midnight to UTC
+      const userMidnight = new Date(Date.UTC(year, month, day, 0, 0, 0));
+
+      // Get the offset for this timezone at that time
+      const testDate = new Date(year, month, day, 0, 0, 0);
+      const utcTime = testDate.toLocaleString('en-US', { timeZone: 'UTC' });
+      const tzTime = testDate.toLocaleString('en-US', { timeZone: timezone });
+      const offset = new Date(utcTime).getTime() - new Date(tzTime).getTime();
+
+      // Adjust for timezone offset
+      return new Date(userMidnight.getTime() + offset);
+    } catch (err) {
+      // Fallback to UTC if timezone is invalid
+      logger.warn('Invalid timezone, falling back to UTC', { timezone, error: err });
+      const tomorrow = new Date();
+      tomorrow.setUTCHours(0, 0, 0, 0);
+      tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+      return tomorrow;
+    }
   }
 
   /**

@@ -62,17 +62,34 @@ export const config = {
   // Trading settings
   trading: {
     checkIntervalMs: 10000, // Check every 10 seconds - faster trading!
-    minConfidence: 70, // Minimum AI confidence to trade
+    minConfidence: 60, // Minimum AI confidence to trade (lowered from 70 for more signals)
     defaultSlippage: 0.5, // 0.5% default slippage
   },
 
   // Subscription tiers and their trade limits
+  // Free: uses totalTrades only (2 lifetime, no reset)
+  // Paid: uses dailyTrades only (resets at midnight user timezone)
   subscriptionLimits: {
-    free: { dailyTrades: 5, realTrading: false },
-    starter: { dailyTrades: 25, realTrading: true },
-    pro: { dailyTrades: 100, realTrading: true },
-    elite: { dailyTrades: -1, realTrading: true }, // -1 = unlimited
-    desktop: { dailyTrades: -1, realTrading: true }
+    free: { dailyTrades: 0, totalTrades: 2, realTrading: true }, // 2 total trades EVER, then subscription required
+    starter: { dailyTrades: 25, totalTrades: -1, realTrading: true }, // 25/day, resets at midnight
+    pro: { dailyTrades: 100, totalTrades: -1, realTrading: true },    // 100/day, resets at midnight
+    elite: { dailyTrades: -1, totalTrades: -1, realTrading: true },   // unlimited
+    desktop: { dailyTrades: -1, totalTrades: -1, realTrading: true }  // unlimited
+  },
+
+  // Subscription plan prices (USDC)
+  subscriptionPrices: {
+    starter: { monthly: 29, yearly: 290 },
+    pro: { monthly: 79, yearly: 790 },
+    elite: { monthly: 199, yearly: 1990 }
+  },
+
+  // USDC contract addresses per chain
+  usdcAddresses: {
+    8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // Base USDC
+    1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',    // Ethereum USDC
+    137: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174',  // Polygon USDC
+    42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' // Arbitrum USDC
   }
 };
 

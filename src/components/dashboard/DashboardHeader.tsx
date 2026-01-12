@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, ChevronDown, AlertTriangle, Wallet, CheckCircle, X, TrendingUp, TrendingDown, Check, User, LogOut } from 'lucide-react';
+import { Bell, ChevronDown, AlertTriangle, Wallet, CheckCircle, X, TrendingUp, TrendingDown, Check, User, LogOut, Gift } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -169,12 +169,14 @@ const DashboardHeader: React.FC = () => {
                             notification.type === 'take_profit' ? 'bg-green-500/20' :
                             notification.type === 'stop_loss' ? 'bg-red-500/20' :
                             notification.type === 'trade_closed' ? 'bg-blue-500/20' :
+                            notification.type === 'bonus' ? 'bg-amber-500/20' :
                             'bg-gray-500/20'
                           }`}>
                             {notification.type === 'take_profit' && <TrendingUp size={16} className="text-green-400" />}
                             {notification.type === 'stop_loss' && <TrendingDown size={16} className="text-red-400" />}
                             {notification.type === 'trade_closed' && <Check size={16} className="text-blue-400" />}
-                            {!['take_profit', 'stop_loss', 'trade_closed'].includes(notification.type) && (
+                            {notification.type === 'bonus' && <Gift size={16} className="text-amber-400" />}
+                            {!['take_profit', 'stop_loss', 'trade_closed', 'bonus'].includes(notification.type) && (
                               <Bell size={16} className="text-gray-400" />
                             )}
                           </div>
