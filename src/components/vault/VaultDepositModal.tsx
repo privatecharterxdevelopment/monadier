@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, ArrowDownLeft, Loader2, AlertCircle, Coins } from 'lucide-react';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useTransactions } from '../../contexts/TransactionContext';
-import { VaultClient, USDC_ADDRESSES, USDC_DECIMALS, getPlatformFeeForChain } from '../../lib/vault';
+import { VaultClient, USDC_ADDRESSES, USDC_DECIMALS, getPlatformFeeForChain, VAULT_V5_ADDRESSES } from '../../lib/vault';
 import { formatUnits } from 'viem';
 import { ERC20_ABI } from '../../lib/dex/router';
 
@@ -36,6 +36,16 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
   const [error, setError] = useState<string | null>(null);
 
   const platformFee = chainId ? getPlatformFeeForChain(chainId) : { percentFormatted: '1.0%' };
+
+  // V5 minimum vault balance requirement ($100)
+  const isV5Chain = chainId ? VAULT_V5_ADDRESSES[chainId] !== null : false;
+  const minDepositAmount = isV5Chain ? 100 : 0;
+
+  // Check if amount is below minimum
+  const depositAmount = depositType === 'usdc'
+    ? parseFloat(amount || '0')
+    : parseFloat(estimatedUsdc || '0');
+  const isBelowMinimum = isV5Chain && depositAmount > 0 && depositAmount < minDepositAmount;
 
   // Calculate estimated USDC for ETH
   const estimatedUsdc = depositType === 'eth' && amount && ethPrice > 0
@@ -105,6 +115,12 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
     const currentBalance = depositType === 'usdc' ? usdcBalance : ethBalance;
     if (parseFloat(amount) > parseFloat(currentBalance)) {
       setError(`Insufficient ${depositType === 'usdc' ? 'USDC' : 'ETH'} balance`);
+      return;
+    }
+
+    // Check minimum for V5 chains
+    if (isV5Chain && depositAmount < minDepositAmount) {
+      setError(`Minimum deposit is $${minDepositAmount} USDC for bot trading`);
       return;
     }
 
@@ -291,6 +307,18 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
             )}
           </div>
 
+          {/* Minimum Amount Warning for V5 */}
+          {isV5Chain && (
+            <div className={`rounded-lg p-3 ${isBelowMinimum ? 'bg-red-500/10 border border-red-500/20' : 'bg-yellow-500/10 border border-yellow-500/20'}`}>
+              <p className={`text-xs ${isBelowMinimum ? 'text-red-400' : 'text-yellow-400'}`}>
+                {isBelowMinimum
+                  ? `⚠️ Minimum deposit is $${minDepositAmount} USDC for bot trading on Arbitrum`
+                  : `ℹ️ Minimum vault balance: $${minDepositAmount} USDC required for bot trading`
+                }
+              </p>
+            </div>
+          )}
+
           {/* Info Box */}
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
             <p className="text-xs text-blue-400">
@@ -314,7 +342,7 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
         <div className="p-4 border-t border-zinc-800">
           <button
             onClick={handleDeposit}
-            disabled={isLoading || !amount || parseFloat(amount) <= 0}
+            disabled={isLoading || !amount || parseFloat(amount) <= 0 || isBelowMinimum}
             className="w-full py-3 bg-white text-black font-semibold rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isLoading ? (
