@@ -47,6 +47,20 @@ const VAULT_V2_ABI = [
     type: 'function'
   },
   {
+    inputs: [{ name: 'user', type: 'address' }],
+    name: 'lastTradeTime',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'tradeCooldown',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
     inputs: [
       { name: 'user', type: 'address' },
       { name: 'token', type: 'address' }
@@ -232,7 +246,7 @@ export class TradingService {
     }
 
     try {
-      const [balance, autoTradeEnabled, riskLevel, canTradeNow] = await Promise.all([
+      const [balance, autoTradeEnabled, riskLevel, canTradeNow, lastTradeTime] = await Promise.all([
         clients.public.readContract({
           address: vaultAddress,
           abi: VAULT_V2_ABI,
@@ -256,8 +270,27 @@ export class TradingService {
           abi: VAULT_V2_ABI,
           functionName: 'canTradeNow',
           args: [userAddress]
-        })
+        }),
+        clients.public.readContract({
+          address: vaultAddress,
+          abi: VAULT_V2_ABI,
+          functionName: 'lastTradeTime',
+          args: [userAddress]
+        }).catch(() => 0n) // Fallback if function doesn't exist
       ]);
+
+      // Debug: Log on-chain rate limit info when canTradeNow is false
+      if (!canTradeNow) {
+        const lastTradeTimestamp = Number(lastTradeTime);
+        const now = Math.floor(Date.now() / 1000);
+        const secondsSinceLastTrade = now - lastTradeTimestamp;
+        logger.info('On-chain rate limit active', {
+          userAddress: userAddress.slice(0, 10),
+          lastTradeTime: lastTradeTimestamp > 0 ? new Date(lastTradeTimestamp * 1000).toISOString() : 'unknown',
+          secondsSinceLastTrade,
+          canTradeNow
+        });
+      }
 
       // Also check database for auto_trade_enabled (in case on-chain is out of sync)
       const dbAutoTrade = await subscriptionService.getAutoTradeStatus(userAddress);
