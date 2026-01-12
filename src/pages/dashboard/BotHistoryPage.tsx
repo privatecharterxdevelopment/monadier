@@ -377,6 +377,9 @@ const BotHistoryPage: React.FC = () => {
       setLoading(true);
     }
     try {
+      // DEBUG: Log which wallet we're fetching for
+      console.log('[BotHistory] Fetching positions for wallet:', address.toLowerCase());
+
       // Always fetch ALL positions for stats
       const { data: allData, error: allError } = await supabase
         .from('positions')
@@ -388,6 +391,12 @@ const BotHistoryPage: React.FC = () => {
         console.error('Error fetching positions:', allError);
         return;
       }
+
+      // DEBUG: Log fetched positions
+      console.log('[BotHistory] Fetched positions:', allData?.length || 0);
+      allData?.forEach(p => {
+        console.log(`[BotHistory] - ${p.status} ${p.direction} ${p.token_symbol} | wallet: ${p.wallet_address?.slice(0,10)}... | P/L: $${p.profit_loss || 'N/A'}`);
+      });
 
       setAllPositions(allData || []);
 
