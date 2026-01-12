@@ -2096,9 +2096,23 @@ const TradingBotPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Strategy */}
+          {/* Strategy - Locked for non-subscribers */}
           {analyzeMarket && (
-            <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+            <div className="bg-card-dark rounded-xl border border-gray-800 p-4 relative">
+              {/* Lock overlay for non-subscribers */}
+              {!isSubscribed && planTier === 'free' && (
+                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-xl z-10 flex flex-col items-center justify-center">
+                  <Lock className="w-8 h-8 text-gray-500 mb-3" />
+                  <p className="text-white font-medium mb-1">AI Analysis Locked</p>
+                  <p className="text-gray-400 text-sm mb-4">Upgrade to see real-time trading signals</p>
+                  <a
+                    href="/dashboard/subscriptions"
+                    className="px-4 py-2 bg-accent text-black font-medium rounded-lg hover:bg-accent/90 transition-colors text-sm"
+                  >
+                    Upgrade Now
+                  </a>
+                </div>
+              )}
               <div className="flex items-center gap-2 mb-4">
                 <Activity className="w-5 h-5 text-accent" />
                 <span className="text-white font-medium">AI Strategy</span>
