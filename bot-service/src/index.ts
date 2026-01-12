@@ -145,12 +145,28 @@ async function processUserTrades(
 
     // 2. Get vault status
     const vaultStatus = await tradingService.getUserVaultStatus(chainId, userAddress);
+
+    // Check cooldown and show countdown
+    const lastClosedPosition = await positionService.getLastClosedPosition(userAddress, chainId);
+    let cooldownInfo = '';
+    if (lastClosedPosition?.closed_at) {
+      const closedAt = new Date(lastClosedPosition.closed_at).getTime();
+      const timeSinceClose = Date.now() - closedAt;
+      if (timeSinceClose < POST_CLOSE_COOLDOWN_MS) {
+        const remainingMs = POST_CLOSE_COOLDOWN_MS - timeSinceClose;
+        const mins = Math.floor(remainingMs / 60000);
+        const secs = Math.ceil((remainingMs % 60000) / 1000);
+        cooldownInfo = `⏳ ${mins}m ${secs}s`;
+      }
+    }
+
     logger.info('Vault status check', {
       userAddress: userAddress.slice(0, 10),
       hasStatus: !!vaultStatus,
       balance: vaultStatus?.balanceFormatted || '0',
       autoTradeEnabled: vaultStatus?.autoTradeEnabled,
-      canTradeNow: vaultStatus?.canTradeNow
+      canTradeNow: vaultStatus?.canTradeNow,
+      ...(cooldownInfo && { cooldown: cooldownInfo })
     });
 
     if (!vaultStatus) {
