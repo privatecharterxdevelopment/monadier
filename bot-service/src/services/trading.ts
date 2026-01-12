@@ -98,6 +98,21 @@ const VAULT_V2_ABI = [
     outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'view',
     type: 'function'
+  },
+  // Fee withdrawal
+  {
+    inputs: [],
+    name: 'accumulatedFees',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'withdrawFees',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
   }
 ] as const;
 
@@ -142,6 +157,7 @@ export interface TradeSignal {
   takeProfitPercent: number; // Dynamic TP based on market
   trailingStopPercent: number; // Dynamic SL based on market
   profitLockPercent?: number; // Min profit % before stop activates (0.2% for aggressive)
+  riskReward?: number; // Risk/reward ratio
 }
 
 export interface TradeResult {
@@ -151,6 +167,9 @@ export interface TradeResult {
   amountOut?: string;
   positionId?: string;
   error?: string;
+  pendingApproval?: boolean;
+  approvalId?: string;
+  message?: string;
 }
 
 export class TradingService {
@@ -346,16 +365,38 @@ export class TradingService {
       return { success: false, error: 'Existing position for this token - wait for it to close' };
     }
 
-    // 4. SAFETY: Verify on-chain balance is 0 before opening
+    // 4. SAFETY: Check for orphaned tokens and AUTO-CLEANUP
     // This catches edge cases where contract has tokens but database doesn't know
     const onChainTokenBalance = await this.getOnChainTokenBalance(chainId, userAddress, signal.tokenAddress as `0x${string}`);
     if (onChainTokenBalance && onChainTokenBalance > 0n) {
-      logger.error('On-chain tokens exist but no database position - sync needed', {
+      logger.warn('Orphaned tokens detected - AUTO-CLEANUP starting', {
         userAddress,
         token: signal.tokenSymbol,
         onChainBalance: formatUnits(onChainTokenBalance, 18)
       });
-      return { success: false, error: 'On-chain tokens exist without database record - cannot open new position' };
+
+      // AUTO-CLEANUP: Sell orphaned tokens back to USDC
+      try {
+        const cleanupResult = await this.cleanupOrphanedTokens(chainId, userAddress, signal.tokenAddress as `0x${string}`, onChainTokenBalance);
+        if (cleanupResult.success) {
+          logger.info('Orphaned tokens cleaned up successfully', {
+            userAddress,
+            token: signal.tokenSymbol,
+            usdcRecovered: cleanupResult.usdcRecovered
+          });
+          // Continue with new position after cleanup
+        } else {
+          logger.error('Failed to cleanup orphaned tokens', {
+            userAddress,
+            token: signal.tokenSymbol,
+            error: cleanupResult.error
+          });
+          return { success: false, error: 'Failed to cleanup orphaned tokens: ' + cleanupResult.error };
+        }
+      } catch (cleanupErr: any) {
+        logger.error('Orphaned token cleanup crashed', { error: cleanupErr.message });
+        return { success: false, error: 'Orphaned token cleanup failed' };
+      }
     }
 
     // 5. Calculate trade amount based on risk level
@@ -369,7 +410,44 @@ export class TradingService {
       return { success: false, error: 'Trade amount too small' };
     }
 
-    // 5. Execute openPosition on V2 vault
+    // 5a. Check if user has ask_permission enabled
+    const userSettings = await subscriptionService.getUserTradingSettings(userAddress, chainId);
+    if (userSettings.askPermission) {
+      // Create pending approval instead of executing trade
+      const tradeAmountUsdc = parseFloat(formatUnits(tradeAmount, 6));
+      const currentPrice = await this.getTokenPrice(chainId, signal.tokenAddress as `0x${string}`);
+
+      const approvalId = await subscriptionService.createPendingApproval({
+        walletAddress: userAddress,
+        chainId,
+        tokenAddress: signal.tokenAddress,
+        tokenSymbol: signal.tokenSymbol,
+        direction: signal.direction,
+        amountUsdc: tradeAmountUsdc,
+        entryPrice: currentPrice || 0,
+        confidence: signal.confidence,
+        riskReward: signal.riskReward || 1.5,
+        analysisSummary: `${signal.tokenSymbol} ${signal.direction} - ${signal.confidence}% confidence`
+      });
+
+      if (approvalId) {
+        logger.info('Trade requires approval - pending', {
+          approvalId,
+          userAddress: userAddress.slice(0, 10),
+          token: signal.tokenSymbol,
+          amount: tradeAmountUsdc
+        });
+        return {
+          success: true,
+          pendingApproval: true,
+          approvalId,
+          message: 'Trade pending user approval'
+        };
+      }
+      return { success: false, error: 'Failed to create approval request' };
+    }
+
+    // 6. Execute openPosition on V2 vault
     try {
       logger.info('Opening position', {
         chainId,
@@ -473,6 +551,144 @@ export class TradingService {
         userAddress,
         error: err.message
       });
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Execute a pre-approved trade (bypasses ask_permission check)
+   */
+  async executeApprovedTrade(
+    chainId: ChainId,
+    userAddress: `0x${string}`,
+    signal: TradeSignal
+  ): Promise<TradeResult> {
+    const clients = this.clients.get(chainId);
+    const vaultAddress = this.getV2VaultAddress(chainId);
+
+    if (!clients || !vaultAddress) {
+      return { success: false, error: 'Chain not configured' };
+    }
+
+    // 1. Check subscription permission (still required)
+    const permission = await subscriptionService.canTrade(userAddress);
+    if (!permission.allowed) {
+      return { success: false, error: permission.reason };
+    }
+
+    // 2. Check vault status
+    const vaultStatus = await this.getUserVaultStatus(chainId, userAddress);
+    if (!vaultStatus) {
+      return { success: false, error: 'Failed to get vault status' };
+    }
+
+    if (!vaultStatus.autoTradeEnabled) {
+      return { success: false, error: 'Auto-trade not enabled' };
+    }
+
+    if (!vaultStatus.canTradeNow) {
+      return { success: false, error: 'Rate limit - wait 30 seconds' };
+    }
+
+    if (vaultStatus.balance === 0n) {
+      return { success: false, error: 'No balance in vault' };
+    }
+
+    // 3. Check for existing positions
+    const hasExisting = await positionService.hasAnyActivePosition(
+      userAddress,
+      chainId,
+      signal.tokenAddress
+    );
+    if (hasExisting) {
+      return { success: false, error: 'Existing position for this token' };
+    }
+
+    // 4. Safety: Verify on-chain balance is 0
+    const onChainTokenBalance = await this.getOnChainTokenBalance(chainId, userAddress, signal.tokenAddress as `0x${string}`);
+    if (onChainTokenBalance && onChainTokenBalance > 0n) {
+      return { success: false, error: 'On-chain tokens exist - cannot open new position' };
+    }
+
+    // 5. Calculate trade amount
+    const riskBps = vaultStatus.riskLevel || 500;
+    const maxTradeSize = (vaultStatus.balance * BigInt(riskBps)) / 10000n;
+    const tradeAmount = signal.suggestedAmount > maxTradeSize ? maxTradeSize : signal.suggestedAmount;
+
+    if (tradeAmount === 0n) {
+      return { success: false, error: 'Trade amount too small' };
+    }
+
+    // 6. Execute trade (NO ask_permission check - already approved)
+    try {
+      logger.info('Executing approved trade', {
+        chainId,
+        userAddress: userAddress.slice(0, 10),
+        token: signal.tokenSymbol,
+        amountIn: formatUnits(tradeAmount, 6)
+      });
+
+      const txHash = await clients.wallet.writeContract({
+        address: vaultAddress,
+        abi: VAULT_V2_ABI,
+        functionName: 'openPosition',
+        args: [
+          userAddress,
+          signal.tokenAddress as `0x${string}`,
+          tradeAmount,
+          signal.minAmountOut
+        ],
+        chain: CHAINS[chainId],
+        account: this.botAccount
+      });
+
+      // Wait for confirmation
+      const receipt = await clients.public.waitForTransactionReceipt({ hash: txHash });
+      if (receipt.status !== 'success') {
+        return { success: false, error: 'Transaction reverted' };
+      }
+
+      // 7. Get current price and record position
+      const currentPrice = await this.getTokenPrice(chainId, signal.tokenAddress as `0x${string}`);
+      const entryPrice = currentPrice || 0;
+      const entryAmount = parseFloat(formatUnits(tradeAmount, 6));
+      const estimatedTokens = entryPrice > 0 ? entryAmount / entryPrice : 0;
+
+      // Get user TP/SL settings
+      const userSettings = await subscriptionService.getUserTradingSettings(userAddress, chainId);
+
+      const position = await positionService.openPosition({
+        walletAddress: userAddress,
+        chainId,
+        tokenAddress: signal.tokenAddress,
+        tokenSymbol: signal.tokenSymbol,
+        direction: signal.direction,
+        entryPrice,
+        entryAmount,
+        tokenAmount: estimatedTokens,
+        txHash,
+        trailingStopPercent: userSettings.stopLossPercent,
+        takeProfitPercent: userSettings.takeProfitPercent,
+        profitLockPercent: signal.profitLockPercent
+      });
+
+      // 8. Record trade
+      await subscriptionService.recordTrade(userAddress);
+
+      logger.info('Approved trade executed successfully', {
+        txHash,
+        positionId: position?.id,
+        entryPrice
+      });
+
+      return {
+        success: true,
+        txHash,
+        positionId: position?.id,
+        amountIn: formatUnits(tradeAmount, 6)
+      };
+    } catch (err: any) {
+      logger.error('Approved trade execution failed', { error: err.message });
       return { success: false, error: err.message };
     }
   }
@@ -743,6 +959,138 @@ export class TradingService {
   async getAutoTradeUsers(chainId: ChainId): Promise<`0x${string}`[]> {
     const addresses = await subscriptionService.getAutoTradeUsers();
     return addresses as `0x${string}`[];
+  }
+
+  /**
+   * Check and withdraw accumulated fees from vault
+   * Fees are automatically sent to treasury address
+   */
+  async withdrawAccumulatedFees(chainId: ChainId): Promise<{ success: boolean; amount?: string; error?: string }> {
+    const clients = this.clients.get(chainId);
+    const vaultAddress = this.getV2VaultAddress(chainId);
+
+    if (!clients || !vaultAddress) {
+      return { success: false, error: 'Chain not configured' };
+    }
+
+    try {
+      // Check accumulated fees
+      const fees = await clients.public.readContract({
+        address: vaultAddress,
+        abi: VAULT_V2_ABI,
+        functionName: 'accumulatedFees'
+      });
+
+      if (fees === 0n) {
+        return { success: true, amount: '0' };
+      }
+
+      const feeAmount = formatUnits(fees, 6);
+      logger.info('Withdrawing accumulated fees', { chainId, amount: feeAmount });
+
+      // Withdraw fees to treasury
+      const txHash = await clients.wallet.writeContract({
+        address: vaultAddress,
+        abi: VAULT_V2_ABI,
+        functionName: 'withdrawFees',
+        args: [],
+        chain: CHAINS[chainId],
+        account: this.botAccount
+      });
+
+      // Wait for confirmation
+      const receipt = await clients.public.waitForTransactionReceipt({ hash: txHash });
+      if (receipt.status !== 'success') {
+        return { success: false, error: 'Transaction reverted' };
+      }
+
+      logger.info('Fees withdrawn successfully', { chainId, amount: feeAmount, txHash });
+      return { success: true, amount: feeAmount };
+    } catch (err: any) {
+      logger.error('Failed to withdraw fees', { chainId, error: err.message });
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Get current accumulated fees
+   */
+  async getAccumulatedFees(chainId: ChainId): Promise<string> {
+    const clients = this.clients.get(chainId);
+    const vaultAddress = this.getV2VaultAddress(chainId);
+
+    if (!clients || !vaultAddress) return '0';
+
+    try {
+      const fees = await clients.public.readContract({
+        address: vaultAddress,
+        abi: VAULT_V2_ABI,
+        functionName: 'accumulatedFees'
+      });
+      return formatUnits(fees, 6);
+    } catch {
+      return '0';
+    }
+  }
+
+  /**
+   * AUTO-CLEANUP orphaned tokens - sell them back to USDC
+   * This prevents the "on-chain tokens exist without database record" error
+   */
+  async cleanupOrphanedTokens(
+    chainId: ChainId,
+    userAddress: `0x${string}`,
+    tokenAddress: `0x${string}`,
+    tokenAmount: bigint
+  ): Promise<{ success: boolean; usdcRecovered?: string; error?: string }> {
+    const clients = this.clients.get(chainId);
+    const vaultAddress = this.getV2VaultAddress(chainId);
+
+    if (!clients || !vaultAddress) {
+      return { success: false, error: 'Chain not configured' };
+    }
+
+    try {
+      logger.info('Cleaning up orphaned tokens', {
+        userAddress: userAddress.slice(0, 10),
+        tokenAddress: tokenAddress.slice(0, 10),
+        amount: formatUnits(tokenAmount, 18)
+      });
+
+      // Sell orphaned tokens back to USDC with 0 minAmountOut (accept any price for cleanup)
+      const txHash = await clients.wallet.writeContract({
+        address: vaultAddress,
+        abi: VAULT_V2_ABI,
+        functionName: 'closePosition',
+        args: [userAddress, tokenAddress, tokenAmount, 0n],
+        chain: CHAINS[chainId],
+        account: this.botAccount
+      });
+
+      logger.info('Orphaned token cleanup TX sent', { txHash });
+
+      const receipt = await clients.public.waitForTransactionReceipt({ hash: txHash });
+      if (receipt.status !== 'success') {
+        return { success: false, error: 'Cleanup transaction reverted' };
+      }
+
+      // Estimate USDC recovered (rough estimate)
+      const usdcRecovered = 'unknown';
+
+      logger.info('Orphaned tokens cleaned up', {
+        userAddress: userAddress.slice(0, 10),
+        txHash
+      });
+
+      return { success: true, usdcRecovered };
+    } catch (err: any) {
+      logger.error('Failed to cleanup orphaned tokens', {
+        userAddress,
+        tokenAddress,
+        error: err.message
+      });
+      return { success: false, error: err.message };
+    }
   }
 }
 

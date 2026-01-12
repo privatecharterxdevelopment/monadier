@@ -154,7 +154,7 @@ const HowItWorksPage: React.FC = () => {
                     DCA, Grid, and custom strategies
                   </li>
                 </ul>
-                <Link to="/dashboard/trading-bot">
+                <Link to="/dashboard/chart-trades">
                   <button className="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-full text-sm font-medium transition-colors inline-flex items-center gap-2">
                     Start Crypto Trading
                     <ArrowRight size={14} />

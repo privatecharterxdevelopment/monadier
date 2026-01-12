@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import http from 'http';
+import { parseUnits } from 'viem';
 import { config, ChainId } from './config';
 import { logger } from './utils/logger';
 import { tradingService, TradeSignal } from './services/trading';
@@ -61,15 +62,14 @@ let recentFailures = 0;
 let lastFailureTime = 0;
 const FAILURE_RESET_MS = 300000; // Reset failure count after 5 minutes
 
-// Token addresses for trading - multiple tokens per chain!
-// Only tokens with reliable Binance price feeds are tradable
+// Token addresses for trading - ONLY WETH for stability!
+// cbETH removed due to sync issues
 const TRADE_TOKENS: Record<ChainId, { address: `0x${string}`; symbol: string }[]> = {
-  // BASE - Currently Active
+  // BASE - Currently Active - ONLY WETH!
   8453: [
     { address: '0x4200000000000000000000000000000000000006', symbol: 'WETH' },
-    { address: '0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22', symbol: 'cbETH' },
-    // WBTC disabled - uses 8 decimals, needs special handling
-    // { address: '0x0555E30da8f98308EdB960aa94C0Db47230d2B9c', symbol: 'WBTC' },
+    // cbETH DISABLED - caused orphaned token issues
+    // { address: '0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22', symbol: 'cbETH' },
   ],
   // ETHEREUM - Ready when vault deployed
   1: [
@@ -428,6 +428,100 @@ async function runReconciliationCycle(): Promise<void> {
 }
 
 /**
+ * Automatic fee withdrawal - sends accumulated fees to treasury
+ * Runs every 10 minutes to auto-withdraw fees from contract
+ */
+async function runFeeWithdrawalCycle(): Promise<void> {
+  try {
+    for (const chainId of ACTIVE_CHAINS) {
+      const result = await tradingService.withdrawAccumulatedFees(chainId);
+
+      if (result.success && result.amount && result.amount !== '0') {
+        logger.info('Fees withdrawn to treasury', {
+          chainId,
+          amount: result.amount,
+          unit: 'USDC'
+        });
+      } else if (!result.success) {
+        logger.warn('Fee withdrawal failed', {
+          chainId,
+          error: result.error
+        });
+      }
+      // If amount is 0, no need to log - just means no fees accumulated
+    }
+  } catch (err) {
+    logger.error('Error in fee withdrawal cycle', { error: err });
+  }
+}
+
+/**
+ * Process approved trades (from users with ask_permission enabled)
+ */
+async function processApprovedTrades(): Promise<void> {
+  try {
+    // Expire old pending approvals
+    await subscriptionService.expireOldApprovals();
+
+    // Get all approved trades
+    const approvedTrades = await subscriptionService.getApprovedTrades();
+
+    if (approvedTrades.length === 0) {
+      return;
+    }
+
+    logger.info(`Processing ${approvedTrades.length} approved trades`);
+
+    for (const trade of approvedTrades) {
+      try {
+        // Create a signal from the approved trade
+        const signal = {
+          tokenAddress: trade.tokenAddress,
+          tokenSymbol: trade.tokenSymbol,
+          direction: trade.direction,
+          confidence: 100, // User approved = 100% confidence
+          suggestedAmount: parseUnits(trade.amountUsdc.toString(), 6),
+          minAmountOut: 0n, // Will be calculated by trading service
+          reason: 'User Approved',
+          riskReward: 1.5,
+          takeProfitPercent: 5,
+          trailingStopPercent: 1,
+          profitLockPercent: 0.5
+        };
+
+        // Execute the approved trade directly (bypass ask_permission check)
+        const result = await tradingService.executeApprovedTrade(
+          trade.chainId as ChainId,
+          trade.walletAddress as `0x${string}`,
+          signal
+        );
+
+        if (result.success) {
+          await subscriptionService.markApprovalExecuted(trade.id, result.txHash);
+          logger.info('Approved trade executed', {
+            approvalId: trade.id,
+            txHash: result.txHash,
+            wallet: trade.walletAddress.slice(0, 10)
+          });
+        } else {
+          logger.error('Failed to execute approved trade', {
+            approvalId: trade.id,
+            error: result.error
+          });
+        }
+      } catch (err) {
+        logger.error('Error executing approved trade', {
+          approvalId: trade.id,
+          error: err
+        });
+      }
+    }
+  } catch (err) {
+    logger.error('Error processing approved trades', { error: err });
+  }
+}
+
+/**
  * Main trading loop - runs on schedule to open new positions
  */
 async function runTradingCycle(): Promise<void> {
@@ -441,6 +535,9 @@ async function runTradingCycle(): Promise<void> {
   logger.info('Starting trading cycle');
 
   try {
+    // First, process any approved trades
+    await processApprovedTrades();
+
     for (const chainId of ACTIVE_CHAINS) {
       const chainConfig = config.chains[chainId] as any;
       const vaultAddress = chainConfig?.vaultV4Address || chainConfig?.vaultV3Address || chainConfig?.vaultV2Address || chainConfig?.vaultAddress;
@@ -541,11 +638,20 @@ async function main(): Promise<void> {
     await runReconciliationCycle();
   });
 
+  // Schedule fee withdrawal (every 10 minutes - auto-send to treasury)
+  cron.schedule('*/10 * * * *', async () => {
+    await runFeeWithdrawalCycle();
+  });
+
+  // Run fee withdrawal once on startup
+  await runFeeWithdrawalCycle();
+
   logger.info(`Bot service started.`);
   logger.info(`- Payment monitoring: ACTIVE (treasury watched)`);
   logger.info(`- New positions: every ${tradeIntervalSeconds}s`);
   logger.info(`- Position monitoring: every 10s`);
   logger.info(`- Reconciliation: every 5 minutes`);
+  logger.info(`- Fee withdrawal: every 10 minutes (auto-send to treasury)`);
 }
 
 // Handle graceful shutdown

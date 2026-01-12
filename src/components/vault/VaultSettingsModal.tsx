@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Settings, Loader2, AlertCircle, CheckCircle, Zap, Shield, AlertTriangle, Flame, TrendingUp, TrendingDown } from 'lucide-react';
+import { X, Settings, Loader2, AlertCircle, CheckCircle, Zap, Shield, AlertTriangle, Flame, TrendingUp, TrendingDown, Bell } from 'lucide-react';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { VaultClient } from '../../lib/vault';
@@ -10,6 +10,8 @@ interface VaultSettingsModalProps {
   autoTradeEnabled: boolean;
   currentTakeProfit?: number;
   currentStopLoss?: number;
+  currentAskPermission?: boolean;
+  startMode?: boolean; // When true, pre-enable auto-trade and show "Save & Start Bot"
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -27,6 +29,8 @@ export default function VaultSettingsModal({
   autoTradeEnabled: initialAutoTrade,
   currentTakeProfit = 5,
   currentStopLoss = 1,
+  currentAskPermission = false,
+  startMode = false,
   onClose,
   onSuccess
 }: VaultSettingsModalProps) {
@@ -34,9 +38,11 @@ export default function VaultSettingsModal({
   const { linkWallet } = useSubscription();
 
   const [riskLevel, setRiskLevel] = useState(currentRiskLevel);
-  const [autoTrade, setAutoTrade] = useState(initialAutoTrade);
+  // In start mode, pre-enable auto-trade
+  const [autoTrade, setAutoTrade] = useState(startMode ? true : initialAutoTrade);
   const [takeProfit, setTakeProfit] = useState(currentTakeProfit);
   const [stopLoss, setStopLoss] = useState(currentStopLoss);
+  const [askPermission, setAskPermission] = useState(currentAskPermission);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -44,7 +50,8 @@ export default function VaultSettingsModal({
   const hasChanges = riskLevel !== currentRiskLevel ||
     autoTrade !== initialAutoTrade ||
     takeProfit !== currentTakeProfit ||
-    stopLoss !== currentStopLoss;
+    stopLoss !== currentStopLoss ||
+    askPermission !== currentAskPermission;
 
   const handleSave = async () => {
     if (!chainId || !address || !publicClient || !walletClient) return;
@@ -76,7 +83,7 @@ export default function VaultSettingsModal({
         }
       }
 
-      // Sync settings to Supabase (including TP/SL)
+      // Sync settings to Supabase (including TP/SL and ask_permission)
       const { error: upsertError } = await supabase
         .from('vault_settings')
         .upsert({
@@ -86,6 +93,7 @@ export default function VaultSettingsModal({
           risk_level_bps: riskLevel * 100,
           take_profit_percent: takeProfit,
           stop_loss_percent: stopLoss,
+          ask_permission: askPermission,
           updated_at: new Date().toISOString(),
           synced_at: new Date().toISOString()
         }, {
@@ -202,6 +210,42 @@ export default function VaultSettingsModal({
               </div>
             )}
           </div>
+
+          {/* Ask Permission Toggle */}
+          {autoTrade && (
+            <div className="border-t border-zinc-800 pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-accent" />
+                    <h3 className="text-white font-medium">Ask Before Trading</h3>
+                  </div>
+                  <p className="text-xs text-zinc-500 mt-1">Get notified and approve each trade before execution</p>
+                </div>
+                <button
+                  onClick={() => setAskPermission(!askPermission)}
+                  disabled={isLoading}
+                  className={`relative w-14 h-7 rounded-full transition-colors ${
+                    askPermission ? 'bg-accent' : 'bg-zinc-700'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform ${
+                      askPermission ? 'left-8' : 'left-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {askPermission && (
+                <div className="mt-3 bg-accent/10 border border-accent/20 rounded-lg p-3">
+                  <p className="text-sm text-accent">
+                    You'll receive a notification when the bot finds a trade opportunity. You have 5 minutes to approve or reject.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Risk Level Slider */}
           <div>
@@ -365,17 +409,26 @@ export default function VaultSettingsModal({
           <button
             onClick={handleSave}
             disabled={isLoading || success}
-            className="w-full py-3 bg-white text-black font-semibold rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className={`w-full py-3 font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+              startMode && autoTrade
+                ? 'bg-green-500 text-white hover:bg-green-600'
+                : 'bg-white text-black hover:bg-gray-100'
+            }`}
           >
             {isLoading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Saving...
+                {startMode && autoTrade ? 'Starting Bot...' : 'Saving...'}
               </>
             ) : success ? (
               <>
                 <CheckCircle className="w-4 h-4" />
-                Saved!
+                {startMode && autoTrade ? 'Bot Started!' : 'Saved!'}
+              </>
+            ) : startMode && autoTrade ? (
+              <>
+                <Zap className="w-4 h-4" />
+                Save & Start Bot
               </>
             ) : (
               'Save Settings'

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Wallet, Save, CheckCircle, AlertCircle, Loader2, Crown, Shield, Clock, TrendingUp, Users, Gift, Copy, Zap, Rocket, Calendar, CreditCard } from 'lucide-react';
+import { User, Wallet, Save, CheckCircle, AlertCircle, Loader2, Crown, Shield, Clock, TrendingUp, Users, Gift, Copy, Zap, Rocket, Calendar, CreditCard, ExternalLink, FileCheck } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
@@ -408,6 +408,29 @@ const SettingsPage: React.FC = () => {
               </div>
             )}
           </Card>
+
+          {/* Smart Contract Info - Compact */}
+          <div className="p-4 bg-white/5 border border-gray-800 rounded-xl">
+            <div className="flex items-center gap-2 mb-2">
+              <FileCheck className="w-4 h-4 text-blue-400" />
+              <span className="text-white text-sm font-medium">Vault Contract</span>
+            </div>
+            <p className="text-gray-500 text-xs mb-3">
+              Non-custodial & verified on-chain. Your funds, your control.
+            </p>
+            <code className="block text-[10px] text-gray-400 font-mono mb-2 break-all">
+              0x08Afb514255187d664d6b250D699Edc51491E803
+            </code>
+            <a
+              href="https://basescan.org/address/0x08Afb514255187d664d6b250D699Edc51491E803#code"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 text-xs"
+            >
+              <ExternalLink size={12} />
+              Verify on BaseScan
+            </a>
+          </div>
         </div>
 
         {/* Right Column - My Plan & Referrals */}
@@ -582,17 +605,17 @@ const SettingsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Referral Code */}
+            {/* Referral Link */}
             {referralCode && (
               <div className="p-4 bg-white/5 rounded-lg mb-4">
-                <p className="text-gray-400 text-xs mb-2">Your Referral Code</p>
+                <p className="text-gray-400 text-xs mb-2">Your Referral Link</p>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 bg-black/30 px-3 py-2 rounded text-white font-mono text-sm tracking-wider">
-                    {referralCode}
+                  <code className="flex-1 bg-black/30 px-3 py-2 rounded text-white font-mono text-xs truncate">
+                    {`${window.location.origin}/register?ref=${referralCode}`}
                   </code>
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(referralCode);
+                      navigator.clipboard.writeText(`${window.location.origin}/register?ref=${referralCode}`);
                       setCopiedCode(true);
                       setTimeout(() => setCopiedCode(false), 2000);
                     }}
@@ -602,7 +625,7 @@ const SettingsPage: React.FC = () => {
                   </button>
                 </div>
                 <p className="text-gray-500 text-xs mt-2">
-                  Share this code with friends to earn rewards
+                  Share this link with friends to earn rewards
                 </p>
               </div>
             )}

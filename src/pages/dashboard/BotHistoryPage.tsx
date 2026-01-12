@@ -127,15 +127,27 @@ const BotHistoryPage: React.FC = () => {
     tokenAddress: ''
   });
 
-  // Bot Settings state
+  // Bot Settings state - null means still loading
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showInfoPopup, setShowInfoPopup] = useState(false);
+  const [botSettingsLoaded, setBotSettingsLoaded] = useState(false);
   const [botSettings, setBotSettings] = useState({
     autoTradeEnabled: false,
     riskLevelPercent: 5,
     takeProfit: 5,
     stopLoss: 1
   });
+
+  // Bot analysis status (what the bot is currently seeing)
+  const [botAnalysis, setBotAnalysis] = useState<{
+    signal: string;
+    confidence: number;
+    rsi: number;
+    trend: string;
+    pattern: string | null;
+    recommendation: string;
+    updated_at: string;
+  } | null>(null);
 
   // Fetch bot settings
   useEffect(() => {
@@ -163,14 +175,44 @@ const BotHistoryPage: React.FC = () => {
             takeProfit: vaultSettings?.take_profit_percent || 5,
             stopLoss: vaultSettings?.stop_loss_percent || 1
           });
+          setBotSettingsLoaded(true);
         }
       } catch (err) {
         console.error('Error fetching bot settings:', err);
+        setBotSettingsLoaded(true); // Mark as loaded even on error
       }
     };
 
     fetchBotSettings();
   }, [address, chainId, publicClient]);
+
+  // Fetch latest bot analysis for status display
+  useEffect(() => {
+    const fetchBotAnalysis = async () => {
+      if (!chainId) return;
+
+      try {
+        const { data } = await supabase
+          .from('bot_analysis')
+          .select('signal, confidence, rsi, trend, pattern, recommendation, updated_at')
+          .eq('chain_id', chainId)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (data) {
+          setBotAnalysis(data);
+        }
+      } catch (err) {
+        // Analysis might not exist yet
+      }
+    };
+
+    fetchBotAnalysis();
+    // Refresh every 15 seconds to show latest analysis
+    const interval = setInterval(fetchBotAnalysis, 15000);
+    return () => clearInterval(interval);
+  }, [chainId]);
 
   // Show confirmation modal
   const showCloseConfirm = (positionId: string, token: string, tokenAddress: string) => {
@@ -325,11 +367,15 @@ const BotHistoryPage: React.FC = () => {
 
   // State for all positions (for stats calculation)
   const [allPositions, setAllPositions] = useState<Position[]>([]);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  const fetchPositions = async () => {
+  const fetchPositions = async (showLoading = false) => {
     if (!address) return;
 
-    setLoading(true);
+    // Only show loading spinner on initial load, not refreshes
+    if (showLoading || isInitialLoad) {
+      setLoading(true);
+    }
     try {
       // Always fetch ALL positions for stats
       const { data: allData, error: allError } = await supabase
@@ -359,14 +405,15 @@ const BotHistoryPage: React.FC = () => {
       console.error('Error:', err);
     } finally {
       setLoading(false);
+      setIsInitialLoad(false);
     }
   };
 
   useEffect(() => {
-    fetchPositions();
+    fetchPositions(true); // Show loading on initial fetch
 
-    // Refresh every 10 seconds
-    const interval = setInterval(fetchPositions, 10000);
+    // Refresh every 10 seconds without showing loading spinner
+    const interval = setInterval(() => fetchPositions(false), 10000);
     return () => clearInterval(interval);
   }, [address, activeTab]);
 
@@ -692,39 +739,41 @@ const BotHistoryPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Current Bot Settings Summary */}
-      <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${botSettings.autoTradeEnabled ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
-            <span className="text-white font-medium">
-              {botSettings.autoTradeEnabled ? 'Auto-Trading Active' : 'Auto-Trading Off'}
-            </span>
-          </div>
-          <div className="flex items-center gap-6 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-400">Risk:</span>
-              <span className="text-white font-medium">{botSettings.riskLevelPercent}%</span>
+      {/* Current Bot Settings Summary - Only show when loaded */}
+      {botSettingsLoaded && (
+        <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full ${botSettings.autoTradeEnabled ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
+              <span className="text-white font-medium">
+                {botSettings.autoTradeEnabled ? 'Auto-Trading Active' : 'Auto-Trading Off'}
+              </span>
             </div>
-            <div className="flex items-center gap-2">
-              <TrendingUp size={14} className="text-green-400" />
-              <span className="text-zinc-400">TP:</span>
-              <span className="text-green-400 font-medium">{botSettings.takeProfit}%</span>
+            <div className="flex items-center gap-6 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-zinc-400">Risk:</span>
+                <span className="text-white font-medium">{botSettings.riskLevelPercent}%</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <TrendingUp size={14} className="text-green-400" />
+                <span className="text-zinc-400">TP:</span>
+                <span className="text-green-400 font-medium">{botSettings.takeProfit}%</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <TrendingDown size={14} className="text-red-400" />
+                <span className="text-zinc-400">SL:</span>
+                <span className="text-red-400 font-medium">{botSettings.stopLoss}%</span>
+              </div>
+              <button
+                onClick={() => setShowSettingsModal(true)}
+                className="text-blue-400 hover:text-blue-300 text-xs underline"
+              >
+                Edit Settings
+              </button>
             </div>
-            <div className="flex items-center gap-2">
-              <TrendingDown size={14} className="text-red-400" />
-              <span className="text-zinc-400">SL:</span>
-              <span className="text-red-400 font-medium">{botSettings.stopLoss}%</span>
-            </div>
-            <button
-              onClick={() => setShowSettingsModal(true)}
-              className="text-blue-400 hover:text-blue-300 text-xs underline"
-            >
-              Edit Settings
-            </button>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Stats Cards - Row 1: Main Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -968,12 +1017,58 @@ const BotHistoryPage: React.FC = () => {
               <p className="text-secondary">Loading positions...</p>
             </div>
           ) : positions.length === 0 ? (
-            <div className="py-12 text-center">
-              <History className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-              <p className="text-secondary">No {activeTab} positions</p>
-              <p className="text-sm text-gray-600 mt-1">
-                {activeTab === 'open' ? 'The bot will open positions when signals are detected' : 'Completed trades will appear here'}
-              </p>
+            <div className="py-6">
+              {activeTab === 'open' && botSettings.autoTradeEnabled ? (
+                // Show bot status inline when auto-trade is enabled - no card
+                <div className="flex items-center justify-center gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-accent animate-pulse" />
+                    <span className="text-gray-400">Analyzing market...</span>
+                  </div>
+                  {botAnalysis ? (
+                    <>
+                      <span className="text-gray-600">•</span>
+                      <span className={botAnalysis.signal === 'LONG' ? 'text-green-400' : botAnalysis.signal === 'SHORT' ? 'text-red-400' : 'text-gray-400'}>
+                        {botAnalysis.signal}
+                      </span>
+                      <span className="text-gray-600">•</span>
+                      <span className={`${botAnalysis.confidence >= 60 ? 'text-green-400' : botAnalysis.confidence >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
+                        {botAnalysis.confidence}% conf.
+                      </span>
+                      <span className="text-gray-600">•</span>
+                      <span className="text-gray-400">RSI {botAnalysis.rsi}</span>
+                      {botAnalysis.pattern && (
+                        <>
+                          <span className="text-gray-600">•</span>
+                          <span className="text-accent">{botAnalysis.pattern}</span>
+                        </>
+                      )}
+                      <span className="text-gray-600">•</span>
+                      <span className="text-gray-500 text-xs">
+                        {botAnalysis.recommendation?.split(' - ')[0] || 'Waiting...'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-gray-500">Checking every 10s</span>
+                  )}
+                </div>
+              ) : activeTab === 'open' && !botSettings.autoTradeEnabled ? (
+                // Bot is not enabled
+                <div className="text-center">
+                  <p className="text-secondary">No open positions</p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Enable auto-trading to let the bot open positions automatically
+                  </p>
+                </div>
+              ) : (
+                // Closed/All tabs - no positions
+                <div className="text-center">
+                  <p className="text-secondary">No {activeTab} positions</p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Completed trades will appear here
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <AnimatePresence>

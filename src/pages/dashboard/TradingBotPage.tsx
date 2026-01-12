@@ -8,7 +8,7 @@ import { useNotifications } from '../../contexts/NotificationContext';
 import { useAppKit } from '@reown/appkit/react';
 import { SUPPORTED_CHAINS, TESTNET_CHAINS, getChainById, getAllChains, isTestnet, CHAIN_GAS_ESTIMATES } from '../../lib/chains';
 import { parseUnits, formatUnits } from 'viem';
-import { TradingSettings, GasEstimator, getDefaultConfig, TradingConfig, TradeHistoryItem } from '../../components/trading';
+import { TradingSettings, GasEstimator, getDefaultConfig, TradingConfig, TradeHistoryItem, PendingApprovalCard } from '../../components/trading';
 import { verifyTrade } from '../../lib/api/subscription';
 
 interface TradingPair {
@@ -2018,6 +2018,11 @@ const TradingBotPage: React.FC = () => {
             Switch to {getChainById(tradingConfig.selectedChainId)?.shortName || 'Network'}
           </button>
         </div>
+      )}
+
+      {/* Pending Trade Approval */}
+      {isConnected && address && (
+        <PendingApprovalCard walletAddress={address} />
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">

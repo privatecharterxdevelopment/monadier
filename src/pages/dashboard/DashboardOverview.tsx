@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRightIcon, BadgeCheck, Shield, Bot, History, AlertCircle, Package, Wallet, RefreshCw, CreditCard, ExternalLink } from 'lucide-react';
+import { ArrowRightIcon, BadgeCheck, Shield, Bot, History, AlertCircle, Package, Wallet, RefreshCw, CreditCard, ExternalLink, TrendingUp, TrendingDown, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
@@ -10,7 +10,7 @@ import { useAppKit } from '@reown/appkit/react';
 import { supabase } from '../../lib/supabase';
 import { VaultBalanceCard } from '../../components/vault';
 import OnboardingBanner from '../../components/onboarding/OnboardingBanner';
-import ReferralCard from '../../components/referral/ReferralCard';
+import { useOnboarding } from '../../hooks/useOnboarding';
 
 interface Payment {
   id: string;
@@ -21,6 +21,22 @@ interface Payment {
   billing_cycle: string;
   stripe_payment_id: string;
   created_at: string;
+}
+
+interface Position {
+  id: string;
+  token_symbol: string;
+  direction: 'LONG' | 'SHORT';
+  entry_price: number;
+  entry_amount: number;
+  take_profit_percent: number;
+  trailing_stop_percent: number;
+  profit_loss: number | null;
+  profit_loss_percent: number | null;
+  status: 'open' | 'closing' | 'closed' | 'failed';
+  close_reason: string | null;
+  created_at: string;
+  closed_at: string | null;
 }
 
 const DashboardOverview: React.FC = () => {
@@ -35,7 +51,8 @@ const DashboardOverview: React.FC = () => {
     isLoadingBalances,
     refreshBalances
   } = useWeb3();
-  const { kycStatus, activeSubscription, verifyKYC, planTier, isSubscribed, dailyTradesRemaining } = useSubscription();
+  const { activeSubscription, planTier, isSubscribed, dailyTradesRemaining } = useSubscription();
+  const { isComplete: isProfileComplete, isLoading: isOnboardingLoading } = useOnboarding();
   const { open } = useAppKit();
 
   // Get membership display name based on subscription tier
@@ -46,6 +63,53 @@ const DashboardOverview: React.FC = () => {
 
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loadingPayments, setLoadingPayments] = useState(true);
+  const [recentTrades, setRecentTrades] = useState<Position[]>([]);
+  const [loadingTrades, setLoadingTrades] = useState(true);
+
+  // Fetch recent closed bot trades (same as Bot History closed tab)
+  useEffect(() => {
+    const fetchRecentTrades = async () => {
+      if (!address) {
+        setLoadingTrades(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('positions')
+          .select('id, token_symbol, direction, entry_price, entry_amount, take_profit_percent, trailing_stop_percent, profit_loss, profit_loss_percent, status, close_reason, created_at, closed_at')
+          .eq('wallet_address', address.toLowerCase())
+          .in('status', ['closed', 'failed'])
+          .order('closed_at', { ascending: false })
+          .limit(5);
+
+        if (!error && data) {
+          setRecentTrades(data);
+        }
+      } catch (err) {
+        console.error('Error fetching trades:', err);
+      } finally {
+        setLoadingTrades(false);
+      }
+    };
+    fetchRecentTrades();
+  }, [address]);
+
+  // Format duration between two dates (same as Bot History)
+  const formatDuration = (startDate: string, endDate?: string | null) => {
+    const start = new Date(startDate).getTime();
+    const end = endDate ? new Date(endDate).getTime() : Date.now();
+    const diff = end - start;
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (hours > 24) {
+      const days = Math.floor(hours / 24);
+      return `${days}d ${hours % 24}h`;
+    }
+    return `${hours}h ${minutes}m`;
+  };
 
   // Fetch payment history
   useEffect(() => {
@@ -147,7 +211,7 @@ const DashboardOverview: React.FC = () => {
                     )}
                   </div>
                   <Link
-                    to="/dashboard/trading-bot"
+                    to="/dashboard/chart-trades"
                     className="px-4 py-2 bg-white hover:bg-gray-100 text-gray-900 rounded-lg font-medium transition-colors flex items-center gap-2"
                   >
                     <Bot size={18} />
@@ -222,12 +286,12 @@ const DashboardOverview: React.FC = () => {
             </div>
 
             <div className="mt-6 pt-4 border-t border-gray-800">
-              {/* KYC Status */}
+              {/* Profile Status - only show incomplete state when not loading */}
               <div className="flex space-x-4 mb-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  kycStatus === 'verified' ? 'bg-green-500/10' : 'bg-yellow-500/10'
+                  isProfileComplete || isOnboardingLoading ? 'bg-green-500/10' : 'bg-yellow-500/10'
                 }`}>
-                  {kycStatus === 'verified' ? (
+                  {isProfileComplete || isOnboardingLoading ? (
                     <Shield size={16} className="text-green-400" />
                   ) : (
                     <AlertCircle size={16} className="text-yellow-400" />
@@ -235,19 +299,19 @@ const DashboardOverview: React.FC = () => {
                 </div>
                 <div className="flex-1">
                   <h4 className="font-medium text-sm text-white">
-                    {kycStatus === 'verified' ? 'KYC Verified' : 'KYC Pending'}
+                    {isOnboardingLoading ? 'Profile Verified' : isProfileComplete ? 'Profile Verified' : 'Setup Incomplete'}
                   </h4>
                   <p className="text-gray-500 text-xs">
-                    {kycStatus === 'verified' ? 'Identity confirmed' : 'Verification required'}
+                    {isOnboardingLoading ? 'Checking status...' : isProfileComplete ? 'All steps completed' : 'Complete setup to start trading'}
                   </p>
                 </div>
-                {kycStatus !== 'verified' && (
-                  <button
-                    onClick={verifyKYC}
+                {!isProfileComplete && !isOnboardingLoading && (
+                  <Link
+                    to="/dashboard/profile"
                     className="px-3 py-1 bg-white/10 text-white text-xs rounded-lg hover:bg-white/15 transition-colors"
                   >
-                    Verify
-                  </button>
+                    Complete
+                  </Link>
                 )}
               </div>
 
@@ -262,7 +326,9 @@ const DashboardOverview: React.FC = () => {
                   <h4 className="font-medium text-sm text-white">Subscription</h4>
                   <p className="text-gray-500 text-xs">
                     {isSubscribed && planTier
-                      ? `${getMembershipName()} - Active`
+                      ? activeSubscription?.billingCycle === 'lifetime'
+                        ? `${getMembershipName()} - Lifetime`
+                        : `${getMembershipName()} - Valid until ${new Date(activeSubscription?.endDate || '').toLocaleDateString()}`
                       : planTier === 'free'
                         ? 'Free tier (paper trading)'
                         : 'No active plan'}
@@ -326,52 +392,130 @@ const DashboardOverview: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* Supported Chains */}
+      {/* Recent Closed Trades (identical to Bot History) */}
       <motion.div variants={itemAnimation} className="mb-6">
         <Card className="overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <History className="w-5 h-5 text-white" />
-              <h3 className="font-medium text-white">Supported Networks</h3>
+              <h3 className="font-medium text-white">Recent Closed Trades</h3>
             </div>
-            <Link to="/dashboard/bot-history" className="text-sm text-white hover:text-white-hover">
-              Trading History
+            <Link to="/dashboard/bot-trading" className="text-sm text-white hover:text-white-hover">
+              View All
             </Link>
           </div>
 
-          <div className="p-6">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              {[
-                { name: 'Ethereum', symbol: 'ETH', dex: 'Uniswap V3' },
-                { name: 'BNB Chain', symbol: 'BSC', dex: 'PancakeSwap' },
-                { name: 'Arbitrum', symbol: 'ARB', dex: 'Uniswap V3' },
-                { name: 'Base', symbol: 'BASE', dex: 'Uniswap V3' },
-                { name: 'Polygon', symbol: 'MATIC', dex: 'Uniswap V3' }
-              ].map((chain) => (
-                <div
-                  key={chain.symbol}
-                  className="p-4 rounded-lg bg-white/5 border border-gray-800 hover:border-gray-600 transition-colors"
-                >
-                  <p className="font-medium text-white">{chain.name}</p>
-                  <p className="text-gray-500 text-xs mt-1">{chain.dex}</p>
-                </div>
-              ))}
+          {loadingTrades ? (
+            <div className="text-center py-12">
+              <RefreshCw className="w-6 h-6 text-gray-500 animate-spin mx-auto" />
             </div>
-
-            {!isConnected && (
-              <div className="mt-6 p-4 bg-background rounded-lg text-center">
-                <p className="text-gray-400 text-sm mb-3">
-                  Connect your wallet to start trading on decentralized exchanges
-                </p>
-                <button
-                  onClick={() => open()}
-                  className="px-4 py-2 bg-white hover:bg-gray-100 text-gray-900 rounded-lg font-medium transition-colors"
-                >
-                  Connect Wallet
-                </button>
+          ) : recentTrades.length > 0 ? (
+            <div className="overflow-x-auto">
+              {/* Table Header - identical to Bot History */}
+              <div className="grid grid-cols-7 gap-4 px-4 py-3 bg-background border-b border-gray-800 text-sm font-medium text-gray-500 min-w-[700px]">
+                <div>Token</div>
+                <div>Direction</div>
+                <div>Entry</div>
+                <div>Size</div>
+                <div>P/L</div>
+                <div>Duration</div>
+                <div>Result</div>
               </div>
-            )}
-          </div>
+
+              {/* Table Body - identical to Bot History */}
+              <div className="min-w-[700px]">
+                {recentTrades.map((trade) => {
+                  const isProfit = (trade.profit_loss || 0) >= 0;
+                  return (
+                    <div
+                      key={trade.id}
+                      className="grid grid-cols-7 gap-4 px-4 py-3 border-b border-gray-800 hover:bg-white/5 transition-colors items-center"
+                    >
+                      {/* Token */}
+                      <div className="text-white font-medium">
+                        {trade.token_symbol || 'WETH'}
+                      </div>
+
+                      {/* Direction */}
+                      <div>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          trade.direction === 'LONG'
+                            ? 'bg-green-500/20 text-green-400'
+                            : 'bg-red-500/20 text-red-400'
+                        }`}>
+                          {trade.direction}
+                        </span>
+                      </div>
+
+                      {/* Entry Price */}
+                      <div className="text-white font-mono text-sm">
+                        ${(trade.entry_price || 0).toFixed(2)}
+                      </div>
+
+                      {/* Size */}
+                      <div className="text-white font-mono text-sm">
+                        ${(trade.entry_amount || 0).toFixed(2)}
+                      </div>
+
+                      {/* P/L */}
+                      <div className={`flex items-center gap-1 font-mono text-sm ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
+                        {isProfit ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                        <div>
+                          <div>{isProfit ? '+' : ''}${(trade.profit_loss || 0).toFixed(4)}</div>
+                          <div className="text-xs opacity-75">
+                            ({isProfit ? '+' : ''}{(trade.profit_loss_percent || 0).toFixed(2)}%)
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Duration */}
+                      <div className="text-sm">
+                        <div className="flex items-center gap-1.5">
+                          <Clock size={14} className="text-gray-400" />
+                          <span className="font-mono text-gray-400">
+                            {formatDuration(trade.created_at, trade.closed_at)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Result */}
+                      <div className="flex items-center gap-2">
+                        {trade.status === 'closed' ? (
+                          isProfit ? (
+                            <div className="flex items-center gap-1.5 text-green-400">
+                              <CheckCircle size={18} />
+                              <span className="font-medium">WIN</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 text-red-400">
+                              <XCircle size={18} />
+                              <span className="font-medium">LOSS</span>
+                            </div>
+                          )
+                        ) : (
+                          <span className="text-red-400 text-xs">FAILED</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Bot className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-400 mb-1">No closed trades yet</p>
+              <p className="text-gray-500 text-sm">
+                {isConnected ? 'Completed trades will appear here' : 'Connect wallet to see your trades'}
+              </p>
+              <Link
+                to="/dashboard/chart-trades"
+                className="inline-block mt-4 px-4 py-2 bg-white hover:bg-gray-100 text-gray-900 rounded-lg font-medium transition-colors"
+              >
+                Go to Trading Bot
+              </Link>
+            </div>
+          )}
         </Card>
       </motion.div>
 
@@ -447,11 +591,6 @@ const DashboardOverview: React.FC = () => {
         </Card>
       </motion.div>
 
-      {/* Referral Card */}
-      <motion.div variants={itemAnimation} className="mb-6">
-        <ReferralCard />
-      </motion.div>
-
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <motion.div variants={itemAnimation}>
@@ -459,7 +598,7 @@ const DashboardOverview: React.FC = () => {
             <h3 className="text-gray-500 font-medium text-sm mb-4">Quick Actions</h3>
             <div className="space-y-3">
               <Link
-                to="/dashboard/trading-bot"
+                to="/dashboard/chart-trades"
                 className="flex items-center justify-between p-3 bg-background rounded-lg hover:bg-surface-hover transition-colors"
               >
                 <div className="flex items-center gap-3">
@@ -485,7 +624,7 @@ const DashboardOverview: React.FC = () => {
               </Link>
 
               <Link
-                to="/dashboard/bot-history"
+                to="/dashboard/bot-trading"
                 className="flex items-center justify-between p-3 bg-background rounded-lg hover:bg-surface-hover transition-colors"
               >
                 <div className="flex items-center gap-3">

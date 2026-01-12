@@ -16,10 +16,17 @@ import {
   Cpu,
   Database,
   Shield,
-  ExternalLink
+  ExternalLink,
+  CreditCard,
+  Lock,
+  UserCheck,
+  Mail
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatUnits } from 'viem';
+
+// Admin email - only this user can access
+const ADMIN_EMAIL = 'ipsunlorem@gmail.com';
 
 // Bot wallet address (from config)
 const BOT_WALLET = '0xC9a6D02a04e3B2E8d3941615EfcBA67593F46b8E';
@@ -58,7 +65,31 @@ interface RecentTrade {
   close_reason: string | null;
 }
 
+interface UserProfile {
+  id: string;
+  email: string;
+  wallet_address: string | null;
+  created_at: string;
+  timezone: string | null;
+}
+
+interface Subscription {
+  id: string;
+  user_id: string;
+  wallet_address: string;
+  plan_tier: string;
+  status: string;
+  valid_until: string;
+  created_at: string;
+  profiles?: { email: string };
+}
+
 const AdminMonitorPage: React.FC = () => {
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [activeSection, setActiveSection] = useState<'overview' | 'users' | 'subscriptions' | 'trades'>('overview');
   const [stats, setStats] = useState<SystemStats>({
     botBalance: '0',
     botBalanceUsd: '0',
@@ -205,11 +236,43 @@ const AdminMonitorPage: React.FC = () => {
     }
   };
 
+  // Check if user is admin
   useEffect(() => {
-    fetchStats();
-    const interval = setInterval(fetchStats, 30000); // Refresh every 30s
-    return () => clearInterval(interval);
+    const checkAdmin = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) {
+        setCurrentUserEmail(user.email);
+        setIsAdmin(user.email === ADMIN_EMAIL);
+      } else {
+        setIsAdmin(false);
+      }
+    };
+    checkAdmin();
   }, []);
+
+  // Fetch users and subscriptions
+  const fetchUsersAndSubscriptions = async () => {
+    try {
+      const [{ data: profilesData }, { data: subsData }] = await Promise.all([
+        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+        supabase.from('subscriptions').select('*, profiles(email)').order('created_at', { ascending: false })
+      ]);
+
+      setUsers(profilesData || []);
+      setSubscriptions(subsData || []);
+    } catch (err) {
+      console.error('Error fetching users/subscriptions:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchStats();
+      fetchUsersAndSubscriptions();
+      const interval = setInterval(fetchStats, 30000); // Refresh every 30s
+      return () => clearInterval(interval);
+    }
+  }, [isAdmin]);
 
   const formatTimeAgo = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -235,18 +298,45 @@ const AdminMonitorPage: React.FC = () => {
   const isLowGas = parseFloat(stats.botBalance) < 0.001;
   const isCriticalGas = parseFloat(stats.botBalance) < 0.0005;
 
+  // Loading state
+  if (isAdmin === null) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <RefreshCw className="w-8 h-8 text-gray-600 animate-spin" />
+      </div>
+    );
+  }
+
+  // Access denied
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center">
+        <Lock className="w-16 h-16 text-red-500 mb-4" />
+        <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
+        <p className="text-secondary">
+          This page is restricted to administrators only.
+        </p>
+        {currentUserEmail && (
+          <p className="text-xs text-gray-600 mt-2">
+            Logged in as: {currentUserEmail}
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">System Monitor</h1>
+          <h1 className="text-2xl font-bold text-white">Admin Dashboard</h1>
           <p className="text-secondary mt-1">
-            Last updated: {lastRefresh.toLocaleTimeString()}
+            Last updated: {lastRefresh.toLocaleTimeString()} • {currentUserEmail}
           </p>
         </div>
         <button
-          onClick={fetchStats}
+          onClick={() => { fetchStats(); fetchUsersAndSubscriptions(); }}
           disabled={loading}
           className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white transition-colors"
         >
@@ -255,6 +345,263 @@ const AdminMonitorPage: React.FC = () => {
         </button>
       </div>
 
+      {/* Section Tabs */}
+      <div className="flex gap-2 p-1 bg-card-dark rounded-lg w-fit border border-gray-800">
+        {(['overview', 'users', 'subscriptions', 'trades'] as const).map((section) => (
+          <button
+            key={section}
+            onClick={() => setActiveSection(section)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-all ${
+              activeSection === section
+                ? 'bg-white text-black'
+                : 'text-secondary hover:text-white hover:bg-white/5'
+            }`}
+          >
+            {section === 'overview' && <Activity size={16} />}
+            {section === 'users' && <Users size={16} />}
+            {section === 'subscriptions' && <CreditCard size={16} />}
+            {section === 'trades' && <Clock size={16} />}
+            {section.charAt(0).toUpperCase() + section.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* USERS SECTION */}
+      {activeSection === 'users' && (
+        <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
+          <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Users size={20} className="text-cyan-400" />
+              All Users ({users.length})
+            </h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-background">
+                <tr className="text-left text-sm text-secondary">
+                  <th className="px-4 py-3">Email</th>
+                  <th className="px-4 py-3">Wallet Address</th>
+                  <th className="px-4 py-3">Timezone</th>
+                  <th className="px-4 py-3">Joined</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((user) => (
+                  <tr key={user.id} className="border-t border-gray-800 hover:bg-white/5">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <Mail size={14} className="text-gray-500" />
+                        <span className="text-white">{user.email}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {user.wallet_address ? (
+                        <a
+                          href={`https://basescan.org/address/${user.wallet_address}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-blue-400 hover:text-blue-300"
+                        >
+                          <code className="text-xs">{user.wallet_address}</code>
+                          <ExternalLink size={12} />
+                        </a>
+                      ) : (
+                        <span className="text-gray-500">Not connected</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-secondary text-sm">
+                      {user.timezone || 'Not set'}
+                    </td>
+                    <td className="px-4 py-3 text-secondary text-sm">
+                      {new Date(user.created_at).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+                {users.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-8 text-center text-secondary">
+                      No users yet
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* SUBSCRIPTIONS SECTION */}
+      {activeSection === 'subscriptions' && (
+        <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
+          <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <CreditCard size={20} className="text-green-400" />
+              All Subscriptions ({subscriptions.length})
+            </h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-background">
+                <tr className="text-left text-sm text-secondary">
+                  <th className="px-4 py-3">User</th>
+                  <th className="px-4 py-3">Wallet</th>
+                  <th className="px-4 py-3">Plan</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Valid Until</th>
+                  <th className="px-4 py-3">Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {subscriptions.map((sub) => (
+                  <tr key={sub.id} className="border-t border-gray-800 hover:bg-white/5">
+                    <td className="px-4 py-3 text-white">
+                      {sub.profiles?.email || sub.user_id.slice(0, 8)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <a
+                        href={`https://basescan.org/address/${sub.wallet_address}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-blue-400 hover:text-blue-300"
+                      >
+                        <code className="text-xs">{sub.wallet_address.slice(0, 10)}...{sub.wallet_address.slice(-6)}</code>
+                        <ExternalLink size={12} />
+                      </a>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        sub.plan_tier === 'elite' ? 'bg-purple-500/20 text-purple-400' :
+                        sub.plan_tier === 'pro' ? 'bg-blue-500/20 text-blue-400' :
+                        sub.plan_tier === 'starter' ? 'bg-green-500/20 text-green-400' :
+                        'bg-gray-500/20 text-gray-400'
+                      }`}>
+                        {sub.plan_tier.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        sub.status === 'active' ? 'bg-green-500/20 text-green-400' :
+                        sub.status === 'expired' ? 'bg-red-500/20 text-red-400' :
+                        'bg-gray-500/20 text-gray-400'
+                      }`}>
+                        {sub.status.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-secondary text-sm">
+                      {new Date(sub.valid_until).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3 text-secondary text-sm">
+                      {new Date(sub.created_at).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+                {subscriptions.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-secondary">
+                      No subscriptions yet
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TRADES SECTION - Expanded Recent Trades */}
+      {activeSection === 'trades' && (
+        <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
+          <div className="p-4 border-b border-gray-800">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Clock size={20} className="text-gray-400" />
+              All Trades ({recentTrades.length})
+            </h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-background">
+                <tr className="text-left text-sm text-secondary">
+                  <th className="px-4 py-3">Time</th>
+                  <th className="px-4 py-3">User Wallet</th>
+                  <th className="px-4 py-3">Token</th>
+                  <th className="px-4 py-3">Direction</th>
+                  <th className="px-4 py-3">Size</th>
+                  <th className="px-4 py-3">P/L</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentTrades.map((trade) => (
+                  <tr key={trade.id} className="border-t border-gray-800 hover:bg-white/5">
+                    <td className="px-4 py-3 text-sm text-secondary">
+                      {formatTimeAgo(trade.created_at)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <a
+                        href={`https://basescan.org/address/${trade.wallet_address}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-blue-400 hover:text-blue-300"
+                      >
+                        <code className="text-xs">
+                          {trade.wallet_address.slice(0, 6)}...{trade.wallet_address.slice(-4)}
+                        </code>
+                        <ExternalLink size={10} />
+                      </a>
+                    </td>
+                    <td className="px-4 py-3 text-white font-medium">
+                      {trade.token_symbol || 'WETH'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        trade.direction === 'LONG'
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-red-500/20 text-red-400'
+                      }`}>
+                        {trade.direction || 'LONG'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-white font-mono text-sm">
+                      ${(trade.entry_amount || 0).toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3">
+                      {trade.profit_loss !== null ? (
+                        <span className={`font-mono text-sm ${
+                          trade.profit_loss >= 0 ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                          {trade.profit_loss >= 0 ? '+' : ''}${trade.profit_loss.toFixed(4)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-500">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(trade.status)}`}>
+                        {trade.status.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500 max-w-32 truncate">
+                      {trade.close_reason || '-'}
+                    </td>
+                  </tr>
+                ))}
+                {recentTrades.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-8 text-center text-secondary">
+                      No trades yet
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* OVERVIEW SECTION */}
+      {activeSection === 'overview' && (
+        <>
       {/* Gas Warning Banner */}
       {isLowGas && (
         <motion.div
@@ -534,82 +881,8 @@ const AdminMonitorPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Recent Trades */}
-      <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
-        <div className="p-4 border-b border-gray-800">
-          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Clock size={20} className="text-gray-400" />
-            Recent Trades
-          </h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-background">
-              <tr className="text-left text-sm text-secondary">
-                <th className="px-4 py-3">Time</th>
-                <th className="px-4 py-3">User</th>
-                <th className="px-4 py-3">Token</th>
-                <th className="px-4 py-3">Direction</th>
-                <th className="px-4 py-3">Size</th>
-                <th className="px-4 py-3">P/L</th>
-                <th className="px-4 py-3">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentTrades.map((trade) => (
-                <tr key={trade.id} className="border-t border-gray-800 hover:bg-white/5">
-                  <td className="px-4 py-3 text-sm text-secondary">
-                    {formatTimeAgo(trade.created_at)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <code className="text-xs text-gray-400">
-                      {trade.wallet_address.slice(0, 6)}...{trade.wallet_address.slice(-4)}
-                    </code>
-                  </td>
-                  <td className="px-4 py-3 text-white font-medium">
-                    {trade.token_symbol || 'WETH'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      trade.direction === 'LONG'
-                        ? 'bg-green-500/20 text-green-400'
-                        : 'bg-red-500/20 text-red-400'
-                    }`}>
-                      {trade.direction || 'LONG'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-white font-mono text-sm">
-                    ${(trade.entry_amount || 0).toFixed(2)}
-                  </td>
-                  <td className="px-4 py-3">
-                    {trade.profit_loss !== null ? (
-                      <span className={`font-mono text-sm ${
-                        trade.profit_loss >= 0 ? 'text-green-400' : 'text-red-400'
-                      }`}>
-                        {trade.profit_loss >= 0 ? '+' : ''}${trade.profit_loss.toFixed(2)}
-                      </span>
-                    ) : (
-                      <span className="text-gray-500">-</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(trade.status)}`}>
-                      {trade.status.toUpperCase()}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {recentTrades.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-secondary">
-                    No trades yet
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 };

@@ -26,14 +26,19 @@ export interface OnboardingStatus {
 }
 
 export function useOnboarding(): OnboardingStatus {
+  // Check localStorage for cached completion status to avoid flicker
+  const cachedComplete = typeof window !== 'undefined'
+    ? localStorage.getItem('onboarding_complete') === 'true'
+    : false;
+
   const [status, setStatus] = useState<OnboardingStatus>({
     isLoading: true,
-    isComplete: false,
-    currentStep: 'profile',
+    isComplete: cachedComplete, // Use cached value while loading
+    currentStep: cachedComplete ? 'complete' : 'profile',
     steps: {
-      profile: { complete: false, hasName: false, hasCountry: false },
-      wallet: { complete: false, address: null },
-      subscription: { complete: false, plan: null, isActive: false },
+      profile: { complete: cachedComplete, hasName: cachedComplete, hasCountry: cachedComplete },
+      wallet: { complete: cachedComplete, address: null },
+      subscription: { complete: cachedComplete, plan: null, isActive: cachedComplete },
     },
     userId: null,
     refresh: async () => {},
@@ -85,6 +90,11 @@ export function useOnboarding(): OnboardingStatus {
       }
 
       const isComplete = profileComplete && walletComplete && subscriptionComplete;
+
+      // Cache completion status to avoid flicker on next load
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('onboarding_complete', isComplete ? 'true' : 'false');
+      }
 
       setStatus({
         isLoading: false,

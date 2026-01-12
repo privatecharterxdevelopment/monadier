@@ -79,9 +79,9 @@ export const config = {
 
   // Subscription plan prices (USDC)
   subscriptionPrices: {
-    starter: { monthly: 29, yearly: 290 },
-    pro: { monthly: 79, yearly: 790 },
-    elite: { monthly: 199, yearly: 1990 }
+    starter: { monthly: 29, yearly: 239 },
+    pro: { monthly: 79, yearly: 649 },
+    elite: { monthly: 129, yearly: 999 }
   },
 
   // USDC contract addresses per chain

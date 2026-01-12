@@ -22,6 +22,13 @@ interface MarketAnalysis {
   isReversalSignal: boolean;
   suggestedTP: number;
   suggestedSL: number;
+  // Overheating & warnings
+  isOverheated: boolean;
+  isWeekendWarning: boolean;
+  weekendAlertLevel: 'none' | 'yellow' | 'red';
+  scalpingRecommended: boolean;
+  marketWarning?: string;
+  isWeak?: boolean; // Signal is too weak to trade
   metrics: {
     rsi: number;
     macd: string;
@@ -37,31 +44,31 @@ interface MarketAnalysis {
 // Strategy modes
 export type TradingStrategy = 'conservative' | 'normal' | 'risky' | 'aggressive';
 
-// Strategy configs
+// Strategy configs - 40% minimum confidence
 const STRATEGY_CONFIGS = {
   conservative: {
-    minConfidence: 80,
-    minConditions: 4,
-    patternOnly: false,
-    profitLockPercent: 0.5
-  },
-  normal: {
-    minConfidence: 60,
+    minConfidence: 70,
     minConditions: 3,
     patternOnly: false,
     profitLockPercent: 0.5
   },
-  risky: {
-    minConfidence: 40,
+  normal: {
+    minConfidence: 50,
     minConditions: 2,
     patternOnly: false,
     profitLockPercent: 0.5
   },
+  risky: {
+    minConfidence: 40,  // 40% minimum!
+    minConditions: 1,   // Nur 1 condition nötig
+    patternOnly: false,
+    profitLockPercent: 0.5
+  },
   aggressive: {
-    minConfidence: 30, // Very low - patterns are the signal!
-    minConditions: 1,  // Just need pattern
-    patternOnly: true, // ONLY trade on patterns (chart arrows)
-    profitLockPercent: 0.2 // Lock profit at just 0.2%!
+    minConfidence: 30,
+    minConditions: 1,
+    patternOnly: false,
+    profitLockPercent: 0.2
   }
 };
 
@@ -423,8 +430,12 @@ export async function analyzeMarket(
         reason: patternName,
         indicators: [patternName],
         isReversalSignal: true,
-        suggestedTP: 3.0, // Smaller TP for aggressive
-        suggestedSL: 0.5, // Tight SL
+        suggestedTP: 3.0,
+        suggestedSL: 0.5,
+        isOverheated: rsi > 75 || rsi < 25,
+        isWeekendWarning: false,
+        weekendAlertLevel: 'none' as const,
+        scalpingRecommended: false,
         metrics: {
           rsi: Math.round(rsi),
           macd: macd.toFixed(4),
@@ -452,6 +463,10 @@ export async function analyzeMarket(
         isReversalSignal: true,
         suggestedTP: 3.0,
         suggestedSL: 0.5,
+        isOverheated: rsi > 75 || rsi < 25,
+        isWeekendWarning: false,
+        weekendAlertLevel: 'none' as const,
+        scalpingRecommended: false,
         metrics: {
           rsi: Math.round(rsi),
           macd: macd.toFixed(4),
@@ -469,25 +484,33 @@ export async function analyzeMarket(
     return null;
   }
 
-  // === DIRECTION DETERMINATION (SAME AS UI) ===
+  // === DIRECTION DETERMINATION - AGGRESSIVE MODE ===
+  // Just pick the stronger direction, even with just 1 condition!
   let direction: 'LONG' | 'SHORT' | 'HOLD' = 'HOLD';
   let conditionsMet = 0;
   let conditions: Record<string, boolean> = {};
 
-  if (longConditionsMet > shortConditionsMet && longConditionsMet >= 2) {
+  // AGGRESSIVE: Trade with just 1 condition met!
+  if (longConditionsMet > shortConditionsMet && longConditionsMet >= 1) {
     direction = 'LONG';
     conditionsMet = longConditionsMet;
     conditions = longConditions;
-  } else if (shortConditionsMet > longConditionsMet && shortConditionsMet >= 2) {
+  } else if (shortConditionsMet > longConditionsMet && shortConditionsMet >= 1) {
     direction = 'SHORT';
     conditionsMet = shortConditionsMet;
     conditions = shortConditions;
-  } else if (longConditionsMet === shortConditionsMet && longConditionsMet >= 2) {
+  } else if (longConditionsMet === shortConditionsMet && longConditionsMet >= 1) {
     // Tie-breaker: use recent momentum
     const momentum3 = ((closes[closes.length - 1] - closes[closes.length - 3]) / closes[closes.length - 3]) * 100;
     direction = momentum3 > 0 ? 'LONG' : 'SHORT';
     conditionsMet = longConditionsMet;
     conditions = momentum3 > 0 ? longConditions : shortConditions;
+  } else {
+    // EVEN MORE AGGRESSIVE: If no conditions, use price momentum!
+    const momentum = ((closes[closes.length - 1] - closes[closes.length - 3]) / closes[closes.length - 3]) * 100;
+    direction = momentum > 0 ? 'LONG' : 'SHORT';
+    conditionsMet = 1; // Force 1 condition
+    conditions = momentum > 0 ? longConditions : shortConditions;
   }
 
   // === MOMENTUM OVERRIDE (SAME AS UI) ===
@@ -535,15 +558,41 @@ export async function analyzeMarket(
   }
 
   // Check minimum conditions for strategy
-  if (conditionsMet < strategyConfig.minConditions) {
-    logger.info(`Signal too weak: ${conditionsMet}/${strategyConfig.minConditions} conditions for ${strategy} mode`);
-    return null;
-  }
+  // With minConditions=0, this will almost never trigger!
+  const isTooWeak = strategyConfig.minConditions > 0 &&
+    (conditionsMet < strategyConfig.minConditions || confidence < strategyConfig.minConfidence);
 
-  // Check minimum confidence for strategy
-  if (confidence < strategyConfig.minConfidence) {
-    logger.info(`Confidence too low: ${confidence}% < ${strategyConfig.minConfidence}% for ${strategy} mode`);
-    return null;
+  if (isTooWeak) {
+    const weakReason = conditionsMet < strategyConfig.minConditions
+      ? `Signal weak: ${conditionsMet}/${strategyConfig.minConditions} conditions`
+      : `Confidence: ${confidence}% < ${strategyConfig.minConfidence}%`;
+    logger.info(`${weakReason} for ${strategy} mode`);
+
+    // Return analysis anyway for UI display (marked as weak)
+    return {
+      direction: finalDirection,
+      confidence: Math.round(confidence),
+      reason: `Waiting - ${weakReason}`,
+      indicators: [],
+      isReversalSignal: false,
+      suggestedTP: 5,
+      suggestedSL: 1,
+      isOverheated: rsi > 75 || rsi < 25,
+      isWeekendWarning: false,
+      weekendAlertLevel: 'none' as const,
+      scalpingRecommended: false,
+      isWeak: true, // Flag to indicate signal is too weak
+      metrics: {
+        rsi: Math.round(rsi),
+        macd: macd.toFixed(4),
+        priceChange1h: priceChange1h.toFixed(2),
+        volumeRatio: volumeRatio.toFixed(1),
+        conditionsMet,
+        riskReward: '0',
+        trend,
+        dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' })
+      }
+    };
   }
 
   // === BUILD INDICATORS LIST ===
@@ -583,19 +632,94 @@ export async function analyzeMarket(
   // === DYNAMIC TP/SL ===
   const now = new Date();
   const dayOfWeek = now.getDay();
+  const hour = now.getUTCHours();
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const isSunday = dayOfWeek === 0;
   const isMonday = dayOfWeek === 1;
-  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const isSaturday = dayOfWeek === 6;
+  const isWeekend = isSunday || isSaturday;
+
+  // === OVERHEATING DETECTION ===
+  // Market is overheated when RSI is extreme and price moved significantly
+  const isOverbought = rsi > 75;
+  const isOversold = rsi < 25;
+  const isExtremeRSI = rsi > 80 || rsi < 20;
+  const rapidPriceMove = Math.abs(priceChange1h) > 2.0; // 2%+ move in 1h
+  const isOverheated = isExtremeRSI || (rapidPriceMove && (isOverbought || isOversold));
+
+  // Detect potential reversal when overheated
+  const potentialReversal = isOverheated && (
+    (isOverbought && (hasBearishPattern || lastCandleIsBearish)) ||
+    (isOversold && (hasBullishPattern || lastCandleIsBullish))
+  );
+
+  // Recommend scalping when overheated with reversal signals
+  const scalpingRecommended = potentialReversal || (isExtremeRSI && isHighVolume);
+
+  // === WEEKEND/MONDAY WARNING SYSTEM ===
+  // Sunday evening to Monday = highest risk (institutional moves)
+  // Saturday after peak hours = elevated risk
+  let weekendAlertLevel: 'none' | 'yellow' | 'red' = 'none';
+  let marketWarning: string | undefined;
+
+  if (isSunday && hour >= 18) {
+    // Sunday evening UTC - RED ALERT (market opens soon)
+    weekendAlertLevel = 'red';
+    marketWarning = 'RED ALERT: Sunday evening - high volatility expected as markets prepare to open';
+  } else if (isMonday && hour < 12) {
+    // Monday morning UTC - RED ALERT (institutional selling/buying)
+    weekendAlertLevel = 'red';
+    marketWarning = 'RED ALERT: Monday morning - institutional activity, expect sharp moves';
+  } else if (isMonday) {
+    // Monday afternoon - elevated risk
+    weekendAlertLevel = 'yellow';
+    marketWarning = 'Caution: Monday market instability - reduced position sizes recommended';
+  } else if (isSunday) {
+    // Sunday - yellow warning
+    weekendAlertLevel = 'yellow';
+    marketWarning = 'Weekend trading: Lower liquidity, wider spreads possible';
+  } else if (isSaturday && hour >= 12) {
+    // Saturday afternoon/evening - watch for weekend dumps
+    weekendAlertLevel = 'yellow';
+    marketWarning = 'Weekend alert: Watch for late Saturday dumps before Sunday instability';
+  }
+
+  const isWeekendWarning = weekendAlertLevel !== 'none';
+
+  // Log overheating and warnings
+  if (isOverheated) {
+    logger.warn('🔥 MARKET OVERHEATED', {
+      symbol,
+      rsi: rsi.toFixed(1),
+      priceChange1h: priceChange1h.toFixed(2) + '%',
+      potentialReversal,
+      scalpingRecommended
+    });
+  }
+
+  if (isWeekendWarning) {
+    logger.warn(`⚠️ ${weekendAlertLevel.toUpperCase()} ALERT: ${marketWarning}`);
+  }
 
   let baseTP = 7.5;
   let baseSL = 1.0;
 
   if (isMonday) {
+    baseTP = 4.0; // Even tighter on Monday
+    baseSL = 0.6;
+  } else if (isSunday) {
+    baseTP = 3.5; // Very tight on Sunday
+    baseSL = 0.5;
+  } else if (isSaturday) {
     baseTP = 5.0;
     baseSL = 0.8;
-  } else if (isWeekend) {
-    baseTP = 5.0;
-    baseSL = 1.0;
+  }
+
+  // If overheated, use scalping parameters
+  if (scalpingRecommended) {
+    baseTP = 2.0; // Quick scalp TP
+    baseSL = 0.5; // Tight stop
+    logger.info('🎯 Scalping mode activated due to overheated market');
   }
 
   if (isStrongUptrend && finalDirection === 'LONG') {
@@ -641,9 +765,14 @@ export async function analyzeMarket(
     confidence: Math.round(confidence),
     reason,
     indicators,
-    isReversalSignal: nearSupport || nearResistance,
+    isReversalSignal: nearSupport || nearResistance || potentialReversal,
     suggestedTP,
     suggestedSL,
+    isOverheated,
+    isWeekendWarning,
+    weekendAlertLevel,
+    scalpingRecommended,
+    marketWarning,
     metrics: {
       rsi: Math.round(rsi),
       macd: macd.toFixed(4),
@@ -696,6 +825,11 @@ export async function generateTradeSignal(
   }
 
   if (!analysis) {
+    return null;
+  }
+
+  // Don't trade if signal is too weak (but analysis was saved above for UI)
+  if (analysis.isWeak) {
     return null;
   }
 

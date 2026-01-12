@@ -22,8 +22,8 @@ const DashboardPage: React.FC = () => {
           <main className="py-8">
             <Routes>
               <Route path="/" element={<DashboardOverview />} />
-              <Route path="/chart-trading" element={<TradingBotPage />} />
-              <Route path="/trading-bot" element={<BotHistoryPage />} />
+              <Route path="/chart-trades" element={<TradingBotPage />} />
+              <Route path="/bot-trading" element={<BotHistoryPage />} />
               <Route path="/monitor" element={<AdminMonitorPage />} />
               <Route path="/downloads" element={<DownloadsPage />} />
               <Route path="/subscriptions" element={<SubscriptionsPage />} />

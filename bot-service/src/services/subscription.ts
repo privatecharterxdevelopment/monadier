@@ -25,6 +25,7 @@ export interface TradePermission {
 export interface UserTradingSettings {
   takeProfitPercent: number;
   stopLossPercent: number;
+  askPermission: boolean;
 }
 
 export class SubscriptionService {
@@ -281,23 +282,170 @@ export class SubscriptionService {
     try {
       const { data, error } = await this.supabase
         .from('vault_settings')
-        .select('take_profit_percent, stop_loss_percent')
+        .select('take_profit_percent, stop_loss_percent, ask_permission')
         .eq('wallet_address', walletAddress.toLowerCase())
         .eq('chain_id', chainId)
         .single();
 
       if (error || !data) {
         // Return defaults if not found
-        return { takeProfitPercent: 5, stopLossPercent: 1 };
+        return { takeProfitPercent: 5, stopLossPercent: 1, askPermission: false };
       }
 
       return {
         takeProfitPercent: data.take_profit_percent || 5,
-        stopLossPercent: data.stop_loss_percent || 1
+        stopLossPercent: data.stop_loss_percent || 1,
+        askPermission: data.ask_permission || false
       };
     } catch (err) {
       logger.error('Failed to get user trading settings', { walletAddress, error: err });
-      return { takeProfitPercent: 5, stopLossPercent: 1 };
+      return { takeProfitPercent: 5, stopLossPercent: 1, askPermission: false };
+    }
+  }
+
+  /**
+   * Create a pending trade approval (when ask_permission is enabled)
+   */
+  async createPendingApproval(params: {
+    walletAddress: string;
+    chainId: number;
+    tokenAddress: string;
+    tokenSymbol: string;
+    direction: 'LONG' | 'SHORT';
+    amountUsdc: number;
+    entryPrice: number;
+    confidence: number;
+    riskReward: number;
+    analysisSummary: string;
+  }): Promise<string | null> {
+    try {
+      // First get user_id from wallet
+      const { data: sub } = await this.supabase
+        .from('subscriptions')
+        .select('user_id')
+        .eq('wallet_address', params.walletAddress.toLowerCase())
+        .single();
+
+      if (!sub?.user_id) {
+        logger.error('No user found for wallet', { wallet: params.walletAddress });
+        return null;
+      }
+
+      // Expire any existing pending approvals for this user
+      await this.supabase
+        .from('pending_trade_approvals')
+        .update({ status: 'expired' })
+        .eq('user_id', sub.user_id)
+        .eq('status', 'pending');
+
+      // Create new pending approval
+      const { data, error } = await this.supabase
+        .from('pending_trade_approvals')
+        .insert({
+          user_id: sub.user_id,
+          wallet_address: params.walletAddress.toLowerCase(),
+          chain_id: params.chainId,
+          token_address: params.tokenAddress,
+          token_symbol: params.tokenSymbol,
+          direction: params.direction,
+          amount_usdc: params.amountUsdc,
+          entry_price: params.entryPrice,
+          confidence: params.confidence,
+          risk_reward: params.riskReward,
+          analysis_summary: params.analysisSummary,
+          status: 'pending',
+          expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString() // 5 minutes
+        })
+        .select('id')
+        .single();
+
+      if (error) {
+        logger.error('Failed to create pending approval', { error });
+        return null;
+      }
+
+      logger.info('Created pending trade approval', {
+        id: data.id,
+        wallet: params.walletAddress.slice(0, 10),
+        token: params.tokenSymbol,
+        direction: params.direction,
+        amount: params.amountUsdc
+      });
+
+      return data.id;
+    } catch (err) {
+      logger.error('Error creating pending approval', { error: err });
+      return null;
+    }
+  }
+
+  /**
+   * Get all approved trades waiting for execution
+   */
+  async getApprovedTrades(): Promise<Array<{
+    id: string;
+    walletAddress: string;
+    chainId: number;
+    tokenAddress: string;
+    tokenSymbol: string;
+    direction: 'LONG' | 'SHORT';
+    amountUsdc: number;
+  }>> {
+    try {
+      const { data, error } = await this.supabase
+        .from('pending_trade_approvals')
+        .select('*')
+        .eq('status', 'approved')
+        .order('responded_at', { ascending: true });
+
+      if (error || !data) {
+        return [];
+      }
+
+      return data.map(d => ({
+        id: d.id,
+        walletAddress: d.wallet_address,
+        chainId: d.chain_id,
+        tokenAddress: d.token_address,
+        tokenSymbol: d.token_symbol,
+        direction: d.direction as 'LONG' | 'SHORT',
+        amountUsdc: parseFloat(d.amount_usdc)
+      }));
+    } catch (err) {
+      logger.error('Error getting approved trades', { error: err });
+      return [];
+    }
+  }
+
+  /**
+   * Mark a pending approval as executed
+   */
+  async markApprovalExecuted(approvalId: string, txHash?: string): Promise<void> {
+    try {
+      await this.supabase
+        .from('pending_trade_approvals')
+        .update({
+          status: 'executed',
+          executed_at: new Date().toISOString()
+        })
+        .eq('id', approvalId);
+    } catch (err) {
+      logger.error('Error marking approval executed', { error: err, approvalId });
+    }
+  }
+
+  /**
+   * Expire old pending approvals
+   */
+  async expireOldApprovals(): Promise<void> {
+    try {
+      await this.supabase
+        .from('pending_trade_approvals')
+        .update({ status: 'expired' })
+        .eq('status', 'pending')
+        .lt('expires_at', new Date().toISOString());
+    } catch (err) {
+      logger.error('Error expiring approvals', { error: err });
     }
   }
 

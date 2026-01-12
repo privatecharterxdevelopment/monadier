@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Wallet, ArrowUpRight, ArrowDownLeft, Settings, Zap, Lock, AlertTriangle, RefreshCw, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Wallet, ArrowUpRight, ArrowDownLeft, Settings, Zap, Lock, AlertTriangle, RefreshCw, ArrowRight, Play, Square, Loader2 } from 'lucide-react';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { SUBSCRIPTION_PLANS } from '../../lib/subscription';
@@ -43,21 +43,31 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   const [maxTradeSize, setMaxTradeSize] = useState<string>('0.00');
   const [takeProfit, setTakeProfit] = useState(5);
   const [stopLoss, setStopLoss] = useState(1);
+  const [askPermission, setAskPermission] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsStartMode, setSettingsStartMode] = useState(false);
 
   // V1 Migration state
   const [v1Balance, setV1Balance] = useState<string>('0.00');
   const [isMigrating, setIsMigrating] = useState(false);
   const [migrationError, setMigrationError] = useState<string | null>(null);
 
+  // Bot toggle state
+  const [isTogglingBot, setIsTogglingBot] = useState(false);
+  const [toggleError, setToggleError] = useState<string | null>(null);
+  const [botActiveTime, setBotActiveTime] = useState(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [showDepositPrompt, setShowDepositPrompt] = useState(false);
+
   // Check if user has paid subscription (not free)
   const isPaidUser = isSubscribed && planTier && planTier !== 'free';
   const isVaultAvailable = chainId ? (VAULT_V4_ADDRESSES[chainId] !== null || VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null) : false;
+  const isPreviewMode = !isVaultAvailable;
   const hasV1Funds = parseFloat(v1Balance) > 0;
 
   // Get platform fee for current chain
@@ -90,11 +100,11 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
         setRiskLevelPercent(status.riskLevelPercent);
         setMaxTradeSize(status.maxTradeSizeFormatted);
 
-        // Fetch TP/SL settings from Supabase
+        // Fetch TP/SL and ask_permission settings from Supabase
         try {
           const { data: vaultSettings } = await supabase
             .from('vault_settings')
-            .select('take_profit_percent, stop_loss_percent')
+            .select('take_profit_percent, stop_loss_percent, ask_permission')
             .eq('wallet_address', address.toLowerCase())
             .eq('chain_id', chainId)
             .single();
@@ -102,6 +112,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
           if (vaultSettings) {
             setTakeProfit(vaultSettings.take_profit_percent || 5);
             setStopLoss(vaultSettings.stop_loss_percent || 1);
+            setAskPermission(vaultSettings.ask_permission || false);
           }
         } catch (e) {
           // Settings may not exist yet, use defaults
@@ -133,6 +144,86 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
 
     loadVaultData();
   }, [isConnected, chainId, address, publicClient, walletClient, isVaultAvailable]);
+
+  // Timer for bot active time - persists across page reloads
+  useEffect(() => {
+    if (autoTradeEnabled && !isPreviewMode && address) {
+      const storageKey = `bot_start_time_${address.toLowerCase()}`;
+
+      // Get or set the start time
+      let startTime = localStorage.getItem(storageKey);
+      if (!startTime) {
+        startTime = Date.now().toString();
+        localStorage.setItem(storageKey, startTime);
+      }
+
+      // Calculate initial elapsed time
+      const initialElapsed = Math.floor((Date.now() - parseInt(startTime)) / 1000);
+      setBotActiveTime(initialElapsed);
+
+      // Update every second
+      timerRef.current = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - parseInt(startTime!)) / 1000);
+        setBotActiveTime(elapsed);
+      }, 1000);
+    } else {
+      // Stop timer and clear stored start time
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      if (address) {
+        localStorage.removeItem(`bot_start_time_${address.toLowerCase()}`);
+      }
+      setBotActiveTime(0);
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [autoTradeEnabled, isPreviewMode, address]);
+
+  // Format time display
+  const formatTime = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hrs > 0) {
+      return `${hrs}h ${mins}m`;
+    }
+    if (mins > 0) {
+      return `${mins}m ${secs}s`;
+    }
+    return `${secs}s`;
+  };
+
+  // Toggle bot on/off
+  const handleToggleBot = async () => {
+    if (!chainId || !address || !publicClient || !walletClient || isPreviewMode) return;
+
+    try {
+      setIsTogglingBot(true);
+      setToggleError(null);
+
+      const vaultClient = new VaultClient(publicClient as any, walletClient as any, chainId);
+      const newState = !autoTradeEnabled;
+
+      const hash = await vaultClient.setAutoTrade(newState, address as `0x${string}`);
+
+      // Wait for transaction confirmation
+      await publicClient.waitForTransactionReceipt({ hash });
+
+      // Update local state
+      setAutoTradeEnabled(newState);
+    } catch (err: any) {
+      console.error('Failed to toggle bot:', err);
+      setToggleError(err.shortMessage || err.message || 'Failed to toggle bot');
+    } finally {
+      setIsTogglingBot(false);
+    }
+  };
 
   // Migrate from V1 to V2 (withdraw from V1)
   const handleMigrateFromV1 = async () => {
@@ -205,9 +296,6 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
     );
   }
 
-  // Vault not deployed on this chain - show preview mode
-  const isPreviewMode = !isVaultAvailable;
-
   // Not connected
   if (!isConnected) {
     return (
@@ -243,21 +331,27 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
               <Wallet className={`w-5 h-5 ${autoTradeEnabled && !isPreviewMode ? 'text-green-500' : 'text-zinc-400'}`} />
             </div>
             <div>
-              <h3 className="text-white font-medium">Bot Wallet</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-white font-medium">Bot Wallet</h3>
+                {/* Prominent Settings Button */}
+                {!compact && !isPreviewMode && (
+                  <button
+                    onClick={() => {
+                      setSettingsStartMode(false);
+                      setShowSettingsModal(true);
+                    }}
+                    className="flex items-center gap-1 px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded text-xs text-zinc-300 hover:text-white transition-colors"
+                  >
+                    <Settings className="w-3 h-3" />
+                    Settings
+                  </button>
+                )}
+              </div>
               <p className={`text-xs ${autoTradeEnabled && !isPreviewMode ? 'text-green-500' : 'text-zinc-500'}`}>
                 {isPreviewMode ? 'Vault Not Deployed' : autoTradeEnabled ? 'Auto-Trading Active' : 'Auto-Trading Off'}
               </p>
             </div>
           </div>
-
-          {!compact && !isPreviewMode && (
-            <button
-              onClick={() => setShowSettingsModal(true)}
-              className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"
-            >
-              <Settings className="w-4 h-4 text-zinc-400" />
-            </button>
-          )}
         </div>
 
         {/* Balance */}
@@ -305,6 +399,103 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
               }`}>
                 {tradeInfo.unlimited ? 'Unlimited' : `${tradeInfo.remaining} left`}
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Bot Play/Stop Toggle Button */}
+        {(!isLoading || isPreviewMode) && (!error || isPreviewMode) && !isPreviewMode && (
+          <div className="mb-4">
+            {parseFloat(vaultBalance) > 0 ? (
+              // Has balance - show real toggle
+              autoTradeEnabled ? (
+                // Bot is running - show Stop button
+                <button
+                  onClick={handleToggleBot}
+                  disabled={isTogglingBot}
+                  className="w-full py-4 rounded-xl font-medium flex items-center justify-center gap-3 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed bg-red-500/20 border-2 border-red-500/50 text-red-400 hover:bg-red-500/30"
+                >
+                  {isTogglingBot ? (
+                    <>
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                      <span>Stopping Bot...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Square className="w-6 h-6" />
+                      <span>Stop Bot</span>
+                      <div className="flex items-center gap-2 ml-2 px-2 py-1 bg-red-500/20 rounded-lg">
+                        <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                        <span className="text-xs font-mono">{formatTime(botActiveTime)}</span>
+                      </div>
+                    </>
+                  )}
+                </button>
+              ) : (
+                // Bot is stopped - show Start button that opens settings modal in start mode
+                <button
+                  onClick={() => {
+                    setSettingsStartMode(true);
+                    setShowSettingsModal(true);
+                  }}
+                  disabled={!canTrade}
+                  className="w-full py-4 rounded-xl font-medium flex items-center justify-center gap-3 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed bg-green-500/20 border-2 border-green-500/50 text-green-400 hover:bg-green-500/30"
+                >
+                  <Play className="w-6 h-6" />
+                  <span>Start Auto-Trading</span>
+                </button>
+              )
+            ) : (
+              // No balance - show disabled button that opens deposit prompt
+              <button
+                onClick={() => setShowDepositPrompt(true)}
+                className="w-full py-4 rounded-xl font-medium flex items-center justify-center gap-3 transition-all duration-300 bg-zinc-800 border-2 border-zinc-700 text-zinc-400 hover:bg-zinc-700 hover:border-zinc-600"
+              >
+                <Play className="w-6 h-6" />
+                <span>Start Auto-Trading</span>
+              </button>
+            )}
+            {toggleError && (
+              <p className="text-red-400 text-xs mt-2 text-center">{toggleError}</p>
+            )}
+            {autoTradeEnabled && !isTogglingBot && (
+              <p className="text-green-400/70 text-xs mt-2 text-center flex items-center justify-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                Bot is trading automatically • Checking every 10s
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Deposit Required Popup */}
+        {showDepositPrompt && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowDepositPrompt(false)}>
+            <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-yellow-500/20">
+                <Wallet className="w-8 h-8 text-yellow-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-white text-center mb-2">Deposit Required</h3>
+              <p className="text-zinc-400 text-center mb-6">
+                You need to deposit USDC into your vault before the bot can start trading automatically.
+              </p>
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    setShowDepositPrompt(false);
+                    setShowDepositModal(true);
+                  }}
+                  className="w-full py-3 bg-white text-black font-medium rounded-xl hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
+                >
+                  <ArrowDownLeft className="w-5 h-5" />
+                  Deposit USDC
+                </button>
+                <button
+                  onClick={() => setShowDepositPrompt(false)}
+                  className="w-full py-3 bg-zinc-800 text-zinc-400 font-medium rounded-xl hover:bg-zinc-700 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -387,7 +578,10 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
         {/* Settings link for compact mode */}
         {compact && !isPreviewMode && (
           <button
-            onClick={() => setShowSettingsModal(true)}
+            onClick={() => {
+              setSettingsStartMode(false);
+              setShowSettingsModal(true);
+            }}
             className="w-full mt-2 py-2 text-sm text-zinc-400 hover:text-white transition-colors flex items-center justify-center gap-1"
           >
             <Settings className="w-3 h-3" />
@@ -425,9 +619,15 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
           autoTradeEnabled={autoTradeEnabled}
           currentTakeProfit={takeProfit}
           currentStopLoss={stopLoss}
-          onClose={() => setShowSettingsModal(false)}
+          currentAskPermission={askPermission}
+          startMode={settingsStartMode}
+          onClose={() => {
+            setShowSettingsModal(false);
+            setSettingsStartMode(false);
+          }}
           onSuccess={() => {
             setShowSettingsModal(false);
+            setSettingsStartMode(false);
             window.location.reload();
           }}
         />

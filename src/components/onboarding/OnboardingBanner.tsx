@@ -135,7 +135,7 @@ const OnboardingBanner: React.FC = () => {
 
         <div className="mt-4 flex gap-3">
           <Link
-            to="/dashboard/trading-bot"
+            to="/dashboard/chart-trades"
             className="px-4 py-2 bg-green-500 text-black rounded-lg font-medium hover:bg-green-400 transition-colors"
           >
             Start Trading
@@ -192,7 +192,7 @@ const OnboardingBanner: React.FC = () => {
           title="Connect Wallet"
           complete={steps.wallet.complete}
           current={currentStep === 'wallet'}
-          link="/dashboard/trading-bot"
+          link="/dashboard/chart-trades"
         />
         <Step
           icon={<CreditCard className="w-5 h-5" />}
@@ -217,7 +217,7 @@ const OnboardingBanner: React.FC = () => {
             {currentStep === 'wallet' && (
               <>
                 <span className="text-accent font-medium">Next:</span> Connect your wallet on the{' '}
-                <Link to="/dashboard/trading-bot" className="text-accent hover:underline">
+                <Link to="/dashboard/chart-trades" className="text-accent hover:underline">
                   Trading Bot
                 </Link>{' '}
                 page

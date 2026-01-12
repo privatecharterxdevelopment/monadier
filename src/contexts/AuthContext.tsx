@@ -82,7 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     checkUser();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
 
       setUser(session?.user ?? null);
@@ -95,6 +95,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } catch (error) {
           console.error('Error fetching profile on auth change:', error);
+        }
+
+        // Apply referral code from localStorage (for Google OAuth flow)
+        if (event === 'SIGNED_IN') {
+          const storedReferralCode = localStorage.getItem('referral_code');
+          if (storedReferralCode) {
+            try {
+              const result = await supabase.rpc('apply_referral_code', {
+                p_referred_user_id: session.user.id,
+                p_referral_code: storedReferralCode
+              });
+              if (result.data?.success) {
+                console.log('Referral code applied successfully:', storedReferralCode);
+              }
+              localStorage.removeItem('referral_code');
+            } catch (refError) {
+              console.error('Error applying referral code:', refError);
+            }
+          }
         }
       } else {
         setProfile(null);

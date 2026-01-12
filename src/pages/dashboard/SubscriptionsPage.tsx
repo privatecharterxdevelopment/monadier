@@ -30,7 +30,7 @@ import { useWeb3 } from '../../contexts/Web3Context';
 import { useAppKit } from '@reown/appkit/react';
 import Card from '../../components/ui/Card';
 import { supabase } from '../../lib/supabase';
-import { generateLicenseCode, getUserTimezone } from '../../lib/subscription';
+import { generateLicenseCode, getUserTimezone, SUBSCRIPTION_PLANS } from '../../lib/subscription';
 
 // Generate forex license key
 function generateForexLicenseKey(userId: string, planType: 'monthly' | 'lifetime'): string {
@@ -64,6 +64,7 @@ const SubscriptionsPage: React.FC = () => {
   const { open } = useAppKit();
 
   const [selectedTab, setSelectedTab] = useState<'trading' | 'software' | 'forex'>('trading');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [isPaying, setIsPaying] = useState(false);
@@ -128,8 +129,11 @@ const SubscriptionsPage: React.FC = () => {
     {
       id: 'starter',
       name: 'Starter',
-      price: 19,
-      billingCycle: 'monthly' as const,
+      monthlyPrice: SUBSCRIPTION_PLANS.starter.monthlyPrice,
+      yearlyPrice: SUBSCRIPTION_PLANS.starter.yearlyPrice,
+      price: billingCycle === 'monthly' ? SUBSCRIPTION_PLANS.starter.monthlyPrice : SUBSCRIPTION_PLANS.starter.yearlyPrice,
+      billingCycle: billingCycle as 'monthly' | 'yearly',
+      yearlyDiscount: SUBSCRIPTION_PLANS.starter.yearlyDiscount,
       icon: <Zap className="w-6 h-6" />,
       features: [
         '25 trades per day',
@@ -143,8 +147,11 @@ const SubscriptionsPage: React.FC = () => {
     {
       id: 'pro',
       name: 'Professional',
-      price: 79,
-      billingCycle: 'monthly' as const,
+      monthlyPrice: SUBSCRIPTION_PLANS.pro.monthlyPrice,
+      yearlyPrice: SUBSCRIPTION_PLANS.pro.yearlyPrice,
+      price: billingCycle === 'monthly' ? SUBSCRIPTION_PLANS.pro.monthlyPrice : SUBSCRIPTION_PLANS.pro.yearlyPrice,
+      billingCycle: billingCycle as 'monthly' | 'yearly',
+      yearlyDiscount: SUBSCRIPTION_PLANS.pro.yearlyDiscount,
       icon: <Crown className="w-6 h-6" />,
       popular: true,
       features: [
@@ -160,8 +167,11 @@ const SubscriptionsPage: React.FC = () => {
     {
       id: 'elite',
       name: 'Elite',
-      price: 199,
-      billingCycle: 'monthly' as const,
+      monthlyPrice: SUBSCRIPTION_PLANS.elite.monthlyPrice,
+      yearlyPrice: SUBSCRIPTION_PLANS.elite.yearlyPrice,
+      price: billingCycle === 'monthly' ? SUBSCRIPTION_PLANS.elite.monthlyPrice : SUBSCRIPTION_PLANS.elite.yearlyPrice,
+      billingCycle: billingCycle as 'monthly' | 'yearly',
+      yearlyDiscount: SUBSCRIPTION_PLANS.elite.yearlyDiscount,
       icon: <Rocket className="w-6 h-6" />,
       features: [
         'Unlimited trades',
@@ -370,16 +380,43 @@ const SubscriptionsPage: React.FC = () => {
       {selectedTab === 'trading' && (
         <div className="space-y-6">
           {/* Crypto DEX Header */}
-          <div className="flex items-center gap-3 pb-4 border-b border-gray-800">
-            <div className="w-12 h-12 rounded-xl bg-orange-500/20 flex items-center justify-center">
-              <Bot className="w-6 h-6 text-orange-400" />
+          <div className="flex items-center justify-between pb-4 border-b border-gray-800">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-orange-500/20 flex items-center justify-center">
+                <Bot className="w-6 h-6 text-orange-400" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                  Crypto DEX Trading Bot
+                  <span className="px-2 py-0.5 text-xs font-bold bg-orange-500/20 text-orange-400 rounded">CRYPTO</span>
+                </h2>
+                <p className="text-gray-400 text-sm">Automated trading on Uniswap, PancakeSwap & more DEXs</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                Crypto DEX Trading Bot
-                <span className="px-2 py-0.5 text-xs font-bold bg-orange-500/20 text-orange-400 rounded">CRYPTO</span>
-              </h2>
-              <p className="text-gray-400 text-sm">Automated trading on Uniswap, PancakeSwap & more DEXs</p>
+
+            {/* Billing Cycle Toggle */}
+            <div className="flex items-center gap-2 p-1 bg-zinc-800 rounded-xl">
+              <button
+                onClick={() => setBillingCycle('monthly')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  billingCycle === 'monthly'
+                    ? 'bg-white text-black'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setBillingCycle('yearly')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                  billingCycle === 'yearly'
+                    ? 'bg-white text-black'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                Yearly
+                <span className="px-1.5 py-0.5 text-xs bg-green-500 text-white rounded font-bold">-31%</span>
+              </button>
             </div>
           </div>
 
@@ -409,7 +446,7 @@ const SubscriptionsPage: React.FC = () => {
                     <p className="text-gray-400 text-sm">
                       {activeSubscription.billingCycle === 'lifetime'
                         ? 'Lifetime access - never expires'
-                        : `Renews ${new Date(activeSubscription.endDate).toLocaleDateString()}`
+                        : `Valid until ${new Date(activeSubscription.endDate).toLocaleDateString()} (manual renewal required)`
                       }
                     </p>
                   </div>
@@ -454,10 +491,19 @@ const SubscriptionsPage: React.FC = () => {
               </div>
 
               <h3 className="text-lg font-medium text-white mb-2 tracking-wide">{plan.name}</h3>
-              <div className="flex items-baseline gap-1 mb-6">
+              <div className="flex items-baseline gap-1 mb-2">
                 <span className="text-4xl font-light text-white">${plan.price}</span>
-                <span className="text-gray-500 text-sm">/month</span>
+                <span className="text-gray-500 text-sm">/{billingCycle === 'yearly' ? 'year' : 'month'}</span>
               </div>
+              {billingCycle === 'yearly' && (
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-gray-500 text-sm line-through">${plan.monthlyPrice * 12}/year</span>
+                  <span className="px-2 py-0.5 text-xs font-medium bg-green-500/20 text-green-400 rounded-full">
+                    Save ${(plan.monthlyPrice * 12) - plan.yearlyPrice}
+                  </span>
+                </div>
+              )}
+              {billingCycle === 'monthly' && <div className="mb-4" />}
 
               <div className="h-px bg-gray-800/50 mb-6" />
 

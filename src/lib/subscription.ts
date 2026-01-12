@@ -70,9 +70,9 @@ export const SUBSCRIPTION_PLANS: Record<PlanTier, SubscriptionPlan> = {
     name: 'Starter',
     description: 'Real trading for beginners',
     monthlyPrice: 29,
-    yearlyPrice: 290, // ~17% off ($348 -> $290)
-    lifetimePrice: 299, // ~10 months
-    yearlyDiscount: 17,
+    yearlyPrice: 239, // Save $109/year (31% off)
+    lifetimePrice: 249,
+    yearlyDiscount: 31,
     features: {
       dailyTradeLimit: 25,
       totalTradeLimit: -1, // Unlimited total
@@ -96,9 +96,9 @@ export const SUBSCRIPTION_PLANS: Record<PlanTier, SubscriptionPlan> = {
     name: 'Pro',
     description: 'For active traders who want automation',
     monthlyPrice: 79,
-    yearlyPrice: 790, // ~17% off ($948 -> $790)
-    lifetimePrice: 799, // Save $149/year vs monthly
-    yearlyDiscount: 17,
+    yearlyPrice: 649, // Save $299/year (32% off)
+    lifetimePrice: 699,
+    yearlyDiscount: 32,
     popular: true,
     badge: 'Most Popular',
     features: {
@@ -123,10 +123,10 @@ export const SUBSCRIPTION_PLANS: Record<PlanTier, SubscriptionPlan> = {
     id: 'elite',
     name: 'Elite',
     description: 'Full power for professional traders',
-    monthlyPrice: 199,
-    yearlyPrice: 1990, // ~17% off ($2388 -> $1990)
-    lifetimePrice: 1999, // Save $389/year vs monthly
-    yearlyDiscount: 17,
+    monthlyPrice: 129,
+    yearlyPrice: 999, // Save $549/year (35% off)
+    lifetimePrice: 1099,
+    yearlyDiscount: 35,
     features: {
       dailyTradeLimit: -1, // unlimited
       totalTradeLimit: -1, // Unlimited total
@@ -180,9 +180,9 @@ export const PRICING_TABLE = {
   columns: ['Plan', 'Monthly', 'Yearly', 'Lifetime', 'Trades'],
   rows: [
     { plan: 'Free Trial', monthly: '$0', yearly: '-', lifetime: '-', trades: '2 total' },
-    { plan: 'Starter', monthly: '$29', yearly: '$290', lifetime: '$299', trades: '25/day' },
-    { plan: 'Pro', monthly: '$79', yearly: '$790', lifetime: '$799', trades: '100/day', popular: true },
-    { plan: 'Elite', monthly: '$199', yearly: '$1,990', lifetime: '$1,999', trades: 'Unlimited' }
+    { plan: 'Starter', monthly: '$29', yearly: '$239', lifetime: '$249', trades: '25/day' },
+    { plan: 'Pro', monthly: '$79', yearly: '$649', lifetime: '$699', trades: '100/day', popular: true },
+    { plan: 'Elite', monthly: '$129', yearly: '$999', lifetime: '$1,099', trades: 'Unlimited' }
   ]
 };
 
