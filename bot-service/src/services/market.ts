@@ -60,7 +60,7 @@ const STRATEGY_CONFIGS = {
   },
   risky: {
     minConfidence: 40,  // 40% minimum!
-    minConditions: 1,   // Nur 1 condition nötig
+    minConditions: 2,   // 2 conditions minimum (synced with UI!)
     patternOnly: false,
     profitLockPercent: 0.5
   },
@@ -484,34 +484,29 @@ export async function analyzeMarket(
     return null;
   }
 
-  // === DIRECTION DETERMINATION - AGGRESSIVE MODE ===
-  // Just pick the stronger direction, even with just 1 condition!
+  // === DIRECTION DETERMINATION - SYNCED WITH UI ===
+  // Requires 2 conditions minimum for reliable signals!
   let direction: 'LONG' | 'SHORT' | 'HOLD' = 'HOLD';
   let conditionsMet = 0;
   let conditions: Record<string, boolean> = {};
 
-  // AGGRESSIVE: Trade with just 1 condition met!
-  if (longConditionsMet > shortConditionsMet && longConditionsMet >= 1) {
+  // CONSERVATIVE: Need at least 2 conditions (same as UI!)
+  if (longConditionsMet > shortConditionsMet && longConditionsMet >= 2) {
     direction = 'LONG';
     conditionsMet = longConditionsMet;
     conditions = longConditions;
-  } else if (shortConditionsMet > longConditionsMet && shortConditionsMet >= 1) {
+  } else if (shortConditionsMet > longConditionsMet && shortConditionsMet >= 2) {
     direction = 'SHORT';
     conditionsMet = shortConditionsMet;
     conditions = shortConditions;
-  } else if (longConditionsMet === shortConditionsMet && longConditionsMet >= 1) {
+  } else if (longConditionsMet === shortConditionsMet && longConditionsMet >= 2) {
     // Tie-breaker: use recent momentum
     const momentum3 = ((closes[closes.length - 1] - closes[closes.length - 3]) / closes[closes.length - 3]) * 100;
     direction = momentum3 > 0 ? 'LONG' : 'SHORT';
     conditionsMet = longConditionsMet;
     conditions = momentum3 > 0 ? longConditions : shortConditions;
-  } else {
-    // EVEN MORE AGGRESSIVE: If no conditions, use price momentum!
-    const momentum = ((closes[closes.length - 1] - closes[closes.length - 3]) / closes[closes.length - 3]) * 100;
-    direction = momentum > 0 ? 'LONG' : 'SHORT';
-    conditionsMet = 1; // Force 1 condition
-    conditions = momentum > 0 ? longConditions : shortConditions;
   }
+  // If less than 2 conditions: direction stays HOLD (no trade)
 
   // === MOMENTUM OVERRIDE (SAME AS UI) ===
   let momentumOverride = false;
