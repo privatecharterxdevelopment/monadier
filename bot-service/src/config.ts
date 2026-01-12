@@ -50,6 +50,8 @@ export const config = {
     42161: { // Arbitrum
       rpcUrl: process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc',
       vaultAddress: process.env.ARBITRUM_VAULT_ADDRESS as `0x${string}` | undefined,
+      // V5: Uniswap V3 (0.05% pools), 0.1% base fee, 10% success fee
+      vaultV5Address: process.env.ARBITRUM_VAULT_V5_ADDRESS as `0x${string}` || '0x6C51F75b164205e51a87038662060cfe54d95E70',
       name: 'Arbitrum'
     },
     56: { // BSC

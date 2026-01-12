@@ -435,6 +435,51 @@
       "artifacts": [
         "Ownable"
       ]
+    },
+    "/Users/macbookair/monadier/contracts/contracts/MonadierTradingVaultV5.sol": {
+      "lastModificationDate": 1768241593069,
+      "contentHash": "1fb89fbe109685f4d3c4de1bf070bb58",
+      "sourceName": "contracts/MonadierTradingVaultV5.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+        "@openzeppelin/contracts/security/ReentrancyGuard.sol",
+        "@openzeppelin/contracts/security/Pausable.sol",
+        "@openzeppelin/contracts/access/Ownable.sol"
+      ],
+      "versionPragmas": [
+        "0.8.24"
+      ],
+      "artifacts": [
+        "ISwapRouter",
+        "IWETH",
+        "MonadierTradingVaultV5"
+      ]
     }
   }
 }

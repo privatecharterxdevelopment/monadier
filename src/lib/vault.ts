@@ -312,6 +312,15 @@ export const VAULT_V4_ADDRESSES: Record<number, `0x${string}` | null> = {
   137: null,    // Polygon - not deployed yet
 };
 
+// V5 Vault addresses (Uniswap V3 0.05% pools, 0.1% base fee, 10% success fee)
+export const VAULT_V5_ADDRESSES: Record<number, `0x${string}` | null> = {
+  1: null,      // Ethereum - not deployed yet
+  56: null,     // BNB Chain - not deployed yet
+  42161: '0x6C51F75b164205e51a87038662060cfe54d95E70',  // Arbitrum - LIVE (V5)
+  8453: null,   // Base - using V4
+  137: null,    // Polygon - not deployed yet
+};
+
 // USDC addresses by chain
 export const USDC_ADDRESSES: Record<number, `0x${string}`> = {
   1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',      // Ethereum
@@ -325,10 +334,17 @@ export const USDC_ADDRESSES: Record<number, `0x${string}`> = {
 export const USDC_DECIMALS = 6;
 
 // Platform fee structure (basis points)
+// V4 and earlier: 1% on Base, 3.5% on other chains
+// V5: 0.1% base + 10% success fee on all chains
 export const PLATFORM_FEES = {
   BASE_CHAIN_ID: 8453,
-  BASE_FEE_BPS: 100,      // 1.0% on Base
-  OTHER_FEE_BPS: 350,     // 3.5% on other chains
+  ARBITRUM_CHAIN_ID: 42161,
+  // V4 fees (Base)
+  BASE_FEE_BPS: 100,      // 1.0% on Base (V4)
+  OTHER_FEE_BPS: 350,     // 3.5% on other chains (V4)
+  // V5 fees (Arbitrum) - much lower!
+  V5_BASE_FEE_BPS: 10,    // 0.1% base fee
+  V5_SUCCESS_FEE_BPS: 1000, // 10% of profit
 } as const;
 
 /**
@@ -340,7 +356,29 @@ export function getPlatformFeeForChain(chainId: number): {
   bps: number;
   percent: number;
   percentFormatted: string;
+  isV5: boolean;
+  successFeeBps?: number;
+  successFeePercent?: number;
 } {
+  // V5 on Arbitrum has different fee structure
+  const isArbitrum = chainId === PLATFORM_FEES.ARBITRUM_CHAIN_ID;
+  const hasV5 = VAULT_V5_ADDRESSES[chainId] !== null;
+
+  if (isArbitrum && hasV5) {
+    // V5 fee structure: 0.1% base + 10% success fee
+    const bps = PLATFORM_FEES.V5_BASE_FEE_BPS;
+    const percent = bps / 100;
+    return {
+      bps,
+      percent,
+      percentFormatted: `${percent.toFixed(1)}% + 10% profit`,
+      isV5: true,
+      successFeeBps: PLATFORM_FEES.V5_SUCCESS_FEE_BPS,
+      successFeePercent: 10
+    };
+  }
+
+  // V4 and earlier
   const isBase = chainId === PLATFORM_FEES.BASE_CHAIN_ID;
   const bps = isBase ? PLATFORM_FEES.BASE_FEE_BPS : PLATFORM_FEES.OTHER_FEE_BPS;
   const percent = bps / 100;
@@ -348,7 +386,8 @@ export function getPlatformFeeForChain(chainId: number): {
   return {
     bps,
     percent,
-    percentFormatted: `${percent.toFixed(1)}%`
+    percentFormatted: `${percent.toFixed(1)}%`,
+    isV5: false
   };
 }
 
@@ -401,8 +440,8 @@ export class VaultClient {
     this.walletClient = walletClient;
     this.chainId = chainId;
 
-    // Prefer V4 > V3 > V2 > V1
-    const vaultAddr = VAULT_V4_ADDRESSES[chainId] || VAULT_V3_ADDRESSES[chainId] || VAULT_V2_ADDRESSES[chainId] || VAULT_ADDRESSES[chainId];
+    // Prefer V5 > V4 > V3 > V2 > V1
+    const vaultAddr = VAULT_V5_ADDRESSES[chainId] || VAULT_V4_ADDRESSES[chainId] || VAULT_V3_ADDRESSES[chainId] || VAULT_V2_ADDRESSES[chainId] || VAULT_ADDRESSES[chainId];
     if (!vaultAddr) {
       throw new Error(`Vault not deployed on chain ${chainId}`);
     }
@@ -419,7 +458,7 @@ export class VaultClient {
    * Check if vault is available on this chain
    */
   static isAvailable(chainId: number): boolean {
-    return VAULT_V4_ADDRESSES[chainId] !== null || VAULT_V3_ADDRESSES[chainId] !== null || VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null;
+    return VAULT_V5_ADDRESSES[chainId] !== null || VAULT_V4_ADDRESSES[chainId] !== null || VAULT_V3_ADDRESSES[chainId] !== null || VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null;
   }
 
   /**

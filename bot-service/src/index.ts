@@ -50,7 +50,7 @@ let isReconciliationRunning = false;
 
 // Cooldown tracking to prevent duplicate trades
 const lastTradeTimestamp: Map<string, number> = new Map();
-const TRADE_COOLDOWN_MS = 120000; // 2 minute cooldown between trades
+const TRADE_COOLDOWN_MS = 300000; // 5 minute cooldown between trades (matches V5 contract)
 const MAX_POSITIONS_TOTAL = 1; // Only 1 position at a time - SAFETY FIRST
 const MAX_FAILED_BEFORE_STOP = 2; // Stop trading after 2 failures
 

@@ -474,7 +474,7 @@ export class PositionService {
     exitPrice: number;
     exitAmount: number; // USDC received
     txHash: string;
-    closeReason: 'trailing_stop' | 'take_profit' | 'manual' | 'stop_loss' | 'emergency_close';
+    closeReason: 'trailing_stop' | 'take_profit' | 'manual' | 'stop_loss' | 'emergency_close' | 'signal_reversal';
   }): Promise<Position | null> {
     try {
       // Get position to calculate P/L

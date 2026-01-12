@@ -153,11 +153,21 @@ const CHAINS: Record<ChainId, Chain> = {
   56: bsc
 };
 
-// Base chain addresses
+// Base chain addresses (Uniswap V2)
 const BASE_CONFIG = {
   USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as `0x${string}`,
   WETH: '0x4200000000000000000000000000000000000006' as `0x${string}`,
   ROUTER: '0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24' as `0x${string}`
+};
+
+// Arbitrum chain addresses (Uniswap V3 - 0.05% pools)
+const ARBITRUM_CONFIG = {
+  USDC: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' as `0x${string}`,
+  WETH: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1' as `0x${string}`,
+  WBTC: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f' as `0x${string}`,
+  ARB: '0x912CE59144191C1204E64559FE8253a0e49E6548' as `0x${string}`,
+  SWAP_ROUTER: '0xE592427A0AEce92De3Edee1F18E0157C05861564' as `0x${string}`, // Uniswap V3 SwapRouter
+  POOL_FEE: 500 // 0.05% fee tier
 };
 
 export interface TradeSignal {
@@ -200,8 +210,8 @@ export class TradingService {
       const chain = CHAINS[chainId];
 
       // Use best vault address available
-      // Prefer V4 > V3 > V2 > V1
-      const vaultAddress = (chainConfig as any).vaultV4Address || (chainConfig as any).vaultV3Address || (chainConfig as any).vaultV2Address || chainConfig.vaultAddress;
+      // Prefer V5 > V4 > V3 > V2 > V1
+      const vaultAddress = (chainConfig as any).vaultV5Address || (chainConfig as any).vaultV4Address || (chainConfig as any).vaultV3Address || (chainConfig as any).vaultV2Address || chainConfig.vaultAddress;
       if (!chain || !vaultAddress) continue;
 
       const publicClient = createPublicClient({
@@ -220,18 +230,18 @@ export class TradingService {
         wallet: walletClient as WalletClient
       });
 
-      const version = (chainConfig as any).vaultV4Address ? 'V4' : (chainConfig as any).vaultV3Address ? 'V3' : (chainConfig as any).vaultV2Address ? 'V2' : 'V1';
+      const version = (chainConfig as any).vaultV5Address ? 'V5' : (chainConfig as any).vaultV4Address ? 'V4' : (chainConfig as any).vaultV3Address ? 'V3' : (chainConfig as any).vaultV2Address ? 'V2' : 'V1';
       logger.info(`Initialized ${version} client for ${chainConfig.name}`, { chainId, vaultAddress });
     }
   }
 
   /**
-   * Get best vault address for a chain (prefers V4 > V3 > V2 > V1)
+   * Get best vault address for a chain (prefers V5 > V4 > V3 > V2 > V1)
    */
   private getV2VaultAddress(chainId: ChainId): `0x${string}` | undefined {
     const chainConfig = config.chains[chainId] as any;
-    // Prefer V4 (100% risk) > V3 (secure) > V2 > V1
-    return chainConfig?.vaultV4Address || chainConfig?.vaultV3Address || chainConfig?.vaultV2Address || chainConfig?.vaultAddress;
+    // Prefer V5 (Uniswap V3, new fees) > V4 (100% risk) > V3 (secure) > V2 > V1
+    return chainConfig?.vaultV5Address || chainConfig?.vaultV4Address || chainConfig?.vaultV3Address || chainConfig?.vaultV2Address || chainConfig?.vaultAddress;
   }
 
   /**
@@ -761,7 +771,7 @@ export class TradingService {
   async closePosition(
     chainId: ChainId,
     position: Position,
-    closeReason: 'trailing_stop' | 'take_profit' | 'manual' | 'stop_loss' | 'emergency_close'
+    closeReason: 'trailing_stop' | 'take_profit' | 'manual' | 'stop_loss' | 'emergency_close' | 'signal_reversal'
   ): Promise<TradeResult> {
     const clients = this.clients.get(chainId);
     const vaultAddress = this.getV2VaultAddress(chainId);
