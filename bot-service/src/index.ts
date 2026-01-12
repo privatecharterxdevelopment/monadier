@@ -522,6 +522,57 @@ async function processApprovedTrades(): Promise<void> {
 }
 
 /**
+ * Update bot analysis for all tokens - runs ONCE per cycle so ALL users see it
+ */
+async function updateBotAnalysis(): Promise<void> {
+  for (const chainId of ACTIVE_CHAINS) {
+    const tokenConfigs = TRADE_TOKENS[chainId];
+    if (!tokenConfigs) continue;
+
+    for (const tokenConfig of tokenConfigs) {
+      try {
+        // Analyze market and save to DB - this is what users see in the UI!
+        const { analyzeMarket } = await import('./services/market');
+        const analysis = await analyzeMarket(chainId, tokenConfig.address, DEFAULT_STRATEGY);
+
+        if (analysis) {
+          await positionService.saveAnalysis({
+            chainId,
+            tokenAddress: tokenConfig.address,
+            tokenSymbol: tokenConfig.symbol,
+            signal: analysis.direction,
+            confidence: analysis.confidence,
+            currentPrice: 0, // Will be updated by UI
+            factors: {
+              rsi: analysis.metrics.rsi,
+              macdSignal: analysis.metrics.macd,
+              volumeSpike: parseFloat(analysis.metrics.volumeRatio) > 1.5,
+              trend: analysis.metrics.trend,
+              pattern: analysis.indicators[0] || null,
+              priceChange24h: parseFloat(analysis.metrics.priceChange1h) || 0
+            },
+            recommendation: `${analysis.direction} - ${analysis.reason} (${analysis.confidence}% confidence)`
+          });
+
+          logger.info(`📊 ${analysis.direction} signal generated`, {
+            symbol: tokenConfig.symbol + 'USDT',
+            strategy: DEFAULT_STRATEGY,
+            conditionsMet: `${analysis.metrics.conditionsMet}/6`,
+            confidence: `${analysis.confidence}%`,
+            indicators: analysis.indicators.slice(0, 3),
+            trend: analysis.metrics.trend,
+            suggestedTP: `${analysis.suggestedTP}%`,
+            suggestedSL: `${analysis.suggestedSL}%`
+          });
+        }
+      } catch (err) {
+        logger.error('Failed to update analysis', { token: tokenConfig.symbol, error: err });
+      }
+    }
+  }
+}
+
+/**
  * Main trading loop - runs on schedule to open new positions
  */
 async function runTradingCycle(): Promise<void> {
@@ -537,6 +588,9 @@ async function runTradingCycle(): Promise<void> {
   try {
     // First, process any approved trades
     await processApprovedTrades();
+
+    // UPDATE ANALYSIS FOR ALL USERS TO SEE (before checking individual users)
+    await updateBotAnalysis();
 
     for (const chainId of ACTIVE_CHAINS) {
       const chainConfig = config.chains[chainId] as any;
