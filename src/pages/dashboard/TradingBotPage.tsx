@@ -457,27 +457,20 @@ const TradingBotPage: React.FC = () => {
     let conditionsMet = 0;
     let conditions: Record<string, boolean> = {};
 
-    // SYNCED WITH BOT: Only needs 1 condition (was 2)
-    if (longConditionsMet > shortConditionsMet && longConditionsMet >= 1) {
+    if (longConditionsMet > shortConditionsMet && longConditionsMet >= 2) {
       direction = 'LONG';
       conditionsMet = longConditionsMet;
       conditions = longConditions;
-    } else if (shortConditionsMet > longConditionsMet && shortConditionsMet >= 1) {
+    } else if (shortConditionsMet > longConditionsMet && shortConditionsMet >= 2) {
       direction = 'SHORT';
       conditionsMet = shortConditionsMet;
       conditions = shortConditions;
-    } else if (longConditionsMet === shortConditionsMet && longConditionsMet >= 1) {
+    } else if (longConditionsMet === shortConditionsMet && longConditionsMet >= 2) {
       // Tie-breaker: use recent momentum
       const momentum3 = ((closes[closes.length - 1] - closes[closes.length - 3]) / closes[closes.length - 3]) * 100;
       direction = momentum3 > 0 ? 'LONG' : 'SHORT';
       conditionsMet = longConditionsMet;
       conditions = momentum3 > 0 ? longConditions : shortConditions;
-    } else {
-      // No conditions met: use pure momentum (synced with bot)
-      const momentum = ((closes[closes.length - 1] - closes[closes.length - 3]) / closes[closes.length - 3]) * 100;
-      direction = momentum > 0 ? 'LONG' : 'SHORT';
-      conditionsMet = 0;
-      conditions = momentum > 0 ? longConditions : shortConditions;
     }
 
     // === IMMEDIATE MOMENTUM OVERRIDE (Critical for 1m/5m) ===
@@ -487,8 +480,8 @@ const TradingBotPage: React.FC = () => {
 
     if (direction === 'LONG' && isVeryLargeCandle && lastCandleIsBearish) {
       // Very large red candle contradicts LONG signal
-      if (shortConditionsMet >= 1) {
-        // Switch to SHORT if we have at least 1 short condition (synced with bot)
+      if (shortConditionsMet >= 2) {
+        // Switch to SHORT if we have at least 2 short conditions
         direction = 'SHORT';
         conditionsMet = shortConditionsMet;
         conditions = shortConditions;
@@ -500,8 +493,8 @@ const TradingBotPage: React.FC = () => {
       }
     } else if (direction === 'SHORT' && isVeryLargeCandle && lastCandleIsBullish) {
       // Very large green candle contradicts SHORT signal
-      if (longConditionsMet >= 1) {
-        // Switch to LONG if we have at least 1 long condition (synced with bot)
+      if (longConditionsMet >= 2) {
+        // Switch to LONG if we have at least 2 long conditions
         direction = 'LONG';
         conditionsMet = longConditionsMet;
         conditions = longConditions;
