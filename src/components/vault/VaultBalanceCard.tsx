@@ -369,7 +369,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
                 ${isPreviewMode ? '0.00' : parseFloat(vaultBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
               </p>
               <p className="text-xs text-zinc-500">
-                USDC in Vault • Fee: {platformFee.percentFormatted}
+                USDC in Vault • No platform fees, 10% win fee only
               </p>
             </>
           )}
@@ -571,7 +571,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
         {/* Preview Mode Info */}
         {isPreviewMode && (
           <p className="text-xs text-zinc-500 text-center mt-3">
-            Contract deployment in progress. Switch to Base for 1% fees.
+            Switch to Arbitrum for lowest fees: 0% platform fee + 10% win fee only
           </p>
         )}
 

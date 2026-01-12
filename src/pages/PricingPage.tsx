@@ -6,6 +6,7 @@ import {
   Repeat,
   Building2,
   TrendingDown,
+  TrendingUp,
   Calculator,
   Info,
   CheckCircle,
@@ -33,23 +34,33 @@ const PricingPage: React.FC = () => {
     {
       name: 'Platform Fee',
       amount: 'FREE',
-      description: 'Monadier service fee',
-      when: 'Paid by Monadier on Base chain',
+      description: 'No platform fees',
+      when: 'Always free - no hidden charges',
       icon: Building2,
       color: 'text-green-400',
       bgColor: 'bg-green-500/10',
-      note: 'We cover this fee for all users',
+      note: 'Zero platform fees on all trades',
       covered: true
     },
     {
+      name: 'Win Fee',
+      amount: '10%',
+      description: 'Success fee on profitable trades',
+      when: 'Only when you win - losses are free',
+      icon: TrendingUp,
+      color: 'text-yellow-400',
+      bgColor: 'bg-yellow-500/10',
+      note: '10% of profit only, losses covered by platform'
+    },
+    {
       name: 'DEX Fee',
-      amount: '0.3%',
-      description: 'Uniswap liquidity provider fee',
-      when: 'Per swap (Open + Close = 0.6% total)',
+      amount: '0.05%',
+      description: 'Uniswap V3 liquidity provider fee',
+      when: 'Per swap (Open + Close = 0.1% total)',
       icon: Repeat,
       color: 'text-pink-400',
       bgColor: 'bg-pink-500/10',
-      note: 'Goes directly to liquidity providers'
+      note: 'Ultra-low 0.05% pools on Arbitrum'
     },
     {
       name: 'Slippage',
@@ -64,13 +75,14 @@ const PricingPage: React.FC = () => {
   ];
 
   const tradeExample = {
-    tradeAmount: 50,
-    dexFee: 0.30,
-    slippage: 0.50,
-    priceGain: 2.00
+    tradeAmount: 100,
+    dexFee: 0.10,  // 0.1% DEX fee
+    slippage: 0.20,
+    priceGain: 5.00,  // 5% gain
+    winFee: 0.47  // 10% of profit after fees
   };
 
-  const totalCosts = tradeExample.dexFee + tradeExample.slippage;
+  const totalCosts = tradeExample.dexFee + tradeExample.slippage + tradeExample.winFee;
   const netResult = tradeExample.priceGain - totalCosts;
 
   return (
@@ -123,10 +135,10 @@ const PricingPage: React.FC = () => {
           >
             <div className="flex items-center justify-center gap-2 mb-2">
               <Gift className="w-6 h-6 text-green-400" />
-              <span className="text-green-400 font-semibold text-lg">Monadier Covers Your Fees</span>
+              <span className="text-green-400 font-semibold text-lg">No Platform Fees - Only Pay When You Win</span>
             </div>
             <p className="text-gray-300">
-              We pay gas fees and platform fees for every trade. You only pay the DEX swap fee (~0.6%).
+              Zero platform fees! Only 10% of profits on winning trades. Losses are completely free.
             </p>
           </motion.div>
 
@@ -140,7 +152,7 @@ const PricingPage: React.FC = () => {
               Transparent Pricing
             </h1>
             <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-              We cover gas and platform fees so you keep more of your profits.
+              No platform fees. Only 10% success fee on profitable trades. You keep 90% of your wins!
             </p>
           </motion.div>
 
@@ -218,25 +230,25 @@ const PricingPage: React.FC = () => {
                 <div className="space-y-2 py-2">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-500 text-sm flex items-center gap-2">
-                      Gas Fees
-                      <span className="text-green-400 text-xs">(Covered)</span>
-                    </span>
-                    <span className="text-green-400 font-mono text-sm line-through opacity-50">-$1.50</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-500 text-sm flex items-center gap-2">
                       Platform Fee
-                      <span className="text-green-400 text-xs">(Covered)</span>
+                      <span className="text-green-400 text-xs">(Free!)</span>
                     </span>
-                    <span className="text-green-400 font-mono text-sm line-through opacity-50">-$0.50</span>
+                    <span className="text-green-400 font-mono text-sm">$0.00</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-500 text-sm">DEX Fee (0.6%)</span>
+                    <span className="text-gray-500 text-sm">DEX Fee (0.1%)</span>
                     <span className="text-orange-400 font-mono text-sm">-${tradeExample.dexFee.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-500 text-sm">Slippage (~1%)</span>
+                    <span className="text-gray-500 text-sm">Slippage (~0.2%)</span>
                     <span className="text-orange-400 font-mono text-sm">-${tradeExample.slippage.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500 text-sm flex items-center gap-2">
+                      Win Fee (10% of profit)
+                      <span className="text-yellow-400 text-xs">(Only on wins)</span>
+                    </span>
+                    <span className="text-yellow-400 font-mono text-sm">-${tradeExample.winFee.toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -270,7 +282,7 @@ const PricingPage: React.FC = () => {
                 {netResult >= 0 && (
                   <div className="flex items-start gap-2 mt-4 text-green-400 text-sm">
                     <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                    <p>With Monadier covering gas & platform fees, more profit stays in your pocket!</p>
+                    <p>No platform fees + only 10% win fee = you keep 90% of your profits!</p>
                   </div>
                 )}
               </div>
@@ -292,20 +304,20 @@ const PricingPage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
                 {
-                  title: 'Zero Gas Costs',
-                  description: 'Monadier covers all blockchain gas fees for your trades. No ETH needed in your wallet for transactions.'
-                },
-                {
                   title: 'No Platform Fees',
-                  description: 'We don\'t charge any platform fees on Base chain. Your profits are yours to keep.'
+                  description: 'Zero platform fees on all trades. You only pay 10% of your profits when you win.'
                 },
                 {
-                  title: 'Low Total Costs',
-                  description: 'Only ~1% total cost (DEX fee + slippage). Target trades with 2%+ potential for consistent profits.'
+                  title: 'Losses Are Free',
+                  description: 'If a trade loses, you pay nothing extra. Platform covers the loss fees completely.'
+                },
+                {
+                  title: 'Ultra-Low DEX Fees',
+                  description: 'Using Uniswap V3 0.05% pools on Arbitrum. Only ~0.3% total cost for round-trip trades.'
                 },
                 {
                   title: 'High Liquidity Pairs',
-                  description: 'We trade major pairs like ETH/USDC for minimal slippage and best execution.'
+                  description: 'Trade WETH, WBTC, ARB with minimal slippage and best execution on Arbitrum.'
                 }
               ].map((tip, index) => (
                 <div key={index} className="flex items-start gap-3">

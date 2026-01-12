@@ -2692,27 +2692,28 @@ const TradingBotPage: React.FC = () => {
                       <div className="mt-2 p-2 bg-white/5 rounded text-xs space-y-1">
                         <div className="flex justify-between text-gray-500">
                           <span className="flex items-center gap-1">
-                            Gas Fee
-                            <span className="text-green-400 text-[10px]">(Covered)</span>
+                            Platform Fee
+                            <span className="text-green-400 text-[10px]">(Free!)</span>
                           </span>
-                          <span className="text-green-400/50 line-through">-${(estimatedCosts.gasCostPerTrade || 0.5).toFixed(2)}</span>
+                          <span className="text-green-400">$0.00</span>
+                        </div>
+                        <div className="flex justify-between text-gray-500">
+                          <span>DEX Fee (0.1%)</span>
+                          <span className="text-orange-400">-${(tradeAmount * 0.001).toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-gray-500">
                           <span className="flex items-center gap-1">
-                            Platform Fee
-                            <span className="text-green-400 text-[10px]">(Covered)</span>
+                            Win Fee
+                            <span className="text-zinc-500 text-[10px]">(10% of profit)</span>
                           </span>
-                          <span className="text-green-400/50 line-through">-${(tradeAmount * 0.01).toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between text-gray-500">
-                          <span>DEX Fee (0.6%)</span>
-                          <span className="text-orange-400">-${(tradeAmount * 0.006).toFixed(2)}</span>
+                          <span className="text-zinc-400">{currentPnL > 0 ? `-$${(currentPnL * 0.1).toFixed(2)}` : '$0.00'}</span>
                         </div>
                         <div className="flex justify-between pt-1 border-t border-gray-700">
                           <span className="text-gray-400">Net P/L (est.)</span>
                           {(() => {
-                            const fees = tradeAmount * 0.006; // Only DEX fee
-                            const netPnL = currentPnL - fees;
+                            const dexFee = tradeAmount * 0.001; // 0.1% DEX fee
+                            const winFee = currentPnL > 0 ? currentPnL * 0.1 : 0; // 10% of profit
+                            const netPnL = currentPnL - dexFee - winFee;
                             return (
                               <span className={netPnL >= 0 ? 'text-green-400 font-medium' : 'text-red-400 font-medium'}>
                                 {netPnL >= 0 ? '+' : ''}{netPnL.toFixed(2)}

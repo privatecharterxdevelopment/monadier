@@ -569,9 +569,9 @@ const BotHistoryPage: React.FC = () => {
     return livePrices[tokenSymbol] || position.entry_price;
   };
 
-  // Calculate breakeven price (accounts for 1% platform fee + 0.3% swap fees x2)
-  // Total fees: ~1.6% for round trip
-  const TOTAL_FEE_PERCENT = 1.6;
+  // Calculate breakeven price (V5: 0.1% base fee + 0.05% Uniswap fee x2)
+  // Total fees: ~0.3% for round trip (much lower than V4!)
+  const TOTAL_FEE_PERCENT = 0.3;
   const getBreakevenPrice = (position: Position) => {
     if (position.direction === 'LONG') {
       // LONG: Need price to go up by fee % to break even
@@ -642,12 +642,12 @@ const BotHistoryPage: React.FC = () => {
                   </div>
                   <div className="space-y-3 text-xs">
                     <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
-                      <div className="flex items-center gap-2 text-amber-400 font-medium mb-1">
+                      <div className="flex items-center gap-2 text-green-400 font-medium mb-1">
                         <AlertTriangle size={14} />
-                        Fee Structure
+                        Fee Structure (V5)
                       </div>
-                      <p className="text-amber-200/80">
-                        1% platform fee + 0.3% swap fee (×2) = <strong>~1.6% breakeven</strong>. Price must move +1.6% above entry to be net profitable.
+                      <p className="text-green-200/80">
+                        <strong>No platform fees!</strong> Only 10% of profits on winning trades. Losses covered by platform. DEX fee ~0.1% = <strong>~0.3% breakeven</strong>.
                       </p>
                     </div>
                     <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">

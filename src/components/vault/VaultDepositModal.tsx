@@ -293,7 +293,15 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
           <div className="bg-zinc-800/50 rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-zinc-400">Platform Fee</span>
-              <span className="text-white">{platformFee.percentFormatted} per trade</span>
+              <span className="text-green-500">Free</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-zinc-400">Win Fee</span>
+              <span className="text-white">10% of profit only</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-zinc-400">Loss Fee</span>
+              <span className="text-green-500">Covered by platform</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-zinc-400">Deposit Fee</span>
