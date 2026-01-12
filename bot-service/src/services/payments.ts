@@ -50,7 +50,7 @@ export class PaymentService {
     this.clients.set(8453, createPublicClient({
       chain: base,
       transport: http(config.chains[8453].rpcUrl)
-    }));
+    }) as any);
 
     logger.info('Payment service initialized', {
       treasury: config.treasuryAddress,

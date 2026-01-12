@@ -1,4 +1,5 @@
 import cron from 'node-cron';
+import http from 'http';
 import { config, ChainId } from './config';
 import { logger } from './utils/logger';
 import { tradingService, TradeSignal } from './services/trading';
@@ -6,6 +7,34 @@ import { subscriptionService } from './services/subscription';
 import { marketService, TradingStrategy } from './services/market';
 import { positionService } from './services/positions';
 import { paymentService } from './services/payments';
+
+// Health check server for Railway/cloud deployments
+const PORT = process.env.PORT || 3001;
+let botStartTime = Date.now();
+let lastTradeCheck = Date.now();
+let totalTradesExecuted = 0;
+
+const healthServer = http.createServer((req, res) => {
+  if (req.url === '/health' || req.url === '/') {
+    const uptime = Math.floor((Date.now() - botStartTime) / 1000);
+    const status = {
+      status: 'healthy',
+      uptime: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
+      lastCheck: new Date(lastTradeCheck).toISOString(),
+      tradesExecuted: totalTradesExecuted,
+      version: 'v4.0'
+    };
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(status));
+  } else {
+    res.writeHead(404);
+    res.end('Not found');
+  }
+});
+
+healthServer.listen(PORT, () => {
+  logger.info(`Health check server running on port ${PORT}`);
+});
 
 // Default trading strategy - can be configured per user later
 const DEFAULT_STRATEGY: TradingStrategy = 'risky'; // RISKY = many trades!
