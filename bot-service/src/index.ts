@@ -142,19 +142,6 @@ async function processUserTrades(
       return;
     }
 
-    // 1b. Check if user has a 24h bot ban (from manual close)
-    const banStatus = await subscriptionService.getBotBanStatus(userAddress, chainId);
-    if (banStatus.isBanned) {
-      const hoursRemaining = Math.ceil(banStatus.remainingMs / (1000 * 60 * 60));
-      const minsRemaining = Math.ceil((banStatus.remainingMs % (1000 * 60 * 60)) / (1000 * 60));
-      logger.info('User bot-banned (manual close)', {
-        userAddress: userAddress.slice(0, 10),
-        remaining: `${hoursRemaining}h ${minsRemaining}m`,
-        bannedUntil: banStatus.bannedUntil?.toISOString()
-      });
-      return;
-    }
-
     // 2. Get vault status (includes on-chain rate limit check)
     const vaultStatus = await tradingService.getUserVaultStatus(chainId, userAddress);
 
