@@ -923,8 +923,40 @@ export class TradingService {
           continue;
         }
 
-        // Update trailing stop based on direction
+        // === SIGNAL REVERSAL CHECK ===
+        // If signal flips opposite to our position AND we're in loss, cut losses!
         const direction = position.direction || 'LONG';
+        const isInLoss = direction === 'LONG'
+          ? currentPrice < position.entry_price
+          : currentPrice > position.entry_price;
+
+        if (isInLoss) {
+          // Get current market signal
+          const { analyzeMarket } = await import('./market');
+          const analysis = await analyzeMarket(chainId, position.token_address as `0x${string}`, 'risky');
+
+          if (analysis && analysis.direction !== direction && analysis.confidence >= 60) {
+            const lossPercent = direction === 'LONG'
+              ? ((position.entry_price - currentPrice) / position.entry_price) * 100
+              : ((currentPrice - position.entry_price) / position.entry_price) * 100;
+
+            logger.warn('🔄 SIGNAL REVERSAL - Cutting losses!', {
+              positionId: position.id,
+              token: position.token_symbol,
+              positionDirection: direction,
+              newSignal: analysis.direction,
+              signalConfidence: analysis.confidence,
+              lossPercent: lossPercent.toFixed(2) + '%',
+              entryPrice: position.entry_price,
+              currentPrice
+            });
+
+            await this.closePosition(chainId, position, 'signal_reversal');
+            continue;
+          }
+        }
+
+        // Update trailing stop based on direction (direction already defined above)
         const shouldUpdateStop = direction === 'LONG'
           ? currentPrice > position.highest_price
           : currentPrice < (position.lowest_price || position.entry_price);
