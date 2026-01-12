@@ -138,6 +138,10 @@ const BotHistoryPage: React.FC = () => {
     stopLoss: 1
   });
 
+  // Bot ban state (24h after manual close)
+  const [botBannedUntil, setBotBannedUntil] = useState<Date | null>(null);
+  const [banCountdown, setBanCountdown] = useState<string>('');
+
   // Bot analysis status (what the bot is currently seeing)
   const [botAnalysis, setBotAnalysis] = useState<{
     signal: string;
@@ -161,10 +165,10 @@ const BotHistoryPage: React.FC = () => {
           const vaultClient = new VaultClient(publicClient as any, null, chainId);
           const status = await vaultClient.getUserStatus(address as `0x${string}`);
 
-          // Get TP/SL from Supabase
+          // Get TP/SL and ban status from Supabase
           const { data: vaultSettings } = await supabase
             .from('vault_settings')
-            .select('take_profit_percent, stop_loss_percent')
+            .select('take_profit_percent, stop_loss_percent, bot_banned_until')
             .eq('wallet_address', address.toLowerCase())
             .eq('chain_id', chainId)
             .single();
@@ -175,6 +179,17 @@ const BotHistoryPage: React.FC = () => {
             takeProfit: vaultSettings?.take_profit_percent || 5,
             stopLoss: vaultSettings?.stop_loss_percent || 1
           });
+
+          // Check if bot is banned
+          if (vaultSettings?.bot_banned_until) {
+            const banDate = new Date(vaultSettings.bot_banned_until);
+            if (banDate > new Date()) {
+              setBotBannedUntil(banDate);
+            } else {
+              setBotBannedUntil(null);
+            }
+          }
+
           setBotSettingsLoaded(true);
         }
       } catch (err) {
@@ -185,6 +200,35 @@ const BotHistoryPage: React.FC = () => {
 
     fetchBotSettings();
   }, [address, chainId, publicClient]);
+
+  // Ban countdown timer
+  useEffect(() => {
+    if (!botBannedUntil) {
+      setBanCountdown('');
+      return;
+    }
+
+    const updateCountdown = () => {
+      const now = new Date();
+      const diff = botBannedUntil.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setBotBannedUntil(null);
+        setBanCountdown('');
+        return;
+      }
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      setBanCountdown(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [botBannedUntil]);
 
   // Fetch latest bot analysis for status display
   useEffect(() => {
@@ -294,7 +338,18 @@ const BotHistoryPage: React.FC = () => {
           })
           .eq('id', positionId);
 
-        console.log('Position closed via V4 contract!');
+        // SET 24H BOT BAN after manual close
+        const banUntil = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
+        await supabase
+          .from('vault_settings')
+          .upsert({
+            wallet_address: address.toLowerCase(),
+            chain_id: chainId,
+            bot_banned_until: banUntil.toISOString()
+          }, { onConflict: 'wallet_address,chain_id' });
+
+        setBotBannedUntil(banUntil);
+        console.log('Position closed via V4 contract! Bot banned until:', banUntil);
       } else {
         // Fallback: Mark for bot to close (V2 behavior)
         console.log('No V4 vault, falling back to bot close...');
@@ -750,34 +805,60 @@ const BotHistoryPage: React.FC = () => {
 
       {/* Current Bot Settings Summary - Only show when loaded */}
       {botSettingsLoaded && (
-        <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-4">
+        <div className={`rounded-xl p-4 ${botBannedUntil ? 'bg-gradient-to-r from-red-500/10 to-amber-500/10 border border-red-500/30' : 'bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20'}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`w-3 h-3 rounded-full ${botSettings.autoTradeEnabled ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
-              <span className="text-white font-medium">
-                {botSettings.autoTradeEnabled ? 'Auto-Trading Active' : 'Auto-Trading Off'}
-              </span>
+              {botBannedUntil ? (
+                <>
+                  <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
+                  <div>
+                    <span className="text-red-400 font-medium">Bot Trading Banned</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Clock size={14} className="text-amber-400" />
+                      <span className="text-amber-400 font-mono text-lg">{banCountdown}</span>
+                      <span className="text-zinc-500 text-xs">remaining</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className={`w-3 h-3 rounded-full ${botSettings.autoTradeEnabled ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
+                  <span className="text-white font-medium">
+                    {botSettings.autoTradeEnabled ? 'Auto-Trading Active' : 'Auto-Trading Off'}
+                  </span>
+                </>
+              )}
             </div>
             <div className="flex items-center gap-6 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-zinc-400">Risk:</span>
-                <span className="text-white font-medium">{botSettings.riskLevelPercent}%</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <TrendingUp size={14} className="text-green-400" />
-                <span className="text-zinc-400">TP:</span>
-                <span className="text-green-400 font-medium">{botSettings.takeProfit}%</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <TrendingDown size={14} className="text-red-400" />
-                <span className="text-zinc-400">SL:</span>
-                <span className="text-red-400 font-medium">{botSettings.stopLoss}%</span>
-              </div>
+              {!botBannedUntil && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="text-zinc-400">Risk:</span>
+                    <span className="text-white font-medium">{botSettings.riskLevelPercent}%</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <TrendingUp size={14} className="text-green-400" />
+                    <span className="text-zinc-400">TP:</span>
+                    <span className="text-green-400 font-medium">{botSettings.takeProfit}%</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <TrendingDown size={14} className="text-red-400" />
+                    <span className="text-zinc-400">SL:</span>
+                    <span className="text-red-400 font-medium">{botSettings.stopLoss}%</span>
+                  </div>
+                </>
+              )}
+              {botBannedUntil && (
+                <span className="text-zinc-500 text-xs">
+                  Manual close triggered 24h bot ban
+                </span>
+              )}
               <button
                 onClick={() => setShowSettingsModal(true)}
-                className="text-blue-400 hover:text-blue-300 text-xs underline"
+                disabled={!!botBannedUntil}
+                className={`text-xs underline ${botBannedUntil ? 'text-zinc-600 cursor-not-allowed' : 'text-blue-400 hover:text-blue-300'}`}
               >
-                Edit Settings
+                {botBannedUntil ? 'Settings Locked' : 'Edit Settings'}
               </button>
             </div>
           </div>
@@ -1355,7 +1436,7 @@ const BotHistoryPage: React.FC = () => {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-card-dark border border-gray-700 rounded-xl p-6 max-w-sm mx-4"
+              className="bg-card-dark border border-gray-700 rounded-xl p-6 max-w-md mx-4"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center gap-3 mb-4">
@@ -1368,10 +1449,27 @@ const BotHistoryPage: React.FC = () => {
                 </div>
               </div>
 
-              <p className="text-sm text-secondary mb-6">
+              <p className="text-sm text-secondary mb-4">
                 This will close your position <strong className="text-white">directly via smart contract</strong> at the current market price.
-                No bot needed - you sign the transaction yourself. This action cannot be undone.
+                No bot needed - you sign the transaction yourself.
               </p>
+
+              {/* 24H BAN WARNING */}
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 mb-6">
+                <div className="flex items-center gap-2 text-amber-400 font-semibold mb-2">
+                  <Clock size={18} />
+                  24 Hour Bot Trading Ban
+                </div>
+                <p className="text-sm text-amber-200/80">
+                  Manually closing a position will <strong>disable bot trading for 24 hours</strong>.
+                  During this time:
+                </p>
+                <ul className="text-sm text-amber-200/70 mt-2 space-y-1 ml-4">
+                  <li>• Bot will NOT open new positions</li>
+                  <li>• Auto-trade toggle will be blocked</li>
+                  <li>• Manual trading still works</li>
+                </ul>
+              </div>
 
               <div className="flex gap-3">
                 <button
@@ -1384,7 +1482,7 @@ const BotHistoryPage: React.FC = () => {
                   onClick={emergencyClose}
                   className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors"
                 >
-                  Close Position
+                  Close & Accept Ban
                 </button>
               </div>
             </motion.div>

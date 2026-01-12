@@ -467,6 +467,45 @@ export class SubscriptionService {
   }
 
   /**
+   * Check if user has an active bot ban (24h after manual close)
+   * Returns ban end time if banned, null if not banned
+   */
+  async getBotBanStatus(walletAddress: string, chainId: number): Promise<{ isBanned: boolean; bannedUntil: Date | null; remainingMs: number }> {
+    try {
+      const { data } = await this.supabase
+        .from('vault_settings')
+        .select('bot_banned_until')
+        .eq('wallet_address', walletAddress.toLowerCase())
+        .eq('chain_id', chainId)
+        .single();
+
+      if (!data?.bot_banned_until) {
+        return { isBanned: false, bannedUntil: null, remainingMs: 0 };
+      }
+
+      const bannedUntil = new Date(data.bot_banned_until);
+      const now = new Date();
+      const remainingMs = bannedUntil.getTime() - now.getTime();
+
+      if (remainingMs <= 0) {
+        // Ban expired - clear it
+        await this.supabase
+          .from('vault_settings')
+          .update({ bot_banned_until: null })
+          .eq('wallet_address', walletAddress.toLowerCase())
+          .eq('chain_id', chainId);
+
+        return { isBanned: false, bannedUntil: null, remainingMs: 0 };
+      }
+
+      return { isBanned: true, bannedUntil, remainingMs };
+    } catch (err) {
+      logger.error('Error checking bot ban status', { walletAddress, error: err });
+      return { isBanned: false, bannedUntil: null, remainingMs: 0 };
+    }
+  }
+
+  /**
    * Get all users with auto-trade enabled
    * Falls back to subscriptions table if vault_settings is empty
    */
