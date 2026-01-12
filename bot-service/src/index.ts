@@ -54,8 +54,7 @@ const TRADE_COOLDOWN_MS = 120000; // 2 minute cooldown between trades
 const MAX_POSITIONS_TOTAL = 1; // Only 1 position at a time - SAFETY FIRST
 const MAX_FAILED_BEFORE_STOP = 2; // Stop trading after 2 failures
 
-// Post-close cooldown - 5 minutes after any position closes
-const POST_CLOSE_COOLDOWN_MS = 300000; // 5 minute cooldown after position closes
+// Post-close cooldown removed - now handled by smart contract only
 
 // Circuit breaker - track recent failures
 let recentFailures = 0;
@@ -143,30 +142,15 @@ async function processUserTrades(
       return;
     }
 
-    // 2. Get vault status
+    // 2. Get vault status (includes on-chain rate limit check)
     const vaultStatus = await tradingService.getUserVaultStatus(chainId, userAddress);
-
-    // Check cooldown and show countdown
-    const lastClosedPosition = await positionService.getLastClosedPosition(userAddress, chainId);
-    let cooldownInfo = '';
-    if (lastClosedPosition?.closed_at) {
-      const closedAt = new Date(lastClosedPosition.closed_at).getTime();
-      const timeSinceClose = Date.now() - closedAt;
-      if (timeSinceClose < POST_CLOSE_COOLDOWN_MS) {
-        const remainingMs = POST_CLOSE_COOLDOWN_MS - timeSinceClose;
-        const mins = Math.floor(remainingMs / 60000);
-        const secs = Math.ceil((remainingMs % 60000) / 1000);
-        cooldownInfo = `⏳ ${mins}m ${secs}s`;
-      }
-    }
 
     logger.info('Vault status check', {
       userAddress: userAddress.slice(0, 10),
       hasStatus: !!vaultStatus,
       balance: vaultStatus?.balanceFormatted || '0',
       autoTradeEnabled: vaultStatus?.autoTradeEnabled,
-      canTradeNow: vaultStatus?.canTradeNow,
-      ...(cooldownInfo && { cooldown: cooldownInfo })
+      canTradeNow: vaultStatus?.canTradeNow
     });
 
     if (!vaultStatus) {
@@ -224,21 +208,7 @@ async function processUserTrades(
       return;
     }
 
-    // 5b. Check post-close cooldown - 5 minutes after any position closes
-    const lastClosedPosition = await positionService.getLastClosedPosition(userAddress, chainId);
-    if (lastClosedPosition && lastClosedPosition.closed_at) {
-      const closedAt = new Date(lastClosedPosition.closed_at).getTime();
-      const timeSinceClose = Date.now() - closedAt;
-      if (timeSinceClose < POST_CLOSE_COOLDOWN_MS) {
-        const remainingMs = POST_CLOSE_COOLDOWN_MS - timeSinceClose;
-        logger.info('Post-close cooldown active', {
-          userAddress: userAddress.slice(0, 10),
-          cooldownRemaining: Math.ceil(remainingMs / 60000) + 'm ' + Math.ceil((remainingMs % 60000) / 1000) + 's',
-          closedAt: lastClosedPosition.closed_at
-        });
-        return;
-      }
-    }
+    // 5b. Post-close cooldown removed - smart contract handles rate limiting
 
     // 6. Try each token - find one with a good signal
     for (const tokenConfig of tokenConfigs) {
