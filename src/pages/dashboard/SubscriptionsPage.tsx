@@ -383,6 +383,47 @@ const SubscriptionsPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Current Active Subscription */}
+          {activeSubscription && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-gradient-to-r from-accent/10 via-accent/5 to-transparent rounded-2xl border border-accent/30 p-6"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center">
+                    {activeSubscription.tier === 'elite' ? (
+                      <Crown className="w-6 h-6 text-accent" />
+                    ) : activeSubscription.tier === 'pro' ? (
+                      <Rocket className="w-6 h-6 text-accent" />
+                    ) : (
+                      <Zap className="w-6 h-6 text-accent" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-semibold text-white capitalize">{activeSubscription.tier} Plan</h3>
+                      <span className="px-2 py-0.5 text-xs font-medium bg-green-500/20 text-green-400 rounded-full">Active</span>
+                    </div>
+                    <p className="text-gray-400 text-sm">
+                      {activeSubscription.billingCycle === 'lifetime'
+                        ? 'Lifetime access - never expires'
+                        : `Renews ${new Date(activeSubscription.endDate).toLocaleDateString()}`
+                      }
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-gray-500 text-xs mb-1">Daily Trades</p>
+                  <p className="text-white font-mono">
+                    {activeSubscription.dailyTradesUsed} / {activeSubscription.tier === 'elite' ? '∞' : activeSubscription.tier === 'pro' ? '20' : '5'}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {tradingBotPlans.map(plan => (
             <motion.div
