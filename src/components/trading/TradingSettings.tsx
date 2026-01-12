@@ -153,9 +153,9 @@ const DEFAULT_CONFIG: TradingConfig = {
   autoPauseOnHighGas: true,
   gasThresholdGwei: 50,
   autoTradeEnabled: false,
-  // Signal filtering defaults - relaxed for more signals
-  minConfidence: 60,      // Was 75 - too restrictive
-  minRiskReward: 1.0,     // Was 1.5 - allow 1:1 trades
+  // Signal filtering defaults - very relaxed, bot decides anyway
+  minConfidence: 40,      // Match bot-service "risky" strategy (40%)
+  minRiskReward: 0.1,     // Almost always pass - let bot decide
   volumeFilterEnabled: false,  // Was true - volume often low on altcoins
   trendFilterEnabled: false    // Was true - allow counter-trend trades
 };
@@ -169,16 +169,14 @@ export const getDefaultConfig = (): TradingConfig => {
       if (parsed.maxPositionPercent === 25) {
         parsed.maxPositionPercent = 100;
       }
-      // Migration: add new signal filter settings if missing (use relaxed defaults)
-      if (parsed.minConfidence === undefined) parsed.minConfidence = 60;
-      if (parsed.minRiskReward === undefined) parsed.minRiskReward = 1.0;
+      // Migration: add new signal filter settings if missing
+      if (parsed.minConfidence === undefined) parsed.minConfidence = 40;
+      if (parsed.minRiskReward === undefined) parsed.minRiskReward = 0.1;
       if (parsed.volumeFilterEnabled === undefined) parsed.volumeFilterEnabled = false;
       if (parsed.trendFilterEnabled === undefined) parsed.trendFilterEnabled = false;
       // Migration: relax old restrictive defaults that caused constant "WAIT"
-      if (parsed.minConfidence === 75) parsed.minConfidence = 60;
-      if (parsed.minRiskReward === 1.5) parsed.minRiskReward = 1.0;
-      if (parsed.volumeFilterEnabled === true) parsed.volumeFilterEnabled = false;
-      if (parsed.trendFilterEnabled === true) parsed.trendFilterEnabled = false;
+      if (parsed.minConfidence >= 60) parsed.minConfidence = 40;
+      if (parsed.minRiskReward >= 1.0) parsed.minRiskReward = 0.1;
       return { ...DEFAULT_CONFIG, ...parsed };
     } catch {
       return DEFAULT_CONFIG;
