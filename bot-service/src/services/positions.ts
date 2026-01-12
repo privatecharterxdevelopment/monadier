@@ -66,6 +66,21 @@ export class PositionService {
     profitLockPercent?: number; // Min profit % before stop activates (0.2% for aggressive)
     entryReason?: string; // Why the bot opened this trade
   }): Promise<Position | null> {
+    // DUPLICATE CHECK: Prevent double-insert with same txHash
+    const { data: existing } = await this.supabase
+      .from('positions')
+      .select('id')
+      .eq('entry_tx_hash', params.txHash)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      logger.warn('Position already exists for this txHash - skipping duplicate', {
+        txHash: params.txHash,
+        existingId: existing[0].id
+      });
+      return null;
+    }
+
     const trailingStopPercent = params.trailingStopPercent || 1.0; // Default 1%
     const takeProfitPercent = params.takeProfitPercent || 5.0; // Default 5% TP
     const profitLockPercent = params.profitLockPercent || DEFAULT_PROFIT_THRESHOLD; // Default 0.5%
