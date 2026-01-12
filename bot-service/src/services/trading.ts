@@ -923,12 +923,32 @@ export class TradingService {
           continue;
         }
 
-        // === SIGNAL REVERSAL CHECK ===
-        // If signal flips opposite to our position AND we're in loss, cut losses!
+        // === FIXED STOP-LOSS CHECK (1.5%) ===
         const direction = position.direction || 'LONG';
-        const isInLoss = direction === 'LONG'
-          ? currentPrice < position.entry_price
-          : currentPrice > position.entry_price;
+        const lossPercent = direction === 'LONG'
+          ? ((position.entry_price - currentPrice) / position.entry_price) * 100
+          : ((currentPrice - position.entry_price) / position.entry_price) * 100;
+
+        const MAX_LOSS_PERCENT = 1.5; // Fixed stop-loss at 1.5%
+
+        if (lossPercent >= MAX_LOSS_PERCENT) {
+          logger.warn('🛑 STOP-LOSS HIT - Cutting losses at 1.5%!', {
+            positionId: position.id,
+            token: position.token_symbol,
+            direction,
+            lossPercent: lossPercent.toFixed(2) + '%',
+            entryPrice: position.entry_price,
+            currentPrice,
+            maxLoss: MAX_LOSS_PERCENT + '%'
+          });
+
+          await this.closePosition(chainId, position, 'stop_loss');
+          continue;
+        }
+
+        // === SIGNAL REVERSAL CHECK ===
+        // If signal flips opposite to our position AND we're in loss, cut losses early!
+        const isInLoss = lossPercent > 0;
 
         if (isInLoss) {
           // Get current market signal
@@ -936,10 +956,6 @@ export class TradingService {
           const analysis = await analyzeMarket(chainId, position.token_address as `0x${string}`, 'risky');
 
           if (analysis && analysis.direction !== direction && analysis.confidence >= 60) {
-            const lossPercent = direction === 'LONG'
-              ? ((position.entry_price - currentPrice) / position.entry_price) * 100
-              : ((currentPrice - position.entry_price) / position.entry_price) * 100;
-
             logger.warn('🔄 SIGNAL REVERSAL - Cutting losses!', {
               positionId: position.id,
               token: position.token_symbol,
