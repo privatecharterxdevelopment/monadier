@@ -923,13 +923,36 @@ export class TradingService {
           continue;
         }
 
-        // === FIXED STOP-LOSS CHECK (1.5%) ===
+        // === FIXED STOP-LOSS CHECK (1.5%) - USE BINANCE PRICE ===
         const direction = position.direction || 'LONG';
+
+        // Get Binance price for accurate stop-loss (matches UI!)
+        let binancePrice = currentPrice;
+        try {
+          const symbol = position.token_symbol === 'WETH' ? 'ETHUSDT' : position.token_symbol + 'USDT';
+          const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+          const data = await res.json();
+          if (data.price) binancePrice = parseFloat(data.price);
+        } catch (e) {
+          // Fallback to on-chain price
+        }
+
         const lossPercent = direction === 'LONG'
-          ? ((position.entry_price - currentPrice) / position.entry_price) * 100
-          : ((currentPrice - position.entry_price) / position.entry_price) * 100;
+          ? ((position.entry_price - binancePrice) / position.entry_price) * 100
+          : ((binancePrice - position.entry_price) / position.entry_price) * 100;
 
         const MAX_LOSS_PERCENT = 1.5; // Fixed stop-loss at 1.5%
+
+        // Log position check with Binance price
+        logger.info('Position check', {
+          positionId: position.id.slice(0, 8),
+          direction,
+          entryPrice: position.entry_price,
+          binancePrice,
+          lossPercent: lossPercent.toFixed(2) + '%',
+          stopAt: MAX_LOSS_PERCENT + '%',
+          willStop: lossPercent >= MAX_LOSS_PERCENT
+        });
 
         if (lossPercent >= MAX_LOSS_PERCENT) {
           logger.warn('🛑 STOP-LOSS HIT - Cutting losses at 1.5%!', {
