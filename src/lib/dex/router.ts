@@ -356,7 +356,7 @@ export const WRAPPED_NATIVE = {
 
 export const UNISWAP_V3_ROUTER_ABI = ROUTER_ABI;
 export const UNISWAP_V3_QUOTER_ABI = QUOTER_ABI;
-export const ERC20_ABI_EXPORT = ERC20_ABI;
+export { ERC20_ABI };
 
 export function createDexRouter(
   publicClient: PublicClient,

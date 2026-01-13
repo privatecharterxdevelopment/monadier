@@ -44,64 +44,41 @@ interface MarketAnalysis {
 // Strategy modes
 export type TradingStrategy = 'conservative' | 'normal' | 'risky' | 'aggressive';
 
-// Strategy configs - 40% minimum confidence
+// Strategy configs - LOWERED THRESHOLDS FOR MORE TRADES
 const STRATEGY_CONFIGS = {
   conservative: {
-    minConfidence: 70,
+    minConfidence: 60,
     minConditions: 3,
     patternOnly: false,
     profitLockPercent: 0.5
   },
   normal: {
-    minConfidence: 50,
+    minConfidence: 40,
     minConditions: 2,
     patternOnly: false,
     profitLockPercent: 0.5
   },
   risky: {
-    minConfidence: 40,  // 40% minimum!
-    minConditions: 2,   // 2 conditions minimum (synced with UI!)
+    minConfidence: 25,  // LOWERED from 40% - triggers more trades!
+    minConditions: 1,   // LOWERED from 2 - single condition OK
     patternOnly: false,
     profitLockPercent: 0.5
   },
   aggressive: {
-    minConfidence: 30,
+    minConfidence: 20,  // Very low - almost always trades
     minConditions: 1,
     patternOnly: false,
     profitLockPercent: 0.2
   }
 };
 
-// Token config for different chains
+// Token config - ARBITRUM ONLY
 const TOKEN_SYMBOLS: Record<number, Record<string, string>> = {
-  // BASE - Currently Active
-  8453: {
-    '0x4200000000000000000000000000000000000006': 'ETHUSDT',
-    '0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22': 'ETHUSDT',   // cbETH tracks ETH
-    '0x0555E30da8f98308EdB960aa94C0Db47230d2B9c': 'BTCUSDT',
-  },
-  // ETHEREUM
-  1: {
-    '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2': 'ETHUSDT',
-    '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599': 'BTCUSDT',
-  },
-  // POLYGON
-  137: {
-    '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619': 'ETHUSDT',
-    '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270': 'MATICUSDT',
-    '0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6': 'BTCUSDT',
-  },
-  // ARBITRUM
+  // ARBITRUM - Active
   42161: {
-    '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1': 'ETHUSDT',
-    '0x912CE59144191C1204E64559FE8253a0e49E6548': 'ARBUSDT',
-    '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f': 'BTCUSDT',
-  },
-  // BSC
-  56: {
-    '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c': 'BNBUSDT',
-    '0x2170Ed0880ac9A755fd29B2688956BD959F933F8': 'ETHUSDT',
-    '0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c': 'BTCUSDT',
+    '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1': 'ETHUSDT',   // WETH
+    '0x912CE59144191C1204E64559FE8253a0e49E6548': 'ARBUSDT',   // ARB
+    '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f': 'BTCUSDT',   // WBTC
   }
 };
 
@@ -633,7 +610,7 @@ export async function analyzeMarket(
   }
   // If less than 2 conditions: direction stays HOLD (no trade)
 
-  // === MOMENTUM OVERRIDE (SAME AS UI) ===
+  // === MOMENTUM OVERRIDE - REDUCED PENALTIES FOR MORE TRADES ===
   let momentumOverride = false;
   let confidencePenalty = 0;
 
@@ -645,8 +622,8 @@ export async function analyzeMarket(
       momentumOverride = true;
       logger.info('⚠️ Momentum override: Large red candle switched LONG to SHORT');
     } else {
-      direction = 'HOLD';
-      confidencePenalty = 30;
+      // REDUCED: Don't go HOLD, just apply small penalty
+      confidencePenalty = 10;
     }
   } else if (direction === 'SHORT' && isVeryLargeCandle && lastCandleIsBullish) {
     if (longConditionsMet >= 2) {
@@ -656,13 +633,13 @@ export async function analyzeMarket(
       momentumOverride = true;
       logger.info('⚠️ Momentum override: Large green candle switched SHORT to LONG');
     } else {
-      direction = 'HOLD';
-      confidencePenalty = 30;
+      // REDUCED: Don't go HOLD, just apply small penalty
+      confidencePenalty = 10;
     }
   } else if (direction === 'LONG' && isLargeCandle && lastCandleIsBearish) {
-    confidencePenalty = 15;
+    confidencePenalty = 5;  // REDUCED from 15
   } else if (direction === 'SHORT' && isLargeCandle && lastCandleIsBullish) {
-    confidencePenalty = 15;
+    confidencePenalty = 5;  // REDUCED from 15
   }
 
   // Calculate confidence with penalty

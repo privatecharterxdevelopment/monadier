@@ -40,8 +40,8 @@ healthServer.listen(PORT, () => {
 // Default trading strategy - can be configured per user later
 const DEFAULT_STRATEGY: TradingStrategy = 'risky'; // RISKY = many trades!
 
-// Supported chains for auto-trading
-const ACTIVE_CHAINS: ChainId[] = [8453, 42161]; // Base (V4) and Arbitrum (V5)
+// Supported chains for auto-trading - ARBITRUM ONLY
+const ACTIVE_CHAINS: ChainId[] = [42161]; // Arbitrum (V5) only
 
 // Locks to prevent concurrent execution
 let isTradingCycleRunning = false;
@@ -52,13 +52,9 @@ let isReconciliationRunning = false;
 const lastTradeTimestamp: Map<string, number> = new Map();
 const TRADE_COOLDOWN_MS = 300000; // 5 minute cooldown between trades (matches V5 contract)
 
-// Max positions per chain - V5 allows 3 (1 per token), V4 keeps 1 for safety
+// Max positions - ARBITRUM ONLY with V5
 const MAX_POSITIONS_PER_CHAIN: Record<number, number> = {
-  8453: 1,   // Base V4 - 1 position max (higher fees)
   42161: 3,  // Arbitrum V5 - 3 positions (1 per token: WETH, WBTC, ARB)
-  1: 1,      // Ethereum - 1 position
-  137: 1,    // Polygon - 1 position
-  56: 1,     // BSC - 1 position
 };
 
 const MAX_FAILED_BEFORE_STOP = 2; // Stop trading after 2 failures
@@ -70,37 +66,13 @@ let recentFailures = 0;
 let lastFailureTime = 0;
 const FAILURE_RESET_MS = 300000; // Reset failure count after 5 minutes
 
-// Token addresses for trading - ONLY WETH for stability!
-// cbETH removed due to sync issues
+// Token addresses for trading - ARBITRUM ONLY
 const TRADE_TOKENS: Record<ChainId, { address: `0x${string}`; symbol: string }[]> = {
-  // BASE - Currently Active - ONLY WETH!
-  8453: [
-    { address: '0x4200000000000000000000000000000000000006', symbol: 'WETH' },
-    // cbETH DISABLED - caused orphaned token issues
-    // { address: '0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22', symbol: 'cbETH' },
-  ],
-  // ETHEREUM - Ready when vault deployed
-  1: [
-    { address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', symbol: 'WETH' },
-    { address: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599', symbol: 'WBTC' },
-  ],
-  // POLYGON - Ready when vault deployed
-  137: [
-    { address: '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619', symbol: 'WETH' },
-    { address: '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270', symbol: 'WMATIC' },  // Wrapped MATIC
-    { address: '0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6', symbol: 'WBTC' },
-  ],
-  // ARBITRUM - Ready when vault deployed
+  // ARBITRUM V5 - 3 tokens active
   42161: [
     { address: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1', symbol: 'WETH' },
-    { address: '0x912CE59144191C1204E64559FE8253a0e49E6548', symbol: 'ARB' },     // ARB token
+    { address: '0x912CE59144191C1204E64559FE8253a0e49E6548', symbol: 'ARB' },
     { address: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f', symbol: 'WBTC' },
-  ],
-  // BSC - Ready when vault deployed
-  56: [
-    { address: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', symbol: 'WBNB' },    // Wrapped BNB
-    { address: '0x2170Ed0880ac9A755fd29B2688956BD959F933F8', symbol: 'WETH' },
-    { address: '0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c', symbol: 'BTCB' },    // BTC on BSC
   ]
 };
 

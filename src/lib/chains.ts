@@ -25,48 +25,8 @@ export interface ChainConfig {
   };
 }
 
+// ARBITRUM ONLY - Single chain support
 export const SUPPORTED_CHAINS: ChainConfig[] = [
-  {
-    id: 1,
-    name: 'Ethereum',
-    shortName: 'ETH',
-    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-    rpcUrl: 'https://eth.llamarpc.com',
-    blockExplorer: 'https://etherscan.io',
-    icon: '/chains/ethereum.svg',
-    dex: {
-      name: 'Uniswap V3',
-      routerAddress: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
-      factoryAddress: '0x1F98431c8aD98523631AE4a59f267346ea31F984',
-      type: 'uniswap-v3'
-    },
-    tokens: {
-      usdt: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
-      usdc: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
-      weth: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-      wnative: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
-    }
-  },
-  {
-    id: 56,
-    name: 'BNB Chain',
-    shortName: 'BSC',
-    nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-    rpcUrl: 'https://bsc-dataseed.binance.org',
-    blockExplorer: 'https://bscscan.com',
-    icon: '/chains/bnb.svg',
-    dex: {
-      name: 'PancakeSwap',
-      routerAddress: '0x10ED43C718714eb63d5aA57B78B54704E256024E',
-      factoryAddress: '0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73',
-      type: 'uniswap-v2'
-    },
-    tokens: {
-      usdt: '0x55d398326f99059fF775485246999027B3197955',
-      usdc: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
-      wnative: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'
-    }
-  },
   {
     id: 42161,
     name: 'Arbitrum',
@@ -86,47 +46,6 @@ export const SUPPORTED_CHAINS: ChainConfig[] = [
       usdc: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
       weth: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
       wnative: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1'
-    }
-  },
-  {
-    id: 8453,
-    name: 'Base',
-    shortName: 'BASE',
-    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-    rpcUrl: 'https://mainnet.base.org',
-    blockExplorer: 'https://basescan.org',
-    icon: '/chains/base.svg',
-    dex: {
-      name: 'Uniswap V3',
-      routerAddress: '0x2626664c2603336E57B271c5C0b26F421741e481',
-      factoryAddress: '0x33128a8fC17869897dcE68Ed026d694621f6FDfD',
-      type: 'uniswap-v3'
-    },
-    tokens: {
-      usdc: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-      weth: '0x4200000000000000000000000000000000000006',
-      wnative: '0x4200000000000000000000000000000000000006'
-    }
-  },
-  {
-    id: 137,
-    name: 'Polygon',
-    shortName: 'MATIC',
-    nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
-    rpcUrl: 'https://polygon-rpc.com',
-    blockExplorer: 'https://polygonscan.com',
-    icon: '/chains/polygon.svg',
-    dex: {
-      name: 'Uniswap V3',
-      routerAddress: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
-      factoryAddress: '0x1F98431c8aD98523631AE4a59f267346ea31F984',
-      type: 'uniswap-v3'
-    },
-    tokens: {
-      usdt: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
-      usdc: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',
-      weth: '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619',
-      wnative: '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270'
     }
   }
 ];
@@ -173,14 +92,9 @@ export const TESTNET_CHAINS: ChainConfig[] = [
   }
 ];
 
-// Average gas costs per chain (in native token)
+// Average gas costs - Arbitrum only
 export const CHAIN_GAS_ESTIMATES: Record<number, { swapGas: number; approveGas: number; avgGasPrice: number }> = {
-  1: { swapGas: 150000, approveGas: 46000, avgGasPrice: 30 }, // Ethereum - expensive
-  56: { swapGas: 150000, approveGas: 46000, avgGasPrice: 3 }, // BSC - cheap
   42161: { swapGas: 500000, approveGas: 100000, avgGasPrice: 0.1 }, // Arbitrum - very cheap
-  8453: { swapGas: 150000, approveGas: 46000, avgGasPrice: 0.05 }, // Base - very cheap
-  137: { swapGas: 200000, approveGas: 50000, avgGasPrice: 50 }, // Polygon - cheap in MATIC
-  97: { swapGas: 150000, approveGas: 46000, avgGasPrice: 10 } // BSC testnet
 };
 
 export const isTestnet = (chainId: number): boolean => {

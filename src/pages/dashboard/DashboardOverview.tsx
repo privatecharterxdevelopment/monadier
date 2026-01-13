@@ -65,8 +65,59 @@ const DashboardOverview: React.FC = () => {
   const [loadingPayments, setLoadingPayments] = useState(true);
   const [recentTrades, setRecentTrades] = useState<Position[]>([]);
   const [loadingTrades, setLoadingTrades] = useState(true);
+  const [userWallets, setUserWallets] = useState<string[]>([]);
 
-  // Fetch recent closed bot trades (same as Bot History closed tab)
+  // Fetch all user's wallets on mount - try multiple sources (same as BotHistoryPage)
+  useEffect(() => {
+    const fetchUserWallets = async () => {
+      if (!address) return;
+
+      const foundWallets = new Set<string>();
+      foundWallets.add(address.toLowerCase());
+
+      try {
+        // 1. Try user_wallets table via auth
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: wallets } = await supabase
+            .from('user_wallets')
+            .select('wallet_address')
+            .eq('user_id', user.id);
+
+          wallets?.forEach(w => foundWallets.add(w.wallet_address.toLowerCase()));
+        }
+
+        // 2. Also check subscriptions for linked wallets
+        const { data: subs } = await supabase
+          .from('subscriptions')
+          .select('wallet_address')
+          .not('wallet_address', 'is', null);
+
+        const mySub = subs?.find(s => s.wallet_address?.toLowerCase() === address.toLowerCase());
+        if (mySub) {
+          subs?.forEach(s => {
+            if (s.wallet_address) foundWallets.add(s.wallet_address.toLowerCase());
+          });
+        }
+
+        // 3. Check vault_settings for this wallet on any chain
+        const { data: vaultSettings } = await supabase
+          .from('vault_settings')
+          .select('wallet_address')
+          .or(`wallet_address.eq.${address.toLowerCase()}`);
+
+        vaultSettings?.forEach(v => foundWallets.add(v.wallet_address.toLowerCase()));
+
+        setUserWallets(Array.from(foundWallets));
+      } catch (err) {
+        console.error('Failed to fetch user wallets:', err);
+      }
+    };
+
+    fetchUserWallets();
+  }, [address]);
+
+  // Fetch recent closed bot trades from ALL user wallets (same as Bot History)
   useEffect(() => {
     const fetchRecentTrades = async () => {
       if (!address) {
@@ -75,10 +126,14 @@ const DashboardOverview: React.FC = () => {
       }
 
       try {
+        // Get all wallets to query (current + all linked wallets)
+        const walletsToQuery = new Set([address.toLowerCase(), ...userWallets]);
+        const walletArray = Array.from(walletsToQuery);
+
         const { data, error } = await supabase
           .from('positions')
           .select('id, token_symbol, direction, entry_price, entry_amount, take_profit_percent, trailing_stop_percent, profit_loss, profit_loss_percent, status, close_reason, created_at, closed_at')
-          .eq('wallet_address', address.toLowerCase())
+          .in('wallet_address', walletArray)
           .in('status', ['closed', 'failed'])
           .order('closed_at', { ascending: false })
           .limit(5);
@@ -93,7 +148,7 @@ const DashboardOverview: React.FC = () => {
       }
     };
     fetchRecentTrades();
-  }, [address]);
+  }, [address, userWallets]);
 
   // Format duration between two dates (same as Bot History)
   const formatDuration = (startDate: string, endDate?: string | null) => {
@@ -375,12 +430,12 @@ const DashboardOverview: React.FC = () => {
               </p>
               <div className="grid grid-cols-3 gap-4">
                 <div className="bg-background rounded-lg p-3">
-                  <p className="text-gray-500 text-xs mb-1">Base Fee</p>
-                  <p className="text-white font-medium">1.0%</p>
+                  <p className="text-gray-500 text-xs mb-1">Network</p>
+                  <p className="text-white font-medium">Arbitrum</p>
                 </div>
                 <div className="bg-background rounded-lg p-3">
-                  <p className="text-gray-500 text-xs mb-1">Other Chains</p>
-                  <p className="text-white font-medium">3.5%</p>
+                  <p className="text-gray-500 text-xs mb-1">Fees</p>
+                  <p className="text-white font-medium">0.1% + 10% profit</p>
                 </div>
                 <div className="bg-background rounded-lg p-3">
                   <p className="text-gray-500 text-xs mb-1">Max Risk</p>

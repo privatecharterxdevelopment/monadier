@@ -276,80 +276,48 @@ export const ERC20_APPROVE_ABI = [
   }
 ] as const;
 
-// Vault addresses by chain (V1 - instant trades)
+// ARBITRUM ONLY - V5 Vault
+// V5: Uniswap V3 0.05% pools, 0.1% base fee, 10% success fee
 export const VAULT_ADDRESSES: Record<number, `0x${string}` | null> = {
-  1: null,      // Ethereum - not deployed yet
-  56: null,     // BNB Chain - not deployed yet
-  42161: null,  // Arbitrum - not deployed yet
-  8453: '0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A',   // Base - LIVE (V1)
-  137: null,    // Polygon - not deployed yet
-};
-
-// V2 Vault addresses (position holding, trailing stops)
-export const VAULT_V2_ADDRESSES: Record<number, `0x${string}` | null> = {
-  1: null,      // Ethereum - not deployed yet
-  56: null,     // BNB Chain - not deployed yet
-  42161: null,  // Arbitrum - not deployed yet
-  8453: '0x5eF29B4348d31c311918438e92a5fae7641Bc00a',   // Base - LIVE (V2)
-  137: null,    // Polygon - not deployed yet
-};
-
-// V3 Vault addresses (secure - user can emergency close + ETH deposit)
-export const VAULT_V3_ADDRESSES: Record<number, `0x${string}` | null> = {
-  1: null,      // Ethereum - not deployed yet
-  56: null,     // BNB Chain - not deployed yet
-  42161: null,  // Arbitrum - not deployed yet
-  8453: '0xAd1F46B955b783c142ea9D2d3F221Ac2F3D63e79',   // Base - OLD V3
-  137: null,    // Polygon - not deployed yet
-};
-
-// V4 Vault addresses (V3 + 100% risk level support)
-export const VAULT_V4_ADDRESSES: Record<number, `0x${string}` | null> = {
-  1: null,      // Ethereum - not deployed yet
-  56: null,     // BNB Chain - not deployed yet
-  42161: null,  // Arbitrum - not deployed yet
-  8453: '0x08Afb514255187d664d6b250D699Edc51491E803',   // Base - LIVE (V4)
-  137: null,    // Polygon - not deployed yet
-};
-
-// V5 Vault addresses (Uniswap V3 0.05% pools, 0.1% base fee, 10% success fee)
-export const VAULT_V5_ADDRESSES: Record<number, `0x${string}` | null> = {
-  1: null,      // Ethereum - not deployed yet
-  56: null,     // BNB Chain - not deployed yet
   42161: '0x6C51F75b164205e51a87038662060cfe54d95E70',  // Arbitrum - LIVE (V5)
-  8453: null,   // Base - using V4
-  137: null,    // Polygon - not deployed yet
 };
 
-// USDC addresses by chain
+export const VAULT_V2_ADDRESSES: Record<number, `0x${string}` | null> = {
+  42161: null,  // Using V5
+};
+
+export const VAULT_V3_ADDRESSES: Record<number, `0x${string}` | null> = {
+  42161: null,  // Using V5
+};
+
+export const VAULT_V4_ADDRESSES: Record<number, `0x${string}` | null> = {
+  42161: null,  // Using V5
+};
+
+export const VAULT_V5_ADDRESSES: Record<number, `0x${string}` | null> = {
+  42161: '0x6C51F75b164205e51a87038662060cfe54d95E70',  // Arbitrum - LIVE (V5)
+};
+
+// USDC addresses - Arbitrum only
 export const USDC_ADDRESSES: Record<number, `0x${string}`> = {
-  1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',      // Ethereum
-  56: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',     // BNB Chain
-  42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',  // Arbitrum (Native)
-  8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',   // Base (Native)
-  137: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',    // Polygon (Native)
+  42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',  // Arbitrum (Native USDC)
 };
 
 // USDC decimals (6 for all chains)
 export const USDC_DECIMALS = 6;
 
-// Platform fee structure (basis points)
-// V4 and earlier: 1% on Base, 3.5% on other chains
-// V5: 0.1% base + 10% success fee on all chains
+// Platform fee structure - Arbitrum V5 only
+// V5: 0.1% base fee + 10% success fee on profits
 export const PLATFORM_FEES = {
-  BASE_CHAIN_ID: 8453,
   ARBITRUM_CHAIN_ID: 42161,
-  // V4 fees (Base)
-  BASE_FEE_BPS: 100,      // 1.0% on Base (V4)
-  OTHER_FEE_BPS: 350,     // 3.5% on other chains (V4)
-  // V5 fees (Arbitrum) - much lower!
+  // V5 fees (Arbitrum) - low fees!
   V5_BASE_FEE_BPS: 10,    // 0.1% base fee
   V5_SUCCESS_FEE_BPS: 1000, // 10% of profit
 } as const;
 
 /**
- * Get platform fee for a chain
- * @param chainId Chain ID
+ * Get platform fee for Arbitrum V5
+ * @param chainId Chain ID (only 42161 supported)
  * @returns Fee in basis points and percentage
  */
 export function getPlatformFeeForChain(chainId: number): {
@@ -360,34 +328,16 @@ export function getPlatformFeeForChain(chainId: number): {
   successFeeBps?: number;
   successFeePercent?: number;
 } {
-  // V5 on Arbitrum has different fee structure
-  const isArbitrum = chainId === PLATFORM_FEES.ARBITRUM_CHAIN_ID;
-  const hasV5 = VAULT_V5_ADDRESSES[chainId] !== null;
-
-  if (isArbitrum && hasV5) {
-    // V5 fee structure: 0.1% base + 10% success fee
-    const bps = PLATFORM_FEES.V5_BASE_FEE_BPS;
-    const percent = bps / 100;
-    return {
-      bps,
-      percent,
-      percentFormatted: `${percent.toFixed(1)}% + 10% profit`,
-      isV5: true,
-      successFeeBps: PLATFORM_FEES.V5_SUCCESS_FEE_BPS,
-      successFeePercent: 10
-    };
-  }
-
-  // V4 and earlier
-  const isBase = chainId === PLATFORM_FEES.BASE_CHAIN_ID;
-  const bps = isBase ? PLATFORM_FEES.BASE_FEE_BPS : PLATFORM_FEES.OTHER_FEE_BPS;
+  // V5 fee structure: 0.1% base + 10% success fee
+  const bps = PLATFORM_FEES.V5_BASE_FEE_BPS;
   const percent = bps / 100;
-
   return {
     bps,
     percent,
-    percentFormatted: `${percent.toFixed(1)}%`,
-    isV5: false
+    percentFormatted: `${percent.toFixed(1)}% + 10% profit`,
+    isV5: true,
+    successFeeBps: PLATFORM_FEES.V5_SUCCESS_FEE_BPS,
+    successFeePercent: 10
   };
 }
 
@@ -810,11 +760,11 @@ export class VaultClient {
     bps: number;
     percent: number;
     percentFormatted: string;
-    isBaseChain: boolean;
+    isArbitrum: boolean;
   } {
     return {
       ...getPlatformFeeForChain(this.chainId),
-      isBaseChain: this.chainId === PLATFORM_FEES.BASE_CHAIN_ID
+      isArbitrum: this.chainId === PLATFORM_FEES.ARBITRUM_CHAIN_ID
     };
   }
 }
