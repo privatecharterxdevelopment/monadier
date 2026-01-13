@@ -39,23 +39,97 @@ export class SubscriptionService {
   }
 
   /**
+   * Get user_id from user_wallets table (supports multiple wallets per user)
+   */
+  async getUserIdFromWallet(walletAddress: string): Promise<string | null> {
+    try {
+      const wallet = walletAddress.toLowerCase();
+
+      // First try user_wallets table (new system - multiple wallets per user)
+      const { data: userWallet } = await this.supabase
+        .from('user_wallets')
+        .select('user_id')
+        .eq('wallet_address', wallet)
+        .single();
+
+      if (userWallet?.user_id) {
+        return userWallet.user_id;
+      }
+
+      // Fallback: check subscriptions.wallet_address (legacy)
+      const { data: sub } = await this.supabase
+        .from('subscriptions')
+        .select('user_id')
+        .eq('wallet_address', wallet)
+        .single();
+
+      return sub?.user_id || null;
+    } catch (err) {
+      logger.debug('getUserIdFromWallet lookup failed', { walletAddress, error: err });
+      return null;
+    }
+  }
+
+  /**
    * Get user subscription by wallet address
+   * NEW: First looks up user via user_wallets table, then gets subscription by user_id
+   * This supports multiple wallets per user!
    */
   async getSubscription(walletAddress: string): Promise<UserSubscription | null> {
     try {
-      const { data, error } = await this.supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('wallet_address', walletAddress.toLowerCase())
-        .single();
+      const wallet = walletAddress.toLowerCase();
 
-      if (error || !data) {
+      // Step 1: Find user_id via user_wallets or subscription
+      const userId = await this.getUserIdFromWallet(wallet);
+
+      if (!userId) {
+        logger.debug('No user found for wallet', { wallet: wallet.slice(0, 10) });
         return null;
       }
 
+      // Step 2: Get subscription by user_id (not wallet!)
+      const { data, error } = await this.supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .single();
+
+      if (error || !data) {
+        // Fallback: try direct wallet lookup (legacy)
+        const { data: legacyData, error: legacyError } = await this.supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('wallet_address', wallet)
+          .single();
+
+        if (legacyError || !legacyData) {
+          logger.debug('No subscription found for user', { userId: userId.slice(0, 8), wallet: wallet.slice(0, 10) });
+          return null;
+        }
+
+        return {
+          userId: legacyData.user_id,
+          walletAddress: wallet, // Use current wallet, not stored one
+          planTier: legacyData.plan_tier,
+          status: legacyData.status,
+          dailyTradesUsed: legacyData.daily_trades_used,
+          dailyTradesResetAt: new Date(legacyData.daily_trades_reset_at),
+          totalTradesUsed: legacyData.total_trades_used || 0,
+          endDate: new Date(legacyData.end_date),
+          timezone: legacyData.timezone || 'UTC'
+        };
+      }
+
+      logger.debug('Found subscription via user_id', {
+        userId: userId.slice(0, 8),
+        wallet: wallet.slice(0, 10),
+        planTier: data.plan_tier
+      });
+
       return {
         userId: data.user_id,
-        walletAddress: data.wallet_address,
+        walletAddress: wallet, // Use current wallet, not stored one
         planTier: data.plan_tier,
         status: data.status,
         dailyTradesUsed: data.daily_trades_used,
@@ -550,8 +624,8 @@ export class SubscriptionService {
 
   /**
    * Get all users with auto-trade enabled for a specific chain
-   * IMPORTANT: Combines vault_settings + all subscribed users
-   * This ensures users who enabled auto-trade on-chain but don't have vault_settings are still found
+   * NEW: Combines vault_settings + subscribed users + ALL user_wallets
+   * This ensures users with multiple wallets are found!
    */
   async getAutoTradeUsers(chainId?: number): Promise<string[]> {
     try {
@@ -574,18 +648,36 @@ export class SubscriptionService {
         });
       }
 
-      // 2. ALWAYS also get all subscribed users - they might have auto-trade enabled on-chain
-      // The bot will check on-chain status anyway, so this is safe
+      // 2. Get all subscribed users
       const { data: subData } = await this.supabase
         .from('subscriptions')
-        .select('wallet_address')
+        .select('user_id, wallet_address')
         .eq('status', 'active')
         .neq('plan_tier', 'free');
 
       if (subData) {
+        // Add wallet from subscription
         subData.forEach(d => {
           if (d.wallet_address) allAddresses.add(d.wallet_address.toLowerCase());
         });
+
+        // 3. NEW: Also get ALL wallets for each subscribed user from user_wallets
+        const userIds = subData.map(d => d.user_id).filter(Boolean);
+        if (userIds.length > 0) {
+          const { data: userWallets } = await this.supabase
+            .from('user_wallets')
+            .select('wallet_address')
+            .in('user_id', userIds);
+
+          if (userWallets) {
+            userWallets.forEach(w => {
+              if (w.wallet_address) allAddresses.add(w.wallet_address.toLowerCase());
+            });
+            logger.debug('Added wallets from user_wallets table', {
+              count: userWallets.length
+            });
+          }
+        }
       }
 
       const addresses = Array.from(allAddresses);
