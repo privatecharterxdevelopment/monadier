@@ -4,6 +4,8 @@ import { formatUnits, parseUnits, erc20Abi } from 'viem';
 import { SUPPORTED_CHAINS, getChainById, ChainConfig } from '../lib/chains';
 import { createDexRouter, createGridBot, DexRouter, GridBot, SwapResult, TradeRecord } from '../lib/dex';
 import { calculateTradeFee, TREASURY_ADDRESS, TRADE_FEE_PERCENT } from '../lib/fees';
+import { supabase, isWalletLinked, linkWalletToUser } from '../lib/supabase';
+import { useAuth } from './AuthContext';
 
 export interface TokenBalance {
   symbol: string;
@@ -176,6 +178,7 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
   const { switchChainAsync } = useSwitchChain();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
+  const { user } = useAuth();
 
   const { data: nativeBalanceData } = useBalance({
     address: address,
@@ -185,6 +188,36 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
   const [totalUsdValue, setTotalUsdValue] = useState(0);
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
   const [tokenPrices, setTokenPrices] = useState<Record<string, number>>({});
+  const [showSaveWalletPrompt, setShowSaveWalletPrompt] = useState(false);
+
+  // Auto-save wallet to profile when connected
+  useEffect(() => {
+    const checkAndSaveWallet = async () => {
+      if (!isConnected || !address || !user?.id) return;
+
+      try {
+        const { isLinked, error } = await isWalletLinked(user.id, address);
+        if (error) {
+          console.error('Error checking wallet link:', error);
+          return;
+        }
+
+        if (!isLinked) {
+          // Auto-save the wallet to profile
+          const { error: linkError } = await linkWalletToUser(user.id, address);
+          if (linkError) {
+            console.error('Error linking wallet:', linkError);
+          } else {
+            console.log('Wallet automatically saved to profile:', address);
+          }
+        }
+      } catch (err) {
+        console.error('Error in auto-save wallet:', err);
+      }
+    };
+
+    checkAndSaveWallet();
+  }, [isConnected, address, user?.id]);
 
   const currentChain = chainId ? getChainById(chainId) : undefined;
   const nativeBalance = nativeBalanceData ? formatUnits(nativeBalanceData.value, nativeBalanceData.decimals) : '0';

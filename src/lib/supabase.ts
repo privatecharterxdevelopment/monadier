@@ -108,6 +108,72 @@ export const getTransactions = async (userId: string) => {
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
-    
+
+  return { data, error };
+};
+
+// User wallets management
+export const getUserWallets = async (userId: string) => {
+  const { data, error } = await supabase
+    .from('user_wallets')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  return { data, error };
+};
+
+export const isWalletLinked = async (userId: string, walletAddress: string) => {
+  const { data, error } = await supabase
+    .from('user_wallets')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('wallet_address', walletAddress.toLowerCase())
+    .limit(1);
+
+  return { isLinked: data && data.length > 0, error };
+};
+
+export const linkWalletToUser = async (userId: string, walletAddress: string, label?: string) => {
+  const { data, error } = await supabase
+    .from('user_wallets')
+    .upsert({
+      user_id: userId,
+      wallet_address: walletAddress.toLowerCase(),
+      label: label || `Wallet ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`,
+      created_at: new Date().toISOString()
+    }, {
+      onConflict: 'user_id,wallet_address'
+    });
+
+  return { data, error };
+};
+
+export const unlinkWallet = async (userId: string, walletAddress: string) => {
+  const { data, error } = await supabase
+    .from('user_wallets')
+    .delete()
+    .eq('user_id', userId)
+    .eq('wallet_address', walletAddress.toLowerCase());
+
+  return { data, error };
+};
+
+// Get all positions for all user's wallets
+export const getAllUserPositions = async (userId: string) => {
+  // First get all user's wallets
+  const { data: wallets, error: walletsError } = await getUserWallets(userId);
+  if (walletsError || !wallets || wallets.length === 0) {
+    return { data: [], error: walletsError };
+  }
+
+  // Get positions for all wallets
+  const walletAddresses = wallets.map(w => w.wallet_address.toLowerCase());
+  const { data, error } = await supabase
+    .from('positions')
+    .select('*')
+    .in('wallet_address', walletAddresses)
+    .order('created_at', { ascending: false });
+
   return { data, error };
 };
