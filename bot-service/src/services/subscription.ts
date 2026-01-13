@@ -363,8 +363,22 @@ export class SubscriptionService {
 
       if (error || !data) {
         // Return defaults if not found
+        logger.warn('⚠️ No vault_settings found - using DEFAULTS', {
+          wallet: walletAddress.slice(0, 10),
+          chainId,
+          defaultTP: '5%',
+          defaultSL: '1%',
+          error: error?.message
+        });
         return { takeProfitPercent: 5, stopLossPercent: 1, askPermission: false };
       }
+
+      logger.info('✅ Loaded user vault_settings from DB', {
+        wallet: walletAddress.slice(0, 10),
+        chainId,
+        TP: data.take_profit_percent + '%',
+        SL: data.stop_loss_percent + '%'
+      });
 
       return {
         takeProfitPercent: data.take_profit_percent || 5,

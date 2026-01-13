@@ -652,12 +652,14 @@ export class TradingService {
       const finalTakeProfit = userSettings.takeProfitPercent;
       const finalStopLoss = userSettings.stopLossPercent;
 
-      logger.info('Using user TP/SL settings', {
+      // CRITICAL: Log to verify user settings are being used
+      logger.info('🎯 USING USER TP/SL SETTINGS (NOT SIGNAL!)', {
         userAddress: userAddress.slice(0, 10),
+        chainId,
         userTP: finalTakeProfit + '%',
         userSL: finalStopLoss + '%',
-        signalTP: signal.takeProfitPercent + '%',
-        signalSL: signal.trailingStopPercent + '%'
+        signalTP: signal.takeProfitPercent + '% (IGNORED)',
+        signalSL: signal.trailingStopPercent + '% (IGNORED)'
       });
 
       const position = await positionService.openPosition({
