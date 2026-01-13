@@ -1093,10 +1093,26 @@ export async function analyzeMarketMTF(
       isWeak
     });
 
+    // When HOLD, use majority vote from 5m, 15m, 1h (IGNORE 1m noise!)
+    let finalDirection: 'LONG' | 'SHORT' = signal.direction as 'LONG' | 'SHORT';
+    if (signal.direction === 'HOLD') {
+      // Count votes from higher timeframes only (skip 1m)
+      const higherTFs = signal.timeframes.filter(tf => tf.timeframe !== '1m');
+      const longVotes = higherTFs.filter(tf => tf.direction === 'LONG').length;
+      const shortVotes = higherTFs.filter(tf => tf.direction === 'SHORT').length;
+
+      // Follow the trend if uptrend, else use majority
+      if (trend === 'UP') {
+        finalDirection = 'LONG'; // Uptrend = go LONG
+      } else if (trend === 'DOWN') {
+        finalDirection = 'SHORT'; // Downtrend = go SHORT
+      } else {
+        finalDirection = longVotes >= shortVotes ? 'LONG' : 'SHORT';
+      }
+    }
+
     return {
-      direction: signal.direction === 'HOLD'
-        ? (signal.timeframes[0]?.direction === 'LONG' ? 'LONG' : 'SHORT')
-        : signal.direction as 'LONG' | 'SHORT',
+      direction: finalDirection,
       confidence: Math.round(signal.confidence),
       reason,
       indicators: indicators.slice(0, 5),
