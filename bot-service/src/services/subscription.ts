@@ -26,6 +26,7 @@ export interface UserTradingSettings {
   takeProfitPercent: number;
   stopLossPercent: number;
   askPermission: boolean;
+  leverageMultiplier: number; // 1.0 = no leverage, 2.0 = 2x, 3.0 = 3x max
 }
 
 export class SubscriptionService {
@@ -350,13 +351,13 @@ export class SubscriptionService {
   }
 
   /**
-   * Get user's custom TP/SL settings from vault_settings
+   * Get user's custom TP/SL/Leverage settings from vault_settings
    */
   async getUserTradingSettings(walletAddress: string, chainId: number): Promise<UserTradingSettings> {
     try {
       const { data, error } = await this.supabase
         .from('vault_settings')
-        .select('take_profit_percent, stop_loss_percent, ask_permission')
+        .select('take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier')
         .eq('wallet_address', walletAddress.toLowerCase())
         .eq('chain_id', chainId)
         .single();
@@ -368,26 +369,29 @@ export class SubscriptionService {
           chainId,
           defaultTP: '5%',
           defaultSL: '1%',
+          defaultLeverage: '1x',
           error: error?.message
         });
-        return { takeProfitPercent: 5, stopLossPercent: 1, askPermission: false };
+        return { takeProfitPercent: 5, stopLossPercent: 1, askPermission: false, leverageMultiplier: 1.0 };
       }
 
       logger.info('✅ Loaded user vault_settings from DB', {
         wallet: walletAddress.slice(0, 10),
         chainId,
         TP: data.take_profit_percent + '%',
-        SL: data.stop_loss_percent + '%'
+        SL: data.stop_loss_percent + '%',
+        leverage: (data.leverage_multiplier || 1.0) + 'x'
       });
 
       return {
         takeProfitPercent: data.take_profit_percent || 5,
         stopLossPercent: data.stop_loss_percent || 1,
-        askPermission: data.ask_permission || false
+        askPermission: data.ask_permission || false,
+        leverageMultiplier: data.leverage_multiplier || 1.0
       };
     } catch (err) {
       logger.error('Failed to get user trading settings', { walletAddress, error: err });
-      return { takeProfitPercent: 5, stopLossPercent: 1, askPermission: false };
+      return { takeProfitPercent: 5, stopLossPercent: 1, askPermission: false, leverageMultiplier: 1.0 };
     }
   }
 

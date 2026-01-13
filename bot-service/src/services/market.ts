@@ -2,6 +2,7 @@ import { logger } from '../utils/logger';
 import { TradeSignal } from './trading';
 import { parseUnits } from 'viem';
 import { positionService } from './positions';
+import { signalEngine, UnifiedSignal, Timeframe } from './signalEngine';
 
 // Candle data structure
 interface Candle {
@@ -965,22 +966,273 @@ export async function generateTradeSignal(
   };
 }
 
+// ============================================================================
+// MULTI-TIMEFRAME ANALYSIS (NEW UNIFIED SIGNAL ENGINE)
+// ============================================================================
+
+/**
+ * Get Binance symbol from chain/token
+ */
+function getSymbolForToken(chainId: number, tokenAddress: string): string | null {
+  return TOKEN_SYMBOLS[chainId]?.[tokenAddress] || null;
+}
+
+/**
+ * NEW: Analyze market using Multi-Timeframe Signal Engine
+ * This combines 1m, 5m, 15m, 1h data for a unified signal
+ */
+export async function analyzeMarketMTF(
+  chainId: number,
+  tokenAddress: string,
+  strategy: TradingStrategy = 'normal'
+): Promise<MarketAnalysis | null> {
+  const symbol = getSymbolForToken(chainId, tokenAddress);
+  if (!symbol) {
+    logger.warn('Unknown token for MTF analysis', { chainId, tokenAddress });
+    return null;
+  }
+
+  try {
+    // Generate unified signal from multiple timeframes
+    const timeframes: Timeframe[] = ['1m', '5m', '15m', '1h'];
+    const signal = await signalEngine.generateSignal(symbol, timeframes);
+
+    if (!signal || signal.confidence === 0) {
+      logger.warn('SignalEngine returned empty signal', { symbol });
+      return null;
+    }
+
+    // Convert UnifiedSignal to MarketAnalysis format
+    const strategyConfig = STRATEGY_CONFIGS[strategy];
+
+    // Build indicators list from timeframe analysis
+    const indicators: string[] = [];
+
+    // Add pattern indicators
+    for (const pattern of signal.patterns.slice(0, 3)) {
+      indicators.push(pattern.type.replace(/_/g, ' '));
+    }
+
+    // Add timeframe summaries
+    for (const tf of signal.timeframes) {
+      if (tf.confidence > 60) {
+        indicators.push(`${tf.timeframe}: ${tf.direction}`);
+      }
+    }
+
+    // Check for weekend/market hours
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const hour = now.getUTCHours();
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const isSunday = dayOfWeek === 0;
+    const isMonday = dayOfWeek === 1;
+    const isSaturday = dayOfWeek === 6;
+
+    let weekendAlertLevel: 'none' | 'yellow' | 'red' = 'none';
+    let marketWarning: string | undefined;
+
+    if (isSunday && hour >= 18) {
+      weekendAlertLevel = 'red';
+      marketWarning = 'RED ALERT: Sunday evening - high volatility expected';
+    } else if (isMonday && hour < 12) {
+      weekendAlertLevel = 'red';
+      marketWarning = 'RED ALERT: Monday morning - institutional activity';
+    } else if (isMonday) {
+      weekendAlertLevel = 'yellow';
+      marketWarning = 'Caution: Monday market instability';
+    } else if (isSunday || isSaturday) {
+      weekendAlertLevel = 'yellow';
+      marketWarning = 'Weekend trading: Lower liquidity';
+    }
+
+    // Get RSI from 15m timeframe (best balance)
+    const tf15m = signal.timeframes.find(t => t.timeframe === '15m');
+    const rsi = tf15m?.rsi || 50;
+    const macdSignal = tf15m?.macdSignal || 'neutral';
+    const trend = tf15m?.trend || 'SIDEWAYS';
+
+    // Check if signal is too weak
+    const isWeak = signal.confidence < strategyConfig.minConfidence ||
+      (signal.warnings.length > 0 && signal.trendAlignment < 50);
+
+    // Build reason
+    const reason = signal.reasons.length > 0
+      ? signal.reasons.slice(0, 2).join(' | ')
+      : `MTF: ${signal.direction} (${signal.confidence.toFixed(0)}%)`;
+
+    // Determine TP/SL from signal or calculate based on conditions
+    let suggestedTP = signal.suggestedTP > 0
+      ? ((signal.suggestedTP - signal.suggestedEntry) / signal.suggestedEntry) * 100
+      : 5.0;
+    let suggestedSL = signal.suggestedSL > 0
+      ? ((signal.suggestedEntry - signal.suggestedSL) / signal.suggestedEntry) * 100
+      : 1.5;
+
+    // Cap TP/SL to reasonable values
+    suggestedTP = Math.min(Math.max(suggestedTP, 1.5), 10);
+    suggestedSL = Math.min(Math.max(suggestedSL, 0.5), 3);
+
+    // Adjust for weekend
+    if (isSunday || isSaturday) {
+      suggestedTP = Math.min(suggestedTP, 3.5);
+      suggestedSL = Math.min(suggestedSL, 0.8);
+    }
+
+    const isOverheated = rsi > 75 || rsi < 25;
+    const scalpingRecommended = isOverheated || signal.trendAlignment < 40;
+
+    logger.info('📊 MTF Signal Generated', {
+      symbol,
+      direction: signal.direction,
+      confidence: signal.confidence.toFixed(0) + '%',
+      trendAlignment: signal.trendAlignment.toFixed(0) + '%',
+      patternStrength: signal.patternStrength.toFixed(0) + '%',
+      patterns: signal.patterns.length,
+      warnings: signal.warnings.length,
+      isWeak
+    });
+
+    return {
+      direction: signal.direction === 'HOLD'
+        ? (signal.timeframes[0]?.direction === 'LONG' ? 'LONG' : 'SHORT')
+        : signal.direction as 'LONG' | 'SHORT',
+      confidence: Math.round(signal.confidence),
+      reason,
+      indicators: indicators.slice(0, 5),
+      isReversalSignal: signal.patternStrength > 50,
+      suggestedTP,
+      suggestedSL,
+      isOverheated,
+      isWeekendWarning: weekendAlertLevel !== 'none',
+      weekendAlertLevel,
+      scalpingRecommended,
+      marketWarning,
+      isWeak,
+      metrics: {
+        rsi: Math.round(rsi),
+        macd: macdSignal,
+        priceChange1h: '0.00', // Will be filled from candles if needed
+        volumeRatio: '1.0',
+        conditionsMet: Math.round(signal.trendAlignment / 20), // Approximate
+        riskReward: (suggestedTP / suggestedSL).toFixed(2),
+        trend: trend === 'UP' ? 'STRONG_UPTREND' : trend === 'DOWN' ? 'STRONG_DOWNTREND' : 'NEUTRAL',
+        dayOfWeek: dayNames[dayOfWeek]
+      }
+    };
+  } catch (err: any) {
+    logger.error('MTF Analysis failed', { symbol, error: err.message || String(err) });
+    // Fall back to single-timeframe analysis
+    return analyzeMarket(chainId, tokenAddress, strategy);
+  }
+}
+
+/**
+ * Generate trade signal using Multi-Timeframe analysis
+ */
+export async function generateTradeSignalMTF(
+  chainId: number,
+  tokenAddress: string,
+  userBalance: bigint,
+  riskLevelBps: number = 500,
+  strategy: TradingStrategy = 'normal'
+): Promise<TradeSignal | null> {
+  const strategyConfig = STRATEGY_CONFIGS[strategy];
+
+  // Try MTF analysis first, fall back to single-timeframe
+  const analysis = await analyzeMarketMTF(chainId, tokenAddress, strategy);
+
+  const symbol = TOKEN_SYMBOLS[chainId]?.[tokenAddress] || 'UNKNOWN';
+  const tokenSymbol = symbol.replace('USDT', '');
+
+  // Save analysis to Supabase for UI display
+  if (analysis) {
+    await positionService.saveAnalysis({
+      chainId,
+      tokenAddress,
+      tokenSymbol,
+      signal: analysis.direction,
+      confidence: analysis.confidence,
+      currentPrice: 0,
+      factors: {
+        rsi: analysis.metrics.rsi,
+        macdSignal: analysis.metrics.macd,
+        volumeSpike: parseFloat(analysis.metrics.volumeRatio) > 1.5,
+        trend: analysis.metrics.trend,
+        pattern: analysis.indicators[0] || null,
+        priceChange24h: parseFloat(analysis.metrics.priceChange1h) || 0
+      },
+      recommendation: `MTF ${analysis.direction} - ${analysis.reason} (${analysis.confidence}% confidence)`
+    });
+  }
+
+  if (!analysis) {
+    return null;
+  }
+
+  // Don't trade if signal is too weak
+  if (analysis.isWeak) {
+    logger.info('MTF Signal too weak for trading', {
+      symbol,
+      direction: analysis.direction,
+      confidence: analysis.confidence,
+      reason: analysis.reason
+    });
+    return null;
+  }
+
+  // Calculate trade amount based on risk level
+  const tradeAmount = (userBalance * BigInt(riskLevelBps)) / 10000n;
+
+  if (tradeAmount === 0n) {
+    return null;
+  }
+
+  // Calculate minAmountOut with 1% slippage
+  const minAmountOut = (tradeAmount * 99n) / 100n;
+
+  return {
+    direction: analysis.direction,
+    confidence: analysis.confidence,
+    tokenAddress,
+    tokenSymbol,
+    suggestedAmount: tradeAmount,
+    minAmountOut,
+    reason: analysis.reason,
+    takeProfitPercent: analysis.suggestedTP,
+    trailingStopPercent: analysis.suggestedSL,
+    profitLockPercent: strategyConfig.profitLockPercent
+  };
+}
+
 export class MarketService {
   private analysisCache: Map<string, { analysis: MarketAnalysis; timestamp: number }> = new Map();
   private cacheTTL = 30000; // 30 seconds
+  private useMTF = true; // Use Multi-Timeframe analysis by default
 
   /**
-   * Get market analysis with caching
+   * Enable/disable Multi-Timeframe analysis
+   */
+  setMTFMode(enabled: boolean) {
+    this.useMTF = enabled;
+    logger.info(`MTF Analysis mode: ${enabled ? 'ENABLED' : 'DISABLED'}`);
+  }
+
+  /**
+   * Get market analysis with caching (uses MTF by default)
    */
   async getAnalysis(chainId: number, tokenAddress: string, strategy: TradingStrategy = 'normal'): Promise<MarketAnalysis | null> {
-    const cacheKey = `${chainId}-${tokenAddress}-${strategy}`;
+    const cacheKey = `${chainId}-${tokenAddress}-${strategy}-${this.useMTF ? 'mtf' : 'single'}`;
     const cached = this.analysisCache.get(cacheKey);
 
     if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
       return cached.analysis;
     }
 
-    const analysis = await analyzeMarket(chainId, tokenAddress, strategy);
+    // Use MTF analysis by default
+    const analysis = this.useMTF
+      ? await analyzeMarketMTF(chainId, tokenAddress, strategy)
+      : await analyzeMarket(chainId, tokenAddress, strategy);
 
     if (analysis) {
       this.analysisCache.set(cacheKey, { analysis, timestamp: Date.now() });
@@ -990,7 +1242,7 @@ export class MarketService {
   }
 
   /**
-   * Generate signal with strategy support
+   * Generate signal with strategy support (uses MTF by default)
    */
   async getSignal(
     chainId: number,
@@ -999,8 +1251,20 @@ export class MarketService {
     riskLevelBps: number = 500,
     strategy: TradingStrategy = 'normal'
   ): Promise<TradeSignal | null> {
-    return generateTradeSignal(chainId, tokenAddress, userBalance, riskLevelBps, strategy);
+    return this.useMTF
+      ? generateTradeSignalMTF(chainId, tokenAddress, userBalance, riskLevelBps, strategy)
+      : generateTradeSignal(chainId, tokenAddress, userBalance, riskLevelBps, strategy);
+  }
+
+  /**
+   * Get raw unified signal from SignalEngine (for API/frontend)
+   */
+  async getUnifiedSignal(symbol: string, timeframes: Timeframe[] = ['1m', '5m', '15m', '1h']): Promise<UnifiedSignal> {
+    return signalEngine.generateSignal(symbol, timeframes);
   }
 }
 
 export const marketService = new MarketService();
+
+// Re-export signalEngine for direct use
+export { signalEngine } from './signalEngine';
