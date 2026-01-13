@@ -317,10 +317,10 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   return (
     <>
       <div className={`bg-zinc-900/50 border border-zinc-800 rounded-xl ${compact ? 'p-4' : 'p-6'} ${isPreviewMode ? 'relative overflow-hidden' : ''}`}>
-        {/* Preview Mode Banner */}
+        {/* Switch to Arbitrum Banner */}
         {isPreviewMode && (
-          <div className="absolute top-2 right-2 px-2 py-1 bg-yellow-500/20 border border-yellow-500/30 rounded text-[10px] text-yellow-400 font-medium">
-            Coming Soon
+          <div className="absolute top-2 right-2 px-2 py-1 bg-blue-500/20 border border-blue-500/30 rounded text-[10px] text-blue-400 font-medium">
+            Switch to Arbitrum
           </div>
         )}
 
@@ -348,7 +348,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
                 )}
               </div>
               <p className={`text-xs ${autoTradeEnabled && !isPreviewMode ? 'text-green-500' : 'text-zinc-500'}`}>
-                {isPreviewMode ? 'Vault Not Deployed' : autoTradeEnabled ? 'Auto-Trading Active' : 'Auto-Trading Off'}
+                {isPreviewMode ? 'Switch to Arbitrum' : autoTradeEnabled ? 'Auto-Trading Active' : 'Auto-Trading Off'}
               </p>
             </div>
           </div>
@@ -568,11 +568,39 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
           </button>
         </div>
 
-        {/* Preview Mode Info */}
+        {/* Switch to Arbitrum Prompt */}
         {isPreviewMode && (
-          <p className="text-xs text-zinc-500 text-center mt-3">
-            Switch to Arbitrum for lowest fees: 0% platform fee + 10% win fee only
-          </p>
+          <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+            <p className="text-xs text-blue-400 text-center mb-2">
+              Vault is only available on Arbitrum (0% platform fee + 10% win fee)
+            </p>
+            <button
+              onClick={async () => {
+                try {
+                  await (window as any).ethereum?.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0xa4b1' }] // 42161 in hex
+                  });
+                } catch (err: any) {
+                  if (err.code === 4902) {
+                    await (window as any).ethereum?.request({
+                      method: 'wallet_addEthereumChain',
+                      params: [{
+                        chainId: '0xa4b1',
+                        chainName: 'Arbitrum One',
+                        nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                        rpcUrls: ['https://arb1.arbitrum.io/rpc'],
+                        blockExplorerUrls: ['https://arbiscan.io']
+                      }]
+                    });
+                  }
+                }
+              }}
+              className="w-full py-2 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-400 transition-colors text-sm"
+            >
+              Switch to Arbitrum
+            </button>
+          </div>
         )}
 
         {/* Settings link for compact mode */}

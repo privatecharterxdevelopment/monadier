@@ -31,9 +31,18 @@ const ADMIN_EMAIL = 'ipsunlorem@gmail.com';
 // Bot wallet address (from config)
 const BOT_WALLET = '0xC9a6D02a04e3B2E8d3941615EfcBA67593F46b8E';
 const TREASURY_WALLET = '0xF7351a5C63e0403F6F7FC77d31B5e17A229C469c';
+
+// Base Vaults
 const V4_VAULT = '0x08Afb514255187d664d6b250D699Edc51491E803';
 const V3_VAULT = '0xAd1F46B955b783c142ea9D2d3F221Ac2F3D63e79';
 const V2_VAULT = '0x5eF29B4348d31c311918438e92a5fae7641Bc00a';
+
+// Arbitrum V5 Vault
+const V5_VAULT_ARBITRUM = '0x6C51F75b164205e51a87038662060cfe54d95E70';
+
+// USDC addresses
+const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+const USDC_ARBITRUM = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
 
 interface SystemStats {
   botBalance: string;
@@ -51,6 +60,18 @@ interface SystemStats {
   lastTradeTime: string | null;
   gasUsedToday: string;
   estimatedTradesLeft: number;
+  // Arbitrum V5
+  v5TvlArbitrum: string;
+  v4TvlBase: string;
+}
+
+interface VaultTransaction {
+  hash: string;
+  type: 'deposit' | 'withdraw';
+  amount: string;
+  user: string;
+  timestamp: string;
+  chain: 'base' | 'arbitrum';
 }
 
 interface RecentTrade {
@@ -89,7 +110,7 @@ const AdminMonitorPage: React.FC = () => {
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [activeSection, setActiveSection] = useState<'overview' | 'users' | 'subscriptions' | 'trades'>('overview');
+  const [activeSection, setActiveSection] = useState<'overview' | 'users' | 'subscriptions' | 'trades' | 'vault'>('overview');
   const [stats, setStats] = useState<SystemStats>({
     botBalance: '0',
     botBalanceUsd: '0',
@@ -105,9 +126,12 @@ const AdminMonitorPage: React.FC = () => {
     avgTradeSize: 0,
     lastTradeTime: null,
     gasUsedToday: '0',
-    estimatedTradesLeft: 0
+    estimatedTradesLeft: 0,
+    v5TvlArbitrum: '0',
+    v4TvlBase: '0'
   });
   const [recentTrades, setRecentTrades] = useState<RecentTrade[]>([]);
+  const [vaultTransactions, setVaultTransactions] = useState<VaultTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
@@ -156,15 +180,104 @@ const AdminMonitorPage: React.FC = () => {
     }
   };
 
+  // Fetch V5 Arbitrum TVL (USDC balance of vault)
+  const fetchV5ArbitrumTvl = async () => {
+    try {
+      const response = await fetch(`https://api.arbiscan.io/api?module=account&action=tokenbalance&contractaddress=${USDC_ARBITRUM}&address=${V5_VAULT_ARBITRUM}&tag=latest`);
+      const data = await response.json();
+      if (data.status === '1' && data.result) {
+        return formatUnits(BigInt(data.result), 6);
+      }
+      return '0';
+    } catch (err) {
+      console.error('Error fetching V5 Arbitrum TVL:', err);
+      return '0';
+    }
+  };
+
+  // Fetch V4 Base TVL (USDC balance of vault)
+  const fetchV4BaseTvl = async () => {
+    try {
+      const response = await fetch(`https://base.blockscout.com/api/v2/addresses/${V4_VAULT}/token-balances`);
+      const data = await response.json();
+      const usdcBalance = data.find((t: any) => t.token?.address?.toLowerCase() === USDC_BASE.toLowerCase());
+      if (usdcBalance) {
+        return formatUnits(BigInt(usdcBalance.value), 6);
+      }
+      return '0';
+    } catch (err) {
+      console.error('Error fetching V4 Base TVL:', err);
+      return '0';
+    }
+  };
+
+  // Fetch vault transactions from both chains
+  const fetchVaultTransactions = async () => {
+    const transactions: VaultTransaction[] = [];
+
+    try {
+      // Fetch Arbitrum V5 transactions
+      const arbResponse = await fetch(`https://api.arbiscan.io/api?module=account&action=tokentx&contractaddress=${USDC_ARBITRUM}&address=${V5_VAULT_ARBITRUM}&sort=desc`);
+      const arbData = await arbResponse.json();
+      if (arbData.status === '1' && arbData.result) {
+        arbData.result.slice(0, 50).forEach((tx: any) => {
+          const isDeposit = tx.to.toLowerCase() === V5_VAULT_ARBITRUM.toLowerCase();
+          transactions.push({
+            hash: tx.hash,
+            type: isDeposit ? 'deposit' : 'withdraw',
+            amount: formatUnits(BigInt(tx.value), 6),
+            user: isDeposit ? tx.from : tx.to,
+            timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+            chain: 'arbitrum'
+          });
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching Arbitrum transactions:', err);
+    }
+
+    try {
+      // Fetch Base V4 transactions
+      const baseResponse = await fetch(`https://base.blockscout.com/api/v2/addresses/${V4_VAULT}/token-transfers?type=ERC-20`);
+      const baseData = await baseResponse.json();
+      if (baseData.items) {
+        baseData.items.slice(0, 50).forEach((tx: any) => {
+          if (tx.token?.address?.toLowerCase() === USDC_BASE.toLowerCase()) {
+            const isDeposit = tx.to?.hash?.toLowerCase() === V4_VAULT.toLowerCase();
+            transactions.push({
+              hash: tx.transaction_hash,
+              type: isDeposit ? 'deposit' : 'withdraw',
+              amount: formatUnits(BigInt(tx.total?.value || '0'), 6),
+              user: isDeposit ? tx.from?.hash : tx.to?.hash,
+              timestamp: tx.timestamp,
+              chain: 'base'
+            });
+          }
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching Base transactions:', err);
+    }
+
+    // Sort by timestamp descending
+    transactions.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return transactions;
+  };
+
   const fetchStats = async () => {
     setLoading(true);
     try {
-      // Fetch balances and prices in parallel
-      const [botBalance, treasuryBalance, ethPrice] = await Promise.all([
+      // Fetch balances, prices, and TVLs in parallel
+      const [botBalance, treasuryBalance, ethPrice, v5Tvl, v4Tvl, vaultTxs] = await Promise.all([
         fetchBotBalance(),
         fetchTreasuryBalance(),
-        fetchEthPrice()
+        fetchEthPrice(),
+        fetchV5ArbitrumTvl(),
+        fetchV4BaseTvl(),
+        fetchVaultTransactions()
       ]);
+
+      setVaultTransactions(vaultTxs);
 
       // Fetch position stats from Supabase
       const today = new Date();
@@ -184,7 +297,7 @@ const AdminMonitorPage: React.FC = () => {
         supabase.from('positions').select('*').eq('status', 'closed').gte('closed_at', todayStr),
         supabase.from('positions').select('*').eq('status', 'failed').gte('updated_at', todayStr),
         supabase.from('positions').select('wallet_address').limit(1000),
-        supabase.from('positions').select('*').order('created_at', { ascending: false }).limit(20)
+        supabase.from('positions').select('*').order('created_at', { ascending: false })
       ]);
 
       // Calculate stats
@@ -224,7 +337,9 @@ const AdminMonitorPage: React.FC = () => {
         avgTradeSize,
         lastTradeTime: lastTrade?.created_at || null,
         gasUsedToday: ((closedToday || []).length * gasPerTrade).toFixed(6),
-        estimatedTradesLeft
+        estimatedTradesLeft,
+        v5TvlArbitrum: v5Tvl,
+        v4TvlBase: v4Tvl
       });
 
       setRecentTrades(recentTradesData || []);
@@ -347,7 +462,7 @@ const AdminMonitorPage: React.FC = () => {
 
       {/* Section Tabs */}
       <div className="flex gap-2 p-1 bg-card-dark rounded-lg w-fit border border-gray-800">
-        {(['overview', 'users', 'subscriptions', 'trades'] as const).map((section) => (
+        {(['overview', 'vault', 'users', 'subscriptions', 'trades'] as const).map((section) => (
           <button
             key={section}
             onClick={() => setActiveSection(section)}
@@ -358,6 +473,7 @@ const AdminMonitorPage: React.FC = () => {
             }`}
           >
             {section === 'overview' && <Activity size={16} />}
+            {section === 'vault' && <Wallet size={16} />}
             {section === 'users' && <Users size={16} />}
             {section === 'subscriptions' && <CreditCard size={16} />}
             {section === 'trades' && <Clock size={16} />}
@@ -365,6 +481,135 @@ const AdminMonitorPage: React.FC = () => {
           </button>
         ))}
       </div>
+
+      {/* VAULT SECTION */}
+      {activeSection === 'vault' && (
+        <div className="space-y-6">
+          {/* TVL Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-card-dark rounded-xl border border-blue-500/30 p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                  <Wallet className="text-blue-400" size={20} />
+                </div>
+                <div>
+                  <p className="text-sm text-secondary">Arbitrum V5 TVL</p>
+                  <p className="text-2xl font-bold text-white">${parseFloat(stats.v5TvlArbitrum).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                </div>
+              </div>
+              <a
+                href={`https://arbiscan.io/address/${V5_VAULT_ARBITRUM}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+              >
+                <code>{V5_VAULT_ARBITRUM}</code>
+                <ExternalLink size={12} />
+              </a>
+            </div>
+
+            <div className="bg-card-dark rounded-xl border border-purple-500/30 p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center">
+                  <Wallet className="text-purple-400" size={20} />
+                </div>
+                <div>
+                  <p className="text-sm text-secondary">Base V4 TVL</p>
+                  <p className="text-2xl font-bold text-white">${parseFloat(stats.v4TvlBase).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                </div>
+              </div>
+              <a
+                href={`https://basescan.org/address/${V4_VAULT}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
+              >
+                <code>{V4_VAULT}</code>
+                <ExternalLink size={12} />
+              </a>
+            </div>
+          </div>
+
+          {/* Vault Transactions */}
+          <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
+            <div className="p-4 border-b border-gray-800">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <DollarSign size={20} className="text-green-400" />
+                Vault Transactions ({vaultTransactions.length})
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-background">
+                  <tr className="text-left text-sm text-secondary">
+                    <th className="px-4 py-3">Time</th>
+                    <th className="px-4 py-3">Chain</th>
+                    <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3">Amount</th>
+                    <th className="px-4 py-3">User</th>
+                    <th className="px-4 py-3">Tx Hash</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vaultTransactions.map((tx, idx) => (
+                    <tr key={`${tx.hash}-${idx}`} className="border-t border-gray-800 hover:bg-white/5">
+                      <td className="px-4 py-3 text-sm text-secondary">
+                        {formatTimeAgo(tx.timestamp)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          tx.chain === 'arbitrum' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'
+                        }`}>
+                          {tx.chain.toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          tx.type === 'deposit' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                        }`}>
+                          {tx.type.toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-white font-mono">
+                        ${parseFloat(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-4 py-3">
+                        <a
+                          href={tx.chain === 'arbitrum' ? `https://arbiscan.io/address/${tx.user}` : `https://basescan.org/address/${tx.user}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-blue-400 hover:text-blue-300"
+                        >
+                          <code className="text-xs">{tx.user?.slice(0, 6)}...{tx.user?.slice(-4)}</code>
+                          <ExternalLink size={10} />
+                        </a>
+                      </td>
+                      <td className="px-4 py-3">
+                        <a
+                          href={tx.chain === 'arbitrum' ? `https://arbiscan.io/tx/${tx.hash}` : `https://basescan.org/tx/${tx.hash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-gray-400 hover:text-white"
+                        >
+                          <code className="text-xs">{tx.hash?.slice(0, 10)}...</code>
+                          <ExternalLink size={10} />
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                  {vaultTransactions.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-secondary">
+                        No vault transactions yet
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* USERS SECTION */}
       {activeSection === 'users' && (
@@ -744,10 +989,24 @@ const AdminMonitorPage: React.FC = () => {
           Contract Addresses
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex items-center justify-between p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+            <div>
+              <p className="text-xs text-blue-400">V5 Vault Arbitrum (Active)</p>
+              <code className="text-sm text-blue-400">{V5_VAULT_ARBITRUM}</code>
+            </div>
+            <a
+              href={`https://arbiscan.io/address/${V5_VAULT_ARBITRUM}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-500 hover:text-white"
+            >
+              <ExternalLink size={16} />
+            </a>
+          </div>
           <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
             <div>
-              <p className="text-xs text-secondary">V4 Vault (Active)</p>
-              <code className="text-sm text-green-400">{V4_VAULT}</code>
+              <p className="text-xs text-secondary">V4 Vault Base</p>
+              <code className="text-sm text-purple-400">{V4_VAULT}</code>
             </div>
             <a
               href={`https://basescan.org/address/${V4_VAULT}`}
@@ -760,22 +1019,8 @@ const AdminMonitorPage: React.FC = () => {
           </div>
           <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
             <div>
-              <p className="text-xs text-secondary">V2 Vault (Legacy)</p>
-              <code className="text-sm text-gray-400">{V2_VAULT}</code>
-            </div>
-            <a
-              href={`https://basescan.org/address/${V2_VAULT}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gray-500 hover:text-white"
-            >
-              <ExternalLink size={16} />
-            </a>
-          </div>
-          <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-            <div>
               <p className="text-xs text-secondary">Bot Wallet</p>
-              <code className="text-sm text-blue-400">{BOT_WALLET}</code>
+              <code className="text-sm text-green-400">{BOT_WALLET}</code>
             </div>
             <a
               href={`https://basescan.org/address/${BOT_WALLET}`}
