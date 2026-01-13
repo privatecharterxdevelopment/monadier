@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, TrendingUp, TrendingDown, Minus, RefreshCw, BarChart3 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useChainId } from 'wagmi';
 
 interface Analysis {
   id: string;
@@ -18,16 +19,23 @@ interface Analysis {
 }
 
 export default function LiveAnalysis() {
+  const chainId = useChainId();
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
+  // Map chain names for display
+  const chainName = chainId === 42161 ? 'Arbitrum' : chainId === 8453 ? 'Base' : 'Unknown';
+
   const fetchAnalysis = async () => {
     try {
+      // Fetch analysis for current chain (or all active chains if not connected)
+      const targetChain = chainId || 42161; // Default to Arbitrum
+
       const { data, error } = await supabase
         .from('bot_analysis')
         .select('*')
-        .eq('chain_id', 8453) // Base chain
+        .eq('chain_id', targetChain)
         .order('updated_at', { ascending: false })
         .limit(5);
 
@@ -47,7 +55,7 @@ export default function LiveAnalysis() {
     // Poll every 10 seconds
     const interval = setInterval(fetchAnalysis, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [chainId]);
 
   const getSignalColor = (signal: string) => {
     switch (signal) {
@@ -114,6 +122,11 @@ export default function LiveAnalysis() {
         <div className="flex items-center gap-2">
           <Activity className="w-5 h-5 text-white" />
           <h3 className="font-medium text-white">Live Bot Analysis</h3>
+          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+            chainId === 42161 ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'
+          }`}>
+            {chainName}
+          </span>
           <span className="flex items-center gap-1 text-xs text-green-400">
             <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
             Live
