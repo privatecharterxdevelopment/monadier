@@ -130,19 +130,36 @@ const VAULT_V2_ABI = [
   }
 ] as const;
 
-// Uniswap V2 Router ABI for price quotes
-const ROUTER_ABI = [
+// Uniswap V3 Quoter ABI for price quotes (Arbitrum)
+const QUOTER_V3_ABI = [
   {
     inputs: [
-      { name: 'amountIn', type: 'uint256' },
-      { name: 'path', type: 'address[]' }
+      {
+        components: [
+          { name: 'tokenIn', type: 'address' },
+          { name: 'tokenOut', type: 'address' },
+          { name: 'amountIn', type: 'uint256' },
+          { name: 'fee', type: 'uint24' },
+          { name: 'sqrtPriceLimitX96', type: 'uint160' }
+        ],
+        name: 'params',
+        type: 'tuple'
+      }
     ],
-    name: 'getAmountsOut',
-    outputs: [{ name: 'amounts', type: 'uint256[]' }],
-    stateMutability: 'view',
+    name: 'quoteExactInputSingle',
+    outputs: [
+      { name: 'amountOut', type: 'uint256' },
+      { name: 'sqrtPriceX96After', type: 'uint160' },
+      { name: 'initializedTicksCrossed', type: 'uint32' },
+      { name: 'gasEstimate', type: 'uint256' }
+    ],
+    stateMutability: 'nonpayable',
     type: 'function'
   }
 ] as const;
+
+// Fee tiers to try for Uniswap V3 (0.05%, 0.3%, 1%)
+const FEE_TIERS = [500, 3000, 10000] as const;
 
 // Chain mapping
 const CHAINS: Record<ChainId, Chain> = {
@@ -166,7 +183,8 @@ const ARBITRUM_CONFIG = {
   WETH: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1' as `0x${string}`,
   WBTC: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f' as `0x${string}`,
   ARB: '0x912CE59144191C1204E64559FE8253a0e49E6548' as `0x${string}`,
-  SWAP_ROUTER: '0xE592427A0AEce92De3Edee1F18E0157C05861564' as `0x${string}`, // Uniswap V3 SwapRouter
+  SWAP_ROUTER: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45' as `0x${string}`, // Uniswap V3 SwapRouter02
+  QUOTER_V2: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e' as `0x${string}`, // Uniswap V3 QuoterV2
   POOL_FEE: 500 // 0.05% fee tier
 };
 
@@ -337,32 +355,95 @@ export class TradingService {
   }
 
   /**
-   * Get current token price in USDC
+   * Get current token price in USDC via Uniswap V3 Quoter (Arbitrum)
    */
   async getTokenPrice(chainId: ChainId, tokenAddress: `0x${string}`): Promise<number | null> {
     const clients = this.clients.get(chainId);
     if (!clients) return null;
 
+    // Only Arbitrum is supported
+    if (chainId !== 42161) {
+      logger.warn('getTokenPrice only supports Arbitrum', { chainId });
+      return null;
+    }
+
     try {
-      // Get price for 1 token via Uniswap router
+      // Get price for 1 token via Uniswap V3 Quoter
       const oneToken = parseUnits('1', 18); // Assume 18 decimals
 
-      // If token is WETH, use direct path to USDC
-      // Otherwise use Token -> WETH -> USDC
-      const isWeth = tokenAddress.toLowerCase() === BASE_CONFIG.WETH.toLowerCase();
-      const path = isWeth
-        ? [tokenAddress, BASE_CONFIG.USDC]
-        : [tokenAddress, BASE_CONFIG.WETH, BASE_CONFIG.USDC];
+      // Try each fee tier until we get a quote
+      for (const fee of FEE_TIERS) {
+        try {
+          const result = await clients.public.simulateContract({
+            address: ARBITRUM_CONFIG.QUOTER_V2,
+            abi: QUOTER_V3_ABI,
+            functionName: 'quoteExactInputSingle',
+            args: [{
+              tokenIn: tokenAddress,
+              tokenOut: ARBITRUM_CONFIG.USDC,
+              amountIn: oneToken,
+              fee,
+              sqrtPriceLimitX96: 0n
+            }]
+          });
 
-      const amounts = await clients.public.readContract({
-        address: BASE_CONFIG.ROUTER,
-        abi: ROUTER_ABI,
-        functionName: 'getAmountsOut',
-        args: [oneToken, path]
-      });
+          const amountOut = result.result[0];
+          if (amountOut > 0n) {
+            return parseFloat(formatUnits(amountOut, 6));
+          }
+        } catch {
+          // Try next fee tier
+          continue;
+        }
+      }
 
-      const usdcAmount = amounts[amounts.length - 1];
-      return parseFloat(formatUnits(usdcAmount, 6));
+      // Fallback: Try going through WETH if direct quote fails
+      if (tokenAddress.toLowerCase() !== ARBITRUM_CONFIG.WETH.toLowerCase()) {
+        for (const fee of FEE_TIERS) {
+          try {
+            // Token -> WETH
+            const wethResult = await clients.public.simulateContract({
+              address: ARBITRUM_CONFIG.QUOTER_V2,
+              abi: QUOTER_V3_ABI,
+              functionName: 'quoteExactInputSingle',
+              args: [{
+                tokenIn: tokenAddress,
+                tokenOut: ARBITRUM_CONFIG.WETH,
+                amountIn: oneToken,
+                fee,
+                sqrtPriceLimitX96: 0n
+              }]
+            });
+
+            const wethAmount = wethResult.result[0];
+            if (wethAmount > 0n) {
+              // WETH -> USDC
+              const usdcResult = await clients.public.simulateContract({
+                address: ARBITRUM_CONFIG.QUOTER_V2,
+                abi: QUOTER_V3_ABI,
+                functionName: 'quoteExactInputSingle',
+                args: [{
+                  tokenIn: ARBITRUM_CONFIG.WETH,
+                  tokenOut: ARBITRUM_CONFIG.USDC,
+                  amountIn: wethAmount,
+                  fee: 500, // WETH/USDC usually uses 0.05%
+                  sqrtPriceLimitX96: 0n
+                }]
+              });
+
+              const usdcAmount = usdcResult.result[0];
+              if (usdcAmount > 0n) {
+                return parseFloat(formatUnits(usdcAmount, 6));
+              }
+            }
+          } catch {
+            continue;
+          }
+        }
+      }
+
+      logger.warn('Could not get token price from any fee tier', { tokenAddress });
+      return null;
     } catch (err) {
       logger.error('Failed to get token price', { tokenAddress, error: err });
       return null;
