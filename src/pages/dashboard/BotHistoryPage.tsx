@@ -190,16 +190,15 @@ const BotHistoryPage: React.FC = () => {
     fetchBotSettings();
   }, [address, chainId, publicClient]);
 
-  // Fetch latest bot analysis for status display
+  // Fetch latest bot analysis for status display - ALWAYS ARBITRUM (42161)
   useEffect(() => {
     const fetchBotAnalysis = async () => {
-      if (!chainId) return;
-
       try {
+        // Always use Arbitrum chainId - we're Arbitrum-only now
         const { data } = await supabase
           .from('bot_analysis')
           .select('signal, confidence, rsi, trend, pattern, recommendation, updated_at')
-          .eq('chain_id', chainId)
+          .eq('chain_id', 42161)
           .order('updated_at', { ascending: false })
           .limit(1)
           .single();
@@ -216,7 +215,7 @@ const BotHistoryPage: React.FC = () => {
     // Refresh every 15 seconds to show latest analysis
     const interval = setInterval(fetchBotAnalysis, 15000);
     return () => clearInterval(interval);
-  }, [chainId]);
+  }, []);
 
   // Show confirmation modal
   const showCloseConfirm = (positionId: string, token: string, tokenAddress: string) => {
