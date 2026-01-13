@@ -106,31 +106,105 @@ const TOKEN_SYMBOLS: Record<number, Record<string, string>> = {
 };
 
 /**
- * Fetch candle data from Binance API
+ * Fetch with timeout and retry logic
+ */
+async function fetchWithRetry(url: string, retries: number = 3, timeoutMs: number = 10000): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let i = 0; i < retries; i++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Monadier-Bot/1.0'
+        }
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        return response;
+      }
+
+      // Rate limit - wait and retry
+      if (response.status === 429) {
+        const waitMs = Math.pow(2, i) * 1000; // Exponential backoff
+        logger.warn(`Rate limited, waiting ${waitMs}ms before retry ${i + 1}/${retries}`);
+        await new Promise(r => setTimeout(r, waitMs));
+        continue;
+      }
+
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    } catch (err: any) {
+      lastError = err;
+      if (err.name === 'AbortError') {
+        logger.warn(`Request timeout (attempt ${i + 1}/${retries})`, { url: url.slice(0, 50) });
+      } else {
+        logger.warn(`Fetch failed (attempt ${i + 1}/${retries})`, { error: err.message || String(err) });
+      }
+
+      // Wait before retry (exponential backoff)
+      if (i < retries - 1) {
+        await new Promise(r => setTimeout(r, Math.pow(2, i) * 500));
+      }
+    }
+  }
+
+  throw lastError || new Error('All retries failed');
+}
+
+/**
+ * Fetch candle data from Binance API with fallback to Bybit
  */
 async function fetchCandles(symbol: string, interval: string = '1h', limit: number = 30): Promise<Candle[]> {
+  // Try Binance first
   try {
-    const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      throw new Error(`Binance API error: ${response.status}`);
-    }
-
+    const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+    const response = await fetchWithRetry(binanceUrl, 2, 8000);
     const data = await response.json();
 
-    return data.map((candle: any[]) => ({
-      time: candle[0],
-      open: parseFloat(candle[1]),
-      high: parseFloat(candle[2]),
-      low: parseFloat(candle[3]),
-      close: parseFloat(candle[4]),
-      volume: parseFloat(candle[5])
-    }));
-  } catch (err) {
-    logger.error('Failed to fetch candles', { symbol, error: err });
-    return [];
+    if (Array.isArray(data) && data.length > 0) {
+      return data.map((candle: any[]) => ({
+        time: candle[0],
+        open: parseFloat(candle[1]),
+        high: parseFloat(candle[2]),
+        low: parseFloat(candle[3]),
+        close: parseFloat(candle[4]),
+        volume: parseFloat(candle[5])
+      }));
+    }
+  } catch (err: any) {
+    logger.warn('Binance API failed, trying Bybit fallback', { symbol, error: err.message || String(err) });
   }
+
+  // Fallback to Bybit
+  try {
+    // Convert interval format: Binance "1h" -> Bybit "60"
+    const bybitInterval = interval === '1h' ? '60' : interval === '5m' ? '5' : interval === '15m' ? '15' : '60';
+    const bybitUrl = `https://api.bybit.com/v5/market/kline?category=spot&symbol=${symbol}&interval=${bybitInterval}&limit=${limit}`;
+    const response = await fetchWithRetry(bybitUrl, 2, 8000);
+    const data = await response.json();
+
+    if (data.result?.list && data.result.list.length > 0) {
+      // Bybit returns newest first, so reverse it
+      return data.result.list.reverse().map((candle: any[]) => ({
+        time: parseInt(candle[0]),
+        open: parseFloat(candle[1]),
+        high: parseFloat(candle[2]),
+        low: parseFloat(candle[3]),
+        close: parseFloat(candle[4]),
+        volume: parseFloat(candle[5])
+      }));
+    }
+  } catch (err: any) {
+    logger.error('Both Binance and Bybit failed', { symbol, error: err.message || String(err) });
+  }
+
+  return [];
 }
 
 /**
