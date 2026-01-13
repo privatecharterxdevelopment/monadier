@@ -230,7 +230,7 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
               <h2 className="text-lg font-semibold text-white">Deposit to Vault</h2>
               <p className="text-xs text-zinc-500">
                 {chainId ? CHAIN_NAMES[chainId] || 'Unknown' : 'Not connected'}
-                {isV5Chain ? ' (V5 - Low Fees)' : chainId === 8453 ? ' (V4)' : ''}
+                {isV5Chain ? ' (V5 - Low Fees)' : ''}
               </p>
             </div>
           </div>
@@ -379,15 +379,6 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
                   ? `Minimum deposit is $${minDepositAmount} USDC for bot trading on Arbitrum`
                   : `Minimum vault balance: $${minDepositAmount} USDC required for bot trading`
                 }
-              </p>
-            </div>
-          )}
-
-          {/* Suggest Arbitrum for better fees */}
-          {chainId === 8453 && (
-            <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3">
-              <p className="text-xs text-purple-400">
-                Switch to Arbitrum in MetaMask for lower fees: 0.1% base + 10% profit fee vs 1% platform fee on Base.
               </p>
             </div>
           )}

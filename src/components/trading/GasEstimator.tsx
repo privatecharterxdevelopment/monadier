@@ -178,33 +178,6 @@ export const GasEstimator: React.FC<GasEstimatorProps> = ({
         </div>
       )}
 
-      {/* Chain comparison for high gas */}
-      {highGasWarning && (
-        <div className="pt-2 border-t border-gray-700">
-          <p className="text-gray-400 text-xs mb-2">Cheaper alternatives:</p>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { name: 'BSC', chainId: 56 },
-              { name: 'Arbitrum', chainId: 42161 },
-              { name: 'Base', chainId: 8453 }
-            ].map(chain => {
-              const altGas = CHAIN_GAS_ESTIMATES[chain.chainId];
-              const altCost = altGas
-                ? (altGas.swapGas * altGas.avgGasPrice / 1e9) * nativeTokenPrice
-                : 0;
-              return (
-                <div
-                  key={chain.chainId}
-                  className="p-2 bg-background rounded-lg text-center"
-                >
-                  <p className="text-white text-xs font-medium">{chain.name}</p>
-                  <p className="text-green-400 text-xs">${altCost.toFixed(2)}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
