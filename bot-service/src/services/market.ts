@@ -317,6 +317,55 @@ export async function analyzeMarket(
   const isStrongShortTermBearish = shortTermMomentum < -0.5 && bearishCandlesCount >= 2;
   const isStrongShortTermBullish = shortTermMomentum > 0.5 && bullishCandlesCount >= 2;
 
+  // === REVERSAL PATTERN DETECTION ===
+  // After a big red candle (crash), check if next candles are green (reversal)
+  const candle3Ago = candles[candles.length - 4]; // The crash candle
+  const candle2Ago = candles[candles.length - 3]; // First recovery candle
+  const candle1Ago = candles[candles.length - 2]; // Second recovery candle (prevCandle)
+
+  // Check for crash reversal pattern
+  let isReversalPattern = false;
+  let reversalStrength = 0;
+
+  if (candle3Ago && candle2Ago && candle1Ago) {
+    const crashCandleBody = Math.abs(candle3Ago.close - candle3Ago.open);
+    const crashCandleIsBearish = candle3Ago.close < candle3Ago.open;
+    const crashCandleDropPercent = ((candle3Ago.open - candle3Ago.close) / candle3Ago.open) * 100;
+
+    // Crash candle criteria: big red candle with significant drop
+    const isCrashCandle = crashCandleIsBearish &&
+      crashCandleBody > avgBodySize * 2 && // At least 2x average body
+      crashCandleDropPercent > 1.0; // At least 1% drop
+
+    // Recovery candles: both green
+    const firstRecoveryIsGreen = candle2Ago.close > candle2Ago.open;
+    const secondRecoveryIsGreen = candle1Ago.close > candle1Ago.open;
+
+    // Volume confirmation: recovery candles should have decent volume
+    const avgVol3 = (candle3Ago.volume + candle2Ago.volume + candle1Ago.volume) / 3;
+    const recoveryVolumeOk = candle2Ago.volume > avgVol3 * 0.7 || candle1Ago.volume > avgVol3 * 0.7;
+
+    // Full reversal pattern: crash + 2 green candles + volume
+    isReversalPattern = isCrashCandle &&
+      firstRecoveryIsGreen &&
+      secondRecoveryIsGreen &&
+      recoveryVolumeOk;
+
+    if (isReversalPattern) {
+      // Calculate reversal strength based on recovery
+      const recoveryPercent = ((candle1Ago.close - candle3Ago.close) / candle3Ago.close) * 100;
+      reversalStrength = Math.min(recoveryPercent / crashCandleDropPercent, 1) * 100; // 0-100%
+
+      logger.info('🔄 REVERSAL PATTERN DETECTED', {
+        symbol,
+        crashDrop: crashCandleDropPercent.toFixed(2) + '%',
+        recoveryPercent: recoveryPercent.toFixed(2) + '%',
+        reversalStrength: reversalStrength.toFixed(0) + '%',
+        volumeConfirmed: recoveryVolumeOk
+      });
+    }
+  }
+
   // Immediate momentum flags
   const immediateBearishMomentum = (isLargeCandle && lastCandleIsBearish) ||
     (isVeryLargeCandle && lastCandleIsBearish) ||
@@ -384,7 +433,9 @@ export async function analyzeMarket(
     higherLowsForming: isFormingHigherLows,
     immediateBullish: immediateBullishMomentum,
     // BONUS: Strong pattern detection (chart arrows!)
-    strongBullishPattern: hasBullishPattern
+    strongBullishPattern: hasBullishPattern,
+    // REVERSAL: Crash followed by 2 green candles
+    reversalPattern: isReversalPattern
   };
   const longConditionsMet = Object.values(longConditions).filter(Boolean).length;
 
@@ -594,7 +645,9 @@ export async function analyzeMarket(
   const indicators: string[] = [];
 
   if (finalDirection === 'LONG') {
-    // Pattern first - these are the chart arrows that work great!
+    // Reversal pattern first - strongest signal!
+    if ((conditions as any).reversalPattern) indicators.push('Reversal Pattern 🔄');
+    // Pattern next - these are the chart arrows that work great!
     if (conditions.strongBullishPattern) {
       if (isBullishEngulfing) indicators.push('Bullish Engulfing');
       else if (isHammer) indicators.push('Hammer');

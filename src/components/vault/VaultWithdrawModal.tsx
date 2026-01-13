@@ -47,7 +47,7 @@ export default function VaultWithdrawModal({ maxAmount, onClose, onSuccess }: Va
       setError(null);
 
       const vaultClient = new VaultClient(publicClient as any, walletClient as any, chainId);
-      const blockExplorer = BLOCK_EXPLORERS[chainId] || 'https://basescan.org';
+      const blockExplorer = BLOCK_EXPLORERS[chainId] || 'https://arbiscan.io';
 
       const txHash = await vaultClient.withdraw(amount, address as `0x${string}`);
 
@@ -94,7 +94,7 @@ export default function VaultWithdrawModal({ maxAmount, onClose, onSuccess }: Va
       setError(null);
 
       const vaultClient = new VaultClient(publicClient as any, walletClient as any, chainId);
-      const blockExplorer = BLOCK_EXPLORERS[chainId] || 'https://basescan.org';
+      const blockExplorer = BLOCK_EXPLORERS[chainId] || 'https://arbiscan.io';
 
       const txHash = await vaultClient.withdrawAll(address as `0x${string}`);
 

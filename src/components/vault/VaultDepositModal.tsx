@@ -5,6 +5,7 @@ import { useTransactions } from '../../contexts/TransactionContext';
 import { VaultClient, USDC_ADDRESSES, USDC_DECIMALS, getPlatformFeeForChain, VAULT_V5_ADDRESSES } from '../../lib/vault';
 import { formatUnits } from 'viem';
 import { ERC20_ABI } from '../../lib/dex/router';
+import { supabase } from '../../lib/supabase';
 
 interface VaultDepositModalProps {
   onClose: () => void;
@@ -20,6 +21,15 @@ const BLOCK_EXPLORERS: Record<number, string> = {
   137: 'https://polygonscan.com',
   42161: 'https://arbiscan.io',
   8453: 'https://basescan.org'
+};
+
+// Chain names
+const CHAIN_NAMES: Record<number, string> = {
+  1: 'Ethereum',
+  56: 'BSC',
+  137: 'Polygon',
+  42161: 'Arbitrum',
+  8453: 'Base'
 };
 
 export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositModalProps) {
@@ -129,7 +139,7 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
       setError(null);
 
       const vaultClient = new VaultClient(publicClient as any, walletClient as any, chainId);
-      const blockExplorer = BLOCK_EXPLORERS[chainId] || 'https://basescan.org';
+      const blockExplorer = BLOCK_EXPLORERS[chainId] || 'https://arbiscan.io';
 
       let txHash: `0x${string}`;
       let description: string;
@@ -168,6 +178,28 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
       try {
         await publicClient.waitForTransactionReceipt({ hash: txHash });
         updateTransaction(txId, { status: 'success' });
+
+        // Sync vault_settings after successful deposit
+        // This ensures the bot knows about this wallet
+        try {
+          const vaultStatus = await vaultClient.getVaultStatus(address as `0x${string}`);
+          await supabase
+            .from('vault_settings')
+            .upsert({
+              wallet_address: address.toLowerCase(),
+              chain_id: chainId,
+              auto_trade_enabled: vaultStatus.autoTradeEnabled,
+              risk_level_bps: vaultStatus.riskLevel * 100,
+              updated_at: new Date().toISOString(),
+              synced_at: new Date().toISOString()
+            }, {
+              onConflict: 'wallet_address,chain_id'
+            });
+          console.log('Vault settings synced after deposit:', { autoTrade: vaultStatus.autoTradeEnabled });
+        } catch (syncErr) {
+          console.error('Failed to sync vault settings:', syncErr);
+        }
+
         onSuccess();
       } catch (confirmError) {
         console.error('Transaction failed:', confirmError);
@@ -196,7 +228,10 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
             </div>
             <div>
               <h2 className="text-lg font-semibold text-white">Deposit to Vault</h2>
-              <p className="text-xs text-zinc-500">USDC or ETH</p>
+              <p className="text-xs text-zinc-500">
+                {chainId ? CHAIN_NAMES[chainId] || 'Unknown' : 'Not connected'}
+                {isV5Chain ? ' (V5 - Low Fees)' : chainId === 8453 ? ' (V4)' : ''}
+              </p>
             </div>
           </div>
           <button
@@ -291,18 +326,39 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
 
           {/* Fee Info */}
           <div className="bg-zinc-800/50 rounded-lg p-3 space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-zinc-400">Platform Fee</span>
-              <span className="text-green-500">Free</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-zinc-400">Win Fee</span>
-              <span className="text-white">10% of profit only</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-zinc-400">Loss Fee</span>
-              <span className="text-green-500">Covered by platform</span>
-            </div>
+            {isV5Chain ? (
+              // V5 fees (Arbitrum)
+              <>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-zinc-400">Base Fee</span>
+                  <span className="text-white">0.1% per trade</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-zinc-400">Win Fee</span>
+                  <span className="text-white">10% of profit only</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-zinc-400">DEX Fee</span>
+                  <span className="text-white">0.05% (Uniswap V3)</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-zinc-400">Loss Fee</span>
+                  <span className="text-green-500">None</span>
+                </div>
+              </>
+            ) : (
+              // V4 fees (Base)
+              <>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-zinc-400">Platform Fee</span>
+                  <span className="text-white">1% per trade</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-zinc-400">DEX Fee</span>
+                  <span className="text-white">0.3% (Uniswap V2)</span>
+                </div>
+              </>
+            )}
             <div className="flex items-center justify-between text-sm">
               <span className="text-zinc-400">Deposit Fee</span>
               <span className="text-green-500">Free</span>
@@ -320,9 +376,18 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
             <div className={`rounded-lg p-3 ${isBelowMinimum ? 'bg-red-500/10 border border-red-500/20' : 'bg-yellow-500/10 border border-yellow-500/20'}`}>
               <p className={`text-xs ${isBelowMinimum ? 'text-red-400' : 'text-yellow-400'}`}>
                 {isBelowMinimum
-                  ? `⚠️ Minimum deposit is $${minDepositAmount} USDC for bot trading on Arbitrum`
-                  : `ℹ️ Minimum vault balance: $${minDepositAmount} USDC required for bot trading`
+                  ? `Minimum deposit is $${minDepositAmount} USDC for bot trading on Arbitrum`
+                  : `Minimum vault balance: $${minDepositAmount} USDC required for bot trading`
                 }
+              </p>
+            </div>
+          )}
+
+          {/* Suggest Arbitrum for better fees */}
+          {chainId === 8453 && (
+            <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3">
+              <p className="text-xs text-purple-400">
+                Switch to Arbitrum in MetaMask for lower fees: 0.1% base + 10% profit fee vs 1% platform fee on Base.
               </p>
             </div>
           )}

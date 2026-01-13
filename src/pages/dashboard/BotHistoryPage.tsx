@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { History, TrendingUp, TrendingDown, Users, Trophy, Zap, Crown, Rocket, ExternalLink, RefreshCw, Activity, Clock, Timer, CheckCircle, XCircle, X, AlertTriangle, Settings, Info } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
-import { VAULT_ABI, VAULT_V4_ADDRESSES, VAULT_V3_ADDRESSES, VaultClient, VAULT_V2_ADDRESSES } from '../../lib/vault';
+import { VAULT_ABI, VAULT_V5_ADDRESSES, VAULT_V4_ADDRESSES, VAULT_V3_ADDRESSES, VaultClient, VAULT_V2_ADDRESSES } from '../../lib/vault';
 import VaultSettingsModal from '../../components/vault/VaultSettingsModal';
 
 // Legacy trade format (from localStorage)
@@ -70,7 +70,7 @@ const BLOCK_EXPLORERS: Record<number, string> = {
 
 // Get block explorer URL for address
 const getExplorerUrl = (chainId: number, address: string): string => {
-  const baseUrl = BLOCK_EXPLORERS[chainId] || 'https://basescan.org';
+  const baseUrl = BLOCK_EXPLORERS[chainId] || 'https://arbiscan.io';
   return `${baseUrl}/address/${address}`;
 };
 
@@ -156,8 +156,10 @@ const BotHistoryPage: React.FC = () => {
       if (!address || !chainId || !publicClient) return;
 
       try {
-        // Get on-chain settings
-        const vaultAddress = VAULT_V2_ADDRESSES[chainId as keyof typeof VAULT_V2_ADDRESSES];
+        // Get on-chain settings - check V5 first (Arbitrum), then V4 (Base), then older versions
+        const vaultAddress = VAULT_V5_ADDRESSES[chainId as keyof typeof VAULT_V5_ADDRESSES] ||
+                            VAULT_V4_ADDRESSES[chainId as keyof typeof VAULT_V4_ADDRESSES] ||
+                            VAULT_V2_ADDRESSES[chainId as keyof typeof VAULT_V2_ADDRESSES];
         if (vaultAddress) {
           const vaultClient = new VaultClient(publicClient as any, null, chainId);
           const status = await vaultClient.getUserStatus(address as `0x${string}`);

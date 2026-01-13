@@ -419,16 +419,16 @@ const SettingsPage: React.FC = () => {
               Non-custodial & verified on-chain. Your funds, your control.
             </p>
             <code className="block text-[10px] text-gray-400 font-mono mb-2 break-all">
-              0x08Afb514255187d664d6b250D699Edc51491E803
+              0x6C51F75b164205e51a87038662060cfe54d95E70
             </code>
             <a
-              href="https://basescan.org/address/0x08Afb514255187d664d6b250D699Edc51491E803#code"
+              href="https://arbiscan.io/address/0x6C51F75b164205e51a87038662060cfe54d95E70#code"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 text-xs"
             >
               <ExternalLink size={12} />
-              Verify on BaseScan
+              Verify on Arbiscan
             </a>
           </div>
         </div>

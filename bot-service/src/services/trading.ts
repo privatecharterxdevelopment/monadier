@@ -1071,7 +1071,7 @@ export class TradingService {
    * Get all users with auto-trade enabled on a chain
    */
   async getAutoTradeUsers(chainId: ChainId): Promise<`0x${string}`[]> {
-    const addresses = await subscriptionService.getAutoTradeUsers();
+    const addresses = await subscriptionService.getAutoTradeUsers(chainId);
     return addresses as `0x${string}`[];
   }
 

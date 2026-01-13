@@ -41,7 +41,7 @@ healthServer.listen(PORT, () => {
 const DEFAULT_STRATEGY: TradingStrategy = 'risky'; // RISKY = many trades!
 
 // Supported chains for auto-trading
-const ACTIVE_CHAINS: ChainId[] = [8453]; // Only Base for now with V2
+const ACTIVE_CHAINS: ChainId[] = [8453, 42161]; // Base (V4) and Arbitrum (V5)
 
 // Locks to prevent concurrent execution
 let isTradingCycleRunning = false;
@@ -51,7 +51,16 @@ let isReconciliationRunning = false;
 // Cooldown tracking to prevent duplicate trades
 const lastTradeTimestamp: Map<string, number> = new Map();
 const TRADE_COOLDOWN_MS = 300000; // 5 minute cooldown between trades (matches V5 contract)
-const MAX_POSITIONS_TOTAL = 1; // Only 1 position at a time - SAFETY FIRST
+
+// Max positions per chain - V5 allows 3 (1 per token), V4 keeps 1 for safety
+const MAX_POSITIONS_PER_CHAIN: Record<number, number> = {
+  8453: 1,   // Base V4 - 1 position max (higher fees)
+  42161: 3,  // Arbitrum V5 - 3 positions (1 per token: WETH, WBTC, ARB)
+  1: 1,      // Ethereum - 1 position
+  137: 1,    // Polygon - 1 position
+  56: 1,     // BSC - 1 position
+};
+
 const MAX_FAILED_BEFORE_STOP = 2; // Stop trading after 2 failures
 
 // Post-close cooldown removed - now handled by smart contract only
@@ -198,15 +207,24 @@ async function processUserTrades(
     const openPositions = await positionService.getOpenPositions(userAddress, chainId);
     const riskLevelBps = vaultStatus.riskLevel * 100;
 
-    // SAFETY: Only allow 1 position at a time
-    if (openPositions.length >= MAX_POSITIONS_TOTAL) {
-      logger.debug('Max positions reached - waiting for current position to close', {
+    // Get chain-specific max positions (V5 Arbitrum = 3, others = 1)
+    const maxPositions = MAX_POSITIONS_PER_CHAIN[chainId] || 1;
+
+    // SAFETY: Check max positions per chain
+    if (openPositions.length >= maxPositions) {
+      logger.debug('Max positions reached - waiting for position to close', {
         userAddress,
+        chainId,
         openCount: openPositions.length,
-        maxAllowed: MAX_POSITIONS_TOTAL
+        maxAllowed: maxPositions
       });
       return;
     }
+
+    // Calculate available balance for new positions
+    // Split remaining balance among available slots
+    const availableSlots = maxPositions - openPositions.length;
+    const balancePerPosition = vaultStatus.balance / BigInt(availableSlots);
 
     // 5b. Post-close cooldown removed - smart contract handles rate limiting
 
@@ -245,11 +263,12 @@ async function processUserTrades(
       }
 
       // Generate trade signal for this token
+      // Use balancePerPosition to allow multiple positions
       const signal = await generateTradeSignal(
         chainId,
         tokenConfig.address,
         tokenConfig.symbol,
-        vaultStatus.balance,
+        balancePerPosition,
         riskLevelBps,
         DEFAULT_STRATEGY
       );
@@ -580,7 +599,7 @@ async function runTradingCycle(): Promise<void> {
 
     for (const chainId of ACTIVE_CHAINS) {
       const chainConfig = config.chains[chainId] as any;
-      const vaultAddress = chainConfig?.vaultV4Address || chainConfig?.vaultV3Address || chainConfig?.vaultV2Address || chainConfig?.vaultAddress;
+      const vaultAddress = chainConfig?.vaultV5Address || chainConfig?.vaultV4Address || chainConfig?.vaultV3Address || chainConfig?.vaultV2Address || chainConfig?.vaultAddress;
 
       if (!vaultAddress) {
         continue;
@@ -629,11 +648,13 @@ function logStartupInfo(): void {
 
   for (const [chainIdStr, chainConfig] of Object.entries(config.chains)) {
     const cc = chainConfig as any;
+    const v5Address = cc.vaultV5Address;
     const v4Address = cc.vaultV4Address;
     const v3Address = cc.vaultV3Address;
     const v2Address = cc.vaultV2Address;
     const v1Address = cc.vaultAddress;
-    const status = v4Address ? `V4 Active (${v4Address.slice(0, 10)}...)` :
+    const status = v5Address ? `V5 Active (${v5Address.slice(0, 10)}...)` :
+                   v4Address ? `V4 Active (${v4Address.slice(0, 10)}...)` :
                    v3Address ? `V3 Active (${v3Address.slice(0, 10)}...)` :
                    v2Address ? `V2 Active (${v2Address.slice(0, 10)}...)` :
                    v1Address ? `V1 Only (${v1Address.slice(0, 10)}...)` : 'No Vault';

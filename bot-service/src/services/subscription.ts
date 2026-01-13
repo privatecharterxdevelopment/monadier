@@ -506,19 +506,32 @@ export class SubscriptionService {
   }
 
   /**
-   * Get all users with auto-trade enabled
+   * Get all users with auto-trade enabled for a specific chain
    * Falls back to subscriptions table if vault_settings is empty
    */
-  async getAutoTradeUsers(): Promise<string[]> {
+  async getAutoTradeUsers(chainId?: number): Promise<string[]> {
     try {
       // First try vault_settings
-      const { data: vaultData } = await this.supabase
+      let query = this.supabase
         .from('vault_settings')
         .select('wallet_address')
         .eq('auto_trade_enabled', true);
 
+      // Filter by chain_id if provided
+      if (chainId) {
+        query = query.eq('chain_id', chainId);
+      }
+
+      const { data: vaultData } = await query;
+
       if (vaultData && vaultData.length > 0) {
-        return vaultData.map(d => d.wallet_address);
+        const addresses = vaultData.map(d => d.wallet_address);
+        logger.info('Found auto-trade users from vault_settings', {
+          chainId,
+          count: addresses.length,
+          wallets: addresses.map(a => a?.slice(0, 10))
+        });
+        return addresses;
       }
 
       // Fallback: get all users with active paid subscriptions

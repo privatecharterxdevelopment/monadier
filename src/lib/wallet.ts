@@ -12,8 +12,8 @@ const metadata = {
   icons: ['https://monadier.com/icon.png']
 };
 
-// All supported networks
-const networks = [mainnet, bsc, arbitrum, base, polygon];
+// All supported networks - Arbitrum first (default for V5)
+const networks = [arbitrum, base, mainnet, bsc, polygon];
 
 export const wagmiAdapter = new WagmiAdapter({
   networks,

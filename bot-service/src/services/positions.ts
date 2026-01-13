@@ -17,6 +17,7 @@ export interface Position {
   lowest_price: number; // For SHORT positions
   trailing_stop_price: number | null;
   trailing_stop_percent: number;
+  trailing_increment: number; // V5: 0.15% increment for trailing
   take_profit_price: number | null; // Fixed TP level
   take_profit_percent: number; // TP percentage from entry
   profit_lock_percent: number; // Min profit % before stop activates (0.2% for aggressive)
@@ -35,6 +36,10 @@ export interface Position {
 
 // Default profit % before trailing stop activates (can be overridden per position)
 const DEFAULT_PROFIT_THRESHOLD = 0.5; // 0.5% default
+
+// V5 settings for Arbitrum (lower fees = tighter trailing)
+const V5_PROFIT_THRESHOLD = 0.4; // 0.4% profit to activate SL
+const V5_TRAILING_INCREMENT = 0.15; // Trail up in 0.15% increments
 
 export class PositionService {
   private supabase: SupabaseClient;
@@ -64,6 +69,7 @@ export class PositionService {
     trailingStopPercent?: number;
     takeProfitPercent?: number;
     profitLockPercent?: number; // Min profit % before stop activates (0.2% for aggressive)
+    trailingIncrement?: number; // V5: 0.15% increment for trailing
     entryReason?: string; // Why the bot opened this trade
   }): Promise<Position | null> {
     // DUPLICATE CHECK: Prevent double-insert with same txHash
@@ -81,9 +87,12 @@ export class PositionService {
       return null;
     }
 
+    // V5 chains (Arbitrum) get tighter trailing settings due to lower fees
+    const isV5Chain = params.chainId === 42161; // Arbitrum
     const trailingStopPercent = params.trailingStopPercent || 1.0; // Default 1%
     const takeProfitPercent = params.takeProfitPercent || 5.0; // Default 5% TP
-    const profitLockPercent = params.profitLockPercent || DEFAULT_PROFIT_THRESHOLD; // Default 0.5%
+    const profitLockPercent = params.profitLockPercent || (isV5Chain ? V5_PROFIT_THRESHOLD : DEFAULT_PROFIT_THRESHOLD);
+    const trailingIncrement = params.trailingIncrement || (isV5Chain ? V5_TRAILING_INCREMENT : 0); // 0 = use old logic
 
     // Calculate take profit price based on direction
     const takeProfitPrice = params.direction === 'LONG'
@@ -107,6 +116,7 @@ export class PositionService {
           lowest_price: params.entryPrice,
           trailing_stop_price: null, // NO STOP until in profit
           trailing_stop_percent: trailingStopPercent,
+          trailing_increment: trailingIncrement, // V5: 0.15% for finer trailing
           take_profit_price: takeProfitPrice,
           take_profit_percent: takeProfitPercent,
           profit_lock_percent: profitLockPercent, // User configurable!
@@ -225,6 +235,10 @@ export class PositionService {
    * Update trailing stop - PROFIT-ONLY logic (works for LONG and SHORT)
    * Stop only activates once position is in profit by threshold
    * Once activated, stop is always at least at entry price (break-even)
+   *
+   * V5 Mode (Arbitrum): Uses 0.15% increments for tighter trailing
+   * - At 0.4% profit: Set SL at breakeven
+   * - Trail up in 0.15% increments as price moves up
    */
   async updateTrailingStop(positionId: string, currentPrice: number): Promise<Position | null> {
     try {
@@ -242,8 +256,11 @@ export class PositionService {
 
       const entryPrice = position.entry_price;
       const direction = position.direction || 'LONG';
-      // Use position-specific profit lock (0.2% for aggressive, 0.5% default)
+      // Use position-specific profit lock (0.4% for V5, 0.5% default)
       const profitLockThreshold = position.profit_lock_percent || DEFAULT_PROFIT_THRESHOLD;
+      // V5 mode: Use increment-based trailing (0.15%)
+      const trailingIncrement = position.trailing_increment || 0;
+      const isV5Mode = trailingIncrement > 0;
 
       // Calculate profit based on direction
       const profitPercent = direction === 'LONG'
@@ -260,25 +277,54 @@ export class PositionService {
           entryPrice,
           currentPrice,
           profitPercent: profitPercent.toFixed(2) + '%',
-          needsProfit: profitLockThreshold + '%'
+          needsProfit: profitLockThreshold + '%',
+          isV5Mode
         });
         return position;
       }
 
-      // Calculate trailing stop based on direction
+      // Calculate trailing stop based on direction and mode
       let newTrailingStop: number;
       let shouldUpdate: boolean;
 
-      if (direction === 'LONG') {
-        // LONG: Stop below current price, minimum at entry
-        const trailingStop = currentPrice * (1 - position.trailing_stop_percent / 100);
-        newTrailingStop = Math.max(entryPrice, trailingStop);
-        shouldUpdate = currentPrice > position.highest_price || !position.stop_activated;
+      if (isV5Mode) {
+        // V5 MODE: Increment-based trailing (0.15% steps)
+        // Calculate how many increments of profit we have
+        const incrementsEarned = Math.floor(profitPercent / trailingIncrement);
+        // Lock in profit increments (minus 1 to give room for price fluctuation)
+        const lockedIncrements = Math.max(0, incrementsEarned - 1);
+        const lockedProfitPercent = lockedIncrements * trailingIncrement;
+
+        if (direction === 'LONG') {
+          // Set stop at entry + locked profit
+          newTrailingStop = entryPrice * (1 + lockedProfitPercent / 100);
+          shouldUpdate = currentPrice > position.highest_price || !position.stop_activated;
+        } else {
+          // SHORT: Set stop at entry - locked profit
+          newTrailingStop = entryPrice * (1 - lockedProfitPercent / 100);
+          shouldUpdate = currentPrice < position.lowest_price || !position.stop_activated;
+        }
+
+        logger.debug('V5 trailing calculation', {
+          profitPercent: profitPercent.toFixed(2) + '%',
+          incrementsEarned,
+          lockedIncrements,
+          lockedProfitPercent: lockedProfitPercent.toFixed(2) + '%',
+          newTrailingStop
+        });
       } else {
-        // SHORT: Stop above current price, maximum at entry
-        const trailingStop = currentPrice * (1 + position.trailing_stop_percent / 100);
-        newTrailingStop = Math.min(entryPrice, trailingStop);
-        shouldUpdate = currentPrice < position.lowest_price || !position.stop_activated;
+        // Standard mode: percentage below current price
+        if (direction === 'LONG') {
+          // LONG: Stop below current price, minimum at entry
+          const trailingStop = currentPrice * (1 - position.trailing_stop_percent / 100);
+          newTrailingStop = Math.max(entryPrice, trailingStop);
+          shouldUpdate = currentPrice > position.highest_price || !position.stop_activated;
+        } else {
+          // SHORT: Stop above current price, maximum at entry
+          const trailingStop = currentPrice * (1 + position.trailing_stop_percent / 100);
+          newTrailingStop = Math.min(entryPrice, trailingStop);
+          shouldUpdate = currentPrice < position.lowest_price || !position.stop_activated;
+        }
       }
 
       if (!shouldUpdate) {
@@ -304,7 +350,7 @@ export class PositionService {
           ? ((newTrailingStop - entryPrice) / entryPrice * 100)
           : ((entryPrice - newTrailingStop) / entryPrice * 100);
 
-        logger.info(`🎯 ${direction} TRAILING STOP ACTIVATED (in profit!)`, {
+        logger.info(`🎯 ${direction} TRAILING STOP ACTIVATED ${isV5Mode ? '(V5 Mode)' : ''}`, {
           positionId,
           token: position.token_symbol,
           direction,
@@ -312,7 +358,8 @@ export class PositionService {
           currentPrice,
           profitPercent: profitPercent.toFixed(2) + '%',
           trailingStop: newTrailingStop,
-          guaranteedProfit: guaranteedProfit.toFixed(2) + '%'
+          guaranteedProfit: guaranteedProfit.toFixed(2) + '%',
+          mode: isV5Mode ? `V5 (${trailingIncrement}% increments)` : 'Standard'
         });
       }
       // Already activated, update to new extreme
@@ -322,7 +369,7 @@ export class PositionService {
           updateData.trailing_stop_price = newTrailingStop;
           const profitLocked = ((newTrailingStop - entryPrice) / entryPrice * 100);
 
-          logger.info('📈 LONG trailing stop moved up', {
+          logger.info(`📈 LONG trailing stop moved up ${isV5Mode ? '(V5)' : ''}`, {
             positionId,
             token: position.token_symbol,
             oldHigh: position.highest_price,
@@ -335,7 +382,7 @@ export class PositionService {
           updateData.trailing_stop_price = newTrailingStop;
           const profitLocked = ((entryPrice - newTrailingStop) / entryPrice * 100);
 
-          logger.info('📉 SHORT trailing stop moved down', {
+          logger.info(`📉 SHORT trailing stop moved down ${isV5Mode ? '(V5)' : ''}`, {
             positionId,
             token: position.token_symbol,
             oldLow: position.lowest_price,
