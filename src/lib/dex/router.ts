@@ -123,9 +123,9 @@ export const DEX_ROUTERS: Record<number, { address: `0x${string}`; name: string;
     name: 'PancakeSwap',
     type: 'v2'
   },
-  42161: { // Arbitrum
-    address: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D',
-    name: 'Uniswap V2',
+  42161: { // Arbitrum - SushiSwap V2 (Uniswap V2 doesn't exist on Arbitrum)
+    address: '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506',
+    name: 'SushiSwap',
     type: 'v2'
   },
   8453: { // Base
