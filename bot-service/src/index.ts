@@ -320,7 +320,7 @@ async function processUserTrades(
         tokenConfig.address,
         tokenConfig.symbol,
         balancePerPosition,
-        vaultStatus.riskLevel * 100,
+        vaultStatus.riskLevelBps, // Already in basis points (500 = 5%)
         DEFAULT_STRATEGY
       );
 
