@@ -87,13 +87,36 @@ interface ActiveTrade {
   usedNativeSwap?: boolean; // Track if native token swap was used
 }
 
-const tradingPairs: TradingPair[] = [
+// All available trading pairs
+const allTradingPairs: TradingPair[] = [
   { symbol: 'ETH/USDT', binanceSymbol: 'ETHUSDT', name: 'Ethereum', price: 0, change: 0, decimals: 18 },
   { symbol: 'BTC/USDT', binanceSymbol: 'BTCUSDT', name: 'Bitcoin', price: 0, change: 0, decimals: 8 },
   { symbol: 'BNB/USDT', binanceSymbol: 'BNBUSDT', name: 'BNB', price: 0, change: 0, decimals: 18 },
   { symbol: 'MATIC/USDT', binanceSymbol: 'MATICUSDT', name: 'Polygon', price: 0, change: 0, decimals: 18 },
   { symbol: 'ARB/USDT', binanceSymbol: 'ARBUSDT', name: 'Arbitrum', price: 0, change: 0, decimals: 18 },
 ];
+
+// Chain-specific pairs: which pairs are tradeable on which chain
+// The FIRST pair in the array is the DEFAULT for that chain
+const chainTradingPairs: Record<number, string[]> = {
+  8453: ['ETHUSDT', 'BTCUSDT'],           // Base: WETH, WBTC
+  42161: ['ARBUSDT', 'ETHUSDT', 'BTCUSDT'], // Arbitrum: ARB, WETH, WBTC (ARB is default!)
+  137: ['MATICUSDT', 'ETHUSDT', 'BTCUSDT'], // Polygon: MATIC, WETH, WBTC
+  56: ['BNBUSDT', 'ETHUSDT', 'BTCUSDT'],   // BSC: BNB, WETH, WBTC
+  1: ['ETHUSDT', 'BTCUSDT'],               // Ethereum: WETH, WBTC
+};
+
+// Get pairs for a specific chain (defaults to all pairs if chain not configured)
+const getPairsForChain = (chainId: number | undefined): TradingPair[] => {
+  if (!chainId || !chainTradingPairs[chainId]) {
+    return allTradingPairs;
+  }
+  const allowedSymbols = chainTradingPairs[chainId];
+  return allTradingPairs.filter(p => allowedSymbols.includes(p.binanceSymbol));
+};
+
+// Legacy export for compatibility
+const tradingPairs = allTradingPairs;
 
 const generateWallet = () => {
   const chars = '0123456789abcdef';
@@ -946,6 +969,18 @@ const TradingBotPage: React.FC = () => {
       }
     }
   }, [isConnected, currentChain?.id]);
+
+  // Update trading pairs when chain changes - show chain-specific pairs!
+  useEffect(() => {
+    if (currentChain) {
+      const chainPairs = getPairsForChain(currentChain.id);
+      setPairs(chainPairs);
+      // Select the first (default) pair for this chain
+      if (chainPairs.length > 0) {
+        setSelectedPair(chainPairs[0]);
+      }
+    }
+  }, [currentChain?.id]);
 
   useEffect(() => {
     const interval = setInterval(fetchPrices, 5000);
