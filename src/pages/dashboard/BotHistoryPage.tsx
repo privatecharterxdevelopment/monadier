@@ -305,31 +305,58 @@ const BotHistoryPage: React.FC = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [userWallets, setUserWallets] = useState<string[]>([]);
 
-  // Fetch all user's wallets on mount
+  // Fetch all user's wallets on mount - try multiple sources
   useEffect(() => {
     const fetchUserWallets = async () => {
+      if (!address) return;
+
+      const foundWallets = new Set<string>();
+      foundWallets.add(address.toLowerCase());
+
       try {
+        // 1. Try user_wallets table via auth
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          // Get all wallets from user_wallets table
           const { data: wallets } = await supabase
             .from('user_wallets')
             .select('wallet_address')
             .eq('user_id', user.id);
 
-          if (wallets && wallets.length > 0) {
-            const addresses = wallets.map(w => w.wallet_address.toLowerCase());
-            setUserWallets(addresses);
-            console.log('[BotHistory] Found user wallets:', addresses);
-          }
+          wallets?.forEach(w => foundWallets.add(w.wallet_address.toLowerCase()));
         }
+
+        // 2. Also check subscriptions for linked wallets
+        const { data: subs } = await supabase
+          .from('subscriptions')
+          .select('wallet_address')
+          .not('wallet_address', 'is', null);
+
+        // Find if current address has a subscription, then get all wallets with same user_id
+        const mySub = subs?.find(s => s.wallet_address?.toLowerCase() === address.toLowerCase());
+        if (mySub) {
+          subs?.forEach(s => {
+            if (s.wallet_address) foundWallets.add(s.wallet_address.toLowerCase());
+          });
+        }
+
+        // 3. Check vault_settings for this wallet on any chain
+        const { data: vaultSettings } = await supabase
+          .from('vault_settings')
+          .select('wallet_address')
+          .or(`wallet_address.eq.${address.toLowerCase()}`);
+
+        vaultSettings?.forEach(v => foundWallets.add(v.wallet_address.toLowerCase()));
+
+        const walletArray = Array.from(foundWallets);
+        setUserWallets(walletArray);
+        console.log('[BotHistory] All wallets to check:', walletArray);
       } catch (err) {
         console.error('Failed to fetch user wallets:', err);
       }
     };
 
     fetchUserWallets();
-  }, []);
+  }, [address]);
 
   const fetchPositions = async (showLoading = false) => {
     if (!address) return;
