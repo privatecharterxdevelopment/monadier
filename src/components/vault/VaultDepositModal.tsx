@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, ArrowDownLeft, Loader2, AlertCircle, Coins } from 'lucide-react';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useTransactions } from '../../contexts/TransactionContext';
-import { VaultClient, USDC_ADDRESSES, USDC_DECIMALS, getPlatformFeeForChain, VAULT_V5_ADDRESSES } from '../../lib/vault';
+import { VaultClient, USDC_ADDRESSES, USDC_DECIMALS, getPlatformFeeForChain, VAULT_V6_ADDRESSES } from '../../lib/vault';
 import { formatUnits } from 'viem';
 import { ERC20_ABI } from '../../lib/dex/router';
 import { supabase } from '../../lib/supabase';
@@ -47,15 +47,15 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
 
   const platformFee = chainId ? getPlatformFeeForChain(chainId) : { percentFormatted: '1.0%' };
 
-  // V5 minimum vault balance requirement ($100)
-  const isV5Chain = chainId ? VAULT_V5_ADDRESSES[chainId] !== null : false;
-  const minDepositAmount = isV5Chain ? 100 : 0;
+  // V6 minimum vault balance requirement ($100)
+  const isV6Chain = chainId ? VAULT_V6_ADDRESSES[chainId] !== null : false;
+  const minDepositAmount = isV6Chain ? 100 : 0;
 
   // Check if amount is below minimum
   const depositAmount = depositType === 'usdc'
     ? parseFloat(amount || '0')
     : parseFloat(estimatedUsdc || '0');
-  const isBelowMinimum = isV5Chain && depositAmount > 0 && depositAmount < minDepositAmount;
+  const isBelowMinimum = isV6Chain && depositAmount > 0 && depositAmount < minDepositAmount;
 
   // Calculate estimated USDC for ETH
   const estimatedUsdc = depositType === 'eth' && amount && ethPrice > 0
@@ -128,8 +128,8 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
       return;
     }
 
-    // Check minimum for V5 chains
-    if (isV5Chain && depositAmount < minDepositAmount) {
+    // Check minimum for V6 chains
+    if (isV6Chain && depositAmount < minDepositAmount) {
       setError(`Minimum deposit is $${minDepositAmount} USDC for bot trading`);
       return;
     }
@@ -230,7 +230,7 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
               <h2 className="text-lg font-semibold text-white">Deposit to Vault</h2>
               <p className="text-xs text-zinc-500">
                 {chainId ? CHAIN_NAMES[chainId] || 'Unknown' : 'Not connected'}
-                {isV5Chain ? ' (V5 - Low Fees)' : ''}
+                {isV6Chain ? ' (V6 - 20x Leverage)' : ''}
               </p>
             </div>
           </div>
@@ -326,8 +326,8 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
 
           {/* Fee Info */}
           <div className="bg-zinc-800/50 rounded-lg p-3 space-y-2">
-            {isV5Chain ? (
-              // V5 fees (Arbitrum)
+            {isV6Chain ? (
+              // V6 fees (Arbitrum)
               <>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-zinc-400">Base Fee</span>
@@ -371,8 +371,8 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
             )}
           </div>
 
-          {/* Minimum Amount Warning for V5 */}
-          {isV5Chain && (
+          {/* Minimum Amount Warning for V6 */}
+          {isV6Chain && (
             <div className={`rounded-lg p-3 ${isBelowMinimum ? 'bg-red-500/10 border border-red-500/20' : 'bg-yellow-500/10 border border-yellow-500/20'}`}>
               <p className={`text-xs ${isBelowMinimum ? 'text-red-400' : 'text-yellow-400'}`}>
                 {isBelowMinimum

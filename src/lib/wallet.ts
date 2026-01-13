@@ -12,7 +12,7 @@ const metadata = {
   icons: ['https://monadier.com/icon.png']
 };
 
-// All supported networks - Arbitrum first (default for V5)
+// All supported networks - Arbitrum first (default for V6)
 const networks = [arbitrum, base, mainnet, bsc, polygon];
 
 export const wagmiAdapter = new WagmiAdapter({

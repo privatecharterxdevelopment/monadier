@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { History, TrendingUp, TrendingDown, Users, Trophy, Zap, Crown, Rocket, ExternalLink, RefreshCw, Activity, Clock, Timer, CheckCircle, XCircle, X, AlertTriangle, Settings, Info } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
-import { VAULT_ABI, VAULT_V5_ADDRESSES, VAULT_V4_ADDRESSES, VAULT_V3_ADDRESSES, VaultClient, VAULT_V2_ADDRESSES } from '../../lib/vault';
+import { VAULT_ABI, VAULT_V6_ADDRESSES, VAULT_V4_ADDRESSES, VAULT_V3_ADDRESSES, VaultClient, VAULT_V2_ADDRESSES } from '../../lib/vault';
 import VaultSettingsModal from '../../components/vault/VaultSettingsModal';
 
 // Legacy trade format (from localStorage)
@@ -135,7 +135,8 @@ const BotHistoryPage: React.FC = () => {
     autoTradeEnabled: false,
     riskLevelPercent: 5,
     takeProfit: 5,
-    stopLoss: 1
+    stopLoss: 1,
+    leverage: 1.0
   });
 
   
@@ -156,18 +157,18 @@ const BotHistoryPage: React.FC = () => {
       if (!address || !chainId || !publicClient) return;
 
       try {
-        // Get on-chain settings - check V5 first (Arbitrum), then V4 (Base), then older versions
-        const vaultAddress = VAULT_V5_ADDRESSES[chainId as keyof typeof VAULT_V5_ADDRESSES] ||
+        // Get on-chain settings - check V6 first (Arbitrum), then V4 (Base), then older versions
+        const vaultAddress = VAULT_V6_ADDRESSES[chainId as keyof typeof VAULT_V6_ADDRESSES] ||
                             VAULT_V4_ADDRESSES[chainId as keyof typeof VAULT_V4_ADDRESSES] ||
                             VAULT_V2_ADDRESSES[chainId as keyof typeof VAULT_V2_ADDRESSES];
         if (vaultAddress) {
           const vaultClient = new VaultClient(publicClient as any, null, chainId);
           const status = await vaultClient.getUserStatus(address as `0x${string}`);
 
-          // Get TP/SL from Supabase
+          // Get TP/SL and leverage from Supabase
           const { data: vaultSettings } = await supabase
             .from('vault_settings')
-            .select('take_profit_percent, stop_loss_percent')
+            .select('take_profit_percent, stop_loss_percent, leverage_multiplier')
             .eq('wallet_address', address.toLowerCase())
             .eq('chain_id', chainId)
             .single();
@@ -176,7 +177,8 @@ const BotHistoryPage: React.FC = () => {
             autoTradeEnabled: status.autoTradeEnabled,
             riskLevelPercent: status.riskLevelPercent,
             takeProfit: vaultSettings?.take_profit_percent || 5,
-            stopLoss: vaultSettings?.stop_loss_percent || 1
+            stopLoss: vaultSettings?.stop_loss_percent || 1,
+            leverage: vaultSettings?.leverage_multiplier || 1.0
           });
 
           setBotSettingsLoaded(true);
@@ -532,27 +534,33 @@ const BotHistoryPage: React.FC = () => {
     // Live P/L from open positions (price-based calculation, direction-aware)
     // Must match getCurrentProfit() logic exactly for consistency!
     const openProfit = openPositions.reduce((sum, p) => {
+      // Guard against invalid data
+      if (!p.entry_price || p.entry_price <= 0 || !p.entry_amount) {
+        return sum;
+      }
+
       const tokenSymbol = p.token_symbol || 'WETH';
-      // Same fallback chain as getCurrentProfit: livePrices -> highest_price -> entry_price
       const currentPrice = livePrices[tokenSymbol] || p.highest_price || p.entry_price;
 
-      // Calculate P/L based on price change (not token amounts - more accurate)
+      if (!currentPrice || currentPrice <= 0) {
+        return sum;
+      }
+
+      // Calculate P/L based on price change
       const priceChange = p.direction === 'SHORT'
-        ? p.entry_price - currentPrice  // SHORT: profit when price drops
-        : currentPrice - p.entry_price; // LONG: profit when price rises
+        ? p.entry_price - currentPrice
+        : currentPrice - p.entry_price;
 
       const profitPercent = (priceChange / p.entry_price) * 100;
       const positionPL = (p.entry_amount * profitPercent) / 100;
 
-      // Debug log each position's P/L calculation
-      console.log(`[Stats] ${p.token_symbol} ${p.direction}: entry=${p.entry_price}, current=${currentPrice}, PL=$${positionPL.toFixed(4)}`);
+      // Guard against Infinity/NaN
+      if (!isFinite(positionPL)) {
+        return sum;
+      }
 
       return sum + positionPL;
     }, 0);
-
-    // Debug log totals
-    console.log(`[Stats] closedPositions: ${closedPositions.length}, openPositions: ${openPositions.length}, failedPositions: ${failedPositions.length}`);
-    console.log(`[Stats] Closed P/L: $${closedProfit.toFixed(4)}, Open P/L: $${openProfit.toFixed(4)}, Total: $${(closedProfit + openProfit).toFixed(4)}`);
 
     // Total P/L = closed + open (live)
     const totalProfit = closedProfit + openProfit;
@@ -563,8 +571,10 @@ const BotHistoryPage: React.FC = () => {
 
     // Open trades currently in profit (same price logic as above)
     const openWins = openPositions.filter(p => {
+      if (!p.entry_price || p.entry_price <= 0) return false;
       const tokenSymbol = p.token_symbol || 'WETH';
       const currentPrice = livePrices[tokenSymbol] || p.highest_price || p.entry_price;
+      if (!currentPrice || currentPrice <= 0) return false;
       if (p.direction === 'SHORT') {
         return currentPrice < p.entry_price;
       }
@@ -592,10 +602,20 @@ const BotHistoryPage: React.FC = () => {
     if (position.status === 'failed') {
       return position.profit_loss || 0;
     }
+
+    // Guard against missing/invalid data - prevent Infinity/NaN
+    if (!position.entry_price || position.entry_price <= 0 || !position.entry_amount) {
+      return 0;
+    }
+
     // For open/closing positions, calculate P/L based on PRICE change (not token amounts)
-    // This is more accurate since token amounts are estimated and don't account for swap fees
     const tokenSymbol = position.token_symbol || 'WETH';
     const currentPrice = livePrices[tokenSymbol] || position.highest_price || position.entry_price;
+
+    // Guard against invalid current price
+    if (!currentPrice || currentPrice <= 0) {
+      return 0;
+    }
 
     // Calculate P/L based on price difference (direction-aware)
     const priceChange = position.direction === 'SHORT'
@@ -603,7 +623,14 @@ const BotHistoryPage: React.FC = () => {
       : currentPrice - position.entry_price; // LONG: profit when price rises
 
     const profitPercent = (priceChange / position.entry_price) * 100;
-    return (position.entry_amount * profitPercent) / 100;
+    const profitUSD = (position.entry_amount * profitPercent) / 100;
+
+    // Guard against Infinity/NaN
+    if (!isFinite(profitUSD)) {
+      return 0;
+    }
+
+    return profitUSD;
   };
 
   const getProfitPercent = (position: Position) => {
@@ -611,14 +638,29 @@ const BotHistoryPage: React.FC = () => {
     if (position.status === 'closed' || position.status === 'failed') {
       return position.profit_loss_percent || 0;
     }
+
+    // Guard against invalid data
+    if (!position.entry_price || position.entry_price <= 0) {
+      return 0;
+    }
+
     // Open/closing: calculate from live price
     const tokenSymbol = position.token_symbol || 'WETH';
     const currentPrice = livePrices[tokenSymbol] || position.entry_price;
 
-    if (position.direction === 'SHORT') {
-      return ((position.entry_price - currentPrice) / position.entry_price) * 100;
+    if (!currentPrice || currentPrice <= 0) {
+      return 0;
     }
-    return ((currentPrice - position.entry_price) / position.entry_price) * 100;
+
+    let percent: number;
+    if (position.direction === 'SHORT') {
+      percent = ((position.entry_price - currentPrice) / position.entry_price) * 100;
+    } else {
+      percent = ((currentPrice - position.entry_price) / position.entry_price) * 100;
+    }
+
+    // Guard against Infinity/NaN
+    return isFinite(percent) ? percent : 0;
   };
 
   // Get current live price for display
@@ -627,7 +669,7 @@ const BotHistoryPage: React.FC = () => {
     return livePrices[tokenSymbol] || position.entry_price;
   };
 
-  // Calculate breakeven price (V5: 0.1% base fee + 0.05% Uniswap fee x2)
+  // Calculate breakeven price (V6: 0.1% base fee + 0.05% Uniswap fee x2)
   // Total fees: ~0.3% for round trip (much lower than V4!)
   const TOTAL_FEE_PERCENT = 0.3;
   const getBreakevenPrice = (position: Position) => {
@@ -702,7 +744,7 @@ const BotHistoryPage: React.FC = () => {
                     <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
                       <div className="flex items-center gap-2 text-green-400 font-medium mb-1">
                         <AlertTriangle size={14} />
-                        Fee Structure (V5)
+                        Fee Structure (V6)
                       </div>
                       <p className="text-green-200/80">
                         <strong>No platform fees!</strong> Only 10% of profits on winning trades. Losses covered by platform. DEX fee ~0.1% = <strong>~0.3% breakeven</strong>.
@@ -1117,7 +1159,7 @@ const BotHistoryPage: React.FC = () => {
                     </div>
 
                     {/* Size */}
-                    <div className="text-white font-mono text-sm">
+                    <div className="text-white font-mono text-sm" title={`Raw: ${position.entry_amount}`}>
                       ${(position.entry_amount || 0).toFixed(2)}
                     </div>
 
@@ -1156,7 +1198,7 @@ const BotHistoryPage: React.FC = () => {
                     <div className={`flex items-center gap-1 font-mono text-sm ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
                       {isProfit ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
                       <div>
-                        <div>{isProfit ? '+' : ''}${Math.abs(profit) < 0.001 ? profit.toFixed(4) : profit.toFixed(3)}</div>
+                        <div>{isProfit ? '+' : ''}${Math.abs(profit) < 0.01 ? profit.toFixed(4) : profit.toFixed(3)}</div>
                         <div className="text-xs opacity-75">
                           ({isProfit ? '+' : ''}{profitPercent.toFixed(3)}%)
                         </div>
@@ -1390,6 +1432,7 @@ const BotHistoryPage: React.FC = () => {
           autoTradeEnabled={botSettings.autoTradeEnabled}
           currentTakeProfit={botSettings.takeProfit}
           currentStopLoss={botSettings.stopLoss}
+          currentLeverage={botSettings.leverage}
           onClose={() => setShowSettingsModal(false)}
           onSuccess={() => {
             setShowSettingsModal(false);

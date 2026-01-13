@@ -564,10 +564,10 @@ const SettingsPage: React.FC = () => {
               Non-custodial & verified on-chain. Your funds, your control.
             </p>
             <code className="block text-[10px] text-gray-400 font-mono mb-2 break-all">
-              0x6C51F75b164205e51a87038662060cfe54d95E70
+              0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A
             </code>
             <a
-              href="https://arbiscan.io/address/0x6C51F75b164205e51a87038662060cfe54d95E70#code"
+              href="https://arbiscan.io/address/0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A#code"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 text-xs"

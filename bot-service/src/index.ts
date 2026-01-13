@@ -4,10 +4,12 @@ import { parseUnits } from 'viem';
 import { config, ChainId } from './config';
 import { logger } from './utils/logger';
 import { tradingService, TradeSignal } from './services/trading';
+import { tradingV6Service, V6TradeSignal, V6_TOKENS } from './services/tradingV6';
 import { subscriptionService } from './services/subscription';
-import { marketService, TradingStrategy } from './services/market';
+import { marketService, TradingStrategy, signalEngine } from './services/market';
 import { positionService } from './services/positions';
 import { paymentService } from './services/payments';
+import { Timeframe } from './services/signalEngine';
 
 // Health check server for Railway/cloud deployments
 const PORT = process.env.PORT || 3001;
@@ -15,33 +17,112 @@ let botStartTime = Date.now();
 let lastTradeCheck = Date.now();
 let totalTradesExecuted = 0;
 
-const healthServer = http.createServer((req, res) => {
-  if (req.url === '/health' || req.url === '/') {
+// CORS headers for API responses
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Content-Type': 'application/json'
+};
+
+const healthServer = http.createServer(async (req, res) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, corsHeaders);
+    res.end();
+    return;
+  }
+
+  const url = new URL(req.url || '/', `http://localhost:${PORT}`);
+
+  // Health check endpoint
+  if (url.pathname === '/health' || url.pathname === '/') {
     const uptime = Math.floor((Date.now() - botStartTime) / 1000);
     const status = {
       status: 'healthy',
       uptime: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
       lastCheck: new Date(lastTradeCheck).toISOString(),
       tradesExecuted: totalTradesExecuted,
-      version: 'v4.0'
+      version: 'v6.0-Leverage'
     };
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, corsHeaders);
     res.end(JSON.stringify(status));
-  } else {
-    res.writeHead(404);
-    res.end('Not found');
+    return;
   }
+
+  // API: Get unified MTF signal
+  // Usage: /api/signal?symbol=ETHUSDT&timeframes=1m,5m,15m,1h
+  if (url.pathname === '/api/signal') {
+    try {
+      const symbol = url.searchParams.get('symbol') || 'ETHUSDT';
+      const tfParam = url.searchParams.get('timeframes') || '1m,5m,15m,1h';
+      const timeframes = tfParam.split(',') as Timeframe[];
+
+      logger.info('API: Fetching MTF signal', { symbol, timeframes });
+
+      const signal = await signalEngine.generateSignal(symbol, timeframes);
+
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({
+        success: true,
+        signal,
+        timestamp: new Date().toISOString()
+      }));
+    } catch (err: any) {
+      logger.error('API: Signal fetch failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({
+        success: false,
+        error: err.message || 'Signal fetch failed'
+      }));
+    }
+    return;
+  }
+
+  // API: Get timeframe analysis for a single timeframe
+  // Usage: /api/timeframe?symbol=ETHUSDT&tf=15m
+  if (url.pathname === '/api/timeframe') {
+    try {
+      const symbol = url.searchParams.get('symbol') || 'ETHUSDT';
+      const tf = (url.searchParams.get('tf') || '15m') as Timeframe;
+
+      const analysis = await signalEngine.analyzeTimeframe(symbol, tf);
+
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({
+        success: true,
+        analysis,
+        timestamp: new Date().toISOString()
+      }));
+    } catch (err: any) {
+      logger.error('API: Timeframe analysis failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({
+        success: false,
+        error: err.message || 'Timeframe analysis failed'
+      }));
+    }
+    return;
+  }
+
+  // 404 for unknown routes
+  res.writeHead(404, corsHeaders);
+  res.end(JSON.stringify({ error: 'Not found' }));
 });
 
 healthServer.listen(PORT, () => {
-  logger.info(`Health check server running on port ${PORT}`);
+  logger.info(`API server running on port ${PORT}`);
+  logger.info('Available endpoints:');
+  logger.info('  GET /health - Health check');
+  logger.info('  GET /api/signal?symbol=ETHUSDT&timeframes=1m,5m,15m,1h - MTF Signal');
+  logger.info('  GET /api/timeframe?symbol=ETHUSDT&tf=15m - Single timeframe analysis');
 });
 
 // Default trading strategy - can be configured per user later
 const DEFAULT_STRATEGY: TradingStrategy = 'risky'; // RISKY = many trades!
 
-// Supported chains for auto-trading - ARBITRUM ONLY
-const ACTIVE_CHAINS: ChainId[] = [42161]; // Arbitrum (V5) only
+// Supported chains for auto-trading - ARBITRUM V6 ONLY
+const ACTIVE_CHAINS: ChainId[] = [42161]; // Arbitrum V6 (20x Leverage, On-chain SL/TP)
 
 // Locks to prevent concurrent execution
 let isTradingCycleRunning = false;
@@ -52,9 +133,9 @@ let isReconciliationRunning = false;
 const lastTradeTimestamp: Map<string, number> = new Map();
 const TRADE_COOLDOWN_MS = 300000; // 5 minute cooldown between trades (matches V5 contract)
 
-// Max positions - ARBITRUM ONLY with V5
+// Max positions - ARBITRUM V6 (one position per token)
 const MAX_POSITIONS_PER_CHAIN: Record<number, number> = {
-  42161: 3,  // Arbitrum V5 - 3 positions (1 per token: WETH, WBTC, ARB)
+  42161: 3,  // Arbitrum V6 - 3 positions (1 per token: WETH, WBTC, ARB)
 };
 
 const MAX_FAILED_BEFORE_STOP = 2; // Stop trading after 2 failures
@@ -66,9 +147,9 @@ let recentFailures = 0;
 let lastFailureTime = 0;
 const FAILURE_RESET_MS = 300000; // Reset failure count after 5 minutes
 
-// Token addresses for trading - ARBITRUM ONLY (others empty for type safety)
+// Token addresses for trading - ARBITRUM V6 (with Chainlink oracles)
 const TRADE_TOKENS: Record<ChainId, { address: `0x${string}`; symbol: string }[]> = {
-  // ARBITRUM V5 - 3 tokens active
+  // ARBITRUM V6 - 3 tokens with Chainlink oracles
   42161: [
     { address: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1', symbol: 'WETH' },
     { address: '0x912CE59144191C1204E64559FE8253a0e49E6548', symbol: 'ARB' },
@@ -110,14 +191,19 @@ async function generateTradeSignal(
 }
 
 /**
- * Process trades for a single user on a specific chain
- * V2: Opens positions that are held until trailing stop
+ * Process trades for a single user on Arbitrum V6
+ * V6: Opens leveraged LONG/SHORT positions with on-chain SL/TP
  */
 async function processUserTrades(
   chainId: ChainId,
   userAddress: `0x${string}`
 ): Promise<void> {
   try {
+    // Only Arbitrum V6 is supported
+    if (chainId !== 42161) {
+      return;
+    }
+
     // 1. Check subscription permission first
     const permission = await subscriptionService.canTrade(userAddress);
     if (!permission.allowed) {
@@ -128,15 +214,14 @@ async function processUserTrades(
       return;
     }
 
-    // 2. Get vault status (includes on-chain rate limit check)
-    const vaultStatus = await tradingService.getUserVaultStatus(chainId, userAddress);
+    // 2. Get V6 vault status
+    const vaultStatus = await tradingV6Service.getUserVaultStatus(userAddress);
 
-    logger.info('Vault status check', {
+    logger.info('V6 Vault status check', {
       userAddress: userAddress.slice(0, 10),
       hasStatus: !!vaultStatus,
       balance: vaultStatus?.balanceFormatted || '0',
-      autoTradeEnabled: vaultStatus?.autoTradeEnabled,
-      canTradeNow: vaultStatus?.canTradeNow
+      autoTradeEnabled: vaultStatus?.autoTradeEnabled
     });
 
     if (!vaultStatus) {
@@ -150,187 +235,172 @@ async function processUserTrades(
       return;
     }
 
-    if (!vaultStatus.canTradeNow) {
-      logger.debug('Rate limited - waiting', {
-        userAddress: userAddress.slice(0, 10)
-      });
-      return;
-    }
-
     if (vaultStatus.balance === 0n) {
       return;
     }
 
-    // 3. Get tokens to trade for this chain
+    // 3. Get tokens to trade
     const tokenConfigs = TRADE_TOKENS[chainId];
     if (!tokenConfigs || tokenConfigs.length === 0) {
       return;
     }
 
-    // 4. SAFETY CHECK: Circuit breaker - stop if too many recent failures
+    // 4. SAFETY CHECK: Circuit breaker
     if (Date.now() - lastFailureTime > FAILURE_RESET_MS) {
-      recentFailures = 0; // Reset after 5 minutes of no failures
+      recentFailures = 0;
     }
     if (recentFailures >= MAX_FAILED_BEFORE_STOP) {
-      logger.warn('Circuit breaker active - too many recent failures', {
-        userAddress,
-        recentFailures,
-        waitMinutes: Math.ceil((FAILURE_RESET_MS - (Date.now() - lastFailureTime)) / 60000)
+      logger.warn('Circuit breaker active', {
+        userAddress: userAddress.slice(0, 10),
+        recentFailures
       });
       return;
     }
 
-    // 5. Get all positions for this user (including failed ones)
+    // 5. Get open positions and calculate available balance
     const openPositions = await positionService.getOpenPositions(userAddress, chainId);
-    const riskLevelBps = vaultStatus.riskLevel * 100;
-
-    // Get chain-specific max positions (V5 Arbitrum = 3, others = 1)
     const maxPositions = MAX_POSITIONS_PER_CHAIN[chainId] || 1;
 
-    // SAFETY: Check max positions per chain
     if (openPositions.length >= maxPositions) {
-      logger.debug('Max positions reached - waiting for position to close', {
-        userAddress,
-        chainId,
-        openCount: openPositions.length,
-        maxAllowed: maxPositions
+      logger.debug('Max positions reached', {
+        userAddress: userAddress.slice(0, 10),
+        openCount: openPositions.length
       });
       return;
     }
 
-    // Calculate available balance for new positions
-    // Split remaining balance among available slots
     const availableSlots = maxPositions - openPositions.length;
     const balancePerPosition = vaultStatus.balance / BigInt(availableSlots);
 
-    // 5b. Post-close cooldown removed - smart contract handles rate limiting
+    // 6. Get user's trading settings (leverage, SL, TP)
+    const userSettings = await subscriptionService.getUserTradingSettings(userAddress, chainId);
+    const leverage = userSettings.leverageMultiplier || 1;
+    const stopLossPercent = userSettings.stopLossPercent || 5;
+    const takeProfitPercent = userSettings.takeProfitPercent || 10;
 
-    // 6. Try each token - find one with a good signal
+    // 7. Try each token
+    let positionsOpened = 0;
     for (const tokenConfig of tokenConfigs) {
-      // Skip stablecoins
       if (tokenConfig.symbol === 'USDC' || tokenConfig.symbol === 'DAI') {
         continue;
       }
 
-      // CRITICAL: Check if there's ANY existing position for this token (open, closing, or failed)
-      // This prevents the overlap bug where multiple positions share the same on-chain balance
-      const hasExisting = await positionService.hasAnyActivePosition(
+      // Check for existing position (database + on-chain)
+      const hasExistingDb = await positionService.hasAnyActivePosition(
         userAddress,
         chainId,
         tokenConfig.address
       );
-      if (hasExisting) {
-        logger.debug('Skipping token - existing position found', {
-          userAddress,
-          token: tokenConfig.symbol
+      const hasExistingOnChain = await tradingV6Service.hasOpenPosition(
+        userAddress,
+        tokenConfig.address as `0x${string}`
+      );
+
+      if (hasExistingDb || hasExistingOnChain) {
+        logger.debug('Skipping token - existing position', {
+          userAddress: userAddress.slice(0, 10),
+          token: tokenConfig.symbol,
+          db: hasExistingDb,
+          onChain: hasExistingOnChain
         });
-        continue; // Try next token
+        continue;
       }
 
-      // Check cooldown to prevent rapid duplicate trades
+      // Check cooldown
       const cooldownKey = `${userAddress}-${chainId}-${tokenConfig.address}`;
       const lastTrade = lastTradeTimestamp.get(cooldownKey);
       if (lastTrade && Date.now() - lastTrade < TRADE_COOLDOWN_MS) {
-        logger.debug('Trade cooldown active', {
-          userAddress,
-          token: tokenConfig.symbol,
-          cooldownRemaining: Math.ceil((TRADE_COOLDOWN_MS - (Date.now() - lastTrade)) / 1000) + 's'
-        });
-        continue; // Try next token
+        continue;
       }
 
-      // Generate trade signal for this token
-      // Use balancePerPosition to allow multiple positions
+      // Generate trade signal
       const signal = await generateTradeSignal(
         chainId,
         tokenConfig.address,
         tokenConfig.symbol,
         balancePerPosition,
-        riskLevelBps,
+        vaultStatus.riskLevel * 100,
         DEFAULT_STRATEGY
       );
 
       if (!signal) {
-        logger.debug('No trade signal for token', {
+        logger.debug('No trade signal', {
           userAddress: userAddress.slice(0, 10),
-          token: tokenConfig.symbol,
-          chainId,
-          reason: 'Signal too weak or no conditions met'
+          token: tokenConfig.symbol
         });
-        continue; // No signal for this token, try next
+        continue;
       }
 
-      // Found a signal! Open position
-      logger.info('Opening position for user', {
-        chainId,
-        userAddress,
-        token: signal.tokenSymbol,
+      // Create V6 signal with leverage and on-chain SL/TP
+      const v6Signal: V6TradeSignal = {
         direction: signal.direction,
+        confidence: signal.confidence,
+        tokenAddress: tokenConfig.address as `0x${string}`,
+        tokenSymbol: tokenConfig.symbol,
+        collateralAmount: signal.suggestedAmount,
+        leverage,
+        stopLossPercent,
+        takeProfitPercent,
+        reason: signal.reason
+      };
+
+      logger.info('Opening V6 position', {
+        user: userAddress.slice(0, 10),
+        token: tokenConfig.symbol,
+        direction: signal.direction,
+        leverage: leverage + 'x',
         confidence: signal.confidence
       });
 
-      const result = await tradingService.openPosition(chainId, userAddress, signal);
+      // Open position using V6 service
+      const result = signal.direction === 'LONG'
+        ? await tradingV6Service.openLong(userAddress, v6Signal)
+        : await tradingV6Service.openShort(userAddress, v6Signal);
 
       if (result.success) {
-        // Set cooldown to prevent immediate duplicate
         lastTradeTimestamp.set(cooldownKey, Date.now());
+        positionsOpened++;
 
-        logger.info('Position opened successfully', {
-          userAddress,
+        logger.info(`V6 ${signal.direction} opened`, {
+          user: userAddress.slice(0, 10),
           txHash: result.txHash,
-          positionId: result.positionId,
-          amountIn: result.amountIn,
           token: tokenConfig.symbol,
-          cooldown: '60s active'
+          leverage: result.leverage + 'x',
+          collateral: result.collateral
         });
-
-        // Only open one position per cycle per user
-        return;
       } else {
-        // CIRCUIT BREAKER: Track failure
         recentFailures++;
         lastFailureTime = Date.now();
 
-        logger.warn('Failed to open position - circuit breaker incremented', {
-          userAddress,
+        logger.warn('Failed to open V6 position', {
+          user: userAddress.slice(0, 10),
           token: tokenConfig.symbol,
-          error: result.error,
-          recentFailures,
-          maxBeforeStop: MAX_FAILED_BEFORE_STOP
+          error: result.error
         });
-
-        // Don't try other tokens after a failure - stop for safety
-        return;
       }
     }
 
-    // If we get here, no signal was strong enough for any token
-    logger.info('Trading cycle complete for user - no trades executed', {
-      userAddress: userAddress.slice(0, 10),
-      chainId,
-      tokensChecked: tokenConfigs.length,
-      reason: 'No tokens met signal criteria'
-    });
+    if (positionsOpened > 0) {
+      logger.info(`V6 Trading cycle complete - ${positionsOpened} position(s)`, {
+        userAddress: userAddress.slice(0, 10)
+      });
+    }
   } catch (err) {
-    // CIRCUIT BREAKER: Track error
     recentFailures++;
     lastFailureTime = Date.now();
 
-    logger.error('Error processing user trades - circuit breaker incremented', {
-      chainId,
-      userAddress,
-      error: err,
-      recentFailures
+    logger.error('Error processing V6 trades', {
+      userAddress: userAddress.slice(0, 10),
+      error: err
     });
   }
 }
 
 /**
- * Monitor open positions and update trailing stops
- * This runs more frequently than opening new positions
+ * Monitor V6 positions and execute on-chain SL/TP/Liquidation
+ * V6 has on-chain SL/TP so we just check and execute triggers
  */
 async function runPositionMonitoringCycle(): Promise<void> {
-  // Prevent concurrent monitoring
   if (isMonitoringCycleRunning) {
     logger.debug('Monitoring cycle already running, skipping');
     return;
@@ -338,13 +408,39 @@ async function runPositionMonitoringCycle(): Promise<void> {
 
   isMonitoringCycleRunning = true;
   try {
-    for (const chainId of ACTIVE_CHAINS) {
-      try {
-        await tradingService.monitorPositions(chainId);
-      } catch (err) {
-        logger.error('Error monitoring positions', { chainId, error: err });
+    // Get all users with auto-trade enabled on Arbitrum
+    const users = await tradingV6Service.getAutoTradeUsers();
+    const tokenConfigs = TRADE_TOKENS[42161];
+
+    let triggeredCount = 0;
+
+    for (const userAddress of users) {
+      for (const tokenConfig of tokenConfigs) {
+        try {
+          // Check on-chain position status (SL/TP/Liquidation)
+          const result = await tradingV6Service.checkAndExecuteTriggers(
+            userAddress,
+            tokenConfig.address as `0x${string}`
+          );
+
+          if (result.triggered) {
+            triggeredCount++;
+            logger.info(`V6 ${result.reason?.toUpperCase()} executed`, {
+              user: userAddress.slice(0, 10),
+              token: tokenConfig.symbol
+            });
+          }
+        } catch (err) {
+          // Skip individual position errors
+        }
       }
     }
+
+    if (triggeredCount > 0) {
+      logger.info('V6 Monitor cycle complete', { triggeredCount });
+    }
+  } catch (err) {
+    logger.error('Error in V6 position monitoring', { error: err });
   } finally {
     isMonitoringCycleRunning = false;
   }
@@ -435,25 +531,17 @@ async function runReconciliationCycle(): Promise<void> {
  */
 async function runFeeWithdrawalCycle(): Promise<void> {
   try {
-    for (const chainId of ACTIVE_CHAINS) {
-      const result = await tradingService.withdrawAccumulatedFees(chainId);
+    // V6 fee withdrawal on Arbitrum
+    const result = await tradingV6Service.withdrawFees();
 
-      if (result.success && result.amount && result.amount !== '0') {
-        logger.info('Fees withdrawn to treasury', {
-          chainId,
-          amount: result.amount,
-          unit: 'USDC'
-        });
-      } else if (!result.success) {
-        logger.warn('Fee withdrawal failed', {
-          chainId,
-          error: result.error
-        });
-      }
-      // If amount is 0, no need to log - just means no fees accumulated
+    if (result.success && result.amount && result.amount !== '0') {
+      logger.info('V6 Fees withdrawn to treasury', {
+        amount: result.amount,
+        unit: 'USDC'
+      });
     }
   } catch (err) {
-    logger.error('Error in fee withdrawal cycle', { error: err });
+    logger.error('Error in V6 fee withdrawal', { error: err });
   }
 }
 
@@ -533,9 +621,9 @@ async function updateBotAnalysis(): Promise<void> {
 
     for (const tokenConfig of tokenConfigs) {
       try {
-        // Analyze market and save to DB - this is what users see in the UI!
-        const { analyzeMarket } = await import('./services/market');
-        const analysis = await analyzeMarket(chainId, tokenConfig.address, DEFAULT_STRATEGY);
+        // NEW: Use Multi-Timeframe analysis (1m, 5m, 15m, 1h combined)
+        const { analyzeMarketMTF } = await import('./services/market');
+        const analysis = await analyzeMarketMTF(chainId, tokenConfig.address, DEFAULT_STRATEGY);
 
         if (analysis) {
           await positionService.saveAnalysis({
@@ -553,13 +641,13 @@ async function updateBotAnalysis(): Promise<void> {
               pattern: analysis.indicators[0] || null,
               priceChange24h: parseFloat(analysis.metrics.priceChange1h) || 0
             },
-            recommendation: `${analysis.direction} - ${analysis.reason} (${analysis.confidence}% confidence)`
+            recommendation: `MTF ${analysis.direction} - ${analysis.reason} (${analysis.confidence}% confidence)`
           });
 
-          logger.info(`📊 ${analysis.direction} signal generated and SAVED to DB`, {
+          logger.info(`📊 MTF ${analysis.direction} signal generated and SAVED to DB`, {
             symbol: tokenConfig.symbol + 'USDT',
             strategy: DEFAULT_STRATEGY,
-            conditionsMet: `${analysis.metrics.conditionsMet}/6`,
+            conditionsMet: `${analysis.metrics.conditionsMet}/5`,
             confidence: `${analysis.confidence}%`,
             indicators: analysis.indicators.slice(0, 3),
             trend: analysis.metrics.trend,
@@ -567,14 +655,14 @@ async function updateBotAnalysis(): Promise<void> {
             suggestedSL: `${analysis.suggestedSL}%`
           });
         } else {
-          logger.warn('No analysis returned - could not fetch market data', {
+          logger.warn('No MTF analysis returned - could not fetch market data', {
             chainId,
             token: tokenConfig.symbol,
-            reason: 'analyzeMarket returned null (likely API failure)'
+            reason: 'analyzeMarketMTF returned null (likely API failure)'
           });
         }
       } catch (err) {
-        logger.error('Failed to update analysis', { token: tokenConfig.symbol, error: err });
+        logger.error('Failed to update MTF analysis', { token: tokenConfig.symbol, error: err });
       }
     }
   }
@@ -638,31 +726,22 @@ async function runTradingCycle(): Promise<void> {
  */
 function logStartupInfo(): void {
   logger.info('='.repeat(50));
-  logger.info('Monadier Trading Bot Service V4');
-  logger.info('Features: Position Holding + Trailing Stops + 100% Risk Level');
+  logger.info('Monadier Trading Bot Service V6');
+  logger.info('Features: 20x Leverage + On-chain SL/TP + Chainlink Oracles');
   logger.info('='.repeat(50));
 
   logger.info('Configuration:', {
     tradeInterval: `${config.trading.checkIntervalMs / 1000}s`,
     monitorInterval: '10s',
     strategy: DEFAULT_STRATEGY,
-    defaultSlippage: `${config.trading.defaultSlippage}%`
+    maxLeverage: '20x'
   });
 
-  for (const [chainIdStr, chainConfig] of Object.entries(config.chains)) {
-    const cc = chainConfig as any;
-    const v5Address = cc.vaultV5Address;
-    const v4Address = cc.vaultV4Address;
-    const v3Address = cc.vaultV3Address;
-    const v2Address = cc.vaultV2Address;
-    const v1Address = cc.vaultAddress;
-    const status = v5Address ? `V5 Active (${v5Address.slice(0, 10)}...)` :
-                   v4Address ? `V4 Active (${v4Address.slice(0, 10)}...)` :
-                   v3Address ? `V3 Active (${v3Address.slice(0, 10)}...)` :
-                   v2Address ? `V2 Active (${v2Address.slice(0, 10)}...)` :
-                   v1Address ? `V1 Only (${v1Address.slice(0, 10)}...)` : 'No Vault';
-    logger.info(`Chain ${cc.name}: ${status}`);
-  }
+  // Show V6 vault info for Arbitrum
+  const arbConfig = config.chains[42161] as any;
+  const v6Address = arbConfig?.vaultV6Address;
+  logger.info(`Chain Arbitrum: V6 Active (${v6Address?.slice(0, 10) || 'Not set'}...)`);
+  logger.info(`V6 Vault: 0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A`);
 
   logger.info('='.repeat(50));
 }

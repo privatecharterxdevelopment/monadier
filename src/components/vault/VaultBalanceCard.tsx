@@ -3,7 +3,7 @@ import { Wallet, ArrowUpRight, ArrowDownLeft, Settings, Zap, Lock, AlertTriangle
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { SUBSCRIPTION_PLANS } from '../../lib/subscription';
-import { VaultClient, VAULT_ADDRESSES, VAULT_V2_ADDRESSES, VAULT_V4_ADDRESSES, VAULT_V5_ADDRESSES, getPlatformFeeForChain, USDC_DECIMALS, VAULT_ABI } from '../../lib/vault';
+import { VaultClient, VAULT_ADDRESSES, VAULT_V2_ADDRESSES, VAULT_V4_ADDRESSES, VAULT_V6_ADDRESSES, getPlatformFeeForChain, USDC_DECIMALS, VAULT_ABI } from '../../lib/vault';
 import { formatUnits } from 'viem';
 import VaultDepositModal from './VaultDepositModal';
 import VaultWithdrawModal from './VaultWithdrawModal';
@@ -44,6 +44,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   const [takeProfit, setTakeProfit] = useState(5);
   const [stopLoss, setStopLoss] = useState(1);
   const [askPermission, setAskPermission] = useState(false);
+  const [leverage, setLeverage] = useState(1.0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,7 +67,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
 
   // Check if user has paid subscription (not free)
   const isPaidUser = isSubscribed && planTier && planTier !== 'free';
-  const isVaultAvailable = chainId ? (VAULT_V5_ADDRESSES[chainId] !== null || VAULT_V4_ADDRESSES[chainId] !== null || VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null) : false;
+  const isVaultAvailable = chainId ? (VAULT_V6_ADDRESSES[chainId] !== null || VAULT_V4_ADDRESSES[chainId] !== null || VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null) : false;
   const isPreviewMode = !isVaultAvailable;
   const hasV1Funds = parseFloat(v1Balance) > 0;
 
@@ -85,7 +86,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
         setIsLoading(true);
         setError(null);
 
-        const vaultAddress = VAULT_V5_ADDRESSES[chainId] || VAULT_V4_ADDRESSES[chainId] || VAULT_V2_ADDRESSES[chainId] || VAULT_ADDRESSES[chainId];
+        const vaultAddress = VAULT_V6_ADDRESSES[chainId] || VAULT_V4_ADDRESSES[chainId] || VAULT_V2_ADDRESSES[chainId] || VAULT_ADDRESSES[chainId];
         if (!vaultAddress) {
           setIsLoading(false);
           return;
@@ -100,11 +101,11 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
         setRiskLevelPercent(status.riskLevelPercent);
         setMaxTradeSize(status.maxTradeSizeFormatted);
 
-        // Fetch TP/SL and ask_permission settings from Supabase
+        // Fetch TP/SL, ask_permission, and leverage settings from Supabase
         try {
           const { data: vaultSettings } = await supabase
             .from('vault_settings')
-            .select('take_profit_percent, stop_loss_percent, ask_permission')
+            .select('take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier')
             .eq('wallet_address', address.toLowerCase())
             .eq('chain_id', chainId)
             .single();
@@ -113,6 +114,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
             setTakeProfit(vaultSettings.take_profit_percent || 5);
             setStopLoss(vaultSettings.stop_loss_percent || 1);
             setAskPermission(vaultSettings.ask_permission || false);
+            setLeverage(vaultSettings.leverage_multiplier || 1.0);
           }
         } catch (e) {
           // Settings may not exist yet, use defaults
@@ -648,6 +650,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
           currentTakeProfit={takeProfit}
           currentStopLoss={stopLoss}
           currentAskPermission={askPermission}
+          currentLeverage={leverage}
           startMode={settingsStartMode}
           onClose={() => {
             setShowSettingsModal(false);

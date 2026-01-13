@@ -276,26 +276,30 @@ export const ERC20_APPROVE_ABI = [
   }
 ] as const;
 
-// ARBITRUM ONLY - V5 Vault
-// V5: Uniswap V3 0.05% pools, 0.1% base fee, 10% success fee
+// ARBITRUM ONLY - V6 Vault
+// V6: 20x Leverage, Chainlink Oracles, On-chain SL/TP, Isolated Margin
 export const VAULT_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: '0x6C51F75b164205e51a87038662060cfe54d95E70',  // Arbitrum - LIVE (V5)
+  42161: '0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A',  // Arbitrum - LIVE (V6)
 };
 
 export const VAULT_V2_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: null,  // Using V5
+  42161: null,  // Using V6
 };
 
 export const VAULT_V3_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: null,  // Using V5
+  42161: null,  // Using V6
 };
 
 export const VAULT_V4_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: null,  // Using V5
+  42161: null,  // Using V6
 };
 
 export const VAULT_V5_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: '0x6C51F75b164205e51a87038662060cfe54d95E70',  // Arbitrum - LIVE (V5)
+  42161: null,  // Using V6
+};
+
+export const VAULT_V6_ADDRESSES: Record<number, `0x${string}` | null> = {
+  42161: '0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A',  // Arbitrum - LIVE (V6)
 };
 
 // USDC addresses - Arbitrum only
@@ -306,17 +310,18 @@ export const USDC_ADDRESSES: Record<number, `0x${string}`> = {
 // USDC decimals (6 for all chains)
 export const USDC_DECIMALS = 6;
 
-// Platform fee structure - Arbitrum V5 only
-// V5: 0.1% base fee + 10% success fee on profits
+// Platform fee structure - Arbitrum V6 only
+// V6: 0.1% base fee + 10% success fee on profits
 export const PLATFORM_FEES = {
   ARBITRUM_CHAIN_ID: 42161,
-  // V5 fees (Arbitrum) - low fees!
-  V5_BASE_FEE_BPS: 10,    // 0.1% base fee
-  V5_SUCCESS_FEE_BPS: 1000, // 10% of profit
+  // V6 fees (Arbitrum) - same as V5
+  V6_BASE_FEE_BPS: 10,    // 0.1% base fee
+  V6_SUCCESS_FEE_BPS: 1000, // 10% of profit
+  MAX_LEVERAGE: 20, // V6 supports up to 20x leverage
 } as const;
 
 /**
- * Get platform fee for Arbitrum V5
+ * Get platform fee for Arbitrum V6
  * @param chainId Chain ID (only 42161 supported)
  * @returns Fee in basis points and percentage
  */
@@ -324,20 +329,22 @@ export function getPlatformFeeForChain(chainId: number): {
   bps: number;
   percent: number;
   percentFormatted: string;
-  isV5: boolean;
+  isV6: boolean;
   successFeeBps?: number;
   successFeePercent?: number;
+  maxLeverage?: number;
 } {
-  // V5 fee structure: 0.1% base + 10% success fee
-  const bps = PLATFORM_FEES.V5_BASE_FEE_BPS;
+  // V6 fee structure: 0.1% base + 10% success fee
+  const bps = PLATFORM_FEES.V6_BASE_FEE_BPS;
   const percent = bps / 100;
   return {
     bps,
     percent,
     percentFormatted: `${percent.toFixed(1)}% + 10% profit`,
-    isV5: true,
-    successFeeBps: PLATFORM_FEES.V5_SUCCESS_FEE_BPS,
-    successFeePercent: 10
+    isV6: true,
+    successFeeBps: PLATFORM_FEES.V6_SUCCESS_FEE_BPS,
+    successFeePercent: 10,
+    maxLeverage: PLATFORM_FEES.MAX_LEVERAGE
   };
 }
 
@@ -390,8 +397,8 @@ export class VaultClient {
     this.walletClient = walletClient;
     this.chainId = chainId;
 
-    // Prefer V5 > V4 > V3 > V2 > V1
-    const vaultAddr = VAULT_V5_ADDRESSES[chainId] || VAULT_V4_ADDRESSES[chainId] || VAULT_V3_ADDRESSES[chainId] || VAULT_V2_ADDRESSES[chainId] || VAULT_ADDRESSES[chainId];
+    // Prefer V6 > V5 > V4 > V3 > V2 > V1
+    const vaultAddr = VAULT_V6_ADDRESSES[chainId] || VAULT_V5_ADDRESSES[chainId] || VAULT_V4_ADDRESSES[chainId] || VAULT_V3_ADDRESSES[chainId] || VAULT_V2_ADDRESSES[chainId] || VAULT_ADDRESSES[chainId];
     if (!vaultAddr) {
       throw new Error(`Vault not deployed on chain ${chainId}`);
     }
@@ -408,7 +415,7 @@ export class VaultClient {
    * Check if vault is available on this chain
    */
   static isAvailable(chainId: number): boolean {
-    return VAULT_V5_ADDRESSES[chainId] !== null || VAULT_V4_ADDRESSES[chainId] !== null || VAULT_V3_ADDRESSES[chainId] !== null || VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null;
+    return VAULT_V6_ADDRESSES[chainId] !== null || VAULT_V5_ADDRESSES[chainId] !== null || VAULT_V4_ADDRESSES[chainId] !== null || VAULT_V3_ADDRESSES[chainId] !== null || VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null;
   }
 
   /**
@@ -732,7 +739,7 @@ export class VaultClient {
     bps: number;
     percent: number;
     percentFormatted: string;
-    isBaseChain: boolean;
+    isArbitrum: boolean;
   }> {
     const feeBps = await this.publicClient.readContract({
       address: this.vaultAddress,
@@ -743,13 +750,13 @@ export class VaultClient {
 
     const bps = Number(feeBps);
     const percent = bps / 100;
-    const isBaseChain = this.chainId === PLATFORM_FEES.BASE_CHAIN_ID;
+    const isArbitrum = this.chainId === PLATFORM_FEES.ARBITRUM_CHAIN_ID;
 
     return {
       bps,
       percent,
       percentFormatted: `${percent.toFixed(1)}%`,
-      isBaseChain
+      isArbitrum
     };
   }
 

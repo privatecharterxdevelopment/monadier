@@ -32,6 +32,12 @@ export interface Position {
   created_at: string;
   updated_at: string;
   closed_at: string | null;
+  // Leverage fields (Aave V3)
+  is_leveraged: boolean;
+  leverage_multiplier: number;
+  collateral_amount: number;
+  borrowed_amount: number;
+  aave_health_factor: number | null;
 }
 
 // Default profit % before trailing stop activates (can be overridden per position)
@@ -71,6 +77,12 @@ export class PositionService {
     profitLockPercent?: number; // Min profit % before stop activates (0.2% for aggressive)
     trailingIncrement?: number; // V5: 0.15% increment for trailing
     entryReason?: string; // Why the bot opened this trade
+    // Leverage fields (Aave V3)
+    isLeveraged?: boolean;
+    leverageMultiplier?: number;
+    collateralAmount?: number;
+    borrowedAmount?: number;
+    aaveHealthFactor?: number;
   }): Promise<Position | null> {
     // DUPLICATE CHECK: Prevent double-insert with same txHash
     const { data: existing } = await this.supabase
@@ -121,7 +133,13 @@ export class PositionService {
           take_profit_percent: takeProfitPercent,
           profit_lock_percent: profitLockPercent, // User configurable!
           stop_activated: false, // Not active yet
-          status: 'open'
+          status: 'open',
+          // Leverage fields (Aave V3)
+          is_leveraged: params.isLeveraged || false,
+          leverage_multiplier: params.leverageMultiplier || 1.0,
+          collateral_amount: params.collateralAmount || 0,
+          borrowed_amount: params.borrowedAmount || 0,
+          aave_health_factor: params.aaveHealthFactor || null
         })
         .select()
         .single();

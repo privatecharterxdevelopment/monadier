@@ -37,8 +37,8 @@ const V4_VAULT = '0x08Afb514255187d664d6b250D699Edc51491E803';
 const V3_VAULT = '0xAd1F46B955b783c142ea9D2d3F221Ac2F3D63e79';
 const V2_VAULT = '0x5eF29B4348d31c311918438e92a5fae7641Bc00a';
 
-// Arbitrum V5 Vault
-const V5_VAULT_ARBITRUM = '0x6C51F75b164205e51a87038662060cfe54d95E70';
+// Arbitrum V6 Vault (20x Leverage, On-chain SL/TP)
+const V6_VAULT_ARBITRUM = '0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A';
 
 // USDC addresses
 const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
@@ -60,7 +60,7 @@ interface SystemStats {
   lastTradeTime: string | null;
   gasUsedToday: string;
   estimatedTradesLeft: number;
-  // Arbitrum V5
+  // Arbitrum V6 (20x Leverage)
   v5TvlArbitrum: string;
   v4TvlBase: string;
 }
@@ -180,17 +180,17 @@ const AdminMonitorPage: React.FC = () => {
     }
   };
 
-  // Fetch V5 Arbitrum TVL (USDC balance of vault)
-  const fetchV5ArbitrumTvl = async () => {
+  // Fetch V6 Arbitrum TVL (USDC balance of vault)
+  const fetchV6ArbitrumTvl = async () => {
     try {
-      const response = await fetch(`https://api.arbiscan.io/api?module=account&action=tokenbalance&contractaddress=${USDC_ARBITRUM}&address=${V5_VAULT_ARBITRUM}&tag=latest`);
+      const response = await fetch(`https://api.arbiscan.io/api?module=account&action=tokenbalance&contractaddress=${USDC_ARBITRUM}&address=${V6_VAULT_ARBITRUM}&tag=latest`);
       const data = await response.json();
       if (data.status === '1' && data.result) {
         return formatUnits(BigInt(data.result), 6);
       }
       return '0';
     } catch (err) {
-      console.error('Error fetching V5 Arbitrum TVL:', err);
+      console.error('Error fetching V6 Arbitrum TVL:', err);
       return '0';
     }
   };
@@ -216,12 +216,12 @@ const AdminMonitorPage: React.FC = () => {
     const transactions: VaultTransaction[] = [];
 
     try {
-      // Fetch Arbitrum V5 transactions
-      const arbResponse = await fetch(`https://api.arbiscan.io/api?module=account&action=tokentx&contractaddress=${USDC_ARBITRUM}&address=${V5_VAULT_ARBITRUM}&sort=desc`);
+      // Fetch Arbitrum V6 transactions
+      const arbResponse = await fetch(`https://api.arbiscan.io/api?module=account&action=tokentx&contractaddress=${USDC_ARBITRUM}&address=${V6_VAULT_ARBITRUM}&sort=desc`);
       const arbData = await arbResponse.json();
       if (arbData.status === '1' && arbData.result) {
         arbData.result.slice(0, 50).forEach((tx: any) => {
-          const isDeposit = tx.to.toLowerCase() === V5_VAULT_ARBITRUM.toLowerCase();
+          const isDeposit = tx.to.toLowerCase() === V6_VAULT_ARBITRUM.toLowerCase();
           transactions.push({
             hash: tx.hash,
             type: isDeposit ? 'deposit' : 'withdraw',
@@ -272,7 +272,7 @@ const AdminMonitorPage: React.FC = () => {
         fetchBotBalance(),
         fetchTreasuryBalance(),
         fetchEthPrice(),
-        fetchV5ArbitrumTvl(),
+        fetchV6ArbitrumTvl(),
         fetchV4BaseTvl(),
         fetchVaultTransactions()
       ]);
@@ -493,17 +493,17 @@ const AdminMonitorPage: React.FC = () => {
                   <Wallet className="text-blue-400" size={20} />
                 </div>
                 <div>
-                  <p className="text-sm text-secondary">Arbitrum V5 TVL</p>
+                  <p className="text-sm text-secondary">Arbitrum V6 TVL</p>
                   <p className="text-2xl font-bold text-white">${parseFloat(stats.v5TvlArbitrum).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 </div>
               </div>
               <a
-                href={`https://arbiscan.io/address/${V5_VAULT_ARBITRUM}`}
+                href={`https://arbiscan.io/address/${V6_VAULT_ARBITRUM}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
               >
-                <code>{V5_VAULT_ARBITRUM}</code>
+                <code>{V6_VAULT_ARBITRUM}</code>
                 <ExternalLink size={12} />
               </a>
             </div>
@@ -991,11 +991,11 @@ const AdminMonitorPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex items-center justify-between p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
             <div>
-              <p className="text-xs text-blue-400">V5 Vault Arbitrum (Active)</p>
-              <code className="text-sm text-blue-400">{V5_VAULT_ARBITRUM}</code>
+              <p className="text-xs text-blue-400">V6 Vault Arbitrum (Active)</p>
+              <code className="text-sm text-blue-400">{V6_VAULT_ARBITRUM}</code>
             </div>
             <a
-              href={`https://arbiscan.io/address/${V5_VAULT_ARBITRUM}`}
+              href={`https://arbiscan.io/address/${V6_VAULT_ARBITRUM}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-gray-500 hover:text-white"
