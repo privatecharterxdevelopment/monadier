@@ -66,14 +66,19 @@ let recentFailures = 0;
 let lastFailureTime = 0;
 const FAILURE_RESET_MS = 300000; // Reset failure count after 5 minutes
 
-// Token addresses for trading - ARBITRUM ONLY
+// Token addresses for trading - ARBITRUM ONLY (others empty for type safety)
 const TRADE_TOKENS: Record<ChainId, { address: `0x${string}`; symbol: string }[]> = {
   // ARBITRUM V5 - 3 tokens active
   42161: [
     { address: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1', symbol: 'WETH' },
     { address: '0x912CE59144191C1204E64559FE8253a0e49E6548', symbol: 'ARB' },
     { address: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f', symbol: 'WBTC' },
-  ]
+  ],
+  // Empty - not active
+  8453: [],
+  1: [],
+  137: [],
+  56: []
 };
 
 /**
