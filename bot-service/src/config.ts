@@ -52,8 +52,10 @@ export const config = {
       vaultAddress: process.env.ARBITRUM_VAULT_ADDRESS as `0x${string}` | undefined,
       // V5: Uniswap V3 (0.05% pools), 0.1% base fee, 10% success fee
       vaultV5Address: process.env.ARBITRUM_VAULT_V5_ADDRESS as `0x${string}` || '0x6C51F75b164205e51a87038662060cfe54d95E70',
-      // V6: Isolated Margin, 20x Leverage, Chainlink Oracles, On-chain SL/TP
+      // V6: Isolated Margin, 20x Leverage, Chainlink Oracles, On-chain SL/TP (DEPRECATED - Aave limits)
       vaultV6Address: process.env.ARBITRUM_VAULT_V6_ADDRESS as `0x${string}` || '0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A',
+      // V7: GMX Perpetuals, TRUE 25x-50x Leverage, Keeper execution
+      vaultV7Address: process.env.ARBITRUM_VAULT_V7_ADDRESS as `0x${string}` || '0x712B3A0cFD00674a15c5D235e998F71709112675',
       name: 'Arbitrum'
     },
     56: { // BSC

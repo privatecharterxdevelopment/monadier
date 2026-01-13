@@ -25,14 +25,15 @@ const RISK_LEVELS = [
   { value: 100, label: 'All-In', description: '100% per trade', icon: Flame, color: 'text-purple-400', bg: 'bg-purple-500/10' },
 ];
 
+// V7 GMX Leverage Levels - Standard users max 25x, Elite users max 50x (unlocked manually)
 const LEVERAGE_LEVELS = [
   { value: 1, label: '1x', description: 'No leverage', color: 'text-zinc-400', bg: 'bg-zinc-500/10' },
   { value: 2, label: '2x', description: 'Low risk', color: 'text-blue-400', bg: 'bg-blue-500/10' },
-  { value: 3, label: '3x', description: 'Moderate', color: 'text-green-400', bg: 'bg-green-500/10' },
-  { value: 5, label: '5x', description: 'High risk', color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
-  { value: 10, label: '10x', description: 'Very high', color: 'text-orange-400', bg: 'bg-orange-500/10' },
-  { value: 15, label: '15x', description: 'Extreme', color: 'text-red-400', bg: 'bg-red-500/10' },
-  { value: 20, label: '20x', description: 'MAX', color: 'text-purple-400', bg: 'bg-purple-500/10' },
+  { value: 5, label: '5x', description: 'Moderate', color: 'text-green-400', bg: 'bg-green-500/10' },
+  { value: 10, label: '10x', description: 'High risk', color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
+  { value: 15, label: '15x', description: 'Very high', color: 'text-orange-400', bg: 'bg-orange-500/10' },
+  { value: 20, label: '20x', description: 'Extreme', color: 'text-red-400', bg: 'bg-red-500/10' },
+  { value: 25, label: '25x', description: 'MAX', color: 'text-purple-400', bg: 'bg-purple-500/10' },
 ];
 
 export default function VaultSettingsModal({
@@ -399,16 +400,16 @@ export default function VaultSettingsModal({
             </div>
           </div>
 
-          {/* Leverage Section (Arbitrum Only) */}
+          {/* Leverage Section (Arbitrum V7 GMX) */}
           {chainId === 42161 && (
             <div className="border-t border-zinc-800 pt-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Scale className="w-4 h-4 text-purple-400" />
-                  <h3 className="text-white font-medium">Leverage (Aave V3)</h3>
+                  <h3 className="text-white font-medium">Leverage (GMX Perpetuals)</h3>
                 </div>
                 <span className={`text-sm font-medium ${
-                  leverage >= 10 ? 'text-red-400' : leverage >= 5 ? 'text-orange-400' : leverage > 1 ? 'text-purple-400' : 'text-zinc-400'
+                  leverage >= 15 ? 'text-red-400' : leverage >= 10 ? 'text-orange-400' : leverage > 1 ? 'text-purple-400' : 'text-zinc-400'
                 }`}>
                   {leverage}x
                 </span>
@@ -437,27 +438,30 @@ export default function VaultSettingsModal({
 
               {/* Leverage Info */}
               <div className={`p-3 rounded-lg ${
-                leverage >= 10 ? 'bg-red-500/10 border border-red-500/20' :
-                leverage >= 5 ? 'bg-orange-500/10 border border-orange-500/20' :
+                leverage >= 15 ? 'bg-red-500/10 border border-red-500/20' :
+                leverage >= 10 ? 'bg-orange-500/10 border border-orange-500/20' :
                 leverage > 1 ? 'bg-purple-500/10 border border-purple-500/20' :
                 'bg-zinc-800/50'
               }`}>
                 {leverage > 1 ? (
-                  <div className={`text-xs ${leverage >= 10 ? 'text-red-400' : leverage >= 5 ? 'text-orange-400' : 'text-purple-400'}`}>
+                  <div className={`text-xs ${leverage >= 15 ? 'text-red-400' : leverage >= 10 ? 'text-orange-400' : 'text-purple-400'}`}>
                     <p className="font-medium mb-1">
-                      {leverage}x Leverage via Aave V3
+                      {leverage}x Leverage via GMX Perpetuals
                     </p>
                     <p className="opacity-80">
                       Your ${riskLevel}% trade size → {(riskLevel * leverage).toFixed(0)}% effective position.
                     </p>
-                    {leverage >= 5 && (
+                    <p className="mt-1 text-zinc-400">
+                      Fee: 0.1% on total position size + 10% of profits
+                    </p>
+                    {leverage >= 10 && (
                       <p className="mt-1 text-orange-400">
                         ⚠️ High leverage: +1% price move = {leverage > 1 ? `+${leverage}%` : '+1%'} P/L
                       </p>
                     )}
-                    {leverage >= 10 && (
+                    {leverage >= 20 && (
                       <p className="mt-1 text-red-400">
-                        🔥 EXTREME RISK: Liquidation at ~{(100 / leverage * 0.8).toFixed(1)}% loss!
+                        🔥 EXTREME RISK: Liquidation at ~{(100 / leverage * 0.9).toFixed(1)}% adverse move!
                       </p>
                     )}
                   </div>

@@ -5,6 +5,7 @@ import { config, ChainId } from './config';
 import { logger } from './utils/logger';
 import { tradingService, TradeSignal } from './services/trading';
 import { tradingV6Service, V6TradeSignal, V6_TOKENS } from './services/tradingV6';
+import { tradingV7GMXService, V7TradeSignal, V7_TOKENS } from './services/tradingV7GMX';
 import { subscriptionService } from './services/subscription';
 import { marketService, TradingStrategy, signalEngine } from './services/market';
 import { positionService } from './services/positions';
@@ -43,7 +44,7 @@ const healthServer = http.createServer(async (req, res) => {
       uptime: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
       lastCheck: new Date(lastTradeCheck).toISOString(),
       tradesExecuted: totalTradesExecuted,
-      version: 'v6.0-Leverage'
+      version: 'v7.0-GMX'
     };
     res.writeHead(200, corsHeaders);
     res.end(JSON.stringify(status));
@@ -121,8 +122,8 @@ healthServer.listen(PORT, () => {
 // Default trading strategy - can be configured per user later
 const DEFAULT_STRATEGY: TradingStrategy = 'risky'; // RISKY = many trades!
 
-// Supported chains for auto-trading - ARBITRUM V6 ONLY
-const ACTIVE_CHAINS: ChainId[] = [42161]; // Arbitrum V6 (20x Leverage, On-chain SL/TP)
+// Supported chains for auto-trading - ARBITRUM V7 GMX
+const ACTIVE_CHAINS: ChainId[] = [42161]; // Arbitrum V7 GMX (25x-50x Leverage, GMX Perpetuals)
 
 // Locks to prevent concurrent execution
 let isTradingCycleRunning = false;
@@ -133,9 +134,9 @@ let isReconciliationRunning = false;
 const lastTradeTimestamp: Map<string, number> = new Map();
 const TRADE_COOLDOWN_MS = 300000; // 5 minute cooldown between trades (matches V5 contract)
 
-// Max positions - ARBITRUM V6 (one position per token)
+// Max positions - ARBITRUM V7 GMX (one position per token)
 const MAX_POSITIONS_PER_CHAIN: Record<number, number> = {
-  42161: 3,  // Arbitrum V6 - 3 positions (1 per token: WETH, WBTC, ARB)
+  42161: 2,  // Arbitrum V7 GMX - 2 positions (1 per token: WETH, WBTC)
 };
 
 const MAX_FAILED_BEFORE_STOP = 2; // Stop trading after 2 failures
@@ -147,12 +148,11 @@ let recentFailures = 0;
 let lastFailureTime = 0;
 const FAILURE_RESET_MS = 300000; // Reset failure count after 5 minutes
 
-// Token addresses for trading - ARBITRUM V6 (with Chainlink oracles)
+// Token addresses for trading - ARBITRUM V7 GMX (WETH and WBTC perpetuals)
 const TRADE_TOKENS: Record<ChainId, { address: `0x${string}`; symbol: string }[]> = {
-  // ARBITRUM V6 - 3 tokens with Chainlink oracles
+  // ARBITRUM V7 GMX - 2 tokens with GMX perpetuals
   42161: [
     { address: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1', symbol: 'WETH' },
-    { address: '0x912CE59144191C1204E64559FE8253a0e49E6548', symbol: 'ARB' },
     { address: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f', symbol: 'WBTC' },
   ],
   // Empty - not active
@@ -191,15 +191,15 @@ async function generateTradeSignal(
 }
 
 /**
- * Process trades for a single user on Arbitrum V6
- * V6: Opens leveraged LONG/SHORT positions with on-chain SL/TP
+ * Process trades for a single user on Arbitrum V7 GMX
+ * V7: Opens leveraged LONG/SHORT positions via GMX Perpetuals (25x-50x)
  */
 async function processUserTrades(
   chainId: ChainId,
   userAddress: `0x${string}`
 ): Promise<void> {
   try {
-    // Only Arbitrum V6 is supported
+    // Only Arbitrum V7 is supported
     if (chainId !== 42161) {
       return;
     }
@@ -214,10 +214,10 @@ async function processUserTrades(
       return;
     }
 
-    // 2. Get V6 vault status
-    const vaultStatus = await tradingV6Service.getUserVaultStatus(userAddress);
+    // 2. Get V7 vault status
+    const vaultStatus = await tradingV7GMXService.getUserVaultStatus(userAddress);
 
-    logger.info('V6 Vault status check', {
+    logger.info('V7 GMX Vault status check', {
       userAddress: userAddress.slice(0, 10),
       hasStatus: !!vaultStatus,
       balance: vaultStatus?.balanceFormatted || '0',
@@ -274,7 +274,8 @@ async function processUserTrades(
 
     // 6. Get user's trading settings (leverage, SL, TP)
     const userSettings = await subscriptionService.getUserTradingSettings(userAddress, chainId);
-    const leverage = userSettings.leverageMultiplier || 1;
+    // V7: Standard users max 25x, Elite users max 50x (checked by contract)
+    const leverage = Math.min(userSettings.leverageMultiplier || 1, 25); // Default cap at 25x
     const stopLossPercent = userSettings.stopLossPercent || 5;
     const takeProfitPercent = userSettings.takeProfitPercent || 10;
 
@@ -285,19 +286,19 @@ async function processUserTrades(
         continue;
       }
 
-      // Check for existing position (database + on-chain)
+      // Check for existing position (database + on-chain via GMX)
       const hasExistingDb = await positionService.hasAnyActivePosition(
         userAddress,
         chainId,
         tokenConfig.address
       );
-      const hasExistingOnChain = await tradingV6Service.hasOpenPosition(
+      const hasExistingOnChain = await tradingV7GMXService.hasOpenPosition(
         userAddress,
         tokenConfig.address as `0x${string}`
       );
 
       if (hasExistingDb || hasExistingOnChain) {
-        logger.debug('Skipping token - existing position', {
+        logger.debug('Skipping token - existing GMX position', {
           userAddress: userAddress.slice(0, 10),
           token: tokenConfig.symbol,
           db: hasExistingDb,
@@ -331,8 +332,8 @@ async function processUserTrades(
         continue;
       }
 
-      // Create V6 signal with leverage and on-chain SL/TP
-      const v6Signal: V6TradeSignal = {
+      // Create V7 signal for GMX perpetuals
+      const v7Signal: V7TradeSignal = {
         direction: signal.direction,
         confidence: signal.confidence,
         tokenAddress: tokenConfig.address as `0x${string}`,
@@ -344,7 +345,7 @@ async function processUserTrades(
         reason: signal.reason
       };
 
-      logger.info('Opening V6 position', {
+      logger.info('Opening V7 GMX position', {
         user: userAddress.slice(0, 10),
         token: tokenConfig.symbol,
         direction: signal.direction,
@@ -352,16 +353,14 @@ async function processUserTrades(
         confidence: signal.confidence
       });
 
-      // Open position using V6 service
-      const result = signal.direction === 'LONG'
-        ? await tradingV6Service.openLong(userAddress, v6Signal)
-        : await tradingV6Service.openShort(userAddress, v6Signal);
+      // Open position using V7 GMX service
+      const result = await tradingV7GMXService.openPosition(userAddress, v7Signal);
 
       if (result.success) {
         lastTradeTimestamp.set(cooldownKey, Date.now());
         positionsOpened++;
 
-        logger.info(`V6 ${signal.direction} opened`, {
+        logger.info(`V7 GMX ${signal.direction} opened`, {
           user: userAddress.slice(0, 10),
           txHash: result.txHash,
           token: tokenConfig.symbol,
@@ -372,7 +371,7 @@ async function processUserTrades(
         recentFailures++;
         lastFailureTime = Date.now();
 
-        logger.warn('Failed to open V6 position', {
+        logger.warn('Failed to open V7 GMX position', {
           user: userAddress.slice(0, 10),
           token: tokenConfig.symbol,
           error: result.error
@@ -381,7 +380,7 @@ async function processUserTrades(
     }
 
     if (positionsOpened > 0) {
-      logger.info(`V6 Trading cycle complete - ${positionsOpened} position(s)`, {
+      logger.info(`V7 GMX Trading cycle complete - ${positionsOpened} position(s)`, {
         userAddress: userAddress.slice(0, 10)
       });
     }
@@ -389,7 +388,7 @@ async function processUserTrades(
     recentFailures++;
     lastFailureTime = Date.now();
 
-    logger.error('Error processing V6 trades', {
+    logger.error('Error processing V7 GMX trades', {
       userAddress: userAddress.slice(0, 10),
       error: err
     });
@@ -397,8 +396,8 @@ async function processUserTrades(
 }
 
 /**
- * Monitor V6 positions and execute on-chain SL/TP/Liquidation
- * V6 has on-chain SL/TP so we just check and execute triggers
+ * Monitor V7 GMX positions and execute SL/TP via keepers
+ * V7 uses GMX keeper system for position execution
  */
 async function runPositionMonitoringCycle(): Promise<void> {
   if (isMonitoringCycleRunning) {
@@ -409,7 +408,7 @@ async function runPositionMonitoringCycle(): Promise<void> {
   isMonitoringCycleRunning = true;
   try {
     // Get all users with auto-trade enabled on Arbitrum
-    const users = await tradingV6Service.getAutoTradeUsers();
+    const users = await tradingV7GMXService.getAutoTradeUsers();
     const tokenConfigs = TRADE_TOKENS[42161];
 
     let triggeredCount = 0;
@@ -417,15 +416,15 @@ async function runPositionMonitoringCycle(): Promise<void> {
     for (const userAddress of users) {
       for (const tokenConfig of tokenConfigs) {
         try {
-          // Check on-chain position status (SL/TP/Liquidation)
-          const result = await tradingV6Service.checkAndExecuteTriggers(
+          // Check GMX position status and execute triggers if needed
+          const result = await tradingV7GMXService.checkAndExecuteTriggers(
             userAddress,
             tokenConfig.address as `0x${string}`
           );
 
           if (result.triggered) {
             triggeredCount++;
-            logger.info(`V6 ${result.reason?.toUpperCase()} executed`, {
+            logger.info(`V7 GMX ${result.reason?.toUpperCase()} executed`, {
               user: userAddress.slice(0, 10),
               token: tokenConfig.symbol
             });
@@ -437,10 +436,10 @@ async function runPositionMonitoringCycle(): Promise<void> {
     }
 
     if (triggeredCount > 0) {
-      logger.info('V6 Monitor cycle complete', { triggeredCount });
+      logger.info('V7 GMX Monitor cycle complete', { triggeredCount });
     }
   } catch (err) {
-    logger.error('Error in V6 position monitoring', { error: err });
+    logger.error('Error in V7 GMX position monitoring', { error: err });
   } finally {
     isMonitoringCycleRunning = false;
   }
@@ -531,17 +530,17 @@ async function runReconciliationCycle(): Promise<void> {
  */
 async function runFeeWithdrawalCycle(): Promise<void> {
   try {
-    // V6 fee withdrawal on Arbitrum
-    const result = await tradingV6Service.withdrawFees();
+    // V7 GMX fee withdrawal on Arbitrum
+    const result = await tradingV7GMXService.withdrawFees();
 
     if (result.success && result.amount && result.amount !== '0') {
-      logger.info('V6 Fees withdrawn to treasury', {
+      logger.info('V7 GMX Fees withdrawn to treasury', {
         amount: result.amount,
         unit: 'USDC'
       });
     }
   } catch (err) {
-    logger.error('Error in V6 fee withdrawal', { error: err });
+    logger.error('Error in V7 GMX fee withdrawal', { error: err });
   }
 }
 
@@ -726,22 +725,22 @@ async function runTradingCycle(): Promise<void> {
  */
 function logStartupInfo(): void {
   logger.info('='.repeat(50));
-  logger.info('Monadier Trading Bot Service V6');
-  logger.info('Features: 20x Leverage + On-chain SL/TP + Chainlink Oracles');
+  logger.info('Monadier Trading Bot Service V7 GMX');
+  logger.info('Features: 25x-50x Leverage + GMX Perpetuals + Keeper Execution');
   logger.info('='.repeat(50));
 
   logger.info('Configuration:', {
     tradeInterval: `${config.trading.checkIntervalMs / 1000}s`,
     monitorInterval: '10s',
     strategy: DEFAULT_STRATEGY,
-    maxLeverage: '20x'
+    maxLeverage: '25x (Standard) / 50x (Elite)'
   });
 
-  // Show V6 vault info for Arbitrum
+  // Show V7 vault info for Arbitrum
   const arbConfig = config.chains[42161] as any;
-  const v6Address = arbConfig?.vaultV6Address;
-  logger.info(`Chain Arbitrum: V6 Active (${v6Address?.slice(0, 10) || 'Not set'}...)`);
-  logger.info(`V6 Vault: 0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A`);
+  const v7Address = arbConfig?.vaultV7Address;
+  logger.info(`Chain Arbitrum: V7 GMX Active (${v7Address?.slice(0, 10) || 'Not set'}...)`);
+  logger.info(`V7 GMX Vault: 0x712B3A0cFD00674a15c5D235e998F71709112675`);
 
   logger.info('='.repeat(50));
 }

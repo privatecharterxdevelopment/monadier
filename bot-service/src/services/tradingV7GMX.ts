@@ -224,6 +224,9 @@ export interface V7TradeResult {
   leverage?: number;
 }
 
+// V7 Vault Address on Arbitrum
+const V7_VAULT_ADDRESS = (config.chains[42161] as any).vaultV7Address || '0x712B3A0cFD00674a15c5D235e998F71709112675';
+
 export class TradingV7GMXService {
   private botAccount = privateKeyToAccount(config.botPrivateKey);
   private publicClient;
@@ -244,8 +247,8 @@ export class TradingV7GMXService {
       transport: http(rpcUrl)
     });
 
-    // V7 vault address - will be set after deployment
-    this.v7VaultAddress = vaultAddress || '0x0000000000000000000000000000000000000000';
+    // V7 vault address from config
+    this.v7VaultAddress = vaultAddress || V7_VAULT_ADDRESS as `0x${string}`;
 
     logger.info('TradingV7GMXService initialized', {
       gmxVault: GMX_ADDRESSES.vault,

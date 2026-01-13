@@ -276,30 +276,35 @@ export const ERC20_APPROVE_ABI = [
   }
 ] as const;
 
-// ARBITRUM ONLY - V6 Vault
-// V6: 20x Leverage, Chainlink Oracles, On-chain SL/TP, Isolated Margin
+// ARBITRUM ONLY - V7 GMX Vault (25x-50x Leverage)
+// V7: GMX Perpetuals, TRUE 25x-50x Leverage, Keeper execution
 export const VAULT_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: '0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A',  // Arbitrum - LIVE (V6)
+  42161: '0x712B3A0cFD00674a15c5D235e998F71709112675',  // Arbitrum - LIVE (V7 GMX)
 };
 
 export const VAULT_V2_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: null,  // Using V6
+  42161: null,  // Using V7
 };
 
 export const VAULT_V3_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: null,  // Using V6
+  42161: null,  // Using V7
 };
 
 export const VAULT_V4_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: null,  // Using V6
+  42161: null,  // Using V7
 };
 
 export const VAULT_V5_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: null,  // Using V6
+  42161: null,  // Using V7
 };
 
 export const VAULT_V6_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: '0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A',  // Arbitrum - LIVE (V6)
+  42161: '0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A',  // Arbitrum - DEPRECATED (V6)
+};
+
+// V7: GMX Perpetuals - TRUE 25x-50x Leverage
+export const VAULT_V7_ADDRESSES: Record<number, `0x${string}` | null> = {
+  42161: '0x712B3A0cFD00674a15c5D235e998F71709112675',  // Arbitrum - LIVE (V7 GMX)
 };
 
 // USDC addresses - Arbitrum only
@@ -310,18 +315,23 @@ export const USDC_ADDRESSES: Record<number, `0x${string}`> = {
 // USDC decimals (6 for all chains)
 export const USDC_DECIMALS = 6;
 
-// Platform fee structure - Arbitrum V6 only
-// V6: 0.1% base fee + 10% success fee on profits
+// Platform fee structure - Arbitrum V7 GMX
+// V7: 0.1% base fee on TOTAL position (collateral × leverage) + 10% success fee
 export const PLATFORM_FEES = {
   ARBITRUM_CHAIN_ID: 42161,
-  // V6 fees (Arbitrum) - same as V5
-  V6_BASE_FEE_BPS: 10,    // 0.1% base fee
-  V6_SUCCESS_FEE_BPS: 1000, // 10% of profit
-  MAX_LEVERAGE: 20, // V6 supports up to 20x leverage
+  // V7 fees (Arbitrum) - 0.1% on total position size
+  V7_BASE_FEE_BPS: 10,    // 0.1% base fee on TOTAL position
+  V7_SUCCESS_FEE_BPS: 1000, // 10% of profit
+  MAX_LEVERAGE_STANDARD: 25, // Standard users: 1x-25x
+  MAX_LEVERAGE_ELITE: 50, // Elite users (manually unlocked): 1x-50x
+  // Legacy V6 reference
+  V6_BASE_FEE_BPS: 10,
+  V6_SUCCESS_FEE_BPS: 1000,
+  MAX_LEVERAGE: 25, // Default max leverage
 } as const;
 
 /**
- * Get platform fee for Arbitrum V6
+ * Get platform fee for Arbitrum V7 GMX
  * @param chainId Chain ID (only 42161 supported)
  * @returns Fee in basis points and percentage
  */
@@ -329,22 +339,24 @@ export function getPlatformFeeForChain(chainId: number): {
   bps: number;
   percent: number;
   percentFormatted: string;
-  isV6: boolean;
+  isV7: boolean;
   successFeeBps?: number;
   successFeePercent?: number;
   maxLeverage?: number;
+  maxLeverageElite?: number;
 } {
-  // V6 fee structure: 0.1% base + 10% success fee
-  const bps = PLATFORM_FEES.V6_BASE_FEE_BPS;
+  // V7 fee structure: 0.1% on TOTAL position + 10% success fee
+  const bps = PLATFORM_FEES.V7_BASE_FEE_BPS;
   const percent = bps / 100;
   return {
     bps,
     percent,
-    percentFormatted: `${percent.toFixed(1)}% + 10% profit`,
-    isV6: true,
-    successFeeBps: PLATFORM_FEES.V6_SUCCESS_FEE_BPS,
+    percentFormatted: `${percent.toFixed(1)}% on position + 10% profit`,
+    isV7: true,
+    successFeeBps: PLATFORM_FEES.V7_SUCCESS_FEE_BPS,
     successFeePercent: 10,
-    maxLeverage: PLATFORM_FEES.MAX_LEVERAGE
+    maxLeverage: PLATFORM_FEES.MAX_LEVERAGE_STANDARD,
+    maxLeverageElite: PLATFORM_FEES.MAX_LEVERAGE_ELITE
   };
 }
 
@@ -397,8 +409,8 @@ export class VaultClient {
     this.walletClient = walletClient;
     this.chainId = chainId;
 
-    // Prefer V6 > V5 > V4 > V3 > V2 > V1
-    const vaultAddr = VAULT_V6_ADDRESSES[chainId] || VAULT_V5_ADDRESSES[chainId] || VAULT_V4_ADDRESSES[chainId] || VAULT_V3_ADDRESSES[chainId] || VAULT_V2_ADDRESSES[chainId] || VAULT_ADDRESSES[chainId];
+    // Prefer V7 > V6 > V5 > V4 > V3 > V2 > V1
+    const vaultAddr = VAULT_V7_ADDRESSES[chainId] || VAULT_V6_ADDRESSES[chainId] || VAULT_V5_ADDRESSES[chainId] || VAULT_V4_ADDRESSES[chainId] || VAULT_V3_ADDRESSES[chainId] || VAULT_V2_ADDRESSES[chainId] || VAULT_ADDRESSES[chainId];
     if (!vaultAddr) {
       throw new Error(`Vault not deployed on chain ${chainId}`);
     }
@@ -415,7 +427,7 @@ export class VaultClient {
    * Check if vault is available on this chain
    */
   static isAvailable(chainId: number): boolean {
-    return VAULT_V6_ADDRESSES[chainId] !== null || VAULT_V5_ADDRESSES[chainId] !== null || VAULT_V4_ADDRESSES[chainId] !== null || VAULT_V3_ADDRESSES[chainId] !== null || VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null;
+    return VAULT_V7_ADDRESSES[chainId] !== null || VAULT_V6_ADDRESSES[chainId] !== null || VAULT_V5_ADDRESSES[chainId] !== null || VAULT_V4_ADDRESSES[chainId] !== null || VAULT_V3_ADDRESSES[chainId] !== null || VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null;
   }
 
   /**
