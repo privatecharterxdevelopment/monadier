@@ -573,7 +573,7 @@ async function updateBotAnalysis(): Promise<void> {
             recommendation: `${analysis.direction} - ${analysis.reason} (${analysis.confidence}% confidence)`
           });
 
-          logger.info(`📊 ${analysis.direction} signal generated`, {
+          logger.info(`📊 ${analysis.direction} signal generated and SAVED to DB`, {
             symbol: tokenConfig.symbol + 'USDT',
             strategy: DEFAULT_STRATEGY,
             conditionsMet: `${analysis.metrics.conditionsMet}/6`,
@@ -582,6 +582,12 @@ async function updateBotAnalysis(): Promise<void> {
             trend: analysis.metrics.trend,
             suggestedTP: `${analysis.suggestedTP}%`,
             suggestedSL: `${analysis.suggestedSL}%`
+          });
+        } else {
+          logger.warn('No analysis returned - could not fetch market data', {
+            chainId,
+            token: tokenConfig.symbol,
+            reason: 'analyzeMarket returned null (likely API failure)'
           });
         }
       } catch (err) {
