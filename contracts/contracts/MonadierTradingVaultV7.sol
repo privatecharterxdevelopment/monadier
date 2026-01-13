@@ -419,8 +419,9 @@ contract MonadierTradingVaultV7 is ReentrancyGuard, Pausable, Ownable {
 
         if (sizeDelta < MIN_POSITION_SIZE * 1e24) revert BelowMinimumPosition();
 
-        // Calculate platform fee
-        uint256 platformFee = (collateralAmount * PLATFORM_FEE) / BASIS_POINTS;
+        // Calculate platform fee on TOTAL position size (collateral × leverage)
+        uint256 totalPositionSize = collateralAmount * leverage;
+        uint256 platformFee = (totalPositionSize * PLATFORM_FEE) / BASIS_POINTS;
         uint256 netCollateral = collateralAmount - platformFee;
         accumulatedFees += platformFee;
 
