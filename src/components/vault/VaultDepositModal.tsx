@@ -47,9 +47,9 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
 
   const platformFee = chainId ? getPlatformFeeForChain(chainId) : { percentFormatted: '1.0%' };
 
-  // V7 GMX minimum vault balance requirement ($100)
+  // V7 GMX minimum vault balance requirement ($50 - matches smart contract)
   const isV7Chain = chainId ? VAULT_V7_ADDRESSES[chainId] !== null : false;
-  const minDepositAmount = isV7Chain ? 100 : 0;
+  const minDepositAmount = isV7Chain ? 50 : 0;
 
   // Check if amount is below minimum
   const depositAmount = depositType === 'usdc'
