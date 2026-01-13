@@ -741,6 +741,70 @@ export class PositionService {
 
     return data || [];
   }
+
+  /**
+   * Fix positions with 0 entry price by fetching from Binance
+   * This handles cases where price fetch failed at position creation
+   */
+  async fixZeroEntryPrices(): Promise<number> {
+    // Find all open positions with entry_price = 0
+    const { data: badPositions, error } = await this.supabase
+      .from('positions')
+      .select('id, token_symbol, entry_amount')
+      .eq('entry_price', 0)
+      .in('status', ['open', 'closing']);
+
+    if (error || !badPositions || badPositions.length === 0) {
+      return 0;
+    }
+
+    logger.warn(`Found ${badPositions.length} positions with entry_price = 0, fixing...`);
+
+    let fixedCount = 0;
+    for (const pos of badPositions) {
+      try {
+        // Fetch price from Binance
+        const symbol = pos.token_symbol === 'WETH' ? 'ETHUSDT' : pos.token_symbol + 'USDT';
+        const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+        const data = await res.json();
+
+        if (data.price) {
+          const price = parseFloat(data.price);
+
+          // Calculate estimated token amount
+          const tokenAmount = pos.entry_amount / price;
+
+          // Calculate take profit and trailing stop
+          const takeProfitPrice = price * 1.015; // 1.5% TP
+          const highestPrice = price;
+
+          // Update the position
+          await this.supabase
+            .from('positions')
+            .update({
+              entry_price: price,
+              highest_price: highestPrice,
+              lowest_price: price,
+              take_profit_price: takeProfitPrice,
+              token_amount: tokenAmount,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', pos.id);
+
+          logger.info(`Fixed position entry price`, {
+            positionId: pos.id,
+            token: pos.token_symbol,
+            newEntryPrice: price
+          });
+          fixedCount++;
+        }
+      } catch (e) {
+        logger.error(`Failed to fix position ${pos.id}`, { error: e });
+      }
+    }
+
+    return fixedCount;
+  }
 }
 
 export const positionService = new PositionService();

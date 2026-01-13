@@ -363,6 +363,12 @@ async function runReconciliationCycle(): Promise<void> {
   logger.info('Starting position reconciliation cycle');
 
   try {
+    // Fix any positions with 0 entry price (from failed price fetches)
+    const fixedCount = await positionService.fixZeroEntryPrices();
+    if (fixedCount > 0) {
+      logger.info(`Fixed ${fixedCount} positions with missing entry prices`);
+    }
+
     for (const chainId of ACTIVE_CHAINS) {
       const tokenConfigs = TRADE_TOKENS[chainId];
       if (!tokenConfigs) continue;

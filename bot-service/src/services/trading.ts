@@ -619,14 +619,29 @@ export class TradingService {
         return { success: false, error: 'Transaction reverted' };
       }
 
-      // 6. Get current token price
-      const currentPrice = await this.getTokenPrice(chainId, signal.tokenAddress as `0x${string}`);
-      if (!currentPrice) {
-        logger.warn('Could not get token price for position tracking');
+      // 6. Get current token price (REQUIRED for position tracking)
+      let entryPrice = await this.getTokenPrice(chainId, signal.tokenAddress as `0x${string}`);
+
+      // Fallback to Binance price if on-chain quote fails
+      if (!entryPrice || entryPrice === 0) {
+        try {
+          const symbol = signal.tokenSymbol === 'WETH' ? 'ETHUSDT' : signal.tokenSymbol + 'USDT';
+          const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+          const data = await res.json();
+          if (data.price) {
+            entryPrice = parseFloat(data.price);
+            logger.info('Using Binance price as fallback', { symbol, price: entryPrice });
+          }
+        } catch (e) {
+          logger.error('Failed to get Binance price fallback');
+        }
       }
 
-      // 7. Record position in database with trailing stop
-      const entryPrice = currentPrice || 0;
+      // CRITICAL: Don't create position with 0 entry price!
+      if (!entryPrice || entryPrice === 0) {
+        logger.error('Cannot create position with 0 entry price - all price sources failed');
+        return { success: false, error: 'Failed to get token price for position' };
+      }
       const entryAmount = parseFloat(formatUnits(tradeAmount, 6));
 
       // Estimate tokens received (we'd need to parse logs for exact amount)
