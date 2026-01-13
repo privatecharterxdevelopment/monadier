@@ -304,6 +304,7 @@ const BotHistoryPage: React.FC = () => {
   const [allPositions, setAllPositions] = useState<Position[]>([]);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [userWallets, setUserWallets] = useState<string[]>([]);
+  const [additionalWallet, setAdditionalWallet] = useState('');
 
   // Fetch all user's wallets on mount - try multiple sources
   useEffect(() => {
@@ -738,6 +739,49 @@ const BotHistoryPage: React.FC = () => {
             Refresh
           </button>
         </div>
+      </div>
+
+      {/* Add Another Wallet */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+        <div className="flex items-center gap-3">
+          <span className="text-zinc-400 text-sm">View trades from another wallet:</span>
+          <input
+            type="text"
+            placeholder="0x..."
+            value={additionalWallet}
+            onChange={(e) => setAdditionalWallet(e.target.value)}
+            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-blue-500"
+          />
+          <button
+            onClick={() => {
+              if (additionalWallet && additionalWallet.startsWith('0x') && additionalWallet.length === 42) {
+                setUserWallets(prev => [...new Set([...prev, additionalWallet.toLowerCase()])]);
+                setAdditionalWallet('');
+              }
+            }}
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white text-sm font-medium transition-colors"
+          >
+            Add Wallet
+          </button>
+        </div>
+        {userWallets.length > 1 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <span className="text-zinc-500 text-xs">Viewing trades from:</span>
+            {userWallets.map((w, i) => (
+              <span key={w} className="px-2 py-1 bg-zinc-800 rounded text-xs text-zinc-300">
+                {w.slice(0, 6)}...{w.slice(-4)}
+                {i > 0 && (
+                  <button
+                    onClick={() => setUserWallets(prev => prev.filter(x => x !== w))}
+                    className="ml-1 text-red-400 hover:text-red-300"
+                  >
+                    ×
+                  </button>
+                )}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Current Bot Settings Summary - Only show when loaded */}
