@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Settings, Loader2, AlertCircle, CheckCircle, Zap, Shield, AlertTriangle, Flame, TrendingUp, TrendingDown, Bell } from 'lucide-react';
+import { X, Settings, Loader2, AlertCircle, CheckCircle, Zap, Shield, AlertTriangle, Flame, TrendingUp, TrendingDown, Bell, Scale } from 'lucide-react';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { VaultClient } from '../../lib/vault';
@@ -11,6 +11,7 @@ interface VaultSettingsModalProps {
   currentTakeProfit?: number;
   currentStopLoss?: number;
   currentAskPermission?: boolean;
+  currentLeverage?: number; // Leverage multiplier (1.0 = no leverage)
   startMode?: boolean; // When true, pre-enable auto-trade and show "Save & Start Bot"
   onClose: () => void;
   onSuccess: () => void;
@@ -24,12 +25,23 @@ const RISK_LEVELS = [
   { value: 100, label: 'All-In', description: '100% per trade', icon: Flame, color: 'text-purple-400', bg: 'bg-purple-500/10' },
 ];
 
+const LEVERAGE_LEVELS = [
+  { value: 1, label: '1x', description: 'No leverage', color: 'text-zinc-400', bg: 'bg-zinc-500/10' },
+  { value: 2, label: '2x', description: 'Low risk', color: 'text-blue-400', bg: 'bg-blue-500/10' },
+  { value: 3, label: '3x', description: 'Moderate', color: 'text-green-400', bg: 'bg-green-500/10' },
+  { value: 5, label: '5x', description: 'High risk', color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
+  { value: 10, label: '10x', description: 'Very high', color: 'text-orange-400', bg: 'bg-orange-500/10' },
+  { value: 15, label: '15x', description: 'Extreme', color: 'text-red-400', bg: 'bg-red-500/10' },
+  { value: 20, label: '20x', description: 'MAX', color: 'text-purple-400', bg: 'bg-purple-500/10' },
+];
+
 export default function VaultSettingsModal({
   currentRiskLevel,
   autoTradeEnabled: initialAutoTrade,
   currentTakeProfit = 5,
   currentStopLoss = 1,
   currentAskPermission = false,
+  currentLeverage = 1.0,
   startMode = false,
   onClose,
   onSuccess
@@ -43,6 +55,7 @@ export default function VaultSettingsModal({
   const [takeProfit, setTakeProfit] = useState(currentTakeProfit);
   const [stopLoss, setStopLoss] = useState(currentStopLoss);
   const [askPermission, setAskPermission] = useState(currentAskPermission);
+  const [leverage, setLeverage] = useState(currentLeverage);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -51,7 +64,8 @@ export default function VaultSettingsModal({
     autoTrade !== initialAutoTrade ||
     takeProfit !== currentTakeProfit ||
     stopLoss !== currentStopLoss ||
-    askPermission !== currentAskPermission;
+    askPermission !== currentAskPermission ||
+    leverage !== currentLeverage;
 
   const handleSave = async () => {
     if (!chainId || !address || !publicClient || !walletClient) return;
@@ -83,12 +97,13 @@ export default function VaultSettingsModal({
         }
       }
 
-      // Sync settings to Supabase (including TP/SL and ask_permission)
+      // Sync settings to Supabase (including TP/SL, ask_permission, and leverage)
       console.log('[VaultSettings] Saving to Supabase:', {
         wallet_address: address.toLowerCase(),
         chain_id: chainId,
         auto_trade_enabled: autoTrade,
-        risk_level_bps: riskLevel * 100
+        risk_level_bps: riskLevel * 100,
+        leverage_multiplier: leverage
       });
 
       const { data: upsertData, error: upsertError } = await supabase
@@ -101,6 +116,7 @@ export default function VaultSettingsModal({
           take_profit_percent: takeProfit,
           stop_loss_percent: stopLoss,
           ask_permission: askPermission,
+          leverage_multiplier: leverage,
           updated_at: new Date().toISOString(),
           synced_at: new Date().toISOString()
         }, {
@@ -382,6 +398,77 @@ export default function VaultSettingsModal({
               <p className="mt-1"><strong className="text-zinc-300">Trailing Stop:</strong> Auto-adjusts as price rises. Triggers when price drops {stopLoss}% from peak.</p>
             </div>
           </div>
+
+          {/* Leverage Section (Arbitrum Only) */}
+          {chainId === 42161 && (
+            <div className="border-t border-zinc-800 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Scale className="w-4 h-4 text-purple-400" />
+                  <h3 className="text-white font-medium">Leverage (Aave V3)</h3>
+                </div>
+                <span className={`text-sm font-medium ${
+                  leverage >= 10 ? 'text-red-400' : leverage >= 5 ? 'text-orange-400' : leverage > 1 ? 'text-purple-400' : 'text-zinc-400'
+                }`}>
+                  {leverage}x
+                </span>
+              </div>
+
+              {/* Leverage Presets */}
+              <div className="grid grid-cols-7 gap-1.5 mb-3">
+                {LEVERAGE_LEVELS.map((level) => {
+                  const isSelected = leverage === level.value;
+                  return (
+                    <button
+                      key={level.value}
+                      onClick={() => setLeverage(level.value)}
+                      disabled={isLoading}
+                      className={`p-1.5 rounded-lg border transition-all ${
+                        isSelected
+                          ? `${level.bg} border-current ${level.color}`
+                          : 'bg-zinc-800/50 border-zinc-700 text-zinc-400 hover:border-zinc-600'
+                      }`}
+                    >
+                      <span className="text-xs font-medium block">{level.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Leverage Info */}
+              <div className={`p-3 rounded-lg ${
+                leverage >= 10 ? 'bg-red-500/10 border border-red-500/20' :
+                leverage >= 5 ? 'bg-orange-500/10 border border-orange-500/20' :
+                leverage > 1 ? 'bg-purple-500/10 border border-purple-500/20' :
+                'bg-zinc-800/50'
+              }`}>
+                {leverage > 1 ? (
+                  <div className={`text-xs ${leverage >= 10 ? 'text-red-400' : leverage >= 5 ? 'text-orange-400' : 'text-purple-400'}`}>
+                    <p className="font-medium mb-1">
+                      {leverage}x Leverage via Aave V3
+                    </p>
+                    <p className="opacity-80">
+                      Your ${riskLevel}% trade size → {(riskLevel * leverage).toFixed(0)}% effective position.
+                    </p>
+                    {leverage >= 5 && (
+                      <p className="mt-1 text-orange-400">
+                        ⚠️ High leverage: +1% price move = {leverage > 1 ? `+${leverage}%` : '+1%'} P/L
+                      </p>
+                    )}
+                    {leverage >= 10 && (
+                      <p className="mt-1 text-red-400">
+                        🔥 EXTREME RISK: Liquidation at ~{(100 / leverage * 0.8).toFixed(1)}% loss!
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-zinc-400">
+                    No leverage. Trades use only your vault balance.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Emergency Stop */}
           {initialAutoTrade && (
