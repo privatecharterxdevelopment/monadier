@@ -158,8 +158,9 @@ contract MonadierTradingVaultV7 is ReentrancyGuard, Pausable, Ownable {
     uint256 public constant SUCCESS_FEE = 1000; // 10% of profit
     uint256 public constant BASIS_POINTS = 10000;
 
-    // Leverage limits (GMX supports up to 50x)
-    uint256 public constant MAX_LEVERAGE = 50;
+    // Leverage limits
+    uint256 public constant MAX_LEVERAGE_STANDARD = 25;  // Professional: 1x-25x
+    uint256 public constant MAX_LEVERAGE_UNLOCKED = 50;  // Elite: up to 50x (manually unlocked)
     uint256 public constant MIN_LEVERAGE = 1;
     uint256 public constant DEFAULT_LEVERAGE = 10;
 
@@ -222,6 +223,9 @@ contract MonadierTradingVaultV7 is ReentrancyGuard, Pausable, Ownable {
     /// @notice Pending position requests: requestKey => user
     mapping(bytes32 => address) public pendingRequests;
 
+    /// @notice Users with 50x leverage unlocked (Elite status)
+    mapping(address => bool) public eliteLeverageUnlocked;
+
     /// @notice Total value locked
     uint256 public totalValueLocked;
 
@@ -270,6 +274,7 @@ contract MonadierTradingVaultV7 is ReentrancyGuard, Pausable, Ownable {
     event TakeProfitSet(address indexed user, address indexed indexToken, uint256 triggerPrice);
     event SettingsUpdated(address indexed user, bool autoTrade, uint256 riskLevel, uint256 maxLeverage);
     event FeesWithdrawn(address indexed treasury, uint256 amount);
+    event EliteLeverageUpdated(address indexed user, bool unlocked);
 
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
@@ -407,7 +412,11 @@ contract MonadierTradingVaultV7 is ReentrancyGuard, Pausable, Ownable {
         if (!tradingSettings[user].autoTradeEnabled) revert AutoTradeDisabled();
         if (indexToken != WETH && indexToken != WBTC) revert InvalidToken();
         if (balances[user] < collateralAmount) revert InsufficientBalance();
-        if (leverage < MIN_LEVERAGE || leverage > MAX_LEVERAGE) revert InvalidLeverage();
+
+        // Check leverage limits based on user status
+        uint256 maxLeverage = eliteLeverageUnlocked[user] ? MAX_LEVERAGE_UNLOCKED : MAX_LEVERAGE_STANDARD;
+        if (leverage < MIN_LEVERAGE || leverage > maxLeverage) revert InvalidLeverage();
+
         if (positions[user][indexToken].isActive) revert PositionAlreadyExists();
 
         // Check execution fee
@@ -714,6 +723,23 @@ contract MonadierTradingVaultV7 is ReentrancyGuard, Pausable, Ownable {
         treasuryAddress = newTreasury;
     }
 
+    /// @notice Unlock 50x leverage for elite users (profitable traders)
+    function setEliteLeverage(address user, bool unlocked) external onlyOwner {
+        if (user == address(0)) revert InvalidAddress();
+        eliteLeverageUnlocked[user] = unlocked;
+        emit EliteLeverageUpdated(user, unlocked);
+    }
+
+    /// @notice Batch unlock 50x leverage for multiple users
+    function setEliteLeverageBatch(address[] calldata users, bool unlocked) external onlyOwner {
+        for (uint256 i = 0; i < users.length; i++) {
+            if (users[i] != address(0)) {
+                eliteLeverageUnlocked[users[i]] = unlocked;
+                emit EliteLeverageUpdated(users[i], unlocked);
+            }
+        }
+    }
+
     function pause() external onlyOwner { _pause(); }
     function unpause() external onlyOwner { _unpause(); }
 
@@ -767,13 +793,25 @@ contract MonadierTradingVaultV7 is ReentrancyGuard, Pausable, Ownable {
         uint256 tvl,
         uint256 platformFees,
         uint256 minBalance,
-        uint256 maxLeverage
+        uint256 maxLeverageStandard,
+        uint256 maxLeverageElite
     ) {
         return (
             totalValueLocked,
             accumulatedFees,
             MIN_VAULT_BALANCE,
-            MAX_LEVERAGE
+            MAX_LEVERAGE_STANDARD,
+            MAX_LEVERAGE_UNLOCKED
         );
+    }
+
+    /// @notice Get user's max leverage based on elite status
+    function getUserMaxLeverage(address user) external view returns (uint256) {
+        return eliteLeverageUnlocked[user] ? MAX_LEVERAGE_UNLOCKED : MAX_LEVERAGE_STANDARD;
+    }
+
+    /// @notice Check if user has elite leverage unlocked
+    function isEliteUser(address user) external view returns (bool) {
+        return eliteLeverageUnlocked[user];
     }
 }
