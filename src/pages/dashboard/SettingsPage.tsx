@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Wallet, Save, CheckCircle, AlertCircle, Loader2, Crown, Shield, Clock, TrendingUp, Users, Gift, Copy, Zap, Rocket, Calendar, CreditCard, ExternalLink, FileCheck } from 'lucide-react';
+import { User, Wallet, Save, CheckCircle, AlertCircle, Loader2, Crown, Shield, Clock, TrendingUp, Users, Gift, Copy, Zap, Rocket, Calendar, CreditCard, ExternalLink, FileCheck, X, Plus } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
@@ -29,6 +29,11 @@ const SettingsPage: React.FC = () => {
   const [country, setCountry] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
 
+  // Multi-wallet support
+  const [linkedWallets, setLinkedWallets] = useState<string[]>([]);
+  const [isLoadingWallets, setIsLoadingWallets] = useState(true);
+  const [newWalletInput, setNewWalletInput] = useState('');
+
   // UI state
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSaveSuccess, setProfileSaveSuccess] = useState(false);
@@ -52,7 +57,35 @@ const SettingsPage: React.FC = () => {
     }
   }, [profile]);
 
-  // Load existing wallet address
+  // Load ALL linked wallets from user_wallets table
+  useEffect(() => {
+    const loadLinkedWallets = async () => {
+      if (!user?.id) return;
+
+      setIsLoadingWallets(true);
+      try {
+        const { data, error } = await supabase
+          .from('user_wallets')
+          .select('wallet_address')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: true });
+
+        if (error) {
+          console.error('Failed to load wallets:', error);
+        } else if (data) {
+          setLinkedWallets(data.map(w => w.wallet_address));
+        }
+      } catch (err) {
+        console.error('Error loading wallets:', err);
+      } finally {
+        setIsLoadingWallets(false);
+      }
+    };
+
+    loadLinkedWallets();
+  }, [user?.id]);
+
+  // Set current wallet from profile/subscription
   useEffect(() => {
     if (profile?.wallet_address) {
       setWalletAddress(profile.wallet_address);
@@ -180,6 +213,82 @@ const SettingsPage: React.FC = () => {
     }
   };
 
+  // Add a new wallet to user_wallets
+  const handleAddWallet = async () => {
+    if (!user?.id) return;
+
+    const trimmedAddress = newWalletInput.trim().toLowerCase();
+
+    if (!trimmedAddress) {
+      setSaveError('Please enter a wallet address');
+      return;
+    }
+
+    if (!isValidAddress(trimmedAddress)) {
+      setSaveError('Invalid wallet address format');
+      return;
+    }
+
+    if (linkedWallets.includes(trimmedAddress)) {
+      setSaveError('This wallet is already linked');
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      // Insert into user_wallets
+      const { error } = await supabase
+        .from('user_wallets')
+        .insert({
+          user_id: user.id,
+          wallet_address: trimmedAddress
+        });
+
+      if (error) {
+        if (error.code === '23505') {
+          setSaveError('This wallet is already linked');
+        } else {
+          throw error;
+        }
+      } else {
+        // Update local state
+        setLinkedWallets(prev => [...prev, trimmedAddress]);
+        setNewWalletInput('');
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      }
+    } catch (err: any) {
+      console.error('Error adding wallet:', err);
+      setSaveError(err.message || 'Failed to add wallet');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Remove a wallet from user_wallets
+  const handleRemoveWallet = async (walletToRemove: string) => {
+    if (!user?.id) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_wallets')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('wallet_address', walletToRemove.toLowerCase());
+
+      if (error) throw error;
+
+      // Update local state
+      setLinkedWallets(prev => prev.filter(w => w !== walletToRemove.toLowerCase()));
+    } catch (err: any) {
+      console.error('Error removing wallet:', err);
+      setSaveError(err.message || 'Failed to remove wallet');
+    }
+  };
+
+  // Legacy: Save primary wallet (for backwards compatibility)
   const handleSaveWallet = async () => {
     if (!user?.id) return;
 
@@ -348,40 +457,84 @@ const SettingsPage: React.FC = () => {
             </div>
           </Card>
 
-          {/* Wallet Card */}
+          {/* Multi-Wallet Card */}
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-4">
               <Wallet className="w-5 h-5 text-white" />
-              <h4 className="text-white font-medium">Wallet Address</h4>
+              <h4 className="text-white font-medium">Linked Wallets</h4>
+              <span className="ml-auto text-gray-500 text-xs">
+                {linkedWallets.length} wallet{linkedWallets.length !== 1 ? 's' : ''}
+              </span>
             </div>
 
             <p className="text-gray-400 text-sm mb-4">
-              Enter your wallet address for auto-trading.
+              All wallets linked to your account can be used for auto-trading.
             </p>
 
+            {/* Linked Wallets List */}
+            {isLoadingWallets ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="w-5 h-5 text-gray-500 animate-spin" />
+              </div>
+            ) : linkedWallets.length === 0 ? (
+              <div className="text-center py-4 bg-white/5 rounded-lg mb-4">
+                <Wallet className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                <p className="text-gray-500 text-sm">No wallets linked yet</p>
+              </div>
+            ) : (
+              <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
+                {linkedWallets.map((wallet, index) => (
+                  <div
+                    key={wallet}
+                    className="flex items-center justify-between p-3 bg-white/5 rounded-lg group"
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className={`w-2 h-2 rounded-full ${index === 0 ? 'bg-green-500' : 'bg-gray-500'}`} />
+                      <code className="text-white font-mono text-xs truncate">
+                        {wallet}
+                      </code>
+                      {index === 0 && (
+                        <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded">
+                          Primary
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleRemoveWallet(wallet)}
+                      className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-500/20 rounded transition-all"
+                      title="Remove wallet"
+                    >
+                      <X className="w-4 h-4 text-red-400" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add New Wallet */}
             <div className="flex gap-3">
               <input
                 type="text"
-                value={walletAddress}
+                value={newWalletInput}
                 onChange={(e) => {
-                  setWalletAddress(e.target.value);
+                  setNewWalletInput(e.target.value);
                   setSaveError(null);
-                  setSaveSuccess(false);
                 }}
-                placeholder="0x..."
+                placeholder="0x... (add new wallet)"
                 className="flex-1 bg-white/5 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white/30 font-mono text-sm"
               />
               <button
-                onClick={handleSaveWallet}
-                disabled={isSaving || !walletAddress.trim()}
-                className="px-4 py-3 bg-white text-black font-semibold rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                onClick={handleAddWallet}
+                disabled={isSaving || !newWalletInput.trim()}
+                className="px-4 py-3 bg-accent text-black font-semibold rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isSaving ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
-                ) : saveSuccess ? (
-                  <CheckCircle className="w-4 h-4 text-green-500" />
                 ) : (
-                  <Save className="w-4 h-4" />
+                  <>
+                    <Plus className="w-4 h-4" />
+                    Add
+                  </>
                 )}
               </button>
             </div>
@@ -396,15 +549,7 @@ const SettingsPage: React.FC = () => {
             {saveSuccess && (
               <div className="flex items-center gap-2 mt-3 text-green-400 text-sm">
                 <CheckCircle className="w-4 h-4" />
-                Wallet saved!
-              </div>
-            )}
-
-            {(profile?.wallet_address || subscription?.walletAddress) && (
-              <div className="mt-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                <p className="text-green-400 text-sm font-mono text-xs">
-                  {profile?.wallet_address || subscription?.walletAddress}
-                </p>
+                Wallet added!
               </div>
             )}
           </Card>
