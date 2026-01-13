@@ -42,26 +42,36 @@ const Step: React.FC<StepProps> = ({ icon, title, complete, current, link }) => 
   return content;
 };
 
+const CELEBRATED_KEY = 'onboarding_celebrated';
+
 const OnboardingBanner: React.FC = () => {
   const { isLoading, isComplete, currentStep, steps } = useOnboarding();
+
+  // Check localStorage on mount - only show celebration if never celebrated before
+  const hasCelebratedBefore = typeof window !== 'undefined'
+    ? localStorage.getItem(CELEBRATED_KEY) === 'true'
+    : true; // Default to true on SSR to prevent flash
+
   const [showCelebration, setShowCelebration] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
-  const previousCompleteRef = useRef<boolean | null>(null);
+  const [dismissed, setDismissed] = useState(hasCelebratedBefore); // Auto-dismiss if already celebrated
   const hasTriggeredConfetti = useRef(false);
 
-  // Check if user just completed onboarding
+  // Check if user just completed onboarding (first time only!)
   useEffect(() => {
     if (isLoading) return;
 
-    // Check localStorage to see if we already celebrated
-    const celebratedKey = 'onboarding_celebrated';
-    const hasCelebrated = localStorage.getItem(celebratedKey) === 'true';
+    // Already celebrated? Don't do anything
+    const hasCelebrated = localStorage.getItem(CELEBRATED_KEY) === 'true';
+    if (hasCelebrated) {
+      setDismissed(true); // Ensure banner stays hidden
+      return;
+    }
 
-    if (isComplete && !hasCelebrated && !hasTriggeredConfetti.current) {
-      // User just completed onboarding - celebrate!
+    if (isComplete && !hasTriggeredConfetti.current) {
+      // User just completed onboarding for the FIRST TIME - celebrate!
       hasTriggeredConfetti.current = true;
       setShowCelebration(true);
-      localStorage.setItem(celebratedKey, 'true');
+      localStorage.setItem(CELEBRATED_KEY, 'true');
 
       // Fire confetti!
       const duration = 3000;
@@ -100,8 +110,6 @@ const OnboardingBanner: React.FC = () => {
         });
       }, 500);
     }
-
-    previousCompleteRef.current = isComplete;
   }, [isComplete, isLoading]);
 
   if (isLoading) {

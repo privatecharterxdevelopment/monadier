@@ -14,6 +14,7 @@ import { config, ChainId } from '../config';
 import { logger } from '../utils/logger';
 import { subscriptionService } from './subscription';
 import { positionService, Position } from './positions';
+import { aaveService, AAVE_V3_ARBITRUM } from './aaveService';
 
 // V2 Vault ABI (position-based trading)
 const VAULT_V2_ABI = [
@@ -586,13 +587,67 @@ export class TradingService {
       return { success: false, error: 'Failed to create approval request' };
     }
 
+    // 5b. Check if leverage is enabled (Aave V3 - Arbitrum only)
+    let effectiveTradeAmount = tradeAmount;
+    let leverageInfo = {
+      isLeveraged: false,
+      leverageMultiplier: 1.0,
+      collateralAmount: 0n,
+      borrowedAmount: 0n,
+      healthFactor: 0
+    };
+
+    if (userSettings.leverageMultiplier > 1 && chainId === 42161) {
+      try {
+        logger.info('🔄 Opening leveraged position via Aave', {
+          userAddress: userAddress.slice(0, 10),
+          collateral: formatUnits(tradeAmount, 6),
+          targetLeverage: userSettings.leverageMultiplier + 'x'
+        });
+
+        const leverageResult = await aaveService.openLeveragedPosition(
+          userAddress,
+          tradeAmount,
+          userSettings.leverageMultiplier
+        );
+
+        if (leverageResult.success) {
+          effectiveTradeAmount = leverageResult.totalTradingAmount;
+          leverageInfo = {
+            isLeveraged: true,
+            leverageMultiplier: userSettings.leverageMultiplier,
+            collateralAmount: leverageResult.collateralSupplied,
+            borrowedAmount: leverageResult.amountBorrowed,
+            healthFactor: leverageResult.healthFactor
+          };
+
+          logger.info('✅ Aave leverage opened successfully', {
+            collateral: formatUnits(leverageResult.collateralSupplied, 6),
+            borrowed: formatUnits(leverageResult.amountBorrowed, 6),
+            totalTrading: formatUnits(effectiveTradeAmount, 6),
+            healthFactor: leverageResult.healthFactor.toFixed(2),
+            leverage: userSettings.leverageMultiplier + 'x'
+          });
+        } else {
+          logger.warn('⚠️ Leverage failed, continuing with 1x', {
+            error: leverageResult.error
+          });
+          // Continue with 1x if leverage fails
+        }
+      } catch (leverageErr: any) {
+        logger.error('Leverage error, continuing with 1x', { error: leverageErr.message });
+        // Continue with 1x if leverage fails
+      }
+    }
+
     // 6. Execute openPosition on V2 vault
     try {
       logger.info('Opening position', {
         chainId,
         userAddress,
         token: signal.tokenAddress,
-        amountIn: formatUnits(tradeAmount, 6),
+        amountIn: formatUnits(effectiveTradeAmount, 6),
+        leverage: leverageInfo.isLeveraged ? leverageInfo.leverageMultiplier + 'x' : '1x',
         confidence: signal.confidence
       });
 
@@ -603,7 +658,7 @@ export class TradingService {
         args: [
           userAddress,
           signal.tokenAddress as `0x${string}`,
-          tradeAmount,
+          effectiveTradeAmount, // Use leveraged amount
           signal.minAmountOut
         ],
         chain: CHAINS[chainId],
@@ -616,6 +671,19 @@ export class TradingService {
       });
 
       if (receipt.status !== 'success') {
+        // If trade fails and we opened leverage, we need to close the Aave position
+        if (leverageInfo.isLeveraged) {
+          logger.warn('Trade failed - attempting to close Aave position');
+          try {
+            await aaveService.closeLeveragedPosition(
+              userAddress,
+              leverageInfo.borrowedAmount,
+              leverageInfo.collateralAmount
+            );
+          } catch (closeErr) {
+            logger.error('Failed to close Aave position after failed trade', { error: closeErr });
+          }
+        }
         return { success: false, error: 'Transaction reverted' };
       }
 
@@ -647,6 +715,17 @@ export class TradingService {
       // Estimate tokens received (we'd need to parse logs for exact amount)
       const estimatedTokens = entryPrice > 0 ? entryAmount / entryPrice : 0;
 
+      // DEBUG: Log exact values being stored
+      logger.info('💰 POSITION VALUES DEBUG', {
+        tradeAmountRaw: tradeAmount.toString(),
+        tradeAmountFormatted: formatUnits(tradeAmount, 6),
+        entryAmountUSD: entryAmount,
+        entryPriceUSD: entryPrice,
+        estimatedTokens,
+        expectedProfitAt1Percent: (entryAmount * 0.01).toFixed(4),
+        token: signal.tokenSymbol
+      });
+
       // 7a. Get user's custom TP/SL settings (overrides dynamic analysis)
       const userSettings = await subscriptionService.getUserTradingSettings(userAddress, chainId);
       const finalTakeProfit = userSettings.takeProfitPercent;
@@ -674,13 +753,20 @@ export class TradingService {
         txHash,
         trailingStopPercent: finalStopLoss, // Use user's stop loss
         takeProfitPercent: finalTakeProfit, // Use user's take profit
-        profitLockPercent: signal.profitLockPercent // 0.2% for aggressive, 0.5% default
+        profitLockPercent: signal.profitLockPercent, // 0.2% for aggressive, 0.5% default
+        // Leverage fields (Aave V3)
+        isLeveraged: leverageInfo.isLeveraged,
+        leverageMultiplier: leverageInfo.leverageMultiplier,
+        collateralAmount: parseFloat(formatUnits(leverageInfo.collateralAmount, 6)),
+        borrowedAmount: parseFloat(formatUnits(leverageInfo.borrowedAmount, 6)),
+        aaveHealthFactor: leverageInfo.healthFactor
       });
 
       logger.info('Position opened with user TP/SL', {
         takeProfitPercent: finalTakeProfit + '%',
         trailingStopPercent: finalStopLoss + '%',
-        profitLock: (signal.profitLockPercent || 0.5) + '%'
+        profitLock: (signal.profitLockPercent || 0.5) + '%',
+        leverage: leverageInfo.isLeveraged ? leverageInfo.leverageMultiplier + 'x' : '1x'
       });
 
       // 8. Record the trade in subscription
@@ -998,6 +1084,41 @@ export class TradingService {
       // Uniswap fees are already deducted from the actual swap, no need to multiply by 0.99
       const exitAmount = position.token_amount * exitPrice;
 
+      // If this was a leveraged position, repay the Aave loan
+      if (position.is_leveraged && position.borrowed_amount > 0) {
+        try {
+          logger.info('🔄 Closing Aave leveraged position', {
+            positionId: position.id,
+            borrowed: position.borrowed_amount,
+            collateral: position.collateral_amount
+          });
+
+          const repayAmount = parseUnits(position.borrowed_amount.toFixed(6), 6);
+          const withdrawAmount = parseUnits(position.collateral_amount.toFixed(6), 6);
+
+          const aaveResult = await aaveService.closeLeveragedPosition(
+            userAddress,
+            repayAmount,
+            withdrawAmount
+          );
+
+          if (aaveResult.success) {
+            logger.info('✅ Aave position closed successfully', {
+              repaid: formatUnits(aaveResult.repaid, 6),
+              withdrawn: formatUnits(aaveResult.withdrawn, 6)
+            });
+          } else {
+            logger.error('⚠️ Failed to close Aave position', {
+              error: aaveResult.error
+            });
+            // Don't fail the trade, the USDC is in the vault, Aave position needs manual cleanup
+          }
+        } catch (aaveErr: any) {
+          logger.error('Aave cleanup error', { error: aaveErr.message });
+          // Don't fail the trade
+        }
+      }
+
       await positionService.closePosition({
         positionId: position.id,
         exitPrice,
@@ -1010,7 +1131,8 @@ export class TradingService {
         positionId: position.id,
         txHash,
         exitPrice,
-        closeReason
+        closeReason,
+        leverage: position.is_leveraged ? position.leverage_multiplier + 'x' : '1x'
       });
 
       return {
@@ -1034,9 +1156,14 @@ export class TradingService {
   async monitorPositions(chainId: ChainId): Promise<void> {
     const positions = await positionService.getAllOpenPositions(chainId);
 
-    if (positions.length === 0) return;
+    // DEBUG: Always log monitoring attempt
+    logger.info(`Position monitor check`, {
+      chainId,
+      positionsFound: positions.length,
+      statuses: positions.map(p => ({ id: p.id.slice(0,8), status: p.status, token: p.token_symbol }))
+    });
 
-    logger.info(`Monitoring ${positions.length} open positions on chain ${chainId}`);
+    if (positions.length === 0) return;
 
     for (const position of positions) {
       try {

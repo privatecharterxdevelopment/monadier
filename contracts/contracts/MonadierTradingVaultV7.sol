@@ -355,7 +355,7 @@ contract MonadierTradingVaultV7 is ReentrancyGuard, Pausable, Ownable {
         if (_autoTrade && balances[msg.sender] < MIN_VAULT_BALANCE) {
             revert BelowMinimumBalance();
         }
-        if (_maxLeverage < MIN_LEVERAGE || _maxLeverage > MAX_LEVERAGE) {
+        if (_maxLeverage < MIN_LEVERAGE || _maxLeverage > MAX_LEVERAGE_UNLOCKED) {
             revert InvalidLeverage();
         }
 

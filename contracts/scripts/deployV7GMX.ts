@@ -40,8 +40,8 @@ async function main() {
   const balance = await ethers.provider.getBalance(deployer.address);
   console.log("Balance:", ethers.formatEther(balance), "ETH");
 
-  if (balance < ethers.parseEther("0.005")) {
-    throw new Error("Insufficient ETH for deployment. Need at least 0.005 ETH");
+  if (balance < ethers.parseEther("0.002")) {
+    throw new Error("Insufficient ETH for deployment. Need at least 0.002 ETH");
   }
 
   // Get addresses from environment or use defaults
@@ -73,10 +73,11 @@ async function main() {
   // Verify contract info
   console.log("\n--- Contract Info ---");
   const info = await vault.getContractInfo();
-  console.log("TVL:", ethers.formatUnits(info.tvl, 6), "USDC");
-  console.log("Max Leverage:", info.maxLeverage.toString(), "x");
-  console.log("Min Balance:", ethers.formatUnits(info.minBalance, 6), "USDC");
-  console.log("Platform Fees:", ethers.formatUnits(info.platformFees, 6), "USDC");
+  console.log("TVL:", ethers.formatUnits(info[0], 6), "USDC");
+  console.log("Platform Fees:", ethers.formatUnits(info[1], 6), "USDC");
+  console.log("Min Balance:", ethers.formatUnits(info[2], 6), "USDC");
+  console.log("Max Leverage (Standard):", info[3].toString(), "x");
+  console.log("Max Leverage (Elite):", info[4].toString(), "x");
 
   // Test GMX connection
   console.log("\n--- Testing GMX Connection ---");
