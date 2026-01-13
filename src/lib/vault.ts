@@ -623,14 +623,31 @@ export class VaultClient {
   }
 
   /**
-   * Get user's vault status (compatible with V6)
-   * V6 only has: balances, autoTradeEnabled, userRiskLevel mappings
-   * canTradeNow and getMaxTradeSize are calculated locally
+   * Get user's vault status (V7 GMX compatible)
+   * V7 has: balances mapping + getUserSettings() function
    */
   async getUserStatus(userAddress: `0x${string}`): Promise<VaultUserStatus> {
     try {
-      // V6 only has these three public mappings
-      const [balance, autoTradeOn, riskLevelBps] = await Promise.all([
+      // V7 ABI for getUserSettings
+      const getUserSettingsAbi = [{
+        inputs: [{ name: 'user', type: 'address' }],
+        name: 'getUserSettings',
+        outputs: [{
+          components: [
+            { name: 'autoTradeEnabled', type: 'bool' },
+            { name: 'riskLevelBps', type: 'uint256' },
+            { name: 'maxLeverage', type: 'uint256' },
+            { name: 'defaultStopLoss', type: 'uint256' },
+            { name: 'defaultTakeProfit', type: 'uint256' }
+          ],
+          name: '',
+          type: 'tuple'
+        }],
+        stateMutability: 'view',
+        type: 'function'
+      }] as const;
+
+      const [balance, settings] = await Promise.all([
         this.publicClient.readContract({
           address: this.vaultAddress,
           abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'balances', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' }] as const,
@@ -639,20 +656,14 @@ export class VaultClient {
         }),
         this.publicClient.readContract({
           address: this.vaultAddress,
-          abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'autoTradeEnabled', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' }] as const,
-          functionName: 'autoTradeEnabled',
-          args: [userAddress]
-        }),
-        this.publicClient.readContract({
-          address: this.vaultAddress,
-          abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'userRiskLevel', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' }] as const,
-          functionName: 'userRiskLevel',
+          abi: getUserSettingsAbi,
+          functionName: 'getUserSettings',
           args: [userAddress]
         })
       ]);
 
       // Default risk level is 5% (500 bps) if not set
-      const effectiveRiskBps = Number(riskLevelBps) || 500;
+      const effectiveRiskBps = Number(settings.riskLevelBps) || 500;
 
       // Calculate max trade size locally: balance * riskLevel%
       const maxTrade = (balance * BigInt(effectiveRiskBps)) / BigInt(10000);
@@ -660,13 +671,13 @@ export class VaultClient {
       return {
         balance,
         balanceFormatted: formatUnits(balance, USDC_DECIMALS),
-        autoTradeEnabled: autoTradeOn,
+        autoTradeEnabled: settings.autoTradeEnabled,
         riskLevelBps: effectiveRiskBps,
         riskLevelPercent: effectiveRiskBps / 100,
         maxTradeSize: maxTrade,
         maxTradeSizeFormatted: formatUnits(maxTrade, USDC_DECIMALS),
-        timeToNextTrade: 0, // V6 has per-token cooldowns, not global
-        canTrade: true // V6 always allows trading (per-token cooldowns handled by bot)
+        timeToNextTrade: 0,
+        canTrade: true
       };
     } catch (err) {
       // Fallback: return empty status
