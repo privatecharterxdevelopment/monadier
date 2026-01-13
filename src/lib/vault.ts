@@ -533,12 +533,20 @@ export class VaultClient {
   }
 
   /**
-   * Enable/disable auto-trading
+   * Enable/disable auto-trading (V7 compatible)
    */
   async setAutoTrade(enabled: boolean, userAddress: `0x${string}`): Promise<`0x${string}`> {
+    const setAutoTradeAbi = [{
+      inputs: [{ name: 'enabled', type: 'bool' }],
+      name: 'setAutoTrade',
+      outputs: [],
+      stateMutability: 'nonpayable',
+      type: 'function'
+    }] as const;
+
     const hash = await this.walletClient.writeContract({
       address: this.vaultAddress,
-      abi: VAULT_ABI,
+      abi: setAutoTradeAbi,
       functionName: 'setAutoTrade',
       args: [enabled],
       chain: null,
@@ -549,19 +557,10 @@ export class VaultClient {
   }
 
   /**
-   * Emergency stop auto-trading
+   * Emergency stop auto-trading (V7: just calls setAutoTrade(false))
    */
   async emergencyStop(userAddress: `0x${string}`): Promise<`0x${string}`> {
-    const hash = await this.walletClient.writeContract({
-      address: this.vaultAddress,
-      abi: VAULT_ABI,
-      functionName: 'emergencyStopAutoTrade',
-      args: [],
-      chain: null,
-      account: userAddress
-    });
-
-    return hash;
+    return this.setAutoTrade(false, userAddress);
   }
 
   /**
@@ -601,25 +600,68 @@ export class VaultClient {
   }
 
   /**
-   * Set risk level (1-100%)
+   * Set all trading settings (V7 compatible)
+   * V7 uses setTradingSettings() instead of separate setRiskLevel()
+   */
+  async setTradingSettings(
+    userAddress: `0x${string}`,
+    autoTrade: boolean,
+    riskLevelPercent: number,
+    maxLeverage: number = 10,
+    stopLossPercent: number = 5,
+    takeProfitPercent: number = 10
+  ): Promise<`0x${string}`> {
+    const setTradingSettingsAbi = [{
+      inputs: [
+        { name: '_autoTrade', type: 'bool' },
+        { name: '_riskLevelBps', type: 'uint256' },
+        { name: '_maxLeverage', type: 'uint256' },
+        { name: '_defaultStopLoss', type: 'uint256' },
+        { name: '_defaultTakeProfit', type: 'uint256' }
+      ],
+      name: 'setTradingSettings',
+      outputs: [],
+      stateMutability: 'nonpayable',
+      type: 'function'
+    }] as const;
+
+    const riskBps = BigInt(Math.round(riskLevelPercent * 100));
+    const slBps = BigInt(Math.round(stopLossPercent * 100));
+    const tpBps = BigInt(Math.round(takeProfitPercent * 100));
+
+    const hash = await this.walletClient.writeContract({
+      address: this.vaultAddress,
+      abi: setTradingSettingsAbi,
+      functionName: 'setTradingSettings',
+      args: [autoTrade, riskBps, BigInt(maxLeverage), slBps, tpBps],
+      chain: null,
+      account: userAddress
+    });
+
+    return hash;
+  }
+
+  /**
+   * Set risk level (1-100%) - V7 compatible wrapper
+   * Calls setTradingSettings with current autoTrade state
    */
   async setRiskLevel(percent: number, userAddress: `0x${string}`): Promise<`0x${string}`> {
     if (percent < 1 || percent > 100) {
       throw new Error('Risk level must be between 1% and 100%');
     }
 
-    const bps = BigInt(percent * 100);
+    // Get current settings first
+    const status = await this.getUserStatus(userAddress);
 
-    const hash = await this.walletClient.writeContract({
-      address: this.vaultAddress,
-      abi: VAULT_ABI,
-      functionName: 'setRiskLevel',
-      args: [bps],
-      chain: null,
-      account: userAddress
-    });
-
-    return hash;
+    // Call setTradingSettings with updated risk level
+    return this.setTradingSettings(
+      userAddress,
+      status.autoTradeEnabled,
+      percent,
+      10, // default leverage
+      5,  // default SL
+      10  // default TP
+    );
   }
 
   /**
