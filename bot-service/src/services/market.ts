@@ -878,6 +878,15 @@ export async function generateTradeSignal(
 
   // Don't trade if signal is too weak (but analysis was saved above for UI)
   if (analysis.isWeak) {
+    logger.info('Signal too weak for trading', {
+      symbol,
+      direction: analysis.direction,
+      confidence: analysis.confidence,
+      conditionsMet: analysis.metrics.conditionsMet,
+      minConfidence: strategyConfig.minConfidence,
+      minConditions: strategyConfig.minConditions,
+      reason: analysis.reason
+    });
     return null;
   }
 

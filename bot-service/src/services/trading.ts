@@ -308,6 +308,21 @@ export class TradingService {
       // Trust database OR on-chain (either one being true means user wants auto-trade)
       const effectiveAutoTrade = autoTradeEnabled || dbAutoTrade;
 
+      // AUTO-SYNC: If on-chain autoTrade is enabled but no vault_settings exists, create it!
+      // This ensures users who enabled auto-trade on-chain are properly tracked
+      if (autoTradeEnabled && !dbAutoTrade) {
+        logger.info('Auto-syncing vault_settings from on-chain state', {
+          userAddress: userAddress.slice(0, 10),
+          chainId,
+          onChainAutoTrade: autoTradeEnabled
+        });
+        await subscriptionService.syncVaultSettings(userAddress, chainId, {
+          autoTradeEnabled: true,
+          balance: formatUnits(balance, 6),
+          riskLevel: Number(riskLevel)
+        });
+      }
+
       return {
         balance,
         balanceFormatted: formatUnits(balance, 6),

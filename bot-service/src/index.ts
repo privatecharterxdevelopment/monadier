@@ -274,6 +274,12 @@ async function processUserTrades(
       );
 
       if (!signal) {
+        logger.debug('No trade signal for token', {
+          userAddress: userAddress.slice(0, 10),
+          token: tokenConfig.symbol,
+          chainId,
+          reason: 'Signal too weak or no conditions met'
+        });
         continue; // No signal for this token, try next
       }
 
@@ -320,6 +326,14 @@ async function processUserTrades(
         return;
       }
     }
+
+    // If we get here, no signal was strong enough for any token
+    logger.info('Trading cycle complete for user - no trades executed', {
+      userAddress: userAddress.slice(0, 10),
+      chainId,
+      tokensChecked: tokenConfigs.length,
+      reason: 'No tokens met signal criteria'
+    });
   } catch (err) {
     // CIRCUIT BREAKER: Track error
     recentFailures++;

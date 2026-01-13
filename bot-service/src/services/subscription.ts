@@ -467,6 +467,49 @@ export class SubscriptionService {
   }
 
   /**
+   * Sync vault_settings from on-chain state
+   * Creates or updates vault_settings when on-chain autoTrade is enabled
+   */
+  async syncVaultSettings(walletAddress: string, chainId: number, settings: {
+    autoTradeEnabled: boolean;
+    balance: string;
+    riskLevel: number;
+  }): Promise<void> {
+    try {
+      const wallet = walletAddress.toLowerCase();
+
+      // Upsert vault_settings
+      const { error } = await this.supabase
+        .from('vault_settings')
+        .upsert({
+          wallet_address: wallet,
+          chain_id: chainId,
+          auto_trade_enabled: settings.autoTradeEnabled,
+          risk_level: settings.riskLevel || 100,
+          // Default TP/SL
+          take_profit_percent: 5,
+          stop_loss_percent: 1.5,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'wallet_address,chain_id'
+        });
+
+      if (error) {
+        logger.error('Failed to sync vault_settings', { wallet, chainId, error });
+      } else {
+        logger.info('Vault settings synced from on-chain state', {
+          wallet: wallet.slice(0, 10),
+          chainId,
+          autoTrade: settings.autoTradeEnabled,
+          balance: settings.balance
+        });
+      }
+    } catch (err) {
+      logger.error('Error syncing vault_settings', { walletAddress, error: err });
+    }
+  }
+
+  /**
    * Check if user has an active bot ban (24h after manual close)
    * Returns ban end time if banned, null if not banned
    */
@@ -507,52 +550,57 @@ export class SubscriptionService {
 
   /**
    * Get all users with auto-trade enabled for a specific chain
-   * Falls back to subscriptions table if vault_settings is empty
+   * IMPORTANT: Combines vault_settings + all subscribed users
+   * This ensures users who enabled auto-trade on-chain but don't have vault_settings are still found
    */
   async getAutoTradeUsers(chainId?: number): Promise<string[]> {
     try {
-      // First try vault_settings
-      let query = this.supabase
+      const allAddresses = new Set<string>();
+
+      // 1. Get users from vault_settings (those who explicitly enabled auto-trade in UI)
+      let vaultQuery = this.supabase
         .from('vault_settings')
         .select('wallet_address')
         .eq('auto_trade_enabled', true);
 
-      // Filter by chain_id if provided
       if (chainId) {
-        query = query.eq('chain_id', chainId);
+        vaultQuery = vaultQuery.eq('chain_id', chainId);
       }
 
-      const { data: vaultData } = await query;
-
-      if (vaultData && vaultData.length > 0) {
-        const addresses = vaultData.map(d => d.wallet_address);
-        logger.info('Found auto-trade users from vault_settings', {
-          chainId,
-          count: addresses.length,
-          wallets: addresses.map(a => a?.slice(0, 10))
+      const { data: vaultData } = await vaultQuery;
+      if (vaultData) {
+        vaultData.forEach(d => {
+          if (d.wallet_address) allAddresses.add(d.wallet_address.toLowerCase());
         });
-        return addresses;
       }
 
-      // Fallback: get all users with active paid subscriptions
-      // They might have auto-trade enabled on-chain
+      // 2. ALWAYS also get all subscribed users - they might have auto-trade enabled on-chain
+      // The bot will check on-chain status anyway, so this is safe
       const { data: subData } = await this.supabase
         .from('subscriptions')
         .select('wallet_address')
         .eq('status', 'active')
         .neq('plan_tier', 'free');
 
-      if (subData && subData.length > 0) {
-        const addresses = subData.map(d => d.wallet_address).filter(Boolean);
-        logger.info('Using subscriptions fallback for auto-trade users', {
-          count: subData.length,
-          withWallet: addresses.length,
-          addresses: addresses.slice(0, 5) // Log first 5
+      if (subData) {
+        subData.forEach(d => {
+          if (d.wallet_address) allAddresses.add(d.wallet_address.toLowerCase());
         });
-        return addresses;
       }
 
-      return [];
+      const addresses = Array.from(allAddresses);
+
+      if (addresses.length > 0) {
+        logger.info('Found potential auto-trade users', {
+          chainId,
+          fromVaultSettings: vaultData?.length || 0,
+          fromSubscriptions: subData?.length || 0,
+          totalUnique: addresses.length,
+          wallets: addresses.map(a => a?.slice(0, 10))
+        });
+      }
+
+      return addresses;
     } catch (err) {
       logger.error('Failed to get auto-trade users', { error: err });
       return [];
