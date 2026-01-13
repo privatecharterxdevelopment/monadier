@@ -472,23 +472,52 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, [subscription]);
 
   // Link wallet to subscription (for bot trading)
+  // Now supports MULTIPLE wallets per user - adds to user_wallets table
   const linkWallet = useCallback(async (walletAddress: string) => {
-    if (!subscription || !walletAddress) return;
-
-    // Skip if already linked
-    if (subscription.walletAddress?.toLowerCase() === walletAddress.toLowerCase()) return;
+    if (!walletAddress) return;
 
     try {
-      // Update subscription with wallet address
-      const { error } = await supabase
-        .from('subscriptions')
-        .update({ wallet_address: walletAddress.toLowerCase() })
-        .eq('id', subscription.id);
-
-      if (!error) {
-        setSubscription(prev => prev ? { ...prev, walletAddress: walletAddress.toLowerCase() } : null);
-        console.log('Wallet linked to subscription:', walletAddress);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('No authenticated user, skipping wallet link');
+        return;
       }
+
+      // Add to user_wallets table (supports multiple wallets)
+      const { error: walletError } = await supabase
+        .from('user_wallets')
+        .upsert({
+          user_id: user.id,
+          wallet_address: walletAddress.toLowerCase()
+        }, {
+          onConflict: 'user_id,wallet_address'
+        });
+
+      if (walletError) {
+        console.error('Failed to add to user_wallets:', walletError);
+      } else {
+        console.log('Wallet added to user_wallets:', walletAddress);
+      }
+
+      // Also update vault_settings with user_id
+      await supabase
+        .from('vault_settings')
+        .update({ user_id: user.id })
+        .eq('wallet_address', walletAddress.toLowerCase());
+
+      // Update subscription with this wallet (for backward compatibility)
+      if (subscription) {
+        const { error } = await supabase
+          .from('subscriptions')
+          .update({ wallet_address: walletAddress.toLowerCase() })
+          .eq('id', subscription.id);
+
+        if (!error) {
+          setSubscription(prev => prev ? { ...prev, walletAddress: walletAddress.toLowerCase() } : null);
+        }
+      }
+
+      console.log('Wallet linked successfully:', walletAddress);
     } catch (err) {
       console.error('Failed to link wallet:', err);
     }

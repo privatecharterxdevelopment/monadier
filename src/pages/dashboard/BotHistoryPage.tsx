@@ -303,6 +303,33 @@ const BotHistoryPage: React.FC = () => {
   // State for all positions (for stats calculation)
   const [allPositions, setAllPositions] = useState<Position[]>([]);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [userWallets, setUserWallets] = useState<string[]>([]);
+
+  // Fetch all user's wallets on mount
+  useEffect(() => {
+    const fetchUserWallets = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          // Get all wallets from user_wallets table
+          const { data: wallets } = await supabase
+            .from('user_wallets')
+            .select('wallet_address')
+            .eq('user_id', user.id);
+
+          if (wallets && wallets.length > 0) {
+            const addresses = wallets.map(w => w.wallet_address.toLowerCase());
+            setUserWallets(addresses);
+            console.log('[BotHistory] Found user wallets:', addresses);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch user wallets:', err);
+      }
+    };
+
+    fetchUserWallets();
+  }, []);
 
   const fetchPositions = async (showLoading = false) => {
     if (!address) return;
@@ -312,14 +339,17 @@ const BotHistoryPage: React.FC = () => {
       setLoading(true);
     }
     try {
-      // DEBUG: Log which wallet we're fetching for
-      console.log('[BotHistory] Fetching positions for wallet:', address.toLowerCase());
+      // Get all wallets to query (current + all linked wallets)
+      const walletsToQuery = new Set([address.toLowerCase(), ...userWallets]);
+      const walletArray = Array.from(walletsToQuery);
 
-      // Always fetch ALL positions for stats
+      console.log('[BotHistory] Fetching positions for wallets:', walletArray);
+
+      // Fetch positions for ALL user wallets
       const { data: allData, error: allError } = await supabase
         .from('positions')
         .select('*')
-        .eq('wallet_address', address.toLowerCase())
+        .in('wallet_address', walletArray)
         .order('created_at', { ascending: false });
 
       if (allError) {
@@ -359,7 +389,7 @@ const BotHistoryPage: React.FC = () => {
     // Refresh every 10 seconds without showing loading spinner
     const interval = setInterval(() => fetchPositions(false), 10000);
     return () => clearInterval(interval);
-  }, [address, activeTab]);
+  }, [address, activeTab, userWallets]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
