@@ -107,8 +107,8 @@ const VAULT_V6_ABI = [
       { name: 'token', type: 'address' },
       { name: 'collateralAmount', type: 'uint256' },
       { name: 'leverage', type: 'uint256' },
-      { name: 'stopLossPrice', type: 'uint256' },
-      { name: 'takeProfitPrice', type: 'uint256' },
+      { name: 'stopLossPercent', type: 'uint256' },
+      { name: 'takeProfitPercent', type: 'uint256' },
       { name: 'minTokenOut', type: 'uint256' }
     ],
     name: 'openLong',
@@ -133,11 +133,12 @@ const VAULT_V6_ABI = [
       { name: 'token', type: 'address' },
       { name: 'collateralAmount', type: 'uint256' },
       { name: 'leverage', type: 'uint256' },
-      { name: 'stopLossPrice', type: 'uint256' },
-      { name: 'takeProfitPrice', type: 'uint256' }
+      { name: 'stopLossPercent', type: 'uint256' },
+      { name: 'takeProfitPercent', type: 'uint256' },
+      { name: 'minUsdcOut', type: 'uint256' }
     ],
     name: 'openShort',
-    outputs: [{ name: 'borrowedAmount', type: 'uint256' }],
+    outputs: [{ name: 'usdcReceived', type: 'uint256' }],
     stateMutability: 'nonpayable',
     type: 'function'
   },
@@ -373,21 +374,16 @@ export class TradingV6Service {
         return { success: false, error: 'Already have position for this token' };
       }
 
-      // Get current price from oracle
+      // Get current price from oracle (for logging only)
       const currentPrice = await this.getTokenPrice(signal.tokenAddress);
       if (!currentPrice) {
         return { success: false, error: 'Failed to get oracle price' };
       }
 
-      // Calculate SL/TP prices (8 decimals for Chainlink)
-      const stopLossPrice = parseUnits(
-        (currentPrice * (1 - signal.stopLossPercent / 100)).toFixed(8),
-        8
-      );
-      const takeProfitPrice = parseUnits(
-        (currentPrice * (1 + signal.takeProfitPercent / 100)).toFixed(8),
-        8
-      );
+      // Convert percent to basis points (5% = 500 bps)
+      // Contract calculates prices internally from these percentages
+      const stopLossBps = BigInt(Math.round(signal.stopLossPercent * 100));
+      const takeProfitBps = BigInt(Math.round(signal.takeProfitPercent * 100));
 
       logger.info('Opening LONG position', {
         user: userAddress.slice(0, 10),
@@ -395,11 +391,11 @@ export class TradingV6Service {
         collateral: formatUnits(signal.collateralAmount, 6),
         leverage: signal.leverage + 'x',
         currentPrice,
-        stopLoss: formatUnits(stopLossPrice, 8),
-        takeProfit: formatUnits(takeProfitPrice, 8)
+        stopLossBps: stopLossBps.toString(),
+        takeProfitBps: takeProfitBps.toString()
       });
 
-      // Execute openLong
+      // Execute openLong - contract expects percent in basis points
       const txHash = await this.walletClient.writeContract({
         address: V6_VAULT_ADDRESS,
         abi: VAULT_V6_ABI,
@@ -409,8 +405,8 @@ export class TradingV6Service {
           signal.tokenAddress,
           signal.collateralAmount,
           BigInt(signal.leverage),
-          stopLossPrice,
-          takeProfitPrice,
+          stopLossBps,
+          takeProfitBps,
           0n // minTokenOut - accept any for now
         ],
         chain: arbitrum,
@@ -497,21 +493,16 @@ export class TradingV6Service {
         return { success: false, error: 'Already have position for this token' };
       }
 
-      // Get current price from oracle
+      // Get current price from oracle (for logging only)
       const currentPrice = await this.getTokenPrice(signal.tokenAddress);
       if (!currentPrice) {
         return { success: false, error: 'Failed to get oracle price' };
       }
 
-      // Calculate SL/TP prices (reversed for SHORT)
-      const stopLossPrice = parseUnits(
-        (currentPrice * (1 + signal.stopLossPercent / 100)).toFixed(8),
-        8
-      );
-      const takeProfitPrice = parseUnits(
-        (currentPrice * (1 - signal.takeProfitPercent / 100)).toFixed(8),
-        8
-      );
+      // Convert percent to basis points (5% = 500 bps)
+      // Contract calculates prices internally from these percentages
+      const stopLossBps = BigInt(Math.round(signal.stopLossPercent * 100));
+      const takeProfitBps = BigInt(Math.round(signal.takeProfitPercent * 100));
 
       logger.info('Opening SHORT position', {
         user: userAddress.slice(0, 10),
@@ -519,11 +510,11 @@ export class TradingV6Service {
         collateral: formatUnits(signal.collateralAmount, 6),
         leverage: signal.leverage + 'x',
         currentPrice,
-        stopLoss: formatUnits(stopLossPrice, 8),
-        takeProfit: formatUnits(takeProfitPrice, 8)
+        stopLossBps: stopLossBps.toString(),
+        takeProfitBps: takeProfitBps.toString()
       });
 
-      // Execute openShort
+      // Execute openShort - contract expects percent in basis points
       const txHash = await this.walletClient.writeContract({
         address: V6_VAULT_ADDRESS,
         abi: VAULT_V6_ABI,
@@ -533,8 +524,9 @@ export class TradingV6Service {
           signal.tokenAddress,
           signal.collateralAmount,
           BigInt(signal.leverage),
-          stopLossPrice,
-          takeProfitPrice
+          stopLossBps,
+          takeProfitBps,
+          0n // minUsdcOut - accept any for now
         ],
         chain: arbitrum,
         account: this.botAccount
