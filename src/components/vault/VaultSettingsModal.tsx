@@ -84,7 +84,14 @@ export default function VaultSettingsModal({
       }
 
       // Sync settings to Supabase (including TP/SL and ask_permission)
-      const { error: upsertError } = await supabase
+      console.log('[VaultSettings] Saving to Supabase:', {
+        wallet_address: address.toLowerCase(),
+        chain_id: chainId,
+        auto_trade_enabled: autoTrade,
+        risk_level_bps: riskLevel * 100
+      });
+
+      const { data: upsertData, error: upsertError } = await supabase
         .from('vault_settings')
         .upsert({
           wallet_address: address.toLowerCase(),
@@ -98,11 +105,14 @@ export default function VaultSettingsModal({
           synced_at: new Date().toISOString()
         }, {
           onConflict: 'wallet_address,chain_id'
-        });
+        })
+        .select();
+
+      console.log('[VaultSettings] Supabase response:', { data: upsertData, error: upsertError });
 
       if (upsertError) {
         console.error('Failed to save vault settings:', upsertError);
-        throw new Error('Failed to save settings to database');
+        throw new Error(`Database error: ${upsertError.message || upsertError.code || 'Unknown error'}`);
       }
 
       console.log('Settings saved successfully:', { takeProfit, stopLoss, riskLevel, autoTrade });
