@@ -29,7 +29,7 @@ interface Candle {
 
 // Market analysis result
 interface MarketAnalysis {
-  direction: 'LONG' | 'SHORT';
+  direction: 'LONG' | 'SHORT' | 'HOLD';  // Now supports HOLD
   confidence: number;
   reason: string;
   indicators: string[];
@@ -43,6 +43,7 @@ interface MarketAnalysis {
   scalpingRecommended: boolean;
   marketWarning?: string;
   isWeak?: boolean; // Signal is too weak to trade
+  strength?: number; // Signal strength 1-10 (NEW)
   metrics: {
     rsi: number;
     macd: string;
@@ -95,6 +96,35 @@ const TOKEN_SYMBOLS: Record<number, Record<string, string>> = {
     '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f': 'BTCUSDT',   // WBTC
   }
 };
+
+// ============================================================================
+// PERFORMANCE: Memory Cache for OHLCV Data (5 seconds TTL)
+// ============================================================================
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  source: string;
+}
+
+const ohlcvCache = new Map<string, CacheEntry<Candle[]>>();
+const OHLCV_CACHE_TTL = 5000; // 5 seconds
+
+// Indicator cache (30 seconds TTL)
+const indicatorCache = new Map<string, CacheEntry<{ rsi: number; macd: any; trend: string }>>();
+const INDICATOR_CACHE_TTL = 30000; // 30 seconds
+
+function getCachedOHLCV(key: string): Candle[] | null {
+  const cached = ohlcvCache.get(key);
+  if (cached && Date.now() - cached.timestamp < OHLCV_CACHE_TTL) {
+    logger.debug('OHLCV cache HIT', { key, source: cached.source });
+    return cached.data;
+  }
+  return null;
+}
+
+function setCachedOHLCV(key: string, data: Candle[], source: string): void {
+  ohlcvCache.set(key, { data, timestamp: Date.now(), source });
+}
 
 /**
  * Fetch with timeout and retry logic
@@ -149,109 +179,122 @@ async function fetchWithRetry(url: string, retries: number = 3, timeoutMs: numbe
 }
 
 /**
- * Fetch candle data from multiple exchanges with fallbacks
- * Order: Binance -> Bybit -> KuCoin -> OKX
+ * OPTIMIZED: Fetch candle data with parallel API calls and 5s cache
+ * Uses Promise.race for fastest response, with 3s timeout per exchange
  */
 async function fetchCandles(symbol: string, interval: string = '1h', limit: number = 30): Promise<Candle[]> {
-  // Try Binance first
-  try {
-    const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
-    const response = await fetchWithRetry(binanceUrl, 2, 8000);
-    const data = await response.json();
+  // Check cache first
+  const cacheKey = `${symbol}_${interval}_${limit}`;
+  const cached = getCachedOHLCV(cacheKey);
+  if (cached) return cached;
 
-    if (Array.isArray(data) && data.length > 0) {
-      logger.debug('Fetched candles from Binance', { symbol, count: data.length });
-      return data.map((candle: any[]) => ({
-        time: candle[0],
-        open: parseFloat(candle[1]),
-        high: parseFloat(candle[2]),
-        low: parseFloat(candle[3]),
-        close: parseFloat(candle[4]),
-        volume: parseFloat(candle[5])
-      }));
+  const TIMEOUT_MS = 3000; // 3 seconds per exchange
+
+  // Helper to fetch with timeout
+  const fetchWithTimeout = async (url: string, timeout: number): Promise<Response> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    try {
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: { 'Accept': 'application/json', 'User-Agent': 'Monadier-Bot/1.0' }
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      throw err;
     }
-  } catch (err: any) {
-    logger.warn('Binance API failed, trying Bybit', { symbol, error: err.message?.slice(0, 50) || String(err).slice(0, 50) });
+  };
+
+  // Build all exchange fetch promises
+  const exchangeFetchers: Array<{ name: string; fetch: () => Promise<Candle[]> }> = [
+    {
+      name: 'Binance',
+      fetch: async () => {
+        const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+        const response = await fetchWithTimeout(url, TIMEOUT_MS);
+        const data = await response.json();
+        if (!Array.isArray(data) || data.length === 0) throw new Error('No data');
+        return data.map((c: any[]) => ({
+          time: c[0], open: parseFloat(c[1]), high: parseFloat(c[2]),
+          low: parseFloat(c[3]), close: parseFloat(c[4]), volume: parseFloat(c[5])
+        }));
+      }
+    },
+    {
+      name: 'Bybit',
+      fetch: async () => {
+        const bybitInterval = interval === '1h' ? '60' : interval === '5m' ? '5' : interval === '15m' ? '15' : interval === '1m' ? '1' : interval === '4h' ? '240' : '60';
+        const url = `https://api.bybit.com/v5/market/kline?category=spot&symbol=${symbol}&interval=${bybitInterval}&limit=${limit}`;
+        const response = await fetchWithTimeout(url, TIMEOUT_MS);
+        const data = await response.json();
+        if (!data.result?.list?.length) throw new Error('No data');
+        return data.result.list.reverse().map((c: any[]) => ({
+          time: parseInt(c[0]), open: parseFloat(c[1]), high: parseFloat(c[2]),
+          low: parseFloat(c[3]), close: parseFloat(c[4]), volume: parseFloat(c[5])
+        }));
+      }
+    },
+    {
+      name: 'KuCoin',
+      fetch: async () => {
+        const kucoinSymbol = symbol.replace('USDT', '-USDT');
+        const kucoinInterval = interval === '1h' ? '1hour' : interval === '5m' ? '5min' : interval === '15m' ? '15min' : interval === '1m' ? '1min' : interval === '4h' ? '4hour' : '1hour';
+        const endAt = Math.floor(Date.now() / 1000);
+        const intervalSecs = interval === '1h' ? 3600 : interval === '4h' ? 14400 : interval === '15m' ? 900 : interval === '5m' ? 300 : 60;
+        const startAt = endAt - (limit * intervalSecs);
+        const url = `https://api.kucoin.com/api/v1/market/candles?type=${kucoinInterval}&symbol=${kucoinSymbol}&startAt=${startAt}&endAt=${endAt}`;
+        const response = await fetchWithTimeout(url, TIMEOUT_MS);
+        const data = await response.json();
+        if (!data.data?.length) throw new Error('No data');
+        return data.data.reverse().map((c: any[]) => ({
+          time: parseInt(c[0]) * 1000, open: parseFloat(c[1]), high: parseFloat(c[3]),
+          low: parseFloat(c[4]), close: parseFloat(c[2]), volume: parseFloat(c[5])
+        }));
+      }
+    },
+    {
+      name: 'OKX',
+      fetch: async () => {
+        const okxSymbol = symbol.replace('USDT', '-USDT');
+        const okxInterval = interval === '1h' ? '1H' : interval === '4h' ? '4H' : interval;
+        const url = `https://www.okx.com/api/v5/market/candles?instId=${okxSymbol}&bar=${okxInterval}&limit=${limit}`;
+        const response = await fetchWithTimeout(url, TIMEOUT_MS);
+        const data = await response.json();
+        if (!data.data?.length) throw new Error('No data');
+        return data.data.reverse().map((c: any[]) => ({
+          time: parseInt(c[0]), open: parseFloat(c[1]), high: parseFloat(c[2]),
+          low: parseFloat(c[3]), close: parseFloat(c[4]), volume: parseFloat(c[5])
+        }));
+      }
+    }
+  ];
+
+  // PARALLEL: Race all exchanges - first success wins
+  const fetchPromises = exchangeFetchers.map(async (ex) => {
+    try {
+      const candles = await ex.fetch();
+      return { name: ex.name, candles, success: true };
+    } catch (err: any) {
+      logger.debug(`${ex.name} failed`, { symbol, error: err.message?.slice(0, 30) });
+      return { name: ex.name, candles: [] as Candle[], success: false };
+    }
+  });
+
+  // Wait for all to complete, pick first successful
+  const results = await Promise.all(fetchPromises);
+  const successful = results.find(r => r.success && r.candles.length > 0);
+
+  if (successful) {
+    logger.debug('Fetched candles', { symbol, interval, source: successful.name, count: successful.candles.length });
+    setCachedOHLCV(cacheKey, successful.candles, successful.name);
+    return successful.candles;
   }
 
-  // Fallback 1: Bybit
-  try {
-    const bybitInterval = interval === '1h' ? '60' : interval === '5m' ? '5' : interval === '15m' ? '15' : interval === '1m' ? '1' : '60';
-    const bybitUrl = `https://api.bybit.com/v5/market/kline?category=spot&symbol=${symbol}&interval=${bybitInterval}&limit=${limit}`;
-    const response = await fetchWithRetry(bybitUrl, 2, 8000);
-    const data = await response.json();
-
-    if (data.result?.list && data.result.list.length > 0) {
-      logger.debug('Fetched candles from Bybit', { symbol, count: data.result.list.length });
-      return data.result.list.reverse().map((candle: any[]) => ({
-        time: parseInt(candle[0]),
-        open: parseFloat(candle[1]),
-        high: parseFloat(candle[2]),
-        low: parseFloat(candle[3]),
-        close: parseFloat(candle[4]),
-        volume: parseFloat(candle[5])
-      }));
-    }
-  } catch (err: any) {
-    logger.warn('Bybit API failed, trying KuCoin', { symbol, error: err.message?.slice(0, 50) || String(err).slice(0, 50) });
-  }
-
-  // Fallback 2: KuCoin (usually not geo-restricted)
-  try {
-    // KuCoin uses different symbol format: ETH-USDT instead of ETHUSDT
-    const kucoinSymbol = symbol.replace('USDT', '-USDT').replace('BTC', '-BTC');
-    // KuCoin interval: 1min, 5min, 15min, 1hour
-    const kucoinInterval = interval === '1h' ? '1hour' : interval === '5m' ? '5min' : interval === '15m' ? '15min' : interval === '1m' ? '1min' : '1hour';
-    const endAt = Math.floor(Date.now() / 1000);
-    const startAt = endAt - (limit * (interval === '1h' ? 3600 : interval === '15m' ? 900 : interval === '5m' ? 300 : 60));
-
-    const kucoinUrl = `https://api.kucoin.com/api/v1/market/candles?type=${kucoinInterval}&symbol=${kucoinSymbol}&startAt=${startAt}&endAt=${endAt}`;
-    const response = await fetchWithRetry(kucoinUrl, 2, 8000);
-    const data = await response.json();
-
-    if (data.data && Array.isArray(data.data) && data.data.length > 0) {
-      logger.info('Fetched candles from KuCoin', { symbol: kucoinSymbol, count: data.data.length });
-      // KuCoin returns: [time, open, close, high, low, volume, turnover] - newest first
-      return data.data.reverse().map((candle: any[]) => ({
-        time: parseInt(candle[0]) * 1000,
-        open: parseFloat(candle[1]),
-        high: parseFloat(candle[3]),
-        low: parseFloat(candle[4]),
-        close: parseFloat(candle[2]),
-        volume: parseFloat(candle[5])
-      }));
-    }
-  } catch (err: any) {
-    logger.warn('KuCoin API failed, trying OKX', { symbol, error: err.message?.slice(0, 50) || String(err).slice(0, 50) });
-  }
-
-  // Fallback 3: OKX (usually not geo-restricted)
-  try {
-    // OKX uses format: ETH-USDT
-    const okxSymbol = symbol.replace('USDT', '-USDT');
-    // OKX interval: 1m, 5m, 15m, 1H
-    const okxInterval = interval === '1h' ? '1H' : interval === '5m' ? '5m' : interval === '15m' ? '15m' : interval === '1m' ? '1m' : '1H';
-
-    const okxUrl = `https://www.okx.com/api/v5/market/candles?instId=${okxSymbol}&bar=${okxInterval}&limit=${limit}`;
-    const response = await fetchWithRetry(okxUrl, 2, 8000);
-    const data = await response.json();
-
-    if (data.data && Array.isArray(data.data) && data.data.length > 0) {
-      logger.info('Fetched candles from OKX', { symbol: okxSymbol, count: data.data.length });
-      // OKX returns: [ts, o, h, l, c, vol, volCcy, volCcyQuote, confirm] - newest first
-      return data.data.reverse().map((candle: any[]) => ({
-        time: parseInt(candle[0]),
-        open: parseFloat(candle[1]),
-        high: parseFloat(candle[2]),
-        low: parseFloat(candle[3]),
-        close: parseFloat(candle[4]),
-        volume: parseFloat(candle[5])
-      }));
-    }
-  } catch (err: any) {
-    logger.error('All exchange APIs failed', { symbol, error: err.message?.slice(0, 50) || String(err).slice(0, 50) });
-  }
-
+  // All failed - log which exchanges failed
+  const failedExchanges = results.filter(r => !r.success).map(r => r.name);
+  logger.error('All exchange APIs failed', { symbol, interval, failedExchanges });
   return [];
 }
 
@@ -1012,6 +1055,12 @@ export async function generateTradeSignal(
     return null;
   }
 
+  // Don't trade on HOLD signals
+  if (analysis.direction === 'HOLD') {
+    logger.info('Signal is HOLD - no trade', { symbol, confidence: analysis.confidence });
+    return null;
+  }
+
   // Calculate trade amount based on risk level
   const tradeAmount = (userBalance * BigInt(riskLevelBps)) / 10000n;
 
@@ -1023,7 +1072,7 @@ export async function generateTradeSignal(
   const minAmountOut = (tradeAmount * 99n) / 100n;
 
   return {
-    direction: analysis.direction,
+    direction: analysis.direction as 'LONG' | 'SHORT',
     confidence: analysis.confidence,
     tokenAddress,
     tokenSymbol,
@@ -1163,27 +1212,63 @@ export async function analyzeMarketMTF(
       isWeak
     });
 
-    // When HOLD, use majority vote from 5m, 15m, 1h (IGNORE 1m noise!)
-    let finalDirection: 'LONG' | 'SHORT' = signal.direction as 'LONG' | 'SHORT';
+    // IMPROVED HOLD LOGIC: Keep HOLD for weak signals, convert with conviction
+    // Calculate signal strength (1-10 scale)
+    const trendStrength = Math.round(signal.trendAlignment / 10); // 0-100 -> 0-10
+    const patternBonus = signal.patterns.length > 0 ? Math.min(signal.patterns.length, 3) : 0;
+    const signalStrength = Math.min(10, Math.round((signal.confidence / 10) + patternBonus));
+
+    // Use strategy-specific confidence threshold (NOT a fixed 65%)
+    const confidenceThreshold = strategyConfig.minConfidence;
+
+    let finalDirection: 'LONG' | 'SHORT' | 'HOLD' = signal.direction;
+
     if (signal.direction === 'HOLD') {
-      // Count votes from higher timeframes only (skip 1m)
+      // Count votes from higher timeframes only (skip 1m noise)
       const higherTFs = signal.timeframes.filter(tf => tf.timeframe !== '1m');
       const longVotes = higherTFs.filter(tf => tf.direction === 'LONG').length;
       const shortVotes = higherTFs.filter(tf => tf.direction === 'SHORT').length;
 
-      // Follow the trend if uptrend, else use majority
-      if (trend === 'UP') {
-        finalDirection = 'LONG'; // Uptrend = go LONG
-      } else if (trend === 'DOWN') {
-        finalDirection = 'SHORT'; // Downtrend = go SHORT
+      // STABLE SIGNAL RULES (respects strategy config):
+      // 1. Keep HOLD if confidence < strategy threshold
+      // 2. Convert to LONG/SHORT if meets strategy requirements
+      const hasStrongTrend = trendStrength >= 5; // Lowered from 7 for risky strategy
+      const hasClearMajority = Math.abs(longVotes - shortVotes) >= 1;
+      const meetsStrategyThreshold = signal.confidence >= confidenceThreshold;
+
+      if (!meetsStrategyThreshold) {
+        // Below strategy threshold - stay HOLD
+        finalDirection = 'HOLD';
+        logger.debug('Keeping HOLD - below strategy threshold', {
+          confidence: signal.confidence,
+          threshold: confidenceThreshold,
+          strategy
+        });
+      } else if (hasStrongTrend || hasClearMajority) {
+        // Meets threshold AND has trend/majority - convert
+        if (trend === 'UP' || longVotes > shortVotes) {
+          finalDirection = 'LONG';
+        } else if (trend === 'DOWN' || shortVotes > longVotes) {
+          finalDirection = 'SHORT';
+        } else {
+          finalDirection = longVotes >= shortVotes ? 'LONG' : 'SHORT';
+        }
+        logger.debug('Converting HOLD to direction', {
+          finalDirection,
+          trendStrength,
+          confidence: signal.confidence,
+          strategy
+        });
       } else {
-        finalDirection = longVotes >= shortVotes ? 'LONG' : 'SHORT';
+        // Meets threshold but no clear direction - follow trend
+        finalDirection = trend === 'UP' ? 'LONG' : trend === 'DOWN' ? 'SHORT' : 'HOLD';
       }
     }
 
     return {
       direction: finalDirection,
       confidence: Math.round(signal.confidence),
+      strength: signalStrength, // NEW: Signal strength 1-10
       reason,
       indicators: indicators.slice(0, 5),
       isReversalSignal: signal.patternStrength > 50,
@@ -1267,6 +1352,17 @@ export async function generateTradeSignalMTF(
     return null;
   }
 
+  // Don't trade on HOLD signals - wait for clearer direction
+  if (analysis.direction === 'HOLD') {
+    logger.info('MTF Signal is HOLD - no trade', {
+      symbol,
+      confidence: analysis.confidence,
+      strength: analysis.strength,
+      reason: 'Waiting for clearer market direction'
+    });
+    return null;
+  }
+
   // Calculate trade amount based on risk level
   const tradeAmount = (userBalance * BigInt(riskLevelBps)) / 10000n;
 
@@ -1277,8 +1373,9 @@ export async function generateTradeSignalMTF(
   // Calculate minAmountOut with 1% slippage
   const minAmountOut = (tradeAmount * 99n) / 100n;
 
+  // At this point, direction is guaranteed to be LONG or SHORT
   return {
-    direction: analysis.direction,
+    direction: analysis.direction as 'LONG' | 'SHORT',
     confidence: analysis.confidence,
     tokenAddress,
     tokenSymbol,

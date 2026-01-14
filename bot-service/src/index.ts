@@ -150,12 +150,13 @@ let recentFailures = 0;
 let lastFailureTime = 0;
 const FAILURE_RESET_MS = 300000; // Reset failure count after 5 minutes
 
-// Token addresses for trading - ARBITRUM V7 GMX (WETH and WBTC perpetuals)
+// Token addresses for trading - ARBITRUM V7 GMX (WETH, WBTC, ARB perpetuals)
 const TRADE_TOKENS: Record<number, { address: `0x${string}`; symbol: string }[]> = {
-  // ARBITRUM V7 GMX - 2 tokens with GMX perpetuals
+  // ARBITRUM V7 GMX - 3 tokens with GMX perpetuals
   42161: [
     { address: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1', symbol: 'WETH' },
     { address: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f', symbol: 'WBTC' },
+    { address: '0x912CE59144191C1204E64559FE8253a0e49E6548', symbol: 'ARB' },
   ],
   // Empty - not active
   8453: [],
@@ -947,19 +948,50 @@ async function processApprovedTrades(): Promise<void> {
 
 /**
  * Update bot analysis for all tokens - runs ONCE per cycle so ALL users see it
+ * IMPROVED: Better error handling with retry and fallback
  */
 async function updateBotAnalysis(): Promise<void> {
+  const { analyzeMarketMTF } = await import('./services/market');
+
   for (const chainId of ACTIVE_CHAINS) {
     const tokenConfigs = TRADE_TOKENS[chainId];
     if (!tokenConfigs) continue;
 
     for (const tokenConfig of tokenConfigs) {
-      try {
-        // NEW: Use Multi-Timeframe analysis (1m, 5m, 15m, 1h combined)
-        const { analyzeMarketMTF } = await import('./services/market');
-        const analysis = await analyzeMarketMTF(chainId, tokenConfig.address, DEFAULT_STRATEGY);
+      let analysis = null;
+      let retryCount = 0;
+      const MAX_RETRIES = 2;
 
-        if (analysis) {
+      // Retry loop with 2 second delay between attempts
+      while (!analysis && retryCount < MAX_RETRIES) {
+        try {
+          analysis = await analyzeMarketMTF(chainId, tokenConfig.address, DEFAULT_STRATEGY);
+
+          if (!analysis && retryCount < MAX_RETRIES - 1) {
+            logger.warn(`MTF analysis returned null (attempt ${retryCount + 1}/${MAX_RETRIES})`, {
+              token: tokenConfig.symbol,
+              retrying: true,
+              delayMs: 2000
+            });
+            await new Promise(r => setTimeout(r, 2000)); // 2 second delay before retry
+          }
+        } catch (err: any) {
+          logger.error(`MTF analysis failed (attempt ${retryCount + 1}/${MAX_RETRIES})`, {
+            token: tokenConfig.symbol,
+            error: err?.message || String(err),
+            willRetry: retryCount < MAX_RETRIES - 1
+          });
+
+          if (retryCount < MAX_RETRIES - 1) {
+            await new Promise(r => setTimeout(r, 2000)); // 2 second delay before retry
+          }
+        }
+        retryCount++;
+      }
+
+      // Save analysis or update timestamp even on failure
+      if (analysis) {
+        try {
           await positionService.saveAnalysis({
             chainId,
             tokenAddress: tokenConfig.address,
@@ -975,28 +1007,51 @@ async function updateBotAnalysis(): Promise<void> {
               pattern: analysis.indicators[0] || null,
               priceChange24h: parseFloat(analysis.metrics.priceChange1h) || 0
             },
-            recommendation: `MTF ${analysis.direction} - ${analysis.reason} (${analysis.confidence}% confidence)`
+            recommendation: `MTF ${analysis.direction} - ${analysis.reason} (${analysis.confidence}% conf, strength ${analysis.strength || 'N/A'}/10)`
           });
 
-          logger.info(`📊 MTF ${analysis.direction} signal generated and SAVED to DB`, {
+          logger.info(`📊 MTF ${analysis.direction} signal saved`, {
             symbol: tokenConfig.symbol + 'USDT',
-            strategy: DEFAULT_STRATEGY,
-            conditionsMet: `${analysis.metrics.conditionsMet}/5`,
             confidence: `${analysis.confidence}%`,
-            indicators: analysis.indicators.slice(0, 3),
+            strength: `${analysis.strength || 'N/A'}/10`,
             trend: analysis.metrics.trend,
-            suggestedTP: `${analysis.suggestedTP}%`,
-            suggestedSL: `${analysis.suggestedSL}%`
+            patterns: analysis.indicators.slice(0, 2).join(', ') || 'none'
           });
-        } else {
-          logger.warn('No MTF analysis returned - could not fetch market data', {
-            chainId,
+        } catch (saveErr: any) {
+          logger.error('Failed to save analysis to DB', {
             token: tokenConfig.symbol,
-            reason: 'analyzeMarketMTF returned null (likely API failure)'
+            error: saveErr?.message || String(saveErr)
           });
         }
-      } catch (err) {
-        logger.error('Failed to update MTF analysis', { token: tokenConfig.symbol, error: err });
+      } else {
+        // All retries failed - save a HOLD signal with 0 confidence to update timestamp
+        logger.error('All MTF analysis attempts failed - saving HOLD placeholder', {
+          token: tokenConfig.symbol,
+          chainId,
+          attempts: MAX_RETRIES
+        });
+
+        try {
+          await positionService.saveAnalysis({
+            chainId,
+            tokenAddress: tokenConfig.address,
+            tokenSymbol: tokenConfig.symbol,
+            signal: 'HOLD',
+            confidence: 0,
+            currentPrice: 0,
+            factors: {
+              rsi: 50,
+              macdSignal: 'neutral',
+              volumeSpike: false,
+              trend: 'NEUTRAL',
+              pattern: null,
+              priceChange24h: 0
+            },
+            recommendation: 'API Error - Unable to fetch market data'
+          });
+        } catch (fallbackErr) {
+          logger.error('Failed to save fallback analysis', { token: tokenConfig.symbol });
+        }
       }
     }
   }
@@ -1069,8 +1124,8 @@ async function main(): Promise<void> {
   await paymentService.startMonitoring();
   logger.info('Payment monitoring started - watching treasury for incoming USDC');
 
-  // Ensure all vault users have subscriptions (auto-create elite if needed)
-  await subscriptionService.ensureSubscriptionsForVaultUsers();
+  // DISABLED: Was auto-upgrading ALL vault users to elite
+  // await subscriptionService.ensureSubscriptionsForVaultUsers();
 
   // Run immediately on startup
   await runTradingCycle();
