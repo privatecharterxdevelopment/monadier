@@ -522,6 +522,11 @@ export const VAULT_V8_ADDRESSES: Record<number, `0x${string}` | null> = {
   42161: '0xFA38c191134A6a3382794BE6144D24c3e6D8a4C3',  // Arbitrum - V8.2.1 LIVE
 };
 
+// LEGACY: Old unverified vault with user deposits (Claudio's 100 USDC)
+export const LEGACY_VAULT_ADDRESSES: Record<number, `0x${string}` | null> = {
+  42161: '0x712B3A0cFD00674a15c5D235e998F71709112675',  // Arbitrum - LEGACY (withdraw only)
+};
+
 // USDC addresses - Arbitrum only
 export const USDC_ADDRESSES: Record<number, `0x${string}`> = {
   42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',  // Arbitrum (Native USDC)

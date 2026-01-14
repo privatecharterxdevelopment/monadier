@@ -6,6 +6,7 @@ import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { VAULT_ABI, VAULT_V6_ADDRESSES, VAULT_V4_ADDRESSES, VAULT_V3_ADDRESSES, VaultClient, VAULT_V2_ADDRESSES, VAULT_V8_ADDRESSES } from '../../lib/vault';
 import VaultSettingsModal from '../../components/vault/VaultSettingsModal';
 import OnChainPositions from '../../components/trading/OnChainPositions';
+import LegacyVaultWithdraw from '../../components/vault/LegacyVaultWithdraw';
 
 // Legacy trade format (from localStorage)
 interface LegacyTrade {
@@ -947,6 +948,9 @@ const BotHistoryPage: React.FC = () => {
           </button>
         )}
       </div>
+
+      {/* Legacy Vault Warning - shows if user has balance in old contract */}
+      <LegacyVaultWithdraw />
 
       {/* V8 On-Chain Positions (GMX Perpetuals) */}
       {activeTab === 'open' && (
