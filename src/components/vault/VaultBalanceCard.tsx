@@ -64,6 +64,12 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   const [v7Error, setV7Error] = useState<string | null>(null);
   const V7_VAULT_ADDRESS = '0x9879792a47725d5b18633e1395BC4a7A06c750df' as `0x${string}`;
 
+  // V8 Legacy vault state (old V8 before GMX_ROUTER fix)
+  const [v8LegacyBalance, setV8LegacyBalance] = useState<string>('0.00');
+  const [isWithdrawingV8Legacy, setIsWithdrawingV8Legacy] = useState(false);
+  const [v8LegacyError, setV8LegacyError] = useState<string | null>(null);
+  const V8_LEGACY_VAULT_ADDRESS = '0xFA38c191134A6a3382794BE6144D24c3e6D8a4C3' as `0x${string}`;
+
   // Bot toggle state
   const [isTogglingBot, setIsTogglingBot] = useState(false);
   const [toggleError, setToggleError] = useState<string | null>(null);
@@ -78,6 +84,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   const isPreviewMode = !isVaultAvailable;
   const hasV1Funds = parseFloat(v1Balance) > 0;
   const hasV7Funds = parseFloat(v7Balance) > 0;
+  const hasV8LegacyFunds = parseFloat(v8LegacyBalance) > 0;
 
   // Get platform fee (V8 unified)
   const platformFee = getPlatformFee();
@@ -140,6 +147,19 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
           setV7Balance(formatUnits(v7BalanceRaw, 6));
         } catch (e) {
           console.log('No V7 vault balance');
+        }
+
+        // Check V8 Legacy vault balance (old V8 before GMX_ROUTER fix)
+        try {
+          const v8LegacyBalanceRaw = await publicClient.readContract({
+            address: V8_LEGACY_VAULT_ADDRESS,
+            abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'userBalance', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' }],
+            functionName: 'userBalance',
+            args: [address as `0x${string}`]
+          }) as bigint;
+          setV8LegacyBalance(formatUnits(v8LegacyBalanceRaw, 6));
+        } catch (e) {
+          console.log('No V8 legacy vault balance');
         }
       } catch (err) {
         console.error('Failed to load vault data:', err);
@@ -275,6 +295,45 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
       setV7Error(err.shortMessage || err.message || 'Withdrawal failed');
     } finally {
       setIsWithdrawingV7(false);
+    }
+  };
+
+  // V8 Legacy vault withdrawal (old V8 before GMX_ROUTER fix)
+  const handleWithdrawV8Legacy = async () => {
+    if (!walletClient || !publicClient || !address) return;
+
+    try {
+      setIsWithdrawingV8Legacy(true);
+      setV8LegacyError(null);
+
+      // Get the actual balance
+      const v8LegacyBalanceRaw = parseFloat(v8LegacyBalance) * 1e6;
+
+      const V8_LEGACY_WITHDRAW_ABI = [{
+        inputs: [{ name: 'amount', type: 'uint256' }],
+        name: 'withdraw',
+        outputs: [],
+        stateMutability: 'nonpayable',
+        type: 'function'
+      }] as const;
+
+      const hash = await walletClient.writeContract({
+        address: V8_LEGACY_VAULT_ADDRESS,
+        abi: V8_LEGACY_WITHDRAW_ABI,
+        functionName: 'withdraw',
+        args: [BigInt(Math.floor(v8LegacyBalanceRaw))],
+        chain: { id: 42161, name: 'Arbitrum One', nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://arb1.arbitrum.io/rpc'] } } } as any,
+        account: address as `0x${string}`
+      });
+
+      await publicClient.waitForTransactionReceipt({ hash });
+      setV8LegacyBalance('0.00');
+      alert('Successfully withdrew from V8 Legacy vault!');
+    } catch (err: any) {
+      console.error('V8 Legacy withdraw failed:', err);
+      setV8LegacyError(err.shortMessage || err.message || 'Withdrawal failed');
+    } finally {
+      setIsWithdrawingV8Legacy(false);
     }
   };
 
@@ -554,6 +613,42 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
                 <>
                   <ArrowUpRight className="w-4 h-4" />
                   Withdraw $38.50 from V7
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* V8 Legacy Vault Banner (old V8 before GMX_ROUTER fix) */}
+        {hasV8LegacyFunds && !isPreviewMode && (
+          <div className="mb-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-blue-400" />
+                <span className="text-blue-400 text-sm font-medium">V8 Legacy Vault</span>
+              </div>
+              <span className="text-blue-400 text-sm font-bold">${parseFloat(v8LegacyBalance).toFixed(2)}</span>
+            </div>
+            <p className="text-blue-400/80 text-xs mb-3">
+              You have funds in the old V8 vault. Withdraw to your wallet.
+            </p>
+            {v8LegacyError && (
+              <p className="text-red-400 text-xs mb-2">{v8LegacyError}</p>
+            )}
+            <button
+              onClick={handleWithdrawV8Legacy}
+              disabled={isWithdrawingV8Legacy}
+              className="w-full py-2 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isWithdrawingV8Legacy ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Withdrawing...
+                </>
+              ) : (
+                <>
+                  <ArrowUpRight className="w-4 h-4" />
+                  Withdraw ${parseFloat(v8LegacyBalance).toFixed(2)} from V8 Legacy
                 </>
               )}
             </button>
