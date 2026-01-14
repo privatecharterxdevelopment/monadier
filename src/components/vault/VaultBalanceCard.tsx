@@ -58,6 +58,12 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   const [isMigrating, setIsMigrating] = useState(false);
   const [migrationError, setMigrationError] = useState<string | null>(null);
 
+  // V7 Legacy vault state
+  const [v7Balance, setV7Balance] = useState<string>('0.00');
+  const [isWithdrawingV7, setIsWithdrawingV7] = useState(false);
+  const [v7Error, setV7Error] = useState<string | null>(null);
+  const V7_VAULT_ADDRESS = '0x9879792a47725d5b18633e1395BC4a7A06c750df' as `0x${string}`;
+
   // Bot toggle state
   const [isTogglingBot, setIsTogglingBot] = useState(false);
   const [toggleError, setToggleError] = useState<string | null>(null);
@@ -71,6 +77,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   const isVaultAvailable = chainId === VAULT_CHAIN_ID;
   const isPreviewMode = !isVaultAvailable;
   const hasV1Funds = parseFloat(v1Balance) > 0;
+  const hasV7Funds = parseFloat(v7Balance) > 0;
 
   // Get platform fee (V8 unified)
   const platformFee = getPlatformFee();
@@ -122,7 +129,18 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
           // Settings may not exist yet, use defaults
         }
 
-        // V8: No legacy vault migration needed
+        // Check V7 legacy vault balance
+        try {
+          const v7BalanceRaw = await publicClient.readContract({
+            address: V7_VAULT_ADDRESS,
+            abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'balances', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' }],
+            functionName: 'balances',
+            args: [address as `0x${string}`]
+          }) as bigint;
+          setV7Balance(formatUnits(v7BalanceRaw, 6));
+        } catch (e) {
+          console.log('No V7 vault balance');
+        }
       } catch (err) {
         console.error('Failed to load vault data:', err);
         setError('Failed to load vault');
@@ -218,6 +236,41 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   const handleMigrateFromV1 = async () => {
     console.log('V8: Legacy migration not needed');
     setIsMigrating(false);
+  };
+
+  // V7 Legacy vault withdrawal
+  const handleWithdrawV7 = async () => {
+    if (!walletClient || !publicClient || !address) return;
+
+    try {
+      setIsWithdrawingV7(true);
+      setV7Error(null);
+
+      const V7_WITHDRAW_ABI = [{
+        inputs: [],
+        name: 'withdrawAll',
+        outputs: [],
+        stateMutability: 'nonpayable',
+        type: 'function'
+      }] as const;
+
+      const hash = await walletClient.writeContract({
+        address: V7_VAULT_ADDRESS,
+        abi: V7_WITHDRAW_ABI,
+        functionName: 'withdrawAll',
+        chain: { id: 42161, name: 'Arbitrum One', nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://arb1.arbitrum.io/rpc'] } } } as any,
+        account: address as `0x${string}`
+      });
+
+      await publicClient.waitForTransactionReceipt({ hash });
+      setV7Balance('0.00');
+      alert('Successfully withdrew from V7 vault!');
+    } catch (err: any) {
+      console.error('V7 withdraw failed:', err);
+      setV7Error(err.shortMessage || err.message || 'Withdrawal failed');
+    } finally {
+      setIsWithdrawingV7(false);
+    }
   };
 
   // Handle upgrade click
@@ -463,6 +516,42 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
           <div className="flex items-center gap-2 p-2 mb-3 bg-red-500/10 border border-red-500/20 rounded-lg">
             <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
             <span className="text-red-400 text-xs">Daily trade limit reached. Resets at midnight UTC.</span>
+          </div>
+        )}
+
+        {/* V7 Legacy Vault Banner */}
+        {hasV7Funds && !isPreviewMode && (
+          <div className="mb-3 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-orange-400" />
+                <span className="text-orange-400 text-sm font-medium">V7 Legacy Vault</span>
+              </div>
+              <span className="text-orange-400 text-sm font-bold">${parseFloat(v7Balance).toFixed(2)}</span>
+            </div>
+            <p className="text-orange-400/80 text-xs mb-3">
+              You have funds in the old V7 vault. Withdraw to your wallet.
+            </p>
+            {v7Error && (
+              <p className="text-red-400 text-xs mb-2">{v7Error}</p>
+            )}
+            <button
+              onClick={handleWithdrawV7}
+              disabled={isWithdrawingV7}
+              className="w-full py-2 bg-orange-500 text-black font-medium rounded-lg hover:bg-orange-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isWithdrawingV7 ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Withdrawing...
+                </>
+              ) : (
+                <>
+                  <ArrowUpRight className="w-4 h-4" />
+                  Withdraw ${parseFloat(v7Balance).toFixed(2)} from V7
+                </>
+              )}
+            </button>
           </div>
         )}
 
