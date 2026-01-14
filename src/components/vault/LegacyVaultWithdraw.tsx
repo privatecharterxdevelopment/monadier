@@ -10,7 +10,6 @@ const LEGACY_VAULT = '0x712B3A0cFD00674a15c5D235e998F71709112675' as const;
 const LEGACY_ABI = parseAbi([
   'function balances(address) view returns (uint256)',
   'function withdraw(uint256 amount) external',
-  'function withdrawAll() external',
 ]);
 
 // Create a dedicated client for Arbitrum
@@ -66,10 +65,12 @@ const LegacyVaultWithdraw: React.FC = () => {
     setSuccess(null);
 
     try {
+      // Use withdraw(amount) - contract has no withdrawAll()
       const hash = await walletClient.writeContract({
         address: LEGACY_VAULT,
         abi: LEGACY_ABI,
-        functionName: 'withdrawAll',
+        functionName: 'withdraw',
+        args: [balance],
         chain: arbitrum,
       });
 
