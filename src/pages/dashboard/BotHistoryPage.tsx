@@ -989,7 +989,7 @@ const BotHistoryPage: React.FC = () => {
           <div>Token</div>
           <div>Direction</div>
           <div>Entry / Now</div>
-          <div>Size</div>
+          <div>Size / Lev</div>
           <div>TP / SL</div>
           <div>P/L (Live)</div>
           <div>Duration</div>
@@ -1214,9 +1214,15 @@ const BotHistoryPage: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Size */}
-                    <div className="text-white font-mono text-sm" title={`Raw: ${position.entry_amount}`}>
-                      ${(position.entry_amount || 0).toFixed(2)}
+                    {/* Size + Leverage */}
+                    <div className="text-sm">
+                      <div className="text-white font-mono">
+                        ${((position.entry_amount || 0) * (botSettings.leverage || 1)).toFixed(2)}
+                      </div>
+                      <div className="flex items-center gap-1 text-xs">
+                        <span className="text-gray-500">${(position.entry_amount || 0).toFixed(2)}</span>
+                        <span className="text-purple-400 font-medium">×{botSettings.leverage || 1}</span>
+                      </div>
                     </div>
 
                     {/* TP / SL / BE */}
