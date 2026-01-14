@@ -29,7 +29,7 @@ interface Candle {
 
 // Market analysis result
 interface MarketAnalysis {
-  direction: 'LONG' | 'SHORT' | 'HOLD';  // Now supports HOLD
+  direction: 'LONG' | 'SHORT';  // Always LONG or SHORT, never HOLD
   confidence: number;
   reason: string;
   indicators: string[];
@@ -1055,12 +1055,6 @@ export async function generateTradeSignal(
     return null;
   }
 
-  // Don't trade on HOLD signals
-  if (analysis.direction === 'HOLD') {
-    logger.info('Signal is HOLD - no trade', { symbol, confidence: analysis.confidence });
-    return null;
-  }
-
   // Calculate trade amount based on risk level
   const tradeAmount = (userBalance * BigInt(riskLevelBps)) / 10000n;
 
@@ -1072,7 +1066,7 @@ export async function generateTradeSignal(
   const minAmountOut = (tradeAmount * 99n) / 100n;
 
   return {
-    direction: analysis.direction as 'LONG' | 'SHORT',
+    direction: analysis.direction,
     confidence: analysis.confidence,
     tokenAddress,
     tokenSymbol,
@@ -1081,7 +1075,7 @@ export async function generateTradeSignal(
     reason: analysis.reason,
     takeProfitPercent: analysis.suggestedTP,
     trailingStopPercent: analysis.suggestedSL,
-    profitLockPercent: strategyConfig.profitLockPercent // Pass from strategy config
+    profitLockPercent: strategyConfig.profitLockPercent
   };
 }
 
@@ -1212,16 +1206,12 @@ export async function analyzeMarketMTF(
       isWeak
     });
 
-    // IMPROVED HOLD LOGIC: Keep HOLD for weak signals, convert with conviction
     // Calculate signal strength (1-10 scale)
-    const trendStrength = Math.round(signal.trendAlignment / 10); // 0-100 -> 0-10
     const patternBonus = signal.patterns.length > 0 ? Math.min(signal.patterns.length, 3) : 0;
     const signalStrength = Math.min(10, Math.round((signal.confidence / 10) + patternBonus));
 
-    // Use strategy-specific confidence threshold (NOT a fixed 65%)
-    const confidenceThreshold = strategyConfig.minConfidence;
-
-    let finalDirection: 'LONG' | 'SHORT' | 'HOLD' = signal.direction;
+    // ALWAYS convert HOLD to LONG/SHORT - never stay HOLD (original logic)
+    let finalDirection: 'LONG' | 'SHORT' = signal.direction as 'LONG' | 'SHORT';
 
     if (signal.direction === 'HOLD') {
       // Count votes from higher timeframes only (skip 1m noise)
@@ -1229,43 +1219,25 @@ export async function analyzeMarketMTF(
       const longVotes = higherTFs.filter(tf => tf.direction === 'LONG').length;
       const shortVotes = higherTFs.filter(tf => tf.direction === 'SHORT').length;
 
-      // STABLE SIGNAL RULES (respects strategy config):
-      // 1. Keep HOLD if confidence < strategy threshold
-      // 2. Convert to LONG/SHORT if meets strategy requirements
-      const hasStrongTrend = trendStrength >= 5; // Lowered from 7 for risky strategy
-      const hasClearMajority = Math.abs(longVotes - shortVotes) >= 1;
-      const meetsStrategyThreshold = signal.confidence >= confidenceThreshold;
-
-      // Check if trend is bullish or bearish (handle all variations)
+      // Check trend direction (handle all variations)
       const isBullishTrend = trend === 'UP' || trend.includes('UPTREND');
       const isBearishTrend = trend === 'DOWN' || trend.includes('DOWNTREND');
 
-      if (!meetsStrategyThreshold) {
-        // Below strategy threshold - stay HOLD
-        finalDirection = 'HOLD';
-        logger.debug('Keeping HOLD - below strategy threshold', {
-          confidence: signal.confidence,
-          threshold: confidenceThreshold,
-          strategy
-        });
-      } else if (hasStrongTrend || hasClearMajority) {
-        // Meets threshold AND has trend/majority - convert
-        if (isBullishTrend || longVotes > shortVotes) {
-          finalDirection = 'LONG';
-        } else if (isBearishTrend || shortVotes > longVotes) {
-          finalDirection = 'SHORT';
-        } else {
-          finalDirection = longVotes >= shortVotes ? 'LONG' : 'SHORT';
-        }
-        logger.info('Converting HOLD to direction', {
-          finalDirection,
-          trend,
-          confidence: signal.confidence
-        });
+      // Follow the trend, else use majority vote
+      if (isBullishTrend) {
+        finalDirection = 'LONG';
+      } else if (isBearishTrend) {
+        finalDirection = 'SHORT';
       } else {
-        // Meets threshold but no clear direction - follow trend
-        finalDirection = isBullishTrend ? 'LONG' : isBearishTrend ? 'SHORT' : 'HOLD';
+        finalDirection = longVotes >= shortVotes ? 'LONG' : 'SHORT';
       }
+
+      logger.info('Converting HOLD to direction', {
+        finalDirection,
+        trend,
+        longVotes,
+        shortVotes
+      });
     }
 
     return {
@@ -1355,17 +1327,6 @@ export async function generateTradeSignalMTF(
     return null;
   }
 
-  // Don't trade on HOLD signals - wait for clearer direction
-  if (analysis.direction === 'HOLD') {
-    logger.info('MTF Signal is HOLD - no trade', {
-      symbol,
-      confidence: analysis.confidence,
-      strength: analysis.strength,
-      reason: 'Waiting for clearer market direction'
-    });
-    return null;
-  }
-
   // Calculate trade amount based on risk level
   const tradeAmount = (userBalance * BigInt(riskLevelBps)) / 10000n;
 
@@ -1376,9 +1337,8 @@ export async function generateTradeSignalMTF(
   // Calculate minAmountOut with 1% slippage
   const minAmountOut = (tradeAmount * 99n) / 100n;
 
-  // At this point, direction is guaranteed to be LONG or SHORT
   return {
-    direction: analysis.direction as 'LONG' | 'SHORT',
+    direction: analysis.direction,
     confidence: analysis.confidence,
     tokenAddress,
     tokenSymbol,
