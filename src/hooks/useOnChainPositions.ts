@@ -11,6 +11,7 @@ import {
   formatGMXPrice,
   formatSLTP,
 } from '../lib/vault';
+import { supabase } from '../lib/supabase';
 
 export interface FormattedPosition {
   id: string;
@@ -203,6 +204,10 @@ export function useOnChainPositions() {
       const vaultAddress = VAULT_ADDRESS;
       if (!vaultAddress) throw new Error('V8 vault not available');
 
+      // Get current position data before closing (for P/L calculation)
+      const position = positions.find(p => p.token === token);
+      const currentPrice = token === 'WETH' ? prices.weth : prices.wbtc;
+
       // Get execution fee
       const execFee = (await publicClient.readContract({
         address: vaultAddress,
@@ -221,9 +226,49 @@ export function useOnChainPositions() {
         account: address as `0x${string}`,
       });
 
+      // Wait for confirmation then update database with real P/L
+      if (position && currentPrice > 0) {
+        try {
+          await publicClient.waitForTransactionReceipt({ hash });
+
+          const exitPrice = Number(currentPrice) / 1e30;
+          const entryPrice = position.entryPrice;
+          let profitLossPercent = 0;
+
+          if (position.direction === 'LONG') {
+            profitLossPercent = ((exitPrice - entryPrice) / entryPrice) * 100;
+          } else {
+            profitLossPercent = ((entryPrice - exitPrice) / entryPrice) * 100;
+          }
+
+          const profitLoss = (position.collateral * profitLossPercent) / 100;
+
+          // Update database with real exit price and P/L
+          await supabase
+            .from('positions')
+            .update({
+              status: 'closed',
+              close_reason: 'manual',
+              exit_price: exitPrice,
+              profit_loss: profitLoss,
+              profit_loss_percent: profitLossPercent,
+              exit_tx_hash: hash,
+              closed_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('wallet_address', address.toLowerCase())
+            .eq('token_address', TOKEN_ADDRESSES[token].toLowerCase())
+            .in('status', ['open', 'closing']);
+
+          console.log('Position closed with P/L:', { profitLoss, profitLossPercent, exitPrice });
+        } catch (err) {
+          console.error('Failed to update position in database:', err);
+        }
+      }
+
       return hash;
     },
-    [walletClient, publicClient, address]
+    [walletClient, publicClient, address, positions, prices]
   );
 
   // Cancel auto-features function
