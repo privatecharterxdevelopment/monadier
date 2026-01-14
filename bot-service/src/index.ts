@@ -559,13 +559,20 @@ async function runPositionMonitoringCycle(): Promise<void> {
               profitLossPercent = pnlData.pnlPercent;
               closeReason = profitLossPercent > 0 ? 'takeprofit' : 'stoploss';
             } else if (result.error?.includes('No active position')) {
-              // Position was closed by contract - estimate based on TP (most likely if user clicked close while in profit)
-              const tpPercent = pos.take_profit_percent || 1.5;
+              // Position was closed by contract - fetch user's actual TP setting
+              const { data: userSettings } = await supabase
+                .from('vault_settings')
+                .select('take_profit_percent')
+                .eq('wallet_address', pos.wallet_address.toLowerCase())
+                .single();
+
+              const tpPercent = userSettings?.take_profit_percent || pos.take_profit_percent || 5;
               profitLossPercent = tpPercent;
               profitLoss = (pos.entry_amount || 0) * (tpPercent / 100);
               closeReason = 'takeprofit';
-              logger.info('Position already closed by contract, assuming TP hit', {
+              logger.info('Position already closed by contract, using user TP', {
                 positionId: pos.id.slice(0, 8),
+                tpPercent,
                 profitLoss,
                 profitLossPercent
               });
@@ -606,11 +613,18 @@ async function runPositionMonitoringCycle(): Promise<void> {
           let closeReason = 'auto_closed';
 
           if (err.message?.includes('No active position') || err.message?.includes('position not found')) {
-            // Assume TP was hit (user was trying to close while in profit)
-            const tpPercent = pos.take_profit_percent || 1.5;
+            // Fetch user's actual TP setting from vault_settings
+            const { data: userSettings } = await supabase
+              .from('vault_settings')
+              .select('take_profit_percent')
+              .eq('wallet_address', pos.wallet_address.toLowerCase())
+              .single();
+
+            const tpPercent = userSettings?.take_profit_percent || pos.take_profit_percent || 5;
             profitLossPercent = tpPercent;
             profitLoss = (pos.entry_amount || 0) * (tpPercent / 100);
             closeReason = 'takeprofit';
+            logger.info('Position auto-closed, using user TP setting', { tpPercent, profitLoss });
           } else {
             profitLossPercent = -1;
             profitLoss = -(pos.entry_amount || 0) * 0.01;
@@ -756,16 +770,36 @@ async function runPositionMonitoringCycle(): Promise<void> {
                 .single();
 
               if (dbPos && dbPos.entry_price && dbPos.entry_amount) {
+                // Fetch user's actual TP/SL settings from vault_settings
+                const { data: userSettings } = await supabase
+                  .from('vault_settings')
+                  .select('take_profit_percent, stop_loss_percent, leverage_multiplier')
+                  .eq('wallet_address', userAddress.toLowerCase())
+                  .single();
+
+                const leverage = userSettings?.leverage_multiplier || 1;
+                const userTpPercent = userSettings?.take_profit_percent || 5;
+                const userSlPercent = userSettings?.stop_loss_percent || 1;
+
                 // Estimate based on close reason
                 if (result.reason === 'take_profit' || result.reason === 'takeprofit') {
-                  profitLossPercent = dbPos.take_profit_percent || 1.5;
+                  profitLossPercent = userTpPercent; // User's configured TP%
                   profitLoss = (dbPos.entry_amount * profitLossPercent) / 100;
-                  exitPrice = dbPos.entry_price * (1 + profitLossPercent / 100);
+                  // Exit price = entry × (1 + TP% / leverage) for leveraged positions
+                  exitPrice = dbPos.entry_price * (1 + (profitLossPercent / leverage) / 100);
                 } else if (result.reason === 'stop_loss' || result.reason === 'stoploss' || result.reason === 'trailing_stop') {
-                  profitLossPercent = -(dbPos.trailing_stop_percent || 1);
+                  profitLossPercent = -userSlPercent; // User's configured SL%
                   profitLoss = (dbPos.entry_amount * profitLossPercent) / 100;
-                  exitPrice = dbPos.entry_price * (1 + profitLossPercent / 100);
+                  exitPrice = dbPos.entry_price * (1 + (profitLossPercent / leverage) / 100);
                 }
+
+                logger.info('P/L calculated with user settings', {
+                  leverage,
+                  userTpPercent,
+                  userSlPercent,
+                  profitLoss,
+                  profitLossPercent
+                });
               }
             }
 
