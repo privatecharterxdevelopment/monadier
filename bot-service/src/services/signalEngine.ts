@@ -133,36 +133,88 @@ export class SignalEngine {
       return cached.data;
     }
 
-    try {
-      const interval = timeframe === '1m' ? '1m' :
-                       timeframe === '5m' ? '5m' :
-                       timeframe === '15m' ? '15m' :
-                       timeframe === '1h' ? '1h' : '4h';
+    const interval = timeframe === '1m' ? '1m' :
+                     timeframe === '5m' ? '5m' :
+                     timeframe === '15m' ? '15m' :
+                     timeframe === '1h' ? '1h' : '4h';
 
+    // Try Binance first
+    try {
       const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
       const data = await response.json();
 
-      if (!Array.isArray(data)) {
-        logger.error('Invalid Binance response', { symbol, timeframe, data });
-        return [];
+      if (Array.isArray(data) && data.length > 0) {
+        const candles: Candle[] = data.map((k: any) => ({
+          time: k[0],
+          open: parseFloat(k[1]),
+          high: parseFloat(k[2]),
+          low: parseFloat(k[3]),
+          close: parseFloat(k[4]),
+          volume: parseFloat(k[5]),
+        }));
+        this.cache.set(cacheKey, { data: candles, timestamp: Date.now() });
+        return candles;
       }
-
-      const candles: Candle[] = data.map((k: any) => ({
-        time: k[0],
-        open: parseFloat(k[1]),
-        high: parseFloat(k[2]),
-        low: parseFloat(k[3]),
-        close: parseFloat(k[4]),
-        volume: parseFloat(k[5]),
-      }));
-
-      this.cache.set(cacheKey, { data: candles, timestamp: Date.now() });
-      return candles;
-    } catch (err) {
-      logger.error('Failed to fetch candles', { symbol, timeframe, error: err });
-      return cached?.data || [];
+    } catch (err: any) {
+      logger.warn('Binance failed in signalEngine, trying KuCoin', { symbol, error: err.message?.slice(0, 40) });
     }
+
+    // Fallback: KuCoin
+    try {
+      const kucoinSymbol = symbol.replace('USDT', '-USDT');
+      const kucoinInterval = interval === '1h' ? '1hour' : interval === '5m' ? '5min' : interval === '15m' ? '15min' : interval === '1m' ? '1min' : interval === '4h' ? '4hour' : '1hour';
+      const endAt = Math.floor(Date.now() / 1000);
+      const startAt = endAt - (limit * (interval === '1h' ? 3600 : interval === '4h' ? 14400 : interval === '15m' ? 900 : interval === '5m' ? 300 : 60));
+
+      const url = `https://api.kucoin.com/api/v1/market/candles?type=${kucoinInterval}&symbol=${kucoinSymbol}&startAt=${startAt}&endAt=${endAt}`;
+      const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      const data = await response.json();
+
+      if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+        logger.info('SignalEngine using KuCoin data', { symbol: kucoinSymbol, count: data.data.length });
+        const candles: Candle[] = data.data.reverse().map((k: any[]) => ({
+          time: parseInt(k[0]) * 1000,
+          open: parseFloat(k[1]),
+          high: parseFloat(k[3]),
+          low: parseFloat(k[4]),
+          close: parseFloat(k[2]),
+          volume: parseFloat(k[5]),
+        }));
+        this.cache.set(cacheKey, { data: candles, timestamp: Date.now() });
+        return candles;
+      }
+    } catch (err: any) {
+      logger.warn('KuCoin failed in signalEngine, trying OKX', { symbol, error: err.message?.slice(0, 40) });
+    }
+
+    // Fallback: OKX
+    try {
+      const okxSymbol = symbol.replace('USDT', '-USDT');
+      const okxInterval = interval === '1h' ? '1H' : interval === '4h' ? '4H' : interval;
+
+      const url = `https://www.okx.com/api/v5/market/candles?instId=${okxSymbol}&bar=${okxInterval}&limit=${limit}`;
+      const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      const data = await response.json();
+
+      if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+        logger.info('SignalEngine using OKX data', { symbol: okxSymbol, count: data.data.length });
+        const candles: Candle[] = data.data.reverse().map((k: any[]) => ({
+          time: parseInt(k[0]),
+          open: parseFloat(k[1]),
+          high: parseFloat(k[2]),
+          low: parseFloat(k[3]),
+          close: parseFloat(k[4]),
+          volume: parseFloat(k[5]),
+        }));
+        this.cache.set(cacheKey, { data: candles, timestamp: Date.now() });
+        return candles;
+      }
+    } catch (err: any) {
+      logger.error('All APIs failed in signalEngine', { symbol, timeframe, error: err.message?.slice(0, 40) });
+    }
+
+    return cached?.data || [];
   }
 
   // --------------------------------------------------------------------------

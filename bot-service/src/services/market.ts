@@ -149,7 +149,8 @@ async function fetchWithRetry(url: string, retries: number = 3, timeoutMs: numbe
 }
 
 /**
- * Fetch candle data from Binance API with fallback to Bybit
+ * Fetch candle data from multiple exchanges with fallbacks
+ * Order: Binance -> Bybit -> KuCoin -> OKX
  */
 async function fetchCandles(symbol: string, interval: string = '1h', limit: number = 30): Promise<Candle[]> {
   // Try Binance first
@@ -159,6 +160,7 @@ async function fetchCandles(symbol: string, interval: string = '1h', limit: numb
     const data = await response.json();
 
     if (Array.isArray(data) && data.length > 0) {
+      logger.debug('Fetched candles from Binance', { symbol, count: data.length });
       return data.map((candle: any[]) => ({
         time: candle[0],
         open: parseFloat(candle[1]),
@@ -169,19 +171,18 @@ async function fetchCandles(symbol: string, interval: string = '1h', limit: numb
       }));
     }
   } catch (err: any) {
-    logger.warn('Binance API failed, trying Bybit fallback', { symbol, error: err.message || String(err) });
+    logger.warn('Binance API failed, trying Bybit', { symbol, error: err.message?.slice(0, 50) || String(err).slice(0, 50) });
   }
 
-  // Fallback to Bybit
+  // Fallback 1: Bybit
   try {
-    // Convert interval format: Binance "1h" -> Bybit "60"
-    const bybitInterval = interval === '1h' ? '60' : interval === '5m' ? '5' : interval === '15m' ? '15' : '60';
+    const bybitInterval = interval === '1h' ? '60' : interval === '5m' ? '5' : interval === '15m' ? '15' : interval === '1m' ? '1' : '60';
     const bybitUrl = `https://api.bybit.com/v5/market/kline?category=spot&symbol=${symbol}&interval=${bybitInterval}&limit=${limit}`;
     const response = await fetchWithRetry(bybitUrl, 2, 8000);
     const data = await response.json();
 
     if (data.result?.list && data.result.list.length > 0) {
-      // Bybit returns newest first, so reverse it
+      logger.debug('Fetched candles from Bybit', { symbol, count: data.result.list.length });
       return data.result.list.reverse().map((candle: any[]) => ({
         time: parseInt(candle[0]),
         open: parseFloat(candle[1]),
@@ -192,7 +193,63 @@ async function fetchCandles(symbol: string, interval: string = '1h', limit: numb
       }));
     }
   } catch (err: any) {
-    logger.error('Both Binance and Bybit failed', { symbol, error: err.message || String(err) });
+    logger.warn('Bybit API failed, trying KuCoin', { symbol, error: err.message?.slice(0, 50) || String(err).slice(0, 50) });
+  }
+
+  // Fallback 2: KuCoin (usually not geo-restricted)
+  try {
+    // KuCoin uses different symbol format: ETH-USDT instead of ETHUSDT
+    const kucoinSymbol = symbol.replace('USDT', '-USDT').replace('BTC', '-BTC');
+    // KuCoin interval: 1min, 5min, 15min, 1hour
+    const kucoinInterval = interval === '1h' ? '1hour' : interval === '5m' ? '5min' : interval === '15m' ? '15min' : interval === '1m' ? '1min' : '1hour';
+    const endAt = Math.floor(Date.now() / 1000);
+    const startAt = endAt - (limit * (interval === '1h' ? 3600 : interval === '15m' ? 900 : interval === '5m' ? 300 : 60));
+
+    const kucoinUrl = `https://api.kucoin.com/api/v1/market/candles?type=${kucoinInterval}&symbol=${kucoinSymbol}&startAt=${startAt}&endAt=${endAt}`;
+    const response = await fetchWithRetry(kucoinUrl, 2, 8000);
+    const data = await response.json();
+
+    if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+      logger.info('Fetched candles from KuCoin', { symbol: kucoinSymbol, count: data.data.length });
+      // KuCoin returns: [time, open, close, high, low, volume, turnover] - newest first
+      return data.data.reverse().map((candle: any[]) => ({
+        time: parseInt(candle[0]) * 1000,
+        open: parseFloat(candle[1]),
+        high: parseFloat(candle[3]),
+        low: parseFloat(candle[4]),
+        close: parseFloat(candle[2]),
+        volume: parseFloat(candle[5])
+      }));
+    }
+  } catch (err: any) {
+    logger.warn('KuCoin API failed, trying OKX', { symbol, error: err.message?.slice(0, 50) || String(err).slice(0, 50) });
+  }
+
+  // Fallback 3: OKX (usually not geo-restricted)
+  try {
+    // OKX uses format: ETH-USDT
+    const okxSymbol = symbol.replace('USDT', '-USDT');
+    // OKX interval: 1m, 5m, 15m, 1H
+    const okxInterval = interval === '1h' ? '1H' : interval === '5m' ? '5m' : interval === '15m' ? '15m' : interval === '1m' ? '1m' : '1H';
+
+    const okxUrl = `https://www.okx.com/api/v5/market/candles?instId=${okxSymbol}&bar=${okxInterval}&limit=${limit}`;
+    const response = await fetchWithRetry(okxUrl, 2, 8000);
+    const data = await response.json();
+
+    if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+      logger.info('Fetched candles from OKX', { symbol: okxSymbol, count: data.data.length });
+      // OKX returns: [ts, o, h, l, c, vol, volCcy, volCcyQuote, confirm] - newest first
+      return data.data.reverse().map((candle: any[]) => ({
+        time: parseInt(candle[0]),
+        open: parseFloat(candle[1]),
+        high: parseFloat(candle[2]),
+        low: parseFloat(candle[3]),
+        close: parseFloat(candle[4]),
+        volume: parseFloat(candle[5])
+      }));
+    }
+  } catch (err: any) {
+    logger.error('All exchange APIs failed', { symbol, error: err.message?.slice(0, 50) || String(err).slice(0, 50) });
   }
 
   return [];
