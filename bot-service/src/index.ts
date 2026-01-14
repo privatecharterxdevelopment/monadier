@@ -277,8 +277,8 @@ async function processUserTrades(
     }
 
     if (openPositions.length > 0 || hasAnyOnChainPosition) {
-      logger.debug('Already has position - waiting for close', {
-        userAddress: userAddress.slice(0, 10),
+      logger.info('⏸️ Already has position - waiting for close', {
+        user: userAddress.slice(0, 10),
         dbPositions: openPositions.length,
         hasOnChain: hasAnyOnChainPosition
       });
@@ -290,8 +290,8 @@ async function processUserTrades(
     const lastClose = lastTradeTimestamp.get(closeCooldownKey);
     if (lastClose && Date.now() - lastClose < TRADE_COOLDOWN_MS) {
       const remaining = Math.ceil((TRADE_COOLDOWN_MS - (Date.now() - lastClose)) / 1000);
-      logger.debug('Post-close cooldown active', {
-        userAddress: userAddress.slice(0, 10),
+      logger.info('⏳ Post-close cooldown active', {
+        user: userAddress.slice(0, 10),
         remainingSeconds: remaining
       });
       return;
@@ -307,14 +307,21 @@ async function processUserTrades(
     const balancePerPosition = parseUnits(positionSize.toFixed(2), 6);
 
     if (positionSize < 1) {
-      logger.debug('Position size too small', {
-        userAddress: userAddress.slice(0, 10),
+      logger.info('⚠️ Position size too small', {
+        user: userAddress.slice(0, 10),
         positionSize,
         balance: balanceNumber,
         riskPercent
       });
       return;
     }
+
+    logger.info('🔍 Checking signals for user', {
+      user: userAddress.slice(0, 10),
+      balance: balanceNumber,
+      positionSize,
+      riskPercent
+    });
 
     // 6. Get user's trading settings (leverage, SL, TP)
     const userSettings = await subscriptionService.getUserTradingSettings(userAddress, chainId);

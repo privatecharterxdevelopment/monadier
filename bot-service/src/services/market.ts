@@ -1236,6 +1236,10 @@ export async function analyzeMarketMTF(
       const hasClearMajority = Math.abs(longVotes - shortVotes) >= 1;
       const meetsStrategyThreshold = signal.confidence >= confidenceThreshold;
 
+      // Check if trend is bullish or bearish (handle all variations)
+      const isBullishTrend = trend === 'UP' || trend.includes('UPTREND');
+      const isBearishTrend = trend === 'DOWN' || trend.includes('DOWNTREND');
+
       if (!meetsStrategyThreshold) {
         // Below strategy threshold - stay HOLD
         finalDirection = 'HOLD';
@@ -1246,22 +1250,21 @@ export async function analyzeMarketMTF(
         });
       } else if (hasStrongTrend || hasClearMajority) {
         // Meets threshold AND has trend/majority - convert
-        if (trend === 'UP' || longVotes > shortVotes) {
+        if (isBullishTrend || longVotes > shortVotes) {
           finalDirection = 'LONG';
-        } else if (trend === 'DOWN' || shortVotes > longVotes) {
+        } else if (isBearishTrend || shortVotes > longVotes) {
           finalDirection = 'SHORT';
         } else {
           finalDirection = longVotes >= shortVotes ? 'LONG' : 'SHORT';
         }
-        logger.debug('Converting HOLD to direction', {
+        logger.info('Converting HOLD to direction', {
           finalDirection,
-          trendStrength,
-          confidence: signal.confidence,
-          strategy
+          trend,
+          confidence: signal.confidence
         });
       } else {
         // Meets threshold but no clear direction - follow trend
-        finalDirection = trend === 'UP' ? 'LONG' : trend === 'DOWN' ? 'SHORT' : 'HOLD';
+        finalDirection = isBullishTrend ? 'LONG' : isBearishTrend ? 'SHORT' : 'HOLD';
       }
     }
 

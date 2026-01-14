@@ -293,10 +293,10 @@ export class TradingV7GMXService {
         balance,
         balanceFormatted: formatUnits(balance, 6),
         autoTradeEnabled: settings?.autoTradeEnabled ?? false,
-        riskLevelBps: Number(settings?.riskBps ?? 500),       // V8: riskBps
-        maxLeverage: Number(settings?.maxLeverage ?? 20),
-        defaultStopLoss: Number(settings?.stopLossBps ?? 500),  // V8: stopLossBps
-        defaultTakeProfit: Number(settings?.takeProfitBps ?? 1000) // V8: takeProfitBps
+        riskLevelBps: Number(settings?.riskBps) || 500,       // V8: riskBps (|| to catch 0)
+        maxLeverage: Number(settings?.maxLeverage) || 20,
+        defaultStopLoss: Number(settings?.stopLossBps) || 500,  // V8: stopLossBps
+        defaultTakeProfit: Number(settings?.takeProfitBps) || 1000 // V8: takeProfitBps
       };
     } catch (err) {
       logger.error('Failed to get V8 vault status', { userAddress, error: err });
