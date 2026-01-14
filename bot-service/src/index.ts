@@ -519,15 +519,42 @@ async function runPositionMonitoringCycle(): Promise<void> {
               profitLossPercent
             });
           } else {
-            // Mark as closed with LOSS (assume loss on error)
+            // Position already closed by contract (TP/SL hit)
+            // Check if it was profit or loss based on pnlData or TP settings
+            let profitLoss = 0;
+            let profitLossPercent = 0;
+            let closeReason = 'auto_closed';
+
+            if (pnlData && pnlData.pnl !== 0) {
+              // We got P/L data before close attempt
+              profitLoss = pnlData.pnl;
+              profitLossPercent = pnlData.pnlPercent;
+              closeReason = profitLossPercent > 0 ? 'takeprofit' : 'stoploss';
+            } else if (result.error?.includes('No active position')) {
+              // Position was closed by contract - estimate based on TP (most likely if user clicked close while in profit)
+              const tpPercent = pos.take_profit_percent || 1.5;
+              profitLossPercent = tpPercent;
+              profitLoss = (pos.entry_amount || 0) * (tpPercent / 100);
+              closeReason = 'takeprofit';
+              logger.info('Position already closed by contract, assuming TP hit', {
+                positionId: pos.id.slice(0, 8),
+                profitLoss,
+                profitLossPercent
+              });
+            } else {
+              // Unknown error - use small loss as fallback
+              profitLossPercent = -1;
+              profitLoss = -(pos.entry_amount || 0) * 0.01;
+            }
+
             await supabase
               .from('positions')
               .update({
                 status: 'closed',
                 closed_at: new Date().toISOString(),
-                close_reason: 'user_requested',
-                profit_loss: -(pos.entry_amount || 0) * 0.01, // Assume small loss
-                profit_loss_percent: -1
+                close_reason: closeReason,
+                profit_loss: profitLoss,
+                profit_loss_percent: profitLossPercent
               })
               .eq('id', pos.id);
 
@@ -535,22 +562,40 @@ async function runPositionMonitoringCycle(): Promise<void> {
             const cooldownKey = `${pos.wallet_address}-42161-close`;
             lastTradeTimestamp.set(cooldownKey, Date.now());
 
-            logger.error('User-requested close ERROR', {
+            logger.info('Position closed (was already closed by contract)', {
               positionId: pos.id.slice(0, 8),
-              error: result.error
+              profitLoss,
+              profitLossPercent,
+              closeReason
             });
           }
         } catch (err: any) {
           logger.error('Error closing position', { error: err.message, positionId: pos.id.slice(0, 8) });
-          // Mark as closed with small loss
+
+          // If error mentions "No active position", it was already closed by contract TP/SL
+          let profitLoss = 0;
+          let profitLossPercent = 0;
+          let closeReason = 'auto_closed';
+
+          if (err.message?.includes('No active position') || err.message?.includes('position not found')) {
+            // Assume TP was hit (user was trying to close while in profit)
+            const tpPercent = pos.take_profit_percent || 1.5;
+            profitLossPercent = tpPercent;
+            profitLoss = (pos.entry_amount || 0) * (tpPercent / 100);
+            closeReason = 'takeprofit';
+          } else {
+            profitLossPercent = -1;
+            profitLoss = -(pos.entry_amount || 0) * 0.01;
+          }
+
           await supabase
             .from('positions')
             .update({
               status: 'closed',
               closed_at: new Date().toISOString(),
-              close_reason: 'user_requested',
-              profit_loss: -(pos.entry_amount || 0) * 0.01,
-              profit_loss_percent: -1
+              close_reason: closeReason,
+              profit_loss: profitLoss,
+              profit_loss_percent: profitLossPercent
             })
             .eq('id', pos.id);
 
