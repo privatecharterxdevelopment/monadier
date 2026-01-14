@@ -153,8 +153,8 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
         try {
           const v8LegacyBalanceRaw = await publicClient.readContract({
             address: V8_LEGACY_VAULT_ADDRESS,
-            abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'userBalance', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' }],
-            functionName: 'userBalance',
+            abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'balances', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' }],
+            functionName: 'balances',
             args: [address as `0x${string}`]
           }) as bigint;
           setV8LegacyBalance(formatUnits(v8LegacyBalanceRaw, 6));
