@@ -147,16 +147,17 @@ const AdminMonitorPage: React.FC = () => {
   // Fetch V8 Vault Stats directly from chain
   const fetchVaultStats = async () => {
     try {
-      const vaultStats = await arbitrumClient.readContract({
+      // V8 uses getHealthStatus() which returns (realBalance, totalValueLocked, accumulatedFees, isSolvent, surplus)
+      const healthStatus = await arbitrumClient.readContract({
         address: V8_VAULT,
         abi: VAULT_V8_ABI,
-        functionName: 'getVaultStats'
-      }) as any;
+        functionName: 'getHealthStatus'
+      }) as [bigint, bigint, bigint, boolean, bigint];
 
       return {
-        tvl: formatUnits(vaultStats.totalValueLocked || 0n, 6),
-        fees: formatUnits(vaultStats.accumulatedFees || 0n, 6),
-        deposited: formatUnits(vaultStats.totalDeposited || 0n, 6)
+        tvl: formatUnits(healthStatus[1] || 0n, 6),        // totalValueLocked
+        fees: formatUnits(healthStatus[2] || 0n, 6),       // accumulatedFees
+        deposited: formatUnits(healthStatus[0] || 0n, 6)   // realBalance (actual USDC in contract)
       };
     } catch (err) {
       console.error('Error fetching vault stats:', err);

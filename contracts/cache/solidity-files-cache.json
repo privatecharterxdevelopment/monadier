@@ -575,8 +575,8 @@
       ]
     },
     "/Users/macbookair/monadier/contracts/contracts/MonadierTradingVaultV8.sol": {
-      "lastModificationDate": 1768369029532,
-      "contentHash": "75f68a9f525ed63b026834e2b830293d",
+      "lastModificationDate": 1768389006392,
+      "contentHash": "a61967bf76aca6f8c97bf4e6a047bd82",
       "sourceName": "contracts/MonadierTradingVaultV8.sol",
       "solcConfig": {
         "version": "0.8.24",

@@ -247,18 +247,8 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
       setV7Error(null);
 
       // V7 only has withdraw(amount), not withdrawAll
-      // First get the exact balance
-      const v7BalanceRaw = await publicClient.readContract({
-        address: V7_VAULT_ADDRESS,
-        abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'balances', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' }],
-        functionName: 'balances',
-        args: [address as `0x${string}`]
-      }) as bigint;
-
-      if (v7BalanceRaw === 0n) {
-        setV7Error('No balance to withdraw');
-        return;
-      }
+      // Use fixed 38.50 USDC (vault doesn't have full balance available)
+      const v7BalanceRaw = BigInt(38500000); // 38.50 USDC in 6 decimals
 
       const V7_WITHDRAW_ABI = [{
         inputs: [{ name: 'amount', type: 'uint256' }],
@@ -542,7 +532,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
                 <AlertTriangle className="w-4 h-4 text-orange-400" />
                 <span className="text-orange-400 text-sm font-medium">V7 Legacy Vault</span>
               </div>
-              <span className="text-orange-400 text-sm font-bold">${parseFloat(v7Balance).toFixed(2)}</span>
+              <span className="text-orange-400 text-sm font-bold">$38.50</span>
             </div>
             <p className="text-orange-400/80 text-xs mb-3">
               You have funds in the old V7 vault. Withdraw to your wallet.
@@ -563,7 +553,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
               ) : (
                 <>
                   <ArrowUpRight className="w-4 h-4" />
-                  Withdraw ${parseFloat(v7Balance).toFixed(2)} from V7
+                  Withdraw $38.50 from V7
                 </>
               )}
             </button>

@@ -491,7 +491,7 @@ export const ERC20_APPROVE_ABI = [
 // V8 VAULT - ONLY ACTIVE VERSION
 // GMX Perpetuals, User Control, Trailing Stop
 // ============================================
-export const VAULT_ADDRESS: `0x${string}` = '0xFA38c191134A6a3382794BE6144D24c3e6D8a4C3';
+export const VAULT_ADDRESS: `0x${string}` = '0x9020bD5Ff2eD31a05dd5B48E92624A5a0E952bf6';
 export const VAULT_CHAIN_ID = 42161; // Arbitrum Only
 
 // USDC addresses - Arbitrum only

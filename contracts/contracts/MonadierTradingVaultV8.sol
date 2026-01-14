@@ -429,10 +429,11 @@ contract MonadierTradingVaultV8 is ReentrancyGuard, Pausable, Ownable {
         path[0] = USDC;
 
         /*
-         * V8.1 FIX: LIMITED APPROVAL
+         * V8.3 FIX: Approve GMX_ROUTER (not Position Router!)
+         * GMX Position Router uses the Router for token transfers
          */
-        IERC20(USDC).safeApprove(GMX_POSITION_ROUTER, 0);
-        IERC20(USDC).safeApprove(GMX_POSITION_ROUTER, netCollateral);
+        IERC20(USDC).safeApprove(GMX_ROUTER, 0);
+        IERC20(USDC).safeApprove(GMX_ROUTER, netCollateral);
 
         bytes32 requestKey = IGMXPositionRouter(GMX_POSITION_ROUTER).createIncreasePosition{value: execFee}(
             path,
@@ -448,7 +449,7 @@ contract MonadierTradingVaultV8 is ReentrancyGuard, Pausable, Ownable {
         );
 
         // V8.1: Reset approval to 0 after GMX call
-        IERC20(USDC).safeApprove(GMX_POSITION_ROUTER, 0);
+        IERC20(USDC).safeApprove(GMX_ROUTER, 0);
 
         // Calculate SL/TP prices
         uint256 sl = 0;

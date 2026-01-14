@@ -33,7 +33,7 @@ export const config = {
     chainId: 42161,
     rpcUrl: process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc',
     // V8 VAULT - can override via env var if Railway cache is stuck
-    vaultAddress: (process.env.ARBITRUM_VAULT_ADDRESS || '0xFA38c191134A6a3382794BE6144D24c3e6D8a4C3') as `0x${string}`,
+    vaultAddress: (process.env.ARBITRUM_VAULT_ADDRESS || '0x9020bD5Ff2eD31a05dd5B48E92624A5a0E952bf6') as `0x${string}`,
     usdcAddress: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' as `0x${string}`,
   },
 
