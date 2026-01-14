@@ -81,14 +81,10 @@ export default function VaultSettingsModal({
 
       const vaultClient = new VaultClient(publicClient as any, walletClient as any, chainId);
 
-      // Update risk level if changed
-      if (riskLevel !== currentRiskLevel) {
-        const txHash = await vaultClient.setRiskLevel(riskLevel, address as `0x${string}`);
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
-      }
-
-      // Update auto-trade if changed
+      // ONLY call setAutoTrade if that's what changed - don't touch other settings on contract
+      // Risk level, TP/SL etc are stored in Supabase and used by the bot
       if (autoTrade !== initialAutoTrade) {
+        console.log('[VaultSettings] Calling setAutoTrade:', autoTrade);
         const txHash = await vaultClient.setAutoTrade(autoTrade, address as `0x${string}`);
         await publicClient.waitForTransactionReceipt({ hash: txHash });
 
