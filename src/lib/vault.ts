@@ -252,6 +252,216 @@ export const VAULT_ABI = [
   }
 ] as const;
 
+// V8 ABI - User Control + Trailing Stop + On-chain Position Reading
+export const VAULT_V8_ABI = [
+  // User close position (V8.2)
+  {
+    inputs: [{ name: 'token', type: 'address' }],
+    name: 'userClosePosition',
+    outputs: [],
+    stateMutability: 'payable',
+    type: 'function'
+  },
+  // Cancel auto-features (V8.2)
+  {
+    inputs: [{ name: 'token', type: 'address' }],
+    name: 'cancelAutoFeatures',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  // Get position from chain (V8)
+  {
+    inputs: [
+      { name: 'user', type: 'address' },
+      { name: 'token', type: 'address' }
+    ],
+    name: 'getPosition',
+    outputs: [{
+      components: [
+        { name: 'isActive', type: 'bool' },
+        { name: 'isLong', type: 'bool' },
+        { name: 'token', type: 'address' },
+        { name: 'collateral', type: 'uint256' },
+        { name: 'size', type: 'uint256' },
+        { name: 'leverage', type: 'uint256' },
+        { name: 'entryPrice', type: 'uint256' },
+        { name: 'stopLoss', type: 'uint256' },
+        { name: 'takeProfit', type: 'uint256' },
+        { name: 'timestamp', type: 'uint256' },
+        { name: 'requestKey', type: 'bytes32' },
+        { name: 'highestPrice', type: 'uint256' },
+        { name: 'lowestPrice', type: 'uint256' },
+        { name: 'trailingSlBps', type: 'uint256' },
+        { name: 'trailingActivated', type: 'bool' },
+        { name: 'autoFeaturesEnabled', type: 'bool' }
+      ],
+      name: '',
+      type: 'tuple'
+    }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  // Get trailing stop info (V8.2)
+  {
+    inputs: [
+      { name: 'user', type: 'address' },
+      { name: 'token', type: 'address' }
+    ],
+    name: 'getTrailingStopInfo',
+    outputs: [
+      { name: 'hasTrailingStop', type: 'bool' },
+      { name: 'isActivated', type: 'bool' },
+      { name: 'trailingBps', type: 'uint256' },
+      { name: 'trackedPrice', type: 'uint256' },
+      { name: 'currentStopLoss', type: 'uint256' }
+    ],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  // Get execution fee
+  {
+    inputs: [],
+    name: 'getExecutionFee',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  // Get withdrawable amount (V8.1)
+  {
+    inputs: [{ name: 'user', type: 'address' }],
+    name: 'getWithdrawable',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  // Get health status (V8.1)
+  {
+    inputs: [],
+    name: 'getHealthStatus',
+    outputs: [
+      { name: 'realBalance', type: 'uint256' },
+      { name: 'totalValueLocked', type: 'uint256' },
+      { name: 'accumulatedFees', type: 'uint256' },
+      { name: 'isSolvent', type: 'bool' },
+      { name: 'surplus', type: 'int256' }
+    ],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  // User balance
+  {
+    inputs: [{ name: 'user', type: 'address' }],
+    name: 'balances',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  // Settings
+  {
+    inputs: [{ name: 'user', type: 'address' }],
+    name: 'getSettings',
+    outputs: [{
+      components: [
+        { name: 'autoTradeEnabled', type: 'bool' },
+        { name: 'riskBps', type: 'uint256' },
+        { name: 'maxLeverage', type: 'uint256' },
+        { name: 'stopLossBps', type: 'uint256' },
+        { name: 'takeProfitBps', type: 'uint256' }
+      ],
+      name: '',
+      type: 'tuple'
+    }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  // Deposit
+  {
+    inputs: [{ name: 'amount', type: 'uint256' }],
+    name: 'deposit',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  // Withdraw
+  {
+    inputs: [{ name: 'amount', type: 'uint256' }],
+    name: 'withdraw',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  // Set auto trade
+  {
+    inputs: [{ name: 'enabled', type: 'bool' }],
+    name: 'setAutoTrade',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  // Set settings
+  {
+    inputs: [
+      { name: 'riskBps', type: 'uint256' },
+      { name: 'maxLeverage', type: 'uint256' },
+      { name: 'stopLossBps', type: 'uint256' },
+      { name: 'takeProfitBps', type: 'uint256' }
+    ],
+    name: 'setSettings',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  }
+] as const;
+
+// GMX Vault interface for price fetching
+export const GMX_VAULT_ABI = [
+  {
+    inputs: [{ name: '_token', type: 'address' }],
+    name: 'getMaxPrice',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [{ name: '_token', type: 'address' }],
+    name: 'getMinPrice',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  }
+] as const;
+
+// GMX Vault address for price fetching
+export const GMX_VAULT_ADDRESS = '0x489ee077994B6658eAfA855C308275EAd8097C4A' as const;
+
+// Token addresses
+export const TOKEN_ADDRESSES = {
+  WETH: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1' as const,
+  WBTC: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f' as const,
+  USDC: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' as const,
+};
+
+// On-chain position interface
+export interface OnChainPosition {
+  isActive: boolean;
+  isLong: boolean;
+  token: string;
+  collateral: bigint;
+  size: bigint;
+  leverage: bigint;
+  entryPrice: bigint;
+  stopLoss: bigint;
+  takeProfit: bigint;
+  timestamp: bigint;
+  requestKey: string;
+  highestPrice: bigint;
+  lowestPrice: bigint;
+  trailingSlBps: bigint;
+  trailingActivated: boolean;
+  autoFeaturesEnabled: boolean;
+}
+
 // ERC20 ABI for USDC approval
 export const ERC20_APPROVE_ABI = [
   {
@@ -302,9 +512,14 @@ export const VAULT_V6_ADDRESSES: Record<number, `0x${string}` | null> = {
   42161: '0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A',  // Arbitrum - DEPRECATED (V6)
 };
 
-// V7: GMX Perpetuals - TRUE 25x-50x Leverage
+// V7: GMX Perpetuals - TRUE 25x-50x Leverage (DEPRECATED)
 export const VAULT_V7_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: '0x9879792a47725d5b18633e1395BC4a7A06c750df',  // Arbitrum - V7 GMX LIVE
+  42161: '0x9879792a47725d5b18633e1395BC4a7A06c750df',  // Arbitrum - V7 DEPRECATED
+};
+
+// V8: GMX Perpetuals - User Control + Trailing Stop + All Bug Fixes
+export const VAULT_V8_ADDRESSES: Record<number, `0x${string}` | null> = {
+  42161: '0xFA38c191134A6a3382794BE6144D24c3e6D8a4C3',  // Arbitrum - V8.2.1 LIVE
 };
 
 // USDC addresses - Arbitrum only
@@ -409,8 +624,8 @@ export class VaultClient {
     this.walletClient = walletClient;
     this.chainId = chainId;
 
-    // Prefer V7 > V6 > V5 > V4 > V3 > V2 > V1
-    const vaultAddr = VAULT_V7_ADDRESSES[chainId] || VAULT_V6_ADDRESSES[chainId] || VAULT_V5_ADDRESSES[chainId] || VAULT_V4_ADDRESSES[chainId] || VAULT_V3_ADDRESSES[chainId] || VAULT_V2_ADDRESSES[chainId] || VAULT_ADDRESSES[chainId];
+    // Prefer V8 > V7 > V6 > V5 > V4 > V3 > V2 > V1
+    const vaultAddr = VAULT_V8_ADDRESSES[chainId] || VAULT_V7_ADDRESSES[chainId] || VAULT_V6_ADDRESSES[chainId] || VAULT_V5_ADDRESSES[chainId] || VAULT_V4_ADDRESSES[chainId] || VAULT_V3_ADDRESSES[chainId] || VAULT_V2_ADDRESSES[chainId] || VAULT_ADDRESSES[chainId];
     if (!vaultAddr) {
       throw new Error(`Vault not deployed on chain ${chainId}`);
     }
@@ -427,7 +642,7 @@ export class VaultClient {
    * Check if vault is available on this chain
    */
   static isAvailable(chainId: number): boolean {
-    return VAULT_V7_ADDRESSES[chainId] !== null || VAULT_V6_ADDRESSES[chainId] !== null || VAULT_V5_ADDRESSES[chainId] !== null || VAULT_V4_ADDRESSES[chainId] !== null || VAULT_V3_ADDRESSES[chainId] !== null || VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null;
+    return VAULT_V8_ADDRESSES[chainId] !== null || VAULT_V7_ADDRESSES[chainId] !== null || VAULT_V6_ADDRESSES[chainId] !== null || VAULT_V5_ADDRESSES[chainId] !== null || VAULT_V4_ADDRESSES[chainId] !== null || VAULT_V3_ADDRESSES[chainId] !== null || VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null;
   }
 
   /**
@@ -847,4 +1062,212 @@ export function createVaultClient(
     return null;
   }
   return new VaultClient(publicClient, walletClient, chainId);
+}
+
+// ============ V8 ON-CHAIN POSITION HELPERS ============
+
+/**
+ * Get positions directly from V8 contract (on-chain, not DB)
+ */
+export async function getOnChainPositions(
+  publicClient: PublicClient,
+  userAddress: `0x${string}`
+): Promise<{ weth: OnChainPosition | null; wbtc: OnChainPosition | null }> {
+  const vaultAddress = VAULT_V8_ADDRESSES[42161];
+  if (!vaultAddress) return { weth: null, wbtc: null };
+
+  try {
+    const [wethPos, wbtcPos] = await Promise.all([
+      publicClient.readContract({
+        address: vaultAddress,
+        abi: VAULT_V8_ABI,
+        functionName: 'getPosition',
+        args: [userAddress, TOKEN_ADDRESSES.WETH]
+      }),
+      publicClient.readContract({
+        address: vaultAddress,
+        abi: VAULT_V8_ABI,
+        functionName: 'getPosition',
+        args: [userAddress, TOKEN_ADDRESSES.WBTC]
+      })
+    ]);
+
+    return {
+      weth: (wethPos as OnChainPosition).isActive ? wethPos as OnChainPosition : null,
+      wbtc: (wbtcPos as OnChainPosition).isActive ? wbtcPos as OnChainPosition : null
+    };
+  } catch (err) {
+    console.error('Failed to fetch on-chain positions:', err);
+    return { weth: null, wbtc: null };
+  }
+}
+
+/**
+ * Get GMX price for a token (30 decimals)
+ */
+export async function getGMXPrice(
+  publicClient: PublicClient,
+  token: 'WETH' | 'WBTC',
+  type: 'max' | 'min' = 'max'
+): Promise<bigint> {
+  try {
+    const tokenAddress = TOKEN_ADDRESSES[token];
+    const price = await publicClient.readContract({
+      address: GMX_VAULT_ADDRESS,
+      abi: GMX_VAULT_ABI,
+      functionName: type === 'max' ? 'getMaxPrice' : 'getMinPrice',
+      args: [tokenAddress]
+    });
+    return price as bigint;
+  } catch (err) {
+    console.error(`Failed to get GMX ${type} price for ${token}:`, err);
+    return 0n;
+  }
+}
+
+/**
+ * Calculate live P/L for a position using GMX prices
+ * Returns P/L in USDC (6 decimals)
+ */
+export function calculateLivePnL(
+  position: OnChainPosition,
+  currentPrice: bigint
+): { pnl: bigint; pnlPercent: number; pnlFormatted: string } {
+  if (!position.isActive || currentPrice === 0n) {
+    return { pnl: 0n, pnlPercent: 0, pnlFormatted: '0.00' };
+  }
+
+  const entryPrice = position.entryPrice;
+  const collateral = position.collateral;
+  const leverage = position.leverage;
+
+  // GMX prices are 30 decimals, collateral is 6 decimals
+  // P/L = collateral * leverage * (currentPrice - entryPrice) / entryPrice
+  // For LONG: profit when price goes up
+  // For SHORT: profit when price goes down
+
+  let priceDelta: bigint;
+  if (position.isLong) {
+    priceDelta = currentPrice - entryPrice;
+  } else {
+    priceDelta = entryPrice - currentPrice;
+  }
+
+  // Calculate P/L: (collateral * leverage * priceDelta) / entryPrice
+  // Result will be in USDC (6 decimals)
+  const pnl = (collateral * leverage * priceDelta) / entryPrice;
+
+  // Calculate percentage: (pnl / collateral) * 100
+  const pnlPercent = collateral > 0n
+    ? Number((pnl * 10000n) / collateral) / 100
+    : 0;
+
+  // Format for display (USDC has 6 decimals)
+  const pnlFloat = Number(pnl) / 1e6;
+  const pnlFormatted = (pnlFloat >= 0 ? '+' : '') + pnlFloat.toFixed(2);
+
+  return { pnl, pnlPercent, pnlFormatted };
+}
+
+/**
+ * Format GMX price (30 decimals) to human readable USD
+ */
+export function formatGMXPrice(price: bigint): string {
+  const priceFloat = Number(price) / 1e30;
+  return priceFloat.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+/**
+ * Format position stop loss / take profit
+ */
+export function formatSLTP(position: OnChainPosition): {
+  stopLoss: string;
+  takeProfit: string;
+  trailingInfo: string | null;
+} {
+  const slPrice = Number(position.stopLoss) / 1e30;
+  const tpPrice = Number(position.takeProfit) / 1e30;
+
+  const stopLoss = position.stopLoss > 0n
+    ? '$' + slPrice.toLocaleString('en-US', { maximumFractionDigits: 2 })
+    : 'Not set';
+
+  const takeProfit = position.takeProfit > 0n
+    ? '$' + tpPrice.toLocaleString('en-US', { maximumFractionDigits: 2 })
+    : 'Not set';
+
+  let trailingInfo: string | null = null;
+  if (position.trailingSlBps > 0n) {
+    const trailingPercent = Number(position.trailingSlBps) / 100;
+    if (position.trailingActivated) {
+      const trackedPrice = position.isLong ? position.highestPrice : position.lowestPrice;
+      const trackedFormatted = formatGMXPrice(trackedPrice);
+      trailingInfo = `Trailing ${trailingPercent}% (Active, tracked: ${trackedFormatted})`;
+    } else {
+      trailingInfo = `Trailing ${trailingPercent}% (Waiting for 0.6% profit)`;
+    }
+  }
+
+  return { stopLoss, takeProfit, trailingInfo };
+}
+
+/**
+ * User close position (V8)
+ */
+export async function userClosePosition(
+  walletClient: WalletClient,
+  publicClient: PublicClient,
+  userAddress: `0x${string}`,
+  token: 'WETH' | 'WBTC'
+): Promise<`0x${string}`> {
+  const vaultAddress = VAULT_V8_ADDRESSES[42161];
+  if (!vaultAddress) throw new Error('V8 vault not available');
+
+  // Get execution fee
+  const execFee = await publicClient.readContract({
+    address: vaultAddress,
+    abi: VAULT_V8_ABI,
+    functionName: 'getExecutionFee'
+  }) as bigint;
+
+  // Close position
+  const hash = await walletClient.writeContract({
+    address: vaultAddress,
+    abi: VAULT_V8_ABI,
+    functionName: 'userClosePosition',
+    args: [TOKEN_ADDRESSES[token]],
+    value: execFee,
+    chain: null,
+    account: userAddress
+  });
+
+  return hash;
+}
+
+/**
+ * Cancel auto-features (disable SL/TP/trailing)
+ */
+export async function cancelAutoFeatures(
+  walletClient: WalletClient,
+  userAddress: `0x${string}`,
+  token: 'WETH' | 'WBTC'
+): Promise<`0x${string}`> {
+  const vaultAddress = VAULT_V8_ADDRESSES[42161];
+  if (!vaultAddress) throw new Error('V8 vault not available');
+
+  const hash = await walletClient.writeContract({
+    address: vaultAddress,
+    abi: VAULT_V8_ABI,
+    functionName: 'cancelAutoFeatures',
+    args: [TOKEN_ADDRESSES[token]],
+    chain: null,
+    account: userAddress
+  });
+
+  return hash;
 }

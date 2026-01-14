@@ -3,8 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { History, TrendingUp, TrendingDown, Users, Trophy, Zap, Crown, Rocket, ExternalLink, RefreshCw, Activity, Clock, Timer, CheckCircle, XCircle, X, AlertTriangle, Settings, Info } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
-import { VAULT_ABI, VAULT_V6_ADDRESSES, VAULT_V4_ADDRESSES, VAULT_V3_ADDRESSES, VaultClient, VAULT_V2_ADDRESSES } from '../../lib/vault';
+import { VAULT_ABI, VAULT_V6_ADDRESSES, VAULT_V4_ADDRESSES, VAULT_V3_ADDRESSES, VaultClient, VAULT_V2_ADDRESSES, VAULT_V8_ADDRESSES } from '../../lib/vault';
 import VaultSettingsModal from '../../components/vault/VaultSettingsModal';
+import OnChainPositions from '../../components/trading/OnChainPositions';
 
 // Legacy trade format (from localStorage)
 interface LegacyTrade {
@@ -947,7 +948,14 @@ const BotHistoryPage: React.FC = () => {
         )}
       </div>
 
-      {/* Positions Table */}
+      {/* V8 On-Chain Positions (GMX Perpetuals) */}
+      {activeTab === 'open' && (
+        <div className="mb-6">
+          <OnChainPositions showHeader={true} />
+        </div>
+      )}
+
+      {/* Legacy Positions Table (from Supabase) */}
       <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
         {/* Header */}
         <div className="grid grid-cols-9 gap-4 px-4 py-3 bg-background border-b border-gray-800 text-sm font-medium text-secondary">

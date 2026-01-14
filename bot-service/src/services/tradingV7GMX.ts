@@ -131,16 +131,17 @@ const VAULT_V7_ABI = [
     stateMutability: 'view',
     type: 'function'
   },
-  // Write functions
+  // Write functions (V8.2 - added trailingSlBps parameter)
   {
     inputs: [
       { name: 'user', type: 'address' },
-      { name: 'indexToken', type: 'address' },
-      { name: 'collateralAmount', type: 'uint256' },
+      { name: 'token', type: 'address' },
+      { name: 'collateral', type: 'uint256' },
       { name: 'leverage', type: 'uint256' },
       { name: 'isLong', type: 'bool' },
-      { name: 'stopLossBps', type: 'uint256' },
-      { name: 'takeProfitBps', type: 'uint256' }
+      { name: 'slBps', type: 'uint256' },
+      { name: 'tpBps', type: 'uint256' },
+      { name: 'trailingSlBps', type: 'uint256' }
     ],
     name: 'openPosition',
     outputs: [{ name: 'requestKey', type: 'bytes32' }],
@@ -224,8 +225,8 @@ export interface V7TradeResult {
   leverage?: number;
 }
 
-// V7 Vault Address on Arbitrum
-const V7_VAULT_ADDRESS = (config.chains[42161] as any).vaultV7Address || '0x9879792a47725d5b18633e1395BC4a7A06c750df';
+// V8 Vault Address on Arbitrum (V8.2.1 - User Control + Trailing Stop)
+const V8_VAULT_ADDRESS = (config.chains[42161] as any).vaultV8Address || '0xFA38c191134A6a3382794BE6144D24c3e6D8a4C3';
 
 export class TradingV7GMXService {
   private botAccount = privateKeyToAccount(config.botPrivateKey);
@@ -247,8 +248,8 @@ export class TradingV7GMXService {
       transport: http(rpcUrl)
     });
 
-    // V7 vault address from config
-    this.v7VaultAddress = vaultAddress || V7_VAULT_ADDRESS as `0x${string}`;
+    // V8 vault address from config (backwards compatible with V7)
+    this.v7VaultAddress = vaultAddress || V8_VAULT_ADDRESS as `0x${string}`;
 
     logger.info('TradingV7GMXService initialized', {
       gmxVault: GMX_ADDRESSES.vault,
@@ -415,6 +416,9 @@ export class TradingV7GMXService {
         executionFee: formatUnits(executionFee, 18)
       });
 
+      // V8.2: Trailing stop of 0.5% (50 bps) - activates after 0.6% profit
+      const trailingSlBps = BigInt(50);
+
       // Execute openPosition with ETH for execution fee
       const txHash = await this.walletClient.writeContract({
         address: this.v7VaultAddress,
@@ -427,7 +431,8 @@ export class TradingV7GMXService {
           BigInt(signal.leverage),
           signal.direction === 'LONG',
           stopLossBps,
-          takeProfitBps
+          takeProfitBps,
+          trailingSlBps  // V8.2: Trailing stop loss
         ],
         value: executionFee,
         chain: arbitrum,

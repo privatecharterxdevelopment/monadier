@@ -1073,11 +1073,11 @@ function logStartupInfo(): void {
     maxLeverage: '25x (Standard) / 50x (Elite)'
   });
 
-  // Show V7 vault info for Arbitrum
+  // Show V8 vault info for Arbitrum
   const arbConfig = config.chains[42161] as any;
-  const v7Address = arbConfig?.vaultV7Address;
-  logger.info(`Chain Arbitrum: V7 GMX Active (${v7Address?.slice(0, 10) || 'Not set'}...)`);
-  logger.info(`V7 GMX Vault: 0x9879792a47725d5b18633e1395BC4a7A06c750df`);
+  const v8Address = arbConfig?.vaultV8Address;
+  logger.info(`Chain Arbitrum: V8 GMX Active (${v8Address?.slice(0, 10) || 'Not set'}...)`);
+  logger.info(`V8 GMX Vault: 0xFA38c191134A6a3382794BE6144D24c3e6D8a4C3`);
 
   logger.info('='.repeat(50));
 }

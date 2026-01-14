@@ -54,8 +54,10 @@ export const config = {
       vaultV5Address: process.env.ARBITRUM_VAULT_V5_ADDRESS as `0x${string}` || '0x6C51F75b164205e51a87038662060cfe54d95E70',
       // V6: Isolated Margin, 20x Leverage, Chainlink Oracles, On-chain SL/TP (DEPRECATED - Aave limits)
       vaultV6Address: process.env.ARBITRUM_VAULT_V6_ADDRESS as `0x${string}` || '0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A',
-      // V7: GMX Perpetuals, TRUE 25x-50x Leverage, Keeper execution
+      // V7: GMX Perpetuals, TRUE 25x-50x Leverage, Keeper execution (DEPRECATED)
       vaultV7Address: process.env.ARBITRUM_VAULT_V7_ADDRESS as `0x${string}` || '0x9879792a47725d5b18633e1395BC4a7A06c750df',
+      // V8: GMX Perpetuals + User Control + Trailing Stop + All Bug Fixes (LIVE)
+      vaultV8Address: process.env.ARBITRUM_VAULT_V8_ADDRESS as `0x${string}` || '0xFA38c191134A6a3382794BE6144D24c3e6D8a4C3',
       name: 'Arbitrum'
     },
     56: { // BSC
