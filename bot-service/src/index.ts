@@ -136,9 +136,9 @@ let isReconciliationRunning = false;
 const lastTradeTimestamp: Map<string, number> = new Map();
 const TRADE_COOLDOWN_MS = 120000; // 2 minute cooldown between trades - faster scalping!
 
-// Max positions - ARBITRUM V7 GMX (one position per token)
+// Max positions - ARBITRUM V7 GMX (only 1 position at a time)
 const MAX_POSITIONS_PER_CHAIN: Record<number, number> = {
-  42161: 2,  // Arbitrum V7 GMX - 2 positions (1 per token: WETH, WBTC)
+  42161: 1,  // Arbitrum V7 GMX - 1 position at a time
 };
 
 const MAX_FAILED_BEFORE_STOP = 2; // Stop trading after 2 failures
@@ -280,11 +280,11 @@ async function processUserTrades(
       tokensWithPositions.add(pos.token_address.toLowerCase());
     }
 
-    // If BOTH tokens have positions, wait for one to close
-    if (tokensWithPositions.size >= 2) {
-      logger.info('⏸️ Max positions reached (2/2) - waiting for close', {
+    // If ANY position exists, wait for it to close (only 1 at a time)
+    if (tokensWithPositions.size >= 1) {
+      logger.info('⏸️ Already has position (1/1) - waiting for close', {
         user: userAddress.slice(0, 10),
-        positions: Array.from(tokensWithPositions).map(t => t.slice(0, 10))
+        token: Array.from(tokensWithPositions)[0]?.slice(0, 10)
       });
       return;
     }
