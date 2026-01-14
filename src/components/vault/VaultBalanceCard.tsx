@@ -246,9 +246,23 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
       setIsWithdrawingV7(true);
       setV7Error(null);
 
+      // V7 only has withdraw(amount), not withdrawAll
+      // First get the exact balance
+      const v7BalanceRaw = await publicClient.readContract({
+        address: V7_VAULT_ADDRESS,
+        abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'balances', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' }],
+        functionName: 'balances',
+        args: [address as `0x${string}`]
+      }) as bigint;
+
+      if (v7BalanceRaw === 0n) {
+        setV7Error('No balance to withdraw');
+        return;
+      }
+
       const V7_WITHDRAW_ABI = [{
-        inputs: [],
-        name: 'withdrawAll',
+        inputs: [{ name: 'amount', type: 'uint256' }],
+        name: 'withdraw',
         outputs: [],
         stateMutability: 'nonpayable',
         type: 'function'
@@ -257,7 +271,8 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
       const hash = await walletClient.writeContract({
         address: V7_VAULT_ADDRESS,
         abi: V7_WITHDRAW_ABI,
-        functionName: 'withdrawAll',
+        functionName: 'withdraw',
+        args: [v7BalanceRaw],
         chain: { id: 42161, name: 'Arbitrum One', nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://arb1.arbitrum.io/rpc'] } } } as any,
         account: address as `0x${string}`
       });
