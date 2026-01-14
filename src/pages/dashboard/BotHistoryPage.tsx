@@ -701,16 +701,20 @@ const BotHistoryPage: React.FC = () => {
     return livePrices[tokenSymbol] || position.entry_price;
   };
 
-  // Calculate breakeven price (V6: 0.1% base fee + 0.05% Uniswap fee x2)
-  // Total fees: ~0.3% for round trip (much lower than V4!)
-  const TOTAL_FEE_PERCENT = 0.3;
+  // Calculate breakeven price considering leverage
+  // GMX fees: ~0.1% open + ~0.1% close = ~0.2% total on position size
+  // With leverage, you need LESS price movement to cover fees
+  const BASE_FEE_PERCENT = 0.2; // 0.2% round-trip fee on leveraged position
+
   const getBreakevenPrice = (position: Position) => {
+    const leverage = botSettings.leverage || 1;
+    // With leverage, the required price move to cover fees is: fee% / leverage
+    const requiredPriceMove = BASE_FEE_PERCENT / leverage;
+
     if (position.direction === 'LONG') {
-      // LONG: Need price to go up by fee % to break even
-      return position.entry_price * (1 + TOTAL_FEE_PERCENT / 100);
+      return position.entry_price * (1 + requiredPriceMove / 100);
     } else {
-      // SHORT: Need price to go down by fee % to break even
-      return position.entry_price * (1 - TOTAL_FEE_PERCENT / 100);
+      return position.entry_price * (1 - requiredPriceMove / 100);
     }
   };
 
@@ -718,20 +722,18 @@ const BotHistoryPage: React.FC = () => {
   const getBreakevenDistance = (position: Position) => {
     const currentPrice = getCurrentPrice(position);
     const breakevenPrice = getBreakevenPrice(position);
+    const leverage = botSettings.leverage || 1;
 
-    // For both directions: positive = needs to move towards profit, negative = already past BE
     let distancePercent: number;
     let isProfitable: boolean;
 
     if (position.direction === 'LONG') {
-      // LONG: Profitable when current >= BE, distance is how much current needs to rise
       isProfitable = currentPrice >= breakevenPrice;
-      distancePercent = ((breakevenPrice - currentPrice) / currentPrice) * 100;
+      // Distance as leveraged P/L percent (what user sees)
+      distancePercent = ((breakevenPrice - currentPrice) / currentPrice) * leverage * 100;
     } else {
-      // SHORT: Profitable when current <= BE, distance is how much current needs to drop
       isProfitable = currentPrice <= breakevenPrice;
-      // Negative = price needs to drop to reach BE
-      distancePercent = ((breakevenPrice - currentPrice) / currentPrice) * 100;
+      distancePercent = ((currentPrice - breakevenPrice) / currentPrice) * leverage * 100;
     }
 
     return {
