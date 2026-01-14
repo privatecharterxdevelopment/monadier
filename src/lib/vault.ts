@@ -779,26 +779,27 @@ export class VaultClient {
   }
 
   /**
-   * Set all trading settings (V7 compatible)
-   * V7 uses setTradingSettings() instead of separate setRiskLevel()
+   * Set all trading settings (V8 compatible)
+   * V8 Contract: setSettings(riskBps, maxLeverage, stopLossBps, takeProfitBps)
+   * Note: autoTrade is handled separately via setAutoTrade()
    */
   async setTradingSettings(
     userAddress: `0x${string}`,
-    autoTrade: boolean,
+    _autoTrade: boolean, // Ignored - use setAutoTrade() separately
     riskLevelPercent: number,
     maxLeverage: number = 10,
     stopLossPercent: number = 5,
     takeProfitPercent: number = 10
   ): Promise<`0x${string}`> {
-    const setTradingSettingsAbi = [{
+    // V8 Contract: setSettings(riskBps, maxLeverage, stopLossBps, takeProfitBps)
+    const setSettingsAbi = [{
       inputs: [
-        { name: '_autoTrade', type: 'bool' },
-        { name: '_riskLevelBps', type: 'uint256' },
-        { name: '_maxLeverage', type: 'uint256' },
-        { name: '_defaultStopLoss', type: 'uint256' },
-        { name: '_defaultTakeProfit', type: 'uint256' }
+        { name: 'riskBps', type: 'uint256' },
+        { name: 'maxLeverage', type: 'uint256' },
+        { name: 'stopLossBps', type: 'uint256' },
+        { name: 'takeProfitBps', type: 'uint256' }
       ],
-      name: 'setTradingSettings',
+      name: 'setSettings',
       outputs: [],
       stateMutability: 'nonpayable',
       type: 'function'
@@ -810,20 +811,20 @@ export class VaultClient {
 
     const hash = await this.walletClient.writeContract({
       address: this.vaultAddress,
-      abi: setTradingSettingsAbi,
-      functionName: 'setTradingSettings',
-      args: [autoTrade, riskBps, BigInt(maxLeverage), slBps, tpBps],
+      abi: setSettingsAbi,
+      functionName: 'setSettings',
+      args: [riskBps, BigInt(maxLeverage), slBps, tpBps],
       chain: arbitrum,
       account: userAddress,
-      gas: 150000n // Fixed gas limit
+      gas: 100000n // Fixed gas limit
     });
 
     return hash;
   }
 
   /**
-   * Set risk level (1-100%) - V8 direct call
-   * Uses setRiskLevel(uint256) on contract - value in basis points
+   * Set risk level (1-100%) - V8 uses setSettings()
+   * V8 Contract: setSettings(riskBps, maxLeverage, stopLossBps, takeProfitBps)
    */
   async setRiskLevel(percent: number, userAddress: `0x${string}`): Promise<`0x${string}`> {
     if (percent < 1 || percent > 100) {
@@ -832,9 +833,15 @@ export class VaultClient {
 
     const riskBps = percent * 100; // Convert percent to basis points (5% = 500 bps)
 
-    const setRiskLevelAbi = [{
-      inputs: [{ name: 'riskLevelBps', type: 'uint256' }],
-      name: 'setRiskLevel',
+    // V8 Contract uses setSettings(riskBps, maxLeverage, stopLossBps, takeProfitBps)
+    const setSettingsAbi = [{
+      inputs: [
+        { name: 'riskBps', type: 'uint256' },
+        { name: 'maxLeverage', type: 'uint256' },
+        { name: 'stopLossBps', type: 'uint256' },
+        { name: 'takeProfitBps', type: 'uint256' }
+      ],
+      name: 'setSettings',
       outputs: [],
       stateMutability: 'nonpayable',
       type: 'function'
@@ -842,12 +849,12 @@ export class VaultClient {
 
     const hash = await this.walletClient.writeContract({
       address: this.vaultAddress,
-      abi: setRiskLevelAbi,
-      functionName: 'setRiskLevel',
-      args: [BigInt(riskBps)],
+      abi: setSettingsAbi,
+      functionName: 'setSettings',
+      args: [BigInt(riskBps), 10n, 500n, 1000n], // risk, 10x leverage, 5% SL, 10% TP defaults
       chain: arbitrum,
       account: userAddress,
-      gas: 100000n // Fixed gas limit to prevent $26M estimates
+      gas: 100000n // Fixed gas limit
     });
 
     return hash;
@@ -855,7 +862,7 @@ export class VaultClient {
 
   /**
    * Get user's vault status (V8 compatible)
-   * V8 has: balances mapping + individual autoTradeEnabled/userRiskLevel mappings
+   * V8 has: balances mapping + getSettings(address) returning Settings struct
    */
   async getUserStatus(userAddress: `0x${string}`): Promise<VaultUserStatus> {
     // First get balance - this should always work
@@ -871,36 +878,45 @@ export class VaultClient {
       console.error('Failed to read vault balance:', err);
     }
 
-    // Try to get settings - may fail on some contract versions
+    // V8: Get settings via getSettings(address) which returns Settings struct
     let autoTradeEnabled = false;
     let riskLevelBps = 500; // Default 5%
 
     try {
-      // Try V8 autoTradeEnabled mapping
-      const autoTradeResult = await this.publicClient.readContract({
-        address: this.vaultAddress,
-        abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'autoTradeEnabled', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' }] as const,
-        functionName: 'autoTradeEnabled',
-        args: [userAddress]
-      });
-      autoTradeEnabled = autoTradeResult;
-    } catch (err) {
-      // autoTradeEnabled not available, use default
-    }
+      // V8 Contract: getSettings(address) returns (Settings memory)
+      // Settings = { autoTradeEnabled, riskBps, maxLeverage, stopLossBps, takeProfitBps }
+      const getSettingsAbi = [{
+        inputs: [{ name: 'user', type: 'address' }],
+        name: 'getSettings',
+        outputs: [{
+          components: [
+            { name: 'autoTradeEnabled', type: 'bool' },
+            { name: 'riskBps', type: 'uint256' },
+            { name: 'maxLeverage', type: 'uint256' },
+            { name: 'stopLossBps', type: 'uint256' },
+            { name: 'takeProfitBps', type: 'uint256' }
+          ],
+          name: '',
+          type: 'tuple'
+        }],
+        stateMutability: 'view',
+        type: 'function'
+      }] as const;
 
-    try {
-      // Try V8 userRiskLevel mapping
-      const riskResult = await this.publicClient.readContract({
+      const settings = await this.publicClient.readContract({
         address: this.vaultAddress,
-        abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'userRiskLevel', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' }] as const,
-        functionName: 'userRiskLevel',
+        abi: getSettingsAbi,
+        functionName: 'getSettings',
         args: [userAddress]
-      });
-      if (riskResult > 0n) {
-        riskLevelBps = Number(riskResult);
+      }) as { autoTradeEnabled: boolean; riskBps: bigint; maxLeverage: bigint; stopLossBps: bigint; takeProfitBps: bigint };
+
+      autoTradeEnabled = settings.autoTradeEnabled;
+      if (settings.riskBps > 0n) {
+        riskLevelBps = Number(settings.riskBps);
       }
     } catch (err) {
-      // userRiskLevel not available, use default
+      console.error('Failed to read vault settings:', err);
+      // Use defaults if getSettings fails
     }
 
     // Calculate max trade size locally: balance * riskLevel%
