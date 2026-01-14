@@ -122,7 +122,7 @@ healthServer.listen(PORT, () => {
 });
 
 // Default trading strategy - can be configured per user later
-const DEFAULT_STRATEGY: TradingStrategy = 'risky'; // RISKY = many trades!
+const DEFAULT_STRATEGY: TradingStrategy = 'aggressive'; // AGGRESSIVE = maximum trades!
 
 // Supported chains for auto-trading - ARBITRUM V7 GMX
 const ACTIVE_CHAINS: number[] = [42161]; // Arbitrum V7 GMX (25x-50x Leverage, GMX Perpetuals)
@@ -134,7 +134,7 @@ let isReconciliationRunning = false;
 
 // Cooldown tracking to prevent duplicate trades
 const lastTradeTimestamp: Map<string, number> = new Map();
-const TRADE_COOLDOWN_MS = 300000; // 5 minute cooldown between trades (matches V5 contract)
+const TRADE_COOLDOWN_MS = 120000; // 2 minute cooldown between trades - faster scalping!
 
 // Max positions - ARBITRUM V7 GMX (one position per token)
 const MAX_POSITIONS_PER_CHAIN: Record<number, number> = {
@@ -260,27 +260,31 @@ async function processUserTrades(
       return;
     }
 
-    // 5. ENFORCE: Only ONE position at a time - ALWAYS
+    // 5. CHECK POSITIONS - Allow up to 2 (one per token: WETH + WBTC)
     const openPositions = await positionService.getOpenPositions(userAddress, chainId);
 
-    // Check on-chain positions too
-    let hasAnyOnChainPosition = false;
+    // Check which tokens already have positions on-chain
+    const tokensWithPositions: Set<string> = new Set();
     for (const tokenConfig of TRADE_TOKENS[chainId] || []) {
       const hasOnChain = await tradingV7GMXService.hasOpenPosition(
         userAddress,
         tokenConfig.address as `0x${string}`
       );
       if (hasOnChain) {
-        hasAnyOnChainPosition = true;
-        break;
+        tokensWithPositions.add(tokenConfig.address.toLowerCase());
       }
     }
 
-    if (openPositions.length > 0 || hasAnyOnChainPosition) {
-      logger.info('⏸️ Already has position - waiting for close', {
+    // Also add DB positions
+    for (const pos of openPositions) {
+      tokensWithPositions.add(pos.token_address.toLowerCase());
+    }
+
+    // If BOTH tokens have positions, wait for one to close
+    if (tokensWithPositions.size >= 2) {
+      logger.info('⏸️ Max positions reached (2/2) - waiting for close', {
         user: userAddress.slice(0, 10),
-        dbPositions: openPositions.length,
-        hasOnChain: hasAnyOnChainPosition
+        positions: Array.from(tokensWithPositions).map(t => t.slice(0, 10))
       });
       return;
     }
@@ -334,12 +338,21 @@ async function processUserTrades(
       leverage: leverage + 'x'
     });
 
-    // 7. ANALYZE ALL TOKENS FIRST - Pick the best one
+    // 7. ANALYZE ALL TOKENS FIRST - Pick the best one (skip tokens with existing positions)
     let bestSignal: { signal: any; tokenConfig: typeof tokenConfigs[0] } | null = null;
     let bestConfidence = 0;
 
     for (const tokenConfig of tokenConfigs) {
       if (tokenConfig.symbol === 'USDC' || tokenConfig.symbol === 'DAI') {
+        continue;
+      }
+
+      // Skip if this token already has a position
+      if (tokensWithPositions.has(tokenConfig.address.toLowerCase())) {
+        logger.debug('Skipping token - already has position', {
+          token: tokenConfig.symbol,
+          user: userAddress.slice(0, 10)
+        });
         continue;
       }
 
