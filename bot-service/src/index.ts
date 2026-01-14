@@ -884,36 +884,32 @@ async function runReconciliationCycle(): Promise<void> {
         for (const position of positions) {
           try {
             const tokenAddress = position.token_address as `0x${string}`;
-            const onChainBalance = await tradingV7GMXService.getOnChainTokenBalance(
-              chainId,
+
+            // Check if vault has active position
+            const vaultHasPosition = await tradingV7GMXService.hasOpenPosition(
               walletAddress as `0x${string}`,
               tokenAddress
             );
 
-            // If on-chain balance is 0 but we have open positions, sync them
-            if (onChainBalance === null || onChainBalance === 0n) {
-              // Get current price from GMX for accurate P/L calculation
-              const price = await tradingV7GMXService.getTokenPrice(tokenAddress);
-              const currentPrice = price?.max || 0;
+            // Get current price for P/L calculation
+            const price = await tradingV7GMXService.getTokenPrice(tokenAddress);
+            const currentPrice = price?.max || 0;
 
-              logger.warn('Reconciliation: Found orphaned position with 0 on-chain balance', {
-                positionId: position.id,
-                wallet: walletAddress,
-                token: position.token_symbol,
-                currentPrice
-              });
-
-              // V8.2.1 FIX: Check if vault still has active position and finalize it
-              // This credits the user's balance after manual closes
-              const vaultHasPosition = await tradingV7GMXService.hasOpenPosition(
+            // If vault has position, check if it needs to be finalized
+            // (GMX might have auto-closed via TP/SL)
+            if (vaultHasPosition && currentPrice > 0) {
+              // Get PnL to check if TP/SL was triggered
+              const pnlData = await tradingV7GMXService.getPositionPnL(
                 walletAddress as `0x${string}`,
                 tokenAddress
               );
 
-              if (vaultHasPosition && currentPrice > 0) {
-                logger.info('Reconciliation: Vault has orphaned position, calling finalizeClose to credit balance', {
+              if (!pnlData) {
+                // Position exists in vault but PnL check failed - GMX might have closed it
+                logger.info('Reconciliation: Vault position exists but no PnL data - finalizing', {
                   wallet: walletAddress.slice(0, 10),
-                  token: position.token_symbol
+                  token: position.token_symbol,
+                  currentPrice
                 });
 
                 const result = await tradingV7GMXService.finalizeOrphanedPosition(
@@ -923,7 +919,7 @@ async function runReconciliationCycle(): Promise<void> {
                 );
 
                 if (result.success) {
-                  logger.info('Reconciliation: Successfully credited user balance', {
+                  logger.info('Reconciliation: Successfully credited user balance + 10% fee taken', {
                     wallet: walletAddress.slice(0, 10),
                     token: position.token_symbol
                   });
@@ -934,6 +930,13 @@ async function runReconciliationCycle(): Promise<void> {
                   });
                 }
               }
+            } else if (!vaultHasPosition) {
+              // Vault doesn't have position but DB shows open - just sync DB
+              logger.warn('Reconciliation: DB shows open but vault has no position', {
+                positionId: position.id,
+                wallet: walletAddress.slice(0, 10),
+                token: position.token_symbol
+              });
 
               // Mark as synced with real P/L based on current price
               await positionService.syncPositionsWithChain(
