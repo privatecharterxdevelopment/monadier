@@ -3,7 +3,7 @@ import { Wallet, ArrowUpRight, ArrowDownLeft, Settings, Zap, Lock, AlertTriangle
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { SUBSCRIPTION_PLANS } from '../../lib/subscription';
-import { VaultClient, VAULT_ADDRESSES, VAULT_V2_ADDRESSES, VAULT_V4_ADDRESSES, VAULT_V6_ADDRESSES, getPlatformFeeForChain, USDC_DECIMALS, VAULT_ABI } from '../../lib/vault';
+import { VaultClient, VAULT_ADDRESS, VAULT_CHAIN_ID, getPlatformFee, USDC_DECIMALS, VAULT_ABI } from '../../lib/vault';
 import { formatUnits } from 'viem';
 import VaultDepositModal from './VaultDepositModal';
 import VaultWithdrawModal from './VaultWithdrawModal';
@@ -67,12 +67,13 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
 
   // Check if user has paid subscription (not free)
   const isPaidUser = isSubscribed && planTier && planTier !== 'free';
-  const isVaultAvailable = chainId ? (VAULT_V6_ADDRESSES[chainId] !== null || VAULT_V4_ADDRESSES[chainId] !== null || VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null) : false;
+  // V8: Arbitrum only
+  const isVaultAvailable = chainId === VAULT_CHAIN_ID;
   const isPreviewMode = !isVaultAvailable;
   const hasV1Funds = parseFloat(v1Balance) > 0;
 
-  // Get platform fee for current chain
-  const platformFee = chainId ? getPlatformFeeForChain(chainId) : { percentFormatted: '—' };
+  // Get platform fee (V8 unified)
+  const platformFee = getPlatformFee();
 
   // Load vault data
   useEffect(() => {
@@ -86,11 +87,12 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
         setIsLoading(true);
         setError(null);
 
-        const vaultAddress = VAULT_V6_ADDRESSES[chainId] || VAULT_V4_ADDRESSES[chainId] || VAULT_V2_ADDRESSES[chainId] || VAULT_ADDRESSES[chainId];
-        if (!vaultAddress) {
+        // V8: Only Arbitrum vault
+        if (chainId !== VAULT_CHAIN_ID) {
           setIsLoading(false);
           return;
         }
+        const vaultAddress = VAULT_ADDRESS;
 
         // Read vault balance and status
         const vaultClient = new VaultClient(publicClient as any, walletClient as any, chainId);
@@ -120,22 +122,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
           // Settings may not exist yet, use defaults
         }
 
-        // Check V1 vault balance if V2 exists (migration scenario)
-        const v1Address = VAULT_ADDRESSES[chainId];
-        const v2Address = VAULT_V2_ADDRESSES[chainId];
-        if (v1Address && v2Address && v1Address !== v2Address) {
-          try {
-            const v1BalanceRaw = await publicClient.readContract({
-              address: v1Address,
-              abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'balances', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' }] as const,
-              functionName: 'balances',
-              args: [address as `0x${string}`]
-            });
-            setV1Balance(formatUnits(v1BalanceRaw, USDC_DECIMALS));
-          } catch (e) {
-            console.log('No V1 balance or V1 vault not accessible');
-          }
-        }
+        // V8: No legacy vault migration needed
       } catch (err) {
         console.error('Failed to load vault data:', err);
         setError('Failed to load vault');
@@ -227,41 +214,10 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
     }
   };
 
-  // Migrate from V1 to V2 (withdraw from V1)
+  // V8: Legacy migration removed - no longer needed
   const handleMigrateFromV1 = async () => {
-    if (!chainId || !address || !publicClient || !walletClient) return;
-
-    const v1Address = VAULT_ADDRESSES[chainId];
-    if (!v1Address) return;
-
-    try {
-      setIsMigrating(true);
-      setMigrationError(null);
-
-      // Call withdrawAll on V1 vault
-      const hash = await walletClient.writeContract({
-        address: v1Address,
-        abi: VAULT_ABI,
-        functionName: 'withdrawAll',
-        args: [],
-        chain: null,
-        account: address as `0x${string}`
-      });
-
-      // Wait for confirmation
-      await publicClient.waitForTransactionReceipt({ hash });
-
-      // Reset V1 balance
-      setV1Balance('0.00');
-
-      // Reload page to refresh all balances
-      window.location.reload();
-    } catch (err: any) {
-      console.error('Migration failed:', err);
-      setMigrationError(err.message || 'Failed to withdraw from V1');
-    } finally {
-      setIsMigrating(false);
-    }
+    console.log('V8: Legacy migration not needed');
+    setIsMigrating(false);
   };
 
   // Handle upgrade click

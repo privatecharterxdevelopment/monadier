@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePublicClient, useWalletClient, useAccount } from 'wagmi';
 import {
-  VAULT_V8_ADDRESSES,
+  VAULT_ADDRESS,
   VAULT_V8_ABI,
   GMX_VAULT_ABI,
   GMX_VAULT_ADDRESS,
@@ -88,7 +88,7 @@ export function useOnChainPositions() {
       return;
     }
 
-    const vaultAddress = VAULT_V8_ADDRESSES[42161];
+    const vaultAddress = VAULT_ADDRESS;
     if (!vaultAddress) {
       setError('V8 vault not deployed');
       setLoading(false);
@@ -200,7 +200,7 @@ export function useOnChainPositions() {
         throw new Error('Wallet not connected');
       }
 
-      const vaultAddress = VAULT_V8_ADDRESSES[42161];
+      const vaultAddress = VAULT_ADDRESS;
       if (!vaultAddress) throw new Error('V8 vault not available');
 
       // Get execution fee
@@ -233,7 +233,7 @@ export function useOnChainPositions() {
         throw new Error('Wallet not connected');
       }
 
-      const vaultAddress = VAULT_V8_ADDRESSES[42161];
+      const vaultAddress = VAULT_ADDRESS;
       if (!vaultAddress) throw new Error('V8 vault not available');
 
       const hash = await walletClient.writeContract({

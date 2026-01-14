@@ -1,5 +1,6 @@
 // Vault Integration for MonadierTradingVault Smart Contract
 import { parseUnits, formatUnits, type PublicClient, type WalletClient } from 'viem';
+import { arbitrum } from 'viem/chains';
 
 // Vault ABI (core functions only)
 export const VAULT_ABI = [
@@ -486,46 +487,12 @@ export const ERC20_APPROVE_ABI = [
   }
 ] as const;
 
-// ARBITRUM ONLY - V7 GMX Vault (25x-50x Leverage)
-// V7: GMX Perpetuals, TRUE 25x-50x Leverage, Keeper execution
-export const VAULT_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: '0x9879792a47725d5b18633e1395BC4a7A06c750df',  // Arbitrum - V7 GMX LIVE
-};
-
-export const VAULT_V2_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: null,  // Using V7
-};
-
-export const VAULT_V3_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: null,  // Using V7
-};
-
-export const VAULT_V4_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: null,  // Using V7
-};
-
-export const VAULT_V5_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: null,  // Using V7
-};
-
-export const VAULT_V6_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: '0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A',  // Arbitrum - DEPRECATED (V6)
-};
-
-// V7: GMX Perpetuals - TRUE 25x-50x Leverage (DEPRECATED)
-export const VAULT_V7_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: '0x9879792a47725d5b18633e1395BC4a7A06c750df',  // Arbitrum - V7 DEPRECATED
-};
-
-// V8: GMX Perpetuals - User Control + Trailing Stop + All Bug Fixes
-export const VAULT_V8_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: '0xFA38c191134A6a3382794BE6144D24c3e6D8a4C3',  // Arbitrum - V8.2.1 LIVE
-};
-
-// LEGACY: Old unverified vault with user deposits (Claudio's 100 USDC)
-export const LEGACY_VAULT_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: '0x712B3A0cFD00674a15c5D235e998F71709112675',  // Arbitrum - LEGACY (withdraw only)
-};
+// ============================================
+// V8 VAULT - ONLY ACTIVE VERSION
+// GMX Perpetuals, User Control, Trailing Stop
+// ============================================
+export const VAULT_ADDRESS: `0x${string}` = '0xFA38c191134A6a3382794BE6144D24c3e6D8a4C3';
+export const VAULT_CHAIN_ID = 42161; // Arbitrum Only
 
 // USDC addresses - Arbitrum only
 export const USDC_ADDRESSES: Record<number, `0x${string}`> = {
@@ -535,47 +502,34 @@ export const USDC_ADDRESSES: Record<number, `0x${string}`> = {
 // USDC decimals (6 for all chains)
 export const USDC_DECIMALS = 6;
 
-// Platform fee structure - Arbitrum V7 GMX
-// V7: 0.1% base fee on TOTAL position (collateral × leverage) + 10% success fee
+// Platform fee structure - V8 GMX
+// 0.1% base fee on TOTAL position (collateral × leverage) + 10% success fee
 export const PLATFORM_FEES = {
-  ARBITRUM_CHAIN_ID: 42161,
-  // V7 fees (Arbitrum) - 0.1% on total position size
-  V7_BASE_FEE_BPS: 10,    // 0.1% base fee on TOTAL position
-  V7_SUCCESS_FEE_BPS: 1000, // 10% of profit
-  MAX_LEVERAGE_STANDARD: 25, // Standard users: 1x-25x
-  MAX_LEVERAGE_ELITE: 50, // Elite users (manually unlocked): 1x-50x
-  // Legacy V6 reference
-  V6_BASE_FEE_BPS: 10,
-  V6_SUCCESS_FEE_BPS: 1000,
-  MAX_LEVERAGE: 25, // Default max leverage
+  BASE_FEE_BPS: 10,       // 0.1% base fee on TOTAL position
+  SUCCESS_FEE_BPS: 1000,  // 10% of profit
+  MAX_LEVERAGE: 25,       // Standard users: 1x-25x
+  MAX_LEVERAGE_ELITE: 50, // Elite users: 1x-50x
 } as const;
 
 /**
- * Get platform fee for Arbitrum V7 GMX
- * @param chainId Chain ID (only 42161 supported)
- * @returns Fee in basis points and percentage
+ * Get platform fee for V8 GMX Vault
  */
-export function getPlatformFeeForChain(chainId: number): {
+export function getPlatformFee(): {
   bps: number;
   percent: number;
   percentFormatted: string;
-  isV7: boolean;
-  successFeeBps?: number;
-  successFeePercent?: number;
-  maxLeverage?: number;
-  maxLeverageElite?: number;
+  successFeeBps: number;
+  successFeePercent: number;
+  maxLeverage: number;
+  maxLeverageElite: number;
 } {
-  // V7 fee structure: 0.1% on TOTAL position + 10% success fee
-  const bps = PLATFORM_FEES.V7_BASE_FEE_BPS;
-  const percent = bps / 100;
   return {
-    bps,
-    percent,
-    percentFormatted: `${percent.toFixed(1)}% on position + 10% profit`,
-    isV7: true,
-    successFeeBps: PLATFORM_FEES.V7_SUCCESS_FEE_BPS,
+    bps: PLATFORM_FEES.BASE_FEE_BPS,
+    percent: PLATFORM_FEES.BASE_FEE_BPS / 100,
+    percentFormatted: '0.1% on position + 10% profit',
+    successFeeBps: PLATFORM_FEES.SUCCESS_FEE_BPS,
     successFeePercent: 10,
-    maxLeverage: PLATFORM_FEES.MAX_LEVERAGE_STANDARD,
+    maxLeverage: PLATFORM_FEES.MAX_LEVERAGE,
     maxLeverageElite: PLATFORM_FEES.MAX_LEVERAGE_ELITE
   };
 }
@@ -611,7 +565,7 @@ export interface VaultStats {
 }
 
 /**
- * Vault client for interacting with MonadierTradingVault
+ * Vault client for interacting with V8 GMX Vault
  */
 export class VaultClient {
   private publicClient: PublicClient;
@@ -629,25 +583,19 @@ export class VaultClient {
     this.walletClient = walletClient;
     this.chainId = chainId;
 
-    // Prefer V8 > V7 > V6 > V5 > V4 > V3 > V2 > V1
-    const vaultAddr = VAULT_V8_ADDRESSES[chainId] || VAULT_V7_ADDRESSES[chainId] || VAULT_V6_ADDRESSES[chainId] || VAULT_V5_ADDRESSES[chainId] || VAULT_V4_ADDRESSES[chainId] || VAULT_V3_ADDRESSES[chainId] || VAULT_V2_ADDRESSES[chainId] || VAULT_ADDRESSES[chainId];
-    if (!vaultAddr) {
-      throw new Error(`Vault not deployed on chain ${chainId}`);
+    // V8 Only - Arbitrum
+    if (chainId !== VAULT_CHAIN_ID) {
+      throw new Error(`Vault only available on Arbitrum (chain ${VAULT_CHAIN_ID})`);
     }
-    this.vaultAddress = vaultAddr;
-
-    const usdcAddr = USDC_ADDRESSES[chainId];
-    if (!usdcAddr) {
-      throw new Error(`USDC not configured for chain ${chainId}`);
-    }
-    this.usdcAddress = usdcAddr;
+    this.vaultAddress = VAULT_ADDRESS;
+    this.usdcAddress = USDC_ADDRESSES[VAULT_CHAIN_ID];
   }
 
   /**
    * Check if vault is available on this chain
    */
   static isAvailable(chainId: number): boolean {
-    return VAULT_V8_ADDRESSES[chainId] !== null || VAULT_V7_ADDRESSES[chainId] !== null || VAULT_V6_ADDRESSES[chainId] !== null || VAULT_V5_ADDRESSES[chainId] !== null || VAULT_V4_ADDRESSES[chainId] !== null || VAULT_V3_ADDRESSES[chainId] !== null || VAULT_V2_ADDRESSES[chainId] !== null || VAULT_ADDRESSES[chainId] !== null;
+    return chainId === VAULT_CHAIN_ID;
   }
 
   /**
@@ -671,7 +619,7 @@ export class VaultClient {
         abi: ERC20_APPROVE_ABI,
         functionName: 'approve',
         args: [this.vaultAddress, amountWei],
-        chain: null,
+        chain: arbitrum,
         account: userAddress
       });
 
@@ -685,7 +633,7 @@ export class VaultClient {
       abi: VAULT_ABI,
       functionName: 'deposit',
       args: [amountWei],
-      chain: null,
+      chain: arbitrum,
       account: userAddress
     });
 
@@ -707,7 +655,7 @@ export class VaultClient {
       abi: VAULT_ABI,
       functionName: 'depositETH',
       args: [minUsdcWei],
-      chain: null,
+      chain: arbitrum,
       account: userAddress,
       value: ethWei,
       gas: 200000n // Higher gas for swap
@@ -727,7 +675,7 @@ export class VaultClient {
       abi: VAULT_ABI,
       functionName: 'withdraw',
       args: [amountWei],
-      chain: null,
+      chain: arbitrum,
       account: userAddress,
       gas: 150000n // Explicit gas limit to avoid estimation issues
     });
@@ -754,7 +702,7 @@ export class VaultClient {
       abi: VAULT_ABI,
       functionName: 'withdraw',
       args: [balanceWei],
-      chain: null,
+      chain: arbitrum,
       account: userAddress,
       gas: 200000n // Higher gas for safety
     });
@@ -779,7 +727,7 @@ export class VaultClient {
       abi: setAutoTradeAbi,
       functionName: 'setAutoTrade',
       args: [enabled],
-      chain: null,
+      chain: arbitrum,
       account: userAddress
     });
 
@@ -804,7 +752,7 @@ export class VaultClient {
       abi: VAULT_ABI,
       functionName: 'emergencyClosePosition',
       args: [tokenAddress],
-      chain: null,
+      chain: arbitrum,
       account: userAddress,
       gas: 300000n // Higher gas for swap
     });
@@ -864,7 +812,7 @@ export class VaultClient {
       abi: setTradingSettingsAbi,
       functionName: 'setTradingSettings',
       args: [autoTrade, riskBps, BigInt(maxLeverage), slBps, tpBps],
-      chain: null,
+      chain: arbitrum,
       account: userAddress
     });
 
@@ -895,77 +843,69 @@ export class VaultClient {
   }
 
   /**
-   * Get user's vault status (V7 GMX compatible)
-   * V7 has: balances mapping + getUserSettings() function
+   * Get user's vault status (V8 compatible)
+   * V8 has: balances mapping + individual autoTradeEnabled/userRiskLevel mappings
    */
   async getUserStatus(userAddress: `0x${string}`): Promise<VaultUserStatus> {
+    // First get balance - this should always work
+    let balance = 0n;
     try {
-      // V7 ABI for getUserSettings
-      const getUserSettingsAbi = [{
-        inputs: [{ name: 'user', type: 'address' }],
-        name: 'getUserSettings',
-        outputs: [{
-          components: [
-            { name: 'autoTradeEnabled', type: 'bool' },
-            { name: 'riskLevelBps', type: 'uint256' },
-            { name: 'maxLeverage', type: 'uint256' },
-            { name: 'defaultStopLoss', type: 'uint256' },
-            { name: 'defaultTakeProfit', type: 'uint256' }
-          ],
-          name: '',
-          type: 'tuple'
-        }],
-        stateMutability: 'view',
-        type: 'function'
-      }] as const;
-
-      const [balance, settings] = await Promise.all([
-        this.publicClient.readContract({
-          address: this.vaultAddress,
-          abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'balances', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' }] as const,
-          functionName: 'balances',
-          args: [userAddress]
-        }),
-        this.publicClient.readContract({
-          address: this.vaultAddress,
-          abi: getUserSettingsAbi,
-          functionName: 'getUserSettings',
-          args: [userAddress]
-        })
-      ]);
-
-      // Default risk level is 5% (500 bps) if not set
-      const effectiveRiskBps = Number(settings.riskLevelBps) || 500;
-
-      // Calculate max trade size locally: balance * riskLevel%
-      const maxTrade = (balance * BigInt(effectiveRiskBps)) / BigInt(10000);
-
-      return {
-        balance,
-        balanceFormatted: formatUnits(balance, USDC_DECIMALS),
-        autoTradeEnabled: settings.autoTradeEnabled,
-        riskLevelBps: effectiveRiskBps,
-        riskLevelPercent: effectiveRiskBps / 100,
-        maxTradeSize: maxTrade,
-        maxTradeSizeFormatted: formatUnits(maxTrade, USDC_DECIMALS),
-        timeToNextTrade: 0,
-        canTrade: true
-      };
+      balance = await this.publicClient.readContract({
+        address: this.vaultAddress,
+        abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'balances', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' }] as const,
+        functionName: 'balances',
+        args: [userAddress]
+      });
     } catch (err) {
-      // Fallback: return empty status
-      console.error('Failed to load vault status:', err);
-      return {
-        balance: 0n,
-        balanceFormatted: '0',
-        autoTradeEnabled: false,
-        riskLevelBps: 500,
-        riskLevelPercent: 5,
-        maxTradeSize: 0n,
-        maxTradeSizeFormatted: '0',
-        timeToNextTrade: 0,
-        canTrade: false
-      };
+      console.error('Failed to read vault balance:', err);
     }
+
+    // Try to get settings - may fail on some contract versions
+    let autoTradeEnabled = false;
+    let riskLevelBps = 500; // Default 5%
+
+    try {
+      // Try V8 autoTradeEnabled mapping
+      const autoTradeResult = await this.publicClient.readContract({
+        address: this.vaultAddress,
+        abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'autoTradeEnabled', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' }] as const,
+        functionName: 'autoTradeEnabled',
+        args: [userAddress]
+      });
+      autoTradeEnabled = autoTradeResult;
+    } catch (err) {
+      // autoTradeEnabled not available, use default
+    }
+
+    try {
+      // Try V8 userRiskLevel mapping
+      const riskResult = await this.publicClient.readContract({
+        address: this.vaultAddress,
+        abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'userRiskLevel', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' }] as const,
+        functionName: 'userRiskLevel',
+        args: [userAddress]
+      });
+      if (riskResult > 0n) {
+        riskLevelBps = Number(riskResult);
+      }
+    } catch (err) {
+      // userRiskLevel not available, use default
+    }
+
+    // Calculate max trade size locally: balance * riskLevel%
+    const maxTrade = (balance * BigInt(riskLevelBps)) / BigInt(10000);
+
+    return {
+      balance,
+      balanceFormatted: formatUnits(balance, USDC_DECIMALS),
+      autoTradeEnabled,
+      riskLevelBps,
+      riskLevelPercent: riskLevelBps / 100,
+      maxTradeSize: maxTrade,
+      maxTradeSizeFormatted: formatUnits(maxTrade, USDC_DECIMALS),
+      timeToNextTrade: 0,
+      canTrade: true
+    };
   }
 
   /**
@@ -1049,7 +989,7 @@ export class VaultClient {
     isArbitrum: boolean;
   } {
     return {
-      ...getPlatformFeeForChain(this.chainId),
+      ...getPlatformFee(),
       isArbitrum: this.chainId === PLATFORM_FEES.ARBITRUM_CHAIN_ID
     };
   }
@@ -1078,7 +1018,7 @@ export async function getOnChainPositions(
   publicClient: PublicClient,
   userAddress: `0x${string}`
 ): Promise<{ weth: OnChainPosition | null; wbtc: OnChainPosition | null }> {
-  const vaultAddress = VAULT_V8_ADDRESSES[42161];
+  const vaultAddress = VAULT_ADDRESS;
   if (!vaultAddress) return { weth: null, wbtc: null };
 
   try {
@@ -1230,7 +1170,7 @@ export async function userClosePosition(
   userAddress: `0x${string}`,
   token: 'WETH' | 'WBTC'
 ): Promise<`0x${string}`> {
-  const vaultAddress = VAULT_V8_ADDRESSES[42161];
+  const vaultAddress = VAULT_ADDRESS;
   if (!vaultAddress) throw new Error('V8 vault not available');
 
   // Get execution fee
@@ -1247,7 +1187,7 @@ export async function userClosePosition(
     functionName: 'userClosePosition',
     args: [TOKEN_ADDRESSES[token]],
     value: execFee,
-    chain: null,
+    chain: arbitrum,
     account: userAddress
   });
 
@@ -1262,7 +1202,7 @@ export async function cancelAutoFeatures(
   userAddress: `0x${string}`,
   token: 'WETH' | 'WBTC'
 ): Promise<`0x${string}`> {
-  const vaultAddress = VAULT_V8_ADDRESSES[42161];
+  const vaultAddress = VAULT_ADDRESS;
   if (!vaultAddress) throw new Error('V8 vault not available');
 
   const hash = await walletClient.writeContract({
@@ -1270,7 +1210,7 @@ export async function cancelAutoFeatures(
     abi: VAULT_V8_ABI,
     functionName: 'cancelAutoFeatures',
     args: [TOKEN_ADDRESSES[token]],
-    chain: null,
+    chain: arbitrum,
     account: userAddress
   });
 

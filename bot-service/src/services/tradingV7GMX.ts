@@ -225,35 +225,32 @@ export interface V7TradeResult {
   leverage?: number;
 }
 
-// V8 Vault Address on Arbitrum (V8.2.1 - User Control + Trailing Stop)
-const V8_VAULT_ADDRESS = (config.chains[42161] as any).vaultV8Address || '0xFA38c191134A6a3382794BE6144D24c3e6D8a4C3';
+// V8 Vault - from simplified config
+const VAULT_ADDRESS = config.arbitrum.vaultAddress;
 
 export class TradingV7GMXService {
   private botAccount = privateKeyToAccount(config.botPrivateKey);
   private publicClient;
   private walletClient;
-  private v7VaultAddress: `0x${string}`;
+  private vaultAddress: `0x${string}`;
 
-  constructor(vaultAddress?: `0x${string}`) {
-    const rpcUrl = config.chains[42161].rpcUrl;
-
+  constructor() {
     this.publicClient = createPublicClient({
       chain: arbitrum,
-      transport: http(rpcUrl)
+      transport: http(config.arbitrum.rpcUrl)
     });
 
     this.walletClient = createWalletClient({
       account: this.botAccount,
       chain: arbitrum,
-      transport: http(rpcUrl)
+      transport: http(config.arbitrum.rpcUrl)
     });
 
-    // V8 vault address from config (backwards compatible with V7)
-    this.v7VaultAddress = vaultAddress || V8_VAULT_ADDRESS as `0x${string}`;
+    this.vaultAddress = VAULT_ADDRESS;
 
     logger.info('TradingV7GMXService initialized', {
       gmxVault: GMX_ADDRESSES.vault,
-      v7Vault: this.v7VaultAddress,
+      vaultAddress: this.vaultAddress,
       bot: this.botAccount.address
     });
   }
@@ -262,7 +259,7 @@ export class TradingV7GMXService {
    * Set V7 vault address after deployment
    */
   setVaultAddress(address: `0x${string}`) {
-    this.v7VaultAddress = address;
+    this.vaultAddress = address;
     logger.info('V7 Vault address set', { address });
   }
 
@@ -273,13 +270,13 @@ export class TradingV7GMXService {
     try {
       const [balance, settings] = await Promise.all([
         this.publicClient.readContract({
-          address: this.v7VaultAddress,
+          address: this.vaultAddress,
           abi: VAULT_V7_ABI,
           functionName: 'balances',
           args: [userAddress]
         }),
         this.publicClient.readContract({
-          address: this.v7VaultAddress,
+          address: this.vaultAddress,
           abi: VAULT_V7_ABI,
           functionName: 'getUserSettings',
           args: [userAddress]
@@ -307,7 +304,7 @@ export class TradingV7GMXService {
   async getExecutionFee(): Promise<bigint> {
     try {
       const fee = await this.publicClient.readContract({
-        address: this.v7VaultAddress,
+        address: this.vaultAddress,
         abi: VAULT_V7_ABI,
         functionName: 'getExecutionFee'
       });
@@ -355,7 +352,7 @@ export class TradingV7GMXService {
   async hasOpenPosition(userAddress: `0x${string}`, tokenAddress: `0x${string}`): Promise<boolean> {
     try {
       const position = await this.publicClient.readContract({
-        address: this.v7VaultAddress,
+        address: this.vaultAddress,
         abi: VAULT_V7_ABI,
         functionName: 'getPosition',
         args: [userAddress, tokenAddress]
@@ -421,7 +418,7 @@ export class TradingV7GMXService {
 
       // Execute openPosition with ETH for execution fee
       const txHash = await this.walletClient.writeContract({
-        address: this.v7VaultAddress,
+        address: this.vaultAddress,
         abi: VAULT_V7_ABI,
         functionName: 'openPosition',
         args: [
@@ -507,7 +504,7 @@ export class TradingV7GMXService {
 
       // Get current position from contract
       const position = await this.publicClient.readContract({
-        address: this.v7VaultAddress,
+        address: this.vaultAddress,
         abi: VAULT_V7_ABI,
         functionName: 'getPosition',
         args: [userAddress, tokenAddress]
@@ -519,7 +516,7 @@ export class TradingV7GMXService {
 
       // Get current price to calculate PnL
       const [maxPrice, minPrice] = await this.publicClient.readContract({
-        address: this.v7VaultAddress,
+        address: this.vaultAddress,
         abi: VAULT_V7_ABI,
         functionName: 'getPrice',
         args: [tokenAddress]
@@ -563,7 +560,7 @@ export class TradingV7GMXService {
 
       // Call finalizeClose directly (skip GMX keeper wait)
       const txHash = await this.walletClient.writeContract({
-        address: this.v7VaultAddress,
+        address: this.vaultAddress,
         abi: VAULT_V7_ABI,
         functionName: 'finalizeClose',
         args: [userAddress, tokenAddress, receivedAmount, closeReason],
@@ -599,7 +596,7 @@ export class TradingV7GMXService {
   ): Promise<{ triggered: boolean; reason?: string }> {
     try {
       const [shouldClose, reason] = await this.publicClient.readContract({
-        address: this.v7VaultAddress,
+        address: this.vaultAddress,
         abi: VAULT_V7_ABI,
         functionName: 'checkPositionTrigger',
         args: [userAddress, tokenAddress]
@@ -642,7 +639,7 @@ export class TradingV7GMXService {
     try {
       // Check if position exists
       const position = await this.publicClient.readContract({
-        address: this.v7VaultAddress,
+        address: this.vaultAddress,
         abi: VAULT_V7_ABI,
         functionName: 'getPosition',
         args: [userAddress, tokenAddress]
@@ -654,7 +651,7 @@ export class TradingV7GMXService {
 
       // Get PnL from contract
       const [pnl, pnlPercent] = await this.publicClient.readContract({
-        address: this.v7VaultAddress,
+        address: this.vaultAddress,
         abi: VAULT_V7_ABI,
         functionName: 'getPositionPnL',
         args: [userAddress, tokenAddress]
@@ -662,7 +659,7 @@ export class TradingV7GMXService {
 
       // Get current price
       const [maxPrice, minPrice] = await this.publicClient.readContract({
-        address: this.v7VaultAddress,
+        address: this.vaultAddress,
         abi: VAULT_V7_ABI,
         functionName: 'getPrice',
         args: [tokenAddress]
@@ -695,7 +692,7 @@ export class TradingV7GMXService {
   async withdrawFees(): Promise<{ success: boolean; amount?: string }> {
     try {
       const fees = await this.publicClient.readContract({
-        address: this.v7VaultAddress,
+        address: this.vaultAddress,
         abi: VAULT_V7_ABI,
         functionName: 'accumulatedFees'
       });
@@ -705,7 +702,7 @@ export class TradingV7GMXService {
       }
 
       const txHash = await this.walletClient.writeContract({
-        address: this.v7VaultAddress,
+        address: this.vaultAddress,
         abi: VAULT_V7_ABI,
         functionName: 'withdrawFees',
         args: [],
@@ -722,6 +719,62 @@ export class TradingV7GMXService {
     } catch (err: any) {
       return { success: false };
     }
+  }
+
+  /**
+   * Get on-chain token balance for a user (for position reconciliation)
+   * Note: In V8 GMX mode, this checks USDC balance in vault, not token balance
+   */
+  async getOnChainTokenBalance(
+    chainId: number,
+    walletAddress: `0x${string}`,
+    tokenAddress: `0x${string}`
+  ): Promise<bigint | null> {
+    if (chainId !== 42161) return null; // Arbitrum only
+
+    try {
+      const status = await this.getUserVaultStatus(walletAddress);
+      return status?.balance ?? null;
+    } catch (err) {
+      logger.error('Error getting on-chain balance', { walletAddress, error: err });
+      return null;
+    }
+  }
+
+  /**
+   * Execute a pre-approved trade (user already approved, bypass checks)
+   */
+  async executeApprovedTrade(
+    chainId: number,
+    walletAddress: `0x${string}`,
+    signal: {
+      tokenAddress: string;
+      tokenSymbol: string;
+      direction: 'LONG' | 'SHORT';
+      confidence: number;
+      suggestedAmount: bigint;
+      takeProfitPercent: number;
+      trailingStopPercent: number;
+    }
+  ): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    if (chainId !== 42161) {
+      return { success: false, error: 'Only Arbitrum supported' };
+    }
+
+    // Note: In V8, trades are executed by the user directly on the frontend
+    // This method is for bot-initiated trades (auto-trading mode)
+    logger.info('executeApprovedTrade called', {
+      wallet: walletAddress.slice(0, 10),
+      direction: signal.direction,
+      amount: formatUnits(signal.suggestedAmount, 6)
+    });
+
+    // For now, return success - actual execution happens via frontend
+    // TODO: Implement direct trade execution if needed
+    return {
+      success: false,
+      error: 'V8 trades are user-initiated via frontend'
+    };
   }
 }
 

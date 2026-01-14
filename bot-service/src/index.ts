@@ -2,13 +2,11 @@ import cron from 'node-cron';
 import http from 'http';
 import { parseUnits } from 'viem';
 import { createClient } from '@supabase/supabase-js';
-import { config, ChainId } from './config';
+import { config } from './config';
 import { logger } from './utils/logger';
-import { tradingService, TradeSignal } from './services/trading';
-import { tradingV6Service, V6TradeSignal, V6_TOKENS } from './services/tradingV6';
 import { tradingV7GMXService, V7TradeSignal, V7_TOKENS } from './services/tradingV7GMX';
 import { subscriptionService } from './services/subscription';
-import { marketService, TradingStrategy, signalEngine } from './services/market';
+import { marketService, TradingStrategy, signalEngine, TradeSignal } from './services/market';
 import { positionService } from './services/positions';
 import { paymentService } from './services/payments';
 import { Timeframe } from './services/signalEngine';
@@ -127,7 +125,7 @@ healthServer.listen(PORT, () => {
 const DEFAULT_STRATEGY: TradingStrategy = 'risky'; // RISKY = many trades!
 
 // Supported chains for auto-trading - ARBITRUM V7 GMX
-const ACTIVE_CHAINS: ChainId[] = [42161]; // Arbitrum V7 GMX (25x-50x Leverage, GMX Perpetuals)
+const ACTIVE_CHAINS: number[] = [42161]; // Arbitrum V7 GMX (25x-50x Leverage, GMX Perpetuals)
 
 // Locks to prevent concurrent execution
 let isTradingCycleRunning = false;
@@ -153,7 +151,7 @@ let lastFailureTime = 0;
 const FAILURE_RESET_MS = 300000; // Reset failure count after 5 minutes
 
 // Token addresses for trading - ARBITRUM V7 GMX (WETH and WBTC perpetuals)
-const TRADE_TOKENS: Record<ChainId, { address: `0x${string}`; symbol: string }[]> = {
+const TRADE_TOKENS: Record<number, { address: `0x${string}`; symbol: string }[]> = {
   // ARBITRUM V7 GMX - 2 tokens with GMX perpetuals
   42161: [
     { address: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1', symbol: 'WETH' },
@@ -170,7 +168,7 @@ const TRADE_TOKENS: Record<ChainId, { address: `0x${string}`; symbol: string }[]
  * Generate trade signal based on market analysis
  */
 async function generateTradeSignal(
-  chainId: ChainId,
+  chainId: number,
   tokenAddress: `0x${string}`,
   tokenSymbol: string,
   userBalance: bigint,
@@ -199,7 +197,7 @@ async function generateTradeSignal(
  * V7: Opens leveraged LONG/SHORT positions via GMX Perpetuals (25x-50x)
  */
 async function processUserTrades(
-  chainId: ChainId,
+  chainId: number,
   userAddress: `0x${string}`
 ): Promise<void> {
   try {
@@ -822,7 +820,7 @@ async function runReconciliationCycle(): Promise<void> {
         for (const position of positions) {
           try {
             const tokenAddress = position.token_address as `0x${string}`;
-            const onChainBalance = await tradingService.getOnChainTokenBalance(
+            const onChainBalance = await tradingV7GMXService.getOnChainTokenBalance(
               chainId,
               walletAddress as `0x${string}`,
               tokenAddress
@@ -916,8 +914,8 @@ async function processApprovedTrades(): Promise<void> {
         };
 
         // Execute the approved trade directly (bypass ask_permission check)
-        const result = await tradingService.executeApprovedTrade(
-          trade.chainId as ChainId,
+        const result = await tradingV7GMXService.executeApprovedTrade(
+          trade.chainId as number,
           trade.walletAddress as `0x${string}`,
           signal
         );
@@ -1024,31 +1022,16 @@ async function runTradingCycle(): Promise<void> {
     // UPDATE ANALYSIS FOR ALL USERS TO SEE (before checking individual users)
     await updateBotAnalysis();
 
-    for (const chainId of ACTIVE_CHAINS) {
-      const chainConfig = config.chains[chainId] as any;
-      const vaultAddress = chainConfig?.vaultV5Address || chainConfig?.vaultV4Address || chainConfig?.vaultV3Address || chainConfig?.vaultV2Address || chainConfig?.vaultAddress;
+    // Arbitrum Only - V8 GMX Vault
+    try {
+      const users = await tradingV7GMXService.getAutoTradeUsers();
+      logger.info(`Processing ${users.length} users on Arbitrum`);
 
-      if (!vaultAddress) {
-        continue;
+      for (const userAddress of users) {
+        await processUserTrades(config.arbitrum.chainId, userAddress);
       }
-
-      try {
-        // Get all users with auto-trade enabled
-        const users = await tradingService.getAutoTradeUsers(chainId);
-
-        logger.info(`Processing ${users.length} users on ${chainConfig.name}`);
-
-        // Process each user sequentially to prevent race conditions
-        for (const userAddress of users) {
-          await processUserTrades(chainId, userAddress);
-        }
-      } catch (err) {
-        logger.error('Error in trading cycle for chain', {
-          chainId,
-          chainName: chainConfig.name,
-          error: err
-        });
-      }
+    } catch (err) {
+      logger.error('Error in trading cycle', { error: err });
     }
 
     logger.info('Trading cycle complete');
@@ -1062,22 +1045,16 @@ async function runTradingCycle(): Promise<void> {
  */
 function logStartupInfo(): void {
   logger.info('='.repeat(50));
-  logger.info('Monadier Trading Bot Service V7 GMX');
-  logger.info('Features: 25x-50x Leverage + GMX Perpetuals + Keeper Execution');
+  logger.info('Monadier Trading Bot - V8 GMX Vault');
+  logger.info('Arbitrum Only | GMX Perpetuals | 25x-50x Leverage');
   logger.info('='.repeat(50));
 
   logger.info('Configuration:', {
+    vault: config.arbitrum.vaultAddress,
+    chain: 'Arbitrum',
     tradeInterval: `${config.trading.checkIntervalMs / 1000}s`,
-    monitorInterval: '10s',
-    strategy: DEFAULT_STRATEGY,
-    maxLeverage: '25x (Standard) / 50x (Elite)'
+    maxLeverage: `${config.leverage.standard}x / ${config.leverage.elite}x (Elite)`
   });
-
-  // Show V8 vault info for Arbitrum
-  const arbConfig = config.chains[42161] as any;
-  const v8Address = arbConfig?.vaultV8Address;
-  logger.info(`Chain Arbitrum: V8 GMX Active (${v8Address?.slice(0, 10) || 'Not set'}...)`);
-  logger.info(`V8 GMX Vault: 0xFA38c191134A6a3382794BE6144D24c3e6D8a4C3`);
 
   logger.info('='.repeat(50));
 }

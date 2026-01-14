@@ -7,6 +7,7 @@ import { useSubscription } from '../../contexts/SubscriptionContext';
 import { supabase } from '../../lib/supabase';
 import { SUBSCRIPTION_PLANS } from '../../lib/subscription';
 import { Link } from 'react-router-dom';
+import { VaultBalanceCard } from '../../components/vault';
 
 interface ReferralReward {
   id: string;
@@ -554,20 +555,23 @@ const SettingsPage: React.FC = () => {
             )}
           </Card>
 
+          {/* V8 Auto-Trading Vault */}
+          <VaultBalanceCard />
+
           {/* Smart Contract Info - Compact */}
           <div className="p-4 bg-white/5 border border-gray-800 rounded-xl">
             <div className="flex items-center gap-2 mb-2">
               <FileCheck className="w-4 h-4 text-blue-400" />
-              <span className="text-white text-sm font-medium">Vault Contract</span>
+              <span className="text-white text-sm font-medium">V8 Vault Contract</span>
             </div>
             <p className="text-gray-500 text-xs mb-3">
               Non-custodial & verified on-chain. Your funds, your control.
             </p>
             <code className="block text-[10px] text-gray-400 font-mono mb-2 break-all">
-              0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A
+              0xFA38c191134A6a3382794BE6144D24c3e6D8a4C3
             </code>
             <a
-              href="https://arbiscan.io/address/0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A#code"
+              href="https://arbiscan.io/address/0xFA38c191134A6a3382794BE6144D24c3e6D8a4C3#code"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 text-xs"

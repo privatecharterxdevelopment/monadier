@@ -10,59 +10,52 @@ import {
   CheckCircle,
   XCircle,
   RefreshCw,
-  Zap,
   Clock,
   DollarSign,
-  Cpu,
-  Database,
   Shield,
   ExternalLink,
   CreditCard,
   Lock,
-  UserCheck,
-  Mail
+  Mail,
+  Coins,
+  BarChart3
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { formatUnits } from 'viem';
+import { formatUnits, createPublicClient, http } from 'viem';
+import { arbitrum } from 'viem/chains';
+import { VAULT_ADDRESS, VAULT_V8_ABI } from '../../lib/vault';
 
 // Admin email - only this user can access
 const ADMIN_EMAIL = 'ipsunlorem@gmail.com';
 
-// Bot wallet address (from config)
-const BOT_WALLET = '0xC9a6D02a04e3B2E8d3941615EfcBA67593F46b8E';
-const TREASURY_WALLET = '0xF7351a5C63e0403F6F7FC77d31B5e17A229C469c';
-
-// Base Vaults
-const V4_VAULT = '0x08Afb514255187d664d6b250D699Edc51491E803';
-const V3_VAULT = '0xAd1F46B955b783c142ea9D2d3F221Ac2F3D63e79';
-const V2_VAULT = '0x5eF29B4348d31c311918438e92a5fae7641Bc00a';
-
-// Arbitrum V6 Vault (20x Leverage, On-chain SL/TP)
-const V6_VAULT_ARBITRUM = '0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A';
-
-// USDC addresses
-const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+// V8 Vault - Arbitrum Only
+const V8_VAULT = VAULT_ADDRESS;
 const USDC_ARBITRUM = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
 
+// Create Arbitrum public client for on-chain reads
+const arbitrumClient = createPublicClient({
+  chain: arbitrum,
+  transport: http('https://arb1.arbitrum.io/rpc')
+});
+
 interface SystemStats {
-  botBalance: string;
-  botBalanceUsd: string;
-  treasuryBalance: string;
-  ethPrice: number;
+  // V8 Vault Stats
+  vaultTVL: string;
+  accumulatedFees: string;
+  totalDeposited: string;
+  // User Stats
   totalUsers: number;
-  activeUsers: number;
+  usersWithWallet: number;
+  activeTraders: number;
+  // Trade Stats
   openPositions: number;
-  closedToday: number;
-  failedToday: number;
+  closedPositions: number;
   totalPnL: number;
   winRate: number;
   avgTradeSize: number;
-  lastTradeTime: string | null;
-  gasUsedToday: string;
-  estimatedTradesLeft: number;
-  // Arbitrum V6 (20x Leverage)
-  v5TvlArbitrum: string;
-  v4TvlBase: string;
+  // Subscriptions
+  totalSubscriptions: number;
+  activeSubscriptions: number;
 }
 
 interface VaultTransaction {
@@ -71,19 +64,6 @@ interface VaultTransaction {
   amount: string;
   user: string;
   timestamp: string;
-  chain: 'base' | 'arbitrum';
-}
-
-interface RecentTrade {
-  id: string;
-  wallet_address: string;
-  token_symbol: string;
-  direction: string;
-  status: string;
-  entry_amount: number;
-  profit_loss: number | null;
-  created_at: string;
-  close_reason: string | null;
 }
 
 interface UserProfile {
@@ -91,7 +71,26 @@ interface UserProfile {
   email: string;
   wallet_address: string | null;
   created_at: string;
-  timezone: string | null;
+  membership_tier: string | null;
+}
+
+interface Trade {
+  id: string;
+  wallet_address: string;
+  chain_id: number;
+  token_symbol: string;
+  token_address: string;
+  direction: string;
+  status: string;
+  entry_amount: number;
+  entry_price: number | null;
+  exit_price: number | null;
+  profit_loss: number | null;
+  profit_loss_percent: number | null;
+  leverage_multiplier: number | null;
+  created_at: string;
+  closed_at: string | null;
+  close_reason: string | null;
 }
 
 interface Subscription {
@@ -100,208 +99,156 @@ interface Subscription {
   wallet_address: string;
   plan_tier: string;
   status: string;
-  valid_until: string;
+  end_date: string;
+  start_date: string;
+  billing_cycle: string;
+}
+
+interface Payment {
+  id: string;
+  user_id: string;
+  wallet_address: string;
+  plan_tier: string;
+  billing_cycle: string;
+  expected_amount: number;
+  status: string;
+  tx_hash: string | null;
+  completed_at: string | null;
   created_at: string;
-  profiles?: { email: string };
 }
 
 const AdminMonitorPage: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [trades, setTrades] = useState<Trade[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [activeSection, setActiveSection] = useState<'overview' | 'users' | 'subscriptions' | 'trades' | 'vault'>('overview');
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [vaultTransactions, setVaultTransactions] = useState<VaultTransaction[]>([]);
+  const [activeSection, setActiveSection] = useState<'overview' | 'users' | 'subscriptions' | 'trades' | 'vault' | 'fees' | 'payments'>('overview');
   const [stats, setStats] = useState<SystemStats>({
-    botBalance: '0',
-    botBalanceUsd: '0',
-    treasuryBalance: '0',
-    ethPrice: 0,
+    vaultTVL: '0',
+    accumulatedFees: '0',
+    totalDeposited: '0',
     totalUsers: 0,
-    activeUsers: 0,
+    usersWithWallet: 0,
+    activeTraders: 0,
     openPositions: 0,
-    closedToday: 0,
-    failedToday: 0,
+    closedPositions: 0,
     totalPnL: 0,
     winRate: 0,
     avgTradeSize: 0,
-    lastTradeTime: null,
-    gasUsedToday: '0',
-    estimatedTradesLeft: 0,
-    v5TvlArbitrum: '0',
-    v4TvlBase: '0'
+    totalSubscriptions: 0,
+    activeSubscriptions: 0
   });
-  const [recentTrades, setRecentTrades] = useState<RecentTrade[]>([]);
-  const [vaultTransactions, setVaultTransactions] = useState<VaultTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
-  const fetchBotBalance = async () => {
+  // Fetch V8 Vault Stats directly from chain
+  const fetchVaultStats = async () => {
     try {
-      // Fetch bot wallet ETH balance from Base
-      const response = await fetch(`https://base.blockscout.com/api/v2/addresses/${BOT_WALLET}`);
-      const data = await response.json();
+      const vaultStats = await arbitrumClient.readContract({
+        address: V8_VAULT,
+        abi: VAULT_V8_ABI,
+        functionName: 'getVaultStats'
+      }) as any;
 
-      if (data.coin_balance) {
-        const balanceWei = BigInt(data.coin_balance);
-        const balanceEth = formatUnits(balanceWei, 18);
-        return parseFloat(balanceEth);
-      }
-      return 0;
+      return {
+        tvl: formatUnits(vaultStats.totalValueLocked || 0n, 6),
+        fees: formatUnits(vaultStats.accumulatedFees || 0n, 6),
+        deposited: formatUnits(vaultStats.totalDeposited || 0n, 6)
+      };
     } catch (err) {
-      console.error('Error fetching bot balance:', err);
-      return 0;
-    }
-  };
-
-  const fetchTreasuryBalance = async () => {
-    try {
-      const response = await fetch(`https://base.blockscout.com/api/v2/addresses/${TREASURY_WALLET}`);
-      const data = await response.json();
-
-      if (data.coin_balance) {
-        const balanceWei = BigInt(data.coin_balance);
-        const balanceEth = formatUnits(balanceWei, 18);
-        return parseFloat(balanceEth);
+      console.error('Error fetching vault stats:', err);
+      // Try alternative: just get TVL via token balance
+      try {
+        const response = await fetch(
+          `https://api.arbiscan.io/api?module=account&action=tokenbalance&contractaddress=${USDC_ARBITRUM}&address=${V8_VAULT}&tag=latest`
+        );
+        const data = await response.json();
+        if (data.status === '1' && data.result) {
+          return {
+            tvl: formatUnits(BigInt(data.result), 6),
+            fees: '0',
+            deposited: '0'
+          };
+        }
+      } catch (e) {
+        console.error('Fallback TVL fetch failed:', e);
       }
-      return 0;
-    } catch (err) {
-      console.error('Error fetching treasury balance:', err);
-      return 0;
+      return { tvl: '0', fees: '0', deposited: '0' };
     }
   };
 
-  const fetchEthPrice = async () => {
-    try {
-      const response = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT');
-      const data = await response.json();
-      return parseFloat(data.price);
-    } catch {
-      return 3300; // Fallback
-    }
-  };
-
-  // Fetch V6 Arbitrum TVL (USDC balance of vault)
-  const fetchV6ArbitrumTvl = async () => {
-    try {
-      const response = await fetch(`https://api.arbiscan.io/api?module=account&action=tokenbalance&contractaddress=${USDC_ARBITRUM}&address=${V6_VAULT_ARBITRUM}&tag=latest`);
-      const data = await response.json();
-      if (data.status === '1' && data.result) {
-        return formatUnits(BigInt(data.result), 6);
-      }
-      return '0';
-    } catch (err) {
-      console.error('Error fetching V6 Arbitrum TVL:', err);
-      return '0';
-    }
-  };
-
-  // Fetch V4 Base TVL (USDC balance of vault)
-  const fetchV4BaseTvl = async () => {
-    try {
-      const response = await fetch(`https://base.blockscout.com/api/v2/addresses/${V4_VAULT}/token-balances`);
-      const data = await response.json();
-      const usdcBalance = data.find((t: any) => t.token?.address?.toLowerCase() === USDC_BASE.toLowerCase());
-      if (usdcBalance) {
-        return formatUnits(BigInt(usdcBalance.value), 6);
-      }
-      return '0';
-    } catch (err) {
-      console.error('Error fetching V4 Base TVL:', err);
-      return '0';
-    }
-  };
-
-  // Fetch vault transactions from both chains
+  // Fetch V8 Vault transactions from Arbiscan
   const fetchVaultTransactions = async () => {
     const transactions: VaultTransaction[] = [];
 
     try {
-      // Fetch Arbitrum V6 transactions
-      const arbResponse = await fetch(`https://api.arbiscan.io/api?module=account&action=tokentx&contractaddress=${USDC_ARBITRUM}&address=${V6_VAULT_ARBITRUM}&sort=desc`);
-      const arbData = await arbResponse.json();
-      if (arbData.status === '1' && arbData.result) {
-        arbData.result.slice(0, 50).forEach((tx: any) => {
-          const isDeposit = tx.to.toLowerCase() === V6_VAULT_ARBITRUM.toLowerCase();
+      const response = await fetch(
+        `https://api.arbiscan.io/api?module=account&action=tokentx&contractaddress=${USDC_ARBITRUM}&address=${V8_VAULT}&sort=desc&page=1&offset=100`
+      );
+      const data = await response.json();
+
+      if (data.status === '1' && Array.isArray(data.result)) {
+        data.result.forEach((tx: any) => {
+          const isDeposit = tx.to.toLowerCase() === V8_VAULT.toLowerCase();
           transactions.push({
             hash: tx.hash,
             type: isDeposit ? 'deposit' : 'withdraw',
             amount: formatUnits(BigInt(tx.value), 6),
             user: isDeposit ? tx.from : tx.to,
-            timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
-            chain: 'arbitrum'
+            timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString()
           });
         });
       }
     } catch (err) {
-      console.error('Error fetching Arbitrum transactions:', err);
+      console.error('Error fetching vault transactions:', err);
     }
 
-    try {
-      // Fetch Base V4 transactions
-      const baseResponse = await fetch(`https://base.blockscout.com/api/v2/addresses/${V4_VAULT}/token-transfers?type=ERC-20`);
-      const baseData = await baseResponse.json();
-      if (baseData.items) {
-        baseData.items.slice(0, 50).forEach((tx: any) => {
-          if (tx.token?.address?.toLowerCase() === USDC_BASE.toLowerCase()) {
-            const isDeposit = tx.to?.hash?.toLowerCase() === V4_VAULT.toLowerCase();
-            transactions.push({
-              hash: tx.transaction_hash,
-              type: isDeposit ? 'deposit' : 'withdraw',
-              amount: formatUnits(BigInt(tx.total?.value || '0'), 6),
-              user: isDeposit ? tx.from?.hash : tx.to?.hash,
-              timestamp: tx.timestamp,
-              chain: 'base'
-            });
-          }
-        });
-      }
-    } catch (err) {
-      console.error('Error fetching Base transactions:', err);
-    }
-
-    // Sort by timestamp descending
-    transactions.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     return transactions;
   };
 
-  const fetchStats = async () => {
+  // Fetch all data
+  const fetchAllData = async () => {
     setLoading(true);
     try {
-      // Fetch balances, prices, and TVLs in parallel
-      const [botBalance, treasuryBalance, ethPrice, v5Tvl, v4Tvl, vaultTxs] = await Promise.all([
-        fetchBotBalance(),
-        fetchTreasuryBalance(),
-        fetchEthPrice(),
-        fetchV6ArbitrumTvl(),
-        fetchV4BaseTvl(),
+      // Fetch vault stats and transactions in parallel
+      const [vaultStats, vaultTxs] = await Promise.all([
+        fetchVaultStats(),
         fetchVaultTransactions()
       ]);
 
       setVaultTransactions(vaultTxs);
 
-      // Fetch position stats from Supabase
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayStr = today.toISOString();
-
+      // Fetch all Supabase data in parallel
       const [
-        { data: allPositions },
-        { data: openPositions },
-        { data: closedToday },
-        { data: failedToday },
-        { data: uniqueUsers },
-        { data: recentTradesData }
+        { data: profilesData },
+        { data: positionsData },
+        { data: subscriptionsData },
+        { data: paymentsData }
       ] = await Promise.all([
-        supabase.from('positions').select('*'),
-        supabase.from('positions').select('*').in('status', ['open', 'closing']),
-        supabase.from('positions').select('*').eq('status', 'closed').gte('closed_at', todayStr),
-        supabase.from('positions').select('*').eq('status', 'failed').gte('updated_at', todayStr),
-        supabase.from('positions').select('wallet_address').limit(1000),
-        supabase.from('positions').select('*').order('created_at', { ascending: false })
+        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+        supabase.from('positions').select('*').order('created_at', { ascending: false }),
+        supabase.from('subscriptions').select('*').order('start_date', { ascending: false }),
+        supabase.from('pending_payments').select('*').order('created_at', { ascending: false })
       ]);
 
+      const profiles = profilesData || [];
+      const positions = positionsData || [];
+      const subs = subscriptionsData || [];
+      const pays = paymentsData || [];
+
+      setUsers(profiles);
+      setTrades(positions);
+      setSubscriptions(subs);
+      setPayments(pays);
+
       // Calculate stats
-      const positions = allPositions || [];
+      const usersWithWallet = profiles.filter(p => p.wallet_address).length;
+      const uniqueTraders = new Set(positions.map(p => p.wallet_address)).size;
+
+      const openPositions = positions.filter(p => p.status === 'open' || p.status === 'closing');
       const closedPositions = positions.filter(p => p.status === 'closed');
       const totalPnL = closedPositions.reduce((sum, p) => sum + (p.profit_loss || 0), 0);
       const wins = closedPositions.filter(p => (p.profit_loss || 0) > 0).length;
@@ -310,42 +257,27 @@ const AdminMonitorPage: React.FC = () => {
         ? positions.reduce((sum, p) => sum + (p.entry_amount || 0), 0) / positions.length
         : 0;
 
-      // Unique users
-      const uniqueWallets = new Set(uniqueUsers?.map(u => u.wallet_address) || []);
-
-      // Last trade time
-      const lastTrade = positions.length > 0
-        ? positions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
-        : null;
-
-      // Estimate gas: ~0.0001 ETH per trade on Base
-      const gasPerTrade = 0.0001;
-      const estimatedTradesLeft = Math.floor(botBalance / gasPerTrade);
+      const activeSubs = subs.filter(s => s.status === 'active');
 
       setStats({
-        botBalance: botBalance.toFixed(6),
-        botBalanceUsd: (botBalance * ethPrice).toFixed(2),
-        treasuryBalance: treasuryBalance.toFixed(6),
-        ethPrice,
-        totalUsers: uniqueWallets.size,
-        activeUsers: (openPositions || []).length > 0 ? new Set((openPositions || []).map(p => p.wallet_address)).size : 0,
-        openPositions: (openPositions || []).length,
-        closedToday: (closedToday || []).length,
-        failedToday: (failedToday || []).length,
+        vaultTVL: vaultStats.tvl,
+        accumulatedFees: vaultStats.fees,
+        totalDeposited: vaultStats.deposited,
+        totalUsers: profiles.length,
+        usersWithWallet,
+        activeTraders: uniqueTraders,
+        openPositions: openPositions.length,
+        closedPositions: closedPositions.length,
         totalPnL,
         winRate,
         avgTradeSize,
-        lastTradeTime: lastTrade?.created_at || null,
-        gasUsedToday: ((closedToday || []).length * gasPerTrade).toFixed(6),
-        estimatedTradesLeft,
-        v5TvlArbitrum: v5Tvl,
-        v4TvlBase: v4Tvl
+        totalSubscriptions: subs.length,
+        activeSubscriptions: activeSubs.length
       });
 
-      setRecentTrades(recentTradesData || []);
       setLastRefresh(new Date());
     } catch (err) {
-      console.error('Error fetching stats:', err);
+      console.error('Error fetching data:', err);
     } finally {
       setLoading(false);
     }
@@ -365,26 +297,11 @@ const AdminMonitorPage: React.FC = () => {
     checkAdmin();
   }, []);
 
-  // Fetch users and subscriptions
-  const fetchUsersAndSubscriptions = async () => {
-    try {
-      const [{ data: profilesData }, { data: subsData }] = await Promise.all([
-        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-        supabase.from('subscriptions').select('*, profiles(email)').order('created_at', { ascending: false })
-      ]);
-
-      setUsers(profilesData || []);
-      setSubscriptions(subsData || []);
-    } catch (err) {
-      console.error('Error fetching users/subscriptions:', err);
-    }
-  };
-
+  // Fetch data when admin is confirmed
   useEffect(() => {
     if (isAdmin) {
-      fetchStats();
-      fetchUsersAndSubscriptions();
-      const interval = setInterval(fetchStats, 30000); // Refresh every 30s
+      fetchAllData();
+      const interval = setInterval(fetchAllData, 60000); // Refresh every minute
       return () => clearInterval(interval);
     }
   }, [isAdmin]);
@@ -406,12 +323,20 @@ const AdminMonitorPage: React.FC = () => {
       case 'closed': return 'text-green-400 bg-green-500/20';
       case 'closing': return 'text-amber-400 bg-amber-500/20';
       case 'failed': return 'text-red-400 bg-red-500/20';
+      case 'active': return 'text-green-400 bg-green-500/20';
+      case 'expired': return 'text-red-400 bg-red-500/20';
       default: return 'text-gray-400 bg-gray-500/20';
     }
   };
 
-  const isLowGas = parseFloat(stats.botBalance) < 0.001;
-  const isCriticalGas = parseFloat(stats.botBalance) < 0.0005;
+  const getTierColor = (tier: string) => {
+    switch (tier?.toLowerCase()) {
+      case 'elite': return 'text-purple-400 bg-purple-500/20';
+      case 'pro': return 'text-blue-400 bg-blue-500/20';
+      case 'starter': return 'text-green-400 bg-green-500/20';
+      default: return 'text-gray-400 bg-gray-500/20';
+    }
+  };
 
   // Loading state
   if (isAdmin === null) {
@@ -428,13 +353,9 @@ const AdminMonitorPage: React.FC = () => {
       <div className="flex flex-col items-center justify-center h-64 text-center">
         <Lock className="w-16 h-16 text-red-500 mb-4" />
         <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
-        <p className="text-secondary">
-          This page is restricted to administrators only.
-        </p>
+        <p className="text-secondary">This page is restricted to administrators only.</p>
         {currentUserEmail && (
-          <p className="text-xs text-gray-600 mt-2">
-            Logged in as: {currentUserEmail}
-          </p>
+          <p className="text-xs text-gray-600 mt-2">Logged in as: {currentUserEmail}</p>
         )}
       </div>
     );
@@ -445,13 +366,13 @@ const AdminMonitorPage: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Admin Dashboard</h1>
+          <h1 className="text-2xl font-bold text-white">Admin Dashboard - V8 GMX</h1>
           <p className="text-secondary mt-1">
             Last updated: {lastRefresh.toLocaleTimeString()} • {currentUserEmail}
           </p>
         </div>
         <button
-          onClick={() => { fetchStats(); fetchUsersAndSubscriptions(); }}
+          onClick={fetchAllData}
           disabled={loading}
           className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white transition-colors"
         >
@@ -461,8 +382,8 @@ const AdminMonitorPage: React.FC = () => {
       </div>
 
       {/* Section Tabs */}
-      <div className="flex gap-2 p-1 bg-card-dark rounded-lg w-fit border border-gray-800">
-        {(['overview', 'vault', 'users', 'subscriptions', 'trades'] as const).map((section) => (
+      <div className="flex gap-2 p-1 bg-card-dark rounded-lg w-fit border border-gray-800 flex-wrap">
+        {(['overview', 'users', 'trades', 'vault', 'fees', 'payments', 'subscriptions'] as const).map((section) => (
           <button
             key={section}
             onClick={() => setActiveSection(section)}
@@ -473,151 +394,157 @@ const AdminMonitorPage: React.FC = () => {
             }`}
           >
             {section === 'overview' && <Activity size={16} />}
-            {section === 'vault' && <Wallet size={16} />}
             {section === 'users' && <Users size={16} />}
+            {section === 'trades' && <BarChart3 size={16} />}
+            {section === 'vault' && <Wallet size={16} />}
+            {section === 'fees' && <Coins size={16} />}
+            {section === 'payments' && <DollarSign size={16} />}
             {section === 'subscriptions' && <CreditCard size={16} />}
-            {section === 'trades' && <Clock size={16} />}
             {section.charAt(0).toUpperCase() + section.slice(1)}
           </button>
         ))}
       </div>
 
-      {/* VAULT SECTION */}
-      {activeSection === 'vault' && (
+      {/* ========== OVERVIEW SECTION ========== */}
+      {activeSection === 'overview' && (
         <div className="space-y-6">
-          {/* TVL Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Main Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* V8 Vault TVL */}
             <div className="bg-card-dark rounded-xl border border-blue-500/30 p-4">
-              <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
                   <Wallet className="text-blue-400" size={20} />
                 </div>
                 <div>
-                  <p className="text-sm text-secondary">Arbitrum V6 TVL</p>
-                  <p className="text-2xl font-bold text-white">${parseFloat(stats.v5TvlArbitrum).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p className="text-sm text-secondary">V8 Vault TVL</p>
+                  <p className="text-xl font-bold text-white">
+                    ${parseFloat(stats.vaultTVL).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </p>
                 </div>
               </div>
-              <a
-                href={`https://arbiscan.io/address/${V6_VAULT_ARBITRUM}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
-              >
-                <code>{V6_VAULT_ARBITRUM}</code>
-                <ExternalLink size={12} />
-              </a>
             </div>
 
-            <div className="bg-card-dark rounded-xl border border-purple-500/30 p-4">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center">
-                  <Wallet className="text-purple-400" size={20} />
+            {/* Accumulated Fees (10% Profit) */}
+            <div className="bg-card-dark rounded-xl border border-green-500/30 p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
+                  <Coins className="text-green-400" size={20} />
                 </div>
                 <div>
-                  <p className="text-sm text-secondary">Base V4 TVL</p>
-                  <p className="text-2xl font-bold text-white">${parseFloat(stats.v4TvlBase).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p className="text-sm text-secondary">Your 10% Fees</p>
+                  <p className="text-xl font-bold text-green-400">
+                    ${parseFloat(stats.accumulatedFees).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </p>
                 </div>
               </div>
-              <a
-                href={`https://basescan.org/address/${V4_VAULT}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
-              >
-                <code>{V4_VAULT}</code>
-                <ExternalLink size={12} />
-              </a>
+            </div>
+
+            {/* Total Users */}
+            <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center">
+                  <Users className="text-cyan-400" size={20} />
+                </div>
+                <div>
+                  <p className="text-sm text-secondary">Total Users</p>
+                  <p className="text-xl font-bold text-white">{stats.totalUsers}</p>
+                  <p className="text-xs text-secondary">{stats.usersWithWallet} with wallet</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Trading Stats */}
+            <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  stats.totalPnL >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
+                }`}>
+                  {stats.totalPnL >= 0 ? (
+                    <TrendingUp className="text-green-400" size={20} />
+                  ) : (
+                    <TrendingDown className="text-red-400" size={20} />
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm text-secondary">Total P/L</p>
+                  <p className={`text-xl font-bold ${stats.totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {stats.totalPnL >= 0 ? '+' : ''}${stats.totalPnL.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-secondary">Win rate: {stats.winRate.toFixed(1)}%</p>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Vault Transactions */}
-          <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
-            <div className="p-4 border-b border-gray-800">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <DollarSign size={20} className="text-green-400" />
-                Vault Transactions ({vaultTransactions.length})
-              </h3>
+          {/* Secondary Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+              <h3 className="text-sm text-secondary mb-2">Positions</h3>
+              <div className="flex justify-between">
+                <div>
+                  <p className="text-2xl font-bold text-blue-400">{stats.openPositions}</p>
+                  <p className="text-xs text-secondary">Open</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-green-400">{stats.closedPositions}</p>
+                  <p className="text-xs text-secondary">Closed</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-white">{stats.activeTraders}</p>
+                  <p className="text-xs text-secondary">Traders</p>
+                </div>
+              </div>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-background">
-                  <tr className="text-left text-sm text-secondary">
-                    <th className="px-4 py-3">Time</th>
-                    <th className="px-4 py-3">Chain</th>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Amount</th>
-                    <th className="px-4 py-3">User</th>
-                    <th className="px-4 py-3">Tx Hash</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {vaultTransactions.map((tx, idx) => (
-                    <tr key={`${tx.hash}-${idx}`} className="border-t border-gray-800 hover:bg-white/5">
-                      <td className="px-4 py-3 text-sm text-secondary">
-                        {formatTimeAgo(tx.timestamp)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          tx.chain === 'arbitrum' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'
-                        }`}>
-                          {tx.chain.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          tx.type === 'deposit' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-                        }`}>
-                          {tx.type.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-white font-mono">
-                        ${parseFloat(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-4 py-3">
-                        <a
-                          href={tx.chain === 'arbitrum' ? `https://arbiscan.io/address/${tx.user}` : `https://basescan.org/address/${tx.user}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-blue-400 hover:text-blue-300"
-                        >
-                          <code className="text-xs">{tx.user?.slice(0, 6)}...{tx.user?.slice(-4)}</code>
-                          <ExternalLink size={10} />
-                        </a>
-                      </td>
-                      <td className="px-4 py-3">
-                        <a
-                          href={tx.chain === 'arbitrum' ? `https://arbiscan.io/tx/${tx.hash}` : `https://basescan.org/tx/${tx.hash}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-gray-400 hover:text-white"
-                        >
-                          <code className="text-xs">{tx.hash?.slice(0, 10)}...</code>
-                          <ExternalLink size={10} />
-                        </a>
-                      </td>
-                    </tr>
-                  ))}
-                  {vaultTransactions.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-secondary">
-                        No vault transactions yet
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+
+            <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+              <h3 className="text-sm text-secondary mb-2">Subscriptions</h3>
+              <div className="flex justify-between">
+                <div>
+                  <p className="text-2xl font-bold text-green-400">{stats.activeSubscriptions}</p>
+                  <p className="text-xs text-secondary">Active</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-white">{stats.totalSubscriptions}</p>
+                  <p className="text-xs text-secondary">Total</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+              <h3 className="text-sm text-secondary mb-2">Avg Trade Size</h3>
+              <p className="text-2xl font-bold text-white">${stats.avgTradeSize.toFixed(2)}</p>
+            </div>
+          </div>
+
+          {/* V8 Vault Contract */}
+          <div className="bg-card-dark rounded-xl border border-blue-500/30 p-4">
+            <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+              <Shield size={20} className="text-blue-400" />
+              V8 GMX Vault (Arbitrum)
+            </h3>
+            <div className="flex items-center justify-between">
+              <code className="text-blue-400">{V8_VAULT}</code>
+              <a
+                href={`https://arbiscan.io/address/${V8_VAULT}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-blue-400 hover:text-blue-300"
+              >
+                View on Arbiscan <ExternalLink size={14} />
+              </a>
             </div>
           </div>
         </div>
       )}
 
-      {/* USERS SECTION */}
+      {/* ========== USERS SECTION ========== */}
       {activeSection === 'users' && (
         <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
-          <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+          <div className="p-4 border-b border-gray-800">
             <h3 className="text-lg font-semibold text-white flex items-center gap-2">
               <Users size={20} className="text-cyan-400" />
-              All Users ({users.length})
+              All Registered Users ({users.length})
             </h3>
           </div>
           <div className="overflow-x-auto">
@@ -626,7 +553,7 @@ const AdminMonitorPage: React.FC = () => {
                 <tr className="text-left text-sm text-secondary">
                   <th className="px-4 py-3">Email</th>
                   <th className="px-4 py-3">Wallet Address</th>
-                  <th className="px-4 py-3">Timezone</th>
+                  <th className="px-4 py-3">Tier</th>
                   <th className="px-4 py-3">Joined</th>
                 </tr>
               </thead>
@@ -642,7 +569,7 @@ const AdminMonitorPage: React.FC = () => {
                     <td className="px-4 py-3">
                       {user.wallet_address ? (
                         <a
-                          href={`https://basescan.org/address/${user.wallet_address}`}
+                          href={`https://arbiscan.io/address/${user.wallet_address}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-blue-400 hover:text-blue-300"
@@ -651,21 +578,23 @@ const AdminMonitorPage: React.FC = () => {
                           <ExternalLink size={12} />
                         </a>
                       ) : (
-                        <span className="text-gray-500">Not connected</span>
+                        <span className="text-gray-500 italic">Not connected</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-secondary text-sm">
-                      {user.timezone || 'Not set'}
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${getTierColor(user.membership_tier || 'free')}`}>
+                        {(user.membership_tier || 'FREE').toUpperCase()}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-secondary text-sm">
-                      {new Date(user.created_at).toLocaleDateString()}
+                      {new Date(user.created_at).toLocaleDateString()} {new Date(user.created_at).toLocaleTimeString()}
                     </td>
                   </tr>
                 ))}
                 {users.length === 0 && (
                   <tr>
                     <td colSpan={4} className="px-4 py-8 text-center text-secondary">
-                      No users yet
+                      No users registered yet
                     </td>
                   </tr>
                 )}
@@ -675,91 +604,13 @@ const AdminMonitorPage: React.FC = () => {
         </div>
       )}
 
-      {/* SUBSCRIPTIONS SECTION */}
-      {activeSection === 'subscriptions' && (
-        <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
-          <div className="p-4 border-b border-gray-800 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-              <CreditCard size={20} className="text-green-400" />
-              All Subscriptions ({subscriptions.length})
-            </h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-background">
-                <tr className="text-left text-sm text-secondary">
-                  <th className="px-4 py-3">User</th>
-                  <th className="px-4 py-3">Wallet</th>
-                  <th className="px-4 py-3">Plan</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Valid Until</th>
-                  <th className="px-4 py-3">Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {subscriptions.map((sub) => (
-                  <tr key={sub.id} className="border-t border-gray-800 hover:bg-white/5">
-                    <td className="px-4 py-3 text-white">
-                      {sub.profiles?.email || sub.user_id.slice(0, 8)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <a
-                        href={`https://basescan.org/address/${sub.wallet_address}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-blue-400 hover:text-blue-300"
-                      >
-                        <code className="text-xs">{sub.wallet_address.slice(0, 10)}...{sub.wallet_address.slice(-6)}</code>
-                        <ExternalLink size={12} />
-                      </a>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        sub.plan_tier === 'elite' ? 'bg-purple-500/20 text-purple-400' :
-                        sub.plan_tier === 'pro' ? 'bg-blue-500/20 text-blue-400' :
-                        sub.plan_tier === 'starter' ? 'bg-green-500/20 text-green-400' :
-                        'bg-gray-500/20 text-gray-400'
-                      }`}>
-                        {sub.plan_tier.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        sub.status === 'active' ? 'bg-green-500/20 text-green-400' :
-                        sub.status === 'expired' ? 'bg-red-500/20 text-red-400' :
-                        'bg-gray-500/20 text-gray-400'
-                      }`}>
-                        {sub.status.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-secondary text-sm">
-                      {new Date(sub.valid_until).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-secondary text-sm">
-                      {new Date(sub.created_at).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-                {subscriptions.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-secondary">
-                      No subscriptions yet
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* TRADES SECTION - Expanded Recent Trades */}
+      {/* ========== TRADES SECTION ========== */}
       {activeSection === 'trades' && (
         <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
           <div className="p-4 border-b border-gray-800">
             <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-              <Clock size={20} className="text-gray-400" />
-              All Trades ({recentTrades.length})
+              <BarChart3 size={20} className="text-purple-400" />
+              All Trades ({trades.length})
             </h3>
           </div>
           <div className="overflow-x-auto">
@@ -770,21 +621,24 @@ const AdminMonitorPage: React.FC = () => {
                   <th className="px-4 py-3">User Wallet</th>
                   <th className="px-4 py-3">Token</th>
                   <th className="px-4 py-3">Direction</th>
+                  <th className="px-4 py-3">Leverage</th>
                   <th className="px-4 py-3">Size</th>
+                  <th className="px-4 py-3">Entry</th>
+                  <th className="px-4 py-3">Exit</th>
                   <th className="px-4 py-3">P/L</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Reason</th>
                 </tr>
               </thead>
               <tbody>
-                {recentTrades.map((trade) => (
+                {trades.map((trade) => (
                   <tr key={trade.id} className="border-t border-gray-800 hover:bg-white/5">
-                    <td className="px-4 py-3 text-sm text-secondary">
+                    <td className="px-4 py-3 text-sm text-secondary whitespace-nowrap">
                       {formatTimeAgo(trade.created_at)}
                     </td>
                     <td className="px-4 py-3">
                       <a
-                        href={`https://basescan.org/address/${trade.wallet_address}`}
+                        href={`https://arbiscan.io/address/${trade.wallet_address}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-1 text-blue-400 hover:text-blue-300"
@@ -796,27 +650,43 @@ const AdminMonitorPage: React.FC = () => {
                       </a>
                     </td>
                     <td className="px-4 py-3 text-white font-medium">
-                      {trade.token_symbol || 'WETH'}
+                      {trade.token_symbol || 'ETH'}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        trade.direction === 'LONG'
-                          ? 'bg-green-500/20 text-green-400'
-                          : 'bg-red-500/20 text-red-400'
+                        trade.direction === 'LONG' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
                       }`}>
                         {trade.direction || 'LONG'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-white font-mono text-sm">
+                      {trade.leverage_multiplier ? `${trade.leverage_multiplier}x` : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-white font-mono text-sm">
                       ${(trade.entry_amount || 0).toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 text-white font-mono text-sm">
+                      {trade.entry_price ? `$${trade.entry_price.toFixed(2)}` : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-white font-mono text-sm">
+                      {trade.exit_price ? `$${trade.exit_price.toFixed(2)}` : '-'}
                     </td>
                     <td className="px-4 py-3">
                       {trade.profit_loss !== null ? (
-                        <span className={`font-mono text-sm ${
-                          trade.profit_loss >= 0 ? 'text-green-400' : 'text-red-400'
-                        }`}>
-                          {trade.profit_loss >= 0 ? '+' : ''}${trade.profit_loss.toFixed(4)}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className={`font-mono text-sm ${
+                            trade.profit_loss >= 0 ? 'text-green-400' : 'text-red-400'
+                          }`}>
+                            {trade.profit_loss >= 0 ? '+' : ''}${trade.profit_loss.toFixed(2)}
+                          </span>
+                          {trade.profit_loss_percent !== null && (
+                            <span className={`text-xs ${
+                              trade.profit_loss_percent >= 0 ? 'text-green-400/70' : 'text-red-400/70'
+                            }`}>
+                              ({trade.profit_loss_percent >= 0 ? '+' : ''}{trade.profit_loss_percent.toFixed(2)}%)
+                            </span>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-gray-500">-</span>
                       )}
@@ -831,9 +701,9 @@ const AdminMonitorPage: React.FC = () => {
                     </td>
                   </tr>
                 ))}
-                {recentTrades.length === 0 && (
+                {trades.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-secondary">
+                    <td colSpan={11} className="px-4 py-8 text-center text-secondary">
                       No trades yet
                     </td>
                   </tr>
@@ -844,289 +714,328 @@ const AdminMonitorPage: React.FC = () => {
         </div>
       )}
 
-      {/* OVERVIEW SECTION */}
-      {activeSection === 'overview' && (
-        <>
-      {/* Gas Warning Banner */}
-      {isLowGas && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={`p-4 rounded-xl border flex items-center gap-3 ${
-            isCriticalGas
-              ? 'bg-red-500/10 border-red-500/30'
-              : 'bg-amber-500/10 border-amber-500/30'
-          }`}
-        >
-          <AlertTriangle className={isCriticalGas ? 'text-red-400' : 'text-amber-400'} size={24} />
-          <div>
-            <p className={`font-semibold ${isCriticalGas ? 'text-red-400' : 'text-amber-400'}`}>
-              {isCriticalGas ? 'CRITICAL: Bot wallet nearly empty!' : 'Low gas warning'}
-            </p>
-            <p className="text-sm text-secondary">
-              Bot wallet has {stats.botBalance} ETH (~{stats.estimatedTradesLeft} trades left).
-              Send ETH to <code className="text-white">{BOT_WALLET}</code>
-            </p>
+      {/* ========== VAULT TRANSACTIONS SECTION ========== */}
+      {activeSection === 'vault' && (
+        <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
+          <div className="p-4 border-b border-gray-800">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <DollarSign size={20} className="text-green-400" />
+              V8 Vault Transactions ({vaultTransactions.length})
+            </h3>
+            <p className="text-sm text-secondary mt-1">All deposits and withdrawals to V8 GMX Vault</p>
           </div>
-        </motion.div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-background">
+                <tr className="text-left text-sm text-secondary">
+                  <th className="px-4 py-3">Time</th>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Amount</th>
+                  <th className="px-4 py-3">User</th>
+                  <th className="px-4 py-3">Tx Hash</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vaultTransactions.map((tx, idx) => (
+                  <tr key={`${tx.hash}-${idx}`} className="border-t border-gray-800 hover:bg-white/5">
+                    <td className="px-4 py-3 text-sm text-secondary whitespace-nowrap">
+                      {formatTimeAgo(tx.timestamp)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        tx.type === 'deposit' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                      }`}>
+                        {tx.type.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-white font-mono">
+                      ${parseFloat(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-4 py-3">
+                      <a
+                        href={`https://arbiscan.io/address/${tx.user}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-blue-400 hover:text-blue-300"
+                      >
+                        <code className="text-xs">{tx.user?.slice(0, 6)}...{tx.user?.slice(-4)}</code>
+                        <ExternalLink size={10} />
+                      </a>
+                    </td>
+                    <td className="px-4 py-3">
+                      <a
+                        href={`https://arbiscan.io/tx/${tx.hash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-gray-400 hover:text-white"
+                      >
+                        <code className="text-xs">{tx.hash?.slice(0, 10)}...</code>
+                        <ExternalLink size={10} />
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+                {vaultTransactions.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-secondary">
+                      No vault transactions yet
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
-      {/* Main Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Bot Wallet */}
-        <div className={`bg-card-dark rounded-xl border p-4 ${
-          isCriticalGas ? 'border-red-500' : isLowGas ? 'border-amber-500' : 'border-gray-800'
-        }`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              isCriticalGas ? 'bg-red-500/20' : isLowGas ? 'bg-amber-500/20' : 'bg-blue-500/10'
-            }`}>
-              <Wallet className={isCriticalGas ? 'text-red-400' : isLowGas ? 'text-amber-400' : 'text-blue-400'} size={20} />
+      {/* ========== FEES SECTION ========== */}
+      {activeSection === 'fees' && (
+        <div className="space-y-6">
+          <div className="bg-card-dark rounded-xl border border-green-500/30 p-6">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Coins size={20} className="text-green-400" />
+              Platform Fees (10% of Profit)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <p className="text-sm text-secondary mb-1">Accumulated Fees</p>
+                <p className="text-4xl font-bold text-green-400">
+                  ${parseFloat(stats.accumulatedFees).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-sm text-secondary mt-2">
+                  These fees are collected from 10% of user profits on V8 vault
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-secondary mb-1">Fee Structure</p>
+                <div className="space-y-2">
+                  <div className="flex justify-between p-2 bg-white/5 rounded">
+                    <span className="text-secondary">Base Fee</span>
+                    <span className="text-white">0.1% on position</span>
+                  </div>
+                  <div className="flex justify-between p-2 bg-white/5 rounded">
+                    <span className="text-secondary">Success Fee</span>
+                    <span className="text-green-400">10% of profit</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="flex-1">
-              <p className="text-sm text-secondary">Bot Wallet</p>
-              <p className="text-xl font-bold text-white">{stats.botBalance} ETH</p>
-              <p className="text-xs text-secondary">${stats.botBalanceUsd} USD</p>
-            </div>
-            <a
-              href={`https://basescan.org/address/${BOT_WALLET}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gray-500 hover:text-white"
-            >
-              <ExternalLink size={16} />
-            </a>
           </div>
-          <div className="mt-3 pt-3 border-t border-gray-800">
-            <div className="flex justify-between text-xs">
-              <span className="text-secondary">Est. trades left</span>
-              <span className={isCriticalGas ? 'text-red-400' : isLowGas ? 'text-amber-400' : 'text-green-400'}>
-                ~{stats.estimatedTradesLeft}
-              </span>
+
+          {/* Profitable trades that generated fees */}
+          <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+            <h3 className="text-lg font-semibold text-white mb-4">Profitable Trades (Fee Source)</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-background">
+                  <tr className="text-left text-sm text-secondary">
+                    <th className="px-4 py-3">User</th>
+                    <th className="px-4 py-3">Profit</th>
+                    <th className="px-4 py-3">Your 10% Fee</th>
+                    <th className="px-4 py-3">Closed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trades
+                    .filter(t => t.status === 'closed' && (t.profit_loss || 0) > 0)
+                    .slice(0, 20)
+                    .map((trade) => (
+                      <tr key={trade.id} className="border-t border-gray-800 hover:bg-white/5">
+                        <td className="px-4 py-3">
+                          <code className="text-xs text-blue-400">
+                            {trade.wallet_address.slice(0, 6)}...{trade.wallet_address.slice(-4)}
+                          </code>
+                        </td>
+                        <td className="px-4 py-3 text-green-400 font-mono">
+                          +${(trade.profit_loss || 0).toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 text-green-400 font-mono font-bold">
+                          +${((trade.profit_loss || 0) * 0.1).toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 text-secondary text-sm">
+                          {trade.closed_at ? formatTimeAgo(trade.closed_at) : '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  {trades.filter(t => t.status === 'closed' && (t.profit_loss || 0) > 0).length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-secondary">
+                        No profitable trades yet
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Open Positions */}
-        <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center">
-              <Activity className="text-purple-400" size={20} />
-            </div>
-            <div>
-              <p className="text-sm text-secondary">Open Positions</p>
-              <p className="text-xl font-bold text-white">{stats.openPositions}</p>
-              <p className="text-xs text-secondary">{stats.activeUsers} active users</p>
-            </div>
+      {/* ========== PAYMENTS SECTION ========== */}
+      {activeSection === 'payments' && (
+        <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
+          <div className="p-4 border-b border-gray-800">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <DollarSign size={20} className="text-green-400" />
+              Subscription Payments ({payments.length})
+            </h3>
+            <p className="text-sm text-secondary mt-1">All crypto payments for subscriptions</p>
           </div>
-          <div className="mt-3 pt-3 border-t border-gray-800 grid grid-cols-2 gap-2 text-xs">
-            <div>
-              <span className="text-secondary">Closed today</span>
-              <span className="text-green-400 ml-2">{stats.closedToday}</span>
-            </div>
-            <div>
-              <span className="text-secondary">Failed today</span>
-              <span className="text-red-400 ml-2">{stats.failedToday}</span>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-background">
+                <tr className="text-left text-sm text-secondary">
+                  <th className="px-4 py-3">Time</th>
+                  <th className="px-4 py-3">Wallet</th>
+                  <th className="px-4 py-3">Plan</th>
+                  <th className="px-4 py-3">Billing</th>
+                  <th className="px-4 py-3">Amount</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Tx Hash</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.map((payment) => (
+                  <tr key={payment.id} className="border-t border-gray-800 hover:bg-white/5">
+                    <td className="px-4 py-3 text-sm text-secondary whitespace-nowrap">
+                      {formatTimeAgo(payment.created_at)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <a
+                        href={`https://arbiscan.io/address/${payment.wallet_address}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-blue-400 hover:text-blue-300"
+                      >
+                        <code className="text-xs">{payment.wallet_address?.slice(0, 6)}...{payment.wallet_address?.slice(-4)}</code>
+                        <ExternalLink size={10} />
+                      </a>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${getTierColor(payment.plan_tier)}`}>
+                        {payment.plan_tier.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-white text-sm">
+                      {payment.billing_cycle}
+                    </td>
+                    <td className="px-4 py-3 text-green-400 font-mono">
+                      ${payment.expected_amount}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        payment.status === 'completed' ? 'bg-green-500/20 text-green-400' :
+                        payment.status === 'pending' ? 'bg-amber-500/20 text-amber-400' :
+                        'bg-red-500/20 text-red-400'
+                      }`}>
+                        {payment.status.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {payment.tx_hash ? (
+                        <a
+                          href={`https://arbiscan.io/tx/${payment.tx_hash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-gray-400 hover:text-white"
+                        >
+                          <code className="text-xs">{payment.tx_hash.slice(0, 10)}...</code>
+                          <ExternalLink size={10} />
+                        </a>
+                      ) : (
+                        <span className="text-gray-500">-</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {payments.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-secondary">
+                      No payments yet
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
+      )}
 
-        {/* Total P/L */}
-        <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              stats.totalPnL >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
-            }`}>
-              {stats.totalPnL >= 0 ? (
-                <TrendingUp className="text-green-400" size={20} />
-              ) : (
-                <TrendingDown className="text-red-400" size={20} />
-              )}
-            </div>
-            <div>
-              <p className="text-sm text-secondary">Total P/L (All Time)</p>
-              <p className={`text-xl font-bold ${stats.totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {stats.totalPnL >= 0 ? '+' : ''}${stats.totalPnL.toFixed(2)}
-              </p>
-              <p className="text-xs text-secondary">Win rate: {stats.winRate.toFixed(1)}%</p>
-            </div>
+      {/* ========== SUBSCRIPTIONS SECTION ========== */}
+      {activeSection === 'subscriptions' && (
+        <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
+          <div className="p-4 border-b border-gray-800">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <CreditCard size={20} className="text-green-400" />
+              All Subscriptions ({subscriptions.length})
+            </h3>
           </div>
-          <div className="mt-3 pt-3 border-t border-gray-800">
-            <div className="flex justify-between text-xs">
-              <span className="text-secondary">Avg trade size</span>
-              <span className="text-white">${stats.avgTradeSize.toFixed(2)}</span>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-background">
+                <tr className="text-left text-sm text-secondary">
+                  <th className="px-4 py-3">User ID</th>
+                  <th className="px-4 py-3">Wallet</th>
+                  <th className="px-4 py-3">Plan</th>
+                  <th className="px-4 py-3">Billing</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Started</th>
+                  <th className="px-4 py-3">Expires</th>
+                </tr>
+              </thead>
+              <tbody>
+                {subscriptions.map((sub) => (
+                  <tr key={sub.id} className="border-t border-gray-800 hover:bg-white/5">
+                    <td className="px-4 py-3 text-white text-xs font-mono">
+                      {sub.user_id.slice(0, 8)}...
+                    </td>
+                    <td className="px-4 py-3">
+                      {sub.wallet_address ? (
+                        <a
+                          href={`https://arbiscan.io/address/${sub.wallet_address}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-blue-400 hover:text-blue-300"
+                        >
+                          <code className="text-xs">{sub.wallet_address.slice(0, 10)}...{sub.wallet_address.slice(-6)}</code>
+                          <ExternalLink size={10} />
+                        </a>
+                      ) : (
+                        <span className="text-gray-500">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${getTierColor(sub.plan_tier)}`}>
+                        {sub.plan_tier.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-white text-sm">
+                      {sub.billing_cycle}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(sub.status)}`}>
+                        {sub.status.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-secondary text-sm">
+                      {new Date(sub.start_date).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3 text-secondary text-sm">
+                      {new Date(sub.end_date).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+                {subscriptions.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-secondary">
+                      No subscriptions yet
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
-
-        {/* Users */}
-        <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center">
-              <Users className="text-cyan-400" size={20} />
-            </div>
-            <div>
-              <p className="text-sm text-secondary">Total Users</p>
-              <p className="text-xl font-bold text-white">{stats.totalUsers}</p>
-              <p className="text-xs text-secondary">ETH: ${stats.ethPrice.toFixed(0)}</p>
-            </div>
-          </div>
-          <div className="mt-3 pt-3 border-t border-gray-800">
-            <div className="flex justify-between text-xs">
-              <span className="text-secondary">Last trade</span>
-              <span className="text-white">
-                {stats.lastTradeTime ? formatTimeAgo(stats.lastTradeTime) : 'Never'}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Contract Addresses */}
-      <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
-        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Shield size={20} className="text-green-400" />
-          Contract Addresses
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-center justify-between p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-            <div>
-              <p className="text-xs text-blue-400">V6 Vault Arbitrum (Active)</p>
-              <code className="text-sm text-blue-400">{V6_VAULT_ARBITRUM}</code>
-            </div>
-            <a
-              href={`https://arbiscan.io/address/${V6_VAULT_ARBITRUM}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gray-500 hover:text-white"
-            >
-              <ExternalLink size={16} />
-            </a>
-          </div>
-          <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-            <div>
-              <p className="text-xs text-secondary">V4 Vault Base</p>
-              <code className="text-sm text-purple-400">{V4_VAULT}</code>
-            </div>
-            <a
-              href={`https://basescan.org/address/${V4_VAULT}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gray-500 hover:text-white"
-            >
-              <ExternalLink size={16} />
-            </a>
-          </div>
-          <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-            <div>
-              <p className="text-xs text-secondary">Bot Wallet</p>
-              <code className="text-sm text-green-400">{BOT_WALLET}</code>
-            </div>
-            <a
-              href={`https://basescan.org/address/${BOT_WALLET}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gray-500 hover:text-white"
-            >
-              <ExternalLink size={16} />
-            </a>
-          </div>
-          <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-            <div>
-              <p className="text-xs text-secondary">Treasury</p>
-              <code className="text-sm text-amber-400">{TREASURY_WALLET}</code>
-            </div>
-            <a
-              href={`https://basescan.org/address/${TREASURY_WALLET}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gray-500 hover:text-white"
-            >
-              <ExternalLink size={16} />
-            </a>
-          </div>
-        </div>
-      </div>
-
-      {/* System Health */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <Cpu size={20} className="text-purple-400" />
-            <span className="font-semibold text-white">Bot Service</span>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-secondary">Trading Interval</span>
-              <span className="text-white">10s</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-secondary">Monitor Interval</span>
-              <span className="text-white">10s</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-secondary">Reconciliation</span>
-              <span className="text-white">5 min</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-secondary">Circuit Breaker</span>
-              <span className="text-green-400">2 failures</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <Database size={20} className="text-blue-400" />
-            <span className="font-semibold text-white">Analysis</span>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-secondary">Candle Interval</span>
-              <span className="text-white">1 hour</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-secondary">Strategy</span>
-              <span className="text-amber-400">Risky</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-secondary">Max Positions</span>
-              <span className="text-white">1 per token</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-secondary">Tokens</span>
-              <span className="text-white">WETH, cbETH</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <Shield size={20} className="text-green-400" />
-            <span className="font-semibold text-white">Security (V4)</span>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-secondary">User Withdraw</span>
-              <CheckCircle size={16} className="text-green-400" />
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-secondary">User Emergency Close</span>
-              <CheckCircle size={16} className="text-green-400" />
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-secondary">Owner Access Funds</span>
-              <XCircle size={16} className="text-red-400" />
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-secondary">Owner Withdraw Fees</span>
-              <CheckCircle size={16} className="text-green-400" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-        </>
       )}
     </div>
   );

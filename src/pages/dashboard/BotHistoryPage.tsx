@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { History, TrendingUp, TrendingDown, Users, Trophy, Zap, Crown, Rocket, ExternalLink, RefreshCw, Activity, Clock, Timer, CheckCircle, XCircle, X, AlertTriangle, Settings, Info } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
-import { VAULT_ABI, VAULT_V6_ADDRESSES, VAULT_V4_ADDRESSES, VAULT_V3_ADDRESSES, VaultClient, VAULT_V2_ADDRESSES, VAULT_V8_ADDRESSES } from '../../lib/vault';
+import { VAULT_ABI, VAULT_ADDRESS, VAULT_CHAIN_ID, VaultClient } from '../../lib/vault';
 import VaultSettingsModal from '../../components/vault/VaultSettingsModal';
 import OnChainPositions from '../../components/trading/OnChainPositions';
 import LegacyVaultWithdraw from '../../components/vault/LegacyVaultWithdraw';
@@ -159,11 +159,9 @@ const BotHistoryPage: React.FC = () => {
       if (!address || !chainId || !publicClient) return;
 
       try {
-        // Get on-chain settings - check V6 first (Arbitrum), then V4 (Base), then older versions
-        const vaultAddress = VAULT_V6_ADDRESSES[chainId as keyof typeof VAULT_V6_ADDRESSES] ||
-                            VAULT_V4_ADDRESSES[chainId as keyof typeof VAULT_V4_ADDRESSES] ||
-                            VAULT_V2_ADDRESSES[chainId as keyof typeof VAULT_V2_ADDRESSES];
-        if (vaultAddress) {
+        // V8: Arbitrum only
+        if (chainId === VAULT_CHAIN_ID) {
+          const vaultAddress = VAULT_ADDRESS;
           const vaultClient = new VaultClient(publicClient as any, null, chainId);
           const status = await vaultClient.getUserStatus(address as `0x${string}`);
 

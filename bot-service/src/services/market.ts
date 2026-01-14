@@ -1,6 +1,19 @@
 import { logger } from '../utils/logger';
-import { TradeSignal } from './trading';
 import { parseUnits } from 'viem';
+
+// Trade signal interface for market analysis
+export interface TradeSignal {
+  direction: 'LONG' | 'SHORT';
+  confidence: number;
+  tokenAddress: string;
+  tokenSymbol: string;
+  suggestedAmount: bigint;
+  minAmountOut: bigint;
+  reason: string;
+  takeProfitPercent: number;
+  trailingStopPercent: number;
+  profitLockPercent: number;
+}
 import { positionService } from './positions';
 import { signalEngine, UnifiedSignal, Timeframe } from './signalEngine';
 

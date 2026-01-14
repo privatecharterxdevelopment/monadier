@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, ArrowDownLeft, Loader2, AlertCircle, Coins } from 'lucide-react';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useTransactions } from '../../contexts/TransactionContext';
-import { VaultClient, USDC_ADDRESSES, USDC_DECIMALS, getPlatformFeeForChain, VAULT_V7_ADDRESSES } from '../../lib/vault';
+import { VaultClient, USDC_ADDRESSES, USDC_DECIMALS, getPlatformFee, VAULT_ADDRESS, VAULT_CHAIN_ID } from '../../lib/vault';
 import { formatUnits } from 'viem';
 import { ERC20_ABI } from '../../lib/dex/router';
 import { supabase } from '../../lib/supabase';
@@ -45,17 +45,18 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
   const [isLoadingBalance, setIsLoadingBalance] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const platformFee = chainId ? getPlatformFeeForChain(chainId) : { percentFormatted: '1.0%' };
+  const platformFee = getPlatformFee();
 
-  // V7 GMX minimum vault balance requirement ($50 - matches smart contract)
-  const isV7Chain = chainId ? VAULT_V7_ADDRESSES[chainId] !== null : false;
-  const minDepositAmount = isV7Chain ? 50 : 0;
+  // V8 GMX minimum vault balance requirement ($50 - matches smart contract)
+  // Arbitrum only now
+  const isV8Chain = chainId === VAULT_CHAIN_ID;
+  const minDepositAmount = isV8Chain ? 50 : 0;
 
   // Check if amount is below minimum
   const depositAmount = depositType === 'usdc'
     ? parseFloat(amount || '0')
     : parseFloat(estimatedUsdc || '0');
-  const isBelowMinimum = isV7Chain && depositAmount > 0 && depositAmount < minDepositAmount;
+  const isBelowMinimum = isV8Chain && depositAmount > 0 && depositAmount < minDepositAmount;
 
   // Calculate estimated USDC for ETH
   const estimatedUsdc = depositType === 'eth' && amount && ethPrice > 0
@@ -129,7 +130,7 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
     }
 
     // Check minimum for V6 chains
-    if (isV7Chain && depositAmount < minDepositAmount) {
+    if (isV8Chain && depositAmount < minDepositAmount) {
       setError(`Minimum deposit is $${minDepositAmount} USDC for bot trading`);
       return;
     }
@@ -230,7 +231,7 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
               <h2 className="text-lg font-semibold text-white">Deposit to Vault</h2>
               <p className="text-xs text-zinc-500">
                 {chainId ? CHAIN_NAMES[chainId] || 'Unknown' : 'Not connected'}
-                {isV7Chain ? ' (V7 GMX - 25x Leverage)' : ''}
+                {isV8Chain ? ' (V7 GMX - 25x Leverage)' : ''}
               </p>
             </div>
           </div>
@@ -326,7 +327,7 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
 
           {/* Fee Info */}
           <div className="bg-zinc-800/50 rounded-lg p-3 space-y-2">
-            {isV7Chain ? (
+            {isV8Chain ? (
               // V7 GMX fees (Arbitrum)
               <>
                 <div className="flex items-center justify-between text-sm">
@@ -376,7 +377,7 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
           </div>
 
           {/* Minimum Amount Warning for V7 GMX */}
-          {isV7Chain && (
+          {isV8Chain && (
             <div className={`rounded-lg p-3 ${isBelowMinimum ? 'bg-red-500/10 border border-red-500/20' : 'bg-yellow-500/10 border border-yellow-500/20'}`}>
               <p className={`text-xs ${isBelowMinimum ? 'text-red-400' : 'text-yellow-400'}`}>
                 {isBelowMinimum
