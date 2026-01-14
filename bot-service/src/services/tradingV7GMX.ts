@@ -595,44 +595,16 @@ export class TradingV7GMXService {
 
   /**
    * Check and execute SL/TP triggers
+   * NOTE: V8 contract doesn't have checkPositionTrigger - SL/TP handled by GMX directly
    */
   async checkAndExecuteTriggers(
     userAddress: `0x${string}`,
     tokenAddress: `0x${string}`
   ): Promise<{ triggered: boolean; reason?: string }> {
-    try {
-      const [shouldClose, reason] = await this.publicClient.readContract({
-        address: this.vaultAddress,
-        abi: VAULT_V7_ABI,
-        functionName: 'checkPositionTrigger',
-        args: [userAddress, tokenAddress]
-      });
-
-      if (!shouldClose) {
-        return { triggered: false };
-      }
-
-      logger.warn(`GMX ${reason.toUpperCase()} triggered`, {
-        user: userAddress.slice(0, 10),
-        token: tokenAddress.slice(0, 10)
-      });
-
-      // Execute close
-      const result = await this.closePosition(userAddress, tokenAddress, reason);
-
-      if (result.success) {
-        logger.info(`GMX ${reason} executed successfully`, {
-          txHash: result.txHash,
-          user: userAddress.slice(0, 10)
-        });
-        return { triggered: true, reason };
-      }
-
-      return { triggered: false };
-    } catch (err: any) {
-      logger.error('Failed to check GMX triggers', { error: err.message });
-      return { triggered: false };
-    }
+    // V8: SL/TP is handled by GMX's native order system, not by our contract
+    // The contract sets SL/TP orders when opening positions via GMX
+    // We just need to monitor position status, not check triggers manually
+    return { triggered: false };
   }
 
   /**
