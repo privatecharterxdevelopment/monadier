@@ -5,7 +5,6 @@ import { supabase } from '../../lib/supabase';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { VAULT_ABI, VAULT_ADDRESS, VAULT_CHAIN_ID, VaultClient } from '../../lib/vault';
 import VaultSettingsModal from '../../components/vault/VaultSettingsModal';
-import OnChainPositions from '../../components/trading/OnChainPositions';
 import LegacyVaultWithdraw from '../../components/vault/LegacyVaultWithdraw';
 
 // Legacy trade format (from localStorage)
@@ -950,14 +949,7 @@ const BotHistoryPage: React.FC = () => {
       {/* Legacy Vault Warning - shows if user has balance in old contract */}
       <LegacyVaultWithdraw />
 
-      {/* V8 On-Chain Positions (GMX Perpetuals) */}
-      {activeTab === 'open' && (
-        <div className="mb-6">
-          <OnChainPositions showHeader={true} />
-        </div>
-      )}
-
-      {/* Legacy Positions Table (from Supabase) */}
+      {/* Positions Table (from Supabase) */}
       <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
         {/* Header */}
         <div className="grid grid-cols-9 gap-4 px-4 py-3 bg-background border-b border-gray-800 text-sm font-medium text-secondary">
