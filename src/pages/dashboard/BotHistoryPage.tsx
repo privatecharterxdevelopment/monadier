@@ -174,25 +174,9 @@ const BotHistoryPage: React.FC = () => {
     return () => clearInterval(interval);
   }, [botSettings.autoTradeEnabled]);
 
-  // Animate progress bar
+  // Update progress bar (CSS handles the animation)
   useEffect(() => {
-    const targetProgress = ANALYSIS_STEPS[analysisStep]?.progress || 0;
-    const animationDuration = 500;
-    const startProgress = analysisProgress;
-    const startTime = Date.now();
-
-    const animate = () => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / animationDuration, 1);
-      const currentProgress = startProgress + (targetProgress - startProgress) * progress;
-      setAnalysisProgress(currentProgress);
-
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      }
-    };
-
-    requestAnimationFrame(animate);
+    setAnalysisProgress(ANALYSIS_STEPS[analysisStep]?.progress || 0);
   }, [analysisStep]);
 
   // Fetch bot settings
@@ -1129,10 +1113,9 @@ const BotHistoryPage: React.FC = () => {
                     </div>
                     {/* Progress bar */}
                     <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                      <motion.div
-                        className="h-full bg-gradient-to-r from-accent to-green-400 rounded-full"
+                      <div
+                        className="h-full bg-gradient-to-r from-accent to-green-400 rounded-full transition-all duration-500 ease-out"
                         style={{ width: `${analysisProgress}%` }}
-                        transition={{ duration: 0.3 }}
                       />
                     </div>
                     <span className="text-gray-500 text-xs min-w-[40px]">{Math.round(analysisProgress)}%</span>
