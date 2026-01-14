@@ -49,14 +49,14 @@ const VAULT_V7_ABI = [
   },
   {
     inputs: [{ name: 'user', type: 'address' }],
-    name: 'getUserSettings',
+    name: 'getSettings',  // V8: getSettings (not getUserSettings)
     outputs: [{
       components: [
         { name: 'autoTradeEnabled', type: 'bool' },
-        { name: 'riskLevelBps', type: 'uint256' },
+        { name: 'riskBps', type: 'uint256' },        // V8: riskBps (not riskLevelBps)
         { name: 'maxLeverage', type: 'uint256' },
-        { name: 'defaultStopLoss', type: 'uint256' },
-        { name: 'defaultTakeProfit', type: 'uint256' }
+        { name: 'stopLossBps', type: 'uint256' },    // V8: stopLossBps (not defaultStopLoss)
+        { name: 'takeProfitBps', type: 'uint256' }   // V8: takeProfitBps (not defaultTakeProfit)
       ],
       type: 'tuple'
     }],
@@ -268,32 +268,38 @@ export class TradingV7GMXService {
    */
   async getUserVaultStatus(userAddress: `0x${string}`) {
     try {
-      const [balance, settings] = await Promise.all([
-        this.publicClient.readContract({
+      // V8: Read balance and settings separately to handle errors better
+      const balance = await this.publicClient.readContract({
+        address: this.vaultAddress,
+        abi: VAULT_V7_ABI,
+        functionName: 'balances',
+        args: [userAddress]
+      });
+
+      // V8: Use getSettings (not getUserSettings)
+      let settings: any = null;
+      try {
+        settings = await this.publicClient.readContract({
           address: this.vaultAddress,
           abi: VAULT_V7_ABI,
-          functionName: 'balances',
+          functionName: 'getSettings',  // V8: getSettings
           args: [userAddress]
-        }),
-        this.publicClient.readContract({
-          address: this.vaultAddress,
-          abi: VAULT_V7_ABI,
-          functionName: 'getUserSettings',
-          args: [userAddress]
-        })
-      ]);
+        });
+      } catch (settingsErr) {
+        logger.warn('Could not read settings, using defaults', { userAddress });
+      }
 
       return {
         balance,
         balanceFormatted: formatUnits(balance, 6),
-        autoTradeEnabled: settings.autoTradeEnabled,
-        riskLevelBps: Number(settings.riskLevelBps),
-        maxLeverage: Number(settings.maxLeverage),
-        defaultStopLoss: Number(settings.defaultStopLoss),
-        defaultTakeProfit: Number(settings.defaultTakeProfit)
+        autoTradeEnabled: settings?.autoTradeEnabled ?? false,
+        riskLevelBps: Number(settings?.riskBps ?? 500),       // V8: riskBps
+        maxLeverage: Number(settings?.maxLeverage ?? 20),
+        defaultStopLoss: Number(settings?.stopLossBps ?? 500),  // V8: stopLossBps
+        defaultTakeProfit: Number(settings?.takeProfitBps ?? 1000) // V8: takeProfitBps
       };
     } catch (err) {
-      logger.error('Failed to get V7 vault status', { userAddress, error: err });
+      logger.error('Failed to get V8 vault status', { userAddress, error: err });
       return null;
     }
   }

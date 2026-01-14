@@ -1,7 +1,7 @@
 import { createPublicClient, http } from 'viem';
 import { arbitrum } from 'viem/chains';
 
-const V7_VAULT = '0x9879792a47725d5b18633e1395BC4a7A06c750df';
+const V7_VAULT = '0xFA38c191134A6a3382794BE6144D24c3e6D8a4C3';  // V8 Vault
 const USER = '0xa7f2e98701896edd6944b57f2f371938c577cde5';
 
 const VAULT_ABI = [
@@ -21,13 +21,14 @@ const VAULT_ABI = [
   },
   {
     inputs: [{ name: 'user', type: 'address' }],
-    name: 'getUserSettings',
+    name: 'getSettings',  // V8: getSettings (not getUserSettings)
     outputs: [{
       components: [
         { name: 'autoTradeEnabled', type: 'bool' },
-        { name: 'riskLevelBps', type: 'uint256' },
-        { name: 'leverage', type: 'uint256' },
-        { name: 'isPremium', type: 'bool' }
+        { name: 'riskBps', type: 'uint256' },       // V8: riskBps
+        { name: 'maxLeverage', type: 'uint256' },   // V8: maxLeverage
+        { name: 'stopLossBps', type: 'uint256' },   // V8: stopLossBps
+        { name: 'takeProfitBps', type: 'uint256' }  // V8: takeProfitBps
       ],
       type: 'tuple'
     }],
@@ -72,12 +73,12 @@ async function main() {
     console.log('totalDeposited not available: ' + e.message?.slice(0, 50));
   }
 
-  // Get settings
+  // Get settings (V8: getSettings)
   try {
     const settings = await client.readContract({
       address: V7_VAULT as `0x${string}`,
       abi: VAULT_ABI,
-      functionName: 'getUserSettings',
+      functionName: 'getSettings',  // V8: getSettings (not getUserSettings)
       args: [USER as `0x${string}`]
     });
     console.log('\nSettings:', settings);
