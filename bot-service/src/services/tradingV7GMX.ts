@@ -387,8 +387,8 @@ export class TradingV7GMXService {
         abi: SET_ELITE_ABI,
         functionName: 'setElite',
         args: [userAddress, isElite],
-        chain: this.chain,
-        account: this.botAddress
+        chain: arbitrum,
+        account: this.botAccount.address
       });
 
       await this.publicClient.waitForTransactionReceipt({ hash });
@@ -397,6 +397,91 @@ export class TradingV7GMXService {
     } catch (err) {
       logger.error('Failed to set elite status', { error: err });
       return false;
+    }
+  }
+
+  /**
+   * Finalize orphaned position - credits user balance after manual close
+   * Called by reconciliation when our vault shows active position but GMX position is closed
+   */
+  async finalizeOrphanedPosition(
+    userAddress: `0x${string}`,
+    tokenAddress: `0x${string}`,
+    currentPriceUsd: number
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Get vault position data
+      const position = await this.publicClient.readContract({
+        address: this.vaultAddress,
+        abi: VAULT_V7_ABI,
+        functionName: 'getPosition',
+        args: [userAddress, tokenAddress]
+      }) as any;
+
+      if (!position || !position.isActive) {
+        return { success: false, error: 'No active vault position' };
+      }
+
+      const collateral = position.collateral as bigint;
+      const entryPrice = position.entryPrice as bigint;
+      const leverage = Number(position.leverage) || 1;
+      const isLong = position.isLong as boolean;
+
+      // Calculate P/L based on current price
+      // Entry price has 30 decimals (GMX format)
+      const entryPriceNum = parseFloat(formatUnits(entryPrice, 30));
+      let pnlPercent = 0;
+
+      if (isLong) {
+        pnlPercent = ((currentPriceUsd - entryPriceNum) / entryPriceNum) * 100 * leverage;
+      } else {
+        pnlPercent = ((entryPriceNum - currentPriceUsd) / entryPriceNum) * 100 * leverage;
+      }
+
+      // Calculate received amount
+      const collateralNum = parseFloat(formatUnits(collateral, 6));
+      const pnlAmount = (collateralNum * pnlPercent) / 100;
+      const receivedNum = Math.max(0, collateralNum + pnlAmount);
+      const receivedAmount = parseUnits(receivedNum.toFixed(6), 6);
+
+      logger.info('Finalizing orphaned position', {
+        user: userAddress.slice(0, 10),
+        token: tokenAddress.slice(0, 10),
+        collateral: collateralNum,
+        entryPrice: entryPriceNum,
+        currentPrice: currentPriceUsd,
+        pnlPercent,
+        receivedAmount: receivedNum
+      });
+
+      // Call finalizeClose on contract
+      const txHash = await this.walletClient.writeContract({
+        address: this.vaultAddress,
+        abi: VAULT_V7_ABI,
+        functionName: 'finalizeClose',
+        args: [userAddress, tokenAddress, receivedAmount, 'manual_reconciled'],
+        chain: arbitrum,
+        account: this.botAccount
+      });
+
+      const receipt = await this.publicClient.waitForTransactionReceipt({ hash: txHash });
+      if (receipt.status !== 'success') {
+        return { success: false, error: 'FinalizeClose transaction reverted' };
+      }
+
+      logger.info('Orphaned position finalized - balance credited', {
+        txHash,
+        user: userAddress.slice(0, 10),
+        receivedAmount: receivedNum
+      });
+
+      return { success: true };
+    } catch (err: any) {
+      logger.error('Failed to finalize orphaned position', {
+        user: userAddress.slice(0, 10),
+        error: err.message
+      });
+      return { success: false, error: err.message };
     }
   }
 

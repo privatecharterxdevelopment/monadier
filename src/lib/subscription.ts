@@ -69,9 +69,9 @@ export const SUBSCRIPTION_PLANS: Record<PlanTier, SubscriptionPlan> = {
     id: 'starter',
     name: 'Starter',
     description: 'Real trading for beginners',
-    monthlyPrice: 29,
-    yearlyPrice: 239, // Save $109/year (31% off)
-    lifetimePrice: 249,
+    monthlyPrice: 9,
+    yearlyPrice: 74, // Save $34/year (31% off)
+    lifetimePrice: 99,
     yearlyDiscount: 31,
     features: {
       dailyTradeLimit: 25,
@@ -95,10 +95,10 @@ export const SUBSCRIPTION_PLANS: Record<PlanTier, SubscriptionPlan> = {
     id: 'pro',
     name: 'Pro',
     description: 'For active traders who want automation',
-    monthlyPrice: 79,
-    yearlyPrice: 649, // Save $299/year (32% off)
-    lifetimePrice: 699,
-    yearlyDiscount: 32,
+    monthlyPrice: 29,
+    yearlyPrice: 240, // Save $108/year (31% off)
+    lifetimePrice: 299,
+    yearlyDiscount: 31,
     popular: true,
     badge: 'Most Popular',
     features: {
@@ -123,10 +123,10 @@ export const SUBSCRIPTION_PLANS: Record<PlanTier, SubscriptionPlan> = {
     id: 'elite',
     name: 'Elite',
     description: 'Full power for professional traders',
-    monthlyPrice: 129,
-    yearlyPrice: 999, // Save $549/year (35% off)
-    lifetimePrice: 1099,
-    yearlyDiscount: 35,
+    monthlyPrice: 49,
+    yearlyPrice: 406, // Save $182/year (31% off)
+    lifetimePrice: 499,
+    yearlyDiscount: 31,
     features: {
       dailyTradeLimit: -1, // unlimited
       totalTradeLimit: -1, // Unlimited total
@@ -180,9 +180,9 @@ export const PRICING_TABLE = {
   columns: ['Plan', 'Monthly', 'Yearly', 'Lifetime', 'Trades'],
   rows: [
     { plan: 'Free Trial', monthly: '$0', yearly: '-', lifetime: '-', trades: '2 total' },
-    { plan: 'Starter', monthly: '$29', yearly: '$239', lifetime: '$249', trades: '25/day' },
-    { plan: 'Pro', monthly: '$79', yearly: '$649', lifetime: '$699', trades: '100/day', popular: true },
-    { plan: 'Elite', monthly: '$129', yearly: '$999', lifetime: '$1,099', trades: 'Unlimited' }
+    { plan: 'Starter', monthly: '$9', yearly: '$74', lifetime: '$99', trades: '25/day' },
+    { plan: 'Pro', monthly: '$29', yearly: '$240', lifetime: '$299', trades: '100/day', popular: true },
+    { plan: 'Elite', monthly: '$49', yearly: '$406', lifetime: '$499', trades: 'Unlimited' }
   ]
 };
 
@@ -426,17 +426,17 @@ export function getUpgradeRecommendation(currentTier: PlanTier): { nextTier: Pla
     case 'free':
       return {
         nextTier: 'starter',
-        reason: 'Upgrade to Starter for real trading with 25 trades/day - only $29/month!'
+        reason: 'Upgrade to Starter for real trading with 25 trades/day - only $9/month!'
       };
     case 'starter':
       return {
         nextTier: 'pro',
-        reason: 'Upgrade to Pro for Grid trading, Auto-trade, and 100 trades/day'
+        reason: 'Upgrade to Pro for 1-50x leverage, Grid trading, and 100 trades/day - $29/month'
       };
     case 'pro':
       return {
         nextTier: 'elite',
-        reason: 'Upgrade to Elite for Arbitrage, Custom strategies, and unlimited trades'
+        reason: 'Upgrade to Elite for Arbitrage, Custom strategies, Phone support & unlimited trades'
       };
     case 'elite':
       return {

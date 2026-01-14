@@ -128,7 +128,7 @@ const SubscriptionsPage: React.FC = () => {
   const tradingBotPlans = [
     {
       id: 'starter',
-      name: 'Starter',
+      name: 'Basic',
       monthlyPrice: SUBSCRIPTION_PLANS.starter.monthlyPrice,
       yearlyPrice: SUBSCRIPTION_PLANS.starter.yearlyPrice,
       price: billingCycle === 'monthly' ? SUBSCRIPTION_PLANS.starter.monthlyPrice : SUBSCRIPTION_PLANS.starter.yearlyPrice,
@@ -136,11 +136,12 @@ const SubscriptionsPage: React.FC = () => {
       yearlyDiscount: SUBSCRIPTION_PLANS.starter.yearlyDiscount,
       icon: <Zap className="w-6 h-6" />,
       features: [
+        'GMX Trading Bot access',
+        '1-25x Leverage',
         '25 trades per day',
-        'Base & Polygon chains',
+        'All chains supported',
         'Spot & DCA strategies',
-        '3 connected wallets',
-        'Email support'
+        'Discord support'
       ],
       creditLine: 1000
     },
@@ -155,12 +156,13 @@ const SubscriptionsPage: React.FC = () => {
       icon: <Crown className="w-6 h-6" />,
       popular: true,
       features: [
+        'GMX Trading Bot access',
+        '1-50x Leverage',
         '100 trades per day',
         'All chains supported',
         'Grid & DCA strategies',
-        '10 connected wallets',
-        'Priority support',
-        'Performance analytics'
+        'Performance analytics',
+        'Discord support'
       ],
       creditLine: 5000
     },
@@ -174,13 +176,13 @@ const SubscriptionsPage: React.FC = () => {
       yearlyDiscount: SUBSCRIPTION_PLANS.elite.yearlyDiscount,
       icon: <Rocket className="w-6 h-6" />,
       features: [
+        'GMX Trading Bot access',
+        '1-50x Leverage',
         'Unlimited trades',
-        'All chains supported',
         'All strategies + Arbitrage',
         'Unlimited wallets',
-        '24/7 VIP support',
         'API access & Webhooks',
-        'Custom strategies'
+        'Phone support'
       ],
       creditLine: 15000
     }
@@ -530,6 +532,25 @@ const SubscriptionsPage: React.FC = () => {
             </motion.div>
           ))}
           </div>
+
+          {/* Security Disclaimer */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="mt-8 p-4 bg-red-500/10 border border-red-500/20 rounded-xl"
+          >
+            <div className="flex items-start gap-3">
+              <Shield className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-red-400 font-medium mb-1">Security Notice</p>
+                <p className="text-gray-400 text-sm">
+                  We are <strong className="text-white">NOT</strong> on Telegram. For security reasons, we only provide support via Discord (Basic & Pro) or direct Phone support (Elite).
+                  Be aware of scammers impersonating us on Telegram or other platforms.
+                </p>
+              </div>
+            </div>
+          </motion.div>
         </div>
       )}
 

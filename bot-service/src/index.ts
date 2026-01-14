@@ -856,6 +856,38 @@ async function runReconciliationCycle(): Promise<void> {
                 currentPrice
               });
 
+              // V8.2.1 FIX: Check if vault still has active position and finalize it
+              // This credits the user's balance after manual closes
+              const vaultHasPosition = await tradingV7GMXService.hasOpenPosition(
+                walletAddress as `0x${string}`,
+                tokenAddress
+              );
+
+              if (vaultHasPosition && currentPrice > 0) {
+                logger.info('Reconciliation: Vault has orphaned position, calling finalizeClose to credit balance', {
+                  wallet: walletAddress.slice(0, 10),
+                  token: position.token_symbol
+                });
+
+                const result = await tradingV7GMXService.finalizeOrphanedPosition(
+                  walletAddress as `0x${string}`,
+                  tokenAddress,
+                  currentPrice
+                );
+
+                if (result.success) {
+                  logger.info('Reconciliation: Successfully credited user balance', {
+                    wallet: walletAddress.slice(0, 10),
+                    token: position.token_symbol
+                  });
+                } else {
+                  logger.error('Reconciliation: Failed to credit user balance', {
+                    wallet: walletAddress.slice(0, 10),
+                    error: result.error
+                  });
+                }
+              }
+
               // Mark as synced with real P/L based on current price
               await positionService.syncPositionsWithChain(
                 walletAddress,
