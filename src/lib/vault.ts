@@ -517,16 +517,26 @@ export class VaultClient {
 
   /**
    * Withdraw all funds from vault
+   * V7 doesn't have withdrawAll(), so we get balance and call withdraw(balance)
    */
   async withdrawAll(userAddress: `0x${string}`): Promise<`0x${string}`> {
+    // Get current balance first
+    const balance = await this.getBalance(userAddress);
+    const balanceWei = parseUnits(balance, USDC_DECIMALS);
+
+    if (balanceWei === 0n) {
+      throw new Error('No balance to withdraw');
+    }
+
+    // Call withdraw with full balance (works for V7 and older vaults)
     const hash = await this.walletClient.writeContract({
       address: this.vaultAddress,
       abi: VAULT_ABI,
-      functionName: 'withdrawAll',
-      args: [],
+      functionName: 'withdraw',
+      args: [balanceWei],
       chain: null,
       account: userAddress,
-      gas: 150000n // Explicit gas limit to avoid estimation issues
+      gas: 200000n // Higher gas for safety
     });
 
     return hash;
