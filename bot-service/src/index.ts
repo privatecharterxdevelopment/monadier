@@ -297,9 +297,16 @@ async function processUserTrades(
       return;
     }
 
-    // Calculate position size - CLEAN whole numbers based on risk level
-    // Risk is in basis points (500 = 5%)
-    const riskPercent = vaultStatus.riskLevelBps / 100; // e.g., 500 -> 5%
+    // 6. Get user's trading settings from Supabase (risk, leverage, SL, TP)
+    const userSettings = await subscriptionService.getUserTradingSettings(userAddress, chainId);
+    // V7: Standard users max 25x, Elite users max 50x (checked by contract)
+    const leverage = Math.min(userSettings.leverageMultiplier || 1, 25); // Default cap at 25x
+    const stopLossPercent = userSettings.stopLossPercent || 5;
+    const takeProfitPercent = userSettings.takeProfitPercent || 10;
+
+    // Calculate position size - CLEAN whole numbers based on risk level from Supabase
+    // Risk is in basis points (5000 = 50%)
+    const riskPercent = userSettings.riskLevelBps / 100; // e.g., 5000 -> 50%
     const balanceNumber = Number(vaultStatus.balance) / 1e6; // USDC has 6 decimals
     const positionSizeRaw = balanceNumber * (riskPercent / 100);
     // Round to whole dollar or .50 for clean numbers
@@ -320,15 +327,9 @@ async function processUserTrades(
       user: userAddress.slice(0, 10),
       balance: balanceNumber,
       positionSize,
-      riskPercent
+      riskPercent,
+      leverage: leverage + 'x'
     });
-
-    // 6. Get user's trading settings (leverage, SL, TP)
-    const userSettings = await subscriptionService.getUserTradingSettings(userAddress, chainId);
-    // V7: Standard users max 25x, Elite users max 50x (checked by contract)
-    const leverage = Math.min(userSettings.leverageMultiplier || 1, 25); // Default cap at 25x
-    const stopLossPercent = userSettings.stopLossPercent || 5;
-    const takeProfitPercent = userSettings.takeProfitPercent || 10;
 
     // 7. ANALYZE ALL TOKENS FIRST - Pick the best one
     let bestSignal: { signal: any; tokenConfig: typeof tokenConfigs[0] } | null = null;

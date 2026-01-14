@@ -27,6 +27,7 @@ export interface UserTradingSettings {
   stopLossPercent: number;
   askPermission: boolean;
   leverageMultiplier: number; // 1.0 = no leverage, 2.0 = 2x, 3.0 = 3x max
+  riskLevelBps: number; // Risk in basis points (5000 = 50%)
 }
 
 export class SubscriptionService {
@@ -369,7 +370,7 @@ export class SubscriptionService {
     try {
       const { data, error } = await this.supabase
         .from('vault_settings')
-        .select('take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier')
+        .select('take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier, risk_level_bps')
         .eq('wallet_address', walletAddress.toLowerCase())
         .eq('chain_id', chainId)
         .single();
@@ -382,9 +383,10 @@ export class SubscriptionService {
           defaultTP: '5%',
           defaultSL: '1%',
           defaultLeverage: '1x',
+          defaultRisk: '5%',
           error: error?.message
         });
-        return { takeProfitPercent: 5, stopLossPercent: 1, askPermission: false, leverageMultiplier: 1.0 };
+        return { takeProfitPercent: 5, stopLossPercent: 1, askPermission: false, leverageMultiplier: 1.0, riskLevelBps: 500 };
       }
 
       logger.info('✅ Loaded user vault_settings from DB', {
@@ -392,18 +394,20 @@ export class SubscriptionService {
         chainId,
         TP: data.take_profit_percent + '%',
         SL: data.stop_loss_percent + '%',
-        leverage: (data.leverage_multiplier || 1.0) + 'x'
+        leverage: (data.leverage_multiplier || 1.0) + 'x',
+        risk: (data.risk_level_bps || 500) / 100 + '%'
       });
 
       return {
         takeProfitPercent: data.take_profit_percent || 5,
         stopLossPercent: data.stop_loss_percent || 1,
         askPermission: data.ask_permission || false,
-        leverageMultiplier: data.leverage_multiplier || 1.0
+        leverageMultiplier: data.leverage_multiplier || 1.0,
+        riskLevelBps: data.risk_level_bps || 500
       };
     } catch (err) {
       logger.error('Failed to get user trading settings', { walletAddress, error: err });
-      return { takeProfitPercent: 5, stopLossPercent: 1, askPermission: false, leverageMultiplier: 1.0 };
+      return { takeProfitPercent: 5, stopLossPercent: 1, askPermission: false, leverageMultiplier: 1.0, riskLevelBps: 500 };
     }
   }
 
