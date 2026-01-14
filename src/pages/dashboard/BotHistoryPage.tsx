@@ -743,19 +743,19 @@ const BotHistoryPage: React.FC = () => {
                     <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
                       <div className="flex items-center gap-2 text-green-400 font-medium mb-1">
                         <AlertTriangle size={14} />
-                        Fee Structure (V6)
+                        Fee Structure (V8)
                       </div>
                       <p className="text-green-200/80">
-                        <strong>No platform fees!</strong> Only 10% of profits on winning trades. Losses covered by platform. DEX fee ~0.1% = <strong>~0.3% breakeven</strong>.
+                        <strong>No platform fees!</strong> Only 10% of profits on winning trades. GMX execution fee ~0.0002 ETH per trade.
                       </p>
                     </div>
                     <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
                       <div className="flex items-center gap-2 text-blue-400 font-medium mb-1">
                         <Zap size={14} />
-                        Slippage
+                        Leverage (V8 GMX)
                       </div>
                       <p className="text-blue-200/80">
-                        Price can move before your tx confirms. If it moves more than tolerance, trade is rejected. Bot auto-retries: 5% → 10% → 15% → 20%.
+                        Real leverage via GMX Perpetuals. Standard: up to <strong>25x</strong>. Elite: up to <strong>50x</strong>. Trailing stop loss included.
                       </p>
                     </div>
                   </div>
