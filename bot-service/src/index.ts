@@ -299,8 +299,11 @@ async function processUserTrades(
 
     // 6. Get user's trading settings from Supabase (risk, leverage, SL, TP)
     const userSettings = await subscriptionService.getUserTradingSettings(userAddress, chainId);
-    // V7: Standard users max 25x, Elite users max 50x (checked by contract)
-    const leverage = Math.min(userSettings.leverageMultiplier || 1, 25); // Default cap at 25x
+    const subscription = await subscriptionService.getSubscription(userAddress);
+    // Pro/Elite users can use up to 50x, others max 25x
+    const isProOrElite = subscription?.planTier === 'pro' || subscription?.planTier === 'elite' || subscription?.planTier === 'desktop';
+    const maxLeverage = isProOrElite ? 50 : 25;
+    const leverage = Math.min(userSettings.leverageMultiplier || 1, maxLeverage);
     const stopLossPercent = userSettings.stopLossPercent || 5;
     const takeProfitPercent = userSettings.takeProfitPercent || 10;
 
@@ -394,6 +397,11 @@ async function processUserTrades(
       confidence: signal.confidence,
       positionSize: positionSize + ' USDC'
     });
+
+    // If leverage > 25x, ensure user is marked as elite in contract
+    if (leverage > 25) {
+      await tradingV7GMXService.setEliteStatus(userAddress, true);
+    }
 
     // Open position using V7 GMX service
     const result = await tradingV7GMXService.openPosition(userAddress, v7Signal);

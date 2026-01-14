@@ -755,7 +755,7 @@ const BotHistoryPage: React.FC = () => {
                         Leverage (V8 GMX)
                       </div>
                       <p className="text-blue-200/80">
-                        Real leverage via GMX Perpetuals. Standard: up to <strong>25x</strong>. Elite: up to <strong>50x</strong>. Trailing stop loss included.
+                        Real leverage via GMX Perpetuals. Starter: up to <strong>25x</strong>. Pro/Elite: up to <strong>50x</strong>. Trailing stop loss included.
                       </p>
                     </div>
                   </div>

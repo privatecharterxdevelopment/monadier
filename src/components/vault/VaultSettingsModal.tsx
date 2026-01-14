@@ -25,8 +25,8 @@ const RISK_LEVELS = [
   { value: 100, label: 'All-In', description: '100% per trade', icon: Flame, color: 'text-purple-400', bg: 'bg-purple-500/10' },
 ];
 
-// V7 GMX Leverage Levels - Standard users max 25x, Elite users max 50x (unlocked manually)
-const LEVERAGE_LEVELS = [
+// V8 GMX Leverage Levels - Standard/Starter max 25x, Pro/Elite max 50x
+const LEVERAGE_LEVELS_STANDARD = [
   { value: 1, label: '1x', description: 'No leverage', color: 'text-zinc-400', bg: 'bg-zinc-500/10' },
   { value: 2, label: '2x', description: 'Low risk', color: 'text-blue-400', bg: 'bg-blue-500/10' },
   { value: 5, label: '5x', description: 'Moderate', color: 'text-green-400', bg: 'bg-green-500/10' },
@@ -34,6 +34,14 @@ const LEVERAGE_LEVELS = [
   { value: 15, label: '15x', description: 'Very high', color: 'text-orange-400', bg: 'bg-orange-500/10' },
   { value: 20, label: '20x', description: 'Extreme', color: 'text-red-400', bg: 'bg-red-500/10' },
   { value: 25, label: '25x', description: 'MAX', color: 'text-purple-400', bg: 'bg-purple-500/10' },
+];
+
+const LEVERAGE_LEVELS_PRO = [
+  ...LEVERAGE_LEVELS_STANDARD.slice(0, -1), // Remove 25x MAX label
+  { value: 25, label: '25x', description: 'High', color: 'text-purple-400', bg: 'bg-purple-500/10' },
+  { value: 30, label: '30x', description: 'Very high', color: 'text-pink-400', bg: 'bg-pink-500/10' },
+  { value: 40, label: '40x', description: 'Extreme', color: 'text-red-400', bg: 'bg-red-500/10' },
+  { value: 50, label: '50x', description: 'MAX PRO', color: 'text-red-500', bg: 'bg-red-600/10' },
 ];
 
 export default function VaultSettingsModal({
@@ -48,7 +56,11 @@ export default function VaultSettingsModal({
   onSuccess
 }: VaultSettingsModalProps) {
   const { chainId, address, publicClient, walletClient } = useWeb3();
-  const { linkWallet } = useSubscription();
+  const { linkWallet, planTier } = useSubscription();
+
+  // Pro/Elite users get up to 50x leverage
+  const isProOrElite = planTier === 'pro' || planTier === 'elite' || planTier === 'desktop';
+  const LEVERAGE_LEVELS = isProOrElite ? LEVERAGE_LEVELS_PRO : LEVERAGE_LEVELS_STANDARD;
 
   const [riskLevel, setRiskLevel] = useState(currentRiskLevel);
   // In start mode, pre-enable auto-trade

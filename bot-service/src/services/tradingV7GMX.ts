@@ -370,6 +370,37 @@ export class TradingV7GMXService {
   }
 
   /**
+   * Set elite status for a user (allows 50x leverage)
+   */
+  async setEliteStatus(userAddress: `0x${string}`, isElite: boolean): Promise<boolean> {
+    try {
+      const SET_ELITE_ABI = [{
+        inputs: [{ name: 'user', type: 'address' }, { name: 'status', type: 'bool' }],
+        name: 'setElite',
+        outputs: [],
+        stateMutability: 'nonpayable',
+        type: 'function'
+      }] as const;
+
+      const hash = await this.walletClient.writeContract({
+        address: this.vaultAddress,
+        abi: SET_ELITE_ABI,
+        functionName: 'setElite',
+        args: [userAddress, isElite],
+        chain: this.chain,
+        account: this.botAddress
+      });
+
+      await this.publicClient.waitForTransactionReceipt({ hash });
+      logger.info('Set elite status', { user: userAddress.slice(0, 10), isElite });
+      return true;
+    } catch (err) {
+      logger.error('Failed to set elite status', { error: err });
+      return false;
+    }
+  }
+
+  /**
    * Open a leveraged position via GMX
    */
   async openPosition(
