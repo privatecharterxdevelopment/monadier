@@ -845,17 +845,23 @@ async function runReconciliationCycle(): Promise<void> {
 
             // If on-chain balance is 0 but we have open positions, sync them
             if (onChainBalance === null || onChainBalance === 0n) {
+              // Get current price from GMX for accurate P/L calculation
+              const price = await tradingV7GMXService.getTokenPrice(tokenAddress);
+              const currentPrice = price?.max || 0;
+
               logger.warn('Reconciliation: Found orphaned position with 0 on-chain balance', {
                 positionId: position.id,
                 wallet: walletAddress,
-                token: position.token_symbol
+                token: position.token_symbol,
+                currentPrice
               });
 
-              // Mark as failed/synced
+              // Mark as synced with real P/L based on current price
               await positionService.syncPositionsWithChain(
                 walletAddress,
                 chainId,
-                tokenAddress
+                tokenAddress,
+                currentPrice
               );
             }
           } catch (err) {

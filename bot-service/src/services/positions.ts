@@ -655,7 +655,7 @@ export class PositionService {
    * Mark ALL positions for a user/token as synced (closed with 0 balance)
    * Called when on-chain balance is 0 but database has open positions
    */
-  async syncPositionsWithChain(walletAddress: string, chainId: number, tokenAddress: string): Promise<number> {
+  async syncPositionsWithChain(walletAddress: string, chainId: number, tokenAddress: string, currentPrice?: number): Promise<number> {
     // First fetch positions to calculate P/L
     const { data: positions } = await this.supabase
       .from('positions')
@@ -671,20 +671,23 @@ export class PositionService {
 
     let syncCount = 0;
     for (const pos of positions) {
-      // Calculate P/L from entry price and highest/lowest price (assume SL was hit)
       let profitLoss = 0;
       let profitLossPercent = 0;
       let exitPrice = pos.entry_price;
 
       if (pos.entry_price && pos.entry_amount) {
-        // Estimate based on SL being hit (most likely scenario for orphaned positions)
-        const slPercent = pos.trailing_stop_percent || 1;
-        if (pos.direction === 'LONG') {
-          profitLossPercent = -slPercent;
-          exitPrice = pos.entry_price * (1 - slPercent / 100);
+        // If current price is provided, calculate real P/L
+        if (currentPrice && currentPrice > 0) {
+          exitPrice = currentPrice;
+          if (pos.direction === 'LONG') {
+            profitLossPercent = ((currentPrice - pos.entry_price) / pos.entry_price) * 100;
+          } else {
+            profitLossPercent = ((pos.entry_price - currentPrice) / pos.entry_price) * 100;
+          }
         } else {
-          profitLossPercent = -slPercent;
-          exitPrice = pos.entry_price * (1 + slPercent / 100);
+          // Fallback: assume break-even if no price available
+          profitLossPercent = 0;
+          exitPrice = pos.entry_price;
         }
         profitLoss = (pos.entry_amount * profitLossPercent) / 100;
       }
