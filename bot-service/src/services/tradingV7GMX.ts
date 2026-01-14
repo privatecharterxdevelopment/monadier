@@ -225,7 +225,7 @@ export interface V7TradeResult {
 }
 
 // V7 Vault Address on Arbitrum
-const V7_VAULT_ADDRESS = (config.chains[42161] as any).vaultV7Address || '0x712B3A0cFD00674a15c5D235e998F71709112675';
+const V7_VAULT_ADDRESS = (config.chains[42161] as any).vaultV7Address || '0x9879792a47725d5b18633e1395BC4a7A06c750df';
 
 export class TradingV7GMXService {
   private botAccount = privateKeyToAccount(config.botPrivateKey);
@@ -485,7 +485,8 @@ export class TradingV7GMXService {
   }
 
   /**
-   * Close a position via GMX
+   * Close a position - INSTANT mode (skip GMX keeper wait)
+   * Calculates PnL immediately and credits user
    */
   async closePosition(
     userAddress: `0x${string}`,
@@ -493,40 +494,93 @@ export class TradingV7GMXService {
     closeReason: string
   ): Promise<V7TradeResult> {
     try {
-      // Get execution fee
-      const executionFee = await this.getExecutionFee();
-
-      logger.info('Closing GMX position', {
+      logger.info('Closing position INSTANT', {
         user: userAddress.slice(0, 10),
         token: tokenAddress.slice(0, 10),
         reason: closeReason
       });
 
-      // Execute closePosition with ETH for execution fee
+      // Get current position from contract
+      const position = await this.publicClient.readContract({
+        address: this.v7VaultAddress,
+        abi: VAULT_V7_ABI,
+        functionName: 'getPosition',
+        args: [userAddress, tokenAddress]
+      }) as any;
+
+      if (!position || !position.isActive) {
+        return { success: false, error: 'No active position' };
+      }
+
+      // Get current price to calculate PnL
+      const [maxPrice, minPrice] = await this.publicClient.readContract({
+        address: this.v7VaultAddress,
+        abi: VAULT_V7_ABI,
+        functionName: 'getPrice',
+        args: [tokenAddress]
+      }) as [bigint, bigint];
+
+      const currentPrice = position.isLong ? minPrice : maxPrice;
+      const entryPrice = position.entryPrice;
+      const collateral = position.collateral;
+      const leverage = position.leverage;
+
+      // Calculate PnL
+      let pnlBps: bigint;
+      if (position.isLong) {
+        pnlBps = ((currentPrice - entryPrice) * 10000n) / entryPrice;
+      } else {
+        pnlBps = ((entryPrice - currentPrice) * 10000n) / entryPrice;
+      }
+
+      // Apply leverage to PnL
+      const leveragedPnlBps = pnlBps * BigInt(leverage);
+      const pnlAmount = (collateral * leveragedPnlBps) / 10000n;
+
+      // Calculate received amount (collateral + PnL, but can't go below 0)
+      let receivedAmount = collateral;
+      if (leveragedPnlBps >= 0n) {
+        receivedAmount = collateral + pnlAmount;
+      } else {
+        // Loss case - reduce collateral but not below 0
+        const loss = pnlAmount < 0n ? -pnlAmount : pnlAmount;
+        receivedAmount = collateral > loss ? collateral - loss : 0n;
+      }
+
+      logger.info('Calculated PnL for close', {
+        user: userAddress.slice(0, 10),
+        entryPrice: entryPrice.toString(),
+        currentPrice: currentPrice.toString(),
+        pnlBps: leveragedPnlBps.toString(),
+        collateral: collateral.toString(),
+        receivedAmount: receivedAmount.toString()
+      });
+
+      // Call finalizeClose directly (skip GMX keeper wait)
       const txHash = await this.walletClient.writeContract({
         address: this.v7VaultAddress,
         abi: VAULT_V7_ABI,
-        functionName: 'closePosition',
-        args: [userAddress, tokenAddress],
-        value: executionFee,
+        functionName: 'finalizeClose',
+        args: [userAddress, tokenAddress, receivedAmount, closeReason],
         chain: arbitrum,
         account: this.botAccount
       });
 
       const receipt = await this.publicClient.waitForTransactionReceipt({ hash: txHash });
       if (receipt.status !== 'success') {
-        return { success: false, error: 'Transaction reverted' };
+        return { success: false, error: 'FinalizeClose transaction reverted' };
       }
 
-      logger.info('GMX close position requested', {
+      logger.info('Position closed INSTANTLY', {
         txHash,
         user: userAddress.slice(0, 10),
-        reason: closeReason
+        reason: closeReason,
+        receivedAmount: receivedAmount.toString()
       });
 
       return { success: true, txHash };
     } catch (err: any) {
-      logger.error('Failed to close GMX position', { error: err.message });
+      logger.error('Failed to close position', { error: err.message });
       return { success: false, error: err.message };
     }
   }
@@ -570,6 +624,55 @@ export class TradingV7GMXService {
     } catch (err: any) {
       logger.error('Failed to check GMX triggers', { error: err.message });
       return { triggered: false };
+    }
+  }
+
+  /**
+   * Get current PnL for a position
+   */
+  async getPositionPnL(
+    userAddress: `0x${string}`,
+    tokenAddress: `0x${string}`
+  ): Promise<{ pnl: number; pnlPercent: number; currentPrice: number } | null> {
+    try {
+      // Check if position exists
+      const position = await this.publicClient.readContract({
+        address: this.v7VaultAddress,
+        abi: VAULT_V7_ABI,
+        functionName: 'getPosition',
+        args: [userAddress, tokenAddress]
+      }) as any;
+
+      if (!position || !position.isActive) {
+        return null;
+      }
+
+      // Get PnL from contract
+      const [pnl, pnlPercent] = await this.publicClient.readContract({
+        address: this.v7VaultAddress,
+        abi: VAULT_V7_ABI,
+        functionName: 'getPositionPnL',
+        args: [userAddress, tokenAddress]
+      }) as [bigint, bigint];
+
+      // Get current price
+      const [maxPrice, minPrice] = await this.publicClient.readContract({
+        address: this.v7VaultAddress,
+        abi: VAULT_V7_ABI,
+        functionName: 'getPrice',
+        args: [tokenAddress]
+      }) as [bigint, bigint];
+
+      const currentPrice = position.isLong ? minPrice : maxPrice;
+
+      return {
+        pnl: Number(pnl) / 1e6, // USDC decimals
+        pnlPercent: Number(pnlPercent) / 100, // Convert basis points to percent
+        currentPrice: Number(currentPrice) / 1e30 // GMX price decimals
+      };
+    } catch (err: any) {
+      // Position doesn't exist or error
+      return null;
     }
   }
 

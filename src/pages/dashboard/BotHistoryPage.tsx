@@ -1227,28 +1227,36 @@ const BotHistoryPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Status */}
+                    {/* Status - Show WIN/LOSS for closed/failed positions */}
                     <div>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        position.status === 'open' ? 'bg-blue-500/20 text-blue-400' :
-                        position.status === 'closed' ? 'bg-gray-500/20 text-gray-400' :
-                        position.status === 'closing' ? 'bg-amber-500/20 text-amber-400' :
-                        'bg-red-500/20 text-red-400'
-                      }`}>
-                        {position.status.toUpperCase()}
-                      </span>
-                      {position.close_reason && (
-                        <div className={`text-xs mt-1 ${
-                          position.status === 'failed' ? 'text-red-400' : 'text-gray-500'
+                      {(position.status === 'closed' || position.status === 'failed') ? (
+                        // Show WIN or LOSS based on profit
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          isProfit ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
                         }`}>
+                          {isProfit ? 'WIN' : 'LOSS'}
+                        </span>
+                      ) : (
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          position.status === 'open' ? 'bg-blue-500/20 text-blue-400' :
+                          position.status === 'closing' ? 'bg-amber-500/20 text-amber-400' :
+                          'bg-gray-500/20 text-gray-400'
+                        }`}>
+                          {position.status.toUpperCase()}
+                        </span>
+                      )}
+                      {position.close_reason && (position.status === 'closed' || position.status === 'failed') && (
+                        <div className="text-xs mt-1 text-gray-500">
                           {position.close_reason === 'take_profit' ? 'TP Hit' :
-                           position.close_reason === 'trailing_stop' ? 'Stop' :
-                           position.close_reason === 'emergency_close' ? 'Manual' :
-                           position.close_reason.includes('State mismatch') ? 'Sync Error' :
-                           position.close_reason.includes('INSUFFICIENT_OUTPUT') ? 'Slippage Error' :
-                           position.close_reason.includes('0xe4455cae') ? 'No Balance' :
-                           position.close_reason.includes('revert') ? 'TX Failed' :
-                           position.close_reason.length > 20 ? 'Error' :
+                           position.close_reason === 'trailing_stop' ? 'Trailing Stop' :
+                           position.close_reason === 'stoploss' ? 'Stop Loss' :
+                           position.close_reason === 'takeprofit' ? 'Take Profit' :
+                           position.close_reason === 'profit_lock' ? 'Profit Locked' :
+                           position.close_reason === 'emergency_close' ? 'Manual Close' :
+                           position.close_reason === 'user_requested' ? 'Manual Close' :
+                           position.close_reason.includes('close_error') ? 'Closed' :
+                           position.close_reason.includes('State mismatch') ? 'Auto-synced' :
+                           position.close_reason.length > 20 ? 'Closed' :
                            position.close_reason}
                         </div>
                       )}
@@ -1325,33 +1333,19 @@ const BotHistoryPage: React.FC = () => {
                           </a>
                         </div>
                       ) : position.status === 'failed' ? (
+                        // Failed positions also show WIN/LOSS
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => retryClose(position.id)}
-                            disabled={closingPositionId === position.id}
-                            className="flex items-center gap-1 px-2 py-1 bg-amber-500/20 hover:bg-amber-500/40 text-amber-400 rounded text-xs font-medium transition-colors disabled:opacity-50"
-                            title="Retry closing this position with higher slippage tolerance"
-                          >
-                            {closingPositionId === position.id ? (
-                              <>
-                                <RefreshCw size={12} className="animate-spin" />
-                                Retrying...
-                              </>
-                            ) : (
-                              <>
-                                <RefreshCw size={12} />
-                                Retry
-                              </>
-                            )}
-                          </button>
-                          <div className="text-red-400" title={
-                            position.close_reason?.includes('INSUFFICIENT_OUTPUT') ? 'Slippage: Price moved too much during swap. Click Retry to try with higher tolerance.' :
-                            position.close_reason?.includes('0xe4455cae') ? 'No tokens found on-chain. Position may already be closed.' :
-                            position.close_reason?.includes('State mismatch') ? 'Blockchain sync issue. Tokens may already be sold.' :
-                            'Transaction failed. Click Retry to try again.'
-                          }>
-                            <AlertTriangle size={16} />
-                          </div>
+                          {isProfit ? (
+                            <div className="flex items-center gap-1.5 text-green-400">
+                              <CheckCircle size={18} />
+                              <span className="font-medium">WIN</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 text-red-400">
+                              <XCircle size={18} />
+                              <span className="font-medium">LOSS</span>
+                            </div>
+                          )}
                           <a
                             href={getExplorerUrl(position.chain_id, position.wallet_address)}
                             target="_blank"

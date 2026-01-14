@@ -279,7 +279,7 @@ export const ERC20_APPROVE_ABI = [
 // ARBITRUM ONLY - V7 GMX Vault (25x-50x Leverage)
 // V7: GMX Perpetuals, TRUE 25x-50x Leverage, Keeper execution
 export const VAULT_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: '0x712B3A0cFD00674a15c5D235e998F71709112675',  // Arbitrum - LIVE (V7 GMX)
+  42161: '0x9879792a47725d5b18633e1395BC4a7A06c750df',  // Arbitrum - V7 GMX LIVE
 };
 
 export const VAULT_V2_ADDRESSES: Record<number, `0x${string}` | null> = {
@@ -304,7 +304,7 @@ export const VAULT_V6_ADDRESSES: Record<number, `0x${string}` | null> = {
 
 // V7: GMX Perpetuals - TRUE 25x-50x Leverage
 export const VAULT_V7_ADDRESSES: Record<number, `0x${string}` | null> = {
-  42161: '0x712B3A0cFD00674a15c5D235e998F71709112675',  // Arbitrum - LIVE (V7 GMX)
+  42161: '0x9879792a47725d5b18633e1395BC4a7A06c750df',  // Arbitrum - V7 GMX LIVE
 };
 
 // USDC addresses - Arbitrum only

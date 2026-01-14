@@ -656,33 +656,63 @@ export class PositionService {
    * Called when on-chain balance is 0 but database has open positions
    */
   async syncPositionsWithChain(walletAddress: string, chainId: number, tokenAddress: string): Promise<number> {
-    const { data, error } = await this.supabase
+    // First fetch positions to calculate P/L
+    const { data: positions } = await this.supabase
       .from('positions')
-      .update({
-        status: 'failed',
-        close_reason: 'Sync: On-chain balance is 0',
-        updated_at: new Date().toISOString()
-      })
+      .select('*')
       .eq('wallet_address', walletAddress.toLowerCase())
       .eq('chain_id', chainId)
       .eq('token_address', tokenAddress.toLowerCase())
-      .in('status', ['open', 'closing'])
-      .select('id');
+      .in('status', ['open', 'closing']);
 
-    if (error) {
-      logger.error('Failed to sync positions with chain', { error });
+    if (!positions || positions.length === 0) {
       return 0;
     }
 
-    const count = data?.length || 0;
-    if (count > 0) {
-      logger.warn(`Synced ${count} orphaned positions to failed status`, {
-        walletAddress,
-        tokenAddress,
-        count
-      });
+    let syncCount = 0;
+    for (const pos of positions) {
+      // Calculate P/L from entry price and highest/lowest price (assume SL was hit)
+      let profitLoss = 0;
+      let profitLossPercent = 0;
+      let exitPrice = pos.entry_price;
+
+      if (pos.entry_price && pos.entry_amount) {
+        // Estimate based on SL being hit (most likely scenario for orphaned positions)
+        const slPercent = pos.trailing_stop_percent || 1;
+        if (pos.direction === 'LONG') {
+          profitLossPercent = -slPercent;
+          exitPrice = pos.entry_price * (1 - slPercent / 100);
+        } else {
+          profitLossPercent = -slPercent;
+          exitPrice = pos.entry_price * (1 + slPercent / 100);
+        }
+        profitLoss = (pos.entry_amount * profitLossPercent) / 100;
+      }
+
+      const { error } = await this.supabase
+        .from('positions')
+        .update({
+          status: 'closed',
+          close_reason: 'auto_closed',
+          closed_at: new Date().toISOString(),
+          profit_loss: profitLoss,
+          profit_loss_percent: profitLossPercent,
+          exit_price: exitPrice,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', pos.id);
+
+      if (!error) {
+        syncCount++;
+        logger.warn('Synced orphaned position with calculated P/L', {
+          positionId: pos.id,
+          profitLoss,
+          profitLossPercent
+        });
+      }
     }
-    return count;
+
+    return syncCount;
   }
 
   /**

@@ -44,8 +44,8 @@ async function main() {
     throw new Error("Insufficient ETH for deployment. Need at least 0.002 ETH");
   }
 
-  // Get addresses from environment or use defaults
-  const BOT_ADDRESS = process.env.BOT_WALLET_ADDRESS || deployer.address;
+  // Get addresses - BOT MUST be the bot service wallet!
+  const BOT_ADDRESS = "0xC9a6D02a04e3B2E8d3941615EfcBA67593F46b8E"; // Bot service wallet (FIXED!)
   const TREASURY_ADDRESS = process.env.TREASURY_ADDRESS || "0xF7351a5C63e0403F6F7FC77d31B5e17A229C469c";
 
   console.log("\n--- Constructor Parameters ---");

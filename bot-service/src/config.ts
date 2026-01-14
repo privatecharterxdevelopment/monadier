@@ -55,7 +55,7 @@ export const config = {
       // V6: Isolated Margin, 20x Leverage, Chainlink Oracles, On-chain SL/TP (DEPRECATED - Aave limits)
       vaultV6Address: process.env.ARBITRUM_VAULT_V6_ADDRESS as `0x${string}` || '0xceD685CDbcF9056CdbD0F37fFE9Cd8152851D13A',
       // V7: GMX Perpetuals, TRUE 25x-50x Leverage, Keeper execution
-      vaultV7Address: process.env.ARBITRUM_VAULT_V7_ADDRESS as `0x${string}` || '0x712B3A0cFD00674a15c5D235e998F71709112675',
+      vaultV7Address: process.env.ARBITRUM_VAULT_V7_ADDRESS as `0x${string}` || '0x9879792a47725d5b18633e1395BC4a7A06c750df',
       name: 'Arbitrum'
     },
     56: { // BSC

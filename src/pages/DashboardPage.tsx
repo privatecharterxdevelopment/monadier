@@ -15,11 +15,12 @@ const DashboardPage: React.FC = () => {
     <div className="bg-background min-h-screen">
       <SideNavigation />
 
-      <div className="ml-20">
-        <div className="container-custom py-4">
+      {/* ml-20 only on desktop (md+), pb-20 on mobile for bottom nav */}
+      <div className="md:ml-20 pb-20 md:pb-0">
+        <div className="container-custom py-4 px-3 md:px-4">
           <DashboardHeader />
 
-          <main className="py-8">
+          <main className="py-4 md:py-8">
             <Routes>
               <Route path="/" element={<DashboardOverview />} />
               <Route path="/chart-trades" element={<TradingBotPage />} />

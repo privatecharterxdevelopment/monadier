@@ -8,10 +8,14 @@
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
-  
+
   body {
     @apply bg-background text-primary font-sans min-h-screen tracking-tight;
     overflow-x: hidden;
+    /* iOS safe areas */
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -172,4 +176,49 @@
 
 .logo-carousel:hover {
   animation-play-state: paused;
+}
+
+/* Mobile Safe Area for Bottom Navigation */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Mobile touch improvements */
+@media (max-width: 768px) {
+  /* Larger touch targets */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Prevent text selection on touch */
+  .no-select {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* Faster tap response */
+  * {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Fix viewport height on mobile browsers */
+  .min-h-screen {
+    min-height: 100dvh;
+  }
+}
+
+/* Mobile wallet modal fixes */
+@media (max-width: 768px) {
+  /* Reown/WalletConnect modal adjustments */
+  w3m-modal, [data-w3m-modal] {
+    --w3m-z-index: 9999 !important;
+  }
+
+  /* Modal backdrop */
+  .w3m-overlay {
+    z-index: 9998 !important;
+  }
 }

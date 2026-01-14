@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import http from 'http';
 import { parseUnits } from 'viem';
+import { createClient } from '@supabase/supabase-js';
 import { config, ChainId } from './config';
 import { logger } from './utils/logger';
 import { tradingService, TradeSignal } from './services/trading';
@@ -11,6 +12,9 @@ import { marketService, TradingStrategy, signalEngine } from './services/market'
 import { positionService } from './services/positions';
 import { paymentService } from './services/payments';
 import { Timeframe } from './services/signalEngine';
+
+// Supabase client for position queries
+const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 
 // Health check server for Railway/cloud deployments
 const PORT = process.env.PORT || 3001;
@@ -257,20 +261,61 @@ async function processUserTrades(
       return;
     }
 
-    // 5. Get open positions and calculate available balance
+    // 5. ENFORCE: Only ONE position at a time - ALWAYS
     const openPositions = await positionService.getOpenPositions(userAddress, chainId);
-    const maxPositions = MAX_POSITIONS_PER_CHAIN[chainId] || 1;
 
-    if (openPositions.length >= maxPositions) {
-      logger.debug('Max positions reached', {
+    // Check on-chain positions too
+    let hasAnyOnChainPosition = false;
+    for (const tokenConfig of TRADE_TOKENS[chainId] || []) {
+      const hasOnChain = await tradingV7GMXService.hasOpenPosition(
+        userAddress,
+        tokenConfig.address as `0x${string}`
+      );
+      if (hasOnChain) {
+        hasAnyOnChainPosition = true;
+        break;
+      }
+    }
+
+    if (openPositions.length > 0 || hasAnyOnChainPosition) {
+      logger.debug('Already has position - waiting for close', {
         userAddress: userAddress.slice(0, 10),
-        openCount: openPositions.length
+        dbPositions: openPositions.length,
+        hasOnChain: hasAnyOnChainPosition
       });
       return;
     }
 
-    const availableSlots = maxPositions - openPositions.length;
-    const balancePerPosition = vaultStatus.balance / BigInt(availableSlots);
+    // 6. CHECK POST-CLOSE COOLDOWN (5 minutes after any close)
+    const closeCooldownKey = `${userAddress}-42161-close`;
+    const lastClose = lastTradeTimestamp.get(closeCooldownKey);
+    if (lastClose && Date.now() - lastClose < TRADE_COOLDOWN_MS) {
+      const remaining = Math.ceil((TRADE_COOLDOWN_MS - (Date.now() - lastClose)) / 1000);
+      logger.debug('Post-close cooldown active', {
+        userAddress: userAddress.slice(0, 10),
+        remainingSeconds: remaining
+      });
+      return;
+    }
+
+    // Calculate position size - CLEAN whole numbers based on risk level
+    // Risk is in basis points (500 = 5%)
+    const riskPercent = vaultStatus.riskLevelBps / 100; // e.g., 500 -> 5%
+    const balanceNumber = Number(vaultStatus.balance) / 1e6; // USDC has 6 decimals
+    const positionSizeRaw = balanceNumber * (riskPercent / 100);
+    // Round to whole dollar or .50 for clean numbers
+    const positionSize = Math.floor(positionSizeRaw * 2) / 2; // Round to nearest 0.50
+    const balancePerPosition = parseUnits(positionSize.toFixed(2), 6);
+
+    if (positionSize < 1) {
+      logger.debug('Position size too small', {
+        userAddress: userAddress.slice(0, 10),
+        positionSize,
+        balance: balanceNumber,
+        riskPercent
+      });
+      return;
+    }
 
     // 6. Get user's trading settings (leverage, SL, TP)
     const userSettings = await subscriptionService.getUserTradingSettings(userAddress, chainId);
@@ -279,35 +324,16 @@ async function processUserTrades(
     const stopLossPercent = userSettings.stopLossPercent || 5;
     const takeProfitPercent = userSettings.takeProfitPercent || 10;
 
-    // 7. Try each token
-    let positionsOpened = 0;
+    // 7. ANALYZE ALL TOKENS FIRST - Pick the best one
+    let bestSignal: { signal: any; tokenConfig: typeof tokenConfigs[0] } | null = null;
+    let bestConfidence = 0;
+
     for (const tokenConfig of tokenConfigs) {
       if (tokenConfig.symbol === 'USDC' || tokenConfig.symbol === 'DAI') {
         continue;
       }
 
-      // Check for existing position (database + on-chain via GMX)
-      const hasExistingDb = await positionService.hasAnyActivePosition(
-        userAddress,
-        chainId,
-        tokenConfig.address
-      );
-      const hasExistingOnChain = await tradingV7GMXService.hasOpenPosition(
-        userAddress,
-        tokenConfig.address as `0x${string}`
-      );
-
-      if (hasExistingDb || hasExistingOnChain) {
-        logger.debug('Skipping token - existing GMX position', {
-          userAddress: userAddress.slice(0, 10),
-          token: tokenConfig.symbol,
-          db: hasExistingDb,
-          onChain: hasExistingOnChain
-        });
-        continue;
-      }
-
-      // Check cooldown
+      // Check per-token cooldown
       const cooldownKey = `${userAddress}-${chainId}-${tokenConfig.address}`;
       const lastTrade = lastTradeTimestamp.get(cooldownKey);
       if (lastTrade && Date.now() - lastTrade < TRADE_COOLDOWN_MS) {
@@ -320,67 +346,77 @@ async function processUserTrades(
         tokenConfig.address,
         tokenConfig.symbol,
         balancePerPosition,
-        vaultStatus.riskLevelBps, // Already in basis points (500 = 5%)
+        vaultStatus.riskLevelBps,
         DEFAULT_STRATEGY
       );
 
-      if (!signal) {
-        logger.debug('No trade signal', {
-          userAddress: userAddress.slice(0, 10),
-          token: tokenConfig.symbol
-        });
-        continue;
-      }
-
-      // Create V7 signal for GMX perpetuals
-      const v7Signal: V7TradeSignal = {
-        direction: signal.direction,
-        confidence: signal.confidence,
-        tokenAddress: tokenConfig.address as `0x${string}`,
-        tokenSymbol: tokenConfig.symbol,
-        collateralAmount: signal.suggestedAmount,
-        leverage,
-        stopLossPercent,
-        takeProfitPercent,
-        reason: signal.reason
-      };
-
-      logger.info('Opening V7 GMX position', {
-        user: userAddress.slice(0, 10),
-        token: tokenConfig.symbol,
-        direction: signal.direction,
-        leverage: leverage + 'x',
-        confidence: signal.confidence
-      });
-
-      // Open position using V7 GMX service
-      const result = await tradingV7GMXService.openPosition(userAddress, v7Signal);
-
-      if (result.success) {
-        lastTradeTimestamp.set(cooldownKey, Date.now());
-        positionsOpened++;
-
-        logger.info(`V7 GMX ${signal.direction} opened`, {
-          user: userAddress.slice(0, 10),
-          txHash: result.txHash,
-          token: tokenConfig.symbol,
-          leverage: result.leverage + 'x',
-          collateral: result.collateral
-        });
-      } else {
-        recentFailures++;
-        lastFailureTime = Date.now();
-
-        logger.warn('Failed to open V7 GMX position', {
-          user: userAddress.slice(0, 10),
-          token: tokenConfig.symbol,
-          error: result.error
-        });
+      if (signal && signal.confidence > bestConfidence) {
+        bestSignal = { signal, tokenConfig };
+        bestConfidence = signal.confidence;
       }
     }
 
-    if (positionsOpened > 0) {
-      logger.info(`V7 GMX Trading cycle complete - ${positionsOpened} position(s)`, {
+    // Only proceed if we have a good signal
+    if (!bestSignal) {
+      logger.debug('No valid trade signal for any token', {
+        userAddress: userAddress.slice(0, 10)
+      });
+      return;
+    }
+
+    const { signal, tokenConfig } = bestSignal;
+
+    // Create V7 signal for GMX perpetuals
+    const v7Signal: V7TradeSignal = {
+      direction: signal.direction,
+      confidence: signal.confidence,
+      tokenAddress: tokenConfig.address as `0x${string}`,
+      tokenSymbol: tokenConfig.symbol,
+      collateralAmount: balancePerPosition, // Use clean position size
+      leverage,
+      stopLossPercent,
+      takeProfitPercent,
+      reason: signal.reason
+    };
+
+    logger.info('Opening V7 GMX position (SINGLE)', {
+      user: userAddress.slice(0, 10),
+      token: tokenConfig.symbol,
+      direction: signal.direction,
+      leverage: leverage + 'x',
+      confidence: signal.confidence,
+      positionSize: positionSize + ' USDC'
+    });
+
+    // Open position using V7 GMX service
+    const result = await tradingV7GMXService.openPosition(userAddress, v7Signal);
+
+    if (result.success) {
+      // Set cooldown for both token and close
+      const cooldownKey = `${userAddress}-${chainId}-${tokenConfig.address}`;
+      lastTradeTimestamp.set(cooldownKey, Date.now());
+      lastTradeTimestamp.set(closeCooldownKey, Date.now());
+
+      logger.info(`V7 GMX ${signal.direction} opened`, {
+        user: userAddress.slice(0, 10),
+        txHash: result.txHash,
+        token: tokenConfig.symbol,
+        leverage: result.leverage + 'x',
+        collateral: result.collateral
+      });
+    } else {
+      recentFailures++;
+      lastFailureTime = Date.now();
+
+      logger.warn('Failed to open V7 GMX position', {
+        user: userAddress.slice(0, 10),
+        token: tokenConfig.symbol,
+        error: result.error
+      });
+    }
+
+    if (result.success) {
+      logger.info(`V7 GMX Trading cycle complete - 1 position`, {
         userAddress: userAddress.slice(0, 10)
       });
     }
@@ -396,8 +432,7 @@ async function processUserTrades(
 }
 
 /**
- * Monitor V7 GMX positions and execute SL/TP via keepers
- * V7 uses GMX keeper system for position execution
+ * Monitor V7 GMX positions and execute SL/TP + user-requested closes
  */
 async function runPositionMonitoringCycle(): Promise<void> {
   if (isMonitoringCycleRunning) {
@@ -407,16 +442,218 @@ async function runPositionMonitoringCycle(): Promise<void> {
 
   isMonitoringCycleRunning = true;
   try {
-    // Get all users with auto-trade enabled on Arbitrum
+    let triggeredCount = 0;
+
+    // 1. CHECK USER-REQUESTED CLOSES (from database)
+    const { data: closingPositions, error: queryError } = await supabase
+      .from('positions')
+      .select('*')
+      .eq('status', 'closing')
+      .eq('chain_id', 42161);
+
+    if (queryError) {
+      logger.error('Error querying closing positions', { error: queryError.message });
+    }
+
+    logger.debug('Monitoring cycle: checked for closing positions', {
+      found: closingPositions?.length || 0
+    });
+
+    if (closingPositions && closingPositions.length > 0) {
+      logger.info(`Found ${closingPositions.length} user-requested closes`);
+
+      for (const pos of closingPositions) {
+        try {
+          const tokenAddress = pos.token_address || (pos.token_symbol === 'WBTC'
+            ? '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f'
+            : '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1');
+
+          // GET PnL BEFORE CLOSING to save profit/loss
+          const pnlData = await tradingV7GMXService.getPositionPnL(
+            pos.wallet_address as `0x${string}`,
+            tokenAddress as `0x${string}`
+          );
+
+          logger.info('Executing user-requested close', {
+            positionId: pos.id.slice(0, 8),
+            wallet: pos.wallet_address.slice(0, 10),
+            token: pos.token_symbol,
+            pnl: pnlData?.pnl,
+            pnlPercent: pnlData?.pnlPercent
+          });
+
+          const result = await tradingV7GMXService.closePosition(
+            pos.wallet_address as `0x${string}`,
+            tokenAddress as `0x${string}`,
+            pos.close_reason || 'user_requested'
+          );
+
+          if (result.success) {
+            // Calculate profit/loss
+            const profitLoss = pnlData?.pnl || 0;
+            const profitLossPercent = pnlData?.pnlPercent || 0;
+
+            // Update database WITH PROFIT/LOSS
+            await supabase
+              .from('positions')
+              .update({
+                status: 'closed',
+                closed_at: new Date().toISOString(),
+                close_tx_hash: result.txHash,
+                close_reason: pos.close_reason || 'user_requested',
+                profit_loss: profitLoss,
+                profit_loss_percent: profitLossPercent,
+                exit_price: pnlData?.currentPrice || 0
+              })
+              .eq('id', pos.id);
+
+            // SET COOLDOWN for this user
+            const cooldownKey = `${pos.wallet_address}-42161-close`;
+            lastTradeTimestamp.set(cooldownKey, Date.now());
+
+            triggeredCount++;
+            logger.info('User-requested close SUCCESS', {
+              positionId: pos.id.slice(0, 8),
+              txHash: result.txHash,
+              profitLoss,
+              profitLossPercent
+            });
+          } else {
+            // Mark as closed with LOSS (assume loss on error)
+            await supabase
+              .from('positions')
+              .update({
+                status: 'closed',
+                closed_at: new Date().toISOString(),
+                close_reason: 'user_requested',
+                profit_loss: -(pos.entry_amount || 0) * 0.01, // Assume small loss
+                profit_loss_percent: -1
+              })
+              .eq('id', pos.id);
+
+            // SET COOLDOWN
+            const cooldownKey = `${pos.wallet_address}-42161-close`;
+            lastTradeTimestamp.set(cooldownKey, Date.now());
+
+            logger.error('User-requested close ERROR', {
+              positionId: pos.id.slice(0, 8),
+              error: result.error
+            });
+          }
+        } catch (err: any) {
+          logger.error('Error closing position', { error: err.message, positionId: pos.id.slice(0, 8) });
+          // Mark as closed with small loss
+          await supabase
+            .from('positions')
+            .update({
+              status: 'closed',
+              closed_at: new Date().toISOString(),
+              close_reason: 'user_requested',
+              profit_loss: -(pos.entry_amount || 0) * 0.01,
+              profit_loss_percent: -1
+            })
+            .eq('id', pos.id);
+
+          // SET COOLDOWN
+          const cooldownKey = `${pos.wallet_address}-42161-close`;
+          lastTradeTimestamp.set(cooldownKey, Date.now());
+        }
+      }
+    }
+
+    // 2. CHECK PROFIT LOCK + CONTRACT TP/SL TRIGGERS
     const users = await tradingV7GMXService.getAutoTradeUsers();
     const tokenConfigs = TRADE_TOKENS[42161];
-
-    let triggeredCount = 0;
 
     for (const userAddress of users) {
       for (const tokenConfig of tokenConfigs) {
         try {
-          // Check GMX position status and execute triggers if needed
+          // Check if user has active position
+          const pnlResult = await tradingV7GMXService.getPositionPnL(
+            userAddress,
+            tokenConfig.address as `0x${string}`
+          );
+
+          if (pnlResult) {
+            const pnlPercent = pnlResult.pnlPercent;
+
+            // PROFIT LOCK: When PnL hits +0.6%, lock in 0.5% profit
+            if (pnlPercent >= 0.6) {
+              // Get position from database to check if profit already locked
+              const { data: dbPos } = await supabase
+                .from('positions')
+                .select('*')
+                .eq('wallet_address', userAddress.toLowerCase())
+                .eq('token_symbol', tokenConfig.symbol)
+                .eq('status', 'open')
+                .single();
+
+              if (dbPos && !dbPos.profit_locked) {
+                logger.info('🔒 PROFIT LOCK TRIGGERED', {
+                  user: userAddress.slice(0, 10),
+                  token: tokenConfig.symbol,
+                  pnlPercent: pnlPercent.toFixed(2) + '%',
+                  lockingAt: '0.5%'
+                });
+
+                // Mark profit as locked in database
+                await supabase
+                  .from('positions')
+                  .update({
+                    profit_locked: true,
+                    profit_lock_price: pnlResult.currentPrice,
+                    trailing_stop_percent: 0.5 // Now trailing from 0.5% profit
+                  })
+                  .eq('id', dbPos.id);
+              }
+
+              // If profit locked and PnL drops to 0.5%, close with profit
+              if (dbPos?.profit_locked && pnlPercent <= 0.5 && pnlPercent > 0) {
+                logger.info('🎯 PROFIT LOCK CLOSE', {
+                  user: userAddress.slice(0, 10),
+                  token: tokenConfig.symbol,
+                  pnlPercent: pnlPercent.toFixed(2) + '%'
+                });
+
+                // CAPTURE EXACT P/L BEFORE CLOSE
+                const profitLoss = pnlResult.pnl;
+                const profitLossPercent = pnlResult.pnlPercent;
+                const exitPrice = pnlResult.currentPrice;
+
+                const closeResult = await tradingV7GMXService.closePosition(
+                  userAddress,
+                  tokenConfig.address as `0x${string}`,
+                  'profit_lock'
+                );
+
+                if (closeResult.success) {
+                  await supabase
+                    .from('positions')
+                    .update({
+                      status: 'closed',
+                      closed_at: new Date().toISOString(),
+                      close_reason: 'profit_lock',
+                      close_tx_hash: closeResult.txHash,
+                      profit_loss: profitLoss,
+                      profit_loss_percent: profitLossPercent,
+                      exit_price: exitPrice
+                    })
+                    .eq('id', dbPos.id);
+
+                  logger.info('PROFIT LOCK CLOSE - P/L SAVED', { profitLoss, profitLossPercent });
+                  triggeredCount++;
+                  continue;
+                }
+              }
+            }
+          }
+
+          // Check contract SL/TP triggers - GET P/L FIRST
+          const pnlBeforeTrigger = await tradingV7GMXService.getPositionPnL(
+            userAddress,
+            tokenConfig.address as `0x${string}`
+          );
+
           const result = await tradingV7GMXService.checkAndExecuteTriggers(
             userAddress,
             tokenConfig.address as `0x${string}`
@@ -424,10 +661,62 @@ async function runPositionMonitoringCycle(): Promise<void> {
 
           if (result.triggered) {
             triggeredCount++;
+
+            // Calculate P/L from captured data or entry/exit prices
+            let profitLoss = 0;
+            let profitLossPercent = 0;
+            let exitPrice = 0;
+
+            if (pnlBeforeTrigger) {
+              // Use P/L captured before trigger
+              profitLoss = pnlBeforeTrigger.pnl;
+              profitLossPercent = pnlBeforeTrigger.pnlPercent;
+              exitPrice = pnlBeforeTrigger.currentPrice;
+            } else {
+              // Position already closed - calculate from TP/SL settings
+              const { data: dbPos } = await supabase
+                .from('positions')
+                .select('*')
+                .eq('wallet_address', userAddress.toLowerCase())
+                .eq('token_symbol', tokenConfig.symbol)
+                .eq('status', 'open')
+                .single();
+
+              if (dbPos && dbPos.entry_price && dbPos.entry_amount) {
+                // Estimate based on close reason
+                if (result.reason === 'take_profit' || result.reason === 'takeprofit') {
+                  profitLossPercent = dbPos.take_profit_percent || 1.5;
+                  profitLoss = (dbPos.entry_amount * profitLossPercent) / 100;
+                  exitPrice = dbPos.entry_price * (1 + profitLossPercent / 100);
+                } else if (result.reason === 'stop_loss' || result.reason === 'stoploss' || result.reason === 'trailing_stop') {
+                  profitLossPercent = -(dbPos.trailing_stop_percent || 1);
+                  profitLoss = (dbPos.entry_amount * profitLossPercent) / 100;
+                  exitPrice = dbPos.entry_price * (1 + profitLossPercent / 100);
+                }
+              }
+            }
+
             logger.info(`V7 GMX ${result.reason?.toUpperCase()} executed`, {
               user: userAddress.slice(0, 10),
-              token: tokenConfig.symbol
+              token: tokenConfig.symbol,
+              profitLoss,
+              profitLossPercent
             });
+
+            // Update database with ACTUAL P/L
+            await supabase
+              .from('positions')
+              .update({
+                status: 'closed',
+                closed_at: new Date().toISOString(),
+                close_reason: result.reason,
+                profit_loss: profitLoss,
+                profit_loss_percent: profitLossPercent,
+                exit_price: exitPrice
+              })
+              .eq('wallet_address', userAddress.toLowerCase())
+              .eq('token_symbol', tokenConfig.symbol)
+              .eq('status', 'open');
           }
         } catch (err) {
           // Skip individual position errors
@@ -438,8 +727,11 @@ async function runPositionMonitoringCycle(): Promise<void> {
     if (triggeredCount > 0) {
       logger.info('V7 GMX Monitor cycle complete', { triggeredCount });
     }
-  } catch (err) {
-    logger.error('Error in V7 GMX position monitoring', { error: err });
+  } catch (err: any) {
+    logger.error('Error in V7 GMX position monitoring', {
+      error: err?.message || String(err),
+      stack: err?.stack
+    });
   } finally {
     isMonitoringCycleRunning = false;
   }
@@ -740,7 +1032,7 @@ function logStartupInfo(): void {
   const arbConfig = config.chains[42161] as any;
   const v7Address = arbConfig?.vaultV7Address;
   logger.info(`Chain Arbitrum: V7 GMX Active (${v7Address?.slice(0, 10) || 'Not set'}...)`);
-  logger.info(`V7 GMX Vault: 0x712B3A0cFD00674a15c5D235e998F71709112675`);
+  logger.info(`V7 GMX Vault: 0x9879792a47725d5b18633e1395BC4a7A06c750df`);
 
   logger.info('='.repeat(50));
 }

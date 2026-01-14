@@ -283,6 +283,18 @@ export class SubscriptionService {
   }
 
   /**
+   * Get user's total trade count (for progressive position unlocking)
+   */
+  async getUserTradeCount(walletAddress: string): Promise<number> {
+    try {
+      const subscription = await this.getSubscription(walletAddress);
+      return subscription?.totalTradesUsed || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
    * Reset daily trades counter
    * Calculates next midnight in user's timezone
    */

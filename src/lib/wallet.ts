@@ -5,14 +5,20 @@ import { mainnet, arbitrum, polygon, base, bsc } from '@reown/appkit/networks';
 // Get project ID from https://cloud.reown.com
 const projectId = import.meta.env.VITE_REOWN_PROJECT_ID || 'YOUR_PROJECT_ID';
 
+// Get current origin for metadata
+const getOrigin = () => {
+  if (typeof window === 'undefined') return 'https://monadier.com';
+  return window.location.origin;
+};
+
 const metadata = {
   name: 'Monadier',
   description: 'Decentralized Trading Platform',
-  url: typeof window !== 'undefined' ? window.location.origin : 'https://monadier.com',
-  icons: ['https://monadier.com/icon.png']
+  url: getOrigin(),
+  icons: [`${getOrigin()}/favicon.svg`]
 };
 
-// All supported networks - Arbitrum first (default for V6)
+// All supported networks - Arbitrum first (default for V7)
 const networks = [arbitrum, base, mainnet, bsc, polygon];
 
 export const wagmiAdapter = new WagmiAdapter({
@@ -29,8 +35,12 @@ createAppKit({
   features: {
     analytics: true,
     email: false,
-    socials: false
+    socials: false,
+    // Enable all wallet options for mobile
+    allWallets: true
   },
+  // Mobile wallet handling
+  enableWalletConnect: true,
   themeMode: 'dark',
   themeVariables: {
     '--w3m-accent': '#ffffff',

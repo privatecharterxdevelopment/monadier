@@ -59,13 +59,13 @@ const DashboardHeader: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm py-6 border-b border-gray-800">
+    <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm py-3 md:py-6 border-b border-gray-800">
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="font-display text-2xl text-white">
+        <div className="min-w-0 flex-1 mr-3">
+          <h1 className="font-display text-lg md:text-2xl text-white truncate">
             Welcome, {displayName}
           </h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-gray-500 text-xs md:text-sm hidden sm:block">
             {new Date().toLocaleDateString('en-US', {
               weekday: 'long',
               year: 'numeric',
@@ -75,18 +75,19 @@ const DashboardHeader: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center space-x-4">
-          {/* Connect Wallet Button - Compact */}
+        <div className="flex items-center space-x-2 md:space-x-4 flex-shrink-0">
+          {/* Connect Wallet Button - Compact, more compact on mobile */}
           <button
             onClick={() => open()}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm transition-all ${
+            className={`flex items-center gap-1 md:gap-1.5 px-2 md:px-2.5 py-1.5 rounded-lg text-xs md:text-sm transition-all ${
               isConnected
                 ? 'bg-green-500/10 text-green-400 border border-green-500/30 hover:bg-green-500/20'
                 : 'bg-white/5 text-accent border border-white/20 hover:bg-white/10'
             }`}
           >
             <Wallet size={14} />
-            {isConnected && address ? formatAddress(address) : 'Connect'}
+            <span className="hidden sm:inline">{isConnected && address ? formatAddress(address) : 'Connect'}</span>
+            <span className="sm:hidden">{isConnected ? formatAddress(address).slice(0, 4) + '..' : 'Wallet'}</span>
           </button>
 
           {/* Notification Bell */}
@@ -103,9 +104,9 @@ const DashboardHeader: React.FC = () => {
               )}
             </button>
 
-            {/* Notification Dropdown */}
+            {/* Notification Dropdown - Responsive width */}
             {showNotifications && (
-              <div className="absolute right-0 mt-2 w-80 bg-card-dark border border-gray-800 rounded-xl shadow-2xl overflow-hidden z-50">
+              <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-80 bg-card-dark border border-gray-800 rounded-xl shadow-2xl overflow-hidden z-50 -mr-2 sm:mr-0">
                 <div className="p-3 border-b border-gray-800 flex items-center justify-between">
                   <h3 className="text-white font-medium">Notifications</h3>
                   <div className="flex items-center gap-2">
