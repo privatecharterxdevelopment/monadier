@@ -728,7 +728,8 @@ export class VaultClient {
       functionName: 'setAutoTrade',
       args: [enabled],
       chain: arbitrum,
-      account: userAddress
+      account: userAddress,
+      gas: 100000n // Fixed gas limit to prevent crazy estimates
     });
 
     return hash;
@@ -813,33 +814,43 @@ export class VaultClient {
       functionName: 'setTradingSettings',
       args: [autoTrade, riskBps, BigInt(maxLeverage), slBps, tpBps],
       chain: arbitrum,
-      account: userAddress
+      account: userAddress,
+      gas: 150000n // Fixed gas limit
     });
 
     return hash;
   }
 
   /**
-   * Set risk level (1-100%) - V7 compatible wrapper
-   * Calls setTradingSettings with current autoTrade state
+   * Set risk level (1-100%) - V8 direct call
+   * Uses setRiskLevel(uint256) on contract - value in basis points
    */
   async setRiskLevel(percent: number, userAddress: `0x${string}`): Promise<`0x${string}`> {
     if (percent < 1 || percent > 100) {
       throw new Error('Risk level must be between 1% and 100%');
     }
 
-    // Get current settings first
-    const status = await this.getUserStatus(userAddress);
+    const riskBps = percent * 100; // Convert percent to basis points (5% = 500 bps)
 
-    // Call setTradingSettings with updated risk level
-    return this.setTradingSettings(
-      userAddress,
-      status.autoTradeEnabled,
-      percent,
-      10, // default leverage
-      5,  // default SL
-      10  // default TP
-    );
+    const setRiskLevelAbi = [{
+      inputs: [{ name: 'riskLevelBps', type: 'uint256' }],
+      name: 'setRiskLevel',
+      outputs: [],
+      stateMutability: 'nonpayable',
+      type: 'function'
+    }] as const;
+
+    const hash = await this.walletClient.writeContract({
+      address: this.vaultAddress,
+      abi: setRiskLevelAbi,
+      functionName: 'setRiskLevel',
+      args: [BigInt(riskBps)],
+      chain: arbitrum,
+      account: userAddress,
+      gas: 100000n // Fixed gas limit to prevent $26M estimates
+    });
+
+    return hash;
   }
 
   /**
