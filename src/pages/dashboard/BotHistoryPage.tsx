@@ -152,6 +152,49 @@ const BotHistoryPage: React.FC = () => {
     updated_at: string;
   } | null>(null);
 
+  // Dynamic analysis animation states
+  const [analysisStep, setAnalysisStep] = useState(0);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const ANALYSIS_STEPS = [
+    { tf: '1m', label: 'Scanning 1m chart', progress: 20 },
+    { tf: '5m', label: 'Analyzing 5m trends', progress: 40 },
+    { tf: '15m', label: 'Checking 15m patterns', progress: 60 },
+    { tf: '1h', label: 'Evaluating 1h momentum', progress: 80 },
+    { tf: 'MTF', label: 'Combining signals', progress: 100 },
+  ];
+
+  // Cycle through analysis steps
+  useEffect(() => {
+    if (!botSettings.autoTradeEnabled) return;
+
+    const interval = setInterval(() => {
+      setAnalysisStep(prev => (prev + 1) % ANALYSIS_STEPS.length);
+    }, 2000); // Change every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [botSettings.autoTradeEnabled]);
+
+  // Animate progress bar
+  useEffect(() => {
+    const targetProgress = ANALYSIS_STEPS[analysisStep]?.progress || 0;
+    const animationDuration = 500;
+    const startProgress = analysisProgress;
+    const startTime = Date.now();
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / animationDuration, 1);
+      const currentProgress = startProgress + (targetProgress - startProgress) * progress;
+      setAnalysisProgress(currentProgress);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+
+    requestAnimationFrame(animate);
+  }, [analysisStep]);
+
   // Fetch bot settings
   useEffect(() => {
     const fetchBotSettings = async () => {
@@ -545,12 +588,14 @@ const BotHistoryPage: React.FC = () => {
         return sum;
       }
 
-      // Calculate P/L based on price change
+      // Calculate P/L based on price change (with leverage)
       const priceChange = p.direction === 'SHORT'
         ? p.entry_price - currentPrice
         : currentPrice - p.entry_price;
 
-      const profitPercent = (priceChange / p.entry_price) * 100;
+      // Apply leverage to P/L calculation
+      const leverage = botSettings.leverage || 1;
+      const profitPercent = (priceChange / p.entry_price) * leverage * 100;
       const positionPL = (p.entry_amount * profitPercent) / 100;
 
       // Guard against Infinity/NaN
@@ -590,7 +635,7 @@ const BotHistoryPage: React.FC = () => {
       openPositions: openPositions.length,
       openWins
     });
-  }, [allPositions, livePrices]);
+  }, [allPositions, livePrices, botSettings.leverage]);
 
   const getCurrentProfit = (position: Position) => {
     // Closed positions: use recorded P/L
@@ -621,7 +666,9 @@ const BotHistoryPage: React.FC = () => {
       ? position.entry_price - currentPrice  // SHORT: profit when price drops
       : currentPrice - position.entry_price; // LONG: profit when price rises
 
-    const profitPercent = (priceChange / position.entry_price) * 100;
+    // Apply leverage to P/L calculation
+    const leverage = botSettings.leverage || 1;
+    const profitPercent = (priceChange / position.entry_price) * leverage * 100;
     const profitUSD = (position.entry_amount * profitPercent) / 100;
 
     // Guard against Infinity/NaN
@@ -651,11 +698,13 @@ const BotHistoryPage: React.FC = () => {
       return 0;
     }
 
+    // Apply leverage to P/L percent calculation
+    const leverage = botSettings.leverage || 1;
     let percent: number;
     if (position.direction === 'SHORT') {
-      percent = ((position.entry_price - currentPrice) / position.entry_price) * 100;
+      percent = ((position.entry_price - currentPrice) / position.entry_price) * leverage * 100;
     } else {
-      percent = ((currentPrice - position.entry_price) / position.entry_price) * 100;
+      percent = ((currentPrice - position.entry_price) / position.entry_price) * leverage * 100;
     }
 
     // Guard against Infinity/NaN
@@ -1063,38 +1112,60 @@ const BotHistoryPage: React.FC = () => {
           ) : positions.length === 0 ? (
             <div className="py-6">
               {activeTab === 'open' && botSettings.autoTradeEnabled ? (
-                // Show bot status inline when auto-trade is enabled - no card
-                <div className="flex items-center justify-center gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-accent animate-pulse" />
-                    <span className="text-gray-400">Analyzing market...</span>
+                // Show bot status with dynamic analysis animation
+                <div className="flex flex-col items-center gap-3">
+                  {/* Progress bar and current step */}
+                  <div className="flex items-center gap-4 text-sm w-full max-w-xl">
+                    <div className="flex items-center gap-2 min-w-[180px]">
+                      <Activity className="w-4 h-4 text-accent animate-pulse" />
+                      <motion.span
+                        key={analysisStep}
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-gray-300"
+                      >
+                        {ANALYSIS_STEPS[analysisStep]?.label}
+                      </motion.span>
+                    </div>
+                    {/* Progress bar */}
+                    <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                      <motion.div
+                        className="h-full bg-gradient-to-r from-accent to-green-400 rounded-full"
+                        style={{ width: `${analysisProgress}%` }}
+                        transition={{ duration: 0.3 }}
+                      />
+                    </div>
+                    <span className="text-gray-500 text-xs min-w-[40px]">{Math.round(analysisProgress)}%</span>
                   </div>
-                  {botAnalysis ? (
-                    <>
-                      <span className="text-gray-600">•</span>
-                      <span className={botAnalysis.signal === 'LONG' ? 'text-green-400' : botAnalysis.signal === 'SHORT' ? 'text-red-400' : 'text-gray-400'}>
-                        {botAnalysis.signal}
-                      </span>
-                      <span className="text-gray-600">•</span>
-                      <span className={`${botAnalysis.confidence >= 60 ? 'text-green-400' : botAnalysis.confidence >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
-                        {botAnalysis.confidence}% conf.
-                      </span>
-                      <span className="text-gray-600">•</span>
-                      <span className="text-gray-400">RSI {botAnalysis.rsi}</span>
-                      {botAnalysis.pattern && (
-                        <>
-                          <span className="text-gray-600">•</span>
-                          <span className="text-accent">{botAnalysis.pattern}</span>
-                        </>
-                      )}
-                      <span className="text-gray-600">•</span>
-                      <span className="text-gray-500 text-xs">
-                        {botAnalysis.recommendation?.split(' - ')[0] || 'Waiting...'}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-gray-500">Checking every 10s</span>
-                  )}
+
+                  {/* Analysis results */}
+                  <div className="flex items-center justify-center gap-4 text-sm">
+                    {botAnalysis ? (
+                      <>
+                        <span className={`font-medium ${botAnalysis.signal === 'LONG' ? 'text-green-400' : botAnalysis.signal === 'SHORT' ? 'text-red-400' : 'text-gray-400'}`}>
+                          {botAnalysis.signal}
+                        </span>
+                        <span className="text-gray-600">•</span>
+                        <span className={`${botAnalysis.confidence >= 60 ? 'text-green-400' : botAnalysis.confidence >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
+                          {botAnalysis.confidence}% conf.
+                        </span>
+                        <span className="text-gray-600">•</span>
+                        <span className="text-gray-400">RSI {botAnalysis.rsi}</span>
+                        {botAnalysis.pattern && (
+                          <>
+                            <span className="text-gray-600">•</span>
+                            <span className="text-accent">{botAnalysis.pattern}</span>
+                          </>
+                        )}
+                        <span className="text-gray-600">•</span>
+                        <span className="text-gray-500 text-xs">
+                          {botAnalysis.recommendation?.split(' - ')[0] || 'Waiting...'}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-gray-500">Initializing analysis...</span>
+                    )}
+                  </div>
                 </div>
               ) : activeTab === 'open' && !botSettings.autoTradeEnabled ? (
                 // Bot is not enabled
