@@ -981,8 +981,9 @@ const BotHistoryPage: React.FC = () => {
         )}
       </div>
 
-      {/* Legacy Vault Warning - shows if user has balance in old contract */}
+      {/* Legacy Vault Warning - Disabled after recovery complete
       <LegacyVaultWithdraw />
+      */}
 
       {/* Positions Table (from Supabase) */}
       <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">

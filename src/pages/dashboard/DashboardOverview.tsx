@@ -413,8 +413,9 @@ const DashboardOverview: React.FC = () => {
         </motion.div>
       </div>
 
-      {/* Legacy Vault Withdrawals - Show if user has stuck funds */}
+      {/* Legacy Vault Withdrawals - Disabled after recovery complete
       <LegacyVaultWithdraw />
+      */}
 
       {/* Bot Wallet (Vault) - For Paid Users */}
       <motion.div variants={itemAnimation} className="mb-6">
