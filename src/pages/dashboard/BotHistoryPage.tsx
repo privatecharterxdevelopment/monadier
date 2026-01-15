@@ -360,18 +360,15 @@ const BotHistoryPage: React.FC = () => {
           wallets?.forEach(w => foundWallets.add(w.wallet_address.toLowerCase()));
         }
 
-        // 2. Also check subscriptions for linked wallets
-        const { data: subs } = await supabase
+        // 2. Also check subscriptions - only for THIS user's wallet
+        const { data: mySub } = await supabase
           .from('subscriptions')
           .select('wallet_address')
-          .not('wallet_address', 'is', null);
+          .eq('wallet_address', address.toLowerCase())
+          .single();
 
-        // Find if current address has a subscription, then get all wallets with same user_id
-        const mySub = subs?.find(s => s.wallet_address?.toLowerCase() === address.toLowerCase());
-        if (mySub) {
-          subs?.forEach(s => {
-            if (s.wallet_address) foundWallets.add(s.wallet_address.toLowerCase());
-          });
+        if (mySub?.wallet_address) {
+          foundWallets.add(mySub.wallet_address.toLowerCase());
         }
 
         // 3. Check vault_settings for this wallet on any chain

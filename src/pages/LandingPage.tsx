@@ -142,13 +142,29 @@ const LandingPage: React.FC = () => {
               </motion.h1>
 
               <motion.p
-                className="text-lg md:text-xl text-gray-400 mb-12 max-w-2xl mx-auto leading-relaxed"
+                className="text-lg md:text-xl text-gray-400 mb-6 max-w-2xl mx-auto leading-relaxed"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.2 }}
               >
                 Trade on the best DEXes across multiple chains. Non-custodial, secure, and fully automated. Your keys, your crypto.
               </motion.p>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+                className="flex items-center justify-center gap-4 mb-12"
+              >
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-full">
+                  <Zap size={14} className="text-yellow-400" />
+                  <span className="text-yellow-400 text-sm font-medium">Up to 50x Leverage</span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full">
+                  <TrendingUp size={14} className="text-green-400" />
+                  <span className="text-green-400 text-sm font-medium">AI-Powered Signals</span>
+                </div>
+              </motion.div>
 
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
