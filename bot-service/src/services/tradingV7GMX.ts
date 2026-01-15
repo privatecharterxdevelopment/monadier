@@ -66,22 +66,28 @@ const VAULT_V7_ABI = [
   {
     inputs: [
       { name: 'user', type: 'address' },
-      { name: 'indexToken', type: 'address' }
+      { name: 'token', type: 'address' }
     ],
     name: 'getPosition',
     outputs: [{
       components: [
         { name: 'isActive', type: 'bool' },
         { name: 'isLong', type: 'bool' },
-        { name: 'indexToken', type: 'address' },
+        { name: 'token', type: 'address' },
         { name: 'collateral', type: 'uint256' },
-        { name: 'sizeDelta', type: 'uint256' },
+        { name: 'size', type: 'uint256' },
         { name: 'leverage', type: 'uint256' },
         { name: 'entryPrice', type: 'uint256' },
-        { name: 'stopLossPrice', type: 'uint256' },
-        { name: 'takeProfitPrice', type: 'uint256' },
-        { name: 'openedAt', type: 'uint256' },
-        { name: 'positionKey', type: 'bytes32' }
+        { name: 'stopLoss', type: 'uint256' },        // V8: stopLoss (not stopLossPrice)
+        { name: 'takeProfit', type: 'uint256' },      // V8: takeProfit (not takeProfitPrice)
+        { name: 'timestamp', type: 'uint256' },
+        { name: 'requestKey', type: 'bytes32' },
+        // V8.2 Trailing Stop fields
+        { name: 'highestPrice', type: 'uint256' },
+        { name: 'lowestPrice', type: 'uint256' },
+        { name: 'trailingSlBps', type: 'uint256' },
+        { name: 'trailingActivated', type: 'bool' },
+        { name: 'autoFeaturesEnabled', type: 'bool' }
       ],
       type: 'tuple'
     }],
@@ -179,9 +185,20 @@ const VAULT_V7_ABI = [
   },
   {
     inputs: [],
-    name: 'accumulatedFees',
+    name: 'fees',  // V9: renamed from accumulatedFees
     outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'view',
+    type: 'function'
+  },
+  // V8.2: Update trailing stop level
+  {
+    inputs: [
+      { name: 'user', type: 'address' },
+      { name: 'token', type: 'address' }
+    ],
+    name: 'updateTrailingStop',
+    outputs: [],
+    stateMutability: 'nonpayable',
     type: 'function'
   }
 ] as const;
@@ -711,16 +728,135 @@ export class TradingV7GMXService {
 
   /**
    * Check and execute SL/TP triggers
-   * NOTE: V8 contract doesn't have checkPositionTrigger - SL/TP handled by GMX directly
+   * Monitors current price against stored SL/TP levels and closes position if triggered
    */
   async checkAndExecuteTriggers(
     userAddress: `0x${string}`,
     tokenAddress: `0x${string}`
   ): Promise<{ triggered: boolean; reason?: string }> {
-    // V8: SL/TP is handled by GMX's native order system, not by our contract
-    // The contract sets SL/TP orders when opening positions via GMX
-    // We just need to monitor position status, not check triggers manually
-    return { triggered: false };
+    try {
+      // Get position with SL/TP prices
+      const position = await this.publicClient.readContract({
+        address: this.vaultAddress,
+        abi: VAULT_V7_ABI,
+        functionName: 'getPosition',
+        args: [userAddress, tokenAddress]
+      }) as any;
+
+      if (!position || !position.isActive) {
+        return { triggered: false };
+      }
+
+      // V8.2: Update trailing stop level first (if trailing is enabled)
+      if (position.trailingSlBps > 0n) {
+        try {
+          await this.walletClient.writeContract({
+            address: this.vaultAddress,
+            abi: VAULT_V7_ABI,
+            functionName: 'updateTrailingStop',
+            args: [userAddress, tokenAddress],
+            chain: arbitrum,
+            account: this.botAccount
+          });
+
+          // Re-read position to get updated stopLoss
+          const updatedPosition = await this.publicClient.readContract({
+            address: this.vaultAddress,
+            abi: VAULT_V7_ABI,
+            functionName: 'getPosition',
+            args: [userAddress, tokenAddress]
+          }) as any;
+
+          // Use updated position data
+          Object.assign(position, updatedPosition);
+        } catch (trailingErr) {
+          // Non-critical, continue with existing stopLoss
+          logger.debug('Trailing stop update skipped', { user: userAddress.slice(0, 10) });
+        }
+      }
+
+      // Get current price from GMX
+      const [maxPrice, minPrice] = await this.publicClient.readContract({
+        address: this.vaultAddress,
+        abi: VAULT_V7_ABI,
+        functionName: 'getPrice',
+        args: [tokenAddress]
+      }) as [bigint, bigint];
+
+      // Use exit price based on position direction (LONG sells at min, SHORT buys at max)
+      const currentPrice = position.isLong ? minPrice : maxPrice;
+      const stopLoss = position.stopLoss as bigint;      // V8 field name
+      const takeProfit = position.takeProfit as bigint;  // V8 field name
+
+      // Skip if SL/TP not set (0 means not configured)
+      if (stopLoss === 0n && takeProfit === 0n) {
+        return { triggered: false };
+      }
+
+      let triggered = false;
+      let reason = '';
+
+      if (position.isLong) {
+        // LONG: SL when price drops below SL level, TP when price rises above TP level
+        if (stopLoss > 0n && currentPrice <= stopLoss) {
+          triggered = true;
+          reason = 'stop_loss';
+          logger.info('🛑 STOP LOSS triggered (LONG)', {
+            user: userAddress.slice(0, 10),
+            currentPrice: Number(currentPrice) / 1e30,
+            stopLoss: Number(stopLoss) / 1e30
+          });
+        } else if (takeProfit > 0n && currentPrice >= takeProfit) {
+          triggered = true;
+          reason = 'take_profit';
+          logger.info('🎯 TAKE PROFIT triggered (LONG)', {
+            user: userAddress.slice(0, 10),
+            currentPrice: Number(currentPrice) / 1e30,
+            takeProfit: Number(takeProfit) / 1e30
+          });
+        }
+      } else {
+        // SHORT: SL when price rises above SL level, TP when price drops below TP level
+        if (stopLoss > 0n && currentPrice >= stopLoss) {
+          triggered = true;
+          reason = 'stop_loss';
+          logger.info('🛑 STOP LOSS triggered (SHORT)', {
+            user: userAddress.slice(0, 10),
+            currentPrice: Number(currentPrice) / 1e30,
+            stopLoss: Number(stopLoss) / 1e30
+          });
+        } else if (takeProfit > 0n && currentPrice <= takeProfit) {
+          triggered = true;
+          reason = 'take_profit';
+          logger.info('🎯 TAKE PROFIT triggered (SHORT)', {
+            user: userAddress.slice(0, 10),
+            currentPrice: Number(currentPrice) / 1e30,
+            takeProfit: Number(takeProfit) / 1e30
+          });
+        }
+      }
+
+      // If triggered, close the position
+      if (triggered) {
+        const closeResult = await this.closePosition(userAddress, tokenAddress, reason);
+        if (closeResult.success) {
+          return { triggered: true, reason };
+        } else {
+          logger.error('Failed to close position after trigger', {
+            user: userAddress.slice(0, 10),
+            reason,
+            error: closeResult.error
+          });
+          return { triggered: false };
+        }
+      }
+
+      return { triggered: false };
+    } catch (err: any) {
+      // Log but don't fail - position might not exist
+      logger.debug('Error checking triggers', { user: userAddress.slice(0, 10), error: err.message });
+      return { triggered: false };
+    }
   }
 
   /**
@@ -788,7 +924,7 @@ export class TradingV7GMXService {
       const fees = await this.publicClient.readContract({
         address: this.vaultAddress,
         abi: VAULT_V7_ABI,
-        functionName: 'accumulatedFees'
+        functionName: 'fees'  // V9: renamed from accumulatedFees
       });
 
       if (fees === 0n) {

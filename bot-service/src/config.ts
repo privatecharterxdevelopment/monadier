@@ -27,13 +27,13 @@ export const config = {
   treasuryAddress: process.env.TREASURY_ADDRESS as `0x${string}`,
 
   // ============================================
-  // ARBITRUM ONLY - V8 GMX VAULT
+  // ARBITRUM ONLY - V9 GMX VAULT (BULLETPROOF)
   // ============================================
   arbitrum: {
     chainId: 42161,
     rpcUrl: process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc',
-    // V8 VAULT - can override via env var if Railway cache is stuck
-    vaultAddress: (process.env.ARBITRUM_VAULT_ADDRESS || '0x9020bD5Ff2eD31a05dd5B48E92624A5a0E952bf6') as `0x${string}`,
+    // V9 VAULT - userInstantClose, emergencyWithdraw, reconcile
+    vaultAddress: (process.env.ARBITRUM_VAULT_ADDRESS || '0x6c8ec04889c63ed696f13Bc3B9B74d69354A4fFB') as `0x${string}`,
     usdcAddress: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' as `0x${string}`,
   },
 

@@ -583,7 +583,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
           </div>
         )}
 
-        {/* V7 Legacy Vault Banner */}
+        {/* V7 Legacy Vault Banner - Hidden: funds lost in trades, not recoverable
         {hasV7Funds && !isPreviewMode && (
           <div className="mb-3 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
             <div className="flex items-center justify-between mb-2">
@@ -618,6 +618,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
             </button>
           </div>
         )}
+        */}
 
         {/* V8 Legacy Vault Banner (old V8 before GMX_ROUTER fix) */}
         {hasV8LegacyFunds && !isPreviewMode && (
