@@ -604,7 +604,7 @@ export class VaultClient {
   async deposit(amount: string, userAddress: `0x${string}`): Promise<`0x${string}`> {
     const amountWei = parseUnits(amount, USDC_DECIMALS);
 
-    // First check/set approval
+    // First check/set approval - use max approval for better UX
     const allowance = await this.publicClient.readContract({
       address: this.usdcAddress,
       abi: ERC20_APPROVE_ABI,
@@ -613,28 +613,30 @@ export class VaultClient {
     });
 
     if (allowance < amountWei) {
-      // Approve exact amount
+      // Approve max amount (standard practice for better UX - one-time approval)
+      const maxApproval = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
       const approveTx = await this.walletClient.writeContract({
         address: this.usdcAddress,
         abi: ERC20_APPROVE_ABI,
         functionName: 'approve',
-        args: [this.vaultAddress, amountWei],
+        args: [this.vaultAddress, maxApproval],
         chain: arbitrum,
         account: userAddress
       });
 
-      // Wait for approval
-      await this.publicClient.waitForTransactionReceipt({ hash: approveTx });
+      // Wait for approval to be confirmed
+      await this.publicClient.waitForTransactionReceipt({ hash: approveTx, confirmations: 1 });
     }
 
-    // Deposit to vault
+    // Deposit to vault using V8 ABI (compatible with V9)
     const hash = await this.walletClient.writeContract({
       address: this.vaultAddress,
-      abi: VAULT_ABI,
+      abi: VAULT_V8_ABI,
       functionName: 'deposit',
       args: [amountWei],
       chain: arbitrum,
-      account: userAddress
+      account: userAddress,
+      gas: 150000n // Explicit gas limit to prevent estimation issues
     });
 
     return hash;

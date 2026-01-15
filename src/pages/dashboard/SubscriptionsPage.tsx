@@ -470,21 +470,22 @@ const SubscriptionsPage: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               whileHover={{ y: -4 }}
-              className={`relative bg-[#141414] rounded-2xl border ${
+              className={`relative bg-[#141414] rounded-2xl border-2 ${
                 activeSubscription?.tier === plan.id
-                  ? 'border-white/20'
+                  ? 'border-green-500 shadow-lg shadow-green-500/20'
                   : 'border-gray-800/50'
               } p-8 transition-all`}
             >
-              {plan.popular && (
+              {plan.popular && !activeSubscription?.tier && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-white text-black text-xs font-medium rounded-full tracking-wide">
                   RECOMMENDED
                 </div>
               )}
 
               {activeSubscription?.tier === plan.id && (
-                <div className="absolute -top-3 right-4 px-3 py-1 bg-white/10 text-white text-xs font-medium rounded-full border border-white/20">
-                  Active
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1.5 text-xs font-bold rounded-full flex items-center gap-1.5 bg-green-500 text-white">
+                  <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                  ACTIVE
                 </div>
               )}
 

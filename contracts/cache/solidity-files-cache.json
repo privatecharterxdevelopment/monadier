@@ -575,8 +575,8 @@
       ]
     },
     "/Users/macbookair/monadier/contracts/contracts/MonadierTradingVaultV8.sol": {
-      "lastModificationDate": 1768389006392,
-      "contentHash": "a61967bf76aca6f8c97bf4e6a047bd82",
+      "lastModificationDate": 1768412644000,
+      "contentHash": "bfce56f05298adcf7c0bfc43dfade9f3",
       "sourceName": "contracts/MonadierTradingVaultV8.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -618,6 +618,52 @@
         "IGMXRouter",
         "IGMXVault",
         "MonadierTradingVaultV8"
+      ]
+    },
+    "/Users/macbookair/monadier/contracts/contracts/MonadierTradingVaultV9.sol": {
+      "lastModificationDate": 1768491305389,
+      "contentHash": "865ce1eab3e13fe4f447f24868a3a9d5",
+      "sourceName": "contracts/MonadierTradingVaultV9.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+        "@openzeppelin/contracts/security/ReentrancyGuard.sol",
+        "@openzeppelin/contracts/security/Pausable.sol",
+        "@openzeppelin/contracts/access/Ownable.sol"
+      ],
+      "versionPragmas": [
+        "0.8.24"
+      ],
+      "artifacts": [
+        "IGMXPositionRouter",
+        "IGMXRouter",
+        "IGMXVault",
+        "MonadierTradingVaultV9"
       ]
     }
   }

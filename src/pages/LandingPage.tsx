@@ -519,6 +519,47 @@ const LandingPage: React.FC = () => {
                 />
               </div>
             </motion.div>
+
+            {/* Card 5 - Quantitative Technology */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="p-8 md:p-12 rounded-3xl bg-white/[0.02] border border-white/5"
+            >
+              <div className="max-w-3xl mx-auto text-center">
+                <span className="text-xs text-gray-500 uppercase tracking-wider mb-4 block">Technology</span>
+                <h3 className="text-2xl md:text-3xl font-display font-medium text-white mb-4">
+                  Institutional-grade quantitative algorithms
+                </h3>
+                <p className="text-gray-400 leading-relaxed mb-8">
+                  Our AI-powered trading engine uses Renaissance-style quantitative strategies with confidence scores ranging from 55% to 75%. Combined with dynamic trailing stops that activate at 0.6% profit, our technology maximizes gains while protecting your capital.
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                  <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                    <p className="text-xl font-display font-medium text-white">55-75%</p>
+                    <p className="text-gray-500 text-xs">Signal Confidence</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                    <p className="text-xl font-display font-medium text-white">0.6%</p>
+                    <p className="text-gray-500 text-xs">Trailing Activation</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                    <p className="text-xl font-display font-medium text-white">50x</p>
+                    <p className="text-gray-500 text-xs">Max Leverage</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                    <p className="text-xl font-display font-medium text-white">24/7</p>
+                    <p className="text-gray-500 text-xs">AI Monitoring</p>
+                  </div>
+                </div>
+                <Link to="/technology" className="text-gray-400 hover:text-white text-sm transition-colors inline-flex items-center gap-2">
+                  Learn more about our technology
+                  <ChevronRight size={14} />
+                </Link>
+              </div>
+            </motion.div>
           </div>
         </section>
 
@@ -752,6 +793,7 @@ const LandingPage: React.FC = () => {
               <Logo size="sm" />
               <div className="flex items-center gap-8">
                 <Link to="/about" className="text-gray-500 hover:text-white text-sm transition-colors">About</Link>
+                <Link to="/technology" className="text-gray-500 hover:text-white text-sm transition-colors">Technology</Link>
                 <Link to="/terms" className="text-gray-500 hover:text-white text-sm transition-colors">Terms</Link>
                 <Link to="/privacy" className="text-gray-500 hover:text-white text-sm transition-colors">Privacy</Link>
               </div>

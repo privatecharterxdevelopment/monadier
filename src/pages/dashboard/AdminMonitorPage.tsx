@@ -28,9 +28,10 @@ import { VAULT_ADDRESS, VAULT_V8_ABI } from '../../lib/vault';
 // Admin email - only this user can access
 const ADMIN_EMAIL = 'ipsunlorem@gmail.com';
 
-// V8 Vault - Arbitrum Only
+// V9 Vault - Arbitrum Only
 const V8_VAULT = VAULT_ADDRESS;
 const USDC_ARBITRUM = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
+const TREASURY_ADDRESS = '0xF7351a5C63e0403F6F7FC77d31B5e17A229C469c';
 
 // Create Arbitrum public client for on-chain reads
 const arbitrumClient = createPublicClient({
@@ -39,9 +40,11 @@ const arbitrumClient = createPublicClient({
 });
 
 interface SystemStats {
-  // V8 Vault Stats
+  // V9 Vault Stats
   vaultTVL: string;
-  accumulatedFees: string;
+  accumulatedFees: string;      // Fees still in contract
+  treasuryBalance: string;       // Fees already withdrawn to treasury
+  totalFeesEarned: string;       // Total = accumulatedFees + treasuryBalance
   totalDeposited: string;
   // User Stats
   totalUsers: number;
@@ -129,6 +132,8 @@ const AdminMonitorPage: React.FC = () => {
   const [stats, setStats] = useState<SystemStats>({
     vaultTVL: '0',
     accumulatedFees: '0',
+    treasuryBalance: '0',
+    totalFeesEarned: '0',
     totalDeposited: '0',
     totalUsers: 0,
     usersWithWallet: 0,
@@ -144,44 +149,101 @@ const AdminMonitorPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
-  // Fetch V8 Vault Stats directly from chain
+  // Fetch V9 Vault Stats directly from chain
   const fetchVaultStats = async () => {
+    let contractFees = 0n;
+    let tvl = 0n;
+    let deposited = 0n;
+    let treasuryBalance = 0n;
+
+    // 1. Fetch treasury USDC balance (fees already withdrawn)
     try {
-      // V8 uses getHealthStatus() which returns (realBalance, totalValueLocked, accumulatedFees, isSolvent, surplus)
+      const response = await fetch(
+        `https://api.arbiscan.io/api?module=account&action=tokenbalance&contractaddress=${USDC_ARBITRUM}&address=${TREASURY_ADDRESS}&tag=latest`
+      );
+      const data = await response.json();
+      if (data.status === '1' && data.result) {
+        treasuryBalance = BigInt(data.result);
+        console.log('[Admin] Treasury USDC balance:', formatUnits(treasuryBalance, 6));
+      }
+    } catch (e) {
+      console.error('[Admin] Failed to fetch treasury balance:', e);
+    }
+
+    // 2. Fetch vault stats
+    try {
+      console.log('[Admin] Fetching vault stats from:', V8_VAULT);
+
       const healthStatus = await arbitrumClient.readContract({
         address: V8_VAULT,
         abi: VAULT_V8_ABI,
         functionName: 'getHealthStatus'
       }) as [bigint, bigint, bigint, boolean, bigint];
 
-      return {
-        tvl: formatUnits(healthStatus[1] || 0n, 6),        // totalValueLocked
-        fees: formatUnits(healthStatus[2] || 0n, 6),       // accumulatedFees
-        deposited: formatUnits(healthStatus[0] || 0n, 6)   // realBalance (actual USDC in contract)
-      };
+      deposited = healthStatus[0] || 0n;
+      tvl = healthStatus[1] || 0n;
+      contractFees = healthStatus[2] || 0n;
+
+      console.log('[Admin] Vault health status:', {
+        realBalance: deposited.toString(),
+        tvl: tvl.toString(),
+        fees: contractFees.toString(),
+        isSolvent: healthStatus[3],
+        surplus: healthStatus[4].toString()
+      });
     } catch (err) {
-      console.error('Error fetching vault stats:', err);
-      // Try alternative: just get TVL via token balance
+      console.error('[Admin] Error fetching vault stats via getHealthStatus:', err);
+
+      // Try direct reads as fallback
       try {
-        const response = await fetch(
-          `https://api.arbiscan.io/api?module=account&action=tokenbalance&contractaddress=${USDC_ARBITRUM}&address=${V8_VAULT}&tag=latest`
-        );
-        const data = await response.json();
-        if (data.status === '1' && data.result) {
-          return {
-            tvl: formatUnits(BigInt(data.result), 6),
-            fees: '0',
-            deposited: '0'
-          };
+        console.log('[Admin] Trying direct contract reads...');
+        const [tvlResult, feesResult] = await Promise.all([
+          arbitrumClient.readContract({
+            address: V8_VAULT,
+            abi: [{ inputs: [], name: 'tvl', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' }],
+            functionName: 'tvl'
+          }),
+          arbitrumClient.readContract({
+            address: V8_VAULT,
+            abi: [{ inputs: [], name: 'fees', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' }],
+            functionName: 'fees'
+          })
+        ]);
+
+        tvl = (tvlResult as bigint) || 0n;
+        contractFees = (feesResult as bigint) || 0n;
+        console.log('[Admin] Direct reads - TVL:', tvl.toString(), 'Fees:', contractFees.toString());
+      } catch (directErr) {
+        console.error('[Admin] Direct reads failed:', directErr);
+
+        // Final fallback: Arbiscan API for vault USDC balance
+        try {
+          const response = await fetch(
+            `https://api.arbiscan.io/api?module=account&action=tokenbalance&contractaddress=${USDC_ARBITRUM}&address=${V8_VAULT}&tag=latest`
+          );
+          const data = await response.json();
+          if (data.status === '1' && data.result) {
+            tvl = BigInt(data.result);
+          }
+        } catch (e) {
+          console.error('[Admin] Arbiscan vault balance fallback failed:', e);
         }
-      } catch (e) {
-        console.error('Fallback TVL fetch failed:', e);
       }
-      return { tvl: '0', fees: '0', deposited: '0' };
     }
+
+    // Calculate total fees earned = in contract + already withdrawn to treasury
+    const totalFeesEarned = contractFees + treasuryBalance;
+
+    return {
+      tvl: formatUnits(tvl, 6),
+      fees: formatUnits(contractFees, 6),
+      treasuryBalance: formatUnits(treasuryBalance, 6),
+      totalFeesEarned: formatUnits(totalFeesEarned, 6),
+      deposited: formatUnits(deposited, 6)
+    };
   };
 
-  // Fetch V8 Vault transactions from Arbiscan
+  // Fetch V9 Vault transactions from Arbiscan
   const fetchVaultTransactions = async () => {
     const transactions: VaultTransaction[] = [];
 
@@ -263,6 +325,8 @@ const AdminMonitorPage: React.FC = () => {
       setStats({
         vaultTVL: vaultStats.tvl,
         accumulatedFees: vaultStats.fees,
+        treasuryBalance: vaultStats.treasuryBalance,
+        totalFeesEarned: vaultStats.totalFeesEarned,
         totalDeposited: vaultStats.deposited,
         totalUsers: profiles.length,
         usersWithWallet,
@@ -367,7 +431,7 @@ const AdminMonitorPage: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Admin Dashboard - V8 GMX</h1>
+          <h1 className="text-2xl font-bold text-white">Admin Dashboard - V9 GMX</h1>
           <p className="text-secondary mt-1">
             Last updated: {lastRefresh.toLocaleTimeString()} • {currentUserEmail}
           </p>
@@ -411,14 +475,14 @@ const AdminMonitorPage: React.FC = () => {
         <div className="space-y-6">
           {/* Main Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* V8 Vault TVL */}
+            {/* V9 Vault TVL */}
             <div className="bg-card-dark rounded-xl border border-blue-500/30 p-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
                   <Wallet className="text-blue-400" size={20} />
                 </div>
                 <div>
-                  <p className="text-sm text-secondary">V8 Vault TVL</p>
+                  <p className="text-sm text-secondary">V9 Vault TVL</p>
                   <p className="text-xl font-bold text-white">
                     ${parseFloat(stats.vaultTVL).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </p>
@@ -426,16 +490,19 @@ const AdminMonitorPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Accumulated Fees (10% Profit) */}
+            {/* Total Fees Earned (All Time) */}
             <div className="bg-card-dark rounded-xl border border-green-500/30 p-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
                   <Coins className="text-green-400" size={20} />
                 </div>
                 <div>
-                  <p className="text-sm text-secondary">Your 10% Fees</p>
+                  <p className="text-sm text-secondary">Total Fees Earned</p>
                   <p className="text-xl font-bold text-green-400">
-                    ${parseFloat(stats.accumulatedFees).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    ${parseFloat(stats.totalFeesEarned).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-xs text-secondary">
+                    In contract: ${parseFloat(stats.accumulatedFees).toFixed(2)} | Treasury: ${parseFloat(stats.treasuryBalance).toFixed(2)}
                   </p>
                 </div>
               </div>
@@ -522,7 +589,7 @@ const AdminMonitorPage: React.FC = () => {
           <div className="bg-card-dark rounded-xl border border-blue-500/30 p-4">
             <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
               <Shield size={20} className="text-blue-400" />
-              V8 GMX Vault (Arbitrum)
+              V9 GMX Vault (Arbitrum)
             </h3>
             <div className="flex items-center justify-between">
               <code className="text-blue-400">{V8_VAULT}</code>
@@ -721,9 +788,9 @@ const AdminMonitorPage: React.FC = () => {
           <div className="p-4 border-b border-gray-800">
             <h3 className="text-lg font-semibold text-white flex items-center gap-2">
               <DollarSign size={20} className="text-green-400" />
-              V8 Vault Transactions ({vaultTransactions.length})
+              V9 Vault Transactions ({vaultTransactions.length})
             </h3>
-            <p className="text-sm text-secondary mt-1">All deposits and withdrawals to V8 GMX Vault</p>
+            <p className="text-sm text-secondary mt-1">All deposits and withdrawals to V9 GMX Vault</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -795,29 +862,47 @@ const AdminMonitorPage: React.FC = () => {
           <div className="bg-card-dark rounded-xl border border-green-500/30 p-6">
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <Coins size={20} className="text-green-400" />
-              Platform Fees (10% of Profit)
+              Platform Fees (All Time)
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
-                <p className="text-sm text-secondary mb-1">Accumulated Fees</p>
+                <p className="text-sm text-secondary mb-1">Total Fees Earned</p>
                 <p className="text-4xl font-bold text-green-400">
-                  ${parseFloat(stats.accumulatedFees).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  ${parseFloat(stats.totalFeesEarned).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </p>
                 <p className="text-sm text-secondary mt-2">
-                  These fees are collected from 10% of user profits on V8 vault
+                  0.1% base fee + 10% of user profits
                 </p>
               </div>
               <div>
-                <p className="text-sm text-secondary mb-1">Fee Structure</p>
-                <div className="space-y-2">
-                  <div className="flex justify-between p-2 bg-white/5 rounded">
-                    <span className="text-secondary">Base Fee</span>
-                    <span className="text-white">0.1% on position</span>
-                  </div>
-                  <div className="flex justify-between p-2 bg-white/5 rounded">
-                    <span className="text-secondary">Success Fee</span>
-                    <span className="text-green-400">10% of profit</span>
-                  </div>
+                <p className="text-sm text-secondary mb-1">In Contract (Pending)</p>
+                <p className="text-2xl font-bold text-yellow-400">
+                  ${parseFloat(stats.accumulatedFees).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-sm text-secondary mt-2">
+                  Ready to withdraw via withdrawFees()
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-secondary mb-1">Treasury Wallet</p>
+                <p className="text-2xl font-bold text-blue-400">
+                  ${parseFloat(stats.treasuryBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-xs text-secondary mt-2 break-all">
+                  {TREASURY_ADDRESS}
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 pt-4 border-t border-gray-700">
+              <p className="text-sm text-secondary mb-2">Fee Structure</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex justify-between p-2 bg-white/5 rounded">
+                  <span className="text-secondary">Base Fee</span>
+                  <span className="text-white">0.1% on position</span>
+                </div>
+                <div className="flex justify-between p-2 bg-white/5 rounded">
+                  <span className="text-secondary">Success Fee</span>
+                  <span className="text-green-400">10% of profit</span>
                 </div>
               </div>
             </div>

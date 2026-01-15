@@ -830,6 +830,36 @@ contract MonadierTradingVaultV8 is ReentrancyGuard, Pausable, Ownable {
         isElite[user] = status;
     }
 
+    /**
+     * @notice Emergency credit user balance (for recovery from callback bug)
+     * @dev V8.3 NEW: Admin can credit users whose funds got stuck due to missing callbacks
+     * @param user The user to credit
+     * @param amount Amount in USDC (6 decimals)
+     */
+    function adminCreditBalance(address user, uint256 amount) external onlyOwner {
+        require(user != address(0), "Invalid user");
+        require(amount > 0, "Invalid amount");
+
+        // Check contract has enough USDC
+        uint256 contractBalance = IERC20(USDC).balanceOf(address(this));
+        require(contractBalance >= amount, "Insufficient contract balance");
+
+        // Credit user balance
+        balances[user] += amount;
+
+        // Don't increase TVL - these funds are already in the contract
+        // TVL should already account for them
+    }
+
+    /**
+     * @notice Fix TVL accounting after stuck positions
+     * @dev V8.3 NEW: Reduce TVL when funds were lost to GMX
+     */
+    function adminReduceTVL(uint256 amount) external onlyOwner {
+        require(amount <= tvl, "Amount exceeds TVL");
+        tvl -= amount;
+    }
+
     function pause() external onlyOwner { _pause(); }
     function unpause() external onlyOwner { _unpause(); }
 

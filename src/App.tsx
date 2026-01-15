@@ -18,6 +18,7 @@ import CardPage from './pages/CardPage';
 import BotTradingPage from './pages/BotTradingPage';
 import ForexPage from './pages/ForexPage';
 import AboutPage from './pages/AboutPage';
+import TechnologyPage from './pages/TechnologyPage';
 import SupportPage from './pages/SupportPage';
 import PricingPage from './pages/PricingPage';
 import LoginPage from './pages/LoginPage';
@@ -90,6 +91,11 @@ function App() {
           <Route path="/about" element={
             <PageTransition>
               <AboutPage />
+            </PageTransition>
+          } />
+          <Route path="/technology" element={
+            <PageTransition>
+              <TechnologyPage />
             </PageTransition>
           } />
           <Route path="/support" element={

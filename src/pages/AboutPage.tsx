@@ -235,6 +235,7 @@ const AboutPage: React.FC = () => {
             <Logo size="sm" />
             <div className="flex items-center gap-8">
               <Link to="/about" className="text-gray-500 hover:text-white text-sm transition-colors">About</Link>
+              <Link to="/technology" className="text-gray-500 hover:text-white text-sm transition-colors">Technology</Link>
               <Link to="/terms" className="text-gray-500 hover:text-white text-sm transition-colors">Terms</Link>
               <Link to="/privacy" className="text-gray-500 hover:text-white text-sm transition-colors">Privacy</Link>
             </div>
