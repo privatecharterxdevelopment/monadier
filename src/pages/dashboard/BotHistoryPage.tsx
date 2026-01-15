@@ -156,28 +156,36 @@ const BotHistoryPage: React.FC = () => {
   const [analysisStep, setAnalysisStep] = useState(0);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const ANALYSIS_STEPS = [
-    { tf: '1m', label: 'Scanning 1m chart', progress: 20 },
-    { tf: '5m', label: 'Analyzing 5m trends', progress: 40 },
-    { tf: '15m', label: 'Checking 15m patterns', progress: 60 },
-    { tf: '1h', label: 'Evaluating 1h momentum', progress: 80 },
-    { tf: 'MTF', label: 'Combining signals', progress: 100 },
+    { tf: '1m', label: 'Scanning 1m chart', progress: 15 },
+    { tf: '5m', label: 'Analyzing 5m trends', progress: 35 },
+    { tf: '15m', label: 'Checking 15m patterns', progress: 55 },
+    { tf: '1h', label: 'Evaluating 1h momentum', progress: 75 },
+    { tf: 'MTF', label: 'Combining signals', progress: 95 },
   ];
 
-  // Cycle through analysis steps
+  // Cycle through analysis steps - always run when settings are loaded
   useEffect(() => {
-    if (!botSettings.autoTradeEnabled) return;
+    // Only run animation when bot settings are loaded and auto-trade is enabled
+    if (!botSettingsLoaded || !botSettings.autoTradeEnabled) {
+      setAnalysisProgress(0);
+      setAnalysisStep(0);
+      return;
+    }
+
+    // Start at first step immediately
+    setAnalysisStep(0);
+    setAnalysisProgress(ANALYSIS_STEPS[0].progress);
 
     const interval = setInterval(() => {
-      setAnalysisStep(prev => (prev + 1) % ANALYSIS_STEPS.length);
+      setAnalysisStep(prev => {
+        const nextStep = (prev + 1) % ANALYSIS_STEPS.length;
+        setAnalysisProgress(ANALYSIS_STEPS[nextStep].progress);
+        return nextStep;
+      });
     }, 2000); // Change every 2 seconds
 
     return () => clearInterval(interval);
-  }, [botSettings.autoTradeEnabled]);
-
-  // Update progress bar (CSS handles the animation)
-  useEffect(() => {
-    setAnalysisProgress(ANALYSIS_STEPS[analysisStep]?.progress || 0);
-  }, [analysisStep]);
+  }, [botSettingsLoaded, botSettings.autoTradeEnabled]);
 
   // Fetch bot settings
   useEffect(() => {
