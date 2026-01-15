@@ -408,9 +408,8 @@ export default function VaultSettingsModal({
             </div>
           </div>
 
-          {/* Leverage Section (Arbitrum V7 GMX) */}
-          {chainId === 42161 && (
-            <div className="border-t border-zinc-800 pt-4">
+          {/* Leverage Section (GMX Perpetuals) */}
+          <div className="border-t border-zinc-800 pt-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Scale className="w-4 h-4 text-purple-400" />
@@ -479,8 +478,7 @@ export default function VaultSettingsModal({
                   </p>
                 )}
               </div>
-            </div>
-          )}
+          </div>
 
           {/* Emergency Stop */}
           {initialAutoTrade && (

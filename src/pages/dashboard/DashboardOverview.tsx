@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import { useAppKit } from '@reown/appkit/react';
 import { supabase } from '../../lib/supabase';
 import { VaultBalanceCard } from '../../components/vault';
+import LegacyVaultWithdraw from '../../components/vault/LegacyVaultWithdraw';
 import OnboardingBanner from '../../components/onboarding/OnboardingBanner';
 import { useOnboarding } from '../../hooks/useOnboarding';
 
@@ -411,6 +412,9 @@ const DashboardOverview: React.FC = () => {
           </Card>
         </motion.div>
       </div>
+
+      {/* Legacy Vault Withdrawals - Show if user has stuck funds */}
+      <LegacyVaultWithdraw />
 
       {/* Bot Wallet (Vault) - For Paid Users */}
       <motion.div variants={itemAnimation} className="mb-6">
