@@ -88,17 +88,15 @@ const DashboardOverview: React.FC = () => {
           wallets?.forEach(w => foundWallets.add(w.wallet_address.toLowerCase()));
         }
 
-        // 2. Also check subscriptions for linked wallets
-        const { data: subs } = await supabase
+        // 2. Also check subscriptions for THIS user's wallet only (privacy fix)
+        const { data: mySub } = await supabase
           .from('subscriptions')
           .select('wallet_address')
-          .not('wallet_address', 'is', null);
+          .eq('wallet_address', address.toLowerCase())
+          .single();
 
-        const mySub = subs?.find(s => s.wallet_address?.toLowerCase() === address.toLowerCase());
-        if (mySub) {
-          subs?.forEach(s => {
-            if (s.wallet_address) foundWallets.add(s.wallet_address.toLowerCase());
-          });
+        if (mySub?.wallet_address) {
+          foundWallets.add(mySub.wallet_address.toLowerCase());
         }
 
         // 3. Check vault_settings for this wallet on any chain

@@ -27,13 +27,13 @@ export const config = {
   treasuryAddress: process.env.TREASURY_ADDRESS as `0x${string}`,
 
   // ============================================
-  // ARBITRUM ONLY - V9 GMX VAULT (BULLETPROOF)
+  // ARBITRUM ONLY - V10 GMX VAULT (SECURE BOT)
   // ============================================
   arbitrum: {
     chainId: 42161,
     rpcUrl: process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc',
-    // V9 VAULT - userInstantClose, emergencyWithdraw, reconcile
-    vaultAddress: (process.env.ARBITRUM_VAULT_ADDRESS || '0x6c8ec04889c63ed696f13Bc3B9B74d69354A4fFB') as `0x${string}`,
+    // V10 VAULT - Same as V9 but new secure bot wallet
+    vaultAddress: (process.env.ARBITRUM_VAULT_ADDRESS || '0x85d076665f60676511aB4A7bD40D7d415b7296ea') as `0x${string}`,
     usdcAddress: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' as `0x${string}`,
   },
 

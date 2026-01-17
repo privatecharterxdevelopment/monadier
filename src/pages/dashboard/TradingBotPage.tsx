@@ -167,13 +167,31 @@ const TradingBotPage: React.FC = () => {
 
   const [showPlans, setShowPlans] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [botActive, setBotActive] = useState(false);
+  // Load persisted bot state from localStorage
+  const getPersistedBotState = () => {
+    try {
+      const stored = localStorage.getItem('monadier_bot_start_time');
+      if (stored) {
+        const startTime = new Date(stored);
+        // Check if it's still valid (within last hour)
+        if (Date.now() - startTime.getTime() < 3600000) {
+          return { startTime, active: true };
+        } else {
+          localStorage.removeItem('monadier_bot_start_time');
+        }
+      }
+    } catch {}
+    return { startTime: null, active: false };
+  };
+
+  const persistedState = getPersistedBotState();
+  const [botActive, setBotActive] = useState(persistedState.active);
   const [tradeAmount, setTradeAmount] = useState(50);
   const [pairs, setPairs] = useState<TradingPair[]>(tradingPairs);
   const [selectedPair, setSelectedPair] = useState<TradingPair>(tradingPairs[0]);
   const [candles, setCandles] = useState<Candle[]>([]);
   const [topPerformers, setTopPerformers] = useState<TopPerformerTrade[]>([]);
-  const [botStartTime, setBotStartTime] = useState<Date | null>(null);
+  const [botStartTime, setBotStartTime] = useState<Date | null>(persistedState.startTime);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [entryPrice, setEntryPrice] = useState(0);
   const [currentPnL, setCurrentPnL] = useState(0);
@@ -932,6 +950,8 @@ const TradingBotPage: React.FC = () => {
     setTradingConfig(prev => ({ ...prev, autoTradeEnabled: false }));
     setBotActive(false);
     setActiveTrade(null);
+    setBotStartTime(null);
+    localStorage.removeItem('monadier_bot_start_time');
     setStrategy(null);
   }, [botActive, activeTrade, autoTradeTimer]);
 
@@ -1391,7 +1411,9 @@ const TradingBotPage: React.FC = () => {
       setActiveTrade(trade);
       setEntryPrice(currentPrice);
       setCurrentPnL(0);
-      setBotStartTime(new Date());
+      const startTime = new Date();
+      setBotStartTime(startTime);
+      localStorage.setItem('monadier_bot_start_time', startTime.toISOString());
       setTimeRemaining(MIN_TRADE_TIME);
       setStrategy(analyzeMarket);
       setBotActive(true);
@@ -1509,6 +1531,7 @@ const TradingBotPage: React.FC = () => {
       setEntryPrice(0);
       setCurrentPnL(0);
       setBotStartTime(null);
+      localStorage.removeItem('monadier_bot_start_time');
       setStrategy(null);
 
       // Refresh wallet balances

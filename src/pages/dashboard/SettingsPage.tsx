@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Wallet, Save, CheckCircle, AlertCircle, Loader2, Crown, Shield, Clock, TrendingUp, Users, Gift, Copy, Zap, Rocket, Calendar, CreditCard, ExternalLink, FileCheck, X, Plus } from 'lucide-react';
+import { User, Wallet, Save, CheckCircle, AlertCircle, Loader2, Crown, Shield, Clock, TrendingUp, Users, Gift, Copy, Zap, Rocket, Calendar, CreditCard, ExternalLink, FileCheck, X, Plus, Lock, Eye, EyeOff, Mail } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
-import { supabase } from '../../lib/supabase';
+import { supabase, updatePassword, resetPassword } from '../../lib/supabase';
 import { SUBSCRIPTION_PLANS } from '../../lib/subscription';
 import { Link } from 'react-router-dom';
 import { VaultBalanceCard } from '../../components/vault';
@@ -49,6 +49,16 @@ const SettingsPage: React.FC = () => {
   const [referrals, setReferrals] = useState<ReferralReward[]>([]);
   const [isLoadingReferrals, setIsLoadingReferrals] = useState(true);
   const [copiedCode, setCopiedCode] = useState(false);
+
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
 
   // Load profile data
   useEffect(() => {
@@ -342,6 +352,69 @@ const SettingsPage: React.FC = () => {
     }
   };
 
+  // Handle password change
+  const handleChangePassword = async () => {
+    if (!user?.email) return;
+
+    setPasswordError(null);
+    setPasswordSuccess(false);
+
+    if (newPassword.length < 8) {
+      setPasswordError('Password must be at least 8 characters');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Passwords do not match');
+      return;
+    }
+
+    setIsChangingPassword(true);
+
+    try {
+      const { error } = await updatePassword(newPassword);
+
+      if (error) {
+        throw error;
+      }
+
+      setPasswordSuccess(true);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setPasswordSuccess(false), 3000);
+    } catch (err: any) {
+      console.error('Error changing password:', err);
+      setPasswordError(err.message || 'Failed to change password');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  // Send password reset email
+  const handleSendResetEmail = async () => {
+    if (!user?.email) return;
+
+    setIsChangingPassword(true);
+    setPasswordError(null);
+
+    try {
+      const { error } = await resetPassword(user.email);
+
+      if (error) {
+        throw error;
+      }
+
+      setResetEmailSent(true);
+      setTimeout(() => setResetEmailSent(false), 5000);
+    } catch (err: any) {
+      console.error('Error sending reset email:', err);
+      setPasswordError(err.message || 'Failed to send reset email');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   // Get actual tier from subscription object (not computed planTier which depends on isSubscribed)
   const actualTier = subscription?.planTier || 'free';
 
@@ -458,6 +531,116 @@ const SettingsPage: React.FC = () => {
             </div>
           </Card>
 
+          {/* Password Card */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Lock className="w-5 h-5 text-white" />
+              <h4 className="text-white font-medium">Password</h4>
+            </div>
+
+            <p className="text-gray-400 text-sm mb-4">
+              Change your password or request a reset link via email.
+            </p>
+
+            {/* Option 1: Reset via Email */}
+            <div className="p-4 bg-white/5 rounded-lg mb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Mail className="w-5 h-5 text-blue-400" />
+                  <div>
+                    <p className="text-white text-sm font-medium">Reset via Email</p>
+                    <p className="text-gray-500 text-xs">Receive a secure link to {user?.email}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleSendResetEmail}
+                  disabled={isChangingPassword || resetEmailSent}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    resetEmailSent
+                      ? 'bg-green-500/20 text-green-400'
+                      : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
+                  } disabled:opacity-50`}
+                >
+                  {isChangingPassword ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : resetEmailSent ? (
+                    <span className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4" />
+                      Sent!
+                    </span>
+                  ) : (
+                    'Send Link'
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Option 2: Change Password Directly */}
+            <div className="border-t border-gray-800 pt-4">
+              <p className="text-gray-400 text-xs mb-3">Or change password directly:</p>
+
+              <div className="space-y-3">
+                <div className="relative">
+                  <input
+                    type={showPasswords ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => {
+                      setNewPassword(e.target.value);
+                      setPasswordError(null);
+                    }}
+                    placeholder="New password (min. 8 characters)"
+                    className="w-full bg-white/5 border border-gray-700 rounded-lg px-4 py-3 pr-12 text-white placeholder-gray-500 focus:outline-none focus:border-white/30 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswords(!showPasswords)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                  >
+                    {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+
+                <input
+                  type={showPasswords ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setPasswordError(null);
+                  }}
+                  placeholder="Confirm new password"
+                  className="w-full bg-white/5 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white/30 text-sm"
+                />
+
+                <button
+                  onClick={handleChangePassword}
+                  disabled={isChangingPassword || !newPassword || !confirmPassword}
+                  className="w-full px-4 py-3 bg-accent text-black font-semibold rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isChangingPassword ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : passwordSuccess ? (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      Password Changed!
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-4 h-4" />
+                      Change Password
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {passwordError && (
+                <div className="flex items-center gap-2 mt-3 text-red-400 text-sm">
+                  <AlertCircle className="w-4 h-4" />
+                  {passwordError}
+                </div>
+              )}
+            </div>
+          </Card>
+
           {/* Multi-Wallet Card */}
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-4">
@@ -568,10 +751,10 @@ const SettingsPage: React.FC = () => {
               Non-custodial & verified on-chain. Your funds, your control.
             </p>
             <code className="block text-[10px] text-gray-400 font-mono mb-2 break-all">
-              0x6c8ec04889c63ed696f13Bc3B9B74d69354A4fFB
+              0x85d076665f60676511aB4A7bD40D7d415b7296ea
             </code>
             <a
-              href="https://arbiscan.io/address/0x6c8ec04889c63ed696f13Bc3B9B74d69354A4fFB#code"
+              href="https://arbiscan.io/address/0x85d076665f60676511aB4A7bD40D7d415b7296ea#code"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 text-xs"

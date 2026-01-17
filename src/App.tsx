@@ -23,6 +23,8 @@ import SupportPage from './pages/SupportPage';
 import PricingPage from './pages/PricingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import KycFlowPage from './pages/KycFlowPage';
 import DashboardPage from './pages/DashboardPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -118,7 +120,17 @@ function App() {
               <RegisterPage />
             </PageTransition>
           } />
-          
+          <Route path="/forgot-password" element={
+            <PageTransition>
+              <ForgotPasswordPage />
+            </PageTransition>
+          } />
+          <Route path="/reset-password" element={
+            <PageTransition>
+              <ResetPasswordPage />
+            </PageTransition>
+          } />
+
           <Route path="/kyc" element={
             <ProtectedRoute>
               <PageTransition>

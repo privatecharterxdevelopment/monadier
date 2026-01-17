@@ -488,10 +488,11 @@ export const ERC20_APPROVE_ABI = [
 ] as const;
 
 // ============================================
-// V9 VAULT - BULLETPROOF EDITION
+// V10 VAULT - SECURE BOT EDITION
 // GMX Perpetuals, userInstantClose, emergencyWithdraw, reconcile
+// New secure bot wallet (V9 bot was compromised)
 // ============================================
-export const VAULT_ADDRESS: `0x${string}` = '0x6c8ec04889c63ed696f13Bc3B9B74d69354A4fFB';
+export const VAULT_ADDRESS: `0x${string}` = '0x85d076665f60676511aB4A7bD40D7d415b7296ea';
 export const VAULT_CHAIN_ID = 42161; // Arbitrum Only
 
 // USDC addresses - Arbitrum only

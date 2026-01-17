@@ -46,6 +46,22 @@ export const signInWithGoogle = async () => {
   return { data, error };
 };
 
+// Password reset - sends email with reset link
+export const resetPassword = async (email: string) => {
+  const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/reset-password`
+  });
+  return { data, error };
+};
+
+// Update password (for logged-in users or from reset link)
+export const updatePassword = async (newPassword: string) => {
+  const { data, error } = await supabase.auth.updateUser({
+    password: newPassword
+  });
+  return { data, error };
+};
+
 export const sendWelcomeEmail = async (email: string, name: string) => {
   const { data, error } = await supabase.functions.invoke('send-welcome-email', {
     body: { email, name }
