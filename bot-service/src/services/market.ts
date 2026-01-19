@@ -1166,8 +1166,12 @@ export async function analyzeMarketMTF(
     const trend = tf15m?.trend || 'SIDEWAYS';
 
     // Check if signal is too weak
-    const isWeak = signal.confidence < strategyConfig.minConfidence ||
-      (signal.warnings.length > 0 && signal.trendAlignment < 50);
+    // For aggressive mode, only check confidence threshold (ignore warnings/trendAlignment)
+    // This allows trading even when timeframes conflict, as long as confidence is sufficient
+    const isWeak = strategyConfig.minConfidence >= 40
+      ? (signal.confidence < strategyConfig.minConfidence ||
+         (signal.warnings.length > 0 && signal.trendAlignment < 50))
+      : signal.confidence < strategyConfig.minConfidence; // Aggressive/risky: only check confidence
 
     // Build reason
     const reason = signal.reasons.length > 0
@@ -1203,7 +1207,10 @@ export async function analyzeMarketMTF(
       patternStrength: signal.patternStrength.toFixed(0) + '%',
       patterns: signal.patterns.length,
       warnings: signal.warnings.length,
-      isWeak
+      warningDetails: signal.warnings.slice(0, 2),
+      isWeak,
+      minConfidence: strategyConfig.minConfidence,
+      strategy
     });
 
     // Calculate signal strength (1-10 scale)
