@@ -20,6 +20,70 @@ let botStartTime = Date.now();
 let lastTradeCheck = Date.now();
 let totalTradesExecuted = 0;
 
+/**
+ * Save closed position to trade_history for analytics
+ */
+async function saveToTradeHistory(params: {
+  positionId: string;
+  walletAddress: string;
+  chainId: number;
+  tokenSymbol: string;
+  direction: string;
+  entryPrice: number;
+  exitPrice: number;
+  entryAmount: number;
+  exitAmount: number;
+  profitLoss: number;
+  profitLossPercent: number;
+  leverage: number;
+  closeReason: string;
+  openedAt: string;
+  closedAt: string;
+  entryTxHash?: string;
+  exitTxHash?: string;
+}) {
+  try {
+    const { error } = await supabase
+      .from('trade_history')
+      .insert({
+        position_id: params.positionId,
+        wallet_address: params.walletAddress.toLowerCase(),
+        chain_id: params.chainId,
+        token_symbol: params.tokenSymbol,
+        direction: params.direction,
+        entry_price: params.entryPrice,
+        exit_price: params.exitPrice,
+        entry_amount: params.entryAmount,
+        exit_amount: params.exitAmount,
+        profit_loss: params.profitLoss,
+        profit_loss_percent: params.profitLossPercent,
+        leverage: params.leverage,
+        close_reason: params.closeReason,
+        opened_at: params.openedAt,
+        closed_at: params.closedAt,
+        entry_tx_hash: params.entryTxHash,
+        exit_tx_hash: params.exitTxHash
+      });
+
+    if (error) {
+      // Log error but don't fail - table may not exist yet
+      if (error.code === '42P01') {
+        logger.warn('trade_history table does not exist - skipping history save');
+      } else {
+        logger.error('Failed to save trade history', { error, positionId: params.positionId });
+      }
+    } else {
+      logger.info('Trade history saved', {
+        positionId: params.positionId.slice(0, 8),
+        profitLoss: params.profitLoss,
+        profitLossPercent: params.profitLossPercent
+      });
+    }
+  } catch (err) {
+    logger.error('Error saving trade history', { error: err });
+  }
+}
+
 // CORS headers for API responses
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -520,20 +584,50 @@ async function runPositionMonitoringCycle(): Promise<void> {
             // Calculate profit/loss
             const profitLoss = pnlData?.pnl || 0;
             const profitLossPercent = pnlData?.pnlPercent || 0;
+            const exitPrice = pnlData?.currentPrice || 0;
+            const exitAmount = (pos.entry_amount || 0) + profitLoss;
+            const closedAt = new Date().toISOString();
+            const closeReason = pos.close_reason || 'user_requested';
 
             // Update database WITH PROFIT/LOSS
-            await supabase
+            const { error: updateError } = await supabase
               .from('positions')
               .update({
                 status: 'closed',
-                closed_at: new Date().toISOString(),
+                closed_at: closedAt,
                 close_tx_hash: result.txHash,
-                close_reason: pos.close_reason || 'user_requested',
+                close_reason: closeReason,
                 profit_loss: profitLoss,
                 profit_loss_percent: profitLossPercent,
-                exit_price: pnlData?.currentPrice || 0
+                exit_price: exitPrice,
+                exit_amount: exitAmount
               })
               .eq('id', pos.id);
+
+            if (updateError) {
+              logger.error('Failed to update position on close', { error: updateError, positionId: pos.id });
+            } else {
+              // Save to trade_history
+              await saveToTradeHistory({
+                positionId: pos.id,
+                walletAddress: pos.wallet_address,
+                chainId: 42161,
+                tokenSymbol: pos.token_symbol,
+                direction: pos.direction || 'LONG',
+                entryPrice: pos.entry_price,
+                exitPrice: exitPrice,
+                entryAmount: pos.entry_amount || 0,
+                exitAmount: exitAmount,
+                profitLoss: profitLoss,
+                profitLossPercent: profitLossPercent,
+                leverage: pos.leverage || 1,
+                closeReason: closeReason,
+                openedAt: pos.created_at,
+                closedAt: closedAt,
+                entryTxHash: pos.entry_tx_hash,
+                exitTxHash: result.txHash
+              });
+            }
 
             // SET COOLDOWN for this user
             const cooldownKey = `${pos.wallet_address}-42161-close`;
@@ -552,24 +646,29 @@ async function runPositionMonitoringCycle(): Promise<void> {
             let profitLoss = 0;
             let profitLossPercent = 0;
             let closeReason = 'auto_closed';
+            let exitPrice = pnlData?.currentPrice || pos.entry_price;
+            const closedAt = new Date().toISOString();
 
             if (pnlData && pnlData.pnl !== 0) {
               // We got P/L data before close attempt
               profitLoss = pnlData.pnl;
               profitLossPercent = pnlData.pnlPercent;
               closeReason = profitLossPercent > 0 ? 'takeprofit' : 'stoploss';
+              exitPrice = pnlData.currentPrice;
             } else if (result.error?.includes('No active position')) {
               // Position was closed by contract - fetch user's actual TP setting
               const { data: userSettings } = await supabase
                 .from('vault_settings')
-                .select('take_profit_percent')
+                .select('take_profit_percent, leverage_multiplier')
                 .eq('wallet_address', pos.wallet_address.toLowerCase())
                 .single();
 
               const tpPercent = userSettings?.take_profit_percent || pos.take_profit_percent || 5;
+              const leverage = userSettings?.leverage_multiplier || pos.leverage || 1;
               profitLossPercent = tpPercent;
               profitLoss = (pos.entry_amount || 0) * (tpPercent / 100);
               closeReason = 'takeprofit';
+              exitPrice = pos.entry_price * (1 + (tpPercent / leverage) / 100);
               logger.info('Position already closed by contract, using user TP', {
                 positionId: pos.id.slice(0, 8),
                 tpPercent,
@@ -582,16 +681,42 @@ async function runPositionMonitoringCycle(): Promise<void> {
               profitLoss = -(pos.entry_amount || 0) * 0.01;
             }
 
-            await supabase
+            const exitAmount = (pos.entry_amount || 0) + profitLoss;
+
+            const { error: updateError } = await supabase
               .from('positions')
               .update({
                 status: 'closed',
-                closed_at: new Date().toISOString(),
+                closed_at: closedAt,
                 close_reason: closeReason,
                 profit_loss: profitLoss,
-                profit_loss_percent: profitLossPercent
+                profit_loss_percent: profitLossPercent,
+                exit_price: exitPrice,
+                exit_amount: exitAmount
               })
               .eq('id', pos.id);
+
+            if (!updateError) {
+              // Save to trade_history
+              await saveToTradeHistory({
+                positionId: pos.id,
+                walletAddress: pos.wallet_address,
+                chainId: 42161,
+                tokenSymbol: pos.token_symbol,
+                direction: pos.direction || 'LONG',
+                entryPrice: pos.entry_price,
+                exitPrice: exitPrice,
+                entryAmount: pos.entry_amount || 0,
+                exitAmount: exitAmount,
+                profitLoss: profitLoss,
+                profitLossPercent: profitLossPercent,
+                leverage: pos.leverage || 1,
+                closeReason: closeReason,
+                openedAt: pos.created_at,
+                closedAt: closedAt,
+                entryTxHash: pos.entry_tx_hash
+              });
+            }
 
             // SET COOLDOWN
             const cooldownKey = `${pos.wallet_address}-42161-close`;
@@ -714,18 +839,45 @@ async function runPositionMonitoringCycle(): Promise<void> {
                 );
 
                 if (closeResult.success) {
-                  await supabase
+                  const closedAt = new Date().toISOString();
+                  const exitAmount = (dbPos.entry_amount || 0) + profitLoss;
+
+                  const { error: updateError } = await supabase
                     .from('positions')
                     .update({
                       status: 'closed',
-                      closed_at: new Date().toISOString(),
+                      closed_at: closedAt,
                       close_reason: 'profit_lock',
                       close_tx_hash: closeResult.txHash,
                       profit_loss: profitLoss,
                       profit_loss_percent: profitLossPercent,
-                      exit_price: exitPrice
+                      exit_price: exitPrice,
+                      exit_amount: exitAmount
                     })
                     .eq('id', dbPos.id);
+
+                  if (!updateError) {
+                    // Save to trade_history
+                    await saveToTradeHistory({
+                      positionId: dbPos.id,
+                      walletAddress: userAddress,
+                      chainId: 42161,
+                      tokenSymbol: tokenConfig.symbol,
+                      direction: dbPos.direction || 'LONG',
+                      entryPrice: dbPos.entry_price,
+                      exitPrice: exitPrice,
+                      entryAmount: dbPos.entry_amount || 0,
+                      exitAmount: exitAmount,
+                      profitLoss: profitLoss,
+                      profitLossPercent: profitLossPercent,
+                      leverage: dbPos.leverage || 1,
+                      closeReason: 'profit_lock',
+                      openedAt: dbPos.created_at,
+                      closedAt: closedAt,
+                      entryTxHash: dbPos.entry_tx_hash,
+                      exitTxHash: closeResult.txHash
+                    });
+                  }
 
                   logger.info('PROFIT LOCK CLOSE - P/L SAVED', { profitLoss, profitLossPercent });
                   triggeredCount++;
@@ -735,7 +887,21 @@ async function runPositionMonitoringCycle(): Promise<void> {
             }
           }
 
-          // Check contract SL/TP triggers - GET P/L FIRST
+          // GET DATABASE POSITION FIRST (for position ID and entry data)
+          const { data: dbPosition } = await supabase
+            .from('positions')
+            .select('*')
+            .eq('wallet_address', userAddress.toLowerCase())
+            .eq('token_symbol', tokenConfig.symbol)
+            .eq('status', 'open')
+            .eq('chain_id', 42161)
+            .single();
+
+          if (!dbPosition) {
+            continue; // No open position in DB
+          }
+
+          // GET P/L BEFORE closing
           const pnlBeforeTrigger = await tradingV7GMXService.getPositionPnL(
             userAddress,
             tokenConfig.address as `0x${string}`
@@ -748,82 +914,107 @@ async function runPositionMonitoringCycle(): Promise<void> {
 
           if (result.triggered) {
             triggeredCount++;
+            const closedAt = new Date().toISOString();
 
             // Calculate P/L from captured data or entry/exit prices
             let profitLoss = 0;
             let profitLossPercent = 0;
             let exitPrice = 0;
+            let exitAmount = dbPosition.entry_amount || 0;
 
             if (pnlBeforeTrigger) {
               // Use P/L captured before trigger
               profitLoss = pnlBeforeTrigger.pnl;
               profitLossPercent = pnlBeforeTrigger.pnlPercent;
               exitPrice = pnlBeforeTrigger.currentPrice;
+              exitAmount = dbPosition.entry_amount + profitLoss;
             } else {
               // Position already closed - calculate from TP/SL settings
-              const { data: dbPos } = await supabase
-                .from('positions')
-                .select('*')
+              const { data: userSettings } = await supabase
+                .from('vault_settings')
+                .select('take_profit_percent, stop_loss_percent, leverage_multiplier')
                 .eq('wallet_address', userAddress.toLowerCase())
-                .eq('token_symbol', tokenConfig.symbol)
-                .eq('status', 'open')
                 .single();
 
-              if (dbPos && dbPos.entry_price && dbPos.entry_amount) {
-                // Fetch user's actual TP/SL settings from vault_settings
-                const { data: userSettings } = await supabase
-                  .from('vault_settings')
-                  .select('take_profit_percent, stop_loss_percent, leverage_multiplier')
-                  .eq('wallet_address', userAddress.toLowerCase())
-                  .single();
+              const leverage = userSettings?.leverage_multiplier || 1;
+              const userTpPercent = userSettings?.take_profit_percent || 5;
+              const userSlPercent = userSettings?.stop_loss_percent || 1;
 
-                const leverage = userSettings?.leverage_multiplier || 1;
-                const userTpPercent = userSettings?.take_profit_percent || 5;
-                const userSlPercent = userSettings?.stop_loss_percent || 1;
-
-                // Estimate based on close reason
-                if (result.reason === 'take_profit' || result.reason === 'takeprofit') {
-                  profitLossPercent = userTpPercent; // User's configured TP%
-                  profitLoss = (dbPos.entry_amount * profitLossPercent) / 100;
-                  // Exit price = entry × (1 + TP% / leverage) for leveraged positions
-                  exitPrice = dbPos.entry_price * (1 + (profitLossPercent / leverage) / 100);
-                } else if (result.reason === 'stop_loss' || result.reason === 'stoploss' || result.reason === 'trailing_stop') {
-                  profitLossPercent = -userSlPercent; // User's configured SL%
-                  profitLoss = (dbPos.entry_amount * profitLossPercent) / 100;
-                  exitPrice = dbPos.entry_price * (1 + (profitLossPercent / leverage) / 100);
-                }
-
-                logger.info('P/L calculated with user settings', {
-                  leverage,
-                  userTpPercent,
-                  userSlPercent,
-                  profitLoss,
-                  profitLossPercent
-                });
+              // Estimate based on close reason
+              if (result.reason === 'take_profit' || result.reason === 'takeprofit') {
+                profitLossPercent = userTpPercent;
+                profitLoss = (dbPosition.entry_amount * profitLossPercent) / 100;
+                exitPrice = dbPosition.entry_price * (1 + (profitLossPercent / leverage) / 100);
+              } else if (result.reason === 'stop_loss' || result.reason === 'stoploss' || result.reason === 'trailing_stop') {
+                profitLossPercent = -userSlPercent;
+                profitLoss = (dbPosition.entry_amount * profitLossPercent) / 100;
+                exitPrice = dbPosition.entry_price * (1 + (profitLossPercent / leverage) / 100);
               }
+              exitAmount = dbPosition.entry_amount + profitLoss;
+
+              logger.info('P/L calculated from user settings', {
+                leverage,
+                userTpPercent,
+                userSlPercent,
+                profitLoss,
+                profitLossPercent
+              });
             }
 
             logger.info(`V7 GMX ${result.reason?.toUpperCase()} executed`, {
               user: userAddress.slice(0, 10),
               token: tokenConfig.symbol,
-              profitLoss,
-              profitLossPercent
+              profitLoss: profitLoss.toFixed(2),
+              profitLossPercent: profitLossPercent.toFixed(2) + '%'
             });
 
-            // Update database with ACTUAL P/L
-            await supabase
+            // Update database using POSITION ID (not status filter)
+            const { error: updateError } = await supabase
               .from('positions')
               .update({
                 status: 'closed',
-                closed_at: new Date().toISOString(),
+                closed_at: closedAt,
                 close_reason: result.reason,
                 profit_loss: profitLoss,
                 profit_loss_percent: profitLossPercent,
-                exit_price: exitPrice
+                exit_price: exitPrice,
+                exit_amount: exitAmount
               })
-              .eq('wallet_address', userAddress.toLowerCase())
-              .eq('token_symbol', tokenConfig.symbol)
-              .eq('status', 'open');
+              .eq('id', dbPosition.id);
+
+            if (updateError) {
+              logger.error('Failed to update position PnL', {
+                error: updateError,
+                positionId: dbPosition.id
+              });
+            } else {
+              logger.info('Position PnL saved to database', {
+                positionId: dbPosition.id.slice(0, 8),
+                profitLoss,
+                profitLossPercent
+              });
+
+              // Save to trade_history for analytics
+              await saveToTradeHistory({
+                positionId: dbPosition.id,
+                walletAddress: userAddress,
+                chainId: 42161,
+                tokenSymbol: tokenConfig.symbol,
+                direction: dbPosition.direction || 'LONG',
+                entryPrice: dbPosition.entry_price,
+                exitPrice: exitPrice,
+                entryAmount: dbPosition.entry_amount,
+                exitAmount: exitAmount,
+                profitLoss: profitLoss,
+                profitLossPercent: profitLossPercent,
+                leverage: dbPosition.leverage || 1,
+                closeReason: result.reason || 'unknown',
+                openedAt: dbPosition.created_at,
+                closedAt: closedAt,
+                entryTxHash: dbPosition.entry_tx_hash,
+                exitTxHash: undefined
+              });
+            }
           }
         } catch (err) {
           // Skip individual position errors
