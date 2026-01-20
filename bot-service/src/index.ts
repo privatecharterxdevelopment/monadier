@@ -581,11 +581,11 @@ async function runPositionMonitoringCycle(): Promise<void> {
           );
 
           if (result.success) {
-            // Calculate profit/loss
-            const profitLoss = pnlData?.pnl || 0;
-            const profitLossPercent = pnlData?.pnlPercent || 0;
-            const exitPrice = pnlData?.currentPrice || 0;
-            const exitAmount = (pos.entry_amount || 0) + profitLoss;
+            // Use ACTUAL P/L from closePosition (on-chain calculation), fallback to pre-captured
+            const profitLoss = result.pnl ?? pnlData?.pnl ?? 0;
+            const profitLossPercent = result.pnlPercent ?? pnlData?.pnlPercent ?? 0;
+            const exitPrice = result.exitPrice ?? pnlData?.currentPrice ?? 0;
+            const exitAmount = result.exitAmount ?? ((pos.entry_amount || 0) + profitLoss);
             const closedAt = new Date().toISOString();
             const closeReason = pos.close_reason || 'user_requested';
 
@@ -840,7 +840,11 @@ async function runPositionMonitoringCycle(): Promise<void> {
 
                 if (closeResult.success) {
                   const closedAt = new Date().toISOString();
-                  const exitAmount = (dbPos.entry_amount || 0) + profitLoss;
+                  // Use ACTUAL P/L from closeResult (on-chain), fallback to pre-captured
+                  const actualPnL = closeResult.pnl ?? profitLoss;
+                  const actualPnLPercent = closeResult.pnlPercent ?? profitLossPercent;
+                  const actualExitPrice = closeResult.exitPrice ?? exitPrice;
+                  const actualExitAmount = closeResult.exitAmount ?? ((dbPos.entry_amount || 0) + actualPnL);
 
                   const { error: updateError } = await supabase
                     .from('positions')
@@ -849,10 +853,10 @@ async function runPositionMonitoringCycle(): Promise<void> {
                       closed_at: closedAt,
                       close_reason: 'profit_lock',
                       close_tx_hash: closeResult.txHash,
-                      profit_loss: profitLoss,
-                      profit_loss_percent: profitLossPercent,
-                      exit_price: exitPrice,
-                      exit_amount: exitAmount
+                      profit_loss: actualPnL,
+                      profit_loss_percent: actualPnLPercent,
+                      exit_price: actualExitPrice,
+                      exit_amount: actualExitAmount
                     })
                     .eq('id', dbPos.id);
 
@@ -865,11 +869,11 @@ async function runPositionMonitoringCycle(): Promise<void> {
                       tokenSymbol: tokenConfig.symbol,
                       direction: dbPos.direction || 'LONG',
                       entryPrice: dbPos.entry_price,
-                      exitPrice: exitPrice,
+                      exitPrice: actualExitPrice,
                       entryAmount: dbPos.entry_amount || 0,
-                      exitAmount: exitAmount,
-                      profitLoss: profitLoss,
-                      profitLossPercent: profitLossPercent,
+                      exitAmount: actualExitAmount,
+                      profitLoss: actualPnL,
+                      profitLossPercent: actualPnLPercent,
                       leverage: dbPos.leverage || 1,
                       closeReason: 'profit_lock',
                       openedAt: dbPos.created_at,
@@ -879,7 +883,7 @@ async function runPositionMonitoringCycle(): Promise<void> {
                     });
                   }
 
-                  logger.info('PROFIT LOCK CLOSE - P/L SAVED', { profitLoss, profitLossPercent });
+                  logger.info('PROFIT LOCK CLOSE - P/L SAVED', { pnl: actualPnL, pnlPercent: actualPnLPercent });
                   triggeredCount++;
                   continue;
                 }
@@ -916,20 +920,14 @@ async function runPositionMonitoringCycle(): Promise<void> {
             triggeredCount++;
             const closedAt = new Date().toISOString();
 
-            // Calculate P/L from captured data or entry/exit prices
-            let profitLoss = 0;
-            let profitLossPercent = 0;
-            let exitPrice = 0;
-            let exitAmount = dbPosition.entry_amount || 0;
+            // Use ACTUAL P/L from trigger result (on-chain), fallback to pre-captured, then estimate
+            let profitLoss = result.pnl ?? pnlBeforeTrigger?.pnl ?? 0;
+            let profitLossPercent = result.pnlPercent ?? pnlBeforeTrigger?.pnlPercent ?? 0;
+            let exitPrice = result.exitPrice ?? pnlBeforeTrigger?.currentPrice ?? 0;
+            let exitAmount = result.exitAmount ?? (dbPosition.entry_amount + profitLoss);
 
-            if (pnlBeforeTrigger) {
-              // Use P/L captured before trigger
-              profitLoss = pnlBeforeTrigger.pnl;
-              profitLossPercent = pnlBeforeTrigger.pnlPercent;
-              exitPrice = pnlBeforeTrigger.currentPrice;
-              exitAmount = dbPosition.entry_amount + profitLoss;
-            } else {
-              // Position already closed - calculate from TP/SL settings
+            // If no P/L data available, estimate from user settings
+            if (profitLoss === 0 && !result.pnl && !pnlBeforeTrigger) {
               const { data: userSettings } = await supabase
                 .from('vault_settings')
                 .select('take_profit_percent, stop_loss_percent, leverage_multiplier')
@@ -940,7 +938,6 @@ async function runPositionMonitoringCycle(): Promise<void> {
               const userTpPercent = userSettings?.take_profit_percent || 5;
               const userSlPercent = userSettings?.stop_loss_percent || 1;
 
-              // Estimate based on close reason
               if (result.reason === 'take_profit' || result.reason === 'takeprofit') {
                 profitLossPercent = userTpPercent;
                 profitLoss = (dbPosition.entry_amount * profitLossPercent) / 100;
@@ -951,30 +948,25 @@ async function runPositionMonitoringCycle(): Promise<void> {
                 exitPrice = dbPosition.entry_price * (1 + (profitLossPercent / leverage) / 100);
               }
               exitAmount = dbPosition.entry_amount + profitLoss;
-
-              logger.info('P/L calculated from user settings', {
-                leverage,
-                userTpPercent,
-                userSlPercent,
-                profitLoss,
-                profitLossPercent
-              });
+              logger.info('P/L estimated from user settings (fallback)', { leverage, profitLoss, profitLossPercent });
             }
 
-            logger.info(`V7 GMX ${result.reason?.toUpperCase()} executed`, {
+            logger.info(`${result.reason?.toUpperCase()} executed`, {
               user: userAddress.slice(0, 10),
               token: tokenConfig.symbol,
               profitLoss: profitLoss.toFixed(2),
-              profitLossPercent: profitLossPercent.toFixed(2) + '%'
+              profitLossPercent: profitLossPercent.toFixed(2) + '%',
+              source: result.pnl ? 'on-chain' : (pnlBeforeTrigger ? 'pre-captured' : 'estimated')
             });
 
-            // Update database using POSITION ID (not status filter)
+            // Update database using POSITION ID
             const { error: updateError } = await supabase
               .from('positions')
               .update({
                 status: 'closed',
                 closed_at: closedAt,
                 close_reason: result.reason,
+                close_tx_hash: result.txHash,
                 profit_loss: profitLoss,
                 profit_loss_percent: profitLossPercent,
                 exit_price: exitPrice,

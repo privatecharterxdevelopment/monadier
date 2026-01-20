@@ -240,6 +240,11 @@ export interface V7TradeResult {
   error?: string;
   collateral?: string;
   leverage?: number;
+  // Close result fields
+  pnl?: number;
+  pnlPercent?: number;
+  exitPrice?: number;
+  exitAmount?: number;
 }
 
 // V8 Vault - from simplified config
@@ -712,14 +717,29 @@ export class TradingV7GMXService {
         return { success: false, error: 'FinalizeClose transaction reverted' };
       }
 
+      // Convert to human-readable values for return
+      const pnlPercent = Number(leveragedPnlBps) / 100; // bps to percent
+      const pnlUSD = Number(pnlAmount) / 1e6; // USDC has 6 decimals
+      const exitPriceNum = Number(currentPrice) / 1e30; // GMX prices have 30 decimals
+      const exitAmountNum = Number(receivedAmount) / 1e6;
+
       logger.info('Position closed INSTANTLY', {
         txHash,
         user: userAddress.slice(0, 10),
         reason: closeReason,
-        receivedAmount: receivedAmount.toString()
+        pnlPercent: pnlPercent.toFixed(2) + '%',
+        pnlUSD: '$' + pnlUSD.toFixed(2),
+        exitPrice: exitPriceNum.toFixed(2)
       });
 
-      return { success: true, txHash };
+      return {
+        success: true,
+        txHash,
+        pnl: pnlUSD,
+        pnlPercent: pnlPercent,
+        exitPrice: exitPriceNum,
+        exitAmount: exitAmountNum
+      };
     } catch (err: any) {
       logger.error('Failed to close position', { error: err.message });
       return { success: false, error: err.message };
@@ -733,7 +753,15 @@ export class TradingV7GMXService {
   async checkAndExecuteTriggers(
     userAddress: `0x${string}`,
     tokenAddress: `0x${string}`
-  ): Promise<{ triggered: boolean; reason?: string }> {
+  ): Promise<{
+    triggered: boolean;
+    reason?: string;
+    pnl?: number;
+    pnlPercent?: number;
+    exitPrice?: number;
+    exitAmount?: number;
+    txHash?: string;
+  }> {
     try {
       // Get position with SL/TP prices
       const position = await this.publicClient.readContract({
@@ -840,7 +868,16 @@ export class TradingV7GMXService {
       if (triggered) {
         const closeResult = await this.closePosition(userAddress, tokenAddress, reason);
         if (closeResult.success) {
-          return { triggered: true, reason };
+          // Return P/L data from the actual close
+          return {
+            triggered: true,
+            reason,
+            pnl: closeResult.pnl,
+            pnlPercent: closeResult.pnlPercent,
+            exitPrice: closeResult.exitPrice,
+            exitAmount: closeResult.exitAmount,
+            txHash: closeResult.txHash
+          };
         } else {
           logger.error('Failed to close position after trigger', {
             user: userAddress.slice(0, 10),
