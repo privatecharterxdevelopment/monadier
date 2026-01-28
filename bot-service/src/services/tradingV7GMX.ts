@@ -793,7 +793,7 @@ export class TradingV7GMXService {
         }],
         functionName: 'getPosition',
         args: [this.vaultAddress, TOKENS.USDC, tokenAddress, position.isLong]
-      }) as any[];
+      }) as unknown as any[];
 
       const gmxSize = gmxPosition[0] as bigint;
       if (gmxSize > 0n) {
@@ -895,7 +895,7 @@ export class TradingV7GMXService {
               }],
               functionName: 'getPosition',
               args: [this.vaultAddress, TOKENS.USDC, tokenAddress, position.isLong]
-            }) as any[];
+            }) as unknown as any[];
 
             const gmxSize = gmxPosition[0] as bigint;
             if (gmxSize > 0n) continue; // GMX still active

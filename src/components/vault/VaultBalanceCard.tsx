@@ -456,6 +456,69 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
     }
   };
 
+  // WITHDRAW EVERYTHING - One button to rule them all
+  // Closes any stuck positions + withdraws all balance
+  const [isWithdrawingAll, setIsWithdrawingAll] = useState(false);
+  const [withdrawAllError, setWithdrawAllError] = useState<string | null>(null);
+
+  const handleWithdrawEverything = async () => {
+    if (!walletClient || !publicClient || !address || !chainId) return;
+
+    try {
+      setIsWithdrawingAll(true);
+      setWithdrawAllError(null);
+
+      const vaultClient = new VaultClient(publicClient as any, walletClient as any, chainId);
+
+      // Step 1: Close ETH position if exists (userInstantClose)
+      try {
+        const ethPos = await vaultClient.getPosition(address as `0x${string}`, WETH_ADDRESS);
+        if (ethPos.isActive) {
+          console.log('Closing ETH position...');
+          const hash = await vaultClient.userInstantClose(WETH_ADDRESS, address as `0x${string}`);
+          await publicClient.waitForTransactionReceipt({ hash });
+          console.log('ETH position closed!');
+        }
+      } catch (err: any) {
+        console.log('No ETH position or already closed:', err.message);
+      }
+
+      // Step 2: Close BTC position if exists (userInstantClose)
+      try {
+        const btcPos = await vaultClient.getPosition(address as `0x${string}`, WBTC_ADDRESS);
+        if (btcPos.isActive) {
+          console.log('Closing BTC position...');
+          const hash = await vaultClient.userInstantClose(WBTC_ADDRESS, address as `0x${string}`);
+          await publicClient.waitForTransactionReceipt({ hash });
+          console.log('BTC position closed!');
+        }
+      } catch (err: any) {
+        console.log('No BTC position or already closed:', err.message);
+      }
+
+      // Step 3: Get updated balance and withdraw everything
+      const status = await vaultClient.getUserStatus(address as `0x${string}`);
+      const balance = status.balance;
+
+      if (balance > 0n) {
+        console.log('Withdrawing balance:', status.balanceFormatted, 'USDC');
+        const hash = await vaultClient.withdraw(balance, address as `0x${string}`);
+        await publicClient.waitForTransactionReceipt({ hash });
+        console.log('Withdrawal complete!');
+        alert('Success! All funds withdrawn to your wallet.');
+      } else {
+        alert('No balance to withdraw. Positions closed if any existed.');
+      }
+
+      window.location.reload();
+    } catch (err: any) {
+      console.error('Withdraw everything failed:', err);
+      setWithdrawAllError(err.shortMessage || err.message || 'Withdrawal failed');
+    } finally {
+      setIsWithdrawingAll(false);
+    }
+  };
+
   // Handle upgrade click
   const handleUpgradeClick = () => {
     openUpgradeModal('Auto-Trading Vault is available for paid subscribers only. Upgrade to enable automated trading without signing each transaction.');
@@ -649,6 +712,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
             </button>
           </div>
         )}
+
 
         {/* Bot Play/Stop Toggle Button */}
         {(!isLoading || isPreviewMode) && (!error || isPreviewMode) && !isPreviewMode && (
@@ -887,6 +951,35 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
             Withdraw
           </button>
         </div>
+
+        {/* ONE BUTTON TO WITHDRAW EVERYTHING - Closes positions + withdraws all */}
+        {!isPreviewMode && (
+          <div className="mt-4">
+            {withdrawAllError && (
+              <p className="text-red-400 text-xs mb-2 text-center">{withdrawAllError}</p>
+            )}
+            <button
+              onClick={handleWithdrawEverything}
+              disabled={isWithdrawingAll || isLoading}
+              className="w-full py-4 bg-gradient-to-r from-red-600 to-orange-500 text-white font-bold rounded-xl hover:from-red-500 hover:to-orange-400 transition-all disabled:opacity-50 flex items-center justify-center gap-3 text-lg shadow-lg"
+            >
+              {isWithdrawingAll ? (
+                <>
+                  <RefreshCw className="w-6 h-6 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Wallet className="w-6 h-6" />
+                  WITHDRAW EVERYTHING
+                </>
+              )}
+            </button>
+            <p className="text-zinc-500 text-xs text-center mt-2">
+              Closes any open positions + withdraws all funds to your wallet
+            </p>
+          </div>
+        )}
 
         {/* Emergency Withdraw - Always visible when user has balance */}
         {!isPreviewMode && parseFloat(vaultBalance) > 0 && (
