@@ -1078,31 +1078,31 @@ async function runReconciliationCycle(): Promise<void> {
             const price = await tradingV7GMXService.getTokenPrice(tokenAddress);
             const currentPrice = price?.max || 0;
 
-            // If vault has position, check if it needs to be finalized
-            // (GMX might have auto-closed via TP/SL)
+            // If vault has position, check if GMX already closed it (ORPHANED)
             if (vaultHasPosition && currentPrice > 0) {
-              // Get PnL to check if TP/SL was triggered
-              const pnlData = await tradingV7GMXService.getPositionPnL(
+              // THE FIX: Actually check if GMX position is closed (size = 0)
+              const isOrphaned = await tradingV7GMXService.isGMXPositionClosed(
                 walletAddress as `0x${string}`,
                 tokenAddress
               );
 
-              if (!pnlData) {
-                // Position exists in vault but PnL check failed - GMX might have closed it
-                logger.info('Reconciliation: Vault position exists but no PnL data - finalizing', {
+              if (isOrphaned) {
+                // GMX closed the position but vault still shows active
+                // This is the bug - we need to reconcile!
+                logger.warn('AUTO-RECONCILING ORPHANED POSITION', {
                   wallet: walletAddress.slice(0, 10),
                   token: position.token_symbol,
                   currentPrice
                 });
 
-                // Try the new reconcilePosition method first (uses contract's reconcile())
+                // Call reconcile() to credit user's balance
                 const result = await tradingV7GMXService.reconcilePosition(
                   walletAddress as `0x${string}`,
                   tokenAddress
                 );
 
                 if (result.success) {
-                  logger.info('Reconciliation: Successfully reconciled orphaned position', {
+                  logger.info('AUTO-RECONCILE SUCCESS - User balance credited!', {
                     wallet: walletAddress.slice(0, 10),
                     token: position.token_symbol,
                     txHash: result.txHash,
@@ -1117,7 +1117,9 @@ async function runReconciliationCycle(): Promise<void> {
                     currentPrice
                   );
                 } else {
-                  // Fallback to old method if reconcile fails
+                  // Fallback to finalizeOrphanedPosition if reconcile fails
+                  logger.warn('Reconcile failed, trying fallback', { error: result.error });
+
                   const fallbackResult = await tradingV7GMXService.finalizeOrphanedPosition(
                     walletAddress as `0x${string}`,
                     tokenAddress,
@@ -1125,14 +1127,21 @@ async function runReconciliationCycle(): Promise<void> {
                   );
 
                   if (fallbackResult.success) {
-                    logger.info('Reconciliation: Fallback method succeeded', {
+                    logger.info('Fallback reconciliation succeeded', {
                       wallet: walletAddress.slice(0, 10),
                       token: position.token_symbol
                     });
+
+                    await positionService.syncPositionsWithChain(
+                      walletAddress,
+                      chainId,
+                      tokenAddress,
+                      currentPrice
+                    );
                   } else {
-                    logger.error('Reconciliation: Both methods failed', {
+                    logger.error('Both reconciliation methods failed', {
                       wallet: walletAddress.slice(0, 10),
-                      error: result.error
+                      error: fallbackResult.error
                     });
                   }
                 }

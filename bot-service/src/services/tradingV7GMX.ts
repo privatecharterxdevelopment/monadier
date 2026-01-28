@@ -375,7 +375,7 @@ export class TradingV7GMXService {
   }
 
   /**
-   * Check if user has an active position
+   * Check if user has an active position in vault
    */
   async hasOpenPosition(userAddress: `0x${string}`, tokenAddress: `0x${string}`): Promise<boolean> {
     try {
@@ -387,6 +387,70 @@ export class TradingV7GMXService {
       });
       return position.isActive;
     } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Check if GMX position is closed but vault still shows active (ORPHANED)
+   * Returns true if we need to call reconcile()
+   */
+  async isGMXPositionClosed(userAddress: `0x${string}`, tokenAddress: `0x${string}`): Promise<boolean> {
+    try {
+      // First check if vault has an active position
+      const vaultPosition = await this.publicClient.readContract({
+        address: this.vaultAddress,
+        abi: VAULT_V7_ABI,
+        functionName: 'getPosition',
+        args: [userAddress, tokenAddress]
+      }) as any;
+
+      if (!vaultPosition || !vaultPosition.isActive) {
+        return false; // No vault position, nothing to reconcile
+      }
+
+      // Check GMX position size - if 0, GMX has closed it
+      const gmxPosition = await this.publicClient.readContract({
+        address: GMX_ADDRESSES.vault,
+        abi: [{
+          inputs: [
+            { name: '_account', type: 'address' },
+            { name: '_collateralToken', type: 'address' },
+            { name: '_indexToken', type: 'address' },
+            { name: '_isLong', type: 'bool' }
+          ],
+          name: 'getPosition',
+          outputs: [
+            { name: 'size', type: 'uint256' },
+            { name: 'collateral', type: 'uint256' },
+            { name: 'averagePrice', type: 'uint256' },
+            { name: 'entryFundingRate', type: 'uint256' },
+            { name: 'reserveAmount', type: 'uint256' },
+            { name: 'realisedPnl', type: 'int256' },
+            { name: 'lastIncreasedTime', type: 'uint256' }
+          ],
+          stateMutability: 'view',
+          type: 'function'
+        }],
+        functionName: 'getPosition',
+        args: [this.vaultAddress, TOKENS.USDC, tokenAddress, vaultPosition.isLong]
+      }) as unknown as readonly bigint[];
+
+      const gmxSize = gmxPosition[0];
+
+      // If GMX size is 0 but vault shows active = ORPHANED
+      if (gmxSize === 0n) {
+        logger.warn('ORPHANED POSITION DETECTED', {
+          user: userAddress.slice(0, 10),
+          token: tokenAddress === TOKENS.WETH ? 'ETH' : 'BTC',
+          vaultCollateral: formatUnits(vaultPosition.collateral, 6)
+        });
+        return true;
+      }
+
+      return false;
+    } catch (err: any) {
+      logger.debug('Error checking GMX position state', { error: err.message });
       return false;
     }
   }
