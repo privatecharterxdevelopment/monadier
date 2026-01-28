@@ -183,14 +183,14 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
         // Sync vault_settings after successful deposit
         // This ensures the bot knows about this wallet
         try {
-          const vaultStatus = await vaultClient.getVaultStatus(address as `0x${string}`);
+          const vaultStatus = await vaultClient.getUserStatus(address as `0x${string}`);
           await supabase
             .from('vault_settings')
             .upsert({
               wallet_address: address.toLowerCase(),
               chain_id: chainId,
               auto_trade_enabled: vaultStatus.autoTradeEnabled,
-              risk_level_bps: vaultStatus.riskLevel * 100,
+              risk_level_bps: vaultStatus.riskLevelBps,
               updated_at: new Date().toISOString(),
               synced_at: new Date().toISOString()
             }, {

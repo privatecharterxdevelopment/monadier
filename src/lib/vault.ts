@@ -691,9 +691,9 @@ export class VaultClient {
    * V7 doesn't have withdrawAll(), so we get balance and call withdraw(balance)
    */
   async withdrawAll(userAddress: `0x${string}`): Promise<`0x${string}`> {
-    // Get current balance first
-    const balance = await this.getBalance(userAddress);
-    const balanceWei = parseUnits(balance, USDC_DECIMALS);
+    // Get current balance first via getUserStatus
+    const status = await this.getUserStatus(userAddress);
+    const balanceWei = status.balance;
 
     if (balanceWei === 0n) {
       throw new Error('No balance to withdraw');
@@ -711,6 +711,161 @@ export class VaultClient {
     });
 
     return hash;
+  }
+
+  /**
+   * Emergency Withdraw - V10 feature
+   * Allows user to withdraw whatever USDC is available in the contract
+   * If contract is underfunded, withdraws pro-rata share
+   * User can ALWAYS call this to get their funds out
+   */
+  async emergencyWithdraw(userAddress: `0x${string}`): Promise<`0x${string}`> {
+    const emergencyWithdrawAbi = [{
+      inputs: [],
+      name: 'emergencyWithdraw',
+      outputs: [],
+      stateMutability: 'nonpayable',
+      type: 'function'
+    }] as const;
+
+    const hash = await this.walletClient.writeContract({
+      address: this.vaultAddress,
+      abi: emergencyWithdrawAbi,
+      functionName: 'emergencyWithdraw',
+      args: [],
+      chain: arbitrum,
+      account: userAddress,
+      gas: 200000n
+    });
+
+    return hash;
+  }
+
+  /**
+   * Get withdrawable amount (for emergency withdraw)
+   * Returns how much the user can actually withdraw based on contract liquidity
+   */
+  async getWithdrawable(userAddress: `0x${string}`): Promise<{ amount: bigint; formatted: string }> {
+    const getWithdrawableAbi = [{
+      inputs: [{ name: 'user', type: 'address' }],
+      name: 'getWithdrawable',
+      outputs: [{ name: '', type: 'uint256' }],
+      stateMutability: 'view',
+      type: 'function'
+    }] as const;
+
+    try {
+      const amount = await this.publicClient.readContract({
+        address: this.vaultAddress,
+        abi: getWithdrawableAbi,
+        functionName: 'getWithdrawable',
+        args: [userAddress]
+      });
+      return {
+        amount,
+        formatted: formatUnits(amount, USDC_DECIMALS)
+      };
+    } catch {
+      // Fallback to balance if getWithdrawable doesn't exist
+      const status = await this.getUserStatus(userAddress);
+      return {
+        amount: status.balance,
+        formatted: status.balanceFormatted
+      };
+    }
+  }
+
+  /**
+   * User Instant Close - V10 feature
+   * Allows user to close their position immediately and get funds back
+   * No need to wait for bot or GMX keeper
+   */
+  async userInstantClose(tokenAddress: `0x${string}`, userAddress: `0x${string}`): Promise<`0x${string}`> {
+    const userInstantCloseAbi = [{
+      inputs: [{ name: 'token', type: 'address' }],
+      name: 'userInstantClose',
+      outputs: [],
+      stateMutability: 'payable',
+      type: 'function'
+    }] as const;
+
+    const hash = await this.walletClient.writeContract({
+      address: this.vaultAddress,
+      abi: userInstantCloseAbi,
+      functionName: 'userInstantClose',
+      args: [tokenAddress],
+      chain: arbitrum,
+      account: userAddress,
+      gas: 500000n
+    });
+
+    return hash;
+  }
+
+  /**
+   * Get user's position for a specific token
+   */
+  async getPosition(userAddress: `0x${string}`, tokenAddress: `0x${string}`): Promise<{
+    isActive: boolean;
+    isLong: boolean;
+    collateral: bigint;
+    collateralFormatted: string;
+    size: bigint;
+    leverage: number;
+    entryPrice: bigint;
+    entryPriceFormatted: string;
+    stopLoss: bigint;
+    takeProfit: bigint;
+    timestamp: number;
+  }> {
+    const positionAbi = [{
+      inputs: [
+        { name: 'user', type: 'address' },
+        { name: 'token', type: 'address' }
+      ],
+      name: 'positions',
+      outputs: [
+        { name: 'isActive', type: 'bool' },
+        { name: 'isLong', type: 'bool' },
+        { name: 'token', type: 'address' },
+        { name: 'collateral', type: 'uint256' },
+        { name: 'size', type: 'uint256' },
+        { name: 'leverage', type: 'uint256' },
+        { name: 'entryPrice', type: 'uint256' },
+        { name: 'stopLoss', type: 'uint256' },
+        { name: 'takeProfit', type: 'uint256' },
+        { name: 'timestamp', type: 'uint256' },
+        { name: 'requestKey', type: 'bytes32' },
+        { name: 'highestPrice', type: 'uint256' },
+        { name: 'lowestPrice', type: 'uint256' },
+        { name: 'trailingSlBps', type: 'uint256' },
+        { name: 'trailingActivated', type: 'bool' },
+        { name: 'autoFeaturesEnabled', type: 'bool' }
+      ],
+      stateMutability: 'view',
+      type: 'function'
+    }] as const;
+
+    const result = await this.publicClient.readContract({
+      address: this.vaultAddress,
+      abi: positionAbi,
+      functionName: 'positions',
+      args: [userAddress, tokenAddress]
+    }) as any[];
+
+    return {
+      isActive: result[0],
+      isLong: result[1],
+      collateral: result[3],
+      collateralFormatted: formatUnits(result[3], USDC_DECIMALS),
+      size: result[4],
+      leverage: Number(result[5]),
+      entryPrice: result[6],
+      entryPriceFormatted: formatUnits(result[6], 30),
+      stopLoss: result[7],
+      takeProfit: result[8],
+      timestamp: Number(result[9])
+    };
   }
 
   /**

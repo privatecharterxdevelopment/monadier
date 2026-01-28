@@ -70,6 +70,25 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   const [v8LegacyError, setV8LegacyError] = useState<string | null>(null);
   const V8_LEGACY_VAULT_ADDRESS = '0xFA38c191134A6a3382794BE6144D24c3e6D8a4C3' as `0x${string}`;
 
+  // Emergency Withdraw state (V10)
+  const [isEmergencyWithdrawing, setIsEmergencyWithdrawing] = useState(false);
+  const [emergencyWithdrawError, setEmergencyWithdrawError] = useState<string | null>(null);
+  const [withdrawableAmount, setWithdrawableAmount] = useState<string>('0.00');
+
+  // Active Position state (V10)
+  const [activePosition, setActivePosition] = useState<{
+    isActive: boolean;
+    isLong: boolean;
+    collateral: string;
+    leverage: number;
+    entryPrice: string;
+    token: string;
+  } | null>(null);
+  const [isClosingPosition, setIsClosingPosition] = useState(false);
+  const [closePositionError, setClosePositionError] = useState<string | null>(null);
+  const WETH_ADDRESS = '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1' as `0x${string}`;
+  const WBTC_ADDRESS = '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f' as `0x${string}`;
+
   // Bot toggle state
   const [isTogglingBot, setIsTogglingBot] = useState(false);
   const [toggleError, setToggleError] = useState<string | null>(null);
@@ -116,6 +135,46 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
         setAutoTradeEnabled(status.autoTradeEnabled);
         setRiskLevelPercent(status.riskLevelPercent);
         setMaxTradeSize(status.maxTradeSizeFormatted);
+
+        // Get withdrawable amount (for emergency withdraw)
+        try {
+          const withdrawable = await vaultClient.getWithdrawable(address as `0x${string}`);
+          setWithdrawableAmount(withdrawable.formatted);
+        } catch (e) {
+          setWithdrawableAmount(status.balanceFormatted);
+        }
+
+        // Check for active positions (ETH and BTC)
+        try {
+          const ethPosition = await vaultClient.getPosition(address as `0x${string}`, WETH_ADDRESS);
+          if (ethPosition.isActive) {
+            setActivePosition({
+              isActive: true,
+              isLong: ethPosition.isLong,
+              collateral: ethPosition.collateralFormatted,
+              leverage: ethPosition.leverage,
+              entryPrice: parseFloat(ethPosition.entryPriceFormatted).toFixed(2),
+              token: 'ETH'
+            });
+          } else {
+            const btcPosition = await vaultClient.getPosition(address as `0x${string}`, WBTC_ADDRESS);
+            if (btcPosition.isActive) {
+              setActivePosition({
+                isActive: true,
+                isLong: btcPosition.isLong,
+                collateral: btcPosition.collateralFormatted,
+                leverage: btcPosition.leverage,
+                entryPrice: parseFloat(btcPosition.entryPriceFormatted).toFixed(2),
+                token: 'BTC'
+              });
+            } else {
+              setActivePosition(null);
+            }
+          }
+        } catch (e) {
+          console.log('Error checking positions:', e);
+          setActivePosition(null);
+        }
 
         // Fetch TP/SL, ask_permission, and leverage settings from Supabase
         try {
@@ -337,6 +396,54 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
     }
   };
 
+  // Close Position (User Instant Close)
+  const handleClosePosition = async () => {
+    if (!walletClient || !publicClient || !address || !chainId || !activePosition) return;
+
+    try {
+      setIsClosingPosition(true);
+      setClosePositionError(null);
+
+      const vaultClient = new VaultClient(publicClient as any, walletClient as any, chainId);
+      const tokenAddress = activePosition.token === 'ETH' ? WETH_ADDRESS : WBTC_ADDRESS;
+
+      const hash = await vaultClient.userInstantClose(tokenAddress, address as `0x${string}`);
+      await publicClient.waitForTransactionReceipt({ hash });
+
+      alert('Position closed successfully! Your funds have been returned to your vault balance.');
+      window.location.reload();
+    } catch (err: any) {
+      console.error('Close position failed:', err);
+      setClosePositionError(err.shortMessage || err.message || 'Failed to close position');
+    } finally {
+      setIsClosingPosition(false);
+    }
+  };
+
+  // Emergency Withdraw from V10 vault (gets whatever USDC is available)
+  const handleEmergencyWithdraw = async () => {
+    if (!walletClient || !publicClient || !address || !chainId) return;
+
+    try {
+      setIsEmergencyWithdrawing(true);
+      setEmergencyWithdrawError(null);
+
+      const vaultClient = new VaultClient(publicClient as any, walletClient as any, chainId);
+      const hash = await vaultClient.emergencyWithdraw(address as `0x${string}`);
+
+      await publicClient.waitForTransactionReceipt({ hash });
+
+      // Reload the page to refresh balances
+      alert('Emergency withdrawal successful! Your funds have been sent to your wallet.');
+      window.location.reload();
+    } catch (err: any) {
+      console.error('Emergency withdraw failed:', err);
+      setEmergencyWithdrawError(err.shortMessage || err.message || 'Emergency withdrawal failed');
+    } finally {
+      setIsEmergencyWithdrawing(false);
+    }
+  };
+
   // Handle upgrade click
   const handleUpgradeClick = () => {
     openUpgradeModal('Auto-Trading Vault is available for paid subscribers only. Upgrade to enable automated trading without signing each transaction.');
@@ -475,6 +582,59 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
                 {tradeInfo.unlimited ? 'Unlimited' : `${tradeInfo.remaining} left`}
               </p>
             </div>
+          </div>
+        )}
+
+        {/* Active Position Alert - Shows when user has money locked in a position */}
+        {activePosition && activePosition.isActive && !isPreviewMode && (
+          <div className="mb-4 p-4 bg-yellow-500/10 border-2 border-yellow-500/50 rounded-xl">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="w-5 h-5 text-yellow-400" />
+              <span className="text-yellow-400 font-semibold">Active Position</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mb-3 text-sm">
+              <div>
+                <span className="text-zinc-400">Type:</span>
+                <span className={`ml-2 font-medium ${activePosition.isLong ? 'text-green-400' : 'text-red-400'}`}>
+                  {activePosition.isLong ? 'LONG' : 'SHORT'} {activePosition.token}
+                </span>
+              </div>
+              <div>
+                <span className="text-zinc-400">Leverage:</span>
+                <span className="ml-2 text-white font-medium">{activePosition.leverage}x</span>
+              </div>
+              <div>
+                <span className="text-zinc-400">Collateral:</span>
+                <span className="ml-2 text-white font-medium">${parseFloat(activePosition.collateral).toFixed(2)}</span>
+              </div>
+              <div>
+                <span className="text-zinc-400">Entry:</span>
+                <span className="ml-2 text-white font-medium">${activePosition.entryPrice}</span>
+              </div>
+            </div>
+            <p className="text-yellow-400/80 text-xs mb-3">
+              Your funds are locked in this position. Close it to withdraw your money.
+            </p>
+            {closePositionError && (
+              <p className="text-red-400 text-xs mb-2">{closePositionError}</p>
+            )}
+            <button
+              onClick={handleClosePosition}
+              disabled={isClosingPosition}
+              className="w-full py-3 bg-yellow-500 text-black font-semibold rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isClosingPosition ? (
+                <>
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  Closing Position...
+                </>
+              ) : (
+                <>
+                  <Square className="w-5 h-5" />
+                  Close Position & Get Funds Back
+                </>
+              )}
+            </button>
           </div>
         )}
 
@@ -715,6 +875,44 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
             Withdraw
           </button>
         </div>
+
+        {/* Emergency Withdraw - Always visible when user has balance */}
+        {!isPreviewMode && parseFloat(vaultBalance) > 0 && (
+          <div className="mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="w-4 h-4 text-red-400" />
+              <span className="text-red-400 text-sm font-medium">Emergency Withdraw</span>
+            </div>
+            <p className="text-red-400/80 text-xs mb-3">
+              Can't withdraw normally? Use emergency withdraw to get your funds out immediately.
+              {parseFloat(withdrawableAmount) < parseFloat(vaultBalance) && (
+                <span className="block mt-1 text-yellow-400">
+                  Note: Only ${parseFloat(withdrawableAmount).toFixed(2)} of ${parseFloat(vaultBalance).toFixed(2)} currently available due to liquidity.
+                </span>
+              )}
+            </p>
+            {emergencyWithdrawError && (
+              <p className="text-red-400 text-xs mb-2">{emergencyWithdrawError}</p>
+            )}
+            <button
+              onClick={handleEmergencyWithdraw}
+              disabled={isEmergencyWithdrawing || parseFloat(withdrawableAmount) === 0}
+              className="w-full py-2 bg-red-500 text-white font-medium rounded-lg hover:bg-red-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isEmergencyWithdrawing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Withdrawing...
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="w-4 h-4" />
+                  Emergency Withdraw ${parseFloat(withdrawableAmount).toFixed(2)}
+                </>
+              )}
+            </button>
+          </div>
+        )}
 
         {/* Switch to Arbitrum Prompt */}
         {isPreviewMode && (
