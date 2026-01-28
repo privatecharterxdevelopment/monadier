@@ -803,6 +803,36 @@ export class VaultClient {
   }
 
   /**
+   * Reconcile orphaned position - ANYONE can call
+   * Use when vault shows active position but GMX already closed it
+   * Credits user their balance back automatically
+   */
+  async reconcilePosition(tokenAddress: `0x${string}`, userAddress: `0x${string}`): Promise<`0x${string}`> {
+    const reconcileAbi = [{
+      inputs: [
+        { name: 'user', type: 'address' },
+        { name: 'token', type: 'address' }
+      ],
+      name: 'reconcile',
+      outputs: [],
+      stateMutability: 'nonpayable',
+      type: 'function'
+    }] as const;
+
+    const hash = await this.walletClient.writeContract({
+      address: this.vaultAddress,
+      abi: reconcileAbi,
+      functionName: 'reconcile',
+      args: [userAddress, tokenAddress],
+      chain: arbitrum,
+      account: userAddress,
+      gas: 300000n
+    });
+
+    return hash;
+  }
+
+  /**
    * Get user's position for a specific token
    */
   async getPosition(userAddress: `0x${string}`, tokenAddress: `0x${string}`): Promise<{

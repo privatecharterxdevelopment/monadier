@@ -396,7 +396,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
     }
   };
 
-  // Close Position (User Instant Close)
+  // Close Position (tries reconcile first, then userInstantClose)
   const handleClosePosition = async () => {
     if (!walletClient || !publicClient || !address || !chainId || !activePosition) return;
 
@@ -407,6 +407,18 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
       const vaultClient = new VaultClient(publicClient as any, walletClient as any, chainId);
       const tokenAddress = activePosition.token === 'ETH' ? WETH_ADDRESS : WBTC_ADDRESS;
 
+      // Try reconcile first (works if GMX already closed the position)
+      try {
+        const hash = await vaultClient.reconcilePosition(tokenAddress, address as `0x${string}`);
+        await publicClient.waitForTransactionReceipt({ hash });
+        alert('Position reconciled! Your funds have been returned to your vault balance.');
+        window.location.reload();
+        return;
+      } catch (reconcileErr: any) {
+        console.log('Reconcile failed, trying userInstantClose:', reconcileErr.message);
+      }
+
+      // Fallback to userInstantClose if reconcile fails
       const hash = await vaultClient.userInstantClose(tokenAddress, address as `0x${string}`);
       await publicClient.waitForTransactionReceipt({ hash });
 

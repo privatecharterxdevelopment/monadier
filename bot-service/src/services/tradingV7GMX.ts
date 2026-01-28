@@ -747,6 +747,190 @@ export class TradingV7GMXService {
   }
 
   /**
+   * Reconcile orphaned position - ANYONE can call this
+   * Use when vault shows active position but GMX position is already closed
+   * This credits the user their balance back
+   */
+  async reconcilePosition(
+    userAddress: `0x${string}`,
+    tokenAddress: `0x${string}`
+  ): Promise<{ success: boolean; txHash?: string; creditedAmount?: number; error?: string }> {
+    try {
+      // Check if vault has active position
+      const position = await this.publicClient.readContract({
+        address: this.vaultAddress,
+        abi: VAULT_V7_ABI,
+        functionName: 'getPosition',
+        args: [userAddress, tokenAddress]
+      }) as any;
+
+      if (!position || !position.isActive) {
+        return { success: false, error: 'No active vault position' };
+      }
+
+      // Check if GMX position is closed
+      const gmxPosition = await this.publicClient.readContract({
+        address: GMX_ADDRESSES.vault,
+        abi: [{
+          inputs: [
+            { name: '_account', type: 'address' },
+            { name: '_collateralToken', type: 'address' },
+            { name: '_indexToken', type: 'address' },
+            { name: '_isLong', type: 'bool' }
+          ],
+          name: 'getPosition',
+          outputs: [
+            { name: 'size', type: 'uint256' },
+            { name: 'collateral', type: 'uint256' },
+            { name: 'averagePrice', type: 'uint256' },
+            { name: 'entryFundingRate', type: 'uint256' },
+            { name: 'reserveAmount', type: 'uint256' },
+            { name: 'realisedPnl', type: 'int256' },
+            { name: 'lastIncreasedTime', type: 'uint256' }
+          ],
+          stateMutability: 'view',
+          type: 'function'
+        }],
+        functionName: 'getPosition',
+        args: [this.vaultAddress, TOKENS.USDC, tokenAddress, position.isLong]
+      }) as any[];
+
+      const gmxSize = gmxPosition[0] as bigint;
+      if (gmxSize > 0n) {
+        return { success: false, error: 'GMX position still active - cannot reconcile yet' };
+      }
+
+      logger.info('Reconciling orphaned position', {
+        user: userAddress.slice(0, 10),
+        token: tokenAddress.slice(0, 10),
+        collateral: formatUnits(position.collateral, 6)
+      });
+
+      // Call reconcile on vault - credits user their balance
+      const txHash = await this.walletClient.writeContract({
+        address: this.vaultAddress,
+        abi: [{
+          inputs: [
+            { name: 'user', type: 'address' },
+            { name: 'token', type: 'address' }
+          ],
+          name: 'reconcile',
+          outputs: [],
+          stateMutability: 'nonpayable',
+          type: 'function'
+        }],
+        functionName: 'reconcile',
+        args: [userAddress, tokenAddress],
+        chain: arbitrum,
+        account: this.botAccount
+      });
+
+      const receipt = await this.publicClient.waitForTransactionReceipt({ hash: txHash });
+      if (receipt.status !== 'success') {
+        return { success: false, error: 'Reconcile transaction reverted' };
+      }
+
+      const creditedAmount = Number(formatUnits(position.collateral, 6));
+
+      logger.info('Position reconciled successfully', {
+        txHash,
+        user: userAddress.slice(0, 10),
+        creditedAmount
+      });
+
+      return { success: true, txHash, creditedAmount };
+    } catch (err: any) {
+      logger.error('Failed to reconcile position', { error: err.message });
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Find and reconcile all orphaned positions
+   * Scans all users with vault positions and reconciles any where GMX is already closed
+   */
+  async reconcileAllOrphanedPositions(): Promise<{ reconciled: number; errors: string[] }> {
+    const errors: string[] = [];
+    let reconciled = 0;
+
+    try {
+      // Get all users from vault_settings
+      const users = await subscriptionService.getAutoTradeUsers(42161);
+
+      for (const userAddress of users) {
+        for (const tokenAddress of [TOKENS.WETH, TOKENS.WBTC]) {
+          try {
+            // Check if vault has active position
+            const position = await this.publicClient.readContract({
+              address: this.vaultAddress,
+              abi: VAULT_V7_ABI,
+              functionName: 'getPosition',
+              args: [userAddress as `0x${string}`, tokenAddress]
+            }) as any;
+
+            if (!position || !position.isActive) continue;
+
+            // Check if GMX position is closed
+            const gmxPosition = await this.publicClient.readContract({
+              address: GMX_ADDRESSES.vault,
+              abi: [{
+                inputs: [
+                  { name: '_account', type: 'address' },
+                  { name: '_collateralToken', type: 'address' },
+                  { name: '_indexToken', type: 'address' },
+                  { name: '_isLong', type: 'bool' }
+                ],
+                name: 'getPosition',
+                outputs: [
+                  { name: 'size', type: 'uint256' },
+                  { name: 'collateral', type: 'uint256' },
+                  { name: 'averagePrice', type: 'uint256' },
+                  { name: 'entryFundingRate', type: 'uint256' },
+                  { name: 'reserveAmount', type: 'uint256' },
+                  { name: 'realisedPnl', type: 'int256' },
+                  { name: 'lastIncreasedTime', type: 'uint256' }
+                ],
+                stateMutability: 'view',
+                type: 'function'
+              }],
+              functionName: 'getPosition',
+              args: [this.vaultAddress, TOKENS.USDC, tokenAddress, position.isLong]
+            }) as any[];
+
+            const gmxSize = gmxPosition[0] as bigint;
+            if (gmxSize > 0n) continue; // GMX still active
+
+            // Found orphaned position - reconcile it
+            logger.warn('Found orphaned position - reconciling', {
+              user: userAddress.slice(0, 10),
+              token: tokenAddress === TOKENS.WETH ? 'ETH' : 'BTC',
+              collateral: formatUnits(position.collateral, 6)
+            });
+
+            const result = await this.reconcilePosition(userAddress as `0x${string}`, tokenAddress);
+            if (result.success) {
+              reconciled++;
+            } else {
+              errors.push(`${userAddress.slice(0, 10)}: ${result.error}`);
+            }
+          } catch (err: any) {
+            // Ignore individual position errors
+          }
+        }
+      }
+
+      if (reconciled > 0) {
+        logger.info(`Reconciled ${reconciled} orphaned positions`);
+      }
+
+      return { reconciled, errors };
+    } catch (err: any) {
+      logger.error('Failed to reconcile all positions', { error: err.message });
+      return { reconciled, errors: [err.message] };
+    }
+  }
+
+  /**
    * Check and execute SL/TP triggers
    * Monitors current price against stored SL/TP levels and closes position if triggered
    */

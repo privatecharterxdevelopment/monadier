@@ -1095,22 +1095,46 @@ async function runReconciliationCycle(): Promise<void> {
                   currentPrice
                 });
 
-                const result = await tradingV7GMXService.finalizeOrphanedPosition(
+                // Try the new reconcilePosition method first (uses contract's reconcile())
+                const result = await tradingV7GMXService.reconcilePosition(
                   walletAddress as `0x${string}`,
-                  tokenAddress,
-                  currentPrice
+                  tokenAddress
                 );
 
                 if (result.success) {
-                  logger.info('Reconciliation: Successfully credited user balance + 10% fee taken', {
+                  logger.info('Reconciliation: Successfully reconciled orphaned position', {
                     wallet: walletAddress.slice(0, 10),
-                    token: position.token_symbol
+                    token: position.token_symbol,
+                    txHash: result.txHash,
+                    creditedAmount: result.creditedAmount
                   });
+
+                  // Sync database
+                  await positionService.syncPositionsWithChain(
+                    walletAddress,
+                    chainId,
+                    tokenAddress,
+                    currentPrice
+                  );
                 } else {
-                  logger.error('Reconciliation: Failed to credit user balance', {
-                    wallet: walletAddress.slice(0, 10),
-                    error: result.error
-                  });
+                  // Fallback to old method if reconcile fails
+                  const fallbackResult = await tradingV7GMXService.finalizeOrphanedPosition(
+                    walletAddress as `0x${string}`,
+                    tokenAddress,
+                    currentPrice
+                  );
+
+                  if (fallbackResult.success) {
+                    logger.info('Reconciliation: Fallback method succeeded', {
+                      wallet: walletAddress.slice(0, 10),
+                      token: position.token_symbol
+                    });
+                  } else {
+                    logger.error('Reconciliation: Both methods failed', {
+                      wallet: walletAddress.slice(0, 10),
+                      error: result.error
+                    });
+                  }
                 }
               }
             } else if (!vaultHasPosition) {
