@@ -167,18 +167,19 @@ export class PaymentService {
       await this.supabase
         .from('pending_payments')
         .update({
-          status: 'confirmed',
+          status: 'completed',
           tx_hash: txHash,
-          confirmed_at: new Date().toISOString()
+          completed_at: new Date().toISOString()
         })
         .eq('id', pending.id);
 
-      // Activate subscription
-      await this.activateSubscription(pending);
+      // Activate subscription and record payment
+      await this.activateSubscription(pending, txHash);
 
       logger.info('Payment confirmed and subscription activated', {
         userId: pending.user_id,
-        plan: pending.plan_tier
+        plan: pending.plan_tier,
+        txHash: txHash.slice(0, 10)
       });
 
     } catch (err) {
@@ -189,25 +190,65 @@ export class PaymentService {
   /**
    * Activate subscription after payment confirmation
    */
-  private async activateSubscription(pending: any) {
+  private async activateSubscription(pending: any, txHash: string) {
     const now = new Date();
     const expiresAt = new Date(now);
 
-    if (pending.billing_cycle === 'yearly') {
+    if (pending.billing_cycle === 'lifetime') {
+      expiresAt.setFullYear(expiresAt.getFullYear() + 100); // Lifetime
+    } else if (pending.billing_cycle === 'yearly') {
       expiresAt.setFullYear(expiresAt.getFullYear() + 1);
     } else {
       expiresAt.setMonth(expiresAt.getMonth() + 1);
     }
 
-    // Create subscription record
-    await this.supabase.from('subscriptions').insert({
+    // Check if user already has a subscription
+    const { data: existingSub } = await this.supabase
+      .from('subscriptions')
+      .select('id')
+      .eq('user_id', pending.user_id)
+      .single();
+
+    const subscriptionData = {
       user_id: pending.user_id,
+      wallet_address: pending.wallet_address,
       plan_tier: pending.plan_tier,
       billing_cycle: pending.billing_cycle,
       status: 'active',
-      amount_paid: pending.expected_amount,
-      started_at: now.toISOString(),
-      expires_at: expiresAt.toISOString()
+      start_date: now.toISOString(),
+      end_date: expiresAt.toISOString(),
+      auto_renew: pending.billing_cycle !== 'lifetime',
+      daily_trades_used: 0,
+      daily_trades_reset_at: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
+      updated_at: now.toISOString()
+    };
+
+    if (existingSub) {
+      // Update existing subscription
+      await this.supabase
+        .from('subscriptions')
+        .update(subscriptionData)
+        .eq('id', existingSub.id);
+    } else {
+      // Create new subscription
+      await this.supabase.from('subscriptions').insert({
+        ...subscriptionData,
+        created_at: now.toISOString()
+      });
+    }
+
+    // Record payment in payments table for transaction history
+    await this.supabase.from('payments').insert({
+      user_id: pending.user_id,
+      amount: Math.round(pending.expected_amount * 100), // Store in cents
+      currency: 'usd',
+      status: 'succeeded',
+      plan_tier: pending.plan_tier,
+      billing_cycle: pending.billing_cycle,
+      chain_id: config.arbitrum.chainId,
+      wallet_address: pending.wallet_address,
+      tx_hash: txHash,
+      created_at: now.toISOString()
     });
 
     // Update user's membership tier in profiles
@@ -215,6 +256,12 @@ export class PaymentService {
       .from('profiles')
       .update({ membership_tier: pending.plan_tier })
       .eq('id', pending.user_id);
+
+    logger.info('Subscription activated with payment recorded', {
+      userId: pending.user_id,
+      plan: pending.plan_tier,
+      txHash: txHash.slice(0, 10)
+    });
   }
 
   /**
