@@ -496,16 +496,18 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
         console.log('No BTC position or already closed:', err.message);
       }
 
-      // Step 3: Get updated balance and withdraw everything
+      // Step 3: Get updated balance and withdraw everything via emergencyWithdraw
+      // This handles cases where vault is underfunded (withdraws pro-rata share)
       const status = await vaultClient.getUserStatus(address as `0x${string}`);
       const balance = status.balance;
 
       if (balance > 0n) {
-        console.log('Withdrawing balance:', status.balanceFormatted, 'USDC');
-        const hash = await vaultClient.withdraw(balance, address as `0x${string}`);
+        console.log('Withdrawing via emergencyWithdraw:', status.balanceFormatted, 'USDC');
+        // Use emergencyWithdraw instead of withdraw - handles underfunded vault
+        const hash = await vaultClient.emergencyWithdraw(address as `0x${string}`);
         await publicClient.waitForTransactionReceipt({ hash });
         console.log('Withdrawal complete!');
-        alert('Success! All funds withdrawn to your wallet.');
+        alert('Success! All available funds withdrawn to your wallet.');
       } else {
         alert('No balance to withdraw. Positions closed if any existed.');
       }
