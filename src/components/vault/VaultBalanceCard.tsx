@@ -131,18 +131,19 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
         const vaultClient = new VaultClient(publicClient as any, walletClient as any, chainId);
         const status = await vaultClient.getUserStatus(address as `0x${string}`);
 
-        setVaultBalance(status.balanceFormatted);
         setAutoTradeEnabled(status.autoTradeEnabled);
         setRiskLevelPercent(status.riskLevelPercent);
         setMaxTradeSize(status.maxTradeSizeFormatted);
 
-        // Get withdrawable amount - THIS IS THE REAL BALANCE USER CAN ACCESS
+        // ONLY show withdrawable amount - this is what user can ACTUALLY get
+        // Never show the "recorded balance" as it may be higher than available
         try {
           const withdrawable = await vaultClient.getWithdrawable(address as `0x${string}`);
-          setWithdrawableAmount(withdrawable.formatted);
-          // Show withdrawable as the main balance (what user can actually get)
           setVaultBalance(withdrawable.formatted);
+          setWithdrawableAmount(withdrawable.formatted);
         } catch (e) {
+          // Fallback to recorded balance only if getWithdrawable fails
+          setVaultBalance(status.balanceFormatted);
           setWithdrawableAmount(status.balanceFormatted);
         }
 
