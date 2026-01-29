@@ -136,10 +136,12 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
         setRiskLevelPercent(status.riskLevelPercent);
         setMaxTradeSize(status.maxTradeSizeFormatted);
 
-        // Get withdrawable amount (for emergency withdraw)
+        // Get withdrawable amount - THIS IS THE REAL BALANCE USER CAN ACCESS
         try {
           const withdrawable = await vaultClient.getWithdrawable(address as `0x${string}`);
           setWithdrawableAmount(withdrawable.formatted);
+          // Show withdrawable as the main balance (what user can actually get)
+          setVaultBalance(withdrawable.formatted);
         } catch (e) {
           setWithdrawableAmount(status.balanceFormatted);
         }
@@ -983,43 +985,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
           </div>
         )}
 
-        {/* Emergency Withdraw - Always visible when user has balance */}
-        {!isPreviewMode && parseFloat(vaultBalance) > 0 && (
-          <div className="mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="w-4 h-4 text-red-400" />
-              <span className="text-red-400 text-sm font-medium">Emergency Withdraw</span>
-            </div>
-            <p className="text-red-400/80 text-xs mb-3">
-              Can't withdraw normally? Use emergency withdraw to get your funds out immediately.
-              {parseFloat(withdrawableAmount) < parseFloat(vaultBalance) && (
-                <span className="block mt-1 text-yellow-400">
-                  Note: Only ${parseFloat(withdrawableAmount).toFixed(2)} of ${parseFloat(vaultBalance).toFixed(2)} currently available due to liquidity.
-                </span>
-              )}
-            </p>
-            {emergencyWithdrawError && (
-              <p className="text-red-400 text-xs mb-2">{emergencyWithdrawError}</p>
-            )}
-            <button
-              onClick={handleEmergencyWithdraw}
-              disabled={isEmergencyWithdrawing || parseFloat(withdrawableAmount) === 0}
-              className="w-full py-2 bg-red-500 text-white font-medium rounded-lg hover:bg-red-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isEmergencyWithdrawing ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Withdrawing...
-                </>
-              ) : (
-                <>
-                  <AlertTriangle className="w-4 h-4" />
-                  Emergency Withdraw ${parseFloat(withdrawableAmount).toFixed(2)}
-                </>
-              )}
-            </button>
-          </div>
-        )}
+        {/* Emergency Withdraw section removed - WITHDRAW EVERYTHING button handles this */}
 
         {/* Switch to Arbitrum Prompt */}
         {isPreviewMode && (
