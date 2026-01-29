@@ -28,10 +28,10 @@ import { VAULT_ADDRESS, VAULT_V8_ABI } from '../../lib/vault';
 // Admin email - only this user can access
 const ADMIN_EMAIL = 'ipsunlorem@gmail.com';
 
-// V9 Vault - Arbitrum Only
-const V8_VAULT = VAULT_ADDRESS;
+// V10 Vault - Arbitrum Only
+const V10_VAULT = VAULT_ADDRESS;
 const USDC_ARBITRUM = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
-const TREASURY_ADDRESS = '0xF7351a5C63e0403F6F7FC77d31B5e17A229C469c';
+const TREASURY_ADDRESS = '0x64d79e57640A8d4A56Ad1d08c932B5CCF0B263a9';
 
 // Create Arbitrum public client for on-chain reads
 const arbitrumClient = createPublicClient({
@@ -40,12 +40,14 @@ const arbitrumClient = createPublicClient({
 });
 
 interface SystemStats {
-  // V9 Vault Stats
-  vaultTVL: string;
-  accumulatedFees: string;      // Fees still in contract
+  // V10 Vault Stats
+  vaultRealBalance: string;      // ACTUAL USDC in contract (truth)
+  vaultTVL: string;              // Contract-tracked TVL (may differ)
+  accumulatedFees: string;       // Fees still in contract
   treasuryBalance: string;       // Fees already withdrawn to treasury
   totalFeesEarned: string;       // Total = accumulatedFees + treasuryBalance
-  totalDeposited: string;
+  isSolvent: boolean;
+  surplus: string;
   // User Stats
   totalUsers: number;
   usersWithWallet: number;
@@ -130,11 +132,13 @@ const AdminMonitorPage: React.FC = () => {
   const [vaultTransactions, setVaultTransactions] = useState<VaultTransaction[]>([]);
   const [activeSection, setActiveSection] = useState<'overview' | 'users' | 'subscriptions' | 'trades' | 'vault' | 'fees' | 'payments'>('overview');
   const [stats, setStats] = useState<SystemStats>({
+    vaultRealBalance: '0',
     vaultTVL: '0',
     accumulatedFees: '0',
     treasuryBalance: '0',
     totalFeesEarned: '0',
-    totalDeposited: '0',
+    isSolvent: false,
+    surplus: '0',
     totalUsers: 0,
     usersWithWallet: 0,
     activeTraders: 0,
@@ -149,12 +153,14 @@ const AdminMonitorPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
-  // Fetch V9 Vault Stats directly from chain
+  // Fetch V10 Vault Stats directly from chain
   const fetchVaultStats = async () => {
     let contractFees = 0n;
+    let realBalance = 0n;
     let tvl = 0n;
-    let deposited = 0n;
     let treasuryBalance = 0n;
+    let isSolvent = false;
+    let surplus = 0n;
 
     // 1. Fetch treasury USDC balance (fees already withdrawn)
     try {
@@ -164,98 +170,54 @@ const AdminMonitorPage: React.FC = () => {
       const data = await response.json();
       if (data.status === '1' && data.result) {
         treasuryBalance = BigInt(data.result);
-        console.log('[Admin] Treasury USDC balance:', formatUnits(treasuryBalance, 6));
       }
     } catch (e) {
       console.error('[Admin] Failed to fetch treasury balance:', e);
     }
 
-    // 2. Fetch vault stats
+    // 2. Fetch vault health status - shows REAL on-chain USDC balance
     try {
-      console.log('[Admin] Fetching vault stats from:', V8_VAULT);
-
       const healthStatus = await arbitrumClient.readContract({
-        address: V8_VAULT,
+        address: V10_VAULT,
         abi: VAULT_V8_ABI,
         functionName: 'getHealthStatus'
       }) as [bigint, bigint, bigint, boolean, bigint];
 
-      deposited = healthStatus[0] || 0n;
-      tvl = healthStatus[1] || 0n;
+      realBalance = healthStatus[0] || 0n;  // Actual USDC in contract
+      tvl = healthStatus[1] || 0n;          // What contract thinks it owes
       contractFees = healthStatus[2] || 0n;
-
-      console.log('[Admin] Vault health status:', {
-        realBalance: deposited.toString(),
-        tvl: tvl.toString(),
-        fees: contractFees.toString(),
-        isSolvent: healthStatus[3],
-        surplus: healthStatus[4].toString()
-      });
+      isSolvent = healthStatus[3];
+      surplus = healthStatus[4];
     } catch (err) {
-      console.error('[Admin] Error fetching vault stats via getHealthStatus:', err);
-
-      // Try direct reads as fallback
-      try {
-        console.log('[Admin] Trying direct contract reads...');
-        const [tvlResult, feesResult] = await Promise.all([
-          arbitrumClient.readContract({
-            address: V8_VAULT,
-            abi: [{ inputs: [], name: 'tvl', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' }],
-            functionName: 'tvl'
-          }),
-          arbitrumClient.readContract({
-            address: V8_VAULT,
-            abi: [{ inputs: [], name: 'fees', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' }],
-            functionName: 'fees'
-          })
-        ]);
-
-        tvl = (tvlResult as bigint) || 0n;
-        contractFees = (feesResult as bigint) || 0n;
-        console.log('[Admin] Direct reads - TVL:', tvl.toString(), 'Fees:', contractFees.toString());
-      } catch (directErr) {
-        console.error('[Admin] Direct reads failed:', directErr);
-
-        // Final fallback: Arbiscan API for vault USDC balance
-        try {
-          const response = await fetch(
-            `https://api.arbiscan.io/api?module=account&action=tokenbalance&contractaddress=${USDC_ARBITRUM}&address=${V8_VAULT}&tag=latest`
-          );
-          const data = await response.json();
-          if (data.status === '1' && data.result) {
-            tvl = BigInt(data.result);
-          }
-        } catch (e) {
-          console.error('[Admin] Arbiscan vault balance fallback failed:', e);
-        }
-      }
+      console.error('[Admin] Error fetching vault stats:', err);
     }
 
-    // Calculate total fees earned = in contract + already withdrawn to treasury
     const totalFeesEarned = contractFees + treasuryBalance;
 
     return {
-      tvl: formatUnits(tvl, 6),
+      realBalance: formatUnits(realBalance, 6),   // ACTUAL USDC on-chain
+      tvl: formatUnits(tvl, 6),                    // Contract-tracked TVL
       fees: formatUnits(contractFees, 6),
       treasuryBalance: formatUnits(treasuryBalance, 6),
       totalFeesEarned: formatUnits(totalFeesEarned, 6),
-      deposited: formatUnits(deposited, 6)
+      isSolvent,
+      surplus: formatUnits(surplus, 6)
     };
   };
 
-  // Fetch V9 Vault transactions from Arbiscan
+  // Fetch V10 Vault transactions from Arbiscan
   const fetchVaultTransactions = async () => {
     const transactions: VaultTransaction[] = [];
 
     try {
       const response = await fetch(
-        `https://api.arbiscan.io/api?module=account&action=tokentx&contractaddress=${USDC_ARBITRUM}&address=${V8_VAULT}&sort=desc&page=1&offset=100`
+        `https://api.arbiscan.io/api?module=account&action=tokentx&contractaddress=${USDC_ARBITRUM}&address=${V10_VAULT}&sort=desc&page=1&offset=100`
       );
       const data = await response.json();
 
       if (data.status === '1' && Array.isArray(data.result)) {
         data.result.forEach((tx: any) => {
-          const isDeposit = tx.to.toLowerCase() === V8_VAULT.toLowerCase();
+          const isDeposit = tx.to.toLowerCase() === V10_VAULT.toLowerCase();
           transactions.push({
             hash: tx.hash,
             type: isDeposit ? 'deposit' : 'withdraw',
@@ -323,11 +285,13 @@ const AdminMonitorPage: React.FC = () => {
       const activeSubs = subs.filter(s => s.status === 'active');
 
       setStats({
+        vaultRealBalance: vaultStats.realBalance,
         vaultTVL: vaultStats.tvl,
         accumulatedFees: vaultStats.fees,
         treasuryBalance: vaultStats.treasuryBalance,
         totalFeesEarned: vaultStats.totalFeesEarned,
-        totalDeposited: vaultStats.deposited,
+        isSolvent: vaultStats.isSolvent,
+        surplus: vaultStats.surplus,
         totalUsers: profiles.length,
         usersWithWallet,
         activeTraders: uniqueTraders,
@@ -431,7 +395,7 @@ const AdminMonitorPage: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Admin Dashboard - V9 GMX</h1>
+          <h1 className="text-2xl font-bold text-white">Admin Dashboard - V10 GMX</h1>
           <p className="text-secondary mt-1">
             Last updated: {lastRefresh.toLocaleTimeString()} • {currentUserEmail}
           </p>
@@ -475,17 +439,22 @@ const AdminMonitorPage: React.FC = () => {
         <div className="space-y-6">
           {/* Main Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* V9 Vault TVL */}
-            <div className="bg-card-dark rounded-xl border border-blue-500/30 p-4">
+            {/* V10 Vault Real Balance */}
+            <div className={`bg-card-dark rounded-xl border p-4 ${stats.isSolvent ? 'border-green-500/30' : 'border-red-500/30'}`}>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
-                  <Wallet className="text-blue-400" size={20} />
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${stats.isSolvent ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+                  <Wallet className={stats.isSolvent ? 'text-green-400' : 'text-red-400'} size={20} />
                 </div>
                 <div>
-                  <p className="text-sm text-secondary">V9 Vault TVL</p>
-                  <p className="text-xl font-bold text-white">
-                    ${parseFloat(stats.vaultTVL).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  <p className="text-sm text-secondary">Vault USDC (actual)</p>
+                  <p className={`text-xl font-bold ${stats.isSolvent ? 'text-white' : 'text-red-400'}`}>
+                    ${parseFloat(stats.vaultRealBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </p>
+                  {!stats.isSolvent && (
+                    <p className="text-xs text-red-400">
+                      UNDERFUNDED by ${Math.abs(parseFloat(stats.surplus)).toFixed(2)}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -589,12 +558,12 @@ const AdminMonitorPage: React.FC = () => {
           <div className="bg-card-dark rounded-xl border border-blue-500/30 p-4">
             <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
               <Shield size={20} className="text-blue-400" />
-              V9 GMX Vault (Arbitrum)
+              V10 GMX Vault (Arbitrum)
             </h3>
             <div className="flex items-center justify-between">
-              <code className="text-blue-400">{V8_VAULT}</code>
+              <code className="text-blue-400">{V10_VAULT}</code>
               <a
-                href={`https://arbiscan.io/address/${V8_VAULT}`}
+                href={`https://arbiscan.io/address/${V10_VAULT}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-blue-400 hover:text-blue-300"
@@ -788,9 +757,9 @@ const AdminMonitorPage: React.FC = () => {
           <div className="p-4 border-b border-gray-800">
             <h3 className="text-lg font-semibold text-white flex items-center gap-2">
               <DollarSign size={20} className="text-green-400" />
-              V9 Vault Transactions ({vaultTransactions.length})
+              V10 Vault Transactions ({vaultTransactions.length})
             </h3>
-            <p className="text-sm text-secondary mt-1">All deposits and withdrawals to V9 GMX Vault</p>
+            <p className="text-sm text-secondary mt-1">All deposits and withdrawals to V10 GMX Vault</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">

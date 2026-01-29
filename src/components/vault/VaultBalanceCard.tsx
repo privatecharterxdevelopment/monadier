@@ -51,23 +51,6 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsStartMode, setSettingsStartMode] = useState(false);
 
-  // V1 Migration state
-  const [v1Balance, setV1Balance] = useState<string>('0.00');
-  const [isMigrating, setIsMigrating] = useState(false);
-  const [migrationError, setMigrationError] = useState<string | null>(null);
-
-  // V7 Legacy vault state
-  const [v7Balance, setV7Balance] = useState<string>('0.00');
-  const [isWithdrawingV7, setIsWithdrawingV7] = useState(false);
-  const [v7Error, setV7Error] = useState<string | null>(null);
-  const V7_VAULT_ADDRESS = '0x9879792a47725d5b18633e1395BC4a7A06c750df' as `0x${string}`;
-
-  // V8 Legacy vault state (old V8 before GMX_ROUTER fix)
-  const [v8LegacyBalance, setV8LegacyBalance] = useState<string>('0.00');
-  const [isWithdrawingV8Legacy, setIsWithdrawingV8Legacy] = useState(false);
-  const [v8LegacyError, setV8LegacyError] = useState<string | null>(null);
-  const V8_LEGACY_VAULT_ADDRESS = '0xFA38c191134A6a3382794BE6144D24c3e6D8a4C3' as `0x${string}`;
-
   // Emergency Withdraw state (V10)
   const [isEmergencyWithdrawing, setIsEmergencyWithdrawing] = useState(false);
   const [emergencyWithdrawError, setEmergencyWithdrawError] = useState<string | null>(null);
@@ -99,9 +82,6 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   // V8: Arbitrum only
   const isVaultAvailable = chainId === VAULT_CHAIN_ID;
   const isPreviewMode = !isVaultAvailable;
-  const hasV1Funds = parseFloat(v1Balance) > 0;
-  const hasV7Funds = parseFloat(v7Balance) > 0;
-  const hasV8LegacyFunds = parseFloat(v8LegacyBalance) > 0;
 
   // Get platform fee (V8 unified)
   const platformFee = getPlatformFee();
@@ -196,31 +176,6 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
           // Settings may not exist yet, use defaults
         }
 
-        // Check V7 legacy vault balance
-        try {
-          const v7BalanceRaw = await publicClient.readContract({
-            address: V7_VAULT_ADDRESS,
-            abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'balances', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' }],
-            functionName: 'balances',
-            args: [address as `0x${string}`]
-          }) as bigint;
-          setV7Balance(formatUnits(v7BalanceRaw, 6));
-        } catch (e) {
-          console.log('No V7 vault balance');
-        }
-
-        // Check V8 Legacy vault balance (old V8 before GMX_ROUTER fix)
-        try {
-          const v8LegacyBalanceRaw = await publicClient.readContract({
-            address: V8_LEGACY_VAULT_ADDRESS,
-            abi: [{ inputs: [{ name: 'user', type: 'address' }], name: 'balances', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' }],
-            functionName: 'balances',
-            args: [address as `0x${string}`]
-          }) as bigint;
-          setV8LegacyBalance(formatUnits(v8LegacyBalanceRaw, 6));
-        } catch (e) {
-          console.log('No V8 legacy vault balance');
-        }
       } catch (err) {
         console.error('Failed to load vault data:', err);
         setError('Failed to load vault');
@@ -819,115 +774,6 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
           <div className="flex items-center gap-2 p-2 mb-3 bg-red-500/10 border border-red-500/20 rounded-lg">
             <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
             <span className="text-red-400 text-xs">Daily trade limit reached. Resets at midnight UTC.</span>
-          </div>
-        )}
-
-        {/* V7 Legacy Vault Banner - Hidden: funds lost in trades, not recoverable
-        {hasV7Funds && !isPreviewMode && (
-          <div className="mb-3 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-orange-400" />
-                <span className="text-orange-400 text-sm font-medium">V7 Legacy Vault</span>
-              </div>
-              <span className="text-orange-400 text-sm font-bold">$38.50</span>
-            </div>
-            <p className="text-orange-400/80 text-xs mb-3">
-              You have funds in the old V7 vault. Withdraw to your wallet.
-            </p>
-            {v7Error && (
-              <p className="text-red-400 text-xs mb-2">{v7Error}</p>
-            )}
-            <button
-              onClick={handleWithdrawV7}
-              disabled={isWithdrawingV7}
-              className="w-full py-2 bg-orange-500 text-black font-medium rounded-lg hover:bg-orange-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isWithdrawingV7 ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Withdrawing...
-                </>
-              ) : (
-                <>
-                  <ArrowUpRight className="w-4 h-4" />
-                  Withdraw $38.50 from V7
-                </>
-              )}
-            </button>
-          </div>
-        )}
-        */}
-
-        {/* V8 Legacy Vault Banner (old V8 before GMX_ROUTER fix) */}
-        {hasV8LegacyFunds && !isPreviewMode && (
-          <div className="mb-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-blue-400" />
-                <span className="text-blue-400 text-sm font-medium">V8 Legacy Vault</span>
-              </div>
-              <span className="text-blue-400 text-sm font-bold">${parseFloat(v8LegacyBalance).toFixed(2)}</span>
-            </div>
-            <p className="text-blue-400/80 text-xs mb-3">
-              You have funds in the old V8 vault. Withdraw to your wallet.
-            </p>
-            {v8LegacyError && (
-              <p className="text-red-400 text-xs mb-2">{v8LegacyError}</p>
-            )}
-            <button
-              onClick={handleWithdrawV8Legacy}
-              disabled={isWithdrawingV8Legacy}
-              className="w-full py-2 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isWithdrawingV8Legacy ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Withdrawing...
-                </>
-              ) : (
-                <>
-                  <ArrowUpRight className="w-4 h-4" />
-                  Withdraw ${parseFloat(v8LegacyBalance).toFixed(2)} from V8 Legacy
-                </>
-              )}
-            </button>
-          </div>
-        )}
-
-        {/* V1 Migration Banner */}
-        {hasV1Funds && !isPreviewMode && (
-          <div className="mb-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-yellow-400" />
-                <span className="text-yellow-400 text-sm font-medium">Funds in Old Vault</span>
-              </div>
-              <span className="text-yellow-400 text-sm font-bold">${parseFloat(v1Balance).toFixed(2)}</span>
-            </div>
-            <p className="text-yellow-400/80 text-xs mb-3">
-              You have funds in the V1 vault. Withdraw to your wallet, then deposit to the new V2 vault.
-            </p>
-            {migrationError && (
-              <p className="text-red-400 text-xs mb-2">{migrationError}</p>
-            )}
-            <button
-              onClick={handleMigrateFromV1}
-              disabled={isMigrating}
-              className="w-full py-2 bg-yellow-500 text-black font-medium rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isMigrating ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Withdrawing...
-                </>
-              ) : (
-                <>
-                  <ArrowRight className="w-4 h-4" />
-                  Withdraw ${parseFloat(v1Balance).toFixed(2)} from V1
-                </>
-              )}
-            </button>
           </div>
         )}
 
