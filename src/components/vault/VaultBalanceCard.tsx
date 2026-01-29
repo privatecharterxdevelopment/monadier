@@ -6,7 +6,6 @@ import { SUBSCRIPTION_PLANS } from '../../lib/subscription';
 import { VaultClient, VAULT_ADDRESS, VAULT_CHAIN_ID, getPlatformFee, USDC_DECIMALS, VAULT_ABI } from '../../lib/vault';
 import { formatUnits } from 'viem';
 import VaultDepositModal from './VaultDepositModal';
-import VaultWithdrawModal from './VaultWithdrawModal';
 import VaultSettingsModal from './VaultSettingsModal';
 import { supabase } from '../../lib/supabase';
 
@@ -49,7 +48,6 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   const [error, setError] = useState<string | null>(null);
 
   const [showDepositModal, setShowDepositModal] = useState(false);
-  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsStartMode, setSettingsStartMode] = useState(false);
 
@@ -933,58 +931,47 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className={`grid ${compact ? 'grid-cols-2' : 'grid-cols-2'} gap-2`}>
+        {/* Action Buttons - Deposit + Withdraw All */}
+        <div className="space-y-3">
           <button
             onClick={() => setShowDepositModal(true)}
             disabled={isLoading || isPreviewMode}
-            className={`flex items-center justify-center gap-2 py-2.5 font-medium rounded-lg transition-colors disabled:opacity-50 ${
+            className={`w-full flex items-center justify-center gap-2 py-3 font-medium rounded-lg transition-colors disabled:opacity-50 ${
               isPreviewMode
                 ? 'bg-zinc-700 text-zinc-400 cursor-not-allowed'
                 : 'bg-white text-black hover:bg-gray-100'
             }`}
           >
-            <ArrowDownLeft className="w-4 h-4" />
-            Deposit
+            <ArrowDownLeft className="w-5 h-5" />
+            Deposit USDC
           </button>
-          <button
-            onClick={() => !isPreviewMode && setShowWithdrawModal(true)}
-            disabled={isLoading || parseFloat(vaultBalance) === 0 || isPreviewMode}
-            className="flex items-center justify-center gap-2 py-2.5 bg-zinc-800 text-white font-medium rounded-lg hover:bg-zinc-700 transition-colors disabled:opacity-50"
-          >
-            <ArrowUpRight className="w-4 h-4" />
-            Withdraw
-          </button>
-        </div>
 
-        {/* ONE BUTTON TO WITHDRAW EVERYTHING - Closes positions + withdraws all */}
-        {!isPreviewMode && (
-          <div className="mt-4">
-            {withdrawAllError && (
-              <p className="text-red-400 text-xs mb-2 text-center">{withdrawAllError}</p>
-            )}
-            <button
-              onClick={handleWithdrawEverything}
-              disabled={isWithdrawingAll || isLoading}
-              className="w-full py-4 bg-gradient-to-r from-red-600 to-orange-500 text-white font-bold rounded-xl hover:from-red-500 hover:to-orange-400 transition-all disabled:opacity-50 flex items-center justify-center gap-3 text-lg shadow-lg"
-            >
-              {isWithdrawingAll ? (
-                <>
-                  <RefreshCw className="w-6 h-6 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Wallet className="w-6 h-6" />
-                  WITHDRAW EVERYTHING
-                </>
+          {/* ONE BUTTON - Withdraw Everything */}
+          {!isPreviewMode && parseFloat(vaultBalance) > 0 && (
+            <>
+              {withdrawAllError && (
+                <p className="text-red-400 text-xs mb-2 text-center">{withdrawAllError}</p>
               )}
-            </button>
-            <p className="text-zinc-500 text-xs text-center mt-2">
-              Closes any open positions + withdraws all funds to your wallet
-            </p>
-          </div>
-        )}
+              <button
+                onClick={handleWithdrawEverything}
+                disabled={isWithdrawingAll || isLoading}
+                className="w-full py-3 bg-gradient-to-r from-red-600 to-orange-500 text-white font-bold rounded-xl hover:from-red-500 hover:to-orange-400 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isWithdrawingAll ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    Withdrawing...
+                  </>
+                ) : (
+                  <>
+                    <ArrowUpRight className="w-5 h-5" />
+                    Withdraw ${parseFloat(vaultBalance).toFixed(2)}
+                  </>
+                )}
+              </button>
+            </>
+          )}
+        </div>
 
         {/* Emergency Withdraw section removed - WITHDRAW EVERYTHING button handles this */}
 
@@ -1050,16 +1037,6 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
         />
       )}
 
-      {showWithdrawModal && (
-        <VaultWithdrawModal
-          maxAmount={vaultBalance}
-          onClose={() => setShowWithdrawModal(false)}
-          onSuccess={() => {
-            setShowWithdrawModal(false);
-            window.location.reload();
-          }}
-        />
-      )}
 
       {showSettingsModal && (
         <VaultSettingsModal
