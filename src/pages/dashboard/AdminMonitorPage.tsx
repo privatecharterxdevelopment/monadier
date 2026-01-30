@@ -1060,7 +1060,9 @@ const AdminMonitorPage: React.FC = () => {
                   <tr className="text-left text-sm text-secondary">
                     <th className="px-4 py-3">User</th>
                     <th className="px-4 py-3">Profit</th>
-                    <th className="px-4 py-3">Your 10% Fee</th>
+                    <th className="px-4 py-3">0.1% Position Fee</th>
+                    <th className="px-4 py-3">10% Success Fee</th>
+                    <th className="px-4 py-3">Total Fee</th>
                     <th className="px-4 py-3">Closed</th>
                   </tr>
                 </thead>
@@ -1068,7 +1070,13 @@ const AdminMonitorPage: React.FC = () => {
                   {trades
                     .filter(t => t.status === 'closed' && (t.profit_loss || 0) > 0)
                     .slice(0, 20)
-                    .map((trade) => (
+                    .map((trade) => {
+                      const lev = trade.leverage_multiplier || 1;
+                      const positionSize = (trade.entry_amount || 0) * lev;
+                      const platformFee = positionSize * 0.001; // 0.1%
+                      const successFee = (trade.profit_loss || 0) * 0.1; // 10%
+                      const totalFee = platformFee + successFee;
+                      return (
                       <tr key={trade.id} className="border-t border-gray-800 hover:bg-white/5">
                         <td className="px-4 py-3">
                           <code className="text-xs text-blue-400">
@@ -1078,17 +1086,24 @@ const AdminMonitorPage: React.FC = () => {
                         <td className="px-4 py-3 text-green-400 font-mono">
                           +${(trade.profit_loss || 0).toFixed(2)}
                         </td>
+                        <td className="px-4 py-3 text-yellow-400 font-mono">
+                          +${platformFee.toFixed(2)}
+                          <span className="text-xs text-secondary ml-1">({lev}x)</span>
+                        </td>
+                        <td className="px-4 py-3 text-green-400 font-mono">
+                          +${successFee.toFixed(2)}
+                        </td>
                         <td className="px-4 py-3 text-green-400 font-mono font-bold">
-                          +${((trade.profit_loss || 0) * 0.1).toFixed(2)}
+                          +${totalFee.toFixed(2)}
                         </td>
                         <td className="px-4 py-3 text-secondary text-sm">
                           {trade.closed_at ? formatTimeAgo(trade.closed_at) : '-'}
                         </td>
-                      </tr>
+                      </tr>);
                     ))}
                   {trades.filter(t => t.status === 'closed' && (t.profit_loss || 0) > 0).length === 0 && (
                     <tr>
-                      <td colSpan={4} className="px-4 py-8 text-center text-secondary">
+                      <td colSpan={6} className="px-4 py-8 text-center text-secondary">
                         No profitable trades yet
                       </td>
                     </tr>

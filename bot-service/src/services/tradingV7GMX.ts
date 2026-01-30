@@ -596,8 +596,13 @@ export class TradingV7GMXService {
   }
 
   /**
-   * Close a position - INSTANT mode (skip GMX keeper wait)
-   * Calculates PnL immediately and credits user
+   * Close a position - closes GMX position AND credits user.
+   * Step 1: Update trailing stop on-chain (sync state)
+   * Step 2: Call contract closePosition → sends createDecreasePosition to GMX
+   * Step 3: Call finalizeClose → credits user balance immediately
+   *
+   * If step 2 fails (SL/TP not met on-chain), we still call finalizeClose
+   * but log a warning about the orphaned GMX position.
    */
   async closePosition(
     userAddress: `0x${string}`,
@@ -605,7 +610,7 @@ export class TradingV7GMXService {
     closeReason: string
   ): Promise<V7TradeResult> {
     try {
-      logger.info('Closing position INSTANT', {
+      logger.info('Closing position', {
         user: userAddress.slice(0, 10),
         token: tokenAddress.slice(0, 10),
         reason: closeReason
@@ -667,7 +672,53 @@ export class TradingV7GMXService {
         receivedAmount: receivedAmount.toString()
       });
 
-      // Call finalizeClose directly (skip GMX keeper wait)
+      // STEP 1: Sync trailing stop on-chain before attempting close
+      try {
+        await this.walletClient.writeContract({
+          address: this.vaultAddress,
+          abi: VAULT_V7_ABI,
+          functionName: 'updateTrailingStop',
+          args: [userAddress, tokenAddress],
+          chain: arbitrum,
+          account: this.botAccount
+        });
+      } catch (trailingErr: any) {
+        // Non-fatal — trailing stop may not be configured
+        logger.debug('updateTrailingStop skipped', { reason: trailingErr.message?.slice(0, 80) });
+      }
+
+      // STEP 2: Close GMX position via contract (calls createDecreasePosition on GMX)
+      let gmxClosed = false;
+      try {
+        const executionFee = await this.getExecutionFee();
+        const closeHash = await this.walletClient.writeContract({
+          address: this.vaultAddress,
+          abi: VAULT_V7_ABI,
+          functionName: 'closePosition',
+          args: [userAddress, tokenAddress],
+          value: executionFee,
+          chain: arbitrum,
+          account: this.botAccount
+        });
+        const closeReceipt = await this.publicClient.waitForTransactionReceipt({ hash: closeHash });
+        if (closeReceipt.status === 'success') {
+          gmxClosed = true;
+          logger.info('GMX close request sent via keeperClosePosition', {
+            user: userAddress.slice(0, 10),
+            txHash: closeHash
+          });
+        }
+      } catch (gmxErr: any) {
+        // keeperClosePosition failed (SL/TP not met on-chain, or autoFeatures disabled)
+        // Log warning — GMX position will be orphaned until manually cleaned
+        logger.warn('keeperClosePosition failed — GMX position may be orphaned', {
+          user: userAddress.slice(0, 10),
+          token: tokenAddress.slice(0, 10),
+          error: gmxErr.message?.slice(0, 120)
+        });
+      }
+
+      // STEP 3: Call finalizeClose to credit user balance immediately
       const txHash = await this.walletClient.writeContract({
         address: this.vaultAddress,
         abi: VAULT_V7_ABI,
@@ -688,13 +739,14 @@ export class TradingV7GMXService {
       const exitPriceNum = Number(currentPrice) / 1e30; // GMX prices have 30 decimals
       const exitAmountNum = Number(receivedAmount) / 1e6;
 
-      logger.info('Position closed INSTANTLY', {
+      logger.info('Position closed' + (gmxClosed ? ' + GMX closed' : ' (GMX ORPHANED)'), {
         txHash,
         user: userAddress.slice(0, 10),
         reason: closeReason,
         pnlPercent: pnlPercent.toFixed(2) + '%',
         pnlUSD: '$' + pnlUSD.toFixed(2),
-        exitPrice: exitPriceNum.toFixed(2)
+        exitPrice: exitPriceNum.toFixed(2),
+        gmxClosed
       });
 
       return {
