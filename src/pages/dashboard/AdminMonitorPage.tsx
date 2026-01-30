@@ -625,21 +625,19 @@ const AdminMonitorPage: React.FC = () => {
           {/* Main Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* V11 Vault Real Balance */}
-            <div className={`bg-card-dark rounded-xl border p-4 ${stats.isSolvent ? 'border-green-500/30' : 'border-red-500/30'}`}>
+            <div className="bg-card-dark rounded-xl border border-green-500/30 p-4">
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${stats.isSolvent ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
-                  <Wallet className={stats.isSolvent ? 'text-green-400' : 'text-red-400'} size={20} />
+                <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
+                  <Wallet className="text-green-400" size={20} />
                 </div>
                 <div>
                   <p className="text-sm text-secondary">Vault USDC (actual)</p>
-                  <p className={`text-xl font-bold ${stats.isSolvent ? 'text-white' : 'text-red-400'}`}>
+                  <p className="text-xl font-bold text-white">
                     ${parseFloat(stats.vaultRealBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </p>
-                  {!stats.isSolvent && (
-                    <p className="text-xs text-red-400">
-                      UNDERFUNDED by ${Math.abs(parseFloat(stats.surplus)).toFixed(2)}
-                    </p>
-                  )}
+                  <p className={`text-xs ${stats.isSolvent ? 'text-green-400' : 'text-yellow-400'}`}>
+                    {stats.isSolvent ? 'Healthy' : `GMX fees pending: $${Math.abs(parseFloat(stats.surplus)).toFixed(2)}`}
+                  </p>
                 </div>
               </div>
             </div>
