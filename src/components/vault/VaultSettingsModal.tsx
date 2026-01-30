@@ -115,25 +115,44 @@ export default function VaultSettingsModal({
         leverage_multiplier: leverage
       });
 
-      const { data: upsertData, error: upsertError } = await supabase
-        .from('vault_settings')
-        .upsert({
-          wallet_address: address.toLowerCase(),
-          chain_id: chainId,
-          auto_trade_enabled: autoTrade,
-          risk_level_bps: riskLevel * 100,
-          take_profit_percent: takeProfit,
-          stop_loss_percent: stopLoss,
-          ask_permission: askPermission,
-          leverage_multiplier: leverage,
-          updated_at: new Date().toISOString(),
-          synced_at: new Date().toISOString()
-        }, {
-          onConflict: 'wallet_address,chain_id'
-        })
-        .select();
+      // Check if row exists, then update or insert (upsert needs unique constraint)
+      const settingsPayload = {
+        wallet_address: address.toLowerCase(),
+        chain_id: chainId,
+        auto_trade_enabled: autoTrade,
+        risk_level_bps: riskLevel * 100,
+        take_profit_percent: takeProfit,
+        stop_loss_percent: stopLoss,
+        ask_permission: askPermission,
+        leverage_multiplier: leverage,
+        updated_at: new Date().toISOString(),
+        synced_at: new Date().toISOString()
+      };
 
-      console.log('[VaultSettings] Supabase response:', { data: upsertData, error: upsertError });
+      const { data: existing } = await supabase
+        .from('vault_settings')
+        .select('id')
+        .eq('wallet_address', address.toLowerCase())
+        .eq('chain_id', chainId)
+        .limit(1)
+        .single();
+
+      let upsertError;
+      if (existing) {
+        const { error } = await supabase
+          .from('vault_settings')
+          .update(settingsPayload)
+          .eq('wallet_address', address.toLowerCase())
+          .eq('chain_id', chainId);
+        upsertError = error;
+      } else {
+        const { error } = await supabase
+          .from('vault_settings')
+          .insert(settingsPayload);
+        upsertError = error;
+      }
+
+      console.log('[VaultSettings] Supabase save:', { existing: !!existing, error: upsertError });
 
       if (upsertError) {
         console.error('Failed to save vault settings:', upsertError);

@@ -195,18 +195,29 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
         // This ensures the bot knows about this wallet
         try {
           const vaultStatus = await vaultClient.getUserStatus(address as `0x${string}`);
-          await supabase
+          const walletLower = address.toLowerCase();
+          const { data: existingVs } = await supabase
             .from('vault_settings')
-            .upsert({
-              wallet_address: address.toLowerCase(),
-              chain_id: chainId,
-              auto_trade_enabled: vaultStatus.autoTradeEnabled,
-              risk_level_bps: vaultStatus.riskLevelBps,
-              updated_at: new Date().toISOString(),
-              synced_at: new Date().toISOString()
-            }, {
-              onConflict: 'wallet_address,chain_id'
-            });
+            .select('id')
+            .eq('wallet_address', walletLower)
+            .eq('chain_id', chainId)
+            .limit(1)
+            .single();
+
+          const syncPayload = {
+            wallet_address: walletLower,
+            chain_id: chainId,
+            auto_trade_enabled: vaultStatus.autoTradeEnabled,
+            risk_level_bps: vaultStatus.riskLevelBps,
+            updated_at: new Date().toISOString(),
+            synced_at: new Date().toISOString()
+          };
+
+          if (existingVs) {
+            await supabase.from('vault_settings').update(syncPayload).eq('wallet_address', walletLower).eq('chain_id', chainId);
+          } else {
+            await supabase.from('vault_settings').insert(syncPayload);
+          }
           console.log('Vault settings synced after deposit:', { autoTrade: vaultStatus.autoTradeEnabled });
         } catch (syncErr) {
           console.error('Failed to sync vault settings:', syncErr);

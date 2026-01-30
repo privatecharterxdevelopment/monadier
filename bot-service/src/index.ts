@@ -1089,42 +1089,73 @@ async function runReconciliationCycle(): Promise<void> {
 
               if (isOrphaned) {
                 // GMX closed the position but vault still shows active
-                // This is the bug - we need to reconcile!
-                logger.warn('AUTO-RECONCILING ORPHANED POSITION', {
+                // Use finalizeClose with calculated PnL so user gets profit + we collect fees
+                logger.warn('AUTO-CLOSING ORPHANED POSITION with finalizeClose', {
                   wallet: walletAddress.slice(0, 10),
                   token: position.token_symbol,
                   currentPrice
                 });
 
-                // Call reconcile() to credit user's balance
-                const result = await tradingV7GMXService.reconcilePosition(
+                // Try finalizeClose first (credits profit + collects fees)
+                const closeResult = await tradingV7GMXService.closePosition(
                   walletAddress as `0x${string}`,
-                  tokenAddress
+                  tokenAddress,
+                  'auto_reconciled'
                 );
 
-                if (result.success) {
-                  logger.info('AUTO-RECONCILE SUCCESS - User balance credited (collateral returned)', {
+                if (closeResult.success) {
+                  const profitLoss = closeResult.pnl ?? 0;
+                  const profitLossPercent = closeResult.pnlPercent ?? 0;
+                  const exitPrice = closeResult.exitPrice ?? currentPrice;
+                  const exitAmount = closeResult.exitAmount ?? ((position.entry_amount || 0) + profitLoss);
+
+                  logger.info('ORPHAN CLOSED via finalizeClose — profit + fees settled', {
                     wallet: walletAddress.slice(0, 10),
                     token: position.token_symbol,
-                    txHash: result.txHash,
-                    creditedAmount: result.creditedAmount
+                    txHash: closeResult.txHash,
+                    pnl: profitLoss.toFixed(2),
+                    pnlPercent: profitLossPercent.toFixed(2) + '%'
                   });
 
-                  // Sync database
-                  await positionService.syncPositionsWithChain(
-                    walletAddress,
-                    chainId,
-                    tokenAddress,
-                    currentPrice
-                  );
+                  // Update DB with actual P/L
+                  await supabase
+                    .from('positions')
+                    .update({
+                      status: 'closed',
+                      closed_at: new Date().toISOString(),
+                      close_reason: 'auto_reconciled',
+                      close_tx_hash: closeResult.txHash,
+                      profit_loss: profitLoss,
+                      profit_loss_percent: profitLossPercent,
+                      exit_price: exitPrice,
+                      exit_amount: exitAmount
+                    })
+                    .eq('id', position.id);
                 } else {
-                  // V11: No fallback to PnL-estimated finalizeClose (causes phantom profit bug)
-                  // reconcile() returns original collateral only — safe default
-                  logger.error('Reconcile failed - manual intervention may be needed', {
-                    wallet: walletAddress.slice(0, 10),
-                    token: position.token_symbol,
-                    error: result.error
+                  // Fallback to reconcile (returns collateral only, no profit)
+                  logger.warn('finalizeClose failed, falling back to reconcile()', {
+                    error: closeResult.error
                   });
+
+                  const result = await tradingV7GMXService.reconcilePosition(
+                    walletAddress as `0x${string}`,
+                    tokenAddress
+                  );
+
+                  if (result.success) {
+                    await positionService.syncPositionsWithChain(
+                      walletAddress,
+                      chainId,
+                      tokenAddress,
+                      currentPrice
+                    );
+                  } else {
+                    logger.error('Both finalizeClose and reconcile failed', {
+                      wallet: walletAddress.slice(0, 10),
+                      token: position.token_symbol,
+                      error: result.error
+                    });
+                  }
                 }
               }
             } else if (!vaultHasPosition) {
