@@ -654,6 +654,12 @@ export class TradingV7GMXService {
       const pnlAmount = (collateral * leveragedPnlBps) / 10000n;
 
       // Calculate received amount (collateral + PnL, but can't go below 0)
+      // IMPORTANT: Deduct estimated GMX fees so we don't credit more than GMX returns.
+      // GMX charges ~0.1% of position size on close + ~0.1% open fee not reflected in pos.collateral.
+      // We deduct 0.2% of position size to prevent vault from becoming underfunded.
+      const positionSize = collateral * BigInt(leverage);
+      const gmxFeeEstimate = (positionSize * 20n) / 10000n; // 0.2% of position size
+
       let receivedAmount = collateral;
       if (leveragedPnlBps >= 0n) {
         receivedAmount = collateral + pnlAmount;
@@ -663,13 +669,17 @@ export class TradingV7GMXService {
         receivedAmount = collateral > loss ? collateral - loss : 0n;
       }
 
+      // Deduct GMX fee estimate to keep vault solvent
+      receivedAmount = receivedAmount > gmxFeeEstimate ? receivedAmount - gmxFeeEstimate : 0n;
+
       logger.info('Calculated PnL for close', {
         user: userAddress.slice(0, 10),
         entryPrice: entryPrice.toString(),
         currentPrice: currentPrice.toString(),
         pnlBps: leveragedPnlBps.toString(),
         collateral: collateral.toString(),
-        receivedAmount: receivedAmount.toString()
+        receivedAmount: receivedAmount.toString(),
+        gmxFeeEstimate: gmxFeeEstimate.toString()
       });
 
       // STEP 1: Sync trailing stop on-chain before attempting close

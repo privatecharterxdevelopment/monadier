@@ -215,15 +215,20 @@ const AdminMonitorPage: React.FC = () => {
     let isSolvent = false;
     let surplus = 0n;
 
-    // 1. Fetch treasury USDC balance (V11: all fees go directly to treasury)
+    // 1. Fetch treasury USDC balance via RPC (not Arbiscan API — avoids rate limits)
     try {
-      const response = await fetch(
-        `https://api.arbiscan.io/api?module=account&action=tokenbalance&contractaddress=${USDC_ARBITRUM}&address=${TREASURY_ADDRESS}&tag=latest`
-      );
-      const data = await response.json();
-      if (data.status === '1' && data.result) {
-        treasuryBalance = BigInt(data.result);
-      }
+      treasuryBalance = await arbitrumClient.readContract({
+        address: USDC_ARBITRUM as `0x${string}`,
+        abi: [{
+          inputs: [{ name: 'account', type: 'address' }],
+          name: 'balanceOf',
+          outputs: [{ name: '', type: 'uint256' }],
+          stateMutability: 'view',
+          type: 'function'
+        }],
+        functionName: 'balanceOf',
+        args: [TREASURY_ADDRESS as `0x${string}`]
+      }) as bigint;
     } catch (e) {
       console.error('[Admin] Failed to fetch treasury balance:', e);
     }
