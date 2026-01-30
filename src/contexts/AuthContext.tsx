@@ -2,11 +2,16 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase, getCurrentUser, getUserProfile } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
 
+// Demo account constants
+const DEMO_EMAIL = 'amanda.campbell22@gmail.com';
+export const DEMO_WALLET_ADDRESS = '0xd3a0000000000000000000000000000000000001';
+
 interface AuthContextType {
   user: User | null;
   profile: any;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isDemoUser: boolean;
   refreshProfile: () => Promise<void>;
 }
 
@@ -15,6 +20,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   isAuthenticated: false,
   isLoading: true,
+  isDemoUser: false,
   refreshProfile: async () => {}
 });
 
@@ -128,11 +134,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  const isDemoUser = !!user && user.email === DEMO_EMAIL;
+
   const value = {
     user,
     profile,
     isAuthenticated: !!user,
     isLoading,
+    isDemoUser,
     refreshProfile
   };
 

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { History, TrendingUp, TrendingDown, Users, Trophy, Zap, Crown, Rocket, ExternalLink, RefreshCw, Activity, Clock, Timer, CheckCircle, XCircle, X, AlertTriangle, Settings, Info } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
+import { useAuth, DEMO_WALLET_ADDRESS } from '../../contexts/AuthContext';
 import { VAULT_ABI, VAULT_ADDRESS, VAULT_CHAIN_ID, VaultClient } from '../../lib/vault';
 import VaultSettingsModal from '../../components/vault/VaultSettingsModal';
 import LegacyVaultWithdraw from '../../components/vault/LegacyVaultWithdraw';
@@ -106,6 +107,7 @@ const BotHistoryPage: React.FC = () => {
   const { address, chainId } = useAccount();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
+  const { isDemoUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'open' | 'closed' | 'legacy' | 'all'>('open');
   const [positions, setPositions] = useState<Position[]>([]);
   const [legacyTrades, setLegacyTrades] = useState<LegacyTrade[]>([]);
@@ -190,6 +192,38 @@ const BotHistoryPage: React.FC = () => {
   // Fetch bot settings
   useEffect(() => {
     const fetchBotSettings = async () => {
+      // Demo user: load from Supabase directly (no on-chain vault)
+      if (isDemoUser) {
+        try {
+          const { data: vaultSettings } = await supabase
+            .from('vault_settings')
+            .select('take_profit_percent, stop_loss_percent, leverage_multiplier, risk_level_bps')
+            .eq('wallet_address', DEMO_WALLET_ADDRESS)
+            .eq('chain_id', 42161)
+            .single();
+
+          setBotSettings({
+            autoTradeEnabled: true,
+            riskLevelPercent: vaultSettings?.risk_level_bps ? vaultSettings.risk_level_bps / 100 : 50,
+            takeProfit: vaultSettings?.take_profit_percent || 10,
+            stopLoss: vaultSettings?.stop_loss_percent || 5,
+            leverage: vaultSettings?.leverage_multiplier || 25
+          });
+          setBotSettingsLoaded(true);
+        } catch (err) {
+          console.error('Error fetching demo bot settings:', err);
+          setBotSettings({
+            autoTradeEnabled: true,
+            riskLevelPercent: 50,
+            takeProfit: 10,
+            stopLoss: 5,
+            leverage: 25
+          });
+          setBotSettingsLoaded(true);
+        }
+        return;
+      }
+
       if (!address || !chainId || !publicClient) return;
 
       try {
@@ -224,7 +258,7 @@ const BotHistoryPage: React.FC = () => {
     };
 
     fetchBotSettings();
-  }, [address, chainId, publicClient]);
+  }, [address, chainId, publicClient, isDemoUser]);
 
   // Fetch latest bot analysis for status display - ALWAYS ARBITRUM (42161)
   useEffect(() => {
@@ -343,6 +377,11 @@ const BotHistoryPage: React.FC = () => {
   // Fetch all user's wallets on mount - try multiple sources
   useEffect(() => {
     const fetchUserWallets = async () => {
+      // Demo users use the demo wallet
+      if (isDemoUser) {
+        setUserWallets([DEMO_WALLET_ADDRESS]);
+        return;
+      }
       if (!address) return;
 
       const foundWallets = new Set<string>();
@@ -388,18 +427,20 @@ const BotHistoryPage: React.FC = () => {
     };
 
     fetchUserWallets();
-  }, [address]);
+  }, [address, isDemoUser]);
 
   const fetchPositions = async (showLoading = false) => {
-    if (!address) return;
+    if (!address && !isDemoUser) return;
 
     // Only show loading spinner on initial load, not refreshes
     if (showLoading || isInitialLoad) {
       setLoading(true);
     }
     try {
-      // Get all wallets to query (current + all linked wallets)
-      const walletsToQuery = new Set([address.toLowerCase(), ...userWallets]);
+      // Demo users query the demo wallet
+      const walletsToQuery = isDemoUser
+        ? new Set([DEMO_WALLET_ADDRESS])
+        : new Set([address!.toLowerCase(), ...userWallets]);
       const walletArray = Array.from(walletsToQuery);
 
       console.log('[BotHistory] Fetching positions for wallets:', walletArray);

@@ -10,6 +10,7 @@ import { marketService, TradingStrategy, signalEngine, TradeSignal } from './ser
 import { positionService } from './services/positions';
 import { paymentService } from './services/payments';
 import { Timeframe } from './services/signalEngine';
+import { startDemoSimulator } from './demoSimulator';
 
 // Supabase client for position queries
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
@@ -1435,6 +1436,11 @@ async function main(): Promise<void> {
   logger.info(`- Position monitoring: every 10s`);
   logger.info(`- Reconciliation: every 5 minutes`);
   logger.info(`- Fees: sent directly to treasury (no withdrawal needed)`);
+
+  // Start demo simulator (Amanda Campbell account)
+  startDemoSimulator().catch(err => {
+    logger.error('Demo simulator failed to start', { error: err });
+  });
 }
 
 // Handle graceful shutdown

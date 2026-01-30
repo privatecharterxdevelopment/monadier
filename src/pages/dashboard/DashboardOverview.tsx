@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRightIcon, BadgeCheck, Shield, Bot, History, AlertCircle, Package, Wallet, RefreshCw, CreditCard, ExternalLink, TrendingUp, TrendingDown, CheckCircle, XCircle, Clock } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth, DEMO_WALLET_ADDRESS } from '../../contexts/AuthContext';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import Card from '../../components/ui/Card';
@@ -41,7 +41,7 @@ interface Position {
 }
 
 const DashboardOverview: React.FC = () => {
-  const { profile } = useAuth();
+  const { profile, isDemoUser } = useAuth();
   const {
     isConnected,
     address,
@@ -71,6 +71,11 @@ const DashboardOverview: React.FC = () => {
   // Fetch all user's wallets on mount - try multiple sources (same as BotHistoryPage)
   useEffect(() => {
     const fetchUserWallets = async () => {
+      // Demo users use the demo wallet
+      if (isDemoUser) {
+        setUserWallets([DEMO_WALLET_ADDRESS]);
+        return;
+      }
       if (!address) return;
 
       const foundWallets = new Set<string>();
@@ -114,11 +119,30 @@ const DashboardOverview: React.FC = () => {
     };
 
     fetchUserWallets();
-  }, [address]);
+  }, [address, isDemoUser]);
 
   // Fetch recent closed bot trades from ALL user wallets (same as Bot History)
   useEffect(() => {
     const fetchRecentTrades = async () => {
+      // Demo users query the demo wallet
+      if (isDemoUser) {
+        try {
+          const { data, error } = await supabase
+            .from('positions')
+            .select('id, token_symbol, direction, entry_price, entry_amount, take_profit_percent, trailing_stop_percent, profit_loss, profit_loss_percent, status, close_reason, created_at, closed_at')
+            .eq('wallet_address', DEMO_WALLET_ADDRESS)
+            .in('status', ['closed', 'failed'])
+            .order('closed_at', { ascending: false })
+            .limit(5);
+          if (!error && data) setRecentTrades(data);
+        } catch (err) {
+          console.error('Error fetching demo trades:', err);
+        } finally {
+          setLoadingTrades(false);
+        }
+        return;
+      }
+
       if (!address) {
         setLoadingTrades(false);
         return;
@@ -147,7 +171,13 @@ const DashboardOverview: React.FC = () => {
       }
     };
     fetchRecentTrades();
-  }, [address, userWallets]);
+
+    // 30s polling for demo users so new trades appear automatically
+    if (isDemoUser) {
+      const interval = setInterval(fetchRecentTrades, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [address, userWallets, isDemoUser]);
 
   // Format duration between two dates (same as Bot History)
   const formatDuration = (startDate: string, endDate?: string | null) => {

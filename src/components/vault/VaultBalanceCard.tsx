@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Wallet, ArrowUpRight, ArrowDownLeft, Settings, Zap, Lock, AlertTriangle, RefreshCw, ArrowRight, Play, Square, Loader2 } from 'lucide-react';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
+import { useAuth, DEMO_WALLET_ADDRESS } from '../../contexts/AuthContext';
 import { SUBSCRIPTION_PLANS } from '../../lib/subscription';
 import { VaultClient, VAULT_ADDRESS, VAULT_CHAIN_ID, getPlatformFee, USDC_DECIMALS, VAULT_ABI } from '../../lib/vault';
 import { formatUnits } from 'viem';
@@ -16,6 +17,7 @@ interface VaultBalanceCardProps {
 export default function VaultBalanceCard({ compact = false }: VaultBalanceCardProps) {
   const { isConnected, chainId, address, publicClient, walletClient } = useWeb3();
   const { planTier, isSubscribed, openUpgradeModal, dailyTradesRemaining, subscription } = useSubscription();
+  const { isDemoUser } = useAuth();
 
   // Get daily trade limit info
   const getDailyTradeInfo = () => {
@@ -80,8 +82,44 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   // Check if user has paid subscription (not free)
   const isPaidUser = isSubscribed && planTier && planTier !== 'free';
   // V8: Arbitrum only
-  const isVaultAvailable = chainId === VAULT_CHAIN_ID;
+  const isVaultAvailable = isDemoUser || chainId === VAULT_CHAIN_ID;
   const isPreviewMode = !isVaultAvailable;
+
+  // Demo user: load balance from Supabase instead of on-chain
+  useEffect(() => {
+    if (!isDemoUser) return;
+
+    const loadDemoBalance = async () => {
+      setIsLoading(true);
+      try {
+        const { data } = await supabase
+          .from('vault_settings')
+          .select('demo_vault_balance')
+          .eq('wallet_address', DEMO_WALLET_ADDRESS)
+          .eq('chain_id', 42161)
+          .single();
+
+        const bal = data?.demo_vault_balance ?? 0;
+        setVaultBalance(bal.toFixed(2));
+        setWithdrawableAmount(bal.toFixed(2));
+        setAutoTradeEnabled(true);
+        setRiskLevelPercent(50);
+        setMaxTradeSize((bal * 0.5).toFixed(2));
+        setLeverage(25);
+        setTakeProfit(10);
+        setStopLoss(5);
+      } catch (err) {
+        console.error('Failed to load demo balance:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadDemoBalance();
+    // Refresh every 30 seconds
+    const interval = setInterval(loadDemoBalance, 30000);
+    return () => clearInterval(interval);
+  }, [isDemoUser]);
 
   // Get platform fee (V8 unified)
   const platformFee = getPlatformFee();
@@ -482,8 +520,8 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
     openUpgradeModal('Auto-Trading Vault is available for paid subscribers only. Upgrade to enable automated trading without signing each transaction.');
   };
 
-  // If not a paid user, show upgrade prompt
-  if (!isPaidUser) {
+  // If not a paid user, show upgrade prompt (demo users always pass)
+  if (!isPaidUser && !isDemoUser) {
     return (
       <div className={`bg-zinc-900/50 border border-zinc-800 rounded-xl ${compact ? 'p-4' : 'p-6'}`}>
         <div className="flex items-center gap-3 mb-4">
@@ -511,8 +549,8 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
     );
   }
 
-  // Not connected
-  if (!isConnected) {
+  // Not connected (demo users don't need a wallet)
+  if (!isConnected && !isDemoUser) {
     return (
       <div className={`bg-zinc-900/50 border border-zinc-800 rounded-xl ${compact ? 'p-4' : 'p-6'}`}>
         <div className="flex items-center gap-3 mb-4">
@@ -672,8 +710,8 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
         )}
 
 
-        {/* Bot Play/Stop Toggle Button */}
-        {(!isLoading || isPreviewMode) && (!error || isPreviewMode) && !isPreviewMode && (
+        {/* Bot Play/Stop Toggle Button — hidden for demo users (bot always active) */}
+        {!isDemoUser && (!isLoading || isPreviewMode) && (!error || isPreviewMode) && !isPreviewMode && (
           <div className="mb-4">
             {parseFloat(vaultBalance) > 0 ? (
               // Has balance - show real toggle
@@ -777,47 +815,56 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
           </div>
         )}
 
-        {/* Action Buttons - Deposit + Withdraw All */}
-        <div className="space-y-3">
-          <button
-            onClick={() => setShowDepositModal(true)}
-            disabled={isLoading || isPreviewMode}
-            className={`w-full flex items-center justify-center gap-2 py-3 font-medium rounded-lg transition-colors disabled:opacity-50 ${
-              isPreviewMode
-                ? 'bg-zinc-700 text-zinc-400 cursor-not-allowed'
-                : 'bg-white text-black hover:bg-gray-100'
-            }`}
-          >
-            <ArrowDownLeft className="w-5 h-5" />
-            Deposit USDC
-          </button>
+        {/* Action Buttons - Deposit + Withdraw All (hidden for demo) */}
+        {isDemoUser ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-center gap-2 py-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              <span className="text-green-400 text-sm font-medium">Demo Mode — Bot Active</span>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <button
+              onClick={() => setShowDepositModal(true)}
+              disabled={isLoading || isPreviewMode}
+              className={`w-full flex items-center justify-center gap-2 py-3 font-medium rounded-lg transition-colors disabled:opacity-50 ${
+                isPreviewMode
+                  ? 'bg-zinc-700 text-zinc-400 cursor-not-allowed'
+                  : 'bg-white text-black hover:bg-gray-100'
+              }`}
+            >
+              <ArrowDownLeft className="w-5 h-5" />
+              Deposit USDC
+            </button>
 
-          {/* ONE BUTTON - Withdraw Everything */}
-          {!isPreviewMode && parseFloat(vaultBalance) > 0 && (
-            <>
-              {withdrawAllError && (
-                <p className="text-red-400 text-xs mb-2 text-center">{withdrawAllError}</p>
-              )}
-              <button
-                onClick={handleWithdrawEverything}
-                disabled={isWithdrawingAll || isLoading}
-                className="w-full py-3 bg-gradient-to-r from-red-600 to-orange-500 text-white font-bold rounded-xl hover:from-red-500 hover:to-orange-400 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isWithdrawingAll ? (
-                  <>
-                    <RefreshCw className="w-5 h-5 animate-spin" />
-                    Withdrawing...
-                  </>
-                ) : (
-                  <>
-                    <ArrowUpRight className="w-5 h-5" />
-                    Withdraw ${parseFloat(vaultBalance).toFixed(2)}
-                  </>
+            {/* ONE BUTTON - Withdraw Everything */}
+            {!isPreviewMode && parseFloat(vaultBalance) > 0 && (
+              <>
+                {withdrawAllError && (
+                  <p className="text-red-400 text-xs mb-2 text-center">{withdrawAllError}</p>
                 )}
-              </button>
-            </>
-          )}
-        </div>
+                <button
+                  onClick={handleWithdrawEverything}
+                  disabled={isWithdrawingAll || isLoading}
+                  className="w-full py-3 bg-gradient-to-r from-red-600 to-orange-500 text-white font-bold rounded-xl hover:from-red-500 hover:to-orange-400 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isWithdrawingAll ? (
+                    <>
+                      <RefreshCw className="w-5 h-5 animate-spin" />
+                      Withdrawing...
+                    </>
+                  ) : (
+                    <>
+                      <ArrowUpRight className="w-5 h-5" />
+                      Withdraw ${parseFloat(vaultBalance).toFixed(2)}
+                    </>
+                  )}
+                </button>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Emergency Withdraw section removed - WITHDRAW EVERYTHING button handles this */}
 
