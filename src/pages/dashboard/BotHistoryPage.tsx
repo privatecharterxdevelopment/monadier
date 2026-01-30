@@ -101,6 +101,8 @@ interface Position {
   close_reason: string | null;
   created_at: string;
   closed_at: string | null;
+  leverage_multiplier: number | null;
+  is_leveraged: boolean;
 }
 
 const BotHistoryPage: React.FC = () => {
@@ -618,13 +620,13 @@ const BotHistoryPage: React.FC = () => {
         return sum;
       }
 
-      // Calculate P/L based on price change (with leverage)
+      // Calculate P/L based on price change (with per-position leverage)
       const priceChange = p.direction === 'SHORT'
         ? p.entry_price - currentPrice
         : currentPrice - p.entry_price;
 
-      // Apply leverage to P/L calculation
-      const leverage = botSettings.leverage || 1;
+      // Use per-position leverage, NOT the current global setting
+      const leverage = p.leverage_multiplier || 1;
       const profitPercent = (priceChange / p.entry_price) * leverage * 100;
       const positionPL = (p.entry_amount * profitPercent) / 100;
 
@@ -696,8 +698,8 @@ const BotHistoryPage: React.FC = () => {
       ? position.entry_price - currentPrice  // SHORT: profit when price drops
       : currentPrice - position.entry_price; // LONG: profit when price rises
 
-    // Apply leverage to P/L calculation
-    const leverage = botSettings.leverage || 1;
+    // Use per-position leverage, NOT the current global setting
+    const leverage = position.leverage_multiplier || 1;
     const profitPercent = (priceChange / position.entry_price) * leverage * 100;
     const profitUSD = (position.entry_amount * profitPercent) / 100;
 
@@ -728,8 +730,8 @@ const BotHistoryPage: React.FC = () => {
       return 0;
     }
 
-    // Apply leverage to P/L percent calculation
-    const leverage = botSettings.leverage || 1;
+    // Use per-position leverage, NOT the current global setting
+    const leverage = position.leverage_multiplier || 1;
     let percent: number;
     if (position.direction === 'SHORT') {
       percent = ((position.entry_price - currentPrice) / position.entry_price) * leverage * 100;
@@ -753,7 +755,7 @@ const BotHistoryPage: React.FC = () => {
   const BASE_FEE_PERCENT = 0.2; // 0.2% round-trip fee on leveraged position
 
   const getBreakevenPrice = (position: Position) => {
-    const leverage = botSettings.leverage || 1;
+    const leverage = position.leverage_multiplier || 1;
     // With leverage, the required price move to cover fees is: fee% / leverage
     const requiredPriceMove = BASE_FEE_PERCENT / leverage;
 
@@ -768,7 +770,7 @@ const BotHistoryPage: React.FC = () => {
   const getBreakevenDistance = (position: Position) => {
     const currentPrice = getCurrentPrice(position);
     const breakevenPrice = getBreakevenPrice(position);
-    const leverage = botSettings.leverage || 1;
+    const leverage = position.leverage_multiplier || 1;
 
     let distancePercent: number;
     let isProfitable: boolean;
@@ -1266,11 +1268,11 @@ const BotHistoryPage: React.FC = () => {
                     {/* Size + Leverage */}
                     <div className="text-sm">
                       <div className="text-white font-mono">
-                        ${((position.entry_amount || 0) * (botSettings.leverage || 1)).toFixed(2)}
+                        ${((position.entry_amount || 0) * (position.leverage_multiplier || 1)).toFixed(2)}
                       </div>
                       <div className="flex items-center gap-1 text-xs">
                         <span className="text-gray-500">${(position.entry_amount || 0).toFixed(2)}</span>
-                        <span className="text-purple-400 font-medium">×{botSettings.leverage || 1}</span>
+                        <span className="text-purple-400 font-medium">×{position.leverage_multiplier || 1}</span>
                       </div>
                     </div>
 
