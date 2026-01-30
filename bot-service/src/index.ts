@@ -906,6 +906,72 @@ async function runPositionMonitoringCycle(): Promise<void> {
             continue; // No open position in DB
           }
 
+          // FAST ORPHAN CHECK: DB has open position but vault doesn't
+          // This catches GMX auto-closes BEFORE the 5-min reconciliation cycle
+          const vaultHasPos = await tradingV7GMXService.hasOpenPosition(
+            userAddress,
+            tokenConfig.address as `0x${string}`
+          );
+
+          if (!vaultHasPos) {
+            // Vault position is gone — GMX closed it or someone called reconcile
+            // Try finalizeClose first to credit profit + collect fees
+            logger.warn('FAST ORPHAN DETECTED in monitor loop', {
+              user: userAddress.slice(0, 10),
+              token: tokenConfig.symbol,
+              positionId: dbPosition.id.slice(0, 8)
+            });
+
+            const closeResult = await tradingV7GMXService.closePosition(
+              userAddress,
+              tokenConfig.address as `0x${string}`,
+              'auto_reconciled'
+            );
+
+            if (closeResult.success) {
+              const pnl = closeResult.pnl ?? 0;
+              const pnlPct = closeResult.pnlPercent ?? 0;
+              const exPrice = closeResult.exitPrice ?? 0;
+              const exAmt = closeResult.exitAmount ?? (dbPosition.entry_amount + pnl);
+
+              await supabase
+                .from('positions')
+                .update({
+                  status: 'closed',
+                  closed_at: new Date().toISOString(),
+                  close_reason: 'auto_reconciled',
+                  close_tx_hash: closeResult.txHash,
+                  profit_loss: pnl,
+                  profit_loss_percent: pnlPct,
+                  exit_price: exPrice,
+                  exit_amount: exAmt
+                })
+                .eq('id', dbPosition.id);
+
+              logger.info('FAST ORPHAN CLOSED via finalizeClose', {
+                user: userAddress.slice(0, 10),
+                token: tokenConfig.symbol,
+                pnl: pnl.toFixed(2),
+                pnlPercent: pnlPct.toFixed(2) + '%'
+              });
+            } else {
+              // Vault position already gone too — just sync DB
+              const price = await tradingV7GMXService.getTokenPrice(tokenConfig.address as `0x${string}`);
+              const currentPrice = price?.max || 0;
+              await positionService.syncPositionsWithChain(
+                userAddress,
+                42161,
+                tokenConfig.address,
+                currentPrice
+              );
+              logger.warn('FAST ORPHAN: finalizeClose failed, synced DB only', {
+                user: userAddress.slice(0, 10),
+                error: closeResult.error
+              });
+            }
+            continue;
+          }
+
           // GET P/L BEFORE closing
           const pnlBeforeTrigger = await tradingV7GMXService.getPositionPnL(
             userAddress,
