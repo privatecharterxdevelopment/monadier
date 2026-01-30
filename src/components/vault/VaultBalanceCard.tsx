@@ -435,7 +435,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
     }
   };
 
-  // Close Position (tries reconcile first, then userInstantClose)
+  // Close Position (userInstantClose first — credits profit + collects fees)
   const handleClosePosition = async () => {
     if (!walletClient || !publicClient || !address || !chainId || !activePosition) return;
 
@@ -446,22 +446,22 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
       const vaultClient = new VaultClient(publicClient as any, walletClient as any, chainId);
       const tokenAddress = activePosition.token === 'ETH' ? WETH_ADDRESS : WBTC_ADDRESS;
 
-      // Try reconcile first (works if GMX already closed the position)
+      // Always use userInstantClose — it calculates PnL on-chain, credits profit, and collects fees.
+      // reconcile() only returns collateral (NO profit), so we never try it first.
       try {
-        const hash = await vaultClient.reconcilePosition(tokenAddress, address as `0x${string}`);
+        const hash = await vaultClient.userInstantClose(tokenAddress, address as `0x${string}`);
         await publicClient.waitForTransactionReceipt({ hash });
-        alert('Position reconciled! Your funds have been returned to your vault balance.');
+        alert('Position closed! Profit credited to your vault balance.');
         window.location.reload();
         return;
-      } catch (reconcileErr: any) {
-        console.log('Reconcile failed, trying userInstantClose:', reconcileErr.message);
+      } catch (closeErr: any) {
+        console.log('userInstantClose failed, trying reconcile as fallback:', closeErr.message);
       }
 
-      // Fallback to userInstantClose if reconcile fails
-      const hash = await vaultClient.userInstantClose(tokenAddress, address as `0x${string}`);
+      // Fallback: reconcile only if userInstantClose failed (e.g. GMX position already gone)
+      const hash = await vaultClient.reconcilePosition(tokenAddress, address as `0x${string}`);
       await publicClient.waitForTransactionReceipt({ hash });
-
-      alert('Position closed successfully! Your funds have been returned to your vault balance.');
+      alert('Position reconciled. Your collateral has been returned to your vault balance.');
       window.location.reload();
     } catch (err: any) {
       console.error('Close position failed:', err);
