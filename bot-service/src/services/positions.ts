@@ -674,15 +674,16 @@ export class PositionService {
       let profitLoss = 0;
       let profitLossPercent = 0;
       let exitPrice = pos.entry_price;
+      const leverage = pos.leverage_multiplier || 1;
 
       if (pos.entry_price && pos.entry_amount) {
-        // If current price is provided, calculate real P/L
+        // If current price is provided, calculate real P/L WITH LEVERAGE
         if (currentPrice && currentPrice > 0) {
           exitPrice = currentPrice;
           if (pos.direction === 'LONG') {
-            profitLossPercent = ((currentPrice - pos.entry_price) / pos.entry_price) * 100;
+            profitLossPercent = ((currentPrice - pos.entry_price) / pos.entry_price) * leverage * 100;
           } else {
-            profitLossPercent = ((pos.entry_price - currentPrice) / pos.entry_price) * 100;
+            profitLossPercent = ((pos.entry_price - currentPrice) / pos.entry_price) * leverage * 100;
           }
         } else {
           // Fallback: assume break-even if no price available

@@ -621,7 +621,7 @@ async function runPositionMonitoringCycle(): Promise<void> {
                 exitAmount: exitAmount,
                 profitLoss: profitLoss,
                 profitLossPercent: profitLossPercent,
-                leverage: pos.leverage || 1,
+                leverage: pos.leverage_multiplier || 1,
                 closeReason: closeReason,
                 openedAt: pos.created_at,
                 closedAt: closedAt,
@@ -665,7 +665,7 @@ async function runPositionMonitoringCycle(): Promise<void> {
                 .single();
 
               const tpPercent = userSettings?.take_profit_percent || pos.take_profit_percent || 5;
-              const leverage = userSettings?.leverage_multiplier || pos.leverage || 1;
+              const leverage = pos.leverage_multiplier || userSettings?.leverage_multiplier || 1;
               profitLossPercent = tpPercent;
               profitLoss = (pos.entry_amount || 0) * (tpPercent / 100);
               closeReason = 'takeprofit';
@@ -711,7 +711,7 @@ async function runPositionMonitoringCycle(): Promise<void> {
                 exitAmount: exitAmount,
                 profitLoss: profitLoss,
                 profitLossPercent: profitLossPercent,
-                leverage: pos.leverage || 1,
+                leverage: pos.leverage_multiplier || 1,
                 closeReason: closeReason,
                 openedAt: pos.created_at,
                 closedAt: closedAt,
@@ -875,7 +875,7 @@ async function runPositionMonitoringCycle(): Promise<void> {
                       exitAmount: actualExitAmount,
                       profitLoss: actualPnL,
                       profitLossPercent: actualPnLPercent,
-                      leverage: dbPos.leverage || 1,
+                      leverage: dbPos.leverage_multiplier || 1,
                       closeReason: 'profit_lock',
                       openedAt: dbPos.created_at,
                       closedAt: closedAt,
@@ -1066,7 +1066,7 @@ async function runPositionMonitoringCycle(): Promise<void> {
                 exitAmount: exitAmount,
                 profitLoss: profitLoss,
                 profitLossPercent: profitLossPercent,
-                leverage: dbPosition.leverage || 1,
+                leverage: dbPosition.leverage_multiplier || 1,
                 closeReason: result.reason || 'unknown',
                 openedAt: dbPosition.created_at,
                 closedAt: closedAt,
