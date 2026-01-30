@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Activity,
@@ -18,18 +18,20 @@ import {
   Lock,
   Mail,
   Coins,
-  BarChart3
+  BarChart3,
+  Zap
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatUnits, createPublicClient, http } from 'viem';
 import { arbitrum } from 'viem/chains';
 import { VAULT_ADDRESS, VAULT_V8_ABI } from '../../lib/vault';
+import { useWeb3 } from '../../contexts/Web3Context';
 
 // Admin email - only this user can access
 const ADMIN_EMAIL = 'ipsunlorem@gmail.com';
 
-// V10 Vault - Arbitrum Only
-const V10_VAULT = VAULT_ADDRESS;
+// V11 Vault - Arbitrum Only (reconcile fix + fees direct to treasury)
+const V11_VAULT = VAULT_ADDRESS;
 const USDC_ARBITRUM = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
 const TREASURY_ADDRESS = '0x64d79e57640A8d4A56Ad1d08c932B5CCF0B263a9';
 
@@ -39,13 +41,59 @@ const arbitrumClient = createPublicClient({
   transport: http('https://arb1.arbitrum.io/rpc')
 });
 
+// Emergency rescue ABI (V11 contract)
+const EMERGENCY_ABI = [
+  {
+    inputs: [],
+    name: 'initiateEmergencyRescue',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'cancelEmergencyRescue',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'executeEmergencyRescue',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'emergencyRescueActive',
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'emergencyRescueInitiated',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'owner',
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function'
+  }
+] as const;
+
+const EMERGENCY_TIMELOCK = 60; // 60 seconds
+
 interface SystemStats {
-  // V10 Vault Stats
+  // V11 Vault Stats
   vaultRealBalance: string;      // ACTUAL USDC in contract (truth)
   vaultTVL: string;              // Contract-tracked TVL (may differ)
-  accumulatedFees: string;       // Fees still in contract
-  treasuryBalance: string;       // Fees already withdrawn to treasury
-  totalFeesEarned: string;       // Total = accumulatedFees + treasuryBalance
+  treasuryBalance: string;       // Fees sent directly to treasury
   isSolvent: boolean;
   surplus: string;
   // User Stats
@@ -123,6 +171,7 @@ interface Payment {
 }
 
 const AdminMonitorPage: React.FC = () => {
+  const { walletClient, publicClient: web3PublicClient, address: connectedAddress } = useWeb3();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -130,13 +179,18 @@ const AdminMonitorPage: React.FC = () => {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [vaultTransactions, setVaultTransactions] = useState<VaultTransaction[]>([]);
-  const [activeSection, setActiveSection] = useState<'overview' | 'users' | 'subscriptions' | 'trades' | 'vault' | 'fees' | 'payments'>('overview');
+  const [activeSection, setActiveSection] = useState<'overview' | 'users' | 'subscriptions' | 'trades' | 'vault' | 'fees' | 'payments' | 'emergency'>('overview');
+  const [emergencyActive, setEmergencyActive] = useState(false);
+  const [emergencyInitiatedAt, setEmergencyInitiatedAt] = useState(0);
+  const [emergencyCountdown, setEmergencyCountdown] = useState(0);
+  const [contractOwner, setContractOwner] = useState<string>('');
+  const [emergencyLoading, setEmergencyLoading] = useState<string | null>(null);
+  const [emergencyError, setEmergencyError] = useState<string | null>(null);
+  const [emergencySuccess, setEmergencySuccess] = useState<string | null>(null);
   const [stats, setStats] = useState<SystemStats>({
     vaultRealBalance: '0',
     vaultTVL: '0',
-    accumulatedFees: '0',
     treasuryBalance: '0',
-    totalFeesEarned: '0',
     isSolvent: false,
     surplus: '0',
     totalUsers: 0,
@@ -153,16 +207,15 @@ const AdminMonitorPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
-  // Fetch V10 Vault Stats directly from chain
+  // Fetch V11 Vault Stats directly from chain
   const fetchVaultStats = async () => {
-    let contractFees = 0n;
     let realBalance = 0n;
     let tvl = 0n;
     let treasuryBalance = 0n;
     let isSolvent = false;
     let surplus = 0n;
 
-    // 1. Fetch treasury USDC balance (fees already withdrawn)
+    // 1. Fetch treasury USDC balance (V11: all fees go directly to treasury)
     try {
       const response = await fetch(
         `https://api.arbiscan.io/api?module=account&action=tokenbalance&contractaddress=${USDC_ARBITRUM}&address=${TREASURY_ADDRESS}&tag=latest`
@@ -175,49 +228,44 @@ const AdminMonitorPage: React.FC = () => {
       console.error('[Admin] Failed to fetch treasury balance:', e);
     }
 
-    // 2. Fetch vault health status - shows REAL on-chain USDC balance
+    // 2. Fetch vault health status - V11 returns 4 values (no accumulatedFees)
     try {
       const healthStatus = await arbitrumClient.readContract({
-        address: V10_VAULT,
+        address: V11_VAULT,
         abi: VAULT_V8_ABI,
         functionName: 'getHealthStatus'
-      }) as [bigint, bigint, bigint, boolean, bigint];
+      }) as [bigint, bigint, boolean, bigint];
 
       realBalance = healthStatus[0] || 0n;  // Actual USDC in contract
       tvl = healthStatus[1] || 0n;          // What contract thinks it owes
-      contractFees = healthStatus[2] || 0n;
-      isSolvent = healthStatus[3];
-      surplus = healthStatus[4];
+      isSolvent = healthStatus[2];
+      surplus = healthStatus[3];
     } catch (err) {
       console.error('[Admin] Error fetching vault stats:', err);
     }
 
-    const totalFeesEarned = contractFees + treasuryBalance;
-
     return {
       realBalance: formatUnits(realBalance, 6),   // ACTUAL USDC on-chain
       tvl: formatUnits(tvl, 6),                    // Contract-tracked TVL
-      fees: formatUnits(contractFees, 6),
       treasuryBalance: formatUnits(treasuryBalance, 6),
-      totalFeesEarned: formatUnits(totalFeesEarned, 6),
       isSolvent,
       surplus: formatUnits(surplus, 6)
     };
   };
 
-  // Fetch V10 Vault transactions from Arbiscan
+  // Fetch V11 Vault transactions from Arbiscan
   const fetchVaultTransactions = async () => {
     const transactions: VaultTransaction[] = [];
 
     try {
       const response = await fetch(
-        `https://api.arbiscan.io/api?module=account&action=tokentx&contractaddress=${USDC_ARBITRUM}&address=${V10_VAULT}&sort=desc&page=1&offset=100`
+        `https://api.arbiscan.io/api?module=account&action=tokentx&contractaddress=${USDC_ARBITRUM}&address=${V11_VAULT}&sort=desc&page=1&offset=100`
       );
       const data = await response.json();
 
       if (data.status === '1' && Array.isArray(data.result)) {
         data.result.forEach((tx: any) => {
-          const isDeposit = tx.to.toLowerCase() === V10_VAULT.toLowerCase();
+          const isDeposit = tx.to.toLowerCase() === V11_VAULT.toLowerCase();
           transactions.push({
             hash: tx.hash,
             type: isDeposit ? 'deposit' : 'withdraw',
@@ -287,9 +335,7 @@ const AdminMonitorPage: React.FC = () => {
       setStats({
         vaultRealBalance: vaultStats.realBalance,
         vaultTVL: vaultStats.tvl,
-        accumulatedFees: vaultStats.fees,
         treasuryBalance: vaultStats.treasuryBalance,
-        totalFeesEarned: vaultStats.totalFeesEarned,
         isSolvent: vaultStats.isSolvent,
         surplus: vaultStats.surplus,
         totalUsers: profiles.length,
@@ -334,6 +380,139 @@ const AdminMonitorPage: React.FC = () => {
       return () => clearInterval(interval);
     }
   }, [isAdmin]);
+
+  // Fetch emergency rescue status
+  const fetchEmergencyStatus = useCallback(async () => {
+    try {
+      const [active, initiatedAt, owner] = await Promise.all([
+        arbitrumClient.readContract({
+          address: V11_VAULT,
+          abi: EMERGENCY_ABI,
+          functionName: 'emergencyRescueActive'
+        }),
+        arbitrumClient.readContract({
+          address: V11_VAULT,
+          abi: EMERGENCY_ABI,
+          functionName: 'emergencyRescueInitiated'
+        }),
+        arbitrumClient.readContract({
+          address: V11_VAULT,
+          abi: EMERGENCY_ABI,
+          functionName: 'owner'
+        })
+      ]);
+      setEmergencyActive(active);
+      setEmergencyInitiatedAt(Number(initiatedAt));
+      setContractOwner(owner);
+    } catch (err) {
+      console.error('[Admin] Error fetching emergency status:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchEmergencyStatus();
+    }
+  }, [isAdmin, fetchEmergencyStatus]);
+
+  // Countdown timer for emergency rescue
+  useEffect(() => {
+    if (!emergencyActive || emergencyInitiatedAt === 0) {
+      setEmergencyCountdown(0);
+      return;
+    }
+    const tick = () => {
+      const elapsed = Math.floor(Date.now() / 1000) - emergencyInitiatedAt;
+      const remaining = EMERGENCY_TIMELOCK - elapsed;
+      setEmergencyCountdown(remaining > 0 ? remaining : 0);
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [emergencyActive, emergencyInitiatedAt]);
+
+  // Emergency rescue actions
+  const handleInitiateRescue = async () => {
+    if (!walletClient || !connectedAddress) {
+      setEmergencyError('Connect your wallet first (must be contract owner)');
+      return;
+    }
+    setEmergencyLoading('initiate');
+    setEmergencyError(null);
+    setEmergencySuccess(null);
+    try {
+      const hash = await walletClient.writeContract({
+        address: V11_VAULT,
+        abi: EMERGENCY_ABI,
+        functionName: 'initiateEmergencyRescue',
+        chain: arbitrum,
+        account: connectedAddress as `0x${string}`
+      });
+      await arbitrumClient.waitForTransactionReceipt({ hash });
+      setEmergencySuccess('Emergency rescue initiated. Contract paused. 60s countdown started.');
+      await fetchEmergencyStatus();
+    } catch (err: any) {
+      setEmergencyError(err?.shortMessage || err?.message || 'Failed to initiate rescue');
+    } finally {
+      setEmergencyLoading(null);
+    }
+  };
+
+  const handleCancelRescue = async () => {
+    if (!walletClient || !connectedAddress) {
+      setEmergencyError('Connect your wallet first');
+      return;
+    }
+    setEmergencyLoading('cancel');
+    setEmergencyError(null);
+    setEmergencySuccess(null);
+    try {
+      const hash = await walletClient.writeContract({
+        address: V11_VAULT,
+        abi: EMERGENCY_ABI,
+        functionName: 'cancelEmergencyRescue',
+        chain: arbitrum,
+        account: connectedAddress as `0x${string}`
+      });
+      await arbitrumClient.waitForTransactionReceipt({ hash });
+      setEmergencySuccess('Emergency rescue cancelled. Contract unpaused.');
+      await fetchEmergencyStatus();
+    } catch (err: any) {
+      setEmergencyError(err?.shortMessage || err?.message || 'Failed to cancel rescue');
+    } finally {
+      setEmergencyLoading(null);
+    }
+  };
+
+  const handleExecuteRescue = async () => {
+    if (!walletClient || !connectedAddress) {
+      setEmergencyError('Connect your wallet first');
+      return;
+    }
+    setEmergencyLoading('execute');
+    setEmergencyError(null);
+    setEmergencySuccess(null);
+    try {
+      const hash = await walletClient.writeContract({
+        address: V11_VAULT,
+        abi: EMERGENCY_ABI,
+        functionName: 'executeEmergencyRescue',
+        chain: arbitrum,
+        account: connectedAddress as `0x${string}`
+      });
+      await arbitrumClient.waitForTransactionReceipt({ hash });
+      setEmergencySuccess('Emergency rescue executed. All USDC sent to treasury.');
+      await fetchEmergencyStatus();
+      await fetchAllData();
+    } catch (err: any) {
+      setEmergencyError(err?.shortMessage || err?.message || 'Failed to execute rescue');
+    } finally {
+      setEmergencyLoading(null);
+    }
+  };
+
+  const isContractOwner = connectedAddress && contractOwner &&
+    connectedAddress.toLowerCase() === contractOwner.toLowerCase();
 
   const formatTimeAgo = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -395,7 +574,7 @@ const AdminMonitorPage: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Admin Dashboard - V10 GMX</h1>
+          <h1 className="text-2xl font-bold text-white">Admin Dashboard - V11 GMX</h1>
           <p className="text-secondary mt-1">
             Last updated: {lastRefresh.toLocaleTimeString()} • {currentUserEmail}
           </p>
@@ -412,14 +591,14 @@ const AdminMonitorPage: React.FC = () => {
 
       {/* Section Tabs */}
       <div className="flex gap-2 p-1 bg-card-dark rounded-lg w-fit border border-gray-800 flex-wrap">
-        {(['overview', 'users', 'trades', 'vault', 'fees', 'payments', 'subscriptions'] as const).map((section) => (
+        {(['overview', 'users', 'trades', 'vault', 'fees', 'payments', 'subscriptions', 'emergency'] as const).map((section) => (
           <button
             key={section}
             onClick={() => setActiveSection(section)}
             className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-all ${
               activeSection === section
-                ? 'bg-white text-black'
-                : 'text-secondary hover:text-white hover:bg-white/5'
+                ? section === 'emergency' ? 'bg-red-600 text-white' : 'bg-white text-black'
+                : section === 'emergency' ? 'text-red-400 hover:text-red-300 hover:bg-red-500/10' : 'text-secondary hover:text-white hover:bg-white/5'
             }`}
           >
             {section === 'overview' && <Activity size={16} />}
@@ -429,6 +608,7 @@ const AdminMonitorPage: React.FC = () => {
             {section === 'fees' && <Coins size={16} />}
             {section === 'payments' && <DollarSign size={16} />}
             {section === 'subscriptions' && <CreditCard size={16} />}
+            {section === 'emergency' && <Zap size={16} />}
             {section.charAt(0).toUpperCase() + section.slice(1)}
           </button>
         ))}
@@ -439,7 +619,7 @@ const AdminMonitorPage: React.FC = () => {
         <div className="space-y-6">
           {/* Main Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* V10 Vault Real Balance */}
+            {/* V11 Vault Real Balance */}
             <div className={`bg-card-dark rounded-xl border p-4 ${stats.isSolvent ? 'border-green-500/30' : 'border-red-500/30'}`}>
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${stats.isSolvent ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
@@ -459,19 +639,19 @@ const AdminMonitorPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Total Fees Earned (All Time) */}
+            {/* Treasury Balance (fees sent directly) */}
             <div className="bg-card-dark rounded-xl border border-green-500/30 p-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
                   <Coins className="text-green-400" size={20} />
                 </div>
                 <div>
-                  <p className="text-sm text-secondary">Total Fees Earned</p>
+                  <p className="text-sm text-secondary">Treasury Balance</p>
                   <p className="text-xl font-bold text-green-400">
-                    ${parseFloat(stats.totalFeesEarned).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    ${parseFloat(stats.treasuryBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </p>
                   <p className="text-xs text-secondary">
-                    In contract: ${parseFloat(stats.accumulatedFees).toFixed(2)} | Treasury: ${parseFloat(stats.treasuryBalance).toFixed(2)}
+                    V11: All fees sent directly to treasury
                   </p>
                 </div>
               </div>
@@ -554,16 +734,16 @@ const AdminMonitorPage: React.FC = () => {
             </div>
           </div>
 
-          {/* V8 Vault Contract */}
+          {/* V11 Vault Contract */}
           <div className="bg-card-dark rounded-xl border border-blue-500/30 p-4">
             <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
               <Shield size={20} className="text-blue-400" />
-              V10 GMX Vault (Arbitrum)
+              V11 GMX Vault (Arbitrum)
             </h3>
             <div className="flex items-center justify-between">
-              <code className="text-blue-400">{V10_VAULT}</code>
+              <code className="text-blue-400">{V11_VAULT}</code>
               <a
-                href={`https://arbiscan.io/address/${V10_VAULT}`}
+                href={`https://arbiscan.io/address/${V11_VAULT}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-blue-400 hover:text-blue-300"
@@ -757,9 +937,9 @@ const AdminMonitorPage: React.FC = () => {
           <div className="p-4 border-b border-gray-800">
             <h3 className="text-lg font-semibold text-white flex items-center gap-2">
               <DollarSign size={20} className="text-green-400" />
-              V10 Vault Transactions ({vaultTransactions.length})
+              V11 Vault Transactions ({vaultTransactions.length})
             </h3>
-            <p className="text-sm text-secondary mt-1">All deposits and withdrawals to V10 GMX Vault</p>
+            <p className="text-sm text-secondary mt-1">All deposits and withdrawals to V11 GMX Vault</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -833,32 +1013,26 @@ const AdminMonitorPage: React.FC = () => {
               <Coins size={20} className="text-green-400" />
               Platform Fees (All Time)
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <p className="text-sm text-secondary mb-1">Total Fees Earned</p>
+                <p className="text-sm text-secondary mb-1">Treasury Wallet Balance</p>
                 <p className="text-4xl font-bold text-green-400">
-                  ${parseFloat(stats.totalFeesEarned).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-sm text-secondary mt-2">
-                  0.1% base fee + 10% of user profits
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-secondary mb-1">In Contract (Pending)</p>
-                <p className="text-2xl font-bold text-yellow-400">
-                  ${parseFloat(stats.accumulatedFees).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-sm text-secondary mt-2">
-                  Ready to withdraw via withdrawFees()
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-secondary mb-1">Treasury Wallet</p>
-                <p className="text-2xl font-bold text-blue-400">
                   ${parseFloat(stats.treasuryBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </p>
-                <p className="text-xs text-secondary mt-2 break-all">
+                <p className="text-sm text-secondary mt-2">
+                  V11: All fees sent directly to treasury (no accumulation in contract)
+                </p>
+                <p className="text-xs text-secondary mt-1 break-all">
                   {TREASURY_ADDRESS}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-secondary mb-1">Fee Structure</p>
+                <p className="text-2xl font-bold text-white">
+                  0.1% + 10%
+                </p>
+                <p className="text-sm text-secondary mt-2">
+                  0.1% deposit fee (to bot wallet) + 0.1% base fee on position + 10% of profit (to treasury)
                 </p>
               </div>
             </div>
@@ -1012,6 +1186,158 @@ const AdminMonitorPage: React.FC = () => {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ========== EMERGENCY RESCUE SECTION ========== */}
+      {activeSection === 'emergency' && (
+        <div className="space-y-6">
+          {/* Warning Banner */}
+          <div className="bg-red-900/30 border border-red-500/50 rounded-xl p-6">
+            <div className="flex items-start gap-4">
+              <AlertTriangle className="text-red-400 flex-shrink-0 mt-1" size={28} />
+              <div>
+                <h3 className="text-xl font-bold text-red-400">Emergency Rescue</h3>
+                <p className="text-red-300/80 mt-2">
+                  This will pause the contract and start a 60-second countdown. After the countdown,
+                  all remaining USDC will be sent to the treasury wallet. Users can still call
+                  emergencyWithdraw() during the countdown window.
+                </p>
+                <p className="text-red-400/60 text-sm mt-2">
+                  Only use this in case of a hack or critical vulnerability.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Wallet Connection Status */}
+          <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+            <h4 className="text-sm text-secondary mb-3">Wallet Status</h4>
+            {connectedAddress ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle size={16} className="text-green-400" />
+                  <span className="text-white text-sm">Connected: </span>
+                  <code className="text-blue-400 text-xs">{connectedAddress}</code>
+                </div>
+                {contractOwner && (
+                  <div className="flex items-center gap-2">
+                    {isContractOwner ? (
+                      <>
+                        <CheckCircle size={16} className="text-green-400" />
+                        <span className="text-green-400 text-sm">You are the contract owner</span>
+                      </>
+                    ) : (
+                      <>
+                        <XCircle size={16} className="text-red-400" />
+                        <span className="text-red-400 text-sm">
+                          Not the contract owner. Owner: <code className="text-xs">{contractOwner.slice(0, 10)}...{contractOwner.slice(-6)}</code>
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <XCircle size={16} className="text-yellow-400" />
+                <span className="text-yellow-400 text-sm">Wallet not connected. Connect the contract owner wallet to use emergency functions.</span>
+              </div>
+            )}
+          </div>
+
+          {/* Current Rescue Status */}
+          <div className={`bg-card-dark rounded-xl border p-6 ${emergencyActive ? 'border-red-500/50' : 'border-gray-800'}`}>
+            <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Shield size={20} className={emergencyActive ? 'text-red-400' : 'text-gray-400'} />
+              Rescue Status
+            </h4>
+
+            {emergencyActive ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-red-400 font-bold text-lg">EMERGENCY RESCUE ACTIVE</span>
+                </div>
+                <div className="bg-red-900/20 rounded-lg p-4">
+                  <p className="text-secondary text-sm">Contract is paused. Users can emergencyWithdraw().</p>
+                  <p className="text-white text-2xl font-mono mt-2">
+                    {emergencyCountdown > 0 ? (
+                      <>Timelock: {emergencyCountdown}s remaining</>
+                    ) : (
+                      <span className="text-green-400">Ready to execute</span>
+                    )}
+                  </p>
+                  {emergencyInitiatedAt > 0 && (
+                    <p className="text-secondary text-xs mt-1">
+                      Initiated: {new Date(emergencyInitiatedAt * 1000).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex gap-4 mt-4">
+                  <button
+                    onClick={handleCancelRescue}
+                    disabled={emergencyLoading !== null || !isContractOwner}
+                    className="flex items-center gap-2 px-6 py-3 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 rounded-lg text-white font-medium transition-colors"
+                  >
+                    {emergencyLoading === 'cancel' ? <RefreshCw size={16} className="animate-spin" /> : <XCircle size={16} />}
+                    Cancel Rescue
+                  </button>
+
+                  <button
+                    onClick={handleExecuteRescue}
+                    disabled={emergencyLoading !== null || emergencyCountdown > 0 || !isContractOwner}
+                    className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-lg text-white font-medium transition-colors"
+                  >
+                    {emergencyLoading === 'execute' ? <RefreshCw size={16} className="animate-spin" /> : <Zap size={16} />}
+                    Execute Rescue (Send All to Treasury)
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full bg-green-500" />
+                  <span className="text-green-400">No emergency rescue active. Contract running normally.</span>
+                </div>
+
+                <button
+                  onClick={handleInitiateRescue}
+                  disabled={emergencyLoading !== null || !isContractOwner}
+                  className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-lg text-white font-medium transition-colors mt-4"
+                >
+                  {emergencyLoading === 'initiate' ? <RefreshCw size={16} className="animate-spin" /> : <AlertTriangle size={16} />}
+                  Initiate Emergency Rescue
+                </button>
+              </div>
+            )}
+
+            {/* Status messages */}
+            {emergencyError && (
+              <div className="mt-4 p-3 bg-red-900/30 border border-red-500/30 rounded-lg text-red-400 text-sm">
+                {emergencyError}
+              </div>
+            )}
+            {emergencySuccess && (
+              <div className="mt-4 p-3 bg-green-900/30 border border-green-500/30 rounded-lg text-green-400 text-sm">
+                {emergencySuccess}
+              </div>
+            )}
+          </div>
+
+          {/* Info */}
+          <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+            <h4 className="text-sm text-secondary mb-3">How Emergency Rescue Works</h4>
+            <ol className="text-sm text-secondary space-y-2 list-decimal list-inside">
+              <li><span className="text-white">Initiate</span> - Pauses the contract, starts 60s countdown</li>
+              <li><span className="text-white">Wait</span> - Users can call emergencyWithdraw() to get their funds</li>
+              <li><span className="text-white">Execute</span> - After 60s, sends all remaining USDC to treasury</li>
+            </ol>
+            <p className="text-xs text-gray-600 mt-3">
+              Treasury: {TREASURY_ADDRESS}
+            </p>
           </div>
         </div>
       )}

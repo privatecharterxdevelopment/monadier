@@ -7,7 +7,7 @@ const { createPublicClient, createWalletClient, http, formatUnits } = require('v
 const { arbitrum } = require('viem/chains');
 const { privateKeyToAccount } = require('viem/accounts');
 
-const V10_VAULT = '0x85d076665f60676511aB4A7bD40D7d415b7296ea';
+const V11_VAULT = '0x7dE97f35887b2623dCad2ebA68197f58F7607854';
 const USER = '0x7d4805026aa980e25631bd3d700025129a8f7b57';
 const WETH = '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1';
 
@@ -20,7 +20,7 @@ if (!BOT_PRIVATE_KEY) {
   console.log('Run: BOT_PRIVATE_KEY=0x... node call_reconcile.cjs');
   console.log('');
   console.log('Or have the user call reconcile() themselves via Arbiscan:');
-  console.log('1. Go to https://arbiscan.io/address/' + V10_VAULT + '#writeContract');
+  console.log('1. Go to https://arbiscan.io/address/' + V11_VAULT + '#writeContract');
   console.log('2. Connect wallet');
   console.log('3. Find reconcile() function');
   console.log('4. Enter:');
@@ -51,7 +51,7 @@ async function main() {
 
   // Check balance before
   const balanceBefore = await publicClient.readContract({
-    address: V10_VAULT,
+    address: V11_VAULT,
     abi: ABI,
     functionName: 'balances',
     args: [USER]
@@ -61,7 +61,7 @@ async function main() {
   console.log('\nCalling reconcile(' + USER + ', ' + WETH + ')...');
 
   const hash = await walletClient.writeContract({
-    address: V10_VAULT,
+    address: V11_VAULT,
     abi: ABI,
     functionName: 'reconcile',
     args: [USER, WETH],
@@ -75,7 +75,7 @@ async function main() {
 
   // Check balance after
   const balanceAfter = await publicClient.readContract({
-    address: V10_VAULT,
+    address: V11_VAULT,
     abi: ABI,
     functionName: 'balances',
     args: [USER]

@@ -9,7 +9,7 @@ const { createPublicClient, createWalletClient, http, formatUnits, parseAbiItem 
 const { arbitrum } = require('viem/chains');
 const { privateKeyToAccount } = require('viem/accounts');
 
-const V10_VAULT = '0x85d076665f60676511aB4A7bD40D7d415b7296ea';
+const V11_VAULT = '0x7dE97f35887b2623dCad2ebA68197f58F7607854';
 const USER = '0x7d4805026aa980e25631bd3d700025129a8f7b57';
 const WETH = '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1';
 
@@ -34,9 +34,9 @@ async function main() {
   console.log('=== DIAGNOSIS ===\n');
 
   // Check on-chain state
-  const balance = await client.readContract({ address: V10_VAULT, abi: ABI, functionName: 'balances', args: [USER] });
-  const position = await client.readContract({ address: V10_VAULT, abi: ABI, functionName: 'positions', args: [USER, WETH] });
-  const tvl = await client.readContract({ address: V10_VAULT, abi: ABI, functionName: 'tvl' });
+  const balance = await client.readContract({ address: V11_VAULT, abi: ABI, functionName: 'balances', args: [USER] });
+  const position = await client.readContract({ address: V11_VAULT, abi: ABI, functionName: 'positions', args: [USER, WETH] });
+  const tvl = await client.readContract({ address: V11_VAULT, abi: ABI, functionName: 'tvl' });
 
   console.log('On-Chain State:');
   console.log('  User Balance: $' + formatUnits(balance, 6));
@@ -112,7 +112,7 @@ async function main() {
       address: GMX_VAULT,
       abi: gmxAbi,
       functionName: 'getPosition',
-      args: [V10_VAULT, USDC, WETH, false] // SHORT: USDC collateral, WETH index
+      args: [V11_VAULT, USDC, WETH, false] // SHORT: USDC collateral, WETH index
     });
 
     console.log('\nGMX SHORT Position for Vault:');

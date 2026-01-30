@@ -745,16 +745,16 @@ const SettingsPage: React.FC = () => {
           <div className="p-4 bg-white/5 border border-gray-800 rounded-xl">
             <div className="flex items-center gap-2 mb-2">
               <FileCheck className="w-4 h-4 text-blue-400" />
-              <span className="text-white text-sm font-medium">V9 Vault Contract</span>
+              <span className="text-white text-sm font-medium">V11 Vault Contract</span>
             </div>
             <p className="text-gray-500 text-xs mb-3">
               Non-custodial & verified on-chain. Your funds, your control.
             </p>
             <code className="block text-[10px] text-gray-400 font-mono mb-2 break-all">
-              0x85d076665f60676511aB4A7bD40D7d415b7296ea
+              0x7dE97f35887b2623dCad2ebA68197f58F7607854
             </code>
             <a
-              href="https://arbiscan.io/address/0x85d076665f60676511aB4A7bD40D7d415b7296ea#code"
+              href="https://arbiscan.io/address/0x7dE97f35887b2623dCad2ebA68197f58F7607854#code"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 text-xs"

@@ -336,14 +336,13 @@ export const VAULT_V8_ABI = [
     stateMutability: 'view',
     type: 'function'
   },
-  // Get health status (V8.1)
+  // Get health status (V11 - no accumulatedFees, fees go direct to treasury)
   {
     inputs: [],
     name: 'getHealthStatus',
     outputs: [
       { name: 'realBalance', type: 'uint256' },
       { name: 'totalValueLocked', type: 'uint256' },
-      { name: 'accumulatedFees', type: 'uint256' },
       { name: 'isSolvent', type: 'bool' },
       { name: 'surplus', type: 'int256' }
     ],
@@ -488,11 +487,11 @@ export const ERC20_APPROVE_ABI = [
 ] as const;
 
 // ============================================
-// V10 VAULT - SECURE BOT EDITION
-// GMX Perpetuals, userInstantClose, emergencyWithdraw, reconcile
-// New secure bot wallet (V9 bot was compromised)
+// V11 VAULT - RECONCILE FIX + FEES DIRECT TO TREASURY
+// GMX Perpetuals, userInstantClose, emergencyWithdraw, reconcile (collateral-only)
+// Fees go directly to treasury/bot wallet (no accumulation in contract)
 // ============================================
-export const VAULT_ADDRESS: `0x${string}` = '0x85d076665f60676511aB4A7bD40D7d415b7296ea';
+export const VAULT_ADDRESS: `0x${string}` = '0x7dE97f35887b2623dCad2ebA68197f58F7607854';
 export const VAULT_CHAIN_ID = 42161; // Arbitrum Only
 
 // USDC addresses - Arbitrum only
@@ -559,8 +558,6 @@ export interface VaultUserStatus {
 export interface VaultStats {
   tvl: bigint;
   tvlFormatted: string;
-  totalFees: bigint;
-  totalFeesFormatted: string;
   isPaused: boolean;
   pauseTimeRemaining: number;
 }
@@ -1127,21 +1124,20 @@ export class VaultClient {
    * Get vault statistics
    */
   async getVaultStats(): Promise<VaultStats> {
-    const [tvl, totalFees, isPaused, pauseTimeRemaining] =
+    // V11: getVaultStats removed, use getHealthStatus instead
+    const [_realBalance, tvl, _isSolvent, _surplus] =
       await this.publicClient.readContract({
         address: this.vaultAddress,
-        abi: VAULT_ABI,
-        functionName: 'getVaultStats',
+        abi: VAULT_V8_ABI,
+        functionName: 'getHealthStatus',
         args: []
-      });
+      }) as [bigint, bigint, boolean, bigint];
 
     return {
       tvl,
       tvlFormatted: formatUnits(tvl, USDC_DECIMALS),
-      totalFees,
-      totalFeesFormatted: formatUnits(totalFees, USDC_DECIMALS),
-      isPaused,
-      pauseTimeRemaining: Number(pauseTimeRemaining)
+      isPaused: false, // V11 doesn't have pause mechanism
+      pauseTimeRemaining: 0
     };
   }
 

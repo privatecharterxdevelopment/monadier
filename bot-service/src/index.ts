@@ -1102,7 +1102,7 @@ async function runReconciliationCycle(): Promise<void> {
                 );
 
                 if (result.success) {
-                  logger.info('AUTO-RECONCILE SUCCESS - User balance credited!', {
+                  logger.info('AUTO-RECONCILE SUCCESS - User balance credited (collateral returned)', {
                     wallet: walletAddress.slice(0, 10),
                     token: position.token_symbol,
                     txHash: result.txHash,
@@ -1117,33 +1117,13 @@ async function runReconciliationCycle(): Promise<void> {
                     currentPrice
                   );
                 } else {
-                  // Fallback to finalizeOrphanedPosition if reconcile fails
-                  logger.warn('Reconcile failed, trying fallback', { error: result.error });
-
-                  const fallbackResult = await tradingV7GMXService.finalizeOrphanedPosition(
-                    walletAddress as `0x${string}`,
-                    tokenAddress,
-                    currentPrice
-                  );
-
-                  if (fallbackResult.success) {
-                    logger.info('Fallback reconciliation succeeded', {
-                      wallet: walletAddress.slice(0, 10),
-                      token: position.token_symbol
-                    });
-
-                    await positionService.syncPositionsWithChain(
-                      walletAddress,
-                      chainId,
-                      tokenAddress,
-                      currentPrice
-                    );
-                  } else {
-                    logger.error('Both reconciliation methods failed', {
-                      wallet: walletAddress.slice(0, 10),
-                      error: fallbackResult.error
-                    });
-                  }
+                  // V11: No fallback to PnL-estimated finalizeClose (causes phantom profit bug)
+                  // reconcile() returns original collateral only — safe default
+                  logger.error('Reconcile failed - manual intervention may be needed', {
+                    wallet: walletAddress.slice(0, 10),
+                    token: position.token_symbol,
+                    error: result.error
+                  });
                 }
               }
             } else if (!vaultHasPosition) {
@@ -1177,26 +1157,6 @@ async function runReconciliationCycle(): Promise<void> {
     logger.error('Error in reconciliation cycle', { error: err });
   } finally {
     isReconciliationRunning = false;
-  }
-}
-
-/**
- * Automatic fee withdrawal - sends accumulated fees to treasury
- * Runs every 10 minutes to auto-withdraw fees from contract
- */
-async function runFeeWithdrawalCycle(): Promise<void> {
-  try {
-    // V7 GMX fee withdrawal on Arbitrum
-    const result = await tradingV7GMXService.withdrawFees();
-
-    if (result.success && result.amount && result.amount !== '0') {
-      logger.info('V7 GMX Fees withdrawn to treasury', {
-        amount: result.amount,
-        unit: 'USDC'
-      });
-    }
-  } catch (err) {
-    logger.error('Error in V7 GMX fee withdrawal', { error: err });
   }
 }
 
@@ -1420,7 +1380,7 @@ async function runTradingCycle(): Promise<void> {
  */
 function logStartupInfo(): void {
   logger.info('='.repeat(50));
-  logger.info('Monadier Trading Bot - V8 GMX Vault');
+  logger.info('Monadier Trading Bot - V11 GMX Vault');
   logger.info('Arbitrum Only | GMX Perpetuals | 25x-50x Leverage');
   logger.info('='.repeat(50));
 
@@ -1469,20 +1429,12 @@ async function main(): Promise<void> {
     await runReconciliationCycle();
   });
 
-  // Schedule fee withdrawal (every 10 minutes - auto-send to treasury)
-  cron.schedule('*/10 * * * *', async () => {
-    await runFeeWithdrawalCycle();
-  });
-
-  // Run fee withdrawal once on startup
-  await runFeeWithdrawalCycle();
-
   logger.info(`Bot service started.`);
   logger.info(`- Payment monitoring: ACTIVE (treasury watched)`);
   logger.info(`- New positions: every ${tradeIntervalSeconds}s`);
   logger.info(`- Position monitoring: every 10s`);
   logger.info(`- Reconciliation: every 5 minutes`);
-  logger.info(`- Fee withdrawal: every 10 minutes (auto-send to treasury)`);
+  logger.info(`- Fees: sent directly to treasury (no withdrawal needed)`);
 }
 
 // Handle graceful shutdown
