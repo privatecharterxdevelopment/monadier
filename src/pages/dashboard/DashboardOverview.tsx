@@ -129,10 +129,11 @@ const DashboardOverview: React.FC = () => {
         try {
           const { data, error } = await supabase
             .from('positions')
-            .select('id, token_symbol, direction, entry_price, entry_amount, take_profit_percent, trailing_stop_percent, profit_loss, profit_loss_percent, status, close_reason, created_at, closed_at')
+            .select('id, token_symbol, direction, entry_price, exit_price, entry_amount, take_profit_percent, trailing_stop_percent, profit_loss, profit_loss_percent, status, close_reason, created_at, closed_at')
             .eq('wallet_address', DEMO_WALLET_ADDRESS)
             .in('status', ['closed', 'failed'])
-            .order('closed_at', { ascending: false })
+            .order('closed_at', { ascending: false, nullsFirst: false })
+            .order('id', { ascending: false })
             .limit(5);
           if (!error && data) setRecentTrades(data);
         } catch (err) {
@@ -155,14 +156,22 @@ const DashboardOverview: React.FC = () => {
 
         const { data, error } = await supabase
           .from('positions')
-          .select('id, token_symbol, direction, entry_price, entry_amount, take_profit_percent, trailing_stop_percent, profit_loss, profit_loss_percent, status, close_reason, created_at, closed_at')
+          .select('id, token_symbol, direction, entry_price, exit_price, entry_amount, take_profit_percent, trailing_stop_percent, profit_loss, profit_loss_percent, status, close_reason, created_at, closed_at')
           .in('wallet_address', walletArray)
           .in('status', ['closed', 'failed'])
-          .order('closed_at', { ascending: false })
+          .order('closed_at', { ascending: false, nullsFirst: false })
+          .order('id', { ascending: false })
           .limit(5);
 
         if (!error && data) {
-          setRecentTrades(data);
+          // Deduplicate by id (safety net)
+          const seen = new Set<string>();
+          const unique = data.filter(t => {
+            if (seen.has(t.id)) return false;
+            seen.add(t.id);
+            return true;
+          });
+          setRecentTrades(unique);
         }
       } catch (err) {
         console.error('Error fetching trades:', err);

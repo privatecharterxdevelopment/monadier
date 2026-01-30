@@ -208,11 +208,14 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
       }
     } catch (err: any) {
       console.error('Deposit failed:', err);
+      const msg = err.shortMessage || err.message || '';
 
-      if (err.message?.includes('User rejected') || err.message?.includes('denied')) {
+      if (msg.includes('User rejected') || msg.includes('denied')) {
         setError('Transaction cancelled');
+      } else if (msg.includes('insufficient funds') || msg.includes('gas * price')) {
+        setError('Not enough ETH for gas fees. You need a small amount of ETH on Arbitrum (~$0.10) to pay for transaction fees.');
       } else {
-        setError(err.message || 'Failed to deposit');
+        setError(msg || 'Failed to deposit');
       }
       setIsLoading(false);
     }

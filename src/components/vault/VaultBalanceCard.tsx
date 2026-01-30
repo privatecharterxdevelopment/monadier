@@ -10,6 +10,17 @@ import VaultDepositModal from './VaultDepositModal';
 import VaultSettingsModal from './VaultSettingsModal';
 import { supabase } from '../../lib/supabase';
 
+function friendlyError(err: any): string {
+  const msg = err?.shortMessage || err?.message || '';
+  if (msg.includes('insufficient funds') || msg.includes('gas * price')) {
+    return 'Not enough ETH for gas fees. Send a small amount of ETH to your wallet on Arbitrum (~$0.10).';
+  }
+  if (msg.includes('User rejected') || msg.includes('denied')) {
+    return 'Transaction cancelled';
+  }
+  return msg || 'Transaction failed';
+}
+
 interface VaultBalanceCardProps {
   compact?: boolean; // For dashboard view
 }
@@ -66,11 +77,45 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
     leverage: number;
     entryPrice: string;
     token: string;
+    currentPrice?: number;
+    pnl?: number;
+    pnlPercent?: number;
   } | null>(null);
   const [isClosingPosition, setIsClosingPosition] = useState(false);
   const [closePositionError, setClosePositionError] = useState<string | null>(null);
   const WETH_ADDRESS = '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1' as `0x${string}`;
   const WBTC_ADDRESS = '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f' as `0x${string}`;
+
+  // Live price for active position P/L
+  useEffect(() => {
+    if (!activePosition || !activePosition.isActive) return;
+
+    const fetchPrice = async () => {
+      try {
+        const symbol = activePosition.token === 'BTC' ? 'BTCUSDT' : 'ETHUSDT';
+        const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+        const data = await res.json();
+        const price = parseFloat(data.price);
+        if (!price || price <= 0) return;
+
+        const entry = parseFloat(activePosition.entryPrice);
+        const collateral = parseFloat(activePosition.collateral);
+        const lev = activePosition.leverage || 1;
+
+        const priceChange = activePosition.isLong
+          ? price - entry
+          : entry - price;
+        const pnlPercent = (priceChange / entry) * lev * 100;
+        const pnl = (collateral * pnlPercent) / 100;
+
+        setActivePosition(prev => prev ? { ...prev, currentPrice: price, pnl, pnlPercent } : prev);
+      } catch {}
+    };
+
+    fetchPrice();
+    const interval = setInterval(fetchPrice, 5000);
+    return () => clearInterval(interval);
+  }, [activePosition?.isActive, activePosition?.token, activePosition?.entryPrice]);
 
   // Bot toggle state
   const [isTogglingBot, setIsTogglingBot] = useState(false);
@@ -299,7 +344,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
       setAutoTradeEnabled(newState);
     } catch (err: any) {
       console.error('Failed to toggle bot:', err);
-      setToggleError(err.shortMessage || err.message || 'Failed to toggle bot');
+      setToggleError(friendlyError(err));
     } finally {
       setIsTogglingBot(false);
     }
@@ -345,7 +390,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
       alert('Successfully withdrew from V7 vault!');
     } catch (err: any) {
       console.error('V7 withdraw failed:', err);
-      setV7Error(err.shortMessage || err.message || 'Withdrawal failed');
+      setV7Error(friendlyError(err));
     } finally {
       setIsWithdrawingV7(false);
     }
@@ -384,7 +429,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
       alert('Successfully withdrew from V8 Legacy vault!');
     } catch (err: any) {
       console.error('V8 Legacy withdraw failed:', err);
-      setV8LegacyError(err.shortMessage || err.message || 'Withdrawal failed');
+      setV8LegacyError(friendlyError(err));
     } finally {
       setIsWithdrawingV8Legacy(false);
     }
@@ -420,7 +465,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
       window.location.reload();
     } catch (err: any) {
       console.error('Close position failed:', err);
-      setClosePositionError(err.shortMessage || err.message || 'Failed to close position');
+      setClosePositionError(friendlyError(err));
     } finally {
       setIsClosingPosition(false);
     }
@@ -444,7 +489,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
       window.location.reload();
     } catch (err: any) {
       console.error('Emergency withdraw failed:', err);
-      setEmergencyWithdrawError(err.shortMessage || err.message || 'Emergency withdrawal failed');
+      setEmergencyWithdrawError(friendlyError(err));
     } finally {
       setIsEmergencyWithdrawing(false);
     }
@@ -509,7 +554,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
       window.location.reload();
     } catch (err: any) {
       console.error('Withdraw everything failed:', err);
-      setWithdrawAllError(err.shortMessage || err.message || 'Withdrawal failed');
+      setWithdrawAllError(friendlyError(err));
     } finally {
       setIsWithdrawingAll(false);
     }
@@ -682,6 +727,20 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
                 <span className="text-zinc-400">Entry:</span>
                 <span className="ml-2 text-white font-medium">${activePosition.entryPrice}</span>
               </div>
+              {activePosition.currentPrice != null && (
+                <div>
+                  <span className="text-zinc-400">Now:</span>
+                  <span className="ml-2 text-white font-medium">${activePosition.currentPrice.toFixed(2)}</span>
+                </div>
+              )}
+              {activePosition.pnl != null && (
+                <div>
+                  <span className="text-zinc-400">P/L:</span>
+                  <span className={`ml-2 font-bold ${activePosition.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {activePosition.pnl >= 0 ? '+' : ''}${activePosition.pnl.toFixed(2)} ({activePosition.pnlPercent != null ? (activePosition.pnlPercent >= 0 ? '+' : '') + activePosition.pnlPercent.toFixed(2) + '%' : ''})
+                  </span>
+                </div>
+              )}
             </div>
             <p className="text-yellow-400/80 text-xs mb-3">
               Your funds are locked in this position. Close it to withdraw your money.
