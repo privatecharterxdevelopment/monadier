@@ -58,6 +58,11 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
     : parseFloat(estimatedUsdc || '0');
   const isBelowMinimum = isV8Chain && depositAmount > 0 && depositAmount < minDepositAmount;
 
+  // Check if user has enough ETH for gas (need at least ~0.0001 ETH)
+  const MIN_ETH_FOR_GAS = 0.0001;
+  const hasEnoughGas = parseFloat(ethBalance) >= MIN_ETH_FOR_GAS;
+  const needsGasForUSDC = depositType === 'usdc' && !hasEnoughGas && !isLoadingBalance;
+
   // Calculate estimated USDC for ETH
   const estimatedUsdc = depositType === 'eth' && amount && ethPrice > 0
     ? (parseFloat(amount) * ethPrice).toFixed(2)
@@ -132,6 +137,12 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
     // Check minimum for V6 chains
     if (isV8Chain && depositAmount < minDepositAmount) {
       setError(`Minimum deposit is $${minDepositAmount} USDC for bot trading`);
+      return;
+    }
+
+    // Check gas before attempting transaction
+    if (depositType === 'usdc' && !hasEnoughGas) {
+      setError('You need a tiny amount of ETH on Arbitrum for gas fees (~$0.10). Bridge some ETH to Arbitrum first.');
       return;
     }
 
@@ -400,6 +411,19 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
               }
             </p>
           </div>
+
+          {/* Gas Warning */}
+          {needsGasForUSDC && (
+            <div className="flex items-start gap-2 text-orange-400 text-sm bg-orange-500/10 border border-orange-500/30 rounded-lg p-3">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium">No ETH for gas fees</p>
+                <p className="text-xs text-orange-400/80 mt-1">
+                  You have {parseFloat(usdcBalance).toFixed(2)} USDC but need a small amount of ETH on Arbitrum to pay transaction fees (~$0.10 worth). Bridge or transfer ETH to your wallet first.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Error */}
           {error && (
