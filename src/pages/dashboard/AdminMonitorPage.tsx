@@ -215,22 +215,31 @@ const AdminMonitorPage: React.FC = () => {
     let isSolvent = false;
     let surplus = 0n;
 
-    // 1. Fetch treasury USDC balance via RPC (not Arbiscan API — avoids rate limits)
-    try {
-      treasuryBalance = await arbitrumClient.readContract({
-        address: USDC_ARBITRUM as `0x${string}`,
-        abi: [{
-          inputs: [{ name: 'account', type: 'address' }],
-          name: 'balanceOf',
-          outputs: [{ name: '', type: 'uint256' }],
-          stateMutability: 'view',
-          type: 'function'
-        }],
-        functionName: 'balanceOf',
-        args: [TREASURY_ADDRESS as `0x${string}`]
-      }) as bigint;
-    } catch (e) {
-      console.error('[Admin] Failed to fetch treasury balance:', e);
+    // 1. Fetch treasury USDC balance — try multiple RPC endpoints
+    const rpcEndpoints = [
+      'https://arb1.arbitrum.io/rpc',
+      'https://arbitrum.llamarpc.com',
+      'https://1rpc.io/arb'
+    ];
+    for (const rpc of rpcEndpoints) {
+      try {
+        const client = createPublicClient({ chain: arbitrum, transport: http(rpc) });
+        treasuryBalance = await client.readContract({
+          address: USDC_ARBITRUM as `0x${string}`,
+          abi: [{
+            inputs: [{ name: 'account', type: 'address' }],
+            name: 'balanceOf',
+            outputs: [{ name: '', type: 'uint256' }],
+            stateMutability: 'view',
+            type: 'function'
+          }],
+          functionName: 'balanceOf',
+          args: [TREASURY_ADDRESS as `0x${string}`]
+        }) as bigint;
+        if (treasuryBalance > 0n) break; // Got a valid response
+      } catch (e) {
+        console.warn(`[Admin] Treasury fetch failed on ${rpc}:`, e);
+      }
     }
 
     // 2. Fetch vault health status - V11 returns 4 values (no accumulatedFees)

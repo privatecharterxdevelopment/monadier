@@ -583,8 +583,11 @@ async function runPositionMonitoringCycle(): Promise<void> {
 
           if (result.success) {
             // Use ACTUAL P/L from closePosition (on-chain calculation), fallback to pre-captured
-            const profitLoss = result.pnl ?? pnlData?.pnl ?? 0;
-            const profitLossPercent = result.pnlPercent ?? pnlData?.pnlPercent ?? 0;
+            const grossPnl = result.pnl ?? pnlData?.pnl ?? 0;
+            const grossPnlPercent = result.pnlPercent ?? pnlData?.pnlPercent ?? 0;
+            // Record NET P/L (after 10% success fee) — this matches what the user actually receives
+            const profitLoss = grossPnl > 0 ? grossPnl * 0.9 : grossPnl;
+            const profitLossPercent = grossPnlPercent > 0 ? grossPnlPercent * 0.9 : grossPnlPercent;
             const exitPrice = result.exitPrice ?? pnlData?.currentPrice ?? 0;
             const exitAmount = result.exitAmount ?? ((pos.entry_amount || 0) + profitLoss);
             const closedAt = new Date().toISOString();

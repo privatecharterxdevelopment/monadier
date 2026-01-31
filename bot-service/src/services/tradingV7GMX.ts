@@ -597,12 +597,13 @@ export class TradingV7GMXService {
 
   /**
    * Close a position - closes GMX position AND credits user.
-   * Step 1: Update trailing stop on-chain (sync state)
-   * Step 2: Call contract closePosition → sends createDecreasePosition to GMX
-   * Step 3: Call finalizeClose → credits user balance immediately
+   * Uses the contract's own getPositionPnL for correct P/L (same logic as userInstantClose).
+   * NO fee estimates — the contract handles success fee in finalizeClose.
    *
-   * If step 2 fails (SL/TP not met on-chain), we still call finalizeClose
-   * but log a warning about the orphaned GMX position.
+   * Step 1: Update trailing stop on-chain (sync state)
+   * Step 2: Read P/L from contract (on-chain price, same as userInstantClose)
+   * Step 3: Call contract closePosition → sends createDecreasePosition to GMX
+   * Step 4: Call finalizeClose → credits user balance
    */
   async closePosition(
     userAddress: `0x${string}`,
@@ -628,58 +629,44 @@ export class TradingV7GMXService {
         return { success: false, error: 'No active position' };
       }
 
-      // Get current price to calculate PnL
+      const collateral = position.collateral;
+      const entryPrice = position.entryPrice;
+
+      // Use the CONTRACT's own P/L calculation — same logic as userInstantClose
+      // This ensures the credited amount matches what the contract would calculate
+      const [pnlRaw, pnlPercentRaw] = await this.publicClient.readContract({
+        address: this.vaultAddress,
+        abi: VAULT_V7_ABI,
+        functionName: 'getPositionPnL',
+        args: [userAddress, tokenAddress]
+      }) as [bigint, bigint];
+
+      // Calculate received amount: collateral + pnl (no fake fee deductions)
+      let receivedAmount: bigint;
+      if (pnlRaw >= 0n) {
+        receivedAmount = collateral + BigInt(pnlRaw);
+      } else {
+        const loss = BigInt(-pnlRaw);
+        receivedAmount = collateral > loss ? collateral - loss : 0n;
+      }
+
+      // Get current price for logging/return
       const [maxPrice, minPrice] = await this.publicClient.readContract({
         address: this.vaultAddress,
         abi: VAULT_V7_ABI,
         functionName: 'getPrice',
         args: [tokenAddress]
       }) as [bigint, bigint];
-
       const currentPrice = position.isLong ? minPrice : maxPrice;
-      const entryPrice = position.entryPrice;
-      const collateral = position.collateral;
-      const leverage = position.leverage;
 
-      // Calculate PnL
-      let pnlBps: bigint;
-      if (position.isLong) {
-        pnlBps = ((currentPrice - entryPrice) * 10000n) / entryPrice;
-      } else {
-        pnlBps = ((entryPrice - currentPrice) * 10000n) / entryPrice;
-      }
-
-      // Apply leverage to PnL
-      const leveragedPnlBps = pnlBps * BigInt(leverage);
-      const pnlAmount = (collateral * leveragedPnlBps) / 10000n;
-
-      // Calculate received amount (collateral + PnL, but can't go below 0)
-      // IMPORTANT: Deduct estimated GMX fees so we don't credit more than GMX returns.
-      // GMX charges ~0.1% of position size on close + ~0.1% open fee not reflected in pos.collateral.
-      // We deduct 0.2% of position size to prevent vault from becoming underfunded.
-      const positionSize = collateral * BigInt(leverage);
-      const gmxFeeEstimate = (positionSize * 20n) / 10000n; // 0.2% of position size
-
-      let receivedAmount = collateral;
-      if (leveragedPnlBps >= 0n) {
-        receivedAmount = collateral + pnlAmount;
-      } else {
-        // Loss case - reduce collateral but not below 0
-        const loss = pnlAmount < 0n ? -pnlAmount : pnlAmount;
-        receivedAmount = collateral > loss ? collateral - loss : 0n;
-      }
-
-      // Deduct GMX fee estimate to keep vault solvent
-      receivedAmount = receivedAmount > gmxFeeEstimate ? receivedAmount - gmxFeeEstimate : 0n;
-
-      logger.info('Calculated PnL for close', {
+      logger.info('PnL from contract (no fee estimate)', {
         user: userAddress.slice(0, 10),
         entryPrice: entryPrice.toString(),
         currentPrice: currentPrice.toString(),
-        pnlBps: leveragedPnlBps.toString(),
+        pnlRaw: pnlRaw.toString(),
+        pnlPercentBps: pnlPercentRaw.toString(),
         collateral: collateral.toString(),
-        receivedAmount: receivedAmount.toString(),
-        gmxFeeEstimate: gmxFeeEstimate.toString()
+        receivedAmount: receivedAmount.toString()
       });
 
       // STEP 1: Sync trailing stop on-chain before attempting close
@@ -720,7 +707,6 @@ export class TradingV7GMXService {
         }
       } catch (gmxErr: any) {
         // keeperClosePosition failed (SL/TP not met on-chain, or autoFeatures disabled)
-        // Log warning — GMX position will be orphaned until manually cleaned
         logger.warn('keeperClosePosition failed — GMX position may be orphaned', {
           user: userAddress.slice(0, 10),
           token: tokenAddress.slice(0, 10),
@@ -728,7 +714,8 @@ export class TradingV7GMXService {
         });
       }
 
-      // STEP 3: Call finalizeClose to credit user balance immediately
+      // STEP 3: Call finalizeClose to credit user balance
+      // Contract handles success fee (10% of profit) internally
       const txHash = await this.walletClient.writeContract({
         address: this.vaultAddress,
         abi: VAULT_V7_ABI,
@@ -744,8 +731,8 @@ export class TradingV7GMXService {
       }
 
       // Convert to human-readable values for return
-      const pnlPercent = Number(leveragedPnlBps) / 100; // bps to percent
-      const pnlUSD = Number(pnlAmount) / 1e6; // USDC has 6 decimals
+      const pnlPercent = Number(pnlPercentRaw) / 100; // bps to percent
+      const pnlUSD = Number(pnlRaw) / 1e6; // USDC has 6 decimals
       const exitPriceNum = Number(currentPrice) / 1e30; // GMX prices have 30 decimals
       const exitAmountNum = Number(receivedAmount) / 1e6;
 
