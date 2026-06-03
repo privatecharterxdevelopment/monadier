@@ -10,6 +10,7 @@ import TerminalPositionsDock from '../../components/terminal/TerminalPositionsDo
 import TradingBotPage from './TradingBotPage';
 import ProfileAvatar from '../../components/profile/ProfileAvatar';
 import Dashboard2Sidebar from '../../components/dashboard2/Dashboard2Sidebar';
+import TerminalProfileModal from '../../components/terminal/TerminalProfileModal';
 
 function fmtUsd(n: number) {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -33,6 +34,7 @@ const Dashboard2Page: React.FC = () => {
     'Trader';
   const [vaultAction, setVaultAction] = useState<'deposit' | 'withdraw' | null>(null);
   const [historyTick, setHistoryTick] = useState(0);
+  const [showProfile, setShowProfile] = useState(false);
 
   const handleRefresh = () => {
     refresh();
@@ -48,10 +50,10 @@ const Dashboard2Page: React.FC = () => {
   return (
     <div className="term-root">
       <Dashboard2Sidebar
-        active="trade"
         onDeposit={() => setVaultAction('deposit')}
         onWithdraw={() => setVaultAction('withdraw')}
         onHistory={scrollToHistory}
+        onProfile={() => setShowProfile(true)}
       />
 
       <div className="term-main">
@@ -59,7 +61,14 @@ const Dashboard2Page: React.FC = () => {
           <div className="term-market-bar-top">
             <div className="term-welcome">
               <div className="term-welcome-row">
-                <ProfileAvatar profile={profile} userId={user?.id} size="lg" />
+                <button
+                  type="button"
+                  className="term-welcome-avatar-btn"
+                  onClick={() => setShowProfile(true)}
+                  title="Edit profile"
+                >
+                  <ProfileAvatar profile={profile} userId={user?.id} size="lg" />
+                </button>
                 <div className="term-welcome-text">
                   <p className="term-welcome-greeting">
                     <span className="term-welcome-hello">{greeting}</span>
@@ -170,6 +179,8 @@ const Dashboard2Page: React.FC = () => {
           />
         </div>
       </div>
+
+      {showProfile && <TerminalProfileModal onClose={() => setShowProfile(false)} />}
     </div>
   );
 };

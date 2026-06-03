@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   TrendingUp,
   Bot,
@@ -10,21 +10,21 @@ import {
 } from 'lucide-react';
 import { signOut } from '../../lib/supabase';
 
-export type Dashboard2Nav = 'trade' | 'profile';
-
 type Props = {
-  active: Dashboard2Nav;
   onDeposit?: () => void;
   onWithdraw?: () => void;
   onHistory?: () => void;
+  onProfile?: () => void;
 };
 
 const Dashboard2Sidebar: React.FC<Props> = ({
-  active,
   onDeposit,
   onWithdraw,
   onHistory,
+  onProfile,
 }) => {
+  const { pathname } = useLocation();
+  const onTrade = pathname === '/dashboard2' || pathname.startsWith('/dashboard2?');
   const handleSignOut = async () => {
     await signOut();
     window.location.href = '/';
@@ -43,7 +43,7 @@ const Dashboard2Sidebar: React.FC<Props> = ({
       <nav className="term-side-nav">
         <Link
           to="/dashboard2"
-          className={`term-side-link ${active === 'trade' ? 'term-side-link--active' : ''}`}
+          className={`term-side-link ${onTrade ? 'term-side-link--active' : ''}`}
         >
           <TrendingUp size={18} />
           <span className="term-side-label">Trade</span>
@@ -67,13 +67,10 @@ const Dashboard2Sidebar: React.FC<Props> = ({
       </nav>
 
       <div className="term-side-footer">
-        <Link
-          to="/dashboard2/profile"
-          className={`term-side-link ${active === 'profile' ? 'term-side-link--active' : ''}`}
-        >
+        <button type="button" className="term-side-link" onClick={onProfile}>
           <User size={18} />
           <span className="term-side-label">Profile</span>
-        </Link>
+        </button>
         <button type="button" className="term-side-link" onClick={handleSignOut}>
           <LogOut size={18} />
           <span className="term-side-label">Sign out</span>

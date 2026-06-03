@@ -2,7 +2,7 @@
 
 Dashboard2 (`/dashboard2`) is the primary trading terminal. Legacy `/dashboard/*` remains for gradual retirement.
 
-## Phase 1 — UI parity (in progress)
+## Phase 1 — UI parity (shipped to `main` 2026-06-04)
 
 | Area | Status | Notes |
 |------|--------|-------|
@@ -10,7 +10,7 @@ Dashboard2 (`/dashboard2`) is the primary trading terminal. Legacy `/dashboard/*
 | Trade panel (Bot / LVRG / Funds) | Done | `TerminalTradePanel`, `TerminalLvrgPanel` |
 | Header stats | Done | Wallet, vault, in trade, portfolio, profit |
 | History + close in-app | Done | `TerminalPositionsDock` — multi-wallet, live P/L, `closing` flow |
-| Profile (no Plans) | Done | `/dashboard2/profile` — avatar, name, country, wallets, password |
+| Profile (no Plans) | Done | Popup modal — emoji or uploaded logo, name, country, wallets, password |
 | Plans / subscriptions in D2 | Skipped | Not part of product direction |
 | Redirect `/dashboard` → `/dashboard2` | Done | `App.tsx` |
 
@@ -60,9 +60,20 @@ supabase db push                                   # apply pending
 ## Profile sync
 
 - Single source of truth: Supabase `profiles` row (`id` = `auth.users.id`).
-- Trade header (`Dashboard2Page`) and profile page (`Dashboard2ProfilePage`) both read `useAuth().profile`.
-- After save on `/dashboard2/profile`, `refreshProfile()` reloads context so greeting + avatar update immediately on `/dashboard2`.
-- `/dashboard/profile` redirects to `/dashboard2/profile`.
+- Trade header + **Profile popup** (`TerminalProfileModal`) use `useAuth().profile`.
+- Avatar: `avatar_url` (uploaded logo in Storage bucket `avatars`) or fallback `avatar_emoji`.
+- Open profile: sidebar **Profile** or click avatar in header.
+- After save/upload, `refreshProfile()` updates greeting + avatar immediately.
+- `/dashboard/profile` and `/dashboard2/profile` redirect to `/dashboard2` (modal only).
+
+## Phase 3 — Remove dashboard1 (after D2 sign-off)
+
+When dashboard2 is fully validated in production:
+
+1. Delete `src/pages/DashboardPage.tsx` and legacy dashboard shell components no longer referenced.
+2. Remove `/dashboard/*` routes from `App.tsx` (keep only `/dashboard` → `/dashboard2` redirect if needed for bookmarks).
+3. Remove glass-theme CSS only used by dashboard1.
+4. Update marketing links that still point to `/dashboard/bot-trading`, etc.
 
 ## Legacy routes (do not extend)
 

@@ -30,7 +30,6 @@ import FundsExplainedPage from './pages/FundsExplainedPage';
 import KycFlowPage from './pages/KycFlowPage';
 import DashboardPage from './pages/DashboardPage';
 import Dashboard2Page from './pages/dashboard/Dashboard2Page';
-import Dashboard2ProfilePage from './pages/dashboard/Dashboard2ProfilePage';
 import Dashboard2Layout from './layouts/Dashboard2Layout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import SupportWidget from './components/ui/SupportWidget';
@@ -154,7 +153,8 @@ function App() {
           } />
           
           <Route path="/dashboard" element={<Navigate to="/dashboard2" replace />} />
-          <Route path="/dashboard/profile" element={<Navigate to="/dashboard2/profile" replace />} />
+          <Route path="/dashboard/profile" element={<Navigate to="/dashboard2" replace />} />
+          <Route path="/dashboard2/profile" element={<Navigate to="/dashboard2" replace />} />
 
           <Route path="/dashboard/*" element={
             <ProtectedRoute>
@@ -184,27 +184,6 @@ function App() {
               )
             }
           />
-          <Route
-            path="/dashboard2/profile"
-            element={
-              import.meta.env.DEV ? (
-                <PageTransition fillViewport>
-                  <Dashboard2Layout>
-                    <Dashboard2ProfilePage />
-                  </Dashboard2Layout>
-                </PageTransition>
-              ) : (
-                <ProtectedRoute>
-                  <PageTransition fillViewport>
-                    <Dashboard2Layout>
-                      <Dashboard2ProfilePage />
-                    </Dashboard2Layout>
-                  </PageTransition>
-                </ProtectedRoute>
-              )
-            }
-          />
-          
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </AnimatePresence>

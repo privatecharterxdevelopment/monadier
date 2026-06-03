@@ -53,10 +53,11 @@ http://localhost:5173/auth/callback
 
 ## Test after redeploy
 
-1. https://monadier.vercel.app/login → Google → dashboard  
-2. Forgot password → email → reset works  
-3. Register → if email confirm on, “Check your email” screen  
-4. https://monadier.vercel.app/your-funds — vault explanation  
+1. https://monadier.vercel.app/login → Google → **/dashboard2** (not legacy glass UI)  
+2. Profile: `/dashboard2/profile` → save name/avatar → back to trade → greeting updates  
+3. History dock: open position → **Close** → status `closing` → bot settles  
+4. Forgot password → email → reset works  
+5. https://monadier.vercel.app/your-funds — vault explanation  
 
 ---
 
