@@ -61,6 +61,10 @@ http://localhost:5173/auth/callback
 
 ---
 
-## Bot (Railway)
+## Bot service (required — no Railway)
 
-Ensure `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `ARBITRUM_VAULT_ADDRESS=0x7dE97f35887b2623dCad2ebA68197f58F7607854`, `BOT_PRIVATE_KEY` are set. Redeploy bot after frontend.
+Without a running bot: no auto-trading, no live signals in dashboard.
+
+1. Deploy `bot-service` — see **[docs/BOT_DEPLOY.md](docs/BOT_DEPLOY.md)** (Render / Fly / VPS).
+2. Vercel env: `VITE_BOT_API_URL=https://YOUR-BOT-URL` (no trailing slash).
+3. Redeploy frontend after bot is up (`curl YOUR-BOT-URL/health`).

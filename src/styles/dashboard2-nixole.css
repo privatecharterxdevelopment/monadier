@@ -709,10 +709,245 @@
 }
 
 /* Positions dock */
+/* Bot analysis panel (between chart and history) */
+.term-analysis-panel {
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: var(--term-glass);
+  border: 1px solid var(--term-border-muted);
+  box-shadow: var(--term-shadow);
+  padding: 12px 14px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.term-analysis-panel--idle {
+  padding: 14px;
+  text-align: center;
+}
+
+.term-analysis-panel-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--term-text-faint);
+}
+
+.term-analysis-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.term-analysis-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--term-text);
+}
+
+.term-analysis-panel-badge {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
+.term-analysis-bar--inline {
+  margin-bottom: 10px;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.term-analysis-panel-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .term-analysis-panel-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.term-analysis-panel-block {
+  min-width: 0;
+}
+
+.term-analysis-panel-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--term-text-faint);
+}
+
+.term-analysis-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.03);
+  margin-bottom: 8px;
+}
+
+.term-analysis-action strong {
+  display: block;
+  font-size: 18px;
+}
+
+.term-analysis-action span {
+  font-size: 12px;
+  color: var(--term-text-muted);
+}
+
+.term-analysis-action--long strong {
+  color: #15803d;
+}
+
+.term-analysis-action--short strong {
+  color: #b91c1c;
+}
+
+.term-analysis-action--hold strong {
+  color: var(--term-text-muted);
+}
+
+.term-analysis-action-tag {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #15803d;
+  color: #fff;
+}
+
+.term-analysis-reasons {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 11px;
+  color: var(--term-text-muted);
+  line-height: 1.5;
+}
+
+.term-analysis-panel-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: #b45309;
+}
+
+.term-analysis-panel-meta {
+  margin: 0;
+  font-size: 11px;
+  color: var(--term-text-faint);
+}
+
+.term-analysis-tf-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.term-analysis-tf-chip {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.term-analysis-tf-chip--long {
+  color: #15803d;
+}
+
+.term-analysis-tf-chip--short {
+  color: #b91c1c;
+}
+
+.term-analysis-tf-chip--hold {
+  color: var(--term-text-faint);
+}
+
+.term-analysis-gates {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.term-analysis-gate {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.term-analysis-gate--pass svg {
+  color: #15803d;
+  flex-shrink: 0;
+}
+
+.term-analysis-gate--fail svg {
+  color: #b91c1c;
+  flex-shrink: 0;
+}
+
+.term-analysis-gate--warn svg,
+.term-analysis-gate--pending svg {
+  color: #a16207;
+  flex-shrink: 0;
+}
+
+.term-analysis-gate-label {
+  display: block;
+  font-weight: 600;
+  color: var(--term-text);
+}
+
+.term-analysis-gate-detail {
+  display: block;
+  color: var(--term-text-faint);
+}
+
+.term-analysis-panel-foot {
+  margin: 8px 0 0;
+  font-size: 10px;
+  color: var(--term-text-faint);
+}
+
+.term-analysis-panel-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--term-text-faint);
+}
+
 .term-dock {
   flex-shrink: 0;
-  height: 240px;
-  max-height: 36vh;
+  height: 200px;
+  max-height: 30vh;
   display: flex;
   flex-direction: column;
   border-radius: 14px;

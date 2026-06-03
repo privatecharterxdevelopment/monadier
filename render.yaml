@@ -1,0 +1,29 @@
+# Render Blueprint — Monadier bot-service (replaces Railway)
+# Dashboard: https://dashboard.render.com → New → Blueprint → connect repo
+services:
+  - type: web
+    name: monadier-bot
+    runtime: docker
+    dockerfilePath: ./bot-service/Dockerfile
+    dockerContext: ./bot-service
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: ENABLE_DEMO_SIMULATOR
+        value: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: BOT_PRIVATE_KEY
+        sync: false
+      - key: ARBITRUM_VAULT_ADDRESS
+        value: 0x7dE97f35887b2623dCad2ebA68197f58F7607854
+      - key: ARBITRUM_RPC_URL
+        value: https://arb1.arbitrum.io/rpc
+      - key: TREASURY_ADDRESS
+        sync: false

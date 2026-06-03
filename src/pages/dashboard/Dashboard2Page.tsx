@@ -6,6 +6,8 @@ import { useUserLocale } from '../../hooks/useUserLocale';
 import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { usePositionReconciliation } from '../../hooks/usePositionReconciliation';
+import { useTerminalVaultData } from '../../hooks/useTerminalVaultData';
+import TerminalBotAnalysisPanel from '../../components/terminal/TerminalBotAnalysisPanel';
 import TerminalTradePanel from '../../components/terminal/TerminalTradePanel';
 import TerminalPositionsDock from '../../components/terminal/TerminalPositionsDock';
 import TradingBotPage from './TradingBotPage';
@@ -22,20 +24,27 @@ function shortAddr(addr: string) {
 }
 
 const Dashboard2Page: React.FC = () => {
-  const { profile, user } = useAuth();
+  const { profile, user, isDemoUser } = useAuth();
   const { open } = useAppKit();
   const { address, isConnected } = useAppKitAccount();
   const { totalUsdValue } = useWeb3();
   const { metrics, refresh } = useDashboard2Metrics();
   const { greeting } = useUserLocale();
 
+  const [vaultAction, setVaultAction] = useState<'deposit' | 'withdraw' | null>(null);
+  const [historyTick, setHistoryTick] = useState(0);
+  const [showProfile, setShowProfile] = useState(false);
+
+  const vault = useTerminalVaultData(historyTick);
+
   const displayName =
     profile?.full_name?.trim() ||
     user?.email?.split('@')[0] ||
     'Trader';
-  const [vaultAction, setVaultAction] = useState<'deposit' | 'withdraw' | null>(null);
-  const [historyTick, setHistoryTick] = useState(0);
-  const [showProfile, setShowProfile] = useState(false);
+
+  const walletReady = isConnected || isDemoUser;
+  const hasOpenPosition =
+    metrics.openPositionsCount > 0 || Boolean(vault.position?.isActive);
 
   const handleRefresh = () => {
     refresh();
@@ -167,6 +176,12 @@ const Dashboard2Page: React.FC = () => {
                 <TradingBotPage embedded splitLayout="chart" chartCompact={false} chartFill />
               </div>
             </div>
+            <TerminalBotAnalysisPanel
+              walletConnected={walletReady}
+              metrics={metrics}
+              settings={vault.settings}
+              hasOpenPosition={hasOpenPosition}
+            />
             <TerminalPositionsDock
               id="term-history-dock"
               refreshKey={historyTick}

@@ -5,8 +5,9 @@
  * ensuring frontend and bot use the SAME signal logic.
  */
 
-// Bot service API URL (Railway deployment or local)
-const BOT_API_URL = import.meta.env.VITE_BOT_API_URL || 'https://bot-service-production-xxxx.up.railway.app';
+// Bot service API (set VITE_BOT_API_URL in Vercel — see docs/BOT_DEPLOY.md)
+const BOT_API_URL =
+  import.meta.env.VITE_BOT_API_URL?.replace(/\/$/, '') || '';
 
 // Types matching the SignalEngine output
 export type Timeframe = '1m' | '5m' | '15m' | '1h' | '4h';
@@ -70,6 +71,10 @@ export async function fetchUnifiedSignal(
   symbol: string = 'ETHUSDT',
   timeframes: Timeframe[] = ['1m', '5m', '15m', '1h']
 ): Promise<UnifiedSignal | null> {
+  if (!BOT_API_URL) {
+    console.warn('[signalService] Set VITE_BOT_API_URL (see docs/BOT_DEPLOY.md)');
+    return null;
+  }
   try {
     const url = `${BOT_API_URL}/api/signal?symbol=${symbol}&timeframes=${timeframes.join(',')}`;
     const response = await fetch(url);

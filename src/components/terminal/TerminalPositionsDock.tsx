@@ -13,7 +13,6 @@ import {
   markPositionCloseFailed,
   markPositionClosing,
 } from '../../lib/positionClose';
-import TerminalBotAnalysisBar from './TerminalBotAnalysisBar';
 import TerminalModalFrame from './TerminalModalFrame';
 
 type DockTab = 'open' | 'history' | 'all';
@@ -275,12 +274,9 @@ const TerminalPositionsDock: React.FC<Props> = ({
       </div>
 
       <div className="term-dock-body">
-        {tab === 'open' && botRunning && rows.length === 0 && !loading && (
-          <TerminalBotAnalysisBar active />
-        )}
         {loading && rows.length === 0 ? (
           <div className="term-empty">Loading trade history…</div>
-        ) : rows.length === 0 && !(tab === 'open' && botRunning) ? (
+        ) : rows.length === 0 ? (
           <div className="term-empty">
             {hasWallet
               ? `No ${tab === 'open' ? 'open positions' : tab === 'history' ? 'closed trades' : 'trades'} yet`
