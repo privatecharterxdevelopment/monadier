@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   Loader2,
   Play,
@@ -17,7 +16,11 @@ import { useWeb3 } from '../../contexts/Web3Context';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { VaultClient, VAULT_CHAIN_ID } from '../../lib/vault';
-import { findOpenPositionId, markPositionClosing } from '../../lib/positionClose';
+import {
+  findOpenPositionId,
+  markAllOpenPositionsClosing,
+  markPositionClosing,
+} from '../../lib/positionClose';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { useTerminalVaultData } from '../../hooks/useTerminalVaultData';
 import TerminalDepositModal from './TerminalDepositModal';
@@ -34,6 +37,7 @@ type PanelTab = 'bot' | 'lvrg' | 'funds';
 type Props = {
   metrics: Dashboard2Metrics;
   onRefresh: () => void;
+  onOpenHistory?: () => void;
   vaultAction?: 'deposit' | 'withdraw' | null;
   onVaultActionHandled?: () => void;
 };
@@ -47,6 +51,7 @@ type SetupPhase = 'connect' | 'loading' | 'network' | 'fund' | 'ready';
 const TerminalTradePanel: React.FC<Props> = ({
   metrics,
   onRefresh,
+  onOpenHistory,
   vaultAction,
   onVaultActionHandled,
 }) => {
@@ -64,6 +69,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   const [closeBusy, setCloseBusy] = useState(false);
   const [botError, setBotError] = useState<string | null>(null);
   const [closeError, setCloseError] = useState<string | null>(null);
+  const [stopNotice, setStopNotice] = useState<string | null>(null);
 
   const walletReady = isConnected || isDemoUser;
 
@@ -151,15 +157,24 @@ const TerminalTradePanel: React.FC<Props> = ({
   const handleStopBot = async () => {
     if (!vault.wallet || phase !== 'ready') return;
     setBotError(null);
+    setStopNotice(null);
     if (!(await ensureArbitrum())) return;
     setBotBusy(true);
     try {
       if (!isDemoUser && publicClient && walletClient) {
         const client = new VaultClient(publicClient as never, walletClient as never, VAULT_CHAIN_ID);
-        await client.emergencyStop(vault.wallet);
+        const hash = await client.emergencyStop(vault.wallet);
+        await publicClient.waitForTransactionReceipt({ hash });
       }
       await supabaseUpsertAuto(false);
+      const closingCount = await markAllOpenPositionsClosing(vault.wallet, 'bot_stopped');
       refreshAll();
+      onRefresh();
+      if (closingCount > 0) {
+        setStopNotice(
+          `Bot stopped. Closing ${closingCount} open position${closingCount === 1 ? '' : 's'}…`
+        );
+      }
     } catch (e: unknown) {
       setBotError(e instanceof Error ? e.message : 'Failed to stop bot');
     } finally {
@@ -395,10 +410,14 @@ const TerminalTradePanel: React.FC<Props> = ({
                   Edit LVRG settings
                 </button>
 
-                <Link to="/dashboard/bot-trading" className="term-link-btn">
-                  <TrendingUp size={12} className="inline mr-1" />
-                  Open positions & history →
-                </Link>
+                {onOpenHistory && (
+                  <button type="button" className="term-link-btn" onClick={onOpenHistory}>
+                    <TrendingUp size={12} className="inline mr-1" />
+                    Open positions & history →
+                  </button>
+                )}
+
+                {stopNotice && <p className="term-hint term-hint--ok">{stopNotice}</p>}
               </>
             )}
           </div>

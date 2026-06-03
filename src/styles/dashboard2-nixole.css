@@ -1339,6 +1339,10 @@
   margin-top: 1px;
 }
 
+.term-hint--ok {
+  color: #15803d;
+}
+
 .term-hint--warn {
   color: #b45309;
 }

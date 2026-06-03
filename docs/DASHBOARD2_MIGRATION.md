@@ -35,13 +35,13 @@ supabase db push                                   # apply pending
 2. Deploy bot-service with `exit_tx_hash` fix in `positionSettlement.ts`.
 3. Deploy frontend (Vercel) so `/dashboard2/profile` and history dock are live.
 
-## Phase 2 — Vault / bot hardening (separate)
+## Phase 2 — Vault / bot hardening
 
 | Item | Status |
 |------|--------|
+| LVRG / bot settings on-chain `setSettings` | Done | `persistVaultSettings()` — LVRG panel + bot settings modal |
+| Stop bot closes open positions | Done | `markAllOpenPositionsClosing` on stop |
 | Single vault redeploy + user migration comms | Planned |
-| LVRG settings on-chain `setSettings` | Partial (often Supabase-only today) |
-| Stop bot closes open positions | Not implemented |
 | `positions` ↔ chain reconciliation job | Partial |
 
 ## Close position flows
@@ -52,7 +52,8 @@ supabase db push                                   # apply pending
 ## Files map
 
 - Main trade: `src/pages/dashboard/Dashboard2Page.tsx`
-- Profile: `src/pages/dashboard/Dashboard2ProfilePage.tsx`
+- Profile popup: `src/components/terminal/TerminalProfileModal.tsx`
+- Vault sync: `src/lib/syncVaultSettings.ts`
 - Sidebar: `src/components/dashboard2/Dashboard2Sidebar.tsx`
 - History dock: `src/components/terminal/TerminalPositionsDock.tsx`
 - Close helpers: `src/lib/positionClose.ts`, `src/lib/positionLivePnl.ts`, `src/lib/userWallets.ts`

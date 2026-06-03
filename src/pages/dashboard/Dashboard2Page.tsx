@@ -174,6 +174,7 @@ const Dashboard2Page: React.FC = () => {
           <TerminalTradePanel
             metrics={metrics}
             onRefresh={handleRefresh}
+            onOpenHistory={scrollToHistory}
             vaultAction={vaultAction}
             onVaultActionHandled={() => setVaultAction(null)}
           />

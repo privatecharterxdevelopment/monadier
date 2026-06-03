@@ -42,3 +42,19 @@ export async function findOpenPositionId(
 
   return data?.id ?? null;
 }
+
+/** Mark every open position for a wallet so the bot closes them (e.g. on stop bot). */
+export async function markAllOpenPositionsClosing(
+  walletAddress: string,
+  closeReason: 'bot_stopped' | 'user_requested' = 'bot_stopped'
+): Promise<number> {
+  const { data, error } = await supabase
+    .from('positions')
+    .update({ status: 'closing', close_reason: closeReason })
+    .eq('wallet_address', walletAddress.toLowerCase())
+    .eq('status', 'open')
+    .select('id');
+
+  if (error) throw error;
+  return data?.length ?? 0;
+}

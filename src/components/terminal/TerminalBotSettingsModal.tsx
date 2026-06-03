@@ -3,8 +3,9 @@ import { Settings, Loader2, AlertCircle, CheckCircle, Zap, Wallet } from 'lucide
 import { useAppKit } from '@reown/appkit/react';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
-import { VaultClient, VAULT_CHAIN_ID } from '../../lib/vault';
-import { supabase } from '../../lib/supabase';
+import { VAULT_CHAIN_ID } from '../../lib/vault';
+import { useAuth } from '../../contexts/AuthContext';
+import { persistVaultSettings } from '../../lib/syncVaultSettings';
 import TerminalModalFrame from './TerminalModalFrame';
 import {
   getLeverageChips,
@@ -68,6 +69,7 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
 
   const { open } = useAppKit();
   const { address, publicClient, walletClient, chainId } = useWeb3();
+  const { isDemoUser } = useAuth();
   const { linkWallet, planTier } = useSubscription();
 
   const walletConnected = !!address;
@@ -88,12 +90,18 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
 
   const onArbitrum = chainId === VAULT_CHAIN_ID;
 
-  const hasChanges =
+  const tradingParamsChanged =
     riskLevel !== currentRiskLevel ||
-    autoTrade !== initialAutoTrade ||
     takeProfit !== currentTakeProfit ||
     stopLoss !== currentStopLoss ||
     leverage !== currentLeverage;
+
+  const hasChanges =
+    tradingParamsChanged ||
+    autoTrade !== initialAutoTrade ||
+    askPermission !== currentAskPermission ||
+    minWinRate !== currentMinWinRate ||
+    minTradesForWinRate !== currentMinTradesForWinRate;
 
   const handleSave = async () => {
     if (!walletConnected) {
@@ -112,53 +120,30 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
     try {
       setIsLoading(true);
       setError(null);
-      const vaultClient = new VaultClient(
-        publicClient as never,
-        walletClient as never,
-        VAULT_CHAIN_ID
-      );
 
-      if (autoTrade !== initialAutoTrade) {
-        const txHash = await vaultClient.setAutoTrade(autoTrade, address as `0x${string}`);
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
-        if (autoTrade) await linkWallet(address);
-      }
+      await persistVaultSettings({
+        settings: {
+          walletAddress: address,
+          autoTradeEnabled: autoTrade,
+          riskPct: riskLevel,
+          leverage,
+          takeProfit,
+          stopLoss,
+          askPermission,
+          minWinRate,
+          minTradesForWinRate,
+        },
+        planTier,
+        publicClient,
+        walletClient,
+        userAddress: address as `0x${string}`,
+        isDemoUser,
+        syncTradingParams: tradingParamsChanged && !isDemoUser,
+        syncAutoTrade: autoTrade !== initialAutoTrade && !isDemoUser,
+      });
 
-      const settingsPayload = {
-        wallet_address: address.toLowerCase(),
-        chain_id: VAULT_CHAIN_ID,
-        auto_trade_enabled: autoTrade,
-        risk_level_bps: riskLevel * 100,
-        take_profit_percent: takeProfit,
-        stop_loss_percent: stopLoss,
-        leverage_multiplier: clampLeverage(leverage, planTier),
-        ask_permission: askPermission,
-        min_win_rate_percent: minWinRate,
-        min_trades_for_win_rate_gate: minTradesForWinRate,
-        updated_at: new Date().toISOString(),
-        synced_at: new Date().toISOString(),
-      };
-
-      const { data: existing } = await supabase
-        .from('vault_settings')
-        .select('id')
-        .eq('wallet_address', address.toLowerCase())
-        .eq('chain_id', VAULT_CHAIN_ID)
-        .limit(1)
-        .maybeSingle();
-
-      const upsertError = existing
-        ? (
-            await supabase
-              .from('vault_settings')
-              .update(settingsPayload)
-              .eq('wallet_address', address.toLowerCase())
-              .eq('chain_id', VAULT_CHAIN_ID)
-          ).error
-        : (await supabase.from('vault_settings').insert(settingsPayload)).error;
-
-      if (upsertError) {
-        throw new Error(upsertError.message || 'Failed to save settings');
+      if (autoTrade && autoTrade !== initialAutoTrade) {
+        await linkWallet(address);
       }
 
       setSuccess(true);

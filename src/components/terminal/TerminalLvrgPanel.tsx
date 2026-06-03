@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { AlertCircle, Loader2, Save, Settings } from 'lucide-react';
 import { useWeb3 } from '../../contexts/Web3Context';
+import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { VAULT_CHAIN_ID } from '../../lib/vault';
-import { supabase } from '../../lib/supabase';
+import { persistVaultSettings } from '../../lib/syncVaultSettings';
 import type { VaultSettingsSnapshot } from '../../hooks/useTerminalVaultData';
 import {
   getLeverageChips,
@@ -54,7 +55,11 @@ const TerminalLvrgPanel: React.FC<Props> = ({
   const estPosition = ((vaultUsd * riskPct) / 100) * leverage;
 
   const handleSave = async () => {
-    if (!address || !publicClient || !walletClient || chainId !== VAULT_CHAIN_ID) {
+    if (!address) {
+      setError('Connect wallet to save.');
+      return;
+    }
+    if (!isDemoUser && (!publicClient || !walletClient || chainId !== VAULT_CHAIN_ID)) {
       setError('Connect on Arbitrum to save.');
       return;
     }
@@ -62,36 +67,23 @@ const TerminalLvrgPanel: React.FC<Props> = ({
     setError(null);
     setSaved(false);
     try {
-      const payload = {
-        wallet_address: address.toLowerCase(),
-        chain_id: VAULT_CHAIN_ID,
-        auto_trade_enabled: settings.autoTradeEnabled,
-        risk_level_bps: Math.round(riskPct * 100),
-        take_profit_percent: takeProfit,
-        stop_loss_percent: stopLoss,
-        leverage_multiplier: clampLeverage(leverage, planTier),
-        updated_at: new Date().toISOString(),
-        synced_at: new Date().toISOString(),
-      };
-
-      const { data: existing } = await supabase
-        .from('vault_settings')
-        .select('id')
-        .eq('wallet_address', address.toLowerCase())
-        .eq('chain_id', VAULT_CHAIN_ID)
-        .maybeSingle();
-
-      const err = existing
-        ? (
-            await supabase
-              .from('vault_settings')
-              .update(payload)
-              .eq('wallet_address', address.toLowerCase())
-              .eq('chain_id', VAULT_CHAIN_ID)
-          ).error
-        : (await supabase.from('vault_settings').insert(payload)).error;
-
-      if (err) throw new Error(err.message);
+      await persistVaultSettings({
+        settings: {
+          walletAddress: address,
+          autoTradeEnabled: settings.autoTradeEnabled,
+          riskPct,
+          leverage,
+          takeProfit,
+          stopLoss,
+        },
+        planTier,
+        publicClient,
+        walletClient,
+        userAddress: address as `0x${string}`,
+        isDemoUser,
+        syncTradingParams: !isDemoUser,
+        syncAutoTrade: false,
+      });
       setSaved(true);
       onSaved();
       setTimeout(() => setSaved(false), 2000);
