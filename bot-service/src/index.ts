@@ -11,6 +11,12 @@ import { positionService } from './services/positions';
 import { paymentService } from './services/payments';
 import { Timeframe } from './services/signalEngine';
 import { startDemoSimulator } from './demoSimulator';
+import { validateProductionEnvironment } from './startup/validateProduction';
+import {
+  applySettledCloseToDatabase,
+  markDbPositionSyncedOnly,
+} from './services/positionSettlement';
+import { checkWinRateGate } from './services/tradeGates';
 
 // Supabase client for position queries
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
@@ -111,7 +117,7 @@ const healthServer = http.createServer(async (req, res) => {
       uptime: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
       lastCheck: new Date(lastTradeCheck).toISOString(),
       tradesExecuted: totalTradesExecuted,
-      version: 'v7.0-GMX'
+      version: 'v11.0-gmx-arbitrum'
     };
     res.writeHead(200, corsHeaders);
     res.end(JSON.stringify(status));
@@ -376,6 +382,21 @@ async function processUserTrades(
     const stopLossPercent = userSettings.stopLossPercent || 5;
     const takeProfitPercent = userSettings.takeProfitPercent || 10;
 
+    const winRateGate = await checkWinRateGate(
+      userAddress,
+      chainId,
+      userSettings.minWinRatePercent,
+      userSettings.minTradesForWinRateGate
+    );
+    if (!winRateGate.allowed) {
+      logger.info('⏸️ Win rate gate — skipping new open', {
+        user: userAddress.slice(0, 10),
+        reason: winRateGate.reason,
+        winRate: winRateGate.winRate,
+      });
+      return;
+    }
+
     // Calculate position size - CLEAN whole numbers based on risk level from Supabase
     // Risk is in basis points (5000 = 50%)
     const riskPercent = userSettings.riskLevelBps / 100; // e.g., 5000 -> 50%
@@ -561,18 +582,10 @@ async function runPositionMonitoringCycle(): Promise<void> {
             ? '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f'
             : '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1');
 
-          // GET PnL BEFORE CLOSING to save profit/loss
-          const pnlData = await tradingV7GMXService.getPositionPnL(
-            pos.wallet_address as `0x${string}`,
-            tokenAddress as `0x${string}`
-          );
-
           logger.info('Executing user-requested close', {
             positionId: pos.id.slice(0, 8),
             wallet: pos.wallet_address.slice(0, 10),
             token: pos.token_symbol,
-            pnl: pnlData?.pnl,
-            pnlPercent: pnlData?.pnlPercent
           });
 
           const result = await tradingV7GMXService.closePosition(
@@ -582,197 +595,41 @@ async function runPositionMonitoringCycle(): Promise<void> {
           );
 
           if (result.success) {
-            // Use ACTUAL P/L from closePosition (on-chain calculation), fallback to pre-captured
-            const grossPnl = result.pnl ?? pnlData?.pnl ?? 0;
-            const grossPnlPercent = result.pnlPercent ?? pnlData?.pnlPercent ?? 0;
-            // Record NET P/L (after 10% success fee) — this matches what the user actually receives
-            const profitLoss = grossPnl > 0 ? grossPnl * 0.9 : grossPnl;
-            const profitLossPercent = grossPnlPercent > 0 ? grossPnlPercent * 0.9 : grossPnlPercent;
-            const exitPrice = result.exitPrice ?? pnlData?.currentPrice ?? 0;
-            const exitAmount = result.exitAmount ?? ((pos.entry_amount || 0) + profitLoss);
-            const closedAt = new Date().toISOString();
-            const closeReason = pos.close_reason || 'user_requested';
-
-            // Update database WITH PROFIT/LOSS
-            const { error: updateError } = await supabase
-              .from('positions')
-              .update({
-                status: 'closed',
-                closed_at: closedAt,
-                close_tx_hash: result.txHash,
-                close_reason: closeReason,
-                profit_loss: profitLoss,
-                profit_loss_percent: profitLossPercent,
-                exit_price: exitPrice,
-                exit_amount: exitAmount
-              })
-              .eq('id', pos.id);
-
-            if (updateError) {
-              logger.error('Failed to update position on close', { error: updateError, positionId: pos.id });
-            } else {
-              // Save to trade_history
-              await saveToTradeHistory({
-                positionId: pos.id,
-                walletAddress: pos.wallet_address,
-                chainId: 42161,
-                tokenSymbol: pos.token_symbol,
-                direction: pos.direction || 'LONG',
-                entryPrice: pos.entry_price,
-                exitPrice: exitPrice,
-                entryAmount: pos.entry_amount || 0,
-                exitAmount: exitAmount,
-                profitLoss: profitLoss,
-                profitLossPercent: profitLossPercent,
-                leverage: pos.leverage_multiplier || 1,
-                closeReason: closeReason,
-                openedAt: pos.created_at,
-                closedAt: closedAt,
-                entryTxHash: pos.entry_tx_hash,
-                exitTxHash: result.txHash
+            const applied = await applySettledCloseToDatabase({
+              dbPosition: pos,
+              closeResult: result,
+              closeReason: pos.close_reason || 'user_requested',
+              saveTradeHistory: saveToTradeHistory,
+            });
+            if (applied.applied) {
+              const cooldownKey = `${pos.wallet_address}-42161-close`;
+              lastTradeTimestamp.set(cooldownKey, Date.now());
+              triggeredCount++;
+              logger.info('User-requested close SUCCESS (settlement proof)', {
+                positionId: pos.id.slice(0, 8),
+                txHash: result.txHash,
+                pnl: result.pnl,
+                settlementSource: result.settlementSource,
               });
             }
-
-            // SET COOLDOWN for this user
+          } else if (result.error?.includes('No active position')) {
+            await markDbPositionSyncedOnly(pos.id, 'vault_already_closed');
             const cooldownKey = `${pos.wallet_address}-42161-close`;
             lastTradeTimestamp.set(cooldownKey, Date.now());
-
-            triggeredCount++;
-            logger.info('User-requested close SUCCESS', {
+            logger.info('User close: vault already inactive — DB synced without P/L estimate', {
               positionId: pos.id.slice(0, 8),
-              txHash: result.txHash,
-              profitLoss,
-              profitLossPercent
             });
           } else {
-            // Position already closed by contract (TP/SL hit)
-            // Check if it was profit or loss based on pnlData or TP settings
-            let profitLoss = 0;
-            let profitLossPercent = 0;
-            let closeReason = 'auto_closed';
-            let exitPrice = pnlData?.currentPrice || pos.entry_price;
-            const closedAt = new Date().toISOString();
-
-            if (pnlData && pnlData.pnl !== 0) {
-              // We got P/L data before close attempt
-              profitLoss = pnlData.pnl;
-              profitLossPercent = pnlData.pnlPercent;
-              closeReason = profitLossPercent > 0 ? 'takeprofit' : 'stoploss';
-              exitPrice = pnlData.currentPrice;
-            } else if (result.error?.includes('No active position')) {
-              // Position was closed by contract - fetch user's actual TP setting
-              const { data: userSettings } = await supabase
-                .from('vault_settings')
-                .select('take_profit_percent, leverage_multiplier')
-                .eq('wallet_address', pos.wallet_address.toLowerCase())
-                .single();
-
-              const tpPercent = userSettings?.take_profit_percent || pos.take_profit_percent || 5;
-              const leverage = pos.leverage_multiplier || userSettings?.leverage_multiplier || 1;
-              profitLossPercent = tpPercent;
-              profitLoss = (pos.entry_amount || 0) * (tpPercent / 100);
-              closeReason = 'takeprofit';
-              exitPrice = pos.entry_price * (1 + (tpPercent / leverage) / 100);
-              logger.info('Position already closed by contract, using user TP', {
-                positionId: pos.id.slice(0, 8),
-                tpPercent,
-                profitLoss,
-                profitLossPercent
-              });
-            } else {
-              // Unknown error - use small loss as fallback
-              profitLossPercent = -1;
-              profitLoss = -(pos.entry_amount || 0) * 0.01;
-            }
-
-            const exitAmount = (pos.entry_amount || 0) + profitLoss;
-
-            const { error: updateError } = await supabase
-              .from('positions')
-              .update({
-                status: 'closed',
-                closed_at: closedAt,
-                close_reason: closeReason,
-                profit_loss: profitLoss,
-                profit_loss_percent: profitLossPercent,
-                exit_price: exitPrice,
-                exit_amount: exitAmount
-              })
-              .eq('id', pos.id);
-
-            if (!updateError) {
-              // Save to trade_history
-              await saveToTradeHistory({
-                positionId: pos.id,
-                walletAddress: pos.wallet_address,
-                chainId: 42161,
-                tokenSymbol: pos.token_symbol,
-                direction: pos.direction || 'LONG',
-                entryPrice: pos.entry_price,
-                exitPrice: exitPrice,
-                entryAmount: pos.entry_amount || 0,
-                exitAmount: exitAmount,
-                profitLoss: profitLoss,
-                profitLossPercent: profitLossPercent,
-                leverage: pos.leverage_multiplier || 1,
-                closeReason: closeReason,
-                openedAt: pos.created_at,
-                closedAt: closedAt,
-                entryTxHash: pos.entry_tx_hash
-              });
-            }
-
-            // SET COOLDOWN
-            const cooldownKey = `${pos.wallet_address}-42161-close`;
-            lastTradeTimestamp.set(cooldownKey, Date.now());
-
-            logger.info('Position closed (was already closed by contract)', {
+            logger.error('User-requested close failed — position left for retry', {
               positionId: pos.id.slice(0, 8),
-              profitLoss,
-              profitLossPercent,
-              closeReason
+              error: result.error,
             });
           }
         } catch (err: any) {
-          logger.error('Error closing position', { error: err.message, positionId: pos.id.slice(0, 8) });
-
-          // If error mentions "No active position", it was already closed by contract TP/SL
-          let profitLoss = 0;
-          let profitLossPercent = 0;
-          let closeReason = 'auto_closed';
-
-          if (err.message?.includes('No active position') || err.message?.includes('position not found')) {
-            // Fetch user's actual TP setting from vault_settings
-            const { data: userSettings } = await supabase
-              .from('vault_settings')
-              .select('take_profit_percent')
-              .eq('wallet_address', pos.wallet_address.toLowerCase())
-              .single();
-
-            const tpPercent = userSettings?.take_profit_percent || pos.take_profit_percent || 5;
-            profitLossPercent = tpPercent;
-            profitLoss = (pos.entry_amount || 0) * (tpPercent / 100);
-            closeReason = 'takeprofit';
-            logger.info('Position auto-closed, using user TP setting', { tpPercent, profitLoss });
-          } else {
-            profitLossPercent = -1;
-            profitLoss = -(pos.entry_amount || 0) * 0.01;
-          }
-
-          await supabase
-            .from('positions')
-            .update({
-              status: 'closed',
-              closed_at: new Date().toISOString(),
-              close_reason: closeReason,
-              profit_loss: profitLoss,
-              profit_loss_percent: profitLossPercent
-            })
-            .eq('id', pos.id);
-
-          // SET COOLDOWN
-          const cooldownKey = `${pos.wallet_address}-42161-close`;
-          lastTradeTimestamp.set(cooldownKey, Date.now());
+          logger.error('Error closing position', {
+            error: err.message,
+            positionId: pos.id.slice(0, 8),
+          });
         }
       }
     }
@@ -831,11 +688,6 @@ async function runPositionMonitoringCycle(): Promise<void> {
                   pnlPercent: pnlPercent.toFixed(2) + '%'
                 });
 
-                // CAPTURE EXACT P/L BEFORE CLOSE
-                const profitLoss = pnlResult.pnl;
-                const profitLossPercent = pnlResult.pnlPercent;
-                const exitPrice = pnlResult.currentPrice;
-
                 const closeResult = await tradingV7GMXService.closePosition(
                   userAddress,
                   tokenConfig.address as `0x${string}`,
@@ -843,52 +695,19 @@ async function runPositionMonitoringCycle(): Promise<void> {
                 );
 
                 if (closeResult.success) {
-                  const closedAt = new Date().toISOString();
-                  // Use ACTUAL P/L from closeResult (on-chain), fallback to pre-captured
-                  const actualPnL = closeResult.pnl ?? profitLoss;
-                  const actualPnLPercent = closeResult.pnlPercent ?? profitLossPercent;
-                  const actualExitPrice = closeResult.exitPrice ?? exitPrice;
-                  const actualExitAmount = closeResult.exitAmount ?? ((dbPos.entry_amount || 0) + actualPnL);
-
-                  const { error: updateError } = await supabase
-                    .from('positions')
-                    .update({
-                      status: 'closed',
-                      closed_at: closedAt,
-                      close_reason: 'profit_lock',
-                      close_tx_hash: closeResult.txHash,
-                      profit_loss: actualPnL,
-                      profit_loss_percent: actualPnLPercent,
-                      exit_price: actualExitPrice,
-                      exit_amount: actualExitAmount
-                    })
-                    .eq('id', dbPos.id);
-
-                  if (!updateError) {
-                    // Save to trade_history
-                    await saveToTradeHistory({
-                      positionId: dbPos.id,
-                      walletAddress: userAddress,
-                      chainId: 42161,
-                      tokenSymbol: tokenConfig.symbol,
-                      direction: dbPos.direction || 'LONG',
-                      entryPrice: dbPos.entry_price,
-                      exitPrice: actualExitPrice,
-                      entryAmount: dbPos.entry_amount || 0,
-                      exitAmount: actualExitAmount,
-                      profitLoss: actualPnL,
-                      profitLossPercent: actualPnLPercent,
-                      leverage: dbPos.leverage_multiplier || 1,
-                      closeReason: 'profit_lock',
-                      openedAt: dbPos.created_at,
-                      closedAt: closedAt,
-                      entryTxHash: dbPos.entry_tx_hash,
-                      exitTxHash: closeResult.txHash
+                  const applied = await applySettledCloseToDatabase({
+                    dbPosition: dbPos,
+                    closeResult,
+                    closeReason: 'profit_lock',
+                    saveTradeHistory: saveToTradeHistory,
+                  });
+                  if (applied.applied) {
+                    logger.info('PROFIT LOCK CLOSE — settlement saved', {
+                      pnl: closeResult.pnl,
+                      txHash: closeResult.txHash,
                     });
+                    triggeredCount++;
                   }
-
-                  logger.info('PROFIT LOCK CLOSE - P/L SAVED', { pnl: actualPnL, pnlPercent: actualPnLPercent });
-                  triggeredCount++;
                   continue;
                 }
               }
@@ -917,69 +736,50 @@ async function runPositionMonitoringCycle(): Promise<void> {
           );
 
           if (!vaultHasPos) {
-            // Vault position is gone — GMX closed it or someone called reconcile
-            // Try finalizeClose first to credit profit + collect fees
-            logger.warn('FAST ORPHAN DETECTED in monitor loop', {
+            // Vault already settled — sync DB only (do not call closePosition)
+            logger.warn('FAST ORPHAN: vault inactive, syncing DB', {
               user: userAddress.slice(0, 10),
               token: tokenConfig.symbol,
-              positionId: dbPosition.id.slice(0, 8)
+              positionId: dbPosition.id.slice(0, 8),
             });
+            const price = await tradingV7GMXService.getTokenPrice(
+              tokenConfig.address as `0x${string}`
+            );
+            const currentPrice = price?.max || 0;
+            await positionService.syncPositionsWithChain(
+              userAddress,
+              42161,
+              tokenConfig.address,
+              currentPrice
+            );
+            continue;
+          }
 
+          // Vault active but GMX may be flat — settle via closePosition (orphan path)
+          const gmxOrphan = await tradingV7GMXService.isGMXPositionClosed(
+            userAddress,
+            tokenConfig.address as `0x${string}`
+          );
+          if (gmxOrphan) {
+            logger.warn('FAST ORPHAN: GMX flat, vault active — settling', {
+              user: userAddress.slice(0, 10),
+              token: tokenConfig.symbol,
+            });
             const closeResult = await tradingV7GMXService.closePosition(
               userAddress,
               tokenConfig.address as `0x${string}`,
               'auto_reconciled'
             );
-
             if (closeResult.success) {
-              const pnl = closeResult.pnl ?? 0;
-              const pnlPct = closeResult.pnlPercent ?? 0;
-              const exPrice = closeResult.exitPrice ?? 0;
-              const exAmt = closeResult.exitAmount ?? (dbPosition.entry_amount + pnl);
-
-              await supabase
-                .from('positions')
-                .update({
-                  status: 'closed',
-                  closed_at: new Date().toISOString(),
-                  close_reason: 'auto_reconciled',
-                  close_tx_hash: closeResult.txHash,
-                  profit_loss: pnl,
-                  profit_loss_percent: pnlPct,
-                  exit_price: exPrice,
-                  exit_amount: exAmt
-                })
-                .eq('id', dbPosition.id);
-
-              logger.info('FAST ORPHAN CLOSED via finalizeClose', {
-                user: userAddress.slice(0, 10),
-                token: tokenConfig.symbol,
-                pnl: pnl.toFixed(2),
-                pnlPercent: pnlPct.toFixed(2) + '%'
-              });
-            } else {
-              // Vault position already gone too — just sync DB
-              const price = await tradingV7GMXService.getTokenPrice(tokenConfig.address as `0x${string}`);
-              const currentPrice = price?.max || 0;
-              await positionService.syncPositionsWithChain(
-                userAddress,
-                42161,
-                tokenConfig.address,
-                currentPrice
-              );
-              logger.warn('FAST ORPHAN: finalizeClose failed, synced DB only', {
-                user: userAddress.slice(0, 10),
-                error: closeResult.error
+              await applySettledCloseToDatabase({
+                dbPosition,
+                closeResult,
+                closeReason: 'auto_reconciled',
+                saveTradeHistory: saveToTradeHistory,
               });
             }
             continue;
           }
-
-          // GET P/L BEFORE closing
-          const pnlBeforeTrigger = await tradingV7GMXService.getPositionPnL(
-            userAddress,
-            tokenConfig.address as `0x${string}`
-          );
 
           const result = await tradingV7GMXService.checkAndExecuteTriggers(
             userAddress,
@@ -988,93 +788,32 @@ async function runPositionMonitoringCycle(): Promise<void> {
 
           if (result.triggered) {
             triggeredCount++;
-            const closedAt = new Date().toISOString();
-
-            // Use ACTUAL P/L from trigger result (on-chain), fallback to pre-captured, then estimate
-            let profitLoss = result.pnl ?? pnlBeforeTrigger?.pnl ?? 0;
-            let profitLossPercent = result.pnlPercent ?? pnlBeforeTrigger?.pnlPercent ?? 0;
-            let exitPrice = result.exitPrice ?? pnlBeforeTrigger?.currentPrice ?? 0;
-            let exitAmount = result.exitAmount ?? (dbPosition.entry_amount + profitLoss);
-
-            // If no P/L data available, estimate from user settings
-            if (profitLoss === 0 && !result.pnl && !pnlBeforeTrigger) {
-              const { data: userSettings } = await supabase
-                .from('vault_settings')
-                .select('take_profit_percent, stop_loss_percent, leverage_multiplier')
-                .eq('wallet_address', userAddress.toLowerCase())
-                .single();
-
-              const leverage = userSettings?.leverage_multiplier || 1;
-              const userTpPercent = userSettings?.take_profit_percent || 5;
-              const userSlPercent = userSettings?.stop_loss_percent || 1;
-
-              if (result.reason === 'take_profit' || result.reason === 'takeprofit') {
-                profitLossPercent = userTpPercent;
-                profitLoss = (dbPosition.entry_amount * profitLossPercent) / 100;
-                exitPrice = dbPosition.entry_price * (1 + (profitLossPercent / leverage) / 100);
-              } else if (result.reason === 'stop_loss' || result.reason === 'stoploss' || result.reason === 'trailing_stop') {
-                profitLossPercent = -userSlPercent;
-                profitLoss = (dbPosition.entry_amount * profitLossPercent) / 100;
-                exitPrice = dbPosition.entry_price * (1 + (profitLossPercent / leverage) / 100);
-              }
-              exitAmount = dbPosition.entry_amount + profitLoss;
-              logger.info('P/L estimated from user settings (fallback)', { leverage, profitLoss, profitLossPercent });
-            }
-
-            logger.info(`${result.reason?.toUpperCase()} executed`, {
-              user: userAddress.slice(0, 10),
-              token: tokenConfig.symbol,
-              profitLoss: profitLoss.toFixed(2),
-              profitLossPercent: profitLossPercent.toFixed(2) + '%',
-              source: result.pnl ? 'on-chain' : (pnlBeforeTrigger ? 'pre-captured' : 'estimated')
-            });
-
-            // Update database using POSITION ID
-            const { error: updateError } = await supabase
-              .from('positions')
-              .update({
-                status: 'closed',
-                closed_at: closedAt,
-                close_reason: result.reason,
-                close_tx_hash: result.txHash,
-                profit_loss: profitLoss,
-                profit_loss_percent: profitLossPercent,
-                exit_price: exitPrice,
-                exit_amount: exitAmount
-              })
-              .eq('id', dbPosition.id);
-
-            if (updateError) {
-              logger.error('Failed to update position PnL', {
-                error: updateError,
-                positionId: dbPosition.id
+            if (result.txHash && result.pnl != null && result.exitAmount != null) {
+              const applied = await applySettledCloseToDatabase({
+                dbPosition,
+                closeResult: {
+                  success: true,
+                  txHash: result.txHash,
+                  pnl: result.pnl,
+                  pnlPercent: result.pnlPercent,
+                  exitPrice: result.exitPrice,
+                  exitAmount: result.exitAmount,
+                  settlementSource: 'vault_usdc_delta',
+                },
+                closeReason: result.reason || 'trigger',
+                saveTradeHistory: saveToTradeHistory,
+              });
+              logger.info(`${result.reason?.toUpperCase()} — DB updated from settlement`, {
+                user: userAddress.slice(0, 10),
+                token: tokenConfig.symbol,
+                applied: applied.applied,
+                pnl: result.pnl,
               });
             } else {
-              logger.info('Position PnL saved to database', {
-                positionId: dbPosition.id.slice(0, 8),
-                profitLoss,
-                profitLossPercent
-              });
-
-              // Save to trade_history for analytics
-              await saveToTradeHistory({
-                positionId: dbPosition.id,
-                walletAddress: userAddress,
-                chainId: 42161,
-                tokenSymbol: tokenConfig.symbol,
-                direction: dbPosition.direction || 'LONG',
-                entryPrice: dbPosition.entry_price,
-                exitPrice: exitPrice,
-                entryAmount: dbPosition.entry_amount,
-                exitAmount: exitAmount,
-                profitLoss: profitLoss,
-                profitLossPercent: profitLossPercent,
-                leverage: dbPosition.leverage_multiplier || 1,
-                closeReason: result.reason || 'unknown',
-                openedAt: dbPosition.created_at,
-                closedAt: closedAt,
-                entryTxHash: dbPosition.entry_tx_hash,
-                exitTxHash: undefined
+              logger.warn('Trigger fired but settlement incomplete — DB not updated', {
+                user: userAddress.slice(0, 10),
+                token: tokenConfig.symbol,
+                reason: result.reason,
               });
             }
           }
@@ -1173,33 +912,18 @@ async function runReconciliationCycle(): Promise<void> {
                 );
 
                 if (closeResult.success) {
-                  const profitLoss = closeResult.pnl ?? 0;
-                  const profitLossPercent = closeResult.pnlPercent ?? 0;
-                  const exitPrice = closeResult.exitPrice ?? currentPrice;
-                  const exitAmount = closeResult.exitAmount ?? ((position.entry_amount || 0) + profitLoss);
-
-                  logger.info('ORPHAN CLOSED via finalizeClose — profit + fees settled', {
+                  await applySettledCloseToDatabase({
+                    dbPosition: position,
+                    closeResult,
+                    closeReason: 'auto_reconciled',
+                    saveTradeHistory: saveToTradeHistory,
+                  });
+                  logger.info('ORPHAN CLOSED via settlement', {
                     wallet: walletAddress.slice(0, 10),
                     token: position.token_symbol,
                     txHash: closeResult.txHash,
-                    pnl: profitLoss.toFixed(2),
-                    pnlPercent: profitLossPercent.toFixed(2) + '%'
+                    pnl: closeResult.pnl,
                   });
-
-                  // Update DB with actual P/L
-                  await supabase
-                    .from('positions')
-                    .update({
-                      status: 'closed',
-                      closed_at: new Date().toISOString(),
-                      close_reason: 'auto_reconciled',
-                      close_tx_hash: closeResult.txHash,
-                      profit_loss: profitLoss,
-                      profit_loss_percent: profitLossPercent,
-                      exit_price: exitPrice,
-                      exit_amount: exitAmount
-                    })
-                    .eq('id', position.id);
                 } else {
                   // Fallback to reconcile (returns collateral only, no profit)
                   logger.warn('finalizeClose failed, falling back to reconcile()', {
@@ -1500,6 +1224,7 @@ function logStartupInfo(): void {
  */
 async function main(): Promise<void> {
   logStartupInfo();
+  await validateProductionEnvironment();
 
   // Start payment monitoring (listens for USDC transfers to treasury)
   await paymentService.startMonitoring();
@@ -1537,10 +1262,13 @@ async function main(): Promise<void> {
   logger.info(`- Reconciliation: every 5 minutes`);
   logger.info(`- Fees: sent directly to treasury (no withdrawal needed)`);
 
-  // Start demo simulator (Amanda Campbell account)
-  startDemoSimulator().catch(err => {
-    logger.error('Demo simulator failed to start', { error: err });
-  });
+  if (process.env.ENABLE_DEMO_SIMULATOR === 'true') {
+    startDemoSimulator().catch((err) => {
+      logger.error('Demo simulator failed to start', { error: err });
+    });
+  } else {
+    logger.info('Demo simulator disabled (set ENABLE_DEMO_SIMULATOR=true to enable)');
+  }
 }
 
 // Handle graceful shutdown

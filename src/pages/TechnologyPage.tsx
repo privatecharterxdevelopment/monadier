@@ -8,28 +8,28 @@ import MobileMenu from '../components/ui/MobileMenu';
 
 const TechnologyPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen page-shell">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-white/5">
+      <header className="fixed top-0 left-0 right-0 z-50 glass-nav">
         <div className="container-custom">
           <nav className="flex justify-between items-center h-20">
             <Logo size="md" />
             <div className="hidden md:flex items-center space-x-10">
-              <Link to="/how-it-works" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+              <Link to="/how-it-works" className="text-secondary hover:text-primary transition-colors text-sm font-medium">
                 How it works
               </Link>
-              <Link to="/trading-bot" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+              <Link to="/trading-bot" className="text-secondary hover:text-primary transition-colors text-sm font-medium">
                 Bot Trading
               </Link>
-              <Link to="/pricing" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+              <Link to="/pricing" className="text-secondary hover:text-primary transition-colors text-sm font-medium">
                 Pricing
               </Link>
-              <Link to="/technology" className="text-white transition-colors text-sm font-medium">
+              <Link to="/technology" className="text-primary transition-colors text-sm font-medium">
                 Technology
               </Link>
             </div>
             <div className="flex items-center gap-4">
-              <Link to="/login" className="hidden md:block text-gray-400 hover:text-white transition-colors text-sm font-medium">
+              <Link to="/login" className="hidden md:block text-secondary hover:text-primary transition-colors text-sm font-medium">
                 Sign in
               </Link>
               <Link to="/register" className="hidden md:block">
@@ -53,9 +53,9 @@ const TechnologyPage: React.FC = () => {
             className="max-w-4xl mx-auto text-center"
           >
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-medium leading-[1.1] mb-8 tracking-tight">
-              Our <span className="text-gray-500">Technology</span>
+              Our <span className="text-secondary">Technology</span>
             </h1>
-            <p className="text-lg md:text-xl text-gray-400 mb-12 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-lg md:text-xl text-secondary mb-12 max-w-2xl mx-auto leading-relaxed">
               Institutional-grade quantitative trading algorithms powered by AI, designed for retail traders seeking professional-level performance.
             </p>
           </motion.div>
@@ -73,7 +73,7 @@ const TechnologyPage: React.FC = () => {
             <h2 className="text-3xl md:text-4xl font-display font-medium mb-6">
               Quantitative Trading Engine
             </h2>
-            <p className="text-gray-400 text-lg leading-relaxed">
+            <p className="text-secondary text-lg leading-relaxed">
               Our trading engine combines multiple analytical approaches inspired by the world's most successful quantitative hedge funds.
             </p>
           </motion.div>
@@ -117,13 +117,13 @@ const TechnologyPage: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="p-8 rounded-2xl border border-white/5 hover:border-white/10 hover:bg-white/[0.02] transition-all"
+                className="p-8 rounded-2xl border border-black/[0.06] hover:border-black/[0.08] hover:bg-black/[0.03] transition-all"
               >
-                <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center mb-6">
-                  <tech.icon className="text-white/60" size={24} />
+                <div className="w-12 h-12 rounded-xl bg-black/[0.04] flex items-center justify-center mb-6">
+                  <tech.icon className="text-primary/60" size={24} />
                 </div>
-                <h3 className="text-lg font-medium text-white mb-3">{tech.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{tech.description}</p>
+                <h3 className="text-lg font-medium text-primary mb-3">{tech.title}</h3>
+                <p className="text-secondary text-sm leading-relaxed">{tech.description}</p>
               </motion.div>
             ))}
           </div>
@@ -136,7 +136,7 @@ const TechnologyPage: React.FC = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="p-8 md:p-12 rounded-3xl bg-white/[0.02] border border-white/5"
+            className="p-8 md:p-12 rounded-3xl bg-black/[0.03] border border-black/[0.06]"
           >
             <div className="max-w-3xl mx-auto">
               <h2 className="text-3xl md:text-4xl font-display font-medium mb-8 text-center">
@@ -145,48 +145,48 @@ const TechnologyPage: React.FC = () => {
 
               <div className="space-y-8">
                 <div className="flex gap-6">
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white font-medium">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-black/[0.06] flex items-center justify-center text-primary font-medium">
                     1
                   </div>
                   <div>
-                    <h3 className="text-lg font-medium text-white mb-2">Market Analysis</h3>
-                    <p className="text-gray-400 leading-relaxed">
+                    <h3 className="text-lg font-medium text-primary mb-2">Market Analysis</h3>
+                    <p className="text-secondary leading-relaxed">
                       Our AI continuously monitors price action, volume, order flow, and on-chain metrics across multiple timeframes to identify emerging opportunities.
                     </p>
                   </div>
                 </div>
 
                 <div className="flex gap-6">
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white font-medium">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-black/[0.06] flex items-center justify-center text-primary font-medium">
                     2
                   </div>
                   <div>
-                    <h3 className="text-lg font-medium text-white mb-2">Confidence Scoring</h3>
-                    <p className="text-gray-400 leading-relaxed">
+                    <h3 className="text-lg font-medium text-primary mb-2">Confidence Scoring</h3>
+                    <p className="text-secondary leading-relaxed">
                       Each potential trade is evaluated against historical patterns and assigned a confidence score between 55-75%. Only signals meeting your threshold are executed.
                     </p>
                   </div>
                 </div>
 
                 <div className="flex gap-6">
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white font-medium">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-black/[0.06] flex items-center justify-center text-primary font-medium">
                     3
                   </div>
                   <div>
-                    <h3 className="text-lg font-medium text-white mb-2">Position Management</h3>
-                    <p className="text-gray-400 leading-relaxed">
+                    <h3 className="text-lg font-medium text-primary mb-2">Position Management</h3>
+                    <p className="text-secondary leading-relaxed">
                       Smart entry with predefined stop-loss and take-profit levels. Trailing stops automatically activate to protect profits while maximizing upside potential.
                     </p>
                   </div>
                 </div>
 
                 <div className="flex gap-6">
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white font-medium">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-black/[0.06] flex items-center justify-center text-primary font-medium">
                     4
                   </div>
                   <div>
-                    <h3 className="text-lg font-medium text-white mb-2">Risk Control</h3>
-                    <p className="text-gray-400 leading-relaxed">
+                    <h3 className="text-lg font-medium text-primary mb-2">Risk Control</h3>
+                    <p className="text-secondary leading-relaxed">
                       Leverage up to 50x with institutional-grade risk controls. Position sizes are calculated to prevent excessive drawdowns while optimizing returns.
                     </p>
                   </div>
@@ -204,40 +204,40 @@ const TechnologyPage: React.FC = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="p-6 rounded-xl border border-white/5 bg-white/[0.02] text-center"
+              className="p-6 rounded-xl border border-black/[0.06] bg-black/[0.03] text-center"
             >
-              <p className="text-3xl md:text-4xl font-display font-medium text-white mb-2">55-75%</p>
-              <p className="text-gray-500 text-sm">Confidence Range</p>
+              <p className="text-3xl md:text-4xl font-display font-medium text-primary mb-2">55-75%</p>
+              <p className="text-secondary text-sm">Confidence Range</p>
             </motion.div>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="p-6 rounded-xl border border-white/5 bg-white/[0.02] text-center"
+              className="p-6 rounded-xl border border-black/[0.06] bg-black/[0.03] text-center"
             >
-              <p className="text-3xl md:text-4xl font-display font-medium text-white mb-2">0.6%</p>
-              <p className="text-gray-500 text-sm">Trailing Stop Activation</p>
+              <p className="text-3xl md:text-4xl font-display font-medium text-primary mb-2">0.6%</p>
+              <p className="text-secondary text-sm">Trailing Stop Activation</p>
             </motion.div>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="p-6 rounded-xl border border-white/5 bg-white/[0.02] text-center"
+              className="p-6 rounded-xl border border-black/[0.06] bg-black/[0.03] text-center"
             >
-              <p className="text-3xl md:text-4xl font-display font-medium text-white mb-2">50x</p>
-              <p className="text-gray-500 text-sm">Max Leverage</p>
+              <p className="text-3xl md:text-4xl font-display font-medium text-primary mb-2">50x</p>
+              <p className="text-secondary text-sm">Max Leverage</p>
             </motion.div>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="p-6 rounded-xl border border-white/5 bg-white/[0.02] text-center"
+              className="p-6 rounded-xl border border-black/[0.06] bg-black/[0.03] text-center"
             >
-              <p className="text-3xl md:text-4xl font-display font-medium text-white mb-2">24/7</p>
-              <p className="text-gray-500 text-sm">Market Monitoring</p>
+              <p className="text-3xl md:text-4xl font-display font-medium text-primary mb-2">24/7</p>
+              <p className="text-secondary text-sm">Market Monitoring</p>
             </motion.div>
           </div>
         </section>
@@ -251,17 +251,17 @@ const TechnologyPage: React.FC = () => {
             transition={{ duration: 0.6 }}
             className="grid md:grid-cols-2 gap-8"
           >
-            <div className="p-8 rounded-2xl border border-white/5 bg-white/[0.02]">
-              <Shield className="text-white/60 mb-6" size={32} />
-              <h3 className="text-2xl font-display font-medium text-white mb-4">Non-Custodial Architecture</h3>
-              <p className="text-gray-400 leading-relaxed">
+            <div className="p-8 rounded-2xl border border-black/[0.06] bg-black/[0.03]">
+              <Shield className="text-primary/60 mb-6" size={32} />
+              <h3 className="text-2xl font-display font-medium text-primary mb-4">Non-Custodial Architecture</h3>
+              <p className="text-secondary leading-relaxed">
                 Your funds remain in your own wallet or our audited smart contract vault. We never have access to your private keys. Trade with complete peace of mind.
               </p>
             </div>
-            <div className="p-8 rounded-2xl border border-white/5 bg-white/[0.02]">
-              <TrendingUp className="text-white/60 mb-6" size={32} />
-              <h3 className="text-2xl font-display font-medium text-white mb-4">Transparent Performance</h3>
-              <p className="text-gray-400 leading-relaxed">
+            <div className="p-8 rounded-2xl border border-black/[0.06] bg-black/[0.03]">
+              <TrendingUp className="text-primary/60 mb-6" size={32} />
+              <h3 className="text-2xl font-display font-medium text-primary mb-4">Transparent Performance</h3>
+              <p className="text-secondary leading-relaxed">
                 Track every trade in real-time. Full transparency on entries, exits, and P&L. No hidden fees, no surprises. Your success is our success.
               </p>
             </div>
@@ -280,7 +280,7 @@ const TechnologyPage: React.FC = () => {
             <h2 className="text-3xl md:text-4xl font-display font-medium mb-6">
               Experience institutional-grade trading
             </h2>
-            <p className="text-gray-400 text-lg mb-10">
+            <p className="text-secondary text-lg mb-10">
               Join traders who leverage our quantitative algorithms for consistent, data-driven results. Start with as little as $50.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -291,7 +291,7 @@ const TechnologyPage: React.FC = () => {
                 </button>
               </Link>
               <Link to="/pricing">
-                <button className="px-5 py-2.5 text-gray-400 hover:text-white transition-colors text-sm font-medium">
+                <button className="px-5 py-2.5 text-secondary hover:text-primary transition-colors text-sm font-medium">
                   View pricing
                 </button>
               </Link>
@@ -301,17 +301,17 @@ const TechnologyPage: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 py-12">
+      <footer className="border-t border-black/[0.06] py-12">
         <div className="container-custom">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <Logo size="sm" />
             <div className="flex items-center gap-8">
-              <Link to="/about" className="text-gray-500 hover:text-white text-sm transition-colors">About</Link>
-              <Link to="/technology" className="text-gray-500 hover:text-white text-sm transition-colors">Technology</Link>
-              <Link to="/terms" className="text-gray-500 hover:text-white text-sm transition-colors">Terms</Link>
-              <Link to="/privacy" className="text-gray-500 hover:text-white text-sm transition-colors">Privacy</Link>
+              <Link to="/about" className="text-secondary hover:text-primary text-sm transition-colors">About</Link>
+              <Link to="/technology" className="text-secondary hover:text-primary text-sm transition-colors">Technology</Link>
+              <Link to="/terms" className="text-secondary hover:text-primary text-sm transition-colors">Terms</Link>
+              <Link to="/privacy" className="text-secondary hover:text-primary text-sm transition-colors">Privacy</Link>
             </div>
-            <p className="text-gray-600 text-sm">&copy; 2026 Monadier. All rights reserved.</p>
+            <p className="text-muted text-sm">&copy; 2026 Monadier. All rights reserved.</p>
           </div>
         </div>
       </footer>

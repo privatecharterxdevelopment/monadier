@@ -58,7 +58,7 @@ function TransactionItem({ tx, onRemove }: { tx: Transaction; onRemove: () => vo
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-white capitalize">{tx.type}</span>
+          <span className="text-sm font-medium text-primary capitalize">{tx.type}</span>
           {tx.amount && tx.token && (
             <span className="text-sm text-zinc-400">
               {tx.amount} {tx.token}

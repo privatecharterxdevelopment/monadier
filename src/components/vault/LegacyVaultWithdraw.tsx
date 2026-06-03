@@ -224,7 +224,7 @@ const LegacyVaultWithdraw: React.FC = () => {
           <h3 className="text-yellow-400 font-bold text-lg mb-2">
             Legacy Vault Balance Found!
           </h3>
-          <p className="text-white/70 text-sm mb-3">
+          <p className="text-secondary text-sm mb-3">
             You have <span className="text-yellow-400 font-bold">{formatUnits(totalBalance, 6)} USDC</span> in {vaultBalances.length} old vault contract{vaultBalances.length > 1 ? 's' : ''} on Arbitrum.
           </p>
 
@@ -240,15 +240,15 @@ const LegacyVaultWithdraw: React.FC = () => {
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Wallet className="w-4 h-4 text-yellow-400" />
-                    <span className="text-white font-bold">{vb.name}</span>
+                    <span className="text-primary font-bold">{vb.name}</span>
                   </div>
-                  <span className="text-white/40 text-xs font-mono">
+                  <span className="text-muted text-xs font-mono">
                     {vb.vault.slice(0, 8)}...{vb.vault.slice(-6)}
                   </span>
                 </div>
 
-                <div className="text-sm text-white/70 mb-3">
-                  <p>Balance: <span className="text-white font-mono">{formatUnits(vb.balance, 6)} USDC</span></p>
+                <div className="text-sm text-secondary mb-3">
+                  <p>Balance: <span className="text-primary font-mono">{formatUnits(vb.balance, 6)} USDC</span></p>
                   {vb.withdrawable < vb.balance && (
                     <p className="text-orange-400">Withdrawable: <span className="font-mono">{formatUnits(vb.withdrawable, 6)} USDC</span></p>
                   )}
@@ -258,13 +258,13 @@ const LegacyVaultWithdraw: React.FC = () => {
                 {(vb.stuckWeth || vb.stuckWbtc) && (
                   <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-3">
                     <p className="text-red-400 text-sm font-bold mb-2">Stuck Positions Detected!</p>
-                    <p className="text-white/60 text-xs mb-2">Cancel these ghost positions to unlock your collateral:</p>
+                    <p className="text-secondary text-xs mb-2">Cancel these ghost positions to unlock your collateral:</p>
                     <div className="flex gap-2 flex-wrap">
                       {vb.stuckWeth && (
                         <button
                           onClick={() => handleCancelStuckPosition(vb.vault, WETH as `0x${string}`, 'WETH')}
                           disabled={withdrawing !== null || !isOnArbitrum}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 disabled:bg-red-500/50 text-white text-xs font-bold rounded transition-all"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 disabled:bg-red-500/50 text-primary text-xs font-bold rounded transition-all"
                         >
                           {withdrawing === `${vb.vault}-cancel-WETH` ? (
                             <Loader2 className="w-3 h-3 animate-spin" />
@@ -277,7 +277,7 @@ const LegacyVaultWithdraw: React.FC = () => {
                         <button
                           onClick={() => handleCancelStuckPosition(vb.vault, WBTC as `0x${string}`, 'WBTC')}
                           disabled={withdrawing !== null || !isOnArbitrum}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 disabled:bg-red-500/50 text-white text-xs font-bold rounded transition-all"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 disabled:bg-red-500/50 text-primary text-xs font-bold rounded transition-all"
                         >
                           {withdrawing === `${vb.vault}-cancel-WBTC` ? (
                             <Loader2 className="w-3 h-3 animate-spin" />

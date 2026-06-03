@@ -12,6 +12,9 @@ interface VaultSettingsModalProps {
   currentStopLoss?: number;
   currentAskPermission?: boolean;
   currentLeverage?: number; // Leverage multiplier (1.0 = no leverage)
+  currentMinWinRate?: number; // 0 = off
+  currentMinTradesForWinRate?: number;
+  currentPromptWithdrawAfterClose?: boolean;
   startMode?: boolean; // When true, pre-enable auto-trade and show "Save & Start Bot"
   onClose: () => void;
   onSuccess: () => void;
@@ -27,7 +30,7 @@ const RISK_LEVELS = [
 
 // V8 GMX Leverage Levels - Standard/Starter max 25x, Pro/Elite max 50x
 const LEVERAGE_LEVELS_STANDARD = [
-  { value: 1, label: '1x', description: 'No leverage', color: 'text-zinc-400', bg: 'bg-zinc-500/10' },
+  { value: 1, label: '1x', description: 'No leverage', color: 'text-secondary', bg: 'bg-zinc-500/10' },
   { value: 2, label: '2x', description: 'Low risk', color: 'text-blue-400', bg: 'bg-blue-500/10' },
   { value: 5, label: '5x', description: 'Moderate', color: 'text-green-400', bg: 'bg-green-500/10' },
   { value: 10, label: '10x', description: 'High risk', color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
@@ -51,6 +54,9 @@ export default function VaultSettingsModal({
   currentStopLoss = 1,
   currentAskPermission = false,
   currentLeverage = 1.0,
+  currentMinWinRate = 0,
+  currentMinTradesForWinRate = 5,
+  currentPromptWithdrawAfterClose = false,
   startMode = false,
   onClose,
   onSuccess
@@ -69,6 +75,11 @@ export default function VaultSettingsModal({
   const [stopLoss, setStopLoss] = useState(currentStopLoss);
   const [askPermission, setAskPermission] = useState(currentAskPermission);
   const [leverage, setLeverage] = useState(currentLeverage);
+  const [minWinRate, setMinWinRate] = useState(currentMinWinRate);
+  const [minTradesForWinRate, setMinTradesForWinRate] = useState(currentMinTradesForWinRate);
+  const [promptWithdrawAfterClose, setPromptWithdrawAfterClose] = useState(
+    currentPromptWithdrawAfterClose
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -78,7 +89,10 @@ export default function VaultSettingsModal({
     takeProfit !== currentTakeProfit ||
     stopLoss !== currentStopLoss ||
     askPermission !== currentAskPermission ||
-    leverage !== currentLeverage;
+    leverage !== currentLeverage ||
+    minWinRate !== currentMinWinRate ||
+    minTradesForWinRate !== currentMinTradesForWinRate ||
+    promptWithdrawAfterClose !== currentPromptWithdrawAfterClose;
 
   const handleSave = async () => {
     if (!chainId || !address || !publicClient || !walletClient) return;
@@ -125,8 +139,11 @@ export default function VaultSettingsModal({
         stop_loss_percent: stopLoss,
         ask_permission: askPermission,
         leverage_multiplier: leverage,
+        min_win_rate_percent: minWinRate,
+        min_trades_for_win_rate_gate: minTradesForWinRate,
+        prompt_withdraw_after_close: promptWithdrawAfterClose,
         updated_at: new Date().toISOString(),
-        synced_at: new Date().toISOString()
+        synced_at: new Date().toISOString(),
       };
 
       const { data: existing } = await supabase
@@ -215,11 +232,11 @@ export default function VaultSettingsModal({
         <div className="flex items-center justify-between p-4 border-b border-zinc-800 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-zinc-800 rounded-lg">
-              <Settings className="w-5 h-5 text-white" />
+              <Settings className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">Vault Settings</h2>
-              <p className="text-xs text-zinc-500">Configure auto-trading</p>
+              <h2 className="text-lg font-semibold text-primary">Vault Settings</h2>
+              <p className="text-xs text-muted">Configure auto-trading</p>
             </div>
           </div>
           <button
@@ -227,7 +244,7 @@ export default function VaultSettingsModal({
             disabled={isLoading}
             className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5 text-zinc-400" />
+            <X className="w-5 h-5 text-secondary" />
           </button>
         </div>
 
@@ -237,8 +254,8 @@ export default function VaultSettingsModal({
           <div>
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h3 className="text-white font-medium">Auto-Trading</h3>
-                <p className="text-xs text-zinc-500">Let the bot trade automatically</p>
+                <h3 className="text-primary font-medium">Auto-Trading</h3>
+                <p className="text-xs text-muted">Let the bot trade automatically</p>
               </div>
               <button
                 onClick={() => setAutoTrade(!autoTrade)}
@@ -272,9 +289,9 @@ export default function VaultSettingsModal({
                 <div>
                   <div className="flex items-center gap-2">
                     <Bell className="w-4 h-4 text-accent" />
-                    <h3 className="text-white font-medium">Ask Before Trading</h3>
+                    <h3 className="text-primary font-medium">Ask Before Trading</h3>
                   </div>
-                  <p className="text-xs text-zinc-500 mt-1">Get notified and approve each trade before execution</p>
+                  <p className="text-xs text-muted mt-1">Get notified and approve each trade before execution</p>
                 </div>
                 <button
                   onClick={() => setAskPermission(!askPermission)}
@@ -304,7 +321,7 @@ export default function VaultSettingsModal({
           {/* Risk Level Slider */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-white font-medium">Risk Level</h3>
+              <h3 className="text-primary font-medium">Risk Level</h3>
               <span className={`text-sm font-medium ${selectedRiskLevel.color}`}>
                 {selectedRiskLevel.label} ({riskLevel}%)
               </span>
@@ -321,7 +338,7 @@ export default function VaultSettingsModal({
                 disabled={isLoading}
                 className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-white"
               />
-              <div className="flex justify-between text-xs text-zinc-500 mt-1">
+              <div className="flex justify-between text-xs text-muted mt-1">
                 <span>1%</span>
                 <span>50%</span>
                 <span>100%</span>
@@ -341,7 +358,7 @@ export default function VaultSettingsModal({
                     className={`p-2 rounded-lg border transition-all ${
                       isSelected
                         ? `${level.bg} border-current ${level.color}`
-                        : 'bg-zinc-800/50 border-zinc-700 text-zinc-400 hover:border-zinc-600'
+                        : 'bg-zinc-800/50 border-zinc-700 text-secondary hover:border-zinc-600'
                     }`}
                   >
                     <Icon className={`w-4 h-4 mx-auto mb-1 ${isSelected ? level.color : ''}`} />
@@ -364,16 +381,93 @@ export default function VaultSettingsModal({
             </div>
           </div>
 
+          {/* Win rate gate */}
+          {autoTrade && (
+            <div className="border-t border-zinc-800 pt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Scale className="w-4 h-4 text-accent" />
+                <h3 className="text-primary font-medium">Minimum win rate to open</h3>
+              </div>
+              <p className="text-xs text-muted mb-3">
+                Bot pauses new trades if your recent closed-trade win rate is below this. Set 0 to
+                disable.
+              </p>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-secondary">Min win rate</span>
+                <span className="text-sm font-medium text-primary">
+                  {minWinRate === 0 ? 'Off' : `${minWinRate}%`}
+                </span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={80}
+                step={5}
+                value={minWinRate}
+                onChange={(e) => setMinWinRate(parseInt(e.target.value, 10))}
+                disabled={isLoading}
+                className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-accent"
+              />
+              <div className="flex justify-between text-xs text-muted mt-1 mb-4">
+                <span>Off</span>
+                <span>40%</span>
+                <span>80%</span>
+              </div>
+              <label className="text-xs text-muted block mb-1">
+                Apply after this many closed trades
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={50}
+                value={minTradesForWinRate}
+                onChange={(e) =>
+                  setMinTradesForWinRate(Math.max(1, parseInt(e.target.value, 10) || 5))
+                }
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-primary text-sm"
+              />
+            </div>
+          )}
+
+          {/* Post-close withdraw prompt */}
+          {autoTrade && (
+            <div className="border-t border-zinc-800 pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-primary font-medium">Post-close vault reminder</h3>
+                  <p className="text-xs text-muted mt-1">
+                    After a close, show a note that P/L is in the vault — optional link to Withdraw (not
+                    automatic)
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPromptWithdrawAfterClose(!promptWithdrawAfterClose)}
+                  disabled={isLoading}
+                  className={`relative w-14 h-7 rounded-full transition-colors ${
+                    promptWithdrawAfterClose ? 'bg-accent' : 'bg-zinc-700'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform ${
+                      promptWithdrawAfterClose ? 'left-8' : 'left-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Take Profit & Stop Loss */}
           <div className="border-t border-zinc-800 pt-4">
-            <h3 className="text-white font-medium mb-4">Take Profit & Stop Loss</h3>
+            <h3 className="text-primary font-medium mb-4">Take Profit & Stop Loss</h3>
 
             {/* Take Profit Slider */}
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-green-400" />
-                  <span className="text-sm text-zinc-400">Take Profit</span>
+                  <span className="text-sm text-secondary">Take Profit</span>
                 </div>
                 <span className="text-sm font-medium text-green-400">{takeProfit}%</span>
               </div>
@@ -387,7 +481,7 @@ export default function VaultSettingsModal({
                 disabled={isLoading}
                 className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-green-500"
               />
-              <div className="flex justify-between text-xs text-zinc-500 mt-1">
+              <div className="flex justify-between text-xs text-muted mt-1">
                 <span>1%</span>
                 <span>10%</span>
                 <span>20%</span>
@@ -399,7 +493,7 @@ export default function VaultSettingsModal({
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <TrendingDown className="w-4 h-4 text-red-400" />
-                  <span className="text-sm text-zinc-400">Trailing Stop Loss</span>
+                  <span className="text-sm text-secondary">Trailing Stop Loss</span>
                 </div>
                 <span className="text-sm font-medium text-red-400">{stopLoss}%</span>
               </div>
@@ -413,7 +507,7 @@ export default function VaultSettingsModal({
                 disabled={isLoading}
                 className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-red-500"
               />
-              <div className="flex justify-between text-xs text-zinc-500 mt-1">
+              <div className="flex justify-between text-xs text-muted mt-1">
                 <span>0.5%</span>
                 <span>5%</span>
                 <span>10%</span>
@@ -421,9 +515,9 @@ export default function VaultSettingsModal({
             </div>
 
             {/* TP/SL Info */}
-            <div className="bg-zinc-800/50 rounded-lg p-3 text-xs text-zinc-400">
-              <p><strong className="text-zinc-300">Take Profit:</strong> Close position when price rises {takeProfit}% from entry.</p>
-              <p className="mt-1"><strong className="text-zinc-300">Trailing Stop:</strong> Auto-adjusts as price rises. Triggers when price drops {stopLoss}% from peak.</p>
+            <div className="bg-zinc-800/50 rounded-lg p-3 text-xs text-secondary">
+              <p><strong className="text-[#52525b]">Take Profit:</strong> Close position when price rises {takeProfit}% from entry.</p>
+              <p className="mt-1"><strong className="text-[#52525b]">Trailing Stop:</strong> Auto-adjusts as price rises. Triggers when price drops {stopLoss}% from peak.</p>
             </div>
           </div>
 
@@ -432,10 +526,10 @@ export default function VaultSettingsModal({
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Scale className="w-4 h-4 text-purple-400" />
-                  <h3 className="text-white font-medium">Leverage (GMX Perpetuals)</h3>
+                  <h3 className="text-primary font-medium">Leverage (GMX Perpetuals)</h3>
                 </div>
                 <span className={`text-sm font-medium ${
-                  leverage >= 15 ? 'text-red-400' : leverage >= 10 ? 'text-orange-400' : leverage > 1 ? 'text-purple-400' : 'text-zinc-400'
+                  leverage >= 15 ? 'text-red-400' : leverage >= 10 ? 'text-orange-400' : leverage > 1 ? 'text-purple-400' : 'text-secondary'
                 }`}>
                   {leverage}x
                 </span>
@@ -453,7 +547,7 @@ export default function VaultSettingsModal({
                       className={`p-1.5 rounded-lg border transition-all ${
                         isSelected
                           ? `${level.bg} border-current ${level.color}`
-                          : 'bg-zinc-800/50 border-zinc-700 text-zinc-400 hover:border-zinc-600'
+                          : 'bg-zinc-800/50 border-zinc-700 text-secondary hover:border-zinc-600'
                       }`}
                     >
                       <span className="text-xs font-medium block">{level.label}</span>
@@ -477,7 +571,7 @@ export default function VaultSettingsModal({
                     <p className="opacity-80">
                       Your ${riskLevel}% trade size → {(riskLevel * leverage).toFixed(0)}% effective position.
                     </p>
-                    <p className="mt-1 text-zinc-400">
+                    <p className="mt-1 text-secondary">
                       Fee: 0.1% on total position size + 10% of profits
                     </p>
                     {leverage >= 10 && (
@@ -492,7 +586,7 @@ export default function VaultSettingsModal({
                     )}
                   </div>
                 ) : (
-                  <p className="text-xs text-zinc-400">
+                  <p className="text-xs text-secondary">
                     No leverage. Trades use only your vault balance.
                   </p>
                 )}
@@ -537,7 +631,7 @@ export default function VaultSettingsModal({
             disabled={isLoading || success}
             className={`w-full py-3 font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
               startMode && autoTrade
-                ? 'bg-green-500 text-white hover:bg-green-600'
+                ? 'bg-green-500 text-primary hover:bg-green-600'
                 : 'bg-white text-black hover:bg-gray-100'
             }`}
           >

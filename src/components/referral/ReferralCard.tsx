@@ -104,26 +104,26 @@ const ReferralCard: React.FC = () => {
           <Gift className="w-5 h-5 text-accent" />
         </div>
         <div>
-          <h3 className="font-semibold text-white">Refer & Earn</h3>
-          <p className="text-sm text-zinc-400">Give $5, Get $5 USDC</p>
+          <h3 className="font-semibold text-primary">Refer & Earn</h3>
+          <p className="text-sm text-secondary">Give $5, Get $5 USDC</p>
         </div>
       </div>
 
       {/* Referral Link */}
       <div className="mb-4">
-        <label className="block text-sm text-zinc-400 mb-2">Your Referral Link</label>
+        <label className="block text-sm text-secondary mb-2">Your Referral Link</label>
         <div className="flex gap-2">
           <input
             type="text"
             value={referralLink}
             readOnly
-            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 text-white text-sm font-mono truncate"
+            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 text-primary text-sm font-mono truncate"
           />
           <button
             onClick={copyToClipboard}
             className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 ${
               copied
-                ? 'bg-green-500 text-white'
+                ? 'bg-green-500 text-primary'
                 : 'bg-accent text-black hover:bg-accent/90'
             }`}
           >
@@ -145,18 +145,18 @@ const ReferralCard: React.FC = () => {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3 mb-4">
         <div className="bg-zinc-800/50 rounded-lg p-3 text-center">
-          <Users className="w-4 h-4 text-zinc-400 mx-auto mb-1" />
-          <p className="text-lg font-semibold text-white">{stats.totalReferrals}</p>
+          <Users className="w-4 h-4 text-secondary mx-auto mb-1" />
+          <p className="text-lg font-semibold text-primary">{stats.totalReferrals}</p>
           <p className="text-xs text-zinc-500">Referrals</p>
         </div>
         <div className="bg-zinc-800/50 rounded-lg p-3 text-center">
           <Clock className="w-4 h-4 text-yellow-400 mx-auto mb-1" />
-          <p className="text-lg font-semibold text-white">${stats.pendingAmount.toFixed(0)}</p>
+          <p className="text-lg font-semibold text-primary">${stats.pendingAmount.toFixed(0)}</p>
           <p className="text-xs text-zinc-500">Pending</p>
         </div>
         <div className="bg-zinc-800/50 rounded-lg p-3 text-center">
           <DollarSign className="w-4 h-4 text-green-400 mx-auto mb-1" />
-          <p className="text-lg font-semibold text-white">${stats.paidAmount.toFixed(0)}</p>
+          <p className="text-lg font-semibold text-primary">${stats.paidAmount.toFixed(0)}</p>
           <p className="text-xs text-zinc-500">Received</p>
         </div>
       </div>
@@ -164,7 +164,7 @@ const ReferralCard: React.FC = () => {
       {/* Pending Bonuses */}
       {bonuses.filter(b => b.status === 'pending').length > 0 && (
         <div className="mb-4">
-          <h4 className="text-sm font-medium text-zinc-300 mb-2">Pending Bonuses</h4>
+          <h4 className="text-sm font-medium text-[#52525b] mb-2">Pending Bonuses</h4>
           <div className="space-y-2">
             {bonuses
               .filter(b => b.status === 'pending')
@@ -178,10 +178,10 @@ const ReferralCard: React.FC = () => {
                       <Gift className="w-4 h-4 text-yellow-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-white">
+                      <p className="text-sm font-medium text-primary">
                         +${bonus.amount_usd.toFixed(0)} USDC
                       </p>
-                      <p className="text-xs text-zinc-400">
+                      <p className="text-xs text-secondary">
                         {bonus.bonus_type === 'referred' ? 'Welcome Bonus' : 'Referral Reward'}
                       </p>
                     </div>

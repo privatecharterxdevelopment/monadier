@@ -166,7 +166,7 @@ const PendingApprovalCard: React.FC<PendingApprovalCardProps> = ({ walletAddress
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="text-white font-semibold">Trade Approval Required</h3>
+                <h3 className="text-primary font-semibold">Trade Approval Required</h3>
                 <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${
                   isExpiringSoon ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'
                 }`}>
@@ -177,11 +177,11 @@ const PendingApprovalCard: React.FC<PendingApprovalCardProps> = ({ walletAddress
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-3">
                 <div>
-                  <p className="text-gray-500 text-xs">Token</p>
-                  <p className="text-white font-medium">{pendingApproval.token_symbol}</p>
+                  <p className="text-secondary text-xs">Token</p>
+                  <p className="text-primary font-medium">{pendingApproval.token_symbol}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500 text-xs">Direction</p>
+                  <p className="text-secondary text-xs">Direction</p>
                   <p className={`font-medium flex items-center gap-1 ${
                     pendingApproval.direction === 'LONG' ? 'text-green-400' : 'text-red-400'
                   }`}>
@@ -194,17 +194,17 @@ const PendingApprovalCard: React.FC<PendingApprovalCardProps> = ({ walletAddress
                   </p>
                 </div>
                 <div>
-                  <p className="text-gray-500 text-xs">Amount</p>
-                  <p className="text-white font-medium">${pendingApproval.amount_usdc.toFixed(2)}</p>
+                  <p className="text-secondary text-xs">Amount</p>
+                  <p className="text-primary font-medium">${pendingApproval.amount_usdc.toFixed(2)}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500 text-xs">Confidence</p>
-                  <p className="text-white font-medium">{pendingApproval.confidence}%</p>
+                  <p className="text-secondary text-xs">Confidence</p>
+                  <p className="text-primary font-medium">{pendingApproval.confidence}%</p>
                 </div>
               </div>
 
               {pendingApproval.analysis_summary && (
-                <p className="text-gray-400 text-sm mt-2">{pendingApproval.analysis_summary}</p>
+                <p className="text-secondary text-sm mt-2">{pendingApproval.analysis_summary}</p>
               )}
             </div>
           </div>

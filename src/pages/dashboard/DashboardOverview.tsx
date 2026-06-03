@@ -8,7 +8,7 @@ import Card from '../../components/ui/Card';
 import { Link } from 'react-router-dom';
 import { useAppKit } from '@reown/appkit/react';
 import { supabase } from '../../lib/supabase';
-import { VaultBalanceCard } from '../../components/vault';
+import { VaultBalanceCard, WithdrawPromptBanner } from '../../components/vault';
 import LegacyVaultWithdraw from '../../components/vault/LegacyVaultWithdraw';
 import OnboardingBanner from '../../components/onboarding/OnboardingBanner';
 import { useOnboarding } from '../../hooks/useOnboarding';
@@ -274,31 +274,31 @@ const DashboardOverview: React.FC = () => {
       {/* Wallet Balance Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <motion.div variants={itemAnimation} className="md:col-span-2">
-          <Card className="p-6 h-full">
+          <Card className="dashboard-panel p-6 h-full">
             {isConnected ? (
               <>
                 <div className="flex items-start justify-between mb-6">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <p className="text-gray-500 text-sm">Wallet Balance</p>
+                      <p className="text-secondary text-sm">Wallet Balance</p>
                       {currentChain && (
-                        <span className="px-2 py-0.5 bg-white/10 text-white text-xs rounded-full">
+                        <span className="px-2 py-0.5 bg-black/[0.06] text-primary text-xs rounded-full">
                           {currentChain.shortName}
                         </span>
                       )}
                       <button
                         onClick={refreshBalances}
                         disabled={isLoadingBalances}
-                        className="p-1 text-gray-500 hover:text-white transition-colors"
+                        className="p-1 text-secondary hover:text-primary transition-colors"
                       >
                         <RefreshCw size={14} className={isLoadingBalances ? 'animate-spin' : ''} />
                       </button>
                     </div>
-                    <h2 className="text-4xl font-light text-white tracking-tight">
+                    <h2 className="text-4xl font-light text-primary tracking-tight">
                       ${formatCurrency(totalUsdValue)}
                     </h2>
                     {address && (
-                      <p className="text-gray-500 text-sm mt-1 font-mono">
+                      <p className="text-secondary text-sm mt-1 font-mono">
                         {formatAddress(address)}
                       </p>
                     )}
@@ -314,16 +314,16 @@ const DashboardOverview: React.FC = () => {
 
                 {/* Token Balances Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-background rounded-lg p-4">
-                    <p className="text-gray-500 text-xs mb-1">{currentChain?.nativeCurrency.symbol || 'Native'}</p>
-                    <p className="text-xl font-light text-white">
+                  <div className="dashboard-panel-inner p-4">
+                    <p className="text-secondary text-xs mb-1">{currentChain?.nativeCurrency.symbol || 'Native'}</p>
+                    <p className="text-xl font-light text-primary">
                       {parseFloat(nativeBalance).toFixed(4)}
                     </p>
                   </div>
                   {tokenBalances.slice(0, 3).map((token) => (
-                    <div key={token.symbol} className="bg-background rounded-lg p-4">
-                      <p className="text-gray-500 text-xs mb-1">{token.symbol}</p>
-                      <p className="text-xl font-light text-white">
+                    <div key={token.symbol} className="dashboard-panel-inner p-4">
+                      <p className="text-secondary text-xs mb-1">{token.symbol}</p>
+                      <p className="text-xl font-light text-primary">
                         {parseFloat(token.balance).toFixed(2)}
                       </p>
                     </div>
@@ -332,11 +332,11 @@ const DashboardOverview: React.FC = () => {
               </>
             ) : (
               <div className="flex flex-col items-center justify-center py-8">
-                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                  <Wallet size={32} className="text-white/60" />
+                <div className="w-16 h-16 rounded-full bg-black/[0.04] flex items-center justify-center mb-4">
+                  <Wallet size={32} className="text-muted" />
                 </div>
-                <h3 className="text-xl font-medium text-white mb-2">Connect Your Wallet</h3>
-                <p className="text-gray-500 text-sm text-center mb-4 max-w-sm">
+                <h3 className="text-xl font-medium text-primary mb-2">Connect Your Wallet</h3>
+                <p className="text-secondary text-sm text-center mb-4 max-w-sm">
                   Connect your wallet to view balances and start trading on decentralized exchanges
                 </p>
                 <button
@@ -352,16 +352,16 @@ const DashboardOverview: React.FC = () => {
         </motion.div>
 
         <motion.div variants={itemAnimation}>
-          <Card className="p-6 h-full">
+          <Card className="dashboard-panel p-6 h-full">
             <div className="flex space-x-4 items-start">
-              <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
-                <BadgeCheck size={24} className="text-white" />
+              <div className="w-12 h-12 rounded-full bg-black/[0.04] flex items-center justify-center">
+                <BadgeCheck size={24} className="text-primary" />
               </div>
               <div>
                 <h3 className="font-display text-xl mb-1">
                   {getMembershipName()} Member
                 </h3>
-                <p className="text-gray-500 text-sm mb-4">
+                <p className="text-secondary text-sm mb-4">
                   {planTier === 'elite' || planTier === 'desktop'
                     ? 'Unlimited trades & all features'
                     : planTier === 'pro'
@@ -371,14 +371,14 @@ const DashboardOverview: React.FC = () => {
                         : '5 paper trades/day'}
                 </p>
 
-                <Link to="/dashboard/subscriptions" className="flex items-center text-white text-sm hover:text-white-hover">
+                <Link to="/dashboard/subscriptions" className="flex items-center text-primary text-sm hover:text-primary-hover">
                   <span>{isSubscribed ? 'Manage plan' : 'Upgrade now'}</span>
                   <ArrowRightIcon size={14} className="ml-1" />
                 </Link>
               </div>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-gray-800">
+            <div className="mt-6 pt-4 border-t border-border">
               {/* Profile Status - only show incomplete state when not loading */}
               <div className="flex space-x-4 mb-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
@@ -391,17 +391,17 @@ const DashboardOverview: React.FC = () => {
                   )}
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-medium text-sm text-white">
+                  <h4 className="font-medium text-sm text-primary">
                     {isOnboardingLoading ? 'Profile Verified' : isProfileComplete ? 'Profile Verified' : 'Setup Incomplete'}
                   </h4>
-                  <p className="text-gray-500 text-xs">
+                  <p className="text-secondary text-xs">
                     {isOnboardingLoading ? 'Checking status...' : isProfileComplete ? 'All steps completed' : 'Complete setup to start trading'}
                   </p>
                 </div>
                 {!isProfileComplete && !isOnboardingLoading && (
                   <Link
                     to="/dashboard/profile"
-                    className="px-3 py-1 bg-white/10 text-white text-xs rounded-lg hover:bg-white/15 transition-colors"
+                    className="px-3 py-1 bg-black/[0.06] text-primary text-xs rounded-lg hover:bg-white/15 transition-colors"
                   >
                     Complete
                   </Link>
@@ -413,11 +413,11 @@ const DashboardOverview: React.FC = () => {
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                   isSubscribed ? 'bg-green-500/10' : 'bg-gray-500/10'
                 }`}>
-                  <Package size={16} className={isSubscribed ? 'text-green-400' : 'text-gray-500'} />
+                  <Package size={16} className={isSubscribed ? 'text-green-400' : 'text-secondary'} />
                 </div>
                 <div>
-                  <h4 className="font-medium text-sm text-white">Subscription</h4>
-                  <p className="text-gray-500 text-xs">
+                  <h4 className="font-medium text-sm text-primary">Subscription</h4>
+                  <p className="text-secondary text-xs">
                     {isSubscribed && planTier
                       ? activeSubscription?.billingCycle === 'lifetime'
                         ? `${getMembershipName()} - Lifetime`
@@ -432,12 +432,12 @@ const DashboardOverview: React.FC = () => {
               {/* Daily Trades Remaining */}
               {planTier && (
                 <div className="flex space-x-4 mt-3">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/5">
-                    <Bot size={16} className="text-white" />
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center bg-black/[0.04]">
+                    <Bot size={16} className="text-primary" />
                   </div>
                   <div>
-                    <h4 className="font-medium text-sm text-white">Daily Trades</h4>
-                    <p className="text-gray-500 text-xs">
+                    <h4 className="font-medium text-sm text-primary">Daily Trades</h4>
+                    <p className="text-secondary text-xs">
                       {dailyTradesRemaining === -1
                         ? 'Unlimited'
                         : `${dailyTradesRemaining} remaining today`}
@@ -456,6 +456,9 @@ const DashboardOverview: React.FC = () => {
 
       {/* Bot Wallet (Vault) - For Paid Users */}
       <motion.div variants={itemAnimation} className="mb-6">
+        {isConnected && address && (
+          <WithdrawPromptBanner chainId={42161} walletAddress={address} />
+        )}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-1">
             <VaultBalanceCard compact />
@@ -463,25 +466,25 @@ const DashboardOverview: React.FC = () => {
           <div className="md:col-span-2">
             <Card className="p-6 h-full">
               <div className="flex items-center gap-2 mb-4">
-                <Bot className="w-5 h-5 text-white" />
-                <h3 className="font-medium text-white">Auto-Trading Vault</h3>
+                <Bot className="w-5 h-5 text-primary" />
+                <h3 className="font-medium text-primary">Auto-Trading Vault</h3>
               </div>
-              <p className="text-gray-500 text-sm mb-4">
-                Deposit USDC to the vault and let the bot trade automatically without signing each transaction.
-                Configure your risk level (1-100%) and enable auto-trading to get started.
+              <p className="text-secondary text-sm mb-4">
+                Deposit USDC into the vault. The bot trades from that balance; when a trade closes, P/L stays
+                in the vault. Use Withdraw when you want USDC back in your MetaMask wallet.
               </p>
               <div className="grid grid-cols-3 gap-4">
-                <div className="bg-background rounded-lg p-3">
-                  <p className="text-gray-500 text-xs mb-1">Network</p>
-                  <p className="text-white font-medium">Arbitrum</p>
+                <div className="dashboard-panel-inner p-3">
+                  <p className="dashboard-label text-xs mb-1">Network</p>
+                  <p className="dashboard-value text-sm">Arbitrum</p>
                 </div>
-                <div className="bg-background rounded-lg p-3">
-                  <p className="text-gray-500 text-xs mb-1">Fees</p>
-                  <p className="text-white font-medium">0.1% + 10% profit</p>
+                <div className="dashboard-panel-inner p-3">
+                  <p className="dashboard-label text-xs mb-1">Fees</p>
+                  <p className="dashboard-value text-sm">0.1% + 10% profit</p>
                 </div>
-                <div className="bg-background rounded-lg p-3">
-                  <p className="text-gray-500 text-xs mb-1">Max Risk</p>
-                  <p className="text-white font-medium">100%</p>
+                <div className="dashboard-panel-inner p-3">
+                  <p className="dashboard-label text-xs mb-1">Max Risk</p>
+                  <p className="dashboard-value text-sm">100%</p>
                 </div>
               </div>
             </Card>
@@ -491,25 +494,25 @@ const DashboardOverview: React.FC = () => {
 
       {/* Recent Closed Trades (identical to Bot History) */}
       <motion.div variants={itemAnimation} className="mb-6">
-        <Card className="overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+        <Card className="dashboard-panel overflow-hidden">
+          <div className="px-6 py-4 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <History className="w-5 h-5 text-white" />
-              <h3 className="font-medium text-white">Recent Closed Trades</h3>
+              <History className="w-5 h-5 text-primary" />
+              <h3 className="font-medium text-primary">Recent Closed Trades</h3>
             </div>
-            <Link to="/dashboard/bot-trading" className="text-sm text-white hover:text-white-hover">
+            <Link to="/dashboard/bot-trading" className="text-sm text-primary hover:text-primary-hover">
               View All
             </Link>
           </div>
 
           {loadingTrades ? (
             <div className="text-center py-12">
-              <RefreshCw className="w-6 h-6 text-gray-500 animate-spin mx-auto" />
+              <RefreshCw className="w-6 h-6 text-secondary animate-spin mx-auto" />
             </div>
           ) : recentTrades.length > 0 ? (
             <div className="overflow-x-auto">
               {/* Table Header - identical to Bot History */}
-              <div className="grid grid-cols-7 gap-4 px-4 py-3 bg-background border-b border-gray-800 text-sm font-medium text-gray-500 min-w-[700px]">
+              <div className="grid grid-cols-7 gap-4 px-4 py-3 bg-background border-b border-border text-sm font-medium text-secondary min-w-[700px]">
                 <div>Token</div>
                 <div>Direction</div>
                 <div>Entry</div>
@@ -526,10 +529,10 @@ const DashboardOverview: React.FC = () => {
                   return (
                     <div
                       key={trade.id}
-                      className="grid grid-cols-7 gap-4 px-4 py-3 border-b border-gray-800 hover:bg-white/5 transition-colors items-center"
+                      className="grid grid-cols-7 gap-4 px-4 py-3 border-b border-border hover:bg-black/[0.04] transition-colors items-center"
                     >
                       {/* Token */}
-                      <div className="text-white font-medium">
+                      <div className="text-primary font-medium">
                         {trade.token_symbol || 'WETH'}
                       </div>
 
@@ -545,12 +548,12 @@ const DashboardOverview: React.FC = () => {
                       </div>
 
                       {/* Entry Price */}
-                      <div className="text-white font-mono text-sm">
+                      <div className="text-primary font-mono text-sm">
                         ${(trade.entry_price || 0).toFixed(2)}
                       </div>
 
                       {/* Size */}
-                      <div className="text-white font-mono text-sm">
+                      <div className="text-primary font-mono text-sm">
                         ${(trade.entry_amount || 0).toFixed(2)}
                       </div>
 
@@ -568,8 +571,8 @@ const DashboardOverview: React.FC = () => {
                       {/* Duration */}
                       <div className="text-sm">
                         <div className="flex items-center gap-1.5">
-                          <Clock size={14} className="text-gray-400" />
-                          <span className="font-mono text-gray-400">
+                          <Clock size={14} className="text-secondary" />
+                          <span className="font-mono text-secondary">
                             {formatDuration(trade.created_at, trade.closed_at)}
                           </span>
                         </div>
@@ -600,9 +603,9 @@ const DashboardOverview: React.FC = () => {
             </div>
           ) : (
             <div className="text-center py-12">
-              <Bot className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-              <p className="text-gray-400 mb-1">No closed trades yet</p>
-              <p className="text-gray-500 text-sm">
+              <Bot className="w-12 h-12 text-muted mx-auto mb-3" />
+              <p className="text-secondary mb-1">No closed trades yet</p>
+              <p className="text-secondary text-sm">
                 {isConnected ? 'Completed trades will appear here' : 'Connect wallet to see your trades'}
               </p>
               <Link
@@ -618,13 +621,13 @@ const DashboardOverview: React.FC = () => {
 
       {/* Payment History */}
       <motion.div variants={itemAnimation} className="mb-6">
-        <Card className="overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+        <Card className="dashboard-panel overflow-hidden">
+          <div className="px-6 py-4 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-white" />
-              <h3 className="font-medium text-white">Payment History</h3>
+              <CreditCard className="w-5 h-5 text-primary" />
+              <h3 className="font-medium text-primary">Payment History</h3>
             </div>
-            <Link to="/dashboard/subscriptions" className="text-sm text-gray-400 hover:text-white">
+            <Link to="/dashboard/subscriptions" className="text-sm text-secondary hover:text-primary">
               View All
             </Link>
           </div>
@@ -632,7 +635,7 @@ const DashboardOverview: React.FC = () => {
           <div className="p-6">
             {loadingPayments ? (
               <div className="text-center py-8">
-                <RefreshCw className="w-6 h-6 text-gray-500 animate-spin mx-auto" />
+                <RefreshCw className="w-6 h-6 text-secondary animate-spin mx-auto" />
               </div>
             ) : payments.length > 0 ? (
               <div className="space-y-3">
@@ -650,10 +653,10 @@ const DashboardOverview: React.FC = () => {
                         } />
                       </div>
                       <div>
-                        <p className="text-white font-medium">
+                        <p className="text-primary font-medium">
                           {payment.plan_tier.charAt(0).toUpperCase() + payment.plan_tier.slice(1)} Plan
                         </p>
-                        <p className="text-gray-500 text-sm">
+                        <p className="text-secondary text-sm">
                           {new Date(payment.created_at).toLocaleDateString('en-US', {
                             year: 'numeric',
                             month: 'short',
@@ -663,7 +666,7 @@ const DashboardOverview: React.FC = () => {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-white font-medium">
+                      <p className="text-primary font-medium">
                         ${(payment.amount / 100).toFixed(2)} {payment.currency.toUpperCase()}
                       </p>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${
@@ -679,9 +682,9 @@ const DashboardOverview: React.FC = () => {
               </div>
             ) : (
               <div className="text-center py-8">
-                <CreditCard className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                <p className="text-gray-400 mb-1">No payments yet</p>
-                <p className="text-gray-500 text-sm">Your payment history will appear here</p>
+                <CreditCard className="w-12 h-12 text-muted mx-auto mb-3" />
+                <p className="text-secondary mb-1">No payments yet</p>
+                <p className="text-secondary text-sm">Your payment history will appear here</p>
               </div>
             )}
           </div>
@@ -692,19 +695,19 @@ const DashboardOverview: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <motion.div variants={itemAnimation}>
           <Card className="p-6">
-            <h3 className="text-gray-500 font-medium text-sm mb-4">Quick Actions</h3>
+            <h3 className="text-secondary font-medium text-sm mb-4">Quick Actions</h3>
             <div className="space-y-3">
               <Link
                 to="/dashboard/chart-trades"
                 className="flex items-center justify-between p-3 bg-background rounded-lg hover:bg-surface-hover transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
-                    <Bot size={16} className="text-white" />
+                  <div className="w-8 h-8 rounded-full bg-black/[0.04] flex items-center justify-center">
+                    <Bot size={16} className="text-primary" />
                   </div>
-                  <span className="text-white">Trading Bot</span>
+                  <span className="text-primary">Trading Bot</span>
                 </div>
-                <ArrowRightIcon size={16} className="text-gray-500" />
+                <ArrowRightIcon size={16} className="text-secondary" />
               </Link>
 
               <Link
@@ -715,9 +718,9 @@ const DashboardOverview: React.FC = () => {
                   <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center">
                     <Package size={16} className="text-emerald-400" />
                   </div>
-                  <span className="text-white">Subscriptions</span>
+                  <span className="text-primary">Subscriptions</span>
                 </div>
-                <ArrowRightIcon size={16} className="text-gray-500" />
+                <ArrowRightIcon size={16} className="text-secondary" />
               </Link>
 
               <Link
@@ -725,12 +728,12 @@ const DashboardOverview: React.FC = () => {
                 className="flex items-center justify-between p-3 bg-background rounded-lg hover:bg-surface-hover transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
-                    <History size={16} className="text-white" />
+                  <div className="w-8 h-8 rounded-full bg-black/[0.04] flex items-center justify-center">
+                    <History size={16} className="text-primary" />
                   </div>
-                  <span className="text-white">Trading History</span>
+                  <span className="text-primary">Trading History</span>
                 </div>
-                <ArrowRightIcon size={16} className="text-gray-500" />
+                <ArrowRightIcon size={16} className="text-secondary" />
               </Link>
             </div>
           </Card>
@@ -738,21 +741,21 @@ const DashboardOverview: React.FC = () => {
 
         <motion.div variants={itemAnimation}>
           <Card className="p-6">
-            <h3 className="text-gray-500 font-medium text-sm mb-4">Wallet Info</h3>
+            <h3 className="text-secondary font-medium text-sm mb-4">Wallet Info</h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-gray-500">Network</span>
-                <span className="text-white font-normal">
+                <span className="text-secondary">Network</span>
+                <span className="text-primary font-normal">
                   {currentChain?.name || 'Not Connected'}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-500">Available to Trade</span>
-                <span className="text-white font-normal">${formatCurrency(stablecoinBalance)}</span>
+                <span className="text-secondary">Available to Trade</span>
+                <span className="text-primary font-normal">${formatCurrency(stablecoinBalance)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-500">DEX</span>
-                <span className="text-white font-normal">
+                <span className="text-secondary">DEX</span>
+                <span className="text-primary font-normal">
                   {currentChain?.dex.name || 'N/A'}
                 </span>
               </div>
@@ -762,23 +765,23 @@ const DashboardOverview: React.FC = () => {
 
         <motion.div variants={itemAnimation}>
           <Card className="p-6">
-            <h3 className="text-gray-500 font-medium text-sm mb-4">Wallet Status</h3>
+            <h3 className="text-secondary font-medium text-sm mb-4">Wallet Status</h3>
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-gray-500'}`}></div>
-                <span className="text-gray-400 text-sm">
+                <span className="text-secondary text-sm">
                   {isConnected ? 'Wallet Connected' : 'Wallet Disconnected'}
                 </span>
               </div>
               <div className="flex items-center gap-3">
                 <div className={`w-2 h-2 rounded-full ${isSubscribed || planTier === 'free' ? 'bg-green-400' : 'bg-gray-500'}`}></div>
-                <span className="text-gray-400 text-sm">
+                <span className="text-secondary text-sm">
                   {isSubscribed ? `${getMembershipName()} Plan Active` : planTier === 'free' ? 'Free Plan (Paper Trading)' : 'Subscribe for Bot'}
                 </span>
               </div>
               <div className="flex items-center gap-3">
                 <div className={`w-2 h-2 rounded-full ${stablecoinBalance > 0 ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
-                <span className="text-gray-400 text-sm">
+                <span className="text-secondary text-sm">
                   {stablecoinBalance > 0 ? 'Ready to Trade' : 'Fund Wallet to Trade'}
                 </span>
               </div>
@@ -788,9 +791,9 @@ const DashboardOverview: React.FC = () => {
       </div>
 
       {/* Risk Disclaimer */}
-      <div className="mt-8 p-4 bg-zinc-900/50 border border-zinc-800 rounded-lg">
-        <p className="text-xs text-zinc-500 leading-relaxed">
-          <span className="text-zinc-400 font-medium">Risk Disclosure:</span> Cryptocurrency trading involves substantial risk of loss. Past performance does not guarantee future results. Monadier provides software tools only—not investment advice. Users maintain full control and responsibility for all trades. Only invest what you can afford to lose. Not available in restricted jurisdictions.
+      <div className="mt-8 p-4 rounded-2xl border border-[#c5c5cb] bg-white/50 backdrop-blur-xl">
+        <p className="text-xs text-[#71717a] leading-relaxed">
+          <span className="text-[#52525b] font-medium">Risk Disclosure:</span> Cryptocurrency trading involves substantial risk of loss. Past performance does not guarantee future results. Monadier provides software tools only—not investment advice. Users maintain full control and responsibility for all trades. Only invest what you can afford to lose. Not available in restricted jurisdictions.
         </p>
       </div>
     </motion.div>

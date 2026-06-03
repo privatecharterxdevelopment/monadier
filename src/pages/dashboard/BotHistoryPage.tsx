@@ -199,7 +199,9 @@ const BotHistoryPage: React.FC = () => {
         try {
           const { data: vaultSettings } = await supabase
             .from('vault_settings')
-            .select('take_profit_percent, stop_loss_percent, leverage_multiplier, risk_level_bps')
+            .select(
+              'take_profit_percent, stop_loss_percent, leverage_multiplier, risk_level_bps, min_win_rate_percent, min_trades_for_win_rate_gate, prompt_withdraw_after_close'
+            )
             .eq('wallet_address', DEMO_WALLET_ADDRESS)
             .eq('chain_id', 42161)
             .single();
@@ -238,7 +240,9 @@ const BotHistoryPage: React.FC = () => {
           // Get TP/SL and leverage from Supabase
           const { data: vaultSettings } = await supabase
             .from('vault_settings')
-            .select('take_profit_percent, stop_loss_percent, leverage_multiplier')
+            .select(
+              'take_profit_percent, stop_loss_percent, leverage_multiplier, min_win_rate_percent, min_trades_for_win_rate_gate, prompt_withdraw_after_close'
+            )
             .eq('wallet_address', address.toLowerCase())
             .eq('chain_id', chainId)
             .single();
@@ -795,14 +799,14 @@ const BotHistoryPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Bot Trading History</h1>
+          <h1 className="text-2xl font-bold text-primary">Bot Trading History</h1>
           <p className="text-secondary mt-1">View your positions and profits</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
             <button
               onClick={() => setShowInfoPopup(!showInfoPopup)}
-              className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-zinc-400 hover:text-white transition-colors"
+              className="p-2 bg-black/[0.04] hover:bg-black/[0.06] rounded-lg text-secondary hover:text-primary transition-colors"
               title="Trading Info"
             >
               <Info size={18} />
@@ -817,8 +821,8 @@ const BotHistoryPage: React.FC = () => {
                   className="fixed right-4 top-32 w-80 bg-zinc-900 border border-zinc-700 rounded-xl p-4 shadow-xl z-50"
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-white font-medium">Trading Info</h4>
-                    <button onClick={() => setShowInfoPopup(false)} className="text-zinc-400 hover:text-white">
+                    <h4 className="text-primary font-medium">Trading Info</h4>
+                    <button onClick={() => setShowInfoPopup(false)} className="text-secondary hover:text-primary">
                       <X size={16} />
                     </button>
                   </div>
@@ -848,14 +852,14 @@ const BotHistoryPage: React.FC = () => {
           </div>
           <button
             onClick={() => setShowSettingsModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 hover:border-blue-500/50 rounded-lg text-white transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 hover:border-blue-500/50 rounded-lg text-primary transition-all"
           >
             <Settings size={16} />
             Bot Settings
           </button>
           <button
             onClick={fetchPositions}
-            className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-black/[0.04] hover:bg-black/[0.06] rounded-lg text-primary transition-colors"
           >
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             Refresh
@@ -869,23 +873,23 @@ const BotHistoryPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className={`w-3 h-3 rounded-full ${botSettings.autoTradeEnabled ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
-              <span className="text-white font-medium">
+              <span className="text-primary font-medium">
                 {botSettings.autoTradeEnabled ? 'Auto-Trading Active' : 'Auto-Trading Off'}
               </span>
             </div>
             <div className="flex items-center gap-6 text-sm">
               <div className="flex items-center gap-2">
-                <span className="text-zinc-400">Risk:</span>
-                <span className="text-white font-medium">{botSettings.riskLevelPercent}%</span>
+                <span className="text-secondary">Risk:</span>
+                <span className="text-primary font-medium">{botSettings.riskLevelPercent}%</span>
               </div>
               <div className="flex items-center gap-2">
                 <TrendingUp size={14} className="text-green-400" />
-                <span className="text-zinc-400">TP:</span>
+                <span className="text-secondary">TP:</span>
                 <span className="text-green-400 font-medium">{botSettings.takeProfit}%</span>
               </div>
               <div className="flex items-center gap-2">
                 <TrendingDown size={14} className="text-red-400" />
-                <span className="text-zinc-400">SL:</span>
+                <span className="text-secondary">SL:</span>
                 <span className="text-red-400 font-medium">{botSettings.stopLoss}%</span>
               </div>
               <button
@@ -901,7 +905,7 @@ const BotHistoryPage: React.FC = () => {
 
       {/* Stats Cards - Row 1: Main Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+        <div className="bg-card-dark rounded-xl border border-border p-4">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${stats.totalProfit >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
               {stats.totalProfit >= 0 ? (
@@ -927,14 +931,14 @@ const BotHistoryPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+        <div className="bg-card-dark rounded-xl border border-border p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-black/[0.04] flex items-center justify-center">
               <Trophy className="w-5 h-5 text-amber-400" />
             </div>
             <div>
               <p className="text-sm text-secondary">Win Rate (Closed)</p>
-              <p className="text-xl font-bold text-white">{stats.winRate.toFixed(1)}%</p>
+              <p className="text-xl font-bold text-primary">{stats.winRate.toFixed(1)}%</p>
               <p className="text-[10px] text-secondary mt-1">
                 {stats.closedTrades} closed trades
               </p>
@@ -942,14 +946,14 @@ const BotHistoryPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+        <div className="bg-card-dark rounded-xl border border-border p-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
               <Activity className="w-5 h-5 text-blue-400" />
             </div>
             <div>
               <p className="text-sm text-secondary">Open Positions</p>
-              <p className="text-xl font-bold text-white">{stats.openPositions}</p>
+              <p className="text-xl font-bold text-primary">{stats.openPositions}</p>
               <p className="text-[10px] mt-1">
                 <span className="text-green-400">{stats.openWins} in profit</span>
                 {stats.openPositions > stats.openWins && (
@@ -960,14 +964,14 @@ const BotHistoryPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+        <div className="bg-card-dark rounded-xl border border-border p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
-              <History className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-full bg-black/[0.04] flex items-center justify-center">
+              <History className="w-5 h-5 text-primary" />
             </div>
             <div>
               <p className="text-sm text-secondary">Total Trades</p>
-              <p className="text-xl font-bold text-white">{stats.totalTrades}</p>
+              <p className="text-xl font-bold text-primary">{stats.totalTrades}</p>
               <p className="text-[10px] text-secondary mt-1">
                 {stats.openPositions} open, {stats.closedTrades} closed
               </p>
@@ -977,13 +981,13 @@ const BotHistoryPage: React.FC = () => {
       </div>
 
       {/* Tab Switcher */}
-      <div className="flex gap-2 p-1 bg-card-dark rounded-lg w-fit border border-gray-800">
+      <div className="flex gap-2 p-1 bg-card-dark rounded-lg w-fit border border-border">
         <button
           onClick={() => setActiveTab('open')}
           className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-all ${
             activeTab === 'open'
               ? 'bg-white text-gray-900'
-              : 'text-secondary hover:text-white'
+              : 'text-secondary hover:text-primary'
           }`}
         >
           <Activity size={18} />
@@ -997,7 +1001,7 @@ const BotHistoryPage: React.FC = () => {
           className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-all ${
             activeTab === 'closed'
               ? 'bg-white text-gray-900'
-              : 'text-secondary hover:text-white'
+              : 'text-secondary hover:text-primary'
           }`}
         >
           <History size={18} />
@@ -1008,7 +1012,7 @@ const BotHistoryPage: React.FC = () => {
           className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-all ${
             activeTab === 'all'
               ? 'bg-white text-gray-900'
-              : 'text-secondary hover:text-white'
+              : 'text-secondary hover:text-primary'
           }`}
         >
           All Bot Trades
@@ -1020,7 +1024,7 @@ const BotHistoryPage: React.FC = () => {
             className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-all ${
               activeTab === 'legacy'
                 ? 'bg-white text-gray-900'
-                : 'text-secondary hover:text-white'
+                : 'text-secondary hover:text-primary'
             }`}
           >
             <Zap size={18} />
@@ -1034,9 +1038,9 @@ const BotHistoryPage: React.FC = () => {
       */}
 
       {/* Positions Table (from Supabase) */}
-      <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
+      <div className="bg-card-dark rounded-xl border border-border overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-9 gap-4 px-4 py-3 bg-background border-b border-gray-800 text-sm font-medium text-secondary">
+        <div className="grid grid-cols-9 gap-4 px-4 py-3 bg-background border-b border-border text-sm font-medium text-secondary">
           <div>Token</div>
           <div>Direction</div>
           <div>Entry / Now</div>
@@ -1054,7 +1058,7 @@ const BotHistoryPage: React.FC = () => {
           {activeTab === 'legacy' ? (
             legacyTrades.length === 0 ? (
               <div className="py-12 text-center">
-                <History className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                <History className="w-12 h-12 text-muted mx-auto mb-3" />
                 <p className="text-secondary">No previous trades</p>
               </div>
             ) : (
@@ -1070,11 +1074,11 @@ const BotHistoryPage: React.FC = () => {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 10 }}
                       transition={{ delay: index * 0.05 }}
-                      className="grid grid-cols-8 gap-4 px-4 py-3 border-b border-gray-800 hover:bg-surface-hover transition-colors items-center"
+                      className="grid grid-cols-8 gap-4 px-4 py-3 border-b border-border hover:bg-surface-hover transition-colors items-center"
                     >
                       {/* Token */}
                       <div className="flex items-center gap-2">
-                        <span className="text-white font-medium">
+                        <span className="text-primary font-medium">
                           {getTokenSymbol(trade.tokenIn)}/{getTokenSymbol(trade.tokenOut)}
                         </span>
                       </div>
@@ -1091,12 +1095,12 @@ const BotHistoryPage: React.FC = () => {
                       </div>
 
                       {/* Amount In */}
-                      <div className="text-white font-mono text-sm">
+                      <div className="text-primary font-mono text-sm">
                         {trade.amountIn}
                       </div>
 
                       {/* Amount Out */}
-                      <div className="text-white font-mono text-sm">
+                      <div className="text-primary font-mono text-sm">
                         {trade.amountOut}
                       </div>
 
@@ -1141,7 +1145,7 @@ const BotHistoryPage: React.FC = () => {
             )
           ) : loading ? (
             <div className="py-12 text-center">
-              <RefreshCw className="w-8 h-8 text-gray-600 mx-auto mb-3 animate-spin" />
+              <RefreshCw className="w-8 h-8 text-muted mx-auto mb-3 animate-spin" />
               <p className="text-secondary">Loading positions...</p>
             </div>
           ) : positions.length === 0 ? (
@@ -1157,7 +1161,7 @@ const BotHistoryPage: React.FC = () => {
                         key={analysisStep}
                         initial={{ opacity: 0, y: 5 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="text-gray-300"
+                        className="text-[#52525b]"
                       >
                         {ANALYSIS_STEPS[analysisStep]?.label}
                       </motion.span>
@@ -1169,35 +1173,35 @@ const BotHistoryPage: React.FC = () => {
                         style={{ width: `${analysisProgress}%` }}
                       />
                     </div>
-                    <span className="text-gray-500 text-xs min-w-[40px]">{Math.round(analysisProgress)}%</span>
+                    <span className="text-secondary text-xs min-w-[40px]">{Math.round(analysisProgress)}%</span>
                   </div>
 
                   {/* Analysis results */}
                   <div className="flex items-center justify-center gap-4 text-sm">
                     {botAnalysis ? (
                       <>
-                        <span className={`font-medium ${botAnalysis.signal === 'LONG' ? 'text-green-400' : botAnalysis.signal === 'SHORT' ? 'text-red-400' : 'text-gray-400'}`}>
+                        <span className={`font-medium ${botAnalysis.signal === 'LONG' ? 'text-green-400' : botAnalysis.signal === 'SHORT' ? 'text-red-400' : 'text-secondary'}`}>
                           {botAnalysis.signal}
                         </span>
-                        <span className="text-gray-600">•</span>
+                        <span className="text-muted">•</span>
                         <span className={`${botAnalysis.confidence >= 60 ? 'text-green-400' : botAnalysis.confidence >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
                           {botAnalysis.confidence}% conf.
                         </span>
-                        <span className="text-gray-600">•</span>
-                        <span className="text-gray-400">RSI {botAnalysis.rsi}</span>
+                        <span className="text-muted">•</span>
+                        <span className="text-secondary">RSI {botAnalysis.rsi}</span>
                         {botAnalysis.pattern && (
                           <>
-                            <span className="text-gray-600">•</span>
+                            <span className="text-muted">•</span>
                             <span className="text-accent">{botAnalysis.pattern}</span>
                           </>
                         )}
-                        <span className="text-gray-600">•</span>
-                        <span className="text-gray-500 text-xs">
+                        <span className="text-muted">•</span>
+                        <span className="text-secondary text-xs">
                           {botAnalysis.recommendation?.split(' - ')[0] || 'Waiting...'}
                         </span>
                       </>
                     ) : (
-                      <span className="text-gray-500">Initializing analysis...</span>
+                      <span className="text-secondary">Initializing analysis...</span>
                     )}
                   </div>
                 </div>
@@ -1205,7 +1209,7 @@ const BotHistoryPage: React.FC = () => {
                 // Bot is not enabled
                 <div className="text-center">
                   <p className="text-secondary">No open positions</p>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="text-sm text-muted mt-1">
                     Enable auto-trading to let the bot open positions automatically
                   </p>
                 </div>
@@ -1213,7 +1217,7 @@ const BotHistoryPage: React.FC = () => {
                 // Closed/All tabs - no positions
                 <div className="text-center">
                   <p className="text-secondary">No {activeTab} positions</p>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="text-sm text-muted mt-1">
                     Completed trades will appear here
                   </p>
                 </div>
@@ -1233,11 +1237,11 @@ const BotHistoryPage: React.FC = () => {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
                     transition={{ delay: index * 0.05 }}
-                    className="grid grid-cols-9 gap-4 px-4 py-3 border-b border-gray-800 hover:bg-surface-hover transition-colors items-center"
+                    className="grid grid-cols-9 gap-4 px-4 py-3 border-b border-border hover:bg-surface-hover transition-colors items-center"
                   >
                     {/* Token */}
                     <div className="flex items-center gap-2">
-                      <span className="text-white font-medium">{position.token_symbol || 'WETH'}</span>
+                      <span className="text-primary font-medium">{position.token_symbol || 'WETH'}</span>
                     </div>
 
                     {/* Direction */}
@@ -1253,7 +1257,7 @@ const BotHistoryPage: React.FC = () => {
 
                     {/* Entry Price + Current Price */}
                     <div className="text-sm">
-                      <div className="text-white font-mono">
+                      <div className="text-primary font-mono">
                         ${(position.entry_price || 0).toFixed(2)}
                       </div>
                       {position.status === 'open' && livePrices[position.token_symbol || 'WETH'] && (
@@ -1267,11 +1271,11 @@ const BotHistoryPage: React.FC = () => {
 
                     {/* Size + Leverage */}
                     <div className="text-sm">
-                      <div className="text-white font-mono">
+                      <div className="text-primary font-mono">
                         ${((position.entry_amount || 0) * (position.leverage_multiplier || 1)).toFixed(2)}
                       </div>
                       <div className="flex items-center gap-1 text-xs">
-                        <span className="text-gray-500">${(position.entry_amount || 0).toFixed(2)}</span>
+                        <span className="text-secondary">${(position.entry_amount || 0).toFixed(2)}</span>
                         <span className="text-purple-400 font-medium">×{position.leverage_multiplier || 1}</span>
                       </div>
                     </div>
@@ -1281,7 +1285,7 @@ const BotHistoryPage: React.FC = () => {
                       <div className="text-green-400">
                         TP: {position.take_profit_percent || 5}%
                       </div>
-                      <div className={position.stop_activated ? 'text-amber-400' : 'text-gray-500'}>
+                      <div className={position.stop_activated ? 'text-amber-400' : 'text-secondary'}>
                         SL: {position.trailing_stop_percent || 1}% {position.stop_activated ? '✓' : ''}
                       </div>
                       {position.status === 'open' && (() => {
@@ -1329,13 +1333,13 @@ const BotHistoryPage: React.FC = () => {
                         </div>
                       ) : (
                         <div className="flex items-center gap-1.5">
-                          <Clock size={14} className="text-gray-400" />
-                          <span className="font-mono text-gray-400">
+                          <Clock size={14} className="text-secondary" />
+                          <span className="font-mono text-secondary">
                             {formatDuration(position.created_at, position.closed_at)}
                           </span>
                         </div>
                       )}
-                      <div className="text-[10px] text-gray-500 mt-0.5">
+                      <div className="text-[10px] text-secondary mt-0.5">
                         Opened: {formatTime(position.created_at)}
                       </div>
                     </div>
@@ -1353,13 +1357,13 @@ const BotHistoryPage: React.FC = () => {
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
                           position.status === 'open' ? 'bg-blue-500/20 text-blue-400' :
                           position.status === 'closing' ? 'bg-amber-500/20 text-amber-400' :
-                          'bg-gray-500/20 text-gray-400'
+                          'bg-gray-500/20 text-secondary'
                         }`}>
                           {position.status.toUpperCase()}
                         </span>
                       )}
                       {position.close_reason && (position.status === 'closed' || position.status === 'failed') && (
-                        <div className="text-xs mt-1 text-gray-500">
+                        <div className="text-xs mt-1 text-secondary">
                           {position.close_reason === 'take_profit' ? 'TP Hit' :
                            position.close_reason === 'trailing_stop' ? 'Trailing Stop' :
                            position.close_reason === 'stoploss' ? 'Stop Loss' :
@@ -1394,7 +1398,7 @@ const BotHistoryPage: React.FC = () => {
                             href={getExplorerUrl(position.chain_id, position.wallet_address)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-1 hover:bg-white/10 rounded text-blue-400 hover:text-blue-300 transition-colors"
+                            className="p-1 hover:bg-black/[0.06] rounded text-blue-400 hover:text-blue-300 transition-colors"
                             title="View on block explorer"
                           >
                             <ExternalLink size={14} />
@@ -1423,7 +1427,7 @@ const BotHistoryPage: React.FC = () => {
                             href={getExplorerUrl(position.chain_id, position.wallet_address)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-1 hover:bg-white/10 rounded text-blue-400 hover:text-blue-300 transition-colors"
+                            className="p-1 hover:bg-black/[0.06] rounded text-blue-400 hover:text-blue-300 transition-colors"
                             title="View on block explorer"
                           >
                             <ExternalLink size={14} />
@@ -1439,7 +1443,7 @@ const BotHistoryPage: React.FC = () => {
                             href={getExplorerUrl(position.chain_id, position.wallet_address)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-1 hover:bg-white/10 rounded text-blue-400 hover:text-blue-300 transition-colors"
+                            className="p-1 hover:bg-black/[0.06] rounded text-blue-400 hover:text-blue-300 transition-colors"
                             title="View on block explorer"
                           >
                             <ExternalLink size={14} />
@@ -1463,14 +1467,14 @@ const BotHistoryPage: React.FC = () => {
                             href={getExplorerUrl(position.chain_id, position.wallet_address)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-1 hover:bg-white/10 rounded text-blue-400 hover:text-blue-300 transition-colors"
+                            className="p-1 hover:bg-black/[0.06] rounded text-blue-400 hover:text-blue-300 transition-colors"
                             title="View on block explorer"
                           >
                             <ExternalLink size={14} />
                           </a>
                         </div>
                       ) : (
-                        <span className="text-gray-500">-</span>
+                        <span className="text-secondary">-</span>
                       )}
                     </div>
                   </motion.div>
@@ -1503,7 +1507,7 @@ const BotHistoryPage: React.FC = () => {
                   <X className="w-5 h-5 text-blue-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-white">Close Position?</h3>
+                  <h3 className="text-lg font-semibold text-primary">Close Position?</h3>
                   <p className="text-sm text-secondary">Close {confirmModal.token} position</p>
                 </div>
               </div>
@@ -1516,7 +1520,7 @@ const BotHistoryPage: React.FC = () => {
               <div className="flex gap-3">
                 <button
                   onClick={() => setConfirmModal({ show: false, positionId: null, token: '', tokenAddress: '' })}
-                  className="flex-1 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg font-medium transition-colors"
+                  className="flex-1 px-4 py-2 bg-black/[0.04] hover:bg-black/[0.06] text-primary rounded-lg font-medium transition-colors"
                 >
                   Cancel
                 </button>

@@ -107,7 +107,7 @@ const KycFlowPage: React.FC = () => {
               className={`p-6 transition-all duration-300 ${
                 selectedTier === 'signature' 
                   ? 'border-2 border-accent' 
-                  : 'border border-gray-800'
+                  : 'border border-border'
               }`}
               hoverable
               onClick={() => handleTierSelection('signature')}
@@ -146,7 +146,7 @@ const KycFlowPage: React.FC = () => {
               className={`p-6 transition-all duration-300 ${
                 selectedTier === 'essential' 
                   ? 'border-2 border-accent' 
-                  : 'border border-gray-800'
+                  : 'border border-border'
               }`}
               hoverable
               onClick={() => handleTierSelection('essential')}
@@ -194,7 +194,7 @@ const KycFlowPage: React.FC = () => {
             <div className="border-2 border-dashed border-gray-700 rounded-lg p-8 text-center mb-6">
               {idDocument ? (
                 <div className="flex flex-col items-center">
-                  <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mb-4">
+                  <div className="w-12 h-12 bg-black/[0.06] rounded-full flex items-center justify-center mb-4">
                     <Check size={24} className="text-accent" />
                   </div>
                   <p className="text-primary mb-2">{idDocument.name}</p>
@@ -244,7 +244,7 @@ const KycFlowPage: React.FC = () => {
             <div className="border-2 border-dashed border-gray-700 rounded-lg p-8 text-center mb-6">
               {residenceDocument ? (
                 <div className="flex flex-col items-center">
-                  <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mb-4">
+                  <div className="w-12 h-12 bg-black/[0.06] rounded-full flex items-center justify-center mb-4">
                     <Check size={24} className="text-accent" />
                   </div>
                   <p className="text-primary mb-2">{residenceDocument.name}</p>
@@ -324,7 +324,7 @@ const KycFlowPage: React.FC = () => {
       case 4: // Completion
         return (
           <div className="text-center">
-            <div className="w-20 h-20 bg-white/10 rounded-full mx-auto flex items-center justify-center mb-6">
+            <div className="w-20 h-20 bg-black/[0.06] rounded-full mx-auto flex items-center justify-center mb-6">
               <Check size={40} className="text-accent" />
             </div>
             
@@ -364,7 +364,7 @@ const KycFlowPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen page-shell flex flex-col">
       <div className="container-custom py-6">
         <Logo size="md" />
       </div>

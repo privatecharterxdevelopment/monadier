@@ -16,20 +16,50 @@ const ResetPasswordPage: React.FC = () => {
   const [isValidSession, setIsValidSession] = useState<boolean | null>(null);
   const navigate = useNavigate();
 
-  // Check if user came from a valid reset link
+  // Wait for recovery session (tokens may still be parsing from URL hash)
   useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setIsValidSession(!!session);
-    };
-    checkSession();
+    let settled = false;
 
-    // Listen for auth state changes (when user clicks reset link)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
+    const markValid = () => {
+      if (!settled) {
+        settled = true;
         setIsValidSession(true);
       }
+    };
+
+    const markInvalid = () => {
+      if (!settled) {
+        settled = true;
+        setIsValidSession(false);
+      }
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+        const isRecovery =
+          window.location.hash.includes('type=recovery') || event === 'PASSWORD_RECOVERY';
+        if (isRecovery) markValid();
+      }
     });
+
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const hashRecovery = window.location.hash.includes('type=recovery');
+      if (session && hashRecovery) {
+        markValid();
+        return;
+      }
+      // Give Supabase time to parse hash from email link
+      await new Promise((r) => setTimeout(r, 1500));
+      const { data: { session: retry } } = await supabase.auth.getSession();
+      if (retry && (hashRecovery || window.location.hash.includes('access_token'))) {
+        markValid();
+      } else if (!settled) {
+        markInvalid();
+      }
+    };
+
+    void checkSession();
 
     return () => subscription.unsubscribe();
   }, []);
@@ -73,7 +103,7 @@ const ResetPasswordPage: React.FC = () => {
   // Loading state while checking session
   if (isValidSession === null) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="auth-page flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-accent animate-spin" />
       </div>
     );
@@ -82,9 +112,9 @@ const ResetPasswordPage: React.FC = () => {
   // Invalid or expired link
   if (!isValidSession) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="auth-page">
         <div className="container-custom py-6">
-          <Logo size="md" />
+          <Logo size="md" theme="light" />
         </div>
 
         <div className="flex-grow flex items-center justify-center px-4 py-12">
@@ -94,12 +124,12 @@ const ResetPasswordPage: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <div className="card shadow-lg text-center py-8">
+            <div className="auth-card text-center py-8">
               <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Lock className="w-8 h-8 text-red-400" />
               </div>
               <h1 className="font-display text-2xl mb-3">Invalid or Expired Link</h1>
-              <p className="text-gray-400 mb-6">
+              <p className="text-secondary mb-6">
                 This password reset link is invalid or has expired.<br />
                 Please request a new one.
               </p>
@@ -116,9 +146,9 @@ const ResetPasswordPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="auth-page">
       <div className="container-custom py-6">
-        <Logo size="md" />
+        <Logo size="md" theme="light" />
       </div>
 
       <div className="flex-grow flex items-center justify-center px-4 py-12">
@@ -128,14 +158,14 @@ const ResetPasswordPage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="card shadow-lg">
+          <div className="auth-card">
             {success ? (
               <div className="text-center py-6">
                 <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle className="w-8 h-8 text-green-400" />
                 </div>
                 <h1 className="font-display text-2xl mb-3">Password Updated!</h1>
-                <p className="text-gray-400 mb-6">
+                <p className="text-secondary mb-6">
                   Your password has been successfully reset.<br />
                   Redirecting you to the dashboard...
                 </p>
@@ -152,7 +182,7 @@ const ResetPasswordPage: React.FC = () => {
                   </div>
                   <div>
                     <h1 className="font-display text-2xl">Set New Password</h1>
-                    <p className="text-gray-400 text-sm">Choose a strong password for your account.</p>
+                    <p className="text-secondary text-sm">Choose a strong password for your account.</p>
                   </div>
                 </div>
 
@@ -164,21 +194,21 @@ const ResetPasswordPage: React.FC = () => {
 
                 <form onSubmit={handleSubmit}>
                   <div className="mb-4">
-                    <label className="block text-sm text-gray-400 mb-2">New Password</label>
+                    <label className="block text-sm text-secondary mb-2">New Password</label>
                     <div className="relative">
                       <input
                         type={showPassword ? 'text' : 'password'}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Min. 8 characters"
-                        className="w-full bg-white/5 border border-gray-700 rounded-lg px-4 py-3 pr-12 text-white placeholder-gray-500 focus:outline-none focus:border-white/30"
+                        className="w-full bg-black/[0.04] border border-gray-700 rounded-lg px-4 py-3 pr-12 text-primary placeholder-gray-500 focus:outline-none focus:border-white/30"
                         required
                         minLength={8}
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary hover:text-primary transition-colors"
                       >
                         {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
@@ -186,13 +216,13 @@ const ResetPasswordPage: React.FC = () => {
                   </div>
 
                   <div className="mb-6">
-                    <label className="block text-sm text-gray-400 mb-2">Confirm Password</label>
+                    <label className="block text-sm text-secondary mb-2">Confirm Password</label>
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Confirm your password"
-                      className="w-full bg-white/5 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white/30"
+                      className="w-full bg-black/[0.04] border border-gray-700 rounded-lg px-4 py-3 text-primary placeholder-gray-500 focus:outline-none focus:border-white/30"
                       required
                     />
                   </div>
@@ -200,7 +230,7 @@ const ResetPasswordPage: React.FC = () => {
                   {/* Password strength indicator */}
                   <div className="mb-6">
                     <div className="flex items-center justify-between text-xs mb-2">
-                      <span className="text-gray-500">Password strength</span>
+                      <span className="text-secondary">Password strength</span>
                       <span className={`${
                         password.length >= 12 ? 'text-green-400' :
                         password.length >= 8 ? 'text-yellow-400' :

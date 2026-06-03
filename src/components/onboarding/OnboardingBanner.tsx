@@ -15,15 +15,15 @@ interface StepProps {
 const Step: React.FC<StepProps> = ({ icon, title, complete, current, link }) => {
   const content = (
     <div
-      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+      className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${
         complete
-          ? 'bg-green-500/10 text-green-400'
+          ? 'bg-green-500/10 text-green-700 border-green-500/25'
           : current
-          ? 'bg-accent/10 text-accent border border-accent/30'
-          : 'bg-zinc-800/50 text-zinc-500'
+          ? 'bg-white/90 text-[#0a0a0a] border-[#c5c5cb] shadow-sm'
+          : 'bg-white/50 text-[#71717a] border-[#c5c5cb]/60'
       }`}
     >
-      <div className={`${complete ? 'text-green-400' : current ? 'text-accent' : 'text-zinc-500'}`}>
+      <div className={`${complete ? 'text-green-600' : current ? 'text-[#0a0a0a]' : 'text-[#a1a1aa]'}`}>
         {complete ? <CheckCircle className="w-5 h-5" /> : icon}
       </div>
       <span className="text-sm font-medium">{title}</span>
@@ -171,17 +171,17 @@ const OnboardingBanner: React.FC = () => {
   ].filter(Boolean).length;
 
   return (
-    <div className="bg-gradient-to-r from-zinc-900 to-zinc-800 border border-zinc-700 rounded-xl p-6 mb-6">
+    <div className="dashboard-panel mb-6 p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-white">Complete Your Setup</h3>
-          <p className="text-sm text-zinc-400">
+          <h3 className="text-lg font-semibold text-[#0a0a0a]">Complete your setup</h3>
+          <p className="text-sm text-[#52525b]">
             {completedSteps}/3 steps completed
           </p>
         </div>
-        <div className="w-24 h-2 bg-zinc-700 rounded-full overflow-hidden">
+        <div className="w-24 h-2 bg-black/[0.08] rounded-full overflow-hidden">
           <div
-            className="h-full bg-accent transition-all duration-500"
+            className="h-full bg-[#0a0a0a] transition-all duration-500"
             style={{ width: `${(completedSteps / 3) * 100}%` }}
           />
         </div>
@@ -212,20 +212,20 @@ const OnboardingBanner: React.FC = () => {
       </div>
 
       {currentStep !== 'complete' && (
-        <div className="mt-4 p-3 bg-zinc-800/50 rounded-lg">
-          <p className="text-sm text-zinc-300">
+        <div className="mt-4 p-3 dashboard-panel-inner">
+          <p className="text-sm text-[#52525b]">
             {currentStep === 'profile' && (
               <>
-                <span className="text-accent font-medium">Next:</span> Add your name and country in{' '}
-                <Link to="/dashboard/profile" className="text-accent hover:underline">
+                <span className="text-[#0a0a0a] font-medium">Next:</span> Add your name and country in{' '}
+                <Link to="/dashboard/profile" className="text-[#0a0a0a] font-medium hover:underline">
                   Profile
                 </Link>
               </>
             )}
             {currentStep === 'wallet' && (
               <>
-                <span className="text-accent font-medium">Next:</span> Connect your wallet on the{' '}
-                <Link to="/dashboard/chart-trades" className="text-accent hover:underline">
+                <span className="text-[#0a0a0a] font-medium">Next:</span> Connect your wallet on the{' '}
+                <Link to="/dashboard/chart-trades" className="text-[#0a0a0a] hover:underline">
                   Trading Bot
                 </Link>{' '}
                 page
@@ -233,8 +233,8 @@ const OnboardingBanner: React.FC = () => {
             )}
             {currentStep === 'subscription' && (
               <>
-                <span className="text-accent font-medium">Next:</span> Choose a subscription plan to start trading{' '}
-                <Link to="/dashboard/subscriptions" className="text-accent hover:underline">
+                <span className="text-[#0a0a0a] font-medium">Next:</span> Choose a subscription plan to start trading{' '}
+                <Link to="/dashboard/subscriptions" className="text-[#0a0a0a] hover:underline">
                   View Plans
                 </Link>
               </>

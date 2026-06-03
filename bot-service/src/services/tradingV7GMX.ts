@@ -5,6 +5,8 @@ import {
   parseUnits,
   formatUnits,
   parseEther,
+  parseAbi,
+  getAddress,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { arbitrum } from 'viem/chains';
@@ -12,14 +14,21 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { subscriptionService } from './subscription';
 import { positionService } from './positions';
+import {
+  fetchGmxPerpPosition,
+  getGmxMarkPrice,
+  calculateGmxUnrealizedPnl,
+  gmxPriceToNumber,
+  gmxPnlToUsd,
+  gmxPnlBpsToPercent,
+} from './gmxMath';
+import { gmxRequestTracker } from './gmxRequestTracker';
 
 /**
- * V7 GMX Trading Service
+ * GMX vault trading service (MonadierTradingVault V11 on Arbitrum).
  *
- * Uses GMX Perpetuals for TRUE 20x-50x leverage
- * - No Aave limitations
- * - Direct perpetual positions on GMX
- * - Keeper-based execution
+ * File name `tradingV7GMX` is legacy — all calls use config.arbitrum.vaultAddress (V11).
+ * GMX V1 perps via PositionRouter; settlement waits for keeper before finalizeClose.
  */
 
 // GMX Contract Addresses on Arbitrum
@@ -30,9 +39,17 @@ const GMX_ADDRESSES = {
   orderBook: '0x09f77E8A13De9a35a7231028187e9fD5DB8a2ACB' as `0x${string}`,
 };
 
+// GMX keeper polling — wait for decrease execution before finalizeClose
+const GMX_CLOSE_POLL_INTERVAL_MS = 3_000;
+const GMX_CLOSE_TIMEOUT_MS = 120_000;
+const GMX_OPEN_POLL_INTERVAL_MS = 3_000;
+const GMX_OPEN_TIMEOUT_MS = 120_000;
+const GMX_DECREASE_RETRY_ATTEMPTS = 3;
+const GMX_DECREASE_RETRY_DELAY_MS = 2_000;
+
 // Token Addresses
 const TOKENS = {
-  USDC: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' as `0x${string}`,
+  USDC: getAddress('0xaf88d065e77c8cC2239327C5EDb3A432268e5831'),
   WETH: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1' as `0x${string}`,
   WBTC: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f' as `0x${string}`,
 };
@@ -137,6 +154,28 @@ const VAULT_V7_ABI = [
     stateMutability: 'view',
     type: 'function'
   },
+  {
+    inputs: [],
+    name: 'getHealthStatus',
+    outputs: [
+      { name: 'realBalance', type: 'uint256' },
+      { name: 'totalValueLocked', type: 'uint256' },
+      { name: 'isSolvent', type: 'bool' },
+      { name: 'surplus', type: 'int256' }
+    ],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [
+      { name: 'user', type: 'address' },
+      { name: 'token', type: 'address' }
+    ],
+    name: 'reconcile',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
   // Write functions (V8.2 - added trailingSlBps parameter)
   {
     inputs: [
@@ -189,6 +228,14 @@ const VAULT_V7_ABI = [
   }
 ] as const;
 
+const USDC_ERC20_ABI = parseAbi([
+  'function balanceOf(address account) view returns (uint256)',
+]);
+
+const GMX_POSITION_ABI = parseAbi([
+  'function getPosition(address _account, address _collateralToken, address _indexToken, bool _isLong) view returns (uint256 size, uint256 collateral, uint256 averagePrice, uint256 entryFundingRate, uint256 reserveAmount, int256 realisedPnl, uint256 lastIncreasedTime)',
+]);
+
 // GMX Vault ABI for price reads
 const GMX_VAULT_ABI = [
   {
@@ -231,6 +278,9 @@ export interface V7TradeResult {
   pnlPercent?: number;
   exitPrice?: number;
   exitAmount?: number;
+  /** How P/L and received were derived */
+  settlementSource?: 'vault_usdc_delta' | 'reconcile' | 'orphan_finalize';
+  gmxExecuted?: boolean;
 }
 
 // V8 Vault - from simplified config
@@ -256,10 +306,10 @@ export class TradingV7GMXService {
 
     this.vaultAddress = VAULT_ADDRESS;
 
-    logger.info('TradingV7GMXService initialized', {
+    logger.info('TradingGmxVaultService initialized (V11)', {
       gmxVault: GMX_ADDRESSES.vault,
       vaultAddress: this.vaultAddress,
-      bot: this.botAccount.address
+      bot: this.botAccount.address,
     });
   }
 
@@ -383,7 +433,6 @@ export class TradingV7GMXService {
    */
   async isGMXPositionClosed(userAddress: `0x${string}`, tokenAddress: `0x${string}`): Promise<boolean> {
     try {
-      // First check if vault has an active position
       const vaultPosition = await this.publicClient.readContract({
         address: this.vaultAddress,
         abi: VAULT_V7_ABI,
@@ -391,40 +440,11 @@ export class TradingV7GMXService {
         args: [userAddress, tokenAddress]
       }) as any;
 
-      if (!vaultPosition || !vaultPosition.isActive) {
-        return false; // No vault position, nothing to reconcile
+      if (!vaultPosition?.isActive) {
+        return false;
       }
 
-      // Check GMX position size - if 0, GMX has closed it
-      const gmxPosition = await this.publicClient.readContract({
-        address: GMX_ADDRESSES.vault,
-        abi: [{
-          inputs: [
-            { name: '_account', type: 'address' },
-            { name: '_collateralToken', type: 'address' },
-            { name: '_indexToken', type: 'address' },
-            { name: '_isLong', type: 'bool' }
-          ],
-          name: 'getPosition',
-          outputs: [
-            { name: 'size', type: 'uint256' },
-            { name: 'collateral', type: 'uint256' },
-            { name: 'averagePrice', type: 'uint256' },
-            { name: 'entryFundingRate', type: 'uint256' },
-            { name: 'reserveAmount', type: 'uint256' },
-            { name: 'realisedPnl', type: 'int256' },
-            { name: 'lastIncreasedTime', type: 'uint256' }
-          ],
-          stateMutability: 'view',
-          type: 'function'
-        }],
-        functionName: 'getPosition',
-        args: [this.vaultAddress, TOKENS.USDC, tokenAddress, vaultPosition.isLong]
-      }) as unknown as readonly bigint[];
-
-      const gmxSize = gmxPosition[0];
-
-      // If GMX size is 0 but vault shows active = ORPHANED
+      const gmxSize = await this.getGmxPositionSize(tokenAddress, vaultPosition.isLong);
       if (gmxSize === 0n) {
         logger.warn('ORPHANED POSITION DETECTED', {
           user: userAddress.slice(0, 10),
@@ -439,6 +459,293 @@ export class TradingV7GMXService {
       logger.debug('Error checking GMX position state', { error: err.message });
       return false;
     }
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private async getVaultUsdcBalance(): Promise<bigint> {
+    return this.publicClient.readContract({
+      address: TOKENS.USDC,
+      abi: USDC_ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [this.vaultAddress],
+    });
+  }
+
+  private async getVaultHealth(): Promise<{
+    realBalance: bigint;
+    tvl: bigint;
+    isSolvent: boolean;
+    surplus: bigint;
+  }> {
+    const [realBalance, tvl, isSolvent, surplus] = await this.publicClient.readContract({
+      address: this.vaultAddress,
+      abi: VAULT_V7_ABI,
+      functionName: 'getHealthStatus',
+    }) as [bigint, bigint, boolean, bigint];
+
+    return { realBalance, tvl, isSolvent, surplus };
+  }
+
+  private async getGmxPositionSize(tokenAddress: `0x${string}`, isLong: boolean): Promise<bigint> {
+    const gmxPosition = await this.publicClient.readContract({
+      address: GMX_ADDRESSES.vault,
+      abi: GMX_POSITION_ABI,
+      functionName: 'getPosition',
+      args: [this.vaultAddress, TOKENS.USDC, tokenAddress, isLong],
+    });
+    return gmxPosition[0];
+  }
+
+  /**
+   * Poll until GMX perp size is zero (keeper executed decrease).
+   */
+  private async waitForGmxClose(
+    tokenAddress: `0x${string}`,
+    isLong: boolean,
+    timeoutMs = GMX_CLOSE_TIMEOUT_MS
+  ): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const size = await this.getGmxPositionSize(tokenAddress, isLong);
+      if (size === 0n) {
+        return true;
+      }
+      await this.sleep(GMX_CLOSE_POLL_INTERVAL_MS);
+    }
+    return false;
+  }
+
+  /**
+   * Poll until GMX perp size is non-zero (keeper executed increase).
+   */
+  private async waitForGmxOpen(
+    tokenAddress: `0x${string}`,
+    isLong: boolean,
+    timeoutMs = GMX_OPEN_TIMEOUT_MS
+  ): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const size = await this.getGmxPositionSize(tokenAddress, isLong);
+      if (size > 0n) {
+        return true;
+      }
+      await this.sleep(GMX_OPEN_POLL_INTERVAL_MS);
+    }
+    return false;
+  }
+
+  /**
+   * USDC returned to vault from GMX close (measured between decrease submit and settlement).
+   */
+  private computeReceivedFromBalanceDelta(
+    balanceBefore: bigint,
+    balanceAfter: bigint,
+    collateral: bigint
+  ): bigint {
+    const delta = balanceAfter > balanceBefore ? balanceAfter - balanceBefore : 0n;
+    if (delta === 0n) {
+      return collateral;
+    }
+    const maxReasonable = collateral * 3n;
+    if (delta > maxReasonable) {
+      logger.warn('USDC delta exceeds sanity cap — capping received', {
+        delta: formatUnits(delta, 6),
+        cap: formatUnits(maxReasonable, 6),
+      });
+      return maxReasonable;
+    }
+    return delta;
+  }
+
+  /**
+   * Cap finalizeClose `received` so we never credit more USDC than is actually in the vault.
+   */
+  private async computeMaxSettleableReceived(collateral: bigint): Promise<bigint> {
+    const { realBalance, tvl, surplus } = await this.getVaultHealth();
+    if (surplus <= 0n) {
+      return collateral;
+    }
+    const fromSurplus = collateral + surplus;
+    const maxFromBalance = realBalance > tvl ? realBalance - tvl + collateral : collateral;
+    const capped = fromSurplus < maxFromBalance ? fromSurplus : maxFromBalance;
+    return capped > collateral ? capped : collateral;
+  }
+
+  private async syncTrailingStop(
+    userAddress: `0x${string}`,
+    tokenAddress: `0x${string}`
+  ): Promise<void> {
+    try {
+      await this.walletClient.writeContract({
+        address: this.vaultAddress,
+        abi: VAULT_V7_ABI,
+        functionName: 'updateTrailingStop',
+        args: [userAddress, tokenAddress],
+        chain: arbitrum,
+        account: this.botAccount,
+      });
+    } catch (err: any) {
+      logger.debug('updateTrailingStop skipped', { reason: err.message?.slice(0, 80) });
+    }
+  }
+
+  /**
+   * Submit GMX decrease via vault keeperClosePosition (requires on-chain SL/TP hit).
+   */
+  private async requestGmxDecrease(
+    userAddress: `0x${string}`,
+    tokenAddress: `0x${string}`
+  ): Promise<{ submitted: boolean; txHash?: string; error?: string }> {
+    try {
+      const executionFee = await this.getExecutionFee();
+      const closeHash = await this.walletClient.writeContract({
+        address: this.vaultAddress,
+        abi: VAULT_V7_ABI,
+        functionName: 'closePosition',
+        args: [userAddress, tokenAddress],
+        value: executionFee,
+        chain: arbitrum,
+        account: this.botAccount,
+      });
+      const receipt = await this.publicClient.waitForTransactionReceipt({ hash: closeHash });
+      if (receipt.status !== 'success') {
+        return { submitted: false, error: 'Decrease transaction reverted' };
+      }
+      return { submitted: true, txHash: closeHash };
+    } catch (err: any) {
+      return { submitted: false, error: err.message };
+    }
+  }
+
+  /**
+   * GMX already flat but vault position still active — settle from vault USDC accounting.
+   */
+  private async settleAfterGmxAlreadyClosed(
+    userAddress: `0x${string}`,
+    tokenAddress: `0x${string}`,
+    closeReason: string,
+    collateral: bigint,
+    isLong: boolean
+  ): Promise<V7TradeResult> {
+    logger.info('Settling orphan — GMX already closed', {
+      user: userAddress.slice(0, 10),
+      token: tokenAddress.slice(0, 10),
+      reason: closeReason,
+    });
+
+    const health = await this.getVaultHealth();
+    if (health.surplus <= 0n) {
+      logger.warn('Vault deficit — using reconcile() (collateral only)', {
+        surplus: formatUnits(health.surplus, 6),
+      });
+      const reconciled = await this.reconcilePosition(userAddress, tokenAddress);
+      if (!reconciled.success) {
+        return { success: false, error: reconciled.error };
+      }
+      return {
+        success: true,
+        txHash: reconciled.txHash,
+        pnl: 0,
+        pnlPercent: 0,
+        exitAmount: reconciled.creditedAmount,
+        settlementSource: 'reconcile',
+        gmxExecuted: true,
+      };
+    }
+
+    const receivedAmount = await this.computeMaxSettleableReceived(collateral);
+    return this.finalizePositionClose(
+      userAddress,
+      tokenAddress,
+      closeReason,
+      collateral,
+      isLong,
+      receivedAmount,
+      false,
+      'orphan_finalize'
+    );
+  }
+
+  /**
+   * Credit user via finalizeClose after GMX settlement — never call before GMX size is 0.
+   */
+  private async finalizePositionClose(
+    userAddress: `0x${string}`,
+    tokenAddress: `0x${string}`,
+    closeReason: string,
+    collateral: bigint,
+    isLong: boolean,
+    receivedAmount: bigint,
+    gmxDecreaseSubmitted: boolean,
+    settlementSource: V7TradeResult['settlementSource'] = 'vault_usdc_delta'
+  ): Promise<V7TradeResult> {
+    const [maxPrice, minPrice] = await this.publicClient.readContract({
+      address: this.vaultAddress,
+      abi: VAULT_V7_ABI,
+      functionName: 'getPrice',
+      args: [tokenAddress],
+    }) as [bigint, bigint];
+    const currentPrice = isLong ? minPrice : maxPrice;
+
+    const gmxAtClose = await fetchGmxPerpPosition(tokenAddress, isLong);
+    if (gmxAtClose && gmxAtClose.size > 0n) {
+      logger.warn('finalizeClose while GMX size still > 0 — aborting', {
+        user: userAddress.slice(0, 10),
+        gmxSize: gmxAtClose.size.toString(),
+      });
+      return { success: false, error: 'GMX position still open — cannot finalizeClose yet' };
+    }
+
+    logger.info('finalizeClose with settlement-based received', {
+      user: userAddress.slice(0, 10),
+      received: formatUnits(receivedAmount, 6),
+      collateral: formatUnits(collateral, 6),
+      gmxDecreaseSubmitted,
+      settlementSource,
+    });
+
+    const txHash = await this.walletClient.writeContract({
+      address: this.vaultAddress,
+      abi: VAULT_V7_ABI,
+      functionName: 'finalizeClose',
+      args: [userAddress, tokenAddress, receivedAmount, closeReason],
+      chain: arbitrum,
+      account: this.botAccount,
+    });
+
+    const receipt = await this.publicClient.waitForTransactionReceipt({ hash: txHash });
+    if (receipt.status !== 'success') {
+      return { success: false, error: 'FinalizeClose transaction reverted' };
+    }
+
+    const pnlRaw = receivedAmount > collateral ? receivedAmount - collateral : 0n;
+    const loss = receivedAmount < collateral ? collateral - receivedAmount : 0n;
+    const pnlSigned = receivedAmount >= collateral ? pnlRaw : -loss;
+    const pnlUSD = Number(pnlSigned) / 1e6;
+    const pnlPercent =
+      collateral > 0n ? (Number(pnlSigned) / Number(collateral)) * 100 : 0;
+
+    logger.info('Position settled on-chain', {
+      txHash,
+      user: userAddress.slice(0, 10),
+      reason: closeReason,
+      pnlUSD: pnlUSD.toFixed(2),
+      exitAmount: formatUnits(receivedAmount, 6),
+    });
+
+    return {
+      success: true,
+      txHash,
+      pnl: pnlUSD,
+      pnlPercent,
+      exitPrice: Number(currentPrice) / 1e30,
+      exitAmount: Number(receivedAmount) / 1e6,
+      settlementSource,
+      gmxExecuted: true,
+    };
   }
 
   /**
@@ -551,43 +858,101 @@ export class TradingV7GMXService {
         return { success: false, error: 'Transaction reverted' };
       }
 
-      // Record in database
-      const entryAmount = parseFloat(formatUnits(signal.collateralAmount, 6));
+      const isLong = signal.direction === 'LONG';
+      const onChainPosition = await this.publicClient.readContract({
+        address: this.vaultAddress,
+        abi: VAULT_V7_ABI,
+        functionName: 'getPosition',
+        args: [userAddress, signal.tokenAddress],
+      }) as any;
+
+      const ZERO_REQUEST_KEY =
+        '0x0000000000000000000000000000000000000000000000000000000000000000';
+      const requestKeyRaw = onChainPosition?.requestKey as string | undefined;
+      const requestKey =
+        requestKeyRaw && requestKeyRaw !== ZERO_REQUEST_KEY ? requestKeyRaw : undefined;
+
+      const trackerId = await gmxRequestTracker.recordSubmitted({
+        walletAddress: userAddress,
+        tokenAddress: signal.tokenAddress,
+        requestType: 'increase',
+        requestKey,
+        direction: signal.direction,
+        submitTxHash: txHash,
+        vaultCollateral: onChainPosition?.collateral as bigint | undefined,
+      });
+
+      const gmxOpened = await this.waitForGmxOpen(signal.tokenAddress, isLong);
+      if (!gmxOpened) {
+        await gmxRequestTracker.markTimeout(
+          trackerId,
+          'GMX keeper did not execute increase within timeout'
+        );
+        return {
+          success: false,
+          error: 'GMX keeper did not open position within timeout — DB row not created',
+          txHash,
+          requestKey,
+        };
+      }
+
+      const gmxPos = await fetchGmxPerpPosition(signal.tokenAddress, isLong);
+      if (gmxPos && trackerId) {
+        await gmxRequestTracker.markGmxExecuted(trackerId, {
+          size: gmxPos.size,
+          averagePrice: gmxPos.averagePrice,
+          collateral: gmxPos.collateral,
+        });
+      }
+
+      const entryPrice =
+        gmxPos && gmxPos.averagePrice > 0n
+          ? gmxPriceToNumber(gmxPos.averagePrice)
+          : price?.max || 0;
+      const entryAmount = parseFloat(
+        formatUnits(
+          gmxPos?.collateral ?? onChainPosition?.collateral ?? signal.collateralAmount,
+          6
+        )
+      );
+
       const position = await positionService.openPosition({
         walletAddress: userAddress,
         chainId: 42161,
         tokenAddress: signal.tokenAddress,
         tokenSymbol: signal.tokenSymbol,
         direction: signal.direction,
-        entryPrice: price?.max || 0,
+        entryPrice,
         entryAmount,
-        tokenAmount: 0, // GMX handles this
+        tokenAmount: 0,
         txHash,
         trailingStopPercent: signal.stopLossPercent,
         takeProfitPercent: signal.takeProfitPercent,
         isLeveraged: true,
         leverageMultiplier: signal.leverage,
         collateralAmount: entryAmount,
-        borrowedAmount: 0 // GMX handles leverage internally
+        borrowedAmount: 0,
       });
 
-      // Record trade
       await subscriptionService.recordTrade(userAddress);
 
-      logger.info('GMX position opened successfully', {
+      logger.info('GMX position opened (keeper executed)', {
         txHash,
         positionId: position?.id,
         user: userAddress.slice(0, 10),
         token: signal.tokenSymbol,
-        direction: signal.direction,
-        leverage: signal.leverage + 'x'
+        entryPrice,
+        entryAmount,
+        gmxSize: gmxPos?.size.toString(),
       });
 
       return {
         success: true,
         txHash,
-        collateral: formatUnits(signal.collateralAmount, 6),
-        leverage: signal.leverage
+        requestKey,
+        gmxExecuted: true,
+        collateral: formatUnits(gmxPos?.collateral ?? signal.collateralAmount, 6),
+        leverage: signal.leverage,
       };
     } catch (err: any) {
       logger.error('Failed to open GMX position', { error: err.message });
@@ -596,14 +961,8 @@ export class TradingV7GMXService {
   }
 
   /**
-   * Close a position - closes GMX position AND credits user.
-   * Uses the contract's own getPositionPnL for correct P/L (same logic as userInstantClose).
-   * NO fee estimates — the contract handles success fee in finalizeClose.
-   *
-   * Step 1: Update trailing stop on-chain (sync state)
-   * Step 2: Read P/L from contract (on-chain price, same as userInstantClose)
-   * Step 3: Call contract closePosition → sends createDecreasePosition to GMX
-   * Step 4: Call finalizeClose → credits user balance
+   * Close a position: submit GMX decrease, wait for keeper execution, then finalizeClose
+   * using measured vault USDC — never finalize with estimated getPositionPnL.
    */
   async closePosition(
     userAddress: `0x${string}`,
@@ -611,149 +970,151 @@ export class TradingV7GMXService {
     closeReason: string
   ): Promise<V7TradeResult> {
     try {
-      logger.info('Closing position', {
+      logger.info('Closing position (settlement-based)', {
         user: userAddress.slice(0, 10),
         token: tokenAddress.slice(0, 10),
-        reason: closeReason
+        reason: closeReason,
       });
 
-      // Get current position from contract
       const position = await this.publicClient.readContract({
         address: this.vaultAddress,
         abi: VAULT_V7_ABI,
         functionName: 'getPosition',
-        args: [userAddress, tokenAddress]
+        args: [userAddress, tokenAddress],
       }) as any;
 
-      if (!position || !position.isActive) {
+      if (!position?.isActive) {
         return { success: false, error: 'No active position' };
       }
 
-      const collateral = position.collateral;
-      const entryPrice = position.entryPrice;
+      const collateral = position.collateral as bigint;
+      const isLong = position.isLong as boolean;
 
-      // Use the CONTRACT's own P/L calculation — same logic as userInstantClose
-      // This ensures the credited amount matches what the contract would calculate
-      const [pnlRaw, pnlPercentRaw] = await this.publicClient.readContract({
-        address: this.vaultAddress,
-        abi: VAULT_V7_ABI,
-        functionName: 'getPositionPnL',
-        args: [userAddress, tokenAddress]
-      }) as [bigint, bigint];
-
-      // Calculate received amount: collateral + pnl (no fake fee deductions)
-      let receivedAmount: bigint;
-      if (pnlRaw >= 0n) {
-        receivedAmount = collateral + BigInt(pnlRaw);
-      } else {
-        const loss = BigInt(-pnlRaw);
-        receivedAmount = collateral > loss ? collateral - loss : 0n;
-      }
-
-      // Get current price for logging/return
-      const [maxPrice, minPrice] = await this.publicClient.readContract({
-        address: this.vaultAddress,
-        abi: VAULT_V7_ABI,
-        functionName: 'getPrice',
-        args: [tokenAddress]
-      }) as [bigint, bigint];
-      const currentPrice = position.isLong ? minPrice : maxPrice;
-
-      logger.info('PnL from contract (no fee estimate)', {
-        user: userAddress.slice(0, 10),
-        entryPrice: entryPrice.toString(),
-        currentPrice: currentPrice.toString(),
-        pnlRaw: pnlRaw.toString(),
-        pnlPercentBps: pnlPercentRaw.toString(),
-        collateral: collateral.toString(),
-        receivedAmount: receivedAmount.toString()
+      const trackerId = await gmxRequestTracker.recordSubmitted({
+        walletAddress: userAddress,
+        tokenAddress,
+        requestType: 'decrease',
+        direction: isLong ? 'LONG' : 'SHORT',
+        vaultCollateral: collateral,
       });
 
-      // STEP 1: Sync trailing stop on-chain before attempting close
-      try {
-        await this.walletClient.writeContract({
-          address: this.vaultAddress,
-          abi: VAULT_V7_ABI,
-          functionName: 'updateTrailingStop',
-          args: [userAddress, tokenAddress],
-          chain: arbitrum,
-          account: this.botAccount
-        });
-      } catch (trailingErr: any) {
-        // Non-fatal — trailing stop may not be configured
-        logger.debug('updateTrailingStop skipped', { reason: trailingErr.message?.slice(0, 80) });
-      }
-
-      // STEP 2: Close GMX position via contract (calls createDecreasePosition on GMX)
-      let gmxClosed = false;
-      try {
-        const executionFee = await this.getExecutionFee();
-        const closeHash = await this.walletClient.writeContract({
-          address: this.vaultAddress,
-          abi: VAULT_V7_ABI,
-          functionName: 'closePosition',
-          args: [userAddress, tokenAddress],
-          value: executionFee,
-          chain: arbitrum,
-          account: this.botAccount
-        });
-        const closeReceipt = await this.publicClient.waitForTransactionReceipt({ hash: closeHash });
-        if (closeReceipt.status === 'success') {
-          gmxClosed = true;
-          logger.info('GMX close request sent via keeperClosePosition', {
-            user: userAddress.slice(0, 10),
-            txHash: closeHash
+      if (await this.isGMXPositionClosed(userAddress, tokenAddress)) {
+        if (trackerId) {
+          await gmxRequestTracker.markGmxExecuted(trackerId, {
+            size: 0n,
+            averagePrice: 0n,
+            collateral: 0n,
           });
         }
-      } catch (gmxErr: any) {
-        // keeperClosePosition failed (SL/TP not met on-chain, or autoFeatures disabled)
-        logger.warn('keeperClosePosition failed — GMX position may be orphaned', {
+        const orphanResult = await this.settleAfterGmxAlreadyClosed(
+          userAddress,
+          tokenAddress,
+          closeReason,
+          collateral,
+          isLong
+        );
+        if (orphanResult.success && trackerId) {
+          await gmxRequestTracker.markVaultFinalized(trackerId, {
+            finalizeTxHash: orphanResult.txHash,
+            receivedAmount: orphanResult.exitAmount
+              ? BigInt(Math.round(orphanResult.exitAmount * 1e6))
+              : undefined,
+            pnlUsdc: orphanResult.pnl
+              ? BigInt(Math.round(orphanResult.pnl * 1e6))
+              : undefined,
+          });
+        } else if (!orphanResult.success) {
+          await gmxRequestTracker.markFailed(trackerId, orphanResult.error ?? 'orphan settle failed');
+        }
+        return orphanResult;
+      }
+
+      const balanceBefore = await this.getVaultUsdcBalance();
+      await this.syncTrailingStop(userAddress, tokenAddress);
+
+      let gmxDecreaseSubmitted = false;
+      for (let attempt = 1; attempt <= GMX_DECREASE_RETRY_ATTEMPTS; attempt++) {
+        const decrease = await this.requestGmxDecrease(userAddress, tokenAddress);
+        if (decrease.submitted) {
+          gmxDecreaseSubmitted = true;
+          logger.info('GMX decrease submitted', {
+            user: userAddress.slice(0, 10),
+            txHash: decrease.txHash,
+            attempt,
+          });
+          break;
+        }
+        logger.warn('GMX decrease not submitted (keeper SL/TP)', {
           user: userAddress.slice(0, 10),
-          token: tokenAddress.slice(0, 10),
-          error: gmxErr.message?.slice(0, 120)
+          attempt,
+          error: decrease.error?.slice(0, 120),
+        });
+        if (attempt < GMX_DECREASE_RETRY_ATTEMPTS) {
+          await this.sleep(GMX_DECREASE_RETRY_DELAY_MS);
+          await this.syncTrailingStop(userAddress, tokenAddress);
+        }
+      }
+
+      const gmxSettled = await this.waitForGmxClose(tokenAddress, isLong);
+      if (!gmxSettled) {
+        await gmxRequestTracker.markTimeout(
+          trackerId,
+          'GMX keeper did not close position within timeout'
+        );
+        return {
+          success: false,
+          error: 'GMX keeper did not close position within timeout — finalizeClose skipped',
+        };
+      }
+
+      const gmxAfterClose = await fetchGmxPerpPosition(tokenAddress, isLong);
+      if (trackerId && gmxAfterClose) {
+        await gmxRequestTracker.markGmxExecuted(trackerId, {
+          size: gmxAfterClose.size,
+          averagePrice: gmxAfterClose.averagePrice,
+          collateral: gmxAfterClose.collateral,
         });
       }
 
-      // STEP 3: Call finalizeClose to credit user balance
-      // Contract handles success fee (10% of profit) internally
-      const txHash = await this.walletClient.writeContract({
-        address: this.vaultAddress,
-        abi: VAULT_V7_ABI,
-        functionName: 'finalizeClose',
-        args: [userAddress, tokenAddress, receivedAmount, closeReason],
-        chain: arbitrum,
-        account: this.botAccount
-      });
+      const balanceAfter = await this.getVaultUsdcBalance();
+      let receivedAmount = this.computeReceivedFromBalanceDelta(
+        balanceBefore,
+        balanceAfter,
+        collateral
+      );
 
-      const receipt = await this.publicClient.waitForTransactionReceipt({ hash: txHash });
-      if (receipt.status !== 'success') {
-        return { success: false, error: 'FinalizeClose transaction reverted' };
+      const maxSettleable = await this.computeMaxSettleableReceived(collateral);
+      if (receivedAmount > maxSettleable) {
+        logger.warn('Capping received to vault settleable amount', {
+          received: formatUnits(receivedAmount, 6),
+          maxSettleable: formatUnits(maxSettleable, 6),
+        });
+        receivedAmount = maxSettleable;
       }
 
-      // Convert to human-readable values for return
-      const pnlPercent = Number(pnlPercentRaw) / 100; // bps to percent
-      const pnlUSD = Number(pnlRaw) / 1e6; // USDC has 6 decimals
-      const exitPriceNum = Number(currentPrice) / 1e30; // GMX prices have 30 decimals
-      const exitAmountNum = Number(receivedAmount) / 1e6;
+      const settled = await this.finalizePositionClose(
+        userAddress,
+        tokenAddress,
+        closeReason,
+        collateral,
+        isLong,
+        receivedAmount,
+        gmxDecreaseSubmitted,
+        'vault_usdc_delta'
+      );
 
-      logger.info('Position closed' + (gmxClosed ? ' + GMX closed' : ' (GMX ORPHANED)'), {
-        txHash,
-        user: userAddress.slice(0, 10),
-        reason: closeReason,
-        pnlPercent: pnlPercent.toFixed(2) + '%',
-        pnlUSD: '$' + pnlUSD.toFixed(2),
-        exitPrice: exitPriceNum.toFixed(2),
-        gmxClosed
-      });
+      if (settled.success && trackerId) {
+        await gmxRequestTracker.markVaultFinalized(trackerId, {
+          finalizeTxHash: settled.txHash,
+          usdcDelta: balanceAfter > balanceBefore ? balanceAfter - balanceBefore : 0n,
+          receivedAmount,
+          pnlUsdc: settled.pnl != null ? BigInt(Math.round(settled.pnl * 1e6)) : undefined,
+        });
+      } else if (!settled.success) {
+        await gmxRequestTracker.markFailed(trackerId, settled.error ?? 'finalize failed');
+      }
 
-      return {
-        success: true,
-        txHash,
-        pnl: pnlUSD,
-        pnlPercent: pnlPercent,
-        exitPrice: exitPriceNum,
-        exitAmount: exitAmountNum
-      };
+      return settled;
     } catch (err: any) {
       logger.error('Failed to close position', { error: err.message });
       return { success: false, error: err.message };
@@ -782,34 +1143,7 @@ export class TradingV7GMXService {
         return { success: false, error: 'No active vault position' };
       }
 
-      // Check if GMX position is closed
-      const gmxPosition = await this.publicClient.readContract({
-        address: GMX_ADDRESSES.vault,
-        abi: [{
-          inputs: [
-            { name: '_account', type: 'address' },
-            { name: '_collateralToken', type: 'address' },
-            { name: '_indexToken', type: 'address' },
-            { name: '_isLong', type: 'bool' }
-          ],
-          name: 'getPosition',
-          outputs: [
-            { name: 'size', type: 'uint256' },
-            { name: 'collateral', type: 'uint256' },
-            { name: 'averagePrice', type: 'uint256' },
-            { name: 'entryFundingRate', type: 'uint256' },
-            { name: 'reserveAmount', type: 'uint256' },
-            { name: 'realisedPnl', type: 'int256' },
-            { name: 'lastIncreasedTime', type: 'uint256' }
-          ],
-          stateMutability: 'view',
-          type: 'function'
-        }],
-        functionName: 'getPosition',
-        args: [this.vaultAddress, TOKENS.USDC, tokenAddress, position.isLong]
-      }) as unknown as any[];
-
-      const gmxSize = gmxPosition[0] as bigint;
+      const gmxSize = await this.getGmxPositionSize(tokenAddress, position.isLong);
       if (gmxSize > 0n) {
         return { success: false, error: 'GMX position still active - cannot reconcile yet' };
       }
@@ -820,19 +1154,9 @@ export class TradingV7GMXService {
         collateral: formatUnits(position.collateral, 6)
       });
 
-      // Call reconcile on vault - credits user their balance
       const txHash = await this.walletClient.writeContract({
         address: this.vaultAddress,
-        abi: [{
-          inputs: [
-            { name: 'user', type: 'address' },
-            { name: 'token', type: 'address' }
-          ],
-          name: 'reconcile',
-          outputs: [],
-          stateMutability: 'nonpayable',
-          type: 'function'
-        }],
+        abi: VAULT_V7_ABI,
         functionName: 'reconcile',
         args: [userAddress, tokenAddress],
         chain: arbitrum,
@@ -1102,43 +1426,32 @@ export class TradingV7GMXService {
     tokenAddress: `0x${string}`
   ): Promise<{ pnl: number; pnlPercent: number; currentPrice: number } | null> {
     try {
-      // Check if position exists
       const position = await this.publicClient.readContract({
         address: this.vaultAddress,
         abi: VAULT_V7_ABI,
         functionName: 'getPosition',
-        args: [userAddress, tokenAddress]
+        args: [userAddress, tokenAddress],
       }) as any;
 
       if (!position || !position.isActive) {
         return null;
       }
 
-      // Get PnL from contract
-      const [pnl, pnlPercent] = await this.publicClient.readContract({
-        address: this.vaultAddress,
-        abi: VAULT_V7_ABI,
-        functionName: 'getPositionPnL',
-        args: [userAddress, tokenAddress]
-      }) as [bigint, bigint];
+      const isLong = position.isLong as boolean;
+      const gmxPos = await fetchGmxPerpPosition(tokenAddress, isLong);
+      if (!gmxPos || gmxPos.size === 0n) {
+        return { pnl: 0, pnlPercent: 0, currentPrice: 0 };
+      }
 
-      // Get current price
-      const [maxPrice, minPrice] = await this.publicClient.readContract({
-        address: this.vaultAddress,
-        abi: VAULT_V7_ABI,
-        functionName: 'getPrice',
-        args: [tokenAddress]
-      }) as [bigint, bigint];
-
-      const currentPrice = position.isLong ? minPrice : maxPrice;
+      const markPrice = await getGmxMarkPrice(tokenAddress, isLong);
+      const unrealized = calculateGmxUnrealizedPnl(gmxPos, markPrice);
 
       return {
-        pnl: Number(pnl) / 1e6, // USDC decimals
-        pnlPercent: Number(pnlPercent) / 100, // Convert basis points to percent
-        currentPrice: Number(currentPrice) / 1e30 // GMX price decimals
+        pnl: gmxPnlToUsd(unrealized.pnl),
+        pnlPercent: gmxPnlBpsToPercent(unrealized.pnlPercentBps),
+        currentPrice: gmxPriceToNumber(markPrice),
       };
     } catch (err: any) {
-      // Position doesn't exist or error
       return null;
     }
   }
@@ -1211,6 +1524,10 @@ export class TradingV7GMXService {
 // Export singleton (will need vault address set after deployment)
 export const tradingV7GMXService = new TradingV7GMXService();
 
+/** Preferred name — same singleton, V11 vault. */
+export const tradingGmxVaultService = tradingV7GMXService;
+
 // Export token addresses
 export const V7_TOKENS = TOKENS;
+export const GMX_TOKENS = TOKENS;
 export const GMX_CONTRACTS = GMX_ADDRESSES;

@@ -124,13 +124,13 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
   const isPositive = stats.totalPnl >= 0;
 
   return (
-    <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
+    <div className="bg-card-dark rounded-xl border border-border overflow-hidden">
       {/* Header */}
-      <div className="p-4 border-b border-gray-800">
+      <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-accent" />
-            <h3 className="text-white font-semibold">Performance</h3>
+            <h3 className="text-primary font-semibold">Performance</h3>
           </div>
 
           {/* Time Range Selector */}
@@ -142,7 +142,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
                 className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
                   timeRange === range
                     ? 'bg-white text-gray-900'
-                    : 'text-gray-400 hover:text-white'
+                    : 'text-secondary hover:text-primary'
                 }`}
               >
                 {range === 'all' ? 'All' : range.toUpperCase()}
@@ -154,24 +154,24 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
         {/* Stats Row */}
         <div className="grid grid-cols-4 gap-3">
           <div className="text-center">
-            <p className="text-xs text-gray-400 mb-1">Total P/L</p>
+            <p className="text-xs text-secondary mb-1">Total P/L</p>
             <p className={`font-bold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
               {isPositive ? '+' : ''}{stats.totalPnl.toFixed(2)}
             </p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-gray-400 mb-1">ROI</p>
+            <p className="text-xs text-secondary mb-1">ROI</p>
             <p className={`font-bold ${stats.roi >= 0 ? 'text-green-400' : 'text-red-400'}`}>
               {stats.roi >= 0 ? '+' : ''}{stats.roi.toFixed(1)}%
             </p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-gray-400 mb-1">Win Rate</p>
-            <p className="font-bold text-white">{stats.winRate.toFixed(0)}%</p>
+            <p className="text-xs text-secondary mb-1">Win Rate</p>
+            <p className="font-bold text-primary">{stats.winRate.toFixed(0)}%</p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-gray-400 mb-1">Trades</p>
-            <p className="font-bold text-white">
+            <p className="text-xs text-secondary mb-1">Trades</p>
+            <p className="font-bold text-primary">
               <span className="text-green-400">{stats.wins}</span>
               /
               <span className="text-red-400">{stats.losses}</span>
@@ -183,7 +183,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
       {/* Chart */}
       <div className="p-4">
         {chartData.length < 2 ? (
-          <div className="h-32 flex items-center justify-center text-gray-500 text-sm">
+          <div className="h-32 flex items-center justify-center text-secondary text-sm">
             Not enough data to display chart
           </div>
         ) : (
@@ -249,12 +249,12 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
 
         {/* Bottom labels */}
         <div className="flex justify-between mt-2">
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-secondary">
             {chartData.length > 0
               ? new Date(chartData[0].timestamp).toLocaleDateString()
               : '-'}
           </span>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-secondary">
             {chartData.length > 0
               ? new Date(chartData[chartData.length - 1].timestamp).toLocaleDateString()
               : '-'}
@@ -263,7 +263,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
       </div>
 
       {/* P/L Indicator */}
-      <div className={`px-4 py-3 ${isPositive ? 'bg-green-500/10' : 'bg-red-500/10'} border-t border-gray-800`}>
+      <div className={`px-4 py-3 ${isPositive ? 'bg-green-500/10' : 'bg-red-500/10'} border-t border-border`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {isPositive ? (

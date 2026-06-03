@@ -8,28 +8,28 @@ import MobileMenu from '../components/ui/MobileMenu';
 
 const CardPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen page-shell">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-white/5">
+      <header className="fixed top-0 left-0 right-0 z-50 glass-nav">
         <div className="container-custom">
           <nav className="flex justify-between items-center h-20">
             <Logo size="md" />
             <div className="hidden md:flex items-center space-x-10">
-              <Link to="/how-it-works" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+              <Link to="/how-it-works" className="text-secondary hover:text-primary transition-colors text-sm font-medium">
                 How it works
               </Link>
-              <Link to="/card" className="text-white transition-colors text-sm font-medium">
+              <Link to="/card" className="text-primary transition-colors text-sm font-medium">
                 +DebitCard
               </Link>
-              <Link to="/trading-bot" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+              <Link to="/trading-bot" className="text-secondary hover:text-primary transition-colors text-sm font-medium">
                 Bot Trading
               </Link>
-              <Link to="/about" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+              <Link to="/about" className="text-secondary hover:text-primary transition-colors text-sm font-medium">
                 About
               </Link>
             </div>
             <div className="flex items-center gap-4">
-              <Link to="/login" className="hidden md:block text-gray-400 hover:text-white transition-colors text-sm font-medium">
+              <Link to="/login" className="hidden md:block text-secondary hover:text-primary transition-colors text-sm font-medium">
                 Sign in
               </Link>
               <Link to="/register" className="hidden md:block">
@@ -52,14 +52,14 @@ const CardPage: React.FC = () => {
             transition={{ duration: 0.8 }}
             className="max-w-4xl mx-auto text-center"
           >
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 rounded-full border border-white/10 mb-8">
-              <Sparkles size={16} className="text-white/60" />
-              <span className="text-sm text-gray-400">Coming Soon</span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-black/[0.04] rounded-full border border-black/[0.08] mb-8">
+              <Sparkles size={16} className="text-primary/60" />
+              <span className="text-sm text-secondary">Coming Soon</span>
             </div>
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-medium leading-[1.1] mb-8 tracking-tight">
-              +DebitCard <span className="text-gray-500">by Monadier</span>
+              +DebitCard <span className="text-secondary">by Monadier</span>
             </h1>
-            <p className="text-lg md:text-xl text-gray-400 mb-12 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-lg md:text-xl text-secondary mb-12 max-w-2xl mx-auto leading-relaxed">
               Control your spending and track your income wherever you go. A premium debit card powered by Stripe, designed for the modern trader.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -80,19 +80,19 @@ const CardPage: React.FC = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            className="relative rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-12 md:p-20"
+            className="relative rounded-3xl overflow-hidden border border-black/[0.08] bg-gradient-to-br from-white/5 to-transparent p-12 md:p-20"
           >
             <div className="max-w-xl">
-              <div className="w-64 h-40 rounded-2xl bg-gradient-to-br from-gray-800 to-gray-900 border border-white/10 mb-8 flex items-end p-6">
+              <div className="w-64 h-40 rounded-2xl bg-gradient-to-br from-gray-800 to-gray-900 border border-black/[0.08] mb-8 flex items-end p-6">
                 <div>
-                  <p className="text-white/40 text-xs mb-1">MONADIER</p>
-                  <p className="text-white font-mono text-sm">**** **** **** 4242</p>
+                  <p className="text-primary/40 text-xs mb-1">MONADIER</p>
+                  <p className="text-primary font-mono text-sm">**** **** **** 4242</p>
                 </div>
               </div>
-              <h2 className="text-2xl md:text-3xl font-display font-medium text-white mb-4">
+              <h2 className="text-2xl md:text-3xl font-display font-medium text-primary mb-4">
                 Your trading profits, instantly spendable
               </h2>
-              <p className="text-gray-400 leading-relaxed">
+              <p className="text-secondary leading-relaxed">
                 Connect your trading wallet and spend your crypto gains anywhere Visa is accepted. Real-time conversion, zero hassle.
               </p>
             </div>
@@ -111,7 +111,7 @@ const CardPage: React.FC = () => {
             <h2 className="text-3xl md:text-4xl font-display font-medium mb-6">
               Everything you need in a card
             </h2>
-            <p className="text-gray-400 text-lg leading-relaxed">
+            <p className="text-secondary text-lg leading-relaxed">
               Powered by Stripe's global infrastructure. Secure, fast, and accepted worldwide.
             </p>
           </motion.div>
@@ -155,13 +155,13 @@ const CardPage: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="group p-8 rounded-2xl border border-white/5 hover:border-white/10 hover:bg-white/[0.02] transition-all"
+                className="group p-8 rounded-2xl border border-black/[0.06] hover:border-black/[0.08] hover:bg-black/[0.03] transition-all"
               >
-                <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center mb-6 group-hover:bg-white/10 transition-colors">
-                  <feature.icon className="text-white/60" size={24} />
+                <div className="w-12 h-12 rounded-xl bg-black/[0.04] flex items-center justify-center mb-6 group-hover:bg-black/[0.06] transition-colors">
+                  <feature.icon className="text-primary/60" size={24} />
                 </div>
-                <h3 className="text-lg font-medium text-white mb-3">{feature.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{feature.description}</p>
+                <h3 className="text-lg font-medium text-primary mb-3">{feature.title}</h3>
+                <p className="text-secondary text-sm leading-relaxed">{feature.description}</p>
               </motion.div>
             ))}
           </div>
@@ -174,11 +174,11 @@ const CardPage: React.FC = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="p-8 md:p-12 rounded-3xl bg-white/[0.02] border border-white/5 text-center"
+            className="p-8 md:p-12 rounded-3xl bg-black/[0.03] border border-black/[0.06] text-center"
           >
-            <p className="text-gray-500 text-sm uppercase tracking-wider mb-4">Powered by</p>
-            <h3 className="text-2xl md:text-3xl font-display font-medium text-white mb-4">Stripe Issuing</h3>
-            <p className="text-gray-400 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-secondary text-sm uppercase tracking-wider mb-4">Powered by</p>
+            <h3 className="text-2xl md:text-3xl font-display font-medium text-primary mb-4">Stripe Issuing</h3>
+            <p className="text-secondary max-w-2xl mx-auto leading-relaxed">
               Built on Stripe's world-class financial infrastructure. Your funds are secure, your data is protected, and your transactions are processed by the same technology trusted by millions of businesses worldwide.
             </p>
           </motion.div>
@@ -196,7 +196,7 @@ const CardPage: React.FC = () => {
             <h2 className="text-3xl md:text-4xl font-display font-medium mb-6">
               Be the first to get +Card
             </h2>
-            <p className="text-gray-400 text-lg mb-10">
+            <p className="text-secondary text-lg mb-10">
               Join the waitlist and we'll notify you as soon as +Card launches. Early adopters get exclusive benefits.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -212,16 +212,16 @@ const CardPage: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 py-12">
+      <footer className="border-t border-black/[0.06] py-12">
         <div className="container-custom">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <Logo size="sm" />
             <div className="flex items-center gap-8">
-              <Link to="/about" className="text-gray-500 hover:text-white text-sm transition-colors">About</Link>
-              <Link to="/terms" className="text-gray-500 hover:text-white text-sm transition-colors">Terms</Link>
-              <Link to="/privacy" className="text-gray-500 hover:text-white text-sm transition-colors">Privacy</Link>
+              <Link to="/about" className="text-secondary hover:text-primary text-sm transition-colors">About</Link>
+              <Link to="/terms" className="text-secondary hover:text-primary text-sm transition-colors">Terms</Link>
+              <Link to="/privacy" className="text-secondary hover:text-primary text-sm transition-colors">Privacy</Link>
             </div>
-            <p className="text-gray-600 text-sm">&copy; 2026 Monadier. All rights reserved.</p>
+            <p className="text-muted text-sm">&copy; 2026 Monadier. All rights reserved.</p>
           </div>
         </div>
       </footer>

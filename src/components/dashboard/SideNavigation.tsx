@@ -16,9 +16,9 @@ import {
   X
 } from 'lucide-react';
 
-const ADMIN_EMAIL = 'ipsunlorem@gmail.com';
 import Logo from '../ui/Logo';
 import { signOut, supabase } from '../../lib/supabase';
+import { isAdminEmail } from '../../lib/admin';
 import { useWeb3 } from '../../contexts/Web3Context';
 
 const SideNavigation: React.FC = () => {
@@ -33,7 +33,7 @@ const SideNavigation: React.FC = () => {
   useEffect(() => {
     const checkAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      setIsAdmin(user?.email === ADMIN_EMAIL);
+      setIsAdmin(isAdminEmail(user?.email));
     };
     checkAdmin();
   }, []);
@@ -113,8 +113,8 @@ const SideNavigation: React.FC = () => {
   return (
     <>
       {/* DESKTOP SIDEBAR - Hidden on mobile, visible on md+ */}
-      <div className="h-screen fixed left-0 top-0 w-20 bg-card-dark border-r border-gray-800 hidden md:flex flex-col items-center py-8">
-        <Logo size="sm" iconOnly />
+      <div className="dashboard-sidebar h-screen fixed left-0 top-0 w-20 border-r hidden md:flex flex-col items-center py-8">
+        <Logo size="sm" iconOnly theme="light" />
 
         <nav className="mt-16 flex-grow">
           <ul className="space-y-6">
@@ -131,12 +131,12 @@ const SideNavigation: React.FC = () => {
                   >
                     <div className={`
                       w-11 h-11 rounded-xl flex items-center justify-center relative
-                      ${isActive ? 'bg-white/5' : 'hover:bg-surface-hover'}
+                      ${isActive ? 'bg-black/[0.04]' : 'hover:bg-surface-hover'}
                       transition-all duration-300
                     `}>
                       <IconComponent
                         size={20}
-                        className={isActive ? 'text-accent' : 'text-gray-500 group-hover:text-gray-300'}
+                        className={isActive ? 'text-primary' : 'text-secondary group-hover:text-primary'}
                       />
                       {/* Pending approval badge for Bot Trading */}
                       {item.path === '/dashboard/bot-trading' && pendingApprovals > 0 && (
@@ -146,7 +146,7 @@ const SideNavigation: React.FC = () => {
                       )}
                     </div>
 
-                    <span className={`text-[10px] mt-1 ${isActive ? 'text-accent' : 'text-gray-500'}`}>
+                    <span className={`text-[10px] mt-1 ${isActive ? 'text-accent' : 'text-secondary'}`}>
                       {item.label}
                     </span>
 
@@ -168,12 +168,12 @@ const SideNavigation: React.FC = () => {
           onClick={handleSignOut}
           className="w-11 h-11 rounded-xl flex items-center justify-center hover:bg-surface-hover transition-colors group"
         >
-          <LogOut size={20} className="text-gray-500 group-hover:text-red-400" />
+          <LogOut size={20} className="text-secondary group-hover:text-red-400" />
         </button>
       </div>
 
       {/* MOBILE BOTTOM NAVIGATION - Visible only on mobile */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card-dark border-t border-gray-800 safe-area-bottom">
+      <div className="dashboard-sidebar md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[#c5c5cb] bg-white/70 backdrop-blur-xl safe-area-bottom">
         <nav className="flex justify-around items-center h-16 px-2">
           {mobileNavItems.map((item) => {
             const isActive = currentPath === item.path ||
@@ -189,7 +189,7 @@ const SideNavigation: React.FC = () => {
                 <div className="relative">
                   <IconComponent
                     size={20}
-                    className={isActive ? 'text-accent' : 'text-gray-500'}
+                    className={isActive ? 'text-accent' : 'text-secondary'}
                   />
                   {/* Pending approval badge for Bot Trading */}
                   {item.path === '/dashboard/bot-trading' && pendingApprovals > 0 && (
@@ -198,7 +198,7 @@ const SideNavigation: React.FC = () => {
                     </span>
                   )}
                 </div>
-                <span className={`text-[10px] mt-1 ${isActive ? 'text-accent' : 'text-gray-500'}`}>
+                <span className={`text-[10px] mt-1 ${isActive ? 'text-accent' : 'text-secondary'}`}>
                   {item.label}
                 </span>
                 {isActive && (

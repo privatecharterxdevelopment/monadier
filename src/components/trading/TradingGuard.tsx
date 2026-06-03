@@ -31,10 +31,10 @@ const TradingGuard: React.FC<TradingGuardProps> = ({ children }) => {
           <AlertTriangle className="w-8 h-8 text-yellow-400" />
         </div>
 
-        <h2 className="text-2xl font-semibold text-white mb-2">
+        <h2 className="text-2xl font-semibold text-primary mb-2">
           Complete Setup to Trade
         </h2>
-        <p className="text-zinc-400 mb-8">
+        <p className="text-secondary mb-8">
           {reason || 'Please complete the following steps to start trading'}
         </p>
 
@@ -43,22 +43,22 @@ const TradingGuard: React.FC<TradingGuardProps> = ({ children }) => {
           <div className={`flex items-center gap-4 p-4 rounded-lg ${
             onboarding.steps.profile.complete
               ? 'bg-green-500/10 border border-green-500/30'
-              : 'bg-zinc-800 border border-zinc-700'
+              : 'bg-white/55 border border-[#c5c5cb]'
           }`}>
             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              onboarding.steps.profile.complete ? 'bg-green-500/20' : 'bg-zinc-700'
+              onboarding.steps.profile.complete ? 'bg-green-500/20' : 'bg-black/[0.04]'
             }`}>
               <User className={`w-5 h-5 ${
-                onboarding.steps.profile.complete ? 'text-green-400' : 'text-zinc-400'
+                onboarding.steps.profile.complete ? 'text-green-400' : 'text-secondary'
               }`} />
             </div>
             <div className="flex-1">
               <p className={`font-medium ${
-                onboarding.steps.profile.complete ? 'text-green-400' : 'text-white'
+                onboarding.steps.profile.complete ? 'text-green-400' : 'text-primary'
               }`}>
                 {onboarding.steps.profile.complete ? 'Profile Complete' : 'Complete Your Profile'}
               </p>
-              <p className="text-sm text-zinc-500">
+              <p className="text-sm text-muted">
                 {onboarding.steps.profile.complete
                   ? 'Name and country added'
                   : 'Add your name and country'}
@@ -79,30 +79,30 @@ const TradingGuard: React.FC<TradingGuardProps> = ({ children }) => {
             onboarding.steps.wallet.complete
               ? 'bg-green-500/10 border border-green-500/30'
               : onboarding.steps.profile.complete
-                ? 'bg-zinc-800 border border-zinc-700'
-                : 'bg-zinc-800/50 border border-zinc-700/50 opacity-60'
+                ? 'bg-white/55 border border-[#c5c5cb]'
+                : 'bg-white/35 border border-[#c5c5cb] opacity-60'
           }`}>
             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              onboarding.steps.wallet.complete ? 'bg-green-500/20' : 'bg-zinc-700'
+              onboarding.steps.wallet.complete ? 'bg-green-500/20' : 'bg-black/[0.04]'
             }`}>
               <Wallet className={`w-5 h-5 ${
-                onboarding.steps.wallet.complete ? 'text-green-400' : 'text-zinc-400'
+                onboarding.steps.wallet.complete ? 'text-green-400' : 'text-secondary'
               }`} />
             </div>
             <div className="flex-1">
               <p className={`font-medium ${
-                onboarding.steps.wallet.complete ? 'text-green-400' : 'text-white'
+                onboarding.steps.wallet.complete ? 'text-green-400' : 'text-primary'
               }`}>
                 {onboarding.steps.wallet.complete ? 'Wallet Connected' : 'Connect Wallet'}
               </p>
-              <p className="text-sm text-zinc-500">
+              <p className="text-sm text-muted">
                 {onboarding.steps.wallet.complete
                   ? `${onboarding.steps.wallet.address?.slice(0, 6)}...${onboarding.steps.wallet.address?.slice(-4)}`
                   : 'Connect your trading wallet'}
               </p>
             </div>
             {!onboarding.steps.wallet.complete && onboarding.steps.profile.complete && (
-              <span className="px-4 py-2 bg-zinc-700 text-zinc-300 rounded-lg text-sm">
+              <span className="px-4 py-2 bg-white/60 border border-[#c5c5cb] text-primary rounded-lg text-sm">
                 Connect below
               </span>
             )}
@@ -113,23 +113,23 @@ const TradingGuard: React.FC<TradingGuardProps> = ({ children }) => {
             onboarding.steps.subscription.complete
               ? 'bg-green-500/10 border border-green-500/30'
               : onboarding.steps.wallet.complete
-                ? 'bg-zinc-800 border border-zinc-700'
-                : 'bg-zinc-800/50 border border-zinc-700/50 opacity-60'
+                ? 'bg-white/55 border border-[#c5c5cb]'
+                : 'bg-white/35 border border-[#c5c5cb] opacity-60'
           }`}>
             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              onboarding.steps.subscription.complete ? 'bg-green-500/20' : 'bg-zinc-700'
+              onboarding.steps.subscription.complete ? 'bg-green-500/20' : 'bg-black/[0.04]'
             }`}>
               <CreditCard className={`w-5 h-5 ${
-                onboarding.steps.subscription.complete ? 'text-green-400' : 'text-zinc-400'
+                onboarding.steps.subscription.complete ? 'text-green-400' : 'text-secondary'
               }`} />
             </div>
             <div className="flex-1">
               <p className={`font-medium ${
-                onboarding.steps.subscription.complete ? 'text-green-400' : 'text-white'
+                onboarding.steps.subscription.complete ? 'text-green-400' : 'text-primary'
               }`}>
                 {onboarding.steps.subscription.complete ? 'Subscription Active' : 'Choose a Plan'}
               </p>
-              <p className="text-sm text-zinc-500">
+              <p className="text-sm text-muted">
                 {onboarding.steps.subscription.complete
                   ? `${onboarding.steps.subscription.plan} plan active`
                   : 'Subscribe to start real trading'}
@@ -148,9 +148,9 @@ const TradingGuard: React.FC<TradingGuardProps> = ({ children }) => {
 
         {/* Free tier notice */}
         {onboarding.steps.subscription.plan === 'free' && (
-          <div className="mt-6 p-4 bg-zinc-800 rounded-lg">
-            <p className="text-sm text-zinc-400">
-              <span className="text-zinc-300 font-medium">Free Plan:</span> You can paper trade to test strategies.
+          <div className="mt-6 p-4 bg-white/50 border border-[#c5c5cb] rounded-lg">
+            <p className="text-sm text-secondary">
+              <span className="text-[#52525b] font-medium">Free Plan:</span> You can paper trade to test strategies.
               Upgrade to a paid plan for real trading with the bot.
             </p>
           </div>

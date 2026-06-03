@@ -253,8 +253,8 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
               <ArrowDownLeft className="w-5 h-5 text-green-500" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">Deposit to Vault</h2>
-              <p className="text-xs text-zinc-500">
+              <h2 className="text-lg font-semibold text-primary">Deposit to Vault</h2>
+              <p className="text-xs text-muted">
                 {chainId ? CHAIN_NAMES[chainId] || 'Unknown' : 'Not connected'}
                 {isV8Chain ? ' (V7 GMX - 25x Leverage)' : ''}
               </p>
@@ -265,7 +265,7 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
             disabled={isLoading}
             className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5 text-zinc-400" />
+            <X className="w-5 h-5 text-secondary" />
           </button>
         </div>
 
@@ -279,7 +279,7 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
               className={`flex-1 py-2.5 px-4 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${
                 depositType === 'usdc'
                   ? 'bg-white text-black'
-                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'
+                  : 'bg-zinc-800 text-secondary hover:bg-zinc-700 hover:text-primary'
               }`}
             >
               <Coins className="w-4 h-4" />
@@ -291,7 +291,7 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
               className={`flex-1 py-2.5 px-4 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${
                 depositType === 'eth'
                   ? 'bg-white text-black'
-                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'
+                  : 'bg-zinc-800 text-secondary hover:bg-zinc-700 hover:text-primary'
               }`}
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -304,11 +304,11 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
           {/* Amount Input */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm text-zinc-400">Amount</label>
+              <label className="text-sm text-secondary">Amount</label>
               <button
                 onClick={handleMaxClick}
                 disabled={isLoading || isLoadingBalance}
-                className="text-xs text-white hover:text-gray-300 transition-colors"
+                className="text-xs text-primary hover:text-[#52525b] transition-colors"
               >
                 Max: {isLoadingBalance ? '...' : depositType === 'usdc'
                   ? `${parseFloat(usdcBalance).toFixed(2)} USDC`
@@ -324,9 +324,9 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
                 disabled={isLoading}
                 placeholder="0.00"
                 step={depositType === 'eth' ? '0.001' : '0.01'}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white text-lg placeholder-zinc-500 focus:outline-none focus:border-white transition-colors"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-primary text-lg placeholder-zinc-500 focus:outline-none focus:border-white transition-colors"
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 font-medium">
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-secondary font-medium">
                 {depositType === 'usdc' ? 'USDC' : 'ETH'}
               </span>
             </div>
@@ -336,16 +336,16 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
           {depositType === 'eth' && amount && parseFloat(amount) > 0 && (
             <div className="bg-zinc-800/50 rounded-lg p-3">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-zinc-400">Estimated USDC</span>
-                <span className="text-white font-medium">~{estimatedUsdc} USDC</span>
+                <span className="text-secondary">Estimated USDC</span>
+                <span className="text-primary font-medium">~{estimatedUsdc} USDC</span>
               </div>
               <div className="flex items-center justify-between text-xs mt-1">
-                <span className="text-zinc-500">ETH Price</span>
-                <span className="text-zinc-400">${ethPrice.toFixed(2)}</span>
+                <span className="text-muted">ETH Price</span>
+                <span className="text-secondary">${ethPrice.toFixed(2)}</span>
               </div>
               <div className="flex items-center justify-between text-xs mt-1">
-                <span className="text-zinc-500">Slippage</span>
-                <span className="text-zinc-400">2% max</span>
+                <span className="text-muted">Slippage</span>
+                <span className="text-secondary">2% max</span>
               </div>
             </div>
           )}
@@ -356,23 +356,23 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
               // V7 GMX fees (Arbitrum)
               <>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-zinc-400">Position Fee</span>
-                  <span className="text-white">0.1% on total position</span>
+                  <span className="text-secondary">Position Fee</span>
+                  <span className="text-primary">0.1% on total position</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-zinc-400">Success Fee</span>
-                  <span className="text-white">10% of profit only</span>
+                  <span className="text-secondary">Success Fee</span>
+                  <span className="text-primary">10% of profit only</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-zinc-400">GMX Fee</span>
-                  <span className="text-white">~0.1% (GMX Perpetuals)</span>
+                  <span className="text-secondary">GMX Fee</span>
+                  <span className="text-primary">~0.1% (GMX Perpetuals)</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-zinc-400">Max Leverage</span>
+                  <span className="text-secondary">Max Leverage</span>
                   <span className="text-purple-400">25x (50x Elite)</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-zinc-400">Loss Fee</span>
+                  <span className="text-secondary">Loss Fee</span>
                   <span className="text-green-500">None</span>
                 </div>
               </>
@@ -380,23 +380,23 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
               // Fallback fees
               <>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-zinc-400">Platform Fee</span>
-                  <span className="text-white">1% per trade</span>
+                  <span className="text-secondary">Platform Fee</span>
+                  <span className="text-primary">1% per trade</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-zinc-400">DEX Fee</span>
-                  <span className="text-white">0.3% (Uniswap V2)</span>
+                  <span className="text-secondary">DEX Fee</span>
+                  <span className="text-primary">0.3% (Uniswap V2)</span>
                 </div>
               </>
             )}
             <div className="flex items-center justify-between text-sm">
-              <span className="text-zinc-400">Deposit Fee</span>
+              <span className="text-secondary">Deposit Fee</span>
               <span className="text-green-500">Free</span>
             </div>
             {depositType === 'eth' && (
               <div className="flex items-center justify-between text-sm">
-                <span className="text-zinc-400">Swap</span>
-                <span className="text-zinc-300">ETH auto-swaps to USDC</span>
+                <span className="text-secondary">Swap</span>
+                <span className="text-[#52525b]">ETH auto-swaps to USDC</span>
               </div>
             )}
           </div>

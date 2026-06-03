@@ -23,15 +23,17 @@ const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const variantClasses = {
-    primary: 'bg-white text-background hover:bg-gray-100',
-    secondary: 'border border-white/20 text-white hover:bg-white/10',
-    ghost: 'text-white hover:bg-white/10'
+    primary:
+      'bg-white text-[#0a0a0a] border border-[#c5c5cb] hover:bg-white hover:border-[#a1a1aa] shadow-glow font-semibold',
+    secondary:
+      'bg-white/70 text-[#0a0a0a] border border-[#c5c5cb] hover:bg-white hover:border-[#a1a1aa]',
+    ghost: 'text-secondary hover:text-primary hover:bg-black/[0.04] border border-transparent',
   };
 
   const sizeClasses = {
     sm: 'px-4 py-2 text-sm',
     md: 'px-6 py-3',
-    lg: 'px-8 py-4 text-lg'
+    lg: 'px-8 py-4 text-lg',
   };
 
   const baseClasses = `
@@ -57,18 +59,20 @@ const Button: React.FC<ButtonProps> = ({
       whileHover={{ scale: 1.02 }}
       {...props}
     >
-      <span className="relative z-10">
+      <span className="relative z-10 text-inherit">
         {isLoading ? (
           <div className="flex items-center justify-center">
-            <div className="w-5 h-5 border-2 border-t-transparent border-current rounded-full animate-spin mr-2"></div>
+            <div className="w-5 h-5 border-2 border-t-transparent border-current rounded-full animate-spin mr-2" />
             <span>Loading...</span>
           </div>
         ) : (
           children
         )}
       </span>
-      
-      <div className="absolute inset-0 bg-white/10 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
+
+      {variant === 'primary' && (
+        <div className="absolute inset-0 bg-black/[0.03] transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
+      )}
     </motion.button>
   );
 };

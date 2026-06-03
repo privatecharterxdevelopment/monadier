@@ -143,8 +143,8 @@ export default function VaultWithdrawModal({ maxAmount, onClose, onSuccess }: Va
               <ArrowUpRight className="w-5 h-5 text-orange-500" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">Withdraw from Vault</h2>
-              <p className="text-xs text-zinc-500">Back to your wallet</p>
+              <h2 className="text-lg font-semibold text-primary">Withdraw from Vault</h2>
+              <p className="text-xs text-muted">Back to your wallet</p>
             </div>
           </div>
           <button
@@ -152,7 +152,7 @@ export default function VaultWithdrawModal({ maxAmount, onClose, onSuccess }: Va
             disabled={isLoading}
             className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5 text-zinc-400" />
+            <X className="w-5 h-5 text-secondary" />
           </button>
         </div>
 
@@ -160,8 +160,8 @@ export default function VaultWithdrawModal({ maxAmount, onClose, onSuccess }: Va
         <div className="p-4 space-y-4">
           {/* Current Balance */}
           <div className="bg-zinc-800/50 rounded-lg p-3">
-            <p className="text-xs text-zinc-500 mb-1">Available to Withdraw</p>
-            <p className="text-xl font-bold text-white">
+            <p className="text-xs text-muted mb-1">Available to Withdraw</p>
+            <p className="text-xl font-bold text-primary">
               ${parseFloat(maxAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC
             </p>
           </div>
@@ -169,11 +169,11 @@ export default function VaultWithdrawModal({ maxAmount, onClose, onSuccess }: Va
           {/* Amount Input */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm text-zinc-400">Amount</label>
+              <label className="text-sm text-secondary">Amount</label>
               <button
                 onClick={handleMaxClick}
                 disabled={isLoading}
-                className="text-xs text-white hover:text-gray-300 transition-colors"
+                className="text-xs text-primary hover:text-[#52525b] transition-colors"
               >
                 Max
               </button>
@@ -185,9 +185,9 @@ export default function VaultWithdrawModal({ maxAmount, onClose, onSuccess }: Va
                 onChange={(e) => setAmount(e.target.value)}
                 disabled={isLoading}
                 placeholder="0.00"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white text-lg placeholder-zinc-500 focus:outline-none focus:border-white transition-colors"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-primary text-lg placeholder-zinc-500 focus:outline-none focus:border-white transition-colors"
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 font-medium">
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-secondary font-medium">
                 USDC
               </span>
             </div>
@@ -196,12 +196,12 @@ export default function VaultWithdrawModal({ maxAmount, onClose, onSuccess }: Va
           {/* Info */}
           <div className="bg-zinc-800/50 rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-zinc-400">Withdrawal Fee</span>
+              <span className="text-secondary">Withdrawal Fee</span>
               <span className="text-green-500">Free</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-zinc-400">You'll Receive</span>
-              <span className="text-white font-medium">
+              <span className="text-secondary">You'll Receive</span>
+              <span className="text-primary font-medium">
                 {amount ? `$${parseFloat(amount).toFixed(2)}` : '$0.00'} USDC
               </span>
             </div>
@@ -247,7 +247,7 @@ export default function VaultWithdrawModal({ maxAmount, onClose, onSuccess }: Va
           <button
             onClick={handleWithdrawAll}
             disabled={isLoading || parseFloat(maxAmount) <= 0}
-            className="w-full py-2.5 bg-zinc-800 text-white font-medium rounded-xl hover:bg-zinc-700 transition-colors disabled:opacity-50 text-sm"
+            className="w-full py-2.5 bg-zinc-800 text-primary font-medium rounded-xl hover:bg-zinc-700 transition-colors disabled:opacity-50 text-sm"
           >
             Withdraw All
           </button>

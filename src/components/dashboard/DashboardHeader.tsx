@@ -59,13 +59,13 @@ const DashboardHeader: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm py-3 md:py-6 border-b border-gray-800">
+    <header className="sticky top-0 z-50 bg-white/55 backdrop-blur-xl py-3 md:py-6 border-b border-border">
       <div className="flex justify-between items-center">
         <div className="min-w-0 flex-1 mr-3">
-          <h1 className="font-display text-lg md:text-2xl text-white truncate">
+          <h1 className="font-display text-lg md:text-2xl text-primary truncate">
             Welcome, {displayName}
           </h1>
-          <p className="text-gray-500 text-xs md:text-sm hidden sm:block">
+          <p className="text-secondary text-xs md:text-sm hidden sm:block">
             {new Date().toLocaleDateString('en-US', {
               weekday: 'long',
               year: 'numeric',
@@ -82,7 +82,7 @@ const DashboardHeader: React.FC = () => {
             className={`flex items-center gap-1 md:gap-1.5 px-2 md:px-2.5 py-1.5 rounded-lg text-xs md:text-sm transition-all ${
               isConnected
                 ? 'bg-green-500/10 text-green-400 border border-green-500/30 hover:bg-green-500/20'
-                : 'bg-white/5 text-accent border border-white/20 hover:bg-white/10'
+                : 'bg-black/[0.04] text-accent border border-black/[0.1] hover:bg-black/[0.06]'
             }`}
           >
             <Wallet size={14} />
@@ -94,11 +94,11 @@ const DashboardHeader: React.FC = () => {
           <div className="relative" ref={notificationRef}>
             <button
               onClick={() => setShowNotifications(!showNotifications)}
-              className="relative p-2 rounded-lg hover:bg-white/5 transition-colors"
+              className="relative p-2 rounded-lg hover:bg-black/[0.04] transition-colors"
             >
-              <Bell size={20} className="text-gray-500 hover:text-white transition-colors" />
+              <Bell size={20} className="text-secondary hover:text-primary transition-colors" />
               {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 min-w-[18px] h-[18px] bg-red-500 rounded-full flex items-center justify-center text-xs text-white font-medium">
+                <span className="absolute top-1 right-1 min-w-[18px] h-[18px] bg-red-500 rounded-full flex items-center justify-center text-xs text-primary font-medium">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
@@ -106,14 +106,14 @@ const DashboardHeader: React.FC = () => {
 
             {/* Notification Dropdown - Responsive width */}
             {showNotifications && (
-              <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-80 bg-card-dark border border-gray-800 rounded-xl shadow-2xl overflow-hidden z-50 -mr-2 sm:mr-0">
-                <div className="p-3 border-b border-gray-800 flex items-center justify-between">
-                  <h3 className="text-white font-medium">Notifications</h3>
+              <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-80 bg-card-dark border border-border rounded-xl shadow-2xl overflow-hidden z-50 -mr-2 sm:mr-0">
+                <div className="p-3 border-b border-border flex items-center justify-between">
+                  <h3 className="text-primary font-medium">Notifications</h3>
                   <div className="flex items-center gap-2">
                     {unreadCount > 0 && (
                       <button
                         onClick={markAllAsRead}
-                        className="text-xs text-gray-400 hover:text-white transition-colors"
+                        className="text-xs text-secondary hover:text-primary transition-colors"
                       >
                         Mark all read
                       </button>
@@ -121,7 +121,7 @@ const DashboardHeader: React.FC = () => {
                     {notifications.length > 0 && (
                       <button
                         onClick={clearNotifications}
-                        className="text-xs text-gray-400 hover:text-red-400 transition-colors"
+                        className="text-xs text-secondary hover:text-red-400 transition-colors"
                       >
                         Clear
                       </button>
@@ -132,16 +132,16 @@ const DashboardHeader: React.FC = () => {
                 <div className="max-h-80 overflow-y-auto">
                   {notifications.length === 0 ? (
                     <div className="p-6 text-center">
-                      <Bell size={24} className="text-gray-600 mx-auto mb-2" />
-                      <p className="text-gray-500 text-sm">No notifications yet</p>
+                      <Bell size={24} className="text-muted mx-auto mb-2" />
+                      <p className="text-secondary text-sm">No notifications yet</p>
                     </div>
                   ) : (
                     notifications.slice(0, 10).map((notification) => (
                       <div
                         key={notification.id}
                         onClick={() => markAsRead(notification.id)}
-                        className={`p-3 border-b border-gray-800/50 hover:bg-white/5 cursor-pointer transition-colors ${
-                          !notification.read ? 'bg-white/[0.02]' : ''
+                        className={`p-3 border-b border-border/50 hover:bg-black/[0.04] cursor-pointer transition-colors ${
+                          !notification.read ? 'bg-black/[0.03]' : ''
                         }`}
                       >
                         <div className="flex items-start gap-3">
@@ -157,23 +157,23 @@ const DashboardHeader: React.FC = () => {
                             {notification.type === 'trade_closed' && <Check size={16} className="text-blue-400" />}
                             {notification.type === 'bonus' && <Gift size={16} className="text-amber-400" />}
                             {!['take_profit', 'stop_loss', 'trade_closed', 'bonus'].includes(notification.type) && (
-                              <Bell size={16} className="text-gray-400" />
+                              <Bell size={16} className="text-secondary" />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
-                              <p className="text-white text-sm font-medium truncate">{notification.title}</p>
+                              <p className="text-primary text-sm font-medium truncate">{notification.title}</p>
                               {!notification.read && (
                                 <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 ml-2"></span>
                               )}
                             </div>
-                            <p className="text-gray-400 text-xs mt-0.5 line-clamp-2">{notification.message}</p>
+                            <p className="text-secondary text-xs mt-0.5 line-clamp-2">{notification.message}</p>
                             {notification.data?.profit !== undefined && (
                               <p className={`text-xs font-medium mt-1 ${notification.data.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                                 {notification.data.profit >= 0 ? '+' : ''}${notification.data.profit.toFixed(2)}
                               </p>
                             )}
-                            <p className="text-gray-600 text-xs mt-1">{formatTimeAgo(notification.timestamp)}</p>
+                            <p className="text-muted text-xs mt-1">{formatTimeAgo(notification.timestamp)}</p>
                           </div>
                         </div>
                       </div>
@@ -188,40 +188,40 @@ const DashboardHeader: React.FC = () => {
           <div className="relative" ref={userMenuRef}>
             <div
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center space-x-3 cursor-pointer hover:bg-white/5 px-3 py-2 rounded-lg transition-colors"
+              className="flex items-center space-x-3 cursor-pointer hover:bg-black/[0.04] px-3 py-2 rounded-lg transition-colors"
             >
-              <div className="w-9 h-9 bg-white/10 rounded-full flex items-center justify-center text-white font-medium">
+              <div className="w-9 h-9 bg-black/[0.06] rounded-full flex items-center justify-center text-primary font-medium">
                 {displayName.charAt(0).toUpperCase()}
               </div>
               <div className="hidden md:block">
-                <p className="text-sm font-medium text-white">{displayName}</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-sm font-medium text-primary">{displayName}</p>
+                <p className="text-xs text-secondary">
                   {planTier === 'elite' || planTier === 'desktop' ? 'Elite Member' :
                    planTier === 'pro' ? 'Pro Member' :
                    planTier === 'starter' ? 'Starter Member' :
                    'Free Member'}
                 </p>
               </div>
-              <ChevronDown size={16} className={`text-gray-500 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+              <ChevronDown size={16} className={`text-secondary transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
             </div>
 
             {/* User Dropdown Menu */}
             {showUserMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-card-dark border border-gray-800 rounded-xl shadow-2xl overflow-hidden z-50">
+              <div className="absolute right-0 mt-2 w-48 bg-card-dark border border-border rounded-xl shadow-2xl overflow-hidden z-50">
                 <button
                   onClick={() => {
                     navigate('/dashboard/profile');
                     setShowUserMenu(false);
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-[#52525b] hover:bg-black/[0.04] hover:text-primary transition-colors"
                 >
                   <User size={18} />
                   <span>Profile</span>
                 </button>
-                <div className="border-t border-gray-800" />
+                <div className="border-t border-border" />
                 <button
                   onClick={handleSignOut}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-300 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-[#52525b] hover:bg-red-500/10 hover:text-red-400 transition-colors"
                 >
                   <LogOut size={18} />
                   <span>Logout</span>

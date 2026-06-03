@@ -75,7 +75,7 @@ const LicenseActivation: React.FC<LicenseActivationProps> = ({ onActivated }) =>
 
   if (success) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-8">
+      <div className="min-h-screen page-shell flex items-center justify-center p-8">
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -84,15 +84,15 @@ const LicenseActivation: React.FC<LicenseActivationProps> = ({ onActivated }) =>
           <div className="w-24 h-24 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
             <Check className="w-12 h-12 text-green-400" />
           </div>
-          <h2 className="text-2xl font-semibold text-white mb-2">License Activated!</h2>
-          <p className="text-gray-400">Starting Monadier Trading Bot...</p>
+          <h2 className="text-2xl font-semibold text-primary mb-2">License Activated!</h2>
+          <p className="text-secondary">Starting Monadier Trading Bot...</p>
         </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-8">
+    <div className="min-h-screen page-shell flex items-center justify-center p-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -102,35 +102,35 @@ const LicenseActivation: React.FC<LicenseActivationProps> = ({ onActivated }) =>
           <div className="flex justify-center mb-6">
             <Logo size="lg" />
           </div>
-          <h1 className="text-2xl font-semibold text-white mb-2">Activate Desktop License</h1>
-          <p className="text-gray-400">
+          <h1 className="text-2xl font-semibold text-primary mb-2">Activate Desktop License</h1>
+          <p className="text-secondary">
             Enter your license code to activate the desktop application
           </p>
         </div>
 
-        <div className="bg-card-dark rounded-2xl border border-gray-800 p-8">
+        <div className="bg-card-dark rounded-2xl border border-border p-8">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-xl bg-black/[0.06] flex items-center justify-center">
               <Monitor className="w-6 h-6 text-accent" />
             </div>
             <div>
-              <h3 className="text-white font-medium">Desktop License</h3>
-              <p className="text-gray-500 text-sm">One-time activation per machine</p>
+              <h3 className="text-primary font-medium">Desktop License</h3>
+              <p className="text-secondary text-sm">One-time activation per machine</p>
             </div>
           </div>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm text-gray-400 mb-2">License Code</label>
+              <label className="block text-sm text-secondary mb-2">License Code</label>
               <div className="relative">
-                <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary" />
                 <input
                   type="text"
                   value={licenseCode}
                   onChange={handleInputChange}
                   onKeyPress={handleKeyPress}
                   placeholder="DSK-XXXX-XXXX-XXXX-XXXX-XXX"
-                  className="w-full bg-background border border-gray-800 rounded-xl pl-12 pr-4 py-4 text-white font-mono tracking-wider focus:outline-none focus:border-accent transition-colors"
+                  className="w-full bg-background border border-border rounded-xl pl-12 pr-4 py-4 text-primary font-mono tracking-wider focus:outline-none focus:border-accent transition-colors"
                   maxLength={27}
                   disabled={isValidating}
                 />
@@ -151,7 +151,7 @@ const LicenseActivation: React.FC<LicenseActivationProps> = ({ onActivated }) =>
             <button
               onClick={handleActivate}
               disabled={isValidating || !licenseCode}
-              className="w-full py-4 bg-accent hover:bg-accent-hover text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-4 bg-accent hover:bg-accent-hover text-primary font-medium rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isValidating ? (
                 <>
@@ -164,8 +164,8 @@ const LicenseActivation: React.FC<LicenseActivationProps> = ({ onActivated }) =>
             </button>
           </div>
 
-          <div className="mt-6 pt-6 border-t border-gray-800">
-            <p className="text-gray-500 text-sm text-center">
+          <div className="mt-6 pt-6 border-t border-border">
+            <p className="text-secondary text-sm text-center">
               Don't have a license?{' '}
               <a
                 href="https://monadier.com/pricing"
@@ -179,7 +179,7 @@ const LicenseActivation: React.FC<LicenseActivationProps> = ({ onActivated }) =>
           </div>
         </div>
 
-        <p className="text-gray-600 text-xs text-center mt-6">
+        <p className="text-muted text-xs text-center mt-6">
           Your license is tied to this machine and cannot be transferred without contacting support.
         </p>
       </motion.div>

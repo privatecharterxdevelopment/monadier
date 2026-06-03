@@ -1,6 +1,10 @@
-// Vault Integration for MonadierTradingVault Smart Contract
+// Vault Integration for MonadierTradingVault V11 (Arbitrum GMX)
 import { parseUnits, formatUnits, type PublicClient, type WalletClient } from 'viem';
 import { arbitrum } from 'viem/chains';
+import {
+  MONADIER_VAULT_V11_ADDRESS,
+  MONADIER_VAULT_CHAIN_ID,
+} from './monadierVault';
 
 // Vault ABI (core functions only)
 export const VAULT_ABI = [
@@ -486,13 +490,8 @@ export const ERC20_APPROVE_ABI = [
   }
 ] as const;
 
-// ============================================
-// V11 VAULT - RECONCILE FIX + FEES DIRECT TO TREASURY
-// GMX Perpetuals, userInstantClose, emergencyWithdraw, reconcile (collateral-only)
-// Fees go directly to treasury/bot wallet (no accumulation in contract)
-// ============================================
-export const VAULT_ADDRESS: `0x${string}` = '0x7dE97f35887b2623dCad2ebA68197f58F7607854';
-export const VAULT_CHAIN_ID = 42161; // Arbitrum Only
+export const VAULT_ADDRESS: `0x${string}` = MONADIER_VAULT_V11_ADDRESS;
+export const VAULT_CHAIN_ID = MONADIER_VAULT_CHAIN_ID;
 
 // USDC addresses - Arbitrum only
 export const USDC_ADDRESSES: Record<number, `0x${string}`> = {
@@ -563,7 +562,7 @@ export interface VaultStats {
 }
 
 /**
- * Vault client for interacting with V8 GMX Vault
+ * Vault client for interacting with the V11 GMX vault (Arbitrum only).
  */
 export class VaultClient {
   private publicClient: PublicClient;

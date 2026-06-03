@@ -34,9 +34,9 @@ const ForgotPasswordPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="auth-page">
       <div className="container-custom py-6">
-        <Logo size="md" />
+        <Logo size="md" theme="light" />
       </div>
 
       <div className="flex-grow flex items-center justify-center px-4 py-12">
@@ -46,18 +46,18 @@ const ForgotPasswordPage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="card shadow-lg">
+          <div className="auth-card">
             {success ? (
               <div className="text-center py-6">
                 <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle className="w-8 h-8 text-green-400" />
                 </div>
                 <h1 className="font-display text-2xl mb-3">Check Your Email</h1>
-                <p className="text-gray-400 mb-6">
+                <p className="text-secondary mb-6">
                   We've sent a password reset link to<br />
-                  <span className="text-white font-medium">{email}</span>
+                  <span className="text-primary font-medium">{email}</span>
                 </p>
-                <p className="text-gray-500 text-sm mb-6">
+                <p className="text-secondary text-sm mb-6">
                   Didn't receive the email? Check your spam folder or try again.
                 </p>
                 <div className="flex flex-col gap-3">
@@ -83,7 +83,7 @@ const ForgotPasswordPage: React.FC = () => {
               <>
                 <Link
                   to="/login"
-                  className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-6"
+                  className="inline-flex items-center gap-2 text-secondary hover:text-primary transition-colors mb-6"
                 >
                   <ArrowLeft size={16} />
                   Back to Login
@@ -95,7 +95,7 @@ const ForgotPasswordPage: React.FC = () => {
                   </div>
                   <div>
                     <h1 className="font-display text-2xl">Forgot Password?</h1>
-                    <p className="text-gray-400 text-sm">No worries, we'll send you reset instructions.</p>
+                    <p className="text-secondary text-sm">No worries, we'll send you reset instructions.</p>
                   </div>
                 </div>
 

@@ -27,8 +27,7 @@ import { arbitrum } from 'viem/chains';
 import { VAULT_ADDRESS, VAULT_V8_ABI } from '../../lib/vault';
 import { useWeb3 } from '../../contexts/Web3Context';
 
-// Admin email - only this user can access
-const ADMIN_EMAIL = 'ipsunlorem@gmail.com';
+import { isAdminEmail } from '../../lib/admin';
 
 // V11 Vault - Arbitrum Only (reconcile fix + fees direct to treasury)
 const V11_VAULT = VAULT_ADDRESS;
@@ -378,7 +377,7 @@ const AdminMonitorPage: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user?.email) {
         setCurrentUserEmail(user.email);
-        setIsAdmin(user.email === ADMIN_EMAIL);
+        setIsAdmin(isAdminEmail(user.email));
       } else {
         setIsAdmin(false);
       }
@@ -547,7 +546,7 @@ const AdminMonitorPage: React.FC = () => {
       case 'failed': return 'text-red-400 bg-red-500/20';
       case 'active': return 'text-green-400 bg-green-500/20';
       case 'expired': return 'text-red-400 bg-red-500/20';
-      default: return 'text-gray-400 bg-gray-500/20';
+      default: return 'text-secondary bg-gray-500/20';
     }
   };
 
@@ -556,7 +555,7 @@ const AdminMonitorPage: React.FC = () => {
       case 'elite': return 'text-purple-400 bg-purple-500/20';
       case 'pro': return 'text-blue-400 bg-blue-500/20';
       case 'starter': return 'text-green-400 bg-green-500/20';
-      default: return 'text-gray-400 bg-gray-500/20';
+      default: return 'text-secondary bg-gray-500/20';
     }
   };
 
@@ -564,7 +563,7 @@ const AdminMonitorPage: React.FC = () => {
   if (isAdmin === null) {
     return (
       <div className="flex items-center justify-center h-64">
-        <RefreshCw className="w-8 h-8 text-gray-600 animate-spin" />
+        <RefreshCw className="w-8 h-8 text-muted animate-spin" />
       </div>
     );
   }
@@ -574,10 +573,10 @@ const AdminMonitorPage: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-center">
         <Lock className="w-16 h-16 text-red-500 mb-4" />
-        <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
+        <h1 className="text-2xl font-bold text-primary mb-2">Access Denied</h1>
         <p className="text-secondary">This page is restricted to administrators only.</p>
         {currentUserEmail && (
-          <p className="text-xs text-gray-600 mt-2">Logged in as: {currentUserEmail}</p>
+          <p className="text-xs text-muted mt-2">Logged in as: {currentUserEmail}</p>
         )}
       </div>
     );
@@ -588,7 +587,7 @@ const AdminMonitorPage: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Admin Dashboard - V11 GMX</h1>
+          <h1 className="text-2xl font-bold text-primary">Admin Dashboard - V11 GMX</h1>
           <p className="text-secondary mt-1">
             Last updated: {lastRefresh.toLocaleTimeString()} • {currentUserEmail}
           </p>
@@ -596,7 +595,7 @@ const AdminMonitorPage: React.FC = () => {
         <button
           onClick={fetchAllData}
           disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-black/[0.04] hover:bg-black/[0.06] rounded-lg text-primary transition-colors"
         >
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           Refresh
@@ -604,15 +603,15 @@ const AdminMonitorPage: React.FC = () => {
       </div>
 
       {/* Section Tabs */}
-      <div className="flex gap-2 p-1 bg-card-dark rounded-lg w-fit border border-gray-800 flex-wrap">
+      <div className="flex gap-2 p-1 bg-card-dark rounded-lg w-fit border border-border flex-wrap">
         {(['overview', 'users', 'trades', 'vault', 'fees', 'payments', 'subscriptions', 'emergency'] as const).map((section) => (
           <button
             key={section}
             onClick={() => setActiveSection(section)}
             className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-all ${
               activeSection === section
-                ? section === 'emergency' ? 'bg-red-600 text-white' : 'bg-white text-black'
-                : section === 'emergency' ? 'text-red-400 hover:text-red-300 hover:bg-red-500/10' : 'text-secondary hover:text-white hover:bg-white/5'
+                ? section === 'emergency' ? 'bg-red-600 text-primary' : 'bg-white text-black'
+                : section === 'emergency' ? 'text-red-400 hover:text-red-300 hover:bg-red-500/10' : 'text-secondary hover:text-primary hover:bg-black/[0.04]'
             }`}
           >
             {section === 'overview' && <Activity size={16} />}
@@ -641,7 +640,7 @@ const AdminMonitorPage: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm text-secondary">Vault USDC (actual)</p>
-                  <p className="text-xl font-bold text-white">
+                  <p className="text-xl font-bold text-primary">
                     ${parseFloat(stats.vaultRealBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </p>
                   <p className={`text-xs ${stats.isSolvent ? 'text-green-400' : 'text-yellow-400'}`}>
@@ -670,21 +669,21 @@ const AdminMonitorPage: React.FC = () => {
             </div>
 
             {/* Total Users */}
-            <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+            <div className="bg-card-dark rounded-xl border border-border p-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center">
                   <Users className="text-cyan-400" size={20} />
                 </div>
                 <div>
                   <p className="text-sm text-secondary">Total Users</p>
-                  <p className="text-xl font-bold text-white">{stats.totalUsers}</p>
+                  <p className="text-xl font-bold text-primary">{stats.totalUsers}</p>
                   <p className="text-xs text-secondary">{stats.usersWithWallet} with wallet</p>
                 </div>
               </div>
             </div>
 
             {/* Trading Stats */}
-            <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+            <div className="bg-card-dark rounded-xl border border-border p-4">
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                   stats.totalPnL >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
@@ -708,7 +707,7 @@ const AdminMonitorPage: React.FC = () => {
 
           {/* Secondary Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+            <div className="bg-card-dark rounded-xl border border-border p-4">
               <h3 className="text-sm text-secondary mb-2">Positions</h3>
               <div className="flex justify-between">
                 <div>
@@ -720,13 +719,13 @@ const AdminMonitorPage: React.FC = () => {
                   <p className="text-xs text-secondary">Closed</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-white">{stats.activeTraders}</p>
+                  <p className="text-2xl font-bold text-primary">{stats.activeTraders}</p>
                   <p className="text-xs text-secondary">Traders</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+            <div className="bg-card-dark rounded-xl border border-border p-4">
               <h3 className="text-sm text-secondary mb-2">Subscriptions</h3>
               <div className="flex justify-between">
                 <div>
@@ -734,21 +733,21 @@ const AdminMonitorPage: React.FC = () => {
                   <p className="text-xs text-secondary">Active</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-white">{stats.totalSubscriptions}</p>
+                  <p className="text-2xl font-bold text-primary">{stats.totalSubscriptions}</p>
                   <p className="text-xs text-secondary">Total</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+            <div className="bg-card-dark rounded-xl border border-border p-4">
               <h3 className="text-sm text-secondary mb-2">Avg Trade Size</h3>
-              <p className="text-2xl font-bold text-white">${stats.avgTradeSize.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-primary">${stats.avgTradeSize.toFixed(2)}</p>
             </div>
           </div>
 
           {/* V11 Vault Contract */}
           <div className="bg-card-dark rounded-xl border border-blue-500/30 p-4">
-            <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-primary mb-3 flex items-center gap-2">
               <Shield size={20} className="text-blue-400" />
               V11 GMX Vault (Arbitrum)
             </h3>
@@ -769,9 +768,9 @@ const AdminMonitorPage: React.FC = () => {
 
       {/* ========== USERS SECTION ========== */}
       {activeSection === 'users' && (
-        <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
-          <div className="p-4 border-b border-gray-800">
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+        <div className="bg-card-dark rounded-xl border border-border overflow-hidden">
+          <div className="p-4 border-b border-border">
+            <h3 className="text-lg font-semibold text-primary flex items-center gap-2">
               <Users size={20} className="text-cyan-400" />
               All Registered Users ({users.length})
             </h3>
@@ -788,11 +787,11 @@ const AdminMonitorPage: React.FC = () => {
               </thead>
               <tbody>
                 {users.map((user) => (
-                  <tr key={user.id} className="border-t border-gray-800 hover:bg-white/5">
+                  <tr key={user.id} className="border-t border-border hover:bg-black/[0.04]">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <Mail size={14} className="text-gray-500" />
-                        <span className="text-white">{user.email}</span>
+                        <Mail size={14} className="text-secondary" />
+                        <span className="text-primary">{user.email}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -807,7 +806,7 @@ const AdminMonitorPage: React.FC = () => {
                           <ExternalLink size={12} />
                         </a>
                       ) : (
-                        <span className="text-gray-500 italic">Not connected</span>
+                        <span className="text-secondary italic">Not connected</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -835,9 +834,9 @@ const AdminMonitorPage: React.FC = () => {
 
       {/* ========== TRADES SECTION ========== */}
       {activeSection === 'trades' && (
-        <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
-          <div className="p-4 border-b border-gray-800">
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+        <div className="bg-card-dark rounded-xl border border-border overflow-hidden">
+          <div className="p-4 border-b border-border">
+            <h3 className="text-lg font-semibold text-primary flex items-center gap-2">
               <BarChart3 size={20} className="text-purple-400" />
               All Trades ({trades.length})
             </h3>
@@ -861,7 +860,7 @@ const AdminMonitorPage: React.FC = () => {
               </thead>
               <tbody>
                 {trades.map((trade) => (
-                  <tr key={trade.id} className="border-t border-gray-800 hover:bg-white/5">
+                  <tr key={trade.id} className="border-t border-border hover:bg-black/[0.04]">
                     <td className="px-4 py-3 text-sm text-secondary whitespace-nowrap">
                       {formatTimeAgo(trade.created_at)}
                     </td>
@@ -878,7 +877,7 @@ const AdminMonitorPage: React.FC = () => {
                         <ExternalLink size={10} />
                       </a>
                     </td>
-                    <td className="px-4 py-3 text-white font-medium">
+                    <td className="px-4 py-3 text-primary font-medium">
                       {trade.token_symbol || 'ETH'}
                     </td>
                     <td className="px-4 py-3">
@@ -888,16 +887,16 @@ const AdminMonitorPage: React.FC = () => {
                         {trade.direction || 'LONG'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-white font-mono text-sm">
+                    <td className="px-4 py-3 text-primary font-mono text-sm">
                       {trade.leverage_multiplier ? `${trade.leverage_multiplier}x` : '-'}
                     </td>
-                    <td className="px-4 py-3 text-white font-mono text-sm">
+                    <td className="px-4 py-3 text-primary font-mono text-sm">
                       ${(trade.entry_amount || 0).toFixed(2)}
                     </td>
-                    <td className="px-4 py-3 text-white font-mono text-sm">
+                    <td className="px-4 py-3 text-primary font-mono text-sm">
                       {trade.entry_price ? `$${trade.entry_price.toFixed(2)}` : '-'}
                     </td>
-                    <td className="px-4 py-3 text-white font-mono text-sm">
+                    <td className="px-4 py-3 text-primary font-mono text-sm">
                       {trade.exit_price ? `$${trade.exit_price.toFixed(2)}` : '-'}
                     </td>
                     <td className="px-4 py-3">
@@ -917,7 +916,7 @@ const AdminMonitorPage: React.FC = () => {
                           )}
                         </div>
                       ) : (
-                        <span className="text-gray-500">-</span>
+                        <span className="text-secondary">-</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -925,7 +924,7 @@ const AdminMonitorPage: React.FC = () => {
                         {trade.status.toUpperCase()}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-500 max-w-32 truncate">
+                    <td className="px-4 py-3 text-xs text-secondary max-w-32 truncate">
                       {trade.close_reason || '-'}
                     </td>
                   </tr>
@@ -945,9 +944,9 @@ const AdminMonitorPage: React.FC = () => {
 
       {/* ========== VAULT TRANSACTIONS SECTION ========== */}
       {activeSection === 'vault' && (
-        <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
-          <div className="p-4 border-b border-gray-800">
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+        <div className="bg-card-dark rounded-xl border border-border overflow-hidden">
+          <div className="p-4 border-b border-border">
+            <h3 className="text-lg font-semibold text-primary flex items-center gap-2">
               <DollarSign size={20} className="text-green-400" />
               V11 Vault Transactions ({vaultTransactions.length})
             </h3>
@@ -966,7 +965,7 @@ const AdminMonitorPage: React.FC = () => {
               </thead>
               <tbody>
                 {vaultTransactions.map((tx, idx) => (
-                  <tr key={`${tx.hash}-${idx}`} className="border-t border-gray-800 hover:bg-white/5">
+                  <tr key={`${tx.hash}-${idx}`} className="border-t border-border hover:bg-black/[0.04]">
                     <td className="px-4 py-3 text-sm text-secondary whitespace-nowrap">
                       {formatTimeAgo(tx.timestamp)}
                     </td>
@@ -977,7 +976,7 @@ const AdminMonitorPage: React.FC = () => {
                         {tx.type.toUpperCase()}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-white font-mono">
+                    <td className="px-4 py-3 text-primary font-mono">
                       ${parseFloat(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 py-3">
@@ -996,7 +995,7 @@ const AdminMonitorPage: React.FC = () => {
                         href={`https://arbiscan.io/tx/${tx.hash}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-gray-400 hover:text-white"
+                        className="flex items-center gap-1 text-secondary hover:text-primary"
                       >
                         <code className="text-xs">{tx.hash?.slice(0, 10)}...</code>
                         <ExternalLink size={10} />
@@ -1021,7 +1020,7 @@ const AdminMonitorPage: React.FC = () => {
       {activeSection === 'fees' && (
         <div className="space-y-6">
           <div className="bg-card-dark rounded-xl border border-green-500/30 p-6">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-primary mb-4 flex items-center gap-2">
               <Coins size={20} className="text-green-400" />
               Platform Fees (All Time)
             </h3>
@@ -1040,7 +1039,7 @@ const AdminMonitorPage: React.FC = () => {
               </div>
               <div>
                 <p className="text-sm text-secondary mb-1">Fee Structure</p>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-2xl font-bold text-primary">
                   0.1% + 10%
                 </p>
                 <p className="text-sm text-secondary mt-2">
@@ -1051,11 +1050,11 @@ const AdminMonitorPage: React.FC = () => {
             <div className="mt-6 pt-4 border-t border-gray-700">
               <p className="text-sm text-secondary mb-2">Fee Structure</p>
               <div className="grid grid-cols-2 gap-2">
-                <div className="flex justify-between p-2 bg-white/5 rounded">
+                <div className="flex justify-between p-2 bg-black/[0.04] rounded">
                   <span className="text-secondary">Base Fee</span>
-                  <span className="text-white">0.1% on position</span>
+                  <span className="text-primary">0.1% on position</span>
                 </div>
-                <div className="flex justify-between p-2 bg-white/5 rounded">
+                <div className="flex justify-between p-2 bg-black/[0.04] rounded">
                   <span className="text-secondary">Success Fee</span>
                   <span className="text-green-400">10% of profit</span>
                 </div>
@@ -1064,8 +1063,8 @@ const AdminMonitorPage: React.FC = () => {
           </div>
 
           {/* Profitable trades that generated fees */}
-          <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
-            <h3 className="text-lg font-semibold text-white mb-4">Profitable Trades (Fee Source)</h3>
+          <div className="bg-card-dark rounded-xl border border-border p-4">
+            <h3 className="text-lg font-semibold text-primary mb-4">Profitable Trades (Fee Source)</h3>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-background">
@@ -1089,7 +1088,7 @@ const AdminMonitorPage: React.FC = () => {
                       const successFee = (trade.profit_loss || 0) * 0.1; // 10%
                       const totalFee = platformFee + successFee;
                       return (
-                      <tr key={trade.id} className="border-t border-gray-800 hover:bg-white/5">
+                      <tr key={trade.id} className="border-t border-border hover:bg-black/[0.04]">
                         <td className="px-4 py-3">
                           <code className="text-xs text-blue-400">
                             {trade.wallet_address.slice(0, 6)}...{trade.wallet_address.slice(-4)}
@@ -1111,8 +1110,9 @@ const AdminMonitorPage: React.FC = () => {
                         <td className="px-4 py-3 text-secondary text-sm">
                           {trade.closed_at ? formatTimeAgo(trade.closed_at) : '-'}
                         </td>
-                      </tr>);
-                    ))}
+                      </tr>
+                      );
+                    })}
                   {trades.filter(t => t.status === 'closed' && (t.profit_loss || 0) > 0).length === 0 && (
                     <tr>
                       <td colSpan={6} className="px-4 py-8 text-center text-secondary">
@@ -1129,9 +1129,9 @@ const AdminMonitorPage: React.FC = () => {
 
       {/* ========== PAYMENTS SECTION ========== */}
       {activeSection === 'payments' && (
-        <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
-          <div className="p-4 border-b border-gray-800">
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+        <div className="bg-card-dark rounded-xl border border-border overflow-hidden">
+          <div className="p-4 border-b border-border">
+            <h3 className="text-lg font-semibold text-primary flex items-center gap-2">
               <DollarSign size={20} className="text-green-400" />
               Subscription Payments ({payments.length})
             </h3>
@@ -1152,7 +1152,7 @@ const AdminMonitorPage: React.FC = () => {
               </thead>
               <tbody>
                 {payments.map((payment) => (
-                  <tr key={payment.id} className="border-t border-gray-800 hover:bg-white/5">
+                  <tr key={payment.id} className="border-t border-border hover:bg-black/[0.04]">
                     <td className="px-4 py-3 text-sm text-secondary whitespace-nowrap">
                       {formatTimeAgo(payment.created_at)}
                     </td>
@@ -1172,7 +1172,7 @@ const AdminMonitorPage: React.FC = () => {
                         {payment.plan_tier.toUpperCase()}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-white text-sm">
+                    <td className="px-4 py-3 text-primary text-sm">
                       {payment.billing_cycle}
                     </td>
                     <td className="px-4 py-3 text-green-400 font-mono">
@@ -1193,13 +1193,13 @@ const AdminMonitorPage: React.FC = () => {
                           href={`https://arbiscan.io/tx/${payment.tx_hash}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-gray-400 hover:text-white"
+                          className="flex items-center gap-1 text-secondary hover:text-primary"
                         >
                           <code className="text-xs">{payment.tx_hash.slice(0, 10)}...</code>
                           <ExternalLink size={10} />
                         </a>
                       ) : (
-                        <span className="text-gray-500">-</span>
+                        <span className="text-secondary">-</span>
                       )}
                     </td>
                   </tr>
@@ -1239,13 +1239,13 @@ const AdminMonitorPage: React.FC = () => {
           </div>
 
           {/* Wallet Connection Status */}
-          <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+          <div className="bg-card-dark rounded-xl border border-border p-4">
             <h4 className="text-sm text-secondary mb-3">Wallet Status</h4>
             {connectedAddress ? (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <CheckCircle size={16} className="text-green-400" />
-                  <span className="text-white text-sm">Connected: </span>
+                  <span className="text-primary text-sm">Connected: </span>
                   <code className="text-blue-400 text-xs">{connectedAddress}</code>
                 </div>
                 {contractOwner && (
@@ -1275,9 +1275,9 @@ const AdminMonitorPage: React.FC = () => {
           </div>
 
           {/* Current Rescue Status */}
-          <div className={`bg-card-dark rounded-xl border p-6 ${emergencyActive ? 'border-red-500/50' : 'border-gray-800'}`}>
-            <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Shield size={20} className={emergencyActive ? 'text-red-400' : 'text-gray-400'} />
+          <div className={`bg-card-dark rounded-xl border p-6 ${emergencyActive ? 'border-red-500/50' : 'border-border'}`}>
+            <h4 className="text-lg font-semibold text-primary mb-4 flex items-center gap-2">
+              <Shield size={20} className={emergencyActive ? 'text-red-400' : 'text-secondary'} />
               Rescue Status
             </h4>
 
@@ -1289,7 +1289,7 @@ const AdminMonitorPage: React.FC = () => {
                 </div>
                 <div className="bg-red-900/20 rounded-lg p-4">
                   <p className="text-secondary text-sm">Contract is paused. Users can emergencyWithdraw().</p>
-                  <p className="text-white text-2xl font-mono mt-2">
+                  <p className="text-primary text-2xl font-mono mt-2">
                     {emergencyCountdown > 0 ? (
                       <>Timelock: {emergencyCountdown}s remaining</>
                     ) : (
@@ -1307,7 +1307,7 @@ const AdminMonitorPage: React.FC = () => {
                   <button
                     onClick={handleCancelRescue}
                     disabled={emergencyLoading !== null || !isContractOwner}
-                    className="flex items-center gap-2 px-6 py-3 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 rounded-lg text-white font-medium transition-colors"
+                    className="flex items-center gap-2 px-6 py-3 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 rounded-lg text-primary font-medium transition-colors"
                   >
                     {emergencyLoading === 'cancel' ? <RefreshCw size={16} className="animate-spin" /> : <XCircle size={16} />}
                     Cancel Rescue
@@ -1316,7 +1316,7 @@ const AdminMonitorPage: React.FC = () => {
                   <button
                     onClick={handleExecuteRescue}
                     disabled={emergencyLoading !== null || emergencyCountdown > 0 || !isContractOwner}
-                    className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-lg text-white font-medium transition-colors"
+                    className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-lg text-primary font-medium transition-colors"
                   >
                     {emergencyLoading === 'execute' ? <RefreshCw size={16} className="animate-spin" /> : <Zap size={16} />}
                     Execute Rescue (Send All to Treasury)
@@ -1333,7 +1333,7 @@ const AdminMonitorPage: React.FC = () => {
                 <button
                   onClick={handleInitiateRescue}
                   disabled={emergencyLoading !== null || !isContractOwner}
-                  className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-lg text-white font-medium transition-colors mt-4"
+                  className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-lg text-primary font-medium transition-colors mt-4"
                 >
                   {emergencyLoading === 'initiate' ? <RefreshCw size={16} className="animate-spin" /> : <AlertTriangle size={16} />}
                   Initiate Emergency Rescue
@@ -1355,14 +1355,14 @@ const AdminMonitorPage: React.FC = () => {
           </div>
 
           {/* Info */}
-          <div className="bg-card-dark rounded-xl border border-gray-800 p-4">
+          <div className="bg-card-dark rounded-xl border border-border p-4">
             <h4 className="text-sm text-secondary mb-3">How Emergency Rescue Works</h4>
             <ol className="text-sm text-secondary space-y-2 list-decimal list-inside">
-              <li><span className="text-white">Initiate</span> - Pauses the contract, starts 60s countdown</li>
-              <li><span className="text-white">Wait</span> - Users can call emergencyWithdraw() to get their funds</li>
-              <li><span className="text-white">Execute</span> - After 60s, sends all remaining USDC to treasury</li>
+              <li><span className="text-primary">Initiate</span> - Pauses the contract, starts 60s countdown</li>
+              <li><span className="text-primary">Wait</span> - Users can call emergencyWithdraw() to get their funds</li>
+              <li><span className="text-primary">Execute</span> - After 60s, sends all remaining USDC to treasury</li>
             </ol>
-            <p className="text-xs text-gray-600 mt-3">
+            <p className="text-xs text-muted mt-3">
               Treasury: {TREASURY_ADDRESS}
             </p>
           </div>
@@ -1371,9 +1371,9 @@ const AdminMonitorPage: React.FC = () => {
 
       {/* ========== SUBSCRIPTIONS SECTION ========== */}
       {activeSection === 'subscriptions' && (
-        <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
-          <div className="p-4 border-b border-gray-800">
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+        <div className="bg-card-dark rounded-xl border border-border overflow-hidden">
+          <div className="p-4 border-b border-border">
+            <h3 className="text-lg font-semibold text-primary flex items-center gap-2">
               <CreditCard size={20} className="text-green-400" />
               All Subscriptions ({subscriptions.length})
             </h3>
@@ -1393,8 +1393,8 @@ const AdminMonitorPage: React.FC = () => {
               </thead>
               <tbody>
                 {subscriptions.map((sub) => (
-                  <tr key={sub.id} className="border-t border-gray-800 hover:bg-white/5">
-                    <td className="px-4 py-3 text-white text-xs font-mono">
+                  <tr key={sub.id} className="border-t border-border hover:bg-black/[0.04]">
+                    <td className="px-4 py-3 text-primary text-xs font-mono">
                       {sub.user_id.slice(0, 8)}...
                     </td>
                     <td className="px-4 py-3">
@@ -1409,7 +1409,7 @@ const AdminMonitorPage: React.FC = () => {
                           <ExternalLink size={10} />
                         </a>
                       ) : (
-                        <span className="text-gray-500">-</span>
+                        <span className="text-secondary">-</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -1417,7 +1417,7 @@ const AdminMonitorPage: React.FC = () => {
                         {sub.plan_tier.toUpperCase()}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-white text-sm">
+                    <td className="px-4 py-3 text-primary text-sm">
                       {sub.billing_cycle}
                     </td>
                     <td className="px-4 py-3">

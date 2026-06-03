@@ -227,15 +227,15 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
   };
 
   return (
-    <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
+    <div className="dashboard-panel rounded-xl border border-border overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-800/50 transition-colors"
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-black/[0.03] transition-colors"
       >
         <div className="flex items-center gap-2">
-          <Settings className="w-4 h-4 text-accent" />
-          <span className="text-white font-medium">Trading Settings</span>
+          <Settings className="w-4 h-4 dashboard-section-icon" />
+          <span className="dashboard-section-title">Trading Settings</span>
           {config.useTestnet && (
             <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">
               TESTNET
@@ -243,9 +243,9 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
           )}
         </div>
         {isExpanded ? (
-          <ChevronUp className="w-4 h-4 text-gray-400" />
+          <ChevronUp className="w-4 h-4 text-secondary" />
         ) : (
-          <ChevronDown className="w-4 h-4 text-gray-400" />
+          <ChevronDown className="w-4 h-4 text-secondary" />
         )}
       </button>
 
@@ -254,10 +254,10 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
           initial={{ height: 0, opacity: 0 }}
           animate={{ height: 'auto', opacity: 1 }}
           exit={{ height: 0, opacity: 0 }}
-          className="border-t border-gray-800"
+          className="border-t border-border"
         >
           {/* Tabs */}
-          <div className="flex border-b border-gray-800">
+          <div className="flex border-b border-border">
             {[
               { id: 'settings', label: 'Settings', icon: Settings },
               { id: 'safety', label: 'Safety', icon: Shield },
@@ -269,7 +269,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                 className={`flex-1 px-4 py-2 flex items-center justify-center gap-2 text-sm transition-colors ${
                   activeTab === tab.id
                     ? 'text-accent border-b-2 border-accent bg-accent/5'
-                    : 'text-gray-400 hover:text-white'
+                    : 'text-secondary hover:text-primary'
                 }`}
               >
                 <tab.icon className="w-4 h-4" />
@@ -291,7 +291,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
 
                 {/* Trading Strategy Selector */}
                 <div>
-                  <label className="block text-gray-400 text-xs mb-2">Strategy</label>
+                  <label className="block text-secondary text-xs mb-2">Strategy</label>
                   <div className="grid grid-cols-3 gap-2 mb-2">
                     {[
                       { id: 'spot', label: 'Spot', desc: 'Buy/Sell swaps' },
@@ -303,8 +303,8 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                         onClick={() => onConfigChange({ ...config, strategy: strat.id as any })}
                         className={`p-2 rounded-lg border text-center transition-all ${
                           config.strategy === strat.id
-                            ? 'border-accent bg-white/5 text-accent'
-                            : 'border-gray-700 text-gray-400 hover:border-gray-600'
+                            ? 'border-accent bg-black/[0.04] text-accent'
+                            : 'border-gray-700 text-secondary hover:border-gray-600'
                         }`}
                       >
                         <p className="text-sm font-medium">{strat.label}</p>
@@ -322,8 +322,8 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                         onClick={() => onConfigChange({ ...config, strategy: strat.id as any })}
                         className={`p-2 rounded-lg border text-center transition-all ${
                           config.strategy === strat.id
-                            ? 'border-accent bg-white/5 text-accent'
-                            : 'border-gray-700 text-gray-400 hover:border-gray-600'
+                            ? 'border-accent bg-black/[0.04] text-accent'
+                            : 'border-gray-700 text-secondary hover:border-gray-600'
                         }`}
                       >
                         <p className="text-sm font-medium">{strat.label}</p>
@@ -336,7 +336,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                 {/* Trading Interval Selector - Only show for Auto mode */}
                 {config.botMode === 'auto' && (
                   <div>
-                    <label className="block text-gray-400 text-xs mb-2">Trading Interval</label>
+                    <label className="block text-secondary text-xs mb-2">Trading Interval</label>
                     <div className="grid grid-cols-5 gap-2">
                       {(['1m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '24h'] as const).map(interval => (
                         <button
@@ -345,7 +345,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                           className={`px-2 py-2 rounded-lg text-sm transition-colors ${
                             config.tradingInterval === interval
                               ? 'bg-white text-gray-900'
-                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                              : 'bg-white border border-[#c5c5cb] text-[#52525b] hover:bg-black/[0.04]'
                           }`}
                         >
                           {interval}
@@ -357,10 +357,10 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
 
                 {/* Grid Settings - Only show for Grid strategy */}
                 {config.strategy === 'grid' && (
-                  <div className="p-3 bg-background rounded-lg space-y-3">
-                    <p className="text-white text-sm font-medium">Grid Settings</p>
+                  <div className="p-3 dashboard-panel-inner space-y-3">
+                    <p className="text-primary text-sm font-medium">Grid Settings</p>
                     <div>
-                      <label className="block text-gray-400 text-xs mb-1">
+                      <label className="block text-secondary text-xs mb-1">
                         Grid Levels: {config.gridLevels}
                       </label>
                       <input
@@ -373,7 +373,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-gray-400 text-xs mb-1">
+                      <label className="block text-secondary text-xs mb-1">
                         Spread: {config.gridSpreadPercent}%
                       </label>
                       <input
@@ -391,10 +391,10 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
 
                 {/* DCA Settings - Only show for DCA strategy */}
                 {config.strategy === 'dca' && (
-                  <div className="p-3 bg-background rounded-lg space-y-3">
-                    <p className="text-white text-sm font-medium">DCA Settings</p>
+                  <div className="p-3 dashboard-panel-inner space-y-3">
+                    <p className="text-primary text-sm font-medium">DCA Settings</p>
                     <div>
-                      <label className="block text-gray-400 text-xs mb-1">
+                      <label className="block text-secondary text-xs mb-1">
                         Amount per buy: ${config.dcaAmount}
                       </label>
                       <input
@@ -412,10 +412,10 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
 
                 {/* Arbitrage Settings - Only show for Arbitrage strategy */}
                 {config.strategy === 'arbitrage' && (
-                  <div className="p-3 bg-background rounded-lg space-y-3">
-                    <p className="text-white text-sm font-medium">Arbitrage Settings</p>
+                  <div className="p-3 dashboard-panel-inner space-y-3">
+                    <p className="text-primary text-sm font-medium">Arbitrage Settings</p>
                     <div>
-                      <label className="block text-gray-400 text-xs mb-1">
+                      <label className="block text-secondary text-xs mb-1">
                         Min Spread to Execute: {config.arbitrageMinSpread}%
                       </label>
                       <input
@@ -429,7 +429,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-gray-400 text-xs mb-2">DEXes to Scan</label>
+                      <label className="block text-secondary text-xs mb-2">DEXes to Scan</label>
                       <div className="flex flex-wrap gap-2">
                         {['uniswap', 'sushiswap', 'pancakeswap', 'quickswap', 'curve'].map(dex => (
                           <button
@@ -443,7 +443,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                             className={`px-2 py-1 rounded text-xs capitalize transition-colors ${
                               config.arbitrageDexes.includes(dex)
                                 ? 'bg-white text-gray-900'
-                                : 'bg-gray-700 text-gray-400'
+                                : 'bg-gray-700 text-secondary'
                             }`}
                           >
                             {dex}
@@ -460,13 +460,13 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
 
                 {/* Custom Strategy Settings */}
                 {config.strategy === 'custom' && (
-                  <div className="p-3 bg-background rounded-lg space-y-3">
-                    <p className="text-white text-sm font-medium">Custom Strategy Builder</p>
-                    <p className="text-gray-400 text-xs">Set conditions for automated trading</p>
+                  <div className="p-3 dashboard-panel-inner space-y-3">
+                    <p className="text-primary text-sm font-medium">Custom Strategy Builder</p>
+                    <p className="text-secondary text-xs">Set conditions for automated trading</p>
 
                     {config.customConditions.length === 0 ? (
                       <div className="text-center py-4">
-                        <p className="text-gray-500 text-sm mb-2">No conditions set</p>
+                        <p className="text-secondary text-sm mb-2">No conditions set</p>
                         <button
                           onClick={() => {
                             const newCondition: any = {
@@ -490,8 +490,8 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                     ) : (
                       <div className="space-y-2">
                         {config.customConditions.map((cond, idx) => (
-                          <div key={cond.id} className="flex items-center gap-2 p-2 bg-gray-800 rounded-lg">
-                            <span className="text-gray-400 text-xs">IF</span>
+                          <div key={cond.id} className="flex items-center gap-2 p-2 dashboard-panel-inner">
+                            <span className="text-secondary text-xs">IF</span>
                             <select
                               value={cond.indicator}
                               onChange={(e) => {
@@ -499,7 +499,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                                 updated[idx] = { ...cond, indicator: e.target.value as any };
                                 onConfigChange({ ...config, customConditions: updated });
                               }}
-                              className="bg-gray-700 text-white text-xs px-2 py-1 rounded"
+                              className="bg-gray-700 text-primary text-xs px-2 py-1 rounded"
                             >
                               <option value="rsi">RSI</option>
                               <option value="sma">SMA</option>
@@ -513,7 +513,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                                 updated[idx] = { ...cond, operator: e.target.value as any };
                                 onConfigChange({ ...config, customConditions: updated });
                               }}
-                              className="bg-gray-700 text-white text-xs px-2 py-1 rounded"
+                              className="bg-gray-700 text-primary text-xs px-2 py-1 rounded"
                             >
                               <option value="<">&lt;</option>
                               <option value=">">&gt;</option>
@@ -528,9 +528,9 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                                 updated[idx] = { ...cond, value: parseFloat(e.target.value) };
                                 onConfigChange({ ...config, customConditions: updated });
                               }}
-                              className="bg-gray-700 text-white text-xs px-2 py-1 rounded w-16"
+                              className="bg-gray-700 text-primary text-xs px-2 py-1 rounded w-16"
                             />
-                            <span className="text-gray-400 text-xs">THEN</span>
+                            <span className="text-secondary text-xs">THEN</span>
                             <select
                               value={cond.action}
                               onChange={(e) => {
@@ -572,7 +572,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                               customConditions: [...config.customConditions, newCondition]
                             });
                           }}
-                          className="w-full px-3 py-1.5 border border-dashed border-gray-600 text-gray-400 text-sm rounded-lg hover:border-accent hover:text-accent"
+                          className="w-full px-3 py-1.5 border border-dashed border-gray-600 text-secondary text-sm rounded-lg hover:border-accent hover:text-accent"
                         >
                           + Add Another Condition
                         </button>
@@ -582,10 +582,10 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                 )}
 
                 {/* Testnet Toggle */}
-                <div className="flex items-center justify-between p-3 bg-background rounded-lg">
+                <div className="flex items-center justify-between p-3 dashboard-panel-inner">
                   <div className="flex items-center gap-2">
                     <TestTube className="w-4 h-4 text-yellow-400" />
-                    <span className="text-white text-sm">Testnet Mode</span>
+                    <span className="text-primary text-sm">Testnet Mode</span>
                   </div>
                   <button
                     onClick={() => onConfigChange({ ...config, useTestnet: !config.useTestnet })}
@@ -601,7 +601,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
 
                 {/* Chain Selector */}
                 <div>
-                  <label className="block text-gray-400 text-xs mb-2">Select Network</label>
+                  <label className="block text-secondary text-xs mb-2">Select Network</label>
                   <div className="grid grid-cols-2 gap-2">
                     {availableChains.slice(0, 6).map(chain => {
                       const gasCost = estimateGasCostUsd(chain.id);
@@ -614,19 +614,19 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                           onClick={() => handleChainSelect(chain.id)}
                           className={`p-3 rounded-lg border transition-all text-left ${
                             isSelected
-                              ? 'border-accent bg-white/5'
+                              ? 'border-accent bg-black/[0.04]'
                               : 'border-gray-700 hover:border-gray-600'
                           }`}
                         >
                           <div className="flex items-center justify-between mb-1">
-                            <span className={`font-medium ${isSelected ? 'text-accent' : 'text-white'}`}>
+                            <span className={`font-medium ${isSelected ? 'text-accent' : 'text-primary'}`}>
                               {chain.shortName}
                             </span>
                             {isTest && (
                               <span className="text-xs text-yellow-400">TEST</span>
                             )}
                           </div>
-                          <div className="flex items-center gap-1 text-xs text-gray-500">
+                          <div className="flex items-center gap-1 text-xs text-secondary">
                             <Flame className="w-3 h-3" />
                             <span>~${gasCost.toFixed(2)} gas</span>
                           </div>
@@ -638,7 +638,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
 
                 {/* Slippage Control */}
                 <div>
-                  <label className="block text-gray-400 text-xs mb-2">
+                  <label className="block text-secondary text-xs mb-2">
                     Slippage Tolerance: {config.slippagePercent}%
                   </label>
                   <div className="flex gap-2">
@@ -649,7 +649,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                         className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
                           config.slippagePercent === value
                             ? 'bg-white text-gray-900'
-                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            : 'bg-white border border-[#c5c5cb] text-[#52525b] hover:bg-black/[0.04]'
                         }`}
                       >
                         {value}%
@@ -675,8 +675,8 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                   disabled={!isTrading}
                   className={`w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors ${
                     isTrading
-                      ? 'bg-red-500 hover:bg-red-600 text-white'
-                      : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                      ? 'bg-red-500 hover:bg-red-600 text-primary'
+                      : 'bg-gray-700 text-secondary cursor-not-allowed'
                   }`}
                 >
                   <Pause className="w-5 h-5" />
@@ -690,7 +690,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                       <AlertTriangle className="w-4 h-4" />
                       <span className="font-medium">Daily Loss Limit Exceeded</span>
                     </div>
-                    <p className="text-gray-400 text-sm mt-1">
+                    <p className="text-secondary text-sm mt-1">
                       Trading automatically paused. Current loss: ${Math.abs(dailyPnL).toFixed(2)}
                     </p>
                   </div>
@@ -701,7 +701,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <DollarSign className="w-4 h-4 text-green-400" />
-                      <span className="text-white text-sm font-medium">Take Profit</span>
+                      <span className="text-primary text-sm font-medium">Take Profit</span>
                     </div>
                     <button
                       onClick={() => onConfigChange({
@@ -719,7 +719,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                   </div>
                   {config.takeProfitEnabled && (
                     <div>
-                      <label className="block text-gray-400 text-xs mb-2">
+                      <label className="block text-secondary text-xs mb-2">
                         Close at +{config.takeProfitPercent}% profit
                       </label>
                       <input
@@ -734,7 +734,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                         })}
                         className="w-full accent-green-500"
                       />
-                      <div className="flex justify-between text-xs text-gray-500">
+                      <div className="flex justify-between text-xs text-secondary">
                         <span>+1%</span>
                         <span>+10%</span>
                         <span>+25%</span>
@@ -748,7 +748,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <AlertTriangle className="w-4 h-4 text-red-400" />
-                      <span className="text-white text-sm font-medium">Stop Loss</span>
+                      <span className="text-primary text-sm font-medium">Stop Loss</span>
                     </div>
                     <button
                       onClick={() => onConfigChange({
@@ -766,7 +766,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                   </div>
                   {config.stopLossEnabled && (
                     <div>
-                      <label className="block text-gray-400 text-xs mb-2">
+                      <label className="block text-secondary text-xs mb-2">
                         Close at -{config.stopLossPercent}% loss
                       </label>
                       <input
@@ -781,7 +781,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                         })}
                         className="w-full accent-red-500"
                       />
-                      <div className="flex justify-between text-xs text-gray-500">
+                      <div className="flex justify-between text-xs text-secondary">
                         <span>-1%</span>
                         <span>-10%</span>
                         <span>-25%</span>
@@ -795,7 +795,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Zap className="w-4 h-4 text-accent" />
-                      <span className="text-white text-sm font-medium">Auto-Reopen (Scalping)</span>
+                      <span className="text-primary text-sm font-medium">Auto-Reopen (Scalping)</span>
                     </div>
                     <button
                       onClick={() => onConfigChange({
@@ -813,11 +813,11 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                   </div>
                   {config.autoReopenEnabled && (
                     <>
-                      <p className="text-gray-400 text-xs">
+                      <p className="text-secondary text-xs">
                         Bot will automatically open a new trade after closing in profit
                       </p>
                       <div className="flex items-center justify-between">
-                        <span className="text-gray-400 text-xs">Also reopen after stop loss</span>
+                        <span className="text-secondary text-xs">Also reopen after stop loss</span>
                         <button
                           onClick={() => onConfigChange({
                             ...config,
@@ -833,7 +833,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                         </button>
                       </div>
                       <div>
-                        <label className="block text-gray-400 text-xs mb-2">
+                        <label className="block text-secondary text-xs mb-2">
                           Max trades per session: {config.maxTradesPerSession === 0 ? 'Unlimited' : config.maxTradesPerSession}
                         </label>
                         <input
@@ -854,7 +854,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
 
                 {/* Max Position Size */}
                 <div>
-                  <label className="block text-gray-400 text-xs mb-2">
+                  <label className="block text-secondary text-xs mb-2">
                     Max Position Size: {config.maxPositionPercent}% of balance
                   </label>
                   <input
@@ -868,7 +868,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                     })}
                     className="w-full accent-accent"
                   />
-                  <div className="flex justify-between text-xs text-gray-500">
+                  <div className="flex justify-between text-xs text-secondary">
                     <span>5%</span>
                     <span>50%</span>
                     <span>100%</span>
@@ -877,7 +877,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
 
                 {/* Max Daily Loss */}
                 <div>
-                  <label className="block text-gray-400 text-xs mb-2">
+                  <label className="block text-secondary text-xs mb-2">
                     Max Daily Loss: {config.maxDailyLossPercent}%
                   </label>
                   <input
@@ -895,7 +895,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
 
                 {/* Gas Warning Threshold */}
                 <div>
-                  <label className="block text-gray-400 text-xs mb-2">
+                  <label className="block text-secondary text-xs mb-2">
                     Warn if gas exceeds: {config.maxGasPercent}% of trade
                   </label>
                   <input
@@ -912,10 +912,10 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                 </div>
 
                 {/* Auto-pause on high gas */}
-                <div className="flex items-center justify-between p-3 bg-background rounded-lg">
+                <div className="flex items-center justify-between p-3 dashboard-panel-inner">
                   <div className="flex items-center gap-2">
                     <Flame className="w-4 h-4 text-yellow-400" />
-                    <span className="text-white text-sm">Auto-pause on high gas</span>
+                    <span className="text-primary text-sm">Auto-pause on high gas</span>
                   </div>
                   <button
                     onClick={() => onConfigChange({
@@ -936,12 +936,12 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                 <div className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg space-y-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Shield className="w-4 h-4 text-blue-400" />
-                    <span className="text-white text-sm font-medium">AI Signal Quality Filters</span>
+                    <span className="text-primary text-sm font-medium">AI Signal Quality Filters</span>
                   </div>
 
                   {/* Min Confidence */}
                   <div>
-                    <label className="block text-gray-400 text-xs mb-2">
+                    <label className="block text-secondary text-xs mb-2">
                       Min Confidence: {config.minConfidence}% (4+ indicators needed for 85%+)
                     </label>
                     <input
@@ -956,7 +956,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                       })}
                       className="w-full accent-blue-500"
                     />
-                    <div className="flex justify-between text-xs text-gray-500">
+                    <div className="flex justify-between text-xs text-secondary">
                       <span>50% (More trades)</span>
                       <span>75%</span>
                       <span>90% (Quality)</span>
@@ -965,7 +965,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
 
                   {/* Min Risk/Reward */}
                   <div>
-                    <label className="block text-gray-400 text-xs mb-2">
+                    <label className="block text-secondary text-xs mb-2">
                       Min Risk/Reward Ratio: {config.minRiskReward.toFixed(1)}x
                     </label>
                     <input
@@ -980,7 +980,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                       })}
                       className="w-full accent-blue-500"
                     />
-                    <div className="flex justify-between text-xs text-gray-500">
+                    <div className="flex justify-between text-xs text-secondary">
                       <span>1.0x</span>
                       <span>1.5x</span>
                       <span>3.0x</span>
@@ -990,8 +990,8 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                   {/* Volume Filter */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-white text-sm">Volume Confirmation</span>
-                      <p className="text-gray-500 text-xs">Require 1.2x avg volume</p>
+                      <span className="text-primary text-sm">Volume Confirmation</span>
+                      <p className="text-secondary text-xs">Require 1.2x avg volume</p>
                     </div>
                     <button
                       onClick={() => onConfigChange({
@@ -1011,8 +1011,8 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                   {/* Trend Filter */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-white text-sm">Trend Protection</span>
-                      <p className="text-gray-500 text-xs">Don't trade against strong trends</p>
+                      <span className="text-primary text-sm">Trend Protection</span>
+                      <p className="text-secondary text-xs">Don't trade against strong trends</p>
                     </div>
                     <button
                       onClick={() => onConfigChange({
@@ -1037,14 +1037,14 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {tradeHistory.length === 0 ? (
                   <div className="text-center py-8">
-                    <History className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                    <p className="text-gray-400 text-sm">No trades yet</p>
+                    <History className="w-8 h-8 text-muted mx-auto mb-2" />
+                    <p className="text-secondary text-sm">No trades yet</p>
                   </div>
                 ) : (
                   tradeHistory.slice(0, 20).map(trade => (
                     <div
                       key={trade.id}
-                      className="p-3 bg-background rounded-lg"
+                      className="p-3 dashboard-panel-inner"
                     >
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-2">
@@ -1055,7 +1055,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                           }`}>
                             {trade.type.toUpperCase()}
                           </span>
-                          <span className="text-white text-sm">
+                          <span className="text-primary text-sm">
                             {trade.amountIn} → {trade.amountOut}
                           </span>
                         </div>
@@ -1068,7 +1068,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                           <ExternalLink className="w-4 h-4" />
                         </a>
                       </div>
-                      <div className="flex items-center justify-between text-xs text-gray-500">
+                      <div className="flex items-center justify-between text-xs text-secondary">
                         <span>{trade.chainName}</span>
                         <span>Gas: ${trade.gasCostUsd.toFixed(2)}</span>
                         {trade.profit !== undefined && (
@@ -1077,7 +1077,7 @@ export const TradingSettings: React.FC<TradingSettingsProps> = ({
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-600 mt-1">
+                      <div className="text-xs text-muted mt-1">
                         {new Date(trade.timestamp).toLocaleString()}
                       </div>
                     </div>

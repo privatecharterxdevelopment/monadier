@@ -6,6 +6,7 @@ import Input from '../components/ui/Input';
 import Logo from '../components/ui/Logo';
 import { signIn, signInWithGoogle } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { enableDemoMode, isDemoModeAllowed } from '../lib/demoMode';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -18,6 +19,11 @@ const LoginPage: React.FC = () => {
   const { isAuthenticated } = useAuth();
 
   const successMessage = (location.state as any)?.message;
+
+  const handleDemoDashboard = () => {
+    enableDemoMode();
+    navigate('/dashboard');
+  };
 
   const handleGoogleSignIn = async () => {
     setError('');
@@ -55,9 +61,9 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="auth-page">
       <div className="container-custom py-6">
-        <Logo size="md" />
+        <Logo size="md" theme="light" />
       </div>
       
       <div className="flex-grow flex items-center justify-center px-4 py-12">
@@ -67,8 +73,8 @@ const LoginPage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="card shadow-lg">
-            <h1 className="font-display text-3xl mb-6 text-center">Welcome Back</h1>
+          <div className="auth-card">
+            <h1 className="font-display text-3xl mb-6 text-center text-[#0a0a0a]">Welcome Back</h1>
 
             {successMessage && (
               <div className="mb-6 p-3 bg-success/10 border border-success/30 rounded-md text-success text-sm">
@@ -124,18 +130,14 @@ const LoginPage: React.FC = () => {
 
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/10"></div>
+                <div className="w-full border-t border-black/[0.08]"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-card-dark text-gray-500">or continue with</span>
+                <span className="px-4 bg-[#efeff2] text-secondary">or continue with</span>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-white/10 rounded-full hover:bg-white/5 transition-colors"
-            >
+            <button type="button" onClick={handleGoogleSignIn} className="btn-oauth">
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
@@ -154,7 +156,7 @@ const LoginPage: React.FC = () => {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              <span className="text-white text-sm font-medium">Continue with Google</span>
+              <span className="text-[#0a0a0a] text-sm font-medium">Continue with Google</span>
             </button>
 
             <div className="mt-6 text-center text-secondary">
@@ -163,6 +165,21 @@ const LoginPage: React.FC = () => {
                 Apply for access
               </Link>
             </div>
+            <p className="mt-4 text-center text-xs text-secondary">
+              <Link to="/your-funds" className="hover:text-accent underline">
+                How your funds are stored
+              </Link>
+            </p>
+
+            {isDemoModeAllowed() && (
+              <button
+                type="button"
+                onClick={handleDemoDashboard}
+                className="mt-6 w-full py-2.5 text-sm text-[#71717a] hover:text-[#0a0a0a] border border-[#c5c5cb] rounded-full bg-white/40 hover:bg-white/60 transition-colors"
+              >
+                Open demo dashboard (local dev)
+              </button>
+            )}
           </div>
         </motion.div>
       </div>

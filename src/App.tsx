@@ -25,6 +25,8 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import AuthCallbackPage from './pages/AuthCallbackPage';
+import FundsExplainedPage from './pages/FundsExplainedPage';
 import KycFlowPage from './pages/KycFlowPage';
 import DashboardPage from './pages/DashboardPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -39,7 +41,7 @@ function App() {
   // Show loading while checking auth and license
   if (isLoading || (isDesktop && licenseLoading)) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex items-center justify-center min-h-screen auth-page">
         <div className="animate-pulse">
           <Logo />
         </div>
@@ -53,7 +55,9 @@ function App() {
   }
 
   // Show support widget on public pages only
-  const showSupportWidget = !location.pathname.startsWith('/dashboard') &&
+  const showSupportWidget =
+    location.pathname !== '/' &&
+    !location.pathname.startsWith('/dashboard') &&
     !location.pathname.startsWith('/login') &&
     !location.pathname.startsWith('/register') &&
     !location.pathname.startsWith('/kyc');
@@ -65,11 +69,7 @@ function App() {
       <TransactionToast />
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
-          <Route path="/" element={
-            <PageTransition>
-              <LandingPage />
-            </PageTransition>
-          } />
+          <Route path="/" element={<LandingPage />} />
           <Route path="/how-it-works" element={
             <PageTransition>
               <HowItWorksPage />
@@ -118,6 +118,16 @@ function App() {
           <Route path="/register" element={
             <PageTransition>
               <RegisterPage />
+            </PageTransition>
+          } />
+          <Route path="/auth/callback" element={
+            <PageTransition>
+              <AuthCallbackPage />
+            </PageTransition>
+          } />
+          <Route path="/your-funds" element={
+            <PageTransition>
+              <FundsExplainedPage />
             </PageTransition>
           } />
           <Route path="/forgot-password" element={

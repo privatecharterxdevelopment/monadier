@@ -10,14 +10,15 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="mb-4">
         {label && (
-          <label className="block text-primary mb-2 text-sm" htmlFor={props.id}>
+          <label className="block text-[#0a0a0a] mb-2 text-sm" htmlFor={props.id}>
             {label}
           </label>
         )}
         <input
           ref={ref}
           className={`
-            input-field ${error ? 'border-error focus:ring-error' : ''}
+            input-field text-[#0a0a0a] caret-[#0a0a0a]
+            ${error ? 'border-error focus:ring-error' : ''}
             ${className}
           `}
           {...props}

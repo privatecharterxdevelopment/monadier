@@ -15,14 +15,14 @@ const SupportWidget: React.FC = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="absolute bottom-16 right-0 w-72 rounded-2xl border border-white/10 bg-black/80 backdrop-blur-xl shadow-2xl overflow-hidden"
+            className="absolute bottom-16 right-0 w-72 rounded-2xl border border-black/[0.08] bg-black/80 backdrop-blur-xl shadow-2xl overflow-hidden"
           >
             {/* Header */}
-            <div className="p-5 border-b border-white/5">
-              <h3 className="text-lg font-display font-medium text-white mb-1">
+            <div className="p-5 border-b border-black/[0.06]">
+              <h3 className="text-lg font-display font-medium text-primary mb-1">
                 Ready to bot trade?
               </h3>
-              <p className="text-gray-400 text-sm">
+              <p className="text-secondary text-sm">
                 Start earning passive income today
               </p>
             </div>
@@ -39,7 +39,7 @@ const SupportWidget: React.FC = () => {
               <div className="text-center">
                 <a
                   href="mailto:support@monadier.com"
-                  className="inline-flex items-center gap-2 text-gray-400 hover:text-white text-sm transition-colors"
+                  className="inline-flex items-center gap-2 text-secondary hover:text-primary text-sm transition-colors"
                 >
                   <Mail size={14} />
                   Need support? Contact us
@@ -48,10 +48,10 @@ const SupportWidget: React.FC = () => {
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 bg-white/5 border-t border-white/5">
+            <div className="px-5 py-3 bg-black/[0.04] border-t border-black/[0.06]">
               <Link
                 to="/support"
-                className="text-gray-500 hover:text-white text-xs transition-colors"
+                className="text-secondary hover:text-primary text-xs transition-colors"
               >
                 Visit support center →
               </Link>
@@ -65,7 +65,7 @@ const SupportWidget: React.FC = () => {
         onClick={() => setIsOpen(!isOpen)}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center text-white hover:bg-white/20 transition-colors shadow-lg"
+        className="w-14 h-14 rounded-full bg-black/[0.06] backdrop-blur-xl border border-black/[0.1] flex items-center justify-center text-primary hover:bg-white/20 transition-colors shadow-lg"
       >
         {isOpen ? <X size={24} /> : <MessageCircle size={24} />}
       </motion.button>

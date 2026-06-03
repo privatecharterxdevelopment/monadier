@@ -1578,7 +1578,7 @@ const TradingBotPage: React.FC = () => {
     if (candles.length === 0 || isLoading) {
       return (
         <div className="flex items-center justify-center h-full">
-          <div className="animate-pulse text-gray-500">Loading chart...</div>
+          <div className="animate-pulse text-secondary">Loading chart...</div>
         </div>
       );
     }
@@ -1731,8 +1731,8 @@ const TradingBotPage: React.FC = () => {
             const y = ratio * chartHeight;
             return (
               <g key={i}>
-                <line x1="0" y1={y} x2="100%" y2={y} stroke="#374151" strokeWidth="0.5" strokeDasharray="4" />
-                <text x="100%" y={y} dx="-4" dy="4" className="text-[10px] fill-gray-500" textAnchor="end">
+                <line x1="0" y1={y} x2="100%" y2={y} stroke="#d4d4d8" strokeWidth="0.5" strokeDasharray="4" />
+                <text x="100%" y={y} dx="-4" dy="4" className="text-[10px] fill-[#71717a]" textAnchor="end">
                   {`$${formatPrice(price, 2)}`}
                 </text>
               </g>
@@ -1795,7 +1795,7 @@ const TradingBotPage: React.FC = () => {
           {/* Arbitrage Strategy - spread indicator */}
           {tradingConfig.strategy === 'arbitrage' && (
             <g>
-              <rect x="4" y="4" width="80" height="32" fill="#1f2937" rx="4" stroke="#374151" />
+              <rect x="4" y="4" width="80" height="32" fill="rgba(255,255,255,0.9)" rx="4" stroke="#c5c5cb" />
               <text x="44" y="16" className="text-[9px] fill-gray-400" textAnchor="middle">Arb Spread</text>
               <text x="44" y="28" className="text-[11px] fill-emerald-400 font-medium" textAnchor="middle">
                 {(Math.random() * tradingConfig.arbitrageMinSpread * 2).toFixed(2)}%
@@ -1892,7 +1892,7 @@ const TradingBotPage: React.FC = () => {
                     <>
                       <line x1="0" y1={tpY} x2="100%" y2={tpY} stroke="#22c55e" strokeWidth="1" strokeDasharray="4,4" opacity="0.8" />
                       <rect x="calc(100% - 75px)" y={tpY - 8} width="70" height="16" fill="#22c55e" rx="3" opacity="0.9" />
-                      <text x="calc(100% - 40px)" y={tpY + 4} className="text-[9px] fill-white font-medium" textAnchor="middle">
+                      <text x="calc(100% - 40px)" y={tpY + 4} className="text-[9px] fill-[#0a0a0a] font-medium" textAnchor="middle">
                         TP +{tpPercent}%
                       </text>
                     </>
@@ -1914,7 +1914,7 @@ const TradingBotPage: React.FC = () => {
                     <>
                       <line x1="0" y1={slY} x2="100%" y2={slY} stroke="#ef4444" strokeWidth="1" strokeDasharray="4,4" opacity="0.8" />
                       <rect x="calc(100% - 75px)" y={slY - 8} width="70" height="16" fill="#ef4444" rx="3" opacity="0.9" />
-                      <text x="calc(100% - 40px)" y={slY + 4} className="text-[9px] fill-white font-medium" textAnchor="middle">
+                      <text x="calc(100% - 40px)" y={slY + 4} className="text-[9px] fill-[#0a0a0a] font-medium" textAnchor="middle">
                         SL -{slPercent}%
                       </text>
                     </>
@@ -1941,7 +1941,7 @@ const TradingBotPage: React.FC = () => {
                 fill={strategy?.direction === 'LONG' ? '#3b82f6' : '#f97316'}
                 rx="4"
               />
-              <text x="47" y={scaleY(entryPrice) + 4} className="text-[10px] fill-white font-medium" textAnchor="middle">
+              <text x="47" y={scaleY(entryPrice) + 4} className="text-[10px] fill-[#0a0a0a] font-medium" textAnchor="middle">
                 {`ENTRY $${formatPrice(entryPrice, 2)}`}
               </text>
             </g>
@@ -1965,33 +1965,33 @@ const TradingBotPage: React.FC = () => {
         </div>
 
         {/* Real-time Indicators Panel */}
-        <div className="absolute top-3 left-3 bg-black/80 backdrop-blur-md rounded-xl border border-gray-700/50 p-3 text-xs z-10 shadow-lg">
+        <div className="absolute top-3 left-3 bg-white/75 backdrop-blur-md rounded-xl border border-[#c5c5cb] p-3 text-xs z-10 shadow-lg">
           <div className="grid grid-cols-2 gap-x-4 gap-y-2">
             {/* RSI */}
             <div className="flex items-center justify-between gap-2 min-w-[80px]">
-              <span className="text-gray-400 text-[11px]">RSI</span>
-              <span className={`font-mono font-semibold ${chartRsi > 70 ? 'text-red-400' : chartRsi < 30 ? 'text-green-400' : 'text-white'}`}>
+              <span className="text-secondary text-[11px]">RSI</span>
+              <span className={`font-mono font-semibold ${chartRsi > 70 ? 'text-red-400' : chartRsi < 30 ? 'text-green-400' : 'text-primary'}`}>
                 {chartRsi.toFixed(0)}
               </span>
             </div>
             {/* MACD */}
             <div className="flex items-center justify-between gap-2 min-w-[80px]">
-              <span className="text-gray-400 text-[11px]">MACD</span>
+              <span className="text-secondary text-[11px]">MACD</span>
               <span className={`font-mono font-semibold ${chartMacd >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                 {chartMacd >= 0 ? '+' : ''}{chartMacd.toFixed(2)}
               </span>
             </div>
             {/* Volume */}
             <div className="flex items-center justify-between gap-2 min-w-[80px]">
-              <span className="text-gray-400 text-[11px]">Vol</span>
-              <span className={`font-mono font-semibold ${volumeRatio > 1.5 ? 'text-yellow-400' : 'text-white'}`}>
+              <span className="text-secondary text-[11px]">Vol</span>
+              <span className={`font-mono font-semibold ${volumeRatio > 1.5 ? 'text-yellow-400' : 'text-primary'}`}>
                 {volumeRatio.toFixed(1)}x
               </span>
             </div>
             {/* Bollinger % */}
             <div className="flex items-center justify-between gap-2 min-w-[80px]">
               <span className="text-purple-400 text-[11px]">BB%</span>
-              <span className="text-white font-mono font-semibold">
+              <span className="text-primary font-mono font-semibold">
                 {bbData[bbData.length - 1] ? `${((currentPrice - (bbData[bbData.length - 1]?.lower || 0)) / ((bbData[bbData.length - 1]?.upper || 1) - (bbData[bbData.length - 1]?.lower || 0)) * 100).toFixed(0)}%` : '-'}
               </span>
             </div>
@@ -2012,14 +2012,14 @@ const TradingBotPage: React.FC = () => {
               const pair = pairs.find(p => p.symbol === e.target.value);
               if (pair) setSelectedPair(pair);
             }}
-            className="bg-card-dark border border-gray-700 rounded-lg px-3 py-2 text-white font-medium"
+            className="dashboard-panel border border-[#c5c5cb] rounded-lg px-3 py-2 text-primary font-medium"
           >
             {pairs.map(pair => (
               <option key={pair.symbol} value={pair.symbol}>{pair.symbol}</option>
             ))}
           </select>
           <div>
-            <span className="text-2xl font-light text-white">{`$${formatPrice(selectedPair.price, 2)}`}</span>
+            <span className="text-2xl font-light text-primary">{`$${formatPrice(selectedPair.price, 2)}`}</span>
             <span className={`ml-2 text-sm ${selectedPair.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
               {selectedPair.change >= 0 ? '+' : ''}{selectedPair.change.toFixed(2)}%
             </span>
@@ -2043,7 +2043,7 @@ const TradingBotPage: React.FC = () => {
                   switchChain(chainId);
                   setTradingConfig(prev => ({ ...prev, selectedChainId: chainId }));
                 }}
-                className="bg-card-dark border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                className="dashboard-panel border border-[#c5c5cb] rounded-lg px-3 py-2 text-primary text-sm"
               >
                 {getAllChains(tradingConfig.useTestnet).map(chain => (
                   <option key={chain.id} value={chain.id}>
@@ -2064,7 +2064,7 @@ const TradingBotPage: React.FC = () => {
             <AlertCircle className="w-5 h-5 text-orange-400" />
             <div>
               <p className="text-orange-400 font-medium">Network Mismatch</p>
-              <p className="text-gray-400 text-sm">
+              <p className="text-secondary text-sm">
                 Bot is set to {getChainById(tradingConfig.selectedChainId)?.name || 'Unknown'}, but wallet is on {currentChain.name}
               </p>
             </div>
@@ -2086,36 +2086,36 @@ const TradingBotPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* Chart Section */}
         <div className="lg:col-span-3 space-y-4">
-          <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-800 flex flex-col gap-2">
+          <div className="dashboard-panel rounded-xl border border-border overflow-hidden">
+            <div className="px-4 py-3 border-b border-border flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <span className="text-white font-medium">Price Chart</span>
+                  <span className="text-primary font-medium">Price Chart</span>
                   <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                  <span className="text-xs text-gray-500">Live</span>
+                  <span className="text-xs text-secondary">Live</span>
                   {currentChain && (
-                    <span className="px-2 py-0.5 bg-gray-800 text-gray-400 text-xs rounded">
+                    <span className="px-2 py-0.5 bg-white/50 border border-[#c5c5cb] text-secondary text-xs rounded">
                       {currentChain.dex.name}
                     </span>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 mr-4 bg-gray-800 rounded-lg p-1">
-                  <button onClick={() => setZoomLevel(prev => Math.max(prev - 0.25, 0.5))} className="p-1.5 rounded hover:bg-gray-700 text-gray-400 hover:text-white">
+                <div className="flex items-center gap-1 mr-4 bg-white/50 border border-[#c5c5cb] rounded-lg p-1">
+                  <button onClick={() => setZoomLevel(prev => Math.max(prev - 0.25, 0.5))} className="p-1.5 rounded hover:bg-black/[0.06] text-secondary hover:text-primary">
                     <ZoomOut size={16} />
                   </button>
-                  <span className="text-xs text-gray-400 px-2">{Math.round(zoomLevel * 100)}%</span>
-                  <button onClick={() => setZoomLevel(prev => Math.min(prev + 0.25, 3))} className="p-1.5 rounded hover:bg-gray-700 text-gray-400 hover:text-white">
+                  <span className="text-xs text-secondary px-2">{Math.round(zoomLevel * 100)}%</span>
+                  <button onClick={() => setZoomLevel(prev => Math.min(prev + 0.25, 3))} className="p-1.5 rounded hover:bg-black/[0.06] text-secondary hover:text-primary">
                     <ZoomIn size={16} />
                   </button>
                 </div>
-                <div className="flex items-center gap-1 bg-gray-800 rounded-lg p-1">
+                <div className="flex items-center gap-1 bg-white/50 border border-[#c5c5cb] rounded-lg p-1">
                   {['1m', '5m', '15m', '1h', '4h', '1d'].map(tf => (
                     <button
                       key={tf}
                       onClick={() => setTimeframe(tf)}
                       className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                        timeframe === tf ? 'bg-white text-gray-900' : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                        timeframe === tf ? 'bg-white text-gray-900' : 'text-secondary hover:text-primary hover:bg-black/[0.06]'
                       }`}
                     >
                       {tf}
@@ -2128,11 +2128,11 @@ const TradingBotPage: React.FC = () => {
               <div className="flex items-center gap-4 flex-wrap text-[10px]">
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-0.5 bg-green-500 rounded" style={{ borderStyle: 'dashed' }} />
-                  <span className="text-gray-400">Support</span>
+                  <span className="text-secondary">Support</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-0.5 bg-red-500 rounded" style={{ borderStyle: 'dashed' }} />
-                  <span className="text-gray-400">Resistance</span>
+                  <span className="text-secondary">Resistance</span>
                 </div>
                 {tradingConfig.strategy === 'grid' && (
                   <>
@@ -2161,13 +2161,13 @@ const TradingBotPage: React.FC = () => {
 
           {/* Strategy - Locked for non-subscribers */}
           {analyzeMarket && (
-            <div className="bg-card-dark rounded-xl border border-gray-800 p-4 relative">
+            <div className="dashboard-panel rounded-xl border border-border p-4 relative">
               {/* Lock overlay for non-subscribers */}
               {!isSubscribed && planTier === 'free' && (
                 <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-xl z-10 flex flex-col items-center justify-center">
-                  <Lock className="w-8 h-8 text-gray-500 mb-3" />
-                  <p className="text-white font-medium mb-1">AI Analysis Locked</p>
-                  <p className="text-gray-400 text-sm mb-4">Upgrade to see real-time trading signals</p>
+                  <Lock className="w-8 h-8 text-secondary mb-3" />
+                  <p className="text-primary font-medium mb-1">AI Analysis Locked</p>
+                  <p className="text-secondary text-sm mb-4">Upgrade to see real-time trading signals</p>
                   <a
                     href="/dashboard/subscriptions"
                     className="px-4 py-2 bg-accent text-black font-medium rounded-lg hover:bg-accent/90 transition-colors text-sm"
@@ -2177,20 +2177,20 @@ const TradingBotPage: React.FC = () => {
                 </div>
               )}
               <div className="flex items-center gap-2 mb-4">
-                <Activity className="w-5 h-5 text-accent" />
-                <span className="text-white font-medium">AI Strategy</span>
+                <Activity className="w-5 h-5 dashboard-section-icon" />
+                <span className="dashboard-section-title">AI Strategy</span>
                 {analyzeMarket.qualityMetrics?.isQualitySignal ? (
                   <span className="ml-auto px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full flex items-center gap-1">
                     <Check className="w-3 h-3" /> GO Signal
                   </span>
                 ) : (
-                  <span className="ml-auto px-2 py-0.5 bg-zinc-700/50 text-zinc-400 text-xs rounded-full flex items-center gap-1">
+                  <span className="dashboard-badge ml-auto">
                     <Clock className="w-3 h-3" /> WAIT
                   </span>
                 )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-background rounded-lg p-4">
+                <div className="dashboard-panel-inner">
                   {analyzeMarket.qualityMetrics?.isQualitySignal ? (
                     <>
                       <div className="flex items-center gap-2 mb-2">
@@ -2205,24 +2205,24 @@ const TradingBotPage: React.FC = () => {
                           {analyzeMarket.direction}
                         </span>
                       </div>
-                      <p className="text-gray-400 text-sm">{analyzeMarket.reason}</p>
+                      <p className="text-secondary text-sm">{analyzeMarket.reason}</p>
                     </>
                   ) : (
                     <>
                       <div className="flex items-center gap-2 mb-2">
-                        <Clock className="w-5 h-5 text-zinc-500" />
-                        <span className="text-lg font-semibold text-zinc-400">WAIT</span>
+                        <Clock className="w-5 h-5 text-[#71717a]" />
+                        <span className="text-lg font-semibold text-[#0a0a0a]">WAIT</span>
                       </div>
-                      <p className="text-gray-500 text-sm">
+                      <p className="text-sm text-[#52525b]">
                         {analyzeMarket.qualityMetrics?.qualityWarning || 'Waiting for better setup...'}
                       </p>
                     </>
                   )}
                 </div>
-                <div className="bg-background rounded-lg p-4">
-                  <p className="text-gray-400 text-sm mb-2">Confidence ({analyzeMarket.qualityMetrics?.conditionsMet || 0}/5 conditions)</p>
+                <div className="dashboard-panel-inner">
+                  <p className="dashboard-label mb-2">Confidence ({analyzeMarket.qualityMetrics?.conditionsMet || 0}/5 conditions)</p>
                   <div className="flex items-center gap-3">
-                    <div className="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
+                    <div className="flex-1 h-2 bg-black/[0.08] rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full ${
                           analyzeMarket.confidence >= 85 ? 'bg-green-500' :
@@ -2232,38 +2232,38 @@ const TradingBotPage: React.FC = () => {
                         style={{ width: `${analyzeMarket.confidence}%` }}
                       />
                     </div>
-                    <span className={`font-semibold ${analyzeMarket.confidence >= tradingConfig.minConfidence ? 'text-white' : 'text-orange-400'}`}>
+                    <span className={`font-semibold ${analyzeMarket.confidence >= tradingConfig.minConfidence ? 'text-[#0a0a0a]' : 'text-orange-600'}`}>
                       {analyzeMarket.confidence}%
                     </span>
                   </div>
-                  <p className="text-gray-500 text-xs mt-1">Min: {tradingConfig.minConfidence}%</p>
+                  <p className="text-xs text-[#71717a] mt-1">Min: {tradingConfig.minConfidence}%</p>
                 </div>
-                <div className="bg-background rounded-lg p-4">
-                  <p className="text-gray-400 text-sm mb-2">Risk/Reward</p>
+                <div className="dashboard-panel-inner">
+                  <p className="dashboard-label mb-2">Risk/Reward</p>
                   <div className="flex items-center gap-2">
                     <span className={`text-lg font-semibold ${
                       (analyzeMarket.qualityMetrics?.riskReward || 0) >= tradingConfig.minRiskReward ? 'text-green-400' : 'text-orange-400'
                     }`}>
                       {analyzeMarket.qualityMetrics?.riskReward?.toFixed(2) || '0.00'}x
                     </span>
-                    <span className="text-gray-500 text-xs">(min: {tradingConfig.minRiskReward}x)</span>
+                    <span className="text-xs text-[#71717a]">(min: {tradingConfig.minRiskReward}x)</span>
                   </div>
-                  <p className="text-gray-500 text-xs mt-1">
+                  <p className="text-xs text-[#71717a] mt-1">
                     Vol: {analyzeMarket.qualityMetrics?.volumeRatio?.toFixed(1) || '0.0'}x
                     {tradingConfig.volumeFilterEnabled && (analyzeMarket.qualityMetrics?.volumeRatio || 0) < 1.2 && (
                       <span className="text-orange-400 ml-1">(low)</span>
                     )}
                   </p>
                 </div>
-                <div className="bg-background rounded-lg p-4">
-                  <p className="text-gray-400 text-sm mb-2">Indicators</p>
+                <div className="dashboard-panel-inner">
+                  <p className="dashboard-label mb-2">Indicators</p>
                   <div className="flex flex-wrap gap-1">
                     {analyzeMarket.indicators.length > 0 ? (
                       analyzeMarket.indicators.map((ind, i) => (
-                        <span key={i} className="px-2 py-0.5 bg-gray-700 text-gray-300 text-xs rounded">{ind}</span>
+                        <span key={i} className="dashboard-badge">{ind}</span>
                       ))
                     ) : (
-                      <span className="text-gray-500 text-xs">Waiting for signals...</span>
+                      <span className="text-xs text-[#71717a]">Waiting for signals...</span>
                     )}
                   </div>
                 </div>
@@ -2285,18 +2285,18 @@ const TradingBotPage: React.FC = () => {
           )}
 
           {/* Live Trades Feed - Mix of simulated + real trades for social proof */}
-          <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-800 flex items-center gap-2">
-              <Users className="w-4 h-4 text-accent" />
-              <span className="text-white font-medium">Live Trades</span>
-              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse ml-2" />
-              <span className="text-gray-500 text-xs ml-auto">Community activity</span>
+          <div className="dashboard-panel rounded-xl border border-border overflow-hidden">
+            <div className="px-4 py-3 border-b border-[#c5c5cb] flex items-center gap-2">
+              <Users className="w-4 h-4 dashboard-section-icon" />
+              <span className="dashboard-section-title">Live Trades</span>
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse ml-2" />
+              <span className="text-xs text-[#71717a] ml-auto">Community activity</span>
             </div>
             <div className="max-h-40 overflow-y-auto">
               <table className="w-full text-sm">
-                <thead className="text-gray-400 text-xs border-b border-gray-800 sticky top-0 bg-card-dark">
+                <thead className="text-xs text-[#52525b] border-b border-[#c5c5cb] sticky top-0 bg-white/95 backdrop-blur-sm">
                   <tr>
-                    <th className="text-left px-4 py-2">Wallet</th>
+                    <th className="text-left px-4 py-2 font-medium">Wallet</th>
                     <th className="text-left px-4 py-2">Pair</th>
                     <th className="text-center px-4 py-2">Chain</th>
                     <th className="text-right px-4 py-2">Amount</th>
@@ -2310,14 +2310,14 @@ const TradingBotPage: React.FC = () => {
                         key={trade.id}
                         initial={idx === 0 ? { opacity: 0, backgroundColor: 'rgba(255, 255, 255, 0.1)' } : { opacity: 1 }}
                         animate={{ opacity: 1, backgroundColor: 'transparent' }}
-                        className="border-b border-gray-800/50"
+                        className="border-b border-border/50"
                       >
-                        <td className="px-4 py-2 font-mono text-gray-400 text-xs">{trade.wallet}</td>
-                        <td className="px-4 py-2 text-white">{trade.pair}</td>
+                        <td className="px-4 py-2 font-mono text-secondary text-xs">{trade.wallet}</td>
+                        <td className="px-4 py-2 text-primary">{trade.pair}</td>
                         <td className="px-4 py-2 text-center">
-                          <span className="px-2 py-0.5 bg-gray-800 text-gray-400 text-xs rounded">{trade.chain}</span>
+                          <span className="px-2 py-0.5 bg-white/50 border border-[#c5c5cb] text-secondary text-xs rounded">{trade.chain}</span>
                         </td>
-                        <td className="px-4 py-2 text-right text-white font-mono">{`$${trade.amount.toLocaleString()}`}</td>
+                        <td className="px-4 py-2 text-right text-primary font-mono">{`$${trade.amount.toLocaleString()}`}</td>
                         <td className={`px-4 py-2 text-right font-mono ${trade.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                           {trade.profit >= 0 ? '+' : ''}{`$${trade.profit.toFixed(2)}`}
                         </td>
@@ -2330,17 +2330,17 @@ const TradingBotPage: React.FC = () => {
           </div>
 
           {/* YOUR TRADES - Real transaction history */}
-          <div className="bg-card-dark rounded-xl border border-white/20 overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-800 bg-accent/5">
+          <div className="dashboard-panel rounded-xl border border-black/[0.1] overflow-hidden">
+            <div className="px-4 py-3 border-b border-[#c5c5cb] bg-black/[0.02]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Wallet className="w-4 h-4 text-accent" />
-                  <span className="text-white font-medium">Your Trades</span>
+                  <Wallet className="w-4 h-4 dashboard-section-icon" />
+                  <span className="dashboard-section-title">Your Trades</span>
                   <span className="px-2 py-0.5 bg-white text-gray-900 text-xs rounded-full font-medium">
                     REAL
                   </span>
                   {tradeHistory.length > 0 && (
-                    <span className="px-2 py-0.5 bg-gray-800 text-gray-300 text-xs rounded-full">
+                    <span className="px-2 py-0.5 bg-white/50 border border-[#c5c5cb] text-[#52525b] text-xs rounded-full">
                       {tradeHistory.length}
                     </span>
                   )}
@@ -2349,7 +2349,7 @@ const TradingBotPage: React.FC = () => {
                   <select
                     value={tradeFilter}
                     onChange={(e) => setTradeFilter(e.target.value as any)}
-                    className="bg-gray-800 text-gray-300 text-xs px-2 py-1 rounded border border-gray-700"
+                    className="bg-white/50 border border-[#c5c5cb] text-[#52525b] text-xs px-2 py-1 rounded border border-[#c5c5cb]"
                   >
                     <option value="all">All</option>
                     <option value="wins">Wins</option>
@@ -2360,13 +2360,13 @@ const TradingBotPage: React.FC = () => {
 
               {/* Stats Summary */}
               {tradeHistory.length > 0 && (
-                <div className="grid grid-cols-5 gap-2 mt-3 pt-3 border-t border-gray-700">
+                <div className="grid grid-cols-5 gap-2 mt-3 pt-3 border-t border-[#c5c5cb]">
                   <div className="text-center">
-                    <p className="text-gray-500 text-xs">Trades</p>
-                    <p className="text-white font-medium">{tradeHistory.length}</p>
+                    <p className="text-xs text-[#71717a]">Trades</p>
+                    <p className="text-[#0a0a0a] font-medium">{tradeHistory.length}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-gray-500 text-xs">Win Rate</p>
+                    <p className="text-xs text-[#71717a]">Win Rate</p>
                     <p className="text-green-400 font-medium">
                       {tradeHistory.length > 0
                         ? ((tradeHistory.filter(t => (t.profit || 0) > 0).length / tradeHistory.length) * 100).toFixed(0)
@@ -2374,7 +2374,7 @@ const TradingBotPage: React.FC = () => {
                     </p>
                   </div>
                   <div className="text-center">
-                    <p className="text-gray-500 text-xs">Total P/L</p>
+                    <p className="text-secondary text-xs">Total P/L</p>
                     <p className={`font-medium ${
                       tradeHistory.reduce((sum, t) => sum + (t.profit || 0), 0) >= 0 ? 'text-green-400' : 'text-red-400'
                     }`}>
@@ -2383,13 +2383,13 @@ const TradingBotPage: React.FC = () => {
                     </p>
                   </div>
                   <div className="text-center">
-                    <p className="text-gray-500 text-xs">Gas Spent</p>
+                    <p className="text-xs text-[#71717a]">Gas Spent</p>
                     <p className="text-orange-400 font-medium">
                       {`$${tradeHistory.reduce((sum, t) => sum + (t.gasCostUsd || 0), 0).toFixed(2)}`}
                     </p>
                   </div>
                   <div className="text-center">
-                    <p className="text-gray-500 text-xs">Net P/L</p>
+                    <p className="text-xs text-[#71717a]">Net P/L</p>
                     <p className={`font-medium ${
                       (tradeHistory.reduce((sum, t) => sum + (t.profit || 0), 0) - tradeHistory.reduce((sum, t) => sum + (t.gasCostUsd || 0), 0)) >= 0
                         ? 'text-green-400' : 'text-red-400'
@@ -2403,17 +2403,17 @@ const TradingBotPage: React.FC = () => {
 
             <div className="max-h-64 overflow-y-auto">
               {tradeHistory.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-gray-500">
-                  <History className="w-8 h-8 mb-2" />
-                  <p>No trades yet</p>
-                  <p className="text-xs">Your real trades will appear here</p>
-                  <p className="text-xs text-accent mt-2">Verified on-chain transactions</p>
+                <div className="flex flex-col items-center justify-center py-10 px-4">
+                  <History className="w-8 h-8 mb-3 text-[#71717a]" />
+                  <p className="text-[#0a0a0a] font-medium">No trades yet</p>
+                  <p className="text-xs text-[#52525b] mt-1">Your real trades will appear here</p>
+                  <p className="text-xs text-[#71717a] mt-2">Verified on-chain transactions</p>
                 </div>
               ) : (
                 <table className="w-full text-sm">
-                  <thead className="text-gray-400 text-xs border-b border-gray-800 sticky top-0 bg-card-dark">
+                  <thead className="text-xs text-[#52525b] border-b border-[#c5c5cb] sticky top-0 bg-white/95 backdrop-blur-sm">
                     <tr>
-                      <th className="text-left px-4 py-2">Time</th>
+                      <th className="text-left px-4 py-2 font-medium">Time</th>
                       <th className="text-left px-4 py-2">Type</th>
                       <th className="text-center px-4 py-2">Chain</th>
                       <th className="text-right px-4 py-2">Amount</th>
@@ -2441,9 +2441,9 @@ const TradingBotPage: React.FC = () => {
                               key={trade.id}
                               initial={idx === 0 ? { opacity: 0, backgroundColor: 'rgba(255, 255, 255, 0.1)' } : { opacity: 1 }}
                               animate={{ opacity: 1, backgroundColor: 'transparent' }}
-                              className="border-b border-gray-800/50 hover:bg-accent/5"
+                              className="border-b border-border/50 hover:bg-accent/5"
                             >
-                              <td className="px-4 py-2 text-gray-400 text-xs">
+                              <td className="px-4 py-2 text-secondary text-xs">
                                 {new Date(trade.timestamp).toLocaleString()}
                               </td>
                               <td className="px-4 py-2">
@@ -2454,11 +2454,11 @@ const TradingBotPage: React.FC = () => {
                                 </span>
                               </td>
                               <td className="px-4 py-2 text-center">
-                                <span className="px-2 py-0.5 bg-gray-800 text-gray-400 text-xs rounded">
+                                <span className="px-2 py-0.5 bg-white/50 border border-[#c5c5cb] text-secondary text-xs rounded">
                                   {trade.chainName}
                                 </span>
                               </td>
-                              <td className="px-4 py-2 text-right text-white font-mono text-xs">
+                              <td className="px-4 py-2 text-right text-primary font-mono text-xs">
                                 {`$${parseFloat(trade.amountIn).toFixed(2)}`}
                               </td>
                               <td className="px-4 py-2 text-right text-orange-400 font-mono text-xs">
@@ -2514,53 +2514,53 @@ const TradingBotPage: React.FC = () => {
           )}
 
           {!isConnected ? (
-            <div className="bg-card-dark rounded-xl border border-gray-800 p-6 text-center">
+            <div className="dashboard-panel rounded-xl border border-border p-6 text-center">
               <Wallet className="w-12 h-12 text-accent mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-white mb-2">Connect Wallet</h3>
-              <p className="text-gray-400 text-sm mb-4">Connect your wallet to trade on DEX</p>
+              <h3 className="text-lg font-semibold text-primary mb-2">Connect Wallet</h3>
+              <p className="text-secondary text-sm mb-4">Connect your wallet to trade on DEX</p>
               <button
                 onClick={() => open()}
-                className="w-full py-3 bg-white/10 hover:bg-white/20 text-white border border-white/20 font-medium rounded-lg transition-colors"
+                className="w-full py-3 bg-black/[0.06] hover:bg-white/20 text-primary border border-black/[0.1] font-medium rounded-lg transition-colors"
               >
                 Connect Wallet
               </button>
             </div>
           ) : !isSubscribed && planTier !== 'free' ? (
-            <div className="bg-card-dark rounded-xl border border-gray-800 p-6">
+            <div className="dashboard-panel rounded-xl border border-border p-6">
               <div className="text-center mb-6">
-                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 rounded-full bg-black/[0.04] flex items-center justify-center mx-auto mb-4">
                   <Lock className="w-8 h-8 text-accent" />
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-2">Unlock Trading</h3>
-                <p className="text-gray-400 text-sm">Choose a plan to start</p>
+                <h3 className="text-xl font-semibold text-primary mb-2">Unlock Trading</h3>
+                <p className="text-secondary text-sm">Choose a plan to start</p>
               </div>
               <button
                 onClick={() => setShowPlans(true)}
-                className="w-full py-3 bg-white/10 hover:bg-white/20 text-white border border-white/20 font-medium rounded-lg transition-colors"
+                className="w-full py-3 bg-black/[0.06] hover:bg-white/20 text-primary border border-black/[0.1] font-medium rounded-lg transition-colors"
               >
                 View Plans
               </button>
             </div>
           ) : (
-            <div className="bg-card-dark rounded-xl border border-gray-800 p-4 space-y-4">
+            <div className="dashboard-panel rounded-xl border border-border p-4 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-white">Trade</h3>
+                <h3 className="text-lg font-semibold text-primary">Trade</h3>
                 <span className={`px-2 py-1 text-xs rounded ${
                   planTier === 'elite' || planTier === 'desktop' ? 'bg-purple-500/20 text-purple-400' :
                   planTier === 'pro' ? 'bg-blue-500/20 text-blue-400' :
                   planTier === 'starter' ? 'bg-green-500/20 text-green-400' :
-                  'bg-gray-500/20 text-gray-400'
+                  'bg-gray-500/20 text-secondary'
                 }`}>
                   {planTier?.toUpperCase() || 'FREE'}
                 </span>
               </div>
 
               {/* Daily Trades Status */}
-              <div className="flex items-center justify-between p-2 bg-background rounded-lg">
-                <span className="text-gray-400 text-sm">Daily Trades</span>
+              <div className="flex items-center justify-between p-2 dashboard-panel-inner">
+                <span className="text-secondary text-sm">Daily Trades</span>
                 <span className={`text-sm font-medium ${
                   dailyTradesRemaining === -1 ? 'text-green-400' :
-                  dailyTradesRemaining > 5 ? 'text-white' :
+                  dailyTradesRemaining > 5 ? 'text-primary' :
                   dailyTradesRemaining > 0 ? 'text-yellow-400' : 'text-red-400'
                 }`}>
                   {dailyTradesRemaining === -1 ? 'Unlimited' :
@@ -2579,12 +2579,12 @@ const TradingBotPage: React.FC = () => {
               {!botActive ? (
                 <>
                   {/* Manual Trading Mode */}
-                  <div className="flex items-center justify-between p-2 bg-background rounded-lg">
+                  <div className="flex items-center justify-between p-2 dashboard-panel-inner">
                     <div className="flex items-center gap-2">
                       <Activity className="w-4 h-4 text-blue-400" />
-                      <span className="text-white text-sm">Manual Trading</span>
+                      <span className="text-primary text-sm">Manual Trading</span>
                     </div>
-                    <span className="text-gray-400 text-xs capitalize">{tradingConfig.strategy} Strategy</span>
+                    <span className="text-secondary text-xs capitalize">{tradingConfig.strategy} Strategy</span>
                   </div>
 
                   {/* Info: This is for manual trading */}
@@ -2598,26 +2598,26 @@ const TradingBotPage: React.FC = () => {
                     <div className={`p-3 rounded-lg border ${
                       analyzeMarket.qualityMetrics?.isQualitySignal
                         ? (analyzeMarket.direction === 'LONG' ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30')
-                        : 'bg-zinc-800/50 border-zinc-700'
+                        : 'dashboard-panel-inner'
                     }`}>
                       <div className="flex items-center gap-2">
                         {analyzeMarket.qualityMetrics?.isQualitySignal ? (
                           <>
-                            {analyzeMarket.direction === 'LONG' ? <TrendingUp className="w-4 h-4 text-green-400" /> : <TrendingDown className="w-4 h-4 text-red-400" />}
-                            <span className={`font-semibold ${analyzeMarket.direction === 'LONG' ? 'text-green-400' : 'text-red-400'}`}>
+                            {analyzeMarket.direction === 'LONG' ? <TrendingUp className="w-4 h-4 text-green-600" /> : <TrendingDown className="w-4 h-4 text-red-600" />}
+                            <span className={`font-semibold ${analyzeMarket.direction === 'LONG' ? 'text-green-700' : 'text-red-700'}`}>
                               {analyzeMarket.direction} Signal
                             </span>
-                            <span className="ml-auto text-xs text-green-400 bg-green-500/20 px-2 py-0.5 rounded">GO</span>
+                            <span className="ml-auto text-xs text-green-700 bg-green-500/15 border border-green-500/25 px-2 py-0.5 rounded">GO</span>
                           </>
                         ) : (
                           <>
-                            <Clock className="w-4 h-4 text-zinc-500" />
-                            <span className="font-semibold text-zinc-400">WAIT</span>
-                            <span className="ml-auto text-xs text-zinc-500 bg-zinc-700 px-2 py-0.5 rounded">No Signal</span>
+                            <Clock className="w-4 h-4 text-[#71717a]" />
+                            <span className="font-semibold text-[#0a0a0a]">WAIT</span>
+                            <span className="dashboard-badge ml-auto">No Signal</span>
                           </>
                         )}
                       </div>
-                      <p className="text-gray-400 text-xs mt-1">
+                      <p className="text-xs text-[#52525b] mt-1">
                         {analyzeMarket.qualityMetrics?.isQualitySignal
                           ? `Confidence: ${analyzeMarket.confidence}%`
                           : analyzeMarket.qualityMetrics?.qualityWarning || 'Waiting for quality setup...'}
@@ -2626,7 +2626,7 @@ const TradingBotPage: React.FC = () => {
                   )}
 
                   <div>
-                    <label className="block text-sm text-gray-400 mb-2">
+                    <label className="block text-sm text-secondary mb-2">
                       Amount (USD) - Max: ${Math.min(availableBalance, getMaxAmount()).toFixed(2)}
                     </label>
                     <input
@@ -2635,7 +2635,7 @@ const TradingBotPage: React.FC = () => {
                       onChange={(e) => setTradeAmount(Math.min(Math.max(Number(e.target.value), 5), Math.min(availableBalance, getMaxAmount())))}
                       min={5}
                       max={Math.min(availableBalance, getMaxAmount())}
-                      className="w-full bg-background border border-gray-700 rounded-lg px-3 py-2 text-white"
+                      className="w-full bg-background border border-[#c5c5cb] rounded-lg px-3 py-2 text-primary"
                     />
                     <input
                       type="range"
@@ -2645,7 +2645,7 @@ const TradingBotPage: React.FC = () => {
                       onChange={(e) => setTradeAmount(Number(e.target.value))}
                       className="w-full mt-2 accent-accent"
                     />
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <div className="flex justify-between text-xs text-secondary mt-1">
                       <span>$5</span>
                       <span>${Math.min(availableBalance, getMaxAmount()).toFixed(2)}</span>
                     </div>
@@ -2683,7 +2683,7 @@ const TradingBotPage: React.FC = () => {
 
                   {/* Quick cost estimate */}
                   {estimatedCosts.gasCostPerTrade > 0 && (
-                    <div className="text-center text-xs text-gray-500">
+                    <div className="text-center text-xs text-secondary">
                       {`Est. gas: $${estimatedCosts.gasCostPerTrade.toFixed(2)} (${estimatedCosts.gasPercentage.toFixed(1)}% of trade)`}
                     </div>
                   )}
@@ -2696,7 +2696,7 @@ const TradingBotPage: React.FC = () => {
                   {dailyPnL !== 0 && (
                     <div className={`p-3 rounded-lg border ${dailyPnL >= 0 ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
                       <div className="flex justify-between items-center">
-                        <span className="text-gray-400 text-sm">Today's P/L</span>
+                        <span className="text-secondary text-sm">Today's P/L</span>
                         <span className={dailyPnL >= 0 ? 'text-green-400' : 'text-red-400'}>
                           {dailyPnL >= 0 ? '+' : ''}${dailyPnL.toFixed(2)}
                         </span>
@@ -2724,19 +2724,19 @@ const TradingBotPage: React.FC = () => {
 
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
-                        <p className="text-gray-500 text-xs">Size</p>
-                        <p className="text-white font-medium">{`$${tradeAmount.toLocaleString()}`}</p>
+                        <p className="text-secondary text-xs">Size</p>
+                        <p className="text-primary font-medium">{`$${tradeAmount.toLocaleString()}`}</p>
                       </div>
                       <div>
-                        <p className="text-gray-500 text-xs">Entry</p>
-                        <p className="text-white font-medium">{`$${formatPrice(entryPrice, 2)}`}</p>
+                        <p className="text-secondary text-xs">Entry</p>
+                        <p className="text-primary font-medium">{`$${formatPrice(entryPrice, 2)}`}</p>
                       </div>
                     </div>
 
-                    <div className="pt-3 border-t border-gray-700">
+                    <div className="pt-3 border-t border-[#c5c5cb]">
                       {/* Price Movement P/L */}
                       <div className="flex items-center justify-between mb-1">
-                        <p className="text-gray-500 text-xs">Price Movement</p>
+                        <p className="text-secondary text-xs">Price Movement</p>
                         <div className={`flex items-center gap-1 text-xs ${currentPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                           {currentPnL >= 0 ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
                           {((currentPnL / tradeAmount) * 100).toFixed(2)}%
@@ -2747,27 +2747,27 @@ const TradingBotPage: React.FC = () => {
                       </p>
 
                       {/* Estimated Fees */}
-                      <div className="mt-2 p-2 bg-white/5 rounded text-xs space-y-1">
-                        <div className="flex justify-between text-gray-500">
+                      <div className="mt-2 p-2 bg-black/[0.04] rounded text-xs space-y-1">
+                        <div className="flex justify-between text-secondary">
                           <span className="flex items-center gap-1">
                             Platform Fee
                             <span className="text-green-400 text-[10px]">(Free!)</span>
                           </span>
                           <span className="text-green-400">$0.00</span>
                         </div>
-                        <div className="flex justify-between text-gray-500">
+                        <div className="flex justify-between text-secondary">
                           <span>DEX Fee (0.1%)</span>
                           <span className="text-orange-400">-${(tradeAmount * 0.001).toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between text-gray-500">
+                        <div className="flex justify-between text-secondary">
                           <span className="flex items-center gap-1">
                             Win Fee
-                            <span className="text-zinc-500 text-[10px]">(10% of profit)</span>
+                            <span className="text-muted text-[10px]">(10% of profit)</span>
                           </span>
-                          <span className="text-zinc-400">{currentPnL > 0 ? `-$${(currentPnL * 0.1).toFixed(2)}` : '$0.00'}</span>
+                          <span className="text-secondary">{currentPnL > 0 ? `-$${(currentPnL * 0.1).toFixed(2)}` : '$0.00'}</span>
                         </div>
-                        <div className="flex justify-between pt-1 border-t border-gray-700">
-                          <span className="text-gray-400">Net P/L (est.)</span>
+                        <div className="flex justify-between pt-1 border-t border-[#c5c5cb]">
+                          <span className="text-secondary">Net P/L (est.)</span>
                           {(() => {
                             const dexFee = tradeAmount * 0.001; // 0.1% DEX fee
                             const winFee = currentPnL > 0 ? currentPnL * 0.1 : 0; // 10% of profit
@@ -2784,17 +2784,17 @@ const TradingBotPage: React.FC = () => {
 
                     {/* TP/SL Indicators */}
                     {(tradingConfig.takeProfitEnabled || tradingConfig.stopLossEnabled) && (
-                      <div className="pt-3 border-t border-gray-700 space-y-2">
+                      <div className="pt-3 border-t border-[#c5c5cb] space-y-2">
                         {tradingConfig.takeProfitEnabled && (
                           <div className="flex items-center justify-between text-xs">
                             <span className="text-green-400">Take Profit</span>
-                            <span className="text-gray-400">+{tradingConfig.takeProfitPercent}% (${(tradeAmount * tradingConfig.takeProfitPercent / 100).toFixed(2)})</span>
+                            <span className="text-secondary">+{tradingConfig.takeProfitPercent}% (${(tradeAmount * tradingConfig.takeProfitPercent / 100).toFixed(2)})</span>
                           </div>
                         )}
                         {tradingConfig.stopLossEnabled && (
                           <div className="flex items-center justify-between text-xs">
                             <span className="text-red-400">Stop Loss</span>
-                            <span className="text-gray-400">-{tradingConfig.stopLossPercent}% (-${(tradeAmount * tradingConfig.stopLossPercent / 100).toFixed(2)})</span>
+                            <span className="text-secondary">-{tradingConfig.stopLossPercent}% (-${(tradeAmount * tradingConfig.stopLossPercent / 100).toFixed(2)})</span>
                           </div>
                         )}
                         {tradingConfig.autoReopenEnabled && (
@@ -2818,12 +2818,12 @@ const TradingBotPage: React.FC = () => {
                       </a>
                     )}
 
-                    <div className="pt-3 border-t border-gray-700">
-                      <div className="flex items-center gap-2 text-gray-500 text-sm">
+                    <div className="pt-3 border-t border-[#c5c5cb]">
+                      <div className="flex items-center gap-2 text-secondary text-sm">
                         <Clock size={14} />
                         <span>Min. hold time</span>
                       </div>
-                      <p className="text-xl font-medium text-white mt-1">{formatTime(timeRemaining)}</p>
+                      <p className="text-xl font-medium text-primary mt-1">{formatTime(timeRemaining)}</p>
                       <div className="w-full bg-gray-700 rounded-full h-1.5 mt-2">
                         <div
                           className="bg-accent h-full rounded-full transition-all"
@@ -2838,7 +2838,7 @@ const TradingBotPage: React.FC = () => {
                     disabled={timeRemaining > 0 || isExecuting}
                     className={`w-full py-4 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors ${
                       timeRemaining > 0 || isExecuting
-                        ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                        ? 'bg-gray-700 text-secondary cursor-not-allowed'
                         : 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
                     }`}
                   >
@@ -2857,17 +2857,17 @@ const TradingBotPage: React.FC = () => {
       </div>
 
       {/* Need Help Support Section */}
-      <div className="mt-6 bg-card-dark rounded-xl border border-gray-800 p-6">
+      <div className="mt-6 dashboard-panel rounded-xl border border-border p-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h3 className="text-lg font-semibold text-white mb-1">Need Help?</h3>
-            <p className="text-gray-400 text-sm">
+            <h3 className="text-lg font-semibold text-primary mb-1">Need Help?</h3>
+            <p className="text-secondary text-sm">
               Our dedicated support team is available 24/7 to assist you with any trading-related issues.
             </p>
           </div>
           <a
             href="/support"
-            className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg font-medium transition-colors"
+            className="px-6 py-3 bg-black/[0.06] hover:bg-white/20 text-primary border border-black/[0.1] rounded-lg font-medium transition-colors"
           >
             Contact Support
           </a>
@@ -2885,7 +2885,7 @@ const TradingBotPage: React.FC = () => {
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-card-dark rounded-2xl border border-gray-800 p-6 max-w-md w-full"
+            className="dashboard-panel rounded-2xl border border-border p-6 max-w-md w-full"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3 mb-4">
@@ -2893,29 +2893,29 @@ const TradingBotPage: React.FC = () => {
                 <AlertCircle className="w-6 h-6 text-orange-400" />
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-white">Trading Cost Warning</h3>
-                <p className="text-gray-400 text-sm">Please review before starting</p>
+                <h3 className="text-xl font-semibold text-primary">Trading Cost Warning</h3>
+                <p className="text-secondary text-sm">Please review before starting</p>
               </div>
             </div>
 
             <div className="space-y-3 mb-6">
               <div className="p-3 bg-background rounded-lg">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Gas per trade:</span>
-                  <span className="text-white font-mono">{`$${estimatedCosts.gasCostPerTrade.toFixed(2)}`}</span>
+                  <span className="text-secondary">Gas per trade:</span>
+                  <span className="text-primary font-mono">{`$${estimatedCosts.gasCostPerTrade.toFixed(2)}`}</span>
                 </div>
               </div>
 
               <div className="p-3 bg-background rounded-lg">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Trades per day ({tradingConfig.tradingInterval}):</span>
-                  <span className="text-white font-mono">{estimatedCosts.tradesPerDay.toFixed(0)}</span>
+                  <span className="text-secondary">Trades per day ({tradingConfig.tradingInterval}):</span>
+                  <span className="text-primary font-mono">{estimatedCosts.tradesPerDay.toFixed(0)}</span>
                 </div>
               </div>
 
               <div className="p-3 bg-background rounded-lg">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Est. daily gas cost:</span>
+                  <span className="text-secondary">Est. daily gas cost:</span>
                   <span className={`font-mono ${estimatedCosts.dailyGasCost > 100 ? 'text-red-400' : 'text-orange-400'}`}>
                     ${estimatedCosts.dailyGasCost.toFixed(2)}
                   </span>
@@ -2924,7 +2924,7 @@ const TradingBotPage: React.FC = () => {
 
               <div className="p-3 bg-background rounded-lg">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Gas % of trade:</span>
+                  <span className="text-secondary">Gas % of trade:</span>
                   <span className={`font-mono ${estimatedCosts.gasPercentage > 10 ? 'text-red-400' : estimatedCosts.gasPercentage > 5 ? 'text-orange-400' : 'text-green-400'}`}>
                     {estimatedCosts.gasPercentage.toFixed(1)}%
                   </span>
@@ -2936,7 +2936,7 @@ const TradingBotPage: React.FC = () => {
                   <p className="text-red-400 text-sm">
                     <strong>Warning:</strong> Gas is {estimatedCosts.gasPercentage.toFixed(0)}% of your trade!
                   </p>
-                  <p className="text-gray-400 text-xs mt-1">
+                  <p className="text-secondary text-xs mt-1">
                     Consider: Using BSC (low gas), increasing trade amount, or using longer intervals.
                   </p>
                 </div>
@@ -2946,7 +2946,7 @@ const TradingBotPage: React.FC = () => {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowRiskWarning(false)}
-                className="flex-1 py-3 bg-gray-700 text-white rounded-lg font-medium hover:bg-gray-600"
+                className="flex-1 py-3 bg-gray-700 text-primary rounded-lg font-medium hover:bg-gray-600"
               >
                 Cancel
               </button>
@@ -2975,12 +2975,12 @@ const TradingBotPage: React.FC = () => {
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-card-dark rounded-2xl border border-gray-800 p-8 max-w-4xl w-full"
+            className="dashboard-panel rounded-2xl border border-border p-8 max-w-4xl w-full"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-semibold text-white mb-2">Choose Plan</h2>
-              <p className="text-gray-400">Pay with crypto to unlock trading</p>
+              <h2 className="text-2xl font-semibold text-primary mb-2">Choose Plan</h2>
+              <p className="text-secondary">Pay with crypto to unlock trading</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -2988,7 +2988,7 @@ const TradingBotPage: React.FC = () => {
                 <motion.div
                   key={plan.id}
                   whileHover={{ scale: 1.02 }}
-                  className={`relative bg-background rounded-xl border ${selectedPlan === plan.id ? 'border-accent' : 'border-gray-700'} p-6 cursor-pointer`}
+                  className={`relative bg-background rounded-xl border ${selectedPlan === plan.id ? 'border-accent' : 'border-[#c5c5cb]'} p-6 cursor-pointer`}
                   onClick={() => setSelectedPlan(plan.id)}
                 >
                   {plan.popular && (
@@ -2997,19 +2997,19 @@ const TradingBotPage: React.FC = () => {
                     </div>
                   )}
 
-                  <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center text-white mb-4`}>
+                  <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center text-primary mb-4`}>
                     {plan.icon}
                   </div>
 
-                  <h3 className="text-xl font-semibold text-white mb-1">{plan.name}</h3>
+                  <h3 className="text-xl font-semibold text-primary mb-1">{plan.name}</h3>
                   <div className="mb-4">
-                    <span className="text-3xl font-light text-white">{`$${plan.price}`}</span>
-                    <span className="text-gray-400">/mo</span>
+                    <span className="text-3xl font-light text-primary">{`$${plan.price}`}</span>
+                    <span className="text-secondary">/mo</span>
                   </div>
 
                   <ul className="space-y-2 mb-6">
                     {plan.features.map((feature, idx) => (
-                      <li key={idx} className="flex items-center gap-2 text-sm text-gray-400">
+                      <li key={idx} className="flex items-center gap-2 text-sm text-secondary">
                         <Check className="w-4 h-4 text-green-400" />
                         {feature}
                       </li>
@@ -3018,7 +3018,7 @@ const TradingBotPage: React.FC = () => {
 
                   <button
                     onClick={(e) => { e.stopPropagation(); handlePurchase(plan.id); }}
-                    className={`w-full py-3 rounded-lg font-medium ${selectedPlan === plan.id ? 'bg-white text-gray-900' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
+                    className={`w-full py-3 rounded-lg font-medium ${selectedPlan === plan.id ? 'bg-white text-gray-900' : 'bg-gray-700 text-primary hover:bg-gray-600'}`}
                   >
                     Select
                   </button>
@@ -3026,7 +3026,7 @@ const TradingBotPage: React.FC = () => {
               ))}
             </div>
 
-            <button onClick={() => setShowPlans(false)} className="mt-6 w-full py-3 text-gray-400 hover:text-white">
+            <button onClick={() => setShowPlans(false)} className="mt-6 w-full py-3 text-secondary hover:text-primary">
               Cancel
             </button>
           </motion.div>

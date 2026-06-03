@@ -671,47 +671,24 @@ export class PositionService {
 
     let syncCount = 0;
     for (const pos of positions) {
-      let profitLoss = 0;
-      let profitLossPercent = 0;
-      let exitPrice = pos.entry_price;
-      const leverage = pos.leverage_multiplier || 1;
-
-      if (pos.entry_price && pos.entry_amount) {
-        // If current price is provided, calculate real P/L WITH LEVERAGE
-        if (currentPrice && currentPrice > 0) {
-          exitPrice = currentPrice;
-          if (pos.direction === 'LONG') {
-            profitLossPercent = ((currentPrice - pos.entry_price) / pos.entry_price) * leverage * 100;
-          } else {
-            profitLossPercent = ((pos.entry_price - currentPrice) / pos.entry_price) * leverage * 100;
-          }
-        } else {
-          // Fallback: assume break-even if no price available
-          profitLossPercent = 0;
-          exitPrice = pos.entry_price;
-        }
-        profitLoss = (pos.entry_amount * profitLossPercent) / 100;
-      }
-
       const { error } = await this.supabase
         .from('positions')
         .update({
           status: 'closed',
-          close_reason: 'auto_closed',
+          close_reason: 'vault_settled_sync',
           closed_at: new Date().toISOString(),
-          profit_loss: profitLoss,
-          profit_loss_percent: profitLossPercent,
-          exit_price: exitPrice,
+          // Do not invent P/L — on-chain settlement is source of truth
+          profit_loss: null,
+          profit_loss_percent: null,
+          exit_price: currentPrice && currentPrice > 0 ? currentPrice : pos.entry_price,
           updated_at: new Date().toISOString()
         })
         .eq('id', pos.id);
 
       if (!error) {
         syncCount++;
-        logger.warn('Synced orphaned position with calculated P/L', {
+        logger.warn('Synced DB position after vault settlement (no estimated P/L)', {
           positionId: pos.id,
-          profitLoss,
-          profitLossPercent
         });
       }
     }

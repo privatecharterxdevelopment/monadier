@@ -38,20 +38,20 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
   // No subscription at all (shouldn't happen with auto free tier)
   if (!isSubscribed || !planTier) {
     return (
-      <div className={`bg-card-dark rounded-xl border border-gray-800 ${compact ? 'p-3' : 'p-4'}`}>
+      <div className={`bg-card-dark rounded-xl border border-border ${compact ? 'p-3' : 'p-4'}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-orange-500/20 rounded-lg">
               <AlertTriangle className="w-5 h-5 text-orange-400" />
             </div>
             <div>
-              <p className="text-white font-medium">No Active Subscription</p>
-              <p className="text-sm text-gray-400">Activate a license to start trading</p>
+              <p className="text-primary font-medium">No Active Subscription</p>
+              <p className="text-sm text-secondary">Activate a license to start trading</p>
             </div>
           </div>
           <button
             onClick={onActivate}
-            className="px-4 py-2 bg-accent hover:bg-accent-dark text-white font-medium rounded-lg transition-colors"
+            className="px-4 py-2 bg-accent hover:bg-accent-dark text-primary font-medium rounded-lg transition-colors"
           >
             Activate
           </button>
@@ -77,7 +77,7 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
       case 'starter':
         return 'text-blue-400';
       default:
-        return 'text-gray-400';
+        return 'text-secondary';
     }
   };
 
@@ -87,7 +87,7 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
       case 'desktop':
         return 'bg-yellow-500/20';
       case 'pro':
-        return 'bg-white/10';
+        return 'bg-black/[0.06]';
       case 'starter':
         return 'bg-blue-500/20';
       default:
@@ -99,11 +99,11 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
     switch (planTier) {
       case 'elite':
       case 'desktop':
-        return 'bg-white/5';
+        return 'bg-black/[0.04]';
       case 'pro':
-        return 'bg-white/5';
+        return 'bg-black/[0.04]';
       case 'starter':
-        return 'bg-white/5';
+        return 'bg-black/[0.04]';
       default:
         return 'bg-gray-800/50';
     }
@@ -112,28 +112,28 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
   // Compact view for sidebar
   if (compact) {
     return (
-      <div className="bg-card-dark rounded-xl border border-gray-800 p-3">
+      <div className="bg-card-dark rounded-xl border border-border p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             {isFree ? (
-              <FileText className="w-4 h-4 text-gray-400" />
+              <FileText className="w-4 h-4 text-secondary" />
             ) : (
               <Crown className={`w-4 h-4 ${getPlanColor()}`} />
             )}
-            <span className="text-white font-medium text-sm">{plan.name}</span>
+            <span className="text-primary font-medium text-sm">{plan.name}</span>
             {isFree && (
-              <span className="px-1.5 py-0.5 text-xs bg-gray-700 text-gray-300 rounded">
+              <span className="px-1.5 py-0.5 text-xs bg-gray-700 text-[#52525b] rounded">
                 Paper
               </span>
             )}
             {plan.badge && (
-              <span className={`px-1.5 py-0.5 text-xs rounded ${plan.popular ? 'bg-white/10 text-accent' : 'bg-green-500/20 text-green-400'}`}>
+              <span className={`px-1.5 py-0.5 text-xs rounded ${plan.popular ? 'bg-black/[0.06] text-accent' : 'bg-green-500/20 text-green-400'}`}>
                 {plan.badge}
               </span>
             )}
           </div>
           {!isLifetime && daysRemaining !== -1 && (
-            <span className={`text-xs ${isExpiringSoon ? 'text-orange-400' : 'text-gray-400'}`}>
+            <span className={`text-xs ${isExpiringSoon ? 'text-orange-400' : 'text-secondary'}`}>
               {daysRemaining}d left
             </span>
           )}
@@ -151,7 +151,7 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
                 }}
               />
             </div>
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-secondary">
               {dailyTradesRemaining}/{plan.features.dailyTradeLimit}
             </span>
           </div>
@@ -159,7 +159,7 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
         {isFree && (
           <button
             onClick={onUpgrade}
-            className="w-full mt-2 py-1.5 text-xs bg-white/10 hover:bg-white/15 text-accent rounded transition-colors"
+            className="w-full mt-2 py-1.5 text-xs bg-black/[0.06] hover:bg-white/15 text-accent rounded transition-colors"
           >
             Upgrade for Real Trading
           </button>
@@ -170,7 +170,7 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
 
   // Full view
   return (
-    <div className="bg-card-dark rounded-xl border border-gray-800 overflow-hidden">
+    <div className="bg-card-dark rounded-xl border border-border overflow-hidden">
       {/* Header */}
       <div className={`p-4 ${getPlanHeaderBg()}`}>
         <div className="flex items-center justify-between">
@@ -179,37 +179,37 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
               {planTier === 'desktop' ? (
                 <Download className={`w-5 h-5 ${getPlanColor()}`} />
               ) : isFree ? (
-                <FileText className="w-5 h-5 text-gray-400" />
+                <FileText className="w-5 h-5 text-secondary" />
               ) : (
                 <Crown className={`w-5 h-5 ${getPlanColor()}`} />
               )}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-white font-bold">{plan.name} Plan</h3>
+                <h3 className="text-primary font-bold">{plan.name} Plan</h3>
                 {plan.badge && (
-                  <span className={`px-2 py-0.5 text-xs rounded-full ${plan.popular ? 'bg-white text-gray-900' : 'bg-green-500 text-white'}`}>
+                  <span className={`px-2 py-0.5 text-xs rounded-full ${plan.popular ? 'bg-white text-gray-900' : 'bg-green-500 text-primary'}`}>
                     {plan.badge}
                   </span>
                 )}
                 {isFree && (
-                  <span className="px-2 py-0.5 text-xs bg-gray-600 text-white rounded-full">
+                  <span className="px-2 py-0.5 text-xs bg-gray-600 text-primary rounded-full">
                     Paper Trading
                   </span>
                 )}
                 {isLifetime && (
-                  <span className="px-2 py-0.5 text-xs bg-green-500 text-white rounded-full">
+                  <span className="px-2 py-0.5 text-xs bg-green-500 text-primary rounded-full">
                     Lifetime
                   </span>
                 )}
               </div>
-              <p className="text-sm text-gray-400">{plan.description}</p>
+              <p className="text-sm text-secondary">{plan.description}</p>
             </div>
           </div>
           {planTier !== 'elite' && planTier !== 'desktop' && (
             <button
               onClick={onUpgrade}
-              className="flex items-center gap-1 px-3 py-1.5 bg-white/10 hover:bg-white/15 text-accent rounded-lg transition-colors text-sm"
+              className="flex items-center gap-1 px-3 py-1.5 bg-black/[0.06] hover:bg-white/15 text-accent rounded-lg transition-colors text-sm"
             >
               <Sparkles className="w-4 h-4" />
               Upgrade
@@ -221,17 +221,17 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
 
       {/* Free tier upgrade prompt */}
       {isFree && (
-        <div className="p-4 bg-white/5 border-b border-gray-800">
+        <div className="p-4 bg-black/[0.04] border-b border-border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-white font-medium">Ready for real trading?</p>
-              <p className="text-sm text-gray-400">
+              <p className="text-primary font-medium">Ready for real trading?</p>
+              <p className="text-sm text-secondary">
                 Upgrade to Starter for just <span className="text-accent font-bold">$29/month</span>
               </p>
             </div>
             <button
               onClick={onUpgrade}
-              className="px-4 py-2 bg-accent hover:bg-accent-dark text-white font-medium rounded-lg transition-colors"
+              className="px-4 py-2 bg-accent hover:bg-accent-dark text-primary font-medium rounded-lg transition-colors"
             >
               Start Real Trading
             </button>
@@ -253,11 +253,11 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
               <p className={`font-medium ${isExpired ? 'text-red-400' : 'text-orange-400'}`}>
                 {isExpired ? 'Subscription Expired' : 'Expiring Soon'}
               </p>
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-secondary">
                 {isExpired ? 'Please renew to continue trading' : `${daysRemaining} days remaining`}
               </p>
             </div>
-            <button className={`ml-auto px-3 py-1.5 rounded-lg text-sm font-medium ${isExpired ? 'bg-red-500 hover:bg-red-600' : 'bg-orange-500 hover:bg-orange-600'} text-white transition-colors`}>
+            <button className={`ml-auto px-3 py-1.5 rounded-lg text-sm font-medium ${isExpired ? 'bg-red-500 hover:bg-red-600' : 'bg-orange-500 hover:bg-orange-600'} text-primary transition-colors`}>
               Renew Now
             </button>
           </motion.div>
@@ -269,13 +269,13 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
           <div className="p-3 bg-background rounded-lg">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp className="w-4 h-4 text-accent" />
-              <span className="text-sm text-gray-400">Daily Trades</span>
+              <span className="text-sm text-secondary">Daily Trades</span>
             </div>
             {plan.features.dailyTradeLimit === -1 ? (
-              <p className="text-white font-bold">Unlimited</p>
+              <p className="text-primary font-bold">Unlimited</p>
             ) : (
               <>
-                <p className="text-white font-bold">
+                <p className="text-primary font-bold">
                   {dailyTradesRemaining} / {plan.features.dailyTradeLimit}
                 </p>
                 <div className="mt-2 h-1.5 bg-gray-700 rounded-full overflow-hidden">
@@ -294,7 +294,7 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
           <div className="p-3 bg-background rounded-lg">
             <div className="flex items-center gap-2 mb-2">
               <Calendar className="w-4 h-4 text-green-400" />
-              <span className="text-sm text-gray-400">
+              <span className="text-sm text-secondary">
                 {isLifetime ? 'License' : 'Days Left'}
               </span>
             </div>
@@ -302,11 +302,11 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
               <p className="text-green-400 font-bold">Lifetime Access</p>
             ) : (
               <>
-                <p className={`font-bold ${isExpiringSoon ? 'text-orange-400' : 'text-white'}`}>
+                <p className={`font-bold ${isExpiringSoon ? 'text-orange-400' : 'text-primary'}`}>
                   {daysRemaining === -1 ? 'Never' : `${daysRemaining} days`}
                 </p>
                 {subscription?.endDate && daysRemaining !== -1 && (
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-secondary mt-1">
                     Expires {new Date(subscription.endDate).toLocaleDateString()}
                   </p>
                 )}
@@ -318,12 +318,12 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
           <div className="p-3 bg-background rounded-lg">
             <div className="flex items-center gap-2 mb-2">
               <Zap className="w-4 h-4 text-yellow-400" />
-              <span className="text-sm text-gray-400">Strategies</span>
+              <span className="text-sm text-secondary">Strategies</span>
             </div>
-            <p className="text-white font-bold">
+            <p className="text-primary font-bold">
               {plan.features.maxActiveStrategies === -1 ? 'Unlimited' : plan.features.maxActiveStrategies}
             </p>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-secondary mt-1">
               {plan.features.strategies.join(', ')}
             </p>
           </div>
@@ -331,11 +331,11 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
           {/* Chains */}
           <div className="p-3 bg-background rounded-lg">
             <div className="flex items-center gap-2 mb-2">
-              <BarChart3 className="w-4 h-4 text-white" />
-              <span className="text-sm text-gray-400">Chains</span>
+              <BarChart3 className="w-4 h-4 text-primary" />
+              <span className="text-sm text-secondary">Chains</span>
             </div>
-            <p className="text-white font-bold">{plan.features.chains.length} chains</p>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-primary font-bold">{plan.features.chains.length} chains</p>
+            <p className="text-xs text-secondary mt-1">
               {isFree ? 'Base, Polygon' : 'All supported'}
             </p>
           </div>
@@ -346,7 +346,7 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
           <div className="flex items-center justify-between p-3 bg-background rounded-lg">
             <div className="flex items-center gap-2">
               <RefreshCw className="w-4 h-4 text-green-400" />
-              <span className="text-sm text-gray-400">Auto-Renew</span>
+              <span className="text-sm text-secondary">Auto-Renew</span>
             </div>
             <span className="text-green-400 text-sm font-medium">Enabled</span>
           </div>
@@ -358,7 +358,7 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
             <FileText className="w-5 h-5 text-blue-400" />
             <div>
               <p className="text-blue-400 font-medium text-sm">Paper Trading Mode</p>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-secondary">
                 All trades are simulated. Upgrade to trade with real funds.
               </p>
             </div>

@@ -1,33 +1,43 @@
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseClient, getAuthRedirectBase } from './supabaseClient';
 
-// In a real application, these would be in environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-supabase-project.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+/** Browser client — anon key only (never service role). */
+export const supabase = getSupabaseClient();
 
 // Auth helpers
 export const signUp = async (email: string, password: string, fullName: string, country: string) => {
+  const emailRedirectTo = `${getAuthRedirectBase()}/auth/callback`;
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
+      emailRedirectTo,
       data: {
         full_name: fullName,
-        country
-      }
-    }
+        country,
+      },
+    },
   });
-  
+
   return { data, error };
 };
 
 export const signIn = async (email: string, password: string) => {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
-    password
+    password,
   });
-  
+
+  if (error?.message?.toLowerCase().includes('email not confirmed')) {
+    return {
+      data,
+      error: {
+        ...error,
+        message:
+          'Please confirm your email first (check inbox/spam), then sign in again.',
+      },
+    };
+  }
+
   return { data, error };
 };
 
@@ -37,19 +47,25 @@ export const signOut = async () => {
 };
 
 export const signInWithGoogle = async () => {
+  const redirectTo = `${getAuthRedirectBase()}/auth/callback`;
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/dashboard`
-    }
+      redirectTo,
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'consent',
+      },
+    },
   });
   return { data, error };
 };
 
 // Password reset - sends email with reset link
 export const resetPassword = async (email: string) => {
+  const redirectTo = `${getAuthRedirectBase()}/auth/callback`;
   const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/reset-password`
+    redirectTo,
   });
   return { data, error };
 };

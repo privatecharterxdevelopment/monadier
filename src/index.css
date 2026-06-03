@@ -2,57 +2,77 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Studio background — same as landing page */
+:root {
+  --studio-bg: #e8e8ec;
+  --studio-gradient: linear-gradient(180deg, #efeff2 0%, #e4e4e8 50%, #e0e0e6 100%);
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    min-height: 100%;
+    color-scheme: light;
+    background-color: var(--studio-bg);
+    background-image: var(--studio-gradient);
+    background-attachment: fixed;
   }
 
   body {
-    @apply bg-background text-primary font-sans min-h-screen tracking-tight;
+    @apply font-sans min-h-screen tracking-normal antialiased;
+    color: #0a0a0a;
+    background: transparent;
     overflow-x: hidden;
-    /* iOS safe areas */
     padding-top: env(safe-area-inset-top);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-display tracking-tight;
+    @apply font-display tracking-tighter font-semibold;
+    color: #0a0a0a;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 
   ::selection {
-    @apply bg-white/20 text-white;
+    @apply bg-black/10;
+    color: #0a0a0a;
   }
 
-  /* Smooth Scrollbar */
   ::-webkit-scrollbar {
     width: 10px;
     background-color: transparent;
   }
 
   ::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(0, 0, 0, 0.12);
     border-radius: 10px;
     border: 2px solid transparent;
     background-clip: content-box;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(255, 255, 255, 0.2);
+    background-color: rgba(0, 0, 0, 0.2);
   }
 
   ::-webkit-scrollbar-track {
     background-color: transparent;
   }
 
-  /* Hide scrollbar for mobile */
   @media (max-width: 768px) {
     ::-webkit-scrollbar {
       display: none;
     }
-    
+
     * {
       -ms-overflow-style: none;
       scrollbar-width: none;
@@ -62,33 +82,39 @@
 
 @layer components {
   .btn {
-    @apply px-6 py-3 font-medium rounded-full transition-all duration-300 inline-flex items-center justify-center tracking-tight;
+    @apply px-6 py-3 font-medium rounded-full transition-all duration-300 inline-flex items-center justify-center tracking-normal;
   }
-  
+
   .btn-primary {
-    @apply bg-white text-background hover:bg-gray-100;
+    @apply bg-white text-primary border border-[#c5c5cb] hover:bg-white hover:border-[#a1a1aa] shadow-glow font-semibold;
   }
-  
+
   .btn-secondary {
-    @apply border border-white/20 text-white hover:bg-white/10;
+    @apply border border-[#c5c5cb] text-primary bg-white/70 backdrop-blur-sm hover:bg-white hover:border-[#a1a1aa];
   }
-  
+
   .btn-ghost {
-    @apply text-white hover:bg-white/10;
+    @apply text-secondary hover:text-primary hover:bg-black/[0.04];
   }
-  
+
   .input-field {
-    @apply w-full bg-surface/50 backdrop-blur-sm px-4 py-3 rounded-full border border-white/10 text-primary
-    focus:outline-none focus:ring-1 focus:ring-white/50 transition-all duration-300
-    placeholder:text-white/30;
+    @apply w-full bg-white/70 backdrop-blur-sm px-4 py-3 rounded-2xl border border-[#c5c5cb] text-primary
+    focus:outline-none focus:ring-1 focus:ring-black/10 focus:border-[#a1a1aa] transition-all duration-300
+    placeholder:text-muted;
   }
-  
+
+  .btn-oauth {
+    @apply w-full flex items-center justify-center gap-3 px-4 py-3 rounded-full
+    border border-[#c5c5cb] bg-white/85 text-[#0a0a0a] text-sm font-medium
+    hover:bg-white hover:border-[#a1a1aa] transition-colors;
+  }
+
   .card {
-    @apply bg-card-dark/50 backdrop-blur-sm rounded-2xl border border-white/10 shadow-card p-6 transition-all duration-300;
+    @apply glass-card p-6 transition-all duration-300;
   }
-  
+
   .card-hover {
-    @apply hover:shadow-card-hover hover:bg-card-light/50 hover:border-white/20;
+    @apply hover:shadow-card-hover hover:border-[#a1a1aa];
   }
 
   .container-custom {
@@ -96,12 +122,13 @@
   }
 
   .active-nav-link {
-    @apply text-white relative;
+    @apply relative;
+    color: #0a0a0a;
   }
-  
+
   .active-nav-link::after {
     content: '';
-    @apply absolute left-0 -bottom-1 w-full h-0.5 bg-white rounded-full;
+    @apply absolute left-0 -bottom-1 w-full h-0.5 bg-primary rounded-full;
   }
 
   .scroll-container {
@@ -111,7 +138,281 @@
   }
 
   .glass-effect {
-    @apply bg-white/5 backdrop-blur-lg border border-white/10;
+    @apply bg-glass-fill backdrop-blur-glass-lg border border-[#c5c5cb] shadow-card;
+  }
+
+  .glass-nav {
+    @apply bg-white/55 backdrop-blur-glass-lg border-b border-[#c5c5cb];
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  }
+
+  .glass-pill {
+    @apply rounded-full border border-black/[0.06] bg-white/55 backdrop-blur-xl;
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  }
+
+  .glass-pill-inline {
+    @apply rounded-full border border-black/[0.06] bg-white/50 backdrop-blur-xl;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  }
+
+  .glass-pill-light {
+    @apply rounded-full border border-[#c5c5cb] bg-white/60 backdrop-blur-xl;
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  }
+
+  .landing-studio {
+    color: #0a0a0a;
+  }
+
+  /* Page wrapper — no opaque bg; uses html studio gradient */
+  .page-shell {
+    @apply relative min-h-screen min-h-[100dvh];
+  }
+
+  /* Auth + dashboard — studio grey (matches marketing pages) */
+  .auth-page {
+    min-height: 100dvh;
+    background-color: var(--studio-bg);
+    background-image: var(--studio-gradient);
+    color: #0a0a0a;
+    @apply flex flex-col;
+  }
+
+  /* Dashboard shell — light studio (landing reference) */
+  .dashboard-app {
+    min-height: 100dvh;
+    background-color: var(--studio-bg);
+    background-image: var(--studio-gradient);
+    color: #0a0a0a;
+  }
+
+  .dashboard-app h1,
+  .dashboard-app h2,
+  .dashboard-app h3,
+  .dashboard-app h4,
+  .dashboard-topbar h1 {
+    color: #0a0a0a !important;
+  }
+
+  .dashboard-main-inner {
+    @apply w-full max-w-[1400px] mx-auto px-4 md:px-6 lg:px-8 pt-5 md:pt-6;
+  }
+
+  .dashboard-content {
+    @apply pb-10;
+  }
+
+  /* Legacy wrapper — keep for pages that still use the class */
+  .dashboard-app,
+  .dashboard-page {
+    color: #0a0a0a;
+    color-scheme: light;
+  }
+
+  .dashboard-app .dashboard-welcome-heading,
+  .dashboard-topbar h1.dashboard-welcome-heading {
+    color: #0a0a0a !important;
+    -webkit-text-fill-color: #0a0a0a !important;
+  }
+
+  /* Remap legacy dark dashboard utilities to light studio UI */
+  .dashboard-app .bg-zinc-900,
+  .dashboard-app .bg-zinc-900\/50,
+  .dashboard-page .bg-zinc-900,
+  .dashboard-page .bg-zinc-900\/50 {
+    background-color: rgba(255, 255, 255, 0.55) !important;
+    border-color: #c5c5cb;
+  }
+
+  .dashboard-page .bg-zinc-800,
+  .dashboard-page .bg-zinc-800\/50 {
+    background-color: rgba(255, 255, 255, 0.45) !important;
+  }
+
+  .dashboard-app .bg-zinc-700,
+  .dashboard-page .bg-zinc-700 {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+  }
+
+  .dashboard-app .border-zinc-800,
+  .dashboard-app .border-zinc-700,
+  .dashboard-page .border-zinc-800,
+  .dashboard-page .border-zinc-700 {
+    border-color: #c5c5cb !important;
+  }
+
+  /* Legacy dark-theme text → readable on light grey */
+  .dashboard-page .text-zinc-100,
+  .dashboard-page .text-zinc-200,
+  .dashboard-page .text-zinc-300 {
+    color: #52525b !important;
+  }
+
+  .dashboard-app .text-zinc-400,
+  .dashboard-app .text-zinc-500,
+  .dashboard-app .text-zinc-600,
+  .dashboard-page .text-zinc-400,
+  .dashboard-page .text-zinc-500,
+  .dashboard-page .text-zinc-600 {
+    color: #71717a !important;
+  }
+
+  /* Explicit opacity variants only — avoids Tailwind circular dep with .text-primary */
+  .dashboard-app .text-primary\/10,
+  .dashboard-app .text-primary\/20,
+  .dashboard-app .text-primary\/40,
+  .dashboard-app .text-primary\/60,
+  .dashboard-page .text-primary\/10,
+  .dashboard-page .text-primary\/20,
+  .dashboard-page .text-primary\/40,
+  .dashboard-page .text-primary\/60 {
+    color: #52525b !important;
+  }
+
+  .dashboard-app .text-secondary,
+  .dashboard-page .text-secondary {
+    color: #52525b !important;
+  }
+
+  .dashboard-page .text-muted {
+    color: #71717a !important;
+  }
+
+  .dashboard-app .bg-\[\#0D0D0D\],
+  .dashboard-app .bg-\[\#1A1A1A\],
+  .dashboard-page .bg-\[\#0D0D0D\],
+  .dashboard-page .bg-\[\#1A1A1A\] {
+    background-color: rgba(255, 255, 255, 0.55) !important;
+    border-color: #c5c5cb !important;
+  }
+
+  .dashboard-app .fill-white,
+  .dashboard-page .fill-white {
+    fill: #0a0a0a !important;
+  }
+
+  .dashboard-app .bg-gray-800,
+  .dashboard-page .bg-gray-800 {
+    background-color: rgba(255, 255, 255, 0.5) !important;
+  }
+
+  .dashboard-app .bg-gray-700,
+  .dashboard-page .bg-gray-700 {
+    background-color: rgba(0, 0, 0, 0.04) !important;
+  }
+
+  .dashboard-app .hover\:bg-gray-700:hover,
+  .dashboard-app .hover\:bg-gray-600:hover,
+  .dashboard-page .hover\:bg-gray-700:hover,
+  .dashboard-page .hover\:bg-gray-600:hover {
+    background-color: rgba(0, 0, 0, 0.06) !important;
+  }
+
+  .dashboard-app .border-gray-700,
+  .dashboard-page .border-gray-700 {
+    border-color: #c5c5cb !important;
+  }
+
+  .dashboard-app .bg-\[\#141414\],
+  .dashboard-page .bg-\[\#141414\] {
+    background-color: rgba(255, 255, 255, 0.55) !important;
+    border-color: #c5c5cb !important;
+  }
+
+  .dashboard-app .bg-black\/80.backdrop-blur-md,
+  .dashboard-app .bg-black\/80.backdrop-blur-sm,
+  .dashboard-page .bg-black\/80.backdrop-blur-md,
+  .dashboard-page .bg-black\/80.backdrop-blur-sm {
+    background-color: rgba(255, 255, 255, 0.75) !important;
+    border-color: #c5c5cb !important;
+  }
+
+  .dashboard-app aside,
+  .dashboard-app .dashboard-sidebar,
+  .dashboard-page aside,
+  .dashboard-page .dashboard-sidebar {
+    @apply border-[#c5c5cb] bg-white/60 backdrop-blur-xl;
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.85);
+  }
+
+  .dashboard-panel {
+    @apply rounded-2xl border border-[#c5c5cb] bg-white/75 backdrop-blur-xl;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  .dashboard-panel-inner {
+    @apply rounded-xl border border-[#c5c5cb] bg-white/90 p-4;
+  }
+
+  .dashboard-section-title {
+    @apply text-[#0a0a0a] font-semibold;
+  }
+
+  .dashboard-section-icon {
+    @apply text-[#52525b];
+  }
+
+  .dashboard-label {
+    @apply text-sm text-[#52525b];
+  }
+
+  .dashboard-value {
+    @apply text-[#0a0a0a] font-semibold;
+  }
+
+  .dashboard-badge {
+    @apply inline-flex items-center gap-1 rounded-full border border-[#c5c5cb] bg-white px-2 py-0.5 text-xs font-medium text-[#52525b];
+  }
+
+  .auth-card {
+    @apply rounded-3xl border border-[#c5c5cb] bg-white/80 backdrop-blur-xl p-6 md:p-8;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  }
+
+  .glass-step {
+    @apply rounded-2xl border border-white/60 bg-white/35 backdrop-blur-2xl px-6 py-7 text-center;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.05),
+      inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  }
+
+  .glass-step-icon {
+    @apply mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-2xl border border-white/70 bg-white/55 text-[#52525b] backdrop-blur-xl;
+    box-shadow:
+      0 4px 16px rgba(0, 0, 0, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  }
+
+  .glass-panel {
+    @apply bg-glass-fill backdrop-blur-glass-lg rounded-3xl border border-[#c5c5cb] shadow-card;
+  }
+
+  .glass-card {
+    @apply relative overflow-hidden rounded-2xl border border-[#c5c5cb] bg-glass-fill backdrop-blur-glass shadow-card;
+  }
+
+  .glass-card::before {
+    content: '';
+    @apply pointer-events-none absolute inset-0 rounded-2xl;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.5) 0%,
+      transparent 45%,
+      transparent 100%
+    );
+  }
+}
+
+/* Studio ink — restores .text-primary when dashboard remaps are in the same bundle */
+@layer utilities {
+  .text-primary {
+    --tw-text-opacity: 1;
+    color: rgb(10 10 10 / var(--tw-text-opacity, 1));
   }
 }
 
@@ -135,7 +436,6 @@
   animation: gradient 15s ease infinite;
 }
 
-/* Smooth Page Transitions */
 .page-transition-enter {
   opacity: 0;
   transform: translateY(20px);
@@ -158,14 +458,9 @@
   transition: opacity 400ms, transform 400ms;
 }
 
-/* Logo Carousel Infinite Scroll */
 @keyframes scroll-logos {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 
 .logo-carousel {
@@ -178,46 +473,37 @@
   animation-play-state: paused;
 }
 
-/* Mobile Safe Area for Bottom Navigation */
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Mobile touch improvements */
 @media (max-width: 768px) {
-  /* Larger touch targets */
   button, a, [role="button"] {
     min-height: 44px;
     min-width: 44px;
   }
 
-  /* Prevent text selection on touch */
   .no-select {
     -webkit-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
   }
 
-  /* Faster tap response */
   * {
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
   }
 
-  /* Fix viewport height on mobile browsers */
   .min-h-screen {
     min-height: 100dvh;
   }
 }
 
-/* Mobile wallet modal fixes */
 @media (max-width: 768px) {
-  /* Reown/WalletConnect modal adjustments */
   w3m-modal, [data-w3m-modal] {
     --w3m-z-index: 9999 !important;
   }
 
-  /* Modal backdrop */
   .w3m-overlay {
     z-index: 9998 !important;
   }

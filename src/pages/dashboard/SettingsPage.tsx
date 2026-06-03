@@ -420,7 +420,7 @@ const SettingsPage: React.FC = () => {
 
   const getTierBadge = () => {
     const colors: Record<string, string> = {
-      free: 'bg-gray-500/20 text-gray-400',
+      free: 'bg-gray-500/20 text-secondary',
       starter: 'bg-blue-500/20 text-blue-400',
       pro: 'bg-purple-500/20 text-purple-400',
       elite: 'bg-yellow-500/20 text-yellow-400',
@@ -444,12 +444,12 @@ const SettingsPage: React.FC = () => {
           {/* Profile Card */}
           <Card className="p-6">
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center">
-                <User className="w-8 h-8 text-white" />
+              <div className="w-16 h-16 rounded-full bg-black/[0.06] flex items-center justify-center">
+                <User className="w-8 h-8 text-primary" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-white">{profile?.full_name || 'Complete your profile'}</h3>
-                <p className="text-gray-400 text-sm">{user?.email}</p>
+                <h3 className="text-lg font-semibold text-primary">{profile?.full_name || 'Complete your profile'}</h3>
+                <p className="text-secondary text-sm">{user?.email}</p>
                 <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${getTierBadge()}`}>
                   <Crown className="w-3 h-3" />
                   {actualTier.toUpperCase()}
@@ -460,7 +460,7 @@ const SettingsPage: React.FC = () => {
             {/* Editable Profile Fields */}
             <div className="space-y-4 mb-6">
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Full Name *</label>
+                <label className="block text-sm text-secondary mb-2">Full Name *</label>
                 <input
                   type="text"
                   value={fullName}
@@ -469,12 +469,12 @@ const SettingsPage: React.FC = () => {
                     setProfileSaveError(null);
                   }}
                   placeholder="John Smith"
-                  className="w-full bg-white/5 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white/30"
+                  className="w-full bg-black/[0.04] border border-gray-700 rounded-lg px-4 py-3 text-primary placeholder-gray-500 focus:outline-none focus:border-white/30"
                 />
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Country *</label>
+                <label className="block text-sm text-secondary mb-2">Country *</label>
                 <input
                   type="text"
                   value={country}
@@ -483,7 +483,7 @@ const SettingsPage: React.FC = () => {
                     setProfileSaveError(null);
                   }}
                   placeholder="Switzerland"
-                  className="w-full bg-white/5 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white/30"
+                  className="w-full bg-black/[0.04] border border-gray-700 rounded-lg px-4 py-3 text-primary placeholder-gray-500 focus:outline-none focus:border-white/30"
                 />
               </div>
 
@@ -516,14 +516,14 @@ const SettingsPage: React.FC = () => {
             </div>
 
             {/* Subscription Status */}
-            <div className="bg-white/5 rounded-lg p-4">
+            <div className="bg-black/[0.04] rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Shield className="w-5 h-5 text-green-400" />
-                  <span className="text-white font-medium">Subscription</span>
+                  <span className="text-primary font-medium">Subscription</span>
                 </div>
                 <span className={`px-2 py-1 rounded text-xs font-medium ${
-                  subscription?.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'
+                  subscription?.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-secondary'
                 }`}>
                   {subscription?.status || 'inactive'}
                 </span>
@@ -534,22 +534,22 @@ const SettingsPage: React.FC = () => {
           {/* Password Card */}
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-4">
-              <Lock className="w-5 h-5 text-white" />
-              <h4 className="text-white font-medium">Password</h4>
+              <Lock className="w-5 h-5 text-primary" />
+              <h4 className="text-primary font-medium">Password</h4>
             </div>
 
-            <p className="text-gray-400 text-sm mb-4">
+            <p className="text-secondary text-sm mb-4">
               Change your password or request a reset link via email.
             </p>
 
             {/* Option 1: Reset via Email */}
-            <div className="p-4 bg-white/5 rounded-lg mb-4">
+            <div className="p-4 bg-black/[0.04] rounded-lg mb-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Mail className="w-5 h-5 text-blue-400" />
                   <div>
-                    <p className="text-white text-sm font-medium">Reset via Email</p>
-                    <p className="text-gray-500 text-xs">Receive a secure link to {user?.email}</p>
+                    <p className="text-primary text-sm font-medium">Reset via Email</p>
+                    <p className="text-secondary text-xs">Receive a secure link to {user?.email}</p>
                   </div>
                 </div>
                 <button
@@ -576,8 +576,8 @@ const SettingsPage: React.FC = () => {
             </div>
 
             {/* Option 2: Change Password Directly */}
-            <div className="border-t border-gray-800 pt-4">
-              <p className="text-gray-400 text-xs mb-3">Or change password directly:</p>
+            <div className="border-t border-border pt-4">
+              <p className="text-secondary text-xs mb-3">Or change password directly:</p>
 
               <div className="space-y-3">
                 <div className="relative">
@@ -589,12 +589,12 @@ const SettingsPage: React.FC = () => {
                       setPasswordError(null);
                     }}
                     placeholder="New password (min. 8 characters)"
-                    className="w-full bg-white/5 border border-gray-700 rounded-lg px-4 py-3 pr-12 text-white placeholder-gray-500 focus:outline-none focus:border-white/30 text-sm"
+                    className="w-full bg-black/[0.04] border border-gray-700 rounded-lg px-4 py-3 pr-12 text-primary placeholder-gray-500 focus:outline-none focus:border-white/30 text-sm"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPasswords(!showPasswords)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary hover:text-primary transition-colors"
                   >
                     {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -608,7 +608,7 @@ const SettingsPage: React.FC = () => {
                     setPasswordError(null);
                   }}
                   placeholder="Confirm new password"
-                  className="w-full bg-white/5 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white/30 text-sm"
+                  className="w-full bg-black/[0.04] border border-gray-700 rounded-lg px-4 py-3 text-primary placeholder-gray-500 focus:outline-none focus:border-white/30 text-sm"
                 />
 
                 <button
@@ -644,37 +644,37 @@ const SettingsPage: React.FC = () => {
           {/* Multi-Wallet Card */}
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-4">
-              <Wallet className="w-5 h-5 text-white" />
-              <h4 className="text-white font-medium">Linked Wallets</h4>
-              <span className="ml-auto text-gray-500 text-xs">
+              <Wallet className="w-5 h-5 text-primary" />
+              <h4 className="text-primary font-medium">Linked Wallets</h4>
+              <span className="ml-auto text-secondary text-xs">
                 {linkedWallets.length} wallet{linkedWallets.length !== 1 ? 's' : ''}
               </span>
             </div>
 
-            <p className="text-gray-400 text-sm mb-4">
+            <p className="text-secondary text-sm mb-4">
               All wallets linked to your account can be used for auto-trading.
             </p>
 
             {/* Linked Wallets List */}
             {isLoadingWallets ? (
               <div className="flex items-center justify-center py-6">
-                <Loader2 className="w-5 h-5 text-gray-500 animate-spin" />
+                <Loader2 className="w-5 h-5 text-secondary animate-spin" />
               </div>
             ) : linkedWallets.length === 0 ? (
-              <div className="text-center py-4 bg-white/5 rounded-lg mb-4">
-                <Wallet className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                <p className="text-gray-500 text-sm">No wallets linked yet</p>
+              <div className="text-center py-4 bg-black/[0.04] rounded-lg mb-4">
+                <Wallet className="w-8 h-8 text-muted mx-auto mb-2" />
+                <p className="text-secondary text-sm">No wallets linked yet</p>
               </div>
             ) : (
               <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
                 {linkedWallets.map((wallet, index) => (
                   <div
                     key={wallet}
-                    className="flex items-center justify-between p-3 bg-white/5 rounded-lg group"
+                    className="flex items-center justify-between p-3 bg-black/[0.04] rounded-lg group"
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div className={`w-2 h-2 rounded-full ${index === 0 ? 'bg-green-500' : 'bg-gray-500'}`} />
-                      <code className="text-white font-mono text-xs truncate">
+                      <code className="text-primary font-mono text-xs truncate">
                         {wallet}
                       </code>
                       {index === 0 && (
@@ -705,7 +705,7 @@ const SettingsPage: React.FC = () => {
                   setSaveError(null);
                 }}
                 placeholder="0x... (add new wallet)"
-                className="flex-1 bg-white/5 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white/30 font-mono text-sm"
+                className="flex-1 bg-black/[0.04] border border-gray-700 rounded-lg px-4 py-3 text-primary placeholder-gray-500 focus:outline-none focus:border-white/30 font-mono text-sm"
               />
               <button
                 onClick={handleAddWallet}
@@ -742,15 +742,15 @@ const SettingsPage: React.FC = () => {
           <VaultBalanceCard />
 
           {/* Smart Contract Info - Compact */}
-          <div className="p-4 bg-white/5 border border-gray-800 rounded-xl">
+          <div className="p-4 bg-black/[0.04] border border-border rounded-xl">
             <div className="flex items-center gap-2 mb-2">
               <FileCheck className="w-4 h-4 text-blue-400" />
-              <span className="text-white text-sm font-medium">V11 Vault Contract</span>
+              <span className="text-primary text-sm font-medium">V11 Vault Contract</span>
             </div>
-            <p className="text-gray-500 text-xs mb-3">
+            <p className="text-secondary text-xs mb-3">
               Non-custodial & verified on-chain. Your funds, your control.
             </p>
-            <code className="block text-[10px] text-gray-400 font-mono mb-2 break-all">
+            <code className="block text-[10px] text-secondary font-mono mb-2 break-all">
               0x7dE97f35887b2623dCad2ebA68197f58F7607854
             </code>
             <a
@@ -783,16 +783,16 @@ const SettingsPage: React.FC = () => {
                    actualTier === 'pro' ? <Crown className="w-6 h-6 text-purple-400" /> :
                    actualTier === 'starter' ? <Zap className="w-6 h-6 text-blue-400" /> :
                    actualTier === 'desktop' ? <TrendingUp className="w-6 h-6 text-emerald-400" /> :
-                   <TrendingUp className="w-6 h-6 text-gray-400" />}
+                   <TrendingUp className="w-6 h-6 text-secondary" />}
                 </div>
                 <div>
-                  <h4 className="font-semibold text-white text-lg">{SUBSCRIPTION_PLANS[actualTier]?.name || 'Free'} Plan</h4>
-                  <p className="text-gray-500 text-xs">{SUBSCRIPTION_PLANS[actualTier]?.description || 'Try 2 real trades for free'}</p>
+                  <h4 className="font-semibold text-primary text-lg">{SUBSCRIPTION_PLANS[actualTier]?.name || 'Free'} Plan</h4>
+                  <p className="text-secondary text-xs">{SUBSCRIPTION_PLANS[actualTier]?.description || 'Try 2 real trades for free'}</p>
                 </div>
               </div>
               <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                 subscription?.status === 'active' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-                'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+                'bg-gray-500/20 text-secondary border border-gray-500/30'
               }`}>
                 {subscription?.status || 'active'}
               </span>
@@ -801,9 +801,9 @@ const SettingsPage: React.FC = () => {
             {/* Plan Details Grid */}
             <div className="grid grid-cols-2 gap-3 mb-4">
               {/* Trade Limit */}
-              <div className="p-3 bg-white/5 rounded-lg">
-                <p className="text-gray-500 text-xs mb-1">Daily Trades</p>
-                <p className="text-white font-semibold">
+              <div className="p-3 bg-black/[0.04] rounded-lg">
+                <p className="text-secondary text-xs mb-1">Daily Trades</p>
+                <p className="text-primary font-semibold">
                   {actualTier === 'free' ? '2 total' :
                    actualTier === 'elite' || actualTier === 'desktop' ? 'Unlimited' :
                    `${SUBSCRIPTION_PLANS[actualTier]?.features.dailyTradeLimit}/day`}
@@ -811,9 +811,9 @@ const SettingsPage: React.FC = () => {
               </div>
 
               {/* Billing */}
-              <div className="p-3 bg-white/5 rounded-lg">
-                <p className="text-gray-500 text-xs mb-1">Billing</p>
-                <p className="text-white font-semibold">
+              <div className="p-3 bg-black/[0.04] rounded-lg">
+                <p className="text-secondary text-xs mb-1">Billing</p>
+                <p className="text-primary font-semibold">
                   {actualTier === 'free' ? 'Free' :
                    actualTier === 'desktop' ? 'Lifetime' :
                    subscription?.billingCycle === 'yearly' ? 'Yearly' : 'Monthly'}
@@ -821,30 +821,30 @@ const SettingsPage: React.FC = () => {
               </div>
 
               {/* Price */}
-              <div className="p-3 bg-white/5 rounded-lg">
-                <p className="text-gray-500 text-xs mb-1">Price</p>
-                <p className="text-white font-semibold">
+              <div className="p-3 bg-black/[0.04] rounded-lg">
+                <p className="text-secondary text-xs mb-1">Price</p>
+                <p className="text-primary font-semibold">
                   {actualTier === 'free' ? '$0' :
                    `$${SUBSCRIPTION_PLANS[actualTier]?.monthlyPrice || 0}/mo`}
                 </p>
               </div>
 
               {/* Chains */}
-              <div className="p-3 bg-white/5 rounded-lg">
-                <p className="text-gray-500 text-xs mb-1">Chains</p>
-                <p className="text-white font-semibold">
+              <div className="p-3 bg-black/[0.04] rounded-lg">
+                <p className="text-secondary text-xs mb-1">Chains</p>
+                <p className="text-primary font-semibold">
                   {actualTier === 'free' ? 'Base only' : 'All chains'}
                 </p>
               </div>
             </div>
 
             {/* Trade Usage */}
-            <div className="p-4 bg-white/5 rounded-lg mb-4">
+            <div className="p-4 bg-black/[0.04] rounded-lg mb-4">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-400 text-sm">
+                <span className="text-secondary text-sm">
                   {actualTier === 'free' ? 'Trades Used' : 'Daily Usage'}
                 </span>
-                <span className="text-white font-medium">
+                <span className="text-primary font-medium">
                   {actualTier === 'free'
                     ? `${subscription?.totalTradesUsed || 0} / 2`
                     : actualTier === 'elite' || actualTier === 'desktop'
@@ -876,7 +876,7 @@ const SettingsPage: React.FC = () => {
 
             {/* Reset Time - only for paid daily plans */}
             {actualTier !== 'free' && actualTier !== 'elite' && actualTier !== 'desktop' && (
-              <div className="flex items-center gap-2 text-gray-400 text-sm mb-4">
+              <div className="flex items-center gap-2 text-secondary text-sm mb-4">
                 <Clock className="w-4 h-4" />
                 <span>Resets: {subscription?.dailyTradesResetAt
                   ? new Date(subscription.dailyTradesResetAt).toLocaleString('en-US', {
@@ -918,7 +918,7 @@ const SettingsPage: React.FC = () => {
               className={`w-full py-3 rounded-lg font-medium text-center block transition-colors ${
                 actualTier === 'free'
                   ? 'bg-accent text-black hover:bg-accent/90'
-                  : 'bg-white/5 text-white hover:bg-white/10 border border-gray-700'
+                  : 'bg-black/[0.04] text-primary hover:bg-black/[0.06] border border-gray-700'
               }`}
             >
               {actualTier === 'free' ? 'Upgrade Plan' : 'Manage Subscription'}
@@ -932,17 +932,17 @@ const SettingsPage: React.FC = () => {
                 <Users className="w-5 h-5 text-purple-400" />
               </div>
               <div>
-                <h4 className="font-semibold text-white">Referrals</h4>
-                <p className="text-gray-500 text-xs">Earn $5 for each friend who subscribes</p>
+                <h4 className="font-semibold text-primary">Referrals</h4>
+                <p className="text-secondary text-xs">Earn $5 for each friend who subscribes</p>
               </div>
             </div>
 
             {/* Referral Link */}
             {referralCode && (
-              <div className="p-4 bg-white/5 rounded-lg mb-4">
-                <p className="text-gray-400 text-xs mb-2">Your Referral Link</p>
+              <div className="p-4 bg-black/[0.04] rounded-lg mb-4">
+                <p className="text-secondary text-xs mb-2">Your Referral Link</p>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 bg-black/30 px-3 py-2 rounded text-white font-mono text-xs truncate">
+                  <code className="flex-1 bg-black/30 px-3 py-2 rounded text-primary font-mono text-xs truncate">
                     {`${window.location.origin}/register?ref=${referralCode}`}
                   </code>
                   <button
@@ -951,12 +951,12 @@ const SettingsPage: React.FC = () => {
                       setCopiedCode(true);
                       setTimeout(() => setCopiedCode(false), 2000);
                     }}
-                    className="p-2 bg-white/5 hover:bg-white/10 rounded transition-colors"
+                    className="p-2 bg-black/[0.04] hover:bg-black/[0.06] rounded transition-colors"
                   >
-                    {copiedCode ? <CheckCircle size={16} className="text-green-400" /> : <Copy size={16} className="text-gray-400" />}
+                    {copiedCode ? <CheckCircle size={16} className="text-green-400" /> : <Copy size={16} className="text-secondary" />}
                   </button>
                 </div>
-                <p className="text-gray-500 text-xs mt-2">
+                <p className="text-secondary text-xs mt-2">
                   Share this link with friends to earn rewards
                 </p>
               </div>
@@ -964,24 +964,24 @@ const SettingsPage: React.FC = () => {
 
             {/* Referrals List */}
             <div className="space-y-2">
-              <p className="text-gray-400 text-xs font-medium">Your Referrals</p>
+              <p className="text-secondary text-xs font-medium">Your Referrals</p>
 
               {isLoadingReferrals ? (
                 <div className="flex items-center justify-center py-6">
-                  <Loader2 className="w-5 h-5 text-gray-500 animate-spin" />
+                  <Loader2 className="w-5 h-5 text-secondary animate-spin" />
                 </div>
               ) : referrals.length === 0 ? (
-                <div className="text-center py-6 bg-white/5 rounded-lg">
-                  <Gift className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                  <p className="text-gray-500 text-sm">No referrals yet</p>
-                  <p className="text-gray-600 text-xs">Share your code to start earning</p>
+                <div className="text-center py-6 bg-black/[0.04] rounded-lg">
+                  <Gift className="w-8 h-8 text-muted mx-auto mb-2" />
+                  <p className="text-secondary text-sm">No referrals yet</p>
+                  <p className="text-muted text-xs">Share your code to start earning</p>
                 </div>
               ) : (
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {referrals.map((referral) => (
                     <div
                       key={referral.id}
-                      className="flex items-center justify-between p-3 bg-white/5 rounded-lg"
+                      className="flex items-center justify-between p-3 bg-black/[0.04] rounded-lg"
                     >
                       <div className="flex items-center gap-3">
                         <div className={`w-2 h-2 rounded-full ${
@@ -991,13 +991,13 @@ const SettingsPage: React.FC = () => {
                           'bg-gray-500'
                         }`} />
                         <div>
-                          <p className="text-white text-sm">
+                          <p className="text-primary text-sm">
                             {referral.referred_email ?
                               referral.referred_email.replace(/(.{2})(.*)(@.*)/, '$1***$3') :
                               'User'
                             }
                           </p>
-                          <p className="text-gray-500 text-xs">
+                          <p className="text-secondary text-xs">
                             {new Date(referral.created_at).toLocaleDateString()}
                           </p>
                         </div>
@@ -1007,7 +1007,7 @@ const SettingsPage: React.FC = () => {
                           referral.status === 'paid' ? 'bg-green-500/20 text-green-400' :
                           referral.status === 'qualified' ? 'bg-yellow-500/20 text-yellow-400' :
                           referral.status === 'pending' ? 'bg-blue-500/20 text-blue-400' :
-                          'bg-gray-500/20 text-gray-400'
+                          'bg-gray-500/20 text-secondary'
                         }`}>
                           {referral.status === 'paid' ? 'Paid' :
                            referral.status === 'qualified' ? 'Qualified' :
@@ -1027,22 +1027,22 @@ const SettingsPage: React.FC = () => {
 
               {/* Stats Summary */}
               {referrals.length > 0 && (
-                <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-gray-800">
+                <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-border">
                   <div className="text-center">
-                    <p className="text-white font-medium">{referrals.length}</p>
-                    <p className="text-gray-500 text-xs">Total</p>
+                    <p className="text-primary font-medium">{referrals.length}</p>
+                    <p className="text-secondary text-xs">Total</p>
                   </div>
                   <div className="text-center">
                     <p className="text-yellow-400 font-medium">
                       {referrals.filter(r => r.status === 'pending' || r.status === 'qualified').length}
                     </p>
-                    <p className="text-gray-500 text-xs">Pending</p>
+                    <p className="text-secondary text-xs">Pending</p>
                   </div>
                   <div className="text-center">
                     <p className="text-green-400 font-medium">
                       ${(referrals.filter(r => r.status === 'paid').reduce((sum, r) => sum + r.referrer_reward_cents, 0) / 100).toFixed(2)}
                     </p>
-                    <p className="text-gray-500 text-xs">Earned</p>
+                    <p className="text-secondary text-xs">Earned</p>
                   </div>
                 </div>
               )}

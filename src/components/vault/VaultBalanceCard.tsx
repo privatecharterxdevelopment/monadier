@@ -57,6 +57,9 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   const [stopLoss, setStopLoss] = useState(1);
   const [askPermission, setAskPermission] = useState(false);
   const [leverage, setLeverage] = useState(1.0);
+  const [minWinRate, setMinWinRate] = useState(0);
+  const [minTradesForWinRate, setMinTradesForWinRate] = useState(5);
+  const [promptWithdrawAfterClose, setPromptWithdrawAfterClose] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -244,7 +247,9 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
         try {
           const { data: vaultSettings } = await supabase
             .from('vault_settings')
-            .select('take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier')
+            .select(
+              'take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier, min_win_rate_percent, min_trades_for_win_rate_gate, prompt_withdraw_after_close'
+            )
             .eq('wallet_address', address.toLowerCase())
             .eq('chain_id', chainId)
             .single();
@@ -254,6 +259,9 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
             setStopLoss(vaultSettings.stop_loss_percent || 1);
             setAskPermission(vaultSettings.ask_permission || false);
             setLeverage(vaultSettings.leverage_multiplier || 1.0);
+            setMinWinRate(Number(vaultSettings.min_win_rate_percent) || 0);
+            setMinTradesForWinRate(Number(vaultSettings.min_trades_for_win_rate_gate) || 5);
+            setPromptWithdrawAfterClose(Boolean(vaultSettings.prompt_withdraw_after_close));
           }
         } catch (e) {
           // Settings may not exist yet, use defaults
@@ -568,18 +576,18 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   // If not a paid user, show upgrade prompt (demo users always pass)
   if (!isPaidUser && !isDemoUser) {
     return (
-      <div className={`bg-zinc-900/50 border border-zinc-800 rounded-xl ${compact ? 'p-4' : 'p-6'}`}>
+      <div className={`dashboard-panel ${compact ? 'p-4' : 'p-6'}`}>
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 bg-zinc-800 rounded-lg">
-            <Lock className="w-5 h-5 text-zinc-500" />
+            <Lock className="w-5 h-5 text-muted" />
           </div>
           <div>
-            <h3 className="text-white font-medium">Auto-Trading Vault</h3>
-            <p className="text-xs text-zinc-500">Premium Feature</p>
+            <h3 className="text-primary font-medium">Auto-Trading Vault</h3>
+            <p className="text-xs text-muted">Premium Feature</p>
           </div>
         </div>
 
-        <p className="text-sm text-zinc-400 mb-4">
+        <p className="text-sm text-secondary mb-4">
           Deposit funds and let the bot trade automatically without signing each transaction.
         </p>
 
@@ -597,14 +605,14 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   // Not connected (demo users don't need a wallet)
   if (!isConnected && !isDemoUser) {
     return (
-      <div className={`bg-zinc-900/50 border border-zinc-800 rounded-xl ${compact ? 'p-4' : 'p-6'}`}>
+      <div className={`dashboard-panel ${compact ? 'p-4' : 'p-6'}`}>
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 bg-zinc-800 rounded-lg">
-            <Wallet className="w-5 h-5 text-zinc-500" />
+            <Wallet className="w-5 h-5 text-muted" />
           </div>
           <div>
-            <h3 className="text-white font-medium">Auto-Trading Vault</h3>
-            <p className="text-xs text-zinc-500">Connect wallet to view</p>
+            <h3 className="text-primary font-medium">Auto-Trading Vault</h3>
+            <p className="text-xs text-muted">Connect wallet to view</p>
           </div>
         </div>
       </div>
@@ -614,7 +622,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   // Main vault card
   return (
     <>
-      <div className={`bg-zinc-900/50 border border-zinc-800 rounded-xl ${compact ? 'p-4' : 'p-6'} ${isPreviewMode ? 'relative overflow-hidden' : ''}`}>
+      <div className={`dashboard-panel ${compact ? 'p-4' : 'p-6'} ${isPreviewMode ? 'relative overflow-hidden' : ''}`}>
         {/* Switch to Arbitrum Banner */}
         {isPreviewMode && (
           <div className="absolute top-2 right-2 px-2 py-1 bg-blue-500/20 border border-blue-500/30 rounded text-[10px] text-blue-400 font-medium">
@@ -626,11 +634,11 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className={`p-2 rounded-lg ${autoTradeEnabled && !isPreviewMode ? 'bg-green-500/10' : 'bg-zinc-800'}`}>
-              <Wallet className={`w-5 h-5 ${autoTradeEnabled && !isPreviewMode ? 'text-green-500' : 'text-zinc-400'}`} />
+              <Wallet className={`w-5 h-5 ${autoTradeEnabled && !isPreviewMode ? 'text-green-500' : 'text-secondary'}`} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-white font-medium">Bot Wallet</h3>
+                <h3 className="text-primary font-medium">Bot Wallet</h3>
                 {/* Prominent Settings Button */}
                 {!compact && !isPreviewMode && (
                   <button
@@ -638,14 +646,14 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
                       setSettingsStartMode(false);
                       setShowSettingsModal(true);
                     }}
-                    className="flex items-center gap-1 px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded text-xs text-zinc-300 hover:text-white transition-colors"
+                    className="flex items-center gap-1 px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded text-xs text-[#52525b] hover:text-primary transition-colors"
                   >
                     <Settings className="w-3 h-3" />
                     Settings
                   </button>
                 )}
               </div>
-              <p className={`text-xs ${autoTradeEnabled && !isPreviewMode ? 'text-green-500' : 'text-zinc-500'}`}>
+              <p className={`text-xs ${autoTradeEnabled && !isPreviewMode ? 'text-green-500' : 'text-muted'}`}>
                 {isPreviewMode ? 'Switch to Arbitrum' : autoTradeEnabled ? 'Auto-Trading Active' : 'Auto-Trading Off'}
               </p>
             </div>
@@ -663,10 +671,10 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
             <p className="text-red-400 text-sm">{error}</p>
           ) : (
             <>
-              <p className={`text-2xl font-bold ${isPreviewMode ? 'text-zinc-500' : 'text-white'}`}>
+              <p className={`text-2xl font-bold ${isPreviewMode ? 'text-muted' : 'text-primary'}`}>
                 ${isPreviewMode ? '0.00' : parseFloat(vaultBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
               </p>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-muted">
                 USDC in Vault • No platform fees, 10% win fee only
               </p>
             </>
@@ -677,22 +685,22 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
         {!compact && (!isLoading || isPreviewMode) && (!error || isPreviewMode) && (
           <div className="grid grid-cols-3 gap-3 mb-4 p-3 bg-zinc-800/50 rounded-lg">
             <div>
-              <p className="text-xs text-zinc-500 mb-1">Risk Level</p>
-              <p className={`text-sm font-medium ${isPreviewMode ? 'text-zinc-500' : 'text-white'}`}>
+              <p className="text-xs text-muted mb-1">Risk Level</p>
+              <p className={`text-sm font-medium ${isPreviewMode ? 'text-muted' : 'text-primary'}`}>
                 {isPreviewMode ? '5%' : `${riskLevelPercent}%`}
               </p>
             </div>
             <div>
-              <p className="text-xs text-zinc-500 mb-1">Max Trade</p>
-              <p className={`text-sm font-medium ${isPreviewMode ? 'text-zinc-500' : 'text-white'}`}>
+              <p className="text-xs text-muted mb-1">Max Trade</p>
+              <p className={`text-sm font-medium ${isPreviewMode ? 'text-muted' : 'text-primary'}`}>
                 ${isPreviewMode ? '0.00' : parseFloat(maxTradeSize).toFixed(2)}
               </p>
             </div>
             <div>
-              <p className="text-xs text-zinc-500 mb-1">Daily Trades</p>
+              <p className="text-xs text-muted mb-1">Daily Trades</p>
               <p className={`text-sm font-medium ${
                 tradeInfo.unlimited ? 'text-green-400' :
-                tradeInfo.remaining > 5 ? 'text-white' :
+                tradeInfo.remaining > 5 ? 'text-primary' :
                 tradeInfo.remaining > 0 ? 'text-yellow-400' : 'text-red-400'
               }`}>
                 {tradeInfo.unlimited ? 'Unlimited' : `${tradeInfo.remaining} left`}
@@ -710,32 +718,32 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
             </div>
             <div className="grid grid-cols-2 gap-2 mb-3 text-sm">
               <div>
-                <span className="text-zinc-400">Type:</span>
+                <span className="text-secondary">Type:</span>
                 <span className={`ml-2 font-medium ${activePosition.isLong ? 'text-green-400' : 'text-red-400'}`}>
                   {activePosition.isLong ? 'LONG' : 'SHORT'} {activePosition.token}
                 </span>
               </div>
               <div>
-                <span className="text-zinc-400">Leverage:</span>
-                <span className="ml-2 text-white font-medium">{activePosition.leverage}x</span>
+                <span className="text-secondary">Leverage:</span>
+                <span className="ml-2 text-primary font-medium">{activePosition.leverage}x</span>
               </div>
               <div>
-                <span className="text-zinc-400">Collateral:</span>
-                <span className="ml-2 text-white font-medium">${parseFloat(activePosition.collateral).toFixed(2)}</span>
+                <span className="text-secondary">Collateral:</span>
+                <span className="ml-2 text-primary font-medium">${parseFloat(activePosition.collateral).toFixed(2)}</span>
               </div>
               <div>
-                <span className="text-zinc-400">Entry:</span>
-                <span className="ml-2 text-white font-medium">${activePosition.entryPrice}</span>
+                <span className="text-secondary">Entry:</span>
+                <span className="ml-2 text-primary font-medium">${activePosition.entryPrice}</span>
               </div>
               {activePosition.currentPrice != null && (
                 <div>
-                  <span className="text-zinc-400">Now:</span>
-                  <span className="ml-2 text-white font-medium">${activePosition.currentPrice.toFixed(2)}</span>
+                  <span className="text-secondary">Now:</span>
+                  <span className="ml-2 text-primary font-medium">${activePosition.currentPrice.toFixed(2)}</span>
                 </div>
               )}
               {activePosition.pnl != null && (
                 <div>
-                  <span className="text-zinc-400">P/L:</span>
+                  <span className="text-secondary">P/L:</span>
                   <span className={`ml-2 font-bold ${activePosition.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {activePosition.pnl >= 0 ? '+' : ''}${activePosition.pnl.toFixed(2)} ({activePosition.pnlPercent != null ? (activePosition.pnlPercent >= 0 ? '+' : '') + activePosition.pnlPercent.toFixed(2) + '%' : ''})
                   </span>
@@ -815,7 +823,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
               // No balance - show disabled button that opens deposit prompt
               <button
                 onClick={() => setShowDepositPrompt(true)}
-                className="w-full py-4 rounded-xl font-medium flex items-center justify-center gap-3 transition-all duration-300 bg-zinc-800 border-2 border-zinc-700 text-zinc-400 hover:bg-zinc-700 hover:border-zinc-600"
+                className="w-full py-4 rounded-xl font-medium flex items-center justify-center gap-3 transition-all duration-300 bg-zinc-800 border-2 border-zinc-700 text-secondary hover:bg-zinc-700 hover:border-zinc-600"
               >
                 <Play className="w-6 h-6" />
                 <span>Start Auto-Trading</span>
@@ -835,13 +843,13 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
 
         {/* Deposit Required Popup */}
         {showDepositPrompt && (
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowDepositPrompt(false)}>
-            <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowDepositPrompt(false)}>
+            <div className="auth-card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-yellow-500/20">
                 <Wallet className="w-8 h-8 text-yellow-400" />
               </div>
-              <h3 className="text-xl font-semibold text-white text-center mb-2">Deposit Required</h3>
-              <p className="text-zinc-400 text-center mb-6">
+              <h3 className="text-xl font-semibold text-primary text-center mb-2">Deposit Required</h3>
+              <p className="text-secondary text-center mb-6">
                 You need to deposit USDC into your vault before the bot can start trading automatically.
               </p>
               <div className="space-y-3">
@@ -857,7 +865,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
                 </button>
                 <button
                   onClick={() => setShowDepositPrompt(false)}
-                  className="w-full py-3 bg-zinc-800 text-zinc-400 font-medium rounded-xl hover:bg-zinc-700 transition-colors"
+                  className="w-full py-3 bg-zinc-800 text-secondary font-medium rounded-xl hover:bg-zinc-700 transition-colors"
                 >
                   Cancel
                 </button>
@@ -889,7 +897,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
               disabled={isLoading || isPreviewMode}
               className={`w-full flex items-center justify-center gap-2 py-3 font-medium rounded-lg transition-colors disabled:opacity-50 ${
                 isPreviewMode
-                  ? 'bg-zinc-700 text-zinc-400 cursor-not-allowed'
+                  ? 'bg-zinc-700 text-secondary cursor-not-allowed'
                   : 'bg-white text-black hover:bg-gray-100'
               }`}
             >
@@ -906,7 +914,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
                 <button
                   onClick={handleWithdrawEverything}
                   disabled={isWithdrawingAll || isLoading}
-                  className="w-full py-3 bg-gradient-to-r from-red-600 to-orange-500 text-white font-bold rounded-xl hover:from-red-500 hover:to-orange-400 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-gradient-to-r from-red-600 to-orange-500 text-primary font-bold rounded-xl hover:from-red-500 hover:to-orange-400 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isWithdrawingAll ? (
                     <>
@@ -955,7 +963,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
                   }
                 }
               }}
-              className="w-full py-2 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-400 transition-colors text-sm"
+              className="w-full py-2 bg-blue-500 text-primary font-medium rounded-lg hover:bg-blue-400 transition-colors text-sm"
             >
               Switch to Arbitrum
             </button>
@@ -969,7 +977,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
               setSettingsStartMode(false);
               setShowSettingsModal(true);
             }}
-            className="w-full mt-2 py-2 text-sm text-zinc-400 hover:text-white transition-colors flex items-center justify-center gap-1"
+            className="w-full mt-2 py-2 text-sm text-secondary hover:text-primary transition-colors flex items-center justify-center gap-1"
           >
             <Settings className="w-3 h-3" />
             Vault Settings
@@ -998,6 +1006,9 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
           currentStopLoss={stopLoss}
           currentAskPermission={askPermission}
           currentLeverage={leverage}
+          currentMinWinRate={minWinRate}
+          currentMinTradesForWinRate={minTradesForWinRate}
+          currentPromptWithdrawAfterClose={promptWithdrawAfterClose}
           startMode={settingsStartMode}
           onClose={() => {
             setShowSettingsModal(false);

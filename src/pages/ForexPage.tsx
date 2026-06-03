@@ -58,35 +58,35 @@ const ForexPage: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen page-shell">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-white/5">
+      <header className="fixed top-0 left-0 right-0 z-50 glass-nav">
         <div className="container-custom">
           <nav className="flex justify-between items-center h-20">
             <Logo size="md" />
             <div className="hidden md:flex items-center space-x-10">
-              <Link to="/how-it-works" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+              <Link to="/how-it-works" className="text-secondary hover:text-primary transition-colors text-sm font-medium">
                 How it works
               </Link>
-              <Link to="/trading-bot" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+              <Link to="/trading-bot" className="text-secondary hover:text-primary transition-colors text-sm font-medium">
                 Bot Trading
               </Link>
-              <Link to="/forex" className="text-white transition-colors text-sm font-medium">
+              <Link to="/forex" className="text-primary transition-colors text-sm font-medium">
                 Forex MT5
               </Link>
-              <Link to="/about" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+              <Link to="/about" className="text-secondary hover:text-primary transition-colors text-sm font-medium">
                 About
               </Link>
             </div>
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setShowDownloadModal(true)}
-                className="hidden md:flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-medium"
+                className="hidden md:flex items-center gap-2 text-secondary hover:text-primary transition-colors text-sm font-medium"
               >
                 <Download size={16} />
                 Download
               </button>
-              <Link to="/login" className="hidden md:block text-gray-400 hover:text-white transition-colors text-sm font-medium">
+              <Link to="/login" className="hidden md:block text-secondary hover:text-primary transition-colors text-sm font-medium">
                 Sign in
               </Link>
               <Link to="/register" className="hidden md:block">
@@ -116,7 +116,7 @@ const ForexPage: React.FC = () => {
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-medium leading-[1.1] mb-8 tracking-tight">
               Professional <span className="text-blue-400">Forex Trading</span> Bot
             </h1>
-            <p className="text-lg md:text-xl text-gray-400 mb-12 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-lg md:text-xl text-secondary mb-12 max-w-2xl mx-auto leading-relaxed">
               Automate your forex trading with our MetaTrader 5 Expert Advisor. Proven strategies, risk management, and 24/5 automated execution.
             </p>
           </motion.div>
@@ -134,7 +134,7 @@ const ForexPage: React.FC = () => {
             <h2 className="text-3xl md:text-4xl font-display font-medium mb-4">
               Choose Your Plan
             </h2>
-            <p className="text-gray-400 text-lg">
+            <p className="text-secondary text-lg">
               One-time purchase or flexible monthly subscription
             </p>
           </motion.div>
@@ -150,11 +150,11 @@ const ForexPage: React.FC = () => {
               className={`relative p-8 rounded-2xl border cursor-pointer transition-all ${
                 selectedPlan === 'lifetime'
                   ? 'border-blue-500 bg-blue-500/5'
-                  : 'border-white/10 bg-white/[0.02] hover:border-white/20'
+                  : 'border-black/[0.08] bg-black/[0.03] hover:border-black/[0.1]'
               }`}
             >
               {selectedPlan === 'lifetime' && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-blue-500 text-white text-xs font-medium rounded-full">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-blue-500 text-primary text-xs font-medium rounded-full">
                   Best Value
                 </div>
               )}
@@ -163,34 +163,34 @@ const ForexPage: React.FC = () => {
                   <Infinity className="w-6 h-6 text-blue-400" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold text-white">Lifetime License</h3>
-                  <p className="text-gray-500 text-sm">One-time payment</p>
+                  <h3 className="text-xl font-semibold text-primary">Lifetime License</h3>
+                  <p className="text-secondary text-sm">One-time payment</p>
                 </div>
               </div>
 
               <div className="mb-6">
-                <span className="text-5xl font-display font-medium text-white">$199</span>
-                <span className="text-gray-500 ml-2">USD</span>
+                <span className="text-5xl font-display font-medium text-primary">$199</span>
+                <span className="text-secondary ml-2">USD</span>
               </div>
 
               <ul className="space-y-3 mb-8">
-                <li className="flex items-center gap-3 text-gray-400">
+                <li className="flex items-center gap-3 text-secondary">
                   <Check className="w-5 h-5 text-blue-400 flex-shrink-0" />
                   Lifetime access to MT5 bot
                 </li>
-                <li className="flex items-center gap-3 text-gray-400">
+                <li className="flex items-center gap-3 text-secondary">
                   <Check className="w-5 h-5 text-blue-400 flex-shrink-0" />
                   All trading strategies included
                 </li>
-                <li className="flex items-center gap-3 text-gray-400">
+                <li className="flex items-center gap-3 text-secondary">
                   <Check className="w-5 h-5 text-blue-400 flex-shrink-0" />
                   Free lifetime updates
                 </li>
-                <li className="flex items-center gap-3 text-gray-400">
+                <li className="flex items-center gap-3 text-secondary">
                   <Check className="w-5 h-5 text-blue-400 flex-shrink-0" />
                   Personal license key
                 </li>
-                <li className="flex items-center gap-3 text-gray-400">
+                <li className="flex items-center gap-3 text-secondary">
                   <Check className="w-5 h-5 text-blue-400 flex-shrink-0" />
                   Priority support
                 </li>
@@ -200,7 +200,7 @@ const ForexPage: React.FC = () => {
                 <button className={`w-full py-4 rounded-xl font-medium transition-colors ${
                   selectedPlan === 'lifetime'
                     ? 'bg-blue-500 hover:bg-blue-600 text-white'
-                    : 'bg-white/10 hover:bg-white/20 text-white'
+                    : 'bg-black/[0.06] hover:bg-white/20 text-primary'
                 }`}>
                   Get Lifetime Access
                 </button>
@@ -217,7 +217,7 @@ const ForexPage: React.FC = () => {
               className={`relative p-8 rounded-2xl border cursor-pointer transition-all ${
                 selectedPlan === 'monthly'
                   ? 'border-blue-500 bg-blue-500/5'
-                  : 'border-white/10 bg-white/[0.02] hover:border-white/20'
+                  : 'border-black/[0.08] bg-black/[0.03] hover:border-black/[0.1]'
               }`}
             >
               <div className="flex items-center gap-3 mb-6">
@@ -225,34 +225,34 @@ const ForexPage: React.FC = () => {
                   <RefreshCw className="w-6 h-6 text-purple-400" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold text-white">Monthly Subscription</h3>
-                  <p className="text-gray-500 text-sm">Cancel anytime</p>
+                  <h3 className="text-xl font-semibold text-primary">Monthly Subscription</h3>
+                  <p className="text-secondary text-sm">Cancel anytime</p>
                 </div>
               </div>
 
               <div className="mb-6">
-                <span className="text-5xl font-display font-medium text-white">$29</span>
-                <span className="text-gray-500 ml-2">/month</span>
+                <span className="text-5xl font-display font-medium text-primary">$29</span>
+                <span className="text-secondary ml-2">/month</span>
               </div>
 
               <ul className="space-y-3 mb-8">
-                <li className="flex items-center gap-3 text-gray-400">
+                <li className="flex items-center gap-3 text-secondary">
                   <Check className="w-5 h-5 text-purple-400 flex-shrink-0" />
                   Full access to MT5 bot
                 </li>
-                <li className="flex items-center gap-3 text-gray-400">
+                <li className="flex items-center gap-3 text-secondary">
                   <Check className="w-5 h-5 text-purple-400 flex-shrink-0" />
                   All trading strategies included
                 </li>
-                <li className="flex items-center gap-3 text-gray-400">
+                <li className="flex items-center gap-3 text-secondary">
                   <Check className="w-5 h-5 text-purple-400 flex-shrink-0" />
                   Regular updates
                 </li>
-                <li className="flex items-center gap-3 text-gray-400">
+                <li className="flex items-center gap-3 text-secondary">
                   <Check className="w-5 h-5 text-purple-400 flex-shrink-0" />
                   Personal license key
                 </li>
-                <li className="flex items-center gap-3 text-gray-400">
+                <li className="flex items-center gap-3 text-secondary">
                   <Check className="w-5 h-5 text-purple-400 flex-shrink-0" />
                   Cancel anytime, no commitment
                 </li>
@@ -261,8 +261,8 @@ const ForexPage: React.FC = () => {
               <Link to="/register?plan=forex-monthly">
                 <button className={`w-full py-4 rounded-xl font-medium transition-colors ${
                   selectedPlan === 'monthly'
-                    ? 'bg-purple-500 hover:bg-purple-600 text-white'
-                    : 'bg-white/10 hover:bg-white/20 text-white'
+                    ? 'bg-purple-500 hover:bg-purple-600 text-primary'
+                    : 'bg-black/[0.06] hover:bg-white/20 text-primary'
                 }`}>
                   Start Monthly Plan
                 </button>
@@ -270,7 +270,7 @@ const ForexPage: React.FC = () => {
             </motion.div>
           </div>
 
-          <p className="text-center text-gray-500 text-sm mt-8">
+          <p className="text-center text-secondary text-sm mt-8">
             All plans include a 14-day money-back guarantee. No questions asked.
           </p>
         </section>
@@ -287,7 +287,7 @@ const ForexPage: React.FC = () => {
             <h2 className="text-3xl md:text-4xl font-display font-medium mb-4">
               Everything You Need
             </h2>
-            <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+            <p className="text-secondary text-lg max-w-2xl mx-auto">
               Professional forex trading automation with enterprise-grade features
             </p>
           </motion.div>
@@ -300,13 +300,13 @@ const ForexPage: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="p-6 rounded-2xl border border-white/5 bg-white/[0.02] hover:border-white/10 transition-colors"
+                className="p-6 rounded-2xl border border-black/[0.06] bg-black/[0.03] hover:border-black/[0.08] transition-colors"
               >
                 <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center mb-4">
                   <feature.icon className="w-6 h-6 text-blue-400" />
                 </div>
-                <h3 className="text-lg font-medium text-white mb-2">{feature.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{feature.description}</p>
+                <h3 className="text-lg font-medium text-primary mb-2">{feature.title}</h3>
+                <p className="text-secondary text-sm leading-relaxed">{feature.description}</p>
               </motion.div>
             ))}
           </div>
@@ -324,7 +324,7 @@ const ForexPage: React.FC = () => {
             <h2 className="text-3xl md:text-4xl font-display font-medium mb-4">
               Get Started in Minutes
             </h2>
-            <p className="text-gray-400 text-lg">
+            <p className="text-secondary text-lg">
               Simple setup process to start automated forex trading
             </p>
           </motion.div>
@@ -342,13 +342,13 @@ const ForexPage: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="relative p-6 rounded-2xl border border-white/5 bg-white/[0.02]"
+                className="relative p-6 rounded-2xl border border-black/[0.06] bg-black/[0.03]"
               >
-                <span className="text-4xl font-display font-medium text-white/10">
+                <span className="text-4xl font-display font-medium text-primary/10">
                   {item.step}
                 </span>
-                <h3 className="text-lg font-medium text-white mt-4 mb-2">{item.title}</h3>
-                <p className="text-gray-500 text-sm">{item.description}</p>
+                <h3 className="text-lg font-medium text-primary mt-4 mb-2">{item.title}</h3>
+                <p className="text-secondary text-sm">{item.description}</p>
               </motion.div>
             ))}
           </div>
@@ -368,7 +368,7 @@ const ForexPage: React.FC = () => {
               <h2 className="text-3xl md:text-4xl font-display font-medium mb-4">
                 Ready to Automate Your Forex Trading?
               </h2>
-              <p className="text-gray-400 text-lg mb-8 max-w-2xl mx-auto">
+              <p className="text-secondary text-lg mb-8 max-w-2xl mx-auto">
                 Join thousands of traders using Monadier MT5 bot for consistent, automated forex trading.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -379,7 +379,7 @@ const ForexPage: React.FC = () => {
                   </button>
                 </Link>
                 <Link to="/register?plan=forex-monthly">
-                  <button className="px-8 py-4 border border-white/20 hover:bg-white/5 text-white rounded-full font-medium transition-colors">
+                  <button className="px-8 py-4 border border-black/[0.1] hover:bg-black/[0.04] text-primary rounded-full font-medium transition-colors">
                     Start Monthly - $29/mo
                   </button>
                 </Link>
@@ -390,25 +390,25 @@ const ForexPage: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 py-12 mt-24">
+      <footer className="border-t border-black/[0.06] py-12 mt-24">
         <div className="container-custom">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <Logo size="sm" />
             <div className="flex items-center gap-8">
-              <Link to="/how-it-works" className="text-gray-500 hover:text-white transition-colors text-sm">
+              <Link to="/how-it-works" className="text-secondary hover:text-primary transition-colors text-sm">
                 How it works
               </Link>
-              <Link to="/trading-bot" className="text-gray-500 hover:text-white transition-colors text-sm">
+              <Link to="/trading-bot" className="text-secondary hover:text-primary transition-colors text-sm">
                 Bot Trading
               </Link>
-              <Link to="/about" className="text-gray-500 hover:text-white transition-colors text-sm">
+              <Link to="/about" className="text-secondary hover:text-primary transition-colors text-sm">
                 About
               </Link>
-              <Link to="/support" className="text-gray-500 hover:text-white transition-colors text-sm">
+              <Link to="/support" className="text-secondary hover:text-primary transition-colors text-sm">
                 Support
               </Link>
             </div>
-            <p className="text-gray-600 text-sm">
+            <p className="text-muted text-sm">
               &copy; {new Date().getFullYear()} Monadier. All rights reserved.
             </p>
           </div>

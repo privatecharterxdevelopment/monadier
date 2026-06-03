@@ -1,7 +1,7 @@
 import React from 'react';
 import { Route, Routes } from 'react-router-dom';
-import DashboardHeader from '../components/dashboard/DashboardHeader';
-import SideNavigation from '../components/dashboard/SideNavigation';
+import DashboardSidebar from '../components/dashboard/DashboardSidebar';
+import DashboardTopBar from '../components/dashboard/DashboardTopBar';
 import DashboardOverview from './dashboard/DashboardOverview';
 import TradingBotPage from './dashboard/TradingBotPage';
 import BotHistoryPage from './dashboard/BotHistoryPage';
@@ -12,15 +12,14 @@ import AdminMonitorPage from './dashboard/AdminMonitorPage';
 
 const DashboardPage: React.FC = () => {
   return (
-    <div className="bg-background min-h-screen">
-      <SideNavigation />
+    <div className="dashboard-app min-h-[100dvh]">
+      <DashboardSidebar />
 
-      {/* ml-20 only on desktop (md+), pb-20 on mobile for bottom nav */}
-      <div className="md:ml-20 pb-20 md:pb-0">
-        <div className="container-custom py-4 px-3 md:px-4">
-          <DashboardHeader />
+      <div className="dashboard-main md:pl-[260px] pb-[4.5rem] md:pb-0">
+        <div className="dashboard-main-inner">
+          <DashboardTopBar />
 
-          <main className="py-4 md:py-8">
+          <main className="dashboard-content">
             <Routes>
               <Route path="/" element={<DashboardOverview />} />
               <Route path="/chart-trades" element={<TradingBotPage />} />

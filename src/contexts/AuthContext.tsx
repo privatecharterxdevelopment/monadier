@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase, getCurrentUser, getUserProfile } from '../lib/supabase';
+import { supabase, getUserProfile } from '../lib/supabase';
+import { isDemoModeEnabled } from '../lib/demoMode';
 import { User } from '@supabase/supabase-js';
 
 // Demo account constants
@@ -12,6 +13,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   isDemoUser: boolean;
+  isDemoMode: boolean;
   refreshProfile: () => Promise<void>;
 }
 
@@ -38,6 +40,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDemoMode, setIsDemoMode] = useState(isDemoModeEnabled);
+
+  useEffect(() => {
+    const syncDemo = () => setIsDemoMode(isDemoModeEnabled());
+    window.addEventListener('demoModeChanged', syncDemo);
+    window.addEventListener('storage', syncDemo);
+    return () => {
+      window.removeEventListener('demoModeChanged', syncDemo);
+      window.removeEventListener('storage', syncDemo);
+    };
+  }, []);
 
   const refreshProfile = async () => {
     if (user) {
@@ -55,8 +68,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const checkUser = async () => {
       try {
-        // Add 5 second timeout to prevent infinite loading
-        const currentUser = await withTimeout(getCurrentUser(), 5000);
+        // Prefer local session (fast); avoid blocking UI on network getUser()
+        const { data: { session } } = await withTimeout(
+          supabase.auth.getSession(),
+          4000
+        );
+        const currentUser = session?.user ?? null;
 
         if (!isMounted) return;
 
@@ -87,6 +104,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     checkUser();
+
+    // Never block the app on auth — show UI after 4s even if Supabase is slow
+    const loadingCap = window.setTimeout(() => {
+      if (isMounted) setIsLoading(false);
+    }, 4000);
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
@@ -130,6 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       isMounted = false;
+      window.clearTimeout(loadingCap);
       authListener.subscription.unsubscribe();
     };
   }, []);
@@ -139,9 +162,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value = {
     user,
     profile,
-    isAuthenticated: !!user,
+    isAuthenticated: !!user || isDemoMode,
     isLoading,
     isDemoUser,
+    isDemoMode,
     refreshProfile
   };
 

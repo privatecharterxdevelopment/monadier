@@ -65,10 +65,10 @@ const OnChainPositions: React.FC<OnChainPositionsProps> = ({ showHeader = true }
 
   if (loading && positions.length === 0) {
     return (
-      <div className="bg-[#0D0D0D] border border-white/5 rounded-xl p-6">
+      <div className="glass-card border border-black/[0.06] rounded-xl p-6">
         <div className="flex items-center justify-center py-8">
           <Activity className="w-6 h-6 text-cyan-400 animate-pulse mr-2" />
-          <span className="text-white/60">Loading on-chain positions...</span>
+          <span className="text-secondary">Loading on-chain positions...</span>
         </div>
       </div>
     );
@@ -76,7 +76,7 @@ const OnChainPositions: React.FC<OnChainPositionsProps> = ({ showHeader = true }
 
   if (error) {
     return (
-      <div className="bg-[#0D0D0D] border border-red-500/20 rounded-xl p-6">
+      <div className="glass-card border border-red-500/20 rounded-xl p-6">
         <div className="flex items-center text-red-400">
           <AlertTriangle className="w-5 h-5 mr-2" />
           <span>{error}</span>
@@ -87,20 +87,20 @@ const OnChainPositions: React.FC<OnChainPositionsProps> = ({ showHeader = true }
 
   if (positions.length === 0) {
     return (
-      <div className="bg-[#0D0D0D] border border-white/5 rounded-xl p-6">
+      <div className="glass-card border border-black/[0.06] rounded-xl p-6">
         {showHeader && (
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <h3 className="text-lg font-bold text-primary flex items-center gap-2">
               <Activity className="w-5 h-5 text-cyan-400" />
               V8 On-Chain Positions
             </h3>
-            <div className="flex items-center gap-2 text-xs text-white/40">
+            <div className="flex items-center gap-2 text-xs text-muted">
               <span>ETH: ${prices.weth.toLocaleString()}</span>
               <span>BTC: ${prices.wbtc.toLocaleString()}</span>
             </div>
           </div>
         )}
-        <div className="text-center py-8 text-white/40">
+        <div className="text-center py-8 text-muted">
           No active positions on V8 contract
         </div>
       </div>
@@ -111,15 +111,15 @@ const OnChainPositions: React.FC<OnChainPositionsProps> = ({ showHeader = true }
     <div className="space-y-4">
       {showHeader && (
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+          <h3 className="text-lg font-bold text-primary flex items-center gap-2">
             <Activity className="w-5 h-5 text-cyan-400" />
             V8 Live Positions
           </h3>
           <div className="flex items-center gap-4 text-sm">
-            <span className="text-white/60">
+            <span className="text-secondary">
               ETH: <span className="text-cyan-400">${prices.weth.toLocaleString()}</span>
             </span>
-            <span className="text-white/60">
+            <span className="text-secondary">
               BTC: <span className="text-orange-400">${prices.wbtc.toLocaleString()}</span>
             </span>
           </div>
@@ -131,7 +131,7 @@ const OnChainPositions: React.FC<OnChainPositionsProps> = ({ showHeader = true }
           key={position.id}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-[#0D0D0D] border border-white/10 rounded-xl p-4 hover:border-cyan-500/30 transition-all"
+          className="glass-card border border-black/[0.08] rounded-xl p-4 hover:border-cyan-500/30 transition-all"
         >
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
@@ -149,7 +149,7 @@ const OnChainPositions: React.FC<OnChainPositionsProps> = ({ showHeader = true }
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-white font-bold text-lg">
+                  <span className="text-primary font-bold text-lg">
                     {position.tokenSymbol}
                   </span>
                   <span
@@ -165,7 +165,7 @@ const OnChainPositions: React.FC<OnChainPositionsProps> = ({ showHeader = true }
                     {position.leverage}x
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-white/50 mt-1">
+                <div className="flex items-center gap-2 text-xs text-secondary mt-1">
                   <Clock className="w-3 h-3" />
                   <span>{position.duration}</span>
                 </div>
@@ -195,24 +195,24 @@ const OnChainPositions: React.FC<OnChainPositionsProps> = ({ showHeader = true }
           {/* Position Details */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             <div>
-              <div className="text-white/40 text-xs mb-1">Entry Price</div>
-              <div className="text-white font-medium">{position.entryPriceFormatted}</div>
+              <div className="text-muted text-xs mb-1">Entry Price</div>
+              <div className="text-primary font-medium">{position.entryPriceFormatted}</div>
             </div>
             <div>
-              <div className="text-white/40 text-xs mb-1">Current Price</div>
+              <div className="text-muted text-xs mb-1">Current Price</div>
               <div className="text-cyan-400 font-medium">
                 {position.currentPriceFormatted}
               </div>
             </div>
             <div>
-              <div className="text-white/40 text-xs mb-1">Collateral</div>
-              <div className="text-white font-medium">
+              <div className="text-muted text-xs mb-1">Collateral</div>
+              <div className="text-primary font-medium">
                 ${position.collateral.toFixed(2)}
               </div>
             </div>
             <div>
-              <div className="text-white/40 text-xs mb-1">Size</div>
-              <div className="text-white font-medium">
+              <div className="text-muted text-xs mb-1">Size</div>
+              <div className="text-primary font-medium">
                 ${position.size.toFixed(2)}
               </div>
             </div>
@@ -222,12 +222,12 @@ const OnChainPositions: React.FC<OnChainPositionsProps> = ({ showHeader = true }
           <div className="flex flex-wrap gap-3 mb-4">
             <div className="flex items-center gap-1 px-2 py-1 bg-red-500/10 rounded text-xs">
               <Shield className="w-3 h-3 text-red-400" />
-              <span className="text-white/60">SL:</span>
+              <span className="text-secondary">SL:</span>
               <span className="text-red-400">{position.stopLoss}</span>
             </div>
             <div className="flex items-center gap-1 px-2 py-1 bg-green-500/10 rounded text-xs">
               <Target className="w-3 h-3 text-green-400" />
-              <span className="text-white/60">TP:</span>
+              <span className="text-secondary">TP:</span>
               <span className="text-green-400">{position.takeProfit}</span>
             </div>
             {position.trailingInfo && (
@@ -282,16 +282,16 @@ const OnChainPositions: React.FC<OnChainPositionsProps> = ({ showHeader = true }
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-[#1A1A1A] border border-white/10 rounded-xl p-6 max-w-md w-full mx-4"
+            className="auth-card max-w-md w-full mx-4"
           >
-            <h3 className="text-xl font-bold text-white mb-4">Close Position?</h3>
-            <p className="text-white/60 mb-4">
+            <h3 className="text-xl font-bold text-primary mb-4">Close Position?</h3>
+            <p className="text-secondary mb-4">
               Are you sure you want to close your {confirmClose.tokenSymbol}{' '}
               {confirmClose.direction} position?
             </p>
             <div className="bg-black/30 rounded-lg p-4 mb-4">
               <div className="flex justify-between mb-2">
-                <span className="text-white/50">Current P/L:</span>
+                <span className="text-secondary">Current P/L:</span>
                 <span
                   className={
                     confirmClose.pnl >= 0 ? 'text-green-400' : 'text-red-400'
@@ -301,21 +301,21 @@ const OnChainPositions: React.FC<OnChainPositionsProps> = ({ showHeader = true }
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-white/50">Collateral:</span>
-                <span className="text-white">${confirmClose.collateral.toFixed(2)}</span>
+                <span className="text-secondary">Collateral:</span>
+                <span className="text-primary">${confirmClose.collateral.toFixed(2)}</span>
               </div>
             </div>
             <div className="flex gap-3">
               <button
                 onClick={() => setConfirmClose(null)}
-                className="flex-1 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg"
+                className="flex-1 px-4 py-2 bg-black/[0.06] hover:bg-white/20 text-primary rounded-lg"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleClose(confirmClose)}
                 disabled={closingPosition !== null}
-                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium disabled:opacity-50"
+                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-primary rounded-lg font-medium disabled:opacity-50"
               >
                 {closingPosition ? 'Closing...' : 'Close Position'}
               </button>

@@ -343,11 +343,11 @@ const SubscriptionsPage: React.FC = () => {
       case 'active':
         return 'bg-green-500/20 text-green-400 border-green-500/30';
       case 'expired':
-        return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+        return 'bg-gray-500/20 text-secondary border-gray-500/30';
       case 'cancelled':
         return 'bg-red-500/20 text-red-400 border-red-500/30';
       default:
-        return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+        return 'bg-gray-500/20 text-secondary border-gray-500/30';
     }
   };
 
@@ -356,13 +356,13 @@ const SubscriptionsPage: React.FC = () => {
       case 'starter':
         return <Zap className="w-5 h-5 text-blue-400" />;
       case 'pro':
-        return <Crown className="w-5 h-5 text-white" />;
+        return <Crown className="w-5 h-5 text-primary" />;
       case 'elite':
         return <Rocket className="w-5 h-5 text-amber-400" />;
       case 'lifetime':
         return <Download className="w-5 h-5 text-emerald-400" />;
       default:
-        return <Package className="w-5 h-5 text-gray-400" />;
+        return <Package className="w-5 h-5 text-secondary" />;
     }
   };
 
@@ -371,8 +371,8 @@ const SubscriptionsPage: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Subscriptions</h1>
-          <p className="text-gray-400 text-sm mt-1">Manage your plans and licenses</p>
+          <h1 className="text-2xl font-semibold text-primary">Subscriptions</h1>
+          <p className="text-secondary text-sm mt-1">Manage your plans and licenses</p>
         </div>
       </div>
 
@@ -382,17 +382,17 @@ const SubscriptionsPage: React.FC = () => {
       {selectedTab === 'trading' && (
         <div className="space-y-6">
           {/* Crypto DEX Header */}
-          <div className="flex items-center justify-between pb-4 border-b border-gray-800">
+          <div className="flex items-center justify-between pb-4 border-b border-border">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-orange-500/20 flex items-center justify-center">
                 <Bot className="w-6 h-6 text-orange-400" />
               </div>
               <div>
-                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                <h2 className="text-xl font-semibold text-primary flex items-center gap-2">
                   Crypto DEX Trading Bot
                   <span className="px-2 py-0.5 text-xs font-bold bg-orange-500/20 text-orange-400 rounded">CRYPTO</span>
                 </h2>
-                <p className="text-gray-400 text-sm">Automated trading on Uniswap, PancakeSwap & more DEXs</p>
+                <p className="text-secondary text-sm">Automated trading on Uniswap, PancakeSwap & more DEXs</p>
               </div>
             </div>
 
@@ -403,7 +403,7 @@ const SubscriptionsPage: React.FC = () => {
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                   billingCycle === 'monthly'
                     ? 'bg-white text-black'
-                    : 'text-gray-400 hover:text-white'
+                    : 'text-secondary hover:text-primary'
                 }`}
               >
                 Monthly
@@ -413,11 +413,11 @@ const SubscriptionsPage: React.FC = () => {
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
                   billingCycle === 'yearly'
                     ? 'bg-white text-black'
-                    : 'text-gray-400 hover:text-white'
+                    : 'text-secondary hover:text-primary'
                 }`}
               >
                 Yearly
-                <span className="px-1.5 py-0.5 text-xs bg-green-500 text-white rounded font-bold">-31%</span>
+                <span className="px-1.5 py-0.5 text-xs bg-green-500 text-primary rounded font-bold">-31%</span>
               </button>
             </div>
           </div>
@@ -442,10 +442,10 @@ const SubscriptionsPage: React.FC = () => {
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="text-lg font-semibold text-white capitalize">{activeSubscription.tier} Plan</h3>
+                      <h3 className="text-lg font-semibold text-primary capitalize">{activeSubscription.tier} Plan</h3>
                       <span className="px-2 py-0.5 text-xs font-medium bg-green-500/20 text-green-400 rounded-full">Active</span>
                     </div>
-                    <p className="text-gray-400 text-sm">
+                    <p className="text-secondary text-sm">
                       {activeSubscription.billingCycle === 'lifetime'
                         ? 'Lifetime access - never expires'
                         : `Valid until ${new Date(activeSubscription.endDate).toLocaleDateString()} (manual renewal required)`
@@ -454,8 +454,8 @@ const SubscriptionsPage: React.FC = () => {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-gray-500 text-xs mb-1">Daily Trades</p>
-                  <p className="text-white font-mono">
+                  <p className="text-secondary text-xs mb-1">Daily Trades</p>
+                  <p className="text-primary font-mono">
                     {activeSubscription.dailyTradesUsed} / {activeSubscription.tier === 'elite' ? '∞' : activeSubscription.tier === 'pro' ? '20' : '5'}
                   </p>
                 </div>
@@ -470,10 +470,10 @@ const SubscriptionsPage: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               whileHover={{ y: -4 }}
-              className={`relative bg-[#141414] rounded-2xl border-2 ${
+              className={`relative bg-white/55 backdrop-blur-xl border border-[#c5c5cb] rounded-2xl border-2 ${
                 activeSubscription?.tier === plan.id
                   ? 'border-green-500 shadow-lg shadow-green-500/20'
-                  : 'border-gray-800/50'
+                  : 'border-border/50'
               } p-8 transition-all`}
             >
               {plan.popular && !activeSubscription?.tier && (
@@ -483,24 +483,24 @@ const SubscriptionsPage: React.FC = () => {
               )}
 
               {activeSubscription?.tier === plan.id && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1.5 text-xs font-bold rounded-full flex items-center gap-1.5 bg-green-500 text-white">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1.5 text-xs font-bold rounded-full flex items-center gap-1.5 bg-green-500 text-primary">
                   <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
                   ACTIVE
                 </div>
               )}
 
-              <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/70 mb-6">
+              <div className="w-12 h-12 rounded-xl bg-black/[0.04] border border-black/[0.08] flex items-center justify-center text-secondary mb-6">
                 {plan.icon}
               </div>
 
-              <h3 className="text-lg font-medium text-white mb-2 tracking-wide">{plan.name}</h3>
+              <h3 className="text-lg font-medium text-primary mb-2 tracking-wide">{plan.name}</h3>
               <div className="flex items-baseline gap-1 mb-2">
-                <span className="text-4xl font-light text-white">${plan.price}</span>
-                <span className="text-gray-500 text-sm">/{billingCycle === 'yearly' ? 'year' : 'month'}</span>
+                <span className="text-4xl font-light text-primary">${plan.price}</span>
+                <span className="text-secondary text-sm">/{billingCycle === 'yearly' ? 'year' : 'month'}</span>
               </div>
               {billingCycle === 'yearly' && (
                 <div className="flex items-center gap-2 mb-4">
-                  <span className="text-gray-500 text-sm line-through">${plan.monthlyPrice * 12}/year</span>
+                  <span className="text-secondary text-sm line-through">${plan.monthlyPrice * 12}/year</span>
                   <span className="px-2 py-0.5 text-xs font-medium bg-green-500/20 text-green-400 rounded-full">
                     Save ${(plan.monthlyPrice * 12) - plan.yearlyPrice}
                   </span>
@@ -512,7 +512,7 @@ const SubscriptionsPage: React.FC = () => {
 
               <ul className="space-y-4 mb-8">
                 {plan.features.map((feature, idx) => (
-                  <li key={idx} className="flex items-start gap-3 text-sm text-gray-400">
+                  <li key={idx} className="flex items-start gap-3 text-sm text-secondary">
                     <div className="w-1.5 h-1.5 rounded-full bg-white/40 mt-1.5 flex-shrink-0" />
                     {feature}
                   </li>
@@ -524,7 +524,7 @@ const SubscriptionsPage: React.FC = () => {
                 disabled={activeSubscription?.tier === plan.id}
                 className={`w-full py-3.5 rounded-xl font-medium transition-all text-sm tracking-wide ${
                   activeSubscription?.tier === plan.id
-                    ? 'bg-white/5 text-gray-600 cursor-not-allowed border border-gray-800'
+                    ? 'bg-black/[0.04] text-muted cursor-not-allowed border border-border'
                     : 'bg-white text-black hover:bg-gray-100'
                 }`}
               >
@@ -545,8 +545,8 @@ const SubscriptionsPage: React.FC = () => {
               <Shield className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-red-400 font-medium mb-1">Security Notice</p>
-                <p className="text-gray-400 text-sm">
-                  We are <strong className="text-white">NOT</strong> on Telegram. For security reasons, we only provide support via Discord (Basic & Pro) or direct Phone support (Elite).
+                <p className="text-secondary text-sm">
+                  We are <strong className="text-primary">NOT</strong> on Telegram. For security reasons, we only provide support via Discord (Basic & Pro) or direct Phone support (Elite).
                   Be aware of scammers impersonating us on Telegram or other platforms.
                 </p>
               </div>
@@ -563,22 +563,22 @@ const SubscriptionsPage: React.FC = () => {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-[#141414] rounded-2xl border border-white/20 p-8"
+              className="bg-white/55 backdrop-blur-xl border border-[#c5c5cb] rounded-2xl border border-black/[0.1] p-8"
             >
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
                   <Check className="w-6 h-6 text-green-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium text-white">Desktop License Active</h3>
-                  <p className="text-gray-500 text-sm">Lifetime access - never expires</p>
+                  <h3 className="text-lg font-medium text-primary">Desktop License Active</h3>
+                  <p className="text-secondary text-sm">Lifetime access - never expires</p>
                 </div>
               </div>
 
               <div className="bg-background rounded-xl p-5 mb-6">
-                <p className="text-gray-400 text-xs mb-2">Your License Code</p>
+                <p className="text-secondary text-xs mb-2">Your License Code</p>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 bg-black/50 px-4 py-3 rounded-lg text-white font-mono text-sm tracking-wider break-all">
+                  <code className="flex-1 bg-black/50 px-4 py-3 rounded-lg text-primary font-mono text-sm tracking-wider break-all">
                     {desktopLicense.code}
                   </code>
                   <button
@@ -587,40 +587,40 @@ const SubscriptionsPage: React.FC = () => {
                       setCopiedLicense(true);
                       setTimeout(() => setCopiedLicense(false), 2000);
                     }}
-                    className="p-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+                    className="p-3 bg-black/[0.04] hover:bg-black/[0.06] rounded-lg transition-colors"
                   >
-                    {copiedLicense ? <Check size={18} className="text-green-400" /> : <Copy size={18} className="text-gray-400" />}
+                    {copiedLicense ? <Check size={18} className="text-green-400" /> : <Copy size={18} className="text-secondary" />}
                   </button>
                 </div>
               </div>
 
               <div className="mb-4">
-                <p className="text-white font-medium mb-3">Download Desktop App</p>
+                <p className="text-primary font-medium mb-3">Download Desktop App</p>
                 <div className="grid grid-cols-2 gap-3">
                   <a
                     href="#"
-                    className="flex items-center justify-center gap-3 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-colors"
+                    className="flex items-center justify-center gap-3 py-4 bg-black/[0.04] hover:bg-black/[0.06] border border-black/[0.08] rounded-xl transition-colors"
                   >
-                    <Apple size={22} className="text-white/70" />
+                    <Apple size={22} className="text-secondary" />
                     <div className="text-left">
-                      <p className="text-white text-sm font-medium">macOS</p>
-                      <p className="text-gray-500 text-xs">Intel & Apple Silicon</p>
+                      <p className="text-primary text-sm font-medium">macOS</p>
+                      <p className="text-secondary text-xs">Intel & Apple Silicon</p>
                     </div>
                   </a>
                   <a
                     href="#"
-                    className="flex items-center justify-center gap-3 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-colors"
+                    className="flex items-center justify-center gap-3 py-4 bg-black/[0.04] hover:bg-black/[0.06] border border-black/[0.08] rounded-xl transition-colors"
                   >
-                    <MonitorDown size={22} className="text-white/70" />
+                    <MonitorDown size={22} className="text-secondary" />
                     <div className="text-left">
-                      <p className="text-white text-sm font-medium">Windows</p>
-                      <p className="text-gray-500 text-xs">Windows 10/11</p>
+                      <p className="text-primary text-sm font-medium">Windows</p>
+                      <p className="text-secondary text-xs">Windows 10/11</p>
                     </div>
                   </a>
                 </div>
               </div>
 
-              <p className="text-gray-500 text-xs">
+              <p className="text-secondary text-xs">
                 Activated on {new Date(desktopLicense.createdAt).toLocaleDateString()}
               </p>
             </motion.div>
@@ -632,7 +632,7 @@ const SubscriptionsPage: React.FC = () => {
               key={plan.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`relative bg-[#141414] rounded-2xl border ${desktopLicense ? 'border-gray-800/30 opacity-60' : 'border-gray-800/50'} p-10`}
+              className={`relative bg-white/55 backdrop-blur-xl border border-[#c5c5cb] rounded-2xl border ${desktopLicense ? 'border-border/30 opacity-60' : 'border-border/50'} p-10`}
             >
               {!desktopLicense && (
                 <div className="absolute -top-3 left-8 px-4 py-1 bg-white text-black text-xs font-medium rounded-full tracking-wide">
@@ -641,39 +641,39 @@ const SubscriptionsPage: React.FC = () => {
               )}
 
               <div className="flex items-start gap-6 mb-8">
-                <div className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/70">
+                <div className="w-14 h-14 rounded-xl bg-black/[0.04] border border-black/[0.08] flex items-center justify-center text-secondary">
                   {plan.icon}
                 </div>
                 <div>
-                  <h3 className="text-2xl font-medium text-white mb-1 tracking-wide">{plan.name}</h3>
-                  <p className="text-gray-500">
+                  <h3 className="text-2xl font-medium text-primary mb-1 tracking-wide">{plan.name}</h3>
+                  <p className="text-secondary">
                     Own the software forever with a single payment
                   </p>
                 </div>
               </div>
 
               <div className="flex items-baseline gap-2 mb-8">
-                <span className="text-5xl font-light text-white">${plan.price.toLocaleString()}</span>
-                <span className="text-gray-500">one-time</span>
+                <span className="text-5xl font-light text-primary">${plan.price.toLocaleString()}</span>
+                <span className="text-secondary">one-time</span>
               </div>
 
               <div className="h-px bg-gray-800/50 mb-8" />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                 {plan.features.map((feature, idx) => (
-                  <div key={idx} className="flex items-start gap-3 text-sm text-gray-400">
+                  <div key={idx} className="flex items-start gap-3 text-sm text-secondary">
                     <div className="w-1.5 h-1.5 rounded-full bg-white/40 mt-1.5 flex-shrink-0" />
                     {feature}
                   </div>
                 ))}
               </div>
 
-              <div className="bg-white/5 border border-white/10 rounded-xl p-5 mb-8">
+              <div className="bg-black/[0.04] border border-black/[0.08] rounded-xl p-5 mb-8">
                 <div className="flex items-center gap-2 mb-2">
-                  <Star className="w-4 h-4 text-white/60" />
-                  <span className="text-white/80 font-medium text-sm">Why Desktop?</span>
+                  <Star className="w-4 h-4 text-secondary" />
+                  <span className="text-primary font-medium text-sm">Why Desktop?</span>
                 </div>
-                <p className="text-gray-500 text-sm leading-relaxed">
+                <p className="text-secondary text-sm leading-relaxed">
                   Run the trading bot locally on your machine. Full privacy, no subscription fees,
                   and lifetime updates included.
                 </p>
@@ -682,7 +682,7 @@ const SubscriptionsPage: React.FC = () => {
               {desktopLicense || subscriptions.find(s => s.tier === 'lifetime' && s.status === 'active') ? (
                 <button
                   disabled
-                  className="w-full py-4 bg-white/5 text-gray-600 rounded-xl font-medium cursor-not-allowed border border-gray-800"
+                  className="w-full py-4 bg-black/[0.04] text-muted rounded-xl font-medium cursor-not-allowed border border-border"
                 >
                   Already Owned
                 </button>
@@ -703,16 +703,16 @@ const SubscriptionsPage: React.FC = () => {
       {selectedTab === 'forex' && (
         <div className="space-y-6">
           {/* Forex MT5 Header */}
-          <div className="flex items-center gap-3 pb-4 border-b border-gray-800">
+          <div className="flex items-center gap-3 pb-4 border-b border-border">
             <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center">
               <BarChart3 className="w-6 h-6 text-blue-400" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+              <h2 className="text-xl font-semibold text-primary flex items-center gap-2">
                 Forex MT5 Expert Advisor
                 <span className="px-2 py-0.5 text-xs font-bold bg-blue-500/20 text-blue-400 rounded">FOREX</span>
               </h2>
-              <p className="text-gray-400 text-sm">Automated trading on MetaTrader 5 for forex pairs</p>
+              <p className="text-secondary text-sm">Automated trading on MetaTrader 5 for forex pairs</p>
             </div>
           </div>
 
@@ -721,24 +721,24 @@ const SubscriptionsPage: React.FC = () => {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-[#141414] rounded-2xl border border-blue-500/30 p-8"
+              className="bg-white/55 backdrop-blur-xl border border-[#c5c5cb] rounded-2xl border border-blue-500/30 p-8"
             >
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
                   <Check className="w-6 h-6 text-green-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium text-white">MT5 License Active</h3>
-                  <p className="text-gray-500 text-sm">
+                  <h3 className="text-lg font-medium text-primary">MT5 License Active</h3>
+                  <p className="text-secondary text-sm">
                     {forexLicense.planType === 'lifetime' ? 'Lifetime access' : 'Monthly subscription'}
                   </p>
                 </div>
               </div>
 
               <div className="bg-background rounded-xl p-5 mb-6">
-                <p className="text-gray-400 text-xs mb-2">Your MT5 License Key</p>
+                <p className="text-secondary text-xs mb-2">Your MT5 License Key</p>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 bg-black/50 px-4 py-3 rounded-lg text-white font-mono text-sm tracking-wider break-all">
+                  <code className="flex-1 bg-black/50 px-4 py-3 rounded-lg text-primary font-mono text-sm tracking-wider break-all">
                     {forexLicense.code}
                   </code>
                   <button
@@ -747,12 +747,12 @@ const SubscriptionsPage: React.FC = () => {
                       setCopiedLicense(true);
                       setTimeout(() => setCopiedLicense(false), 2000);
                     }}
-                    className="p-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+                    className="p-3 bg-black/[0.04] hover:bg-black/[0.06] rounded-lg transition-colors"
                   >
-                    {copiedLicense ? <Check size={18} className="text-green-400" /> : <Copy size={18} className="text-gray-400" />}
+                    {copiedLicense ? <Check size={18} className="text-green-400" /> : <Copy size={18} className="text-secondary" />}
                   </button>
                 </div>
-                <p className="text-gray-500 text-xs mt-3">
+                <p className="text-secondary text-xs mt-3">
                   Enter this key in your MT5 Expert Advisor to activate trading.
                 </p>
               </div>
@@ -762,7 +762,7 @@ const SubscriptionsPage: React.FC = () => {
                   <Key className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-blue-400 font-medium mb-1">How to use your license</p>
-                    <ol className="text-gray-400 text-sm space-y-1 list-decimal list-inside">
+                    <ol className="text-secondary text-sm space-y-1 list-decimal list-inside">
                       <li>Open MetaTrader 5</li>
                       <li>Add the Monadier EA to your chart</li>
                       <li>Enter your license key in the EA settings</li>
@@ -781,12 +781,12 @@ const SubscriptionsPage: React.FC = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
-                className={`relative bg-[#141414] rounded-2xl border p-8 ${
-                  plan.badge ? 'border-blue-500/30' : 'border-gray-800/50'
+                className={`relative bg-white/55 backdrop-blur-xl border border-[#c5c5cb] rounded-2xl border p-8 ${
+                  plan.badge ? 'border-blue-500/30' : 'border-border/50'
                 }`}
               >
                 {plan.badge && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-blue-500 text-white text-xs font-medium rounded-full">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-blue-500 text-primary text-xs font-medium rounded-full">
                     {plan.badge}
                   </div>
                 )}
@@ -798,21 +798,21 @@ const SubscriptionsPage: React.FC = () => {
                     {plan.icon}
                   </div>
                   <div>
-                    <h3 className="text-xl font-semibold text-white">{plan.name}</h3>
-                    <p className="text-gray-500 text-sm">
+                    <h3 className="text-xl font-semibold text-primary">{plan.name}</h3>
+                    <p className="text-secondary text-sm">
                       {plan.billingCycle === 'one_time' ? 'One-time payment' : 'Cancel anytime'}
                     </p>
                   </div>
                 </div>
 
                 <div className="mb-6">
-                  <span className="text-5xl font-display font-medium text-white">${plan.price}</span>
-                  {plan.billingCycle === 'monthly' && <span className="text-gray-500 ml-2">/month</span>}
+                  <span className="text-5xl font-display font-medium text-primary">${plan.price}</span>
+                  {plan.billingCycle === 'monthly' && <span className="text-secondary ml-2">/month</span>}
                 </div>
 
                 <ul className="space-y-3 mb-8">
                   {plan.features.map((feature, idx) => (
-                    <li key={idx} className="flex items-center gap-3 text-gray-400">
+                    <li key={idx} className="flex items-center gap-3 text-secondary">
                       <Check className={`w-5 h-5 flex-shrink-0 ${
                         plan.billingCycle === 'one_time' ? 'text-blue-400' : 'text-purple-400'
                       }`} />
@@ -830,7 +830,7 @@ const SubscriptionsPage: React.FC = () => {
                 {forexLicense ? (
                   <button
                     disabled
-                    className="w-full py-4 bg-white/5 text-gray-600 rounded-xl font-medium cursor-not-allowed border border-gray-800"
+                    className="w-full py-4 bg-black/[0.04] text-muted rounded-xl font-medium cursor-not-allowed border border-border"
                   >
                     Already Owned
                   </button>
@@ -861,7 +861,7 @@ const SubscriptionsPage: React.FC = () => {
               <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-yellow-400 font-medium mb-1">About Trade Limits</p>
-                <p className="text-gray-400 text-sm">
+                <p className="text-secondary text-sm">
                   Monthly plans are limited to 5 trades per day. Your license is validated on each trade.
                   Demo account trades don't count toward this limit. Upgrade to lifetime for unlimited trading.
                 </p>
@@ -882,7 +882,7 @@ const SubscriptionsPage: React.FC = () => {
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-card-dark rounded-2xl border border-gray-800 p-8 max-w-md w-full"
+            className="bg-card-dark rounded-2xl border border-border p-8 max-w-md w-full"
             onClick={(e) => e.stopPropagation()}
           >
             {paymentStatus === 'success' ? (
@@ -890,17 +890,17 @@ const SubscriptionsPage: React.FC = () => {
                 <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
                   <Check className="w-10 h-10 text-green-400" />
                 </div>
-                <h2 className="text-2xl font-semibold text-white mb-2">Payment Successful!</h2>
-                <p className="text-gray-400 mb-4">Your {selectedPlan.name} subscription is now active</p>
+                <h2 className="text-2xl font-semibold text-primary mb-2">Payment Successful!</h2>
+                <p className="text-secondary mb-4">Your {selectedPlan.name} subscription is now active</p>
 
                 {/* License Code Display */}
                 {generatedLicense && (
                   <div className="bg-background rounded-xl p-5 mb-6 text-left">
-                    <p className="text-gray-400 text-xs mb-2">
+                    <p className="text-secondary text-xs mb-2">
                       {selectedPlan.type === 'forex_license' ? 'Your MT5 License Key' : 'Your License Code'}
                     </p>
                     <div className="flex items-center gap-2">
-                      <code className="flex-1 bg-black/50 px-4 py-3 rounded-lg text-white font-mono text-sm tracking-wider break-all">
+                      <code className="flex-1 bg-black/50 px-4 py-3 rounded-lg text-primary font-mono text-sm tracking-wider break-all">
                         {generatedLicense}
                       </code>
                       <button
@@ -909,12 +909,12 @@ const SubscriptionsPage: React.FC = () => {
                           setCopiedLicense(true);
                           setTimeout(() => setCopiedLicense(false), 2000);
                         }}
-                        className="p-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+                        className="p-3 bg-black/[0.04] hover:bg-black/[0.06] rounded-lg transition-colors"
                       >
-                        {copiedLicense ? <Check size={18} className="text-green-400" /> : <Copy size={18} className="text-gray-400" />}
+                        {copiedLicense ? <Check size={18} className="text-green-400" /> : <Copy size={18} className="text-secondary" />}
                       </button>
                     </div>
-                    <p className="text-gray-500 text-xs mt-3">
+                    <p className="text-secondary text-xs mt-3">
                       {selectedPlan.type === 'forex_license'
                         ? 'Enter this key in your MT5 Expert Advisor settings to activate trading.'
                         : 'Save this code! You\'ll need it to activate the desktop app.'}
@@ -935,25 +935,25 @@ const SubscriptionsPage: React.FC = () => {
 
                 {/* Download Links for Desktop (not for forex) */}
                 {generatedLicense && selectedPlan.type !== 'forex_license' && (
-                  <div className="mt-6 pt-6 border-t border-gray-800">
-                    <p className="text-white font-medium mb-3">Download Desktop App</p>
+                  <div className="mt-6 pt-6 border-t border-border">
+                    <p className="text-primary font-medium mb-3">Download Desktop App</p>
                     <div className="flex gap-3">
                       <a
                         href="#"
-                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors text-sm text-gray-300"
+                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-black/[0.04] hover:bg-black/[0.06] rounded-lg transition-colors text-sm text-[#52525b]"
                       >
                         <Apple size={18} />
                         macOS
                       </a>
                       <a
                         href="#"
-                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors text-sm text-gray-300"
+                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-black/[0.04] hover:bg-black/[0.06] rounded-lg transition-colors text-sm text-[#52525b]"
                       >
                         <MonitorDown size={18} />
                         Windows
                       </a>
                     </div>
-                    <p className="text-gray-500 text-xs mt-3">
+                    <p className="text-secondary text-xs mt-3">
                       Also available in your account settings
                     </p>
                   </div>
@@ -966,7 +966,7 @@ const SubscriptionsPage: React.FC = () => {
                     setGeneratedLicense(null);
                     setSelectedTab('current');
                   }}
-                  className="mt-6 w-full py-3 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors"
+                  className="mt-6 w-full py-3 bg-black/[0.04] hover:bg-black/[0.06] text-primary rounded-lg transition-colors"
                 >
                   Done
                 </button>
@@ -974,13 +974,13 @@ const SubscriptionsPage: React.FC = () => {
             ) : (
               <>
                 <div className="text-center mb-6">
-                  <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${selectedPlan.color} flex items-center justify-center text-white mx-auto mb-4`}>
+                  <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${selectedPlan.color} flex items-center justify-center text-primary mx-auto mb-4`}>
                     {selectedPlan.icon}
                   </div>
-                  <h2 className="text-2xl font-semibold text-white mb-2">
+                  <h2 className="text-2xl font-semibold text-primary mb-2">
                     Pay with Crypto
                   </h2>
-                  <p className="text-gray-400">
+                  <p className="text-secondary">
                     {selectedPlan.name} - ${selectedPlan.price} USDT/USDC
                     {selectedPlan.billingCycle !== 'one_time' && '/month'}
                   </p>
@@ -988,21 +988,21 @@ const SubscriptionsPage: React.FC = () => {
 
                 <div className="bg-background rounded-lg p-4 mb-6">
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-gray-400">Plan</span>
-                    <span className="text-white">{selectedPlan.name}</span>
+                    <span className="text-secondary">Plan</span>
+                    <span className="text-primary">{selectedPlan.name}</span>
                   </div>
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-gray-400">Network</span>
-                    <span className="text-white">{currentChain?.name || 'Not connected'}</span>
+                    <span className="text-secondary">Network</span>
+                    <span className="text-primary">{currentChain?.name || 'Not connected'}</span>
                   </div>
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-gray-400">Pay with</span>
-                    <span className="text-white">{bestStablecoin?.symbol || 'USDT/USDC'}</span>
+                    <span className="text-secondary">Pay with</span>
+                    <span className="text-primary">{bestStablecoin?.symbol || 'USDT/USDC'}</span>
                   </div>
-                  <div className="border-t border-gray-800 pt-2 mt-2">
+                  <div className="border-t border-border pt-2 mt-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-white font-medium">Total</span>
-                      <span className="text-white font-semibold">${selectedPlan.price}</span>
+                      <span className="text-primary font-medium">Total</span>
+                      <span className="text-primary font-semibold">${selectedPlan.price}</span>
                     </div>
                   </div>
                 </div>
@@ -1010,7 +1010,7 @@ const SubscriptionsPage: React.FC = () => {
                 {!isConnected ? (
                   <button
                     onClick={() => open()}
-                    className="w-full py-4 bg-white/10 hover:bg-white/20 text-white border border-white/20 font-medium rounded-lg transition-colors mb-3 flex items-center justify-center gap-2"
+                    className="w-full py-4 bg-black/[0.06] hover:bg-white/20 text-primary border border-black/[0.1] font-medium rounded-lg transition-colors mb-3 flex items-center justify-center gap-2"
                   >
                     <Wallet size={18} />
                     Connect Wallet to Pay
@@ -1021,13 +1021,13 @@ const SubscriptionsPage: React.FC = () => {
                       <p className="text-red-400 text-sm">
                         Insufficient balance. You have ${stablecoinBalance.toFixed(2)} USDT/USDC
                       </p>
-                      <p className="text-gray-500 text-xs mt-1">
+                      <p className="text-secondary text-xs mt-1">
                         Need ${selectedPlan.price} to complete purchase
                       </p>
                     </div>
                     <button
                       disabled
-                      className="w-full py-4 bg-gray-700 text-gray-500 font-medium rounded-lg cursor-not-allowed"
+                      className="w-full py-4 bg-gray-700 text-secondary font-medium rounded-lg cursor-not-allowed"
                     >
                       Insufficient Balance
                     </button>
@@ -1041,7 +1041,7 @@ const SubscriptionsPage: React.FC = () => {
                     </div>
                     <button
                       onClick={confirmPurchase}
-                      className="w-full py-4 bg-accent hover:bg-accent-hover text-white font-medium rounded-lg transition-colors"
+                      className="w-full py-4 bg-accent hover:bg-accent-hover text-primary font-medium rounded-lg transition-colors"
                     >
                       Retry Payment
                     </button>
@@ -1050,7 +1050,7 @@ const SubscriptionsPage: React.FC = () => {
                   <button
                     onClick={confirmPurchase}
                     disabled={isPaying}
-                    className="w-full py-4 bg-accent hover:bg-accent-hover text-white font-medium rounded-lg transition-colors mb-3 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-4 bg-accent hover:bg-accent-hover text-primary font-medium rounded-lg transition-colors mb-3 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isPaying ? (
                       <>
@@ -1069,14 +1069,14 @@ const SubscriptionsPage: React.FC = () => {
                 {!isPaying && (
                   <button
                     onClick={() => setShowPurchaseModal(false)}
-                    className="w-full py-3 text-gray-400 hover:text-white transition-colors"
+                    className="w-full py-3 text-secondary hover:text-primary transition-colors"
                   >
                     Cancel
                   </button>
                 )}
 
                 {isConnected && (
-                  <p className="text-gray-500 text-xs text-center mt-4">
+                  <p className="text-secondary text-xs text-center mt-4">
                     Your wallet: {address?.slice(0, 6)}...{address?.slice(-4)}
                   </p>
                 )}

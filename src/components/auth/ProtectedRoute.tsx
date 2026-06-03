@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { enableDemoMode, isDemoModeAllowed } from '../../lib/demoMode';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -9,8 +10,9 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
   const [showBypass, setShowBypass] = useState(false);
+  const demoBypassAllowed = import.meta.env.DEV;
   const [bypassed, setBypassed] = useState(() => {
-    return localStorage.getItem('demoMode') === 'true';
+    return demoBypassAllowed && localStorage.getItem('demoMode') === 'true';
   });
 
   // Show bypass option after 3 seconds of loading
@@ -24,29 +26,27 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }, [isLoading]);
 
   const handleBypass = () => {
-    localStorage.setItem('demoMode', 'true');
-    setBypassed(true);
+    enableDemoMode();
   };
 
-  // If demo mode is enabled, allow access
-  if (bypassed) {
+  if (isAuthenticated) {
     return <>{children}</>;
   }
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-background">
+      <div className="flex flex-col items-center justify-center min-h-screen auth-page">
         <div className="animate-pulse-subtle mb-4">
           <span className="font-display text-accent text-3xl">Monadier</span>
         </div>
         <p className="text-secondary text-sm mb-4">Loading...</p>
 
-        {showBypass && (
+        {showBypass && demoBypassAllowed && (
           <div className="text-center">
             <p className="text-secondary text-xs mb-2">Taking too long?</p>
             <button
               onClick={handleBypass}
-              className="px-4 py-2 bg-white/10 hover:bg-white/15 text-accent text-sm rounded-lg transition-colors"
+              className="px-4 py-2 bg-black/[0.06] hover:bg-white/15 text-accent text-sm rounded-lg transition-colors"
             >
               Continue in Demo Mode
             </button>
@@ -56,11 +56,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" />;
-  }
-
-  return <>{children}</>;
+  return <Navigate to="/login" state={{ from: '/dashboard' }} />;
 };
 
 export default ProtectedRoute;

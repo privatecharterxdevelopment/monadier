@@ -88,22 +88,22 @@ export const LicenseActivation: React.FC<LicenseActivationProps> = ({
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className="bg-card-dark border border-gray-800 rounded-2xl p-6 w-full max-w-md mx-4"
+          className="bg-card-dark border border-border rounded-2xl p-6 w-full max-w-md mx-4"
           onClick={e => e.stopPropagation()}
         >
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-white/10 rounded-lg">
+              <div className="p-2 bg-black/[0.06] rounded-lg">
                 <Key className="w-5 h-5 text-accent" />
               </div>
-              <h2 className="text-xl font-bold text-white">Activate License</h2>
+              <h2 className="text-xl font-bold text-primary">Activate License</h2>
             </div>
             <button
               onClick={onClose}
               className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
             >
-              <X className="w-5 h-5 text-gray-400" />
+              <X className="w-5 h-5 text-secondary" />
             </button>
           </div>
 
@@ -116,8 +116,8 @@ export const LicenseActivation: React.FC<LicenseActivationProps> = ({
               <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Check className="w-8 h-8 text-green-400" />
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">License Activated!</h3>
-              <p className="text-gray-400">
+              <h3 className="text-xl font-bold text-primary mb-2">License Activated!</h3>
+              <p className="text-secondary">
                 Your {detectedPlan && SUBSCRIPTION_PLANS[detectedPlan].name} subscription is now active.
               </p>
             </motion.div>
@@ -126,7 +126,7 @@ export const LicenseActivation: React.FC<LicenseActivationProps> = ({
               {/* License Input */}
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-2">
+                  <label className="block text-sm text-secondary mb-2">
                     Enter your license code
                   </label>
                   <input
@@ -134,7 +134,7 @@ export const LicenseActivation: React.FC<LicenseActivationProps> = ({
                     value={licenseCode}
                     onChange={e => handleCodeChange(e.target.value)}
                     placeholder="XXX-XXXX-XXXX-XXXX-XXXX-XXX"
-                    className="w-full px-4 py-3 bg-background border border-gray-700 rounded-xl text-white text-center font-mono text-lg tracking-wider focus:outline-none focus:border-accent transition-colors"
+                    className="w-full px-4 py-3 bg-background border border-gray-700 rounded-xl text-primary text-center font-mono text-lg tracking-wider focus:outline-none focus:border-accent transition-colors"
                     maxLength={27}
                     disabled={isLoading}
                   />
@@ -145,14 +145,14 @@ export const LicenseActivation: React.FC<LicenseActivationProps> = ({
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center gap-3 p-3 bg-white/5 border border-accent/20 rounded-lg"
+                    className="flex items-center gap-3 p-3 bg-black/[0.04] border border-accent/20 rounded-lg"
                   >
                     <Sparkles className="w-5 h-5 text-accent" />
                     <div>
-                      <p className="text-white font-medium">
+                      <p className="text-primary font-medium">
                         {SUBSCRIPTION_PLANS[detectedPlan].name} Plan Detected
                       </p>
-                      <p className="text-sm text-gray-400">
+                      <p className="text-sm text-secondary">
                         {SUBSCRIPTION_PLANS[detectedPlan].description}
                       </p>
                     </div>
@@ -175,7 +175,7 @@ export const LicenseActivation: React.FC<LicenseActivationProps> = ({
                 <button
                   onClick={handleActivate}
                   disabled={isLoading || !licenseCode}
-                  className="w-full py-3 bg-accent hover:bg-accent-dark text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-accent hover:bg-accent-dark text-primary font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isLoading ? (
                     <>
@@ -192,8 +192,8 @@ export const LicenseActivation: React.FC<LicenseActivationProps> = ({
               </div>
 
               {/* Help Text */}
-              <div className="mt-6 pt-4 border-t border-gray-800">
-                <p className="text-sm text-gray-500 text-center">
+              <div className="mt-6 pt-4 border-t border-border">
+                <p className="text-sm text-secondary text-center">
                   Your license code was sent to your email after purchase.
                   <br />
                   Contact <span className="text-accent">support@monadier.com</span> if you need help.

@@ -59,21 +59,21 @@ function TokenAnalysisCard({ tokenSignal }: { tokenSignal: TokenSignal }) {
   const getRsiColor = (rsi: number) => {
     if (rsi >= 70) return 'text-red-400';
     if (rsi <= 30) return 'text-green-400';
-    return 'text-zinc-400';
+    return 'text-secondary';
   };
 
   const getTrendColor = (trend: string) => {
     if (trend === 'UP') return 'text-green-400';
     if (trend === 'DOWN') return 'text-red-400';
-    return 'text-zinc-400';
+    return 'text-secondary';
   };
 
   if (isLoading && !signal) {
     return (
       <div className="border border-zinc-800 rounded-lg p-4 bg-zinc-800/50">
         <div className="flex items-center gap-2">
-          <Loader2 className="w-4 h-4 animate-spin text-zinc-500" />
-          <span className="text-zinc-500">Loading {symbol}...</span>
+          <Loader2 className="w-4 h-4 animate-spin text-muted" />
+          <span className="text-muted">Loading {symbol}...</span>
         </div>
       </div>
     );
@@ -100,12 +100,12 @@ function TokenAnalysisCard({ tokenSignal }: { tokenSignal: TokenSignal }) {
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-white font-medium">{symbol}/USDT</span>
+          <span className="text-primary font-medium">{symbol}/USDT</span>
           <span className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${getSignalColor(signal.direction)}`}>
             {getSignalIcon(signal.direction)}
             {signal.direction}
           </span>
-          <span className="text-zinc-400 text-sm">
+          <span className="text-secondary text-sm">
             ${primaryTf?.currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         </div>
@@ -116,7 +116,7 @@ function TokenAnalysisCard({ tokenSignal }: { tokenSignal: TokenSignal }) {
 
       {/* Timeframe Breakdown - NEW! */}
       <div className="mb-3">
-        <p className="text-[10px] text-zinc-500 uppercase mb-1.5">Timeframe Signals</p>
+        <p className="text-[10px] text-muted uppercase mb-1.5">Timeframe Signals</p>
         <div className="flex gap-1.5">
           {signal.timeframes.map((tf) => (
             <div
@@ -124,7 +124,7 @@ function TokenAnalysisCard({ tokenSignal }: { tokenSignal: TokenSignal }) {
               className={`flex-1 text-center py-1.5 rounded text-xs ${
                 tf.direction === 'LONG' ? 'bg-green-500/20 text-green-400' :
                 tf.direction === 'SHORT' ? 'bg-red-500/20 text-red-400' :
-                'bg-zinc-700/50 text-zinc-400'
+                'bg-zinc-700/50 text-secondary'
               }`}
             >
               <div className="font-medium">{tf.timeframe}</div>
@@ -137,32 +137,32 @@ function TokenAnalysisCard({ tokenSignal }: { tokenSignal: TokenSignal }) {
       {/* Indicators Grid */}
       <div className="grid grid-cols-5 gap-2 mb-3">
         <div className="bg-black/20 rounded p-2">
-          <p className="text-[10px] text-zinc-500 uppercase">RSI</p>
+          <p className="text-[10px] text-muted uppercase">RSI</p>
           <p className={`text-sm font-medium ${getRsiColor(primaryTf?.rsi || 50)}`}>
             {Math.round(primaryTf?.rsi || 50)}
           </p>
         </div>
         <div className="bg-black/20 rounded p-2">
-          <p className="text-[10px] text-zinc-500 uppercase">Trend</p>
+          <p className="text-[10px] text-muted uppercase">Trend</p>
           <p className={`text-sm font-medium ${getTrendColor(primaryTf?.trend || 'SIDEWAYS')}`}>
             {primaryTf?.trend === 'UP' ? 'Bullish' : primaryTf?.trend === 'DOWN' ? 'Bearish' : 'Neutral'}
           </p>
         </div>
         <div className="bg-black/20 rounded p-2">
-          <p className="text-[10px] text-zinc-500 uppercase">MACD</p>
-          <p className={`text-sm font-medium ${primaryTf?.macdSignal === 'bullish' ? 'text-green-400' : primaryTf?.macdSignal === 'bearish' ? 'text-red-400' : 'text-zinc-400'}`}>
+          <p className="text-[10px] text-muted uppercase">MACD</p>
+          <p className={`text-sm font-medium ${primaryTf?.macdSignal === 'bullish' ? 'text-green-400' : primaryTf?.macdSignal === 'bearish' ? 'text-red-400' : 'text-secondary'}`}>
             {primaryTf?.macdSignal === 'bullish' ? 'Bullish' : primaryTf?.macdSignal === 'bearish' ? 'Bearish' : 'Neutral'}
           </p>
         </div>
         <div className="bg-black/20 rounded p-2">
-          <p className="text-[10px] text-zinc-500 uppercase">Alignment</p>
+          <p className="text-[10px] text-muted uppercase">Alignment</p>
           <p className={`text-sm font-medium ${signal.trendAlignment >= 75 ? 'text-green-400' : signal.trendAlignment >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>
             {Math.round(signal.trendAlignment)}%
           </p>
         </div>
         <div className="bg-black/20 rounded p-2">
-          <p className="text-[10px] text-zinc-500 uppercase">Patterns</p>
-          <p className={`text-sm font-medium ${signal.patternStrength >= 50 ? 'text-green-400' : signal.patternStrength >= 25 ? 'text-yellow-400' : 'text-zinc-400'}`}>
+          <p className="text-[10px] text-muted uppercase">Patterns</p>
+          <p className={`text-sm font-medium ${signal.patternStrength >= 50 ? 'text-green-400' : signal.patternStrength >= 25 ? 'text-yellow-400' : 'text-secondary'}`}>
             {signal.patterns.length > 0 ? signal.patterns.length : '-'}
           </p>
         </div>
@@ -171,7 +171,7 @@ function TokenAnalysisCard({ tokenSignal }: { tokenSignal: TokenSignal }) {
       {/* Detected Patterns */}
       {signal.patterns.length > 0 && (
         <div className="mb-3">
-          <p className="text-[10px] text-zinc-500 uppercase mb-1.5">Detected Patterns</p>
+          <p className="text-[10px] text-muted uppercase mb-1.5">Detected Patterns</p>
           <div className="flex flex-wrap gap-1">
             {signal.patterns.slice(0, 3).map((pattern, i) => (
               <span
@@ -272,10 +272,10 @@ export default function LiveAnalysis() {
     return (
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
         <div className="flex items-center gap-2 mb-4">
-          <Activity className="w-5 h-5 text-white" />
-          <h3 className="font-medium text-white">MTF Live Analysis</h3>
+          <Activity className="w-5 h-5 text-primary" />
+          <h3 className="font-medium text-primary">MTF Live Analysis</h3>
         </div>
-        <div className="flex items-center justify-center gap-2 text-zinc-500 py-4">
+        <div className="flex items-center justify-center gap-2 text-muted py-4">
           <Loader2 className="w-5 h-5 animate-spin" />
           <span>Fetching multi-timeframe signals...</span>
         </div>
@@ -288,8 +288,8 @@ export default function LiveAnalysis() {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Activity className="w-5 h-5 text-white" />
-          <h3 className="font-medium text-white">MTF Live Analysis</h3>
+          <Activity className="w-5 h-5 text-primary" />
+          <h3 className="font-medium text-primary">MTF Live Analysis</h3>
           <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-500/20 text-purple-400">
             Multi-Timeframe
           </span>
@@ -310,7 +310,7 @@ export default function LiveAnalysis() {
         </div>
         <div className="flex items-center gap-2">
           {lastUpdate && (
-            <span className="flex items-center gap-1 text-xs text-zinc-500">
+            <span className="flex items-center gap-1 text-xs text-muted">
               <Clock className="w-3 h-3" />
               {Math.round((Date.now() - lastUpdate.getTime()) / 1000)}s ago
             </span>
@@ -321,7 +321,7 @@ export default function LiveAnalysis() {
             title="Refresh"
             disabled={isRefreshing}
           >
-            <RefreshCw className={`w-4 h-4 text-zinc-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 text-secondary ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
@@ -334,7 +334,7 @@ export default function LiveAnalysis() {
       </div>
 
       {/* Footer */}
-      <p className="text-xs text-zinc-600 mt-3 text-center">
+      <p className="text-xs text-muted mt-3 text-center">
         Unified signals from Bot Engine (1m, 5m, 15m, 1h) - Same logic as trading bot
       </p>
     </div>

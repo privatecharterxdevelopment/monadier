@@ -9,13 +9,13 @@ import CookieConsent from '../components/ui/CookieConsent';
 
 const SavingPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-gray-900">
+    <div className="min-h-screen page-shell">
       <header className="relative z-10 container-custom py-8">
         <nav className="flex justify-between items-center">
           <Logo size="md" />
           <div className="hidden md:flex items-center space-x-8">
             <Link to="/banking" className="text-secondary hover:text-primary transition-colors">Banking</Link>
-            <Link to="/saving" className="text-white hover:text-primary transition-colors">Saving</Link>
+            <Link to="/saving" className="text-primary hover:text-primary transition-colors">Saving</Link>
             <Link to="/investing" className="text-secondary hover:text-primary transition-colors">Investing</Link>
             <Link to="/about" className="text-secondary hover:text-primary transition-colors">About</Link>
             <Link to="/register">
@@ -37,9 +37,9 @@ const SavingPage: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
           <FadeIn delay={0.2}>
-            <div className="bg-card-dark p-8 rounded-2xl border border-gray-800">
-              <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mb-6">
-                <Sparkles className="text-white" size={24} />
+            <div className="bg-card-dark p-8 rounded-2xl border border-border">
+              <div className="w-12 h-12 rounded-full bg-black/[0.06] flex items-center justify-center mb-6">
+                <Sparkles className="text-primary" size={24} />
               </div>
               <h2 className="text-2xl font-display mb-4">High-Yield Savings</h2>
               <p className="text-secondary mb-6">Earn up to 3.5% APY on your savings with our premium accounts.</p>
@@ -53,9 +53,9 @@ const SavingPage: React.FC = () => {
           </FadeIn>
 
           <FadeIn delay={0.3}>
-            <div className="bg-card-dark p-8 rounded-2xl border border-gray-800">
-              <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mb-6">
-                <Hourglass className="text-white" size={24} />
+            <div className="bg-card-dark p-8 rounded-2xl border border-border">
+              <div className="w-12 h-12 rounded-full bg-black/[0.06] flex items-center justify-center mb-6">
+                <Hourglass className="text-primary" size={24} />
               </div>
               <h2 className="text-2xl font-display mb-4">Term Deposits</h2>
               <p className="text-secondary mb-6">Lock in higher rates with flexible terms from 3 to 24 months.</p>
@@ -69,9 +69,9 @@ const SavingPage: React.FC = () => {
           </FadeIn>
 
           <FadeIn delay={0.4}>
-            <div className="bg-card-dark p-8 rounded-2xl border border-gray-800">
-              <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mb-6">
-                <TrendingUp className="text-white" size={24} />
+            <div className="bg-card-dark p-8 rounded-2xl border border-border">
+              <div className="w-12 h-12 rounded-full bg-black/[0.06] flex items-center justify-center mb-6">
+                <TrendingUp className="text-primary" size={24} />
               </div>
               <h2 className="text-2xl font-display mb-4">Smart Goals</h2>
               <p className="text-secondary mb-6">Set and track your savings goals with automated tools.</p>
@@ -86,14 +86,14 @@ const SavingPage: React.FC = () => {
         </div>
 
         <FadeIn delay={0.5}>
-          <div className="bg-card-dark p-12 rounded-2xl border border-gray-800">
+          <div className="bg-card-dark p-12 rounded-2xl border border-border">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
               <div>
                 <h2 className="text-3xl font-display mb-6">Premium Benefits</h2>
                 <ul className="space-y-6">
                   <li className="flex items-start">
-                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center mr-4 mt-1">
-                      <Gem className="text-white" size={18} />
+                    <div className="w-8 h-8 rounded-full bg-black/[0.06] flex items-center justify-center mr-4 mt-1">
+                      <Gem className="text-primary" size={18} />
                     </div>
                     <div>
                       <h3 className="font-medium mb-2">Exclusive Rates</h3>
@@ -101,8 +101,8 @@ const SavingPage: React.FC = () => {
                     </div>
                   </li>
                   <li className="flex items-start">
-                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center mr-4 mt-1">
-                      <Lock className="text-white" size={18} />
+                    <div className="w-8 h-8 rounded-full bg-black/[0.06] flex items-center justify-center mr-4 mt-1">
+                      <Lock className="text-primary" size={18} />
                     </div>
                     <div>
                       <h3 className="font-medium mb-2">Guaranteed Security</h3>

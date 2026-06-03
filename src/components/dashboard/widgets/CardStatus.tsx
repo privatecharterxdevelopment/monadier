@@ -38,7 +38,7 @@ const CardStatus: React.FC<CardStatusProps> = ({
         <div className="absolute inset-0 p-4 flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-center">
-              <div className="w-10 h-6 rounded-md bg-white/5"></div>
+              <div className="w-10 h-6 rounded-md bg-black/[0.04]"></div>
               <div className="text-xs uppercase">
                 {isSignature ? 'Signature' : 'Essential'}
               </div>
@@ -63,8 +63,8 @@ const CardStatus: React.FC<CardStatusProps> = ({
                 <div className="text-xs text-secondary">CVV</div>
                 <div className="text-sm">•••</div>
               </div>
-              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
-                <div className="w-6 h-6 rounded-full bg-white/10"></div>
+              <div className="w-10 h-10 rounded-full bg-black/[0.04] flex items-center justify-center">
+                <div className="w-6 h-6 rounded-full bg-black/[0.06]"></div>
               </div>
             </div>
           </div>
