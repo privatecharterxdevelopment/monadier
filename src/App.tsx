@@ -29,6 +29,9 @@ import AuthCallbackPage from './pages/AuthCallbackPage';
 import FundsExplainedPage from './pages/FundsExplainedPage';
 import KycFlowPage from './pages/KycFlowPage';
 import DashboardPage from './pages/DashboardPage';
+import Dashboard2Page from './pages/dashboard/Dashboard2Page';
+import Dashboard2ProfilePage from './pages/dashboard/Dashboard2ProfilePage';
+import Dashboard2Layout from './layouts/Dashboard2Layout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import SupportWidget from './components/ui/SupportWidget';
 
@@ -58,6 +61,7 @@ function App() {
   const showSupportWidget =
     location.pathname !== '/' &&
     !location.pathname.startsWith('/dashboard') &&
+    !location.pathname.startsWith('/dashboard2') &&
     !location.pathname.startsWith('/login') &&
     !location.pathname.startsWith('/register') &&
     !location.pathname.startsWith('/kyc');
@@ -149,6 +153,9 @@ function App() {
             </ProtectedRoute>
           } />
           
+          <Route path="/dashboard" element={<Navigate to="/dashboard2" replace />} />
+          <Route path="/dashboard/profile" element={<Navigate to="/dashboard2/profile" replace />} />
+
           <Route path="/dashboard/*" element={
             <ProtectedRoute>
               <PageTransition>
@@ -156,6 +163,47 @@ function App() {
               </PageTransition>
             </ProtectedRoute>
           } />
+
+          <Route
+            path="/dashboard2"
+            element={
+              import.meta.env.DEV ? (
+                <PageTransition fillViewport>
+                  <Dashboard2Layout>
+                    <Dashboard2Page />
+                  </Dashboard2Layout>
+                </PageTransition>
+              ) : (
+                <ProtectedRoute>
+                  <PageTransition fillViewport>
+                    <Dashboard2Layout>
+                      <Dashboard2Page />
+                    </Dashboard2Layout>
+                  </PageTransition>
+                </ProtectedRoute>
+              )
+            }
+          />
+          <Route
+            path="/dashboard2/profile"
+            element={
+              import.meta.env.DEV ? (
+                <PageTransition fillViewport>
+                  <Dashboard2Layout>
+                    <Dashboard2ProfilePage />
+                  </Dashboard2Layout>
+                </PageTransition>
+              ) : (
+                <ProtectedRoute>
+                  <PageTransition fillViewport>
+                    <Dashboard2Layout>
+                      <Dashboard2ProfilePage />
+                    </Dashboard2Layout>
+                  </PageTransition>
+                </ProtectedRoute>
+              )
+            }
+          />
           
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>

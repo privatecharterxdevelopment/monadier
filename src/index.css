@@ -169,6 +169,115 @@
     color: #0a0a0a;
   }
 
+  /* Funds explainer — same studio shell as /how-it-works and /pricing */
+  .funds-explained-page {
+    min-height: 100dvh;
+    background-color: var(--studio-bg) !important;
+    background-image: var(--studio-gradient) !important;
+    color: #0a0a0a;
+  }
+
+  .funds-explained-page .funds-card {
+    @apply rounded-2xl border border-[#c5c5cb] bg-white/70 backdrop-blur-xl px-6 py-6 text-left;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.05),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  .funds-explained-page .funds-card-icon {
+    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#c5c5cb] bg-white/80 text-[#52525b];
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  }
+
+  .funds-explained-page .funds-card--success {
+    @apply border-green-600/25 bg-green-50/80;
+  }
+
+  .funds-explained-page .funds-card--warning {
+    @apply border-amber-600/30 bg-amber-50/90;
+  }
+
+  .bot-trading-hub .dashboard-panel {
+    @apply rounded-2xl border border-[#c5c5cb] bg-white/75 backdrop-blur-xl;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  /* Coinglass-style trading terminal */
+  .trading-terminal {
+    @apply rounded-2xl overflow-hidden;
+  }
+
+  .terminal-metrics-bar {
+    @apply rounded-t-2xl px-5 py-6 md:px-8 md:py-7;
+    background: linear-gradient(135deg, rgba(30, 30, 35, 0.92) 0%, rgba(45, 45, 52, 0.88) 100%);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: none;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  }
+
+  .terminal-metric-label {
+    @apply text-[11px] uppercase tracking-[0.18em] text-white/45 mb-1;
+  }
+
+  .terminal-metric-value {
+    @apply font-display text-2xl md:text-3xl font-semibold text-white tracking-tight;
+  }
+
+  .terminal-metric-sub {
+    @apply text-xs text-white/55 mt-0.5;
+  }
+
+  .terminal-metrics-btn {
+    @apply rounded-full text-white/80 transition-colors;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .terminal-metrics-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+  }
+
+  .terminal-main-card {
+    @apply rounded-b-2xl rounded-t-none md:rounded-t-none px-5 py-6 md:px-8 md:py-8;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(20px);
+    border: 1px solid #c5c5cb;
+    border-top: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow:
+      0 20px 50px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 1);
+  }
+
+  .terminal-pnl-sidebar {
+    @apply rounded-xl border border-[#e4e4e8] bg-[#f7f7f9]/90 p-4 md:p-5;
+  }
+
+  .terminal-pnl-row {
+    @apply flex items-center justify-between gap-3 py-2 border-b border-[#ececef] last:border-0;
+  }
+
+  .terminal-tabs {
+    @apply flex flex-wrap gap-2 pt-2;
+  }
+
+  .terminal-tab {
+    @apply px-4 py-2 rounded-full text-sm font-medium text-[#52525b] transition-colors;
+  }
+
+  .terminal-tab:hover {
+    @apply text-[#0a0a0a] bg-black/[0.03];
+  }
+
+  .terminal-tab--active {
+    @apply bg-[#2a2a2e] text-white shadow-sm;
+  }
+
+  .terminal-tab--active:hover {
+    @apply bg-[#2a2a2e] text-white;
+  }
+
   /* Page wrapper — no opaque bg; uses html studio gradient */
   .page-shell {
     @apply relative min-h-screen min-h-[100dvh];

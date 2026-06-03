@@ -3,6 +3,12 @@ import { motion } from 'framer-motion';
 import { User, Wallet, Save, CheckCircle, AlertCircle, Loader2, Crown, Shield, Clock, TrendingUp, Users, Gift, Copy, Zap, Rocket, Calendar, CreditCard, ExternalLink, FileCheck, X, Plus, Lock, Eye, EyeOff, Mail } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import { useAuth } from '../../contexts/AuthContext';
+import ProfileAvatar from '../../components/profile/ProfileAvatar';
+import {
+  PROFILE_AVATAR_EMOJIS,
+  defaultAvatarEmojiForUser,
+  isValidProfileAvatarEmoji,
+} from '../../lib/profileAvatar';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { supabase, updatePassword, resetPassword } from '../../lib/supabase';
 import { SUBSCRIPTION_PLANS } from '../../lib/subscription';
@@ -65,8 +71,14 @@ const SettingsPage: React.FC = () => {
     if (profile) {
       setFullName(profile.full_name || '');
       setCountry(profile.country || '');
+      const saved = profile.avatar_emoji?.trim();
+      if (saved && isValidProfileAvatarEmoji(saved)) {
+        setAvatarEmoji(saved);
+      } else if (user?.id) {
+        setAvatarEmoji(defaultAvatarEmojiForUser(user.id));
+      }
     }
-  }, [profile]);
+  }, [profile, user?.id]);
 
   // Load ALL linked wallets from user_wallets table
   useEffect(() => {
@@ -203,7 +215,8 @@ const SettingsPage: React.FC = () => {
         .from('profiles')
         .update({
           full_name: fullName.trim(),
-          country: country.trim()
+          country: country.trim(),
+          avatar_emoji: avatarEmoji || null,
         })
         .eq('id', user.id);
 
@@ -444,9 +457,7 @@ const SettingsPage: React.FC = () => {
           {/* Profile Card */}
           <Card className="p-6">
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-16 h-16 rounded-full bg-black/[0.06] flex items-center justify-center">
-                <User className="w-8 h-8 text-primary" />
-              </div>
+              <ProfileAvatar profile={{ avatar_emoji: avatarEmoji }} userId={user?.id} size="lg" />
               <div>
                 <h3 className="text-lg font-semibold text-primary">{profile?.full_name || 'Complete your profile'}</h3>
                 <p className="text-secondary text-sm">{user?.email}</p>
@@ -459,6 +470,34 @@ const SettingsPage: React.FC = () => {
 
             {/* Editable Profile Fields */}
             <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm text-secondary mb-2">Profile avatar</label>
+                <p className="text-xs text-secondary mb-3">
+                  Shown on your dashboard greeting. Pick an emoji below.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {PROFILE_AVATAR_EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => {
+                        setAvatarEmoji(emoji);
+                        setProfileSaveError(null);
+                      }}
+                      className={`w-10 h-10 rounded-lg text-xl flex items-center justify-center transition-all ${
+                        avatarEmoji === emoji
+                          ? 'bg-accent/20 ring-2 ring-accent scale-105'
+                          : 'bg-black/[0.04] hover:bg-black/[0.08]'
+                      }`}
+                      aria-label={`Avatar ${emoji}`}
+                      aria-pressed={avatarEmoji === emoji}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm text-secondary mb-2">Full Name *</label>
                 <input

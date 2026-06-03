@@ -451,7 +451,7 @@ async function closePosition(
       exit_amount: exitAmount,
       profit_loss: pnl,
       profit_loss_percent: pnlPercent,
-      close_tx_hash: demoTxHash(),
+      exit_tx_hash: demoTxHash(),
     })
     .eq('id', pos.id);
 

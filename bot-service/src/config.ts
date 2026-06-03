@@ -71,7 +71,7 @@ export const config = {
 
   // Leverage limits
   leverage: {
-    standard: 25, // 1x-25x for regular users
-    elite: 50,    // 1x-50x for elite users
+    standard: 25,  // 1x-25x for regular users
+    elite: 100,    // 1x-100x for elite users (GMX)
   }
 };

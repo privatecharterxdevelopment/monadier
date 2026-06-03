@@ -91,7 +91,7 @@ const ResetPasswordPage: React.FC = () => {
 
       // Redirect to dashboard after 3 seconds
       setTimeout(() => {
-        navigate('/dashboard');
+        navigate('/dashboard2');
       }, 3000);
     } catch (error: any) {
       setError(error.message || 'Failed to update password');

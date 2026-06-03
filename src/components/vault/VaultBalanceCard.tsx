@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Wallet, ArrowUpRight, ArrowDownLeft, Settings, Zap, Lock, AlertTriangle, RefreshCw, ArrowRight, Play, Square, Loader2 } from 'lucide-react';
+import { Wallet, ArrowUpRight, ArrowDownLeft, Settings, Zap, AlertTriangle, RefreshCw, ArrowRight, Play, Square, Loader2 } from 'lucide-react';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../../contexts/AuthContext';
@@ -27,7 +27,7 @@ interface VaultBalanceCardProps {
 
 export default function VaultBalanceCard({ compact = false }: VaultBalanceCardProps) {
   const { isConnected, chainId, address, publicClient, walletClient } = useWeb3();
-  const { planTier, isSubscribed, openUpgradeModal, dailyTradesRemaining, subscription } = useSubscription();
+  const { planTier, subscription } = useSubscription();
   const { isDemoUser } = useAuth();
 
   // Get daily trade limit info
@@ -127,8 +127,6 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [showDepositPrompt, setShowDepositPrompt] = useState(false);
 
-  // Check if user has paid subscription (not free)
-  const isPaidUser = isSubscribed && planTier && planTier !== 'free';
   // V8: Arbitrum only
   const isVaultAvailable = isDemoUser || chainId === VAULT_CHAIN_ID;
   const isPreviewMode = !isVaultAvailable;
@@ -567,40 +565,6 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
       setIsWithdrawingAll(false);
     }
   };
-
-  // Handle upgrade click
-  const handleUpgradeClick = () => {
-    openUpgradeModal('Auto-Trading Vault is available for paid subscribers only. Upgrade to enable automated trading without signing each transaction.');
-  };
-
-  // If not a paid user, show upgrade prompt (demo users always pass)
-  if (!isPaidUser && !isDemoUser) {
-    return (
-      <div className={`dashboard-panel ${compact ? 'p-4' : 'p-6'}`}>
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-zinc-800 rounded-lg">
-            <Lock className="w-5 h-5 text-muted" />
-          </div>
-          <div>
-            <h3 className="text-primary font-medium">Auto-Trading Vault</h3>
-            <p className="text-xs text-muted">Premium Feature</p>
-          </div>
-        </div>
-
-        <p className="text-sm text-secondary mb-4">
-          Deposit funds and let the bot trade automatically without signing each transaction.
-        </p>
-
-        <button
-          onClick={handleUpgradeClick}
-          className="w-full py-2.5 bg-gradient-to-r from-white to-gray-300 text-black font-medium rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-        >
-          <Zap className="w-4 h-4" />
-          Upgrade to Unlock
-        </button>
-      </div>
-    );
-  }
 
   // Not connected (demo users don't need a wallet)
   if (!isConnected && !isDemoUser) {

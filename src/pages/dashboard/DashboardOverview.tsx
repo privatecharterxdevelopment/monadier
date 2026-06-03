@@ -1,17 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { ArrowRightIcon, BadgeCheck, Shield, Bot, History, AlertCircle, Package, Wallet, RefreshCw, CreditCard, ExternalLink, TrendingUp, TrendingDown, CheckCircle, XCircle, Clock } from 'lucide-react';
+import {
+  ArrowRight,
+  BadgeCheck,
+  Bot,
+  History,
+  Package,
+  Wallet,
+  RefreshCw,
+  CreditCard,
+  LineChart,
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../../contexts/AuthContext';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
-import Card from '../../components/ui/Card';
-import { Link } from 'react-router-dom';
 import { useAppKit } from '@reown/appkit/react';
 import { supabase } from '../../lib/supabase';
 import { VaultBalanceCard, WithdrawPromptBanner } from '../../components/vault';
-import LegacyVaultWithdraw from '../../components/vault/LegacyVaultWithdraw';
 import OnboardingBanner from '../../components/onboarding/OnboardingBanner';
 import { useOnboarding } from '../../hooks/useOnboarding';
+import { useTradingDashboardMetrics } from '../../hooks/useTradingDashboardMetrics';
+import TradingTerminalShell from '../../components/dashboard/TradingTerminalShell';
+
+type OverviewTab = 'summary' | 'wallet' | 'vault' | 'activity';
 
 interface Payment {
   id: string;
@@ -19,8 +30,6 @@ interface Payment {
   currency: string;
   status: string;
   plan_tier: string;
-  billing_cycle: string;
-  stripe_payment_id: string;
   created_at: string;
 }
 
@@ -30,18 +39,15 @@ interface Position {
   direction: 'LONG' | 'SHORT';
   entry_price: number;
   entry_amount: number;
-  take_profit_percent: number;
-  trailing_stop_percent: number;
   profit_loss: number | null;
   profit_loss_percent: number | null;
-  status: 'open' | 'closing' | 'closed' | 'failed';
-  close_reason: string | null;
+  status: string;
   created_at: string;
   closed_at: string | null;
 }
 
 const DashboardOverview: React.FC = () => {
-  const { profile, isDemoUser } = useAuth();
+  const { isDemoUser } = useAuth();
   const {
     isConnected,
     address,
@@ -50,176 +56,43 @@ const DashboardOverview: React.FC = () => {
     tokenBalances,
     totalUsdValue,
     isLoadingBalances,
-    refreshBalances
+    refreshBalances,
   } = useWeb3();
-  const { activeSubscription, planTier, isSubscribed, dailyTradesRemaining } = useSubscription();
+  const { planTier, dailyTradesRemaining } = useSubscription();
   const { isComplete: isProfileComplete, isLoading: isOnboardingLoading } = useOnboarding();
   const { open } = useAppKit();
+  const { metrics, refresh } = useTradingDashboardMetrics();
 
-  // Get membership display name based on subscription tier
+  const [activeTab, setActiveTab] = useState<OverviewTab>('summary');
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [loadingPayments, setLoadingPayments] = useState(true);
+  const [recentTrades, setRecentTrades] = useState<Position[]>([]);
+  const [loadingTrades, setLoadingTrades] = useState(true);
+
   const getMembershipName = () => {
     if (!planTier || planTier === 'free') return 'Free';
     return planTier.charAt(0).toUpperCase() + planTier.slice(1);
   };
 
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [loadingPayments, setLoadingPayments] = useState(true);
-  const [recentTrades, setRecentTrades] = useState<Position[]>([]);
-  const [loadingTrades, setLoadingTrades] = useState(true);
-  const [userWallets, setUserWallets] = useState<string[]>([]);
+  const formatCurrency = (value: number) =>
+    value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  // Fetch all user's wallets on mount - try multiple sources (same as BotHistoryPage)
-  useEffect(() => {
-    const fetchUserWallets = async () => {
-      // Demo users use the demo wallet
-      if (isDemoUser) {
-        setUserWallets([DEMO_WALLET_ADDRESS]);
-        return;
-      }
-      if (!address) return;
+  const formatAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 
-      const foundWallets = new Set<string>();
-      foundWallets.add(address.toLowerCase());
-
-      try {
-        // 1. Try user_wallets table via auth
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: wallets } = await supabase
-            .from('user_wallets')
-            .select('wallet_address')
-            .eq('user_id', user.id);
-
-          wallets?.forEach(w => foundWallets.add(w.wallet_address.toLowerCase()));
-        }
-
-        // 2. Also check subscriptions for THIS user's wallet only (privacy fix)
-        const { data: mySub } = await supabase
-          .from('subscriptions')
-          .select('wallet_address')
-          .eq('wallet_address', address.toLowerCase())
-          .single();
-
-        if (mySub?.wallet_address) {
-          foundWallets.add(mySub.wallet_address.toLowerCase());
-        }
-
-        // 3. Check vault_settings for this wallet on any chain
-        const { data: vaultSettings } = await supabase
-          .from('vault_settings')
-          .select('wallet_address')
-          .or(`wallet_address.eq.${address.toLowerCase()}`);
-
-        vaultSettings?.forEach(v => foundWallets.add(v.wallet_address.toLowerCase()));
-
-        setUserWallets(Array.from(foundWallets));
-      } catch (err) {
-        console.error('Failed to fetch user wallets:', err);
-      }
-    };
-
-    fetchUserWallets();
-  }, [address, isDemoUser]);
-
-  // Fetch recent closed bot trades from ALL user wallets (same as Bot History)
-  useEffect(() => {
-    const fetchRecentTrades = async () => {
-      // Demo users query the demo wallet
-      if (isDemoUser) {
-        try {
-          const { data, error } = await supabase
-            .from('positions')
-            .select('id, token_symbol, direction, entry_price, exit_price, entry_amount, take_profit_percent, trailing_stop_percent, profit_loss, profit_loss_percent, status, close_reason, created_at, closed_at')
-            .eq('wallet_address', DEMO_WALLET_ADDRESS)
-            .in('status', ['closed', 'failed'])
-            .order('closed_at', { ascending: false, nullsFirst: false })
-            .order('id', { ascending: false })
-            .limit(5);
-          if (!error && data) setRecentTrades(data);
-        } catch (err) {
-          console.error('Error fetching demo trades:', err);
-        } finally {
-          setLoadingTrades(false);
-        }
-        return;
-      }
-
-      if (!address) {
-        setLoadingTrades(false);
-        return;
-      }
-
-      try {
-        // Get all wallets to query (current + all linked wallets)
-        const walletsToQuery = new Set([address.toLowerCase(), ...userWallets]);
-        const walletArray = Array.from(walletsToQuery);
-
-        const { data, error } = await supabase
-          .from('positions')
-          .select('id, token_symbol, direction, entry_price, exit_price, entry_amount, take_profit_percent, trailing_stop_percent, profit_loss, profit_loss_percent, status, close_reason, created_at, closed_at')
-          .in('wallet_address', walletArray)
-          .in('status', ['closed', 'failed'])
-          .order('closed_at', { ascending: false, nullsFirst: false })
-          .order('id', { ascending: false })
-          .limit(5);
-
-        if (!error && data) {
-          // Deduplicate by id (safety net)
-          const seen = new Set<string>();
-          const unique = data.filter(t => {
-            if (seen.has(t.id)) return false;
-            seen.add(t.id);
-            return true;
-          });
-          setRecentTrades(unique);
-        }
-      } catch (err) {
-        console.error('Error fetching trades:', err);
-      } finally {
-        setLoadingTrades(false);
-      }
-    };
-    fetchRecentTrades();
-
-    // 30s polling for demo users so new trades appear automatically
-    if (isDemoUser) {
-      const interval = setInterval(fetchRecentTrades, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [address, userWallets, isDemoUser]);
-
-  // Format duration between two dates (same as Bot History)
-  const formatDuration = (startDate: string, endDate?: string | null) => {
-    const start = new Date(startDate).getTime();
-    const end = endDate ? new Date(endDate).getTime() : Date.now();
-    const diff = end - start;
-
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-    if (hours > 24) {
-      const days = Math.floor(hours / 24);
-      return `${days}d ${hours % 24}h`;
-    }
-    return `${hours}h ${minutes}m`;
-  };
-
-  // Fetch payment history
   useEffect(() => {
     const fetchPayments = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (user) {
-          const { data, error } = await supabase
+          const { data } = await supabase
             .from('payments')
             .select('*')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false })
             .limit(5);
-
-          if (!error && data) {
-            setPayments(data);
-          }
+          if (data) setPayments(data);
         }
       } catch (err) {
         console.error('Error fetching payments:', err);
@@ -230,573 +103,328 @@ const DashboardOverview: React.FC = () => {
     fetchPayments();
   }, []);
 
-  // Calculate stablecoin balance
-  const stablecoinBalance = tokenBalances
-    .filter(t => t.symbol === 'USDT' || t.symbol === 'USDC')
-    .reduce((sum, t) => sum + parseFloat(t.balance), 0);
-
-  // Format address for display
-  const formatAddress = (addr: string) => {
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-  };
-
-  const containerAnimation = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
+  useEffect(() => {
+    const fetchRecentTrades = async () => {
+      const wallet = isDemoUser ? DEMO_WALLET_ADDRESS : address?.toLowerCase();
+      if (!wallet) {
+        setLoadingTrades(false);
+        return;
       }
-    }
+      try {
+        const { data } = await supabase
+          .from('positions')
+          .select(
+            'id, token_symbol, direction, entry_price, entry_amount, profit_loss, profit_loss_percent, status, created_at, closed_at'
+          )
+          .eq('wallet_address', wallet)
+          .in('status', ['closed', 'failed'])
+          .order('closed_at', { ascending: false, nullsFirst: false })
+          .limit(5);
+        if (data) setRecentTrades(data);
+      } catch (err) {
+        console.error('Error fetching trades:', err);
+      } finally {
+        setLoadingTrades(false);
+      }
+    };
+    fetchRecentTrades();
+  }, [address, isDemoUser]);
+
+  const formatDuration = (start: string, end?: string | null) => {
+    const diff = (end ? new Date(end) : new Date()).getTime() - new Date(start).getTime();
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
   };
 
-  const itemAnimation = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.5 } }
-  };
+  const tabs = [
+    { id: 'summary' as const, label: 'Summary' },
+    { id: 'wallet' as const, label: 'Wallet' },
+    { id: 'vault' as const, label: 'Vault & bot' },
+    { id: 'activity' as const, label: 'Activity', badge: recentTrades.length || undefined },
+  ];
 
-  const formatCurrency = (value: number) => {
-    return value.toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
-  };
-
-  return (
-    <motion.div
-      variants={containerAnimation}
-      initial="hidden"
-      animate="show"
-    >
-      {/* Onboarding Progress Banner */}
-      <OnboardingBanner />
-
-      {/* Wallet Balance Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <motion.div variants={itemAnimation} className="md:col-span-2">
-          <Card className="dashboard-panel p-6 h-full">
-            {isConnected ? (
-              <>
-                <div className="flex items-start justify-between mb-6">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="text-secondary text-sm">Wallet Balance</p>
-                      {currentChain && (
-                        <span className="px-2 py-0.5 bg-black/[0.06] text-primary text-xs rounded-full">
-                          {currentChain.shortName}
-                        </span>
-                      )}
-                      <button
-                        onClick={refreshBalances}
-                        disabled={isLoadingBalances}
-                        className="p-1 text-secondary hover:text-primary transition-colors"
-                      >
-                        <RefreshCw size={14} className={isLoadingBalances ? 'animate-spin' : ''} />
-                      </button>
-                    </div>
-                    <h2 className="text-4xl font-light text-primary tracking-tight">
-                      ${formatCurrency(totalUsdValue)}
-                    </h2>
-                    {address && (
-                      <p className="text-secondary text-sm mt-1 font-mono">
-                        {formatAddress(address)}
-                      </p>
-                    )}
-                  </div>
-                  <Link
-                    to="/dashboard/chart-trades"
-                    className="px-4 py-2 bg-white hover:bg-gray-100 text-gray-900 rounded-lg font-medium transition-colors flex items-center gap-2"
-                  >
-                    <Bot size={18} />
-                    Trade Now
-                  </Link>
-                </div>
-
-                {/* Token Balances Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="dashboard-panel-inner p-4">
-                    <p className="text-secondary text-xs mb-1">{currentChain?.nativeCurrency.symbol || 'Native'}</p>
-                    <p className="text-xl font-light text-primary">
-                      {parseFloat(nativeBalance).toFixed(4)}
-                    </p>
-                  </div>
-                  {tokenBalances.slice(0, 3).map((token) => (
-                    <div key={token.symbol} className="dashboard-panel-inner p-4">
-                      <p className="text-secondary text-xs mb-1">{token.symbol}</p>
-                      <p className="text-xl font-light text-primary">
-                        {parseFloat(token.balance).toFixed(2)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-8">
-                <div className="w-16 h-16 rounded-full bg-black/[0.04] flex items-center justify-center mb-4">
-                  <Wallet size={32} className="text-muted" />
-                </div>
-                <h3 className="text-xl font-medium text-primary mb-2">Connect Your Wallet</h3>
-                <p className="text-secondary text-sm text-center mb-4 max-w-sm">
-                  Connect your wallet to view balances and start trading on decentralized exchanges
-                </p>
-                <button
-                  onClick={() => open()}
-                  className="px-6 py-3 bg-white hover:bg-gray-100 text-gray-900 rounded-lg font-medium transition-colors flex items-center gap-2"
-                >
-                  <Wallet size={18} />
-                  Connect Wallet
-                </button>
-              </div>
-            )}
-          </Card>
-        </motion.div>
-
-        <motion.div variants={itemAnimation}>
-          <Card className="dashboard-panel p-6 h-full">
-            <div className="flex space-x-4 items-start">
-              <div className="w-12 h-12 rounded-full bg-black/[0.04] flex items-center justify-center">
-                <BadgeCheck size={24} className="text-primary" />
-              </div>
-              <div>
-                <h3 className="font-display text-xl mb-1">
-                  {getMembershipName()} Member
-                </h3>
-                <p className="text-secondary text-sm mb-4">
-                  {planTier === 'elite' || planTier === 'desktop'
-                    ? 'Unlimited trades & all features'
-                    : planTier === 'pro'
-                      ? '100 trades/day & auto-trading'
-                      : planTier === 'starter'
-                        ? '25 trades/day & real trading'
-                        : '5 paper trades/day'}
-                </p>
-
-                <Link to="/dashboard/subscriptions" className="flex items-center text-primary text-sm hover:text-primary-hover">
-                  <span>{isSubscribed ? 'Manage plan' : 'Upgrade now'}</span>
-                  <ArrowRightIcon size={14} className="ml-1" />
-                </Link>
-              </div>
-            </div>
-
-            <div className="mt-6 pt-4 border-t border-border">
-              {/* Profile Status - only show incomplete state when not loading */}
-              <div className="flex space-x-4 mb-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  isProfileComplete || isOnboardingLoading ? 'bg-green-500/10' : 'bg-yellow-500/10'
-                }`}>
-                  {isProfileComplete || isOnboardingLoading ? (
-                    <Shield size={16} className="text-green-400" />
-                  ) : (
-                    <AlertCircle size={16} className="text-yellow-400" />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-medium text-sm text-primary">
-                    {isOnboardingLoading ? 'Profile Verified' : isProfileComplete ? 'Profile Verified' : 'Setup Incomplete'}
-                  </h4>
-                  <p className="text-secondary text-xs">
-                    {isOnboardingLoading ? 'Checking status...' : isProfileComplete ? 'All steps completed' : 'Complete setup to start trading'}
-                  </p>
-                </div>
-                {!isProfileComplete && !isOnboardingLoading && (
-                  <Link
-                    to="/dashboard/profile"
-                    className="px-3 py-1 bg-black/[0.06] text-primary text-xs rounded-lg hover:bg-white/15 transition-colors"
-                  >
-                    Complete
-                  </Link>
-                )}
-              </div>
-
-              {/* Active Subscription */}
-              <div className="flex space-x-4">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  isSubscribed ? 'bg-green-500/10' : 'bg-gray-500/10'
-                }`}>
-                  <Package size={16} className={isSubscribed ? 'text-green-400' : 'text-secondary'} />
-                </div>
-                <div>
-                  <h4 className="font-medium text-sm text-primary">Subscription</h4>
-                  <p className="text-secondary text-xs">
-                    {isSubscribed && planTier
-                      ? activeSubscription?.billingCycle === 'lifetime'
-                        ? `${getMembershipName()} - Lifetime`
-                        : `${getMembershipName()} - Valid until ${new Date(activeSubscription?.endDate || '').toLocaleDateString()}`
-                      : planTier === 'free'
-                        ? 'Free tier (paper trading)'
-                        : 'No active plan'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Daily Trades Remaining */}
-              {planTier && (
-                <div className="flex space-x-4 mt-3">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center bg-black/[0.04]">
-                    <Bot size={16} className="text-primary" />
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-sm text-primary">Daily Trades</h4>
-                    <p className="text-secondary text-xs">
-                      {dailyTradesRemaining === -1
-                        ? 'Unlimited'
-                        : `${dailyTradesRemaining} remaining today`}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* Legacy Vault Withdrawals - Disabled after recovery complete
-      <LegacyVaultWithdraw />
-      */}
-
-      {/* Bot Wallet (Vault) - For Paid Users */}
-      <motion.div variants={itemAnimation} className="mb-6">
-        {isConnected && address && (
-          <WithdrawPromptBanner chainId={42161} walletAddress={address} />
-        )}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-1">
-            <VaultBalanceCard compact />
-          </div>
-          <div className="md:col-span-2">
-            <Card className="p-6 h-full">
-              <div className="flex items-center gap-2 mb-4">
-                <Bot className="w-5 h-5 text-primary" />
-                <h3 className="font-medium text-primary">Auto-Trading Vault</h3>
-              </div>
-              <p className="text-secondary text-sm mb-4">
-                Deposit USDC into the vault. The bot trades from that balance; when a trade closes, P/L stays
-                in the vault. Use Withdraw when you want USDC back in your MetaMask wallet.
-              </p>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="dashboard-panel-inner p-3">
-                  <p className="dashboard-label text-xs mb-1">Network</p>
-                  <p className="dashboard-value text-sm">Arbitrum</p>
-                </div>
-                <div className="dashboard-panel-inner p-3">
-                  <p className="dashboard-label text-xs mb-1">Fees</p>
-                  <p className="dashboard-value text-sm">0.1% + 10% profit</p>
-                </div>
-                <div className="dashboard-panel-inner p-3">
-                  <p className="dashboard-label text-xs mb-1">Max Risk</p>
-                  <p className="dashboard-value text-sm">100%</p>
-                </div>
-              </div>
-            </Card>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Recent Closed Trades (identical to Bot History) */}
-      <motion.div variants={itemAnimation} className="mb-6">
-        <Card className="dashboard-panel overflow-hidden">
-          <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <History className="w-5 h-5 text-primary" />
-              <h3 className="font-medium text-primary">Recent Closed Trades</h3>
-            </div>
-            <Link to="/dashboard/bot-trading" className="text-sm text-primary hover:text-primary-hover">
-              View All
-            </Link>
-          </div>
-
-          {loadingTrades ? (
-            <div className="text-center py-12">
-              <RefreshCw className="w-6 h-6 text-secondary animate-spin mx-auto" />
-            </div>
-          ) : recentTrades.length > 0 ? (
-            <div className="overflow-x-auto">
-              {/* Table Header - identical to Bot History */}
-              <div className="grid grid-cols-7 gap-4 px-4 py-3 bg-background border-b border-border text-sm font-medium text-secondary min-w-[700px]">
-                <div>Token</div>
-                <div>Direction</div>
-                <div>Entry</div>
-                <div>Size</div>
-                <div>P/L</div>
-                <div>Duration</div>
-                <div>Result</div>
-              </div>
-
-              {/* Table Body - identical to Bot History */}
-              <div className="min-w-[700px]">
-                {recentTrades.map((trade) => {
-                  const isProfit = (trade.profit_loss || 0) >= 0;
-                  return (
-                    <div
-                      key={trade.id}
-                      className="grid grid-cols-7 gap-4 px-4 py-3 border-b border-border hover:bg-black/[0.04] transition-colors items-center"
-                    >
-                      {/* Token */}
-                      <div className="text-primary font-medium">
-                        {trade.token_symbol || 'WETH'}
-                      </div>
-
-                      {/* Direction */}
-                      <div>
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          trade.direction === 'LONG'
-                            ? 'bg-green-500/20 text-green-400'
-                            : 'bg-red-500/20 text-red-400'
-                        }`}>
-                          {trade.direction}
-                        </span>
-                      </div>
-
-                      {/* Entry Price */}
-                      <div className="text-primary font-mono text-sm">
-                        ${(trade.entry_price || 0).toFixed(2)}
-                      </div>
-
-                      {/* Size */}
-                      <div className="text-primary font-mono text-sm">
-                        ${(trade.entry_amount || 0).toFixed(2)}
-                      </div>
-
-                      {/* P/L */}
-                      <div className={`flex items-center gap-1 font-mono text-sm ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
-                        {isProfit ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                        <div>
-                          <div>{isProfit ? '+' : ''}${(trade.profit_loss || 0).toFixed(4)}</div>
-                          <div className="text-xs opacity-75">
-                            ({isProfit ? '+' : ''}{(trade.profit_loss_percent || 0).toFixed(2)}%)
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Duration */}
-                      <div className="text-sm">
-                        <div className="flex items-center gap-1.5">
-                          <Clock size={14} className="text-secondary" />
-                          <span className="font-mono text-secondary">
-                            {formatDuration(trade.created_at, trade.closed_at)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Result */}
-                      <div className="flex items-center gap-2">
-                        {trade.status === 'closed' ? (
-                          isProfit ? (
-                            <div className="flex items-center gap-1.5 text-green-400">
-                              <CheckCircle size={18} />
-                              <span className="font-medium">WIN</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1.5 text-red-400">
-                              <XCircle size={18} />
-                              <span className="font-medium">LOSS</span>
-                            </div>
-                          )
-                        ) : (
-                          <span className="text-red-400 text-xs">FAILED</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <Bot className="w-12 h-12 text-muted mx-auto mb-3" />
-              <p className="text-secondary mb-1">No closed trades yet</p>
-              <p className="text-secondary text-sm">
-                {isConnected ? 'Completed trades will appear here' : 'Connect wallet to see your trades'}
-              </p>
-              <Link
-                to="/dashboard/chart-trades"
-                className="inline-block mt-4 px-4 py-2 bg-white hover:bg-gray-100 text-gray-900 rounded-lg font-medium transition-colors"
-              >
-                Go to Trading Bot
-              </Link>
-            </div>
-          )}
-        </Card>
-      </motion.div>
-
-      {/* Payment History */}
-      <motion.div variants={itemAnimation} className="mb-6">
-        <Card className="dashboard-panel overflow-hidden">
-          <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-primary" />
-              <h3 className="font-medium text-primary">Payment History</h3>
-            </div>
-            <Link to="/dashboard/subscriptions" className="text-sm text-secondary hover:text-primary">
-              View All
-            </Link>
-          </div>
-
-          <div className="p-6">
-            {loadingPayments ? (
-              <div className="text-center py-8">
-                <RefreshCw className="w-6 h-6 text-secondary animate-spin mx-auto" />
-              </div>
-            ) : payments.length > 0 ? (
-              <div className="space-y-3">
-                {payments.map((payment) => (
-                  <div
-                    key={payment.id}
-                    className="flex items-center justify-between p-4 bg-background rounded-lg"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                        payment.status === 'succeeded' ? 'bg-green-500/10' : 'bg-yellow-500/10'
-                      }`}>
-                        <CreditCard size={18} className={
-                          payment.status === 'succeeded' ? 'text-green-400' : 'text-yellow-400'
-                        } />
-                      </div>
-                      <div>
-                        <p className="text-primary font-medium">
-                          {payment.plan_tier.charAt(0).toUpperCase() + payment.plan_tier.slice(1)} Plan
-                        </p>
-                        <p className="text-secondary text-sm">
-                          {new Date(payment.created_at).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric'
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-primary font-medium">
-                        ${(payment.amount / 100).toFixed(2)} {payment.currency.toUpperCase()}
-                      </p>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        payment.status === 'succeeded'
-                          ? 'bg-green-500/20 text-green-400'
-                          : 'bg-yellow-500/20 text-yellow-400'
-                      }`}>
-                        {payment.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <CreditCard className="w-12 h-12 text-muted mx-auto mb-3" />
-                <p className="text-secondary mb-1">No payments yet</p>
-                <p className="text-secondary text-sm">Your payment history will appear here</p>
-              </div>
-            )}
-          </div>
-        </Card>
-      </motion.div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <motion.div variants={itemAnimation}>
-          <Card className="p-6">
-            <h3 className="text-secondary font-medium text-sm mb-4">Quick Actions</h3>
-            <div className="space-y-3">
-              <Link
-                to="/dashboard/chart-trades"
-                className="flex items-center justify-between p-3 bg-background rounded-lg hover:bg-surface-hover transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-black/[0.04] flex items-center justify-center">
-                    <Bot size={16} className="text-primary" />
-                  </div>
-                  <span className="text-primary">Trading Bot</span>
-                </div>
-                <ArrowRightIcon size={16} className="text-secondary" />
-              </Link>
-
-              <Link
-                to="/dashboard/subscriptions"
-                className="flex items-center justify-between p-3 bg-background rounded-lg hover:bg-surface-hover transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                    <Package size={16} className="text-emerald-400" />
-                  </div>
-                  <span className="text-primary">Subscriptions</span>
-                </div>
-                <ArrowRightIcon size={16} className="text-secondary" />
-              </Link>
-
-              <Link
-                to="/dashboard/bot-trading"
-                className="flex items-center justify-between p-3 bg-background rounded-lg hover:bg-surface-hover transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-black/[0.04] flex items-center justify-center">
-                    <History size={16} className="text-primary" />
-                  </div>
-                  <span className="text-primary">Trading History</span>
-                </div>
-                <ArrowRightIcon size={16} className="text-secondary" />
-              </Link>
-            </div>
-          </Card>
-        </motion.div>
-
-        <motion.div variants={itemAnimation}>
-          <Card className="p-6">
-            <h3 className="text-secondary font-medium text-sm mb-4">Wallet Info</h3>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-secondary">Network</span>
-                <span className="text-primary font-normal">
-                  {currentChain?.name || 'Not Connected'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-secondary">Available to Trade</span>
-                <span className="text-primary font-normal">${formatCurrency(stablecoinBalance)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-secondary">DEX</span>
-                <span className="text-primary font-normal">
-                  {currentChain?.dex.name || 'N/A'}
-                </span>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-
-        <motion.div variants={itemAnimation}>
-          <Card className="p-6">
-            <h3 className="text-secondary font-medium text-sm mb-4">Wallet Status</h3>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-gray-500'}`}></div>
-                <span className="text-secondary text-sm">
-                  {isConnected ? 'Wallet Connected' : 'Wallet Disconnected'}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className={`w-2 h-2 rounded-full ${isSubscribed || planTier === 'free' ? 'bg-green-400' : 'bg-gray-500'}`}></div>
-                <span className="text-secondary text-sm">
-                  {isSubscribed ? `${getMembershipName()} Plan Active` : planTier === 'free' ? 'Free Plan (Paper Trading)' : 'Subscribe for Bot'}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className={`w-2 h-2 rounded-full ${stablecoinBalance > 0 ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
-                <span className="text-secondary text-sm">
-                  {stablecoinBalance > 0 ? 'Ready to Trade' : 'Fund Wallet to Trade'}
-                </span>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* Risk Disclaimer */}
-      <div className="mt-8 p-4 rounded-2xl border border-[#c5c5cb] bg-white/50 backdrop-blur-xl">
-        <p className="text-xs text-[#71717a] leading-relaxed">
-          <span className="text-[#52525b] font-medium">Risk Disclosure:</span> Cryptocurrency trading involves substantial risk of loss. Past performance does not guarantee future results. Monadier provides software tools only—not investment advice. Users maintain full control and responsibility for all trades. Only invest what you can afford to lose. Not available in restricted jurisdictions.
+  const summaryPrimary = (
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-display text-lg font-semibold text-[#0a0a0a] mb-1">
+          Portfolio overview
+        </h2>
+        <p className="text-sm text-[#52525b]">
+          Combined wallet + vault · bot P/L on the right
         </p>
       </div>
-    </motion.div>
+      <div className="rounded-xl border border-[#e4e4e8] bg-[#f7f7f9] p-6 min-h-[200px] flex flex-col justify-center">
+        <p className="text-[11px] uppercase tracking-wider text-[#a1a1aa] mb-2">Account total</p>
+        <p className="font-display text-4xl font-semibold text-[#0a0a0a] tracking-tight">
+          ${formatCurrency(totalUsdValue + metrics.vaultBalanceUsd)}
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link
+            to="/dashboard/chart-trades"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#2a2a2e] text-white text-sm font-medium hover:bg-[#3a3a3e] transition-colors"
+          >
+            <LineChart size={16} />
+            Open trading terminal
+          </Link>
+          <Link
+            to="/dashboard/bot-trading"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-[#c5c5cb] bg-white text-sm font-medium text-[#0a0a0a] hover:bg-[#f7f7f9]"
+          >
+            <Bot size={16} />
+            View positions
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+
+  const walletPanel = (
+    <div className="dashboard-panel p-6">
+      {isConnected ? (
+        <>
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <p className="text-[#52525b] text-sm">Wallet balance</p>
+                {currentChain && (
+                  <span className="px-2 py-0.5 bg-black/[0.06] text-[#0a0a0a] text-xs rounded-full">
+                    {currentChain.shortName}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={refreshBalances}
+                  disabled={isLoadingBalances}
+                  className="p-1 text-[#52525b] hover:text-[#0a0a0a]"
+                >
+                  <RefreshCw size={14} className={isLoadingBalances ? 'animate-spin' : ''} />
+                </button>
+              </div>
+              <h2 className="text-3xl font-semibold text-[#0a0a0a]">${formatCurrency(totalUsdValue)}</h2>
+              {address && (
+                <p className="text-[#71717a] text-sm mt-1 font-mono">{formatAddress(address)}</p>
+              )}
+            </div>
+            <Link
+              to="/dashboard/chart-trades"
+              className="px-4 py-2 rounded-full border border-[#c5c5cb] bg-white text-sm font-medium text-[#0a0a0a] hover:bg-[#f7f7f9] flex items-center gap-2"
+            >
+              <Bot size={16} />
+              Trade
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="dashboard-panel-inner p-3">
+              <p className="text-xs text-[#71717a]">{currentChain?.nativeCurrency.symbol || 'Native'}</p>
+              <p className="text-lg text-[#0a0a0a]">{parseFloat(nativeBalance).toFixed(4)}</p>
+            </div>
+            {tokenBalances.slice(0, 3).map((token) => (
+              <div key={token.symbol} className="dashboard-panel-inner p-3">
+                <p className="text-xs text-[#71717a]">{token.symbol}</p>
+                <p className="text-lg text-[#0a0a0a]">{parseFloat(token.balance).toFixed(2)}</p>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-col items-center py-10 text-center">
+          <Wallet size={40} className="text-[#a1a1aa] mb-4" />
+          <h3 className="text-lg font-medium text-[#0a0a0a] mb-2">Connect your wallet</h3>
+          <p className="text-sm text-[#52525b] mb-4 max-w-sm">
+            Connect to view balances and trade on-chain.
+          </p>
+          <button
+            type="button"
+            onClick={() => open()}
+            className="px-6 py-3 rounded-full bg-[#2a2a2e] text-white text-sm font-medium"
+          >
+            Connect wallet
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  const vaultPanel = (
+    <div className="space-y-4">
+      {isConnected && address && (
+        <WithdrawPromptBanner chainId={42161} walletAddress={address} />
+      )}
+      <VaultBalanceCard compact />
+      <div className="dashboard-panel p-5 text-sm text-[#52525b]">
+        <p>
+          Deposit USDC to the Arbitrum vault for auto-trading. P/L stays in the vault until you withdraw.
+        </p>
+        <Link to="/dashboard/bot-trading" className="inline-flex items-center gap-1 mt-3 text-[#0a0a0a] font-medium hover:underline">
+          Manage bot & positions <ArrowRight size={14} />
+        </Link>
+      </div>
+    </div>
+  );
+
+  const activityPanel = (
+    <div className="space-y-6">
+      <div className="dashboard-panel overflow-hidden">
+        <div className="px-5 py-4 border-b border-[#e4e4e8] flex justify-between items-center">
+          <h3 className="font-medium text-[#0a0a0a] flex items-center gap-2">
+            <History size={18} /> Recent closed trades
+          </h3>
+          <Link to="/dashboard/bot-trading" className="text-sm text-[#52525b] hover:text-[#0a0a0a]">
+            View all
+          </Link>
+        </div>
+        {loadingTrades ? (
+          <div className="py-12 text-center">
+            <RefreshCw className="animate-spin mx-auto text-[#a1a1aa]" />
+          </div>
+        ) : recentTrades.length === 0 ? (
+          <p className="py-10 text-center text-[#52525b] text-sm">No closed trades yet</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <div className="grid grid-cols-6 gap-3 px-4 py-2 text-xs font-medium text-[#71717a] border-b border-[#e4e4e8] min-w-[560px]">
+              <div>Token</div>
+              <div>Dir</div>
+              <div>P/L</div>
+              <div>Size</div>
+              <div>Duration</div>
+              <div>Result</div>
+            </div>
+            {recentTrades.map((trade) => {
+              const win = (trade.profit_loss || 0) >= 0;
+              return (
+                <div
+                  key={trade.id}
+                  className="grid grid-cols-6 gap-3 px-4 py-3 border-b border-[#ececef] text-sm min-w-[560px] items-center"
+                >
+                  <span className="font-medium text-[#0a0a0a]">{trade.token_symbol}</span>
+                  <span className={trade.direction === 'LONG' ? 'text-green-600' : 'text-red-600'}>
+                    {trade.direction}
+                  </span>
+                  <span className={win ? 'text-green-600' : 'text-red-600'}>
+                    {win ? '+' : ''}${(trade.profit_loss || 0).toFixed(2)}
+                  </span>
+                  <span className="text-[#0a0a0a]">${(trade.entry_amount || 0).toFixed(2)}</span>
+                  <span className="text-[#71717a]">{formatDuration(trade.created_at, trade.closed_at)}</span>
+                  <span className={win ? 'text-green-600' : 'text-red-600'}>
+                    {win ? 'WIN' : 'LOSS'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="dashboard-panel overflow-hidden">
+        <div className="px-5 py-4 border-b border-[#e4e4e8] flex justify-between">
+          <h3 className="font-medium text-[#0a0a0a] flex items-center gap-2">
+            <CreditCard size={18} /> Payments
+          </h3>
+          <Link to="/dashboard/subscriptions" className="text-sm text-[#52525b] hover:text-[#0a0a0a]">
+            Plans
+          </Link>
+        </div>
+        <div className="p-5">
+          {loadingPayments ? (
+            <RefreshCw className="animate-spin mx-auto text-[#a1a1aa]" />
+          ) : payments.length === 0 ? (
+            <p className="text-center text-sm text-[#52525b] py-6">No payments yet</p>
+          ) : (
+            <div className="space-y-2">
+              {payments.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex justify-between items-center p-3 rounded-xl bg-[#f7f7f9] border border-[#ececef]"
+                >
+                  <span className="text-[#0a0a0a] capitalize">{p.plan_tier} plan</span>
+                  <span className="font-medium text-[#0a0a0a]">
+                    ${(p.amount / 100).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const summaryFooter = (
+    <div className="space-y-6">
+      <OnboardingBanner />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="dashboard-panel p-5">
+          <h3 className="text-xs uppercase tracking-wider text-[#a1a1aa] mb-3">Quick actions</h3>
+          <div className="space-y-2">
+            {[
+              { to: '/dashboard/chart-trades', icon: Bot, label: 'Trading terminal' },
+              { to: '/dashboard/bot-trading', icon: History, label: 'Bot positions' },
+              { to: '/dashboard/subscriptions', icon: Package, label: 'Plans' },
+            ].map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                className="flex items-center justify-between p-3 rounded-xl hover:bg-[#f7f7f9] border border-transparent hover:border-[#ececef]"
+              >
+                <span className="flex items-center gap-2 text-sm text-[#0a0a0a]">
+                  <item.icon size={16} className="text-[#52525b]" />
+                  {item.label}
+                </span>
+                <ArrowRight size={14} className="text-[#a1a1aa]" />
+              </Link>
+            ))}
+          </div>
+        </div>
+        <div className="dashboard-panel p-5">
+          <div className="flex gap-3 mb-4">
+            <BadgeCheck className="text-[#52525b]" size={22} />
+            <div>
+              <h3 className="font-semibold text-[#0a0a0a]">{getMembershipName()} plan</h3>
+              <p className="text-xs text-[#71717a] mt-1">
+                {dailyTradesRemaining === -1
+                  ? 'Unlimited trades'
+                  : `${dailyTradesRemaining} trades left today`}
+              </p>
+            </div>
+          </div>
+          {!isProfileComplete && !isOnboardingLoading && (
+            <Link to="/dashboard/profile" className="text-sm text-[#0a0a0a] underline">
+              Complete profile
+            </Link>
+          )}
+        </div>
+        <div className="dashboard-panel p-5 text-xs text-[#71717a] leading-relaxed">
+          <span className="font-medium text-[#52525b]">Risk disclosure:</span> Crypto trading
+          involves substantial risk. Past performance does not guarantee future results.
+        </div>
+      </div>
+    </div>
+  );
+
+  const tabContent =
+    activeTab === 'wallet'
+      ? walletPanel
+      : activeTab === 'vault'
+        ? vaultPanel
+        : activeTab === 'activity'
+          ? activityPanel
+          : null;
+
+  return (
+    <TradingTerminalShell
+      headerTitle="Monadier"
+      variant="overview"
+      metrics={metrics}
+      walletUsd={totalUsdValue}
+      planLabel={getMembershipName()}
+      tabs={tabs}
+      activeTab={activeTab}
+      onTabChange={(id) => setActiveTab(id as OverviewTab)}
+      onRefresh={refresh}
+      primary={activeTab === 'summary' ? summaryPrimary : tabContent}
+      footer={activeTab === 'summary' ? summaryFooter : undefined}
+    />
   );
 };
 

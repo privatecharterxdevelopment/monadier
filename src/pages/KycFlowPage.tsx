@@ -87,7 +87,7 @@ const KycFlowPage: React.FC = () => {
       if (currentStep < steps.length - 1) {
         setCurrentStep(currentStep + 1);
       } else {
-        navigate('/dashboard');
+        navigate('/dashboard2');
       }
     } catch (error: any) {
       setError(error.message || 'An error occurred during the verification process');

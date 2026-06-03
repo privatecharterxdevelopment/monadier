@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, Lock, Zap, Crown, Rocket, Check, Play, Square, Clock, Users, Wallet, ArrowUp, ArrowDown, ZoomIn, ZoomOut, TrendingUp, TrendingDown, Activity, ExternalLink, RefreshCw, AlertCircle, Loader2, Settings, Pause, TestTube, History, Timer, Bell } from 'lucide-react';
@@ -144,7 +144,22 @@ const generateTopPerformerTrade = (pairs: TradingPair[]): TopPerformerTrade => {
   };
 };
 
-const TradingBotPage: React.FC = () => {
+type TradingBotPageProps = {
+  embedded?: boolean;
+  /** Shorter chart when stacked above positions table */
+  chartCompact?: boolean;
+  /** dashboard2: chart-only column */
+  splitLayout?: 'full' | 'chart';
+  /** Fill parent height (dashboard2 terminal) */
+  chartFill?: boolean;
+};
+
+const TradingBotPage: React.FC<TradingBotPageProps> = ({
+  embedded = false,
+  chartCompact = false,
+  splitLayout = 'full',
+  chartFill = false,
+}) => {
   const navigate = useNavigate();
   const { open } = useAppKit();
   const {
@@ -218,6 +233,8 @@ const TradingBotPage: React.FC = () => {
   const [sessionTradeCount, setSessionTradeCount] = useState(0);
   const [pendingReopen, setPendingReopen] = useState(false);
   const [turboMode, setTurboMode] = useState(false);
+  const chartPlotRef = useRef<HTMLDivElement>(null);
+  const [plotHeight, setPlotHeight] = useState(280);
 
   // Minimum trade time - very short for aggressive trading
   const MIN_TRADE_TIME = turboMode ? 3 : 30; // 3 seconds in turbo, 30 seconds normal
@@ -735,27 +752,55 @@ const TradingBotPage: React.FC = () => {
     };
   }, [candles, timeframe, tradingConfig.minConfidence, tradingConfig.minRiskReward, tradingConfig.volumeFilterEnabled, tradingConfig.trendFilterEnabled, turboMode]);
 
-  // Fetch candles
-  const fetchCandles = async (symbol: string, interval: string) => {
+  const isTerminalChart = splitLayout === 'chart';
+
+  useEffect(() => {
+    if (!chartFill || !isTerminalChart) return;
+    const el = chartPlotRef.current;
+    if (!el) return;
+    const update = () => {
+      const h = el.clientHeight;
+      if (h > 0) setPlotHeight(Math.floor(h));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [chartFill, isTerminalChart]);
+
+  // Fetch candles — silent refresh avoids chart blink on interval updates
+  const fetchCandles = async (symbol: string, interval: string, silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const response = await fetch(
-        `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=100`
+        `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=120`
       );
       const data = await response.json();
-      const candleData: Candle[] = data.map((item: any[]) => ({
-        time: item[0],
-        open: parseFloat(item[1]),
-        high: parseFloat(item[2]),
-        low: parseFloat(item[3]),
-        close: parseFloat(item[4]),
-        volume: parseFloat(item[5])
+      if (!Array.isArray(data)) return;
+      const candleData: Candle[] = data.map((item: (string | number)[]) => ({
+        time: item[0] as number,
+        open: parseFloat(String(item[1])),
+        high: parseFloat(String(item[2])),
+        low: parseFloat(String(item[3])),
+        close: parseFloat(String(item[4])),
+        volume: parseFloat(String(item[5])),
       }));
-      setCandles(candleData);
-      setIsLoading(false);
+      setCandles((prev) => {
+        if (
+          silent &&
+          prev.length > 0 &&
+          candleData.length > 0 &&
+          prev[prev.length - 1]?.time === candleData[candleData.length - 1]?.time &&
+          prev.length === candleData.length
+        ) {
+          return prev;
+        }
+        return candleData;
+      });
     } catch (error) {
       console.error('Error fetching candles:', error);
-      setIsLoading(false);
+    } finally {
+      if (!silent) setIsLoading(false);
     }
   };
 
@@ -798,7 +843,7 @@ const TradingBotPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchCandles(selectedPair.binanceSymbol, timeframe);
+    fetchCandles(selectedPair.binanceSymbol, timeframe, false);
   }, [selectedPair.binanceSymbol, timeframe]);
 
   // Fetch native token prices for gas estimation
@@ -993,26 +1038,40 @@ const TradingBotPage: React.FC = () => {
   // Update trading pairs when chain changes - show chain-specific pairs!
   useEffect(() => {
     if (currentChain) {
-      const chainPairs = getPairsForChain(currentChain.id);
+      let chainPairs = getPairsForChain(currentChain.id);
+      if (isTerminalChart) {
+        chainPairs = chainPairs.filter(
+          (p) => p.binanceSymbol === 'ETHUSDT' || p.binanceSymbol === 'BTCUSDT'
+        );
+      }
       setPairs(chainPairs);
-      // Select the first (default) pair for this chain
       if (chainPairs.length > 0) {
-        setSelectedPair(chainPairs[0]);
+        const preferred = isTerminalChart
+          ? chainPairs.find((p) => p.binanceSymbol === 'ETHUSDT') ?? chainPairs[0]
+          : chainPairs[0];
+        setSelectedPair(preferred);
       }
     }
-  }, [currentChain?.id]);
+  }, [currentChain?.id, isTerminalChart]);
 
   useEffect(() => {
     const interval = setInterval(fetchPrices, 5000);
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch candles - faster in turbo mode for real-time decisions
+  // Fetch candles — silent polling (no loading flash)
   useEffect(() => {
-    const refreshRate = turboMode && botActive ? 2000 : 10000; // 2s in turbo, 10s normal
-    const interval = setInterval(() => fetchCandles(selectedPair.binanceSymbol, timeframe), refreshRate);
+    const refreshRate = isTerminalChart
+      ? 15000
+      : turboMode && botActive
+        ? 2000
+        : 10000;
+    const interval = setInterval(
+      () => fetchCandles(selectedPair.binanceSymbol, timeframe, true),
+      refreshRate
+    );
     return () => clearInterval(interval);
-  }, [selectedPair.binanceSymbol, timeframe, turboMode, botActive]);
+  }, [selectedPair.binanceSymbol, timeframe, turboMode, botActive, isTerminalChart]);
 
   useEffect(() => {
     const addTrade = () => {
@@ -1572,10 +1631,17 @@ const TradingBotPage: React.FC = () => {
     return price.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   };
 
-  const chartHeight = 320;
+  const chartHeight =
+    isTerminalChart && chartFill
+      ? Math.max(plotHeight, 120)
+      : isTerminalChart
+        ? 360
+        : chartCompact
+          ? 200
+          : 320;
 
   const renderCandlestickChart = () => {
-    if (candles.length === 0 || isLoading) {
+    if (candles.length === 0 && isLoading) {
       return (
         <div className="flex items-center justify-center h-full">
           <div className="animate-pulse text-secondary">Loading chart...</div>
@@ -1583,7 +1649,17 @@ const TradingBotPage: React.FC = () => {
       );
     }
 
-    const candlesToShow = Math.floor(60 / zoomLevel);
+    if (candles.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-full text-secondary text-sm">
+          Chart data unavailable
+        </div>
+      );
+    }
+
+    const candlesToShow = Math.floor(
+      (isTerminalChart ? 100 : 60) / zoomLevel
+    );
     const displayCandles = candles.slice(-candlesToShow);
     const prices = displayCandles.flatMap(c => [c.high, c.low]);
     const minPrice = Math.min(...prices);
@@ -1595,7 +1671,9 @@ const TradingBotPage: React.FC = () => {
       return chartHeight - ((price - (minPrice - padding)) / (priceRange + padding * 2)) * chartHeight;
     };
 
-    const candleWidth = Math.max(4, Math.floor((100 / displayCandles.length) * 8));
+    const candleWidth = isTerminalChart
+      ? Math.min(4, Math.max(2, (100 / displayCandles.length) * 3.2))
+      : Math.max(4, Math.floor((100 / displayCandles.length) * 8));
 
     // === CALCULATE INDICATORS FOR VISUAL OVERLAYS ===
     const closes = displayCandles.map(c => c.close);
@@ -1855,23 +1933,26 @@ const TradingBotPage: React.FC = () => {
             const wickBottom = scaleY(candle.low);
             const color = isGreen ? '#22c55e' : '#ef4444';
 
+            const slotPct = 100 / displayCandles.length;
+            const bodyW = Math.min(slotPct * 0.55, candleWidth / 10);
+
             return (
-              <g key={idx}>
+              <g key={candle.time}>
                 <line
-                  x1={`${x + (candleWidth / 2) / 8}%`}
+                  x1={`${x + slotPct / 2}%`}
                   y1={wickTop}
-                  x2={`${x + (candleWidth / 2) / 8}%`}
+                  x2={`${x + slotPct / 2}%`}
                   y2={wickBottom}
                   stroke={color}
                   strokeWidth="1"
                 />
                 <rect
-                  x={`${x}%`}
+                  x={`${x + (slotPct - bodyW) / 2}%`}
                   y={bodyTop}
-                  width={`${candleWidth / 10}%`}
+                  width={`${bodyW}%`}
                   height={bodyHeight}
                   fill={color}
-                  rx="1"
+                  rx="0.5"
                 />
               </g>
             );
@@ -2000,6 +2081,60 @@ const TradingBotPage: React.FC = () => {
       </div>
     );
   };
+
+  if (splitLayout === 'chart') {
+    const changeStr = `${selectedPair.change >= 0 ? '+' : ''}${selectedPair.change.toFixed(2)}%`;
+
+    return (
+      <div className="dashboard2-chart-root h-full flex flex-col gap-2 min-h-0">
+        {isConnected && currentChain && tradingConfig.selectedChainId !== currentChain.id && (
+          <div className="text-xs text-orange-700 bg-orange-500/10 border border-orange-500/25 rounded-lg px-3 py-2 shrink-0">
+            Network mismatch — switch to {getChainById(tradingConfig.selectedChainId)?.shortName}
+          </div>
+        )}
+
+        <div className="flex-1 min-h-[240px] rounded-xl border border-[#c5c5cb] bg-white/50 backdrop-blur-md overflow-hidden flex flex-col">
+          <div className="px-3 py-2 border-b border-[#ececef] flex items-center justify-between gap-3 shrink-0">
+            <div className="flex items-center gap-3 min-w-0 flex-wrap">
+              <span className="text-sm font-medium text-[#0a0a0a] shrink-0">Live chart</span>
+              <span className="text-sm font-semibold text-[#0a0a0a] shrink-0">
+                {selectedPair.symbol}
+              </span>
+              <span className="term-chart-live-quote text-sm font-semibold text-[#0a0a0a] shrink-0">
+                ${formatPrice(selectedPair.price, 2)}
+                <span className={selectedPair.change >= 0 ? 'text-green-600' : 'text-red-600'}>
+                  {changeStr}
+                </span>
+              </span>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {['1m', '5m', '15m', '1h', '4h', '1d'].map((tf) => (
+                <button
+                  key={tf}
+                  type="button"
+                  onClick={() => setTimeframe(tf)}
+                  className={`px-2 py-1 rounded text-[11px] font-medium ${
+                    timeframe === tf
+                      ? 'bg-[#2a2a2e] text-white'
+                      : 'text-[#52525b] hover:bg-[#f7f7f9]'
+                  }`}
+                >
+                  {tf}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div
+            ref={chartPlotRef}
+            className={`flex-1 min-h-0 p-3 ${chartFill ? 'term-chart-plot' : ''}`}
+            style={chartFill ? undefined : { minHeight: chartHeight }}
+          >
+            {renderCandlestickChart()}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -2588,9 +2723,14 @@ const TradingBotPage: React.FC = () => {
                   </div>
 
                   {/* Info: This is for manual trading */}
-                  <div className="p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                    <p className="text-xs text-blue-400">
-                      This page is for <span className="font-medium">manual trading</span>. Auto trades appear on the <span className="font-medium">Bot History</span> page.
+                  <div className="p-2 rounded-lg border border-[#c5c5cb] bg-white/50">
+                    <p className="text-xs text-[#52525b]">
+                      <span className="font-medium text-[#0a0a0a]">Manual trading</span> on this tab.
+                      {embedded ? (
+                        <> Bot positions &amp; auto-trades are under <span className="font-medium text-[#0a0a0a]">Positions &amp; history</span> above.</>
+                      ) : (
+                        <> Auto trades appear on <span className="font-medium text-[#0a0a0a]">Bot history</span>.</>
+                      )}
                     </p>
                   </div>
 

@@ -105,12 +105,31 @@ interface Position {
   is_leveraged: boolean;
 }
 
-const BotHistoryPage: React.FC = () => {
+type BotHistoryPageProps = {
+  /** Rendered inside BotTradingHub — hides duplicate page title */
+  embedded?: boolean;
+  /** Coinglass-style terminal: hide duplicate stats/tabs (controlled by hub) */
+  terminalMode?: boolean;
+  /** When set, hub controls which positions list is shown */
+  forcedTab?: 'open' | 'closed' | 'legacy' | 'all';
+};
+
+const BotHistoryPage: React.FC<BotHistoryPageProps> = ({
+  embedded = false,
+  terminalMode = false,
+  forcedTab,
+}) => {
   const { address, chainId } = useAccount();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
   const { isDemoUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<'open' | 'closed' | 'legacy' | 'all'>('open');
+  const [activeTab, setActiveTab] = useState<'open' | 'closed' | 'legacy' | 'all'>(
+    forcedTab ?? 'open'
+  );
+
+  useEffect(() => {
+    if (forcedTab) setActiveTab(forcedTab);
+  }, [forcedTab]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [legacyTrades, setLegacyTrades] = useState<LegacyTrade[]>([]);
   const [loading, setLoading] = useState(true);
@@ -796,12 +815,15 @@ const BotHistoryPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-primary">Bot Trading History</h1>
-          <p className="text-secondary mt-1">View your positions and profits</p>
-        </div>
+    <div className={terminalMode ? 'space-y-4' : 'space-y-6'}>
+      {!terminalMode && (
+      <div className={`flex items-center ${embedded ? 'justify-end' : 'justify-between'}`}>
+        {!embedded && (
+          <div>
+            <h1 className="font-display text-2xl font-semibold text-[#0a0a0a]">Bot trading history</h1>
+            <p className="text-[#52525b] mt-1 text-sm">Positions, P/L, and vault bot settings</p>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <div className="relative">
             <button
@@ -818,10 +840,10 @@ const BotHistoryPage: React.FC = () => {
                   initial={{ opacity: 0, y: -10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                  className="fixed right-4 top-32 w-80 bg-zinc-900 border border-zinc-700 rounded-xl p-4 shadow-xl z-50"
+                  className="fixed right-4 top-32 w-80 dashboard-panel border border-[#c5c5cb] rounded-2xl p-4 shadow-xl z-50"
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-primary font-medium">Trading Info</h4>
+                    <h4 className="text-[#0a0a0a] font-semibold">Trading Info</h4>
                     <button onClick={() => setShowInfoPopup(false)} className="text-secondary hover:text-primary">
                       <X size={16} />
                     </button>
@@ -852,7 +874,7 @@ const BotHistoryPage: React.FC = () => {
           </div>
           <button
             onClick={() => setShowSettingsModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 hover:border-blue-500/50 rounded-lg text-primary transition-all"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#c5c5cb] bg-white/70 text-[#0a0a0a] hover:bg-white transition-colors shadow-sm"
           >
             <Settings size={16} />
             Bot Settings
@@ -866,10 +888,11 @@ const BotHistoryPage: React.FC = () => {
           </button>
         </div>
       </div>
+      )}
 
       {/* Current Bot Settings Summary - Only show when loaded */}
-      {botSettingsLoaded && (
-        <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-4">
+      {!terminalMode && botSettingsLoaded && (
+        <div className="dashboard-panel border border-[#c5c5cb] p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className={`w-3 h-3 rounded-full ${botSettings.autoTradeEnabled ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
@@ -904,8 +927,9 @@ const BotHistoryPage: React.FC = () => {
       )}
 
       {/* Stats Cards - Row 1: Main Stats */}
+      {!terminalMode && (
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-card-dark rounded-xl border border-border p-4">
+        <div className="dashboard-panel p-4">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${stats.totalProfit >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
               {stats.totalProfit >= 0 ? (
@@ -931,7 +955,7 @@ const BotHistoryPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-card-dark rounded-xl border border-border p-4">
+        <div className="dashboard-panel p-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-black/[0.04] flex items-center justify-center">
               <Trophy className="w-5 h-5 text-amber-400" />
@@ -946,7 +970,7 @@ const BotHistoryPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-card-dark rounded-xl border border-border p-4">
+        <div className="dashboard-panel p-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
               <Activity className="w-5 h-5 text-blue-400" />
@@ -964,7 +988,7 @@ const BotHistoryPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-card-dark rounded-xl border border-border p-4">
+        <div className="dashboard-panel p-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-black/[0.04] flex items-center justify-center">
               <History className="w-5 h-5 text-primary" />
@@ -979,9 +1003,11 @@ const BotHistoryPage: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Tab Switcher */}
-      <div className="flex gap-2 p-1 bg-card-dark rounded-lg w-fit border border-border">
+      {!terminalMode && (
+      <div className="flex flex-wrap gap-2 p-1 dashboard-panel rounded-xl w-fit">
         <button
           onClick={() => setActiveTab('open')}
           className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-all ${
@@ -1032,15 +1058,16 @@ const BotHistoryPage: React.FC = () => {
           </button>
         )}
       </div>
+      )}
 
       {/* Legacy Vault Warning - Disabled after recovery complete
       <LegacyVaultWithdraw />
       */}
 
       {/* Positions Table (from Supabase) */}
-      <div className="bg-card-dark rounded-xl border border-border overflow-hidden">
+      <div className="dashboard-panel overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-9 gap-4 px-4 py-3 bg-background border-b border-border text-sm font-medium text-secondary">
+        <div className="grid grid-cols-9 gap-4 px-4 py-3 border-b border-[#c5c5cb] bg-white/50 text-sm font-medium text-[#52525b]">
           <div>Token</div>
           <div>Direction</div>
           <div>Entry / Now</div>
@@ -1499,7 +1526,7 @@ const BotHistoryPage: React.FC = () => {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-card-dark border border-gray-700 rounded-xl p-6 max-w-md mx-4"
+              className="dashboard-panel border border-[#c5c5cb] rounded-2xl p-6 max-w-md mx-4"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center gap-3 mb-4">

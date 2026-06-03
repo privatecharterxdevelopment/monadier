@@ -90,7 +90,7 @@ const RegisterPage: React.FC = () => {
       }
 
       if (data?.session) {
-        navigate('/dashboard');
+        navigate('/dashboard2');
       } else {
         setAwaitingEmailConfirm(true);
       }

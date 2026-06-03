@@ -10,7 +10,7 @@ const LandingPage: React.FC = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard');
+      navigate('/dashboard2');
     }
   }, [isAuthenticated, navigate]);
 

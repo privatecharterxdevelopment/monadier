@@ -46,7 +46,7 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light' }) => {
 
         <div className="flex items-center gap-1">
           {isAuthenticated ? (
-            <Link to="/dashboard" className="hidden md:inline-flex">
+            <Link to="/dashboard2" className="hidden md:inline-flex">
               <span
                 className={`inline-flex items-center px-4 py-2 rounded-full text-[13px] font-semibold transition-colors ${
                   light

@@ -116,8 +116,8 @@ contract MonadierTradingVaultV11 is ReentrancyGuard, Pausable, Ownable {
 
     // Limits
     uint256 public constant MIN_LEVERAGE = 1;
-    uint256 public constant MAX_LEVERAGE = 25;
-    uint256 public constant MAX_LEVERAGE_ELITE = 50;
+    uint256 public constant MAX_LEVERAGE = 100;
+    uint256 public constant MAX_LEVERAGE_ELITE = 100;
     uint256 public constant MIN_DEPOSIT = 50e6;        // $50 USDC
     uint256 public constant MIN_POSITION = 10e6;       // $10 USDC
 

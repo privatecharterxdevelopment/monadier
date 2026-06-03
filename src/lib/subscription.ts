@@ -290,80 +290,26 @@ export interface UserSubscription {
   timezone: string; // User's timezone (e.g., 'America/New_York')
 }
 
-// Check if user can make a trade
-export function canMakeTrade(subscription: UserSubscription): { allowed: boolean; reason?: string; remainingTrades?: number } {
-  const plan = SUBSCRIPTION_PLANS[subscription.planTier];
-
-  // Free tier = 2 total trades, then subscription required
-  if (subscription.planTier === 'free') {
-    const totalLimit = plan.features.totalTradeLimit;
-    const totalUsed = subscription.totalTradesUsed || 0;
-
-    if (totalUsed >= totalLimit) {
-      return {
-        allowed: false,
-        reason: `Free trial ended. You've used your ${totalLimit} free trades. Subscribe to continue trading!`,
-        remainingTrades: 0
-      };
-    }
-    return { allowed: true, remainingTrades: totalLimit - totalUsed };
-  }
-
-  // Check if subscription is active
-  if (subscription.status !== 'active') {
-    return { allowed: false, reason: 'Subscription is not active' };
-  }
-
-  // Check if subscription has expired (except lifetime)
-  if (subscription.billingCycle !== 'lifetime' && new Date() > subscription.endDate) {
-    return { allowed: false, reason: 'Subscription has expired' };
-  }
-
-  // Check daily trade limit (for paid plans)
-  if (plan.features.dailyTradeLimit !== -1) {
-    // Reset daily trades if needed
-    const now = new Date();
-    if (now > subscription.dailyTradesResetAt) {
-      subscription.dailyTradesUsed = 0;
-      subscription.dailyTradesResetAt = new Date(now.setHours(24, 0, 0, 0));
-    }
-
-    if (subscription.dailyTradesUsed >= plan.features.dailyTradeLimit) {
-      return {
-        allowed: false,
-        reason: `Daily trade limit reached (${plan.features.dailyTradeLimit} trades/day). Upgrade to increase limit.`,
-        remainingTrades: 0
-      };
-    }
-
-    return { allowed: true, remainingTrades: plan.features.dailyTradeLimit - subscription.dailyTradesUsed };
-  }
-
-  return { allowed: true, remainingTrades: -1 }; // -1 = unlimited
+// Check if user can make a trade (unrestricted — vault bot available to all connected users)
+export function canMakeTrade(_subscription: UserSubscription): {
+  allowed: boolean;
+  reason?: string;
+  remainingTrades?: number;
+} {
+  return { allowed: true, remainingTrades: -1 };
 }
 
-// Check if a feature is available for the plan
-export function hasFeature(planTier: PlanTier, feature: keyof PlanFeatures): boolean {
-  const plan = SUBSCRIPTION_PLANS[planTier];
-  const value = plan.features[feature];
-
-  if (typeof value === 'boolean') return value;
-  if (typeof value === 'number') return value !== 0;
-  if (Array.isArray(value)) return value.length > 0;
-
-  return false;
+// Feature gates disabled — full app access for all users
+export function hasFeature(_planTier: PlanTier, _feature: keyof PlanFeatures): boolean {
+  return true;
 }
 
-// Check if strategy is allowed for plan
-export function isStrategyAllowed(planTier: PlanTier, strategy: string): boolean {
-  const plan = SUBSCRIPTION_PLANS[planTier];
-  return plan.features.strategies.includes(strategy);
+export function isStrategyAllowed(_planTier: PlanTier, _strategy: string): boolean {
+  return true;
 }
 
-// Check if chain is allowed for plan
-export function isChainAllowed(planTier: PlanTier, chainId: number): boolean {
-  const plan = SUBSCRIPTION_PLANS[planTier];
-  return plan.features.chains.includes(chainId);
+export function isChainAllowed(_planTier: PlanTier, _chainId: number): boolean {
+  return true;
 }
 
 // Calculate days remaining
@@ -381,14 +327,8 @@ export function getDaysRemaining(subscription: UserSubscription): number {
 }
 
 // Get remaining daily trades
-export function getRemainingDailyTrades(subscription: UserSubscription): number {
-  const plan = SUBSCRIPTION_PLANS[subscription.planTier];
-
-  if (plan.features.dailyTradeLimit === -1) {
-    return -1; // unlimited
-  }
-
-  return Math.max(0, plan.features.dailyTradeLimit - subscription.dailyTradesUsed);
+export function getRemainingDailyTrades(_subscription: UserSubscription): number {
+  return -1;
 }
 
 // Format price for display

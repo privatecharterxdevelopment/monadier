@@ -506,8 +506,8 @@ export const USDC_DECIMALS = 6;
 export const PLATFORM_FEES = {
   BASE_FEE_BPS: 10,       // 0.1% base fee on TOTAL position
   SUCCESS_FEE_BPS: 1000,  // 10% of profit
-  MAX_LEVERAGE: 25,       // Standard users: 1x-25x
-  MAX_LEVERAGE_ELITE: 50, // Elite users: 1x-50x
+  MAX_LEVERAGE: 25,        // Standard users: 1x-25x
+  MAX_LEVERAGE_ELITE: 100, // Elite users: 1x-100x (GMX)
 } as const;
 
 /**

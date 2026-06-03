@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase, getUserProfile } from '../lib/supabase';
 import { isDemoModeEnabled } from '../lib/demoMode';
 import { User } from '@supabase/supabase-js';
@@ -12,9 +12,11 @@ interface AuthContextType {
   profile: any;
   isAuthenticated: boolean;
   isLoading: boolean;
+  /** True after first getSession() finished — avoids login redirect while session restores */
+  sessionReady: boolean;
   isDemoUser: boolean;
   isDemoMode: boolean;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => Promise<Record<string, unknown> | null>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -22,8 +24,10 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   isAuthenticated: false,
   isLoading: true,
+  sessionReady: false,
   isDemoUser: false,
-  refreshProfile: async () => {}
+  isDemoMode: false,
+  refreshProfile: async () => null
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -40,6 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [sessionReady, setSessionReady] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(isDemoModeEnabled);
 
   useEffect(() => {
@@ -52,16 +57,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const refreshProfile = async () => {
-    if (user) {
-      try {
-        const { data } = await withTimeout(getUserProfile(user.id), 5000);
-        setProfile(data);
-      } catch (error) {
+  const refreshProfile = useCallback(async () => {
+    const userId = user?.id;
+    if (!userId) return null;
+    try {
+      const { data, error } = await withTimeout(getUserProfile(userId), 5000);
+      if (error) {
         console.error('Error refreshing profile:', error);
+        return null;
       }
+      setProfile(data);
+      return data;
+    } catch (error) {
+      console.error('Error refreshing profile:', error);
+      return null;
     }
-  };
+  }, [user?.id]);
 
   useEffect(() => {
     let isMounted = true;
@@ -98,17 +109,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } finally {
         if (isMounted) {
+          setSessionReady(true);
           setIsLoading(false);
         }
       }
     };
 
     checkUser();
-
-    // Never block the app on auth — show UI after 4s even if Supabase is slow
-    const loadingCap = window.setTimeout(() => {
-      if (isMounted) setIsLoading(false);
-    }, 4000);
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
@@ -147,12 +154,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setProfile(null);
       }
 
+      setSessionReady(true);
       setIsLoading(false);
     });
 
     return () => {
       isMounted = false;
-      window.clearTimeout(loadingCap);
       authListener.subscription.unsubscribe();
     };
   }, []);
@@ -164,6 +171,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     profile,
     isAuthenticated: !!user || isDemoMode,
     isLoading,
+    sessionReady,
     isDemoUser,
     isDemoMode,
     refreshProfile

@@ -18,11 +18,15 @@ const LoginPage: React.FC = () => {
   const location = useLocation();
   const { isAuthenticated } = useAuth();
 
-  const successMessage = (location.state as any)?.message;
+  const successMessage = (location.state as { message?: string })?.message;
+  const redirectTo =
+    (location.state as { from?: string })?.from?.startsWith('/')
+      ? (location.state as { from: string }).from
+      : '/dashboard2';
 
   const handleDemoDashboard = () => {
     enableDemoMode();
-    navigate('/dashboard');
+    navigate(redirectTo, { replace: true });
   };
 
   const handleGoogleSignIn = async () => {
@@ -37,9 +41,9 @@ const LoginPage: React.FC = () => {
 
   React.useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard');
+      navigate(redirectTo, { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, redirectTo]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -53,7 +57,7 @@ const LoginPage: React.FC = () => {
         throw error;
       }
       
-      navigate('/dashboard');
+      navigate(redirectTo, { replace: true });
     } catch (error: any) {
       setError(error.message || 'Failed to sign in');
       setIsLoading(false);

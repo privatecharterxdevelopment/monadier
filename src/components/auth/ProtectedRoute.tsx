@@ -1,54 +1,58 @@
 import React, { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { enableDemoMode, isDemoModeAllowed } from '../../lib/demoMode';
+import { enableDemoMode, isDemoModeAllowed, isDemoModeEnabled } from '../../lib/demoMode';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, sessionReady } = useAuth();
+  const location = useLocation();
   const [showBypass, setShowBypass] = useState(false);
-  const demoBypassAllowed = import.meta.env.DEV;
-  const [bypassed, setBypassed] = useState(() => {
-    return demoBypassAllowed && localStorage.getItem('demoMode') === 'true';
-  });
+  const demoBypassAllowed = isDemoModeAllowed();
 
-  // Show bypass option after 3 seconds of loading
   useEffect(() => {
-    if (isLoading) {
-      const timer = setTimeout(() => {
-        setShowBypass(true);
-      }, 3000);
+    if (isLoading || !sessionReady) {
+      const timer = setTimeout(() => setShowBypass(true), 3000);
       return () => clearTimeout(timer);
     }
-  }, [isLoading]);
+    setShowBypass(false);
+  }, [isLoading, sessionReady]);
 
   const handleBypass = () => {
     enableDemoMode();
+    window.location.reload();
   };
+
+  // Dev demo mode — same tab, no re-login when already enabled
+  if (demoBypassAllowed && isDemoModeEnabled()) {
+    return <>{children}</>;
+  }
 
   if (isAuthenticated) {
     return <>{children}</>;
   }
 
-  if (isLoading) {
+  // Still restoring Supabase session from localStorage — do NOT send to /login yet
+  if (!sessionReady || isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen auth-page">
         <div className="animate-pulse-subtle mb-4">
           <span className="font-display text-accent text-3xl">Monadier</span>
         </div>
-        <p className="text-secondary text-sm mb-4">Loading...</p>
+        <p className="text-[#52525b] text-sm mb-4">Restoring your session…</p>
 
         {showBypass && demoBypassAllowed && (
           <div className="text-center">
-            <p className="text-secondary text-xs mb-2">Taking too long?</p>
+            <p className="text-[#71717a] text-xs mb-2">Offline or slow network?</p>
             <button
+              type="button"
               onClick={handleBypass}
-              className="px-4 py-2 bg-black/[0.06] hover:bg-white/15 text-accent text-sm rounded-lg transition-colors"
+              className="px-4 py-2 bg-[#0a0a0a] text-white text-sm rounded-full transition-colors hover:bg-[#27272a]"
             >
-              Continue in Demo Mode
+              Continue in demo mode (dev)
             </button>
           </div>
         )}
@@ -56,7 +60,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  return <Navigate to="/login" state={{ from: '/dashboard' }} />;
+  const redirectTo = `${location.pathname}${location.search}`;
+
+  return <Navigate to="/login" replace state={{ from: redirectTo }} />;
 };
 
 export default ProtectedRoute;

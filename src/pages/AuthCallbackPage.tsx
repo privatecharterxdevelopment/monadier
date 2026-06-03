@@ -35,7 +35,7 @@ const AuthCallbackPage: React.FC = () => {
       if (event === 'PASSWORD_RECOVERY' || isRecovery) {
         go('/reset-password');
       } else if (event === 'SIGNED_IN') {
-        go('/dashboard');
+        go('/dashboard2');
       }
     });
 
@@ -53,7 +53,7 @@ const AuthCallbackPage: React.FC = () => {
         if (sessionError) throw sessionError;
 
         if (session) {
-          go(isRecovery ? '/reset-password' : '/dashboard');
+          go(isRecovery ? '/reset-password' : '/dashboard2');
           return;
         }
 
@@ -62,7 +62,7 @@ const AuthCallbackPage: React.FC = () => {
           await new Promise((r) => setTimeout(r, 800));
           const { data: { session: retry } } = await supabase.auth.getSession();
           if (retry) {
-            go(isRecovery ? '/reset-password' : '/dashboard');
+            go(isRecovery ? '/reset-password' : '/dashboard2');
             return;
           }
         }

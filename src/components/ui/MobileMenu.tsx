@@ -79,7 +79,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
 
                 <div className="pt-4 border-t border-black/[0.06] flex flex-col space-y-3">
                   {isAuthenticated ? (
-                    <Link to="/dashboard" onClick={() => setIsOpen(false)}>
+                    <Link to="/dashboard2" onClick={() => setIsOpen(false)}>
                       <button className="w-full px-4 py-2.5 bg-white text-gray-900 rounded-full text-sm font-medium hover:bg-gray-100 transition-colors">
                         Dashboard
                       </button>

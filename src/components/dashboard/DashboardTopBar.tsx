@@ -19,8 +19,8 @@ import { signOut } from '../../lib/supabase';
 
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/dashboard': { title: 'Overview', subtitle: 'Vault, wallet & recent activity' },
-  '/dashboard/chart-trades': { title: 'Chart trades', subtitle: 'Manual trading & live analysis' },
-  '/dashboard/bot-trading': { title: 'Bot history', subtitle: 'Positions, P/L & approvals' },
+  '/dashboard/chart-trades': { title: 'Trading terminal', subtitle: 'Chart, vault, positions & bot settings' },
+  '/dashboard/bot-trading': { title: 'Trading terminal', subtitle: 'Chart, vault, positions & bot settings' },
   '/dashboard/subscriptions': { title: 'Plans', subtitle: 'Subscription & desktop license' },
   '/dashboard/downloads': { title: 'Downloads', subtitle: 'Desktop app & resources' },
   '/dashboard/profile': { title: 'Profile', subtitle: 'Account, wallets & security' },
@@ -34,7 +34,12 @@ function resolvePageMeta(pathname: string) {
   return { title: 'Dashboard', subtitle: '' };
 }
 
-const DashboardTopBar: React.FC = () => {
+type DashboardTopBarProps = {
+  /** Slim bar when page has its own Coinglass terminal header */
+  compact?: boolean;
+};
+
+const DashboardTopBar: React.FC<DashboardTopBarProps> = ({ compact = false }) => {
   const { profile, user } = useAuth();
   const { planTier } = useSubscription();
   const navigate = useNavigate();
@@ -94,28 +99,36 @@ const DashboardTopBar: React.FC = () => {
           : 'Free';
 
   return (
-    <header className="dashboard-topbar sticky top-0 z-30 mb-6">
-      <div className="rounded-2xl border border-[#c5c5cb] bg-white/70 backdrop-blur-xl px-4 py-4 md:px-6 shadow-sm">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-[#a1a1aa] mb-1">
-              {pageMeta.title}
-            </p>
-            <h1 className="dashboard-welcome-heading font-display text-xl md:text-2xl font-semibold tracking-tight text-[#0a0a0a]">
-              {isOverview ? `Welcome, ${displayName}` : pageMeta.title}
-            </h1>
-            <p className="text-sm text-[#52525b] mt-0.5 truncate">
-              {isOverview
-                ? new Date().toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    month: 'long',
-                    day: 'numeric',
-                  })
-                : pageMeta.subtitle}
-            </p>
-          </div>
+    <header className={`dashboard-topbar sticky top-0 z-30 ${compact ? 'mb-3' : 'mb-6'}`}>
+      <div
+        className={`rounded-2xl border border-[#c5c5cb] bg-white/70 backdrop-blur-xl shadow-sm ${
+          compact ? 'px-3 py-2 md:px-4' : 'px-4 py-4 md:px-6'
+        }`}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {!compact && (
+            <div className="min-w-0">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-[#a1a1aa] mb-1">
+                {pageMeta.title}
+              </p>
+              <h1 className="dashboard-welcome-heading font-display text-xl md:text-2xl font-semibold tracking-tight text-[#0a0a0a]">
+                {isOverview ? `Welcome, ${displayName}` : pageMeta.title}
+              </h1>
+              <p className="text-sm text-[#52525b] mt-0.5 truncate">
+                {isOverview
+                  ? new Date().toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      month: 'long',
+                      day: 'numeric',
+                    })
+                  : pageMeta.subtitle}
+              </p>
+            </div>
+          )}
 
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div
+            className={`flex items-center gap-2 sm:gap-3 shrink-0 ${compact ? 'w-full sm:justify-end' : ''}`}
+          >
             <button
               type="button"
               onClick={() => open()}

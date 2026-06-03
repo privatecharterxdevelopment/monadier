@@ -78,7 +78,7 @@ export async function applySettledCloseToDatabase(params: {
       status: 'closed',
       closed_at: closedAt,
       close_reason: closeReason,
-      close_tx_hash: closeResult.txHash,
+      exit_tx_hash: closeResult.txHash,
       profit_loss: profitLoss,
       profit_loss_percent: profitLossPercent,
       exit_price: exitPrice,

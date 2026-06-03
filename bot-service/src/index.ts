@@ -375,9 +375,7 @@ async function processUserTrades(
     // 6. Get user's trading settings from Supabase (risk, leverage, SL, TP)
     const userSettings = await subscriptionService.getUserTradingSettings(userAddress, chainId);
     const subscription = await subscriptionService.getSubscription(userAddress);
-    // Pro/Elite users can use up to 50x, others max 25x
-    const isProOrElite = subscription?.planTier === 'pro' || subscription?.planTier === 'elite' || subscription?.planTier === 'desktop';
-    const maxLeverage = isProOrElite ? 50 : 25;
+    const maxLeverage = config.leverage.elite;
     const leverage = Math.min(userSettings.leverageMultiplier || 1, maxLeverage);
     const stopLossPercent = userSettings.stopLossPercent || 5;
     const takeProfitPercent = userSettings.takeProfitPercent || 10;
