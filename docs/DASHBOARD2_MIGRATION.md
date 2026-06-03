@@ -42,7 +42,7 @@ supabase db push                                   # apply pending
 | LVRG / bot settings on-chain `setSettings` | Done | `persistVaultSettings()` — LVRG panel + bot settings modal |
 | Stop bot closes open positions | Done | `markAllOpenPositionsClosing` on stop |
 | Single vault redeploy + user migration comms | Planned |
-| `positions` ↔ chain reconciliation job | Partial |
+| `positions` ↔ chain reconciliation | Done | Bot every 5m + client hook on dashboard2; RLS `client_reconciled` |
 
 ## Close position flows
 

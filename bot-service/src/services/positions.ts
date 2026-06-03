@@ -655,6 +655,28 @@ export class PositionService {
    * Mark ALL positions for a user/token as synced (closed with 0 balance)
    * Called when on-chain balance is 0 but database has open positions
    */
+  /**
+   * Positions stuck in `closing` longer than maxMinutes (bot missed or vault already settled).
+   */
+  async getStuckClosingPositions(
+    chainId: number,
+    maxMinutes = 20
+  ): Promise<Position[]> {
+    const cutoff = new Date(Date.now() - maxMinutes * 60 * 1000).toISOString();
+    const { data, error } = await this.supabase
+      .from('positions')
+      .select('*')
+      .eq('chain_id', chainId)
+      .eq('status', 'closing')
+      .lt('updated_at', cutoff);
+
+    if (error) {
+      logger.error('Failed to get stuck closing positions', { error });
+      return [];
+    }
+    return data || [];
+  }
+
   async syncPositionsWithChain(walletAddress: string, chainId: number, tokenAddress: string, currentPrice?: number): Promise<number> {
     // First fetch positions to calculate P/L
     const { data: positions } = await this.supabase

@@ -975,6 +975,41 @@ async function runReconciliationCycle(): Promise<void> {
       }
     }
 
+    // Stuck `closing` — vault already flat → sync DB; vault still active → leave for monitor cycle
+    for (const chainId of ACTIVE_CHAINS) {
+      const stuck = await positionService.getStuckClosingPositions(chainId, 20);
+      for (const position of stuck) {
+        try {
+          const tokenAddress = position.token_address as `0x${string}`;
+          const vaultHasPosition = await tradingV7GMXService.hasOpenPosition(
+            position.wallet_address as `0x${string}`,
+            tokenAddress
+          );
+          if (!vaultHasPosition) {
+            const price = await tradingV7GMXService.getTokenPrice(tokenAddress);
+            const currentPrice = price?.max || 0;
+            const n = await positionService.syncPositionsWithChain(
+              position.wallet_address,
+              chainId,
+              tokenAddress,
+              currentPrice
+            );
+            if (n > 0) {
+              logger.info('Reconciliation: cleared stuck closing (vault inactive)', {
+                positionId: position.id.slice(0, 8),
+                wallet: position.wallet_address.slice(0, 10),
+              });
+            }
+          }
+        } catch (err: any) {
+          logger.error('Stuck closing reconciliation error', {
+            positionId: position.id,
+            error: err?.message,
+          });
+        }
+      }
+    }
+
     logger.info('Position reconciliation complete');
   } catch (err) {
     logger.error('Error in reconciliation cycle', { error: err });

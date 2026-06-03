@@ -5,6 +5,7 @@ import { useWeb3 } from '../../contexts/Web3Context';
 import { useUserLocale } from '../../hooks/useUserLocale';
 import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
+import { usePositionReconciliation } from '../../hooks/usePositionReconciliation';
 import TerminalTradePanel from '../../components/terminal/TerminalTradePanel';
 import TerminalPositionsDock from '../../components/terminal/TerminalPositionsDock';
 import TradingBotPage from './TradingBotPage';
@@ -40,6 +41,8 @@ const Dashboard2Page: React.FC = () => {
     refresh();
     setHistoryTick((n) => n + 1);
   };
+
+  usePositionReconciliation(handleRefresh);
 
   const scrollToHistory = () => {
     document.getElementById('term-history-dock')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
