@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Lock, Zap, Crown, Rocket, Check, Play, Square, Clock, Users, Wallet, ArrowUp, ArrowDown, ZoomIn, ZoomOut, TrendingUp, TrendingDown, Activity, ExternalLink, RefreshCw, AlertCircle, Loader2, Settings, Pause, TestTube, History, Timer, Bell } from 'lucide-react';
+import { Bot, Lock, Zap, Crown, Rocket, Check, Play, Square, Clock, Users, Wallet, ArrowUp, ArrowDown, ZoomIn, ZoomOut, TrendingUp, TrendingDown, Activity, ExternalLink, RefreshCw, AlertCircle, Loader2, Settings, Pause, TestTube, History, Timer, Bell, Crosshair, Ruler, RotateCcw, Hand } from 'lucide-react';
 import { useWeb3, RealSwapResult } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -213,6 +213,21 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [timeframe, setTimeframe] = useState('5m');
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [chartScrollOffset, setChartScrollOffset] = useState(0);
+  const [chartTool, setChartTool] = useState<'pan' | 'crosshair' | 'measure'>('pan');
+  const [crosshair, setCrosshair] = useState<{ xPct: number; yPct: number; price: number } | null>(null);
+  const [measurePoints, setMeasurePoints] = useState<{ xPct: number; price: number }[]>([]);
+  const chartViewportRef = useRef({
+    minPrice: 0,
+    maxPrice: 1,
+    padding: 0,
+    priceRange: 1,
+    baseVisible: 80,
+    maxScroll: 0,
+  });
+  const isPanningRef = useRef(false);
+  const panStartXRef = useRef(0);
+  const panStartScrollRef = useRef(0);
   const [strategy, setStrategy] = useState<Strategy | null>(null);
   const [activeTrade, setActiveTrade] = useState<ActiveTrade | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
@@ -768,12 +783,84 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
     return () => ro.disconnect();
   }, [chartFill, isTerminalChart]);
 
+  const terminalChartInteractive = isTerminalChart && chartFill;
+
+  useEffect(() => {
+    if (!terminalChartInteractive) return;
+    const el = chartPlotRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const { maxScroll, baseVisible } = chartViewportRef.current;
+      if (e.shiftKey) {
+        setChartScrollOffset((o) => Math.min(maxScroll, Math.max(0, o + (e.deltaY > 0 ? 8 : -8))));
+      } else {
+        setZoomLevel((z) => Math.min(3, Math.max(0.5, z + (e.deltaY > 0 ? -0.12 : 0.12))));
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [terminalChartInteractive, candles.length, zoomLevel]);
+
+  const handleChartPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!terminalChartInteractive) return;
+    const el = chartPlotRef.current;
+    if (!el) return;
+
+    if (chartTool === 'measure') {
+      const rect = el.getBoundingClientRect();
+      const xPct = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+      const yPct = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+      const price = priceFromChartY(yPct);
+      setMeasurePoints((prev) => {
+        if (prev.length >= 2) return [{ xPct, price }];
+        return [...prev, { xPct, price }];
+      });
+      return;
+    }
+
+    isPanningRef.current = true;
+    panStartXRef.current = e.clientX;
+    panStartScrollRef.current = chartScrollOffset;
+    el.setPointerCapture(e.pointerId);
+  };
+
+  const handleChartPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!terminalChartInteractive) return;
+    const el = chartPlotRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const xPct = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    const yPct = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+
+    if (chartTool === 'crosshair' && !isPanningRef.current) {
+      setCrosshair({ xPct, yPct, price: priceFromChartY(yPct) });
+    }
+
+    if (isPanningRef.current && chartTool === 'pan') {
+      const width = rect.width || 1;
+      const deltaX = e.clientX - panStartXRef.current;
+      const { baseVisible, maxScroll } = chartViewportRef.current;
+      const candleDelta = Math.round((deltaX / width) * baseVisible);
+      setChartScrollOffset(
+        Math.min(maxScroll, Math.max(0, panStartScrollRef.current + candleDelta))
+      );
+    }
+  };
+
+  const handleChartPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    isPanningRef.current = false;
+    if (chartPlotRef.current?.hasPointerCapture(e.pointerId)) {
+      chartPlotRef.current.releasePointerCapture(e.pointerId);
+    }
+  };
+
   // Fetch candles — silent refresh avoids chart blink on interval updates
   const fetchCandles = async (symbol: string, interval: string, silent = false) => {
     try {
       if (!silent) setIsLoading(true);
       const response = await fetch(
-        `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=120`
+        `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=300`
       );
       const data = await response.json();
       if (!Array.isArray(data)) return;
@@ -844,7 +931,24 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
 
   useEffect(() => {
     fetchCandles(selectedPair.binanceSymbol, timeframe, false);
+    setChartScrollOffset(0);
+    setZoomLevel(1);
+    setMeasurePoints([]);
+    setCrosshair(null);
   }, [selectedPair.binanceSymbol, timeframe]);
+
+  const resetChartView = useCallback(() => {
+    setChartScrollOffset(0);
+    setZoomLevel(1);
+    setMeasurePoints([]);
+    setCrosshair(null);
+  }, []);
+
+  const priceFromChartY = useCallback((yPct: number) => {
+    const v = chartViewportRef.current;
+    const span = v.priceRange + v.padding * 2;
+    return v.minPrice - v.padding + span * (1 - yPct);
+  }, []);
 
   // Fetch native token prices for gas estimation
   useEffect(() => {
@@ -1633,7 +1737,7 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
 
   const chartHeight =
     isTerminalChart && chartFill
-      ? Math.max(plotHeight, 120)
+      ? Math.max(plotHeight, 160)
       : isTerminalChart
         ? 360
         : chartCompact
@@ -1657,15 +1761,28 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
       );
     }
 
-    const candlesToShow = Math.floor(
-      (isTerminalChart ? 100 : 60) / zoomLevel
-    );
-    const displayCandles = candles.slice(-candlesToShow);
+    const baseVisibleCount = Math.floor((isTerminalChart ? 100 : 60) / zoomLevel);
+    const maxScroll = Math.max(0, candles.length - baseVisibleCount);
+    const effectiveScroll = Math.min(chartScrollOffset, maxScroll);
+    const endIdx = candles.length - effectiveScroll;
+    const startIdx = Math.max(0, endIdx - baseVisibleCount);
+    const displayCandles = candles.slice(startIdx, endIdx);
     const prices = displayCandles.flatMap(c => [c.high, c.low]);
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
     const priceRange = maxPrice - minPrice || 1;
     const padding = priceRange * 0.05;
+
+    if (isTerminalChart) {
+      chartViewportRef.current = {
+        minPrice,
+        maxPrice,
+        padding,
+        priceRange,
+        baseVisible: baseVisibleCount,
+        maxScroll,
+      };
+    }
 
     const scaleY = (price: number) => {
       return chartHeight - ((price - (minPrice - padding)) / (priceRange + padding * 2)) * chartHeight;
@@ -2028,7 +2145,72 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
             </g>
           )}
 
+          {terminalChartInteractive && crosshair && chartTool === 'crosshair' && (
+            <g pointerEvents="none">
+              <line
+                x1={`${crosshair.xPct * 100}%`}
+                y1={0}
+                x2={`${crosshair.xPct * 100}%`}
+                y2={chartHeight}
+                stroke="#71717a"
+                strokeWidth="1"
+              />
+              <line
+                x1={0}
+                y1={scaleY(crosshair.price)}
+                x2="100%"
+                y2={scaleY(crosshair.price)}
+                stroke="#71717a"
+                strokeWidth="1"
+                strokeDasharray="4,3"
+              />
+            </g>
+          )}
+
+          {terminalChartInteractive && measurePoints.length === 2 && (
+            <g pointerEvents="none">
+              <line
+                x1={`${measurePoints[0].xPct * 100}%`}
+                y1={scaleY(measurePoints[0].price)}
+                x2={`${measurePoints[1].xPct * 100}%`}
+                y2={scaleY(measurePoints[1].price)}
+                stroke="#3b82f6"
+                strokeWidth="1.5"
+              />
+              {(() => {
+                const pct =
+                  measurePoints[0].price > 0
+                    ? ((measurePoints[1].price - measurePoints[0].price) / measurePoints[0].price) * 100
+                    : 0;
+                const midX = ((measurePoints[0].xPct + measurePoints[1].xPct) / 2) * 100;
+                const midY = (scaleY(measurePoints[0].price) + scaleY(measurePoints[1].price)) / 2;
+                return (
+                  <text
+                    x={`${midX}%`}
+                    y={midY - 6}
+                    textAnchor="middle"
+                    className="text-[10px] fill-[#3b82f6] font-medium"
+                  >
+                    {`${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`}
+                  </text>
+                );
+              })()}
+            </g>
+          )}
+
         </svg>
+
+        {terminalChartInteractive && chartTool === 'crosshair' && crosshair && (
+          <div
+            className="pointer-events-none absolute z-20 rounded-md bg-[#0a0a0a]/85 px-2 py-1 text-[10px] font-mono text-white"
+            style={{
+              left: `clamp(8px, ${crosshair.xPct * 100}%, calc(100% - 88px))`,
+              top: 8,
+            }}
+          >
+            ${formatPrice(crosshair.price, 2)}
+          </div>
+        )}
 
         <div className="absolute bottom-0 left-0 right-16 h-10 flex items-end gap-[1px] opacity-30">
           {displayCandles.map((candle, idx) => {
@@ -2045,7 +2227,8 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
           })}
         </div>
 
-        {/* Real-time Indicators Panel */}
+        {/* Real-time Indicators Panel — hidden on dashboard2 chart for cleaner tools */}
+        {!terminalChartInteractive && (
         <div className="absolute top-3 left-3 bg-white/75 backdrop-blur-md rounded-xl border border-[#c5c5cb] p-3 text-xs z-10 shadow-lg">
           <div className="grid grid-cols-2 gap-x-4 gap-y-2">
             {/* RSI */}
@@ -2078,6 +2261,7 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
             </div>
           </div>
         </div>
+        )}
       </div>
     );
   };
@@ -2093,7 +2277,7 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
           </div>
         )}
 
-        <div className="flex-1 min-h-[240px] rounded-xl border border-[#c5c5cb] bg-white/50 backdrop-blur-md overflow-hidden flex flex-col">
+        <div className="flex-1 min-h-[240px] rounded-xl bg-white/50 backdrop-blur-md overflow-hidden flex flex-col border-0">
           <div className="px-3 py-2 border-b border-[#ececef] flex items-center justify-between gap-3 shrink-0">
             <div className="flex items-center gap-3 min-w-0 flex-wrap">
               <span className="text-sm font-medium text-[#0a0a0a] shrink-0">Live chart</span>
@@ -2107,7 +2291,64 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
                 </span>
               </span>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+              <div className="flex items-center gap-0.5 mr-1 rounded-lg bg-[#f7f7f9] p-0.5">
+                <button
+                  type="button"
+                  title="Pan — drag chart"
+                  onClick={() => setChartTool('pan')}
+                  className={`p-1.5 rounded ${chartTool === 'pan' ? 'bg-[#2a2a2e] text-white' : 'text-[#52525b] hover:bg-white'}`}
+                >
+                  <Hand size={14} />
+                </button>
+                <button
+                  type="button"
+                  title="Crosshair"
+                  onClick={() => {
+                    setChartTool('crosshair');
+                    setMeasurePoints([]);
+                  }}
+                  className={`p-1.5 rounded ${chartTool === 'crosshair' ? 'bg-[#2a2a2e] text-white' : 'text-[#52525b] hover:bg-white'}`}
+                >
+                  <Crosshair size={14} />
+                </button>
+                <button
+                  type="button"
+                  title="Measure — click two points"
+                  onClick={() => {
+                    setChartTool('measure');
+                    setMeasurePoints([]);
+                    setCrosshair(null);
+                  }}
+                  className={`p-1.5 rounded ${chartTool === 'measure' ? 'bg-[#2a2a2e] text-white' : 'text-[#52525b] hover:bg-white'}`}
+                >
+                  <Ruler size={14} />
+                </button>
+                <button
+                  type="button"
+                  title="Zoom out"
+                  onClick={() => setZoomLevel((z) => Math.max(0.5, z - 0.25))}
+                  className="p-1.5 rounded text-[#52525b] hover:bg-white"
+                >
+                  <ZoomOut size={14} />
+                </button>
+                <button
+                  type="button"
+                  title="Zoom in"
+                  onClick={() => setZoomLevel((z) => Math.min(3, z + 0.25))}
+                  className="p-1.5 rounded text-[#52525b] hover:bg-white"
+                >
+                  <ZoomIn size={14} />
+                </button>
+                <button
+                  type="button"
+                  title="Back to latest"
+                  onClick={resetChartView}
+                  className="p-1.5 rounded text-[#52525b] hover:bg-white"
+                >
+                  <RotateCcw size={14} />
+                </button>
+              </div>
               {['1m', '5m', '15m', '1h', '4h', '1d'].map((tf) => (
                 <button
                   key={tf}
@@ -2126,11 +2367,25 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
           </div>
           <div
             ref={chartPlotRef}
-            className={`flex-1 min-h-0 p-3 ${chartFill ? 'term-chart-plot' : ''}`}
+            className={`flex-1 min-h-0 p-3 ${chartFill ? 'term-chart-plot term-chart-plot--interactive' : ''} ${
+              chartTool === 'measure' ? 'term-chart-plot--measure' : chartTool === 'pan' ? 'term-chart-plot--pan' : ''
+            }`}
             style={chartFill ? undefined : { minHeight: chartHeight }}
+            onPointerDown={terminalChartInteractive ? handleChartPointerDown : undefined}
+            onPointerMove={terminalChartInteractive ? handleChartPointerMove : undefined}
+            onPointerUp={terminalChartInteractive ? handleChartPointerUp : undefined}
+            onPointerLeave={terminalChartInteractive ? handleChartPointerUp : undefined}
           >
             {renderCandlestickChart()}
           </div>
+          {terminalChartInteractive && (
+            <p className="px-3 pb-2 text-[10px] text-[#71717a] shrink-0">
+              {chartTool === 'pan' && 'Drag to scroll · Wheel zoom · Shift+wheel scroll back'}
+              {chartTool === 'crosshair' && 'Crosshair — hover for price'}
+              {chartTool === 'measure' && 'Click two points to measure % change'}
+              {chartScrollOffset > 0 && ` · ${chartScrollOffset} bars back`}
+            </p>
+          )}
         </div>
       </div>
     );

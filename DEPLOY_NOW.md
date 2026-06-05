@@ -61,10 +61,11 @@ http://localhost:5173/auth/callback
 
 ---
 
-## Bot service (required — no Railway)
+## Bot service (required — Railway or Render)
 
 Without a running bot: no auto-trading, no live signals in dashboard.
 
 1. Deploy `bot-service` — see **[docs/BOT_DEPLOY.md](docs/BOT_DEPLOY.md)** (Render / Fly / VPS).
-2. Vercel env: `VITE_BOT_API_URL=https://YOUR-BOT-URL` (no trailing slash).
+2. Railway: `docs/RAILWAY.md` — root dir `bot-service`, redeploy, `./scripts/verify-bot-api.sh <url>`
+3. Vercel: optional `VITE_BOT_API_URL` — production uses `/bot-service` proxy in `vercel.json` → Railway. Redeploy after pull.
 3. Redeploy frontend after bot is up (`curl YOUR-BOT-URL/health`).

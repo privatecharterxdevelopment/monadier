@@ -31,3 +31,4 @@ supabase/.env
 *.sln
 *.sw?
 *.png
+.vercel

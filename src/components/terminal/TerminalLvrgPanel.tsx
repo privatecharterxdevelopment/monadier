@@ -96,7 +96,7 @@ const TerminalLvrgPanel: React.FC<Props> = ({
 
   return (
     <div className={`term-panel-stack ${disabled ? 'term-panel-stack--locked' : ''}`}>
-      <div className="term-panel-card">
+      <div className="term-panel-card term-panel-card--muted">
         <span className="term-panel-card-label">Leverage</span>
         <strong className="term-panel-card-value">{leverage}x</strong>
         <span className="term-panel-card-hint">

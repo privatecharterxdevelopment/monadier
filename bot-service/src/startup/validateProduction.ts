@@ -5,12 +5,16 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import {
   MONADIER_VAULT_V11_ADDRESS,
+  MONADIER_VAULT_V11_BOT_ADDRESS,
+  MONADIER_VAULT_V11_TREASURY_ADDRESS,
   MONADIER_VAULT_CHAIN_ID,
   MONADIER_VAULT_LABEL,
 } from '../monadierVault';
 
 const VAULT_HEALTH_ABI = parseAbi([
   'function getHealthStatus() view returns (uint256 realBalance, uint256 totalValueLocked, bool isSolvent, int256 surplus)',
+  'function bot() view returns (address)',
+  'function treasury() view returns (address)',
 ]);
 
 const EXPECTED_BOT_ADDRESS = process.env.EXPECTED_BOT_ADDRESS as `0x${string}` | undefined;
@@ -45,17 +49,67 @@ export async function validateProductionEnvironment(): Promise<void> {
     throw new Error(`No contract bytecode at vault ${vault} — wrong network or address`);
   }
 
-  const [realBalance, tvl, isSolvent, surplus] = await client.readContract({
-    address: vault,
-    abi: VAULT_HEALTH_ABI,
-    functionName: 'getHealthStatus',
-  });
+  const [health, onChainBot, onChainTreasury] = await Promise.all([
+    client.readContract({
+      address: vault,
+      abi: VAULT_HEALTH_ABI,
+      functionName: 'getHealthStatus',
+    }),
+    client.readContract({
+      address: vault,
+      abi: VAULT_HEALTH_ABI,
+      functionName: 'bot',
+    }),
+    client.readContract({
+      address: vault,
+      abi: VAULT_HEALTH_ABI,
+      functionName: 'treasury',
+    }),
+  ]);
+
+  const [realBalance, tvl, isSolvent, surplus] = health;
+
+  const botLower = botAccount.address.toLowerCase();
+  const onChainBotLower = (onChainBot as string).toLowerCase();
+  const envTreasuryLower = config.treasuryAddress.toLowerCase();
+  const onChainTreasuryLower = (onChainTreasury as string).toLowerCase();
+
+  if (onChainBotLower !== botLower) {
+    throw new Error(
+      `CRITICAL SECURITY: BOT_PRIVATE_KEY wallet ${botAccount.address} does not match vault.bot() ${onChainBot}. ` +
+        'Deposits would send fees to the wrong address. Fix BOT_PRIVATE_KEY or redeploy vault.'
+    );
+  }
+
+  if (onChainBotLower !== MONADIER_VAULT_V11_BOT_ADDRESS.toLowerCase()) {
+    logger.warn('On-chain bot differs from canonical V11 bot — verify contract is authentic', {
+      onChain: onChainBot,
+      canonical: MONADIER_VAULT_V11_BOT_ADDRESS,
+    });
+  }
+
+  if (envTreasuryLower !== onChainTreasuryLower) {
+    throw new Error(
+      `CRITICAL SECURITY: TREASURY_ADDRESS env ${config.treasuryAddress} does not match vault.treasury() ${onChainTreasury}. ` +
+        'Subscription payments would be credited to the wrong wallet.'
+    );
+  }
+
+  if (onChainTreasuryLower !== MONADIER_VAULT_V11_TREASURY_ADDRESS.toLowerCase()) {
+    logger.warn('On-chain treasury differs from canonical V11 treasury', {
+      onChain: onChainTreasury,
+      canonical: MONADIER_VAULT_V11_TREASURY_ADDRESS,
+    });
+  }
 
   logger.info('Production vault check', {
     label: MONADIER_VAULT_LABEL,
     vault,
     chainId: MONADIER_VAULT_CHAIN_ID,
     botWallet: botAccount.address,
+    onChainBot,
+    onChainTreasury,
+    envTreasury: config.treasuryAddress,
     realUsdc: formatUnits(realBalance, 6),
     tvlUsdc: formatUnits(tvl, 6),
     isSolvent,

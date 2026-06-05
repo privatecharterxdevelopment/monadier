@@ -17,6 +17,12 @@ import {
   markDbPositionSyncedOnly,
 } from './services/positionSettlement';
 import { checkWinRateGate } from './services/tradeGates';
+import {
+  profitLockActivateAt,
+  shouldActivateProfitLock,
+  shouldCloseProfitLock,
+  shouldTakeProfitOnPnl,
+} from './services/pnlExits';
 
 // Supabase client for position queries
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
@@ -637,82 +643,12 @@ async function runPositionMonitoringCycle(): Promise<void> {
     const tokenConfigs = TRADE_TOKENS[42161];
 
     for (const userAddress of users) {
+      const userSettings = await subscriptionService.getUserTradingSettings(userAddress, 42161);
+      const takeProfitPct = userSettings.takeProfitPercent ?? 5;
+      const profitLockPct = userSettings.stopLossPercent ?? 1;
+
       for (const tokenConfig of tokenConfigs) {
         try {
-          // Check if user has active position
-          const pnlResult = await tradingV7GMXService.getPositionPnL(
-            userAddress,
-            tokenConfig.address as `0x${string}`
-          );
-
-          if (pnlResult) {
-            const pnlPercent = pnlResult.pnlPercent;
-
-            // PROFIT LOCK: When PnL hits +0.6%, lock in 0.5% profit
-            if (pnlPercent >= 0.6) {
-              // Get position from database to check if profit already locked
-              const { data: dbPos } = await supabase
-                .from('positions')
-                .select('*')
-                .eq('wallet_address', userAddress.toLowerCase())
-                .eq('token_symbol', tokenConfig.symbol)
-                .eq('status', 'open')
-                .single();
-
-              if (dbPos && !dbPos.profit_locked) {
-                logger.info('🔒 PROFIT LOCK TRIGGERED', {
-                  user: userAddress.slice(0, 10),
-                  token: tokenConfig.symbol,
-                  pnlPercent: pnlPercent.toFixed(2) + '%',
-                  lockingAt: '0.5%'
-                });
-
-                // Mark profit as locked in database
-                await supabase
-                  .from('positions')
-                  .update({
-                    profit_locked: true,
-                    profit_lock_price: pnlResult.currentPrice,
-                    trailing_stop_percent: 0.5 // Now trailing from 0.5% profit
-                  })
-                  .eq('id', dbPos.id);
-              }
-
-              // If profit locked and PnL drops to 0.5%, close with profit
-              if (dbPos?.profit_locked && pnlPercent <= 0.5 && pnlPercent > 0) {
-                logger.info('🎯 PROFIT LOCK CLOSE', {
-                  user: userAddress.slice(0, 10),
-                  token: tokenConfig.symbol,
-                  pnlPercent: pnlPercent.toFixed(2) + '%'
-                });
-
-                const closeResult = await tradingV7GMXService.closePosition(
-                  userAddress,
-                  tokenConfig.address as `0x${string}`,
-                  'profit_lock'
-                );
-
-                if (closeResult.success) {
-                  const applied = await applySettledCloseToDatabase({
-                    dbPosition: dbPos,
-                    closeResult,
-                    closeReason: 'profit_lock',
-                    saveTradeHistory: saveToTradeHistory,
-                  });
-                  if (applied.applied) {
-                    logger.info('PROFIT LOCK CLOSE — settlement saved', {
-                      pnl: closeResult.pnl,
-                      txHash: closeResult.txHash,
-                    });
-                    triggeredCount++;
-                  }
-                  continue;
-                }
-              }
-            }
-          }
-
-          // GET DATABASE POSITION FIRST (for position ID and entry data)
           const { data: dbPosition } = await supabase
             .from('positions')
             .select('*')
@@ -777,6 +713,100 @@ async function runPositionMonitoringCycle(): Promise<void> {
               });
             }
             continue;
+          }
+
+          const pnlResult = await tradingV7GMXService.getPositionPnL(
+            userAddress,
+            tokenConfig.address as `0x${string}`
+          );
+
+          if (pnlResult) {
+            const pnlPercent = pnlResult.pnlPercent;
+
+            if (shouldTakeProfitOnPnl(pnlPercent, takeProfitPct)) {
+              logger.info('🎯 TAKE PROFIT (PnL monitor)', {
+                user: userAddress.slice(0, 10),
+                token: tokenConfig.symbol,
+                pnlPercent: pnlPercent.toFixed(2) + '%',
+                target: takeProfitPct + '%',
+              });
+
+              const closeResult = await tradingV7GMXService.closePosition(
+                userAddress,
+                tokenConfig.address as `0x${string}`,
+                'take_profit'
+              );
+
+              if (closeResult.success) {
+                const applied = await applySettledCloseToDatabase({
+                  dbPosition,
+                  closeResult,
+                  closeReason: 'take_profit',
+                  saveTradeHistory: saveToTradeHistory,
+                });
+                if (applied.applied) {
+                  triggeredCount++;
+                }
+              }
+              continue;
+            }
+
+            if (
+              shouldActivateProfitLock(
+                pnlPercent,
+                profitLockPct,
+                Boolean(dbPosition.profit_locked)
+              )
+            ) {
+              logger.info('🔒 PROFIT LOCK ACTIVATED', {
+                user: userAddress.slice(0, 10),
+                token: tokenConfig.symbol,
+                pnlPercent: pnlPercent.toFixed(2) + '%',
+                lockAt: profitLockPct + '%',
+                activateAt: profitLockActivateAt(profitLockPct) + '%',
+              });
+
+              await supabase
+                .from('positions')
+                .update({
+                  profit_locked: true,
+                  profit_lock_price: pnlResult.currentPrice,
+                  profit_lock_percent: profitLockPct,
+                  trailing_stop_percent: profitLockPct,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', dbPosition.id);
+
+              dbPosition.profit_locked = true;
+            }
+
+            if (shouldCloseProfitLock(pnlPercent, profitLockPct, Boolean(dbPosition.profit_locked))) {
+              logger.info('🎯 PROFIT LOCK CLOSE', {
+                user: userAddress.slice(0, 10),
+                token: tokenConfig.symbol,
+                pnlPercent: pnlPercent.toFixed(2) + '%',
+                lockAt: profitLockPct + '%',
+              });
+
+              const closeResult = await tradingV7GMXService.closePosition(
+                userAddress,
+                tokenConfig.address as `0x${string}`,
+                'profit_lock'
+              );
+
+              if (closeResult.success) {
+                const applied = await applySettledCloseToDatabase({
+                  dbPosition,
+                  closeResult,
+                  closeReason: 'profit_lock',
+                  saveTradeHistory: saveToTradeHistory,
+                });
+                if (applied.applied) {
+                  triggeredCount++;
+                }
+              }
+              continue;
+            }
           }
 
           const result = await tradingV7GMXService.checkAndExecuteTriggers(
@@ -1263,8 +1293,7 @@ async function main(): Promise<void> {
   await paymentService.startMonitoring();
   logger.info('Payment monitoring started - watching treasury for incoming USDC');
 
-  // DISABLED: Was auto-upgrading ALL vault users to elite
-  // await subscriptionService.ensureSubscriptionsForVaultUsers();
+  await subscriptionService.ensureFreeSubscriptionsForMissingUsers();
 
   // Run immediately on startup
   await runTradingCycle();

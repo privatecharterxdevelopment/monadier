@@ -5,7 +5,11 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/((?!api/).*)",
+      "source": "/bot-service/:path*",
+      "destination": "https://monadier-production.up.railway.app/:path*"
+    },
+    {
+      "source": "/((?!api/|bot-service/).*)",
       "destination": "/index.html"
     }
   ],

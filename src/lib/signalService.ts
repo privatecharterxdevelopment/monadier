@@ -5,9 +5,20 @@
  * ensuring frontend and bot use the SAME signal logic.
  */
 
-// Bot service API (set VITE_BOT_API_URL in Vercel — see docs/BOT_DEPLOY.md)
-const BOT_API_URL =
-  import.meta.env.VITE_BOT_API_URL?.replace(/\/$/, '') || '';
+/**
+ * Same-origin /bot-service proxy (Vite dev + Vercel prod) → Railway bot.
+ * Override with VITE_BOT_API_URL=http://localhost:3001 when running bot-service locally.
+ */
+function getBotApiBase(): string {
+  const fromEnv = import.meta.env.VITE_BOT_API_URL?.replace(/\/$/, '') ?? '';
+  if (fromEnv) return fromEnv;
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/bot-service`;
+  }
+  return import.meta.env.DEV
+    ? 'http://localhost:3001'
+    : 'https://monadier-production.up.railway.app';
+}
 
 // Types matching the SignalEngine output
 export type Timeframe = '1m' | '5m' | '15m' | '1h' | '4h';
@@ -71,13 +82,22 @@ export async function fetchUnifiedSignal(
   symbol: string = 'ETHUSDT',
   timeframes: Timeframe[] = ['1m', '5m', '15m', '1h']
 ): Promise<UnifiedSignal | null> {
-  if (!BOT_API_URL) {
-    console.warn('[signalService] Set VITE_BOT_API_URL (see docs/BOT_DEPLOY.md)');
+  const base = getBotApiBase();
+  if (!base) {
+    console.warn('[signalService] Bot API base URL missing');
     return null;
   }
   try {
-    const url = `${BOT_API_URL}/api/signal?symbol=${symbol}&timeframes=${timeframes.join(',')}`;
-    const response = await fetch(url);
+    const url = `${base}/api/signal?symbol=${symbol}&timeframes=${timeframes.join(',')}`;
+    const response = await fetch(url, {
+      mode: 'cors',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(25000),
+    });
+    if (!response.ok) {
+      console.error('Signal fetch HTTP', response.status, response.statusText);
+      return null;
+    }
     const data: SignalResponse = await response.json();
 
     if (!data.success || !data.signal) {
@@ -99,9 +119,12 @@ export async function fetchTimeframeAnalysis(
   symbol: string = 'ETHUSDT',
   timeframe: Timeframe = '15m'
 ): Promise<TimeframeAnalysis | null> {
+  const base = getBotApiBase();
+  if (!base) return null;
   try {
-    const url = `${BOT_API_URL}/api/timeframe?symbol=${symbol}&tf=${timeframe}`;
-    const response = await fetch(url);
+    const url = `${base}/api/timeframe?symbol=${symbol}&tf=${timeframe}`;
+    const response = await fetch(url, { mode: 'cors', cache: 'no-store' });
+    if (!response.ok) return null;
     const data: TimeframeResponse = await response.json();
 
     if (!data.success || !data.analysis) {

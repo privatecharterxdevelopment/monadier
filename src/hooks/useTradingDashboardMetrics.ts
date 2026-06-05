@@ -17,6 +17,7 @@ export type TradingDashboardMetrics = {
   pnl7d: number;
   pnl30d: number;
   winRate: number;
+  closedTradesCount: number;
   autoTradeEnabled: boolean;
   withdrawableUsd: number;
   isLoading: boolean;
@@ -147,6 +148,7 @@ export function useTradingDashboardMetrics() {
         pnl7d: pnlInWindow(all, 24 * 7),
         pnl30d: pnlInWindow(all, 24 * 30),
         winRate: closed.length ? (wins / closed.length) * 100 : 0,
+        closedTradesCount: closed.length,
         autoTradeEnabled: vaultSettings?.auto_trade_enabled ?? false,
         withdrawableUsd,
         isLoading: false,

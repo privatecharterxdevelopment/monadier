@@ -1,3 +1,5 @@
+@import './styles/landing-gmx.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

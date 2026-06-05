@@ -815,9 +815,11 @@ export class TradingV7GMXService {
       // Get current price for logging
       const price = await this.getTokenPrice(signal.tokenAddress);
 
-      // Convert percent to basis points
-      const stopLossBps = BigInt(Math.round(signal.stopLossPercent * 100));
-      const takeProfitBps = BigInt(Math.round(signal.takeProfitPercent * 100));
+      // PnL-based TP / profit-lock are enforced by the bot monitor (collateral %, not price %).
+      // On-chain auto SL/TP/trailing stay disabled so user vault_settings are respected.
+      const stopLossBps = 0n;
+      const takeProfitBps = 0n;
+      const trailingSlBps = 0n;
 
       logger.info('Opening GMX position', {
         user: userAddress.slice(0, 10),
@@ -826,11 +828,10 @@ export class TradingV7GMXService {
         collateral: formatUnits(signal.collateralAmount, 6),
         leverage: signal.leverage + 'x',
         price: price?.max,
-        executionFee: formatUnits(executionFee, 18)
+        executionFee: formatUnits(executionFee, 18),
+        monitorTakeProfitPct: signal.takeProfitPercent + '%',
+        monitorProfitLockPct: signal.stopLossPercent + '%',
       });
-
-      // V8.2: Trailing stop of 0.5% (50 bps) - activates after 0.6% profit
-      const trailingSlBps = BigInt(50);
 
       // Execute openPosition with ETH for execution fee
       const txHash = await this.walletClient.writeContract({
@@ -928,6 +929,7 @@ export class TradingV7GMXService {
         txHash,
         trailingStopPercent: signal.stopLossPercent,
         takeProfitPercent: signal.takeProfitPercent,
+        profitLockPercent: signal.stopLossPercent,
         isLeveraged: true,
         leverageMultiplier: signal.leverage,
         collateralAmount: entryAmount,

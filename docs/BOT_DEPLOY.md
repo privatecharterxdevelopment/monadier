@@ -1,4 +1,4 @@
-# Bot-Service deployen (ohne Railway)
+# Bot-Service deployen
 
 Der **bot-service** muss 24/7 laufen. Ohne ihn gibt es:
 
@@ -10,7 +10,17 @@ Frontend: setze in **Vercel** `VITE_BOT_API_URL` auf die öffentliche URL deines
 
 ---
 
-## Option A — Render.com (empfohlen)
+## Option A — Railway (Monadier project)
+
+See **`docs/RAILWAY.md`** for project/service IDs, root directory `bot-service`, env vars, and verification.
+
+```bash
+./scripts/verify-bot-api.sh https://YOUR-SERVICE.up.railway.app
+```
+
+---
+
+## Option B — Render.com
 
 1. [render.com](https://render.com) → Account → **New** → **Blueprint**
 2. Repo `monadier` verbinden → `render.yaml` im Root wird erkannt
@@ -34,7 +44,7 @@ Frontend: setze in **Vercel** `VITE_BOT_API_URL` auf die öffentliche URL deines
 
 ---
 
-## Option B — Fly.io
+## Option C — Fly.io
 
 ```bash
 cd bot-service
@@ -48,7 +58,7 @@ fly certs show  # HTTPS URL
 
 ---
 
-## Option C — VPS (Hetzner / DigitalOcean)
+## Option D — VPS (Hetzner / DigitalOcean)
 
 ```bash
 # Auf dem Server

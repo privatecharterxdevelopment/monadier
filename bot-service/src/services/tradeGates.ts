@@ -27,7 +27,9 @@ export async function checkWinRateGate(
     return { allowed: true };
   }
 
-  const { data: closed, error } = await supabase
+  let rows: { profit_loss: number | null }[] = [];
+
+  const { data: closedPositions, error: posError } = await supabase
     .from('positions')
     .select('profit_loss')
     .eq('wallet_address', walletAddress.toLowerCase())
@@ -37,12 +39,26 @@ export async function checkWinRateGate(
     .order('closed_at', { ascending: false })
     .limit(100);
 
-  if (error) {
-    logger.warn('Win rate gate: could not read positions', { error: error.message });
-    return { allowed: true };
+  if (posError) {
+    logger.warn('Win rate gate: could not read positions', { error: posError.message });
+  } else {
+    rows = closedPositions ?? [];
   }
 
-  const rows = closed ?? [];
+  if (rows.length < minTradesRequired) {
+    const { data: historyRows, error: histError } = await supabase
+      .from('trade_history')
+      .select('profit_loss')
+      .eq('wallet_address', walletAddress.toLowerCase())
+      .eq('chain_id', chainId)
+      .not('profit_loss', 'is', null)
+      .order('closed_at', { ascending: false })
+      .limit(100);
+
+    if (!histError && historyRows?.length) {
+      rows = historyRows;
+    }
+  }
   if (rows.length < minTradesRequired) {
     return {
       allowed: true,

@@ -17,6 +17,8 @@ export type Dashboard2Metrics = {
   withdrawnUsd: number;
   openPositionsCount: number;
   autoTradeEnabled: boolean;
+  winRate: number;
+  closedTradesCount: number;
   isLoading: boolean;
 };
 
@@ -30,6 +32,8 @@ const defaultState: Dashboard2Metrics = {
   withdrawnUsd: 0,
   openPositionsCount: 0,
   autoTradeEnabled: false,
+  winRate: 0,
+  closedTradesCount: 0,
   isLoading: true,
 };
 
@@ -107,6 +111,8 @@ export function useDashboard2Metrics() {
     withdrawnUsd,
     openPositionsCount: metrics.openPositionsCount,
     autoTradeEnabled: metrics.autoTradeEnabled,
+    winRate: metrics.winRate,
+    closedTradesCount: metrics.closedTradesCount,
     isLoading,
   };
 

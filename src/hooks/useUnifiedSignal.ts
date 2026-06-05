@@ -47,35 +47,38 @@ export function useUnifiedSignal(options: UseUnifiedSignalOptions = {}): UseUnif
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const refresh = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+  const refresh = useCallback(async (silent = false) => {
+    if (!silent) {
+      setIsLoading(true);
+      setError(null);
+    }
 
     try {
       const result = await fetchUnifiedSignal(symbol, timeframes);
       if (result) {
         setSignal(result);
         setLastUpdated(new Date());
-      } else {
+        setError(null);
+      } else if (!silent) {
         setError('Failed to fetch signal');
       }
     } catch (err: any) {
-      setError(err.message || 'Unknown error');
+      if (!silent) setError(err.message || 'Unknown error');
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, [symbol, timeframes.join(',')]);
 
   // Initial fetch
   useEffect(() => {
-    refresh();
+    refresh(false);
   }, [refresh]);
 
-  // Auto-refresh
+  // Auto-refresh without flashing "Loading…" UI
   useEffect(() => {
     if (!autoRefresh) return;
 
-    const interval = setInterval(refresh, refreshInterval);
+    const interval = setInterval(() => refresh(true), refreshInterval);
     return () => clearInterval(interval);
   }, [refresh, refreshInterval, autoRefresh]);
 

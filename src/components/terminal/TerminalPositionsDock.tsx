@@ -6,7 +6,6 @@ import { supabase } from '../../lib/supabase';
 import { fetchUserWalletAddresses } from '../../lib/userWallets';
 import {
   calcPositionPnl,
-  computePositionStats,
   fetchLiveTokenPrices,
 } from '../../lib/positionLivePnl';
 import {
@@ -15,7 +14,7 @@ import {
 } from '../../lib/positionClose';
 import TerminalModalFrame from './TerminalModalFrame';
 
-type DockTab = 'open' | 'history' | 'all';
+export type DockTab = 'open' | 'history' | 'all';
 
 type Position = {
   id: string;
@@ -40,6 +39,11 @@ type Props = {
   botRunning?: boolean;
   /** Sidebar "History" scroll target */
   id?: string;
+  /** Controlled tab (e.g. sidebar History → "all") */
+  activeTab?: DockTab;
+  onTabChange?: (tab: DockTab) => void;
+  /** Brief highlight when opened from sidebar */
+  highlight?: boolean;
 };
 
 function fmtUsd(n: number) {
@@ -71,10 +75,16 @@ const TerminalPositionsDock: React.FC<Props> = ({
   refreshKey = 0,
   botRunning = false,
   id = 'term-history-dock',
+  activeTab: controlledTab,
+  onTabChange,
+  highlight = false,
+  layout = 'dock',
 }) => {
   const { address } = useAccount();
-  const { isDemoUser } = useAuth();
-  const [tab, setTab] = useState<DockTab>('open');
+  const { isDemoUser, user } = useAuth();
+  const [internalTab, setInternalTab] = useState<DockTab>(layout === 'page' ? 'all' : 'open');
+  const tab = controlledTab ?? internalTab;
+  const setTab = onTabChange ?? setInternalTab;
   const [allRows, setAllRows] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
   const [wallets, setWallets] = useState<string[]>([]);
@@ -98,11 +108,6 @@ const TerminalPositionsDock: React.FC<Props> = ({
 
   const load = useCallback(
     async (silent = false) => {
-      if (wallets.length === 0 && !isDemoUser && !address) {
-        setAllRows([]);
-        setLoading(false);
-        return;
-      }
       const queryWallets =
         wallets.length > 0
           ? wallets
@@ -126,7 +131,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
           )
           .in('wallet_address', queryWallets)
           .order('created_at', { ascending: false })
-          .limit(120);
+          .limit(500);
 
         if (error) throw error;
         setAllRows((data as Position[]) || []);
@@ -137,7 +142,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
         setLoading(false);
       }
     },
-    [address, isDemoUser, wallets]
+    [address, isDemoUser, wallets, user?.id]
   );
 
   useEffect(() => {
@@ -155,11 +160,6 @@ const TerminalPositionsDock: React.FC<Props> = ({
     const id = setInterval(tick, 5000);
     return () => clearInterval(id);
   }, []);
-
-  const stats = useMemo(
-    () => computePositionStats(allRows, livePrices),
-    [allRows, livePrices]
-  );
 
   const openCount = allRows.filter(
     (p) => p.status === 'open' || p.status === 'closing'
@@ -207,44 +207,19 @@ const TerminalPositionsDock: React.FC<Props> = ({
     }
   };
 
-  const hasWallet = Boolean(address || isDemoUser);
+  const hasWallet = Boolean(address || isDemoUser || wallets.length > 0);
+
+  const isPage = layout === 'page';
 
   return (
-    <div className="term-dock" id={id}>
-      <div className="term-dock-stats">
-        <div className="term-dock-stat">
-          <span className="term-dock-stat-label">Total P/L</span>
-          <span
-            className={
-              stats.totalProfit >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'
-            }
-          >
-            {stats.totalProfit >= 0 ? '+' : ''}
-            {fmtUsd(stats.totalProfit)}
-          </span>
-        </div>
-        <div className="term-dock-stat">
-          <span className="term-dock-stat-label">Realized</span>
-          <span>{fmtUsd(stats.realizedProfit)}</span>
-        </div>
-        <div className="term-dock-stat">
-          <span className="term-dock-stat-label">Unrealized</span>
-          <span
-            className={
-              stats.unrealizedProfit >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'
-            }
-          >
-            {stats.unrealizedProfit >= 0 ? '+' : ''}
-            {fmtUsd(stats.unrealizedProfit)}
-          </span>
-        </div>
-        <div className="term-dock-stat">
-          <span className="term-dock-stat-label">Win rate</span>
-          <span>{stats.closedTrades > 0 ? `${stats.winRate.toFixed(0)}%` : '—'}</span>
-        </div>
-      </div>
-
+    <div
+      className={`term-dock ${isPage ? 'term-dock--page' : ''} ${highlight ? 'term-dock--highlight' : ''}`}
+      id={id}
+    >
       <div className="term-dock-head">
+        {isPage && (
+          <h2 className="term-dock-page-title">Trade history</h2>
+        )}
         <div className="term-dock-tabs">
           {(
             [
@@ -280,7 +255,9 @@ const TerminalPositionsDock: React.FC<Props> = ({
           <div className="term-empty">
             {hasWallet
               ? `No ${tab === 'open' ? 'open positions' : tab === 'history' ? 'closed trades' : 'trades'} yet`
-              : 'Connect wallet to see history'}
+              : user
+                ? 'Link a wallet in Profile to see trade history'
+                : 'Connect wallet to see history'}
           </div>
         ) : rows.length > 0 ? (
           <table className="term-table">

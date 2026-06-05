@@ -61,14 +61,27 @@ export const signInWithGoogle = async () => {
   return { data, error };
 };
 
-// Password reset - sends email with reset link
+// Password reset — email link → /auth/callback → /reset-password (see AuthCallbackPage)
 export const resetPassword = async (email: string) => {
-  const redirectTo = `${getAuthRedirectBase()}/auth/callback`;
+  const base = getAuthRedirectBase();
+  const redirectTo = `${base}/auth/callback?type=recovery`;
   const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo,
   });
   return { data, error };
 };
+
+/** Providers linked to this account (email, google, etc.) */
+export function getAccountProviders(user: {
+  identities?: { provider: string }[];
+  app_metadata?: { provider?: string; providers?: string[] };
+} | null): string[] {
+  if (!user) return [];
+  const fromIdentities = user.identities?.map((i) => i.provider) ?? [];
+  if (fromIdentities.length > 0) return [...new Set(fromIdentities)];
+  const meta = user.app_metadata?.providers ?? (user.app_metadata?.provider ? [user.app_metadata.provider] : []);
+  return meta;
+}
 
 // Update password (for logged-in users or from reset link)
 export const updatePassword = async (newPassword: string) => {

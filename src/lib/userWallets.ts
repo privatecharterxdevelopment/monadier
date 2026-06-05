@@ -8,10 +8,10 @@ export async function fetchUserWalletAddresses(
 ): Promise<string[]> {
   if (isDemoUser) return [DEMO_WALLET_ADDRESS];
 
-  if (!connectedAddress) return [];
-
   const found = new Set<string>();
-  found.add(connectedAddress.toLowerCase());
+  if (connectedAddress) {
+    found.add(connectedAddress.toLowerCase());
+  }
 
   try {
     const {
@@ -36,11 +36,13 @@ export async function fetchUserWalletAddresses(
       }
     }
 
-    const { data: vaultSettings } = await supabase
-      .from('vault_settings')
-      .select('wallet_address')
-      .eq('wallet_address', connectedAddress.toLowerCase());
-    vaultSettings?.forEach((v) => found.add(v.wallet_address.toLowerCase()));
+    if (connectedAddress) {
+      const { data: vaultSettings } = await supabase
+        .from('vault_settings')
+        .select('wallet_address')
+        .eq('wallet_address', connectedAddress.toLowerCase());
+      vaultSettings?.forEach((v) => found.add(v.wallet_address.toLowerCase()));
+    }
   } catch (err) {
     console.error('[userWallets]', err);
   }

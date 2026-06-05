@@ -13,17 +13,23 @@ const navLinks = [
 
 type LandingNavProps = {
   variant?: 'dark' | 'light';
+  /** GMX-style wide bar + Open app CTA */
+  layout?: 'pill' | 'gmx';
 };
 
-const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light' }) => {
+const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pill' }) => {
   const light = variant === 'light';
+  const gmx = layout === 'gmx';
   const { isAuthenticated } = useAuth();
+  const openAppTo = isAuthenticated ? '/dashboard2' : '/register';
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 pt-5 md:pt-6 px-4">
+    <header className={`fixed top-0 left-0 right-0 z-50 ${gmx ? 'pt-4 md:pt-5 px-5 md:px-8' : 'pt-5 md:pt-6 px-4'}`}>
       <nav
-        className={`mx-auto flex items-center justify-between gap-2 max-w-4xl h-12 md:h-14 pl-4 pr-1.5 md:pl-5 md:pr-2 rounded-full ${
-          light ? 'glass-pill-light' : 'glass-pill'
+        className={`mx-auto flex items-center justify-between gap-2 h-12 md:h-14 ${
+          gmx
+            ? 'landing-gmx-nav-bar max-w-[1200px] pl-5 pr-2 md:pl-6 md:pr-3 rounded-2xl glass-pill-light'
+            : `max-w-4xl pl-4 pr-1.5 md:pl-5 md:pr-2 rounded-full ${light ? 'glass-pill-light' : 'glass-pill'}`
         }`}
       >
         <Logo size="sm" theme={light ? 'light' : 'dark'} />
@@ -44,8 +50,20 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light' }) => {
           ))}
         </div>
 
-        <div className="flex items-center gap-1">
-          {isAuthenticated ? (
+        <div className="flex items-center gap-1 md:gap-2">
+          {gmx ? (
+            <>
+              <Link
+                to="/login"
+                className="hidden md:inline-flex px-3 py-1.5 text-[13px] font-medium text-[#71717a] hover:text-[#0a0a0a]"
+              >
+                Sign in
+              </Link>
+              <Link to={openAppTo} className="hidden md:inline-flex landing-gmx-nav-open">
+                Open app
+              </Link>
+            </>
+          ) : isAuthenticated ? (
             <Link to="/dashboard2" className="hidden md:inline-flex">
               <span
                 className={`inline-flex items-center px-4 py-2 rounded-full text-[13px] font-semibold transition-colors ${

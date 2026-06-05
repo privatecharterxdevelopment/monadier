@@ -27,6 +27,7 @@ import TerminalDepositModal from './TerminalDepositModal';
 import TerminalWithdrawModal from './TerminalWithdrawModal';
 import TerminalBotSettingsModal from './TerminalBotSettingsModal';
 import TerminalLvrgPanel from './TerminalLvrgPanel';
+import TerminalBotSettingsStrip from './TerminalBotSettingsStrip';
 
 const MIN_VAULT_USD = 50;
 const WETH = '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1' as const;
@@ -303,17 +304,14 @@ const TerminalTradePanel: React.FC<Props> = ({
                   >
                     {metrics.autoTradeEnabled ? 'Running' : 'Stopped'}
                   </strong>
-                  <span className="term-panel-card-hint">
-                    {phase === 'fund'
-                      ? `Deposit $${MIN_VAULT_USD}+ to start`
-                      : 'Vault bot · Arbitrum'}
-                  </span>
+                  <span className="term-panel-card-hint">Vault bot · Arbitrum</span>
                 </div>
 
-                <p className="term-hint">
-                  Risk {vault.settings.riskPct}% · LVRG {vault.settings.leverage}x · TP +
-                  {vault.settings.takeProfit}% · SL −{vault.settings.stopLoss}%
-                </p>
+                <TerminalBotSettingsStrip
+                  settings={vault.settings}
+                  disabled={!walletReady || phase === 'network'}
+                  onAdjust={() => setPanelTab('lvrg')}
+                />
 
                 {vault.position?.isActive && (
                   <div className="term-panel-card term-panel-card--position">
@@ -381,7 +379,6 @@ const TerminalTradePanel: React.FC<Props> = ({
                       className="term-btn-sm term-btn-sm--primary flex-1 justify-center"
                       disabled={botBusy || phase !== 'ready'}
                       onClick={handleStartBot}
-                      title={phase !== 'ready' ? `Deposit $${MIN_VAULT_USD}+ first` : undefined}
                     >
                       {botBusy ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
                       Start bot
@@ -399,16 +396,6 @@ const TerminalTradePanel: React.FC<Props> = ({
                     Deposit to fund vault
                   </button>
                 )}
-
-                <button
-                  type="button"
-                  className="term-btn-sm term-btn-sm--ghost w-full justify-center"
-                  disabled={!walletReady}
-                  onClick={() => setPanelTab('lvrg')}
-                >
-                  <Settings size={14} />
-                  Edit LVRG settings
-                </button>
 
                 {onOpenHistory && (
                   <button type="button" className="term-link-btn" onClick={onOpenHistory}>

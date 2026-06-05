@@ -761,8 +761,66 @@ export class SubscriptionService {
   }
 
   /**
-   * Ensure all vault_settings users have subscriptions
-   * Creates elite subscriptions for users with auto-trade but no subscription
+   * Ensure every profile has a free-tier subscription (safe — never auto-upgrades to elite).
+   */
+  async ensureFreeSubscriptionsForMissingUsers(): Promise<void> {
+    try {
+      const { data: profiles, error: profileError } = await this.supabase
+        .from('profiles')
+        .select('id');
+
+      if (profileError || !profiles?.length) {
+        if (profileError) {
+          logger.error('ensureFreeSubscriptions: profiles query failed', { error: profileError });
+        }
+        return;
+      }
+
+      let created = 0;
+      for (const row of profiles) {
+        const { data: existing } = await this.supabase
+          .from('subscriptions')
+          .select('id')
+          .eq('user_id', row.id)
+          .maybeSingle();
+
+        if (existing?.id) continue;
+
+        const endDate = new Date();
+        endDate.setFullYear(endDate.getFullYear() + 100);
+
+        const { error: insertError } = await this.supabase.from('subscriptions').insert({
+          user_id: row.id,
+          plan_tier: 'free',
+          billing_cycle: 'lifetime',
+          status: 'active',
+          start_date: new Date().toISOString(),
+          end_date: endDate.toISOString(),
+          auto_renew: false,
+          daily_trades_used: 0,
+          total_trades_used: 0,
+        });
+
+        if (!insertError) {
+          created++;
+        } else if (!insertError.message.includes('duplicate')) {
+          logger.warn('ensureFreeSubscriptions: insert failed', {
+            userId: row.id.slice(0, 8),
+            error: insertError.message,
+          });
+        }
+      }
+
+      if (created > 0) {
+        logger.info('Created missing free subscriptions', { count: created });
+      }
+    } catch (err) {
+      logger.error('ensureFreeSubscriptionsForMissingUsers failed', { error: err });
+    }
+  }
+
+  /**
+   * @deprecated Was auto-upgrading vault users to elite — use ensureFreeSubscriptionsForMissingUsers instead.
    */
   async ensureSubscriptionsForVaultUsers(): Promise<void> {
     try {

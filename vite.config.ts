@@ -10,5 +10,12 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    proxy: {
+      '/bot-service': {
+        target: 'https://monadier-production.up.railway.app',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/bot-service/, ''),
+      },
+    },
   },
 });

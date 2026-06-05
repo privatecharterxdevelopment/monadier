@@ -1,34 +1,58 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
 import {
   TrendingUp,
-  Bot,
-  User,
+  History,
   LogOut,
   ArrowDownLeft,
   ArrowUpRight,
+  MessageCircle,
+  Shield,
 } from 'lucide-react';
 import { signOut } from '../../lib/supabase';
+import ProfileAvatar from '../profile/ProfileAvatar';
+
+export type Dashboard2SidebarSection =
+  | 'trade'
+  | 'history'
+  | 'deposit'
+  | 'withdraw'
+  | 'support'
+  | 'security'
+  | 'profile';
 
 type Props = {
+  profile?: { avatar_emoji?: string | null; avatar_url?: string | null; full_name?: string | null } | null;
+  userId?: string;
+  activeSection?: Dashboard2SidebarSection;
+  onHistory?: () => void;
   onDeposit?: () => void;
   onWithdraw?: () => void;
-  onHistory?: () => void;
+  onSupport?: () => void;
+  onSecurity?: () => void;
   onProfile?: () => void;
+  onTrade?: () => void;
 };
 
 const Dashboard2Sidebar: React.FC<Props> = ({
+  profile,
+  userId,
+  activeSection = 'trade',
+  onHistory,
   onDeposit,
   onWithdraw,
-  onHistory,
+  onSupport,
+  onSecurity,
   onProfile,
+  onTrade,
 }) => {
-  const { pathname } = useLocation();
-  const onTrade = pathname === '/dashboard2' || pathname.startsWith('/dashboard2?');
+
   const handleSignOut = async () => {
     await signOut();
     window.location.href = '/';
   };
+
+  const linkClass = (section: Dashboard2SidebarSection) =>
+    `term-side-link ${activeSection === section ? 'term-side-link--active' : ''}`;
 
   return (
     <aside className="term-sidebar">
@@ -41,34 +65,40 @@ const Dashboard2Sidebar: React.FC<Props> = ({
       </div>
 
       <nav className="term-side-nav">
-        <Link
-          to="/dashboard2"
-          className={`term-side-link ${onTrade ? 'term-side-link--active' : ''}`}
-        >
+        <button type="button" className={linkClass('trade')} onClick={onTrade}>
           <TrendingUp size={18} />
           <span className="term-side-label">Trade</span>
-        </Link>
-        <button
-          type="button"
-          className="term-side-link"
-          onClick={onHistory}
-        >
-          <Bot size={18} />
+        </button>
+        <button type="button" className={linkClass('history')} onClick={onHistory}>
+          <History size={18} />
           <span className="term-side-label">History</span>
         </button>
-        <button type="button" className="term-side-link" onClick={onDeposit}>
+        <button type="button" className={linkClass('deposit')} onClick={onDeposit}>
           <ArrowDownLeft size={18} />
           <span className="term-side-label">Deposit</span>
         </button>
-        <button type="button" className="term-side-link" onClick={onWithdraw}>
+        <button type="button" className={linkClass('withdraw')} onClick={onWithdraw}>
           <ArrowUpRight size={18} />
           <span className="term-side-label">Withdraw</span>
+        </button>
+        <button type="button" className={linkClass('support')} onClick={onSupport}>
+          <MessageCircle size={18} />
+          <span className="term-side-label">Support</span>
+        </button>
+        <button type="button" className={linkClass('security')} onClick={onSecurity}>
+          <Shield size={18} />
+          <span className="term-side-label">Security</span>
         </button>
       </nav>
 
       <div className="term-side-footer">
-        <button type="button" className="term-side-link" onClick={onProfile}>
-          <User size={18} />
+        <button
+          type="button"
+          className={`${linkClass('profile')} term-side-link--profile`}
+          onClick={onProfile}
+          title="Profile"
+        >
+          <ProfileAvatar profile={profile} userId={userId} size="sm" />
           <span className="term-side-label">Profile</span>
         </button>
         <button type="button" className="term-side-link" onClick={handleSignOut}>
