@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { useWeb3 } from '../contexts/Web3Context';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
+import { linkWalletToUserSafe } from '../lib/userWallets';
 import { VAULT_CHAIN_ID } from '../lib/vault';
 import {
   reconcileUserPositions,
@@ -34,10 +34,11 @@ export function usePositionReconciliation(onSynced?: () => void) {
 
     try {
       if (user?.id && address) {
-        await supabase.from('user_wallets').upsert(
-          { user_id: user.id, wallet_address: address.toLowerCase() },
-          { onConflict: 'user_id,wallet_address', ignoreDuplicates: true }
-        );
+        const link = await linkWalletToUserSafe(user.id, address);
+        if (!link.ok && link.code === 'owned_by_other') {
+          console.warn('[usePositionReconciliation] wallet owned by another user');
+          return;
+        }
       }
 
       const synced = await reconcileUserPositions(address, publicClient, isDemoUser);

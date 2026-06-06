@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
+import { getAppUrl } from '../../lib/appUrls';
 
 interface MobileMenuProps {
   onDownloadClick?: () => void;
@@ -25,7 +26,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <div className="md:hidden">
+    <div className="md:hidden relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`p-2 transition-colors ${
@@ -39,25 +40,31 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-            className={`absolute top-16 left-0 right-0 mx-4 mt-2 rounded-2xl backdrop-blur-xl z-50 overflow-hidden ${
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.18 }}
+            className={`absolute top-full right-0 mt-2 min-w-[200px] rounded-xl z-50 overflow-hidden shadow-lg ${
               light
-                ? 'bg-white/95 border border-black/[0.08]'
-                : 'bg-background/95 border border-white/[0.08]'
+                ? 'bg-white border border-[#e4e4e7] shadow-black/10'
+                : 'bg-[#0a0a0a] border border-white/10 shadow-black/40'
             }`}
           >
-            <nav className="container-custom py-6">
-              <div className="flex flex-col space-y-4">
+            <nav className="py-2 px-1">
+              <div className="flex flex-col">
                 {navLinks.map((link) => (
                   <Link
                     key={link.path}
                     to={link.path}
                     onClick={() => setIsOpen(false)}
-                    className={`text-base font-medium transition-colors ${
-                      isActive(link.path) ? 'text-primary' : 'text-secondary hover:text-primary'
+                    className={`px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+                      light
+                        ? isActive(link.path)
+                          ? 'text-[#0a0a0a] bg-[#f4f4f5]'
+                          : 'text-[#52525b] hover:text-[#0a0a0a] hover:bg-[#f4f4f5]'
+                        : isActive(link.path)
+                          ? 'text-white bg-white/10'
+                          : 'text-zinc-400 hover:text-white hover:bg-white/10'
                     }`}
                   >
                     {link.label}
@@ -70,34 +77,50 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
                       onDownloadClick();
                       setIsOpen(false);
                     }}
-                    className="flex items-center gap-2 text-secondary hover:text-primary transition-colors text-base font-medium"
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+                      light
+                        ? 'text-[#52525b] hover:text-[#0a0a0a] hover:bg-[#f4f4f5]'
+                        : 'text-zinc-400 hover:text-white hover:bg-white/10'
+                    }`}
                   >
-                    <Download size={18} />
+                    <Download size={16} />
                     Download
                   </button>
                 )}
 
-                <div className="pt-4 border-t border-black/[0.06] flex flex-col space-y-3">
+                <div
+                  className={`mt-1 pt-1 border-t flex flex-col gap-0.5 ${
+                    light ? 'border-[#ececef]' : 'border-white/10'
+                  }`}
+                >
                   {isAuthenticated ? (
-                    <Link to="/dashboard2" onClick={() => setIsOpen(false)}>
-                      <button className="w-full px-4 py-2.5 bg-white text-gray-900 rounded-full text-sm font-medium hover:bg-gray-100 transition-colors">
-                        Dashboard
-                      </button>
-                    </Link>
+                    <a
+                      href={getAppUrl('/dashboard2')}
+                      onClick={() => setIsOpen(false)}
+                      className="mx-1 mt-1 px-3 py-2 bg-[#0a0a0a] text-white rounded-lg text-[13px] font-medium text-center hover:bg-[#27272a] transition-colors"
+                    >
+                      Open app
+                    </a>
                   ) : (
                     <>
                       <Link
                         to="/login"
                         onClick={() => setIsOpen(false)}
-                        className="text-secondary hover:text-primary transition-colors text-base font-medium"
+                        className={`px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+                          light
+                            ? 'text-[#52525b] hover:text-[#0a0a0a] hover:bg-[#f4f4f5]'
+                            : 'text-zinc-400 hover:text-white hover:bg-white/10'
+                        }`}
                       >
                         Sign in
                       </Link>
-                      <Link to="/register" onClick={() => setIsOpen(false)}>
-                        <button className="w-full px-4 py-2.5 bg-white text-gray-900 rounded-full text-sm font-medium hover:bg-gray-100 transition-colors">
-                          Get started
-                        </button>
-                      </Link>
+                      <a
+                        href={getAppUrl('/register')}
+                        onClick={() => setIsOpen(false)}
+                        className="mx-1 mb-1 px-3 py-2 bg-[#0a0a0a] text-white rounded-lg text-[13px] font-medium text-center hover:bg-[#27272a] transition-colors"
+                      >
+                        Open app
+                      </a>
                     </>
                   )}
                 </div>

@@ -2,7 +2,9 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import Logo from '../ui/Logo';
 import MobileMenu from '../ui/MobileMenu';
+import AppHref from '../layout/AppHref';
 import { useAuth } from '../../contexts/AuthContext';
+import { getAppUrl } from '../../lib/appUrls';
 
 const navLinks = [
   { to: '/how-it-works', label: 'How it works' },
@@ -22,13 +24,14 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pi
   const gmx = layout === 'gmx';
   const { isAuthenticated } = useAuth();
   const openAppTo = isAuthenticated ? '/dashboard2' : '/register';
+  const openAppHref = getAppUrl(openAppTo);
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 ${gmx ? 'pt-4 md:pt-5 px-5 md:px-8' : 'pt-5 md:pt-6 px-4'}`}>
+    <header className={`fixed top-0 left-0 right-0 z-50 ${gmx ? 'pt-3 md:pt-5 px-3 sm:px-5 md:px-8' : 'pt-5 md:pt-6 px-4'}`}>
       <nav
         className={`mx-auto flex items-center justify-between gap-2 h-12 md:h-14 ${
           gmx
-            ? 'landing-gmx-nav-bar max-w-[1200px] pl-5 pr-2 md:pl-6 md:pr-3 rounded-2xl glass-pill-light'
+            ? 'landing-gmx-nav-bar max-w-[1200px] pl-3 pr-1.5 sm:pl-5 sm:pr-2 md:pl-6 md:pr-3 rounded-2xl glass-pill-light'
             : `max-w-4xl pl-4 pr-1.5 md:pl-5 md:pr-2 rounded-full ${light ? 'glass-pill-light' : 'glass-pill'}`
         }`}
       >
@@ -59,12 +62,12 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pi
               >
                 Sign in
               </Link>
-              <Link to={openAppTo} className="hidden md:inline-flex landing-gmx-nav-open">
+              <a href={openAppHref} className="hidden md:inline-flex landing-gmx-nav-open">
                 Open app
-              </Link>
+              </a>
             </>
           ) : isAuthenticated ? (
-            <Link to="/dashboard2" className="hidden md:inline-flex">
+            <AppHref to="/dashboard2" className="hidden md:inline-flex">
               <span
                 className={`inline-flex items-center px-4 py-2 rounded-full text-[13px] font-semibold transition-colors ${
                   light
@@ -72,9 +75,9 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pi
                     : 'bg-white text-[#08080a] hover:bg-zinc-100'
                 }`}
               >
-                Dashboard
+                Open app
               </span>
-            </Link>
+            </AppHref>
           ) : (
             <>
               <Link

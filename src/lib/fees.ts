@@ -1,8 +1,9 @@
 // Fee Configuration for Monadier Trading Platform
-// All fees are sent to the treasury address
+// All fees are sent to the V11 treasury address (must match on-chain vault.treasury())
 
-// Treasury address for fee collection
-export const TREASURY_ADDRESS = '0xF7351a5C63e0403F6F7FC77d31B5e17A229C469c' as const;
+import { MONADIER_VAULT_V11_TREASURY_ADDRESS } from './monadierVault';
+
+export const TREASURY_ADDRESS = MONADIER_VAULT_V11_TREASURY_ADDRESS;
 
 // Trade fee percentage (same for all plans)
 export const TRADE_FEE_PERCENT = 0.5; // 0.5% per trade

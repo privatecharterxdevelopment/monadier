@@ -1,8 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Shield, Wallet, Database, ArrowRight, AlertTriangle } from 'lucide-react';
-import LandingNav from '../components/landing/LandingNav';
-import CookieConsent from '../components/ui/CookieConsent';
+import MarketingPageLayout from '../components/layout/MarketingPageLayout';
 import { MONADIER_VAULT_V11_ADDRESS, MONADIER_VAULT_EXPLORER_URL } from '../lib/monadierVault';
 
 type Section = {
@@ -69,11 +68,8 @@ const sections: Section[] = [
 
 const FundsExplainedPage: React.FC = () => {
   return (
-    <div className="auth-page landing-studio funds-explained-page min-h-[100dvh] flex flex-col">
-      <LandingNav variant="light" />
-
-      <main className="flex flex-1 flex-col items-center px-6 pt-28 pb-20">
-        <div className="w-full max-w-lg mx-auto text-center">
+    <MarketingPageLayout narrow centered>
+      <div className="w-full max-w-lg mx-auto funds-explained-page">
           <p className="text-[11px] uppercase tracking-[0.22em] text-[#a1a1aa] font-medium mb-4">
             Vault &amp; wallet
           </p>
@@ -174,11 +170,8 @@ const FundsExplainedPage: React.FC = () => {
           <p className="mt-10 text-[11px] text-[#a1a1aa] tracking-wide max-w-xs mx-auto">
             This is not financial advice. Your capital is at risk.
           </p>
-        </div>
-      </main>
-
-      <CookieConsent />
-    </div>
+      </div>
+    </MarketingPageLayout>
   );
 };
 

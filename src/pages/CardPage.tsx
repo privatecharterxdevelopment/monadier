@@ -2,48 +2,12 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { CreditCard, Globe, Shield, Smartphone, Bell, ArrowRight, Lock, Sparkles } from 'lucide-react';
-import Logo from '../components/ui/Logo';
-import CookieConsent from '../components/ui/CookieConsent';
-import MobileMenu from '../components/ui/MobileMenu';
+import MarketingPageLayout from '../components/layout/MarketingPageLayout';
 
 const CardPage: React.FC = () => {
   return (
-    <div className="min-h-screen page-shell">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 glass-nav">
-        <div className="container-custom">
-          <nav className="flex justify-between items-center h-20">
-            <Logo size="md" />
-            <div className="hidden md:flex items-center space-x-10">
-              <Link to="/how-it-works" className="text-secondary hover:text-primary transition-colors text-sm font-medium">
-                How it works
-              </Link>
-              <Link to="/card" className="text-primary transition-colors text-sm font-medium">
-                +DebitCard
-              </Link>
-              <Link to="/trading-bot" className="text-secondary hover:text-primary transition-colors text-sm font-medium">
-                Bot Trading
-              </Link>
-              <Link to="/about" className="text-secondary hover:text-primary transition-colors text-sm font-medium">
-                About
-              </Link>
-            </div>
-            <div className="flex items-center gap-4">
-              <Link to="/login" className="hidden md:block text-secondary hover:text-primary transition-colors text-sm font-medium">
-                Sign in
-              </Link>
-              <Link to="/register" className="hidden md:block">
-                <button className="px-4 py-2 bg-white text-gray-900 rounded-full text-sm font-medium hover:bg-gray-100 transition-colors">
-                  Trade now
-                </button>
-              </Link>
-              <MobileMenu />
-            </div>
-          </nav>
-        </div>
-      </header>
-
-      <main className="pt-32 pb-24">
+    <MarketingPageLayout>
+      <div className="landing-gmx-container pb-16">
         {/* Hero Section */}
         <section className="container-custom mb-24">
           <motion.div
@@ -209,25 +173,8 @@ const CardPage: React.FC = () => {
             </div>
           </motion.div>
         </section>
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-black/[0.06] py-12">
-        <div className="container-custom">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <Logo size="sm" />
-            <div className="flex items-center gap-8">
-              <Link to="/about" className="text-secondary hover:text-primary text-sm transition-colors">About</Link>
-              <Link to="/terms" className="text-secondary hover:text-primary text-sm transition-colors">Terms</Link>
-              <Link to="/privacy" className="text-secondary hover:text-primary text-sm transition-colors">Privacy</Link>
-            </div>
-            <p className="text-muted text-sm">&copy; 2026 Monadier. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
-
-      <CookieConsent />
-    </div>
+      </div>
+    </MarketingPageLayout>
   );
 };
 

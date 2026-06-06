@@ -57,9 +57,14 @@ export function useTradingDashboardMetrics() {
   const [metrics, setMetrics] = useState<TradingDashboardMetrics>(defaultMetrics);
 
   const refresh = useCallback(async () => {
-    if (!address && !isDemoUser) {
-      setMetrics({ ...defaultMetrics, isLoading: false });
-      return;
+    if (!isDemoUser) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setMetrics({ ...defaultMetrics, isLoading: false });
+        return;
+      }
     }
 
     setMetrics((m) => ({ ...m, isLoading: true }));
@@ -68,19 +73,34 @@ export function useTradingDashboardMetrics() {
       const wallets = new Set<string>();
       if (isDemoUser) {
         wallets.add(DEMO_WALLET_ADDRESS);
-      } else if (address) {
-        wallets.add(address.toLowerCase());
-        const { data: { user } } = await supabase.auth.getUser();
+      } else {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (user) {
           const { data: walletRows } = await supabase
             .from('user_wallets')
             .select('wallet_address')
             .eq('user_id', user.id);
           walletRows?.forEach((w) => wallets.add(w.wallet_address.toLowerCase()));
+
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('wallet_address')
+            .eq('id', user.id)
+            .maybeSingle();
+          if (profile?.wallet_address?.trim()) {
+            wallets.add(profile.wallet_address.toLowerCase());
+          }
         }
       }
 
       const walletArray = Array.from(wallets);
+
+      if (!isDemoUser && walletArray.length === 0) {
+        setMetrics({ ...defaultMetrics, isLoading: false });
+        return;
+      }
 
       const { data: positions } = await supabase
         .from('positions')

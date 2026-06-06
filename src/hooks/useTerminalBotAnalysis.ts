@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { VAULT_CHAIN_ID } from '../lib/vault';
 import { useUnifiedSignal } from './useUnifiedSignal';
 import type { Dashboard2Metrics } from './useDashboard2Metrics';
-import type { UnifiedSignal } from '../lib/signalService';
+import type { Timeframe } from '../lib/signalService';
 
 export const ANALYSIS_STEPS = [
   { label: 'Scanning 1m chart', progress: 15 },
@@ -12,6 +12,8 @@ export const ANALYSIS_STEPS = [
   { label: 'Evaluating 1h momentum', progress: 75 },
   { label: 'Combining signals', progress: 95 },
 ] as const;
+
+const MTF_TIMEFRAMES: Timeframe[] = ['1m', '5m', '15m', '1h'];
 
 type DbAnalysis = {
   signal: string;
@@ -26,12 +28,15 @@ type Options = {
   walletConnected: boolean;
   metrics: Dashboard2Metrics;
   hasOpenPosition: boolean;
+  /** Active chart pair (Binance symbol, e.g. ETHUSDT) */
+  symbol?: string;
 };
 
 export function useTerminalBotAnalysis({
   walletConnected,
   metrics,
   hasOpenPosition,
+  symbol = 'ETHUSDT',
 }: Options) {
   const [dbAnalysis, setDbAnalysis] = useState<DbAnalysis | null>(null);
   const [step, setStep] = useState(0);
@@ -40,8 +45,8 @@ export function useTerminalBotAnalysis({
   const scanning = metrics.autoTradeEnabled && !hasOpenPosition;
 
   const { signal, isLoading } = useUnifiedSignal({
-    symbol: 'ETHUSDT',
-    timeframes: ['1m', '5m', '15m', '1h'],
+    symbol,
+    timeframes: MTF_TIMEFRAMES,
     refreshInterval: 30000,
     autoRefresh: walletConnected,
   });
@@ -85,5 +90,6 @@ export function useTerminalBotAnalysis({
     signal,
     isLoading,
     dbAnalysis,
+    activeSymbol: symbol,
   };
 }

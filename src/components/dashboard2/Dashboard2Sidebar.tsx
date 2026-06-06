@@ -1,7 +1,10 @@
 import React from 'react';
+import Logo from '../ui/Logo';
+import { getMarketingUrl, isExternalAppUrl } from '../../lib/appUrls';
 import {
   TrendingUp,
   History,
+  Bell,
   LogOut,
   ArrowDownLeft,
   ArrowUpRight,
@@ -9,6 +12,8 @@ import {
   Shield,
 } from 'lucide-react';
 import { signOut } from '../../lib/supabase';
+import { useTermAuthToast } from '../terminal/TermAuthToast';
+import { useTradeNotifications } from '../../contexts/TradeNotificationsContext';
 import ProfileAvatar from '../profile/ProfileAvatar';
 
 export type Dashboard2SidebarSection =
@@ -25,6 +30,7 @@ type Props = {
   userId?: string;
   activeSection?: Dashboard2SidebarSection;
   onHistory?: () => void;
+  onNotifications?: () => void;
   onDeposit?: () => void;
   onWithdraw?: () => void;
   onSupport?: () => void;
@@ -38,6 +44,7 @@ const Dashboard2Sidebar: React.FC<Props> = ({
   userId,
   activeSection = 'trade',
   onHistory,
+  onNotifications,
   onDeposit,
   onWithdraw,
   onSupport,
@@ -45,10 +52,14 @@ const Dashboard2Sidebar: React.FC<Props> = ({
   onProfile,
   onTrade,
 }) => {
+  const { signOutWithToast } = useTermAuthToast();
+  const { unreadCount: notificationUnread } = useTradeNotifications();
 
-  const handleSignOut = async () => {
-    await signOut();
-    window.location.href = '/';
+  const handleSignOut = () => {
+    void signOutWithToast(signOut, () => {
+      const home = getMarketingUrl('/');
+      window.location.href = home.startsWith('http') ? home : '/';
+    });
   };
 
   const linkClass = (section: Dashboard2SidebarSection) =>
@@ -57,17 +68,34 @@ const Dashboard2Sidebar: React.FC<Props> = ({
   return (
     <aside className="term-sidebar">
       <div className="term-side-logo">
-        <svg width="20" height="20" viewBox="0 0 32 32" fill="none" aria-hidden>
-          <rect width="32" height="32" rx="6" fill="#0a0a0a" />
-          <path d="M16 8v16M8 16h16" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" />
-        </svg>
-        <span className="term-side-label">Monadier</span>
+        {isExternalAppUrl(getMarketingUrl('/')) ? (
+          <a href={getMarketingUrl('/')} className="term-side-logo-link" aria-label="Monadier home">
+            <Logo size="sm" theme="light" />
+          </a>
+        ) : (
+          <Logo size="sm" theme="light" />
+        )}
       </div>
 
       <nav className="term-side-nav">
         <button type="button" className={linkClass('trade')} onClick={onTrade}>
           <TrendingUp size={18} />
           <span className="term-side-label">Trade</span>
+        </button>
+        <button
+          type="button"
+          className={linkClass('history')}
+          onClick={onNotifications ?? onHistory}
+        >
+          <span className="term-side-link-icon-wrap">
+            <Bell size={18} />
+            {notificationUnread > 0 && (
+              <span className="term-side-badge">
+                {notificationUnread > 9 ? '9+' : notificationUnread}
+              </span>
+            )}
+          </span>
+          <span className="term-side-label">Alerts</span>
         </button>
         <button type="button" className={linkClass('history')} onClick={onHistory}>
           <History size={18} />
@@ -98,7 +126,7 @@ const Dashboard2Sidebar: React.FC<Props> = ({
           onClick={onProfile}
           title="Profile"
         >
-          <ProfileAvatar profile={profile} userId={userId} size="sm" />
+          <ProfileAvatar profile={profile} userId={userId} size="xs" />
           <span className="term-side-label">Profile</span>
         </button>
         <button type="button" className="term-side-link" onClick={handleSignOut}>

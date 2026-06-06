@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Wallet, ArrowDownLeft, ArrowUpRight, Settings } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWeb3 } from '../../contexts/Web3Context';
@@ -15,16 +16,19 @@ import TerminalPositionsDock, {
   type DockTab,
 } from '../../components/terminal/TerminalPositionsDock';
 import TradingBotPage from './TradingBotPage';
-import Dashboard2Sidebar, {
-  type Dashboard2SidebarSection,
-} from '../../components/dashboard2/Dashboard2Sidebar';
-import TerminalProfileModal from '../../components/terminal/TerminalProfileModal';
+import Dashboard2Shell from '../../components/dashboard2/Dashboard2Shell';
+import type { Dashboard2SidebarSection } from '../../components/dashboard2/Dashboard2Sidebar';
 import TerminalBotSettingsModal from '../../components/terminal/TerminalBotSettingsModal';
 import TerminalDepositModal from '../../components/terminal/TerminalDepositModal';
 import TerminalWithdrawModal from '../../components/terminal/TerminalWithdrawModal';
 import TerminalSupportModal from '../../components/terminal/TerminalSupportModal';
 import TerminalSecurityModal from '../../components/terminal/TerminalSecurityModal';
+import TermNotificationsBell from '../../components/terminal/TermNotificationsBell';
+import TerminalProfileOnboardingModal from '../../components/terminal/TerminalProfileOnboardingModal';
+import TerminalArbitrumBanner from '../../components/terminal/TerminalArbitrumBanner';
 import type { BotSetupPhase } from '../../components/terminal/TerminalBotSettingsModal';
+import { displayHandle } from '../../lib/username';
+import { useProfileOnboarding } from '../../hooks/useProfileOnboarding';
 
 const MIN_VAULT_USD = 50;
 
@@ -39,7 +43,9 @@ function shortAddr(addr: string) {
 type WorkspaceView = 'trade' | 'history';
 
 const Dashboard2Page: React.FC = () => {
-  const { profile, user, isDemoUser } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { profile, user, isDemoUser, isLoading: authLoading, sessionReady } = useAuth();
   const { open } = useAppKit();
   const { address, isConnected } = useAppKitAccount();
   const { totalUsdValue } = useWeb3();
@@ -48,7 +54,6 @@ const Dashboard2Page: React.FC = () => {
 
   const [vaultAction, setVaultAction] = useState<'deposit' | 'withdraw' | null>(null);
   const [historyTick, setHistoryTick] = useState(0);
-  const [showProfile, setShowProfile] = useState(false);
   const [showBotSettings, setShowBotSettings] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
@@ -57,13 +62,21 @@ const Dashboard2Page: React.FC = () => {
   const [sidebarSection, setSidebarSection] = useState<Dashboard2SidebarSection>('trade');
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('trade');
   const [dockTab, setDockTab] = useState<DockTab>('open');
+  const [highlightPositionId, setHighlightPositionId] = useState<string | null>(null);
+  const [chartSymbol, setChartSymbol] = useState('ETHUSDT');
 
   const vault = useTerminalVaultData(historyTick);
+  const { needsOnboarding } = useProfileOnboarding(profile, user, isDemoUser);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const showOnboarding =
+    sessionReady &&
+    !authLoading &&
+    Boolean(user) &&
+    profile !== null &&
+    needsOnboarding &&
+    !onboardingDismissed;
 
-  const displayName =
-    profile?.full_name?.trim() ||
-    user?.email?.split('@')[0] ||
-    'Trader';
+  const displayName = displayHandle(profile, user?.email);
 
   const walletReady = isConnected || isDemoUser;
   const hasOpenPosition =
@@ -86,6 +99,7 @@ const Dashboard2Page: React.FC = () => {
     walletConnected: walletReady,
     metrics,
     hasOpenPosition,
+    symbol: chartSymbol,
   });
 
   const openTrade = () => {
@@ -93,11 +107,15 @@ const Dashboard2Page: React.FC = () => {
     setWorkspaceView('trade');
   };
 
-  const openHistory = () => {
+  const openHistory = (opts?: { tab?: DockTab; highlightId?: string }) => {
     setSidebarSection('history');
     setWorkspaceView('history');
-    setDockTab('all');
+    setDockTab(opts?.tab ?? 'all');
+    setHighlightPositionId(opts?.highlightId ?? null);
     handleRefresh();
+    if (opts?.highlightId) {
+      window.setTimeout(() => setHighlightPositionId(null), 4500);
+    }
   };
 
   const requireWallet = (next: () => void) => {
@@ -118,6 +136,32 @@ const Dashboard2Page: React.FC = () => {
     requireWallet(() => setShowWithdraw(true));
   };
 
+  useEffect(() => {
+    const action = searchParams.get('action');
+    const view = searchParams.get('view');
+    if (!action && !view) return;
+
+    if (view === 'history') {
+      openHistory();
+    } else if (action === 'deposit') {
+      openDeposit();
+    } else if (action === 'withdraw') {
+      openWithdraw();
+    } else if (action === 'support') {
+      setSidebarSection('support');
+      setShowSupport(true);
+    } else if (action === 'security') {
+      setSidebarSection('security');
+      setShowSecurity(true);
+    }
+
+    const next = new URLSearchParams(searchParams);
+    next.delete('action');
+    next.delete('view');
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per query change from profile nav
+  }, [searchParams]);
+
   const portfolio = totalUsdValue + metrics.vaultUsd;
 
   const botSetupPhase: BotSetupPhase = useMemo(() => {
@@ -129,30 +173,25 @@ const Dashboard2Page: React.FC = () => {
   }, [walletReady, metrics.isLoading, vault.isLoading, vault.onArbitrum, vault.vaultUsd]);
 
   return (
-    <div className="term-root">
-      <Dashboard2Sidebar
-        profile={profile}
-        userId={user?.id}
-        activeSection={sidebarSection}
-        onTrade={openTrade}
-        onHistory={openHistory}
-        onDeposit={openDeposit}
-        onWithdraw={openWithdraw}
-        onSupport={() => {
-          setSidebarSection('support');
-          setShowSupport(true);
-        }}
-        onSecurity={() => {
-          setSidebarSection('security');
-          setShowSecurity(true);
-        }}
-        onProfile={() => {
-          setSidebarSection('profile');
-          setShowProfile(true);
-        }}
-      />
-
-      <div className="term-main">
+    <Dashboard2Shell
+      profile={profile}
+      userId={user?.id}
+      activeSection={sidebarSection}
+      onTrade={openTrade}
+      onHistory={() => openHistory()}
+      onNotifications={() => openHistory({ tab: 'history' })}
+      onDeposit={openDeposit}
+      onWithdraw={openWithdraw}
+      onSupport={() => {
+        setSidebarSection('support');
+        setShowSupport(true);
+      }}
+      onSecurity={() => {
+        setSidebarSection('security');
+        setShowSecurity(true);
+      }}
+      onProfile={() => navigate('/dashboard2/profile')}
+    >
         <header className="term-market-bar">
           <div className="term-market-bar-top">
             <div className="term-welcome">
@@ -163,6 +202,11 @@ const Dashboard2Page: React.FC = () => {
             </div>
 
             <div className="term-market-actions">
+              <TermNotificationsBell
+                onViewHistory={(tradeId) =>
+                  openHistory({ tab: 'history', highlightId: tradeId })
+                }
+              />
               <button type="button" className="term-btn-sm" onClick={openDeposit}>
                 <ArrowDownLeft size={14} />
                 Deposit
@@ -200,6 +244,8 @@ const Dashboard2Page: React.FC = () => {
               )}
             </div>
           </div>
+
+          {walletReady && !vault.onArbitrum && <TerminalArbitrumBanner />}
 
           <div className="term-market-bar-stats" role="region" aria-label="Account metrics">
             <div className="term-stats-group">
@@ -294,13 +340,20 @@ const Dashboard2Page: React.FC = () => {
               botRunning={metrics.autoTradeEnabled}
               activeTab={dockTab}
               onTabChange={setDockTab}
+              highlightPositionId={highlightPositionId}
             />
           ) : (
             <>
               <div className="term-center">
                 <div className="term-chart-area">
                   <div className="term-chart-inner">
-                    <TradingBotPage embedded splitLayout="chart" chartCompact={false} chartFill />
+                    <TradingBotPage
+                      embedded
+                      splitLayout="chart"
+                      chartCompact={false}
+                      chartFill
+                      onPairChange={setChartSymbol}
+                    />
                     <TerminalChartAnalysisOverlay
                       visible={walletReady}
                       scanning={analysis.scanning}
@@ -309,6 +362,7 @@ const Dashboard2Page: React.FC = () => {
                       isLoading={analysis.isLoading}
                       signal={analysis.signal}
                       dbAnalysis={analysis.dbAnalysis}
+                      activeSymbol={analysis.activeSymbol}
                     />
                   </div>
                 </div>
@@ -331,17 +385,7 @@ const Dashboard2Page: React.FC = () => {
             </>
           )}
         </div>
-      </div>
 
-      {showProfile && (
-        <TerminalProfileModal
-          onClose={() => {
-            setShowProfile(false);
-            setSidebarSection('trade');
-            setWorkspaceView('trade');
-          }}
-        />
-      )}
       {showBotSettings && (
         <TerminalBotSettingsModal
           setupPhase={botSetupPhase}
@@ -376,9 +420,16 @@ const Dashboard2Page: React.FC = () => {
           }}
         />
       )}
+      {showOnboarding && (
+        <TerminalProfileOnboardingModal
+          onComplete={() => setOnboardingDismissed(true)}
+        />
+      )}
       {showWithdraw && (
         <TerminalWithdrawModal
           maxAmount={vault.vaultUsd.toFixed(2)}
+          balanceAmount={vault.balanceUsd.toFixed(2)}
+          hasActivePosition={hasOpenPosition}
           onClose={() => {
             setShowWithdraw(false);
             setSidebarSection('trade');
@@ -410,7 +461,7 @@ const Dashboard2Page: React.FC = () => {
           }}
         />
       )}
-    </div>
+    </Dashboard2Shell>
   );
 };
 

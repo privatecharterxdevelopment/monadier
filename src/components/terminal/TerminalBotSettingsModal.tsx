@@ -331,13 +331,18 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
       <input
         id="term-min-trades"
         type="number"
-        className="term-modal-input mb-3"
+        className="term-modal-input"
         min={1}
         max={50}
         value={minTradesForWinRate}
         onChange={(e) => setMinTradesForWinRate(parseInt(e.target.value, 10) || 5)}
-        disabled={isLoading}
+        disabled={isLoading || minWinRate === 0}
       />
+      <p className="term-modal-hint mb-3">
+        {minWinRate === 0
+          ? 'Enable min win rate above to use this threshold.'
+          : `Gate only counts after ${minTradesForWinRate} closed trades.`}
+      </p>
 
       <div className="term-modal-grid-2">
         <div>
@@ -357,7 +362,7 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
         </div>
         <div>
           <label className="term-modal-label" htmlFor="term-sl">
-            Stop loss %
+            Profit lock %
           </label>
           <input
             id="term-sl"
@@ -371,6 +376,10 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
           />
         </div>
       </div>
+      <p className="term-modal-hint">
+        Take profit closes at collateral PnL %. Profit lock activates at lock% + 0.1% (e.g. 1.1% →
+        lock 1%) and closes if PnL falls back to the lock level.
+      </p>
 
       {error && (
         <div className="term-modal-alert term-modal-alert--err">

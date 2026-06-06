@@ -485,6 +485,149 @@
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
   }
 
+  .auth-page--register .auth-page-inner {
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    width: 100%;
+    padding: 0.75rem 1rem 1.25rem;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  @media (min-width: 768px) {
+    .auth-page--register .auth-page-inner {
+      align-items: center;
+      padding: 1.25rem 1rem 1.75rem;
+    }
+  }
+
+  .auth-card--register {
+    @apply p-4 sm:p-5 md:p-6;
+    width: 100%;
+    max-width: 32rem;
+  }
+
+  .auth-card-brand {
+    @apply flex justify-center mb-3;
+  }
+
+  .auth-card-title {
+    @apply font-display text-2xl sm:text-[1.65rem] mb-4 text-center text-[#0a0a0a];
+  }
+
+  .auth-form-grid {
+    display: grid;
+    gap: 0.65rem 0.75rem;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 480px) {
+    .auth-form-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .auth-form-grid .mb-4 {
+    margin-bottom: 0;
+  }
+
+  .auth-form-span-2 {
+    grid-column: 1 / -1;
+  }
+
+  .auth-form-hint {
+    @apply text-xs text-secondary leading-snug;
+    margin: -0.15rem 0 0;
+  }
+
+  .auth-form-actions {
+    @apply mt-1;
+  }
+
+  .auth-form-terms {
+    @apply mb-3;
+  }
+
+  .auth-form-terms label {
+    @apply flex items-start gap-2.5;
+  }
+
+  .auth-form-terms span {
+    @apply text-xs sm:text-sm text-secondary leading-snug;
+  }
+
+  .auth-divider {
+    @apply relative my-4;
+  }
+
+  .auth-footer-links {
+    @apply mt-4 text-center text-secondary text-sm;
+  }
+
+  .auth-footer-meta {
+    @apply mt-2 text-center text-xs text-secondary;
+  }
+
+  /* Legal pages — terms & privacy */
+  .legal-doc {
+    @apply text-left text-[#0a0a0a];
+  }
+
+  .legal-doc-eyebrow {
+    @apply text-[11px] uppercase tracking-[0.22em] text-[#a1a1aa] font-medium mb-3;
+  }
+
+  .legal-doc-title {
+    @apply font-display text-3xl md:text-4xl font-semibold tracking-tight mb-2;
+  }
+
+  .legal-doc-updated {
+    @apply text-xs text-[#71717a] mb-5;
+  }
+
+  .legal-doc-intro {
+    @apply text-sm md:text-base text-[#52525b] leading-relaxed mb-8;
+  }
+
+  .legal-doc-sections {
+    @apply space-y-6 mb-10;
+  }
+
+  .legal-doc-section {
+    @apply rounded-2xl border border-[#c5c5cb] bg-white/70 backdrop-blur-xl px-5 py-5 sm:px-6 sm:py-6;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  .legal-doc-section-title {
+    @apply font-display text-base sm:text-lg font-semibold mb-2.5;
+  }
+
+  .legal-doc-section-body {
+    @apply text-sm text-[#52525b] leading-relaxed space-y-2;
+  }
+
+  .legal-doc-section-body ul {
+    @apply list-disc pl-5 space-y-1.5;
+  }
+
+  .legal-doc-link {
+    @apply text-[#0a0a0a] underline underline-offset-2 hover:text-[#52525b] transition-colors;
+  }
+
+  .legal-doc-footer {
+    @apply text-sm text-[#71717a] mb-6;
+  }
+
+  .legal-doc-nav {
+    @apply flex flex-wrap items-center gap-x-4 gap-y-2 text-sm pb-8;
+  }
+
+  .legal-doc-back {
+    @apply inline-flex items-center text-[#0a0a0a] font-medium hover:underline;
+  }
+
   .glass-step {
     @apply rounded-2xl border border-white/60 bg-white/35 backdrop-blur-2xl px-6 py-7 text-center;
     box-shadow:

@@ -687,15 +687,13 @@ export class VaultClient {
    * V7 doesn't have withdrawAll(), so we get balance and call withdraw(balance)
    */
   async withdrawAll(userAddress: `0x${string}`): Promise<`0x${string}`> {
-    // Get current balance first via getUserStatus
-    const status = await this.getUserStatus(userAddress);
-    const balanceWei = status.balance;
+    const withdrawable = await this.getWithdrawable(userAddress);
+    const balanceWei = withdrawable.amount;
 
     if (balanceWei === 0n) {
-      throw new Error('No balance to withdraw');
+      throw new Error('No withdrawable balance (active position may lock collateral)');
     }
 
-    // Call withdraw with full balance (works for V7 and older vaults)
     const hash = await this.walletClient.writeContract({
       address: this.vaultAddress,
       abi: VAULT_ABI,

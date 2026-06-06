@@ -4,7 +4,7 @@ import React from 'react';
 const PricingHeroGraphic: React.FC = () => {
   return (
     <div
-      className="mx-auto mb-12 w-full max-w-[280px]"
+      className="mkt-pricing-graphic w-full max-w-[320px] sm:max-w-[360px]"
       aria-hidden
     >
       <svg

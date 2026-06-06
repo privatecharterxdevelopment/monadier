@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Lock, Zap, Crown, Rocket, Check, Play, Square, Clock, Users, Wallet, ArrowUp, ArrowDown, ZoomIn, ZoomOut, TrendingUp, TrendingDown, Activity, ExternalLink, RefreshCw, AlertCircle, Loader2, Settings, Pause, TestTube, History, Timer, Bell, Crosshair, Ruler, RotateCcw, Hand } from 'lucide-react';
+import { Bot, Lock, Zap, Crown, Rocket, Check, Play, Square, Clock, Users, Wallet, ArrowUp, ArrowDown, ZoomIn, ZoomOut, TrendingUp, TrendingDown, Activity, ExternalLink, RefreshCw, AlertCircle, Loader2, Settings, Pause, TestTube, History, Timer, Bell, Crosshair, Ruler, RotateCcw, Hand, ChevronDown } from 'lucide-react';
 import { useWeb3, RealSwapResult } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -100,7 +100,7 @@ const allTradingPairs: TradingPair[] = [
 // The FIRST pair in the array is the DEFAULT for that chain
 const chainTradingPairs: Record<number, string[]> = {
   8453: ['ETHUSDT', 'BTCUSDT'],           // Base: WETH, WBTC
-  42161: ['ARBUSDT', 'ETHUSDT', 'BTCUSDT'], // Arbitrum: ARB, WETH, WBTC (ARB is default!)
+  42161: ['ETHUSDT', 'BTCUSDT', 'ARBUSDT'], // Arbitrum: WETH, WBTC, ARB
   137: ['MATICUSDT', 'ETHUSDT', 'BTCUSDT'], // Polygon: MATIC, WETH, WBTC
   56: ['BNBUSDT', 'ETHUSDT', 'BTCUSDT'],   // BSC: BNB, WETH, WBTC
   1: ['ETHUSDT', 'BTCUSDT'],               // Ethereum: WETH, WBTC
@@ -152,6 +152,8 @@ type TradingBotPageProps = {
   splitLayout?: 'full' | 'chart';
   /** Fill parent height (dashboard2 terminal) */
   chartFill?: boolean;
+  /** Notify parent when the visible chart pair changes (dashboard2 analysis sync) */
+  onPairChange?: (binanceSymbol: string) => void;
 };
 
 const TradingBotPage: React.FC<TradingBotPageProps> = ({
@@ -159,6 +161,7 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
   chartCompact = false,
   splitLayout = 'full',
   chartFill = false,
+  onPairChange,
 }) => {
   const navigate = useNavigate();
   const { open } = useAppKit();
@@ -214,6 +217,7 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
   const [timeframe, setTimeframe] = useState('5m');
   const [zoomLevel, setZoomLevel] = useState(1);
   const [chartScrollOffset, setChartScrollOffset] = useState(0);
+  const [chartPricePan, setChartPricePan] = useState(0);
   const [chartTool, setChartTool] = useState<'pan' | 'crosshair' | 'measure'>('pan');
   const [crosshair, setCrosshair] = useState<{ xPct: number; yPct: number; price: number } | null>(null);
   const [measurePoints, setMeasurePoints] = useState<{ xPct: number; price: number }[]>([]);
@@ -224,10 +228,13 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
     priceRange: 1,
     baseVisible: 80,
     maxScroll: 0,
+    pricePan: 0,
   });
   const isPanningRef = useRef(false);
   const panStartXRef = useRef(0);
+  const panStartYRef = useRef(0);
   const panStartScrollRef = useRef(0);
+  const panStartPricePanRef = useRef(0);
   const [strategy, setStrategy] = useState<Strategy | null>(null);
   const [activeTrade, setActiveTrade] = useState<ActiveTrade | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
@@ -821,7 +828,9 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
 
     isPanningRef.current = true;
     panStartXRef.current = e.clientX;
+    panStartYRef.current = e.clientY;
     panStartScrollRef.current = chartScrollOffset;
+    panStartPricePanRef.current = chartPricePan;
     el.setPointerCapture(e.pointerId);
   };
 
@@ -839,12 +848,17 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
 
     if (isPanningRef.current && chartTool === 'pan') {
       const width = rect.width || 1;
+      const height = rect.height || 1;
       const deltaX = e.clientX - panStartXRef.current;
-      const { baseVisible, maxScroll } = chartViewportRef.current;
+      const deltaY = e.clientY - panStartYRef.current;
+      const { baseVisible, maxScroll, padding, priceRange } = chartViewportRef.current;
       const candleDelta = Math.round((deltaX / width) * baseVisible);
       setChartScrollOffset(
         Math.min(maxScroll, Math.max(0, panStartScrollRef.current + candleDelta))
       );
+      const priceSpan = priceRange + padding * 2;
+      const priceShift = (deltaY / height) * priceSpan;
+      setChartPricePan(panStartPricePanRef.current + priceShift);
     }
   };
 
@@ -932,6 +946,7 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
   useEffect(() => {
     fetchCandles(selectedPair.binanceSymbol, timeframe, false);
     setChartScrollOffset(0);
+    setChartPricePan(0);
     setZoomLevel(1);
     setMeasurePoints([]);
     setCrosshair(null);
@@ -939,6 +954,7 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
 
   const resetChartView = useCallback(() => {
     setChartScrollOffset(0);
+    setChartPricePan(0);
     setZoomLevel(1);
     setMeasurePoints([]);
     setCrosshair(null);
@@ -947,7 +963,8 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
   const priceFromChartY = useCallback((yPct: number) => {
     const v = chartViewportRef.current;
     const span = v.priceRange + v.padding * 2;
-    return v.minPrice - v.padding + span * (1 - yPct);
+    const viewMin = v.minPrice - v.padding + v.pricePan;
+    return viewMin + span * (1 - yPct);
   }, []);
 
   // Fetch native token prices for gas estimation
@@ -1141,22 +1158,22 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
 
   // Update trading pairs when chain changes - show chain-specific pairs!
   useEffect(() => {
-    if (currentChain) {
-      let chainPairs = getPairsForChain(currentChain.id);
-      if (isTerminalChart) {
-        chainPairs = chainPairs.filter(
-          (p) => p.binanceSymbol === 'ETHUSDT' || p.binanceSymbol === 'BTCUSDT'
-        );
-      }
-      setPairs(chainPairs);
-      if (chainPairs.length > 0) {
-        const preferred = isTerminalChart
-          ? chainPairs.find((p) => p.binanceSymbol === 'ETHUSDT') ?? chainPairs[0]
-          : chainPairs[0];
-        setSelectedPair(preferred);
-      }
+    const chainId = currentChain?.id ?? (isTerminalChart ? 42161 : undefined);
+    if (!chainId) return;
+
+    const chainPairs = getPairsForChain(chainId);
+    setPairs(chainPairs);
+    if (chainPairs.length > 0) {
+      setSelectedPair((prev) => {
+        const stillValid = chainPairs.find((p) => p.binanceSymbol === prev.binanceSymbol);
+        return stillValid ?? chainPairs[0];
+      });
     }
   }, [currentChain?.id, isTerminalChart]);
+
+  useEffect(() => {
+    onPairChange?.(selectedPair.binanceSymbol);
+  }, [selectedPair.binanceSymbol, onPairChange]);
 
   useEffect(() => {
     const interval = setInterval(fetchPrices, 5000);
@@ -1772,6 +1789,13 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
     const maxPrice = Math.max(...prices);
     const priceRange = maxPrice - minPrice || 1;
     const padding = priceRange * 0.05;
+    const viewMin = minPrice - padding + chartPricePan;
+    const viewMax = maxPrice + padding + chartPricePan;
+    const viewSpan = viewMax - viewMin || 1;
+    const chartRightInsetPct = isTerminalChart ? 10 : 6;
+    const chartWidthPct = 100 - chartRightInsetPct;
+    const candleSlotPct = chartWidthPct / displayCandles.length;
+    const candleCenterX = (idx: number) => (idx + 0.5) * candleSlotPct;
 
     if (isTerminalChart) {
       chartViewportRef.current = {
@@ -1781,11 +1805,12 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
         priceRange,
         baseVisible: baseVisibleCount,
         maxScroll,
+        pricePan: chartPricePan,
       };
     }
 
     const scaleY = (price: number) => {
-      return chartHeight - ((price - (minPrice - padding)) / (priceRange + padding * 2)) * chartHeight;
+      return chartHeight - ((price - viewMin) / viewSpan) * chartHeight;
     };
 
     const candleWidth = isTerminalChart
@@ -1869,7 +1894,7 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
       let started = false;
       values.forEach((val, i) => {
         if (val === null) return;
-        const x = (i / displayCandles.length) * 100 + (candleWidth / 2) / 10;
+        const x = candleCenterX(i);
         const y = scaleY(val);
         if (!started) {
           path += `M ${x} ${y}`;
@@ -1900,20 +1925,44 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
       });
     }
 
-    // Signal arrows (based on candle patterns)
+    // Signal arrows — short TFs follow candle direction; longer TFs use engulfing reversals
     const signalArrows: { idx: number; type: 'buy' | 'sell'; price: number }[] = [];
-    for (let i = 1; i < displayCandles.length; i++) {
-      const curr = displayCandles[i];
-      const prev = displayCandles[i - 1];
-      // Bullish engulfing
-      if (curr.close > curr.open && prev.close < prev.open &&
-          curr.close > prev.open && curr.open < prev.close) {
-        signalArrows.push({ idx: i, type: 'buy', price: curr.low });
+    const useCandleDirectionSignals = timeframe === '1m' || timeframe === '5m';
+
+    if (useCandleDirectionSignals) {
+      for (let i = 0; i < displayCandles.length; i++) {
+        const curr = displayCandles[i];
+        const range = curr.high - curr.low;
+        if (range <= 0) continue;
+        const bodyRatio = Math.abs(curr.close - curr.open) / range;
+        if (bodyRatio < 0.35) continue;
+
+        if (curr.close > curr.open) {
+          signalArrows.push({ idx: i, type: 'buy', price: curr.low });
+        } else if (curr.close < curr.open) {
+          signalArrows.push({ idx: i, type: 'sell', price: curr.high });
+        }
       }
-      // Bearish engulfing
-      if (curr.close < curr.open && prev.close > prev.open &&
-          curr.close < prev.open && curr.open > prev.close) {
-        signalArrows.push({ idx: i, type: 'sell', price: curr.high });
+    } else {
+      for (let i = 1; i < displayCandles.length; i++) {
+        const curr = displayCandles[i];
+        const prev = displayCandles[i - 1];
+        if (
+          curr.close > curr.open &&
+          prev.close < prev.open &&
+          curr.close > prev.open &&
+          curr.open < prev.close
+        ) {
+          signalArrows.push({ idx: i, type: 'buy', price: curr.low });
+        }
+        if (
+          curr.close < curr.open &&
+          prev.close > prev.open &&
+          curr.close < prev.open &&
+          curr.open > prev.close
+        ) {
+          signalArrows.push({ idx: i, type: 'sell', price: curr.high });
+        }
       }
     }
 
@@ -1922,7 +1971,7 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
         <svg width="100%" height={chartHeight} className="overflow-visible">
           {/* Price grid lines */}
           {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
-            const price = minPrice - padding + (priceRange + padding * 2) * (1 - ratio);
+            const price = viewMin + viewSpan * (1 - ratio);
             const y = ratio * chartHeight;
             return (
               <g key={i}>
@@ -1998,41 +2047,28 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
             </g>
           )}
 
-          {/* Signal Arrows - Using foreignObject with CSS triangles for percentage-based positioning */}
+          {/* Signal arrows */}
           {signalArrows.map((signal, i) => {
-            const x = (signal.idx / displayCandles.length) * 100 + (candleWidth / 2) / 10;
+            const xPct = candleCenterX(signal.idx);
+            const cx = `${xPct}%`;
             const y = scaleY(signal.price);
             return (
-              <g key={`signal-${i}`}>
+              <g key={`signal-${i}`} opacity="0.9">
                 {signal.type === 'buy' ? (
                   <>
-                    <foreignObject x={`${x - 1}%`} y={y + 8} width="2%" height="20">
-                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'flex-start', justifyContent: 'center' }}>
-                        <div style={{
-                          width: 0, height: 0,
-                          borderLeft: '6px solid transparent',
-                          borderRight: '6px solid transparent',
-                          borderBottom: '10px solid #22c55e',
-                          opacity: 0.9
-                        }} />
-                      </div>
-                    </foreignObject>
-                    <circle cx={`${x}%`} cy={y + 24} r="3" fill="#22c55e" opacity="0.6" />
+                    <polygon
+                      points={`${cx},${y + 10} ${xPct - 0.35}%,${y + 22} ${xPct + 0.35}%,${y + 22}`}
+                      fill="#22c55e"
+                    />
+                    <circle cx={cx} cy={y + 26} r="2.5" fill="#22c55e" opacity="0.55" />
                   </>
                 ) : (
                   <>
-                    <foreignObject x={`${x - 1}%`} y={y - 28} width="2%" height="20">
-                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-                        <div style={{
-                          width: 0, height: 0,
-                          borderLeft: '6px solid transparent',
-                          borderRight: '6px solid transparent',
-                          borderTop: '10px solid #ef4444',
-                          opacity: 0.9
-                        }} />
-                      </div>
-                    </foreignObject>
-                    <circle cx={`${x}%`} cy={y - 24} r="3" fill="#ef4444" opacity="0.6" />
+                    <polygon
+                      points={`${cx},${y - 10} ${xPct - 0.35}%,${y - 22} ${xPct + 0.35}%,${y - 22}`}
+                      fill="#ef4444"
+                    />
+                    <circle cx={cx} cy={y - 26} r="2.5" fill="#ef4444" opacity="0.55" />
                   </>
                 )}
               </g>
@@ -2042,7 +2078,7 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
           {/* Candlesticks */}
           {displayCandles.map((candle, idx) => {
             const isGreen = candle.close >= candle.open;
-            const x = (idx / displayCandles.length) * 100;
+            const x = idx * candleSlotPct;
             const bodyTop = scaleY(Math.max(candle.open, candle.close));
             const bodyBottom = scaleY(Math.min(candle.open, candle.close));
             const bodyHeight = Math.max(bodyBottom - bodyTop, 1);
@@ -2050,21 +2086,20 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
             const wickBottom = scaleY(candle.low);
             const color = isGreen ? '#22c55e' : '#ef4444';
 
-            const slotPct = 100 / displayCandles.length;
-            const bodyW = Math.min(slotPct * 0.55, candleWidth / 10);
+            const bodyW = Math.min(candleSlotPct * 0.55, candleWidth / 10);
 
             return (
               <g key={candle.time}>
                 <line
-                  x1={`${x + slotPct / 2}%`}
+                  x1={`${x + candleSlotPct / 2}%`}
                   y1={wickTop}
-                  x2={`${x + slotPct / 2}%`}
+                  x2={`${x + candleSlotPct / 2}%`}
                   y2={wickBottom}
                   stroke={color}
                   strokeWidth="1"
                 />
                 <rect
-                  x={`${x + (slotPct - bodyW) / 2}%`}
+                  x={`${x + (candleSlotPct - bodyW) / 2}%`}
                   y={bodyTop}
                   width={`${bodyW}%`}
                   height={bodyHeight}
@@ -2278,17 +2313,43 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
         )}
 
         <div className="flex-1 min-h-[240px] rounded-xl bg-white/50 backdrop-blur-md overflow-hidden flex flex-col border-0">
-          <div className="px-3 py-2 border-b border-[#ececef] flex items-center justify-between gap-3 shrink-0">
-            <div className="flex items-center gap-3 min-w-0 flex-wrap">
-              <span className="text-sm font-medium text-[#0a0a0a] shrink-0">Live chart</span>
-              <span className="text-sm font-semibold text-[#0a0a0a] shrink-0">
-                {selectedPair.symbol}
-              </span>
-              <span className="term-chart-live-quote text-sm font-semibold text-[#0a0a0a] shrink-0">
+          <div className="px-3 py-2 border-b border-[#ececef] flex flex-col gap-2 shrink-0">
+            <div className="flex items-center justify-between gap-3">
+            <div className="term-chart-live-badge" aria-label="Live chart quote">
+              <span className="term-chart-live-badge__label">Live chart</span>
+              {pairs.length > 1 ? (
+                <div className="term-chart-pair-select-wrap">
+                  <select
+                    value={selectedPair.binanceSymbol}
+                    onChange={(e) => {
+                      const pair = pairs.find((p) => p.binanceSymbol === e.target.value);
+                      if (pair) setSelectedPair(pair);
+                    }}
+                    className="term-chart-pair-select"
+                    aria-label="Trading pair"
+                  >
+                    {pairs.map((pair) => (
+                      <option key={pair.binanceSymbol} value={pair.binanceSymbol}>
+                        {pair.symbol.replace('/USDT', '')}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="term-chart-pair-select-chevron" aria-hidden />
+                </div>
+              ) : (
+                <span className="term-chart-live-badge__pair">{selectedPair.symbol}</span>
+              )}
+              <span className="term-chart-live-badge__price">
                 ${formatPrice(selectedPair.price, 2)}
-                <span className={selectedPair.change >= 0 ? 'text-green-600' : 'text-red-600'}>
-                  {changeStr}
-                </span>
+              </span>
+              <span
+                className={
+                  selectedPair.change >= 0
+                    ? 'term-chart-live-badge__change term-chart-live-badge__change--up'
+                    : 'term-chart-live-badge__change term-chart-live-badge__change--down'
+                }
+              >
+                {changeStr}
               </span>
             </div>
             <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
@@ -2364,6 +2425,7 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
                 </button>
               ))}
             </div>
+            </div>
           </div>
           <div
             ref={chartPlotRef}
@@ -2380,7 +2442,7 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
           </div>
           {terminalChartInteractive && (
             <p className="px-3 pb-2 text-[10px] text-[#71717a] shrink-0">
-              {chartTool === 'pan' && 'Drag to scroll · Wheel zoom · Shift+wheel scroll back'}
+              {chartTool === 'pan' && 'Drag to pan (horizontal & vertical) · Wheel zoom · Shift+wheel scroll back'}
               {chartTool === 'crosshair' && 'Crosshair — hover for price'}
               {chartTool === 'measure' && 'Click two points to measure % change'}
               {chartScrollOffset > 0 && ` · ${chartScrollOffset} bars back`}

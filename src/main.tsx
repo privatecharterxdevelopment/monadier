@@ -10,6 +10,7 @@ import { Web3Provider } from './contexts/Web3Context';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { config } from './lib/wallet';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import AuthWalletReset from './components/auth/AuthWalletReset';
 import './index.css';
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ createRoot(rootEl).render(
               <SubscriptionProvider>
                 <NotificationProvider>
                   <Web3Provider>
+                    <AuthWalletReset />
                     <App />
                   </Web3Provider>
                 </NotificationProvider>

@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowDownLeft, Loader2, AlertCircle } from 'lucide-react';
 import { formatUnits } from 'viem';
+import { useAppKit } from '@reown/appkit/react';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useTransactions } from '../../contexts/TransactionContext';
 import {
@@ -12,8 +13,10 @@ import {
 import { ERC20_ABI } from '../../lib/dex/router';
 import { supabase } from '../../lib/supabase';
 import TerminalModalFrame from './TerminalModalFrame';
+import TerminalArbitrumBanner from './TerminalArbitrumBanner';
 
 const MIN_DEPOSIT_USD = 50;
+const MIN_ETH_FOR_GAS = 0.0001;
 const ARBISCAN = 'https://arbiscan.io';
 
 type Props = {
@@ -21,8 +24,11 @@ type Props = {
   onSuccess: () => void;
 };
 
+type Gate = 'connect' | 'network' | 'gas' | 'min' | 'balance' | null;
+
 const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
-  const { chainId, address, publicClient, walletClient } = useWeb3();
+  const { open } = useAppKit();
+  const { chainId, address, publicClient, walletClient, switchChain } = useWeb3();
   const { addTransaction, updateTransaction } = useTransactions();
   const [amount, setAmount] = useState('');
   const [usdcBalance, setUsdcBalance] = useState('0');
@@ -31,16 +37,20 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
   const [isLoadingBalance, setIsLoadingBalance] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const walletConnected = Boolean(address);
   const onArbitrum = chainId === VAULT_CHAIN_ID;
   const depositUsd = parseFloat(amount || '0');
+  const usdcNum = parseFloat(usdcBalance) || 0;
   const isBelowMinimum = depositUsd > 0 && depositUsd < MIN_DEPOSIT_USD;
-  const MIN_ETH_FOR_GAS = 0.0001;
-  const hasEnoughGas = parseFloat(ethBalance) >= MIN_ETH_FOR_GAS;
-  const needsGas = !hasEnoughGas && !isLoadingBalance;
+  const hasEnoughGas =
+    !onArbitrum || isLoadingBalance || parseFloat(ethBalance) >= MIN_ETH_FOR_GAS;
+  const needsGas = onArbitrum && walletConnected && !isLoadingBalance && !hasEnoughGas;
 
   useEffect(() => {
     const load = async () => {
       if (!address || !publicClient || chainId !== VAULT_CHAIN_ID) {
+        setUsdcBalance('0');
+        setEthBalance('0');
         setIsLoadingBalance(false);
         return;
       }
@@ -67,11 +77,20 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
     load();
   }, [address, publicClient, chainId]);
 
+  const gate: Gate = useMemo(() => {
+    if (!walletConnected) return 'connect';
+    if (!onArbitrum) return 'network';
+    if (needsGas) return 'gas';
+    if (isBelowMinimum) return 'min';
+    if (depositUsd > 0 && depositUsd > usdcNum) return 'balance';
+    return null;
+  }, [walletConnected, onArbitrum, needsGas, isBelowMinimum, depositUsd, usdcNum]);
+
   const handleMax = () => setAmount(usdcBalance);
 
   const handleDeposit = async () => {
     if (!address || !publicClient || !walletClient || chainId !== VAULT_CHAIN_ID) {
-      setError('Connect on Arbitrum to deposit.');
+      setError('Connect your wallet on Arbitrum to deposit.');
       return;
     }
     if (!amount || depositUsd <= 0) {
@@ -82,8 +101,8 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
       setError(`Minimum deposit is $${MIN_DEPOSIT_USD} USDC.`);
       return;
     }
-    if (depositUsd > parseFloat(usdcBalance)) {
-      setError('Insufficient USDC in wallet.');
+    if (depositUsd > usdcNum) {
+      setError('Insufficient USDC in wallet — fund your wallet first.');
       return;
     }
     if (needsGas) {
@@ -162,19 +181,42 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
     }
   };
 
+  const primaryLabel =
+    gate === 'connect'
+      ? 'Connect wallet'
+      : gate === 'network'
+        ? 'Switch to Arbitrum'
+        : 'Deposit USDC';
+
+  const primaryAction = async () => {
+    if (gate === 'connect') {
+      open();
+      return;
+    }
+    if (gate === 'network') {
+      try {
+        await switchChain(VAULT_CHAIN_ID);
+      } catch {
+        setError('Could not switch network — approve in your wallet.');
+      }
+      return;
+    }
+    void handleDeposit();
+  };
+
+  const depositDisabled =
+    isLoading ||
+    gate === 'gas' ||
+    gate === 'min' ||
+    gate === 'balance' ||
+    (gate === null && (!amount || depositUsd <= 0));
+
   const footer = (
     <button
       type="button"
       className="term-modal-primary"
-      onClick={handleDeposit}
-      disabled={
-        isLoading ||
-        !onArbitrum ||
-        !amount ||
-        depositUsd <= 0 ||
-        isBelowMinimum ||
-        needsGas
-      }
+      onClick={() => void primaryAction()}
+      disabled={depositDisabled && gate !== 'connect' && gate !== 'network'}
     >
       {isLoading ? (
         <>
@@ -184,7 +226,7 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
       ) : (
         <>
           <ArrowDownLeft size={16} />
-          Deposit USDC
+          {primaryLabel}
         </>
       )}
     </button>
@@ -199,18 +241,28 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
       closeDisabled={isLoading}
       footer={footer}
     >
-      {!onArbitrum && (
-        <p className="term-modal-note term-modal-note--warn">
-          Switch to Arbitrum in the header before depositing.
-        </p>
+      {!walletConnected && (
+        <div className="term-modal-alert">
+          <AlertCircle size={16} />
+          <span>Connect your wallet to deposit USDC from it into the vault.</span>
+        </div>
       )}
 
-      <div className="term-modal-card">
-        <span className="term-modal-label">Wallet USDC</span>
-        <strong className="term-modal-value">
-          {isLoadingBalance ? '…' : `${parseFloat(usdcBalance).toFixed(2)} USDC`}
-        </strong>
-      </div>
+      {walletConnected && !onArbitrum && <TerminalArbitrumBanner variant="inline" />}
+
+      {walletConnected && onArbitrum && (
+        <div className="term-modal-card">
+          <span className="term-modal-label">Wallet USDC (Arbitrum)</span>
+          <strong className="term-modal-value">
+            {isLoadingBalance ? '…' : `${usdcNum.toFixed(2)} USDC`}
+          </strong>
+          {!isLoadingBalance && usdcNum < MIN_DEPOSIT_USD && (
+            <p className="term-modal-hint">
+              You need at least ${MIN_DEPOSIT_USD} USDC in your wallet on Arbitrum.
+            </p>
+          )}
+        </div>
+      )}
 
       <label className="term-modal-label" htmlFor="term-deposit-amt">
         Amount
@@ -222,11 +274,16 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
           className="term-modal-input"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          disabled={isLoading}
+          disabled={isLoading || !walletConnected}
           placeholder="0.00"
           step="0.01"
         />
-        <button type="button" className="term-modal-link" onClick={handleMax} disabled={isLoadingBalance}>
+        <button
+          type="button"
+          className="term-modal-link"
+          onClick={handleMax}
+          disabled={isLoadingBalance || !onArbitrum || !walletConnected}
+        >
           Max
         </button>
       </div>
@@ -235,16 +292,24 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
         Minimum ${MIN_DEPOSIT_USD} USDC required for bot trading. Deposit fee: free.
       </p>
 
-      {needsGas && (
-        <div className="term-modal-alert">
+      {gate === 'gas' && (
+        <div className="term-modal-alert term-modal-alert--warn">
           <AlertCircle size={16} />
           <span>Add ~$0.10 of ETH on Arbitrum for gas fees.</span>
         </div>
       )}
-      {isBelowMinimum && (
+      {gate === 'min' && (
         <div className="term-modal-alert term-modal-alert--warn">
           <AlertCircle size={16} />
           <span>Amount is below the ${MIN_DEPOSIT_USD} minimum.</span>
+        </div>
+      )}
+      {gate === 'balance' && (
+        <div className="term-modal-alert term-modal-alert--warn">
+          <AlertCircle size={16} />
+          <span>
+            Your wallet has {usdcNum.toFixed(2)} USDC — add more USDC on Arbitrum or lower the amount.
+          </span>
         </div>
       )}
       {error && (

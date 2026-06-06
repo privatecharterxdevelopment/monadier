@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import Logo from '../components/ui/Logo';
 import { supabase } from '../lib/supabase';
+import { afterAuthGo } from '../lib/appUrls';
+import { queueAuthToast } from '../lib/authToast';
 
 /**
  * Finishes Supabase OAuth (Google) and password-recovery redirects.
@@ -17,7 +19,12 @@ const AuthCallbackPage: React.FC = () => {
     const go = (path: string) => {
       if (done) return;
       done = true;
-      navigate(path, { replace: true });
+      if (path === '/dashboard2' || path.startsWith('/dashboard2/')) {
+        queueAuthToast('signed_in');
+        afterAuthGo(path, navigate);
+      } else {
+        navigate(path, { replace: true });
+      }
     };
 
     const fail = (message: string) => {

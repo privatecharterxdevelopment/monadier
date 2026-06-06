@@ -28,6 +28,7 @@ import TerminalWithdrawModal from './TerminalWithdrawModal';
 import TerminalBotSettingsModal from './TerminalBotSettingsModal';
 import TerminalLvrgPanel from './TerminalLvrgPanel';
 import TerminalBotSettingsStrip from './TerminalBotSettingsStrip';
+import TerminalArbitrumBanner from './TerminalArbitrumBanner';
 
 const MIN_VAULT_USD = 50;
 const WETH = '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1' as const;
@@ -447,6 +448,7 @@ const TerminalTradePanel: React.FC<Props> = ({
 
         {panelTab === 'funds' && (
           <div className="term-panel-stack">
+            {walletReady && !vault.onArbitrum && <TerminalArbitrumBanner variant="inline" />}
             <div className="term-panel-card term-panel-card--muted">
               <span className="term-panel-card-label">Vault balance</span>
               <strong className="term-panel-card-value">{fmt(vault.vaultUsd)}</strong>
@@ -515,6 +517,8 @@ const TerminalTradePanel: React.FC<Props> = ({
       {showWithdraw && walletReady && (
         <TerminalWithdrawModal
           maxAmount={vault.vaultUsd.toFixed(2)}
+          balanceAmount={vault.balanceUsd.toFixed(2)}
+          hasActivePosition={Boolean(vault.position?.isActive)}
           onClose={() => setShowWithdraw(false)}
           onSuccess={() => {
             setShowWithdraw(false);

@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { supabase, getUserProfile } from '../lib/supabase';
-import { isDemoModeEnabled } from '../lib/demoMode';
+import { supabase, getUserProfile, ensureUserProfile } from '../lib/supabase';
+import { ensureFreeSubscription } from '../lib/ensureSubscription';
+import { isDemoModeEnabled, disableDemoMode } from '../lib/demoMode';
+import { emitAuthSignedIn } from '../components/auth/AuthWalletReset';
 import { User } from '@supabase/supabase-js';
 
 // Demo account constants
@@ -92,6 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (currentUser) {
           try {
+            await withTimeout(ensureUserProfile(currentUser), 5000);
             const { data } = await withTimeout(getUserProfile(currentUser.id), 5000);
             if (isMounted) {
               setProfile(data);
@@ -124,6 +127,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (session?.user) {
         try {
+          await withTimeout(ensureUserProfile(session.user), 5000);
+          await withTimeout(ensureFreeSubscription(), 5000).catch((e) => {
+            console.error('ensureFreeSubscription:', e);
+          });
           const { data } = await withTimeout(getUserProfile(session.user.id), 5000);
           if (isMounted) {
             setProfile(data);
@@ -134,6 +141,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Apply referral code from localStorage (for Google OAuth flow)
         if (event === 'SIGNED_IN') {
+          disableDemoMode();
+          emitAuthSignedIn();
+
           const storedReferralCode = localStorage.getItem('referral_code');
           if (storedReferralCode) {
             try {

@@ -1,323 +1,149 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
-import { ArrowRight, Brain, TrendingUp, Shield, Target, Activity, BarChart3, Cpu, LineChart } from 'lucide-react';
-import Logo from '../components/ui/Logo';
-import CookieConsent from '../components/ui/CookieConsent';
-import MobileMenu from '../components/ui/MobileMenu';
+import {
+  Brain,
+  TrendingUp,
+  Shield,
+  Target,
+  Activity,
+  BarChart3,
+  Cpu,
+  LineChart,
+} from 'lucide-react';
+import MarketingInnerPage, {
+  MarketingPageHero,
+  MarketingFeatureCard,
+  MarketingPageGrid,
+  MarketingSectionHeading,
+  MarketingStatCard,
+  MarketingPageCta,
+  MarketingDisclaimer,
+} from '../components/marketing/MarketingInnerPage';
+import { getAppUrl } from '../lib/appUrls';
+
+const engineFeatures = [
+  {
+    icon: Brain,
+    title: 'Multi-timeframe analysis',
+    text: 'The bot scans 1m through 1h charts on ETH, BTC, and ARB to align short-term entries with broader trend context.',
+  },
+  {
+    icon: BarChart3,
+    title: 'Quantitative signal stack',
+    text: 'Momentum, mean-reversion, and volatility filters combined before any GMX perpetual entry is considered.',
+  },
+  {
+    icon: Target,
+    title: 'Confidence scoring',
+    text: 'Each setup receives a confidence score. Trades execute only when thresholds and your bot settings align.',
+  },
+  {
+    icon: Activity,
+    title: 'Dynamic risk gates',
+    text: 'Position sizing, leverage caps, and exposure limits respond to vault balance and open-trade state.',
+  },
+  {
+    icon: LineChart,
+    title: 'Trailing & exit logic',
+    text: 'Take profit, stop loss, and trailing rules run automatically — you can also close manually from the terminal.',
+  },
+  {
+    icon: Cpu,
+    title: 'GMX execution on Arbitrum',
+    text: 'Direct integration with GMX perpetuals for on-chain fills with oracle pricing and transparent settlement.',
+  },
+];
+
+const pipeline = [
+  {
+    title: 'Market analysis',
+    text: 'Continuous monitoring of price, volume, and multi-timeframe structure across supported GMX pairs.',
+  },
+  {
+    title: 'Confidence scoring',
+    text: 'Signals are ranked against historical patterns and your minimum win-rate / trade-count settings.',
+  },
+  {
+    title: 'Position management',
+    text: 'Entries include predefined TP/SL. The bot manages open positions until exit criteria are met.',
+  },
+  {
+    title: 'Risk control',
+    text: 'Configurable leverage and vault limits help cap drawdown while the bot runs 24/7 on our servers.',
+  },
+];
 
 const TechnologyPage: React.FC = () => {
   return (
-    <div className="min-h-screen page-shell">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 glass-nav">
-        <div className="container-custom">
-          <nav className="flex justify-between items-center h-20">
-            <Logo size="md" />
-            <div className="hidden md:flex items-center space-x-10">
-              <Link to="/how-it-works" className="text-secondary hover:text-primary transition-colors text-sm font-medium">
-                How it works
-              </Link>
-              <Link to="/trading-bot" className="text-secondary hover:text-primary transition-colors text-sm font-medium">
-                Bot Trading
-              </Link>
-              <Link to="/pricing" className="text-secondary hover:text-primary transition-colors text-sm font-medium">
-                Pricing
-              </Link>
-              <Link to="/technology" className="text-primary transition-colors text-sm font-medium">
-                Technology
-              </Link>
-            </div>
-            <div className="flex items-center gap-4">
-              <Link to="/login" className="hidden md:block text-secondary hover:text-primary transition-colors text-sm font-medium">
-                Sign in
-              </Link>
-              <Link to="/register" className="hidden md:block">
-                <button className="px-4 py-2 bg-white text-gray-900 rounded-full text-sm font-medium hover:bg-gray-100 transition-colors">
-                  Trade now
-                </button>
-              </Link>
-              <MobileMenu />
-            </div>
-          </nav>
-        </div>
-      </header>
+    <MarketingInnerPage>
+      <MarketingPageHero
+        eyebrow="Technology"
+        title="Quantitative engine for GMX perpetuals"
+        lead="Institutional-style automation built for Arbitrum — analysis, risk gates, and execution in one system."
+        sub="Non-custodial vault architecture. You control deposits, withdrawals, and when the bot runs."
+      />
 
-      <main className="pt-32 pb-24">
-        {/* Hero Section */}
-        <section className="container-custom mb-24">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="max-w-4xl mx-auto text-center"
-          >
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-medium leading-[1.1] mb-8 tracking-tight">
-              Our <span className="text-secondary">Technology</span>
-            </h1>
-            <p className="text-lg md:text-xl text-secondary mb-12 max-w-2xl mx-auto leading-relaxed">
-              Institutional-grade quantitative trading algorithms powered by AI, designed for retail traders seeking professional-level performance.
-            </p>
-          </motion.div>
-        </section>
+      <MarketingSectionHeading
+        title="Trading engine"
+        sub="Core components that power automated execution on GMX."
+      />
 
-        {/* Core Technology Section */}
-        <section className="container-custom mb-24">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="max-w-3xl mb-16"
-          >
-            <h2 className="text-3xl md:text-4xl font-display font-medium mb-6">
-              Quantitative Trading Engine
-            </h2>
-            <p className="text-secondary text-lg leading-relaxed">
-              Our trading engine combines multiple analytical approaches inspired by the world's most successful quantitative hedge funds.
-            </p>
-          </motion.div>
+      <MarketingPageGrid columns={3}>
+        {engineFeatures.map((item, i) => (
+          <MarketingFeatureCard
+            key={item.title}
+            index={i}
+            title={item.title}
+            text={item.text}
+            icon={item.icon}
+          />
+        ))}
+      </MarketingPageGrid>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              {
-                icon: Brain,
-                title: 'AI-Powered Analysis',
-                description: 'Advanced machine learning models analyze market conditions, sentiment, and technical patterns in real-time to generate high-confidence trading signals.'
-              },
-              {
-                icon: BarChart3,
-                title: 'Multi-Factor Models',
-                description: 'Renaissance-style quantitative approach combining momentum, mean-reversion, and statistical arbitrage strategies for optimal market timing.'
-              },
-              {
-                icon: Target,
-                title: 'Signal Confidence Scoring',
-                description: 'Every trade signal is assigned a confidence score ranging from 55% to 75%, ensuring only high-probability setups are executed.'
-              },
-              {
-                icon: Activity,
-                title: 'Dynamic Risk Management',
-                description: 'Adaptive position sizing and exposure limits that respond to market volatility and portfolio performance in real-time.'
-              },
-              {
-                icon: LineChart,
-                title: 'Trailing Stop Technology',
-                description: 'Intelligent trailing stops that activate at 0.6% profit, automatically locking in gains while letting winners run during strong trends.'
-              },
-              {
-                icon: Cpu,
-                title: 'Low-Latency Execution',
-                description: 'Direct integration with GMX perpetuals for instant order execution on Arbitrum, minimizing slippage and maximizing fill rates.'
-              }
-            ].map((tech, index) => (
-              <motion.div
-                key={tech.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="p-8 rounded-2xl border border-black/[0.06] hover:border-black/[0.08] hover:bg-black/[0.03] transition-all"
-              >
-                <div className="w-12 h-12 rounded-xl bg-black/[0.04] flex items-center justify-center mb-6">
-                  <tech.icon className="text-primary/60" size={24} />
-                </div>
-                <h3 className="text-lg font-medium text-primary mb-3">{tech.title}</h3>
-                <p className="text-secondary text-sm leading-relaxed">{tech.description}</p>
-              </motion.div>
-            ))}
-          </div>
-        </section>
+      <MarketingSectionHeading
+        title="Signal pipeline"
+        sub="From scan to fill — how a trade moves through the system."
+      />
 
-        {/* How It Works Section */}
-        <section className="container-custom mb-24">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="p-8 md:p-12 rounded-3xl bg-black/[0.03] border border-black/[0.06]"
-          >
-            <div className="max-w-3xl mx-auto">
-              <h2 className="text-3xl md:text-4xl font-display font-medium mb-8 text-center">
-                Trading Signal Generation
-              </h2>
+      <MarketingPageGrid columns={2}>
+        {pipeline.map((step, i) => (
+          <MarketingFeatureCard
+            key={step.title}
+            index={i}
+            title={step.title}
+            text={step.text}
+          />
+        ))}
+      </MarketingPageGrid>
 
-              <div className="space-y-8">
-                <div className="flex gap-6">
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-black/[0.06] flex items-center justify-center text-primary font-medium">
-                    1
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-medium text-primary mb-2">Market Analysis</h3>
-                    <p className="text-secondary leading-relaxed">
-                      Our AI continuously monitors price action, volume, order flow, and on-chain metrics across multiple timeframes to identify emerging opportunities.
-                    </p>
-                  </div>
-                </div>
+      <MarketingSectionHeading title="Key parameters" />
 
-                <div className="flex gap-6">
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-black/[0.06] flex items-center justify-center text-primary font-medium">
-                    2
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-medium text-primary mb-2">Confidence Scoring</h3>
-                    <p className="text-secondary leading-relaxed">
-                      Each potential trade is evaluated against historical patterns and assigned a confidence score between 55-75%. Only signals meeting your threshold are executed.
-                    </p>
-                  </div>
-                </div>
+      <div className="mkt-stats-row">
+        <MarketingStatCard value="55–75%" label="Confidence range" />
+        <MarketingStatCard value="0.6%" label="Trailing activation" />
+        <MarketingStatCard value="100x" label="GMX max leverage" />
+        <MarketingStatCard value="24/7" label="Market monitoring" />
+      </div>
 
-                <div className="flex gap-6">
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-black/[0.06] flex items-center justify-center text-primary font-medium">
-                    3
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-medium text-primary mb-2">Position Management</h3>
-                    <p className="text-secondary leading-relaxed">
-                      Smart entry with predefined stop-loss and take-profit levels. Trailing stops automatically activate to protect profits while maximizing upside potential.
-                    </p>
-                  </div>
-                </div>
+      <MarketingPageGrid columns={2} className="mkt-grid-follow">
+        <MarketingFeatureCard
+          icon={Shield}
+          title="Non-custodial architecture"
+          text="USDC sits in the audited V11 vault on Arbitrum. Only your wallet can deposit or withdraw — we never hold private keys."
+        />
+        <MarketingFeatureCard
+          icon={TrendingUp}
+          title="Transparent performance"
+          text="Every open and closed trade is visible in the dashboard with realized and unrealized P/L. No hidden platform fees."
+        />
+      </MarketingPageGrid>
 
-                <div className="flex gap-6">
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-black/[0.06] flex items-center justify-center text-primary font-medium">
-                    4
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-medium text-primary mb-2">Risk Control</h3>
-                    <p className="text-secondary leading-relaxed">
-                      Leverage up to 50x with institutional-grade risk controls. Position sizes are calculated to prevent excessive drawdowns while optimizing returns.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        </section>
+      <MarketingPageCta
+        href={getAppUrl('/register')}
+        secondary={{ to: '/pricing', label: 'View pricing' }}
+      />
 
-        {/* Stats Section */}
-        <section className="container-custom mb-24">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-              className="p-6 rounded-xl border border-black/[0.06] bg-black/[0.03] text-center"
-            >
-              <p className="text-3xl md:text-4xl font-display font-medium text-primary mb-2">55-75%</p>
-              <p className="text-secondary text-sm">Confidence Range</p>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="p-6 rounded-xl border border-black/[0.06] bg-black/[0.03] text-center"
-            >
-              <p className="text-3xl md:text-4xl font-display font-medium text-primary mb-2">0.6%</p>
-              <p className="text-secondary text-sm">Trailing Stop Activation</p>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="p-6 rounded-xl border border-black/[0.06] bg-black/[0.03] text-center"
-            >
-              <p className="text-3xl md:text-4xl font-display font-medium text-primary mb-2">50x</p>
-              <p className="text-secondary text-sm">Max Leverage</p>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="p-6 rounded-xl border border-black/[0.06] bg-black/[0.03] text-center"
-            >
-              <p className="text-3xl md:text-4xl font-display font-medium text-primary mb-2">24/7</p>
-              <p className="text-secondary text-sm">Market Monitoring</p>
-            </motion.div>
-          </div>
-        </section>
-
-        {/* Security Section */}
-        <section className="container-custom mb-24">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="grid md:grid-cols-2 gap-8"
-          >
-            <div className="p-8 rounded-2xl border border-black/[0.06] bg-black/[0.03]">
-              <Shield className="text-primary/60 mb-6" size={32} />
-              <h3 className="text-2xl font-display font-medium text-primary mb-4">Non-Custodial Architecture</h3>
-              <p className="text-secondary leading-relaxed">
-                Your funds remain in your own wallet or our audited smart contract vault. We never have access to your private keys. Trade with complete peace of mind.
-              </p>
-            </div>
-            <div className="p-8 rounded-2xl border border-black/[0.06] bg-black/[0.03]">
-              <TrendingUp className="text-primary/60 mb-6" size={32} />
-              <h3 className="text-2xl font-display font-medium text-primary mb-4">Transparent Performance</h3>
-              <p className="text-secondary leading-relaxed">
-                Track every trade in real-time. Full transparency on entries, exits, and P&L. No hidden fees, no surprises. Your success is our success.
-              </p>
-            </div>
-          </motion.div>
-        </section>
-
-        {/* CTA Section */}
-        <section className="container-custom">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="max-w-3xl mx-auto text-center"
-          >
-            <h2 className="text-3xl md:text-4xl font-display font-medium mb-6">
-              Experience institutional-grade trading
-            </h2>
-            <p className="text-secondary text-lg mb-10">
-              Join traders who leverage our quantitative algorithms for consistent, data-driven results. Start with as little as $50.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link to="/register">
-                <button className="px-5 py-2.5 bg-white text-gray-900 rounded-full text-sm font-medium hover:bg-gray-100 transition-colors inline-flex items-center gap-2">
-                  Get started
-                  <ArrowRight size={14} />
-                </button>
-              </Link>
-              <Link to="/pricing">
-                <button className="px-5 py-2.5 text-secondary hover:text-primary transition-colors text-sm font-medium">
-                  View pricing
-                </button>
-              </Link>
-            </div>
-          </motion.div>
-        </section>
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-black/[0.06] py-12">
-        <div className="container-custom">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <Logo size="sm" />
-            <div className="flex items-center gap-8">
-              <Link to="/about" className="text-secondary hover:text-primary text-sm transition-colors">About</Link>
-              <Link to="/technology" className="text-secondary hover:text-primary text-sm transition-colors">Technology</Link>
-              <Link to="/terms" className="text-secondary hover:text-primary text-sm transition-colors">Terms</Link>
-              <Link to="/privacy" className="text-secondary hover:text-primary text-sm transition-colors">Privacy</Link>
-            </div>
-            <p className="text-muted text-sm">&copy; 2026 Monadier. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
-
-      <CookieConsent />
-    </div>
+      <MarketingDisclaimer>This is not financial advice. Your capital is at risk.</MarketingDisclaimer>
+    </MarketingInnerPage>
   );
 };
 

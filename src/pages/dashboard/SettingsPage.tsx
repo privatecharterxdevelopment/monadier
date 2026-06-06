@@ -34,6 +34,7 @@ const SettingsPage: React.FC = () => {
   // Profile fields
   const [fullName, setFullName] = useState('');
   const [country, setCountry] = useState('');
+  const [avatarEmoji, setAvatarEmoji] = useState('🙂');
   const [walletAddress, setWalletAddress] = useState('');
 
   // Multi-wallet support

@@ -27,12 +27,16 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import FundsExplainedPage from './pages/FundsExplainedPage';
+import TermsPage from './pages/TermsPage';
+import PrivacyPage from './pages/PrivacyPage';
 import KycFlowPage from './pages/KycFlowPage';
 import DashboardPage from './pages/DashboardPage';
 import Dashboard2Page from './pages/dashboard/Dashboard2Page';
+import Dashboard2ProfilePage from './pages/dashboard/Dashboard2ProfilePage';
 import Dashboard2Layout from './layouts/Dashboard2Layout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import SupportWidget from './components/ui/SupportWidget';
+import HostRedirects from './components/layout/HostRedirects';
 
 function App() {
   const { isLoading } = useAuth();
@@ -68,6 +72,7 @@ function App() {
   return (
     <TransactionProvider>
       <ScrollToTop />
+      <HostRedirects />
       {showSupportWidget && <SupportWidget />}
       <TransactionToast />
       <AnimatePresence mode="wait">
@@ -133,6 +138,16 @@ function App() {
               <FundsExplainedPage />
             </PageTransition>
           } />
+          <Route path="/terms" element={
+            <PageTransition>
+              <TermsPage />
+            </PageTransition>
+          } />
+          <Route path="/privacy" element={
+            <PageTransition>
+              <PrivacyPage />
+            </PageTransition>
+          } />
           <Route path="/forgot-password" element={
             <PageTransition>
               <ForgotPasswordPage />
@@ -153,8 +168,7 @@ function App() {
           } />
           
           <Route path="/dashboard" element={<Navigate to="/dashboard2" replace />} />
-          <Route path="/dashboard/profile" element={<Navigate to="/dashboard2" replace />} />
-          <Route path="/dashboard2/profile" element={<Navigate to="/dashboard2" replace />} />
+          <Route path="/dashboard/profile" element={<Navigate to="/dashboard2/profile" replace />} />
 
           <Route path="/dashboard/*" element={
             <ProtectedRoute>
@@ -169,21 +183,20 @@ function App() {
             element={
               import.meta.env.DEV ? (
                 <PageTransition fillViewport>
-                  <Dashboard2Layout>
-                    <Dashboard2Page />
-                  </Dashboard2Layout>
+                  <Dashboard2Layout />
                 </PageTransition>
               ) : (
                 <ProtectedRoute>
                   <PageTransition fillViewport>
-                    <Dashboard2Layout>
-                      <Dashboard2Page />
-                    </Dashboard2Layout>
+                    <Dashboard2Layout />
                   </PageTransition>
                 </ProtectedRoute>
               )
             }
-          />
+          >
+            <Route index element={<Dashboard2Page />} />
+            <Route path="profile" element={<Dashboard2ProfilePage />} />
+          </Route>
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </AnimatePresence>

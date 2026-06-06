@@ -4,7 +4,8 @@ import { formatUnits, parseUnits, erc20Abi } from 'viem';
 import { SUPPORTED_CHAINS, getChainById, ChainConfig } from '../lib/chains';
 import { createDexRouter, createGridBot, DexRouter, GridBot, SwapResult, TradeRecord } from '../lib/dex';
 import { calculateTradeFee, TREASURY_ADDRESS, TRADE_FEE_PERCENT } from '../lib/fees';
-import { supabase, isWalletLinked, linkWalletToUser } from '../lib/supabase';
+import { supabase, isWalletLinked } from '../lib/supabase';
+import { isWalletOwnedByOtherUser, linkWalletToUserSafe } from '../lib/userWallets';
 import { useAuth } from './AuthContext';
 
 export interface TokenBalance {
@@ -190,12 +191,17 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
   const [tokenPrices, setTokenPrices] = useState<Record<string, number>>({});
   const [showSaveWalletPrompt, setShowSaveWalletPrompt] = useState(false);
 
-  // Auto-save wallet to profile when connected
+  // Link connected wallet only when it belongs to this account (never steal another user's wallet)
   useEffect(() => {
     const checkAndSaveWallet = async () => {
       if (!isConnected || !address || !user?.id) return;
 
       try {
+        if (await isWalletOwnedByOtherUser(user.id, address)) {
+          console.warn('[Web3] Wallet belongs to another account — not linking');
+          return;
+        }
+
         const { isLinked, error } = await isWalletLinked(user.id, address);
         if (error) {
           console.error('Error checking wallet link:', error);
@@ -203,12 +209,9 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (!isLinked) {
-          // Auto-save the wallet to profile
-          const { error: linkError } = await linkWalletToUser(user.id, address);
-          if (linkError) {
-            console.error('Error linking wallet:', linkError);
-          } else {
-            console.log('Wallet automatically saved to profile:', address);
+          const result = await linkWalletToUserSafe(user.id, address);
+          if (!result.ok) {
+            console.error('Error linking wallet:', result.error);
           }
         }
       } catch (err) {

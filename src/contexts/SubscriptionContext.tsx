@@ -483,20 +483,11 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         return;
       }
 
-      // Add to user_wallets table (supports multiple wallets)
-      const { error: walletError } = await supabase
-        .from('user_wallets')
-        .upsert({
-          user_id: user.id,
-          wallet_address: walletAddress.toLowerCase()
-        }, {
-          onConflict: 'user_id,wallet_address'
-        });
+      const { linkWalletToUser } = await import('../lib/supabase');
+      const { error: walletError } = await linkWalletToUser(user.id, walletAddress);
 
       if (walletError) {
         console.error('Failed to add to user_wallets:', walletError);
-      } else {
-        console.log('Wallet added to user_wallets:', walletAddress);
       }
 
       // Also update vault_settings with user_id

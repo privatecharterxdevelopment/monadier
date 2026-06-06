@@ -1,10 +1,18 @@
 import { getSupabaseClient, getAuthRedirectBase } from './supabaseClient';
+import { normalizeUsernameInput } from './username';
+import { ensureUserProfile, patchUserProfile } from './profile';
 
 /** Browser client — anon key only (never service role). */
 export const supabase = getSupabaseClient();
 
 // Auth helpers
-export const signUp = async (email: string, password: string, fullName: string, country: string) => {
+export const signUp = async (
+  email: string,
+  password: string,
+  fullName: string,
+  country: string,
+  username: string
+) => {
   const emailRedirectTo = `${getAuthRedirectBase()}/auth/callback`;
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -14,6 +22,7 @@ export const signUp = async (email: string, password: string, fullName: string, 
       data: {
         full_name: fullName,
         country,
+        username: normalizeUsernameInput(username),
       },
     },
   });
@@ -85,8 +94,27 @@ export function getAccountProviders(user: {
 
 // Update password (for logged-in users or from reset link)
 export const updatePassword = async (newPassword: string) => {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError) return { data: null, error: userError };
+  if (!user) {
+    return { data: null, error: new Error('Not signed in') };
+  }
+
+  const providers = getAccountProviders(user);
+  if (!providers.includes('email') && providers.length > 0) {
+    return {
+      data: null,
+      error: new Error(
+        'This account uses Google sign-in. Use “Send reset link” to add a password, or continue with Google.'
+      ),
+    };
+  }
+
   const { data, error } = await supabase.auth.updateUser({
-    password: newPassword
+    password: newPassword,
   });
   return { data, error };
 };
@@ -114,14 +142,18 @@ export const getUserProfile = async (userId: string) => {
   return { data, error };
 };
 
-export const updateUserProfile = async (userId: string, updates: any) => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .update(updates)
-    .eq('id', userId);
-    
-  return { data, error };
+export const updateUserProfile = async (userId: string, updates: Record<string, unknown>) => {
+  try {
+    const data = await patchUserProfile(userId, updates);
+    return { data, error: null };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Profile update failed';
+    return { data: null, error: new Error(message) };
+  }
 };
+
+export { ensureUserProfile, patchUserProfile } from './profile';
+export { isUsernameAvailable, setUsernameOnce } from './profile';
 
 // KYC related functions
 export const updateKycStatus = async (userId: string, status: string, tier: string) => {
@@ -180,16 +212,30 @@ export const isWalletLinked = async (userId: string, walletAddress: string) => {
 };
 
 export const linkWalletToUser = async (userId: string, walletAddress: string, label?: string) => {
-  const { data, error } = await supabase
+  const wallet = walletAddress.toLowerCase();
+
+  const { data: existing } = await supabase
     .from('user_wallets')
-    .upsert({
+    .select('user_id')
+    .eq('wallet_address', wallet)
+    .limit(1);
+
+  const owner = existing?.[0];
+  if (owner && owner.user_id !== userId) {
+    return {
+      data: null,
+      error: new Error('This wallet is already linked to another Monadier account.'),
+    };
+  }
+
+  const { data, error } = await supabase.from('user_wallets').upsert(
+    {
       user_id: userId,
-      wallet_address: walletAddress.toLowerCase(),
-      label: label || `Wallet ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`,
-      created_at: new Date().toISOString()
-    }, {
-      onConflict: 'user_id,wallet_address'
-    });
+      wallet_address: wallet,
+      label: label || `Wallet ${wallet.slice(0, 6)}…${wallet.slice(-4)}`,
+    },
+    { onConflict: 'user_id,wallet_address' }
+  );
 
   return { data, error };
 };

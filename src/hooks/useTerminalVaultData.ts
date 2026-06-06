@@ -31,7 +31,10 @@ export type VaultSettingsSnapshot = {
 };
 
 export type TerminalVaultData = {
+  /** Withdrawable USDC (respects active positions / solvency). */
   vaultUsd: number;
+  /** Full vault balance before withdrawable cap. */
+  balanceUsd: number;
   maxTradeUsd: number;
   riskPctOnChain: number;
   position: ActiveVaultPosition | null;
@@ -59,6 +62,7 @@ export function useTerminalVaultData(refreshKey = 0) {
 
   const [data, setData] = useState<TerminalVaultData>({
     vaultUsd: 0,
+    balanceUsd: 0,
     maxTradeUsd: 0,
     riskPctOnChain: 5,
     position: null,
@@ -69,12 +73,19 @@ export function useTerminalVaultData(refreshKey = 0) {
 
   const load = useCallback(async () => {
     if (!wallet || (!isConnected && !isDemoUser)) {
-      setData((d) => ({ ...d, isLoading: false, vaultUsd: 0, position: null }));
+      setData((d) => ({ ...d, isLoading: false, vaultUsd: 0, balanceUsd: 0, position: null }));
       return;
     }
 
     if (!onArbitrum || !publicClient) {
-      setData((d) => ({ ...d, isLoading: false }));
+      setData((d) => ({
+        ...d,
+        isLoading: false,
+        vaultUsd: 0,
+        balanceUsd: 0,
+        maxTradeUsd: 0,
+        position: null,
+      }));
       return;
     }
 
@@ -119,7 +130,8 @@ export function useTerminalVaultData(refreshKey = 0) {
         VAULT_CHAIN_ID
       );
       const status = await client.getUserStatus(wallet);
-      let vaultUsd = parseFloat(status.balanceFormatted);
+      const balanceUsd = parseFloat(status.balanceFormatted);
+      let vaultUsd = balanceUsd;
       try {
         const w = await client.getWithdrawable(wallet);
         vaultUsd = parseFloat(w.formatted);
@@ -167,6 +179,7 @@ export function useTerminalVaultData(refreshKey = 0) {
 
       setData({
         vaultUsd,
+        balanceUsd,
         maxTradeUsd: parseFloat(status.maxTradeSizeFormatted) || 0,
         riskPctOnChain: status.riskLevelPercent,
         position,

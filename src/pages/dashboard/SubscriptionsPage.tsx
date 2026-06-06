@@ -31,6 +31,7 @@ import { useAppKit } from '@reown/appkit/react';
 import Card from '../../components/ui/Card';
 import { supabase } from '../../lib/supabase';
 import { generateLicenseCode, getUserTimezone, SUBSCRIPTION_PLANS } from '../../lib/subscription';
+import { TREASURY_ADDRESS } from '../../lib/fees';
 
 // Generate forex license key
 function generateForexLicenseKey(userId: string, planType: 'monthly' | 'lifetime'): string {
@@ -40,9 +41,6 @@ function generateForexLicenseKey(userId: string, planType: 'monthly' | 'lifetime
   const random = Math.random().toString(36).substring(2, 6).toUpperCase();
   return `${prefix}-${userPart}-${timestamp}-${random}`;
 }
-
-// Payment receiving address (treasury)
-const TREASURY_ADDRESS = '0xF7351a5C63e0403F6F7FC77d31B5e17A229C469c';
 
 const SubscriptionsPage: React.FC = () => {
   const {

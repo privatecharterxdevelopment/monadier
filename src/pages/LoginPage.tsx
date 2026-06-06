@@ -7,6 +7,8 @@ import Logo from '../components/ui/Logo';
 import { signIn, signInWithGoogle } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { enableDemoMode, isDemoModeAllowed } from '../lib/demoMode';
+import { afterAuthGo } from '../lib/appUrls';
+import { queueAuthToast } from '../lib/authToast';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -41,7 +43,8 @@ const LoginPage: React.FC = () => {
 
   React.useEffect(() => {
     if (isAuthenticated) {
-      navigate(redirectTo, { replace: true });
+      queueAuthToast('signed_in');
+      afterAuthGo(redirectTo, navigate);
     }
   }, [isAuthenticated, navigate, redirectTo]);
 
@@ -57,7 +60,7 @@ const LoginPage: React.FC = () => {
         throw error;
       }
       
-      navigate(redirectTo, { replace: true });
+      afterAuthGo(redirectTo, navigate);
     } catch (error: any) {
       setError(error.message || 'Failed to sign in');
       setIsLoading(false);

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshCw, X, ExternalLink } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../../contexts/AuthContext';
@@ -13,6 +13,12 @@ import {
   markPositionClosing,
 } from '../../lib/positionClose';
 import TerminalModalFrame from './TerminalModalFrame';
+import { explorerTxUrl } from '../../lib/tradeExplorer';
+import {
+  type ClosedTradeRow,
+  fetchClosedTradesForWallets,
+  verifyUrlForTrade,
+} from '../../lib/closedTrades';
 
 export type DockTab = 'open' | 'history' | 'all';
 
@@ -32,6 +38,8 @@ type Position = {
   created_at: string;
   closed_at: string | null;
   close_reason: string | null;
+  exit_tx_hash: string | null;
+  entry_tx_hash: string | null;
 };
 
 type Props = {
@@ -44,6 +52,9 @@ type Props = {
   onTabChange?: (tab: DockTab) => void;
   /** Brief highlight when opened from sidebar */
   highlight?: boolean;
+  layout?: 'dock' | 'page';
+  /** Scroll to and highlight a row (notifications → history) */
+  highlightPositionId?: string | null;
 };
 
 function fmtUsd(n: number) {
@@ -58,6 +69,19 @@ function fmtDate(iso: string | null) {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function fmtDateParts(iso: string | null) {
+  if (!iso) return { date: '—', time: '—' };
+  const d = new Date(iso);
+  return {
+    date: d.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }),
+    time: d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
+  };
 }
 
 const EXPLORERS: Record<number, string> = {
@@ -79,6 +103,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
   onTabChange,
   highlight = false,
   layout = 'dock',
+  highlightPositionId = null,
 }) => {
   const { address } = useAccount();
   const { isDemoUser, user } = useAuth();
@@ -86,6 +111,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
   const tab = controlledTab ?? internalTab;
   const setTab = onTabChange ?? setInternalTab;
   const [allRows, setAllRows] = useState<Position[]>([]);
+  const [closedHistory, setClosedHistory] = useState<ClosedTradeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [wallets, setWallets] = useState<string[]>([]);
   const [livePrices, setLivePrices] = useState<Record<string, number>>({});
@@ -94,6 +120,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
     id: string;
     token: string;
   } | null>(null);
+  const scrolledHighlightRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,13 +136,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
   const load = useCallback(
     async (silent = false) => {
       const queryWallets =
-        wallets.length > 0
-          ? wallets
-          : isDemoUser
-            ? [DEMO_WALLET_ADDRESS]
-            : address
-              ? [address.toLowerCase()]
-              : [];
+        wallets.length > 0 ? wallets : isDemoUser ? [DEMO_WALLET_ADDRESS] : [];
       if (queryWallets.length === 0) {
         setAllRows([]);
         setLoading(false);
@@ -127,7 +148,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
         const { data, error } = await supabase
           .from('positions')
           .select(
-            'id, wallet_address, chain_id, token_symbol, token_address, direction, entry_price, entry_amount, profit_loss, status, leverage_multiplier, highest_price, created_at, closed_at, close_reason'
+            'id, wallet_address, chain_id, token_symbol, token_address, direction, entry_price, entry_amount, profit_loss, status, leverage_multiplier, highest_price, created_at, closed_at, close_reason, exit_tx_hash, entry_tx_hash'
           )
           .in('wallet_address', queryWallets)
           .order('created_at', { ascending: false })
@@ -135,14 +156,22 @@ const TerminalPositionsDock: React.FC<Props> = ({
 
         if (error) throw error;
         setAllRows((data as Position[]) || []);
+
+        if (layout === 'page') {
+          const closed = await fetchClosedTradesForWallets(queryWallets, 200);
+          setClosedHistory(closed);
+        }
       } catch (e) {
         console.error('[TerminalPositionsDock]', e);
-        if (!silent) setAllRows([]);
+        if (!silent) {
+          setAllRows([]);
+          setClosedHistory([]);
+        }
       } finally {
         setLoading(false);
       }
     },
-    [address, isDemoUser, wallets, user?.id]
+    [address, isDemoUser, wallets, user?.id, layout]
   );
 
   useEffect(() => {
@@ -210,6 +239,21 @@ const TerminalPositionsDock: React.FC<Props> = ({
   const hasWallet = Boolean(address || isDemoUser || wallets.length > 0);
 
   const isPage = layout === 'page';
+  const useHistoryOverview = isPage && (tab === 'history' || tab === 'all');
+  const useClosedHistoryFeed = isPage && tab === 'history' && closedHistory.length > 0;
+
+  useEffect(() => {
+    if (!highlightPositionId || scrolledHighlightRef.current === highlightPositionId) {
+      return;
+    }
+    scrolledHighlightRef.current = highlightPositionId;
+    const t = window.setTimeout(() => {
+      document
+        .getElementById(`term-row-${highlightPositionId}`)
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 120);
+    return () => window.clearTimeout(t);
+  }, [highlightPositionId, rows, closedHistory, loading]);
 
   return (
     <div
@@ -218,7 +262,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
     >
       <div className="term-dock-head">
         {isPage && (
-          <h2 className="term-dock-page-title">Trade history</h2>
+          <h2 className="term-dock-page-title">Trade history &amp; alerts</h2>
         )}
         <div className="term-dock-tabs">
           {(
@@ -259,27 +303,209 @@ const TerminalPositionsDock: React.FC<Props> = ({
                 ? 'Link a wallet in Profile to see trade history'
                 : 'Connect wallet to see history'}
           </div>
-        ) : rows.length > 0 ? (
-          <table className="term-table">
+        ) : useClosedHistoryFeed ? (
+          <table className="term-table term-table--history-overview">
             <thead>
               <tr>
+                <th>Date</th>
+                <th>Time</th>
                 <th>Position</th>
                 <th>Size</th>
+                <th>Leverage</th>
                 <th>P/L</th>
-                <th>Status</th>
-                <th>Time</th>
-                <th />
+                <th>Verify</th>
+              </tr>
+            </thead>
+            <tbody>
+              {closedHistory.map((t) => {
+                const { date, time } = fmtDateParts(t.closedAt);
+                const verify = verifyUrlForTrade(t);
+                const rowId = t.positionId || t.id;
+                const rowHighlight =
+                  highlightPositionId === rowId || highlightPositionId === t.id;
+                return (
+                  <tr
+                    key={t.id}
+                    id={`term-row-${rowId}`}
+                    className={rowHighlight ? 'term-row--highlight' : ''}
+                  >
+                    <td className="term-history-date">{date}</td>
+                    <td className="term-history-time">{time}</td>
+                    <td>
+                      <span
+                        className={
+                          t.direction === 'LONG' ? 'term-dir-long' : 'term-dir-short'
+                        }
+                      >
+                        {t.direction}
+                      </span>{' '}
+                      {t.tokenSymbol}
+                    </td>
+                    <td>{fmtUsd(t.entryAmount)}</td>
+                    <td>{t.leverage}x</td>
+                    <td
+                      className={
+                        t.profitLoss >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'
+                      }
+                    >
+                      {t.profitLoss >= 0 ? '+' : ''}
+                      {fmtUsd(t.profitLoss)}
+                    </td>
+                    <td>
+                      {verify ? (
+                        <a
+                          href={verify}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="term-history-verify"
+                        >
+                          Arbiscan
+                          <ExternalLink size={12} />
+                        </a>
+                      ) : (
+                        <span className="term-history-verify-muted">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : rows.length === 0 ? (
+          <div className="term-empty">
+            {hasWallet
+              ? `No ${tab === 'open' ? 'open positions' : tab === 'history' ? 'closed trades' : 'trades'} yet`
+              : user
+                ? 'Link a wallet in Profile to see trade history'
+                : 'Connect wallet to see history'}
+          </div>
+        ) : rows.length > 0 ? (
+          <table
+            className={`term-table ${useHistoryOverview ? 'term-table--history-overview' : ''}`}
+          >
+            <thead>
+              <tr>
+                {useHistoryOverview ? (
+                  <>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Position</th>
+                    <th>Size</th>
+                    <th>Leverage</th>
+                    <th>P/L</th>
+                    <th>Verify</th>
+                  </>
+                ) : (
+                  <>
+                    <th>Position</th>
+                    <th>Size</th>
+                    <th>P/L</th>
+                    <th>Status</th>
+                    <th>Time</th>
+                    <th />
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
               {rows.map((p) => {
-                const pl = calcPositionPnl(p, livePrices);
+                const isClosed = p.status === 'closed' || p.status === 'failed';
+                const pl = isClosed
+                  ? Number(p.profit_loss) || 0
+                  : calcPositionPnl(p, livePrices);
                 const time = p.closed_at || p.created_at;
+                const { date, time: timeOnly } = fmtDateParts(time);
                 const isOpen = p.status === 'open';
                 const isClosing = p.status === 'closing';
                 const isFailed = p.status === 'failed';
+                const txHash = p.exit_tx_hash || p.entry_tx_hash;
+                const verifyHref = txHash
+                  ? explorerTxUrl(p.chain_id, txHash)
+                  : null;
+                const rowHighlight = highlightPositionId === p.id;
+                const showOverviewRow = useHistoryOverview && isClosed;
+
+                if (useHistoryOverview && !isClosed) {
+                  const opened = fmtDateParts(p.created_at);
+                  return (
+                    <tr
+                      key={p.id}
+                      id={`term-row-${p.id}`}
+                      className={rowHighlight ? 'term-row--highlight' : ''}
+                    >
+                      <td className="term-history-date">{opened.date}</td>
+                      <td className="term-history-time">{opened.time}</td>
+                      <td>
+                        <span
+                          className={
+                            p.direction === 'LONG' ? 'term-dir-long' : 'term-dir-short'
+                          }
+                        >
+                          {p.direction}
+                        </span>{' '}
+                        {p.token_symbol}
+                      </td>
+                      <td>{fmtUsd(p.entry_amount || 0)}</td>
+                      <td>{p.leverage_multiplier ?? 1}x</td>
+                      <td className={pl >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'}>
+                        {pl >= 0 ? '+' : ''}
+                        {fmtUsd(pl)}
+                      </td>
+                      <td className="capitalize text-[#52525b]">{p.status}</td>
+                    </tr>
+                  );
+                }
+
+                if (showOverviewRow) {
+                  return (
+                    <tr
+                      key={p.id}
+                      id={`term-row-${p.id}`}
+                      className={rowHighlight ? 'term-row--highlight' : ''}
+                    >
+                      <td className="term-history-date">{date}</td>
+                      <td className="term-history-time">{timeOnly}</td>
+                      <td>
+                        <span
+                          className={
+                            p.direction === 'LONG' ? 'term-dir-long' : 'term-dir-short'
+                          }
+                        >
+                          {p.direction}
+                        </span>{' '}
+                        {p.token_symbol}
+                      </td>
+                      <td>{fmtUsd(p.entry_amount || 0)}</td>
+                      <td>{p.leverage_multiplier ?? 1}x</td>
+                      <td className={pl >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'}>
+                        {pl >= 0 ? '+' : ''}
+                        {fmtUsd(pl)}
+                      </td>
+                      <td>
+                        {verifyHref ? (
+                          <a
+                            href={verifyHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="term-history-verify"
+                          >
+                            Arbiscan
+                            <ExternalLink size={12} />
+                          </a>
+                        ) : (
+                          <span className="term-history-verify-muted">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                }
+
                 return (
-                  <tr key={p.id}>
+                  <tr
+                    key={p.id}
+                    id={`term-row-${p.id}`}
+                    className={rowHighlight ? 'term-row--highlight' : ''}
+                  >
                     <td>
                       <span
                         className={
@@ -328,15 +554,27 @@ const TerminalPositionsDock: React.FC<Props> = ({
                           Retry
                         </button>
                       )}
-                      <a
-                        href={explorerUrl(p.chain_id, p.wallet_address)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="term-dock-link"
-                        title="Explorer"
-                      >
-                        <ExternalLink size={12} />
-                      </a>
+                      {verifyHref ? (
+                        <a
+                          href={verifyHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="term-dock-link"
+                          title="Verify on chain"
+                        >
+                          <ExternalLink size={12} />
+                        </a>
+                      ) : (
+                        <a
+                          href={explorerUrl(p.chain_id, p.wallet_address)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="term-dock-link"
+                          title="Wallet on explorer"
+                        >
+                          <ExternalLink size={12} />
+                        </a>
+                      )}
                     </td>
                   </tr>
                 );

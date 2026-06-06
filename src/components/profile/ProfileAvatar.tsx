@@ -4,11 +4,12 @@ import { resolveProfileAvatarEmoji } from '../../lib/profileAvatar';
 type Props = {
   profile: { avatar_emoji?: string | null; avatar_url?: string | null } | null | undefined;
   userId?: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   className?: string;
 };
 
 const sizeClass = {
+  xs: 'term-avatar--xs',
   sm: 'term-avatar--sm',
   md: 'term-avatar--md',
   lg: 'term-avatar--lg',

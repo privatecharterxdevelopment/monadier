@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Activity } from 'lucide-react';
 import { ANALYSIS_STEPS } from '../../hooks/useTerminalBotAnalysis';
+import { pairLabel } from '../../lib/botTradingPairs';
 import type { UnifiedSignal } from '../../lib/signalService';
 
 type DbAnalysis = {
@@ -20,6 +21,7 @@ type Props = {
   isLoading: boolean;
   signal: UnifiedSignal | null;
   dbAnalysis: DbAnalysis;
+  activeSymbol?: string;
 };
 
 const CYCLE_MS = 2400;
@@ -47,6 +49,7 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
   isLoading,
   signal,
   dbAnalysis,
+  activeSymbol,
 }) => {
   const [cycleIndex, setCycleIndex] = useState(0);
   const [slidePhase, setSlidePhase] = useState<'in' | 'out'>('in');
@@ -58,16 +61,22 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
 
   const hasData = Boolean(signal || dbAnalysis);
 
+  const activeLabel = activeSymbol ? pairLabel(activeSymbol) : null;
+
   const dataSlides = useMemo(() => {
     const fromSignal = slidesFromSignal(signal);
-    if (fromSignal.length > 0) return fromSignal;
+    if (fromSignal.length > 0) {
+      return activeLabel
+        ? fromSignal.map((line) => `${activeLabel} · ${line}`)
+        : fromSignal;
+    }
     if (dbAnalysis) {
       const parts = [`RSI ${Math.round(dbAnalysis.rsi)}`];
       if (dbAnalysis.pattern) parts.push(dbAnalysis.pattern);
       return [parts.join(' · ')];
     }
     return [];
-  }, [signal, dbAnalysis]);
+  }, [signal, dbAnalysis, activeLabel]);
 
   const loadingSlides = useMemo(
     () => ANALYSIS_STEPS.map((s) => s.label),

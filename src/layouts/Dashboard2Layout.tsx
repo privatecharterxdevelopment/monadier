@@ -1,15 +1,13 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { enableDemoMode, isDemoModeAllowed } from '../lib/demoMode';
 import '../styles/dashboard2-nixole.css';
-
-type Dashboard2LayoutProps = {
-  children: React.ReactNode;
-};
+import { TermAuthToastProvider } from '../components/terminal/TermAuthToast';
+import { TradeNotificationsProvider } from '../contexts/TradeNotificationsContext';
 
 /** Full-page shell — no legacy dashboard sidebar / topbar */
-const Dashboard2Layout: React.FC<Dashboard2LayoutProps> = ({ children }) => {
+const Dashboard2Layout: React.FC = () => {
   const { isAuthenticated, sessionReady } = useAuth();
   const showDevBar =
     import.meta.env.DEV && sessionReady && !isAuthenticated && isDemoModeAllowed();
@@ -25,9 +23,13 @@ const Dashboard2Layout: React.FC<Dashboard2LayoutProps> = ({ children }) => {
           <Link to="/login" className="underline font-semibold">Sign in</Link>
         </div>
       )}
-      <div className={showDevBar ? 'nix-app-inner nix-app-inner--dev' : 'nix-app-inner'}>
-        {children}
-      </div>
+      <TermAuthToastProvider>
+        <TradeNotificationsProvider>
+          <div className={showDevBar ? 'nix-app-inner nix-app-inner--dev' : 'nix-app-inner'}>
+            <Outlet />
+          </div>
+        </TradeNotificationsProvider>
+      </TermAuthToastProvider>
     </div>
   );
 };
