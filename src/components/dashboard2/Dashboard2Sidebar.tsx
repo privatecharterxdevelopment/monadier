@@ -9,7 +9,6 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   MessageCircle,
-  Shield,
 } from 'lucide-react';
 import { signOut } from '../../lib/supabase';
 import { useTermAuthToast } from '../terminal/TermAuthToast';
@@ -34,7 +33,6 @@ type Props = {
   onDeposit?: () => void;
   onWithdraw?: () => void;
   onSupport?: () => void;
-  onSecurity?: () => void;
   onProfile?: () => void;
   onTrade?: () => void;
 };
@@ -48,7 +46,6 @@ const Dashboard2Sidebar: React.FC<Props> = ({
   onDeposit,
   onWithdraw,
   onSupport,
-  onSecurity,
   onProfile,
   onTrade,
 }) => {
@@ -112,10 +109,6 @@ const Dashboard2Sidebar: React.FC<Props> = ({
         <button type="button" className={linkClass('support')} onClick={onSupport}>
           <MessageCircle size={18} />
           <span className="term-side-label">Support</span>
-        </button>
-        <button type="button" className={linkClass('security')} onClick={onSecurity}>
-          <Shield size={18} />
-          <span className="term-side-label">Security</span>
         </button>
       </nav>
 

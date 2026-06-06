@@ -4,15 +4,13 @@ import {
   CheckCircle,
   AlertCircle,
   Loader2,
-  Lock,
-  Mail,
   Plus,
   X,
-  Eye,
-  EyeOff,
   Upload,
   ImageIcon,
 } from 'lucide-react';
+import ProfileSecurityPanel from './ProfileSecurityPanel';
+import ProfileLoginHistoryPanel from './ProfileLoginHistoryPanel';
 import { useAuth } from '../../contexts/AuthContext';
 import ProfileAvatar from '../profile/ProfileAvatar';
 import {
@@ -23,8 +21,6 @@ import {
 import { uploadProfileAvatar, removeProfileAvatar } from '../../lib/profileAvatarUpload';
 import {
   supabase,
-  updatePassword,
-  resetPassword,
   updateUserProfile,
   ensureUserProfile,
   isUsernameAvailable,
@@ -55,14 +51,6 @@ const TerminalProfilePanel: React.FC = () => {
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [avatarSuccess, setAvatarSuccess] = useState(false);
-
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPasswords, setShowPasswords] = useState(false);
-  const [passwordBusy, setPasswordBusy] = useState(false);
-  const [passwordSuccess, setPasswordSuccess] = useState(false);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [resetEmailSent, setResetEmailSent] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -225,53 +213,12 @@ const TerminalProfilePanel: React.FC = () => {
     }
   };
 
-  const handleChangePassword = async () => {
-    if (newPassword.length < 8) {
-      setPasswordError('At least 8 characters');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordError('Passwords do not match');
-      return;
-    }
-    setPasswordBusy(true);
-    setPasswordError(null);
-    try {
-      const { error } = await updatePassword(newPassword);
-      if (error) throw error;
-      setPasswordSuccess(true);
-      setNewPassword('');
-      setConfirmPassword('');
-      setTimeout(() => setPasswordSuccess(false), 3000);
-    } catch (err: unknown) {
-      setPasswordError(err instanceof Error ? err.message : 'Update failed');
-    } finally {
-      setPasswordBusy(false);
-    }
-  };
-
-  const handleResetEmail = async () => {
-    if (!user?.email) return;
-    setPasswordBusy(true);
-    try {
-      const { error } = await resetPassword(user.email);
-      if (error) throw error;
-      setResetEmailSent(true);
-      setTimeout(() => setResetEmailSent(false), 5000);
-    } catch (err: unknown) {
-      setPasswordError(err instanceof Error ? err.message : 'Email failed');
-    } finally {
-      setPasswordBusy(false);
-    }
-  };
-
   const hasPhoto = Boolean(profile?.avatar_url?.trim());
 
   return (
-    <div className="term-profile-page">
-      <div className="term-profile-page-grid">
-        <section className="term-profile-card">
-          <h2 className="term-profile-card-title">Avatar & identity</h2>
+    <div className="term-profile-page term-profile-page--compact">
+      <div className="term-profile-layout term-profile-layout--grid">
+        <section id="profile-identity" className="term-profile-card term-profile-card--section">
           <div className="term-profile-avatar-row">
             <ProfileAvatar profile={profile} userId={user?.id} size="md" />
             <div className="term-profile-avatar-actions">
@@ -308,11 +255,6 @@ const TerminalProfilePanel: React.FC = () => {
               )}
             </div>
           </div>
-          <p className="term-modal-hint">
-            {hasPhoto
-              ? 'Your logo is shown on the dashboard. Emoji below is used when no photo is set.'
-              : 'Upload a logo (max 2 MB), or pick an emoji.'}
-          </p>
           {avatarSuccess && (
             <p className="term-profile-ok">
               <CheckCircle size={14} /> Photo saved to your profile
@@ -353,25 +295,28 @@ const TerminalProfilePanel: React.FC = () => {
                 maxLength={20}
                 autoComplete="username"
               />
-              <p className="term-modal-hint">
-                Choose once — you cannot change your username after saving.
-              </p>
             </>
           )}
-          <label className="term-profile-label">Full name</label>
-          <input
-            className="term-profile-input"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            placeholder="Your name"
-          />
-          <label className="term-profile-label">Country</label>
-          <input
-            className="term-profile-input"
-            value={country}
-            onChange={(e) => setCountry(e.target.value)}
-            placeholder="Switzerland"
-          />
+          <div className="term-profile-field-row">
+            <div>
+              <label className="term-profile-label">Full name</label>
+              <input
+                className="term-profile-input"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Your name"
+              />
+            </div>
+            <div>
+              <label className="term-profile-label">Country</label>
+              <input
+                className="term-profile-input"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                placeholder="Switzerland"
+              />
+            </div>
+          </div>
           <button
             type="button"
             className="term-modal-primary term-profile-save"
@@ -395,11 +340,18 @@ const TerminalProfilePanel: React.FC = () => {
               <AlertCircle size={14} /> {profileSaveError}
             </p>
           )}
+
         </section>
 
-        <section className="term-profile-card">
-          <h2 className="term-profile-card-title">Linked wallets</h2>
-          <p className="term-modal-hint">History and closes use all linked addresses.</p>
+        <section
+          id="profile-security"
+          className="term-profile-card term-profile-card--section term-profile-card--security"
+        >
+          <ProfileSecurityPanel idPrefix="profile-sec" mode="credentials" />
+        </section>
+
+        <section id="profile-wallets" className="term-profile-card term-profile-card--section">
+          <h2 className="term-profile-card-title">Wallets</h2>
           <ul className="term-profile-wallet-list">
             {linkedWallets.map((w) => (
               <li key={w}>
@@ -438,61 +390,12 @@ const TerminalProfilePanel: React.FC = () => {
           )}
         </section>
 
-        <section className="term-profile-card term-profile-card--wide">
-          <h2 className="term-profile-card-title">
-            <Lock size={16} /> Password
-          </h2>
-          <button
-            type="button"
-            className="term-btn-sm term-profile-reset-mail"
-            disabled={passwordBusy || resetEmailSent}
-            onClick={handleResetEmail}
-          >
-            <Mail size={14} />
-            {resetEmailSent ? 'Email sent' : 'Send reset link'}
-          </button>
-          <label className="term-profile-label">New password</label>
-          <div className="term-profile-input-wrap">
-            <input
-              className="term-profile-input"
-              type={showPasswords ? 'text' : 'password'}
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
-            <button
-              type="button"
-              className="term-profile-eye"
-              onClick={() => setShowPasswords((v) => !v)}
-            >
-              {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-          </div>
-          <label className="term-profile-label">Confirm</label>
-          <input
-            className="term-profile-input"
-            type={showPasswords ? 'text' : 'password'}
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-          />
-          <button
-            type="button"
-            className="term-modal-secondary term-profile-save"
-            disabled={passwordBusy}
-            onClick={handleChangePassword}
-          >
-            {passwordBusy ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : passwordSuccess ? (
-              'Updated'
-            ) : (
-              'Update password'
-            )}
-          </button>
-          {passwordError && (
-            <p className="term-profile-err">
-              <AlertCircle size={14} /> {passwordError}
-            </p>
-          )}
+        <section
+          id="profile-login-history"
+          className="term-profile-card term-profile-card--section term-profile-card--history"
+        >
+          <h2 className="term-profile-card-title">Login history</h2>
+          <ProfileLoginHistoryPanel />
         </section>
       </div>
     </div>

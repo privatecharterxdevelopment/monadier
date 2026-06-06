@@ -22,7 +22,6 @@ import TerminalBotSettingsModal from '../../components/terminal/TerminalBotSetti
 import TerminalDepositModal from '../../components/terminal/TerminalDepositModal';
 import TerminalWithdrawModal from '../../components/terminal/TerminalWithdrawModal';
 import TerminalSupportModal from '../../components/terminal/TerminalSupportModal';
-import TerminalSecurityModal from '../../components/terminal/TerminalSecurityModal';
 import TermNotificationsBell from '../../components/terminal/TermNotificationsBell';
 import TerminalProfileOnboardingModal from '../../components/terminal/TerminalProfileOnboardingModal';
 import TerminalArbitrumBanner from '../../components/terminal/TerminalArbitrumBanner';
@@ -58,7 +57,6 @@ const Dashboard2Page: React.FC = () => {
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showSupport, setShowSupport] = useState(false);
-  const [showSecurity, setShowSecurity] = useState(false);
   const [sidebarSection, setSidebarSection] = useState<Dashboard2SidebarSection>('trade');
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('trade');
   const [dockTab, setDockTab] = useState<DockTab>('open');
@@ -151,8 +149,7 @@ const Dashboard2Page: React.FC = () => {
       setSidebarSection('support');
       setShowSupport(true);
     } else if (action === 'security') {
-      setSidebarSection('security');
-      setShowSecurity(true);
+      navigate('/dashboard2/profile#profile-security');
     }
 
     const next = new URLSearchParams(searchParams);
@@ -185,10 +182,6 @@ const Dashboard2Page: React.FC = () => {
       onSupport={() => {
         setSidebarSection('support');
         setShowSupport(true);
-      }}
-      onSecurity={() => {
-        setSidebarSection('security');
-        setShowSecurity(true);
       }}
       onProfile={() => navigate('/dashboard2/profile')}
     >
@@ -447,15 +440,6 @@ const Dashboard2Page: React.FC = () => {
         <TerminalSupportModal
           onClose={() => {
             setShowSupport(false);
-            setSidebarSection('trade');
-            setWorkspaceView('trade');
-          }}
-        />
-      )}
-      {showSecurity && (
-        <TerminalSecurityModal
-          onClose={() => {
-            setShowSecurity(false);
             setSidebarSection('trade');
             setWorkspaceView('trade');
           }}

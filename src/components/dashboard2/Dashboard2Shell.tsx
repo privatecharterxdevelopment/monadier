@@ -19,7 +19,6 @@ type Props = {
   onDeposit?: () => void;
   onWithdraw?: () => void;
   onSupport?: () => void;
-  onSecurity?: () => void;
   onProfile?: () => void;
   children: React.ReactNode;
 };
@@ -34,7 +33,6 @@ const Dashboard2Shell: React.FC<Props> = ({
   onDeposit,
   onWithdraw,
   onSupport,
-  onSecurity,
   onProfile,
   children,
 }) => {
@@ -50,7 +48,6 @@ const Dashboard2Shell: React.FC<Props> = ({
         onDeposit={onDeposit}
         onWithdraw={onWithdraw}
         onSupport={onSupport}
-        onSecurity={onSecurity}
         onProfile={onProfile}
       />
       <div className="term-main">{children}</div>
