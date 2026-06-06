@@ -310,39 +310,82 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
         </div>
       )}
 
-      <p className="term-modal-label">Min win rate to open (0 = off)</p>
-      <input
-        type="range"
-        min={0}
-        max={80}
-        step={5}
-        value={minWinRate}
-        onChange={(e) => setMinWinRate(parseInt(e.target.value, 10))}
-        className="term-modal-range"
-        disabled={isLoading}
-      />
-      <p className="term-modal-hint mb-3">
-        {minWinRate === 0 ? 'Gate disabled' : `Pause new trades if win rate below ${minWinRate}%`}
-      </p>
+      <div className="term-modal-gate-box">
+        <div className="term-modal-gate-head">
+          <p className="term-modal-label term-modal-label--flush">Win rate gate</p>
+          <span
+            className={`term-modal-gate-badge${minWinRate > 0 ? ' term-modal-gate-badge--on' : ''}`}
+          >
+            {minWinRate > 0 ? 'Active' : 'Off'}
+          </span>
+        </div>
+        <p className="term-modal-hint">
+          Optional safety: the bot pauses <strong>new</strong> trades if your recent closed-trade win
+          rate drops below your threshold. Set 0% to disable.
+        </p>
 
-      <label className="term-modal-label" htmlFor="term-min-trades">
-        Closed trades before gate applies
-      </label>
-      <input
-        id="term-min-trades"
-        type="number"
-        className="term-modal-input"
-        min={1}
-        max={50}
-        value={minTradesForWinRate}
-        onChange={(e) => setMinTradesForWinRate(parseInt(e.target.value, 10) || 5)}
-        disabled={isLoading || minWinRate === 0}
-      />
-      <p className="term-modal-hint mb-3">
-        {minWinRate === 0
-          ? 'Enable min win rate above to use this threshold.'
-          : `Gate only counts after ${minTradesForWinRate} closed trades.`}
-      </p>
+        <p className="term-modal-label">Min win rate to open (0 = off)</p>
+        <input
+          type="range"
+          min={0}
+          max={80}
+          step={5}
+          value={minWinRate}
+          onChange={(e) => setMinWinRate(parseInt(e.target.value, 10))}
+          className="term-modal-range"
+          disabled={isLoading}
+          aria-valuetext={minWinRate === 0 ? 'Gate off' : `${minWinRate} percent`}
+        />
+        <p className="term-modal-hint">
+          {minWinRate === 0
+            ? 'Drag the slider above 0% to activate the gate.'
+            : `Pause new trades if win rate falls below ${minWinRate}%.`}
+        </p>
+
+        <label className="term-modal-label" htmlFor="term-min-trades">
+          Closed trades before gate applies
+        </label>
+        <div className="term-modal-gate-stepper">
+          <button
+            type="button"
+            className="term-modal-chip"
+            disabled={isLoading || minTradesForWinRate <= 1}
+            onClick={() => setMinTradesForWinRate((v) => Math.max(1, v - 1))}
+            aria-label="Fewer trades"
+          >
+            −
+          </button>
+          <input
+            id="term-min-trades"
+            type="number"
+            className="term-modal-input term-modal-input--center"
+            min={1}
+            max={50}
+            value={minTradesForWinRate}
+            onChange={(e) => {
+              const raw = parseInt(e.target.value, 10);
+              if (!Number.isNaN(raw)) {
+                setMinTradesForWinRate(Math.min(50, Math.max(1, raw)));
+              }
+            }}
+            disabled={isLoading}
+          />
+          <button
+            type="button"
+            className="term-modal-chip"
+            disabled={isLoading || minTradesForWinRate >= 50}
+            onClick={() => setMinTradesForWinRate((v) => Math.min(50, v + 1))}
+            aria-label="More trades"
+          >
+            +
+          </button>
+        </div>
+        <p className="term-modal-hint term-modal-hint--flush">
+          {minWinRate === 0
+            ? `Threshold preset at ${minTradesForWinRate} trades — activates once min win rate is above 0%.`
+            : `Gate evaluates only after ${minTradesForWinRate} closed trades on this wallet.`}
+        </p>
+      </div>
 
       <div className="term-modal-grid-2">
         <div>

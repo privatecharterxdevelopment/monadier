@@ -15,10 +15,10 @@ const SupportWidget: React.FC = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="absolute bottom-16 right-0 w-72 rounded-2xl border border-black/[0.08] bg-black/80 backdrop-blur-xl shadow-2xl overflow-hidden"
+            className="absolute bottom-16 right-0 w-72 rounded-2xl border border-[#c5c5cb] bg-white/95 backdrop-blur-xl shadow-card overflow-hidden"
           >
             {/* Header */}
-            <div className="p-5 border-b border-black/[0.06]">
+            <div className="p-5 border-b border-[#c5c5cb]">
               <h3 className="text-lg font-display font-medium text-primary mb-1">
                 Ready to bot trade?
               </h3>
@@ -30,8 +30,8 @@ const SupportWidget: React.FC = () => {
             {/* Content */}
             <div className="p-5 space-y-4">
               <Link to="/register">
-                <button className="w-full px-4 py-3 bg-white text-gray-900 rounded-xl text-sm font-medium hover:bg-gray-100 transition-colors flex items-center justify-center gap-2">
-                  Try it for free
+                <button className="btn btn-primary w-full rounded-xl text-sm gap-2">
+                  Start trading now
                   <ArrowRight size={16} />
                 </button>
               </Link>
@@ -48,7 +48,7 @@ const SupportWidget: React.FC = () => {
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 bg-black/[0.04] border-t border-black/[0.06]">
+            <div className="px-5 py-3 bg-[#f4f4f5]/90 border-t border-[#c5c5cb]">
               <Link
                 to="/support"
                 className="text-secondary hover:text-primary text-xs transition-colors"
@@ -65,7 +65,7 @@ const SupportWidget: React.FC = () => {
         onClick={() => setIsOpen(!isOpen)}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        className="w-14 h-14 rounded-full bg-black/[0.06] backdrop-blur-xl border border-black/[0.1] flex items-center justify-center text-primary hover:bg-white/20 transition-colors shadow-lg"
+        className="w-14 h-14 rounded-full bg-white/95 backdrop-blur-xl border border-[#c5c5cb] flex items-center justify-center text-primary hover:bg-white transition-colors shadow-card"
       >
         {isOpen ? <X size={24} /> : <MessageCircle size={24} />}
       </motion.button>

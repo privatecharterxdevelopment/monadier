@@ -29,6 +29,7 @@ import AuthCallbackPage from './pages/AuthCallbackPage';
 import FundsExplainedPage from './pages/FundsExplainedPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
+import RoadmapPage from './pages/RoadmapPage';
 import KycFlowPage from './pages/KycFlowPage';
 import DashboardPage from './pages/DashboardPage';
 import Dashboard2Page from './pages/dashboard/Dashboard2Page';
@@ -146,6 +147,11 @@ function App() {
           <Route path="/privacy" element={
             <PageTransition>
               <PrivacyPage />
+            </PageTransition>
+          } />
+          <Route path="/roadmap" element={
+            <PageTransition>
+              <RoadmapPage />
             </PageTransition>
           } />
           <Route path="/forgot-password" element={

@@ -3,7 +3,9 @@ import { ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LandingNav from './LandingNav';
 import LandingProductPreview from './LandingProductPreview';
+import LandingPartnerLogos from './LandingPartnerLogos';
 import LandingFaqSection from './LandingFaqSection';
+import LandingFooter from './LandingFooter';
 import { getAppUrl } from '../../lib/appUrls';
 
 const heroReveal = (delay = 0) => ({
@@ -106,7 +108,9 @@ const GmxStyleLanding: React.FC = () => {
       </section>
 
       <LandingProductPreview />
+      <LandingPartnerLogos />
       <LandingFaqSection />
+      <LandingFooter />
     </div>
   );
 };

@@ -20,6 +20,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
     { path: '/how-it-works', label: 'How it works' },
     { path: '/trading-bot', label: 'Bot' },
     { path: '/pricing', label: 'Pricing' },
+    { path: '/roadmap', label: 'Roadmap' },
     { path: '/about', label: 'About' },
   ];
 

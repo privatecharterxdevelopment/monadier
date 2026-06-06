@@ -1,5 +1,6 @@
 import React from 'react';
 import LandingNav from '../landing/LandingNav';
+import LandingFooter from '../landing/LandingFooter';
 import CookieConsent from '../ui/CookieConsent';
 
 type Props = {
@@ -29,6 +30,7 @@ const MarketingPageLayout: React.FC<Props> = ({ children, narrow, centered, inne
       >
         {children}
       </main>
+      <LandingFooter />
       <CookieConsent />
     </div>
   );

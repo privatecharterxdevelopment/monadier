@@ -219,9 +219,9 @@
 }
 
 .landing-gmx-faq-section {
-  padding-top: 96px;
+  padding-top: 72px;
   padding-bottom: 96px;
-  margin-top: 24px;
+  margin-top: 0;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
   background: linear-gradient(
     180deg,
@@ -230,69 +230,147 @@
   );
 }
 
-.landing-gmx-faq-head {
-  max-width: 640px;
-  margin: 0 auto 40px;
-  text-align: center;
+.landing-gmx-faq-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 36px;
+  align-items: start;
 }
 
-.landing-gmx-faq-title {
-  margin: 0 0 8px;
-  font-size: clamp(1.35rem, 4vw, 1.85rem);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
+@media (min-width: 960px) {
+  .landing-gmx-faq-layout {
+    grid-template-columns: minmax(280px, 36%) minmax(0, 1fr);
+    gap: 48px 64px;
+  }
+}
+
+.landing-gmx-faq-side {
+  text-align: left;
+}
+
+.landing-gmx-section-hero-title {
+  margin: 0 0 28px;
+  padding: 0;
+  border-bottom: none;
+  font-size: clamp(1.85rem, 5vw, 2.5rem);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  text-align: left;
+  white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+  .landing-gmx-section-hero-title {
+    font-size: clamp(2.25rem, 3.8vw, 3.25rem);
+    letter-spacing: -0.04em;
+    margin-bottom: 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  .landing-gmx-section-hero-title {
+    white-space: normal;
+  }
+}
+
+.landing-gmx-title-dark {
   color: var(--lg-text);
 }
 
-.landing-gmx-faq-sub {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.45;
+.landing-gmx-title-grey {
+  color: var(--lg-grey);
+}
+
+.landing-gmx-faq-lead {
+  margin: 0 0 24px;
+  max-width: 28rem;
+  font-size: 15px;
+  line-height: 1.5;
   color: var(--lg-muted);
+}
+
+.landing-gmx-faq-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 8px;
+  margin: 0;
+}
+
+.landing-gmx-faq-tab {
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--lg-muted);
+  background: #fff;
+  border: 1px solid var(--lg-border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.landing-gmx-faq-tab:hover {
+  color: var(--lg-text);
+  border-color: #a1a1aa;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.landing-gmx-faq-tab--active {
+  color: var(--lg-text);
+  font-weight: 600;
+  background: #fff;
+  border-color: #a1a1aa;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.landing-gmx-faq-main {
+  min-width: 0;
 }
 
 .landing-gmx-faq-grid {
   display: grid;
-  gap: 14px;
+  gap: 0;
   grid-template-columns: 1fr;
 }
 
-@media (min-width: 640px) {
+@media (min-width: 1100px) {
   .landing-gmx-faq-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
+    column-gap: 24px;
   }
 }
 
-@media (min-width: 960px) {
-  .landing-gmx-faq-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 18px 20px;
-  }
+.landing-gmx-faq-grid-item {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: transparent;
+  overflow: hidden;
+  align-self: start;
 }
 
-.landing-gmx-faq-card {
-  padding: 18px 20px;
-  border-radius: 12px;
-  background: var(--lg-card-strong);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+.landing-gmx-faq-grid-item--open {
+  border-bottom-color: rgba(0, 0, 0, 0.1);
 }
 
-.landing-gmx-faq-card-q {
-  margin: 0 0 8px;
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--lg-text);
-}
-
-.landing-gmx-faq-card-a {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.55;
+.landing-gmx-faq-grid-item .landing-gmx-faq-q {
+  padding: 14px 0;
+  font-size: 14px;
   color: var(--lg-muted);
+}
+
+.landing-gmx-faq-grid-item .landing-gmx-faq-panel {
+  padding: 0 0 14px;
+}
+
+.landing-gmx-faq-chevron {
+  flex-shrink: 0;
+  color: var(--lg-faint);
+  transition: transform 0.2s ease;
+}
+
+.landing-gmx-faq-grid-item--open .landing-gmx-faq-chevron {
+  transform: rotate(180deg);
 }
 
 /* —— SaaS product preview (below hero) —— */
@@ -300,7 +378,7 @@
 .landing-gmx-preview-section {
   min-height: auto;
   padding-top: 96px;
-  padding-bottom: 112px;
+  padding-bottom: 40px;
   margin-top: 32px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
   background: linear-gradient(
@@ -346,14 +424,9 @@
   color: var(--lg-faint);
 }
 
-.landing-gmx-preview-title {
-  margin: 0 0 8px;
+.landing-gmx-preview-section .landing-gmx-section-hero-title {
+  margin-bottom: 32px;
   text-align: center;
-  font-size: clamp(1.5rem, 4.5vw, 2.1rem);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.12;
-  color: var(--lg-text);
 }
 
 .landing-gmx-preview-lead {
@@ -382,14 +455,17 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
-.landing-gmx-preview-cta {
-  display: inline-flex;
-}
 
 .landing-gmx-preview-stage {
   position: relative;
   width: 100%;
-  max-width: min(1024px, 92vw);
+  max-width: 1024px;
+  margin: 0 auto;
+}
+
+.landing-gmx-preview-frame-wrap {
+  width: 100%;
+  max-width: 1024px;
   margin: 0 auto;
 }
 
@@ -479,17 +555,168 @@
 
 .landing-gmx-preview-screen {
   position: relative;
+  width: 100%;
   background: #f4f4f5;
   line-height: 0;
+  overflow: hidden;
 }
 
 .landing-gmx-preview-img {
   display: block;
   width: 100%;
-  max-width: 1024px;
   height: auto;
-  vertical-align: top;
-  image-rendering: -webkit-optimize-contrast;
+  max-width: 1024px;
+  margin: 0 auto;
+}
+
+/* Partner logo carousel — between preview & FAQ */
+.landing-gmx-partners {
+  padding: 20px 0 36px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  background: linear-gradient(180deg, var(--lg-bg-deep) 0%, var(--lg-bg-mid) 100%);
+  overflow: hidden;
+}
+
+.landing-gmx-partners-eyebrow {
+  margin: 0 auto 18px;
+  max-width: 1024px;
+  padding: 0 16px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lg-faint);
+  text-align: center;
+}
+
+.landing-gmx-partners-viewport {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    #000 6%,
+    #000 94%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    #000 6%,
+    #000 94%,
+    transparent 100%
+  );
+}
+
+.landing-gmx-partners-track {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  animation: landing-gmx-partners-scroll 42s linear infinite;
+}
+
+.landing-gmx-partners-track:hover {
+  animation-play-state: paused;
+}
+
+.landing-gmx-partners-group {
+  display: flex;
+  align-items: center;
+  gap: 56px;
+  flex-shrink: 0;
+  padding-right: 56px;
+}
+
+@keyframes landing-gmx-partners-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-100% / 3));
+  }
+}
+
+.landing-gmx-partner-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.landing-gmx-partner-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.landing-gmx-partner-mark-svg {
+  display: block;
+  height: 22px;
+  width: auto;
+}
+
+.landing-gmx-partner-item--arbitrum .landing-gmx-partner-mark-svg {
+  height: 24px;
+  width: 24px;
+}
+
+.landing-gmx-partner-item--gmx .landing-gmx-partner-mark-svg {
+  height: 18px;
+  width: 56px;
+}
+
+.landing-gmx-partner-item--usdc .landing-gmx-partner-mark-svg {
+  height: 24px;
+  width: 24px;
+}
+
+.landing-gmx-partner-item--reown .landing-gmx-partner-mark-svg {
+  height: 22px;
+  width: 22px;
+}
+
+.landing-gmx-partner-name {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--lg-grey);
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  .landing-gmx-partners-group {
+    gap: 72px;
+    padding-right: 72px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-gmx-partners-viewport {
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+
+  .landing-gmx-partners-track {
+    animation: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto;
+    gap: 24px 40px;
+    padding: 0 24px;
+  }
+
+  .landing-gmx-partners-group {
+    display: contents;
+  }
+
+  .landing-gmx-partners-group:not(:first-child) {
+    display: none;
+  }
 }
 
 .landing-gmx-hero-bottom {
@@ -797,46 +1024,29 @@
   color: var(--lg-muted);
 }
 
-.landing-gmx-faq {
-  max-width: 720px;
-  margin: 0 auto;
-}
-
-.landing-gmx-faq-item {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-}
-
-.landing-gmx-faq-item:first-child {
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
-}
-
 .landing-gmx-faq-q {
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px 20px;
   text-align: left;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--lg-text);
+  font-weight: 500;
   background: none;
   border: none;
   cursor: pointer;
 }
 
 .landing-gmx-faq-q:hover {
-  color: var(--lg-text);
-  background: rgba(0, 0, 0, 0.02);
+  color: var(--lg-grey);
 }
 
 .landing-gmx-faq-a {
   margin: 0;
   padding: 0;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.6;
-  color: var(--lg-muted);
+  color: var(--lg-faint);
 }
 
 .landing-gmx-roadmap {
@@ -923,17 +1133,30 @@
 }
 
 .landing-gmx-footer {
-  padding: 40px 24px 48px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
-  text-align: center;
+  padding: 28px 16px 36px;
+}
+
+@media (min-width: 640px) {
+  .landing-gmx-footer {
+    padding: 32px 32px 44px;
+  }
+}
+
+.landing-gmx-footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .landing-gmx-footer-links {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
   gap: 8px 20px;
-  margin-bottom: 16px;
+  margin: 0;
   font-size: 13px;
 }
 
@@ -946,10 +1169,19 @@
   color: var(--lg-text);
 }
 
-.landing-gmx-footer-copy {
+.landing-gmx-footer-disclaimer {
+  margin: 0;
+  max-width: 52rem;
   font-size: 11px;
+  line-height: 1.55;
+  color: var(--lg-faint);
+}
+
+.landing-gmx-footer-meta {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
   color: var(--lg-grey);
-  letter-spacing: 0.06em;
 }
 
 .landing-gmx-nav-bar {
@@ -992,15 +1224,41 @@
   .landing-gmx-hero-title {
     margin-bottom: 20px;
     padding-bottom: 20px;
+    padding-right: 4px;
     font-size: clamp(2.1rem, 10.5vw, 3rem);
   }
 
-  .landing-gmx-hero-line--rotate,
-  .landing-gmx-hero-line--rotate-sizer,
+  .landing-gmx-hero-line {
+    line-height: 0.9;
+  }
+
+  .landing-gmx-hero-line--rotate {
+    position: relative;
+    display: block;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .landing-gmx-hero-line--rotate-sizer {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    white-space: nowrap;
+  }
+
   .landing-gmx-hero-line--rotate-visible {
+    display: block;
     width: 100%;
     max-width: 100%;
     white-space: normal;
+    line-height: 0.9;
+  }
+
+  .landing-gmx-section-hero-title {
+    padding-right: 8px;
+    line-height: 1.02;
   }
 
   .landing-gmx-hero-bottom {
@@ -1418,4 +1676,177 @@
   font-size: 12px;
   line-height: 1.4;
   color: var(--lg-faint);
+}
+
+/* Roadmap page — connected step timeline */
+.mkt-roadmap-flow {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.mkt-roadmap-step {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+@media (min-width: 640px) {
+  .mkt-roadmap-step {
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 18px;
+  }
+}
+
+.mkt-roadmap-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 4px;
+}
+
+.mkt-roadmap-step-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--lg-muted);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  flex-shrink: 0;
+}
+
+.mkt-roadmap-step--active .mkt-roadmap-step-badge {
+  color: var(--lg-text);
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.14);
+}
+
+.mkt-roadmap-connector {
+  flex: 1;
+  width: 2px;
+  min-height: 20px;
+  margin: 6px 0;
+  border-radius: 1px;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.14) 0%,
+    rgba(0, 0, 0, 0.06) 100%
+  );
+}
+
+.mkt-roadmap-step-card {
+  margin-bottom: 14px;
+  padding: 18px 20px;
+  border-radius: 14px;
+  background: var(--lg-card-strong);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.mkt-roadmap-step--active .mkt-roadmap-step-card {
+  border-color: rgba(0, 0, 0, 0.14);
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(244, 244, 245, 0.95) 100%
+  );
+}
+
+.mkt-roadmap-step-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.mkt-roadmap-step-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lg-faint);
+}
+
+.mkt-roadmap-step--active .mkt-roadmap-step-label {
+  color: var(--lg-muted);
+}
+
+.mkt-roadmap-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--lg-text);
+  flex-shrink: 0;
+}
+
+.mkt-roadmap-milestone {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--lg-faint);
+  margin-bottom: 4px;
+}
+
+.mkt-roadmap-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--lg-text);
+}
+
+.mkt-roadmap-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--lg-muted);
+}
+
+.mkt-roadmap-warning {
+  margin-top: 36px;
+  padding: 22px 24px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.mkt-roadmap-warning-title {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--lg-text);
+}
+
+.mkt-roadmap-warning p {
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--lg-muted);
+}
+
+.mkt-roadmap-warning p:last-child {
+  margin-bottom: 0;
+}
+
+.mkt-roadmap-warning a {
+  color: var(--lg-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
