@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, ArrowRight, Mail } from 'lucide-react';
+import OpenAppLink from '../layout/OpenAppLink';
 
 const SupportWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -29,12 +29,10 @@ const SupportWidget: React.FC = () => {
 
             {/* Content */}
             <div className="p-5 space-y-4">
-              <Link to="/register">
-                <button className="btn btn-primary w-full rounded-xl text-sm gap-2">
-                  Start trading now
-                  <ArrowRight size={16} />
-                </button>
-              </Link>
+              <OpenAppLink className="btn btn-primary w-full rounded-xl text-sm gap-2 inline-flex items-center justify-center">
+                Start trading now
+                <ArrowRight size={16} />
+              </OpenAppLink>
 
               <div className="text-center">
                 <a

@@ -32,7 +32,7 @@ const DashboardPage: React.FC = () => {
 
           <main className="dashboard-content">
             <Routes>
-              <Route path="/" element={<Navigate to="/dashboard2" replace />} />
+              <Route path="/" element={<Navigate to={OPEN_APP_PATH} replace />} />
               <Route path="/overview" element={<DashboardOverview />} />
               <Route path="/chart-trades" element={<BotTradingHubPage defaultTab="chart" />} />
               <Route path="/bot-trading" element={<BotTradingHubPage defaultTab="open" />} />

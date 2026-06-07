@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, type LucideIcon } from 'lucide-react';
 import MarketingPageLayout from '../layout/MarketingPageLayout';
+import OpenAppLink from '../layout/OpenAppLink';
 
 type HeroProps = {
   eyebrow?: string;
@@ -71,21 +72,19 @@ export const MarketingPageGrid: React.FC<GridProps> = ({
 );
 
 type CtaProps = {
-  href: string;
   label?: string;
   secondary?: { to: string; label: string };
 };
 
 export const MarketingPageCta: React.FC<CtaProps> = ({
-  href,
   label = 'Open app',
   secondary,
 }) => (
   <div className="mkt-cta-row">
-    <a href={href} className="mkt-cta-primary">
+    <OpenAppLink className="mkt-cta-primary">
       {label}
       <ArrowRight size={16} strokeWidth={2.5} />
-    </a>
+    </OpenAppLink>
     {secondary && (
       <Link to={secondary.to} className="mkt-cta-secondary">
         {secondary.label}

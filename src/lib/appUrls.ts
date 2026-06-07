@@ -1,7 +1,7 @@
 /**
  * Marketing site vs app subdomain routing.
  * Production: VITE_SITE_URL=https://monadier.com, VITE_APP_URL=https://app.monadier.com
- * Dev: leave unset — same origin, app at /app
+ * Dev: leave unset — Pro Trade at /, marketing landing at /welcome
  */
 
 const APP_BASE = (import.meta.env.VITE_APP_URL as string | undefined)?.replace(/\/$/, '') ?? '';
@@ -11,36 +11,70 @@ function normalizePath(path: string): string {
   return path.startsWith('/') ? path : `/${path}`;
 }
 
-/** Pro Trade on app subdomain root (app.monadier.com/). */
+/** Marketing landing (was `/`). */
+export const LANDING_PATH = '/welcome';
+
+/** Pro Trade — main app at site root. */
+export const OPEN_APP_PATH = '/';
+
+/** Pro Trade entry on app subdomain (app.monadier.com/). */
 export function getAppEntryPath(): string {
-  return APP_BASE ? '/' : '/app';
+  return '/';
 }
 
-/** Same-origin Pro Trade route — always /app on marketing / localhost. */
-export const OPEN_APP_PATH = '/app';
-
-/** Router path to Pro Trade from current host (marketing → /app, app host → /). */
+/** Always `/` — Pro Trade is the main app. */
 export function getOpenAppPath(): string {
-  if (typeof window !== 'undefined' && isAppHost()) {
-    return getAppEntryPath();
-  }
   return OPEN_APP_PATH;
 }
 
+const MARKETING_PREFIXES = [
+  '/welcome',
+  '/login',
+  '/register',
+  '/auth',
+  '/how-it-works',
+  '/card',
+  '/trading-bot',
+  '/forex',
+  '/about',
+  '/technology',
+  '/support',
+  '/pricing',
+  '/your-funds',
+  '/terms',
+  '/privacy',
+  '/roadmap',
+  '/forgot-password',
+  '/reset-password',
+  '/kyc',
+  '/dashboard',
+] as const;
+
+export function isMarketingPath(pathname: string): boolean {
+  const path = pathname.split('?')[0];
+  return MARKETING_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
+}
+
 /**
- * Navigate to Pro Trade from marketing / legacy links.
- * Uses same-origin /app (never legacy /dashboard2).
+ * Navigate to Pro Trade (hard navigation — reliable from marketing CTAs).
  */
-export function goToOpenApp(search = '', replace = false): string | null {
-  const path = getOpenAppPath() + search;
-  if (typeof window !== 'undefined' && isAppHost() && APP_BASE) {
-    return goToApp(getAppEntryPath() + search, replace);
+export function goToOpenApp(search = '', replace = false): void {
+  const path = OPEN_APP_PATH + search;
+  if (APP_BASE && typeof window !== 'undefined') {
+    try {
+      const appHost = new URL(APP_BASE).hostname;
+      if (window.location.hostname !== appHost) {
+        const url = `${APP_BASE}${path}`;
+        if (replace) window.location.replace(url);
+        else window.location.assign(url);
+        return;
+      }
+    } catch {
+      /* fall through */
+    }
   }
-  if (replace) {
-    window.location.replace(path);
-    return null;
-  }
-  return path;
+  if (replace) window.location.replace(path);
+  else window.location.assign(path);
 }
 
 export function getAppUrl(path?: string): string {
@@ -48,7 +82,7 @@ export function getAppUrl(path?: string): string {
   return APP_BASE ? `${APP_BASE}${p}` : p;
 }
 
-export function getMarketingUrl(path = '/'): string {
+export function getMarketingUrl(path = LANDING_PATH): string {
   const p = normalizePath(path);
   return SITE_BASE ? `${SITE_BASE}${p}` : p;
 }
@@ -64,19 +98,15 @@ export function isAppHost(): boolean {
       return false;
     }
   }
-  if (pathname === OPEN_APP_PATH || pathname.startsWith(`${OPEN_APP_PATH}/`)) {
-    return true;
-  }
-  const entry = getAppEntryPath();
-  return pathname === entry || pathname.startsWith(`${entry}/`);
+  const path = pathname.split('?')[0];
+  if (path === OPEN_APP_PATH) return true;
+  if (path === '/app' || path.startsWith('/app/')) return true;
+  return false;
 }
 
 export function isAppPath(pathname: string): boolean {
-  const entry = getAppEntryPath();
-  if (entry === '/') {
-    return pathname === '/' || pathname.startsWith('/?');
-  }
-  return pathname === entry || pathname.startsWith(`${entry}/`);
+  const path = pathname.split('?')[0];
+  return path === OPEN_APP_PATH || path === '/app' || path.startsWith('/app/');
 }
 
 export function isExternalAppUrl(url: string): boolean {
@@ -94,25 +124,45 @@ export function goToApp(path?: string, replace = false): string | null {
   return url;
 }
 
-/** After login/register — always land on Pro Trade (/app), never legacy dashboard2. */
-export function afterAuthGo(
-  path: string,
-  navigate: (p: string, opts?: { replace?: boolean }) => void
-): void {
+function normalizeAuthTarget(path: string): string {
   let target = path;
   if (target === '/dashboard2' || target.startsWith('/dashboard2/')) {
     const q = target.includes('?') ? target.slice(target.indexOf('?')) : '';
     target = OPEN_APP_PATH + q;
-  } else if (target === '/' || target === getAppEntryPath()) {
-    target = getOpenAppPath();
+  } else if (target === '/app' || target.startsWith('/app/')) {
+    const q = target.includes('?') ? target.slice(target.indexOf('?')) : '';
+    target = OPEN_APP_PATH + q;
+  } else if (target === LANDING_PATH || target.startsWith(`${LANDING_PATH}/`)) {
+    target = OPEN_APP_PATH;
   }
-  const search = target.includes('?') ? target.slice(target.indexOf('?')) : '';
-  const pathname = target.split('?')[0];
-  const inApp = goToOpenApp(search, true);
-  if (inApp) navigate(pathname + search, { replace: true });
+  return target;
 }
 
-export function goToMarketing(path = '/', replace = false): string | null {
+/** After login/register — land on Pro Trade at `/`, never legacy dashboard2. */
+export function afterAuthGo(
+  path: string,
+  navigate: (p: string, opts?: { replace?: boolean }) => void
+): void {
+  const target = normalizeAuthTarget(path);
+  const search = target.includes('?') ? target.slice(target.indexOf('?')) : '';
+  const pathname = target.split('?')[0];
+
+  if (APP_BASE && typeof window !== 'undefined') {
+    try {
+      const appHost = new URL(APP_BASE).hostname;
+      if (window.location.hostname !== appHost) {
+        goToOpenApp(search, true);
+        return;
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+
+  navigate(pathname + search, { replace: true });
+}
+
+export function goToMarketing(path = LANDING_PATH, replace = false): string | null {
   const url = getMarketingUrl(path);
   if (isExternalAppUrl(url)) {
     if (replace) window.location.replace(url);
@@ -134,12 +184,12 @@ export function getRegisterUrl(returnToApp = true): string {
   return `${base}?from=${encodeURIComponent(OPEN_APP_PATH)}`;
 }
 
-/** Marketing landing — ?preview=landing skips auto-redirect back into the app when signed in. */
+/** Marketing landing — ?preview=landing skips auto-redirect into Pro Trade when signed in. */
 export function getLandingPageUrl(): string {
-  const base = getMarketingUrl('/');
+  const base = getMarketingUrl(LANDING_PATH);
   return base.includes('?') ? `${base}&preview=landing` : `${base}?preview=landing`;
 }
 
 export function goToLanding(replace = false): string | null {
-  return goToMarketing('/?preview=landing', replace);
+  return goToMarketing(`${LANDING_PATH}?preview=landing`, replace);
 }

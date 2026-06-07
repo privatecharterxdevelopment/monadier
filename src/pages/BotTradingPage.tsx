@@ -6,7 +6,6 @@ import MarketingInnerPage, {
   MarketingPageCta,
   MarketingDisclaimer,
 } from '../components/marketing/MarketingInnerPage';
-import { getAppUrl } from '../lib/appUrls';
 
 const steps = [
   {
@@ -60,7 +59,7 @@ const BotTradingPage: React.FC = () => {
         ))}
       </MarketingPageGrid>
 
-      <MarketingPageCta href={getAppUrl('/register')} />
+      <MarketingPageCta />
 
       <MarketingDisclaimer>This is not financial advice. Your capital is at risk.</MarketingDisclaimer>
     </MarketingInnerPage>

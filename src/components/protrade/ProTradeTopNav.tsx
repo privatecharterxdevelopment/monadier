@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import Logo from '../ui/Logo';
@@ -64,7 +63,6 @@ const ProTradeTopNav: React.FC<Props> = ({
   onRequireSignIn,
   onViewNotificationHistory,
 }) => {
-  const navigate = useNavigate();
   const { isLight } = useProTradeTheme();
   const { open } = useAppKit();
   const { address, isConnected } = useAppKitAccount();
@@ -112,7 +110,7 @@ const ProTradeTopNav: React.FC<Props> = ({
           onClick={(e) => {
             e.preventDefault();
             const inApp = goToLanding();
-            if (inApp) navigate(inApp);
+            if (inApp) window.location.assign(inApp);
           }}
         >
           <Logo size="sm" theme={isLight ? 'light' : 'dark'} linked={false} />

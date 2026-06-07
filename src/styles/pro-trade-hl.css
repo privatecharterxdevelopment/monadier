@@ -2951,6 +2951,23 @@
 
 /* ── Pro Trade responsive layout ── */
 @media (max-width: 900px) {
+  .nix-app:has(.hl-root) {
+    height: auto;
+    min-height: 100dvh;
+    max-height: none;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nix-app-inner:has(.hl-root) {
+    overflow: visible;
+    min-height: 100dvh;
+  }
+
+  .hl-root {
+    min-height: 100dvh;
+  }
+
   .hl-topnav {
     height: 48px;
     padding-left: max(8px, env(safe-area-inset-left));
@@ -3031,7 +3048,7 @@
 
   .hl-chart-row {
     grid-template-columns: 1fr;
-    min-height: 280px;
+    min-height: min(52vh, 420px);
     flex: none;
   }
 
@@ -3041,11 +3058,16 @@
 
   .hl-chart-wrap {
     border-right: none;
-    min-height: 260px;
+    min-height: min(48vh, 380px);
   }
 
   .hl-chart-canvas {
-    min-height: 220px;
+    min-height: min(40vh, 320px);
+  }
+
+  .hl-chart-tv-wrap,
+  .hl-chart-tv-canvas {
+    min-height: min(38vh, 300px);
   }
 
   .hl-order-panel {

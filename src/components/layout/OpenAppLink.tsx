@@ -1,5 +1,4 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { goToOpenApp, OPEN_APP_PATH } from '../../lib/appUrls';
 
 type Props = React.AnchorHTMLAttributes<HTMLAnchorElement> & {
@@ -7,10 +6,8 @@ type Props = React.AnchorHTMLAttributes<HTMLAnchorElement> & {
   children: React.ReactNode;
 };
 
-/** Landing / marketing CTA — opens Pro Trade at /app (never legacy /dashboard2). */
+/** Landing / marketing CTA — opens Pro Trade at `/` (never legacy /dashboard2). */
 const OpenAppLink: React.FC<Props> = ({ className, children, onClick, ...rest }) => {
-  const navigate = useNavigate();
-
   return (
     <a
       href={OPEN_APP_PATH}
@@ -19,8 +16,7 @@ const OpenAppLink: React.FC<Props> = ({ className, children, onClick, ...rest })
         onClick?.(e);
         if (e.defaultPrevented) return;
         e.preventDefault();
-        const inApp = goToOpenApp('', false);
-        if (inApp) navigate(inApp);
+        goToOpenApp('');
       }}
       {...rest}
     >

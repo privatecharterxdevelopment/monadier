@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, ArrowRight } from 'lucide-react';
+import { goToOpenApp } from '../../lib/appUrls';
 
 const spring = { type: 'spring' as const, stiffness: 420, damping: 32 };
 
 const LandingCta: React.FC = () => {
-  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
   const handleClick = () => {
@@ -14,7 +13,7 @@ const LandingCta: React.FC = () => {
       setOpen(true);
       return;
     }
-    navigate('/register');
+    goToOpenApp('');
   };
 
   return (

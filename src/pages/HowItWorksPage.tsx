@@ -6,7 +6,6 @@ import MarketingInnerPage, {
   MarketingPageCta,
   MarketingDisclaimer,
 } from '../components/marketing/MarketingInnerPage';
-import { getAppUrl } from '../lib/appUrls';
 
 const steps = [
   {
@@ -44,7 +43,6 @@ const HowItWorksPage: React.FC = () => {
       </MarketingPageGrid>
 
       <MarketingPageCta
-        href={getAppUrl('/register')}
         secondary={{ to: '/your-funds', label: 'How your funds are stored' }}
       />
 

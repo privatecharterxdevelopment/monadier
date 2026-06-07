@@ -1,5 +1,7 @@
 import React from 'react';
+import { ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
+import OpenAppLink from '../layout/OpenAppLink';
 
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 24 },
@@ -47,6 +49,10 @@ const LandingProductPreview: React.FC = () => {
                 </span>
               ))}
             </div>
+            <OpenAppLink className="landing-gmx-btn-primary landing-gmx-preview-cta">
+              Open Pro Trade
+              <ArrowRight size={16} />
+            </OpenAppLink>
           </motion.div>
 
           <motion.div

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { LANDING_PATH } from '../../lib/appUrls';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
@@ -9,6 +10,8 @@ interface LogoProps {
   theme?: 'dark' | 'light';
   /** When false, render mark only (parent supplies the link). */
   linked?: boolean;
+  /** Home link target (marketing landing by default). */
+  homeTo?: string;
 }
 
 const Logo: React.FC<LogoProps> = ({
@@ -17,6 +20,7 @@ const Logo: React.FC<LogoProps> = ({
   iconOnly = false,
   theme = 'light',
   linked = true,
+  homeTo = LANDING_PATH,
 }) => {
   const isLight = theme !== 'dark';
   const sizeClasses = {
@@ -84,7 +88,7 @@ const Logo: React.FC<LogoProps> = ({
   return (
     <div className="flex flex-col">
       {linked ? (
-        <Link to="/" className="inline-flex items-center gap-2">
+        <Link to={homeTo} className="inline-flex items-center gap-2">
           {mark}
         </Link>
       ) : (

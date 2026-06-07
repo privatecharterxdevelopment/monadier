@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import OpenAppLink from '../layout/OpenAppLink';
 import { motion } from 'framer-motion';
 import { ArrowRight, ChevronDown, Layers, Shield, Bot } from 'lucide-react';
 import HeroVaultVisual from './HeroVaultVisual';
@@ -85,15 +86,10 @@ const LandingHero: React.FC = () => {
           {...fade(0.4)}
           className="mt-10 flex flex-col sm:flex-row gap-3 justify-center w-full sm:w-auto"
         >
-          <Link to="/register" className="w-full sm:w-auto">
-            <button
-              type="button"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-white text-[#08080a] rounded-full text-sm font-semibold hover:bg-zinc-100 transition-colors"
-            >
-              Start trading
-              <ArrowRight size={16} strokeWidth={2.5} />
-            </button>
-          </Link>
+          <OpenAppLink className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-white text-[#08080a] rounded-full text-sm font-semibold hover:bg-zinc-100 transition-colors">
+            Start trading
+            <ArrowRight size={16} strokeWidth={2.5} />
+          </OpenAppLink>
           <Link to="/how-it-works" className="w-full sm:w-auto">
             <button
               type="button"

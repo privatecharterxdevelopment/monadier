@@ -18,7 +18,6 @@ import MarketingInnerPage, {
   MarketingPageCta,
   MarketingDisclaimer,
 } from '../components/marketing/MarketingInnerPage';
-import { getAppUrl } from '../lib/appUrls';
 
 const engineFeatures = [
   {
@@ -137,10 +136,7 @@ const TechnologyPage: React.FC = () => {
         />
       </MarketingPageGrid>
 
-      <MarketingPageCta
-        href={getAppUrl('/register')}
-        secondary={{ to: '/pricing', label: 'View pricing' }}
-      />
+      <MarketingPageCta secondary={{ to: '/pricing', label: 'View pricing' }} />
 
       <MarketingDisclaimer>This is not financial advice. Your capital is at risk.</MarketingDisclaimer>
     </MarketingInnerPage>

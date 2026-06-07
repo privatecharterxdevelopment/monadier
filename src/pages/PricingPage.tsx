@@ -15,7 +15,6 @@ import MarketingInnerPage, {
   MarketingPageCta,
   MarketingDisclaimer,
 } from '../components/marketing/MarketingInnerPage';
-import { getAppUrl } from '../lib/appUrls';
 import PricingHeroGraphic from '../components/marketing/PricingHeroGraphic';
 
 const steps: { title: string; text: string; icon: LucideIcon }[] = [
@@ -74,7 +73,7 @@ const PricingPage: React.FC = () => {
         ))}
       </MarketingPageGrid>
 
-      <MarketingPageCta href={getAppUrl('/register')} />
+      <MarketingPageCta />
 
       <MarketingDisclaimer>
         This is not financial advice. Fees may change; see dashboard for live details.

@@ -12,10 +12,10 @@ import LicenseActivation from './components/desktop/LicenseActivation';
 import TransactionToast from './components/ui/TransactionToast';
 
 // Pages
-import RootRoute from './components/app/RootRoute';
 import MonadierAppRoot from './components/app/MonadierAppRoot';
 import RedirectToApp from './components/app/RedirectToApp';
-import { isAppHost, OPEN_APP_PATH } from './lib/appUrls';
+import LandingPage from './pages/LandingPage';
+import { isAppHost, isMarketingPath, LANDING_PATH, OPEN_APP_PATH } from './lib/appUrls';
 import HowItWorksPage from './pages/HowItWorksPage';
 import CardPage from './pages/CardPage';
 import BotTradingPage from './pages/BotTradingPage';
@@ -84,8 +84,17 @@ function App() {
       <TransactionToast />
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
-          <Route path="/" element={<RootRoute />} />
-          <Route path="/app" element={<MonadierAppRoot />} />
+          <Route
+            path={LANDING_PATH}
+            element={
+              <PageTransition>
+                <LandingPage />
+              </PageTransition>
+            }
+          />
+          <Route path="/" element={<MonadierAppRoot />} />
+          <Route path="/app" element={<RedirectToApp />} />
+          <Route path="/app/*" element={<RedirectToApp />} />
           <Route path="/how-it-works" element={
             <PageTransition>
               <HowItWorksPage />

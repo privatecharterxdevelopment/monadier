@@ -1,43 +1,24 @@
 import { useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import {
-  getAppEntryPath,
-  getOpenAppPath,
-  goToOpenApp,
-  isAppHost,
-  OPEN_APP_PATH,
-} from '../../lib/appUrls';
+import { useLocation } from 'react-router-dom';
+import { goToOpenApp } from '../../lib/appUrls';
 
 /**
- * App subdomain: / serves Pro Trade (RootRoute).
- * Marketing: legacy /dashboard2* → /app (Pro Trade).
+ * Legacy /dashboard2*, /app* → Pro Trade at `/`.
  */
 export default function HostRedirects() {
   const location = useLocation();
-  const navigate = useNavigate();
 
   useEffect(() => {
+    const path = location.pathname;
     if (
-      !isAppHost() &&
-      (location.pathname === '/dashboard2' || location.pathname.startsWith('/dashboard2/'))
+      path === '/dashboard2' ||
+      path.startsWith('/dashboard2/') ||
+      path === '/app' ||
+      path.startsWith('/app/')
     ) {
-      const inApp = goToOpenApp(location.search, true);
-      if (inApp) navigate(inApp, { replace: true });
-      return;
+      goToOpenApp(location.search, true);
     }
-
-    if (isAppHost() && location.pathname === '/dashboard2') {
-      navigate(getAppEntryPath() + location.search, { replace: true });
-      return;
-    }
-
-    if (
-      isAppHost() &&
-      (location.pathname === OPEN_APP_PATH || location.pathname.startsWith(`${OPEN_APP_PATH}/`))
-    ) {
-      navigate(getOpenAppPath() + location.search, { replace: true });
-    }
-  }, [location.pathname, location.search, navigate]);
+  }, [location.pathname, location.search]);
 
   return null;
 }
