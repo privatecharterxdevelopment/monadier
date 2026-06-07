@@ -10,11 +10,7 @@ interface PageTransitionProps {
 const PageTransition: React.FC<PageTransitionProps> = ({ children, fillViewport }) => {
   return (
     <motion.div
-      className={
-        fillViewport
-          ? 'h-[100dvh] h-[100svh] max-h-[100dvh] max-h-[100svh] overflow-hidden'
-          : 'min-h-[100dvh]'
-      }
+      className={fillViewport ? 'hl-page-shell' : 'min-h-[100dvh]'}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}

@@ -17,6 +17,24 @@
   min-height: 0;
 }
 
+/* Pro Trade page wrapper (MonadierAppRoot) */
+.hl-page-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  min-height: 100svh;
+  height: 100dvh;
+  height: 100svh;
+  max-height: 100dvh;
+  max-height: 100svh;
+  overflow: hidden;
+}
+
+.hl-page-shell > .nix-app {
+  flex: 1;
+  min-height: 0;
+}
+
 .hl-root {
   /* Trade colors — shared across themes */
   --hl-green: #26a69a;
@@ -2964,24 +2982,79 @@
 
 /* ── Pro Trade responsive layout ── */
 @media (max-width: 900px) {
-  .nix-app:has(.hl-root) {
+  .hl-page-shell {
     height: auto;
-    min-height: 100dvh;
     max-height: none;
+    min-height: 100dvh;
+    min-height: 100svh;
+    overflow-x: hidden;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
 
+  .nix-app:has(.hl-root) {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+  }
+
   .nix-app-inner:has(.hl-root) {
     overflow: visible;
-    min-height: 100dvh;
+    min-height: 0;
     height: auto;
   }
 
   .hl-root {
     height: auto;
-    min-height: 100dvh;
+    min-height: 0;
+    max-height: none;
     overflow: visible;
+  }
+
+  .hl-terminal {
+    display: flex;
+    flex-direction: column;
+    flex: none;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .hl-terminal > .hl-ticker {
+    flex: 0 0 auto;
+    flex-shrink: 0;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    width: 100%;
+    height: 36px;
+    min-height: 36px;
+    max-height: 36px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    position: relative;
+    z-index: 2;
+    scrollbar-width: none;
+  }
+
+  .hl-terminal > .hl-ticker::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hl-terminal > .hl-market-bar {
+    flex: 0 0 auto;
+    flex-shrink: 0;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    width: 100%;
+    min-height: 48px;
+    height: auto;
+    overflow-x: auto;
+    overflow-y: hidden;
+    position: relative;
+    z-index: 1;
+    -webkit-overflow-scrolling: touch;
   }
 
   .hl-topnav {
@@ -3028,35 +3101,23 @@
     display: none;
   }
 
-  .hl-ticker {
-    height: 32px;
-    -webkit-overflow-scrolling: touch;
-  }
-
   .hl-ticker-item {
+    flex: 0 0 auto;
     padding: 4px 10px;
     font-size: 12px;
   }
 
-  .hl-market-bar {
-    height: auto;
-    min-height: 44px;
-    padding: 8px 10px;
-    gap: 12px;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .hl-terminal {
-    flex: none;
-    min-height: auto;
-    overflow: visible;
+  .hl-market-stat {
+    flex: 0 0 auto;
   }
 
   .hl-body {
+    display: flex;
     flex-direction: column;
     overflow: visible;
     flex: none;
     min-height: auto;
+    width: 100%;
   }
 
   .hl-workspace-main {
@@ -3100,15 +3161,32 @@
 
   .hl-order-panel {
     width: 100%;
+    min-height: 360px;
     border-left: none;
     border-top: 1px solid var(--hl-border);
+    flex: 0 0 auto;
     flex-shrink: 0;
+    overflow: visible;
+  }
+
+  .hl-order-panel .hl-entry-scroll {
+    overflow: visible;
+    max-height: none;
   }
 
   .hl-bot-panel-wrap {
     width: 100%;
+    min-height: 360px;
     border-left: none;
     border-top: 1px solid var(--hl-border);
+    flex: 0 0 auto;
+    flex-shrink: 0;
+    overflow: visible;
+  }
+
+  .hl-bot-panel-wrap .term-trade-body {
+    overflow-y: visible;
+    max-height: none;
   }
 
   .hl-dock {
@@ -3187,6 +3265,33 @@
 
   .monadier-app-gate-card {
     padding: 24px 20px;
+  }
+}
+
+@media (max-width: 900px) and (orientation: landscape) {
+  .hl-chart-row {
+    height: min(36dvh, 220px);
+    min-height: 180px;
+  }
+
+  .hl-chart-wrap {
+    min-height: 160px;
+  }
+
+  .hl-chart-canvas,
+  .hl-chart-tv-wrap,
+  .hl-chart-tv-canvas {
+    min-height: 140px;
+  }
+
+  .hl-dock {
+    height: min(34dvh, 200px);
+    min-height: 140px;
+  }
+
+  .hl-order-panel,
+  .hl-bot-panel-wrap {
+    min-height: 300px;
   }
 }
 
