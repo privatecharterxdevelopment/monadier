@@ -34,6 +34,7 @@ import KycFlowPage from './pages/KycFlowPage';
 import DashboardPage from './pages/DashboardPage';
 import Dashboard2Page from './pages/dashboard/Dashboard2Page';
 import Dashboard2ProfilePage from './pages/dashboard/Dashboard2ProfilePage';
+import Dashboard2ProPage from './pages/dashboard/Dashboard2ProPage';
 import Dashboard2Layout from './layouts/Dashboard2Layout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import SupportWidget from './components/ui/SupportWidget';
@@ -202,6 +203,7 @@ function App() {
           >
             <Route index element={<Dashboard2Page />} />
             <Route path="profile" element={<Dashboard2ProfilePage />} />
+            <Route path="pro" element={<Dashboard2ProPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>

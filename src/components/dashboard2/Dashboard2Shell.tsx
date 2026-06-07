@@ -14,6 +14,7 @@ type Props = {
   userId?: string;
   activeSection: Dashboard2SidebarSection;
   onTrade?: () => void;
+  onProTrade?: () => void;
   onHistory?: () => void;
   onNotifications?: () => void;
   onDeposit?: () => void;
@@ -28,6 +29,7 @@ const Dashboard2Shell: React.FC<Props> = ({
   userId,
   activeSection,
   onTrade,
+  onProTrade,
   onHistory,
   onNotifications,
   onDeposit,
@@ -43,6 +45,7 @@ const Dashboard2Shell: React.FC<Props> = ({
         userId={userId}
         activeSection={activeSection}
         onTrade={onTrade}
+        onProTrade={onProTrade}
         onHistory={onHistory}
         onNotifications={onNotifications}
         onDeposit={onDeposit}

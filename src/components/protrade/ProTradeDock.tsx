@@ -1,0 +1,520 @@
+import React, { useMemo, useState } from 'react';
+import { Loader2, X } from 'lucide-react';
+import type {
+  HlAccountState,
+  HlFundingPayment,
+  HlHistoricalOrder,
+  HlOpenOrder,
+  HlPosition,
+  HlSpotBalance,
+  HlTwapOrder,
+  HlUserFill,
+} from '../../lib/hyperliquid/user';
+import { isHlTriggerOrder } from '../../lib/hyperliquid/user';
+import { fmtLeverage, fmtPrice, fmtTimeMs, fmtUsdSymbol } from '../../lib/hyperliquid/format';
+import { toNum } from '../../lib/hyperliquid/parse';
+
+const TABS = [
+  { id: 'balances', label: 'Balances' },
+  { id: 'positions', label: 'Positions' },
+  { id: 'orders', label: 'Open Orders' },
+  { id: 'twap', label: 'TWAP' },
+  { id: 'trailing', label: 'Trailing' },
+  { id: 'tradeHistory', label: 'Trade History' },
+  { id: 'fundingHistory', label: 'Funding History' },
+  { id: 'orderHistory', label: 'Order History' },
+] as const;
+
+type TabId = (typeof TABS)[number]['id'];
+
+export type ProTradeDockTab = TabId;
+
+type Props = {
+  account: HlAccountState | null;
+  spotBalances?: HlSpotBalance[];
+  openOrders: HlOpenOrder[];
+  fills: HlUserFill[];
+  funding: HlFundingPayment[];
+  orderHistory: HlHistoricalOrder[];
+  twapOrders?: HlTwapOrder[];
+  markPrices: Record<string, number>;
+  loading: boolean;
+  connected: boolean;
+  activeTab?: ProTradeDockTab;
+  onTabChange?: (tab: ProTradeDockTab) => void;
+  onCoinClick?: (coin: string) => void;
+  actionBusy?: boolean;
+  variant?: 'perp' | 'spot';
+  onCancelOrder?: (coin: string, oid: number) => void;
+  onCancelAllOrders?: () => void;
+  onCancelTwap?: (coin: string, twapId: number) => void;
+  onClosePosition?: (position: HlPosition) => void;
+};
+
+const ProTradeDock: React.FC<Props> = ({
+  account,
+  spotBalances = [],
+  openOrders,
+  fills,
+  funding,
+  orderHistory,
+  twapOrders = [],
+  markPrices,
+  loading,
+  connected,
+  activeTab,
+  onTabChange,
+  onCoinClick,
+  actionBusy,
+  variant = 'perp',
+  onCancelOrder,
+  onCancelAllOrders,
+  onCancelTwap,
+  onClosePosition,
+}) => {
+  const isSpot = variant === 'spot';
+  const visibleTabs = isSpot
+    ? TABS.filter((t) => !['positions', 'fundingHistory'].includes(t.id))
+    : TABS;
+  const activeTwapCount = twapOrders.filter((t) => t.status === 'activated').length;
+  const triggerOrders = openOrders.filter(isHlTriggerOrder);
+  const [internalTab, setInternalTab] = useState<TabId>('positions');
+  const [search, setSearch] = useState('');
+  const tab = activeTab ?? internalTab;
+  const setTab = (next: TabId) => {
+    onTabChange?.(next);
+    if (activeTab == null) setInternalTab(next);
+  };
+
+  const positionCount = account?.positions.length ?? 0;
+
+  const tabLabel = (id: TabId, label: string) => {
+    if (id === 'positions' && positionCount > 0) return `${label}(${positionCount})`;
+    if (id === 'orders' && openOrders.length > 0) return `${label}(${openOrders.length})`;
+    if (id === 'twap' && activeTwapCount > 0) return `${label}(${activeTwapCount})`;
+    if (id === 'trailing' && triggerOrders.length > 0) return `${label}(${triggerOrders.length})`;
+    return label;
+  };
+
+  const filteredOrders = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return openOrders;
+    return openOrders.filter((o) => o.coin.toLowerCase().includes(q));
+  }, [openOrders, search]);
+
+  const filteredPositions = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const list = account?.positions ?? [];
+    if (!q) return list;
+    return list.filter((p) => p.coin.toLowerCase().includes(q));
+  }, [account?.positions, search]);
+
+  return (
+    <section className="hl-dock">
+      <div className="hl-dock-head">
+        <nav className="hl-dock-tabs" aria-label="Account panels">
+          {visibleTabs.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              className={`hl-dock-tab ${tab === id ? 'hl-dock-tab--on' : ''}`}
+              onClick={() => setTab(id)}
+            >
+              {tabLabel(id, label)}
+            </button>
+          ))}
+        </nav>
+        <div className="hl-dock-tools">
+          <input
+            className="hl-dock-search"
+            placeholder="Coins…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {tab === 'orders' && openOrders.length > 0 ? (
+            <button
+              type="button"
+              className="hl-dock-action"
+              disabled={actionBusy}
+              onClick={onCancelAllOrders}
+            >
+              Cancel All
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="hl-dock-body">
+        {!connected ? (
+          <p className="hl-dock-empty">Connect wallet to view account data.</p>
+        ) : loading && !account ? (
+          <p className="hl-dock-empty">
+            <Loader2 size={14} className="animate-spin inline" /> Syncing…
+          </p>
+        ) : tab === 'balances' ? (
+          isSpot ? (
+            spotBalances.length > 0 ? (
+              <table className="hl-table">
+                <thead>
+                  <tr>
+                    <th>Token</th>
+                    <th>Total</th>
+                    <th>On hold</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {spotBalances.map((b) => (
+                    <tr key={`${b.coin}-${b.token}`}>
+                      <td>{b.coin}</td>
+                      <td>{b.total}</td>
+                      <td>{b.hold}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="hl-dock-empty">No spot balances.</p>
+            )
+          ) : (
+            <table className="hl-table">
+              <thead>
+                <tr>
+                  <th>Asset</th>
+                  <th>Total</th>
+                  <th>Available</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>USDC (Perp)</td>
+                  <td>{fmtUsdSymbol(account?.margin?.accountValue)}</td>
+                  <td>{fmtUsdSymbol(account?.withdrawable)}</td>
+                </tr>
+                <tr>
+                  <td>Margin used</td>
+                  <td colSpan={2}>{fmtUsdSymbol(account?.margin?.totalMarginUsed)}</td>
+                </tr>
+                <tr>
+                  <td>Notional</td>
+                  <td colSpan={2}>{fmtUsdSymbol(account?.margin?.totalNtlPos)}</td>
+                </tr>
+              </tbody>
+            </table>
+          )
+        ) : tab === 'positions' ? (
+          filteredPositions.length > 0 ? (
+            <table className="hl-table">
+              <thead>
+                <tr>
+                  <th>Coin</th>
+                  <th>Size</th>
+                  <th>Value</th>
+                  <th>Entry</th>
+                  <th>Mark</th>
+                  <th>PnL</th>
+                  <th>Lev</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPositions.map((p) => {
+                  const isLong = toNum(p.szi) >= 0;
+                  const mark = markPrices[p.coin] ?? 0;
+                  return (
+                    <tr key={p.coin}>
+                      <td>
+                        <button type="button" className="hl-coin-link" onClick={() => onCoinClick?.(p.coin)}>
+                          {p.coin}
+                        </button>
+                      </td>
+                      <td className={isLong ? 'hl-up' : 'hl-down'}>{p.szi}</td>
+                      <td>{fmtUsdSymbol(p.positionValue)}</td>
+                      <td>{fmtPrice(p.entryPx)}</td>
+                      <td>{mark > 0 ? fmtPrice(mark) : '—'}</td>
+                      <td className={toNum(p.unrealizedPnl) >= 0 ? 'hl-up' : 'hl-down'}>
+                        {fmtUsdSymbol(p.unrealizedPnl)}
+                      </td>
+                      <td>{fmtLeverage(p.leverage?.value)}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="hl-dock-action"
+                          disabled={actionBusy}
+                          onClick={() => onClosePosition?.(p)}
+                        >
+                          Close
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <p className="hl-dock-empty">No open positions.</p>
+          )
+        ) : tab === 'orders' ? (
+          filteredOrders.length > 0 ? (
+            <table className="hl-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Type</th>
+                  <th>Coin</th>
+                  <th>Direction</th>
+                  <th>Size</th>
+                  <th>Price</th>
+                  <th>Reduce</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {filteredOrders.map((o) => (
+                  <tr key={o.oid}>
+                    <td>{fmtTimeMs(o.timestamp)}</td>
+                    <td>{o.orderType || 'Limit'}</td>
+                    <td>
+                      <button type="button" className="hl-coin-link" onClick={() => onCoinClick?.(o.coin)}>
+                        {o.coin}
+                      </button>
+                    </td>
+                    <td className={o.side === 'B' ? 'hl-up' : 'hl-down'}>
+                      {o.side === 'B' ? 'Buy' : 'Sell'}
+                    </td>
+                    <td>{o.sz}</td>
+                    <td>{fmtPrice(o.limitPx)}</td>
+                    <td>{o.reduceOnly ? 'Yes' : 'No'}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="hl-cancel-btn"
+                        disabled={actionBusy}
+                        onClick={() => onCancelOrder?.(o.coin, o.oid)}
+                        aria-label="Cancel"
+                      >
+                        <X size={12} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="hl-dock-empty">No open orders.</p>
+          )
+        ) : tab === 'tradeHistory' ? (
+          fills.length > 0 ? (
+            <table className="hl-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Coin</th>
+                  <th>Side</th>
+                  <th>Size</th>
+                  <th>Price</th>
+                  <th>Fee</th>
+                  <th>Closed PnL</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fills.map((f, i) => (
+                  <tr key={`${f.time}-${i}`}>
+                    <td>{fmtTimeMs(f.time)}</td>
+                    <td>
+                      <button type="button" className="hl-coin-link" onClick={() => onCoinClick?.(f.coin)}>
+                        {f.coin}
+                      </button>
+                    </td>
+                    <td className={f.side === 'B' ? 'hl-up' : 'hl-down'}>
+                      {f.side === 'B' ? 'Buy' : 'Sell'}
+                    </td>
+                    <td>{f.sz}</td>
+                    <td>{fmtPrice(f.px)}</td>
+                    <td>{fmtUsdSymbol(f.fee)}</td>
+                    <td className={toNum(f.closedPnl) >= 0 ? 'hl-up' : 'hl-down'}>
+                      {fmtUsdSymbol(f.closedPnl)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="hl-dock-empty">No trade history yet.</p>
+          )
+        ) : tab === 'fundingHistory' ? (
+          funding.length > 0 ? (
+            <table className="hl-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Coin</th>
+                  <th>Payment</th>
+                  <th>Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {funding.map((f, i) => (
+                  <tr key={`${f.time}-${i}`}>
+                    <td>{fmtTimeMs(f.time)}</td>
+                    <td>{f.coin}</td>
+                    <td className={toNum(f.usdc) >= 0 ? 'hl-up' : 'hl-down'}>
+                      {fmtUsdSymbol(f.usdc)}
+                    </td>
+                    <td>{(toNum(f.fundingRate) * 100).toFixed(4)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="hl-dock-empty">No funding history.</p>
+          )
+        ) : tab === 'orderHistory' ? (
+          orderHistory.length > 0 ? (
+            <table className="hl-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Coin</th>
+                  <th>Side</th>
+                  <th>Type</th>
+                  <th>Size</th>
+                  <th>Price</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orderHistory.map((o) => (
+                  <tr key={o.oid}>
+                    <td>{fmtTimeMs(o.statusTimestamp || o.timestamp)}</td>
+                    <td>
+                      <button type="button" className="hl-coin-link" onClick={() => onCoinClick?.(o.coin)}>
+                        {o.coin}
+                      </button>
+                    </td>
+                    <td className={o.side === 'B' ? 'hl-up' : 'hl-down'}>
+                      {o.side === 'B' ? 'Buy' : 'Sell'}
+                    </td>
+                    <td>{o.orderType}</td>
+                    <td>{o.sz}</td>
+                    <td>{fmtPrice(o.limitPx)}</td>
+                    <td>{o.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="hl-dock-empty">No order history.</p>
+          )
+        ) : tab === 'twap' ? (
+          twapOrders.length > 0 ? (
+            <table className="hl-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Coin</th>
+                  <th>Side</th>
+                  <th>Size</th>
+                  <th>Filled</th>
+                  <th>Duration</th>
+                  <th>Status</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {twapOrders.map((t) => (
+                  <tr key={`${t.twapId}-${t.time}`}>
+                    <td>{fmtTimeMs(t.time)}</td>
+                    <td>
+                      <button type="button" className="hl-coin-link" onClick={() => onCoinClick?.(t.coin)}>
+                        {t.coin}
+                      </button>
+                    </td>
+                    <td className={t.side === 'B' ? 'hl-up' : 'hl-down'}>
+                      {t.side === 'B' ? 'Buy' : 'Sell'}
+                    </td>
+                    <td>{t.sz}</td>
+                    <td>
+                      {t.executedSz} ({fmtUsdSymbol(t.executedNtl)})
+                    </td>
+                    <td>{t.minutes}m{t.randomize ? ' · rand' : ''}</td>
+                    <td>
+                      {t.status}
+                      {t.statusDetail ? ` — ${t.statusDetail}` : ''}
+                    </td>
+                    <td>
+                      {t.status === 'activated' ? (
+                        <button
+                          type="button"
+                          className="hl-dock-action"
+                          disabled={actionBusy}
+                          onClick={() => onCancelTwap?.(t.coin, t.twapId)}
+                        >
+                          Cancel
+                        </button>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="hl-dock-empty">No TWAP orders.</p>
+          )
+        ) : tab === 'trailing' ? (
+          triggerOrders.length > 0 ? (
+            <table className="hl-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Coin</th>
+                  <th>Type</th>
+                  <th>Side</th>
+                  <th>Size</th>
+                  <th>Trigger</th>
+                  <th>Condition</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {triggerOrders.map((o) => (
+                  <tr key={o.oid}>
+                    <td>{fmtTimeMs(o.timestamp)}</td>
+                    <td>
+                      <button type="button" className="hl-coin-link" onClick={() => onCoinClick?.(o.coin)}>
+                        {o.coin}
+                      </button>
+                    </td>
+                    <td>{o.orderType}</td>
+                    <td className={o.side === 'B' ? 'hl-up' : 'hl-down'}>
+                      {o.side === 'B' ? 'Buy' : 'Sell'}
+                    </td>
+                    <td>{o.sz}</td>
+                    <td>{fmtPrice(o.triggerPx ?? o.limitPx)}</td>
+                    <td>{o.triggerCondition || (o.isPositionTpsl ? 'Position TP/SL' : '—')}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="hl-cancel-btn"
+                        disabled={actionBusy}
+                        onClick={() => onCancelOrder?.(o.coin, o.oid)}
+                        aria-label="Cancel"
+                      >
+                        <X size={12} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="hl-dock-empty">No trigger or stop orders.</p>
+          )
+        ) : (
+          <p className="hl-dock-empty">No data.</p>
+        )}
+      </div>
+    </section>
+  );
+};
+
+export default ProTradeDock;

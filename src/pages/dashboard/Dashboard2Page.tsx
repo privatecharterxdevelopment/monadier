@@ -175,6 +175,7 @@ const Dashboard2Page: React.FC = () => {
       userId={user?.id}
       activeSection={sidebarSection}
       onTrade={openTrade}
+      onProTrade={() => navigate('/dashboard2/pro')}
       onHistory={() => openHistory()}
       onNotifications={() => openHistory({ tab: 'history' })}
       onDeposit={openDeposit}

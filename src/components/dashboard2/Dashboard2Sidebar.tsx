@@ -3,6 +3,7 @@ import Logo from '../ui/Logo';
 import { getMarketingUrl, isExternalAppUrl } from '../../lib/appUrls';
 import {
   TrendingUp,
+  CandlestickChart,
   History,
   Bell,
   LogOut,
@@ -17,6 +18,7 @@ import ProfileAvatar from '../profile/ProfileAvatar';
 
 export type Dashboard2SidebarSection =
   | 'trade'
+  | 'pro'
   | 'history'
   | 'deposit'
   | 'withdraw'
@@ -35,6 +37,7 @@ type Props = {
   onSupport?: () => void;
   onProfile?: () => void;
   onTrade?: () => void;
+  onProTrade?: () => void;
 };
 
 const Dashboard2Sidebar: React.FC<Props> = ({
@@ -48,6 +51,7 @@ const Dashboard2Sidebar: React.FC<Props> = ({
   onSupport,
   onProfile,
   onTrade,
+  onProTrade,
 }) => {
   const { signOutWithToast } = useTermAuthToast();
   const { unreadCount: notificationUnread } = useTradeNotifications();
@@ -61,6 +65,8 @@ const Dashboard2Sidebar: React.FC<Props> = ({
 
   const linkClass = (section: Dashboard2SidebarSection) =>
     `term-side-link ${activeSection === section ? 'term-side-link--active' : ''}`;
+
+  const isPro = activeSection === 'pro';
 
   return (
     <aside className="term-sidebar">
@@ -77,23 +83,29 @@ const Dashboard2Sidebar: React.FC<Props> = ({
       <nav className="term-side-nav">
         <button type="button" className={linkClass('trade')} onClick={onTrade}>
           <TrendingUp size={18} />
-          <span className="term-side-label">Trade</span>
+          <span className="term-side-label">Bot trade</span>
         </button>
-        <button
-          type="button"
-          className={linkClass('history')}
-          onClick={onNotifications ?? onHistory}
-        >
-          <span className="term-side-link-icon-wrap">
-            <Bell size={18} />
-            {notificationUnread > 0 && (
-              <span className="term-side-badge">
-                {notificationUnread > 9 ? '9+' : notificationUnread}
-              </span>
-            )}
-          </span>
-          <span className="term-side-label">Alerts</span>
+        <button type="button" className={linkClass('pro')} onClick={onProTrade}>
+          <CandlestickChart size={18} />
+          <span className="term-side-label">Pro trade</span>
         </button>
+        {!isPro ? (
+          <button
+            type="button"
+            className={linkClass('history')}
+            onClick={onNotifications ?? onHistory}
+          >
+            <span className="term-side-link-icon-wrap">
+              <Bell size={18} />
+              {notificationUnread > 0 && (
+                <span className="term-side-badge">
+                  {notificationUnread > 9 ? '9+' : notificationUnread}
+                </span>
+              )}
+            </span>
+            <span className="term-side-label">Alerts</span>
+          </button>
+        ) : null}
         <button type="button" className={linkClass('history')} onClick={onHistory}>
           <History size={18} />
           <span className="term-side-label">History</span>

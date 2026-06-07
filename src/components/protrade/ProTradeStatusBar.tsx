@@ -1,0 +1,95 @@
+import React, { useMemo } from 'react';
+import type { HlOpenOrder, HlPosition } from '../../lib/hyperliquid/user';
+import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
+import { toNum } from '../../lib/hyperliquid/parse';
+
+type Props = {
+  walletConnected: boolean;
+  wsLive: boolean;
+  openOrders: HlOpenOrder[];
+  positions: HlPosition[];
+  totalUpnl?: number;
+};
+
+const ProTradeStatusBar: React.FC<Props> = ({
+  walletConnected,
+  wsLive,
+  openOrders,
+  positions,
+  totalUpnl = 0,
+}) => {
+  const orderSummary = useMemo(() => {
+    let buyCount = 0;
+    let buyUsd = 0;
+    let sellCount = 0;
+    let sellUsd = 0;
+    for (const o of openOrders) {
+      const notional = toNum(o.limitPx) * Math.abs(toNum(o.sz));
+      if (o.side === 'B') {
+        buyCount += 1;
+        buyUsd += notional;
+      } else {
+        sellCount += 1;
+        sellUsd += notional;
+      }
+    }
+    const total = buyUsd + sellUsd;
+    return { count: openOrders.length, total, buyCount, buyUsd, sellCount, sellUsd };
+  }, [openOrders]);
+
+  const positionStats = useMemo(() => {
+    let openNotional = 0;
+    let longs = 0;
+    let shorts = 0;
+    for (const p of positions) {
+      const val = Math.abs(toNum(p.positionValue));
+      openNotional += val;
+      if (toNum(p.szi) >= 0) longs += val;
+      else shorts += val;
+    }
+    return { openNotional, longs, shorts, delta: longs - shorts };
+  }, [positions]);
+
+  const upnl = totalUpnl;
+  const up = upnl >= 0;
+
+  return (
+    <footer className="hl-status">
+      <div className="hl-status-left">
+        <span>Open {fmtUsdSymbol(positionStats.openNotional)}</span>
+        <span>Longs {fmtUsdSymbol(positionStats.longs)}</span>
+        <span>Shorts {fmtUsdSymbol(positionStats.shorts)}</span>
+        <span className={positionStats.delta >= 0 ? 'hl-up' : 'hl-down'}>
+          Delta {positionStats.delta >= 0 ? '+' : ''}{fmtUsdSymbol(positionStats.delta)}
+        </span>
+        <span className={up ? 'hl-up' : 'hl-down'}>
+          uPnL {up ? '+' : ''}{fmtUsdSymbol(upnl)}
+        </span>
+      </div>
+      <div className="hl-status-mid">
+        <span>
+          Orders: {orderSummary.count}
+          {orderSummary.total > 0 ? ` (${fmtUsdSymbol(orderSummary.total)})` : ''}
+        </span>
+        <span>
+          Buys/Sells: {orderSummary.buyCount} ({fmtUsdSymbol(orderSummary.buyUsd)}) /{' '}
+          {orderSummary.sellCount} ({fmtUsdSymbol(orderSummary.sellUsd)})
+        </span>
+      </div>
+      <div className="hl-status-right">
+        {walletConnected && wsLive ? (
+          <span className="hl-status-connected">
+            <span className="hl-status-dot" aria-hidden />
+            Live
+          </span>
+        ) : walletConnected ? (
+          <span>Connected</span>
+        ) : (
+          <span>Disconnected</span>
+        )}
+      </div>
+    </footer>
+  );
+};
+
+export default ProTradeStatusBar;

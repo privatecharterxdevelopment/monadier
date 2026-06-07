@@ -27,6 +27,7 @@ const Dashboard2ProfilePage: React.FC = () => {
       userId={user?.id}
       activeSection="profile"
       onTrade={() => goTrade()}
+      onProTrade={() => navigate('/dashboard2/pro')}
       onHistory={() => goTrade('view=history')}
       onNotifications={() => goTrade('view=history')}
       onDeposit={() => goTrade('action=deposit')}
