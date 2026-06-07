@@ -2980,36 +2980,60 @@
   cursor: pointer;
 }
 
-/* ── Pro Trade responsive layout ── */
+/* ── Pro Trade responsive layout (portrait + landscape) ── */
 @media (max-width: 900px) {
+  /* One scroll container — body must not scroll behind the shell */
+  html:has(.hl-page-shell),
+  body:has(.hl-page-shell) {
+    overflow: hidden;
+    height: 100%;
+    height: 100dvh;
+    height: 100svh;
+  }
+
+  /* Single scroll surface — chart + dock + buy/sell stack vertically */
   .hl-page-shell {
-    height: auto;
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    height: 100svh;
     max-height: none;
-    min-height: 100dvh;
-    min-height: 100svh;
+    min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
+    overflow-y: scroll;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
   }
 
+  .hl-page-shell .nix-app,
   .nix-app:has(.hl-root) {
-    height: auto;
-    min-height: 0;
-    max-height: none;
-    overflow: visible;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
   }
 
+  .hl-page-shell .nix-app-inner,
   .nix-app-inner:has(.hl-root) {
-    overflow: visible;
-    min-height: 0;
-    height: auto;
+    flex: 0 0 auto !important;
+    overflow: visible !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
   }
 
   .hl-root {
-    height: auto;
-    min-height: 0;
-    max-height: none;
-    overflow: visible;
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   .hl-terminal {
@@ -3127,9 +3151,10 @@
 
   .hl-chart-row {
     grid-template-columns: 1fr;
-    height: min(56vh, 440px);
-    min-height: min(56vh, 440px);
-    flex: none;
+    height: auto;
+    min-height: 240px;
+    max-height: 300px;
+    flex: 0 0 auto;
   }
 
   .hl-chart-row .hl-book {
@@ -3140,58 +3165,91 @@
     border-right: none;
     display: flex;
     flex-direction: column;
-    height: 100%;
-    min-height: min(52vh, 400px);
-    flex: 1;
+    height: auto;
+    min-height: 220px;
+    max-height: 280px;
+    flex: 0 0 auto;
   }
 
   .hl-chart-canvas {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     width: 100%;
-    height: 100%;
-    min-height: min(44vh, 340px);
+    height: 220px;
+    min-height: 220px;
+    max-height: 260px;
   }
 
   .hl-chart-tv-wrap,
   .hl-chart-tv-canvas {
-    flex: 1 1 auto;
-    min-height: min(44vh, 340px);
-    height: 100%;
+    flex: 0 0 auto;
+    min-height: 220px;
+    height: 220px;
+    max-height: 260px;
+  }
+
+  .hl-dock,
+  .hl-bot-dock .hl-dock,
+  .hl-bot-dock .hl-bot-dock-inner {
+    height: auto;
+    min-height: 150px;
+    max-height: 200px;
+    flex: 0 0 auto;
+  }
+
+  .hl-bot-dock {
+    flex: 0 0 auto;
+    min-height: 0;
+  }
+
+  .hl-chart-wrap,
+  .hl-chart-canvas,
+  .hl-chart-tv-wrap,
+  .hl-chart-tv-canvas,
+  .hl-bot-chart-stack {
+    touch-action: pan-y;
   }
 
   .hl-order-panel {
     width: 100%;
-    min-height: 360px;
+    min-height: 420px;
     border-left: none;
-    border-top: 1px solid var(--hl-border);
+    border-top: 2px solid var(--hl-border-strong);
     flex: 0 0 auto;
     flex-shrink: 0;
     overflow: visible;
+    scroll-margin-top: 8px;
   }
 
   .hl-order-panel .hl-entry-scroll {
+    flex: 0 0 auto;
     overflow: visible;
     max-height: none;
+    min-height: auto;
   }
 
   .hl-bot-panel-wrap {
     width: 100%;
-    min-height: 360px;
+    min-height: 420px;
     border-left: none;
-    border-top: 1px solid var(--hl-border);
+    border-top: 2px solid var(--hl-border-strong);
     flex: 0 0 auto;
     flex-shrink: 0;
     overflow: visible;
+    scroll-margin-top: 8px;
   }
 
   .hl-bot-panel-wrap .term-trade-body {
     overflow-y: visible;
     max-height: none;
+    flex: 0 0 auto;
   }
 
-  .hl-dock {
-    height: min(42vh, 260px);
-    min-height: 180px;
+  .hl-terminal > .hl-status {
+    flex: 0 0 auto;
+  }
+
+  .hl-body {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
 
   .hl-dock-tabs {
@@ -3270,28 +3328,66 @@
 
 @media (max-width: 900px) and (orientation: landscape) {
   .hl-chart-row {
-    height: min(36dvh, 220px);
     min-height: 180px;
+    max-height: 220px;
   }
 
   .hl-chart-wrap {
     min-height: 160px;
+    max-height: 200px;
   }
 
   .hl-chart-canvas,
   .hl-chart-tv-wrap,
   .hl-chart-tv-canvas {
-    min-height: 140px;
+    height: 160px;
+    min-height: 160px;
+    max-height: 180px;
   }
 
-  .hl-dock {
-    height: min(34dvh, 200px);
-    min-height: 140px;
+  .hl-dock,
+  .hl-bot-dock .hl-dock,
+  .hl-bot-dock .hl-bot-dock-inner {
+    min-height: 120px;
+    max-height: 160px;
   }
 
   .hl-order-panel,
   .hl-bot-panel-wrap {
     min-height: 300px;
+  }
+}
+
+/* Portrait phones — keep chart compact so buy/sell is reachable by scrolling */
+@media (max-width: 900px) and (orientation: portrait) {
+  .hl-chart-row {
+    min-height: 220px;
+    max-height: 280px;
+  }
+
+  .hl-chart-wrap {
+    min-height: 200px;
+    max-height: 260px;
+  }
+
+  .hl-chart-canvas,
+  .hl-chart-tv-wrap,
+  .hl-chart-tv-canvas {
+    height: 200px;
+    min-height: 200px;
+    max-height: 240px;
+  }
+
+  .hl-dock,
+  .hl-bot-dock .hl-dock,
+  .hl-bot-dock .hl-bot-dock-inner {
+    min-height: 140px;
+    max-height: 180px;
+  }
+
+  .hl-order-panel,
+  .hl-bot-panel-wrap {
+    min-height: 440px;
   }
 }
 
