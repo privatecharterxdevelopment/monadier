@@ -3,6 +3,28 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "redirects": [
+    {
+      "source": "/dashboard2",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/dashboard2/:path*",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/app",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/app/:path*",
+      "destination": "/",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/bot-service/:path*",

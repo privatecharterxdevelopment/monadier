@@ -78,7 +78,7 @@ const DashboardSidebar: React.FC = () => {
   }, [address]);
 
   const navItems: NavItem[] = [
-    { path: '/dashboard2', label: 'Dashboard', icon: LayoutDashboard, mobileLabel: 'Home' },
+    { path: '/', label: 'Pro Trade', icon: LayoutDashboard, mobileLabel: 'Trade' },
     { path: '/dashboard/bot-trading', label: 'Bot trading', icon: Bot, mobileLabel: 'Bot' },
     { path: '/dashboard/chart-trades', label: 'Chart & trade', icon: LineChart, mobileLabel: 'Chart' },
     { path: '/dashboard/subscriptions', label: 'Plans', icon: Package, mobileLabel: 'Plans' },
@@ -89,8 +89,8 @@ const DashboardSidebar: React.FC = () => {
 
   const isActive = (path: string) =>
     currentPath === path ||
-    (path === '/dashboard2' && currentPath === '/dashboard') ||
-    (path !== '/dashboard2' && currentPath.startsWith(path));
+    (path === '/' && (currentPath === '/dashboard' || currentPath === '/dashboard2')) ||
+    (path !== '/' && currentPath.startsWith(path));
 
   const handleSignOut = async () => {
     try {

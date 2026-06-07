@@ -1,6 +1,6 @@
 import React from 'react';
 import Logo from '../ui/Logo';
-import { getMarketingUrl, isExternalAppUrl } from '../../lib/appUrls';
+import { getMarketingUrl, isExternalAppUrl, LANDING_PATH } from '../../lib/appUrls';
 import {
   TrendingUp,
   CandlestickChart,
@@ -58,8 +58,8 @@ const Dashboard2Sidebar: React.FC<Props> = ({
 
   const handleSignOut = () => {
     void signOutWithToast(signOut, () => {
-      const home = getMarketingUrl('/');
-      window.location.href = home.startsWith('http') ? home : '/';
+      const home = getMarketingUrl(LANDING_PATH);
+      window.location.href = home.startsWith('http') ? home : LANDING_PATH;
     });
   };
 
@@ -71,8 +71,8 @@ const Dashboard2Sidebar: React.FC<Props> = ({
   return (
     <aside className="term-sidebar">
       <div className="term-side-logo">
-        {isExternalAppUrl(getMarketingUrl('/')) ? (
-          <a href={getMarketingUrl('/')} className="term-side-logo-link" aria-label="Monadier home">
+        {isExternalAppUrl(getMarketingUrl(LANDING_PATH)) ? (
+          <a href={getMarketingUrl(LANDING_PATH)} className="term-side-logo-link" aria-label="Monadier home">
             <Logo size="sm" theme="light" />
           </a>
         ) : (

@@ -2962,10 +2962,13 @@
   .nix-app-inner:has(.hl-root) {
     overflow: visible;
     min-height: 100dvh;
+    height: auto;
   }
 
   .hl-root {
+    height: auto;
     min-height: 100dvh;
+    overflow: visible;
   }
 
   .hl-topnav {
@@ -3031,13 +3034,15 @@
   }
 
   .hl-terminal {
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    flex: none;
+    min-height: auto;
+    overflow: visible;
   }
 
   .hl-body {
     flex-direction: column;
     overflow: visible;
+    flex: none;
     min-height: auto;
   }
 
@@ -3048,7 +3053,8 @@
 
   .hl-chart-row {
     grid-template-columns: 1fr;
-    min-height: min(52vh, 420px);
+    height: min(56vh, 440px);
+    min-height: min(56vh, 440px);
     flex: none;
   }
 
@@ -3058,16 +3064,25 @@
 
   .hl-chart-wrap {
     border-right: none;
-    min-height: min(48vh, 380px);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: min(52vh, 400px);
+    flex: 1;
   }
 
   .hl-chart-canvas {
-    min-height: min(40vh, 320px);
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-height: min(44vh, 340px);
   }
 
   .hl-chart-tv-wrap,
   .hl-chart-tv-canvas {
-    min-height: min(38vh, 300px);
+    flex: 1 1 auto;
+    min-height: min(44vh, 340px);
+    height: 100%;
   }
 
   .hl-order-panel {

@@ -135,7 +135,7 @@
     grid-template-columns: 56px minmax(0, 1fr);
     column-gap: 10px;
     padding: 8px;
-    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
   }
   .term-side-label {
     display: none;
@@ -145,6 +145,18 @@
   }
   .term-side-logo .inline-flex.items-center.gap-2 > span {
     display: none;
+  }
+  .term-side-nav {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .term-side-nav::-webkit-scrollbar {
+    display: none;
+  }
+  .term-side-link {
+    justify-content: center;
+    padding: 10px 8px;
   }
 }
 
@@ -269,6 +281,68 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+/* Mobile quick nav — Bot trade + Pro trade always visible */
+.term-mobile-bar {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .term-mobile-bar {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    align-items: stretch;
+    gap: 8px;
+    padding: 8px 12px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--term-panel-border);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.06);
+  }
+
+  .term-mobile-bar-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 48px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    border: 1px solid var(--term-border-muted);
+    background: #fff;
+    color: var(--term-text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+
+  .term-mobile-bar-btn--active {
+    color: var(--term-text);
+    background: var(--term-surface-muted);
+    border-color: transparent;
+  }
+
+  .term-mobile-bar-btn--pro {
+    background: #0a0a0a;
+    border-color: #0a0a0a;
+    color: #fff;
+  }
+
+  .term-mobile-bar-btn--pro.term-mobile-bar-btn--active {
+    background: #27272a;
+    border-color: #27272a;
+    color: #fff;
+  }
 }
 
 /* ── Main column ── */

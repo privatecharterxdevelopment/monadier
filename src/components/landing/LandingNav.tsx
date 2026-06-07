@@ -57,8 +57,9 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pi
               >
                 Sign in
               </Link>
-              <OpenAppLink className="hidden md:inline-flex landing-gmx-nav-open">
-                Open app
+              <OpenAppLink className="inline-flex landing-gmx-nav-open md:inline-flex">
+                <span className="md:hidden">App</span>
+                <span className="hidden md:inline">Open app</span>
               </OpenAppLink>
             </>
           ) : (
@@ -71,15 +72,16 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pi
               >
                 Sign in
               </Link>
-              <OpenAppLink className="hidden md:inline-flex">
+              <OpenAppLink className="inline-flex md:inline-flex">
                 <span
-                  className={`inline-flex items-center px-4 py-2 rounded-full text-[13px] font-semibold transition-colors ${
+                  className={`inline-flex items-center px-3 md:px-4 py-1.5 md:py-2 rounded-full text-[12px] md:text-[13px] font-semibold transition-colors ${
                     light
                       ? 'text-[#0a0a0a] border border-[#c5c5cb] bg-white/50 hover:bg-white/80'
                       : 'bg-white text-[#08080a] hover:bg-zinc-100'
                   }`}
                 >
-                  Open app
+                  <span className="md:hidden">App</span>
+                  <span className="hidden md:inline">Open app</span>
                 </span>
               </OpenAppLink>
             </>

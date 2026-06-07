@@ -1,7 +1,9 @@
 import React from 'react';
+import { CandlestickChart, TrendingUp } from 'lucide-react';
 import Dashboard2Sidebar, {
   type Dashboard2SidebarSection,
 } from './Dashboard2Sidebar';
+import { goToOpenApp } from '../../lib/appUrls';
 
 type ProfileShape = {
   avatar_emoji?: string | null;
@@ -38,6 +40,14 @@ const Dashboard2Shell: React.FC<Props> = ({
   onProfile,
   children,
 }) => {
+  const openProTrade = () => {
+    if (onProTrade) {
+      onProTrade();
+      return;
+    }
+    goToOpenApp('');
+  };
+
   return (
     <div className="term-root">
       <Dashboard2Sidebar
@@ -45,7 +55,7 @@ const Dashboard2Shell: React.FC<Props> = ({
         userId={userId}
         activeSection={activeSection}
         onTrade={onTrade}
-        onProTrade={onProTrade}
+        onProTrade={openProTrade}
         onHistory={onHistory}
         onNotifications={onNotifications}
         onDeposit={onDeposit}
@@ -54,6 +64,24 @@ const Dashboard2Shell: React.FC<Props> = ({
         onProfile={onProfile}
       />
       <div className="term-main">{children}</div>
+      <nav className="term-mobile-bar" aria-label="Quick trade navigation">
+        <button
+          type="button"
+          className={`term-mobile-bar-btn ${activeSection === 'trade' ? 'term-mobile-bar-btn--active' : ''}`}
+          onClick={onTrade}
+        >
+          <TrendingUp size={20} strokeWidth={2} />
+          <span>Bot trade</span>
+        </button>
+        <button
+          type="button"
+          className={`term-mobile-bar-btn term-mobile-bar-btn--pro ${activeSection === 'pro' ? 'term-mobile-bar-btn--active' : ''}`}
+          onClick={openProTrade}
+        >
+          <CandlestickChart size={20} strokeWidth={2} />
+          <span>Pro trade</span>
+        </button>
+      </nav>
     </div>
   );
 };

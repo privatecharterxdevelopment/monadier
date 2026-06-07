@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Dashboard2Shell from '../../components/dashboard2/Dashboard2Shell';
 import TerminalProfilePanel from '../../components/terminal/TerminalProfilePanel';
-import { getAppEntryPath } from '../../lib/appUrls';
+import { goToOpenApp, OPEN_APP_PATH } from '../../lib/appUrls';
 
 const Dashboard2ProfilePage: React.FC = () => {
   const navigate = useNavigate();
@@ -19,7 +19,7 @@ const Dashboard2ProfilePage: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [location.hash]);
   const goTrade = (query?: string) => {
-    navigate(query ? `/dashboard2?${query}` : '/dashboard2');
+    goToOpenApp(query ? `?section=bot&${query}` : '?section=bot', false);
   };
 
   return (
@@ -28,13 +28,13 @@ const Dashboard2ProfilePage: React.FC = () => {
       userId={user?.id}
       activeSection="profile"
       onTrade={() => goTrade()}
-      onProTrade={() => navigate(getAppEntryPath())}
+      onProTrade={() => goToOpenApp('')}
       onHistory={() => goTrade('view=history')}
       onNotifications={() => goTrade('view=history')}
       onDeposit={() => goTrade('action=deposit')}
       onWithdraw={() => goTrade('action=withdraw')}
       onSupport={() => goTrade('action=support')}
-      onProfile={() => navigate('/dashboard2/profile')}
+      onProfile={() => navigate(`${OPEN_APP_PATH}?section=profile`)}
     >
       <header className="term-market-bar term-profile-page-header">
         <h1 className="term-profile-page-title">Profile</h1>

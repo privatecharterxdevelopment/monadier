@@ -23,7 +23,7 @@ import TerminalDepositModal from '../../components/terminal/TerminalDepositModal
 import TerminalWithdrawModal from '../../components/terminal/TerminalWithdrawModal';
 import TerminalSupportModal from '../../components/terminal/TerminalSupportModal';
 import TermNotificationsBell from '../../components/terminal/TermNotificationsBell';
-import { getAppEntryPath } from '../../lib/appUrls';
+import { getAppEntryPath, goToOpenApp, OPEN_APP_PATH } from '../../lib/appUrls';
 import TerminalProfileOnboardingModal from '../../components/terminal/TerminalProfileOnboardingModal';
 import TerminalArbitrumBanner from '../../components/terminal/TerminalArbitrumBanner';
 import type { BotSetupPhase } from '../../components/terminal/TerminalBotSettingsModal';
@@ -87,6 +87,10 @@ const Dashboard2Page: React.FC = () => {
   };
 
   usePositionReconciliation(handleRefresh);
+
+  useEffect(() => {
+    goToOpenApp('', true);
+  }, []);
 
   useEffect(() => {
     if (user?.id) {

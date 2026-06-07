@@ -138,6 +138,22 @@ const ProTradeChartInner: React.FC<Props> = ({
   }, [layoutKey, engine, coin, interval]);
 
   useEffect(() => {
+    if (engine !== 'hl') return;
+    const resize = () => {
+      const chart = chartRef.current;
+      const el = containerRef.current;
+      if (!chart || !el) return;
+      chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
+    };
+    window.addEventListener('orientationchange', resize);
+    window.visualViewport?.addEventListener('resize', resize);
+    return () => {
+      window.removeEventListener('orientationchange', resize);
+      window.visualViewport?.removeEventListener('resize', resize);
+    };
+  }, [engine]);
+
+  useEffect(() => {
     const series = seriesRef.current;
     const volumeSeries = volumeRef.current;
     const chart = chartRef.current;
