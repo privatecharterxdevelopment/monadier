@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { getAppEntryPath } from '../lib/appUrls';
+import { OPEN_APP_PATH } from '../lib/appUrls';
 import DashboardSidebar from '../components/dashboard/DashboardSidebar';
 import DashboardTopBar from '../components/dashboard/DashboardTopBar';
 import DashboardGlassPage from '../components/dashboard/DashboardGlassPage';
@@ -62,7 +62,7 @@ const DashboardPage: React.FC = () => {
               />
               <Route
                 path="/profile"
-                element={<Navigate to={`${getAppEntryPath()}?section=profile`} replace />}
+                element={<Navigate to={`${OPEN_APP_PATH}?section=profile`} replace />}
               />
             </Routes>
           </main>

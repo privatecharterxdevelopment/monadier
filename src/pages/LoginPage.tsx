@@ -7,7 +7,7 @@ import Logo from '../components/ui/Logo';
 import { signIn, signInWithGoogle } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { enableDemoMode, isDemoModeAllowed } from '../lib/demoMode';
-import { afterAuthGo, getAppEntryPath } from '../lib/appUrls';
+import { afterAuthGo, OPEN_APP_PATH } from '../lib/appUrls';
 import { queueAuthToast } from '../lib/authToast';
 
 const LoginPage: React.FC = () => {
@@ -28,7 +28,7 @@ const LoginPage: React.FC = () => {
     ((location.state as { from?: string })?.from?.startsWith('/')
       ? (location.state as { from: string }).from
       : null) ??
-    getAppEntryPath();
+    OPEN_APP_PATH;
 
   const handleDemoDashboard = () => {
     enableDemoMode();

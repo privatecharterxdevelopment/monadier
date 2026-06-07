@@ -1,26 +1,25 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAppEntryPath, getAppUrl, goToApp, isExternalAppUrl } from '../../lib/appUrls';
+import { goToOpenApp, OPEN_APP_PATH } from '../../lib/appUrls';
 
 type Props = React.AnchorHTMLAttributes<HTMLAnchorElement> & {
   className?: string;
   children: React.ReactNode;
 };
 
-/** Landing / marketing CTA — always opens Pro Trade, never login/register. */
+/** Landing / marketing CTA — opens Pro Trade at /app (never legacy /dashboard2). */
 const OpenAppLink: React.FC<Props> = ({ className, children, onClick, ...rest }) => {
   const navigate = useNavigate();
-  const href = getAppUrl();
 
   return (
     <a
-      href={href}
+      href={OPEN_APP_PATH}
       className={className}
       onClick={(e) => {
         onClick?.(e);
         if (e.defaultPrevented) return;
         e.preventDefault();
-        const inApp = goToApp(getAppEntryPath(), false);
+        const inApp = goToOpenApp('', false);
         if (inApp) navigate(inApp);
       }}
       {...rest}
@@ -29,13 +28,5 @@ const OpenAppLink: React.FC<Props> = ({ className, children, onClick, ...rest })
     </a>
   );
 };
-
-export function useOpenAppHref(): string {
-  return getAppUrl();
-}
-
-export function isOpenAppExternal(): boolean {
-  return isExternalAppUrl(getAppUrl());
-}
 
 export default OpenAppLink;

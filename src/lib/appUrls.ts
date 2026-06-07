@@ -11,9 +11,36 @@ function normalizePath(path: string): string {
   return path.startsWith('/') ? path : `/${path}`;
 }
 
-/** Canonical in-app entry: Pro Trade terminal (app.monadier.com root in production). */
+/** Pro Trade on app subdomain root (app.monadier.com/). */
 export function getAppEntryPath(): string {
   return APP_BASE ? '/' : '/app';
+}
+
+/** Same-origin Pro Trade route — always /app on marketing / localhost. */
+export const OPEN_APP_PATH = '/app';
+
+/** Router path to Pro Trade from current host (marketing → /app, app host → /). */
+export function getOpenAppPath(): string {
+  if (typeof window !== 'undefined' && isAppHost()) {
+    return getAppEntryPath();
+  }
+  return OPEN_APP_PATH;
+}
+
+/**
+ * Navigate to Pro Trade from marketing / legacy links.
+ * Uses same-origin /app (never legacy /dashboard2).
+ */
+export function goToOpenApp(search = '', replace = false): string | null {
+  const path = getOpenAppPath() + search;
+  if (typeof window !== 'undefined' && isAppHost() && APP_BASE) {
+    return goToApp(getAppEntryPath() + search, replace);
+  }
+  if (replace) {
+    window.location.replace(path);
+    return null;
+  }
+  return path;
 }
 
 export function getAppUrl(path?: string): string {
@@ -36,6 +63,9 @@ export function isAppHost(): boolean {
     } catch {
       return false;
     }
+  }
+  if (pathname === OPEN_APP_PATH || pathname.startsWith(`${OPEN_APP_PATH}/`)) {
+    return true;
   }
   const entry = getAppEntryPath();
   return pathname === entry || pathname.startsWith(`${entry}/`);
@@ -64,16 +94,22 @@ export function goToApp(path?: string, replace = false): string | null {
   return url;
 }
 
-/** After login/register — hop to app subdomain when configured */
+/** After login/register — always land on Pro Trade (/app), never legacy dashboard2. */
 export function afterAuthGo(
   path: string,
   navigate: (p: string, opts?: { replace?: boolean }) => void
 ): void {
-  const target = path === '/dashboard2' || path.startsWith('/dashboard2/')
-    ? getAppEntryPath()
-    : path;
-  const inApp = goToApp(target, true);
-  if (inApp) navigate(inApp, { replace: true });
+  let target = path;
+  if (target === '/dashboard2' || target.startsWith('/dashboard2/')) {
+    const q = target.includes('?') ? target.slice(target.indexOf('?')) : '';
+    target = OPEN_APP_PATH + q;
+  } else if (target === '/' || target === getAppEntryPath()) {
+    target = getOpenAppPath();
+  }
+  const search = target.includes('?') ? target.slice(target.indexOf('?')) : '';
+  const pathname = target.split('?')[0];
+  const inApp = goToOpenApp(search, true);
+  if (inApp) navigate(pathname + search, { replace: true });
 }
 
 export function goToMarketing(path = '/', replace = false): string | null {
@@ -89,13 +125,13 @@ export function goToMarketing(path = '/', replace = false): string | null {
 export function getLoginUrl(returnToApp = true): string {
   const base = getMarketingUrl('/login');
   if (!returnToApp) return base;
-  return `${base}?from=${encodeURIComponent(getAppEntryPath())}`;
+  return `${base}?from=${encodeURIComponent(OPEN_APP_PATH)}`;
 }
 
 export function getRegisterUrl(returnToApp = true): string {
   const base = getMarketingUrl('/register');
   if (!returnToApp) return base;
-  return `${base}?from=${encodeURIComponent(getAppEntryPath())}`;
+  return `${base}?from=${encodeURIComponent(OPEN_APP_PATH)}`;
 }
 
 /** Marketing landing — ?preview=landing skips auto-redirect back into the app when signed in. */

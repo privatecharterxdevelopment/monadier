@@ -15,7 +15,7 @@ import TransactionToast from './components/ui/TransactionToast';
 import RootRoute from './components/app/RootRoute';
 import MonadierAppRoot from './components/app/MonadierAppRoot';
 import RedirectToApp from './components/app/RedirectToApp';
-import { getAppEntryPath, isAppHost } from './lib/appUrls';
+import { isAppHost, OPEN_APP_PATH } from './lib/appUrls';
 import HowItWorksPage from './pages/HowItWorksPage';
 import CardPage from './pages/CardPage';
 import BotTradingPage from './pages/BotTradingPage';
@@ -35,8 +35,6 @@ import PrivacyPage from './pages/PrivacyPage';
 import RoadmapPage from './pages/RoadmapPage';
 import KycFlowPage from './pages/KycFlowPage';
 import DashboardPage from './pages/DashboardPage';
-import Dashboard2Page from './pages/dashboard/Dashboard2Page';
-import Dashboard2Layout from './layouts/Dashboard2Layout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import SupportWidget from './components/ui/SupportWidget';
 import HostRedirects from './components/layout/HostRedirects';
@@ -66,8 +64,8 @@ function App() {
   // Show support widget on public pages only
   const onAppSurface =
     isAppHost() ||
-    location.pathname === getAppEntryPath() ||
-    location.pathname.startsWith(`${getAppEntryPath()}/`);
+    location.pathname === OPEN_APP_PATH ||
+    location.pathname.startsWith(`${OPEN_APP_PATH}/`);
 
   const showSupportWidget =
     !onAppSurface &&
@@ -182,10 +180,10 @@ function App() {
             </ProtectedRoute>
           } />
           
-          <Route path="/dashboard" element={<Navigate to="/dashboard2" replace />} />
+          <Route path="/dashboard" element={<Navigate to={OPEN_APP_PATH} replace />} />
           <Route
             path="/dashboard/profile"
-            element={<Navigate to={`${getAppEntryPath()}?section=profile`} replace />}
+            element={<Navigate to={`${OPEN_APP_PATH}?section=profile`} replace />}
           />
 
           <Route path="/dashboard/*" element={
@@ -196,28 +194,8 @@ function App() {
             </ProtectedRoute>
           } />
 
-          <Route
-            path="/dashboard2"
-            element={
-              <PageTransition fillViewport>
-                <Dashboard2Layout />
-              </PageTransition>
-            }
-          >
-            <Route
-              index
-              element={
-                <ProtectedRoute>
-                  <Dashboard2Page />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="profile"
-              element={<Navigate to={`${getAppEntryPath()}?section=profile`} replace />}
-            />
-            <Route path="pro" element={<RedirectToApp />} />
-          </Route>
+          <Route path="/dashboard2" element={<RedirectToApp />} />
+          <Route path="/dashboard2/*" element={<RedirectToApp />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </AnimatePresence>

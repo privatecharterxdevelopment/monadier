@@ -14,7 +14,7 @@ import {
 import { validateUsername } from '../lib/username';
 import { Gift } from 'lucide-react';
 import { useNotifications } from '../contexts/NotificationContext';
-import { afterAuthGo, getAppEntryPath } from '../lib/appUrls';
+import { afterAuthGo, OPEN_APP_PATH } from '../lib/appUrls';
 import { queueAuthToast } from '../lib/authToast';
 
 const RegisterPage: React.FC = () => {
@@ -116,7 +116,7 @@ const RegisterPage: React.FC = () => {
         queueAuthToast('signed_in');
         const returnTo = searchParams.get('from');
         afterAuthGo(
-          returnTo && returnTo.startsWith('/') ? returnTo : getAppEntryPath(),
+          returnTo && returnTo.startsWith('/') ? returnTo : OPEN_APP_PATH,
           navigate
         );
       } else {
