@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from '../../contexts/AuthContext';
-import { getAppUrl } from '../../lib/appUrls';
+import OpenAppLink from '../layout/OpenAppLink';
 
 interface MobileMenuProps {
   onDownloadClick?: () => void;
@@ -14,8 +13,6 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
   const light = variant === 'light';
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
-  const { isAuthenticated } = useAuth();
-
   const navLinks = [
     { path: '/how-it-works', label: 'How it works' },
     { path: '/trading-bot', label: 'Bot' },
@@ -94,36 +91,23 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
                     light ? 'border-[#ececef]' : 'border-white/10'
                   }`}
                 >
-                  {isAuthenticated ? (
-                    <a
-                      href={getAppUrl()}
-                      onClick={() => setIsOpen(false)}
-                      className="mx-1 mt-1 px-3 py-2 bg-[#0a0a0a] text-white rounded-lg text-[13px] font-medium text-center hover:bg-[#27272a] transition-colors"
-                    >
-                      Open app
-                    </a>
-                  ) : (
-                    <>
-                      <Link
-                        to="/login"
-                        onClick={() => setIsOpen(false)}
-                        className={`px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
-                          light
-                            ? 'text-[#52525b] hover:text-[#0a0a0a] hover:bg-[#f4f4f5]'
-                            : 'text-zinc-400 hover:text-white hover:bg-white/10'
-                        }`}
-                      >
-                        Sign in
-                      </Link>
-                      <a
-                        href={getAppUrl()}
-                        onClick={() => setIsOpen(false)}
-                        className="mx-1 mb-1 px-3 py-2 bg-[#0a0a0a] text-white rounded-lg text-[13px] font-medium text-center hover:bg-[#27272a] transition-colors"
-                      >
-                        Open app
-                      </a>
-                    </>
-                  )}
+                  <Link
+                    to="/login"
+                    onClick={() => setIsOpen(false)}
+                    className={`px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+                      light
+                        ? 'text-[#52525b] hover:text-[#0a0a0a] hover:bg-[#f4f4f5]'
+                        : 'text-zinc-400 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    Sign in
+                  </Link>
+                  <OpenAppLink
+                    onClick={() => setIsOpen(false)}
+                    className="mx-1 mb-1 px-3 py-2 bg-[#0a0a0a] text-white rounded-lg text-[13px] font-medium text-center hover:bg-[#27272a] transition-colors"
+                  >
+                    Open app
+                  </OpenAppLink>
                 </div>
               </div>
             </nav>

@@ -6,7 +6,7 @@ import LandingProductPreview from './LandingProductPreview';
 import LandingPartnerLogos from './LandingPartnerLogos';
 import LandingFaqSection from './LandingFaqSection';
 import LandingFooter from './LandingFooter';
-import { getAppUrl } from '../../lib/appUrls';
+import OpenAppLink from '../layout/OpenAppLink';
 
 const heroReveal = (delay = 0) => ({
   initial: { opacity: 0, y: 28 },
@@ -77,10 +77,10 @@ const GmxStyleLanding: React.FC = () => {
               <motion.div {...heroReveal(0.1)} className="landing-gmx-hero-bottom">
                 <div className="landing-gmx-hero-bottom-left">
                   <div className="landing-gmx-hero-cta">
-                    <a href={getAppUrl()} className="landing-gmx-btn-primary">
+                    <OpenAppLink className="landing-gmx-btn-primary">
                       Open app
                       <ArrowRight size={16} />
-                    </a>
+                    </OpenAppLink>
                   </div>
                   <p className="landing-gmx-hero-lead">
                     Decentralised permissionless on-chain trading with deep GMX liquidity and a

@@ -2,9 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import Logo from '../ui/Logo';
 import MobileMenu from '../ui/MobileMenu';
-import AppHref from '../layout/AppHref';
-import { useAuth } from '../../contexts/AuthContext';
-import { getAppUrl } from '../../lib/appUrls';
+import OpenAppLink from '../layout/OpenAppLink';
 
 const navLinks = [
   { to: '/how-it-works', label: 'How it works' },
@@ -23,9 +21,6 @@ type LandingNavProps = {
 const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pill' }) => {
   const light = variant === 'light';
   const gmx = layout === 'gmx';
-  const { isAuthenticated } = useAuth();
-  const openAppHref = getAppUrl();
-
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 ${gmx ? 'pt-3 md:pt-5 px-3 sm:px-5 md:px-8' : 'pt-5 md:pt-6 px-4'}`}>
       <nav
@@ -62,22 +57,10 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pi
               >
                 Sign in
               </Link>
-              <a href={openAppHref} className="hidden md:inline-flex landing-gmx-nav-open">
+              <OpenAppLink className="hidden md:inline-flex landing-gmx-nav-open">
                 Open app
-              </a>
+              </OpenAppLink>
             </>
-          ) : isAuthenticated ? (
-            <AppHref className="hidden md:inline-flex">
-              <span
-                className={`inline-flex items-center px-4 py-2 rounded-full text-[13px] font-semibold transition-colors ${
-                  light
-                    ? 'text-[#0a0a0a] border border-[#c5c5cb] bg-white/50 hover:bg-white/80'
-                    : 'bg-white text-[#08080a] hover:bg-zinc-100'
-                }`}
-              >
-                Open app
-              </span>
-            </AppHref>
           ) : (
             <>
               <Link
@@ -88,7 +71,7 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pi
               >
                 Sign in
               </Link>
-              <Link to="/register" className="hidden md:inline-flex">
+              <OpenAppLink className="hidden md:inline-flex">
                 <span
                   className={`inline-flex items-center px-4 py-2 rounded-full text-[13px] font-semibold transition-colors ${
                     light
@@ -96,9 +79,9 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pi
                       : 'bg-white text-[#08080a] hover:bg-zinc-100'
                   }`}
                 >
-                  Get started
+                  Open app
                 </span>
-              </Link>
+              </OpenAppLink>
             </>
           )}
           <div className={light ? 'md:hidden [&_button]:text-[#52525b]' : 'md:hidden [&_button]:text-zinc-400'}>

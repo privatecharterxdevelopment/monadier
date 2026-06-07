@@ -28,15 +28,16 @@ export function getMarketingUrl(path = '/'): string {
 
 export function isAppHost(): boolean {
   if (typeof window === 'undefined') return false;
+  const { hostname, pathname } = window.location;
+  if (hostname.startsWith('app.')) return true;
   if (APP_BASE) {
     try {
-      return new URL(APP_BASE).hostname === window.location.hostname;
+      return new URL(APP_BASE).hostname === hostname;
     } catch {
       return false;
     }
   }
   const entry = getAppEntryPath();
-  const { pathname } = window.location;
   return pathname === entry || pathname.startsWith(`${entry}/`);
 }
 

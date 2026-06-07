@@ -299,17 +299,11 @@ const Dashboard2ProPage: React.FC = () => {
     if (!sessionReady || user) return;
     if (section !== 'profile' && section !== 'history') return;
 
-    const reason =
-      section === 'profile'
-        ? 'Sign in to open profile and vault settings.'
-        : 'Sign in to view bot trade history.';
-
     setSection('perps');
     const params = new URLSearchParams(searchParams);
     params.delete('section');
+    params.delete('tab');
     setSearchParams(params, { replace: true });
-    setSignInReason(reason);
-    setAuthModal((current) => current ?? 'signin');
   }, [sessionReady, user, section, searchParams, setSearchParams]);
 
   useEffect(() => {
