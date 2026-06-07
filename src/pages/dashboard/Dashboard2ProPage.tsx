@@ -64,9 +64,7 @@ const Dashboard2ProPage: React.FC = () => {
   const { address, isConnected } = useAppKitAccount();
   const initialSection = searchParams.get('section');
   const [section, setSection] = useState<ProTradeSection>(() => {
-    if (initialSection === 'profile') return 'profile';
     if (initialSection === 'bot') return 'bot';
-    if (initialSection === 'history') return 'history';
     return 'perps';
   });
   const [perpCoin, setPerpCoin] = useState(DEFAULT_PRO_COIN);
@@ -290,10 +288,24 @@ const Dashboard2ProPage: React.FC = () => {
   };
 
   useEffect(() => {
+    if (!sessionReady) return;
     const urlSection = searchParams.get('section');
     const urlTab = parseProfileTab(searchParams.get('tab'));
-    if (urlSection === 'profile') setProfileTab(urlTab);
-  }, [searchParams]);
+    if (!user) {
+      if (urlSection === 'profile' || urlSection === 'history') {
+        setProfileTab(urlTab);
+      }
+      return;
+    }
+    if (urlSection === 'profile') {
+      setProfileTab(urlTab);
+      setSection('profile');
+    } else if (urlSection === 'history') {
+      setSection('history');
+    } else if (urlSection === 'bot') {
+      setSection('bot');
+    }
+  }, [searchParams, sessionReady, user]);
 
   useEffect(() => {
     if (!sessionReady || user) return;

@@ -275,6 +275,19 @@
   overflow: hidden;
 }
 
+.hl-account-guest-hint {
+  margin: 0;
+  padding: 12px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--hl-text-muted);
+  border-bottom: 1px solid var(--hl-border);
+}
+
+.hl-account-panel--guest .hl-account-item:last-child {
+  border-bottom: none;
+}
+
 .hl-account-panel-head {
   display: flex;
   align-items: center;

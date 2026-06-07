@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { signOut } from '../../lib/supabase';
-import { getMarketingUrl } from '../../lib/appUrls';
+import { getMarketingUrl, LANDING_PATH } from '../../lib/appUrls';
 import { useTermAuthToast } from '../terminal/TermAuthToast';
 import ProfileAvatar from '../profile/ProfileAvatar';
 import { displayHandle } from '../../lib/username';
@@ -75,18 +75,14 @@ const ProTradeAccountMenu: React.FC<Props> = ({
   };
 
   const handleTriggerClick = () => {
-    if (!user) {
-      onRequireSignIn?.('Sign in to your Monadier account.');
-      return;
-    }
     setOpen((v) => !v);
   };
 
   const handleSignOut = () => {
     setOpen(false);
     void signOutWithToast(signOut, () => {
-      const home = getMarketingUrl('/');
-      window.location.href = home.startsWith('http') ? home : '/';
+      const home = getMarketingUrl(LANDING_PATH);
+      window.location.href = home.startsWith('http') ? home : LANDING_PATH;
     });
   };
 
@@ -108,6 +104,34 @@ const ProTradeAccountMenu: React.FC<Props> = ({
           <User size={16} aria-hidden />
         )}
       </button>
+
+      {!user && open ? (
+        <div className="hl-account-panel hl-account-panel--guest" role="menu" aria-label="Guest account menu">
+          <p className="hl-account-guest-hint">
+            Charts and markets are open. Sign in only for profile, vault, and bot settings.
+          </p>
+          <button
+            type="button"
+            className="hl-account-item"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onRequireSignIn?.('Sign in to your Monadier account.');
+            }}
+          >
+            <User size={14} aria-hidden />
+            Sign in
+          </button>
+          <a
+            href="/register"
+            className="hl-account-item"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+          >
+            Create account
+          </a>
+        </div>
+      ) : null}
 
       {user && open ? (
         <div className="hl-account-panel" role="menu" aria-label="Account menu">
