@@ -5,6 +5,7 @@ import { Lock, CheckCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Logo from '../components/ui/Logo';
 import { updatePassword, supabase } from '../lib/supabase';
+import { getAppEntryPath } from '../lib/appUrls';
 
 const ResetPasswordPage: React.FC = () => {
   const [password, setPassword] = useState('');
@@ -91,7 +92,7 @@ const ResetPasswordPage: React.FC = () => {
 
       // Redirect to dashboard after 3 seconds
       setTimeout(() => {
-        navigate('/dashboard2');
+        navigate(getAppEntryPath());
       }, 3000);
     } catch (error: any) {
       setError(error.message || 'Failed to update password');

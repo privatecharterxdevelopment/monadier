@@ -1,10 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import type { HlInterval } from '../../lib/hyperliquid/types';
 import { resolveTradingViewInterval, resolveTradingViewSymbol } from '../../lib/hyperliquid/tradingView';
+import type { ProTradeTheme } from '../../lib/proTradeTheme';
+import { getProTradeChartColors } from '../../lib/proTradeTheme';
 
 type Props = {
   coin: string;
   interval: HlInterval;
+  theme: ProTradeTheme;
+  hideNote?: boolean;
 };
 
 type TvWidget = { remove: () => void };
@@ -45,7 +49,7 @@ function loadTradingViewScript(): Promise<void> {
   return tvScriptPromise;
 }
 
-const ProTradeTradingViewChart: React.FC<Props> = ({ coin, interval }) => {
+const ProTradeTradingViewChart: React.FC<Props> = ({ coin, interval, theme, hideNote }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetRef = useRef<TvWidget | null>(null);
 
@@ -63,12 +67,14 @@ const ProTradeTradingViewChart: React.FC<Props> = ({ coin, interval }) => {
         widgetRef.current?.remove();
         el.innerHTML = '';
 
+        const colors = getProTradeChartColors(theme);
+
         widgetRef.current = new window.TradingView.widget({
           autosize: true,
           symbol: resolveTradingViewSymbol(coin),
           interval: resolveTradingViewInterval(interval),
           timezone: 'Etc/UTC',
-          theme: 'dark',
+          theme: theme === 'light' ? 'light' : 'dark',
           style: '1',
           locale: 'en',
           enable_publishing: false,
@@ -77,8 +83,8 @@ const ProTradeTradingViewChart: React.FC<Props> = ({ coin, interval }) => {
           save_image: false,
           container_id: el.id,
           studies: [],
-          backgroundColor: '#0b0b0b',
-          gridColor: '#1a1a1a',
+          backgroundColor: colors.background,
+          gridColor: colors.grid,
         });
       } catch {
         if (!cancelled && el) {
@@ -92,15 +98,17 @@ const ProTradeTradingViewChart: React.FC<Props> = ({ coin, interval }) => {
       widgetRef.current?.remove();
       widgetRef.current = null;
     };
-  }, [coin, interval]);
+  }, [coin, interval, theme]);
 
   const containerId = `tv-${coin.replace(/[^a-zA-Z0-9]/g, '-')}-${interval}`;
 
   return (
     <div className="hl-chart-tv-wrap">
-      <p className="hl-chart-tv-note">
-        TradingView uses external exchange data — prices may differ from Hyperliquid.
-      </p>
+      {hideNote ? null : (
+        <p className="hl-chart-tv-note">
+          TradingView uses external exchange data — prices may differ from Hyperliquid.
+        </p>
+      )}
       <div ref={containerRef} id={containerId} className="hl-chart-tv-canvas" />
     </div>
   );

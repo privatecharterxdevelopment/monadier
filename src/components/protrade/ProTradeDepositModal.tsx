@@ -68,21 +68,24 @@ const ProTradeDepositModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="term-modal-backdrop" role="presentation" onClick={onClose}>
+    <div className="hl-modal-backdrop" role="presentation" onClick={onClose}>
       <div
-        className="term-modal term-modal--sm"
+        className="hl-modal hl-modal--sm"
         role="dialog"
         aria-labelledby="pro-funds-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="term-modal-head">
-          <h2 id="pro-funds-title" className="term-modal-title">
-            Pro trade funds
+        <div className="hl-modal-head">
+          <h2 id="pro-funds-title" className="hl-modal-title">
+            Hyperliquid funds
           </h2>
-          <button type="button" className="term-modal-close" onClick={onClose} aria-label="Close">
+          <button type="button" className="hl-modal-close" onClick={onClose} aria-label="Close">
             <X size={18} />
           </button>
         </div>
+        <p className="hl-entry-hint" style={{ marginBottom: 12 }}>
+          Bridge USDC to your Hyperliquid account. This is separate from the GMX bot vault on Arbitrum.
+        </p>
 
         <div className="term-pro-funds-tabs">
           <button
@@ -122,11 +125,11 @@ const ProTradeDepositModal: React.FC<Props> = ({
         ) : null}
 
         {tab === 'deposit' ? (
-          <p className="term-modal-hint">
+          <p className="hl-entry-hint">
             Send USDC from Arbitrum to Hyperliquid (min {HL_MIN_DEPOSIT_USDC} USDC). Credits in ~1 min.
           </p>
         ) : (
-          <p className="term-modal-hint">
+          <p className="hl-entry-hint">
             Withdrawable: {fmtUsdSymbol(withdrawable)}
           </p>
         )}

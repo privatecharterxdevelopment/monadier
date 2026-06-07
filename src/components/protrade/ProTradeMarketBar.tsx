@@ -45,7 +45,10 @@ const ProTradeMarketBar: React.FC<Props> = ({
   const up = change24h >= 0;
   const markPx = toNum(snapshot?.markPx);
   const midPx = toNum(snapshot?.midPx);
-  const oraclePx = toNum(snapshot?.oraclePx);
+  const oraclePx =
+    variant === 'perp' && snapshot && 'oraclePx' in snapshot
+      ? toNum(snapshot.oraclePx)
+      : 0;
 
   return (
     <header className="hl-market-bar">

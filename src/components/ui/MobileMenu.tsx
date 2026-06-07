@@ -96,7 +96,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
                 >
                   {isAuthenticated ? (
                     <a
-                      href={getAppUrl('/dashboard2')}
+                      href={getAppUrl()}
                       onClick={() => setIsOpen(false)}
                       className="mx-1 mt-1 px-3 py-2 bg-[#0a0a0a] text-white rounded-lg text-[13px] font-medium text-center hover:bg-[#27272a] transition-colors"
                     >
@@ -116,7 +116,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
                         Sign in
                       </Link>
                       <a
-                        href={getAppUrl('/register')}
+                        href={getAppUrl()}
                         onClick={() => setIsOpen(false)}
                         className="mx-1 mb-1 px-3 py-2 bg-[#0a0a0a] text-white rounded-lg text-[13px] font-medium text-center hover:bg-[#27272a] transition-colors"
                       >

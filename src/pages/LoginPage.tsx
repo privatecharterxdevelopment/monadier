@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -7,7 +7,7 @@ import Logo from '../components/ui/Logo';
 import { signIn, signInWithGoogle } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { enableDemoMode, isDemoModeAllowed } from '../lib/demoMode';
-import { afterAuthGo } from '../lib/appUrls';
+import { afterAuthGo, getAppEntryPath } from '../lib/appUrls';
 import { queueAuthToast } from '../lib/authToast';
 
 const LoginPage: React.FC = () => {
@@ -18,13 +18,17 @@ const LoginPage: React.FC = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { isAuthenticated } = useAuth();
 
   const successMessage = (location.state as { message?: string })?.message;
+  const fromQuery = searchParams.get('from');
   const redirectTo =
-    (location.state as { from?: string })?.from?.startsWith('/')
+    (fromQuery && fromQuery.startsWith('/') ? fromQuery : null) ??
+    ((location.state as { from?: string })?.from?.startsWith('/')
       ? (location.state as { from: string }).from
-      : '/dashboard2';
+      : null) ??
+    getAppEntryPath();
 
   const handleDemoDashboard = () => {
     enableDemoMode();

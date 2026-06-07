@@ -7,6 +7,8 @@ interface LogoProps {
   iconOnly?: boolean;
   /** light = dark mark on grey/white studio landing */
   theme?: 'dark' | 'light';
+  /** When false, render mark only (parent supplies the link). */
+  linked?: boolean;
 }
 
 const Logo: React.FC<LogoProps> = ({
@@ -14,6 +16,7 @@ const Logo: React.FC<LogoProps> = ({
   withTagline = false,
   iconOnly = false,
   theme = 'light',
+  linked = true,
 }) => {
   const isLight = theme !== 'dark';
   const sizeClasses = {
@@ -52,7 +55,25 @@ const Logo: React.FC<LogoProps> = ({
     </svg>
   );
 
+  const mark = (
+    <>
+      <PlusIcon />
+      {!iconOnly && (
+        <span
+          className={`font-sans font-medium tracking-tight ${
+            isLight ? 'text-[#0a0a0a]' : 'text-primary'
+          } ${sizeClasses[size]}`}
+        >
+          monadier
+        </span>
+      )}
+    </>
+  );
+
   if (iconOnly) {
+    if (!linked) {
+      return <span className="inline-flex items-center">{mark}</span>;
+    }
     return (
       <Link to="/" className="inline-flex items-center">
         <PlusIcon />
@@ -62,16 +83,13 @@ const Logo: React.FC<LogoProps> = ({
 
   return (
     <div className="flex flex-col">
-      <Link to="/" className="inline-flex items-center gap-2">
-        <PlusIcon />
-        <span
-          className={`font-sans font-medium tracking-tight ${
-            isLight ? 'text-[#0a0a0a]' : 'text-primary'
-          } ${sizeClasses[size]}`}
-        >
-          monadier
-        </span>
-      </Link>
+      {linked ? (
+        <Link to="/" className="inline-flex items-center gap-2">
+          {mark}
+        </Link>
+      ) : (
+        <span className="inline-flex items-center gap-2">{mark}</span>
+      )}
       {withTagline && (
         <span className="text-secondary text-xs mt-1 tracking-wide ml-10">
           Decentralized Trading

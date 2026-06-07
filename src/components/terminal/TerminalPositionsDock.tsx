@@ -19,8 +19,10 @@ import {
   fetchClosedTradesForWallets,
   verifyUrlForTrade,
 } from '../../lib/closedTrades';
+import DockCountBadge from '../protrade/DockCountBadge';
+import { useTerminalVaultData } from '../../hooks/useTerminalVaultData';
 
-export type DockTab = 'open' | 'history' | 'all';
+export type DockTab = 'vault' | 'open' | 'history' | 'all';
 
 type Position = {
   id: string;
@@ -55,6 +57,10 @@ type Props = {
   layout?: 'dock' | 'page';
   /** Scroll to and highlight a row (notifications → history) */
   highlightPositionId?: string | null;
+  /** Load closed rows from trade_history (not only positions table) */
+  includeClosedHistoryFeed?: boolean;
+  /** Pro Trade: match Hyperliquid dock chrome */
+  skin?: 'terminal' | 'hl';
 };
 
 function fmtUsd(n: number) {
@@ -104,10 +110,16 @@ const TerminalPositionsDock: React.FC<Props> = ({
   highlight = false,
   layout = 'dock',
   highlightPositionId = null,
+  includeClosedHistoryFeed = false,
+  skin = 'terminal',
 }) => {
   const { address } = useAccount();
   const { isDemoUser, user } = useAuth();
-  const [internalTab, setInternalTab] = useState<DockTab>(layout === 'page' ? 'all' : 'open');
+  const isHlSkin = skin === 'hl';
+  const vaultData = useTerminalVaultData(refreshKey);
+  const [internalTab, setInternalTab] = useState<DockTab>(
+    layout === 'page' ? 'history' : isHlSkin ? 'open' : 'open'
+  );
   const tab = controlledTab ?? internalTab;
   const setTab = onTabChange ?? setInternalTab;
   const [allRows, setAllRows] = useState<Position[]>([]);
@@ -157,7 +169,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
         if (error) throw error;
         setAllRows((data as Position[]) || []);
 
-        if (layout === 'page') {
+        if (layout === 'page' || includeClosedHistoryFeed) {
           const closed = await fetchClosedTradesForWallets(queryWallets, 200);
           setClosedHistory(closed);
         }
@@ -171,7 +183,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
         setLoading(false);
       }
     },
-    [address, isDemoUser, wallets, user?.id, layout]
+    [address, isDemoUser, wallets, user?.id, layout, includeClosedHistoryFeed]
   );
 
   useEffect(() => {
@@ -190,12 +202,20 @@ const TerminalPositionsDock: React.FC<Props> = ({
     return () => clearInterval(id);
   }, []);
 
-  const openCount = allRows.filter(
-    (p) => p.status === 'open' || p.status === 'closing'
-  ).length;
+  const openRows = useMemo(
+    () => allRows.filter((p) => p.status === 'open' || p.status === 'closing'),
+    [allRows]
+  );
+  const openCount = openRows.length;
   const closedCount = allRows.filter(
     (p) => p.status === 'closed' || p.status === 'failed'
   ).length;
+  const openNetPnl = useMemo(
+    () => openRows.reduce((sum, p) => sum + calcPositionPnl(p, livePrices), 0),
+    [openRows, livePrices]
+  );
+  const openTone: 'pos' | 'neg' | null =
+    openCount > 0 ? (openNetPnl >= 0 ? 'pos' : 'neg') : null;
 
   const rows = useMemo(() => {
     if (tab === 'open') {
@@ -239,8 +259,23 @@ const TerminalPositionsDock: React.FC<Props> = ({
   const hasWallet = Boolean(address || isDemoUser || wallets.length > 0);
 
   const isPage = layout === 'page';
-  const useHistoryOverview = isPage && (tab === 'history' || tab === 'all');
-  const useClosedHistoryFeed = isPage && tab === 'history' && closedHistory.length > 0;
+  const useHistoryOverview =
+    (isPage || includeClosedHistoryFeed) && (tab === 'history' || tab === 'all');
+  const useClosedHistoryFeed =
+    (isPage || includeClosedHistoryFeed) && tab === 'history' && closedHistory.length > 0;
+
+  const dockTabs: { id: DockTab; label: string }[] = isHlSkin
+    ? [
+        { id: 'vault', label: 'Vault balance' },
+        { id: 'open', label: 'Open positions' },
+        { id: 'history', label: 'Trade history' },
+        { id: 'all', label: 'All trades' },
+      ]
+    : [
+        { id: 'open', label: 'Positions' },
+        { id: 'history', label: 'History' },
+        { id: 'all', label: 'All trades' },
+      ];
 
   useEffect(() => {
     if (!highlightPositionId || scrolledHighlightRef.current === highlightPositionId) {
@@ -255,48 +290,107 @@ const TerminalPositionsDock: React.FC<Props> = ({
     return () => window.clearTimeout(t);
   }, [highlightPositionId, rows, closedHistory, loading]);
 
-  return (
-    <div
-      className={`term-dock ${isPage ? 'term-dock--page' : ''} ${highlight ? 'term-dock--highlight' : ''}`}
-      id={id}
+  const tabButtons = dockTabs.map(({ id: tid, label }) => (
+    <button
+      key={tid}
+      type="button"
+      className={
+        isHlSkin
+          ? `hl-dock-tab ${tab === tid ? 'hl-dock-tab--on' : ''}`
+          : `term-dock-tab ${tab === tid ? 'term-dock-tab--active' : ''}`
+      }
+      onClick={() => setTab(tid)}
     >
-      <div className="term-dock-head">
-        {isPage && (
-          <h2 className="term-dock-page-title">Trade history &amp; alerts</h2>
-        )}
-        <div className="term-dock-tabs">
-          {(
-            [
-              ['open', `Positions (${openCount})`],
-              ['history', `History (${closedCount})`],
-              ['all', 'All trades'],
-            ] as const
-          ).map(([tid, label]) => (
-            <button
-              key={tid}
-              type="button"
-              className={`term-dock-tab ${tab === tid ? 'term-dock-tab--active' : ''}`}
-              onClick={() => setTab(tid)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <button
-          type="button"
-          className="term-dock-refresh"
-          onClick={() => load(false)}
-          aria-label="Refresh history"
+      {label}
+      {tid === 'open' ? (
+        <DockCountBadge
+          count={openCount}
+          tone={openTone}
+          classPrefix={isHlSkin ? 'hl-dock-count' : 'term-dock-count'}
+        />
+      ) : tid === 'history' && closedCount > 0 ? (
+        <span
+          className={
+            isHlSkin ? 'hl-dock-count hl-dock-count--muted' : 'term-dock-count term-dock-count--muted'
+          }
         >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-        </button>
-      </div>
+          ({closedCount})
+        </span>
+      ) : null}
+    </button>
+  ));
 
-      <div className="term-dock-body">
-        {loading && rows.length === 0 ? (
-          <div className="term-empty">Loading trade history…</div>
+  const refreshBtn = (
+    <button
+      type="button"
+      className={isHlSkin ? 'hl-dock-refresh' : 'term-dock-refresh'}
+      onClick={() => load(false)}
+      aria-label="Refresh history"
+    >
+      <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+    </button>
+  );
+
+  const bodyClass = isHlSkin ? 'hl-dock-body' : 'term-dock-body';
+  const emptyClass = isHlSkin ? 'hl-dock-empty' : 'term-empty';
+  const tableClass = isHlSkin ? 'hl-table' : `term-table ${useHistoryOverview ? 'term-table--history-overview' : ''}`;
+
+  const vaultPanel =
+    tab === 'vault' ? (
+      !hasWallet ? (
+        <p className={emptyClass}>
+          {user ? 'Link a wallet in Profile to view vault balance' : 'Connect wallet to view vault balance'}
+        </p>
+      ) : vaultData.isLoading ? (
+        <p className={emptyClass}>Loading vault…</p>
+      ) : (
+        <table className={tableClass}>
+          <thead>
+            <tr>
+              <th>Asset</th>
+              <th>Balance</th>
+              <th>Withdrawable</th>
+              <th>Max trade</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>USDC (Arbitrum vault)</td>
+              <td>{fmtUsd(vaultData.balanceUsd)}</td>
+              <td>{fmtUsd(vaultData.vaultUsd)}</td>
+              <td>{fmtUsd(vaultData.maxTradeUsd)}</td>
+            </tr>
+          </tbody>
+        </table>
+      )
+    ) : null;
+
+  const dockInner = (
+    <>
+      {isHlSkin ? (
+        <div className="hl-dock-head">
+          <nav className="hl-dock-tabs" aria-label="Bot account panels">
+            {tabButtons}
+          </nav>
+          {refreshBtn}
+        </div>
+      ) : (
+        <div className="term-dock-head">
+          {isPage && (
+            <h2 className="term-dock-page-title">Trade history &amp; alerts</h2>
+          )}
+          <div className="term-dock-tabs">{tabButtons}</div>
+          {refreshBtn}
+        </div>
+      )}
+
+      <div className={bodyClass}>
+        {tab === 'vault' ? (
+          vaultPanel
+        ) : loading && rows.length === 0 ? (
+          <div className={emptyClass}>Loading trade history…</div>
         ) : rows.length === 0 ? (
-          <div className="term-empty">
+          <div className={emptyClass}>
             {hasWallet
               ? `No ${tab === 'open' ? 'open positions' : tab === 'history' ? 'closed trades' : 'trades'} yet`
               : user
@@ -304,7 +398,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
                 : 'Connect wallet to see history'}
           </div>
         ) : useClosedHistoryFeed ? (
-          <table className="term-table term-table--history-overview">
+          <table className={isHlSkin ? 'hl-table' : 'term-table term-table--history-overview'}>
             <thead>
               <tr>
                 <th>Date</th>
@@ -372,7 +466,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
             </tbody>
           </table>
         ) : rows.length === 0 ? (
-          <div className="term-empty">
+          <div className={emptyClass}>
             {hasWallet
               ? `No ${tab === 'open' ? 'open positions' : tab === 'history' ? 'closed trades' : 'trades'} yet`
               : user
@@ -380,9 +474,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
                 : 'Connect wallet to see history'}
           </div>
         ) : rows.length > 0 ? (
-          <table
-            className={`term-table ${useHistoryOverview ? 'term-table--history-overview' : ''}`}
-          >
+          <table className={tableClass}>
             <thead>
               <tr>
                 {useHistoryOverview ? (
@@ -451,7 +543,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
                         {pl >= 0 ? '+' : ''}
                         {fmtUsd(pl)}
                       </td>
-                      <td className="capitalize text-[#52525b]">{p.status}</td>
+                      <td className="capitalize term-dock-status">{p.status}</td>
                     </tr>
                   );
                 }
@@ -515,7 +607,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
                         {p.direction}
                       </span>{' '}
                       {p.token_symbol}
-                      <span className="text-[#a1a1aa] ml-1">
+                      <span className="term-dock-meta ml-1">
                         {p.leverage_multiplier ?? 1}x
                       </span>
                     </td>
@@ -524,8 +616,8 @@ const TerminalPositionsDock: React.FC<Props> = ({
                       {pl >= 0 ? '+' : ''}
                       {fmtUsd(pl)}
                     </td>
-                    <td className="capitalize text-[#52525b]">{p.status}</td>
-                    <td className="text-[#71717a] whitespace-nowrap">
+                    <td className="capitalize term-dock-status">{p.status}</td>
+                    <td className="term-dock-time whitespace-nowrap">
                       {fmtDate(time)}
                     </td>
                     <td className="term-dock-actions">
@@ -542,7 +634,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
                         </button>
                       )}
                       {isClosing && (
-                        <span className="text-[#a16207] text-xs">Closing…</span>
+                        <span className="term-dock-closing text-xs">Closing…</span>
                       )}
                       {isFailed && (
                         <button
@@ -583,6 +675,54 @@ const TerminalPositionsDock: React.FC<Props> = ({
           </table>
         ) : null}
       </div>
+    </>
+  );
+
+  if (isHlSkin && !isPage) {
+    return (
+      <section className="hl-dock hl-bot-dock-inner" id={id}>
+        {dockInner}
+        {confirm && (
+          <TerminalModalFrame
+            title="Close position?"
+            subtitle={`${confirm.token} — bot closes in ~10s`}
+            icon={<X size={18} />}
+            onClose={() => setConfirm(null)}
+            footer={
+              <>
+                <button
+                  type="button"
+                  className="term-modal-secondary"
+                  onClick={() => setConfirm(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="term-modal-primary"
+                  onClick={handleRequestClose}
+                >
+                  Close position
+                </button>
+              </>
+            }
+          >
+            <p className="term-modal-hint">
+              The bot will close your position on the next cycle. USDC returns to your
+              vault balance after settlement.
+            </p>
+          </TerminalModalFrame>
+        )}
+      </section>
+    );
+  }
+
+  return (
+    <div
+      className={`term-dock ${isPage ? 'term-dock--page' : ''} ${highlight ? 'term-dock--highlight' : ''} ${isHlSkin ? 'term-dock--hl-skin' : ''}`}
+      id={id}
+    >
+      {dockInner}
 
       {confirm && (
         <TerminalModalFrame

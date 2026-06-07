@@ -131,6 +131,10 @@ const TerminalTradePanel: React.FC<Props> = ({
   };
 
   const handleStartBot = async () => {
+    if (!walletReady) {
+      open();
+      return;
+    }
     if (phase !== 'ready' || !vault.wallet) return;
     setBotError(null);
     if (!(await ensureArbitrum())) return;
@@ -157,6 +161,10 @@ const TerminalTradePanel: React.FC<Props> = ({
   };
 
   const handleStopBot = async () => {
+    if (!walletReady) {
+      open();
+      return;
+    }
     if (!vault.wallet || phase !== 'ready') return;
     setBotError(null);
     setStopNotice(null);
@@ -262,21 +270,22 @@ const TerminalTradePanel: React.FC<Props> = ({
       </div>
 
       <div className="term-trade-body">
-        {!walletReady && panelTab !== 'bot' && (
-          <p className="term-hint">Connect wallet to use {panelTab === 'lvrg' ? 'LVRG' : 'Funds'}.</p>
-        )}
-
         {panelTab === 'bot' && (
           <div className="term-panel-stack">
             {!walletReady && (
-              <button
-                type="button"
-                className="term-btn-sm term-btn-sm--primary w-full justify-center"
-                onClick={() => open()}
-              >
-                <Wallet size={14} />
-                Connect wallet
-              </button>
+              <div className="term-panel-card term-panel-card--muted term-connect-banner">
+                <p className="term-hint term-connect-banner-text">
+                  Explore bot settings below. Connect wallet to start trading.
+                </p>
+                <button
+                  type="button"
+                  className="term-btn-sm term-btn-sm--primary w-full justify-center"
+                  onClick={() => open()}
+                >
+                  <Wallet size={14} />
+                  Connect wallet
+                </button>
+              </div>
             )}
 
             {walletReady && phase === 'loading' && (
@@ -296,133 +305,123 @@ const TerminalTradePanel: React.FC<Props> = ({
               </button>
             )}
 
-            {walletReady && phase !== 'connect' && phase !== 'loading' && (
-              <>
-                <div className="term-panel-card term-panel-card--muted">
-                  <span className="term-panel-card-label">Auto-trading</span>
-                  <strong
-                    className={`term-panel-card-value ${metrics.autoTradeEnabled ? 'term-pnl-pos' : ''}`}
-                  >
-                    {metrics.autoTradeEnabled ? 'Running' : 'Stopped'}
-                  </strong>
-                  <span className="term-panel-card-hint">Vault bot · Arbitrum</span>
-                </div>
+            <div className="term-panel-card term-panel-card--muted">
+              <span className="term-panel-card-label">Auto-trading</span>
+              <strong
+                className={`term-panel-card-value ${walletReady && metrics.autoTradeEnabled ? 'term-pnl-pos' : ''}`}
+              >
+                {walletReady && metrics.autoTradeEnabled ? 'Running' : 'Stopped'}
+              </strong>
+              <span className="term-panel-card-hint">Vault bot · Arbitrum</span>
+            </div>
 
-                <TerminalBotSettingsStrip
-                  settings={vault.settings}
-                  disabled={!walletReady || phase === 'network'}
-                  onAdjust={() => setPanelTab('lvrg')}
-                />
+            <TerminalBotSettingsStrip
+              settings={vault.settings}
+              disabled={walletReady && phase === 'network'}
+              onAdjust={() => setPanelTab('lvrg')}
+            />
 
-                {vault.position?.isActive && (
-                  <div className="term-panel-card term-panel-card--position">
-                    <span className="term-panel-card-label">Open position</span>
-                    <strong className="term-panel-card-value term-panel-card-value--sm">
-                      {vault.position.isLong ? 'Long' : 'Short'} {vault.position.token} ·{' '}
-                      {vault.position.leverage}x
-                    </strong>
-                    <span className="term-panel-card-hint">
-                      ${parseFloat(vault.position.collateral).toFixed(2)} collateral · entry $
-                      {vault.position.entryPrice}
-                      {vault.position.pnl != null && (
-                        <>
-                          {' '}
-                          ·{' '}
-                          <span
-                            className={
-                              vault.position.pnl >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'
-                            }
-                          >
-                            {vault.position.pnl >= 0 ? '+' : ''}$
-                            {vault.position.pnl.toFixed(2)} P/L
-                          </span>
-                        </>
-                      )}
-                    </span>
-                    {closeError && (
-                      <div className="term-panel-alert">
-                        <AlertTriangle size={14} />
-                        <span>{closeError}</span>
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      className="term-btn-sm w-full justify-center mt-2"
-                      disabled={closeBusy}
-                      onClick={handleClosePosition}
-                    >
-                      {closeBusy ? <Loader2 size={14} className="animate-spin" /> : 'Close position'}
-                    </button>
-                  </div>
-                )}
-
-                {botError && (
+            {walletReady && vault.position?.isActive && (
+              <div className="term-panel-card term-panel-card--position">
+                <span className="term-panel-card-label">Open position</span>
+                <strong className="term-panel-card-value term-panel-card-value--sm">
+                  {vault.position.isLong ? 'Long' : 'Short'} {vault.position.token} ·{' '}
+                  {vault.position.leverage}x
+                </strong>
+                <span className="term-panel-card-hint">
+                  ${parseFloat(vault.position.collateral).toFixed(2)} collateral · entry $
+                  {vault.position.entryPrice}
+                  {vault.position.pnl != null && (
+                    <>
+                      {' '}
+                      ·{' '}
+                      <span
+                        className={vault.position.pnl >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'}
+                      >
+                        {vault.position.pnl >= 0 ? '+' : ''}$
+                        {vault.position.pnl.toFixed(2)} P/L
+                      </span>
+                    </>
+                  )}
+                </span>
+                {closeError && (
                   <div className="term-panel-alert">
                     <AlertTriangle size={14} />
-                    <span>{botError}</span>
+                    <span>{closeError}</span>
                   </div>
                 )}
-
-                <div className="flex gap-2">
-                  {metrics.autoTradeEnabled ? (
-                    <button
-                      type="button"
-                      className="term-btn-sm term-btn-sm--primary flex-1 justify-center"
-                      disabled={botBusy || phase !== 'ready'}
-                      onClick={handleStopBot}
-                    >
-                      {botBusy ? <Loader2 size={14} className="animate-spin" /> : <Square size={14} />}
-                      Stop bot
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="term-btn-sm term-btn-sm--primary flex-1 justify-center"
-                      disabled={botBusy || phase !== 'ready'}
-                      onClick={handleStartBot}
-                    >
-                      {botBusy ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-                      Start bot
-                    </button>
-                  )}
-                </div>
-
-                {phase === 'fund' && (
-                  <button
-                    type="button"
-                    className="term-btn-sm term-btn-sm--ghost w-full justify-center"
-                    onClick={openDeposit}
-                  >
-                    <ArrowDownLeft size={14} />
-                    Deposit to fund vault
-                  </button>
-                )}
-
-                {onOpenHistory && (
-                  <button type="button" className="term-link-btn" onClick={onOpenHistory}>
-                    <TrendingUp size={12} className="inline mr-1" />
-                    Open positions & history →
-                  </button>
-                )}
-
-                {stopNotice && <p className="term-hint term-hint--ok">{stopNotice}</p>}
-              </>
+                <button
+                  type="button"
+                  className="term-btn-sm w-full justify-center mt-2"
+                  disabled={closeBusy}
+                  onClick={handleClosePosition}
+                >
+                  {closeBusy ? <Loader2 size={14} className="animate-spin" /> : 'Close position'}
+                </button>
+              </div>
             )}
+
+            {botError && (
+              <div className="term-panel-alert">
+                <AlertTriangle size={14} />
+                <span>{botError}</span>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              {walletReady && metrics.autoTradeEnabled ? (
+                <button
+                  type="button"
+                  className="term-btn-sm term-btn-sm--primary flex-1 justify-center"
+                  disabled={botBusy || phase !== 'ready'}
+                  onClick={() => void handleStopBot()}
+                >
+                  {botBusy ? <Loader2 size={14} className="animate-spin" /> : <Square size={14} />}
+                  Stop bot
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="term-btn-sm term-btn-sm--primary flex-1 justify-center"
+                  disabled={botBusy || (walletReady && phase !== 'ready')}
+                  onClick={() => void handleStartBot()}
+                >
+                  {botBusy ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                  {walletReady ? 'Start bot' : 'Connect to start bot'}
+                </button>
+              )}
+            </div>
+
+            {walletReady && phase === 'fund' && (
+              <button
+                type="button"
+                className="term-btn-sm term-btn-sm--ghost w-full justify-center"
+                onClick={openDeposit}
+              >
+                <ArrowDownLeft size={14} />
+                Deposit to fund vault
+              </button>
+            )}
+
+            {onOpenHistory && (
+              <button type="button" className="term-link-btn" onClick={onOpenHistory}>
+                <TrendingUp size={12} className="inline mr-1" />
+                Open positions & history →
+              </button>
+            )}
+
+            {stopNotice && <p className="term-hint term-hint--ok">{stopNotice}</p>}
           </div>
         )}
 
         {panelTab === 'lvrg' && (
           <div className="term-panel-stack">
-            {!walletReady ? (
-              <button
-                type="button"
-                className="term-btn-sm term-btn-sm--primary w-full justify-center"
-                onClick={() => open()}
-              >
-                <Wallet size={14} />
-                Connect wallet
-              </button>
-            ) : phase === 'network' ? (
+            {!walletReady && (
+              <p className="term-hint">
+                Adjust leverage & risk below. Connect wallet to save on-chain.
+              </p>
+            )}
+            {walletReady && phase === 'network' && (
               <button
                 type="button"
                 className="term-btn-sm w-full justify-center"
@@ -430,19 +429,18 @@ const TerminalTradePanel: React.FC<Props> = ({
               >
                 Switch to Arbitrum
               </button>
-            ) : (
-              <TerminalLvrgPanel
-                settings={vault.settings}
-                vaultUsd={vault.vaultUsd}
-                maxTradeUsd={vault.maxTradeUsd}
-                disabled={!vault.onArbitrum || vault.isLoading}
-                onSaved={refreshAll}
-                onOpenAdvanced={() => {
-                  setStartMode(false);
-                  setShowSettings(true);
-                }}
-              />
             )}
+            <TerminalLvrgPanel
+              settings={vault.settings}
+              vaultUsd={vault.vaultUsd}
+              maxTradeUsd={vault.maxTradeUsd}
+              disabled={walletReady && (!vault.onArbitrum || vault.isLoading)}
+              onSaved={refreshAll}
+              onOpenAdvanced={() => {
+                setStartMode(false);
+                setShowSettings(true);
+              }}
+            />
           </div>
         )}
 
@@ -461,7 +459,6 @@ const TerminalTradePanel: React.FC<Props> = ({
               <button
                 type="button"
                 className="term-btn-sm flex-1 justify-center"
-                disabled={!walletReady}
                 onClick={openDeposit}
               >
                 <ArrowDownLeft size={14} />
@@ -470,7 +467,7 @@ const TerminalTradePanel: React.FC<Props> = ({
               <button
                 type="button"
                 className="term-btn-sm flex-1 justify-center"
-                disabled={!walletReady || vault.vaultUsd <= 0}
+                disabled={walletReady && vault.vaultUsd <= 0}
                 onClick={openWithdraw}
               >
                 <ArrowUpRight size={14} />

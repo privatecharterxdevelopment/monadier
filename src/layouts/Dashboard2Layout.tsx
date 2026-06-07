@@ -6,8 +6,12 @@ import '../styles/dashboard2-nixole.css';
 import { TermAuthToastProvider } from '../components/terminal/TermAuthToast';
 import { TradeNotificationsProvider } from '../contexts/TradeNotificationsContext';
 
+type Props = {
+  children?: React.ReactNode;
+};
+
 /** Full-page shell — no legacy dashboard sidebar / topbar */
-const Dashboard2Layout: React.FC = () => {
+const Dashboard2Layout: React.FC<Props> = ({ children }) => {
   const { isAuthenticated, sessionReady } = useAuth();
   const showDevBar =
     import.meta.env.DEV && sessionReady && !isAuthenticated && isDemoModeAllowed();
@@ -26,7 +30,7 @@ const Dashboard2Layout: React.FC = () => {
       <TermAuthToastProvider>
         <TradeNotificationsProvider>
           <div className={showDevBar ? 'nix-app-inner nix-app-inner--dev' : 'nix-app-inner'}>
-            <Outlet />
+            {children ?? <Outlet />}
           </div>
         </TradeNotificationsProvider>
       </TermAuthToastProvider>

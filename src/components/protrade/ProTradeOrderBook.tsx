@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import type { HlL2Book, HlRecentTrade } from '../../lib/hyperliquid/types';
 import { fmtPrice, fmtSize, fmtTimeMs } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
@@ -14,6 +14,39 @@ type Props = {
 const DEPTH = 14;
 
 type BookRow = { px: string; sz: string; cum: number };
+
+type BookLevelRowProps = {
+  level: BookRow;
+  side: 'ask' | 'bid';
+  maxCum: number;
+  onPriceClick?: (price: number) => void;
+};
+
+const BookLevelRow = memo(function BookLevelRow({
+  level,
+  side,
+  maxCum,
+  onPriceClick,
+}: BookLevelRowProps) {
+  const pct = (level.cum / maxCum) * 100;
+
+  return (
+    <button
+      type="button"
+      className={`hl-book-row hl-book-row--${side}`}
+      style={{ '--book-depth': `${pct}%` } as React.CSSProperties}
+      onClick={() => {
+        const n = toNum(level.px);
+        if (n > 0) onPriceClick?.(n);
+      }}
+    >
+      <span className="hl-book-depth" aria-hidden />
+      <span>{fmtPrice(level.px, 0)}</span>
+      <span>{fmtSize(level.sz)}</span>
+      <span>{fmtSize(level.cum)}</span>
+    </button>
+  );
+});
 
 const ProTradeOrderBook: React.FC<Props> = ({
   book,
@@ -31,10 +64,13 @@ const ProTradeOrderBook: React.FC<Props> = ({
     const rawBids = book.levels?.[0] ?? [];
 
     let askCum = 0;
-    const asks = rawAsks.slice(0, DEPTH).map((level) => {
-      askCum += toNum(level.sz);
-      return { px: level.px, sz: level.sz, cum: askCum };
-    }).reverse();
+    const asks = rawAsks
+      .slice(0, DEPTH)
+      .map((level) => {
+        askCum += toNum(level.sz);
+        return { px: level.px, sz: level.sz, cum: askCum };
+      })
+      .reverse();
 
     let bidCum = 0;
     const bids = rawBids.slice(0, DEPTH).map((level) => {
@@ -56,11 +92,6 @@ const ProTradeOrderBook: React.FC<Props> = ({
     const all = [...asks, ...bids].map((l) => l.cum);
     return Math.max(...all, 0.0001);
   }, [asks, bids]);
-
-  const handleClick = (px: string) => {
-    const n = toNum(px);
-    if (n > 0) onPriceClick?.(n);
-  };
 
   return (
     <aside className="hl-book">
@@ -90,55 +121,39 @@ const ProTradeOrderBook: React.FC<Props> = ({
           </div>
           <div className="hl-book-scroll">
             <div>
-              {asks.map((level) => {
-                const pct = (level.cum / maxCum) * 100;
-                return (
-                  <button
-                    key={`a-${level.px}`}
-                    type="button"
-                    className="hl-book-row hl-book-row--ask"
-                    onClick={() => handleClick(level.px)}
-                  >
-                    <span className="hl-book-depth" style={{ width: `${pct}%` }} aria-hidden />
-                    <span>{fmtPrice(level.px, 0)}</span>
-                    <span>{fmtSize(level.sz)}</span>
-                    <span>{fmtSize(level.cum)}</span>
-                  </button>
-                );
-              })}
+              {asks.map((level) => (
+                <BookLevelRow
+                  key={`a-${level.px}`}
+                  level={level}
+                  side="ask"
+                  maxCum={maxCum}
+                  onPriceClick={onPriceClick}
+                />
+              ))}
             </div>
             <div className="hl-book-mid">
               {markPx > 0 ? fmtPrice(markPx, 0) : '—'}
               {spread != null ? (
-                <span style={{ fontSize: 10, color: '#71717a', marginLeft: 6 }}>
-                  Spread {spread.toFixed(2)}%
-                </span>
+                <span className="hl-book-spread">Spread {spread.toFixed(2)}%</span>
               ) : null}
             </div>
             <div>
-              {bids.map((level) => {
-                const pct = (level.cum / maxCum) * 100;
-                return (
-                  <button
-                    key={`b-${level.px}`}
-                    type="button"
-                    className="hl-book-row hl-book-row--bid"
-                    onClick={() => handleClick(level.px)}
-                  >
-                    <span className="hl-book-depth" style={{ width: `${pct}%` }} aria-hidden />
-                    <span>{fmtPrice(level.px, 0)}</span>
-                    <span>{fmtSize(level.sz)}</span>
-                    <span>{fmtSize(level.cum)}</span>
-                  </button>
-                );
-              })}
+              {bids.map((level) => (
+                <BookLevelRow
+                  key={`b-${level.px}`}
+                  level={level}
+                  side="bid"
+                  maxCum={maxCum}
+                  onPriceClick={onPriceClick}
+                />
+              ))}
             </div>
           </div>
           <div className="hl-book-foot">
             <span>ALL</span>
             <span>BUYS</span>
             <span>SELLS</span>
-            <span style={{ marginLeft: 'auto' }}>{coin}</span>
+            <span className="hl-book-foot-coin">{coin}</span>
           </div>
         </>
       ) : (
@@ -155,12 +170,11 @@ const ProTradeOrderBook: React.FC<Props> = ({
               recentTrades.map((t, i) => (
                 <div
                   key={`${t.time}-${i}`}
-                  className={`hl-book-row ${t.side === 'B' ? 'hl-book-row--bid' : 'hl-book-row--ask'}`}
-                  style={{ cursor: 'default' }}
+                  className={`hl-book-row hl-book-row--static ${t.side === 'B' ? 'hl-book-row--bid' : 'hl-book-row--ask'}`}
                 >
                   <span>{fmtPrice(t.px, 0)}</span>
                   <span>{fmtSize(t.sz)}</span>
-                  <span style={{ color: '#71717a' }}>{fmtTimeMs(t.time)}</span>
+                  <span className="hl-book-time-muted">{fmtTimeMs(t.time)}</span>
                 </div>
               ))
             )}
@@ -171,4 +185,4 @@ const ProTradeOrderBook: React.FC<Props> = ({
   );
 };
 
-export default ProTradeOrderBook;
+export default memo(ProTradeOrderBook);

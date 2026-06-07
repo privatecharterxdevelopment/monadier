@@ -24,8 +24,7 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pi
   const light = variant === 'light';
   const gmx = layout === 'gmx';
   const { isAuthenticated } = useAuth();
-  const openAppTo = isAuthenticated ? '/dashboard2' : '/register';
-  const openAppHref = getAppUrl(openAppTo);
+  const openAppHref = getAppUrl();
 
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 ${gmx ? 'pt-3 md:pt-5 px-3 sm:px-5 md:px-8' : 'pt-5 md:pt-6 px-4'}`}>
@@ -68,7 +67,7 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pi
               </a>
             </>
           ) : isAuthenticated ? (
-            <AppHref to="/dashboard2" className="hidden md:inline-flex">
+            <AppHref className="hidden md:inline-flex">
               <span
                 className={`inline-flex items-center px-4 py-2 rounded-full text-[13px] font-semibold transition-colors ${
                   light

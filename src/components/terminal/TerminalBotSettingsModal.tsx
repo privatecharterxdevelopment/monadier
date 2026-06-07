@@ -7,11 +7,8 @@ import { VAULT_CHAIN_ID } from '../../lib/vault';
 import { useAuth } from '../../contexts/AuthContext';
 import { persistVaultSettings } from '../../lib/syncVaultSettings';
 import TerminalModalFrame from './TerminalModalFrame';
-import {
-  getLeverageChips,
-  getMaxLeverageLabel,
-  clampLeverage,
-} from '../../lib/leverageLimits';
+import { getMaxLeverageLabel, snapLeverageToStep } from '../../lib/leverageLimits';
+import LeverageRangeSlider from './LeverageRangeSlider';
 
 const RISK_PRESETS = [1, 5, 25, 50, 100] as const;
 
@@ -73,14 +70,13 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
   const { linkWallet, planTier } = useSubscription();
 
   const walletConnected = !!address;
-  const leverageOptions = getLeverageChips(planTier);
   const maxLevLabel = getMaxLeverageLabel(planTier);
 
   const [riskLevel, setRiskLevel] = useState(currentRiskLevel);
   const [autoTrade, setAutoTrade] = useState(startMode ? true : initialAutoTrade);
   const [takeProfit, setTakeProfit] = useState(currentTakeProfit);
   const [stopLoss, setStopLoss] = useState(currentStopLoss);
-  const [leverage, setLeverage] = useState(currentLeverage);
+  const [leverage, setLeverage] = useState(snapLeverageToStep(currentLeverage, planTier));
   const [askPermission, setAskPermission] = useState(currentAskPermission);
   const [minWinRate, setMinWinRate] = useState(currentMinWinRate);
   const [minTradesForWinRate, setMinTradesForWinRate] = useState(currentMinTradesForWinRate);
@@ -278,19 +274,13 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
 
       <p className="term-modal-label">Leverage (LVRG)</p>
       <p className="term-modal-hint mb-2">Up to {maxLevLabel} via GMX.</p>
-      <div className="term-modal-chip-row term-modal-chip-row--wrap">
-        {leverageOptions.map((v) => (
-          <button
-            key={v}
-            type="button"
-            className={`term-modal-chip ${leverage === v ? 'term-modal-chip--on' : ''}`}
-            onClick={() => setLeverage(v)}
-            disabled={isLoading}
-          >
-            {v}x
-          </button>
-        ))}
-      </div>
+      <LeverageRangeSlider
+        value={leverage}
+        onChange={setLeverage}
+        planTier={planTier}
+        disabled={isLoading}
+        id="bot-settings-leverage"
+      />
 
       {autoTrade && (
         <div className="term-modal-toggle-row term-modal-toggle-row--compact">

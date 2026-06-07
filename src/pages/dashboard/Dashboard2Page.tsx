@@ -23,6 +23,7 @@ import TerminalDepositModal from '../../components/terminal/TerminalDepositModal
 import TerminalWithdrawModal from '../../components/terminal/TerminalWithdrawModal';
 import TerminalSupportModal from '../../components/terminal/TerminalSupportModal';
 import TermNotificationsBell from '../../components/terminal/TermNotificationsBell';
+import { getAppEntryPath } from '../../lib/appUrls';
 import TerminalProfileOnboardingModal from '../../components/terminal/TerminalProfileOnboardingModal';
 import TerminalArbitrumBanner from '../../components/terminal/TerminalArbitrumBanner';
 import type { BotSetupPhase } from '../../components/terminal/TerminalBotSettingsModal';
@@ -149,7 +150,7 @@ const Dashboard2Page: React.FC = () => {
       setSidebarSection('support');
       setShowSupport(true);
     } else if (action === 'security') {
-      navigate('/dashboard2/profile#profile-security');
+      navigate(`${getAppEntryPath()}?section=profile#profile-security`);
     }
 
     const next = new URLSearchParams(searchParams);
@@ -184,7 +185,7 @@ const Dashboard2Page: React.FC = () => {
         setSidebarSection('support');
         setShowSupport(true);
       }}
-      onProfile={() => navigate('/dashboard2/profile')}
+      onProfile={() => navigate(`${getAppEntryPath()}?section=profile`)}
     >
         <header className="term-market-bar">
           <div className="term-market-bar-top">

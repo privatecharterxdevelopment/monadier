@@ -77,7 +77,7 @@ const GmxStyleLanding: React.FC = () => {
               <motion.div {...heroReveal(0.1)} className="landing-gmx-hero-bottom">
                 <div className="landing-gmx-hero-bottom-left">
                   <div className="landing-gmx-hero-cta">
-                    <a href={getAppUrl('/register')} className="landing-gmx-btn-primary">
+                    <a href={getAppUrl()} className="landing-gmx-btn-primary">
                       Open app
                       <ArrowRight size={16} />
                     </a>

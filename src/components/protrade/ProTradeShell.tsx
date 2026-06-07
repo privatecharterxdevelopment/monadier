@@ -1,13 +1,24 @@
 import React from 'react';
+import { ProTradeThemeProvider, useProTradeTheme } from '../../contexts/ProTradeThemeContext';
 import '../../styles/pro-trade-hl.css';
 
 type Props = {
   children: React.ReactNode;
 };
 
-/** Full-viewport Hyperliquid-style shell — no Monadier sidebar. */
+const ProTradeShellInner: React.FC<Props> = ({ children }) => {
+  const { theme } = useProTradeTheme();
+
+  return <div className={`hl-root hl-root--${theme}`}>{children}</div>;
+};
+
+/** Full-viewport Pro Trade shell — light (dashboard2) or dark theme. */
 const ProTradeShell: React.FC<Props> = ({ children }) => {
-  return <div className="hl-root">{children}</div>;
+  return (
+    <ProTradeThemeProvider>
+      <ProTradeShellInner>{children}</ProTradeShellInner>
+    </ProTradeThemeProvider>
+  );
 };
 
 export default ProTradeShell;

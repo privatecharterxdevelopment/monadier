@@ -8,6 +8,7 @@ import Logo from '../components/ui/Logo';
 import { useAuth } from '../contexts/AuthContext';
 import { updateKycStatus, uploadDocument } from '../lib/supabase';
 import Input from '../components/ui/Input';
+import { getAppEntryPath } from '../lib/appUrls';
 
 const steps = [
   'Select Account Type',
@@ -87,7 +88,7 @@ const KycFlowPage: React.FC = () => {
       if (currentStep < steps.length - 1) {
         setCurrentStep(currentStep + 1);
       } else {
-        navigate('/dashboard2');
+        navigate(getAppEntryPath());
       }
     } catch (error: any) {
       setError(error.message || 'An error occurred during the verification process');

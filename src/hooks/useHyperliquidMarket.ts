@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   fetchHlCandles,
   fetchHlMarketSnapshot,
@@ -134,6 +134,54 @@ export function useHyperliquidMarket(
     return () => window.clearInterval(id);
   }, [refreshSnapshot]);
 
+  const bookKeyRef = useRef('');
+  const pendingBookRef = useRef<HlL2Book | null>(null);
+  const bookTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingTradesRef = useRef<HlRecentTrade[]>([]);
+  const tradesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushBook = useCallback(() => {
+    bookTimerRef.current = null;
+    const next = pendingBookRef.current;
+    if (!next) return;
+    const key = bookLevelsKey(next);
+    if (key === bookKeyRef.current) return;
+    bookKeyRef.current = key;
+    setState((prev) => ({ ...prev, book: next, wsConnected: true }));
+  }, []);
+
+  const scheduleBook = useCallback(
+    (book: HlL2Book) => {
+      const key = bookLevelsKey(book);
+      if (key === bookKeyRef.current && !bookTimerRef.current) return;
+      pendingBookRef.current = book;
+      if (bookTimerRef.current) return;
+      bookTimerRef.current = setTimeout(flushBook, BOOK_THROTTLE_MS);
+    },
+    [flushBook]
+  );
+
+  const flushTrades = useCallback(() => {
+    tradesTimerRef.current = null;
+    const batch = pendingTradesRef.current;
+    if (batch.length === 0) return;
+    pendingTradesRef.current = [];
+    setState((prev) => ({
+      ...prev,
+      recentTrades: [...batch.reverse(), ...prev.recentTrades].slice(0, 80),
+      wsConnected: true,
+    }));
+  }, []);
+
+  const scheduleTrades = useCallback(
+    (trades: HlRecentTrade[]) => {
+      pendingTradesRef.current.push(...trades);
+      if (tradesTimerRef.current) return;
+      tradesTimerRef.current = setTimeout(flushTrades, TRADES_THROTTLE_MS);
+    },
+    [flushTrades]
+  );
+
   useEffect(() => {
     const client = getHlWsClient();
     const unsubs = [
@@ -144,7 +192,7 @@ export function useHyperliquidMarket(
 
     const off = client.addListener((channel, data) => {
       if (channel === 'l2Book') {
-        setState((prev) => ({ ...prev, book: data as HlL2Book, wsConnected: true }));
+        scheduleBook(data as HlL2Book);
         return;
       }
       if (channel === 'trades') {
@@ -153,11 +201,7 @@ export function useHyperliquidMarket(
           .map((r) => parseWsTrade(r as Record<string, unknown>, coin))
           .filter((t) => t.time > 0);
         if (parsed.length === 0) return;
-        setState((prev) => ({
-          ...prev,
-          recentTrades: [...parsed.reverse(), ...prev.recentTrades].slice(0, 80),
-          wsConnected: true,
-        }));
+        scheduleTrades(parsed);
         return;
       }
       if (channel === 'candle') {
@@ -177,8 +221,15 @@ export function useHyperliquidMarket(
     return () => {
       for (const u of unsubs) u();
       off();
+      if (bookTimerRef.current) clearTimeout(bookTimerRef.current);
+      if (tradesTimerRef.current) clearTimeout(tradesTimerRef.current);
+      bookTimerRef.current = null;
+      tradesTimerRef.current = null;
+      pendingBookRef.current = null;
+      pendingTradesRef.current = [];
+      bookKeyRef.current = '';
     };
-  }, [coin, interval]);
+  }, [coin, interval, scheduleBook, scheduleTrades]);
 
   return { ...state, refresh };
 }

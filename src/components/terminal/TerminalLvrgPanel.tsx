@@ -1,16 +1,14 @@
 import React, { useState } from 'react';
-import { AlertCircle, Loader2, Save, Settings } from 'lucide-react';
+import { AlertCircle, Loader2, Save, Settings, Wallet } from 'lucide-react';
+import { useAppKit } from '@reown/appkit/react';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { VAULT_CHAIN_ID } from '../../lib/vault';
 import { persistVaultSettings } from '../../lib/syncVaultSettings';
 import type { VaultSettingsSnapshot } from '../../hooks/useTerminalVaultData';
-import {
-  getLeverageChips,
-  getMaxLeverageLabel,
-  clampLeverage,
-} from '../../lib/leverageLimits';
+import { getMaxLeverageLabel, snapLeverageToStep } from '../../lib/leverageLimits';
+import LeverageRangeSlider from './LeverageRangeSlider';
 
 const RISK_PRESETS = [1, 5, 25, 50, 100] as const;
 
@@ -31,10 +29,11 @@ const TerminalLvrgPanel: React.FC<Props> = ({
   onSaved,
   onOpenAdvanced,
 }) => {
+  const { open } = useAppKit();
   const { address, publicClient, walletClient, chainId } = useWeb3();
+  const { isDemoUser } = useAuth();
   const { planTier } = useSubscription();
 
-  const leverageOptions = getLeverageChips(planTier);
   const maxLevLabel = getMaxLeverageLabel(planTier);
 
   const [riskPct, setRiskPct] = useState(settings.riskPct);
@@ -47,16 +46,16 @@ const TerminalLvrgPanel: React.FC<Props> = ({
 
   React.useEffect(() => {
     setRiskPct(settings.riskPct);
-    setLeverage(settings.leverage);
+    setLeverage(snapLeverageToStep(settings.leverage, planTier));
     setTakeProfit(settings.takeProfit);
     setStopLoss(settings.stopLoss);
-  }, [settings]);
+  }, [settings, planTier]);
 
   const estPosition = ((vaultUsd * riskPct) / 100) * leverage;
 
   const handleSave = async () => {
     if (!address) {
-      setError('Connect wallet to save.');
+      open();
       return;
     }
     if (!isDemoUser && (!publicClient || !walletClient || chainId !== VAULT_CHAIN_ID)) {
@@ -109,20 +108,13 @@ const TerminalLvrgPanel: React.FC<Props> = ({
       </p>
 
       <div className="term-panel-card term-panel-card--flat">
-        <span className="term-panel-card-label">Select leverage</span>
-        <div className="term-modal-chip-row term-modal-chip-row--wrap">
-          {leverageOptions.map((v) => (
-            <button
-              key={v}
-              type="button"
-              className={`term-modal-chip ${leverage === v ? 'term-modal-chip--on' : ''}`}
-              onClick={() => setLeverage(v)}
-              disabled={disabled || busy}
-            >
-              {v}x
-            </button>
-          ))}
-        </div>
+        <LeverageRangeSlider
+          value={leverage}
+          onChange={setLeverage}
+          planTier={planTier}
+          disabled={disabled || busy}
+          id="lvrg-panel-leverage"
+        />
       </div>
 
       <div className="term-panel-card term-panel-card--flat">
@@ -196,11 +188,17 @@ const TerminalLvrgPanel: React.FC<Props> = ({
         <button
           type="button"
           className="term-btn-sm flex-1 justify-center"
-          disabled={disabled || busy}
+          disabled={busy || (disabled && Boolean(address))}
           onClick={handleSave}
         >
-          {busy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-          {saved ? 'Saved' : 'Save LVRG'}
+          {busy ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : !address ? (
+            <Wallet size={14} />
+          ) : (
+            <Save size={14} />
+          )}
+          {saved ? 'Saved' : !address ? 'Connect to save' : 'Save LVRG'}
         </button>
       </div>
 

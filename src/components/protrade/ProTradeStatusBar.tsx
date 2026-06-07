@@ -1,22 +1,32 @@
 import React, { useMemo } from 'react';
+import type { ProTradePanelMode } from './ProTradeTopNav';
 import type { HlOpenOrder, HlPosition } from '../../lib/hyperliquid/user';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
+import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
+
+function fmtUsd(n: number) {
+  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
 type Props = {
+  mode?: ProTradePanelMode;
   walletConnected: boolean;
   wsLive: boolean;
   openOrders: HlOpenOrder[];
   positions: HlPosition[];
   totalUpnl?: number;
+  botMetrics?: Dashboard2Metrics;
 };
 
 const ProTradeStatusBar: React.FC<Props> = ({
+  mode = 'hl',
   walletConnected,
   wsLive,
   openOrders,
   positions,
   totalUpnl = 0,
+  botMetrics,
 }) => {
   const orderSummary = useMemo(() => {
     let buyCount = 0;
@@ -53,9 +63,41 @@ const ProTradeStatusBar: React.FC<Props> = ({
   const upnl = totalUpnl;
   const up = upnl >= 0;
 
+  if (mode === 'bot' && botMetrics) {
+    const running = botMetrics.autoTradeEnabled;
+    const totalPnl = botMetrics.totalPnlUsd;
+    const pnlUp = totalPnl >= 0;
+    return (
+      <footer className="hl-status">
+        <div className="hl-status-left">
+          <span className="hl-status-mode hl-status-mode--bot">GMX Bot · Arbitrum</span>
+          <span className={running ? 'hl-up' : undefined}>
+            {running ? 'Auto-trading on' : 'Auto-trading off'}
+          </span>
+          <span>Vault {botMetrics.isLoading ? '—' : fmtUsd(botMetrics.vaultUsd)}</span>
+          <span>Open {botMetrics.openPositionsCount}</span>
+          <span className={pnlUp ? 'hl-up' : 'hl-down'}>
+            P/L {botMetrics.isLoading ? '—' : `${pnlUp ? '+' : ''}${fmtUsd(totalPnl)}`}
+          </span>
+        </div>
+        <div className="hl-status-right">
+          {walletConnected ? (
+            <span className="hl-status-connected">
+              <span className="hl-status-dot" aria-hidden />
+              Wallet connected
+            </span>
+          ) : (
+            <span>Disconnected</span>
+          )}
+        </div>
+      </footer>
+    );
+  }
+
   return (
     <footer className="hl-status">
       <div className="hl-status-left">
+        <span className="hl-status-mode">Hyperliquid · Manual trade</span>
         <span>Open {fmtUsdSymbol(positionStats.openNotional)}</span>
         <span>Longs {fmtUsdSymbol(positionStats.longs)}</span>
         <span>Shorts {fmtUsdSymbol(positionStats.shorts)}</span>

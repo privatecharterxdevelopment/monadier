@@ -2315,6 +2315,112 @@
   pointer-events: none;
 }
 
+.term-connect-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.term-connect-banner-text {
+  margin: 0;
+}
+
+/* app.monadier.com — auth / wallet gate before Pro Trade loads */
+.monadier-app-gate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 24px;
+  background: #f4f4f5;
+}
+
+.monadier-app-gate-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 32px 28px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid #e4e4e7;
+  box-shadow: 0 12px 40px rgba(10, 10, 10, 0.06);
+  text-align: center;
+}
+
+.monadier-app-gate-kicker {
+  margin: 16px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #71717a;
+}
+
+.monadier-app-gate-title {
+  margin: 8px 0 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #0a0a0a;
+}
+
+.monadier-app-gate-text {
+  margin: 12px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #71717a;
+}
+
+.monadier-app-gate-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.monadier-app-gate-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid #d4d4d8;
+  background: #fafafa;
+  color: #0a0a0a;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.monadier-app-gate-btn:hover {
+  background: #f4f4f5;
+  border-color: #a1a1aa;
+}
+
+.monadier-app-gate-btn--primary {
+  background: #0a0a0a;
+  border-color: #0a0a0a;
+  color: #fff;
+}
+
+.monadier-app-gate-btn--primary:hover {
+  background: #27272a;
+  border-color: #27272a;
+}
+
+.monadier-app-gate-demo {
+  margin-top: 16px;
+  font-size: 12px;
+  color: #71717a;
+  text-decoration: underline;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
 .term-panel-card {
   padding: 12px;
   border-radius: 8px;
@@ -3223,6 +3329,45 @@
   color: var(--term-text);
   border-color: var(--term-border-muted);
   font-weight: 600;
+}
+
+.term-leverage-slider-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.term-leverage-slider-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--term-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.term-leverage-slider-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--term-text-faint);
+  margin-top: 4px;
+}
+
+.term-leverage-slider-hint {
+  margin: 6px 0 0;
+}
+
+.term-dock-meta,
+.term-dock-time {
+  color: var(--term-text-faint);
+}
+
+.term-dock-status {
+  color: var(--term-text-muted);
+}
+
+.term-dock-closing {
+  color: #b45309;
 }
 
 .term-modal-range {

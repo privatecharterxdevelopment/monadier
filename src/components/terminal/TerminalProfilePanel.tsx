@@ -32,7 +32,17 @@ function isValidAddress(addr: string) {
   return /^0x[a-fA-F0-9]{40}$/.test(addr);
 }
 
-const TerminalProfilePanel: React.FC = () => {
+export type ProfilePanelSection = 'identity' | 'security' | 'wallets' | 'history' | 'all';
+
+type Props = {
+  activeSection?: ProfilePanelSection;
+  variant?: 'terminal' | 'pro';
+};
+
+const TerminalProfilePanel: React.FC<Props> = ({
+  activeSection = 'all',
+  variant = 'terminal',
+}) => {
   const { user, profile, refreshProfile } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -215,10 +225,21 @@ const TerminalProfilePanel: React.FC = () => {
 
   const hasPhoto = Boolean(profile?.avatar_url?.trim());
 
+  const show = (section: ProfilePanelSection) =>
+    activeSection === 'all' || activeSection === section;
+  const isPro = variant === 'pro';
+  const layoutClass = isPro
+    ? 'term-profile-layout term-profile-layout--pro'
+    : 'term-profile-layout term-profile-layout--grid';
+
   return (
-    <div className="term-profile-page term-profile-page--compact">
-      <div className="term-profile-layout term-profile-layout--grid">
+    <div
+      className={`term-profile-page term-profile-page--compact ${isPro ? 'term-profile-page--pro' : ''}`}
+    >
+      <div className={layoutClass}>
+        {show('identity') ? (
         <section id="profile-identity" className="term-profile-card term-profile-card--section">
+          {isPro ? <h2 className="term-profile-card-title">Profile details</h2> : null}
           <div className="term-profile-avatar-row">
             <ProfileAvatar profile={profile} userId={user?.id} size="md" />
             <div className="term-profile-avatar-actions">
@@ -342,14 +363,19 @@ const TerminalProfilePanel: React.FC = () => {
           )}
 
         </section>
+        ) : null}
 
+        {show('security') ? (
         <section
           id="profile-security"
           className="term-profile-card term-profile-card--section term-profile-card--security"
         >
+          <h2 className="term-profile-card-title">Security &amp; credentials</h2>
           <ProfileSecurityPanel idPrefix="profile-sec" mode="credentials" />
         </section>
+        ) : null}
 
+        {show('wallets') ? (
         <section id="profile-wallets" className="term-profile-card term-profile-card--section">
           <h2 className="term-profile-card-title">Wallets</h2>
           <ul className="term-profile-wallet-list">
@@ -389,7 +415,9 @@ const TerminalProfilePanel: React.FC = () => {
             </p>
           )}
         </section>
+        ) : null}
 
+        {show('history') ? (
         <section
           id="profile-login-history"
           className="term-profile-card term-profile-card--section term-profile-card--history"
@@ -397,6 +425,7 @@ const TerminalProfilePanel: React.FC = () => {
           <h2 className="term-profile-card-title">Login history</h2>
           <ProfileLoginHistoryPanel />
         </section>
+        ) : null}
       </div>
     </div>
   );

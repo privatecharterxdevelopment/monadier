@@ -7,9 +7,12 @@ import {
   type OrderKind,
   type OrderSide,
 } from '../../hooks/useHyperliquidTrading';
+import { useHyperliquidBuilderFee } from '../../hooks/useHyperliquidBuilderFee';
+import { fetchHlAssetLeverage, leverageOptionsForMax } from '../../lib/hyperliquid/assetLeverage';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
 import type { HlTwapOrder } from '../../lib/hyperliquid/user';
+import ProTradeBuilderFeeModal from './ProTradeBuilderFeeModal';
 
 type OrderMode = 'basic' | 'scale' | 'tpsl' | 'twap';
 type SizeUnit = 'coin' | 'usd';
@@ -27,14 +30,11 @@ type Props = {
   onTransfer?: () => void;
   variant?: 'perp' | 'spot';
   displayCoin?: string;
+  serverTwap?: HlTwapOrder | null;
+  onCancelServerTwap?: () => void | Promise<void>;
 };
 
 const SIZE_PRESETS = [25, 33, 50, 66, 75, 100] as const;
-
-function leverageOptions(max: number): number[] {
-  const base = [1, 2, 3, 5, 10, 15, 20, 25, 30, 40, 50];
-  return base.filter((n) => n <= max).concat(max > 50 ? [max] : []);
-}
 
 function parsePositive(value: string, label: string): number {
   const n = Number(value);
@@ -62,7 +62,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
   const marketKind = isSpot ? 'spot' as const : 'perp' as const;
   const coinLabel = displayCoin ?? coin;
   const { open } = useAppKit();
-  const { isConnected } = useAppKitAccount();
+  const { address, isConnected } = useAppKitAccount();
   const {
     busy,
     error,
@@ -74,7 +74,17 @@ const ProTradeOrderPanel: React.FC<Props> = ({
     cancelTwap,
     walletReady,
   } = useHyperliquidTrading();
+  const {
+    enabled: builderEnabled,
+    needsApproval: needsBuilderApproval,
+    approve: approveBuilderFee,
+    busy: builderBusy,
+    error: builderError,
+    config: builderConfig,
+    feeLabelPerp,
+  } = useHyperliquidBuilderFee(address);
 
+  const [showBuilderModal, setShowBuilderModal] = useState(false);
   const [mode, setMode] = useState<OrderMode>('basic');
   const [side, setSide] = useState<OrderSide>('long');
   const [kind, setKind] = useState<OrderKind>('limit');
@@ -95,6 +105,18 @@ const ProTradeOrderPanel: React.FC<Props> = ({
   const [localError, setLocalError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const serverTwapActive =
+    serverTwap?.status === 'activated' && serverTwap.coin === coin ? serverTwap : null;
+  const twapActive = twap.active || Boolean(serverTwapActive);
+  const twapMinutesLabel = twap.active ? twap.minutes : serverTwapActive?.minutes ?? 0;
+  const twapFilledPct = useMemo(() => {
+    if (!serverTwapActive) return null;
+    const total = toNum(serverTwapActive.sz);
+    const filled = toNum(serverTwapActive.executedSz);
+    if (total <= 0) return null;
+    return Math.min(100, (filled / total) * 100);
+  }, [serverTwapActive]);
+
   const levMax = maxLeverage > 0 ? maxLeverage : 40;
   const settings = useMemo(
     () => ({ leverage, marginMode }),
@@ -112,6 +134,24 @@ const ProTradeOrderPanel: React.FC<Props> = ({
       setScaleStart(String(markPx));
     }
   }, [coin, markPx, mode, scaleStart]);
+
+  useEffect(() => {
+    if (isSpot || !address) return;
+    let cancelled = false;
+    void (async () => {
+      const state = await fetchHlAssetLeverage(address, coin);
+      if (cancelled || !state) return;
+      setMarginMode(state.marginMode);
+      setLeverage(Math.min(state.leverage, levMax));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [address, coin, isSpot, levMax]);
+
+  useEffect(() => {
+    if (leverage > levMax) setLeverage(levMax);
+  }, [levMax, leverage]);
 
   const sizeInCoin = useMemo(() => {
     const raw = toNum(size);
@@ -155,6 +195,10 @@ const ProTradeOrderPanel: React.FC<Props> = ({
   const handleSubmit = async () => {
     setLocalError(null);
     setSuccess(null);
+    if (builderEnabled && needsBuilderApproval) {
+      setShowBuilderModal(true);
+      return;
+    }
     try {
       if (mode === 'basic') {
         await placeOrder({
@@ -192,7 +236,14 @@ const ProTradeOrderPanel: React.FC<Props> = ({
         const tp = tpPrice ? parsePositive(tpPrice, 'TP price') : undefined;
         const sl = slPrice ? parsePositive(slPrice, 'SL price') : undefined;
         const closeSide: OrderSide = side === 'long' ? 'short' : 'long';
-        await placeTpSlOrders({ coin, side: closeSide, size: sizeNum, tpPrice: tp, slPrice: sl });
+        await placeTpSlOrders({
+          coin,
+          side: closeSide,
+          size: sizeNum,
+          tpPrice: tp,
+          slPrice: sl,
+          marketKind,
+        });
         showSuccess('TP/SL orders submitted');
         return;
       }
@@ -254,7 +305,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
               value={leverage}
               onChange={(e) => setLeverage(Number(e.target.value))}
             >
-              {leverageOptions(levMax).map((n) => (
+              {leverageOptionsForMax(levMax).map((n) => (
                 <option key={n} value={n}>{n}x</option>
               ))}
             </select>
@@ -409,8 +460,26 @@ const ProTradeOrderPanel: React.FC<Props> = ({
         ) : null}
 
         <div>
-          <div className="hl-entry-label">
-            Size{mode === 'scale' || mode === 'twap' ? ' (total)' : ''} ({sizeUnit === 'usd' ? 'USDC' : coinLabel})
+          <div className="hl-entry-label-row">
+            <span className="hl-entry-label" style={{ marginBottom: 0 }}>
+              Size{mode === 'scale' || mode === 'twap' ? ' (total)' : ''}
+            </span>
+            <div className="hl-entry-unit-toggle" role="group" aria-label="Size unit">
+              <button
+                type="button"
+                className={`hl-entry-unit-btn ${sizeUnit === 'coin' ? 'hl-entry-unit-btn--on' : ''}`}
+                onClick={() => setSizeUnit('coin')}
+              >
+                {coinLabel}
+              </button>
+              <button
+                type="button"
+                className={`hl-entry-unit-btn ${sizeUnit === 'usd' ? 'hl-entry-unit-btn--on' : ''}`}
+                onClick={() => setSizeUnit('usd')}
+              >
+                USDC
+              </button>
+            </div>
           </div>
           <input
             className="hl-entry-input"
@@ -472,10 +541,24 @@ const ProTradeOrderPanel: React.FC<Props> = ({
       </div>
 
       <div className="hl-entry-foot">
-        <button type="button" className="hl-entry-foot-btn" onClick={onDeposit}>Deposit</button>
+        <button type="button" className="hl-entry-foot-btn" onClick={onDeposit}>HL Deposit</button>
         <button type="button" className="hl-entry-foot-btn" onClick={onTransfer}>Perps ⇄ Spot</button>
-        <button type="button" className="hl-entry-foot-btn" onClick={onWithdraw}>Withdraw</button>
+        <button type="button" className="hl-entry-foot-btn" onClick={onWithdraw}>HL Withdraw</button>
       </div>
+
+      {showBuilderModal ? (
+        <ProTradeBuilderFeeModal
+          feeLabelPerp={feeLabelPerp}
+          maxApprovalRate={builderConfig.maxApprovalRate}
+          busy={builderBusy}
+          error={builderError}
+          onApprove={async () => {
+            await approveBuilderFee();
+            setShowBuilderModal(false);
+          }}
+          onClose={() => setShowBuilderModal(false)}
+        />
+      ) : null}
     </aside>
   );
 };

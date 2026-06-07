@@ -2,54 +2,19 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { HlInterval } from '../../lib/hyperliquid/types';
 import { HyperliquidTvDatafeed } from '../../lib/hyperliquid/hlTvDatafeed';
 import { resolveTradingViewInterval } from '../../lib/hyperliquid/tradingView';
+import { loadChartingLibrary, TV_LIBRARY_PATH } from '../../lib/hyperliquid/chartingLibrary';
+import type { ProTradeTheme } from '../../lib/proTradeTheme';
+import { getProTradeChartColors } from '../../lib/proTradeTheme';
 
 type Props = {
   coin: string;
   interval: HlInterval;
+  theme: ProTradeTheme;
 };
 
 type TvWidget = { remove: () => void };
 
-const TV_LIBRARY_PATH = '/charting_library/';
-const TV_STANDALONE_SCRIPT = `${TV_LIBRARY_PATH}charting_library.standalone.js`;
-
-declare global {
-  interface Window {
-    TradingView?: {
-      widget: new (opts: Record<string, unknown>) => TvWidget;
-    };
-  }
-}
-
-let tvClScriptPromise: Promise<boolean> | null = null;
-
-function loadChartingLibrary(): Promise<boolean> {
-  if (window.TradingView?.widget) return Promise.resolve(true);
-  if (tvClScriptPromise) return tvClScriptPromise;
-
-  tvClScriptPromise = new Promise((resolve) => {
-    const existing = document.getElementById('tv-charting-library-script');
-    if (existing) {
-      existing.addEventListener('load', () => resolve(Boolean(window.TradingView?.widget)), {
-        once: true,
-      });
-      existing.addEventListener('error', () => resolve(false), { once: true });
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.id = 'tv-charting-library-script';
-    script.src = TV_STANDALONE_SCRIPT;
-    script.async = true;
-    script.onload = () => resolve(Boolean(window.TradingView?.widget));
-    script.onerror = () => resolve(false);
-    document.head.appendChild(script);
-  });
-
-  return tvClScriptPromise;
-}
-
-const ProTradeChartingLibraryChart: React.FC<Props> = ({ coin, interval }) => {
+const ProTradeChartingLibraryChart: React.FC<Props> = ({ coin, interval, theme }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetRef = useRef<TvWidget | null>(null);
   const datafeedRef = useRef<HyperliquidTvDatafeed | null>(null);
@@ -75,6 +40,8 @@ const ProTradeChartingLibraryChart: React.FC<Props> = ({ coin, interval }) => {
       widgetRef.current?.remove();
       el.innerHTML = '';
 
+      const colors = getProTradeChartColors(theme);
+
       widgetRef.current = new window.TradingView.widget({
         autosize: true,
         symbol: coin,
@@ -82,15 +49,15 @@ const ProTradeChartingLibraryChart: React.FC<Props> = ({ coin, interval }) => {
         container: el.id,
         library_path: TV_LIBRARY_PATH,
         locale: 'en',
-        theme: 'dark',
+        theme: theme === 'light' ? 'light' : 'dark',
         timezone: 'Etc/UTC',
         datafeed: datafeedRef.current,
         disabled_features: ['use_localstorage_for_settings'],
         enabled_features: ['study_templates'],
         overrides: {
-          'paneProperties.background': '#0b0b0b',
-          'paneProperties.vertGridProperties.color': '#1a1a1a',
-          'paneProperties.horzGridProperties.color': '#1a1a1a',
+          'paneProperties.background': colors.background,
+          'paneProperties.vertGridProperties.color': colors.grid,
+          'paneProperties.horzGridProperties.color': colors.grid,
         },
       });
     })();
@@ -101,7 +68,7 @@ const ProTradeChartingLibraryChart: React.FC<Props> = ({ coin, interval }) => {
       widgetRef.current = null;
       datafeedRef.current = null;
     };
-  }, [coin, interval]);
+  }, [coin, interval, theme]);
 
   const containerId = `hl-tv-cl-${coin.replace(/[^a-zA-Z0-9]/g, '-')}-${interval}`;
 

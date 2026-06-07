@@ -12,7 +12,10 @@ import LicenseActivation from './components/desktop/LicenseActivation';
 import TransactionToast from './components/ui/TransactionToast';
 
 // Pages
-import LandingPage from './pages/LandingPage';
+import RootRoute from './components/app/RootRoute';
+import MonadierAppRoot from './components/app/MonadierAppRoot';
+import RedirectToApp from './components/app/RedirectToApp';
+import { getAppEntryPath, isAppHost } from './lib/appUrls';
 import HowItWorksPage from './pages/HowItWorksPage';
 import CardPage from './pages/CardPage';
 import BotTradingPage from './pages/BotTradingPage';
@@ -33,8 +36,6 @@ import RoadmapPage from './pages/RoadmapPage';
 import KycFlowPage from './pages/KycFlowPage';
 import DashboardPage from './pages/DashboardPage';
 import Dashboard2Page from './pages/dashboard/Dashboard2Page';
-import Dashboard2ProfilePage from './pages/dashboard/Dashboard2ProfilePage';
-import Dashboard2ProPage from './pages/dashboard/Dashboard2ProPage';
 import Dashboard2Layout from './layouts/Dashboard2Layout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import SupportWidget from './components/ui/SupportWidget';
@@ -63,7 +64,13 @@ function App() {
   }
 
   // Show support widget on public pages only
+  const onAppSurface =
+    isAppHost() ||
+    location.pathname === getAppEntryPath() ||
+    location.pathname.startsWith(`${getAppEntryPath()}/`);
+
   const showSupportWidget =
+    !onAppSurface &&
     location.pathname !== '/' &&
     !location.pathname.startsWith('/dashboard') &&
     !location.pathname.startsWith('/dashboard2') &&
@@ -79,7 +86,8 @@ function App() {
       <TransactionToast />
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<RootRoute />} />
+          <Route path="/app" element={<MonadierAppRoot />} />
           <Route path="/how-it-works" element={
             <PageTransition>
               <HowItWorksPage />
@@ -175,7 +183,10 @@ function App() {
           } />
           
           <Route path="/dashboard" element={<Navigate to="/dashboard2" replace />} />
-          <Route path="/dashboard/profile" element={<Navigate to="/dashboard2/profile" replace />} />
+          <Route
+            path="/dashboard/profile"
+            element={<Navigate to={`${getAppEntryPath()}?section=profile`} replace />}
+          />
 
           <Route path="/dashboard/*" element={
             <ProtectedRoute>
@@ -188,22 +199,24 @@ function App() {
           <Route
             path="/dashboard2"
             element={
-              import.meta.env.DEV ? (
-                <PageTransition fillViewport>
-                  <Dashboard2Layout />
-                </PageTransition>
-              ) : (
-                <ProtectedRoute>
-                  <PageTransition fillViewport>
-                    <Dashboard2Layout />
-                  </PageTransition>
-                </ProtectedRoute>
-              )
+              <PageTransition fillViewport>
+                <Dashboard2Layout />
+              </PageTransition>
             }
           >
-            <Route index element={<Dashboard2Page />} />
-            <Route path="profile" element={<Dashboard2ProfilePage />} />
-            <Route path="pro" element={<Dashboard2ProPage />} />
+            <Route
+              index
+              element={
+                <ProtectedRoute>
+                  <Dashboard2Page />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="profile"
+              element={<Navigate to={`${getAppEntryPath()}?section=profile`} replace />}
+            />
+            <Route path="pro" element={<RedirectToApp />} />
           </Route>
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>

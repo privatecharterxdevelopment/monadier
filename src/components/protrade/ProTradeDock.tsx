@@ -13,6 +13,7 @@ import type {
 import { isHlTriggerOrder } from '../../lib/hyperliquid/user';
 import { fmtLeverage, fmtPrice, fmtTimeMs, fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
+import DockCountBadge from './DockCountBadge';
 
 const TABS = [
   { id: 'balances', label: 'Balances' },
@@ -87,13 +88,27 @@ const ProTradeDock: React.FC<Props> = ({
   };
 
   const positionCount = account?.positions.length ?? 0;
+  const positionUpnl = useMemo(
+    () => (account?.positions ?? []).reduce((s, p) => s + toNum(p.unrealizedPnl), 0),
+    [account?.positions]
+  );
+  const positionTone: 'pos' | 'neg' | null =
+    positionCount > 0 ? (positionUpnl >= 0 ? 'pos' : 'neg') : null;
 
-  const tabLabel = (id: TabId, label: string) => {
-    if (id === 'positions' && positionCount > 0) return `${label}(${positionCount})`;
-    if (id === 'orders' && openOrders.length > 0) return `${label}(${openOrders.length})`;
-    if (id === 'twap' && activeTwapCount > 0) return `${label}(${activeTwapCount})`;
-    if (id === 'trailing' && triggerOrders.length > 0) return `${label}(${triggerOrders.length})`;
-    return label;
+  const tabSuffix = (id: TabId) => {
+    if (id === 'positions' && positionCount > 0) {
+      return <DockCountBadge count={positionCount} tone={positionTone} />;
+    }
+    if (id === 'orders' && openOrders.length > 0) {
+      return <span className="hl-dock-count">({openOrders.length})</span>;
+    }
+    if (id === 'twap' && activeTwapCount > 0) {
+      return <span className="hl-dock-count">({activeTwapCount})</span>;
+    }
+    if (id === 'trailing' && triggerOrders.length > 0) {
+      return <span className="hl-dock-count">({triggerOrders.length})</span>;
+    }
+    return null;
   };
 
   const filteredOrders = useMemo(() => {
@@ -120,7 +135,8 @@ const ProTradeDock: React.FC<Props> = ({
               className={`hl-dock-tab ${tab === id ? 'hl-dock-tab--on' : ''}`}
               onClick={() => setTab(id)}
             >
-              {tabLabel(id, label)}
+              {label}
+              {tabSuffix(id)}
             </button>
           ))}
         </nav>

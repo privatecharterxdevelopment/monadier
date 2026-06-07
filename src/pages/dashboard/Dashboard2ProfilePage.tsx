@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Dashboard2Shell from '../../components/dashboard2/Dashboard2Shell';
 import TerminalProfilePanel from '../../components/terminal/TerminalProfilePanel';
+import { getAppEntryPath } from '../../lib/appUrls';
 
 const Dashboard2ProfilePage: React.FC = () => {
   const navigate = useNavigate();
@@ -27,7 +28,7 @@ const Dashboard2ProfilePage: React.FC = () => {
       userId={user?.id}
       activeSection="profile"
       onTrade={() => goTrade()}
-      onProTrade={() => navigate('/dashboard2/pro')}
+      onProTrade={() => navigate(getAppEntryPath())}
       onHistory={() => goTrade('view=history')}
       onNotifications={() => goTrade('view=history')}
       onDeposit={() => goTrade('action=deposit')}

@@ -50,7 +50,24 @@ const ProTradeMarketPicker: React.FC<Props> = ({
       const label = resolveLabel?.(m.name) ?? m.name;
       return m.name.toLowerCase().includes(q) || label.toLowerCase().includes(q);
     });
-  }, [markets, query]);
+  }, [markets, query, resolveLabel]);
+
+  const recentMarkets = useMemo(() => {
+    if (query.trim()) return [];
+    return recents
+      .map((name) => marketByName.get(name))
+      .filter((m): m is HlMarket => Boolean(m));
+  }, [recents, marketByName, query]);
+
+  const recentNames = useMemo(
+    () => new Set(recentMarkets.map((m) => m.name)),
+    [recentMarkets]
+  );
+
+  const marketsAfterRecents = useMemo(
+    () => filtered.filter((m) => !recentNames.has(m.name)),
+    [filtered, recentNames]
+  );
 
   useEffect(() => {
     if (!onClose) return undefined;
@@ -130,7 +147,16 @@ const ProTradeMarketPicker: React.FC<Props> = ({
           ) : filtered.length === 0 ? (
             <p className="hl-dock-empty">No markets match</p>
           ) : (
-            filtered.map((m) => renderRow(m))
+            <>
+              {recentMarkets.length > 0 ? (
+                <>
+                  <div className="hl-picker-section-label">Recent</div>
+                  {recentMarkets.map((m) => renderRow(m))}
+                  <div className="hl-picker-section-label">All markets</div>
+                </>
+              ) : null}
+              {marketsAfterRecents.map((m) => renderRow(m))}
+            </>
           )}
         </div>
       </div>

@@ -44,6 +44,17 @@ export function buildSimpleOrderLeg(opts: {
   };
 }
 
+function scaleSizeWeights(count: number, skew: number): number[] {
+  if (count <= 1) return [1];
+  const s = Math.max(0.01, Math.min(100, skew));
+  const weights = Array.from({ length: count }, (_, i) => {
+    const t = i / (count - 1);
+    return Math.pow(s, t);
+  });
+  const sum = weights.reduce((acc, w) => acc + w, 0);
+  return weights.map((w) => w / sum);
+}
+
 export function buildScaleLegs(opts: {
   assetIndex: number;
   side: OrderSide;
@@ -51,10 +62,11 @@ export function buildScaleLegs(opts: {
   startPrice: number;
   endPrice: number;
   orderCount: number;
+  sizeSkew?: number;
   meta: HlAssetMeta;
 }): HlOrderLeg[] {
   const count = Math.max(2, Math.min(20, Math.floor(opts.orderCount)));
-  const sizeEach = opts.totalSize / count;
+  const weights = scaleSizeWeights(count, opts.sizeSkew ?? 1);
   const priceStep = (opts.endPrice - opts.startPrice) / (count - 1);
 
   return Array.from({ length: count }, (_, i) => {
@@ -63,7 +75,7 @@ export function buildScaleLegs(opts: {
       assetIndex: opts.assetIndex,
       side: opts.side,
       kind: 'limit',
-      size: sizeEach,
+      size: opts.totalSize * weights[i],
       price,
       markPx: price,
       meta: opts.meta,

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import Logo from '../components/ui/Logo';
 import { supabase } from '../lib/supabase';
-import { afterAuthGo } from '../lib/appUrls';
+import { afterAuthGo, getAppEntryPath } from '../lib/appUrls';
 import { queueAuthToast } from '../lib/authToast';
 
 /**
@@ -19,7 +19,12 @@ const AuthCallbackPage: React.FC = () => {
     const go = (path: string) => {
       if (done) return;
       done = true;
-      if (path === '/dashboard2' || path.startsWith('/dashboard2/')) {
+      if (
+        path === getAppEntryPath() ||
+        path.startsWith('/app') ||
+        path === '/dashboard2' ||
+        path.startsWith('/dashboard2/')
+      ) {
         queueAuthToast('signed_in');
         afterAuthGo(path, navigate);
       } else {
@@ -42,7 +47,7 @@ const AuthCallbackPage: React.FC = () => {
       if (event === 'PASSWORD_RECOVERY' || isRecovery) {
         go('/reset-password');
       } else if (event === 'SIGNED_IN') {
-        go('/dashboard2');
+        go(getAppEntryPath());
       }
     });
 
@@ -60,7 +65,7 @@ const AuthCallbackPage: React.FC = () => {
         if (sessionError) throw sessionError;
 
         if (session) {
-          go(isRecovery ? '/reset-password' : '/dashboard2');
+          go(isRecovery ? '/reset-password' : getAppEntryPath());
           return;
         }
 
@@ -69,7 +74,7 @@ const AuthCallbackPage: React.FC = () => {
           await new Promise((r) => setTimeout(r, 800));
           const { data: { session: retry } } = await supabase.auth.getSession();
           if (retry) {
-            go(isRecovery ? '/reset-password' : '/dashboard2');
+            go(isRecovery ? '/reset-password' : getAppEntryPath());
             return;
           }
         }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, type LinkProps } from 'react-router-dom';
-import { getAppUrl, isExternalAppUrl } from '../../lib/appUrls';
+import { getAppEntryPath, getAppUrl, isExternalAppUrl } from '../../lib/appUrls';
 
 type Props = Omit<LinkProps, 'to'> & {
   to?: string;
@@ -8,7 +8,7 @@ type Props = Omit<LinkProps, 'to'> & {
 };
 
 /** Link to dashboard app — uses app subdomain when VITE_APP_URL is set */
-const AppHref: React.FC<Props> = ({ to = '/dashboard2', href, children, className, ...rest }) => {
+const AppHref: React.FC<Props> = ({ to = getAppEntryPath(), href, children, className, ...rest }) => {
   const target = href ?? getAppUrl(to);
   if (isExternalAppUrl(target)) {
     return (

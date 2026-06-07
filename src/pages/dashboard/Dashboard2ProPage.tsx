@@ -1,7 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAppKitAccount } from '@reown/appkit/react';
 import ProTradeShell from '../../components/protrade/ProTradeShell';
 import ProTradeTopNav, { type ProTradeSection } from '../../components/protrade/ProTradeTopNav';
+import ProTradeProfile from '../../components/protrade/ProTradeProfile';
+import ProTradeBotHistory from '../../components/protrade/ProTradeBotHistory';
+import {
+  ProTradeBotDockSlot,
+  ProTradeBotPanelSlot,
+  ProTradeBotProvider,
+  ProTradeBotStatusBar,
+} from '../../components/protrade/ProTradeBotSide';
+import type { DockTab } from '../../components/terminal/TerminalPositionsDock';
 import ProTradeTickerStrip from '../../components/protrade/ProTradeTickerStrip';
 import ProTradeMarketBar from '../../components/protrade/ProTradeMarketBar';
 import ProTradeChart from '../../components/protrade/ProTradeChart';
@@ -9,6 +19,7 @@ import ProTradeOrderBook from '../../components/protrade/ProTradeOrderBook';
 import ProTradeOrderPanel from '../../components/protrade/ProTradeOrderPanel';
 import ProTradeDock, { type ProTradeDockTab } from '../../components/protrade/ProTradeDock';
 import ProTradeStatusBar from '../../components/protrade/ProTradeStatusBar';
+import TerminalSupportModal from '../../components/terminal/TerminalSupportModal';
 import ProTradeDepositModal from '../../components/protrade/ProTradeDepositModal';
 import ProTradeTransferModal from '../../components/protrade/ProTradeTransferModal';
 import ProTradePortfolio from '../../components/protrade/ProTradePortfolio';
@@ -31,10 +42,33 @@ import type { HlPosition } from '../../lib/hyperliquid/user';
 import type { HlMarket } from '../../lib/hyperliquid/markets';
 import { getSpotDisplayName, isHlSpotCoin } from '../../lib/hyperliquid/spot';
 import { readNum, toNum } from '../../lib/hyperliquid/parse';
+import { useBotPositionBadge } from '../../hooks/useBotPositionBadge';
+import { usePositionReconciliation } from '../../hooks/usePositionReconciliation';
+import { useAuth } from '../../contexts/AuthContext';
+import ProTradeSignInModal from '../../components/protrade/ProTradeSignInModal';
+import ProTradeRegisterModal from '../../components/protrade/ProTradeRegisterModal';
+import type { ProTradeProfileTab } from '../../components/protrade/proTradeProfileTypes';
+
+const PROFILE_TABS = new Set<ProTradeProfileTab>(['identity', 'security', 'wallets', 'history']);
+
+function parseProfileTab(raw: string | null): ProTradeProfileTab {
+  if (raw && PROFILE_TABS.has(raw as ProTradeProfileTab)) {
+    return raw as ProTradeProfileTab;
+  }
+  return 'identity';
+}
 
 const Dashboard2ProPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user, sessionReady } = useAuth();
   const { address, isConnected } = useAppKitAccount();
-  const [section, setSection] = useState<ProTradeSection>('perps');
+  const initialSection = searchParams.get('section');
+  const [section, setSection] = useState<ProTradeSection>(() => {
+    if (initialSection === 'profile') return 'profile';
+    if (initialSection === 'bot') return 'bot';
+    if (initialSection === 'history') return 'history';
+    return 'perps';
+  });
   const [perpCoin, setPerpCoin] = useState(DEFAULT_PRO_COIN);
   const [spotCoin, setSpotCoin] = useState(DEFAULT_SPOT_COIN);
   const [interval, setInterval] = useState<HlInterval>(DEFAULT_PRO_INTERVAL);
@@ -43,7 +77,23 @@ const Dashboard2ProPage: React.FC = () => {
   const [transferOpen, setTransferOpen] = useState(false);
   const [perpDockTab, setPerpDockTab] = useState<ProTradeDockTab>('positions');
   const [spotDockTab, setSpotDockTab] = useState<ProTradeDockTab>('balances');
+  const [botDockTab, setBotDockTab] = useState<DockTab>('history');
   const [toast, setToast] = useState<string | null>(null);
+  const [showSupport, setShowSupport] = useState(false);
+  const [authModal, setAuthModal] = useState<'signin' | 'register' | null>(null);
+  const [signInReason, setSignInReason] = useState<string | undefined>();
+  const [botSyncTick, setBotSyncTick] = useState(0);
+  const [historyHighlightId, setHistoryHighlightId] = useState<string | null>(null);
+  const [profileTab, setProfileTab] = useState<ProTradeProfileTab>(() =>
+    parseProfileTab(searchParams.get('tab'))
+  );
+  const { badge: botBadge } = useBotPositionBadge(botSyncTick);
+
+  usePositionReconciliation(
+    useCallback(() => {
+      setBotSyncTick((n) => n + 1);
+    }, [])
+  );
 
   const { markets: perpMarkets, loading: perpMarketsLoading, refresh: refreshPerpMarkets } =
     useHyperliquidMarkets();
@@ -162,6 +212,115 @@ const Dashboard2ProPage: React.FC = () => {
     if (!valid.has(spotCoin)) setSpotCoin(spotMarkets[0]?.name ?? DEFAULT_SPOT_COIN);
   }, [spotMarkets, spotCoin]);
 
+  const closeAuthModal = useCallback(() => {
+    setAuthModal(null);
+    setSignInReason(undefined);
+  }, []);
+
+  const promptSignIn = useCallback((reason: string) => {
+    setSignInReason(reason);
+    setAuthModal('signin');
+  }, []);
+
+  const switchToRegister = useCallback(() => {
+    setSignInReason(undefined);
+    setAuthModal('register');
+  }, []);
+
+  const switchToSignIn = useCallback(() => {
+    setAuthModal('signin');
+  }, []);
+
+  const requireAuth = (reason: string): boolean => {
+    if (user) return true;
+    promptSignIn(reason);
+    return false;
+  };
+
+  const openProfile = (tab: ProTradeProfileTab = 'identity') => {
+    if (!requireAuth('Sign in to open profile and vault settings.')) return;
+    setProfileTab(tab);
+    setSection('profile');
+    setFundsModal(null);
+    const params = new URLSearchParams(searchParams);
+    params.set('section', 'profile');
+    params.set('tab', tab);
+    setSearchParams(params, { replace: true });
+  };
+
+  const handleProfileTabChange = (tab: ProTradeProfileTab) => {
+    setProfileTab(tab);
+    const params = new URLSearchParams(searchParams);
+    params.set('section', 'profile');
+    params.set('tab', tab);
+    setSearchParams(params, { replace: true });
+  };
+
+  const handleSectionChange = (next: ProTradeSection) => {
+    if (next === 'profile') {
+      openProfile(profileTab);
+      return;
+    }
+    if (next === 'history' && !requireAuth('Sign in to view bot trade history from Supabase.')) {
+      return;
+    }
+    setSection(next);
+    setFundsModal(null);
+    if (next === 'bot' || next === 'history') {
+      const params = new URLSearchParams(searchParams);
+      params.set('section', next);
+      params.delete('tab');
+      setSearchParams(params, { replace: true });
+    } else {
+      const params = new URLSearchParams(searchParams);
+      params.delete('section');
+      params.delete('tab');
+      setSearchParams(params, { replace: true });
+    }
+  };
+
+  const handleBotTradeToggle = () => {
+    setFundsModal(null);
+    if (section === 'bot') {
+      handleSectionChange('perps');
+    } else {
+      setBotDockTab('history');
+      handleSectionChange('bot');
+    }
+  };
+
+  useEffect(() => {
+    const urlSection = searchParams.get('section');
+    const urlTab = parseProfileTab(searchParams.get('tab'));
+    if (urlSection === 'profile') setProfileTab(urlTab);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!sessionReady || user) return;
+    if (section !== 'profile' && section !== 'history') return;
+
+    const reason =
+      section === 'profile'
+        ? 'Sign in to open profile and vault settings.'
+        : 'Sign in to view bot trade history.';
+
+    setSection('perps');
+    const params = new URLSearchParams(searchParams);
+    params.delete('section');
+    setSearchParams(params, { replace: true });
+    setSignInReason(reason);
+    setAuthModal((current) => current ?? 'signin');
+  }, [sessionReady, user, section, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const hash = window.location.hash.replace('#', '');
+    if (!hash || section !== 'profile') return;
+    const timer = window.setTimeout(() => {
+      document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [section]);
+
   const handleRefreshAll = async () => {
     await Promise.all([
       perpMarket.refresh(),
@@ -188,8 +347,17 @@ const Dashboard2ProPage: React.FC = () => {
     await handleRefreshAll();
   };
 
+  const openBotHistory = (tradeId?: string) => {
+    if (!requireAuth('Sign in to view bot trade notifications and history.')) return;
+    setHistoryHighlightId(tradeId ?? null);
+    handleSectionChange('history');
+    if (tradeId) {
+      window.setTimeout(() => setHistoryHighlightId(null), 4500);
+    }
+  };
+
   const renderPerpTerminal = () => (
-    <>
+    <div className="hl-terminal">
       <ProTradeTickerStrip markets={perpMarkets} coin={perpCoin} onCoinChange={setPerpCoin} />
       <ProTradeMarketBar
         coin={perpCoin}
@@ -217,6 +385,7 @@ const Dashboard2ProPage: React.FC = () => {
               loading={perpMarket.loading}
               openOrders={perpOpenOrders}
               onIntervalChange={setInterval}
+              layoutKey={`perps-${perpCoin}-${interval}`}
             />
             <ProTradeOrderBook
               book={perpMarket.book}
@@ -226,65 +395,68 @@ const Dashboard2ProPage: React.FC = () => {
               onPriceClick={(px) => setLimitPrice(String(px))}
             />
           </div>
-              <ProTradeDock
-                account={account}
-                openOrders={perpOpenOrders}
-                fills={perpFills}
-                funding={funding}
-                orderHistory={orderHistory.filter((o) => !isHlSpotCoin(o.coin))}
-                twapOrders={twapOrders.filter((t) => !isHlSpotCoin(t.coin))}
-                markPrices={perpMarkPrices}
-                loading={accountLoading}
-                connected={isConnected}
-                activeTab={perpDockTab}
-                onTabChange={setPerpDockTab}
-                onCoinClick={setPerpCoin}
-                actionBusy={tradeBusy}
-                onCancelOrder={async (c, oid) => {
-                  await cancelOrder(c, oid, 'perp');
-                  await handleRefreshAll();
-                }}
-                onCancelAllOrders={async () => {
-                  await cancelAllOrders(perpOpenOrders.map((o) => ({ coin: o.coin, oid: o.oid, marketKind: 'perp' as const })));
-                  showToast('All orders cancelled');
-                  await handleRefreshAll();
-                }}
-                onCancelTwap={async (c, twapId) => {
-                  await cancelTwapOrder(c, twapId, 'perp');
-                  showToast('TWAP cancelled');
-                  await handleRefreshAll();
-                }}
-                onClosePosition={(p) => void handleClosePosition(p)}
-              />
+              <div className="hl-dock hl-hl-dock">
+                <div className="hl-dock-mode-label">Hyperliquid · Perps account</div>
+                <ProTradeDock
+                  account={account}
+                  openOrders={perpOpenOrders}
+                  fills={perpFills}
+                  funding={funding}
+                  orderHistory={orderHistory.filter((o) => !isHlSpotCoin(o.coin))}
+                  twapOrders={twapOrders.filter((t) => !isHlSpotCoin(t.coin))}
+                  markPrices={perpMarkPrices}
+                  loading={accountLoading}
+                  connected={isConnected}
+                  activeTab={perpDockTab}
+                  onTabChange={setPerpDockTab}
+                  onCoinClick={setPerpCoin}
+                  actionBusy={tradeBusy}
+                  onCancelOrder={async (c, oid) => {
+                    await cancelOrder(c, oid, 'perp');
+                    await handleRefreshAll();
+                  }}
+                  onCancelAllOrders={async () => {
+                    await cancelAllOrders(perpOpenOrders.map((o) => ({ coin: o.coin, oid: o.oid, marketKind: 'perp' as const })));
+                    showToast('All orders cancelled');
+                    await handleRefreshAll();
+                  }}
+                  onCancelTwap={async (c, twapId) => {
+                    await cancelTwapOrder(c, twapId, 'perp');
+                    showToast('TWAP cancelled');
+                    await handleRefreshAll();
+                  }}
+                  onClosePosition={(p) => void handleClosePosition(p)}
+                />
+              </div>
         </div>
 
         <ProTradeOrderPanel
-          coin={perpCoin}
-          markPx={perpMarkPx}
-          maxLeverage={
-            perpMarket.snapshot && 'maxLeverage' in perpMarket.snapshot
-              ? perpMarket.snapshot.maxLeverage
-              : 0
-          }
-          accountValue={perpAccountValue}
-          limitPrice={limitPrice}
-          onLimitPriceChange={setLimitPrice}
-          onSuccess={() => {
-            showToast('Order submitted');
-            void handleRefreshAll();
-          }}
-          onDeposit={() => setFundsModal('deposit')}
-          onWithdraw={() => setFundsModal('withdraw')}
-          onTransfer={() => setTransferOpen(true)}
-          variant="perp"
-          serverTwap={activePerpTwap}
-          onCancelServerTwap={async () => {
-            if (!activePerpTwap) return;
-            await cancelTwapOrder(activePerpTwap.coin, activePerpTwap.twapId, 'perp');
-            showToast('TWAP cancelled');
-            await handleRefreshAll();
-          }}
-        />
+            coin={perpCoin}
+            markPx={perpMarkPx}
+            maxLeverage={
+              perpMarket.snapshot && 'maxLeverage' in perpMarket.snapshot
+                ? perpMarket.snapshot.maxLeverage
+                : 0
+            }
+            accountValue={perpAccountValue}
+            limitPrice={limitPrice}
+            onLimitPriceChange={setLimitPrice}
+            onSuccess={() => {
+              showToast('Order submitted');
+              void handleRefreshAll();
+            }}
+            onDeposit={() => setFundsModal('deposit')}
+            onWithdraw={() => setFundsModal('withdraw')}
+            onTransfer={() => setTransferOpen(true)}
+            variant="perp"
+            serverTwap={activePerpTwap}
+            onCancelServerTwap={async () => {
+              if (!activePerpTwap) return;
+              await cancelTwapOrder(activePerpTwap.coin, activePerpTwap.twapId, 'perp');
+              showToast('TWAP cancelled');
+              await handleRefreshAll();
+            }}
+          />
       </div>
 
       <ProTradeStatusBar
@@ -294,11 +466,60 @@ const Dashboard2ProPage: React.FC = () => {
         positions={account?.positions ?? []}
         totalUpnl={totalUpnl}
       />
-    </>
+    </div>
+  );
+
+  const renderBotTerminal = () => (
+    <div className="hl-terminal">
+      <ProTradeTickerStrip markets={perpMarkets} coin={perpCoin} onCoinChange={setPerpCoin} />
+      <ProTradeMarketBar
+        coin={perpCoin}
+        markets={perpMarkets}
+        marketsLoading={perpMarketsLoading}
+        snapshot={perpMarket.snapshot}
+        loading={perpMarket.loading}
+        onCoinChange={setPerpCoin}
+        variant="perp"
+      />
+
+      {perpMarket.error ? (
+        <div style={{ padding: '8px 12px', color: '#ef5350', fontSize: 12 }} role="alert">
+          {perpMarket.error}
+        </div>
+      ) : null}
+
+      <div className="hl-body">
+        <div className="hl-workspace-main">
+          <div className="hl-chart-row">
+            <ProTradeChart
+              coin={perpCoin}
+              interval={interval}
+              candles={perpMarket.candles}
+              loading={perpMarket.loading}
+              openOrders={perpOpenOrders}
+              onIntervalChange={setInterval}
+              layoutKey={`bot-${perpCoin}-${interval}`}
+            />
+            <ProTradeOrderBook
+              book={perpMarket.book}
+              recentTrades={perpMarket.recentTrades}
+              markPx={perpMarkPx}
+              coin={perpCoin}
+              onPriceClick={(px) => setLimitPrice(String(px))}
+            />
+          </div>
+          <ProTradeBotDockSlot dockTab={botDockTab} onDockTabChange={setBotDockTab} />
+        </div>
+
+        <ProTradeBotPanelSlot onOpenHistory={() => setBotDockTab('open')} />
+      </div>
+
+      <ProTradeBotStatusBar walletConnected={isConnected} wsLive={perpMarket.wsConnected} />
+    </div>
   );
 
   const renderSpotTerminal = () => (
-    <>
+    <div className="hl-terminal">
       <ProTradeTickerStrip
         markets={spotMarketsAsHl}
         coin={spotCoin}
@@ -334,6 +555,7 @@ const Dashboard2ProPage: React.FC = () => {
               loading={spotMarket.loading}
               openOrders={spotOpenOrders}
               onIntervalChange={setInterval}
+              layoutKey={`spot-${spotCoin}-${interval}`}
             />
             <ProTradeOrderBook
               book={spotMarket.book}
@@ -343,37 +565,40 @@ const Dashboard2ProPage: React.FC = () => {
               onPriceClick={(px) => setLimitPrice(String(px))}
             />
           </div>
-          <ProTradeDock
-            account={account}
-            spotBalances={spotBalances}
-            openOrders={spotOpenOrders}
-            fills={spotFills}
-            funding={[]}
-            orderHistory={orderHistory.filter((o) => isHlSpotCoin(o.coin))}
-            twapOrders={twapOrders.filter((t) => isHlSpotCoin(t.coin))}
-            markPrices={{}}
-            loading={accountLoading}
-            connected={isConnected}
-            activeTab={spotDockTab}
-            onTabChange={setSpotDockTab}
-            onCoinClick={setSpotCoin}
-            actionBusy={tradeBusy}
-            variant="spot"
-            onCancelOrder={async (c, oid) => {
-              await cancelOrder(c, oid, 'spot');
-              await handleRefreshAll();
-            }}
-            onCancelAllOrders={async () => {
-              await cancelAllOrders(spotOpenOrders.map((o) => ({ coin: o.coin, oid: o.oid, marketKind: 'spot' as const })));
-              showToast('All orders cancelled');
-              await handleRefreshAll();
-            }}
-            onCancelTwap={async (c, twapId) => {
-              await cancelTwapOrder(c, twapId, 'spot');
-              showToast('TWAP cancelled');
-              await handleRefreshAll();
-            }}
-          />
+          <div className="hl-dock hl-hl-dock">
+            <div className="hl-dock-mode-label">Hyperliquid · Spot account</div>
+            <ProTradeDock
+              account={account}
+              spotBalances={spotBalances}
+              openOrders={spotOpenOrders}
+              fills={spotFills}
+              funding={[]}
+              orderHistory={orderHistory.filter((o) => isHlSpotCoin(o.coin))}
+              twapOrders={twapOrders.filter((t) => isHlSpotCoin(t.coin))}
+              markPrices={{}}
+              loading={accountLoading}
+              connected={isConnected}
+              activeTab={spotDockTab}
+              onTabChange={setSpotDockTab}
+              onCoinClick={setSpotCoin}
+              actionBusy={tradeBusy}
+              variant="spot"
+              onCancelOrder={async (c, oid) => {
+                await cancelOrder(c, oid, 'spot');
+                await handleRefreshAll();
+              }}
+              onCancelAllOrders={async () => {
+                await cancelAllOrders(spotOpenOrders.map((o) => ({ coin: o.coin, oid: o.oid, marketKind: 'spot' as const })));
+                showToast('All orders cancelled');
+                await handleRefreshAll();
+              }}
+              onCancelTwap={async (c, twapId) => {
+                await cancelTwapOrder(c, twapId, 'spot');
+                showToast('TWAP cancelled');
+                await handleRefreshAll();
+              }}
+            />
+          </div>
         </div>
 
         <ProTradeOrderPanel
@@ -409,24 +634,52 @@ const Dashboard2ProPage: React.FC = () => {
         positions={[]}
         totalUpnl={0}
       />
-    </>
+    </div>
   );
 
   return (
     <ProTradeShell>
-      <ProTradeTopNav section={section} onSectionChange={setSection} />
+      <ProTradeTopNav
+        section={section}
+        onSectionChange={handleSectionChange}
+        onBotTradeToggle={handleBotTradeToggle}
+        botOpenCount={botBadge.count}
+        botOpenTone={botBadge.tone}
+        onOpenSupport={() => {
+          if (requireAuth('Sign in to contact support.')) setShowSupport(true);
+        }}
+        onOpenProfile={openProfile}
+        onOpenBotHistory={() => openBotHistory()}
+        onRequireSignIn={promptSignIn}
+        onViewNotificationHistory={(tradeId) => openBotHistory(tradeId)}
+      />
 
       {section === 'perps' ? renderPerpTerminal() : null}
-      {section === 'spot' ? renderSpotTerminal() : null}
-      {section === 'swap' ? (
-        <ProTradeSwap
-          spotBalances={spotBalances}
-          markPx={toNum(swapMarket.snapshot?.markPx)}
-          book={swapMarket.book}
-          onSuccess={() => void handleRefreshAll()}
+      {section === 'bot' ? (
+        <ProTradeBotProvider>{renderBotTerminal()}</ProTradeBotProvider>
+      ) : null}
+      {section === 'profile' ? (
+        <ProTradeProfile activeTab={profileTab} onTabChange={handleProfileTabChange} />
+      ) : null}
+      {section === 'history' ? (
+        <ProTradeBotHistory
+          highlightPositionId={historyHighlightId}
+          refreshKey={botSyncTick}
         />
       ) : null}
+      {section === 'spot' ? renderSpotTerminal() : null}
+      {section === 'swap' ? (
+        <div className="hl-terminal">
+          <ProTradeSwap
+            spotBalances={spotBalances}
+            markPx={toNum(swapMarket.snapshot?.markPx)}
+            book={swapMarket.book}
+            onSuccess={() => void handleRefreshAll()}
+          />
+        </div>
+      ) : null}
       {section === 'portfolio' ? (
+        <div className="hl-terminal">
         <ProTradePortfolio
           account={account}
           spotBalances={spotBalances}
@@ -445,17 +698,45 @@ const Dashboard2ProPage: React.FC = () => {
             setSection('spot');
           }}
         />
+        </div>
       ) : null}
 
       {toast ? <div className="hl-toast">{toast}</div> : null}
 
-      {fundsModal ? (
+      {fundsModal && (section === 'perps' || section === 'spot') ? (
         <ProTradeDepositModal
           initialTab={fundsModal}
           withdrawable={account?.withdrawable}
           onClose={() => setFundsModal(null)}
           onSuccess={() => void handleRefreshAll()}
         />
+      ) : null}
+
+      {showSupport ? (
+        <TerminalSupportModal onClose={() => setShowSupport(false)} />
+      ) : null}
+
+      {authModal ? (
+        <div className="hl-modal-backdrop" role="presentation" onClick={closeAuthModal}>
+          {authModal === 'signin' ? (
+            <ProTradeSignInModal
+              key="signin"
+              embedded
+              open
+              reason={signInReason}
+              onClose={closeAuthModal}
+              onSwitchToRegister={switchToRegister}
+            />
+          ) : (
+            <ProTradeRegisterModal
+              key="register"
+              embedded
+              open
+              onClose={closeAuthModal}
+              onSwitchToSignIn={switchToSignIn}
+            />
+          )}
+        </div>
       ) : null}
 
       {transferOpen ? (
