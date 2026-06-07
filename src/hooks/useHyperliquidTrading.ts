@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { toNum } from '../lib/hyperliquid/parse';
 import { useWalletClient } from 'wagmi';
 import { createHlExchangeClient } from '../lib/hyperliquid/exchange';
-import { getHlAssetIndex, getHlAssetMeta } from '../lib/hyperliquid/meta';
+import { formatHlSize, getHlAssetIndex, getHlAssetMeta } from '../lib/hyperliquid/meta';
 import { getHlSpotAssetIndex, getHlSpotAssetMeta } from '../lib/hyperliquid/spot';
 import type { HlMarketKind } from './useHyperliquidMarket';
 import { depositUsdcToHyperliquid } from '../lib/hyperliquid/bridge';
@@ -26,28 +27,27 @@ export type TradeSettings = {
 
 export type TwapState = {
   active: boolean;
-  remaining: number;
-  total: number;
+  twapId: number | null;
+  coin: string | null;
+  marketKind: HlMarketKind;
+  minutes: number;
 };
 
 export function useHyperliquidTrading() {
   const { data: walletClient } = useWalletClient();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [twap, setTwap] = useState<TwapState>({ active: false, remaining: 0, total: 0 });
-  const twapTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const twapRunRef = useRef<(() => Promise<void>) | null>(null);
+  const [twap, setTwap] = useState<TwapState>({
+    active: false,
+    twapId: null,
+    coin: null,
+    marketKind: 'perp',
+    minutes: 0,
+  });
 
   const clearTwap = useCallback(() => {
-    if (twapTimerRef.current) {
-      clearInterval(twapTimerRef.current);
-      twapTimerRef.current = null;
-    }
-    twapRunRef.current = null;
-    setTwap({ active: false, remaining: 0, total: 0 });
+    setTwap({ active: false, twapId: null, coin: null, marketKind: 'perp', minutes: 0 });
   }, []);
-
-  useEffect(() => () => clearTwap(), [clearTwap]);
 
   const requireWallet = useCallback(() => {
     if (!walletClient) throw new Error('Connect wallet first');
@@ -242,65 +242,60 @@ export function useHyperliquidTrading() {
   );
 
   const startTwap = useCallback(
-    async (opts: {
+    (opts: {
       coin: string;
       side: OrderSide;
       totalSize: number;
-      markPx: number;
-      slices: number;
-      intervalSec: number;
+      minutes: number;
+      randomize?: boolean;
+      reduceOnly?: boolean;
       settings?: TradeSettings;
-    }) => {
-      clearTwap();
-      setError(null);
-
-      const slices = Math.max(2, Math.min(20, Math.floor(opts.slices)));
-      const sizeEach = opts.totalSize / slices;
-      if (!Number.isFinite(sizeEach) || sizeEach <= 0) {
-        throw new Error('Invalid TWAP size');
-      }
-
-      let completed = 0;
-      setTwap({ active: true, remaining: slices, total: slices });
-
-      const runSlice = async () => {
-        if (completed >= slices) {
-          clearTwap();
-          return;
-        }
-        completed += 1;
-        try {
-          await executeSimpleOrder({
-            coin: opts.coin,
-            side: opts.side,
-            kind: 'market',
-            size: sizeEach,
-            markPx: opts.markPx,
-            settings: completed === 1 ? opts.settings : undefined,
-            marketKind: opts.marketKind,
-          });
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : 'TWAP slice failed';
-          setError(msg);
-          clearTwap();
-          return;
+      marketKind?: HlMarketKind;
+    }) =>
+      withBusy(async () => {
+        clearTwap();
+        const marketKind = opts.marketKind ?? 'perp';
+        const minutes = Math.max(5, Math.min(1440, Math.floor(opts.minutes)));
+        if (!Number.isFinite(opts.totalSize) || opts.totalSize <= 0) {
+          throw new Error('Invalid TWAP size');
         }
 
-        const left = slices - completed;
-        setTwap({ active: left > 0, remaining: left, total: slices });
-        if (left <= 0) clearTwap();
-      };
+        const { index: assetIndex, meta } = await resolveAsset(opts.coin, marketKind);
+        await applyTradeSettings(opts.coin, opts.settings, marketKind);
 
-      twapRunRef.current = runSlice;
-      await runSlice();
+        const client = createHlExchangeClient(requireWallet());
+        const result = await client.twapOrder({
+          twap: {
+            a: assetIndex,
+            b: opts.side === 'long',
+            s: formatHlSize(opts.totalSize, meta.szDecimals),
+            r: opts.reduceOnly ?? false,
+            m: minutes,
+            t: opts.randomize ?? false,
+          },
+        });
 
-      if (slices > 1 && twapRunRef.current) {
-        twapTimerRef.current = setInterval(() => {
-          void twapRunRef.current?.();
-        }, opts.intervalSec * 1000);
-      }
-    },
-    [clearTwap, executeSimpleOrder]
+        const status = result.response?.data?.status as
+          | { running?: { twapId?: number } }
+          | { error?: string }
+          | undefined;
+
+        if (status && 'error' in status && status.error) {
+          throw new Error(String(status.error));
+        }
+
+        const twapId = status && 'running' in status ? toNum(status.running?.twapId) : 0;
+        if (twapId <= 0) throw new Error('TWAP order failed');
+
+        setTwap({
+          active: true,
+          twapId,
+          coin: opts.coin,
+          marketKind,
+          minutes,
+        });
+      }, 'TWAP failed'),
+    [applyTradeSettings, clearTwap, requireWallet, resolveAsset, withBusy]
   );
 
   const cancelOrder = useCallback(
@@ -344,6 +339,15 @@ export function useHyperliquidTrading() {
     [requireWallet, withBusy]
   );
 
+  const cancelTwap = useCallback(async () => {
+    if (!twap.active || !twap.twapId || !twap.coin) {
+      clearTwap();
+      return;
+    }
+    await cancelTwapOrder(twap.coin, twap.twapId, twap.marketKind);
+    clearTwap();
+  }, [twap, clearTwap, cancelTwapOrder]);
+
   const transferUsdClass = useCallback(
     (amountUsdc: string, toPerp: boolean) =>
       withBusy(async () => {
@@ -377,7 +381,7 @@ export function useHyperliquidTrading() {
     placeScaleOrder,
     placeTpSlOrders,
     startTwap,
-    cancelTwap: clearTwap,
+    cancelTwap,
     cancelOrder,
     cancelAllOrders,
     deposit,

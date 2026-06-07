@@ -251,3 +251,38 @@ export const USDE_USDC_SPOT_COIN = '@150';
 export function isHlSpotCoin(coin: string): boolean {
   return coin.includes('/') || coin.startsWith('@');
 }
+
+const STABLE_SPOT_TOKENS = new Set(['USDC', 'USDE', 'USDH']);
+
+/** Mark prices for spot wallet tokens (base/quote USDC pairs). */
+export async function fetchHlSpotTokenPrices(
+  tokenNames: string[]
+): Promise<Record<string, number>> {
+  const unique = [...new Set(tokenNames.filter(Boolean))];
+  if (unique.length === 0) return {};
+
+  const markets = await fetchHlSpotMarkets();
+  const out: Record<string, number> = {};
+
+  for (const token of unique) {
+    if (STABLE_SPOT_TOKENS.has(token)) {
+      if (token === 'USDC') {
+        out[token] = 1;
+        continue;
+      }
+      const stablePair = markets.find(
+        (m) => m.baseToken === token && m.quoteToken === 'USDC' && m.markPx > 0
+      );
+      out[token] = stablePair?.markPx ?? 1;
+      continue;
+    }
+
+    const pair =
+      markets.find((m) => m.baseToken === token && m.quoteToken === 'USDC' && m.markPx > 0) ??
+      markets.find((m) => m.displayName.startsWith(`${token}/`) && m.markPx > 0);
+
+    if (pair) out[token] = pair.markPx;
+  }
+
+  return out;
+}

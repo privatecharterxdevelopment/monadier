@@ -19,6 +19,7 @@ import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
 import { useHyperliquidMarkets } from '../../hooks/useHyperliquidMarkets';
 import { useHyperliquidSpotMarkets } from '../../hooks/useHyperliquidSpotMarkets';
 import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
+import { useHyperliquidSpotPrices } from '../../hooks/useHyperliquidSpotPrices';
 import {
   DEFAULT_PRO_COIN,
   DEFAULT_PRO_INTERVAL,
@@ -109,6 +110,8 @@ const Dashboard2ProPage: React.FC = () => {
     [account?.positions]
   );
   const { prices: positionMarkPrices } = useHyperliquidMarkPrices(positionCoins);
+  const spotTokens = useMemo(() => spotBalances.map((b) => b.coin), [spotBalances]);
+  const { prices: spotTokenPrices } = useHyperliquidSpotPrices(spotTokens);
 
   const perpAccountValue = readNum(account, ['margin', 'accountValue']);
   const perpWithdrawable = toNum(account?.withdrawable);
@@ -303,6 +306,7 @@ const Dashboard2ProPage: React.FC = () => {
           <div className="hl-chart-row">
             <ProTradeChart
               coin={spotDisplayName}
+              orderCoin={spotCoin}
               interval={interval}
               candles={spotMarket.candles}
               loading={spotMarket.loading}
@@ -396,8 +400,20 @@ const Dashboard2ProPage: React.FC = () => {
         <ProTradePortfolio
           account={account}
           spotBalances={spotBalances}
+          spotPrices={spotTokenPrices}
           loading={accountLoading}
           connected={isConnected}
+          onNavigatePerps={(coin) => {
+            setPerpCoin(coin);
+            setSection('perps');
+          }}
+          onNavigateSpot={(token) => {
+            const pair =
+              spotMarkets.find((m) => m.baseToken === token)?.name ??
+              spotMarkets.find((m) => m.displayName.startsWith(`${token}/`))?.name;
+            if (pair) setSpotCoin(pair);
+            setSection('spot');
+          }}
         />
       ) : null}
 

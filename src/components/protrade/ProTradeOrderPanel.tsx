@@ -87,8 +87,8 @@ const ProTradeOrderPanel: React.FC<Props> = ({
   const [sizePct, setSizePct] = useState(0);
   const [tpPrice, setTpPrice] = useState('');
   const [slPrice, setSlPrice] = useState('');
-  const [twapSlices, setTwapSlices] = useState('5');
-  const [twapInterval, setTwapInterval] = useState('30');
+  const [twapMinutes, setTwapMinutes] = useState('10');
+  const [twapRandomize, setTwapRandomize] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -199,13 +199,13 @@ const ProTradeOrderPanel: React.FC<Props> = ({
           coin,
           side,
           totalSize: resolveSize(),
-          markPx,
-          slices: parsePositive(twapSlices, 'slice count'),
-          intervalSec: parsePositive(twapInterval, 'interval'),
+          minutes: parsePositive(twapMinutes, 'duration'),
+          randomize: twapRandomize,
+          reduceOnly: isSpot ? false : reduceOnly,
           settings: isSpot ? undefined : settings,
           marketKind,
         });
-        showSuccess('TWAP started');
+        showSuccess('TWAP submitted (server-side)');
       }
     } catch (err: unknown) {
       if (err instanceof Error && !error) setLocalError(err.message);
@@ -215,7 +215,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
   const displayError = localError || error;
   const submitLabel =
     mode === 'twap' && twap.active
-      ? `TWAP ${twap.total - twap.remaining}/${twap.total}`
+      ? `TWAP active (${twap.minutes}m)`
       : mode === 'scale'
         ? `Place ${scaleOrders || '0'} Orders`
         : mode === 'tpsl'
@@ -376,13 +376,23 @@ const ProTradeOrderPanel: React.FC<Props> = ({
         {mode === 'twap' ? (
           <>
             <div>
-              <div className="hl-entry-label">Slices</div>
-              <input className="hl-entry-input" value={twapSlices} onChange={(e) => setTwapSlices(e.target.value)} inputMode="numeric" />
+              <div className="hl-entry-label">Duration (minutes, min 5)</div>
+              <input
+                className="hl-entry-input"
+                value={twapMinutes}
+                onChange={(e) => setTwapMinutes(e.target.value)}
+                inputMode="numeric"
+              />
             </div>
-            <div>
-              <div className="hl-entry-label">Interval (sec)</div>
-              <input className="hl-entry-input" value={twapInterval} onChange={(e) => setTwapInterval(e.target.value)} inputMode="numeric" />
-            </div>
+            <label className="hl-entry-check">
+              <input
+                type="checkbox"
+                checked={twapRandomize}
+                onChange={(e) => setTwapRandomize(e.target.checked)}
+              />
+              Randomize slice timing
+            </label>
+            <p className="hl-entry-hint">Runs on Hyperliquid servers — survives tab close.</p>
           </>
         ) : null}
 
@@ -433,8 +443,8 @@ const ProTradeOrderPanel: React.FC<Props> = ({
         )}
 
         {twap.active ? (
-          <button type="button" className="hl-entry-foot-btn" onClick={cancelTwap}>
-            Stop TWAP
+          <button type="button" className="hl-entry-foot-btn" onClick={() => void cancelTwap()}>
+            Cancel TWAP
           </button>
         ) : null}
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   CandlestickSeries,
   ColorType,
@@ -14,6 +14,9 @@ import type { HlOpenOrder } from '../../lib/hyperliquid/user';
 import { PRO_TRADE_INTERVALS } from '../../lib/hyperliquid/constants';
 import { fmtPrice } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
+import ProTradeTradingViewChart from './ProTradeTradingViewChart';
+
+type ChartEngine = 'hl' | 'tv';
 
 type Props = {
   coin: string;
@@ -21,6 +24,7 @@ type Props = {
   candles: HlCandleBar[];
   loading: boolean;
   openOrders?: HlOpenOrder[];
+  orderCoin?: string;
   onIntervalChange: (interval: HlInterval) => void;
 };
 
@@ -30,16 +34,19 @@ const ProTradeChart: React.FC<Props> = ({
   candles,
   loading,
   openOrders = [],
+  orderCoin,
   onIntervalChange,
 }) => {
+  const [engine, setEngine] = useState<ChartEngine>('hl');
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const priceLinesRef = useRef<IPriceLine[]>([]);
+  const overlayCoin = orderCoin ?? coin;
 
   useEffect(() => {
     const el = containerRef.current;
-    if (!el) return;
+    if (!el || engine !== 'hl') return;
 
     const chart = createChart(el, {
       layout: {
@@ -91,12 +98,12 @@ const ProTradeChart: React.FC<Props> = ({
       seriesRef.current = null;
       priceLinesRef.current = [];
     };
-  }, []);
+  }, [engine]);
 
   useEffect(() => {
     const series = seriesRef.current;
     const chart = chartRef.current;
-    if (!series || !chart) return;
+    if (!series || !chart || engine !== 'hl') return;
 
     if (candles.length === 0) {
       series.setData([]);
@@ -112,18 +119,18 @@ const ProTradeChart: React.FC<Props> = ({
     }));
     series.setData(data);
     chart.timeScale().fitContent();
-  }, [candles, coin]);
+  }, [candles, coin, engine]);
 
   useEffect(() => {
     const series = seriesRef.current;
-    if (!series) return;
+    if (!series || engine !== 'hl') return;
 
     for (const line of priceLinesRef.current) {
       series.removePriceLine(line);
     }
     priceLinesRef.current = [];
 
-    const coinOrders = openOrders.filter((o) => o.coin === coin);
+    const coinOrders = openOrders.filter((o) => o.coin === overlayCoin);
     for (const o of coinOrders) {
       const px = toNum(o.limitPx);
       if (px <= 0) continue;
@@ -138,7 +145,7 @@ const ProTradeChart: React.FC<Props> = ({
       });
       priceLinesRef.current.push(line);
     }
-  }, [openOrders, coin]);
+  }, [openOrders, overlayCoin, engine]);
 
   return (
     <div className="hl-chart-wrap">
@@ -156,14 +163,36 @@ const ProTradeChart: React.FC<Props> = ({
             </button>
           ))}
         </div>
+        <div className="hl-chart-toolbar-right">
+          <button
+            type="button"
+            className={`hl-chart-tf ${engine === 'hl' ? 'hl-chart-tf--on' : ''}`}
+            onClick={() => setEngine('hl')}
+          >
+            HL
+          </button>
+          <button
+            type="button"
+            className={`hl-chart-tf ${engine === 'tv' ? 'hl-chart-tf--on' : ''}`}
+            onClick={() => setEngine('tv')}
+          >
+            TV
+          </button>
+        </div>
       </div>
-      {loading && candles.length === 0 ? (
-        <div className="hl-chart-empty">Loading chart…</div>
-      ) : null}
-      {!loading && candles.length === 0 ? (
-        <div className="hl-chart-empty">Chart data unavailable</div>
-      ) : null}
-      <div ref={containerRef} className="hl-chart-canvas" />
+      {engine === 'hl' ? (
+        <>
+          {loading && candles.length === 0 ? (
+            <div className="hl-chart-empty">Loading chart…</div>
+          ) : null}
+          {!loading && candles.length === 0 ? (
+            <div className="hl-chart-empty">Chart data unavailable</div>
+          ) : null}
+          <div ref={containerRef} className="hl-chart-canvas" />
+        </>
+      ) : (
+        <ProTradeTradingViewChart coin={coin} interval={interval} />
+      )}
     </div>
   );
 };

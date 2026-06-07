@@ -7,16 +7,31 @@ import { readNum, toNum } from '../../lib/hyperliquid/parse';
 type Props = {
   account: HlAccountState | null;
   spotBalances: HlSpotBalance[];
+  spotPrices?: Record<string, number>;
   loading: boolean;
   connected: boolean;
+  onNavigatePerps?: (coin: string) => void;
+  onNavigateSpot?: (coin: string) => void;
 };
 
-function spotUsdValue(b: HlSpotBalance): number {
-  if (b.coin === 'USDC' || b.coin === 'USDE' || b.coin === 'USDH') return toNum(b.total);
+function spotUsdValue(b: HlSpotBalance, prices: Record<string, number>): number {
+  const total = toNum(b.total);
+  if (total <= 0) return 0;
+  const px = prices[b.coin];
+  if (px != null && px > 0) return total * px;
+  if (b.coin === 'USDC' || b.coin === 'USDE' || b.coin === 'USDH') return total;
   return toNum(b.entryNtl);
 }
 
-const ProTradePortfolio: React.FC<Props> = ({ account, spotBalances, loading, connected }) => {
+const ProTradePortfolio: React.FC<Props> = ({
+  account,
+  spotBalances,
+  spotPrices = {},
+  loading,
+  connected,
+  onNavigatePerps,
+  onNavigateSpot,
+}) => {
   const perpValue = readNum(account, ['margin', 'accountValue']);
   const withdrawable = toNum(account?.withdrawable);
   const spotUsdc = useMemo(
@@ -24,12 +39,8 @@ const ProTradePortfolio: React.FC<Props> = ({ account, spotBalances, loading, co
     [spotBalances]
   );
   const spotTotal = useMemo(
-    () => spotBalances.reduce((s, b) => s + spotUsdValue(b), 0),
-    [spotBalances]
-  );
-  const otherSpot = useMemo(
-    () => spotBalances.filter((b) => b.coin !== 'USDC'),
-    [spotBalances]
+    () => spotBalances.reduce((s, b) => s + spotUsdValue(b, spotPrices), 0),
+    [spotBalances, spotPrices]
   );
 
   if (!connected) {
@@ -86,7 +97,15 @@ const ProTradePortfolio: React.FC<Props> = ({ account, spotBalances, loading, co
             <tbody>
               {(account?.positions ?? []).map((p) => (
                 <tr key={p.coin}>
-                  <td>{p.coin}</td>
+                  <td>
+                    {onNavigatePerps ? (
+                      <button type="button" className="hl-coin-link" onClick={() => onNavigatePerps(p.coin)}>
+                        {p.coin}
+                      </button>
+                    ) : (
+                      p.coin
+                    )}
+                  </td>
                   <td>{p.szi}</td>
                   <td>{p.entryPx}</td>
                   <td className={toNum(p.unrealizedPnl) >= 0 ? 'hl-up' : 'hl-down'}>
@@ -110,26 +129,34 @@ const ProTradePortfolio: React.FC<Props> = ({ account, spotBalances, loading, co
                 <th>Token</th>
                 <th>Total</th>
                 <th>On hold</th>
+                <th>Mark</th>
                 <th>Value (est.)</th>
               </tr>
             </thead>
             <tbody>
-              {spotBalances.map((b) => (
-                <tr key={`${b.coin}-${b.token}`}>
-                  <td>{b.coin}</td>
-                  <td>{b.total}</td>
-                  <td>{b.hold}</td>
-                  <td>{fmtUsdSymbol(spotUsdValue(b))}</td>
-                </tr>
-              ))}
+              {spotBalances.map((b) => {
+                const mark = spotPrices[b.coin];
+                return (
+                  <tr key={`${b.coin}-${b.token}`}>
+                    <td>
+                      {onNavigateSpot ? (
+                        <button type="button" className="hl-coin-link" onClick={() => onNavigateSpot(b.coin)}>
+                          {b.coin}
+                        </button>
+                      ) : (
+                        b.coin
+                      )}
+                    </td>
+                    <td>{b.total}</td>
+                    <td>{b.hold}</td>
+                    <td>{mark != null && mark > 0 ? fmtUsdSymbol(mark, mark < 1 ? 4 : 2) : '—'}</td>
+                    <td>{fmtUsdSymbol(spotUsdValue(b, spotPrices))}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
-        {otherSpot.length > 0 ? (
-          <p className="hl-portfolio-hint">
-            Non-USDC spot values use entry notional estimates.
-          </p>
-        ) : null}
       </div>
     </div>
   );
