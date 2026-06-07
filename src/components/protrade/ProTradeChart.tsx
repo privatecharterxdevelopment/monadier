@@ -2,12 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   CandlestickSeries,
   ColorType,
+  HistogramSeries,
   LineStyle,
   createChart,
   type IChartApi,
   type IPriceLine,
   type ISeriesApi,
   type CandlestickData,
+  type HistogramData,
 } from 'lightweight-charts';
 import type { HlCandleBar, HlInterval } from '../../lib/hyperliquid/types';
 import type { HlOpenOrder } from '../../lib/hyperliquid/user';
@@ -15,8 +17,9 @@ import { PRO_TRADE_INTERVALS } from '../../lib/hyperliquid/constants';
 import { fmtPrice } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
 import ProTradeTradingViewChart from './ProTradeTradingViewChart';
+import ProTradeChartingLibraryChart from './ProTradeChartingLibraryChart';
 
-type ChartEngine = 'hl' | 'tv';
+type ChartEngine = 'hl' | 'tv' | 'hltv';
 
 type Props = {
   coin: string;
@@ -41,8 +44,10 @@ const ProTradeChart: React.FC<Props> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const volumeRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const priceLinesRef = useRef<IPriceLine[]>([]);
   const overlayCoin = orderCoin ?? coin;
+  const dataCoin = orderCoin ?? coin;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -61,7 +66,7 @@ const ProTradeChart: React.FC<Props> = ({
       },
       rightPriceScale: {
         borderColor: '#262626',
-        scaleMargins: { top: 0.08, bottom: 0.05 },
+        scaleMargins: { top: 0.08, bottom: 0.22 },
       },
       timeScale: {
         borderColor: '#262626',
@@ -82,8 +87,17 @@ const ProTradeChart: React.FC<Props> = ({
       wickDownColor: '#ef5350',
     });
 
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      priceFormat: { type: 'volume' },
+      priceScaleId: 'volume',
+    });
+    volumeSeries.priceScale().applyOptions({
+      scaleMargins: { top: 0.82, bottom: 0 },
+    });
+
     chartRef.current = chart;
     seriesRef.current = series;
+    volumeRef.current = volumeSeries;
 
     const ro = new ResizeObserver(() => {
       chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
@@ -96,17 +110,20 @@ const ProTradeChart: React.FC<Props> = ({
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
+      volumeRef.current = null;
       priceLinesRef.current = [];
     };
   }, [engine]);
 
   useEffect(() => {
     const series = seriesRef.current;
+    const volumeSeries = volumeRef.current;
     const chart = chartRef.current;
-    if (!series || !chart || engine !== 'hl') return;
+    if (!series || !volumeSeries || !chart || engine !== 'hl') return;
 
     if (candles.length === 0) {
       series.setData([]);
+      volumeSeries.setData([]);
       return;
     }
 
@@ -118,6 +135,15 @@ const ProTradeChart: React.FC<Props> = ({
       close: c.close,
     }));
     series.setData(data);
+
+    const volData: HistogramData[] = candles
+      .filter((c) => (c.volume ?? 0) > 0)
+      .map((c) => ({
+        time: c.time as HistogramData['time'],
+        value: c.volume ?? 0,
+        color: c.close >= c.open ? 'rgba(61, 214, 140, 0.45)' : 'rgba(239, 83, 80, 0.45)',
+      }));
+    volumeSeries.setData(volData);
     chart.timeScale().fitContent();
   }, [candles, coin, engine]);
 
@@ -173,6 +199,14 @@ const ProTradeChart: React.FC<Props> = ({
           </button>
           <button
             type="button"
+            className={`hl-chart-tf ${engine === 'hltv' ? 'hl-chart-tf--on' : ''}`}
+            onClick={() => setEngine('hltv')}
+            title="HL datafeed + TradingView Charting Library"
+          >
+            HL Pro
+          </button>
+          <button
+            type="button"
             className={`hl-chart-tf ${engine === 'tv' ? 'hl-chart-tf--on' : ''}`}
             onClick={() => setEngine('tv')}
           >
@@ -190,6 +224,8 @@ const ProTradeChart: React.FC<Props> = ({
           ) : null}
           <div ref={containerRef} className="hl-chart-canvas" />
         </>
+      ) : engine === 'hltv' ? (
+        <ProTradeChartingLibraryChart coin={dataCoin} interval={interval} />
       ) : (
         <ProTradeTradingViewChart coin={coin} interval={interval} />
       )}

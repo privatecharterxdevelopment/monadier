@@ -6,14 +6,17 @@ import type { HlSpotBalance } from '../../lib/hyperliquid/user';
 import { DEFAULT_SWAP_COIN } from '../../lib/hyperliquid/constants';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
+import { estimateSwapQuote } from '../../lib/hyperliquid/swap';
+import type { HlL2Book } from '../../lib/hyperliquid/types';
 
 type Props = {
   spotBalances: HlSpotBalance[];
   markPx: number;
+  book: HlL2Book | null;
   onSuccess?: () => void;
 };
 
-const ProTradeSwap: React.FC<Props> = ({ spotBalances, markPx, onSuccess }) => {
+const ProTradeSwap: React.FC<Props> = ({ spotBalances, markPx, book, onSuccess }) => {
   const { open } = useAppKit();
   const { isConnected } = useAppKitAccount();
   const { placeOrder, busy, error, walletReady } = useHyperliquidTrading();
@@ -29,6 +32,14 @@ const ProTradeSwap: React.FC<Props> = ({ spotBalances, markPx, onSuccess }) => {
     () => toNum(spotBalances.find((b) => b.coin === 'USDE')?.total),
     [spotBalances]
   );
+
+  const quote = useMemo(() => {
+    const n = toNum(amount);
+    if (n <= 0) return null;
+    return estimateSwapQuote({ direction, amountIn: n, markPx, book });
+  }, [amount, direction, markPx, book]);
+
+  const maxAmount = direction === 'buyUsde' ? usdcBal : usdeBal;
 
   const handleSwap = async () => {
     setLocalMsg(null);
@@ -72,7 +83,7 @@ const ProTradeSwap: React.FC<Props> = ({ spotBalances, markPx, onSuccess }) => {
         <div className="hl-swap-balances">
           <span>USDC: {fmtUsdSymbol(usdcBal)}</span>
           <span>USDE: {fmtUsdSymbol(usdeBal)}</span>
-          <span>Rate: {markPx > 0 ? markPx.toFixed(5) : '—'}</span>
+          <span>Mid: {markPx > 0 ? markPx.toFixed(5) : '—'}</span>
         </div>
 
         <div className="hl-swap-direction">
@@ -104,6 +115,37 @@ const ProTradeSwap: React.FC<Props> = ({ spotBalances, markPx, onSuccess }) => {
           inputMode="decimal"
         />
 
+        <button
+          type="button"
+          className="hl-entry-foot-btn"
+          disabled={maxAmount <= 0}
+          onClick={() => setAmount(String(maxAmount))}
+        >
+          Max ({fmtUsdSymbol(maxAmount)})
+        </button>
+
+        {quote ? (
+          <div className="hl-swap-preview">
+            <div>
+              Est. received:{' '}
+              <strong>
+                {fmtUsdSymbol(quote.estimatedOut, 4)}{' '}
+                {direction === 'buyUsde' ? 'USDE' : 'USDC'}
+              </strong>
+            </div>
+            <div>
+              Min received ({quote.slippageBps} bps):{' '}
+              {fmtUsdSymbol(quote.minOut, 4)} {direction === 'buyUsde' ? 'USDE' : 'USDC'}
+            </div>
+            <div>Exec. price: {quote.executionPx.toFixed(5)}</div>
+            {quote.priceImpactBps > 1 ? (
+              <div className={quote.priceImpactBps > 50 ? 'hl-down' : ''}>
+                Price impact: {(quote.priceImpactBps / 100).toFixed(2)}%
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         {!isConnected || !walletReady ? (
           <button type="button" className="hl-entry-submit" onClick={() => open()}>
             Connect wallet
@@ -112,7 +154,7 @@ const ProTradeSwap: React.FC<Props> = ({ spotBalances, markPx, onSuccess }) => {
           <button
             type="button"
             className="hl-entry-submit"
-            disabled={busy || toNum(amount) <= 0}
+            disabled={busy || toNum(amount) <= 0 || toNum(amount) > maxAmount}
             onClick={handleSwap}
           >
             {busy ? <Loader2 size={16} className="animate-spin" /> : (

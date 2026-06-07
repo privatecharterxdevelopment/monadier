@@ -57,6 +57,7 @@ function parseWsCandle(raw: Record<string, unknown>): HlCandleBar | null {
     high: toNum(raw.h),
     low: toNum(raw.l),
     close: toNum(raw.c),
+    volume: toNum(raw.v),
   };
 }
 

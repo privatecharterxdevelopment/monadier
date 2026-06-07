@@ -9,6 +9,7 @@ import {
 } from '../../hooks/useHyperliquidTrading';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
+import type { HlTwapOrder } from '../../lib/hyperliquid/user';
 
 type OrderMode = 'basic' | 'scale' | 'tpsl' | 'twap';
 type SizeUnit = 'coin' | 'usd';
@@ -54,6 +55,8 @@ const ProTradeOrderPanel: React.FC<Props> = ({
   onTransfer,
   variant = 'perp',
   displayCoin,
+  serverTwap,
+  onCancelServerTwap,
 }) => {
   const isSpot = variant === 'spot';
   const marketKind = isSpot ? 'spot' as const : 'perp' as const;
@@ -214,8 +217,8 @@ const ProTradeOrderPanel: React.FC<Props> = ({
 
   const displayError = localError || error;
   const submitLabel =
-    mode === 'twap' && twap.active
-      ? `TWAP active (${twap.minutes}m)`
+    mode === 'twap' && twapActive
+      ? `TWAP active (${twapMinutesLabel}m)`
       : mode === 'scale'
         ? `Place ${scaleOrders || '0'} Orders`
         : mode === 'tpsl'
@@ -393,6 +396,15 @@ const ProTradeOrderPanel: React.FC<Props> = ({
               Randomize slice timing
             </label>
             <p className="hl-entry-hint">Runs on Hyperliquid servers — survives tab close.</p>
+            {serverTwapActive ? (
+              <div className="hl-entry-preview">
+                <div>Server TWAP #{serverTwapActive.twapId} running</div>
+                <div>
+                  Filled {serverTwapActive.executedSz} / {serverTwapActive.sz}
+                  {twapFilledPct != null ? ` (${twapFilledPct.toFixed(0)}%)` : ''}
+                </div>
+              </div>
+            ) : null}
           </>
         ) : null}
 
@@ -435,15 +447,22 @@ const ProTradeOrderPanel: React.FC<Props> = ({
           <button
             type="button"
             className={`hl-entry-submit ${side === 'short' ? 'hl-entry-submit--short' : ''}`}
-            disabled={busy || (mode === 'twap' && twap.active)}
+            disabled={busy || (mode === 'twap' && twapActive)}
             onClick={handleSubmit}
           >
             {busy ? <Loader2 size={16} className="animate-spin" /> : submitLabel}
           </button>
         )}
 
-        {twap.active ? (
-          <button type="button" className="hl-entry-foot-btn" onClick={() => void cancelTwap()}>
+        {twapActive ? (
+          <button
+            type="button"
+            className="hl-entry-foot-btn"
+            onClick={() => {
+              if (twap.active) void cancelTwap();
+              else void onCancelServerTwap?.();
+            }}
+          >
             Cancel TWAP
           </button>
         ) : null}

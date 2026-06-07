@@ -124,6 +124,21 @@ const Dashboard2ProPage: React.FC = () => {
   const spotMarkPx = toNum(spotMarket.snapshot?.markPx);
   const spotDisplayName = spotLabel(spotCoin);
 
+  const activePerpTwap = useMemo(
+    () =>
+      twapOrders.find(
+        (t) => t.status === 'activated' && t.coin === perpCoin && !isHlSpotCoin(t.coin)
+      ) ?? null,
+    [twapOrders, perpCoin]
+  );
+  const activeSpotTwap = useMemo(
+    () =>
+      twapOrders.find(
+        (t) => t.status === 'activated' && t.coin === spotCoin && isHlSpotCoin(t.coin)
+      ) ?? null,
+    [twapOrders, spotCoin]
+  );
+
   const totalUpnl = useMemo(
     () => (account?.positions ?? []).reduce((s, p) => s + toNum(p.unrealizedPnl), 0),
     [account?.positions]
@@ -262,6 +277,13 @@ const Dashboard2ProPage: React.FC = () => {
           onWithdraw={() => setFundsModal('withdraw')}
           onTransfer={() => setTransferOpen(true)}
           variant="perp"
+          serverTwap={activePerpTwap}
+          onCancelServerTwap={async () => {
+            if (!activePerpTwap) return;
+            await cancelTwapOrder(activePerpTwap.coin, activePerpTwap.twapId, 'perp');
+            showToast('TWAP cancelled');
+            await handleRefreshAll();
+          }}
         />
       </div>
 
@@ -370,6 +392,13 @@ const Dashboard2ProPage: React.FC = () => {
           onWithdraw={() => setFundsModal('withdraw')}
           onTransfer={() => setTransferOpen(true)}
           variant="spot"
+          serverTwap={activeSpotTwap}
+          onCancelServerTwap={async () => {
+            if (!activeSpotTwap) return;
+            await cancelTwapOrder(activeSpotTwap.coin, activeSpotTwap.twapId, 'spot');
+            showToast('TWAP cancelled');
+            await handleRefreshAll();
+          }}
         />
       </div>
 
@@ -393,6 +422,7 @@ const Dashboard2ProPage: React.FC = () => {
         <ProTradeSwap
           spotBalances={spotBalances}
           markPx={toNum(swapMarket.snapshot?.markPx)}
+          book={swapMarket.book}
           onSuccess={() => void handleRefreshAll()}
         />
       ) : null}

@@ -30,6 +30,7 @@ export function candleToBar(c: HlCandle): HlCandleBar {
     high: toNum(c.h),
     low: toNum(c.l),
     close: toNum(c.c),
+    volume: toNum(c.v),
   };
 }
 
