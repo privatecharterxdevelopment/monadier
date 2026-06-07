@@ -23,6 +23,16 @@
       "source": "/app/:path*",
       "destination": "/",
       "permanent": false
+    },
+    {
+      "source": "/dashboard",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/dashboard/:path*",
+      "destination": "/",
+      "permanent": false
     }
   ],
   "rewrites": [

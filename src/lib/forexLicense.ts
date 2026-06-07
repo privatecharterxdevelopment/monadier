@@ -125,7 +125,7 @@ export async function createForexCheckout(
       body: JSON.stringify({
         planType,
         billingCycle,
-        successUrl: `${window.location.origin}/dashboard/downloads?checkout=success&plan=${planType}`,
+        successUrl: `${window.location.origin}/?checkout=success&plan=${planType}`,
         cancelUrl: `${window.location.origin}/forex?checkout=cancelled`,
       }),
     });

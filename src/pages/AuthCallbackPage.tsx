@@ -22,6 +22,8 @@ const AuthCallbackPage: React.FC = () => {
       if (
         path === OPEN_APP_PATH ||
         path.startsWith('/app') ||
+        path === '/dashboard' ||
+        path.startsWith('/dashboard/') ||
         path === '/dashboard2' ||
         path.startsWith('/dashboard2/')
       ) {

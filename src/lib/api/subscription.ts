@@ -89,7 +89,7 @@ export async function createCheckoutSession(
       planTier,
       billingCycle,
       walletAddress,
-      successUrl: `${window.location.origin}/dashboard?checkout=success`,
+      successUrl: `${window.location.origin}/?checkout=success`,
       cancelUrl: `${window.location.origin}/pricing?checkout=cancelled`,
     }),
   });

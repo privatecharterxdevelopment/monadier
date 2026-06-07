@@ -6,17 +6,17 @@ type Props = React.AnchorHTMLAttributes<HTMLAnchorElement> & {
   children: React.ReactNode;
 };
 
-/** Landing / marketing CTA — opens Pro Trade at `/` (never legacy /dashboard2). */
+/** Landing / marketing CTA — always opens Pro Trade at `/` (never dashboard1/2). */
 const OpenAppLink: React.FC<Props> = ({ className, children, onClick, ...rest }) => {
   return (
     <a
-      href={OPEN_APP_PATH}
+      href="/"
       className={className}
       onClick={(e) => {
         onClick?.(e);
         if (e.defaultPrevented) return;
         e.preventDefault();
-        goToOpenApp('');
+        goToOpenApp('', false);
       }}
       {...rest}
     >

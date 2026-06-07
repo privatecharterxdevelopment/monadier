@@ -34,7 +34,6 @@ import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
 import RoadmapPage from './pages/RoadmapPage';
 import KycFlowPage from './pages/KycFlowPage';
-import DashboardPage from './pages/DashboardPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import SupportWidget from './components/ui/SupportWidget';
 import HostRedirects from './components/layout/HostRedirects';
@@ -189,20 +188,8 @@ function App() {
             </ProtectedRoute>
           } />
           
-          <Route path="/dashboard" element={<Navigate to={OPEN_APP_PATH} replace />} />
-          <Route
-            path="/dashboard/profile"
-            element={<Navigate to={`${OPEN_APP_PATH}?section=profile`} replace />}
-          />
-
-          <Route path="/dashboard/*" element={
-            <ProtectedRoute>
-              <PageTransition>
-                <DashboardPage />
-              </PageTransition>
-            </ProtectedRoute>
-          } />
-
+          <Route path="/dashboard" element={<RedirectToApp />} />
+          <Route path="/dashboard/*" element={<RedirectToApp />} />
           <Route path="/dashboard2" element={<RedirectToApp />} />
           <Route path="/dashboard2/*" element={<RedirectToApp />} />
           <Route path="*" element={<Navigate to="/" />} />

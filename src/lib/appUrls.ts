@@ -109,6 +109,68 @@ export function isAppPath(pathname: string): boolean {
   return path === OPEN_APP_PATH || path === '/app' || path.startsWith('/app/');
 }
 
+/** Legacy dashboard1 / dashboard2 / /app — never shown, always Pro Trade. */
+export function isLegacyAppPath(pathname: string): boolean {
+  const path = pathname.split('?')[0];
+  return (
+    path === '/dashboard' ||
+    path.startsWith('/dashboard/') ||
+    path === '/dashboard2' ||
+    path.startsWith('/dashboard2/') ||
+    path === '/app' ||
+    path.startsWith('/app/')
+  );
+}
+
+/**
+ * Map legacy dashboard1/dashboard2/app URLs → Pro Trade at `/`.
+ */
+export function mapLegacyPathToProTrade(pathname: string, search = ''): string {
+  const path = pathname.split('?')[0].replace(/\/$/, '') || '/';
+  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+
+  const build = (section?: string) => {
+    const next = new URLSearchParams(params);
+    if (section) next.set('section', section);
+    const q = next.toString();
+    return q ? `${OPEN_APP_PATH}?${q}` : OPEN_APP_PATH;
+  };
+
+  if (path === '/dashboard2' || path.startsWith('/dashboard2/')) {
+    if (path.includes('/profile')) return build('profile');
+    return build();
+  }
+
+  if (path === '/dashboard' || path.startsWith('/dashboard/')) {
+    if (path.includes('/profile') || path.includes('/settings')) return build('profile');
+    if (
+      path.includes('/bot-trading') ||
+      path.includes('/chart-trades') ||
+      path.includes('/overview')
+    ) {
+      return build('bot');
+    }
+    return build();
+  }
+
+  if (path === '/app' || path.startsWith('/app/')) {
+    return build();
+  }
+
+  return build();
+}
+
+/** Hard-navigate from any legacy app path into Pro Trade. */
+export function redirectLegacyToProTrade(
+  pathname: string,
+  search = '',
+  replace = true
+): void {
+  const target = mapLegacyPathToProTrade(pathname, search);
+  const searchOnly = target.includes('?') ? target.slice(target.indexOf('?')) : '';
+  goToOpenApp(searchOnly, replace);
+}
+
 export function isExternalAppUrl(url: string): boolean {
   return url.startsWith('http://') || url.startsWith('https://');
 }
@@ -125,17 +187,14 @@ export function goToApp(path?: string, replace = false): string | null {
 }
 
 function normalizeAuthTarget(path: string): string {
-  let target = path;
-  if (target === '/dashboard2' || target.startsWith('/dashboard2/')) {
-    const q = target.includes('?') ? target.slice(target.indexOf('?')) : '';
-    target = OPEN_APP_PATH + q;
-  } else if (target === '/app' || target.startsWith('/app/')) {
-    const q = target.includes('?') ? target.slice(target.indexOf('?')) : '';
-    target = OPEN_APP_PATH + q;
-  } else if (target === LANDING_PATH || target.startsWith(`${LANDING_PATH}/`)) {
-    target = OPEN_APP_PATH;
+  const [pathname, search = ''] = path.split('?');
+  if (isLegacyAppPath(pathname)) {
+    return mapLegacyPathToProTrade(pathname, search ? `?${search}` : '');
   }
-  return target;
+  if (pathname === LANDING_PATH || pathname.startsWith(`${LANDING_PATH}/`)) {
+    return OPEN_APP_PATH;
+  }
+  return path;
 }
 
 /** After login/register — land on Pro Trade at `/`, never legacy dashboard2. */
