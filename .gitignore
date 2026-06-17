@@ -33,3 +33,4 @@ supabase/.env
 *.png
 !public/**/*.png
 .vercel
+supabase/.temp/
