@@ -242,6 +242,22 @@ export const linkWalletToUser = async (userId: string, walletAddress: string, la
     { onConflict: 'user_id,wallet_address' }
   );
 
+  if (!error) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('wallet_address')
+      .eq('id', userId)
+      .maybeSingle();
+    if (!profile?.wallet_address?.trim()) {
+      await supabase.from('profiles').update({ wallet_address: wallet }).eq('id', userId);
+    }
+    try {
+      await supabase.rpc('register_my_wallet', { p_wallet: wallet });
+    } catch {
+      /* optional RPC */
+    }
+  }
+
   return { data, error };
 };
 

@@ -55,6 +55,21 @@ export async function linkWalletToUserSafe(
     return { ok: false, code: 'db_error', error: error.message };
   }
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('wallet_address')
+    .eq('id', userId)
+    .maybeSingle();
+  if (!profile?.wallet_address?.trim()) {
+    await supabase.from('profiles').update({ wallet_address: wallet }).eq('id', userId);
+  }
+
+  try {
+    await supabase.rpc('register_my_wallet', { p_wallet: wallet });
+  } catch {
+    /* RPC may not be deployed yet */
+  }
+
   return { ok: true };
 }
 
@@ -103,6 +118,24 @@ export async function fetchUserWalletAddresses(
   }
 
   return Array.from(found);
+}
+
+/** Register wallets with Supabase so RLS + history RPC can see vault trades. */
+export async function registerWalletsForHistory(wallets: string[]): Promise<void> {
+  const unique = [...new Set(wallets.map((w) => w.toLowerCase()).filter(Boolean))];
+  if (unique.length === 0) return;
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId) return;
+
+  for (const w of unique) {
+    const linked = await linkWalletToUserSafe(userId, w, 'app-linked');
+    if (!linked.ok && linked.code !== 'owned_by_other') {
+      console.warn('[registerWalletsForHistory]', w.slice(0, 10), linked.error);
+    }
+  }
 }
 
 /** Primary wallet for vault reads — connected if linked, else first profile wallet. */

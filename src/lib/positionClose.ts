@@ -25,22 +25,48 @@ export async function markPositionCloseFailed(
     .eq('id', positionId);
 }
 
-/** Find open DB position for vault wallet + token symbol (WETH / WBTC). */
+const TOKEN_ALIASES: Record<string, string[]> = {
+  WETH: ['WETH', 'ETH'],
+  ETH: ['WETH', 'ETH'],
+  WBTC: ['WBTC', 'BTC'],
+  BTC: ['WBTC', 'BTC'],
+};
+
+function tokenSymbolsForLookup(tokenSymbol: string): string[] {
+  const key = tokenSymbol.toUpperCase();
+  return TOKEN_ALIASES[key] ?? [key];
+}
+
+/** Find open DB position for vault wallet + token (ETH/WETH or BTC/WBTC). */
 export async function findOpenPositionId(
   walletAddress: string,
-  tokenSymbol: 'WETH' | 'WBTC'
+  tokenSymbol: string,
+  statuses: Array<'open' | 'closing' | 'failed'> = ['open']
 ): Promise<string | null> {
+  const symbols = tokenSymbolsForLookup(tokenSymbol);
   const { data } = await supabase
     .from('positions')
     .select('id')
     .eq('wallet_address', walletAddress.toLowerCase())
-    .in('status', ['open', 'closing'])
-    .eq('token_symbol', tokenSymbol)
+    .in('status', statuses)
+    .in('token_symbol', symbols)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
   return data?.id ?? null;
+}
+
+/** Ask the bot to close via Supabase — no wallet popup. Returns false if no open DB row. */
+export async function requestBotCloseForVault(
+  walletAddress: string,
+  token: 'ETH' | 'BTC'
+): Promise<boolean> {
+  const tokenSymbol = token === 'ETH' ? 'WETH' : 'WBTC';
+  const dbId = await findOpenPositionId(walletAddress, tokenSymbol, ['open']);
+  if (!dbId) return false;
+  await markPositionClosing(dbId);
+  return true;
 }
 
 /** Mark every open position for a wallet so the bot closes them (e.g. on stop bot). */

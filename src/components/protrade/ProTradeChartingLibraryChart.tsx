@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { HlInterval } from '../../lib/hyperliquid/types';
 import { HyperliquidTvDatafeed } from '../../lib/hyperliquid/hlTvDatafeed';
 import { resolveTradingViewInterval } from '../../lib/hyperliquid/tradingView';
@@ -14,11 +14,21 @@ type Props = {
 
 type TvWidget = { remove: () => void };
 
+function safeRemoveWidget(widget: TvWidget | null | undefined) {
+  if (!widget) return;
+  try {
+    widget.remove();
+  } catch (e) {
+    console.warn('[ChartingLibrary] widget.remove failed', e);
+  }
+}
+
 const ProTradeChartingLibraryChart: React.FC<Props> = ({ coin, interval, theme }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetRef = useRef<TvWidget | null>(null);
   const datafeedRef = useRef<HyperliquidTvDatafeed | null>(null);
   const [unavailable, setUnavailable] = useState(false);
+  const containerId = useId().replace(/:/g, '');
 
   useEffect(() => {
     const el = containerRef.current;
@@ -37,7 +47,7 @@ const ProTradeChartingLibraryChart: React.FC<Props> = ({ coin, interval, theme }
       }
 
       setUnavailable(false);
-      widgetRef.current?.remove();
+      safeRemoveWidget(widgetRef.current);
       el.innerHTML = '';
 
       const colors = getProTradeChartColors(theme);
@@ -64,13 +74,24 @@ const ProTradeChartingLibraryChart: React.FC<Props> = ({ coin, interval, theme }
 
     return () => {
       cancelled = true;
-      widgetRef.current?.remove();
+    };
+  }, [coin, interval, theme, containerId]);
+
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    return () => {
+      safeRemoveWidget(widgetRef.current);
       widgetRef.current = null;
       datafeedRef.current = null;
+      if (el) {
+        try {
+          el.innerHTML = '';
+        } catch {
+          /* React may have already detached the node */
+        }
+      }
     };
-  }, [coin, interval, theme]);
-
-  const containerId = `hl-tv-cl-${coin.replace(/[^a-zA-Z0-9]/g, '-')}-${interval}`;
+  }, [coin, interval, theme, containerId]);
 
   if (unavailable) {
     return (

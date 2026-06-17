@@ -15,11 +15,11 @@ import { useWeb3 } from '../../contexts/Web3Context';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { VaultClient, VAULT_CHAIN_ID } from '../../lib/vault';
+import { markAllOpenPositionsClosing } from '../../lib/positionClose';
 import {
-  findOpenPositionId,
-  markAllOpenPositionsClosing,
-  markPositionClosing,
-} from '../../lib/positionClose';
+  closeMethodMessage,
+  executeVaultPositionClose,
+} from '../../lib/vaultPositionClose';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { useTerminalVaultData } from '../../hooks/useTerminalVaultData';
 import TerminalDepositModal from '../terminal/TerminalDepositModal';
@@ -182,27 +182,13 @@ const ProTradeBotPanel: React.FC<Props> = ({
     setCloseError(null);
     setCloseBusy(true);
     try {
-      const tokenSym = pos.token === 'ETH' ? 'WETH' : 'WBTC';
-      const dbId = await findOpenPositionId(vault.wallet, tokenSym);
-      if (dbId) {
-        await markPositionClosing(dbId);
-        refreshAll();
-        return;
-      }
-
-      if (!publicClient || !walletClient) {
-        setCloseError('Connect wallet to close on-chain');
-        return;
-      }
-      const client = new VaultClient(publicClient as never, walletClient as never, VAULT_CHAIN_ID);
-      const token = pos.token === 'ETH' ? WETH : WBTC;
-      try {
-        const hash = await client.userInstantClose(token, vault.wallet);
-        await publicClient.waitForTransactionReceipt({ hash });
-      } catch {
-        const hash = await client.reconcilePosition(token, vault.wallet);
-        await publicClient.waitForTransactionReceipt({ hash });
-      }
+      const result = await executeVaultPositionClose({
+        wallet: vault.wallet,
+        token: pos.token,
+        publicClient,
+        walletClient,
+      });
+      setCloseError(closeMethodMessage(result));
       refreshAll();
     } catch (e: unknown) {
       setCloseError(e instanceof Error ? e.message : 'Close failed');

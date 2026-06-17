@@ -4,7 +4,7 @@ import { useAccount } from 'wagmi';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../../contexts/AuthContext';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { supabase } from '../../lib/supabase';
-import { fetchUserWalletAddresses, pickPrimaryVaultWallet } from '../../lib/userWallets';
+import { fetchUserWalletAddresses, pickPrimaryVaultWallet, registerWalletsForHistory } from '../../lib/userWallets';
 import {
   calcPositionPnl,
   fetchLiveTokenPrices,
@@ -17,14 +17,18 @@ import TerminalModalFrame from './TerminalModalFrame';
 import { explorerTxUrl } from '../../lib/tradeExplorer';
 import {
   type ClosedTradeRow,
-  fetchClosedTradesForWallets,
+  fetchClosedTrades,
+  mergeUnifiedHistory,
   verifyUrlForTrade,
 } from '../../lib/closedTrades';
 import DockCountBadge from '../protrade/DockCountBadge';
 import { useTerminalVaultData } from '../../hooks/useTerminalVaultData';
 import TerminalVaultActivity from './TerminalVaultActivity';
 import {
-  closeVaultPosition,
+  closeMethodMessage,
+  executeVaultPositionClose,
+} from '../../lib/vaultPositionClose';
+import {
   isOnChainDockPositionId,
   mergeChainAndDbRows,
   vaultTokenFromDockRow,
@@ -153,6 +157,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
   const [walletsLoading, setWalletsLoading] = useState(true);
   const [livePrices, setLivePrices] = useState<Record<string, number>>({});
   const [closingId, setClosingId] = useState<string | null>(null);
+  const [closeNotice, setCloseNotice] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{
     id: string;
     token: string;
@@ -174,6 +179,9 @@ const TerminalPositionsDock: React.FC<Props> = ({
       if (!cancelled) {
         setWallets(list);
         setWalletsLoading(false);
+      }
+      if (!cancelled && user?.id && !isDemoUser) {
+        await registerWalletsForHistory(list);
       }
     })();
     return () => {
@@ -216,30 +224,60 @@ const TerminalPositionsDock: React.FC<Props> = ({
 
       const queryWalletsLocal =
         queryWallets.length > 0 ? queryWallets : isDemoUser ? [DEMO_WALLET_ADDRESS] : [];
-      if (queryWalletsLocal.length === 0) {
-        setAllRows([]);
-        setLoading(false);
-        return;
-      }
 
       if (!silent) setLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('positions')
-          .select(
-            'id, wallet_address, chain_id, token_symbol, token_address, direction, entry_price, entry_amount, profit_loss, status, leverage_multiplier, highest_price, created_at, closed_at, close_reason, exit_tx_hash, entry_tx_hash'
-          )
-          .in('wallet_address', queryWalletsLocal)
-          .order('created_at', { ascending: false })
-          .limit(500);
-
-        if (error) throw error;
-        setAllRows((data as Position[]) || []);
-
-        if (layout === 'page' || includeClosedHistoryFeed) {
-          const closed = await fetchClosedTradesForWallets(queryWalletsLocal, 200);
-          setClosedHistory(closed);
+        if (!isDemoUser && user && queryWalletsLocal.length > 0) {
+          await registerWalletsForHistory(queryWalletsLocal);
         }
+
+        let positionRows: Position[] = [];
+        if (!isDemoUser && user) {
+          const { data: rpcData, error: rpcError } = await supabase.rpc(
+            'get_my_positions_history',
+            { p_limit: 500 }
+          );
+          if (!rpcError && rpcData) {
+            positionRows = (rpcData as Position[]) || [];
+          } else if (
+            rpcError &&
+            !rpcError.message.includes('Could not find the function')
+          ) {
+            console.error('[TerminalPositionsDock] rpc positions', rpcError);
+          }
+        }
+
+        if (positionRows.length === 0) {
+          let positionsQuery = supabase
+            .from('positions')
+            .select(
+              'id, wallet_address, chain_id, token_symbol, token_address, direction, entry_price, entry_amount, profit_loss, status, leverage_multiplier, highest_price, created_at, closed_at, close_reason, exit_tx_hash, entry_tx_hash'
+            )
+            .order('created_at', { ascending: false })
+            .limit(500);
+
+          if (isDemoUser) {
+            positionsQuery = positionsQuery.eq(
+              'wallet_address',
+              (queryWalletsLocal[0] ?? DEMO_WALLET_ADDRESS).toLowerCase()
+            );
+          } else if (queryWalletsLocal.length > 0) {
+            positionsQuery = positionsQuery.in('wallet_address', queryWalletsLocal);
+          }
+
+          const { data, error } = await positionsQuery;
+          if (error) throw error;
+          positionRows = (data as Position[]) || [];
+        }
+
+        setAllRows(positionRows);
+
+        const closed = await fetchClosedTrades({
+          isDemoUser,
+          wallets: queryWalletsLocal,
+          limit: 200,
+        });
+        setClosedHistory(closed);
       } catch (e) {
         console.error('[TerminalPositionsDock]', e);
         if (!silent) {
@@ -250,7 +288,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
         setLoading(false);
       }
     },
-    [queryWallets, isDemoUser, user, layout, includeClosedHistoryFeed]
+    [queryWallets, isDemoUser, user]
   );
 
   useEffect(() => {
@@ -261,6 +299,28 @@ const TerminalPositionsDock: React.FC<Props> = ({
     const id = setInterval(() => load(true), 10000);
     return () => clearInterval(id);
   }, [load]);
+
+  useEffect(() => {
+    if (!user && !isDemoUser) return undefined;
+
+    const channel = supabase
+      .channel(`term-dock-history-${user?.id ?? 'demo'}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'trade_history' },
+        () => void load(true)
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'positions' },
+        () => void load(true)
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user?.id, isDemoUser, load]);
 
   useEffect(() => {
     const tick = async () => setLivePrices(await fetchLiveTokenPrices());
@@ -274,9 +334,11 @@ const TerminalPositionsDock: React.FC<Props> = ({
     [mergedRows]
   );
   const openCount = openRows.length;
-  const closedCount = mergedRows.filter(
-    (p) => p.status === 'closed' || p.status === 'failed'
-  ).length;
+  const historyRows = useMemo(
+    () => mergeUnifiedHistory(closedHistory, mergedRows),
+    [closedHistory, mergedRows]
+  );
+  const historyCount = historyRows.length;
   const openNetPnl = useMemo(
     () => openRows.reduce((sum, p) => sum + calcPositionPnl(p, livePrices), 0),
     [openRows, livePrices]
@@ -289,7 +351,9 @@ const TerminalPositionsDock: React.FC<Props> = ({
       return mergedRows.filter((p) => p.status === 'open' || p.status === 'closing');
     }
     if (tab === 'history') {
-      return mergedRows.filter((p) => p.status === 'closed' || p.status === 'failed');
+      return mergedRows.filter(
+        (p) => p.status === 'closed' || p.status === 'failed' || p.status === 'closing'
+      );
     }
     return mergedRows;
   }, [mergedRows, tab]);
@@ -298,46 +362,66 @@ const TerminalPositionsDock: React.FC<Props> = ({
     if (!confirm) return;
     const positionId = confirm.id;
     const row = mergedRows.find((p) => p.id === positionId);
+    const wallet = row?.wallet_address ?? confirm.wallet ?? vaultWallet;
+    const token = vaultTokenFromDockRow(
+      row ?? { id: positionId, token_symbol: confirm.token }
+    );
     setConfirm(null);
     setClosingId(positionId);
+    setCloseNotice(null);
     try {
-      if (isOnChainDockPositionId(positionId)) {
-        const wallet = row?.wallet_address ?? vaultWallet;
-        if (!wallet) throw new Error('No wallet for this position');
-        if (!publicClient || !walletClient) {
-          throw new Error('Connect wallet to close on-chain');
-        }
-        await closeVaultPosition({
-          wallet,
-          token: vaultTokenFromDockRow(
-            row ?? { id: positionId, token_symbol: confirm.token }
-          ),
-          publicClient,
-          walletClient,
-        });
-      } else {
-        await markPositionClosing(positionId);
+      if (!wallet) {
+        throw new Error('No wallet linked for this position — link wallet in Profile.');
       }
+      const result = await executeVaultPositionClose({
+        wallet,
+        token,
+        publicClient,
+        walletClient,
+      });
+      setCloseNotice(closeMethodMessage(result));
+      setTab('history');
       await load(true);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       if (!isOnChainDockPositionId(positionId)) {
         await markPositionCloseFailed(positionId, msg);
         await load(true);
-      } else {
-        console.error('[TerminalPositionsDock] on-chain close', err);
       }
+      setCloseNotice(msg);
+      console.error('[TerminalPositionsDock] close', err);
     } finally {
       setClosingId(null);
     }
   };
 
   const handleRetry = async (positionId: string) => {
+    const row = mergedRows.find((p) => p.id === positionId);
+    const wallet = row?.wallet_address ?? vaultWallet;
+    const token = vaultTokenFromDockRow(
+      row ?? { id: positionId, token_symbol: 'WETH' }
+    );
     setClosingId(positionId);
+    setCloseNotice(null);
     try {
-      await markPositionClosing(positionId, 'retry_close');
+      if (isOnChainDockPositionId(positionId)) {
+        if (!wallet) throw new Error('No wallet for this position');
+        const result = await executeVaultPositionClose({
+          wallet,
+          token,
+          publicClient,
+          walletClient,
+        });
+        setCloseNotice(closeMethodMessage(result));
+      } else {
+        await markPositionClosing(positionId, 'retry_close');
+        setCloseNotice('Close re-queued for the bot.');
+      }
+      setTab('history');
       await load(true);
     } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Retry failed';
+      setCloseNotice(msg);
       console.error('[TerminalPositionsDock] retry', e);
     } finally {
       setClosingId(null);
@@ -353,12 +437,9 @@ const TerminalPositionsDock: React.FC<Props> = ({
   const showOpenTradingTable = isHlSkin && tab === 'open';
 
   const isPage = layout === 'page';
-  const showClosedHistoryFeed =
-    (isPage || includeClosedHistoryFeed) &&
-    tab === 'history' &&
-    closedHistory.length > 0;
+  const showUnifiedHistory = tab === 'history' || tab === 'all';
   const useHistoryOverview =
-    (isPage || includeClosedHistoryFeed) && (tab === 'history' || tab === 'all');
+    (isPage || includeClosedHistoryFeed) && showUnifiedHistory;
 
   const dockTabs: { id: DockTab; label: string }[] = isHlSkin
     ? [
@@ -404,13 +485,13 @@ const TerminalPositionsDock: React.FC<Props> = ({
           tone={openTone}
           classPrefix={isHlSkin ? 'hl-dock-count' : 'term-dock-count'}
         />
-      ) : tid === 'history' && closedCount > 0 ? (
+      ) : tid === 'history' && historyCount > 0 ? (
         <span
           className={
             isHlSkin ? 'hl-dock-count hl-dock-count--muted' : 'term-dock-count term-dock-count--muted'
           }
         >
-          ({closedCount})
+          ({historyCount})
         </span>
       ) : null}
     </button>
@@ -491,17 +572,20 @@ const TerminalPositionsDock: React.FC<Props> = ({
       )}
 
       <div className={bodyClass}>
+        {closeNotice ? (
+          <p className={isHlSkin ? 'hl-dock-notice' : 'term-dock-notice'} role="status">
+            {closeNotice}
+          </p>
+        ) : null}
         {tab === 'vault' ? (
           vaultPanel
         ) : needsSignIn ? (
           <div className={emptyClass}>
             Sign in to view trade history for your profile wallets.
           </div>
-        ) : positionsLoading && rows.length === 0 && closedHistory.length === 0 ? (
-          <div className={emptyClass}>
-            {tab === 'open' ? 'Loading open positions…' : 'Loading trade history…'}
-          </div>
-        ) : showClosedHistoryFeed ? (
+        ) : positionsLoading && tab === 'open' && rows.length === 0 ? (
+          <div className={emptyClass}>Loading open positions…</div>
+        ) : tab === 'history' && historyRows.length > 0 ? (
           <table className={isHlSkin ? 'hl-table' : 'term-table term-table--history-overview'}>
             <thead>
               <tr>
@@ -509,21 +593,23 @@ const TerminalPositionsDock: React.FC<Props> = ({
                 <th>Time</th>
                 <th>Position</th>
                 <th>Size</th>
-                <th>Leverage</th>
+                <th>Lev</th>
                 <th>P/L</th>
+                <th>Status</th>
                 <th>Verify</th>
               </tr>
             </thead>
             <tbody>
-              {closedHistory.map((t) => {
+              {historyRows.map((t) => {
                 const { date, time } = fmtDateParts(t.closedAt);
                 const verify = verifyUrlForTrade(t);
                 const rowId = t.positionId || t.id;
                 const rowHighlight =
                   highlightPositionId === rowId || highlightPositionId === t.id;
+                const pl = t.profitLoss ?? 0;
                 return (
                   <tr
-                    key={t.id}
+                    key={`${t.source}-${t.id}`}
                     id={`term-row-${rowId}`}
                     className={rowHighlight ? 'term-row--highlight' : ''}
                   >
@@ -537,18 +623,14 @@ const TerminalPositionsDock: React.FC<Props> = ({
                       >
                         {t.direction}
                       </span>{' '}
-                      {t.tokenSymbol}
+                      {displaySymbol(t.tokenSymbol)}
                     </td>
                     <td>{fmtUsd(t.entryAmount)}</td>
                     <td>{t.leverage}x</td>
-                    <td
-                      className={
-                        t.profitLoss >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'
-                      }
-                    >
-                      {t.profitLoss >= 0 ? '+' : ''}
-                      {fmtUsd(t.profitLoss)}
+                    <td className={pl >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'}>
+                      {t.status === 'closing' ? '—' : `${pl >= 0 ? '+' : ''}${fmtUsd(pl)}`}
                     </td>
+                    <td className="capitalize term-dock-status">{t.status}</td>
                     <td>
                       {verify ? (
                         <a
@@ -569,6 +651,14 @@ const TerminalPositionsDock: React.FC<Props> = ({
               })}
             </tbody>
           </table>
+        ) : tab === 'history' ? (
+          <div className={emptyClass}>
+            {hasWallet
+              ? 'No closed trades yet. After you close a position, it appears here within ~30s. Link your vault wallet in Profile → Wallets if trades are missing.'
+              : 'Link a wallet in Profile → Wallets to see trade history.'}
+          </div>
+        ) : positionsLoading && rows.length === 0 ? (
+          <div className={emptyClass}>Loading…</div>
         ) : rows.length === 0 ? (
           <div className={emptyClass}>
             {hasWallet
@@ -647,7 +737,17 @@ const TerminalPositionsDock: React.FC<Props> = ({
                         </button>
                       )}
                       {isClosing && (
-                        <span className="term-dock-closing text-xs">Closing…</span>
+                        <>
+                          <span className="term-dock-closing text-xs">Closing…</span>
+                          <button
+                            type="button"
+                            className="term-dock-close-btn term-dock-close-btn--retry"
+                            disabled={closingId === p.id}
+                            onClick={() => handleRetry(p.id)}
+                          >
+                            Retry
+                          </button>
+                        </>
                       )}
                       {isFailed && (
                         <button
@@ -708,6 +808,39 @@ const TerminalPositionsDock: React.FC<Props> = ({
                   : null;
                 const rowHighlight = highlightPositionId === p.id;
                 const showOverviewRow = useHistoryOverview && isClosed;
+
+                if (useHistoryOverview && isClosing) {
+                  const opened = fmtDateParts(p.created_at);
+                  return (
+                    <tr
+                      key={p.id}
+                      id={`term-row-${p.id}`}
+                      className={rowHighlight ? 'term-row--highlight' : ''}
+                    >
+                      <td className="term-history-date">{opened.date}</td>
+                      <td className="term-history-time">{opened.time}</td>
+                      <td>
+                        <span
+                          className={
+                            p.direction === 'LONG' ? 'term-dir-long' : 'term-dir-short'
+                          }
+                        >
+                          {p.direction}
+                        </span>{' '}
+                        {displaySymbol(p.token_symbol)}
+                      </td>
+                      <td>{fmtUsd(p.entry_amount || 0)}</td>
+                      <td>{p.leverage_multiplier ?? 1}x</td>
+                      <td className={pl >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'}>
+                        {pl >= 0 ? '+' : ''}
+                        {fmtUsd(pl)}
+                      </td>
+                      <td>
+                        <span className="term-dock-closing">Closing…</span>
+                      </td>
+                    </tr>
+                  );
+                }
 
                 if (useHistoryOverview && !isClosed) {
                   const opened = fmtDateParts(p.created_at);
@@ -830,7 +963,17 @@ const TerminalPositionsDock: React.FC<Props> = ({
                         </button>
                       )}
                       {isClosing && (
-                        <span className="term-dock-closing text-xs">Closing…</span>
+                        <>
+                          <span className="term-dock-closing text-xs">Closing…</span>
+                          <button
+                            type="button"
+                            className="term-dock-close-btn term-dock-close-btn--retry"
+                            disabled={closingId === p.id}
+                            onClick={() => handleRetry(p.id)}
+                          >
+                            Retry
+                          </button>
+                        </>
                       )}
                       {isFailed && (
                         <button

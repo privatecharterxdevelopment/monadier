@@ -1,5 +1,5 @@
 import { VaultClient, VAULT_CHAIN_ID, getArbitrumPublicClient } from './vault';
-import { findOpenPositionId, markPositionClosing } from './positionClose';
+import { markPositionClosing } from './positionClose';
 import type { ActiveVaultPosition } from '../hooks/useTerminalVaultData';
 
 const WETH = '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1' as const;
@@ -171,35 +171,6 @@ export function mergeChainAndDbRows<T extends VaultDockPosition>(
   return [...merged.values()].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
-}
-
-/** Close vault position via Supabase row or on-chain fallback (same as trade panel). */
-export async function closeVaultPosition(params: {
-  wallet: string;
-  token: 'ETH' | 'BTC';
-  publicClient: unknown;
-  walletClient: unknown;
-}): Promise<void> {
-  const tokenSym = params.token === 'ETH' ? 'WETH' : 'WBTC';
-  const dbId = await findOpenPositionId(params.wallet, tokenSym);
-  if (dbId) {
-    await markPositionClosing(dbId);
-    return;
-  }
-
-  const client = new VaultClient(
-    params.publicClient as never,
-    params.walletClient as never,
-    VAULT_CHAIN_ID
-  );
-  const token = params.token === 'ETH' ? WETH : WBTC;
-  try {
-    const hash = await client.userInstantClose(token, params.wallet as `0x${string}`);
-    await (params.publicClient as { waitForTransactionReceipt: (a: { hash: `0x${string}` }) => Promise<unknown> }).waitForTransactionReceipt({ hash });
-  } catch {
-    const hash = await client.reconcilePosition(token, params.wallet as `0x${string}`);
-    await (params.publicClient as { waitForTransactionReceipt: (a: { hash: `0x${string}` }) => Promise<unknown> }).waitForTransactionReceipt({ hash });
-  }
 }
 
 export function vaultTokenFromDockRow(row: {

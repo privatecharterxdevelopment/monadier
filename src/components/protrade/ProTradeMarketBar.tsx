@@ -51,12 +51,13 @@ const ProTradeMarketBar: React.FC<Props> = ({
       : 0;
 
   return (
-    <header className="hl-market-bar">
-      <div style={{ position: 'relative' }}>
+    <header className={`hl-market-bar ${pickerOpen ? 'hl-market-bar--picker-open' : ''}`}>
+      <div className="hl-market-pair-wrap">
         <button
           type="button"
           className="hl-market-pair"
           onClick={() => setPickerOpen((v) => !v)}
+          onMouseDown={(e) => e.stopPropagation()}
           aria-expanded={pickerOpen}
         >
           {displayName ?? coin}{' '}
@@ -79,6 +80,7 @@ const ProTradeMarketBar: React.FC<Props> = ({
         ) : null}
       </div>
 
+      <div className="hl-market-stats">
       <div className="hl-market-stat">
         <span className="hl-market-stat-label">Mid</span>
         <span className="hl-market-stat-value">
@@ -131,6 +133,7 @@ const ProTradeMarketBar: React.FC<Props> = ({
           </span>
         </div>
       ) : null}
+      </div>
     </header>
   );
 };

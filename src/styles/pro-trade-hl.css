@@ -791,8 +791,33 @@
   height: 40px;
   padding: 0 12px;
   border-bottom: 1px solid var(--hl-border);
-  overflow-x: auto;
+  overflow: visible;
   flex-shrink: 0;
+  position: relative;
+  z-index: 20;
+}
+
+.hl-market-bar--picker-open {
+  z-index: 80;
+}
+
+.hl-market-pair-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.hl-market-stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.hl-market-stats::-webkit-scrollbar {
+  display: none;
 }
 
 .hl-market-pair {
@@ -1473,6 +1498,16 @@
   background: var(--hl-green-bright);
 }
 
+.hl-dock-notice {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  color: var(--hl-text-muted);
+  background: var(--hl-bg-hover);
+  border: 1px solid var(--hl-border);
+  border-radius: 4px;
+}
+
 /* ── Picker dropdown (dark) ── */
 .hl-picker-menu {
   position: absolute;
@@ -1485,7 +1520,7 @@
   border: 1px solid var(--hl-border);
   background: var(--hl-bg-panel);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  z-index: 50;
+  z-index: 120;
   overflow: hidden;
 }
 

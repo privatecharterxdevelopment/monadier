@@ -13,7 +13,7 @@ import { supabase } from '../lib/supabase';
 import { fetchUserWalletAddresses } from '../lib/userWallets';
 import {
   type ClosedTradeRow,
-  fetchClosedTradesForWallets,
+  fetchClosedTrades,
   isTradeUnread,
   loadLastSeenAt,
   saveLastSeenAt,
@@ -73,10 +73,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
 
   const load = useCallback(
     async (silent = false) => {
-      const queryWallets =
-        wallets.length > 0 ? wallets : isDemoUser ? [DEMO_WALLET_ADDRESS] : [];
-
-      if (queryWallets.length === 0) {
+      if (!isDemoUser && !user) {
         setTrades([]);
         setIsLoading(false);
         return;
@@ -84,7 +81,11 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
 
       if (!silent) setIsLoading(true);
       try {
-        const rows = await fetchClosedTradesForWallets(queryWallets, 100);
+        const rows = await fetchClosedTrades({
+          isDemoUser,
+          wallets,
+          limit: 100,
+        });
         const prevIds = knownIdsRef.current;
         if (silent && prevIds.size > 0) {
           const fresh = rows.find((r) => !prevIds.has(r.id));
@@ -106,7 +107,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
         setIsLoading(false);
       }
     },
-    [address, isDemoUser, wallets, showToast]
+    [isDemoUser, user, wallets, showToast]
   );
 
   useEffect(() => {
@@ -119,7 +120,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
   }, [load]);
 
   useEffect(() => {
-    if (wallets.length === 0 && !isDemoUser && !address) return;
+    if (!user && !isDemoUser) return;
 
     const channel = supabase
       .channel(`trade-notif-${user?.id || address || 'guest'}`)
@@ -138,7 +139,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [wallets, address, isDemoUser, user?.id, load]);
+  }, [user?.id, isDemoUser, load]);
 
   const markAllRead = useCallback(() => {
     const latest = trades[0]?.closedAt ?? new Date().toISOString();

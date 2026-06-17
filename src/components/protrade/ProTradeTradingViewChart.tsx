@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useId, useLayoutEffect, useRef } from 'react';
 import type { HlInterval } from '../../lib/hyperliquid/types';
 import { resolveTradingViewInterval, resolveTradingViewSymbol } from '../../lib/hyperliquid/tradingView';
 import type { ProTradeTheme } from '../../lib/proTradeTheme';
@@ -12,6 +12,15 @@ type Props = {
 };
 
 type TvWidget = { remove: () => void };
+
+function safeRemoveWidget(widget: TvWidget | null | undefined) {
+  if (!widget) return;
+  try {
+    widget.remove();
+  } catch (e) {
+    console.warn('[TradingView] widget.remove failed', e);
+  }
+}
 
 declare global {
   interface Window {
@@ -52,6 +61,7 @@ function loadTradingViewScript(): Promise<void> {
 const ProTradeTradingViewChart: React.FC<Props> = ({ coin, interval, theme, hideNote }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetRef = useRef<TvWidget | null>(null);
+  const containerId = useId().replace(/:/g, '');
 
   useEffect(() => {
     const el = containerRef.current;
@@ -64,7 +74,7 @@ const ProTradeTradingViewChart: React.FC<Props> = ({ coin, interval, theme, hide
         await loadTradingViewScript();
         if (cancelled || !containerRef.current || !window.TradingView?.widget) return;
 
-        widgetRef.current?.remove();
+        safeRemoveWidget(widgetRef.current);
         el.innerHTML = '';
 
         const colors = getProTradeChartColors(theme);
@@ -95,12 +105,23 @@ const ProTradeTradingViewChart: React.FC<Props> = ({ coin, interval, theme, hide
 
     return () => {
       cancelled = true;
-      widgetRef.current?.remove();
-      widgetRef.current = null;
     };
-  }, [coin, interval, theme]);
+  }, [coin, interval, theme, containerId]);
 
-  const containerId = `tv-${coin.replace(/[^a-zA-Z0-9]/g, '-')}-${interval}`;
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    return () => {
+      safeRemoveWidget(widgetRef.current);
+      widgetRef.current = null;
+      if (el) {
+        try {
+          el.innerHTML = '';
+        } catch {
+          /* React may have already detached the node */
+        }
+      }
+    };
+  }, [coin, interval, theme, containerId]);
 
   return (
     <div className="hl-chart-tv-wrap">
