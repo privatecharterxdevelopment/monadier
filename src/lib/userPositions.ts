@@ -1,29 +1,64 @@
 import { supabase } from './supabase';
 import { DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
-import { fetchUserWalletAddresses, registerWalletsForHistory } from './userWallets';
+import {
+  fetchUserWalletAddresses,
+  getAuthUserId,
+  normalizeWalletAddresses,
+  registerWalletsForHistory,
+} from './userWallets';
 
 export type UserPositionRow = {
   id: string;
   wallet_address: string;
-  status: string;
+  chain_id: number;
+  token_symbol: string;
+  token_address?: string;
+  direction: string;
   entry_price: number;
   entry_amount: number;
-  token_symbol: string;
-  direction: string;
+  status: string;
   highest_price: number | null;
   profit_loss: number | null;
   leverage_multiplier: number | null;
   closed_at: string | null;
   created_at: string;
   updated_at?: string;
+  close_reason?: string | null;
+  exit_tx_hash?: string | null;
+  entry_tx_hash?: string | null;
 };
 
 type FetchUserPositionsOptions = {
   wallets?: string[];
   isDemoUser?: boolean;
   connectedAddress?: string;
+  userId?: string;
   limit?: number;
 };
+
+const POSITION_SELECT =
+  'id, wallet_address, chain_id, token_symbol, token_address, direction, entry_price, entry_amount, status, highest_price, profit_loss, leverage_multiplier, closed_at, created_at, updated_at, close_reason, exit_tx_hash, entry_tx_hash';
+
+async function queryPositionsDirect(
+  walletArray: string[],
+  limit: number
+): Promise<UserPositionRow[]> {
+  if (walletArray.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('positions')
+    .select(POSITION_SELECT)
+    .in('wallet_address', walletArray)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('[fetchUserPositions] direct', error);
+    return [];
+  }
+
+  return (data as UserPositionRow[]) || [];
+}
 
 /** Load positions for linked wallets (registers wallets + RPC when signed in). */
 export async function fetchUserPositions(
@@ -32,10 +67,12 @@ export async function fetchUserPositions(
   const limit = Math.min(options.limit ?? 500, 500);
   const isDemoUser = Boolean(options.isDemoUser);
 
-  let walletArray = (options.wallets ?? []).map((w) => w.toLowerCase()).filter(Boolean);
+  let walletArray = normalizeWalletAddresses(options.wallets ?? []);
 
   if (walletArray.length === 0 && !isDemoUser) {
-    walletArray = await fetchUserWalletAddresses(options.connectedAddress, false);
+    walletArray = normalizeWalletAddresses(
+      await fetchUserWalletAddresses(options.connectedAddress, false)
+    );
     const connected = options.connectedAddress?.toLowerCase();
     if (connected && !walletArray.includes(connected)) {
       walletArray.push(connected);
@@ -44,47 +81,35 @@ export async function fetchUserPositions(
 
   if (isDemoUser) {
     walletArray = [(walletArray[0] ?? DEMO_WALLET_ADDRESS).toLowerCase()];
+    return queryPositionsDirect(walletArray, limit);
   }
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (session && walletArray.length > 0 && !isDemoUser) {
-    await registerWalletsForHistory(walletArray);
+  const userId = options.userId ?? (await getAuthUserId());
+  if (!userId) {
+    return walletArray.length > 0 ? queryPositionsDirect(walletArray, limit) : [];
   }
-
-  if (session && !isDemoUser) {
-    const { data, error } = await supabase.rpc('get_my_positions_history', { p_limit: limit });
-    if (!error && data) {
-      return (data as UserPositionRow[]) || [];
-    }
-    if (error && !error.message?.includes('Could not find the function')) {
-      console.error('[fetchUserPositions] rpc', error);
-    }
-  }
-
-  if (!isDemoUser && walletArray.length === 0) {
-    return [];
-  }
-
-  let query = supabase
-    .from('positions')
-    .select(
-      'id, wallet_address, status, entry_price, entry_amount, token_symbol, direction, highest_price, profit_loss, leverage_multiplier, closed_at, created_at, updated_at'
-    )
-    .order('created_at', { ascending: false })
-    .limit(limit);
 
   if (walletArray.length > 0) {
-    query = query.in('wallet_address', walletArray);
+    await registerWalletsForHistory(walletArray, userId);
   }
 
-  const { data, error } = await query;
-  if (error) {
-    console.error('[fetchUserPositions]', error);
-    return [];
+  if (walletArray.length > 0) {
+    const sync = await supabase.rpc('sync_wallets_and_get_positions', {
+      p_wallets: walletArray,
+      p_limit: limit,
+    });
+    if (!sync.error && sync.data && (sync.data as UserPositionRow[]).length > 0) {
+      return sync.data as UserPositionRow[];
+    }
+    if (sync.error && !sync.error.message?.includes('Could not find the function')) {
+      console.error('[fetchUserPositions] sync rpc', sync.error);
+    }
   }
 
-  return (data as UserPositionRow[]) || [];
+  const legacy = await supabase.rpc('get_my_positions_history', { p_limit: limit });
+  if (!legacy.error && legacy.data && (legacy.data as UserPositionRow[]).length > 0) {
+    return legacy.data as UserPositionRow[];
+  }
+
+  return queryPositionsDirect(walletArray, limit);
 }

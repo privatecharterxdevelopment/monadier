@@ -3,7 +3,23 @@ import { DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
 
 export type WalletLinkResult =
   | { ok: true }
-  | { ok: false; error: string; code?: 'owned_by_other' | 'db_error' };
+  | { ok: false; error: string; code?: 'owned_by_other' | 'db_error' | 'not_authenticated' };
+
+/** Prefer getUser() — getSession() is often empty while AuthContext already has user. */
+export async function getAuthUserId(): Promise<string | undefined> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user?.id) return user.id;
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  return session?.user?.id;
+}
+
+export function normalizeWalletAddresses(wallets: string[]): string[] {
+  return [...new Set(wallets.map((w) => w.toLowerCase().trim()).filter(Boolean))];
+}
 
 /** True if this wallet is linked to a different auth user. */
 export async function isWalletOwnedByOtherUser(
@@ -55,19 +71,11 @@ export async function linkWalletToUserSafe(
     return { ok: false, code: 'db_error', error: error.message };
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('wallet_address')
-    .eq('id', userId)
-    .maybeSingle();
-  if (!profile?.wallet_address?.trim()) {
-    await supabase.from('profiles').update({ wallet_address: wallet }).eq('id', userId);
-  }
+  await supabase.from('profiles').update({ wallet_address: wallet }).eq('id', userId);
 
-  try {
-    await supabase.rpc('register_my_wallet', { p_wallet: wallet });
-  } catch {
-    /* RPC may not be deployed yet */
+  const { error: rpcError } = await supabase.rpc('register_my_wallet', { p_wallet: wallet });
+  if (rpcError && !rpcError.message.includes('Could not find the function')) {
+    console.warn('[linkWalletToUserSafe] register_my_wallet', rpcError.message);
   }
 
   return { ok: true };
@@ -87,28 +95,26 @@ export async function fetchUserWalletAddresses(
   const connected = connectedAddress?.toLowerCase();
 
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return [];
+    const userId = await getAuthUserId();
+    if (!userId) return connected ? [connected] : [];
 
     const { data: wallets } = await supabase
       .from('user_wallets')
       .select('wallet_address')
-      .eq('user_id', user.id);
+      .eq('user_id', userId);
     wallets?.forEach((w) => found.add(w.wallet_address.toLowerCase()));
 
     const { data: profile } = await supabase
       .from('profiles')
       .select('wallet_address')
-      .eq('id', user.id)
+      .eq('id', userId)
       .maybeSingle();
     if (profile?.wallet_address?.trim()) {
       found.add(profile.wallet_address.toLowerCase());
     }
 
     if (connected) {
-      const ownedByOther = await isWalletOwnedByOtherUser(user.id, connected);
+      const ownedByOther = await isWalletOwnedByOtherUser(userId, connected);
       if (!ownedByOther) {
         found.add(connected);
       }
@@ -121,17 +127,21 @@ export async function fetchUserWalletAddresses(
 }
 
 /** Register wallets with Supabase so RLS + history RPC can see vault trades. */
-export async function registerWalletsForHistory(wallets: string[]): Promise<void> {
-  const unique = [...new Set(wallets.map((w) => w.toLowerCase()).filter(Boolean))];
+export async function registerWalletsForHistory(
+  wallets: string[],
+  userId?: string
+): Promise<void> {
+  const unique = normalizeWalletAddresses(wallets);
   if (unique.length === 0) return;
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const userId = session?.user?.id;
-  if (!userId) return;
+
+  const uid = userId ?? (await getAuthUserId());
+  if (!uid) {
+    console.warn('[registerWalletsForHistory] no auth user — skipped');
+    return;
+  }
 
   for (const w of unique) {
-    const linked = await linkWalletToUserSafe(userId, w, 'app-linked');
+    const linked = await linkWalletToUserSafe(uid, w, 'app-linked');
     if (!linked.ok && linked.code !== 'owned_by_other') {
       console.warn('[registerWalletsForHistory]', w.slice(0, 10), linked.error);
     }

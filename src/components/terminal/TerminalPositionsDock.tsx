@@ -5,6 +5,7 @@ import { useAuth, DEMO_WALLET_ADDRESS } from '../../contexts/AuthContext';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { supabase } from '../../lib/supabase';
 import { fetchUserWalletAddresses, pickPrimaryVaultWallet, registerWalletsForHistory } from '../../lib/userWallets';
+import { fetchUserPositions } from '../../lib/userPositions';
 import {
   calcPositionPnl,
   fetchLiveTokenPrices,
@@ -181,7 +182,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
         setWalletsLoading(false);
       }
       if (!cancelled && user?.id && !isDemoUser) {
-        await registerWalletsForHistory(list);
+        await registerWalletsForHistory(list, user.id);
       }
     })();
     return () => {
@@ -227,50 +228,15 @@ const TerminalPositionsDock: React.FC<Props> = ({
 
       if (!silent) setLoading(true);
       try {
-        if (!isDemoUser && user && queryWalletsLocal.length > 0) {
-          await registerWalletsForHistory(queryWalletsLocal);
-        }
+        const positionRows = await fetchUserPositions({
+          isDemoUser,
+          connectedAddress: address,
+          wallets: queryWalletsLocal,
+          userId: user?.id,
+          limit: 500,
+        });
 
-        let positionRows: Position[] = [];
-        if (!isDemoUser && user) {
-          const { data: rpcData, error: rpcError } = await supabase.rpc(
-            'get_my_positions_history',
-            { p_limit: 500 }
-          );
-          if (!rpcError && rpcData) {
-            positionRows = (rpcData as Position[]) || [];
-          } else if (
-            rpcError &&
-            !rpcError.message.includes('Could not find the function')
-          ) {
-            console.error('[TerminalPositionsDock] rpc positions', rpcError);
-          }
-        }
-
-        if (positionRows.length === 0) {
-          let positionsQuery = supabase
-            .from('positions')
-            .select(
-              'id, wallet_address, chain_id, token_symbol, token_address, direction, entry_price, entry_amount, profit_loss, status, leverage_multiplier, highest_price, created_at, closed_at, close_reason, exit_tx_hash, entry_tx_hash'
-            )
-            .order('created_at', { ascending: false })
-            .limit(500);
-
-          if (isDemoUser) {
-            positionsQuery = positionsQuery.eq(
-              'wallet_address',
-              (queryWalletsLocal[0] ?? DEMO_WALLET_ADDRESS).toLowerCase()
-            );
-          } else if (queryWalletsLocal.length > 0) {
-            positionsQuery = positionsQuery.in('wallet_address', queryWalletsLocal);
-          }
-
-          const { data, error } = await positionsQuery;
-          if (error) throw error;
-          positionRows = (data as Position[]) || [];
-        }
-
-        setAllRows(positionRows);
+        setAllRows(positionRows as Position[]);
 
         const closed = await fetchClosedTrades({
           isDemoUser,
@@ -334,10 +300,28 @@ const TerminalPositionsDock: React.FC<Props> = ({
     [mergedRows]
   );
   const openCount = openRows.length;
-  const historyRows = useMemo(
-    () => mergeUnifiedHistory(closedHistory, mergedRows),
-    [closedHistory, mergedRows]
-  );
+  const historyRows = useMemo(() => {
+    const merged = mergeUnifiedHistory(closedHistory, mergedRows);
+    if (merged.length > 0) return merged;
+    return mergedRows
+      .filter((p) => p.status === 'closed' || p.status === 'failed' || p.status === 'closing')
+      .map((p) => ({
+        id: p.id,
+        positionId: p.id,
+        walletAddress: p.wallet_address,
+        chainId: p.chain_id || 42161,
+        tokenSymbol: p.token_symbol,
+        direction: p.direction || 'LONG',
+        leverage: p.leverage_multiplier ?? 1,
+        entryAmount: p.entry_amount || 0,
+        profitLoss: p.profit_loss,
+        closedAt: p.closed_at || p.created_at,
+        exitTxHash: p.exit_tx_hash,
+        closeReason: p.close_reason,
+        status: p.status as 'closed' | 'closing' | 'failed',
+        source: 'position' as const,
+      }));
+  }, [closedHistory, mergedRows]);
   const historyCount = historyRows.length;
   const openNetPnl = useMemo(
     () => openRows.reduce((sum, p) => sum + calcPositionPnl(p, livePrices), 0),
@@ -654,8 +638,8 @@ const TerminalPositionsDock: React.FC<Props> = ({
         ) : tab === 'history' ? (
           <div className={emptyClass}>
             {hasWallet
-              ? 'No closed trades yet. After you close a position, it appears here within ~30s. Link your vault wallet in Profile → Wallets if trades are missing.'
-              : 'Link a wallet in Profile → Wallets to see trade history.'}
+              ? `No closed trades for ${queryWallets[0]?.slice(0, 6)}…${queryWallets[0]?.slice(-4) ?? 'wallet'}. Connect the wallet that opened vault trades, then refresh.`
+              : 'Connect your vault wallet to see trade history.'}
           </div>
         ) : positionsLoading && rows.length === 0 ? (
           <div className={emptyClass}>Loading…</div>

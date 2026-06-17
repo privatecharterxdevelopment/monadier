@@ -100,8 +100,14 @@ if (!efs.body.includes('Could not find the function')) {
   failed++;
 }
 
-for (const fn of ['register_my_wallet', 'get_my_positions_history', 'get_my_trade_history']) {
-  const r = await rpc(fn, fn === 'register_my_wallet' ? { p_wallet: '0x0000000000000000000000000000000000000000' } : { p_limit: 1 });
+for (const fn of ['register_my_wallet', 'get_my_positions_history', 'get_my_trade_history', 'sync_wallets_and_get_positions']) {
+  const args =
+    fn === 'register_my_wallet'
+      ? { p_wallet: '0x0000000000000000000000000000000000000000' }
+      : fn === 'sync_wallets_and_get_positions'
+        ? { p_wallets: ['0x0000000000000000000000000000000000000000'], p_limit: 1 }
+        : { p_limit: 1 };
+  const r = await rpc(fn, args);
   if (!r.body.includes('Could not find the function')) {
     console.log(`✅ rpc ${fn}`);
   } else {
