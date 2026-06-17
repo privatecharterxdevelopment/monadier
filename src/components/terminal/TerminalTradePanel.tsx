@@ -18,11 +18,8 @@ import { useSubscription } from '../../contexts/SubscriptionContext';
 import { supabase } from '../../lib/supabase';
 import { VaultClient, VAULT_CHAIN_ID, getArbitrumPublicClient } from '../../lib/vault';
 import {
-  findOpenPositionId,
   markAllOpenPositionsClosing,
-  markPositionClosing,
 } from '../../lib/positionClose';
-import { closeVaultPosition } from '../../lib/vaultPositionDock';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { useTerminalVaultData } from '../../hooks/useTerminalVaultData';
 import TerminalDepositModal from './TerminalDepositModal';
@@ -71,9 +68,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   const [showSettings, setShowSettings] = useState(false);
   const [startMode, setStartMode] = useState(false);
   const [botBusy, setBotBusy] = useState(false);
-  const [closeBusy, setCloseBusy] = useState(false);
   const [botError, setBotError] = useState<string | null>(null);
-  const [closeError, setCloseError] = useState<string | null>(null);
   const [stopNotice, setStopNotice] = useState<string | null>(null);
 
   const walletReady = isConnected || isDemoUser;
@@ -277,38 +272,6 @@ const TerminalTradePanel: React.FC<Props> = ({
     if (error) throw new Error(error.message);
   }
 
-  const handleClosePosition = async () => {
-    const pos = vault.position;
-    if (!pos?.isActive || !vault.wallet) return;
-    setCloseError(null);
-    setCloseBusy(true);
-    try {
-      const tokenSym = pos.token === 'ETH' ? 'WETH' : 'WBTC';
-      const dbId = await findOpenPositionId(vault.wallet, tokenSym);
-      if (dbId) {
-        await markPositionClosing(dbId);
-        refreshAll();
-        return;
-      }
-
-      if (!publicClient || !walletClient) {
-        setCloseError('Connect wallet to close on-chain');
-        return;
-      }
-      await closeVaultPosition({
-        wallet: vault.wallet,
-        token: pos.token,
-        publicClient,
-        walletClient,
-      });
-      refreshAll();
-    } catch (e: unknown) {
-      setCloseError(e instanceof Error ? e.message : 'Close failed');
-    } finally {
-      setCloseBusy(false);
-    }
-  };
-
   return (
     <aside className="term-trade-panel">
       <div className="term-trade-header">
@@ -391,46 +354,6 @@ const TerminalTradePanel: React.FC<Props> = ({
               onAdjust={() => setPanelTab('lvrg')}
             />
 
-            {walletReady && vault.position?.isActive && (
-              <div className="term-panel-card term-panel-card--position">
-                <span className="term-panel-card-label">Open position</span>
-                <strong className="term-panel-card-value term-panel-card-value--sm">
-                  {vault.position.isLong ? 'Long' : 'Short'} {vault.position.token} ·{' '}
-                  {vault.position.leverage}x
-                </strong>
-                <span className="term-panel-card-hint">
-                  ${parseFloat(vault.position.collateral).toFixed(2)} collateral · entry $
-                  {vault.position.entryPrice}
-                  {vault.position.pnl != null && (
-                    <>
-                      {' '}
-                      ·{' '}
-                      <span
-                        className={vault.position.pnl >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'}
-                      >
-                        {vault.position.pnl >= 0 ? '+' : ''}$
-                        {vault.position.pnl.toFixed(2)} P/L
-                      </span>
-                    </>
-                  )}
-                </span>
-                {closeError && (
-                  <div className="term-panel-alert">
-                    <AlertTriangle size={14} />
-                    <span>{closeError}</span>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  className="term-btn-sm w-full justify-center mt-2"
-                  disabled={closeBusy}
-                  onClick={handleClosePosition}
-                >
-                  {closeBusy ? <Loader2 size={14} className="animate-spin" /> : 'Close position'}
-                </button>
-              </div>
-            )}
-
             {botError && (
               <div className="term-panel-alert">
                 <AlertTriangle size={14} />
@@ -484,7 +407,7 @@ const TerminalTradePanel: React.FC<Props> = ({
             {onOpenHistory && (
               <button type="button" className="term-link-btn" onClick={onOpenHistory}>
                 <TrendingUp size={12} className="inline mr-1" />
-                Open positions & history →
+                Open positions →
               </button>
             )}
 
