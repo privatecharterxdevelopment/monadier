@@ -150,6 +150,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
   const [closedHistory, setClosedHistory] = useState<ClosedTradeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [wallets, setWallets] = useState<string[]>([]);
+  const [walletsLoading, setWalletsLoading] = useState(true);
   const [livePrices, setLivePrices] = useState<Record<string, number>>({});
   const [closingId, setClosingId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{
@@ -161,13 +162,19 @@ const TerminalPositionsDock: React.FC<Props> = ({
 
   useEffect(() => {
     let cancelled = false;
+    setWalletsLoading(true);
     (async () => {
       const list = await fetchUserWalletAddresses(address, isDemoUser);
       const vaultWallet = vaultData.wallet?.toLowerCase();
       const profileWallet = profile?.wallet_address?.trim().toLowerCase();
+      const connected = address?.toLowerCase();
       if (vaultWallet && !list.includes(vaultWallet)) list.push(vaultWallet);
       if (profileWallet && !list.includes(profileWallet)) list.push(profileWallet);
-      if (!cancelled) setWallets(list);
+      if (connected && !list.includes(connected)) list.push(connected);
+      if (!cancelled) {
+        setWallets(list);
+        setWalletsLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
@@ -176,15 +183,19 @@ const TerminalPositionsDock: React.FC<Props> = ({
 
   const queryWallets = useMemo(() => {
     if (isDemoUser) return [DEMO_WALLET_ADDRESS];
-    if (wallets.length > 0) return wallets;
+    const merged = new Set<string>();
+    for (const w of wallets) merged.add(w.toLowerCase());
     const profileWallet = profile?.wallet_address?.trim().toLowerCase();
-    return profileWallet ? [profileWallet] : [];
-  }, [wallets, isDemoUser, profile?.wallet_address]);
+    if (profileWallet) merged.add(profileWallet);
+    const connected = address?.toLowerCase();
+    if (connected) merged.add(connected);
+    const vaultWallet = vaultData.wallet?.toLowerCase();
+    if (vaultWallet) merged.add(vaultWallet);
+    return [...merged];
+  }, [wallets, isDemoUser, profile?.wallet_address, address, vaultData.wallet]);
 
-  const { chainRows, loading: chainLoading } = useLinkedVaultOpenPositions(
-    queryWallets,
-    refreshKey
-  );
+  const { chainRows, loading: chainLoading, resolved: chainResolved } =
+    useLinkedVaultOpenPositions(queryWallets, refreshKey);
 
   const vaultWallet =
     pickPrimaryVaultWallet(queryWallets, address ?? vaultData.wallet) ?? vaultData.wallet;
@@ -336,7 +347,9 @@ const TerminalPositionsDock: React.FC<Props> = ({
   const hasWallet = queryWallets.length > 0 || isDemoUser;
   const needsSignIn = !user && !isDemoUser;
   const activityWallet = address ?? queryWallets[0];
-  const positionsLoading = loading || chainLoading;
+  const awaitingWallets = !isDemoUser && Boolean(user) && walletsLoading && queryWallets.length === 0;
+  const positionsLoading =
+    loading || chainLoading || awaitingWallets || (queryWallets.length > 0 && !chainResolved);
   const showOpenTradingTable = isHlSkin && tab === 'open';
 
   const isPage = layout === 'page';

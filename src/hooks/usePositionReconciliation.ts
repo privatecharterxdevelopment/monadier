@@ -6,7 +6,6 @@ import { linkWalletToUserSafe } from '../lib/userWallets';
 import { VAULT_CHAIN_ID } from '../lib/vault';
 import {
   reconcileUserPositions,
-  tryReconcileOrphanedVaultOnChain,
 } from '../lib/positionReconciliation';
 
 const INTERVAL_MS = 90_000;
@@ -18,7 +17,7 @@ const MIN_GAP_MS = 45_000;
  */
 export function usePositionReconciliation(onSynced?: () => void) {
   const { address, isConnected } = useAccount();
-  const { publicClient, walletClient, chainId } = useWeb3();
+  const { publicClient, chainId } = useWeb3();
   const { user, isDemoUser } = useAuth();
   const lastRunRef = useRef(0);
   const [syncedTotal, setSyncedTotal] = useState(0);
@@ -46,15 +45,6 @@ export function usePositionReconciliation(onSynced?: () => void) {
         setSyncedTotal((n) => n + synced);
         onSynced?.();
       }
-
-      if (walletClient && address) {
-        const didChain = await tryReconcileOrphanedVaultOnChain(
-          address as `0x${string}`,
-          publicClient,
-          walletClient
-        );
-        if (didChain) onSynced?.();
-      }
     } catch (e) {
       console.error('[usePositionReconciliation]', e);
     }
@@ -65,7 +55,6 @@ export function usePositionReconciliation(onSynced?: () => void) {
     isDemoUser,
     onSynced,
     publicClient,
-    walletClient,
   ]);
 
   useEffect(() => {

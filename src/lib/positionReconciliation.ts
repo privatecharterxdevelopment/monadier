@@ -151,7 +151,7 @@ export async function reconcileUserPositions(
   return total;
 }
 
-/** Vault active on-chain but no open DB row (GMX closed, vault stuck) — user-signed reconcile tx. */
+/** Vault active on-chain but no open DB row — user-signed reconcile tx only (never auto-run). */
 export async function tryReconcileOrphanedVaultOnChain(
   wallet: `0x${string}`,
   publicClient: PublicClient,

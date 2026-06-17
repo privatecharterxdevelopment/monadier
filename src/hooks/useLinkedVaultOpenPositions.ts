@@ -9,6 +9,7 @@ import {
 export function useLinkedVaultOpenPositions(wallets: string[], refreshKey = 0) {
   const [chainRows, setChainRows] = useState<VaultDockPosition[]>([]);
   const [loading, setLoading] = useState(true);
+  const [resolved, setResolved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const walletKey = wallets
@@ -16,11 +17,20 @@ export function useLinkedVaultOpenPositions(wallets: string[], refreshKey = 0) {
     .sort()
     .join(',');
 
+  useEffect(() => {
+    setResolved(false);
+    if (!walletKey) {
+      setChainRows([]);
+      setLoading(false);
+    }
+  }, [walletKey]);
+
   const refresh = useCallback(async (silent = false) => {
     const list = walletKey ? walletKey.split(',').filter(Boolean) : [];
     if (list.length === 0) {
       setChainRows([]);
       setLoading(false);
+      setResolved(true);
       return;
     }
     if (!silent) setLoading(true);
@@ -34,6 +44,7 @@ export function useLinkedVaultOpenPositions(wallets: string[], refreshKey = 0) {
       if (!silent) setChainRows([]);
     } finally {
       setLoading(false);
+      setResolved(true);
     }
   }, [walletKey]);
 
@@ -47,7 +58,7 @@ export function useLinkedVaultOpenPositions(wallets: string[], refreshKey = 0) {
     return () => clearInterval(id);
   }, [refresh, walletKey]);
 
-  return { chainRows, loading, error, refresh };
+  return { chainRows, loading, resolved, error, refresh };
 }
 
 export { mergeChainAndDbRows };

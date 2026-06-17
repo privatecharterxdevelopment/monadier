@@ -99,43 +99,43 @@ export async function fetchVaultOpenPositionsForWallet(
   const arbClient = getArbitrumPublicClient();
   const client = new VaultClient(arbClient as never, arbClient as never, VAULT_CHAIN_ID);
   const user = wallet.toLowerCase() as `0x${string}`;
-  const out: VaultDockPosition[] = [];
 
-  for (const { token, address } of VAULT_TOKENS) {
-    try {
-      const pos = await client.getPosition(user, address);
-      if (!pos.isActive) continue;
-      out.push(
-        vaultPositionToDockRow(wallet, {
+  const results = await Promise.all(
+    VAULT_TOKENS.map(async ({ token, address }) => {
+      try {
+        const pos = await client.getPosition(user, address);
+        if (!pos.isActive) return null;
+        return vaultPositionToDockRow(wallet, {
           isActive: true,
           isLong: pos.isLong,
           collateral: pos.collateralFormatted,
           leverage: pos.leverage,
           entryPrice: parseFloat(pos.entryPriceFormatted).toFixed(2),
           token,
-        })
-      );
-    } catch (e) {
-      console.warn('[fetchVaultOpenPositionsForWallet]', wallet, token, e);
-    }
-  }
+        });
+      } catch (e) {
+        console.warn('[fetchVaultOpenPositionsForWallet]', wallet, token, e);
+        return null;
+      }
+    })
+  );
 
-  return out;
+  return results.filter((row): row is VaultDockPosition => row != null);
 }
 
 export async function fetchVaultOpenPositionsForWallets(
   wallets: string[]
 ): Promise<VaultDockPosition[]> {
   const seen = new Set<string>();
-  const rows: VaultDockPosition[] = [];
-  for (const wallet of wallets) {
-    const key = wallet.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const walletRows = await fetchVaultOpenPositionsForWallet(key);
-    rows.push(...walletRows);
-  }
-  return rows;
+  const unique = wallets
+    .map((w) => w.toLowerCase())
+    .filter((w) => {
+      if (seen.has(w)) return false;
+      seen.add(w);
+      return true;
+    });
+  const batches = await Promise.all(unique.map((w) => fetchVaultOpenPositionsForWallet(w)));
+  return batches.flat();
 }
 
 function normalizeToken(sym: string): string {
