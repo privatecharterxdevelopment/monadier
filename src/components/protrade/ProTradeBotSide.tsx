@@ -65,7 +65,7 @@ export const ProTradeBotPanelSlot: React.FC<PanelProps> = ({ onOpenHistory }) =>
   const [vaultAction, setVaultAction] = useState<'deposit' | 'withdraw' | null>(null);
 
   return (
-    <div className="hl-bot-panel-wrap">
+    <div id="hl-trade-panel" className="hl-bot-panel-wrap">
       <TerminalTradePanel
         metrics={metrics}
         onRefresh={refresh}

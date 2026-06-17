@@ -288,7 +288,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
     orderNotional > 0 && !isSpot && leverage > 0 ? orderNotional / leverage : isSpot ? orderNotional : 0;
 
   return (
-    <aside className="hl-order-panel">
+    <aside id="hl-trade-panel" className="hl-order-panel">
       <div className="hl-entry-head">
         {!isSpot ? (
           <>

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useAppKitAccount } from '@reown/appkit/react';
 import ProTradeShell from '../../components/protrade/ProTradeShell';
 import ProTradeTopNav, { type ProTradeSection } from '../../components/protrade/ProTradeTopNav';
+import ProTradeMobileTradeFab from '../../components/protrade/ProTradeMobileTradeFab';
 import ProTradeProfile from '../../components/protrade/ProTradeProfile';
 import ProTradeBotHistory from '../../components/protrade/ProTradeBotHistory';
 import {
@@ -674,6 +675,13 @@ const Dashboard2ProPage: React.FC = () => {
         />
       ) : null}
       {section === 'spot' ? renderSpotTerminal() : null}
+      {section === 'perps' || section === 'spot' || section === 'bot' ? (
+        <ProTradeMobileTradeFab
+          key={section}
+          label={section === 'bot' ? 'Bot panel' : 'Buy / Sell'}
+        />
+      ) : null}
+
       {section === 'swap' ? (
         <div className="hl-terminal">
           <ProTradeSwap
