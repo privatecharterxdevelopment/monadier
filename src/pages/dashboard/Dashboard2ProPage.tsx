@@ -77,7 +77,7 @@ const Dashboard2ProPage: React.FC = () => {
   const [transferOpen, setTransferOpen] = useState(false);
   const [perpDockTab, setPerpDockTab] = useState<ProTradeDockTab>('positions');
   const [spotDockTab, setSpotDockTab] = useState<ProTradeDockTab>('balances');
-  const [botDockTab, setBotDockTab] = useState<DockTab>('open');
+  const [botDockTab, setBotDockTab] = useState<DockTab>('history');
   const [toast, setToast] = useState<string | null>(null);
   const [showSupport, setShowSupport] = useState(false);
   const [authModal, setAuthModal] = useState<'signin' | 'register' | null>(null);
@@ -523,7 +523,7 @@ const Dashboard2ProPage: React.FC = () => {
         </div>
 
         <ProTradeBotPanelSlot
-          onOpenHistory={() => setBotDockTab('open')}
+          onOpenHistory={() => setBotDockTab('history')}
           onRequireSignIn={promptSignIn}
         />
       </div>

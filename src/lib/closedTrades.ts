@@ -110,6 +110,24 @@ export async function fetchClosedTrades(options: FetchOptions = {}): Promise<Clo
     await registerWalletsForHistory(normalized, userId);
   }
 
+  if (normalized.length > 0) {
+    const pub = await supabase.rpc('get_wallet_position_history', {
+      p_wallets: normalized,
+      p_limit: limit,
+    });
+    if (!pub.error && pub.data) {
+      const fromPub = mergeClosedTradeRows(
+        [],
+        (pub.data as Record<string, unknown>[]).filter((row) => {
+          const status = String(row.status || '');
+          return status === 'closed' || status === 'failed';
+        }),
+        limit
+      );
+      if (fromPub.length > 0) return fromPub;
+    }
+  }
+
   if (userId) {
     const rpcRows = await fetchClosedTradesViaRpc(limit, normalized);
     if (rpcRows.length > 0) {

@@ -39,6 +39,27 @@ type FetchUserPositionsOptions = {
 const POSITION_SELECT =
   'id, wallet_address, chain_id, token_symbol, token_address, direction, entry_price, entry_amount, status, highest_price, profit_loss, leverage_multiplier, closed_at, created_at, updated_at, close_reason, exit_tx_hash, entry_tx_hash';
 
+async function queryPositionsViaPublicRpc(
+  walletArray: string[],
+  limit: number
+): Promise<UserPositionRow[] | null> {
+  if (walletArray.length === 0) return null;
+
+  const { data, error } = await supabase.rpc('get_wallet_position_history', {
+    p_wallets: walletArray,
+    p_limit: limit,
+  });
+
+  if (error) {
+    if (!error.message?.includes('Could not find the function')) {
+      console.error('[fetchUserPositions] public rpc', error);
+    }
+    return null;
+  }
+
+  return (data as UserPositionRow[]) || [];
+}
+
 async function queryPositionsDirect(
   walletArray: string[],
   limit: number
@@ -60,7 +81,7 @@ async function queryPositionsDirect(
   return (data as UserPositionRow[]) || [];
 }
 
-/** Load positions for linked wallets (registers wallets + RPC when signed in). */
+/** Load positions for linked/connected wallets — public RPC first, then auth fallbacks. */
 export async function fetchUserPositions(
   options: FetchUserPositionsOptions = {}
 ): Promise<UserPositionRow[]> {
@@ -81,19 +102,25 @@ export async function fetchUserPositions(
 
   if (isDemoUser) {
     walletArray = [(walletArray[0] ?? DEMO_WALLET_ADDRESS).toLowerCase()];
+  }
+
+  if (walletArray.length === 0) {
+    return [];
+  }
+
+  const publicRows = await queryPositionsViaPublicRpc(walletArray, limit);
+  if (publicRows && publicRows.length > 0) {
+    return publicRows;
+  }
+
+  if (isDemoUser) {
     return queryPositionsDirect(walletArray, limit);
   }
 
   const userId = options.userId ?? (await getAuthUserId());
-  if (!userId) {
-    return walletArray.length > 0 ? queryPositionsDirect(walletArray, limit) : [];
-  }
-
-  if (walletArray.length > 0) {
+  if (userId) {
     await registerWalletsForHistory(walletArray, userId);
-  }
 
-  if (walletArray.length > 0) {
     const sync = await supabase.rpc('sync_wallets_and_get_positions', {
       p_wallets: walletArray,
       p_limit: limit,
@@ -104,11 +131,11 @@ export async function fetchUserPositions(
     if (sync.error && !sync.error.message?.includes('Could not find the function')) {
       console.error('[fetchUserPositions] sync rpc', sync.error);
     }
-  }
 
-  const legacy = await supabase.rpc('get_my_positions_history', { p_limit: limit });
-  if (!legacy.error && legacy.data && (legacy.data as UserPositionRow[]).length > 0) {
-    return legacy.data as UserPositionRow[];
+    const legacy = await supabase.rpc('get_my_positions_history', { p_limit: limit });
+    if (!legacy.error && legacy.data && (legacy.data as UserPositionRow[]).length > 0) {
+      return legacy.data as UserPositionRow[];
+    }
   }
 
   return queryPositionsDirect(walletArray, limit);

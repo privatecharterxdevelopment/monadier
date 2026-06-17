@@ -216,15 +216,21 @@ const TerminalPositionsDock: React.FC<Props> = ({
 
   const load = useCallback(
     async (silent = false) => {
-      if (!isDemoUser && !user) {
+      const queryWalletsLocal =
+        queryWallets.length > 0
+          ? queryWallets
+          : isDemoUser
+            ? [DEMO_WALLET_ADDRESS]
+            : address
+              ? [address.toLowerCase()]
+              : [];
+
+      if (!isDemoUser && !user && queryWalletsLocal.length === 0) {
         setAllRows([]);
         setClosedHistory([]);
         setLoading(false);
         return;
       }
-
-      const queryWalletsLocal =
-        queryWallets.length > 0 ? queryWallets : isDemoUser ? [DEMO_WALLET_ADDRESS] : [];
 
       if (!silent) setLoading(true);
       try {
@@ -254,7 +260,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
         setLoading(false);
       }
     },
-    [queryWallets, isDemoUser, user]
+    [queryWallets, isDemoUser, user, address]
   );
 
   useEffect(() => {
@@ -412,8 +418,8 @@ const TerminalPositionsDock: React.FC<Props> = ({
     }
   };
 
-  const hasWallet = queryWallets.length > 0 || isDemoUser;
-  const needsSignIn = !user && !isDemoUser;
+  const hasWallet = queryWallets.length > 0 || Boolean(address) || isDemoUser;
+  const needsSignIn = !user && !isDemoUser && !address;
   const activityWallet = address ?? queryWallets[0];
   const awaitingWallets = !isDemoUser && Boolean(user) && walletsLoading && queryWallets.length === 0;
   const positionsLoading =
