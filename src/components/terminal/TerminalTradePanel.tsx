@@ -14,8 +14,9 @@ import {
 import { useAppKit } from '@reown/appkit/react';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSubscription } from '../../contexts/SubscriptionContext';
 import { supabase } from '../../lib/supabase';
-import { VaultClient, VAULT_CHAIN_ID } from '../../lib/vault';
+import { VaultClient, VAULT_CHAIN_ID, getArbitrumPublicClient } from '../../lib/vault';
 import {
   findOpenPositionId,
   markAllOpenPositionsClosing,
@@ -59,7 +60,8 @@ const TerminalTradePanel: React.FC<Props> = ({
 }) => {
   const { open } = useAppKit();
   const { isConnected, address, chainId, publicClient, walletClient, switchChain } = useWeb3();
-  const { isDemoUser } = useAuth();
+  const { isDemoUser, isAuthenticated } = useAuth();
+  const { linkWallet } = useSubscription();
   const [panelTab, setPanelTab] = useState<PanelTab>('bot');
   const [vaultTick, setVaultTick] = useState(0);
   const vault = useTerminalVaultData(vaultTick);
@@ -75,13 +77,35 @@ const TerminalTradePanel: React.FC<Props> = ({
 
   const walletReady = isConnected || isDemoUser;
 
+  const walletOnArbitrum = isDemoUser || chainId === VAULT_CHAIN_ID;
+  const vaultFundingUsd = Math.max(vault.balanceUsd, vault.vaultUsd, metrics.vaultUsd);
+  const botRunning = vault.settings.autoTradeEnabled;
+
+  const startBlocker = useMemo((): string | null => {
+    if (!walletReady) return null;
+    if (vault.isLoading && vaultFundingUsd === 0) return 'Loading vault balance…';
+    if (vaultFundingUsd < MIN_VAULT_USD) {
+      return `Need at least $${MIN_VAULT_USD} in vault (currently ${fmt(vaultFundingUsd)}).`;
+    }
+    if (!walletOnArbitrum) return 'Switch your wallet to Arbitrum (ARB), then try again.';
+    if (!isDemoUser && !isAuthenticated) return 'Sign in to Monadier, then start the bot.';
+    return null;
+  }, [
+    walletReady,
+    vault.isLoading,
+    vaultFundingUsd,
+    walletOnArbitrum,
+    isDemoUser,
+    isAuthenticated,
+  ]);
+
   const phase: SetupPhase = useMemo(() => {
     if (!walletReady) return 'connect';
-    if (metrics.isLoading || vault.isLoading) return 'loading';
-    if (!vault.onArbitrum) return 'network';
-    if (vault.vaultUsd < MIN_VAULT_USD) return 'fund';
+    if (vault.isLoading && vaultFundingUsd === 0) return 'loading';
+    if (!walletOnArbitrum) return 'network';
+    if (vaultFundingUsd < MIN_VAULT_USD) return 'fund';
     return 'ready';
-  }, [walletReady, metrics.isLoading, vault.isLoading, vault.onArbitrum, vault.vaultUsd]);
+  }, [walletReady, vault.isLoading, walletOnArbitrum, vaultFundingUsd]);
 
   useEffect(() => {
     if (vaultAction === 'deposit') {
@@ -101,13 +125,13 @@ const TerminalTradePanel: React.FC<Props> = ({
   };
 
   const ensureArbitrum = async () => {
-    if (isDemoUser || vault.onArbitrum) return true;
+    if (isDemoUser || walletOnArbitrum) return true;
     try {
       await switchChain(VAULT_CHAIN_ID);
       refreshAll();
       return true;
     } catch {
-      setBotError('Switch to Arbitrum (ARB) in the header.');
+      setBotError('Switch to Arbitrum (ARB) in your wallet.');
       return false;
     }
   };
@@ -130,31 +154,57 @@ const TerminalTradePanel: React.FC<Props> = ({
     setShowWithdraw(true);
   };
 
+  const parseBotTxError = (err: unknown): string => {
+    const msg =
+      err instanceof Error
+        ? err.message
+        : typeof err === 'object' && err && 'shortMessage' in err
+          ? String((err as { shortMessage: string }).shortMessage)
+          : 'Failed to start bot';
+    if (msg.includes('User rejected') || msg.includes('denied')) {
+      return 'Transaction cancelled in wallet.';
+    }
+    if (msg.includes('insufficient funds') || msg.includes('gas')) {
+      return 'Need a little ETH on Arbitrum for gas — then tap Start bot again.';
+    }
+    return msg;
+  };
+
   const handleStartBot = async () => {
     if (!walletReady) {
       open();
       return;
     }
-    if (phase !== 'ready' || !vault.wallet) return;
+    if (!vault.wallet) {
+      setBotError('Connect your wallet first.');
+      return;
+    }
+    if (startBlocker) {
+      setBotError(startBlocker);
+      return;
+    }
     setBotError(null);
     if (!(await ensureArbitrum())) return;
     if (!isDemoUser && (!publicClient || !walletClient)) {
-      setStartMode(true);
-      setShowSettings(true);
+      setBotError('Wallet not ready — unlock your wallet app and try again.');
       return;
     }
 
     setBotBusy(true);
     try {
-      if (!isDemoUser && publicClient && walletClient) {
-        const client = new VaultClient(publicClient as never, walletClient as never, VAULT_CHAIN_ID);
-        await client.setAutoTrade(true, vault.wallet);
+      const arbClient = getArbitrumPublicClient();
+      if (!isDemoUser && walletClient) {
+        const client = new VaultClient(arbClient as never, walletClient as never, VAULT_CHAIN_ID);
+        const hash = await client.setAutoTrade(true, vault.wallet);
+        await arbClient.waitForTransactionReceipt({ hash });
       }
       await supabaseUpsertAuto(true);
+      if (!isDemoUser && address) {
+        await linkWallet(address);
+      }
       refreshAll();
-    } catch {
-      setStartMode(true);
-      setShowSettings(true);
+    } catch (err: unknown) {
+      setBotError(parseBotTxError(err));
     } finally {
       setBotBusy(false);
     }
@@ -165,7 +215,8 @@ const TerminalTradePanel: React.FC<Props> = ({
       open();
       return;
     }
-    if (!vault.wallet || phase !== 'ready') return;
+    if (!vault.wallet) return;
+    if (vaultFundingUsd < MIN_VAULT_USD) return;
     setBotError(null);
     setStopNotice(null);
     if (!(await ensureArbitrum())) return;
@@ -193,8 +244,8 @@ const TerminalTradePanel: React.FC<Props> = ({
   };
 
   async function supabaseUpsertAuto(enabled: boolean) {
-    if (!vault.wallet) return;
-    await supabase.from('vault_settings').upsert(
+    if (!vault.wallet) throw new Error('No wallet connected');
+    const { error } = await supabase.from('vault_settings').upsert(
       {
         wallet_address: vault.wallet.toLowerCase(),
         chain_id: VAULT_CHAIN_ID,
@@ -202,6 +253,7 @@ const TerminalTradePanel: React.FC<Props> = ({
       },
       { onConflict: 'wallet_address,chain_id' }
     );
+    if (error) throw new Error(error.message);
   }
 
   const handleClosePosition = async () => {
@@ -308,16 +360,16 @@ const TerminalTradePanel: React.FC<Props> = ({
             <div className="term-panel-card term-panel-card--muted">
               <span className="term-panel-card-label">Auto-trading</span>
               <strong
-                className={`term-panel-card-value ${walletReady && metrics.autoTradeEnabled ? 'term-pnl-pos' : ''}`}
+                className={`term-panel-card-value ${walletReady && botRunning ? 'term-pnl-pos' : ''}`}
               >
-                {walletReady && metrics.autoTradeEnabled ? 'Running' : 'Stopped'}
+                {walletReady && botRunning ? 'Running' : 'Stopped'}
               </strong>
               <span className="term-panel-card-hint">Vault bot · Arbitrum</span>
             </div>
 
             <TerminalBotSettingsStrip
               settings={vault.settings}
-              disabled={walletReady && phase === 'network'}
+              disabled={walletReady && !walletOnArbitrum}
               onAdjust={() => setPanelTab('lvrg')}
             />
 
@@ -368,12 +420,16 @@ const TerminalTradePanel: React.FC<Props> = ({
               </div>
             )}
 
+            {startBlocker && !botError && (
+              <p className="term-hint term-hint--warn">{startBlocker}</p>
+            )}
+
             <div className="flex gap-2">
-              {walletReady && metrics.autoTradeEnabled ? (
+              {walletReady && botRunning ? (
                 <button
                   type="button"
                   className="term-btn-sm term-btn-sm--primary flex-1 justify-center"
-                  disabled={botBusy || phase !== 'ready'}
+                  disabled={botBusy}
                   onClick={() => void handleStopBot()}
                 >
                   {botBusy ? <Loader2 size={14} className="animate-spin" /> : <Square size={14} />}
@@ -383,11 +439,15 @@ const TerminalTradePanel: React.FC<Props> = ({
                 <button
                   type="button"
                   className="term-btn-sm term-btn-sm--primary flex-1 justify-center"
-                  disabled={botBusy || (walletReady && phase !== 'ready')}
+                  disabled={botBusy}
                   onClick={() => void handleStartBot()}
                 >
                   {botBusy ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-                  {walletReady ? 'Start bot' : 'Connect to start bot'}
+                  {botBusy
+                    ? 'Confirm in wallet…'
+                    : walletReady
+                      ? 'Start bot'
+                      : 'Connect to start bot'}
                 </button>
               )}
             </div>
@@ -432,9 +492,9 @@ const TerminalTradePanel: React.FC<Props> = ({
             )}
             <TerminalLvrgPanel
               settings={vault.settings}
-              vaultUsd={vault.vaultUsd}
+              vaultUsd={vaultFundingUsd}
               maxTradeUsd={vault.maxTradeUsd}
-              disabled={walletReady && (!vault.onArbitrum || vault.isLoading)}
+              disabled={walletReady && vault.isLoading}
               onSaved={refreshAll}
               onOpenAdvanced={() => {
                 setStartMode(false);
@@ -446,11 +506,13 @@ const TerminalTradePanel: React.FC<Props> = ({
 
         {panelTab === 'funds' && (
           <div className="term-panel-stack">
-            {walletReady && !vault.onArbitrum && <TerminalArbitrumBanner variant="inline" />}
+            {walletReady && !walletOnArbitrum && <TerminalArbitrumBanner variant="inline" />}
             <div className="term-panel-card term-panel-card--muted">
               <span className="term-panel-card-label">Vault balance</span>
-              <strong className="term-panel-card-value">{fmt(vault.vaultUsd)}</strong>
-              <span className="term-panel-card-hint">USDC · withdrawable · Vault V11</span>
+              <strong className="term-panel-card-value">{fmt(vaultFundingUsd)}</strong>
+              <span className="term-panel-card-hint">
+                USDC in vault · withdrawable {fmt(vault.vaultUsd)} · Vault V11
+              </span>
             </div>
             <p className="term-hint">
               Min ${MIN_VAULT_USD} for bot trading. Deposit fee free · 10% win fee on profits only.
@@ -507,6 +569,9 @@ const TerminalTradePanel: React.FC<Props> = ({
           onClose={() => setShowDeposit(false)}
           onSuccess={() => {
             setShowDeposit(false);
+            if (!isDemoUser && address) {
+              void linkWallet(address);
+            }
             refreshAll();
           }}
         />
@@ -528,7 +593,7 @@ const TerminalTradePanel: React.FC<Props> = ({
           setupPhase={phase}
           minVaultUsd={MIN_VAULT_USD}
           currentRiskLevel={vault.settings.riskPct}
-          autoTradeEnabled={metrics.autoTradeEnabled}
+          autoTradeEnabled={botRunning}
           currentTakeProfit={vault.settings.takeProfit}
           currentStopLoss={vault.settings.stopLoss}
           currentLeverage={vault.settings.leverage}

@@ -98,8 +98,7 @@ export function useDashboard2Metrics() {
     await Promise.all([refreshBalances(), refreshTrading(), refreshWithdrawn()]);
   }, [refreshBalances, refreshTrading, refreshWithdrawn]);
 
-  const isLoading =
-    metrics.isLoading || isLoadingBalances || withdrawnLoading;
+  const isLoading = metrics.isLoading || isLoadingBalances;
 
   const combined: Dashboard2Metrics = {
     walletAvailableUsd: totalUsdValue,

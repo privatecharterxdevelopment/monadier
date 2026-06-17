@@ -1,5 +1,5 @@
 // Vault Integration for MonadierTradingVault V11 (Arbitrum GMX)
-import { parseUnits, formatUnits, type PublicClient, type WalletClient } from 'viem';
+import { createPublicClient, http, parseUnits, formatUnits, type PublicClient, type WalletClient } from 'viem';
 import { arbitrum } from 'viem/chains';
 import {
   MONADIER_VAULT_V11_ADDRESS,
@@ -492,6 +492,23 @@ export const ERC20_APPROVE_ABI = [
 
 export const VAULT_ADDRESS: `0x${string}` = MONADIER_VAULT_V11_ADDRESS;
 export const VAULT_CHAIN_ID = MONADIER_VAULT_CHAIN_ID;
+
+const ARBITRUM_RPC =
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ARBITRUM_RPC_URL) ||
+  'https://arb1.arbitrum.io/rpc';
+
+let arbitrumPublicClient: PublicClient | null = null;
+
+/** Arbitrum RPC client for vault reads — works regardless of the wallet's selected chain. */
+export function getArbitrumPublicClient(): PublicClient {
+  if (!arbitrumPublicClient) {
+    arbitrumPublicClient = createPublicClient({
+      chain: arbitrum,
+      transport: http(ARBITRUM_RPC),
+    }) as PublicClient;
+  }
+  return arbitrumPublicClient;
+}
 
 // USDC addresses - Arbitrum only
 export const USDC_ADDRESSES: Record<number, `0x${string}`> = {

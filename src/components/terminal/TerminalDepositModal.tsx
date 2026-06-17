@@ -16,7 +16,8 @@ import TerminalModalFrame from './TerminalModalFrame';
 import TerminalArbitrumBanner from './TerminalArbitrumBanner';
 
 const MIN_DEPOSIT_USD = 50;
-const MIN_ETH_FOR_GAS = 0.0001;
+/** Soft hint — Arbitrum deposit is usually well below this; wallet enforces the real limit. */
+const MIN_ETH_FOR_GAS = 0.00003;
 const ARBISCAN = 'https://arbiscan.io';
 
 type Props = {
@@ -24,7 +25,7 @@ type Props = {
   onSuccess: () => void;
 };
 
-type Gate = 'connect' | 'network' | 'gas' | 'min' | 'balance' | null;
+type Gate = 'connect' | 'network' | 'min' | 'balance' | null;
 
 const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
   const { open } = useAppKit();
@@ -41,10 +42,10 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
   const onArbitrum = chainId === VAULT_CHAIN_ID;
   const depositUsd = parseFloat(amount || '0');
   const usdcNum = parseFloat(usdcBalance) || 0;
+  const ethNum = parseFloat(ethBalance) || 0;
   const isBelowMinimum = depositUsd > 0 && depositUsd < MIN_DEPOSIT_USD;
-  const hasEnoughGas =
-    !onArbitrum || isLoadingBalance || parseFloat(ethBalance) >= MIN_ETH_FOR_GAS;
-  const needsGas = onArbitrum && walletConnected && !isLoadingBalance && !hasEnoughGas;
+  const ethLow =
+    onArbitrum && walletConnected && !isLoadingBalance && ethNum < MIN_ETH_FOR_GAS;
 
   useEffect(() => {
     const load = async () => {
@@ -87,11 +88,10 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
   const gate: Gate = useMemo(() => {
     if (!walletConnected) return 'connect';
     if (!onArbitrum) return 'network';
-    if (needsGas) return 'gas';
     if (isBelowMinimum) return 'min';
     if (depositUsd > 0 && depositUsd > usdcNum) return 'balance';
     return null;
-  }, [walletConnected, onArbitrum, needsGas, isBelowMinimum, depositUsd, usdcNum]);
+  }, [walletConnected, onArbitrum, isBelowMinimum, depositUsd, usdcNum]);
 
   const handleMax = () => {
     if (usdcNum <= 0) return;
@@ -131,10 +131,6 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
     }
     if (usd > usdcNum) {
       setError('Insufficient USDC in wallet — fund your wallet first.');
-      return;
-    }
-    if (needsGas) {
-      setError('Add a small amount of ETH on Arbitrum for gas (~$0.10).');
       return;
     }
 
@@ -273,10 +269,15 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
 
       {walletConnected && onArbitrum && (
         <div className="term-modal-card">
-          <span className="term-modal-label">Wallet USDC (Arbitrum)</span>
+          <span className="term-modal-label">Wallet on Arbitrum</span>
           <strong className="term-modal-value">
             {isLoadingBalance ? '…' : `${usdcNum.toFixed(2)} USDC`}
           </strong>
+          <p className="term-modal-hint" style={{ marginTop: 6 }}>
+            {isLoadingBalance
+              ? 'Loading balances…'
+              : `ETH for gas: ${ethNum.toFixed(6)} ETH`}
+          </p>
           {!isLoadingBalance && usdcNum < MIN_DEPOSIT_USD && (
             <p className="term-modal-hint">
               You need at least ${MIN_DEPOSIT_USD} USDC in your wallet on Arbitrum.
@@ -310,13 +311,17 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
       </div>
 
       <p className="term-modal-hint">
-        Minimum ${MIN_DEPOSIT_USD} USDC required for bot trading. Deposit fee: free.
+        Minimum ${MIN_DEPOSIT_USD} USDC for bot trading. You also need a small amount of ETH on
+        Arbitrum to pay network fees (not USDC).
       </p>
 
-      {gate === 'gas' && (
+      {ethLow && (
         <div className="term-modal-alert term-modal-alert--warn">
           <AlertCircle size={16} />
-          <span>Add ~$0.10 of ETH on Arbitrum for gas fees.</span>
+          <span>
+            USDC looks good ({usdcNum.toFixed(2)} available). Send a little ETH to this wallet on
+            Arbitrum for gas (~0.0001 ETH), then tap Deposit — your wallet will ask you to confirm.
+          </span>
         </div>
       )}
       {gate === 'min' && (

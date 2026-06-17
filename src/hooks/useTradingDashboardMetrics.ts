@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { supabase } from '../lib/supabase';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
-import { VaultClient, VAULT_CHAIN_ID } from '../lib/vault';
+import { VaultClient, VAULT_CHAIN_ID, getArbitrumPublicClient } from '../lib/vault';
 import { useWeb3 } from '../contexts/Web3Context';
 import {
   fetchUserWalletAddresses,
@@ -74,11 +74,14 @@ export function useTradingDashboardMetrics() {
     setMetrics((m) => ({ ...m, isLoading: true }));
 
     try {
-      const walletArray = await fetchUserWalletAddresses(address, isDemoUser);
+      let walletArray = await fetchUserWalletAddresses(address, isDemoUser);
 
       if (!isDemoUser && walletArray.length === 0) {
-        setMetrics({ ...defaultMetrics, isLoading: false });
-        return;
+        if (!address) {
+          setMetrics({ ...defaultMetrics, isLoading: false });
+          return;
+        }
+        walletArray = [address.toLowerCase()];
       }
 
       const { data: positions } = await supabase
@@ -88,14 +91,6 @@ export function useTradingDashboardMetrics() {
 
       const primaryWallet = pickPrimaryVaultWallet(walletArray, address);
       let vaultSettings: { auto_trade_enabled?: boolean } | null = null;
-      if (primaryWallet) {
-        const { data } = await supabase
-          .from('vault_settings')
-          .select('auto_trade_enabled')
-          .eq('wallet_address', primaryWallet)
-          .maybeSingle();
-        vaultSettings = data;
-      }
 
       const all = positions || [];
       const open = all.filter((p) => p.status === 'open' || p.status === 'closing');
@@ -122,13 +117,21 @@ export function useTradingDashboardMetrics() {
       const queryWallet = (
         isDemoUser
           ? DEMO_WALLET_ADDRESS
-          : pickPrimaryVaultWallet(walletArray, address)
+          : (address?.toLowerCase() ?? primaryWallet)
       ) as `0x${string}` | undefined;
-      if (queryWallet && publicClient && walletClient) {
+
+      let onChainAutoTrade = false;
+      if (queryWallet) {
         try {
-          const client = new VaultClient(publicClient as never, walletClient as never, VAULT_CHAIN_ID);
+          const arbClient = getArbitrumPublicClient();
+          const client = new VaultClient(
+            arbClient as never,
+            (walletClient ?? arbClient) as never,
+            VAULT_CHAIN_ID
+          );
           const status = await client.getUserStatus(queryWallet);
           vaultBalanceUsd = parseFloat(status.balanceFormatted || '0');
+          onChainAutoTrade = status.autoTradeEnabled;
           try {
             const w = await client.getWithdrawable(queryWallet);
             withdrawableUsd = parseFloat(w.formatted || '0');
@@ -138,6 +141,15 @@ export function useTradingDashboardMetrics() {
         } catch {
           /* vault read optional */
         }
+      }
+
+      if (primaryWallet) {
+        const { data } = await supabase
+          .from('vault_settings')
+          .select('auto_trade_enabled')
+          .eq('wallet_address', primaryWallet)
+          .maybeSingle();
+        vaultSettings = data;
       }
 
       setMetrics({
@@ -153,7 +165,7 @@ export function useTradingDashboardMetrics() {
         pnl30d: pnlInWindow(all, 24 * 30),
         winRate: closed.length ? (wins / closed.length) * 100 : 0,
         closedTradesCount: closed.length,
-        autoTradeEnabled: vaultSettings?.auto_trade_enabled ?? false,
+        autoTradeEnabled: onChainAutoTrade || Boolean(vaultSettings?.auto_trade_enabled),
         withdrawableUsd,
         isLoading: false,
       });

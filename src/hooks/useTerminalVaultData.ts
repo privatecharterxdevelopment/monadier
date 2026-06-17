@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useWeb3 } from '../contexts/Web3Context';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
-import { VaultClient, VAULT_CHAIN_ID } from '../lib/vault';
+import { VaultClient, VAULT_CHAIN_ID, getArbitrumPublicClient } from '../lib/vault';
 import { supabase } from '../lib/supabase';
 
 const WETH = '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1' as const;
@@ -55,10 +55,10 @@ const defaultSettings: VaultSettingsSnapshot = {
 };
 
 export function useTerminalVaultData(refreshKey = 0) {
-  const { isConnected, address, chainId, publicClient, walletClient } = useWeb3();
+  const { isConnected, address, chainId, walletClient } = useWeb3();
   const { isDemoUser } = useAuth();
   const wallet = (isDemoUser ? DEMO_WALLET_ADDRESS : address) as `0x${string}` | undefined;
-  const onArbitrum = isDemoUser || chainId === VAULT_CHAIN_ID;
+  const walletOnArbitrum = isDemoUser || chainId === VAULT_CHAIN_ID;
 
   const [data, setData] = useState<TerminalVaultData>({
     vaultUsd: 0,
@@ -74,18 +74,6 @@ export function useTerminalVaultData(refreshKey = 0) {
   const load = useCallback(async () => {
     if (!wallet || (!isConnected && !isDemoUser)) {
       setData((d) => ({ ...d, isLoading: false, vaultUsd: 0, balanceUsd: 0, position: null }));
-      return;
-    }
-
-    if (!onArbitrum || !publicClient) {
-      setData((d) => ({
-        ...d,
-        isLoading: false,
-        vaultUsd: 0,
-        balanceUsd: 0,
-        maxTradeUsd: 0,
-        position: null,
-      }));
       return;
     }
 
@@ -105,6 +93,7 @@ export function useTerminalVaultData(refreshKey = 0) {
         const bal = Number(row?.demo_vault_balance ?? 0);
         setData({
           vaultUsd: bal,
+          balanceUsd: bal,
           maxTradeUsd: bal * 0.5,
           riskPctOnChain: (row?.risk_level_bps ?? 5000) / 100,
           position: null,
@@ -124,9 +113,10 @@ export function useTerminalVaultData(refreshKey = 0) {
         return;
       }
 
+      const arbClient = getArbitrumPublicClient();
       const client = new VaultClient(
-        publicClient as never,
-        walletClient as never,
+        arbClient as never,
+        (walletClient ?? arbClient) as never,
         VAULT_CHAIN_ID
       );
       const status = await client.getUserStatus(wallet);
@@ -191,7 +181,7 @@ export function useTerminalVaultData(refreshKey = 0) {
           askPermission: Boolean(row?.ask_permission),
           minWinRate: Number(row?.min_win_rate_percent ?? 0),
           minTradesForWinRate: Number(row?.min_trades_for_win_rate_gate ?? 5),
-          autoTradeEnabled: row?.auto_trade_enabled ?? status.autoTradeEnabled,
+          autoTradeEnabled: status.autoTradeEnabled || Boolean(row?.auto_trade_enabled),
         },
         isLoading: false,
         error: null,
@@ -203,7 +193,7 @@ export function useTerminalVaultData(refreshKey = 0) {
         error: e instanceof Error ? e.message : 'Failed to load vault',
       }));
     }
-  }, [wallet, isConnected, isDemoUser, onArbitrum, publicClient, walletClient]);
+  }, [wallet, isConnected, isDemoUser, walletClient]);
 
   useEffect(() => {
     load();
@@ -249,5 +239,5 @@ export function useTerminalVaultData(refreshKey = 0) {
     data.position?.leverage,
   ]);
 
-  return { ...data, wallet, onArbitrum, reload: load };
+  return { ...data, wallet, onArbitrum: walletOnArbitrum, reload: load };
 }
