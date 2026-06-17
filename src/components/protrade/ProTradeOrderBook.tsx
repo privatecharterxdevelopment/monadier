@@ -57,6 +57,14 @@ const ProTradeOrderBook: React.FC<Props> = ({
 }) => {
   const [tab, setTab] = useState<'book' | 'trades'>('book');
 
+  const tape = useMemo(
+    () =>
+      recentTrades
+        .filter((t) => t.coin.trim().toUpperCase() === coin.trim().toUpperCase())
+        .slice(0, 50),
+    [recentTrades, coin]
+  );
+
   const { asks, bids, spread } = useMemo(() => {
     if (!book) return { asks: [] as BookRow[], bids: [] as BookRow[], spread: null as number | null };
 
@@ -108,7 +116,7 @@ const ProTradeOrderBook: React.FC<Props> = ({
           className={`hl-book-tab ${tab === 'trades' ? 'hl-book-tab--on' : ''}`}
           onClick={() => setTab('trades')}
         >
-          Trade History
+          Recent trades
         </button>
       </div>
 
@@ -164,10 +172,10 @@ const ProTradeOrderBook: React.FC<Props> = ({
             <span>Time</span>
           </div>
           <div className="hl-book-scroll">
-            {recentTrades.length === 0 ? (
-              <p className="hl-dock-empty">No recent trades</p>
+            {tape.length === 0 ? (
+              <p className="hl-dock-empty">No recent market trades</p>
             ) : (
-              recentTrades.map((t, i) => (
+              tape.map((t, i) => (
                 <div
                   key={`${t.time}-${i}`}
                   className={`hl-book-row hl-book-row--static ${t.side === 'B' ? 'hl-book-row--bid' : 'hl-book-row--ask'}`}

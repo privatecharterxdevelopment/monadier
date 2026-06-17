@@ -35,6 +35,30 @@ type State = {
 };
 
 const SNAPSHOT_POLL_MS = 10_000;
+const BOOK_THROTTLE_MS = 120;
+const TRADES_THROTTLE_MS = 150;
+const MAX_TAPE_TRADES = 50;
+
+function normCoin(coin: string): string {
+  return coin.trim().toUpperCase();
+}
+
+function coinMatches(a: string, b: string): boolean {
+  return normCoin(a) === normCoin(b);
+}
+
+function bookLevelsKey(book: HlL2Book): string {
+  const asks = book.levels?.[1]?.slice(0, 3).map((l) => l.px).join(',') ?? '';
+  const bids = book.levels?.[0]?.slice(0, 3).map((l) => l.px).join(',') ?? '';
+  return `${book.coin ?? ''}|${asks}|${bids}`;
+}
+
+function sortTapeTrades(trades: HlRecentTrade[]): HlRecentTrade[] {
+  return [...trades]
+    .filter((t) => t.time > 0)
+    .sort((a, b) => b.time - a.time)
+    .slice(0, MAX_TAPE_TRADES);
+}
 
 function mergeCandle(candles: HlCandleBar[], bar: HlCandleBar): HlCandleBar[] {
   if (candles.length === 0) return [bar];
@@ -61,13 +85,20 @@ function parseWsCandle(raw: Record<string, unknown>): HlCandleBar | null {
   };
 }
 
-function parseWsTrade(raw: Record<string, unknown>, coin: string): HlRecentTrade {
+function parseWsTrade(
+  raw: Record<string, unknown>,
+  coin: string
+): HlRecentTrade | null {
+  const tradeCoin = String(raw.coin ?? coin);
+  if (!coinMatches(tradeCoin, coin)) return null;
+  const time = toNum(raw.time);
+  if (time <= 0) return null;
   return {
-    coin: String(raw.coin ?? coin),
+    coin: tradeCoin,
     side: String(raw.side ?? ''),
     px: String(raw.px ?? '0'),
     sz: String(raw.sz ?? '0'),
-    time: toNum(raw.time),
+    time,
   };
 }
 
@@ -88,11 +119,19 @@ export function useHyperliquidMarket(
 
   const refreshSnapshot = useCallback(async () => {
     try {
-      const snapshot =
+      const [snapshot, recentTrades] = await Promise.all([
         kind === 'spot'
-          ? await fetchHlSpotMarketSnapshot(coin)
-          : await fetchHlMarketSnapshot(coin);
-      setState((prev) => ({ ...prev, snapshot }));
+          ? fetchHlSpotMarketSnapshot(coin)
+          : fetchHlMarketSnapshot(coin),
+        kind === 'spot' ? fetchHlSpotRecentTrades(coin) : fetchHlRecentTrades(coin),
+      ]);
+      setState((prev) => ({
+        ...prev,
+        snapshot,
+        recentTrades: sortTapeTrades(
+          recentTrades.filter((t) => coinMatches(t.coin, coin))
+        ),
+      }));
     } catch {
       /* keep last snapshot */
     }
@@ -106,15 +145,17 @@ export function useHyperliquidMarket(
         kind === 'spot' ? fetchHlSpotMarketSnapshot(coin) : fetchHlMarketSnapshot(coin),
         kind === 'spot' ? fetchHlSpotRecentTrades(coin) : fetchHlRecentTrades(coin),
       ]);
-      setState((prev) => ({
-        ...prev,
+      setState({
         candles,
         book,
         snapshot,
-        recentTrades,
+        recentTrades: sortTapeTrades(
+          recentTrades.filter((t) => coinMatches(t.coin, coin))
+        ),
         loading: false,
         error: null,
-      }));
+        wsConnected: false,
+      });
     } catch (err: unknown) {
       setState((prev) => ({
         ...prev,
@@ -125,7 +166,15 @@ export function useHyperliquidMarket(
   }, [coin, interval, kind]);
 
   useEffect(() => {
-    setState((prev) => ({ ...prev, loading: true, error: null }));
+    setState({
+      candles: [],
+      book: null,
+      snapshot: null,
+      recentTrades: [],
+      loading: true,
+      error: null,
+      wsConnected: false,
+    });
     void refresh();
   }, [refresh]);
 
@@ -168,7 +217,7 @@ export function useHyperliquidMarket(
     pendingTradesRef.current = [];
     setState((prev) => ({
       ...prev,
-      recentTrades: [...batch.reverse(), ...prev.recentTrades].slice(0, 80),
+      recentTrades: sortTapeTrades([...batch.reverse(), ...prev.recentTrades]),
       wsConnected: true,
     }));
   }, []);
@@ -192,14 +241,16 @@ export function useHyperliquidMarket(
 
     const off = client.addListener((channel, data) => {
       if (channel === 'l2Book') {
-        scheduleBook(data as HlL2Book);
+        const book = data as HlL2Book;
+        if (book.coin && !coinMatches(book.coin, coin)) return;
+        scheduleBook(book);
         return;
       }
       if (channel === 'trades') {
         const rows = Array.isArray(data) ? data : [data];
         const parsed = rows
           .map((r) => parseWsTrade(r as Record<string, unknown>, coin))
-          .filter((t) => t.time > 0);
+          .filter((t): t is HlRecentTrade => t != null);
         if (parsed.length === 0) return;
         scheduleTrades(parsed);
         return;
@@ -207,7 +258,10 @@ export function useHyperliquidMarket(
       if (channel === 'candle') {
         const rows = Array.isArray(data) ? data : [data];
         for (const row of rows) {
-          const bar = parseWsCandle(row as Record<string, unknown>);
+          const raw = row as Record<string, unknown>;
+          const candleCoin = String(raw.s ?? raw.coin ?? coin);
+          if (!coinMatches(candleCoin, coin)) continue;
+          const bar = parseWsCandle(raw);
           if (!bar) continue;
           setState((prev) => ({
             ...prev,
