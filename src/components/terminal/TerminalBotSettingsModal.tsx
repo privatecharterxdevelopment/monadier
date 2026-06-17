@@ -1,14 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { Settings, Loader2, AlertCircle, CheckCircle, Zap, Wallet } from 'lucide-react';
+import React from 'react';
+import { Settings, Loader2, CheckCircle, Zap, Wallet } from 'lucide-react';
 import { useAppKit } from '@reown/appkit/react';
-import { useWeb3 } from '../../contexts/Web3Context';
-import { useSubscription } from '../../contexts/SubscriptionContext';
-import { VAULT_CHAIN_ID } from '../../lib/vault';
-import { useAuth } from '../../contexts/AuthContext';
-import { persistVaultSettings } from '../../lib/syncVaultSettings';
 import TerminalModalFrame from './TerminalModalFrame';
-import { getMaxLeverageLabel, snapLeverageToStep } from '../../lib/leverageLimits';
-import LeverageRangeSlider from './LeverageRangeSlider';
+import TerminalBotSettingsFields from './TerminalBotSettingsFields';
+import { useBotSettingsEditor } from './useBotSettingsEditor';
+import type { VaultSettingsSnapshot } from '../../hooks/useTerminalVaultData';
 
 const RISK_PRESETS = [1, 5, 25, 50, 100] as const;
 
@@ -17,31 +13,19 @@ export type BotSetupPhase = 'connect' | 'loading' | 'network' | 'fund' | 'ready'
 type Props = {
   setupPhase?: BotSetupPhase;
   minVaultUsd?: number;
-  currentRiskLevel: number;
-  autoTradeEnabled: boolean;
-  currentTakeProfit: number;
-  currentStopLoss: number;
-  currentLeverage: number;
-  currentAskPermission?: boolean;
-  currentMinWinRate?: number;
-  currentMinTradesForWinRate?: number;
+  settings: VaultSettingsSnapshot;
+  walletAddress?: string;
   startMode?: boolean;
   onClose: () => void;
   onSuccess: () => void;
 };
 
 const TerminalBotSettingsModal: React.FC<Props> = ({
-  currentRiskLevel,
-  autoTradeEnabled: initialAutoTrade,
-  currentTakeProfit,
-  currentStopLoss,
-  currentLeverage,
-  currentAskPermission = false,
-  currentMinWinRate = 0,
-  currentMinTradesForWinRate = 5,
-  startMode = false,
   setupPhase = 'ready',
   minVaultUsd = 50,
+  settings,
+  walletAddress,
+  startMode = false,
   onClose,
   onSuccess,
 }) => {
@@ -65,150 +49,54 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
   };
 
   const { open } = useAppKit();
-  const { address, publicClient, walletClient, chainId } = useWeb3();
-  const { isDemoUser } = useAuth();
-  const { linkWallet, planTier } = useSubscription();
-
-  const walletConnected = !!address;
-  const maxLevLabel = getMaxLeverageLabel(planTier);
-
-  const [riskLevel, setRiskLevel] = useState(currentRiskLevel);
-  const [autoTrade, setAutoTrade] = useState(startMode ? true : initialAutoTrade);
-  const [takeProfit, setTakeProfit] = useState(currentTakeProfit);
-  const [stopLoss, setStopLoss] = useState(currentStopLoss);
-  const [leverage, setLeverage] = useState(snapLeverageToStep(currentLeverage, planTier));
-  const [askPermission, setAskPermission] = useState(currentAskPermission);
-  const [minWinRate, setMinWinRate] = useState(currentMinWinRate);
-  const [minTradesForWinRate, setMinTradesForWinRate] = useState(currentMinTradesForWinRate);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-
-  useEffect(() => {
-    setRiskLevel(currentRiskLevel);
-    setAutoTrade(startMode ? true : initialAutoTrade);
-    setTakeProfit(currentTakeProfit);
-    setStopLoss(currentStopLoss);
-    setLeverage(snapLeverageToStep(currentLeverage, planTier));
-    setAskPermission(currentAskPermission);
-    setMinWinRate(currentMinWinRate);
-    setMinTradesForWinRate(currentMinTradesForWinRate);
-    setError(null);
-    setNotice(null);
-    setSuccess(false);
-  }, [
-    currentRiskLevel,
-    initialAutoTrade,
-    currentTakeProfit,
-    currentStopLoss,
-    currentLeverage,
-    currentAskPermission,
-    currentMinWinRate,
-    currentMinTradesForWinRate,
+  const editor = useBotSettingsEditor({
+    settings,
+    walletAddress,
     startMode,
-    planTier,
-  ]);
-
-  const onArbitrum = chainId === VAULT_CHAIN_ID;
-
-  const numChanged = (a: number, b: number) => Math.abs(a - b) > 0.001;
-
-  const tradingParamsChanged =
-    riskLevel !== currentRiskLevel ||
-    numChanged(takeProfit, currentTakeProfit) ||
-    numChanged(stopLoss, currentStopLoss) ||
-    leverage !== snapLeverageToStep(currentLeverage, planTier);
-
-  const hasChanges =
-    tradingParamsChanged ||
-    autoTrade !== initialAutoTrade ||
-    askPermission !== currentAskPermission ||
-    minWinRate !== currentMinWinRate ||
-    minTradesForWinRate !== currentMinTradesForWinRate;
+    onSaved: onSuccess,
+  });
 
   const handleSave = async () => {
-    if (!walletConnected) {
+    if (!editor.walletConnected) {
       open();
       return;
     }
-    if (!address) return;
-    if (!hasChanges) {
+    if (!editor.hasChanges) {
       onClose();
       return;
     }
-
-    try {
-      setIsLoading(true);
-      setError(null);
-      setNotice(null);
-
-      const canSyncChain =
-        !isDemoUser && Boolean(publicClient && walletClient) && onArbitrum;
-
-      const result = await persistVaultSettings({
-        settings: {
-          walletAddress: address,
-          autoTradeEnabled: autoTrade,
-          riskPct: riskLevel,
-          leverage,
-          takeProfit,
-          stopLoss,
-          askPermission,
-          minWinRate,
-          minTradesForWinRate,
-        },
-        planTier,
-        publicClient,
-        walletClient,
-        userAddress: address as `0x${string}`,
-        isDemoUser,
-        syncTradingParams: tradingParamsChanged && canSyncChain,
-        syncAutoTrade: autoTrade !== initialAutoTrade && canSyncChain,
-      });
-
-      if (autoTrade && autoTrade !== initialAutoTrade) {
-        await linkWallet(address);
-      }
-
-      if (result.chainWarning) {
-        setNotice(result.chainWarning);
-      } else if (tradingParamsChanged && !onArbitrum && !isDemoUser) {
-        setNotice('Settings saved for the bot. Switch to Arbitrum and save again to sync on-chain.');
-      }
-
-      setSuccess(true);
-      setTimeout(onSuccess, result.chainWarning || (!onArbitrum && tradingParamsChanged) ? 2200 : 800);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to update settings');
-    } finally {
-      setIsLoading(false);
+    const result = await editor.save();
+    if (!result.ok) return;
+    if (result.notice) {
+      setTimeout(onSuccess, 2200);
+    } else {
+      onSuccess();
     }
   };
 
   const footer = (
     <button
       type="button"
-      className={`term-modal-primary ${startMode && autoTrade && walletConnected ? 'term-modal-primary--go' : ''}`}
-      onClick={handleSave}
-      disabled={isLoading || success}
+      className={`term-modal-primary ${startMode && editor.autoTrade && editor.walletConnected ? 'term-modal-primary--go' : ''}`}
+      onClick={() => void handleSave()}
+      disabled={editor.isLoading || editor.success}
     >
-      {isLoading ? (
+      {editor.isLoading ? (
         <>
           <Loader2 size={16} className="animate-spin" />
-          {startMode && autoTrade ? 'Starting bot…' : 'Saving…'}
+          {startMode && editor.autoTrade ? 'Starting bot…' : 'Saving…'}
         </>
-      ) : success ? (
+      ) : editor.success ? (
         <>
           <CheckCircle size={16} />
           Saved
         </>
-      ) : !walletConnected ? (
+      ) : !editor.walletConnected ? (
         <>
           <Wallet size={16} />
           Connect wallet
         </>
-      ) : startMode && autoTrade ? (
+      ) : startMode && editor.autoTrade ? (
         <>
           <Zap size={16} />
           Save & start bot
@@ -225,7 +113,7 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
       subtitle="Risk, leverage, take-profit & stop-loss"
       icon={<Settings size={18} />}
       onClose={onClose}
-      closeDisabled={isLoading}
+      closeDisabled={editor.isLoading}
       footer={footer}
       wide
     >
@@ -249,221 +137,46 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
           ))}
         </div>
         <p className="term-phase-hint">
-          {!walletConnected
+          {!editor.walletConnected
             ? 'Connect your wallet to save settings and run the bot.'
             : setupHint[setupPhase]}
         </p>
       </div>
 
-      {!walletConnected && (
+      {!editor.walletConnected && (
         <p className="term-modal-note term-modal-note--warn">
           Preview settings below — connect wallet to save and trade.
         </p>
       )}
 
-      {walletConnected && !onArbitrum && (
-        <p className="term-modal-note term-modal-note--warn">
-          Settings save to your bot profile now. Switch to Arbitrum to also sync the vault contract.
-        </p>
-      )}
-
-      <div className="term-modal-toggle-row">
-        <div>
-          <p className="term-modal-toggle-title">Auto-trading</p>
-          <p className="term-modal-hint">Bot trades from vault balance on signals</p>
-        </div>
-        <button
-          type="button"
-          className={`term-modal-switch ${autoTrade ? 'term-modal-switch--on' : ''}`}
-          onClick={() => setAutoTrade(!autoTrade)}
-          disabled={isLoading}
-          aria-pressed={autoTrade}
-        >
-          <span className="term-modal-switch-knob" />
-        </button>
-      </div>
-
-      <p className="term-modal-label">Risk per trade</p>
-      <div className="term-modal-chip-row">
-        {RISK_PRESETS.map((v) => (
-          <button
-            key={v}
-            type="button"
-            className={`term-modal-chip ${riskLevel === v ? 'term-modal-chip--on' : ''}`}
-            onClick={() => setRiskLevel(v)}
-            disabled={isLoading}
-          >
-            {v}%
-          </button>
-        ))}
-      </div>
-      <input
-        type="range"
-        min={1}
-        max={100}
-        value={riskLevel}
-        onChange={(e) => setRiskLevel(parseInt(e.target.value, 10))}
-        className="term-modal-range"
-        disabled={isLoading}
+      <TerminalBotSettingsFields
+        variant="modal"
+        planTier={editor.planTier}
+        riskLevel={editor.riskLevel}
+        setRiskLevel={editor.setRiskLevel}
+        leverage={editor.leverage}
+        setLeverage={editor.setLeverage}
+        takeProfit={editor.takeProfit}
+        setTakeProfit={editor.setTakeProfit}
+        stopLoss={editor.stopLoss}
+        setStopLoss={editor.setStopLoss}
+        autoTrade={editor.autoTrade}
+        setAutoTrade={editor.setAutoTrade}
+        askPermission={editor.askPermission}
+        setAskPermission={editor.setAskPermission}
+        minWinRate={editor.minWinRate}
+        setMinWinRate={editor.setMinWinRate}
+        minTradesForWinRate={editor.minTradesForWinRate}
+        setMinTradesForWinRate={editor.setMinTradesForWinRate}
+        disabled={editor.isLoading}
+        walletConnected={editor.walletConnected}
+        onArbitrum={editor.onArbitrum}
+        notice={editor.notice}
+        error={editor.error}
       />
-
-      <p className="term-modal-label">Leverage (LVRG)</p>
-      <p className="term-modal-hint mb-2">Up to {maxLevLabel} via GMX.</p>
-      <LeverageRangeSlider
-        value={leverage}
-        onChange={setLeverage}
-        planTier={planTier}
-        disabled={isLoading}
-        id="bot-settings-leverage"
-      />
-
-      {autoTrade && (
-        <div className="term-modal-toggle-row term-modal-toggle-row--compact">
-          <div>
-            <p className="term-modal-toggle-title">Ask before each trade</p>
-            <p className="term-modal-hint">5 min to approve via notification</p>
-          </div>
-          <button
-            type="button"
-            className={`term-modal-switch ${askPermission ? 'term-modal-switch--on' : ''}`}
-            onClick={() => setAskPermission(!askPermission)}
-            disabled={isLoading}
-            aria-pressed={askPermission}
-          >
-            <span className="term-modal-switch-knob" />
-          </button>
-        </div>
-      )}
-
-      <div className="term-modal-gate-box">
-        <div className="term-modal-gate-head">
-          <p className="term-modal-label term-modal-label--flush">Win rate gate</p>
-          <span
-            className={`term-modal-gate-badge${minWinRate > 0 ? ' term-modal-gate-badge--on' : ''}`}
-          >
-            {minWinRate > 0 ? 'Active' : 'Off'}
-          </span>
-        </div>
-        <p className="term-modal-hint">
-          Optional safety: the bot pauses <strong>new</strong> trades if your recent closed-trade win
-          rate drops below your threshold. Set 0% to disable.
-        </p>
-
-        <p className="term-modal-label">Min win rate to open (0 = off)</p>
-        <input
-          type="range"
-          min={0}
-          max={80}
-          step={5}
-          value={minWinRate}
-          onChange={(e) => setMinWinRate(parseInt(e.target.value, 10))}
-          className="term-modal-range"
-          disabled={isLoading}
-          aria-valuetext={minWinRate === 0 ? 'Gate off' : `${minWinRate} percent`}
-        />
-        <p className="term-modal-hint">
-          {minWinRate === 0
-            ? 'Drag the slider above 0% to activate the gate.'
-            : `Pause new trades if win rate falls below ${minWinRate}%.`}
-        </p>
-
-        <label className="term-modal-label" htmlFor="term-min-trades">
-          Closed trades before gate applies
-        </label>
-        <div className="term-modal-gate-stepper">
-          <button
-            type="button"
-            className="term-modal-chip"
-            disabled={isLoading || minTradesForWinRate <= 1}
-            onClick={() => setMinTradesForWinRate((v) => Math.max(1, v - 1))}
-            aria-label="Fewer trades"
-          >
-            −
-          </button>
-          <input
-            id="term-min-trades"
-            type="number"
-            className="term-modal-input term-modal-input--center"
-            min={1}
-            max={50}
-            value={minTradesForWinRate}
-            onChange={(e) => {
-              const raw = parseInt(e.target.value, 10);
-              if (!Number.isNaN(raw)) {
-                setMinTradesForWinRate(Math.min(50, Math.max(1, raw)));
-              }
-            }}
-            disabled={isLoading}
-          />
-          <button
-            type="button"
-            className="term-modal-chip"
-            disabled={isLoading || minTradesForWinRate >= 50}
-            onClick={() => setMinTradesForWinRate((v) => Math.min(50, v + 1))}
-            aria-label="More trades"
-          >
-            +
-          </button>
-        </div>
-        <p className="term-modal-hint term-modal-hint--flush">
-          {minWinRate === 0
-            ? `Threshold preset at ${minTradesForWinRate} trades — activates once min win rate is above 0%.`
-            : `Gate evaluates only after ${minTradesForWinRate} closed trades on this wallet.`}
-        </p>
-      </div>
-
-      <div className="term-modal-grid-2">
-        <div>
-          <label className="term-modal-label" htmlFor="term-tp">
-            Take profit %
-          </label>
-          <input
-            id="term-tp"
-            type="number"
-            className="term-modal-input"
-            value={takeProfit}
-            min={0.1}
-            step={0.1}
-            onChange={(e) => setTakeProfit(parseFloat(e.target.value) || 0)}
-            disabled={isLoading}
-          />
-        </div>
-        <div>
-          <label className="term-modal-label" htmlFor="term-sl">
-            Profit lock %
-          </label>
-          <input
-            id="term-sl"
-            type="number"
-            className="term-modal-input"
-            value={stopLoss}
-            min={0.1}
-            step={0.1}
-            onChange={(e) => setStopLoss(parseFloat(e.target.value) || 0)}
-            disabled={isLoading}
-          />
-        </div>
-      </div>
-      <p className="term-modal-hint">
-        Take profit closes at collateral PnL %. Profit lock activates at lock% + 0.1% (e.g. 1.1% →
-        lock 1%) and closes if PnL falls back to the lock level.
-      </p>
-
-      {notice && (
-        <div className="term-modal-alert term-modal-alert--ok">
-          <CheckCircle size={16} />
-          <span>{notice}</span>
-        </div>
-      )}
-
-      {error && (
-        <div className="term-modal-alert term-modal-alert--err">
-          <AlertCircle size={16} />
-          <span>{error}</span>
-        </div>
-      )}
     </TerminalModalFrame>
   );
 };
 
 export default TerminalBotSettingsModal;
+export { RISK_PRESETS };

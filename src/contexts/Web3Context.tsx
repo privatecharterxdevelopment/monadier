@@ -210,7 +210,7 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (!isLinked) {
           const result = await linkWalletToUserSafe(user.id, address);
-          if (!result.ok) {
+          if (!result.ok && result.code !== 'owned_by_other') {
             console.error('Error linking wallet:', result.error);
           }
         }

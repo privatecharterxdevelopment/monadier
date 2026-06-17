@@ -59,7 +59,7 @@ function pnlInWindow(
 
 export function useTradingDashboardMetrics() {
   const { address } = useAccount();
-  const { isDemoUser } = useAuth();
+  const { isDemoUser, user } = useAuth();
   const { publicClient, walletClient } = useWeb3();
   const [metrics, setMetrics] = useState<TradingDashboardMetrics>(defaultMetrics);
 
@@ -81,6 +81,7 @@ export function useTradingDashboardMetrics() {
         fetchUserPositions({
           isDemoUser,
           connectedAddress: address,
+          userId: user?.id,
         }),
         fetchLiveTokenPrices(),
       ]);
@@ -166,7 +167,10 @@ export function useTradingDashboardMetrics() {
         pnl30d: pnlInWindow(all, 24 * 30),
         winRate: stats.winRate,
         closedTradesCount: stats.closedTrades,
-        autoTradeEnabled: onChainAutoTrade || Boolean(vaultSettings?.auto_trade_enabled),
+        autoTradeEnabled:
+          vaultSettings != null
+            ? Boolean(vaultSettings.auto_trade_enabled)
+            : onChainAutoTrade,
         withdrawableUsd,
         isLoading: false,
       });
@@ -174,7 +178,7 @@ export function useTradingDashboardMetrics() {
       console.error('[useTradingDashboardMetrics]', e);
       setMetrics((m) => ({ ...m, isLoading: false }));
     }
-  }, [address, isDemoUser, publicClient, walletClient]);
+  }, [address, isDemoUser, user?.id, publicClient, walletClient]);
 
   useEffect(() => {
     refresh();

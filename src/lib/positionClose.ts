@@ -1,5 +1,8 @@
 import { supabase } from './supabase';
 
+const WETH = '0x82af49447d8a07e3bd95bd0d56f35241523fbab1';
+const WBTC = '0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f';
+
 export async function markPositionClosing(
   positionId: string,
   closeReason: 'user_requested' | 'retry_close' = 'user_requested'
@@ -83,4 +86,40 @@ export async function markAllOpenPositionsClosing(
 
   if (error) throw error;
   return data?.length ?? 0;
+}
+
+function tokenAddressForSymbol(tokenSymbol: string): string {
+  const sym = tokenSymbol.toUpperCase();
+  if (sym === 'WBTC' || sym === 'BTC') return WBTC;
+  return WETH;
+}
+
+/** Persist a manual / on-chain vault close so trade history can show it. */
+export async function recordManualVaultClose(params: {
+  wallet: string;
+  tokenSymbol: string;
+  direction?: string;
+  entryPrice?: number;
+  entryAmount?: number;
+  leverage?: number;
+  profitLoss?: number | null;
+  exitTxHash?: string;
+  positionId?: string;
+}): Promise<void> {
+  const { error } = await supabase.rpc('record_manual_vault_close', {
+    p_wallet: params.wallet.toLowerCase(),
+    p_token_address: tokenAddressForSymbol(params.tokenSymbol),
+    p_token_symbol: params.tokenSymbol.toUpperCase().includes('BTC') ? 'WBTC' : 'WETH',
+    p_direction: params.direction ?? 'LONG',
+    p_entry_price: params.entryPrice ?? 0,
+    p_entry_amount: params.entryAmount ?? 0,
+    p_leverage: params.leverage ?? 1,
+    p_exit_tx_hash: params.exitTxHash ?? null,
+    p_profit_loss: params.profitLoss ?? null,
+    p_position_id: params.positionId ?? null,
+  });
+
+  if (error && !error.message.includes('Could not find the function')) {
+    console.error('[recordManualVaultClose]', error.message);
+  }
 }

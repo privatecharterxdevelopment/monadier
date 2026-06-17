@@ -9,7 +9,7 @@
  * Same-origin /bot-service proxy (Vite dev + Vercel prod) → Railway bot.
  * Override with VITE_BOT_API_URL=http://localhost:3001 when running bot-service locally.
  */
-function getBotApiBase(): string {
+export function getBotApiBase(): string {
   const fromEnv = import.meta.env.VITE_BOT_API_URL?.replace(/\/$/, '') ?? '';
   if (fromEnv) return fromEnv;
   if (typeof window !== 'undefined') {

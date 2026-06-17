@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Activity } from 'lucide-react';
 import { ANALYSIS_STEPS } from '../../hooks/useTerminalBotAnalysis';
 import { pairLabel } from '../../lib/botTradingPairs';
+import type { BotReadiness } from '../../lib/botReadiness';
 import type { UnifiedSignal } from '../../lib/signalService';
 
 type DbAnalysis = {
@@ -22,6 +23,7 @@ type Props = {
   signal: UnifiedSignal | null;
   dbAnalysis: DbAnalysis;
   activeSymbol?: string;
+  readiness?: BotReadiness;
 };
 
 const CYCLE_MS = 2400;
@@ -50,12 +52,16 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
   signal,
   dbAnalysis,
   activeSymbol,
+  readiness,
 }) => {
   const [cycleIndex, setCycleIndex] = useState(0);
   const [slidePhase, setSlidePhase] = useState<'in' | 'out'>('in');
 
   const action = signal?.direction ?? dbAnalysis?.signal ?? 'HOLD';
   const conf = Math.round(signal?.confidence ?? dbAnalysis?.confidence ?? 0);
+  const hasTfConflict = Boolean(
+    signal?.warnings?.some((w) => /conflict/i.test(w))
+  );
   const signalClass =
     action === 'LONG' ? 'term-pnl-pos' : action === 'SHORT' ? 'term-pnl-neg' : '';
 
@@ -132,7 +138,9 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
         {scanning && (
           <div className="term-analysis-bar-top">
             <Activity size={14} className="term-analysis-pulse" aria-hidden />
-            <span className="term-analysis-step">{ANALYSIS_STEPS[step].label}</span>
+            <span className="term-analysis-step">
+              {readiness?.headline ?? ANALYSIS_STEPS[step].label}
+            </span>
             <div className="term-analysis-track">
               <div
                 className="term-analysis-fill"
@@ -142,6 +150,9 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
             <span className="term-analysis-pct">{Math.round(progress)}%</span>
           </div>
         )}
+        {scanning && readiness?.detail ? (
+          <p className="term-analysis-hint">{readiness.detail}</p>
+        ) : null}
         <div
           className={`term-analysis-meta ${showCycle ? 'term-analysis-meta--cycle' : ''}`}
         >
@@ -151,7 +162,15 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
                 <>
                   <span className={signalClass}>{action}</span>
                   <span className="term-analysis-sep">·</span>
-                  <span>{conf}% conf.</span>
+                  <span>{conf}% bot conf.</span>
+                  {hasTfConflict && (
+                    <>
+                      <span className="term-analysis-sep">·</span>
+                      <span className="term-hint--warn" title="Timeframes disagree — bot waits for higher combined confidence">
+                        mixed TFs
+                      </span>
+                    </>
+                  )}
                   <span className="term-analysis-sep">·</span>
                 </>
               )}

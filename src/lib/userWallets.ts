@@ -5,6 +5,20 @@ export type WalletLinkResult =
   | { ok: true }
   | { ok: false; error: string; code?: 'owned_by_other' | 'db_error' | 'not_authenticated' };
 
+const registrationAttempted = new Set<string>();
+
+function registrationKey(userId: string, wallet: string): string {
+  return `${userId}:${wallet.toLowerCase()}`;
+}
+
+function isWalletUniqueViolation(error: { code?: string; message?: string }): boolean {
+  return (
+    error.code === '23505' ||
+    Boolean(error.message?.includes('idx_user_wallets_wallet_unique')) ||
+    Boolean(error.message?.includes('duplicate key value'))
+  );
+}
+
 /** Prefer getUser() — getSession() is often empty while AuthContext already has user. */
 export async function getAuthUserId(): Promise<string | undefined> {
   const {
@@ -21,25 +35,23 @@ export function normalizeWalletAddresses(wallets: string[]): string[] {
   return [...new Set(wallets.map((w) => w.toLowerCase().trim()).filter(Boolean))];
 }
 
-/** True if this wallet is linked to a different auth user. */
+/** True if this wallet is already linked to the current user. */
 export async function isWalletOwnedByOtherUser(
   userId: string,
   walletAddress: string
 ): Promise<boolean> {
   const wallet = walletAddress.toLowerCase();
-  const { data, error } = await supabase
+  const { data: own } = await supabase
     .from('user_wallets')
-    .select('user_id')
+    .select('id')
+    .eq('user_id', userId)
     .eq('wallet_address', wallet)
     .limit(1);
 
-  if (error) {
-    console.error('[userWallets] ownership check', error);
-    return false;
-  }
+  if (own && own.length > 0) return false;
 
-  const row = data?.[0];
-  return Boolean(row && row.user_id !== userId);
+  // Other users' rows are hidden by RLS — ownership conflicts are handled in linkWalletToUserSafe.
+  return false;
 }
 
 /** Link wallet to user — refuses if another account already owns it. */
@@ -49,8 +61,21 @@ export async function linkWalletToUserSafe(
   label?: string
 ): Promise<WalletLinkResult> {
   const wallet = walletAddress.toLowerCase();
+  const key = registrationKey(userId, wallet);
 
-  if (await isWalletOwnedByOtherUser(userId, wallet)) {
+  const { data: ownRow } = await supabase
+    .from('user_wallets')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('wallet_address', wallet)
+    .limit(1);
+
+  if (ownRow && ownRow.length > 0) {
+    registrationAttempted.add(key);
+    return { ok: true };
+  }
+
+  if (registrationAttempted.has(key)) {
     return {
       ok: false,
       code: 'owned_by_other',
@@ -68,10 +93,27 @@ export async function linkWalletToUserSafe(
   );
 
   if (error) {
+    if (isWalletUniqueViolation(error)) {
+      registrationAttempted.add(registrationKey(userId, wallet));
+      return {
+        ok: false,
+        code: 'owned_by_other',
+        error: 'This wallet is already linked to another Monadier account.',
+      };
+    }
     return { ok: false, code: 'db_error', error: error.message };
   }
 
-  await supabase.from('profiles').update({ wallet_address: wallet }).eq('id', userId);
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('wallet_address')
+    .eq('id', userId)
+    .maybeSingle();
+  if (!profile?.wallet_address?.trim()) {
+    await supabase.from('profiles').update({ wallet_address: wallet }).eq('id', userId);
+  }
+
+  registrationAttempted.add(registrationKey(userId, wallet));
 
   const { error: rpcError } = await supabase.rpc('register_my_wallet', { p_wallet: wallet });
   if (rpcError && !rpcError.message.includes('Could not find the function')) {
@@ -114,10 +156,7 @@ export async function fetchUserWalletAddresses(
     }
 
     if (connected) {
-      const ownedByOther = await isWalletOwnedByOtherUser(userId, connected);
-      if (!ownedByOther) {
-        found.add(connected);
-      }
+      found.add(connected);
     }
   } catch (err) {
     console.error('[userWallets]', err);
@@ -126,7 +165,10 @@ export async function fetchUserWalletAddresses(
   return Array.from(found);
 }
 
-/** Register wallets with Supabase so RLS + history RPC can see vault trades. */
+/**
+ * Best-effort wallet registration for RLS-linked reads.
+ * Uses security-definer RPC (no client upsert spam). Safe to call repeatedly.
+ */
 export async function registerWalletsForHistory(
   wallets: string[],
   userId?: string
@@ -135,15 +177,22 @@ export async function registerWalletsForHistory(
   if (unique.length === 0) return;
 
   const uid = userId ?? (await getAuthUserId());
-  if (!uid) {
-    console.warn('[registerWalletsForHistory] no auth user — skipped');
-    return;
-  }
+  if (!uid) return;
 
   for (const w of unique) {
-    const linked = await linkWalletToUserSafe(uid, w, 'app-linked');
-    if (!linked.ok && linked.code !== 'owned_by_other') {
-      console.warn('[registerWalletsForHistory]', w.slice(0, 10), linked.error);
+    const key = registrationKey(uid, w);
+    if (registrationAttempted.has(key)) continue;
+    registrationAttempted.add(key);
+
+    const { error } = await supabase.rpc('register_my_wallet', { p_wallet: w });
+    if (!error) continue;
+    if (error.message.includes('Could not find the function')) {
+      registrationAttempted.delete(key);
+      return;
+    }
+    if (error.message.includes('not authenticated')) {
+      registrationAttempted.delete(key);
+      return;
     }
   }
 }

@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
 import { explorerTxUrl } from './tradeExplorer';
-import { registerWalletsForHistory, getAuthUserId, normalizeWalletAddresses } from './userWallets';
+import { getAuthUserId, normalizeWalletAddresses, fetchUserWalletAddresses } from './userWallets';
 
 export type ClosedTradeRow = {
   id: string;
@@ -95,19 +95,27 @@ export async function fetchClosedTradesForWallets(
   return fetchClosedTrades({ isDemoUser, wallets, limit });
 }
 
-/** Load closed trades — registers wallets, then RPC or wallet-scoped queries. */
+/** Load closed trades — all profile-linked wallets when signed in. */
 export async function fetchClosedTrades(options: FetchOptions = {}): Promise<ClosedTradeRow[]> {
   const limit = options.limit ?? 100;
-  const normalized = normalizeWalletAddresses(options.wallets ?? []);
-  const userId = await getAuthUserId();
+  let normalized = normalizeWalletAddresses(options.wallets ?? []);
 
   if (options.isDemoUser) {
     const demoWallet = (normalized[0] ?? DEMO_WALLET_ADDRESS).toLowerCase();
     return fetchClosedTradesDirect([demoWallet], limit, true);
   }
 
-  if (userId && normalized.length > 0) {
-    await registerWalletsForHistory(normalized, userId);
+  const userId = await getAuthUserId();
+
+  if (userId) {
+    const linked = await fetchUserWalletAddresses(undefined, false);
+    normalized = normalizeWalletAddresses([...normalized, ...linked]);
+  }
+
+  let merged: ClosedTradeRow[] = [];
+
+  if (userId) {
+    merged = await fetchAccountClosedTrades(limit);
   }
 
   if (normalized.length > 0) {
@@ -124,12 +132,16 @@ export async function fetchClosedTrades(options: FetchOptions = {}): Promise<Clo
         }),
         limit
       );
-      if (fromPub.length > 0) return fromPub;
+      merged = mergeClosedTradeArrays(merged, fromPub, limit);
     }
   }
 
+  if (merged.length > 0) {
+    return merged;
+  }
+
   if (userId) {
-    const rpcRows = await fetchClosedTradesViaRpc(limit, normalized);
+    const rpcRows = await fetchClosedTradesViaSync(limit, normalized);
     if (rpcRows.length > 0) {
       return rpcRows;
     }
@@ -142,48 +154,37 @@ export async function fetchClosedTrades(options: FetchOptions = {}): Promise<Clo
   return fetchClosedTradesDirect(normalized, limit, false);
 }
 
-async function fetchClosedTradesViaRpc(
-  limit: number,
-  wallets: string[]
-): Promise<ClosedTradeRow[]> {
-  const sync =
-    wallets.length > 0
-      ? await supabase.rpc('sync_wallets_and_get_positions', {
-          p_wallets: wallets,
-          p_limit: limit,
-        })
-      : { data: null, error: null };
-
-  const rpcMissing = (err: { message?: string } | null) =>
-    Boolean(err?.message?.includes('Could not find the function'));
-
-  if (!sync.error && sync.data) {
-    const fromSync = mergeClosedTradeRows(
-      [],
-      (sync.data as Record<string, unknown>[]).filter((row) => {
-        const status = String(row.status || '');
-        return status === 'closed' || status === 'failed';
-      }),
-      limit
-    );
-    if (fromSync.length > 0) return fromSync;
-  } else if (sync.error && !rpcMissing(sync.error)) {
-    console.error('[fetchClosedTrades] sync positions', sync.error);
+function mergeClosedTradeArrays(
+  a: ClosedTradeRow[],
+  b: ClosedTradeRow[],
+  limit: number
+): ClosedTradeRow[] {
+  const merged = new Map<string, ClosedTradeRow>();
+  for (const row of [...a, ...b]) {
+    merged.set(rowKey(row), row);
   }
+  return Array.from(merged.values())
+    .sort((x, y) => new Date(y.closedAt).getTime() - new Date(x.closedAt).getTime())
+    .slice(0, limit);
+}
 
+async function fetchAccountClosedTrades(limit: number): Promise<ClosedTradeRow[]> {
   const [historyRes, positionsRes] = await Promise.all([
     supabase.rpc('get_my_trade_history', { p_limit: limit }),
     supabase.rpc('get_my_positions_history', { p_limit: limit }),
   ]);
 
+  const rpcMissing = (err: { message?: string } | null) =>
+    Boolean(err?.message?.includes('Could not find the function'));
+
   if (rpcMissing(historyRes.error) && rpcMissing(positionsRes.error)) {
     return [];
   }
 
-  if (historyRes.error) {
+  if (historyRes.error && !rpcMissing(historyRes.error)) {
     console.error('[fetchClosedTrades] rpc trade_history', historyRes.error);
   }
-  if (positionsRes.error) {
+  if (positionsRes.error && !rpcMissing(positionsRes.error)) {
     console.error('[fetchClosedTrades] rpc positions', positionsRes.error);
   }
 
@@ -192,6 +193,37 @@ async function fetchClosedTradesViaRpc(
     (positionsRes.data ?? []) as Record<string, unknown>[],
     limit
   );
+}
+
+async function fetchClosedTradesViaSync(
+  limit: number,
+  wallets: string[]
+): Promise<ClosedTradeRow[]> {
+  if (wallets.length === 0) return [];
+
+  const sync = await supabase.rpc('sync_wallets_and_get_positions', {
+    p_wallets: wallets,
+    p_limit: limit,
+  });
+
+  const rpcMissing = (err: { message?: string } | null) =>
+    Boolean(err?.message?.includes('Could not find the function'));
+
+  if (!sync.error && sync.data) {
+    return mergeClosedTradeRows(
+      [],
+      (sync.data as Record<string, unknown>[]).filter((row) => {
+        const status = String(row.status || '');
+        return status === 'closed' || status === 'failed';
+      }),
+      limit
+    );
+  }
+  if (sync.error && !rpcMissing(sync.error)) {
+    console.error('[fetchClosedTrades] sync positions', sync.error);
+  }
+
+  return [];
 }
 
 async function fetchClosedTradesDirect(

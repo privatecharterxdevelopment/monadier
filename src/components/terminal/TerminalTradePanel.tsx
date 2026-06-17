@@ -15,11 +15,10 @@ import { useAppKit } from '@reown/appkit/react';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
-import { supabase } from '../../lib/supabase';
-import { VaultClient, VAULT_CHAIN_ID, getArbitrumPublicClient } from '../../lib/vault';
-import {
-  markAllOpenPositionsClosing,
-} from '../../lib/positionClose';
+import { persistVaultSettings } from '../../lib/syncVaultSettings';
+import { ensureBotSubscription } from '../../lib/ensureBotSubscription';
+import { VAULT_CHAIN_ID, getArbitrumPublicClient } from '../../lib/vault';
+import { markAllOpenPositionsClosing } from '../../lib/positionClose';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { useTerminalVaultData } from '../../hooks/useTerminalVaultData';
 import TerminalDepositModal from './TerminalDepositModal';
@@ -59,7 +58,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   const { open } = useAppKit();
   const { isConnected, address, chainId, publicClient, walletClient, switchChain } = useWeb3();
   const { isDemoUser, isAuthenticated } = useAuth();
-  const { linkWallet } = useSubscription();
+  const { linkWallet, planTier } = useSubscription();
   const [panelTab, setPanelTab] = useState<PanelTab>('bot');
   const [vaultTick, setVaultTick] = useState(0);
   const vault = useTerminalVaultData(vaultTick);
@@ -208,13 +207,27 @@ const TerminalTradePanel: React.FC<Props> = ({
 
     setBotBusy(true);
     try {
-      const arbClient = getArbitrumPublicClient();
-      if (!isDemoUser && walletClient) {
-        const client = new VaultClient(arbClient as never, walletClient as never, VAULT_CHAIN_ID);
-        const hash = await client.setAutoTrade(true, vault.wallet);
-        await arbClient.waitForTransactionReceipt({ hash });
-      }
-      await supabaseUpsertAuto(true);
+      await ensureBotSubscription();
+      await persistVaultSettings({
+        settings: {
+          walletAddress: vault.wallet,
+          autoTradeEnabled: true,
+          riskPct: vault.settings.riskPct,
+          leverage: vault.settings.leverage,
+          takeProfit: vault.settings.takeProfit,
+          stopLoss: vault.settings.stopLoss,
+          askPermission: vault.settings.askPermission,
+          minWinRate: vault.settings.minWinRate,
+          minTradesForWinRate: vault.settings.minTradesForWinRate,
+        },
+        planTier,
+        publicClient: publicClient ?? null,
+        walletClient: walletClient ?? null,
+        userAddress: vault.wallet as `0x${string}`,
+        isDemoUser,
+        syncTradingParams: !isDemoUser && Boolean(publicClient && walletClient),
+        syncAutoTrade: !isDemoUser && Boolean(publicClient && walletClient),
+      });
       if (!isDemoUser && address) {
         await linkWallet(address);
       }
@@ -238,12 +251,25 @@ const TerminalTradePanel: React.FC<Props> = ({
     if (!(await ensureArbitrum())) return;
     setBotBusy(true);
     try {
-      if (!isDemoUser && publicClient && walletClient) {
-        const client = new VaultClient(publicClient as never, walletClient as never, VAULT_CHAIN_ID);
-        const hash = await client.emergencyStop(vault.wallet);
-        await publicClient.waitForTransactionReceipt({ hash });
-      }
-      await supabaseUpsertAuto(false);
+      await persistVaultSettings({
+        settings: {
+          walletAddress: vault.wallet,
+          autoTradeEnabled: false,
+          riskPct: vault.settings.riskPct,
+          leverage: vault.settings.leverage,
+          takeProfit: vault.settings.takeProfit,
+          stopLoss: vault.settings.stopLoss,
+          askPermission: vault.settings.askPermission,
+          minWinRate: vault.settings.minWinRate,
+          minTradesForWinRate: vault.settings.minTradesForWinRate,
+        },
+        planTier,
+        publicClient: publicClient ?? null,
+        walletClient: walletClient ?? null,
+        userAddress: vault.wallet as `0x${string}`,
+        isDemoUser,
+        syncAutoTrade: !isDemoUser && Boolean(publicClient && walletClient),
+      });
       const closingCount = await markAllOpenPositionsClosing(vault.wallet, 'bot_stopped');
       refreshAll();
       onRefresh();
@@ -258,19 +284,6 @@ const TerminalTradePanel: React.FC<Props> = ({
       setBotBusy(false);
     }
   };
-
-  async function supabaseUpsertAuto(enabled: boolean) {
-    if (!vault.wallet) throw new Error('No wallet connected');
-    const { error } = await supabase.from('vault_settings').upsert(
-      {
-        wallet_address: vault.wallet.toLowerCase(),
-        chain_id: VAULT_CHAIN_ID,
-        auto_trade_enabled: enabled,
-      },
-      { onConflict: 'wallet_address,chain_id' }
-    );
-    if (error) throw new Error(error.message);
-  }
 
   return (
     <aside className="term-trade-panel">
@@ -433,14 +446,11 @@ const TerminalTradePanel: React.FC<Props> = ({
             )}
             <TerminalLvrgPanel
               settings={vault.settings}
+              walletAddress={vault.wallet}
               vaultUsd={vaultFundingUsd}
               maxTradeUsd={vault.maxTradeUsd}
               disabled={walletReady && vault.isLoading}
               onSaved={refreshAll}
-              onOpenAdvanced={() => {
-                setStartMode(false);
-                setShowSettings(true);
-              }}
             />
           </div>
         )}
@@ -544,14 +554,8 @@ const TerminalTradePanel: React.FC<Props> = ({
         <TerminalBotSettingsModal
           setupPhase={phase}
           minVaultUsd={MIN_VAULT_USD}
-          currentRiskLevel={vault.settings.riskPct}
-          autoTradeEnabled={botRunning}
-          currentTakeProfit={vault.settings.takeProfit}
-          currentStopLoss={vault.settings.stopLoss}
-          currentLeverage={vault.settings.leverage}
-          currentAskPermission={vault.settings.askPermission}
-          currentMinWinRate={vault.settings.minWinRate}
-          currentMinTradesForWinRate={vault.settings.minTradesForWinRate}
+          settings={vault.settings}
+          walletAddress={vault.wallet}
           startMode={startMode}
           onClose={() => {
             setShowSettings(false);

@@ -4,7 +4,8 @@ import { useAccount } from 'wagmi';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../../contexts/AuthContext';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { supabase } from '../../lib/supabase';
-import { fetchUserWalletAddresses, pickPrimaryVaultWallet, registerWalletsForHistory } from '../../lib/userWallets';
+import { fetchUserWalletAddresses, pickPrimaryVaultWallet } from '../../lib/userWallets';
+import { reconcileWalletPositions } from '../../lib/positionReconciliation';
 import { fetchUserPositions } from '../../lib/userPositions';
 import {
   calcPositionPnl,
@@ -13,6 +14,7 @@ import {
 import {
   markPositionCloseFailed,
   markPositionClosing,
+  recordManualVaultClose,
 } from '../../lib/positionClose';
 import TerminalModalFrame from './TerminalModalFrame';
 import { explorerTxUrl } from '../../lib/tradeExplorer';
@@ -34,7 +36,8 @@ import {
   mergeChainAndDbRows,
   vaultTokenFromDockRow,
 } from '../../lib/vaultPositionDock';
-import { useLinkedVaultOpenPositions } from '../../hooks/useLinkedVaultOpenPositions';
+import { getArbitrumPublicClient } from '../../lib/vault';
+import { syncVaultChainHistoryForWallets } from '../../lib/syncVaultChainHistory';
 
 export type DockTab = 'vault' | 'open' | 'history' | 'all';
 
@@ -181,9 +184,6 @@ const TerminalPositionsDock: React.FC<Props> = ({
         setWallets(list);
         setWalletsLoading(false);
       }
-      if (!cancelled && user?.id && !isDemoUser) {
-        await registerWalletsForHistory(list, user.id);
-      }
     })();
     return () => {
       cancelled = true;
@@ -234,10 +234,17 @@ const TerminalPositionsDock: React.FC<Props> = ({
 
       if (!silent) setLoading(true);
       try {
+        if (!isDemoUser && user && queryWalletsLocal.length > 0) {
+          await syncVaultChainHistoryForWallets(
+            queryWalletsLocal,
+            getArbitrumPublicClient() as import('viem').PublicClient
+          );
+        }
+
         const positionRows = await fetchUserPositions({
           isDemoUser,
           connectedAddress: address,
-          wallets: queryWalletsLocal,
+          wallets: queryWalletsLocal.length > 0 ? queryWalletsLocal : undefined,
           userId: user?.id,
           limit: 500,
         });
@@ -246,7 +253,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
 
         const closed = await fetchClosedTrades({
           isDemoUser,
-          wallets: queryWalletsLocal,
+          wallets: queryWalletsLocal.length > 0 ? queryWalletsLocal : undefined,
           limit: 200,
         });
         setClosedHistory(closed);
@@ -368,7 +375,24 @@ const TerminalPositionsDock: React.FC<Props> = ({
         token,
         publicClient,
         walletClient,
+        positionId: isOnChainDockPositionId(positionId) ? undefined : positionId,
       });
+      if (result.method === 'on_chain' || isOnChainDockPositionId(positionId)) {
+        await recordManualVaultClose({
+          wallet,
+          tokenSymbol: row?.token_symbol ?? (token === 'BTC' ? 'WBTC' : 'WETH'),
+          direction: row?.direction,
+          entryPrice: row?.entry_price,
+          entryAmount: row?.entry_amount,
+          leverage: row?.leverage_multiplier ?? 1,
+          profitLoss: row?.profit_loss,
+          exitTxHash: result.txHash,
+          positionId: isOnChainDockPositionId(positionId) ? undefined : positionId,
+        });
+      }
+      if (publicClient && wallet) {
+        await reconcileWalletPositions(wallet, publicClient as import('viem').PublicClient);
+      }
       setCloseNotice(closeMethodMessage(result));
       setTab('history');
       await load(true);
@@ -581,6 +605,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
               <tr>
                 <th>Date</th>
                 <th>Time</th>
+                {queryWallets.length > 1 ? <th>Wallet</th> : null}
                 <th>Position</th>
                 <th>Size</th>
                 <th>Lev</th>
@@ -605,6 +630,11 @@ const TerminalPositionsDock: React.FC<Props> = ({
                   >
                     <td className="term-history-date">{date}</td>
                     <td className="term-history-time">{time}</td>
+                    {queryWallets.length > 1 ? (
+                      <td className="term-history-wallet" title={t.walletAddress}>
+                        {t.walletAddress.slice(0, 6)}…{t.walletAddress.slice(-4)}
+                      </td>
+                    ) : null}
                     <td>
                       <span
                         className={
@@ -644,8 +674,12 @@ const TerminalPositionsDock: React.FC<Props> = ({
         ) : tab === 'history' ? (
           <div className={emptyClass}>
             {hasWallet
-              ? `No closed trades for ${queryWallets[0]?.slice(0, 6)}…${queryWallets[0]?.slice(-4) ?? 'wallet'}. Connect the wallet that opened vault trades, then refresh.`
-              : 'Connect your vault wallet to see trade history.'}
+              ? queryWallets.length > 1
+                ? `No closed trades yet across your ${queryWallets.length} linked wallets.`
+                : 'No closed trades yet for your linked wallets.'
+              : user
+                ? 'Add wallets in Profile → Wallets to see trade history from all your vaults.'
+                : 'Sign in and link wallets in Profile → Wallets to see trade history.'}
           </div>
         ) : positionsLoading && rows.length === 0 ? (
           <div className={emptyClass}>Loading…</div>

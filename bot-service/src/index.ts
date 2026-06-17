@@ -23,6 +23,7 @@ import {
   shouldCloseProfitLock,
   shouldTakeProfitOnPnl,
 } from './services/pnlExits';
+import { syncAutoTradeWalletsChainHistory } from './services/vaultChainHistorySync';
 
 // Supabase client for position queries
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
@@ -159,6 +160,98 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  // API: Diagnose why bot is not trading for a wallet
+  // Usage: /api/bot-status?wallet=0x...
+  if (url.pathname === '/api/bot-status') {
+    try {
+      const wallet = url.searchParams.get('wallet');
+      if (!wallet || !/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet query param required (0x…)' }));
+        return;
+      }
+
+      const userAddress = wallet.toLowerCase() as `0x${string}`;
+      const chainId = 42161;
+
+      const permission = await subscriptionService.canTrade(userAddress);
+      const userId = await subscriptionService.getUserIdFromWallet(userAddress);
+      const subscription = await subscriptionService.getSubscription(userAddress);
+      const vaultStatus = await tradingV7GMXService.getUserVaultStatus(userAddress);
+      const dbSettings = await subscriptionService.getUserTradingSettings(userAddress, chainId);
+      const banStatus = await subscriptionService.getBotBanStatus(userAddress, chainId);
+      const winRateGate = await checkWinRateGate(
+        userAddress,
+        chainId,
+        dbSettings.minWinRatePercent,
+        dbSettings.minTradesForWinRateGate
+      );
+
+      const ethSignal = await marketService.getSignal(
+        chainId,
+        V7_TOKENS.WETH as `0x${string}`,
+        vaultStatus?.balance ?? 0n,
+        10000,
+        DEFAULT_STRATEGY
+      );
+
+      const blockers: string[] = [];
+      if (!permission.allowed) blockers.push(permission.reason || 'subscription');
+      if (!vaultStatus) blockers.push('vault status unavailable');
+      else if (vaultStatus.balance === 0n) blockers.push('vault balance is 0');
+      if (!vaultStatus?.autoTradeEnabled && !dbSettings.autoTradeEnabled) {
+        blockers.push('auto-trade disabled (on-chain and DB)');
+      }
+      if (banStatus.isBanned) blockers.push('bot banned (manual close cooldown)');
+      if (!winRateGate.allowed) blockers.push(winRateGate.reason || 'win rate gate');
+      if (!ethSignal) blockers.push('no trade signal (weak or HOLD)');
+
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({
+        success: true,
+        wallet: userAddress,
+        userId: userId ? `${userId.slice(0, 8)}…` : null,
+        canTrade: permission.allowed && blockers.length === 0,
+        blockers,
+        permission,
+        subscription: subscription
+          ? {
+              planTier: subscription.planTier,
+              status: subscription.status,
+              totalTradesUsed: subscription.totalTradesUsed,
+              dailyTradesRemaining: permission.dailyTradesRemaining,
+            }
+          : null,
+        vault: vaultStatus
+          ? {
+              balanceUsd: vaultStatus.balanceFormatted,
+              autoTradeOnChain: vaultStatus.autoTradeEnabled,
+            }
+          : null,
+        dbSettings: {
+          autoTradeEnabled: dbSettings.autoTradeEnabled,
+          leverage: dbSettings.leverageMultiplier,
+          riskBps: dbSettings.riskLevelBps,
+          tp: dbSettings.takeProfitPercent,
+          sl: dbSettings.stopLossPercent,
+        },
+        sampleSignal: ethSignal
+          ? {
+              direction: ethSignal.direction,
+              confidence: ethSignal.confidence,
+              reason: ethSignal.reason,
+            }
+          : null,
+        timestamp: new Date().toISOString(),
+      }));
+    } catch (err: any) {
+      logger.error('API: bot-status failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'bot-status failed' }));
+    }
+    return;
+  }
+
   // API: Get timeframe analysis for a single timeframe
   // Usage: /api/timeframe?symbol=ETHUSDT&tf=15m
   if (url.pathname === '/api/timeframe') {
@@ -195,6 +288,7 @@ healthServer.listen(PORT, () => {
   logger.info('Available endpoints:');
   logger.info('  GET /health - Health check');
   logger.info('  GET /api/signal?symbol=ETHUSDT&timeframes=1m,5m,15m,1h - MTF Signal');
+  logger.info('  GET /api/bot-status?wallet=0x… - Wallet bot diagnostics');
   logger.info('  GET /api/timeframe?symbol=ETHUSDT&tf=15m - Single timeframe analysis');
 });
 
@@ -309,10 +403,16 @@ async function processUserTrades(
     }
 
     if (!vaultStatus.autoTradeEnabled) {
-      logger.debug('Auto-trade disabled for user', {
-        userAddress: userAddress.slice(0, 10)
+      const dbSettings = await subscriptionService.getUserTradingSettings(userAddress, chainId);
+      if (!dbSettings.autoTradeEnabled) {
+        logger.debug('Auto-trade disabled for user', {
+          userAddress: userAddress.slice(0, 10)
+        });
+        return;
+      }
+      logger.info('Auto-trade enabled in DB (on-chain flag off) — proceeding', {
+        userAddress: userAddress.slice(0, 10),
       });
-      return;
     }
 
     if (vaultStatus.balance === 0n) {
@@ -453,13 +553,13 @@ async function processUserTrades(
         continue;
       }
 
-      // Generate trade signal
+      // Generate trade signal — balancePerPosition is already risk-sized; use full bps for amount
       const signal = await generateTradeSignal(
         chainId,
         tokenConfig.address,
         tokenConfig.symbol,
         balancePerPosition,
-        vaultStatus.riskLevelBps,
+        10000,
         DEFAULT_STRATEGY
       );
 
@@ -877,6 +977,11 @@ async function runReconciliationCycle(): Promise<void> {
   logger.info('Starting position reconciliation cycle');
 
   try {
+    const chainImported = await syncAutoTradeWalletsChainHistory();
+    if (chainImported > 0) {
+      logger.info(`Chain history sync imported ${chainImported} closed trade(s)`);
+    }
+
     // Fix any positions with 0 entry price (from failed price fetches)
     const fixedCount = await positionService.fixZeroEntryPrices();
     if (fixedCount > 0) {

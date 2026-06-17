@@ -13,14 +13,16 @@ import {
 import { useAppKit } from '@reown/appkit/react';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
-import { VaultClient, VAULT_CHAIN_ID } from '../../lib/vault';
 import { markAllOpenPositionsClosing } from '../../lib/positionClose';
 import {
   closeMethodMessage,
   executeVaultPositionClose,
 } from '../../lib/vaultPositionClose';
+import { persistVaultSettings } from '../../lib/syncVaultSettings';
+import { ensureBotSubscription } from '../../lib/ensureBotSubscription';
+import { useSubscription } from '../../contexts/SubscriptionContext';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
+import { VAULT_CHAIN_ID } from '../../lib/vault';
 import { useTerminalVaultData } from '../../hooks/useTerminalVaultData';
 import TerminalDepositModal from '../terminal/TerminalDepositModal';
 import TerminalWithdrawModal from '../terminal/TerminalWithdrawModal';
@@ -59,6 +61,7 @@ const ProTradeBotPanel: React.FC<Props> = ({
   const { open } = useAppKit();
   const { isConnected, publicClient, walletClient, switchChain } = useWeb3();
   const { isDemoUser } = useAuth();
+  const { planTier, linkWallet } = useSubscription();
   const [panelTab, setPanelTab] = useState<PanelTab>('bot');
   const [vaultTick, setVaultTick] = useState(0);
   const vault = useTerminalVaultData(vaultTick);
@@ -111,16 +114,55 @@ const ProTradeBotPanel: React.FC<Props> = ({
     }
   };
 
-  async function supabaseUpsertAuto(enabled: boolean) {
-    if (!vault.wallet) return;
-    await supabase.from('vault_settings').upsert(
-      {
-        wallet_address: vault.wallet.toLowerCase(),
-        chain_id: VAULT_CHAIN_ID,
-        auto_trade_enabled: enabled,
+  async function startBotTrading() {
+    if (!vault.wallet) throw new Error('No wallet connected');
+    await ensureBotSubscription();
+    await persistVaultSettings({
+      settings: {
+        walletAddress: vault.wallet,
+        autoTradeEnabled: true,
+        riskPct: vault.settings.riskPct,
+        leverage: vault.settings.leverage,
+        takeProfit: vault.settings.takeProfit,
+        stopLoss: vault.settings.stopLoss,
+        askPermission: vault.settings.askPermission,
+        minWinRate: vault.settings.minWinRate,
+        minTradesForWinRate: vault.settings.minTradesForWinRate,
       },
-      { onConflict: 'wallet_address,chain_id' }
-    );
+      planTier,
+      publicClient: publicClient ?? null,
+      walletClient: walletClient ?? null,
+      userAddress: vault.wallet as `0x${string}`,
+      isDemoUser,
+      syncTradingParams: !isDemoUser && Boolean(publicClient && walletClient),
+      syncAutoTrade: !isDemoUser && Boolean(publicClient && walletClient),
+    });
+    if (!isDemoUser) {
+      await linkWallet(vault.wallet);
+    }
+  }
+
+  async function stopBotTrading() {
+    if (!vault.wallet) return;
+    await persistVaultSettings({
+      settings: {
+        walletAddress: vault.wallet,
+        autoTradeEnabled: false,
+        riskPct: vault.settings.riskPct,
+        leverage: vault.settings.leverage,
+        takeProfit: vault.settings.takeProfit,
+        stopLoss: vault.settings.stopLoss,
+        askPermission: vault.settings.askPermission,
+        minWinRate: vault.settings.minWinRate,
+        minTradesForWinRate: vault.settings.minTradesForWinRate,
+      },
+      planTier,
+      publicClient: publicClient ?? null,
+      walletClient: walletClient ?? null,
+      userAddress: vault.wallet as `0x${string}`,
+      isDemoUser,
+      syncAutoTrade: !isDemoUser && Boolean(publicClient && walletClient),
+    });
   }
 
   const handleStartBot = async () => {
@@ -128,22 +170,16 @@ const ProTradeBotPanel: React.FC<Props> = ({
     setBotError(null);
     if (!(await ensureArbitrum())) return;
     if (!isDemoUser && (!publicClient || !walletClient)) {
-      setStartMode(true);
-      setShowSettings(true);
+      setBotError('Wallet nicht bereit — in MetaMask entsperren.');
       return;
     }
 
     setBotBusy(true);
     try {
-      if (!isDemoUser && publicClient && walletClient) {
-        const client = new VaultClient(publicClient as never, walletClient as never, VAULT_CHAIN_ID);
-        await client.setAutoTrade(true, vault.wallet);
-      }
-      await supabaseUpsertAuto(true);
+      await startBotTrading();
       refreshAll();
-    } catch {
-      setStartMode(true);
-      setShowSettings(true);
+    } catch (e: unknown) {
+      setBotError(e instanceof Error ? e.message : 'Bot konnte nicht gestartet werden');
     } finally {
       setBotBusy(false);
     }
@@ -156,21 +192,16 @@ const ProTradeBotPanel: React.FC<Props> = ({
     if (!(await ensureArbitrum())) return;
     setBotBusy(true);
     try {
-      if (!isDemoUser && publicClient && walletClient) {
-        const client = new VaultClient(publicClient as never, walletClient as never, VAULT_CHAIN_ID);
-        const hash = await client.emergencyStop(vault.wallet);
-        await publicClient.waitForTransactionReceipt({ hash });
-      }
-      await supabaseUpsertAuto(false);
+      await stopBotTrading();
       const closingCount = await markAllOpenPositionsClosing(vault.wallet, 'bot_stopped');
       refreshAll();
       if (closingCount > 0) {
         setStopNotice(
-          `Bot stopped. Closing ${closingCount} open position${closingCount === 1 ? '' : 's'}…`
+          `Bot gestoppt. Schließe ${closingCount} offene Position${closingCount === 1 ? '' : 'en'}…`
         );
       }
     } catch (e: unknown) {
-      setBotError(e instanceof Error ? e.message : 'Failed to stop bot');
+      setBotError(e instanceof Error ? e.message : 'Bot konnte nicht gestoppt werden');
     } finally {
       setBotBusy(false);
     }
@@ -366,22 +397,20 @@ const ProTradeBotPanel: React.FC<Props> = ({
                 <Wallet size={14} style={{ display: 'inline', marginRight: 6 }} />
                 Connect wallet
               </button>
-            ) : phase === 'network' ? (
-              <button type="button" className="hl-entry-submit" onClick={() => void ensureArbitrum()}>
-                Switch to Arbitrum
-              </button>
             ) : (
-              <TerminalLvrgPanel
-                settings={vault.settings}
-                vaultUsd={vault.vaultUsd}
-                maxTradeUsd={vault.maxTradeUsd}
-                disabled={!vault.onArbitrum || vault.isLoading}
-                onSaved={refreshAll}
-                onOpenAdvanced={() => {
-                  setStartMode(false);
-                  setShowSettings(true);
-                }}
-              />
+              <>
+                {walletReady && !vault.onArbitrum ? (
+                  <TerminalArbitrumBanner variant="inline" />
+                ) : null}
+                <TerminalLvrgPanel
+                  settings={vault.settings}
+                  walletAddress={vault.wallet}
+                  vaultUsd={vault.vaultUsd}
+                  maxTradeUsd={vault.maxTradeUsd}
+                  disabled={vault.isLoading}
+                  onSaved={refreshAll}
+                />
+              </>
             )}
           </>
         )}
@@ -422,12 +451,9 @@ const ProTradeBotPanel: React.FC<Props> = ({
               type="button"
               className="hl-entry-foot-btn"
               style={{ width: '100%' }}
-              onClick={() => {
-                setStartMode(false);
-                setShowSettings(true);
-              }}
+              onClick={() => setPanelTab('lvrg')}
             >
-              <Settings size={12} /> All bot settings
+              <Settings size={12} /> Bot settings
             </button>
           </>
         )}
@@ -481,14 +507,8 @@ const ProTradeBotPanel: React.FC<Props> = ({
         <TerminalBotSettingsModal
           setupPhase={phase}
           minVaultUsd={MIN_VAULT_USD}
-          currentRiskLevel={vault.settings.riskPct}
-          autoTradeEnabled={metrics.autoTradeEnabled}
-          currentTakeProfit={vault.settings.takeProfit}
-          currentStopLoss={vault.settings.stopLoss}
-          currentLeverage={vault.settings.leverage}
-          currentAskPermission={vault.settings.askPermission}
-          currentMinWinRate={vault.settings.minWinRate}
-          currentMinTradesForWinRate={vault.settings.minTradesForWinRate}
+          settings={vault.settings}
+          walletAddress={vault.wallet}
           startMode={startMode}
           onClose={() => {
             setShowSettings(false);

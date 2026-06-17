@@ -102,6 +102,8 @@ const Dashboard2Page: React.FC = () => {
     walletConnected: walletReady,
     metrics,
     hasOpenPosition,
+    vaultUsd: metrics.vaultUsd,
+    vaultWallet: vault.wallet,
     symbol: chartSymbol,
   });
 
@@ -391,14 +393,8 @@ const Dashboard2Page: React.FC = () => {
         <TerminalBotSettingsModal
           setupPhase={botSetupPhase}
           minVaultUsd={MIN_VAULT_USD}
-          currentRiskLevel={vault.settings.riskPct}
-          autoTradeEnabled={metrics.autoTradeEnabled}
-          currentTakeProfit={vault.settings.takeProfit}
-          currentStopLoss={vault.settings.stopLoss}
-          currentLeverage={vault.settings.leverage}
-          currentAskPermission={vault.settings.askPermission}
-          currentMinWinRate={vault.settings.minWinRate}
-          currentMinTradesForWinRate={vault.settings.minTradesForWinRate}
+          settings={vault.settings}
+          walletAddress={vault.wallet}
           onClose={() => setShowBotSettings(false)}
           onSuccess={() => {
             setShowBotSettings(false);

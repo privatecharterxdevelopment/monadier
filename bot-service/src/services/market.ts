@@ -80,7 +80,7 @@ const STRATEGY_CONFIGS = {
     profitLockPercent: 0.5
   },
   aggressive: {
-    minConfidence: 20,  // Very low - almost always trades
+    minConfidence: 25,
     minConditions: 1,
     patternOnly: false,
     profitLockPercent: 0.2

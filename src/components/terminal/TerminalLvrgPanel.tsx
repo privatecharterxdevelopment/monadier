@@ -1,227 +1,91 @@
-import React, { useState } from 'react';
-import { AlertCircle, Loader2, Save, Settings, Wallet } from 'lucide-react';
+import React from 'react';
+import { Loader2, Save, Wallet } from 'lucide-react';
 import { useAppKit } from '@reown/appkit/react';
-import { useWeb3 } from '../../contexts/Web3Context';
-import { useAuth } from '../../contexts/AuthContext';
-import { useSubscription } from '../../contexts/SubscriptionContext';
-import { VAULT_CHAIN_ID } from '../../lib/vault';
-import { persistVaultSettings } from '../../lib/syncVaultSettings';
 import type { VaultSettingsSnapshot } from '../../hooks/useTerminalVaultData';
-import { getMaxLeverageLabel, snapLeverageToStep } from '../../lib/leverageLimits';
-import LeverageRangeSlider from './LeverageRangeSlider';
-
-const RISK_PRESETS = [1, 5, 25, 50, 100] as const;
+import TerminalBotSettingsFields from './TerminalBotSettingsFields';
+import { useBotSettingsEditor } from './useBotSettingsEditor';
 
 type Props = {
   settings: VaultSettingsSnapshot;
-  vaultUsd: number;
-  maxTradeUsd: number;
+  walletAddress?: string;
+  vaultUsd?: number;
+  maxTradeUsd?: number;
   disabled?: boolean;
   onSaved: () => void;
-  onOpenAdvanced?: () => void;
 };
 
+/** Inline bot settings — same fields & save path as the bot settings modal. */
 const TerminalLvrgPanel: React.FC<Props> = ({
   settings,
-  vaultUsd,
-  maxTradeUsd,
+  walletAddress,
+  vaultUsd = 0,
+  maxTradeUsd = 0,
   disabled,
   onSaved,
-  onOpenAdvanced,
 }) => {
   const { open } = useAppKit();
-  const { address, publicClient, walletClient, chainId } = useWeb3();
-  const { isDemoUser } = useAuth();
-  const { planTier } = useSubscription();
+  const editor = useBotSettingsEditor({ settings, walletAddress, onSaved });
 
-  const maxLevLabel = getMaxLeverageLabel(planTier);
-
-  const [riskPct, setRiskPct] = useState(settings.riskPct);
-  const [leverage, setLeverage] = useState(settings.leverage);
-  const [takeProfit, setTakeProfit] = useState(settings.takeProfit);
-  const [stopLoss, setStopLoss] = useState(settings.stopLoss);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-
-  React.useEffect(() => {
-    setRiskPct(settings.riskPct);
-    setLeverage(snapLeverageToStep(settings.leverage, planTier));
-    setTakeProfit(settings.takeProfit);
-    setStopLoss(settings.stopLoss);
-  }, [settings, planTier]);
-
-  const estPosition = ((vaultUsd * riskPct) / 100) * leverage;
-
-  const handleSave = async () => {
-    if (!address) {
-      open();
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-    setSaved(false);
-    try {
-      const result = await persistVaultSettings({
-        settings: {
-          walletAddress: address,
-          autoTradeEnabled: settings.autoTradeEnabled,
-          riskPct,
-          leverage,
-          takeProfit,
-          stopLoss,
-        },
-        planTier,
-        publicClient,
-        walletClient,
-        userAddress: address as `0x${string}`,
-        isDemoUser,
-        syncTradingParams: !isDemoUser && chainId === VAULT_CHAIN_ID,
-        syncAutoTrade: false,
-      });
-      if (result.chainWarning) {
-        setNotice(result.chainWarning);
-      } else if (!isDemoUser && chainId !== VAULT_CHAIN_ID) {
-        setNotice('Settings saved for the bot. Switch to Arbitrum to sync on-chain.');
-      }
-      setSaved(true);
-      onSaved();
-      setTimeout(() => setSaved(false), 2000);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Save failed');
-    } finally {
-      setBusy(false);
-    }
-  };
+  const estPosition = ((vaultUsd * editor.riskLevel) / 100) * editor.leverage;
 
   return (
     <div className={`term-panel-stack ${disabled ? 'term-panel-stack--locked' : ''}`}>
       <div className="term-panel-card term-panel-card--muted">
-        <span className="term-panel-card-label">Leverage</span>
-        <strong className="term-panel-card-value">{leverage}x</strong>
+        <span className="term-panel-card-label">Bot settings</span>
+        <strong className="term-panel-card-value">{editor.leverage}x LVRG</strong>
         <span className="term-panel-card-hint">
-          Max {maxLevLabel} GMX · Est. position ${estPosition.toFixed(0)}
+          Risk {editor.riskLevel}% · Est. position ${estPosition.toFixed(0)} · Max trade $
+          {maxTradeUsd.toFixed(2)}
         </span>
       </div>
 
-      <p className="term-hint">
-        Risk {riskPct}% · Max trade ${maxTradeUsd.toFixed(2)} · TP +{takeProfit}% · SL −{stopLoss}%
-      </p>
+      <TerminalBotSettingsFields
+        variant="panel"
+        planTier={editor.planTier}
+        riskLevel={editor.riskLevel}
+        setRiskLevel={editor.setRiskLevel}
+        leverage={editor.leverage}
+        setLeverage={editor.setLeverage}
+        takeProfit={editor.takeProfit}
+        setTakeProfit={editor.setTakeProfit}
+        stopLoss={editor.stopLoss}
+        setStopLoss={editor.setStopLoss}
+        autoTrade={editor.autoTrade}
+        setAutoTrade={editor.setAutoTrade}
+        askPermission={editor.askPermission}
+        setAskPermission={editor.setAskPermission}
+        minWinRate={editor.minWinRate}
+        setMinWinRate={editor.setMinWinRate}
+        minTradesForWinRate={editor.minTradesForWinRate}
+        setMinTradesForWinRate={editor.setMinTradesForWinRate}
+        disabled={disabled || editor.isLoading}
+        walletConnected={editor.walletConnected}
+        onArbitrum={editor.onArbitrum}
+        notice={editor.notice}
+        error={editor.error}
+      />
 
-      <div className="term-panel-card term-panel-card--flat">
-        <LeverageRangeSlider
-          value={leverage}
-          onChange={setLeverage}
-          planTier={planTier}
-          disabled={disabled || busy}
-          id="lvrg-panel-leverage"
-        />
-      </div>
-
-      <div className="term-panel-card term-panel-card--flat">
-        <span className="term-panel-card-label">Risk per trade</span>
-        <div className="term-modal-chip-row term-modal-chip-row--wrap">
-          {RISK_PRESETS.map((v) => (
-            <button
-              key={v}
-              type="button"
-              className={`term-modal-chip ${riskPct === v ? 'term-modal-chip--on' : ''}`}
-              onClick={() => setRiskPct(v)}
-              disabled={disabled || busy}
-            >
-              {v}%
-            </button>
-          ))}
-        </div>
-        <input
-          type="range"
-          min={1}
-          max={100}
-          value={riskPct}
-          onChange={(e) => setRiskPct(parseInt(e.target.value, 10))}
-          className="term-modal-range"
-          disabled={disabled || busy}
-        />
-        <div className="term-panel-inputs">
-          <label className="term-panel-input-wrap">
-            <span>TP %</span>
-            <input
-              type="number"
-              className="term-panel-input"
-              value={takeProfit}
-              min={0.5}
-              step={0.5}
-              onChange={(e) => setTakeProfit(parseFloat(e.target.value) || 0)}
-              disabled={disabled || busy}
-            />
-          </label>
-          <label className="term-panel-input-wrap">
-            <span>SL %</span>
-            <input
-              type="number"
-              className="term-panel-input"
-              value={stopLoss}
-              min={0.5}
-              step={0.5}
-              onChange={(e) => setStopLoss(parseFloat(e.target.value) || 0)}
-              disabled={disabled || busy}
-            />
-          </label>
-        </div>
-      </div>
-
-      {leverage >= 10 && (
-        <p className="term-hint term-hint--warn">
-          {leverage >= 20
-            ? `High leverage: ~${((100 / leverage) * 0.9).toFixed(1)}% move can liquidate.`
-            : `+1% price ≈ +${leverage}% on position P/L.`}
-        </p>
-      )}
-
-      {notice && (
-        <div className="term-panel-alert" style={{ color: '#86efac' }}>
-          <AlertCircle size={14} />
-          <span>{notice}</span>
-        </div>
-      )}
-
-      {error && (
-        <div className="term-panel-alert">
-          <AlertCircle size={14} />
-          <span>{error}</span>
-        </div>
-      )}
-
-      <div className="flex gap-2">
-        <button
-          type="button"
-          className="term-btn-sm flex-1 justify-center"
-          disabled={busy || (disabled && Boolean(address))}
-          onClick={handleSave}
-        >
-          {busy ? (
-            <Loader2 size={14} className="animate-spin" />
-          ) : !address ? (
-            <Wallet size={14} />
-          ) : (
-            <Save size={14} />
-          )}
-          {saved ? 'Saved' : !address ? 'Connect to save' : 'Save LVRG'}
-        </button>
-      </div>
-
-      {onOpenAdvanced && (
-        <button
-          type="button"
-          className="term-btn-sm term-btn-sm--ghost w-full justify-center"
-          onClick={onOpenAdvanced}
-        >
-          <Settings size={14} />
-          All bot settings
-        </button>
-      )}
+      <button
+        type="button"
+        className="term-btn-sm flex-1 justify-center w-full"
+        disabled={editor.isLoading || (disabled && editor.walletConnected)}
+        onClick={() => {
+          if (!editor.walletConnected) {
+            open();
+            return;
+          }
+          void editor.save();
+        }}
+      >
+        {editor.isLoading ? (
+          <Loader2 size={14} className="animate-spin" />
+        ) : !editor.walletConnected ? (
+          <Wallet size={14} />
+        ) : (
+          <Save size={14} />
+        )}
+        {editor.success ? 'Saved' : !editor.walletConnected ? 'Connect to save' : 'Save bot settings'}
+      </button>
     </div>
   );
 };

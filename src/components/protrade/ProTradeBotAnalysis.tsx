@@ -21,6 +21,8 @@ const ProTradeBotAnalysis: React.FC<Props> = ({ walletConnected, perpCoin }) => 
     walletConnected: walletConnected || metrics.autoTradeEnabled,
     metrics,
     hasOpenPosition,
+    vaultUsd: vault.vaultUsd,
+    vaultWallet: vault.wallet,
     symbol: hlCoinToBotSymbol(perpCoin),
   });
 
@@ -40,6 +42,7 @@ const ProTradeBotAnalysis: React.FC<Props> = ({ walletConnected, perpCoin }) => 
         signal={analysis.signal}
         dbAnalysis={analysis.dbAnalysis}
         activeSymbol={analysis.activeSymbol}
+        readiness={analysis.readiness}
       />
     </div>
   );

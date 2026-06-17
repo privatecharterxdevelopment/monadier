@@ -9,6 +9,7 @@ export type VaultCloseMethod = 'bot' | 'bot_retry' | 'on_chain';
 export type VaultCloseResult = {
   method: VaultCloseMethod;
   positionId?: string;
+  txHash?: `0x${string}`;
 };
 
 function tokenSymbolForLookup(token: 'ETH' | 'BTC'): string {
@@ -21,6 +22,7 @@ export async function executeVaultPositionClose(params: {
   token: 'ETH' | 'BTC';
   publicClient: unknown | null | undefined;
   walletClient: unknown | null | undefined;
+  positionId?: string;
 }): Promise<VaultCloseResult> {
   const sym = tokenSymbolForLookup(params.token);
   const wallet = params.wallet.toLowerCase();
@@ -49,23 +51,24 @@ export async function executeVaultPositionClose(params: {
     VAULT_CHAIN_ID
   );
   const tokenAddr = params.token === 'ETH' ? WETH : WBTC;
+  let txHash: `0x${string}` | undefined;
   try {
-    const hash = await client.userInstantClose(tokenAddr, wallet as `0x${string}`);
+    txHash = await client.userInstantClose(tokenAddr, wallet as `0x${string}`);
     await (
       params.publicClient as {
         waitForTransactionReceipt: (a: { hash: `0x${string}` }) => Promise<unknown>;
       }
-    ).waitForTransactionReceipt({ hash });
+    ).waitForTransactionReceipt({ hash: txHash });
   } catch {
-    const hash = await client.reconcilePosition(tokenAddr, wallet as `0x${string}`);
+    txHash = await client.reconcilePosition(tokenAddr, wallet as `0x${string}`);
     await (
       params.publicClient as {
         waitForTransactionReceipt: (a: { hash: `0x${string}` }) => Promise<unknown>;
       }
-    ).waitForTransactionReceipt({ hash });
+    ).waitForTransactionReceipt({ hash: txHash });
   }
 
-  return { method: 'on_chain' };
+  return { method: 'on_chain', positionId: params.positionId, txHash };
 }
 
 export function closeMethodMessage(result: VaultCloseResult): string {

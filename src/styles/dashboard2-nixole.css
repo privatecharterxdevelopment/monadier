@@ -1910,6 +1910,13 @@
   margin-bottom: 8px;
 }
 
+.term-analysis-hint {
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--term-text-muted, #6b7280);
+}
+
 .term-analysis-pulse {
   color: var(--term-text-muted);
   flex-shrink: 0;

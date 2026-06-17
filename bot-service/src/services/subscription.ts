@@ -28,6 +28,7 @@ export interface UserTradingSettings {
   askPermission: boolean;
   leverageMultiplier: number; // 1.0 = no leverage, 2.0 = 2x, 3.0 = 3x max
   riskLevelBps: number; // Risk in basis points (5000 = 50%)
+  autoTradeEnabled: boolean;
   /** 0 = disabled — bot skips opens if closed-trade win rate is lower */
   minWinRatePercent: number;
   minTradesForWinRateGate: number;
@@ -62,6 +63,29 @@ export class SubscriptionService {
         return userWallet.user_id;
       }
 
+      // vault_settings.user_id (bot saves settings here even when user_wallets link failed)
+      const { data: vaultRow } = await this.supabase
+        .from('vault_settings')
+        .select('user_id')
+        .eq('wallet_address', wallet)
+        .eq('chain_id', 42161)
+        .maybeSingle();
+
+      if (vaultRow?.user_id) {
+        return vaultRow.user_id;
+      }
+
+      // profiles.wallet_address
+      const { data: profile } = await this.supabase
+        .from('profiles')
+        .select('id')
+        .eq('wallet_address', wallet)
+        .maybeSingle();
+
+      if (profile?.id) {
+        return profile.id;
+      }
+
       // Fallback: check subscriptions.wallet_address (legacy)
       const { data: sub } = await this.supabase
         .from('subscriptions')
@@ -74,6 +98,53 @@ export class SubscriptionService {
       logger.debug('getUserIdFromWallet lookup failed', { walletAddress, error: err });
       return null;
     }
+  }
+
+  /** Create a free active subscription when user exists but row is missing (common after wallet-only signup). */
+  async ensureActiveSubscriptionForUser(
+    userId: string,
+    walletAddress?: string
+  ): Promise<boolean> {
+    const { data: existing } = await this.supabase
+      .from('subscriptions')
+      .select('id, status')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (existing?.id && existing.status === 'active') {
+      return true;
+    }
+
+    const endDate = new Date();
+    endDate.setFullYear(endDate.getFullYear() + 100);
+
+    const payload: Record<string, unknown> = {
+      user_id: userId,
+      plan_tier: 'free',
+      billing_cycle: 'lifetime',
+      status: 'active',
+      start_date: new Date().toISOString(),
+      end_date: endDate.toISOString(),
+      auto_renew: false,
+      daily_trades_used: 0,
+      total_trades_used: 0,
+    };
+    if (walletAddress) {
+      payload.wallet_address = walletAddress.toLowerCase();
+    }
+
+    const { error } = await this.supabase.from('subscriptions').upsert(payload, {
+      onConflict: 'user_id',
+    });
+
+    if (error && !error.message.includes('duplicate')) {
+      logger.warn('ensureActiveSubscriptionForUser failed', {
+        userId: userId.slice(0, 8),
+        error: error.message,
+      });
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -154,7 +225,16 @@ export class SubscriptionService {
    * Check if user can make a trade
    */
   async canTrade(walletAddress: string): Promise<TradePermission> {
-    const subscription = await this.getSubscription(walletAddress);
+    const wallet = walletAddress.toLowerCase();
+    let subscription = await this.getSubscription(wallet);
+
+    if (!subscription) {
+      const userId = await this.getUserIdFromWallet(wallet);
+      if (userId) {
+        await this.ensureActiveSubscriptionForUser(userId, wallet);
+        subscription = await this.getSubscription(wallet);
+      }
+    }
 
     // No subscription found
     if (!subscription) {
@@ -375,7 +455,7 @@ export class SubscriptionService {
       const { data, error } = await this.supabase
         .from('vault_settings')
         .select(
-          'take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier, risk_level_bps, min_win_rate_percent, min_trades_for_win_rate_gate, prompt_withdraw_after_close'
+          'auto_trade_enabled, take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier, risk_level_bps, min_win_rate_percent, min_trades_for_win_rate_gate, prompt_withdraw_after_close'
         )
         .eq('wallet_address', walletAddress.toLowerCase())
         .eq('chain_id', chainId)
@@ -398,6 +478,7 @@ export class SubscriptionService {
           askPermission: false,
           leverageMultiplier: 1.0,
           riskLevelBps: 500,
+          autoTradeEnabled: false,
           minWinRatePercent: 0,
           minTradesForWinRateGate: 5,
           promptWithdrawAfterClose: false,
@@ -419,6 +500,7 @@ export class SubscriptionService {
         askPermission: data.ask_permission || false,
         leverageMultiplier: data.leverage_multiplier || 1.0,
         riskLevelBps: data.risk_level_bps || 500,
+        autoTradeEnabled: Boolean(data.auto_trade_enabled),
         minWinRatePercent: Number(data.min_win_rate_percent) || 0,
         minTradesForWinRateGate: Number(data.min_trades_for_win_rate_gate) || 5,
         promptWithdrawAfterClose: Boolean(data.prompt_withdraw_after_close),
@@ -431,6 +513,7 @@ export class SubscriptionService {
         askPermission: false,
         leverageMultiplier: 1.0,
         riskLevelBps: 500,
+        autoTradeEnabled: false,
         minWinRatePercent: 0,
         minTradesForWinRateGate: 5,
         promptWithdrawAfterClose: false,

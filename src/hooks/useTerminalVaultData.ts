@@ -4,9 +4,10 @@ import { useAuth, DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
 import { VaultClient, VAULT_CHAIN_ID, getArbitrumPublicClient } from '../lib/vault';
 import { supabase } from '../lib/supabase';
 import { fetchUserWalletAddresses, pickPrimaryVaultWallet } from '../lib/userWallets';
+import { resolveVaultSettingsSnapshot } from '../lib/vaultSettingsSnapshot';
+import type { VaultSettingsSnapshot } from '../lib/vaultSettingsSnapshot';
 
-const WETH = '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1' as const;
-const WBTC = '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f' as const;
+export type { VaultSettingsSnapshot };
 
 export type ActiveVaultPosition = {
   isActive: boolean;
@@ -20,16 +21,8 @@ export type ActiveVaultPosition = {
   pnlPercent?: number;
 };
 
-export type VaultSettingsSnapshot = {
-  riskPct: number;
-  takeProfit: number;
-  stopLoss: number;
-  leverage: number;
-  askPermission: boolean;
-  minWinRate: number;
-  minTradesForWinRate: number;
-  autoTradeEnabled: boolean;
-};
+const WETH = '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1' as const;
+const WBTC = '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f' as const;
 
 export type TerminalVaultData = {
   /** Withdrawable USDC (respects active positions / solvency). */
@@ -125,16 +118,13 @@ export function useTerminalVaultData(refreshKey = 0) {
           maxTradeUsd: bal * 0.5,
           riskPctOnChain: (row?.risk_level_bps ?? 5000) / 100,
           position: null,
-          settings: {
-            riskPct: (row?.risk_level_bps ?? 5000) / 100,
-            takeProfit: Number(row?.take_profit_percent ?? 10),
-            stopLoss: Number(row?.stop_loss_percent ?? 5),
-            leverage: Number(row?.leverage_multiplier ?? 25),
-            askPermission: Boolean(row?.ask_permission),
-            minWinRate: Number(row?.min_win_rate_percent ?? 0),
-            minTradesForWinRate: Number(row?.min_trades_for_win_rate_gate ?? 5),
+          settings: resolveVaultSettingsSnapshot(row, {
+            riskLevelPercent: (row?.risk_level_bps ?? 5000) / 100,
+            takeProfitPercent: Number(row?.take_profit_percent ?? 10),
+            stopLossPercent: Number(row?.stop_loss_percent ?? 5),
+            maxLeverage: Number(row?.leverage_multiplier ?? 25),
             autoTradeEnabled: Boolean(row?.auto_trade_enabled ?? true),
-          },
+          }),
           isLoading: false,
           error: null,
         });
@@ -206,19 +196,13 @@ export function useTerminalVaultData(refreshKey = 0) {
         maxTradeUsd: parseFloat(status.maxTradeSizeFormatted) || 0,
         riskPctOnChain: status.riskLevelPercent,
         position,
-        settings: {
-          riskPct:
-            row?.risk_level_bps != null
-              ? row.risk_level_bps / 100
-              : status.riskLevelPercent,
-          takeProfit: Number(row?.take_profit_percent ?? status.takeProfitPercent),
-          stopLoss: Number(row?.stop_loss_percent ?? status.stopLossPercent),
-          leverage: Number(row?.leverage_multiplier ?? status.maxLeverage),
-          askPermission: Boolean(row?.ask_permission),
-          minWinRate: Number(row?.min_win_rate_percent ?? 0),
-          minTradesForWinRate: Number(row?.min_trades_for_win_rate_gate ?? 5),
-          autoTradeEnabled: status.autoTradeEnabled || Boolean(row?.auto_trade_enabled),
-        },
+        settings: resolveVaultSettingsSnapshot(row, {
+          riskLevelPercent: status.riskLevelPercent,
+          takeProfitPercent: status.takeProfitPercent,
+          stopLossPercent: status.stopLossPercent,
+          maxLeverage: status.maxLeverage,
+          autoTradeEnabled: status.autoTradeEnabled,
+        }),
         isLoading: false,
         error: null,
       });

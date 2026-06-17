@@ -351,10 +351,10 @@ export class TradingV7GMXService {
         balance,
         balanceFormatted: formatUnits(balance, 6),
         autoTradeEnabled: settings?.autoTradeEnabled ?? false,
-        riskLevelBps: Number(settings?.riskBps) || 500,       // V8: riskBps (|| to catch 0)
-        maxLeverage: Number(settings?.maxLeverage) || 20,
-        defaultStopLoss: Number(settings?.stopLossBps) || 500,  // V8: stopLossBps
-        defaultTakeProfit: Number(settings?.takeProfitBps) || 1000 // V8: takeProfitBps
+        riskLevelBps: Number(settings?.riskBps) > 0 ? Number(settings.riskBps) : 500,
+        maxLeverage: Number(settings?.maxLeverage) > 0 ? Number(settings.maxLeverage) : 20,
+        defaultStopLoss: Number(settings?.stopLossBps) > 0 ? Number(settings.stopLossBps) : 500,
+        defaultTakeProfit: Number(settings?.takeProfitBps) > 0 ? Number(settings.takeProfitBps) : 1000
       };
     } catch (err) {
       logger.error('Failed to get V8 vault status', { userAddress, error: err });
@@ -793,9 +793,12 @@ export class TradingV7GMXService {
         return { success: false, error: permission.reason };
       }
 
-      // Check vault status
+      // Check vault status (DB + on-chain — DB is source of truth for auto-trade flag)
       const vaultStatus = await this.getUserVaultStatus(userAddress);
-      if (!vaultStatus || !vaultStatus.autoTradeEnabled) {
+      const dbAutoTrade = await subscriptionService.getAutoTradeStatus(userAddress);
+      const autoTradeOn = Boolean(vaultStatus?.autoTradeEnabled || dbAutoTrade);
+
+      if (!vaultStatus || !autoTradeOn) {
         return { success: false, error: 'Auto-trade not enabled' };
       }
 

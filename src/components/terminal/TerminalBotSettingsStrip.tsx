@@ -47,8 +47,8 @@ const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disable
         className="term-icon-btn term-bot-settings-edit"
         onClick={onAdjust}
         disabled={disabled}
-        title="Adjust LVRG settings"
-        aria-label="Adjust LVRG settings"
+        title="Adjust bot settings"
+        aria-label="Adjust bot settings"
       >
         <SlidersHorizontal size={14} />
       </button>

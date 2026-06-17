@@ -2,7 +2,11 @@ import type { PublicClient, WalletClient } from 'viem';
 import { VaultClient, VAULT_CHAIN_ID } from './vault';
 import { supabase } from './supabase';
 import { clampLeverage } from './leverageLimits';
-import { getAuthUserId } from './userWallets';
+import {
+  snapshotFromVaultSettingsRow,
+  type VaultSettingsRow,
+} from './vaultSettingsSnapshot';
+import type { VaultSettingsSnapshot } from '../lib/vaultSettingsSnapshot';
 
 export type VaultSettingsWrite = {
   walletAddress: string;
@@ -31,39 +35,73 @@ export type PersistVaultSettingsResult = {
   savedToDatabase: boolean;
   syncedOnChain: boolean;
   chainWarning?: string;
+  settings: VaultSettingsSnapshot;
 };
 
-/** Persist vault settings to Supabase first, then optional Arbitrum contract sync. */
+async function saveVaultSettingsToDatabase(
+  wallet: string,
+  settings: VaultSettingsWrite,
+  leverage: number
+): Promise<VaultSettingsSnapshot> {
+  const { data, error } = await supabase.rpc('save_vault_trading_settings', {
+    p_wallet_address: wallet,
+    p_chain_id: VAULT_CHAIN_ID,
+    p_auto_trade_enabled: settings.autoTradeEnabled,
+    p_risk_level_bps: Math.round(settings.riskPct * 100),
+    p_leverage_multiplier: leverage,
+    p_take_profit_percent: settings.takeProfit,
+    p_stop_loss_percent: settings.stopLoss,
+    p_ask_permission: settings.askPermission ?? false,
+    p_min_win_rate_percent: settings.minWinRate ?? 0,
+    p_min_trades_for_win_rate_gate: settings.minTradesForWinRate ?? 5,
+  });
+
+  if (error) {
+    if (error.message.includes('Could not find the function')) {
+      const payload = {
+        wallet_address: wallet,
+        chain_id: VAULT_CHAIN_ID,
+        auto_trade_enabled: settings.autoTradeEnabled,
+        risk_level_bps: Math.round(settings.riskPct * 100),
+        take_profit_percent: settings.takeProfit,
+        stop_loss_percent: settings.stopLoss,
+        leverage_multiplier: leverage,
+        ask_permission: settings.askPermission ?? false,
+        min_win_rate_percent: settings.minWinRate ?? 0,
+        min_trades_for_win_rate_gate: settings.minTradesForWinRate ?? 5,
+        updated_at: new Date().toISOString(),
+        synced_at: new Date().toISOString(),
+      };
+      const { data: upserted, error: upsertError } = await supabase
+        .from('vault_settings')
+        .upsert(payload, { onConflict: 'wallet_address,chain_id' })
+        .select(
+          'risk_level_bps, take_profit_percent, stop_loss_percent, leverage_multiplier, auto_trade_enabled, ask_permission, min_win_rate_percent, min_trades_for_win_rate_gate'
+        )
+        .single();
+      if (upsertError) {
+        throw new Error(`Could not save settings: ${upsertError.message}`);
+      }
+      return snapshotFromVaultSettingsRow(upserted as VaultSettingsRow);
+    }
+    throw new Error(`Could not save settings: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new Error('Settings save returned no data — try again.');
+  }
+
+  return snapshotFromVaultSettingsRow(data as VaultSettingsRow);
+}
+
+/** Persist vault settings to Supabase (source of truth for bot), then optional Arbitrum sync. */
 export async function persistVaultSettings(
   opts: PersistVaultSettingsOptions
 ): Promise<PersistVaultSettingsResult> {
   const wallet = opts.settings.walletAddress.toLowerCase();
   const leverage = clampLeverage(opts.settings.leverage, opts.planTier);
-  const userId = await getAuthUserId();
 
-  const payload = {
-    wallet_address: wallet,
-    chain_id: VAULT_CHAIN_ID,
-    auto_trade_enabled: opts.settings.autoTradeEnabled,
-    risk_level_bps: Math.round(opts.settings.riskPct * 100),
-    take_profit_percent: opts.settings.takeProfit,
-    stop_loss_percent: opts.settings.stopLoss,
-    leverage_multiplier: leverage,
-    ask_permission: opts.settings.askPermission ?? false,
-    min_win_rate_percent: opts.settings.minWinRate ?? 0,
-    min_trades_for_win_rate_gate: opts.settings.minTradesForWinRate ?? 5,
-    updated_at: new Date().toISOString(),
-    synced_at: new Date().toISOString(),
-    ...(userId ? { user_id: userId } : {}),
-  };
-
-  const { error: dbError } = await supabase
-    .from('vault_settings')
-    .upsert(payload, { onConflict: 'wallet_address,chain_id' });
-
-  if (dbError) {
-    throw new Error(`Could not save settings: ${dbError.message}`);
-  }
+  const savedSettings = await saveVaultSettingsToDatabase(wallet, opts.settings, leverage);
 
   const canChain =
     !opts.isDemoUser &&
@@ -72,7 +110,7 @@ export async function persistVaultSettings(
     opts.userAddress;
 
   if (!canChain || (!opts.syncTradingParams && !opts.syncAutoTrade)) {
-    return { savedToDatabase: true, syncedOnChain: false };
+    return { savedToDatabase: true, syncedOnChain: false, settings: savedSettings };
   }
 
   try {
@@ -108,13 +146,14 @@ export async function persistVaultSettings(
       .eq('wallet_address', wallet)
       .eq('chain_id', VAULT_CHAIN_ID);
 
-    return { savedToDatabase: true, syncedOnChain: true };
+    return { savedToDatabase: true, syncedOnChain: true, settings: savedSettings };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'On-chain sync failed';
     return {
       savedToDatabase: true,
       syncedOnChain: false,
-      chainWarning: `Settings saved for the bot. On-chain sync failed (${msg}) — confirm the Arbitrum transaction when you save again.`,
+      settings: savedSettings,
+      chainWarning: `Saved for the bot. On-chain sync needs your wallet on Arbitrum (${msg}).`,
     };
   }
 }
