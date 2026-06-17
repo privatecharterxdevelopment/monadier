@@ -11,7 +11,9 @@ import {
   USDC_ADDRESSES,
   USDC_DECIMALS,
   VAULT_CHAIN_ID,
+  PLATFORM_FEES,
 } from '../../lib/vault';
+import { MONADIER_VAULT_V11_TREASURY_ADDRESS } from '../../lib/monadierVault';
 import { ERC20_ABI } from '../../lib/dex/router';
 import { supabase } from '../../lib/supabase';
 import TerminalModalFrame from './TerminalModalFrame';
@@ -358,8 +360,11 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess, onRequireSi
       </div>
 
       <p className="term-modal-hint">
-        Minimum ${MIN_DEPOSIT_USD} USDC credited to vault for bot trading. On-chain deposit fee 0.1%
-        (sent to protocol, not added to vault balance). You also need ETH on Arbitrum for gas.
+        Minimum ${MIN_DEPOSIT_USD} USDC credited to vault. On-chain deposit fee{' '}
+        {PLATFORM_FEES.BASE_FEE_BPS / 100}% goes to the platform treasury (
+        {MONADIER_VAULT_V11_TREASURY_ADDRESS.slice(0, 6)}…
+        {MONADIER_VAULT_V11_TREASURY_ADDRESS.slice(-4)}) — not your vault balance. Example: deposit
+        52 USDC → ~51.95 USDC in vault, ~0.05 USDC fee. You need ETH on Arbitrum for gas.
       </p>
 
       {ethLow && (

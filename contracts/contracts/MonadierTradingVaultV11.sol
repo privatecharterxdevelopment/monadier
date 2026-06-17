@@ -111,7 +111,7 @@ contract MonadierTradingVaultV11 is ReentrancyGuard, Pausable, Ownable {
     // Fees (basis points)
     uint256 public constant PLATFORM_FEE_BPS = 10;      // 0.1% on position size
     uint256 public constant SUCCESS_FEE_BPS = 1000;    // 10% of profits
-    uint256 public constant BOT_FEE_BPS = 10;          // 0.1% on deposits → bot wallet
+    uint256 public constant BOT_FEE_BPS = 10;          // 0.1% on deposits → treasury (fee wallet)
     uint256 public constant BPS = 10000;
 
     // Limits
@@ -239,12 +239,12 @@ contract MonadierTradingVaultV11 is ReentrancyGuard, Pausable, Ownable {
     function deposit(uint256 amount) external nonReentrant whenNotPaused {
         if (amount == 0) revert InvalidAmount();
 
-        uint256 botFee = (amount * BOT_FEE_BPS) / BPS;
-        uint256 netAmount = amount - botFee;
+        uint256 depositFee = (amount * BOT_FEE_BPS) / BPS;
+        uint256 netAmount = amount - depositFee;
 
         IERC20(USDC).safeTransferFrom(msg.sender, address(this), netAmount);
-        if (botFee > 0) {
-            IERC20(USDC).safeTransferFrom(msg.sender, bot, botFee);
+        if (depositFee > 0) {
+            IERC20(USDC).safeTransferFrom(msg.sender, treasury, depositFee);
         }
 
         balances[msg.sender] += netAmount;

@@ -518,6 +518,11 @@ export const USDC_ADDRESSES: Record<number, `0x${string}`> = {
 // USDC decimals (6 for all chains)
 export const USDC_DECIMALS = 6;
 
+/** Full 6-decimal USDC string for on-chain amounts — never round to 2dp for withdrawals. */
+export function formatUsdcExact(amountWei: bigint): string {
+  return formatUnits(amountWei, USDC_DECIMALS);
+}
+
 // Platform fee structure - V8 GMX
 // 0.1% base fee on TOTAL position (collateral × leverage) + 10% success fee
 export const PLATFORM_FEES = {

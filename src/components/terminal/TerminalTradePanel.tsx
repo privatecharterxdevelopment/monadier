@@ -546,8 +546,8 @@ const TerminalTradePanel: React.FC<Props> = ({
               </p>
             )}
             <p className="term-hint">
-              Min ${MIN_VAULT_USD} to run the bot. On-chain deposit fee 0.1% (not kept in vault). Win
-              fee 10% on profitable closes only.
+              Min ${MIN_VAULT_USD} to run the bot. Deposit fee 0.1% (~$0.05 per $52) leaves your wallet
+              on deposit — it does not stay in the vault. Win fee 10% on profits only.
             </p>
             <div className="flex gap-2">
               <button
@@ -614,8 +614,8 @@ const TerminalTradePanel: React.FC<Props> = ({
       )}
       {showWithdraw && walletReady && (
         <TerminalWithdrawModal
-          maxAmount={vault.vaultUsd.toFixed(2)}
-          balanceAmount={vault.balanceUsd.toFixed(2)}
+          maxAmount={vault.vaultUsdExact}
+          balanceAmount={vault.balanceExact}
           hasActivePosition={Boolean(vault.position?.isActive)}
           onClose={() => setShowWithdraw(false)}
           onRequireSignIn={onRequireSignIn}

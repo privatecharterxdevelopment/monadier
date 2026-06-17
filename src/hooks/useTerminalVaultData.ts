@@ -33,8 +33,12 @@ export type VaultSettingsSnapshot = {
 export type TerminalVaultData = {
   /** Withdrawable USDC (respects active positions / solvency). */
   vaultUsd: number;
+  /** Full withdrawable string (6 decimals) for exact withdrawals. */
+  vaultUsdExact: string;
   /** Full vault balance before withdrawable cap. */
   balanceUsd: number;
+  /** Full on-chain balance string (6 decimals). */
+  balanceExact: string;
   maxTradeUsd: number;
   riskPctOnChain: number;
   position: ActiveVaultPosition | null;
@@ -62,7 +66,9 @@ export function useTerminalVaultData(refreshKey = 0) {
 
   const [data, setData] = useState<TerminalVaultData>({
     vaultUsd: 0,
+    vaultUsdExact: '0',
     balanceUsd: 0,
+    balanceExact: '0',
     maxTradeUsd: 0,
     riskPctOnChain: 5,
     position: null,
@@ -93,7 +99,9 @@ export function useTerminalVaultData(refreshKey = 0) {
         const bal = Number(row?.demo_vault_balance ?? 0);
         setData({
           vaultUsd: bal,
+          vaultUsdExact: bal.toFixed(6),
           balanceUsd: bal,
+          balanceExact: bal.toFixed(6),
           maxTradeUsd: bal * 0.5,
           riskPctOnChain: (row?.risk_level_bps ?? 5000) / 100,
           position: null,
@@ -121,10 +129,13 @@ export function useTerminalVaultData(refreshKey = 0) {
       );
       const status = await client.getUserStatus(wallet);
       const balanceUsd = parseFloat(status.balanceFormatted);
+      const balanceExact = status.balanceFormatted;
       let vaultUsd = balanceUsd;
+      let vaultUsdExact = balanceExact;
       try {
         const w = await client.getWithdrawable(wallet);
         vaultUsd = parseFloat(w.formatted);
+        vaultUsdExact = w.formatted;
       } catch {
         /* use balance */
       }
@@ -169,7 +180,9 @@ export function useTerminalVaultData(refreshKey = 0) {
 
       setData({
         vaultUsd,
+        vaultUsdExact,
         balanceUsd,
+        balanceExact,
         maxTradeUsd: parseFloat(status.maxTradeSizeFormatted) || 0,
         riskPctOnChain: status.riskLevelPercent,
         position,
