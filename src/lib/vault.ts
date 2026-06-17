@@ -570,6 +570,9 @@ export interface VaultUserStatus {
   autoTradeEnabled: boolean;
   riskLevelBps: number;
   riskLevelPercent: number;
+  maxLeverage: number;
+  stopLossPercent: number;
+  takeProfitPercent: number;
   maxTradeSize: bigint;
   maxTradeSizeFormatted: string;
   timeToNextTrade: number;
@@ -1103,7 +1106,10 @@ export class VaultClient {
 
     // V8: Get settings via getSettings(address) which returns Settings struct
     let autoTradeEnabled = false;
-    let riskLevelBps = 500; // Default 5%
+    let riskLevelBps = 500;
+    let maxLeverage = 1;
+    let stopLossPercent = 1;
+    let takeProfitPercent = 5;
 
     try {
       // V8 Contract: getSettings(address) returns (Settings memory)
@@ -1137,6 +1143,15 @@ export class VaultClient {
       if (settings.riskBps > 0n) {
         riskLevelBps = Number(settings.riskBps);
       }
+      if (settings.maxLeverage > 0n) {
+        maxLeverage = Number(settings.maxLeverage);
+      }
+      if (settings.stopLossBps > 0n) {
+        stopLossPercent = Number(settings.stopLossBps) / 100;
+      }
+      if (settings.takeProfitBps > 0n) {
+        takeProfitPercent = Number(settings.takeProfitBps) / 100;
+      }
     } catch (err) {
       console.error('Failed to read vault settings:', err);
       // Use defaults if getSettings fails
@@ -1151,6 +1166,9 @@ export class VaultClient {
       autoTradeEnabled,
       riskLevelBps,
       riskLevelPercent: riskLevelBps / 100,
+      maxLeverage,
+      stopLossPercent,
+      takeProfitPercent,
       maxTradeSize: maxTrade,
       maxTradeSizeFormatted: formatUnits(maxTrade, USDC_DECIMALS),
       timeToNextTrade: 0,

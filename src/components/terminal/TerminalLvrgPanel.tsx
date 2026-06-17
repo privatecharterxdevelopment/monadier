@@ -42,6 +42,7 @@ const TerminalLvrgPanel: React.FC<Props> = ({
   const [stopLoss, setStopLoss] = useState(settings.stopLoss);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
   React.useEffect(() => {
@@ -58,15 +59,12 @@ const TerminalLvrgPanel: React.FC<Props> = ({
       open();
       return;
     }
-    if (!isDemoUser && (!publicClient || !walletClient || chainId !== VAULT_CHAIN_ID)) {
-      setError('Connect on Arbitrum to save.');
-      return;
-    }
     setBusy(true);
     setError(null);
+    setNotice(null);
     setSaved(false);
     try {
-      await persistVaultSettings({
+      const result = await persistVaultSettings({
         settings: {
           walletAddress: address,
           autoTradeEnabled: settings.autoTradeEnabled,
@@ -80,9 +78,14 @@ const TerminalLvrgPanel: React.FC<Props> = ({
         walletClient,
         userAddress: address as `0x${string}`,
         isDemoUser,
-        syncTradingParams: !isDemoUser,
+        syncTradingParams: !isDemoUser && chainId === VAULT_CHAIN_ID,
         syncAutoTrade: false,
       });
+      if (result.chainWarning) {
+        setNotice(result.chainWarning);
+      } else if (!isDemoUser && chainId !== VAULT_CHAIN_ID) {
+        setNotice('Settings saved for the bot. Switch to Arbitrum to sync on-chain.');
+      }
       setSaved(true);
       onSaved();
       setTimeout(() => setSaved(false), 2000);
@@ -175,6 +178,13 @@ const TerminalLvrgPanel: React.FC<Props> = ({
             ? `High leverage: ~${((100 / leverage) * 0.9).toFixed(1)}% move can liquidate.`
             : `+1% price ≈ +${leverage}% on position P/L.`}
         </p>
+      )}
+
+      {notice && (
+        <div className="term-panel-alert" style={{ color: '#86efac' }}>
+          <AlertCircle size={14} />
+          <span>{notice}</span>
+        </div>
       )}
 
       {error && (

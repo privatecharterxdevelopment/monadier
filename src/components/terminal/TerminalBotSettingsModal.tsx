@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Settings, Loader2, AlertCircle, CheckCircle, Zap, Wallet } from 'lucide-react';
 import { useAppKit } from '@reown/appkit/react';
 import { useWeb3 } from '../../contexts/Web3Context';
@@ -82,15 +82,43 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
   const [minTradesForWinRate, setMinTradesForWinRate] = useState(currentMinTradesForWinRate);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    setRiskLevel(currentRiskLevel);
+    setAutoTrade(startMode ? true : initialAutoTrade);
+    setTakeProfit(currentTakeProfit);
+    setStopLoss(currentStopLoss);
+    setLeverage(snapLeverageToStep(currentLeverage, planTier));
+    setAskPermission(currentAskPermission);
+    setMinWinRate(currentMinWinRate);
+    setMinTradesForWinRate(currentMinTradesForWinRate);
+    setError(null);
+    setNotice(null);
+    setSuccess(false);
+  }, [
+    currentRiskLevel,
+    initialAutoTrade,
+    currentTakeProfit,
+    currentStopLoss,
+    currentLeverage,
+    currentAskPermission,
+    currentMinWinRate,
+    currentMinTradesForWinRate,
+    startMode,
+    planTier,
+  ]);
 
   const onArbitrum = chainId === VAULT_CHAIN_ID;
 
+  const numChanged = (a: number, b: number) => Math.abs(a - b) > 0.001;
+
   const tradingParamsChanged =
     riskLevel !== currentRiskLevel ||
-    takeProfit !== currentTakeProfit ||
-    stopLoss !== currentStopLoss ||
-    leverage !== currentLeverage;
+    numChanged(takeProfit, currentTakeProfit) ||
+    numChanged(stopLoss, currentStopLoss) ||
+    leverage !== snapLeverageToStep(currentLeverage, planTier);
 
   const hasChanges =
     tradingParamsChanged ||
@@ -104,10 +132,7 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
       open();
       return;
     }
-    if (!publicClient || !walletClient || chainId !== VAULT_CHAIN_ID) {
-      setError('Switch to Arbitrum to save settings.');
-      return;
-    }
+    if (!address) return;
     if (!hasChanges) {
       onClose();
       return;
@@ -116,8 +141,12 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
     try {
       setIsLoading(true);
       setError(null);
+      setNotice(null);
 
-      await persistVaultSettings({
+      const canSyncChain =
+        !isDemoUser && Boolean(publicClient && walletClient) && onArbitrum;
+
+      const result = await persistVaultSettings({
         settings: {
           walletAddress: address,
           autoTradeEnabled: autoTrade,
@@ -134,16 +163,22 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
         walletClient,
         userAddress: address as `0x${string}`,
         isDemoUser,
-        syncTradingParams: tradingParamsChanged && !isDemoUser,
-        syncAutoTrade: autoTrade !== initialAutoTrade && !isDemoUser,
+        syncTradingParams: tradingParamsChanged && canSyncChain,
+        syncAutoTrade: autoTrade !== initialAutoTrade && canSyncChain,
       });
 
       if (autoTrade && autoTrade !== initialAutoTrade) {
         await linkWallet(address);
       }
 
+      if (result.chainWarning) {
+        setNotice(result.chainWarning);
+      } else if (tradingParamsChanged && !onArbitrum && !isDemoUser) {
+        setNotice('Settings saved for the bot. Switch to Arbitrum and save again to sync on-chain.');
+      }
+
       setSuccess(true);
-      setTimeout(onSuccess, 800);
+      setTimeout(onSuccess, result.chainWarning || (!onArbitrum && tradingParamsChanged) ? 2200 : 800);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to update settings');
     } finally {
@@ -156,7 +191,7 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
       type="button"
       className={`term-modal-primary ${startMode && autoTrade && walletConnected ? 'term-modal-primary--go' : ''}`}
       onClick={handleSave}
-      disabled={isLoading || success || (walletConnected && !onArbitrum)}
+      disabled={isLoading || success}
     >
       {isLoading ? (
         <>
@@ -228,7 +263,7 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
 
       {walletConnected && !onArbitrum && (
         <p className="term-modal-note term-modal-note--warn">
-          Switch to Arbitrum in the header before changing bot settings.
+          Settings save to your bot profile now. Switch to Arbitrum to also sync the vault contract.
         </p>
       )}
 
@@ -413,6 +448,13 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
         Take profit closes at collateral PnL %. Profit lock activates at lock% + 0.1% (e.g. 1.1% →
         lock 1%) and closes if PnL falls back to the lock level.
       </p>
+
+      {notice && (
+        <div className="term-modal-alert term-modal-alert--ok">
+          <CheckCircle size={16} />
+          <span>{notice}</span>
+        </div>
+      )}
 
       {error && (
         <div className="term-modal-alert term-modal-alert--err">

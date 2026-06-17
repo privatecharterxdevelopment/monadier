@@ -207,10 +207,13 @@ export function useTerminalVaultData(refreshKey = 0) {
         riskPctOnChain: status.riskLevelPercent,
         position,
         settings: {
-          riskPct: row?.risk_level_bps != null ? row.risk_level_bps / 100 : status.riskLevelPercent,
-          takeProfit: Number(row?.take_profit_percent ?? 5),
-          stopLoss: Number(row?.stop_loss_percent ?? 1),
-          leverage: Number(row?.leverage_multiplier ?? 1),
+          riskPct:
+            row?.risk_level_bps != null
+              ? row.risk_level_bps / 100
+              : status.riskLevelPercent,
+          takeProfit: Number(row?.take_profit_percent ?? status.takeProfitPercent),
+          stopLoss: Number(row?.stop_loss_percent ?? status.stopLossPercent),
+          leverage: Number(row?.leverage_multiplier ?? status.maxLeverage),
           askPermission: Boolean(row?.ask_permission),
           minWinRate: Number(row?.min_win_rate_percent ?? 0),
           minTradesForWinRate: Number(row?.min_trades_for_win_rate_gate ?? 5),
