@@ -4,7 +4,7 @@ import { useAppKit } from '@reown/appkit/react';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTransactions } from '../../contexts/TransactionContext';
-import { VaultClient, VAULT_CHAIN_ID } from '../../lib/vault';
+import { VaultClient, VAULT_CHAIN_ID, getArbitrumPublicClient } from '../../lib/vault';
 import TerminalModalFrame from './TerminalModalFrame';
 import TerminalArbitrumBanner from './TerminalArbitrumBanner';
 
@@ -39,7 +39,10 @@ const TerminalWithdrawModal: React.FC<Props> = ({
   const walletConnected = Boolean(address);
   const onArbitrum = chainId === VAULT_CHAIN_ID;
   const maxNum = parseFloat(maxAmount) || 0;
-  const canWithdraw = walletConnected && onArbitrum && maxNum > 0;
+  const balanceNum = parseFloat(balanceAmount || maxAmount) || 0;
+  const withdrawCap = Math.max(maxNum, balanceNum);
+  const canWithdraw = walletConnected && onArbitrum && withdrawCap > 0;
+  const hasRemainingBalance = balanceNum > maxNum + 0.001;
 
   const runWithdraw = async (withdrawAmount: string, withdrawAll: boolean) => {
     if (needsSignIn) {
@@ -55,7 +58,7 @@ const TerminalWithdrawModal: React.FC<Props> = ({
       setError('Enter a valid amount.');
       return;
     }
-    if (!withdrawAll && amt > maxNum) {
+    if (!withdrawAll && amt > withdrawCap) {
       setError('Amount exceeds withdrawable balance.');
       return;
     }
@@ -63,8 +66,9 @@ const TerminalWithdrawModal: React.FC<Props> = ({
     try {
       setIsLoading(true);
       setError(null);
+      const arbClient = getArbitrumPublicClient();
       const vaultClient = new VaultClient(
-        publicClient as never,
+        arbClient as never,
         walletClient as never,
         VAULT_CHAIN_ID
       );
@@ -72,7 +76,7 @@ const TerminalWithdrawModal: React.FC<Props> = ({
         ? await vaultClient.withdrawAll(address as `0x${string}`)
         : await vaultClient.withdraw(withdrawAmount, address as `0x${string}`);
 
-      const displayAmt = withdrawAll ? maxNum : amt;
+      const displayAmt = withdrawAll ? withdrawCap : amt;
       const txId = addTransaction({
         type: 'withdraw',
         hash: txHash,
@@ -84,7 +88,7 @@ const TerminalWithdrawModal: React.FC<Props> = ({
         blockExplorerUrl: `${ARBISCAN}/tx/${txHash}`,
       });
       onClose();
-      await publicClient.waitForTransactionReceipt({ hash: txHash });
+      await arbClient.waitForTransactionReceipt({ hash: txHash });
       updateTransaction(txId, { status: 'success' });
       onSuccess();
     } catch (err: unknown) {
@@ -131,7 +135,7 @@ const TerminalWithdrawModal: React.FC<Props> = ({
             onClick={() => runWithdraw(maxAmount, true)}
             disabled={isLoading || !canWithdraw}
           >
-            Withdraw all
+            Withdraw all (full vault balance)
           </button>
         </>
       )}
@@ -194,19 +198,17 @@ const TerminalWithdrawModal: React.FC<Props> = ({
       )}
 
       <div className="term-modal-card">
-        <span className="term-modal-label">Withdrawable now</span>
+        <span className="term-modal-label">Vault balance (on-chain)</span>
         <strong className="term-modal-value">
-          ${maxNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
+          ${balanceNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}{' '}
           USDC
         </strong>
-        {balanceAmount && parseFloat(balanceAmount) > maxNum && (
-          <p className="term-modal-hint">
-            Vault balance: ${parseFloat(balanceAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} —{' '}
-            {hasActivePosition
-              ? 'collateral is locked while a position is open.'
-              : 'only part of the balance is withdrawable right now.'}
-          </p>
-        )}
+        <p className="term-modal-hint">
+          Withdrawable now: $
+          {maxNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
+          {hasRemainingBalance &&
+            ' — use “Withdraw all” to clear your full credited balance (includes dust).'}
+        </p>
       </div>
 
       {hasActivePosition && (

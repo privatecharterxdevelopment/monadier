@@ -30,6 +30,7 @@ import TerminalBotSettingsModal from './TerminalBotSettingsModal';
 import TerminalLvrgPanel from './TerminalLvrgPanel';
 import TerminalBotSettingsStrip from './TerminalBotSettingsStrip';
 import TerminalArbitrumBanner from './TerminalArbitrumBanner';
+import TerminalVaultActivity from './TerminalVaultActivity';
 
 const MIN_VAULT_USD = 50;
 const WETH = '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1' as const;
@@ -530,14 +531,23 @@ const TerminalTradePanel: React.FC<Props> = ({
           <div className="term-panel-stack">
             {walletReady && !walletOnArbitrum && <TerminalArbitrumBanner variant="inline" />}
             <div className="term-panel-card term-panel-card--muted">
-              <span className="term-panel-card-label">Vault balance</span>
-              <strong className="term-panel-card-value">{fmt(vaultFundingUsd)}</strong>
+              <span className="term-panel-card-label">Vault balance (on-chain)</span>
+              <strong className="term-panel-card-value">{fmt(vault.balanceUsd)}</strong>
               <span className="term-panel-card-hint">
-                USDC in vault · withdrawable {fmt(vault.vaultUsd)} · Vault V11
+                Withdrawable now {fmt(vault.vaultUsd)}
+                {vault.balanceUsd > vault.vaultUsd + 0.01 &&
+                  ' · tap Withdraw → Withdraw all to clear remaining USDC'}
               </span>
             </div>
+            {vault.balanceUsd > 0 && vault.balanceUsd < MIN_VAULT_USD && (
+              <p className="term-hint term-hint--warn">
+                {fmt(vault.balanceUsd)} still in the vault — use Withdraw → &quot;Withdraw all (full
+                vault balance)&quot; to move it back to your wallet.
+              </p>
+            )}
             <p className="term-hint">
-              Min ${MIN_VAULT_USD} for bot trading. Deposit fee free · 10% win fee on profits only.
+              Min ${MIN_VAULT_USD} to run the bot. On-chain deposit fee 0.1% (not kept in vault). Win
+              fee 10% on profitable closes only.
             </p>
             <div className="flex gap-2">
               <button
@@ -551,13 +561,16 @@ const TerminalTradePanel: React.FC<Props> = ({
               <button
                 type="button"
                 className="term-btn-sm flex-1 justify-center"
-                disabled={walletReady && vault.vaultUsd <= 0}
+                disabled={walletReady && vault.balanceUsd <= 0 && vault.vaultUsd <= 0}
                 onClick={openWithdraw}
               >
                 <ArrowUpRight size={14} />
                 Withdraw
               </button>
             </div>
+            {walletReady && address && (
+              <TerminalVaultActivity wallet={address} refreshKey={vaultTick} />
+            )}
             <button
               type="button"
               className="term-btn-sm term-btn-sm--ghost w-full justify-center"

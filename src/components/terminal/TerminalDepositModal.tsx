@@ -358,8 +358,8 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess, onRequireSi
       </div>
 
       <p className="term-modal-hint">
-        Minimum ${MIN_DEPOSIT_USD} USDC for bot trading. You also need a small amount of ETH on
-        Arbitrum to pay network fees (not USDC).
+        Minimum ${MIN_DEPOSIT_USD} USDC credited to vault for bot trading. On-chain deposit fee 0.1%
+        (sent to protocol, not added to vault balance). You also need ETH on Arbitrum for gas.
       </p>
 
       {ethLow && (

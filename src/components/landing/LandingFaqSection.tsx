@@ -92,12 +92,12 @@ export const LANDING_FAQS: {
   {
     tab: 'vault',
     q: 'How much USDC do I need to start?',
-    a: 'Minimum vault deposit is $50 USDC on Arbitrum. You also need a small amount of ETH on Arbitrum for gas. There is no platform deposit fee — a win fee applies only on profitable closed trades.',
+    a: 'Minimum vault deposit is $50 USDC on Arbitrum. A 0.1% on-chain deposit fee applies (not credited to your vault balance). You also need a small amount of ETH on Arbitrum for gas. Win fee applies only on profitable closed trades.',
   },
   {
     tab: 'vault',
     q: 'What fees does the GMX trading bot charge?',
-    a: 'No deposit fee. Monadier charges a performance-based win fee on profitable closed trades only — losing trades are not charged. Standard Arbitrum gas and GMX trading fees still apply on-chain.',
+    a: 'A 0.1% on-chain deposit fee applies when funding the vault (not kept in your balance). Monadier charges a performance-based win fee on profitable closed trades only — losing trades are not charged. Standard Arbitrum gas and GMX trading fees still apply on-chain.',
   },
   {
     tab: 'vault',

@@ -700,28 +700,47 @@ export class VaultClient {
   }
 
   /**
-   * Withdraw all funds from vault
-   * V7 doesn't have withdrawAll(), so we get balance and call withdraw(balance)
+   * Withdraw all — uses emergencyWithdraw so user gets full credited balance
+   * (handles vault liquidity edge cases; matches V11 "always withdraw available USDC").
    */
   async withdrawAll(userAddress: `0x${string}`): Promise<`0x${string}`> {
-    const withdrawable = await this.getWithdrawable(userAddress);
-    const balanceWei = withdrawable.amount;
-
-    if (balanceWei === 0n) {
-      throw new Error('No withdrawable balance (active position may lock collateral)');
+    const balance = await this.getVaultBalanceWei(userAddress);
+    if (balance === 0n) {
+      throw new Error('No balance in vault');
     }
 
     const hash = await this.walletClient.writeContract({
       address: this.vaultAddress,
-      abi: VAULT_ABI,
-      functionName: 'withdraw',
-      args: [balanceWei],
+      abi: [{
+        inputs: [],
+        name: 'emergencyWithdraw',
+        outputs: [],
+        stateMutability: 'nonpayable',
+        type: 'function',
+      }] as const,
+      functionName: 'emergencyWithdraw',
+      args: [],
       chain: arbitrum,
       account: userAddress,
-      gas: 200000n // Higher gas for safety
+      gas: 200000n,
     });
 
     return hash;
+  }
+
+  async getVaultBalanceWei(userAddress: `0x${string}`): Promise<bigint> {
+    return this.publicClient.readContract({
+      address: this.vaultAddress,
+      abi: [{
+        inputs: [{ name: 'user', type: 'address' }],
+        name: 'balances',
+        outputs: [{ name: '', type: 'uint256' }],
+        stateMutability: 'view',
+        type: 'function',
+      }] as const,
+      functionName: 'balances',
+      args: [userAddress],
+    }) as Promise<bigint>;
   }
 
   /**
