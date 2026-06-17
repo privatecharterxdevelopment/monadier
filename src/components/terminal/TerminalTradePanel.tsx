@@ -22,6 +22,7 @@ import {
   markAllOpenPositionsClosing,
   markPositionClosing,
 } from '../../lib/positionClose';
+import { closeVaultPosition } from '../../lib/vaultPositionDock';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { useTerminalVaultData } from '../../hooks/useTerminalVaultData';
 import TerminalDepositModal from './TerminalDepositModal';
@@ -30,11 +31,8 @@ import TerminalBotSettingsModal from './TerminalBotSettingsModal';
 import TerminalLvrgPanel from './TerminalLvrgPanel';
 import TerminalBotSettingsStrip from './TerminalBotSettingsStrip';
 import TerminalArbitrumBanner from './TerminalArbitrumBanner';
-import TerminalVaultActivity from './TerminalVaultActivity';
 
 const MIN_VAULT_USD = 50;
-const WETH = '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1' as const;
-const WBTC = '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f' as const;
 
 type PanelTab = 'bot' | 'lvrg' | 'funds';
 
@@ -297,15 +295,12 @@ const TerminalTradePanel: React.FC<Props> = ({
         setCloseError('Connect wallet to close on-chain');
         return;
       }
-      const client = new VaultClient(publicClient as never, walletClient as never, VAULT_CHAIN_ID);
-      const token = pos.token === 'ETH' ? WETH : WBTC;
-      try {
-        const hash = await client.userInstantClose(token, vault.wallet);
-        await publicClient.waitForTransactionReceipt({ hash });
-      } catch {
-        const hash = await client.reconcilePosition(token, vault.wallet);
-        await publicClient.waitForTransactionReceipt({ hash });
-      }
+      await closeVaultPosition({
+        wallet: vault.wallet,
+        token: pos.token,
+        publicClient,
+        walletClient,
+      });
       refreshAll();
     } catch (e: unknown) {
       setCloseError(e instanceof Error ? e.message : 'Close failed');
@@ -568,9 +563,6 @@ const TerminalTradePanel: React.FC<Props> = ({
                 Withdraw
               </button>
             </div>
-            {walletReady && address && (
-              <TerminalVaultActivity wallet={address} refreshKey={vaultTick} />
-            )}
             <button
               type="button"
               className="term-btn-sm term-btn-sm--ghost w-full justify-center"

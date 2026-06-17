@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useWeb3 } from '../contexts/Web3Context';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
 import { VaultClient, VAULT_CHAIN_ID, getArbitrumPublicClient } from '../lib/vault';
 import { supabase } from '../lib/supabase';
+import { fetchUserWalletAddresses, pickPrimaryVaultWallet } from '../lib/userWallets';
 
 const WETH = '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1' as const;
 const WBTC = '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f' as const;
@@ -60,8 +61,27 @@ const defaultSettings: VaultSettingsSnapshot = {
 
 export function useTerminalVaultData(refreshKey = 0) {
   const { isConnected, address, chainId, walletClient } = useWeb3();
-  const { isDemoUser } = useAuth();
-  const wallet = (isDemoUser ? DEMO_WALLET_ADDRESS : address) as `0x${string}` | undefined;
+  const { isDemoUser, user, profile } = useAuth();
+  const [linkedWallets, setLinkedWallets] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (isDemoUser) return;
+    let cancelled = false;
+    void fetchUserWalletAddresses(address, false).then((list) => {
+      if (!cancelled) setLinkedWallets(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [address, isDemoUser, user?.id, profile?.wallet_address]);
+
+  const wallet = useMemo(() => {
+    if (isDemoUser) return DEMO_WALLET_ADDRESS as `0x${string}`;
+    if (isConnected && address) return address as `0x${string}`;
+    const primary = pickPrimaryVaultWallet(linkedWallets, address);
+    return primary ? (primary as `0x${string}`) : undefined;
+  }, [isDemoUser, isConnected, address, linkedWallets]);
+
   const walletOnArbitrum = isDemoUser || chainId === VAULT_CHAIN_ID;
 
   const [data, setData] = useState<TerminalVaultData>({
@@ -78,7 +98,7 @@ export function useTerminalVaultData(refreshKey = 0) {
   });
 
   const load = useCallback(async () => {
-    if (!wallet || (!isConnected && !isDemoUser)) {
+    if (!wallet) {
       setData((d) => ({ ...d, isLoading: false, vaultUsd: 0, balanceUsd: 0, position: null }));
       return;
     }
@@ -206,7 +226,7 @@ export function useTerminalVaultData(refreshKey = 0) {
         error: e instanceof Error ? e.message : 'Failed to load vault',
       }));
     }
-  }, [wallet, isConnected, isDemoUser, walletClient]);
+  }, [wallet, isDemoUser, walletClient, linkedWallets]);
 
   useEffect(() => {
     load();

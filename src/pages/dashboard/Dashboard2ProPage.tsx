@@ -12,6 +12,7 @@ import {
   ProTradeBotProvider,
   ProTradeBotStatusBar,
 } from '../../components/protrade/ProTradeBotSide';
+import ProTradeBotAnalysis from '../../components/protrade/ProTradeBotAnalysis';
 import type { DockTab } from '../../components/terminal/TerminalPositionsDock';
 import ProTradeTickerStrip from '../../components/protrade/ProTradeTickerStrip';
 import ProTradeMarketBar from '../../components/protrade/ProTradeMarketBar';
@@ -76,7 +77,7 @@ const Dashboard2ProPage: React.FC = () => {
   const [transferOpen, setTransferOpen] = useState(false);
   const [perpDockTab, setPerpDockTab] = useState<ProTradeDockTab>('positions');
   const [spotDockTab, setSpotDockTab] = useState<ProTradeDockTab>('balances');
-  const [botDockTab, setBotDockTab] = useState<DockTab>('history');
+  const [botDockTab, setBotDockTab] = useState<DockTab>('open');
   const [toast, setToast] = useState<string | null>(null);
   const [showSupport, setShowSupport] = useState(false);
   const [authModal, setAuthModal] = useState<'signin' | 'register' | null>(null);
@@ -283,7 +284,7 @@ const Dashboard2ProPage: React.FC = () => {
     if (section === 'bot') {
       handleSectionChange('perps');
     } else {
-      setBotDockTab('history');
+      setBotDockTab('open');
       handleSectionChange('bot');
     }
   };
@@ -498,15 +499,18 @@ const Dashboard2ProPage: React.FC = () => {
       <div className="hl-body">
         <div className="hl-workspace-main">
           <div className="hl-chart-row">
-            <ProTradeChart
-              coin={perpCoin}
-              interval={interval}
-              candles={perpMarket.candles}
-              loading={perpMarket.loading}
-              openOrders={perpOpenOrders}
-              onIntervalChange={setInterval}
-              layoutKey={`bot-${perpCoin}-${interval}`}
-            />
+            <div className="hl-bot-chart-stack">
+              <ProTradeChart
+                coin={perpCoin}
+                interval={interval}
+                candles={perpMarket.candles}
+                loading={perpMarket.loading}
+                openOrders={perpOpenOrders}
+                onIntervalChange={setInterval}
+                layoutKey={`bot-${perpCoin}-${interval}`}
+              />
+              <ProTradeBotAnalysis walletConnected={isConnected} perpCoin={perpCoin} />
+            </div>
             <ProTradeOrderBook
               book={perpMarket.book}
               recentTrades={perpMarket.recentTrades}

@@ -23,14 +23,17 @@ Deployments → **Redeploy** latest `main`.
 
 Dashboard → Authentication → URL configuration:
 
-- **Site URL:** `https://monadier.vercel.app`
-- **Redirect URLs:**
+- **Site URL:** `https://monadier.vercel.app` (not `http://localhost:3000`)
+- **Redirect URLs** (add every host you use):
 
 ```
 https://monadier.vercel.app/auth/callback
-https://monadier.vercel.app/reset-password
+https://monadier.vercel.app/**
+https://*.vercel.app/auth/callback
 http://localhost:5173/auth/callback
 ```
+
+If Google login sends you to `localhost:3000/?code=...`, Site URL or Redirect URLs are wrong — fix here, then try again.
 
 ---
 

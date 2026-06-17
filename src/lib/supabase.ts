@@ -56,11 +56,16 @@ export const signOut = async () => {
 };
 
 export const signInWithGoogle = async () => {
-  const redirectTo = `${getAuthRedirectBase()}/auth/callback`;
+  const base =
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : getAuthRedirectBase();
+  const redirectTo = `${base}/auth/callback`;
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo,
+      skipBrowserRedirect: false,
       queryParams: {
         access_type: 'offline',
         prompt: 'consent',

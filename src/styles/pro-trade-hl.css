@@ -2055,6 +2055,28 @@
   overflow: auto;
 }
 
+.hl-bot-dock .hl-dock-section-title {
+  color: var(--hl-text-muted);
+}
+
+.hl-bot-dock .term-vault-activity-dock {
+  border-top-color: var(--hl-border);
+}
+
+.hl-bot-dock .hl-table--positions td {
+  vertical-align: middle;
+}
+
+.hl-bot-dock .hl-table--positions strong {
+  color: var(--hl-text);
+  font-weight: 600;
+}
+
+.hl-bot-dock .term-dock-meta {
+  color: var(--hl-text-muted);
+  font-size: 11px;
+}
+
 .hl-bot-dock .hl-dock.hl-bot-dock-inner {
   display: flex;
   flex-direction: column;

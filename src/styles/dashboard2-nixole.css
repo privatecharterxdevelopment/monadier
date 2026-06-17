@@ -2330,6 +2330,28 @@
   justify-self: end;
 }
 
+.term-vault-activity-dock {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.term-vault-activity-dock-title,
+.hl-dock-section-title {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--term-text-muted, rgba(0, 0, 0, 0.5));
+}
+
+.term-vault-activity-dock-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .term-bot-error {
   font-size: 11px;
   color: #b45309;

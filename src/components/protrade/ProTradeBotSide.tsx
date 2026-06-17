@@ -14,7 +14,7 @@ type BotCtx = {
 
 const ProTradeBotContext = createContext<BotCtx | null>(null);
 
-function useProTradeBot() {
+export function useProTradeBot() {
   const ctx = useContext(ProTradeBotContext);
   if (!ctx) throw new Error('ProTradeBotProvider required');
   return ctx;

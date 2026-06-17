@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RefreshCw, X, ExternalLink } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../../contexts/AuthContext';
+import { useWeb3 } from '../../contexts/Web3Context';
 import { supabase } from '../../lib/supabase';
-import { fetchUserWalletAddresses } from '../../lib/userWallets';
+import { fetchUserWalletAddresses, pickPrimaryVaultWallet } from '../../lib/userWallets';
 import {
   calcPositionPnl,
   fetchLiveTokenPrices,
@@ -21,6 +22,14 @@ import {
 } from '../../lib/closedTrades';
 import DockCountBadge from '../protrade/DockCountBadge';
 import { useTerminalVaultData } from '../../hooks/useTerminalVaultData';
+import TerminalVaultActivity from './TerminalVaultActivity';
+import {
+  closeVaultPosition,
+  isOnChainDockPositionId,
+  mergeChainAndDbRows,
+  vaultTokenFromDockRow,
+} from '../../lib/vaultPositionDock';
+import { useLinkedVaultOpenPositions } from '../../hooks/useLinkedVaultOpenPositions';
 
 export type DockTab = 'vault' | 'open' | 'history' | 'all';
 
@@ -101,6 +110,20 @@ function explorerUrl(chainId: number, address: string) {
   return `${base}/address/${address}`;
 }
 
+function displaySymbol(sym: string) {
+  if (sym === 'WETH') return 'ETH';
+  if (sym === 'WBTC') return 'BTC';
+  return sym;
+}
+
+function markPriceForRow(tokenSymbol: string, livePrices: Record<string, number>) {
+  return (
+    livePrices[tokenSymbol] ||
+    livePrices[displaySymbol(tokenSymbol)] ||
+    0
+  );
+}
+
 const TerminalPositionsDock: React.FC<Props> = ({
   refreshKey = 0,
   botRunning = false,
@@ -114,7 +137,8 @@ const TerminalPositionsDock: React.FC<Props> = ({
   skin = 'terminal',
 }) => {
   const { address } = useAccount();
-  const { isDemoUser, user } = useAuth();
+  const { publicClient, walletClient } = useWeb3();
+  const { isDemoUser, user, profile } = useAuth();
   const isHlSkin = skin === 'hl';
   const vaultData = useTerminalVaultData(refreshKey);
   const [internalTab, setInternalTab] = useState<DockTab>(
@@ -131,6 +155,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
   const [confirm, setConfirm] = useState<{
     id: string;
     token: string;
+    wallet?: string;
   } | null>(null);
   const scrolledHighlightRef = useRef<string | null>(null);
 
@@ -138,12 +163,36 @@ const TerminalPositionsDock: React.FC<Props> = ({
     let cancelled = false;
     (async () => {
       const list = await fetchUserWalletAddresses(address, isDemoUser);
+      const vaultWallet = vaultData.wallet?.toLowerCase();
+      const profileWallet = profile?.wallet_address?.trim().toLowerCase();
+      if (vaultWallet && !list.includes(vaultWallet)) list.push(vaultWallet);
+      if (profileWallet && !list.includes(profileWallet)) list.push(profileWallet);
       if (!cancelled) setWallets(list);
     })();
     return () => {
       cancelled = true;
     };
-  }, [address, isDemoUser, user?.id]);
+  }, [address, isDemoUser, user?.id, vaultData.wallet, profile?.wallet_address]);
+
+  const queryWallets = useMemo(() => {
+    if (isDemoUser) return [DEMO_WALLET_ADDRESS];
+    if (wallets.length > 0) return wallets;
+    const profileWallet = profile?.wallet_address?.trim().toLowerCase();
+    return profileWallet ? [profileWallet] : [];
+  }, [wallets, isDemoUser, profile?.wallet_address]);
+
+  const { chainRows, loading: chainLoading } = useLinkedVaultOpenPositions(
+    queryWallets,
+    refreshKey
+  );
+
+  const vaultWallet =
+    pickPrimaryVaultWallet(queryWallets, address ?? vaultData.wallet) ?? vaultData.wallet;
+
+  const mergedRows = useMemo(
+    () => mergeChainAndDbRows(allRows, chainRows),
+    [allRows, chainRows]
+  );
 
   const load = useCallback(
     async (silent = false) => {
@@ -154,9 +203,9 @@ const TerminalPositionsDock: React.FC<Props> = ({
         return;
       }
 
-      const queryWallets =
-        wallets.length > 0 ? wallets : isDemoUser ? [DEMO_WALLET_ADDRESS] : [];
-      if (queryWallets.length === 0) {
+      const queryWalletsLocal =
+        queryWallets.length > 0 ? queryWallets : isDemoUser ? [DEMO_WALLET_ADDRESS] : [];
+      if (queryWalletsLocal.length === 0) {
         setAllRows([]);
         setLoading(false);
         return;
@@ -169,7 +218,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
           .select(
             'id, wallet_address, chain_id, token_symbol, token_address, direction, entry_price, entry_amount, profit_loss, status, leverage_multiplier, highest_price, created_at, closed_at, close_reason, exit_tx_hash, entry_tx_hash'
           )
-          .in('wallet_address', queryWallets)
+          .in('wallet_address', queryWalletsLocal)
           .order('created_at', { ascending: false })
           .limit(500);
 
@@ -177,7 +226,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
         setAllRows((data as Position[]) || []);
 
         if (layout === 'page' || includeClosedHistoryFeed) {
-          const closed = await fetchClosedTradesForWallets(queryWallets, 200);
+          const closed = await fetchClosedTradesForWallets(queryWalletsLocal, 200);
           setClosedHistory(closed);
         }
       } catch (e) {
@@ -190,7 +239,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
         setLoading(false);
       }
     },
-    [wallets, isDemoUser, user, layout, includeClosedHistoryFeed]
+    [queryWallets, isDemoUser, user, layout, includeClosedHistoryFeed]
   );
 
   useEffect(() => {
@@ -210,11 +259,11 @@ const TerminalPositionsDock: React.FC<Props> = ({
   }, []);
 
   const openRows = useMemo(
-    () => allRows.filter((p) => p.status === 'open' || p.status === 'closing'),
-    [allRows]
+    () => mergedRows.filter((p) => p.status === 'open' || p.status === 'closing'),
+    [mergedRows]
   );
   const openCount = openRows.length;
-  const closedCount = allRows.filter(
+  const closedCount = mergedRows.filter(
     (p) => p.status === 'closed' || p.status === 'failed'
   ).length;
   const openNetPnl = useMemo(
@@ -226,26 +275,47 @@ const TerminalPositionsDock: React.FC<Props> = ({
 
   const rows = useMemo(() => {
     if (tab === 'open') {
-      return allRows.filter((p) => p.status === 'open' || p.status === 'closing');
+      return mergedRows.filter((p) => p.status === 'open' || p.status === 'closing');
     }
     if (tab === 'history') {
-      return allRows.filter((p) => p.status === 'closed' || p.status === 'failed');
+      return mergedRows.filter((p) => p.status === 'closed' || p.status === 'failed');
     }
-    return allRows;
-  }, [allRows, tab]);
+    return mergedRows;
+  }, [mergedRows, tab]);
 
   const handleRequestClose = async () => {
     if (!confirm) return;
     const positionId = confirm.id;
+    const row = mergedRows.find((p) => p.id === positionId);
     setConfirm(null);
     setClosingId(positionId);
     try {
-      await markPositionClosing(positionId);
+      if (isOnChainDockPositionId(positionId)) {
+        const wallet = row?.wallet_address ?? vaultWallet;
+        if (!wallet) throw new Error('No wallet for this position');
+        if (!publicClient || !walletClient) {
+          throw new Error('Connect wallet to close on-chain');
+        }
+        await closeVaultPosition({
+          wallet,
+          token: vaultTokenFromDockRow(
+            row ?? { id: positionId, token_symbol: confirm.token }
+          ),
+          publicClient,
+          walletClient,
+        });
+      } else {
+        await markPositionClosing(positionId);
+      }
       await load(true);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      await markPositionCloseFailed(positionId, msg);
-      await load(true);
+      if (!isOnChainDockPositionId(positionId)) {
+        await markPositionCloseFailed(positionId, msg);
+        await load(true);
+      } else {
+        console.error('[TerminalPositionsDock] on-chain close', err);
+      }
     } finally {
       setClosingId(null);
     }
@@ -263,8 +333,11 @@ const TerminalPositionsDock: React.FC<Props> = ({
     }
   };
 
-  const hasWallet = wallets.length > 0 || isDemoUser;
+  const hasWallet = queryWallets.length > 0 || isDemoUser;
   const needsSignIn = !user && !isDemoUser;
+  const activityWallet = address ?? queryWallets[0];
+  const positionsLoading = loading || chainLoading;
+  const showOpenTradingTable = isHlSkin && tab === 'open';
 
   const isPage = layout === 'page';
   const showClosedHistoryFeed =
@@ -354,24 +427,34 @@ const TerminalPositionsDock: React.FC<Props> = ({
       ) : vaultData.isLoading ? (
         <p className={emptyClass}>Loading vault…</p>
       ) : (
-        <table className={tableClass}>
-          <thead>
-            <tr>
-              <th>Asset</th>
-              <th>Balance</th>
-              <th>Withdrawable</th>
-              <th>Max trade</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>USDC (Arbitrum vault)</td>
-              <td>{fmtUsd(vaultData.balanceUsd)}</td>
-              <td>{fmtUsd(vaultData.vaultUsd)}</td>
-              <td>{fmtUsd(vaultData.maxTradeUsd)}</td>
-            </tr>
-          </tbody>
-        </table>
+        <>
+          <table className={tableClass}>
+            <thead>
+              <tr>
+                <th>Asset</th>
+                <th>Balance</th>
+                <th>Withdrawable</th>
+                <th>Max trade</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>USDC (Arbitrum vault)</td>
+                <td>{fmtUsd(vaultData.balanceUsd)}</td>
+                <td>{fmtUsd(vaultData.vaultUsd)}</td>
+                <td>{fmtUsd(vaultData.maxTradeUsd)}</td>
+              </tr>
+            </tbody>
+          </table>
+          {activityWallet ? (
+            <TerminalVaultActivity
+              wallet={activityWallet}
+              refreshKey={refreshKey}
+              variant="dock"
+              skin={skin}
+            />
+          ) : null}
+        </>
       )
     ) : null;
 
@@ -401,8 +484,10 @@ const TerminalPositionsDock: React.FC<Props> = ({
           <div className={emptyClass}>
             Sign in to view trade history for your profile wallets.
           </div>
-        ) : loading && rows.length === 0 && closedHistory.length === 0 ? (
-          <div className={emptyClass}>Loading trade history…</div>
+        ) : positionsLoading && rows.length === 0 && closedHistory.length === 0 ? (
+          <div className={emptyClass}>
+            {tab === 'open' ? 'Loading open positions…' : 'Loading trade history…'}
+          </div>
         ) : showClosedHistoryFeed ? (
           <table className={isHlSkin ? 'hl-table' : 'term-table term-table--history-overview'}>
             <thead>
@@ -474,9 +559,99 @@ const TerminalPositionsDock: React.FC<Props> = ({
         ) : rows.length === 0 ? (
           <div className={emptyClass}>
             {hasWallet
-              ? `No ${tab === 'open' ? 'open positions' : tab === 'history' ? 'closed trades' : 'trades'} yet for your linked wallets`
+              ? tab === 'open'
+                ? 'No open positions on your linked vault wallets'
+                : `No ${tab === 'history' ? 'closed trades' : 'trades'} yet for your linked wallets`
               : 'Link a wallet in Profile → Wallets to see your trade history'}
           </div>
+        ) : showOpenTradingTable ? (
+          <table className={`${tableClass} hl-table--positions`}>
+            <thead>
+              <tr>
+                <th>Market</th>
+                <th>Side</th>
+                <th>Size</th>
+                <th>Entry</th>
+                <th>Mark</th>
+                <th>Lev</th>
+                <th>P/L</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((p) => {
+                const pl = calcPositionPnl(p, livePrices);
+                const mark = markPriceForRow(p.token_symbol, livePrices);
+                const isOpen = p.status === 'open';
+                const isClosing = p.status === 'closing';
+                const isFailed = p.status === 'failed';
+                return (
+                  <tr key={p.id} id={`term-row-${p.id}`}>
+                    <td>
+                      <strong>{displaySymbol(p.token_symbol)}</strong>
+                      <span className="term-dock-meta"> · GMX</span>
+                    </td>
+                    <td>
+                      <span
+                        className={
+                          p.direction === 'LONG' ? 'term-dir-long' : 'term-dir-short'
+                        }
+                      >
+                        {p.direction}
+                      </span>
+                    </td>
+                    <td>{fmtUsd(p.entry_amount || 0)}</td>
+                    <td>
+                      {p.entry_price
+                        ? `$${Number(p.entry_price).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                        : '—'}
+                    </td>
+                    <td>
+                      {mark > 0
+                        ? `$${mark.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                        : '—'}
+                    </td>
+                    <td>{p.leverage_multiplier ?? 1}x</td>
+                    <td className={pl >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'}>
+                      {pl >= 0 ? '+' : ''}
+                      {fmtUsd(pl)}
+                    </td>
+                    <td className="term-dock-actions">
+                      {isOpen && (
+                        <button
+                          type="button"
+                          className="term-dock-close-btn"
+                          disabled={closingId === p.id}
+                          onClick={() =>
+                            setConfirm({
+                              id: p.id,
+                              token: p.token_symbol,
+                              wallet: p.wallet_address,
+                            })
+                          }
+                        >
+                          {closingId === p.id ? '…' : 'Close'}
+                        </button>
+                      )}
+                      {isClosing && (
+                        <span className="term-dock-closing text-xs">Closing…</span>
+                      )}
+                      {isFailed && (
+                        <button
+                          type="button"
+                          className="term-dock-close-btn term-dock-close-btn--retry"
+                          disabled={closingId === p.id}
+                          onClick={() => handleRetry(p.id)}
+                        >
+                          Retry
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         ) : (
           <table className={tableClass}>
             <thead>
@@ -631,7 +806,11 @@ const TerminalPositionsDock: React.FC<Props> = ({
                           className="term-dock-close-btn"
                           disabled={closingId === p.id}
                           onClick={() =>
-                            setConfirm({ id: p.id, token: p.token_symbol })
+                            setConfirm({
+                              id: p.id,
+                              token: p.token_symbol,
+                              wallet: p.wallet_address,
+                            })
                           }
                         >
                           {closingId === p.id ? '…' : 'Close'}
