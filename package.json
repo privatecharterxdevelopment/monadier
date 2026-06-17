@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "verify:supabase": "node scripts/verify-supabase.mjs",
+    "setup:env": "test -f .env.local || cp .env.example .env.local; echo 'Created or kept .env.local — edit VITE_SUPABASE_ANON_KEY then: npm run verify:supabase'",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"

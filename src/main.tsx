@@ -10,6 +10,8 @@ import { Web3Provider } from './contexts/Web3Context';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { config } from './lib/wallet';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { getEnvSetupIssue } from './lib/envCheck';
+import EnvSetupScreen from './components/EnvSetupScreen';
 import AuthWalletReset from './components/auth/AuthWalletReset';
 import AuthOAuthCapture from './components/auth/AuthOAuthCapture';
 import './index.css';
@@ -21,9 +23,14 @@ if (!rootEl) {
   throw new Error('#root element not found');
 }
 
+const envIssue = getEnvSetupIssue();
+
 createRoot(rootEl).render(
   <StrictMode>
-    <ErrorBoundary>
+    {envIssue ? (
+      <EnvSetupScreen issue={envIssue} />
+    ) : (
+      <ErrorBoundary>
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
@@ -41,6 +48,7 @@ createRoot(rootEl).render(
           </BrowserRouter>
         </QueryClientProvider>
       </WagmiProvider>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    )}
   </StrictMode>
 );
