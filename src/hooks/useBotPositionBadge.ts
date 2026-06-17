@@ -1,20 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
-import { useAuth, DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
-import { fetchUserWalletAddresses } from '../lib/userWallets';
+import { useAuth } from '../contexts/AuthContext';
+import { fetchUserPositions } from '../lib/userPositions';
 import { calcPositionPnl, fetchLiveTokenPrices } from '../lib/positionLivePnl';
-import { supabase } from '../lib/supabase';
-
-type OpenRow = {
-  status: string;
-  entry_price: number;
-  entry_amount: number;
-  token_symbol: string;
-  direction: string;
-  highest_price: number | null;
-  profit_loss: number | null;
-  leverage_multiplier: number | null;
-};
 
 export type BotPositionBadge = {
   count: number;
@@ -32,25 +20,16 @@ export function useBotPositionBadge(refreshKey = 0) {
 
   const refresh = useCallback(async () => {
     try {
-      const wallets = await fetchUserWalletAddresses(address, isDemoUser);
-      const queryWallets =
-        wallets.length > 0 ? wallets : isDemoUser ? [DEMO_WALLET_ADDRESS] : [];
-      if (queryWallets.length === 0) {
+      const all = await fetchUserPositions({
+        isDemoUser,
+        connectedAddress: address,
+      });
+      const rows = all.filter((p) => p.status === 'open' || p.status === 'closing');
+      if (rows.length === 0) {
         setBadge({ count: 0, netPnl: 0, tone: null, loading: false });
         return;
       }
 
-      const { data, error } = await supabase
-        .from('positions')
-        .select(
-          'status, entry_price, entry_amount, token_symbol, direction, highest_price, profit_loss, leverage_multiplier'
-        )
-        .in('wallet_address', queryWallets)
-        .in('status', ['open', 'closing']);
-
-      if (error) throw error;
-
-      const rows = (data as OpenRow[]) || [];
       const prices = await fetchLiveTokenPrices();
       const netPnl = rows.reduce((sum, row) => sum + calcPositionPnl(row, prices), 0);
       const count = rows.length;

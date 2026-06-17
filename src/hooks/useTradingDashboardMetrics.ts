@@ -4,10 +4,13 @@ import { supabase } from '../lib/supabase';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
 import { VaultClient, VAULT_CHAIN_ID, getArbitrumPublicClient } from '../lib/vault';
 import { useWeb3 } from '../contexts/Web3Context';
+import { pickPrimaryVaultWallet } from '../lib/userWallets';
+import { fetchUserPositions } from '../lib/userPositions';
 import {
-  fetchUserWalletAddresses,
-  pickPrimaryVaultWallet,
-} from '../lib/userWallets';
+  computePositionStats,
+  fetchLiveTokenPrices,
+  type PositionPnlRow,
+} from '../lib/positionLivePnl';
 
 export type TradingDashboardMetrics = {
   vaultBalanceUsd: number;
@@ -74,27 +77,16 @@ export function useTradingDashboardMetrics() {
     setMetrics((m) => ({ ...m, isLoading: true }));
 
     try {
-      let walletArray = await fetchUserWalletAddresses(address, isDemoUser);
+      const [all, livePrices] = await Promise.all([
+        fetchUserPositions({
+          isDemoUser,
+          connectedAddress: address,
+        }),
+        fetchLiveTokenPrices(),
+      ]);
 
-      if (!isDemoUser && walletArray.length === 0) {
-        if (!address) {
-          setMetrics({ ...defaultMetrics, isLoading: false });
-          return;
-        }
-        walletArray = [address.toLowerCase()];
-      }
-
-      const { data: positions } = await supabase
-        .from('positions')
-        .select('*')
-        .in('wallet_address', walletArray);
-
-      const primaryWallet = pickPrimaryVaultWallet(walletArray, address);
-      let vaultSettings: { auto_trade_enabled?: boolean } | null = null;
-
-      const all = positions || [];
       const open = all.filter((p) => p.status === 'open' || p.status === 'closing');
-      const closed = all.filter((p) => p.status === 'closed');
+      const stats = computePositionStats(all as PositionPnlRow[], livePrices);
 
       const openValue = open.reduce(
         (sum, p) => sum + (p.entry_amount || 0) * (p.leverage_multiplier || 1),
@@ -105,11 +97,20 @@ export function useTradingDashboardMetrics() {
           ? open.reduce((s, p) => s + (p.leverage_multiplier || 1), 0) / open.length
           : 1;
 
-      const closedProfit = closed.reduce((sum, p) => sum + (p.profit_loss || 0), 0);
-      const openProfit = open.reduce((sum, p) => sum + (p.profit_loss || 0), 0);
-      const realizedPnl = closedProfit;
-      const unrealizedPnl = openProfit;
-      const wins = closed.filter((p) => (p.profit_loss || 0) > 0).length;
+      const walletArray = [
+        ...new Set(all.map((p) => p.wallet_address.toLowerCase()).filter(Boolean)),
+      ];
+      if (isDemoUser) {
+        walletArray.push(DEMO_WALLET_ADDRESS);
+      } else if (address) {
+        walletArray.push(address.toLowerCase());
+      }
+
+      const primaryWallet = pickPrimaryVaultWallet(
+        [...new Set(walletArray)],
+        address
+      );
+      let vaultSettings: { auto_trade_enabled?: boolean } | null = null;
 
       let vaultBalanceUsd = 0;
       let withdrawableUsd = 0;
@@ -155,16 +156,16 @@ export function useTradingDashboardMetrics() {
       setMetrics({
         vaultBalanceUsd,
         openPositionValueUsd: openValue,
-        openPositionsCount: open.length,
+        openPositionsCount: stats.openPositions,
         avgLeverage: avgLev,
-        totalPnl: closedProfit + openProfit,
-        realizedPnl,
-        unrealizedPnl,
+        totalPnl: stats.totalProfit,
+        realizedPnl: stats.realizedProfit,
+        unrealizedPnl: stats.unrealizedProfit,
         pnl24h: pnlInWindow(all, 24),
         pnl7d: pnlInWindow(all, 24 * 7),
         pnl30d: pnlInWindow(all, 24 * 30),
-        winRate: closed.length ? (wins / closed.length) * 100 : 0,
-        closedTradesCount: closed.length,
+        winRate: stats.winRate,
+        closedTradesCount: stats.closedTrades,
         autoTradeEnabled: onChainAutoTrade || Boolean(vaultSettings?.auto_trade_enabled),
         withdrawableUsd,
         isLoading: false,
@@ -177,7 +178,7 @@ export function useTradingDashboardMetrics() {
 
   useEffect(() => {
     refresh();
-    const id = setInterval(refresh, 15000);
+    const id = setInterval(refresh, 10000);
     return () => clearInterval(id);
   }, [refresh]);
 
