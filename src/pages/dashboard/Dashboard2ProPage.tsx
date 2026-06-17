@@ -518,7 +518,10 @@ const Dashboard2ProPage: React.FC = () => {
           <ProTradeBotDockSlot dockTab={botDockTab} onDockTabChange={setBotDockTab} />
         </div>
 
-        <ProTradeBotPanelSlot onOpenHistory={() => setBotDockTab('open')} />
+        <ProTradeBotPanelSlot
+          onOpenHistory={() => setBotDockTab('open')}
+          onRequireSignIn={promptSignIn}
+        />
       </div>
 
       <ProTradeBotStatusBar walletConnected={isConnected} wsLive={perpMarket.wsConnected} />

@@ -43,6 +43,7 @@ type Props = {
   onOpenHistory?: () => void;
   vaultAction?: 'deposit' | 'withdraw' | null;
   onVaultActionHandled?: () => void;
+  onRequireSignIn?: (reason: string) => void;
 };
 
 function fmt(n: number) {
@@ -57,6 +58,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   onOpenHistory,
   vaultAction,
   onVaultActionHandled,
+  onRequireSignIn,
 }) => {
   const { open } = useAppKit();
   const { isConnected, address, chainId, publicClient, walletClient, switchChain } = useWeb3();
@@ -107,17 +109,34 @@ const TerminalTradePanel: React.FC<Props> = ({
     return 'ready';
   }, [walletReady, vault.isLoading, walletOnArbitrum, vaultFundingUsd]);
 
+  const requireAccount = (reason: string, next: () => void) => {
+    if (!isDemoUser && !isAuthenticated) {
+      onRequireSignIn?.(reason);
+      return;
+    }
+    next();
+  };
+
   useEffect(() => {
+    if (!vaultAction) return;
+    if (!isDemoUser && !isAuthenticated) {
+      onRequireSignIn?.(
+        vaultAction === 'deposit'
+          ? 'Sign in before depositing to the vault.'
+          : 'Sign in before withdrawing from the vault.'
+      );
+      onVaultActionHandled?.();
+      return;
+    }
     if (vaultAction === 'deposit') {
       setShowDeposit(true);
       setPanelTab('funds');
-      onVaultActionHandled?.();
     } else if (vaultAction === 'withdraw') {
       setShowWithdraw(true);
       setPanelTab('funds');
-      onVaultActionHandled?.();
     }
-  }, [vaultAction, onVaultActionHandled]);
+    onVaultActionHandled?.();
+  }, [vaultAction, onVaultActionHandled, isDemoUser, isAuthenticated, onRequireSignIn]);
 
   const refreshAll = () => {
     onRefresh();
@@ -142,7 +161,10 @@ const TerminalTradePanel: React.FC<Props> = ({
       open();
       return;
     }
-    setShowDeposit(true);
+    requireAccount(
+      'Sign in before depositing — vault funds must link to your Monadier account.',
+      () => setShowDeposit(true)
+    );
   };
 
   const openWithdraw = () => {
@@ -151,7 +173,7 @@ const TerminalTradePanel: React.FC<Props> = ({
       open();
       return;
     }
-    setShowWithdraw(true);
+    requireAccount('Sign in before withdrawing from the vault.', () => setShowWithdraw(true));
   };
 
   const parseBotTxError = (err: unknown): string => {
@@ -567,6 +589,7 @@ const TerminalTradePanel: React.FC<Props> = ({
       {showDeposit && (
         <TerminalDepositModal
           onClose={() => setShowDeposit(false)}
+          onRequireSignIn={onRequireSignIn}
           onSuccess={() => {
             setShowDeposit(false);
             if (!isDemoUser && address) {
@@ -582,6 +605,7 @@ const TerminalTradePanel: React.FC<Props> = ({
           balanceAmount={vault.balanceUsd.toFixed(2)}
           hasActivePosition={Boolean(vault.position?.isActive)}
           onClose={() => setShowWithdraw(false)}
+          onRequireSignIn={onRequireSignIn}
           onSuccess={() => {
             setShowWithdraw(false);
             refreshAll();

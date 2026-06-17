@@ -57,10 +57,14 @@ export const ProTradeBotDockSlot: React.FC<DockProps> = ({ dockTab, onDockTabCha
 
 type PanelProps = {
   onOpenHistory?: () => void;
+  onRequireSignIn?: (reason: string) => void;
 };
 
 /** Same trading bot panel as dashboard2 — styled for Pro Trade shell. */
-export const ProTradeBotPanelSlot: React.FC<PanelProps> = ({ onOpenHistory }) => {
+export const ProTradeBotPanelSlot: React.FC<PanelProps> = ({
+  onOpenHistory,
+  onRequireSignIn,
+}) => {
   const { metrics, refresh } = useProTradeBot();
   const [vaultAction, setVaultAction] = useState<'deposit' | 'withdraw' | null>(null);
 
@@ -70,6 +74,7 @@ export const ProTradeBotPanelSlot: React.FC<PanelProps> = ({ onOpenHistory }) =>
         metrics={metrics}
         onRefresh={refresh}
         onOpenHistory={onOpenHistory}
+        onRequireSignIn={onRequireSignIn}
         vaultAction={vaultAction}
         onVaultActionHandled={() => setVaultAction(null)}
       />

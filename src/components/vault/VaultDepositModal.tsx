@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, ArrowDownLeft, Loader2, AlertCircle, Coins } from 'lucide-react';
+import { X, ArrowDownLeft, Loader2, AlertCircle, Coins, LogIn } from 'lucide-react';
 import { useWeb3 } from '../../contexts/Web3Context';
+import { useAuth } from '../../contexts/AuthContext';
 import { useTransactions } from '../../contexts/TransactionContext';
 import { VaultClient, USDC_ADDRESSES, USDC_DECIMALS, getPlatformFee, VAULT_ADDRESS, VAULT_CHAIN_ID } from '../../lib/vault';
 import { formatUnits } from 'viem';
@@ -33,6 +34,8 @@ const CHAIN_NAMES: Record<number, string> = {
 };
 
 export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositModalProps) {
+  const { user, isDemoUser } = useAuth();
+  const needsSignIn = !isDemoUser && !user;
   const { chainId, address, publicClient, walletClient } = useWeb3();
   const { addTransaction, updateTransaction } = useTransactions();
 
@@ -122,6 +125,7 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
   };
 
   const handleDeposit = async () => {
+    if (needsSignIn) return;
     if (!chainId || !address || !publicClient || !walletClient) return;
     if (!amount || parseFloat(amount) <= 0) {
       setError('Please enter a valid amount');
@@ -242,6 +246,29 @@ export default function VaultDepositModal({ onClose, onSuccess }: VaultDepositMo
       setIsLoading(false);
     }
   };
+
+  if (needsSignIn) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md mx-4 p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <LogIn className="w-5 h-5 text-green-500" />
+            <h2 className="text-lg font-semibold text-primary">Sign in required</h2>
+          </div>
+          <p className="text-sm text-secondary mb-6">
+            Sign in to your Monadier account before depositing to the vault.
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-primary"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">

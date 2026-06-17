@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { ArrowUpRight, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowUpRight, Loader2, AlertCircle, LogIn } from 'lucide-react';
 import { useAppKit } from '@reown/appkit/react';
 import { useWeb3 } from '../../contexts/Web3Context';
+import { useAuth } from '../../contexts/AuthContext';
 import { useTransactions } from '../../contexts/TransactionContext';
 import { VaultClient, VAULT_CHAIN_ID } from '../../lib/vault';
 import TerminalModalFrame from './TerminalModalFrame';
@@ -15,6 +16,7 @@ type Props = {
   hasActivePosition?: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  onRequireSignIn?: (reason: string) => void;
 };
 
 const TerminalWithdrawModal: React.FC<Props> = ({
@@ -23,8 +25,11 @@ const TerminalWithdrawModal: React.FC<Props> = ({
   hasActivePosition,
   onClose,
   onSuccess,
+  onRequireSignIn,
 }) => {
   const { open } = useAppKit();
+  const { user, isDemoUser } = useAuth();
+  const needsSignIn = !isDemoUser && !user;
   const { chainId, address, publicClient, walletClient } = useWeb3();
   const { addTransaction, updateTransaction } = useTransactions();
   const [amount, setAmount] = useState('');
@@ -37,6 +42,10 @@ const TerminalWithdrawModal: React.FC<Props> = ({
   const canWithdraw = walletConnected && onArbitrum && maxNum > 0;
 
   const runWithdraw = async (withdrawAmount: string, withdrawAll: boolean) => {
+    if (needsSignIn) {
+      onRequireSignIn?.('Sign in to withdraw from your vault.');
+      return;
+    }
     if (!address || !publicClient || !walletClient || chainId !== VAULT_CHAIN_ID) {
       setError('Connect your wallet on Arbitrum to withdraw.');
       return;
@@ -128,6 +137,32 @@ const TerminalWithdrawModal: React.FC<Props> = ({
       )}
     </>
   );
+
+  if (needsSignIn) {
+    return (
+      <TerminalModalFrame
+        title="Sign in required"
+        subtitle="Vault withdraw · Monadier account"
+        icon={<LogIn size={18} className="text-[#ea580c]" />}
+        onClose={onClose}
+        footer={
+          <button
+            type="button"
+            className="term-modal-primary"
+            onClick={() => onRequireSignIn?.('Sign in to withdraw from your vault.')}
+          >
+            <LogIn size={16} />
+            Sign in to withdraw
+          </button>
+        }
+      >
+        <div className="term-modal-alert">
+          <AlertCircle size={16} />
+          <span>Sign in to your Monadier account to withdraw from the vault linked to your wallet.</span>
+        </div>
+      </TerminalModalFrame>
+    );
+  }
 
   return (
     <TerminalModalFrame

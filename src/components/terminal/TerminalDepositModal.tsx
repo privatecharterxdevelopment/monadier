@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowDownLeft, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowDownLeft, Loader2, AlertCircle, LogIn } from 'lucide-react';
 import { formatUnits } from 'viem';
 import { useAppKit } from '@reown/appkit/react';
 import { useWeb3 } from '../../contexts/Web3Context';
+import { useAuth } from '../../contexts/AuthContext';
 import { useTransactions } from '../../contexts/TransactionContext';
+import { linkWalletToUserSafe } from '../../lib/userWallets';
 import {
   VaultClient,
   USDC_ADDRESSES,
@@ -23,13 +25,16 @@ const ARBISCAN = 'https://arbiscan.io';
 type Props = {
   onClose: () => void;
   onSuccess: () => void;
+  onRequireSignIn?: (reason: string) => void;
 };
 
 type Gate = 'connect' | 'network' | 'min' | 'balance' | null;
 
-const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
+const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess, onRequireSignIn }) => {
   const { open } = useAppKit();
+  const { user, isDemoUser } = useAuth();
   const { chainId, address, publicClient, walletClient, switchChain } = useWeb3();
+  const needsSignIn = !isDemoUser && !user;
   const { addTransaction, updateTransaction } = useTransactions();
   const [amount, setAmount] = useState('');
   const [usdcBalance, setUsdcBalance] = useState('0');
@@ -100,6 +105,10 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
   };
 
   const handleDeposit = async () => {
+    if (needsSignIn) {
+      onRequireSignIn?.('Sign in to link your wallet before depositing to the vault.');
+      return;
+    }
     if (!address || !publicClient) {
       setError('Connect your wallet on Arbitrum to deposit.');
       return;
@@ -166,9 +175,13 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
           .eq('chain_id', VAULT_CHAIN_ID)
           .limit(1)
           .maybeSingle();
+        if (user) {
+          await linkWalletToUserSafe(user.id, address);
+        }
         const syncPayload = {
           wallet_address: walletLower,
           chain_id: VAULT_CHAIN_ID,
+          user_id: user?.id ?? null,
           auto_trade_enabled: vaultStatus.autoTradeEnabled,
           risk_level_bps: vaultStatus.riskLevelBps,
           updated_at: new Date().toISOString(),
@@ -248,6 +261,40 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
       )}
     </button>
   );
+
+  if (needsSignIn) {
+    return (
+      <TerminalModalFrame
+        title="Sign in required"
+        subtitle="Vault deposit · Monadier account"
+        icon={<LogIn size={18} className="text-[#16a34a]" />}
+        onClose={onClose}
+        footer={
+          <button
+            type="button"
+            className="term-modal-primary"
+            onClick={() =>
+              onRequireSignIn?.(
+                'Sign in to link your wallet before depositing — vault funds stay in your wallet on Arbitrum.'
+              )
+            }
+          >
+            <LogIn size={16} />
+            Sign in to deposit
+          </button>
+        }
+      >
+        <div className="term-modal-alert">
+          <AlertCircle size={16} />
+          <span>
+            Vault deposits must be linked to your Monadier account so the bot can trade and you can
+            track your funds. Your USDC stays in a smart-contract vault controlled by your wallet —
+            we never hold your private keys.
+          </span>
+        </div>
+      </TerminalModalFrame>
+    );
+  }
 
   return (
     <TerminalModalFrame

@@ -131,11 +131,13 @@ const Dashboard2Page: React.FC = () => {
 
   const openDeposit = () => {
     setSidebarSection('deposit');
+    if (!user && !isDemoUser) return;
     requireWallet(() => setShowDeposit(true));
   };
 
   const openWithdraw = () => {
     setSidebarSection('withdraw');
+    if (!user && !isDemoUser) return;
     requireWallet(() => setShowWithdraw(true));
   };
 
