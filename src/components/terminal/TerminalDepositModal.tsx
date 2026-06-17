@@ -74,8 +74,15 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
         setIsLoadingBalance(false);
       }
     };
-    load();
+    void load();
   }, [address, publicClient, chainId]);
+
+  const suggestedDeposit = useMemo(() => {
+    if (usdcNum <= 0) return '';
+    const capped = Math.min(usdcNum, usdcNum);
+    if (capped < MIN_DEPOSIT_USD) return '';
+    return capped.toFixed(2);
+  }, [usdcNum]);
 
   const gate: Gate = useMemo(() => {
     if (!walletConnected) return 'connect';
@@ -86,22 +93,43 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
     return null;
   }, [walletConnected, onArbitrum, needsGas, isBelowMinimum, depositUsd, usdcNum]);
 
-  const handleMax = () => setAmount(usdcBalance);
+  const handleMax = () => {
+    if (usdcNum <= 0) return;
+    setAmount(usdcNum.toFixed(2));
+    setError(null);
+  };
 
   const handleDeposit = async () => {
-    if (!address || !publicClient || !walletClient || chainId !== VAULT_CHAIN_ID) {
+    if (!address || !publicClient) {
       setError('Connect your wallet on Arbitrum to deposit.');
       return;
     }
-    if (!amount || depositUsd <= 0) {
-      setError('Enter a valid amount.');
+    if (!walletClient) {
+      setError('Wallet not ready — open your wallet app or reconnect, then try again.');
       return;
     }
-    if (depositUsd < MIN_DEPOSIT_USD) {
+    if (chainId !== VAULT_CHAIN_ID) {
+      setError('Switch to Arbitrum before depositing.');
+      return;
+    }
+
+    let depositAmount = amount.trim();
+    if (!depositAmount || parseFloat(depositAmount) <= 0) {
+      if (suggestedDeposit) {
+        depositAmount = suggestedDeposit;
+        setAmount(suggestedDeposit);
+      } else {
+        setError('Enter a valid amount.');
+        return;
+      }
+    }
+
+    const usd = parseFloat(depositAmount);
+    if (usd < MIN_DEPOSIT_USD) {
       setError(`Minimum deposit is $${MIN_DEPOSIT_USD} USDC.`);
       return;
     }
-    if (depositUsd > usdcNum) {
+    if (usd > usdcNum) {
       setError('Insufficient USDC in wallet — fund your wallet first.');
       return;
     }
@@ -118,13 +146,13 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
         walletClient as never,
         VAULT_CHAIN_ID
       );
-      const txHash = await vaultClient.deposit(amount, address as `0x${string}`);
+      const txHash = await vaultClient.deposit(depositAmount, address as `0x${string}`);
       const txId = addTransaction({
         type: 'deposit',
         hash: txHash,
         status: 'confirming',
-        description: `Depositing ${amount} USDC to vault`,
-        amount: depositUsd.toFixed(2),
+        description: `Depositing ${depositAmount} USDC to vault`,
+        amount: usd.toFixed(2),
         token: 'USDC',
         chainId: VAULT_CHAIN_ID,
         blockExplorerUrl: `${ARBISCAN}/tx/${txHash}`,
@@ -201,22 +229,15 @@ const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess }) => {
       }
       return;
     }
-    void handleDeposit();
+    await handleDeposit();
   };
-
-  const depositDisabled =
-    isLoading ||
-    gate === 'gas' ||
-    gate === 'min' ||
-    gate === 'balance' ||
-    (gate === null && (!amount || depositUsd <= 0));
 
   const footer = (
     <button
       type="button"
       className="term-modal-primary"
       onClick={() => void primaryAction()}
-      disabled={depositDisabled && gate !== 'connect' && gate !== 'network'}
+      disabled={isLoading}
     >
       {isLoading ? (
         <>
