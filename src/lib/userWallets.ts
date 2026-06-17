@@ -59,16 +59,17 @@ export async function linkWalletToUserSafe(
 }
 
 /**
- * Wallets whose positions the signed-in user may see.
- * Only DB-linked wallets — never the raw MetaMask address alone.
+ * Wallets whose positions / trade history the signed-in user may see.
+ * Sources: user_wallets, profiles.wallet_address, and the connected wallet when owned by this user.
  */
 export async function fetchUserWalletAddresses(
-  _connectedAddress: string | undefined,
+  connectedAddress: string | undefined,
   isDemoUser: boolean
 ): Promise<string[]> {
   if (isDemoUser) return [DEMO_WALLET_ADDRESS];
 
   const found = new Set<string>();
+  const connected = connectedAddress?.toLowerCase();
 
   try {
     const {
@@ -90,9 +91,26 @@ export async function fetchUserWalletAddresses(
     if (profile?.wallet_address?.trim()) {
       found.add(profile.wallet_address.toLowerCase());
     }
+
+    if (connected) {
+      const ownedByOther = await isWalletOwnedByOtherUser(user.id, connected);
+      if (!ownedByOther) {
+        found.add(connected);
+      }
+    }
   } catch (err) {
     console.error('[userWallets]', err);
   }
 
   return Array.from(found);
+}
+
+/** Primary wallet for vault reads — connected if linked, else first profile wallet. */
+export function pickPrimaryVaultWallet(
+  wallets: string[],
+  connectedAddress: string | undefined
+): string | undefined {
+  const connected = connectedAddress?.toLowerCase();
+  if (connected && wallets.includes(connected)) return connected;
+  return wallets[0];
 }

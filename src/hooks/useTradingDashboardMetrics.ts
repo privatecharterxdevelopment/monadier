@@ -4,6 +4,10 @@ import { supabase } from '../lib/supabase';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
 import { VaultClient, VAULT_CHAIN_ID } from '../lib/vault';
 import { useWeb3 } from '../contexts/Web3Context';
+import {
+  fetchUserWalletAddresses,
+  pickPrimaryVaultWallet,
+} from '../lib/userWallets';
 
 export type TradingDashboardMetrics = {
   vaultBalanceUsd: number;
@@ -70,32 +74,7 @@ export function useTradingDashboardMetrics() {
     setMetrics((m) => ({ ...m, isLoading: true }));
 
     try {
-      const wallets = new Set<string>();
-      if (isDemoUser) {
-        wallets.add(DEMO_WALLET_ADDRESS);
-      } else {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user) {
-          const { data: walletRows } = await supabase
-            .from('user_wallets')
-            .select('wallet_address')
-            .eq('user_id', user.id);
-          walletRows?.forEach((w) => wallets.add(w.wallet_address.toLowerCase()));
-
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('wallet_address')
-            .eq('id', user.id)
-            .maybeSingle();
-          if (profile?.wallet_address?.trim()) {
-            wallets.add(profile.wallet_address.toLowerCase());
-          }
-        }
-      }
-
-      const walletArray = Array.from(wallets);
+      const walletArray = await fetchUserWalletAddresses(address, isDemoUser);
 
       if (!isDemoUser && walletArray.length === 0) {
         setMetrics({ ...defaultMetrics, isLoading: false });
@@ -107,12 +86,13 @@ export function useTradingDashboardMetrics() {
         .select('*')
         .in('wallet_address', walletArray);
 
+      const primaryWallet = pickPrimaryVaultWallet(walletArray, address);
       let vaultSettings: { auto_trade_enabled?: boolean } | null = null;
-      if (walletArray[0]) {
+      if (primaryWallet) {
         const { data } = await supabase
           .from('vault_settings')
           .select('auto_trade_enabled')
-          .eq('wallet_address', walletArray[0])
+          .eq('wallet_address', primaryWallet)
           .maybeSingle();
         vaultSettings = data;
       }
@@ -139,7 +119,11 @@ export function useTradingDashboardMetrics() {
       let vaultBalanceUsd = 0;
       let withdrawableUsd = 0;
 
-      const queryWallet = (isDemoUser ? DEMO_WALLET_ADDRESS : address) as `0x${string}` | undefined;
+      const queryWallet = (
+        isDemoUser
+          ? DEMO_WALLET_ADDRESS
+          : pickPrimaryVaultWallet(walletArray, address)
+      ) as `0x${string}` | undefined;
       if (queryWallet && publicClient && walletClient) {
         try {
           const client = new VaultClient(publicClient as never, walletClient as never, VAULT_CHAIN_ID);

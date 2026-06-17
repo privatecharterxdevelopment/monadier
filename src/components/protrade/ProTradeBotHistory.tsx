@@ -19,7 +19,7 @@ const ProTradeBotHistory: React.FC<Props> = ({
       <header className="hl-history-head">
         <h1 className="hl-history-title">GMX Bot trade history</h1>
         <p className="hl-history-sub">
-          Open positions, closed trades, and Arbiscan verification — saved in Supabase.
+          Your GMX bot trades — only wallets linked to your profile (Profile → Wallets).
         </p>
       </header>
       <div className="hl-history-body hl-bot-dock">

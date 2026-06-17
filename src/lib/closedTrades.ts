@@ -55,39 +55,61 @@ function mapFromPosition(row: Record<string, unknown>): ClosedTradeRow {
   };
 }
 
+function rowKey(row: ClosedTradeRow): string {
+  return row.positionId || row.id;
+}
+
 export async function fetchClosedTradesForWallets(
   wallets: string[],
   limit = 100
 ): Promise<ClosedTradeRow[]> {
   if (wallets.length === 0) return [];
 
-  const { data: history, error: histErr } = await supabase
-    .from('trade_history')
-    .select(
-      'id, position_id, wallet_address, chain_id, token_symbol, direction, leverage, entry_amount, profit_loss, profit_loss_percent, closed_at, exit_tx_hash, close_reason, created_at'
-    )
-    .in('wallet_address', wallets)
-    .not('closed_at', 'is', null)
-    .order('closed_at', { ascending: false })
-    .limit(limit);
+  const normalized = wallets.map((w) => w.toLowerCase());
 
-  if (!histErr && history && history.length > 0) {
-    return history.map((r) => mapFromTradeHistory(r as Record<string, unknown>));
+  const [historyRes, positionsRes] = await Promise.all([
+    supabase
+      .from('trade_history')
+      .select(
+        'id, position_id, wallet_address, chain_id, token_symbol, direction, leverage, entry_amount, profit_loss, profit_loss_percent, closed_at, exit_tx_hash, close_reason, created_at'
+      )
+      .in('wallet_address', normalized)
+      .not('closed_at', 'is', null)
+      .order('closed_at', { ascending: false })
+      .limit(limit),
+    supabase
+      .from('positions')
+      .select(
+        'id, wallet_address, chain_id, token_symbol, direction, entry_amount, profit_loss, profit_loss_percent, leverage_multiplier, closed_at, exit_tx_hash, close_reason, updated_at'
+      )
+      .in('wallet_address', normalized)
+      .eq('status', 'closed')
+      .not('closed_at', 'is', null)
+      .order('closed_at', { ascending: false })
+      .limit(limit),
+  ]);
+
+  const merged = new Map<string, ClosedTradeRow>();
+
+  for (const row of historyRes.data ?? []) {
+    const mapped = mapFromTradeHistory(row as Record<string, unknown>);
+    merged.set(rowKey(mapped), mapped);
   }
 
-  const { data: positions, error: posErr } = await supabase
-    .from('positions')
-    .select(
-      'id, wallet_address, chain_id, token_symbol, direction, entry_amount, profit_loss, profit_loss_percent, leverage_multiplier, closed_at, exit_tx_hash, close_reason, updated_at'
-    )
-    .in('wallet_address', wallets)
-    .eq('status', 'closed')
-    .not('closed_at', 'is', null)
-    .order('closed_at', { ascending: false })
-    .limit(limit);
+  for (const row of positionsRes.data ?? []) {
+    const mapped = mapFromPosition(row as Record<string, unknown>);
+    const key = rowKey(mapped);
+    if (!merged.has(key)) {
+      merged.set(key, mapped);
+    }
+  }
 
-  if (posErr || !positions) return [];
-  return positions.map((r) => mapFromPosition(r as Record<string, unknown>));
+  return Array.from(merged.values())
+    .sort(
+      (a, b) =>
+        new Date(b.closedAt).getTime() - new Date(a.closedAt).getTime()
+    )
+    .slice(0, limit);
 }
 
 export function verifyUrlForTrade(trade: ClosedTradeRow): string | null {

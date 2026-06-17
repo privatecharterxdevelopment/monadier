@@ -143,10 +143,17 @@ const TerminalPositionsDock: React.FC<Props> = ({
     return () => {
       cancelled = true;
     };
-  }, [address, isDemoUser]);
+  }, [address, isDemoUser, user?.id]);
 
   const load = useCallback(
     async (silent = false) => {
+      if (!isDemoUser && !user) {
+        setAllRows([]);
+        setClosedHistory([]);
+        setLoading(false);
+        return;
+      }
+
       const queryWallets =
         wallets.length > 0 ? wallets : isDemoUser ? [DEMO_WALLET_ADDRESS] : [];
       if (queryWallets.length === 0) {
@@ -183,7 +190,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
         setLoading(false);
       }
     },
-    [address, isDemoUser, wallets, user?.id, layout, includeClosedHistoryFeed]
+    [wallets, isDemoUser, user, layout, includeClosedHistoryFeed]
   );
 
   useEffect(() => {
@@ -256,13 +263,16 @@ const TerminalPositionsDock: React.FC<Props> = ({
     }
   };
 
-  const hasWallet = Boolean(address || isDemoUser || wallets.length > 0);
+  const hasWallet = wallets.length > 0 || isDemoUser;
+  const needsSignIn = !user && !isDemoUser;
 
   const isPage = layout === 'page';
+  const showClosedHistoryFeed =
+    (isPage || includeClosedHistoryFeed) &&
+    tab === 'history' &&
+    closedHistory.length > 0;
   const useHistoryOverview =
     (isPage || includeClosedHistoryFeed) && (tab === 'history' || tab === 'all');
-  const useClosedHistoryFeed =
-    (isPage || includeClosedHistoryFeed) && tab === 'history' && closedHistory.length > 0;
 
   const dockTabs: { id: DockTab; label: string }[] = isHlSkin
     ? [
@@ -387,17 +397,13 @@ const TerminalPositionsDock: React.FC<Props> = ({
       <div className={bodyClass}>
         {tab === 'vault' ? (
           vaultPanel
-        ) : loading && rows.length === 0 ? (
-          <div className={emptyClass}>Loading trade history…</div>
-        ) : rows.length === 0 ? (
+        ) : needsSignIn ? (
           <div className={emptyClass}>
-            {hasWallet
-              ? `No ${tab === 'open' ? 'open positions' : tab === 'history' ? 'closed trades' : 'trades'} yet`
-              : user
-                ? 'Link a wallet in Profile to see trade history'
-                : 'Connect wallet to see history'}
+            Sign in to view trade history for your profile wallets.
           </div>
-        ) : useClosedHistoryFeed ? (
+        ) : loading && rows.length === 0 && closedHistory.length === 0 ? (
+          <div className={emptyClass}>Loading trade history…</div>
+        ) : showClosedHistoryFeed ? (
           <table className={isHlSkin ? 'hl-table' : 'term-table term-table--history-overview'}>
             <thead>
               <tr>
@@ -468,12 +474,10 @@ const TerminalPositionsDock: React.FC<Props> = ({
         ) : rows.length === 0 ? (
           <div className={emptyClass}>
             {hasWallet
-              ? `No ${tab === 'open' ? 'open positions' : tab === 'history' ? 'closed trades' : 'trades'} yet`
-              : user
-                ? 'Link a wallet in Profile to see trade history'
-                : 'Connect wallet to see history'}
+              ? `No ${tab === 'open' ? 'open positions' : tab === 'history' ? 'closed trades' : 'trades'} yet for your linked wallets`
+              : 'Link a wallet in Profile → Wallets to see your trade history'}
           </div>
-        ) : rows.length > 0 ? (
+        ) : (
           <table className={tableClass}>
             <thead>
               <tr>
@@ -673,7 +677,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
               })}
             </tbody>
           </table>
-        ) : null}
+        )}
       </div>
     </>
   );
