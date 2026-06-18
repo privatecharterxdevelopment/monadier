@@ -49,13 +49,13 @@ export function useTerminalBotAnalysis({
   const [step, setStep] = useState(0);
   const [progress, setProgress] = useState(ANALYSIS_STEPS[0].progress);
 
-  const scanning = metrics.autoTradeEnabled && !hasOpenPosition;
+  const scanning = metrics.autoTradeEnabled;
 
   const { signal, isLoading } = useUnifiedSignal({
     symbol,
     timeframes: MTF_TIMEFRAMES,
     refreshInterval: 30000,
-    autoRefresh: walletConnected,
+    autoRefresh: walletConnected || metrics.autoTradeEnabled,
   });
 
   useEffect(() => {

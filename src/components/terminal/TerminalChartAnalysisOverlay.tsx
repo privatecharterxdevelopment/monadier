@@ -155,7 +155,7 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
         ) : null}
         {scanning && hasData ? (
           <p className="term-analysis-hint term-analysis-hint--subtle">
-            Rotierende Zeilen = einzelne Timeframes · Entscheidend ist „{conf}% bot conf.“ oben
+            Rotating lines = per-timeframe signals · Combined confidence shown above
           </p>
         ) : null}
         <div
