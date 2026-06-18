@@ -87,7 +87,7 @@ export function getHlBotSidebarStatus(opts: {
     if (needsDeposit) {
       return {
         headline: 'Deposit USDC on Hyperliquid',
-        detail: `At least $${MIN_HL_BOT_USD} USDC on HL — deposit here in Monadier (Arbitrum → HL). No need to open hyperliquid.xyz.`,
+        detail: `At least $${MIN_HL_BOT_USD} USDC on HL — deposit here in Monadier (Arbitrum → HL). Required before starting the bot.`,
         tone: 'warn',
         setupStep: 2,
         setupComplete: false,

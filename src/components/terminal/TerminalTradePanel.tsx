@@ -146,6 +146,8 @@ const TerminalTradePanel: React.FC<Props> = ({
     isAuthenticated,
   ]);
 
+  const canStartBot = phase === 'ready' && !startBlocker;
+
   const requireAccount = (reason: string, next: () => void) => {
     if (!isDemoUser && !isAuthenticated) {
       onRequireSignIn?.(reason);
@@ -192,7 +194,7 @@ const TerminalTradePanel: React.FC<Props> = ({
       return 'Signature cancelled in wallet.';
     }
     if (/Must deposit before performing actions/i.test(msg)) {
-      return 'Deposit USDC on Hyperliquid first (min $20), then try again.';
+      return 'Deposit USDC on Hyperliquid first (min $20), then approve the agent.';
     }
     return msg;
   };
@@ -269,8 +271,12 @@ const TerminalTradePanel: React.FC<Props> = ({
       setBotError('Connect your wallet first.');
       return;
     }
+    if (!isDemoUser && !isAuthenticated) {
+      onRequireSignIn?.('Sign in to Monadier, then press Start bot.');
+      return;
+    }
     if (startBlocker || phase !== 'ready') {
-      setBotError(startBlocker ?? 'Complete deposit and agent approval first.');
+      setBotError(startBlocker ?? 'Deposit USDC and approve the agent before starting the bot.');
       return;
     }
     setBotError(null);
@@ -452,7 +458,16 @@ const TerminalTradePanel: React.FC<Props> = ({
                 <button
                   type="button"
                   className="term-btn-sm term-btn-sm--primary flex-1 justify-center"
-                  disabled={botBusy || !walletReady}
+                  disabled={botBusy || !walletReady || !canStartBot}
+                  title={
+                    !canStartBot && startBlocker
+                      ? startBlocker
+                      : phase === 'fund'
+                        ? `Deposit $${MIN_HL_BOT_USD}+ on Hyperliquid first`
+                        : phase === 'approve'
+                          ? 'Approve the trading agent first'
+                          : undefined
+                  }
                   onClick={() => void handleStartBot()}
                 >
                   {botBusy ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
@@ -578,6 +593,9 @@ const TerminalTradePanel: React.FC<Props> = ({
               void linkWallet(address);
             }
             refreshAll();
+            if (fundsModalTab === 'deposit') {
+              void hlSetup.pollBalanceAfterDeposit();
+            }
           }}
         />
       )}

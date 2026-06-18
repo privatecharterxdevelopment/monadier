@@ -23,11 +23,11 @@ export function useHlBotSetup(walletAddress: string | undefined) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<number> => {
     if (!walletAddress) {
       setPhase('connect');
       setLoading(false);
-      return;
+      return 0;
     }
 
     setLoading(true);
@@ -41,26 +41,42 @@ export function useHlBotSetup(walletAddress: string | undefined) {
 
       const acctVal = Number(acct?.margin?.accountValue ?? 0);
       const withdraw = Number(acct?.withdrawable ?? 0);
-      setAccountUsd(Number.isFinite(acctVal) ? acctVal : 0);
+      const balance = Number.isFinite(acctVal) ? acctVal : 0;
+      setAccountUsd(balance);
       setWithdrawableUsd(Number.isFinite(withdraw) ? withdraw : 0);
       setAgentApproved(approval.approved);
       setAgentExpiresAt(approval.expiresAt);
       setAgentAddress(agentMeta.agentAddress ?? null);
 
-      if (acctVal < MIN_HL_BOT_USD) {
+      if (balance < MIN_HL_BOT_USD) {
         setPhase('fund');
       } else if (!approval.approved) {
         setPhase('approve');
       } else {
         setPhase('ready');
       }
+      return balance;
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load HL bot setup');
-      setPhase('approve');
+      setPhase('fund');
+      return 0;
     } finally {
       setLoading(false);
     }
   }, [walletAddress]);
+
+  /** HL bridge credits in ~1 min — poll until balance shows up. */
+  const pollBalanceAfterDeposit = useCallback(
+    async (minUsd = MIN_HL_BOT_USD, attempts = 18, intervalMs = 5000) => {
+      for (let i = 0; i < attempts; i++) {
+        const balance = await refresh();
+        if (balance >= minUsd) return balance;
+        await new Promise((r) => setTimeout(r, intervalMs));
+      }
+      return refresh();
+    },
+    [refresh]
+  );
 
   useEffect(() => {
     void refresh();
@@ -77,5 +93,6 @@ export function useHlBotSetup(walletAddress: string | undefined) {
     agentExpiresAt,
     minUsd: MIN_HL_BOT_USD,
     refresh,
+    pollBalanceAfterDeposit,
   };
 }

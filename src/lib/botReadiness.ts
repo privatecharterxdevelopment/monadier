@@ -52,7 +52,7 @@ export function evaluateBotReadiness(
     return {
       canEnter: false,
       headline: 'Bot off',
-      detail: 'Press Start bot when you are funded on Hyperliquid.',
+      detail: 'Complete deposit and agent approval, then press Start bot.',
     };
   }
 
