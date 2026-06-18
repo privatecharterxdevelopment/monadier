@@ -26,7 +26,7 @@ import {
 } from '../../lib/hyperliquid/hlBotAgent';
 import { completeHlBotApprovals } from '../../lib/hyperliquid/hlBotApprovals';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
-import { getHlBuilderConfig, formatBuilderFeeLabel } from '../../lib/hyperliquid/builderConfig';
+import { getHlBuilderConfig } from '../../lib/hyperliquid/builderConfig';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { useBotRuntimeTimer } from '../../hooks/useBotRuntimeTimer';
 import { useBotServerBlockers } from '../../hooks/useBotServerBlockers';
@@ -96,7 +96,6 @@ const TerminalTradePanel: React.FC<Props> = ({
   const [showSettings, setShowSettings] = useState(false);
   const [startMode, setStartMode] = useState(false);
   const [botBusy, setBotBusy] = useState(false);
-  const [approveBusy, setApproveBusy] = useState(false);
   const [botError, setBotError] = useState<string | null>(null);
   const [stopNotice, setStopNotice] = useState<string | null>(null);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
@@ -191,25 +190,22 @@ const TerminalTradePanel: React.FC<Props> = ({
     if (hlFundingUsd < MIN_HL_BOT_USD) {
       return `Deposit at least $${MIN_HL_BOT_USD} USDC on Hyperliquid to start the bot.`;
     }
-    if (!hlSetup.agentApproved || (hlSetup.builderFeeEnabled && !hlSetup.builderFeeApproved)) {
-      return hlSetup.agentApproved
-        ? 'Approve the Hyperliquid platform fee (one-time) — included in the approve button below.'
-        : 'Approve agent and platform fee on Hyperliquid (one-time, 1–2 signatures).';
-    }
     if (!isDemoUser && !isAuthenticated) return 'Sign in to Monadier, then press Start bot.';
     return null;
   }, [
     walletReady,
     hlSetup.loading,
-    hlSetup.agentApproved,
-    hlSetup.builderFeeEnabled,
-    hlSetup.builderFeeApproved,
     hlFundingUsd,
     isDemoUser,
     isAuthenticated,
   ]);
 
-  const canStartBot = phase === 'ready' && !startBlocker;
+  const needsHlApproval =
+    !hlSetup.agentApproved ||
+    (hlSetup.builderFeeEnabled && !hlSetup.builderFeeApproved);
+
+  const canStartBot =
+    (phase === 'ready' || phase === 'approve') && !startBlocker && !botRunning;
 
   useEffect(() => {
     if (!wallet || hlSetup.loading || botSettings.isLoading || !autoTradeDb) return;
@@ -304,54 +300,16 @@ const TerminalTradePanel: React.FC<Props> = ({
     return msg;
   };
 
-  const handleApproveAgent = async () => {
-    if (!walletReady || !address) {
-      open();
-      return;
-    }
-    if (!isDemoUser && !isAuthenticated) {
-      onRequireSignIn?.('Sign in to Monadier before approving the trading agent.');
-      return;
-    }
-    if (!walletClient) {
-      setBotError('Wallet not ready — unlock your wallet and try again.');
-      return;
-    }
-    setBotError(null);
-    setApproveBusy(true);
-    try {
-      if (!isDemoUser) {
-        await linkWallet(address);
-      }
-      await completeHlBotApprovals({ walletClient, walletAddress: address });
-      refreshAll();
-    } catch (err: unknown) {
-      setBotError(parseBotTxError(err));
-    } finally {
-      setApproveBusy(false);
-    }
-  };
-
-  const approveButtonLabel = useMemo(() => {
-    if (hlSetup.agentApproved && hlSetup.builderFeeEnabled && !hlSetup.builderFeeApproved) {
-      return `Approve platform fee (${formatBuilderFeeLabel(builderConfig.feePerp)})`;
-    }
-    if (hlSetup.builderFeeEnabled) {
-      return 'Approve agent & platform fee';
-    }
-    return 'Approve trading agent';
-  }, [
-    hlSetup.agentApproved,
-    hlSetup.builderFeeApproved,
-    hlSetup.builderFeeEnabled,
-    builderConfig.feePerp,
-  ]);
-
-  const persistBotRunning = async (autoTradeEnabled: boolean) => {
+  const persistBotRunning = async (
+    autoTradeEnabled: boolean,
+    ready?: { agentApproved: boolean; builderFeeApproved: boolean }
+  ) => {
     if (!wallet) throw new Error('Connect your wallet first.');
     const s = botSettings.settings;
+    const agentOk = ready?.agentApproved ?? hlSetup.agentApproved;
+    const builderOk = ready?.builderFeeApproved ?? hlSetup.builderFeeApproved;
     if (autoTradeEnabled) {
-      if (!isHlBotReadyToRun(hlFundingUsd, hlSetup.agentApproved, hlSetup.builderFeeApproved)) {
+      if (!isHlBotReadyToRun(hlFundingUsd, agentOk, builderOk)) {
         throw new Error('Deposit USDC, approve the agent, and approve the platform fee before starting the bot.');
       }
       await enableHlBotExecution(wallet);
@@ -380,12 +338,19 @@ const TerminalTradePanel: React.FC<Props> = ({
     });
   };
 
+  const startButtonLabel = useMemo(() => {
+    if (needsHlApproval) {
+      return hlSetup.agentApproved ? 'Approve fee & start bot' : 'Approve & start bot';
+    }
+    return 'Start bot';
+  }, [needsHlApproval, hlSetup.agentApproved]);
+
   const handleStartBot = async () => {
     if (!walletReady) {
       open();
       return;
     }
-    if (!wallet) {
+    if (!wallet || !address) {
       setBotError('Connect your wallet first.');
       return;
     }
@@ -393,8 +358,16 @@ const TerminalTradePanel: React.FC<Props> = ({
       onRequireSignIn?.('Sign in to Monadier, then press Start bot.');
       return;
     }
-    if (startBlocker || phase !== 'ready') {
-      setBotError(startBlocker ?? 'Deposit USDC and approve the agent before starting the bot.');
+    if (phase === 'connect' || phase === 'loading') {
+      setBotError(startBlocker ?? 'Loading Hyperliquid account…');
+      return;
+    }
+    if (hlFundingUsd < MIN_HL_BOT_USD) {
+      setBotError(`Deposit at least $${MIN_HL_BOT_USD} USDC on Hyperliquid to start the bot.`);
+      return;
+    }
+    if (phase !== 'ready' && phase !== 'approve') {
+      setBotError(startBlocker ?? 'Complete setup before starting the bot.');
       return;
     }
     setBotError(null);
@@ -405,16 +378,25 @@ const TerminalTradePanel: React.FC<Props> = ({
 
     setBotBusy(true);
     try {
+      if (!isDemoUser) {
+        await linkWallet(address);
+      }
+
+      let agentApproved = hlSetup.agentApproved;
+      let builderFeeApproved = hlSetup.builderFeeApproved;
+      if (needsHlApproval) {
+        await completeHlBotApprovals({ walletClient: walletClient!, walletAddress: address });
+        agentApproved = true;
+        builderFeeApproved = true;
+      }
+
       await ensureBotSubscription();
-      await persistBotRunning(true);
+      await persistBotRunning(true, { agentApproved, builderFeeApproved });
       markBotRuntimeStarted(timerWallet ?? wallet);
       if (!readHlBotOnboardingComplete(onboardingKey)) {
         writeHlBotOnboardingComplete(onboardingKey);
         setSetupGuideComplete(true);
         fireProfileOnboardingConfetti();
-      }
-      if (!isDemoUser && address) {
-        await linkWallet(address);
       }
       refreshAll();
     } catch (err: unknown) {
@@ -581,22 +563,6 @@ const TerminalTradePanel: React.FC<Props> = ({
               </button>
             )}
 
-            {walletReady && phase === 'approve' && !botRunning && (
-              <button
-                type="button"
-                className="term-btn-sm term-btn-sm--primary w-full justify-center"
-                disabled={approveBusy || hlFundingUsd < MIN_HL_BOT_USD}
-                onClick={() => void handleApproveAgent()}
-              >
-                {approveBusy ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <ShieldCheck size={14} />
-                )}
-                {approveButtonLabel}
-              </button>
-            )}
-
             <div className="flex gap-2">
               {walletReady && botRunning ? (
                 <button
@@ -608,16 +574,28 @@ const TerminalTradePanel: React.FC<Props> = ({
                   {botBusy ? <Loader2 size={14} className="animate-spin" /> : <Square size={14} />}
                   {botBusy ? 'Stopping…' : 'Stop bot'}
                 </button>
-              ) : walletReady && phase === 'ready' ? (
+              ) : walletReady && canStartBot ? (
                 <button
                   type="button"
                   className="term-btn-sm term-btn-sm--primary flex-1 justify-center"
-                  disabled={botBusy || !canStartBot}
-                  title={!canStartBot && startBlocker ? startBlocker : undefined}
+                  disabled={botBusy}
+                  title={
+                    needsHlApproval
+                      ? 'One-time Hyperliquid signatures (agent + platform fee), then bot starts'
+                      : !canStartBot && startBlocker
+                        ? startBlocker
+                        : undefined
+                  }
                   onClick={() => void handleStartBot()}
                 >
-                  {botBusy ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-                  {botBusy ? 'Saving…' : 'Start bot'}
+                  {botBusy ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : needsHlApproval ? (
+                    <ShieldCheck size={14} />
+                  ) : (
+                    <Play size={14} />
+                  )}
+                  {botBusy ? (needsHlApproval ? 'Approving…' : 'Starting…') : startButtonLabel}
                 </button>
               ) : !walletReady ? (
                 <button
@@ -735,7 +713,7 @@ const TerminalTradePanel: React.FC<Props> = ({
       )}
       {showSettings && (
         <TerminalBotSettingsModal
-          setupPhase={phase === 'approve' ? 'fund' : phase === 'ready' ? 'ready' : phase}
+          setupPhase={phase}
           minHlUsd={MIN_HL_BOT_USD}
           settings={botSettings.settings}
           walletAddress={wallet}

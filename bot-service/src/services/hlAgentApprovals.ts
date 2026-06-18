@@ -48,6 +48,35 @@ class HlAgentApprovalService {
     return true;
   }
 
+  async saveApproval(params: {
+    walletAddress: string;
+    agentAddress: string;
+    agentName?: string;
+    expiresAt?: string | null;
+  }): Promise<void> {
+    const wallet = params.walletAddress.toLowerCase();
+    const agent = params.agentAddress.toLowerCase();
+    const now = new Date().toISOString();
+
+    const { error } = await this.supabase.from('hl_agent_approvals').upsert(
+      {
+        wallet_address: wallet,
+        agent_address: agent,
+        agent_name: params.agentName ?? 'monadier',
+        approved_at: now,
+        expires_at: params.expiresAt ?? null,
+        revoked_at: null,
+        updated_at: now,
+      },
+      { onConflict: 'wallet_address' }
+    );
+
+    if (error) {
+      logger.error('hl_agent_approvals upsert failed', { error: error.message, wallet });
+      throw new Error(error.message);
+    }
+  }
+
   async listApprovedWallets(): Promise<string[]> {
     const { data, error } = await this.supabase
       .from('hl_agent_approvals')

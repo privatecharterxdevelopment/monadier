@@ -36,7 +36,7 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
   const setupHint: Record<BotSetupPhase, string> = {
     connect: 'Connect your wallet first.',
     loading: 'Loading Hyperliquid balance…',
-    approve: 'Approve agent and platform fee on Hyperliquid (one-time, 1–2 signatures).',
+    approve: 'Press Start bot on the Bot tab — includes one-time Hyperliquid approvals (1–2 signatures).',
     fund: `Deposit at least $${minUsd} USDC in the Funds tab (wallet on Arbitrum).`,
     ready: 'Adjust risk and leverage — then Start bot on the Bot tab.',
   };

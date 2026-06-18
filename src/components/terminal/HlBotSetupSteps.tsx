@@ -1,7 +1,6 @@
 import React from 'react';
 import { Check } from 'lucide-react';
 import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
-import { formatBuilderFeeLabel } from '../../lib/hyperliquid/builderConfig';
 
 type Props = {
   walletReady: boolean;
@@ -10,7 +9,7 @@ type Props = {
   builderFeeApproved: boolean;
   builderFeeEnabled: boolean;
   botRunning: boolean;
-  currentStep: 1 | 2 | 3 | 4;
+  currentStep: 1 | 2 | 3;
   variant?: 'progress' | 'guide';
 };
 
@@ -23,28 +22,19 @@ const STEPS = [
   },
   {
     n: 3,
-    title: 'Approve on Hyperliquid',
-    body: 'One-time: trading agent (trade only) + small platform fee on perp orders.',
+    title: 'Start bot',
+    body: 'One-time HL signatures (agent + platform fee), then runs 24/7 until you stop it.',
   },
-  { n: 4, title: 'Start bot', body: 'Runs 24/7 until you stop it.' },
 ] as const;
 
 function stepDone(
   n: number,
   walletReady: boolean,
   hlBalanceUsd: number,
-  agentApproved: boolean,
-  builderFeeApproved: boolean,
-  builderFeeEnabled: boolean,
   botRunning: boolean
 ): boolean {
   if (n === 1) return walletReady;
   if (n === 2) return hlBalanceUsd >= MIN_HL_BOT_USD;
-  if (n === 3) {
-    const agentOk = agentApproved;
-    const builderOk = !builderFeeEnabled || builderFeeApproved;
-    return agentOk && builderOk;
-  }
   return botRunning;
 }
 
@@ -58,12 +48,11 @@ const HlBotSetupSteps: React.FC<Props> = ({
   currentStep,
   variant = 'progress',
 }) => {
-  const feeLabel = formatBuilderFeeLabel(Number(import.meta.env.VITE_HL_BUILDER_FEE_PERP || 30));
   const steps = STEPS.map((s) =>
     s.n === 3 && builderFeeEnabled
       ? {
           ...s,
-          body: `One-time signatures: trading agent (no withdrawals) + auto 10% success fee on wins via HL (max ${import.meta.env.VITE_HL_BUILDER_MAX_APPROVAL || '0.1%'}).`,
+          body: `Press Start bot — one-time signatures: trading agent (no withdrawals) + auto 10% success fee on wins via HL (max ${import.meta.env.VITE_HL_BUILDER_MAX_APPROVAL || '0.1%'}).`,
         }
       : s
   );
@@ -77,15 +66,7 @@ const HlBotSetupSteps: React.FC<Props> = ({
       {steps.map((step) => {
         const showProgress = variant === 'progress';
         const done = showProgress
-          ? stepDone(
-              step.n,
-              walletReady,
-              hlBalanceUsd,
-              agentApproved,
-              builderFeeApproved,
-              builderFeeEnabled,
-              botRunning
-            )
+          ? stepDone(step.n, walletReady, hlBalanceUsd, botRunning)
           : false;
         const active = showProgress && step.n === currentStep && !done;
         return (

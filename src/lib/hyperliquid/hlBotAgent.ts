@@ -85,6 +85,29 @@ export async function approveHlBotAgent(
   });
 }
 
+async function saveHlAgentApprovalViaBotApi(params: {
+  walletAddress: string;
+  agentAddress: string;
+  agentName: string;
+  expiresAt?: string | null;
+}): Promise<void> {
+  const base = getBotApiBase();
+  const res = await fetch(`${base}/api/hl-agent/approval`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      wallet: params.walletAddress.toLowerCase(),
+      agentAddress: params.agentAddress.toLowerCase(),
+      agentName: params.agentName,
+      expiresAt: params.expiresAt ?? null,
+    }),
+  });
+  const json = (await res.json()) as { success?: boolean; error?: string };
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || 'Could not save agent approval');
+  }
+}
+
 export async function saveHlAgentApproval(params: {
   walletAddress: string;
   agentAddress: string;
@@ -94,6 +117,19 @@ export async function saveHlAgentApproval(params: {
   const wallet = params.walletAddress.toLowerCase();
   const agent = params.agentAddress.toLowerCase();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error('Sign in to Monadier before approving the trading agent.');
+  }
+
+  const { linkWalletToUser } = await import('../supabase');
+  const { error: linkError } = await linkWalletToUser(user.id, wallet);
+  if (linkError) {
+    throw linkError;
+  }
+
   const { error } = await supabase.rpc('save_hl_agent_approval', {
     p_wallet_address: wallet,
     p_agent_address: agent,
@@ -102,30 +138,24 @@ export async function saveHlAgentApproval(params: {
   });
   if (!error) return;
 
-  const missingRpc =
+  const useBotFallback =
     error.message.includes('Could not find the function') ||
-    error.message.includes('schema cache');
-  if (!missingRpc) {
+    error.message.includes('schema cache') ||
+    /row-level security/i.test(error.message);
+
+  if (!useBotFallback) {
     if (/not authenticated/i.test(error.message)) {
       throw new Error('Sign in to Monadier before approving the trading agent.');
+    }
+    if (/linked to another/i.test(error.message)) {
+      throw new Error(
+        'This wallet is linked to another Monadier account. Use that account or a different wallet.'
+      );
     }
     throw new Error(error.message);
   }
 
-  await supabase.rpc('register_my_wallet', { p_wallet: wallet });
-  const { error: upsertError } = await supabase.from('hl_agent_approvals').upsert(
-    {
-      wallet_address: wallet,
-      agent_address: agent,
-      agent_name: params.agentName,
-      approved_at: new Date().toISOString(),
-      expires_at: params.expiresAt ?? null,
-      revoked_at: null,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'wallet_address' }
-  );
-  if (upsertError) throw new Error(upsertError.message);
+  await saveHlAgentApprovalViaBotApi(params);
 }
 
 export async function approveAndSaveHlBotAgent(opts: {

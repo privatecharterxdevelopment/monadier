@@ -7,7 +7,7 @@ export type HlBotSidebarStatus = {
   headline: string;
   detail: string;
   tone: 'neutral' | 'warn' | 'ok' | 'active';
-  setupStep: 1 | 2 | 3 | 4;
+  setupStep: 1 | 2 | 3;
   setupComplete: boolean;
 };
 
@@ -16,7 +16,7 @@ function simplifyBlocker(raw: string): string {
     return 'Trading agent not approved yet';
   }
   if (/builder fee|platform fee/i.test(raw)) {
-    return 'Approve the Hyperliquid platform fee in the Bot panel';
+    return 'Press Start bot to approve the Hyperliquid platform fee';
   }
   if (/HL balance|HL-Guthaben/i.test(raw)) {
     return raw.replace(/HL balance/i, 'HL balance').replace(/HL-Guthaben/i, 'HL balance');
@@ -104,10 +104,10 @@ export function getHlBotSidebarStatus(opts: {
     }
     if (needsApprove) {
       return {
-        headline: 'Approve on Hyperliquid',
+        headline: 'Start bot',
         detail: needsAgent
-          ? 'One-time wallet signature(s): trading agent (trade only, no withdrawals) and Monadier platform fee on perp orders.'
-          : 'Approve the Monadier platform fee on Hyperliquid (one-time) — required for bot orders.',
+          ? 'Press Start bot below — includes one-time Hyperliquid signatures (trading agent + platform fee, 1–2 wallet confirmations).'
+          : 'Press Start bot below — includes one-time platform fee approval on Hyperliquid.',
         tone: 'warn',
         setupStep: 3,
         setupComplete: false,
@@ -115,9 +115,9 @@ export function getHlBotSidebarStatus(opts: {
     }
     return {
       headline: 'Ready',
-      detail: 'Account funded and approvals complete. Press Start bot below — deposit alone does not start trading.',
+      detail: 'Account funded. Press Start bot below — deposit alone does not start trading.',
       tone: 'ok',
-      setupStep: 4,
+      setupStep: 3,
       setupComplete: true,
     };
   }
@@ -129,7 +129,7 @@ export function getHlBotSidebarStatus(opts: {
       headline: `Running${timer}`,
       detail: 'Managing your open Hyperliquid position.',
       tone: 'active',
-      setupStep: 4,
+      setupStep: 3,
       setupComplete: true,
     };
   }
@@ -139,7 +139,7 @@ export function getHlBotSidebarStatus(opts: {
       headline: `Running${timer}`,
       detail: formatServerBlockers(serverBlockers),
       tone: 'active',
-      setupStep: 4,
+      setupStep: 3,
       setupComplete: true,
     };
   }
@@ -149,7 +149,7 @@ export function getHlBotSidebarStatus(opts: {
       headline: `Running${timer}`,
       detail: readiness.detail,
       tone: 'active',
-      setupStep: 4,
+      setupStep: 3,
       setupComplete: true,
     };
   }
@@ -158,7 +158,7 @@ export function getHlBotSidebarStatus(opts: {
     headline: `Running${timer}`,
     detail: 'Scanning Hyperliquid markets — opens a trade when setup looks good.',
     tone: 'active',
-    setupStep: 4,
+    setupStep: 3,
     setupComplete: true,
   };
 }

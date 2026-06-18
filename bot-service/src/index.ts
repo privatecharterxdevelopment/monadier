@@ -21,7 +21,7 @@ import {
 } from './services/userBatchProcessor';
 import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './services/hlAgent';
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
-import { fetchHlClearinghouseState, hlAccountValueUsd, hlOpenPerpCoins } from './services/hlInfo';
+import { fetchHlClearinghouseState, hlAccountValueUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive } from './services/hlInfo';
 import { getLastHlOpenError } from './services/hlTrading';
 import { checkHlBuilderFeeApproved } from './services/hlBuilder';
 import { getHlFeeSummary } from './services/hlSuccessFees';
@@ -106,6 +106,78 @@ const healthServer = http.createServer(async (req, res) => {
         success: false,
         error: err.message || 'Signal fetch failed'
       }));
+    }
+    return;
+  }
+
+  const readJsonBody = async (): Promise<Record<string, unknown>> => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) {
+      chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+    }
+    const raw = Buffer.concat(chunks).toString('utf8').trim();
+    if (!raw) return {};
+    return JSON.parse(raw) as Record<string, unknown>;
+  };
+
+  // API: Persist HL agent approval after on-chain approveAgent (service role — bypasses RLS)
+  if (url.pathname === '/api/hl-agent/approval' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody();
+      const wallet = String(body.wallet ?? '').toLowerCase();
+      const agentAddress = String(body.agentAddress ?? '').toLowerCase();
+      const agentName = String(body.agentName ?? 'monadier');
+      const expiresAt =
+        body.expiresAt == null || body.expiresAt === ''
+          ? null
+          : String(body.expiresAt);
+
+      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
+        return;
+      }
+      if (!/^0x[a-f0-9]{40}$/.test(agentAddress)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'agentAddress required (0x…)' }));
+        return;
+      }
+
+      const expectedAgent = deriveUserHlAgentAddress(wallet);
+      if (agentAddress !== expectedAgent) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'agentAddress does not match Monadier agent' }));
+        return;
+      }
+
+      const agents = await fetchHlExtraAgents(wallet);
+      const live = agents.find(
+        (a) => a.address === agentAddress && isHlExtraAgentActive(a)
+      );
+      if (!live) {
+        res.writeHead(400, corsHeaders);
+        res.end(
+          JSON.stringify({
+            success: false,
+            error: 'Agent not approved on Hyperliquid yet — complete the wallet signature first',
+          })
+        );
+        return;
+      }
+
+      await hlAgentApprovalService.saveApproval({
+        walletAddress: wallet,
+        agentAddress,
+        agentName: live.name || agentName,
+        expiresAt: live.validUntil ? new Date(live.validUntil).toISOString() : expiresAt,
+      });
+
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, wallet, agentAddress }));
+    } catch (err: any) {
+      logger.error('API: hl-agent/approval failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'hl-agent/approval failed' }));
     }
     return;
   }
@@ -406,6 +478,7 @@ healthServer.listen(PORT, () => {
   logger.info('  GET /health - Health check');
   logger.info('  GET /api/signal?symbol=ETHUSDT&timeframes=1m,5m,15m,1h - MTF Signal');
   logger.info('  GET /api/hl-agent?wallet=0x… - Per-user HL agent address');
+  logger.info('  POST /api/hl-agent/approval - Save HL agent approval (service role)');
   logger.info('  GET /api/bot-status?wallet=0x… - Wallet bot diagnostics');
   logger.info('  GET /api/global-signals - Top HL perp signals from last scan');
   logger.info('  GET /api/timeframe?symbol=ETHUSDT&tf=15m - Single timeframe analysis');
