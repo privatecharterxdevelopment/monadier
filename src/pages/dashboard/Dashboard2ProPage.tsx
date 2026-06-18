@@ -500,17 +500,15 @@ const Dashboard2ProPage: React.FC = () => {
       <div className="hl-body">
         <div className="hl-workspace-main">
           <div className="hl-chart-row">
-            <div className="hl-bot-chart-stack">
-              <ProTradeChart
-                coin={perpCoin}
-                interval={interval}
-                candles={perpMarket.candles}
-                loading={perpMarket.loading}
-                openOrders={perpOpenOrders}
-                onIntervalChange={setInterval}
-                layoutKey={`bot-${perpCoin}-${interval}`}
-              />
-            </div>
+            <ProTradeChart
+              coin={perpCoin}
+              interval={interval}
+              candles={perpMarket.candles}
+              loading={perpMarket.loading}
+              openOrders={perpOpenOrders}
+              onIntervalChange={setInterval}
+              layoutKey={`bot-${perpCoin}-${interval}`}
+            />
             <ProTradeOrderBook
               book={perpMarket.book}
               recentTrades={perpMarket.recentTrades}

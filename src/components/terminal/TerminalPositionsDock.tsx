@@ -652,15 +652,14 @@ const TerminalPositionsDock: React.FC<Props> = ({
                         {t.walletAddress.slice(0, 6)}…{t.walletAddress.slice(-4)}
                       </td>
                     ) : null}
-                    <td>
-                      <span
-                        className={
-                          t.direction === 'LONG' ? 'term-dir-long' : 'term-dir-short'
-                        }
-                      >
-                        {t.direction}
-                      </span>{' '}
-                      {displaySymbol(t.tokenSymbol)}
+                    <td
+                      className={
+                        t.direction === 'LONG'
+                          ? 'term-history-pos term-history-pos--long'
+                          : 'term-history-pos term-history-pos--short'
+                      }
+                    >
+                      {t.direction} {displaySymbol(t.tokenSymbol)}
                     </td>
                     <td>{fmtUsd(t.entryAmount)}</td>
                     <td>{t.leverage}x</td>

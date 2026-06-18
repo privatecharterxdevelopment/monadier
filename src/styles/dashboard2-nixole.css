@@ -1120,12 +1120,12 @@
 }
 
 .term-dir-long {
-  color: var(--term-text) !important;
+  color: #16a34a !important;
   font-weight: 600;
 }
 
 .term-dir-short {
-  color: var(--term-text-muted) !important;
+  color: #ef4444 !important;
   font-weight: 600;
 }
 
