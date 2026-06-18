@@ -25,8 +25,8 @@ echo "GET /health"
 echo "$health" | head -c 500
 echo ""
 
-if ! echo "$health" | grep -q 'v11.0-gmx-arbitrum'; then
-  echo "WARN: response does not look like Monadier bot (expected version v11.0-gmx-arbitrum)"
+if ! echo "$health" | grep -qE 'v12.0-hyperliquid-bot|v11.0-gmx-arbitrum'; then
+  echo "WARN: response does not look like Monadier bot (expected v12.0-hyperliquid-bot)"
   echo "      You may be hitting a different Railway service."
 fi
 
