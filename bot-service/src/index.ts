@@ -10,7 +10,11 @@ import { Timeframe } from './services/signalEngine';
 import { startDemoSimulator } from './demoSimulator';
 import { validateProductionEnvironment } from './startup/validateProduction';
 import { checkWinRateGate } from './services/tradeGates';
-import { hyperliquidTradingService } from './services/hlTrading';
+import { buildTradingCycleContext } from './services/tradingCycleContext';
+import {
+  processUserBatch,
+  sliceUsersForCycle,
+} from './services/userBatchProcessor';
 import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './services/hlAgent';
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
 import { fetchHlClearinghouseState, hlAccountValueUsd, hlOpenPerpCoins } from './services/hlInfo';
@@ -48,7 +52,7 @@ const healthServer = http.createServer(async (req, res) => {
       uptime: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
       lastCheck: new Date(lastTradeCheck).toISOString(),
       tradesExecuted: totalTradesExecuted,
-      version: 'v14.0-hl-all-perps'
+      version: 'v15.0-multi-user-scale'
     };
     res.writeHead(200, corsHeaders);
     res.end(JSON.stringify(status));
@@ -428,16 +432,33 @@ async function runTradingCycle(): Promise<void> {
     await updateBotAnalysis();
 
     try {
-      const users = await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId);
-      logger.info(`HL bot: processing ${users.length} auto-trade user(s)`);
-      for (const wallet of users) {
-        await hyperliquidTradingService.processUser(wallet as `0x${string}`);
-      }
+      const cycleStarted = Date.now();
+      const allUsers = await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId);
+      const { wallets, total, offset } = sliceUsersForCycle(allUsers);
+
+      logger.info('HL bot cycle: building shared market context', {
+        activeBots: total,
+        processing: wallets.length,
+        roundRobinOffset: offset,
+      });
+
+      const ctx = await buildTradingCycleContext();
+
+      const stats = await processUserBatch(wallets, ctx, total);
+
+      logger.info('Trading cycle complete', {
+        activeBots: total,
+        batchSize: wallets.length,
+        succeeded: stats.succeeded,
+        skipped: stats.skipped,
+        failed: stats.failed,
+        batchMs: stats.ms,
+        cycleMs: Date.now() - cycleStarted,
+        globalSignals: ctx.globalSignals.length,
+      });
     } catch (err) {
       logger.error('Error in HL trading cycle', { error: err });
     }
-
-    logger.info('Trading cycle complete');
   } finally {
     isTradingCycleRunning = false;
   }
@@ -455,6 +476,9 @@ function logStartupInfo(): void {
     chain: 'Hyperliquid perps',
     tradeInterval: `${config.trading.checkIntervalMs / 1000}s`,
     minHlAccountUsd: config.hyperliquid.minAccountUsd,
+    userConcurrency: config.scaling.userProcessConcurrency,
+    maxUsersPerCycle: config.scaling.maxUsersPerCycle,
+    globalScanConcurrency: config.scaling.globalScanConcurrency,
   });
 
   logger.info('='.repeat(50));
@@ -471,7 +495,11 @@ async function main(): Promise<void> {
   await paymentService.startMonitoring();
   logger.info('Payment monitoring started - watching treasury for incoming USDC');
 
-  await subscriptionService.ensureFreeSubscriptionsForMissingUsers();
+  if (!config.scaling.skipSubscriptionBootstrap) {
+    await subscriptionService.ensureFreeSubscriptionsForMissingUsers();
+  } else {
+    logger.info('Subscription bootstrap skipped (BOT_SKIP_SUB_BOOTSTRAP=true)');
+  }
 
   // Run immediately on startup
   await runTradingCycle();

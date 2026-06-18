@@ -767,72 +767,39 @@ export class SubscriptionService {
   }
 
   /**
-   * Get all users with auto-trade enabled for a specific chain
-   * NEW: Combines vault_settings + subscribed users + ALL user_wallets
-   * This ensures users with multiple wallets are found!
+   * Wallets with auto-trade ON only (Hyperliquid path).
+   * Does not include inactive subscribers — critical at 1M+ signups.
    */
   async getAutoTradeUsers(chainId?: number): Promise<string[]> {
     try {
-      const allAddresses = new Set<string>();
-
-      // 1. Get users from vault_settings (those who explicitly enabled auto-trade in UI)
-      let vaultQuery = this.supabase
+      let query = this.supabase
         .from('vault_settings')
         .select('wallet_address')
-        .eq('auto_trade_enabled', true);
+        .eq('auto_trade_enabled', true)
+        .eq('execution_venue', 'hyperliquid');
 
       if (chainId) {
-        vaultQuery = vaultQuery.eq('chain_id', chainId);
+        query = query.eq('chain_id', chainId);
       }
 
-      const { data: vaultData } = await vaultQuery;
-      if (vaultData) {
-        vaultData.forEach(d => {
-          if (d.wallet_address) allAddresses.add(d.wallet_address.toLowerCase());
-        });
+      const { data, error } = await query;
+      if (error) {
+        logger.error('Failed to get auto-trade users', { error });
+        return [];
       }
 
-      // 2. Get all subscribed users
-      const { data: subData } = await this.supabase
-        .from('subscriptions')
-        .select('user_id, wallet_address')
-        .eq('status', 'active')
-        .neq('plan_tier', 'free');
-
-      if (subData) {
-        // Add wallet from subscription
-        subData.forEach(d => {
-          if (d.wallet_address) allAddresses.add(d.wallet_address.toLowerCase());
-        });
-
-        // 3. NEW: Also get ALL wallets for each subscribed user from user_wallets
-        const userIds = subData.map(d => d.user_id).filter(Boolean);
-        if (userIds.length > 0) {
-          const { data: userWallets } = await this.supabase
-            .from('user_wallets')
-            .select('wallet_address')
-            .in('user_id', userIds);
-
-          if (userWallets) {
-            userWallets.forEach(w => {
-              if (w.wallet_address) allAddresses.add(w.wallet_address.toLowerCase());
-            });
-            logger.debug('Added wallets from user_wallets table', {
-              count: userWallets.length
-            });
-          }
-        }
-      }
-
-      const addresses = Array.from(allAddresses);
+      const addresses = [
+        ...new Set(
+          (data ?? [])
+            .map((d) => d.wallet_address?.toLowerCase())
+            .filter((w): w is string => Boolean(w))
+        ),
+      ];
 
       if (addresses.length > 0) {
-        logger.info('Found potential auto-trade users', {
+        logger.info('Active HL auto-trade wallets', {
           chainId,
-          fromVaultSettings: vaultData?.length || 0,
-          fromSubscriptions: subData?.length || 0,
-          totalUnique: addresses.length,
-          wallets: addresses.map(a => a?.slice(0, 10))
+          count: addresses.length,
         });
       }
 

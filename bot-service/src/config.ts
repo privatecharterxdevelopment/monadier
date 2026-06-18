@@ -94,4 +94,16 @@ export const config = {
       process.env.TREASURY_ADDRESS) as `0x${string}`,
     builderFeePerp: Number(process.env.HL_BUILDER_FEE_PERP || 30),
   },
+
+  /** Multi-user scale — 1M+ signups, thousands of concurrent bots */
+  scaling: {
+    /** Parallel HL users processed per cycle */
+    userProcessConcurrency: Number(process.env.BOT_USER_CONCURRENCY || 64),
+    /** Max wallets per cycle (0 = all). Round-robin when list exceeds cap. */
+    maxUsersPerCycle: Number(process.env.BOT_MAX_USERS_PER_CYCLE || 5000),
+    /** Parallel perp signal scans in global universe pass */
+    globalScanConcurrency: Number(process.env.BOT_GLOBAL_SCAN_CONCURRENCY || 24),
+    /** Skip ensureFreeSubscriptions on boot when profile count is huge */
+    skipSubscriptionBootstrap: process.env.BOT_SKIP_SUB_BOOTSTRAP === 'true',
+  },
 };

@@ -6,38 +6,20 @@ import { hlAgentApprovalService } from './hlAgentApprovals';
 import {
   coinToAssetIndex,
   maxLeverageForCoin,
-  fetchHlAllMids,
   fetchHlClearinghouseState,
+  fetchHlAllMids,
   fetchHlMeta,
   formatHlPrice,
   formatHlSize,
   hlAccountValueUsd,
   hlOpenPerpCoins,
-  listHlTradableCoins,
 } from './hlInfo';
-import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { subscriptionService } from './subscription';
-import { marketService, TradingStrategy } from './market';
+import type { TradingCycleContext } from './tradingCycleContext';
 
 const transport = new HttpTransport();
-const DEFAULT_STRATEGY: TradingStrategy = 'aggressive';
 
-async function mapPool<T, R>(
-  items: T[],
-  concurrency: number,
-  fn: (item: T, index: number) => Promise<R>
-): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let next = 0;
-  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
-    while (next < items.length) {
-      const i = next++;
-      results[i] = await fn(items[i], i);
-    }
-  });
-  await Promise.all(workers);
-  return results;
-}
+export type UserProcessResult = 'ok' | 'skip' | 'fail';
 
 function createAgentClient(userAddress: string): ExchangeClient {
   const agent = deriveUserHlAgent(userAddress);
@@ -76,92 +58,64 @@ export class HyperliquidTradingService {
     return { ok: true };
   }
 
-  async processUser(userAddress: `0x${string}`): Promise<void> {
+  async processUser(
+    userAddress: `0x${string}`,
+    ctx: TradingCycleContext
+  ): Promise<UserProcessResult> {
     const gate = await this.canTrade(userAddress);
     if (!gate.ok) {
-      logger.debug('HL trade skip', { user: userAddress.slice(0, 10), reason: gate.reason });
-      return;
+      return 'skip';
     }
 
     const settings = await subscriptionService.getUserTradingSettings(
       userAddress,
       config.arbitrum.chainId
     );
-    if (!settings.autoTradeEnabled) return;
+    if (!settings.autoTradeEnabled) return 'skip';
 
     const state = await fetchHlClearinghouseState(userAddress);
+    if (!state) return 'skip';
+
     const openCoins = hlOpenPerpCoins(state);
     if (openCoins.length > 0) {
       await this.monitorOpenPositions(userAddress, state, settings);
-      return;
+      return 'ok';
     }
 
-    await this.tryOpenFromSignal(userAddress, settings);
+    return this.tryOpenFromGlobalSignals(userAddress, settings, state, ctx);
   }
 
-  private async tryOpenFromSignal(
+  private async tryOpenFromGlobalSignals(
     userAddress: `0x${string}`,
-    settings: Awaited<ReturnType<typeof subscriptionService.getUserTradingSettings>>
-  ): Promise<void> {
-    const balance = hlAccountValueUsd(await fetchHlClearinghouseState(userAddress));
+    settings: Awaited<ReturnType<typeof subscriptionService.getUserTradingSettings>>,
+    state: NonNullable<Awaited<ReturnType<typeof fetchHlClearinghouseState>>>,
+    ctx: TradingCycleContext
+  ): Promise<UserProcessResult> {
+    if (ctx.globalSignals.length === 0) return 'skip';
+
+    const balance = hlAccountValueUsd(state);
     const riskUsd = (balance * settings.riskLevelBps) / 10000;
     const collateral = Math.max(riskUsd, 0);
-    if (collateral < 5) return;
+    if (collateral < 5) return 'skip';
 
-    const coins = await listHlTradableCoins();
-    const collateralWei = BigInt(Math.floor(collateral * 1e6));
-    const minConf = config.hyperliquid.minSignalConfidence;
-    const concurrency = config.hyperliquid.scanConcurrency;
-
-    const scanned = await mapPool(coins, concurrency, async (coin) => {
-      const symbol = hlCoinToBinanceSymbol(coin);
-      const signal = await marketService.getSignalForSymbol(
-        symbol,
-        collateralWei,
-        settings.riskLevelBps,
-        DEFAULT_STRATEGY
-      );
-      if (!signal || signal.confidence < minConf) return null;
-      return {
-        coin,
-        direction: signal.direction,
-        confidence: signal.confidence,
-        reason: signal.reason,
-      };
-    });
-
-    const candidates = scanned.filter(
-      (c): c is NonNullable<typeof c> => c !== null
-    );
-    if (candidates.length === 0) return;
-
-    candidates.sort((a, b) => b.confidence - a.confidence);
-    const best = candidates[0];
-
-    const meta = await fetchHlMeta();
+    const best = ctx.globalSignals[0];
     const leverage = Math.min(
       Math.max(1, Math.floor(settings.leverageMultiplier || 10)),
-      maxLeverageForCoin(meta, best.coin)
+      maxLeverageForCoin(ctx.meta, best.coin)
     );
     const notionalUsd = collateral * leverage;
 
-    logger.info('HL best signal across universe', {
-      user: userAddress.slice(0, 10),
-      scanned: coins.length,
-      candidates: candidates.length,
-      coin: best.coin,
-      direction: best.direction,
-      confidence: best.confidence,
-    });
-
-    await this.openMarketPosition({
+    const opened = await this.openMarketPosition({
       userAddress,
       coin: best.coin,
       direction: best.direction,
       notionalUsd,
       leverage,
       reason: `MTF ${best.direction} ${best.confidence}% · ${best.coin}`,
+      ctx,
     });
+
+    return opened.success ? 'ok' : 'fail';
   }
 
   async openMarketPosition(opts: {
@@ -171,10 +125,10 @@ export class HyperliquidTradingService {
     notionalUsd: number;
     leverage: number;
     reason: string;
+    ctx: TradingCycleContext;
   }): Promise<{ success: boolean; error?: string }> {
     try {
-      const meta = await fetchHlMeta();
-      const mids = await fetchHlAllMids();
+      const { meta, mids } = opts.ctx;
       const coin = opts.coin.toUpperCase();
       const assetIndex = coinToAssetIndex(meta, coin);
       const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
@@ -231,7 +185,7 @@ export class HyperliquidTradingService {
         user: opts.userAddress.slice(0, 10),
         coin,
         direction: opts.direction,
-        leverage: opts.leverage,
+        leverage: effectiveLeverage,
         notionalUsd: opts.notionalUsd.toFixed(2),
         reason: opts.reason,
       });
