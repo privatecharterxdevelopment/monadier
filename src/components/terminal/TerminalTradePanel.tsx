@@ -20,6 +20,7 @@ import { persistVaultSettings } from '../../lib/syncVaultSettings';
 import { ensureBotSubscription } from '../../lib/ensureBotSubscription';
 import {
   approveAndSaveHlBotAgent,
+  disableHlBotExecution,
   enableHlBotExecution,
   fetchHlAgentAddress,
   MIN_HL_BOT_USD,
@@ -315,6 +316,8 @@ const TerminalTradePanel: React.FC<Props> = ({
         throw new Error('Deposit USDC on Hyperliquid and approve the agent before starting the bot.');
       }
       await enableHlBotExecution(wallet);
+    } else {
+      await disableHlBotExecution(wallet);
     }
   };
 
@@ -362,16 +365,21 @@ const TerminalTradePanel: React.FC<Props> = ({
       open();
       return;
     }
+    if (!isDemoUser && !isAuthenticated) {
+      onRequireSignIn?.('Sign in to Monadier, then press Stop bot.');
+      return;
+    }
     setBotError(null);
     setStopNotice(null);
     setBotBusy(true);
     try {
       await persistBotRunning(false);
       clearBotRuntimeTimer(timerWallet ?? wallet);
+      setSettingsTick((n) => n + 1);
       refreshAll();
       onRefresh();
       setStopNotice(
-        'Bot stopped — no new trades. Open HL positions stay until TP/SL or manual close.'
+        'Bot stopped — no new trades. Stop is instant on Hyperliquid (no MetaMask). Open positions stay until TP/SL or manual close.'
       );
     } catch (e: unknown) {
       setBotError(e instanceof Error ? e.message : 'Failed to stop bot');
@@ -508,7 +516,7 @@ const TerminalTradePanel: React.FC<Props> = ({
                   onClick={() => void handleStopBot()}
                 >
                   {botBusy ? <Loader2 size={14} className="animate-spin" /> : <Square size={14} />}
-                  Stop bot
+                  {botBusy ? 'Stopping…' : 'Stop bot'}
                 </button>
               ) : walletReady && phase === 'ready' ? (
                 <button

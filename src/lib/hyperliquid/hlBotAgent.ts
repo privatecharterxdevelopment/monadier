@@ -278,3 +278,19 @@ export async function enableHlBotExecution(walletAddress: string): Promise<void>
   );
   if (error) throw new Error(error.message);
 }
+
+/** Tell Railway to skip this wallet — HL stop is DB-only (no MetaMask tx). */
+export async function disableHlBotExecution(walletAddress: string): Promise<void> {
+  const { error } = await supabase.from('vault_settings').upsert(
+    {
+      wallet_address: walletAddress.toLowerCase(),
+      chain_id: 42161,
+      execution_venue: 'hyperliquid',
+      auto_trade_enabled: false,
+      updated_at: new Date().toISOString(),
+      synced_at: new Date().toISOString(),
+    },
+    { onConflict: 'wallet_address,chain_id' }
+  );
+  if (error) throw new Error(error.message);
+}
