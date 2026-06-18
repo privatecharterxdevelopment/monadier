@@ -5,6 +5,7 @@ import { deriveUserHlAgent } from './hlAgent';
 import { hlAgentApprovalService } from './hlAgentApprovals';
 import {
   coinToAssetIndex,
+  maxLeverageForCoin,
   fetchHlAllMids,
   fetchHlClearinghouseState,
   fetchHlMeta,
@@ -124,7 +125,7 @@ export class HyperliquidTradingService {
 
     const leverage = Math.min(
       Math.max(1, Math.floor(settings.leverageMultiplier || 10)),
-      50
+      maxLeverageForCoin(await fetchHlMeta(), best.coin)
     );
     const notionalUsd = collateral * leverage;
 
@@ -152,6 +153,7 @@ export class HyperliquidTradingService {
       const coin = opts.coin.toUpperCase();
       const assetIndex = coinToAssetIndex(meta, coin);
       const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
+      const effectiveLeverage = Math.min(opts.leverage, maxLeverageForCoin(meta, coin));
       const markPx = Number(mids[coin] ?? mids[`${coin}-PERP`] ?? 0);
       if (!markPx || !Number.isFinite(markPx)) {
         return { success: false, error: 'No HL mark price' };
@@ -164,7 +166,7 @@ export class HyperliquidTradingService {
       await client.updateLeverage({
         asset: assetIndex,
         isCross: true,
-        leverage: opts.leverage,
+        leverage: effectiveLeverage,
       });
 
       const isLong = opts.direction === 'LONG';

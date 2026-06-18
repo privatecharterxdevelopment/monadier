@@ -71,8 +71,8 @@ export const config = {
 
   // Leverage limits
   leverage: {
-    standard: 25,  // 1x-25x for regular users
-    elite: 100,    // 1x-100x for elite users (GMX)
+    standard: 25,
+    elite: 40,
   },
 
   /** hyperliquid only — GMX vault path removed */

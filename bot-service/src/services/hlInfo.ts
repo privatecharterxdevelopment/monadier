@@ -65,7 +65,9 @@ export function hlOpenPerpCoins(state: HlClearinghouseState | null): string[] {
   return coins;
 }
 
-export async function fetchHlMeta(): Promise<{ universe: { name: string; szDecimals: number }[] }> {
+export async function fetchHlMeta(): Promise<{
+  universe: { name: string; szDecimals: number; maxLeverage?: number }[];
+}> {
   const res = await fetch(config.hyperliquid.infoUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -83,6 +85,16 @@ export async function fetchHlAllMids(): Promise<Record<string, string>> {
   });
   if (!res.ok) throw new Error('HL allMids fetch failed');
   return res.json();
+}
+
+export function maxLeverageForCoin(
+  meta: { universe: { name: string; maxLeverage?: number }[] },
+  coin: string
+): number {
+  const name = coin.toUpperCase().replace(/-PERP$/i, '');
+  const asset = meta.universe.find((u) => u.name.toUpperCase() === name);
+  const max = asset?.maxLeverage;
+  return max && max > 0 ? max : 40;
 }
 
 export function coinToAssetIndex(meta: { universe: { name: string }[] }, coin: string): number {

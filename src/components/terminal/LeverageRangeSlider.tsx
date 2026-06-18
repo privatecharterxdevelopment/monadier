@@ -46,7 +46,9 @@ const LeverageRangeSlider: React.FC<Props> = ({
         <span>1x</span>
         <span>{getMaxLeverageLabel(planTier)} max</span>
       </div>
-      <p className="term-hint term-leverage-slider-hint">Steps of 5x · saved to vault &amp; database</p>
+      <p className="term-hint term-leverage-slider-hint">
+        HL limits per pair (e.g. ETH 25x, BTC 40x) · saved to bot settings
+      </p>
     </div>
   );
 };

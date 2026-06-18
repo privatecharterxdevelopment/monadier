@@ -1,12 +1,22 @@
-/** GMX leverage — plan cap + 5x steps (1x, 5x, 10x, …) synced to vault_settings.leverage_multiplier */
+/** Hyperliquid per-asset max leverage (from HL meta API; refresh if HL changes tiers). */
+export const HL_MAX_LEVERAGE_BY_COIN: Record<string, number> = {
+  BTC: 40,
+  ETH: 25,
+  ARB: 10,
+};
 
-export const MAX_LEVERAGE = 100;
+export const HL_BOT_MAX_LEVERAGE = Math.min(
+  HL_MAX_LEVERAGE_BY_COIN.BTC,
+  HL_MAX_LEVERAGE_BY_COIN.ETH
+);
+
+export const MAX_LEVERAGE = 40;
 export const LEVERAGE_STEP = 5;
 export const MIN_LEVERAGE = 1;
 
 /** @deprecated Use leverage slider — kept for legacy chip UIs */
 export const LEVERAGE_CHIPS = [
-  1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100,
+  1, 5, 10, 15, 20, 25, 30, 35, 40,
 ] as const;
 
 export function getMaxLeverageForPlan(_planTier?: string | null): number {
