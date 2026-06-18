@@ -13,21 +13,30 @@ import {
   formatHlSize,
   hlAccountValueUsd,
   hlOpenPerpCoins,
+  listHlTradableCoins,
 } from './hlInfo';
+import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { subscriptionService } from './subscription';
 import { marketService, TradingStrategy } from './market';
-import { ARBITRUM_SIGNAL_TOKENS } from '../arbitrumTokens';
 
 const transport = new HttpTransport();
 const DEFAULT_STRATEGY: TradingStrategy = 'aggressive';
-const SYMBOL_TO_COIN: Record<string, string> = {
-  ETHUSDT: 'ETH',
-  BTCUSDT: 'BTC',
-  ARBUSDT: 'ARB',
-};
 
-function coinFromSymbol(symbol: string): string {
-  return SYMBOL_TO_COIN[symbol.toUpperCase()] ?? 'ETH';
+async function mapPool<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i], i);
+    }
+  });
+  await Promise.all(workers);
+  return results;
 }
 
 function createAgentClient(userAddress: string): ExchangeClient {
@@ -99,35 +108,51 @@ export class HyperliquidTradingService {
     const collateral = Math.max(riskUsd, 0);
     if (collateral < 5) return;
 
-    let best: { coin: string; direction: 'LONG' | 'SHORT'; confidence: number } | null = null;
+    const coins = await listHlTradableCoins();
+    const collateralWei = BigInt(Math.floor(collateral * 1e6));
+    const minConf = config.hyperliquid.minSignalConfidence;
+    const concurrency = config.hyperliquid.scanConcurrency;
 
-    const signalPairs = [
-      { symbol: 'ETHUSDT', token: ARBITRUM_SIGNAL_TOKENS.WETH },
-      { symbol: 'BTCUSDT', token: ARBITRUM_SIGNAL_TOKENS.WBTC },
-    ] as const;
-
-    for (const { symbol, token } of signalPairs) {
-      const signal = await marketService.getSignal(
-        config.arbitrum.chainId,
-        token,
-        BigInt(Math.floor(collateral * 1e6)),
+    const scanned = await mapPool(coins, concurrency, async (coin) => {
+      const symbol = hlCoinToBinanceSymbol(coin);
+      const signal = await marketService.getSignalForSymbol(
+        symbol,
+        collateralWei,
         settings.riskLevelBps,
         DEFAULT_STRATEGY
       );
-      if (!signal) continue;
-      const coin = coinFromSymbol(symbol);
-      if (!best || signal.confidence > best.confidence) {
-        best = { coin, direction: signal.direction, confidence: signal.confidence };
-      }
-    }
+      if (!signal || signal.confidence < minConf) return null;
+      return {
+        coin,
+        direction: signal.direction,
+        confidence: signal.confidence,
+        reason: signal.reason,
+      };
+    });
 
-    if (!best || best.confidence < 25) return;
+    const candidates = scanned.filter(
+      (c): c is NonNullable<typeof c> => c !== null
+    );
+    if (candidates.length === 0) return;
 
+    candidates.sort((a, b) => b.confidence - a.confidence);
+    const best = candidates[0];
+
+    const meta = await fetchHlMeta();
     const leverage = Math.min(
       Math.max(1, Math.floor(settings.leverageMultiplier || 10)),
-      maxLeverageForCoin(await fetchHlMeta(), best.coin)
+      maxLeverageForCoin(meta, best.coin)
     );
     const notionalUsd = collateral * leverage;
+
+    logger.info('HL best signal across universe', {
+      user: userAddress.slice(0, 10),
+      scanned: coins.length,
+      candidates: candidates.length,
+      coin: best.coin,
+      direction: best.direction,
+      confidence: best.confidence,
+    });
 
     await this.openMarketPosition({
       userAddress,
@@ -135,7 +160,7 @@ export class HyperliquidTradingService {
       direction: best.direction,
       notionalUsd,
       leverage,
-      reason: `MTF ${best.direction} ${best.confidence}%`,
+      reason: `MTF ${best.direction} ${best.confidence}% · ${best.coin}`,
     });
   }
 

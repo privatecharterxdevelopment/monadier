@@ -48,7 +48,7 @@ const healthServer = http.createServer(async (req, res) => {
       uptime: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
       lastCheck: new Date(lastTradeCheck).toISOString(),
       tradesExecuted: totalTradesExecuted,
-      version: 'v13.0-hyperliquid-only'
+      version: 'v14.0-hl-all-perps'
     };
     res.writeHead(200, corsHeaders);
     res.end(JSON.stringify(status));

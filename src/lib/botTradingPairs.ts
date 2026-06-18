@@ -1,18 +1,19 @@
-/** Binance symbols the Arbitrum bot scans before opening a trade */
-export const BOT_ARBITRUM_SYMBOLS = ['ARBUSDT', 'ETHUSDT', 'BTCUSDT'] as const;
-
-export type BotArbitrumSymbol = (typeof BOT_ARBITRUM_SYMBOLS)[number];
-
-export function pairLabel(binanceSymbol: string): string {
-  return binanceSymbol.replace('USDT', '');
+/**
+ * Hyperliquid bot scans all tradable HL perps (from meta API), not a fixed Arbitrum token list.
+ * OHLCV for signals uses Binance symbols derived from HL coin names.
+ */
+export function hlCoinToBinanceSymbol(coin: string): string {
+  const base = coin.toUpperCase().replace(/-PERP$/i, '');
+  return `${base}USDT`;
 }
 
-/** Map Hyperliquid perp coin to Binance symbol the GMX bot analyzes. */
-export function hlCoinToBotSymbol(coin: string): BotArbitrumSymbol {
-  const base = coin.replace(/-PERP$/i, '').toUpperCase();
-  const sym = `${base}USDT`;
-  if ((BOT_ARBITRUM_SYMBOLS as readonly string[]).includes(sym)) {
-    return sym as BotArbitrumSymbol;
-  }
-  return 'ETHUSDT';
+/** @deprecated use hlCoinToBinanceSymbol */
+export const hlCoinToBotSymbol = hlCoinToBinanceSymbol;
+
+export function pairLabel(binanceSymbol: string): string {
+  return binanceSymbol.replace(/USDT$/, '');
+}
+
+export function pairLabelFromHlCoin(coin: string): string {
+  return coin.toUpperCase().replace(/-PERP$/i, '');
 }

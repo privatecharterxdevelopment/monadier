@@ -1124,58 +1124,41 @@ function getSymbolForToken(chainId: number, tokenAddress: string): string | null
 }
 
 /**
- * NEW: Analyze market using Multi-Timeframe Signal Engine
- * This combines 1m, 5m, 15m, 1h data for a unified signal
+ * Multi-Timeframe analysis by Binance symbol (Hyperliquid bot scans all HL perps this way).
  */
-export async function analyzeMarketMTF(
-  chainId: number,
-  tokenAddress: string,
+export async function analyzeMarketMTFBySymbol(
+  symbol: string,
   strategy: TradingStrategy = 'normal'
 ): Promise<MarketAnalysis | null> {
-  const symbol = getSymbolForToken(chainId, tokenAddress);
-  if (!symbol) {
-    logger.warn('Unknown token for MTF analysis', { chainId, tokenAddress });
-    return null;
-  }
-
   try {
-    // Generate unified signal from multiple timeframes
     const timeframes: Timeframe[] = ['1m', '5m', '15m', '1h'];
     const rawSignal = await signalEngine.generateSignal(symbol, timeframes);
     const boosted = applyAggressiveTfBoost(rawSignal, strategy);
     const signal = { ...rawSignal, direction: boosted.direction, confidence: boosted.confidence };
 
     if (!signal || signal.confidence === 0) {
-      logger.warn('SignalEngine returned empty signal', { symbol });
       return null;
     }
 
-    // Convert UnifiedSignal to MarketAnalysis format
     const strategyConfig = STRATEGY_CONFIGS[strategy];
-
-    // Build indicators list from timeframe analysis
     const indicators: string[] = [];
 
-    // Add pattern indicators
     for (const pattern of signal.patterns.slice(0, 3)) {
       indicators.push(pattern.type.replace(/_/g, ' '));
     }
 
-    // Add timeframe summaries
     for (const tf of signal.timeframes) {
       if (tf.confidence > 60) {
         indicators.push(`${tf.timeframe}: ${tf.direction}`);
       }
     }
 
-    // Check for weekend/market hours
     const now = new Date();
     const dayOfWeek = now.getDay();
     const hour = now.getUTCHours();
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const isSunday = dayOfWeek === 0;
     const isMonday = dayOfWeek === 1;
-    const isSaturday = dayOfWeek === 6;
 
     let weekendAlertLevel: 'none' | 'yellow' | 'red' = 'none';
     let marketWarning: string | undefined;
@@ -1189,103 +1172,66 @@ export async function analyzeMarketMTF(
     } else if (isMonday) {
       weekendAlertLevel = 'yellow';
       marketWarning = 'Caution: Monday market instability';
-    } else if (isSunday || isSaturday) {
+    } else if (isSunday || dayOfWeek === 6) {
       weekendAlertLevel = 'yellow';
       marketWarning = 'Weekend trading: Lower liquidity';
     }
 
-    // Get RSI from 15m timeframe (best balance)
-    const tf15m = signal.timeframes.find(t => t.timeframe === '15m');
+    const tf15m = signal.timeframes.find((t) => t.timeframe === '15m');
     const rsi = tf15m?.rsi || 50;
     const macdSignal = tf15m?.macdSignal || 'neutral';
     const trend = tf15m?.trend || 'SIDEWAYS';
 
-    // Check if signal is too weak
-    // For aggressive mode, only check confidence threshold (ignore warnings/trendAlignment)
-    // This allows trading even when timeframes conflict, as long as confidence is sufficient
-    const isWeak = strategyConfig.minConfidence >= 40
-      ? (signal.confidence < strategyConfig.minConfidence ||
-         (signal.warnings.length > 0 && signal.trendAlignment < 50))
-      : signal.confidence < strategyConfig.minConfidence; // Aggressive/risky: only check confidence
+    const isWeak =
+      strategyConfig.minConfidence >= 40
+        ? signal.confidence < strategyConfig.minConfidence ||
+          (signal.warnings.length > 0 && signal.trendAlignment < 50)
+        : signal.confidence < strategyConfig.minConfidence;
 
-    // Build reason
-    const reason = signal.reasons.length > 0
-      ? signal.reasons.slice(0, 2).join(' | ')
-      : `MTF: ${signal.direction} (${signal.confidence.toFixed(0)}%)`;
+    const reason =
+      signal.reasons.length > 0
+        ? signal.reasons.slice(0, 2).join(' | ')
+        : `MTF: ${signal.direction} (${signal.confidence.toFixed(0)}%)`;
 
-    // Determine TP/SL from signal or calculate based on conditions
-    let suggestedTP = signal.suggestedTP > 0
-      ? ((signal.suggestedTP - signal.suggestedEntry) / signal.suggestedEntry) * 100
-      : 5.0;
-    let suggestedSL = signal.suggestedSL > 0
-      ? ((signal.suggestedEntry - signal.suggestedSL) / signal.suggestedEntry) * 100
-      : 1.5;
+    let suggestedTP =
+      signal.suggestedTP > 0
+        ? ((signal.suggestedTP - signal.suggestedEntry) / signal.suggestedEntry) * 100
+        : 5.0;
+    let suggestedSL =
+      signal.suggestedSL > 0
+        ? ((signal.suggestedEntry - signal.suggestedSL) / signal.suggestedEntry) * 100
+        : 1.5;
 
-    // Cap TP/SL to reasonable values
     suggestedTP = Math.min(Math.max(suggestedTP, 1.5), 10);
     suggestedSL = Math.min(Math.max(suggestedSL, 0.5), 3);
 
-    // Adjust for weekend
-    if (isSunday || isSaturday) {
+    if (isSunday || dayOfWeek === 6) {
       suggestedTP = Math.min(suggestedTP, 3.5);
       suggestedSL = Math.min(suggestedSL, 0.8);
     }
 
     const isOverheated = rsi > 75 || rsi < 25;
     const scalpingRecommended = isOverheated || signal.trendAlignment < 40;
-
-    logger.info('📊 MTF Signal Generated', {
-      symbol,
-      direction: signal.direction,
-      confidence: signal.confidence.toFixed(0) + '%',
-      trendAlignment: signal.trendAlignment.toFixed(0) + '%',
-      patternStrength: signal.patternStrength.toFixed(0) + '%',
-      patterns: signal.patterns.length,
-      warnings: signal.warnings.length,
-      warningDetails: signal.warnings.slice(0, 2),
-      isWeak,
-      minConfidence: strategyConfig.minConfidence,
-      strategy
-    });
-
-    // Calculate signal strength (1-10 scale)
     const patternBonus = signal.patterns.length > 0 ? Math.min(signal.patterns.length, 3) : 0;
-    const signalStrength = Math.min(10, Math.round((signal.confidence / 10) + patternBonus));
+    const signalStrength = Math.min(10, Math.round(signal.confidence / 10 + patternBonus));
 
-    // ALWAYS convert HOLD to LONG/SHORT - never stay HOLD (original logic)
     let finalDirection: 'LONG' | 'SHORT' = signal.direction as 'LONG' | 'SHORT';
-
     if (signal.direction === 'HOLD') {
-      // Count votes from higher timeframes only (skip 1m noise)
-      const higherTFs = signal.timeframes.filter(tf => tf.timeframe !== '1m');
-      const longVotes = higherTFs.filter(tf => tf.direction === 'LONG').length;
-      const shortVotes = higherTFs.filter(tf => tf.direction === 'SHORT').length;
-
-      // Check trend direction (handle all variations)
+      const higherTFs = signal.timeframes.filter((tf) => tf.timeframe !== '1m');
+      const longVotes = higherTFs.filter((tf) => tf.direction === 'LONG').length;
+      const shortVotes = higherTFs.filter((tf) => tf.direction === 'SHORT').length;
       const isBullishTrend = trend === 'UP' || trend.includes('UPTREND');
       const isBearishTrend = trend === 'DOWN' || trend.includes('DOWNTREND');
 
-      // Follow the trend, else use majority vote
-      if (isBullishTrend) {
-        finalDirection = 'LONG';
-      } else if (isBearishTrend) {
-        finalDirection = 'SHORT';
-      } else {
-        finalDirection = longVotes >= shortVotes ? 'LONG' : 'SHORT';
-      }
-
-      logger.info('Converting HOLD to direction', {
-        finalDirection,
-        trend,
-        longVotes,
-        shortVotes
-      });
+      if (isBullishTrend) finalDirection = 'LONG';
+      else if (isBearishTrend) finalDirection = 'SHORT';
+      else finalDirection = longVotes >= shortVotes ? 'LONG' : 'SHORT';
     }
 
     return {
       direction: finalDirection,
       confidence: Math.round(signal.confidence),
-      strength: signalStrength, // NEW: Signal strength 1-10
+      strength: signalStrength,
       reason,
       indicators: indicators.slice(0, 5),
       isReversalSignal: signal.patternStrength > 50,
@@ -1300,19 +1246,79 @@ export async function analyzeMarketMTF(
       metrics: {
         rsi: Math.round(rsi),
         macd: macdSignal,
-        priceChange1h: '0.00', // Will be filled from candles if needed
+        priceChange1h: '0.00',
         volumeRatio: '1.0',
-        conditionsMet: Math.round(signal.trendAlignment / 20), // Approximate
+        conditionsMet: Math.round(signal.trendAlignment / 20),
         riskReward: (suggestedTP / suggestedSL).toFixed(2),
-        trend: trend === 'UP' ? 'STRONG_UPTREND' : trend === 'DOWN' ? 'STRONG_DOWNTREND' : 'NEUTRAL',
-        dayOfWeek: dayNames[dayOfWeek]
-      }
+        trend:
+          trend === 'UP' ? 'STRONG_UPTREND' : trend === 'DOWN' ? 'STRONG_DOWNTREND' : 'NEUTRAL',
+        dayOfWeek: dayNames[dayOfWeek],
+      },
     };
-  } catch (err: any) {
-    logger.error('MTF Analysis failed', { symbol, error: err.message || String(err) });
-    // Fall back to single-timeframe analysis
-    return analyzeMarket(chainId, tokenAddress, strategy);
+  } catch (err: unknown) {
+    logger.debug('MTF analysis skipped (no OHLCV)', {
+      symbol,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
   }
+}
+
+/**
+ * NEW: Analyze market using Multi-Timeframe Signal Engine
+ * This combines 1m, 5m, 15m, 1h data for a unified signal
+ */
+export async function analyzeMarketMTF(
+  chainId: number,
+  tokenAddress: string,
+  strategy: TradingStrategy = 'normal'
+): Promise<MarketAnalysis | null> {
+  const symbol = getSymbolForToken(chainId, tokenAddress);
+  if (!symbol) {
+    logger.warn('Unknown token for MTF analysis', { chainId, tokenAddress });
+    return null;
+  }
+
+  const mtf = await analyzeMarketMTFBySymbol(symbol, strategy);
+  if (mtf) return mtf;
+  return analyzeMarket(chainId, tokenAddress, strategy);
+}
+
+/**
+ * Generate trade signal using Multi-Timeframe analysis (Binance symbol — HL perps).
+ */
+export async function generateTradeSignalMTFBySymbol(
+  symbol: string,
+  userBalance: bigint,
+  riskLevelBps: number = 500,
+  strategy: TradingStrategy = 'normal'
+): Promise<TradeSignal | null> {
+  const strategyConfig = STRATEGY_CONFIGS[strategy];
+  const analysis = await analyzeMarketMTFBySymbol(symbol, strategy);
+  const tokenSymbol = symbol.replace('USDT', '');
+
+  if (!analysis || analysis.isWeak) {
+    return null;
+  }
+
+  const tradeAmount = (userBalance * BigInt(riskLevelBps)) / 10000n;
+  if (tradeAmount === 0n) return null;
+
+  const minAmountOut = (tradeAmount * 99n) / 100n;
+  const tokenAddress = `0x${'0'.repeat(40)}` as `0x${string}`;
+
+  return {
+    direction: analysis.direction,
+    confidence: analysis.confidence,
+    tokenAddress,
+    tokenSymbol,
+    suggestedAmount: tradeAmount,
+    minAmountOut,
+    reason: analysis.reason,
+    takeProfitPercent: analysis.suggestedTP,
+    trailingStopPercent: analysis.suggestedSL,
+    profitLockPercent: strategyConfig.profitLockPercent,
+  };
 }
 
 /**
@@ -1442,6 +1448,18 @@ export class MarketService {
     return this.useMTF
       ? generateTradeSignalMTF(chainId, tokenAddress, userBalance, riskLevelBps, strategy)
       : generateTradeSignal(chainId, tokenAddress, userBalance, riskLevelBps, strategy);
+  }
+
+  /** HL: scan any perp via Binance OHLCV symbol (e.g. SOLUSDT). */
+  async getSignalForSymbol(
+    symbol: string,
+    userBalance: bigint,
+    riskLevelBps: number = 500,
+    strategy: TradingStrategy = 'normal'
+  ): Promise<TradeSignal | null> {
+    return this.useMTF
+      ? generateTradeSignalMTFBySymbol(symbol, userBalance, riskLevelBps, strategy)
+      : null;
   }
 
   /**

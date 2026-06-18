@@ -86,6 +86,9 @@ export const config = {
     /** Agent approval validity (days) */
     agentValidityDays: Number(process.env.HL_AGENT_VALIDITY_DAYS || 90),
     minAccountUsd: Number(process.env.HL_MIN_BOT_ACCOUNT_USD || 20),
+    /** Parallel MTF scans per trading cycle (all HL perps). */
+    scanConcurrency: Number(process.env.HL_SCAN_CONCURRENCY || 8),
+    minSignalConfidence: Number(process.env.HL_MIN_SIGNAL_CONFIDENCE || 25),
     infoUrl: process.env.HL_INFO_URL || 'https://api.hyperliquid.xyz/info',
     builderAddress: (process.env.HL_BUILDER_ADDRESS ||
       process.env.TREASURY_ADDRESS) as `0x${string}`,

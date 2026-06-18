@@ -66,7 +66,7 @@ export function hlOpenPerpCoins(state: HlClearinghouseState | null): string[] {
 }
 
 export async function fetchHlMeta(): Promise<{
-  universe: { name: string; szDecimals: number; maxLeverage?: number }[];
+  universe: { name: string; szDecimals: number; maxLeverage?: number; isDelisted?: boolean }[];
 }> {
   const res = await fetch(config.hyperliquid.infoUrl, {
     method: 'POST',
@@ -111,4 +111,16 @@ export function formatHlSize(size: number, szDecimals: number): string {
 export function formatHlPrice(price: number): string {
   const decimals = price >= 1000 ? 1 : price >= 10 ? 2 : 4;
   return price.toFixed(decimals);
+}
+
+/** Active HL perp coins (listed, has mark price). */
+export async function listHlTradableCoins(): Promise<string[]> {
+  const [meta, mids] = await Promise.all([fetchHlMeta(), fetchHlAllMids()]);
+  return meta.universe
+    .filter((u) => !u.isDelisted)
+    .map((u) => u.name)
+    .filter((name) => {
+      const px = Number(mids[name] ?? mids[`${name}-PERP`] ?? 0);
+      return Number.isFinite(px) && px > 0;
+    });
 }
