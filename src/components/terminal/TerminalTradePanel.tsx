@@ -27,13 +27,12 @@ import {
 } from '../../lib/hyperliquid/hlBotAgent';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import ProTradeDepositModal from '../protrade/ProTradeDepositModal';
-import { VAULT_CHAIN_ID } from '../../lib/vault';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { useTerminalVaultData } from '../../hooks/useTerminalVaultData';
 import TerminalBotSettingsModal from './TerminalBotSettingsModal';
 import TerminalLvrgPanel from './TerminalLvrgPanel';
 import TerminalBotSettingsStrip from './TerminalBotSettingsStrip';
-import TerminalArbitrumBanner from './TerminalArbitrumBanner';
+import HlBotFlowGuide from './HlBotFlowGuide';
 
 type PanelTab = 'bot' | 'lvrg' | 'funds';
 
@@ -78,7 +77,6 @@ const TerminalTradePanel: React.FC<Props> = ({
 
   const walletReady = isConnected || isDemoUser;
 
-  const walletOnArbitrum = isDemoUser || chainId === VAULT_CHAIN_ID;
   const hlFundingUsd = hlSetup.accountUsd;
   const botRunning = vault.settings.autoTradeEnabled;
 
@@ -123,8 +121,8 @@ const TerminalTradePanel: React.FC<Props> = ({
     if (!isDemoUser && !isAuthenticated) {
       onRequireSignIn?.(
         vaultAction === 'deposit'
-          ? 'Sign in before depositing to the vault.'
-          : 'Sign in before withdrawing from the vault.'
+          ? 'Sign in before depositing to Hyperliquid.'
+          : 'Sign in before withdrawing from Hyperliquid.'
       );
       onVaultActionHandled?.();
       return;
@@ -165,7 +163,7 @@ const TerminalTradePanel: React.FC<Props> = ({
       return 'Transaction cancelled in wallet.';
     }
     if (msg.includes('insufficient funds') || msg.includes('gas')) {
-      return 'Need a little ETH on Arbitrum for gas — then tap Start bot again.';
+      return 'Wallet-Signatur fehlgeschlagen — Gas prüfen und erneut versuchen.';
     }
     return msg;
   };
@@ -332,6 +330,12 @@ const TerminalTradePanel: React.FC<Props> = ({
       <div className="term-trade-body">
         {panelTab === 'bot' && (
           <div className="term-panel-stack">
+            <HlBotFlowGuide
+              phase={phase}
+              botRunning={Boolean(walletReady && botRunning)}
+              hlBalanceUsd={hlFundingUsd}
+            />
+
             {!walletReady && (
               <div className="term-panel-card term-panel-card--muted term-connect-banner">
                 <p className="term-hint term-connect-banner-text">
@@ -487,7 +491,6 @@ const TerminalTradePanel: React.FC<Props> = ({
 
         {panelTab === 'funds' && (
           <div className="term-panel-stack">
-            {walletReady && !walletOnArbitrum && <TerminalArbitrumBanner variant="inline" />}
             <div className="term-panel-card term-panel-card--muted">
               <span className="term-panel-card-label">Hyperliquid balance</span>
               <strong className="term-panel-card-value">{fmt(hlFundingUsd)}</strong>
@@ -496,7 +499,8 @@ const TerminalTradePanel: React.FC<Props> = ({
               </span>
             </div>
             <p className="term-hint">
-              Bridge USDC from Arbitrum to Hyperliquid. The bot trades perps on HL only.
+              Einzahlung direkt auf Hyperliquid (app.hyperliquid.xyz). Der Bot nutzt nur USDC auf
+              deinem HL-Konto.
             </p>
             <div className="flex gap-2">
               <button

@@ -2489,6 +2489,118 @@
   margin: 0;
 }
 
+.hl-bot-flow__list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hl-bot-flow__step {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  opacity: 0.55;
+}
+
+.hl-bot-flow__step--active {
+  opacity: 1;
+}
+
+.hl-bot-flow__step--done {
+  opacity: 0.85;
+}
+
+.hl-bot-flow__step--done .hl-bot-flow__num {
+  background: #16a34a;
+  color: #fff;
+}
+
+.hl-bot-flow__step--active .hl-bot-flow__num {
+  background: #0f172a;
+  color: #fff;
+}
+
+.hl-bot-flow__num {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  background: #e4e4e7;
+  color: #52525b;
+}
+
+.hl-bot-flow__step strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.hl-bot-flow__step p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #71717a;
+}
+
+.hl-bot-flow__link {
+  margin-top: 12px;
+  text-decoration: none;
+}
+
+.hl-bot-flow__live {
+  margin: 12px 0 0;
+}
+
+.hl-deposit-steps {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #3f3f46;
+}
+
+.hl-deposit-steps li {
+  margin-bottom: 8px;
+}
+
+.hl-deposit-wallet code {
+  font-size: 12px;
+}
+
+.hl-deposit-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  margin-bottom: 8px;
+}
+
+.hl-deposit-advanced {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--term-panel-border);
+  font-size: 13px;
+}
+
+.hl-deposit-advanced summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #52525b;
+}
+
+.hl-deposit-advanced .hl-entry-hint {
+  margin: 8px 0;
+}
+
 /* app.monadier.com — auth / wallet gate before Pro Trade loads */
 .monadier-app-gate {
   display: flex;

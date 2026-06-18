@@ -15,7 +15,7 @@ export const FAQ_TABS: { id: FaqTabId; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'platform', label: 'Platform' },
   { id: 'bot', label: 'Trading bot' },
-  { id: 'vault', label: 'Vault & fees' },
+  { id: 'vault', label: 'Deposit & fees' },
 ];
 
 /** Keyword-rich FAQs — tabbed accordion; FAQPage schema for Google */
@@ -27,92 +27,97 @@ export const LANDING_FAQS: {
   {
     tab: 'platform',
     q: 'What is Monadier?',
-    a: 'Monadier is an automated perpetuals trading bot on Hyperliquid. You deposit USDC via bridge, approve a trading agent once, and the bot scans ETH/BTC signals and executes leveraged trades on HL.',
+    a: 'Monadier is an automated perpetuals bot on Hyperliquid. You deposit USDC on your Hyperliquid account, approve the Monadier trading agent once, and our server scans all HL markets 24/7 to open and close trades for you.',
   },
   {
     tab: 'platform',
     q: 'Is Monadier safe to use?',
-    a: 'Monadier is non-custodial: your USDC stays in the on-chain V11 vault and only your wallet can deposit or withdraw. Auto-trading runs only when you turn it on. Smart contracts carry inherent DeFi risk — never deposit more than you can afford to lose.',
+    a: 'Monadier is non-custodial on Hyperliquid: your USDC stays on your HL account in your name. The trading agent can place trades but cannot withdraw without your wallet. Auto-trading runs only when you press Start bot.',
   },
   {
     tab: 'platform',
     q: 'Is Monadier non-custodial?',
-    a: 'Yes. Funds sit in the Monadier V11 vault on Arbitrum. We never hold your private keys or move USDC without your wallet signature. Auto-trading executes only when you explicitly enable it in bot settings.',
+    a: 'Yes. Funds sit on your Hyperliquid account, not in a Monadier vault. We never hold your private keys. Withdrawals always require your wallet signature on Hyperliquid.',
   },
   {
     tab: 'platform',
     q: 'Is Monadier fully decentralized?',
-    a: 'Monadier is a non-custodial interface to on-chain infrastructure on Arbitrum. Deposits, withdrawals, and every GMX trade the bot places settle on-chain and are publicly verifiable in any Arbitrum block explorer. We cannot access your wallet or vault without your signature.',
+    a: 'Trading executes on Hyperliquid’s infrastructure via an agent you approve. Signal analysis and automation run on Monadier servers (Railway). You can verify balances and positions on app.hyperliquid.xyz at any time.',
   },
   {
     tab: 'platform',
     q: 'Is this financial advice?',
-    a: 'No. Monadier provides software for automated GMX perpetual trading — not investment, tax, or legal advice. Crypto and leveraged trading carry significant risk. Do your own research and only use funds you can afford to lose.',
+    a: 'No. Monadier provides software for automated Hyperliquid perpetual trading — not investment, tax, or legal advice. Crypto and leveraged trading carry significant risk. Do your own research and only use funds you can afford to lose.',
   },
   {
     tab: 'platform',
-    q: 'Why Arbitrum and GMX for automated trading?',
-    a: 'Arbitrum offers low fees and fast settlement. GMX provides deep on-chain perpetual liquidity, oracle pricing, and high leverage — ideal for an algorithmic crypto trading bot with transparent on-chain execution.',
+    q: 'Why Hyperliquid for automated trading?',
+    a: 'Hyperliquid offers deep perp liquidity, fast execution, and USDC margin on its own L1. One deposit on HL powers trading across all listed markets — simpler than bridging through legacy L2 vaults.',
   },
   {
     tab: 'bot',
-    q: 'How does the GMX trading bot work?',
-    a: 'The bot runs on Arbitrum with multi-timeframe analysis (1m–1h), risk gates, then GMX perp execution from your vault. You set take profit, stop loss, and leverage — trades open and close automatically while the bot is enabled.',
+    q: 'How does the trading bot work?',
+    a: 'While the bot is running, Monadier’s server (Railway) checks your HL balance every ~10 seconds, scans all Hyperliquid perps with multi-timeframe signals, opens the strongest setup, monitors take profit / stop loss, closes the position, then repeats.',
   },
   {
     tab: 'bot',
     q: 'How long does the trading bot run?',
-    a: 'The bot runs continuously on our servers while it is enabled and your vault has sufficient USDC. There is no session timeout — it keeps scanning markets and executing GMX trades until you press Stop bot or your balance is too low to trade.',
+    a: '24/7 while Start bot is on and you have at least $20 USDC on Hyperliquid. There is no session timeout — the server keeps cycling until you press Stop bot.',
   },
   {
     tab: 'bot',
     q: 'Can the bot trade 24/7?',
-    a: 'Yes. Crypto markets never close. Once auto-trading is on, the Monadier bot monitors ETH, BTC, and ARB around the clock and can open or close GMX perpetual positions at any hour — you do not need to stay online.',
+    a: 'Yes. Crypto markets never close. Once started, the bot scans all HL perps around the clock and can open or close positions at any hour — you do not need to stay online.',
   },
   {
     tab: 'bot',
     q: 'Can I close trades manually?',
-    a: 'Yes. Open the trade panel and tap Close position to queue an exit on the next bot cycle. You can also Stop bot to halt new entries and close open positions. Withdrawals are available once no active trade is locking vault funds.',
+    a: 'Yes. Open positions on Hyperliquid can be closed in the terminal or on app.hyperliquid.xyz. Stop bot halts new entries; existing HL positions remain until TP/SL or manual close.',
   },
   {
     tab: 'bot',
     q: 'Which crypto assets does the bot trade?',
-    a: 'On Arbitrum the bot trades GMX perpetuals for WETH (ETH), WBTC (BTC), and ARB. Live charts and signals cover all three pairs so the bot can pick the strongest setup.',
+    a: 'Any active Hyperliquid perpetual with a valid market signal — the bot loads the full HL universe (200+ pairs) and picks the strongest setup each cycle, not a fixed ETH/BTC list.',
   },
   {
     tab: 'bot',
-    q: 'What leverage does the bot use on GMX?',
-    a: 'You configure leverage, take profit, and stop loss in bot settings before starting. The bot respects your risk limits on each GMX perpetual trade — up to the maximum allowed by GMX for each market.',
+    q: 'What leverage does the bot use?',
+    a: 'You set leverage, take profit, and stop loss in bot settings. The bot clamps to Hyperliquid’s per-asset maximum (e.g. BTC 40×, ETH 25×) on each trade.',
   },
   {
     tab: 'bot',
     q: 'Do I need to keep my computer on?',
-    a: 'No. The Monadier auto-trading bot runs in the cloud. After you enable it and fund your vault, execution continues 24/7 without your browser or PC staying open.',
+    a: 'No. The bot runs on Monadier servers (Railway). After Start bot and a funded Hyperliquid account, it trades 24/7 without your browser open.',
+  },
+  {
+    tab: 'bot',
+    q: 'How do I deposit so the bot can start?',
+    a: 'Connect the same wallet on app.hyperliquid.xyz, tap Deposit, and send USDC (min. $5 on HL). The bot needs at least $20 on your HL balance. Then in Monadier: approve agent → Start bot.',
   },
   {
     tab: 'vault',
     q: 'How much USDC do I need to start?',
-    a: 'Minimum vault deposit is $50 USDC on Arbitrum. A 0.1% on-chain deposit fee applies (not credited to your vault balance). You also need a small amount of ETH on Arbitrum for gas. Win fee applies only on profitable closed trades.',
+    a: 'At least $20 USDC on your Hyperliquid account for the bot (HL minimum deposit is $5). Only fund what you want the bot to use — it trades from your HL balance, not a separate vault.',
   },
   {
     tab: 'vault',
-    q: 'What fees does the GMX trading bot charge?',
-    a: 'A 0.1% on-chain deposit fee applies when funding the vault (not kept in your balance). Monadier charges a performance-based win fee on profitable closed trades only — losing trades are not charged. Standard Arbitrum gas and GMX trading fees still apply on-chain.',
+    q: 'What fees does the bot charge?',
+    a: 'Hyperliquid trading fees apply on each perp trade. Monadier may charge a builder fee on HL orders and subscription tiers for bot access. Check the app for current subscription and fee settings.',
   },
   {
     tab: 'vault',
     q: 'Can I withdraw my USDC anytime?',
-    a: 'Yes, when funds are not locked in an open GMX position. Connect your wallet, switch to Arbitrum, and withdraw from the vault. If a trade is open, close it first or wait for the bot to exit before withdrawing.',
+    a: 'Yes — from Hyperliquid to your wallet via the Funds panel or app.hyperliquid.xyz. Close open positions first if margin is in use. The trading agent cannot withdraw for you.',
   },
   {
     tab: 'vault',
-    q: 'Why use a vault instead of giving the bot my whole wallet?',
-    a: 'The vault caps how much USDC the bot can trade. You fund only what you want at risk, keep the rest in your wallet, and can verify vault balance and every bot trade on Arbitrum at any time — full transparency over your trading capital.',
+    q: 'Why Hyperliquid instead of a vault?',
+    a: 'Your USDC stays on your Hyperliquid account in your name. The bot only trades via an agent you approve; it cannot move funds out. You see balance and positions directly on HL.',
   },
   {
     tab: 'vault',
     q: 'Do I need to sign wallet transactions?',
-    a: 'Yes. Every deposit and withdrawal between your wallet and the Monadier vault requires your wallet signature on Arbitrum. Monadier cannot pull USDC from your wallet or send it elsewhere without your explicit approval.',
+    a: 'Yes for deposits, withdrawals, and the one-time agent approval. Ongoing bot trades are signed by the approved agent — you do not sign each trade manually.',
   },
 ];
 
@@ -169,8 +174,8 @@ const LandingFaqSection: React.FC = () => {
         <div className="landing-gmx-faq-layout">
         <motion.aside {...fadeUp(0.04)} className="landing-gmx-faq-side">
           <p className="landing-gmx-faq-lead">
-            Common questions about safety, 24/7 trading, manual closes, and our GMX crypto bot on
-            Arbitrum.
+            Common questions about Hyperliquid deposits, 24/7 bot trading, and how Monadier
+            automates your HL account.
           </p>
           <div className="landing-gmx-faq-tabs" role="tablist">
             {FAQ_TABS.map((tab) => (
