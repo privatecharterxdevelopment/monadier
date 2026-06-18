@@ -7,12 +7,12 @@ const STEPS = [
     body: 'Use the same wallet as on Hyperliquid — the bot trades on your HL account.',
   },
   {
-    title: 'Approve agent',
-    body: 'One-time signature on Hyperliquid. The agent can trade only — not withdraw.',
+    title: 'Deposit USDC',
+    body: `In the Bot panel, deposit USDC from Arbitrum to Hyperliquid (min. $${MIN_HL_BOT_USD}). All in Monadier — no site switch.`,
   },
   {
-    title: 'Deposit USDC',
-    body: `In the Funds tab, send USDC from Arbitrum to Hyperliquid (min. $${MIN_HL_BOT_USD}). All in Monadier — no site switch.`,
+    title: 'Approve agent',
+    body: 'One-time signature on Hyperliquid. The agent can trade only — not withdraw.',
   },
   {
     title: 'Start bot',

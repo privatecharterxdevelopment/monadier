@@ -9,8 +9,6 @@ import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { usePositionReconciliation } from '../../hooks/usePositionReconciliation';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { recordLoginActivity } from '../../lib/loginActivity';
-import TerminalChartAnalysisOverlay from '../../components/terminal/TerminalChartAnalysisOverlay';
-import { useTerminalBotAnalysis } from '../../hooks/useTerminalBotAnalysis';
 import TerminalTradePanel from '../../components/terminal/TerminalTradePanel';
 import TerminalPositionsDock, {
   type DockTab,
@@ -79,7 +77,6 @@ const Dashboard2Page: React.FC = () => {
   const displayName = displayHandle(profile, user?.email);
 
   const walletReady = isConnected || isDemoUser;
-  const hasOpenPosition = metrics.openPositionsCount > 0;
 
   const handleRefresh = () => {
     refresh();
@@ -97,15 +94,6 @@ const Dashboard2Page: React.FC = () => {
       recordLoginActivity(user.id);
     }
   }, [user?.id]);
-
-  const analysis = useTerminalBotAnalysis({
-    walletConnected: walletReady,
-    metrics,
-    hasOpenPosition,
-    vaultUsd: metrics.hlBalanceUsd,
-    vaultWallet: address ?? botSettings.wallet,
-    symbol: chartSymbol,
-  });
 
   const openTrade = () => {
     setSidebarSection('trade');
@@ -366,16 +354,6 @@ const Dashboard2Page: React.FC = () => {
                       chartCompact={false}
                       chartFill
                       onPairChange={setChartSymbol}
-                    />
-                    <TerminalChartAnalysisOverlay
-                      visible={walletReady}
-                      scanning={analysis.scanning}
-                      step={analysis.step}
-                      progress={analysis.progress}
-                      isLoading={analysis.isLoading}
-                      signal={analysis.signal}
-                      dbAnalysis={analysis.dbAnalysis}
-                      activeSymbol={analysis.activeSymbol}
                     />
                   </div>
                 </div>

@@ -47,10 +47,10 @@ export function useHlBotSetup(walletAddress: string | undefined) {
       setAgentExpiresAt(approval.expiresAt);
       setAgentAddress(agentMeta.agentAddress ?? null);
 
-      if (!approval.approved) {
-        setPhase('approve');
-      } else if (acctVal < MIN_HL_BOT_USD) {
+      if (acctVal < MIN_HL_BOT_USD) {
         setPhase('fund');
+      } else if (!approval.approved) {
+        setPhase('approve');
       } else {
         setPhase('ready');
       }

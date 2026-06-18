@@ -4,6 +4,7 @@ import { useAuth, DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { fetchUserWalletAddresses, pickPrimaryVaultWallet } from '../lib/userWallets';
 import { resolveVaultSettingsSnapshot } from '../lib/vaultSettingsSnapshot';
+import { snapLeverageToStep } from '../lib/leverageLimits';
 import type { VaultSettingsSnapshot } from '../lib/vaultSettingsSnapshot';
 
 export type { VaultSettingsSnapshot };
@@ -77,14 +78,19 @@ export function useTerminalBotSettings(refreshKey = 0) {
 
       if (error) throw error;
 
+      const snapshot = resolveVaultSettingsSnapshot(row, {
+        riskLevelPercent: (row?.risk_level_bps ?? 500) / 100,
+        takeProfitPercent: Number(row?.take_profit_percent ?? 5),
+        stopLossPercent: Number(row?.stop_loss_percent ?? 1),
+        maxLeverage: Number(row?.leverage_multiplier ?? 10),
+        autoTradeEnabled: Boolean(row?.auto_trade_enabled),
+      });
+
       setData({
-        settings: resolveVaultSettingsSnapshot(row, {
-          riskLevelPercent: (row?.risk_level_bps ?? 500) / 100,
-          takeProfitPercent: Number(row?.take_profit_percent ?? 5),
-          stopLossPercent: Number(row?.stop_loss_percent ?? 1),
-          maxLeverage: Number(row?.leverage_multiplier ?? 10),
-          autoTradeEnabled: Boolean(row?.auto_trade_enabled),
-        }),
+        settings: {
+          ...snapshot,
+          leverage: snapLeverageToStep(snapshot.leverage),
+        },
         isLoading: false,
         error: null,
       });

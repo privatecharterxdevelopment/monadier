@@ -7,6 +7,9 @@ const RISK_PRESETS = [1, 5, 25, 50, 100] as const;
 
 export type BotSettingsFieldsProps = {
   planTier: string;
+  hlSliderMax?: number;
+  hlBtcMax?: number;
+  hlEthMax?: number;
   riskLevel: number;
   setRiskLevel: (v: number) => void;
   leverage: number;
@@ -33,6 +36,9 @@ export type BotSettingsFieldsProps = {
 
 const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
   planTier,
+  hlSliderMax,
+  hlBtcMax,
+  hlEthMax,
   riskLevel,
   setRiskLevel,
   leverage,
@@ -56,7 +62,7 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
   notice,
   error,
 }) => {
-  const maxLevLabel = getMaxLeverageLabel(planTier);
+  const maxLevLabel = getMaxLeverageLabel(planTier, hlSliderMax);
   const isModal = variant === 'modal';
   const labelClass = isModal ? 'term-modal-label' : 'term-panel-card-label';
   const hintClass = isModal ? 'term-modal-hint' : 'term-hint';
@@ -87,6 +93,9 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
       )}
 
       <p className={labelClass}>Risk per trade</p>
+      <p className={`${hintClass} ${isModal ? 'mb-1' : ''}`}>
+        % of your HL balance used as margin — <strong>not</strong> leverage.
+      </p>
       <div className={chipRowClass}>
         {RISK_PRESETS.map((v) => (
           <button
@@ -108,15 +117,23 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
         onChange={(e) => setRiskLevel(parseInt(e.target.value, 10))}
         className={rangeClass}
         disabled={disabled}
+        aria-label="Risk percent of HL balance per trade"
       />
 
       <p className={labelClass}>Leverage (LVRG)</p>
-      <p className={`${hintClass} ${isModal ? 'mb-2' : ''}`}>Up to {maxLevLabel} on Hyperliquid perps.</p>
+      <p className={`${hintClass} ${isModal ? 'mb-2' : ''}`}>
+        Up to {maxLevLabel} on Hyperliquid
+        {hlBtcMax != null && hlEthMax != null
+          ? ` (BTC ${hlBtcMax}x · ETH ${hlEthMax}x per HL)`
+          : ''}
+        . The bot clamps to each market&apos;s cap when opening.
+      </p>
       <div className={isModal ? undefined : 'term-panel-card term-panel-card--flat'}>
         <LeverageRangeSlider
           value={leverage}
           onChange={setLeverage}
           planTier={planTier}
+          hlSliderMax={hlSliderMax}
           disabled={disabled}
           id={isModal ? 'bot-settings-leverage' : 'lvrg-panel-leverage'}
         />

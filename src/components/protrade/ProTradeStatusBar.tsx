@@ -1,4 +1,6 @@
 import React, { useMemo } from 'react';
+import { useWeb3 } from '../../contexts/Web3Context';
+import { useBotRuntimeTimer } from '../../hooks/useBotRuntimeTimer';
 import type { ProTradePanelMode } from './ProTradeTopNav';
 import type { HlOpenOrder, HlPosition } from '../../lib/hyperliquid/user';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
@@ -17,6 +19,7 @@ type Props = {
   positions: HlPosition[];
   totalUpnl?: number;
   botMetrics?: Dashboard2Metrics;
+  botWallet?: string;
 };
 
 const ProTradeStatusBar: React.FC<Props> = ({
@@ -27,7 +30,15 @@ const ProTradeStatusBar: React.FC<Props> = ({
   positions,
   totalUpnl = 0,
   botMetrics,
+  botWallet,
 }) => {
+  const { address } = useWeb3();
+  const timerWallet = botWallet ?? address ?? undefined;
+  const botRunning = Boolean(botMetrics?.autoTradeEnabled);
+  const botRuntime = useBotRuntimeTimer(
+    timerWallet,
+    botRunning && mode === 'bot'
+  );
   const orderSummary = useMemo(() => {
     let buyCount = 0;
     let buyUsd = 0;
@@ -72,7 +83,16 @@ const ProTradeStatusBar: React.FC<Props> = ({
         <div className="hl-status-left">
           <span className="hl-status-mode hl-status-mode--bot">HL Bot · Hyperliquid</span>
           <span className={running ? 'hl-up' : undefined}>
-            {running ? 'Auto-trading on' : 'Auto-trading off'}
+            {running ? (
+              <>
+                Auto-trading on
+                {botRuntime.formatted ? (
+                  <span className="hl-bot-runtime"> · {botRuntime.formatted}</span>
+                ) : null}
+              </>
+            ) : (
+              'Auto-trading off'
+            )}
           </span>
           <span>HL {botMetrics.isLoading ? '—' : fmtUsd(botMetrics.hlBalanceUsd)}</span>
           <span>Withdraw {botMetrics.isLoading ? '—' : fmtUsd(botMetrics.hlWithdrawableUsd)}</span>

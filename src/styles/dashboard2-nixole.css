@@ -2515,6 +2515,95 @@
   color: #fff;
 }
 
+.hl-bot-setup-steps {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #e4e4e7;
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hl-bot-setup-step {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  opacity: 0.45;
+}
+
+.hl-bot-setup-step--active {
+  opacity: 1;
+}
+
+.hl-bot-setup-step--done {
+  opacity: 0.85;
+}
+
+.hl-bot-setup-step__mark {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  background: #e4e4e7;
+  color: #52525b;
+}
+
+.hl-bot-setup-step--active .hl-bot-setup-step__mark {
+  background: #0f172a;
+  color: #fff;
+}
+
+.hl-bot-setup-step--done .hl-bot-setup-step__mark {
+  background: #16a34a;
+  color: #fff;
+}
+
+.hl-bot-setup-step strong {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.hl-bot-setup-step p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #71717a;
+}
+
+.hl-bot-status-card--warn {
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
+.hl-bot-status-card--ok,
+.hl-bot-status-card--active {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.hl-bot-status-headline {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 18px !important;
+  line-height: 1.35 !important;
+}
+
+.hl-bot-status-detail {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #3f3f46;
+}
+
 .hl-bot-flow__step {
   display: flex;
   gap: 10px;
@@ -2788,7 +2877,26 @@
 }
 
 .term-panel-card-value--sm {
-  font-size: 16px;
+  font-size: 15px;
+}
+
+.term-bot-runtime,
+.hl-bot-runtime {
+  display: block;
+  margin-top: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: #16a34a;
+}
+
+.hl-bot-runtime {
+  display: inline;
+  margin-top: 0;
+  font-size: inherit;
+  font-weight: inherit;
 }
 
 .term-panel-card-hint {

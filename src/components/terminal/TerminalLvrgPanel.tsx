@@ -1,6 +1,7 @@
 import React from 'react';
 import { Loader2, Save, Wallet } from 'lucide-react';
 import { useAppKit } from '@reown/appkit/react';
+import { useHlLeverageCap } from '../../hooks/useHlLeverageCap';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
 import TerminalBotSettingsFields from './TerminalBotSettingsFields';
 import { useBotSettingsEditor } from './useBotSettingsEditor';
@@ -22,7 +23,13 @@ const TerminalLvrgPanel: React.FC<Props> = ({
   onSaved,
 }) => {
   const { open } = useAppKit();
-  const editor = useBotSettingsEditor({ settings, walletAddress, onSaved });
+  const { caps } = useHlLeverageCap();
+  const editor = useBotSettingsEditor({
+    settings,
+    walletAddress,
+    hlSliderMax: caps.sliderMax,
+    onSaved,
+  });
 
   const collateralUsd = (hlBalanceUsd * editor.riskLevel) / 100;
   const notionalUsd = collateralUsd * editor.leverage;
@@ -34,13 +41,16 @@ const TerminalLvrgPanel: React.FC<Props> = ({
         <strong className="term-panel-card-value">{editor.leverage}x leverage</strong>
         <span className="term-panel-card-hint">
           Risk {editor.riskLevel}% of HL balance · ~${collateralUsd.toFixed(2)} margin · ~$
-          {notionalUsd.toFixed(0)} notional per trade
+          {notionalUsd.toFixed(0)} notional · HL caps BTC {caps.btc}x / ETH {caps.eth}x
         </span>
       </div>
 
       <TerminalBotSettingsFields
         variant="panel"
         planTier={editor.planTier}
+        hlSliderMax={caps.sliderMax}
+        hlBtcMax={caps.btc}
+        hlEthMax={caps.eth}
         riskLevel={editor.riskLevel}
         setRiskLevel={editor.setRiskLevel}
         leverage={editor.leverage}

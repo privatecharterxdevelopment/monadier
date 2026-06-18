@@ -12,16 +12,19 @@ export type BotReadiness = {
 
 function formatBlocker(blocker: string): string {
   if (/HL agent not approved/i.test(blocker)) {
-    return 'Trading-Agent auf Hyperliquid noch nicht freigegeben';
+    return 'Approve the trading agent in the Bot panel';
   }
   if (/HL balance/i.test(blocker)) {
-    return blocker.replace(/HL balance/i, 'HL-Guthaben');
+    return blocker.replace(/HL balance/i, 'HL balance');
   }
-  if (/no trade signal/i.test(blocker)) {
-    return 'Kein starkes MTF-Signal (min. 25% bot conf.)';
+  if (/no trade signal|MTF|bot conf/i.test(blocker)) {
+    return 'No strong trade setup yet — bot keeps scanning';
   }
   if (/HL position open/i.test(blocker)) {
-    return `Offene HL-Position: ${blocker.replace(/HL position open:\s*/i, '')}`;
+    return `Open position: ${blocker.replace(/HL position open:\s*/i, '')}`;
+  }
+  if (/Must deposit before performing actions/i.test(blocker)) {
+    return 'Deposit USDC on Hyperliquid first (min $20)';
   }
   return blocker;
 }
@@ -29,7 +32,7 @@ function formatBlocker(blocker: string): string {
 export function readinessFromServerBlockers(blockers: string[]): BotReadiness {
   return {
     canEnter: false,
-    headline: 'Bot blockiert',
+    headline: 'Bot waiting',
     detail: blockers.map((b) => formatBlocker(b)).join(' · '),
   };
 }
@@ -48,61 +51,49 @@ export function evaluateBotReadiness(
   if (!opts.autoTradeEnabled) {
     return {
       canEnter: false,
-      headline: 'Bot aus',
-      detail: 'Starte den Bot im Bot-Tab.',
+      headline: 'Bot off',
+      detail: 'Press Start bot when you are funded on Hyperliquid.',
     };
   }
 
   if (opts.hasOpenPosition) {
     return {
       canEnter: false,
-      headline: 'Position offen',
-      detail: 'Der Bot verwaltet den aktiven Trade.',
+      headline: 'Position open',
+      detail: 'The bot is managing your active trade.',
     };
   }
 
   if (opts.vaultUsd < minCapital) {
     return {
       canEnter: false,
-      headline: 'Einsatz zu niedrig',
-      detail: `Mindestens $${minCapital} USDC auf Hyperliquid für Bot-Trades.`,
+      headline: 'Deposit needed',
+      detail: `At least $${minCapital} USDC on Hyperliquid to trade.`,
     };
   }
 
   if (!signal) {
     return {
       canEnter: false,
-      headline: 'Bot aktiv',
-      detail: 'Marktdaten werden geladen…',
+      headline: 'Bot active',
+      detail: 'Loading market data…',
     };
   }
 
   const conf = Math.round(signal.confidence);
-  const mixed = signal.warnings?.some((w) => /conflict/i.test(w));
   const strong = conf >= BOT_MIN_CONFIDENCE_AGGRESSIVE && signal.direction !== 'HOLD';
 
   if (strong) {
     return {
       canEnter: true,
-      headline: 'Bereit für Einstieg',
-      detail: `${signal.direction} · ${conf}% bot conf · nächster Zyklus ~10s${mixed ? ' (TFs gemischt)' : ''}`,
+      headline: 'Ready to trade',
+      detail: `${signal.direction} setup found — next bot cycle ~10s`,
     };
-  }
-
-  const parts: string[] = [];
-  if (conf < BOT_MIN_CONFIDENCE_AGGRESSIVE) {
-    parts.push(`bot conf ${conf}% (min ${BOT_MIN_CONFIDENCE_AGGRESSIVE}%)`);
-  }
-  if (signal.direction === 'HOLD') {
-    parts.push('keine klare Richtung im MTF-Signal');
-  }
-  if (mixed) {
-    parts.push('Timeframes widersprechen sich — Einzel-TF % zählt nicht');
   }
 
   return {
     canEnter: false,
-    headline: 'Bot aktiv — wartet',
-    detail: parts.join(' · ') || 'Signal noch nicht stark genug',
+    headline: 'Scanning markets',
+    detail: 'Waiting for a strong trade setup on Hyperliquid.',
   };
 }

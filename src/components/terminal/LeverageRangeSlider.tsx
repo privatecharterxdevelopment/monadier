@@ -9,6 +9,7 @@ type Props = {
   value: number;
   onChange: (value: number) => void;
   planTier?: string | null;
+  hlSliderMax?: number;
   disabled?: boolean;
   id?: string;
 };
@@ -17,11 +18,12 @@ const LeverageRangeSlider: React.FC<Props> = ({
   value,
   onChange,
   planTier,
+  hlSliderMax,
   disabled,
   id = 'leverage-range',
 }) => {
-  const max = getMaxLeverageForPlan(planTier);
-  const snapped = snapLeverageToStep(value, planTier);
+  const max = getMaxLeverageForPlan(planTier, hlSliderMax);
+  const snapped = snapLeverageToStep(value, planTier, hlSliderMax);
 
   return (
     <div className="term-leverage-slider">
@@ -40,14 +42,16 @@ const LeverageRangeSlider: React.FC<Props> = ({
         value={snapped}
         className="term-modal-range"
         disabled={disabled}
-        onChange={(e) => onChange(snapLeverageToStep(Number(e.target.value), planTier))}
+        onChange={(e) =>
+          onChange(snapLeverageToStep(Number(e.target.value), planTier, hlSliderMax))
+        }
       />
       <div className="term-leverage-slider-scale" aria-hidden>
         <span>1x</span>
-        <span>{getMaxLeverageLabel(planTier)} max</span>
+        <span>{getMaxLeverageLabel(planTier, hlSliderMax)} max</span>
       </div>
       <p className="term-hint term-leverage-slider-hint">
-        HL limits per pair (e.g. ETH 25x, BTC 40x) · saved to bot settings
+        HL per-asset caps (e.g. BTC {hlSliderMax ?? max}x, ETH often 25x) · applied when the bot opens
       </p>
     </div>
   );

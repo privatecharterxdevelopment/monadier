@@ -11,6 +11,7 @@ export type BotSettingsEditorOptions = {
   settings: VaultSettingsSnapshot;
   walletAddress?: string;
   startMode?: boolean;
+  hlSliderMax?: number;
   onSaved: () => void;
 };
 
@@ -18,6 +19,7 @@ function applySnapshotToState(
   snapshot: VaultSettingsSnapshot,
   planTier: string,
   startMode: boolean,
+  hlSliderMax: number | undefined,
   setters: {
     setRiskLevel: (v: number) => void;
     setAutoTrade: (v: boolean) => void;
@@ -33,7 +35,7 @@ function applySnapshotToState(
   setters.setAutoTrade(startMode ? true : snapshot.autoTradeEnabled);
   setters.setTakeProfit(snapshot.takeProfit);
   setters.setStopLoss(snapshot.stopLoss);
-  setters.setLeverage(snapLeverageToStep(snapshot.leverage, planTier));
+  setters.setLeverage(snapLeverageToStep(snapshot.leverage, planTier, hlSliderMax));
   setters.setAskPermission(snapshot.askPermission);
   setters.setMinWinRate(snapshot.minWinRate);
   setters.setMinTradesForWinRate(snapshot.minTradesForWinRate);
@@ -43,6 +45,7 @@ export function useBotSettingsEditor({
   settings,
   walletAddress,
   startMode = false,
+  hlSliderMax,
   onSaved,
 }: BotSettingsEditorOptions) {
   const { open } = useAppKit();
@@ -57,7 +60,9 @@ export function useBotSettingsEditor({
   const [autoTrade, setAutoTrade] = useState(startMode ? true : settings.autoTradeEnabled);
   const [takeProfit, setTakeProfit] = useState(settings.takeProfit);
   const [stopLoss, setStopLoss] = useState(settings.stopLoss);
-  const [leverage, setLeverage] = useState(snapLeverageToStep(settings.leverage, planTier));
+  const [leverage, setLeverage] = useState(
+    snapLeverageToStep(settings.leverage, planTier, hlSliderMax)
+  );
   const [askPermission, setAskPermission] = useState(settings.askPermission);
   const [minWinRate, setMinWinRate] = useState(settings.minWinRate);
   const [minTradesForWinRate, setMinTradesForWinRate] = useState(settings.minTradesForWinRate);
@@ -108,7 +113,7 @@ export function useBotSettingsEditor({
 
   const applySavedSnapshot = useCallback(
     (snapshot: VaultSettingsSnapshot) => {
-      applySnapshotToState(snapshot, planTier, startMode, {
+      applySnapshotToState(snapshot, planTier, startMode, hlSliderMax, {
         setRiskLevel,
         setAutoTrade,
         setTakeProfit,
@@ -121,8 +126,12 @@ export function useBotSettingsEditor({
       baselineRef.current = snapshot;
       userEditedRef.current = false;
     },
-    [planTier, startMode]
+    [planTier, startMode, hlSliderMax]
   );
+
+  useEffect(() => {
+    setLeverage((v) => snapLeverageToStep(v, planTier, hlSliderMax));
+  }, [hlSliderMax, planTier]);
 
   useEffect(() => {
     if (userEditedRef.current || isLoading) return;
@@ -139,7 +148,7 @@ export function useBotSettingsEditor({
     riskLevel !== baseline.riskPct ||
     numChanged(takeProfit, baseline.takeProfit) ||
     numChanged(stopLoss, baseline.stopLoss) ||
-    leverage !== snapLeverageToStep(baseline.leverage, planTier);
+    leverage !== snapLeverageToStep(baseline.leverage, planTier, hlSliderMax);
 
   const hasChanges =
     tradingParamsChanged ||
@@ -162,12 +171,14 @@ export function useBotSettingsEditor({
       setError(null);
       setNotice(null);
 
+      const savedLeverage = snapLeverageToStep(leverage, planTier, hlSliderMax);
+
       const result = await persistVaultSettings({
         settings: {
           walletAddress: saveWallet,
           autoTradeEnabled: autoTrade,
           riskPct: riskLevel,
-          leverage,
+          leverage: savedLeverage,
           takeProfit,
           stopLoss,
           askPermission,
@@ -221,6 +232,7 @@ export function useBotSettingsEditor({
     minWinRate,
     minTradesForWinRate,
     planTier,
+    hlSliderMax,
     tradingParamsChanged,
     applySavedSnapshot,
     onSaved,

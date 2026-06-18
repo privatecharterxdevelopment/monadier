@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useState } from 'react';
 import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
+import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import type { DockTab } from '../terminal/TerminalPositionsDock';
 import TerminalTradePanel from '../terminal/TerminalTradePanel';
@@ -92,6 +93,7 @@ export const ProTradeBotStatusBar: React.FC<StatusProps> = ({
   wsLive = false,
 }) => {
   const { metrics } = useProTradeBot();
+  const { wallet } = useTerminalBotSettings();
   return (
     <ProTradeStatusBar
       mode="bot"
@@ -100,6 +102,7 @@ export const ProTradeBotStatusBar: React.FC<StatusProps> = ({
       openOrders={[]}
       positions={[]}
       botMetrics={metrics}
+      botWallet={wallet}
     />
   );
 };
