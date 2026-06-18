@@ -92,13 +92,20 @@ async function saveHlAgentApprovalViaBotApi(params: {
   agentName: string;
   expiresAt?: string | null;
 }): Promise<void> {
+  const wallet = params.walletAddress.toLowerCase();
+  const meta = await fetchHlAgentAddress(wallet);
+  const agentAddress =
+    meta.success && meta.agentAddress
+      ? meta.agentAddress.toLowerCase()
+      : params.agentAddress.toLowerCase();
+
   const base = getBotApiBase();
   const res = await fetch(`${base}/api/hl-agent/approval`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      wallet: params.walletAddress.toLowerCase(),
-      agentAddress: params.agentAddress.toLowerCase(),
+      wallet,
+      agentAddress,
       agentName: params.agentName,
       expiresAt: params.expiresAt ?? null,
     }),
@@ -211,13 +218,6 @@ export async function loadHlAgentApproval(
   return { approved: true, expiresAt: data.expires_at };
 }
 
-function findActiveMonadierAgent(agents: HlExtraAgent[]): HlExtraAgent | null {
-  return (
-    agents.find(
-      (a) => a.name.toLowerCase().startsWith('monadier') && isHlExtraAgentActive(a)
-    ) ?? null
-  );
-}
 
 /** DB + on-chain HL extraAgents — source of truth for agent approval. */
 export async function resolveHlAgentApproval(
@@ -235,25 +235,8 @@ export async function resolveHlAgentApproval(
     if (!db.approved) {
       void saveHlAgentApproval({
         walletAddress: wallet,
-        agentAddress: expectedAgentAddress,
+        agentAddress: expectedAgentAddress.toLowerCase(),
         agentName: live.name,
-        expiresAt,
-      }).catch(() => {
-        /* best-effort sync */
-      });
-    }
-    return { approved: true, expiresAt };
-  }
-
-  const agents = await fetchHlExtraAgents(wallet);
-  const monadier = findActiveMonadierAgent(agents);
-  if (monadier) {
-    const expiresAt = new Date(monadier.validUntil).toISOString();
-    if (!db.approved) {
-      void saveHlAgentApproval({
-        walletAddress: wallet,
-        agentAddress: monadier.address,
-        agentName: monadier.name,
         expiresAt,
       }).catch(() => {
         /* best-effort sync */

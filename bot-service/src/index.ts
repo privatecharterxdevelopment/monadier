@@ -144,7 +144,7 @@ const healthServer = http.createServer(async (req, res) => {
         return;
       }
 
-      const expectedAgent = deriveUserHlAgentAddress(wallet);
+      const expectedAgent = deriveUserHlAgentAddress(wallet).toLowerCase();
       if (agentAddress !== expectedAgent) {
         res.writeHead(400, corsHeaders);
         res.end(JSON.stringify({ success: false, error: 'agentAddress does not match Monadier agent' }));
@@ -153,7 +153,7 @@ const healthServer = http.createServer(async (req, res) => {
 
       const agents = await fetchHlExtraAgents(wallet);
       const live = agents.find(
-        (a) => a.address === agentAddress && isHlExtraAgentActive(a)
+        (a) => a.address.toLowerCase() === agentAddress && isHlExtraAgentActive(a)
       );
       if (!live) {
         res.writeHead(400, corsHeaders);

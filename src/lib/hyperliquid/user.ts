@@ -170,7 +170,7 @@ export async function fetchHlExtraAgents(user: string): Promise<HlExtraAgent[]> 
   if (!Array.isArray(rows)) return [];
   return rows
     .map((r) => ({
-      address: String(r.address ?? ''),
+      address: String(r.address ?? '').toLowerCase(),
       name: String(r.name ?? ''),
       validUntil: Number(r.validUntil ?? 0),
     }))
