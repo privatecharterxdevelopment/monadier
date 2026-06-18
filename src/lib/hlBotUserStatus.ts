@@ -1,13 +1,13 @@
 import type { BotReadiness } from './botReadiness';
 import { MIN_HL_BOT_USD } from './hyperliquid/hlBotAgent';
 
-export type HlSetupPhase = 'connect' | 'loading' | 'approve' | 'approve_builder' | 'fund' | 'ready';
+export type HlSetupPhase = 'connect' | 'loading' | 'approve' | 'fund' | 'ready';
 
 export type HlBotSidebarStatus = {
   headline: string;
   detail: string;
   tone: 'neutral' | 'warn' | 'ok' | 'active';
-  setupStep: 1 | 2 | 3 | 4 | 5;
+  setupStep: 1 | 2 | 3 | 4;
   setupComplete: boolean;
 };
 
@@ -90,6 +90,7 @@ export function getHlBotSidebarStatus(opts: {
   const needsDeposit = hlBalanceUsd < MIN_HL_BOT_USD;
   const needsAgent = !agentApproved;
   const needsBuilderFee = builderFeeEnabled && !builderFeeApproved;
+  const needsApprove = needsAgent || needsBuilderFee;
 
   if (!botRunning) {
     if (needsDeposit) {
@@ -101,22 +102,14 @@ export function getHlBotSidebarStatus(opts: {
         setupComplete: false,
       };
     }
-    if (needsAgent) {
+    if (needsApprove) {
       return {
-        headline: 'Approve trading agent',
-        detail: 'One-time wallet signature. The agent may place trades only — not withdraw USDC.',
+        headline: 'Approve on Hyperliquid',
+        detail: needsAgent
+          ? 'One-time wallet signature(s): trading agent (trade only, no withdrawals) and Monadier platform fee on perp orders.'
+          : 'Approve the Monadier platform fee on Hyperliquid (one-time) — required for bot orders.',
         tone: 'warn',
         setupStep: 3,
-        setupComplete: false,
-      };
-    }
-    if (needsBuilderFee) {
-      return {
-        headline: 'Approve platform fee',
-        detail:
-          'One-time Hyperliquid signature for Monadier’s small perp fee. Without this, bot orders are rejected.',
-        tone: 'warn',
-        setupStep: 4,
         setupComplete: false,
       };
     }
@@ -124,7 +117,7 @@ export function getHlBotSidebarStatus(opts: {
       headline: 'Ready',
       detail: 'Account funded and approvals complete. Press Start bot below — deposit alone does not start trading.',
       tone: 'ok',
-      setupStep: builderFeeEnabled ? 5 : 4,
+      setupStep: 4,
       setupComplete: true,
     };
   }

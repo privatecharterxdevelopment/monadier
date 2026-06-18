@@ -10,37 +10,24 @@ type Props = {
   builderFeeApproved: boolean;
   builderFeeEnabled: boolean;
   botRunning: boolean;
-  currentStep: 1 | 2 | 3 | 4 | 5;
+  currentStep: 1 | 2 | 3 | 4;
   variant?: 'progress' | 'guide';
 };
 
-function buildSteps(builderFeeEnabled: boolean) {
-  const feeLabel = formatBuilderFeeLabel(
-    Number(import.meta.env.VITE_HL_BUILDER_FEE_PERP || 30)
-  );
-  const base = [
-    { n: 1 as const, title: 'Connect wallet', body: 'Same wallet as on Hyperliquid.' },
-    {
-      n: 2 as const,
-      title: 'Deposit USDC',
-      body: `Min $${MIN_HL_BOT_USD} on HL — in Monadier, no site switch.`,
-    },
-    { n: 3 as const, title: 'Approve agent', body: 'One-time — trade only, no withdrawals.' },
-  ];
-  if (builderFeeEnabled) {
-    base.push({
-      n: 4 as const,
-      title: 'Approve platform fee',
-      body: `One-time HL signature (${feeLabel} perp fee). Required for bot orders.`,
-    });
-  }
-  base.push({
-    n: (builderFeeEnabled ? 5 : 4) as 4 | 5,
-    title: 'Start bot',
-    body: 'Runs 24/7 until you stop it.',
-  });
-  return base;
-}
+const STEPS = [
+  { n: 1, title: 'Connect wallet', body: 'Same wallet as on Hyperliquid.' },
+  {
+    n: 2,
+    title: 'Deposit USDC',
+    body: `Min $${MIN_HL_BOT_USD} on HL — in Monadier, no site switch.`,
+  },
+  {
+    n: 3,
+    title: 'Approve on Hyperliquid',
+    body: 'One-time: trading agent (trade only) + small platform fee on perp orders.',
+  },
+  { n: 4, title: 'Start bot', body: 'Runs 24/7 until you stop it.' },
+] as const;
 
 function stepDone(
   n: number,
@@ -53,8 +40,11 @@ function stepDone(
 ): boolean {
   if (n === 1) return walletReady;
   if (n === 2) return hlBalanceUsd >= MIN_HL_BOT_USD;
-  if (n === 3) return agentApproved;
-  if (builderFeeEnabled && n === 4) return builderFeeApproved;
+  if (n === 3) {
+    const agentOk = agentApproved;
+    const builderOk = !builderFeeEnabled || builderFeeApproved;
+    return agentOk && builderOk;
+  }
   return botRunning;
 }
 
@@ -68,7 +58,16 @@ const HlBotSetupSteps: React.FC<Props> = ({
   currentStep,
   variant = 'progress',
 }) => {
-  const steps = buildSteps(builderFeeEnabled);
+  const feeLabel = formatBuilderFeeLabel(Number(import.meta.env.VITE_HL_BUILDER_FEE_PERP || 30));
+  const steps = STEPS.map((s) =>
+    s.n === 3 && builderFeeEnabled
+      ? {
+          ...s,
+          body: `One-time signatures: trading agent (no withdrawals) + platform fee (${feeLabel} per perp order).`,
+        }
+      : s
+  );
+
   return (
     <ol
       className={`hl-bot-setup-steps${

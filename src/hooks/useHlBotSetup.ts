@@ -12,7 +12,6 @@ export type HlBotSetupPhase =
   | 'connect'
   | 'loading'
   | 'approve'
-  | 'approve_builder'
   | 'fund'
   | 'ready';
 
@@ -78,10 +77,11 @@ export function useHlBotSetup(walletAddress: string | undefined) {
 
       if (balance < MIN_HL_BOT_USD) {
         setPhase('fund');
-      } else if (!agentCheck.approved) {
+      } else if (
+        !agentCheck.approved ||
+        (builderConfig.enabled && !builderOk)
+      ) {
         setPhase('approve');
-      } else if (builderConfig.enabled && !builderOk) {
-        setPhase('approve_builder');
       } else {
         setPhase('ready');
       }
