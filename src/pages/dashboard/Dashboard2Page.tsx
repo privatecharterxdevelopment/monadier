@@ -7,7 +7,7 @@ import { useUserLocale } from '../../hooks/useUserLocale';
 import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { usePositionReconciliation } from '../../hooks/usePositionReconciliation';
-import { useTerminalVaultData } from '../../hooks/useTerminalVaultData';
+import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { recordLoginActivity } from '../../lib/loginActivity';
 import TerminalChartAnalysisOverlay from '../../components/terminal/TerminalChartAnalysisOverlay';
 import { useTerminalBotAnalysis } from '../../hooks/useTerminalBotAnalysis';
@@ -52,7 +52,7 @@ const Dashboard2Page: React.FC = () => {
   const { metrics, refresh } = useDashboard2Metrics();
   const { greeting } = useUserLocale();
 
-  const [vaultAction, setVaultAction] = useState<'deposit' | 'withdraw' | null>(null);
+  const [fundsAction, setFundsAction] = useState<'deposit' | 'withdraw' | null>(null);
   const [historyTick, setHistoryTick] = useState(0);
   const [showBotSettings, setShowBotSettings] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
@@ -64,7 +64,7 @@ const Dashboard2Page: React.FC = () => {
   const [highlightPositionId, setHighlightPositionId] = useState<string | null>(null);
   const [chartSymbol, setChartSymbol] = useState('ETHUSDT');
 
-  const vault = useTerminalVaultData(historyTick);
+  const botSettings = useTerminalBotSettings(historyTick);
   const hlSetup = useHlBotSetup(address ?? undefined);
   const { needsOnboarding } = useProfileOnboarding(profile, user, isDemoUser);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
@@ -79,8 +79,7 @@ const Dashboard2Page: React.FC = () => {
   const displayName = displayHandle(profile, user?.email);
 
   const walletReady = isConnected || isDemoUser;
-  const hasOpenPosition =
-    metrics.openPositionsCount > 0 || Boolean(vault.position?.isActive);
+  const hasOpenPosition = metrics.openPositionsCount > 0;
 
   const handleRefresh = () => {
     refresh();
@@ -103,8 +102,8 @@ const Dashboard2Page: React.FC = () => {
     walletConnected: walletReady,
     metrics,
     hasOpenPosition,
-    vaultUsd: metrics.vaultUsd,
-    vaultWallet: address ?? vault.wallet,
+    vaultUsd: metrics.hlBalanceUsd,
+    vaultWallet: address ?? botSettings.wallet,
     symbol: chartSymbol,
   });
 
@@ -175,15 +174,15 @@ const Dashboard2Page: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per query change from profile nav
   }, [searchParams]);
 
-  const portfolio = totalUsdValue + metrics.vaultUsd;
+  const portfolio = totalUsdValue + metrics.hlBalanceUsd;
 
   const botSetupPhase: BotSetupPhase = useMemo(() => {
     if (!walletReady) return 'connect';
     if (metrics.isLoading || hlSetup.loading) return 'loading';
     if (!hlSetup.agentApproved) return 'fund';
-    if (metrics.vaultUsd < MIN_BOT_CAPITAL_USD) return 'fund';
+    if (metrics.hlBalanceUsd < MIN_BOT_CAPITAL_USD) return 'fund';
     return 'ready';
-  }, [walletReady, metrics.isLoading, hlSetup.loading, hlSetup.agentApproved, metrics.vaultUsd]);
+  }, [walletReady, metrics.isLoading, hlSetup.loading, hlSetup.agentApproved, metrics.hlBalanceUsd]);
 
   return (
     <Dashboard2Shell
@@ -264,9 +263,9 @@ const Dashboard2Page: React.FC = () => {
                 </span>
               </div>
               <div className="term-stat">
-                <span className="term-stat-label">HL Einsatz</span>
+                <span className="term-stat-label">HL balance</span>
                 <span className="term-stat-value">
-                  {metrics.isLoading ? '—' : fmtUsd(metrics.vaultUsd)}
+                  {metrics.isLoading ? '—' : fmtUsd(metrics.hlBalanceUsd)}
                 </span>
               </div>
               <div className="term-stat">
@@ -393,8 +392,8 @@ const Dashboard2Page: React.FC = () => {
                 metrics={metrics}
                 onRefresh={handleRefresh}
                 onOpenHistory={openHistory}
-                vaultAction={vaultAction}
-                onVaultActionHandled={() => setVaultAction(null)}
+                fundsAction={fundsAction}
+                onFundsActionHandled={() => setFundsAction(null)}
               />
             </>
           )}
@@ -403,9 +402,9 @@ const Dashboard2Page: React.FC = () => {
       {showBotSettings && (
         <TerminalBotSettingsModal
           setupPhase={botSetupPhase}
-          minVaultUsd={MIN_BOT_CAPITAL_USD}
-          settings={vault.settings}
-          walletAddress={address ?? vault.wallet}
+          minHlUsd={MIN_BOT_CAPITAL_USD}
+          settings={botSettings.settings}
+          walletAddress={address ?? botSettings.wallet}
           onClose={() => setShowBotSettings(false)}
           onSuccess={() => {
             setShowBotSettings(false);
@@ -417,6 +416,7 @@ const Dashboard2Page: React.FC = () => {
         <ProTradeDepositModal
           initialTab={depositTab}
           withdrawable={metrics.hlWithdrawableUsd.toFixed(2)}
+          hlBalanceUsd={metrics.hlBalanceUsd}
           onClose={() => {
             setShowDeposit(false);
             setSidebarSection('trade');

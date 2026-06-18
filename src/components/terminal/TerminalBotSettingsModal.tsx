@@ -4,14 +4,16 @@ import { useAppKit } from '@reown/appkit/react';
 import TerminalModalFrame from './TerminalModalFrame';
 import TerminalBotSettingsFields from './TerminalBotSettingsFields';
 import { useBotSettingsEditor } from './useBotSettingsEditor';
-import type { VaultSettingsSnapshot } from '../../hooks/useTerminalVaultData';
+import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
 
 const RISK_PRESETS = [1, 5, 25, 50, 100] as const;
 
-export type BotSetupPhase = 'connect' | 'loading' | 'network' | 'fund' | 'ready';
+export type BotSetupPhase = 'connect' | 'loading' | 'approve' | 'fund' | 'ready';
 
 type Props = {
   setupPhase?: BotSetupPhase;
+  minHlUsd?: number;
+  /** @deprecated use minHlUsd */
   minVaultUsd?: number;
   settings: VaultSettingsSnapshot;
   walletAddress?: string;
@@ -22,28 +24,30 @@ type Props = {
 
 const TerminalBotSettingsModal: React.FC<Props> = ({
   setupPhase = 'ready',
-  minVaultUsd = 50,
+  minHlUsd,
+  minVaultUsd,
   settings,
   walletAddress,
   startMode = false,
   onClose,
   onSuccess,
 }) => {
+  const minUsd = minHlUsd ?? minVaultUsd ?? 20;
   const setupHint: Record<BotSetupPhase, string> = {
-    connect: 'Connect your wallet to use the trading bot.',
-    loading: 'Loading Hyperliquid balance and settings…',
-    network: 'Bridge USDC to Hyperliquid (Arbitrum for deposit only).',
-    fund: `Deposit at least $${minVaultUsd} USDC on Hyperliquid and approve the trading agent.`,
-    ready: 'Setup complete — adjust risk and LVRG settings below.',
+    connect: 'Connect your wallet first.',
+    loading: 'Loading Hyperliquid balance…',
+    approve: 'Approve the Monadier trading agent on Hyperliquid (one-time).',
+    fund: `Deposit at least $${minUsd} USDC in the Funds tab (wallet on Arbitrum).`,
+    ready: 'Adjust risk and leverage — then Start bot on the Bot tab.',
   };
 
   const stepDone = (n: number) => {
     const order: Record<BotSetupPhase, number> = {
       connect: 0,
       loading: 1,
-      network: 1,
-      fund: 2,
-      ready: 3,
+      approve: 2,
+      fund: 3,
+      ready: 4,
     };
     return order[setupPhase] >= n;
   };
@@ -120,12 +124,12 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
       <div className="term-settings-setup">
         <p className="term-modal-label">Setup progress</p>
         <div className="term-flow-steps" aria-label="Setup">
-          {(['Connect', 'Vault', 'Fund', 'Trade'] as const).map((label, i) => (
+          {(['Connect', 'Agent', 'Deposit', 'Start'] as const).map((label, i) => (
             <span
               key={label}
               className={`term-flow-step ${stepDone(i) ? 'term-flow-step--done' : ''} ${
                 (i === 0 && setupPhase === 'connect') ||
-                (i === 1 && (setupPhase === 'loading' || setupPhase === 'network')) ||
+                (i === 1 && (setupPhase === 'loading' || setupPhase === 'approve')) ||
                 (i === 2 && setupPhase === 'fund') ||
                 (i === 3 && setupPhase === 'ready')
                   ? 'term-flow-step--current'
@@ -170,7 +174,6 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
         setMinTradesForWinRate={editor.setMinTradesForWinRate}
         disabled={editor.isLoading}
         walletConnected={editor.walletConnected}
-        onArbitrum={editor.onArbitrum}
         notice={editor.notice}
         error={editor.error}
       />

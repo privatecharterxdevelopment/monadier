@@ -58,7 +58,7 @@ const ProTradeAccountMenu: React.FC<Props> = ({
 
   const goProfile = (tab: ProTradeProfileTab = 'identity') => {
     setOpen(false);
-    if (!requireUser('Sign in to open profile and vault settings.')) return;
+    if (!requireUser('Sign in to open profile and bot settings.')) return;
     onOpenProfile?.(tab);
   };
 
@@ -108,7 +108,7 @@ const ProTradeAccountMenu: React.FC<Props> = ({
       {!user && open ? (
         <div className="hl-account-panel hl-account-panel--guest" role="menu" aria-label="Guest account menu">
           <p className="hl-account-guest-hint">
-            Charts and markets are open. Sign in only for profile, vault, and bot settings.
+            Charts and markets are open. Sign in for profile and bot settings.
           </p>
           <button
             type="button"
@@ -140,7 +140,7 @@ const ProTradeAccountMenu: React.FC<Props> = ({
             <div className="hl-account-panel-meta">
               <strong>{displayName}</strong>
               {username ? <span>@{username}</span> : null}
-              <span className="hl-account-panel-email">{email || 'Profile & vault settings'}</span>
+              <span className="hl-account-panel-email">{email || 'Profile & bot settings'}</span>
             </div>
           </div>
 

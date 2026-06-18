@@ -27,7 +27,6 @@ export type BotSettingsFieldsProps = {
   variant?: 'panel' | 'modal';
   showAutoTrade?: boolean;
   walletConnected?: boolean;
-  onArbitrum?: boolean;
   notice?: string | null;
   error?: string | null;
 };
@@ -54,7 +53,6 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
   variant = 'panel',
   showAutoTrade = true,
   walletConnected = true,
-  onArbitrum = true,
   notice,
   error,
 }) => {
@@ -70,12 +68,6 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
 
   return (
     <>
-      {walletConnected && !onArbitrum && (
-        <p className={`${hintClass} ${isModal ? 'term-modal-note term-modal-note--warn' : 'term-hint--warn'}`}>
-          Settings save to your bot profile. Hyperliquid bot does not require Arbitrum vault sync.
-        </p>
-      )}
-
       {showAutoTrade && (
         <div className={isModal ? 'term-modal-toggle-row' : 'term-panel-card term-panel-card--flat'}>
           <div>

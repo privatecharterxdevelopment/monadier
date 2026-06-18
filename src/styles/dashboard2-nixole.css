@@ -2601,6 +2601,38 @@
   margin: 8px 0;
 }
 
+.hl-funds-action-card {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--term-panel-border);
+  background: #fafafa;
+}
+
+.hl-funds-action-card strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.hl-funds-action-card .term-hint {
+  margin: 0 0 10px;
+}
+
+.hl-funds-ext-link {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hl-funds-lead {
+  margin-bottom: 10px;
+}
+
+.hl-funds-balance {
+  margin-bottom: 12px;
+}
+
 /* app.monadier.com — auth / wallet gate before Pro Trade loads */
 .monadier-app-gate {
   display: flex;

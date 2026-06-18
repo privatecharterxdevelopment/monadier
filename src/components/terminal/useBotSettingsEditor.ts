@@ -3,7 +3,6 @@ import { useAppKit } from '@reown/appkit/react';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
-import { VAULT_CHAIN_ID } from '../../lib/vault';
 import { persistVaultSettings } from '../../lib/syncVaultSettings';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
 import { snapLeverageToStep } from '../../lib/leverageLimits';
@@ -47,13 +46,12 @@ export function useBotSettingsEditor({
   onSaved,
 }: BotSettingsEditorOptions) {
   const { open } = useAppKit();
-  const { address, publicClient, walletClient, chainId } = useWeb3();
+  const { address, publicClient, walletClient } = useWeb3();
   const { isDemoUser } = useAuth();
   const { linkWallet, planTier } = useSubscription();
 
   const saveWallet = (walletAddress ?? address)?.toLowerCase();
   const walletConnected = Boolean(saveWallet);
-  const onArbitrum = chainId === VAULT_CHAIN_ID;
 
   const [riskLevel, setRiskLevel] = useState(settings.riskPct);
   const [autoTrade, setAutoTrade] = useState(startMode ? true : settings.autoTradeEnabled);
@@ -195,9 +193,6 @@ export function useBotSettingsEditor({
       if (result.chainWarning) {
         savedNotice = result.chainWarning;
         setNotice(result.chainWarning);
-      } else if (tradingParamsChanged && !onArbitrum && !isDemoUser) {
-        savedNotice = 'Settings saved for the bot. Switch to Arbitrum and save again to sync on-chain.';
-        setNotice(savedNotice);
       }
 
       setSuccess(true);
@@ -217,7 +212,6 @@ export function useBotSettingsEditor({
     isDemoUser,
     publicClient,
     walletClient,
-    onArbitrum,
     autoTrade,
     riskLevel,
     leverage,
@@ -238,7 +232,6 @@ export function useBotSettingsEditor({
   return {
     planTier,
     walletConnected,
-    onArbitrum,
     riskLevel,
     setRiskLevel: setRiskLevelTracked,
     autoTrade,

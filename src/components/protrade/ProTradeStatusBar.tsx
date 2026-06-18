@@ -74,7 +74,7 @@ const ProTradeStatusBar: React.FC<Props> = ({
           <span className={running ? 'hl-up' : undefined}>
             {running ? 'Auto-trading on' : 'Auto-trading off'}
           </span>
-          <span>Einsatz {botMetrics.isLoading ? '—' : fmtUsd(botMetrics.vaultUsd)}</span>
+          <span>HL {botMetrics.isLoading ? '—' : fmtUsd(botMetrics.hlBalanceUsd)}</span>
           <span>Withdraw {botMetrics.isLoading ? '—' : fmtUsd(botMetrics.hlWithdrawableUsd)}</span>
           <span>Open {botMetrics.openPositionsCount}</span>
           <span className={pnlUp ? 'hl-up' : 'hl-down'}>

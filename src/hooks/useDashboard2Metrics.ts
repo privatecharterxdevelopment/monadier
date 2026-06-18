@@ -9,7 +9,9 @@ const USDC_ARBITRUM = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
 
 export type Dashboard2Metrics = {
   walletAvailableUsd: number;
-  /** Hyperliquid account value (bot trading capital) */
+  /** Hyperliquid account value — bot trading capital */
+  hlBalanceUsd: number;
+  /** @deprecated use hlBalanceUsd */
   vaultUsd: number;
   hlWithdrawableUsd: number;
   activeTradeUsd: number;
@@ -26,6 +28,7 @@ export type Dashboard2Metrics = {
 
 const defaultState: Dashboard2Metrics = {
   walletAvailableUsd: 0,
+  hlBalanceUsd: 0,
   vaultUsd: 0,
   hlWithdrawableUsd: 0,
   activeTradeUsd: 0,
@@ -105,6 +108,7 @@ export function useDashboard2Metrics() {
 
   const combined: Dashboard2Metrics = {
     walletAvailableUsd: totalUsdValue,
+    hlBalanceUsd: metrics.vaultBalanceUsd,
     vaultUsd: metrics.vaultBalanceUsd,
     hlWithdrawableUsd: metrics.withdrawableUsd,
     activeTradeUsd: metrics.openPositionValueUsd,

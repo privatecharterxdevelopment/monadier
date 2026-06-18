@@ -66,7 +66,7 @@ export const ProTradeBotPanelSlot: React.FC<PanelProps> = ({
   onRequireSignIn,
 }) => {
   const { metrics, refresh } = useProTradeBot();
-  const [vaultAction, setVaultAction] = useState<'deposit' | 'withdraw' | null>(null);
+  const [fundsAction, setFundsAction] = useState<'deposit' | 'withdraw' | null>(null);
 
   return (
     <div id="hl-trade-panel" className="hl-bot-panel-wrap">
@@ -75,8 +75,8 @@ export const ProTradeBotPanelSlot: React.FC<PanelProps> = ({
         onRefresh={refresh}
         onOpenHistory={onOpenHistory}
         onRequireSignIn={onRequireSignIn}
-        vaultAction={vaultAction}
-        onVaultActionHandled={() => setVaultAction(null)}
+        fundsAction={fundsAction}
+        onFundsActionHandled={() => setFundsAction(null)}
       />
     </div>
   );

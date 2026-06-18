@@ -35,7 +35,7 @@ const ProTradeBuilderFeeModal: React.FC<Props> = ({
       </div>
       <p className="hl-entry-hint" style={{ marginBottom: 12 }}>
         Monadier charges a small fee on Hyperliquid trades ({feeLabelPerp} perps, spot sells only).
-        This is separate from Hyperliquid&apos;s own trading fees and from the GMX bot vault.
+        This is separate from Hyperliquid&apos;s trading fees and from the Monadier bot subscription.
       </p>
       <p className="hl-entry-hint" style={{ marginBottom: 12 }}>
         One-time approval (max {maxApprovalRate}). You sign with your wallet — Monadier never gets

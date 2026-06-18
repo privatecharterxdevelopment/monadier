@@ -26,9 +26,9 @@ import {
   saveHlAgentApproval,
 } from '../../lib/hyperliquid/hlBotAgent';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
+import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import ProTradeDepositModal from '../protrade/ProTradeDepositModal';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
-import { useTerminalVaultData } from '../../hooks/useTerminalVaultData';
 import TerminalBotSettingsModal from './TerminalBotSettingsModal';
 import TerminalLvrgPanel from './TerminalLvrgPanel';
 import TerminalBotSettingsStrip from './TerminalBotSettingsStrip';
@@ -40,8 +40,12 @@ type Props = {
   metrics: Dashboard2Metrics;
   onRefresh: () => void;
   onOpenHistory?: () => void;
+  /** @deprecated use fundsAction */
   vaultAction?: 'deposit' | 'withdraw' | null;
+  /** @deprecated use onFundsActionHandled */
   onVaultActionHandled?: () => void;
+  fundsAction?: 'deposit' | 'withdraw' | null;
+  onFundsActionHandled?: () => void;
   onRequireSignIn?: (reason: string) => void;
 };
 
@@ -57,17 +61,20 @@ const TerminalTradePanel: React.FC<Props> = ({
   onOpenHistory,
   vaultAction,
   onVaultActionHandled,
+  fundsAction = vaultAction,
+  onFundsActionHandled = onVaultActionHandled,
   onRequireSignIn,
 }) => {
   const { open } = useAppKit();
-  const { isConnected, address, chainId, publicClient, walletClient } = useWeb3();
+  const { isConnected, address, publicClient, walletClient } = useWeb3();
   const { isDemoUser, isAuthenticated } = useAuth();
   const { linkWallet, planTier } = useSubscription();
   const [panelTab, setPanelTab] = useState<PanelTab>('bot');
-  const [vaultTick, setVaultTick] = useState(0);
-  const vault = useTerminalVaultData(vaultTick);
+  const [settingsTick, setSettingsTick] = useState(0);
+  const botSettings = useTerminalBotSettings(settingsTick);
   const hlSetup = useHlBotSetup(address ?? undefined);
-  const [showHlDeposit, setShowHlDeposit] = useState(false);
+  const [showFundsModal, setShowFundsModal] = useState(false);
+  const [fundsModalTab, setFundsModalTab] = useState<'deposit' | 'withdraw'>('deposit');
   const [showSettings, setShowSettings] = useState(false);
   const [startMode, setStartMode] = useState(false);
   const [botBusy, setBotBusy] = useState(false);
@@ -76,9 +83,9 @@ const TerminalTradePanel: React.FC<Props> = ({
   const [stopNotice, setStopNotice] = useState<string | null>(null);
 
   const walletReady = isConnected || isDemoUser;
-
+  const wallet = botSettings.wallet;
   const hlFundingUsd = hlSetup.accountUsd;
-  const botRunning = vault.settings.autoTradeEnabled;
+  const botRunning = botSettings.settings.autoTradeEnabled;
 
   const phase: SetupPhase = useMemo(() => {
     if (!walletReady) return 'connect';
@@ -92,12 +99,12 @@ const TerminalTradePanel: React.FC<Props> = ({
     if (!walletReady) return null;
     if (hlSetup.loading && hlFundingUsd === 0) return 'Loading Hyperliquid balance…';
     if (!hlSetup.agentApproved) {
-      return 'Approve the Monadier trading agent on Hyperliquid first.';
+      return 'Step 2: Approve the Monadier agent on Hyperliquid (one-time).';
     }
     if (hlFundingUsd < MIN_HL_BOT_USD) {
-      return `Need at least $${MIN_HL_BOT_USD} on Hyperliquid (currently ${fmt(hlFundingUsd)}).`;
+      return `Step 3: Deposit at least $${MIN_HL_BOT_USD} USDC (Funds tab → Deposit).`;
     }
-    if (!isDemoUser && !isAuthenticated) return 'Sign in to Monadier, then start the bot.';
+    if (!isDemoUser && !isAuthenticated) return 'Sign in to Monadier, then press Start bot.';
     return null;
   }, [
     walletReady,
@@ -116,40 +123,31 @@ const TerminalTradePanel: React.FC<Props> = ({
     next();
   };
 
+  const openFunds = (tab: 'deposit' | 'withdraw') => {
+    setFundsModalTab(tab);
+    setShowFundsModal(true);
+  };
+
   useEffect(() => {
-    if (!vaultAction) return;
+    if (!fundsAction) return;
     if (!isDemoUser && !isAuthenticated) {
       onRequireSignIn?.(
-        vaultAction === 'deposit'
+        fundsAction === 'deposit'
           ? 'Sign in before depositing to Hyperliquid.'
           : 'Sign in before withdrawing from Hyperliquid.'
       );
-      onVaultActionHandled?.();
+      onFundsActionHandled?.();
       return;
     }
-    if (vaultAction === 'deposit') {
-      setShowHlDeposit(true);
-      setPanelTab('funds');
-    } else if (vaultAction === 'withdraw') {
-      setShowHlDeposit(true);
-      setPanelTab('funds');
-    }
-    onVaultActionHandled?.();
-  }, [vaultAction, onVaultActionHandled, isDemoUser, isAuthenticated, onRequireSignIn]);
+    openFunds(fundsAction);
+    setPanelTab('funds');
+    onFundsActionHandled?.();
+  }, [fundsAction, onFundsActionHandled, isDemoUser, isAuthenticated, onRequireSignIn]);
 
   const refreshAll = () => {
     onRefresh();
-    setVaultTick((n) => n + 1);
+    setSettingsTick((n) => n + 1);
     void hlSetup.refresh();
-  };
-
-  const openHlDeposit = () => {
-    setBotError(null);
-    if (!walletReady) {
-      open();
-      return;
-    }
-    requireAccount('Sign in before depositing to Hyperliquid.', () => setShowHlDeposit(true));
   };
 
   const parseBotTxError = (err: unknown): string => {
@@ -160,10 +158,7 @@ const TerminalTradePanel: React.FC<Props> = ({
           ? String((err as { shortMessage: string }).shortMessage)
           : 'Failed to start bot';
     if (msg.includes('User rejected') || msg.includes('denied')) {
-      return 'Transaction cancelled in wallet.';
-    }
-    if (msg.includes('insufficient funds') || msg.includes('gas')) {
-      return 'Wallet-Signatur fehlgeschlagen — Gas prüfen und erneut versuchen.';
+      return 'Signature cancelled in wallet.';
     }
     return msg;
   };
@@ -203,12 +198,40 @@ const TerminalTradePanel: React.FC<Props> = ({
     }
   };
 
+  const persistBotRunning = async (autoTradeEnabled: boolean) => {
+    if (!wallet) throw new Error('Connect your wallet first.');
+    const s = botSettings.settings;
+    await persistVaultSettings({
+      settings: {
+        walletAddress: wallet,
+        autoTradeEnabled,
+        riskPct: s.riskPct,
+        leverage: s.leverage,
+        takeProfit: s.takeProfit,
+        stopLoss: s.stopLoss,
+        askPermission: s.askPermission,
+        minWinRate: s.minWinRate,
+        minTradesForWinRate: s.minTradesForWinRate,
+      },
+      planTier,
+      publicClient: publicClient ?? null,
+      walletClient: walletClient ?? null,
+      userAddress: wallet,
+      isDemoUser,
+      syncTradingParams: false,
+      syncAutoTrade: false,
+    });
+    if (autoTradeEnabled) {
+      await enableHlBotExecution(wallet);
+    }
+  };
+
   const handleStartBot = async () => {
     if (!walletReady) {
       open();
       return;
     }
-    if (!vault.wallet) {
+    if (!wallet) {
       setBotError('Connect your wallet first.');
       return;
     }
@@ -218,34 +241,14 @@ const TerminalTradePanel: React.FC<Props> = ({
     }
     setBotError(null);
     if (!isDemoUser && (!publicClient || !walletClient)) {
-      setBotError('Wallet not ready — unlock your wallet app and try again.');
+      setBotError('Wallet not ready — unlock your wallet and try again.');
       return;
     }
 
     setBotBusy(true);
     try {
       await ensureBotSubscription();
-      await persistVaultSettings({
-        settings: {
-          walletAddress: vault.wallet,
-          autoTradeEnabled: true,
-          riskPct: vault.settings.riskPct,
-          leverage: vault.settings.leverage,
-          takeProfit: vault.settings.takeProfit,
-          stopLoss: vault.settings.stopLoss,
-          askPermission: vault.settings.askPermission,
-          minWinRate: vault.settings.minWinRate,
-          minTradesForWinRate: vault.settings.minTradesForWinRate,
-        },
-        planTier,
-        publicClient: publicClient ?? null,
-        walletClient: walletClient ?? null,
-        userAddress: vault.wallet as `0x${string}`,
-        isDemoUser,
-        syncTradingParams: false,
-        syncAutoTrade: false,
-      });
-      await enableHlBotExecution(vault.wallet);
+      await persistBotRunning(true);
       if (!isDemoUser && address) {
         await linkWallet(address);
       }
@@ -258,38 +261,20 @@ const TerminalTradePanel: React.FC<Props> = ({
   };
 
   const handleStopBot = async () => {
-    if (!walletReady) {
+    if (!walletReady || !wallet) {
       open();
       return;
     }
-    if (!vault.wallet) return;
-    if (hlFundingUsd < MIN_HL_BOT_USD) return;
     setBotError(null);
     setStopNotice(null);
     setBotBusy(true);
     try {
-      await persistVaultSettings({
-        settings: {
-          walletAddress: vault.wallet,
-          autoTradeEnabled: false,
-          riskPct: vault.settings.riskPct,
-          leverage: vault.settings.leverage,
-          takeProfit: vault.settings.takeProfit,
-          stopLoss: vault.settings.stopLoss,
-          askPermission: vault.settings.askPermission,
-          minWinRate: vault.settings.minWinRate,
-          minTradesForWinRate: vault.settings.minTradesForWinRate,
-        },
-        planTier,
-        publicClient: publicClient ?? null,
-        walletClient: walletClient ?? null,
-        userAddress: vault.wallet as `0x${string}`,
-        isDemoUser,
-        syncAutoTrade: false,
-      });
+      await persistBotRunning(false);
       refreshAll();
       onRefresh();
-      setStopNotice('Bot stopped. Open HL positions stay open until TP/SL or manual close.');
+      setStopNotice(
+        'Bot stopped — no new trades. Open HL positions stay until TP/SL or manual close.'
+      );
     } catch (e: unknown) {
       setBotError(e instanceof Error ? e.message : 'Failed to stop bot');
     } finally {
@@ -301,9 +286,12 @@ const TerminalTradePanel: React.FC<Props> = ({
     <aside className="term-trade-panel">
       <div className="term-trade-header">
         <div className="term-trade-header-top">
-          <p className="term-trade-title">Trading bot</p>
+          <p className="term-trade-title">Hyperliquid bot</p>
           <button type="button" className="term-icon-btn" onClick={refreshAll} title="Refresh">
-            <RefreshCw size={14} className={metrics.isLoading || hlSetup.loading ? 'animate-spin' : ''} />
+            <RefreshCw
+              size={14}
+              className={metrics.isLoading || hlSetup.loading ? 'animate-spin' : ''}
+            />
           </button>
         </div>
       </div>
@@ -334,12 +322,16 @@ const TerminalTradePanel: React.FC<Props> = ({
               phase={phase}
               botRunning={Boolean(walletReady && botRunning)}
               hlBalanceUsd={hlFundingUsd}
+              onDepositClick={() => {
+                setPanelTab('funds');
+                openFunds('deposit');
+              }}
             />
 
             {!walletReady && (
               <div className="term-panel-card term-panel-card--muted term-connect-banner">
                 <p className="term-hint term-connect-banner-text">
-                  Explore bot settings below. Connect wallet to start trading.
+                  Connect wallet → approve agent → deposit on Hyperliquid → Start bot.
                 </p>
                 <button
                   type="button"
@@ -355,16 +347,16 @@ const TerminalTradePanel: React.FC<Props> = ({
             {walletReady && phase === 'loading' && (
               <div className="term-loading-block">
                 <Loader2 size={18} className="animate-spin" />
-                <span>Loading Hyperliquid…</span>
+                <span>Loading Hyperliquid balance…</span>
               </div>
             )}
 
             {walletReady && phase === 'approve' && (
               <div className="term-panel-card term-panel-card--muted">
-                <span className="term-panel-card-label">Trading agent</span>
-                <strong className="term-panel-card-value">Approval required</strong>
+                <span className="term-panel-card-label">Step 2 · Trading agent</span>
+                <strong className="term-panel-card-value">Approve on Hyperliquid</strong>
                 <span className="term-panel-card-hint">
-                  One-time Hyperliquid signature. The agent can trade only — not withdraw.
+                  One-time signature. Agent can trade only — not withdraw your USDC.
                 </span>
                 <button
                   type="button"
@@ -383,27 +375,31 @@ const TerminalTradePanel: React.FC<Props> = ({
             )}
 
             <div className="term-panel-card term-panel-card--muted">
-              <span className="term-panel-card-label">Auto-trading</span>
+              <span className="term-panel-card-label">Bot status</span>
               <strong
                 className={`term-panel-card-value ${walletReady && botRunning ? 'term-pnl-pos' : ''}`}
               >
-                {walletReady && botRunning ? 'Running' : 'Stopped'}
+                {walletReady && botRunning ? 'Running 24/7' : 'Stopped'}
               </strong>
-              <span className="term-panel-card-hint">Hyperliquid · cross margin</span>
+              <span className="term-panel-card-hint">
+                {botRunning
+                  ? 'Monadier server scans HL markets ~every 10s'
+                  : 'Press Start bot when funded on Hyperliquid'}
+              </span>
             </div>
 
-            {walletReady && hlSetup.agentApproved && (
+            {walletReady && (
               <div className="term-panel-card term-panel-card--muted">
-                <span className="term-panel-card-label">HL balance</span>
+                <span className="term-panel-card-label">HL balance (bot capital)</span>
                 <strong className="term-panel-card-value">{fmt(hlFundingUsd)}</strong>
                 <span className="term-panel-card-hint">
-                  Withdrawable {fmt(hlSetup.withdrawableUsd)}
+                  Withdrawable {fmt(hlSetup.withdrawableUsd)} · min ${MIN_HL_BOT_USD}
                 </span>
               </div>
             )}
 
             <TerminalBotSettingsStrip
-              settings={vault.settings}
+              settings={botSettings.settings}
               disabled={walletReady && hlSetup.loading}
               onAdjust={() => setPanelTab('lvrg')}
             />
@@ -415,7 +411,7 @@ const TerminalTradePanel: React.FC<Props> = ({
               </div>
             )}
 
-            {startBlocker && !botError && (
+            {startBlocker && !botRunning && !botError && (
               <p className="term-hint term-hint--warn">{startBlocker}</p>
             )}
 
@@ -438,11 +434,7 @@ const TerminalTradePanel: React.FC<Props> = ({
                   onClick={() => void handleStartBot()}
                 >
                   {botBusy ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-                  {botBusy
-                    ? 'Confirm in wallet…'
-                    : walletReady
-                      ? 'Start bot'
-                      : 'Connect to start bot'}
+                  {botBusy ? 'Saving…' : walletReady ? 'Start bot' : 'Connect wallet'}
                 </button>
               )}
             </div>
@@ -451,10 +443,13 @@ const TerminalTradePanel: React.FC<Props> = ({
               <button
                 type="button"
                 className="term-btn-sm term-btn-sm--ghost w-full justify-center"
-                onClick={openHlDeposit}
+                onClick={() => {
+                  setPanelTab('funds');
+                  openFunds('deposit');
+                }}
               >
                 <ArrowDownLeft size={14} />
-                Deposit to Hyperliquid
+                How to deposit on Hyperliquid
               </button>
             )}
 
@@ -472,17 +467,12 @@ const TerminalTradePanel: React.FC<Props> = ({
         {panelTab === 'lvrg' && (
           <div className="term-panel-stack">
             {!walletReady && (
-              <p className="term-hint">
-                Adjust leverage & risk below. Connect wallet to save settings.
-              </p>
+              <p className="term-hint">Connect wallet to save leverage & risk for the HL bot.</p>
             )}
             <TerminalLvrgPanel
-              settings={vault.settings}
-              walletAddress={vault.wallet}
-              vaultUsd={hlFundingUsd}
-              maxTradeUsd={vault.maxTradeUsd}
-              riskPctOnChain={vault.riskPctOnChain}
-              chainMaxLeverage={vault.chainMaxLeverage}
+              settings={botSettings.settings}
+              walletAddress={wallet}
+              hlBalanceUsd={hlFundingUsd}
               disabled={walletReady && hlSetup.loading}
               onSaved={refreshAll}
             />
@@ -495,54 +485,66 @@ const TerminalTradePanel: React.FC<Props> = ({
               <span className="term-panel-card-label">Hyperliquid balance</span>
               <strong className="term-panel-card-value">{fmt(hlFundingUsd)}</strong>
               <span className="term-panel-card-hint">
-                Withdrawable {fmt(hlSetup.withdrawableUsd)} · min ${MIN_HL_BOT_USD} to run bot
+                Withdrawable {fmt(hlSetup.withdrawableUsd)} · bot needs ${MIN_HL_BOT_USD}+
               </span>
             </div>
-            <p className="term-hint">
-              Einzahlung direkt auf Hyperliquid (app.hyperliquid.xyz). Der Bot nutzt nur USDC auf
-              deinem HL-Konto.
-            </p>
-            <div className="flex gap-2">
+
+            <div className="hl-funds-action-card">
+              <strong>1 · Deposit (in Monadier)</strong>
+              <p className="term-hint">
+                Wallet → Arbitrum → USDC an Hyperliquid senden. Gutschrift auf HL in ~1 Minute.
+                Kein Besuch von hyperliquid.xyz nötig.
+              </p>
               <button
                 type="button"
-                className="term-btn-sm flex-1 justify-center"
-                onClick={openHlDeposit}
+                className="term-btn-sm term-btn-sm--primary w-full justify-center"
+                onClick={() => openFunds('deposit')}
               >
                 <ArrowDownLeft size={14} />
-                Deposit
-              </button>
-              <button
-                type="button"
-                className="term-btn-sm flex-1 justify-center"
-                disabled={walletReady && hlSetup.withdrawableUsd <= 0}
-                onClick={() => {
-                  requireAccount('Sign in before withdrawing from Hyperliquid.', () =>
-                    setShowHlDeposit(true)
-                  );
-                }}
-              >
-                <ArrowUpRight size={14} />
-                Withdraw
+                Deposit USDC
               </button>
             </div>
-            <button
-              type="button"
-              className="term-btn-sm term-btn-sm--ghost w-full justify-center"
-              onClick={() => {
-                setStartMode(false);
-                setShowSettings(true);
-              }}
-            >
-              <Settings size={14} />
-              All bot settings
-            </button>
+
+            <div className="hl-funds-action-card">
+              <strong>2 · Withdraw (in Monadier)</strong>
+              <p className="term-hint">
+                USDC von Hyperliquid zurück auf deine Wallet — Signatur hier in der App.
+              </p>
+              <button
+                type="button"
+                className="term-btn-sm w-full justify-center"
+                disabled={walletReady && hlSetup.withdrawableUsd <= 0}
+                onClick={() =>
+                  requireAccount('Sign in before withdrawing.', () => openFunds('withdraw'))
+                }
+              >
+                <ArrowUpRight size={14} />
+                Withdraw USDC
+              </button>
+            </div>
+
+            <div className="hl-funds-action-card">
+              <strong>3 · Start bot</strong>
+              <p className="term-hint">
+                Nach Einzahlung + Agent-Freigabe: Bot-Tab → Start bot. Läuft 24/7 bis du stoppst.
+              </p>
+              <button
+                type="button"
+                className="term-btn-sm w-full justify-center"
+                disabled={!walletReady || botRunning}
+                onClick={() => setPanelTab('bot')}
+              >
+                <Play size={14} />
+                Go to Start bot
+              </button>
+            </div>
           </div>
         )}
       </div>
 
       <div className="term-trade-footer">
         <div className="term-field-row">
-          <span>HL Einsatz</span>
+          <span>HL balance</span>
           <strong>{hlSetup.loading ? '—' : fmt(hlFundingUsd)}</strong>
         </div>
         <div className="term-field-row">
@@ -557,13 +559,14 @@ const TerminalTradePanel: React.FC<Props> = ({
         </div>
       </div>
 
-      {showHlDeposit && (
+      {showFundsModal && (
         <ProTradeDepositModal
-          onClose={() => setShowHlDeposit(false)}
+          onClose={() => setShowFundsModal(false)}
           withdrawable={hlSetup.withdrawableUsd.toFixed(2)}
-          initialTab={vaultAction === 'withdraw' ? 'withdraw' : 'deposit'}
+          hlBalanceUsd={hlFundingUsd}
+          initialTab={fundsModalTab}
           onSuccess={() => {
-            setShowHlDeposit(false);
+            if (fundsModalTab === 'withdraw') setShowFundsModal(false);
             if (!isDemoUser && address) {
               void linkWallet(address);
             }
@@ -574,9 +577,9 @@ const TerminalTradePanel: React.FC<Props> = ({
       {showSettings && (
         <TerminalBotSettingsModal
           setupPhase={phase === 'approve' ? 'fund' : phase === 'ready' ? 'ready' : phase}
-          minVaultUsd={MIN_HL_BOT_USD}
-          settings={vault.settings}
-          walletAddress={vault.wallet}
+          minHlUsd={MIN_HL_BOT_USD}
+          settings={botSettings.settings}
+          walletAddress={wallet}
           startMode={startMode}
           onClose={() => {
             setShowSettings(false);

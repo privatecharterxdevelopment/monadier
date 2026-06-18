@@ -323,7 +323,7 @@ const ProTradeRegisterModal: React.FC<Props> = ({
               <p className="hl-auth-visual-kicker">Monadier Pro Trade</p>
               <h3 className="hl-auth-visual-title">Automated GMX bot + Hyperliquid terminal</h3>
               <p className="hl-auth-visual-copy">
-                Perps, spot, portfolio, and vault-backed bot trades — one dark trading workspace.
+                Perps, spot, portfolio, and Hyperliquid bot — one trading workspace.
               </p>
             </div>
           </aside>

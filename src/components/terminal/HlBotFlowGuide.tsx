@@ -1,6 +1,5 @@
 import React from 'react';
 import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
-import { HL_APP_URL } from '../../lib/hyperliquid/hlApp';
 
 export type HlBotSetupPhase = 'connect' | 'loading' | 'approve' | 'fund' | 'ready';
 
@@ -8,6 +7,7 @@ type Props = {
   phase: HlBotSetupPhase;
   botRunning: boolean;
   hlBalanceUsd: number;
+  onDepositClick?: () => void;
 };
 
 const STEPS = [
@@ -23,8 +23,8 @@ const STEPS = [
   },
   {
     key: 'fund',
-    title: 'USDC auf Hyperliquid einzahlen',
-    body: `Auf app.hyperliquid.xyz einzahlen (min. $${MIN_HL_BOT_USD} für den Bot). Geld liegt auf HL, nicht auf Arbitrum.`,
+    title: 'USDC einzahlen',
+    body: `Im Tab Funds USDC von Arbitrum auf Hyperliquid senden (min. $${MIN_HL_BOT_USD}). Alles in Monadier — kein Website-Wechsel.`,
   },
   {
     key: 'start',
@@ -60,7 +60,7 @@ function stepState(
   return 'pending';
 }
 
-const HlBotFlowGuide: React.FC<Props> = ({ phase, botRunning, hlBalanceUsd }) => (
+const HlBotFlowGuide: React.FC<Props> = ({ phase, botRunning, hlBalanceUsd, onDepositClick }) => (
   <div className="term-panel-card term-panel-card--muted hl-bot-flow">
     <span className="term-panel-card-label">So startet der Bot</span>
     <ol className="hl-bot-flow__list">
@@ -80,15 +80,14 @@ const HlBotFlowGuide: React.FC<Props> = ({ phase, botRunning, hlBalanceUsd }) =>
         );
       })}
     </ol>
-    {stepState('fund', phase, botRunning) === 'active' && (
-      <a
+    {stepState('fund', phase, botRunning) === 'active' && onDepositClick && (
+      <button
+        type="button"
         className="term-btn-sm w-full justify-center hl-bot-flow__link"
-        href={HL_APP_URL}
-        target="_blank"
-        rel="noopener noreferrer"
+        onClick={onDepositClick}
       >
-        Auf Hyperliquid einzahlen
-      </a>
+        Jetzt einzahlen
+      </button>
     )}
     {botRunning && (
       <p className="term-hint term-hint--ok hl-bot-flow__live">
