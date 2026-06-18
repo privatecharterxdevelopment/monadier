@@ -86,8 +86,8 @@ export function getHlBotSidebarStatus(opts: {
   if (!botRunning) {
     if (needsDeposit) {
       return {
-        headline: 'Deposit USDC on Hyperliquid',
-        detail: `At least $${MIN_HL_BOT_USD} USDC on HL — deposit here in Monadier (Arbitrum → HL). Required before starting the bot.`,
+        headline: 'Deposit to start bot!!',
+        detail: `Min $${MIN_HL_BOT_USD} USDC on Hyperliquid — deposit in Monadier (Arbitrum → HL).`,
         tone: 'warn',
         setupStep: 2,
         setupComplete: false,
@@ -96,15 +96,15 @@ export function getHlBotSidebarStatus(opts: {
     if (needsAgent) {
       return {
         headline: 'Approve trading agent',
-        detail: 'One-time signature. The agent can place trades — it cannot withdraw your funds.',
+        detail: 'One-time signature — then press Start bot.',
         tone: 'warn',
         setupStep: 3,
         setupComplete: false,
       };
     }
     return {
-      headline: 'Ready to start',
-      detail: 'Press Start bot — Monadier scans HL markets 24/7 for you.',
+      headline: 'Start bot',
+      detail: 'Monadier scans HL markets 24/7 for you.',
       tone: 'ok',
       setupStep: 4,
       setupComplete: true,
@@ -112,19 +112,6 @@ export function getHlBotSidebarStatus(opts: {
   }
 
   const timer = runtimeLabel ? ` · ${runtimeLabel}` : '';
-
-  if (needsDeposit || needsAgent) {
-    const parts: string[] = [];
-    if (needsDeposit) parts.push(`deposit $${MIN_HL_BOT_USD}+ on HL`);
-    if (needsAgent) parts.push('approve trading agent');
-    return {
-      headline: `Running${timer}`,
-      detail: `Bot is on but can't trade yet — ${parts.join(' and ')}.`,
-      tone: 'warn',
-      setupStep: needsDeposit ? 2 : 3,
-      setupComplete: false,
-    };
-  }
 
   if (hasOpenPosition) {
     return {

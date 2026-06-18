@@ -57,6 +57,7 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
     settings,
     walletAddress,
     startMode,
+    allowAutoTrade: setupPhase === 'ready',
     onSaved: onSuccess,
   });
 

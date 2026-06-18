@@ -126,7 +126,7 @@ export function useTerminalVaultData(refreshKey = 0) {
             takeProfitPercent: Number(row?.take_profit_percent ?? 10),
             stopLossPercent: Number(row?.stop_loss_percent ?? 5),
             maxLeverage: Number(row?.leverage_multiplier ?? 25),
-            autoTradeEnabled: Boolean(row?.auto_trade_enabled ?? true),
+            autoTradeEnabled: Boolean(row?.auto_trade_enabled),
           }),
           isLoading: false,
           error: null,

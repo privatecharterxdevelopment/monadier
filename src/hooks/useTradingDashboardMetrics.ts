@@ -6,6 +6,12 @@ import { useWeb3 } from '../contexts/Web3Context';
 import { pickPrimaryVaultWallet } from '../lib/userWallets';
 import { fetchUserPositions } from '../lib/userPositions';
 import { fetchHlAccountState } from '../lib/hyperliquid/user';
+import { loadHlAgentApproval } from '../lib/hyperliquid/hlBotAgent';
+import {
+  disableStaleHlBotAutoTrade,
+  effectiveHlBotRunning,
+  isHlBotReadyToRun,
+} from '../lib/hlBotGates';
 import {
   computePositionStats,
   fetchLiveTokenPrices,
@@ -115,6 +121,7 @@ export function useTradingDashboardMetrics() {
         address
       );
       let vaultSettings: { auto_trade_enabled?: boolean } | null = null;
+      let agentApproved = false;
 
       let vaultBalanceUsd = 0;
       let withdrawableUsd = 0;
@@ -142,6 +149,15 @@ export function useTradingDashboardMetrics() {
         }
       }
 
+      if (queryWallet) {
+        try {
+          const approval = await loadHlAgentApproval(queryWallet);
+          agentApproved = approval.approved;
+        } catch {
+          agentApproved = false;
+        }
+      }
+
       if (primaryWallet) {
         const { data } = await supabase
           .from('vault_settings')
@@ -149,6 +165,20 @@ export function useTradingDashboardMetrics() {
           .eq('wallet_address', primaryWallet)
           .maybeSingle();
         vaultSettings = data;
+      }
+
+      const dbAutoTrade = vaultSettings != null ? Boolean(vaultSettings.auto_trade_enabled) : false;
+      let autoTradeEnabled = dbAutoTrade;
+      if (dbAutoTrade && queryWallet && !isHlBotReadyToRun(vaultBalanceUsd, agentApproved)) {
+        try {
+          await disableStaleHlBotAutoTrade(queryWallet);
+          autoTradeEnabled = false;
+        } catch (e) {
+          console.warn('[useTradingDashboardMetrics] stale auto_trade cleanup failed', e);
+          autoTradeEnabled = false;
+        }
+      } else {
+        autoTradeEnabled = effectiveHlBotRunning(dbAutoTrade, vaultBalanceUsd, agentApproved);
       }
 
       setMetrics({
@@ -165,8 +195,7 @@ export function useTradingDashboardMetrics() {
         pnl30d: pnlInWindow(all, 24 * 30),
         winRate: stats.winRate,
         closedTradesCount: stats.closedTrades,
-        autoTradeEnabled:
-          vaultSettings != null ? Boolean(vaultSettings.auto_trade_enabled) : false,
+        autoTradeEnabled,
         isLoading: false,
       });
     } catch (e) {

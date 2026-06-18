@@ -11,6 +11,7 @@ export type BotSettingsEditorOptions = {
   settings: VaultSettingsSnapshot;
   walletAddress?: string;
   startMode?: boolean;
+  allowAutoTrade?: boolean;
   hlSliderMax?: number;
   onSaved: () => void;
 };
@@ -45,6 +46,7 @@ export function useBotSettingsEditor({
   settings,
   walletAddress,
   startMode = false,
+  allowAutoTrade = false,
   hlSliderMax,
   onSaved,
 }: BotSettingsEditorOptions) {
@@ -166,6 +168,11 @@ export function useBotSettingsEditor({
       return { ok: true };
     }
 
+    if (autoTrade && !allowAutoTrade) {
+      setError('Deposit USDC on Hyperliquid and approve the agent before starting the bot.');
+      return { ok: false };
+    }
+
     try {
       setIsLoading(true);
       setError(null);
@@ -238,6 +245,7 @@ export function useBotSettingsEditor({
     onSaved,
     open,
     linkWallet,
+    allowAutoTrade,
     baseline.autoTradeEnabled,
   ]);
 

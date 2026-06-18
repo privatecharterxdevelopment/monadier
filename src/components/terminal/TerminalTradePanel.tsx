@@ -30,6 +30,11 @@ import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { useBotRuntimeTimer } from '../../hooks/useBotRuntimeTimer';
 import { useBotServerBlockers } from '../../hooks/useBotServerBlockers';
 import { clearBotRuntimeTimer, markBotRuntimeStarted } from '../../lib/botRuntimeTimer';
+import {
+  disableStaleHlBotAutoTrade,
+  effectiveHlBotRunning,
+  isHlBotReadyToRun,
+} from '../../lib/hlBotGates';
 import { getHlBotSidebarStatus } from '../../lib/hlBotUserStatus';
 import HlBotSetupSteps from './HlBotSetupSteps';
 import ProTradeDepositModal from '../protrade/ProTradeDepositModal';
@@ -88,7 +93,12 @@ const TerminalTradePanel: React.FC<Props> = ({
   const walletReady = isConnected || isDemoUser;
   const wallet = botSettings.wallet;
   const hlFundingUsd = hlSetup.accountUsd;
-  const botRunning = botSettings.settings.autoTradeEnabled;
+  const autoTradeDb = botSettings.settings.autoTradeEnabled;
+  const botRunning = effectiveHlBotRunning(
+    autoTradeDb,
+    hlFundingUsd,
+    hlSetup.agentApproved
+  );
   const timerWallet = wallet ?? address ?? undefined;
   const botRuntime = useBotRuntimeTimer(timerWallet, Boolean(walletReady && botRunning));
   const serverBlockers = useBotServerBlockers(timerWallet, Boolean(botRunning));
@@ -130,7 +140,7 @@ const TerminalTradePanel: React.FC<Props> = ({
     if (!walletReady) return null;
     if (hlSetup.loading && hlFundingUsd === 0) return 'Loading Hyperliquid balance…';
     if (hlFundingUsd < MIN_HL_BOT_USD) {
-      return `Deposit at least $${MIN_HL_BOT_USD} USDC on Hyperliquid first.`;
+      return `Deposit to start bot!! (min $${MIN_HL_BOT_USD} USDC on Hyperliquid).`;
     }
     if (!hlSetup.agentApproved) {
       return 'Approve the trading agent (one-time).';
@@ -147,6 +157,34 @@ const TerminalTradePanel: React.FC<Props> = ({
   ]);
 
   const canStartBot = phase === 'ready' && !startBlocker;
+
+  useEffect(() => {
+    if (!wallet || hlSetup.loading || botSettings.isLoading || !autoTradeDb) return;
+    if (isHlBotReadyToRun(hlFundingUsd, hlSetup.agentApproved)) return;
+
+    let cancelled = false;
+    void disableStaleHlBotAutoTrade(wallet)
+      .then(() => {
+        if (cancelled) return;
+        clearBotRuntimeTimer(timerWallet ?? wallet);
+        refreshAll();
+      })
+      .catch(() => {
+        /* metrics hook also reconciles */
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    wallet,
+    timerWallet,
+    hlSetup.loading,
+    botSettings.isLoading,
+    autoTradeDb,
+    hlFundingUsd,
+    hlSetup.agentApproved,
+  ]);
 
   const requireAccount = (reason: string, next: () => void) => {
     if (!isDemoUser && !isAuthenticated) {
@@ -258,6 +296,9 @@ const TerminalTradePanel: React.FC<Props> = ({
       syncAutoTrade: false,
     });
     if (autoTradeEnabled) {
+      if (!isHlBotReadyToRun(hlFundingUsd, hlSetup.agentApproved)) {
+        throw new Error('Deposit USDC on Hyperliquid and approve the agent before starting the bot.');
+      }
       await enableHlBotExecution(wallet);
     }
   };
@@ -423,7 +464,7 @@ const TerminalTradePanel: React.FC<Props> = ({
                 onClick={() => openFunds('deposit')}
               >
                 <ArrowDownLeft size={14} />
-                Deposit USDC on Hyperliquid
+                Deposit to start bot!!
               </button>
             )}
 
@@ -454,50 +495,28 @@ const TerminalTradePanel: React.FC<Props> = ({
                   {botBusy ? <Loader2 size={14} className="animate-spin" /> : <Square size={14} />}
                   Stop bot
                 </button>
-              ) : (
+              ) : walletReady && phase === 'ready' ? (
                 <button
                   type="button"
                   className="term-btn-sm term-btn-sm--primary flex-1 justify-center"
-                  disabled={botBusy || !walletReady || !canStartBot}
-                  title={
-                    !canStartBot && startBlocker
-                      ? startBlocker
-                      : phase === 'fund'
-                        ? `Deposit $${MIN_HL_BOT_USD}+ on Hyperliquid first`
-                        : phase === 'approve'
-                          ? 'Approve the trading agent first'
-                          : undefined
-                  }
+                  disabled={botBusy || !canStartBot}
+                  title={!canStartBot && startBlocker ? startBlocker : undefined}
                   onClick={() => void handleStartBot()}
                 >
                   {botBusy ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-                  {botBusy ? 'Saving…' : walletReady ? 'Start bot' : 'Connect wallet'}
+                  {botBusy ? 'Saving…' : 'Start bot'}
                 </button>
-              )}
+              ) : !walletReady ? (
+                <button
+                  type="button"
+                  className="term-btn-sm term-btn-sm--primary flex-1 justify-center"
+                  onClick={() => open()}
+                >
+                  <Wallet size={14} />
+                  Connect wallet
+                </button>
+              ) : null}
             </div>
-
-            {walletReady && botRunning && (phase === 'fund' || phase === 'approve') && (
-              <button
-                type="button"
-                className="term-btn-sm term-btn-sm--ghost w-full justify-center"
-                onClick={() => {
-                  if (phase === 'fund') openFunds('deposit');
-                  else void handleApproveAgent();
-                }}
-              >
-                {phase === 'fund' ? (
-                  <>
-                    <ArrowDownLeft size={14} />
-                    Finish setup — deposit USDC
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck size={14} />
-                    Finish setup — approve agent
-                  </>
-                )}
-              </button>
-            )}
 
             {onOpenHistory && (
               <button type="button" className="term-link-btn" onClick={onOpenHistory}>
