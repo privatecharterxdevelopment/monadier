@@ -205,9 +205,14 @@ const ProTradeDepositModal: React.FC<Props> = ({
           <span className="term-panel-card-label">HL balance (bot capital)</span>
           <strong className="term-panel-card-value">{fmtUsdSymbol(String(hlBalanceUsd))}</strong>
           <span className="term-panel-card-hint">
-            Bot needs ${MIN_HL_BOT_USD}+ · withdrawable {fmtUsdSymbol(withdrawable)}
+            Withdrawable {fmtUsdSymbol(withdrawable)} · min ${MIN_HL_BOT_USD} to run the bot
           </span>
         </div>
+
+        <p className="hl-entry-hint hl-funds-trust">
+          Your funds are not locked by Monadier. Only your wallet can withdraw from Hyperliquid — the
+          trading agent cannot move USDC out.
+        </p>
 
         {tab === 'deposit' ? (
           <>
@@ -302,7 +307,8 @@ const ProTradeDepositModal: React.FC<Props> = ({
         ) : (
           <>
             <p className="hl-entry-hint">
-              Withdraw to your wallet — signed here in Monadier. The bot cannot withdraw for you.
+              Withdraw to your Arbitrum wallet. Signed by you only — the bot cannot withdraw on your
+              behalf. Open positions may reduce the amount available to withdraw.
             </p>
             <p className="hl-entry-hint">
               Available: <strong>{fmtUsdSymbol(withdrawable)}</strong>

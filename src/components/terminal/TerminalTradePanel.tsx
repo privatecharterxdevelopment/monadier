@@ -140,7 +140,7 @@ const TerminalTradePanel: React.FC<Props> = ({
     if (!walletReady) return null;
     if (hlSetup.loading && hlFundingUsd === 0) return 'Loading Hyperliquid balance…';
     if (hlFundingUsd < MIN_HL_BOT_USD) {
-      return `Deposit to start bot!! (min $${MIN_HL_BOT_USD} USDC on Hyperliquid).`;
+      return `Deposit at least $${MIN_HL_BOT_USD} USDC on Hyperliquid to start the bot.`;
     }
     if (!hlSetup.agentApproved) {
       return 'Approve the trading agent (one-time).';
@@ -242,6 +242,10 @@ const TerminalTradePanel: React.FC<Props> = ({
       open();
       return;
     }
+    if (!isDemoUser && !isAuthenticated) {
+      onRequireSignIn?.('Sign in to Monadier before approving the trading agent.');
+      return;
+    }
     if (!walletClient) {
       setBotError('Wallet not ready — unlock your wallet and try again.');
       return;
@@ -249,6 +253,9 @@ const TerminalTradePanel: React.FC<Props> = ({
     setBotError(null);
     setApproveBusy(true);
     try {
+      if (!isDemoUser) {
+        await linkWallet(address);
+      }
       const meta = await fetchHlAgentAddress(address);
       if (!meta.success || !meta.agentAddress) {
         throw new Error(meta.error || 'Could not load agent address');
@@ -464,7 +471,7 @@ const TerminalTradePanel: React.FC<Props> = ({
                 onClick={() => openFunds('deposit')}
               >
                 <ArrowDownLeft size={14} />
-                Deposit to start bot!!
+                Deposit USDC
               </button>
             )}
 
@@ -576,8 +583,10 @@ const TerminalTradePanel: React.FC<Props> = ({
             </button>
 
             <p className="term-hint">
-              Deposit sends USDC from Arbitrum to your Hyperliquid account — inside Monadier, no
-              hyperliquid.xyz visit needed.
+              Non-custodial: USDC stays on your Hyperliquid account. Deposit from Arbitrum in
+              Monadier — no hyperliquid.xyz needed. Withdraw anytime with your wallet; the bot agent
+              cannot withdraw. While a trade is open, withdrawable balance may be lower (margin in
+              use).
             </p>
           </div>
         )}

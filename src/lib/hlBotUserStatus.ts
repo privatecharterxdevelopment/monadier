@@ -86,8 +86,8 @@ export function getHlBotSidebarStatus(opts: {
   if (!botRunning) {
     if (needsDeposit) {
       return {
-        headline: 'Deposit to start bot!!',
-        detail: `Min $${MIN_HL_BOT_USD} USDC on Hyperliquid — deposit in Monadier (Arbitrum → HL).`,
+        headline: 'Fund your account',
+        detail: `Deposit at least $${MIN_HL_BOT_USD} USDC on Hyperliquid to start the bot. Funds stay in your account — only your wallet can withdraw; the trading agent cannot.`,
         tone: 'warn',
         setupStep: 2,
         setupComplete: false,
@@ -96,15 +96,15 @@ export function getHlBotSidebarStatus(opts: {
     if (needsAgent) {
       return {
         headline: 'Approve trading agent',
-        detail: 'One-time signature — then press Start bot.',
+        detail: 'One-time wallet signature. The agent may place trades only — not withdraw USDC.',
         tone: 'warn',
         setupStep: 3,
         setupComplete: false,
       };
     }
     return {
-      headline: 'Start bot',
-      detail: 'Monadier scans HL markets 24/7 for you.',
+      headline: 'Ready',
+      detail: 'Your account is funded. Start the bot when you are ready.',
       tone: 'ok',
       setupStep: 4,
       setupComplete: true,

@@ -50,10 +50,32 @@ export async function saveHlAgentApproval(params: {
   agentName: string;
   expiresAt?: string | null;
 }): Promise<void> {
-  const { error } = await supabase.from('hl_agent_approvals').upsert(
+  const wallet = params.walletAddress.toLowerCase();
+  const agent = params.agentAddress.toLowerCase();
+
+  const { error } = await supabase.rpc('save_hl_agent_approval', {
+    p_wallet_address: wallet,
+    p_agent_address: agent,
+    p_agent_name: params.agentName,
+    p_expires_at: params.expiresAt ?? null,
+  });
+  if (!error) return;
+
+  const missingRpc =
+    error.message.includes('Could not find the function') ||
+    error.message.includes('schema cache');
+  if (!missingRpc) {
+    if (/not authenticated/i.test(error.message)) {
+      throw new Error('Sign in to Monadier before approving the trading agent.');
+    }
+    throw new Error(error.message);
+  }
+
+  await supabase.rpc('register_my_wallet', { p_wallet: wallet });
+  const { error: upsertError } = await supabase.from('hl_agent_approvals').upsert(
     {
-      wallet_address: params.walletAddress.toLowerCase(),
-      agent_address: params.agentAddress.toLowerCase(),
+      wallet_address: wallet,
+      agent_address: agent,
       agent_name: params.agentName,
       approved_at: new Date().toISOString(),
       expires_at: params.expiresAt ?? null,
@@ -62,7 +84,7 @@ export async function saveHlAgentApproval(params: {
     },
     { onConflict: 'wallet_address' }
   );
-  if (error) throw new Error(error.message);
+  if (upsertError) throw new Error(upsertError.message);
 }
 
 export async function loadHlAgentApproval(
