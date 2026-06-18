@@ -24,6 +24,7 @@ import { hlAgentApprovalService } from './services/hlAgentApprovals';
 import { fetchHlClearinghouseState, hlAccountValueUsd, hlOpenPerpCoins } from './services/hlInfo';
 import { getLastHlOpenError } from './services/hlTrading';
 import { checkHlBuilderFeeApproved } from './services/hlBuilder';
+import { getHlFeeSummary } from './services/hlSuccessFees';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 
 // Health check server for Railway/cloud deployments
@@ -168,6 +169,7 @@ const healthServer = http.createServer(async (req, res) => {
       const hlAgentAddr = deriveUserHlAgentAddress(userAddress);
       const hlAgentOk = await hlAgentApprovalService.isApproved(userAddress, hlAgentAddr);
       const builderGate = await checkHlBuilderFeeApproved(userAddress);
+      const feeSummary = await getHlFeeSummary(userAddress);
       const hlOpenCoins = hlOpenPerpCoins(await fetchHlClearinghouseState(userAddress));
 
       const collateralForSignal = BigInt(Math.floor(Math.max(hlBalanceUsd, 0) * 1e6));
@@ -302,6 +304,14 @@ const healthServer = http.createServer(async (req, res) => {
           onChainOpenTokens: hlOpenCoins,
         },
         lastOpenError: getLastHlOpenError(userAddress),
+        successFees: {
+          accruedUsd: feeSummary.accruedUsd,
+          settledUsd: feeSummary.settledUsd,
+          tradeCount: feeSummary.tradeCount,
+          ratePercent: config.hyperliquid.successFeeBps / 100,
+          treasury: config.treasuryAddress,
+          note: '10% of profit on winning HL bot closes — billed via ledger (no vault contract).',
+        },
         timestamp: new Date().toISOString(),
       }));
     } catch (err: any) {

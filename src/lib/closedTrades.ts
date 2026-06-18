@@ -14,6 +14,8 @@ export type ClosedTradeRow = {
   entryAmount: number;
   profitLoss: number;
   profitLossPercent: number | null;
+  platformSuccessFee: number | null;
+  executionVenue: string | null;
   closedAt: string;
   exitTxHash: string | null;
   closeReason: string | null;
@@ -51,6 +53,9 @@ function mapFromTradeHistory(row: Record<string, unknown>): ClosedTradeRow {
     profitLoss: Number(row.profit_loss) || 0,
     profitLossPercent:
       row.profit_loss_percent != null ? Number(row.profit_loss_percent) : null,
+    platformSuccessFee:
+      row.platform_success_fee != null ? Number(row.platform_success_fee) : null,
+    executionVenue: row.execution_venue ? String(row.execution_venue) : null,
     closedAt: String(row.closed_at || row.created_at),
     exitTxHash: row.exit_tx_hash ? String(row.exit_tx_hash) : null,
     closeReason: row.close_reason ? String(row.close_reason) : null,
@@ -70,6 +75,8 @@ function mapFromPosition(row: Record<string, unknown>): ClosedTradeRow {
     profitLoss: Number(row.profit_loss) || 0,
     profitLossPercent:
       row.profit_loss_percent != null ? Number(row.profit_loss_percent) : null,
+    platformSuccessFee: null,
+    executionVenue: null,
     closedAt: String(row.closed_at || row.updated_at),
     exitTxHash: row.exit_tx_hash ? String(row.exit_tx_hash) : null,
     closeReason: row.close_reason ? String(row.close_reason) : null,
@@ -232,7 +239,7 @@ async function fetchClosedTradesDirect(
   isDemoUser: boolean
 ): Promise<ClosedTradeRow[]> {
   const tradeHistorySelect =
-    'id, position_id, wallet_address, chain_id, token_symbol, direction, leverage, entry_amount, profit_loss, profit_loss_percent, closed_at, exit_tx_hash, close_reason, created_at';
+    'id, position_id, wallet_address, chain_id, token_symbol, direction, leverage, entry_amount, profit_loss, profit_loss_percent, platform_success_fee, execution_venue, closed_at, exit_tx_hash, close_reason, created_at';
   const positionsSelect =
     'id, wallet_address, chain_id, token_symbol, direction, entry_amount, profit_loss, profit_loss_percent, leverage_multiplier, closed_at, exit_tx_hash, close_reason, updated_at, status';
 

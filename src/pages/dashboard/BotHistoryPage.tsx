@@ -855,7 +855,8 @@ const BotHistoryPage: React.FC<BotHistoryPageProps> = ({
                         Fee Structure (V8)
                       </div>
                       <p className="text-green-200/80">
-                        <strong>No platform fees!</strong> Only 10% of profits on winning trades. Hyperliquid trading fees apply per position.
+                        <strong>Winning HL bot trades:</strong> 10% success fee on profit (tracked in
+                        history). Small platform fee per HL order. No success fee on losing trades.
                       </p>
                     </div>
                     <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">

@@ -17,6 +17,7 @@ import {
 import { checkHlBuilderFeeApproved } from './hlBuilder';
 import { subscriptionService } from './subscription';
 import type { TradingCycleContext } from './tradingCycleContext';
+import { recordHlBotClose, type HlCloseSnapshot } from './hlSuccessFees';
 import {
   shouldActivateProfitLock,
   shouldCloseProfitLock,
@@ -294,13 +295,28 @@ export class HyperliquidTradingService {
 
       if (pnlPct <= -sl) {
         hlProfitLockActive.delete(lockKey);
-        await this.closeMarketPosition(userAddress, pos.coin, 'stop_loss');
+        await this.closeMarketPosition(userAddress, pos.coin, 'stop_loss', {
+          entryPx: entry,
+          unrealizedPnlUsd: pnl,
+          size,
+          leverage: pos.leverage?.value ?? 10,
+        });
       } else if (shouldTakeProfitOnPnl(pnlPct, tp)) {
         hlProfitLockActive.delete(lockKey);
-        await this.closeMarketPosition(userAddress, pos.coin, 'take_profit');
+        await this.closeMarketPosition(userAddress, pos.coin, 'take_profit', {
+          entryPx: entry,
+          unrealizedPnlUsd: pnl,
+          size,
+          leverage: pos.leverage?.value ?? 10,
+        });
       } else if (shouldCloseProfitLock(pnlPct, profitLock, locked)) {
         hlProfitLockActive.delete(lockKey);
-        await this.closeMarketPosition(userAddress, pos.coin, 'profit_lock');
+        await this.closeMarketPosition(userAddress, pos.coin, 'profit_lock', {
+          entryPx: entry,
+          unrealizedPnlUsd: pnl,
+          size,
+          leverage: pos.leverage?.value ?? 10,
+        });
       } else if (shouldActivateProfitLock(pnlPct, profitLock, locked)) {
         hlProfitLockActive.set(lockKey, true);
         locked = true;
@@ -317,7 +333,13 @@ export class HyperliquidTradingService {
   async closeMarketPosition(
     userAddress: `0x${string}`,
     coin: string,
-    reason: string
+    reason: string,
+    closeCtx?: {
+      entryPx: number;
+      unrealizedPnlUsd: number;
+      size: number;
+      leverage: number;
+    }
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const state = await fetchHlClearinghouseState(userAddress);
@@ -328,6 +350,12 @@ export class HyperliquidTradingService {
       if (!Number.isFinite(size) || Math.abs(size) < 1e-12) {
         return { success: false, error: 'Zero size' };
       }
+
+      const entryPx = closeCtx?.entryPx ?? Number(row.entryPx ?? 0);
+      const pnlUsd =
+        closeCtx?.unrealizedPnlUsd ?? Number(row.unrealizedPnl ?? 0);
+      const leverage = closeCtx?.leverage ?? row.leverage?.value ?? 10;
+      const absSize = Math.abs(size);
 
       const meta = await fetchHlMeta();
       const mids = await fetchHlAllMids();
@@ -344,7 +372,7 @@ export class HyperliquidTradingService {
             a: assetIndex,
             b: !isLong,
             p: formatHlPrice(limitPx),
-            s: formatHlSize(Math.abs(size), szDecimals),
+            s: formatHlSize(absSize, szDecimals),
             r: true,
             t: { limit: { tif: 'FrontendMarket' } },
           },
@@ -359,10 +387,30 @@ export class HyperliquidTradingService {
         return { success: false, error: String(status.error) };
       }
 
+      const collateralUsd =
+        entryPx > 0 ? (absSize * entryPx) / leverage : 0;
+      const snapshot: HlCloseSnapshot = {
+        coin: coin.toUpperCase(),
+        direction: isLong ? 'LONG' : 'SHORT',
+        entryPx,
+        exitPx: markPx,
+        size: absSize,
+        leverage,
+        unrealizedPnlUsd: pnlUsd,
+        collateralUsd,
+      };
+
+      await recordHlBotClose({
+        walletAddress: userAddress,
+        reason,
+        snapshot,
+      });
+
       logger.info('HL position closed', {
         user: userAddress.slice(0, 10),
         coin,
         reason,
+        pnl: pnlUsd.toFixed(4),
       });
       return { success: true };
     } catch (err: unknown) {

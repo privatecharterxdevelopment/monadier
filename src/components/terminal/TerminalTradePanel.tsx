@@ -536,6 +536,12 @@ const TerminalTradePanel: React.FC<Props> = ({
                 <p className="term-panel-card-hint">
                   HL balance {fmt(hlFundingUsd)} · withdrawable {fmt(hlSetup.withdrawableUsd)}
                 </p>
+                {walletReady && phase === 'ready' && builderConfig.enabled && (
+                  <p className="term-panel-card-hint term-hint--subtle">
+                    Fees: {formatBuilderFeeLabel(builderConfig.feePerp)} HL platform fee per order · 10%
+                    success fee on profitable bot closes only (no fee on losses).
+                  </p>
+                )}
               </div>
             )}
 

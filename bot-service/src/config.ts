@@ -95,6 +95,9 @@ export const config = {
     defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 0.1),
     /** Minimum margin USD per HL open (small accounts use up to 10% of balance). */
     minMarginUsd: Number(process.env.HL_MIN_MARGIN_USD || 5),
+    /** Success fee on profitable bot closes — 1000 = 10% of realized profit. */
+    successFeeBps: Number(process.env.HL_SUCCESS_FEE_BPS || 1000),
+    minSuccessFeeUsd: Number(process.env.HL_MIN_SUCCESS_FEE_USD || 0.01),
     infoUrl: process.env.HL_INFO_URL || 'https://api.hyperliquid.xyz/info',
     builderAddress: (process.env.HL_BUILDER_ADDRESS ||
       process.env.TREASURY_ADDRESS) as `0x${string}`,
