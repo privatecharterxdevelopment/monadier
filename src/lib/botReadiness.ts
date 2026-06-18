@@ -8,38 +8,14 @@ export type BotReadiness = {
   canEnter: boolean;
   headline: string;
   detail: string;
-  /** Server-side GMX circuit breaker — signal confidence does not override this. */
-  circuitBreaker?: boolean;
-  circuitBreakerResetSec?: number;
 };
 
-function formatBlocker(blocker: string, resetSec?: number): string {
-  const cb = blocker.match(/circuit breaker \((\d+) recent GMX failures\)/i);
-  if (cb) {
-    const n = cb[1];
-    const wait =
-      resetSec && resetSec > 0
-        ? ` · Reset in ~${Math.ceil(resetSec / 60)} Min.`
-        : ' · Reset in ~5 Min.';
-    return `${n} fehlgeschlagene GMX-Orders — Bot pausiert${wait}`;
-  }
-  const keeperCb = blocker.match(/circuit breaker \((\d+) GMX keeper timeouts\)/i);
-  if (keeperCb) {
-    const wait =
-      resetSec && resetSec > 0
-        ? ` · Reset in ~${Math.ceil(resetSec / 60)} Min.`
-        : ' · Reset in ~5 Min.';
-    return `${keeperCb[1]}× GMX Keeper Timeout — Bot wartet${wait}`;
-  }
+function formatBlocker(blocker: string): string {
   if (/HL agent not approved/i.test(blocker)) {
     return 'Trading-Agent auf Hyperliquid noch nicht freigegeben';
   }
   if (/HL balance/i.test(blocker)) {
     return blocker.replace(/HL balance/i, 'HL-Guthaben');
-  }
-  if (/post-close cooldown/i.test(blocker)) {
-    const sec = blocker.match(/(\d+)s/)?.[1];
-    return sec ? `Cooldown nach Schließen: noch ${sec}s` : 'Cooldown nach Schließen aktiv';
   }
   if (/no trade signal/i.test(blocker)) {
     return 'Kein starkes MTF-Signal (min. 25% bot conf.)';
@@ -47,33 +23,14 @@ function formatBlocker(blocker: string, resetSec?: number): string {
   if (/HL position open/i.test(blocker)) {
     return `Offene HL-Position: ${blocker.replace(/HL position open:\s*/i, '')}`;
   }
-  if (/on-chain position open/i.test(blocker)) {
-    return `Offene Position: ${blocker.replace(/on-chain position open:\s*/i, '')}`;
-  }
   return blocker;
 }
 
-export function readinessFromServerBlockers(
-  blockers: string[],
-  resetSec = 0
-): BotReadiness {
-  const circuitBreaker = blockers.some((b) => /circuit breaker/i.test(b));
-  const detail = blockers.map((b) => formatBlocker(b, resetSec)).join(' · ');
-
-  if (circuitBreaker) {
-    return {
-      canEnter: false,
-      headline: 'GMX Circuit Breaker',
-      detail,
-      circuitBreaker: true,
-      circuitBreakerResetSec: resetSec,
-    };
-  }
-
+export function readinessFromServerBlockers(blockers: string[]): BotReadiness {
   return {
     canEnter: false,
     headline: 'Bot blockiert',
-    detail,
+    detail: blockers.map((b) => formatBlocker(b)).join(' · '),
   };
 }
 

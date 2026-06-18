@@ -75,9 +75,8 @@ export const config = {
     elite: 100,    // 1x-100x for elite users (GMX)
   },
 
-  /** hyperliquid = default bot execution; gmx = legacy vault (opens disabled by default) */
-  executionVenue: (process.env.EXECUTION_VENUE || 'hyperliquid') as 'hyperliquid' | 'gmx',
-  gmxOpensEnabled: process.env.GMX_OPENS_ENABLED === 'true',
+  /** hyperliquid only — GMX vault path removed */
+  executionVenue: 'hyperliquid' as const,
 
   hyperliquid: {
     /** Seeds per-user agent keys — never expose to frontend */

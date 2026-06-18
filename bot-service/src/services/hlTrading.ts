@@ -15,7 +15,7 @@ import {
 } from './hlInfo';
 import { subscriptionService } from './subscription';
 import { marketService, TradingStrategy } from './market';
-import { V7_TOKENS } from './tradingV7GMX';
+import { ARBITRUM_SIGNAL_TOKENS } from '../arbitrumTokens';
 
 const transport = new HttpTransport();
 const DEFAULT_STRATEGY: TradingStrategy = 'aggressive';
@@ -101,8 +101,8 @@ export class HyperliquidTradingService {
     let best: { coin: string; direction: 'LONG' | 'SHORT'; confidence: number } | null = null;
 
     const signalPairs = [
-      { symbol: 'ETHUSDT', token: V7_TOKENS.WETH },
-      { symbol: 'BTCUSDT', token: V7_TOKENS.WBTC },
+      { symbol: 'ETHUSDT', token: ARBITRUM_SIGNAL_TOKENS.WETH },
+      { symbol: 'BTCUSDT', token: ARBITRUM_SIGNAL_TOKENS.WBTC },
     ] as const;
 
     for (const { symbol, token } of signalPairs) {

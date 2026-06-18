@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { supabase } from '../lib/supabase';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
-import { VaultClient, VAULT_CHAIN_ID, getArbitrumPublicClient } from '../lib/vault';
 import { useWeb3 } from '../contexts/Web3Context';
 import { pickPrimaryVaultWallet } from '../lib/userWallets';
 import { fetchUserPositions } from '../lib/userPositions';
@@ -18,8 +17,6 @@ export type TradingDashboardMetrics = {
   vaultBalanceUsd: number;
   /** HL withdrawable USDC */
   withdrawableUsd: number;
-  /** Legacy GMX vault on Arbitrum (if any) */
-  legacyVaultUsd: number;
   openPositionValueUsd: number;
   openPositionsCount: number;
   avgLeverage: number;
@@ -32,14 +29,12 @@ export type TradingDashboardMetrics = {
   winRate: number;
   closedTradesCount: number;
   autoTradeEnabled: boolean;
-  withdrawableUsd: number;
   isLoading: boolean;
 };
 
 const defaultMetrics: TradingDashboardMetrics = {
   vaultBalanceUsd: 0,
   withdrawableUsd: 0,
-  legacyVaultUsd: 0,
   openPositionValueUsd: 0,
   openPositionsCount: 0,
   avgLeverage: 1,
@@ -50,8 +45,8 @@ const defaultMetrics: TradingDashboardMetrics = {
   pnl7d: 0,
   pnl30d: 0,
   winRate: 0,
+  closedTradesCount: 0,
   autoTradeEnabled: false,
-  withdrawableUsd: 0,
   isLoading: true,
 };
 
@@ -123,7 +118,6 @@ export function useTradingDashboardMetrics() {
 
       let vaultBalanceUsd = 0;
       let withdrawableUsd = 0;
-      let legacyVaultUsd = 0;
       let hlOpenNotional = 0;
       let hlOpenCount = 0;
 
@@ -133,7 +127,6 @@ export function useTradingDashboardMetrics() {
           : (address?.toLowerCase() ?? primaryWallet)
       ) as `0x${string}` | undefined;
 
-      let onChainAutoTrade = false;
       if (queryWallet) {
         try {
           const hl = await fetchHlAccountState(queryWallet);
@@ -146,20 +139,6 @@ export function useTradingDashboardMetrics() {
           );
         } catch {
           /* HL read optional */
-        }
-
-        try {
-          const arbClient = getArbitrumPublicClient();
-          const client = new VaultClient(
-            arbClient as never,
-            (walletClient ?? arbClient) as never,
-            VAULT_CHAIN_ID
-          );
-          const status = await client.getUserStatus(queryWallet);
-          legacyVaultUsd = parseFloat(status.balanceFormatted || '0');
-          onChainAutoTrade = status.autoTradeEnabled;
-        } catch {
-          /* legacy vault optional */
         }
       }
 
@@ -175,7 +154,6 @@ export function useTradingDashboardMetrics() {
       setMetrics({
         vaultBalanceUsd,
         withdrawableUsd,
-        legacyVaultUsd,
         openPositionValueUsd: hlOpenCount > 0 ? hlOpenNotional : openValue,
         openPositionsCount: hlOpenCount > 0 ? hlOpenCount : stats.openPositions,
         avgLeverage: avgLev,
@@ -188,10 +166,7 @@ export function useTradingDashboardMetrics() {
         winRate: stats.winRate,
         closedTradesCount: stats.closedTrades,
         autoTradeEnabled:
-          vaultSettings != null
-            ? Boolean(vaultSettings.auto_trade_enabled)
-            : onChainAutoTrade,
-        withdrawableUsd,
+          vaultSettings != null ? Boolean(vaultSettings.auto_trade_enabled) : false,
         isLoading: false,
       });
     } catch (e) {

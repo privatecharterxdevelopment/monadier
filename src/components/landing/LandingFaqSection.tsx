@@ -27,7 +27,7 @@ export const LANDING_FAQS: {
   {
     tab: 'platform',
     q: 'What is Monadier?',
-    a: 'Monadier is an automated GMX perpetuals trading bot on Arbitrum. You deposit USDC into a non-custodial vault smart contract; the bot scans ETH, BTC, and ARB signals and executes leveraged trades through GMX liquidity pools.',
+    a: 'Monadier is an automated perpetuals trading bot on Hyperliquid. You deposit USDC via bridge, approve a trading agent once, and the bot scans ETH/BTC signals and executes leveraged trades on HL.',
   },
   {
     tab: 'platform',

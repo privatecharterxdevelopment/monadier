@@ -15,7 +15,7 @@ const ProTradeBotDock: React.FC<Props> = ({
   refreshKey = 0,
 }) => (
   <div className="hl-bot-dock">
-    <div className="hl-dock-mode-label">GMX Bot · Arbitrum vault · Supabase history</div>
+    <div className="hl-dock-mode-label">HL Bot · Hyperliquid · Trade history</div>
     <TerminalPositionsDock
       id="hl-bot-dock"
       botRunning={botRunning}

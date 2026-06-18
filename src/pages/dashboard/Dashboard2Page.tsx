@@ -340,12 +340,6 @@ const Dashboard2Page: React.FC = () => {
                 </span>
               </div>
             </div>
-            {metrics.legacyVaultUsd > 0 && (
-              <p className="term-hint term-hint--warn px-4 pb-2">
-                Legacy GMX vault: {fmtUsd(metrics.legacyVaultUsd)} on Arbitrum — not used by the HL
-                bot.
-              </p>
-            )}
           </div>
         </header>
 

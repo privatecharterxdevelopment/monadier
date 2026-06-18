@@ -177,7 +177,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
           </button>
         </div>
         <p className="hl-entry-hint" style={{ marginBottom: 12 }}>
-          Bridge USDC to your Hyperliquid account. This is separate from the GMX bot vault on Arbitrum.
+          Bridge USDC from Arbitrum to your Hyperliquid account for bot trading.
         </p>
 
         <div className="term-pro-funds-tabs">

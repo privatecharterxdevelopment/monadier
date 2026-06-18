@@ -24,14 +24,15 @@ type DbAnalysis = {
   recommendation: string;
 };
 
+import type { Dashboard2Metrics } from './useDashboard2Metrics';
+
 type Options = {
   walletConnected: boolean;
   metrics: Dashboard2Metrics;
   hasOpenPosition: boolean;
   vaultUsd?: number;
-  /** Vault wallet the bot trades on (0x…) */
+  /** Connected wallet the bot trades on (0x…) */
   vaultWallet?: string | null;
-  /** Active chart pair (Binance symbol, e.g. ETHUSDT) */
   symbol?: string;
 };
 
@@ -45,7 +46,6 @@ export function useTerminalBotAnalysis({
 }: Options) {
   const [dbAnalysis, setDbAnalysis] = useState<DbAnalysis | null>(null);
   const [serverBlockers, setServerBlockers] = useState<string[]>([]);
-  const [circuitBreakerResetSec, setCircuitBreakerResetSec] = useState(0);
   const [step, setStep] = useState(0);
   const [progress, setProgress] = useState(ANALYSIS_STEPS[0].progress);
 
@@ -93,7 +93,6 @@ export function useTerminalBotAnalysis({
   useEffect(() => {
     if (!vaultWallet || !metrics.autoTradeEnabled) {
       setServerBlockers([]);
-      setCircuitBreakerResetSec(0);
       return;
     }
     const load = async () => {
@@ -102,14 +101,8 @@ export function useTerminalBotAnalysis({
           `${getBotApiBase()}/api/bot-status?wallet=${encodeURIComponent(vaultWallet)}`
         );
         if (!res.ok) return;
-        const data = (await res.json()) as {
-          blockers?: string[];
-          gates?: { circuitBreakerResetInSec?: number };
-        };
+        const data = (await res.json()) as { blockers?: string[] };
         setServerBlockers(Array.isArray(data.blockers) ? data.blockers : []);
-        setCircuitBreakerResetSec(
-          Math.max(0, Number(data.gates?.circuitBreakerResetInSec ?? 0))
-        );
       } catch {
         /* bot API offline — UI falls back to local readiness */
       }
@@ -126,15 +119,8 @@ export function useTerminalBotAnalysis({
       vaultUsd,
     });
     if (serverBlockers.length === 0) return local;
-    return readinessFromServerBlockers(serverBlockers, circuitBreakerResetSec);
-  }, [
-    signal,
-    metrics.autoTradeEnabled,
-    hasOpenPosition,
-    vaultUsd,
-    serverBlockers,
-    circuitBreakerResetSec,
-  ]);
+    return readinessFromServerBlockers(serverBlockers);
+  }, [signal, metrics.autoTradeEnabled, hasOpenPosition, vaultUsd, serverBlockers]);
 
   return {
     scanning,

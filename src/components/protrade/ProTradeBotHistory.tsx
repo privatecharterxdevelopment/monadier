@@ -17,9 +17,9 @@ const ProTradeBotHistory: React.FC<Props> = ({
   return (
     <div className="hl-history-page">
       <header className="hl-history-head">
-        <h1 className="hl-history-title">GMX Bot trade history</h1>
+        <h1 className="hl-history-title">Bot trade history</h1>
         <p className="hl-history-sub">
-          Your GMX bot trades — only wallets linked to your profile (Profile → Wallets).
+          Hyperliquid bot trades — wallets linked in Profile → Wallets.
         </p>
       </header>
       <div className="hl-history-body hl-bot-dock">

@@ -39,7 +39,7 @@ const LandingHero: React.FC = () => {
           {...fade(0.16)}
           className="mt-6 md:mt-8 text-base md:text-lg text-zinc-500 max-w-xl leading-relaxed tracking-normal font-normal"
         >
-          Quantitative strategies, pooled USDC vault, and GMX execution on Arbitrum.
+          Quantitative strategies and Hyperliquid perp execution — deposit USDC, approve agent, start bot.
           You keep your keys — profits settle on-chain, withdraw when you choose.
         </motion.p>
 
@@ -54,7 +54,7 @@ const LandingHero: React.FC = () => {
           <p className="text-left text-[13px] text-zinc-400 tracking-normal flex-1 min-w-0">
             <span className="text-zinc-200 font-medium">Monadier vault</span>
             <span className="text-zinc-600"> · </span>
-            GMX V2 · Arbitrum One
+            Hyperliquid · Cross margin
           </p>
           <div
             className="h-9 w-9 shrink-0 rounded-full border border-black/[0.08] bg-white/[0.04] flex items-center justify-center"

@@ -496,8 +496,7 @@ const TerminalTradePanel: React.FC<Props> = ({
               </span>
             </div>
             <p className="term-hint">
-              Bridge USDC from Arbitrum to Hyperliquid. The bot trades perps on HL — no GMX vault
-              required.
+              Bridge USDC from Arbitrum to Hyperliquid. The bot trades perps on HL only.
             </p>
             <div className="flex gap-2">
               <button
@@ -522,11 +521,6 @@ const TerminalTradePanel: React.FC<Props> = ({
                 Withdraw
               </button>
             </div>
-            {vault.balanceUsd > 0 && (
-              <p className="term-hint term-hint--warn">
-                Legacy GMX vault: {fmt(vault.balanceUsd)} on Arbitrum — not used by the HL bot.
-              </p>
-            )}
             <button
               type="button"
               className="term-btn-sm term-btn-sm--ghost w-full justify-center"

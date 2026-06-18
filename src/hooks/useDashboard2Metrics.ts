@@ -12,7 +12,6 @@ export type Dashboard2Metrics = {
   /** Hyperliquid account value (bot trading capital) */
   vaultUsd: number;
   hlWithdrawableUsd: number;
-  legacyVaultUsd: number;
   activeTradeUsd: number;
   totalPnlUsd: number;
   realizedPnlUsd: number;
@@ -29,7 +28,6 @@ const defaultState: Dashboard2Metrics = {
   walletAvailableUsd: 0,
   vaultUsd: 0,
   hlWithdrawableUsd: 0,
-  legacyVaultUsd: 0,
   activeTradeUsd: 0,
   totalPnlUsd: 0,
   realizedPnlUsd: 0,
@@ -109,7 +107,6 @@ export function useDashboard2Metrics() {
     walletAvailableUsd: totalUsdValue,
     vaultUsd: metrics.vaultBalanceUsd,
     hlWithdrawableUsd: metrics.withdrawableUsd,
-    legacyVaultUsd: metrics.legacyVaultUsd,
     activeTradeUsd: metrics.openPositionValueUsd,
     totalPnlUsd: metrics.totalPnl,
     realizedPnlUsd: metrics.realizedPnl,

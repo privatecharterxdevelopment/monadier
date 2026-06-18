@@ -460,7 +460,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
 
   const dockTabs: { id: DockTab; label: string }[] = isHlSkin
     ? [
-        { id: 'vault', label: 'Trading capital' },
+        { id: 'vault', label: 'Funds' },
         { id: 'open', label: 'Open positions' },
         { id: 'history', label: 'Trade history' },
         { id: 'all', label: 'All trades' },
@@ -550,35 +550,13 @@ const TerminalPositionsDock: React.FC<Props> = ({
             </thead>
             <tbody>
               <tr>
-                <td>Hyperliquid (bot)</td>
+                <td>Hyperliquid</td>
                 <td>{fmtUsd(hlSetup.accountUsd)}</td>
                 <td>{fmtUsd(hlSetup.withdrawableUsd)}</td>
                 <td>{fmtUsd(vaultData.maxTradeUsd)}</td>
               </tr>
-              {vaultData.balanceUsd > 0 ? (
-                <tr>
-                  <td>Legacy GMX vault</td>
-                  <td>{fmtUsd(vaultData.balanceUsd)}</td>
-                  <td>{fmtUsd(vaultData.vaultUsd)}</td>
-                  <td>—</td>
-                </tr>
-              ) : null}
             </tbody>
           </table>
-          {vaultData.balanceUsd > 0 ? (
-            <p className={isHlSkin ? 'hl-dock-hint' : 'term-hint term-hint--warn'}>
-              Legacy vault on Arbitrum — bot trades on Hyperliquid only. Withdraw old vault funds if
-              needed.
-            </p>
-          ) : null}
-          {activityWallet ? (
-            <TerminalVaultActivity
-              wallet={activityWallet}
-              refreshKey={refreshKey}
-              variant="dock"
-              skin={skin}
-            />
-          ) : null}
         </>
       )
     ) : null;
@@ -733,7 +711,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
                   <tr key={p.id} id={`term-row-${p.id}`}>
                     <td>
                       <strong>{displaySymbol(p.token_symbol)}</strong>
-                      <span className="term-dock-meta"> · GMX</span>
+                      <span className="term-dock-meta"> · HL</span>
                     </td>
                     <td>
                       <span

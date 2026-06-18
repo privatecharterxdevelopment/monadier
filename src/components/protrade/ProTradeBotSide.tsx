@@ -20,7 +20,7 @@ export function useProTradeBot() {
   return ctx;
 }
 
-/** Mounts GMX bot hooks only while bot mode is active. */
+/** Mounts bot hooks only while bot mode is active. */
 export const ProTradeBotProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { metrics, refresh } = useDashboard2Metrics();
   const [dockRefreshKey, setDockRefreshKey] = useState(0);

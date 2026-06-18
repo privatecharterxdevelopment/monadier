@@ -25,9 +25,7 @@ See `bot-service/.env.example` and `docs/PRODUCTION.md`:
 - `NODE_ENV=production`
 - `ENABLE_DEMO_SIMULATOR=false`
 - Optional: `EXPECTED_BOT_ADDRESS` (must match vault `bot`)
-- **Hyperliquid bot (default):** `EXECUTION_VENUE=hyperliquid`, `GMX_OPENS_ENABLED=false`
-- `HL_AGENT_MASTER_SECRET` (dedicated secret; falls back to `BOT_PRIVATE_KEY` if unset)
-- Optional: `HL_MIN_BOT_ACCOUNT_USD=20`, `HL_AGENT_NAME=monadier`, `HL_BUILDER_ADDRESS`, `HL_BUILDER_FEE_PERP=30`
+- **Hyperliquid bot:** `HL_AGENT_MASTER_SECRET`, `HL_MIN_BOT_ACCOUNT_USD=20`
 
 ## Verify deploy (CLI)
 
@@ -39,7 +37,7 @@ npx @railway/cli domain         # copy public URL
 cd .. && ./scripts/verify-bot-api.sh "$(cd bot-service && npx @railway/cli domain)"
 ```
 
-Healthy Monadier `/health` includes `"version":"v12.0-hyperliquid-bot"` and `"executionVenue":"hyperliquid"` in `/api/hl-agent`.
+Healthy Monadier `/health` includes `"version":"v13.0-hyperliquid-only"`.
 
 ## Vercel (production dashboard)
 
