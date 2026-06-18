@@ -65,6 +65,45 @@ export function hlOpenPerpCoins(state: HlClearinghouseState | null): string[] {
   return coins;
 }
 
+export type HlExtraAgent = {
+  address: string;
+  name: string;
+  validUntil: number;
+};
+
+export async function fetchHlExtraAgents(userAddress: string): Promise<HlExtraAgent[]> {
+  try {
+    const res = await fetch(config.hyperliquid.infoUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'extraAgents',
+        user: userAddress.toLowerCase(),
+      }),
+    });
+    if (!res.ok) return [];
+    const rows = (await res.json()) as Array<{
+      address?: string;
+      name?: string;
+      validUntil?: number;
+    }>;
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .map((r) => ({
+        address: String(r.address ?? '').toLowerCase(),
+        name: String(r.name ?? ''),
+        validUntil: Number(r.validUntil ?? 0),
+      }))
+      .filter((r) => r.address.length >= 42);
+  } catch {
+    return [];
+  }
+}
+
+export function isHlExtraAgentActive(agent: HlExtraAgent): boolean {
+  return agent.validUntil > Date.now();
+}
+
 export async function fetchHlMeta(): Promise<{
   universe: { name: string; szDecimals: number; maxLeverage?: number; isDelisted?: boolean }[];
 }> {

@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { config } from '../config';
 import { logger } from '../utils/logger';
+import { fetchHlExtraAgents, isHlExtraAgentActive } from './hlInfo';
 
 export type HlAgentApproval = {
   wallet_address: string;
@@ -33,6 +34,13 @@ class HlAgentApprovalService {
   }
 
   async isApproved(walletAddress: string, expectedAgent: string): Promise<boolean> {
+    const agents = await fetchHlExtraAgents(walletAddress);
+    const onChain = agents.find(
+      (a) =>
+        a.address === expectedAgent.toLowerCase() && isHlExtraAgentActive(a)
+    );
+    if (onChain) return true;
+
     const row = await this.getApproval(walletAddress);
     if (!row) return false;
     if (row.agent_address.toLowerCase() !== expectedAgent.toLowerCase()) return false;

@@ -19,11 +19,10 @@ import { useSubscription } from '../../contexts/SubscriptionContext';
 import { persistVaultSettings } from '../../lib/syncVaultSettings';
 import { ensureBotSubscription } from '../../lib/ensureBotSubscription';
 import {
-  approveHlBotAgent,
+  approveAndSaveHlBotAgent,
   enableHlBotExecution,
   fetchHlAgentAddress,
   MIN_HL_BOT_USD,
-  saveHlAgentApproval,
 } from '../../lib/hyperliquid/hlBotAgent';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
@@ -234,6 +233,9 @@ const TerminalTradePanel: React.FC<Props> = ({
     if (/Must deposit before performing actions/i.test(msg)) {
       return 'Deposit USDC on Hyperliquid first (min $20), then approve the agent.';
     }
+    if (/extra agent already used|agent already/i.test(msg)) {
+      return 'This API wallet is already registered on Hyperliquid. If you approved before, refresh the page — otherwise revoke an old API key at app.hyperliquid.xyz → More → API.';
+    }
     return msg;
   };
 
@@ -260,12 +262,8 @@ const TerminalTradePanel: React.FC<Props> = ({
       if (!meta.success || !meta.agentAddress) {
         throw new Error(meta.error || 'Could not load agent address');
       }
-      await approveHlBotAgent(
+      await approveAndSaveHlBotAgent({
         walletClient,
-        meta.agentAddress as `0x${string}`,
-        meta.agentName || 'monadier'
-      );
-      await saveHlAgentApproval({
         walletAddress: address,
         agentAddress: meta.agentAddress,
         agentName: meta.agentName || 'monadier',

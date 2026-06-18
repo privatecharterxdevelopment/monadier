@@ -4,11 +4,9 @@ import { config } from '../config';
 
 const AGENT_NAME_MAX = 16;
 
-export function agentNameForUser(userAddress: string): string {
-  const validityMs = config.hyperliquid.agentValidityDays * 24 * 60 * 60 * 1000;
-  const validUntil = Date.now() + validityMs;
-  const base = config.hyperliquid.agentName.slice(0, AGENT_NAME_MAX);
-  return `${base} valid_until ${validUntil}`;
+/** Stable HL agent name — must not change between approve attempts (HL slot limit). */
+export function agentNameForUser(_userAddress: string): string {
+  return config.hyperliquid.agentName.slice(0, AGENT_NAME_MAX);
 }
 
 export function agentExpiresAt(): string {

@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { fetchHlAccountState } from '../lib/hyperliquid/user';
 import {
   fetchHlAgentAddress,
-  loadHlAgentApproval,
   MIN_HL_BOT_USD,
+  resolveHlAgentApproval,
 } from '../lib/hyperliquid/hlBotAgent';
 
 export type HlBotSetupPhase =
@@ -33,24 +33,28 @@ export function useHlBotSetup(walletAddress: string | undefined) {
     setLoading(true);
     setError(null);
     try {
-      const [acct, approval, agentMeta] = await Promise.all([
+      const [acct, agentMeta] = await Promise.all([
         fetchHlAccountState(walletAddress),
-        loadHlAgentApproval(walletAddress),
         fetchHlAgentAddress(walletAddress),
       ]);
+
+      const resolvedApproval = await resolveHlAgentApproval(
+        walletAddress,
+        agentMeta.agentAddress ?? null
+      );
 
       const acctVal = Number(acct?.margin?.accountValue ?? 0);
       const withdraw = Number(acct?.withdrawable ?? 0);
       const balance = Number.isFinite(acctVal) ? acctVal : 0;
       setAccountUsd(balance);
       setWithdrawableUsd(Number.isFinite(withdraw) ? withdraw : 0);
-      setAgentApproved(approval.approved);
-      setAgentExpiresAt(approval.expiresAt);
+      setAgentApproved(resolvedApproval.approved);
+      setAgentExpiresAt(resolvedApproval.expiresAt);
       setAgentAddress(agentMeta.agentAddress ?? null);
 
       if (balance < MIN_HL_BOT_USD) {
         setPhase('fund');
-      } else if (!approval.approved) {
+      } else if (!resolvedApproval.approved) {
         setPhase('approve');
       } else {
         setPhase('ready');

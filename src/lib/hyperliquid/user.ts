@@ -156,6 +156,31 @@ function normalizePosition(
   };
 }
 
+export type HlExtraAgent = {
+  address: string;
+  name: string;
+  validUntil: number;
+};
+
+export async function fetchHlExtraAgents(user: string): Promise<HlExtraAgent[]> {
+  const rows = await hlInfo<Array<{ address?: string; name?: string; validUntil?: number }>>({
+    type: 'extraAgents',
+    user,
+  });
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((r) => ({
+      address: String(r.address ?? ''),
+      name: String(r.name ?? ''),
+      validUntil: Number(r.validUntil ?? 0),
+    }))
+    .filter((r) => r.address.length >= 42);
+}
+
+export function isHlExtraAgentActive(agent: HlExtraAgent): boolean {
+  return agent.validUntil > Date.now();
+}
+
 export async function fetchHlAccountState(user: string): Promise<HlAccountState> {
   const data = await hlInfo<ClearinghouseState>({ type: 'clearinghouseState', user });
   const margin = data.marginSummary ?? EMPTY_MARGIN;

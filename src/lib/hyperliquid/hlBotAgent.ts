@@ -3,11 +3,52 @@ import type { WalletClient } from 'viem';
 import { walletClientToHlWallet } from './walletAdapter';
 import { getBotApiBase } from '../signalService';
 import { supabase } from '../supabase';
+import {
+  fetchHlExtraAgents,
+  isHlExtraAgentActive,
+  type HlExtraAgent,
+} from './user';
 
 const transport = new HttpTransport();
+const AGENT_NAME_MAX = 16;
 
 export const MIN_HL_BOT_USD = 20;
 export const HL_AGENT_NAME = 'monadier';
+
+function pickHlAgentName(
+  existing: HlExtraAgent[],
+  agentAddress: string,
+  preferred = HL_AGENT_NAME
+): string {
+  const addr = agentAddress.toLowerCase();
+  const ours = existing.find((a) => a.address.toLowerCase() === addr);
+  if (ours) return ours.name.slice(0, AGENT_NAME_MAX);
+  const monadier = existing.find((a) => a.name.toLowerCase().startsWith('monadier'));
+  if (monadier) return monadier.name.slice(0, AGENT_NAME_MAX);
+  return preferred.slice(0, AGENT_NAME_MAX);
+}
+
+export async function findActiveHlAgent(
+  wallet: string,
+  agentAddress: string
+): Promise<HlExtraAgent | null> {
+  const agents = await fetchHlExtraAgents(wallet);
+  return (
+    agents.find(
+      (a) =>
+        a.address.toLowerCase() === agentAddress.toLowerCase() && isHlExtraAgentActive(a)
+    ) ?? null
+  );
+}
+
+function formatHlAgentApproveError(err: unknown, agents: HlExtraAgent[]): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (!/extra agent already used|agent already/i.test(msg)) return msg;
+  if (agents.length >= 4) {
+    return 'Hyperliquid allows up to 4 API wallets. Revoke an unused key at app.hyperliquid.xyz → More → API, then try again in Monadier.';
+  }
+  return 'This API wallet slot is already in use on Hyperliquid. Open app.hyperliquid.xyz → More → API, revoke an old Monadier or unused key, then approve again.';
+}
 
 export type HlAgentAddressResponse = {
   success: boolean;
@@ -87,6 +128,48 @@ export async function saveHlAgentApproval(params: {
   if (upsertError) throw new Error(upsertError.message);
 }
 
+export async function approveAndSaveHlBotAgent(opts: {
+  walletClient: WalletClient;
+  walletAddress: string;
+  agentAddress: string;
+  agentName?: string;
+  expiresAt?: string | null;
+}): Promise<void> {
+  const wallet = opts.walletAddress;
+  const agent = opts.agentAddress as `0x${string}`;
+  const agents = await fetchHlExtraAgents(wallet);
+  const live = agents.find(
+    (a) => a.address.toLowerCase() === agent.toLowerCase() && isHlExtraAgentActive(a)
+  );
+
+  const agentName = live?.name ?? pickHlAgentName(agents, agent, opts.agentName ?? HL_AGENT_NAME);
+
+  if (!live) {
+    try {
+      await approveHlBotAgent(opts.walletClient, agent, agentName);
+    } catch (err) {
+      const refreshed = await fetchHlExtraAgents(wallet);
+      const nowLive = refreshed.find(
+        (a) => a.address.toLowerCase() === agent.toLowerCase() && isHlExtraAgentActive(a)
+      );
+      if (!nowLive) throw new Error(formatHlAgentApproveError(err, refreshed));
+    }
+  }
+
+  const confirmed =
+    (await findActiveHlAgent(wallet, agent)) ??
+    (live ? live : null);
+
+  await saveHlAgentApproval({
+    walletAddress: wallet,
+    agentAddress: agent,
+    agentName: confirmed?.name ?? agentName,
+    expiresAt: confirmed?.validUntil
+      ? new Date(confirmed.validUntil).toISOString()
+      : (opts.expiresAt ?? null),
+  });
+}
+
 export async function loadHlAgentApproval(
   walletAddress: string
 ): Promise<{ approved: boolean; expiresAt: string | null }> {
@@ -102,6 +185,31 @@ export async function loadHlAgentApproval(
     return { approved: false, expiresAt: data.expires_at };
   }
   return { approved: true, expiresAt: data.expires_at };
+}
+
+/** DB + on-chain HL extraAgents — source of truth for agent approval. */
+export async function resolveHlAgentApproval(
+  walletAddress: string,
+  expectedAgentAddress?: string | null
+): Promise<{ approved: boolean; expiresAt: string | null }> {
+  const db = await loadHlAgentApproval(walletAddress);
+  if (!expectedAgentAddress) return db;
+
+  const live = await findActiveHlAgent(walletAddress, expectedAgentAddress);
+  if (!live) return db;
+
+  const expiresAt = new Date(live.validUntil).toISOString();
+  if (!db.approved) {
+    void saveHlAgentApproval({
+      walletAddress,
+      agentAddress: expectedAgentAddress,
+      agentName: live.name,
+      expiresAt,
+    }).catch(() => {
+      /* best-effort sync */
+    });
+  }
+  return { approved: true, expiresAt };
 }
 
 export async function enableHlBotExecution(walletAddress: string): Promise<void> {
