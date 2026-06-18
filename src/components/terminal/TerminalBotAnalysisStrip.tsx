@@ -11,6 +11,7 @@ type Props = {
   metrics: Dashboard2Metrics;
   vaultWallet?: string | null;
   symbol?: string;
+  placement?: 'chart' | 'dock';
 };
 
 const TerminalBotAnalysisStrip: React.FC<Props> = ({
@@ -18,6 +19,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
   metrics,
   vaultWallet,
   symbol = 'ETHUSDT',
+  placement = 'dock',
 }) => {
   const hlSetup = useHlBotSetup(vaultWallet ?? undefined);
   const botSettings = useTerminalBotSettings();
@@ -49,6 +51,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
 
   return (
     <TerminalChartAnalysisOverlay
+        placement={placement}
         visible
         scanning={analysis.scanning}
         step={analysis.step}

@@ -1325,7 +1325,7 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  padding: 8px 8px 56px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
 }
@@ -1350,6 +1350,31 @@
   background: var(--term-surface-muted);
   box-shadow: none;
   padding: 12px 14px;
+}
+
+.term-dock-analysis {
+  flex-shrink: 0;
+}
+
+.term-dock-analysis .term-analysis-bar {
+  margin: 0 0 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: var(--term-surface-muted);
+  padding: 12px 14px;
+}
+
+.hl-dock-body .term-dock-analysis .term-analysis-bar {
+  margin: 0 0 8px;
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid var(--hl-border);
+  background: var(--hl-bg-elevated);
+  color: var(--hl-text-muted);
+}
+
+.term-dock-body .term-dock-analysis .term-analysis-bar {
+  margin-bottom: 12px;
 }
 
 .term-chart-inner .dashboard2-chart-root {

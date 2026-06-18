@@ -95,15 +95,13 @@ const TerminalTradePanel: React.FC<Props> = ({
   const wallet = botSettings.wallet;
   const hlFundingUsd = hlSetup.accountUsd;
   const autoTradeDb = botSettings.settings.autoTradeEnabled;
-  /** Metrics hook reads the same DB row Railway uses — prefer it when loaded. */
-  const autoTradeOn = metrics.isLoading ? autoTradeDb : metrics.autoTradeEnabled;
+  const autoTradeOn = metrics.autoTradeEnabled;
   const botRunning = effectiveHlBotRunning(
     autoTradeOn,
     hlFundingUsd,
     hlSetup.agentApproved
   );
-  const botSyncMismatch =
-    !metrics.isLoading && autoTradeDb !== metrics.autoTradeEnabled;
+  const botSyncMismatch = autoTradeDb !== metrics.autoTradeEnabled && !metrics.isLoading;
   const timerWallet = wallet ?? address ?? undefined;
   const botRuntime = useBotRuntimeTimer(timerWallet, Boolean(walletReady && botRunning));
   const serverBlockers = useBotServerBlockers(timerWallet, Boolean(botRunning));

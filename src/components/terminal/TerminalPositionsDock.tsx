@@ -40,6 +40,8 @@ import {
 } from '../../lib/vaultPositionDock';
 import { getArbitrumPublicClient } from '../../lib/vault';
 import { syncVaultChainHistoryForWallets } from '../../lib/syncVaultChainHistory';
+import TerminalBotAnalysisStrip from './TerminalBotAnalysisStrip';
+import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 
 export type DockTab = 'vault' | 'open' | 'history' | 'all';
 
@@ -80,6 +82,12 @@ type Props = {
   includeClosedHistoryFeed?: boolean;
   /** Pro Trade: match Hyperliquid dock chrome */
   skin?: 'terminal' | 'hl';
+  /** Live MTF analysis — shown on Open positions tab */
+  showBotAnalysis?: boolean;
+  botAnalysisMetrics?: Dashboard2Metrics;
+  botAnalysisWallet?: string | null;
+  botAnalysisSymbol?: string;
+  walletConnected?: boolean;
 };
 
 function fmtUsd(n: number) {
@@ -145,6 +153,11 @@ const TerminalPositionsDock: React.FC<Props> = ({
   highlightPositionId = null,
   includeClosedHistoryFeed = false,
   skin = 'terminal',
+  showBotAnalysis = false,
+  botAnalysisMetrics,
+  botAnalysisWallet,
+  botAnalysisSymbol = 'ETHUSDT',
+  walletConnected = false,
 }) => {
   const { address } = useAccount();
   const { publicClient, walletClient } = useWeb3();
@@ -585,6 +598,15 @@ const TerminalPositionsDock: React.FC<Props> = ({
           <p className={isHlSkin ? 'hl-dock-notice' : 'term-dock-notice'} role="status">
             {closeNotice}
           </p>
+        ) : null}
+        {tab === 'open' && showBotAnalysis && botAnalysisMetrics ? (
+          <TerminalBotAnalysisStrip
+            walletConnected={walletConnected}
+            metrics={botAnalysisMetrics}
+            vaultWallet={botAnalysisWallet ?? address ?? null}
+            symbol={botAnalysisSymbol}
+            placement="dock"
+          />
         ) : null}
         {tab === 'vault' ? (
           vaultPanel

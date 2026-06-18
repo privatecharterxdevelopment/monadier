@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useState } from 'react';
+import { useAccount } from 'wagmi';
 import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
@@ -42,16 +43,28 @@ export const ProTradeBotProvider: React.FC<{ children: React.ReactNode }> = ({ c
 type DockProps = {
   dockTab: DockTab;
   onDockTabChange: (tab: DockTab) => void;
+  analysisSymbol?: string;
 };
 
-export const ProTradeBotDockSlot: React.FC<DockProps> = ({ dockTab, onDockTabChange }) => {
+export const ProTradeBotDockSlot: React.FC<DockProps> = ({
+  dockTab,
+  onDockTabChange,
+  analysisSymbol = 'BTCUSDT',
+}) => {
   const { metrics, dockRefreshKey } = useProTradeBot();
+  const { address, isConnected } = useAccount();
+
   return (
     <ProTradeBotDock
       botRunning={metrics.autoTradeEnabled}
       activeTab={dockTab}
       onTabChange={onDockTabChange}
       refreshKey={dockRefreshKey}
+      showBotAnalysis
+      botAnalysisMetrics={metrics}
+      botAnalysisWallet={address ?? null}
+      botAnalysisSymbol={analysisSymbol}
+      walletConnected={isConnected}
     />
   );
 };

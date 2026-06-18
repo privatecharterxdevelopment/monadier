@@ -10,7 +10,6 @@ import { usePositionReconciliation } from '../../hooks/usePositionReconciliation
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { recordLoginActivity } from '../../lib/loginActivity';
 import TerminalTradePanel from '../../components/terminal/TerminalTradePanel';
-import TerminalBotAnalysisStrip from '../../components/terminal/TerminalBotAnalysisStrip';
 import TerminalPositionsDock, {
   type DockTab,
 } from '../../components/terminal/TerminalPositionsDock';
@@ -362,12 +361,6 @@ const Dashboard2Page: React.FC = () => {
                       chartFill
                       onPairChange={setChartSymbol}
                     />
-                    <TerminalBotAnalysisStrip
-                      walletConnected={walletReady}
-                      metrics={metrics}
-                      vaultWallet={address ?? botSettings.wallet ?? null}
-                      symbol={chartSymbol}
-                    />
                   </div>
                 </div>
                 <TerminalPositionsDock
@@ -376,6 +369,11 @@ const Dashboard2Page: React.FC = () => {
                   botRunning={metrics.autoTradeEnabled}
                   activeTab={dockTab}
                   onTabChange={setDockTab}
+                  showBotAnalysis
+                  botAnalysisMetrics={metrics}
+                  botAnalysisWallet={address ?? botSettings.wallet ?? null}
+                  botAnalysisSymbol={chartSymbol}
+                  walletConnected={walletReady}
                 />
               </div>
 

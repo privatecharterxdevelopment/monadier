@@ -24,6 +24,8 @@ type Props = {
   dbAnalysis: DbAnalysis;
   activeSymbol?: string;
   readiness?: BotReadiness;
+  /** chart = overlay on chart; dock = inline in positions panel */
+  placement?: 'chart' | 'dock';
 };
 
 const CYCLE_MS = 2400;
@@ -53,6 +55,7 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
   dbAnalysis,
   activeSymbol,
   readiness,
+  placement = 'chart',
 }) => {
   const [cycleIndex, setCycleIndex] = useState(0);
   const [slidePhase, setSlidePhase] = useState<'in' | 'out'>('in');
@@ -133,7 +136,7 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
   const showMetaSignal = hasData || !isLoading;
 
   return (
-    <div className="term-chart-overlay">
+    <div className={placement === 'dock' ? 'term-dock-analysis' : 'term-chart-overlay'}>
       <div className="term-analysis-bar">
         {scanning && (
           <div className="term-analysis-bar-top">

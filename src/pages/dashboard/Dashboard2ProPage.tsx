@@ -12,7 +12,6 @@ import {
   ProTradeBotProvider,
   ProTradeBotStatusBar,
 } from '../../components/protrade/ProTradeBotSide';
-import ProTradeBotAnalysis from '../../components/protrade/ProTradeBotAnalysis';
 import type { DockTab } from '../../components/terminal/TerminalPositionsDock';
 import ProTradeTickerStrip from '../../components/protrade/ProTradeTickerStrip';
 import ProTradeMarketBar from '../../components/protrade/ProTradeMarketBar';
@@ -44,6 +43,7 @@ import type { HlPosition } from '../../lib/hyperliquid/user';
 import type { HlMarket } from '../../lib/hyperliquid/markets';
 import { getSpotDisplayName, isHlSpotCoin } from '../../lib/hyperliquid/spot';
 import { readNum, toNum } from '../../lib/hyperliquid/parse';
+import { hlCoinToBotSymbol } from '../../lib/botTradingPairs';
 import { useBotPositionBadge } from '../../hooks/useBotPositionBadge';
 import { usePositionReconciliation } from '../../hooks/usePositionReconciliation';
 import { useAuth } from '../../contexts/AuthContext';
@@ -509,7 +509,6 @@ const Dashboard2ProPage: React.FC = () => {
                 onIntervalChange={setInterval}
                 layoutKey={`bot-${perpCoin}-${interval}`}
               />
-              <ProTradeBotAnalysis walletConnected={isConnected} perpCoin={perpCoin} />
             </div>
             <ProTradeOrderBook
               book={perpMarket.book}
@@ -519,7 +518,11 @@ const Dashboard2ProPage: React.FC = () => {
               onPriceClick={(px) => setLimitPrice(String(px))}
             />
           </div>
-          <ProTradeBotDockSlot dockTab={botDockTab} onDockTabChange={setBotDockTab} />
+          <ProTradeBotDockSlot
+            dockTab={botDockTab}
+            onDockTabChange={setBotDockTab}
+            analysisSymbol={hlCoinToBotSymbol(perpCoin)}
+          />
         </div>
 
         <ProTradeBotPanelSlot

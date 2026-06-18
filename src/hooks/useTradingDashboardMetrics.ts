@@ -88,8 +88,6 @@ export function useTradingDashboardMetrics() {
       return;
     }
 
-    setMetrics((m) => ({ ...m, isLoading: true }));
-
     try {
       let all: Awaited<ReturnType<typeof fetchUserPositions>> = [];
       let livePrices: Awaited<ReturnType<typeof fetchLiveTokenPrices>> = {};

@@ -43,7 +43,7 @@ const ProTradeStatusBar: React.FC<Props> = ({
   const botSettings = useTerminalBotSettings();
   const timerWallet = walletAddress;
   const autoTradeOn =
-    mode === 'bot' && botMetrics && !botMetrics.isLoading
+    botMetrics != null
       ? botMetrics.autoTradeEnabled
       : botSettings.settings.autoTradeEnabled;
   const botRunningUnified = effectiveHlBotRunning(
