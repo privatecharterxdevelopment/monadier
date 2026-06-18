@@ -26,6 +26,19 @@ let botStartTime = Date.now();
 let lastTradeCheck = Date.now();
 let totalTradesExecuted = 0;
 
+type CycleStats = {
+  at: string;
+  activeBots: number;
+  processed: number;
+  succeeded: number;
+  skipped: number;
+  failed: number;
+  globalSignals: number;
+  ms: number;
+};
+
+let lastCycleStats: CycleStats | null = null;
+
 // CORS headers for API responses
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,7 +65,8 @@ const healthServer = http.createServer(async (req, res) => {
       uptime: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
       lastCheck: new Date(lastTradeCheck).toISOString(),
       tradesExecuted: totalTradesExecuted,
-      version: 'v15.0-multi-user-scale'
+      version: 'v15.0-multi-user-scale',
+      lastCycle: lastCycleStats,
     };
     res.writeHead(200, corsHeaders);
     res.end(JSON.stringify(status));
@@ -248,6 +262,31 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  // Ops: service + active HL bot count (no wallet required)
+  if (url.pathname === '/api/service-status') {
+    try {
+      const activeWallets = await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId);
+      res.writeHead(200, corsHeaders);
+      res.end(
+        JSON.stringify({
+          success: true,
+          service: 'healthy',
+          executionVenue: config.executionVenue,
+          activeAutoTradeWallets: activeWallets.length,
+          sampleWallets: activeWallets.slice(0, 5).map((w) => `${w.slice(0, 6)}…${w.slice(-4)}`),
+          lastCycle: lastCycleStats,
+          tradeIntervalSec: config.trading.checkIntervalMs / 1000,
+          minHlAccountUsd: config.hyperliquid.minAccountUsd,
+          timestamp: new Date().toISOString(),
+        })
+      );
+    } catch (err: any) {
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'service-status failed' }));
+    }
+    return;
+  }
+
   // API: Get timeframe analysis for a single timeframe
   // Usage: /api/timeframe?symbol=ETHUSDT&tf=15m
   if (url.pathname === '/api/timeframe') {
@@ -286,6 +325,7 @@ healthServer.listen(PORT, () => {
   logger.info('  GET /api/signal?symbol=ETHUSDT&timeframes=1m,5m,15m,1h - MTF Signal');
   logger.info('  GET /api/hl-agent?wallet=0x… - Per-user HL agent address');
   logger.info('  GET /api/bot-status?wallet=0x… - Wallet bot diagnostics');
+  logger.info('  GET /api/service-status - Active HL bots + last cycle stats');
   logger.info('  GET /api/timeframe?symbol=ETHUSDT&tf=15m - Single timeframe analysis');
 });
 
@@ -445,6 +485,18 @@ async function runTradingCycle(): Promise<void> {
       const ctx = await buildTradingCycleContext();
 
       const stats = await processUserBatch(wallets, ctx, total);
+
+      lastTradeCheck = Date.now();
+      lastCycleStats = {
+        at: new Date(lastTradeCheck).toISOString(),
+        activeBots: total,
+        processed: stats.processed,
+        succeeded: stats.succeeded,
+        skipped: stats.skipped,
+        failed: stats.failed,
+        globalSignals: ctx.globalSignals.length,
+        ms: Date.now() - cycleStarted,
+      };
 
       logger.info('Trading cycle complete', {
         activeBots: total,

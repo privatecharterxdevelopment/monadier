@@ -71,7 +71,13 @@ const TerminalLvrgPanel: React.FC<Props> = ({
         walletConnected={editor.walletConnected}
         notice={editor.notice}
         error={editor.error}
+        showAutoTrade={false}
       />
+
+      <p className="term-hint">
+        To run the bot, open the <strong>Bot</strong> tab and press <strong>Start bot</strong> after
+        deposit and agent approval. LVRG here only saves risk and leverage.
+      </p>
 
       <button
         type="button"

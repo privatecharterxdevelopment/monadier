@@ -1,6 +1,10 @@
 import React, { useMemo } from 'react';
+import { useAccount } from 'wagmi';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useBotRuntimeTimer } from '../../hooks/useBotRuntimeTimer';
+import { useHlBotSetup } from '../../hooks/useHlBotSetup';
+import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
+import { effectiveHlBotRunning } from '../../lib/hlBotGates';
 import type { ProTradePanelMode } from './ProTradeTopNav';
 import type { HlOpenOrder, HlPosition } from '../../lib/hyperliquid/user';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
@@ -32,9 +36,18 @@ const ProTradeStatusBar: React.FC<Props> = ({
   botMetrics,
   botWallet,
 }) => {
-  const { address } = useWeb3();
-  const timerWallet = botWallet ?? address ?? undefined;
-  const botRunning = Boolean(botMetrics?.autoTradeEnabled);
+  const { address: web3Address } = useWeb3();
+  const { address: wagmiAddress } = useAccount();
+  const walletAddress = botWallet ?? wagmiAddress ?? web3Address ?? undefined;
+  const hlSetup = useHlBotSetup(mode === 'bot' ? walletAddress : undefined);
+  const botSettings = useTerminalBotSettings();
+  const timerWallet = walletAddress;
+  const botRunningUnified = effectiveHlBotRunning(
+    botSettings.settings.autoTradeEnabled,
+    hlSetup.accountUsd,
+    hlSetup.agentApproved
+  );
+  const botRunning = mode === 'bot' ? botRunningUnified : Boolean(botMetrics?.autoTradeEnabled);
   const botRuntime = useBotRuntimeTimer(
     timerWallet,
     botRunning && mode === 'bot'
@@ -75,9 +88,19 @@ const ProTradeStatusBar: React.FC<Props> = ({
   const up = upnl >= 0;
 
   if (mode === 'bot' && botMetrics) {
-    const running = botMetrics.autoTradeEnabled;
+    const running = botRunning;
     const totalPnl = botMetrics.totalPnlUsd;
     const pnlUp = totalPnl >= 0;
+    const hlBalanceUsd =
+      hlSetup.accountUsd > 0 || !hlSetup.loading
+        ? hlSetup.accountUsd
+        : botMetrics.hlBalanceUsd;
+    const hlWithdrawableUsd =
+      hlSetup.withdrawableUsd > 0 || !hlSetup.loading
+        ? hlSetup.withdrawableUsd
+        : botMetrics.hlWithdrawableUsd;
+    const hlLoading =
+      hlSetup.loading && hlSetup.accountUsd === 0 && botMetrics.hlBalanceUsd === 0;
     return (
       <footer className="hl-status">
         <div className="hl-status-left">
@@ -94,8 +117,8 @@ const ProTradeStatusBar: React.FC<Props> = ({
               'Auto-trading off'
             )}
           </span>
-          <span>HL {botMetrics.isLoading ? '—' : fmtUsd(botMetrics.hlBalanceUsd)}</span>
-          <span>Withdraw {botMetrics.isLoading ? '—' : fmtUsd(botMetrics.hlWithdrawableUsd)}</span>
+          <span>HL {hlLoading ? '—' : fmtUsd(hlBalanceUsd)}</span>
+          <span>Withdraw {hlLoading ? '—' : fmtUsd(hlWithdrawableUsd)}</span>
           <span>Open {botMetrics.openPositionsCount}</span>
           <span className={pnlUp ? 'hl-up' : 'hl-down'}>
             P/L {botMetrics.isLoading ? '—' : `${pnlUp ? '+' : ''}${fmtUsd(totalPnl)}`}

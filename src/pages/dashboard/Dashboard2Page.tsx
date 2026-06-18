@@ -168,10 +168,16 @@ const Dashboard2Page: React.FC = () => {
   const botSetupPhase: BotSetupPhase = useMemo(() => {
     if (!walletReady) return 'connect';
     if (metrics.isLoading || hlSetup.loading) return 'loading';
-    if (!hlSetup.agentApproved) return 'fund';
-    if (metrics.hlBalanceUsd < MIN_BOT_CAPITAL_USD) return 'fund';
+    if (hlSetup.accountUsd < MIN_BOT_CAPITAL_USD) return 'fund';
+    if (!hlSetup.agentApproved) return 'approve';
     return 'ready';
-  }, [walletReady, metrics.isLoading, hlSetup.loading, hlSetup.agentApproved, metrics.hlBalanceUsd]);
+  }, [
+    walletReady,
+    metrics.isLoading,
+    hlSetup.loading,
+    hlSetup.agentApproved,
+    hlSetup.accountUsd,
+  ]);
 
   return (
     <Dashboard2Shell

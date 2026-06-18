@@ -33,6 +33,7 @@ import {
   disableStaleHlBotAutoTrade,
   effectiveHlBotRunning,
   isHlBotReadyToRun,
+  shouldDisableStaleHlBotAutoTrade,
 } from '../../lib/hlBotGates';
 import { getHlBotSidebarStatus } from '../../lib/hlBotUserStatus';
 import HlBotSetupSteps from './HlBotSetupSteps';
@@ -159,7 +160,14 @@ const TerminalTradePanel: React.FC<Props> = ({
 
   useEffect(() => {
     if (!wallet || hlSetup.loading || botSettings.isLoading || !autoTradeDb) return;
-    if (isHlBotReadyToRun(hlFundingUsd, hlSetup.agentApproved)) return;
+    if (
+      !shouldDisableStaleHlBotAutoTrade(hlFundingUsd, hlSetup.agentApproved, {
+        hlLoaded: hlSetup.hlLoaded,
+        agentLoaded: hlSetup.agentLoaded,
+      })
+    ) {
+      return;
+    }
 
     let cancelled = false;
     void disableStaleHlBotAutoTrade(wallet)
@@ -183,6 +191,8 @@ const TerminalTradePanel: React.FC<Props> = ({
     autoTradeDb,
     hlFundingUsd,
     hlSetup.agentApproved,
+    hlSetup.hlLoaded,
+    hlSetup.agentLoaded,
   ]);
 
   const requireAccount = (reason: string, next: () => void) => {

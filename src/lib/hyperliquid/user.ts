@@ -182,7 +182,10 @@ export function isHlExtraAgentActive(agent: HlExtraAgent): boolean {
 }
 
 export async function fetchHlAccountState(user: string): Promise<HlAccountState> {
-  const data = await hlInfo<ClearinghouseState>({ type: 'clearinghouseState', user });
+  const data = await hlInfo<ClearinghouseState>({
+    type: 'clearinghouseState',
+    user: user.toLowerCase(),
+  });
   const margin = data.marginSummary ?? EMPTY_MARGIN;
   const positions = (data.assetPositions ?? [])
     .map((row) => normalizePosition(row.position))

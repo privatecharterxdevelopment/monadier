@@ -104,7 +104,7 @@ export function getHlBotSidebarStatus(opts: {
     }
     return {
       headline: 'Ready',
-      detail: 'Your account is funded. Start the bot when you are ready.',
+      detail: 'Account funded and agent approved. Press Start bot below — deposit alone does not start trading.',
       tone: 'ok',
       setupStep: 4,
       setupComplete: true,

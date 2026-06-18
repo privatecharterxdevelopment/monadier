@@ -6,11 +6,13 @@ import { useWeb3 } from '../contexts/Web3Context';
 import { pickPrimaryVaultWallet } from '../lib/userWallets';
 import { fetchUserPositions } from '../lib/userPositions';
 import { fetchHlAccountState } from '../lib/hyperliquid/user';
-import { loadHlAgentApproval } from '../lib/hyperliquid/hlBotAgent';
+import {
+  checkHlBotAgentApproved,
+} from '../lib/hyperliquid/hlBotAgent';
 import {
   disableStaleHlBotAutoTrade,
   effectiveHlBotRunning,
-  isHlBotReadyToRun,
+  shouldDisableStaleHlBotAutoTrade,
 } from '../lib/hlBotGates';
 import {
   computePositionStats,
@@ -37,6 +39,8 @@ export type TradingDashboardMetrics = {
   autoTradeEnabled: boolean;
   isLoading: boolean;
 };
+
+const HL_BOT_CHAIN_ID = 42161;
 
 const defaultMetrics: TradingDashboardMetrics = {
   vaultBalanceUsd: 0,
@@ -73,27 +77,33 @@ export function useTradingDashboardMetrics() {
   const [metrics, setMetrics] = useState<TradingDashboardMetrics>(defaultMetrics);
 
   const refresh = useCallback(async () => {
-    if (!isDemoUser) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setMetrics({ ...defaultMetrics, isLoading: false });
-        return;
-      }
+    const queryWallet = (
+      isDemoUser
+        ? DEMO_WALLET_ADDRESS
+        : address?.toLowerCase()
+    ) as `0x${string}` | undefined;
+
+    if (!isDemoUser && !user && !queryWallet) {
+      setMetrics({ ...defaultMetrics, isLoading: false });
+      return;
     }
 
     setMetrics((m) => ({ ...m, isLoading: true }));
 
     try {
-      const [all, livePrices] = await Promise.all([
-        fetchUserPositions({
-          isDemoUser,
-          connectedAddress: address,
-          userId: user?.id,
-        }),
-        fetchLiveTokenPrices(),
-      ]);
+      let all: Awaited<ReturnType<typeof fetchUserPositions>> = [];
+      let livePrices: Awaited<ReturnType<typeof fetchLiveTokenPrices>> = {};
+
+      if (isDemoUser || user) {
+        [all, livePrices] = await Promise.all([
+          fetchUserPositions({
+            isDemoUser,
+            connectedAddress: address,
+            userId: user?.id,
+          }),
+          fetchLiveTokenPrices(),
+        ]);
+      }
 
       const open = all.filter((p) => p.status === 'open' || p.status === 'closing');
       const stats = computePositionStats(all as PositionPnlRow[], livePrices);
@@ -127,16 +137,19 @@ export function useTradingDashboardMetrics() {
       let withdrawableUsd = 0;
       let hlOpenNotional = 0;
       let hlOpenCount = 0;
+      let hlLoaded = false;
+      let agentLoaded = false;
 
-      const queryWallet = (
-        isDemoUser
-          ? DEMO_WALLET_ADDRESS
-          : (address?.toLowerCase() ?? primaryWallet)
-      ) as `0x${string}` | undefined;
+      const settingsWallet = (
+        isDemoUser ? DEMO_WALLET_ADDRESS : (queryWallet ?? primaryWallet)
+      ) as string | undefined;
 
-      if (queryWallet) {
+      const hlWallet = (queryWallet ?? primaryWallet) as `0x${string}` | undefined;
+
+      if (hlWallet) {
         try {
-          const hl = await fetchHlAccountState(queryWallet);
+          const hl = await fetchHlAccountState(hlWallet);
+          hlLoaded = true;
           vaultBalanceUsd = parseFloat(hl.margin.accountValue) || 0;
           withdrawableUsd = parseFloat(hl.withdrawable) || 0;
           hlOpenCount = hl.positions.length;
@@ -149,29 +162,38 @@ export function useTradingDashboardMetrics() {
         }
       }
 
-      if (queryWallet) {
+      if (hlWallet) {
         try {
-          const approval = await loadHlAgentApproval(queryWallet);
-          agentApproved = approval.approved;
+          const agentCheck = await checkHlBotAgentApproved(hlWallet);
+          agentApproved = agentCheck.approved;
+          agentLoaded = agentCheck.loaded;
         } catch {
           agentApproved = false;
         }
       }
 
-      if (primaryWallet) {
+      if (settingsWallet) {
         const { data } = await supabase
           .from('vault_settings')
           .select('auto_trade_enabled')
-          .eq('wallet_address', primaryWallet)
+          .eq('wallet_address', settingsWallet)
+          .eq('chain_id', HL_BOT_CHAIN_ID)
           .maybeSingle();
         vaultSettings = data;
       }
 
       const dbAutoTrade = vaultSettings != null ? Boolean(vaultSettings.auto_trade_enabled) : false;
       let autoTradeEnabled = dbAutoTrade;
-      if (dbAutoTrade && queryWallet && !isHlBotReadyToRun(vaultBalanceUsd, agentApproved)) {
+      if (
+        dbAutoTrade &&
+        hlWallet &&
+        shouldDisableStaleHlBotAutoTrade(vaultBalanceUsd, agentApproved, {
+          hlLoaded,
+          agentLoaded,
+        })
+      ) {
         try {
-          await disableStaleHlBotAutoTrade(queryWallet);
+          await disableStaleHlBotAutoTrade(hlWallet);
           autoTradeEnabled = false;
         } catch (e) {
           console.warn('[useTradingDashboardMetrics] stale auto_trade cleanup failed', e);

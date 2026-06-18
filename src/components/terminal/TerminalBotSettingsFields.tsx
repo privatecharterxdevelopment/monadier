@@ -78,7 +78,11 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
         <div className={isModal ? 'term-modal-toggle-row' : 'term-panel-card term-panel-card--flat'}>
           <div>
             <p className={isModal ? 'term-modal-toggle-title' : labelClass}>Auto-trading</p>
-            <p className={hintClass}>Bot trades from your Hyperliquid balance on signals</p>
+            <p className={hintClass}>
+              {isModal
+                ? 'Bot trades from your Hyperliquid balance on signals'
+                : 'Use the Bot tab → Start bot (not this panel) to turn trading on.'}
+            </p>
           </div>
           <button
             type="button"

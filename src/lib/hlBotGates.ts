@@ -17,6 +17,16 @@ export function effectiveHlBotRunning(
   return autoTradeEnabled && isHlBotReadyToRun(hlBalanceUsd, agentApproved);
 }
 
+/** Only disable when HL + agent checks succeeded and prerequisites are clearly missing. */
+export function shouldDisableStaleHlBotAutoTrade(
+  hlBalanceUsd: number,
+  agentApproved: boolean,
+  opts: { hlLoaded: boolean; agentLoaded: boolean }
+): boolean {
+  if (!opts.hlLoaded || !opts.agentLoaded) return false;
+  return !isHlBotReadyToRun(hlBalanceUsd, agentApproved);
+}
+
 /** Turn off stale auto_trade when prerequisites are missing (legacy bad state). */
 export async function disableStaleHlBotAutoTrade(walletAddress: string): Promise<void> {
   const wallet = walletAddress.toLowerCase();

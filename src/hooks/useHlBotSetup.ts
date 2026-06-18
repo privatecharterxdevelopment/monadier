@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { fetchHlAccountState } from '../lib/hyperliquid/user';
 import {
   fetchHlAgentAddress,
+  checkHlBotAgentApproved,
   MIN_HL_BOT_USD,
-  resolveHlAgentApproval,
 } from '../lib/hyperliquid/hlBotAgent';
 
 export type HlBotSetupPhase =
@@ -20,41 +20,51 @@ export function useHlBotSetup(walletAddress: string | undefined) {
   const [agentApproved, setAgentApproved] = useState(false);
   const [agentAddress, setAgentAddress] = useState<string | null>(null);
   const [agentExpiresAt, setAgentExpiresAt] = useState<string | null>(null);
+  const [hlLoaded, setHlLoaded] = useState(false);
+  const [agentLoaded, setAgentLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async (): Promise<number> => {
     if (!walletAddress) {
       setPhase('connect');
+      setHlLoaded(false);
+      setAgentLoaded(false);
       setLoading(false);
       return 0;
     }
 
     setLoading(true);
     setError(null);
+    let balance = 0;
+    let hlOk = false;
+    let agentOk = false;
     try {
-      const [acct, agentMeta] = await Promise.all([
-        fetchHlAccountState(walletAddress),
-        fetchHlAgentAddress(walletAddress),
-      ]);
+      const acct = await fetchHlAccountState(walletAddress);
+      hlOk = true;
 
-      const resolvedApproval = await resolveHlAgentApproval(
-        walletAddress,
-        agentMeta.agentAddress ?? null
-      );
+      const agentCheck = await checkHlBotAgentApproved(walletAddress);
+      agentOk = agentCheck.loaded;
+
+      let agentMeta: Awaited<ReturnType<typeof fetchHlAgentAddress>> = { success: false };
+      try {
+        agentMeta = await fetchHlAgentAddress(walletAddress);
+      } catch {
+        /* optional — on-chain agent check is enough */
+      }
 
       const acctVal = Number(acct?.margin?.accountValue ?? 0);
       const withdraw = Number(acct?.withdrawable ?? 0);
-      const balance = Number.isFinite(acctVal) ? acctVal : 0;
+      balance = Number.isFinite(acctVal) ? acctVal : 0;
       setAccountUsd(balance);
       setWithdrawableUsd(Number.isFinite(withdraw) ? withdraw : 0);
-      setAgentApproved(resolvedApproval.approved);
-      setAgentExpiresAt(resolvedApproval.expiresAt);
+      setAgentApproved(agentCheck.approved);
+      setAgentExpiresAt(agentCheck.expiresAt);
       setAgentAddress(agentMeta.agentAddress ?? null);
 
       if (balance < MIN_HL_BOT_USD) {
         setPhase('fund');
-      } else if (!resolvedApproval.approved) {
+      } else if (!agentCheck.approved) {
         setPhase('approve');
       } else {
         setPhase('ready');
@@ -62,9 +72,17 @@ export function useHlBotSetup(walletAddress: string | undefined) {
       return balance;
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load HL bot setup');
-      setPhase('fund');
-      return 0;
+      if (!hlOk) {
+        setPhase('loading');
+      } else if (balance < MIN_HL_BOT_USD) {
+        setPhase('fund');
+      } else {
+        setPhase('approve');
+      }
+      return balance;
     } finally {
+      setHlLoaded(hlOk);
+      setAgentLoaded(agentOk);
       setLoading(false);
     }
   }, [walletAddress]);
@@ -95,6 +113,8 @@ export function useHlBotSetup(walletAddress: string | undefined) {
     agentApproved,
     agentAddress,
     agentExpiresAt,
+    hlLoaded,
+    agentLoaded,
     minUsd: MIN_HL_BOT_USD,
     refresh,
     pollBalanceAfterDeposit,

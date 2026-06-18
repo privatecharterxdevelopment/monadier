@@ -187,29 +187,81 @@ export async function loadHlAgentApproval(
   return { approved: true, expiresAt: data.expires_at };
 }
 
+function findActiveMonadierAgent(agents: HlExtraAgent[]): HlExtraAgent | null {
+  return (
+    agents.find(
+      (a) => a.name.toLowerCase().startsWith('monadier') && isHlExtraAgentActive(a)
+    ) ?? null
+  );
+}
+
 /** DB + on-chain HL extraAgents — source of truth for agent approval. */
 export async function resolveHlAgentApproval(
   walletAddress: string,
   expectedAgentAddress?: string | null
 ): Promise<{ approved: boolean; expiresAt: string | null }> {
-  const db = await loadHlAgentApproval(walletAddress);
-  if (!expectedAgentAddress) return db;
+  const wallet = walletAddress.toLowerCase();
+  const db = await loadHlAgentApproval(wallet);
 
-  const live = await findActiveHlAgent(walletAddress, expectedAgentAddress);
-  if (!live) return db;
+  if (expectedAgentAddress) {
+    const live = await findActiveHlAgent(wallet, expectedAgentAddress);
+    if (!live) return db;
 
-  const expiresAt = new Date(live.validUntil).toISOString();
-  if (!db.approved) {
-    void saveHlAgentApproval({
-      walletAddress,
-      agentAddress: expectedAgentAddress,
-      agentName: live.name,
-      expiresAt,
-    }).catch(() => {
-      /* best-effort sync */
-    });
+    const expiresAt = new Date(live.validUntil).toISOString();
+    if (!db.approved) {
+      void saveHlAgentApproval({
+        walletAddress: wallet,
+        agentAddress: expectedAgentAddress,
+        agentName: live.name,
+        expiresAt,
+      }).catch(() => {
+        /* best-effort sync */
+      });
+    }
+    return { approved: true, expiresAt };
   }
-  return { approved: true, expiresAt };
+
+  const agents = await fetchHlExtraAgents(wallet);
+  const monadier = findActiveMonadierAgent(agents);
+  if (monadier) {
+    const expiresAt = new Date(monadier.validUntil).toISOString();
+    if (!db.approved) {
+      void saveHlAgentApproval({
+        walletAddress: wallet,
+        agentAddress: monadier.address,
+        agentName: monadier.name,
+        expiresAt,
+      }).catch(() => {
+        /* best-effort sync */
+      });
+    }
+    return { approved: true, expiresAt };
+  }
+
+  return db;
+}
+
+/** On-chain agent check with bot-API fallback — returns loaded=false on network errors. */
+export async function checkHlBotAgentApproved(
+  walletAddress: string
+): Promise<{ approved: boolean; expiresAt: string | null; loaded: boolean }> {
+  const wallet = walletAddress.toLowerCase();
+  try {
+    const meta = await fetchHlAgentAddress(wallet);
+    if (meta.success && meta.agentAddress) {
+      const result = await resolveHlAgentApproval(wallet, meta.agentAddress);
+      return { ...result, loaded: true };
+    }
+    const fallback = await resolveHlAgentApproval(wallet, null);
+    return { ...fallback, loaded: true };
+  } catch {
+    try {
+      const fallback = await resolveHlAgentApproval(wallet, null);
+      return { ...fallback, loaded: true };
+    } catch {
+      return { approved: false, expiresAt: null, loaded: false };
+    }
+  }
 }
 
 export async function enableHlBotExecution(walletAddress: string): Promise<void> {
