@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { VAULT_CHAIN_ID } from '../lib/vault';
 import { useUnifiedSignal } from './useUnifiedSignal';
-import { evaluateBotReadiness } from '../lib/botReadiness';
+import { evaluateBotReadiness, readinessFromServerBlockers } from '../lib/botReadiness';
 import { getBotApiBase, type Timeframe } from '../lib/signalService';
 
 export const ANALYSIS_STEPS = [
@@ -45,6 +45,7 @@ export function useTerminalBotAnalysis({
 }: Options) {
   const [dbAnalysis, setDbAnalysis] = useState<DbAnalysis | null>(null);
   const [serverBlockers, setServerBlockers] = useState<string[]>([]);
+  const [circuitBreakerResetSec, setCircuitBreakerResetSec] = useState(0);
   const [step, setStep] = useState(0);
   const [progress, setProgress] = useState(ANALYSIS_STEPS[0].progress);
 
@@ -92,6 +93,7 @@ export function useTerminalBotAnalysis({
   useEffect(() => {
     if (!vaultWallet || !metrics.autoTradeEnabled) {
       setServerBlockers([]);
+      setCircuitBreakerResetSec(0);
       return;
     }
     const load = async () => {
@@ -100,8 +102,14 @@ export function useTerminalBotAnalysis({
           `${getBotApiBase()}/api/bot-status?wallet=${encodeURIComponent(vaultWallet)}`
         );
         if (!res.ok) return;
-        const data = (await res.json()) as { blockers?: string[] };
+        const data = (await res.json()) as {
+          blockers?: string[];
+          gates?: { circuitBreakerResetInSec?: number };
+        };
         setServerBlockers(Array.isArray(data.blockers) ? data.blockers : []);
+        setCircuitBreakerResetSec(
+          Math.max(0, Number(data.gates?.circuitBreakerResetInSec ?? 0))
+        );
       } catch {
         /* bot API offline — UI falls back to local readiness */
       }
@@ -118,17 +126,14 @@ export function useTerminalBotAnalysis({
       vaultUsd,
     });
     if (serverBlockers.length === 0) return local;
-    return {
-      canEnter: false,
-      headline: 'Bot blockiert',
-      detail: serverBlockers.join(' · '),
-    };
+    return readinessFromServerBlockers(serverBlockers, circuitBreakerResetSec);
   }, [
     signal,
     metrics.autoTradeEnabled,
     hasOpenPosition,
     vaultUsd,
     serverBlockers,
+    circuitBreakerResetSec,
   ]);
 
   return {

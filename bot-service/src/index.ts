@@ -218,6 +218,10 @@ const healthServer = http.createServer(async (req, res) => {
           ? Math.ceil((TRADE_COOLDOWN_MS - (Date.now() - lastClose)) / 1000)
           : 0;
 
+      if (Date.now() - lastFailureTime > FAILURE_RESET_MS) {
+        recentFailures = 0;
+      }
+
       const blockers: string[] = [];
       if (!permission.allowed) blockers.push(permission.reason || 'subscription');
       if (!vaultStatus) blockers.push('vault status unavailable');
@@ -234,6 +238,13 @@ const healthServer = http.createServer(async (req, res) => {
       if (recentFailures >= MAX_FAILED_BEFORE_STOP) {
         blockers.push(`circuit breaker (${recentFailures} recent GMX failures)`);
       }
+      const circuitBreakerResetInSec =
+        recentFailures >= MAX_FAILED_BEFORE_STOP
+          ? Math.max(
+              0,
+              Math.ceil((lastFailureTime + FAILURE_RESET_MS - Date.now()) / 1000)
+            )
+          : 0;
       if (cooldownSec > 0) blockers.push(`post-close cooldown ${cooldownSec}s`);
       if (onChainTokens.length > 0) {
         blockers.push(`on-chain position open: ${onChainTokens.join(', ')}`);
@@ -287,6 +298,7 @@ const healthServer = http.createServer(async (req, res) => {
           : null,
         gates: {
           circuitBreakerFailures: recentFailures,
+          circuitBreakerResetInSec,
           cooldownSeconds: cooldownSec,
           dbOpenPositions: openDb.length,
           onChainOpenTokens: onChainTokens,

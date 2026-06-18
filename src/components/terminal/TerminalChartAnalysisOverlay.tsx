@@ -151,11 +151,25 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
           </div>
         )}
         {scanning && readiness?.detail ? (
-          <p className="term-analysis-hint">{readiness.detail}</p>
+          <p
+            className={`term-analysis-hint${
+              readiness.circuitBreaker ? ' term-analysis-hint--warn' : ''
+            }`}
+          >
+            {readiness.detail}
+          </p>
         ) : null}
-        {scanning && hasData ? (
+        {scanning && hasData && !readiness?.circuitBreaker ? (
           <p className="term-analysis-hint term-analysis-hint--subtle">
             Rotierende Zeilen = einzelne Timeframes · Entscheidend ist „{conf}% bot conf.“ oben
+          </p>
+        ) : null}
+        {scanning && hasData && readiness?.circuitBreaker ? (
+          <p className="term-analysis-hint term-analysis-hint--subtle">
+            Signal ({conf}% bot conf.) reicht nicht — GMX-Schutz blockiert neue Orders
+            {readiness.circuitBreakerResetSec
+              ? ` · Reset in ~${Math.max(1, Math.ceil(readiness.circuitBreakerResetSec / 60))} Min.`
+              : ''}
           </p>
         ) : null}
         <div
