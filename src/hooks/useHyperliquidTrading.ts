@@ -15,8 +15,10 @@ import {
   type OrderSide,
   type SimpleOrderKind,
 } from '../lib/hyperliquid/orders';
-import { fetchMaxBuilderFee, resolveBuilderOrderParam } from '../lib/hyperliquid/builder';
+import { fetchMaxBuilderFee, resolveProTradeBuilderParam } from '../lib/hyperliquid/builder';
 import { getHlBuilderConfig } from '../lib/hyperliquid/builderConfig';
+import { proratePositionProfitUsd } from '../lib/hyperliquid/proTradeBuilderFee';
+import { fetchHlAccountState } from '../lib/hyperliquid/user';
 
 export type { OrderSide, SimpleOrderKind as OrderKind };
 
@@ -84,17 +86,42 @@ export function useHyperliquidTrading() {
   );
 
   const resolveOrderBuilder = useCallback(
-    async (marketKind: HlMarketKind, side: OrderSide) => {
+    async (opts: {
+      marketKind: HlMarketKind;
+      side: OrderSide;
+      coin: string;
+      size: number;
+      markPx: number;
+      reduceOnly?: boolean;
+      profitUsd?: number;
+    }) => {
       const config = getHlBuilderConfig();
       if (!config.enabled) return undefined;
       const wallet = requireWallet();
       const user = wallet.account?.address;
       if (!user) return undefined;
       const approved = await fetchMaxBuilderFee(user, config.address);
-      const param = resolveBuilderOrderParam({
-        marketKind,
-        side,
+
+      let profitUsd = opts.profitUsd;
+      if (
+        opts.marketKind === 'perp' &&
+        opts.reduceOnly &&
+        profitUsd == null &&
+        opts.size > 0
+      ) {
+        const account = await fetchHlAccountState(user);
+        const position = account.positions.find((p) => p.coin === opts.coin);
+        profitUsd = proratePositionProfitUsd(position, opts.size);
+      }
+
+      const notionalUsd = opts.size * opts.markPx;
+      const param = resolveProTradeBuilderParam({
+        marketKind: opts.marketKind,
+        side: opts.side,
         approvedMaxTenthsBps: approved,
+        reduceOnly: opts.reduceOnly,
+        notionalUsd,
+        profitUsd,
       });
       return param ?? undefined;
     },
@@ -107,11 +134,19 @@ export function useHyperliquidTrading() {
       orders: HlOrderLeg[],
       settings?: TradeSettings,
       marketKind: HlMarketKind = 'perp',
-      side?: OrderSide
+      builderCtx?: {
+        side: OrderSide;
+        size: number;
+        markPx: number;
+        reduceOnly?: boolean;
+        profitUsd?: number;
+      }
     ) => {
       const client = createHlExchangeClient(requireWallet());
       await applyTradeSettings(coin, settings, marketKind);
-      const builder = side ? await resolveOrderBuilder(marketKind, side) : undefined;
+      const builder = builderCtx
+        ? await resolveOrderBuilder({ coin, marketKind, ...builderCtx })
+        : undefined;
       const result = await client.order({
         orders,
         grouping: 'na',
@@ -135,6 +170,7 @@ export function useHyperliquidTrading() {
       reduceOnly?: boolean;
       settings?: TradeSettings;
       marketKind?: HlMarketKind;
+      profitUsd?: number;
     }) => {
       const marketKind = opts.marketKind ?? 'perp';
       const { index: assetIndex, meta } = await resolveAsset(opts.coin, marketKind);
@@ -148,7 +184,19 @@ export function useHyperliquidTrading() {
         meta,
         reduceOnly: marketKind === 'spot' ? false : opts.reduceOnly,
       });
-      return submitOrders(opts.coin, [leg], opts.settings, marketKind, opts.side);
+      return submitOrders(
+        opts.coin,
+        [leg],
+        opts.settings,
+        marketKind,
+        {
+          side: opts.side,
+          size: opts.size,
+          markPx: opts.markPx,
+          reduceOnly: marketKind === 'spot' ? false : opts.reduceOnly,
+          profitUsd: opts.profitUsd,
+        }
+      );
     },
     [resolveAsset, submitOrders]
   );
@@ -181,12 +229,19 @@ export function useHyperliquidTrading() {
       reduceOnly?: boolean;
       settings?: TradeSettings;
       marketKind?: HlMarketKind;
+      profitUsd?: number;
     }) => withBusy(() => executeSimpleOrder(opts), 'Order failed'),
     [executeSimpleOrder, withBusy]
   );
 
   const closePosition = useCallback(
-    (opts: { coin: string; size: number; isLong: boolean; markPx: number }) =>
+    (opts: {
+      coin: string;
+      size: number;
+      isLong: boolean;
+      markPx: number;
+      profitUsd?: number;
+    }) =>
       withBusy(
         () =>
           executeSimpleOrder({
@@ -196,6 +251,7 @@ export function useHyperliquidTrading() {
             size: Math.abs(opts.size),
             markPx: opts.markPx,
             reduceOnly: true,
+            profitUsd: opts.profitUsd,
           }),
         'Close position failed'
       ),
@@ -230,6 +286,7 @@ export function useHyperliquidTrading() {
       size: number;
       tpPrice?: number;
       slPrice?: number;
+      markPx: number;
       marketKind?: HlMarketKind;
     }) => {
       if (!opts.tpPrice && !opts.slPrice) {
@@ -263,7 +320,12 @@ export function useHyperliquidTrading() {
             })
           );
         }
-        return submitOrders(opts.coin, legs, undefined, marketKind, opts.side);
+        return submitOrders(opts.coin, legs, undefined, marketKind, {
+          side: opts.side,
+          size: opts.size,
+          markPx: opts.markPx,
+          reduceOnly: true,
+        });
       }, 'TP/SL order failed');
     },
     [resolveAsset, submitOrders, withBusy]

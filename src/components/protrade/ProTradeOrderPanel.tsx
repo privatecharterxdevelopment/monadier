@@ -242,6 +242,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
           size: sizeNum,
           tpPrice: tp,
           slPrice: sl,
+          markPx,
           marketKind,
         });
         showSuccess('TP/SL orders submitted');

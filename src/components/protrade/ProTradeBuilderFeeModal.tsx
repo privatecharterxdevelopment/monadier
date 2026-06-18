@@ -34,8 +34,9 @@ const ProTradeBuilderFeeModal: React.FC<Props> = ({
         </button>
       </div>
       <p className="hl-entry-hint" style={{ marginBottom: 12 }}>
-        Monadier charges a small fee on Hyperliquid trades ({feeLabelPerp} perps, spot sells only).
-        This is separate from Hyperliquid&apos;s trading fees and from the Monadier bot subscription.
+        Monadier Pro Trade charges a {feeLabelPerp} success fee on profitable perp closes only — no
+        fee on opens or losing closes. Spot sells use a small flat fee. Separate from Hyperliquid
+        trading fees and the Monadier bot subscription.
       </p>
       <p className="hl-entry-hint" style={{ marginBottom: 12 }}>
         One-time approval (max {maxApprovalRate}). You sign with your wallet — Monadier never gets

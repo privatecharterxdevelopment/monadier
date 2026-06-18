@@ -350,7 +350,8 @@ const Dashboard2ProPage: React.FC = () => {
     const isLong = toNum(position.szi) >= 0;
     const px = perpMarkPrices[position.coin] ?? perpMarkPx;
     if (size <= 0 || px <= 0) return;
-    await closePosition({ coin: position.coin, size, isLong, markPx: px });
+    const profitUsd = Math.max(0, toNum(position.unrealizedPnl));
+    await closePosition({ coin: position.coin, size, isLong, markPx: px, profitUsd });
     showToast('Position close submitted');
     await handleRefreshAll();
   };

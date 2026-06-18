@@ -6,6 +6,7 @@ import {
   isBuilderApprovalSufficient,
 } from '../lib/hyperliquid/builder';
 import { getHlBuilderConfig, formatBuilderFeeLabel } from '../lib/hyperliquid/builderConfig';
+import { formatProTradeSuccessFeeLabel } from '../lib/hyperliquid/proTradeBuilderFee';
 
 export function useHyperliquidBuilderFee(address: string | undefined) {
   const { data: walletClient } = useWalletClient();
@@ -68,7 +69,7 @@ export function useHyperliquidBuilderFee(address: string | undefined) {
     error,
     approve,
     refresh,
-    feeLabelPerp: formatBuilderFeeLabel(config.feePerp),
+    feeLabelPerp: formatProTradeSuccessFeeLabel(config.proTradeSuccessFeeBps),
     feeLabelSpot: formatBuilderFeeLabel(config.feeSpotSell),
   };
 }
