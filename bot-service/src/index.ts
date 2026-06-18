@@ -12,12 +12,17 @@ import { validateProductionEnvironment } from './startup/validateProduction';
 import { checkWinRateGate } from './services/tradeGates';
 import { buildTradingCycleContext } from './services/tradingCycleContext';
 import {
+  scanGlobalHlSignals,
+  type GlobalSignalCandidate,
+} from './services/globalMarketScan';
+import {
   processUserBatch,
   sliceUsersForCycle,
 } from './services/userBatchProcessor';
 import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './services/hlAgent';
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
 import { fetchHlClearinghouseState, hlAccountValueUsd, hlOpenPerpCoins } from './services/hlInfo';
+import { getLastHlOpenError } from './services/hlTrading';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 
 // Health check server for Railway/cloud deployments
@@ -38,6 +43,7 @@ type CycleStats = {
 };
 
 let lastCycleStats: CycleStats | null = null;
+let lastGlobalSignals: GlobalSignalCandidate[] = [];
 
 // CORS headers for API responses
 const corsHeaders = {
@@ -164,6 +170,10 @@ const healthServer = http.createServer(async (req, res) => {
 
       const collateralForSignal = BigInt(Math.floor(Math.max(hlBalanceUsd, 0) * 1e6));
 
+      const globalSignals =
+        lastGlobalSignals.length > 0 ? lastGlobalSignals : await scanGlobalHlSignals();
+      const bestGlobal = globalSignals[0] ?? null;
+
       const ethSignal = await marketService.getSignal(
         chainId,
         ARBITRUM_SIGNAL_TOKENS.WETH,
@@ -199,8 +209,23 @@ const healthServer = http.createServer(async (req, res) => {
         );
       }
       if (!winRateGate.allowed) blockers.push(winRateGate.reason || 'win rate gate');
-      if (!ethSignal && !btcSignal) {
-        blockers.push('no trade signal on WETH or WBTC (weak MTF / below 25% conf)');
+      if (!bestGlobal) {
+        blockers.push(
+          `no HL perp passed global scan (min ${config.hyperliquid.minSignalConfidence}% conf)`
+        );
+      }
+      if (bestGlobal && hlOpenCoins.length === 0 && dbSettings.autoTradeEnabled) {
+        const balance = hlBalanceUsd;
+        const margin = Math.max((balance * dbSettings.riskLevelBps) / 10000, 0);
+        const bumped =
+          margin >= config.hyperliquid.minMarginUsd
+            ? margin
+            : balance >= config.hyperliquid.minAccountUsd
+              ? Math.min(config.hyperliquid.minMarginUsd, balance * 0.1)
+              : margin;
+        if (bumped < 1) {
+          blockers.push(`margin too small ($${bumped.toFixed(2)} from $${balance.toFixed(2)} balance)`);
+        }
       }
 
       res.writeHead(200, corsHeaders);
@@ -233,6 +258,23 @@ const healthServer = http.createServer(async (req, res) => {
           riskBps: dbSettings.riskLevelBps,
           tp: dbSettings.takeProfitPercent,
           sl: dbSettings.stopLossPercent,
+          profitLock: dbSettings.profitLockPercent,
+        },
+        globalScan: {
+          candidates: globalSignals.slice(0, 8).map((s) => ({
+            coin: s.coin,
+            direction: s.direction,
+            confidence: s.confidence,
+            reason: s.reason,
+          })),
+          best: bestGlobal
+            ? {
+                coin: bestGlobal.coin,
+                direction: bestGlobal.direction,
+                confidence: bestGlobal.confidence,
+                reason: bestGlobal.reason,
+              }
+            : null,
         },
         sampleSignal: ethSignal
           ? {
@@ -252,6 +294,7 @@ const healthServer = http.createServer(async (req, res) => {
           dbOpenPositions: openDb.length,
           onChainOpenTokens: hlOpenCoins,
         },
+        lastOpenError: getLastHlOpenError(userAddress),
         timestamp: new Date().toISOString(),
       }));
     } catch (err: any) {
@@ -263,6 +306,27 @@ const healthServer = http.createServer(async (req, res) => {
   }
 
   // Ops: service + active HL bot count (no wallet required)
+  if (url.pathname === '/api/global-signals') {
+    try {
+      const signals =
+        lastGlobalSignals.length > 0 ? lastGlobalSignals : await scanGlobalHlSignals();
+      res.writeHead(200, corsHeaders);
+      res.end(
+        JSON.stringify({
+          success: true,
+          count: signals.length,
+          candidates: signals.slice(0, 12),
+          scannedAt: lastCycleStats?.at ?? new Date().toISOString(),
+          minConfidence: config.hyperliquid.minSignalConfidence,
+        })
+      );
+    } catch (err: any) {
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'global-signals failed' }));
+    }
+    return;
+  }
+
   if (url.pathname === '/api/service-status') {
     try {
       const activeWallets = await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId);
@@ -325,7 +389,7 @@ healthServer.listen(PORT, () => {
   logger.info('  GET /api/signal?symbol=ETHUSDT&timeframes=1m,5m,15m,1h - MTF Signal');
   logger.info('  GET /api/hl-agent?wallet=0x… - Per-user HL agent address');
   logger.info('  GET /api/bot-status?wallet=0x… - Wallet bot diagnostics');
-  logger.info('  GET /api/service-status - Active HL bots + last cycle stats');
+  logger.info('  GET /api/global-signals - Top HL perp signals from last scan');
   logger.info('  GET /api/timeframe?symbol=ETHUSDT&tf=15m - Single timeframe analysis');
 });
 
@@ -483,6 +547,7 @@ async function runTradingCycle(): Promise<void> {
       });
 
       const ctx = await buildTradingCycleContext();
+      lastGlobalSignals = ctx.globalSignals;
 
       const stats = await processUserBatch(wallets, ctx, total);
 

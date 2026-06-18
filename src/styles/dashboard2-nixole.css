@@ -2415,6 +2415,12 @@
   margin-bottom: 0;
 }
 
+.term-trade-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .term-icon-btn {
   padding: 6px;
   border: 1px solid var(--term-border-muted);
@@ -2427,6 +2433,18 @@
 .term-icon-btn:hover {
   background: rgba(255, 255, 255, 0.9);
   color: var(--term-text);
+}
+
+.term-icon-btn--subtle {
+  border-color: transparent;
+  background: transparent;
+  color: #a1a1aa;
+}
+
+.term-icon-btn--subtle:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: #71717a;
+  border-color: transparent;
 }
 
 .term-phase-hint {
@@ -2550,6 +2568,22 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.hl-bot-setup-steps--guide {
+  margin: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.hl-bot-setup-steps--guide .hl-bot-setup-step {
+  opacity: 1;
+}
+
+.hl-bot-setup-steps--guide .hl-bot-setup-step__mark {
+  background: #e4e4e7;
+  color: #52525b;
 }
 
 .hl-bot-setup-step {

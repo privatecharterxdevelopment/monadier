@@ -7,11 +7,11 @@ import { MIN_HL_BOT_USD } from '../lib/hyperliquid/hlBotAgent';
 import { getBotApiBase, type Timeframe } from '../lib/signalService';
 
 export const ANALYSIS_STEPS = [
-  { label: 'Scanning 1m chart', progress: 15 },
-  { label: 'Analyzing 5m trends', progress: 35 },
+  { label: 'Scanning all HL perps', progress: 15 },
+  { label: 'Analyzing 1m / 5m charts', progress: 35 },
   { label: 'Checking 15m patterns', progress: 55 },
   { label: 'Evaluating 1h momentum', progress: 75 },
-  { label: 'Combining signals', progress: 95 },
+  { label: 'Picking best setup', progress: 95 },
 ] as const;
 
 const MTF_TIMEFRAMES: Timeframe[] = ['1m', '5m', '15m', '1h'];
@@ -26,6 +26,13 @@ type DbAnalysis = {
 };
 
 import type { Dashboard2Metrics } from './useDashboard2Metrics';
+
+type GlobalScanCandidate = {
+  coin: string;
+  direction: string;
+  confidence: number;
+  reason?: string;
+};
 
 type Options = {
   walletConnected: boolean;
@@ -52,6 +59,8 @@ export function useTerminalBotAnalysis({
 }: Options) {
   const [dbAnalysis, setDbAnalysis] = useState<DbAnalysis | null>(null);
   const [serverBlockers, setServerBlockers] = useState<string[]>([]);
+  const [globalBest, setGlobalBest] = useState<GlobalScanCandidate | null>(null);
+  const [globalScanCount, setGlobalScanCount] = useState(0);
   const [step, setStep] = useState(0);
   const [progress, setProgress] = useState(ANALYSIS_STEPS[0].progress);
 
@@ -98,6 +107,32 @@ export function useTerminalBotAnalysis({
   }, []);
 
   useEffect(() => {
+    if (!walletConnected || !active) {
+      setGlobalBest(null);
+      setGlobalScanCount(0);
+      return;
+    }
+    const load = async () => {
+      try {
+        const res = await fetch(`${getBotApiBase()}/api/global-signals`);
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          candidates?: GlobalScanCandidate[];
+          count?: number;
+        };
+        const list = Array.isArray(data.candidates) ? data.candidates : [];
+        setGlobalBest(list[0] ?? null);
+        setGlobalScanCount(typeof data.count === 'number' ? data.count : list.length);
+      } catch {
+        /* bot API offline */
+      }
+    };
+    void load();
+    const id = setInterval(load, 30000);
+    return () => clearInterval(id);
+  }, [walletConnected, active]);
+
+  useEffect(() => {
     if (!vaultWallet || !botRunning) {
       setServerBlockers([]);
       return;
@@ -108,8 +143,19 @@ export function useTerminalBotAnalysis({
           `${getBotApiBase()}/api/bot-status?wallet=${encodeURIComponent(vaultWallet)}`
         );
         if (!res.ok) return;
-        const data = (await res.json()) as { blockers?: string[] };
-        setServerBlockers(Array.isArray(data.blockers) ? data.blockers : []);
+        const data = (await res.json()) as {
+          blockers?: string[];
+          globalScan?: { best?: GlobalScanCandidate | null };
+          lastOpenError?: { error: string; coin?: string; at: string } | null;
+        };
+        const blockers = Array.isArray(data.blockers) ? [...data.blockers] : [];
+        if (data.lastOpenError?.error) {
+          blockers.push(
+            `HL order failed${data.lastOpenError.coin ? ` (${data.lastOpenError.coin})` : ''}: ${data.lastOpenError.error}`
+          );
+        }
+        setServerBlockers(blockers);
+        if (data.globalScan?.best) setGlobalBest(data.globalScan.best);
       } catch {
         /* bot API offline — UI falls back to local readiness */
       }
@@ -144,6 +190,8 @@ export function useTerminalBotAnalysis({
     isLoading,
     dbAnalysis,
     activeSymbol: symbol,
+    globalBest,
+    globalScanCount,
     readiness,
   };
 }

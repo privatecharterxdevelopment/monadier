@@ -89,6 +89,12 @@ export const config = {
     /** Parallel MTF scans per trading cycle (all HL perps). */
     scanConcurrency: Number(process.env.HL_SCAN_CONCURRENCY || 8),
     minSignalConfidence: Number(process.env.HL_MIN_SIGNAL_CONFIDENCE || 25),
+    /** Close HL perps at this % gain on margin (user DB setting overrides). */
+    defaultTakeProfitPercent: Number(process.env.HL_DEFAULT_TP_PERCENT || 0.2),
+    /** Trail SL into profit — lock floor once margin PnL reaches activate threshold. */
+    defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 0.1),
+    /** Minimum margin USD per HL open (small accounts use up to 10% of balance). */
+    minMarginUsd: Number(process.env.HL_MIN_MARGIN_USD || 5),
     infoUrl: process.env.HL_INFO_URL || 'https://api.hyperliquid.xyz/info',
     builderAddress: (process.env.HL_BUILDER_ADDRESS ||
       process.env.TREASURY_ADDRESS) as `0x${string}`,

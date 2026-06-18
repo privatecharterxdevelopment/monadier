@@ -16,8 +16,36 @@ import {
 } from './hlInfo';
 import { subscriptionService } from './subscription';
 import type { TradingCycleContext } from './tradingCycleContext';
+import {
+  shouldActivateProfitLock,
+  shouldCloseProfitLock,
+  shouldTakeProfitOnPnl,
+} from './pnlExits';
 
 const transport = new HttpTransport();
+
+/** Per user+coin — SL trailed into profit after activate threshold. */
+const hlProfitLockActive = new Map<string, boolean>();
+
+/** Last HL open error per wallet — surfaced in /api/bot-status diagnostics. */
+const lastHlOpenError = new Map<string, { at: string; coin?: string; error: string }>();
+
+export function getLastHlOpenError(wallet: string): { at: string; coin?: string; error: string } | null {
+  return lastHlOpenError.get(wallet.toLowerCase()) ?? null;
+}
+
+function positionKey(userAddress: string, coin: string): string {
+  return `${userAddress.toLowerCase()}:${coin.toUpperCase()}`;
+}
+
+function resolveMarginUsd(balance: number, riskLevelBps: number): number {
+  const fromRisk = (balance * riskLevelBps) / 10000;
+  const minMargin = config.hyperliquid.minMarginUsd;
+  if (fromRisk >= minMargin) return fromRisk;
+  if (balance < config.hyperliquid.minAccountUsd) return fromRisk;
+  // Small accounts: e.g. $50 @ 5% risk = $2.50 — bump to min margin or 10% of balance
+  return Math.min(minMargin, balance * 0.1);
+}
 
 export type UserProcessResult = 'ok' | 'skip' | 'fail';
 
@@ -64,6 +92,7 @@ export class HyperliquidTradingService {
   ): Promise<UserProcessResult> {
     const gate = await this.canTrade(userAddress);
     if (!gate.ok) {
+      logger.debug('HL user skip: gate', { user: userAddress.slice(0, 10), reason: gate.reason });
       return 'skip';
     }
 
@@ -71,7 +100,10 @@ export class HyperliquidTradingService {
       userAddress,
       config.arbitrum.chainId
     );
-    if (!settings.autoTradeEnabled) return 'skip';
+    if (!settings.autoTradeEnabled) {
+      logger.debug('HL user skip: auto-trade off', { user: userAddress.slice(0, 10) });
+      return 'skip';
+    }
 
     const state = await fetchHlClearinghouseState(userAddress);
     if (!state) return 'skip';
@@ -91,12 +123,21 @@ export class HyperliquidTradingService {
     state: NonNullable<Awaited<ReturnType<typeof fetchHlClearinghouseState>>>,
     ctx: TradingCycleContext
   ): Promise<UserProcessResult> {
-    if (ctx.globalSignals.length === 0) return 'skip';
+    if (ctx.globalSignals.length === 0) {
+      logger.debug('HL open skip: no global signals', { user: userAddress.slice(0, 10) });
+      return 'skip';
+    }
 
     const balance = hlAccountValueUsd(state);
-    const riskUsd = (balance * settings.riskLevelBps) / 10000;
-    const collateral = Math.max(riskUsd, 0);
-    if (collateral < 5) return 'skip';
+    const collateral = resolveMarginUsd(balance, settings.riskLevelBps);
+    if (collateral < 1) {
+      logger.debug('HL open skip: margin too small', {
+        user: userAddress.slice(0, 10),
+        balance,
+        collateral,
+      });
+      return 'skip';
+    }
 
     const best = ctx.globalSignals[0];
     const leverage = Math.min(
@@ -114,6 +155,24 @@ export class HyperliquidTradingService {
       reason: `MTF ${best.direction} ${best.confidence}% · ${best.coin}`,
       ctx,
     });
+
+    if (!opened.success && opened.error) {
+      lastHlOpenError.set(userAddress.toLowerCase(), {
+        at: new Date().toISOString(),
+        coin: best.coin,
+        error: opened.error,
+      });
+      logger.warn('HL open skip: order rejected', {
+        user: userAddress.slice(0, 10),
+        coin: best.coin,
+        direction: best.direction,
+        notionalUsd: notionalUsd.toFixed(2),
+        leverage,
+        error: opened.error,
+      });
+    } else if (opened.success) {
+      lastHlOpenError.delete(userAddress.toLowerCase());
+    }
 
     return opened.success ? 'ok' : 'fail';
   }
@@ -216,13 +275,32 @@ export class HyperliquidTradingService {
         entry > 0 ? (Math.abs(size) * entry) / (pos.leverage?.value ?? 10) : 0;
       const pnlPct = collateralEst > 0 ? (pnl / collateralEst) * 100 : 0;
 
-      const tp = settings.takeProfitPercent ?? 5;
+      const tp = settings.takeProfitPercent ?? config.hyperliquid.defaultTakeProfitPercent;
       const sl = settings.stopLossPercent ?? 1;
+      const profitLock =
+        settings.profitLockPercent ?? config.hyperliquid.defaultProfitLockPercent;
 
-      if (pnlPct >= tp) {
-        await this.closeMarketPosition(userAddress, pos.coin, 'take_profit');
-      } else if (pnlPct <= -sl) {
+      const lockKey = positionKey(userAddress, pos.coin);
+      let locked = hlProfitLockActive.get(lockKey) ?? false;
+
+      if (pnlPct <= -sl) {
+        hlProfitLockActive.delete(lockKey);
         await this.closeMarketPosition(userAddress, pos.coin, 'stop_loss');
+      } else if (shouldTakeProfitOnPnl(pnlPct, tp)) {
+        hlProfitLockActive.delete(lockKey);
+        await this.closeMarketPosition(userAddress, pos.coin, 'take_profit');
+      } else if (shouldCloseProfitLock(pnlPct, profitLock, locked)) {
+        hlProfitLockActive.delete(lockKey);
+        await this.closeMarketPosition(userAddress, pos.coin, 'profit_lock');
+      } else if (shouldActivateProfitLock(pnlPct, profitLock, locked)) {
+        hlProfitLockActive.set(lockKey, true);
+        locked = true;
+        logger.info('HL profit lock active', {
+          user: userAddress.slice(0, 10),
+          coin: pos.coin,
+          pnlPct: pnlPct.toFixed(2),
+          floor: profitLock,
+        });
       }
     }
   }

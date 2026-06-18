@@ -25,6 +25,7 @@ export interface TradePermission {
 export interface UserTradingSettings {
   takeProfitPercent: number;
   stopLossPercent: number;
+  profitLockPercent: number;
   askPermission: boolean;
   leverageMultiplier: number; // 1.0 = no leverage, 2.0 = 2x, 3.0 = 3x max
   riskLevelBps: number; // Risk in basis points (5000 = 50%)
@@ -473,10 +474,11 @@ export class SubscriptionService {
           error: error?.message
         });
         return {
-          takeProfitPercent: 5,
+          takeProfitPercent: 0.2,
           stopLossPercent: 1,
+          profitLockPercent: 0.1,
           askPermission: false,
-          leverageMultiplier: 1.0,
+          leverageMultiplier: 10.0,
           riskLevelBps: 500,
           autoTradeEnabled: false,
           minWinRatePercent: 0,
@@ -495,10 +497,11 @@ export class SubscriptionService {
       });
 
       return {
-        takeProfitPercent: data.take_profit_percent || 5,
+        takeProfitPercent: data.take_profit_percent ?? config.hyperliquid.defaultTakeProfitPercent,
         stopLossPercent: data.stop_loss_percent || 1,
+        profitLockPercent: config.hyperliquid.defaultProfitLockPercent,
         askPermission: data.ask_permission || false,
-        leverageMultiplier: data.leverage_multiplier || 1.0,
+        leverageMultiplier: data.leverage_multiplier || 10.0,
         riskLevelBps: data.risk_level_bps || 500,
         autoTradeEnabled: Boolean(data.auto_trade_enabled),
         minWinRatePercent: Number(data.min_win_rate_percent) || 0,
@@ -508,10 +511,11 @@ export class SubscriptionService {
     } catch (err) {
       logger.error('Failed to get user trading settings', { walletAddress, error: err });
       return {
-        takeProfitPercent: 5,
+        takeProfitPercent: config.hyperliquid.defaultTakeProfitPercent,
         stopLossPercent: 1,
+        profitLockPercent: config.hyperliquid.defaultProfitLockPercent,
         askPermission: false,
-        leverageMultiplier: 1.0,
+        leverageMultiplier: 10.0,
         riskLevelBps: 500,
         autoTradeEnabled: false,
         minWinRatePercent: 0,

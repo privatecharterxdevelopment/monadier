@@ -23,6 +23,8 @@ type Props = {
   signal: UnifiedSignal | null;
   dbAnalysis: DbAnalysis;
   activeSymbol?: string;
+  globalBest?: { coin: string; direction: string; confidence: number } | null;
+  globalScanCount?: number;
   readiness?: BotReadiness;
   /** chart = overlay on chart; dock = inline in positions panel */
   placement?: 'chart' | 'dock';
@@ -32,7 +34,7 @@ const CYCLE_MS = 2400;
 const TF_LINE_RE = /^(1m|5m|15m|1h|4h): /i;
 
 function formatTfLine(tf: UnifiedSignal['timeframes'][number]) {
-  return `TF ${tf.timeframe}: ${tf.direction} (${Math.round(tf.confidence)}% conf, RSI: ${Math.round(tf.rsi)})`;
+  return `1 TF only · ${tf.timeframe}: ${tf.direction} (${Math.round(tf.confidence)}%)`;
 }
 
 function slidesFromSignal(signal: UnifiedSignal | null): string[] {
@@ -54,6 +56,8 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
   signal,
   dbAnalysis,
   activeSymbol,
+  globalBest,
+  globalScanCount = 0,
   readiness,
   placement = 'chart',
 }) => {
@@ -156,9 +160,17 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
         {scanning && readiness?.detail ? (
           <p className="term-analysis-hint">{readiness.detail}</p>
         ) : null}
+        {globalBest ? (
+          <p className="term-analysis-hint term-analysis-hint--subtle">
+            Bot picks best HL setup: {globalBest.coin} {globalBest.direction}{' '}
+            {Math.round(globalBest.confidence)}%
+            {globalScanCount > 0 ? ` · ${globalScanCount} markets scanned` : ''}
+            {activeLabel ? ` · chart: ${activeLabel}` : ''}
+          </p>
+        ) : null}
         {scanning && hasData ? (
           <p className="term-analysis-hint term-analysis-hint--subtle">
-            Rotating lines = per-timeframe signals · Combined confidence shown above
+            Rotating line = one timeframe only (can show 100% while combined is lower)
           </p>
         ) : null}
         <div
@@ -170,7 +182,9 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
                 <>
                   <span className={signalClass}>{action}</span>
                   <span className="term-analysis-sep">·</span>
-                  <span>{conf}% bot conf.</span>
+                  <span title="Combined 1m+5m+15m+1h — this is what the chart pair signal uses">
+                    {conf}% combined
+                  </span>
                   {hasTfConflict && (
                     <>
                       <span className="term-analysis-sep">·</span>

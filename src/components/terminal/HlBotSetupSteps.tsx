@@ -8,6 +8,8 @@ type Props = {
   agentApproved: boolean;
   botRunning: boolean;
   currentStep: 1 | 2 | 3 | 4;
+  /** Inline first-time guide shows progress; modal uses neutral static list. */
+  variant?: 'progress' | 'guide';
 };
 
 const STEPS = [
@@ -40,11 +42,19 @@ const HlBotSetupSteps: React.FC<Props> = ({
   agentApproved,
   botRunning,
   currentStep,
+  variant = 'progress',
 }) => (
-  <ol className="hl-bot-setup-steps">
+  <ol
+    className={`hl-bot-setup-steps${
+      variant === 'guide' ? ' hl-bot-setup-steps--guide' : ''
+    }`}
+  >
     {STEPS.map((step) => {
-      const done = stepDone(step.n, walletReady, hlBalanceUsd, agentApproved, botRunning);
-      const active = step.n === currentStep && !done;
+      const showProgress = variant === 'progress';
+      const done = showProgress
+        ? stepDone(step.n, walletReady, hlBalanceUsd, agentApproved, botRunning)
+        : false;
+      const active = showProgress && step.n === currentStep && !done;
       return (
         <li
           key={step.n}

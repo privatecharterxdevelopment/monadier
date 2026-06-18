@@ -11,6 +11,7 @@ import {
   TrendingUp,
   AlertTriangle,
   ShieldCheck,
+  Info,
 } from 'lucide-react';
 import { useAppKit } from '@reown/appkit/react';
 import { useWeb3 } from '../../contexts/Web3Context';
@@ -37,7 +38,14 @@ import {
   shouldDisableStaleHlBotAutoTrade,
 } from '../../lib/hlBotGates';
 import { getHlBotSidebarStatus } from '../../lib/hlBotUserStatus';
+import {
+  hlBotOnboardingStorageKey,
+  readHlBotOnboardingComplete,
+  writeHlBotOnboardingComplete,
+} from '../../lib/hlBotOnboarding';
+import { fireProfileOnboardingConfetti } from '../../lib/confettiCelebration';
 import HlBotSetupSteps from './HlBotSetupSteps';
+import HlBotSetupGuideModal from './HlBotSetupGuideModal';
 import ProTradeDepositModal from '../protrade/ProTradeDepositModal';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import TerminalBotSettingsModal from './TerminalBotSettingsModal';
@@ -76,7 +84,7 @@ const TerminalTradePanel: React.FC<Props> = ({
 }) => {
   const { open } = useAppKit();
   const { isConnected, address, publicClient, walletClient } = useWeb3();
-  const { isDemoUser, isAuthenticated } = useAuth();
+  const { isDemoUser, isAuthenticated, user } = useAuth();
   const { linkWallet, planTier } = useSubscription();
   const [panelTab, setPanelTab] = useState<PanelTab>('bot');
   const [settingsTick, setSettingsTick] = useState(0);
@@ -90,9 +98,19 @@ const TerminalTradePanel: React.FC<Props> = ({
   const [approveBusy, setApproveBusy] = useState(false);
   const [botError, setBotError] = useState<string | null>(null);
   const [stopNotice, setStopNotice] = useState<string | null>(null);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
 
   const walletReady = isConnected || isDemoUser;
   const wallet = botSettings.wallet;
+
+  const onboardingKey = useMemo(
+    () => hlBotOnboardingStorageKey(user?.id, wallet ?? address ?? null),
+    [user?.id, wallet, address]
+  );
+  const [setupGuideComplete, setSetupGuideComplete] = useState(() =>
+    readHlBotOnboardingComplete(onboardingKey)
+  );
+
   const hlFundingUsd = hlSetup.accountUsd;
   const autoTradeDb = botSettings.settings.autoTradeEnabled;
   const autoTradeOn = metrics.autoTradeEnabled;
@@ -101,6 +119,17 @@ const TerminalTradePanel: React.FC<Props> = ({
     hlFundingUsd,
     hlSetup.agentApproved
   );
+
+  useEffect(() => {
+    if (readHlBotOnboardingComplete(onboardingKey)) {
+      setSetupGuideComplete(true);
+      return;
+    }
+    if (walletReady && (botRunning || autoTradeDb)) {
+      writeHlBotOnboardingComplete(onboardingKey);
+      setSetupGuideComplete(true);
+    }
+  }, [onboardingKey, walletReady, botRunning, autoTradeDb]);
   const botSyncMismatch = autoTradeDb !== metrics.autoTradeEnabled && !metrics.isLoading;
   const timerWallet = wallet ?? address ?? undefined;
   const botRuntime = useBotRuntimeTimer(timerWallet, Boolean(walletReady && botRunning));
@@ -351,6 +380,11 @@ const TerminalTradePanel: React.FC<Props> = ({
       await ensureBotSubscription();
       await persistBotRunning(true);
       markBotRuntimeStarted(timerWallet ?? wallet);
+      if (!readHlBotOnboardingComplete(onboardingKey)) {
+        writeHlBotOnboardingComplete(onboardingKey);
+        setSetupGuideComplete(true);
+        fireProfileOnboardingConfetti();
+      }
       if (!isDemoUser && address) {
         await linkWallet(address);
       }
@@ -395,12 +429,25 @@ const TerminalTradePanel: React.FC<Props> = ({
       <div className="term-trade-header">
         <div className="term-trade-header-top">
           <p className="term-trade-title">Hyperliquid bot</p>
-          <button type="button" className="term-icon-btn" onClick={refreshAll} title="Refresh">
-            <RefreshCw
-              size={14}
-              className={metrics.isLoading || hlSetup.loading ? 'animate-spin' : ''}
-            />
-          </button>
+          <div className="term-trade-header-actions">
+            {setupGuideComplete && walletReady && (
+              <button
+                type="button"
+                className="term-icon-btn term-icon-btn--subtle"
+                onClick={() => setShowSetupGuide(true)}
+                title="How the bot works"
+                aria-label="How the bot works"
+              >
+                <Info size={14} />
+              </button>
+            )}
+            <button type="button" className="term-icon-btn" onClick={refreshAll} title="Refresh">
+              <RefreshCw
+                size={14}
+                className={metrics.isLoading || hlSetup.loading ? 'animate-spin' : ''}
+              />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -441,6 +488,30 @@ const TerminalTradePanel: React.FC<Props> = ({
                 </button>
               </div>
             ) : (
+              <div
+                className={`term-panel-card term-panel-card--muted hl-bot-status-card hl-bot-status-card--${sidebarStatus.tone}`}
+              >
+                <span className="term-panel-card-label">Bot status</span>
+                <strong
+                  className={`term-panel-card-value hl-bot-status-headline ${
+                    botRunning ? 'term-pnl-pos' : ''
+                  }`}
+                >
+                  {sidebarStatus.headline}
+                </strong>
+                <p className="hl-bot-status-detail">{sidebarStatus.detail}</p>
+                {botSyncMismatch && (
+                  <p className="term-hint term-hint--warn">
+                    Bot state out of sync — press Start bot again to register with the server.
+                  </p>
+                )}
+                <p className="term-panel-card-hint">
+                  HL balance {fmt(hlFundingUsd)} · withdrawable {fmt(hlSetup.withdrawableUsd)}
+                </p>
+              </div>
+            )}
+
+            {walletReady && !setupGuideComplete && (
               <HlBotSetupSteps
                 walletReady={walletReady}
                 hlBalanceUsd={hlFundingUsd}
@@ -449,30 +520,6 @@ const TerminalTradePanel: React.FC<Props> = ({
                 currentStep={sidebarStatus.setupStep}
               />
             )}
-
-            <div
-              className={`term-panel-card term-panel-card--muted hl-bot-status-card hl-bot-status-card--${sidebarStatus.tone}`}
-            >
-              <span className="term-panel-card-label">Bot status</span>
-              <strong
-                className={`term-panel-card-value hl-bot-status-headline ${
-                  botRunning ? 'term-pnl-pos' : ''
-                }`}
-              >
-                {sidebarStatus.headline}
-              </strong>
-              <p className="hl-bot-status-detail">{sidebarStatus.detail}</p>
-              {botSyncMismatch && (
-                <p className="term-hint term-hint--warn">
-                  Bot state out of sync — press Start bot again to register with the server.
-                </p>
-              )}
-              {walletReady && (
-                <p className="term-panel-card-hint">
-                  HL balance {fmt(hlFundingUsd)} · withdrawable {fmt(hlSetup.withdrawableUsd)}
-                </p>
-              )}
-            </div>
 
             <TerminalBotSettingsStrip
               settings={botSettings.settings}
@@ -666,6 +713,16 @@ const TerminalTradePanel: React.FC<Props> = ({
             setStartMode(false);
             refreshAll();
           }}
+        />
+      )}
+      {showSetupGuide && walletReady && (
+        <HlBotSetupGuideModal
+          walletReady={walletReady}
+          hlBalanceUsd={hlFundingUsd}
+          agentApproved={hlSetup.agentApproved}
+          botRunning={botRunning}
+          currentStep={sidebarStatus.setupStep}
+          onClose={() => setShowSetupGuide(false)}
         />
       )}
     </aside>
