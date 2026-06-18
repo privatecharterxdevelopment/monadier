@@ -218,18 +218,16 @@ export const isWalletLinked = async (userId: string, walletAddress: string) => {
 export const linkWalletToUser = async (userId: string, walletAddress: string, label?: string) => {
   const wallet = walletAddress.toLowerCase();
 
-  const { data: existing } = await supabase
+  const { data: ownRow } = await supabase
     .from('user_wallets')
-    .select('user_id')
+    .select('id')
+    .eq('user_id', userId)
     .eq('wallet_address', wallet)
     .limit(1);
 
-  const owner = existing?.[0];
-  if (owner && owner.user_id !== userId) {
-    return {
-      data: null,
-      error: new Error('This wallet is already linked to another Monadier account.'),
-    };
+  if (ownRow && ownRow.length > 0) {
+    await supabase.rpc('register_my_wallet', { p_wallet: wallet });
+    return { data: ownRow, error: null };
   }
 
   const { data, error } = await supabase.from('user_wallets').upsert(
@@ -241,23 +239,32 @@ export const linkWalletToUser = async (userId: string, walletAddress: string, la
     { onConflict: 'user_id,wallet_address' }
   );
 
-  if (!error) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('wallet_address')
-      .eq('id', userId)
-      .maybeSingle();
-    if (!profile?.wallet_address?.trim()) {
-      await supabase.from('profiles').update({ wallet_address: wallet }).eq('id', userId);
+  if (error) {
+    const ownedByOther =
+      error.code === '23505' ||
+      (error as { status?: number }).status === 409 ||
+      error.message?.includes('idx_user_wallets_wallet_unique') ||
+      error.message?.includes('duplicate key value');
+    if (ownedByOther) {
+      return {
+        data: null,
+        error: new Error('This wallet is already linked to another Monadier account.'),
+      };
     }
-    try {
-      await supabase.rpc('register_my_wallet', { p_wallet: wallet });
-    } catch {
-      /* optional RPC */
-    }
+    return { data, error };
   }
 
-  return { data, error };
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('wallet_address')
+    .eq('id', userId)
+    .maybeSingle();
+  if (!profile?.wallet_address?.trim()) {
+    await supabase.from('profiles').update({ wallet_address: wallet }).eq('id', userId);
+  }
+  await supabase.rpc('register_my_wallet', { p_wallet: wallet });
+
+  return { data, error: null };
 };
 
 export const unlinkWallet = async (userId: string, walletAddress: string) => {

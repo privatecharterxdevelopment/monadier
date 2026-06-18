@@ -24,6 +24,7 @@ import {
   enableHlBotExecution,
   MIN_HL_BOT_USD,
 } from '../../lib/hyperliquid/hlBotAgent';
+import { registerWalletsForHistory } from '../../lib/userWallets';
 import { completeHlBotApprovals } from '../../lib/hyperliquid/hlBotApprovals';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import { getHlBuilderConfig } from '../../lib/hyperliquid/builderConfig';
@@ -297,6 +298,12 @@ const TerminalTradePanel: React.FC<Props> = ({
     if (/extra agent already used|agent already/i.test(msg)) {
       return 'This API wallet is already registered on Hyperliquid. If you approved before, refresh the page — otherwise revoke an old API key at app.hyperliquid.xyz → More → API.';
     }
+    if (/linked to another/i.test(msg)) {
+      return 'This wallet is linked to another Monadier account. Sign in with that account or use a different wallet.';
+    }
+    if (/409|duplicate key|user_wallets/i.test(msg)) {
+      return 'Could not link wallet — refresh the page and try Start bot again.';
+    }
     return msg;
   };
 
@@ -378,14 +385,18 @@ const TerminalTradePanel: React.FC<Props> = ({
 
     setBotBusy(true);
     try {
-      if (!isDemoUser) {
-        await linkWallet(address);
+      if (!isDemoUser && user?.id) {
+        await registerWalletsForHistory([address], user.id);
       }
 
       let agentApproved = hlSetup.agentApproved;
       let builderFeeApproved = hlSetup.builderFeeApproved;
       if (needsHlApproval) {
-        await completeHlBotApprovals({ walletClient: walletClient!, walletAddress: address });
+        await completeHlBotApprovals({
+          walletClient: walletClient!,
+          walletAddress: address,
+          userId: user?.id,
+        });
         agentApproved = true;
         builderFeeApproved = true;
       }

@@ -11,9 +11,10 @@ function registrationKey(userId: string, wallet: string): string {
   return `${userId}:${wallet.toLowerCase()}`;
 }
 
-function isWalletUniqueViolation(error: { code?: string; message?: string }): boolean {
+function isWalletUniqueViolation(error: { code?: string; message?: string; status?: number }): boolean {
   return (
     error.code === '23505' ||
+    error.status === 409 ||
     Boolean(error.message?.includes('idx_user_wallets_wallet_unique')) ||
     Boolean(error.message?.includes('duplicate key value'))
   );

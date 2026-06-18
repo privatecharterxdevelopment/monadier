@@ -3,6 +3,7 @@ import type { WalletClient } from 'viem';
 import { walletClientToHlWallet } from './walletAdapter';
 import { getBotApiBase } from '../signalService';
 import { supabase } from '../supabase';
+import { getAuthUserId } from '../userWallets';
 import {
   fetchHlExtraAgents,
   isHlExtraAgentActive,
@@ -113,21 +114,26 @@ export async function saveHlAgentApproval(params: {
   agentAddress: string;
   agentName: string;
   expiresAt?: string | null;
+  userId?: string;
 }): Promise<void> {
   const wallet = params.walletAddress.toLowerCase();
   const agent = params.agentAddress.toLowerCase();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  const userId = params.userId ?? (await getAuthUserId());
+  if (!userId) {
     throw new Error('Sign in to Monadier before approving the trading agent.');
   }
 
-  const { linkWalletToUser } = await import('../supabase');
-  const { error: linkError } = await linkWalletToUser(user.id, wallet);
-  if (linkError) {
-    throw linkError;
+  const { error: registerError } = await supabase.rpc('register_my_wallet', { p_wallet: wallet });
+  if (registerError && !registerError.message.includes('Could not find the function')) {
+    if (/not authenticated/i.test(registerError.message)) {
+      throw new Error('Sign in to Monadier before approving the trading agent.');
+    }
+    if (/linked to another/i.test(registerError.message)) {
+      throw new Error(
+        'This wallet is linked to another Monadier account. Use that account or a different wallet.'
+      );
+    }
   }
 
   const { error } = await supabase.rpc('save_hl_agent_approval', {
@@ -164,6 +170,7 @@ export async function approveAndSaveHlBotAgent(opts: {
   agentAddress: string;
   agentName?: string;
   expiresAt?: string | null;
+  userId?: string;
 }): Promise<void> {
   const wallet = opts.walletAddress;
   const agent = opts.agentAddress as `0x${string}`;
@@ -197,6 +204,7 @@ export async function approveAndSaveHlBotAgent(opts: {
     expiresAt: confirmed?.validUntil
       ? new Date(confirmed.validUntil).toISOString()
       : (opts.expiresAt ?? null),
+    userId: opts.userId,
   });
 }
 

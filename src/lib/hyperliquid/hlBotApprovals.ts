@@ -39,6 +39,7 @@ export async function approveHlBuilderFeeIfNeeded(
 export async function completeHlBotApprovals(opts: {
   walletClient: WalletClient;
   walletAddress: string;
+  userId?: string;
 }): Promise<HlBotApprovalResult> {
   const { walletClient, walletAddress } = opts;
 
@@ -57,6 +58,7 @@ export async function completeHlBotApprovals(opts: {
     agentAddress: meta.agentAddress,
     agentName: meta.agentName || 'monadier',
     expiresAt: meta.expiresAt ?? null,
+    userId: opts.userId,
   });
 
   const builderFeeSigned = await approveHlBuilderFeeIfNeeded(walletClient, walletAddress);
