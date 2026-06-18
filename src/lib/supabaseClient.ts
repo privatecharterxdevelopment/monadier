@@ -44,6 +44,15 @@ export function getSupabaseClient(): SupabaseClient {
   return client;
 }
 
+/** Lazy proxy — avoids crashing module load before EnvSetupScreen can render. */
+export const supabase: SupabaseClient = new Proxy({} as SupabaseClient, {
+  get(_target, prop) {
+    const c = getSupabaseClient();
+    const value = Reflect.get(c, prop, c);
+    return typeof value === 'function' ? value.bind(c) : value;
+  },
+});
+
 /** Base URL for auth redirects (production domain or local dev). */
 export function getAuthRedirectBase(): string {
   if (typeof window !== 'undefined' && window.location?.origin) {

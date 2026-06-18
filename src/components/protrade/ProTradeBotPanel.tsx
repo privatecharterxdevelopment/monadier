@@ -115,7 +115,10 @@ const ProTradeBotPanel: React.FC<Props> = ({
   };
 
   async function startBotTrading() {
-    if (!vault.wallet) throw new Error('No wallet connected');
+    if (!vault.wallet) {
+      setBotError('No wallet connected');
+      return;
+    }
     await ensureBotSubscription();
     await persistVaultSettings({
       settings: {

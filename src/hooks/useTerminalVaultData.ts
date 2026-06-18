@@ -36,7 +36,6 @@ export type TerminalVaultData = {
   maxTradeUsd: number;
   riskPctOnChain: number;
   chainMaxLeverage: number;
-  riskPctOnChain: number;
   position: ActiveVaultPosition | null;
   settings: VaultSettingsSnapshot;
   isLoading: boolean;
@@ -87,7 +86,6 @@ export function useTerminalVaultData(refreshKey = 0) {
     maxTradeUsd: 0,
     riskPctOnChain: 5,
     chainMaxLeverage: 10,
-    riskPctOnChain: 5,
     position: null,
     settings: defaultSettings,
     isLoading: true,
@@ -120,9 +118,8 @@ export function useTerminalVaultData(refreshKey = 0) {
           balanceUsd: bal,
           balanceExact: bal.toFixed(6),
           maxTradeUsd: bal * 0.5,
-          riskPctOnChain: 50,
-          chainMaxLeverage: 25,
           riskPctOnChain: (row?.risk_level_bps ?? 5000) / 100,
+          chainMaxLeverage: Number(row?.leverage_multiplier ?? 25),
           position: null,
           settings: resolveVaultSettingsSnapshot(row, {
             riskLevelPercent: (row?.risk_level_bps ?? 5000) / 100,

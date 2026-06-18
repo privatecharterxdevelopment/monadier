@@ -26,6 +26,7 @@ import {
 } from '../../lib/closedTrades';
 import DockCountBadge from '../protrade/DockCountBadge';
 import { useTerminalVaultData } from '../../hooks/useTerminalVaultData';
+import { useLinkedVaultOpenPositions } from '../../hooks/useLinkedVaultOpenPositions';
 import TerminalVaultActivity from './TerminalVaultActivity';
 import {
   closeMethodMessage,

@@ -1,9 +1,8 @@
-import { getSupabaseClient, getAuthRedirectBase } from './supabaseClient';
+import { getSupabaseClient, getAuthRedirectBase, supabase } from './supabaseClient';
 import { normalizeUsernameInput } from './username';
 import { ensureUserProfile, patchUserProfile } from './profile';
 
-/** Browser client — anon key only (never service role). */
-export const supabase = getSupabaseClient();
+export { supabase };
 
 // Auth helpers
 export const signUp = async (
