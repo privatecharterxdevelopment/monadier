@@ -15,6 +15,18 @@ export type GlobalSignalCandidate = {
 
 const DEFAULT_STRATEGY: TradingStrategy = 'aggressive';
 
+export type HlGlobalScanStats = {
+  coinsScanned: number;
+  candidates: number;
+  scannedAt: string;
+};
+
+export let lastHlGlobalScanStats: HlGlobalScanStats = {
+  coinsScanned: 0,
+  candidates: 0,
+  scannedAt: '',
+};
+
 /**
  * Scan all HL perps once per trading cycle.
  * Direction/confidence are user-agnostic — sizing is applied per user later.
@@ -47,6 +59,12 @@ export async function scanGlobalHlSignals(): Promise<GlobalSignalCandidate[]> {
   const candidates = scanned
     .filter((c): c is GlobalSignalCandidate => c !== null)
     .sort((a, b) => b.confidence - a.confidence);
+
+  lastHlGlobalScanStats = {
+    coinsScanned: coins.length,
+    candidates: candidates.length,
+    scannedAt: new Date().toISOString(),
+  };
 
   logger.info('Global HL signal scan complete', {
     coins: coins.length,

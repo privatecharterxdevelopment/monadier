@@ -25,6 +25,7 @@ type Props = {
   activeSymbol?: string;
   globalBest?: { coin: string; direction: string; confidence: number } | null;
   globalScanCount?: number;
+  globalCoinsScanned?: number;
   readiness?: BotReadiness;
   /** chart = overlay on chart; dock = inline in positions panel */
   placement?: 'chart' | 'dock';
@@ -58,6 +59,7 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
   activeSymbol,
   globalBest,
   globalScanCount = 0,
+  globalCoinsScanned = 0,
   readiness,
   placement = 'chart',
 }) => {
@@ -162,9 +164,17 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
         ) : null}
         {globalBest ? (
           <p className="term-analysis-hint term-analysis-hint--subtle">
-            Bot picks best HL setup: {globalBest.coin} {globalBest.direction}{' '}
+            {globalCoinsScanned > 0
+              ? `Scanned ${globalCoinsScanned} HL perps`
+              : 'Scanning all HL perps'}
+            {globalScanCount > 0 ? ` · ${globalScanCount} passed filter` : ''}
+            {' · '}Best setup: {globalBest.coin} {globalBest.direction}{' '}
             {Math.round(globalBest.confidence)}%
-            {globalScanCount > 0 ? ` · ${globalScanCount} markets scanned` : ''}
+            {activeLabel ? ` · chart shows ${activeLabel} only` : ''}
+          </p>
+        ) : globalCoinsScanned > 0 ? (
+          <p className="term-analysis-hint term-analysis-hint--subtle">
+            Scanned {globalCoinsScanned} HL perps — no setup above min confidence yet
             {activeLabel ? ` · chart: ${activeLabel}` : ''}
           </p>
         ) : null}

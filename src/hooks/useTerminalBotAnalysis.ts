@@ -61,6 +61,7 @@ export function useTerminalBotAnalysis({
   const [serverBlockers, setServerBlockers] = useState<string[]>([]);
   const [globalBest, setGlobalBest] = useState<GlobalScanCandidate | null>(null);
   const [globalScanCount, setGlobalScanCount] = useState(0);
+  const [globalCoinsScanned, setGlobalCoinsScanned] = useState(0);
   const [step, setStep] = useState(0);
   const [progress, setProgress] = useState(ANALYSIS_STEPS[0].progress);
 
@@ -110,6 +111,7 @@ export function useTerminalBotAnalysis({
     if (!walletConnected || !active) {
       setGlobalBest(null);
       setGlobalScanCount(0);
+      setGlobalCoinsScanned(0);
       return;
     }
     const load = async () => {
@@ -119,10 +121,12 @@ export function useTerminalBotAnalysis({
         const data = (await res.json()) as {
           candidates?: GlobalScanCandidate[];
           count?: number;
+          coinsScanned?: number;
         };
         const list = Array.isArray(data.candidates) ? data.candidates : [];
         setGlobalBest(list[0] ?? null);
         setGlobalScanCount(typeof data.count === 'number' ? data.count : list.length);
+        setGlobalCoinsScanned(typeof data.coinsScanned === 'number' ? data.coinsScanned : 0);
       } catch {
         /* bot API offline */
       }
@@ -145,7 +149,11 @@ export function useTerminalBotAnalysis({
         if (!res.ok) return;
         const data = (await res.json()) as {
           blockers?: string[];
-          globalScan?: { best?: GlobalScanCandidate | null };
+          globalScan?: {
+            best?: GlobalScanCandidate | null;
+            coinsScanned?: number;
+            candidateCount?: number;
+          };
           lastOpenError?: { error: string; coin?: string; at: string } | null;
         };
         const blockers = Array.isArray(data.blockers) ? [...data.blockers] : [];
@@ -156,6 +164,12 @@ export function useTerminalBotAnalysis({
         }
         setServerBlockers(blockers);
         if (data.globalScan?.best) setGlobalBest(data.globalScan.best);
+        if (typeof data.globalScan?.coinsScanned === 'number') {
+          setGlobalCoinsScanned(data.globalScan.coinsScanned);
+        }
+        if (typeof data.globalScan?.candidateCount === 'number') {
+          setGlobalScanCount(data.globalScan.candidateCount);
+        }
       } catch {
         /* bot API offline — UI falls back to local readiness */
       }
@@ -192,6 +206,7 @@ export function useTerminalBotAnalysis({
     activeSymbol: symbol,
     globalBest,
     globalScanCount,
+    globalCoinsScanned,
     readiness,
   };
 }

@@ -12,6 +12,7 @@ import { validateProductionEnvironment } from './startup/validateProduction';
 import { checkWinRateGate } from './services/tradeGates';
 import { buildTradingCycleContext } from './services/tradingCycleContext';
 import {
+  lastHlGlobalScanStats,
   scanGlobalHlSignals,
   type GlobalSignalCandidate,
 } from './services/globalMarketScan';
@@ -342,6 +343,8 @@ const healthServer = http.createServer(async (req, res) => {
           profitLock: dbSettings.profitLockPercent,
         },
         globalScan: {
+          coinsScanned: lastHlGlobalScanStats.coinsScanned,
+          candidateCount: globalSignals.length,
           candidates: globalSignals.slice(0, 8).map((s) => ({
             coin: s.coin,
             direction: s.direction,
@@ -404,9 +407,10 @@ const healthServer = http.createServer(async (req, res) => {
       res.end(
         JSON.stringify({
           success: true,
+          coinsScanned: lastHlGlobalScanStats.coinsScanned,
           count: signals.length,
           candidates: signals.slice(0, 12),
-          scannedAt: lastCycleStats?.at ?? new Date().toISOString(),
+          scannedAt: lastHlGlobalScanStats.scannedAt || lastCycleStats?.at || new Date().toISOString(),
           minConfidence: config.hyperliquid.minSignalConfidence,
         })
       );

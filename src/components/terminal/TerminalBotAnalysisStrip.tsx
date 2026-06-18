@@ -67,6 +67,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
         activeSymbol={analysis.activeSymbol}
         globalBest={analysis.globalBest}
         globalScanCount={analysis.globalScanCount}
+        globalCoinsScanned={analysis.globalCoinsScanned}
         readiness={analysis.readiness}
       />
   );
