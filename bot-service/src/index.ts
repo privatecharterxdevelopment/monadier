@@ -125,6 +125,7 @@ const healthServer = http.createServer(async (req, res) => {
       lastCheck: new Date(lastTradeCheck).toISOString(),
       tradesExecuted: totalTradesExecuted,
       circuitBreakerFailures: recentFailures,
+      keeperTimeouts,
       version: 'v11.0-gmx-arbitrum'
     };
     res.writeHead(200, corsHeaders);
@@ -221,6 +222,9 @@ const healthServer = http.createServer(async (req, res) => {
       if (Date.now() - lastFailureTime > FAILURE_RESET_MS) {
         recentFailures = 0;
       }
+      if (Date.now() - lastKeeperTimeoutTime > FAILURE_RESET_MS) {
+        keeperTimeouts = 0;
+      }
 
       const blockers: string[] = [];
       if (!permission.allowed) blockers.push(permission.reason || 'subscription');
@@ -235,14 +239,18 @@ const healthServer = http.createServer(async (req, res) => {
         );
       }
       if (!winRateGate.allowed) blockers.push(winRateGate.reason || 'win rate gate');
-      if (recentFailures >= MAX_FAILED_BEFORE_STOP) {
-        blockers.push(`circuit breaker (${recentFailures} recent GMX failures)`);
+      if (isCircuitBreakerActive()) {
+        blockers.push(circuitBreakerBlockerText());
       }
-      const circuitBreakerResetInSec =
-        recentFailures >= MAX_FAILED_BEFORE_STOP
+      const circuitBreakerResetInSec = isCircuitBreakerActive()
           ? Math.max(
               0,
-              Math.ceil((lastFailureTime + FAILURE_RESET_MS - Date.now()) / 1000)
+              Math.ceil(
+                (Math.max(lastFailureTime, lastKeeperTimeoutTime) +
+                  FAILURE_RESET_MS -
+                  Date.now()) /
+                  1000
+              )
             )
           : 0;
       if (cooldownSec > 0) blockers.push(`post-close cooldown ${cooldownSec}s`);
@@ -298,6 +306,7 @@ const healthServer = http.createServer(async (req, res) => {
           : null,
         gates: {
           circuitBreakerFailures: recentFailures,
+          keeperTimeouts,
           circuitBreakerResetInSec,
           cooldownSeconds: cooldownSec,
           dbOpenPositions: openDb.length,
@@ -373,14 +382,64 @@ const MAX_POSITIONS_PER_CHAIN: Record<number, number> = {
   42161: 1,  // Arbitrum V7 GMX - 1 position at a time
 };
 
-const MAX_FAILED_BEFORE_STOP = 2; // Stop trading after 2 failures
+const MAX_FAILED_BEFORE_STOP = 2; // Stop trading after 2 hard failures (not keeper timeouts)
 
-// Post-close cooldown removed - now handled by smart contract only
-
-// Circuit breaker - track recent failures
+// Circuit breaker — hard failures only (reverts, thrown errors). Keeper timeouts are separate.
 let recentFailures = 0;
+let keeperTimeouts = 0;
 let lastFailureTime = 0;
+let lastKeeperTimeoutTime = 0;
 const FAILURE_RESET_MS = 300000; // Reset failure count after 5 minutes
+const MAX_KEEPER_TIMEOUTS_BEFORE_STOP = 6;
+
+function isKeeperTimeoutError(error?: string | null): boolean {
+  return Boolean(error && /keeper did not/i.test(error));
+}
+
+function resetCircuitBreakersIfStale(): void {
+  if (Date.now() - lastFailureTime > FAILURE_RESET_MS) {
+    recentFailures = 0;
+  }
+  if (Date.now() - lastKeeperTimeoutTime > FAILURE_RESET_MS) {
+    keeperTimeouts = 0;
+  }
+}
+
+function recordTradeOpenFailure(error?: string): void {
+  const now = Date.now();
+  if (isKeeperTimeoutError(error)) {
+    keeperTimeouts++;
+    lastKeeperTimeoutTime = now;
+    logger.warn('GMX keeper open timeout (soft — not a hard circuit breaker hit)', {
+      keeperTimeouts,
+      maxKeeperTimeouts: MAX_KEEPER_TIMEOUTS_BEFORE_STOP,
+      error,
+    });
+    return;
+  }
+  recentFailures++;
+  lastFailureTime = now;
+  logger.warn('Hard GMX open failure', { recentFailures, error });
+}
+
+function isCircuitBreakerActive(): boolean {
+  resetCircuitBreakersIfStale();
+  return (
+    recentFailures >= MAX_FAILED_BEFORE_STOP ||
+    keeperTimeouts >= MAX_KEEPER_TIMEOUTS_BEFORE_STOP
+  );
+}
+
+function circuitBreakerBlockerText(): string {
+  resetCircuitBreakersIfStale();
+  if (recentFailures >= MAX_FAILED_BEFORE_STOP) {
+    return `circuit breaker (${recentFailures} recent GMX failures)`;
+  }
+  if (keeperTimeouts >= MAX_KEEPER_TIMEOUTS_BEFORE_STOP) {
+    return `circuit breaker (${keeperTimeouts} GMX keeper timeouts)`;
+  }
+  return 'circuit breaker active';
+}
 
 // Token addresses for trading - ARBITRUM V7 GMX (WETH, WBTC, ARB perpetuals)
 const TRADE_TOKENS: Record<number, { address: `0x${string}`; symbol: string }[]> = {
@@ -487,13 +546,12 @@ async function processUserTrades(
     }
 
     // 4. SAFETY CHECK: Circuit breaker
-    if (Date.now() - lastFailureTime > FAILURE_RESET_MS) {
-      recentFailures = 0;
-    }
-    if (recentFailures >= MAX_FAILED_BEFORE_STOP) {
+    resetCircuitBreakersIfStale();
+    if (isCircuitBreakerActive()) {
       logger.warn('Circuit breaker active', {
         userAddress: userAddress.slice(0, 10),
-        recentFailures
+        recentFailures,
+        keeperTimeouts,
       });
       return;
     }
@@ -704,8 +762,7 @@ async function processUserTrades(
         collateral: result.collateral
       });
     } else {
-      recentFailures++;
-      lastFailureTime = Date.now();
+      recordTradeOpenFailure(result.error);
 
       logger.warn('Failed to open V7 GMX position', {
         user: userAddress.slice(0, 10),
@@ -720,8 +777,7 @@ async function processUserTrades(
       });
     }
   } catch (err) {
-    recentFailures++;
-    lastFailureTime = Date.now();
+    recordTradeOpenFailure(err instanceof Error ? err.message : String(err));
 
     logger.error('Error processing V7 GMX trades', {
       userAddress: userAddress.slice(0, 10),

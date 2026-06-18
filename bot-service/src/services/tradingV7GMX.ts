@@ -39,13 +39,17 @@ const GMX_ADDRESSES = {
   orderBook: '0x09f77E8A13De9a35a7231028187e9fD5DB8a2ACB' as `0x${string}`,
 };
 
-// GMX keeper polling — wait for decrease execution before finalizeClose
+// GMX keeper polling — wait for decrease/increase execution before finalizeClose
 const GMX_CLOSE_POLL_INTERVAL_MS = 3_000;
-const GMX_CLOSE_TIMEOUT_MS = 120_000;
+const GMX_CLOSE_TIMEOUT_MS = 300_000;
 const GMX_OPEN_POLL_INTERVAL_MS = 3_000;
-const GMX_OPEN_TIMEOUT_MS = 120_000;
+const GMX_OPEN_TIMEOUT_MS = 300_000;
+const GMX_SETTLEMENT_POLL_INTERVAL_MS = 3_000;
+const GMX_SETTLEMENT_POLL_MAX_MS = 90_000;
 const GMX_DECREASE_RETRY_ATTEMPTS = 3;
 const GMX_DECREASE_RETRY_DELAY_MS = 2_000;
+/** V11 contract forwards only minExecutionFee to GMX — buffer reserved for a future vault deploy. */
+const GMX_EXECUTION_FEE_BUFFER_BPS = 15000;
 
 // Token Addresses
 const TOKENS = {
@@ -363,7 +367,7 @@ export class TradingV7GMXService {
   }
 
   /**
-   * Get GMX execution fee required
+   * GMX execution fee (V11 uses minExecutionFee on-chain; buffer for future vault versions).
    */
   async getExecutionFee(): Promise<bigint> {
     try {
@@ -372,11 +376,80 @@ export class TradingV7GMXService {
         abi: VAULT_V7_ABI,
         functionName: 'getExecutionFee'
       });
-      return fee;
+      const buffered = (fee * BigInt(GMX_EXECUTION_FEE_BUFFER_BPS)) / 10000n;
+      return buffered > fee ? buffered : fee;
     } catch {
-      // Default GMX execution fee (~0.0003 ETH)
       return parseEther('0.0003');
     }
+  }
+
+  /**
+   * Estimate USDC returned after GMX flat — polls vault balance, then surplus / contract PnL.
+   */
+  private async resolveReceivedUsdcForSettlement(
+    userAddress: `0x${string}`,
+    tokenAddress: `0x${string}`,
+    collateral: bigint,
+    balanceBefore?: bigint
+  ): Promise<bigint> {
+    if (balanceBefore != null) {
+      const deadline = Date.now() + GMX_SETTLEMENT_POLL_MAX_MS;
+      while (Date.now() < deadline) {
+        const balanceAfter = await this.getVaultUsdcBalance();
+        if (balanceAfter > balanceBefore) {
+          const delta = balanceAfter - balanceBefore;
+          const maxReasonable = collateral * 5n;
+          const received = delta > maxReasonable ? maxReasonable : delta;
+          logger.info('Settlement USDC detected via balance delta', {
+            user: userAddress.slice(0, 10),
+            received: formatUnits(received, 6),
+            collateral: formatUnits(collateral, 6),
+          });
+          return received > 0n ? received : collateral;
+        }
+        await this.sleep(GMX_SETTLEMENT_POLL_INTERVAL_MS);
+      }
+    }
+
+    const { surplus } = await this.getVaultHealth();
+    if (surplus > 0n) {
+      const fromSurplus = await this.computeMaxSettleableReceived(collateral);
+      if (fromSurplus > collateral) {
+        logger.info('Settlement USDC from vault surplus', {
+          user: userAddress.slice(0, 10),
+          received: formatUnits(fromSurplus, 6),
+        });
+        return fromSurplus;
+      }
+    }
+
+    try {
+      const [pnl] = await this.publicClient.readContract({
+        address: this.vaultAddress,
+        abi: VAULT_V7_ABI,
+        functionName: 'getPositionPnL',
+        args: [userAddress, tokenAddress],
+      }) as [bigint, bigint];
+
+      if (pnl > 0n) {
+        const received = collateral + pnl;
+        logger.info('Settlement USDC estimated from vault getPositionPnL', {
+          user: userAddress.slice(0, 10),
+          received: formatUnits(received, 6),
+          pnl: formatUnits(pnl, 6),
+        });
+        return received;
+      }
+      if (pnl < 0n) {
+        const loss = -pnl;
+        const received = collateral > loss ? collateral - loss : 0n;
+        return received > 0n ? received : collateral;
+      }
+    } catch (err: any) {
+      logger.debug('getPositionPnL fallback skipped', { error: err.message?.slice(0, 80) });
+    }
+
+    return collateral;
   }
 
   /**
@@ -636,28 +709,13 @@ export class TradingV7GMXService {
       reason: closeReason,
     });
 
-    const health = await this.getVaultHealth();
-    if (health.surplus <= 0n) {
-      logger.warn('Vault deficit — using reconcile() (collateral only)', {
-        surplus: formatUnits(health.surplus, 6),
-      });
-      const reconciled = await this.reconcilePosition(userAddress, tokenAddress);
-      if (!reconciled.success) {
-        return { success: false, error: reconciled.error };
-      }
-      return {
-        success: true,
-        txHash: reconciled.txHash,
-        pnl: 0,
-        pnlPercent: 0,
-        exitAmount: reconciled.creditedAmount,
-        settlementSource: 'reconcile',
-        gmxExecuted: true,
-      };
-    }
+    const receivedAmount = await this.resolveReceivedUsdcForSettlement(
+      userAddress,
+      tokenAddress,
+      collateral
+    );
 
-    const receivedAmount = await this.computeMaxSettleableReceived(collateral);
-    return this.finalizePositionClose(
+    const settled = await this.finalizePositionClose(
       userAddress,
       tokenAddress,
       closeReason,
@@ -667,6 +725,27 @@ export class TradingV7GMXService {
       false,
       'orphan_finalize'
     );
+    if (settled.success) {
+      return settled;
+    }
+
+    logger.warn('finalizeClose failed on orphan — falling back to reconcile()', {
+      user: userAddress.slice(0, 10),
+      error: settled.error,
+    });
+    const reconciled = await this.reconcilePosition(userAddress, tokenAddress);
+    if (!reconciled.success) {
+      return { success: false, error: reconciled.error };
+    }
+    return {
+      success: true,
+      txHash: reconciled.txHash,
+      pnl: 0,
+      pnlPercent: 0,
+      exitAmount: reconciled.creditedAmount,
+      settlementSource: 'reconcile',
+      gmxExecuted: true,
+    };
   }
 
   /**
@@ -699,10 +778,15 @@ export class TradingV7GMXService {
       return { success: false, error: 'GMX position still open — cannot finalizeClose yet' };
     }
 
+    const pnlRaw = receivedAmount > collateral ? receivedAmount - collateral : 0n;
+    const successFee =
+      pnlRaw > 0n ? (pnlRaw * BigInt(config.fees.successBps)) / 10000n : 0n;
+
     logger.info('finalizeClose with settlement-based received', {
       user: userAddress.slice(0, 10),
       received: formatUnits(receivedAmount, 6),
       collateral: formatUnits(collateral, 6),
+      estimatedSuccessFee: formatUnits(successFee, 6),
       gmxDecreaseSubmitted,
       settlementSource,
     });
@@ -721,7 +805,6 @@ export class TradingV7GMXService {
       return { success: false, error: 'FinalizeClose transaction reverted' };
     }
 
-    const pnlRaw = receivedAmount > collateral ? receivedAmount - collateral : 0n;
     const loss = receivedAmount < collateral ? collateral - receivedAmount : 0n;
     const pnlSigned = receivedAmount >= collateral ? pnlRaw : -loss;
     const pnlUSD = Number(pnlSigned) / 1e6;
@@ -734,6 +817,8 @@ export class TradingV7GMXService {
       reason: closeReason,
       pnlUSD: pnlUSD.toFixed(2),
       exitAmount: formatUnits(receivedAmount, 6),
+      successFeeUsdc: formatUnits(successFee, 6),
+      treasury: config.treasuryAddress,
     });
 
     return {
@@ -1082,11 +1167,19 @@ export class TradingV7GMXService {
       }
 
       const balanceAfter = await this.getVaultUsdcBalance();
-      let receivedAmount = this.computeReceivedFromBalanceDelta(
-        balanceBefore,
-        balanceAfter,
-        collateral
+      let receivedAmount = await this.resolveReceivedUsdcForSettlement(
+        userAddress,
+        tokenAddress,
+        collateral,
+        balanceBefore
       );
+
+      if (receivedAmount <= balanceAfter && balanceAfter > balanceBefore) {
+        const delta = balanceAfter - balanceBefore;
+        if (delta > receivedAmount) {
+          receivedAmount = delta;
+        }
+      }
 
       const maxSettleable = await this.computeMaxSettleableReceived(collateral);
       if (receivedAmount > maxSettleable) {

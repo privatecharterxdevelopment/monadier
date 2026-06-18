@@ -22,6 +22,14 @@ function formatBlocker(blocker: string, resetSec?: number): string {
         : ' · Reset in ~5 Min.';
     return `${n} fehlgeschlagene GMX-Orders — Bot pausiert${wait}`;
   }
+  const keeperCb = blocker.match(/circuit breaker \((\d+) GMX keeper timeouts\)/i);
+  if (keeperCb) {
+    const wait =
+      resetSec && resetSec > 0
+        ? ` · Reset in ~${Math.ceil(resetSec / 60)} Min.`
+        : ' · Reset in ~5 Min.';
+    return `${keeperCb[1]}× GMX Keeper Timeout — Bot wartet${wait}`;
+  }
   if (/post-close cooldown/i.test(blocker)) {
     const sec = blocker.match(/(\d+)s/)?.[1];
     return sec ? `Cooldown nach Schließen: noch ${sec}s` : 'Cooldown nach Schließen aktiv';
