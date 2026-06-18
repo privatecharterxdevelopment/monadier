@@ -23,15 +23,13 @@ const LandingFooter: React.FC = () => {
           ))}
         </nav>
         <p className="landing-gmx-footer-disclaimer">
-          Monadier is a fully decentralized, non-custodial trading interface. Deposits, withdrawals,
-          and every trade the bot places on GMX are executed on Arbitrum and publicly verifiable on
-          the blockchain. Vault trading lets you choose exactly how much USDC the bot may use — so
-          you keep full transparency and control over your trading capital. Each transfer between
-          your wallet and the vault requires your wallet signature; Monadier cannot move your funds
-          without it. Nothing on this site constitutes financial advice.
+          Monadier is a non-custodial trading interface for Hyperliquid. Your USDC stays on your HL
+          account in your name. The trading agent can place perp orders but cannot withdraw without
+          your wallet signature. Deposits and withdrawals are signed by you. Nothing on this site
+          constitutes financial advice.
         </p>
         <p className="landing-gmx-footer-meta">
-          © {year} Monadier · Non-custodial GMX trading on Arbitrum · Email support only
+          © {year} Monadier · Hyperliquid automated trading · Email support only
         </p>
       </div>
     </footer>

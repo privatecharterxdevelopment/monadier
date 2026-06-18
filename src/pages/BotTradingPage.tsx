@@ -13,27 +13,27 @@ const steps = [
     text: 'MetaMask or WalletConnect. Your keys stay with you — Monadier never holds your private keys.',
   },
   {
-    title: 'Fund your bot vault',
-    text: 'Add USDC on Arbitrum. You choose the amount and can deposit or withdraw at any time.',
+    title: 'Fund on Hyperliquid',
+    text: 'Deposit USDC to your HL account from Monadier (Funds tab). Min $20 to run the bot.',
   },
   {
-    title: 'Set risk & start',
-    text: 'Pick your risk level, take profit, and stop loss. Leverage is optional — for experienced traders only.',
+    title: 'Approve agent & start',
+    text: 'One-time HL agent approval, then set risk, take profit, and stop loss. Press Start bot.',
   },
 ];
 
 const highlights = [
   {
     title: '24/7 execution',
-    text: 'The bot monitors ETH, BTC, and ARB on GMX perpetuals around the clock — no manual chart watching.',
+    text: 'The bot scans 200+ Hyperliquid perpetuals around the clock — no manual chart watching.',
   },
   {
-    title: '~70% win-rate target',
-    text: 'Multi-timeframe analysis and risk gates before each entry. Past results do not guarantee future performance.',
+    title: 'Multi-market signals',
+    text: 'Multi-timeframe analysis picks the strongest HL setup each cycle. Past results do not guarantee future performance.',
   },
   {
     title: 'You stay in control',
-    text: 'Stop the bot, close positions manually, or withdraw vault funds whenever you choose.',
+    text: 'Stop the bot, close positions manually, or withdraw HL funds whenever you choose.',
   },
 ];
 
@@ -42,7 +42,7 @@ const BotTradingPage: React.FC = () => {
     <MarketingInnerPage>
       <MarketingPageHero
         eyebrow="Trading bot"
-        title="Automated GMX trading on Arbitrum"
+        title="Automated Hyperliquid trading"
         lead="Executes automatically — 24/7, 365 days a year. You start it; it analyzes markets and manages positions."
         sub="Controlled by you and your wallet. No technical skills required to get going."
       />

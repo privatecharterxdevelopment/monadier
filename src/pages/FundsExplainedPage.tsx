@@ -2,13 +2,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Shield, Wallet, Database, ArrowRight, AlertTriangle } from 'lucide-react';
 import MarketingPageLayout from '../components/layout/MarketingPageLayout';
-import { MONADIER_VAULT_V11_ADDRESS, MONADIER_VAULT_EXPLORER_URL } from '../lib/monadierVault';
 
 type Section = {
   icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
   title: string;
   body: React.ReactNode;
-  vaultLink?: boolean;
   variant?: 'default' | 'success';
 };
 
@@ -28,17 +26,15 @@ const sections: Section[] = [
   },
   {
     icon: Shield,
-    title: 'The vault (one contract, your balance)',
+    title: 'Your Hyperliquid account',
     body: (
       <>
-        When you deposit USDC, it goes to the{' '}
-        <strong className="font-medium text-[#0a0a0a]">Monadier vault</strong> on Arbitrum — one smart
-        contract used by all clients. The contract keeps a separate{' '}
-        <strong className="font-medium text-[#0a0a0a]">balance per wallet address</strong>. Other users
-        cannot withdraw your balance.
+        When you deposit USDC, it goes to your{' '}
+        <strong className="font-medium text-[#0a0a0a]">Hyperliquid account</strong> in your name — not a
+        pooled Monadier vault. Only your wallet can deposit or withdraw. The bot trades via a one-time{' '}
+        <strong className="font-medium text-[#0a0a0a]">agent approval</strong> and cannot withdraw funds.
       </>
     ),
-    vaultLink: true,
   },
   {
     icon: Database,
@@ -47,9 +43,9 @@ const sections: Section[] = [
     body: (
       <>
         Profit or loss is credited to your{' '}
-        <strong className="font-medium text-[#0a0a0a]">vault balance</strong> inside the contract —{' '}
+        <strong className="font-medium text-[#0a0a0a]">HL account balance</strong> —{' '}
         <strong className="font-medium text-[#0a0a0a]">not</strong> to your MetaMask wallet automatically.
-        The dashboard trade list is updated for display; the money stays in the vault until you withdraw.
+        The dashboard trade list is updated for display; USDC stays on Hyperliquid until you withdraw.
       </>
     ),
   },
@@ -58,8 +54,8 @@ const sections: Section[] = [
     title: 'Withdraw (only when you click it)',
     body: (
       <>
-        To move USDC to MetaMask, use <strong className="font-medium text-[#0a0a0a]">Withdraw</strong> on
-        the dashboard. You sign that transaction yourself. The bot never sends funds to your wallet on its
+        To move USDC to MetaMask, use <strong className="font-medium text-[#0a0a0a]">Withdraw</strong> in
+        the Funds tab. You sign that transaction yourself. The bot never sends funds to your wallet on its
         own.
       </>
     ),
@@ -71,7 +67,7 @@ const FundsExplainedPage: React.FC = () => {
     <MarketingPageLayout narrow centered>
       <div className="w-full max-w-lg mx-auto funds-explained-page">
           <p className="text-[11px] uppercase tracking-[0.22em] text-[#a1a1aa] font-medium mb-4">
-            Vault &amp; wallet
+            HL account &amp; wallet
           </p>
           <h1 className="font-display text-3xl md:text-4xl font-semibold text-[#0a0a0a] tracking-tighter mb-5">
             How your money works
@@ -81,7 +77,7 @@ const FundsExplainedPage: React.FC = () => {
             Monadier is not a normal “money in MetaMask per trade” app. Here is the simple version.
           </p>
           <p className="text-sm text-[#71717a] leading-relaxed mb-12 max-w-sm mx-auto">
-            Your funds stay in an on-chain vault until you choose to withdraw.
+            Your funds stay on your Hyperliquid account until you choose to withdraw.
           </p>
 
           <div className="space-y-4 mb-10 text-left">
@@ -109,16 +105,6 @@ const FundsExplainedPage: React.FC = () => {
                         {section.title}
                       </h2>
                       <p className="text-sm text-[#52525b] leading-relaxed">{section.body}</p>
-                      {section.vaultLink && (
-                        <a
-                          href={MONADIER_VAULT_EXPLORER_URL}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mt-3 inline-block text-xs text-[#71717a] hover:text-[#0a0a0a] transition-colors break-all"
-                        >
-                          Vault: {MONADIER_VAULT_V11_ADDRESS}
-                        </a>
-                      )}
                     </div>
                   </div>
                 </article>
@@ -135,7 +121,7 @@ const FundsExplainedPage: React.FC = () => {
                     Risks you should know
                   </h2>
                   <ul className="text-sm text-[#52525b] space-y-2 list-disc pl-5">
-                    <li>Smart contract and bot operational risk (custodial model)</li>
+                    <li>Hyperliquid and bot operational risk</li>
                     <li>Crypto volatility and leverage</li>
                     <li>Only deposit what you can afford to lose</li>
                   </ul>

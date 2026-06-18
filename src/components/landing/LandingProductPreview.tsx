@@ -2,6 +2,11 @@ import React from 'react';
 import { ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import OpenAppLink from '../layout/OpenAppLink';
+import {
+  dashboardPreview,
+  DASHBOARD_PREVIEW_HEIGHT,
+  DASHBOARD_PREVIEW_WIDTH,
+} from '../../assets/landing/dashboardPreview';
 
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 24 },
@@ -11,15 +16,11 @@ const fadeUp = (delay = 0) => ({
 });
 
 const PREVIEW_CHIPS = [
-  'GMX perps',
-  'Auto-trading bot',
-  'Arbitrum vault',
+  'Hyperliquid perps',
+  '24/7 trading bot',
+  'USDC on HL',
   'Live charts',
 ] as const;
-
-/** Native asset is 1024×467 — do not upscale beyond that width */
-const PREVIEW_NATIVE_W = 1024;
-const PREVIEW_NATIVE_H = 467;
 
 const LandingProductPreview: React.FC = () => {
   return (
@@ -39,8 +40,8 @@ const LandingProductPreview: React.FC = () => {
         <div className="landing-gmx-preview-inner">
           <motion.div {...fadeUp(0.04)} className="landing-gmx-preview-copy">
             <p className="landing-gmx-preview-lead">
-              One Arbitrum workspace for live charts, bot controls, USDC vault funding, and trade
-              history. Algorithmic crypto trading on GMX perpetuals without switching tools.
+              One workspace for Hyperliquid charts, automated bot controls, USDC funding, and trade
+              history — algorithmic perp trading without switching apps.
             </p>
             <div className="landing-gmx-preview-chips" aria-hidden>
               {PREVIEW_CHIPS.map((chip) => (
@@ -75,17 +76,19 @@ const LandingProductPreview: React.FC = () => {
                 </div>
                 <div
                   className="landing-gmx-preview-screen"
-                  style={{ aspectRatio: `${PREVIEW_NATIVE_W} / ${PREVIEW_NATIVE_H}` }}
+                  style={{
+                    aspectRatio: `${DASHBOARD_PREVIEW_WIDTH} / ${DASHBOARD_PREVIEW_HEIGHT}`,
+                  }}
                 >
                   <img
-                    src="/images/dashboard-preview.png"
-                    alt="Monadier GMX trading bot dashboard on Arbitrum with live ETH chart, automated bot panel, and perpetual trade history"
+                    src={dashboardPreview}
+                    alt="Monadier Hyperliquid trading terminal with live BTC chart, automated bot panel, and trade history"
                     className="landing-gmx-preview-img"
-                    width={PREVIEW_NATIVE_W}
-                    height={PREVIEW_NATIVE_H}
-                    sizes="(max-width: 1024px) 92vw, 1024px"
+                    width={DASHBOARD_PREVIEW_WIDTH}
+                    height={DASHBOARD_PREVIEW_HEIGHT}
+                    sizes="(max-width: 1200px) 92vw, 1100px"
                     loading="eager"
-                    decoding="sync"
+                    decoding="async"
                     fetchPriority="high"
                   />
                 </div>

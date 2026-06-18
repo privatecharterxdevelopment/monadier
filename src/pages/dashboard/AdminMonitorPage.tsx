@@ -587,7 +587,7 @@ const AdminMonitorPage: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-primary">Admin Dashboard - V11 GMX</h1>
+          <h1 className="text-2xl font-bold text-primary">Admin Dashboard — Hyperliquid</h1>
           <p className="text-secondary mt-1">
             Last updated: {lastRefresh.toLocaleTimeString()} • {currentUserEmail}
           </p>
@@ -644,7 +644,7 @@ const AdminMonitorPage: React.FC = () => {
                     ${parseFloat(stats.vaultRealBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </p>
                   <p className={`text-xs ${stats.isSolvent ? 'text-green-400' : 'text-yellow-400'}`}>
-                    {stats.isSolvent ? 'Healthy' : `GMX fees pending: $${Math.abs(parseFloat(stats.surplus)).toFixed(2)}`}
+                    {stats.isSolvent ? 'Healthy' : `HL fees pending: $${Math.abs(parseFloat(stats.surplus)).toFixed(2)}`}
                   </p>
                 </div>
               </div>
@@ -749,7 +749,7 @@ const AdminMonitorPage: React.FC = () => {
           <div className="bg-card-dark rounded-xl border border-blue-500/30 p-4">
             <h3 className="text-lg font-semibold text-primary mb-3 flex items-center gap-2">
               <Shield size={20} className="text-blue-400" />
-              V11 GMX Vault (Arbitrum)
+              Hyperliquid Bot (legacy vault view)
             </h3>
             <div className="flex items-center justify-between">
               <code className="text-blue-400">{V11_VAULT}</code>
@@ -950,7 +950,7 @@ const AdminMonitorPage: React.FC = () => {
               <DollarSign size={20} className="text-green-400" />
               V11 Vault Transactions ({vaultTransactions.length})
             </h3>
-            <p className="text-sm text-secondary mt-1">All deposits and withdrawals to V11 GMX Vault</p>
+            <p className="text-sm text-secondary mt-1">All deposits and withdrawals (legacy vault + HL)</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">

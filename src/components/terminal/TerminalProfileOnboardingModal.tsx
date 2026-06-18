@@ -9,6 +9,7 @@ import {
 } from '../../lib/profile';
 import { validateUsername, normalizeUsernameInput } from '../../lib/username';
 import { fireProfileOnboardingConfetti } from '../../lib/confettiCelebration';
+import HlBotFlowGuide from './HlBotFlowGuide';
 
 type Props = {
   onComplete: () => void;
@@ -136,6 +137,8 @@ const TerminalProfileOnboardingModal: React.FC<Props> = ({ onComplete }) => {
         <p className="term-modal-hint term-onboarding-intro">
           Choose a public username, your display name, and country. This only takes a moment.
         </p>
+
+        <HlBotFlowGuide />
 
         {!hasUsername && (
           <>

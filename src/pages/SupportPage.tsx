@@ -13,27 +13,27 @@ const faqs = [
   {
     question: 'How do I get started?',
     answer:
-      'Create an account, connect your wallet on Arbitrum, deposit USDC into your vault, configure bot settings, and enable auto-trading. See How it works for the full walkthrough.',
+      'Create an account, connect your wallet, approve the Hyperliquid agent, deposit USDC on HL, configure bot settings, and start the bot. See How it works for the full walkthrough.',
   },
   {
     question: 'Is my wallet safe?',
     answer:
-      'Monadier is non-custodial. Your USDC is held in the on-chain vault; only your connected wallet can deposit or withdraw. We never access your private keys.',
+      'Monadier is non-custodial. Your USDC stays on your Hyperliquid account; only your connected wallet can deposit or withdraw. We never access your private keys.',
   },
   {
-    question: 'Which network and exchange?',
+    question: 'Which exchange?',
     answer:
-      'Trading runs on Arbitrum One via GMX perpetuals for ETH, BTC, and ARB. You need USDC in the vault and a small amount of ETH on Arbitrum for gas.',
+      'Trading runs on Hyperliquid perpetuals across 200+ markets. Deposit USDC on HL from Monadier (Arbitrum bridge). A small amount of ETH on Arbitrum is needed for the deposit transaction.',
   },
   {
     question: 'Can I stop the bot or close trades?',
     answer:
-      'Yes. Use Stop bot in the trade panel to halt new entries. Close position queues an exit on the next cycle. Withdraw when no active trade locks vault funds.',
+      'Yes. Use Stop bot in the trade panel to halt new entries. Close position queues an exit on the next cycle. Withdraw HL funds when no active trade locks margin.',
   },
   {
     question: 'What fees apply?',
     answer:
-      'No platform subscription fee. A success fee applies on profitable closed trades only. Standard GMX and Arbitrum gas costs still apply on-chain.',
+      'No platform subscription fee. A success fee applies on profitable closed trades only. Standard Hyperliquid trading fees apply per position.',
   },
   {
     question: 'How fast is support?',
@@ -48,7 +48,7 @@ const SupportPage: React.FC = () => {
       <MarketingPageHero
         eyebrow="Support"
         title="Help & contact"
-        lead="Questions about your vault, the GMX bot, or your account? Reach out or browse common answers below."
+        lead="Questions about your HL account, the trading bot, or your account? Reach out or browse common answers below."
         sub="For urgent trading issues, include your wallet address and a screenshot from the dashboard."
       />
 

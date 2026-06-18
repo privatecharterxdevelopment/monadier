@@ -40,8 +40,8 @@ const steps: { title: string; text: string; icon: LucideIcon }[] = [
   },
   {
     icon: ArrowLeftRight,
-    title: 'GMX execution costs',
-    text: 'Standard GMX open/close, funding, and execution fees apply per position — same as trading on GMX directly.',
+    title: 'Hyperliquid execution costs',
+    text: 'Standard HL open/close, funding, and execution fees apply per position — same as trading on Hyperliquid directly.',
   },
   {
     icon: Activity,

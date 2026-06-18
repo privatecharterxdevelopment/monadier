@@ -13,6 +13,7 @@ import { useNotifications } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTermAuthToast } from '../terminal/TermAuthToast';
 import { ensureFreeSubscription } from '../../lib/ensureSubscription';
+import { dashboardPreview } from '../../assets/landing/dashboardPreview';
 
 type Props = {
   open: boolean;
@@ -315,13 +316,13 @@ const ProTradeRegisterModal: React.FC<Props> = ({
 
           <aside className="hl-auth-modal-visual" aria-hidden>
             <img
-              src="/images/dashboard-preview.png"
+              src={dashboardPreview}
               alt=""
               className="hl-auth-modal-visual-img"
             />
             <div className="hl-auth-modal-visual-overlay">
               <p className="hl-auth-visual-kicker">Monadier Pro Trade</p>
-              <h3 className="hl-auth-visual-title">Automated GMX bot + Hyperliquid terminal</h3>
+              <h3 className="hl-auth-visual-title">Hyperliquid bot + trading terminal</h3>
               <p className="hl-auth-visual-copy">
                 Perps, spot, portfolio, and Hyperliquid bot — one trading workspace.
               </p>

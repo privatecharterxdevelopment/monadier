@@ -32,8 +32,6 @@ import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import TerminalBotSettingsModal from './TerminalBotSettingsModal';
 import TerminalLvrgPanel from './TerminalLvrgPanel';
 import TerminalBotSettingsStrip from './TerminalBotSettingsStrip';
-import HlBotFlowGuide from './HlBotFlowGuide';
-
 type PanelTab = 'bot' | 'lvrg' | 'funds';
 
 type Props = {
@@ -318,16 +316,6 @@ const TerminalTradePanel: React.FC<Props> = ({
       <div className="term-trade-body">
         {panelTab === 'bot' && (
           <div className="term-panel-stack">
-            <HlBotFlowGuide
-              phase={phase}
-              botRunning={Boolean(walletReady && botRunning)}
-              hlBalanceUsd={hlFundingUsd}
-              onDepositClick={() => {
-                setPanelTab('funds');
-                openFunds('deposit');
-              }}
-            />
-
             {!walletReady && (
               <div className="term-panel-card term-panel-card--muted term-connect-banner">
                 <p className="term-hint term-connect-banner-text">

@@ -13,16 +13,16 @@ const steps = [
     text: 'Sign in and link MetaMask or WalletConnect. Non-custodial — we never see your private keys.',
   },
   {
-    title: 'Deposit to your vault',
-    text: 'Add USDC to your on-chain bot vault on Arbitrum. You choose how much capital to use.',
+    title: 'Deposit on Hyperliquid',
+    text: 'Add USDC to your HL account from Monadier (Funds tab). You choose how much capital to use.',
   },
   {
     title: 'The bot runs for you',
-    text: 'Our hedge-fund strategy executes on GMX automatically — 24/7, 365 days a year. It analyzes, enters, and manages positions.',
+    text: 'Our strategy executes on Hyperliquid automatically — 24/7, 365 days a year. It scans all HL perps, enters, and manages positions.',
   },
   {
     title: 'Withdraw when you want',
-    text: 'Profits stay in your vault balance until you withdraw USDC back to your wallet. You stay in control.',
+    text: 'Profits stay on your HL account until you withdraw USDC back to your wallet. You stay in control.',
   },
 ];
 

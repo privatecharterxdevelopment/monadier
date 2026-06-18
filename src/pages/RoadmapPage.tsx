@@ -21,7 +21,7 @@ const ROADMAP = [
     icon: Bot,
     title: 'Trading bot development',
     milestone: 'Now',
-    text: 'Continuous work on signal quality, GMX execution, risk gates, and the dashboard2 terminal — the core product you use today.',
+    text: 'Continuous work on signal quality, Hyperliquid execution, risk gates, and the dashboard terminal — the core product you use today.',
   },
   {
     status: 'upcoming' as const,

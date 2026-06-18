@@ -23,12 +23,12 @@ const engineFeatures = [
   {
     icon: Brain,
     title: 'Multi-timeframe analysis',
-    text: 'The bot scans 1m through 1h charts on ETH, BTC, and ARB to align short-term entries with broader trend context.',
+    text: 'The bot scans 1m through 1h charts across Hyperliquid markets to align short-term entries with broader trend context.',
   },
   {
     icon: BarChart3,
     title: 'Quantitative signal stack',
-    text: 'Momentum, mean-reversion, and volatility filters combined before any GMX perpetual entry is considered.',
+    text: 'Momentum, mean-reversion, and volatility filters combined before any Hyperliquid perp entry is considered.',
   },
   {
     icon: Target,
@@ -38,7 +38,7 @@ const engineFeatures = [
   {
     icon: Activity,
     title: 'Dynamic risk gates',
-    text: 'Position sizing, leverage caps, and exposure limits respond to vault balance and open-trade state.',
+    text: 'Position sizing, leverage caps, and exposure limits respond to HL balance and open-trade state.',
   },
   {
     icon: LineChart,
@@ -47,15 +47,15 @@ const engineFeatures = [
   },
   {
     icon: Cpu,
-    title: 'GMX execution on Arbitrum',
-    text: 'Direct integration with GMX perpetuals for on-chain fills with oracle pricing and transparent settlement.',
+    title: 'Hyperliquid execution',
+    text: 'Direct integration with Hyperliquid perpetuals for fast fills, deep liquidity, and transparent settlement.',
   },
 ];
 
 const pipeline = [
   {
     title: 'Market analysis',
-    text: 'Continuous monitoring of price, volume, and multi-timeframe structure across supported GMX pairs.',
+    text: 'Continuous monitoring of price, volume, and multi-timeframe structure across 200+ HL perp markets.',
   },
   {
     title: 'Confidence scoring',
@@ -67,7 +67,7 @@ const pipeline = [
   },
   {
     title: 'Risk control',
-    text: 'Configurable leverage and vault limits help cap drawdown while the bot runs 24/7 on our servers.',
+    text: 'Configurable leverage and HL account limits help cap drawdown while the bot runs 24/7 on our servers.',
   },
 ];
 
@@ -76,14 +76,14 @@ const TechnologyPage: React.FC = () => {
     <MarketingInnerPage>
       <MarketingPageHero
         eyebrow="Technology"
-        title="Quantitative engine for GMX perpetuals"
-        lead="Institutional-style automation built for Arbitrum — analysis, risk gates, and execution in one system."
-        sub="Non-custodial vault architecture. You control deposits, withdrawals, and when the bot runs."
+        title="Quantitative engine for Hyperliquid perpetuals"
+        lead="Institutional-style automation built for HL — analysis, risk gates, and execution in one system."
+        sub="Non-custodial: your USDC stays on your Hyperliquid account. You control deposits, withdrawals, and when the bot runs."
       />
 
       <MarketingSectionHeading
         title="Trading engine"
-        sub="Core components that power automated execution on GMX."
+        sub="Core components that power automated execution on Hyperliquid."
       />
 
       <MarketingPageGrid columns={3}>
@@ -119,7 +119,7 @@ const TechnologyPage: React.FC = () => {
       <div className="mkt-stats-row">
         <MarketingStatCard value="55–75%" label="Confidence range" />
         <MarketingStatCard value="0.6%" label="Trailing activation" />
-        <MarketingStatCard value="100x" label="GMX max leverage" />
+        <MarketingStatCard value="40x" label="HL max leverage (BTC)" />
         <MarketingStatCard value="24/7" label="Market monitoring" />
       </div>
 
@@ -127,12 +127,12 @@ const TechnologyPage: React.FC = () => {
         <MarketingFeatureCard
           icon={Shield}
           title="Non-custodial architecture"
-          text="USDC sits in the audited V11 vault on Arbitrum. Only your wallet can deposit or withdraw — we never hold private keys."
+          text="USDC sits on your Hyperliquid account in your name. Only your wallet can deposit or withdraw — we never hold private keys."
         />
         <MarketingFeatureCard
           icon={TrendingUp}
           title="Transparent performance"
-          text="Every open and closed trade is visible in the dashboard with realized and unrealized P/L. No hidden platform fees."
+          text="Every open and closed trade is visible in the dashboard with realized and unrealized P/L."
         />
       </MarketingPageGrid>
 

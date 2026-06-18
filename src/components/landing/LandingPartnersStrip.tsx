@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 
 const partners = [
   { label: 'Arbitrum' },
-  { label: 'GMX' },
+  { label: 'Hyperliquid' },
   { label: 'MetaMask' },
   { label: 'WalletConnect' },
   { label: 'Reown' },

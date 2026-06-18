@@ -6,14 +6,14 @@ const TermsPage: React.FC = () => {
     <LegalDocumentLayout
       title="Terms of Service"
       updated="June 2, 2026"
-      intro="These Terms govern your use of Monadier — the GMX automated trading platform on Arbitrum. By creating an account or using the service, you agree to these Terms."
+      intro="These Terms govern your use of Monadier — the Hyperliquid automated trading platform. By creating an account or using the service, you agree to these Terms."
       sections={[
         {
           title: '1. Service description',
           body: (
             <p>
-              Monadier provides software to connect your wallet to a non-custodial on-chain vault and
-              optional automated trading on GMX perpetual markets on Arbitrum. We do not provide
+              Monadier provides software to connect your wallet to your Hyperliquid account and
+              optional automated trading on Hyperliquid perpetual markets. We do not provide
               personalised financial advice. You are solely responsible for your trading decisions.
             </p>
           ),
@@ -29,12 +29,12 @@ const TermsPage: React.FC = () => {
           ),
         },
         {
-          title: '3. Non-custodial vault & wallet',
+          title: '3. Non-custodial HL account & wallet',
           body: (
             <p>
-              USDC deposits are held in the Monadier smart-contract vault on Arbitrum. Withdrawals and
-              deposits require your wallet signature. Monadier does not hold your private keys. Smart
-              contracts and DeFi protocols carry technical and market risk — including total loss of
+              USDC deposits are held on your Hyperliquid account in your name. Withdrawals and
+              deposits require your wallet signature. Monadier does not hold your private keys. Trading
+              on Hyperliquid and DeFi protocols carry technical and market risk — including total loss of
               deposited funds.
             </p>
           ),
@@ -43,7 +43,7 @@ const TermsPage: React.FC = () => {
           title: '4. Automated trading',
           body: (
             <p>
-              When you enable auto-trading, the bot may open and close GMX perpetual positions according
+              When you enable auto-trading, the bot may open and close Hyperliquid perpetual positions according
               to your configured settings. Past performance does not guarantee future results. You may stop
               the bot or request manual position closes at any time through the dashboard.
             </p>
@@ -53,7 +53,7 @@ const TermsPage: React.FC = () => {
           title: '5. Fees',
           body: (
             <p>
-              Standard blockchain gas fees and GMX protocol fees apply. Monadier may charge a performance
+              Standard blockchain gas fees and Hyperliquid protocol fees apply. Monadier may charge a performance
               fee on profitable closed trades as disclosed in the app. Subscription or license fees, if
               applicable, are shown on the pricing page before purchase.
             </p>

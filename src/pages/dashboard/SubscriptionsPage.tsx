@@ -134,7 +134,7 @@ const SubscriptionsPage: React.FC = () => {
       yearlyDiscount: SUBSCRIPTION_PLANS.starter.yearlyDiscount,
       icon: <Zap className="w-6 h-6" />,
       features: [
-        'GMX Trading Bot access',
+        'Hyperliquid Trading Bot access',
         '1-25x Leverage',
         '25 trades per day',
         'All chains supported',
@@ -154,7 +154,7 @@ const SubscriptionsPage: React.FC = () => {
       icon: <Crown className="w-6 h-6" />,
       popular: true,
       features: [
-        'GMX Trading Bot access',
+        'Hyperliquid Trading Bot access',
         '1-50x Leverage',
         '100 trades per day',
         'All chains supported',
@@ -174,7 +174,7 @@ const SubscriptionsPage: React.FC = () => {
       yearlyDiscount: SUBSCRIPTION_PLANS.elite.yearlyDiscount,
       icon: <Rocket className="w-6 h-6" />,
       features: [
-        'GMX Trading Bot access',
+        'Hyperliquid Trading Bot access',
         '1-50x Leverage',
         'Unlimited trades',
         'All strategies + Arbitrage',

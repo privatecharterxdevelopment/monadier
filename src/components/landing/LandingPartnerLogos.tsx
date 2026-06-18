@@ -18,18 +18,18 @@ const ArbitrumMark = () => (
   </svg>
 );
 
-const GmxMark = () => (
+const HyperliquidMark = () => (
   <svg viewBox="0 0 56 20" fill="none" aria-hidden className="landing-gmx-partner-mark-svg">
     <text
       x="0"
       y="16"
       fill={LOGO_GREY}
-      fontSize="17"
+      fontSize="15"
       fontWeight="700"
       fontFamily="system-ui, -apple-system, sans-serif"
-      letterSpacing="-0.05em"
+      letterSpacing="-0.04em"
     >
-      GMX
+      Hyperliquid
     </text>
   </svg>
 );
@@ -56,7 +56,7 @@ const ReownMark = () => (
 
 const PARTNERS: Partner[] = [
   { id: 'arbitrum', name: 'Arbitrum', mark: <ArbitrumMark /> },
-  { id: 'gmx', name: 'GMX', mark: <GmxMark /> },
+  { id: 'hyperliquid', name: 'Hyperliquid', mark: <HyperliquidMark /> },
   { id: 'usdc', name: 'USDC', mark: <UsdcMark /> },
   { id: 'reown', name: 'Reown', mark: <ReownMark /> },
 ];

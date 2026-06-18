@@ -855,16 +855,16 @@ const BotHistoryPage: React.FC<BotHistoryPageProps> = ({
                         Fee Structure (V8)
                       </div>
                       <p className="text-green-200/80">
-                        <strong>No platform fees!</strong> Only 10% of profits on winning trades. GMX execution fee ~0.0002 ETH per trade.
+                        <strong>No platform fees!</strong> Only 10% of profits on winning trades. Hyperliquid trading fees apply per position.
                       </p>
                     </div>
                     <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
                       <div className="flex items-center gap-2 text-blue-400 font-medium mb-1">
                         <Zap size={14} />
-                        Leverage (V8 GMX)
+                        Leverage (Hyperliquid)
                       </div>
                       <p className="text-blue-200/80">
-                        Real leverage via GMX Perpetuals. Starter: up to <strong>25x</strong>. Pro/Elite: up to <strong>50x</strong>. Trailing stop loss included.
+                        Per-asset leverage on Hyperliquid perpetuals. Caps vary by market (e.g. BTC up to 40x). Trailing stop loss included.
                       </p>
                     </div>
                   </div>

@@ -15,12 +15,12 @@ const heroReveal = (delay = 0) => ({
 });
 
 const HERO_MID_LINES = [
-  'on GMX liquidity',
+  'on Hyperliquid',
   'with automated perps',
   'with hedge-fund signals',
-  'on Arbitrum',
+  'with deep HL liquidity',
   'with an AI agent that performs',
-  'directly on blockchain',
+  'across 200+ markets',
 ] as const;
 
 const HERO_MID_LONGEST = HERO_MID_LINES.reduce((a, b) => (a.length >= b.length ? a : b));
@@ -71,7 +71,9 @@ const GmxStyleLanding: React.FC = () => {
                       </motion.span>
                     </AnimatePresence>
                   </div>
-                  <div className="landing-gmx-hero-line landing-gmx-hero-line--dark">from your vault</div>
+                  <div className="landing-gmx-hero-line landing-gmx-hero-line--dark">
+                    from your HL account
+                  </div>
                 </div>
               </div>
               <motion.div {...heroReveal(0.1)} className="landing-gmx-hero-bottom">
@@ -83,8 +85,8 @@ const GmxStyleLanding: React.FC = () => {
                     </OpenAppLink>
                   </div>
                   <p className="landing-gmx-hero-lead">
-                    Decentralised permissionless on-chain trading with deep GMX liquidity and a
-                    non-custodial vault — live on Arbitrum.
+                    Automated perpetuals on Hyperliquid — deposit USDC, approve the bot agent once,
+                    and let Monadier trade 24/7 across all HL markets.
                   </p>
                 </div>
                 <div className="landing-gmx-hero-stats">
@@ -93,12 +95,12 @@ const GmxStyleLanding: React.FC = () => {
                     <div className="landing-gmx-hero-stat-label">Bot uptime</div>
                   </div>
                   <div className="landing-gmx-hero-stat">
-                    <div className="landing-gmx-hero-stat-value">GMX</div>
+                    <div className="landing-gmx-hero-stat-value">HL</div>
                     <div className="landing-gmx-hero-stat-label">Execution</div>
                   </div>
                   <div className="landing-gmx-hero-stat">
-                    <div className="landing-gmx-hero-stat-value">V11</div>
-                    <div className="landing-gmx-hero-stat-label">Vault</div>
+                    <div className="landing-gmx-hero-stat-value">200+</div>
+                    <div className="landing-gmx-hero-stat-label">Markets</div>
                   </div>
                 </div>
               </motion.div>

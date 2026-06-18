@@ -11,14 +11,14 @@ const AboutPage: React.FC = () => {
         eyebrow="Company"
         title="About Monadier"
         lead="Six IT engineers from Switzerland — ETH Zurich alumni — who turned a hedge-fund strategy into a fully automated trading bot."
-        sub="We built Monadier to make institutional-style execution accessible through a simple Arbitrum dashboard."
+        sub="We built Monadier to make institutional-style execution accessible through a simple Hyperliquid dashboard."
       />
 
       <div className="mkt-prose-grid">
         <div className="mkt-prose-block">
           <p>
             There is no glossy &ldquo;about us&rdquo; story — we are builders who packaged a proven
-            quantitative approach into self-developed software. The bot analyzes markets, enters GMX
+            quantitative approach into self-developed software. The bot analyzes markets, enters Hyperliquid
             perpetuals, and targets roughly a 70% win rate while you control risk and capital.
           </p>
         </div>
@@ -31,7 +31,7 @@ const AboutPage: React.FC = () => {
         </div>
         <div className="mkt-prose-block mkt-prose-block--wide">
           <p>
-            Connect your wallet, fund your vault on Arbitrum, and let the terminal run. You are the
+            Connect your wallet, fund your HL account, and let the terminal run. You are the
             administrator — we provide the infrastructure and automation. Crypto trading carries
             substantial risk; only use capital you can afford to lose.
           </p>
