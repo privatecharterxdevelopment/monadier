@@ -23,6 +23,7 @@ import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './se
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
 import { fetchHlClearinghouseState, hlAccountValueUsd, hlOpenPerpCoins } from './services/hlInfo';
 import { getLastHlOpenError } from './services/hlTrading';
+import { checkHlBuilderFeeApproved } from './services/hlBuilder';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 
 // Health check server for Railway/cloud deployments
@@ -166,6 +167,7 @@ const healthServer = http.createServer(async (req, res) => {
       const hlBalanceUsd = hlAccountValueUsd(await fetchHlClearinghouseState(userAddress));
       const hlAgentAddr = deriveUserHlAgentAddress(userAddress);
       const hlAgentOk = await hlAgentApprovalService.isApproved(userAddress, hlAgentAddr);
+      const builderGate = await checkHlBuilderFeeApproved(userAddress);
       const hlOpenCoins = hlOpenPerpCoins(await fetchHlClearinghouseState(userAddress));
 
       const collateralForSignal = BigInt(Math.floor(Math.max(hlBalanceUsd, 0) * 1e6));
@@ -194,6 +196,9 @@ const healthServer = http.createServer(async (req, res) => {
       const blockers: string[] = [];
       if (!permission.allowed) blockers.push(permission.reason || 'subscription');
       if (!hlAgentOk) blockers.push('HL agent not approved — enable bot in app');
+      if (builderGate.required && !builderGate.approved) {
+        blockers.push('HL builder fee not approved — approve platform fee in Bot panel');
+      }
       if (hlBalanceUsd < config.hyperliquid.minAccountUsd) {
         blockers.push(
           `HL balance $${hlBalanceUsd.toFixed(2)} (min $${config.hyperliquid.minAccountUsd})`
@@ -249,6 +254,8 @@ const healthServer = http.createServer(async (req, res) => {
           balanceUsd: hlBalanceUsd,
           agentAddress: hlAgentAddr,
           agentApproved: hlAgentOk,
+          builderFeeApproved: builderGate.approved,
+          builderFeeRequired: builderGate.required,
           openCoins: hlOpenCoins,
           minAccountUsd: config.hyperliquid.minAccountUsd,
         },

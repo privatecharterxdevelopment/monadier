@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   ShieldCheck,
   Info,
+  BadgePercent,
 } from 'lucide-react';
 import { useAppKit } from '@reown/appkit/react';
 import { useWeb3 } from '../../contexts/Web3Context';
@@ -27,6 +28,7 @@ import {
   MIN_HL_BOT_USD,
 } from '../../lib/hyperliquid/hlBotAgent';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
+import { useHyperliquidBuilderFee } from '../../hooks/useHyperliquidBuilderFee';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { useBotRuntimeTimer } from '../../hooks/useBotRuntimeTimer';
 import { useBotServerBlockers } from '../../hooks/useBotServerBlockers';
@@ -70,7 +72,7 @@ function fmt(n: number) {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-type SetupPhase = 'connect' | 'loading' | 'approve' | 'fund' | 'ready';
+type SetupPhase = 'connect' | 'loading' | 'approve' | 'approve_builder' | 'fund' | 'ready';
 
 const TerminalTradePanel: React.FC<Props> = ({
   metrics,
@@ -90,12 +92,14 @@ const TerminalTradePanel: React.FC<Props> = ({
   const [settingsTick, setSettingsTick] = useState(0);
   const botSettings = useTerminalBotSettings(settingsTick);
   const hlSetup = useHlBotSetup(address ?? undefined);
+  const builderFee = useHyperliquidBuilderFee(address);
   const [showFundsModal, setShowFundsModal] = useState(false);
   const [fundsModalTab, setFundsModalTab] = useState<'deposit' | 'withdraw'>('deposit');
   const [showSettings, setShowSettings] = useState(false);
   const [startMode, setStartMode] = useState(false);
   const [botBusy, setBotBusy] = useState(false);
   const [approveBusy, setApproveBusy] = useState(false);
+  const [builderApproveBusy, setBuilderApproveBusy] = useState(false);
   const [botError, setBotError] = useState<string | null>(null);
   const [stopNotice, setStopNotice] = useState<string | null>(null);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
@@ -117,7 +121,8 @@ const TerminalTradePanel: React.FC<Props> = ({
   const botRunning = effectiveHlBotRunning(
     autoTradeOn,
     hlFundingUsd,
-    hlSetup.agentApproved
+    hlSetup.agentApproved,
+    hlSetup.builderFeeApproved
   );
 
   useEffect(() => {
@@ -139,10 +144,20 @@ const TerminalTradePanel: React.FC<Props> = ({
   const phase: SetupPhase = useMemo(() => {
     if (!walletReady) return 'connect';
     if (hlSetup.loading && hlFundingUsd === 0) return 'loading';
+    if (hlSetup.phase !== 'connect') return hlSetup.phase;
     if (hlFundingUsd < MIN_HL_BOT_USD) return 'fund';
     if (!hlSetup.agentApproved) return 'approve';
+    if (hlSetup.builderFeeEnabled && !hlSetup.builderFeeApproved) return 'approve_builder';
     return 'ready';
-  }, [walletReady, hlSetup.loading, hlSetup.agentApproved, hlFundingUsd]);
+  }, [
+    walletReady,
+    hlSetup.loading,
+    hlSetup.phase,
+    hlSetup.agentApproved,
+    hlSetup.builderFeeEnabled,
+    hlSetup.builderFeeApproved,
+    hlFundingUsd,
+  ]);
 
   const sidebarStatus = useMemo(
     () =>
@@ -152,6 +167,8 @@ const TerminalTradePanel: React.FC<Props> = ({
         botRunning,
         hlBalanceUsd: hlFundingUsd,
         agentApproved: hlSetup.agentApproved,
+        builderFeeApproved: hlSetup.builderFeeApproved,
+        builderFeeEnabled: hlSetup.builderFeeEnabled,
         hasOpenPosition,
         serverBlockers,
         runtimeLabel: botRuntime.formatted || (botRunning ? '0s' : undefined),
@@ -162,6 +179,8 @@ const TerminalTradePanel: React.FC<Props> = ({
       botRunning,
       hlFundingUsd,
       hlSetup.agentApproved,
+      hlSetup.builderFeeApproved,
+      hlSetup.builderFeeEnabled,
       hasOpenPosition,
       serverBlockers,
       botRuntime.formatted,
@@ -177,12 +196,17 @@ const TerminalTradePanel: React.FC<Props> = ({
     if (!hlSetup.agentApproved) {
       return 'Approve the trading agent (one-time).';
     }
+    if (hlSetup.builderFeeEnabled && !hlSetup.builderFeeApproved) {
+      return 'Approve the Hyperliquid platform fee (one-time) — required for bot orders.';
+    }
     if (!isDemoUser && !isAuthenticated) return 'Sign in to Monadier, then press Start bot.';
     return null;
   }, [
     walletReady,
     hlSetup.loading,
     hlSetup.agentApproved,
+    hlSetup.builderFeeEnabled,
+    hlSetup.builderFeeApproved,
     hlFundingUsd,
     isDemoUser,
     isAuthenticated,
@@ -196,6 +220,7 @@ const TerminalTradePanel: React.FC<Props> = ({
       !shouldDisableStaleHlBotAutoTrade(hlFundingUsd, hlSetup.agentApproved, {
         hlLoaded: hlSetup.hlLoaded,
         agentLoaded: hlSetup.agentLoaded,
+        builderFeeApproved: hlSetup.builderFeeApproved,
       })
     ) {
       return;
@@ -223,6 +248,7 @@ const TerminalTradePanel: React.FC<Props> = ({
     autoTradeDb,
     hlFundingUsd,
     hlSetup.agentApproved,
+    hlSetup.builderFeeApproved,
     hlSetup.hlLoaded,
     hlSetup.agentLoaded,
   ]);
@@ -260,6 +286,7 @@ const TerminalTradePanel: React.FC<Props> = ({
     onRefresh();
     setSettingsTick((n) => n + 1);
     void hlSetup.refresh();
+    void builderFee.refresh();
   };
 
   const parseBotTxError = (err: unknown): string => {
@@ -319,12 +346,33 @@ const TerminalTradePanel: React.FC<Props> = ({
     }
   };
 
+  const handleApproveBuilderFee = async () => {
+    if (!walletReady || !address) {
+      open();
+      return;
+    }
+    if (!isDemoUser && !isAuthenticated) {
+      onRequireSignIn?.('Sign in to Monadier before approving the platform fee.');
+      return;
+    }
+    setBotError(null);
+    setBuilderApproveBusy(true);
+    try {
+      await builderFee.approve();
+      refreshAll();
+    } catch (err: unknown) {
+      setBotError(parseBotTxError(err));
+    } finally {
+      setBuilderApproveBusy(false);
+    }
+  };
+
   const persistBotRunning = async (autoTradeEnabled: boolean) => {
     if (!wallet) throw new Error('Connect your wallet first.');
     const s = botSettings.settings;
     if (autoTradeEnabled) {
-      if (!isHlBotReadyToRun(hlFundingUsd, hlSetup.agentApproved)) {
-        throw new Error('Deposit USDC on Hyperliquid and approve the agent before starting the bot.');
+      if (!isHlBotReadyToRun(hlFundingUsd, hlSetup.agentApproved, hlSetup.builderFeeApproved)) {
+        throw new Error('Deposit USDC, approve the agent, and approve the platform fee before starting the bot.');
       }
       await enableHlBotExecution(wallet);
     } else {
@@ -516,6 +564,8 @@ const TerminalTradePanel: React.FC<Props> = ({
                 walletReady={walletReady}
                 hlBalanceUsd={hlFundingUsd}
                 agentApproved={hlSetup.agentApproved}
+                builderFeeApproved={hlSetup.builderFeeApproved}
+                builderFeeEnabled={hlSetup.builderFeeEnabled}
                 botRunning={botRunning}
                 currentStep={sidebarStatus.setupStep}
               />
@@ -558,6 +608,22 @@ const TerminalTradePanel: React.FC<Props> = ({
                   <ShieldCheck size={14} />
                 )}
                 Approve trading agent
+              </button>
+            )}
+
+            {walletReady && phase === 'approve_builder' && !botRunning && (
+              <button
+                type="button"
+                className="term-btn-sm term-btn-sm--primary w-full justify-center"
+                disabled={builderApproveBusy || builderFee.busy}
+                onClick={() => void handleApproveBuilderFee()}
+              >
+                {builderApproveBusy || builderFee.busy ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <BadgePercent size={14} />
+                )}
+                Approve platform fee ({builderFee.feeLabelPerp})
               </button>
             )}
 
@@ -720,6 +786,8 @@ const TerminalTradePanel: React.FC<Props> = ({
           walletReady={walletReady}
           hlBalanceUsd={hlFundingUsd}
           agentApproved={hlSetup.agentApproved}
+          builderFeeApproved={hlSetup.builderFeeApproved}
+          builderFeeEnabled={hlSetup.builderFeeEnabled}
           botRunning={botRunning}
           currentStep={sidebarStatus.setupStep}
           onClose={() => setShowSetupGuide(false)}

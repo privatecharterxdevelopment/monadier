@@ -1,19 +1,22 @@
 import type { BotReadiness } from './botReadiness';
 import { MIN_HL_BOT_USD } from './hyperliquid/hlBotAgent';
 
-export type HlSetupPhase = 'connect' | 'loading' | 'approve' | 'fund' | 'ready';
+export type HlSetupPhase = 'connect' | 'loading' | 'approve' | 'approve_builder' | 'fund' | 'ready';
 
 export type HlBotSidebarStatus = {
   headline: string;
   detail: string;
   tone: 'neutral' | 'warn' | 'ok' | 'active';
-  setupStep: 1 | 2 | 3 | 4;
+  setupStep: 1 | 2 | 3 | 4 | 5;
   setupComplete: boolean;
 };
 
 function simplifyBlocker(raw: string): string {
   if (/HL agent not approved/i.test(raw)) {
     return 'Trading agent not approved yet';
+  }
+  if (/builder fee|platform fee/i.test(raw)) {
+    return 'Approve the Hyperliquid platform fee in the Bot panel';
   }
   if (/HL balance|HL-Guthaben/i.test(raw)) {
     return raw.replace(/HL balance/i, 'HL balance').replace(/HL-Guthaben/i, 'HL balance');
@@ -43,6 +46,8 @@ export function getHlBotSidebarStatus(opts: {
   botRunning: boolean;
   hlBalanceUsd: number;
   agentApproved: boolean;
+  builderFeeApproved?: boolean;
+  builderFeeEnabled?: boolean;
   hasOpenPosition: boolean;
   serverBlockers?: string[];
   readiness?: BotReadiness | null;
@@ -54,6 +59,8 @@ export function getHlBotSidebarStatus(opts: {
     botRunning,
     hlBalanceUsd,
     agentApproved,
+    builderFeeApproved = true,
+    builderFeeEnabled = false,
     hasOpenPosition,
     serverBlockers = [],
     readiness,
@@ -82,6 +89,7 @@ export function getHlBotSidebarStatus(opts: {
 
   const needsDeposit = hlBalanceUsd < MIN_HL_BOT_USD;
   const needsAgent = !agentApproved;
+  const needsBuilderFee = builderFeeEnabled && !builderFeeApproved;
 
   if (!botRunning) {
     if (needsDeposit) {
@@ -102,11 +110,21 @@ export function getHlBotSidebarStatus(opts: {
         setupComplete: false,
       };
     }
+    if (needsBuilderFee) {
+      return {
+        headline: 'Approve platform fee',
+        detail:
+          'One-time Hyperliquid signature for Monadier’s small perp fee. Without this, bot orders are rejected.',
+        tone: 'warn',
+        setupStep: 4,
+        setupComplete: false,
+      };
+    }
     return {
       headline: 'Ready',
-      detail: 'Account funded and agent approved. Press Start bot below — deposit alone does not start trading.',
+      detail: 'Account funded and approvals complete. Press Start bot below — deposit alone does not start trading.',
       tone: 'ok',
-      setupStep: 4,
+      setupStep: builderFeeEnabled ? 5 : 4,
       setupComplete: true,
     };
   }

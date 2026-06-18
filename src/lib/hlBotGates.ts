@@ -3,28 +3,37 @@ import { MIN_HL_BOT_USD } from './hyperliquid/hlBotAgent';
 
 const HL_BOT_CHAIN_ID = 42161;
 
-/** User has funded HL and approved the trading agent — required before bot runs. */
-export function isHlBotReadyToRun(hlBalanceUsd: number, agentApproved: boolean): boolean {
-  return hlBalanceUsd >= MIN_HL_BOT_USD && agentApproved;
+/** User has funded HL, approved agent, and platform builder fee — required before bot runs. */
+export function isHlBotReadyToRun(
+  hlBalanceUsd: number,
+  agentApproved: boolean,
+  builderFeeApproved = true
+): boolean {
+  return hlBalanceUsd >= MIN_HL_BOT_USD && agentApproved && builderFeeApproved;
 }
 
 /** DB flag alone is not enough — bot is only "running" when HL setup is complete. */
 export function effectiveHlBotRunning(
   autoTradeEnabled: boolean,
   hlBalanceUsd: number,
-  agentApproved: boolean
+  agentApproved: boolean,
+  builderFeeApproved = true
 ): boolean {
-  return autoTradeEnabled && isHlBotReadyToRun(hlBalanceUsd, agentApproved);
+  return autoTradeEnabled && isHlBotReadyToRun(hlBalanceUsd, agentApproved, builderFeeApproved);
 }
 
 /** Only disable when HL + agent checks succeeded and prerequisites are clearly missing. */
 export function shouldDisableStaleHlBotAutoTrade(
   hlBalanceUsd: number,
   agentApproved: boolean,
-  opts: { hlLoaded: boolean; agentLoaded: boolean }
+  opts: { hlLoaded: boolean; agentLoaded: boolean; builderFeeApproved?: boolean }
 ): boolean {
   if (!opts.hlLoaded || !opts.agentLoaded) return false;
-  return !isHlBotReadyToRun(hlBalanceUsd, agentApproved);
+  return !isHlBotReadyToRun(
+    hlBalanceUsd,
+    agentApproved,
+    opts.builderFeeApproved ?? true
+  );
 }
 
 /** Turn off stale auto_trade when prerequisites are missing (legacy bad state). */

@@ -5,11 +5,14 @@ import {
   checkHlBotAgentApproved,
   MIN_HL_BOT_USD,
 } from '../lib/hyperliquid/hlBotAgent';
+import { fetchMaxBuilderFee, isBuilderApprovalSufficient } from '../lib/hyperliquid/builder';
+import { getHlBuilderConfig } from '../lib/hyperliquid/builderConfig';
 
 export type HlBotSetupPhase =
   | 'connect'
   | 'loading'
   | 'approve'
+  | 'approve_builder'
   | 'fund'
   | 'ready';
 
@@ -18,6 +21,8 @@ export function useHlBotSetup(walletAddress: string | undefined) {
   const [accountUsd, setAccountUsd] = useState(0);
   const [withdrawableUsd, setWithdrawableUsd] = useState(0);
   const [agentApproved, setAgentApproved] = useState(false);
+  const [builderFeeApproved, setBuilderFeeApproved] = useState(true);
+  const [builderFeeEnabled, setBuilderFeeEnabled] = useState(false);
   const [agentAddress, setAgentAddress] = useState<string | null>(null);
   const [agentExpiresAt, setAgentExpiresAt] = useState<string | null>(null);
   const [hlLoaded, setHlLoaded] = useState(false);
@@ -62,10 +67,21 @@ export function useHlBotSetup(walletAddress: string | undefined) {
       setAgentExpiresAt(agentCheck.expiresAt);
       setAgentAddress(agentMeta.agentAddress ?? null);
 
+      const builderConfig = getHlBuilderConfig();
+      setBuilderFeeEnabled(builderConfig.enabled);
+      let builderOk = true;
+      if (builderConfig.enabled) {
+        const maxFee = await fetchMaxBuilderFee(walletAddress, builderConfig.address);
+        builderOk = isBuilderApprovalSufficient(maxFee);
+      }
+      setBuilderFeeApproved(builderOk);
+
       if (balance < MIN_HL_BOT_USD) {
         setPhase('fund');
       } else if (!agentCheck.approved) {
         setPhase('approve');
+      } else if (builderConfig.enabled && !builderOk) {
+        setPhase('approve_builder');
       } else {
         setPhase('ready');
       }
@@ -111,6 +127,8 @@ export function useHlBotSetup(walletAddress: string | undefined) {
     accountUsd,
     withdrawableUsd,
     agentApproved,
+    builderFeeApproved,
+    builderFeeEnabled,
     agentAddress,
     agentExpiresAt,
     hlLoaded,

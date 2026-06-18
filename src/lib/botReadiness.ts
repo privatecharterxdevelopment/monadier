@@ -17,6 +17,9 @@ function formatBlocker(blocker: string): string {
   if (/HL balance/i.test(blocker)) {
     return blocker.replace(/HL balance/i, 'HL balance');
   }
+  if (/builder fee|platform fee/i.test(blocker)) {
+    return 'Approve the Hyperliquid platform fee in the Bot panel';
+  }
   if (/no trade signal|MTF|bot conf/i.test(blocker)) {
     return 'No strong trade setup yet — bot keeps scanning';
   }

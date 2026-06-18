@@ -8,7 +8,13 @@ import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
 
 const RISK_PRESETS = [1, 5, 25, 50, 100] as const;
 
-export type BotSetupPhase = 'connect' | 'loading' | 'approve' | 'fund' | 'ready';
+export type BotSetupPhase =
+  | 'connect'
+  | 'loading'
+  | 'approve'
+  | 'approve_builder'
+  | 'fund'
+  | 'ready';
 
 type Props = {
   setupPhase?: BotSetupPhase;
@@ -37,6 +43,7 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
     connect: 'Connect your wallet first.',
     loading: 'Loading Hyperliquid balance…',
     approve: 'Approve the Monadier trading agent on Hyperliquid (one-time).',
+    approve_builder: 'Approve the Monadier platform fee on Hyperliquid (one-time, required for bot orders).',
     fund: `Deposit at least $${minUsd} USDC in the Funds tab (wallet on Arbitrum).`,
     ready: 'Adjust risk and leverage — then Start bot on the Bot tab.',
   };
@@ -46,8 +53,9 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
       connect: 0,
       loading: 1,
       approve: 2,
+      approve_builder: 3,
       fund: 3,
-      ready: 4,
+      ready: 5,
     };
     return order[setupPhase] >= n;
   };

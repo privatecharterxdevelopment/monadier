@@ -7,8 +7,10 @@ type Props = {
   walletReady: boolean;
   hlBalanceUsd: number;
   agentApproved: boolean;
+  builderFeeApproved: boolean;
+  builderFeeEnabled: boolean;
   botRunning: boolean;
-  currentStep: 1 | 2 | 3 | 4;
+  currentStep: 1 | 2 | 3 | 4 | 5;
   onClose: () => void;
 };
 
@@ -16,13 +18,15 @@ const HlBotSetupGuideModal: React.FC<Props> = ({
   walletReady,
   hlBalanceUsd,
   agentApproved,
+  builderFeeApproved,
+  builderFeeEnabled,
   botRunning,
   currentStep,
   onClose,
 }) => (
   <TerminalModalFrame
     title="How the bot works"
-    subtitle="Four steps — all inside Monadier."
+    subtitle="All steps inside Monadier — same wallet as Hyperliquid."
     icon={<Info size={18} />}
     onClose={onClose}
   >
@@ -31,6 +35,8 @@ const HlBotSetupGuideModal: React.FC<Props> = ({
       walletReady={walletReady}
       hlBalanceUsd={hlBalanceUsd}
       agentApproved={agentApproved}
+      builderFeeApproved={builderFeeApproved}
+      builderFeeEnabled={builderFeeEnabled}
       botRunning={botRunning}
       currentStep={currentStep}
     />

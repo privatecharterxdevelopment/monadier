@@ -14,6 +14,7 @@ import {
   hlAccountValueUsd,
   hlOpenPerpCoins,
 } from './hlInfo';
+import { checkHlBuilderFeeApproved } from './hlBuilder';
 import { subscriptionService } from './subscription';
 import type { TradingCycleContext } from './tradingCycleContext';
 import {
@@ -67,6 +68,14 @@ export class HyperliquidTradingService {
     const approved = await hlAgentApprovalService.isApproved(userAddress, agentAddr);
     if (!approved) {
       return { ok: false, reason: 'HL agent not approved — enable bot in app' };
+    }
+
+    const builderGate = await checkHlBuilderFeeApproved(userAddress);
+    if (builderGate.required && !builderGate.approved) {
+      return {
+        ok: false,
+        reason: 'HL builder fee not approved — approve platform fee in Bot panel',
+      };
     }
 
     const permission = await subscriptionService.canTrade(userAddress as `0x${string}`);
