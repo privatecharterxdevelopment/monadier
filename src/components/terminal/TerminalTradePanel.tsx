@@ -538,8 +538,8 @@ const TerminalTradePanel: React.FC<Props> = ({
                 </p>
                 {walletReady && phase === 'ready' && builderConfig.enabled && (
                   <p className="term-panel-card-hint term-hint--subtle">
-                    Fees: {formatBuilderFeeLabel(builderConfig.feePerp)} HL platform fee per order · 10%
-                    success fee on profitable bot closes only (no fee on losses).
+                    Winning bot closes: 10% of profit collected automatically via Hyperliquid (one-time
+                    fee approval). No fee on losing trades. Opens: no extra platform fee.
                   </p>
                 )}
               </div>

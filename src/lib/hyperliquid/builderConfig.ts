@@ -31,7 +31,7 @@ export function getHlBuilderConfig(): HlBuilderConfig {
   const feePerp = parseFee(import.meta.env.VITE_HL_BUILDER_FEE_PERP, 30, 100);
   const feeSpotSell = parseFee(import.meta.env.VITE_HL_BUILDER_FEE_SPOT, 50, 1000);
   const maxApprovalRate =
-    import.meta.env.VITE_HL_BUILDER_MAX_APPROVAL?.trim() || '0.05%';
+    import.meta.env.VITE_HL_BUILDER_MAX_APPROVAL?.trim() || '0.1%';
 
   const explicitlyDisabled =
     import.meta.env.VITE_HL_BUILDER_ENABLED === 'false' ||

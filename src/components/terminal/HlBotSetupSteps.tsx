@@ -63,7 +63,7 @@ const HlBotSetupSteps: React.FC<Props> = ({
     s.n === 3 && builderFeeEnabled
       ? {
           ...s,
-          body: `One-time signatures: trading agent (no withdrawals) + platform fee (${feeLabel} per perp order).`,
+          body: `One-time signatures: trading agent (no withdrawals) + auto 10% success fee on wins via HL (max ${import.meta.env.VITE_HL_BUILDER_MAX_APPROVAL || '0.1%'}).`,
         }
       : s
   );

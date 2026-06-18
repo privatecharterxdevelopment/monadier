@@ -49,6 +49,7 @@ export function resolveBuilderOrderParam(opts: {
 export function isBuilderApprovalSufficient(approvedMaxTenthsBps: number): boolean {
   const config = getHlBuilderConfig();
   if (!config.enabled) return true;
-  const needed = Math.max(config.feePerp, config.feeSpotSell);
-  return approvedMaxTenthsBps >= needed;
+  const m = config.maxApprovalRate.match(/([\d.]+)/);
+  const maxTenths = m ? Math.floor(parseFloat(m[1]) * 1000) : 100;
+  return approvedMaxTenthsBps >= maxTenths;
 }

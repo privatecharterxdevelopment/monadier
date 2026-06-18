@@ -102,6 +102,10 @@ export const config = {
     builderAddress: (process.env.HL_BUILDER_ADDRESS ||
       process.env.TREASURY_ADDRESS) as `0x${string}`,
     builderFeePerp: Number(process.env.HL_BUILDER_FEE_PERP || 30),
+    /** Flat builder on bot opens — 0 = fee only on profitable closes (auto success fee). */
+    openBuilderFeePerp: Number(process.env.HL_OPEN_BUILDER_FEE_PERP || 0),
+    /** Must be ≥ worst-case success-fee-as-builder on close (default 0.1%). */
+    builderMaxApprovalRate: process.env.HL_BUILDER_MAX_APPROVAL || '0.1%',
   },
 
   /** Multi-user scale — 1M+ signups, thousands of concurrent bots */

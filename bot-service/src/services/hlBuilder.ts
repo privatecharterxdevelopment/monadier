@@ -1,5 +1,6 @@
 import { config } from '../config';
 import { logger } from '../utils/logger';
+import { parseMaxBuilderTenthsBps } from './hlBuilderFee';
 
 export async function fetchHlMaxBuilderFee(
   userAddress: string,
@@ -35,7 +36,11 @@ export function hlBuilderFeeRequired(): boolean {
 
 export function isHlBuilderFeeApproved(approvedMaxTenthsBps: number): boolean {
   if (!hlBuilderFeeRequired()) return true;
-  return approvedMaxTenthsBps >= config.hyperliquid.builderFeePerp;
+  const required = parseMaxBuilderTenthsBps(
+    config.hyperliquid.builderMaxApprovalRate || '0.1%'
+  );
+  const openNeeded = config.hyperliquid.openBuilderFeePerp || 0;
+  return approvedMaxTenthsBps >= Math.max(required, openNeeded);
 }
 
 export async function checkHlBuilderFeeApproved(userAddress: string): Promise<{

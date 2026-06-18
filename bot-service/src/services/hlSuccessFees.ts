@@ -28,11 +28,22 @@ export async function recordHlBotClose(params: {
   walletAddress: string;
   reason: string;
   snapshot: HlCloseSnapshot;
+  collectedFeeUsd?: number;
+  viaHlBuilder?: boolean;
 }): Promise<void> {
   const wallet = params.walletAddress.toLowerCase();
   const { snapshot } = params;
   const profitUsd = snapshot.unrealizedPnlUsd;
-  const successFee = calculateHlSuccessFee(profitUsd);
+  const successFee =
+    params.collectedFeeUsd != null && params.collectedFeeUsd > 0
+      ? params.collectedFeeUsd
+      : calculateHlSuccessFee(profitUsd);
+  const feeStatus =
+    successFee > 0
+      ? params.viaHlBuilder
+        ? 'settled'
+        : 'accrued'
+      : 'none';
   const pnlPct =
     snapshot.collateralUsd > 0 ? (profitUsd / snapshot.collateralUsd) * 100 : 0;
   const closedAt = new Date().toISOString();
@@ -58,7 +69,7 @@ export async function recordHlBotClose(params: {
       closed_at: closedAt,
       execution_venue: 'hyperliquid',
       platform_success_fee: successFee > 0 ? successFee : null,
-      platform_fee_status: successFee > 0 ? 'accrued' : 'none',
+      platform_fee_status: feeStatus,
     })
     .select('id')
     .single();
@@ -87,8 +98,10 @@ export async function recordHlBotClose(params: {
     gross_profit_usd: profitUsd,
     success_fee_usd: successFee,
     success_fee_bps: config.hyperliquid.successFeeBps,
-    status: 'accrued',
+    status: params.viaHlBuilder ? 'settled' : 'accrued',
     close_reason: params.reason,
+    settlement_ref: params.viaHlBuilder ? 'hl_builder:auto' : null,
+    settled_at: params.viaHlBuilder ? new Date().toISOString() : null,
   });
 
   if (ledgerErr) {
@@ -99,7 +112,7 @@ export async function recordHlBotClose(params: {
     return;
   }
 
-  logger.info('HL success fee accrued', {
+  logger.info(params.viaHlBuilder ? 'HL success fee collected' : 'HL success fee accrued', {
     wallet: wallet.slice(0, 10),
     coin: snapshot.coin,
     profit: profitUsd.toFixed(4),

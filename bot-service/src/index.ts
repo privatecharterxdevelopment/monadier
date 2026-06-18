@@ -310,7 +310,8 @@ const healthServer = http.createServer(async (req, res) => {
           tradeCount: feeSummary.tradeCount,
           ratePercent: config.hyperliquid.successFeeBps / 100,
           treasury: config.treasuryAddress,
-          note: '10% of profit on winning HL bot closes — billed via ledger (no vault contract).',
+          note: '10% of profit on winning closes — collected automatically via HL builder fee on close.',
+          autoCollect: true,
         },
         timestamp: new Date().toISOString(),
       }));

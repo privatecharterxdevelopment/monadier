@@ -17,6 +17,10 @@ import {
 import { checkHlBuilderFeeApproved } from './hlBuilder';
 import { subscriptionService } from './subscription';
 import type { TradingCycleContext } from './tradingCycleContext';
+import {
+  estimateCollectedSuccessFee,
+  resolveHlOrderBuilder,
+} from './hlBuilderFee';
 import { recordHlBotClose, type HlCloseSnapshot } from './hlSuccessFees';
 import {
   shouldActivateProfitLock,
@@ -220,13 +224,10 @@ export class HyperliquidTradingService {
       const isLong = opts.direction === 'LONG';
       const limitPx = isLong ? markPx * 1.05 : markPx * 0.95;
 
-      const builder =
-        config.hyperliquid.builderAddress && config.hyperliquid.builderFeePerp > 0
-          ? {
-              b: config.hyperliquid.builderAddress,
-              f: config.hyperliquid.builderFeePerp,
-            }
-          : undefined;
+      const builder = resolveHlOrderBuilder({
+        notionalUsd: opts.notionalUsd,
+        isClose: false,
+      });
 
       const result = await client.order({
         orders: [
@@ -365,6 +366,13 @@ export class HyperliquidTradingService {
       const isLong = size > 0;
       const limitPx = isLong ? markPx * 0.95 : markPx * 1.05;
 
+      const notionalUsd = absSize * markPx;
+      const closeBuilder = resolveHlOrderBuilder({
+        notionalUsd,
+        profitUsd: pnlUsd,
+        isClose: true,
+      });
+
       const client = createAgentClient(userAddress);
       const result = await client.order({
         orders: [
@@ -378,6 +386,7 @@ export class HyperliquidTradingService {
           },
         ],
         grouping: 'na',
+        ...(closeBuilder ? { builder: closeBuilder } : {}),
       });
 
       const status = result.response?.data?.statuses?.[0] as
@@ -400,10 +409,17 @@ export class HyperliquidTradingService {
         collateralUsd,
       };
 
+      const collectedFee =
+        closeBuilder && pnlUsd > 0
+          ? estimateCollectedSuccessFee(pnlUsd, notionalUsd, closeBuilder.f)
+          : 0;
+
       await recordHlBotClose({
         walletAddress: userAddress,
         reason,
         snapshot,
+        collectedFeeUsd: collectedFee,
+        viaHlBuilder: Boolean(closeBuilder),
       });
 
       logger.info('HL position closed', {
@@ -411,6 +427,7 @@ export class HyperliquidTradingService {
         coin,
         reason,
         pnl: pnlUsd.toFixed(4),
+        successFee: collectedFee > 0 ? collectedFee.toFixed(4) : '0',
       });
       return { success: true };
     } catch (err: unknown) {
