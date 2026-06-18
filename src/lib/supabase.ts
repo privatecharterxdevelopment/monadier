@@ -246,6 +246,16 @@ export const linkWalletToUser = async (userId: string, walletAddress: string, la
       error.message?.includes('idx_user_wallets_wallet_unique') ||
       error.message?.includes('duplicate key value');
     if (ownedByOther) {
+      const { data: retryOwn } = await supabase
+        .from('user_wallets')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('wallet_address', wallet)
+        .limit(1);
+      if (retryOwn && retryOwn.length > 0) {
+        await supabase.rpc('register_my_wallet', { p_wallet: wallet });
+        return { data: retryOwn, error: null };
+      }
       return {
         data: null,
         error: new Error('This wallet is already linked to another Monadier account.'),

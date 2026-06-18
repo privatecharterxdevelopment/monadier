@@ -124,17 +124,7 @@ export async function saveHlAgentApproval(params: {
     throw new Error('Sign in to Monadier before approving the trading agent.');
   }
 
-  const { error: registerError } = await supabase.rpc('register_my_wallet', { p_wallet: wallet });
-  if (registerError && !registerError.message.includes('Could not find the function')) {
-    if (/not authenticated/i.test(registerError.message)) {
-      throw new Error('Sign in to Monadier before approving the trading agent.');
-    }
-    if (/linked to another/i.test(registerError.message)) {
-      throw new Error(
-        'This wallet is linked to another Monadier account. Use that account or a different wallet.'
-      );
-    }
-  }
+  void supabase.rpc('register_my_wallet', { p_wallet: wallet });
 
   const { error } = await supabase.rpc('save_hl_agent_approval', {
     p_wallet_address: wallet,
@@ -147,16 +137,12 @@ export async function saveHlAgentApproval(params: {
   const useBotFallback =
     error.message.includes('Could not find the function') ||
     error.message.includes('schema cache') ||
-    /row-level security/i.test(error.message);
+    /row-level security/i.test(error.message) ||
+    /linked to another/i.test(error.message);
 
   if (!useBotFallback) {
     if (/not authenticated/i.test(error.message)) {
       throw new Error('Sign in to Monadier before approving the trading agent.');
-    }
-    if (/linked to another/i.test(error.message)) {
-      throw new Error(
-        'This wallet is linked to another Monadier account. Use that account or a different wallet.'
-      );
     }
     throw new Error(error.message);
   }

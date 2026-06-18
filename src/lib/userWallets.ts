@@ -76,14 +76,6 @@ export async function linkWalletToUserSafe(
     return { ok: true };
   }
 
-  if (registrationAttempted.has(key)) {
-    return {
-      ok: false,
-      code: 'owned_by_other',
-      error: 'This wallet is already linked to another Monadier account.',
-    };
-  }
-
   const { error } = await supabase.from('user_wallets').upsert(
     {
       user_id: userId,
@@ -95,7 +87,17 @@ export async function linkWalletToUserSafe(
 
   if (error) {
     if (isWalletUniqueViolation(error)) {
-      registrationAttempted.add(registrationKey(userId, wallet));
+      const { data: retryOwn } = await supabase
+        .from('user_wallets')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('wallet_address', wallet)
+        .limit(1);
+      if (retryOwn && retryOwn.length > 0) {
+        registrationAttempted.add(key);
+        return { ok: true };
+      }
+      registrationAttempted.add(key);
       return {
         ok: false,
         code: 'owned_by_other',
