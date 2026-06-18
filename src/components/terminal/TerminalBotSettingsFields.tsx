@@ -72,7 +72,7 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
     <>
       {walletConnected && !onArbitrum && (
         <p className={`${hintClass} ${isModal ? 'term-modal-note term-modal-note--warn' : 'term-hint--warn'}`}>
-          Settings save to your bot profile. Switch to Arbitrum to also sync the vault contract.
+          Settings save to your bot profile. Hyperliquid bot does not require Arbitrum vault sync.
         </p>
       )}
 
@@ -80,7 +80,7 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
         <div className={isModal ? 'term-modal-toggle-row' : 'term-panel-card term-panel-card--flat'}>
           <div>
             <p className={isModal ? 'term-modal-toggle-title' : labelClass}>Auto-trading</p>
-            <p className={hintClass}>Bot trades from vault balance on signals</p>
+            <p className={hintClass}>Bot trades from your Hyperliquid balance on signals</p>
           </div>
           <button
             type="button"
@@ -119,7 +119,7 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
       />
 
       <p className={labelClass}>Leverage (LVRG)</p>
-      <p className={`${hintClass} ${isModal ? 'mb-2' : ''}`}>Up to {maxLevLabel} via GMX.</p>
+      <p className={`${hintClass} ${isModal ? 'mb-2' : ''}`}>Up to {maxLevLabel} on Hyperliquid perps.</p>
       <div className={isModal ? undefined : 'term-panel-card term-panel-card--flat'}>
         <LeverageRangeSlider
           value={leverage}

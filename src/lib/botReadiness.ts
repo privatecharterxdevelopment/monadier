@@ -1,4 +1,5 @@
 import type { UnifiedSignal } from './signalService';
+import { MIN_HL_BOT_USD } from './hyperliquid/hlBotAgent';
 
 /** Matches bot aggressive strategy floor (see bot-service market STRATEGY_CONFIGS). */
 export const BOT_MIN_CONFIDENCE_AGGRESSIVE = 25;
@@ -30,6 +31,12 @@ function formatBlocker(blocker: string, resetSec?: number): string {
         : ' · Reset in ~5 Min.';
     return `${keeperCb[1]}× GMX Keeper Timeout — Bot wartet${wait}`;
   }
+  if (/HL agent not approved/i.test(blocker)) {
+    return 'Trading-Agent auf Hyperliquid noch nicht freigegeben';
+  }
+  if (/HL balance/i.test(blocker)) {
+    return blocker.replace(/HL balance/i, 'HL-Guthaben');
+  }
   if (/post-close cooldown/i.test(blocker)) {
     const sec = blocker.match(/(\d+)s/)?.[1];
     return sec ? `Cooldown nach Schließen: noch ${sec}s` : 'Cooldown nach Schließen aktiv';
@@ -37,8 +44,11 @@ function formatBlocker(blocker: string, resetSec?: number): string {
   if (/no trade signal/i.test(blocker)) {
     return 'Kein starkes MTF-Signal (min. 25% bot conf.)';
   }
+  if (/HL position open/i.test(blocker)) {
+    return `Offene HL-Position: ${blocker.replace(/HL position open:\s*/i, '')}`;
+  }
   if (/on-chain position open/i.test(blocker)) {
-    return `Offene On-Chain-Position: ${blocker.replace(/on-chain position open:\s*/i, '')}`;
+    return `Offene Position: ${blocker.replace(/on-chain position open:\s*/i, '')}`;
   }
   return blocker;
 }
@@ -76,7 +86,7 @@ export function evaluateBotReadiness(
     minVaultUsd?: number;
   }
 ): BotReadiness {
-  const minVault = opts.minVaultUsd ?? 50;
+  const minCapital = opts.minVaultUsd ?? MIN_HL_BOT_USD;
 
   if (!opts.autoTradeEnabled) {
     return {
@@ -94,11 +104,11 @@ export function evaluateBotReadiness(
     };
   }
 
-  if (opts.vaultUsd < minVault) {
+  if (opts.vaultUsd < minCapital) {
     return {
       canEnter: false,
-      headline: 'Vault zu niedrig',
-      detail: `Mindestens $${minVault} USDC im Vault für Bot-Trades.`,
+      headline: 'Einsatz zu niedrig',
+      detail: `Mindestens $${minCapital} USDC auf Hyperliquid für Bot-Trades.`,
     };
   }
 
@@ -112,7 +122,6 @@ export function evaluateBotReadiness(
 
   const conf = Math.round(signal.confidence);
   const mixed = signal.warnings?.some((w) => /conflict/i.test(w));
-  // Match bot aggressive gate: unified conf ≥25, clear direction (HOLD converted server-side).
   const strong = conf >= BOT_MIN_CONFIDENCE_AGGRESSIVE && signal.direction !== 'HOLD';
 
   if (strong) {

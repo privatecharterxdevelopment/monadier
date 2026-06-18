@@ -116,7 +116,7 @@ const NixoleBotConsole: React.FC<Props> = ({
 
         <div className="text-xs text-white/55 space-y-1 pt-1">
           <div className="flex justify-between">
-            <span>Vault</span>
+            <span>HL Einsatz</span>
             <strong className="text-white">{metrics.isLoading ? '—' : fmt(metrics.vaultUsd)}</strong>
           </div>
           <div className="flex justify-between">

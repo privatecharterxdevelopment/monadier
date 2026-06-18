@@ -69,8 +69,7 @@ const TerminalLvrgPanel: React.FC<Props> = ({
         </span>
         {outOfSync ? (
           <span className="term-panel-card-hint term-panel-card-hint--warn">
-            Einstellungen nur in DB — „Save bot settings“ auf Arbitrum bestätigen, damit Chain
-            mit {editor.leverage}x / {editor.riskLevel}% übereinstimmt.
+            Settings saved for the HL bot (database). Legacy vault on-chain sync is optional.
           </span>
         ) : null}
       </div>

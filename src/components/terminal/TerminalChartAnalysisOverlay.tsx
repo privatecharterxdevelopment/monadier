@@ -166,7 +166,7 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
         ) : null}
         {scanning && hasData && readiness?.circuitBreaker ? (
           <p className="term-analysis-hint term-analysis-hint--subtle">
-            Signal ({conf}% bot conf.) reicht nicht — GMX-Schutz blockiert neue Orders
+            Signal ({conf}% bot conf.) reicht nicht — Bot blockiert neue Orders
             {readiness.circuitBreakerResetSec
               ? ` · Reset in ~${Math.max(1, Math.ceil(readiness.circuitBreakerResetSec / 60))} Min.`
               : ''}

@@ -6,6 +6,7 @@ import { VaultClient, VAULT_CHAIN_ID, getArbitrumPublicClient } from '../lib/vau
 import { useWeb3 } from '../contexts/Web3Context';
 import { pickPrimaryVaultWallet } from '../lib/userWallets';
 import { fetchUserPositions } from '../lib/userPositions';
+import { fetchHlAccountState } from '../lib/hyperliquid/user';
 import {
   computePositionStats,
   fetchLiveTokenPrices,
@@ -13,7 +14,12 @@ import {
 } from '../lib/positionLivePnl';
 
 export type TradingDashboardMetrics = {
+  /** Hyperliquid account value — primary bot trading capital */
   vaultBalanceUsd: number;
+  /** HL withdrawable USDC */
+  withdrawableUsd: number;
+  /** Legacy GMX vault on Arbitrum (if any) */
+  legacyVaultUsd: number;
   openPositionValueUsd: number;
   openPositionsCount: number;
   avgLeverage: number;
@@ -32,6 +38,8 @@ export type TradingDashboardMetrics = {
 
 const defaultMetrics: TradingDashboardMetrics = {
   vaultBalanceUsd: 0,
+  withdrawableUsd: 0,
+  legacyVaultUsd: 0,
   openPositionValueUsd: 0,
   openPositionsCount: 0,
   avgLeverage: 1,
@@ -115,6 +123,9 @@ export function useTradingDashboardMetrics() {
 
       let vaultBalanceUsd = 0;
       let withdrawableUsd = 0;
+      let legacyVaultUsd = 0;
+      let hlOpenNotional = 0;
+      let hlOpenCount = 0;
 
       const queryWallet = (
         isDemoUser
@@ -125,6 +136,19 @@ export function useTradingDashboardMetrics() {
       let onChainAutoTrade = false;
       if (queryWallet) {
         try {
+          const hl = await fetchHlAccountState(queryWallet);
+          vaultBalanceUsd = parseFloat(hl.margin.accountValue) || 0;
+          withdrawableUsd = parseFloat(hl.withdrawable) || 0;
+          hlOpenCount = hl.positions.length;
+          hlOpenNotional = hl.positions.reduce(
+            (sum, p) => sum + Math.abs(parseFloat(p.positionValue) || 0),
+            0
+          );
+        } catch {
+          /* HL read optional */
+        }
+
+        try {
           const arbClient = getArbitrumPublicClient();
           const client = new VaultClient(
             arbClient as never,
@@ -132,16 +156,10 @@ export function useTradingDashboardMetrics() {
             VAULT_CHAIN_ID
           );
           const status = await client.getUserStatus(queryWallet);
-          vaultBalanceUsd = parseFloat(status.balanceFormatted || '0');
+          legacyVaultUsd = parseFloat(status.balanceFormatted || '0');
           onChainAutoTrade = status.autoTradeEnabled;
-          try {
-            const w = await client.getWithdrawable(queryWallet);
-            withdrawableUsd = parseFloat(w.formatted || '0');
-          } catch {
-            withdrawableUsd = vaultBalanceUsd;
-          }
         } catch {
-          /* vault read optional */
+          /* legacy vault optional */
         }
       }
 
@@ -156,8 +174,10 @@ export function useTradingDashboardMetrics() {
 
       setMetrics({
         vaultBalanceUsd,
-        openPositionValueUsd: openValue,
-        openPositionsCount: stats.openPositions,
+        withdrawableUsd,
+        legacyVaultUsd,
+        openPositionValueUsd: hlOpenCount > 0 ? hlOpenNotional : openValue,
+        openPositionsCount: hlOpenCount > 0 ? hlOpenCount : stats.openPositions,
         avgLeverage: avgLev,
         totalPnl: stats.totalProfit,
         realizedPnl: stats.realizedProfit,

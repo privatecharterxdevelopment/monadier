@@ -19,18 +19,18 @@ import TradingBotPage from './TradingBotPage';
 import Dashboard2Shell from '../../components/dashboard2/Dashboard2Shell';
 import type { Dashboard2SidebarSection } from '../../components/dashboard2/Dashboard2Sidebar';
 import TerminalBotSettingsModal from '../../components/terminal/TerminalBotSettingsModal';
-import TerminalDepositModal from '../../components/terminal/TerminalDepositModal';
-import TerminalWithdrawModal from '../../components/terminal/TerminalWithdrawModal';
+import ProTradeDepositModal from '../../components/protrade/ProTradeDepositModal';
 import TerminalSupportModal from '../../components/terminal/TerminalSupportModal';
 import TermNotificationsBell from '../../components/terminal/TermNotificationsBell';
 import { getAppEntryPath, goToOpenApp, OPEN_APP_PATH } from '../../lib/appUrls';
 import TerminalProfileOnboardingModal from '../../components/terminal/TerminalProfileOnboardingModal';
-import TerminalArbitrumBanner from '../../components/terminal/TerminalArbitrumBanner';
 import type { BotSetupPhase } from '../../components/terminal/TerminalBotSettingsModal';
 import { displayHandle } from '../../lib/username';
 import { useProfileOnboarding } from '../../hooks/useProfileOnboarding';
+import { useHlBotSetup } from '../../hooks/useHlBotSetup';
+import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
 
-const MIN_VAULT_USD = 50;
+const MIN_BOT_CAPITAL_USD = MIN_HL_BOT_USD;
 
 function fmtUsd(n: number) {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -56,7 +56,7 @@ const Dashboard2Page: React.FC = () => {
   const [historyTick, setHistoryTick] = useState(0);
   const [showBotSettings, setShowBotSettings] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
-  const [showWithdraw, setShowWithdraw] = useState(false);
+  const [depositTab, setDepositTab] = useState<'deposit' | 'withdraw'>('deposit');
   const [showSupport, setShowSupport] = useState(false);
   const [sidebarSection, setSidebarSection] = useState<Dashboard2SidebarSection>('trade');
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('trade');
@@ -65,6 +65,7 @@ const Dashboard2Page: React.FC = () => {
   const [chartSymbol, setChartSymbol] = useState('ETHUSDT');
 
   const vault = useTerminalVaultData(historyTick);
+  const hlSetup = useHlBotSetup(address ?? undefined);
   const { needsOnboarding } = useProfileOnboarding(profile, user, isDemoUser);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const showOnboarding =
@@ -103,7 +104,7 @@ const Dashboard2Page: React.FC = () => {
     metrics,
     hasOpenPosition,
     vaultUsd: metrics.vaultUsd,
-    vaultWallet: vault.wallet,
+    vaultWallet: address ?? vault.wallet,
     symbol: chartSymbol,
   });
 
@@ -134,13 +135,19 @@ const Dashboard2Page: React.FC = () => {
   const openDeposit = () => {
     setSidebarSection('deposit');
     if (!user && !isDemoUser) return;
-    requireWallet(() => setShowDeposit(true));
+    requireWallet(() => {
+      setDepositTab('deposit');
+      setShowDeposit(true);
+    });
   };
 
   const openWithdraw = () => {
     setSidebarSection('withdraw');
     if (!user && !isDemoUser) return;
-    requireWallet(() => setShowWithdraw(true));
+    requireWallet(() => {
+      setDepositTab('withdraw');
+      setShowDeposit(true);
+    });
   };
 
   useEffect(() => {
@@ -172,11 +179,11 @@ const Dashboard2Page: React.FC = () => {
 
   const botSetupPhase: BotSetupPhase = useMemo(() => {
     if (!walletReady) return 'connect';
-    if (metrics.isLoading || vault.isLoading) return 'loading';
-    if (!vault.onArbitrum) return 'network';
-    if (vault.vaultUsd < MIN_VAULT_USD) return 'fund';
+    if (metrics.isLoading || hlSetup.loading) return 'loading';
+    if (!hlSetup.agentApproved) return 'fund';
+    if (metrics.vaultUsd < MIN_BOT_CAPITAL_USD) return 'fund';
     return 'ready';
-  }, [walletReady, metrics.isLoading, vault.isLoading, vault.onArbitrum, vault.vaultUsd]);
+  }, [walletReady, metrics.isLoading, hlSetup.loading, hlSetup.agentApproved, metrics.vaultUsd]);
 
   return (
     <Dashboard2Shell
@@ -218,7 +225,7 @@ const Dashboard2Page: React.FC = () => {
                 type="button"
                 className="term-btn-sm"
                 onClick={openWithdraw}
-                disabled={metrics.isLoading || metrics.vaultUsd <= 0}
+                disabled={metrics.isLoading || metrics.hlWithdrawableUsd <= 0}
               >
                 <ArrowUpRight size={14} />
                 Withdraw
@@ -248,8 +255,6 @@ const Dashboard2Page: React.FC = () => {
             </div>
           </div>
 
-          {walletReady && !vault.onArbitrum && <TerminalArbitrumBanner />}
-
           <div className="term-market-bar-stats" role="region" aria-label="Account metrics">
             <div className="term-stats-group">
               <div className="term-stat">
@@ -259,9 +264,15 @@ const Dashboard2Page: React.FC = () => {
                 </span>
               </div>
               <div className="term-stat">
-                <span className="term-stat-label">Vault</span>
+                <span className="term-stat-label">HL Einsatz</span>
                 <span className="term-stat-value">
                   {metrics.isLoading ? '—' : fmtUsd(metrics.vaultUsd)}
+                </span>
+              </div>
+              <div className="term-stat">
+                <span className="term-stat-label">Withdrawable</span>
+                <span className="term-stat-value">
+                  {metrics.isLoading ? '—' : fmtUsd(metrics.hlWithdrawableUsd)}
                 </span>
               </div>
               <div className="term-stat">
@@ -329,6 +340,12 @@ const Dashboard2Page: React.FC = () => {
                 </span>
               </div>
             </div>
+            {metrics.legacyVaultUsd > 0 && (
+              <p className="term-hint term-hint--warn px-4 pb-2">
+                Legacy GMX vault: {fmtUsd(metrics.legacyVaultUsd)} on Arbitrum — not used by the HL
+                bot.
+              </p>
+            )}
           </div>
         </header>
 
@@ -392,9 +409,9 @@ const Dashboard2Page: React.FC = () => {
       {showBotSettings && (
         <TerminalBotSettingsModal
           setupPhase={botSetupPhase}
-          minVaultUsd={MIN_VAULT_USD}
+          minVaultUsd={MIN_BOT_CAPITAL_USD}
           settings={vault.settings}
-          walletAddress={vault.wallet}
+          walletAddress={address ?? vault.wallet}
           onClose={() => setShowBotSettings(false)}
           onSuccess={() => {
             setShowBotSettings(false);
@@ -403,7 +420,9 @@ const Dashboard2Page: React.FC = () => {
         />
       )}
       {showDeposit && (
-        <TerminalDepositModal
+        <ProTradeDepositModal
+          initialTab={depositTab}
+          withdrawable={metrics.hlWithdrawableUsd.toFixed(2)}
           onClose={() => {
             setShowDeposit(false);
             setSidebarSection('trade');
@@ -420,24 +439,6 @@ const Dashboard2Page: React.FC = () => {
       {showOnboarding && (
         <TerminalProfileOnboardingModal
           onComplete={() => setOnboardingDismissed(true)}
-        />
-      )}
-      {showWithdraw && (
-        <TerminalWithdrawModal
-          maxAmount={vault.vaultUsd.toFixed(2)}
-          balanceAmount={vault.balanceUsd.toFixed(2)}
-          hasActivePosition={hasOpenPosition}
-          onClose={() => {
-            setShowWithdraw(false);
-            setSidebarSection('trade');
-            setWorkspaceView('trade');
-          }}
-          onSuccess={() => {
-            setShowWithdraw(false);
-            setSidebarSection('trade');
-            setWorkspaceView('trade');
-            handleRefresh();
-          }}
         />
       )}
       {showSupport && (

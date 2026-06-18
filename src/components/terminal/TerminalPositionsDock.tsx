@@ -27,6 +27,7 @@ import {
 import DockCountBadge from '../protrade/DockCountBadge';
 import { useTerminalVaultData } from '../../hooks/useTerminalVaultData';
 import { useLinkedVaultOpenPositions } from '../../hooks/useLinkedVaultOpenPositions';
+import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import TerminalVaultActivity from './TerminalVaultActivity';
 import {
   closeMethodMessage,
@@ -209,6 +210,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
 
   const vaultWallet =
     pickPrimaryVaultWallet(queryWallets, address ?? vaultData.wallet) ?? vaultData.wallet;
+  const hlSetup = useHlBotSetup(vaultWallet ?? address ?? undefined);
 
   const mergedRows = useMemo(
     () => mergeChainAndDbRows(allRows, chainRows),
@@ -458,7 +460,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
 
   const dockTabs: { id: DockTab; label: string }[] = isHlSkin
     ? [
-        { id: 'vault', label: 'Vault balance' },
+        { id: 'vault', label: 'Trading capital' },
         { id: 'open', label: 'Open positions' },
         { id: 'history', label: 'Trade history' },
         { id: 'all', label: 'All trades' },
@@ -531,30 +533,44 @@ const TerminalPositionsDock: React.FC<Props> = ({
     tab === 'vault' ? (
       !hasWallet ? (
         <p className={emptyClass}>
-          {user ? 'Link a wallet in Profile to view vault balance' : 'Connect wallet to view vault balance'}
+          {user ? 'Link a wallet in Profile to view trading capital' : 'Connect wallet to view balance'}
         </p>
-      ) : vaultData.isLoading ? (
-        <p className={emptyClass}>Loading vault…</p>
+      ) : hlSetup.loading && vaultData.isLoading ? (
+        <p className={emptyClass}>Loading balances…</p>
       ) : (
         <>
           <table className={tableClass}>
             <thead>
               <tr>
-                <th>Asset</th>
+                <th>Source</th>
                 <th>Balance</th>
                 <th>Withdrawable</th>
-                <th>Max trade</th>
+                <th>Bot uses</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>USDC (Arbitrum vault)</td>
-                <td>{fmtUsd(vaultData.balanceUsd)}</td>
-                <td>{fmtUsd(vaultData.vaultUsd)}</td>
+                <td>Hyperliquid (bot)</td>
+                <td>{fmtUsd(hlSetup.accountUsd)}</td>
+                <td>{fmtUsd(hlSetup.withdrawableUsd)}</td>
                 <td>{fmtUsd(vaultData.maxTradeUsd)}</td>
               </tr>
+              {vaultData.balanceUsd > 0 ? (
+                <tr>
+                  <td>Legacy GMX vault</td>
+                  <td>{fmtUsd(vaultData.balanceUsd)}</td>
+                  <td>{fmtUsd(vaultData.vaultUsd)}</td>
+                  <td>—</td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
+          {vaultData.balanceUsd > 0 ? (
+            <p className={isHlSkin ? 'hl-dock-hint' : 'term-hint term-hint--warn'}>
+              Legacy vault on Arbitrum — bot trades on Hyperliquid only. Withdraw old vault funds if
+              needed.
+            </p>
+          ) : null}
           {activityWallet ? (
             <TerminalVaultActivity
               wallet={activityWallet}

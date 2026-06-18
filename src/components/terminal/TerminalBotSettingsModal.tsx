@@ -30,10 +30,10 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
   onSuccess,
 }) => {
   const setupHint: Record<BotSetupPhase, string> = {
-    connect: 'Connect your wallet to use the vault bot.',
-    loading: 'Syncing vault balance and settings…',
-    network: 'Switch to Arbitrum (ARB in the header).',
-    fund: `Deposit at least $${minVaultUsd} USDC into the vault.`,
+    connect: 'Connect your wallet to use the trading bot.',
+    loading: 'Loading Hyperliquid balance and settings…',
+    network: 'Bridge USDC to Hyperliquid (Arbitrum for deposit only).',
+    fund: `Deposit at least $${minVaultUsd} USDC on Hyperliquid and approve the trading agent.`,
     ready: 'Setup complete — adjust risk and LVRG settings below.',
   };
 

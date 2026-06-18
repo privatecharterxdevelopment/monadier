@@ -164,9 +164,6 @@ export function useBotSettingsEditor({
       setError(null);
       setNotice(null);
 
-      const canSyncChain =
-        !isDemoUser && Boolean(publicClient && walletClient) && onArbitrum;
-
       const result = await persistVaultSettings({
         settings: {
           walletAddress: saveWallet,
@@ -184,8 +181,8 @@ export function useBotSettingsEditor({
         walletClient,
         userAddress: saveWallet as `0x${string}`,
         isDemoUser,
-        syncTradingParams: tradingParamsChanged && canSyncChain,
-        syncAutoTrade: autoTrade !== baseline.autoTradeEnabled && canSyncChain,
+        syncTradingParams: false,
+        syncAutoTrade: false,
       });
 
       applySavedSnapshot(result.settings);

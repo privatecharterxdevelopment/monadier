@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAccount } from 'wagmi';
 import { useTerminalBotAnalysis } from '../../hooks/useTerminalBotAnalysis';
 import { useTerminalVaultData } from '../../hooks/useTerminalVaultData';
 import { hlCoinToBotSymbol } from '../../lib/botTradingPairs';
@@ -10,8 +11,9 @@ type Props = {
   perpCoin: string;
 };
 
-/** Live bot scan bar (signal, confidence %, RSI, triggers) under the GMX bot chart. */
+/** Live bot scan bar under the Pro Trade chart. */
 const ProTradeBotAnalysis: React.FC<Props> = ({ walletConnected, perpCoin }) => {
+  const { address } = useAccount();
   const { metrics, dockRefreshKey } = useProTradeBot();
   const vault = useTerminalVaultData(dockRefreshKey);
   const hasOpenPosition =
@@ -21,8 +23,8 @@ const ProTradeBotAnalysis: React.FC<Props> = ({ walletConnected, perpCoin }) => 
     walletConnected: walletConnected || metrics.autoTradeEnabled,
     metrics,
     hasOpenPosition,
-    vaultUsd: vault.vaultUsd,
-    vaultWallet: vault.wallet,
+    vaultUsd: metrics.vaultUsd,
+    vaultWallet: address ?? vault.wallet,
     symbol: hlCoinToBotSymbol(perpCoin),
   });
 

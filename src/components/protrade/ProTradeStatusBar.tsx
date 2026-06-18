@@ -70,11 +70,12 @@ const ProTradeStatusBar: React.FC<Props> = ({
     return (
       <footer className="hl-status">
         <div className="hl-status-left">
-          <span className="hl-status-mode hl-status-mode--bot">GMX Bot · Arbitrum</span>
+          <span className="hl-status-mode hl-status-mode--bot">HL Bot · Hyperliquid</span>
           <span className={running ? 'hl-up' : undefined}>
             {running ? 'Auto-trading on' : 'Auto-trading off'}
           </span>
-          <span>Vault {botMetrics.isLoading ? '—' : fmtUsd(botMetrics.vaultUsd)}</span>
+          <span>Einsatz {botMetrics.isLoading ? '—' : fmtUsd(botMetrics.vaultUsd)}</span>
+          <span>Withdraw {botMetrics.isLoading ? '—' : fmtUsd(botMetrics.hlWithdrawableUsd)}</span>
           <span>Open {botMetrics.openPositionsCount}</span>
           <span className={pnlUp ? 'hl-up' : 'hl-down'}>
             P/L {botMetrics.isLoading ? '—' : `${pnlUp ? '+' : ''}${fmtUsd(totalPnl)}`}

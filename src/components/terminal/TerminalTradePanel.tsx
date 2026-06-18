@@ -524,8 +524,7 @@ const TerminalTradePanel: React.FC<Props> = ({
             </div>
             {vault.balanceUsd > 0 && (
               <p className="term-hint term-hint--warn">
-                Legacy GMX vault: {fmt(vault.balanceUsd)} still on Arbitrum — withdraw via old vault
-                if needed.
+                Legacy GMX vault: {fmt(vault.balanceUsd)} on Arbitrum — not used by the HL bot.
               </p>
             )}
             <button
@@ -544,6 +543,10 @@ const TerminalTradePanel: React.FC<Props> = ({
       </div>
 
       <div className="term-trade-footer">
+        <div className="term-field-row">
+          <span>HL Einsatz</span>
+          <strong>{hlSetup.loading ? '—' : fmt(hlFundingUsd)}</strong>
+        </div>
         <div className="term-field-row">
           <span>Total P/L</span>
           <strong className={metrics.totalPnlUsd >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'}>
