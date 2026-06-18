@@ -73,5 +73,23 @@ export const config = {
   leverage: {
     standard: 25,  // 1x-25x for regular users
     elite: 100,    // 1x-100x for elite users (GMX)
-  }
+  },
+
+  /** hyperliquid = default bot execution; gmx = legacy vault (opens disabled by default) */
+  executionVenue: (process.env.EXECUTION_VENUE || 'hyperliquid') as 'hyperliquid' | 'gmx',
+  gmxOpensEnabled: process.env.GMX_OPENS_ENABLED === 'true',
+
+  hyperliquid: {
+    /** Seeds per-user agent keys — never expose to frontend */
+    agentMasterSecret:
+      process.env.HL_AGENT_MASTER_SECRET || process.env.BOT_PRIVATE_KEY!,
+    agentName: process.env.HL_AGENT_NAME || 'monadier',
+    /** Agent approval validity (days) */
+    agentValidityDays: Number(process.env.HL_AGENT_VALIDITY_DAYS || 90),
+    minAccountUsd: Number(process.env.HL_MIN_BOT_ACCOUNT_USD || 20),
+    infoUrl: process.env.HL_INFO_URL || 'https://api.hyperliquid.xyz/info',
+    builderAddress: (process.env.HL_BUILDER_ADDRESS ||
+      process.env.TREASURY_ADDRESS) as `0x${string}`,
+    builderFeePerp: Number(process.env.HL_BUILDER_FEE_PERP || 30),
+  },
 };

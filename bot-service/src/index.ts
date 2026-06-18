@@ -24,6 +24,10 @@ import {
   shouldTakeProfitOnPnl,
 } from './services/pnlExits';
 import { syncAutoTradeWalletsChainHistory } from './services/vaultChainHistorySync';
+import { hyperliquidTradingService } from './services/hlTrading';
+import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './services/hlAgent';
+import { hlAgentApprovalService } from './services/hlAgentApprovals';
+import { fetchHlClearinghouseState, hlAccountValueUsd, hlOpenPerpCoins } from './services/hlInfo';
 
 // Supabase client for position queries
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
@@ -126,7 +130,7 @@ const healthServer = http.createServer(async (req, res) => {
       tradesExecuted: totalTradesExecuted,
       circuitBreakerFailures: recentFailures,
       keeperTimeouts,
-      version: 'v11.0-gmx-arbitrum'
+      version: 'v12.0-hyperliquid-bot'
     };
     res.writeHead(200, corsHeaders);
     res.end(JSON.stringify(status));
@@ -162,6 +166,35 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  // API: Per-user Hyperliquid agent address (for approveAgent in app)
+  if (url.pathname === '/api/hl-agent') {
+    try {
+      const wallet = url.searchParams.get('wallet');
+      if (!wallet || !/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet query param required (0x…)' }));
+        return;
+      }
+      const userAddress = wallet.toLowerCase();
+      const agentAddress = deriveUserHlAgentAddress(userAddress);
+      res.writeHead(200, corsHeaders);
+      res.end(
+        JSON.stringify({
+          success: true,
+          wallet: userAddress,
+          agentAddress,
+          agentName: agentNameForUser(userAddress),
+          expiresAt: agentExpiresAt(),
+          executionVenue: config.executionVenue,
+        })
+      );
+    } catch (err: any) {
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'hl-agent failed' }));
+    }
+    return;
+  }
+
   // API: Diagnose why bot is not trading for a wallet
   // Usage: /api/bot-status?wallet=0x...
   if (url.pathname === '/api/bot-status') {
@@ -175,11 +208,14 @@ const healthServer = http.createServer(async (req, res) => {
 
       const userAddress = wallet.toLowerCase() as `0x${string}`;
       const chainId = 42161;
+      const hlMode = config.executionVenue === 'hyperliquid';
 
       const permission = await subscriptionService.canTrade(userAddress);
       const userId = await subscriptionService.getUserIdFromWallet(userAddress);
       const subscription = await subscriptionService.getSubscription(userAddress);
-      const vaultStatus = await tradingV7GMXService.getUserVaultStatus(userAddress);
+      const vaultStatus = hlMode
+        ? null
+        : await tradingV7GMXService.getUserVaultStatus(userAddress);
       const dbSettings = await subscriptionService.getUserTradingSettings(userAddress, chainId);
       const banStatus = await subscriptionService.getBotBanStatus(userAddress, chainId);
       const winRateGate = await checkWinRateGate(
@@ -189,26 +225,44 @@ const healthServer = http.createServer(async (req, res) => {
         dbSettings.minTradesForWinRateGate
       );
 
+      const hlBalanceUsd = hlMode
+        ? hlAccountValueUsd(await fetchHlClearinghouseState(userAddress))
+        : 0;
+      const hlAgentAddr = hlMode ? deriveUserHlAgentAddress(userAddress) : null;
+      const hlAgentOk =
+        hlMode && hlAgentAddr
+          ? await hlAgentApprovalService.isApproved(userAddress, hlAgentAddr)
+          : false;
+      const hlOpenCoins = hlMode
+        ? hlOpenPerpCoins(await fetchHlClearinghouseState(userAddress))
+        : [];
+
+      const collateralForSignal = hlMode
+        ? BigInt(Math.floor(Math.max(hlBalanceUsd, 0) * 1e6))
+        : vaultStatus?.balance ?? 0n;
+
       const ethSignal = await marketService.getSignal(
         chainId,
         V7_TOKENS.WETH as `0x${string}`,
-        vaultStatus?.balance ?? 0n,
+        collateralForSignal,
         10000,
         DEFAULT_STRATEGY
       );
       const btcSignal = await marketService.getSignal(
         chainId,
         V7_TOKENS.WBTC as `0x${string}`,
-        vaultStatus?.balance ?? 0n,
+        collateralForSignal,
         10000,
         DEFAULT_STRATEGY
       );
 
       const openDb = await positionService.getOpenPositions(userAddress, chainId);
       const onChainTokens: string[] = [];
-      for (const t of [V7_TOKENS.WETH, V7_TOKENS.WBTC] as const) {
-        if (await tradingV7GMXService.hasOpenPosition(userAddress, t)) {
-          onChainTokens.push(t === V7_TOKENS.WETH ? 'WETH' : 'WBTC');
+      if (!hlMode) {
+        for (const t of [V7_TOKENS.WETH, V7_TOKENS.WBTC] as const) {
+          if (await tradingV7GMXService.hasOpenPosition(userAddress, t)) {
+            onChainTokens.push(t === V7_TOKENS.WETH ? 'WETH' : 'WBTC');
+          }
         }
       }
 
@@ -228,10 +282,26 @@ const healthServer = http.createServer(async (req, res) => {
 
       const blockers: string[] = [];
       if (!permission.allowed) blockers.push(permission.reason || 'subscription');
-      if (!vaultStatus) blockers.push('vault status unavailable');
-      else if (vaultStatus.balance === 0n) blockers.push('vault balance is 0');
-      if (!vaultStatus?.autoTradeEnabled && !dbSettings.autoTradeEnabled) {
-        blockers.push('auto-trade disabled (on-chain and DB)');
+      if (hlMode) {
+        if (!hlAgentOk) blockers.push('HL agent not approved — enable bot in app');
+        if (hlBalanceUsd < config.hyperliquid.minAccountUsd) {
+          blockers.push(
+            `HL balance $${hlBalanceUsd.toFixed(2)} (min $${config.hyperliquid.minAccountUsd})`
+          );
+        }
+        if (!dbSettings.autoTradeEnabled) blockers.push('auto-trade disabled in settings');
+        if (hlOpenCoins.length > 0) {
+          blockers.push(`HL position open: ${hlOpenCoins.join(', ')}`);
+        }
+      } else {
+        if (!vaultStatus) blockers.push('vault status unavailable');
+        else if (vaultStatus.balance === 0n) blockers.push('vault balance is 0');
+        if (!vaultStatus?.autoTradeEnabled && !dbSettings.autoTradeEnabled) {
+          blockers.push('auto-trade disabled (on-chain and DB)');
+        }
+        if (onChainTokens.length > 0) {
+          blockers.push(`on-chain position open: ${onChainTokens.join(', ')}`);
+        }
       }
       if (banStatus.isBanned) {
         blockers.push(
@@ -239,10 +309,11 @@ const healthServer = http.createServer(async (req, res) => {
         );
       }
       if (!winRateGate.allowed) blockers.push(winRateGate.reason || 'win rate gate');
-      if (isCircuitBreakerActive()) {
+      if (!hlMode && isCircuitBreakerActive()) {
         blockers.push(circuitBreakerBlockerText());
       }
-      const circuitBreakerResetInSec = isCircuitBreakerActive()
+      const circuitBreakerResetInSec =
+        !hlMode && isCircuitBreakerActive()
           ? Math.max(
               0,
               Math.ceil(
@@ -253,10 +324,7 @@ const healthServer = http.createServer(async (req, res) => {
               )
             )
           : 0;
-      if (cooldownSec > 0) blockers.push(`post-close cooldown ${cooldownSec}s`);
-      if (onChainTokens.length > 0) {
-        blockers.push(`on-chain position open: ${onChainTokens.join(', ')}`);
-      }
+      if (cooldownSec > 0 && !hlMode) blockers.push(`post-close cooldown ${cooldownSec}s`);
       if (!ethSignal && !btcSignal) {
         blockers.push('no trade signal on WETH or WBTC (weak MTF / below 25% conf)');
       }
@@ -266,6 +334,7 @@ const healthServer = http.createServer(async (req, res) => {
         success: true,
         wallet: userAddress,
         userId: userId ? `${userId.slice(0, 8)}…` : null,
+        executionVenue: config.executionVenue,
         canTrade: permission.allowed && blockers.length === 0,
         blockers,
         permission,
@@ -275,6 +344,15 @@ const healthServer = http.createServer(async (req, res) => {
               status: subscription.status,
               totalTradesUsed: subscription.totalTradesUsed,
               dailyTradesRemaining: permission.dailyTradesRemaining,
+            }
+          : null,
+        hyperliquid: hlMode
+          ? {
+              balanceUsd: hlBalanceUsd,
+              agentAddress: hlAgentAddr,
+              agentApproved: hlAgentOk,
+              openCoins: hlOpenCoins,
+              minAccountUsd: config.hyperliquid.minAccountUsd,
             }
           : null,
         vault: vaultStatus
@@ -305,12 +383,12 @@ const healthServer = http.createServer(async (req, res) => {
             }
           : null,
         gates: {
-          circuitBreakerFailures: recentFailures,
-          keeperTimeouts,
+          circuitBreakerFailures: hlMode ? 0 : recentFailures,
+          keeperTimeouts: hlMode ? 0 : keeperTimeouts,
           circuitBreakerResetInSec,
-          cooldownSeconds: cooldownSec,
+          cooldownSeconds: hlMode ? 0 : cooldownSec,
           dbOpenPositions: openDb.length,
-          onChainOpenTokens: onChainTokens,
+          onChainOpenTokens: hlMode ? hlOpenCoins : onChainTokens,
         },
         timestamp: new Date().toISOString(),
       }));
@@ -358,6 +436,7 @@ healthServer.listen(PORT, () => {
   logger.info('Available endpoints:');
   logger.info('  GET /health - Health check');
   logger.info('  GET /api/signal?symbol=ETHUSDT&timeframes=1m,5m,15m,1h - MTF Signal');
+  logger.info('  GET /api/hl-agent?wallet=0x… - Per-user HL agent address');
   logger.info('  GET /api/bot-status?wallet=0x… - Wallet bot diagnostics');
   logger.info('  GET /api/timeframe?symbol=ETHUSDT&tf=15m - Single timeframe analysis');
 });
@@ -492,6 +571,9 @@ async function processUserTrades(
   chainId: number,
   userAddress: `0x${string}`
 ): Promise<void> {
+  if (!config.gmxOpensEnabled) {
+    return;
+  }
   try {
     // Only Arbitrum V7 is supported
     if (chainId !== 42161) {
@@ -1487,16 +1569,33 @@ async function runTradingCycle(): Promise<void> {
     // UPDATE ANALYSIS FOR ALL USERS TO SEE (before checking individual users)
     await updateBotAnalysis();
 
-    // Arbitrum Only - V8 GMX Vault
-    try {
-      const users = await tradingV7GMXService.getAutoTradeUsers();
-      logger.info(`Processing ${users.length} users on Arbitrum`);
-
-      for (const userAddress of users) {
-        await processUserTrades(config.arbitrum.chainId, userAddress);
+    // Hyperliquid bot (default) — no GMX keeper
+    if (config.executionVenue === 'hyperliquid') {
+      try {
+        const users = await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId);
+        logger.info(`HL bot: processing ${users.length} auto-trade user(s)`);
+        for (const wallet of users) {
+          await hyperliquidTradingService.processUser(wallet as `0x${string}`);
+        }
+      } catch (err) {
+        logger.error('Error in HL trading cycle', { error: err });
       }
-    } catch (err) {
-      logger.error('Error in trading cycle', { error: err });
+    }
+
+    // Legacy GMX vault opens (disabled unless GMX_OPENS_ENABLED=true)
+    if (config.gmxOpensEnabled) {
+      try {
+        const users = await tradingV7GMXService.getAutoTradeUsers();
+        logger.info(`GMX legacy: processing ${users.length} users on Arbitrum`);
+
+        for (const userAddress of users) {
+          await processUserTrades(config.arbitrum.chainId, userAddress);
+        }
+      } catch (err) {
+        logger.error('Error in GMX trading cycle', { error: err });
+      }
+    } else if (config.executionVenue !== 'hyperliquid') {
+      logger.debug('GMX opens disabled (set GMX_OPENS_ENABLED=true to re-enable)');
     }
 
     logger.info('Trading cycle complete');
@@ -1510,8 +1609,9 @@ async function runTradingCycle(): Promise<void> {
  */
 function logStartupInfo(): void {
   logger.info('='.repeat(50));
-  logger.info('Monadier Trading Bot - V11 GMX Vault');
-  logger.info('Arbitrum Only | GMX Perpetuals | 25x-50x Leverage');
+  logger.info('Monadier Trading Bot - Hyperliquid execution');
+  logger.info(`Venue: ${config.executionVenue} | GMX opens: ${config.gmxOpensEnabled ? 'on' : 'off'}`);
+  logger.info('Arbitrum vault monitoring legacy positions only');
   logger.info('='.repeat(50));
 
   logger.info('Configuration:', {
