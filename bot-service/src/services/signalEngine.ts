@@ -747,7 +747,7 @@ export class SignalEngine {
     const hasShort = tfDirections.includes('SHORT');
     if (hasLong && hasShort) {
       warnings.push('Conflicting signals: Some timeframes show LONG, others SHORT');
-      confidence = Math.max(25, confidence - 20); // Reduce confidence
+      confidence = Math.max(25, confidence - 10); // Softer penalty — was -20
     }
 
     // Calculate entry/exit levels

@@ -4,12 +4,17 @@ import { useAppKit } from '@reown/appkit/react';
 import type { VaultSettingsSnapshot } from '../../hooks/useTerminalVaultData';
 import TerminalBotSettingsFields from './TerminalBotSettingsFields';
 import { useBotSettingsEditor } from './useBotSettingsEditor';
+import { isVaultSettingsOutOfSync } from '../../lib/vaultSettingsSnapshot';
 
 type Props = {
   settings: VaultSettingsSnapshot;
   walletAddress?: string;
   vaultUsd?: number;
   maxTradeUsd?: number;
+  /** On-chain risk % (from vault contract) for sync warning */
+  riskPctOnChain?: number;
+  /** On-chain max leverage for sync warning */
+  chainMaxLeverage?: number;
   disabled?: boolean;
   onSaved: () => void;
 };
@@ -20,13 +25,35 @@ const TerminalLvrgPanel: React.FC<Props> = ({
   walletAddress,
   vaultUsd = 0,
   maxTradeUsd = 0,
+  riskPctOnChain = 5,
+  chainMaxLeverage = 10,
   disabled,
   onSaved,
 }) => {
   const { open } = useAppKit();
   const editor = useBotSettingsEditor({ settings, walletAddress, onSaved });
 
-  const estPosition = ((vaultUsd * editor.riskLevel) / 100) * editor.leverage;
+  const collateralUsd = (vaultUsd * editor.riskLevel) / 100;
+  const notionalUsd = collateralUsd * editor.leverage;
+  const outOfSync = isVaultSettingsOutOfSync(
+    {
+      riskPct: editor.riskLevel,
+      leverage: editor.leverage,
+      takeProfit: editor.takeProfit,
+      stopLoss: editor.stopLoss,
+      askPermission: editor.askPermission,
+      minWinRate: editor.minWinRate,
+      minTradesForWinRate: editor.minTradesForWinRate,
+      autoTradeEnabled: editor.autoTrade,
+    },
+    {
+      riskLevelPercent: riskPctOnChain,
+      maxLeverage: chainMaxLeverage,
+      takeProfitPercent: settings.takeProfit,
+      stopLossPercent: settings.stopLoss,
+      autoTradeEnabled: settings.autoTradeEnabled,
+    }
+  );
 
   return (
     <div className={`term-panel-stack ${disabled ? 'term-panel-stack--locked' : ''}`}>
@@ -34,9 +61,18 @@ const TerminalLvrgPanel: React.FC<Props> = ({
         <span className="term-panel-card-label">Bot settings</span>
         <strong className="term-panel-card-value">{editor.leverage}x LVRG</strong>
         <span className="term-panel-card-hint">
-          Risk {editor.riskLevel}% · Est. position ${estPosition.toFixed(0)} · Max trade $
-          {maxTradeUsd.toFixed(2)}
+          Risk {editor.riskLevel}% · Collateral ~${collateralUsd.toFixed(2)} · Notional ~$
+          {notionalUsd.toFixed(0)}
+          {outOfSync && maxTradeUsd > 0
+            ? ` · On-chain noch ${riskPctOnChain}% / ${chainMaxLeverage}x (max $${maxTradeUsd.toFixed(2)})`
+            : ''}
         </span>
+        {outOfSync ? (
+          <span className="term-panel-card-hint term-panel-card-hint--warn">
+            Einstellungen nur in DB — „Save bot settings“ auf Arbitrum bestätigen, damit Chain
+            mit {editor.leverage}x / {editor.riskLevel}% übereinstimmt.
+          </span>
+        ) : null}
       </div>
 
       <TerminalBotSettingsFields

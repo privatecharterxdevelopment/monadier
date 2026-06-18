@@ -30,7 +30,7 @@ const CYCLE_MS = 2400;
 const TF_LINE_RE = /^(1m|5m|15m|1h|4h): /i;
 
 function formatTfLine(tf: UnifiedSignal['timeframes'][number]) {
-  return `${tf.timeframe}: ${tf.direction} (${Math.round(tf.confidence)}% conf, RSI: ${Math.round(tf.rsi)})`;
+  return `TF ${tf.timeframe}: ${tf.direction} (${Math.round(tf.confidence)}% conf, RSI: ${Math.round(tf.rsi)})`;
 }
 
 function slidesFromSignal(signal: UnifiedSignal | null): string[] {
@@ -152,6 +152,11 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
         )}
         {scanning && readiness?.detail ? (
           <p className="term-analysis-hint">{readiness.detail}</p>
+        ) : null}
+        {scanning && hasData ? (
+          <p className="term-analysis-hint term-analysis-hint--subtle">
+            Rotierende Zeilen = einzelne Timeframes · Entscheidend ist „{conf}% bot conf.“ oben
+          </p>
         ) : null}
         <div
           className={`term-analysis-meta ${showCycle ? 'term-analysis-meta--cycle' : ''}`}

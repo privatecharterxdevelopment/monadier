@@ -87,6 +87,39 @@ const STRATEGY_CONFIGS = {
   }
 };
 
+/** Aggressive/risky: allow strong single-TF signal when unified MTF is HOLD or low. */
+function applyAggressiveTfBoost(
+  signal: UnifiedSignal,
+  strategy: TradingStrategy
+): { direction: 'LONG' | 'SHORT' | 'HOLD'; confidence: number } {
+  if (strategy !== 'aggressive' && strategy !== 'risky') {
+    return { direction: signal.direction, confidence: signal.confidence };
+  }
+
+  const directional = signal.timeframes
+    .filter((tf) => tf.direction === 'LONG' || tf.direction === 'SHORT')
+    .sort((a, b) => b.confidence - a.confidence);
+
+  const best = directional[0];
+  if (!best || best.confidence < 45) {
+    return { direction: signal.direction, confidence: signal.confidence };
+  }
+
+  const boostedConf = Math.max(
+    signal.confidence,
+    Math.round(best.confidence * 0.9)
+  );
+
+  if (signal.direction === 'HOLD' || signal.confidence < STRATEGY_CONFIGS[strategy].minConfidence) {
+    return {
+      direction: best.direction as 'LONG' | 'SHORT',
+      confidence: boostedConf,
+    };
+  }
+
+  return { direction: signal.direction, confidence: boostedConf };
+}
+
 // Token config - ARBITRUM ONLY
 const TOKEN_SYMBOLS: Record<number, Record<string, string>> = {
   // ARBITRUM - Active
@@ -1108,7 +1141,9 @@ export async function analyzeMarketMTF(
   try {
     // Generate unified signal from multiple timeframes
     const timeframes: Timeframe[] = ['1m', '5m', '15m', '1h'];
-    const signal = await signalEngine.generateSignal(symbol, timeframes);
+    const rawSignal = await signalEngine.generateSignal(symbol, timeframes);
+    const boosted = applyAggressiveTfBoost(rawSignal, strategy);
+    const signal = { ...rawSignal, direction: boosted.direction, confidence: boosted.confidence };
 
     if (!signal || signal.confidence === 0) {
       logger.warn('SignalEngine returned empty signal', { symbol });

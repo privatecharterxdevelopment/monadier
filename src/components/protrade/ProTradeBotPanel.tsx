@@ -407,6 +407,8 @@ const ProTradeBotPanel: React.FC<Props> = ({
                   walletAddress={vault.wallet}
                   vaultUsd={vault.vaultUsd}
                   maxTradeUsd={vault.maxTradeUsd}
+                  riskPctOnChain={vault.riskPctOnChain}
+                  chainMaxLeverage={vault.chainMaxLeverage}
                   disabled={vault.isLoading}
                   onSaved={refreshAll}
                 />

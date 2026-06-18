@@ -1917,6 +1917,11 @@
   color: var(--term-text-muted, #6b7280);
 }
 
+.term-analysis-hint--subtle {
+  font-size: 10px;
+  opacity: 0.85;
+}
+
 .term-analysis-pulse {
   color: var(--term-text-muted);
   flex-shrink: 0;
@@ -2626,6 +2631,11 @@
   font-size: 11px;
   color: var(--term-text-muted);
   line-height: 1.4;
+}
+
+.term-panel-card-hint--warn {
+  margin-top: 6px;
+  color: #f59e0b;
 }
 
 /* Bot tab — risk / LVRG / TP / SL (minimal, matches terminal UI) */

@@ -67,3 +67,17 @@ export function snapshotFromVaultSettingsRow(row: VaultSettingsRow): VaultSettin
     autoTradeEnabled: false,
   });
 }
+
+/** True when DB bot settings differ from on-chain vault (user must sign setSettings on Arbitrum). */
+export function isVaultSettingsOutOfSync(
+  db: VaultSettingsSnapshot,
+  onChain: OnChainVaultSettingsFallback
+): boolean {
+  const dbRiskBps = Math.round(db.riskPct * 100);
+  const chainRiskBps = Math.round(onChain.riskLevelPercent * 100);
+  if (Math.abs(dbRiskBps - chainRiskBps) > 50) return true;
+  if (Math.abs(db.leverage - onChain.maxLeverage) >= 5) return true;
+  if (Math.abs(db.takeProfit - onChain.takeProfitPercent) > 0.25) return true;
+  if (Math.abs(db.stopLoss - onChain.stopLossPercent) > 0.25) return true;
+  return false;
+}

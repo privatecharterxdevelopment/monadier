@@ -449,6 +449,8 @@ const TerminalTradePanel: React.FC<Props> = ({
               walletAddress={vault.wallet}
               vaultUsd={vaultFundingUsd}
               maxTradeUsd={vault.maxTradeUsd}
+              riskPctOnChain={vault.riskPctOnChain}
+              chainMaxLeverage={vault.chainMaxLeverage}
               disabled={walletReady && vault.isLoading}
               onSaved={refreshAll}
             />

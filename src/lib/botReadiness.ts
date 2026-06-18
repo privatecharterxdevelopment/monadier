@@ -54,32 +54,26 @@ export function evaluateBotReadiness(
 
   const conf = Math.round(signal.confidence);
   const mixed = signal.warnings?.some((w) => /conflict/i.test(w));
-  const aligned = signal.trendAlignment >= 50;
-  const strong =
-    conf >= BOT_MIN_CONFIDENCE_AGGRESSIVE &&
-    signal.direction !== 'HOLD' &&
-    aligned &&
-    !mixed;
+  // Match bot aggressive gate: unified conf ≥25, clear direction (HOLD converted server-side).
+  const strong = conf >= BOT_MIN_CONFIDENCE_AGGRESSIVE && signal.direction !== 'HOLD';
 
   if (strong) {
     return {
       canEnter: true,
       headline: 'Bereit für Einstieg',
-      detail: `${signal.direction} · ${conf}% bot conf · wartet auf nächsten Bot-Zyklus (~10s)`,
+      detail: `${signal.direction} · ${conf}% bot conf · nächster Zyklus ~10s${mixed ? ' (TFs gemischt)' : ''}`,
     };
   }
 
   const parts: string[] = [];
   if (conf < BOT_MIN_CONFIDENCE_AGGRESSIVE) {
-    parts.push(`bot conf ${conf}% (Ziel ≥${BOT_MIN_CONFIDENCE_AGGRESSIVE}%)`);
+    parts.push(`bot conf ${conf}% (min ${BOT_MIN_CONFIDENCE_AGGRESSIVE}%)`);
   }
   if (signal.direction === 'HOLD') {
-    parts.push('keine klare Richtung');
+    parts.push('keine klare Richtung im MTF-Signal');
   }
   if (mixed) {
-    parts.push('Timeframes widersprechen sich');
-  } else if (!aligned) {
-    parts.push(`Trend-Alignment ${Math.round(signal.trendAlignment)}%`);
+    parts.push('Timeframes widersprechen sich — Einzel-TF % zählt nicht');
   }
 
   return {

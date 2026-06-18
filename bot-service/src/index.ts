@@ -124,6 +124,7 @@ const healthServer = http.createServer(async (req, res) => {
       uptime: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
       lastCheck: new Date(lastTradeCheck).toISOString(),
       tradesExecuted: totalTradesExecuted,
+      circuitBreakerFailures: recentFailures,
       version: 'v11.0-gmx-arbitrum'
     };
     res.writeHead(200, corsHeaders);
@@ -194,6 +195,28 @@ const healthServer = http.createServer(async (req, res) => {
         10000,
         DEFAULT_STRATEGY
       );
+      const btcSignal = await marketService.getSignal(
+        chainId,
+        V7_TOKENS.WBTC as `0x${string}`,
+        vaultStatus?.balance ?? 0n,
+        10000,
+        DEFAULT_STRATEGY
+      );
+
+      const openDb = await positionService.getOpenPositions(userAddress, chainId);
+      const onChainTokens: string[] = [];
+      for (const t of [V7_TOKENS.WETH, V7_TOKENS.WBTC] as const) {
+        if (await tradingV7GMXService.hasOpenPosition(userAddress, t)) {
+          onChainTokens.push(t === V7_TOKENS.WETH ? 'WETH' : 'WBTC');
+        }
+      }
+
+      const closeCooldownKey = `${userAddress}-42161-close`;
+      const lastClose = lastTradeTimestamp.get(closeCooldownKey);
+      const cooldownSec =
+        lastClose && Date.now() - lastClose < TRADE_COOLDOWN_MS
+          ? Math.ceil((TRADE_COOLDOWN_MS - (Date.now() - lastClose)) / 1000)
+          : 0;
 
       const blockers: string[] = [];
       if (!permission.allowed) blockers.push(permission.reason || 'subscription');
@@ -202,9 +225,22 @@ const healthServer = http.createServer(async (req, res) => {
       if (!vaultStatus?.autoTradeEnabled && !dbSettings.autoTradeEnabled) {
         blockers.push('auto-trade disabled (on-chain and DB)');
       }
-      if (banStatus.isBanned) blockers.push('bot banned (manual close cooldown)');
+      if (banStatus.isBanned) {
+        blockers.push(
+          `bot banned until ${banStatus.bannedUntil?.toISOString() ?? 'unknown'}`
+        );
+      }
       if (!winRateGate.allowed) blockers.push(winRateGate.reason || 'win rate gate');
-      if (!ethSignal) blockers.push('no trade signal (weak or HOLD)');
+      if (recentFailures >= MAX_FAILED_BEFORE_STOP) {
+        blockers.push(`circuit breaker (${recentFailures} recent GMX failures)`);
+      }
+      if (cooldownSec > 0) blockers.push(`post-close cooldown ${cooldownSec}s`);
+      if (onChainTokens.length > 0) {
+        blockers.push(`on-chain position open: ${onChainTokens.join(', ')}`);
+      }
+      if (!ethSignal && !btcSignal) {
+        blockers.push('no trade signal on WETH or WBTC (weak MTF / below 25% conf)');
+      }
 
       res.writeHead(200, corsHeaders);
       res.end(JSON.stringify({
@@ -242,6 +278,19 @@ const healthServer = http.createServer(async (req, res) => {
               reason: ethSignal.reason,
             }
           : null,
+        btcSignal: btcSignal
+          ? {
+              direction: btcSignal.direction,
+              confidence: btcSignal.confidence,
+              reason: btcSignal.reason,
+            }
+          : null,
+        gates: {
+          circuitBreakerFailures: recentFailures,
+          cooldownSeconds: cooldownSec,
+          dbOpenPositions: openDb.length,
+          onChainOpenTokens: onChainTokens,
+        },
         timestamp: new Date().toISOString(),
       }));
     } catch (err: any) {
@@ -452,9 +501,29 @@ async function processUserTrades(
       }
     }
 
-    // Also add DB positions
+    // Also add DB positions — only when vault still has them (stale DB rows must not block)
     for (const pos of openPositions) {
-      tokensWithPositions.add(pos.token_address.toLowerCase());
+      const addr = pos.token_address.toLowerCase();
+      if (tokensWithPositions.has(addr)) continue;
+
+      const stillOnChain = await tradingV7GMXService.hasOpenPosition(
+        userAddress,
+        pos.token_address as `0x${string}`
+      );
+      if (stillOnChain) {
+        tokensWithPositions.add(addr);
+        continue;
+      }
+
+      logger.warn('Stale DB open position — not blocking new trades', {
+        user: userAddress.slice(0, 10),
+        positionId: pos.id?.slice(0, 8),
+        token: pos.token_symbol,
+      });
+      const price = await tradingV7GMXService.getTokenPrice(pos.token_address as `0x${string}`);
+      void positionService
+        .syncPositionsWithChain(userAddress, chainId, pos.token_address, price?.max || 0)
+        .catch(() => undefined);
     }
 
     // If ANY position exists, wait for it to close (only 1 at a time)
