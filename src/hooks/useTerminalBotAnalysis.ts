@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { VAULT_CHAIN_ID } from '../lib/vault';
 import { useUnifiedSignal } from './useUnifiedSignal';
 import { evaluateBotReadiness, readinessFromServerBlockers } from '../lib/botReadiness';
+import { MIN_HL_BOT_USD } from '../lib/hyperliquid/hlBotAgent';
 import { getBotApiBase, type Timeframe } from '../lib/signalService';
 
 export const ANALYSIS_STEPS = [
@@ -34,6 +35,9 @@ type Options = {
   /** Connected wallet the bot trades on (0x…) */
   vaultWallet?: string | null;
   symbol?: string;
+  /** Show live scan bar (funded + agent, or bot running). */
+  analysisActive?: boolean;
+  botRunning?: boolean;
 };
 
 export function useTerminalBotAnalysis({
@@ -43,19 +47,22 @@ export function useTerminalBotAnalysis({
   vaultUsd = 0,
   vaultWallet,
   symbol = 'ETHUSDT',
+  analysisActive,
+  botRunning = false,
 }: Options) {
   const [dbAnalysis, setDbAnalysis] = useState<DbAnalysis | null>(null);
   const [serverBlockers, setServerBlockers] = useState<string[]>([]);
   const [step, setStep] = useState(0);
   const [progress, setProgress] = useState(ANALYSIS_STEPS[0].progress);
 
-  const scanning = metrics.autoTradeEnabled;
+  const active = analysisActive ?? metrics.autoTradeEnabled;
+  const scanning = active;
 
   const { signal, isLoading } = useUnifiedSignal({
     symbol,
     timeframes: MTF_TIMEFRAMES,
     refreshInterval: 30000,
-    autoRefresh: walletConnected || metrics.autoTradeEnabled,
+    autoRefresh: walletConnected && active,
   });
 
   useEffect(() => {
@@ -91,7 +98,7 @@ export function useTerminalBotAnalysis({
   }, []);
 
   useEffect(() => {
-    if (!vaultWallet || !metrics.autoTradeEnabled) {
+    if (!vaultWallet || !botRunning) {
       setServerBlockers([]);
       return;
     }
@@ -110,17 +117,24 @@ export function useTerminalBotAnalysis({
     void load();
     const id = setInterval(load, 30000);
     return () => clearInterval(id);
-  }, [vaultWallet, metrics.autoTradeEnabled]);
+  }, [vaultWallet, botRunning]);
 
   const readiness = useMemo(() => {
     const local = evaluateBotReadiness(signal, {
-      autoTradeEnabled: metrics.autoTradeEnabled,
+      autoTradeEnabled: botRunning,
       hasOpenPosition,
       vaultUsd,
     });
+    if (!botRunning && vaultUsd >= MIN_HL_BOT_USD) {
+      return {
+        canEnter: false,
+        headline: 'Bot off',
+        detail: 'Press Start bot to trade on these signals.',
+      };
+    }
     if (serverBlockers.length === 0) return local;
     return readinessFromServerBlockers(serverBlockers);
-  }, [signal, metrics.autoTradeEnabled, hasOpenPosition, vaultUsd, serverBlockers]);
+  }, [signal, botRunning, hasOpenPosition, vaultUsd, serverBlockers]);
 
   return {
     scanning,

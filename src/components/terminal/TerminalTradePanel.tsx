@@ -95,11 +95,15 @@ const TerminalTradePanel: React.FC<Props> = ({
   const wallet = botSettings.wallet;
   const hlFundingUsd = hlSetup.accountUsd;
   const autoTradeDb = botSettings.settings.autoTradeEnabled;
+  /** Metrics hook reads the same DB row Railway uses — prefer it when loaded. */
+  const autoTradeOn = metrics.isLoading ? autoTradeDb : metrics.autoTradeEnabled;
   const botRunning = effectiveHlBotRunning(
-    autoTradeDb,
+    autoTradeOn,
     hlFundingUsd,
     hlSetup.agentApproved
   );
+  const botSyncMismatch =
+    !metrics.isLoading && autoTradeDb !== metrics.autoTradeEnabled;
   const timerWallet = wallet ?? address ?? undefined;
   const botRuntime = useBotRuntimeTimer(timerWallet, Boolean(walletReady && botRunning));
   const serverBlockers = useBotServerBlockers(timerWallet, Boolean(botRunning));
@@ -291,6 +295,14 @@ const TerminalTradePanel: React.FC<Props> = ({
   const persistBotRunning = async (autoTradeEnabled: boolean) => {
     if (!wallet) throw new Error('Connect your wallet first.');
     const s = botSettings.settings;
+    if (autoTradeEnabled) {
+      if (!isHlBotReadyToRun(hlFundingUsd, hlSetup.agentApproved)) {
+        throw new Error('Deposit USDC on Hyperliquid and approve the agent before starting the bot.');
+      }
+      await enableHlBotExecution(wallet);
+    } else {
+      await disableHlBotExecution(wallet);
+    }
     await persistVaultSettings({
       settings: {
         walletAddress: wallet,
@@ -311,14 +323,6 @@ const TerminalTradePanel: React.FC<Props> = ({
       syncTradingParams: false,
       syncAutoTrade: false,
     });
-    if (autoTradeEnabled) {
-      if (!isHlBotReadyToRun(hlFundingUsd, hlSetup.agentApproved)) {
-        throw new Error('Deposit USDC on Hyperliquid and approve the agent before starting the bot.');
-      }
-      await enableHlBotExecution(wallet);
-    } else {
-      await disableHlBotExecution(wallet);
-    }
   };
 
   const handleStartBot = async () => {
@@ -460,6 +464,11 @@ const TerminalTradePanel: React.FC<Props> = ({
                 {sidebarStatus.headline}
               </strong>
               <p className="hl-bot-status-detail">{sidebarStatus.detail}</p>
+              {botSyncMismatch && (
+                <p className="term-hint term-hint--warn">
+                  Bot state out of sync — press Start bot again to register with the server.
+                </p>
+              )}
               {walletReady && (
                 <p className="term-panel-card-hint">
                   HL balance {fmt(hlFundingUsd)} · withdrawable {fmt(hlSetup.withdrawableUsd)}
