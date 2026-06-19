@@ -11,9 +11,8 @@ import type {
   HlUserFill,
 } from '../../lib/hyperliquid/user';
 import { isHlTriggerOrder } from '../../lib/hyperliquid/user';
-import { fmtLeverage, fmtPrice, fmtTimeMs, fmtUsdSymbol, fmtClosedPnl, fmtFillAction, isHlFillOpen } from '../../lib/hyperliquid/format';
+import { fmtLeverage, fmtPrice, fmtSize, fmtTimeMs, fmtUsdSymbol, fmtClosedPnl, fmtFillAction, isHlFillOpen } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
-import type { HlPosition } from '../../lib/hyperliquid/user';
 import DockCountBadge from './DockCountBadge';
 
 function livePositionPnl(position: HlPosition, markPx: number): number {
@@ -243,6 +242,7 @@ const ProTradeDock: React.FC<Props> = ({
               <thead>
                 <tr>
                   <th>Coin</th>
+                  <th>Side</th>
                   <th>Size</th>
                   <th>Value</th>
                   <th>Entry</th>
@@ -264,7 +264,8 @@ const ProTradeDock: React.FC<Props> = ({
                           {p.coin}
                         </button>
                       </td>
-                      <td className={isLong ? 'hl-up' : 'hl-down'}>{p.szi}</td>
+                      <td className={isLong ? 'hl-up' : 'hl-down'}>{isLong ? 'LONG' : 'SHORT'}</td>
+                      <td>{fmtSize(Math.abs(toNum(p.szi)))}</td>
                       <td>{fmtUsdSymbol(p.positionValue)}</td>
                       <td>{fmtPrice(p.entryPx)}</td>
                       <td>{mark > 0 ? fmtPrice(mark) : '—'}</td>
