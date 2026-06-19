@@ -247,9 +247,7 @@ const healthServer = http.createServer(async (req, res) => {
       const userAddress = wallet.toLowerCase() as `0x${string}`;
       const chainId = 42161;
 
-      const permission = await subscriptionService.canTrade(userAddress);
       const userId = await subscriptionService.getUserIdFromWallet(userAddress);
-      const subscription = await subscriptionService.getSubscription(userAddress);
       const dbSettings = await subscriptionService.getUserTradingSettings(userAddress, chainId);
       const banStatus = await subscriptionService.getBotBanStatus(userAddress, chainId);
       const winRateGate = await checkWinRateGate(
@@ -290,7 +288,6 @@ const healthServer = http.createServer(async (req, res) => {
       const openDb = await positionService.getOpenPositions(userAddress, chainId);
 
       const blockers: string[] = [];
-      if (!permission.allowed) blockers.push(permission.reason || 'subscription');
       if (!hlAgentOk) blockers.push('HL agent not approved — enable bot in app');
       if (builderGate.required && !builderGate.approved) {
         blockers.push('HL builder fee not approved — approve platform fee in Bot panel');
@@ -335,17 +332,8 @@ const healthServer = http.createServer(async (req, res) => {
         wallet: userAddress,
         userId: userId ? `${userId.slice(0, 8)}…` : null,
         executionVenue: 'hyperliquid',
-        canTrade: permission.allowed && blockers.length === 0,
+        canTrade: blockers.length === 0,
         blockers,
-        permission,
-        subscription: subscription
-          ? {
-              planTier: subscription.planTier,
-              status: subscription.status,
-              totalTradesUsed: subscription.totalTradesUsed,
-              dailyTradesRemaining: permission.dailyTradesRemaining,
-            }
-          : null,
         hyperliquid: {
           balanceUsd: hlBalanceUsd,
           agentAddress: hlAgentAddr,

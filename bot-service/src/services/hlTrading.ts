@@ -83,11 +83,6 @@ export class HyperliquidTradingService {
       };
     }
 
-    const permission = await subscriptionService.canTrade(userAddress as `0x${string}`);
-    if (!permission.allowed) {
-      return { ok: false, reason: permission.reason || 'subscription' };
-    }
-
     const state = await fetchHlClearinghouseState(userAddress);
     const acct = hlAccountValueUsd(state);
     if (acct < config.hyperliquid.minAccountUsd) {
@@ -260,7 +255,6 @@ export class HyperliquidTradingService {
         reason: opts.reason,
       });
 
-      await subscriptionService.recordTrade(opts.userAddress);
       return { success: true };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

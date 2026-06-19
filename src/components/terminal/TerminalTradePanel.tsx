@@ -18,7 +18,6 @@ import { useWeb3 } from '../../contexts/Web3Context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { persistVaultSettings } from '../../lib/syncVaultSettings';
-import { ensureBotSubscription } from '../../lib/ensureBotSubscription';
 import {
   disableHlBotExecution,
   enableHlBotExecution,
@@ -420,7 +419,6 @@ const TerminalTradePanel: React.FC<Props> = ({
         builderFeeApproved = true;
       }
 
-      await ensureBotSubscription();
       await persistBotRunning(true, { agentApproved, builderFeeApproved });
       markBotRuntimeStarted(timerWallet ?? wallet);
       if (!readHlBotOnboardingComplete(onboardingKey)) {
