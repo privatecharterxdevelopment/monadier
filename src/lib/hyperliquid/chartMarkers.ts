@@ -160,30 +160,8 @@ export async function fetchHlChartMarkers(
 }
 
 export async function persistChartMarkerFromFill(
-  wallet: string,
-  fill: HlUserFill
+  _wallet: string,
+  _fill: HlUserFill
 ): Promise<void> {
-  if (chartMarkersDbAvailable === false) return;
-
-  const marker = fillToChartMarker(fill);
-  if (!marker) return;
-
-  const { error } = await supabase.from('hl_bot_chart_markers').upsert(
-    {
-      wallet_address: wallet.toLowerCase(),
-      coin: fill.coin.toUpperCase(),
-      event_type: marker.eventType,
-      direction: marker.direction,
-      price: marker.price,
-      pnl_usd: marker.pnlUsd,
-      event_ts: new Date(marker.eventMs).toISOString(),
-      source: 'hyperliquid',
-      fill_tid: fill.tid ?? null,
-    },
-    { onConflict: 'wallet_address,coin,event_type,event_ts,price', ignoreDuplicates: true }
-  );
-
-  if (error && isMissingChartMarkersTable(error)) {
-    chartMarkersDbAvailable = false;
-  }
+  /* Markers come from HL fills on-chart; bot-service persists via service role. */
 }

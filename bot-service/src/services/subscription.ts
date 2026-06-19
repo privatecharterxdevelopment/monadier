@@ -3,12 +3,12 @@ import { randomUUID } from 'crypto';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 
-/** Legacy env defaults used 0.2% TP — treat sub-1% as misconfiguration unless user set SL-style values. */
+/** Legacy 0.2% env default or 1% mis-sync with LVRG UI — too tight on HL. */
 function normalizeHlTakeProfitPercent(raw: number | null | undefined): number {
   const fallback = config.hyperliquid.defaultTakeProfitPercent;
   if (raw == null || !Number.isFinite(Number(raw))) return fallback;
   const v = Number(raw);
-  if (v > 0 && v < 1) return fallback;
+  if (v > 0 && v < 2) return fallback;
   return v;
 }
 

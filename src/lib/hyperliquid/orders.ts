@@ -34,7 +34,7 @@ export function buildSimpleOrderLeg(opts: {
   return {
     a: opts.assetIndex,
     b: opts.side === 'long',
-    p: formatHlPrice(price),
+    p: formatHlPrice(price, opts.meta.szDecimals),
     s: formatHlSize(opts.size, opts.meta.szDecimals),
     r: opts.reduceOnly ?? false,
     t:
@@ -95,13 +95,13 @@ export function buildTriggerLeg(opts: {
   return {
     a: opts.assetIndex,
     b: opts.side === 'long',
-    p: formatHlPrice(opts.triggerPx),
+    p: formatHlPrice(opts.triggerPx, opts.meta.szDecimals),
     s: formatHlSize(opts.size, opts.meta.szDecimals),
     r: true,
     t: {
       trigger: {
         isMarket: opts.isMarket ?? true,
-        triggerPx: formatHlPrice(opts.triggerPx),
+        triggerPx: formatHlPrice(opts.triggerPx, opts.meta.szDecimals),
         tpsl: opts.kind,
       },
     },

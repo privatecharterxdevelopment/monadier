@@ -6,7 +6,6 @@ import { useWeb3 } from '../../contexts/Web3Context';
 import { useUserLocale } from '../../hooks/useUserLocale';
 import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
-import { usePositionReconciliation } from '../../hooks/usePositionReconciliation';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { recordLoginActivity } from '../../lib/loginActivity';
 import TerminalTradePanel from '../../components/terminal/TerminalTradePanel';
@@ -80,8 +79,6 @@ const Dashboard2Page: React.FC = () => {
     refresh();
     setHistoryTick((n) => n + 1);
   };
-
-  usePositionReconciliation(handleRefresh);
 
   useEffect(() => {
     goToOpenApp('', true);

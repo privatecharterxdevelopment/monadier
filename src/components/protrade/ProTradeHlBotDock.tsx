@@ -106,11 +106,11 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         setCloseNotice('Could not read position price — try again in a few seconds.');
         return;
       }
-      setCloseNotice(null);
+      setCloseNotice('Closing position via HL agent…');
       try {
         const profitUsd = Math.max(0, toNum(position.unrealizedPnl));
         await closePosition({ coin: position.coin, size, isLong, markPx, profitUsd });
-        setCloseNotice(`${position.coin} close submitted via HL agent. Bot keeps running.`);
+        setCloseNotice(`${position.coin} close submitted. Position should update in a few seconds.`);
         await refreshAccount();
         onPositionChange?.();
       } catch (err: unknown) {

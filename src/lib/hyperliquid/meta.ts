@@ -40,8 +40,13 @@ export function formatHlSize(size: number, szDecimals: number): string {
   return rounded.toFixed(szDecimals).replace(/\.?0+$/, '') || '0';
 }
 
-export function formatHlPrice(price: number): string {
-  if (price >= 1000) return price.toFixed(1);
-  if (price >= 100) return price.toFixed(2);
-  return price.toFixed(4);
+/** HL perp prices: max 5 sig figs, max (6 - szDecimals) decimal places. */
+export function formatHlPrice(price: number, szDecimals = 0, isSpot = false): string {
+  const maxDecimals = Math.max(0, (isSpot ? 8 : 6) - szDecimals);
+  if (price > 100_000) return String(Math.round(price));
+  const sig = Number.parseFloat(price.toPrecision(5));
+  const rounded = Number(sig.toFixed(maxDecimals));
+  let s = rounded.toFixed(maxDecimals);
+  if (s.includes('.')) s = s.replace(/\.?0+$/, '');
+  return s;
 }

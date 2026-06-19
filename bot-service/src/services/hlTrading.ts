@@ -230,7 +230,7 @@ export class HyperliquidTradingService {
           {
             a: assetIndex,
             b: isLong,
-            p: formatHlPrice(limitPx),
+            p: formatHlPrice(limitPx, szDecimals),
             s: formatHlSize(size, szDecimals),
             r: false,
             t: { limit: { tif: 'FrontendMarket' } },
@@ -388,7 +388,7 @@ export class HyperliquidTradingService {
           {
             a: assetIndex,
             b: !isLong,
-            p: formatHlPrice(limitPx),
+            p: formatHlPrice(limitPx, szDecimals),
             s: formatHlSize(absSize, szDecimals),
             r: true,
             t: { limit: { tif: 'FrontendMarket' as const } },

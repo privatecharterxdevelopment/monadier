@@ -144,12 +144,20 @@ export function coinToAssetIndex(meta: { universe: { name: string }[] }, coin: s
 }
 
 export function formatHlSize(size: number, szDecimals: number): string {
-  return size.toFixed(szDecimals);
+  const factor = 10 ** szDecimals;
+  const rounded = Math.floor(size * factor) / factor;
+  return rounded.toFixed(szDecimals).replace(/\.?0+$/, '') || '0';
 }
 
-export function formatHlPrice(price: number): string {
-  const decimals = price >= 1000 ? 1 : price >= 10 ? 2 : 4;
-  return price.toFixed(decimals);
+/** HL perp prices: max 5 sig figs, max (6 - szDecimals) decimal places. */
+export function formatHlPrice(price: number, szDecimals = 0, isSpot = false): string {
+  const maxDecimals = Math.max(0, (isSpot ? 8 : 6) - szDecimals);
+  if (price > 100_000) return String(Math.round(price));
+  const sig = Number.parseFloat(price.toPrecision(5));
+  const rounded = Number(sig.toFixed(maxDecimals));
+  let s = rounded.toFixed(maxDecimals);
+  if (s.includes('.')) s = s.replace(/\.?0+$/, '');
+  return s;
 }
 
 /** Active HL perp coins (listed, has mark price). */
