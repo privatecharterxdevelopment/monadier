@@ -2,6 +2,7 @@ import React from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 import type { VaultSettingsSnapshot } from '../../hooks/useTerminalVaultData';
 import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
+import { HL_BOT_STRATEGY_LABELS } from '../../lib/hlBotStrategy';
 
 type Props = {
   settings: VaultSettingsSnapshot;
@@ -20,6 +21,13 @@ const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disable
     >
       <div className="term-bot-settings-values">
         <span>
+          <span className="term-bot-settings-k">Mode</span>{' '}
+          <span className="term-bot-settings-v">{HL_BOT_STRATEGY_LABELS[settings.hlBotStrategy]}</span>
+        </span>
+        <span className="term-bot-settings-dot" aria-hidden>
+          ·
+        </span>
+        <span>
           <span className="term-bot-settings-k">Risk</span>{' '}
           <span className="term-bot-settings-v">{eff.riskPct}%</span>
         </span>
@@ -35,7 +43,9 @@ const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disable
         </span>
         <span>
           <span className="term-bot-settings-k">TP</span>{' '}
-          <span className="term-bot-settings-v">+{eff.takeProfit}%</span>
+          <span className="term-bot-settings-v">
+            {settings.hlBotStrategy === 'profit_grabber' ? 'trail' : `+${eff.takeProfit}%`}
+          </span>
         </span>
         <span className="term-bot-settings-dot" aria-hidden>
           ·

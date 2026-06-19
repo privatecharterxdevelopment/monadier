@@ -1,4 +1,6 @@
+import { normalizeHlBotStrategy } from './hlBotStrategy';
 import { HL_BOT_EFFECTIVE } from './hlBotEffectiveSettings';
+import type { HlBotStrategy } from './hlBotStrategy';
 
 export type VaultSettingsSnapshot = {
   riskPct: number;
@@ -9,6 +11,7 @@ export type VaultSettingsSnapshot = {
   minWinRate: number;
   minTradesForWinRate: number;
   autoTradeEnabled: boolean;
+  hlBotStrategy: HlBotStrategy;
 };
 
 export type VaultSettingsRow = {
@@ -20,6 +23,7 @@ export type VaultSettingsRow = {
   min_win_rate_percent?: number | string | null;
   min_trades_for_win_rate_gate?: number | null;
   auto_trade_enabled?: boolean | null;
+  hl_bot_strategy?: string | null;
 };
 
 export type OnChainVaultSettingsFallback = {
@@ -41,10 +45,11 @@ export function resolveVaultSettingsSnapshot(
       takeProfit: onChain.takeProfitPercent,
       stopLoss: onChain.stopLossPercent,
       leverage: onChain.maxLeverage,
-      autoTradeEnabled: onChain.autoTradeEnabled,
       askPermission: false,
       minWinRate: 0,
       minTradesForWinRate: 5,
+      autoTradeEnabled: onChain.autoTradeEnabled,
+      hlBotStrategy: 'standard',
     };
   }
 
@@ -63,6 +68,7 @@ export function resolveVaultSettingsSnapshot(
     minWinRate: Number(row.min_win_rate_percent ?? 0),
     minTradesForWinRate: Number(row.min_trades_for_win_rate_gate ?? 5),
     autoTradeEnabled: Boolean(row.auto_trade_enabled),
+    hlBotStrategy: normalizeHlBotStrategy(row.hl_bot_strategy),
   };
 }
 

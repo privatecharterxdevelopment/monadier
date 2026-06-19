@@ -723,8 +723,8 @@ const TerminalTradePanel: React.FC<Props> = ({
               <div className="term-panel-alert">
                 <AlertTriangle size={14} />
                 <span>
-                  Stop the bot before changing leverage, risk, TP or SL — press <strong>Stop bot</strong>{' '}
-                  on the Bot tab first.
+                  Stop the bot before changing leverage, risk, TP or SL. Bot mode (Standard / Profit
+                  Grabber) can still be saved below.
                 </span>
               </div>
             )}

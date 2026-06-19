@@ -3069,6 +3069,13 @@
   color: #f59e0b;
 }
 
+.term-bot-mode-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 4px;
+}
+
 /* Bot tab — risk / LVRG / TP / SL (minimal, matches terminal UI) */
 .term-bot-settings {
   display: flex;

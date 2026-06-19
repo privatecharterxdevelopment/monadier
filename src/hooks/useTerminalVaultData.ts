@@ -51,6 +51,7 @@ const defaultSettings: VaultSettingsSnapshot = {
   minWinRate: 0,
   minTradesForWinRate: 5,
   autoTradeEnabled: false,
+  hlBotStrategy: 'standard',
 };
 
 export function useTerminalVaultData(refreshKey = 0) {
@@ -105,7 +106,7 @@ export function useTerminalVaultData(refreshKey = 0) {
         const { data: row } = await supabase
           .from('vault_settings')
           .select(
-            'demo_vault_balance, risk_level_bps, take_profit_percent, stop_loss_percent, leverage_multiplier, auto_trade_enabled, ask_permission, min_win_rate_percent, min_trades_for_win_rate_gate'
+            'demo_vault_balance, risk_level_bps, take_profit_percent, stop_loss_percent, leverage_multiplier, auto_trade_enabled, ask_permission, min_win_rate_percent, min_trades_for_win_rate_gate, hl_bot_strategy'
           )
           .eq('wallet_address', DEMO_WALLET_ADDRESS)
           .eq('chain_id', VAULT_CHAIN_ID)
@@ -185,7 +186,7 @@ export function useTerminalVaultData(refreshKey = 0) {
       const { data: row } = await supabase
         .from('vault_settings')
         .select(
-          'take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier, risk_level_bps, min_win_rate_percent, min_trades_for_win_rate_gate, auto_trade_enabled'
+          'take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier, risk_level_bps, min_win_rate_percent, min_trades_for_win_rate_gate, auto_trade_enabled, hl_bot_strategy'
         )
         .eq('wallet_address', wallet.toLowerCase())
         .eq('chain_id', VAULT_CHAIN_ID)

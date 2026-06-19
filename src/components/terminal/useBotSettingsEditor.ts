@@ -6,6 +6,7 @@ import { useSubscription } from '../../contexts/SubscriptionContext';
 import { persistVaultSettings } from '../../lib/syncVaultSettings';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
 import { snapLeverageToStep } from '../../lib/leverageLimits';
+import type { HlBotStrategy } from '../../lib/hlBotStrategy';
 
 export type BotSettingsEditorOptions = {
   settings: VaultSettingsSnapshot;
@@ -30,6 +31,7 @@ function applySnapshotToState(
     setAskPermission: (v: boolean) => void;
     setMinWinRate: (v: number) => void;
     setMinTradesForWinRate: (v: number) => void;
+    setHlBotStrategy: (v: HlBotStrategy) => void;
   }
 ) {
   setters.setRiskLevel(snapshot.riskPct);
@@ -40,6 +42,7 @@ function applySnapshotToState(
   setters.setAskPermission(snapshot.askPermission);
   setters.setMinWinRate(snapshot.minWinRate);
   setters.setMinTradesForWinRate(snapshot.minTradesForWinRate);
+  setters.setHlBotStrategy(snapshot.hlBotStrategy);
 }
 
 export function useBotSettingsEditor({
@@ -68,6 +71,7 @@ export function useBotSettingsEditor({
   const [askPermission, setAskPermission] = useState(settings.askPermission);
   const [minWinRate, setMinWinRate] = useState(settings.minWinRate);
   const [minTradesForWinRate, setMinTradesForWinRate] = useState(settings.minTradesForWinRate);
+  const [hlBotStrategy, setHlBotStrategy] = useState<HlBotStrategy>(settings.hlBotStrategy);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -112,6 +116,10 @@ export function useBotSettingsEditor({
     markEdited();
     setMinTradesForWinRate(v);
   }, [markEdited]);
+  const setHlBotStrategyTracked = useCallback((v: HlBotStrategy) => {
+    markEdited();
+    setHlBotStrategy(v);
+  }, [markEdited]);
 
   const applySavedSnapshot = useCallback(
     (snapshot: VaultSettingsSnapshot) => {
@@ -124,6 +132,7 @@ export function useBotSettingsEditor({
         setAskPermission,
         setMinWinRate,
         setMinTradesForWinRate,
+        setHlBotStrategy,
       });
       baselineRef.current = snapshot;
       userEditedRef.current = false;
@@ -157,7 +166,8 @@ export function useBotSettingsEditor({
     autoTrade !== baseline.autoTradeEnabled ||
     askPermission !== baseline.askPermission ||
     minWinRate !== baseline.minWinRate ||
-    minTradesForWinRate !== baseline.minTradesForWinRate;
+    minTradesForWinRate !== baseline.minTradesForWinRate ||
+    hlBotStrategy !== baseline.hlBotStrategy;
 
   const save = useCallback(async (): Promise<{ ok: boolean; notice?: string | null }> => {
     if (!walletConnected || !saveWallet) {
@@ -191,6 +201,7 @@ export function useBotSettingsEditor({
           askPermission,
           minWinRate,
           minTradesForWinRate,
+          hlBotStrategy,
         },
         planTier,
         publicClient,
@@ -238,6 +249,7 @@ export function useBotSettingsEditor({
     askPermission,
     minWinRate,
     minTradesForWinRate,
+    hlBotStrategy,
     planTier,
     hlSliderMax,
     tradingParamsChanged,
@@ -268,11 +280,14 @@ export function useBotSettingsEditor({
     setMinWinRate: setMinWinRateTracked,
     minTradesForWinRate,
     setMinTradesForWinRate: setMinTradesForWinRateTracked,
+    hlBotStrategy,
+    setHlBotStrategy: setHlBotStrategyTracked,
     isLoading,
     error,
     notice,
     success,
     hasChanges,
+    tradingParamsChanged,
     save,
   };
 }

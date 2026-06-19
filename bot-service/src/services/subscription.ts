@@ -2,6 +2,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import { config } from '../config';
 import { logger } from '../utils/logger';
+import { normalizeHlBotStrategy } from './hlBotStrategy';
 
 /** Legacy 0.2% env default or 1% mis-sync with LVRG UI — too tight on HL. */
 function normalizeHlTakeProfitPercent(raw: number | null | undefined): number {
@@ -61,6 +62,7 @@ export interface UserTradingSettings {
   leverageMultiplier: number; // 1.0 = no leverage, 2.0 = 2x, 3.0 = 3x max
   riskLevelBps: number; // Risk in basis points (5000 = 50%)
   autoTradeEnabled: boolean;
+  hlBotStrategy: 'standard' | 'profit_grabber';
   /** 0 = disabled — bot skips opens if closed-trade win rate is lower */
   minWinRatePercent: number;
   minTradesForWinRateGate: number;
@@ -487,7 +489,7 @@ export class SubscriptionService {
       const { data, error } = await this.supabase
         .from('vault_settings')
         .select(
-          'auto_trade_enabled, take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier, risk_level_bps, min_win_rate_percent, min_trades_for_win_rate_gate, prompt_withdraw_after_close'
+          'auto_trade_enabled, take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier, risk_level_bps, min_win_rate_percent, min_trades_for_win_rate_gate, prompt_withdraw_after_close, hl_bot_strategy'
         )
         .eq('wallet_address', walletAddress.toLowerCase())
         .eq('chain_id', chainId)
@@ -515,6 +517,7 @@ export class SubscriptionService {
           minWinRatePercent: 0,
           minTradesForWinRateGate: 5,
           promptWithdrawAfterClose: false,
+          hlBotStrategy: 'standard',
         };
       }
 
@@ -544,6 +547,7 @@ export class SubscriptionService {
         minWinRatePercent: Number(data.min_win_rate_percent) || 0,
         minTradesForWinRateGate: Number(data.min_trades_for_win_rate_gate) || 5,
         promptWithdrawAfterClose: Boolean(data.prompt_withdraw_after_close),
+        hlBotStrategy: normalizeHlBotStrategy(data.hl_bot_strategy as string | null),
       };
     } catch (err) {
       logger.error('Failed to get user trading settings', { walletAddress, error: err });
@@ -558,6 +562,7 @@ export class SubscriptionService {
         minWinRatePercent: 0,
         minTradesForWinRateGate: 5,
         promptWithdrawAfterClose: false,
+        hlBotStrategy: 'standard',
       };
     }
   }

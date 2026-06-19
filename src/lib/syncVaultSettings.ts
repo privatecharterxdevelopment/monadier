@@ -6,7 +6,7 @@ import {
   snapshotFromVaultSettingsRow,
   type VaultSettingsRow,
 } from './vaultSettingsSnapshot';
-import type { VaultSettingsSnapshot } from '../lib/vaultSettingsSnapshot';
+import type { HlBotStrategy } from './hlBotStrategy';
 
 export type VaultSettingsWrite = {
   walletAddress: string;
@@ -18,6 +18,7 @@ export type VaultSettingsWrite = {
   askPermission?: boolean;
   minWinRate?: number;
   minTradesForWinRate?: number;
+  hlBotStrategy?: HlBotStrategy;
 };
 
 export type PersistVaultSettingsOptions = {
@@ -54,6 +55,7 @@ async function saveVaultSettingsToDatabase(
     p_ask_permission: settings.askPermission ?? false,
     p_min_win_rate_percent: settings.minWinRate ?? 0,
     p_min_trades_for_win_rate_gate: settings.minTradesForWinRate ?? 5,
+    p_hl_bot_strategy: settings.hlBotStrategy ?? 'standard',
   });
 
   if (error) {
@@ -69,6 +71,7 @@ async function saveVaultSettingsToDatabase(
         ask_permission: settings.askPermission ?? false,
         min_win_rate_percent: settings.minWinRate ?? 0,
         min_trades_for_win_rate_gate: settings.minTradesForWinRate ?? 5,
+        hl_bot_strategy: settings.hlBotStrategy ?? 'standard',
         updated_at: new Date().toISOString(),
         synced_at: new Date().toISOString(),
       };
@@ -76,7 +79,7 @@ async function saveVaultSettingsToDatabase(
         .from('vault_settings')
         .upsert(payload, { onConflict: 'wallet_address,chain_id' })
         .select(
-          'risk_level_bps, take_profit_percent, stop_loss_percent, leverage_multiplier, auto_trade_enabled, ask_permission, min_win_rate_percent, min_trades_for_win_rate_gate'
+          'risk_level_bps, take_profit_percent, stop_loss_percent, leverage_multiplier, auto_trade_enabled, ask_permission, min_win_rate_percent, min_trades_for_win_rate_gate, hl_bot_strategy'
         )
         .single();
       if (upsertError) {

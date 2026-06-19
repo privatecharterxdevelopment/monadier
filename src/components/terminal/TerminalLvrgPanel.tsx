@@ -5,6 +5,7 @@ import { useHlLeverageCap } from '../../hooks/useHlLeverageCap';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
 import TerminalBotSettingsFields from './TerminalBotSettingsFields';
 import { useBotSettingsEditor } from './useBotSettingsEditor';
+import { HL_BOT_STRATEGY_LABELS } from '../../lib/hlBotStrategy';
 
 type Props = {
   settings: VaultSettingsSnapshot;
@@ -45,9 +46,33 @@ const TerminalLvrgPanel: React.FC<Props> = ({
       {settingsLocked && (
         <div className="term-panel-alert">
           <AlertTriangle size={14} />
-          <span>Bot is running — stop it first to save new leverage or risk settings.</span>
+          <span>
+            Bot is running — stop it first to change leverage or risk. Bot mode can still be saved.
+          </span>
         </div>
       )}
+      <div className="term-panel-card term-panel-card--muted">
+        <span className="term-panel-card-label">Bot mode</span>
+        <div className="term-bot-mode-toggle" role="group" aria-label="Bot strategy">
+          {(['standard', 'profit_grabber'] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              className={`term-btn-sm ${editor.hlBotStrategy === mode ? 'term-btn-sm--primary' : ''}`}
+              disabled={disabled || editor.isLoading}
+              onClick={() => editor.setHlBotStrategy(mode)}
+            >
+              {HL_BOT_STRATEGY_LABELS[mode]}
+            </button>
+          ))}
+        </div>
+        <span className="term-panel-card-hint">
+          {editor.hlBotStrategy === 'profit_grabber'
+            ? 'Profit Grabber: locks +$0.01 once uPnL hits +$0.02, exits via trail (no % TP).'
+            : 'Standard: MTF trend scan + profit lock + TP/SL.'}
+        </span>
+      </div>
+
       <div className="term-panel-card term-panel-card--muted">
         <span className="term-panel-card-label">Bot settings</span>
         <strong className="term-panel-card-value">{editor.leverage}x leverage</strong>
@@ -94,9 +119,9 @@ const TerminalLvrgPanel: React.FC<Props> = ({
       <button
         type="button"
         className="term-btn-sm flex-1 justify-center w-full"
-        disabled={editor.isLoading || settingsLocked || (disabled && editor.walletConnected)}
+        disabled={editor.isLoading || (settingsLocked && editor.tradingParamsChanged) || (disabled && editor.walletConnected)}
         onClick={() => {
-          if (settingsLocked) {
+          if (settingsLocked && editor.tradingParamsChanged) {
             onBlockedSave?.();
             return;
           }

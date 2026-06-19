@@ -17,6 +17,10 @@ import {
 import { checkHlBuilderFeeApproved } from './hlBuilder';
 import { subscriptionService } from './subscription';
 import type { TradingCycleContext } from './tradingCycleContext';
+import {
+  normalizeHlBotStrategy,
+  resolveHlExitPolicy,
+} from './hlBotStrategy';
 import { resolveHlOrderBuilder, estimateCollectedSuccessFee } from './hlBuilderFee';
 import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from './hlSuccessFees';
 import { recordHlBotOpenMarker } from './hlChartMarkers';
@@ -364,9 +368,11 @@ export class HyperliquidTradingService {
 
       const tp = settings.takeProfitPercent ?? config.hyperliquid.defaultTakeProfitPercent;
       const sl = settings.stopLossPercent ?? config.hyperliquid.defaultStopLossPercent;
-      const lockActivateUsd = config.hyperliquid.profitLockActivateUsd;
-      const minFloorUsd = config.hyperliquid.profitLockFloorUsd;
-      const trailBufferUsd = config.hyperliquid.profitLockTrailBufferUsd;
+      const strategy = normalizeHlBotStrategy(settings.hlBotStrategy);
+      const exitPolicy = resolveHlExitPolicy(strategy);
+      const lockActivateUsd = exitPolicy.lockActivateUsd;
+      const minFloorUsd = exitPolicy.lockFloorUsd;
+      const trailBufferUsd = exitPolicy.trailBufferUsd;
 
       const lockKey = positionKey(userAddress, pos.coin);
 
@@ -397,6 +403,7 @@ export class HyperliquidTradingService {
           logger.info('HL profit lock armed — SL moved into profit', {
             user: userAddress.slice(0, 10),
             coin: pos.coin,
+            strategy,
             pnlUsd: pnl.toFixed(4),
             floorUsd: floorUsd.toFixed(4),
           });
@@ -408,17 +415,17 @@ export class HyperliquidTradingService {
         }
       }
 
-      if (shouldTakeProfitOnPnl(pnlPct, tp)) {
+      if (shouldCloseProfitLockUsd(pnl, floorUsd, locked)) {
         clearProfitLockState(lockKey);
-        await this.closeMarketPosition(userAddress, pos.coin, 'take_profit', {
+        await this.closeMarketPosition(userAddress, pos.coin, 'profit_lock', {
           entryPx: entry,
           unrealizedPnlUsd: pnl,
           size,
           leverage: pos.leverage?.value ?? 10,
         });
-      } else if (shouldCloseProfitLockUsd(pnl, floorUsd, locked)) {
+      } else if (exitPolicy.useTakeProfitPercent && shouldTakeProfitOnPnl(pnlPct, tp)) {
         clearProfitLockState(lockKey);
-        await this.closeMarketPosition(userAddress, pos.coin, 'profit_lock', {
+        await this.closeMarketPosition(userAddress, pos.coin, 'take_profit', {
           entryPx: entry,
           unrealizedPnlUsd: pnl,
           size,
