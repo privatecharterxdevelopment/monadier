@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  clearBotRuntimeTimer,
   formatBotRuntime,
   markBotRuntimeStarted,
   readBotRuntimeStartMs,
@@ -11,9 +10,6 @@ export function useBotRuntimeTimer(wallet: string | undefined, running: boolean)
 
   useEffect(() => {
     if (!running || !wallet) {
-      if (wallet && !running) {
-        clearBotRuntimeTimer(wallet);
-      }
       setElapsedSeconds(0);
       return;
     }

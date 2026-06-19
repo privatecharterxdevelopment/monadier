@@ -1,7 +1,4 @@
-import { supabase } from './supabase';
 import { MIN_HL_BOT_USD } from './hyperliquid/hlBotAgent';
-
-const HL_BOT_CHAIN_ID = 42161;
 
 /** User has funded HL, approved agent, and platform builder fee when HL builder is active. */
 export function isHlBotReadyToRun(
@@ -14,7 +11,15 @@ export function isHlBotReadyToRun(
   return hlBalanceUsd >= MIN_HL_BOT_USD && agentApproved && builderOk;
 }
 
-/** DB flag alone is not enough — bot is only "running" when HL setup is complete. */
+/** DB auto_trade flag — bot stays enabled across reloads until user presses Stop. */
+export function isHlBotEnabled(autoTradeEnabled: boolean): boolean {
+  return autoTradeEnabled;
+}
+
+/**
+ * True when DB says on AND HL prerequisites are met (can open new trades this cycle).
+ * Use isHlBotEnabled for Start/Stop UI — not this alone.
+ */
 export function effectiveHlBotRunning(
   autoTradeEnabled: boolean,
   hlBalanceUsd: number,
@@ -28,39 +33,21 @@ export function effectiveHlBotRunning(
   );
 }
 
-/** Only disable when HL + agent checks succeeded and prerequisites are clearly missing. */
+/** @deprecated Client must not auto-disable auto_trade — user stops explicitly via Stop bot. */
 export function shouldDisableStaleHlBotAutoTrade(
-  hlBalanceUsd: number,
-  agentApproved: boolean,
-  opts: {
+  _hlBalanceUsd: number,
+  _agentApproved: boolean,
+  _opts: {
     hlLoaded: boolean;
     agentLoaded: boolean;
     builderFeeApproved?: boolean;
     builderPlatformReady?: boolean;
   }
 ): boolean {
-  if (!opts.hlLoaded || !opts.agentLoaded) return false;
-  return !isHlBotReadyToRun(
-    hlBalanceUsd,
-    agentApproved,
-    opts.builderFeeApproved ?? true,
-    opts.builderPlatformReady ?? true
-  );
+  return false;
 }
 
-/** Turn off stale auto_trade when prerequisites are missing (legacy bad state). */
-export async function disableStaleHlBotAutoTrade(walletAddress: string): Promise<void> {
-  const wallet = walletAddress.toLowerCase();
-  const { error } = await supabase.from('vault_settings').upsert(
-    {
-      wallet_address: wallet,
-      chain_id: HL_BOT_CHAIN_ID,
-      auto_trade_enabled: false,
-      execution_venue: 'hyperliquid',
-      updated_at: new Date().toISOString(),
-      synced_at: new Date().toISOString(),
-    },
-    { onConflict: 'wallet_address,chain_id' }
-  );
-  if (error) throw new Error(error.message);
+/** @deprecated Client must not auto-disable auto_trade on reload. */
+export async function disableStaleHlBotAutoTrade(_walletAddress: string): Promise<void> {
+  /* no-op — server keeps auto_trade_enabled until user presses Stop */
 }

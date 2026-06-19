@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchHlAccountState } from '../lib/hyperliquid/user';
 import {
   fetchHlAgentAddress,
@@ -15,6 +15,14 @@ export type HlBotSetupPhase =
   | 'approve'
   | 'fund'
   | 'ready';
+
+function countHlOpenPositions(
+  positions: { szi?: string | null }[] | undefined
+): number {
+  return (positions ?? []).filter(
+    (p) => Math.abs(Number.parseFloat(p.szi || '0')) > 1e-12
+  ).length;
+}
 
 export function useHlBotSetup(walletAddress: string | undefined) {
   const [phase, setPhase] = useState<HlBotSetupPhase>('connect');
@@ -33,8 +41,14 @@ export function useHlBotSetup(walletAddress: string | undefined) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const hasSnapshotRef = useRef(false);
+  const refreshInFlightRef = useRef(false);
+  const accountUsdRef = useRef(0);
+
   const refresh = useCallback(async (): Promise<number> => {
     if (!walletAddress) {
+      hasSnapshotRef.current = false;
+      accountUsdRef.current = 0;
       setPhase('connect');
       setHlLoaded(false);
       setAgentLoaded(false);
@@ -42,8 +56,17 @@ export function useHlBotSetup(walletAddress: string | undefined) {
       return 0;
     }
 
-    setLoading(true);
-    setError(null);
+    if (refreshInFlightRef.current) {
+      return accountUsdRef.current;
+    }
+    refreshInFlightRef.current = true;
+
+    const initialLoad = !hasSnapshotRef.current;
+    if (initialLoad) {
+      setLoading(true);
+      setError(null);
+    }
+
     let balance = 0;
     let hlOk = false;
     let agentOk = false;
@@ -64,10 +87,11 @@ export function useHlBotSetup(walletAddress: string | undefined) {
       const acctVal = Number(acct?.margin?.accountValue ?? 0);
       const withdraw = Number(acct?.withdrawable ?? 0);
       const marginUsed = Number(acct?.margin?.totalMarginUsed ?? 0);
-      const openCount = (acct?.positions ?? []).filter(
-        (p) => Math.abs(Number.parseFloat(p.szi || '0')) > 1e-12
-      ).length;
+      const openCount = countHlOpenPositions(acct?.positions);
       balance = Number.isFinite(acctVal) ? acctVal : 0;
+
+      hasSnapshotRef.current = true;
+      accountUsdRef.current = balance;
       setAccountUsd(balance);
       setWithdrawableUsd(Number.isFinite(withdraw) ? withdraw : 0);
       setTotalMarginUsedUsd(Number.isFinite(marginUsed) ? marginUsed : 0);
@@ -103,18 +127,15 @@ export function useHlBotSetup(walletAddress: string | undefined) {
       return balance;
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load HL bot setup');
-      if (!hlOk) {
+      if (!hasSnapshotRef.current) {
         setPhase('loading');
-      } else if (balance < MIN_HL_BOT_USD) {
-        setPhase('fund');
-      } else {
-        setPhase('approve');
       }
       return balance;
     } finally {
-      setHlLoaded(hlOk);
-      setAgentLoaded(agentOk);
-      setLoading(false);
+      if (hlOk) setHlLoaded(true);
+      if (agentOk) setAgentLoaded(true);
+      if (initialLoad) setLoading(false);
+      refreshInFlightRef.current = false;
     }
   }, [walletAddress]);
 
@@ -132,11 +153,15 @@ export function useHlBotSetup(walletAddress: string | undefined) {
   );
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    hasSnapshotRef.current = false;
+    setHlLoaded(false);
+    setAgentLoaded(false);
+    setLoading(Boolean(walletAddress));
+  }, [walletAddress]);
 
   useEffect(() => {
     if (!walletAddress) return undefined;
+    void refresh();
     const id = setInterval(() => void refresh(), 5000);
     return () => clearInterval(id);
   }, [walletAddress, refresh]);

@@ -2,7 +2,7 @@ import React from 'react';
 import { useTerminalBotAnalysis } from '../../hooks/useTerminalBotAnalysis';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
-import { effectiveHlBotRunning } from '../../lib/hlBotGates';
+import { isHlBotEnabled } from '../../lib/hlBotGates';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import TerminalChartAnalysisOverlay from './TerminalChartAnalysisOverlay';
 
@@ -25,12 +25,8 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
   const botSettings = useTerminalBotSettings();
   const hasOpenPosition = metrics.openPositionsCount > 0;
 
-  const botRunning = effectiveHlBotRunning(
-    botSettings.settings.autoTradeEnabled,
-    hlSetup.accountUsd,
-    hlSetup.agentApproved,
-    hlSetup.builderFeeApproved,
-    hlSetup.builderPlatformReady
+  const botRunning = isHlBotEnabled(
+    botSettings.settings.autoTradeEnabled || metrics.autoTradeEnabled
   );
   const showAnalysis = walletConnected && botRunning;
 

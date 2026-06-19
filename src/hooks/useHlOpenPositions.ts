@@ -1,52 +1,54 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchHlAccountState, type HlPosition } from '../lib/hyperliquid/user';
 
 export function useHlOpenPositions(walletAddress: string | undefined) {
   const [positions, setPositions] = useState<HlPosition[]>([]);
   const [loading, setLoading] = useState(false);
+  const hasSnapshotRef = useRef(false);
+  const refreshInFlightRef = useRef(false);
 
   const refresh = useCallback(async () => {
     if (!walletAddress) {
+      hasSnapshotRef.current = false;
       setPositions([]);
       return;
     }
+    if (refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
     try {
       const acct = await fetchHlAccountState(walletAddress);
+      hasSnapshotRef.current = true;
       setPositions(
         acct.positions.filter((p) => Math.abs(Number.parseFloat(p.szi || '0')) > 1e-12)
       );
     } catch {
-      setPositions([]);
+      /* keep last positions */
+    } finally {
+      refreshInFlightRef.current = false;
     }
   }, [walletAddress]);
 
   useEffect(() => {
     if (!walletAddress) {
+      hasSnapshotRef.current = false;
       setPositions([]);
       setLoading(false);
-      return;
+      return undefined;
     }
-    let cancelled = false;
+    hasSnapshotRef.current = false;
     setLoading(true);
     void (async () => {
       await refresh();
-      if (!cancelled) setLoading(false);
+      setLoading(false);
     })();
     const id = setInterval(() => void refresh(), 5000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
+    return () => clearInterval(id);
   }, [walletAddress, refresh]);
 
-  const livePnlUsd = useMemo(
-    () =>
-      positions.reduce(
-        (sum, p) => sum + (Number.parseFloat(p.unrealizedPnl || '0') || 0),
-        0
-      ),
-    [positions]
+  const livePnlUsd = positions.reduce(
+    (sum, p) => sum + (Number.parseFloat(p.unrealizedPnl || '0') || 0),
+    0
   );
 
-  return { positions, livePnlUsd, loading, refresh };
+  return { positions, livePnlUsd, loading: loading && positions.length === 0, refresh };
 }

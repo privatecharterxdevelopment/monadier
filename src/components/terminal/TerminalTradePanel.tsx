@@ -30,12 +30,10 @@ import { getHlBuilderConfig } from '../../lib/hyperliquid/builderConfig';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { useBotRuntimeTimer } from '../../hooks/useBotRuntimeTimer';
 import { useBotServerBlockers } from '../../hooks/useBotServerBlockers';
-import { clearBotRuntimeTimer, markBotRuntimeStarted } from '../../lib/botRuntimeTimer';
+import { clearBotRuntimeTimer, markBotRuntimeStarted, readBotRuntimeStartMs } from '../../lib/botRuntimeTimer';
 import {
-  disableStaleHlBotAutoTrade,
-  effectiveHlBotRunning,
+  isHlBotEnabled,
   isHlBotReadyToRun,
-  shouldDisableStaleHlBotAutoTrade,
 } from '../../lib/hlBotGates';
 import { getHlBotSidebarStatus } from '../../lib/hlBotUserStatus';
 import {
@@ -101,7 +99,6 @@ const TerminalTradePanel: React.FC<Props> = ({
   const [stopNotice, setStopNotice] = useState<string | null>(null);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
   const [showStopFirstModal, setShowStopFirstModal] = useState(false);
-  const prevOpenCountRef = useRef(metrics.openPositionsCount);
 
   const walletReady = isConnected || isDemoUser;
   const wallet = botSettings.wallet;
@@ -116,14 +113,8 @@ const TerminalTradePanel: React.FC<Props> = ({
 
   const hlFundingUsd = hlSetup.accountUsd;
   const autoTradeDb = botSettings.settings.autoTradeEnabled;
-  const autoTradeOn = metrics.autoTradeEnabled;
-  const botRunning = effectiveHlBotRunning(
-    autoTradeOn,
-    hlFundingUsd,
-    hlSetup.agentApproved,
-    hlSetup.builderFeeApproved,
-    hlSetup.builderPlatformReady
-  );
+  const botEnabled = isHlBotEnabled(autoTradeDb || metrics.autoTradeEnabled);
+  const botRunning = botEnabled;
 
   useEffect(() => {
     if (readHlBotOnboardingComplete(onboardingKey)) {
@@ -135,11 +126,23 @@ const TerminalTradePanel: React.FC<Props> = ({
       setSetupGuideComplete(true);
     }
   }, [onboardingKey, walletReady, botRunning, autoTradeDb]);
-  const botSyncMismatch = autoTradeDb !== metrics.autoTradeEnabled && !metrics.isLoading;
+  const botSyncMismatch =
+    !botSettings.isLoading &&
+    autoTradeDb !== metrics.autoTradeEnabled &&
+    !metrics.isLoading;
   const timerWallet = wallet ?? address ?? undefined;
-  const botRuntime = useBotRuntimeTimer(timerWallet, Boolean(walletReady && botRunning));
+  const botRuntime = useBotRuntimeTimer(timerWallet, Boolean(walletReady && botEnabled));
+
+  useEffect(() => {
+    if (!botEnabled || !timerWallet) return;
+    if (readBotRuntimeStartMs(timerWallet) == null) {
+      markBotRuntimeStarted(timerWallet);
+    }
+  }, [botEnabled, timerWallet]);
+
   const serverBlockers = useBotServerBlockers(timerWallet, Boolean(botRunning));
-  const hasOpenPosition = metrics.openPositionsCount > 0 || hlSetup.openPositionsCount > 0;
+  const hasOpenPosition = metrics.openPositionsCount > 0;
+  const showFooterDash = !metrics.hasHlSnapshot;
   const marginLockedUsd = hasOpenPosition
     ? Math.max(0, hlSetup.totalMarginUsedUsd)
     : 0;
@@ -213,47 +216,7 @@ const TerminalTradePanel: React.FC<Props> = ({
     (hlSetup.builderFeeEnabled && hlSetup.builderPlatformReady && !hlSetup.builderFeeApproved);
 
   const canStartBot =
-    (phase === 'ready' || phase === 'approve') && !startBlocker && !botRunning;
-
-  useEffect(() => {
-    if (!wallet || hlSetup.loading || botSettings.isLoading || !autoTradeDb) return;
-    if (
-      !shouldDisableStaleHlBotAutoTrade(hlFundingUsd, hlSetup.agentApproved, {
-        hlLoaded: hlSetup.hlLoaded,
-        agentLoaded: hlSetup.agentLoaded,
-        builderFeeApproved: hlSetup.builderFeeApproved,
-        builderPlatformReady: hlSetup.builderPlatformReady,
-      })
-    ) {
-      return;
-    }
-
-    let cancelled = false;
-    void disableStaleHlBotAutoTrade(wallet)
-      .then(() => {
-        if (cancelled) return;
-        clearBotRuntimeTimer(timerWallet ?? wallet);
-        refreshAll();
-      })
-      .catch(() => {
-        /* metrics hook also reconciles */
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    wallet,
-    timerWallet,
-    hlSetup.loading,
-    botSettings.isLoading,
-    autoTradeDb,
-    hlFundingUsd,
-    hlSetup.agentApproved,
-    hlSetup.builderFeeApproved,
-    hlSetup.hlLoaded,
-    hlSetup.agentLoaded,
-  ]);
+    !botEnabled && (phase === 'ready' || phase === 'approve') && !startBlocker;
 
   const requireAccount = (reason: string, next: () => void) => {
     if (!isDemoUser && !isAuthenticated) {
@@ -289,12 +252,6 @@ const TerminalTradePanel: React.FC<Props> = ({
     setSettingsTick((n) => n + 1);
     void hlSetup.refresh();
   };
-
-  useEffect(() => {
-    if (prevOpenCountRef.current === metrics.openPositionsCount) return;
-    prevOpenCountRef.current = metrics.openPositionsCount;
-    refreshAll();
-  }, [metrics.openPositionsCount]);
 
   const openLvrgTab = () => setPanelTab('lvrg');
 
@@ -801,13 +758,13 @@ const TerminalTradePanel: React.FC<Props> = ({
       <div className="term-trade-footer">
         <div className="term-field-row">
           <span>HL balance</span>
-          <strong>{hlSetup.loading ? '—' : fmt(hlFundingUsd)}</strong>
+          <strong>{showFooterDash ? '—' : fmt(metrics.hlBalanceUsd)}</strong>
         </div>
         <div className="term-field-row">
           <span>Withdrawable</span>
-          <strong>{hlSetup.loading ? '—' : fmt(hlSetup.withdrawableUsd)}</strong>
+          <strong>{showFooterDash ? '—' : fmt(metrics.hlWithdrawableUsd)}</strong>
         </div>
-        {hasOpenPosition && marginLockedUsd > 0.01 && !hlSetup.loading ? (
+        {hasOpenPosition && marginLockedUsd > 0.01 ? (
           <div className="term-field-row term-field-row--hint">
             <span>Margin locked</span>
             <strong>{fmt(marginLockedUsd)}</strong>
@@ -817,27 +774,35 @@ const TerminalTradePanel: React.FC<Props> = ({
           <span>uPnL</span>
           <strong
             className={
-              metrics.isLoading
+              showFooterDash
                 ? ''
                 : metrics.unrealizedPnlUsd >= 0
                   ? 'term-pnl-pos'
                   : 'term-pnl-neg'
             }
           >
-            {metrics.isLoading
+            {showFooterDash
               ? '—'
               : `${metrics.unrealizedPnlUsd >= 0 ? '+' : ''}${fmt(metrics.unrealizedPnlUsd)}`}
           </strong>
         </div>
         <div className="term-field-row">
           <span>Total P/L</span>
-          <strong className={metrics.totalPnlUsd >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'}>
-            {metrics.isLoading ? '—' : fmt(metrics.totalPnlUsd)}
+          <strong
+            className={
+              showFooterDash
+                ? ''
+                : metrics.totalPnlUsd >= 0
+                  ? 'term-pnl-pos'
+                  : 'term-pnl-neg'
+            }
+          >
+            {showFooterDash ? '—' : fmt(metrics.totalPnlUsd)}
           </strong>
         </div>
         <div className="term-field-row">
           <span>Open</span>
-          <strong>{metrics.openPositionsCount}</strong>
+          <strong>{showFooterDash ? '—' : metrics.openPositionsCount}</strong>
         </div>
       </div>
 

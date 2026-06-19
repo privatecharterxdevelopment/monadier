@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Wallet, ArrowDownLeft, ArrowUpRight, Settings } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -26,7 +26,7 @@ import { useProfileOnboarding } from '../../hooks/useProfileOnboarding';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import { hlCoinToBotSymbol } from '../../lib/botTradingPairs';
 import { MIN_HL_BOT_USD, disableHlBotExecution } from '../../lib/hyperliquid/hlBotAgent';
-import { effectiveHlBotRunning } from '../../lib/hlBotGates';
+import { isHlBotEnabled } from '../../lib/hlBotGates';
 import { clearBotRuntimeTimer } from '../../lib/botRuntimeTimer';
 
 const MIN_BOT_CAPITAL_USD = MIN_HL_BOT_USD;
@@ -56,7 +56,6 @@ const Dashboard2Page: React.FC = () => {
   const [showBotSettings, setShowBotSettings] = useState(false);
   const [showStopFirstModal, setShowStopFirstModal] = useState(false);
   const [stopSettingsBusy, setStopSettingsBusy] = useState(false);
-  const prevOpenCountRef = useRef(metrics.openPositionsCount);
   const [showDeposit, setShowDeposit] = useState(false);
   const [depositTab, setDepositTab] = useState<'deposit' | 'withdraw'>('deposit');
   const [showSupport, setShowSupport] = useState(false);
@@ -81,24 +80,15 @@ const Dashboard2Page: React.FC = () => {
 
   const walletReady = isConnected || isDemoUser;
 
-  const botRunning = effectiveHlBotRunning(
-    metrics.autoTradeEnabled,
-    hlSetup.accountUsd,
-    hlSetup.agentApproved,
-    hlSetup.builderFeeApproved,
-    hlSetup.builderPlatformReady
+  const botEnabled = isHlBotEnabled(
+    botSettings.settings.autoTradeEnabled || metrics.autoTradeEnabled
   );
+  const botRunning = botEnabled;
 
   const handleRefresh = () => {
     refresh();
     setHistoryTick((n) => n + 1);
   };
-
-  useEffect(() => {
-    if (prevOpenCountRef.current === metrics.openPositionsCount) return;
-    prevOpenCountRef.current = metrics.openPositionsCount;
-    refresh();
-  }, [metrics.openPositionsCount, refresh]);
 
   const openBotSettings = () => {
     if (botRunning) {

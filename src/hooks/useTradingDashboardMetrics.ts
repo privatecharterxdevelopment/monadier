@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { supabase } from '../lib/supabase';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
@@ -13,11 +13,6 @@ import {
 import { fetchMaxBuilderFee, isBuilderApprovalSufficient } from '../lib/hyperliquid/builder';
 import { getHlBuilderConfig } from '../lib/hyperliquid/builderConfig';
 import { fetchHlBuilderPlatformStatus } from '../lib/hyperliquid/builderPlatform';
-import {
-  disableStaleHlBotAutoTrade,
-  effectiveHlBotRunning,
-  shouldDisableStaleHlBotAutoTrade,
-} from '../lib/hlBotGates';
 import {
   computePositionStats,
   fetchLiveTokenPrices,
@@ -42,6 +37,8 @@ export type TradingDashboardMetrics = {
   closedTradesCount: number;
   autoTradeEnabled: boolean;
   isLoading: boolean;
+  /** False until the first HL snapshot arrives — footer may show placeholders once. */
+  hasHlSnapshot: boolean;
 };
 
 const HL_BOT_CHAIN_ID = 42161;
@@ -62,6 +59,7 @@ const defaultMetrics: TradingDashboardMetrics = {
   closedTradesCount: 0,
   autoTradeEnabled: false,
   isLoading: true,
+  hasHlSnapshot: false,
 };
 
 function pnlInWindow(
@@ -74,13 +72,26 @@ function pnlInWindow(
     .reduce((sum, p) => sum + (p.profit_loss || 0), 0);
 }
 
+function countHlOpenPositions(
+  positions: { szi?: string | null }[] | undefined
+): number {
+  return (positions ?? []).filter(
+    (p) => Math.abs(Number.parseFloat(p.szi || '0')) > 1e-12
+  ).length;
+}
+
 export function useTradingDashboardMetrics() {
   const { address } = useAccount();
   const { isDemoUser, user } = useAuth();
   const { publicClient, walletClient } = useWeb3();
   const [metrics, setMetrics] = useState<TradingDashboardMetrics>(defaultMetrics);
+  const hasSnapshotRef = useRef(false);
+  const refreshInFlightRef = useRef(false);
 
   const refresh = useCallback(async () => {
+    if (refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
+
     const queryWallet = (
       isDemoUser
         ? DEMO_WALLET_ADDRESS
@@ -88,7 +99,8 @@ export function useTradingDashboardMetrics() {
     ) as `0x${string}` | undefined;
 
     if (!isDemoUser && !user && !queryWallet) {
-      setMetrics({ ...defaultMetrics, isLoading: false });
+      setMetrics({ ...defaultMetrics, isLoading: false, hasHlSnapshot: false });
+      refreshInFlightRef.current = false;
       return;
     }
 
@@ -159,7 +171,7 @@ export function useTradingDashboardMetrics() {
           hlLoaded = true;
           vaultBalanceUsd = parseFloat(hl.margin.accountValue) || 0;
           withdrawableUsd = parseFloat(hl.withdrawable) || 0;
-          hlOpenCount = hl.positions.length;
+          hlOpenCount = countHlOpenPositions(hl.positions);
           hlOpenNotional = hl.positions.reduce(
             (sum, p) => sum + Math.abs(parseFloat(p.positionValue) || 0),
             0
@@ -216,43 +228,21 @@ export function useTradingDashboardMetrics() {
       }
 
       const dbAutoTrade = vaultSettings != null ? Boolean(vaultSettings.auto_trade_enabled) : false;
-      let autoTradeEnabled = dbAutoTrade;
-      if (
-        dbAutoTrade &&
-        hlWallet &&
-        shouldDisableStaleHlBotAutoTrade(vaultBalanceUsd, agentApproved, {
-          hlLoaded,
-          agentLoaded,
-          builderFeeApproved,
-          builderPlatformReady,
-        })
-      ) {
-        try {
-          await disableStaleHlBotAutoTrade(hlWallet);
-          autoTradeEnabled = false;
-        } catch (e) {
-          console.warn('[useTradingDashboardMetrics] stale auto_trade cleanup failed', e);
-          autoTradeEnabled = false;
-        }
-      } else {
-        autoTradeEnabled = effectiveHlBotRunning(
-          dbAutoTrade,
-          vaultBalanceUsd,
-          agentApproved,
-          builderFeeApproved,
-          builderPlatformReady
-        );
+      const autoTradeEnabled = dbAutoTrade;
+
+      if (hlLoaded) {
+        hasSnapshotRef.current = true;
       }
 
-      setMetrics({
-        vaultBalanceUsd,
-        withdrawableUsd,
-        openPositionValueUsd: hlLoaded ? hlOpenNotional : 0,
-        openPositionsCount: hlLoaded ? hlOpenCount : 0,
-        avgLeverage: hlOpenCount > 0 ? avgLev : 1,
-        totalPnl: hlLoaded ? hlRealizedPnl + hlUnrealizedPnl : stats.totalProfit,
-        realizedPnl: hlLoaded ? hlRealizedPnl : stats.realizedProfit,
-        unrealizedPnl: hlLoaded ? hlUnrealizedPnl : stats.unrealizedProfit,
+      setMetrics((prev) => ({
+        vaultBalanceUsd: hlLoaded ? vaultBalanceUsd : prev.vaultBalanceUsd,
+        withdrawableUsd: hlLoaded ? withdrawableUsd : prev.withdrawableUsd,
+        openPositionValueUsd: hlLoaded ? hlOpenNotional : prev.openPositionValueUsd,
+        openPositionsCount: hlLoaded ? hlOpenCount : prev.openPositionsCount,
+        avgLeverage: hlOpenCount > 0 ? avgLev : prev.avgLeverage,
+        totalPnl: hlLoaded ? hlRealizedPnl + hlUnrealizedPnl : prev.totalPnl,
+        realizedPnl: hlLoaded ? hlRealizedPnl : prev.realizedPnl,
+        unrealizedPnl: hlLoaded ? hlUnrealizedPnl : prev.unrealizedPnl,
         pnl24h: pnlInWindow(all, 24),
         pnl7d: pnlInWindow(all, 24 * 7),
         pnl30d: pnlInWindow(all, 24 * 30),
@@ -262,10 +252,13 @@ export function useTradingDashboardMetrics() {
           : stats.closedTrades,
         autoTradeEnabled,
         isLoading: false,
-      });
+        hasHlSnapshot: hasSnapshotRef.current,
+      }));
     } catch (e) {
       console.error('[useTradingDashboardMetrics]', e);
       setMetrics((m) => ({ ...m, isLoading: false }));
+    } finally {
+      refreshInFlightRef.current = false;
     }
   }, [address, isDemoUser, user?.id, publicClient, walletClient]);
 

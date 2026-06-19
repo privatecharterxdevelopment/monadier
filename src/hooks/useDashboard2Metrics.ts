@@ -24,6 +24,7 @@ export type Dashboard2Metrics = {
   winRate: number;
   closedTradesCount: number;
   isLoading: boolean;
+  hasHlSnapshot: boolean;
 };
 
 const defaultState: Dashboard2Metrics = {
@@ -41,6 +42,7 @@ const defaultState: Dashboard2Metrics = {
   winRate: 0,
   closedTradesCount: 0,
   isLoading: true,
+  hasHlSnapshot: false,
 };
 
 async function fetchWithdrawnTotalUsd(wallet: string): Promise<number> {
@@ -104,7 +106,7 @@ export function useDashboard2Metrics() {
     await Promise.all([refreshBalances(), refreshTrading(), refreshWithdrawn()]);
   }, [refreshBalances, refreshTrading, refreshWithdrawn]);
 
-  const isLoading = metrics.isLoading || isLoadingBalances;
+  const isLoading = metrics.isLoading && !metrics.hasHlSnapshot;
 
   const combined: Dashboard2Metrics = {
     walletAvailableUsd: totalUsdValue,
@@ -121,6 +123,7 @@ export function useDashboard2Metrics() {
     winRate: metrics.winRate,
     closedTradesCount: metrics.closedTradesCount,
     isLoading,
+    hasHlSnapshot: metrics.hasHlSnapshot,
   };
 
   return { metrics: combined, refresh, tradingMetrics: metrics };
