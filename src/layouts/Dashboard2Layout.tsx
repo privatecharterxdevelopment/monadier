@@ -3,6 +3,7 @@ import { Link, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { enableDemoMode, isDemoModeAllowed } from '../lib/demoMode';
 import '../styles/dashboard2-nixole.css';
+import '../styles/pro-trade-hl.css';
 import { TermAuthToastProvider } from '../components/terminal/TermAuthToast';
 import { TradeNotificationsProvider } from '../contexts/TradeNotificationsContext';
 

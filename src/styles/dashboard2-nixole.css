@@ -1381,6 +1381,89 @@
   padding: 12px 14px;
 }
 
+/* Bot dock under chart — dark HL strip (matches positions table) */
+.term-center .hl-bot-dock {
+  --hl-bg: #0b0b0b;
+  --hl-bg-elevated: #121212;
+  --hl-bg-panel: #121212;
+  --hl-bg-hover: #1a1a1a;
+  --hl-border: #262626;
+  --hl-border-strong: #404040;
+  --hl-text: #fafafa;
+  --hl-text-muted: #a1a1aa;
+  --hl-text-faint: #71717a;
+  --hl-pnl-pos: #3dd68c;
+  --hl-pnl-neg: #ef5350;
+  --hl-green: #26a69a;
+  --hl-green-bright: #3dd68c;
+  --hl-red: #ef5350;
+  background: var(--hl-bg-elevated);
+  color: var(--hl-text-muted);
+  border-top: 1px solid var(--hl-border);
+}
+
+.hl-bot-dock .term-dock-analysis .term-analysis-bar,
+.hl-bot-dock-analyzer .term-analysis-bar {
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid var(--hl-border);
+  background: var(--hl-bg-elevated);
+  color: var(--hl-text-muted);
+  padding: 12px 14px;
+}
+
+.hl-bot-dock .term-analysis-step,
+.hl-bot-dock .term-analysis-meta,
+.hl-bot-dock .term-analysis-hint,
+.hl-bot-dock .term-analysis-cycle-text,
+.hl-bot-dock .term-analysis-pct,
+.hl-bot-dock .term-analysis-rec,
+.hl-bot-dock .term-analysis-sep {
+  color: var(--hl-text-muted);
+}
+
+.hl-bot-dock .term-analysis-hint--subtle {
+  color: var(--hl-text-faint);
+  opacity: 1;
+}
+
+.hl-bot-dock .term-analysis-step {
+  color: var(--hl-text);
+}
+
+.hl-bot-dock .term-analysis-track {
+  background: var(--hl-bg-hover);
+}
+
+.hl-bot-dock .term-analysis-fill {
+  background: var(--hl-green-bright);
+}
+
+.hl-bot-dock .term-analysis-pulse {
+  color: var(--hl-green-bright);
+}
+
+.hl-bot-dock .term-analysis-cycle-dot {
+  background: var(--hl-border-strong);
+}
+
+.hl-bot-dock .term-analysis-cycle-dot--on {
+  background: var(--hl-green-bright);
+}
+
+.hl-bot-dock .term-pnl-pos {
+  color: var(--hl-pnl-pos);
+}
+
+.hl-bot-dock .term-pnl-neg {
+  color: var(--hl-pnl-neg);
+}
+
+.hl-bot-dock .term-hint--warn {
+  color: #f59e0b;
+}
+
 .hl-dock-body .term-dock-analysis .term-analysis-bar {
   margin: 0 0 8px;
   border-radius: 0;
