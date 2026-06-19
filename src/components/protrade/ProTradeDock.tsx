@@ -11,7 +11,17 @@ import type {
   HlUserFill,
 } from '../../lib/hyperliquid/user';
 import { isHlTriggerOrder } from '../../lib/hyperliquid/user';
-import { fmtLeverage, fmtPrice, fmtSize, fmtTimeMs, fmtUsdSymbol, fmtClosedPnl, fmtFillAction, isHlFillOpen } from '../../lib/hyperliquid/format';
+import {
+  fmtLeverage,
+  fmtPrice,
+  fmtSize,
+  fmtTimeMs,
+  fmtUsdSymbol,
+  fmtClosedPnl,
+  fmtFillAction,
+  hlFillResultLabel,
+  isHlFillOpen,
+} from '../../lib/hyperliquid/format';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { toNum } from '../../lib/hyperliquid/parse';
 import DockCountBadge from './DockCountBadge';
@@ -356,11 +366,16 @@ const ProTradeDock: React.FC<Props> = ({
                   <th>Size</th>
                   <th>Price</th>
                   <th>Fee</th>
+                  <th>Result</th>
                   <th>Closed PnL</th>
                 </tr>
               </thead>
               <tbody>
-                {fills.map((f, i) => (
+                {fills.map((f, i) => {
+                  const isOpen = isHlFillOpen(f.dir);
+                  const result = isOpen ? null : hlFillResultLabel(f.closedPnl);
+                  const pnl = toNum(f.closedPnl);
+                  return (
                   <tr key={`${f.time}-${i}`}>
                     <td>{fmtTimeMs(f.time)}</td>
                     <td>
@@ -375,11 +390,23 @@ const ProTradeDock: React.FC<Props> = ({
                     <td>{f.sz}</td>
                     <td>{fmtPrice(f.px)}</td>
                     <td>{fmtUsdSymbol(f.fee, 4)}</td>
-                    <td className={toNum(f.closedPnl) >= 0 ? 'hl-up' : 'hl-down'}>
-                      {isHlFillOpen(f.dir) ? '—' : fmtClosedPnl(f.closedPnl)}
+                    <td
+                      className={
+                        result === 'Win'
+                          ? 'hl-up'
+                          : result === 'Loss'
+                            ? 'hl-down'
+                            : ''
+                      }
+                    >
+                      {result ?? '—'}
+                    </td>
+                    <td className={pnl >= 0 ? 'hl-up' : 'hl-down'}>
+                      {isOpen ? '—' : fmtClosedPnl(f.closedPnl)}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           ) : (

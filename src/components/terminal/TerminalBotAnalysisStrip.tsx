@@ -2,7 +2,7 @@ import React from 'react';
 import { useTerminalBotAnalysis } from '../../hooks/useTerminalBotAnalysis';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
-import { effectiveHlBotRunning, isHlBotReadyToRun } from '../../lib/hlBotGates';
+import { effectiveHlBotRunning } from '../../lib/hlBotGates';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import TerminalChartAnalysisOverlay from './TerminalChartAnalysisOverlay';
 
@@ -32,13 +32,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     hlSetup.builderFeeApproved,
     hlSetup.builderPlatformReady
   );
-  const hlReady = isHlBotReadyToRun(
-    hlSetup.accountUsd,
-    hlSetup.agentApproved,
-    hlSetup.builderFeeApproved,
-    hlSetup.builderPlatformReady
-  );
-  const showAnalysis = walletConnected && (botRunning || hlReady);
+  const showAnalysis = walletConnected && botRunning;
 
   const hlBalanceUsd =
     hlSetup.accountUsd > 0 || !hlSetup.loading ? hlSetup.accountUsd : metrics.hlBalanceUsd;

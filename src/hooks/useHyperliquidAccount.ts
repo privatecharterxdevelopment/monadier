@@ -63,7 +63,7 @@ export function useHyperliquidAccount(address: string | undefined) {
           fetchHlAccountState(address),
           fetchHlSpotBalances(address),
           fetchHlOpenOrders(address),
-          fetchHlUserFills(address),
+          fetchHlUserFills(address, 200),
           fetchHlUserFunding(address),
           fetchHlHistoricalOrders(address),
           fetchHlTwapHistory(address),

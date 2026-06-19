@@ -39,7 +39,8 @@ export function shouldCloseProfitLockUsd(
   alreadyLocked: boolean
 ): boolean {
   if (!alreadyLocked || floorUsd <= 0) return false;
-  return pnlUsd <= floorUsd && pnlUsd > 0;
+  // Close when uPnL falls to the trailed floor — even if slippage would print slightly negative.
+  return pnlUsd <= floorUsd;
 }
 
 /** Trailing profit floor from peak uPnL. */

@@ -21,10 +21,19 @@ export function fmtUsdSymbol(value: unknown, digits = 2): string {
 /** P/L display — extra decimals for tiny HL closes so $0.07 does not show as $0.00 */
 export function fmtClosedPnl(value: unknown): string {
   const n = toNum(value);
-  if (!Number.isFinite(n) || n === 0) return '—';
+  if (!Number.isFinite(n)) return '—';
+  if (n === 0) return '$0.00';
   const digits = Math.abs(n) < 0.01 ? 4 : 2;
   const sign = n > 0 ? '+' : '';
   return `${sign}${fmtUsdSymbol(n, digits)}`;
+}
+
+export function hlFillResultLabel(value: unknown): 'Win' | 'Loss' | 'Breakeven' | null {
+  const n = toNum(value);
+  if (!Number.isFinite(n)) return null;
+  if (n > 0) return 'Win';
+  if (n < 0) return 'Loss';
+  return 'Breakeven';
 }
 
 export function fmtFillAction(dir?: string): string {

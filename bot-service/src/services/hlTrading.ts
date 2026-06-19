@@ -126,18 +126,23 @@ export class HyperliquidTradingService {
       userAddress,
       config.arbitrum.chainId
     );
-    if (!settings.autoTradeEnabled) {
-      logger.debug('HL user skip: auto-trade off', { user: userAddress.slice(0, 10) });
-      return 'skip';
-    }
-
     const state = await fetchHlClearinghouseState(userAddress);
     if (!state) return 'skip';
 
     const openCoins = hlOpenPerpCoins(state);
     if (openCoins.length > 0) {
       await this.monitorOpenPositions(userAddress, state, settings);
+      if (!settings.autoTradeEnabled) {
+        logger.debug('HL user: monitoring open positions (auto-trade off)', {
+          user: userAddress.slice(0, 10),
+        });
+      }
       return 'ok';
+    }
+
+    if (!settings.autoTradeEnabled) {
+      logger.debug('HL user skip: auto-trade off', { user: userAddress.slice(0, 10) });
+      return 'skip';
     }
 
     return this.tryOpenFromGlobalSignals(userAddress, settings, state, ctx);
@@ -351,8 +356,10 @@ export class HyperliquidTradingService {
 
       const entry = Number(pos.entryPx ?? 0);
       const pnl = Number(pos.unrealizedPnl ?? 0);
+      const lev = Math.max(1, pos.leverage?.value ?? 10);
+      const notional = Math.abs(Number((pos as { positionValue?: string }).positionValue ?? 0));
       const collateralEst =
-        entry > 0 ? (Math.abs(size) * entry) / (pos.leverage?.value ?? 10) : 0;
+        notional > 0 ? notional / lev : entry > 0 ? (Math.abs(size) * entry) / lev : 0;
       const pnlPct = collateralEst > 0 ? (pnl / collateralEst) * 100 : 0;
 
       const tp = settings.takeProfitPercent ?? config.hyperliquid.defaultTakeProfitPercent;
@@ -417,7 +424,7 @@ export class HyperliquidTradingService {
           size,
           leverage: pos.leverage?.value ?? 10,
         });
-      } else if (pnlPct <= -sl) {
+      } else if (!locked && pnlPct <= -sl) {
         clearProfitLockState(lockKey);
         await this.closeMarketPosition(userAddress, pos.coin, 'stop_loss', {
           entryPx: entry,

@@ -132,6 +132,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
 
   const showAnalyzer =
     showBotAnalysis &&
+    Boolean(botAnalysisMetrics?.autoTradeEnabled) &&
     botAnalysisMetrics &&
     dockTab === 'positions' &&
     positions.length === 0 &&

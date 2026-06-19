@@ -475,7 +475,7 @@ const TerminalTradePanel: React.FC<Props> = ({
       refreshAll();
       onRefresh();
       setStopNotice(
-        'Bot stopped — no new trades. Stop is instant on Hyperliquid (no MetaMask). Open positions stay until TP/SL or manual close.'
+        'Bot stopped — no new trades. Open positions stay protected (TP / SL / profit lock). Stop is instant on Hyperliquid (no MetaMask).'
       );
     } catch (e: unknown) {
       setBotError(e instanceof Error ? e.message : 'Failed to stop bot');

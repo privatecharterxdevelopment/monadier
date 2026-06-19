@@ -413,7 +413,7 @@ const Dashboard2Page: React.FC = () => {
                   refreshKey={historyTick}
                   walletAddress={address ?? botSettings.wallet ?? null}
                   walletConnected={walletReady}
-                  showBotAnalysis
+                  showBotAnalysis={botRunning}
                   botAnalysisMetrics={metrics}
                   botAnalysisSymbol={chartSymbol}
                   botAnalysisWallet={address ?? botSettings.wallet ?? null}
