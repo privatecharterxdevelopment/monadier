@@ -66,12 +66,11 @@ export function hlChartMarkerToSeriesMarker(
     return {
       id: m.id,
       time,
-      position: 'atPriceMiddle',
+      position: 'belowBar',
       shape: isLong ? 'arrowUp' : 'arrowDown',
       color: isLong ? colors.up : colors.down,
-      price: m.price,
-      text: 'Bot open',
-      size: 1.2,
+      text: isLong ? 'Open L' : 'Open S',
+      size: 1,
     };
   }
 
@@ -79,12 +78,11 @@ export function hlChartMarkerToSeriesMarker(
   return {
     id: m.id,
     time,
-    position: 'atPriceMiddle',
+    position: 'belowBar',
     shape: win ? 'arrowUp' : 'arrowDown',
     color: win ? colors.up : colors.down,
-    price: m.price,
     text: win ? 'Close +' : 'Close −',
-    size: 1.2,
+    size: 1,
   };
 }
 

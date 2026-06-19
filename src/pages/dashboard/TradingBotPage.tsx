@@ -1796,6 +1796,8 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
     const chartWidthPct = 100 - chartRightInsetPct;
     const candleSlotPct = chartWidthPct / displayCandles.length;
     const candleCenterX = (idx: number) => (idx + 0.5) * candleSlotPct;
+    const arrowLaneHeight = isTerminalChart ? 26 : 0;
+    const candlePlotHeight = Math.max(chartHeight - arrowLaneHeight, 80);
 
     if (isTerminalChart) {
       chartViewportRef.current = {
@@ -1810,8 +1812,9 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
     }
 
     const scaleY = (price: number) => {
-      return chartHeight - ((price - viewMin) / viewSpan) * chartHeight;
+      return candlePlotHeight - ((price - viewMin) / viewSpan) * candlePlotHeight;
     };
+    const arrowLaneY = chartHeight - Math.floor(arrowLaneHeight / 2);
 
     const candleWidth = isTerminalChart
       ? Math.min(4, Math.max(2, (100 / displayCandles.length) * 3.2))
@@ -1972,7 +1975,7 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
           {/* Price grid lines */}
           {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
             const price = viewMin + viewSpan * (1 - ratio);
-            const y = ratio * chartHeight;
+            const y = ratio * candlePlotHeight;
             return (
               <g key={i}>
                 <line x1="0" y1={y} x2="100%" y2={y} stroke="#d4d4d8" strokeWidth="0.5" strokeDasharray="4" />
@@ -2047,33 +2050,46 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
             </g>
           )}
 
-          {/* Signal arrows */}
+          {/* Signal arrows — fixed lane at chart bottom, not on candles */}
           {signalArrows.map((signal, i) => {
             const xPct = candleCenterX(signal.idx);
             const cx = `${xPct}%`;
-            const y = scaleY(signal.price);
+            const laneTop = arrowLaneHeight > 0 ? arrowLaneY - 9 : scaleY(signal.price) + 10;
+            const laneBottom = arrowLaneHeight > 0 ? arrowLaneY + 1 : scaleY(signal.price) + 22;
             return (
               <g key={`signal-${i}`} opacity="0.9">
                 {signal.type === 'buy' ? (
                   <>
                     <polygon
-                      points={`${cx},${y + 10} ${xPct - 0.35}%,${y + 22} ${xPct + 0.35}%,${y + 22}`}
+                      points={`${cx},${laneTop} ${xPct - 0.35}%,${laneBottom} ${xPct + 0.35}%,${laneBottom}`}
                       fill="#22c55e"
                     />
-                    <circle cx={cx} cy={y + 26} r="2.5" fill="#22c55e" opacity="0.55" />
+                    <circle cx={cx} cy={laneBottom + 3} r="2.5" fill="#22c55e" opacity="0.55" />
                   </>
                 ) : (
                   <>
                     <polygon
-                      points={`${cx},${y - 10} ${xPct - 0.35}%,${y - 22} ${xPct + 0.35}%,${y - 22}`}
+                      points={`${cx},${laneBottom} ${xPct - 0.35}%,${laneTop} ${xPct + 0.35}%,${laneTop}`}
                       fill="#ef4444"
                     />
-                    <circle cx={cx} cy={y - 26} r="2.5" fill="#ef4444" opacity="0.55" />
+                    <circle cx={cx} cy={laneTop - 3} r="2.5" fill="#ef4444" opacity="0.55" />
                   </>
                 )}
               </g>
             );
           })}
+
+          {arrowLaneHeight > 0 ? (
+            <line
+              x1="0"
+              y1={candlePlotHeight + 0.5}
+              x2="100%"
+              y2={candlePlotHeight + 0.5}
+              stroke="#d4d4d8"
+              strokeWidth="0.5"
+              opacity="0.45"
+            />
+          ) : null}
 
           {/* Candlesticks */}
           {displayCandles.map((candle, idx) => {
@@ -2120,7 +2136,7 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
                   : entryPrice * (1 - tpPercent / 100);
                 const tpY = scaleY(tpPrice);
                 // Only show if TP is within visible range
-                if (tpY >= 0 && tpY <= chartHeight) {
+                if (tpY >= 0 && tpY <= candlePlotHeight) {
                   return (
                     <>
                       <line x1="0" y1={tpY} x2="100%" y2={tpY} stroke="#22c55e" strokeWidth="1" strokeDasharray="4,4" opacity="0.8" />
@@ -2142,7 +2158,7 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
                   : entryPrice * (1 + slPercent / 100);
                 const slY = scaleY(slPrice);
                 // Only show if SL is within visible range
-                if (slY >= 0 && slY <= chartHeight) {
+                if (slY >= 0 && slY <= candlePlotHeight) {
                   return (
                     <>
                       <line x1="0" y1={slY} x2="100%" y2={slY} stroke="#ef4444" strokeWidth="1" strokeDasharray="4,4" opacity="0.8" />

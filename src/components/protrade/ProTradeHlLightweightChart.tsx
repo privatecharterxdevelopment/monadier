@@ -88,7 +88,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       },
       rightPriceScale: {
         borderColor: colors.border,
-        scaleMargins: { top: 0.08, bottom: 0.22 },
+        scaleMargins: { top: 0.08, bottom: 0.26 },
       },
       timeScale: {
         borderColor: colors.border,
@@ -114,13 +114,14 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       priceScaleId: 'volume',
     });
     volumeSeries.priceScale().applyOptions({
-      scaleMargins: { top: 0.82, bottom: 0 },
+      scaleMargins: { top: 0.78, bottom: 0.04 },
     });
 
     chartRef.current = chart;
     seriesRef.current = series;
     volumeRef.current = volumeSeries;
-    markersPluginRef.current = createSeriesMarkers(series, [], { zOrder: 'aboveSeries' });
+    // Trade markers in the volume pane — keeps arrows off the candle bodies.
+    markersPluginRef.current = createSeriesMarkers(volumeSeries, [], { zOrder: 'top' });
 
     const ro = new ResizeObserver(() => {
       if (!aliveRef.current) return;
