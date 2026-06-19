@@ -119,7 +119,8 @@ const TerminalTradePanel: React.FC<Props> = ({
     autoTradeOn,
     hlFundingUsd,
     hlSetup.agentApproved,
-    hlSetup.builderFeeApproved
+    hlSetup.builderFeeApproved,
+    hlSetup.builderPlatformReady
   );
 
   useEffect(() => {
@@ -216,6 +217,7 @@ const TerminalTradePanel: React.FC<Props> = ({
         hlLoaded: hlSetup.hlLoaded,
         agentLoaded: hlSetup.agentLoaded,
         builderFeeApproved: hlSetup.builderFeeApproved,
+        builderPlatformReady: hlSetup.builderPlatformReady,
       })
     ) {
       return;
@@ -327,10 +329,14 @@ const TerminalTradePanel: React.FC<Props> = ({
     if (!wallet) throw new Error('Connect your wallet first.');
     const s = botSettings.settings;
     const agentOk = ready?.agentApproved ?? hlSetup.agentApproved;
-    const builderOk = ready?.builderFeeApproved ?? hlSetup.builderFeeApproved;
     if (autoTradeEnabled) {
-      if (!isHlBotReadyToRun(hlFundingUsd, agentOk, builderOk)) {
-        throw new Error('Deposit USDC, approve the agent, and approve the platform fee before starting the bot.');
+      const builderPlatformReady = hlSetup.builderPlatformReady;
+      const builderOk =
+        !hlSetup.builderFeeEnabled ||
+        !builderPlatformReady ||
+        (ready?.builderFeeApproved ?? hlSetup.builderFeeApproved);
+      if (!isHlBotReadyToRun(hlFundingUsd, agentOk, builderOk, builderPlatformReady)) {
+        throw new Error('Deposit USDC, approve the trading agent, then press Start bot again.');
       }
       await enableHlBotExecution(wallet);
     } else {

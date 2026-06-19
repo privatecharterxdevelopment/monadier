@@ -50,7 +50,8 @@ const ProTradeStatusBar: React.FC<Props> = ({
     autoTradeOn,
     hlSetup.accountUsd,
     hlSetup.agentApproved,
-    hlSetup.builderFeeApproved
+    hlSetup.builderFeeApproved,
+    hlSetup.builderPlatformReady
   );
   const botRunning = mode === 'bot' ? botRunningUnified : Boolean(botMetrics?.autoTradeEnabled);
   const botRuntime = useBotRuntimeTimer(

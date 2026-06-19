@@ -11,6 +11,7 @@ import {
 } from '../lib/hyperliquid/hlBotAgent';
 import { fetchMaxBuilderFee, isBuilderApprovalSufficient } from '../lib/hyperliquid/builder';
 import { getHlBuilderConfig } from '../lib/hyperliquid/builderConfig';
+import { fetchHlBuilderPlatformStatus } from '../lib/hyperliquid/builderPlatform';
 import {
   disableStaleHlBotAutoTrade,
   effectiveHlBotRunning,
@@ -133,6 +134,7 @@ export function useTradingDashboardMetrics() {
       let vaultSettings: { auto_trade_enabled?: boolean } | null = null;
       let agentApproved = false;
       let builderFeeApproved = true;
+      let builderPlatformReady = true;
 
       let vaultBalanceUsd = 0;
       let withdrawableUsd = 0;
@@ -174,8 +176,14 @@ export function useTradingDashboardMetrics() {
         try {
           const builderConfig = getHlBuilderConfig();
           if (builderConfig.enabled) {
-            const maxFee = await fetchMaxBuilderFee(hlWallet, builderConfig.address);
-            builderFeeApproved = isBuilderApprovalSufficient(maxFee);
+            const platform = await fetchHlBuilderPlatformStatus();
+            builderPlatformReady = platform.ready;
+            if (platform.ready) {
+              const maxFee = await fetchMaxBuilderFee(hlWallet, builderConfig.address);
+              builderFeeApproved = isBuilderApprovalSufficient(maxFee);
+            } else {
+              builderFeeApproved = true;
+            }
           }
         } catch {
           builderFeeApproved = false;
@@ -201,6 +209,7 @@ export function useTradingDashboardMetrics() {
           hlLoaded,
           agentLoaded,
           builderFeeApproved,
+          builderPlatformReady,
         })
       ) {
         try {
@@ -215,7 +224,8 @@ export function useTradingDashboardMetrics() {
           dbAutoTrade,
           vaultBalanceUsd,
           agentApproved,
-          builderFeeApproved
+          builderFeeApproved,
+          builderPlatformReady
         );
       }
 

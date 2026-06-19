@@ -29,12 +29,14 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     botSettings.settings.autoTradeEnabled,
     hlSetup.accountUsd,
     hlSetup.agentApproved,
-    hlSetup.builderFeeApproved
+    hlSetup.builderFeeApproved,
+    hlSetup.builderPlatformReady
   );
   const hlReady = isHlBotReadyToRun(
     hlSetup.accountUsd,
     hlSetup.agentApproved,
-    hlSetup.builderFeeApproved
+    hlSetup.builderFeeApproved,
+    hlSetup.builderPlatformReady
   );
   const showAnalysis = walletConnected && (botRunning || hlReady);
 
