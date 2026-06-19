@@ -23,7 +23,7 @@ import {
 import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './services/hlAgent';
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
 import { fetchHlClearinghouseState, hlAccountValueUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive } from './services/hlInfo';
-import { getLastHlOpenError } from './services/hlTrading';
+import { getLastHlOpenError, hyperliquidTradingService } from './services/hlTrading';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
 import { getHlFeeSummary } from './services/hlSuccessFees';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
@@ -229,6 +229,63 @@ const healthServer = http.createServer(async (req, res) => {
     } catch (err: any) {
       res.writeHead(500, corsHeaders);
       res.end(JSON.stringify({ success: false, error: err.message || 'hl-agent failed' }));
+    }
+    return;
+  }
+
+  // API: Manual close via Monadier HL agent (MetaMask cannot sign L1 chainId 1337)
+  if (url.pathname === '/api/hl-close' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody();
+      const wallet = String(body.wallet ?? '').toLowerCase();
+      const coin = String(body.coin ?? '').trim().toUpperCase();
+      const reason = String(body.reason ?? 'manual');
+
+      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
+        return;
+      }
+      if (!coin || coin.length > 16) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'coin required' }));
+        return;
+      }
+
+      const agentAddr = deriveUserHlAgentAddress(wallet);
+      const agents = await fetchHlExtraAgents(wallet);
+      const live = agents.find(
+        (a) => a.address.toLowerCase() === agentAddr.toLowerCase() && isHlExtraAgentActive(a)
+      );
+      const dbApproved = await hlAgentApprovalService.isApproved(wallet, agentAddr);
+      if (!live && !dbApproved) {
+        res.writeHead(400, corsHeaders);
+        res.end(
+          JSON.stringify({
+            success: false,
+            error: 'HL trading agent not approved — press Start bot and approve in MetaMask first.',
+          })
+        );
+        return;
+      }
+
+      const result = await hyperliquidTradingService.closeMarketPosition(
+        wallet as `0x${string}`,
+        coin,
+        reason
+      );
+      if (!result.success) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: result.error || 'Close failed' }));
+        return;
+      }
+
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, wallet, coin }));
+    } catch (err: any) {
+      logger.error('API: hl-close failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'hl-close failed' }));
     }
     return;
   }
@@ -495,6 +552,7 @@ healthServer.listen(PORT, () => {
   logger.info('  GET /api/signal?symbol=ETHUSDT&timeframes=1m,5m,15m,1h - MTF Signal');
   logger.info('  GET /api/hl-agent?wallet=0x… - Per-user HL agent address');
   logger.info('  POST /api/hl-agent/approval - Save HL agent approval (service role)');
+  logger.info('  POST /api/hl-close - Close HL position via Monadier agent');
   logger.info('  GET /api/bot-status?wallet=0x… - Wallet bot diagnostics');
   logger.info('  GET /api/global-signals - Top HL perp signals from last scan');
   logger.info('  GET /api/timeframe?symbol=ETHUSDT&tf=15m - Single timeframe analysis');

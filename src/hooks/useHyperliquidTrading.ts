@@ -18,6 +18,11 @@ import {
 import { fetchMaxBuilderFee, resolveProTradeBuilderParam } from '../lib/hyperliquid/builder';
 import { getHlBuilderConfig } from '../lib/hyperliquid/builderConfig';
 import { proratePositionProfitUsd } from '../lib/hyperliquid/proTradeBuilderFee';
+import { closeHlPositionViaAgent } from '../lib/hyperliquid/hlAgentClose';
+import {
+  fetchHlAgentAddress,
+  findActiveHlAgent,
+} from '../lib/hyperliquid/hlBotAgent';
 import { fetchHlAccountState } from '../lib/hyperliquid/user';
 
 export type { OrderSide, SimpleOrderKind as OrderKind };
@@ -242,20 +247,42 @@ export function useHyperliquidTrading() {
       markPx: number;
       profitUsd?: number;
     }) =>
-      withBusy(
-        () =>
-          executeSimpleOrder({
-            coin: opts.coin,
-            side: opts.isLong ? 'short' : 'long',
-            kind: 'market',
-            size: Math.abs(opts.size),
-            markPx: opts.markPx,
-            reduceOnly: true,
-            profitUsd: opts.profitUsd,
-          }),
-        'Close position failed'
-      ),
-    [executeSimpleOrder, withBusy]
+      withBusy(async () => {
+        const wallet = requireWallet().account?.address;
+        if (wallet) {
+          try {
+            const meta = await fetchHlAgentAddress(wallet);
+            const agentAddr = meta.success ? meta.agentAddress : null;
+            const agentLive =
+              agentAddr != null
+                ? await findActiveHlAgent(wallet, agentAddr)
+                : null;
+            if (agentLive) {
+              await closeHlPositionViaAgent({
+                walletAddress: wallet,
+                coin: opts.coin,
+              });
+              return;
+            }
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            if (/agent not approved|no hl position|close failed/i.test(msg)) {
+              throw err instanceof Error ? err : new Error(msg);
+            }
+            /* agent API unreachable — fall through only if no on-chain agent */
+          }
+        }
+        await executeSimpleOrder({
+          coin: opts.coin,
+          side: opts.isLong ? 'short' : 'long',
+          kind: 'market',
+          size: Math.abs(opts.size),
+          markPx: opts.markPx,
+          reduceOnly: true,
+          profitUsd: opts.profitUsd,
+        });
+      }, 'Close position failed'),
+    [executeSimpleOrder, requireWallet, withBusy]
   );
 
   const placeScaleOrder = useCallback(

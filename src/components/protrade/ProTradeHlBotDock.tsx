@@ -110,7 +110,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
       try {
         const profitUsd = Math.max(0, toNum(position.unrealizedPnl));
         await closePosition({ coin: position.coin, size, isLong, markPx, profitUsd });
-        setCloseNotice(`${position.coin} close submitted. Bot keeps running.`);
+        setCloseNotice(`${position.coin} close submitted via HL agent. Bot keeps running.`);
         await refreshAccount();
         onPositionChange?.();
       } catch (err: unknown) {
@@ -145,7 +145,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         </div>
       ) : null}
       {closeNotice ? (
-        <p className="hl-dock-notice" role="status">
+        <p className={`hl-dock-notice${closeNotice.includes('submitted') ? ' hl-dock-notice--ok' : ''}`} role="status">
           {closeNotice}
         </p>
       ) : null}
