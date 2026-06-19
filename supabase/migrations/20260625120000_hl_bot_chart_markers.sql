@@ -34,9 +34,8 @@ CREATE POLICY "Users insert hl chart markers for linked wallets"
   ON hl_bot_chart_markers FOR INSERT
   WITH CHECK (
     lower(wallet_address) IN (
-      SELECT lower(w.address)
+      SELECT lower(uw.wallet_address)
       FROM user_wallets uw
-      JOIN wallets w ON w.id = uw.wallet_id
       WHERE uw.user_id = auth.uid()
     )
     OR lower(wallet_address) = lower(

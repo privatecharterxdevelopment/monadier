@@ -37,7 +37,7 @@ class HlAgentApprovalService {
     const agents = await fetchHlExtraAgents(walletAddress);
     const onChain = agents.find(
       (a) =>
-        a.address === expectedAgent.toLowerCase() && isHlExtraAgentActive(a)
+        a.address.toLowerCase() === expectedAgent.toLowerCase() && isHlExtraAgentActive(a)
     );
     if (onChain) return true;
 

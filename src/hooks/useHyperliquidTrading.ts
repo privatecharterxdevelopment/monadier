@@ -19,10 +19,6 @@ import { fetchMaxBuilderFee, resolveProTradeBuilderParam } from '../lib/hyperliq
 import { getHlBuilderConfig } from '../lib/hyperliquid/builderConfig';
 import { proratePositionProfitUsd } from '../lib/hyperliquid/proTradeBuilderFee';
 import { closeHlPositionViaAgent } from '../lib/hyperliquid/hlAgentClose';
-import {
-  fetchHlAgentAddress,
-  findActiveHlAgent,
-} from '../lib/hyperliquid/hlBotAgent';
 import { fetchHlAccountState } from '../lib/hyperliquid/user';
 
 export type { OrderSide, SimpleOrderKind as OrderKind };
@@ -249,40 +245,27 @@ export function useHyperliquidTrading() {
     }) =>
       withBusy(async () => {
         const wallet = requireWallet().account?.address;
-        if (wallet) {
-          try {
-            const meta = await fetchHlAgentAddress(wallet);
-            const agentAddr = meta.success ? meta.agentAddress : null;
-            const agentLive =
-              agentAddr != null
-                ? await findActiveHlAgent(wallet, agentAddr)
-                : null;
-            if (agentLive) {
-              await closeHlPositionViaAgent({
-                walletAddress: wallet,
-                coin: opts.coin,
-              });
-              return;
-            }
-          } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : String(err);
-            if (/agent not approved|no hl position|close failed/i.test(msg)) {
-              throw err instanceof Error ? err : new Error(msg);
-            }
-            /* agent API unreachable — fall through only if no on-chain agent */
+        if (!wallet) throw new Error('Connect wallet first');
+
+        try {
+          await closeHlPositionViaAgent({
+            walletAddress: wallet,
+            coin: opts.coin,
+          });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (/agent not approved|approve.*agent/i.test(msg)) {
+            throw new Error(
+              'HL trading agent not approved — press Start bot and complete the MetaMask approval first.'
+            );
           }
+          if (/no hl position|zero size/i.test(msg)) {
+            throw new Error('No open position found on Hyperliquid for this coin.');
+          }
+          throw err instanceof Error ? err : new Error(msg);
         }
-        await executeSimpleOrder({
-          coin: opts.coin,
-          side: opts.isLong ? 'short' : 'long',
-          kind: 'market',
-          size: Math.abs(opts.size),
-          markPx: opts.markPx,
-          reduceOnly: true,
-          profitUsd: opts.profitUsd,
-        });
       }, 'Close position failed'),
-    [executeSimpleOrder, requireWallet, withBusy]
+    [requireWallet, withBusy]
   );
 
   const placeScaleOrder = useCallback(

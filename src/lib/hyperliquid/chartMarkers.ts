@@ -15,6 +15,17 @@ export type HlChartMarker = {
 
 export type ChartMarkerColors = { up: string; down: string };
 
+/** Cached after first 404 — table not migrated on Supabase yet. */
+let chartMarkersDbAvailable: boolean | null = null;
+
+function isMissingChartMarkersTable(error: { code?: string; message?: string }): boolean {
+  return (
+    error.code === 'PGRST205' ||
+    error.code === '42P01' ||
+    /does not exist/i.test(error.message ?? '')
+  );
+}
+
 function parseDirection(dir: string): 'LONG' | 'SHORT' | null {
   const d = dir.toLowerCase();
   if (d.includes('long') && !d.includes('short')) return 'LONG';
@@ -122,6 +133,8 @@ export async function fetchHlChartMarkers(
   coin: string,
   limit = 120
 ): Promise<HlChartMarker[]> {
+  if (chartMarkersDbAvailable === false) return [];
+
   const w = wallet.toLowerCase();
   const c = coin.toUpperCase();
   const { data, error } = await supabase
@@ -133,10 +146,14 @@ export async function fetchHlChartMarkers(
     .limit(limit);
 
   if (error) {
-    console.warn('[fetchHlChartMarkers]', error.message);
+    if (isMissingChartMarkersTable(error)) {
+      chartMarkersDbAvailable = false;
+      return [];
+    }
     return [];
   }
 
+  chartMarkersDbAvailable = true;
   return (data ?? [])
     .map((row) => rowToMarker(row as Record<string, unknown>))
     .filter((m): m is HlChartMarker => m != null);
@@ -146,6 +163,8 @@ export async function persistChartMarkerFromFill(
   wallet: string,
   fill: HlUserFill
 ): Promise<void> {
+  if (chartMarkersDbAvailable === false) return;
+
   const marker = fillToChartMarker(fill);
   if (!marker) return;
 
@@ -164,7 +183,7 @@ export async function persistChartMarkerFromFill(
     { onConflict: 'wallet_address,coin,event_type,event_ts,price', ignoreDuplicates: true }
   );
 
-  if (error) {
-    console.warn('[persistChartMarkerFromFill]', error.message);
+  if (error && isMissingChartMarkersTable(error)) {
+    chartMarkersDbAvailable = false;
   }
 }

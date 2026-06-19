@@ -346,8 +346,11 @@ export class HyperliquidTradingService {
     }
   ): Promise<{ success: boolean; error?: string }> {
     try {
+      const coinUpper = coin.toUpperCase();
       const state = await fetchHlClearinghouseState(userAddress);
-      const row = state?.assetPositions?.find((p) => p.position?.coin === coin)?.position;
+      const row = state?.assetPositions?.find(
+        (p) => p.position?.coin?.toUpperCase() === coinUpper
+      )?.position;
       if (!row) return { success: false, error: 'No HL position' };
 
       const size = Number(row.szi ?? 0);
@@ -363,9 +366,12 @@ export class HyperliquidTradingService {
 
       const meta = await fetchHlMeta();
       const mids = await fetchHlAllMids();
-      const assetIndex = coinToAssetIndex(meta, coin);
+      const assetIndex = coinToAssetIndex(meta, coinUpper);
       const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
-      const markPx = Number(mids[coin] ?? 0);
+      const markPx = Number(mids[coinUpper] ?? mids[coin] ?? 0);
+      if (!Number.isFinite(markPx) || markPx <= 0) {
+        return { success: false, error: 'Could not read mark price — try again' };
+      }
       const isLong = size > 0;
       const limitPx = isLong ? markPx * 0.95 : markPx * 1.05;
 
@@ -377,7 +383,7 @@ export class HyperliquidTradingService {
       });
 
       const client = createAgentClient(userAddress);
-      const result = await client.order({
+      const orderPayload = {
         orders: [
           {
             a: assetIndex,
@@ -385,16 +391,31 @@ export class HyperliquidTradingService {
             p: formatHlPrice(limitPx),
             s: formatHlSize(absSize, szDecimals),
             r: true,
-            t: { limit: { tif: 'FrontendMarket' } },
+            t: { limit: { tif: 'FrontendMarket' as const } },
           },
         ],
-        grouping: 'na',
+        grouping: 'na' as const,
+      };
+
+      let result = await client.order({
+        ...orderPayload,
         ...(closeBuilder ? { builder: closeBuilder } : {}),
       });
 
-      const status = result.response?.data?.statuses?.[0] as
+      let status = result.response?.data?.statuses?.[0] as
         | { filled?: unknown; error?: string }
         | undefined;
+
+      if (status && 'error' in status && status.error && closeBuilder) {
+        const errText = String(status.error);
+        if (/builder|fee|approval/i.test(errText)) {
+          result = await client.order(orderPayload);
+          status = result.response?.data?.statuses?.[0] as
+            | { filled?: unknown; error?: string }
+            | undefined;
+        }
+      }
+
       if (status && 'error' in status && status.error) {
         return { success: false, error: String(status.error) };
       }
@@ -402,7 +423,7 @@ export class HyperliquidTradingService {
       const collateralUsd =
         entryPx > 0 ? (absSize * entryPx) / leverage : 0;
       const snapshot: HlCloseSnapshot = {
-        coin: coin.toUpperCase(),
+        coin: coinUpper,
         direction: isLong ? 'LONG' : 'SHORT',
         entryPx,
         exitPx: markPx,
@@ -427,7 +448,7 @@ export class HyperliquidTradingService {
 
       logger.info('HL position closed', {
         user: userAddress.slice(0, 10),
-        coin,
+        coin: coinUpper,
         reason,
         pnl: pnlUsd.toFixed(4),
         successFee: collectedFee > 0 ? collectedFee.toFixed(4) : '0',

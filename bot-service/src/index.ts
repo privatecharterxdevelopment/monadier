@@ -257,13 +257,13 @@ const healthServer = http.createServer(async (req, res) => {
       const live = agents.find(
         (a) => a.address.toLowerCase() === agentAddr.toLowerCase() && isHlExtraAgentActive(a)
       );
-      const dbApproved = await hlAgentApprovalService.isApproved(wallet, agentAddr);
-      if (!live && !dbApproved) {
+      if (!live) {
         res.writeHead(400, corsHeaders);
         res.end(
           JSON.stringify({
             success: false,
-            error: 'HL trading agent not approved — press Start bot and approve in MetaMask first.',
+            error:
+              'HL trading agent not approved on Hyperliquid — press Start bot and approve in MetaMask first.',
           })
         );
         return;
