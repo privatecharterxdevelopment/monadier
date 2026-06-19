@@ -44,8 +44,15 @@ export async function scanGlobalHlSignals(): Promise<GlobalSignalCandidate[]> {
       if (!analysis || analysis.isWeak) return null;
       if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
       if (analysis.confidence < minConf) return null;
-      // Require multi-timeframe alignment (conditionsMet = trendAlignment / 20).
-      if ((analysis.metrics?.conditionsMet ?? 0) < 3) return null;
+      // Require 3+ TFs on direction, 75%+ trend alignment, no counter-trend vs 1h.
+      if ((analysis.metrics?.directionalTfCount ?? 0) < 3) return null;
+      if ((analysis.metrics?.trendAlignment ?? 0) < 75) return null;
+      if (
+        (analysis.direction === 'LONG' && analysis.metrics?.h1Trend === 'DOWN') ||
+        (analysis.direction === 'SHORT' && analysis.metrics?.h1Trend === 'UP')
+      ) {
+        return null;
+      }
       return {
         coin,
         symbol,

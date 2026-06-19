@@ -53,6 +53,9 @@ interface MarketAnalysis {
     riskReward: string;
     trend: string;
     dayOfWeek: string;
+    trendAlignment?: number;
+    directionalTfCount?: number;
+    h1Trend?: string;
   };
 }
 
@@ -1177,21 +1180,47 @@ export async function analyzeMarketMTFBySymbol(
       marketWarning = 'Weekend trading: Lower liquidity';
     }
 
+    const tf1h = signal.timeframes.find((t) => t.timeframe === '1h');
     const tf15m = signal.timeframes.find((t) => t.timeframe === '15m');
     const rsi = tf15m?.rsi || 50;
     const macdSignal = tf15m?.macdSignal || 'neutral';
-    const trend = tf15m?.trend || 'SIDEWAYS';
+    const trend = tf1h?.trend || tf15m?.trend || 'SIDEWAYS';
+
+    let finalDirection: 'LONG' | 'SHORT' = signal.direction as 'LONG' | 'SHORT';
+    if (signal.direction === 'HOLD') {
+      const higherTFs = signal.timeframes.filter((tf) => tf.timeframe !== '1m');
+      const longVotes = higherTFs.filter((tf) => tf.direction === 'LONG').length;
+      const shortVotes = higherTFs.filter((tf) => tf.direction === 'SHORT').length;
+      const isBullishTrend = trend === 'UP' || trend.includes('UPTREND');
+      const isBearishTrend = trend === 'DOWN' || trend.includes('DOWNTREND');
+
+      if (isBullishTrend) finalDirection = 'LONG';
+      else if (isBearishTrend) finalDirection = 'SHORT';
+      else finalDirection = longVotes >= shortVotes ? 'LONG' : 'SHORT';
+    }
+
+    const directionalTfCount = signal.timeframes.filter(
+      (tf) => tf.direction === finalDirection
+    ).length;
+    const counterTrend =
+      (finalDirection === 'LONG' && trend === 'DOWN') ||
+      (finalDirection === 'SHORT' && trend === 'UP');
+    const trendAligned =
+      directionalTfCount >= 3 &&
+      signal.trendAlignment >= 75 &&
+      !counterTrend;
 
     const isWeak =
-      strategyConfig.minConfidence >= 40
+      !trendAligned ||
+      (strategyConfig.minConfidence >= 40
         ? signal.confidence < strategyConfig.minConfidence ||
           (signal.warnings.length > 0 && signal.trendAlignment < 50)
-        : signal.confidence < strategyConfig.minConfidence;
+        : signal.confidence < strategyConfig.minConfidence);
 
     const reason =
       signal.reasons.length > 0
         ? signal.reasons.slice(0, 2).join(' | ')
-        : `MTF: ${signal.direction} (${signal.confidence.toFixed(0)}%)`;
+        : `MTF: ${finalDirection} (${signal.confidence.toFixed(0)}%)`;
 
     let suggestedTP =
       signal.suggestedTP > 0
@@ -1215,19 +1244,6 @@ export async function analyzeMarketMTFBySymbol(
     const patternBonus = signal.patterns.length > 0 ? Math.min(signal.patterns.length, 3) : 0;
     const signalStrength = Math.min(10, Math.round(signal.confidence / 10 + patternBonus));
 
-    let finalDirection: 'LONG' | 'SHORT' = signal.direction as 'LONG' | 'SHORT';
-    if (signal.direction === 'HOLD') {
-      const higherTFs = signal.timeframes.filter((tf) => tf.timeframe !== '1m');
-      const longVotes = higherTFs.filter((tf) => tf.direction === 'LONG').length;
-      const shortVotes = higherTFs.filter((tf) => tf.direction === 'SHORT').length;
-      const isBullishTrend = trend === 'UP' || trend.includes('UPTREND');
-      const isBearishTrend = trend === 'DOWN' || trend.includes('DOWNTREND');
-
-      if (isBullishTrend) finalDirection = 'LONG';
-      else if (isBearishTrend) finalDirection = 'SHORT';
-      else finalDirection = longVotes >= shortVotes ? 'LONG' : 'SHORT';
-    }
-
     return {
       direction: finalDirection,
       confidence: Math.round(signal.confidence),
@@ -1249,6 +1265,9 @@ export async function analyzeMarketMTFBySymbol(
         priceChange1h: '0.00',
         volumeRatio: '1.0',
         conditionsMet: Math.round(signal.trendAlignment / 20),
+        trendAlignment: Math.round(signal.trendAlignment),
+        directionalTfCount,
+        h1Trend: trend,
         riskReward: (suggestedTP / suggestedSL).toFixed(2),
         trend:
           trend === 'UP' ? 'STRONG_UPTREND' : trend === 'DOWN' ? 'STRONG_DOWNTREND' : 'NEUTRAL',
