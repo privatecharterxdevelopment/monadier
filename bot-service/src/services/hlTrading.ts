@@ -34,6 +34,9 @@ const transport = new HttpTransport();
 /** Per user+coin — SL trailed into profit after activate threshold. */
 const hlProfitLockActive = new Map<string, boolean>();
 
+/** Last close timestamp per wallet — anti-churn cooldown before next open. */
+const hlLastCloseAt = new Map<string, number>();
+
 /** Last HL open error per wallet — surfaced in /api/bot-status diagnostics. */
 const lastHlOpenError = new Map<string, { at: string; coin?: string; error: string }>();
 
@@ -135,6 +138,16 @@ export class HyperliquidTradingService {
   ): Promise<UserProcessResult> {
     if (ctx.globalSignals.length === 0) {
       logger.debug('HL open skip: no global signals', { user: userAddress.slice(0, 10) });
+      return 'skip';
+    }
+
+    const cooldownMs = config.hyperliquid.reentryCooldownMs;
+    const lastClose = hlLastCloseAt.get(userAddress.toLowerCase()) ?? 0;
+    if (cooldownMs > 0 && Date.now() - lastClose < cooldownMs) {
+      logger.debug('HL open skip: reentry cooldown', {
+        user: userAddress.slice(0, 10),
+        waitSec: Math.ceil((cooldownMs - (Date.now() - lastClose)) / 1000),
+      });
       return 'skip';
     }
 
@@ -290,9 +303,10 @@ export class HyperliquidTradingService {
       const pnlPct = collateralEst > 0 ? (pnl / collateralEst) * 100 : 0;
 
       const tp = settings.takeProfitPercent ?? config.hyperliquid.defaultTakeProfitPercent;
-      const sl = settings.stopLossPercent ?? 1;
+      const sl = settings.stopLossPercent ?? config.hyperliquid.defaultStopLossPercent;
       const profitLock =
         settings.profitLockPercent ?? config.hyperliquid.defaultProfitLockPercent;
+      const minProfitUsd = config.hyperliquid.minProfitCloseUsd;
 
       const lockKey = positionKey(userAddress, pos.coin);
       let locked = hlProfitLockActive.get(lockKey) ?? false;
@@ -314,13 +328,22 @@ export class HyperliquidTradingService {
           leverage: pos.leverage?.value ?? 10,
         });
       } else if (shouldCloseProfitLock(pnlPct, profitLock, locked)) {
-        hlProfitLockActive.delete(lockKey);
-        await this.closeMarketPosition(userAddress, pos.coin, 'profit_lock', {
-          entryPx: entry,
-          unrealizedPnlUsd: pnl,
-          size,
-          leverage: pos.leverage?.value ?? 10,
-        });
+        if (pnl < minProfitUsd) {
+          logger.debug('HL profit lock skip: below min USD', {
+            user: userAddress.slice(0, 10),
+            coin: pos.coin,
+            pnl: pnl.toFixed(4),
+            min: minProfitUsd,
+          });
+        } else {
+          hlProfitLockActive.delete(lockKey);
+          await this.closeMarketPosition(userAddress, pos.coin, 'profit_lock', {
+            entryPx: entry,
+            unrealizedPnlUsd: pnl,
+            size,
+            leverage: pos.leverage?.value ?? 10,
+          });
+        }
       } else if (shouldActivateProfitLock(pnlPct, profitLock, locked)) {
         hlProfitLockActive.set(lockKey, true);
         locked = true;
@@ -453,6 +476,7 @@ export class HyperliquidTradingService {
         pnl: pnlUsd.toFixed(4),
         successFee: collectedFee > 0 ? collectedFee.toFixed(4) : '0',
       });
+      hlLastCloseAt.set(userAddress.toLowerCase(), Date.now());
       return { success: true };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

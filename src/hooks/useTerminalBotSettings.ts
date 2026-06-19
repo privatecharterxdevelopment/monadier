@@ -15,7 +15,7 @@ const BOT_SETTINGS_CHAIN_ID = 42161;
 const defaultSettings: VaultSettingsSnapshot = {
   riskPct: 5,
   takeProfit: 5,
-  stopLoss: 1,
+  stopLoss: 3,
   leverage: 5,
   askPermission: false,
   minWinRate: 0,
@@ -81,7 +81,7 @@ export function useTerminalBotSettings(refreshKey = 0) {
       const snapshot = resolveVaultSettingsSnapshot(row, {
         riskLevelPercent: (row?.risk_level_bps ?? 500) / 100,
         takeProfitPercent: Number(row?.take_profit_percent ?? 5),
-        stopLossPercent: Number(row?.stop_loss_percent ?? 1),
+        stopLossPercent: Number(row?.stop_loss_percent ?? 3),
         maxLeverage: Number(row?.leverage_multiplier ?? 10),
         autoTradeEnabled: Boolean(row?.auto_trade_enabled),
       });

@@ -49,7 +49,7 @@ export function resolveVaultSettingsSnapshot(
   return {
     riskPct: (row.risk_level_bps ?? 500) / 100,
     takeProfit: Number(row.take_profit_percent ?? 5),
-    stopLoss: Number(row.stop_loss_percent ?? 1),
+    stopLoss: Number(row.stop_loss_percent ?? 3),
     leverage: Number(row.leverage_multiplier ?? 5),
     askPermission: Boolean(row.ask_permission),
     minWinRate: Number(row.min_win_rate_percent ?? 0),

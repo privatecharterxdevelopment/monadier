@@ -1,5 +1,4 @@
 import type { SeriesMarker, UTCTimestamp } from 'lightweight-charts';
-import { supabase } from '../supabase';
 import type { HlUserFill } from './user';
 import { toNum } from './parse';
 
@@ -14,17 +13,6 @@ export type HlChartMarker = {
 };
 
 export type ChartMarkerColors = { up: string; down: string };
-
-/** Cached after first 404 — table not migrated on Supabase yet. */
-let chartMarkersDbAvailable: boolean | null = null;
-
-function isMissingChartMarkersTable(error: { code?: string; message?: string }): boolean {
-  return (
-    error.code === 'PGRST205' ||
-    error.code === '42P01' ||
-    /does not exist/i.test(error.message ?? '')
-  );
-}
 
 function parseDirection(dir: string): 'LONG' | 'SHORT' | null {
   const d = dir.toLowerCase();
@@ -100,25 +88,6 @@ export function hlChartMarkerToSeriesMarker(
   };
 }
 
-function rowToMarker(row: Record<string, unknown>): HlChartMarker | null {
-  const eventType = String(row.event_type ?? '') as 'open' | 'close';
-  if (eventType !== 'open' && eventType !== 'close') return null;
-  const direction = String(row.direction ?? 'LONG').toUpperCase() as 'LONG' | 'SHORT';
-  const price = Number(row.price);
-  const eventMs = new Date(String(row.event_ts)).getTime();
-  if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(eventMs)) return null;
-
-  return {
-    id: String(row.id),
-    eventType,
-    direction: direction === 'SHORT' ? 'SHORT' : 'LONG',
-    price,
-    eventMs,
-    pnlUsd: row.pnl_usd != null ? Number(row.pnl_usd) : null,
-    source: String(row.source ?? 'bot'),
-  };
-}
-
 export function dedupeChartMarkers(markers: HlChartMarker[]): HlChartMarker[] {
   const map = new Map<string, HlChartMarker>();
   for (const m of markers) {
@@ -128,40 +97,19 @@ export function dedupeChartMarkers(markers: HlChartMarker[]): HlChartMarker[] {
   return [...map.values()].sort((a, b) => a.eventMs - b.eventMs);
 }
 
+/** HL fills only — bot-service persists markers with service role. */
 export async function fetchHlChartMarkers(
-  wallet: string,
-  coin: string,
-  limit = 120
+  _wallet: string,
+  _coin: string,
+  _limit = 120
 ): Promise<HlChartMarker[]> {
-  if (chartMarkersDbAvailable === false) return [];
-
-  const w = wallet.toLowerCase();
-  const c = coin.toUpperCase();
-  const { data, error } = await supabase
-    .from('hl_bot_chart_markers')
-    .select('id, event_type, direction, price, pnl_usd, event_ts, source')
-    .eq('wallet_address', w)
-    .eq('coin', c)
-    .order('event_ts', { ascending: true })
-    .limit(limit);
-
-  if (error) {
-    if (isMissingChartMarkersTable(error)) {
-      chartMarkersDbAvailable = false;
-      return [];
-    }
-    return [];
-  }
-
-  chartMarkersDbAvailable = true;
-  return (data ?? [])
-    .map((row) => rowToMarker(row as Record<string, unknown>))
-    .filter((m): m is HlChartMarker => m != null);
+  return [];
 }
 
+/** No-op — client must not upsert (RLS 403). */
 export async function persistChartMarkerFromFill(
   _wallet: string,
   _fill: HlUserFill
 ): Promise<void> {
-  /* Markers come from HL fills on-chart; bot-service persists via service role. */
+  /* markers from HL fills + bot-service */
 }

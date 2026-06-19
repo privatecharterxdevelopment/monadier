@@ -263,7 +263,7 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
         <label className={isModal ? undefined : 'term-panel-input-wrap'}>
           {isModal && (
             <span className={labelClass} id="term-sl-label">
-              Profit lock %
+              Stop loss %
             </span>
           )}
           {!isModal && <span>SL %</span>}
@@ -272,8 +272,8 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
             type="number"
             className={inputClass}
             value={stopLoss}
-            min={0.1}
-            step={0.1}
+            min={1}
+            step={0.5}
             onChange={(e) => setStopLoss(parseFloat(e.target.value) || 0)}
             disabled={disabled}
             aria-labelledby={isModal ? 'term-sl-label' : undefined}
@@ -281,7 +281,8 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
         </label>
       </div>
       <p className={hintClass}>
-        Take profit closes at collateral PnL %. Profit lock activates at lock% + 0.1%.
+        TP closes at +X% on margin. SL closes at −X% on margin (3%+ recommended on HL).
+        Profit lock trails at +2% once in profit.
       </p>
 
       {notice && (

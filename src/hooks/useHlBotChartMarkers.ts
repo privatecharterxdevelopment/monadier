@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { SeriesMarker, UTCTimestamp } from 'lightweight-charts';
 import {
   dedupeChartMarkers,
-  fetchHlChartMarkers,
   fillToChartMarker,
   hlChartMarkerToSeriesMarker,
   type ChartMarkerColors,
@@ -26,18 +25,15 @@ export function useHlBotChartMarkers(
 
     setLoading(true);
     try {
-      const [stored, fills] = await Promise.all([
-        fetchHlChartMarkers(wallet, coin),
-        fetchHlUserFills(wallet, 200),
-      ]);
+      const fills = await fetchHlUserFills(wallet, 200);
 
       const coinUpper = coin.toUpperCase();
-      const fromFills = fills
-        .filter((f) => f.coin.toUpperCase() === coinUpper)
-        .map(fillToChartMarker)
-        .filter((m): m is NonNullable<typeof m> => m != null);
-
-      const merged = dedupeChartMarkers([...stored, ...fromFills]);
+      const merged = dedupeChartMarkers(
+        fills
+          .filter((f) => f.coin.toUpperCase() === coinUpper)
+          .map(fillToChartMarker)
+          .filter((m): m is NonNullable<typeof m> => m != null)
+      );
       setSeriesMarkers(merged.map((m) => hlChartMarkerToSeriesMarker(m, colors)));
     } catch (e) {
       console.warn('[useHlBotChartMarkers]', e);

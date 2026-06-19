@@ -12,6 +12,23 @@ function normalizeHlTakeProfitPercent(raw: number | null | undefined): number {
   return v;
 }
 
+/** 1% SL on ~$50 accounts stops out on noise + fees — floor at 3%. */
+function normalizeHlStopLossPercent(raw: number | null | undefined): number {
+  const fallback = config.hyperliquid.defaultStopLossPercent;
+  if (raw == null || !Number.isFinite(Number(raw))) return fallback;
+  const v = Number(raw);
+  if (v > 0 && v < 2) return fallback;
+  return v;
+}
+
+function normalizeHlProfitLockPercent(raw: number | null | undefined): number {
+  const fallback = config.hyperliquid.defaultProfitLockPercent;
+  if (raw == null || !Number.isFinite(Number(raw))) return fallback;
+  const v = Number(raw);
+  if (v > 0 && v < 1.5) return fallback;
+  return v;
+}
+
 function normalizeHlLeverage(raw: number | null | undefined): number {
   if (raw == null || !Number.isFinite(Number(raw)) || Number(raw) <= 0) return 5;
   return Number(raw);
@@ -489,7 +506,7 @@ export class SubscriptionService {
         });
         return {
           takeProfitPercent: config.hyperliquid.defaultTakeProfitPercent,
-          stopLossPercent: 1,
+          stopLossPercent: config.hyperliquid.defaultStopLossPercent,
           profitLockPercent: config.hyperliquid.defaultProfitLockPercent,
           askPermission: false,
           leverageMultiplier: 5.0,
@@ -514,8 +531,10 @@ export class SubscriptionService {
         takeProfitPercent: normalizeHlTakeProfitPercent(
           data.take_profit_percent != null ? Number(data.take_profit_percent) : null
         ),
-        stopLossPercent: Number(data.stop_loss_percent) || 1,
-        profitLockPercent: config.hyperliquid.defaultProfitLockPercent,
+        stopLossPercent: normalizeHlStopLossPercent(
+          data.stop_loss_percent != null ? Number(data.stop_loss_percent) : null
+        ),
+        profitLockPercent: normalizeHlProfitLockPercent(null),
         askPermission: data.ask_permission || false,
         leverageMultiplier: normalizeHlLeverage(
           data.leverage_multiplier != null ? Number(data.leverage_multiplier) : null
@@ -530,7 +549,7 @@ export class SubscriptionService {
       logger.error('Failed to get user trading settings', { walletAddress, error: err });
       return {
         takeProfitPercent: config.hyperliquid.defaultTakeProfitPercent,
-        stopLossPercent: 1,
+        stopLossPercent: config.hyperliquid.defaultStopLossPercent,
         profitLockPercent: config.hyperliquid.defaultProfitLockPercent,
         askPermission: false,
         leverageMultiplier: 5.0,
