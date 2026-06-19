@@ -41,6 +41,8 @@ import {
 import { getArbitrumPublicClient } from '../../lib/vault';
 import { syncVaultChainHistoryForWallets } from '../../lib/syncVaultChainHistory';
 import TerminalBotAnalysisStrip from './TerminalBotAnalysisStrip';
+import TerminalHlOpenPositions from './TerminalHlOpenPositions';
+import { useHlOpenPositions } from '../../hooks/useHlOpenPositions';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 
 export type DockTab = 'vault' | 'open' | 'history' | 'all';
@@ -224,6 +226,12 @@ const TerminalPositionsDock: React.FC<Props> = ({
   const vaultWallet =
     pickPrimaryVaultWallet(queryWallets, address ?? vaultData.wallet) ?? vaultData.wallet;
   const hlSetup = useHlBotSetup(vaultWallet ?? address ?? undefined);
+  const hlWallet = (vaultWallet ?? address ?? undefined)?.toLowerCase();
+  const {
+    positions: hlOpenPositions,
+    livePnlUsd: hlLivePnlUsd,
+    loading: hlPositionsLoading,
+  } = useHlOpenPositions(hlWallet);
 
   const mergedRows = useMemo(
     () => mergeChainAndDbRows(allRows, chainRows),
@@ -328,7 +336,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
     () => mergedRows.filter((p) => p.status === 'open' || p.status === 'closing'),
     [mergedRows]
   );
-  const openCount = openRows.length;
+  const openCount = Math.max(openRows.length, hlOpenPositions.length);
   const historyRows = useMemo(() => {
     const merged = mergeUnifiedHistory(closedHistory, mergedRows);
     if (merged.length > 0) return merged;
@@ -352,10 +360,10 @@ const TerminalPositionsDock: React.FC<Props> = ({
       }));
   }, [closedHistory, mergedRows]);
   const historyCount = historyRows.length;
-  const openNetPnl = useMemo(
-    () => openRows.reduce((sum, p) => sum + calcPositionPnl(p, livePrices), 0),
-    [openRows, livePrices]
-  );
+  const openNetPnl = useMemo(() => {
+    const dbPnl = openRows.reduce((sum, p) => sum + calcPositionPnl(p, livePrices), 0);
+    return dbPnl + hlLivePnlUsd;
+  }, [openRows, livePrices, hlLivePnlUsd]);
   const openTone: 'pos' | 'neg' | null =
     openCount > 0 ? (openNetPnl >= 0 ? 'pos' : 'neg') : null;
 
@@ -465,6 +473,13 @@ const TerminalPositionsDock: React.FC<Props> = ({
   const positionsLoading =
     loading || chainLoading || awaitingWallets || (queryWallets.length > 0 && !chainResolved);
   const showOpenTradingTable = isHlSkin && tab === 'open';
+  const showHlOpenBlock = tab === 'open' && hlOpenPositions.length > 0;
+  const showDockAnalyzer =
+    tab === 'open' &&
+    showBotAnalysis &&
+    botAnalysisMetrics &&
+    hlOpenPositions.length === 0 &&
+    openRows.length === 0;
 
   const isPage = layout === 'page';
   const showUnifiedHistory = tab === 'history' || tab === 'all';
@@ -599,7 +614,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
             {closeNotice}
           </p>
         ) : null}
-        {tab === 'open' && showBotAnalysis && botAnalysisMetrics ? (
+        {showDockAnalyzer ? (
           <TerminalBotAnalysisStrip
             walletConnected={walletConnected}
             metrics={botAnalysisMetrics}
@@ -608,13 +623,20 @@ const TerminalPositionsDock: React.FC<Props> = ({
             placement="dock"
           />
         ) : null}
+        {showHlOpenBlock ? (
+          <TerminalHlOpenPositions
+            positions={hlOpenPositions}
+            livePnlUsd={hlLivePnlUsd}
+            loading={hlPositionsLoading}
+          />
+        ) : null}
         {tab === 'vault' ? (
           vaultPanel
         ) : needsSignIn ? (
           <div className={emptyClass}>
             Sign in to view trade history for your profile wallets.
           </div>
-        ) : positionsLoading && tab === 'open' && rows.length === 0 ? (
+        ) : positionsLoading && tab === 'open' && rows.length === 0 && hlOpenPositions.length === 0 ? (
           <div className={emptyClass}>Loading open positions…</div>
         ) : tab === 'history' && historyRows.length > 0 ? (
           <table className={isHlSkin ? 'hl-table' : 'term-table term-table--history-overview'}>
@@ -697,9 +719,9 @@ const TerminalPositionsDock: React.FC<Props> = ({
                 ? 'Add wallets in Profile → Wallets to see trade history from all your vaults.'
                 : 'Sign in and link wallets in Profile → Wallets to see trade history.'}
           </div>
-        ) : positionsLoading && rows.length === 0 ? (
+        ) : positionsLoading && rows.length === 0 && hlOpenPositions.length === 0 ? (
           <div className={emptyClass}>Loading…</div>
-        ) : rows.length === 0 ? (
+        ) : rows.length === 0 && hlOpenPositions.length === 0 ? (
           <div className={emptyClass}>
             {hasWallet
               ? tab === 'open'

@@ -2136,6 +2136,34 @@
   flex-direction: column;
 }
 
+.hl-bot-dock .term-hl-open-pnl {
+  background: var(--hl-bg-elevated);
+  border-color: var(--hl-border);
+}
+
+.hl-bot-dock .term-hl-open-pnl--up {
+  border-color: rgba(38, 166, 154, 0.35);
+  background: rgba(38, 166, 154, 0.1);
+}
+
+.hl-bot-dock .term-hl-open-pnl--up strong {
+  color: var(--hl-green, #26a69a);
+}
+
+.hl-bot-dock .term-hl-open-pnl--down {
+  border-color: rgba(239, 83, 80, 0.35);
+  background: rgba(239, 83, 80, 0.1);
+}
+
+.hl-bot-dock .term-hl-open-pnl--down strong {
+  color: var(--hl-red, #ef5350);
+}
+
+.hl-bot-dock .term-hl-open-pnl__label,
+.hl-bot-dock .term-hl-open-pnl__meta {
+  color: var(--hl-text-muted);
+}
+
 .hl-bot-dock .term-dock-tab {
   color: var(--hl-text-faint);
   border-color: transparent;

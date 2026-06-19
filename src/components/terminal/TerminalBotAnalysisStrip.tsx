@@ -54,7 +54,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     botRunning,
   });
 
-  if (!showAnalysis) return null;
+  if (!showAnalysis || hasOpenPosition) return null;
 
   return (
     <TerminalChartAnalysisOverlay

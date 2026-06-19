@@ -546,7 +546,22 @@ const TerminalTradePanel: React.FC<Props> = ({
                 <p className="term-panel-card-hint">
                   HL balance {fmt(hlFundingUsd)} · withdrawable {fmt(hlSetup.withdrawableUsd)}
                 </p>
-                {walletReady && phase === 'ready' && builderConfig.enabled && (
+                {walletReady && hasOpenPosition && (
+                  <p className="term-panel-card-hint term-hint--subtle">
+                    Live uPnL{' '}
+                    <strong
+                      className={
+                        metrics.unrealizedPnlUsd >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'
+                      }
+                    >
+                      {metrics.unrealizedPnlUsd >= 0 ? '+' : ''}
+                      {fmt(metrics.unrealizedPnlUsd)}
+                    </strong>
+                    · managing {metrics.openPositionsCount} open HL position
+                    {metrics.openPositionsCount === 1 ? '' : 's'}
+                  </p>
+                )}
+                {walletReady && phase === 'ready' && builderConfig.enabled && !hasOpenPosition && (
                   <p className="term-panel-card-hint term-hint--subtle">
                     Winning bot closes: 10% of profit collected automatically via Hyperliquid (one-time
                     fee approval). No fee on losing trades. Opens: no extra platform fee.

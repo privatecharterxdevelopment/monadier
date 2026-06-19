@@ -126,8 +126,14 @@ const ProTradeStatusBar: React.FC<Props> = ({
           <span>HL {hlLoading ? '—' : fmtUsd(hlBalanceUsd)}</span>
           <span>Withdraw {hlLoading ? '—' : fmtUsd(hlWithdrawableUsd)}</span>
           <span>Open {botMetrics.openPositionsCount}</span>
+          <span className={botMetrics.unrealizedPnlUsd >= 0 ? 'hl-up' : 'hl-down'}>
+            uPnL{' '}
+            {botMetrics.isLoading
+              ? '—'
+              : `${botMetrics.unrealizedPnlUsd >= 0 ? '+' : ''}${fmtUsd(botMetrics.unrealizedPnlUsd)}`}
+          </span>
           <span className={pnlUp ? 'hl-up' : 'hl-down'}>
-            P/L {botMetrics.isLoading ? '—' : `${pnlUp ? '+' : ''}${fmtUsd(totalPnl)}`}
+            Total P/L {botMetrics.isLoading ? '—' : `${pnlUp ? '+' : ''}${fmtUsd(totalPnl)}`}
           </span>
         </div>
         <div className="hl-status-right">

@@ -140,6 +140,7 @@ export function useTradingDashboardMetrics() {
       let withdrawableUsd = 0;
       let hlOpenNotional = 0;
       let hlOpenCount = 0;
+      let hlUnrealizedPnl = 0;
       let hlLoaded = false;
       let agentLoaded = false;
 
@@ -158,6 +159,10 @@ export function useTradingDashboardMetrics() {
           hlOpenCount = hl.positions.length;
           hlOpenNotional = hl.positions.reduce(
             (sum, p) => sum + Math.abs(parseFloat(p.positionValue) || 0),
+            0
+          );
+          hlUnrealizedPnl = hl.positions.reduce(
+            (sum, p) => sum + (parseFloat(p.unrealizedPnl) || 0),
             0
           );
         } catch {
@@ -237,7 +242,7 @@ export function useTradingDashboardMetrics() {
         avgLeverage: avgLev,
         totalPnl: stats.totalProfit,
         realizedPnl: stats.realizedProfit,
-        unrealizedPnl: stats.unrealizedProfit,
+        unrealizedPnl: hlOpenCount > 0 ? hlUnrealizedPnl : stats.unrealizedProfit,
         pnl24h: pnlInWindow(all, 24),
         pnl7d: pnlInWindow(all, 24 * 7),
         pnl30d: pnlInWindow(all, 24 * 30),
