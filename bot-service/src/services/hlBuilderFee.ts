@@ -32,24 +32,37 @@ export function successFeeToCloseBuilderTenthsBps(
   return Math.min(Math.max(1, raw), maxTenthsBps);
 }
 
+/** Attach Monadier builder on opens (optional flat) and profitable closes (10% success fee). */
 export function resolveHlOrderBuilder(opts: {
   notionalUsd: number;
   profitUsd?: number;
   isClose: boolean;
+  approvedMaxTenthsBps?: number;
 }): { b: `0x${string}`; f: number } | undefined {
-  // Closes never use HL builder fee — requires per-user approval; fees accrued in DB.
-  if (opts.isClose) return undefined;
-
   const addr = config.hyperliquid.builderAddress;
   if (!addr) return undefined;
 
   const maxTenths = parseMaxBuilderTenthsBps(
     config.hyperliquid.builderMaxApprovalRate || '0.1%'
   );
+  const approvedCap = Math.min(opts.approvedMaxTenthsBps ?? maxTenths, maxTenths);
+
+  if (opts.isClose) {
+    const profit = opts.profitUsd ?? 0;
+    if (profit <= 0 || opts.notionalUsd <= 0 || approvedCap <= 0) return undefined;
+    const f = successFeeToCloseBuilderTenthsBps(
+      profit,
+      opts.notionalUsd,
+      config.hyperliquid.successFeeBps,
+      approvedCap
+    );
+    if (f <= 0) return undefined;
+    return { b: addr, f };
+  }
 
   const openFee = config.hyperliquid.openBuilderFeePerp;
   if (openFee <= 0) return undefined;
-  return { b: addr, f: Math.min(openFee, maxTenths) };
+  return { b: addr, f: Math.min(openFee, approvedCap) };
 }
 
 export function estimateCollectedSuccessFee(

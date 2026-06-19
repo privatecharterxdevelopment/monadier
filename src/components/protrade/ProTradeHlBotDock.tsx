@@ -105,10 +105,10 @@ const ProTradeHlBotDock: React.FC<Props> = ({
       const isLong = toNum(position.szi) >= 0;
       const markPx = markPrices[position.coin] ?? toNum(position.entryPx);
       if (size <= 0 || markPx <= 0) {
-        setCloseNotice('Could not read position price — try again in a few seconds.');
+        setCloseNotice('Could not read position price — try again.');
         return;
       }
-      setCloseNotice('Closing position via HL agent…');
+      setCloseNotice(null);
       try {
         const profitUsd = Math.max(0, toNum(position.unrealizedPnl));
         await closePosition({
@@ -119,7 +119,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
           profitUsd,
           walletAddress: hlWallet,
         });
-        setCloseNotice(`${position.coin} close submitted. Position should update in a few seconds.`);
+        setCloseNotice(null);
         await refreshAccount();
         onPositionChange?.();
       } catch (err: unknown) {
@@ -155,7 +155,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         </div>
       ) : null}
       {closeNotice ? (
-        <p className={`hl-dock-notice${closeNotice.includes('submitted') ? ' hl-dock-notice--ok' : ''}`} role="status">
+        <p className="hl-dock-notice" role="status">
           {closeNotice}
         </p>
       ) : null}

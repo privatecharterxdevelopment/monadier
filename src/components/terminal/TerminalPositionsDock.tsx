@@ -474,7 +474,6 @@ const TerminalPositionsDock: React.FC<Props> = ({
         profitUsd,
         walletAddress: hlWallet,
       });
-      setCloseNotice(`${position.coin} close submitted — bot keeps running and can scan for new trades.`);
       await refreshHlPositions();
       await load(true);
       onPositionChange?.();

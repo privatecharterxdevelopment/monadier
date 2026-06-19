@@ -17,7 +17,7 @@ import {
 import { checkHlBuilderFeeApproved } from './hlBuilder';
 import { subscriptionService } from './subscription';
 import type { TradingCycleContext } from './tradingCycleContext';
-import { resolveHlOrderBuilder } from './hlBuilderFee';
+import { resolveHlOrderBuilder, estimateCollectedSuccessFee } from './hlBuilderFee';
 import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from './hlSuccessFees';
 import { recordHlBotOpenMarker } from './hlChartMarkers';
 import {
@@ -478,6 +478,7 @@ export class HyperliquidTradingService {
       const limitPx = isLong ? markPx * 0.95 : markPx * 1.05;
 
       const client = createAgentClient(userAddress);
+      const notionalUsd = absSize * markPx;
       const orderPayload = {
         orders: [
           {
@@ -492,19 +493,42 @@ export class HyperliquidTradingService {
         grouping: 'na' as const,
       };
 
-      // Never attach HL builder fee on closes — most users have not approved it.
-      let result = await client.order(orderPayload);
+      let viaHlBuilder = false;
+      let closeBuilder: { b: `0x${string}`; f: number } | undefined;
+      if (pnlUsd > 0) {
+        const builderGate = await checkHlBuilderFeeApproved(userAddress);
+        if (builderGate.platformReady && builderGate.approved) {
+          closeBuilder = resolveHlOrderBuilder({
+            notionalUsd,
+            profitUsd: pnlUsd,
+            isClose: true,
+            approvedMaxTenthsBps: builderGate.approvedMax,
+          });
+        }
+      }
+
+      let result = await client.order({
+        ...orderPayload,
+        ...(closeBuilder ? { builder: closeBuilder } : {}),
+      });
 
       let status = result.response?.data?.statuses?.[0] as
         | { filled?: unknown; error?: string }
         | undefined;
 
-      if (status && 'error' in status && status.error && isBuilderOrderError(String(status.error))) {
+      if (
+        closeBuilder &&
+        status &&
+        'error' in status &&
+        status.error &&
+        isBuilderOrderError(String(status.error))
+      ) {
         logger.warn('HL close builder error — retrying without builder', {
           user: userAddress.slice(0, 10),
           coin: coinUpper,
           error: String(status.error),
         });
+        closeBuilder = undefined;
         result = await client.order(orderPayload);
         status = result.response?.data?.statuses?.[0] as
           | { filled?: unknown; error?: string }
@@ -513,6 +537,10 @@ export class HyperliquidTradingService {
 
       if (status && 'error' in status && status.error) {
         return { success: false, error: String(status.error) };
+      }
+
+      if (closeBuilder) {
+        viaHlBuilder = true;
       }
 
       const collateralUsd =
@@ -529,14 +557,18 @@ export class HyperliquidTradingService {
       };
 
       const collectedFee =
-        pnlUsd > 0 ? calculateHlSuccessFee(pnlUsd) : 0;
+        pnlUsd > 0
+          ? viaHlBuilder && closeBuilder
+            ? estimateCollectedSuccessFee(pnlUsd, notionalUsd, closeBuilder.f)
+            : calculateHlSuccessFee(pnlUsd)
+          : 0;
 
       await recordHlBotClose({
         walletAddress: userAddress,
         reason,
         snapshot,
         collectedFeeUsd: collectedFee,
-        viaHlBuilder: false,
+        viaHlBuilder,
       });
 
       logger.info('HL position closed', {
@@ -545,6 +577,7 @@ export class HyperliquidTradingService {
         reason,
         pnl: pnlUsd.toFixed(4),
         successFee: collectedFee > 0 ? collectedFee.toFixed(4) : '0',
+        viaHlBuilder,
       });
       hlLastCloseAt.set(userAddress.toLowerCase(), Date.now());
       return { success: true };
