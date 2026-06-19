@@ -24,7 +24,7 @@ import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './se
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
 import { fetchHlClearinghouseState, hlAccountValueUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive } from './services/hlInfo';
 import { getLastHlOpenError } from './services/hlTrading';
-import { checkHlBuilderFeeApproved } from './services/hlBuilder';
+import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
 import { getHlFeeSummary } from './services/hlSuccessFees';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 
@@ -183,6 +183,27 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  // API: Monadier builder wallet readiness on Hyperliquid (100 USDC min per HL rules)
+  if (url.pathname === '/api/hl-builder/status' && req.method === 'GET') {
+    try {
+      const platform = await fetchHlBuilderPlatformReady();
+      res.writeHead(200, corsHeaders);
+      res.end(
+        JSON.stringify({
+          success: true,
+          ready: platform.ready,
+          builderAddress: platform.builderAddress,
+          accountUsd: platform.accountUsd,
+          minUsd: platform.minUsd,
+        })
+      );
+    } catch (err: any) {
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'hl-builder/status failed' }));
+    }
+    return;
+  }
+
   // API: Per-user Hyperliquid agent address (for approveAgent in app)
   if (url.pathname === '/api/hl-agent') {
     try {
@@ -331,6 +352,9 @@ const healthServer = http.createServer(async (req, res) => {
           agentApproved: hlAgentOk,
           builderFeeApproved: builderGate.approved,
           builderFeeRequired: builderGate.required,
+          builderPlatformReady: builderGate.platformReady,
+          builderPlatformUsd: builderGate.platformAccountUsd,
+          builderPlatformMinUsd: builderGate.platformMinUsd,
           openCoins: hlOpenCoins,
           minAccountUsd: config.hyperliquid.minAccountUsd,
         },

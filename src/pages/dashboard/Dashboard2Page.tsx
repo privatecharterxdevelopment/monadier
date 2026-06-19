@@ -169,7 +169,9 @@ const Dashboard2Page: React.FC = () => {
     if (metrics.isLoading || hlSetup.loading) return 'loading';
     if (hlSetup.accountUsd < MIN_BOT_CAPITAL_USD) return 'fund';
     if (!hlSetup.agentApproved) return 'approve';
-    if (hlSetup.builderFeeEnabled && !hlSetup.builderFeeApproved) return 'approve';
+    if (hlSetup.builderFeeEnabled && hlSetup.builderPlatformReady && !hlSetup.builderFeeApproved) {
+      return 'approve';
+    }
     return 'ready';
   }, [
     walletReady,
@@ -177,6 +179,7 @@ const Dashboard2Page: React.FC = () => {
     hlSetup.loading,
     hlSetup.agentApproved,
     hlSetup.builderFeeEnabled,
+    hlSetup.builderPlatformReady,
     hlSetup.builderFeeApproved,
     hlSetup.accountUsd,
   ]);

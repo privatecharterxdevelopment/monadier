@@ -7,14 +7,33 @@ import {
 } from '../lib/hyperliquid/builder';
 import { getHlBuilderConfig, formatBuilderFeeLabel } from '../lib/hyperliquid/builderConfig';
 import { formatProTradeSuccessFeeLabel } from '../lib/hyperliquid/proTradeBuilderFee';
+import {
+  fetchHlBuilderPlatformStatus,
+  formatBuilderPlatformError,
+  isBuilderPlatformError,
+} from '../lib/hyperliquid/builderPlatform';
 
 export function useHyperliquidBuilderFee(address: string | undefined) {
   const { data: walletClient } = useWalletClient();
   const config = getHlBuilderConfig();
   const [approvedMax, setApprovedMax] = useState(0);
+  const [platformReady, setPlatformReady] = useState(true);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const refreshPlatform = useCallback(async () => {
+    if (!config.enabled) {
+      setPlatformReady(true);
+      return;
+    }
+    const platform = await fetchHlBuilderPlatformStatus();
+    setPlatformReady(platform.ready);
+  }, [config.enabled]);
+
+  useEffect(() => {
+    void refreshPlatform();
+  }, [refreshPlatform]);
 
   const refresh = useCallback(async () => {
     if (!config.enabled || !address) {
@@ -35,11 +54,20 @@ export function useHyperliquidBuilderFee(address: string | undefined) {
   }, [refresh]);
 
   const needsApproval =
-    config.enabled && Boolean(address) && !isBuilderApprovalSufficient(approvedMax);
+    config.enabled &&
+    Boolean(address) &&
+    platformReady &&
+    !isBuilderApprovalSufficient(approvedMax);
 
   const approve = useCallback(async () => {
     if (!walletClient || !config.enabled) {
       throw new Error('Connect wallet first');
+    }
+    const platform = await fetchHlBuilderPlatformStatus();
+    if (!platform.ready) {
+      const msg = formatBuilderPlatformError(platform);
+      setError(msg);
+      throw new Error(msg);
     }
     setBusy(true);
     setError(null);
@@ -52,8 +80,9 @@ export function useHyperliquidBuilderFee(address: string | undefined) {
       await refresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Builder fee approval failed';
-      setError(msg);
-      throw err;
+      const friendly = isBuilderPlatformError(msg) ? formatBuilderPlatformError(platform) : msg;
+      setError(friendly);
+      throw new Error(friendly);
     } finally {
       setBusy(false);
     }
@@ -69,6 +98,7 @@ export function useHyperliquidBuilderFee(address: string | undefined) {
     error,
     approve,
     refresh,
+    platformReady,
     feeLabelPerp: formatProTradeSuccessFeeLabel(config.proTradeSuccessFeeBps),
     feeLabelSpot: formatBuilderFeeLabel(config.feeSpotSell),
   };

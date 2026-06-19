@@ -1,6 +1,32 @@
 import { config } from '../config';
 import { logger } from '../utils/logger';
+import { fetchHlClearinghouseState, hlAccountValueUsd } from './hlInfo';
 import { parseMaxBuilderTenthsBps } from './hlBuilderFee';
+
+/** Hyperliquid requires the builder wallet to hold this much perps account value. */
+export const HL_BUILDER_MIN_PLATFORM_USD = 100;
+
+export async function fetchHlBuilderPlatformReady(builderAddress?: string): Promise<{
+  ready: boolean;
+  builderAddress: string;
+  accountUsd: number;
+  minUsd: number;
+}> {
+  const addr = (builderAddress ?? config.hyperliquid.builderAddress)?.toLowerCase() ?? '';
+  const minUsd = HL_BUILDER_MIN_PLATFORM_USD;
+  if (!addr || !/^0x[a-f0-9]{40}$/.test(addr)) {
+    return { ready: false, builderAddress: addr, accountUsd: 0, minUsd };
+  }
+
+  const state = await fetchHlClearinghouseState(addr);
+  const accountUsd = hlAccountValueUsd(state);
+  return {
+    ready: accountUsd >= minUsd,
+    builderAddress: addr,
+    accountUsd,
+    minUsd,
+  };
+}
 
 export async function fetchHlMaxBuilderFee(
   userAddress: string,
@@ -28,14 +54,17 @@ export async function fetchHlMaxBuilderFee(
   }
 }
 
+export function hlBuilderFeeConfigured(): boolean {
+  return Boolean(config.hyperliquid.builderAddress);
+}
+
+/** @deprecated Use checkHlBuilderFeeApproved — requires async platform check. */
 export function hlBuilderFeeRequired(): boolean {
-  return Boolean(
-    config.hyperliquid.builderAddress && config.hyperliquid.builderFeePerp > 0
-  );
+  return hlBuilderFeeConfigured();
 }
 
 export function isHlBuilderFeeApproved(approvedMaxTenthsBps: number): boolean {
-  if (!hlBuilderFeeRequired()) return true;
+  if (!hlBuilderFeeConfigured()) return true;
   const required = parseMaxBuilderTenthsBps(
     config.hyperliquid.builderMaxApprovalRate || '0.1%'
   );
@@ -49,18 +78,35 @@ export async function checkHlBuilderFeeApproved(userAddress: string): Promise<{
   approvedMax: number;
   requiredFee: number;
   builderAddress: string | null;
+  platformReady: boolean;
+  platformAccountUsd: number;
+  platformMinUsd: number;
 }> {
-  const required = hlBuilderFeeRequired();
-  const builderAddress = required ? config.hyperliquid.builderAddress : null;
-  const requiredFee = config.hyperliquid.builderFeePerp;
-
-  if (!required || !builderAddress) {
+  const builderAddress = config.hyperliquid.builderAddress;
+  if (!builderAddress || !hlBuilderFeeConfigured()) {
     return {
       required: false,
       approved: true,
       approvedMax: 0,
       requiredFee: 0,
       builderAddress: null,
+      platformReady: true,
+      platformAccountUsd: 0,
+      platformMinUsd: HL_BUILDER_MIN_PLATFORM_USD,
+    };
+  }
+
+  const platform = await fetchHlBuilderPlatformReady(builderAddress);
+  if (!platform.ready) {
+    return {
+      required: false,
+      approved: true,
+      approvedMax: 0,
+      requiredFee: config.hyperliquid.builderFeePerp,
+      builderAddress,
+      platformReady: false,
+      platformAccountUsd: platform.accountUsd,
+      platformMinUsd: platform.minUsd,
     };
   }
 
@@ -69,7 +115,10 @@ export async function checkHlBuilderFeeApproved(userAddress: string): Promise<{
     required: true,
     approved: isHlBuilderFeeApproved(approvedMax),
     approvedMax,
-    requiredFee,
+    requiredFee: config.hyperliquid.builderFeePerp,
     builderAddress,
+    platformReady: true,
+    platformAccountUsd: platform.accountUsd,
+    platformMinUsd: platform.minUsd,
   };
 }

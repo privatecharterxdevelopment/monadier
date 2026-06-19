@@ -61,6 +61,7 @@ export function getHlBotSidebarStatus(opts: {
   agentApproved: boolean;
   builderFeeApproved?: boolean;
   builderFeeEnabled?: boolean;
+  builderPlatformReady?: boolean;
   hasOpenPosition: boolean;
   serverBlockers?: string[];
   readiness?: BotReadiness | null;
@@ -74,6 +75,7 @@ export function getHlBotSidebarStatus(opts: {
     agentApproved,
     builderFeeApproved = true,
     builderFeeEnabled = false,
+    builderPlatformReady = true,
     hasOpenPosition,
     serverBlockers = [],
     readiness,
@@ -102,7 +104,8 @@ export function getHlBotSidebarStatus(opts: {
 
   const needsDeposit = hlBalanceUsd < MIN_HL_BOT_USD;
   const needsAgent = !agentApproved;
-  const needsBuilderFee = builderFeeEnabled && !builderFeeApproved;
+  const needsBuilderFee =
+    builderFeeEnabled && builderPlatformReady && !builderFeeApproved;
   const needsApprove = needsAgent || needsBuilderFee;
 
   if (!botRunning) {

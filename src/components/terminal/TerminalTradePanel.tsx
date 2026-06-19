@@ -143,7 +143,7 @@ const TerminalTradePanel: React.FC<Props> = ({
     if (hlSetup.loading && hlFundingUsd === 0) return 'loading';
     if (hlSetup.phase !== 'connect') return hlSetup.phase;
     if (hlFundingUsd < MIN_HL_BOT_USD) return 'fund';
-    if (!hlSetup.agentApproved || (hlSetup.builderFeeEnabled && !hlSetup.builderFeeApproved)) {
+    if (!hlSetup.agentApproved || (hlSetup.builderFeeEnabled && hlSetup.builderPlatformReady && !hlSetup.builderFeeApproved)) {
       return 'approve';
     }
     return 'ready';
@@ -167,6 +167,7 @@ const TerminalTradePanel: React.FC<Props> = ({
         agentApproved: hlSetup.agentApproved,
         builderFeeApproved: hlSetup.builderFeeApproved,
         builderFeeEnabled: hlSetup.builderFeeEnabled,
+        builderPlatformReady: hlSetup.builderPlatformReady,
         hasOpenPosition,
         serverBlockers,
         runtimeLabel: botRuntime.formatted || (botRunning ? '0s' : undefined),
@@ -203,7 +204,7 @@ const TerminalTradePanel: React.FC<Props> = ({
 
   const needsHlApproval =
     !hlSetup.agentApproved ||
-    (hlSetup.builderFeeEnabled && !hlSetup.builderFeeApproved);
+    (hlSetup.builderFeeEnabled && hlSetup.builderPlatformReady && !hlSetup.builderFeeApproved);
 
   const canStartBot =
     (phase === 'ready' || phase === 'approve') && !startBlocker && !botRunning;
@@ -306,6 +307,12 @@ const TerminalTradePanel: React.FC<Props> = ({
     }
     if (/linked to another/i.test(msg)) {
       return 'This wallet is linked to another Monadier account. Sign in with that account or use a different wallet.';
+    }
+    if (/builder has insufficient balance/i.test(msg)) {
+      return 'Monadier platform fee is not active yet (Hyperliquid requires $100+ on the Monadier builder wallet — not your $50). You can start the bot without this signature.';
+    }
+    if (/Monadier platform fee is not active/i.test(msg)) {
+      return msg;
     }
     if (/409|duplicate key|user_wallets/i.test(msg)) {
       return 'Could not link wallet — refresh the page and try Start bot again.';
@@ -590,6 +597,20 @@ const TerminalTradePanel: React.FC<Props> = ({
                     HL balance {fmt(hlFundingUsd)} is sufficient. MetaMask will ask to{' '}
                     <strong>allow trading</strong> — not to withdraw your USDC. A generic
                     &quot;assets at risk&quot; warning is normal for API approvals.
+                  </span>
+                </div>
+              )}
+
+            {walletReady &&
+              hlSetup.builderFeeEnabled &&
+              !hlSetup.builderPlatformReady &&
+              !botRunning && (
+                <div className="term-panel-info">
+                  <Info size={14} />
+                  <span>
+                    Platform success fee setup is pending on Monadier&apos;s side (Hyperliquid
+                    requires $100+ on the builder wallet). Your HL balance is fine — bot can start
+                    without the fee signature for now.
                   </span>
                 </div>
               )}

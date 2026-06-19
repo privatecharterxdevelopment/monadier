@@ -3,6 +3,11 @@ import { createHlExchangeClient } from './exchange';
 import { fetchMaxBuilderFee, isBuilderApprovalSufficient } from './builder';
 import { getHlBuilderConfig } from './builderConfig';
 import {
+  fetchHlBuilderPlatformStatus,
+  formatBuilderPlatformError,
+  isBuilderPlatformError,
+} from './builderPlatform';
+import {
   approveAndSaveHlBotAgent,
   fetchHlAgentAddress,
   findActiveHlAgent,
@@ -13,7 +18,7 @@ export type HlBotApprovalResult = {
   builderFeeSigned: boolean;
 };
 
-/** One-time HL platform fee — required on bot orders when builder is enabled. */
+/** One-time HL platform fee — skipped when Monadier builder wallet is not funded on HL yet. */
 export async function approveHlBuilderFeeIfNeeded(
   walletClient: WalletClient,
   walletAddress: string
@@ -21,14 +26,25 @@ export async function approveHlBuilderFeeIfNeeded(
   const config = getHlBuilderConfig();
   if (!config.enabled) return false;
 
+  const platform = await fetchHlBuilderPlatformStatus();
+  if (!platform.ready) return false;
+
   const max = await fetchMaxBuilderFee(walletAddress, config.address);
   if (isBuilderApprovalSufficient(max)) return false;
 
   const client = createHlExchangeClient(walletClient);
-  await client.approveBuilderFee({
-    builder: config.address,
-    maxFeeRate: config.maxApprovalRate,
-  });
+  try {
+    await client.approveBuilderFee({
+      builder: config.address,
+      maxFeeRate: config.maxApprovalRate,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (isBuilderPlatformError(msg)) {
+      throw new Error(formatBuilderPlatformError(platform));
+    }
+    throw err;
+  }
   return true;
 }
 

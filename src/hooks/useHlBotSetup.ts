@@ -7,6 +7,7 @@ import {
 } from '../lib/hyperliquid/hlBotAgent';
 import { fetchMaxBuilderFee, isBuilderApprovalSufficient } from '../lib/hyperliquid/builder';
 import { getHlBuilderConfig } from '../lib/hyperliquid/builderConfig';
+import { fetchHlBuilderPlatformStatus } from '../lib/hyperliquid/builderPlatform';
 
 export type HlBotSetupPhase =
   | 'connect'
@@ -26,6 +27,7 @@ export function useHlBotSetup(walletAddress: string | undefined) {
   const [agentExpiresAt, setAgentExpiresAt] = useState<string | null>(null);
   const [hlLoaded, setHlLoaded] = useState(false);
   const [agentLoaded, setAgentLoaded] = useState(false);
+  const [builderPlatformReady, setBuilderPlatformReady] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,8 +70,13 @@ export function useHlBotSetup(walletAddress: string | undefined) {
 
       const builderConfig = getHlBuilderConfig();
       setBuilderFeeEnabled(builderConfig.enabled);
+      const platform = builderConfig.enabled
+        ? await fetchHlBuilderPlatformStatus()
+        : { ready: true, builderAddress: '', accountUsd: 0, minUsd: 100 };
+      setBuilderPlatformReady(platform.ready);
+
       let builderOk = true;
-      if (builderConfig.enabled) {
+      if (builderConfig.enabled && platform.ready) {
         const maxFee = await fetchMaxBuilderFee(walletAddress, builderConfig.address);
         builderOk = isBuilderApprovalSufficient(maxFee);
       }
@@ -79,7 +86,7 @@ export function useHlBotSetup(walletAddress: string | undefined) {
         setPhase('fund');
       } else if (
         !agentCheck.approved ||
-        (builderConfig.enabled && !builderOk)
+        (builderConfig.enabled && platform.ready && !builderOk)
       ) {
         setPhase('approve');
       } else {
@@ -129,6 +136,7 @@ export function useHlBotSetup(walletAddress: string | undefined) {
     agentApproved,
     builderFeeApproved,
     builderFeeEnabled,
+    builderPlatformReady,
     agentAddress,
     agentExpiresAt,
     hlLoaded,
