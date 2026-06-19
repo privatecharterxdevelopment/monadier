@@ -1,25 +1,37 @@
 import { fetchHlAllMids, fetchHlMeta } from './hlInfo';
-import { scanGlobalHlSignals, type GlobalSignalCandidate } from './globalMarketScan';
+import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
+import {
+  scanGlobalHlSignals,
+  type GlobalScanResult,
+  type GlobalSignalCandidate,
+} from './globalMarketScan';
+
+export type { GlobalSignalCandidate, GlobalScanResult };
 
 export type TradingCycleContext = {
   startedAt: number;
   meta: Awaited<ReturnType<typeof fetchHlMeta>>;
   mids: Awaited<ReturnType<typeof fetchHlAllMids>>;
+  liquidUniverse: HlLiquidUniverse;
+  globalScan: GlobalScanResult;
+  /** Legacy — standard MTF signals only */
   globalSignals: GlobalSignalCandidate[];
 };
 
-/** Shared HL meta + universe signals — built once per trading cycle for all users. */
 export async function buildTradingCycleContext(): Promise<TradingCycleContext> {
-  const [meta, mids, globalSignals] = await Promise.all([
+  const [meta, mids, liquidUniverse] = await Promise.all([
     fetchHlMeta(),
     fetchHlAllMids(),
-    scanGlobalHlSignals(),
+    fetchHlLiquidUniverse(),
   ]);
+  const globalScan = await scanGlobalHlSignals(liquidUniverse);
 
   return {
     startedAt: Date.now(),
     meta,
     mids,
-    globalSignals,
+    liquidUniverse,
+    globalScan,
+    globalSignals: globalScan.standard,
   };
 }

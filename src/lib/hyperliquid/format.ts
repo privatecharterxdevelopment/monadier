@@ -14,16 +14,25 @@ export function fmtUsd(value: unknown, digits = 2): string {
   });
 }
 
+/** Trade / position PnL — 3 decimals so small HL moves are visible. */
+export function fmtTradeUsd(value: unknown, digits = 3): string {
+  return fmtUsd(value, digits);
+}
+
 export function fmtUsdSymbol(value: unknown, digits = 2): string {
   return `$${fmtUsd(value, digits)}`;
 }
 
-/** P/L display — extra decimals for tiny HL closes so $0.07 does not show as $0.00 */
+export function fmtTradeUsdSymbol(value: unknown): string {
+  return fmtUsdSymbol(value, 3);
+}
+
+/** P/L display — extra decimals for tiny HL closes */
 export function fmtClosedPnl(value: unknown): string {
   const n = toNum(value);
   if (!Number.isFinite(n)) return '—';
-  if (n === 0) return '$0.00';
-  const digits = Math.abs(n) < 0.01 ? 4 : 2;
+  if (n === 0) return '$0.000';
+  const digits = Math.abs(n) < 0.001 ? 4 : 3;
   const sign = n > 0 ? '+' : '';
   return `${sign}${fmtUsdSymbol(n, digits)}`;
 }

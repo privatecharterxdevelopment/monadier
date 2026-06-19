@@ -21,9 +21,15 @@ import { fmtPrice } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
 import type { ProTradeTheme } from '../../lib/proTradeTheme';
 import { getProTradeChartColors } from '../../lib/proTradeTheme';
+import {
+  CHART_VISIBLE_BARS,
+  chartBarSpacing,
+  chartSecondsVisible,
+} from '../../lib/hyperliquid/chartZoom';
 
 type Props = {
   coin: string;
+  interval?: HlInterval;
   candles: HlCandleBar[];
   loading: boolean;
   openOrders?: HlOpenOrder[];
@@ -51,11 +57,12 @@ function safeChartOp(fn: () => void) {
   }
 }
 
-/** Bars visible on load — fitContent squashes 7d of 1m data into mush. */
-const VISIBLE_BARS = 90;
+/** @deprecated use CHART_VISIBLE_BARS per interval */
+const VISIBLE_BARS_FALLBACK = 72;
 
 const ProTradeHlLightweightChart: React.FC<Props> = ({
   coin,
+  interval = '5m',
   candles,
   loading,
   openOrders = [],
@@ -102,16 +109,19 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       },
       rightPriceScale: {
         borderColor: colors.border,
-        scaleMargins: { top: 0.08, bottom: 0.26 },
+        scaleMargins: { top: 0.04, bottom: 0.2 },
+        autoScale: true,
       },
       timeScale: {
         borderColor: colors.border,
         timeVisible: true,
-        secondsVisible: false,
-        barSpacing: 10,
-        minBarSpacing: 6,
-        rightOffset: 8,
+        secondsVisible: chartSecondsVisible(interval),
+        barSpacing: 14,
+        minBarSpacing: 10,
+        rightOffset: 4,
         shiftVisibleRangeOnNewBar: true,
+        fixLeftEdge: false,
+        fixRightEdge: false,
       },
       crosshair: {
         vertLine: { color: colors.crosshair, labelBackgroundColor: colors.crosshairLabel },
@@ -122,9 +132,36 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     const series = chart.addSeries(CandlestickSeries, {
       upColor: colors.up,
       downColor: colors.down,
-      borderVisible: false,
+      borderVisible: true,
+      borderUpColor: colors.up,
+      borderDownColor: colors.down,
       wickUpColor: colors.up,
       wickDownColor: colors.down,
+      wickVisible: true,
+    });
+
+    series.applyOptions({
+      autoscaleInfoProvider: (original) => {
+        const base = original();
+        if (!base?.priceRange) return base;
+        const { minValue, maxValue } = base.priceRange;
+        const span = maxValue - minValue;
+        const mid = (maxValue + minValue) / 2;
+        if (!Number.isFinite(mid) || mid <= 0) return base;
+        const minSpan = mid * (interval === '1m' ? 0.002 : interval === '5m' ? 0.003 : 0.005);
+        if (span < minSpan) {
+          const half = minSpan / 2;
+          return {
+            ...base,
+            priceRange: { minValue: mid - half, maxValue: mid + half },
+          };
+        }
+        const pad = span * 0.05;
+        return {
+          ...base,
+          priceRange: { minValue: minValue - pad, maxValue: maxValue + pad },
+        };
+      },
     });
 
     const volumeSeries = chart.addSeries(HistogramSeries, {
@@ -132,7 +169,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       priceScaleId: 'volume',
     });
     volumeSeries.priceScale().applyOptions({
-      scaleMargins: { top: 0.78, bottom: 0.04 },
+      scaleMargins: { top: 0.82, bottom: 0.02 },
     });
 
     chartRef.current = chart;
@@ -157,6 +194,9 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       if (!aliveRef.current) return;
       safeChartOp(() => {
         chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
+        if (candlesRef.current.length > 0) {
+          applyChartZoom(chart, candlesRef.current.length);
+        }
       });
     });
     ro.observe(el);
@@ -176,21 +216,33 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       markLineRef.current = null;
       markersPluginRef.current = null;
     };
-  }, [theme, onFollowLiveChange]);
+  }, [theme, interval, onFollowLiveChange]);
 
-  const showLatestBars = (chart: IChartApi, barCount: number) => {
+  const applyChartZoom = (chart: IChartApi, barCount: number) => {
     if (barCount <= 0) return;
+    const el = containerRef.current;
+    const width = el?.clientWidth ?? 800;
+    const visibleBars = CHART_VISIBLE_BARS[interval] ?? VISIBLE_BARS_FALLBACK;
+    const spacing = chartBarSpacing(width, interval);
     suppressFollowDetectRef.current = true;
     try {
-      const from = Math.max(0, barCount - VISIBLE_BARS);
-      const to = barCount + 4;
-      chart.timeScale().setVisibleLogicalRange({ from, to });
+      chart.timeScale().applyOptions({
+        barSpacing: spacing,
+        minBarSpacing: Math.max(8, spacing - 4),
+        secondsVisible: chartSecondsVisible(interval),
+      });
+      const from = Math.max(0, barCount - visibleBars);
+      chart.timeScale().setVisibleLogicalRange({ from, to: barCount + 2 });
       followLiveRef.current = true;
     } finally {
       requestAnimationFrame(() => {
         suppressFollowDetectRef.current = false;
       });
     }
+  };
+
+  const showLatestBars = (chart: IChartApi, barCount: number) => {
+    applyChartZoom(chart, barCount);
   };
 
   const scrollLive = (chart: IChartApi) => {
@@ -228,7 +280,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       });
     });
     return () => cancelAnimationFrame(frame);
-  }, [layoutKey, coin]);
+  }, [layoutKey, coin, interval]);
 
   useEffect(() => {
     if (!scrollToLiveTick) return;
@@ -325,7 +377,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
 
       candlesRef.current = candles;
     });
-  }, [candles, coin, chartColors.volumeDown, chartColors.volumeUp]);
+  }, [candles, coin, interval, chartColors.volumeDown, chartColors.volumeUp]);
 
   useEffect(() => {
     const series = seriesRef.current;

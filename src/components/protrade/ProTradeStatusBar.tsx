@@ -7,12 +7,16 @@ import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { isHlBotEnabled } from '../../lib/hlBotGates';
 import type { ProTradePanelMode } from './ProTradeTopNav';
 import type { HlOpenOrder, HlPosition } from '../../lib/hyperliquid/user';
-import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
+import { fmtTradeUsdSymbol, fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 
 function fmtUsd(n: number) {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function fmtUpnl(n: number) {
+  return `${n >= 0 ? '+' : ''}${fmtTradeUsdSymbol(n)}`;
 }
 
 type Props = {
@@ -111,11 +115,10 @@ const ProTradeStatusBar: React.FC<Props> = ({
           <span>Withdraw {fmtUsd(botMetrics.hlWithdrawableUsd)}</span>
           <span>Open {botMetrics.openPositionsCount}</span>
           <span className={botMetrics.unrealizedPnlUsd >= 0 ? 'hl-up' : 'hl-down'}>
-            uPnL{' '}
-            {`${botMetrics.unrealizedPnlUsd >= 0 ? '+' : ''}${fmtUsd(botMetrics.unrealizedPnlUsd)}`}
+            uPnL {fmtUpnl(botMetrics.unrealizedPnlUsd)}
           </span>
           <span className={pnlUp ? 'hl-up' : 'hl-down'}>
-            Total P/L {`${pnlUp ? '+' : ''}${fmtUsd(totalPnl)}`}
+            Total P/L {fmtUpnl(totalPnl)}
           </span>
         </div>
         <div className="hl-status-right">
@@ -143,7 +146,7 @@ const ProTradeStatusBar: React.FC<Props> = ({
           Delta {positionStats.delta >= 0 ? '+' : ''}{fmtUsdSymbol(positionStats.delta)}
         </span>
         <span className={up ? 'hl-up' : 'hl-down'}>
-          uPnL {up ? '+' : ''}{fmtUsdSymbol(upnl)}
+          uPnL {up ? '+' : ''}{fmtTradeUsdSymbol(upnl)}
         </span>
       </div>
       <div className="hl-status-mid">

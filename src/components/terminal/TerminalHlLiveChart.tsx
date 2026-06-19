@@ -32,7 +32,7 @@ const TerminalHlLiveChartInner: React.FC<Props> = ({
   markerRefreshKey = 0,
 }) => {
   const coin = useMemo(() => binanceSymbolToHlCoin(symbol), [symbol]);
-  const [interval, setInterval] = useState<HlInterval>('5m');
+  const [interval, setInterval] = useState<HlInterval>('1m');
   const [followLive, setFollowLive] = useState(true);
   const [scrollToLiveTick, setScrollToLiveTick] = useState(0);
   const theme = 'light' as const;
@@ -144,6 +144,7 @@ const TerminalHlLiveChartInner: React.FC<Props> = ({
         ) : null}
         <ProTradeHlLightweightChart
           coin={coin}
+          interval={interval}
           candles={market.candles}
           loading={market.loading}
           theme={theme}

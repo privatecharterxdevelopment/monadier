@@ -13,7 +13,9 @@ import { checkWinRateGate } from './services/tradeGates';
 import { buildTradingCycleContext } from './services/tradingCycleContext';
 import {
   lastHlGlobalScanStats,
+  lastGlobalScanResult,
   scanGlobalHlSignals,
+  globalSignalsForBotMode,
   type GlobalSignalCandidate,
 } from './services/globalMarketScan';
 import {
@@ -323,9 +325,15 @@ const healthServer = http.createServer(async (req, res) => {
 
       const collateralForSignal = BigInt(Math.floor(Math.max(hlBalanceUsd, 0) * 1e6));
 
-      const globalSignals =
-        lastGlobalSignals.length > 0 ? lastGlobalSignals : await scanGlobalHlSignals();
-      const bestGlobal = globalSignals[0] ?? null;
+      const globalScan =
+        lastGlobalScanResult.standard.length + lastGlobalScanResult.aggressive.length > 0
+          ? lastGlobalScanResult
+          : await scanGlobalHlSignals();
+      const userSignals = globalSignalsForBotMode(
+        globalScan,
+        dbSettings.hlBotStrategy
+      );
+      const bestGlobal = userSignals[0] ?? null;
 
       const ethSignal = await marketService.getSignal(
         chainId,
@@ -416,12 +424,16 @@ const healthServer = http.createServer(async (req, res) => {
         },
         globalScan: {
           coinsScanned: lastHlGlobalScanStats.coinsScanned,
-          candidateCount: globalSignals.length,
-          candidates: globalSignals.slice(0, 8).map((s) => ({
+          standardCandidates: globalScan.standard.length,
+          aggressiveCandidates: globalScan.aggressive.length,
+          candidateCount: userSignals.length,
+          botMode: dbSettings.hlBotStrategy,
+          candidates: userSignals.slice(0, 8).map((s) => ({
             coin: s.coin,
             direction: s.direction,
             confidence: s.confidence,
             reason: s.reason,
+            mode: s.botMode,
           })),
           best: bestGlobal
             ? {
@@ -473,15 +485,20 @@ const healthServer = http.createServer(async (req, res) => {
   // Ops: service + active HL bot count (no wallet required)
   if (url.pathname === '/api/global-signals') {
     try {
-      const signals =
-        lastGlobalSignals.length > 0 ? lastGlobalSignals : await scanGlobalHlSignals();
+      const scan =
+        lastGlobalScanResult.standard.length + lastGlobalScanResult.aggressive.length > 0
+          ? lastGlobalScanResult
+          : await scanGlobalHlSignals();
       res.writeHead(200, corsHeaders);
       res.end(
         JSON.stringify({
           success: true,
           coinsScanned: lastHlGlobalScanStats.coinsScanned,
-          count: signals.length,
-          candidates: signals.slice(0, 12),
+          standard: scan.standard.length,
+          aggressive: scan.aggressive.length,
+          count: scan.standard.length + scan.aggressive.length,
+          standardCandidates: scan.standard.slice(0, 8),
+          aggressiveCandidates: scan.aggressive.slice(0, 8),
           scannedAt: lastHlGlobalScanStats.scannedAt || lastCycleStats?.at || new Date().toISOString(),
           minConfidence: config.hyperliquid.minSignalConfidence,
         })
@@ -727,7 +744,7 @@ async function runTradingCycle(): Promise<void> {
         succeeded: stats.succeeded,
         skipped: stats.skipped,
         failed: stats.failed,
-        globalSignals: ctx.globalSignals.length,
+        globalSignals: ctx.globalScan.standard.length + ctx.globalScan.aggressive.length,
         ms: Date.now() - cycleStarted,
       };
 
@@ -739,7 +756,7 @@ async function runTradingCycle(): Promise<void> {
         failed: stats.failed,
         batchMs: stats.ms,
         cycleMs: Date.now() - cycleStarted,
-        globalSignals: ctx.globalSignals.length,
+        globalSignals: ctx.globalScan.standard.length + ctx.globalScan.aggressive.length,
       });
     } catch (err) {
       logger.error('Error in HL trading cycle', { error: err });
@@ -760,6 +777,7 @@ function logStartupInfo(): void {
   logger.info('Configuration:', {
     chain: 'Hyperliquid perps',
     tradeInterval: `${config.trading.checkIntervalMs / 1000}s`,
+    positionMonitorMs: config.hyperliquid.positionMonitorMs,
     minHlAccountUsd: config.hyperliquid.minAccountUsd,
     userConcurrency: config.scaling.userProcessConcurrency,
     maxUsersPerCycle: config.scaling.maxUsersPerCycle,
@@ -788,6 +806,7 @@ async function main(): Promise<void> {
 
   // Run immediately on startup
   await runTradingCycle();
+  void hyperliquidTradingService.runFastPositionMonitor();
 
   const tradeIntervalSeconds = Math.floor(config.trading.checkIntervalMs / 1000);
   const tradeCronExpression = `*/${tradeIntervalSeconds} * * * * *`;
@@ -796,9 +815,23 @@ async function main(): Promise<void> {
     await runTradingCycle();
   });
 
+  const positionMonitorMs = config.hyperliquid.positionMonitorMs;
+
+  if (positionMonitorMs < 1000) {
+    setInterval(() => {
+      void hyperliquidTradingService.runFastPositionMonitor();
+    }, positionMonitorMs);
+  } else {
+    const positionMonitorSec = Math.floor(positionMonitorMs / 1000);
+    cron.schedule(`*/${positionMonitorSec} * * * * *`, async () => {
+      await hyperliquidTradingService.runFastPositionMonitor();
+    });
+  }
+
   logger.info(`Bot service started.`);
   logger.info(`- Payment monitoring: ACTIVE (treasury watched)`);
   logger.info(`- HL trading cycle: every ${tradeIntervalSeconds}s`);
+  logger.info(`- HL position monitor: every ${positionMonitorMs}ms (fast profit grab)`);
 
   if (process.env.ENABLE_DEMO_SIMULATOR === 'true') {
     startDemoSimulator().catch((err) => {

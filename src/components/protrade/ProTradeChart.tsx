@@ -155,6 +155,7 @@ const ProTradeChartInner: React.FC<Props> = ({
           ) : mountedEngine === 'hl' ? (
             <ProTradeHlLightweightChart
               coin={coin}
+              interval={interval}
               candles={candles}
               loading={loading}
               openOrders={openOrders}

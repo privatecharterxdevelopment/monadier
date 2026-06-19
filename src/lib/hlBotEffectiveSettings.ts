@@ -1,12 +1,15 @@
 import type { VaultSettingsSnapshot } from './vaultSettingsSnapshot';
+import {
+  profitLockDisplayForStrategy,
+  type HlBotStrategy,
+} from './hlBotStrategy';
 
-/** Must match bot-service config / normalization. */
+/** Standard-mode profit lock (must match bot-service config). */
 export const HL_BOT_EFFECTIVE = {
-  minTakeProfitPercent: 5,
-  minStopLossPercent: 3,
-  profitLockActivateUsd: 0.02,
-  profitLockFloorUsd: 0.01,
-  profitLockTrailBufferUsd: 0.015,
+  profitLockActivateUsd: 0.06,
+  profitLockFloorUsd: 0.03,
+  profitLockTrailBufferUsd: 0.025,
+  defaultStopLossPercent: 4,
 } as const;
 
 export type HlBotEffectiveSettings = VaultSettingsSnapshot & {
@@ -19,11 +22,34 @@ export type HlBotEffectiveSettings = VaultSettingsSnapshot & {
 export function effectiveHlBotSettings(
   raw: VaultSettingsSnapshot
 ): HlBotEffectiveSettings {
+  const lock = profitLockDisplayForStrategy(raw.hlBotStrategy);
   return {
     ...raw,
-    takeProfit: Math.max(raw.takeProfit, HL_BOT_EFFECTIVE.minTakeProfitPercent),
-    stopLoss: Math.max(raw.stopLoss, HL_BOT_EFFECTIVE.minStopLossPercent),
-    profitLockActivateUsd: HL_BOT_EFFECTIVE.profitLockActivateUsd,
-    profitLockFloorUsd: HL_BOT_EFFECTIVE.profitLockFloorUsd,
+    takeProfit: Math.max(0, raw.takeProfit),
+    stopLoss: Math.max(0, raw.stopLoss),
+    profitLockActivateUsd: lock.activateUsd,
+    profitLockFloorUsd: lock.floorUsd,
   };
+}
+
+export function formatHlTpLabel(
+  strategy: HlBotStrategy,
+  takeProfit: number
+): string {
+  if (strategy === 'profit_grabber') return 'trail';
+  if (takeProfit <= 0) return 'off';
+  return `+${takeProfit}%`;
+}
+
+/** Aggressive: SL is profit trail, not loss %. Standard: margin SL %. */
+export function formatHlSlLabel(
+  stopLoss: number,
+  strategy: HlBotStrategy = 'standard'
+): string {
+  if (strategy === 'profit_grabber') {
+    const floor = profitLockDisplayForStrategy('profit_grabber').floorUsd;
+    return `+$${floor.toFixed(2)} trail`;
+  }
+  if (stopLoss <= 0) return 'off';
+  return `−${stopLoss}%`;
 }

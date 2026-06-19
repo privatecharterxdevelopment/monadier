@@ -244,18 +244,19 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
         <label className={isModal ? undefined : 'term-panel-input-wrap'}>
           {isModal && (
             <span className={labelClass} id="term-tp-label">
-              Take profit %
+              Take profit % (optional)
             </span>
           )}
-          {!isModal && <span>TP %</span>}
+          {!isModal && <span>TP % (opt.)</span>}
           <input
             id="term-tp"
             type="number"
             className={inputClass}
             value={takeProfit}
-            min={0.1}
+            min={0}
             step={0.1}
-            onChange={(e) => setTakeProfit(parseFloat(e.target.value) || 0)}
+            placeholder="0 = bot trail"
+            onChange={(e) => setTakeProfit(Math.max(0, parseFloat(e.target.value) || 0))}
             disabled={disabled}
             aria-labelledby={isModal ? 'term-tp-label' : undefined}
           />
@@ -263,26 +264,28 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
         <label className={isModal ? undefined : 'term-panel-input-wrap'}>
           {isModal && (
             <span className={labelClass} id="term-sl-label">
-              Stop loss %
+              Stop loss % (optional)
             </span>
           )}
-          {!isModal && <span>SL %</span>}
+          {!isModal && <span>SL % (opt.)</span>}
           <input
             id="term-sl"
             type="number"
             className={inputClass}
             value={stopLoss}
-            min={1}
+            min={0}
             step={0.5}
-            onChange={(e) => setStopLoss(parseFloat(e.target.value) || 0)}
+            placeholder="0 = no auto SL"
+            onChange={(e) => setStopLoss(Math.max(0, parseFloat(e.target.value) || 0))}
             disabled={disabled}
             aria-labelledby={isModal ? 'term-sl-label' : undefined}
           />
         </label>
       </div>
       <p className={hintClass}>
-        TP closes at +X% on margin. SL at −X% on margin (min 3%).
-        In profit: at +$0.02 the bot trails SL — locks min +$0.01 and follows peak − $0.015.
+        SL default −4% cuts losses. Set SL to 0 to disable. TP optional. In profit: trail starts at
+        +$0.06, locks min +$0.03, follows peak − ~$0.025 (Grabber slightly tighter). No instant
+        close on +$0.01 — winners can run.
       </p>
 
       {notice && (

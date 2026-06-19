@@ -46,6 +46,7 @@ import { useHlOpenPositions } from '../../hooks/useHlOpenPositions';
 import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
 import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
 import { toNum } from '../../lib/hyperliquid/parse';
+import { fmtClosedPnl, fmtTradeUsdSymbol } from '../../lib/hyperliquid/format';
 import type { HlPosition } from '../../lib/hyperliquid/user';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
@@ -102,6 +103,10 @@ type Props = {
 
 function fmtUsd(n: number) {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function fmtTradeUsd(n: number) {
+  return fmtTradeUsdSymbol(n);
 }
 
 function fmtDate(iso: string | null) {
@@ -748,7 +753,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
                     >
                       {t.direction} {displaySymbol(t.tokenSymbol)}
                     </td>
-                    <td>{fmtUsd(t.entryAmount)}</td>
+                    <td>{fmtTradeUsd(t.entryAmount)}</td>
                     <td>{t.leverage}x</td>
                     <td
                       className={
@@ -761,7 +766,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
                     >
                       {t.status === 'closing' || pl == null
                         ? '—'
-                        : `${pl >= 0 ? '+' : ''}${fmtUsd(pl)}`}
+                        : fmtClosedPnl(pl)}
                     </td>
                     <td className="capitalize term-dock-status">{t.status}</td>
                     <td>
@@ -840,7 +845,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
                         {p.direction}
                       </span>
                     </td>
-                    <td>{fmtUsd(p.entry_amount || 0)}</td>
+                    <td>{fmtTradeUsd(p.entry_amount || 0)}</td>
                     <td>
                       {p.entry_price
                         ? `$${Number(p.entry_price).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
@@ -854,7 +859,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
                     <td>{p.leverage_multiplier ?? 1}x</td>
                     <td className={pl >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'}>
                       {pl >= 0 ? '+' : ''}
-                      {fmtUsd(pl)}
+                      {fmtClosedPnl(pl)}
                     </td>
                     <td className="term-dock-actions">
                       {isOpen && (
@@ -966,11 +971,11 @@ const TerminalPositionsDock: React.FC<Props> = ({
                         </span>{' '}
                         {displaySymbol(p.token_symbol)}
                       </td>
-                      <td>{fmtUsd(p.entry_amount || 0)}</td>
+                      <td>{fmtTradeUsd(p.entry_amount || 0)}</td>
                       <td>{p.leverage_multiplier ?? 1}x</td>
                       <td className={pl >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'}>
                         {pl >= 0 ? '+' : ''}
-                        {fmtUsd(pl)}
+                        {fmtClosedPnl(pl)}
                       </td>
                       <td>
                         <span className="term-dock-closing">Closing…</span>
@@ -999,11 +1004,11 @@ const TerminalPositionsDock: React.FC<Props> = ({
                         </span>{' '}
                         {p.token_symbol}
                       </td>
-                      <td>{fmtUsd(p.entry_amount || 0)}</td>
+                      <td>{fmtTradeUsd(p.entry_amount || 0)}</td>
                       <td>{p.leverage_multiplier ?? 1}x</td>
                       <td className={pl >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'}>
                         {pl >= 0 ? '+' : ''}
-                        {fmtUsd(pl)}
+                        {fmtClosedPnl(pl)}
                       </td>
                       <td className="capitalize term-dock-status">{p.status}</td>
                     </tr>
@@ -1029,11 +1034,11 @@ const TerminalPositionsDock: React.FC<Props> = ({
                         </span>{' '}
                         {p.token_symbol}
                       </td>
-                      <td>{fmtUsd(p.entry_amount || 0)}</td>
+                      <td>{fmtTradeUsd(p.entry_amount || 0)}</td>
                       <td>{p.leverage_multiplier ?? 1}x</td>
                       <td className={pl >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'}>
                         {pl >= 0 ? '+' : ''}
-                        {fmtUsd(pl)}
+                        {fmtClosedPnl(pl)}
                       </td>
                       <td>
                         {verifyHref ? (
@@ -1073,10 +1078,10 @@ const TerminalPositionsDock: React.FC<Props> = ({
                         {p.leverage_multiplier ?? 1}x
                       </span>
                     </td>
-                    <td>{fmtUsd(p.entry_amount || 0)}</td>
+                    <td>{fmtTradeUsd(p.entry_amount || 0)}</td>
                     <td className={pl >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'}>
                       {pl >= 0 ? '+' : ''}
-                      {fmtUsd(pl)}
+                      {fmtClosedPnl(pl)}
                     </td>
                     <td className="capitalize term-dock-status">{p.status}</td>
                     <td className="term-dock-time whitespace-nowrap">

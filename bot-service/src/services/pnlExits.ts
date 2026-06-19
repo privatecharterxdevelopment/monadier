@@ -14,6 +14,10 @@ export function shouldTakeProfitOnPnl(pnlPercent: number, takeProfitPercent: num
   return takeProfitPercent > 0 && pnlPercent >= takeProfitPercent;
 }
 
+export function shouldStopLossOnPnl(pnlPercent: number, stopLossPercent: number): boolean {
+  return stopLossPercent > 0 && pnlPercent <= -stopLossPercent;
+}
+
 export function shouldActivateProfitLock(
   pnlPercent: number,
   profitLockPercent: number,
@@ -39,8 +43,33 @@ export function shouldCloseProfitLockUsd(
   alreadyLocked: boolean
 ): boolean {
   if (!alreadyLocked || floorUsd <= 0) return false;
-  // Close when uPnL falls to the trailed floor — even if slippage would print slightly negative.
   return pnlUsd <= floorUsd;
+}
+
+/** Close when price pulls back from peak — needs a real retracement, not noise. */
+export function shouldClosePeakDropUsd(
+  pnlUsd: number,
+  peakUsd: number,
+  minPeakUsd: number,
+  dropBufferUsd: number
+): boolean {
+  if (peakUsd < minPeakUsd || pnlUsd <= 0 || dropBufferUsd <= 0) return false;
+  const drop = peakUsd - pnlUsd;
+  const minDrop = Math.max(dropBufferUsd, peakUsd * 0.3);
+  return drop >= minDrop;
+}
+
+/** Close when uPnL stayed above min profit long enough (no pullback needed). */
+export function shouldCloseProfitHoldTimeout(
+  pnlUsd: number,
+  minProfitUsd: number,
+  inProfitSinceMs: number | undefined,
+  maxHoldMs: number,
+  nowMs: number = Date.now()
+): boolean {
+  if (minProfitUsd <= 0 || maxHoldMs <= 0 || pnlUsd < minProfitUsd) return false;
+  if (inProfitSinceMs == null) return false;
+  return nowMs - inProfitSinceMs >= maxHoldMs;
 }
 
 /** Trailing profit floor from peak uPnL. */

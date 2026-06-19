@@ -42,7 +42,7 @@ export const config = {
 
   // Trading settings
   trading: {
-    checkIntervalMs: 10000, // Check every 10 seconds
+    checkIntervalMs: Number(process.env.TRADE_INTERVAL_MS || 1000),
     minConfidence: 60,      // Minimum AI confidence to trade
     defaultSlippage: 0.5,   // 0.5% default slippage
   },
@@ -89,20 +89,27 @@ export const config = {
     /** Parallel MTF scans per trading cycle (all HL perps). */
     scanConcurrency: Number(process.env.HL_SCAN_CONCURRENCY || 8),
     minSignalConfidence: Number(process.env.HL_MIN_SIGNAL_CONFIDENCE || 55),
+    /** Bot only scans/opens perps above these HL liquidity floors. */
+    minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 8_000_000),
+    minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 1_500_000),
+    /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all liquid. */
+    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 35),
+    liquidUniverseCacheMs: Number(process.env.HL_LIQUID_UNIVERSE_CACHE_MS || 60_000),
     /** Close HL perps at this % gain on margin (user DB setting overrides). */
-    defaultTakeProfitPercent: Number(process.env.HL_DEFAULT_TP_PERCENT || 5),
-    /** Stop loss on margin — 1% is too tight for HL fees on small accounts. */
-    defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 3),
-    /** Trail SL into profit — lock floor once margin PnL reaches activate threshold. */
+    /** 0 = user disabled TP. */
+    defaultTakeProfitPercent: Number(process.env.HL_DEFAULT_TP_PERCENT || 0),
+    /** Default −4% on margin when SL not set; 0 in DB = user disabled. */
+    defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 4),
     defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 2),
-    /** Skip profit-lock exits below this USD (fees would eat the gain). */
-    minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.02),
-    /** Activate trailing profit lock when uPnL reaches this USD. */
-    profitLockActivateUsd: Number(process.env.HL_PROFIT_LOCK_ACTIVATE_USD || 0.02),
-    /** Minimum locked profit USD once trail is active. */
-    profitLockFloorUsd: Number(process.env.HL_PROFIT_LOCK_FLOOR_USD || 0.01),
-    /** Trail peak profit — floor = max(minFloor, peak − buffer). */
-    profitLockTrailBufferUsd: Number(process.env.HL_PROFIT_LOCK_TRAIL_BUFFER_USD || 0.015),
+    /** Min uPnL before any profit exit (covers HL fees). */
+    minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
+    profitLockActivateUsd: Number(process.env.HL_PROFIT_LOCK_ACTIVATE_USD || 0.06),
+    profitLockFloorUsd: Number(process.env.HL_PROFIT_LOCK_FLOOR_USD || 0.03),
+    profitLockTrailBufferUsd: Number(process.env.HL_PROFIT_LOCK_TRAIL_BUFFER_USD || 0.025),
+    positionMonitorMs: Number(process.env.HL_POSITION_MONITOR_MS || 500),
+    /** 0 = disabled — no forced close just for being in profit N ms. */
+    profitGrabMaxHoldMs: Number(process.env.HL_PROFIT_GRAB_MAX_HOLD_MS || 0),
+    profitHoldMaxMs: Number(process.env.HL_PROFIT_HOLD_MAX_MS || 0),
     /** Pause new opens after a close to reduce fee churn. */
     reentryCooldownMs: Number(process.env.HL_REENTRY_COOLDOWN_MS || 180_000),
     /** Minimum margin USD per HL open (small accounts use up to 10% of balance). */

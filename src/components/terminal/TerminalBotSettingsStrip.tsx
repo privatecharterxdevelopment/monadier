@@ -1,7 +1,7 @@
 import React from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 import type { VaultSettingsSnapshot } from '../../hooks/useTerminalVaultData';
-import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
+import { effectiveHlBotSettings, formatHlSlLabel, formatHlTpLabel } from '../../lib/hlBotEffectiveSettings';
 import { HL_BOT_STRATEGY_LABELS } from '../../lib/hlBotStrategy';
 
 type Props = {
@@ -44,7 +44,7 @@ const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disable
         <span>
           <span className="term-bot-settings-k">TP</span>{' '}
           <span className="term-bot-settings-v">
-            {settings.hlBotStrategy === 'profit_grabber' ? 'trail' : `+${eff.takeProfit}%`}
+            {formatHlTpLabel(settings.hlBotStrategy, eff.takeProfit)}
           </span>
         </span>
         <span className="term-bot-settings-dot" aria-hidden>
@@ -52,12 +52,20 @@ const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disable
         </span>
         <span>
           <span className="term-bot-settings-k">SL</span>{' '}
-          <span className="term-bot-settings-v">−{eff.stopLoss}%</span>
+          <span className="term-bot-settings-v">
+            {formatHlSlLabel(eff.stopLoss, settings.hlBotStrategy)}
+          </span>
         </span>
         <span className="term-bot-settings-dot" aria-hidden>
           ·
         </span>
-        <span title="Profit lock: arms at +$0.02 uPnL, floor min +$0.01, trails peak">
+        <span
+          title={
+            settings.hlBotStrategy === 'profit_grabber'
+              ? 'Aggressive: SL trails in profit from +$0.02 uPnL'
+              : 'Profit lock arms when uPnL hits activate level'
+          }
+        >
           <span className="term-bot-settings-k">Lock</span>{' '}
           <span className="term-bot-settings-v">
             +${eff.profitLockActivateUsd.toFixed(2)} / min +${eff.profitLockFloorUsd.toFixed(2)}

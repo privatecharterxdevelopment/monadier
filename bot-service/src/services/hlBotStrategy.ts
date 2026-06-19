@@ -11,28 +11,27 @@ export type HlExitPolicy = {
   lockActivateUsd: number;
   lockFloorUsd: number;
   trailBufferUsd: number;
-  /** Profit Grabber exits via lock trail only — no % TP. */
+  maxHoldInProfitMs: number;
   useTakeProfitPercent: boolean;
 };
 
-/** Exit rules per bot mode — profit lock +$0.02 → floor +$0.01 is mandatory for both. */
+/** Aggressive (profit_grabber): tight +$0.02 → +$0.01 trail. Standard: wider lock from config. */
 export function resolveHlExitPolicy(strategy: HlBotStrategy): HlExitPolicy {
-  const lockActivateUsd = config.hyperliquid.profitLockActivateUsd;
-  const lockFloorUsd = config.hyperliquid.profitLockFloorUsd;
-
   if (strategy === 'profit_grabber') {
     return {
-      lockActivateUsd,
-      lockFloorUsd,
-      trailBufferUsd: 0.01,
+      lockActivateUsd: 0.02,
+      lockFloorUsd: 0.01,
+      trailBufferUsd: 0.008,
+      maxHoldInProfitMs: config.hyperliquid.profitGrabMaxHoldMs,
       useTakeProfitPercent: false,
     };
   }
 
   return {
-    lockActivateUsd,
-    lockFloorUsd,
+    lockActivateUsd: config.hyperliquid.profitLockActivateUsd,
+    lockFloorUsd: config.hyperliquid.profitLockFloorUsd,
     trailBufferUsd: config.hyperliquid.profitLockTrailBufferUsd,
+    maxHoldInProfitMs: config.hyperliquid.profitHoldMaxMs,
     useTakeProfitPercent: true,
   };
 }

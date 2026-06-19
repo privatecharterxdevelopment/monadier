@@ -4,21 +4,23 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { normalizeHlBotStrategy } from './hlBotStrategy';
 
-/** Legacy 0.2% env default or 1% mis-sync with LVRG UI — too tight on HL. */
+/** 0 = disabled — bot uses profit-lock trail only unless user sets a % TP. */
 function normalizeHlTakeProfitPercent(raw: number | null | undefined): number {
-  const fallback = config.hyperliquid.defaultTakeProfitPercent;
-  if (raw == null || !Number.isFinite(Number(raw))) return fallback;
+  if (raw == null || !Number.isFinite(Number(raw))) {
+    return config.hyperliquid.defaultTakeProfitPercent;
+  }
   const v = Number(raw);
-  if (v > 0 && v < 2) return fallback;
+  if (v <= 0) return 0;
   return v;
 }
 
-/** 1% SL on ~$50 accounts stops out on noise + fees — floor at 3%. */
+/** 0 = disabled — bot never auto-closes at a loss unless user sets SL %. */
 function normalizeHlStopLossPercent(raw: number | null | undefined): number {
-  const fallback = config.hyperliquid.defaultStopLossPercent;
-  if (raw == null || !Number.isFinite(Number(raw))) return fallback;
+  if (raw == null || !Number.isFinite(Number(raw))) {
+    return config.hyperliquid.defaultStopLossPercent;
+  }
   const v = Number(raw);
-  if (v > 0 && v < 2) return fallback;
+  if (v <= 0) return 0;
   return v;
 }
 
@@ -500,8 +502,8 @@ export class SubscriptionService {
         logger.warn('⚠️ No vault_settings found - using DEFAULTS', {
           wallet: walletAddress.slice(0, 10),
           chainId,
-          defaultTP: '5%',
-          defaultSL: '1%',
+          defaultTP: '0% (off)',
+          defaultSL: '4%',
           defaultLeverage: '5x',
           defaultRisk: '5%',
           error: error?.message

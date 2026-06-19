@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AlertTriangle, Loader2, Save, Wallet } from 'lucide-react';
 import { useAppKit } from '@reown/appkit/react';
 import { useHlLeverageCap } from '../../hooks/useHlLeverageCap';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
 import TerminalBotSettingsFields from './TerminalBotSettingsFields';
 import { useBotSettingsEditor } from './useBotSettingsEditor';
-import { HL_BOT_STRATEGY_LABELS } from '../../lib/hlBotStrategy';
+import { HL_BOT_STRATEGY_HINTS, HL_BOT_STRATEGY_LABELS } from '../../lib/hlBotStrategy';
+import { saveHlBotStrategyMode } from '../../lib/saveHlBotStrategyMode';
+import { useWeb3 } from '../../contexts/Web3Context';
+import { useAuth } from '../../contexts/AuthContext';
+import { useSubscription } from '../../contexts/SubscriptionContext';
 
 type Props = {
   settings: VaultSettingsSnapshot;
@@ -28,7 +32,12 @@ const TerminalLvrgPanel: React.FC<Props> = ({
   onSaved,
 }) => {
   const { open } = useAppKit();
+  const { publicClient, walletClient } = useWeb3();
+  const { isDemoUser } = useAuth();
+  const { planTier } = useSubscription();
   const { caps } = useHlLeverageCap();
+  const [modeBusy, setModeBusy] = useState(false);
+  const [modeError, setModeError] = useState<string | null>(null);
   const editor = useBotSettingsEditor({
     settings,
     walletAddress,
@@ -41,13 +50,38 @@ const TerminalLvrgPanel: React.FC<Props> = ({
 
   const settingsLocked = botRunning;
 
+  const switchMode = async (next: typeof editor.hlBotStrategy) => {
+    if (!walletAddress || next === settings.hlBotStrategy) {
+      editor.setHlBotStrategy(next);
+      return;
+    }
+    setModeBusy(true);
+    setModeError(null);
+    try {
+      await saveHlBotStrategyMode(walletAddress.toLowerCase(), settings, next, {
+        planTier,
+        publicClient,
+        walletClient,
+        userAddress: walletAddress.toLowerCase() as `0x${string}`,
+        isDemoUser,
+      });
+      editor.setHlBotStrategy(next);
+      onSaved();
+    } catch (e: unknown) {
+      setModeError(e instanceof Error ? e.message : 'Could not save mode');
+    } finally {
+      setModeBusy(false);
+    }
+  };
+
   return (
     <div className={`term-panel-stack ${disabled || settingsLocked ? 'term-panel-stack--locked' : ''}`}>
       {settingsLocked && (
         <div className="term-panel-alert">
           <AlertTriangle size={14} />
           <span>
-            Bot is running — stop it first to change leverage or risk. Bot mode can still be saved.
+            Bot is running — stop it to change risk, leverage, or TP/SL.{' '}
+            <strong>Standard / Aggressive switches apply instantly</strong> (no restart).
           </span>
         </div>
       )}
@@ -59,18 +93,17 @@ const TerminalLvrgPanel: React.FC<Props> = ({
               key={mode}
               type="button"
               className={`term-btn-sm ${editor.hlBotStrategy === mode ? 'term-btn-sm--primary' : ''}`}
-              disabled={disabled || editor.isLoading}
-              onClick={() => editor.setHlBotStrategy(mode)}
+              disabled={disabled || editor.isLoading || modeBusy}
+              onClick={() => void switchMode(mode)}
             >
               {HL_BOT_STRATEGY_LABELS[mode]}
             </button>
           ))}
         </div>
-        <span className="term-panel-card-hint">
-          {editor.hlBotStrategy === 'profit_grabber'
-            ? 'Profit Grabber: locks +$0.01 once uPnL hits +$0.02, exits via trail (no % TP).'
-            : 'Standard: MTF trend scan + profit lock + TP/SL.'}
-        </span>
+        <span className="term-panel-card-hint">{HL_BOT_STRATEGY_HINTS[editor.hlBotStrategy]}</span>
+        {modeError ? (
+          <span className="term-panel-card-hint term-panel-card-hint--warn">{modeError}</span>
+        ) : null}
       </div>
 
       <div className="term-panel-card term-panel-card--muted">

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { HlPosition } from '../../lib/hyperliquid/user';
+import { fmtTradeUsdSymbol } from '../../lib/hyperliquid/format';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
 
@@ -14,7 +15,7 @@ type Props = {
 };
 
 function fmtUsd(n: number) {
-  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return fmtTradeUsdSymbol(n);
 }
 
 function fmtPx(n: number) {

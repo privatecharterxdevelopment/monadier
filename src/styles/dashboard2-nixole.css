@@ -3169,6 +3169,12 @@
   color: #f59e0b;
 }
 
+.term-panel-card-hint--ok {
+  margin-top: 6px;
+  color: #16a34a;
+  font-weight: 600;
+}
+
 .term-bot-mode-toggle {
   display: flex;
   flex-wrap: wrap;
@@ -3598,7 +3604,7 @@
 
 .term-hl-live-chart__canvas-wrap {
   flex: 1;
-  min-height: 200px;
+  min-height: 280px;
   position: relative;
   overflow: hidden;
 }

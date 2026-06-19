@@ -13,6 +13,7 @@ import {
   type HlSpotMarketSnapshot,
 } from '../lib/hyperliquid/spot';
 import { toNum } from '../lib/hyperliquid/parse';
+import { chartLookbackMs } from '../lib/hyperliquid/chartZoom';
 import { getHlWsClient } from '../lib/hyperliquid/ws';
 import type {
   HlCandleBar,
@@ -34,10 +35,11 @@ type State = {
   wsConnected: boolean;
 };
 
-const SNAPSHOT_POLL_MS = 10_000;
-const BOOK_THROTTLE_MS = 120;
-const TRADES_THROTTLE_MS = 150;
-const CANDLE_THROTTLE_MS = 80;
+const SNAPSHOT_POLL_MS = 3000;
+const BOOK_THROTTLE_MS = 80;
+const TRADES_THROTTLE_MS = 100;
+const CANDLE_THROTTLE_MS = 50;
+const MIDS_THROTTLE_MS = 100;
 const MAX_TAPE_TRADES = 50;
 
 function normCoin(coin: string): string {
@@ -141,7 +143,9 @@ export function useHyperliquidMarket(
   const refresh = useCallback(async () => {
     try {
       const [candles, book, snapshot, recentTrades] = await Promise.all([
-        kind === 'spot' ? fetchHlSpotCandles(coin, interval) : fetchHlCandles(coin, interval),
+        kind === 'spot'
+          ? fetchHlSpotCandles(coin, interval)
+          : fetchHlCandles(coin, interval, chartLookbackMs(interval)),
         kind === 'spot' ? fetchHlSpotOrderBook(coin) : fetchHlOrderBook(coin),
         kind === 'spot' ? fetchHlSpotMarketSnapshot(coin) : fetchHlMarketSnapshot(coin),
         kind === 'spot' ? fetchHlSpotRecentTrades(coin) : fetchHlRecentTrades(coin),
@@ -191,6 +195,8 @@ export function useHyperliquidMarket(
   const tradesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingCandleRef = useRef<HlCandleBar | null>(null);
   const candleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const midsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingMidRef = useRef<number | null>(null);
 
   const flushCandle = useCallback(() => {
     candleTimerRef.current = null;
@@ -211,6 +217,29 @@ export function useHyperliquidMarket(
       candleTimerRef.current = setTimeout(flushCandle, CANDLE_THROTTLE_MS);
     },
     [flushCandle]
+  );
+
+  const flushMid = useCallback(() => {
+    midsTimerRef.current = null;
+    const px = pendingMidRef.current;
+    if (px == null || px <= 0) return;
+    pendingMidRef.current = null;
+    setState((prev) => ({
+      ...prev,
+      snapshot: prev.snapshot
+        ? { ...prev.snapshot, markPx: String(px) }
+        : prev.snapshot,
+      wsConnected: true,
+    }));
+  }, []);
+
+  const scheduleMid = useCallback(
+    (px: number) => {
+      pendingMidRef.current = px;
+      if (midsTimerRef.current) return;
+      midsTimerRef.current = setTimeout(flushMid, MIDS_THROTTLE_MS);
+    },
+    [flushMid]
   );
 
   const flushBook = useCallback(() => {
@@ -261,9 +290,16 @@ export function useHyperliquidMarket(
       client.subscribe({ type: 'l2Book', coin }),
       client.subscribe({ type: 'trades', coin }),
       client.subscribe({ type: 'candle', coin, interval }),
+      client.subscribe({ type: 'allMids' }),
     ];
 
     const off = client.addListener((channel, data) => {
+      if (channel === 'allMids') {
+        const mids = data as Record<string, string>;
+        const px = toNum(mids[coin] ?? mids[`${coin}-PERP`]);
+        if (px > 0) scheduleMid(px);
+        return;
+      }
       if (channel === 'l2Book') {
         const book = data as HlL2Book;
         if (book.coin && !coinMatches(book.coin, coin)) return;
@@ -298,15 +334,17 @@ export function useHyperliquidMarket(
       if (bookTimerRef.current) clearTimeout(bookTimerRef.current);
       if (tradesTimerRef.current) clearTimeout(tradesTimerRef.current);
       if (candleTimerRef.current) clearTimeout(candleTimerRef.current);
+      if (midsTimerRef.current) clearTimeout(midsTimerRef.current);
       bookTimerRef.current = null;
       tradesTimerRef.current = null;
       candleTimerRef.current = null;
+      midsTimerRef.current = null;
       pendingBookRef.current = null;
       pendingTradesRef.current = [];
       pendingCandleRef.current = null;
       bookKeyRef.current = '';
     };
-  }, [coin, interval, scheduleBook, scheduleTrades, scheduleCandle]);
+  }, [coin, interval, scheduleBook, scheduleTrades, scheduleCandle, scheduleMid]);
 
   return { ...state, refresh };
 }

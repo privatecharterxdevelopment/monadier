@@ -17,6 +17,7 @@ import {
   fmtSize,
   fmtTimeMs,
   fmtUsdSymbol,
+  fmtTradeUsdSymbol,
   fmtClosedPnl,
   fmtFillAction,
   hlFillResultLabel,
@@ -290,7 +291,7 @@ const ProTradeDock: React.FC<Props> = ({
                       <td>{fmtPrice(p.entryPx)}</td>
                       <td>{mark > 0 ? fmtPrice(mark) : '—'}</td>
                       <td className={upnl >= 0 ? 'hl-up' : 'hl-down'}>
-                        {fmtUsdSymbol(upnl)}
+                        {fmtTradeUsdSymbol(upnl)}
                       </td>
                       <td>{fmtLeverage(resolveDisplayLeverage(configuredLeverage, p.leverage?.value))}</td>
                       <td>

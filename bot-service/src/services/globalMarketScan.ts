@@ -2,8 +2,11 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { mapPool } from '../utils/asyncPool';
 import { analyzeMarketMTFBySymbol, type TradingStrategy } from './market';
+import { analyzeAggressiveScalpBySymbol } from './aggressiveScalpAnalysis';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
-import { listHlTradableCoins } from './hlInfo';
+import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
+
+export type BotSignalMode = 'standard' | 'aggressive';
 
 export type GlobalSignalCandidate = {
   coin: string;
@@ -11,77 +14,165 @@ export type GlobalSignalCandidate = {
   direction: 'LONG' | 'SHORT';
   confidence: number;
   reason: string;
+  dayVolumeUsd: number;
+  openInterestUsd: number;
+  botMode: BotSignalMode;
 };
 
-const DEFAULT_STRATEGY: TradingStrategy = 'normal';
+const STANDARD_STRATEGY: TradingStrategy = 'normal';
 
 export type HlGlobalScanStats = {
   coinsScanned: number;
+  liquidUniverse: number;
+  standardCandidates: number;
+  aggressiveCandidates: number;
   candidates: number;
   scannedAt: string;
 };
 
+export type GlobalScanResult = {
+  standard: GlobalSignalCandidate[];
+  aggressive: GlobalSignalCandidate[];
+};
+
 export let lastHlGlobalScanStats: HlGlobalScanStats = {
   coinsScanned: 0,
+  liquidUniverse: 0,
+  standardCandidates: 0,
+  aggressiveCandidates: 0,
   candidates: 0,
   scannedAt: '',
 };
 
-/**
- * Scan all HL perps once per trading cycle.
- * Direction/confidence are user-agnostic — sizing is applied per user later.
- */
-export async function scanGlobalHlSignals(): Promise<GlobalSignalCandidate[]> {
-  const started = Date.now();
-  const coins = await listHlTradableCoins();
-  const minConf = config.hyperliquid.minSignalConfidence;
-  const concurrency = config.scaling.globalScanConcurrency;
+export let lastGlobalScanResult: GlobalScanResult = { standard: [], aggressive: [] };
 
-  const scanned = await mapPool(coins, concurrency, async (coin) => {
-    try {
-      const symbol = hlCoinToBinanceSymbol(coin);
-      const analysis = await analyzeMarketMTFBySymbol(symbol, DEFAULT_STRATEGY);
-      if (!analysis || analysis.isWeak) return null;
-      if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
-      if (analysis.confidence < minConf) return null;
-      // Require 3+ TFs on direction, 75%+ trend alignment, no counter-trend vs 1h.
-      if ((analysis.metrics?.directionalTfCount ?? 0) < 3) return null;
-      if ((analysis.metrics?.trendAlignment ?? 0) < 75) return null;
-      if (
-        (analysis.direction === 'LONG' && analysis.metrics?.h1Trend === 'DOWN') ||
-        (analysis.direction === 'SHORT' && analysis.metrics?.h1Trend === 'UP')
-      ) {
-        return null;
-      }
-      return {
-        coin,
-        symbol,
-        direction: analysis.direction,
-        confidence: analysis.confidence,
-        reason: analysis.reason,
-      } satisfies GlobalSignalCandidate;
-    } catch {
+async function scanStandardCoin(
+  coin: string,
+  liq: { dayVolumeUsd: number; openInterestUsd: number }
+): Promise<GlobalSignalCandidate | null> {
+  try {
+    const symbol = hlCoinToBinanceSymbol(coin);
+    const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
+    if (!analysis || analysis.isWeak) return null;
+    if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
+    if (analysis.confidence < config.hyperliquid.minSignalConfidence) return null;
+    if ((analysis.metrics?.directionalTfCount ?? 0) < 3) return null;
+    if ((analysis.metrics?.trendAlignment ?? 0) < 75) return null;
+    if (
+      (analysis.direction === 'LONG' && analysis.metrics?.h1Trend === 'DOWN') ||
+      (analysis.direction === 'SHORT' && analysis.metrics?.h1Trend === 'UP')
+    ) {
       return null;
     }
-  });
+    return {
+      coin,
+      symbol,
+      direction: analysis.direction,
+      confidence: analysis.confidence,
+      reason: analysis.reason,
+      dayVolumeUsd: liq.dayVolumeUsd,
+      openInterestUsd: liq.openInterestUsd,
+      botMode: 'standard',
+    };
+  } catch {
+    return null;
+  }
+}
 
-  const candidates = scanned
+async function scanAggressiveCoin(
+  coin: string,
+  liq: { dayVolumeUsd: number; openInterestUsd: number }
+): Promise<GlobalSignalCandidate | null> {
+  try {
+    const symbol = hlCoinToBinanceSymbol(coin);
+    const scalp = await analyzeAggressiveScalpBySymbol(symbol);
+    const minConf = Math.max(62, config.hyperliquid.minSignalConfidence - 3);
+    if (!scalp || scalp.confidence < minConf) return null;
+    return {
+      coin,
+      symbol,
+      direction: scalp.direction,
+      confidence: scalp.confidence,
+      reason: scalp.reason,
+      dayVolumeUsd: liq.dayVolumeUsd,
+      openInterestUsd: liq.openInterestUsd,
+      botMode: 'aggressive',
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Scan liquid HL perps — Standard (MTF) + Aggressive (6×1m → next 3, 5m confirm). */
+export async function scanGlobalHlSignals(
+  preloadedUniverse?: HlLiquidUniverse
+): Promise<GlobalScanResult> {
+  const started = Date.now();
+  const universe = preloadedUniverse ?? (await fetchHlLiquidUniverse());
+  const coins = universe.coins;
+  const concurrency = config.scaling.globalScanConcurrency;
+  const liqByCoin = new Map(universe.markets.map((m) => [m.coin, m]));
+
+  if (coins.length === 0) {
+    lastHlGlobalScanStats = {
+      coinsScanned: 0,
+      liquidUniverse: 0,
+      standardCandidates: 0,
+      aggressiveCandidates: 0,
+      candidates: 0,
+      scannedAt: new Date().toISOString(),
+    };
+    lastGlobalScanResult = { standard: [], aggressive: [] };
+    return lastGlobalScanResult;
+  }
+
+  const [standardRaw, aggressiveRaw] = await Promise.all([
+    mapPool(coins, concurrency, async (coin) => {
+      const liq = liqByCoin.get(coin);
+      if (!liq) return null;
+      return scanStandardCoin(coin, liq);
+    }),
+    mapPool(coins, concurrency, async (coin) => {
+      const liq = liqByCoin.get(coin);
+      if (!liq) return null;
+      return scanAggressiveCoin(coin, liq);
+    }),
+  ]);
+
+  const standard = standardRaw
     .filter((c): c is GlobalSignalCandidate => c !== null)
-    .sort((a, b) => b.confidence - a.confidence);
+    .sort((a, b) => b.confidence - a.confidence || b.dayVolumeUsd - a.dayVolumeUsd);
 
+  const aggressive = aggressiveRaw
+    .filter((c): c is GlobalSignalCandidate => c !== null)
+    .sort((a, b) => b.confidence - a.confidence || b.dayVolumeUsd - a.dayVolumeUsd);
+
+  lastGlobalScanResult = { standard, aggressive };
   lastHlGlobalScanStats = {
     coinsScanned: coins.length,
-    candidates: candidates.length,
+    liquidUniverse: coins.length,
+    standardCandidates: standard.length,
+    aggressiveCandidates: aggressive.length,
+    candidates: standard.length + aggressive.length,
     scannedAt: new Date().toISOString(),
   };
 
   logger.info('Global HL signal scan complete', {
-    coins: coins.length,
-    candidates: candidates.length,
-    topCoin: candidates[0]?.coin,
-    topConf: candidates[0]?.confidence,
+    liquidCoins: coins.length,
+    standard: standard.length,
+    aggressive: aggressive.length,
+    topStandard: standard[0]?.coin,
+    topAggressive: aggressive[0]?.coin,
     ms: Date.now() - started,
   });
 
-  return candidates;
+  return lastGlobalScanResult;
+}
+
+export function globalSignalsForBotMode(
+  scan: GlobalScanResult,
+  hlBotStrategy: string | null | undefined
+): GlobalSignalCandidate[] {
+  if (hlBotStrategy === 'profit_grabber') return scan.aggressive;
+  return scan.standard;
 }

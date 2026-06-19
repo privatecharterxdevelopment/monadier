@@ -71,7 +71,7 @@ function startPoll(wallet: string): void {
   }
   stopPoll();
   void pollOnce(wallet);
-  pollTimer = setInterval(() => void pollOnce(wallet), 5000);
+  pollTimer = setInterval(() => void pollOnce(wallet), 1500);
 }
 
 function subscribe(wallet: string | undefined, listener: Listener): () => void {

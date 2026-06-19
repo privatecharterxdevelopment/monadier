@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchHlMarkPrices } from '../lib/hyperliquid/markets';
 
-export function useHyperliquidMarkPrices(coins: string[], refreshMs = 5000) {
+export function useHyperliquidMarkPrices(coins: string[], refreshMs = 1500) {
   const [prices, setPrices] = useState<Record<string, number>>({});
   const key = [...new Set(coins.filter(Boolean))].sort().join(',');
 

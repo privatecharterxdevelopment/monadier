@@ -4,8 +4,8 @@ import { useWeb3 } from '../../contexts/Web3Context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
-import { HL_BOT_STRATEGY_LABELS, type HlBotStrategy } from '../../lib/hlBotStrategy';
-import { persistVaultSettings } from '../../lib/syncVaultSettings';
+import { HL_BOT_STRATEGY_HINTS, HL_BOT_STRATEGY_LABELS, type HlBotStrategy } from '../../lib/hlBotStrategy';
+import { saveHlBotStrategyMode } from '../../lib/saveHlBotStrategyMode';
 
 type Props = {
   settings: VaultSettingsSnapshot;
@@ -14,7 +14,7 @@ type Props = {
   onSaved: () => void;
 };
 
-/** Always visible on Bot tab — switch Standard vs Profit Grabber without opening LVRG. */
+/** Bot tab — switch Standard ↔ Aggressive instantly (no stop/restart). */
 const TerminalBotModeRow: React.FC<Props> = ({
   settings,
   walletAddress,
@@ -27,6 +27,7 @@ const TerminalBotModeRow: React.FC<Props> = ({
   const [mode, setMode] = useState<HlBotStrategy>(settings.hlBotStrategy);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
   React.useEffect(() => {
     setMode(settings.hlBotStrategy);
@@ -40,29 +41,18 @@ const TerminalBotModeRow: React.FC<Props> = ({
 
       setBusy(true);
       setError(null);
+      setSaved(false);
       try {
-        await persistVaultSettings({
-          settings: {
-            walletAddress: wallet,
-            autoTradeEnabled: settings.autoTradeEnabled,
-            riskPct: settings.riskPct,
-            leverage: settings.leverage,
-            takeProfit: settings.takeProfit,
-            stopLoss: settings.stopLoss,
-            askPermission: settings.askPermission,
-            minWinRate: settings.minWinRate,
-            minTradesForWinRate: settings.minTradesForWinRate,
-            hlBotStrategy: next,
-          },
+        await saveHlBotStrategyMode(wallet, settings, next, {
           planTier,
           publicClient,
           walletClient,
           userAddress: wallet as `0x${string}`,
           isDemoUser,
-          syncTradingParams: false,
-          syncAutoTrade: false,
         });
+        setSaved(true);
         onSaved();
+        window.setTimeout(() => setSaved(false), 2500);
       } catch (e: unknown) {
         setMode(settings.hlBotStrategy);
         setError(e instanceof Error ? e.message : 'Could not save bot mode');
@@ -98,11 +88,12 @@ const TerminalBotModeRow: React.FC<Props> = ({
           </button>
         ))}
       </div>
-      <span className="term-panel-card-hint">
-        {mode === 'profit_grabber'
-          ? 'Profit Grabber: at +$0.02 uPnL → lock +$0.01, exit via trail (no % TP).'
-          : 'Standard: MTF trend scan + profit lock + TP/SL.'}
-      </span>
+      <span className="term-panel-card-hint">{HL_BOT_STRATEGY_HINTS[mode]}</span>
+      {saved ? (
+        <span className="term-panel-card-hint term-panel-card-hint--ok">
+          Saved — active now (no stop/restart needed).
+        </span>
+      ) : null}
       {error ? <span className="term-panel-card-hint term-panel-card-hint--warn">{error}</span> : null}
     </div>
   );

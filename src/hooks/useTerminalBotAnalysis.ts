@@ -71,7 +71,7 @@ export function useTerminalBotAnalysis({
   const { signal, isLoading } = useUnifiedSignal({
     symbol,
     timeframes: MTF_TIMEFRAMES,
-    refreshInterval: 30000,
+    refreshInterval: 5000,
     autoRefresh: walletConnected && active,
   });
 

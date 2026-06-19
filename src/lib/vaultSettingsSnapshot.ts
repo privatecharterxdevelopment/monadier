@@ -1,5 +1,4 @@
 import { normalizeHlBotStrategy } from './hlBotStrategy';
-import { HL_BOT_EFFECTIVE } from './hlBotEffectiveSettings';
 import type { HlBotStrategy } from './hlBotStrategy';
 
 export type VaultSettingsSnapshot = {
@@ -55,14 +54,8 @@ export function resolveVaultSettingsSnapshot(
 
   return {
     riskPct: (row.risk_level_bps ?? 500) / 100,
-    takeProfit: Math.max(
-      Number(row.take_profit_percent ?? HL_BOT_EFFECTIVE.minTakeProfitPercent),
-      HL_BOT_EFFECTIVE.minTakeProfitPercent
-    ),
-    stopLoss: Math.max(
-      Number(row.stop_loss_percent ?? HL_BOT_EFFECTIVE.minStopLossPercent),
-      HL_BOT_EFFECTIVE.minStopLossPercent
-    ),
+    takeProfit: Math.max(0, Number(row.take_profit_percent ?? 0)),
+    stopLoss: Math.max(0, Number(row.stop_loss_percent ?? 0)),
     leverage: Number(row.leverage_multiplier ?? 5),
     askPermission: Boolean(row.ask_permission),
     minWinRate: Number(row.min_win_rate_percent ?? 0),
@@ -75,8 +68,8 @@ export function resolveVaultSettingsSnapshot(
 export function snapshotFromVaultSettingsRow(row: VaultSettingsRow): VaultSettingsSnapshot {
   return resolveVaultSettingsSnapshot(row, {
     riskLevelPercent: 5,
-    takeProfitPercent: HL_BOT_EFFECTIVE.minTakeProfitPercent,
-    stopLossPercent: HL_BOT_EFFECTIVE.minStopLossPercent,
+    takeProfitPercent: 0,
+    stopLossPercent: 4,
     maxLeverage: 5,
     autoTradeEnabled: false,
   });
