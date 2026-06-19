@@ -5,11 +5,15 @@ import {
   HistogramSeries,
   LineStyle,
   createChart,
+  createSeriesMarkers,
   type IChartApi,
-  type IPriceLine,
   type ISeriesApi,
+  type ISeriesMarkersPluginApi,
+  type IPriceLine,
   type CandlestickData,
   type HistogramData,
+  type SeriesMarker,
+  type UTCTimestamp,
 } from 'lightweight-charts';
 import type { HlCandleBar, HlInterval } from '../../lib/hyperliquid/types';
 import type { HlOpenOrder } from '../../lib/hyperliquid/user';
@@ -31,6 +35,7 @@ type Props = {
     liqPx?: number;
     side: 'long' | 'short';
   };
+  tradeMarkers?: SeriesMarker<UTCTimestamp>[];
 };
 
 function safeChartOp(fn: () => void) {
@@ -51,12 +56,14 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
   theme,
   layoutKey,
   positionOverlay,
+  tradeMarkers = [],
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const priceLinesRef = useRef<IPriceLine[]>([]);
+  const markersPluginRef = useRef<ISeriesMarkersPluginApi<UTCTimestamp> | null>(null);
   const aliveRef = useRef(true);
   const overlayCoin = orderCoin ?? coin;
   const chartColors = getProTradeChartColors(theme);
@@ -113,6 +120,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     chartRef.current = chart;
     seriesRef.current = series;
     volumeRef.current = volumeSeries;
+    markersPluginRef.current = createSeriesMarkers(series, [], { zOrder: 'aboveSeries' });
 
     const ro = new ResizeObserver(() => {
       if (!aliveRef.current) return;
@@ -132,9 +140,19 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       chartRef.current = null;
       seriesRef.current = null;
       volumeRef.current = null;
+      volumeRef.current = null;
       priceLinesRef.current = [];
+      markersPluginRef.current = null;
     };
   }, [theme]);
+
+  useEffect(() => {
+    const plugin = markersPluginRef.current;
+    if (!plugin || !aliveRef.current) return;
+    safeChartOp(() => {
+      plugin.setMarkers(tradeMarkers);
+    });
+  }, [tradeMarkers, coin]);
 
   useEffect(() => {
     const chart = chartRef.current;

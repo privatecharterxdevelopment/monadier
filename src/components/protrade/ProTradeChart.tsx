@@ -1,4 +1,5 @@
 import React, { Component, useEffect, useId, useState } from 'react';
+import type { SeriesMarker, UTCTimestamp } from 'lightweight-charts';
 import type { HlCandleBar, HlInterval } from '../../lib/hyperliquid/types';
 import type { HlOpenOrder } from '../../lib/hyperliquid/user';
 import { PRO_TRADE_INTERVALS } from '../../lib/hyperliquid/constants';
@@ -55,6 +56,7 @@ type Props = {
     liqPx?: number;
     side: 'long' | 'short';
   };
+  tradeMarkers?: SeriesMarker<UTCTimestamp>[];
 };
 
 const ProTradeChartInner: React.FC<Props> = ({
@@ -67,6 +69,7 @@ const ProTradeChartInner: React.FC<Props> = ({
   onIntervalChange,
   layoutKey,
   positionOverlay,
+  tradeMarkers = [],
 }) => {
   const { theme } = useProTradeTheme();
   const [engine, setEngine] = useState<ChartEngine>('hl');
@@ -102,6 +105,11 @@ const ProTradeChartInner: React.FC<Props> = ({
       <div className="hl-chart-toolbar">
         <div className="hl-chart-toolbar-left">
           <span className="hl-chart-pair-label">{coin}-USD</span>
+          {tradeMarkers.length > 0 ? (
+            <span className="hl-chart-marker-legend" title="Bot open/close markers">
+              ▲ open/close · {tradeMarkers.length}
+            </span>
+          ) : null}
           {PRO_TRADE_INTERVALS.map((opt) => (
             <button
               key={opt.value}
@@ -154,6 +162,7 @@ const ProTradeChartInner: React.FC<Props> = ({
               theme={theme}
               layoutKey={layoutKey}
               positionOverlay={positionOverlay}
+              tradeMarkers={tradeMarkers}
             />
           ) : mountedEngine === 'hltv' ? (
             <ProTradeChartingLibraryChart

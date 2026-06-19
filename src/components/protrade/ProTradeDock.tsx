@@ -13,7 +13,17 @@ import type {
 import { isHlTriggerOrder } from '../../lib/hyperliquid/user';
 import { fmtLeverage, fmtPrice, fmtTimeMs, fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
+import type { HlPosition } from '../../lib/hyperliquid/user';
 import DockCountBadge from './DockCountBadge';
+
+function livePositionPnl(position: HlPosition, markPx: number): number {
+  const szi = toNum(position.szi);
+  const entry = toNum(position.entryPx);
+  if (markPx > 0 && entry > 0 && szi !== 0) {
+    return szi > 0 ? (markPx - entry) * szi : (entry - markPx) * Math.abs(szi);
+  }
+  return toNum(position.unrealizedPnl);
+}
 
 const TABS = [
   { id: 'balances', label: 'Balances' },
@@ -95,8 +105,12 @@ const ProTradeDock: React.FC<Props> = ({
 
   const positionCount = account?.positions.length ?? 0;
   const positionUpnl = useMemo(
-    () => (account?.positions ?? []).reduce((s, p) => s + toNum(p.unrealizedPnl), 0),
-    [account?.positions]
+    () =>
+      (account?.positions ?? []).reduce(
+        (s, p) => s + livePositionPnl(p, markPrices[p.coin] ?? 0),
+        0
+      ),
+    [account?.positions, markPrices]
   );
   const positionTone: 'pos' | 'neg' | null =
     positionCount > 0 ? (positionUpnl >= 0 ? 'pos' : 'neg') : null;
@@ -242,6 +256,7 @@ const ProTradeDock: React.FC<Props> = ({
                 {filteredPositions.map((p) => {
                   const isLong = toNum(p.szi) >= 0;
                   const mark = markPrices[p.coin] ?? 0;
+                  const upnl = livePositionPnl(p, mark);
                   return (
                     <tr key={p.coin}>
                       <td>
@@ -253,8 +268,8 @@ const ProTradeDock: React.FC<Props> = ({
                       <td>{fmtUsdSymbol(p.positionValue)}</td>
                       <td>{fmtPrice(p.entryPx)}</td>
                       <td>{mark > 0 ? fmtPrice(mark) : '—'}</td>
-                      <td className={toNum(p.unrealizedPnl) >= 0 ? 'hl-up' : 'hl-down'}>
-                        {fmtUsdSymbol(p.unrealizedPnl)}
+                      <td className={upnl >= 0 ? 'hl-up' : 'hl-down'}>
+                        {fmtUsdSymbol(upnl)}
                       </td>
                       <td>{fmtLeverage(p.leverage?.value)}</td>
                       <td>

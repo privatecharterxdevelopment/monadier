@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { useHyperliquidAccount } from '../../hooks/useHyperliquidAccount';
 import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
@@ -78,9 +78,16 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   const positions = account?.positions ?? [];
   const positionCoins = useMemo(() => positions.map((p) => p.coin), [positions]);
   const { prices: markPrices } = useHyperliquidMarkPrices(positionCoins);
-  const { closePosition, busy: closeBusy } = useHyperliquidTrading();
+  const { closePosition, busy: closeBusy, error: closeError, walletReady } =
+    useHyperliquidTrading();
+  const [closeNotice, setCloseNotice] = useState<string | null>(null);
 
   const dockTab = normalizeHlBotDockTab(activeTab) as ProTradeDockTab;
+
+  useEffect(() => {
+    if (!closeError) return;
+    setCloseNotice(closeError);
+  }, [closeError]);
 
   useEffect(() => {
     void refreshAccount();
@@ -88,16 +95,30 @@ const ProTradeHlBotDock: React.FC<Props> = ({
 
   const handleClosePosition = useCallback(
     async (position: HlPosition) => {
+      if (!walletReady) {
+        setCloseNotice('Connect your wallet to close this position.');
+        return;
+      }
       const size = Math.abs(toNum(position.szi));
       const isLong = toNum(position.szi) >= 0;
       const markPx = markPrices[position.coin] ?? toNum(position.entryPx);
-      if (size <= 0 || markPx <= 0) return;
-      const profitUsd = Math.max(0, toNum(position.unrealizedPnl));
-      await closePosition({ coin: position.coin, size, isLong, markPx, profitUsd });
-      await refreshAccount();
-      onPositionChange?.();
+      if (size <= 0 || markPx <= 0) {
+        setCloseNotice('Could not read position price — try again in a few seconds.');
+        return;
+      }
+      setCloseNotice(null);
+      try {
+        const profitUsd = Math.max(0, toNum(position.unrealizedPnl));
+        await closePosition({ coin: position.coin, size, isLong, markPx, profitUsd });
+        setCloseNotice(`${position.coin} close submitted. Bot keeps running.`);
+        await refreshAccount();
+        onPositionChange?.();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Close failed';
+        setCloseNotice(msg);
+      }
     },
-    [closePosition, markPrices, refreshAccount, onPositionChange]
+    [closePosition, markPrices, refreshAccount, onPositionChange, walletReady]
   );
 
   const showAnalyzer =
@@ -122,6 +143,11 @@ const ProTradeHlBotDock: React.FC<Props> = ({
             placement="dock"
           />
         </div>
+      ) : null}
+      {closeNotice ? (
+        <p className="hl-dock-notice" role="status">
+          {closeNotice}
+        </p>
       ) : null}
       <ProTradeDock
         mode="bot"

@@ -56,6 +56,8 @@ export type HlUserFill = {
   time: number;
   closedPnl: string;
   fee: string;
+  dir?: string;
+  tid?: number;
 };
 
 export type HlFundingPayment = {
@@ -295,6 +297,8 @@ export async function fetchHlUserFills(user: string, limit = 50): Promise<HlUser
     time: toNum(f.time),
     closedPnl: String(f.closedPnl ?? '0'),
     fee: String(f.fee ?? '0'),
+    dir: f.dir != null ? String(f.dir) : undefined,
+    tid: f.tid != null ? toNum(f.tid) : undefined,
   }));
 }
 

@@ -22,6 +22,7 @@ import {
   resolveHlOrderBuilder,
 } from './hlBuilderFee';
 import { recordHlBotClose, type HlCloseSnapshot } from './hlSuccessFees';
+import { recordHlBotOpenMarker } from './hlChartMarkers';
 import {
   shouldActivateProfitLock,
   shouldCloseProfitLock,
@@ -252,6 +253,14 @@ export class HyperliquidTradingService {
         direction: opts.direction,
         leverage: effectiveLeverage,
         notionalUsd: opts.notionalUsd.toFixed(2),
+        reason: opts.reason,
+      });
+
+      await recordHlBotOpenMarker({
+        walletAddress: opts.userAddress,
+        coin,
+        direction: opts.direction,
+        entryPx: markPx,
         reason: opts.reason,
       });
 

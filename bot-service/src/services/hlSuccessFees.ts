@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { config } from '../config';
 import { logger } from '../utils/logger';
+import { recordHlChartMarker } from './hlChartMarkers';
 
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 
@@ -73,6 +74,18 @@ export async function recordHlBotClose(params: {
     })
     .select('id')
     .single();
+
+  await recordHlChartMarker({
+    walletAddress: wallet,
+    coin: snapshot.coin,
+    eventType: 'close',
+    direction: snapshot.direction,
+    price: snapshot.exitPx,
+    eventTs: closedAt,
+    pnlUsd: profitUsd,
+    closeReason: params.reason,
+    source: 'bot',
+  });
 
   if (tradeErr) {
     logger.warn('HL trade_history insert failed', {

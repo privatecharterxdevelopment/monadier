@@ -49,7 +49,9 @@ import { usePositionReconciliation } from '../../hooks/usePositionReconciliation
 import { useAuth } from '../../contexts/AuthContext';
 import ProTradeSignInModal from '../../components/protrade/ProTradeSignInModal';
 import ProTradeRegisterModal from '../../components/protrade/ProTradeRegisterModal';
-import type { ProTradeProfileTab } from '../../components/protrade/proTradeProfileTypes';
+import { useHlBotChartMarkers } from '../../hooks/useHlBotChartMarkers';
+import { useProTradeTheme } from '../../contexts/ProTradeThemeContext';
+import { getProTradeChartColors } from '../../lib/proTradeTheme';
 
 const PROFILE_TABS = new Set<ProTradeProfileTab>(['identity', 'security', 'wallets', 'history']);
 
@@ -88,6 +90,8 @@ const Dashboard2ProPage: React.FC = () => {
     parseProfileTab(searchParams.get('tab'))
   );
   const { badge: botBadge } = useBotPositionBadge(botSyncTick);
+  const { theme } = useProTradeTheme();
+  const chartMarkerColors = useMemo(() => getProTradeChartColors(theme), [theme]);
 
   usePositionReconciliation(
     useCallback(() => {
@@ -149,6 +153,14 @@ const Dashboard2ProPage: React.FC = () => {
   const perpFills = useMemo(
     () => fills.filter((f) => !isHlSpotCoin(f.coin)),
     [fills]
+  );
+
+  const botChartCoin = section === 'bot' ? perpCoin : undefined;
+  const { seriesMarkers: botTradeMarkers } = useHlBotChartMarkers(
+    address,
+    botChartCoin,
+    chartMarkerColors,
+    botSyncTick + perpFills.length
   );
   const spotFills = useMemo(
     () => fills.filter((f) => isHlSpotCoin(f.coin)),
@@ -530,6 +542,7 @@ const Dashboard2ProPage: React.FC = () => {
               onIntervalChange={setInterval}
               layoutKey={`bot-${perpCoin}-${interval}`}
               positionOverlay={botChartOverlay}
+              tradeMarkers={botTradeMarkers}
             />
             <ProTradeOrderBook
               book={perpMarket.book}
