@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Loader2,
   Play,
@@ -51,6 +51,7 @@ import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import TerminalBotSettingsModal from './TerminalBotSettingsModal';
 import TerminalLvrgPanel from './TerminalLvrgPanel';
 import TerminalBotSettingsStrip from './TerminalBotSettingsStrip';
+import BotSettingsStopFirstModal from './BotSettingsStopFirstModal';
 type PanelTab = 'bot' | 'lvrg' | 'funds';
 
 type Props = {
@@ -99,6 +100,8 @@ const TerminalTradePanel: React.FC<Props> = ({
   const [botError, setBotError] = useState<string | null>(null);
   const [stopNotice, setStopNotice] = useState<string | null>(null);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
+  const [showStopFirstModal, setShowStopFirstModal] = useState(false);
+  const prevOpenCountRef = useRef(metrics.openPositionsCount);
 
   const walletReady = isConnected || isDemoUser;
   const wallet = botSettings.wallet;
@@ -287,6 +290,22 @@ const TerminalTradePanel: React.FC<Props> = ({
     void hlSetup.refresh();
   };
 
+  useEffect(() => {
+    if (prevOpenCountRef.current === metrics.openPositionsCount) return;
+    prevOpenCountRef.current = metrics.openPositionsCount;
+    refreshAll();
+  }, [metrics.openPositionsCount]);
+
+  const openLvrgTab = () => setPanelTab('lvrg');
+
+  const requestLvrgAccess = () => {
+    if (botRunning) {
+      setShowStopFirstModal(true);
+      return;
+    }
+    openLvrgTab();
+  };
+
   const parseBotTxError = (err: unknown): string => {
     const msg =
       err instanceof Error
@@ -465,6 +484,12 @@ const TerminalTradePanel: React.FC<Props> = ({
     }
   };
 
+  const handleStopForSettings = async () => {
+    await handleStopBot();
+    setShowStopFirstModal(false);
+    openLvrgTab();
+  };
+
   return (
     <aside className="term-trade-panel">
       <div className="term-trade-header">
@@ -504,7 +529,7 @@ const TerminalTradePanel: React.FC<Props> = ({
             key={t.id}
             type="button"
             className={`term-panel-tab ${panelTab === t.id ? 'term-panel-tab--on' : ''}`}
-            onClick={() => setPanelTab(t.id)}
+            onClick={() => (t.id === 'lvrg' ? requestLvrgAccess() : setPanelTab(t.id))}
           >
             {t.label}
           </button>
@@ -572,7 +597,7 @@ const TerminalTradePanel: React.FC<Props> = ({
             <TerminalBotSettingsStrip
               settings={botSettings.settings}
               disabled={walletReady && hlSetup.loading}
-              onAdjust={() => setPanelTab('lvrg')}
+              onAdjust={requestLvrgAccess}
             />
 
             {botError && (
@@ -694,11 +719,22 @@ const TerminalTradePanel: React.FC<Props> = ({
             {!walletReady && (
               <p className="term-hint">Connect wallet to save leverage & risk for the HL bot.</p>
             )}
+            {botRunning && (
+              <div className="term-panel-alert">
+                <AlertTriangle size={14} />
+                <span>
+                  Stop the bot before changing leverage, risk, TP or SL — press <strong>Stop bot</strong>{' '}
+                  on the Bot tab first.
+                </span>
+              </div>
+            )}
             <TerminalLvrgPanel
               settings={botSettings.settings}
               walletAddress={wallet}
               hlBalanceUsd={hlFundingUsd}
               disabled={walletReady && hlSetup.loading}
+              botRunning={botRunning}
+              onBlockedSave={() => setShowStopFirstModal(true)}
               onSaved={refreshAll}
             />
           </div>
@@ -839,6 +875,14 @@ const TerminalTradePanel: React.FC<Props> = ({
             setStartMode(false);
             refreshAll();
           }}
+        />
+      )}
+      {showStopFirstModal && (
+        <BotSettingsStopFirstModal
+          open={showStopFirstModal}
+          onClose={() => setShowStopFirstModal(false)}
+          onStopBot={() => void handleStopForSettings()}
+          stopBusy={botBusy}
         />
       )}
       {showSetupGuide && walletReady && (

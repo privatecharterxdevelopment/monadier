@@ -12,6 +12,7 @@ import type {
 } from '../../lib/hyperliquid/user';
 import { isHlTriggerOrder } from '../../lib/hyperliquid/user';
 import { fmtLeverage, fmtPrice, fmtSize, fmtTimeMs, fmtUsdSymbol, fmtClosedPnl, fmtFillAction, isHlFillOpen } from '../../lib/hyperliquid/format';
+import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { toNum } from '../../lib/hyperliquid/parse';
 import DockCountBadge from './DockCountBadge';
 
@@ -59,6 +60,8 @@ type Props = {
   onCancelAllOrders?: () => void;
   onCancelTwap?: (coin: string, twapId: number) => void;
   onClosePosition?: (position: HlPosition) => void;
+  /** Saved bot leverage — shown in positions table when set. */
+  configuredLeverage?: number;
   /** Bot terminal: positions + balances + trade history only */
   mode?: 'full' | 'bot';
 };
@@ -83,6 +86,7 @@ const ProTradeDock: React.FC<Props> = ({
   onCancelAllOrders,
   onCancelTwap,
   onClosePosition,
+  configuredLeverage,
   mode = 'full',
 }) => {
   const isSpot = variant === 'spot';
@@ -272,7 +276,7 @@ const ProTradeDock: React.FC<Props> = ({
                       <td className={upnl >= 0 ? 'hl-up' : 'hl-down'}>
                         {fmtUsdSymbol(upnl)}
                       </td>
-                      <td>{fmtLeverage(p.leverage?.value)}</td>
+                      <td>{fmtLeverage(resolveDisplayLeverage(configuredLeverage, p.leverage?.value))}</td>
                       <td>
                         <button
                           type="button"

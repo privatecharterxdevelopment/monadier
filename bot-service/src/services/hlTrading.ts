@@ -298,11 +298,51 @@ export class HyperliquidTradingService {
     }
   }
 
+  private async syncOpenPositionLeverage(
+    userAddress: `0x${string}`,
+    coin: string,
+    targetLeverage: number,
+    currentLeverage: number,
+    meta: Awaited<ReturnType<typeof fetchHlMeta>>
+  ): Promise<void> {
+    const desired = Math.max(1, Math.floor(targetLeverage || 1));
+    const current = Math.max(1, Math.floor(currentLeverage || 1));
+    if (desired === current) return;
+
+    try {
+      const assetIndex = coinToAssetIndex(meta, coin);
+      const effective = Math.min(desired, maxLeverageForCoin(meta, coin));
+      if (effective === current) return;
+
+      const client = createAgentClient(userAddress);
+      await client.updateLeverage({
+        asset: assetIndex,
+        isCross: true,
+        leverage: effective,
+      });
+      logger.info('HL leverage synced to saved settings', {
+        user: userAddress.slice(0, 10),
+        coin,
+        from: current,
+        to: effective,
+      });
+    } catch (err: unknown) {
+      logger.debug('HL leverage sync skipped', {
+        user: userAddress.slice(0, 10),
+        coin,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   private async monitorOpenPositions(
     userAddress: `0x${string}`,
     state: Awaited<ReturnType<typeof fetchHlClearinghouseState>>,
     settings: Awaited<ReturnType<typeof subscriptionService.getUserTradingSettings>>
   ): Promise<void> {
+    const meta = await fetchHlMeta();
+    const configuredLev = Math.max(1, Math.floor(settings.leverageMultiplier || 5));
+
     for (const row of state?.assetPositions ?? []) {
       const pos = row.position;
       if (!pos?.coin) continue;
@@ -322,6 +362,16 @@ export class HyperliquidTradingService {
       const trailBufferUsd = config.hyperliquid.profitLockTrailBufferUsd;
 
       const lockKey = positionKey(userAddress, pos.coin);
+
+      const targetLev = Math.min(configuredLev, maxLeverageForCoin(meta, pos.coin));
+      await this.syncOpenPositionLeverage(
+        userAddress,
+        pos.coin,
+        targetLev,
+        pos.leverage?.value ?? targetLev,
+        meta
+      );
+
       let locked = hlProfitLockActive.get(lockKey) ?? false;
       let peak = hlProfitPeakUsd.get(lockKey) ?? 0;
       if (pnl > peak) {

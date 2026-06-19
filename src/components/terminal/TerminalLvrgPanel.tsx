@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2, Save, Wallet } from 'lucide-react';
+import { AlertTriangle, Loader2, Save, Wallet } from 'lucide-react';
 import { useAppKit } from '@reown/appkit/react';
 import { useHlLeverageCap } from '../../hooks/useHlLeverageCap';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
@@ -11,6 +11,8 @@ type Props = {
   walletAddress?: string;
   hlBalanceUsd?: number;
   disabled?: boolean;
+  botRunning?: boolean;
+  onBlockedSave?: () => void;
   onSaved: () => void;
 };
 
@@ -20,6 +22,8 @@ const TerminalLvrgPanel: React.FC<Props> = ({
   walletAddress,
   hlBalanceUsd = 0,
   disabled,
+  botRunning = false,
+  onBlockedSave,
   onSaved,
 }) => {
   const { open } = useAppKit();
@@ -34,8 +38,16 @@ const TerminalLvrgPanel: React.FC<Props> = ({
   const collateralUsd = (hlBalanceUsd * editor.riskLevel) / 100;
   const notionalUsd = collateralUsd * editor.leverage;
 
+  const settingsLocked = botRunning;
+
   return (
-    <div className={`term-panel-stack ${disabled ? 'term-panel-stack--locked' : ''}`}>
+    <div className={`term-panel-stack ${disabled || settingsLocked ? 'term-panel-stack--locked' : ''}`}>
+      {settingsLocked && (
+        <div className="term-panel-alert">
+          <AlertTriangle size={14} />
+          <span>Bot is running — stop it first to save new leverage or risk settings.</span>
+        </div>
+      )}
       <div className="term-panel-card term-panel-card--muted">
         <span className="term-panel-card-label">Bot settings</span>
         <strong className="term-panel-card-value">{editor.leverage}x leverage</strong>
@@ -67,7 +79,7 @@ const TerminalLvrgPanel: React.FC<Props> = ({
         setMinWinRate={editor.setMinWinRate}
         minTradesForWinRate={editor.minTradesForWinRate}
         setMinTradesForWinRate={editor.setMinTradesForWinRate}
-        disabled={disabled || editor.isLoading}
+        disabled={disabled || settingsLocked || editor.isLoading}
         walletConnected={editor.walletConnected}
         notice={editor.notice}
         error={editor.error}
@@ -82,8 +94,12 @@ const TerminalLvrgPanel: React.FC<Props> = ({
       <button
         type="button"
         className="term-btn-sm flex-1 justify-center w-full"
-        disabled={editor.isLoading || (disabled && editor.walletConnected)}
+        disabled={editor.isLoading || settingsLocked || (disabled && editor.walletConnected)}
         onClick={() => {
+          if (settingsLocked) {
+            onBlockedSave?.();
+            return;
+          }
           if (!editor.walletConnected) {
             open();
             return;

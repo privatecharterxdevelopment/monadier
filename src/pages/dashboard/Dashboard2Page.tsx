@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Wallet, ArrowDownLeft, ArrowUpRight, Settings } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,6 +14,7 @@ import TradingBotPage from './TradingBotPage';
 import Dashboard2Shell from '../../components/dashboard2/Dashboard2Shell';
 import type { Dashboard2SidebarSection } from '../../components/dashboard2/Dashboard2Sidebar';
 import TerminalBotSettingsModal from '../../components/terminal/TerminalBotSettingsModal';
+import BotSettingsStopFirstModal from '../../components/terminal/BotSettingsStopFirstModal';
 import ProTradeDepositModal from '../../components/protrade/ProTradeDepositModal';
 import TerminalSupportModal from '../../components/terminal/TerminalSupportModal';
 import TermNotificationsBell from '../../components/terminal/TermNotificationsBell';
@@ -24,7 +25,9 @@ import { displayHandle } from '../../lib/username';
 import { useProfileOnboarding } from '../../hooks/useProfileOnboarding';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import { hlCoinToBotSymbol } from '../../lib/botTradingPairs';
-import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
+import { MIN_HL_BOT_USD, disableHlBotExecution } from '../../lib/hyperliquid/hlBotAgent';
+import { effectiveHlBotRunning } from '../../lib/hlBotGates';
+import { clearBotRuntimeTimer } from '../../lib/botRuntimeTimer';
 
 const MIN_BOT_CAPITAL_USD = MIN_HL_BOT_USD;
 
@@ -51,6 +54,9 @@ const Dashboard2Page: React.FC = () => {
   const [fundsAction, setFundsAction] = useState<'deposit' | 'withdraw' | null>(null);
   const [historyTick, setHistoryTick] = useState(0);
   const [showBotSettings, setShowBotSettings] = useState(false);
+  const [showStopFirstModal, setShowStopFirstModal] = useState(false);
+  const [stopSettingsBusy, setStopSettingsBusy] = useState(false);
+  const prevOpenCountRef = useRef(metrics.openPositionsCount);
   const [showDeposit, setShowDeposit] = useState(false);
   const [depositTab, setDepositTab] = useState<'deposit' | 'withdraw'>('deposit');
   const [showSupport, setShowSupport] = useState(false);
@@ -75,9 +81,48 @@ const Dashboard2Page: React.FC = () => {
 
   const walletReady = isConnected || isDemoUser;
 
+  const botRunning = effectiveHlBotRunning(
+    metrics.autoTradeEnabled,
+    hlSetup.accountUsd,
+    hlSetup.agentApproved,
+    hlSetup.builderFeeApproved,
+    hlSetup.builderPlatformReady
+  );
+
   const handleRefresh = () => {
     refresh();
     setHistoryTick((n) => n + 1);
+  };
+
+  useEffect(() => {
+    if (prevOpenCountRef.current === metrics.openPositionsCount) return;
+    prevOpenCountRef.current = metrics.openPositionsCount;
+    refresh();
+  }, [metrics.openPositionsCount, refresh]);
+
+  const openBotSettings = () => {
+    if (botRunning) {
+      setShowStopFirstModal(true);
+      return;
+    }
+    setShowBotSettings(true);
+  };
+
+  const handleStopForSettings = async () => {
+    const w = (address ?? botSettings.wallet)?.toLowerCase();
+    if (!w) return;
+    setStopSettingsBusy(true);
+    try {
+      await disableHlBotExecution(w);
+      clearBotRuntimeTimer(w);
+      handleRefresh();
+      setShowStopFirstModal(false);
+      setShowBotSettings(true);
+    } catch (e) {
+      console.error('[Dashboard2Page] stop for settings', e);
+    } finally {
+      setStopSettingsBusy(false);
+    }
   };
 
   useEffect(() => {
@@ -223,7 +268,7 @@ const Dashboard2Page: React.FC = () => {
               <button
                 type="button"
                 className="term-btn-sm"
-                onClick={() => setShowBotSettings(true)}
+                onClick={openBotSettings}
               >
                 <Settings size={14} />
                 Bot settings
@@ -388,6 +433,14 @@ const Dashboard2Page: React.FC = () => {
           )}
         </div>
 
+      {showStopFirstModal && (
+        <BotSettingsStopFirstModal
+          open={showStopFirstModal}
+          onClose={() => setShowStopFirstModal(false)}
+          onStopBot={() => void handleStopForSettings()}
+          stopBusy={stopSettingsBusy}
+        />
+      )}
       {showBotSettings && (
         <TerminalBotSettingsModal
           setupPhase={botSetupPhase}

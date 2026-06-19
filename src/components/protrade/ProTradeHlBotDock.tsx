@@ -4,6 +4,7 @@ import { useHyperliquidAccount } from '../../hooks/useHyperliquidAccount';
 import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
 import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
+import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
 import { toNum } from '../../lib/hyperliquid/parse';
 import type { HlPosition } from '../../lib/hyperliquid/user';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
@@ -58,7 +59,8 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   className,
 }) => {
   const { address } = useAccount();
-  const { wallet: settingsWallet } = useTerminalBotSettings();
+  const { wallet: settingsWallet, settings: botSettingsSnapshot } = useTerminalBotSettings();
+  const configuredLeverage = effectiveHlBotSettings(botSettingsSnapshot).leverage;
   const hlWallet = (
     walletAddress ??
     settingsWallet ??
@@ -171,6 +173,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         onCoinClick={onCoinClick}
         actionBusy={closeBusy}
         onClosePosition={(p) => void handleClosePosition(p)}
+        configuredLeverage={configuredLeverage}
       />
     </div>
   );

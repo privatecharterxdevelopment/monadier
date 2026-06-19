@@ -5,7 +5,8 @@ import { useAuth, DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
 import { useWeb3 } from '../contexts/Web3Context';
 import { pickPrimaryVaultWallet } from '../lib/userWallets';
 import { fetchUserPositions } from '../lib/userPositions';
-import { fetchHlAccountState } from '../lib/hyperliquid/user';
+import { fetchHlAccountState, fetchHlUserFills } from '../lib/hyperliquid/user';
+import { sumHlRealizedPnlFromFills, countHlClosedFills } from '../lib/hyperliquid/hlPnl';
 import {
   checkHlBotAgentApproved,
 } from '../lib/hyperliquid/hlBotAgent';
@@ -141,6 +142,8 @@ export function useTradingDashboardMetrics() {
       let hlOpenNotional = 0;
       let hlOpenCount = 0;
       let hlUnrealizedPnl = 0;
+      let hlRealizedPnl = 0;
+      let hlClosedFillCount = 0;
       let hlLoaded = false;
       let agentLoaded = false;
 
@@ -165,6 +168,13 @@ export function useTradingDashboardMetrics() {
             (sum, p) => sum + (parseFloat(p.unrealizedPnl) || 0),
             0
           );
+          try {
+            const fills = await fetchHlUserFills(hlWallet, 500);
+            hlRealizedPnl = sumHlRealizedPnlFromFills(fills);
+            hlClosedFillCount = countHlClosedFills(fills);
+          } catch {
+            /* fills optional */
+          }
         } catch {
           /* HL read optional */
         }
@@ -240,16 +250,16 @@ export function useTradingDashboardMetrics() {
         openPositionValueUsd: hlLoaded ? hlOpenNotional : 0,
         openPositionsCount: hlLoaded ? hlOpenCount : 0,
         avgLeverage: hlOpenCount > 0 ? avgLev : 1,
-        totalPnl: hlLoaded
-          ? stats.realizedProfit + hlUnrealizedPnl
-          : stats.totalProfit,
-        realizedPnl: stats.realizedProfit,
+        totalPnl: hlLoaded ? hlRealizedPnl + hlUnrealizedPnl : stats.totalProfit,
+        realizedPnl: hlLoaded ? hlRealizedPnl : stats.realizedProfit,
         unrealizedPnl: hlLoaded ? hlUnrealizedPnl : stats.unrealizedProfit,
         pnl24h: pnlInWindow(all, 24),
         pnl7d: pnlInWindow(all, 24 * 7),
         pnl30d: pnlInWindow(all, 24 * 30),
         winRate: stats.winRate,
-        closedTradesCount: stats.closedTrades,
+        closedTradesCount: hlLoaded
+          ? Math.max(stats.closedTrades, hlClosedFillCount)
+          : stats.closedTrades,
         autoTradeEnabled,
         isLoading: false,
       });
@@ -261,7 +271,7 @@ export function useTradingDashboardMetrics() {
 
   useEffect(() => {
     refresh();
-    const id = setInterval(refresh, 10000);
+    const id = setInterval(refresh, 5000);
     return () => clearInterval(id);
   }, [refresh]);
 

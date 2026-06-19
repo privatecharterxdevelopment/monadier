@@ -1,11 +1,13 @@
 import React from 'react';
 import type { HlPosition } from '../../lib/hyperliquid/user';
+import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
 
 type Props = {
   positions: HlPosition[];
   loading?: boolean;
   compact?: boolean;
+  configuredLeverage?: number;
   onClose: (position: HlPosition) => void;
   closingCoin?: string | null;
   closeBusy?: boolean;
@@ -24,6 +26,7 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
   positions,
   loading = false,
   compact = false,
+  configuredLeverage,
   onClose,
   closingCoin = null,
   closeBusy = false,
@@ -59,7 +62,7 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
             const notional = Math.abs(Number.parseFloat(p.positionValue || '0') || 0);
             const entry = Number.parseFloat(p.entryPx || '0');
             const mark = markPrices[p.coin] ?? 0;
-            const lev = p.leverage?.value ?? 1;
+            const lev = resolveDisplayLeverage(configuredLeverage, p.leverage?.value);
             const isClosing = closingCoin === p.coin;
             return (
               <tr key={p.coin}>

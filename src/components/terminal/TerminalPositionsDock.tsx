@@ -48,6 +48,8 @@ import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
 import { toNum } from '../../lib/hyperliquid/parse';
 import type { HlPosition } from '../../lib/hyperliquid/user';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
+import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
+import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
 
 export type DockTab = 'vault' | 'open' | 'history' | 'all';
 
@@ -173,6 +175,8 @@ const TerminalPositionsDock: React.FC<Props> = ({
   const { isDemoUser, user, profile } = useAuth();
   const isHlSkin = skin === 'hl';
   const vaultData = useTerminalVaultData(refreshKey);
+  const { settings: botSettingsSnapshot } = useTerminalBotSettings(refreshKey);
+  const configuredLeverage = effectiveHlBotSettings(botSettingsSnapshot).leverage;
   const [internalTab, setInternalTab] = useState<DockTab>(
     layout === 'page' ? 'history' : isHlSkin ? 'open' : 'open'
   );
@@ -686,6 +690,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
           <TerminalHlOpenPositions
             positions={hlOpenPositions}
             loading={hlPositionsLoading}
+            configuredLeverage={configuredLeverage}
             closingCoin={hlClosingCoin}
             closeBusy={hlCloseBusy}
             onClose={(p) => setHlCloseConfirm(p)}
