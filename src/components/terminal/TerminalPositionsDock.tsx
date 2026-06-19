@@ -462,7 +462,14 @@ const TerminalPositionsDock: React.FC<Props> = ({
     setCloseNotice(null);
     try {
       const profitUsd = Math.max(0, toNum(position.unrealizedPnl));
-      await closeHlPosition({ coin: position.coin, size, isLong, markPx, profitUsd });
+      await closeHlPosition({
+        coin: position.coin,
+        size,
+        isLong,
+        markPx,
+        profitUsd,
+        walletAddress: hlWallet,
+      });
       setCloseNotice(`${position.coin} close submitted — bot keeps running and can scan for new trades.`);
       await refreshHlPositions();
       await load(true);

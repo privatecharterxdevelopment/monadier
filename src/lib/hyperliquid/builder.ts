@@ -2,10 +2,7 @@ import { HttpTransport, InfoClient } from '@nktkas/hyperliquid';
 import type { HlMarketKind } from '../../hooks/useHyperliquidMarket';
 import type { OrderSide } from './orders';
 import { getHlBuilderConfig } from './builderConfig';
-import {
-  parseMaxBuilderTenthsBps,
-  successFeeToCloseBuilderTenthsBps,
-} from './proTradeBuilderFee';
+import { parseMaxBuilderTenthsBps } from './proTradeBuilderFee';
 
 const transport = new HttpTransport();
 const info = new InfoClient({ transport });
@@ -53,17 +50,7 @@ export function resolveProTradeBuilderParam(opts: {
   }
 
   if (opts.reduceOnly) {
-    const notional = opts.notionalUsd ?? 0;
-    const profit = opts.profitUsd ?? 0;
-    if (profit <= 0 || notional <= 0) return null;
-    const f = successFeeToCloseBuilderTenthsBps(
-      profit,
-      notional,
-      config.proTradeSuccessFeeBps,
-      approvedCap
-    );
-    if (f <= 0) return null;
-    return { b: config.address, f };
+    return null;
   }
 
   const openFee = config.feePerp;

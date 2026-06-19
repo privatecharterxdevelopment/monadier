@@ -14,14 +14,11 @@ import {
   hlAccountValueUsd,
   hlOpenPerpCoins,
 } from './hlInfo';
-import { checkHlBuilderFeeApproved, fetchHlMaxBuilderFee, fetchHlBuilderPlatformReady } from './hlBuilder';
+import { checkHlBuilderFeeApproved } from './hlBuilder';
 import { subscriptionService } from './subscription';
 import type { TradingCycleContext } from './tradingCycleContext';
-import {
-  estimateCollectedSuccessFee,
-  resolveHlOrderBuilder,
-} from './hlBuilderFee';
-import { recordHlBotClose, type HlCloseSnapshot } from './hlSuccessFees';
+import { resolveHlOrderBuilder } from './hlBuilderFee';
+import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from './hlSuccessFees';
 import { recordHlBotOpenMarker } from './hlChartMarkers';
 import {
   shouldActivateProfitLockUsd,
@@ -67,31 +64,8 @@ function createAgentClient(userAddress: string): ExchangeClient {
   });
 }
 
-/** Only attach builder on profitable closes when user has approved it on HL. */
-async function resolveApprovedCloseBuilder(
-  userAddress: string,
-  notionalUsd: number,
-  pnlUsd: number,
-  skipBuilder: boolean
-): Promise<{ b: `0x${string}`; f: number } | undefined> {
-  if (skipBuilder || pnlUsd <= 0) return undefined;
-  const proposed = resolveHlOrderBuilder({
-    notionalUsd,
-    profitUsd: pnlUsd,
-    isClose: true,
-  });
-  if (!proposed) return undefined;
-
-  const builderAddress = config.hyperliquid.builderAddress;
-  if (!builderAddress) return undefined;
-
-  const platform = await fetchHlBuilderPlatformReady(builderAddress);
-  if (!platform.ready) return undefined;
-
-  const approvedMax = await fetchHlMaxBuilderFee(userAddress, builderAddress);
-  if (approvedMax < proposed.f) return undefined;
-
-  return proposed;
+function isBuilderOrderError(message: string): boolean {
+  return /builder|fee.*approv|approv.*fee/i.test(message);
 }
 
 export class HyperliquidTradingService {
@@ -415,15 +389,6 @@ export class HyperliquidTradingService {
       const isLong = size > 0;
       const limitPx = isLong ? markPx * 0.95 : markPx * 1.05;
 
-      const notionalUsd = absSize * markPx;
-      const skipBuilder = reason === 'manual';
-      const closeBuilder = await resolveApprovedCloseBuilder(
-        userAddress,
-        notionalUsd,
-        pnlUsd,
-        skipBuilder
-      );
-
       const client = createAgentClient(userAddress);
       const orderPayload = {
         orders: [
@@ -439,16 +404,19 @@ export class HyperliquidTradingService {
         grouping: 'na' as const,
       };
 
-      let result = await client.order({
-        ...orderPayload,
-        ...(closeBuilder ? { builder: closeBuilder } : {}),
-      });
+      // Never attach HL builder fee on closes — most users have not approved it.
+      let result = await client.order(orderPayload);
 
       let status = result.response?.data?.statuses?.[0] as
         | { filled?: unknown; error?: string }
         | undefined;
 
-      if (status && 'error' in status && status.error && closeBuilder) {
+      if (status && 'error' in status && status.error && isBuilderOrderError(String(status.error))) {
+        logger.warn('HL close builder error — retrying without builder', {
+          user: userAddress.slice(0, 10),
+          coin: coinUpper,
+          error: String(status.error),
+        });
         result = await client.order(orderPayload);
         status = result.response?.data?.statuses?.[0] as
           | { filled?: unknown; error?: string }
@@ -473,16 +441,14 @@ export class HyperliquidTradingService {
       };
 
       const collectedFee =
-        closeBuilder && pnlUsd > 0
-          ? estimateCollectedSuccessFee(pnlUsd, notionalUsd, closeBuilder.f)
-          : 0;
+        pnlUsd > 0 ? calculateHlSuccessFee(pnlUsd) : 0;
 
       await recordHlBotClose({
         walletAddress: userAddress,
         reason,
         snapshot,
         collectedFeeUsd: collectedFee,
-        viaHlBuilder: Boolean(closeBuilder),
+        viaHlBuilder: false,
       });
 
       logger.info('HL position closed', {

@@ -37,25 +37,15 @@ export function resolveHlOrderBuilder(opts: {
   profitUsd?: number;
   isClose: boolean;
 }): { b: `0x${string}`; f: number } | undefined {
+  // Closes never use HL builder fee — requires per-user approval; fees accrued in DB.
+  if (opts.isClose) return undefined;
+
   const addr = config.hyperliquid.builderAddress;
   if (!addr) return undefined;
 
   const maxTenths = parseMaxBuilderTenthsBps(
     config.hyperliquid.builderMaxApprovalRate || '0.1%'
   );
-
-  if (opts.isClose) {
-    const profit = opts.profitUsd ?? 0;
-    if (profit <= 0) return undefined;
-    const f = successFeeToCloseBuilderTenthsBps(
-      profit,
-      opts.notionalUsd,
-      config.hyperliquid.successFeeBps,
-      maxTenths
-    );
-    if (f <= 0) return undefined;
-    return { b: addr, f };
-  }
 
   const openFee = config.hyperliquid.openBuilderFeePerp;
   if (openFee <= 0) return undefined;

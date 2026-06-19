@@ -13,6 +13,12 @@ export async function closeHlPositionViaAgent(params: {
   });
   const json = (await res.json()) as { success?: boolean; error?: string };
   if (!res.ok || !json.success) {
-    throw new Error(json.error || 'Close failed — try again in a few seconds.');
+    const raw = json.error || 'Close failed — try again in a few seconds.';
+    if (/builder fee has not been approved/i.test(raw)) {
+      throw new Error(
+        'Close blocked by platform fee settings — retrying without fee. Hard-refresh the page (Cmd+Shift+R) and try again.'
+      );
+    }
+    throw new Error(raw);
   }
 }
