@@ -10,7 +10,7 @@ import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { recordLoginActivity } from '../../lib/loginActivity';
 import TerminalTradePanel from '../../components/terminal/TerminalTradePanel';
 import ProTradeHlBotDock, { type HlBotDockTab } from '../../components/protrade/ProTradeHlBotDock';
-import TradingBotPage from './TradingBotPage';
+import TerminalHlLiveChart from '../../components/terminal/TerminalHlLiveChart';
 import Dashboard2Shell from '../../components/dashboard2/Dashboard2Shell';
 import type { Dashboard2SidebarSection } from '../../components/dashboard2/Dashboard2Sidebar';
 import TerminalBotSettingsModal from '../../components/terminal/TerminalBotSettingsModal';
@@ -189,10 +189,11 @@ const Dashboard2Page: React.FC = () => {
   }, [searchParams]);
 
   const portfolio = totalUsdValue + metrics.hlBalanceUsd;
+  const showStatsDash = !metrics.hasHlSnapshot && metrics.isLoading;
 
   const botSetupPhase: BotSetupPhase = useMemo(() => {
     if (!walletReady) return 'connect';
-    if (metrics.isLoading || hlSetup.loading) return 'loading';
+    if (!metrics.hasHlSnapshot && (metrics.isLoading || hlSetup.loading)) return 'loading';
     if (hlSetup.accountUsd < MIN_BOT_CAPITAL_USD) return 'fund';
     if (!hlSetup.agentApproved) return 'approve';
     if (hlSetup.builderFeeEnabled && hlSetup.builderPlatformReady && !hlSetup.builderFeeApproved) {
@@ -285,31 +286,31 @@ const Dashboard2Page: React.FC = () => {
               <div className="term-stat">
                 <span className="term-stat-label">Wallet</span>
                 <span className="term-stat-value">
-                  {metrics.isLoading ? '—' : fmtUsd(metrics.walletAvailableUsd)}
+                  {showStatsDash ? '—' : fmtUsd(metrics.walletAvailableUsd)}
                 </span>
               </div>
               <div className="term-stat">
                 <span className="term-stat-label">HL balance</span>
                 <span className="term-stat-value">
-                  {metrics.isLoading ? '—' : fmtUsd(metrics.hlBalanceUsd)}
+                  {showStatsDash ? '—' : fmtUsd(metrics.hlBalanceUsd)}
                 </span>
               </div>
               <div className="term-stat">
                 <span className="term-stat-label">Withdrawable</span>
                 <span className="term-stat-value">
-                  {metrics.isLoading ? '—' : fmtUsd(metrics.hlWithdrawableUsd)}
+                  {showStatsDash ? '—' : fmtUsd(metrics.hlWithdrawableUsd)}
                 </span>
               </div>
               <div className="term-stat">
                 <span className="term-stat-label">In trade</span>
                 <span className="term-stat-value">
-                  {metrics.isLoading ? '—' : fmtUsd(metrics.activeTradeUsd)}
+                  {showStatsDash ? '—' : fmtUsd(metrics.activeTradeUsd)}
                 </span>
               </div>
               <div className="term-stat">
                 <span className="term-stat-label">Portfolio</span>
                 <span className="term-stat-value">
-                  {metrics.isLoading ? '—' : fmtUsd(portfolio)}
+                  {showStatsDash ? '—' : fmtUsd(portfolio)}
                 </span>
               </div>
             </div>
@@ -318,14 +319,14 @@ const Dashboard2Page: React.FC = () => {
                 <span className="term-stat-label">Total P/L</span>
                 <span
                   className={`term-stat-value ${
-                    metrics.isLoading
+                    showStatsDash
                       ? ''
                       : metrics.totalPnlUsd >= 0
                         ? 'term-pnl-pos'
                         : 'term-pnl-neg'
                   }`}
                 >
-                  {metrics.isLoading
+                  {showStatsDash
                     ? '—'
                     : `${metrics.totalPnlUsd >= 0 ? '+' : ''}${fmtUsd(metrics.totalPnlUsd)}`}
                 </span>
@@ -333,21 +334,21 @@ const Dashboard2Page: React.FC = () => {
               <div className="term-stat">
                 <span className="term-stat-label">Realized</span>
                 <span className="term-stat-value">
-                  {metrics.isLoading ? '—' : fmtUsd(metrics.realizedPnlUsd)}
+                  {showStatsDash ? '—' : fmtUsd(metrics.realizedPnlUsd)}
                 </span>
               </div>
               <div className="term-stat">
                 <span className="term-stat-label">Unrealized</span>
                 <span
                   className={`term-stat-value ${
-                    metrics.isLoading
+                    showStatsDash
                       ? ''
                       : metrics.unrealizedPnlUsd >= 0
                         ? 'term-pnl-pos'
                         : 'term-pnl-neg'
                   }`}
                 >
-                  {metrics.isLoading
+                  {showStatsDash
                     ? '—'
                     : `${metrics.unrealizedPnlUsd >= 0 ? '+' : ''}${fmtUsd(metrics.unrealizedPnlUsd)}`}
                 </span>
@@ -357,7 +358,7 @@ const Dashboard2Page: React.FC = () => {
               <div className="term-stat">
                 <span className="term-stat-label">Win rate</span>
                 <span className="term-stat-value">
-                  {metrics.isLoading
+                  {showStatsDash
                     ? '—'
                     : metrics.closedTradesCount > 0
                       ? `${metrics.winRate.toFixed(0)}%`
@@ -388,12 +389,11 @@ const Dashboard2Page: React.FC = () => {
               <div className="term-center">
                 <div className="term-chart-area">
                   <div className="term-chart-inner">
-                    <TradingBotPage
-                      embedded
-                      splitLayout="chart"
-                      chartCompact={false}
-                      chartFill
-                      onPairChange={setChartSymbol}
+                    <TerminalHlLiveChart
+                      symbol={chartSymbol}
+                      onSymbolChange={setChartSymbol}
+                      walletAddress={address ?? botSettings.wallet ?? null}
+                      markerRefreshKey={historyTick}
                     />
                   </div>
                 </div>

@@ -128,6 +128,12 @@ const ProTradeDock: React.FC<Props> = ({
   const positionTone: 'pos' | 'neg' | null =
     positionCount > 0 ? (positionUpnl >= 0 ? 'pos' : 'neg') : null;
 
+  /** Closed fills only — open legs have no PnL and looked like blank "—,—" rows. */
+  const closeFills = useMemo(
+    () => fills.filter((f) => !isHlFillOpen(f.dir)),
+    [fills]
+  );
+
   const tabSuffix = (id: TabId) => {
     if (id === 'positions' && positionCount > 0) {
       return <DockCountBadge count={positionCount} tone={positionTone} />;
@@ -355,7 +361,7 @@ const ProTradeDock: React.FC<Props> = ({
             <p className="hl-dock-empty">No open orders.</p>
           )
         ) : tab === 'tradeHistory' ? (
-          fills.length > 0 ? (
+          closeFills.length > 0 ? (
             <table className="hl-table">
               <thead>
                 <tr>
@@ -371,9 +377,8 @@ const ProTradeDock: React.FC<Props> = ({
                 </tr>
               </thead>
               <tbody>
-                {fills.map((f, i) => {
-                  const isOpen = isHlFillOpen(f.dir);
-                  const result = isOpen ? null : hlFillResultLabel(f.closedPnl);
+                {closeFills.map((f, i) => {
+                  const result = hlFillResultLabel(f.closedPnl);
                   const pnl = toNum(f.closedPnl);
                   return (
                   <tr key={`${f.time}-${i}`}>
@@ -401,8 +406,8 @@ const ProTradeDock: React.FC<Props> = ({
                     >
                       {result ?? '—'}
                     </td>
-                    <td className={pnl >= 0 ? 'hl-up' : 'hl-down'}>
-                      {isOpen ? '—' : fmtClosedPnl(f.closedPnl)}
+                    <td className={pnl > 0 ? 'hl-up' : pnl < 0 ? 'hl-down' : ''}>
+                      {fmtClosedPnl(f.closedPnl)}
                     </td>
                   </tr>
                   );

@@ -2026,6 +2026,12 @@
   border-color: var(--hl-green-bright);
 }
 
+.hl-bot-scope .term-btn-sm.term-btn-sm--primary:hover:not(:disabled) {
+  background: #2ee59d;
+  border-color: #2ee59d;
+  color: #0a0a0a;
+}
+
 .hl-bot-dock {
   display: flex;
   flex-direction: column;
@@ -2853,6 +2859,12 @@
   background: var(--hl-green-bright);
   border-color: var(--hl-green-bright);
   color: var(--hl-on-accent);
+}
+
+.hl-bot-panel-wrap .term-btn-sm.term-btn-sm--primary:hover:not(:disabled) {
+  background: #2ee59d;
+  border-color: #2ee59d;
+  color: #0a0a0a;
 }
 
 .hl-bot-panel-wrap .term-btn-sm--ghost {

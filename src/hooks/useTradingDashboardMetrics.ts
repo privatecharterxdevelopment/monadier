@@ -5,7 +5,7 @@ import { useAuth, DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
 import { useWeb3 } from '../contexts/Web3Context';
 import { pickPrimaryVaultWallet } from '../lib/userWallets';
 import { fetchUserPositions } from '../lib/userPositions';
-import { fetchHlAccountState, fetchHlUserFills } from '../lib/hyperliquid/user';
+import { fetchHlUserFills } from '../lib/hyperliquid/user';
 import { sumHlRealizedPnlFromFills, countHlClosedFills } from '../lib/hyperliquid/hlPnl';
 import {
   checkHlBotAgentApproved,
@@ -18,6 +18,7 @@ import {
   fetchLiveTokenPrices,
   type PositionPnlRow,
 } from '../lib/positionLivePnl';
+import { useHlAccountSnapshot } from './useHlAccountSnapshot';
 
 export type TradingDashboardMetrics = {
   /** Hyperliquid account value — primary bot trading capital */
@@ -72,14 +73,6 @@ function pnlInWindow(
     .reduce((sum, p) => sum + (p.profit_loss || 0), 0);
 }
 
-function countHlOpenPositions(
-  positions: { szi?: string | null }[] | undefined
-): number {
-  return (positions ?? []).filter(
-    (p) => Math.abs(Number.parseFloat(p.szi || '0')) > 1e-12
-  ).length;
-}
-
 export function useTradingDashboardMetrics() {
   const { address } = useAccount();
   const { isDemoUser, user } = useAuth();
@@ -88,21 +81,39 @@ export function useTradingDashboardMetrics() {
   const hasSnapshotRef = useRef(false);
   const refreshInFlightRef = useRef(false);
 
-  const refresh = useCallback(async () => {
-    if (refreshInFlightRef.current) return;
-    refreshInFlightRef.current = true;
+  const queryWallet = (
+    isDemoUser ? DEMO_WALLET_ADDRESS : address?.toLowerCase()
+  ) as `0x${string}` | undefined;
 
-    const queryWallet = (
-      isDemoUser
-        ? DEMO_WALLET_ADDRESS
-        : address?.toLowerCase()
-    ) as `0x${string}` | undefined;
+  const hlWallet = queryWallet;
+  const { snapshot: hlSnap } = useHlAccountSnapshot(hlWallet);
+  const hlSnapRef = useRef(hlSnap);
+  hlSnapRef.current = hlSnap;
+
+  useEffect(() => {
+    if (!hlSnap) return;
+    hasSnapshotRef.current = true;
+    setMetrics((prev) => ({
+      ...prev,
+      vaultBalanceUsd: hlSnap.accountUsd,
+      withdrawableUsd: hlSnap.withdrawableUsd,
+      openPositionValueUsd: hlSnap.openNotionalUsd,
+      openPositionsCount: hlSnap.openPositionsCount,
+      unrealizedPnl: hlSnap.unrealizedPnlUsd,
+      hasHlSnapshot: true,
+      isLoading: false,
+    }));
+  }, [hlSnap]);
+
+  const refresh = useCallback(async () => {
 
     if (!isDemoUser && !user && !queryWallet) {
-      setMetrics({ ...defaultMetrics, isLoading: false, hasHlSnapshot: false });
       refreshInFlightRef.current = false;
       return;
     }
+
+    if (refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
 
     try {
       let all: Awaited<ReturnType<typeof fetchUserPositions>> = [];
@@ -149,52 +160,35 @@ export function useTradingDashboardMetrics() {
       let builderFeeApproved = true;
       let builderPlatformReady = true;
 
-      let vaultBalanceUsd = 0;
-      let withdrawableUsd = 0;
-      let hlOpenNotional = 0;
-      let hlOpenCount = 0;
-      let hlUnrealizedPnl = 0;
+      let vaultBalanceUsd = hlSnapRef.current?.accountUsd ?? 0;
+      let withdrawableUsd = hlSnapRef.current?.withdrawableUsd ?? 0;
+      let hlOpenNotional = hlSnapRef.current?.openNotionalUsd ?? 0;
+      let hlOpenCount = hlSnapRef.current?.openPositionsCount ?? 0;
+      let hlUnrealizedPnl = hlSnapRef.current?.unrealizedPnlUsd ?? 0;
       let hlRealizedPnl = 0;
       let hlClosedFillCount = 0;
-      let hlLoaded = false;
+      const hlLoaded = hlSnapRef.current != null;
       let agentLoaded = false;
 
       const settingsWallet = (
         isDemoUser ? DEMO_WALLET_ADDRESS : (queryWallet ?? primaryWallet)
       ) as string | undefined;
 
-      const hlWallet = (queryWallet ?? primaryWallet) as `0x${string}` | undefined;
+      const hlWalletForFills = (queryWallet ?? primaryWallet) as `0x${string}` | undefined;
 
-      if (hlWallet) {
+      if (hlWalletForFills) {
         try {
-          const hl = await fetchHlAccountState(hlWallet);
-          hlLoaded = true;
-          vaultBalanceUsd = parseFloat(hl.margin.accountValue) || 0;
-          withdrawableUsd = parseFloat(hl.withdrawable) || 0;
-          hlOpenCount = countHlOpenPositions(hl.positions);
-          hlOpenNotional = hl.positions.reduce(
-            (sum, p) => sum + Math.abs(parseFloat(p.positionValue) || 0),
-            0
-          );
-          hlUnrealizedPnl = hl.positions.reduce(
-            (sum, p) => sum + (parseFloat(p.unrealizedPnl) || 0),
-            0
-          );
-          try {
-            const fills = await fetchHlUserFills(hlWallet, 500);
-            hlRealizedPnl = sumHlRealizedPnlFromFills(fills);
-            hlClosedFillCount = countHlClosedFills(fills);
-          } catch {
-            /* fills optional */
-          }
+          const fills = await fetchHlUserFills(hlWalletForFills, 500);
+          hlRealizedPnl = sumHlRealizedPnlFromFills(fills);
+          hlClosedFillCount = countHlClosedFills(fills);
         } catch {
-          /* HL read optional */
+          /* fills optional */
         }
       }
 
-      if (hlWallet) {
+      if (hlWalletForFills) {
         try {
-          const agentCheck = await checkHlBotAgentApproved(hlWallet);
+          const agentCheck = await checkHlBotAgentApproved(hlWalletForFills);
           agentApproved = agentCheck.approved;
           agentLoaded = agentCheck.loaded;
         } catch {
@@ -206,7 +200,7 @@ export function useTradingDashboardMetrics() {
             const platform = await fetchHlBuilderPlatformStatus();
             builderPlatformReady = platform.ready;
             if (platform.ready) {
-              const maxFee = await fetchMaxBuilderFee(hlWallet, builderConfig.address);
+              const maxFee = await fetchMaxBuilderFee(hlWalletForFills, builderConfig.address);
               builderFeeApproved = isBuilderApprovalSufficient(maxFee);
             } else {
               builderFeeApproved = true;
@@ -260,7 +254,11 @@ export function useTradingDashboardMetrics() {
     } finally {
       refreshInFlightRef.current = false;
     }
-  }, [address, isDemoUser, user?.id, publicClient, walletClient]);
+  }, [address, isDemoUser, user?.id, publicClient, walletClient, queryWallet]);
+
+  useEffect(() => {
+    hasSnapshotRef.current = false;
+  }, [address, isDemoUser]);
 
   useEffect(() => {
     refresh();

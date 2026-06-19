@@ -37,6 +37,7 @@ type State = {
 const SNAPSHOT_POLL_MS = 10_000;
 const BOOK_THROTTLE_MS = 120;
 const TRADES_THROTTLE_MS = 150;
+const CANDLE_THROTTLE_MS = 80;
 const MAX_TAPE_TRADES = 50;
 
 function normCoin(coin: string): string {
@@ -188,6 +189,29 @@ export function useHyperliquidMarket(
   const bookTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingTradesRef = useRef<HlRecentTrade[]>([]);
   const tradesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingCandleRef = useRef<HlCandleBar | null>(null);
+  const candleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushCandle = useCallback(() => {
+    candleTimerRef.current = null;
+    const bar = pendingCandleRef.current;
+    if (!bar) return;
+    pendingCandleRef.current = null;
+    setState((prev) => ({
+      ...prev,
+      candles: mergeCandle(prev.candles, bar),
+      wsConnected: true,
+    }));
+  }, []);
+
+  const scheduleCandle = useCallback(
+    (bar: HlCandleBar) => {
+      pendingCandleRef.current = bar;
+      if (candleTimerRef.current) return;
+      candleTimerRef.current = setTimeout(flushCandle, CANDLE_THROTTLE_MS);
+    },
+    [flushCandle]
+  );
 
   const flushBook = useCallback(() => {
     bookTimerRef.current = null;
@@ -263,11 +287,7 @@ export function useHyperliquidMarket(
           if (!coinMatches(candleCoin, coin)) continue;
           const bar = parseWsCandle(raw);
           if (!bar) continue;
-          setState((prev) => ({
-            ...prev,
-            candles: mergeCandle(prev.candles, bar),
-            wsConnected: true,
-          }));
+          scheduleCandle(bar);
         }
       }
     });
@@ -277,13 +297,16 @@ export function useHyperliquidMarket(
       off();
       if (bookTimerRef.current) clearTimeout(bookTimerRef.current);
       if (tradesTimerRef.current) clearTimeout(tradesTimerRef.current);
+      if (candleTimerRef.current) clearTimeout(candleTimerRef.current);
       bookTimerRef.current = null;
       tradesTimerRef.current = null;
+      candleTimerRef.current = null;
       pendingBookRef.current = null;
       pendingTradesRef.current = [];
+      pendingCandleRef.current = null;
       bookKeyRef.current = '';
     };
-  }, [coin, interval, scheduleBook, scheduleTrades]);
+  }, [coin, interval, scheduleBook, scheduleTrades, scheduleCandle]);
 
   return { ...state, refresh };
 }

@@ -887,14 +887,24 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
         volume: parseFloat(String(item[5])),
       }));
       setCandles((prev) => {
-        if (
-          silent &&
-          prev.length > 0 &&
-          candleData.length > 0 &&
-          prev[prev.length - 1]?.time === candleData[candleData.length - 1]?.time &&
-          prev.length === candleData.length
-        ) {
-          return prev;
+        if (prev.length === 0 || candleData.length === 0) {
+          return candleData;
+        }
+        const lastPrev = prev[prev.length - 1];
+        const lastNew = candleData[candleData.length - 1];
+        if (lastPrev?.time === lastNew?.time) {
+          const merged = [...prev.slice(0, -1), lastNew];
+          if (
+            silent &&
+            prev.length === candleData.length &&
+            lastPrev.open === lastNew.open &&
+            lastPrev.high === lastNew.high &&
+            lastPrev.low === lastNew.low &&
+            lastPrev.close === lastNew.close
+          ) {
+            return prev;
+          }
+          return merged;
         }
         return candleData;
       });
@@ -1183,7 +1193,9 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
   // Fetch candles — silent polling (no loading flash)
   useEffect(() => {
     const refreshRate = isTerminalChart
-      ? 15000
+      ? timeframe === '1m' || timeframe === '5m'
+        ? 3000
+        : 8000
       : turboMode && botActive
         ? 2000
         : 10000;
@@ -1752,6 +1764,20 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
     return price.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   };
 
+  /** Y-axis labels — scale decimals to visible range; avoids duplicate "…0.04" on tight 1m zoom. */
+  const chartAxisPriceLabel = (price: number, span: number) => {
+    if (!Number.isFinite(price)) return '—';
+    let digits = 2;
+    if (span < 0.02) digits = 5;
+    else if (span < 0.2) digits = 4;
+    else if (span < 2) digits = 3;
+    else if (price >= 1000) digits = 2;
+    return price.toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: digits,
+    });
+  };
+
   const chartHeight =
     isTerminalChart && chartFill
       ? Math.max(plotHeight, 160)
@@ -1778,7 +1804,9 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
       );
     }
 
-    const baseVisibleCount = Math.floor((isTerminalChart ? 100 : 60) / zoomLevel);
+    const visibleForTf =
+      timeframe === '1m' ? 55 : timeframe === '5m' ? 72 : isTerminalChart ? 100 : 60;
+    const baseVisibleCount = Math.floor(visibleForTf / zoomLevel);
     const maxScroll = Math.max(0, candles.length - baseVisibleCount);
     const effectiveScroll = Math.min(chartScrollOffset, maxScroll);
     const endIdx = candles.length - effectiveScroll;
@@ -1815,10 +1843,6 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
       return candlePlotHeight - ((price - viewMin) / viewSpan) * candlePlotHeight;
     };
     const arrowLaneY = chartHeight - Math.floor(arrowLaneHeight / 2);
-
-    const candleWidth = isTerminalChart
-      ? Math.min(4, Math.max(2, (100 / displayCandles.length) * 3.2))
-      : Math.max(4, Math.floor((100 / displayCandles.length) * 8));
 
     // === CALCULATE INDICATORS FOR VISUAL OVERLAYS ===
     const closes = displayCandles.map(c => c.close);
@@ -1933,7 +1957,10 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
     const useCandleDirectionSignals = timeframe === '1m' || timeframe === '5m';
 
     if (useCandleDirectionSignals) {
-      for (let i = 0; i < displayCandles.length; i++) {
+      const arrowStart = isTerminalChart
+        ? Math.max(0, displayCandles.length - 12)
+        : 0;
+      for (let i = arrowStart; i < displayCandles.length; i++) {
         const curr = displayCandles[i];
         const range = curr.high - curr.low;
         if (range <= 0) continue;
@@ -1972,29 +1999,39 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
     return (
       <div className="relative w-full h-full overflow-hidden">
         <svg width="100%" height={chartHeight} className="overflow-visible">
-          {/* Price grid lines */}
-          {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
-            const price = viewMin + viewSpan * (1 - ratio);
-            const y = ratio * candlePlotHeight;
-            return (
-              <g key={i}>
-                <line x1="0" y1={y} x2="100%" y2={y} stroke="#d4d4d8" strokeWidth="0.5" strokeDasharray="4" />
-                <text x="100%" y={y} dx="-4" dy="4" className="text-[10px] fill-[#71717a]" textAnchor="end">
-                  {`$${formatPrice(price, 2)}`}
-                </text>
-              </g>
-            );
-          })}
+          {/* Price grid lines — skip duplicate axis labels on tight 1m range */}
+          {(() => {
+            const seen = new Set<string>();
+            return [0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
+              const price = viewMin + viewSpan * (1 - ratio);
+              const label = chartAxisPriceLabel(price, viewSpan);
+              if (seen.has(label)) return null;
+              seen.add(label);
+              const y = ratio * candlePlotHeight;
+              return (
+                <g key={i}>
+                  <line x1="0" y1={y} x2="100%" y2={y} stroke="#d4d4d8" strokeWidth="0.5" strokeDasharray="4" />
+                  <text x="100%" y={y} dx="-4" dy="4" className="text-[10px] fill-[#71717a]" textAnchor="end">
+                    {`$${label}`}
+                  </text>
+                </g>
+              );
+            });
+          })()}
 
           {/* Technical indicator lines removed for cleaner chart view */}
 
-          {/* Support/Resistance Lines */}
+          {/* Support/Resistance — lines only on terminal (no floating $ labels) */}
           <line x1="0" y1={scaleY(support)} x2="100%" y2={scaleY(support)} stroke="#22c55e" strokeWidth="1" strokeDasharray="8,4" opacity="0.6" />
           <line x1="0" y1={scaleY(resistance)} x2="100%" y2={scaleY(resistance)} stroke="#ef4444" strokeWidth="1" strokeDasharray="8,4" opacity="0.6" />
-          <rect x="calc(100% - 70px)" y={scaleY(support) - 8} width="65" height="16" fill="#22c55e" rx="2" opacity="0.2" />
-          <text x="calc(100% - 38px)" y={scaleY(support) + 4} className="text-[8px] fill-green-400 font-medium" textAnchor="middle">{`S: $${support.toFixed(0)}`}</text>
-          <rect x="calc(100% - 70px)" y={scaleY(resistance) - 8} width="65" height="16" fill="#ef4444" rx="2" opacity="0.2" />
-          <text x="calc(100% - 38px)" y={scaleY(resistance) + 4} className="text-[8px] fill-red-400 font-medium" textAnchor="middle">{`R: $${resistance.toFixed(0)}`}</text>
+          {!isTerminalChart ? (
+            <>
+              <rect x="calc(100% - 70px)" y={scaleY(support) - 8} width="65" height="16" fill="#22c55e" rx="2" opacity="0.2" />
+              <text x="calc(100% - 38px)" y={scaleY(support) + 4} className="text-[8px] fill-green-400 font-medium" textAnchor="middle">{`S: $${support.toFixed(0)}`}</text>
+              <rect x="calc(100% - 70px)" y={scaleY(resistance) - 8} width="65" height="16" fill="#ef4444" rx="2" opacity="0.2" />
+              <text x="calc(100% - 38px)" y={scaleY(resistance) + 4} className="text-[8px] fill-red-400 font-medium" textAnchor="middle">{`R: $${resistance.toFixed(0)}`}</text>
+            </>
+          ) : null}
 
           {/* Grid Strategy Lines - Green (buy) below price, Red (sell) above price */}
           {tradingConfig.strategy === 'grid' && gridLevels.map((level, i) => {
@@ -2102,7 +2139,7 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
             const wickBottom = scaleY(candle.low);
             const color = isGreen ? '#22c55e' : '#ef4444';
 
-            const bodyW = Math.min(candleSlotPct * 0.55, candleWidth / 10);
+            const bodyW = Math.max(candleSlotPct * 0.72, isTerminalChart ? 0.35 : candleSlotPct * 0.55);
 
             return (
               <g key={candle.time}>
@@ -2112,7 +2149,7 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
                   x2={`${x + candleSlotPct / 2}%`}
                   y2={wickBottom}
                   stroke={color}
-                  strokeWidth="1"
+                  strokeWidth={isTerminalChart ? 1.75 : 1}
                 />
                 <rect
                   x={`${x + (candleSlotPct - bodyW) / 2}%`}
@@ -2259,7 +2296,7 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
               top: 8,
             }}
           >
-            ${formatPrice(crosshair.price, 2)}
+            ${chartAxisPriceLabel(crosshair.price, viewSpan)}
           </div>
         )}
 

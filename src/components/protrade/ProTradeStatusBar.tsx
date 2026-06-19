@@ -91,7 +91,6 @@ const ProTradeStatusBar: React.FC<Props> = ({
     const running = botRunning;
     const totalPnl = botMetrics.totalPnlUsd;
     const pnlUp = totalPnl >= 0;
-    const showDash = !botMetrics.hasHlSnapshot;
     return (
       <footer className="hl-status">
         <div className="hl-status-left">
@@ -108,18 +107,15 @@ const ProTradeStatusBar: React.FC<Props> = ({
               'Auto-trading off'
             )}
           </span>
-          <span>HL {showDash ? '—' : fmtUsd(botMetrics.hlBalanceUsd)}</span>
-          <span>Withdraw {showDash ? '—' : fmtUsd(botMetrics.hlWithdrawableUsd)}</span>
-          <span>Open {showDash ? '—' : botMetrics.openPositionsCount}</span>
+          <span>HL {fmtUsd(botMetrics.hlBalanceUsd)}</span>
+          <span>Withdraw {fmtUsd(botMetrics.hlWithdrawableUsd)}</span>
+          <span>Open {botMetrics.openPositionsCount}</span>
           <span className={botMetrics.unrealizedPnlUsd >= 0 ? 'hl-up' : 'hl-down'}>
             uPnL{' '}
-            {showDash
-              ? '—'
-              : `${botMetrics.unrealizedPnlUsd >= 0 ? '+' : ''}${fmtUsd(botMetrics.unrealizedPnlUsd)}`}
+            {`${botMetrics.unrealizedPnlUsd >= 0 ? '+' : ''}${fmtUsd(botMetrics.unrealizedPnlUsd)}`}
           </span>
           <span className={pnlUp ? 'hl-up' : 'hl-down'}>
-            Total P/L{' '}
-            {showDash ? '—' : `${pnlUp ? '+' : ''}${fmtUsd(totalPnl)}`}
+            Total P/L {`${pnlUp ? '+' : ''}${fmtUsd(totalPnl)}`}
           </span>
         </div>
         <div className="hl-status-right">

@@ -725,7 +725,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
                 const rowId = t.positionId || t.id;
                 const rowHighlight =
                   highlightPositionId === rowId || highlightPositionId === t.id;
-                const pl = t.profitLoss ?? 0;
+                const pl = t.profitLoss;
                 return (
                   <tr
                     key={`${t.source}-${t.id}`}
@@ -750,8 +750,18 @@ const TerminalPositionsDock: React.FC<Props> = ({
                     </td>
                     <td>{fmtUsd(t.entryAmount)}</td>
                     <td>{t.leverage}x</td>
-                    <td className={pl >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'}>
-                      {t.status === 'closing' ? '—' : `${pl >= 0 ? '+' : ''}${fmtUsd(pl)}`}
+                    <td
+                      className={
+                        pl == null
+                          ? ''
+                          : pl >= 0
+                            ? 'term-pnl-pos'
+                            : 'term-pnl-neg'
+                      }
+                    >
+                      {t.status === 'closing' || pl == null
+                        ? '—'
+                        : `${pl >= 0 ? '+' : ''}${fmtUsd(pl)}`}
                     </td>
                     <td className="capitalize term-dock-status">{t.status}</td>
                     <td>

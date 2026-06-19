@@ -49,6 +49,7 @@ import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import TerminalBotSettingsModal from './TerminalBotSettingsModal';
 import TerminalLvrgPanel from './TerminalLvrgPanel';
 import TerminalBotSettingsStrip from './TerminalBotSettingsStrip';
+import TerminalBotModeRow from './TerminalBotModeRow';
 import BotSettingsStopFirstModal from './BotSettingsStopFirstModal';
 type PanelTab = 'bot' | 'lvrg' | 'funds';
 
@@ -142,7 +143,6 @@ const TerminalTradePanel: React.FC<Props> = ({
 
   const serverBlockers = useBotServerBlockers(timerWallet, Boolean(botRunning));
   const hasOpenPosition = metrics.openPositionsCount > 0;
-  const showFooterDash = !metrics.hasHlSnapshot;
   const marginLockedUsd = hasOpenPosition
     ? Math.max(0, hlSetup.totalMarginUsedUsd)
     : 0;
@@ -256,10 +256,6 @@ const TerminalTradePanel: React.FC<Props> = ({
   const openLvrgTab = () => setPanelTab('lvrg');
 
   const requestLvrgAccess = () => {
-    if (botRunning) {
-      setShowStopFirstModal(true);
-      return;
-    }
     openLvrgTab();
   };
 
@@ -467,7 +463,7 @@ const TerminalTradePanel: React.FC<Props> = ({
             <button type="button" className="term-icon-btn" onClick={refreshAll} title="Refresh">
               <RefreshCw
                 size={14}
-                className={metrics.isLoading || hlSetup.loading ? 'animate-spin' : ''}
+                className={metrics.isLoading && !metrics.hasHlSnapshot ? 'animate-spin' : ''}
               />
             </button>
           </div>
@@ -550,6 +546,13 @@ const TerminalTradePanel: React.FC<Props> = ({
                 currentStep={sidebarStatus.setupStep}
               />
             )}
+
+            <TerminalBotModeRow
+              settings={botSettings.settings}
+              walletAddress={wallet}
+              disabled={!walletReady || botSettings.isLoading}
+              onSaved={refreshAll}
+            />
 
             <TerminalBotSettingsStrip
               settings={botSettings.settings}
@@ -704,13 +707,13 @@ const TerminalTradePanel: React.FC<Props> = ({
               <div className="term-funds-breakdown">
                 <div className="term-field-row">
                   <span>Total balance</span>
-                  <strong>{hlSetup.loading ? '—' : fmt(hlFundingUsd)}</strong>
+                  <strong>{fmt(metrics.hlBalanceUsd)}</strong>
                 </div>
                 <div className="term-field-row">
                   <span>Withdrawable</span>
-                  <strong>{hlSetup.loading ? '—' : fmt(hlSetup.withdrawableUsd)}</strong>
+                  <strong>{fmt(metrics.hlWithdrawableUsd)}</strong>
                 </div>
-                {hasOpenPosition && marginLockedUsd > 0.01 && !hlSetup.loading ? (
+                {hasOpenPosition && marginLockedUsd > 0.01 ? (
                   <div className="term-field-row term-field-row--hint">
                     <span>Margin in open trade</span>
                     <strong>{fmt(marginLockedUsd)}</strong>
@@ -755,14 +758,14 @@ const TerminalTradePanel: React.FC<Props> = ({
         )}
       </div>
 
-      <div className="term-trade-footer">
+      <div className="term-trade-footer term-trade-footer--stable">
         <div className="term-field-row">
           <span>HL balance</span>
-          <strong>{showFooterDash ? '—' : fmt(metrics.hlBalanceUsd)}</strong>
+          <strong>{fmt(metrics.hlBalanceUsd)}</strong>
         </div>
         <div className="term-field-row">
           <span>Withdrawable</span>
-          <strong>{showFooterDash ? '—' : fmt(metrics.hlWithdrawableUsd)}</strong>
+          <strong>{fmt(metrics.hlWithdrawableUsd)}</strong>
         </div>
         {hasOpenPosition && marginLockedUsd > 0.01 ? (
           <div className="term-field-row term-field-row--hint">
@@ -774,35 +777,25 @@ const TerminalTradePanel: React.FC<Props> = ({
           <span>uPnL</span>
           <strong
             className={
-              showFooterDash
-                ? ''
-                : metrics.unrealizedPnlUsd >= 0
-                  ? 'term-pnl-pos'
-                  : 'term-pnl-neg'
+              metrics.unrealizedPnlUsd >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'
             }
           >
-            {showFooterDash
-              ? '—'
-              : `${metrics.unrealizedPnlUsd >= 0 ? '+' : ''}${fmt(metrics.unrealizedPnlUsd)}`}
+            {`${metrics.unrealizedPnlUsd >= 0 ? '+' : ''}${fmt(metrics.unrealizedPnlUsd)}`}
           </strong>
         </div>
         <div className="term-field-row">
           <span>Total P/L</span>
           <strong
             className={
-              showFooterDash
-                ? ''
-                : metrics.totalPnlUsd >= 0
-                  ? 'term-pnl-pos'
-                  : 'term-pnl-neg'
+              metrics.totalPnlUsd >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'
             }
           >
-            {showFooterDash ? '—' : fmt(metrics.totalPnlUsd)}
+            {fmt(metrics.totalPnlUsd)}
           </strong>
         </div>
         <div className="term-field-row">
           <span>Open</span>
-          <strong>{showFooterDash ? '—' : metrics.openPositionsCount}</strong>
+          <strong>{metrics.openPositionsCount}</strong>
         </div>
       </div>
 

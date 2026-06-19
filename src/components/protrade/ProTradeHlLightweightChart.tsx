@@ -36,6 +36,11 @@ type Props = {
     side: 'long' | 'short';
   };
   tradeMarkers?: SeriesMarker<UTCTimestamp>[];
+  /** Live mark price — horizontal line follows HL quote between candle closes. */
+  markPx?: number;
+  /** Bump to re-enable auto-scroll after user panned away. */
+  scrollToLiveTick?: number;
+  onFollowLiveChange?: (following: boolean) => void;
 };
 
 function safeChartOp(fn: () => void) {
@@ -46,7 +51,9 @@ function safeChartOp(fn: () => void) {
   }
 }
 
-/** Isolated HL lightweight-charts instance — unmounts fully when switching to TradingView. */
+/** Bars visible on load — fitContent squashes 7d of 1m data into mush. */
+const VISIBLE_BARS = 90;
+
 const ProTradeHlLightweightChart: React.FC<Props> = ({
   coin,
   candles,
@@ -57,13 +64,20 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
   layoutKey,
   positionOverlay,
   tradeMarkers = [],
+  markPx,
+  scrollToLiveTick = 0,
+  onFollowLiveChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const priceLinesRef = useRef<IPriceLine[]>([]);
+  const markLineRef = useRef<IPriceLine | null>(null);
   const markersPluginRef = useRef<ISeriesMarkersPluginApi<UTCTimestamp> | null>(null);
+  const candlesRef = useRef<HlCandleBar[]>([]);
+  const followLiveRef = useRef(true);
+  const suppressFollowDetectRef = useRef(false);
   const aliveRef = useRef(true);
   const overlayCoin = orderCoin ?? coin;
   const chartColors = getProTradeChartColors(theme);
@@ -94,6 +108,10 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         borderColor: colors.border,
         timeVisible: true,
         secondsVisible: false,
+        barSpacing: 10,
+        minBarSpacing: 6,
+        rightOffset: 8,
+        shiftVisibleRangeOnNewBar: true,
       },
       crosshair: {
         vertLine: { color: colors.crosshair, labelBackgroundColor: colors.crosshairLabel },
@@ -123,6 +141,18 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     // Trade markers in the volume pane — keeps arrows off the candle bodies.
     markersPluginRef.current = createSeriesMarkers(volumeSeries, [], { zOrder: 'top' });
 
+    chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
+      if (suppressFollowDetectRef.current) return;
+      const range = chart.timeScale().getVisibleLogicalRange();
+      const n = candlesRef.current.length;
+      if (!range || n <= 0) return;
+      const following = range.to >= n - 2;
+      if (following !== followLiveRef.current) {
+        followLiveRef.current = following;
+        onFollowLiveChange?.(following);
+      }
+    });
+
     const ro = new ResizeObserver(() => {
       if (!aliveRef.current) return;
       safeChartOp(() => {
@@ -143,9 +173,36 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       volumeRef.current = null;
       volumeRef.current = null;
       priceLinesRef.current = [];
+      markLineRef.current = null;
       markersPluginRef.current = null;
     };
-  }, [theme]);
+  }, [theme, onFollowLiveChange]);
+
+  const showLatestBars = (chart: IChartApi, barCount: number) => {
+    if (barCount <= 0) return;
+    suppressFollowDetectRef.current = true;
+    try {
+      const from = Math.max(0, barCount - VISIBLE_BARS);
+      const to = barCount + 4;
+      chart.timeScale().setVisibleLogicalRange({ from, to });
+      followLiveRef.current = true;
+    } finally {
+      requestAnimationFrame(() => {
+        suppressFollowDetectRef.current = false;
+      });
+    }
+  };
+
+  const scrollLive = (chart: IChartApi) => {
+    suppressFollowDetectRef.current = true;
+    try {
+      chart.timeScale().scrollToRealTime();
+    } finally {
+      requestAnimationFrame(() => {
+        suppressFollowDetectRef.current = false;
+      });
+    }
+  };
 
   useEffect(() => {
     const plugin = markersPluginRef.current;
@@ -159,15 +216,28 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     const chart = chartRef.current;
     const el = containerRef.current;
     if (!chart || !el || !aliveRef.current) return;
+    candlesRef.current = [];
+    followLiveRef.current = true;
     const frame = requestAnimationFrame(() => {
       if (!aliveRef.current) return;
       safeChartOp(() => {
         chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
-        chart.timeScale().fitContent();
+        if (candlesRef.current.length > 0) {
+          showLatestBars(chart, candlesRef.current.length);
+        }
       });
     });
     return () => cancelAnimationFrame(frame);
   }, [layoutKey, coin]);
+
+  useEffect(() => {
+    if (!scrollToLiveTick) return;
+    const chart = chartRef.current;
+    if (!chart || !aliveRef.current) return;
+    followLiveRef.current = true;
+    onFollowLiveChange?.(true);
+    scrollLive(chart);
+  }, [scrollToLiveTick, onFollowLiveChange]);
 
   useEffect(() => {
     const resize = () => {
@@ -193,6 +263,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     if (!series || !volumeSeries || !chart || !aliveRef.current) return;
 
     if (candles.length === 0) {
+      candlesRef.current = [];
       safeChartOp(() => {
         series.setData([]);
         volumeSeries.setData([]);
@@ -200,26 +271,59 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       return;
     }
 
-    const data: CandlestickData[] = candles.map((c) => ({
+    const prev = candlesRef.current;
+    const prevFirst = prev[0]?.time;
+    const nextFirst = candles[0]?.time;
+    const fullReset =
+      prev.length === 0 || prevFirst !== nextFirst || candles.length < prev.length;
+
+    const toCandle = (c: HlCandleBar): CandlestickData => ({
       time: c.time as CandlestickData['time'],
       open: c.open,
       high: c.high,
       low: c.low,
       close: c.close,
-    }));
+    });
 
-    const volData: HistogramData[] = candles
-      .filter((c) => (c.volume ?? 0) > 0)
-      .map((c) => ({
-        time: c.time as HistogramData['time'],
-        value: c.volume ?? 0,
-        color: c.close >= c.open ? chartColors.volumeUp : chartColors.volumeDown,
-      }));
+    const toVol = (c: HlCandleBar): HistogramData => ({
+      time: c.time as HistogramData['time'],
+      value: c.volume ?? 0,
+      color: c.close >= c.open ? chartColors.volumeUp : chartColors.volumeDown,
+    });
 
     safeChartOp(() => {
-      series.setData(data);
-      volumeSeries.setData(volData);
-      chart.timeScale().fitContent();
+      if (fullReset) {
+        const data = candles.map(toCandle);
+        const volData = candles.filter((c) => (c.volume ?? 0) > 0).map(toVol);
+        series.setData(data);
+        volumeSeries.setData(volData);
+        showLatestBars(chart, data.length);
+        candlesRef.current = candles;
+        return;
+      }
+
+      const last = candles[candles.length - 1];
+      const prevLast = prev[prev.length - 1];
+      const newBar = last.time !== prevLast?.time && candles.length > prev.length;
+
+      series.update(toCandle(last));
+      if ((last.volume ?? 0) > 0) {
+        volumeSeries.update(toVol(last));
+      }
+
+      if (newBar && candles.length > prev.length + 1) {
+        for (let i = prev.length; i < candles.length - 1; i++) {
+          series.update(toCandle(candles[i]));
+          const v = candles[i];
+          if ((v.volume ?? 0) > 0) volumeSeries.update(toVol(v));
+        }
+      }
+
+      if (followLiveRef.current) {
+        scrollLive(chart);
+      }
+
+      candlesRef.current = candles;
     });
   }, [candles, coin, chartColors.volumeDown, chartColors.volumeUp]);
 
@@ -273,6 +377,28 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       }
     });
   }, [openOrders, overlayCoin, chartColors.down, chartColors.up, positionOverlay]);
+
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series || !aliveRef.current) return;
+
+    safeChartOp(() => {
+      if (markLineRef.current) {
+        series.removePriceLine(markLineRef.current);
+        markLineRef.current = null;
+      }
+      if (markPx != null && markPx > 0) {
+        markLineRef.current = series.createPriceLine({
+          price: markPx,
+          color: chartColors.crosshair,
+          lineWidth: 1,
+          lineStyle: LineStyle.Dotted,
+          axisLabelVisible: true,
+          title: 'Mark',
+        });
+      }
+    });
+  }, [markPx, chartColors.crosshair]);
 
   return (
     <>

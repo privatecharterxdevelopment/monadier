@@ -7,6 +7,11 @@ export function hlCoinToBinanceSymbol(coin: string): string {
   return `${base}USDT`;
 }
 
+/** Binance-style symbol → HL perp coin (e.g. ETHUSDT → ETH). */
+export function binanceSymbolToHlCoin(symbol: string): string {
+  return symbol.replace(/USDT$/i, '').toUpperCase();
+}
+
 /** @deprecated use hlCoinToBinanceSymbol */
 export const hlCoinToBotSymbol = hlCoinToBinanceSymbol;
 
