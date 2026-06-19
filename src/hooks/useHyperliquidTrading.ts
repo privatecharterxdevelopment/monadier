@@ -242,9 +242,12 @@ export function useHyperliquidTrading() {
       isLong: boolean;
       markPx: number;
       profitUsd?: number;
+      walletAddress?: string;
     }) =>
       withBusy(async () => {
-        const wallet = requireWallet().account?.address;
+        const wallet =
+          opts.walletAddress?.toLowerCase() ??
+          requireWallet().account?.address?.toLowerCase();
         if (!wallet) throw new Error('Connect wallet first');
 
         try {

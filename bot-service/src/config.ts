@@ -96,7 +96,11 @@ export const config = {
     /** Trail SL into profit — lock floor once margin PnL reaches activate threshold. */
     defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 2),
     /** Skip profit-lock exits below this USD (fees would eat the gain). */
-    minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.15),
+    minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.02),
+    /** Activate trailing profit lock when uPnL reaches this USD. */
+    profitLockActivateUsd: Number(process.env.HL_PROFIT_LOCK_ACTIVATE_USD || 0.05),
+    /** Close locked position if uPnL falls back to this USD (still in profit). */
+    profitLockFloorUsd: Number(process.env.HL_PROFIT_LOCK_FLOOR_USD || 0.02),
     /** Pause new opens after a close to reduce fee churn. */
     reentryCooldownMs: Number(process.env.HL_REENTRY_COOLDOWN_MS || 180_000),
     /** Minimum margin USD per HL open (small accounts use up to 10% of balance). */

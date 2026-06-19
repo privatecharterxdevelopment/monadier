@@ -14,7 +14,7 @@ import {
   hlAccountValueUsd,
   hlOpenPerpCoins,
 } from './hlInfo';
-import { checkHlBuilderFeeApproved } from './hlBuilder';
+import { checkHlBuilderFeeApproved, fetchHlMaxBuilderFee, fetchHlBuilderPlatformReady } from './hlBuilder';
 import { subscriptionService } from './subscription';
 import type { TradingCycleContext } from './tradingCycleContext';
 import {
@@ -24,8 +24,8 @@ import {
 import { recordHlBotClose, type HlCloseSnapshot } from './hlSuccessFees';
 import { recordHlBotOpenMarker } from './hlChartMarkers';
 import {
-  shouldActivateProfitLock,
-  shouldCloseProfitLock,
+  shouldActivateProfitLockUsd,
+  shouldCloseProfitLockUsd,
   shouldTakeProfitOnPnl,
 } from './pnlExits';
 
@@ -65,6 +65,33 @@ function createAgentClient(userAddress: string): ExchangeClient {
     transport,
     wallet: agent,
   });
+}
+
+/** Only attach builder on profitable closes when user has approved it on HL. */
+async function resolveApprovedCloseBuilder(
+  userAddress: string,
+  notionalUsd: number,
+  pnlUsd: number,
+  skipBuilder: boolean
+): Promise<{ b: `0x${string}`; f: number } | undefined> {
+  if (skipBuilder || pnlUsd <= 0) return undefined;
+  const proposed = resolveHlOrderBuilder({
+    notionalUsd,
+    profitUsd: pnlUsd,
+    isClose: true,
+  });
+  if (!proposed) return undefined;
+
+  const builderAddress = config.hyperliquid.builderAddress;
+  if (!builderAddress) return undefined;
+
+  const platform = await fetchHlBuilderPlatformReady(builderAddress);
+  if (!platform.ready) return undefined;
+
+  const approvedMax = await fetchHlMaxBuilderFee(userAddress, builderAddress);
+  if (approvedMax < proposed.f) return undefined;
+
+  return proposed;
 }
 
 export class HyperliquidTradingService {
@@ -304,9 +331,8 @@ export class HyperliquidTradingService {
 
       const tp = settings.takeProfitPercent ?? config.hyperliquid.defaultTakeProfitPercent;
       const sl = settings.stopLossPercent ?? config.hyperliquid.defaultStopLossPercent;
-      const profitLock =
-        settings.profitLockPercent ?? config.hyperliquid.defaultProfitLockPercent;
-      const minProfitUsd = config.hyperliquid.minProfitCloseUsd;
+      const lockActivateUsd = config.hyperliquid.profitLockActivateUsd;
+      const lockFloorUsd = config.hyperliquid.profitLockFloorUsd;
 
       const lockKey = positionKey(userAddress, pos.coin);
       let locked = hlProfitLockActive.get(lockKey) ?? false;
@@ -327,31 +353,22 @@ export class HyperliquidTradingService {
           size,
           leverage: pos.leverage?.value ?? 10,
         });
-      } else if (shouldCloseProfitLock(pnlPct, profitLock, locked)) {
-        if (pnl < minProfitUsd) {
-          logger.debug('HL profit lock skip: below min USD', {
-            user: userAddress.slice(0, 10),
-            coin: pos.coin,
-            pnl: pnl.toFixed(4),
-            min: minProfitUsd,
-          });
-        } else {
-          hlProfitLockActive.delete(lockKey);
-          await this.closeMarketPosition(userAddress, pos.coin, 'profit_lock', {
-            entryPx: entry,
-            unrealizedPnlUsd: pnl,
-            size,
-            leverage: pos.leverage?.value ?? 10,
-          });
-        }
-      } else if (shouldActivateProfitLock(pnlPct, profitLock, locked)) {
+      } else if (shouldCloseProfitLockUsd(pnl, lockFloorUsd, locked)) {
+        hlProfitLockActive.delete(lockKey);
+        await this.closeMarketPosition(userAddress, pos.coin, 'profit_lock', {
+          entryPx: entry,
+          unrealizedPnlUsd: pnl,
+          size,
+          leverage: pos.leverage?.value ?? 10,
+        });
+      } else if (shouldActivateProfitLockUsd(pnl, lockActivateUsd, locked)) {
         hlProfitLockActive.set(lockKey, true);
         locked = true;
-        logger.info('HL profit lock active', {
+        logger.info('HL profit lock active (USD)', {
           user: userAddress.slice(0, 10),
           coin: pos.coin,
-          pnlPct: pnlPct.toFixed(2),
-          floor: profitLock,
+          pnlUsd: pnl.toFixed(4),
+          floorUsd: lockFloorUsd,
         });
       }
     }
@@ -399,11 +416,13 @@ export class HyperliquidTradingService {
       const limitPx = isLong ? markPx * 0.95 : markPx * 1.05;
 
       const notionalUsd = absSize * markPx;
-      const closeBuilder = resolveHlOrderBuilder({
+      const skipBuilder = reason === 'manual';
+      const closeBuilder = await resolveApprovedCloseBuilder(
+        userAddress,
         notionalUsd,
-        profitUsd: pnlUsd,
-        isClose: true,
-      });
+        pnlUsd,
+        skipBuilder
+      );
 
       const client = createAgentClient(userAddress);
       const orderPayload = {
@@ -430,13 +449,10 @@ export class HyperliquidTradingService {
         | undefined;
 
       if (status && 'error' in status && status.error && closeBuilder) {
-        const errText = String(status.error);
-        if (/builder|fee|approval/i.test(errText)) {
-          result = await client.order(orderPayload);
-          status = result.response?.data?.statuses?.[0] as
-            | { filled?: unknown; error?: string }
-            | undefined;
-        }
+        result = await client.order(orderPayload);
+        status = result.response?.data?.statuses?.[0] as
+          | { filled?: unknown; error?: string }
+          | undefined;
       }
 
       if (status && 'error' in status && status.error) {

@@ -23,11 +23,21 @@ export function shouldActivateProfitLock(
   return pnlPercent >= profitLockActivateAt(profitLockPercent);
 }
 
-export function shouldCloseProfitLock(
-  pnlPercent: number,
-  profitLockPercent: number,
+/** USD profit lock — activate trail once uPnL hits this, close if it falls to floor. */
+export function shouldActivateProfitLockUsd(
+  pnlUsd: number,
+  activateUsd: number,
   alreadyLocked: boolean
 ): boolean {
-  if (!alreadyLocked || profitLockPercent <= 0) return false;
-  return pnlPercent <= profitLockPercent && pnlPercent > 0;
+  if (alreadyLocked || activateUsd <= 0) return false;
+  return pnlUsd >= activateUsd;
+}
+
+export function shouldCloseProfitLockUsd(
+  pnlUsd: number,
+  floorUsd: number,
+  alreadyLocked: boolean
+): boolean {
+  if (!alreadyLocked || floorUsd <= 0) return false;
+  return pnlUsd <= floorUsd && pnlUsd > 0;
 }

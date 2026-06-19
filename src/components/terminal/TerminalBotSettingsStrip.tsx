@@ -1,6 +1,7 @@
 import React from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 import type { VaultSettingsSnapshot } from '../../hooks/useTerminalVaultData';
+import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
 
 type Props = {
   settings: VaultSettingsSnapshot;
@@ -9,6 +10,8 @@ type Props = {
 };
 
 const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disabled }) => {
+  const eff = effectiveHlBotSettings(settings);
+
   return (
     <div
       className={`term-bot-settings ${disabled ? 'term-bot-settings--disabled' : ''}`}
@@ -18,28 +21,37 @@ const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disable
       <div className="term-bot-settings-values">
         <span>
           <span className="term-bot-settings-k">Risk</span>{' '}
-          <span className="term-bot-settings-v">{settings.riskPct}%</span>
+          <span className="term-bot-settings-v">{eff.riskPct}%</span>
         </span>
         <span className="term-bot-settings-dot" aria-hidden>
           ·
         </span>
         <span>
           <span className="term-bot-settings-k">LVRG</span>{' '}
-          <span className="term-bot-settings-v">{settings.leverage}x</span>
+          <span className="term-bot-settings-v">{eff.leverage}x</span>
         </span>
         <span className="term-bot-settings-dot" aria-hidden>
           ·
         </span>
         <span>
           <span className="term-bot-settings-k">TP</span>{' '}
-          <span className="term-bot-settings-v">+{settings.takeProfit}%</span>
+          <span className="term-bot-settings-v">+{eff.takeProfit}%</span>
         </span>
         <span className="term-bot-settings-dot" aria-hidden>
           ·
         </span>
         <span>
           <span className="term-bot-settings-k">SL</span>{' '}
-          <span className="term-bot-settings-v">−{settings.stopLoss}%</span>
+          <span className="term-bot-settings-v">−{eff.stopLoss}%</span>
+        </span>
+        <span className="term-bot-settings-dot" aria-hidden>
+          ·
+        </span>
+        <span title="Profit lock: trail activates at +$0.05, closes at +$0.02">
+          <span className="term-bot-settings-k">Lock</span>{' '}
+          <span className="term-bot-settings-v">
+            +${eff.profitLockActivateUsd.toFixed(2)}→${eff.profitLockFloorUsd.toFixed(2)}
+          </span>
         </span>
       </div>
       <button

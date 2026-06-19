@@ -33,7 +33,7 @@ const NixoleBotConsole: React.FC<Props> = ({
 
   const [riskPct, setRiskPct] = useState(5);
   const [takeProfit, setTakeProfit] = useState(5);
-  const [stopLoss, setStopLoss] = useState(1);
+  const [stopLoss, setStopLoss] = useState(3);
   const [leverage, setLeverage] = useState(1);
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
@@ -63,7 +63,7 @@ const NixoleBotConsole: React.FC<Props> = ({
         if (data) {
           setRiskPct((data.risk_level_bps ?? 500) / 100);
           setTakeProfit(Number(data.take_profit_percent ?? 5));
-          setStopLoss(Number(data.stop_loss_percent ?? 1));
+          setStopLoss(Number(data.stop_loss_percent ?? 3));
           setLeverage(Number(data.leverage_multiplier ?? 1));
         }
       });

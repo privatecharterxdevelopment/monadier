@@ -54,7 +54,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
   const [riskLevelPercent, setRiskLevelPercent] = useState(5);
   const [maxTradeSize, setMaxTradeSize] = useState<string>('0.00');
   const [takeProfit, setTakeProfit] = useState(5);
-  const [stopLoss, setStopLoss] = useState(1);
+  const [stopLoss, setStopLoss] = useState(3);
   const [askPermission, setAskPermission] = useState(false);
   const [leverage, setLeverage] = useState(1.0);
   const [minWinRate, setMinWinRate] = useState(0);
@@ -254,7 +254,7 @@ export default function VaultBalanceCard({ compact = false }: VaultBalanceCardPr
 
           if (vaultSettings) {
             setTakeProfit(vaultSettings.take_profit_percent || 5);
-            setStopLoss(vaultSettings.stop_loss_percent || 1);
+            setStopLoss(vaultSettings.stop_loss_percent || 3);
             setAskPermission(vaultSettings.ask_permission || false);
             setLeverage(vaultSettings.leverage_multiplier || 1.0);
             setMinWinRate(Number(vaultSettings.min_win_rate_percent) || 0);

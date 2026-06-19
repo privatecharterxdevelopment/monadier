@@ -159,7 +159,7 @@ const BotHistoryPage: React.FC<BotHistoryPageProps> = ({
     autoTradeEnabled: false,
     riskLevelPercent: 5,
     takeProfit: 5,
-    stopLoss: 1,
+    stopLoss: 3,
     leverage: 1.0
   });
 
@@ -270,7 +270,7 @@ const BotHistoryPage: React.FC<BotHistoryPageProps> = ({
             autoTradeEnabled: status.autoTradeEnabled,
             riskLevelPercent: status.riskLevelPercent,
             takeProfit: vaultSettings?.take_profit_percent || 5,
-            stopLoss: vaultSettings?.stop_loss_percent || 1,
+            stopLoss: vaultSettings?.stop_loss_percent || 3,
             leverage: vaultSettings?.leverage_multiplier || 1.0
           });
 

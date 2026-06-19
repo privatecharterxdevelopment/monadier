@@ -78,7 +78,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   const positions = account?.positions ?? [];
   const positionCoins = useMemo(() => positions.map((p) => p.coin), [positions]);
   const { prices: markPrices } = useHyperliquidMarkPrices(positionCoins);
-  const { closePosition, busy: closeBusy, error: closeError, walletReady } =
+  const { closePosition, busy: closeBusy, error: closeError } =
     useHyperliquidTrading();
   const [closeNotice, setCloseNotice] = useState<string | null>(null);
 
@@ -95,8 +95,8 @@ const ProTradeHlBotDock: React.FC<Props> = ({
 
   const handleClosePosition = useCallback(
     async (position: HlPosition) => {
-      if (!walletReady) {
-        setCloseNotice('Connect your wallet to close this position.');
+      if (!hlWallet) {
+        setCloseNotice('Connect wallet to close this position.');
         return;
       }
       const size = Math.abs(toNum(position.szi));
@@ -109,7 +109,14 @@ const ProTradeHlBotDock: React.FC<Props> = ({
       setCloseNotice('Closing position via HL agent…');
       try {
         const profitUsd = Math.max(0, toNum(position.unrealizedPnl));
-        await closePosition({ coin: position.coin, size, isLong, markPx, profitUsd });
+        await closePosition({
+          coin: position.coin,
+          size,
+          isLong,
+          markPx,
+          profitUsd,
+          walletAddress: hlWallet,
+        });
         setCloseNotice(`${position.coin} close submitted. Position should update in a few seconds.`);
         await refreshAccount();
         onPositionChange?.();
@@ -118,7 +125,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         setCloseNotice(msg);
       }
     },
-    [closePosition, markPrices, refreshAccount, onPositionChange, walletReady]
+    [closePosition, hlWallet, markPrices, refreshAccount, onPositionChange]
   );
 
   const showAnalyzer =

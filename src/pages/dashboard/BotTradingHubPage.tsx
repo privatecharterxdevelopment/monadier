@@ -33,7 +33,7 @@ const BotTradingHubPage: React.FC<BotTradingHubPageProps> = ({ defaultTab = 'ope
   const [botSettings, setBotSettings] = useState({
     riskLevelPercent: 5,
     takeProfit: 5,
-    stopLoss: 1,
+    stopLoss: 3,
     leverage: 1,
     autoTradeEnabled: false,
   });

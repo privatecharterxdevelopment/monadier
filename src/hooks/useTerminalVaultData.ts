@@ -45,7 +45,7 @@ export type TerminalVaultData = {
 const defaultSettings: VaultSettingsSnapshot = {
   riskPct: 5,
   takeProfit: 5,
-  stopLoss: 1,
+  stopLoss: 3,
   leverage: 1,
   askPermission: false,
   minWinRate: 0,
