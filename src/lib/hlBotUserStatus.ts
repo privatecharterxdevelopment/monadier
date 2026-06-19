@@ -146,7 +146,7 @@ export function getHlBotSidebarStatus(opts: {
   if (hasOpenPosition) {
     return {
       headline: `Running${timer}`,
-      detail: 'Managing your open Hyperliquid position.',
+      detail: '',
       tone: 'active',
       setupStep: 3,
       setupComplete: true,

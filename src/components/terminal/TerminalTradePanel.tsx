@@ -538,40 +538,12 @@ const TerminalTradePanel: React.FC<Props> = ({
                 >
                   {sidebarStatus.headline}
                 </strong>
-                <p className="hl-bot-status-detail">{sidebarStatus.detail}</p>
+                {sidebarStatus.detail ? (
+                  <p className="hl-bot-status-detail">{sidebarStatus.detail}</p>
+                ) : null}
                 {botSyncMismatch && (
                   <p className="term-hint term-hint--warn">
                     Bot state out of sync — press Start bot again to register with the server.
-                  </p>
-                )}
-                <p className="term-panel-card-hint">
-                  HL balance {fmt(hlFundingUsd)} · withdrawable {fmt(hlSetup.withdrawableUsd)}
-                  {hasOpenPosition && marginLockedUsd > 0.01 ? (
-                    <>
-                      {' '}
-                      · ~{fmt(marginLockedUsd)} margin locked
-                    </>
-                  ) : null}
-                </p>
-                {walletReady && hasOpenPosition && marginLockedUsd > 0.01 && (
-                  <p className="term-panel-card-hint term-hint--subtle">
-                    Withdrawable is lower while a position is open — Hyperliquid holds margin (~
-                    {fmt(marginLockedUsd)}), not a loss. uPnL is separate.
-                  </p>
-                )}
-                {walletReady && hasOpenPosition && (
-                  <p className="term-panel-card-hint term-hint--subtle">
-                    Live uPnL{' '}
-                    <strong
-                      className={
-                        metrics.unrealizedPnlUsd >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'
-                      }
-                    >
-                      {metrics.unrealizedPnlUsd >= 0 ? '+' : ''}
-                      {fmt(metrics.unrealizedPnlUsd)}
-                    </strong>
-                    · managing {metrics.openPositionsCount} open HL position
-                    {metrics.openPositionsCount === 1 ? '' : 's'}
                   </p>
                 )}
                 {walletReady && phase === 'ready' && builderConfig.enabled && !hasOpenPosition && (
