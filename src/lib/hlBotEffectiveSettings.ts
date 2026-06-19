@@ -4,8 +4,9 @@ import type { VaultSettingsSnapshot } from './vaultSettingsSnapshot';
 export const HL_BOT_EFFECTIVE = {
   minTakeProfitPercent: 5,
   minStopLossPercent: 3,
-  profitLockActivateUsd: 0.05,
-  profitLockFloorUsd: 0.02,
+  profitLockActivateUsd: 0.02,
+  profitLockFloorUsd: 0.01,
+  profitLockTrailBufferUsd: 0.015,
 } as const;
 
 export type HlBotEffectiveSettings = VaultSettingsSnapshot & {

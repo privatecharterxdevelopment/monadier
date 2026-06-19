@@ -411,6 +411,8 @@ const healthServer = http.createServer(async (req, res) => {
           sl: dbSettings.stopLossPercent,
           profitLockActivateUsd: config.hyperliquid.profitLockActivateUsd,
           profitLockFloorUsd: config.hyperliquid.profitLockFloorUsd,
+          profitLockTrailBufferUsd: config.hyperliquid.profitLockTrailBufferUsd,
+          minSignalConfidence: config.hyperliquid.minSignalConfidence,
         },
         globalScan: {
           coinsScanned: lastHlGlobalScanStats.coinsScanned,

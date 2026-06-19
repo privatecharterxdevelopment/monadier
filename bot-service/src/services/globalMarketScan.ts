@@ -13,7 +13,7 @@ export type GlobalSignalCandidate = {
   reason: string;
 };
 
-const DEFAULT_STRATEGY: TradingStrategy = 'aggressive';
+const DEFAULT_STRATEGY: TradingStrategy = 'normal';
 
 export type HlGlobalScanStats = {
   coinsScanned: number;
@@ -44,6 +44,8 @@ export async function scanGlobalHlSignals(): Promise<GlobalSignalCandidate[]> {
       if (!analysis || analysis.isWeak) return null;
       if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
       if (analysis.confidence < minConf) return null;
+      // Require multi-timeframe alignment (conditionsMet = trendAlignment / 20).
+      if ((analysis.metrics?.conditionsMet ?? 0) < 3) return null;
       return {
         coin,
         symbol,

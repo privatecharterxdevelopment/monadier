@@ -21,15 +21,21 @@ import { resolveHlOrderBuilder } from './hlBuilderFee';
 import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from './hlSuccessFees';
 import { recordHlBotOpenMarker } from './hlChartMarkers';
 import {
-  shouldActivateProfitLockUsd,
   shouldCloseProfitLockUsd,
   shouldTakeProfitOnPnl,
+  trailingProfitLockFloorUsd,
 } from './pnlExits';
 
 const transport = new HttpTransport();
 
 /** Per user+coin — SL trailed into profit after activate threshold. */
 const hlProfitLockActive = new Map<string, boolean>();
+
+/** Peak uPnL since open — used to trail profit lock floor upward. */
+const hlProfitPeakUsd = new Map<string, number>();
+
+/** Current profit-lock floor USD per position. */
+const hlProfitLockFloorUsd = new Map<string, number>();
 
 /** Last close timestamp per wallet — anti-churn cooldown before next open. */
 const hlLastCloseAt = new Map<string, number>();
@@ -43,6 +49,12 @@ export function getLastHlOpenError(wallet: string): { at: string; coin?: string;
 
 function positionKey(userAddress: string, coin: string): string {
   return `${userAddress.toLowerCase()}:${coin.toUpperCase()}`;
+}
+
+function clearProfitLockState(lockKey: string): void {
+  hlProfitLockActive.delete(lockKey);
+  hlProfitPeakUsd.delete(lockKey);
+  hlProfitLockFloorUsd.delete(lockKey);
 }
 
 function resolveMarginUsd(balance: number, riskLevelBps: number): number {
@@ -306,43 +318,62 @@ export class HyperliquidTradingService {
       const tp = settings.takeProfitPercent ?? config.hyperliquid.defaultTakeProfitPercent;
       const sl = settings.stopLossPercent ?? config.hyperliquid.defaultStopLossPercent;
       const lockActivateUsd = config.hyperliquid.profitLockActivateUsd;
-      const lockFloorUsd = config.hyperliquid.profitLockFloorUsd;
+      const minFloorUsd = config.hyperliquid.profitLockFloorUsd;
+      const trailBufferUsd = config.hyperliquid.profitLockTrailBufferUsd;
 
       const lockKey = positionKey(userAddress, pos.coin);
       let locked = hlProfitLockActive.get(lockKey) ?? false;
+      let peak = hlProfitPeakUsd.get(lockKey) ?? 0;
+      if (pnl > peak) {
+        peak = pnl;
+        hlProfitPeakUsd.set(lockKey, peak);
+      }
 
-      if (pnlPct <= -sl) {
-        hlProfitLockActive.delete(lockKey);
-        await this.closeMarketPosition(userAddress, pos.coin, 'stop_loss', {
-          entryPx: entry,
-          unrealizedPnlUsd: pnl,
-          size,
-          leverage: pos.leverage?.value ?? 10,
-        });
-      } else if (shouldTakeProfitOnPnl(pnlPct, tp)) {
-        hlProfitLockActive.delete(lockKey);
+      let floorUsd = hlProfitLockFloorUsd.get(lockKey) ?? minFloorUsd;
+
+      if (pnl >= lockActivateUsd) {
+        if (!locked) {
+          locked = true;
+          hlProfitLockActive.set(lockKey, true);
+          floorUsd = minFloorUsd;
+          hlProfitLockFloorUsd.set(lockKey, floorUsd);
+          logger.info('HL profit lock armed — SL moved into profit', {
+            user: userAddress.slice(0, 10),
+            coin: pos.coin,
+            pnlUsd: pnl.toFixed(4),
+            floorUsd: floorUsd.toFixed(4),
+          });
+        }
+        const trailed = trailingProfitLockFloorUsd(peak, minFloorUsd, trailBufferUsd);
+        if (trailed > floorUsd) {
+          floorUsd = trailed;
+          hlProfitLockFloorUsd.set(lockKey, floorUsd);
+        }
+      }
+
+      if (shouldTakeProfitOnPnl(pnlPct, tp)) {
+        clearProfitLockState(lockKey);
         await this.closeMarketPosition(userAddress, pos.coin, 'take_profit', {
           entryPx: entry,
           unrealizedPnlUsd: pnl,
           size,
           leverage: pos.leverage?.value ?? 10,
         });
-      } else if (shouldCloseProfitLockUsd(pnl, lockFloorUsd, locked)) {
-        hlProfitLockActive.delete(lockKey);
+      } else if (shouldCloseProfitLockUsd(pnl, floorUsd, locked)) {
+        clearProfitLockState(lockKey);
         await this.closeMarketPosition(userAddress, pos.coin, 'profit_lock', {
           entryPx: entry,
           unrealizedPnlUsd: pnl,
           size,
           leverage: pos.leverage?.value ?? 10,
         });
-      } else if (shouldActivateProfitLockUsd(pnl, lockActivateUsd, locked)) {
-        hlProfitLockActive.set(lockKey, true);
-        locked = true;
-        logger.info('HL profit lock active (USD)', {
-          user: userAddress.slice(0, 10),
-          coin: pos.coin,
-          pnlUsd: pnl.toFixed(4),
-          floorUsd: lockFloorUsd,
+      } else if (pnlPct <= -sl) {
+        clearProfitLockState(lockKey);
+        await this.closeMarketPosition(userAddress, pos.coin, 'stop_loss', {
+          entryPx: entry,
+          unrealizedPnlUsd: pnl,
+          size,
+          leverage: pos.leverage?.value ?? 10,
         });
       }
     }

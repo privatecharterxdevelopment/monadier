@@ -47,10 +47,10 @@ const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disable
         <span className="term-bot-settings-dot" aria-hidden>
           ·
         </span>
-        <span title="Profit lock: trail activates at +$0.05, closes at +$0.02">
+        <span title="Profit lock: +$0.02 arms trail, floor min +$0.01, follows peak">
           <span className="term-bot-settings-k">Lock</span>{' '}
           <span className="term-bot-settings-v">
-            +${eff.profitLockActivateUsd.toFixed(2)}→${eff.profitLockFloorUsd.toFixed(2)}
+            +${eff.profitLockActivateUsd.toFixed(2)}→${eff.profitLockFloorUsd.toFixed(2)}↑
           </span>
         </span>
       </div>

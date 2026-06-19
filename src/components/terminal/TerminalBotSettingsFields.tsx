@@ -281,8 +281,8 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
         </label>
       </div>
       <p className={hintClass}>
-        TP closes at +X% on margin. SL closes at −X% on margin (min 3% on HL).
-        Profit lock: at +$0.05 uPnL the bot trails — closes if profit falls to +$0.02.
+        TP closes at +X% on margin. SL at −X% on margin (min 3%).
+        In profit: at +$0.02 the bot trails SL — locks min +$0.01 and follows peak − $0.015.
       </p>
 
       {notice && (

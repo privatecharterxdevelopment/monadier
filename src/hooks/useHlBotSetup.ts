@@ -20,6 +20,8 @@ export function useHlBotSetup(walletAddress: string | undefined) {
   const [phase, setPhase] = useState<HlBotSetupPhase>('connect');
   const [accountUsd, setAccountUsd] = useState(0);
   const [withdrawableUsd, setWithdrawableUsd] = useState(0);
+  const [totalMarginUsedUsd, setTotalMarginUsedUsd] = useState(0);
+  const [openPositionsCount, setOpenPositionsCount] = useState(0);
   const [agentApproved, setAgentApproved] = useState(false);
   const [builderFeeApproved, setBuilderFeeApproved] = useState(true);
   const [builderFeeEnabled, setBuilderFeeEnabled] = useState(false);
@@ -61,9 +63,15 @@ export function useHlBotSetup(walletAddress: string | undefined) {
 
       const acctVal = Number(acct?.margin?.accountValue ?? 0);
       const withdraw = Number(acct?.withdrawable ?? 0);
+      const marginUsed = Number(acct?.margin?.totalMarginUsed ?? 0);
+      const openCount = (acct?.positions ?? []).filter(
+        (p) => Math.abs(Number.parseFloat(p.szi || '0')) > 1e-12
+      ).length;
       balance = Number.isFinite(acctVal) ? acctVal : 0;
       setAccountUsd(balance);
       setWithdrawableUsd(Number.isFinite(withdraw) ? withdraw : 0);
+      setTotalMarginUsedUsd(Number.isFinite(marginUsed) ? marginUsed : 0);
+      setOpenPositionsCount(openCount);
       setAgentApproved(agentCheck.approved);
       setAgentExpiresAt(agentCheck.expiresAt);
       setAgentAddress(agentMeta.agentAddress ?? null);
@@ -127,12 +135,20 @@ export function useHlBotSetup(walletAddress: string | undefined) {
     void refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    if (!walletAddress) return undefined;
+    const id = setInterval(() => void refresh(), 5000);
+    return () => clearInterval(id);
+  }, [walletAddress, refresh]);
+
   return {
     phase,
     loading,
     error,
     accountUsd,
     withdrawableUsd,
+    totalMarginUsedUsd,
+    openPositionsCount,
     agentApproved,
     builderFeeApproved,
     builderFeeEnabled,

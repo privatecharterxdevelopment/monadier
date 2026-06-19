@@ -136,8 +136,10 @@ const TerminalTradePanel: React.FC<Props> = ({
   const timerWallet = wallet ?? address ?? undefined;
   const botRuntime = useBotRuntimeTimer(timerWallet, Boolean(walletReady && botRunning));
   const serverBlockers = useBotServerBlockers(timerWallet, Boolean(botRunning));
-  const hasOpenPosition = metrics.openPositionsCount > 0;
-  const marginLockedUsd = Math.max(0, hlFundingUsd - hlSetup.withdrawableUsd);
+  const hasOpenPosition = metrics.openPositionsCount > 0 || hlSetup.openPositionsCount > 0;
+  const marginLockedUsd = hasOpenPosition
+    ? Math.max(0, hlSetup.totalMarginUsedUsd)
+    : 0;
 
   const phase: SetupPhase = useMemo(() => {
     if (!walletReady) return 'connect';
@@ -715,7 +717,7 @@ const TerminalTradePanel: React.FC<Props> = ({
                   <span>Withdrawable</span>
                   <strong>{hlSetup.loading ? '—' : fmt(hlSetup.withdrawableUsd)}</strong>
                 </div>
-                {marginLockedUsd > 0.01 && !hlSetup.loading ? (
+                {hasOpenPosition && marginLockedUsd > 0.01 && !hlSetup.loading ? (
                   <div className="term-field-row term-field-row--hint">
                     <span>Margin in open trade</span>
                     <strong>{fmt(marginLockedUsd)}</strong>

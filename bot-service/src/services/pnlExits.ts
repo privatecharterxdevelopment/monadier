@@ -41,3 +41,13 @@ export function shouldCloseProfitLockUsd(
   if (!alreadyLocked || floorUsd <= 0) return false;
   return pnlUsd <= floorUsd && pnlUsd > 0;
 }
+
+/** Trailing profit floor from peak uPnL. */
+export function trailingProfitLockFloorUsd(
+  peakUsd: number,
+  minFloorUsd: number,
+  trailBufferUsd: number
+): number {
+  if (peakUsd <= 0) return minFloorUsd;
+  return Math.max(minFloorUsd, peakUsd - trailBufferUsd);
+}
