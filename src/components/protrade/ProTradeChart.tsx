@@ -49,6 +49,12 @@ type Props = {
   orderCoin?: string;
   onIntervalChange: (interval: HlInterval) => void;
   layoutKey?: string;
+  /** Entry / liquidation lines for the active position on this coin */
+  positionOverlay?: {
+    entryPx: number;
+    liqPx?: number;
+    side: 'long' | 'short';
+  };
 };
 
 const ProTradeChartInner: React.FC<Props> = ({
@@ -60,6 +66,7 @@ const ProTradeChartInner: React.FC<Props> = ({
   orderCoin,
   onIntervalChange,
   layoutKey,
+  positionOverlay,
 }) => {
   const { theme } = useProTradeTheme();
   const [engine, setEngine] = useState<ChartEngine>('hl');
@@ -146,6 +153,7 @@ const ProTradeChartInner: React.FC<Props> = ({
               orderCoin={orderCoin}
               theme={theme}
               layoutKey={layoutKey}
+              positionOverlay={positionOverlay}
             />
           ) : mountedEngine === 'hltv' ? (
             <ProTradeChartingLibraryChart

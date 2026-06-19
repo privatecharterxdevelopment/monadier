@@ -50,6 +50,8 @@ type Props = {
   onCancelAllOrders?: () => void;
   onCancelTwap?: (coin: string, twapId: number) => void;
   onClosePosition?: (position: HlPosition) => void;
+  /** Bot terminal: positions + balances + trade history only */
+  mode?: 'full' | 'bot';
 };
 
 const ProTradeDock: React.FC<Props> = ({
@@ -72,14 +74,18 @@ const ProTradeDock: React.FC<Props> = ({
   onCancelAllOrders,
   onCancelTwap,
   onClosePosition,
+  mode = 'full',
 }) => {
   const isSpot = variant === 'spot';
-  const visibleTabs = isSpot
-    ? TABS.filter((t) => !['positions', 'fundingHistory'].includes(t.id))
-    : TABS;
+  const isBotMode = mode === 'bot';
+  const visibleTabs = isBotMode
+    ? TABS.filter((t) => ['positions', 'balances', 'tradeHistory'].includes(t.id))
+    : isSpot
+      ? TABS.filter((t) => !['positions', 'fundingHistory'].includes(t.id))
+      : TABS;
   const activeTwapCount = twapOrders.filter((t) => t.status === 'activated').length;
   const triggerOrders = openOrders.filter(isHlTriggerOrder);
-  const [internalTab, setInternalTab] = useState<TabId>('positions');
+  const [internalTab, setInternalTab] = useState<TabId>(isBotMode ? 'positions' : 'positions');
   const [search, setSearch] = useState('');
   const tab = activeTab ?? internalTab;
   const setTab = (next: TabId) => {

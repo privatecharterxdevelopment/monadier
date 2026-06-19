@@ -1,49 +1,28 @@
 import React from 'react';
-import TerminalPositionsDock, { type DockTab } from '../terminal/TerminalPositionsDock';
-
+import ProTradeHlBotDock, {
+  type HlBotDockTab,
+  normalizeHlBotDockTab,
+} from './ProTradeHlBotDock';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 
+export type { HlBotDockTab };
+export { normalizeHlBotDockTab };
+
 type Props = {
-  botRunning: boolean;
-  activeTab: DockTab;
-  onTabChange: (tab: DockTab) => void;
+  activeTab: HlBotDockTab | string;
+  onTabChange: (tab: HlBotDockTab) => void;
   refreshKey?: number;
   showBotAnalysis?: boolean;
   botAnalysisMetrics?: Dashboard2Metrics;
   botAnalysisWallet?: string | null;
   botAnalysisSymbol?: string;
   walletConnected?: boolean;
+  onPositionChange?: () => void;
+  onCoinClick?: (coin: string) => void;
+  walletAddress?: string | null;
 };
 
-const ProTradeBotDock: React.FC<Props> = ({
-  botRunning,
-  activeTab,
-  onTabChange,
-  refreshKey = 0,
-  showBotAnalysis,
-  botAnalysisMetrics,
-  botAnalysisWallet,
-  botAnalysisSymbol,
-  walletConnected,
-}) => (
-  <div className="hl-bot-dock">
-    <div className="hl-dock-mode-label">HL Bot · Hyperliquid · Trade history</div>
-    <TerminalPositionsDock
-      id="hl-bot-dock"
-      botRunning={botRunning}
-      activeTab={activeTab}
-      onTabChange={onTabChange}
-      layout="dock"
-      refreshKey={refreshKey}
-      includeClosedHistoryFeed
-      skin="hl"
-      showBotAnalysis={showBotAnalysis}
-      botAnalysisMetrics={botAnalysisMetrics}
-      botAnalysisWallet={botAnalysisWallet}
-      botAnalysisSymbol={botAnalysisSymbol}
-      walletConnected={walletConnected}
-    />
-  </div>
-);
+/** Hyperliquid bot dock — Pro Trade desk layout, no GMX/vault. */
+const ProTradeBotDock: React.FC<Props> = (props) => <ProTradeHlBotDock {...props} />;
 
 export default ProTradeBotDock;

@@ -26,6 +26,11 @@ type Props = {
   orderCoin?: string;
   theme: ProTradeTheme;
   layoutKey?: string;
+  positionOverlay?: {
+    entryPx: number;
+    liqPx?: number;
+    side: 'long' | 'short';
+  };
 };
 
 function safeChartOp(fn: () => void) {
@@ -45,6 +50,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
   orderCoin,
   theme,
   layoutKey,
+  positionOverlay,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -223,8 +229,31 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         });
         priceLinesRef.current.push(line);
       }
+
+      if (positionOverlay && positionOverlay.entryPx > 0) {
+        const entryLine = series.createPriceLine({
+          price: positionOverlay.entryPx,
+          color: positionOverlay.side === 'long' ? chartColors.up : chartColors.down,
+          lineWidth: 2,
+          lineStyle: LineStyle.Solid,
+          axisLabelVisible: true,
+          title: `Entry ${fmtPrice(positionOverlay.entryPx, 0)}`,
+        });
+        priceLinesRef.current.push(entryLine);
+      }
+      if (positionOverlay?.liqPx && positionOverlay.liqPx > 0) {
+        const liqLine = series.createPriceLine({
+          price: positionOverlay.liqPx,
+          color: '#ff9800',
+          lineWidth: 1,
+          lineStyle: LineStyle.Dotted,
+          axisLabelVisible: true,
+          title: `Liq ${fmtPrice(positionOverlay.liqPx, 0)}`,
+        });
+        priceLinesRef.current.push(liqLine);
+      }
     });
-  }, [openOrders, overlayCoin, chartColors.down, chartColors.up]);
+  }, [openOrders, overlayCoin, chartColors.down, chartColors.up, positionOverlay]);
 
   return (
     <>

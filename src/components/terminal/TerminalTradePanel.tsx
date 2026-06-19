@@ -137,6 +137,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   const botRuntime = useBotRuntimeTimer(timerWallet, Boolean(walletReady && botRunning));
   const serverBlockers = useBotServerBlockers(timerWallet, Boolean(botRunning));
   const hasOpenPosition = metrics.openPositionsCount > 0;
+  const marginLockedUsd = Math.max(0, hlFundingUsd - hlSetup.withdrawableUsd);
 
   const phase: SetupPhase = useMemo(() => {
     if (!walletReady) return 'connect';
@@ -545,7 +546,19 @@ const TerminalTradePanel: React.FC<Props> = ({
                 )}
                 <p className="term-panel-card-hint">
                   HL balance {fmt(hlFundingUsd)} · withdrawable {fmt(hlSetup.withdrawableUsd)}
+                  {hasOpenPosition && marginLockedUsd > 0.01 ? (
+                    <>
+                      {' '}
+                      · ~{fmt(marginLockedUsd)} margin locked
+                    </>
+                  ) : null}
                 </p>
+                {walletReady && hasOpenPosition && marginLockedUsd > 0.01 && (
+                  <p className="term-panel-card-hint term-hint--subtle">
+                    Withdrawable is lower while a position is open — Hyperliquid holds margin (~
+                    {fmt(marginLockedUsd)}), not a loss. uPnL is separate.
+                  </p>
+                )}
                 {walletReady && hasOpenPosition && (
                   <p className="term-panel-card-hint term-hint--subtle">
                     Live uPnL{' '}
@@ -720,10 +733,27 @@ const TerminalTradePanel: React.FC<Props> = ({
         {panelTab === 'funds' && (
           <div className="term-panel-stack">
             <div className="term-panel-card term-panel-card--muted">
-              <span className="term-panel-card-label">Hyperliquid balance</span>
-              <strong className="term-panel-card-value">{fmt(hlFundingUsd)}</strong>
+              <span className="term-panel-card-label">Hyperliquid account</span>
+              <div className="term-funds-breakdown">
+                <div className="term-field-row">
+                  <span>Total balance</span>
+                  <strong>{hlSetup.loading ? '—' : fmt(hlFundingUsd)}</strong>
+                </div>
+                <div className="term-field-row">
+                  <span>Withdrawable</span>
+                  <strong>{hlSetup.loading ? '—' : fmt(hlSetup.withdrawableUsd)}</strong>
+                </div>
+                {marginLockedUsd > 0.01 && !hlSetup.loading ? (
+                  <div className="term-field-row term-field-row--hint">
+                    <span>Margin in open trade</span>
+                    <strong>{fmt(marginLockedUsd)}</strong>
+                  </div>
+                ) : null}
+              </div>
               <span className="term-panel-card-hint">
-                Withdrawable {fmt(hlSetup.withdrawableUsd)} · bot needs ${MIN_HL_BOT_USD}+
+                Withdrawable is lower while a position is open — Hyperliquid holds margin as
+                collateral (not a loss). uPnL is shown separately. Bot needs ${MIN_HL_BOT_USD}+ on
+                HL.
               </span>
             </div>
 
@@ -762,6 +792,32 @@ const TerminalTradePanel: React.FC<Props> = ({
         <div className="term-field-row">
           <span>HL balance</span>
           <strong>{hlSetup.loading ? '—' : fmt(hlFundingUsd)}</strong>
+        </div>
+        <div className="term-field-row">
+          <span>Withdrawable</span>
+          <strong>{hlSetup.loading ? '—' : fmt(hlSetup.withdrawableUsd)}</strong>
+        </div>
+        {hasOpenPosition && marginLockedUsd > 0.01 && !hlSetup.loading ? (
+          <div className="term-field-row term-field-row--hint">
+            <span>Margin locked</span>
+            <strong>{fmt(marginLockedUsd)}</strong>
+          </div>
+        ) : null}
+        <div className="term-field-row">
+          <span>uPnL</span>
+          <strong
+            className={
+              metrics.isLoading
+                ? ''
+                : metrics.unrealizedPnlUsd >= 0
+                  ? 'term-pnl-pos'
+                  : 'term-pnl-neg'
+            }
+          >
+            {metrics.isLoading
+              ? '—'
+              : `${metrics.unrealizedPnlUsd >= 0 ? '+' : ''}${fmt(metrics.unrealizedPnlUsd)}`}
+          </strong>
         </div>
         <div className="term-field-row">
           <span>Total P/L</span>

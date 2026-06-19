@@ -12,7 +12,7 @@ import {
   ProTradeBotProvider,
   ProTradeBotStatusBar,
 } from '../../components/protrade/ProTradeBotSide';
-import type { DockTab } from '../../components/terminal/TerminalPositionsDock';
+import type { HlBotDockTab } from '../../components/protrade/ProTradeHlBotDock';
 import ProTradeTickerStrip from '../../components/protrade/ProTradeTickerStrip';
 import ProTradeMarketBar from '../../components/protrade/ProTradeMarketBar';
 import ProTradeChart from '../../components/protrade/ProTradeChart';
@@ -77,7 +77,7 @@ const Dashboard2ProPage: React.FC = () => {
   const [transferOpen, setTransferOpen] = useState(false);
   const [perpDockTab, setPerpDockTab] = useState<ProTradeDockTab>('positions');
   const [spotDockTab, setSpotDockTab] = useState<ProTradeDockTab>('balances');
-  const [botDockTab, setBotDockTab] = useState<DockTab>('history');
+  const [botDockTab, setBotDockTab] = useState<HlBotDockTab>('positions');
   const [toast, setToast] = useState<string | null>(null);
   const [showSupport, setShowSupport] = useState(false);
   const [authModal, setAuthModal] = useState<'signin' | 'register' | null>(null);
@@ -194,6 +194,27 @@ const Dashboard2ProPage: React.FC = () => {
     [account?.positions]
   );
 
+  const botOpenPosition = useMemo(() => {
+    const list = account?.positions ?? [];
+    return list.find((p) => Math.abs(toNum(p.szi)) > 0) ?? null;
+  }, [account?.positions]);
+
+  const botChartOverlay = useMemo(() => {
+    if (!botOpenPosition || botOpenPosition.coin !== perpCoin) return undefined;
+    const entryPx = toNum(botOpenPosition.entryPx);
+    if (entryPx <= 0) return undefined;
+    return {
+      entryPx,
+      liqPx: toNum(botOpenPosition.liquidationPx) || undefined,
+      side: (toNum(botOpenPosition.szi) >= 0 ? 'long' : 'short') as 'long' | 'short',
+    };
+  }, [botOpenPosition, perpCoin]);
+
+  useEffect(() => {
+    if (section !== 'bot' || !botOpenPosition?.coin) return;
+    if (botOpenPosition.coin !== perpCoin) setPerpCoin(botOpenPosition.coin);
+  }, [section, botOpenPosition?.coin, perpCoin]);
+
   const perpMarkPrices = useMemo(() => {
     const map = { ...positionMarkPrices };
     if (perpMarkPx > 0) map[perpCoin] = perpMarkPx;
@@ -284,7 +305,7 @@ const Dashboard2ProPage: React.FC = () => {
     if (section === 'bot') {
       handleSectionChange('perps');
     } else {
-      setBotDockTab('open');
+      setBotDockTab('positions');
       handleSectionChange('bot');
     }
   };
@@ -508,6 +529,7 @@ const Dashboard2ProPage: React.FC = () => {
               openOrders={perpOpenOrders}
               onIntervalChange={setInterval}
               layoutKey={`bot-${perpCoin}-${interval}`}
+              positionOverlay={botChartOverlay}
             />
             <ProTradeOrderBook
               book={perpMarket.book}
@@ -520,12 +542,13 @@ const Dashboard2ProPage: React.FC = () => {
           <ProTradeBotDockSlot
             dockTab={botDockTab}
             onDockTabChange={setBotDockTab}
-            analysisSymbol={hlCoinToBotSymbol(perpCoin)}
+            analysisSymbol={hlCoinToBotSymbol(botOpenPosition?.coin ?? perpCoin)}
+            onCoinClick={setPerpCoin}
           />
         </div>
 
         <ProTradeBotPanelSlot
-          onOpenHistory={() => setBotDockTab('history')}
+          onOpenHistory={() => setBotDockTab('tradeHistory')}
           onRequireSignIn={promptSignIn}
         />
       </div>
@@ -679,8 +702,9 @@ const Dashboard2ProPage: React.FC = () => {
       ) : null}
       {section === 'history' ? (
         <ProTradeBotHistory
-          highlightPositionId={historyHighlightId}
           refreshKey={botSyncTick}
+          walletAddress={address ?? undefined}
+          walletConnected={isConnected}
         />
       ) : null}
       {section === 'spot' ? renderSpotTerminal() : null}

@@ -3,7 +3,7 @@ import { useAccount } from 'wagmi';
 import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
-import type { DockTab } from '../terminal/TerminalPositionsDock';
+import type { HlBotDockTab } from '../protrade/ProTradeHlBotDock';
 import TerminalTradePanel from '../terminal/TerminalTradePanel';
 import ProTradeBotDock from './ProTradeBotDock';
 import ProTradeStatusBar from './ProTradeStatusBar';
@@ -41,22 +41,23 @@ export const ProTradeBotProvider: React.FC<{ children: React.ReactNode }> = ({ c
 };
 
 type DockProps = {
-  dockTab: DockTab;
-  onDockTabChange: (tab: DockTab) => void;
+  dockTab: HlBotDockTab | string;
+  onDockTabChange: (tab: HlBotDockTab) => void;
   analysisSymbol?: string;
+  onCoinClick?: (coin: string) => void;
 };
 
 export const ProTradeBotDockSlot: React.FC<DockProps> = ({
   dockTab,
   onDockTabChange,
   analysisSymbol = 'BTCUSDT',
+  onCoinClick,
 }) => {
-  const { metrics, dockRefreshKey } = useProTradeBot();
+  const { metrics, dockRefreshKey, refresh } = useProTradeBot();
   const { address, isConnected } = useAccount();
 
   return (
     <ProTradeBotDock
-      botRunning={metrics.autoTradeEnabled}
       activeTab={dockTab}
       onTabChange={onDockTabChange}
       refreshKey={dockRefreshKey}
@@ -65,6 +66,9 @@ export const ProTradeBotDockSlot: React.FC<DockProps> = ({
       botAnalysisWallet={address ?? null}
       botAnalysisSymbol={analysisSymbol}
       walletConnected={isConnected}
+      onPositionChange={refresh}
+      onCoinClick={onCoinClick}
+      walletAddress={address ?? null}
     />
   );
 };

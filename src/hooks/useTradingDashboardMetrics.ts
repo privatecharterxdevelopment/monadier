@@ -237,12 +237,14 @@ export function useTradingDashboardMetrics() {
       setMetrics({
         vaultBalanceUsd,
         withdrawableUsd,
-        openPositionValueUsd: hlOpenCount > 0 ? hlOpenNotional : openValue,
-        openPositionsCount: hlOpenCount > 0 ? hlOpenCount : stats.openPositions,
-        avgLeverage: avgLev,
-        totalPnl: stats.totalProfit,
+        openPositionValueUsd: hlLoaded ? hlOpenNotional : 0,
+        openPositionsCount: hlLoaded ? hlOpenCount : 0,
+        avgLeverage: hlOpenCount > 0 ? avgLev : 1,
+        totalPnl: hlLoaded
+          ? stats.realizedProfit + hlUnrealizedPnl
+          : stats.totalProfit,
         realizedPnl: stats.realizedProfit,
-        unrealizedPnl: hlOpenCount > 0 ? hlUnrealizedPnl : stats.unrealizedProfit,
+        unrealizedPnl: hlLoaded ? hlUnrealizedPnl : stats.unrealizedProfit,
         pnl24h: pnlInWindow(all, 24),
         pnl7d: pnlInWindow(all, 24 * 7),
         pnl30d: pnlInWindow(all, 24 * 30),

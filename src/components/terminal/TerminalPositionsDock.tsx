@@ -43,6 +43,10 @@ import { syncVaultChainHistoryForWallets } from '../../lib/syncVaultChainHistory
 import TerminalBotAnalysisStrip from './TerminalBotAnalysisStrip';
 import TerminalHlOpenPositions from './TerminalHlOpenPositions';
 import { useHlOpenPositions } from '../../hooks/useHlOpenPositions';
+import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
+import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
+import { toNum } from '../../lib/hyperliquid/parse';
+import type { HlPosition } from '../../lib/hyperliquid/user';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 
 export type DockTab = 'vault' | 'open' | 'history' | 'all';
@@ -90,6 +94,8 @@ type Props = {
   botAnalysisWallet?: string | null;
   botAnalysisSymbol?: string;
   walletConnected?: boolean;
+  /** Refresh dashboard metrics after HL manual close */
+  onPositionChange?: () => void;
 };
 
 function fmtUsd(n: number) {
@@ -160,6 +166,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
   botAnalysisWallet,
   botAnalysisSymbol = 'ETHUSDT',
   walletConnected = false,
+  onPositionChange,
 }) => {
   const { address } = useAccount();
   const { publicClient, walletClient } = useWeb3();
@@ -184,6 +191,9 @@ const TerminalPositionsDock: React.FC<Props> = ({
     token: string;
     wallet?: string;
   } | null>(null);
+  const [hlCloseConfirm, setHlCloseConfirm] = useState<HlPosition | null>(null);
+  const [hlClosingCoin, setHlClosingCoin] = useState<string | null>(null);
+  const { closePosition: closeHlPosition, busy: hlCloseBusy } = useHyperliquidTrading();
   const scrolledHighlightRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -231,7 +241,13 @@ const TerminalPositionsDock: React.FC<Props> = ({
     positions: hlOpenPositions,
     livePnlUsd: hlLivePnlUsd,
     loading: hlPositionsLoading,
+    refresh: refreshHlPositions,
   } = useHlOpenPositions(hlWallet);
+  const hlPositionCoins = useMemo(
+    () => hlOpenPositions.map((p) => p.coin),
+    [hlOpenPositions]
+  );
+  const { prices: hlMarkPrices } = useHyperliquidMarkPrices(hlPositionCoins);
 
   const mergedRows = useMemo(
     () => mergeChainAndDbRows(allRows, chainRows),
@@ -433,6 +449,33 @@ const TerminalPositionsDock: React.FC<Props> = ({
     }
   };
 
+  const handleHlClose = async (position: HlPosition) => {
+    const size = Math.abs(toNum(position.szi));
+    const isLong = toNum(position.szi) >= 0;
+    const markPx = hlMarkPrices[position.coin] ?? toNum(position.entryPx);
+    if (size <= 0 || markPx <= 0) {
+      setCloseNotice('Could not read position size or mark price — try again.');
+      return;
+    }
+    setHlCloseConfirm(null);
+    setHlClosingCoin(position.coin);
+    setCloseNotice(null);
+    try {
+      const profitUsd = Math.max(0, toNum(position.unrealizedPnl));
+      await closeHlPosition({ coin: position.coin, size, isLong, markPx, profitUsd });
+      setCloseNotice(`${position.coin} close submitted — bot keeps running and can scan for new trades.`);
+      await refreshHlPositions();
+      await load(true);
+      onPositionChange?.();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Close failed';
+      setCloseNotice(msg);
+      console.error('[TerminalPositionsDock] hl close', err);
+    } finally {
+      setHlClosingCoin(null);
+    }
+  };
+
   const handleRetry = async (positionId: string) => {
     const row = mergedRows.find((p) => p.id === positionId);
     const wallet = row?.wallet_address ?? vaultWallet;
@@ -473,7 +516,12 @@ const TerminalPositionsDock: React.FC<Props> = ({
   const positionsLoading =
     loading || chainLoading || awaitingWallets || (queryWallets.length > 0 && !chainResolved);
   const showOpenTradingTable = isHlSkin && tab === 'open';
-  const showHlOpenBlock = tab === 'open' && hlOpenPositions.length > 0;
+  const showHlOpenSection = tab === 'open' && Boolean(hlWallet);
+  const showHlOpenBlock =
+    showHlOpenSection &&
+    (hlOpenPositions.length > 0 || hlPositionsLoading);
+  const openTabHlOnly =
+    tab === 'open' && (hlOpenPositions.length > 0 || hlPositionsLoading);
   const showDockAnalyzer =
     tab === 'open' &&
     showBotAnalysis &&
@@ -573,6 +621,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
                 <th>Source</th>
                 <th>Balance</th>
                 <th>Withdrawable</th>
+                <th>Margin locked</th>
                 <th>Bot uses</th>
               </tr>
             </thead>
@@ -581,6 +630,9 @@ const TerminalPositionsDock: React.FC<Props> = ({
                 <td>Hyperliquid</td>
                 <td>{fmtUsd(hlSetup.accountUsd)}</td>
                 <td>{fmtUsd(hlSetup.withdrawableUsd)}</td>
+                <td>
+                  {fmtUsd(Math.max(0, hlSetup.accountUsd - hlSetup.withdrawableUsd))}
+                </td>
                 <td>{fmtUsd(vaultData.maxTradeUsd)}</td>
               </tr>
             </tbody>
@@ -626,11 +678,13 @@ const TerminalPositionsDock: React.FC<Props> = ({
         {showHlOpenBlock ? (
           <TerminalHlOpenPositions
             positions={hlOpenPositions}
-            livePnlUsd={hlLivePnlUsd}
             loading={hlPositionsLoading}
+            closingCoin={hlClosingCoin}
+            closeBusy={hlCloseBusy}
+            onClose={(p) => setHlCloseConfirm(p)}
           />
         ) : null}
-        {tab === 'vault' ? (
+        {openTabHlOnly ? null : tab === 'vault' ? (
           vaultPanel
         ) : needsSignIn ? (
           <div className={emptyClass}>
@@ -729,7 +783,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
                 : `No ${tab === 'history' ? 'closed trades' : 'trades'} yet for your linked wallets`
               : 'Link a wallet in Profile → Wallets to see your trade history'}
           </div>
-        ) : showOpenTradingTable ? (
+        ) : showOpenTradingTable && hlOpenPositions.length === 0 ? (
           <table className={`${tableClass} hl-table--positions`}>
             <thead>
               <tr>
@@ -1114,6 +1168,38 @@ const TerminalPositionsDock: React.FC<Props> = ({
             </p>
           </TerminalModalFrame>
         )}
+        {hlCloseConfirm && (
+          <TerminalModalFrame
+            title="Close Hyperliquid position?"
+            subtitle={`${hlCloseConfirm.coin} — market close`}
+            icon={<X size={18} />}
+            onClose={() => setHlCloseConfirm(null)}
+            footer={
+              <>
+                <button
+                  type="button"
+                  className="term-modal-secondary"
+                  onClick={() => setHlCloseConfirm(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="term-modal-primary"
+                  disabled={hlCloseBusy}
+                  onClick={() => void handleHlClose(hlCloseConfirm)}
+                >
+                  Close now
+                </button>
+              </>
+            }
+          >
+            <p className="term-modal-hint">
+              Market-closes your {hlCloseConfirm.coin} position on Hyperliquid. The bot stays on and
+              can open a new trade on the next scan — you do not need to press Stop bot.
+            </p>
+          </TerminalModalFrame>
+        )}
       </section>
     );
   }
@@ -1153,6 +1239,38 @@ const TerminalPositionsDock: React.FC<Props> = ({
           <p className="term-modal-hint">
             The bot will close your position on the next cycle. USDC returns to your
             vault balance after settlement.
+          </p>
+        </TerminalModalFrame>
+      )}
+      {hlCloseConfirm && (
+        <TerminalModalFrame
+          title="Close Hyperliquid position?"
+          subtitle={`${hlCloseConfirm.coin} — market close`}
+          icon={<X size={18} />}
+          onClose={() => setHlCloseConfirm(null)}
+          footer={
+            <>
+              <button
+                type="button"
+                className="term-modal-secondary"
+                onClick={() => setHlCloseConfirm(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="term-modal-primary"
+                disabled={hlCloseBusy}
+                onClick={() => void handleHlClose(hlCloseConfirm)}
+              >
+                Close now
+              </button>
+            </>
+          }
+        >
+          <p className="term-modal-hint">
+            Closes your {hlCloseConfirm.coin} position at market on Hyperliquid. The bot stays on
+            and can open a new trade on the next scan — you do not need to press Stop bot.
           </p>
         </TerminalModalFrame>
       )}

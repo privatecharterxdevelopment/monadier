@@ -1,38 +1,34 @@
 import React, { useState } from 'react';
-import TerminalPositionsDock, { type DockTab } from '../terminal/TerminalPositionsDock';
+import ProTradeHlBotDock, { type HlBotDockTab } from './ProTradeHlBotDock';
 
 type Props = {
-  highlightPositionId?: string | null;
   refreshKey?: number;
-  botRunning?: boolean;
+  walletAddress?: string | null;
+  walletConnected?: boolean;
 };
 
 const ProTradeBotHistory: React.FC<Props> = ({
-  highlightPositionId = null,
   refreshKey = 0,
-  botRunning = false,
+  walletAddress,
+  walletConnected = false,
 }) => {
-  const [tab, setTab] = useState<DockTab>('history');
+  const [tab, setTab] = useState<HlBotDockTab>('tradeHistory');
 
   return (
     <div className="hl-history-page">
       <header className="hl-history-head">
         <h1 className="hl-history-title">Bot trade history</h1>
         <p className="hl-history-sub">
-          Hyperliquid bot trades — wallets linked in Profile → Wallets.
+          Hyperliquid perps — fills and closed P/L from your HL account.
         </p>
       </header>
       <div className="hl-history-body hl-bot-dock">
-        <TerminalPositionsDock
-          id="hl-bot-history-page"
-          layout="page"
-          botRunning={botRunning}
+        <ProTradeHlBotDock
           activeTab={tab}
           onTabChange={setTab}
           refreshKey={refreshKey}
-          includeClosedHistoryFeed
-          highlightPositionId={highlightPositionId}
-          skin="hl"
+          walletAddress={walletAddress}
+          walletConnected={walletConnected}
         />
       </div>
     </div>

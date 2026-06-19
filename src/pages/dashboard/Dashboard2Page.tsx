@@ -10,9 +10,7 @@ import { usePositionReconciliation } from '../../hooks/usePositionReconciliation
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { recordLoginActivity } from '../../lib/loginActivity';
 import TerminalTradePanel from '../../components/terminal/TerminalTradePanel';
-import TerminalPositionsDock, {
-  type DockTab,
-} from '../../components/terminal/TerminalPositionsDock';
+import ProTradeHlBotDock, { type HlBotDockTab } from '../../components/protrade/ProTradeHlBotDock';
 import TradingBotPage from './TradingBotPage';
 import Dashboard2Shell from '../../components/dashboard2/Dashboard2Shell';
 import type { Dashboard2SidebarSection } from '../../components/dashboard2/Dashboard2Sidebar';
@@ -26,6 +24,7 @@ import type { BotSetupPhase } from '../../components/terminal/TerminalBotSetting
 import { displayHandle } from '../../lib/username';
 import { useProfileOnboarding } from '../../hooks/useProfileOnboarding';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
+import { hlCoinToBotSymbol } from '../../lib/botTradingPairs';
 import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
 
 const MIN_BOT_CAPITAL_USD = MIN_HL_BOT_USD;
@@ -58,8 +57,7 @@ const Dashboard2Page: React.FC = () => {
   const [showSupport, setShowSupport] = useState(false);
   const [sidebarSection, setSidebarSection] = useState<Dashboard2SidebarSection>('trade');
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('trade');
-  const [dockTab, setDockTab] = useState<DockTab>('open');
-  const [highlightPositionId, setHighlightPositionId] = useState<string | null>(null);
+  const [dockTab, setDockTab] = useState<HlBotDockTab>('positions');
   const [chartSymbol, setChartSymbol] = useState('ETHUSDT');
 
   const botSettings = useTerminalBotSettings(historyTick);
@@ -100,15 +98,11 @@ const Dashboard2Page: React.FC = () => {
     setWorkspaceView('trade');
   };
 
-  const openHistory = (opts?: { tab?: DockTab; highlightId?: string }) => {
+  const openHistory = (opts?: { tab?: HlBotDockTab; highlightId?: string }) => {
     setSidebarSection('history');
     setWorkspaceView('history');
-    setDockTab(opts?.tab ?? 'all');
-    setHighlightPositionId(opts?.highlightId ?? null);
+    setDockTab(opts?.tab ?? 'tradeHistory');
     handleRefresh();
-    if (opts?.highlightId) {
-      window.setTimeout(() => setHighlightPositionId(null), 4500);
-    }
   };
 
   const requireWallet = (next: () => void) => {
@@ -192,7 +186,7 @@ const Dashboard2Page: React.FC = () => {
       onTrade={openTrade}
       onProTrade={() => navigate(OPEN_APP_PATH)}
       onHistory={() => openHistory()}
-      onNotifications={() => openHistory({ tab: 'history' })}
+      onNotifications={() => openHistory({ tab: 'tradeHistory' })}
       onDeposit={openDeposit}
       onWithdraw={openWithdraw}
       onSupport={() => {
@@ -213,7 +207,7 @@ const Dashboard2Page: React.FC = () => {
             <div className="term-market-actions">
               <TermNotificationsBell
                 onViewHistory={(tradeId) =>
-                  openHistory({ tab: 'history', highlightId: tradeId })
+                  openHistory({ tab: 'tradeHistory' })
                 }
               />
               <button type="button" className="term-btn-sm" onClick={openDeposit}>
@@ -346,14 +340,16 @@ const Dashboard2Page: React.FC = () => {
           className={`term-workspace ${workspaceView === 'history' ? 'term-workspace--history' : ''}`}
         >
           {workspaceView === 'history' ? (
-            <TerminalPositionsDock
-              id="term-history-page"
-              layout="page"
-              refreshKey={historyTick}
-              botRunning={metrics.autoTradeEnabled}
+            <ProTradeHlBotDock
               activeTab={dockTab}
               onTabChange={setDockTab}
-              highlightPositionId={highlightPositionId}
+              refreshKey={historyTick}
+              walletAddress={address ?? botSettings.wallet ?? null}
+              walletConnected={walletReady}
+              showBotAnalysis={false}
+              botAnalysisMetrics={metrics}
+              botAnalysisSymbol={chartSymbol}
+              botAnalysisWallet={address ?? botSettings.wallet ?? null}
             />
           ) : (
             <>
@@ -369,17 +365,18 @@ const Dashboard2Page: React.FC = () => {
                     />
                   </div>
                 </div>
-                <TerminalPositionsDock
-                  id="term-history-dock"
-                  refreshKey={historyTick}
-                  botRunning={metrics.autoTradeEnabled}
+                <ProTradeHlBotDock
                   activeTab={dockTab}
                   onTabChange={setDockTab}
+                  refreshKey={historyTick}
+                  walletAddress={address ?? botSettings.wallet ?? null}
+                  walletConnected={walletReady}
                   showBotAnalysis
                   botAnalysisMetrics={metrics}
-                  botAnalysisWallet={address ?? botSettings.wallet ?? null}
                   botAnalysisSymbol={chartSymbol}
-                  walletConnected={walletReady}
+                  botAnalysisWallet={address ?? botSettings.wallet ?? null}
+                  onPositionChange={handleRefresh}
+                  onCoinClick={(coin) => setChartSymbol(hlCoinToBotSymbol(coin))}
                 />
               </div>
 
