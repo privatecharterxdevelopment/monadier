@@ -90,9 +90,9 @@ export const config = {
     scanConcurrency: Number(process.env.HL_SCAN_CONCURRENCY || 8),
     minSignalConfidence: Number(process.env.HL_MIN_SIGNAL_CONFIDENCE || 25),
     /** Close HL perps at this % gain on margin (user DB setting overrides). */
-    defaultTakeProfitPercent: Number(process.env.HL_DEFAULT_TP_PERCENT || 0.2),
+    defaultTakeProfitPercent: Number(process.env.HL_DEFAULT_TP_PERCENT || 5),
     /** Trail SL into profit — lock floor once margin PnL reaches activate threshold. */
-    defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 0.1),
+    defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 1),
     /** Minimum margin USD per HL open (small accounts use up to 10% of balance). */
     minMarginUsd: Number(process.env.HL_MIN_MARGIN_USD || 5),
     /** Success fee on profitable bot closes — 1000 = 10% of realized profit. */

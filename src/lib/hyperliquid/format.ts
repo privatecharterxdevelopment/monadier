@@ -18,6 +18,29 @@ export function fmtUsdSymbol(value: unknown, digits = 2): string {
   return `$${fmtUsd(value, digits)}`;
 }
 
+/** P/L display — extra decimals for tiny HL closes so $0.07 does not show as $0.00 */
+export function fmtClosedPnl(value: unknown): string {
+  const n = toNum(value);
+  if (!Number.isFinite(n) || n === 0) return '—';
+  const digits = Math.abs(n) < 0.01 ? 4 : 2;
+  const sign = n > 0 ? '+' : '';
+  return `${sign}${fmtUsdSymbol(n, digits)}`;
+}
+
+export function fmtFillAction(dir?: string): string {
+  const d = (dir ?? '').trim();
+  if (!d) return '—';
+  if (/^open/i.test(d)) return 'Open';
+  if (/^close/i.test(d)) return 'Close';
+  if (/long\s*>\s*short|short\s*>\s*long/i.test(d)) return 'Close';
+  return d.split(/\s/)[0] ?? '—';
+}
+
+export function isHlFillOpen(dir?: string): boolean {
+  const action = fmtFillAction(dir);
+  return action === 'Open';
+}
+
 export function fmtPct(value: unknown, digits = 2): string {
   const n = toNum(value);
   const sign = n >= 0 ? '+' : '';

@@ -50,7 +50,7 @@ export function resolveVaultSettingsSnapshot(
     riskPct: (row.risk_level_bps ?? 500) / 100,
     takeProfit: Number(row.take_profit_percent ?? 5),
     stopLoss: Number(row.stop_loss_percent ?? 1),
-    leverage: Number(row.leverage_multiplier ?? 1),
+    leverage: Number(row.leverage_multiplier ?? 5),
     askPermission: Boolean(row.ask_permission),
     minWinRate: Number(row.min_win_rate_percent ?? 0),
     minTradesForWinRate: Number(row.min_trades_for_win_rate_gate ?? 5),
@@ -63,7 +63,7 @@ export function snapshotFromVaultSettingsRow(row: VaultSettingsRow): VaultSettin
     riskLevelPercent: 5,
     takeProfitPercent: 5,
     stopLossPercent: 1,
-    maxLeverage: 1,
+    maxLeverage: 5,
     autoTradeEnabled: false,
   });
 }

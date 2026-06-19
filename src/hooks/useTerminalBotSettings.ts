@@ -16,7 +16,7 @@ const defaultSettings: VaultSettingsSnapshot = {
   riskPct: 5,
   takeProfit: 5,
   stopLoss: 1,
-  leverage: 1,
+  leverage: 5,
   askPermission: false,
   minWinRate: 0,
   minTradesForWinRate: 5,

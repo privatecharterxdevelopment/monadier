@@ -3,6 +3,20 @@ import { randomUUID } from 'crypto';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 
+/** Legacy env defaults used 0.2% TP — treat sub-1% as misconfiguration unless user set SL-style values. */
+function normalizeHlTakeProfitPercent(raw: number | null | undefined): number {
+  const fallback = config.hyperliquid.defaultTakeProfitPercent;
+  if (raw == null || !Number.isFinite(Number(raw))) return fallback;
+  const v = Number(raw);
+  if (v > 0 && v < 1) return fallback;
+  return v;
+}
+
+function normalizeHlLeverage(raw: number | null | undefined): number {
+  if (raw == null || !Number.isFinite(Number(raw)) || Number(raw) <= 0) return 5;
+  return Number(raw);
+}
+
 export interface UserSubscription {
   userId: string;
   walletAddress: string;
@@ -469,16 +483,16 @@ export class SubscriptionService {
           chainId,
           defaultTP: '5%',
           defaultSL: '1%',
-          defaultLeverage: '1x',
+          defaultLeverage: '5x',
           defaultRisk: '5%',
           error: error?.message
         });
         return {
-          takeProfitPercent: 0.2,
+          takeProfitPercent: config.hyperliquid.defaultTakeProfitPercent,
           stopLossPercent: 1,
-          profitLockPercent: 0.1,
+          profitLockPercent: config.hyperliquid.defaultProfitLockPercent,
           askPermission: false,
-          leverageMultiplier: 10.0,
+          leverageMultiplier: 5.0,
           riskLevelBps: 500,
           autoTradeEnabled: false,
           minWinRatePercent: 0,
@@ -497,11 +511,15 @@ export class SubscriptionService {
       });
 
       return {
-        takeProfitPercent: data.take_profit_percent ?? config.hyperliquid.defaultTakeProfitPercent,
-        stopLossPercent: data.stop_loss_percent || 1,
+        takeProfitPercent: normalizeHlTakeProfitPercent(
+          data.take_profit_percent != null ? Number(data.take_profit_percent) : null
+        ),
+        stopLossPercent: Number(data.stop_loss_percent) || 1,
         profitLockPercent: config.hyperliquid.defaultProfitLockPercent,
         askPermission: data.ask_permission || false,
-        leverageMultiplier: data.leverage_multiplier || 10.0,
+        leverageMultiplier: normalizeHlLeverage(
+          data.leverage_multiplier != null ? Number(data.leverage_multiplier) : null
+        ),
         riskLevelBps: data.risk_level_bps || 500,
         autoTradeEnabled: Boolean(data.auto_trade_enabled),
         minWinRatePercent: Number(data.min_win_rate_percent) || 0,
@@ -515,7 +533,7 @@ export class SubscriptionService {
         stopLossPercent: 1,
         profitLockPercent: config.hyperliquid.defaultProfitLockPercent,
         askPermission: false,
-        leverageMultiplier: 10.0,
+        leverageMultiplier: 5.0,
         riskLevelBps: 500,
         autoTradeEnabled: false,
         minWinRatePercent: 0,

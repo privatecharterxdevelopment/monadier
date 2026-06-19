@@ -45,7 +45,6 @@ import { getSpotDisplayName, isHlSpotCoin } from '../../lib/hyperliquid/spot';
 import { readNum, toNum } from '../../lib/hyperliquid/parse';
 import { hlCoinToBotSymbol } from '../../lib/botTradingPairs';
 import { useBotPositionBadge } from '../../hooks/useBotPositionBadge';
-import { usePositionReconciliation } from '../../hooks/usePositionReconciliation';
 import { useAuth } from '../../contexts/AuthContext';
 import ProTradeSignInModal from '../../components/protrade/ProTradeSignInModal';
 import ProTradeRegisterModal from '../../components/protrade/ProTradeRegisterModal';
@@ -92,12 +91,6 @@ const Dashboard2ProPageContent: React.FC = () => {
   const { badge: botBadge } = useBotPositionBadge(botSyncTick);
   const { theme } = useProTradeTheme();
   const chartMarkerColors = useMemo(() => getProTradeChartColors(theme), [theme]);
-
-  usePositionReconciliation(
-    useCallback(() => {
-      setBotSyncTick((n) => n + 1);
-    }, [])
-  );
 
   const { markets: perpMarkets, loading: perpMarketsLoading, refresh: refreshPerpMarkets } =
     useHyperliquidMarkets();

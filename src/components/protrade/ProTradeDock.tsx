@@ -11,7 +11,7 @@ import type {
   HlUserFill,
 } from '../../lib/hyperliquid/user';
 import { isHlTriggerOrder } from '../../lib/hyperliquid/user';
-import { fmtLeverage, fmtPrice, fmtTimeMs, fmtUsdSymbol } from '../../lib/hyperliquid/format';
+import { fmtLeverage, fmtPrice, fmtTimeMs, fmtUsdSymbol, fmtClosedPnl, fmtFillAction, isHlFillOpen } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
 import type { HlPosition } from '../../lib/hyperliquid/user';
 import DockCountBadge from './DockCountBadge';
@@ -346,6 +346,7 @@ const ProTradeDock: React.FC<Props> = ({
                 <tr>
                   <th>Time</th>
                   <th>Coin</th>
+                  <th>Action</th>
                   <th>Side</th>
                   <th>Size</th>
                   <th>Price</th>
@@ -362,14 +363,15 @@ const ProTradeDock: React.FC<Props> = ({
                         {f.coin}
                       </button>
                     </td>
+                    <td>{fmtFillAction(f.dir)}</td>
                     <td className={f.side === 'B' ? 'hl-up' : 'hl-down'}>
                       {f.side === 'B' ? 'Buy' : 'Sell'}
                     </td>
                     <td>{f.sz}</td>
                     <td>{fmtPrice(f.px)}</td>
-                    <td>{fmtUsdSymbol(f.fee)}</td>
+                    <td>{fmtUsdSymbol(f.fee, 4)}</td>
                     <td className={toNum(f.closedPnl) >= 0 ? 'hl-up' : 'hl-down'}>
-                      {fmtUsdSymbol(f.closedPnl)}
+                      {isHlFillOpen(f.dir) ? '—' : fmtClosedPnl(f.closedPnl)}
                     </td>
                   </tr>
                 ))}

@@ -5,7 +5,6 @@ import {
   fetchHlChartMarkers,
   fillToChartMarker,
   hlChartMarkerToSeriesMarker,
-  persistChartMarkerFromFill,
   type ChartMarkerColors,
 } from '../lib/hyperliquid/chartMarkers';
 import { fetchHlUserFills } from '../lib/hyperliquid/user';
@@ -37,13 +36,6 @@ export function useHlBotChartMarkers(
         .filter((f) => f.coin.toUpperCase() === coinUpper)
         .map(fillToChartMarker)
         .filter((m): m is NonNullable<typeof m> => m != null);
-
-      await Promise.all(
-        fills
-          .filter((f) => f.coin.toUpperCase() === coinUpper)
-          .slice(0, 40)
-          .map((f) => persistChartMarkerFromFill(wallet, f))
-      );
 
       const merged = dedupeChartMarkers([...stored, ...fromFills]);
       setSeriesMarkers(merged.map((m) => hlChartMarkerToSeriesMarker(m, colors)));
