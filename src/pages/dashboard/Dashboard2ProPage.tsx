@@ -62,7 +62,7 @@ function parseProfileTab(raw: string | null): ProTradeProfileTab {
   return 'identity';
 }
 
-const Dashboard2ProPage: React.FC = () => {
+const Dashboard2ProPageContent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, sessionReady } = useAuth();
   const { address, isConnected } = useAppKitAccount();
@@ -690,7 +690,7 @@ const Dashboard2ProPage: React.FC = () => {
   );
 
   return (
-    <ProTradeShell>
+    <>
       <ProTradeTopNav
         section={section}
         onSectionChange={handleSectionChange}
@@ -807,8 +807,14 @@ const Dashboard2ProPage: React.FC = () => {
           onSuccess={() => void handleRefreshAll()}
         />
       ) : null}
-    </ProTradeShell>
+    </>
   );
 };
+
+const Dashboard2ProPage: React.FC = () => (
+  <ProTradeShell>
+    <Dashboard2ProPageContent />
+  </ProTradeShell>
+);
 
 export default Dashboard2ProPage;
