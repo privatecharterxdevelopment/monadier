@@ -29,6 +29,19 @@ function formatBlocker(blocker: string): string {
   if (/Must deposit before performing actions/i.test(blocker)) {
     return 'Deposit USDC on Hyperliquid first (min $20)';
   }
+  if (/margin too small/i.test(blocker)) {
+    const m = blocker.match(/\$([\d.]+).*balance \$([\d.]+)/i);
+    if (m) {
+      return `Not enough margin for next trade (~$${m[1]} from $${m[2]} on HL) — deposit more or lower risk in LVRG`;
+    }
+    return 'Not enough margin for a leverage trade — deposit more or lower risk in LVRG';
+  }
+  if (/HL balance \$([\d.]+).*min \$([\d.]+)/i.test(blocker)) {
+    const m = blocker.match(/HL balance \$([\d.]+).*min \$([\d.]+)/i);
+    if (m) {
+      return `HL balance $${m[1]} — need $${m[2]}+ on Hyperliquid to trade`;
+    }
+  }
   return blocker;
 }
 

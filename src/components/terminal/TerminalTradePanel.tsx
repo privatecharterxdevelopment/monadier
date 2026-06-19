@@ -293,7 +293,13 @@ const TerminalTradePanel: React.FC<Props> = ({
       return 'Signature cancelled in wallet.';
     }
     if (/Must deposit before performing actions/i.test(msg)) {
-      return 'Deposit USDC on Hyperliquid first (min $20), then approve the agent.';
+      return 'No USDC detected on Hyperliquid yet — deposit first (min $20), then approve the agent.';
+    }
+    if (/insufficient funds/i.test(msg) && /gas/i.test(msg)) {
+      return 'Not enough ETH on Arbitrum for gas — add a little ETH to your wallet. Your Hyperliquid USDC is separate.';
+    }
+    if (/insufficient funds/i.test(msg)) {
+      return 'Wallet rejected the request — if you have USDC on Hyperliquid, this is usually a trading permission signature, not a balance issue. Try again or check HL balance in the Funds tab.';
     }
     if (/extra agent already used|agent already/i.test(msg)) {
       return 'This API wallet is already registered on Hyperliquid. If you approved before, refresh the page — otherwise revoke an old API key at app.hyperliquid.xyz → More → API.';
@@ -562,6 +568,31 @@ const TerminalTradePanel: React.FC<Props> = ({
                 <span>{botError}</span>
               </div>
             )}
+
+            {walletReady && phase === 'fund' && !botRunning && (
+              <div className="term-panel-info">
+                <AlertTriangle size={14} />
+                <span>
+                  Hyperliquid balance {fmt(hlFundingUsd)} — need at least ${MIN_HL_BOT_USD} USDC on
+                  HL (not in your MetaMask wallet). Use Deposit below.
+                </span>
+              </div>
+            )}
+
+            {walletReady &&
+              hlFundingUsd >= MIN_HL_BOT_USD &&
+              needsHlApproval &&
+              !botRunning &&
+              !botError && (
+                <div className="term-panel-info">
+                  <Info size={14} />
+                  <span>
+                    HL balance {fmt(hlFundingUsd)} is sufficient. MetaMask will ask to{' '}
+                    <strong>allow trading</strong> — not to withdraw your USDC. A generic
+                    &quot;assets at risk&quot; warning is normal for API approvals.
+                  </span>
+                </div>
+              )}
 
             {walletReady && phase === 'fund' && !botRunning && (
               <button

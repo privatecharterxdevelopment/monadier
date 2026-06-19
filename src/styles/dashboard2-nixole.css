@@ -3039,6 +3039,28 @@
   margin-top: 1px;
 }
 
+.term-panel-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+.term-panel-info svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.term-panel-info strong {
+  font-weight: 600;
+}
+
 .term-hint--ok {
   color: #15803d;
 }

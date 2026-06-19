@@ -27,6 +27,26 @@ const STEPS = [
   },
 ] as const;
 
+function stepBody(
+  step: (typeof STEPS)[number],
+  hlBalanceUsd: number,
+  builderFeeEnabled: boolean
+): string {
+  if (step.n === 2 && hlBalanceUsd >= MIN_HL_BOT_USD) {
+    return `HL balance $${hlBalanceUsd.toFixed(2)} — funded (min $${MIN_HL_BOT_USD}).`;
+  }
+  if (step.n === 3 && hlBalanceUsd >= MIN_HL_BOT_USD) {
+    const feeNote = builderFeeEnabled
+      ? ` + platform fee (max ${import.meta.env.VITE_HL_BUILDER_MAX_APPROVAL || '0.1%'})`
+      : '';
+    return `Press Start bot — MetaMask allows trading only (no USDC withdrawal). Agent${feeNote}, then bot runs 24/7.`;
+  }
+  if (step.n === 3 && builderFeeEnabled) {
+    return `Press Start bot — one-time signatures: trading agent (no withdrawals) + auto 10% success fee on wins via HL (max ${import.meta.env.VITE_HL_BUILDER_MAX_APPROVAL || '0.1%'}).`;
+  }
+  return step.body;
+}
+
 function stepDone(
   n: number,
   walletReady: boolean,
@@ -48,14 +68,10 @@ const HlBotSetupSteps: React.FC<Props> = ({
   currentStep,
   variant = 'progress',
 }) => {
-  const steps = STEPS.map((s) =>
-    s.n === 3 && builderFeeEnabled
-      ? {
-          ...s,
-          body: `Press Start bot — one-time signatures: trading agent (no withdrawals) + auto 10% success fee on wins via HL (max ${import.meta.env.VITE_HL_BUILDER_MAX_APPROVAL || '0.1%'}).`,
-        }
-      : s
-  );
+  const steps = STEPS.map((s) => ({
+    ...s,
+    body: stepBody(s, hlBalanceUsd, builderFeeEnabled),
+  }));
 
   return (
     <ol

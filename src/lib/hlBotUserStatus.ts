@@ -33,6 +33,19 @@ function simplifyBlocker(raw: string): string {
   if (/Must deposit before performing actions/i.test(raw)) {
     return 'Deposit USDC on Hyperliquid first (min $20)';
   }
+  if (/margin too small/i.test(raw)) {
+    const m = raw.match(/\$([\d.]+).*balance \$([\d.]+)/i);
+    if (m) {
+      return `Not enough free margin for the next trade (~$${m[1]} usable from $${m[2]} HL balance) — deposit more or lower risk % in LVRG`;
+    }
+    return 'Not enough free margin for a leverage trade — deposit more or lower risk % in LVRG';
+  }
+  if (/HL balance \$([\d.]+).*min \$([\d.]+)/i.test(raw)) {
+    const m = raw.match(/HL balance \$([\d.]+).*min \$([\d.]+)/i);
+    if (m) {
+      return `Hyperliquid balance $${m[1]} — need at least $${m[2]} USDC on HL to run the bot`;
+    }
+  }
   return raw;
 }
 
@@ -103,11 +116,14 @@ export function getHlBotSidebarStatus(opts: {
       };
     }
     if (needsApprove) {
+      const funded = hlBalanceUsd >= MIN_HL_BOT_USD;
       return {
-        headline: 'Start bot',
-        detail: needsAgent
-          ? 'Press Start bot below — includes one-time Hyperliquid signatures (trading agent + platform fee, 1–2 wallet confirmations).'
-          : 'Press Start bot below — includes one-time platform fee approval on Hyperliquid.',
+        headline: funded ? 'Allow trading (one-time)' : 'Start bot',
+        detail: funded
+          ? `Your HL balance ($${hlBalanceUsd.toFixed(2)}) is enough. Press Start bot — MetaMask asks to allow trading, not to withdraw USDC. It may show a generic safety warning; that is normal for Hyperliquid API approvals.`
+          : needsAgent
+            ? 'Press Start bot below — includes one-time Hyperliquid signatures (trading agent + platform fee, 1–2 wallet confirmations).'
+            : 'Press Start bot below — includes one-time platform fee approval on Hyperliquid.',
         tone: 'warn',
         setupStep: 3,
         setupComplete: false,
