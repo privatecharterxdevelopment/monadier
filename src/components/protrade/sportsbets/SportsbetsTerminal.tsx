@@ -5,7 +5,9 @@ import { fetchOutcomeLegQuotesFromMids, type OutcomeLegQuote } from '../../../li
 import { countByCategory, filterBettingQuestions } from '../../../lib/hyperliquid/outcomes/categories';
 import { findOutcomeMarket } from '../../../lib/hyperliquid/outcomes/meta';
 import type { HlOutcomePosition } from '../../../lib/hyperliquid/outcomes/types';
+import { countHlClosedFills, sumHlRealizedPnlFromFills } from '../../../lib/hyperliquid/hlPnl';
 import { useSportsbetsSession } from '../../../hooks/useSportsbetsSession';
+import { useAppKit } from '@reown/appkit/react';
 import SportsbetsHero from './SportsbetsHero';
 import BettingMarketList from './BettingMarketList';
 import SportsbetsAllMarketsView from './SportsbetsAllMarketsView';
@@ -27,6 +29,7 @@ const SportsbetsTerminal: React.FC<Props> = ({
   userId,
   onRequireSignIn,
 }) => {
+  const { open: openWallet } = useAppKit();
   const session = useSportsbetsSession(walletAddress, true, userId);
   const [legQuotes, setLegQuotes] = useState<Record<number, OutcomeLegQuote>>({});
   const [quotesLoading, setQuotesLoading] = useState(false);
@@ -86,8 +89,10 @@ const SportsbetsTerminal: React.FC<Props> = ({
       positionsValueUsd,
       unrealizedPnlUsd,
       positionCount: session.positions.length,
+      closedCount: countHlClosedFills(session.outcomeFills),
+      realizedPnlUsd: sumHlRealizedPnlFromFills(session.outcomeFills),
     };
-  }, [signedIn, walletConnected, session.positions, session.bettingBalance]);
+  }, [signedIn, walletConnected, session.positions, session.bettingBalance, session.outcomeFills]);
 
   const scrollToRail = useCallback(() => {
     requestAnimationFrame(() => {
@@ -182,6 +187,8 @@ const SportsbetsTerminal: React.FC<Props> = ({
         onCashOutFirst={
           session.positions[0] ? () => focusPositionForCashOut(session.positions[0]) : undefined
         }
+        onRequireSignIn={() => onRequireSignIn?.('Sign in to see balance and bets.')}
+        onConnectWallet={() => openWallet()}
       />
 
       {session.catalogError ? (

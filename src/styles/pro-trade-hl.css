@@ -2072,6 +2072,70 @@
   border: 1px solid rgb(255 255 255 / 0.16);
 }
 
+.hl-sb-head-stat-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.65);
+}
+
+.hl-sb-head-stat strong {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.hl-sb-head-stat--balance {
+  gap: 5px 8px;
+}
+
+.hl-sb-head-stat--action {
+  cursor: pointer;
+  font: inherit;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.hl-sb-head-stat--action:hover {
+  background: rgb(255 255 255 / 0.14);
+  border-color: rgb(255 255 255 / 0.28);
+}
+
+.hl-sb-head-stat--muted {
+  opacity: 0.85;
+}
+
+.hl-sb-head-stat-pnl {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.hl-sb-head-stat-pnl.hl-pos {
+  color: #86efac;
+}
+
+.hl-sb-head-stat-pnl.hl-neg {
+  color: #fca5a5;
+}
+
+.hl-sb-head-cashout {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgb(255 255 255 / 0.35);
+  background: rgb(255 255 255 / 0.95);
+  color: #14532d;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.12s, transform 0.12s;
+}
+
+.hl-sb-head-cashout:hover {
+  background: #fff;
+  transform: translateY(-1px);
+}
+
 .hl-sb-head-refresh {
   padding: 6px 12px;
   border-radius: 6px;
@@ -4634,18 +4698,10 @@
 
   .hl-terminal--sb .hl-sb-head-meta {
     justify-content: flex-start;
-  }
-
-  .hl-terminal--sb .hl-sb-wallet-bar {
     width: 100%;
   }
 
-  .hl-terminal--sb .hl-sb-wallet-actions {
-    width: 100%;
-    margin-left: 0;
-  }
-
-  .hl-terminal--sb .hl-sb-wallet-btn {
+  .hl-terminal--sb .hl-sb-head-cashout {
     flex: 1 1 auto;
     min-height: 34px;
   }
