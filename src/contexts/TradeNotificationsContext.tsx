@@ -150,7 +150,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
 
   useEffect(() => {
     const poll = setInterval(() => load(true), 12000);
-    return () => clearInterval(pool);
+    return () => clearInterval(poll);
   }, [load]);
 
   useEffect(() => {
