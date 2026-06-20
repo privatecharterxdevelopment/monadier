@@ -3,6 +3,7 @@ import { Activity } from 'lucide-react';
 import { ANALYSIS_STEPS } from '../../hooks/useTerminalBotAnalysis';
 import { pairLabel } from '../../lib/botTradingPairs';
 import type { BotReadiness } from '../../lib/botReadiness';
+import { isBotScanNoiseDetail } from '../../lib/hlBotReasonLabels';
 import type { UnifiedSignal } from '../../lib/signalService';
 
 type DbAnalysis = {
@@ -50,17 +51,6 @@ function slidesFromSignal(signal: UnifiedSignal | null): string[] {
   return [];
 }
 
-function shortenDetail(detail: string): string {
-  return detail
-    .replace(
-      /no HL perp passed global scan \(min \d+% conf\)/i,
-      'No pair passed bot gates yet (55%+ · 3 TF align · volume)'
-    )
-    .replace(/margin too small for slot/i, 'Margin too small for next slot')
-    .replace(/ · /g, ' · ')
-    .trim();
-}
-
 const TerminalChartAnalysisOverlay: React.FC<Props> = ({
   visible,
   scanning,
@@ -71,8 +61,6 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
   dbAnalysis,
   activeSymbol,
   globalBest,
-  globalScanCount = 0,
-  globalCoinsScanned = 0,
   readiness,
   openPositionsCount = 0,
   maxConcurrentPositions = 2,
@@ -126,54 +114,26 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
   }, [scanning, step, slideCount]);
 
   const headline = readiness?.headline ?? ANALYSIS_STEPS[step].label;
-  const detailShort = readiness?.detail ? shortenDetail(readiness.detail) : null;
 
-  const botStatusLine = useMemo(() => {
-    if (globalBest) {
+  const whyLine = useMemo(() => {
+    if (globalBest?.reason?.trim()) {
+      const conf = Math.round(globalBest.confidence);
       const slot =
         openPositionsCount > 0 && openPositionsCount < maxConcurrentPositions
           ? `Slot ${openPositionsCount + 1}: `
-          : 'Next: ';
-      return `${slot}${globalBest.coin} ${globalBest.direction} ${Math.round(globalBest.confidence)}%`;
+          : '';
+      return `${slot}${globalBest.coin} ${globalBest.direction} ${conf}% — ${globalBest.reason.trim()}`;
     }
-    if (globalCoinsScanned > 0) {
-      const passed = globalScanCount > 0 ? `${globalScanCount} passed` : '0 passed';
-      return `${passed} · ${globalCoinsScanned} HL perps scanned`;
+    const detail = readiness?.detail?.trim();
+    if (detail && !isBotScanNoiseDetail(detail)) return detail;
+    if (hasTfConflict) {
+      return 'Chart timeframes disagree — bot waits for a aligned global setup before opening.';
     }
     return null;
   }, [
     globalBest,
-    globalCoinsScanned,
-    globalScanCount,
-    openPositionsCount,
-    maxConcurrentPositions,
-  ]);
-
-  const chartVsBotNote = useMemo(() => {
-    if (globalBest) return null;
-    if (hasTfConflict) return 'Chart mixed TFs — bot waits for aligned global setup';
-    if (globalCoinsScanned > 0 && conf >= 40 && action !== 'HOLD') {
-      return 'Chart preview only — bot uses stricter global scan';
-    }
-    return null;
-  }, [globalBest, hasTfConflict, globalCoinsScanned, conf, action]);
-
-  const subline = useMemo(() => {
-    const parts: string[] = [];
-    if (botStatusLine) parts.push(botStatusLine);
-    if (chartVsBotNote && chartVsBotNote !== botStatusLine) parts.push(chartVsBotNote);
-    if (!globalBest && detailShort && !parts.some((p) => p.includes(detailShort.slice(0, 20)))) {
-      parts.push(detailShort);
-    }
-    if (openPositionsCount > 0) {
-      parts.push(`${openPositionsCount}/${maxConcurrentPositions} slots`);
-    }
-    return parts.join(' · ');
-  }, [
-    botStatusLine,
-    chartVsBotNote,
-    detailShort,
-    globalBest,
+    readiness?.detail,
+    hasTfConflict,
     openPositionsCount,
     maxConcurrentPositions,
   ]);
@@ -234,10 +194,8 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
               </>
             ) : null}
           </div>
-          {subline ? (
-            <p className="term-analysis-subline" title={globalBest?.reason ?? detailShort ?? undefined}>
-              {subline}
-            </p>
+          {whyLine ? (
+            <p className="term-analysis-subline term-analysis-subline--why">{whyLine}</p>
           ) : null}
         </div>
       </div>
@@ -257,7 +215,11 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
             <span className="term-analysis-pct">{Math.round(progress)}%</span>
           </div>
         ) : null}
-        {subline ? <p className="term-analysis-hint term-analysis-hint--subtle">{subline}</p> : null}
+        {whyLine ? (
+          <p className="term-analysis-hint term-analysis-hint--subtle term-analysis-subline--why">
+            {whyLine}
+          </p>
+        ) : null}
         <div className="term-analysis-meta">
           <span className={signalClass}>{action}</span>
           <span className="term-analysis-sep">·</span>

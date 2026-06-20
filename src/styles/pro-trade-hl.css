@@ -1024,9 +1024,56 @@
 
 .hl-chart-toolbar--engines {
   justify-content: flex-end;
+  gap: 6px;
+  height: auto;
+  min-height: 28px;
+  padding: 4px 6px;
+  flex-wrap: wrap;
+}
+
+.hl-chart-toolbar--bot {
+  gap: 8px;
+}
+
+.hl-chart-bot-pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
-  height: 28px;
-  padding: 0 6px;
+  margin-left: auto;
+}
+
+.hl-chart-bot-pill {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--hl-bg-hover);
+  border: 1px solid var(--hl-border);
+  font-variant-numeric: tabular-nums;
+  max-width: 100%;
+}
+
+.hl-chart-bot-pill__label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--hl-text-faint);
+}
+
+.hl-chart-bot-pill__value {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--hl-text);
+}
+
+.hl-chart-bot-pill__meta {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--hl-text-muted);
 }
 
 .hl-chart-tf:disabled {
@@ -2248,6 +2295,19 @@
   background: rgba(12, 14, 18, 0.98);
   border-color: rgba(38, 166, 154, 0.35);
   color: #eceff1;
+}
+
+.hl-bot-dock .term-analysis-subline--why {
+  color: var(--hl-text-muted);
+}
+
+.hl-chart-bot-pill .term-trade-reason-hint {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.hl-chart-bot-pill .term-trade-reason-hint:hover,
+.hl-chart-bot-pill .term-trade-reason-hint:focus-visible {
+  color: #26a69a;
 }
 
 .hl-bot-dock .term-hl-open-actions-col {

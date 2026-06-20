@@ -1602,6 +1602,28 @@
   visibility: visible;
 }
 
+.term-trade-reason-hint__title {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--term-accent, #22c55e);
+}
+
+.term-trade-reason-hint--inline {
+  margin-left: 2px;
+}
+
+.term-analysis-subline--why {
+  margin: 4px 0 0;
+  padding: 0 2px;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--term-text-muted, #71717a);
+}
+
 .term-hl-open-actions-col {
   width: 72px;
   min-width: 72px;
@@ -3673,7 +3695,39 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px 10px;
+}
+
+.term-chart-bot-pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.term-chart-bot-pill {
+  gap: 0.35rem 0.5rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8125rem;
+}
+
+.term-chart-bot-pill .term-chart-live-badge__label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.term-chart-bot-pill .term-chart-live-badge__pair {
+  font-size: 0.8125rem;
+}
+
+.term-chart-bot-pill .term-chart-live-badge__price {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--term-text-muted, #52525b);
 }
 
 .term-hl-live-chart__coins,

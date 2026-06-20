@@ -25,8 +25,8 @@ import {
 } from '../../lib/hyperliquid/format';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { toNum } from '../../lib/hyperliquid/parse';
-import { useHlOpenTradeReasons } from '../../hooks/useHlOpenTradeReasons';
-import TradeOpenReasonHint from '../terminal/TradeOpenReasonHint';
+import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
+import TradeReasonHint from '../terminal/TradeReasonHint';
 import DockCountBadge from './DockCountBadge';
 
 function livePositionPnl(position: HlPosition, markPx: number): number {
@@ -129,9 +129,16 @@ const ProTradeDock: React.FC<Props> = ({
     () => (account?.positions ?? []).map((p) => p.coin),
     [account?.positions]
   );
-  const { byCoin: openReasons } = useHlOpenTradeReasons(
+  const historyCoins = useMemo(() => {
+    const set = new Set<string>(positionCoins);
+    for (const f of fills) {
+      if (!isHlFillOpen(f)) set.add(f.coin);
+    }
+    return [...set];
+  }, [positionCoins, fills]);
+  const { openByCoin, closeReasonForFill } = useHlTradeReasonMarkers(
     isBotMode ? (walletAddress ?? undefined) : undefined,
-    positionCoins,
+    historyCoins,
     reasonRefreshKey
   );
   const positionUpnl = useMemo(
@@ -302,7 +309,10 @@ const ProTradeDock: React.FC<Props> = ({
                             {p.coin}
                           </button>
                           {isBotMode ? (
-                            <TradeOpenReasonHint reason={openReasons.get(p.coin.toUpperCase())?.reason} />
+                            <TradeReasonHint
+                              reason={openByCoin.get(p.coin.toUpperCase())?.reason}
+                              kind="open"
+                            />
                           ) : null}
                         </span>
                       </td>
@@ -396,12 +406,16 @@ const ProTradeDock: React.FC<Props> = ({
                   <th>Fee</th>
                   <th>Result</th>
                   <th>Closed PnL</th>
+                  {isBotMode ? <th>Why</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {closeFills.map((f, i) => {
                   const result = hlFillResultLabel(f.closedPnl);
                   const pnl = toNum(f.closedPnl);
+                  const closeWhy = isBotMode
+                    ? closeReasonForFill(f.coin, f.time)
+                    : undefined;
                   return (
                   <tr key={`${f.time}-${i}`}>
                     <td>{fmtTimeMs(f.time)}</td>
@@ -431,6 +445,11 @@ const ProTradeDock: React.FC<Props> = ({
                     <td className={pnl > 0 ? 'hl-up' : pnl < 0 ? 'hl-down' : ''}>
                       {fmtClosedPnl(f.closedPnl)}
                     </td>
+                    {isBotMode ? (
+                      <td>
+                        <TradeReasonHint reason={closeWhy} kind="close" />
+                      </td>
+                    ) : null}
                   </tr>
                   );
                 })}

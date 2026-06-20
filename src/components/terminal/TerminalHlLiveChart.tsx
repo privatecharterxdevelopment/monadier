@@ -19,6 +19,8 @@ import {
 import { fmtPct, fmtPrice } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { getProTradeChartColors } from '../../lib/proTradeTheme';
+import ChartBotToolbarPills from './ChartBotToolbarPills';
+import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 
 type Props = {
   /** Binance-style symbol, e.g. ETHUSDT */
@@ -44,6 +46,7 @@ const TerminalHlLiveChartInner: React.FC<Props> = ({
   const market = useHyperliquidMarket(coin, interval, 'perp');
   const { account } = useHyperliquidAccount(walletAddress ?? undefined);
   const { settings: botSettings } = useTerminalBotSettings();
+  const hlSetup = useHlBotSetup(walletAddress ?? undefined);
   const openPosition = useMemo(
     () =>
       (account?.positions ?? []).find(
@@ -108,6 +111,7 @@ const TerminalHlLiveChartInner: React.FC<Props> = ({
         </div>
 
         <div className="term-hl-live-chart__controls">
+          <ChartBotToolbarPills hlBalanceUsd={hlSetup.accountUsd} variant="light" />
           <div className="term-hl-live-chart__coins" role="group" aria-label="Quick pairs">
             {pickCoins.map((c) => (
               <button

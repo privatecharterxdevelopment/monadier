@@ -574,6 +574,8 @@ const Dashboard2ProPageContent: React.FC = () => {
               layoutKey={`bot-${perpCoin}-${interval}`}
               positionOverlay={botChartOverlay}
               tradeMarkers={botTradeMarkers}
+              showBotToolbar
+              hlBalanceUsd={readNum(account?.margin?.accountValue)}
             />
             <ProTradeOrderBook
               book={perpMarket.book}

@@ -3,8 +3,8 @@ import type { HlPosition } from '../../lib/hyperliquid/user';
 import { fmtTradeUsdSymbol } from '../../lib/hyperliquid/format';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
-import { useHlOpenTradeReasons } from '../../hooks/useHlOpenTradeReasons';
-import TradeOpenReasonHint from './TradeOpenReasonHint';
+import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
+import TradeReasonHint from './TradeReasonHint';
 
 type Props = {
   positions: HlPosition[];
@@ -40,7 +40,7 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
 }) => {
   const coins = positions.map((p) => p.coin);
   const { prices: markPrices } = useHyperliquidMarkPrices(coins);
-  const { byCoin: openReasons } = useHlOpenTradeReasons(
+  const { openByCoin } = useHlTradeReasonMarkers(
     walletAddress ?? undefined,
     coins,
     reasonRefreshKey
@@ -76,13 +76,13 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
             const mark = markPrices[p.coin] ?? 0;
             const lev = resolveDisplayLeverage(configuredLeverage, p.leverage?.value);
             const isClosing = closingCoin === p.coin;
-            const openReason = openReasons.get(p.coin.toUpperCase())?.reason;
+            const openReason = openByCoin.get(p.coin.toUpperCase())?.reason;
             return (
               <tr key={p.coin}>
                 <td>
                   <span className="term-hl-open-market">
                     <strong>{p.coin}</strong>
-                    <TradeOpenReasonHint reason={openReason} />
+                    <TradeReasonHint reason={openReason} kind="open" />
                   </span>
                   <span className="term-dock-meta"> · HL</span>
                 </td>

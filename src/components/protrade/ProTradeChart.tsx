@@ -7,6 +7,7 @@ import ProTradeTradingViewChart from './ProTradeTradingViewChart';
 import ProTradeChartingLibraryChart from './ProTradeChartingLibraryChart';
 import ProTradeHlLightweightChart from './ProTradeHlLightweightChart';
 import { useProTradeTheme } from '../../contexts/ProTradeThemeContext';
+import ChartBotToolbarPills from '../terminal/ChartBotToolbarPills';
 
 type ChartEngine = 'hl' | 'tv' | 'hltv';
 
@@ -59,6 +60,9 @@ type Props = {
     trailFloorUsd?: number;
   };
   tradeMarkers?: SeriesMarker<UTCTimestamp>[];
+  /** Bot terminal — show risk / LVRG pills on toolbar right */
+  showBotToolbar?: boolean;
+  hlBalanceUsd?: number;
 };
 
 const ProTradeChartInner: React.FC<Props> = ({
@@ -72,6 +76,8 @@ const ProTradeChartInner: React.FC<Props> = ({
   layoutKey,
   positionOverlay,
   tradeMarkers = [],
+  showBotToolbar = false,
+  hlBalanceUsd = 0,
 }) => {
   const { theme } = useProTradeTheme();
   const [engine, setEngine] = useState<ChartEngine>('hl');
@@ -104,7 +110,12 @@ const ProTradeChartInner: React.FC<Props> = ({
 
   return (
     <div className="hl-chart-wrap">
-      <div className="hl-chart-toolbar hl-chart-toolbar--engines">
+      <div
+        className={`hl-chart-toolbar hl-chart-toolbar--engines${showBotToolbar ? ' hl-chart-toolbar--bot' : ''}`}
+      >
+        {showBotToolbar ? (
+          <ChartBotToolbarPills hlBalanceUsd={hlBalanceUsd} variant="dark" />
+        ) : null}
         <button
           type="button"
           className={`hl-chart-tf ${engine === 'hl' ? 'hl-chart-tf--on' : ''}`}
