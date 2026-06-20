@@ -16,7 +16,7 @@ import {
   formatHlPrice,
   formatHlSize,
   hlAccountValueUsd,
-  hlWithdrawableUsd,
+  hlFreeMarginUsd,
   hlOpenPerpCoins,
 } from './hlInfo';
 import { checkHlBuilderFeeApproved } from './hlBuilder';
@@ -80,13 +80,14 @@ function clearProfitLockState(lockKey: string): void {
 
 function resolveMarginPerSlot(
   balance: number,
-  withdrawable: number,
+  freeMarginUsd: number,
   riskLevelBps: number,
   openCount: number,
   maxSlots: number
 ): number {
   if (openCount >= maxSlots) return 0;
 
+  const slotsRemaining = maxSlots - openCount;
   const minMargin = config.hyperliquid.minMarginUsd;
   const totalRiskUsd = (balance * riskLevelBps) / 10000;
   const perSlot = totalRiskUsd / Math.max(1, maxSlots);
@@ -94,8 +95,6 @@ function resolveMarginPerSlot(
   let collateral = perSlot >= minMargin ? perSlot : 0;
 
   if (collateral < minMargin) {
-    // Same min-margin floor for every free slot. Previously slot 2+ returned 0 here
-    // while slot 1 used slotFloor — blocking a second independent pair.
     const slotFloor = Math.min(minMargin, balance * 0.1);
     if (balance >= config.hyperliquid.minAccountUsd && slotFloor >= 1) {
       collateral = slotFloor;
@@ -106,11 +105,9 @@ function resolveMarginPerSlot(
     }
   }
 
-  // Slot 2+: size from free collateral, not total account value (1st position ties margin).
-  if (openCount > 0) {
-    const freeUsd = Math.max(0, withdrawable - 1);
-    collateral = Math.min(collateral, freeUsd);
-  }
+  // Split free margin across remaining slots so slot 1 never eats all collateral.
+  const maxFromFree = freeMarginUsd / slotsRemaining;
+  collateral = Math.min(collateral, maxFromFree);
 
   return collateral >= 1 ? collateral : 0;
 }
@@ -120,11 +117,11 @@ export function resolveHlMarginPerSlot(
   balance: number,
   riskLevelBps: number,
   openCount: number,
-  withdrawable?: number
+  freeMarginUsd?: number
 ): number {
   return resolveMarginPerSlot(
     balance,
-    withdrawable ?? balance,
+    freeMarginUsd ?? balance,
     riskLevelBps,
     openCount,
     config.hyperliquid.maxConcurrentPositions
@@ -317,7 +314,6 @@ export class HyperliquidTradingService {
     const strategy = normalizeHlBotStrategy(settings.hlBotStrategy);
     const signals = globalSignalsForBotMode(ctx.globalScan, strategy);
     const maxPositions = config.hyperliquid.maxConcurrentPositions;
-    const slotsLeft = maxPositions - openCoins.length;
 
     if (signals.length === 0) {
       logger.debug('HL open skip: no signals for mode', {
@@ -326,8 +322,6 @@ export class HyperliquidTradingService {
       });
       return 'skip';
     }
-
-    if (slotsLeft <= 0) return 'skip';
 
     const cooldownMs = config.hyperliquid.reentryCooldownMs;
     const lastClose = hlLastCloseAt.get(userAddress.toLowerCase()) ?? 0;
@@ -339,100 +333,134 @@ export class HyperliquidTradingService {
       return 'skip';
     }
 
-    const balance = hlAccountValueUsd(state);
-    const withdrawable = hlWithdrawableUsd(state);
-    const collateral = resolveMarginPerSlot(
-      balance,
-      withdrawable,
-      settings.riskLevelBps,
-      openCoins.length,
-      maxPositions
-    );
-    if (collateral < 1) {
-      logger.info('HL open skip: margin too small for slot', {
-        user: userAddress.slice(0, 10),
-        balance,
-        withdrawable,
-        collateral,
-        openCount: openCoins.length,
-        maxPositions,
-      });
-      return 'skip';
-    }
-
-    const pickLimit = Math.max(slotsLeft, 8);
-    const picks = await this.pickBestSignalsPassingLiquidityGate(
-      signals,
-      ctx.liquidUniverse,
-      openCoins,
-      pickLimit
-    );
-    if (picks.length === 0) {
-      logger.debug('HL open skip: no signal passed volume/sweep gate', {
-        user: userAddress.slice(0, 10),
-        candidates: signals.length,
-        openCoins,
-      });
-      return 'skip';
-    }
-
-    const leverageCap = Math.max(1, Math.floor(settings.leverageMultiplier || 10));
-    const minNotional = config.hyperliquid.minNotionalUsd;
+    let stateRef = state;
+    let coinsOpen = [...openCoins];
+    let cycleResult: UserProcessResult = 'skip';
     let lastError: string | undefined;
 
-    for (const pick of picks) {
-      const leverage = Math.min(leverageCap, maxLeverageForCoin(ctx.meta, pick.coin));
-      const notionalUsd = collateral * leverage;
-      if (notionalUsd < minNotional) {
-        logger.debug('HL open skip: notional below floor', {
+    while (coinsOpen.length < maxPositions) {
+      const slotsLeft = maxPositions - coinsOpen.length;
+      const balance = hlAccountValueUsd(stateRef);
+      const freeMargin = hlFreeMarginUsd(stateRef);
+      const collateral = resolveMarginPerSlot(
+        balance,
+        freeMargin,
+        settings.riskLevelBps,
+        coinsOpen.length,
+        maxPositions
+      );
+      if (collateral < 1) {
+        logger.info('HL open skip: margin too small for slot', {
+          user: userAddress.slice(0, 10),
+          balance,
+          freeMargin,
+          collateral,
+          openCount: coinsOpen.length,
+          maxPositions,
+        });
+        break;
+      }
+
+      const pickLimit = Math.max(slotsLeft, 8);
+      const picks = await this.pickBestSignalsPassingLiquidityGate(
+        signals,
+        ctx.liquidUniverse,
+        coinsOpen,
+        pickLimit
+      );
+      if (picks.length === 0) {
+        logger.debug('HL open skip: no signal passed volume/sweep gate', {
+          user: userAddress.slice(0, 10),
+          candidates: signals.length,
+          openCoins: coinsOpen,
+          slot: coinsOpen.length + 1,
+        });
+        break;
+      }
+
+      const leverageCap = Math.max(1, Math.floor(settings.leverageMultiplier || 10));
+      const minNotional = config.hyperliquid.minNotionalUsd;
+      let openedThisSlot = false;
+
+      for (const pick of picks) {
+        const leverage = Math.min(leverageCap, maxLeverageForCoin(ctx.meta, pick.coin));
+        const notionalUsd = collateral * leverage;
+        if (notionalUsd < minNotional) {
+          logger.debug('HL open skip: notional below floor', {
+            user: userAddress.slice(0, 10),
+            coin: pick.coin,
+            notionalUsd: notionalUsd.toFixed(2),
+            minNotional,
+            collateral,
+            leverage,
+            slot: coinsOpen.length + 1,
+          });
+          continue;
+        }
+
+        const opened = await this.openMarketPosition({
+          userAddress,
+          coin: pick.coin,
+          direction: pick.direction,
+          notionalUsd,
+          leverage,
+          reason: `${strategy === 'profit_grabber' ? 'Agg' : 'Std'} ${pick.direction} ${pick.confidence}% · ${pick.coin} · ${pick.reason.slice(0, 80)}`,
+          ctx,
+        });
+
+        if (opened.success) {
+          lastHlOpenError.delete(userAddress.toLowerCase());
+          await subscriptionService.recordTrade(userAddress);
+          coinsOpen.push(pick.coin);
+          openedThisSlot = true;
+          cycleResult = 'ok';
+          logger.info('HL slot filled', {
+            user: userAddress.slice(0, 10),
+            coin: pick.coin,
+            slot: coinsOpen.length,
+            maxPositions,
+          });
+
+          if (coinsOpen.length >= maxPositions) break;
+
+          const fresh = await fetchHlClearinghouseState(userAddress);
+          if (!fresh) break;
+          stateRef = fresh;
+          break;
+        }
+
+        lastError = opened.error;
+        lastHlOpenError.set(userAddress.toLowerCase(), {
+          at: new Date().toISOString(),
+          coin: pick.coin,
+          error: opened.error ?? 'HL open failed',
+        });
+        logger.warn('HL open skip: trying next candidate', {
           user: userAddress.slice(0, 10),
           coin: pick.coin,
+          direction: pick.direction,
           notionalUsd: notionalUsd.toFixed(2),
-          minNotional,
-          collateral,
           leverage,
+          slot: coinsOpen.length + 1,
+          error: opened.error,
         });
-        continue;
       }
 
-      const opened = await this.openMarketPosition({
-        userAddress,
-        coin: pick.coin,
-        direction: pick.direction,
-        notionalUsd,
-        leverage,
-        reason: `${strategy === 'profit_grabber' ? 'Agg' : 'Std'} ${pick.direction} ${pick.confidence}% · ${pick.coin} · ${pick.reason.slice(0, 80)}`,
-        ctx,
-      });
-
-      if (opened.success) {
-        lastHlOpenError.delete(userAddress.toLowerCase());
-        await subscriptionService.recordTrade(userAddress);
-        return 'ok';
+      if (!openedThisSlot) {
+        if (coinsOpen.length > openCoins.length) break;
+        logger.warn('HL open failed: all candidates rejected for slot', {
+          user: userAddress.slice(0, 10),
+          slot: coinsOpen.length + 1,
+          tried: picks.map((p) => p.coin),
+          lastError,
+        });
+        return lastError ? 'fail' : 'skip';
       }
-
-      lastError = opened.error;
-      lastHlOpenError.set(userAddress.toLowerCase(), {
-        at: new Date().toISOString(),
-        coin: pick.coin,
-        error: opened.error ?? 'HL open failed',
-      });
-      logger.warn('HL open skip: trying next candidate', {
-        user: userAddress.slice(0, 10),
-        coin: pick.coin,
-        direction: pick.direction,
-        notionalUsd: notionalUsd.toFixed(2),
-        leverage,
-        error: opened.error,
-      });
     }
 
-    logger.warn('HL open failed: all candidates rejected', {
-      user: userAddress.slice(0, 10),
-      tried: picks.map((p) => p.coin),
-      lastError,
-    });
-    return 'fail';
+    if (cycleResult === 'ok') return 'ok';
+    if (lastError) return 'fail';
+    return 'skip';
   }
 
   async openMarketPosition(opts: {
@@ -461,7 +489,7 @@ export class HyperliquidTradingService {
       const client = createAgentClient(opts.userAddress);
       await client.updateLeverage({
         asset: assetIndex,
-        isCross: true,
+        isCross: false,
         leverage: effectiveLeverage,
       });
 
@@ -526,7 +554,8 @@ export class HyperliquidTradingService {
     coin: string,
     targetLeverage: number,
     currentLeverage: number,
-    meta: Awaited<ReturnType<typeof fetchHlMeta>>
+    meta: Awaited<ReturnType<typeof fetchHlMeta>>,
+    isCross: boolean
   ): Promise<void> {
     const desired = Math.max(1, Math.floor(targetLeverage || 1));
     const current = Math.max(1, Math.floor(currentLeverage || 1));
@@ -540,7 +569,7 @@ export class HyperliquidTradingService {
       const client = createAgentClient(userAddress);
       await client.updateLeverage({
         asset: assetIndex,
-        isCross: true,
+        isCross,
         leverage: effective,
       });
       logger.info('HL leverage synced to saved settings', {
@@ -596,12 +625,14 @@ export class HyperliquidTradingService {
 
       if (!fast && meta) {
         const targetLev = Math.min(configuredLev, maxLeverageForCoin(meta, pos.coin));
+        const marginCross = pos.leverage?.type === 'cross';
         await this.syncOpenPositionLeverage(
           userAddress,
           pos.coin,
           targetLev,
           pos.leverage?.value ?? targetLev,
-          meta
+          meta,
+          marginCross
         );
       }
 

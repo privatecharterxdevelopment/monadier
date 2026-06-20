@@ -24,7 +24,7 @@ import {
 } from './services/userBatchProcessor';
 import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './services/hlAgent';
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
-import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive } from './services/hlInfo';
+import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlFreeMarginUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive } from './services/hlInfo';
 import { getLastHlOpenError, hyperliquidTradingService, resolveHlMarginPerSlot } from './services/hlTrading';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
 import { getHlFeeSummary } from './services/hlSuccessFees';
@@ -320,6 +320,7 @@ const healthServer = http.createServer(async (req, res) => {
       const hlState = await fetchHlClearinghouseState(userAddress);
       const hlBalanceUsd = hlAccountValueUsd(hlState);
       const hlWithdrawable = hlWithdrawableUsd(hlState);
+      const hlFreeMargin = hlFreeMarginUsd(hlState);
       const hlAgentAddr = deriveUserHlAgentAddress(userAddress);
       const hlAgentOk = await hlAgentApprovalService.isApproved(userAddress, hlAgentAddr);
       const builderGate = await checkHlBuilderFeeApproved(userAddress);
@@ -399,12 +400,12 @@ const healthServer = http.createServer(async (req, res) => {
           balance,
           dbSettings.riskLevelBps,
           hlOpenCoins.length,
-          hlWithdrawable
+          hlFreeMargin
         );
         if (perSlot < 1) {
           blockers.push(
             hlOpenCoins.length > 0
-              ? `free margin too low for slot 2 ($${hlWithdrawable.toFixed(2)} withdrawable from $${balance.toFixed(2)} balance, ${hlOpenCoins.length}/${maxPositions} open)`
+              ? `free margin too low for slot 2 ($${hlFreeMargin.toFixed(2)} free from $${balance.toFixed(2)} balance, $${hlWithdrawable.toFixed(2)} withdrawable, ${hlOpenCoins.length}/${maxPositions} open)`
               : `margin too small for slot ($${perSlot.toFixed(2)} from $${balance.toFixed(2)} balance, ${hlOpenCoins.length}/${maxPositions} open)`
           );
         } else {
@@ -429,6 +430,7 @@ const healthServer = http.createServer(async (req, res) => {
         hyperliquid: {
           balanceUsd: hlBalanceUsd,
           withdrawableUsd: hlWithdrawable,
+          freeMarginUsd: hlFreeMargin,
           agentAddress: hlAgentAddr,
           agentApproved: hlAgentOk,
           builderFeeApproved: builderGate.approved,

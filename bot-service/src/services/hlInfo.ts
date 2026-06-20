@@ -13,7 +13,7 @@ export type HlClearinghouseState = {
       szi?: string;
       entryPx?: string;
       unrealizedPnl?: string;
-      leverage?: { value?: number };
+      leverage?: { value?: number; type?: 'cross' | 'isolated' };
     };
   }>;
 };
@@ -51,6 +51,21 @@ export function hlWithdrawableUsd(state: HlClearinghouseState | null): number {
   const raw = state?.withdrawable;
   const n = raw != null ? Number(raw) : 0;
   return Number.isFinite(n) ? n : 0;
+}
+
+export function hlMarginUsedUsd(state: HlClearinghouseState | null): number {
+  const raw = state?.marginSummary?.totalMarginUsed;
+  const n = raw != null ? Number(raw) : 0;
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** USD available to open another HL perp (withdrawable, cross-checked vs balance − margin used). */
+export function hlFreeMarginUsd(state: HlClearinghouseState | null): number {
+  const balance = hlAccountValueUsd(state);
+  const withdrawable = hlWithdrawableUsd(state);
+  const marginUsed = hlMarginUsedUsd(state);
+  const derived = Math.max(0, balance - marginUsed);
+  return Math.max(0, Math.min(withdrawable, derived) - 1);
 }
 
 export function hlOpenPerpCoins(state: HlClearinghouseState | null): string[] {
