@@ -79,7 +79,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
 
   const positions = account?.positions ?? [];
   const positionCoins = useMemo(() => positions.map((p) => p.coin), [positions]);
-  const { prices: markPrices } = useHyperliquidMarkPrices(positionCoins);
+  const { prices: markPrices } = useHyperliquidMarkPrices(positionCoins, 5000);
   const { closePosition, busy: closeBusy, error: closeError } =
     useHyperliquidTrading();
   const [closeNotice, setCloseNotice] = useState<string | null>(null);

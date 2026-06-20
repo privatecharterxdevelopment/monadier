@@ -1,4 +1,4 @@
-import { HL_INFO_URL } from './constants';
+import { hlInfoPost } from './hlInfoClient';
 import { warmHlMetaCache } from './meta';
 import { toNum } from './parse';
 import type { HlAssetCtx, HlAssetMeta } from './types';
@@ -17,13 +17,7 @@ export type HlMarket = {
 type MetaResponse = [{ universe: HlAssetMeta[] }, HlAssetCtx[]];
 
 async function hlInfo<T>(body: Record<string, unknown>): Promise<T> {
-  const res = await fetch(HL_INFO_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Hyperliquid API ${res.status}`);
-  return res.json() as Promise<T>;
+  return hlInfoPost<T>(body);
 }
 
 function buildMarket(asset: HlAssetMeta, ctx: HlAssetCtx | undefined): HlMarket | null {

@@ -1,5 +1,4 @@
-import { HttpTransport, InfoClient } from '@nktkas/hyperliquid';
-import { HL_INFO_URL } from './constants';
+import { hlInfoPost } from './hlInfoClient';
 import { toNum } from './parse';
 import type { HlAssetMeta, HlCandle, HlCandleBar, HlInterval, HlL2Book, HlRecentTrade } from './types';
 import { candleToBar } from './api';
@@ -59,17 +58,8 @@ let spotMetaCache: {
 let spotAssetIndexCache: Map<string, number> | null = null;
 let spotAssetMetaCache: Map<string, HlAssetMeta> | null = null;
 
-const transport = new HttpTransport();
-const info = new InfoClient({ transport });
-
 async function hlInfo<T>(body: Record<string, unknown>): Promise<T> {
-  const res = await fetch(HL_INFO_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Hyperliquid API ${res.status}`);
-  return res.json() as Promise<T>;
+  return hlInfoPost<T>(body);
 }
 
 function resolveDisplayName(
@@ -121,10 +111,19 @@ export function warmHlSpotMetaCache(meta: {
   }
 }
 
+type SpotMetaPayload = { universe: HlSpotPair[]; tokens: HlSpotToken[] };
+type SpotMetaAndCtxs = [SpotMetaPayload, SpotCtx[]];
+
+async function fetchSpotMetaAndAssetCtxs(): Promise<SpotMetaAndCtxs> {
+  const raw = await hlInfo<SpotMetaAndCtxs>({ type: 'spotMetaAndAssetCtxs' });
+  warmHlSpotMetaCache(raw[0]);
+  return raw;
+}
+
 async function ensureSpotMeta() {
   if (spotMetaCache) return spotMetaCache;
-  const raw = await info.spotMeta();
-  warmHlSpotMetaCache(raw as { universe: HlSpotPair[]; tokens: HlSpotToken[] });
+  const meta = await hlInfo<SpotMetaPayload>({ type: 'spotMeta' });
+  warmHlSpotMetaCache(meta);
   return spotMetaCache!;
 }
 
@@ -173,8 +172,7 @@ function buildSpotMarket(
 
 /** Active spot markets sorted by 24h volume. */
 export async function fetchHlSpotMarkets(): Promise<HlSpotMarket[]> {
-  const [meta, ctxs] = await info.spotMetaAndAssetCtxs();
-  warmHlSpotMetaCache(meta as { universe: HlSpotPair[]; tokens: HlSpotToken[] });
+  const [meta, ctxs] = await fetchSpotMetaAndAssetCtxs();
   const cache = spotMetaCache!;
 
   return meta.universe
@@ -186,8 +184,7 @@ export async function fetchHlSpotMarkets(): Promise<HlSpotMarket[]> {
 }
 
 export async function fetchHlSpotMarketSnapshot(coin: string): Promise<HlSpotMarketSnapshot | null> {
-  const [meta, ctxs] = await info.spotMetaAndAssetCtxs();
-  warmHlSpotMetaCache(meta as { universe: HlSpotPair[]; tokens: HlSpotToken[] });
+  const [meta, ctxs] = await fetchSpotMetaAndAssetCtxs();
 
   const idx = meta.universe.findIndex((p) => p.name === coin);
   if (idx < 0) return null;

@@ -25,7 +25,7 @@ import {
 import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './services/hlAgent';
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
 import { fetchHlClearinghouseState, hlAccountValueUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive } from './services/hlInfo';
-import { getLastHlOpenError, hyperliquidTradingService } from './services/hlTrading';
+import { getLastHlOpenError, hyperliquidTradingService, resolveHlMarginPerSlot } from './services/hlTrading';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
 import { getHlFeeSummary } from './services/hlSuccessFees';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
@@ -362,9 +362,12 @@ const healthServer = http.createServer(async (req, res) => {
           `HL balance $${hlBalanceUsd.toFixed(2)} (min $${config.hyperliquid.minAccountUsd})`
         );
       }
+      const maxPositions = config.hyperliquid.maxConcurrentPositions;
       if (!dbSettings.autoTradeEnabled) blockers.push('auto-trade disabled in settings');
-      if (hlOpenCoins.length > 0) {
-        blockers.push(`HL position open: ${hlOpenCoins.join(', ')}`);
+      if (hlOpenCoins.length >= maxPositions) {
+        blockers.push(
+          `HL max positions (${maxPositions}/${maxPositions}): ${hlOpenCoins.join(', ')}`
+        );
       }
       if (banStatus.isBanned) {
         blockers.push(
@@ -377,17 +380,25 @@ const healthServer = http.createServer(async (req, res) => {
           `no HL perp passed global scan (min ${config.hyperliquid.minSignalConfidence}% conf)`
         );
       }
-      if (bestGlobal && hlOpenCoins.length === 0 && dbSettings.autoTradeEnabled) {
+      if (bestGlobal && hlOpenCoins.length < maxPositions && dbSettings.autoTradeEnabled) {
         const balance = hlBalanceUsd;
-        const margin = Math.max((balance * dbSettings.riskLevelBps) / 10000, 0);
-        const bumped =
-          margin >= config.hyperliquid.minMarginUsd
-            ? margin
-            : balance >= config.hyperliquid.minAccountUsd
-              ? Math.min(config.hyperliquid.minMarginUsd, balance * 0.1)
-              : margin;
-        if (bumped < 1) {
-          blockers.push(`margin too small ($${bumped.toFixed(2)} from $${balance.toFixed(2)} balance)`);
+        const perSlot = resolveHlMarginPerSlot(
+          balance,
+          dbSettings.riskLevelBps,
+          hlOpenCoins.length
+        );
+        if (perSlot < 1) {
+          blockers.push(
+            `margin too small for slot ($${perSlot.toFixed(2)} from $${balance.toFixed(2)} balance, ${hlOpenCoins.length}/${maxPositions} open)`
+          );
+        } else {
+          const lev = Math.max(1, Math.floor(dbSettings.leverageMultiplier || 10));
+          const notional = perSlot * lev;
+          if (notional < config.hyperliquid.minNotionalUsd) {
+            blockers.push(
+              `notional $${notional.toFixed(2)} below min $${config.hyperliquid.minNotionalUsd} (raise risk % or leverage)`
+            );
+          }
         }
       }
 
@@ -409,6 +420,8 @@ const healthServer = http.createServer(async (req, res) => {
           builderPlatformUsd: builderGate.platformAccountUsd,
           builderPlatformMinUsd: builderGate.platformMinUsd,
           openCoins: hlOpenCoins,
+          maxConcurrentPositions: maxPositions,
+          minNotionalUsd: config.hyperliquid.minNotionalUsd,
           minAccountUsd: config.hyperliquid.minAccountUsd,
         },
         dbSettings: {

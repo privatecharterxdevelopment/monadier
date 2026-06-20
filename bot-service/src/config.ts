@@ -89,11 +89,15 @@ export const config = {
     /** Parallel MTF scans per trading cycle (all HL perps). */
     scanConcurrency: Number(process.env.HL_SCAN_CONCURRENCY || 8),
     minSignalConfidence: Number(process.env.HL_MIN_SIGNAL_CONFIDENCE || 55),
+    /** Max independent HL perp positions per wallet (different coins). */
+    maxConcurrentPositions: Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 2),
+    /** Minimum order notional — skips sloppy micro-trades. */
+    minNotionalUsd: Number(process.env.HL_MIN_NOTIONAL_USD || 20),
     /** Bot only scans/opens perps above these HL liquidity floors. */
-    minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 8_000_000),
-    minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 1_500_000),
+    minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 12_000_000),
+    minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 2_000_000),
     /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all liquid. */
-    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 35),
+    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 20),
     liquidUniverseCacheMs: Number(process.env.HL_LIQUID_UNIVERSE_CACHE_MS || 60_000),
     /** Close HL perps at this % gain on margin (user DB setting overrides). */
     /** 0 = user disabled TP. */
@@ -119,8 +123,8 @@ export const config = {
     /** Bars (excl. last 3) used for swing high/low in sweep detection. */
     sweepLookbackBars: Number(process.env.HL_SWEEP_LOOKBACK_BARS || 15),
     reentryCooldownMs: Number(process.env.HL_REENTRY_COOLDOWN_MS || 180_000),
-    /** Minimum margin USD per HL open (small accounts use up to 10% of balance). */
-    minMarginUsd: Number(process.env.HL_MIN_MARGIN_USD || 5),
+    /** Minimum margin USD per HL open slot (split across max concurrent positions). */
+    minMarginUsd: Number(process.env.HL_MIN_MARGIN_USD || 8),
     /** Success fee on profitable bot closes — 1000 = 10% of realized profit. */
     successFeeBps: Number(process.env.HL_SUCCESS_FEE_BPS || 1000),
     minSuccessFeeUsd: Number(process.env.HL_MIN_SUCCESS_FEE_USD || 0.01),

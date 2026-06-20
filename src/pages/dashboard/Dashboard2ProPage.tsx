@@ -98,9 +98,15 @@ const Dashboard2ProPageContent: React.FC = () => {
   const { markets: spotMarkets, loading: spotMarketsLoading, refresh: refreshSpotMarkets } =
     useHyperliquidSpotMarkets();
 
-  const perpMarket = useHyperliquidMarket(perpCoin, interval, 'perp');
-  const spotMarket = useHyperliquidMarket(spotCoin, interval, 'spot');
-  const swapMarket = useHyperliquidMarket(DEFAULT_SWAP_COIN, interval, 'spot');
+  const perpMarket = useHyperliquidMarket(perpCoin, interval, 'perp', {
+    enabled: section === 'perps' || section === 'bot',
+  });
+  const spotMarket = useHyperliquidMarket(spotCoin, interval, 'spot', {
+    enabled: section === 'spot',
+  });
+  const swapMarket = useHyperliquidMarket(DEFAULT_SWAP_COIN, interval, 'spot', {
+    enabled: section === 'swap',
+  });
 
   const {
     account,
@@ -165,7 +171,7 @@ const Dashboard2ProPageContent: React.FC = () => {
     () => (account?.positions ?? []).map((p) => p.coin),
     [account?.positions]
   );
-  const { prices: positionMarkPrices } = useHyperliquidMarkPrices(positionCoins);
+  const { prices: positionMarkPrices } = useHyperliquidMarkPrices(positionCoins, 5000);
   const spotTokens = useMemo(() => spotBalances.map((b) => b.coin), [spotBalances]);
   const { prices: spotTokenPrices } = useHyperliquidSpotPrices(spotTokens);
 

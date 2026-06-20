@@ -150,11 +150,11 @@ export async function scanGlobalHlSignals(
 
   const standard = standardRaw
     .filter((c): c is GlobalSignalCandidate => c !== null)
-    .sort((a, b) => b.confidence - a.confidence || b.dayVolumeUsd - a.dayVolumeUsd);
+    .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence);
 
   const aggressive = aggressiveRaw
     .filter((c): c is GlobalSignalCandidate => c !== null)
-    .sort((a, b) => b.confidence - a.confidence || b.dayVolumeUsd - a.dayVolumeUsd);
+    .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence);
 
   const standardFiltered = filterWeekendShortOnly(standard);
   const aggressiveFiltered = filterWeekendShortOnly(aggressive);

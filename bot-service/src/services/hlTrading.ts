@@ -75,13 +75,45 @@ function clearProfitLockState(lockKey: string): void {
   hlProfitSinceAt.delete(lockKey);
 }
 
-function resolveMarginUsd(balance: number, riskLevelBps: number): number {
-  const fromRisk = (balance * riskLevelBps) / 10000;
+function resolveMarginPerSlot(
+  balance: number,
+  riskLevelBps: number,
+  openCount: number,
+  maxSlots: number
+): number {
+  if (openCount >= maxSlots) return 0;
+
   const minMargin = config.hyperliquid.minMarginUsd;
-  if (fromRisk >= minMargin) return fromRisk;
-  if (balance < config.hyperliquid.minAccountUsd) return fromRisk;
-  // Small accounts: e.g. $50 @ 5% risk = $2.50 — bump to min margin or 10% of balance
+  const totalRiskUsd = (balance * riskLevelBps) / 10000;
+  const perSlot = totalRiskUsd / Math.max(1, maxSlots);
+
+  if (perSlot >= minMargin) return perSlot;
+
+  // Second slot only when each slot meets min margin — no sloppy add-on trades.
+  if (openCount > 0) return 0;
+
+  if (balance < config.hyperliquid.minAccountUsd) return perSlot;
   return Math.min(minMargin, balance * 0.1);
+}
+
+/** Exported for /api/bot-status diagnostics. */
+export function resolveHlMarginPerSlot(
+  balance: number,
+  riskLevelBps: number,
+  openCount: number
+): number {
+  return resolveMarginPerSlot(
+    balance,
+    riskLevelBps,
+    openCount,
+    config.hyperliquid.maxConcurrentPositions
+  );
+}
+
+function liquidityPickScore(signal: GlobalSignalCandidate): number {
+  const volM = signal.dayVolumeUsd / 1_000_000;
+  const oiM = signal.openInterestUsd / 1_000_000;
+  return volM * 12 + oiM * 3 + signal.confidence * 0.15;
 }
 
 export type UserProcessResult = 'ok' | 'skip' | 'fail';
@@ -148,30 +180,42 @@ export class HyperliquidTradingService {
     if (!state) return 'skip';
 
     const openCoins = hlOpenPerpCoins(state);
+    const maxPositions = config.hyperliquid.maxConcurrentPositions;
+
     if (openCoins.length > 0) {
       await this.monitorOpenPositions(userAddress, state, settings, { fast: false });
-      if (!settings.autoTradeEnabled) {
-        logger.debug('HL user: monitoring open positions (auto-trade off)', {
-          user: userAddress.slice(0, 10),
-        });
-      }
-      return 'ok';
     }
 
     if (!settings.autoTradeEnabled) {
-      logger.debug('HL user skip: auto-trade off', { user: userAddress.slice(0, 10) });
-      return 'skip';
+      if (openCoins.length > 0) {
+        logger.debug('HL user: monitoring open positions (auto-trade off)', {
+          user: userAddress.slice(0, 10),
+        });
+      } else {
+        logger.debug('HL user skip: auto-trade off', { user: userAddress.slice(0, 10) });
+      }
+      return openCoins.length > 0 ? 'ok' : 'skip';
     }
 
-    return this.tryOpenFromGlobalSignals(userAddress, settings, state, ctx);
+    if (openCoins.length >= maxPositions) {
+      return 'ok';
+    }
+
+    return this.tryOpenFromGlobalSignals(userAddress, settings, state, ctx, openCoins);
   }
 
-  /** Walk ranked signals — first that passes 24h vol + sweep + candle volume. */
-  private async pickSignalPassingLiquidityGate(
+  /** Ranked signals that pass liquidity gates — prefers high 24h volume / OI. */
+  private async pickBestSignalsPassingLiquidityGate(
     signals: GlobalSignalCandidate[],
-    liquidUniverse: HlLiquidUniverse
-  ): Promise<GlobalSignalCandidate | null> {
+    liquidUniverse: HlLiquidUniverse,
+    excludeCoins: string[],
+    limit: number
+  ): Promise<GlobalSignalCandidate[]> {
+    const excluded = new Set(excludeCoins.map((c) => c.toUpperCase()));
+    const passing: Array<{ signal: GlobalSignalCandidate; score: number }> = [];
+
     for (const signal of signals) {
+      if (excluded.has(signal.coin.toUpperCase())) continue;
       if (!isHlCoinLiquid(liquidUniverse, signal.coin)) continue;
       if (!isOpenDirectionAllowed(signal.direction)) continue;
 
@@ -192,24 +236,32 @@ export class HyperliquidTradingService {
         continue;
       }
 
+      passing.push({ signal, score: liquidityPickScore(signal) });
       logger.info('HL signal passed pre-trade gate', {
         coin: signal.coin,
         direction: signal.direction,
         gate: gate.reason,
+        volM: ((liq?.dayVolumeUsd ?? signal.dayVolumeUsd) / 1e6).toFixed(1),
       });
-      return signal;
     }
-    return null;
+
+    return passing
+      .sort((a, b) => b.score - a.score || b.signal.confidence - a.signal.confidence)
+      .slice(0, limit)
+      .map((row) => row.signal);
   }
 
   private async tryOpenFromGlobalSignals(
     userAddress: `0x${string}`,
     settings: Awaited<ReturnType<typeof subscriptionService.getUserTradingSettings>>,
     state: NonNullable<Awaited<ReturnType<typeof fetchHlClearinghouseState>>>,
-    ctx: TradingCycleContext
+    ctx: TradingCycleContext,
+    openCoins: string[]
   ): Promise<UserProcessResult> {
     const strategy = normalizeHlBotStrategy(settings.hlBotStrategy);
     const signals = globalSignalsForBotMode(ctx.globalScan, strategy);
+    const maxPositions = config.hyperliquid.maxConcurrentPositions;
+    const slotsLeft = maxPositions - openCoins.length;
 
     if (signals.length === 0) {
       logger.debug('HL open skip: no signals for mode', {
@@ -219,9 +271,11 @@ export class HyperliquidTradingService {
       return 'skip';
     }
 
+    if (slotsLeft <= 0) return 'skip';
+
     const cooldownMs = config.hyperliquid.reentryCooldownMs;
     const lastClose = hlLastCloseAt.get(userAddress.toLowerCase()) ?? 0;
-    if (cooldownMs > 0 && Date.now() - lastClose < cooldownMs) {
+    if (openCoins.length === 0 && cooldownMs > 0 && Date.now() - lastClose < cooldownMs) {
       logger.debug('HL open skip: reentry cooldown', {
         user: userAddress.slice(0, 10),
         waitSec: Math.ceil((cooldownMs - (Date.now() - lastClose)) / 1000),
@@ -230,21 +284,35 @@ export class HyperliquidTradingService {
     }
 
     const balance = hlAccountValueUsd(state);
-    const collateral = resolveMarginUsd(balance, settings.riskLevelBps);
+    const collateral = resolveMarginPerSlot(
+      balance,
+      settings.riskLevelBps,
+      openCoins.length,
+      maxPositions
+    );
     if (collateral < 1) {
-      logger.debug('HL open skip: margin too small', {
+      logger.debug('HL open skip: margin too small for slot', {
         user: userAddress.slice(0, 10),
         balance,
         collateral,
+        openCount: openCoins.length,
+        maxPositions,
       });
       return 'skip';
     }
 
-    const best = await this.pickSignalPassingLiquidityGate(signals, ctx.liquidUniverse);
+    const picks = await this.pickBestSignalsPassingLiquidityGate(
+      signals,
+      ctx.liquidUniverse,
+      openCoins,
+      1
+    );
+    const best = picks[0] ?? null;
     if (!best) {
       logger.debug('HL open skip: no signal passed volume/sweep gate', {
         user: userAddress.slice(0, 10),
         candidates: signals.length,
+        openCoins,
       });
       return 'skip';
     }
@@ -253,6 +321,18 @@ export class HyperliquidTradingService {
       maxLeverageForCoin(ctx.meta, best.coin)
     );
     const notionalUsd = collateral * leverage;
+    const minNotional = config.hyperliquid.minNotionalUsd;
+    if (notionalUsd < minNotional) {
+      logger.debug('HL open skip: notional below floor', {
+        user: userAddress.slice(0, 10),
+        coin: best.coin,
+        notionalUsd: notionalUsd.toFixed(2),
+        minNotional,
+        collateral,
+        leverage,
+      });
+      return 'skip';
+    }
 
     const opened = await this.openMarketPosition({
       userAddress,
@@ -352,6 +432,7 @@ export class HyperliquidTradingService {
         leverage: effectiveLeverage,
         notionalUsd: opts.notionalUsd.toFixed(2),
         reason: opts.reason,
+        openSlot: 'multi',
       });
 
       await recordHlBotOpenMarker({

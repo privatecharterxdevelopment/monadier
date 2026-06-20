@@ -25,6 +25,11 @@ import type {
 
 export type HlMarketKind = 'perp' | 'spot';
 
+export type UseHyperliquidMarketOptions = {
+  /** When false, skips REST polling and WS subscriptions (saves HL rate limit). */
+  enabled?: boolean;
+};
+
 type State = {
   candles: HlCandleBar[];
   book: HlL2Book | null;
@@ -35,7 +40,8 @@ type State = {
   wsConnected: boolean;
 };
 
-const SNAPSHOT_POLL_MS = 3000;
+const SNAPSHOT_POLL_MS = 10_000;
+const INTERVAL_DEBOUNCE_MS = 280;
 const BOOK_THROTTLE_MS = 80;
 const TRADES_THROTTLE_MS = 100;
 const CANDLE_THROTTLE_MS = 50;
@@ -108,8 +114,10 @@ function parseWsTrade(
 export function useHyperliquidMarket(
   coin: string,
   interval: HlInterval,
-  kind: HlMarketKind = 'perp'
+  kind: HlMarketKind = 'perp',
+  options: UseHyperliquidMarketOptions = {}
 ) {
+  const enabled = options.enabled !== false && coin.trim().length > 0;
   const [state, setState] = useState<State>({
     candles: [],
     book: null,
@@ -121,6 +129,7 @@ export function useHyperliquidMarket(
   });
 
   const refreshSnapshot = useCallback(async () => {
+    if (!enabled) return;
     try {
       const [snapshot, recentTrades] = await Promise.all([
         kind === 'spot'
@@ -138,9 +147,35 @@ export function useHyperliquidMarket(
     } catch {
       /* keep last snapshot */
     }
-  }, [coin, kind]);
+  }, [coin, kind, enabled]);
+
+  const refreshCandles = useCallback(async () => {
+    if (!enabled) return;
+    try {
+      const candles =
+        kind === 'spot'
+          ? await fetchHlSpotCandles(coin, interval)
+          : await fetchHlCandles(coin, interval, chartLookbackMs(interval));
+      setState((prev) => ({
+        ...prev,
+        candles,
+        loading: false,
+        error: null,
+      }));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Chart data unavailable';
+      const isRateLimit = message.includes('429');
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        // Keep last candles visible during brief HL rate limits.
+        error: isRateLimit && prev.candles.length > 0 ? null : message,
+      }));
+    }
+  }, [coin, interval, kind, enabled]);
 
   const refresh = useCallback(async () => {
+    if (!enabled) return;
     try {
       const [candles, book, snapshot, recentTrades] = await Promise.all([
         kind === 'spot'
@@ -168,9 +203,21 @@ export function useHyperliquidMarket(
         error: err instanceof Error ? err.message : 'Market data unavailable',
       }));
     }
-  }, [coin, interval, kind]);
+  }, [coin, interval, kind, enabled]);
 
   useEffect(() => {
+    if (!enabled) {
+      setState({
+        candles: [],
+        book: null,
+        snapshot: null,
+        recentTrades: [],
+        loading: false,
+        error: null,
+        wsConnected: false,
+      });
+      return;
+    }
     setState({
       candles: [],
       book: null,
@@ -181,12 +228,33 @@ export function useHyperliquidMarket(
       wsConnected: false,
     });
     void refresh();
-  }, [refresh]);
+    // Interval changes are handled separately (candles only).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- coin/kind/enabled only
+  }, [coin, kind, enabled]);
+
+  const prevIntervalRef = useRef<HlInterval | null>(null);
 
   useEffect(() => {
+    prevIntervalRef.current = null;
+  }, [coin, kind, enabled]);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    if (prevIntervalRef.current === null) {
+      prevIntervalRef.current = interval;
+      return undefined;
+    }
+    if (prevIntervalRef.current === interval) return undefined;
+    prevIntervalRef.current = interval;
+    const id = window.setTimeout(() => void refreshCandles(), INTERVAL_DEBOUNCE_MS);
+    return () => window.clearTimeout(id);
+  }, [interval, refreshCandles, enabled]);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
     const id = window.setInterval(() => void refreshSnapshot(), SNAPSHOT_POLL_MS);
     return () => window.clearInterval(id);
-  }, [refreshSnapshot]);
+  }, [refreshSnapshot, enabled]);
 
   const bookKeyRef = useRef('');
   const pendingBookRef = useRef<HlL2Book | null>(null);
@@ -285,6 +353,7 @@ export function useHyperliquidMarket(
   );
 
   useEffect(() => {
+    if (!enabled) return undefined;
     const client = getHlWsClient();
     const unsubs = [
       client.subscribe({ type: 'l2Book', coin }),
@@ -344,7 +413,7 @@ export function useHyperliquidMarket(
       pendingCandleRef.current = null;
       bookKeyRef.current = '';
     };
-  }, [coin, interval, scheduleBook, scheduleTrades, scheduleCandle, scheduleMid]);
+  }, [coin, interval, scheduleBook, scheduleTrades, scheduleCandle, scheduleMid, enabled]);
 
   return { ...state, refresh };
 }

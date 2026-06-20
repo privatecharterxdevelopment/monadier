@@ -1,4 +1,4 @@
-import { HL_INFO_URL } from './constants';
+import { hlInfoPost } from './hlInfoClient';
 import { toNum } from './parse';
 import type {
   HlAssetCtx,
@@ -12,15 +12,7 @@ import type {
 } from './types';
 
 async function hlInfo<T>(body: Record<string, unknown>): Promise<T> {
-  const res = await fetch(HL_INFO_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    throw new Error(`Hyperliquid API ${res.status}`);
-  }
-  return res.json() as Promise<T>;
+  return hlInfoPost<T>(body);
 }
 
 export function candleToBar(c: HlCandle): HlCandleBar {
