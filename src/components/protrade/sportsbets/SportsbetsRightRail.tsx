@@ -2,13 +2,14 @@ import React from 'react';
 import SportsbetsOrderPanel from './SportsbetsOrderPanel';
 import SportsbetsBetSlip from './SportsbetsBetSlip';
 import type { HlOpenOrder, HlUserFill } from '../../../lib/hyperliquid/user';
-import type { HlOutcomeMarket, HlOutcomePosition, OutcomeLegQuote, OutcomeSideIndex } from '../../../lib/hyperliquid/outcomes/types';
+import type { HlOutcomeMarket, HlOutcomeQuestion, HlOutcomePosition, OutcomeLegQuote, OutcomeSideIndex } from '../../../lib/hyperliquid/outcomes/types';
 import type { useHyperliquidOutcomeTrading } from '../../../hooks/useHyperliquidOutcomeTrading';
 
 type Trading = ReturnType<typeof useHyperliquidOutcomeTrading>;
 
 type Props = {
   market: HlOutcomeMarket | null;
+  question?: HlOutcomeQuestion | null;
   side: OutcomeSideIndex;
   quote: OutcomeLegQuote | null;
   quoteLoading: boolean;
@@ -31,6 +32,7 @@ type Props = {
 
 const SportsbetsRightRail: React.FC<Props> = ({
   market,
+  question,
   side,
   quote,
   quoteLoading,
@@ -54,6 +56,7 @@ const SportsbetsRightRail: React.FC<Props> = ({
     <div className="hl-sb-rail-scroll">
       <SportsbetsOrderPanel
         market={market}
+        question={question}
         side={side}
         quote={quote}
         quoteLoading={quoteLoading}

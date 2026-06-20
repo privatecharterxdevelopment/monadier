@@ -1,4 +1,4 @@
-import type { HlOutcomeMarket, HlOutcomeQuestion } from './types';
+import type { HlOutcomeMarket, HlOutcomeQuestion, OutcomeSideIndex } from './types';
 
 export type PriceBinaryMeta = {
   underlying: string;
@@ -128,6 +128,31 @@ export function formatBettingLegName(leg: HlOutcomeMarket): string {
 
 export function formatBettingMarketName(market: HlOutcomeMarket): string {
   return formatBettingLegName(market);
+}
+
+export type BettingOrderPickDisplay = {
+  eventTitle: string;
+  sideLabel: string;
+  legName: string;
+  expiry: string | null;
+};
+
+/** Order-slip headline: event + "Yes on Argentina" style pick (not bare "Yes" / "Argentina"). */
+export function formatBettingOrderPickDisplay(
+  question: HlOutcomeQuestion | null | undefined,
+  market: HlOutcomeMarket,
+  side: OutcomeSideIndex
+): BettingOrderPickDisplay {
+  const sideLabel = side === 0 ? market.yesLabel : market.noLabel;
+  const legName = formatBettingLegName(market);
+  const eventTitle = question ? formatBettingQuestionTitle(question) : 'Market';
+
+  return {
+    eventTitle,
+    sideLabel,
+    legName,
+    expiry: formatBettingMarketExpirySubtitle(market),
+  };
 }
 
 /** Period + resolution time for order slip (e.g. Daily · Until 21 Jun 06:00 UTC). */

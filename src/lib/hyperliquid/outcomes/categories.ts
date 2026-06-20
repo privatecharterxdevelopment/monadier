@@ -280,4 +280,6 @@ export {
   formatBettingLegName,
   formatBettingMarketName,
   formatBettingMarketExpirySubtitle,
+  formatBettingOrderPickDisplay,
 } from './priceBinaryDisplay';
+export type { BettingOrderPickDisplay } from './priceBinaryDisplay';

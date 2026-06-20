@@ -65,6 +65,17 @@ const SportsbetsTerminal: React.FC<Props> = ({
     return findOutcomeMarket(session.catalog, session.selectedOutcomeId) ?? null;
   }, [session.catalog, session.selectedOutcomeId]);
 
+  const selectedQuestionForOrder = useMemo(() => {
+    if (session.selectedOutcomeId == null) return null;
+    if (session.selectedQuestion?.legs.some((leg) => leg.outcomeId === session.selectedOutcomeId)) {
+      return session.selectedQuestion;
+    }
+    return (
+      session.questions.find((q) => q.legs.some((leg) => leg.outcomeId === session.selectedOutcomeId)) ??
+      null
+    );
+  }, [session.selectedQuestion, session.selectedOutcomeId, session.questions]);
+
   const positionSize = useMemo(() => {
     if (session.selectedOutcomeId == null) return 0;
     const row = session.positions.find(
@@ -227,6 +238,7 @@ const SportsbetsTerminal: React.FC<Props> = ({
 
         <SportsbetsRightRail
           market={selectedMarket}
+          question={selectedQuestionForOrder}
           side={session.selectedSide}
           quote={session.quote}
           quoteLoading={session.quoteLoading}

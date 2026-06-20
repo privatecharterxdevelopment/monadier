@@ -13,11 +13,10 @@ import {
   OUTCOME_PREVIEW_STAKE_USD,
 } from '../../../lib/hyperliquid/outcomes/display';
 import {
-  formatBettingMarketExpirySubtitle,
-  formatBettingMarketName,
+  formatBettingOrderPickDisplay,
 } from '../../../lib/hyperliquid/outcomes/categories';
 import { fmtUsdSymbol } from '../../../lib/hyperliquid/format';
-import type { HlOutcomeMarket, OutcomeLegQuote, OutcomeSideIndex } from '../../../lib/hyperliquid/outcomes/types';
+import type { HlOutcomeMarket, HlOutcomeQuestion, OutcomeLegQuote, OutcomeSideIndex } from '../../../lib/hyperliquid/outcomes/types';
 import type { useHyperliquidOutcomeTrading } from '../../../hooks/useHyperliquidOutcomeTrading';
 import SportsbetsPayoutCard from './SportsbetsPayoutCard';
 
@@ -25,6 +24,7 @@ type Trading = ReturnType<typeof useHyperliquidOutcomeTrading>;
 
 type Props = {
   market: HlOutcomeMarket | null;
+  question?: HlOutcomeQuestion | null;
   side: OutcomeSideIndex;
   quote: OutcomeLegQuote | null;
   quoteLoading: boolean;
@@ -48,6 +48,7 @@ const QUICK_STAKES_USD = [10, 25, 50, 100];
 
 const SportsbetsOrderPanel: React.FC<Props> = ({
   market,
+  question,
   side,
   quote,
   quoteLoading,
@@ -79,7 +80,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
 
   const sideBook = quote ? (side === 0 ? quote.yes : quote.no) : null;
   const sideLabel = market ? (side === 0 ? market.yesLabel : market.noLabel) : 'Yes';
-  const marketExpiry = market ? formatBettingMarketExpirySubtitle(market) : null;
+  const pickDisplay = market ? formatBettingOrderPickDisplay(question, market, side) : null;
 
   const effectiveAction = action;
   const effectiveMode = advancedOpen ? mode : 'market';
@@ -196,10 +197,14 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
               >
                 <SlidersHorizontal size={12} aria-hidden />
               </button>
-              <span className="hl-sb-order-pick-side">{sideLabel}</span>
-              <span className="hl-sb-order-pick-market">{formatBettingMarketName(market)}</span>
-              {marketExpiry ? (
-                <span className="hl-sb-order-pick-expiry">{marketExpiry}</span>
+              <span className="hl-sb-order-pick-event">{pickDisplay?.eventTitle}</span>
+              <p className="hl-sb-order-pick-line">
+                <span className="hl-sb-order-pick-side">{pickDisplay?.sideLabel}</span>
+                <span className="hl-sb-order-pick-on"> on </span>
+                <span className="hl-sb-order-pick-leg">{pickDisplay?.legName}</span>
+              </p>
+              {pickDisplay?.expiry ? (
+                <span className="hl-sb-order-pick-expiry">{pickDisplay.expiry}</span>
               ) : null}
             </div>
           </div>
