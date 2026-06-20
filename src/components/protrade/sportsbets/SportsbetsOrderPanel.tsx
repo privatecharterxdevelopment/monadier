@@ -39,6 +39,8 @@ type OrderMode = 'market' | 'limit';
 type Action = 'buy' | 'sell';
 type StakeMode = 'usd' | 'contracts';
 
+const QUICK_STAKES_USD = [10, 25, 50, 100];
+
 const SportsbetsOrderPanel: React.FC<Props> = ({
   market,
   side,
@@ -53,6 +55,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   onSuccess,
 }) => {
   const { open } = useAppKit();
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [action, setAction] = useState<Action>('buy');
   const [mode, setMode] = useState<OrderMode>('market');
   const [stakeMode, setStakeMode] = useState<StakeMode>('usd');
@@ -70,30 +73,34 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   const sideBook = quote ? (side === 0 ? quote.yes : quote.no) : null;
   const sideLabel = market ? (side === 0 ? market.yesLabel : market.noLabel) : 'Yes';
 
+  const effectiveAction = advancedOpen ? action : 'buy';
+  const effectiveMode = advancedOpen ? mode : 'market';
+  const effectiveStakeMode = advancedOpen ? stakeMode : 'usd';
+
   const referencePx = useMemo(() => {
     if (!sideBook) return 0;
-    return action === 'buy' ? outcomeBuyReferencePx(sideBook) : outcomeSellReferencePx(sideBook);
-  }, [action, sideBook]);
+    return effectiveAction === 'buy' ? outcomeBuyReferencePx(sideBook) : outcomeSellReferencePx(sideBook);
+  }, [effectiveAction, sideBook]);
 
   const parsedStake = Number(stakeInput);
   const parsedLimit = Number(limitPrice);
   const orderPrice =
-    mode === 'limit' && Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : referencePx;
+    effectiveMode === 'limit' && Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : referencePx;
 
   const contractSize = useMemo(() => {
     if (!Number.isFinite(parsedStake) || parsedStake <= 0 || orderPrice <= 0) return 0;
-    if (stakeMode === 'contracts') return Math.floor(parsedStake);
+    if (effectiveStakeMode === 'contracts') return Math.floor(parsedStake);
     return Math.floor(parsedStake / orderPrice);
-  }, [parsedStake, orderPrice, stakeMode]);
+  }, [parsedStake, orderPrice, effectiveStakeMode]);
 
   const payoutPreview = useMemo(
     () =>
       orderPrice > 0 && contractSize > 0
         ? previewOutcomeBuy({ contracts: contractSize, price: orderPrice })
-        : stakeMode === 'usd' && Number.isFinite(parsedStake) && parsedStake > 0 && orderPrice > 0
+        : effectiveStakeMode === 'usd' && Number.isFinite(parsedStake) && parsedStake > 0 && orderPrice > 0
           ? previewOutcomeBuy({ stakeUsd: parsedStake, price: orderPrice })
           : null,
-    [contractSize, orderPrice, parsedStake, stakeMode]
+    [contractSize, orderPrice, parsedStake, effectiveStakeMode]
   );
 
   const notional = payoutPreview?.stakeUsd ?? 0;
@@ -103,6 +110,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
       : null;
 
   const canSell = positionSize > 0;
+  const isCashOut = effectiveAction === 'sell';
 
   const handleGate = () => {
     if (signedIn) {
@@ -121,13 +129,13 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
     setLocalMsg(null);
     const size = payoutPreview.contracts;
     try {
-      if (action === 'buy') {
+      if (effectiveAction === 'buy') {
         await trading.buyOutcome({
           outcomeId: market.outcomeId,
           side,
           size,
-          kind: mode,
-          limitPrice: mode === 'limit' ? parsedLimit : undefined,
+          kind: effectiveMode,
+          limitPrice: effectiveMode === 'limit' ? parsedLimit : undefined,
           quote,
         });
         setLocalMsg('Bet placed');
@@ -139,8 +147,8 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
           outcomeId: market.outcomeId,
           side,
           size,
-          kind: mode,
-          limitPrice: mode === 'limit' ? parsedLimit : undefined,
+          kind: effectiveMode,
+          limitPrice: effectiveMode === 'limit' ? parsedLimit : undefined,
           quote,
           reduceOnly: true,
         });
@@ -185,115 +193,173 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
             <span> · {sideLabel}</span>
           </p>
 
-          <div className="hl-sb-order-tabs">
-            <button
-              type="button"
-              className={action === 'buy' ? 'hl-sb-order-tab hl-sb-order-tab--on' : 'hl-sb-order-tab'}
-              onClick={() => setAction('buy')}
-            >
-              Bet
-            </button>
-            <button
-              type="button"
-              className={action === 'sell' ? 'hl-sb-order-tab hl-sb-order-tab--on' : 'hl-sb-order-tab'}
-              onClick={() => setAction('sell')}
-              disabled={!canSell}
-            >
-              Cash out
-            </button>
-          </div>
-
-          <div className="hl-sb-order-controls" role="group" aria-label="Order type and stake mode">
-            <button
-              type="button"
-              className={mode === 'market' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
-              onClick={() => setMode('market')}
-            >
-              Market
-            </button>
-            <button
-              type="button"
-              className={mode === 'limit' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
-              onClick={() => setMode('limit')}
-            >
-              Limit
-            </button>
-            <button
-              type="button"
-              className={stakeMode === 'usd' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
-              onClick={() => setStakeMode('usd')}
-            >
-              Stake $
-            </button>
-            <button
-              type="button"
-              className={stakeMode === 'contracts' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
-              onClick={() => setStakeMode('contracts')}
-            >
-              Contracts
-            </button>
-          </div>
-
           <label className="hl-sb-field">
-            <span>{stakeMode === 'usd' ? 'Stake (USD)' : 'Contracts'}</span>
+            <span>
+              {advancedOpen && stakeMode === 'contracts' ? 'Contracts' : 'How much to bet? (USD)'}
+            </span>
             <input
               type="number"
-              min={stakeMode === 'usd' ? OUTCOME_PREVIEW_STAKE_USD : 1}
+              min={advancedOpen && stakeMode === 'contracts' ? 1 : OUTCOME_PREVIEW_STAKE_USD}
               step={1}
               value={stakeInput}
               onChange={(e) => setStakeInput(e.target.value)}
-              placeholder={stakeMode === 'usd' ? String(OUTCOME_PREVIEW_STAKE_USD) : '10'}
+              placeholder={
+                advancedOpen && stakeMode === 'contracts' ? '10' : String(OUTCOME_PREVIEW_STAKE_USD)
+              }
             />
           </label>
 
-          {mode === 'limit' ? (
-            <label className="hl-sb-field">
-              <span>Limit price (0.001–0.999)</span>
-              <input
-                type="number"
-                min={0.001}
-                max={0.999}
-                step={0.0001}
-                value={limitPrice}
-                onChange={(e) => setLimitPrice(e.target.value)}
-                placeholder={referencePx > 0 ? referencePx.toFixed(4) : '0.5000'}
-              />
-            </label>
-          ) : (
+          {!advancedOpen || stakeMode === 'usd' ? (
+            <div className="hl-sb-quick-stakes" role="group" aria-label="Quick stake amounts">
+              {QUICK_STAKES_USD.map((amt) => (
+                <button
+                  key={amt}
+                  type="button"
+                  className={parsedStake === amt ? 'hl-sb-quick-stake hl-sb-quick-stake--on' : 'hl-sb-quick-stake'}
+                  onClick={() => setStakeInput(String(amt))}
+                >
+                  ${amt}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {effectiveMode === 'market' ? (
             <div className="hl-sb-ref">
-              <span>Odds</span>
-              <strong>
+              <span className="hl-sb-ref-label">Odds</span>
+              <strong className="hl-sb-ref-value">
                 {quoteLoading || referencePx <= 0
                   ? '—'
                   : `${formatDecimalOdds(referencePx)}× · ${formatOutcomePriceCents(referencePx)}`}
               </strong>
             </div>
-          )}
+          ) : null}
 
-          {referencePx > 0 && parsedStake > 0 && action === 'buy' && !payoutPreview ? (
+          {!advancedOpen && effectiveMode === 'market' ? (
+            <p className="hl-sb-order-hint">Market order at the current best price.</p>
+          ) : null}
+
+          {advancedOpen &&
+          referencePx > 0 &&
+          parsedStake > 0 &&
+          effectiveAction === 'buy' &&
+          !payoutPreview ? (
             <p className="hl-sb-order-preview">
               {formatStakeReturnPreview(
-                stakeMode === 'usd' ? parsedStake : contractSize * referencePx,
+                effectiveStakeMode === 'usd' ? parsedStake : contractSize * referencePx,
                 orderPrice
               ) ?? 'Enter a valid stake'}
             </p>
           ) : null}
 
-          <SportsbetsPayoutCard
-            preview={payoutPreview}
-            action={action}
-            loading={quoteLoading && referencePx <= 0}
-          />
+          {!advancedOpen ? (
+            <SportsbetsPayoutCard
+              preview={payoutPreview}
+              action={effectiveAction}
+              loading={quoteLoading && referencePx <= 0}
+              simple
+            />
+          ) : null}
+
+          <details
+            className="hl-sb-advanced"
+            open={advancedOpen}
+            onToggle={(e) => setAdvancedOpen((e.currentTarget as HTMLDetailsElement).open)}
+          >
+            <summary className="hl-sb-advanced-summary">
+              Advanced — limit orders, contracts{canSell ? ', cash out' : ''}
+            </summary>
+            <div className="hl-sb-advanced-body">
+              {canSell ? (
+                <div className="hl-sb-order-tabs">
+                  <button
+                    type="button"
+                    className={action === 'buy' ? 'hl-sb-order-tab hl-sb-order-tab--on' : 'hl-sb-order-tab'}
+                    onClick={() => setAction('buy')}
+                  >
+                    Bet
+                  </button>
+                  <button
+                    type="button"
+                    className={action === 'sell' ? 'hl-sb-order-tab hl-sb-order-tab--on' : 'hl-sb-order-tab'}
+                    onClick={() => setAction('sell')}
+                  >
+                    Cash out
+                  </button>
+                </div>
+              ) : null}
+
+              <div className="hl-sb-order-controls" role="group" aria-label="Order type and stake mode">
+                <button
+                  type="button"
+                  className={mode === 'market' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
+                  onClick={() => setMode('market')}
+                >
+                  Market
+                </button>
+                <button
+                  type="button"
+                  className={mode === 'limit' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
+                  onClick={() => setMode('limit')}
+                >
+                  Limit
+                </button>
+                <button
+                  type="button"
+                  className={stakeMode === 'usd' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
+                  onClick={() => setStakeMode('usd')}
+                >
+                  Stake $
+                </button>
+                <button
+                  type="button"
+                  className={stakeMode === 'contracts' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
+                  onClick={() => setStakeMode('contracts')}
+                >
+                  Contracts
+                </button>
+              </div>
+
+              {stakeMode === 'contracts' ? (
+                <p className="hl-sb-order-hint">
+                  Each contract pays $1 if {sideLabel} wins. Price is per contract (e.g. 89¢ = 89% implied).
+                </p>
+              ) : null}
+
+              {mode === 'limit' ? (
+                <label className="hl-sb-field">
+                  <span>Limit price (0.001–0.999)</span>
+                  <input
+                    type="number"
+                    min={0.001}
+                    max={0.999}
+                    step={0.0001}
+                    value={limitPrice}
+                    onChange={(e) => setLimitPrice(e.target.value)}
+                    placeholder={referencePx > 0 ? referencePx.toFixed(4) : '0.5000'}
+                  />
+                </label>
+              ) : null}
+
+              {advancedOpen && payoutPreview ? (
+                <SportsbetsPayoutCard preview={payoutPreview} action={effectiveAction} simple={false} />
+              ) : advancedOpen && quoteLoading && referencePx <= 0 ? (
+                <SportsbetsPayoutCard preview={null} action={effectiveAction} loading />
+              ) : null}
+            </div>
+          </details>
 
           {canBet ? (
             <p className="hl-sb-order-balance">
               <span>
                 Balance <strong>{fmtUsdSymbol(bettingBalance)}</strong>
               </span>
-              {action === 'sell' ? (
+              {isCashOut ? (
                 <span>
                   Position <strong>{Math.floor(positionSize)} ct</strong>
                 </span>
+              ) : bettingBalance <= 0 ? (
+                <span className="hl-sb-order-balance-warn">Deposit USDC on Hyperliquid to bet</span>
               ) : null}
             </p>
           ) : null}
@@ -315,7 +381,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
 
           <button
             type="button"
-            className={`hl-sb-order-submit ${action === 'sell' ? 'hl-sb-order-submit--sell' : ''}`}
+            className={`hl-sb-order-submit ${isCashOut ? 'hl-sb-order-submit--sell' : ''}`}
             disabled={
               canBet &&
               (trading.busy ||
@@ -325,7 +391,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
                 !payoutPreview ||
                 Boolean(validation) ||
                 notional < OUTCOME_MIN_NOTIONAL_USD ||
-                (action === 'sell' && payoutPreview.contracts > positionSize))
+                (isCashOut && payoutPreview.contracts > positionSize))
             }
             onClick={() => void handleSubmit()}
           >
@@ -334,9 +400,9 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
               ? signedIn
                 ? 'Connect wallet to bet'
                 : 'Sign in to bet'
-              : action === 'buy'
-                ? `Bet ${sideLabel}`
-                : `Cash out ${sideLabel}`}
+              : isCashOut
+                ? `Cash out ${sideLabel}`
+                : `Bet ${sideLabel}`}
           </button>
         </>
       )}

@@ -11,9 +11,11 @@ type Props = {
   preview: OutcomePayoutPreview | null;
   action: 'buy' | 'sell';
   loading?: boolean;
+  /** When true, hide contracts/¢ jargon for the default bet flow. */
+  simple?: boolean;
 };
 
-const SportsbetsPayoutCard: React.FC<Props> = ({ preview, action, loading }) => {
+const SportsbetsPayoutCard: React.FC<Props> = ({ preview, action, loading, simple = true }) => {
   if (loading || !preview) {
     return (
       <div className="hl-sb-payout hl-sb-payout--empty">
@@ -29,6 +31,27 @@ const SportsbetsPayoutCard: React.FC<Props> = ({ preview, action, loading }) => 
           <span>Receive</span>
           <strong>{fmtUsdSymbol(preview.stakeUsd)}</strong>
         </div>
+        {!simple ? (
+          <p className="hl-sb-payout-meta">
+            {Math.floor(preview.contracts).toLocaleString()} contracts @{' '}
+            {formatOutcomePriceCents(preview.price)}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (simple) {
+    return (
+      <div className="hl-sb-payout hl-sb-payout--simple">
+        <div className="hl-sb-payout-row hl-sb-payout-row--hero">
+          <span>Return if win</span>
+          <strong>{fmtUsdSymbol(preview.payoutIfWin)}</strong>
+        </div>
+        <p className="hl-sb-payout-simple">
+          Pay {fmtUsdSymbol(preview.stakeUsd)} · profit {formatProfitUsd(preview.profitIfWin)} ·{' '}
+          {formatDecimalOdds(preview.price)}× odds
+        </p>
       </div>
     );
   }

@@ -13,11 +13,11 @@ export type BettingCategoryTab = {
 };
 
 export const BETTING_CATEGORY_TABS: BettingCategoryTab[] = [
-  { id: 'all', label: 'All', emoji: '✨' },
+  { id: 'all', label: 'All', emoji: '' },
   { id: 'sports', label: 'Sports', emoji: '⚽' },
   { id: 'crypto', label: 'Crypto', emoji: '₿' },
-  { id: 'macro', label: 'Macro', emoji: '📊' },
-  { id: 'other', label: 'More', emoji: '◎' },
+  { id: 'macro', label: 'Macro', emoji: '' },
+  { id: 'other', label: 'More', emoji: '' },
 ];
 
 const MACRO_KEYWORDS = ['fed', 'cpi', 'inflation', 'interest rate', 'gdp', 'unemployment', 'fomc'];
