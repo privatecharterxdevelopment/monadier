@@ -1,11 +1,10 @@
 import React from 'react';
-import { RefreshCw, Search } from 'lucide-react';
+import { RefreshCw, Search, X } from 'lucide-react';
 import { BETTING_CATEGORY_TABS } from '../../../lib/hyperliquid/outcomes/categories';
 import type { BettingCategoryId } from '../../../lib/hyperliquid/outcomes/categories';
 import BettingCategoryNav from './BettingCategoryNav';
 
 type Props = {
-  marketCount: number;
   syncing?: boolean;
   onRefresh?: () => void;
   refreshDisabled?: boolean;
@@ -17,7 +16,6 @@ type Props = {
 };
 
 const SportsbetsHero: React.FC<Props> = ({
-  marketCount,
   syncing,
   onRefresh,
   refreshDisabled,
@@ -53,34 +51,38 @@ const SportsbetsHero: React.FC<Props> = ({
           variant="banner"
         />
         <div className="hl-sb-search-wrap hl-sb-search-wrap--head">
-          <Search size={14} aria-hidden />
+          <Search size={14} className="hl-sb-search-icon" aria-hidden />
           <input
             type="search"
             className="hl-sb-search"
-            placeholder="Search…"
+            placeholder="Search markets…"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             aria-label="Search betting markets"
           />
-        </div>
-        <div className="hl-sb-head-toolbar-actions">
-          <span className="hl-sb-head-live-pill">
-            <span className={`hl-sb-live-dot ${syncing ? 'hl-sb-live-dot--sync' : ''}`} />
-            {marketCount} markets · {syncing ? 'Syncing' : 'Live'}
-          </span>
-          {onRefresh ? (
+          {searchQuery ? (
             <button
               type="button"
-              className="hl-sb-head-refresh-pill"
-              onClick={onRefresh}
-              disabled={refreshDisabled}
-              aria-label="Refresh markets"
+              className="hl-sb-search-clear"
+              aria-label="Clear search"
+              onClick={() => onSearchChange('')}
             >
-              <RefreshCw size={13} className={syncing ? 'hl-spin' : undefined} aria-hidden />
-              <span>Refresh</span>
+              <X size={12} aria-hidden />
             </button>
           ) : null}
         </div>
+        {onRefresh ? (
+          <button
+            type="button"
+            className="hl-sb-head-refresh-pill"
+            onClick={onRefresh}
+            disabled={refreshDisabled}
+            aria-label={syncing ? 'Syncing markets' : 'Refresh markets'}
+          >
+            <RefreshCw size={13} className={syncing ? 'hl-spin' : undefined} aria-hidden />
+            <span>{syncing ? 'Syncing' : 'Refresh'}</span>
+          </button>
+        ) : null}
       </div>
     </div>
   </header>

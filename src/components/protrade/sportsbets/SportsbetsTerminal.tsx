@@ -166,7 +166,6 @@ const SportsbetsTerminal: React.FC<Props> = ({
   return (
     <div className="hl-sb-terminal">
       <SportsbetsHero
-        marketCount={session.questions.length}
         syncing={session.catalogSyncing}
         onRefresh={() => void session.refreshAll()}
         refreshDisabled={session.catalogLoading && session.questions.length === 0}

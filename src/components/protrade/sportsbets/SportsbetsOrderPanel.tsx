@@ -76,11 +76,6 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   const [localMsg, setLocalMsg] = useState<string | null>(null);
 
   const canBet = signedIn && walletConnected;
-  const gateReason = !signedIn
-    ? 'Sign in to bet'
-    : !walletConnected
-      ? 'Connect wallet'
-      : null;
 
   const sideBook = quote ? (side === 0 ? quote.yes : quote.no) : null;
   const sideLabel = market ? (side === 0 ? market.yesLabel : market.noLabel) : 'Yes';
@@ -186,21 +181,6 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
 
   return (
     <aside className="hl-sb-order">
-      {gateReason ? (
-        <div className="hl-sb-order-gate">
-          <span>{gateReason}</span>
-          {!signedIn ? (
-            <button type="button" className="hl-sb-order-gate-btn" onClick={() => onRequireSignIn?.('Sign in to place bets.')}>
-              Sign in
-            </button>
-          ) : (
-            <button type="button" className="hl-sb-order-gate-btn" onClick={() => open()}>
-              Connect
-            </button>
-          )}
-        </div>
-      ) : null}
-
       {!market ? (
         <p className="hl-sb-muted hl-sb-order-empty">Pick Yes or No to bet.</p>
       ) : (
