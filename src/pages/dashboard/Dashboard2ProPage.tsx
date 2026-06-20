@@ -664,6 +664,7 @@ const Dashboard2ProPageContent: React.FC = () => {
 
       {fundsModal && (section === 'perps' || section === 'sportsbets') ? (
         <ProTradeDepositModal
+          mode={section === 'sportsbets' ? 'betting' : 'perps'}
           initialTab={fundsModal}
           withdrawable={section === 'sportsbets' ? String(spotUsdc) : account?.withdrawable}
           hlBalanceUsd={section === 'sportsbets' ? spotUsdc : perpAccountValue}

@@ -6397,14 +6397,203 @@
 }
 
 .hl-modal .term-pro-funds-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.hl-modal .term-pro-funds-tabs button {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--hl-border);
+  background: var(--hl-bg);
+  color: var(--hl-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.hl-modal .term-pro-funds-tabs button:hover:not(.term-pro-funds-tab--on) {
+  background: var(--hl-bg-hover);
+  color: var(--hl-text);
+}
+
+.hl-modal .term-pro-funds-tab--on {
+  background: var(--hl-green-tint) !important;
+  color: var(--hl-green-bright) !important;
+  border-color: color-mix(in srgb, var(--hl-green-bright) 35%, var(--hl-border)) !important;
+}
+
+.hl-modal .term-panel-card {
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--hl-bg);
+  border: 1px solid var(--hl-border);
+  margin-bottom: 10px;
+}
+
+.hl-modal .term-panel-card--muted {
+  background: var(--hl-bg-hover);
+  border-color: var(--hl-border);
+}
+
+.hl-modal .term-panel-card-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--hl-text-faint);
+}
+
+.hl-modal .term-panel-card-value {
+  display: block;
+  margin: 4px 0;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--hl-text);
+}
+
+.hl-modal .term-panel-card-hint {
+  display: block;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--hl-text-muted);
+}
+
+.hl-modal .term-modal-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--hl-bg);
+  border: 1px solid var(--hl-border);
+  margin-bottom: 12px;
+}
+
+.hl-modal .term-modal-label {
+  display: block;
+  margin-bottom: 0;
+  font-size: 11px;
+  color: var(--hl-text-faint);
+}
+
+.hl-modal .term-modal-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--hl-text);
+}
+
+.hl-modal .term-modal-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.hl-modal .term-modal-link {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--hl-green-bright);
+  cursor: pointer;
+}
+
+.hl-modal .term-modal-link:hover:not(:disabled) {
+  background: var(--hl-bg-hover);
+}
+
+.hl-modal .term-modal-link:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.hl-modal .term-btn-sm {
+  min-height: 32px;
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--hl-border);
+  background: var(--hl-bg-hover);
+  color: var(--hl-text);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.hl-modal .term-btn-sm:hover:not(:disabled) {
+  background: var(--hl-bg-panel);
+  border-color: var(--hl-border-strong);
+}
+
+.hl-modal .term-btn-sm:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.hl-modal .term-btn-sm--ghost {
+  background: transparent;
+}
+
+.hl-modal .term-btn-sm--ghost:hover:not(:disabled) {
+  background: var(--hl-bg-hover);
+}
+
+.hl-modal .term-arb-gate {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, #f59e0b 12%, var(--hl-bg-panel));
+  border: 1px solid color-mix(in srgb, #f59e0b 35%, var(--hl-border));
+  color: var(--hl-text);
+}
+
+.hl-modal .term-arb-gate .term-hint {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--hl-text-muted);
+}
+
+.hl-modal .term-arb-gate .term-hint strong {
+  color: var(--hl-text);
+}
+
+.hl-modal .hl-entry-hint {
+  margin-bottom: 10px;
+}
+
+.hl-modal .hl-entry-hint strong {
+  color: var(--hl-text);
+  font-weight: 600;
+}
+
+.hl-modal .hl-funds-trust {
   margin-bottom: 12px;
 }
 
 .hl-modal .term-profile-label,
-.hl-modal .term-profile-input,
-.hl-modal .term-profile-err,
-.hl-modal .term-profile-ok {
+.hl-modal .term-profile-input {
   color: var(--hl-text);
+}
+
+.hl-modal .term-profile-err {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--hl-red);
+}
+
+.hl-modal .term-profile-ok {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--hl-green-bright);
 }
 
 .hl-modal .term-profile-input {
@@ -6715,10 +6904,25 @@
 
 .hl-modal .term-modal-primary {
   width: 100%;
+  min-height: 36px;
   margin-top: 12px;
+  padding: 8px 14px;
+  border-radius: 6px;
   background: var(--hl-green-bright);
   color: var(--hl-on-accent);
   border: 1px solid var(--hl-green-bright);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hl-modal .term-modal-primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.hl-modal .term-modal-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .hl-modal .term-profile-label {

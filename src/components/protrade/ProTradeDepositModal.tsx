@@ -19,6 +19,8 @@ type Props = {
   withdrawable?: string;
   hlBalanceUsd?: number;
   initialTab?: 'deposit' | 'withdraw';
+  /** Betting uses Spot USDC; perps/bot use account value. */
+  mode?: 'perps' | 'betting';
 };
 
 const ProTradeDepositModal: React.FC<Props> = ({
@@ -27,6 +29,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
   withdrawable,
   hlBalanceUsd = 0,
   initialTab = 'deposit',
+  mode = 'perps',
 }) => {
   const { open } = useAppKit();
   const { address, isConnected } = useAppKitAccount();
@@ -166,6 +169,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
   };
 
   const primaryBusy = busy || switchBusy;
+  const isBetting = mode === 'betting';
 
   return (
     <div className="hl-modal-backdrop" role="presentation" onClick={onClose}>
@@ -177,7 +181,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
       >
         <div className="hl-modal-head">
           <h2 id="pro-funds-title" className="hl-modal-title">
-            Hyperliquid funds
+            {isBetting ? 'Betting balance' : 'Hyperliquid funds'}
           </h2>
           <button type="button" className="hl-modal-close" onClick={onClose} aria-label="Close">
             <X size={18} />
@@ -202,10 +206,14 @@ const ProTradeDepositModal: React.FC<Props> = ({
         </div>
 
         <div className="term-panel-card term-panel-card--muted hl-funds-balance">
-          <span className="term-panel-card-label">HL balance (bot capital)</span>
+          <span className="term-panel-card-label">
+            {isBetting ? 'Spot USDC (betting)' : 'HL balance (bot capital)'}
+          </span>
           <strong className="term-panel-card-value">{fmtUsdSymbol(String(hlBalanceUsd))}</strong>
           <span className="term-panel-card-hint">
-            Withdrawable {fmtUsdSymbol(withdrawable)} · min ${MIN_HL_BOT_USD} to run the bot
+            {isBetting
+              ? `Withdrawable ${fmtUsdSymbol(withdrawable)} · min $10 to place a bet`
+              : `Withdrawable ${fmtUsdSymbol(withdrawable)} · min $${MIN_HL_BOT_USD} to run the bot`}
           </span>
         </div>
 
@@ -217,8 +225,8 @@ const ProTradeDepositModal: React.FC<Props> = ({
         {tab === 'deposit' ? (
           <>
             <p className="hl-entry-hint hl-funds-lead">
-              Deposit <strong>in Monadier</strong> — your wallet sends USDC to Hyperliquid. No need to
-              open hyperliquid.xyz.
+              Deposit <strong>in Monadier</strong> — your wallet sends USDC to Hyperliquid
+              {isBetting ? ' Spot' : ''}. No need to open hyperliquid.xyz.
             </p>
 
             {!onArbitrum ? (
