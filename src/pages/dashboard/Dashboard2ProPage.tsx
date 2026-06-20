@@ -545,7 +545,7 @@ const Dashboard2ProPageContent: React.FC = () => {
               positionOverlay={botChartOverlay}
               tradeMarkers={botTradeMarkers}
               showBotToolbar
-              hlBalanceUsd={readNum(account?.margin?.accountValue)}
+              hlBalanceUsd={perpAccountValue}
             />
             <ProTradeOrderBook
               book={perpMarket.book}

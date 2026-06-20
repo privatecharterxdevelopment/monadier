@@ -14,6 +14,7 @@ export function readNum(
   path: string[],
   fallback = 0
 ): number {
+  if (!Array.isArray(path)) return fallback;
   let cur: unknown = source;
   for (const key of path) {
     if (cur == null || typeof cur !== 'object') return fallback;
