@@ -43,15 +43,20 @@ const SportsbetsPayoutCard: React.FC<Props> = ({ preview, action, loading, simpl
 
   if (simple) {
     return (
-      <div className="hl-sb-payout hl-sb-payout--simple">
-        <div className="hl-sb-payout-row hl-sb-payout-row--hero">
-          <span>Return if win</span>
-          <strong>{fmtUsdSymbol(preview.payoutIfWin)}</strong>
-        </div>
-        <p className="hl-sb-payout-simple">
-          Pay {fmtUsdSymbol(preview.stakeUsd)} · profit {formatProfitUsd(preview.profitIfWin)} ·{' '}
-          {formatDecimalOdds(preview.price)}× odds
-        </p>
+      <div className="hl-sb-payout hl-sb-payout--inline">
+        <span>
+          Win <strong>{fmtUsdSymbol(preview.payoutIfWin)}</strong>
+        </span>
+        <span className="hl-sb-payout-inline-sep" aria-hidden>
+          ·
+        </span>
+        <span>
+          Stake {fmtUsdSymbol(preview.stakeUsd)}
+        </span>
+        <span className="hl-sb-payout-inline-sep" aria-hidden>
+          ·
+        </span>
+        <span className="hl-sb-payout-inline-profit">{formatProfitUsd(preview.profitIfWin)}</span>
       </div>
     );
   }

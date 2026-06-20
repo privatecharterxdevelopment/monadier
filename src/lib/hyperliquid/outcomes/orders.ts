@@ -40,7 +40,7 @@ export function validateOutcomeOrder(opts: {
   }
   const notional = opts.size * opts.price;
   if (notional < OUTCOME_MIN_NOTIONAL_USD) {
-    return `Minimum order size is $${OUTCOME_MIN_NOTIONAL_USD} notional`;
+    return `Minimum bet is $${OUTCOME_MIN_NOTIONAL_USD}`;
   }
   return null;
 }

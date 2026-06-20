@@ -3276,8 +3276,211 @@
 }
 
 .hl-sb-order {
-  padding: 10px 12px 12px;
+  padding: 8px 10px 10px;
   background: transparent;
+}
+
+.hl-sb-order-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.hl-sb-order-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.hl-sb-order-pick strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--hl-text);
+  line-height: 1.2;
+}
+
+.hl-sb-order-pick span {
+  font-size: 10px;
+  color: var(--hl-text-muted);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hl-sb-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--hl-border);
+  background: var(--hl-bg);
+  color: var(--hl-text-muted);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.hl-sb-icon-btn:hover {
+  background: var(--hl-bg-hover);
+  color: var(--hl-text);
+}
+
+.hl-sb-icon-btn--on {
+  background: var(--hl-green-tint);
+  border-color: var(--hl-green-bright);
+  color: var(--hl-text);
+}
+
+.hl-sb-order-settings {
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid var(--hl-border);
+  background: var(--hl-bg-hover);
+}
+
+.hl-sb-order-gate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--hl-text-muted);
+  background: var(--hl-bg-hover);
+  border: 1px solid var(--hl-border);
+}
+
+.hl-sb-order-gate-btn {
+  padding: 4px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--hl-border);
+  background: var(--hl-bg);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--hl-text);
+  cursor: pointer;
+}
+
+.hl-sb-order-odds {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 10px;
+  color: var(--hl-text-muted);
+}
+
+.hl-sb-order-odds strong {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--hl-text);
+}
+
+.hl-sb-order-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 6px;
+  font-size: 10px;
+  color: var(--hl-text-muted);
+}
+
+.hl-sb-order-meta strong {
+  color: var(--hl-text);
+  font-weight: 600;
+}
+
+.hl-sb-order-meta-sep {
+  color: var(--hl-text-faint);
+}
+
+.hl-sb-order-meta-warn {
+  color: #f59e0b;
+  font-weight: 500;
+}
+
+.hl-sb-order-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  margin: 0 0 6px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--hl-text-muted);
+  background: var(--hl-bg-hover);
+}
+
+.hl-sb-order-notice--err {
+  color: var(--hl-pnl-neg);
+  background: var(--hl-red-tint);
+}
+
+.hl-sb-order-notice svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.hl-sb-payout--inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  color: var(--hl-text-muted);
+  background: var(--hl-bg-hover);
+  border: 1px solid var(--hl-border);
+}
+
+.hl-sb-payout--inline strong {
+  color: var(--hl-text);
+  font-weight: 700;
+}
+
+.hl-sb-payout-inline-sep {
+  color: var(--hl-text-faint);
+}
+
+.hl-sb-payout-inline-profit {
+  font-weight: 600;
+  color: var(--hl-pnl-pos);
+}
+
+.hl-sb-field--compact {
+  margin-bottom: 0;
+}
+
+.hl-sb-field--compact input {
+  padding: 5px 8px;
+  font-size: 11px;
+}
+
+.hl-sb-order-controls--compact {
+  margin-bottom: 6px;
+}
+
+.hl-sb-order-tabs--compact {
+  margin-bottom: 6px;
+}
+
+.hl-sb-order-empty {
+  margin: 0;
+  font-size: 11px;
 }
 
 .hl-sb-order-preview {
@@ -3298,7 +3501,7 @@
 }
 
 .hl-sb-order-sub {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   font-size: 11px;
   color: var(--hl-text-muted);
   line-height: 1.35;
@@ -3435,7 +3638,7 @@
 }
 
 .hl-sb-field--stake {
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .hl-sb-field--stake > span {
@@ -3445,9 +3648,9 @@
 }
 
 .hl-sb-field--stake input {
-  padding: 10px 12px;
-  border-radius: 8px;
-  font-size: 18px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.02em;
   background: var(--hl-bg-elevated);
@@ -3499,7 +3702,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin: 0 0 8px;
+  margin: 0 0 6px;
 }
 
 .hl-sb-quick-stake {

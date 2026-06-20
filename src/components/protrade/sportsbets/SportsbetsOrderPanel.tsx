@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, SlidersHorizontal } from 'lucide-react';
 import { useAppKit } from '@reown/appkit/react';
 import {
   OUTCOME_MIN_NOTIONAL_USD,
@@ -10,7 +10,6 @@ import { outcomeBuyReferencePx, outcomeSellReferencePx } from '../../../lib/hype
 import {
   formatDecimalOdds,
   formatOutcomePriceCents,
-  formatStakeReturnPreview,
   OUTCOME_PREVIEW_STAKE_USD,
 } from '../../../lib/hyperliquid/outcomes/display';
 import { formatBettingMarketName } from '../../../lib/hyperliquid/outcomes/categories';
@@ -65,9 +64,9 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
 
   const canBet = signedIn && walletConnected;
   const gateReason = !signedIn
-    ? 'Sign in to place bets.'
+    ? 'Sign in to bet'
     : !walletConnected
-      ? 'Connect your wallet to sign bets on Hyperliquid.'
+      ? 'Connect wallet'
       : null;
 
   const sideBook = quote ? (side === 0 ? quote.yes : quote.no) : null;
@@ -111,6 +110,8 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
 
   const canSell = positionSize > 0;
   const isCashOut = effectiveAction === 'sell';
+
+  const statusMessage = trading.error ?? localMsg ?? validation;
 
   const handleGate = () => {
     if (signedIn) {
@@ -163,115 +164,44 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   return (
     <aside className="hl-sb-order">
       {gateReason ? (
-        <div className="hl-sb-panel hl-sb-panel--muted hl-sb-panel--compact">
-          <p className="hl-sb-panel-title">{gateReason}</p>
-          <div className="hl-sb-panel-actions">
-            {!signedIn ? (
-              <button
-                type="button"
-                className="hl-sb-btn hl-sb-btn--primary"
-                onClick={() => onRequireSignIn?.('Sign in to place bets.')}
-              >
-                Sign in
-              </button>
-            ) : null}
-            {!walletConnected ? (
-              <button type="button" className="hl-sb-btn hl-sb-btn--primary" onClick={() => open()}>
-                Connect wallet
-              </button>
-            ) : null}
-          </div>
+        <div className="hl-sb-order-gate">
+          <span>{gateReason}</span>
+          {!signedIn ? (
+            <button type="button" className="hl-sb-order-gate-btn" onClick={() => onRequireSignIn?.('Sign in to place bets.')}>
+              Sign in
+            </button>
+          ) : (
+            <button type="button" className="hl-sb-order-gate-btn" onClick={() => open()}>
+              Connect
+            </button>
+          )}
         </div>
       ) : null}
 
       {!market ? (
-        <p className="hl-sb-muted">Select Yes or No on a market to preview your bet.</p>
+        <p className="hl-sb-muted hl-sb-order-empty">Pick Yes or No to bet.</p>
       ) : (
         <>
-          <p className="hl-sb-order-sub">
-            <strong className="hl-sb-order-market">{formatBettingMarketName(market)}</strong>
-            <span> · {sideLabel}</span>
-          </p>
-
-          <label className="hl-sb-field hl-sb-field--stake">
-            <span>
-              {advancedOpen && stakeMode === 'contracts' ? 'Contracts' : 'How much to bet? (USD)'}
-            </span>
-            <input
-              type="number"
-              min={advancedOpen && stakeMode === 'contracts' ? 1 : OUTCOME_PREVIEW_STAKE_USD}
-              step={1}
-              value={stakeInput}
-              onChange={(e) => setStakeInput(e.target.value)}
-              placeholder={
-                advancedOpen && stakeMode === 'contracts' ? '10' : String(OUTCOME_PREVIEW_STAKE_USD)
-              }
-            />
-          </label>
-
-          {!advancedOpen || stakeMode === 'usd' ? (
-            <div className="hl-sb-quick-stakes" role="group" aria-label="Quick stake amounts">
-              {QUICK_STAKES_USD.map((amt) => (
-                <button
-                  key={amt}
-                  type="button"
-                  className={parsedStake === amt ? 'hl-sb-quick-stake hl-sb-quick-stake--on' : 'hl-sb-quick-stake'}
-                  onClick={() => setStakeInput(String(amt))}
-                >
-                  ${amt}
-                </button>
-              ))}
+          <div className="hl-sb-order-head">
+            <div className="hl-sb-order-pick">
+              <strong>{sideLabel}</strong>
+              <span>{formatBettingMarketName(market)}</span>
             </div>
-          ) : null}
+            <button
+              type="button"
+              className={`hl-sb-icon-btn ${advancedOpen ? 'hl-sb-icon-btn--on' : ''}`}
+              aria-label="Order settings"
+              aria-expanded={advancedOpen}
+              onClick={() => setAdvancedOpen((open) => !open)}
+            >
+              <SlidersHorizontal size={14} aria-hidden />
+            </button>
+          </div>
 
-          {effectiveMode === 'market' ? (
-            <div className="hl-sb-ref">
-              <span className="hl-sb-ref-label">Odds</span>
-              <strong className="hl-sb-ref-value">
-                {quoteLoading || referencePx <= 0
-                  ? '—'
-                  : `${formatDecimalOdds(referencePx)}× · ${formatOutcomePriceCents(referencePx)}`}
-              </strong>
-            </div>
-          ) : null}
-
-          {!advancedOpen && effectiveMode === 'market' ? (
-            <p className="hl-sb-order-hint">Market order at the current best price.</p>
-          ) : null}
-
-          {advancedOpen &&
-          referencePx > 0 &&
-          parsedStake > 0 &&
-          effectiveAction === 'buy' &&
-          !payoutPreview ? (
-            <p className="hl-sb-order-preview">
-              {formatStakeReturnPreview(
-                effectiveStakeMode === 'usd' ? parsedStake : contractSize * referencePx,
-                orderPrice
-              ) ?? 'Enter a valid stake'}
-            </p>
-          ) : null}
-
-          {!advancedOpen ? (
-            <SportsbetsPayoutCard
-              preview={payoutPreview}
-              action={effectiveAction}
-              loading={quoteLoading && referencePx <= 0}
-              simple
-            />
-          ) : null}
-
-          <details
-            className="hl-sb-advanced"
-            open={advancedOpen}
-            onToggle={(e) => setAdvancedOpen((e.currentTarget as HTMLDetailsElement).open)}
-          >
-            <summary className="hl-sb-advanced-summary">
-              Advanced — limit orders, contracts{canSell ? ', cash out' : ''}
-            </summary>
-            <div className="hl-sb-advanced-body">
+          {advancedOpen ? (
+            <div className="hl-sb-order-settings">
               {canSell ? (
-                <div className="hl-sb-order-tabs">
+                <div className="hl-sb-order-tabs hl-sb-order-tabs--compact">
                   <button
                     type="button"
                     className={action === 'buy' ? 'hl-sb-order-tab hl-sb-order-tab--on' : 'hl-sb-order-tab'}
@@ -289,7 +219,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
                 </div>
               ) : null}
 
-              <div className="hl-sb-order-controls" role="group" aria-label="Order type and stake mode">
+              <div className="hl-sb-order-controls hl-sb-order-controls--compact" role="group" aria-label="Order settings">
                 <button
                   type="button"
                   className={mode === 'market' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
@@ -309,7 +239,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
                   className={stakeMode === 'usd' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
                   onClick={() => setStakeMode('usd')}
                 >
-                  Stake $
+                  USD
                 </button>
                 <button
                   type="button"
@@ -320,15 +250,9 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
                 </button>
               </div>
 
-              {stakeMode === 'contracts' ? (
-                <p className="hl-sb-order-hint">
-                  Each contract pays $1 if {sideLabel} wins. Price is per contract (e.g. 89¢ = 89% implied).
-                </p>
-              ) : null}
-
               {mode === 'limit' ? (
-                <label className="hl-sb-field">
-                  <span>Limit price (0.001–0.999)</span>
+                <label className="hl-sb-field hl-sb-field--compact">
+                  <span>Limit price</span>
                   <input
                     type="number"
                     min={0.001}
@@ -340,44 +264,93 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
                   />
                 </label>
               ) : null}
-
-              {advancedOpen && payoutPreview ? (
-                <SportsbetsPayoutCard preview={payoutPreview} action={effectiveAction} simple={false} />
-              ) : advancedOpen && quoteLoading && referencePx <= 0 ? (
-                <SportsbetsPayoutCard preview={null} action={effectiveAction} loading />
-              ) : null}
             </div>
-          </details>
+          ) : null}
+
+          <label className="hl-sb-field hl-sb-field--stake">
+            <span>{effectiveStakeMode === 'contracts' ? 'Contracts' : 'Amount (USD)'}</span>
+            <input
+              type="number"
+              min={effectiveStakeMode === 'contracts' ? 1 : OUTCOME_MIN_NOTIONAL_USD}
+              step={1}
+              value={stakeInput}
+              onChange={(e) => setStakeInput(e.target.value)}
+              placeholder={
+                effectiveStakeMode === 'contracts' ? '10' : String(OUTCOME_PREVIEW_STAKE_USD)
+              }
+            />
+          </label>
+
+          {effectiveStakeMode === 'usd' ? (
+            <div className="hl-sb-quick-stakes" role="group" aria-label="Quick stake amounts">
+              {QUICK_STAKES_USD.map((amt) => (
+                <button
+                  key={amt}
+                  type="button"
+                  className={parsedStake === amt ? 'hl-sb-quick-stake hl-sb-quick-stake--on' : 'hl-sb-quick-stake'}
+                  onClick={() => setStakeInput(String(amt))}
+                >
+                  ${amt}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="hl-sb-order-odds">
+            <span>Odds</span>
+            <strong>
+              {quoteLoading || referencePx <= 0
+                ? '—'
+                : `${formatDecimalOdds(referencePx)}× · ${formatOutcomePriceCents(referencePx)}`}
+            </strong>
+          </div>
+
+          <SportsbetsPayoutCard
+            preview={payoutPreview}
+            action={effectiveAction}
+            loading={quoteLoading && referencePx <= 0}
+            simple={!advancedOpen}
+          />
 
           {canBet ? (
-            <p className="hl-sb-order-balance">
+            <div className="hl-sb-order-meta">
               <span>
                 Balance <strong>{fmtUsdSymbol(bettingBalance)}</strong>
               </span>
+              <span className="hl-sb-order-meta-sep" aria-hidden>
+                ·
+              </span>
+              <span>Min {fmtUsdSymbol(OUTCOME_MIN_NOTIONAL_USD)}</span>
               {isCashOut ? (
-                <span>
-                  Position <strong>{Math.floor(positionSize)} ct</strong>
-                </span>
-              ) : bettingBalance <= 0 ? (
-                <span className="hl-sb-order-balance-warn">Deposit USDC on Hyperliquid to bet</span>
+                <>
+                  <span className="hl-sb-order-meta-sep" aria-hidden>
+                    ·
+                  </span>
+                  <span>
+                    Position <strong>{Math.floor(positionSize)}</strong>
+                  </span>
+                </>
               ) : null}
-            </p>
+              {!isCashOut && bettingBalance <= 0 ? (
+                <>
+                  <span className="hl-sb-order-meta-sep" aria-hidden>
+                    ·
+                  </span>
+                  <span className="hl-sb-order-meta-warn">Need USDC on HL</span>
+                </>
+              ) : null}
+            </div>
           ) : null}
 
-          {validation ? <p className="hl-sb-order-warn">{validation}</p> : null}
-          {notional > 0 && notional < OUTCOME_MIN_NOTIONAL_USD ? (
-            <p className="hl-sb-order-warn">Minimum order is ${OUTCOME_MIN_NOTIONAL_USD} notional.</p>
-          ) : null}
-
-          {(trading.error || localMsg) && (
+          {statusMessage ? (
             <div
-              className={`hl-sb-order-msg ${trading.error ? 'hl-sb-order-msg--err' : ''}`}
+              className={`hl-sb-order-notice ${trading.error || validation ? 'hl-sb-order-notice--err' : ''}`}
               role="status"
             >
-              {trading.error ? <AlertCircle size={14} /> : null}
-              <span>{trading.error ?? localMsg}</span>
+              {trading.error || validation ? <AlertCircle size={12} aria-hidden /> : null}
+              <span>{statusMessage}</span>
             </div>
-          )}
+          ) : null}
 
           <button
             type="button"
@@ -398,8 +371,8 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
             {trading.busy ? <Loader2 size={16} className="hl-spin" aria-hidden /> : null}
             {!canBet
               ? signedIn
-                ? 'Connect wallet to bet'
-                : 'Sign in to bet'
+                ? 'Connect wallet'
+                : 'Sign in'
               : isCashOut
                 ? `Cash out ${sideLabel}`
                 : `Bet ${sideLabel}`}
