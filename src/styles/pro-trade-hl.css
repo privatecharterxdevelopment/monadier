@@ -2770,6 +2770,7 @@
   background: color-mix(in srgb, #26a69a 18%, var(--hl-bg));
 }
 
+.hl-sb-detail-badge {
   display: inline-block;
   margin-top: 4px;
   padding: 3px 8px;
@@ -2807,16 +2808,6 @@
   color: var(--hl-text);
   font-size: 12px;
   outline: none;
-}
-
-.hl-sb-events-list {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 }
 
 .hl-sb-event {
