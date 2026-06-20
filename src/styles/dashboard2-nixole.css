@@ -1312,13 +1312,13 @@
   }
 
   .term-center {
-    grid-template-rows: minmax(300px, 1fr) minmax(100px, 18vh);
+    grid-template-rows: minmax(240px, 1fr) minmax(100px, min(32vh, 200px));
   }
 }
 
 .term-center {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) minmax(120px, 20vh);
+  grid-template-rows: minmax(0, 1fr) minmax(120px, min(28vh, 260px));
   min-width: 0;
   min-height: 0;
   flex: 1;
@@ -1478,7 +1478,15 @@
 }
 
 .term-hl-open-block {
-  margin-bottom: 12px;
+  margin-bottom: 0;
+  min-height: 0;
+}
+
+.term-hl-open-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--term-surface-muted, #f4f4f5);
 }
 
 .term-hl-open-pnl {

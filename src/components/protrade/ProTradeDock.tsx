@@ -181,7 +181,7 @@ const ProTradeDock: React.FC<Props> = ({
   }, [account?.positions, search]);
 
   return (
-    <section className="hl-dock">
+    <section className={`hl-dock${isBotMode ? ' hl-bot-dock-inner' : ''}`}>
       <div className="hl-dock-head">
         <nav className="hl-dock-tabs" aria-label="Account panels">
           {visibleTabs.map(({ id, label }) => (

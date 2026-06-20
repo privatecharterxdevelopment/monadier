@@ -904,28 +904,62 @@
   height: 100%;
 }
 
-/* Bot terminal — taller chart, positions dock pinned lower */
+/* Bot terminal — taller chart, scrollable positions dock below */
 .hl-terminal--bot .hl-workspace-main {
   flex: 1;
   min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) minmax(120px, min(28vh, 260px));
+  overflow: hidden;
+}
+
+.hl-terminal--bot .hl-chart-row {
+  flex: none;
+  min-height: min(50vh, 520px);
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.hl-terminal--bot .hl-bot-dock {
+  flex: none;
+  min-height: 0;
+  max-height: min(28vh, 260px);
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hl-terminal--bot .hl-bot-dock > .hl-dock,
+.hl-terminal--bot .hl-bot-dock > .hl-dock.hl-bot-dock-inner {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.hl-terminal--bot .hl-bot-dock-inner {
+  min-height: 0;
+  height: auto;
+  max-height: min(28vh, 260px);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
-.hl-terminal--bot .hl-chart-row {
-  flex: 1 1 0;
-  min-height: min(58vh, 580px);
+.hl-terminal--bot .hl-bot-dock .hl-dock-body,
+.hl-terminal--bot .hl-bot-dock .term-dock-body {
+  flex: 1;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
-.hl-terminal--bot .hl-bot-dock {
-  flex: 0 0 auto;
-  margin-top: auto;
-}
-
-.hl-terminal--bot .hl-bot-dock-inner {
-  min-height: 80px;
-  height: auto;
-  max-height: min(16vh, 155px);
+.hl-terminal--bot .hl-bot-dock-analyzer {
+  flex-shrink: 0;
 }
 
 .hl-chart-engine {
@@ -2083,7 +2117,8 @@
   display: flex;
   flex-direction: column;
   min-height: 120px;
-  height: min(24vh, 220px);
+  height: auto;
+  max-height: min(28vh, 260px);
   border: none;
   border-radius: 0;
   background: transparent;
@@ -2187,8 +2222,11 @@
   flex-direction: column;
 }
 
-.hl-bot-dock .term-hl-open-table {
-  width: 100%;
+.hl-bot-dock .term-hl-open-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--hl-bg-panel);
 }
 
 .hl-dock-market-cell {
@@ -2307,13 +2345,28 @@
 .term-center .hl-bot-dock {
   flex: 1;
   min-height: 0;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
-.term-center .hl-bot-dock .hl-dock {
+.term-center .hl-bot-dock > .hl-dock {
   flex: 1;
   min-height: 0;
+  height: auto;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.term-center .hl-bot-dock .hl-dock-body,
+.term-center .hl-bot-dock .term-dock-body {
+  flex: 1;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .hl-bot-dock .term-hl-open-pnl {
@@ -3459,6 +3512,13 @@
     min-height: auto;
   }
 
+  .hl-terminal--bot .hl-workspace-main {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    overflow: hidden;
+  }
+
   .hl-chart-row {
     grid-template-columns: 1fr;
     height: auto;
@@ -3467,29 +3527,34 @@
     flex: 0 0 auto;
   }
 
+  .hl-terminal--bot .hl-workspace-main {
+    grid-template-rows: minmax(180px, 1fr) minmax(100px, min(32vh, 200px));
+  }
+
   .hl-terminal--bot .hl-chart-row {
-    min-height: min(52vh, 380px);
-    max-height: min(58vh, 420px);
+    min-height: min(44vh, 320px);
+    max-height: min(50vh, 360px);
     flex: 0 0 auto;
   }
 
   .hl-terminal--bot .hl-chart-wrap {
-    min-height: min(48vh, 340px);
-    max-height: min(54vh, 400px);
+    min-height: min(40vh, 300px);
+    max-height: min(48vh, 340px);
   }
 
   .hl-terminal--bot .hl-chart-canvas,
   .hl-terminal--bot .hl-chart-tv-wrap,
   .hl-terminal--bot .hl-chart-tv-canvas {
-    min-height: min(46vh, 320px);
-    height: min(48vh, 340px);
-    max-height: min(52vh, 380px);
+    min-height: min(38vh, 280px);
+    height: min(42vh, 300px);
+    max-height: min(46vh, 320px);
   }
 
+  .hl-terminal--bot .hl-bot-dock,
   .hl-terminal--bot .hl-bot-dock .hl-dock,
   .hl-terminal--bot .hl-bot-dock .hl-bot-dock-inner {
     min-height: 100px;
-    max-height: 140px;
+    max-height: min(32vh, 200px);
   }
 
   .hl-chart-row .hl-book {
