@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react';
 import { OUTCOME_BOOK_POLL_MS } from '../../../lib/hyperliquid/outcomes/constants';
 import { fetchOutcomeLegQuotesFromMids, type OutcomeLegQuote } from '../../../lib/hyperliquid/outcomes';
 import { ensureArray } from '../../../lib/ensureArray';
+import { countByCategory } from '../../../lib/hyperliquid/outcomes/categories';
 import { findOutcomeMarket } from '../../../lib/hyperliquid/outcomes/meta';
 import { useSportsbetsSession } from '../../../hooks/useSportsbetsSession';
 import SportsbetsHero from './SportsbetsHero';
@@ -28,6 +29,16 @@ const SportsbetsTerminal: React.FC<Props> = ({
   const session = useSportsbetsSession(walletAddress, true, userId);
   const [legQuotes, setLegQuotes] = useState<Record<number, OutcomeLegQuote>>({});
   const [quotesLoading, setQuotesLoading] = useState(false);
+
+  const categoryCounts = useMemo(
+    () => countByCategory(session.questions),
+    [session.questions]
+  );
+
+  const legQuotesForDetail = useMemo(() => {
+    if (session.selectedOutcomeId == null || !session.quote) return legQuotes;
+    return { ...legQuotes, [session.selectedOutcomeId]: session.quote };
+  }, [legQuotes, session.selectedOutcomeId, session.quote]);
 
   const selectedMarket = useMemo(() => {
     if (!session.catalog || session.selectedOutcomeId == null) return null;
@@ -92,6 +103,9 @@ const SportsbetsTerminal: React.FC<Props> = ({
         syncing={session.catalogSyncing}
         onRefresh={() => void session.refreshAll()}
         refreshDisabled={session.catalogLoading && session.questions.length === 0}
+        category={session.category}
+        categoryCounts={categoryCounts}
+        onCategoryChange={session.setCategory}
       />
 
       {session.catalogError ? (
@@ -105,7 +119,6 @@ const SportsbetsTerminal: React.FC<Props> = ({
           questions={session.questions}
           selectedQuestionId={session.selectedQuestionId}
           category={session.category}
-          onCategoryChange={session.setCategory}
           onSelect={session.selectQuestion}
           loading={session.catalogLoading}
         />
@@ -114,7 +127,7 @@ const SportsbetsTerminal: React.FC<Props> = ({
           {session.selectedQuestion ? (
             <SportsbetsEventDetail
               question={session.selectedQuestion}
-              legQuotes={legQuotes}
+              legQuotes={legQuotesForDetail}
               quotesLoading={quotesLoading}
               selectedOutcomeId={session.selectedOutcomeId}
               selectedSide={session.selectedSide}

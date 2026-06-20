@@ -154,10 +154,8 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
 
   return (
     <aside className="hl-sb-order">
-      <h3 className="hl-sb-order-title">Place bet</h3>
-
       {gateReason ? (
-        <div className="hl-sb-panel hl-sb-panel--muted">
+        <div className="hl-sb-panel hl-sb-panel--muted hl-sb-panel--compact">
           <p className="hl-sb-panel-title">{gateReason}</p>
           <div className="hl-sb-panel-actions">
             {!signedIn ? (
@@ -183,7 +181,8 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
       ) : (
         <>
           <p className="hl-sb-order-sub">
-            {formatBettingMarketName(market)} · {sideLabel}
+            <strong className="hl-sb-order-market">{formatBettingMarketName(market)}</strong>
+            <span> · {sideLabel}</span>
           </p>
 
           <div className="hl-sb-order-tabs">
@@ -204,38 +203,39 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
             </button>
           </div>
 
-          <div className="hl-sb-order-mode">
-            <button
-              type="button"
-              className={mode === 'market' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
-              onClick={() => setMode('market')}
-            >
-              Market
-            </button>
-            <button
-              type="button"
-              className={mode === 'limit' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
-              onClick={() => setMode('limit')}
-            >
-              Limit
-            </button>
-          </div>
-
-          <div className="hl-sb-order-mode">
-            <button
-              type="button"
-              className={stakeMode === 'usd' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
-              onClick={() => setStakeMode('usd')}
-            >
-              Stake $
-            </button>
-            <button
-              type="button"
-              className={stakeMode === 'contracts' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
-              onClick={() => setStakeMode('contracts')}
-            >
-              Contracts
-            </button>
+          <div className="hl-sb-order-controls">
+            <div className="hl-sb-order-mode">
+              <button
+                type="button"
+                className={mode === 'market' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
+                onClick={() => setMode('market')}
+              >
+                Market
+              </button>
+              <button
+                type="button"
+                className={mode === 'limit' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
+                onClick={() => setMode('limit')}
+              >
+                Limit
+              </button>
+            </div>
+            <div className="hl-sb-order-mode">
+              <button
+                type="button"
+                className={stakeMode === 'usd' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
+                onClick={() => setStakeMode('usd')}
+              >
+                Stake $
+              </button>
+              <button
+                type="button"
+                className={stakeMode === 'contracts' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
+                onClick={() => setStakeMode('contracts')}
+              >
+                Contracts
+              </button>
+            </div>
           </div>
 
           <label className="hl-sb-field">
@@ -274,7 +274,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
             </div>
           )}
 
-          {referencePx > 0 && parsedStake > 0 && action === 'buy' ? (
+          {referencePx > 0 && parsedStake > 0 && action === 'buy' && !payoutPreview ? (
             <p className="hl-sb-order-preview">
               {formatStakeReturnPreview(
                 stakeMode === 'usd' ? parsedStake : contractSize * referencePx,
@@ -290,18 +290,16 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
           />
 
           {canBet ? (
-            <div className="hl-sb-order-stats">
-              <div>
-                <span>Balance</span>
-                <strong>{fmtUsdSymbol(bettingBalance)}</strong>
-              </div>
+            <p className="hl-sb-order-balance">
+              <span>
+                Balance <strong>{fmtUsdSymbol(bettingBalance)}</strong>
+              </span>
               {action === 'sell' ? (
-                <div>
-                  <span>Your position</span>
-                  <strong>{Math.floor(positionSize)} contracts</strong>
-                </div>
+                <span>
+                  Position <strong>{Math.floor(positionSize)} ct</strong>
+                </span>
               ) : null}
-            </div>
+            </p>
           ) : null}
 
           {validation ? <p className="hl-sb-order-warn">{validation}</p> : null}

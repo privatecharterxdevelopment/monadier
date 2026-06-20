@@ -49,7 +49,6 @@ const SportsbetsBetSlip: React.FC<Props> = ({
   return (
     <aside className="hl-sb-slip" aria-label="Bet slip">
       <div className="hl-sb-slip-head">
-        <h3 className="hl-sb-slip-title">Bet slip</h3>
         <div className="hl-sb-slip-tabs" role="tablist">
           {TABS.map((t) => (
             <button

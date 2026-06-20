@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react';
+import { outcomeBuyReferencePx } from '../../../lib/hyperliquid/outcomes/book';
 import {
   formatDecimalOdds,
   formatOutcomeBetCell,
   formatOutcomeImpliedPct,
+  isIndicativeOutcomeQuote,
   OUTCOME_PREVIEW_STAKE_USD,
 } from '../../../lib/hyperliquid/outcomes/display';
 import {
@@ -13,9 +15,11 @@ import {
   resolveBettingCategory,
 } from '../../../lib/hyperliquid/outcomes/categories';
 import { parsePriceBinaryMeta } from '../../../lib/hyperliquid/outcomes/priceBinaryDisplay';
+import { resolveEventBanner } from '../../../lib/sports/eventBanner';
 import { eventVisual } from '../../../lib/sports/teamVisuals';
 import type { HlOutcomeQuestion, OutcomeLegQuote, OutcomeSideIndex } from '../../../lib/hyperliquid/outcomes/types';
 import TeamBadge from './TeamBadge';
+import SportsbetsEventBanner from './SportsbetsEventBanner';
 
 type Props = {
   question: HlOutcomeQuestion;
@@ -26,10 +30,10 @@ type Props = {
   onSelectLeg: (outcomeId: number, side: OutcomeSideIndex) => void;
 };
 
-function legPrice(quote: OutcomeLegQuote | undefined, side: 0 | 1): number {
+function legBuyPrice(quote: OutcomeLegQuote | undefined, side: 0 | 1): number {
   if (!quote) return 0;
   const book = side === 0 ? quote.yes : quote.no;
-  return book.mid > 0 ? book.mid : book.bestAsk;
+  return outcomeBuyReferencePx(book);
 }
 
 const SportsbetsEventDetail: React.FC<Props> = ({
@@ -45,29 +49,20 @@ const SportsbetsEventDetail: React.FC<Props> = ({
   const category = resolveBettingCategory(question);
   const visuals = useMemo(() => eventVisual(title, category), [title, category]);
   const categoryBadge = useMemo(() => formatCategoryBadge(question), [question]);
+  const banner = useMemo(
+    () => resolveEventBanner(question, title, category),
+    [question, title, category]
+  );
 
   return (
     <section className="hl-sb-detail">
-      <header className="hl-sb-panel hl-sb-panel--event">
-        <div className="hl-sb-panel-row">
-          <span className="hl-sb-detail-badge">{categoryBadge}</span>
-          <span className="hl-sb-muted">Live · mid prices</span>
-        </div>
-        <div className="hl-sb-detail-title-row">
-            <span className="hl-sb-event-icon hl-sb-event-icon--lg" aria-hidden>
-              {visuals.emoji}
-            </span>
-            {visuals.flagUrls.length >= 2 ? (
-              <div className="hl-sb-match-flags hl-sb-match-flags--banner">
-                <img src={visuals.flagUrls[0]} alt="" width={40} height={30} loading="lazy" />
-                <span className="hl-sb-match-vs">vs</span>
-                <img src={visuals.flagUrls[1]} alt="" width={40} height={30} loading="lazy" />
-              </div>
-            ) : null}
-            <h2 className="hl-sb-detail-title">{title}</h2>
-          </div>
-          {summary ? <p className="hl-sb-detail-desc">{summary}</p> : null}
-      </header>
+      <SportsbetsEventBanner
+        banner={banner}
+        badge={categoryBadge}
+        emoji={visuals.emoji}
+        title={title}
+        summary={summary}
+      />
 
       <div className="hl-sb-market-table">
         <div className="hl-sb-market-head">
@@ -78,10 +73,11 @@ const SportsbetsEventDetail: React.FC<Props> = ({
 
         {question.legs.map((leg) => {
           const quote = legQuotes[leg.outcomeId];
-          const yesPx = legPrice(quote, 0);
-          const noPx = legPrice(quote, 1);
-          const yesCell = yesPx > 0 ? formatOutcomeBetCell(yesPx) : null;
-          const noCell = noPx > 0 ? formatOutcomeBetCell(noPx) : null;
+          const indicative = isIndicativeOutcomeQuote(quote);
+          const yesPx = legBuyPrice(quote, 0);
+          const noPx = legBuyPrice(quote, 1);
+          const yesCell = yesPx > 0 ? formatOutcomeBetCell(yesPx, OUTCOME_PREVIEW_STAKE_USD, { indicative }) : null;
+          const noCell = noPx > 0 ? formatOutcomeBetCell(noPx, OUTCOME_PREVIEW_STAKE_USD, { indicative }) : null;
           const yesSelected = selectedOutcomeId === leg.outcomeId && selectedSide === 0;
           const noSelected = selectedOutcomeId === leg.outcomeId && selectedSide === 1;
           const implied =
@@ -139,8 +135,9 @@ const SportsbetsEventDetail: React.FC<Props> = ({
       </div>
 
       <p className="hl-sb-footnote">
-        Decimal odds (European). Preview uses a ${OUTCOME_PREVIEW_STAKE_USD} stake — each contract pays
-        $1 if the outcome wins. Enter your stake in the bet slip on the right.
+        Previews use the live buy price (ask). Each contract pays $1 if it wins — profit = payout −
+        your stake. Rows marked ~ are mid-price estimates until the order book loads. Stake in the bet
+        slip on the right.
       </p>
     </section>
   );

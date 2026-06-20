@@ -45,7 +45,7 @@ const SportsbetsRightRail: React.FC<Props> = ({
   onCancelOrder,
 }) => (
   <div className="hl-sb-rail">
-    <div className="hl-sb-rail-order">
+    <div className="hl-sb-rail-scroll">
       <SportsbetsOrderPanel
         market={market}
         side={side}
@@ -59,18 +59,18 @@ const SportsbetsRightRail: React.FC<Props> = ({
         positionSize={positionSize}
         onSuccess={onSuccess}
       />
+      <SportsbetsBetSlip
+        positions={positions}
+        openOrders={openOrders}
+        fills={fills}
+        loading={positionsLoading}
+        signedIn={signedIn}
+        walletConnected={walletConnected}
+        onRequireSignIn={onRequireSignIn}
+        onCancelOrder={onCancelOrder}
+        cancelBusy={trading.busy}
+      />
     </div>
-    <SportsbetsBetSlip
-      positions={positions}
-      openOrders={openOrders}
-      fills={fills}
-      loading={positionsLoading}
-      signedIn={signedIn}
-      walletConnected={walletConnected}
-      onRequireSignIn={onRequireSignIn}
-      onCancelOrder={onCancelOrder}
-      cancelBusy={trading.busy}
-    />
   </div>
 );
 

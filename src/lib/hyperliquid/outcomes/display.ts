@@ -1,7 +1,14 @@
-import { previewOutcomeBuy } from './payout';
+import { formatProfitUsd, previewOutcomeBuy } from './payout';
+import type { OutcomeLegQuote } from './types';
 
 /** Standard preview stake shown on outcome buttons (not $100). */
 export const OUTCOME_PREVIEW_STAKE_USD = 10;
+
+/** True when quote comes from allMids only (no live ask on the book yet). */
+export function isIndicativeOutcomeQuote(quote: OutcomeLegQuote | undefined): boolean {
+  if (!quote) return false;
+  return quote.yes.asks.length === 0 && quote.no.asks.length === 0;
+}
 
 /** Price per contract in cents (HL outcome books use 0–1 probability). */
 export function formatOutcomePriceCents(price: number): string {
@@ -38,17 +45,19 @@ function fmtPreviewUsd(value: number): string {
   return `$${value.toFixed(2)}`;
 }
 
-/** Sportsbook-style cell: big odds + “Win $X on $10”. */
+/** Sportsbook-style cell: big odds + profit preview on standard stake. */
 export function formatOutcomeBetCell(
   price: number,
-  stakeUsd = OUTCOME_PREVIEW_STAKE_USD
+  stakeUsd = OUTCOME_PREVIEW_STAKE_USD,
+  opts?: { indicative?: boolean }
 ): { odds: string; winLine: string; implied: string } | null {
   if (!Number.isFinite(price) || price <= 0) return null;
   const preview = previewOutcomeBuy({ stakeUsd, price });
   if (!preview) return null;
+  const prefix = opts?.indicative ? '~' : '';
   return {
-    odds: formatDecimalOdds(price),
-    winLine: `Win ${fmtPreviewUsd(preview.payoutIfWin)} on ${fmtPreviewUsd(stakeUsd)}`,
+    odds: prefix + formatDecimalOdds(price),
+    winLine: `${prefix}${formatProfitUsd(preview.profitIfWin)} profit · ${fmtPreviewUsd(preview.stakeUsd)} stake`,
     implied: formatOutcomeImpliedPct(price),
   };
 }
@@ -57,5 +66,5 @@ export function formatOutcomeBetCell(
 export function formatStakeReturnPreview(stakeUsd: number, price: number): string | null {
   const preview = previewOutcomeBuy({ stakeUsd, price });
   if (!preview) return null;
-  return `${formatDecimalOdds(price)}× odds · pay ${fmtPreviewUsd(preview.stakeUsd)} · return ${fmtPreviewUsd(preview.payoutIfWin)} if win`;
+  return `${formatDecimalOdds(price)}× · ${fmtPreviewUsd(preview.stakeUsd)} stake · ${formatProfitUsd(preview.profitIfWin)} profit · ${fmtPreviewUsd(preview.payoutIfWin)} return if win`;
 }

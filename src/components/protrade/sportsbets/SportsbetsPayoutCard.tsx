@@ -17,52 +17,33 @@ const SportsbetsPayoutCard: React.FC<Props> = ({ preview, action, loading }) => 
   if (loading || !preview) {
     return (
       <div className="hl-sb-payout hl-sb-payout--empty">
-        <span className="hl-sb-muted">Enter stake to see payout</span>
+        <span className="hl-sb-muted">Enter stake to preview payout</span>
       </div>
     );
   }
 
   if (action === 'sell') {
     return (
-      <div className="hl-sb-payout">
+      <div className="hl-sb-payout hl-sb-payout--compact">
         <div className="hl-sb-payout-row">
-          <span>You receive</span>
+          <span>Receive</span>
           <strong>{fmtUsdSymbol(preview.stakeUsd)}</strong>
-        </div>
-        <div className="hl-sb-payout-row hl-sb-payout-row--sub">
-          <span>{preview.contracts} contracts @ {formatOutcomePriceCents(preview.price)}</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="hl-sb-payout">
-      <div className="hl-sb-payout-hero">
-        <span className="hl-sb-payout-label">If this wins</span>
-        <strong className="hl-sb-payout-profit">{fmtUsdSymbol(preview.payoutIfWin)}</strong>
-        <span className="hl-sb-payout-sub">
-          Stake {fmtUsdSymbol(preview.stakeUsd)} · profit {formatProfitUsd(preview.profitIfWin)}
-        </span>
+    <div className="hl-sb-payout hl-sb-payout--compact">
+      <div className="hl-sb-payout-row">
+        <span>Profit if win</span>
+        <strong className="hl-sb-payout-profit">{formatProfitUsd(preview.profitIfWin)}</strong>
       </div>
-      <div className="hl-sb-payout-grid">
-        <div>
-          <span>Decimal odds</span>
-          <strong>{formatDecimalOdds(preview.price)}×</strong>
-        </div>
-        <div>
-          <span>Implied</span>
-          <strong>{formatOutcomeImpliedPct(preview.price)}</strong>
-        </div>
-        <div>
-          <span>Contracts</span>
-          <strong>{preview.contracts.toLocaleString()}</strong>
-        </div>
-        <div>
-          <span>Price</span>
-          <strong>{formatOutcomePriceCents(preview.price)}</strong>
-        </div>
-      </div>
+      <p className="hl-sb-payout-meta">
+        {formatDecimalOdds(preview.price)}× · {formatOutcomeImpliedPct(preview.price)} ·{' '}
+        {fmtUsdSymbol(preview.stakeUsd)} stake · {Math.floor(preview.contracts).toLocaleString()}{' '}
+        contracts @ {formatOutcomePriceCents(preview.price)} · return {fmtUsdSymbol(preview.payoutIfWin)}
+      </p>
     </div>
   );
 };

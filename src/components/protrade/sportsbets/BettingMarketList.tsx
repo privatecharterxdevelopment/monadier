@@ -1,8 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import {
-  BETTING_CATEGORY_TABS,
-  countByCategory,
   filterBettingQuestions,
   formatBettingQuestionTitle,
   questionListSubtitle,
@@ -10,13 +8,11 @@ import {
 } from '../../../lib/hyperliquid/outcomes/categories';
 import { eventVisual, teamVisual } from '../../../lib/sports/teamVisuals';
 import type { HlOutcomeQuestion } from '../../../lib/hyperliquid/outcomes/types';
-import BettingCategoryNav from './BettingCategoryNav';
 
 type Props = {
   questions: HlOutcomeQuestion[];
   selectedQuestionId: number | null;
   category: BettingCategoryId;
-  onCategoryChange: (category: BettingCategoryId) => void;
   onSelect: (question: HlOutcomeQuestion) => void;
   loading?: boolean;
 };
@@ -25,12 +21,10 @@ const BettingMarketList: React.FC<Props> = ({
   questions,
   selectedQuestionId,
   category,
-  onCategoryChange,
   onSelect,
   loading,
 }) => {
   const [query, setQuery] = useState('');
-  const counts = useMemo(() => countByCategory(questions), [questions]);
 
   const filtered = useMemo(
     () => filterBettingQuestions(questions, category, query),
@@ -40,13 +34,6 @@ const BettingMarketList: React.FC<Props> = ({
   return (
     <aside className="hl-sb-events" aria-label="Betting markets">
       <div className="hl-sb-events-head">
-        <h2 className="hl-sb-events-title">Markets</h2>
-        <BettingCategoryNav
-          tabs={BETTING_CATEGORY_TABS}
-          active={category}
-          counts={counts}
-          onChange={onCategoryChange}
-        />
         <div className="hl-sb-search-wrap">
           <Search size={14} aria-hidden />
           <input
