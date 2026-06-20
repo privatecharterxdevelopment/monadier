@@ -18,18 +18,18 @@ type Props = {
 const SportsbetsPayoutCard: React.FC<Props> = ({ preview, action, loading, simple = true }) => {
   if (loading || !preview) {
     return (
-      <div className="hl-sb-payout hl-sb-payout--empty">
-        <span className="hl-sb-muted">Enter stake to preview payout</span>
+      <div className="hl-sb-payout hl-sb-payout--hero-panel hl-sb-payout--empty">
+        <span className="hl-sb-payout-hero-label">Enter stake to preview payout</span>
       </div>
     );
   }
 
   if (action === 'sell') {
     return (
-      <div className="hl-sb-payout hl-sb-payout--compact">
-        <div className="hl-sb-payout-row">
-          <span>Receive</span>
-          <strong>{fmtUsdSymbol(preview.stakeUsd)}</strong>
+      <div className="hl-sb-payout hl-sb-payout--hero-panel hl-sb-payout--hero-panel-sell">
+        <div className="hl-sb-payout-hero-main">
+          <span className="hl-sb-payout-hero-label">You receive</span>
+          <strong className="hl-sb-payout-hero-win">{fmtUsdSymbol(preview.stakeUsd)}</strong>
         </div>
         {!simple ? (
           <p className="hl-sb-payout-meta">
@@ -43,20 +43,21 @@ const SportsbetsPayoutCard: React.FC<Props> = ({ preview, action, loading, simpl
 
   if (simple) {
     return (
-      <div className="hl-sb-payout hl-sb-payout--inline">
-        <span>
-          Win <strong>{fmtUsdSymbol(preview.payoutIfWin)}</strong>
-        </span>
-        <span className="hl-sb-payout-inline-sep" aria-hidden>
-          ·
-        </span>
-        <span>
-          Stake {fmtUsdSymbol(preview.stakeUsd)}
-        </span>
-        <span className="hl-sb-payout-inline-sep" aria-hidden>
-          ·
-        </span>
-        <span className="hl-sb-payout-inline-profit">{formatProfitUsd(preview.profitIfWin)}</span>
+      <div className="hl-sb-payout hl-sb-payout--hero-panel" aria-label="Payout preview">
+        <div className="hl-sb-payout-hero-main">
+          <span className="hl-sb-payout-hero-label">Win</span>
+          <strong className="hl-sb-payout-hero-win">{fmtUsdSymbol(preview.payoutIfWin)}</strong>
+        </div>
+        <div className="hl-sb-payout-hero-grid">
+          <div className="hl-sb-payout-hero-stat">
+            <span>Stake</span>
+            <strong>{fmtUsdSymbol(preview.stakeUsd)}</strong>
+          </div>
+          <div className="hl-sb-payout-hero-stat hl-sb-payout-hero-stat--profit">
+            <span>Profit</span>
+            <strong>{formatProfitUsd(preview.profitIfWin)}</strong>
+          </div>
+        </div>
       </div>
     );
   }

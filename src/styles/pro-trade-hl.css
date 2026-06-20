@@ -3356,6 +3356,19 @@
   word-break: break-word;
 }
 
+.hl-sb-order-pick-expiry {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--hl-text-muted);
+}
+
+.hl-root--light .hl-sb-order-pick-expiry {
+  color: #52525b;
+}
+
 .hl-sb-icon-btn {
   display: inline-flex;
   align-items: center;
@@ -3504,6 +3517,102 @@
 .hl-sb-payout-inline-profit {
   font-weight: 600;
   color: var(--hl-pnl-pos);
+}
+
+.hl-sb-payout--hero-panel {
+  margin: 12px 0 10px;
+  padding: 14px 14px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--hl-green-bright) 12%, var(--hl-bg-elevated));
+  border: 1px solid color-mix(in srgb, var(--hl-green-bright) 38%, var(--hl-border));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--hl-green-bright) 10%, transparent);
+}
+
+.hl-sb-payout--hero-panel.hl-sb-payout--empty {
+  padding: 16px 14px;
+  text-align: center;
+  background: var(--hl-bg-hover);
+  border-color: var(--hl-border);
+  box-shadow: none;
+}
+
+.hl-sb-payout--hero-panel-sell {
+  background: color-mix(in srgb, #ef5350 10%, var(--hl-bg-elevated));
+  border-color: color-mix(in srgb, #ef5350 32%, var(--hl-border));
+  box-shadow: none;
+}
+
+.hl-sb-payout-hero-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.hl-sb-payout-hero-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hl-text-muted);
+}
+
+.hl-sb-payout-hero-win {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  color: var(--hl-text);
+}
+
+.hl-sb-payout-hero-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--hl-border) 70%, transparent);
+}
+
+.hl-sb-payout-hero-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hl-sb-payout-hero-stat span {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--hl-text-muted);
+}
+
+.hl-sb-payout-hero-stat strong {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--hl-text);
+}
+
+.hl-sb-payout-hero-stat--profit strong {
+  font-size: 18px;
+  color: #15803d;
+}
+
+.hl-root--dark .hl-sb-payout-hero-stat--profit strong {
+  color: #3dd68c;
+}
+
+.hl-root--light .hl-sb-payout--hero-panel {
+  background: color-mix(in srgb, var(--hl-green-bright) 14%, #ffffff);
+  border-color: color-mix(in srgb, var(--hl-green-bright) 35%, #e4e4e7);
+}
+
+.hl-terminal--sb .hl-sb-payout--hero-panel {
+  background: color-mix(in srgb, var(--hl-green-bright) 12%, var(--hl-bg-elevated));
 }
 
 .hl-sb-field--compact {

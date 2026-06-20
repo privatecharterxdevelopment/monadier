@@ -129,3 +129,16 @@ export function formatBettingLegName(leg: HlOutcomeMarket): string {
 export function formatBettingMarketName(market: HlOutcomeMarket): string {
   return formatBettingLegName(market);
 }
+
+/** Period + resolution time for order slip (e.g. Daily · Until 21 Jun 06:00 UTC). */
+export function formatBettingMarketExpirySubtitle(market: HlOutcomeMarket): string | null {
+  const meta = parsePriceBinaryMeta(market.description);
+  if (!meta) return null;
+  const period = formatPeriodLabel(meta.period);
+  const expiry = formatExpiryLabel(meta.expiry);
+  if (!period && !expiry) return null;
+  const chunks: string[] = [];
+  if (period) chunks.push(period);
+  if (expiry) chunks.push(`Until ${expiry.trim()}`);
+  return chunks.join(' · ');
+}

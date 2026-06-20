@@ -12,7 +12,10 @@ import {
   formatOutcomePriceCents,
   OUTCOME_PREVIEW_STAKE_USD,
 } from '../../../lib/hyperliquid/outcomes/display';
-import { formatBettingMarketName } from '../../../lib/hyperliquid/outcomes/categories';
+import {
+  formatBettingMarketExpirySubtitle,
+  formatBettingMarketName,
+} from '../../../lib/hyperliquid/outcomes/categories';
 import { fmtUsdSymbol } from '../../../lib/hyperliquid/format';
 import type { HlOutcomeMarket, OutcomeLegQuote, OutcomeSideIndex } from '../../../lib/hyperliquid/outcomes/types';
 import type { useHyperliquidOutcomeTrading } from '../../../hooks/useHyperliquidOutcomeTrading';
@@ -81,6 +84,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
 
   const sideBook = quote ? (side === 0 ? quote.yes : quote.no) : null;
   const sideLabel = market ? (side === 0 ? market.yesLabel : market.noLabel) : 'Yes';
+  const marketExpiry = market ? formatBettingMarketExpirySubtitle(market) : null;
 
   const effectiveAction = action;
   const effectiveMode = advancedOpen ? mode : 'market';
@@ -205,6 +209,9 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
             <div className={`hl-sb-order-pick-box hl-sb-order-pick-box--${side === 0 ? 'yes' : 'no'}`}>
               <span className="hl-sb-order-pick-side">{sideLabel}</span>
               <span className="hl-sb-order-pick-market">{formatBettingMarketName(market)}</span>
+              {marketExpiry ? (
+                <span className="hl-sb-order-pick-expiry">{marketExpiry}</span>
+              ) : null}
             </div>
             <button
               type="button"
@@ -321,6 +328,13 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
             </div>
           ) : null}
 
+          <SportsbetsPayoutCard
+            preview={payoutPreview}
+            action={effectiveAction}
+            loading={quoteLoading && referencePx <= 0}
+            simple={!advancedOpen}
+          />
+
           <div className="hl-sb-order-odds">
             <span>Odds</span>
             <strong>
@@ -329,13 +343,6 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
                 : `${formatDecimalOdds(referencePx)}× · ${formatOutcomePriceCents(referencePx)}`}
             </strong>
           </div>
-
-          <SportsbetsPayoutCard
-            preview={payoutPreview}
-            action={effectiveAction}
-            loading={quoteLoading && referencePx <= 0}
-            simple={!advancedOpen}
-          />
 
           {canBet ? (
             <div className="hl-sb-order-meta">

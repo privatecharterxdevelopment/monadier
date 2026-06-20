@@ -279,4 +279,5 @@ export {
   formatBettingQuestionSummary,
   formatBettingLegName,
   formatBettingMarketName,
+  formatBettingMarketExpirySubtitle,
 } from './priceBinaryDisplay';
