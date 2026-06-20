@@ -195,9 +195,14 @@ const healthServer = http.createServer(async (req, res) => {
         JSON.stringify({
           success: true,
           ready: platform.ready,
+          feeCollectionActive: platform.ready,
           builderAddress: platform.builderAddress,
+          treasuryAddress: config.treasuryAddress,
           accountUsd: platform.accountUsd,
           minUsd: platform.minUsd,
+          note: platform.ready
+            ? 'Builder wallet funded — success fees collect on profitable bot closes when users approve builder fee.'
+            : `Deposit at least $${platform.minUsd} USDC to the builder address on Hyperliquid perps to activate fee collection.`,
         })
       );
     } catch (err: any) {
@@ -509,8 +514,10 @@ const healthServer = http.createServer(async (req, res) => {
           tradeCount: feeSummary.tradeCount,
           ratePercent: config.hyperliquid.successFeeBps / 100,
           treasury: config.treasuryAddress,
-          note: '10% of profit on winning closes — collected automatically via HL builder fee on close.',
-          autoCollect: true,
+          builderAddress: config.hyperliquid.builderAddress,
+          feeCollectionActive: builderGate.feeCollectionActive,
+          note: '10% of profit on winning closes — collected via HL builder fee when platform wallet is funded and user approved.',
+          autoCollect: builderGate.feeCollectionActive,
         },
         timestamp: new Date().toISOString(),
       }));

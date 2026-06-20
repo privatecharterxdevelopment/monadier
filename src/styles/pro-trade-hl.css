@@ -3734,6 +3734,13 @@
   font-weight: 500;
 }
 
+.hl-sb-order-fee-note {
+  margin: 0 0 8px;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--hl-text-muted);
+}
+
 .hl-sb-order-notice {
   display: flex;
   align-items: flex-start;

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useWalletClient } from 'wagmi';
 import { useWeb3 } from '../contexts/Web3Context';
 import { createHlExchangeClient } from '../lib/hyperliquid/exchange';
+import { fetchMaxBuilderFee } from '../lib/hyperliquid/builder';
+import { getHlBuilderConfig } from '../lib/hyperliquid/builderConfig';
 import { orderResponseError } from '../lib/hyperliquid/orders';
 import {
   buildOutcomeOrderLeg,
@@ -11,6 +13,10 @@ import {
   outcomeSellReferencePx,
   type OutcomeLegQuote,
 } from '../lib/hyperliquid/outcomes';
+import {
+  isBuilderOrderError,
+  resolveOutcomeBuilderParam,
+} from '../lib/hyperliquid/outcomes/builderFee';
 import { OUTCOME_SELECTED_BOOK_POLL_MS } from '../lib/hyperliquid/outcomes/constants';
 import type { OutcomeOrderSide, OutcomeSideIndex } from '../lib/hyperliquid/outcomes/types';
 
@@ -80,6 +86,49 @@ export function useHyperliquidOutcomeTrading() {
     }
   }, []);
 
+  const submitOutcomeOrder = useCallback(
+    async (opts: {
+      outcomeId: number;
+      side: OutcomeSideIndex;
+      orderSide: OutcomeOrderSide;
+      size: number;
+      price: number;
+      kind: 'limit' | 'market';
+      reduceOnly?: boolean;
+    }) => {
+      const leg = buildOutcomeOrderLeg(opts);
+      const client = createHlExchangeClient(requireWallet());
+      const config = getHlBuilderConfig();
+      let builder = undefined as ReturnType<typeof resolveOutcomeBuilderParam> | undefined;
+
+      if (config.enabled) {
+        const user = requireWallet().account?.address;
+        if (user) {
+          const approvedMax = await fetchMaxBuilderFee(user, config.address);
+          builder =
+            resolveOutcomeBuilderParam({
+              orderSide: opts.orderSide,
+              approvedMaxTenthsBps: approvedMax,
+            }) ?? undefined;
+        }
+      }
+
+      let result = await client.order({
+        orders: [leg],
+        grouping: 'na',
+        ...(builder ? { builder } : {}),
+      });
+      let err = orderResponseError(result);
+      if (builder && err && isBuilderOrderError(err)) {
+        result = await client.order({ orders: [leg], grouping: 'na' });
+        err = orderResponseError(result);
+      }
+      if (err) throw new Error(err);
+      return result;
+    },
+    [requireWallet]
+  );
+
   const placeOutcomeOrder = useCallback(
     (opts: {
       outcomeId: number;
@@ -89,16 +138,8 @@ export function useHyperliquidOutcomeTrading() {
       price: number;
       kind: 'limit' | 'market';
       reduceOnly?: boolean;
-    }) =>
-      withBusy(async () => {
-        const leg = buildOutcomeOrderLeg(opts);
-        const client = createHlExchangeClient(requireWallet());
-        const result = await client.order({ orders: [leg], grouping: 'na' });
-        const err = orderResponseError(result);
-        if (err) throw new Error(err);
-        return result;
-      }, 'Outcome order failed'),
-    [requireWallet, withBusy]
+    }) => withBusy(() => submitOutcomeOrder(opts), 'Outcome order failed'),
+    [submitOutcomeOrder, withBusy]
   );
 
   const cancelOutcomeOrder = useCallback(

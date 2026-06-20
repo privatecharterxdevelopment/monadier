@@ -243,6 +243,7 @@ const SportsbetsTerminal: React.FC<Props> = ({
           quote={session.quote}
           quoteLoading={session.quoteLoading}
           bettingBalance={session.bettingBalance}
+          walletAddress={walletAddress}
           walletConnected={walletConnected}
           signedIn={signedIn}
           onRequireSignIn={onRequireSignIn}

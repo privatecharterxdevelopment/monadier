@@ -18,7 +18,9 @@ import {
 import { fmtUsdSymbol } from '../../../lib/hyperliquid/format';
 import type { HlOutcomeMarket, HlOutcomeQuestion, OutcomeLegQuote, OutcomeSideIndex } from '../../../lib/hyperliquid/outcomes/types';
 import type { useHyperliquidOutcomeTrading } from '../../../hooks/useHyperliquidOutcomeTrading';
+import { useBettingBuilderFee } from '../../../hooks/useBettingBuilderFee';
 import SportsbetsPayoutCard from './SportsbetsPayoutCard';
+import BettingBuilderFeeModal from './BettingBuilderFeeModal';
 
 type Trading = ReturnType<typeof useHyperliquidOutcomeTrading>;
 
@@ -29,6 +31,7 @@ type Props = {
   quote: OutcomeLegQuote | null;
   quoteLoading: boolean;
   bettingBalance: number;
+  walletAddress?: string;
   walletConnected: boolean;
   signedIn: boolean;
   onRequireSignIn?: (reason: string) => void;
@@ -53,6 +56,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   quote,
   quoteLoading,
   bettingBalance,
+  walletAddress,
   walletConnected,
   signedIn,
   onRequireSignIn,
@@ -75,6 +79,8 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   const [stakeInput, setStakeInput] = useState('');
   const [limitPrice, setLimitPrice] = useState('');
   const [localMsg, setLocalMsg] = useState<string | null>(null);
+  const [showBuilderModal, setShowBuilderModal] = useState(false);
+  const builderFee = useBettingBuilderFee(walletAddress);
 
   const canBet = signedIn && walletConnected;
 
@@ -141,6 +147,10 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   const handleSubmit = async () => {
     if (!canBet) {
       handleGate();
+      return;
+    }
+    if (builderFee.enabled && builderFee.needsApproval) {
+      setShowBuilderModal(true);
       return;
     }
     if (!market || !quote || !payoutPreview) return;
@@ -369,6 +379,13 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
             </div>
           ) : null}
 
+          {builderFee.enabled && canBet ? (
+            <p className="hl-sb-order-fee-note">
+              Platform fee: {builderFee.buyFeeLabel} on bets · {builderFee.cashoutFeeLabel} on cash out
+              {!builderFee.platformReady ? ' (fee collection activating soon)' : null}
+            </p>
+          ) : null}
+
           <button
             type="button"
             className={`hl-sb-order-submit ${isCashOut ? 'hl-sb-order-submit--sell' : ''}`}
@@ -396,6 +413,20 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
           </button>
         </>
       )}
+      {showBuilderModal ? (
+        <BettingBuilderFeeModal
+          buyFeeLabel={builderFee.buyFeeLabel}
+          cashoutFeeLabel={builderFee.cashoutFeeLabel}
+          maxApprovalRate={builderFee.maxApprovalRate}
+          busy={builderFee.busy}
+          error={builderFee.error}
+          onApprove={async () => {
+            await builderFee.approve();
+            setShowBuilderModal(false);
+          }}
+          onClose={() => setShowBuilderModal(false)}
+        />
+      ) : null}
     </aside>
   );
 };

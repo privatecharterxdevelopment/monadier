@@ -12,6 +12,11 @@ export type HlBuilderConfig = {
   /** Manual Pro Trade: bps of profit on winning closes (250 = 2.5%). */
   proTradeSuccessFeeBps: number;
   maxApprovalRate: string;
+  /** HIP-4 betting buy — tenths bps (500 = 0.5%). */
+  bettingBuyFeeTenthsBps: HlBuilderFeeTenthsBps;
+  /** HIP-4 cash out — tenths bps (2500 = 2.5%). */
+  bettingCashoutFeeTenthsBps: HlBuilderFeeTenthsBps;
+  bettingMaxApprovalRate: string;
 };
 
 const DEFAULT_TREASURY = MONADIER_VAULT_V11_TREASURY_ADDRESS.toLowerCase() as `0x${string}`;
@@ -28,6 +33,14 @@ function parseFee(raw: string | undefined, fallback: number, max: number): numbe
   return Math.min(max, Math.floor(n));
 }
 
+function parsePercentToTenthsBps(raw: string | undefined, fallback: number, max = 10_000): number {
+  const m = raw?.trim().match(/^([\d.]+)\s*%?$/);
+  if (!m) return fallback;
+  const pct = parseFloat(m[1]);
+  if (!Number.isFinite(pct) || pct <= 0) return fallback;
+  return Math.min(max, Math.floor(pct * 1000));
+}
+
 export function getHlBuilderConfig(): HlBuilderConfig {
   const address =
     parseAddress(import.meta.env.VITE_HL_BUILDER_ADDRESS) ?? DEFAULT_TREASURY;
@@ -39,6 +52,16 @@ export function getHlBuilderConfig(): HlBuilderConfig {
   );
   const maxApprovalRate =
     import.meta.env.VITE_HL_BUILDER_MAX_APPROVAL?.trim() || '0.1%';
+  const bettingBuyFeeTenthsBps = parsePercentToTenthsBps(
+    import.meta.env.VITE_HL_BETTING_BUY_FEE?.trim() || '0.5%',
+    500
+  );
+  const bettingCashoutFeeTenthsBps = parsePercentToTenthsBps(
+    import.meta.env.VITE_HL_BETTING_CASHOUT_FEE?.trim() || '2.5%',
+    2500
+  );
+  const bettingMaxApprovalRate =
+    import.meta.env.VITE_HL_BETTING_MAX_APPROVAL?.trim() || '2.5%';
 
   const explicitlyDisabled =
     import.meta.env.VITE_HL_BUILDER_ENABLED === 'false' ||
@@ -51,6 +74,9 @@ export function getHlBuilderConfig(): HlBuilderConfig {
     feeSpotSell,
     proTradeSuccessFeeBps,
     maxApprovalRate,
+    bettingBuyFeeTenthsBps,
+    bettingCashoutFeeTenthsBps,
+    bettingMaxApprovalRate,
   };
 }
 

@@ -16,6 +16,7 @@ type Props = {
   bettingBalance: number;
   walletConnected: boolean;
   signedIn: boolean;
+  walletAddress?: string;
   onRequireSignIn?: (reason: string) => void;
   trading: Trading;
   positionSize: number;
@@ -39,6 +40,7 @@ const SportsbetsRightRail: React.FC<Props> = ({
   bettingBalance,
   walletConnected,
   signedIn,
+  walletAddress,
   onRequireSignIn,
   trading,
   positionSize,
@@ -61,6 +63,7 @@ const SportsbetsRightRail: React.FC<Props> = ({
         quote={quote}
         quoteLoading={quoteLoading}
         bettingBalance={bettingBalance}
+        walletAddress={walletAddress}
         walletConnected={walletConnected}
         signedIn={signedIn}
         onRequireSignIn={onRequireSignIn}

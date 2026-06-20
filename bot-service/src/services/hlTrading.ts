@@ -855,15 +855,23 @@ export class HyperliquidTradingService {
 
       let viaHlBuilder = false;
       let closeBuilder: { b: `0x${string}`; f: number } | undefined;
+      let feeSkipReason: string | null = null;
       if (pnlUsd > 0) {
         const builderGate = await checkHlBuilderFeeApproved(userAddress);
-        if (builderGate.platformReady && builderGate.approved) {
+        if (!builderGate.platformReady) {
+          feeSkipReason = 'platform_wallet_underfunded';
+        } else if (!builderGate.approved) {
+          feeSkipReason = 'user_builder_not_approved';
+        } else {
           closeBuilder = resolveHlOrderBuilder({
             notionalUsd,
             profitUsd: pnlUsd,
             isClose: true,
             approvedMaxTenthsBps: builderGate.approvedMax,
           });
+          if (!closeBuilder) {
+            feeSkipReason = 'builder_fee_calc_zero';
+          }
         }
       }
 
@@ -901,6 +909,14 @@ export class HyperliquidTradingService {
 
       if (closeBuilder) {
         viaHlBuilder = true;
+      } else if (pnlUsd > 0 && feeSkipReason) {
+        logger.warn('HL success fee not auto-collected on close', {
+          user: userAddress.slice(0, 10),
+          coin: coinUpper,
+          reason: feeSkipReason,
+          pnl: pnlUsd.toFixed(4),
+          builderAddress: config.hyperliquid.builderAddress?.slice(0, 10),
+        });
       }
 
       const collateralUsd =
