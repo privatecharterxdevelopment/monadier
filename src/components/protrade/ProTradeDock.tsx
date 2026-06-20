@@ -132,7 +132,7 @@ const ProTradeDock: React.FC<Props> = ({
   const historyCoins = useMemo(() => {
     const set = new Set<string>(positionCoins);
     for (const f of fills) {
-      if (!isHlFillOpen(f)) set.add(f.coin);
+      if (!isHlFillOpen(f.dir)) set.add(f.coin);
     }
     return [...set];
   }, [positionCoins, fills]);

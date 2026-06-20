@@ -45,8 +45,8 @@ export function hlFillResultLabel(value: unknown): 'Win' | 'Loss' | 'Breakeven' 
   return 'Breakeven';
 }
 
-export function fmtFillAction(dir?: string): string {
-  const d = (dir ?? '').trim();
+export function fmtFillAction(dir?: unknown): string {
+  const d = typeof dir === 'string' ? dir.trim() : '';
   if (!d) return '—';
   if (/^open/i.test(d)) return 'Open';
   if (/^close/i.test(d)) return 'Close';

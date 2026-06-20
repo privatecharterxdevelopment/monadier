@@ -29,8 +29,8 @@ const BLOCKED_COUNTRIES = new Set(
   ].map((c) => c.toLowerCase())
 );
 
-function normalizeCountry(raw?: string | null): string {
-  return (raw ?? '').trim().toLowerCase();
+function normalizeCountry(raw?: unknown): string {
+  return typeof raw === 'string' ? raw.trim().toLowerCase() : '';
 }
 
 function isBlockedCountry(country: string): boolean {
@@ -45,7 +45,10 @@ function isBlockedCountry(country: string): boolean {
 export function canAccessSportsbets(ctx: PredictionAccessContext): PredictionAccessResult {
   const profile = normalizeCountry(ctx.profileCountry);
   const ip = normalizeCountry(ctx.ipCountry);
-  const countryLabel = ctx.profileCountry?.trim() || ctx.ipCountry?.trim() || '';
+  const countryLabel =
+    (typeof ctx.profileCountry === 'string' ? ctx.profileCountry.trim() : '') ||
+    (typeof ctx.ipCountry === 'string' ? ctx.ipCountry.trim() : '') ||
+    '';
 
   if (isBlockedCountry(profile)) {
     return {
@@ -58,7 +61,8 @@ export function canAccessSportsbets(ctx: PredictionAccessContext): PredictionAcc
   if (profile && ip && isBlockedCountry(ip) && !isBlockedCountry(profile)) {
     return {
       allowed: false,
-      countryLabel: ctx.ipCountry?.trim() || countryLabel,
+      countryLabel:
+        (typeof ctx.ipCountry === 'string' ? ctx.ipCountry.trim() : '') || countryLabel,
       reason: 'Your detected location does not match an eligible region for sports betting.',
     };
   }
@@ -66,7 +70,8 @@ export function canAccessSportsbets(ctx: PredictionAccessContext): PredictionAcc
   if (!profile && isBlockedCountry(ip)) {
     return {
       allowed: false,
-      countryLabel: ctx.ipCountry?.trim() || countryLabel,
+      countryLabel:
+        (typeof ctx.ipCountry === 'string' ? ctx.ipCountry.trim() : '') || countryLabel,
       reason: 'Sports betting is not available in your region.',
     };
   }
