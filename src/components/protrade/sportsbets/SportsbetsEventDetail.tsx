@@ -77,7 +77,7 @@ const SportsbetsEventDetail: React.FC<Props> = ({
           return (
             <div key={leg.outcomeId} className="hl-sb-market-row">
               <div className="hl-sb-market-team">
-                <TeamBadge name={legBadge} size={36} />
+                <TeamBadge name={legBadge} size={28} />
                 <div className="hl-sb-market-team-copy">
                   <strong>{legLabel}</strong>
                   {quotesLoading && !quote ? (

@@ -9,6 +9,13 @@ type Props = {
   onClick: () => void;
 };
 
+function compactLine(parts: OutcomeBetCellParts): string {
+  if (parts.profitLabel) {
+    return `${parts.profitLabel} on ${parts.stakeLabel}`;
+  }
+  return `${parts.stakeLabel} · returns stake`;
+}
+
 const SportsbetsOddsButton: React.FC<Props> = ({ side, parts, picked, variant, onClick }) => (
   <button
     type="button"
@@ -17,22 +24,10 @@ const SportsbetsOddsButton: React.FC<Props> = ({ side, parts, picked, variant, o
   >
     <span className="hl-sb-odds-side">{side}</span>
     {parts ? (
-      <>
+      <span className="hl-sb-odds-main">
         <span className="hl-sb-odds-val">{parts.odds}</span>
-        <span className="hl-sb-odds-implied">{parts.implied} implied</span>
-        <span className="hl-sb-odds-meta">
-          {parts.profitLabel ? (
-            <>
-              <span className="hl-sb-odds-profit">{parts.profitLabel} profit</span>
-              <span className="hl-sb-odds-stake">
-                {parts.stakeLabel} stake → {parts.payoutLabel} return
-              </span>
-            </>
-          ) : (
-            <span className="hl-sb-odds-stake">{parts.stakeLabel} stake · returns stake</span>
-          )}
-        </span>
-      </>
+        <span className="hl-sb-odds-line">{compactLine(parts)}</span>
+      </span>
     ) : (
       <span className="hl-sb-odds-val hl-sb-odds-val--empty">—</span>
     )}
