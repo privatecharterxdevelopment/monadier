@@ -51,14 +51,12 @@ const SportsbetsEventDetail: React.FC<Props> = ({
 
   return (
     <section className="hl-sb-detail">
-      <header className="hl-sb-match-banner">
-        <div className="hl-sb-match-banner-bg" aria-hidden />
-        <div className="hl-sb-match-banner-content">
-          <div className="hl-sb-match-banner-top">
-            <span className="hl-sb-detail-badge hl-sb-detail-badge--banner">{categoryBadge}</span>
-            <span className="hl-sb-match-banner-live">Live · mid prices</span>
-          </div>
-          <div className="hl-sb-detail-title-row">
+      <header className="hl-sb-panel hl-sb-panel--event">
+        <div className="hl-sb-panel-row">
+          <span className="hl-sb-detail-badge">{categoryBadge}</span>
+          <span className="hl-sb-muted">Live · mid prices</span>
+        </div>
+        <div className="hl-sb-detail-title-row">
             <span className="hl-sb-event-icon hl-sb-event-icon--lg" aria-hidden>
               {visuals.emoji}
             </span>
@@ -72,7 +70,6 @@ const SportsbetsEventDetail: React.FC<Props> = ({
             <h2 className="hl-sb-detail-title">{question.name}</h2>
           </div>
           {summary ? <p className="hl-sb-detail-desc">{summary}</p> : null}
-        </div>
       </header>
 
       <div className="hl-sb-market-table">

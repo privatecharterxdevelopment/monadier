@@ -14,6 +14,8 @@ type Props = {
   quoteLoading: boolean;
   bettingBalance: number;
   walletConnected: boolean;
+  signedIn: boolean;
+  onRequireSignIn?: (reason: string) => void;
   trading: Trading;
   positionSize: number;
   positions: HlOutcomePosition[];
@@ -31,6 +33,8 @@ const SportsbetsRightRail: React.FC<Props> = ({
   quoteLoading,
   bettingBalance,
   walletConnected,
+  signedIn,
+  onRequireSignIn,
   trading,
   positionSize,
   positions,
@@ -49,6 +53,8 @@ const SportsbetsRightRail: React.FC<Props> = ({
         quoteLoading={quoteLoading}
         bettingBalance={bettingBalance}
         walletConnected={walletConnected}
+        signedIn={signedIn}
+        onRequireSignIn={onRequireSignIn}
         trading={trading}
         positionSize={positionSize}
         onSuccess={onSuccess}
@@ -59,6 +65,9 @@ const SportsbetsRightRail: React.FC<Props> = ({
       openOrders={openOrders}
       fills={fills}
       loading={positionsLoading}
+      signedIn={signedIn}
+      walletConnected={walletConnected}
+      onRequireSignIn={onRequireSignIn}
       onCancelOrder={onCancelOrder}
       cancelBusy={trading.busy}
     />

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Loader2, Trophy } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { useAppKitAccount } from '@reown/appkit/react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUserLocale } from '../../hooks/useUserLocale';
@@ -64,7 +64,7 @@ const ProTradeSportsbets: React.FC<Props> = ({
 
   if (loading) {
     return (
-      <div className="hl-terminal">
+      <div className="hl-terminal hl-terminal--sb">
         <div className="hl-sportsbets-state" role="status">
           <Loader2 size={20} className="hl-spin" aria-hidden />
           <span>Checking eligibility…</span>
@@ -75,21 +75,20 @@ const ProTradeSportsbets: React.FC<Props> = ({
 
   if (!access.allowed) {
     return (
-      <div className="hl-terminal">
+      <div className="hl-terminal hl-terminal--sb">
         <div className="hl-sportsbets">
-          <header className="hl-sportsbets-header">
-            <div className="hl-sportsbets-title-row">
-              <Trophy size={22} strokeWidth={2} aria-hidden />
-              <h1 className="hl-sportsbets-title">Betting</h1>
+          <header className="hl-sb-head">
+            <div className="hl-sb-head-copy">
+              <h1 className="hl-sb-head-title">Betting</h1>
             </div>
           </header>
-          <div className="hl-sportsbets-blocked" role="alert">
-            <AlertCircle size={22} strokeWidth={2} aria-hidden />
+          <div className="hl-sb-panel hl-sb-panel--alert" role="alert">
+            <AlertCircle size={18} strokeWidth={2} aria-hidden />
             <div>
-              <p className="hl-sportsbets-blocked-title">Not available in your region</p>
-              <p className="hl-sportsbets-blocked-msg">{access.reason}</p>
+              <p className="hl-sb-panel-title">Not available in your region</p>
+              <p className="hl-sb-muted">{access.reason}</p>
               {access.countryLabel ? (
-                <p className="hl-sportsbets-blocked-meta">Detected: {access.countryLabel}</p>
+                <p className="hl-sb-muted">Detected: {access.countryLabel}</p>
               ) : null}
             </div>
           </div>
@@ -98,31 +97,14 @@ const ProTradeSportsbets: React.FC<Props> = ({
     );
   }
 
-  if (!user && onRequireSignIn) {
-    return (
-      <div className="hl-terminal">
-        <div className="hl-sportsbets">
-          <div className="hl-sportsbets-state">
-            <p>Sign in to use Betting.</p>
-            <button
-              type="button"
-              className="hl-sportsbets-cta"
-              onClick={() => onRequireSignIn('Sign in to use Betting.')}
-            >
-              Sign in
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="hl-terminal">
+    <div className="hl-terminal hl-terminal--sb">
       <SportsbetsTerminal
         walletAddress={resolvedAddress}
         walletConnected={walletConnected}
+        signedIn={Boolean(user)}
         userId={user?.id}
+        onRequireSignIn={onRequireSignIn}
       />
     </div>
   );

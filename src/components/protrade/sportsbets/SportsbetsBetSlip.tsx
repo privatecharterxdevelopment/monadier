@@ -11,6 +11,9 @@ type Props = {
   openOrders: HlOpenOrder[];
   fills: HlUserFill[];
   loading?: boolean;
+  signedIn?: boolean;
+  walletConnected?: boolean;
+  onRequireSignIn?: (reason: string) => void;
   onCancelOrder?: (outcomeId: number, side: 0 | 1, oid: number) => void;
   cancelBusy?: boolean;
 };
@@ -26,6 +29,9 @@ const SportsbetsBetSlip: React.FC<Props> = ({
   openOrders,
   fills,
   loading,
+  signedIn,
+  walletConnected,
+  onRequireSignIn,
   onCancelOrder,
   cancelBusy,
 }) => {
@@ -37,6 +43,8 @@ const SportsbetsBetSlip: React.FC<Props> = ({
     orders: openOrders.length,
     history: recentFills.length,
   };
+
+  const needsAuth = !signedIn || !walletConnected;
 
   return (
     <aside className="hl-sb-slip" aria-label="Bet slip">
@@ -63,7 +71,20 @@ const SportsbetsBetSlip: React.FC<Props> = ({
 
       <div className="hl-sb-slip-body">
         {tab === 'positions' ? (
-          loading && positions.length === 0 ? (
+          needsAuth ? (
+            <p className="hl-sb-slip-empty">
+              {signedIn ? 'Connect wallet to see your bets.' : 'Sign in to track bets and history.'}
+              {!signedIn && onRequireSignIn ? (
+                <button
+                  type="button"
+                  className="hl-sb-link-btn hl-sb-slip-auth-btn"
+                  onClick={() => onRequireSignIn('Sign in to track your bets.')}
+                >
+                  Sign in
+                </button>
+              ) : null}
+            </p>
+          ) : loading && positions.length === 0 ? (
             <p className="hl-sb-slip-empty">Loading your bets…</p>
           ) : positions.length === 0 ? (
             <p className="hl-sb-slip-empty">No open positions. Pick Yes or No on a market to bet.</p>
@@ -89,7 +110,9 @@ const SportsbetsBetSlip: React.FC<Props> = ({
         ) : null}
 
         {tab === 'orders' ? (
-          openOrders.length === 0 ? (
+          needsAuth ? (
+            <p className="hl-sb-slip-empty">Sign in and connect wallet to manage pending orders.</p>
+          ) : openOrders.length === 0 ? (
             <p className="hl-sb-slip-empty">No pending limit orders.</p>
           ) : (
             <ul className="hl-sb-slip-list">
@@ -123,7 +146,9 @@ const SportsbetsBetSlip: React.FC<Props> = ({
         ) : null}
 
         {tab === 'history' ? (
-          recentFills.length === 0 ? (
+          needsAuth ? (
+            <p className="hl-sb-slip-empty">Sign in to view your betting history.</p>
+          ) : recentFills.length === 0 ? (
             <p className="hl-sb-slip-empty">No recent fills yet.</p>
           ) : (
             <ul className="hl-sb-slip-list">

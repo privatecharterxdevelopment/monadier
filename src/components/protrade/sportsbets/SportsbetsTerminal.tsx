@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { OUTCOME_BOOK_POLL_MS } from '../../../lib/hyperliquid/outcomes/constants';
 import { fetchOutcomeLegQuotesFromMids, type OutcomeLegQuote } from '../../../lib/hyperliquid/outcomes';
 import { ensureArray } from '../../../lib/ensureArray';
@@ -13,10 +13,18 @@ import SportsbetsRightRail from './SportsbetsRightRail';
 type Props = {
   walletAddress?: string;
   walletConnected: boolean;
+  signedIn: boolean;
   userId?: string;
+  onRequireSignIn?: (reason: string) => void;
 };
 
-const SportsbetsTerminal: React.FC<Props> = ({ walletAddress, walletConnected, userId }) => {
+const SportsbetsTerminal: React.FC<Props> = ({
+  walletAddress,
+  walletConnected,
+  signedIn,
+  userId,
+  onRequireSignIn,
+}) => {
   const session = useSportsbetsSession(walletAddress, true, userId);
   const [legQuotes, setLegQuotes] = useState<Record<number, OutcomeLegQuote>>({});
   const [quotesLoading, setQuotesLoading] = useState(false);
@@ -82,29 +90,9 @@ const SportsbetsTerminal: React.FC<Props> = ({ walletAddress, walletConnected, u
       <SportsbetsHero
         marketCount={session.questions.length}
         syncing={session.catalogSyncing}
+        onRefresh={() => void session.refreshAll()}
+        refreshDisabled={session.catalogLoading && session.questions.length === 0}
       />
-
-      <div className="hl-sb-toolbar">
-        <div className="hl-sb-toolbar-actions">
-          <span className="hl-sb-live" title="Markets sync automatically from Hyperliquid">
-            <span className={`hl-sb-live-dot ${session.catalogSyncing ? 'hl-sb-live-dot--sync' : ''}`} />
-            Live · {session.questions.length} markets
-          </span>
-          <button
-            type="button"
-            className="hl-sb-refresh"
-            onClick={() => void session.refreshAll()}
-            disabled={session.catalogLoading && session.questions.length === 0}
-          >
-            {session.catalogSyncing || session.catalogLoading ? (
-              <Loader2 size={14} className="hl-spin" aria-hidden />
-            ) : (
-              <RefreshCw size={14} aria-hidden />
-            )}
-            Refresh
-          </button>
-        </div>
-      </div>
 
       {session.catalogError ? (
         <div className="hl-sb-alert" role="alert">
@@ -152,6 +140,8 @@ const SportsbetsTerminal: React.FC<Props> = ({ walletAddress, walletConnected, u
           quoteLoading={session.quoteLoading}
           bettingBalance={session.bettingBalance}
           walletConnected={walletConnected}
+          signedIn={signedIn}
+          onRequireSignIn={onRequireSignIn}
           trading={session.trading}
           positionSize={positionSize}
           positions={session.positions}
