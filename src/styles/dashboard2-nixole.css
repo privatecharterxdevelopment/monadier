@@ -2716,6 +2716,31 @@
   margin-bottom: 0;
 }
 
+.term-lvrg-locked-section {
+  position: relative;
+}
+
+.term-lvrg-locked-section--dim {
+  opacity: 0.72;
+}
+
+.term-lvrg-section-blocker {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.term-lvrg-section-blocker:focus-visible {
+  outline: 2px solid var(--term-accent, #16a34a);
+  outline-offset: 2px;
+}
+
 .term-panel-stack--locked {
   opacity: 0.65;
   pointer-events: none;

@@ -679,15 +679,6 @@ const TerminalTradePanel: React.FC<Props> = ({
             {!walletReady && (
               <p className="term-hint">Connect wallet to save leverage & risk for the HL bot.</p>
             )}
-            {botRunning && (
-              <div className="term-panel-alert">
-                <AlertTriangle size={14} />
-                <span>
-                  Stop the bot before changing leverage, risk, TP or SL. Bot mode (Standard / Profit
-                  Grabber) can still be saved below.
-                </span>
-              </div>
-            )}
             <TerminalLvrgPanel
               settings={botSettings.settings}
               walletAddress={wallet}

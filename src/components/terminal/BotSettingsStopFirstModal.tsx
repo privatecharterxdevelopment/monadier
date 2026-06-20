@@ -15,14 +15,14 @@ const BotSettingsStopFirstModal: React.FC<Props> = ({ open, onClose, onStopBot, 
   return (
     <TerminalModalFrame
       title="Stop bot first"
-      subtitle="Change leverage, risk, TP or SL only while the bot is off"
+      subtitle="Risk, leverage, TP and SL are locked while the bot is running"
       icon={<AlertTriangle size={20} />}
       onClose={onClose}
       closeDisabled={stopBusy}
       footer={
         <div className="term-modal-actions">
           <button type="button" className="term-btn-sm" onClick={onClose} disabled={stopBusy}>
-            Cancel
+            Keep running
           </button>
           <button
             type="button"
@@ -36,9 +36,12 @@ const BotSettingsStopFirstModal: React.FC<Props> = ({ open, onClose, onStopBot, 
         </div>
       }
     >
-      <p className="term-hint">
-        The bot reads your saved settings on the next open. Stop it now, adjust LVRG, then press{' '}
-        <strong>Start bot</strong> again so leverage and risk apply cleanly.
+      <p className="term-modal-hint">
+        Stop the bot before changing leverage, risk, TP or SL. After you stop, adjust settings and
+        press <strong>Start bot</strong> again.
+      </p>
+      <p className="term-modal-hint term-modal-hint--ok" style={{ marginTop: 12 }}>
+        <strong>Standard / Aggressive</strong> mode can still be saved anytime — no restart needed.
       </p>
     </TerminalModalFrame>
   );
