@@ -16,9 +16,11 @@ import {
   formatHlPrice,
   formatHlSize,
   hlAccountValueUsd,
+  hlWithdrawableUsd,
   hlOpenPerpCoins,
 } from './hlInfo';
 import { checkHlBuilderFeeApproved } from './hlBuilder';
+import { checkWinRateGate } from './tradeGates';
 import { subscriptionService } from './subscription';
 import type { TradingCycleContext } from './tradingCycleContext';
 import {
@@ -78,6 +80,7 @@ function clearProfitLockState(lockKey: string): void {
 
 function resolveMarginPerSlot(
   balance: number,
+  withdrawable: number,
   riskLevelBps: number,
   openCount: number,
   maxSlots: number
@@ -88,30 +91,40 @@ function resolveMarginPerSlot(
   const totalRiskUsd = (balance * riskLevelBps) / 10000;
   const perSlot = totalRiskUsd / Math.max(1, maxSlots);
 
-  if (perSlot >= minMargin) return perSlot;
+  let collateral = perSlot >= minMargin ? perSlot : 0;
 
-  // Same min-margin floor for every free slot. Previously slot 2+ returned 0 here
-  // while slot 1 used slotFloor — blocking a second independent pair.
-  const slotFloor = Math.min(minMargin, balance * 0.1);
-  if (balance >= config.hyperliquid.minAccountUsd && slotFloor >= 1) {
-    return slotFloor;
+  if (collateral < minMargin) {
+    // Same min-margin floor for every free slot. Previously slot 2+ returned 0 here
+    // while slot 1 used slotFloor — blocking a second independent pair.
+    const slotFloor = Math.min(minMargin, balance * 0.1);
+    if (balance >= config.hyperliquid.minAccountUsd && slotFloor >= 1) {
+      collateral = slotFloor;
+    } else if (openCount === 0 && balance < config.hyperliquid.minAccountUsd) {
+      collateral = perSlot;
+    } else {
+      collateral = perSlot >= 1 ? perSlot : 0;
+    }
   }
 
-  if (openCount === 0 && balance < config.hyperliquid.minAccountUsd) {
-    return perSlot;
+  // Slot 2+: size from free collateral, not total account value (1st position ties margin).
+  if (openCount > 0) {
+    const freeUsd = Math.max(0, withdrawable - 1);
+    collateral = Math.min(collateral, freeUsd);
   }
 
-  return perSlot >= 1 ? perSlot : 0;
+  return collateral >= 1 ? collateral : 0;
 }
 
 /** Exported for /api/bot-status diagnostics. */
 export function resolveHlMarginPerSlot(
   balance: number,
   riskLevelBps: number,
-  openCount: number
+  openCount: number,
+  withdrawable?: number
 ): number {
   return resolveMarginPerSlot(
     balance,
+    withdrawable ?? balance,
     riskLevelBps,
     openCount,
     config.hyperliquid.maxConcurrentPositions
@@ -209,6 +222,41 @@ export class HyperliquidTradingService {
       return 'ok';
     }
 
+    const banStatus = await subscriptionService.getBotBanStatus(
+      userAddress,
+      config.arbitrum.chainId
+    );
+    if (banStatus.isBanned) {
+      logger.debug('HL user skip: bot ban', {
+        user: userAddress.slice(0, 10),
+        until: banStatus.bannedUntil?.toISOString(),
+      });
+      return 'skip';
+    }
+
+    const tradePerm = await subscriptionService.canTrade(userAddress);
+    if (!tradePerm.allowed) {
+      logger.debug('HL user skip: subscription', {
+        user: userAddress.slice(0, 10),
+        reason: tradePerm.reason,
+      });
+      return 'skip';
+    }
+
+    const winRateGate = await checkWinRateGate(
+      userAddress,
+      config.arbitrum.chainId,
+      settings.minWinRatePercent,
+      settings.minTradesForWinRateGate
+    );
+    if (!winRateGate.allowed) {
+      logger.debug('HL user skip: win rate gate', {
+        user: userAddress.slice(0, 10),
+        reason: winRateGate.reason,
+      });
+      return 'skip';
+    }
+
     return this.tryOpenFromGlobalSignals(userAddress, settings, state, ctx, openCoins);
   }
 
@@ -292,16 +340,19 @@ export class HyperliquidTradingService {
     }
 
     const balance = hlAccountValueUsd(state);
+    const withdrawable = hlWithdrawableUsd(state);
     const collateral = resolveMarginPerSlot(
       balance,
+      withdrawable,
       settings.riskLevelBps,
       openCoins.length,
       maxPositions
     );
     if (collateral < 1) {
-      logger.debug('HL open skip: margin too small for slot', {
+      logger.info('HL open skip: margin too small for slot', {
         user: userAddress.slice(0, 10),
         balance,
+        withdrawable,
         collateral,
         openCount: openCoins.length,
         maxPositions,
@@ -309,14 +360,14 @@ export class HyperliquidTradingService {
       return 'skip';
     }
 
+    const pickLimit = Math.max(slotsLeft, 8);
     const picks = await this.pickBestSignalsPassingLiquidityGate(
       signals,
       ctx.liquidUniverse,
       openCoins,
-      slotsLeft
+      pickLimit
     );
-    const best = picks[0] ?? null;
-    if (!best) {
+    if (picks.length === 0) {
       logger.debug('HL open skip: no signal passed volume/sweep gate', {
         user: userAddress.slice(0, 10),
         candidates: signals.length,
@@ -324,53 +375,64 @@ export class HyperliquidTradingService {
       });
       return 'skip';
     }
-    const leverage = Math.min(
-      Math.max(1, Math.floor(settings.leverageMultiplier || 10)),
-      maxLeverageForCoin(ctx.meta, best.coin)
-    );
-    const notionalUsd = collateral * leverage;
+
+    const leverageCap = Math.max(1, Math.floor(settings.leverageMultiplier || 10));
     const minNotional = config.hyperliquid.minNotionalUsd;
-    if (notionalUsd < minNotional) {
-      logger.debug('HL open skip: notional below floor', {
-        user: userAddress.slice(0, 10),
-        coin: best.coin,
-        notionalUsd: notionalUsd.toFixed(2),
-        minNotional,
-        collateral,
+    let lastError: string | undefined;
+
+    for (const pick of picks) {
+      const leverage = Math.min(leverageCap, maxLeverageForCoin(ctx.meta, pick.coin));
+      const notionalUsd = collateral * leverage;
+      if (notionalUsd < minNotional) {
+        logger.debug('HL open skip: notional below floor', {
+          user: userAddress.slice(0, 10),
+          coin: pick.coin,
+          notionalUsd: notionalUsd.toFixed(2),
+          minNotional,
+          collateral,
+          leverage,
+        });
+        continue;
+      }
+
+      const opened = await this.openMarketPosition({
+        userAddress,
+        coin: pick.coin,
+        direction: pick.direction,
+        notionalUsd,
         leverage,
+        reason: `${strategy === 'profit_grabber' ? 'Agg' : 'Std'} ${pick.direction} ${pick.confidence}% · ${pick.coin} · ${pick.reason.slice(0, 80)}`,
+        ctx,
       });
-      return 'skip';
-    }
 
-    const opened = await this.openMarketPosition({
-      userAddress,
-      coin: best.coin,
-      direction: best.direction,
-      notionalUsd,
-      leverage,
-      reason: `${strategy === 'profit_grabber' ? 'Agg' : 'Std'} ${best.direction} ${best.confidence}% · ${best.coin} · ${best.reason.slice(0, 80)}`,
-      ctx,
-    });
+      if (opened.success) {
+        lastHlOpenError.delete(userAddress.toLowerCase());
+        await subscriptionService.recordTrade(userAddress);
+        return 'ok';
+      }
 
-    if (!opened.success && opened.error) {
+      lastError = opened.error;
       lastHlOpenError.set(userAddress.toLowerCase(), {
         at: new Date().toISOString(),
-        coin: best.coin,
-        error: opened.error,
+        coin: pick.coin,
+        error: opened.error ?? 'HL open failed',
       });
-      logger.warn('HL open skip: order rejected', {
+      logger.warn('HL open skip: trying next candidate', {
         user: userAddress.slice(0, 10),
-        coin: best.coin,
-        direction: best.direction,
+        coin: pick.coin,
+        direction: pick.direction,
         notionalUsd: notionalUsd.toFixed(2),
         leverage,
         error: opened.error,
       });
-    } else if (opened.success) {
-      lastHlOpenError.delete(userAddress.toLowerCase());
     }
 
-    return opened.success ? 'ok' : 'fail';
+    logger.warn('HL open failed: all candidates rejected', {
+      user: userAddress.slice(0, 10),
+      tried: picks.map((p) => p.coin),
+      lastError,
+    });
+    return 'fail';
   }
 
   async openMarketPosition(opts: {

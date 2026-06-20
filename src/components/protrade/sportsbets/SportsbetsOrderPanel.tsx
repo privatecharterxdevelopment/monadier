@@ -203,39 +203,35 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
             </button>
           </div>
 
-          <div className="hl-sb-order-controls">
-            <div className="hl-sb-order-mode">
-              <button
-                type="button"
-                className={mode === 'market' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
-                onClick={() => setMode('market')}
-              >
-                Market
-              </button>
-              <button
-                type="button"
-                className={mode === 'limit' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
-                onClick={() => setMode('limit')}
-              >
-                Limit
-              </button>
-            </div>
-            <div className="hl-sb-order-mode">
-              <button
-                type="button"
-                className={stakeMode === 'usd' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
-                onClick={() => setStakeMode('usd')}
-              >
-                Stake $
-              </button>
-              <button
-                type="button"
-                className={stakeMode === 'contracts' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
-                onClick={() => setStakeMode('contracts')}
-              >
-                Contracts
-              </button>
-            </div>
+          <div className="hl-sb-order-controls" role="group" aria-label="Order type and stake mode">
+            <button
+              type="button"
+              className={mode === 'market' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
+              onClick={() => setMode('market')}
+            >
+              Market
+            </button>
+            <button
+              type="button"
+              className={mode === 'limit' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
+              onClick={() => setMode('limit')}
+            >
+              Limit
+            </button>
+            <button
+              type="button"
+              className={stakeMode === 'usd' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
+              onClick={() => setStakeMode('usd')}
+            >
+              Stake $
+            </button>
+            <button
+              type="button"
+              className={stakeMode === 'contracts' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
+              onClick={() => setStakeMode('contracts')}
+            >
+              Contracts
+            </button>
           </div>
 
           <label className="hl-sb-field">

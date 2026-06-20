@@ -29,6 +29,7 @@ const SportsbetsTerminal: React.FC<Props> = ({
   const session = useSportsbetsSession(walletAddress, true, userId);
   const [legQuotes, setLegQuotes] = useState<Record<number, OutcomeLegQuote>>({});
   const [quotesLoading, setQuotesLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const categoryCounts = useMemo(
     () => countByCategory(session.questions),
@@ -106,6 +107,8 @@ const SportsbetsTerminal: React.FC<Props> = ({
         category={session.category}
         categoryCounts={categoryCounts}
         onCategoryChange={session.setCategory}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
       />
 
       {session.catalogError ? (
@@ -119,6 +122,7 @@ const SportsbetsTerminal: React.FC<Props> = ({
           questions={session.questions}
           selectedQuestionId={session.selectedQuestionId}
           category={session.category}
+          searchQuery={searchQuery}
           onSelect={session.selectQuestion}
           loading={session.catalogLoading}
         />

@@ -37,12 +37,12 @@ function simplifyBlocker(raw: string): string {
   if (/Must deposit before performing actions/i.test(raw)) {
     return 'Deposit USDC on Hyperliquid first (min $20)';
   }
-  if (/margin too small/i.test(raw)) {
+  if (/margin too small|free margin too low/i.test(raw)) {
     const m = raw.match(/\$([\d.]+).*balance \$([\d.]+)/i);
     if (m) {
       return `Not enough free margin for the next trade (~$${m[1]} usable from $${m[2]} HL balance) — deposit more or lower risk % in LVRG`;
     }
-    return 'Not enough free margin for a leverage trade — deposit more or lower risk % in LVRG';
+    return 'Not enough free margin for a 2nd trade — deposit more or lower risk % in LVRG';
   }
   if (/HL balance \$([\d.]+).*min \$([\d.]+)/i.test(raw)) {
     const m = raw.match(/HL balance \$([\d.]+).*min \$([\d.]+)/i);

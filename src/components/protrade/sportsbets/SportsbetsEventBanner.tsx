@@ -22,7 +22,11 @@ const SportsbetsEventBanner: React.FC<Props> = ({ banner, badge, emoji, title, s
         } as React.CSSProperties
       }
     >
-      <div className="hl-sb-event-banner-bg" aria-hidden />
+      <div
+        className="hl-sb-event-banner-bg"
+        style={{ backgroundImage: `url(${banner.backgroundImage})` }}
+        aria-hidden
+      />
       <div className="hl-sb-event-banner-overlay" aria-hidden />
 
       {leftFlag ? (

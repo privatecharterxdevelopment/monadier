@@ -1,5 +1,4 @@
-import React, { useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import React, { useMemo } from 'react';
 import {
   filterBettingQuestions,
   formatBettingQuestionTitle,
@@ -13,6 +12,7 @@ type Props = {
   questions: HlOutcomeQuestion[];
   selectedQuestionId: number | null;
   category: BettingCategoryId;
+  searchQuery: string;
   onSelect: (question: HlOutcomeQuestion) => void;
   loading?: boolean;
 };
@@ -21,31 +21,17 @@ const BettingMarketList: React.FC<Props> = ({
   questions,
   selectedQuestionId,
   category,
+  searchQuery,
   onSelect,
   loading,
 }) => {
-  const [query, setQuery] = useState('');
-
   const filtered = useMemo(
-    () => filterBettingQuestions(questions, category, query),
-    [questions, category, query]
+    () => filterBettingQuestions(questions, category, searchQuery),
+    [questions, category, searchQuery]
   );
 
   return (
     <aside className="hl-sb-events" aria-label="Betting markets">
-      <div className="hl-sb-events-head">
-        <div className="hl-sb-search-wrap">
-          <Search size={14} aria-hidden />
-          <input
-            type="search"
-            className="hl-sb-search"
-            placeholder="Search events, teams, macro…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
-      </div>
-
       <div className="hl-sb-events-list" role="listbox">
         {loading && questions.length === 0 ? (
           <p className="hl-sb-muted">Loading markets…</p>

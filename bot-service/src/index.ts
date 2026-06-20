@@ -24,10 +24,11 @@ import {
 } from './services/userBatchProcessor';
 import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './services/hlAgent';
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
-import { fetchHlClearinghouseState, hlAccountValueUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive } from './services/hlInfo';
+import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive } from './services/hlInfo';
 import { getLastHlOpenError, hyperliquidTradingService, resolveHlMarginPerSlot } from './services/hlTrading';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
 import { getHlFeeSummary } from './services/hlSuccessFees';
+import { isOpenDirectionAllowed, weekendShortOnlyLabel } from './services/weekendTradingRules';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 
 // Health check server for Railway/cloud deployments
@@ -316,12 +317,14 @@ const healthServer = http.createServer(async (req, res) => {
         dbSettings.minTradesForWinRateGate
       );
 
-      const hlBalanceUsd = hlAccountValueUsd(await fetchHlClearinghouseState(userAddress));
+      const hlState = await fetchHlClearinghouseState(userAddress);
+      const hlBalanceUsd = hlAccountValueUsd(hlState);
+      const hlWithdrawable = hlWithdrawableUsd(hlState);
       const hlAgentAddr = deriveUserHlAgentAddress(userAddress);
       const hlAgentOk = await hlAgentApprovalService.isApproved(userAddress, hlAgentAddr);
       const builderGate = await checkHlBuilderFeeApproved(userAddress);
       const feeSummary = await getHlFeeSummary(userAddress);
-      const hlOpenCoins = hlOpenPerpCoins(await fetchHlClearinghouseState(userAddress));
+      const hlOpenCoins = hlOpenPerpCoins(hlState);
 
       const collateralForSignal = BigInt(Math.floor(Math.max(hlBalanceUsd, 0) * 1e6));
 
@@ -336,7 +339,12 @@ const healthServer = http.createServer(async (req, res) => {
       const bestGlobal = userSignals[0] ?? null;
       const openCoinSet = new Set(hlOpenCoins.map((c) => c.toUpperCase()));
       const bestAvailable =
-        userSignals.find((s) => !openCoinSet.has(s.coin.toUpperCase())) ?? null;
+        userSignals.find(
+          (s) =>
+            !openCoinSet.has(s.coin.toUpperCase()) &&
+            isOpenDirectionAllowed(s.direction)
+        ) ?? null;
+      const weekendRule = weekendShortOnlyLabel();
 
       const ethSignal = await marketService.getSignal(
         chainId,
@@ -380,7 +388,9 @@ const healthServer = http.createServer(async (req, res) => {
       if (!winRateGate.allowed) blockers.push(winRateGate.reason || 'win rate gate');
       if (!bestAvailable && hlOpenCoins.length < maxPositions) {
         blockers.push(
-          `no HL perp passed global scan (min ${config.hyperliquid.minSignalConfidence}% conf)`
+          weekendRule
+            ? `${weekendRule} — no eligible SHORT on another pair yet`
+            : `no HL perp passed global scan (min ${config.hyperliquid.minSignalConfidence}% conf)`
         );
       }
       if (bestAvailable && hlOpenCoins.length < maxPositions && dbSettings.autoTradeEnabled) {
@@ -388,11 +398,14 @@ const healthServer = http.createServer(async (req, res) => {
         const perSlot = resolveHlMarginPerSlot(
           balance,
           dbSettings.riskLevelBps,
-          hlOpenCoins.length
+          hlOpenCoins.length,
+          hlWithdrawable
         );
         if (perSlot < 1) {
           blockers.push(
-            `margin too small for slot ($${perSlot.toFixed(2)} from $${balance.toFixed(2)} balance, ${hlOpenCoins.length}/${maxPositions} open)`
+            hlOpenCoins.length > 0
+              ? `free margin too low for slot 2 ($${hlWithdrawable.toFixed(2)} withdrawable from $${balance.toFixed(2)} balance, ${hlOpenCoins.length}/${maxPositions} open)`
+              : `margin too small for slot ($${perSlot.toFixed(2)} from $${balance.toFixed(2)} balance, ${hlOpenCoins.length}/${maxPositions} open)`
           );
         } else {
           const lev = Math.max(1, Math.floor(dbSettings.leverageMultiplier || 10));
@@ -415,6 +428,7 @@ const healthServer = http.createServer(async (req, res) => {
         blockers,
         hyperliquid: {
           balanceUsd: hlBalanceUsd,
+          withdrawableUsd: hlWithdrawable,
           agentAddress: hlAgentAddr,
           agentApproved: hlAgentOk,
           builderFeeApproved: builderGate.approved,
