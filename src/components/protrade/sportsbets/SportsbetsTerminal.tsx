@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { OUTCOME_BOOK_POLL_MS } from '../../../lib/hyperliquid/outcomes/constants';
 import { fetchOutcomeLegQuote, type OutcomeLegQuote } from '../../../lib/hyperliquid/outcomes';
+import { ensureArray } from '../../../lib/ensureArray';
 import { findOutcomeMarket } from '../../../lib/hyperliquid/outcomes/meta';
 import { useSportsbetsSession } from '../../../hooks/useSportsbetsSession';
 import BettingMarketList from './BettingMarketList';
@@ -46,7 +47,7 @@ const SportsbetsTerminal: React.FC<Props> = ({ walletAddress, walletConnected, u
       if (!background) setQuotesLoading(true);
       try {
         const rows = await Promise.all(
-          question.legs.map(async (leg) => {
+          ensureArray(question.legs).map(async (leg) => {
             const quote = await fetchOutcomeLegQuote(leg.outcomeId, leg.name);
             return [leg.outcomeId, quote] as const;
           })

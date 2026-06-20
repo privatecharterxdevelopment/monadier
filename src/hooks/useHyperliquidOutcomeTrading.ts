@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useWalletClient } from 'wagmi';
+import { useWeb3 } from '../contexts/Web3Context';
 import { createHlExchangeClient } from '../lib/hyperliquid/exchange';
 import { orderResponseError } from '../lib/hyperliquid/orders';
 import {
@@ -50,7 +51,9 @@ export function useHyperliquidOutcomeMarket(outcomeId: number | null, enabled = 
 }
 
 export function useHyperliquidOutcomeTrading() {
-  const { data: walletClient } = useWalletClient();
+  const { data: wagmiClient } = useWalletClient();
+  const { walletClient: web3Client } = useWeb3();
+  const walletClient = wagmiClient ?? web3Client;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

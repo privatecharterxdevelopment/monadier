@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { useAccount } from 'wagmi';
 import { useAuth, DEMO_WALLET_ADDRESS } from './AuthContext';
+import { ensureArray } from '../lib/ensureArray';
 import { supabase } from '../lib/supabase';
 import { fetchUserWalletAddresses } from '../lib/userWallets';
 import {
@@ -107,10 +108,13 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
       try {
         await syncBettingForWallets();
 
-        const [botRows, bettingRows] = await Promise.all([
+        const [botRowsRaw, bettingRowsRaw] = await Promise.all([
           fetchClosedTrades({ isDemoUser, wallets, limit: 100 }),
           isDemoUser ? Promise.resolve([]) : fetchBettingCloseNotifications(50),
         ]);
+
+        const botRows = ensureArray(botRowsRaw);
+        const bettingRows = ensureArray(bettingRowsRaw);
 
         const merged = mergeActivityNotifications(
           botRows.map(botTradeToNotification),

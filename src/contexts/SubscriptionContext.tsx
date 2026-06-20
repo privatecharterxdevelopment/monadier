@@ -1,9 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { loadJsonArrayFromStorage } from '../lib/ensureArray';
 import {
   PlanTier,
   BillingCycle,
   UserSubscription,
   SUBSCRIPTION_PLANS,
+  SUBSCRIPTION_GATING_ENABLED,
   canMakeTrade,
   hasFeature,
   isStrategyAllowed,
@@ -13,7 +15,7 @@ import {
   validateLicenseFormat,
   generateMachineFingerprint,
   createFreeSubscription,
-  PlanFeatures
+  PlanFeatures,
 } from '../lib/subscription';
 import { supabase } from '../lib/supabase';
 import { getAuthUserId } from '../lib/userWallets';
@@ -81,29 +83,36 @@ export const useSubscription = () => {
   return context;
 };
 
+function loadLegacySubscriptionsFromStorage(): Subscription[] {
+  const rows = loadJsonArrayFromStorage<Record<string, unknown>>('userSubscriptions');
+  return rows
+    .map((row) => {
+      if (typeof row.id !== 'string') return null;
+      return {
+        ...(row as Subscription),
+        startDate: new Date(String(row.startDate ?? Date.now())),
+        endDate: row.endDate ? new Date(String(row.endDate)) : undefined,
+      };
+    })
+    .filter((s): s is Subscription => s != null);
+}
+
 export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Legacy state
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>(() => {
-    const saved = localStorage.getItem('userSubscriptions');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return parsed.map((s: any) => ({
-        ...s,
-        startDate: new Date(s.startDate),
-        endDate: s.endDate ? new Date(s.endDate) : undefined
-      }));
-    }
-    return [];
-  });
+  // Legacy state — only hydrate from localStorage when gating is active
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>(() =>
+    SUBSCRIPTION_GATING_ENABLED ? loadLegacySubscriptionsFromStorage() : []
+  );
 
   const [kycStatus, setKycStatus] = useState<'pending' | 'verified' | 'rejected'>(() => {
     const saved = localStorage.getItem('kycStatus');
     return (saved as 'pending' | 'verified' | 'rejected') || 'pending';
   });
 
-  // New subscription system state
-  const [subscription, setSubscription] = useState<UserSubscription | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // New subscription system state — passive free tier until gating is enabled
+  const [subscription, setSubscription] = useState<UserSubscription | null>(() =>
+    SUBSCRIPTION_GATING_ENABLED ? null : createFreeSubscription('')
+  );
+  const [isLoading, setIsLoading] = useState(SUBSCRIPTION_GATING_ENABLED);
   const [error, setError] = useState<string | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState('');
@@ -112,7 +121,9 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
   useEffect(() => {
     const loadSubscription = async () => {
       try {
-        setIsLoading(true);
+        if (SUBSCRIPTION_GATING_ENABLED) {
+          setIsLoading(true);
+        }
 
         // Check if user is authenticated
         const { data: { user } } = await supabase.auth.getUser();
@@ -190,7 +201,9 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const freeSub = createFreeSubscription('');
         setSubscription(freeSub);
       } finally {
-        setIsLoading(false);
+        if (SUBSCRIPTION_GATING_ENABLED) {
+          setIsLoading(false);
+        }
       }
     };
 
@@ -208,8 +221,9 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     };
   }, []);
 
-  // Save subscriptions to localStorage
+  // Save legacy subscriptions to localStorage (only when gating is active)
   useEffect(() => {
+    if (!SUBSCRIPTION_GATING_ENABLED) return;
     localStorage.setItem('userSubscriptions', JSON.stringify(subscriptions));
   }, [subscriptions]);
 
@@ -315,10 +329,12 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // New system: Computed values
   const isSubscribed = useMemo(() => {
+    if (!SUBSCRIPTION_GATING_ENABLED) return true;
     return subscription?.status === 'active' && new Date() <= new Date(subscription.endDate);
   }, [subscription]);
 
   const planTier = useMemo(() => {
+    if (!SUBSCRIPTION_GATING_ENABLED) return 'free' as PlanTier;
     return isSubscribed ? subscription?.planTier || null : null;
   }, [isSubscribed, subscription]);
 
@@ -330,28 +346,43 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return subscription ? getRemainingDailyTrades(subscription) : 0;
   }, [subscription]);
 
-  // Feature checks
+  // Feature checks — no-ops while SUBSCRIPTION_GATING_ENABLED is false
   const canTrade = useCallback(() => {
+    if (!SUBSCRIPTION_GATING_ENABLED) {
+      return { allowed: true, remainingTrades: -1 };
+    }
     if (!subscription) {
       return { allowed: false, reason: 'No active subscription' };
     }
     return canMakeTrade(subscription);
   }, [subscription]);
 
-  const checkFeature = useCallback((feature: keyof PlanFeatures) => {
-    if (!planTier) return false;
-    return hasFeature(planTier, feature);
-  }, [planTier]);
+  const checkFeature = useCallback(
+    (feature: keyof PlanFeatures) => {
+      if (!SUBSCRIPTION_GATING_ENABLED) return true;
+      if (!planTier) return false;
+      return hasFeature(planTier, feature);
+    },
+    [planTier]
+  );
 
-  const checkStrategy = useCallback((strategy: string) => {
-    if (!planTier) return false;
-    return isStrategyAllowed(planTier, strategy);
-  }, [planTier]);
+  const checkStrategy = useCallback(
+    (strategy: string) => {
+      if (!SUBSCRIPTION_GATING_ENABLED) return true;
+      if (!planTier) return false;
+      return isStrategyAllowed(planTier, strategy);
+    },
+    [planTier]
+  );
 
-  const checkChain = useCallback((chainId: number) => {
-    if (!planTier) return false;
-    return isChainAllowed(planTier, chainId);
-  }, [planTier]);
+  const checkChain = useCallback(
+    (chainId: number) => {
+      if (!SUBSCRIPTION_GATING_ENABLED) return true;
+      if (!planTier) return false;
+      return isChainAllowed(planTier, chainId);
+    },
+    [planTier]
+  );
 
   // Record a trade (updates both local state and Supabase)
   const recordTrade = useCallback(async () => {

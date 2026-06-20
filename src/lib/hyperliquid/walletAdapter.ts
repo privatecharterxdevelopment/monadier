@@ -21,6 +21,20 @@ function getBrowserProvider(client: WalletClient): EthProvider | null {
   return eth;
 }
 
+function normalizeEip712Types(
+  types: Record<string, unknown> | undefined
+): Record<string, Array<{ name: string; type: string }>> {
+  const out: Record<string, Array<{ name: string; type: string }>> = {};
+  if (!types || typeof types !== 'object' || Array.isArray(types)) return out;
+
+  for (const [key, value] of Object.entries(types)) {
+    if (Array.isArray(value)) {
+      out[key] = value as Array<{ name: string; type: string }>;
+    }
+  }
+  return out;
+}
+
 function buildTypedDataPayload(params: {
   domain: Record<string, unknown>;
   types: Record<string, unknown>;
@@ -31,6 +45,7 @@ function buildTypedDataPayload(params: {
   if (domain.chainId != null) {
     domain.chainId = Number(domain.chainId);
   }
+  const customTypes = normalizeEip712Types(params.types);
   return {
     domain,
     types: {
@@ -40,7 +55,7 @@ function buildTypedDataPayload(params: {
         { name: 'chainId', type: 'uint256' },
         { name: 'verifyingContract', type: 'address' },
       ],
-      ...params.types,
+      ...customTypes,
     },
     primaryType: params.primaryType,
     message: params.message,
@@ -99,7 +114,15 @@ export function walletClientToHlWallet(client: WalletClient): AbstractViemJsonRp
       return client.signTypedData({
         account,
         domain: params.domain,
-        types: params.types,
+        types: {
+          EIP712Domain: [
+            { name: 'name', type: 'string' },
+            { name: 'version', type: 'string' },
+            { name: 'chainId', type: 'uint256' },
+            { name: 'verifyingContract', type: 'address' },
+          ],
+          ...normalizeEip712Types(params.types),
+        },
         primaryType: params.primaryType,
         message: params.message,
       });

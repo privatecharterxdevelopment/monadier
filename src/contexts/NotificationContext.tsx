@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { ensureArray, loadJsonArrayFromStorage } from '../lib/ensureArray';
 
 export interface Notification {
   id: string;
@@ -36,18 +37,21 @@ export const useNotifications = () => useContext(NotificationContext);
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<Notification[]>(() => {
-    const saved = localStorage.getItem('notifications');
-    if (saved) {
-      try {
-        return JSON.parse(saved).map((n: any) => ({
-          ...n,
-          timestamp: new Date(n.timestamp)
-        }));
-      } catch {
-        return [];
-      }
-    }
-    return [];
+    const rows = loadJsonArrayFromStorage<Record<string, unknown>>('notifications');
+    return rows
+      .map((row) => {
+        if (typeof row.id !== 'string') return null;
+        return {
+          id: row.id,
+          type: row.type as Notification['type'],
+          title: String(row.title ?? ''),
+          message: String(row.message ?? ''),
+          timestamp: new Date(String(row.timestamp ?? Date.now())),
+          read: Boolean(row.read),
+          data: row.data as Notification['data'],
+        } satisfies Notification;
+      })
+      .filter((n): n is Notification => n != null);
   });
 
   const saveNotifications = (notifs: Notification[]) => {
@@ -61,24 +65,24 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       timestamp: new Date(),
       read: false,
     };
-    setNotifications(prev => {
-      const updated = [newNotification, ...prev].slice(0, 50);
+    setNotifications((prev) => {
+      const updated = [newNotification, ...ensureArray(prev)].slice(0, 50);
       saveNotifications(updated);
       return updated;
     });
   }, []);
 
   const markAsRead = useCallback((id: string) => {
-    setNotifications(prev => {
-      const updated = prev.map(n => n.id === id ? { ...n, read: true } : n);
+    setNotifications((prev) => {
+      const updated = ensureArray(prev).map((n) => (n.id === id ? { ...n, read: true } : n));
       saveNotifications(updated);
       return updated;
     });
   }, []);
 
   const markAllAsRead = useCallback(() => {
-    setNotifications(prev => {
-      const updated = prev.map(n => ({ ...n, read: true }));
+    setNotifications((prev) => {
+      const updated = ensureArray(prev).map((n) => ({ ...n, read: true }));
       saveNotifications(updated);
       return updated;
     });
@@ -89,7 +93,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     localStorage.removeItem('notifications');
   }, []);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = ensureArray(notifications).filter((n) => !n.read).length;
 
   return (
     <NotificationContext.Provider value={{

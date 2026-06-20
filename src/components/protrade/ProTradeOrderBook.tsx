@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useState } from 'react';
+import { ensureArray } from '../../lib/ensureArray';
 import type { HlL2Book, HlRecentTrade } from '../../lib/hyperliquid/types';
 import { fmtPrice, fmtSize, fmtTimeMs } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
@@ -68,8 +68,8 @@ const ProTradeOrderBook: React.FC<Props> = ({
   const { asks, bids, spread } = useMemo(() => {
     if (!book) return { asks: [] as BookRow[], bids: [] as BookRow[], spread: null as number | null };
 
-    const rawAsks = book.levels?.[1] ?? [];
-    const rawBids = book.levels?.[0] ?? [];
+    const rawAsks = ensureArray(book.levels?.[1]);
+    const rawBids = ensureArray(book.levels?.[0]);
 
     let askCum = 0;
     const asks = rawAsks

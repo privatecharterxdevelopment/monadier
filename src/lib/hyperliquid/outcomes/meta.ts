@@ -1,9 +1,11 @@
+import { ensureArray } from '../../ensureArray';
 import { hlInfoPost } from '../hlInfoClient';
 import { buildStandaloneQuestions } from './categories';
 import type {
   HlOutcomeMarket,
   HlOutcomeMetaRaw,
   HlOutcomeQuestion,
+  HlOutcomeQuestionRaw,
   HlOutcomeRaw,
 } from './types';
 
@@ -39,11 +41,11 @@ function buildQuestions(
   raw: HlOutcomeMetaRaw,
   outcomeById: Map<number, HlOutcomeMarket>
 ): HlOutcomeQuestion[] {
-  const questions = raw.questions ?? [];
+  const questions = ensureArray<HlOutcomeQuestionRaw>(raw.questions);
   return questions
     .map((q) => {
       const meta = parseQuestionMetadata(q.description);
-      const legs = (q.namedOutcomes ?? [])
+      const legs = ensureArray<number>(q.namedOutcomes)
         .map((id) => outcomeById.get(id))
         .filter((m): m is HlOutcomeMarket => m != null);
 
@@ -55,7 +57,7 @@ function buildQuestions(
         subCategory: meta.subCategory,
         fallbackOutcomeId: q.fallbackOutcome,
         legs,
-        settledLegIds: q.settledNamedOutcomes ?? [],
+        settledLegIds: ensureArray<number>(q.settledNamedOutcomes),
       };
     })
     .filter((q) => q.legs.length > 0);
@@ -73,12 +75,16 @@ let catalogFetchedAt = 0;
 const CATALOG_TTL_MS = 15_000;
 
 export function warmHlOutcomeCatalog(raw: HlOutcomeMetaRaw): HlOutcomeCatalog {
-  const outcomes = (raw.outcomes ?? []).map(normalizeOutcome);
+  if (!raw || typeof raw !== 'object') {
+    throw new Error('Invalid outcome market data from Hyperliquid');
+  }
+
+  const outcomes = ensureArray<HlOutcomeRaw>(raw.outcomes).map(normalizeOutcome);
   const outcomeById = new Map(outcomes.map((o) => [o.outcomeId, o]));
 
   const referencedIds = new Set<number>();
-  for (const q of raw.questions ?? []) {
-    for (const id of q.namedOutcomes ?? []) referencedIds.add(id);
+  for (const q of ensureArray<HlOutcomeQuestionRaw>(raw.questions)) {
+    for (const id of ensureArray<number>(q.namedOutcomes)) referencedIds.add(id);
     referencedIds.add(q.fallbackOutcome);
   }
 

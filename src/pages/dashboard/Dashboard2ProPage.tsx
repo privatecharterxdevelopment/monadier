@@ -311,6 +311,8 @@ const Dashboard2ProPageContent: React.FC = () => {
     if (!user) {
       if (urlSection === 'profile' || urlSection === 'history') {
         setProfileTab(urlTab);
+      } else if (urlSection === 'sportsbets' || urlSection === 'spot') {
+        setSection('sportsbets');
       }
       return;
     }

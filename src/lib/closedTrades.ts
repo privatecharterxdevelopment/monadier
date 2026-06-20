@@ -133,7 +133,7 @@ export async function fetchClosedTrades(options: FetchOptions = {}): Promise<Clo
     if (!pub.error && pub.data) {
       const fromPub = mergeClosedTradeRows(
         [],
-        (pub.data as Record<string, unknown>[]).filter((row) => {
+        asRowArray(pub.data).filter((row) => {
           const status = String(row.status || '');
           return status === 'closed' || status === 'failed';
         }),
@@ -221,7 +221,7 @@ async function fetchClosedTradesViaSync(
   if (!sync.error && sync.data) {
     return mergeClosedTradeRows(
       [],
-      (sync.data as Record<string, unknown>[]).filter((row) => {
+      asRowArray(sync.data).filter((row) => {
         const status = String(row.status || '');
         return status === 'closed' || status === 'failed';
       }),

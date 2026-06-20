@@ -1,5 +1,14 @@
 // Subscription Plans Configuration
 
+/**
+ * When false: plans exist in code/DB but nothing is enforced — full access for all users.
+ * Flip to true once you want to gate features (e.g. after ~1000 users).
+ */
+export const SUBSCRIPTION_GATING_ENABLED = false;
+
+/** Planning target for when to turn gating on — wire to a user count check when enabling. */
+export const SUBSCRIPTION_GATING_USER_THRESHOLD = 1000;
+
 export type PlanTier = 'free' | 'starter' | 'pro' | 'elite' | 'desktop';
 export type BillingCycle = 'monthly' | 'yearly' | 'lifetime';
 
@@ -290,25 +299,37 @@ export interface UserSubscription {
   timezone: string; // User's timezone (e.g., 'America/New_York')
 }
 
-// Check if user can make a trade (unrestricted — vault bot available to all connected users)
-export function canMakeTrade(_subscription: UserSubscription): {
+export function canMakeTrade(subscription: UserSubscription): {
   allowed: boolean;
   reason?: string;
   remainingTrades?: number;
 } {
+  if (!SUBSCRIPTION_GATING_ENABLED) {
+    return { allowed: true, remainingTrades: -1 };
+  }
+  // TODO: enforce SUBSCRIPTION_PLANS limits when SUBSCRIPTION_GATING_ENABLED is true
+  void subscription;
   return { allowed: true, remainingTrades: -1 };
 }
 
-// Feature gates disabled — full app access for all users
-export function hasFeature(_planTier: PlanTier, _feature: keyof PlanFeatures): boolean {
+export function hasFeature(planTier: PlanTier, feature: keyof PlanFeatures): boolean {
+  if (!SUBSCRIPTION_GATING_ENABLED) return true;
+  void planTier;
+  void feature;
   return true;
 }
 
-export function isStrategyAllowed(_planTier: PlanTier, _strategy: string): boolean {
+export function isStrategyAllowed(planTier: PlanTier, strategy: string): boolean {
+  if (!SUBSCRIPTION_GATING_ENABLED) return true;
+  void planTier;
+  void strategy;
   return true;
 }
 
-export function isChainAllowed(_planTier: PlanTier, _chainId: number): boolean {
+export function isChainAllowed(planTier: PlanTier, chainId: number): boolean {
+  if (!SUBSCRIPTION_GATING_ENABLED) return true;
+  void planTier;
+  void chainId;
   return true;
 }
 
