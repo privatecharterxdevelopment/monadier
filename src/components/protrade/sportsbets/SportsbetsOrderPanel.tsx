@@ -7,7 +7,7 @@ import {
 } from '../../../lib/hyperliquid/outcomes/orders';
 import { previewOutcomeBuy } from '../../../lib/hyperliquid/outcomes/payout';
 import { outcomeBuyReferencePx, outcomeSellReferencePx } from '../../../lib/hyperliquid/outcomes/book';
-import { formatDecimalOdds, formatOutcomeImpliedPct, formatOutcomePriceCents, formatStakeReturnPreview } from '../../../lib/hyperliquid/outcomes/display';
+import { formatDecimalOdds, formatOutcomePriceCents, formatStakeReturnPreview, OUTCOME_PREVIEW_STAKE_USD } from '../../../lib/hyperliquid/outcomes/display';
 import { fmtUsdSymbol } from '../../../lib/hyperliquid/format';
 import type { HlOutcomeMarket, OutcomeLegQuote, OutcomeSideIndex } from '../../../lib/hyperliquid/outcomes/types';
 import type { useHyperliquidOutcomeTrading } from '../../../hooks/useHyperliquidOutcomeTrading';
@@ -129,7 +129,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   if (!walletConnected) {
     return (
       <aside className="hl-sb-order">
-        <h3 className="hl-sb-order-title">Bet &amp; win</h3>
+        <h3 className="hl-sb-order-title">Place bet</h3>
         <div className="hl-sb-order-empty">
           <Wallet size={20} aria-hidden />
           <p>Connect your wallet to bet on live events on Hyperliquid.</p>
@@ -144,7 +144,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   if (!market) {
     return (
       <aside className="hl-sb-order">
-        <h3 className="hl-sb-order-title">Bet &amp; win</h3>
+        <h3 className="hl-sb-order-title">Place bet</h3>
         <p className="hl-sb-muted">Pick Yes or No to place a bet.</p>
       </aside>
     );
@@ -152,7 +152,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
 
   return (
     <aside className="hl-sb-order">
-      <h3 className="hl-sb-order-title">Bet &amp; win</h3>
+      <h3 className="hl-sb-order-title">Place bet</h3>
       <p className="hl-sb-order-sub">
         {market.name} · {sideLabel}
       </p>
@@ -213,11 +213,11 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
         <span>{stakeMode === 'usd' ? 'Stake (USD)' : 'Contracts'}</span>
         <input
           type="number"
-          min={stakeMode === 'usd' ? 10 : 1}
+          min={stakeMode === 'usd' ? OUTCOME_PREVIEW_STAKE_USD : 1}
           step={stakeMode === 'usd' ? 1 : 1}
           value={stakeInput}
           onChange={(e) => setStakeInput(e.target.value)}
-          placeholder={stakeMode === 'usd' ? '100' : '100'}
+          placeholder={stakeMode === 'usd' ? String(OUTCOME_PREVIEW_STAKE_USD) : '10'}
         />
       </label>
 

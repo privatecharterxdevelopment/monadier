@@ -1,5 +1,8 @@
 import { previewOutcomeBuy } from './payout';
 
+/** Standard preview stake shown on outcome buttons (not $100). */
+export const OUTCOME_PREVIEW_STAKE_USD = 10;
+
 /** Price per contract in cents (HL outcome books use 0–1 probability). */
 export function formatOutcomePriceCents(price: number): string {
   if (!Number.isFinite(price) || price <= 0) return '—';
@@ -29,10 +32,23 @@ export function formatDecimalOdds(price: number): string {
   return odds.toFixed(2);
 }
 
-/** Compact line for outcome buttons — odds + implied %, not raw dollar profit. */
-export function formatOutcomeButtonMeta(price: number): { odds: string; implied: string } {
+function fmtPreviewUsd(value: number): string {
+  if (value >= 1000) return `$${Math.round(value).toLocaleString()}`;
+  if (value >= 100) return `$${value.toFixed(0)}`;
+  return `$${value.toFixed(2)}`;
+}
+
+/** Sportsbook-style cell: big odds + “Win $X on $10”. */
+export function formatOutcomeBetCell(
+  price: number,
+  stakeUsd = OUTCOME_PREVIEW_STAKE_USD
+): { odds: string; winLine: string; implied: string } | null {
+  if (!Number.isFinite(price) || price <= 0) return null;
+  const preview = previewOutcomeBuy({ stakeUsd, price });
+  if (!preview) return null;
   return {
     odds: formatDecimalOdds(price),
+    winLine: `Win ${fmtPreviewUsd(preview.payoutIfWin)} on ${fmtPreviewUsd(stakeUsd)}`,
     implied: formatOutcomeImpliedPct(price),
   };
 }
@@ -41,6 +57,5 @@ export function formatOutcomeButtonMeta(price: number): { odds: string; implied:
 export function formatStakeReturnPreview(stakeUsd: number, price: number): string | null {
   const preview = previewOutcomeBuy({ stakeUsd, price });
   if (!preview) return null;
-  const odds = formatDecimalOdds(price);
-  return `${preview.contracts.toLocaleString()} contracts · ${odds}× · return ${preview.payoutIfWin.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })} if win`;
+  return `${formatDecimalOdds(price)}× odds · pay ${fmtPreviewUsd(preview.stakeUsd)} · return ${fmtPreviewUsd(preview.payoutIfWin)} if win`;
 }

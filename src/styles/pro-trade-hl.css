@@ -2126,10 +2126,11 @@
 .hl-sb-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 8px 16px;
   border-bottom: 1px solid var(--hl-border);
+  background: color-mix(in srgb, var(--hl-surface) 60%, var(--hl-bg));
 }
 
 .hl-sb-toolbar-title {
@@ -2215,10 +2216,256 @@
 
 .hl-sb-body {
   display: grid;
-  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr) minmax(300px, 340px);
   gap: 0;
   flex: 1;
   min-height: 0;
+}
+
+.hl-sb-center {
+  min-height: 0;
+  overflow: auto;
+  border-right: 1px solid var(--hl-border);
+}
+
+.hl-sb-rail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--hl-surface);
+}
+
+.hl-sb-rail-order {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--hl-border);
+}
+
+.hl-sb-rail-order .hl-sb-order {
+  border-left: 0;
+}
+
+.hl-sb-slip {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hl-sb-slip-head {
+  flex-shrink: 0;
+  padding: 12px 14px 0;
+  border-bottom: 1px solid var(--hl-border);
+  background: color-mix(in srgb, var(--hl-bg) 70%, var(--hl-surface));
+}
+
+.hl-sb-slip-title {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.hl-sb-slip-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: -1px;
+}
+
+.hl-sb-slip-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--hl-text-muted);
+  cursor: pointer;
+}
+
+.hl-sb-slip-tab--on {
+  color: var(--hl-text);
+  border-bottom-color: #26a69a;
+}
+
+.hl-sb-slip-count {
+  min-width: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #26a69a 15%, var(--hl-bg));
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.hl-sb-slip-body {
+  flex: 1;
+  overflow: auto;
+  padding: 10px 12px 14px;
+}
+
+.hl-sb-slip-empty {
+  margin: 0;
+  padding: 16px 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--hl-text-muted);
+  text-align: center;
+}
+
+.hl-sb-slip-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hl-sb-slip-item {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--hl-border);
+  background: var(--hl-bg);
+}
+
+.hl-sb-slip-item-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.hl-sb-slip-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--hl-text-muted);
+}
+
+.hl-sb-market-table {
+  margin: 0 16px 16px;
+  border: 1px solid var(--hl-border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--hl-bg);
+  box-shadow: 0 4px 20px color-mix(in srgb, #000 6%, transparent);
+}
+
+.hl-sb-market-head,
+.hl-sb-market-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) 120px 120px;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.hl-sb-market-head {
+  padding: 10px 14px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--hl-text-muted);
+  background: color-mix(in srgb, #1d4ed8 8%, var(--hl-surface));
+  border-bottom: 1px solid var(--hl-border);
+}
+
+.hl-sb-market-head span:not(:first-child),
+.hl-sb-market-row .hl-sb-odds-cell {
+  text-align: center;
+}
+
+.hl-sb-market-row {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--hl-border);
+}
+
+.hl-sb-market-row:last-child {
+  border-bottom: 0;
+}
+
+.hl-sb-market-row:nth-child(even) {
+  background: color-mix(in srgb, var(--hl-surface) 40%, var(--hl-bg));
+}
+
+.hl-sb-market-team {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.hl-sb-market-team-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.hl-sb-market-team-copy strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.hl-sb-odds-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 56px;
+  padding: 8px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--hl-border);
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+}
+
+.hl-root--dark .hl-sb-odds-cell {
+  background: color-mix(in srgb, var(--hl-surface) 90%, #fff 10%);
+}
+
+.hl-sb-odds-cell--yes {
+  border-color: color-mix(in srgb, #26a69a 28%, var(--hl-border));
+}
+
+.hl-sb-odds-cell--no {
+  border-color: color-mix(in srgb, #64748b 25%, var(--hl-border));
+}
+
+.hl-sb-odds-cell:hover {
+  box-shadow: 0 2px 10px color-mix(in srgb, #000 8%, transparent);
+}
+
+.hl-sb-odds-cell--picked {
+  border-color: #1d4ed8;
+  background: color-mix(in srgb, #1d4ed8 10%, #fff);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #1d4ed8 25%, transparent);
+}
+
+.hl-root--dark .hl-sb-odds-cell--picked {
+  background: color-mix(in srgb, #1d4ed8 18%, var(--hl-surface));
+}
+
+.hl-sb-odds-val {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #1d4ed8;
+  line-height: 1.1;
+}
+
+.hl-sb-odds-win {
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--hl-text-muted);
 }
 
 .hl-sb-events {
@@ -2418,8 +2665,7 @@
 
 .hl-sb-detail {
   padding: 0;
-  overflow: auto;
-  border-right: 1px solid var(--hl-border);
+  overflow: visible;
 }
 
 .hl-sb-match-banner {
@@ -2616,9 +2862,8 @@
 
 .hl-sb-order {
   padding: 16px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--hl-surface) 92%, #26a69a 8%), var(--hl-surface));
+  background: transparent;
   overflow: auto;
-  border-left: 1px solid var(--hl-border);
 }
 
 .hl-sb-order-preview {
@@ -3007,6 +3252,20 @@
 
   .hl-sb-body {
     grid-template-columns: 1fr;
+  }
+
+  .hl-sb-center {
+    border-right: 0;
+    border-bottom: 1px solid var(--hl-border);
+  }
+
+  .hl-sb-rail {
+    max-height: 480px;
+  }
+
+  .hl-sb-market-head,
+  .hl-sb-market-row {
+    grid-template-columns: minmax(0, 1fr) 96px 96px;
   }
 
   .hl-sb-events {

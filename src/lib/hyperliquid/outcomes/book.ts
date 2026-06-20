@@ -74,3 +74,57 @@ export function outcomeBuyReferencePx(book: OutcomeSideBook): number {
 export function outcomeSellReferencePx(book: OutcomeSideBook): number {
   return book.bestBid > 0 ? book.bestBid : book.mid;
 }
+
+/** Single /info call — all outcome mid prices keyed by order coin (#1720). */
+export async function fetchOutcomeMidsMap(): Promise<Map<string, number>> {
+  const raw = await hlInfoPost<Record<string, string>>({ type: 'allMids' });
+  const map = new Map<string, number>();
+  for (const [coin, px] of Object.entries(raw ?? {})) {
+    if (coin.startsWith('#')) map.set(coin, toNum(px));
+  }
+  return map;
+}
+
+function buildSideBookFromMid(
+  outcomeId: number,
+  side: OutcomeSideIndex,
+  midPx: number
+): OutcomeSideBook {
+  const px = midPx > 0 ? midPx : 0;
+  return {
+    outcomeId,
+    side,
+    orderCoin: outcomeOrderCoin(outcomeId, side),
+    bids: [],
+    asks: [],
+    bestBid: px,
+    bestAsk: px,
+    mid: px,
+    spread: 0,
+  };
+}
+
+/** Fast quote for UI lists — uses HL allMids (one request for every outcome). */
+export function buildLegQuoteFromMids(
+  outcomeId: number,
+  name: string,
+  mids: Map<string, number>
+): OutcomeLegQuote {
+  const yesMid = mids.get(outcomeOrderCoin(outcomeId, 0)) ?? 0;
+  const noMid = mids.get(outcomeOrderCoin(outcomeId, 1)) ?? 0;
+  const yes = buildSideBookFromMid(outcomeId, 0, yesMid);
+  const no = buildSideBookFromMid(outcomeId, 1, noMid);
+  const impliedYesPct = yesMid > 0 ? yesMid * 100 : noMid > 0 ? (1 - noMid) * 100 : 0;
+  return { outcomeId, name, yes, no, impliedYesPct };
+}
+
+export async function fetchOutcomeLegQuotesFromMids(
+  legs: Array<{ outcomeId: number; name: string }>
+): Promise<Record<number, OutcomeLegQuote>> {
+  const mids = await fetchOutcomeMidsMap();
+  const out: Record<number, OutcomeLegQuote> = {};
+  for (const leg of legs) {
+    out[leg.outcomeId] = buildLegQuoteFromMids(leg.outcomeId, leg.name, mids);
+  }
+  return out;
+}

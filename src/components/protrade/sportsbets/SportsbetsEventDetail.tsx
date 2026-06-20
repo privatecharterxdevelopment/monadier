@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
 import {
   formatDecimalOdds,
-  formatOutcomeButtonMeta,
+  formatOutcomeBetCell,
   formatOutcomeImpliedPct,
-  formatOutcomePriceCents,
+  OUTCOME_PREVIEW_STAKE_USD,
 } from '../../../lib/hyperliquid/outcomes/display';
 import {
   formatCategoryBadge,
@@ -22,14 +22,10 @@ type Props = {
   onSelectLeg: (outcomeId: number, side: OutcomeSideIndex) => void;
 };
 
-function legMidYes(quote: OutcomeLegQuote | undefined): number {
+function legPrice(quote: OutcomeLegQuote | undefined, side: 0 | 1): number {
   if (!quote) return 0;
-  return quote.yes.mid > 0 ? quote.yes.mid : quote.yes.bestAsk;
-}
-
-function legMidNo(quote: OutcomeLegQuote | undefined): number {
-  if (!quote) return 0;
-  return quote.no.mid > 0 ? quote.no.mid : quote.no.bestAsk;
+  const book = side === 0 ? quote.yes : quote.no;
+  return book.mid > 0 ? book.mid : book.bestAsk;
 }
 
 const SportsbetsEventDetail: React.FC<Props> = ({
@@ -60,7 +56,7 @@ const SportsbetsEventDetail: React.FC<Props> = ({
         <div className="hl-sb-match-banner-content">
           <div className="hl-sb-match-banner-top">
             <span className="hl-sb-detail-badge hl-sb-detail-badge--banner">{categoryBadge}</span>
-            <span className="hl-sb-match-banner-live">Live market</span>
+            <span className="hl-sb-match-banner-live">Live · mid prices</span>
           </div>
           <div className="hl-sb-detail-title-row">
             <span className="hl-sb-event-icon hl-sb-event-icon--lg" aria-hidden>
@@ -79,68 +75,66 @@ const SportsbetsEventDetail: React.FC<Props> = ({
         </div>
       </header>
 
-      <div className="hl-sb-legs">
-        <div className="hl-sb-legs-head">
+      <div className="hl-sb-market-table">
+        <div className="hl-sb-market-head">
           <span>Selection</span>
-          <span>Yes · odds</span>
-          <span>No · odds</span>
+          <span>Yes</span>
+          <span>No</span>
         </div>
 
         {question.legs.map((leg) => {
           const quote = legQuotes[leg.outcomeId];
-          const yesPx = quote?.yes.bestAsk ?? 0;
-          const noPx = quote?.no.bestAsk ?? 0;
-          const yesMid = legMidYes(quote);
-          const noMid = legMidNo(quote);
-          const yesMeta = yesPx > 0 ? formatOutcomeButtonMeta(yesPx) : null;
-          const noMeta = noPx > 0 ? formatOutcomeButtonMeta(noPx) : null;
+          const yesPx = legPrice(quote, 0);
+          const noPx = legPrice(quote, 1);
+          const yesCell = yesPx > 0 ? formatOutcomeBetCell(yesPx) : null;
+          const noCell = noPx > 0 ? formatOutcomeBetCell(noPx) : null;
           const yesSelected = selectedOutcomeId === leg.outcomeId && selectedSide === 0;
           const noSelected = selectedOutcomeId === leg.outcomeId && selectedSide === 1;
+          const implied =
+            yesPx > 0
+              ? `${formatOutcomeImpliedPct(yesPx)} · ${formatDecimalOdds(yesPx)}×`
+              : quotesLoading
+                ? 'Loading…'
+                : '—';
 
           return (
-            <div key={leg.outcomeId} className="hl-sb-leg-row">
-              <div className="hl-sb-leg-name">
-                <span className="hl-sb-leg-name-row">
-                  <TeamBadge name={leg.name} size={28} />
+            <div key={leg.outcomeId} className="hl-sb-market-row">
+              <div className="hl-sb-market-team">
+                <TeamBadge name={leg.name} size={32} />
+                <div className="hl-sb-market-team-copy">
                   <strong>{leg.name}</strong>
-                </span>
-                {quote && yesMid > 0 ? (
-                  <span className="hl-sb-leg-implied">
-                    Implied {formatOutcomeImpliedPct(yesMid)} · {formatDecimalOdds(yesMid)}×
-                  </span>
-                ) : quotesLoading ? (
-                  <span className="hl-sb-leg-implied">Loading odds…</span>
-                ) : (
-                  <span className="hl-sb-leg-implied">No liquidity yet</span>
-                )}
+                  <span className="hl-sb-leg-implied">{implied}</span>
+                </div>
               </div>
+
               <button
                 type="button"
-                className={`hl-sb-side-btn hl-sb-side-btn--yes ${yesSelected ? 'hl-sb-side-btn--active' : ''}`}
+                className={`hl-sb-odds-cell hl-sb-odds-cell--yes ${yesSelected ? 'hl-sb-odds-cell--picked' : ''}`}
                 onClick={() => onSelectLeg(leg.outcomeId, 0)}
               >
-                <span className="hl-sb-side-label">{leg.yesLabel}</span>
-                <span className="hl-sb-side-odds">{yesMeta ? yesMeta.odds : '—'}</span>
-                <span className="hl-sb-side-price">
-                  {yesPx > 0 ? `@ ${formatOutcomePriceCents(yesPx)}` : '—'}
-                </span>
-                {yesMeta ? (
-                  <span className="hl-sb-side-hint">{yesMeta.implied} implied</span>
-                ) : null}
+                {yesCell ? (
+                  <>
+                    <span className="hl-sb-odds-val">{yesCell.odds}</span>
+                    <span className="hl-sb-odds-win">{yesCell.winLine}</span>
+                  </>
+                ) : (
+                  <span className="hl-sb-odds-val">—</span>
+                )}
               </button>
+
               <button
                 type="button"
-                className={`hl-sb-side-btn hl-sb-side-btn--no ${noSelected ? 'hl-sb-side-btn--active' : ''}`}
+                className={`hl-sb-odds-cell hl-sb-odds-cell--no ${noSelected ? 'hl-sb-odds-cell--picked' : ''}`}
                 onClick={() => onSelectLeg(leg.outcomeId, 1)}
               >
-                <span className="hl-sb-side-label">{leg.noLabel}</span>
-                <span className="hl-sb-side-odds">{noMeta ? noMeta.odds : '—'}</span>
-                <span className="hl-sb-side-price">
-                  {noPx > 0 ? `@ ${formatOutcomePriceCents(noPx)}` : '—'}
-                </span>
-                {noMeta ? (
-                  <span className="hl-sb-side-hint">{noMeta.implied} implied</span>
-                ) : null}
+                {noCell ? (
+                  <>
+                    <span className="hl-sb-odds-val">{noCell.odds}</span>
+                    <span className="hl-sb-odds-win">{noCell.winLine}</span>
+                  </>
+                ) : (
+                  <span className="hl-sb-odds-val">—</span>
+                )}
               </button>
             </div>
           );
@@ -148,8 +142,8 @@ const SportsbetsEventDetail: React.FC<Props> = ({
       </div>
 
       <p className="hl-sb-footnote">
-        Odds are decimal (payout per $1 staked). Price is per contract in cents — each winning
-        contract pays $1 USDC. Enter your stake in Bet &amp; win for an exact payout estimate.
+        Decimal odds (European). Preview uses a ${OUTCOME_PREVIEW_STAKE_USD} stake — each contract pays
+        $1 if the outcome wins. Enter your stake in the bet slip on the right.
       </p>
     </section>
   );

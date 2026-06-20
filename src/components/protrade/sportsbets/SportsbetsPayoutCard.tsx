@@ -17,18 +17,17 @@ const SportsbetsPayoutCard: React.FC<Props> = ({ preview, action, loading }) => 
   if (loading || !preview) {
     return (
       <div className="hl-sb-payout hl-sb-payout--empty">
-        <span className="hl-sb-muted">Enter stake to see payout estimate</span>
+        <span className="hl-sb-muted">Enter stake to see payout</span>
       </div>
     );
   }
 
   if (action === 'sell') {
-    const proceeds = preview.stakeUsd;
     return (
       <div className="hl-sb-payout">
         <div className="hl-sb-payout-row">
           <span>You receive</span>
-          <strong>{fmtUsdSymbol(proceeds)}</strong>
+          <strong>{fmtUsdSymbol(preview.stakeUsd)}</strong>
         </div>
         <div className="hl-sb-payout-row hl-sb-payout-row--sub">
           <span>{preview.contracts} contracts @ {formatOutcomePriceCents(preview.price)}</span>
@@ -40,34 +39,30 @@ const SportsbetsPayoutCard: React.FC<Props> = ({ preview, action, loading }) => 
   return (
     <div className="hl-sb-payout">
       <div className="hl-sb-payout-hero">
-        <span className="hl-sb-payout-label">Potential return if win</span>
+        <span className="hl-sb-payout-label">If this wins</span>
         <strong className="hl-sb-payout-profit">{fmtUsdSymbol(preview.payoutIfWin)}</strong>
         <span className="hl-sb-payout-sub">
-          {formatProfitUsd(preview.profitIfWin)} profit on {fmtUsdSymbol(preview.stakeUsd)} stake
+          Stake {fmtUsdSymbol(preview.stakeUsd)} · profit {formatProfitUsd(preview.profitIfWin)}
         </span>
       </div>
       <div className="hl-sb-payout-grid">
         <div>
-          <span>You pay</span>
-          <strong>{fmtUsdSymbol(preview.stakeUsd)}</strong>
+          <span>Decimal odds</span>
+          <strong>{formatDecimalOdds(preview.price)}×</strong>
+        </div>
+        <div>
+          <span>Implied</span>
+          <strong>{formatOutcomeImpliedPct(preview.price)}</strong>
         </div>
         <div>
           <span>Contracts</span>
           <strong>{preview.contracts.toLocaleString()}</strong>
         </div>
         <div>
-          <span>Decimal odds</span>
-          <strong>{formatDecimalOdds(preview.price)}×</strong>
-        </div>
-        <div>
-          <span>Implied chance</span>
-          <strong>{formatOutcomeImpliedPct(preview.price)}</strong>
+          <span>Price</span>
+          <strong>{formatOutcomePriceCents(preview.price)}</strong>
         </div>
       </div>
-      <p className="hl-sb-payout-formula">
-        {preview.contracts.toLocaleString()} contracts × $1 payout @{' '}
-        {formatOutcomePriceCents(preview.price)} each
-      </p>
     </div>
   );
 };

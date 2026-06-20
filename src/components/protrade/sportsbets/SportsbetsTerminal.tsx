@@ -1,15 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { OUTCOME_BOOK_POLL_MS } from '../../../lib/hyperliquid/outcomes/constants';
-import { fetchOutcomeLegQuote, type OutcomeLegQuote } from '../../../lib/hyperliquid/outcomes';
+import { fetchOutcomeLegQuotesFromMids, type OutcomeLegQuote } from '../../../lib/hyperliquid/outcomes';
 import { ensureArray } from '../../../lib/ensureArray';
 import { findOutcomeMarket } from '../../../lib/hyperliquid/outcomes/meta';
 import { useSportsbetsSession } from '../../../hooks/useSportsbetsSession';
 import SportsbetsHero from './SportsbetsHero';
 import BettingMarketList from './BettingMarketList';
 import SportsbetsEventDetail from './SportsbetsEventDetail';
-import SportsbetsOrderPanel from './SportsbetsOrderPanel';
-import SportsbetsPositions from './SportsbetsPositions';
+import SportsbetsRightRail from './SportsbetsRightRail';
 
 type Props = {
   walletAddress?: string;
@@ -43,19 +42,16 @@ const SportsbetsTerminal: React.FC<Props> = ({ walletAddress, walletConnected, u
     }
 
     let cancelled = false;
+    const legs = ensureArray(question.legs).map((leg) => ({
+      outcomeId: leg.outcomeId,
+      name: leg.name,
+    }));
 
     const pullQuotes = async (background: boolean) => {
       if (!background) setQuotesLoading(true);
       try {
-        const rows = await Promise.all(
-          ensureArray(question.legs).map(async (leg) => {
-            const quote = await fetchOutcomeLegQuote(leg.outcomeId, leg.name);
-            return [leg.outcomeId, quote] as const;
-          })
-        );
+        const next = await fetchOutcomeLegQuotesFromMids(legs);
         if (cancelled) return;
-        const next: Record<number, OutcomeLegQuote> = {};
-        for (const [id, quote] of rows) next[id] = quote;
         setLegQuotes(next);
       } catch {
         if (!cancelled && !background) setLegQuotes({});
@@ -90,12 +86,6 @@ const SportsbetsTerminal: React.FC<Props> = ({ walletAddress, walletConnected, u
       />
 
       <div className="hl-sb-toolbar">
-        <div>
-          <h1 className="hl-sb-toolbar-title">Betting</h1>
-          <p className="hl-sb-toolbar-sub">
-            Sports, crypto &amp; macro — search and switch markets live
-          </p>
-        </div>
         <div className="hl-sb-toolbar-actions">
           <span className="hl-sb-live" title="Markets sync automatically from Hyperliquid">
             <span className={`hl-sb-live-dot ${session.catalogSyncing ? 'hl-sb-live-dot--sync' : ''}`} />
@@ -133,7 +123,7 @@ const SportsbetsTerminal: React.FC<Props> = ({ walletAddress, walletConnected, u
           loading={session.catalogLoading}
         />
 
-        <div className="hl-sb-main">
+        <div className="hl-sb-center">
           {session.selectedQuestion ? (
             <SportsbetsEventDetail
               question={session.selectedQuestion}
@@ -154,29 +144,25 @@ const SportsbetsTerminal: React.FC<Props> = ({ walletAddress, walletConnected, u
               )}
             </div>
           )}
-
-          <SportsbetsOrderPanel
-            market={selectedMarket}
-            side={session.selectedSide}
-            quote={session.quote}
-            quoteLoading={session.quoteLoading}
-            bettingBalance={session.bettingBalance}
-            walletConnected={walletConnected}
-            trading={session.trading}
-            positionSize={positionSize}
-            onSuccess={() => void session.refreshAll()}
-          />
         </div>
-      </div>
 
-      <SportsbetsPositions
-        positions={session.positions}
-        openOrders={session.outcomeOpenOrders}
-        fills={session.outcomeFills}
-        loading={session.positionsLoading || session.accountLoading}
-        onCancelOrder={(outcomeId, side, oid) => void handleCancelOrder(outcomeId, side, oid)}
-        cancelBusy={session.trading.busy}
-      />
+        <SportsbetsRightRail
+          market={selectedMarket}
+          side={session.selectedSide}
+          quote={session.quote}
+          quoteLoading={session.quoteLoading}
+          bettingBalance={session.bettingBalance}
+          walletConnected={walletConnected}
+          trading={session.trading}
+          positionSize={positionSize}
+          positions={session.positions}
+          openOrders={session.outcomeOpenOrders}
+          fills={session.outcomeFills}
+          positionsLoading={session.positionsLoading || session.accountLoading}
+          onSuccess={() => void session.refreshAll()}
+          onCancelOrder={(outcomeId, side, oid) => void handleCancelOrder(outcomeId, side, oid)}
+        />
+      </div>
     </div>
   );
 };
