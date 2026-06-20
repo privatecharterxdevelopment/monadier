@@ -24,6 +24,9 @@ type Props = {
   positionsLoading?: boolean;
   onSuccess?: () => void;
   onCancelOrder?: (outcomeId: number, side: 0 | 1, oid: number) => void;
+  orderAction?: 'buy' | 'sell';
+  onOrderActionChange?: (action: 'buy' | 'sell') => void;
+  onCashOutPosition?: (position: HlOutcomePosition) => void;
 };
 
 const SportsbetsRightRail: React.FC<Props> = ({
@@ -43,6 +46,9 @@ const SportsbetsRightRail: React.FC<Props> = ({
   positionsLoading,
   onSuccess,
   onCancelOrder,
+  orderAction,
+  onOrderActionChange,
+  onCashOutPosition,
 }) => (
   <div className="hl-sb-rail">
     <div className="hl-sb-rail-scroll">
@@ -58,6 +64,8 @@ const SportsbetsRightRail: React.FC<Props> = ({
         trading={trading}
         positionSize={positionSize}
         onSuccess={onSuccess}
+        orderAction={orderAction}
+        onOrderActionChange={onOrderActionChange}
       />
       <SportsbetsBetSlip
         positions={positions}
@@ -69,6 +77,7 @@ const SportsbetsRightRail: React.FC<Props> = ({
         onRequireSignIn={onRequireSignIn}
         onCancelOrder={onCancelOrder}
         cancelBusy={trading.busy}
+        onCashOutPosition={onCashOutPosition}
       />
     </div>
   </div>

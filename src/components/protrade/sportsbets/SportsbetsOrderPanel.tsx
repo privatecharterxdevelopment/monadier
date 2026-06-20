@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Loader2, SlidersHorizontal } from 'lucide-react';
 import { useAppKit } from '@reown/appkit/react';
 import {
@@ -32,6 +32,9 @@ type Props = {
   trading: Trading;
   positionSize: number;
   onSuccess?: () => void;
+  /** When set, syncs buy/sell tab (e.g. from My bets cash out). */
+  orderAction?: Action;
+  onOrderActionChange?: (action: Action) => void;
 };
 
 type OrderMode = 'market' | 'limit';
@@ -52,10 +55,17 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   trading,
   positionSize,
   onSuccess,
+  orderAction: orderActionProp,
+  onOrderActionChange,
 }) => {
   const { open } = useAppKit();
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [action, setAction] = useState<Action>('buy');
+  const [actionInternal, setActionInternal] = useState<Action>('buy');
+  const action = orderActionProp ?? actionInternal;
+  const setAction = (next: Action) => {
+    if (orderActionProp === undefined) setActionInternal(next);
+    onOrderActionChange?.(next);
+  };
   const [mode, setMode] = useState<OrderMode>('market');
   const [stakeMode, setStakeMode] = useState<StakeMode>('usd');
   const [stakeInput, setStakeInput] = useState('');
@@ -72,9 +82,10 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   const sideBook = quote ? (side === 0 ? quote.yes : quote.no) : null;
   const sideLabel = market ? (side === 0 ? market.yesLabel : market.noLabel) : 'Yes';
 
-  const effectiveAction = advancedOpen ? action : 'buy';
+  const effectiveAction = action;
   const effectiveMode = advancedOpen ? mode : 'market';
-  const effectiveStakeMode = advancedOpen ? stakeMode : 'usd';
+  const isCashOut = effectiveAction === 'sell';
+  const effectiveStakeMode = isCashOut ? 'contracts' : advancedOpen ? stakeMode : 'usd';
 
   const referencePx = useMemo(() => {
     if (!sideBook) return 0;
@@ -109,7 +120,13 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
       : null;
 
   const canSell = positionSize > 0;
-  const isCashOut = effectiveAction === 'sell';
+
+  useEffect(() => {
+    if (isCashOut && positionSize > 0) {
+      setStakeMode('contracts');
+      setStakeInput(String(Math.floor(positionSize)));
+    }
+  }, [isCashOut, positionSize, market?.outcomeId, side]);
 
   const statusMessage = trading.error ?? localMsg ?? validation;
 
@@ -140,6 +157,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
           quote,
         });
         setLocalMsg('Bet placed');
+        setAction('buy');
       } else {
         if (size > positionSize) {
           throw new Error(`You only hold ${Math.floor(positionSize)} contracts`);
@@ -154,6 +172,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
           reduceOnly: true,
         });
         setLocalMsg('Cash out submitted');
+        setAction('buy');
       }
       onSuccess?.();
     } catch {
@@ -198,27 +217,27 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
             </button>
           </div>
 
+          {canSell ? (
+            <div className="hl-sb-order-tabs hl-sb-order-tabs--primary" role="group" aria-label="Bet or cash out">
+              <button
+                type="button"
+                className={action === 'buy' ? 'hl-sb-order-tab hl-sb-order-tab--on' : 'hl-sb-order-tab'}
+                onClick={() => setAction('buy')}
+              >
+                Bet
+              </button>
+              <button
+                type="button"
+                className={action === 'sell' ? 'hl-sb-order-tab hl-sb-order-tab--on hl-sb-order-tab--sell' : 'hl-sb-order-tab'}
+                onClick={() => setAction('sell')}
+              >
+                Cash out
+              </button>
+            </div>
+          ) : null}
+
           {advancedOpen ? (
             <div className="hl-sb-order-settings">
-              {canSell ? (
-                <div className="hl-sb-order-tabs hl-sb-order-tabs--compact">
-                  <button
-                    type="button"
-                    className={action === 'buy' ? 'hl-sb-order-tab hl-sb-order-tab--on' : 'hl-sb-order-tab'}
-                    onClick={() => setAction('buy')}
-                  >
-                    Bet
-                  </button>
-                  <button
-                    type="button"
-                    className={action === 'sell' ? 'hl-sb-order-tab hl-sb-order-tab--on' : 'hl-sb-order-tab'}
-                    onClick={() => setAction('sell')}
-                  >
-                    Cash out
-                  </button>
-                </div>
-              ) : null}
-
               <div className="hl-sb-order-controls hl-sb-order-controls--compact" role="group" aria-label="Order settings">
                 <button
                   type="button"
@@ -268,7 +287,13 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
           ) : null}
 
           <label className="hl-sb-field hl-sb-field--stake">
-            <span>{effectiveStakeMode === 'contracts' ? 'Contracts' : 'Amount (USD)'}</span>
+            <span>
+              {isCashOut
+                ? 'Contracts to sell'
+                : effectiveStakeMode === 'contracts'
+                  ? 'Contracts'
+                  : 'Amount (USD)'}
+            </span>
             <input
               type="number"
               min={effectiveStakeMode === 'contracts' ? 1 : OUTCOME_MIN_NOTIONAL_USD}
@@ -281,7 +306,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
             />
           </label>
 
-          {effectiveStakeMode === 'usd' ? (
+          {effectiveStakeMode === 'usd' && !isCashOut ? (
             <div className="hl-sb-quick-stakes" role="group" aria-label="Quick stake amounts">
               {QUICK_STAKES_USD.map((amt) => (
                 <button

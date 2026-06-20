@@ -4,6 +4,7 @@ import { OUTCOME_BOOK_POLL_MS } from '../../../lib/hyperliquid/outcomes/constant
 import { fetchOutcomeLegQuotesFromMids, type OutcomeLegQuote } from '../../../lib/hyperliquid/outcomes';
 import { countByCategory, filterBettingQuestions } from '../../../lib/hyperliquid/outcomes/categories';
 import { findOutcomeMarket } from '../../../lib/hyperliquid/outcomes/meta';
+import type { HlOutcomePosition } from '../../../lib/hyperliquid/outcomes/types';
 import { useSportsbetsSession } from '../../../hooks/useSportsbetsSession';
 import SportsbetsHero from './SportsbetsHero';
 import BettingMarketList from './BettingMarketList';
@@ -30,6 +31,7 @@ const SportsbetsTerminal: React.FC<Props> = ({
   const [legQuotes, setLegQuotes] = useState<Record<number, OutcomeLegQuote>>({});
   const [quotesLoading, setQuotesLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [orderAction, setOrderAction] = useState<'buy' | 'sell'>('buy');
 
   const categoryCounts = useMemo(
     () => countByCategory(session.questions),
@@ -68,6 +70,46 @@ const SportsbetsTerminal: React.FC<Props> = ({
     );
     return row?.size ?? 0;
   }, [session.positions, session.selectedOutcomeId, session.selectedSide]);
+
+  useEffect(() => {
+    if (positionSize <= 0 && orderAction === 'sell') {
+      setOrderAction('buy');
+    }
+  }, [positionSize, orderAction]);
+
+  const walletSummary = useMemo(() => {
+    if (!signedIn || !walletConnected) return null;
+    const positionsValueUsd = session.positions.reduce((sum, p) => sum + p.valueUsd, 0);
+    const unrealizedPnlUsd = session.positions.reduce((sum, p) => sum + p.unrealizedPnl, 0);
+    return {
+      balanceUsd: session.bettingBalance,
+      positionsValueUsd,
+      unrealizedPnlUsd,
+      positionCount: session.positions.length,
+    };
+  }, [signedIn, walletConnected, session.positions, session.bettingBalance]);
+
+  const scrollToRail = useCallback(() => {
+    requestAnimationFrame(() => {
+      document.querySelector('.hl-sb-rail')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }, []);
+
+  const focusPositionForCashOut = useCallback(
+    (position: HlOutcomePosition) => {
+      const question = session.questions.find((q) =>
+        q.legs.some((leg) => leg.outcomeId === position.outcomeId)
+      );
+      if (question) {
+        session.pickQuestionLeg(question, position.outcomeId, position.side);
+      } else {
+        session.selectLeg(position.outcomeId, position.side);
+      }
+      setOrderAction('sell');
+      scrollToRail();
+    },
+    [session, scrollToRail]
+  );
 
   useEffect(() => {
     if (quoteLegs.length === 0) {
@@ -133,6 +175,13 @@ const SportsbetsTerminal: React.FC<Props> = ({
         onCategoryChange={session.setCategory}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        signedIn={signedIn}
+        walletConnected={walletConnected}
+        walletSummary={walletSummary}
+        onOpenPositions={scrollToRail}
+        onCashOutFirst={
+          session.positions[0] ? () => focusPositionForCashOut(session.positions[0]) : undefined
+        }
       />
 
       {session.catalogError ? (
@@ -201,6 +250,9 @@ const SportsbetsTerminal: React.FC<Props> = ({
           positionsLoading={session.positionsLoading || session.accountLoading}
           onSuccess={() => void session.refreshAll()}
           onCancelOrder={(outcomeId, side, oid) => void handleCancelOrder(outcomeId, side, oid)}
+          orderAction={orderAction}
+          onOrderActionChange={setOrderAction}
+          onCashOutPosition={focusPositionForCashOut}
         />
       </div>
     </div>

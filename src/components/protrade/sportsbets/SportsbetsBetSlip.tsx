@@ -16,6 +16,7 @@ type Props = {
   onRequireSignIn?: (reason: string) => void;
   onCancelOrder?: (outcomeId: number, side: 0 | 1, oid: number) => void;
   cancelBusy?: boolean;
+  onCashOutPosition?: (position: HlOutcomePosition) => void;
 };
 
 const TABS: { id: TabId; label: string }[] = [
@@ -34,6 +35,7 @@ const SportsbetsBetSlip: React.FC<Props> = ({
   onRequireSignIn,
   onCancelOrder,
   cancelBusy,
+  onCashOutPosition,
 }) => {
   const [tab, setTab] = useState<TabId>('positions');
   const recentFills = fills.slice(0, 8);
@@ -101,6 +103,15 @@ const SportsbetsBetSlip: React.FC<Props> = ({
                     <span>{p.sideLabel}</span>
                     <span>{Math.floor(p.size)} ct</span>
                     <span>{fmtUsdSymbol(p.valueUsd)}</span>
+                    {onCashOutPosition ? (
+                      <button
+                        type="button"
+                        className="hl-sb-slip-cashout-btn"
+                        onClick={() => onCashOutPosition(p)}
+                      >
+                        Cash out
+                      </button>
+                    ) : null}
                   </div>
                 </li>
               ))}
