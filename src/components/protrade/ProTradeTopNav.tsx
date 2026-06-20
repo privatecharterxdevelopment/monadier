@@ -8,12 +8,13 @@ import ProTradeNotificationsBell from './ProTradeNotificationsBell';
 import ProTradeThemeIcon from './ProTradeThemeIcon';
 import { useProTradeTheme } from '../../contexts/ProTradeThemeContext';
 import type { ProTradeProfileTab } from './proTradeProfileTypes';
+import type { ActivityNotification } from '../../lib/activityNotifications';
 import { getLandingPageUrl, goToLanding } from '../../lib/appUrls';
 
 export type ProTradeSection =
   | 'perps'
   | 'bot'
-  | 'spot'
+  | 'sportsbets'
   | 'swap'
   | 'portfolio'
   | 'profile'
@@ -32,7 +33,7 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { id: 'perps', label: 'Perps', enabled: true },
-  { id: 'spot', label: 'Spot', enabled: true },
+  { id: 'sportsbets', label: 'Betting', enabled: true },
   { id: 'swap', label: 'Swap', enabled: true },
   { id: 'portfolio', label: 'Portfolio', enabled: true },
   { id: 'leaderboard', label: 'Leaderboard', enabled: false },
@@ -48,7 +49,7 @@ type Props = {
   onOpenProfile?: (tab?: ProTradeProfileTab) => void;
   onOpenBotHistory?: () => void;
   onRequireSignIn?: (reason: string) => void;
-  onViewNotificationHistory?: (tradeId?: string) => void;
+  onViewNotificationHistory?: (notification?: ActivityNotification) => void;
 };
 
 const ProTradeTopNav: React.FC<Props> = ({

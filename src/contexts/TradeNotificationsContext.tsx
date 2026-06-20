@@ -12,23 +12,34 @@ import { useAuth, DEMO_WALLET_ADDRESS } from './AuthContext';
 import { supabase } from '../lib/supabase';
 import { fetchUserWalletAddresses } from '../lib/userWallets';
 import {
-  type ClosedTradeRow,
   fetchClosedTrades,
-  isTradeUnread,
   loadLastSeenAt,
   saveLastSeenAt,
   storageKeyForUser,
 } from '../lib/closedTrades';
+import {
+  type ActivityNotification,
+  bettingCloseToNotification,
+  botTradeToNotification,
+  fetchBettingCloseNotifications,
+  isActivityUnread,
+  mergeActivityNotifications,
+  toastMessageForNotification,
+} from '../lib/activityNotifications';
+import { syncBettingTradesToSupabase } from '../lib/betting/syncBettingTrades';
+import { fetchHlOutcomeCatalog } from '../lib/hyperliquid/outcomes/meta';
 import { useTermAuthToast } from '../components/terminal/TermAuthToast';
 
 type TradeNotificationsContextValue = {
-  trades: ClosedTradeRow[];
+  notifications: ActivityNotification[];
+  /** @deprecated Use notifications */
+  trades: ActivityNotification[];
   unreadCount: number;
   isLoading: boolean;
   refresh: () => void;
   markAllRead: () => void;
   markReadThrough: (closedAt: string) => void;
-  isUnread: (trade: ClosedTradeRow) => boolean;
+  isUnread: (notification: ActivityNotification) => boolean;
 };
 
 const TradeNotificationsContext = createContext<TradeNotificationsContextValue | null>(
@@ -49,7 +60,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
   const { address } = useAccount();
   const { user, isDemoUser } = useAuth();
   const { showToast } = useTermAuthToast();
-  const [trades, setTrades] = useState<ClosedTradeRow[]>([]);
+  const [notifications, setNotifications] = useState<ActivityNotification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastSeenAt, setLastSeenAt] = useState<string | null>(null);
   const [wallets, setWallets] = useState<string[]>([]);
@@ -71,43 +82,62 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
     };
   }, [address, isDemoUser]);
 
+  const syncBettingForWallets = useCallback(async () => {
+    if (!user?.id || isDemoUser || wallets.length === 0) return;
+    try {
+      const catalog = await fetchHlOutcomeCatalog();
+      const unique = [...new Set(wallets.map((w) => w.toLowerCase()))].slice(0, 3);
+      await Promise.all(
+        unique.map((w) => syncBettingTradesToSupabase(user.id, w, catalog))
+      );
+    } catch (err) {
+      console.error('[TradeNotifications] betting sync', err);
+    }
+  }, [user?.id, isDemoUser, wallets]);
+
   const load = useCallback(
     async (silent = false) => {
       if (!isDemoUser && !user) {
-        setTrades([]);
+        setNotifications([]);
         setIsLoading(false);
         return;
       }
 
       if (!silent) setIsLoading(true);
       try {
-        const rows = await fetchClosedTrades({
-          isDemoUser,
-          wallets,
-          limit: 100,
-        });
+        await syncBettingForWallets();
+
+        const [botRows, bettingRows] = await Promise.all([
+          fetchClosedTrades({ isDemoUser, wallets, limit: 100 }),
+          isDemoUser ? Promise.resolve([]) : fetchBettingCloseNotifications(50),
+        ]);
+
+        const merged = mergeActivityNotifications(
+          botRows.map(botTradeToNotification),
+          bettingRows.map(bettingCloseToNotification),
+          100
+        );
+
         const prevIds = knownIdsRef.current;
         if (silent && prevIds.size > 0) {
-          const fresh = rows.find((r) => !prevIds.has(r.id));
-          if (fresh) {
-            const pl = fresh.profitLoss;
-            const sign = pl >= 0 ? '+' : '';
-            showToast(
-              `Trade closed · ${fresh.direction} ${fresh.tokenSymbol} ${sign}$${Math.abs(pl).toFixed(2)}`,
-              3200
-            );
+          const fresh = merged.filter((r) => !prevIds.has(r.id));
+          if (fresh.length > 0) {
+            const latest = fresh.sort(
+              (a, b) => new Date(b.closedAt).getTime() - new Date(a.closedAt).getTime()
+            )[0];
+            showToast(toastMessageForNotification(latest), 3600);
           }
         }
-        knownIdsRef.current = new Set(rows.map((r) => r.id));
-        setTrades(rows);
+        knownIdsRef.current = new Set(merged.map((r) => r.id));
+        setNotifications(merged);
       } catch (e) {
         console.error('[TradeNotifications]', e);
-        if (!silent) setTrades([]);
+        if (!silent) setNotifications([]);
       } finally {
         setIsLoading(false);
       }
     },
-    [isDemoUser, user, wallets, showToast]
+    [isDemoUser, user, wallets, showToast, syncBettingForWallets]
   );
 
   useEffect(() => {
@@ -116,7 +146,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
 
   useEffect(() => {
     const poll = setInterval(() => load(true), 12000);
-    return () => clearInterval(poll);
+    return () => clearInterval(pool);
   }, [load]);
 
   useEffect(() => {
@@ -134,18 +164,28 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
         { event: 'UPDATE', schema: 'public', table: 'positions' },
         () => load(true)
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'hl_betting_closes',
+          ...(user?.id ? { filter: `user_id=eq.${user.id}` } : {}),
+        },
+        () => load(true)
+      )
       .subscribe();
 
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [user?.id, isDemoUser, load]);
+  }, [user?.id, isDemoUser, load, address]);
 
   const markAllRead = useCallback(() => {
-    const latest = trades[0]?.closedAt ?? new Date().toISOString();
+    const latest = notifications[0]?.closedAt ?? new Date().toISOString();
     saveLastSeenAt(storageKey, latest);
     setLastSeenAt(latest);
-  }, [trades, storageKey]);
+  }, [notifications, storageKey]);
 
   const markReadThrough = useCallback(
     (closedAt: string) => {
@@ -160,18 +200,19 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
   );
 
   const isUnread = useCallback(
-    (trade: ClosedTradeRow) => isTradeUnread(trade, lastSeenAt),
+    (notification: ActivityNotification) => isActivityUnread(notification, lastSeenAt),
     [lastSeenAt]
   );
 
   const unreadCount = useMemo(
-    () => trades.filter((t) => isTradeUnread(t, lastSeenAt)).length,
-    [trades, lastSeenAt]
+    () => notifications.filter((t) => isActivityUnread(t, lastSeenAt)).length,
+    [notifications, lastSeenAt]
   );
 
   const value = useMemo(
     () => ({
-      trades,
+      notifications,
+      trades: notifications,
       unreadCount,
       isLoading,
       refresh: () => load(true),
@@ -179,7 +220,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
       markReadThrough,
       isUnread,
     }),
-    [trades, unreadCount, isLoading, load, markAllRead, markReadThrough, isUnread]
+    [notifications, unreadCount, isLoading, load, markAllRead, markReadThrough, isUnread]
   );
 
   return (

@@ -3,6 +3,8 @@ import { Loader2 } from 'lucide-react';
 import type { HlAccountState, HlSpotBalance } from '../../lib/hyperliquid/user';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { readNum, toNum } from '../../lib/hyperliquid/parse';
+import ProTradeBettingTables from './ProTradeBettingTables';
+import { useBettingPortfolio } from '../../hooks/useBettingPortfolio';
 
 type Props = {
   account: HlAccountState | null;
@@ -10,8 +12,10 @@ type Props = {
   spotPrices?: Record<string, number>;
   loading: boolean;
   connected: boolean;
+  walletAddress?: string;
   onNavigatePerps?: (coin: string) => void;
   onNavigateSpot?: (coin: string) => void;
+  onNavigateBetting?: () => void;
 };
 
 function spotUsdValue(b: HlSpotBalance, prices: Record<string, number>): number {
@@ -29,9 +33,15 @@ const ProTradePortfolio: React.FC<Props> = ({
   spotPrices = {},
   loading,
   connected,
+  walletAddress,
   onNavigatePerps,
   onNavigateSpot,
+  onNavigateBetting,
 }) => {
+  const betting = useBettingPortfolio({
+    walletAddress,
+    enabled: connected,
+  });
   const perpValue = readNum(account, ['margin', 'accountValue']);
   const withdrawable = toNum(account?.withdrawable);
   const spotUsdc = useMemo(
@@ -157,6 +167,21 @@ const ProTradePortfolio: React.FC<Props> = ({
             </tbody>
           </table>
         )}
+      </div>
+
+      <div className="hl-portfolio-section">
+        <h3 className="hl-portfolio-heading">Betting</h3>
+        <ProTradeBettingTables
+          openBets={betting.openBets}
+          closedBets={betting.closedBets}
+          loading={betting.loading}
+          syncing={betting.syncing}
+          signedIn={betting.signedIn}
+          showSummary
+          summary={betting.summary}
+          compact
+          onNavigateBetting={onNavigateBetting}
+        />
       </div>
     </div>
   );

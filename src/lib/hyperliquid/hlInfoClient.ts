@@ -27,7 +27,7 @@ function cacheKey(body: Record<string, unknown>): string {
 
 function ttlFor(body: Record<string, unknown>): number {
   const t = body.type;
-  if (t === 'metaAndAssetCtxs' || t === 'spotMetaAndAssetCtxs' || t === 'spotMeta') return META_TTL_MS;
+  if (t === 'metaAndAssetCtxs' || t === 'spotMetaAndAssetCtxs' || t === 'spotMeta' || t === 'outcomeMeta') return META_TTL_MS;
   if (t === 'candleSnapshot') return CANDLE_TTL_MS;
   if (t === 'l2Book' || t === 'allMids') return 1_200;
   return DEFAULT_TTL_MS;

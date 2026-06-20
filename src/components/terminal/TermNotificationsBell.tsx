@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Bell, ExternalLink } from 'lucide-react';
 import { useTradeNotifications } from '../../contexts/TradeNotificationsContext';
-import { verifyUrlForTrade } from '../../lib/closedTrades';
+import type { ActivityNotification } from '../../lib/activityNotifications';
 
 function fmtUsd(n: number) {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -16,11 +16,11 @@ function fmtWhen(iso: string) {
 }
 
 type Props = {
-  onViewHistory: (tradeId?: string) => void;
+  onViewHistory: (notification?: ActivityNotification) => void;
 };
 
 const TermNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
-  const { trades, unreadCount, isLoading, markAllRead, markReadThrough, isUnread } =
+  const { notifications, unreadCount, isLoading, markAllRead, markReadThrough, isUnread } =
     useTradeNotifications();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -36,7 +36,7 @@ const TermNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [open]);
 
-  const preview = trades.slice(0, 8);
+  const preview = notifications.slice(0, 8);
 
   return (
     <div className="term-notif-bell" ref={rootRef}>
@@ -55,7 +55,7 @@ const TermNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
       {open && (
         <div className="term-notif-panel" role="dialog" aria-label="Trade notifications">
           <div className="term-notif-panel-head">
-            <span className="term-notif-panel-title">Closed trades</span>
+            <span className="term-notif-panel-title">Activity</span>
             {unreadCount > 0 && (
               <button type="button" className="term-notif-mark-read" onClick={markAllRead}>
                 Mark all read
@@ -67,13 +67,13 @@ const TermNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
             {isLoading && preview.length === 0 ? (
               <p className="term-notif-empty">Loading…</p>
             ) : preview.length === 0 ? (
-              <p className="term-notif-empty">No closed trades yet</p>
+              <p className="term-notif-empty">No activity yet</p>
             ) : (
               <ul className="term-notif-list">
                 {preview.map((t) => {
                   const { date, time } = fmtWhen(t.closedAt);
-                  const verify = verifyUrlForTrade(t);
                   const unread = isUnread(t);
+                  const isBetting = t.kind === 'betting';
                   return (
                     <li key={t.id}>
                       <button
@@ -82,17 +82,25 @@ const TermNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                         onClick={() => {
                           markReadThrough(t.closedAt);
                           setOpen(false);
-                          onViewHistory(t.positionId || t.id);
+                          onViewHistory(t);
                         }}
                       >
                         <div className="term-notif-item-top">
                           <span className="term-notif-item-pair">
-                            {t.direction} {t.tokenSymbol}
-                            <span className="term-notif-item-lev">{t.leverage}x</span>
+                            {isBetting ? (
+                              <>
+                                Bet · {t.headline}
+                                {t.detail ? ` · ${t.detail}` : ''}
+                              </>
+                            ) : (
+                              t.headline
+                            )}
                           </span>
                           <span
                             className={
-                              t.profitLoss >= 0 ? 'term-notif-item-pnl term-pnl-pos' : 'term-notif-item-pnl term-pnl-neg'
+                              t.profitLoss >= 0
+                                ? 'term-notif-item-pnl term-pnl-pos'
+                                : 'term-notif-item-pnl term-pnl-neg'
                             }
                           >
                             {t.profitLoss >= 0 ? '+' : ''}
@@ -103,11 +111,10 @@ const TermNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                           <span>
                             {date} · {time}
                           </span>
-                          <span>{fmtUsd(t.entryAmount)}</span>
                         </div>
-                        {verify && (
+                        {!isBetting && t.verifyUrl ? (
                           <a
-                            href={verify}
+                            href={t.verifyUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="term-notif-verify"
@@ -116,7 +123,7 @@ const TermNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                             Verify on Arbitrum
                             <ExternalLink size={11} />
                           </a>
-                        )}
+                        ) : null}
                       </button>
                     </li>
                   );
@@ -134,7 +141,7 @@ const TermNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
               onViewHistory();
             }}
           >
-            View full trade history
+            View history
           </button>
         </div>
       )}

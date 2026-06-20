@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bell, ExternalLink } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { useTradeNotifications } from '../../contexts/TradeNotificationsContext';
-import { verifyUrlForTrade } from '../../lib/closedTrades';
+import type { ActivityNotification } from '../../lib/activityNotifications';
 
 function fmtUsd(n: number) {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -16,11 +16,11 @@ function fmtWhen(iso: string) {
 }
 
 type Props = {
-  onViewHistory: (tradeId?: string) => void;
+  onViewHistory: (notification?: ActivityNotification) => void;
 };
 
 const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
-  const { trades, unreadCount, isLoading, markAllRead, markReadThrough, isUnread } =
+  const { notifications, unreadCount, isLoading, markAllRead, markReadThrough, isUnread } =
     useTradeNotifications();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -36,7 +36,7 @@ const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [open]);
 
-  const preview = trades.slice(0, 8);
+  const preview = notifications.slice(0, 8);
 
   return (
     <div className="hl-notif-bell" ref={rootRef}>
@@ -55,7 +55,7 @@ const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
       {open ? (
         <div className="hl-notif-panel" role="dialog" aria-label="Trade notifications">
           <div className="hl-notif-panel-head">
-            <span className="hl-notif-panel-title">Closed bot trades</span>
+            <span className="hl-notif-panel-title">Activity</span>
             {unreadCount > 0 ? (
               <button type="button" className="hl-notif-mark-read" onClick={markAllRead}>
                 Mark read
@@ -66,13 +66,13 @@ const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
           {isLoading ? (
             <p className="hl-notif-empty">Loading…</p>
           ) : preview.length === 0 ? (
-            <p className="hl-notif-empty">No closed trades yet</p>
+            <p className="hl-notif-empty">No activity yet</p>
           ) : (
             <ul className="hl-notif-list">
               {preview.map((t) => {
                 const { date, time } = fmtWhen(t.closedAt);
-                const verify = verifyUrlForTrade(t);
                 const unread = isUnread(t);
+                const isBetting = t.kind === 'betting';
                 return (
                   <li key={t.id}>
                     <button
@@ -81,12 +81,19 @@ const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                       onClick={() => {
                         markReadThrough(t.closedAt);
                         setOpen(false);
-                        onViewHistory(t.positionId || t.id);
+                        onViewHistory(t);
                       }}
                     >
                       <span className="hl-notif-item-top">
                         <span>
-                          {t.direction} {t.tokenSymbol}
+                          {isBetting ? (
+                            <>
+                              <span className="hl-notif-kind">Bet</span> {t.headline}
+                              {t.detail ? ` · ${t.detail}` : ''}
+                            </>
+                          ) : (
+                            t.headline
+                          )}
                         </span>
                         <span className={t.profitLoss >= 0 ? 'hl-up' : 'hl-down'}>
                           {t.profitLoss >= 0 ? '+' : ''}
@@ -95,17 +102,8 @@ const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                       </span>
                       <span className="hl-notif-item-meta">
                         {date} {time}
-                        {verify ? (
-                          <a
-                            href={verify}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hl-notif-verify"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            Verify
-                            <ExternalLink size={10} />
-                          </a>
+                        {!isBetting && t.highlightId ? (
+                          <span className="hl-notif-kind">Bot</span>
                         ) : null}
                       </span>
                     </button>
@@ -123,7 +121,7 @@ const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
               onViewHistory();
             }}
           >
-            View full trade history
+            View history
           </button>
         </div>
       ) : null}

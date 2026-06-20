@@ -90,11 +90,18 @@ function resolveMarginPerSlot(
 
   if (perSlot >= minMargin) return perSlot;
 
-  // Second slot only when each slot meets min margin — no sloppy add-on trades.
-  if (openCount > 0) return 0;
+  // Same min-margin floor for every free slot. Previously slot 2+ returned 0 here
+  // while slot 1 used slotFloor — blocking a second independent pair.
+  const slotFloor = Math.min(minMargin, balance * 0.1);
+  if (balance >= config.hyperliquid.minAccountUsd && slotFloor >= 1) {
+    return slotFloor;
+  }
 
-  if (balance < config.hyperliquid.minAccountUsd) return perSlot;
-  return Math.min(minMargin, balance * 0.1);
+  if (openCount === 0 && balance < config.hyperliquid.minAccountUsd) {
+    return perSlot;
+  }
+
+  return perSlot >= 1 ? perSlot : 0;
 }
 
 /** Exported for /api/bot-status diagnostics. */
@@ -306,7 +313,7 @@ export class HyperliquidTradingService {
       signals,
       ctx.liquidUniverse,
       openCoins,
-      1
+      slotsLeft
     );
     const best = picks[0] ?? null;
     if (!best) {

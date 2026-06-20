@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import ProfileSecurityPanel from './ProfileSecurityPanel';
 import ProfileLoginHistoryPanel from './ProfileLoginHistoryPanel';
+import ProfileBettingPanel from './ProfileBettingPanel';
 import { useAuth } from '../../contexts/AuthContext';
 import ProfileAvatar from '../profile/ProfileAvatar';
 import {
@@ -32,7 +33,7 @@ function isValidAddress(addr: string) {
   return /^0x[a-fA-F0-9]{40}$/.test(addr);
 }
 
-export type ProfilePanelSection = 'identity' | 'security' | 'wallets' | 'history' | 'all';
+export type ProfilePanelSection = 'identity' | 'security' | 'wallets' | 'betting' | 'history' | 'all';
 
 type Props = {
   activeSection?: ProfilePanelSection;
@@ -414,6 +415,19 @@ const TerminalProfilePanel: React.FC<Props> = ({
               <AlertCircle size={14} /> {walletError}
             </p>
           )}
+        </section>
+        ) : null}
+
+        {show('betting') ? (
+        <section
+          id="profile-betting"
+          className="term-profile-card term-profile-card--section term-profile-card--betting"
+        >
+          <h2 className="term-profile-card-title">Betting</h2>
+          <p className="term-profile-muted" style={{ marginBottom: 12 }}>
+            Open and closed bets with profit/loss — saved to your account.
+          </p>
+          <ProfileBettingPanel />
         </section>
         ) : null}
 
