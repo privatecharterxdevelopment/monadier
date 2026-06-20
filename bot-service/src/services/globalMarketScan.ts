@@ -5,6 +5,7 @@ import { analyzeMarketMTFBySymbol, type TradingStrategy } from './market';
 import { analyzeAggressiveScalpBySymbol } from './aggressiveScalpAnalysis';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
+import { filterWeekendShortOnly, isWeekendShortOnlyWindow } from './weekendTradingRules';
 
 export type BotSignalMode = 'standard' | 'aggressive';
 
@@ -147,22 +148,26 @@ export async function scanGlobalHlSignals(
     .filter((c): c is GlobalSignalCandidate => c !== null)
     .sort((a, b) => b.confidence - a.confidence || b.dayVolumeUsd - a.dayVolumeUsd);
 
-  lastGlobalScanResult = { standard, aggressive };
+  const standardFiltered = filterWeekendShortOnly(standard);
+  const aggressiveFiltered = filterWeekendShortOnly(aggressive);
+
+  lastGlobalScanResult = { standard: standardFiltered, aggressive: aggressiveFiltered };
   lastHlGlobalScanStats = {
     coinsScanned: coins.length,
     liquidUniverse: coins.length,
-    standardCandidates: standard.length,
-    aggressiveCandidates: aggressive.length,
-    candidates: standard.length + aggressive.length,
+    standardCandidates: standardFiltered.length,
+    aggressiveCandidates: aggressiveFiltered.length,
+    candidates: standardFiltered.length + aggressiveFiltered.length,
     scannedAt: new Date().toISOString(),
   };
 
   logger.info('Global HL signal scan complete', {
     liquidCoins: coins.length,
-    standard: standard.length,
-    aggressive: aggressive.length,
-    topStandard: standard[0]?.coin,
-    topAggressive: aggressive[0]?.coin,
+    standard: standardFiltered.length,
+    aggressive: aggressiveFiltered.length,
+    weekendShortOnly: isWeekendShortOnlyWindow(),
+    topStandard: standardFiltered[0]?.coin,
+    topAggressive: aggressiveFiltered[0]?.coin,
     ms: Date.now() - started,
   });
 

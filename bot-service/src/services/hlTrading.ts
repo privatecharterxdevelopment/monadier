@@ -6,6 +6,10 @@ import { hlAgentApprovalService } from './hlAgentApprovals';
 import { isHlCoinLiquid } from './hlLiquidity';
 import { globalSignalsForBotMode } from './globalMarketScan';
 import {
+  isOpenDirectionAllowed,
+  isWeekendShortOnlyWindow,
+} from './weekendTradingRules';
+import {
   coinToAssetIndex,
   maxLeverageForCoin,
   fetchHlClearinghouseState,
@@ -206,6 +210,15 @@ export class HyperliquidTradingService {
       signals.find((s) => isHlCoinLiquid(ctx.liquidUniverse, s.coin)) ?? null;
     if (!best) {
       logger.debug('HL open skip: no liquid signal', { user: userAddress.slice(0, 10) });
+      return 'skip';
+    }
+    if (!isOpenDirectionAllowed(best.direction)) {
+      logger.debug('HL open skip: weekend short-only window', {
+        user: userAddress.slice(0, 10),
+        direction: best.direction,
+        coin: best.coin,
+        weekendShortOnly: isWeekendShortOnlyWindow(),
+      });
       return 'skip';
     }
     const leverage = Math.min(
