@@ -1,5 +1,6 @@
 import type { UnifiedSignal } from './signalService';
 import { MIN_HL_BOT_USD } from './hyperliquid/hlBotAgent';
+import { HL_MAX_CONCURRENT_POSITIONS } from './hlBotConstants';
 
 /** Matches bot aggressive strategy floor (see bot-service market STRATEGY_CONFIGS). */
 export const BOT_MIN_CONFIDENCE_AGGRESSIVE = 25;
@@ -22,6 +23,9 @@ function formatBlocker(blocker: string): string {
   }
   if (/no trade signal|MTF|bot conf/i.test(blocker)) {
     return 'No strong trade setup yet — bot keeps scanning';
+  }
+  if (/HL max positions/i.test(blocker)) {
+    return blocker.replace(/HL max positions/i, 'All bot slots in use');
   }
   if (/HL position open/i.test(blocker)) {
     return `Open position: ${blocker.replace(/HL position open:\s*/i, '')}`;
@@ -57,12 +61,19 @@ export function evaluateBotReadiness(
   signal: UnifiedSignal | null,
   opts: {
     autoTradeEnabled: boolean;
-    hasOpenPosition: boolean;
+    openPositionsCount: number;
+    maxConcurrentPositions?: number;
     vaultUsd: number;
     minVaultUsd?: number;
+    /** @deprecated use openPositionsCount */
+    hasOpenPosition?: boolean;
   }
 ): BotReadiness {
   const minCapital = opts.minVaultUsd ?? MIN_HL_BOT_USD;
+  const maxSlots = opts.maxConcurrentPositions ?? HL_MAX_CONCURRENT_POSITIONS;
+  const openCount =
+    opts.openPositionsCount ??
+    (opts.hasOpenPosition ? maxSlots : 0);
 
   if (!opts.autoTradeEnabled) {
     return {
@@ -72,11 +83,11 @@ export function evaluateBotReadiness(
     };
   }
 
-  if (opts.hasOpenPosition) {
+  if (openCount >= maxSlots) {
     return {
       canEnter: false,
-      headline: 'Position open',
-      detail: 'The bot is managing your active trade.',
+      headline: `${openCount}/${maxSlots} slots full`,
+      detail: 'The bot is managing all active trades.',
     };
   }
 
@@ -98,18 +109,28 @@ export function evaluateBotReadiness(
 
   const conf = Math.round(signal.confidence);
   const strong = conf >= BOT_MIN_CONFIDENCE_AGGRESSIVE && signal.direction !== 'HOLD';
+  const slotLabel =
+    openCount > 0
+      ? `slot ${openCount + 1}/${maxSlots}`
+      : `up to ${maxSlots} trades`;
 
   if (strong) {
     return {
       canEnter: true,
-      headline: 'Ready to trade',
-      detail: `${signal.direction} setup found — next bot cycle ~10s`,
+      headline: openCount > 0 ? `Scanning ${slotLabel}` : 'Ready to trade',
+      detail:
+        openCount > 0
+          ? `${signal.direction} setup — bot may open a 2nd high-liquidity pair`
+          : `${signal.direction} setup found — next bot cycle ~10s`,
     };
   }
 
   return {
     canEnter: false,
-    headline: 'Scanning markets',
-    detail: 'Waiting for a strong trade setup on Hyperliquid.',
+    headline: openCount > 0 ? `Managing ${openCount} trade(s)` : 'Scanning markets',
+    detail:
+      openCount > 0
+        ? `Scanning for ${slotLabel} on high-volume HL perps…`
+        : 'Waiting for a strong trade setup on Hyperliquid.',
   };
 }

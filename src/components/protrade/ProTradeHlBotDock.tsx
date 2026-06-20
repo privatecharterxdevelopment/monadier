@@ -8,6 +8,7 @@ import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
 import { toNum } from '../../lib/hyperliquid/parse';
 import type { HlPosition } from '../../lib/hyperliquid/user';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
+import { HL_MAX_CONCURRENT_POSITIONS } from '../../lib/hlBotConstants';
 import TerminalBotAnalysisStrip from '../terminal/TerminalBotAnalysisStrip';
 import ProTradeDock, { type ProTradeDockTab } from './ProTradeDock';
 
@@ -135,7 +136,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
     Boolean(botAnalysisMetrics?.autoTradeEnabled) &&
     botAnalysisMetrics &&
     dockTab === 'positions' &&
-    positions.length === 0 &&
+    positions.length < HL_MAX_CONCURRENT_POSITIONS &&
     !accountLoading;
 
   const connected = walletConnected || Boolean(hlWallet);

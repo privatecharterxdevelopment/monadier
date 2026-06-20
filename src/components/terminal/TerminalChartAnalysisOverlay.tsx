@@ -23,10 +23,12 @@ type Props = {
   signal: UnifiedSignal | null;
   dbAnalysis: DbAnalysis;
   activeSymbol?: string;
-  globalBest?: { coin: string; direction: string; confidence: number } | null;
+  globalBest?: { coin: string; direction: string; confidence: number; reason?: string } | null;
   globalScanCount?: number;
   globalCoinsScanned?: number;
   readiness?: BotReadiness;
+  openPositionsCount?: number;
+  maxConcurrentPositions?: number;
   /** chart = overlay on chart; dock = inline in positions panel */
   placement?: 'chart' | 'dock';
 };
@@ -61,6 +63,8 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
   globalScanCount = 0,
   globalCoinsScanned = 0,
   readiness,
+  openPositionsCount = 0,
+  maxConcurrentPositions = 2,
   placement = 'chart',
 }) => {
   const [cycleIndex, setCycleIndex] = useState(0);
@@ -163,15 +167,25 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
           <p className="term-analysis-hint">{readiness.detail}</p>
         ) : null}
         {globalBest ? (
-          <p className="term-analysis-hint term-analysis-hint--subtle">
-            {globalCoinsScanned > 0
-              ? `Scanned ${globalCoinsScanned} HL perps`
-              : 'Scanning all HL perps'}
-            {globalScanCount > 0 ? ` · ${globalScanCount} passed filter` : ''}
-            {' · '}Best setup: {globalBest.coin} {globalBest.direction}{' '}
-            {Math.round(globalBest.confidence)}%
-            {activeLabel ? ` · chart shows ${activeLabel} only` : ''}
-          </p>
+          <>
+            <p className="term-analysis-hint term-analysis-hint--subtle">
+              {globalCoinsScanned > 0
+                ? `Scanned ${globalCoinsScanned} HL perps`
+                : 'Scanning all HL perps'}
+              {globalScanCount > 0 ? ` · ${globalScanCount} passed filter` : ''}
+              {openPositionsCount > 0
+                ? ` · ${openPositionsCount}/${maxConcurrentPositions} slots used`
+                : ` · up to ${maxConcurrentPositions} trades`}
+              {' · '}Next: {globalBest.coin} {globalBest.direction}{' '}
+              {Math.round(globalBest.confidence)}%
+              {activeLabel ? ` · chart shows ${activeLabel} only` : ''}
+            </p>
+            {globalBest.reason ? (
+              <p className="term-analysis-reason" title="Why the bot would open this trade">
+                <strong>Why:</strong> {globalBest.reason}
+              </p>
+            ) : null}
+          </>
         ) : globalCoinsScanned > 0 ? (
           <p className="term-analysis-hint term-analysis-hint--subtle">
             Scanned {globalCoinsScanned} HL perps — no setup above min confidence yet

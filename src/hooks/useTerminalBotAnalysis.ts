@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { VAULT_CHAIN_ID } from '../lib/vault';
 import { useUnifiedSignal } from './useUnifiedSignal';
 import { evaluateBotReadiness, readinessFromServerBlockers } from '../lib/botReadiness';
+import { HL_MAX_CONCURRENT_POSITIONS } from '../lib/hlBotConstants';
 import { MIN_HL_BOT_USD } from '../lib/hyperliquid/hlBotAgent';
 import { getBotApiBase, type Timeframe } from '../lib/signalService';
 
@@ -37,7 +38,8 @@ type GlobalScanCandidate = {
 type Options = {
   walletConnected: boolean;
   metrics: Dashboard2Metrics;
-  hasOpenPosition: boolean;
+  openPositionsCount: number;
+  maxConcurrentPositions?: number;
   vaultUsd?: number;
   /** Connected wallet the bot trades on (0x…) */
   vaultWallet?: string | null;
@@ -50,7 +52,8 @@ type Options = {
 export function useTerminalBotAnalysis({
   walletConnected,
   metrics,
-  hasOpenPosition,
+  openPositionsCount,
+  maxConcurrentPositions = HL_MAX_CONCURRENT_POSITIONS,
   vaultUsd = 0,
   vaultWallet,
   symbol = 'ETHUSDT',
@@ -59,6 +62,7 @@ export function useTerminalBotAnalysis({
 }: Options) {
   const [dbAnalysis, setDbAnalysis] = useState<DbAnalysis | null>(null);
   const [serverBlockers, setServerBlockers] = useState<string[]>([]);
+  const [serverMaxSlots, setServerMaxSlots] = useState(maxConcurrentPositions);
   const [globalBest, setGlobalBest] = useState<GlobalScanCandidate | null>(null);
   const [globalScanCount, setGlobalScanCount] = useState(0);
   const [globalCoinsScanned, setGlobalCoinsScanned] = useState(0);
@@ -149,21 +153,39 @@ export function useTerminalBotAnalysis({
         if (!res.ok) return;
         const data = (await res.json()) as {
           blockers?: string[];
+          hyperliquid?: { maxConcurrentPositions?: number; openCoins?: string[] };
           globalScan?: {
             best?: GlobalScanCandidate | null;
             coinsScanned?: number;
             candidateCount?: number;
+            candidates?: GlobalScanCandidate[];
           };
           lastOpenError?: { error: string; coin?: string; at: string } | null;
         };
         const blockers = Array.isArray(data.blockers) ? [...data.blockers] : [];
+        if (typeof data.hyperliquid?.maxConcurrentPositions === 'number') {
+          setServerMaxSlots(data.hyperliquid.maxConcurrentPositions);
+        }
+        const openSet = new Set(
+          (data.hyperliquid?.openCoins ?? []).map((c) => c.toUpperCase())
+        );
+        const candidates = Array.isArray(data.globalScan?.candidates)
+          ? data.globalScan.candidates
+          : [];
+        const nextCandidate =
+          candidates.find((c) => c?.coin && !openSet.has(c.coin.toUpperCase())) ??
+          (data.globalScan?.best &&
+          !openSet.has(data.globalScan.best.coin.toUpperCase())
+            ? data.globalScan.best
+            : null);
         if (data.lastOpenError?.error) {
           blockers.push(
             `HL order failed${data.lastOpenError.coin ? ` (${data.lastOpenError.coin})` : ''}: ${data.lastOpenError.error}`
           );
         }
         setServerBlockers(blockers);
-        if (data.globalScan?.best) setGlobalBest(data.globalScan.best);
+        if (nextCandidate) setGlobalBest(nextCandidate);
+        else if (data.globalScan?.best) setGlobalBest(data.globalScan.best);
         if (typeof data.globalScan?.coinsScanned === 'number') {
           setGlobalCoinsScanned(data.globalScan.coinsScanned);
         }
@@ -182,7 +204,8 @@ export function useTerminalBotAnalysis({
   const readiness = useMemo(() => {
     const local = evaluateBotReadiness(signal, {
       autoTradeEnabled: botRunning,
-      hasOpenPosition,
+      openPositionsCount,
+      maxConcurrentPositions: serverMaxSlots,
       vaultUsd,
     });
     if (!botRunning && vaultUsd >= MIN_HL_BOT_USD) {
@@ -194,7 +217,9 @@ export function useTerminalBotAnalysis({
     }
     if (serverBlockers.length === 0) return local;
     return readinessFromServerBlockers(serverBlockers);
-  }, [signal, botRunning, hasOpenPosition, vaultUsd, serverBlockers]);
+  }, [signal, botRunning, openPositionsCount, serverMaxSlots, vaultUsd, serverBlockers]);
+
+  const slotsFull = openPositionsCount >= serverMaxSlots;
 
   return {
     scanning,
@@ -208,5 +233,8 @@ export function useTerminalBotAnalysis({
     globalScanCount,
     globalCoinsScanned,
     readiness,
+    openPositionsCount,
+    maxConcurrentPositions: serverMaxSlots,
+    slotsFull,
   };
 }

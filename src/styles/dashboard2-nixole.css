@@ -2150,6 +2150,22 @@
   color: #f59e0b;
 }
 
+.term-analysis-reason {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--term-text, #111827);
+  background: rgba(59, 130, 246, 0.06);
+  border-left: 3px solid rgba(59, 130, 246, 0.45);
+  border-radius: 4px;
+}
+
+.term-analysis-reason strong {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
 .term-analysis-pulse {
   color: var(--term-text-muted);
   flex-shrink: 0;

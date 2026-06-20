@@ -26,6 +26,7 @@ import ProTradeTransferModal from '../../components/protrade/ProTradeTransferMod
 import ProTradePortfolio from '../../components/protrade/ProTradePortfolio';
 import ProTradeSwap from '../../components/protrade/ProTradeSwap';
 import { useHyperliquidMarket } from '../../hooks/useHyperliquidMarket';
+import { useHyperliquidAccount } from '../../hooks/useHyperliquidAccount';
 import { useHlBotChartOverlay } from '../../hooks/useHlBotChartOverlay';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';

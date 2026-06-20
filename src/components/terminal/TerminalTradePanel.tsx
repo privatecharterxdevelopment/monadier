@@ -141,7 +141,8 @@ const TerminalTradePanel: React.FC<Props> = ({
     }
   }, [botEnabled, timerWallet]);
 
-  const serverBlockers = useBotServerBlockers(timerWallet, Boolean(botRunning));
+  const botServer = useBotServerBlockers(timerWallet, Boolean(botRunning));
+  const serverBlockers = botServer.blockers;
   const hasOpenPosition = metrics.openPositionsCount > 0;
   const marginLockedUsd = hasOpenPosition
     ? Math.max(0, hlSetup.totalMarginUsedUsd)
@@ -178,6 +179,9 @@ const TerminalTradePanel: React.FC<Props> = ({
         builderFeeEnabled: hlSetup.builderFeeEnabled,
         builderPlatformReady: hlSetup.builderPlatformReady,
         hasOpenPosition,
+        openPositionsCount: metrics.openPositionsCount,
+        maxConcurrentPositions: botServer.maxConcurrentPositions,
+        nextSetupReason: botServer.nextSetup?.reason ?? null,
         serverBlockers,
         runtimeLabel: botRuntime.formatted || (botRunning ? '0s' : undefined),
       }),
@@ -190,6 +194,8 @@ const TerminalTradePanel: React.FC<Props> = ({
       hlSetup.builderFeeApproved,
       hlSetup.builderFeeEnabled,
       hasOpenPosition,
+      botServer.maxConcurrentPositions,
+      botServer.nextSetup?.reason,
       serverBlockers,
       botRuntime.formatted,
     ]

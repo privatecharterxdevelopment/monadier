@@ -1,5 +1,6 @@
 import type { BotReadiness } from './botReadiness';
 import { MIN_HL_BOT_USD } from './hyperliquid/hlBotAgent';
+import { HL_MAX_CONCURRENT_POSITIONS } from './hlBotConstants';
 
 export type HlSetupPhase = 'connect' | 'loading' | 'approve' | 'fund' | 'ready';
 
@@ -23,6 +24,9 @@ function simplifyBlocker(raw: string): string {
   }
   if (/no trade signal|MTF|bot conf/i.test(raw)) {
     return 'No strong trade setup right now — bot keeps scanning';
+  }
+  if (/HL max positions/i.test(raw)) {
+    return 'All bot slots in use — managing open trades';
   }
   if (/HL position open/i.test(raw)) {
     return 'Managing an open position';
@@ -63,6 +67,9 @@ export function getHlBotSidebarStatus(opts: {
   builderFeeEnabled?: boolean;
   builderPlatformReady?: boolean;
   hasOpenPosition: boolean;
+  openPositionsCount?: number;
+  maxConcurrentPositions?: number;
+  nextSetupReason?: string | null;
   serverBlockers?: string[];
   readiness?: BotReadiness | null;
   runtimeLabel?: string;
@@ -77,6 +84,9 @@ export function getHlBotSidebarStatus(opts: {
     builderFeeEnabled = false,
     builderPlatformReady = true,
     hasOpenPosition,
+    openPositionsCount = hasOpenPosition ? 1 : 0,
+    maxConcurrentPositions = HL_MAX_CONCURRENT_POSITIONS,
+    nextSetupReason,
     serverBlockers = [],
     readiness,
     runtimeLabel,
@@ -144,9 +154,22 @@ export function getHlBotSidebarStatus(opts: {
   const timer = runtimeLabel ? ` · ${runtimeLabel}` : '';
 
   if (hasOpenPosition) {
+    const slotsFull = openPositionsCount >= maxConcurrentPositions;
+    const slotDetail = slotsFull
+      ? `Managing ${openPositionsCount} open trade(s)`
+      : `Managing ${openPositionsCount} trade(s) · scanning slot ${openPositionsCount + 1}/${maxConcurrentPositions}`;
+    const reasonLine = nextSetupReason?.trim();
     return {
       headline: `Running${timer}`,
-      detail: '',
+      detail: slotsFull
+        ? slotDetail
+        : [
+            slotDetail,
+            reasonLine ? `Next: ${reasonLine}` : null,
+            serverBlockers.length > 0 ? formatServerBlockers(serverBlockers) : null,
+          ]
+            .filter(Boolean)
+            .join(' · '),
       tone: 'active',
       setupStep: 3,
       setupComplete: true,
