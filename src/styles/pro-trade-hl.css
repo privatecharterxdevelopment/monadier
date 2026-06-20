@@ -4048,9 +4048,20 @@
   background: #f4f4f5;
 }
 
-/* All tab — striped rows, transparent Yes/No cells inherit row color */
-.hl-root--light .hl-sb-all-markets .hl-sb-all-market-block {
+/* All tab — white canvas, grey market cards */
+.hl-root--light .hl-terminal--sb .hl-sb-center:has(.hl-sb-all-markets) {
   background: #ffffff;
+}
+
+.hl-root--light .hl-sb-all-markets,
+.hl-root--light .hl-sb-all-markets-scroll,
+.hl-root--light .hl-sb-all-markets .hl-sb-detail-head,
+.hl-root--light .hl-sb-all-markets .hl-sb-footnote {
+  background: #ffffff;
+}
+
+.hl-root--light .hl-sb-all-markets .hl-sb-all-market-block {
+  background: #f4f4f5;
   border-color: #e4e4e7;
 }
 
