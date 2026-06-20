@@ -7,6 +7,7 @@ import {
 } from '../../../lib/hyperliquid/outcomes/orders';
 import { previewOutcomeBuy } from '../../../lib/hyperliquid/outcomes/payout';
 import { outcomeBuyReferencePx, outcomeSellReferencePx } from '../../../lib/hyperliquid/outcomes/book';
+import { formatDecimalOdds, formatOutcomeImpliedPct, formatOutcomePriceCents, formatStakeReturnPreview } from '../../../lib/hyperliquid/outcomes/display';
 import { fmtUsdSymbol } from '../../../lib/hyperliquid/format';
 import type { HlOutcomeMarket, OutcomeLegQuote, OutcomeSideIndex } from '../../../lib/hyperliquid/outcomes/types';
 import type { useHyperliquidOutcomeTrading } from '../../../hooks/useHyperliquidOutcomeTrading';
@@ -235,14 +236,23 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
         </label>
       ) : (
         <div className="hl-sb-ref">
-          <span>Live price</span>
+          <span>Live ask</span>
           <strong>
             {quoteLoading || referencePx <= 0
               ? '—'
-              : `${(referencePx * 100).toFixed(1)}¢ (${referencePx.toFixed(4)})`}
+              : `${formatDecimalOdds(referencePx)}× · ${formatOutcomePriceCents(referencePx)}/contract`}
           </strong>
         </div>
       )}
+
+      {referencePx > 0 && parsedStake > 0 && action === 'buy' ? (
+        <p className="hl-sb-order-preview">
+          {formatStakeReturnPreview(
+            stakeMode === 'usd' ? parsedStake : contractSize * referencePx,
+            orderPrice
+          ) ?? 'Enter a valid stake'}
+        </p>
+      ) : null}
 
       <SportsbetsPayoutCard
         preview={payoutPreview}

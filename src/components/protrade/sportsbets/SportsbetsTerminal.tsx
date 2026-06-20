@@ -5,6 +5,7 @@ import { fetchOutcomeLegQuote, type OutcomeLegQuote } from '../../../lib/hyperli
 import { ensureArray } from '../../../lib/ensureArray';
 import { findOutcomeMarket } from '../../../lib/hyperliquid/outcomes/meta';
 import { useSportsbetsSession } from '../../../hooks/useSportsbetsSession';
+import SportsbetsHero from './SportsbetsHero';
 import BettingMarketList from './BettingMarketList';
 import SportsbetsEventDetail from './SportsbetsEventDetail';
 import SportsbetsOrderPanel from './SportsbetsOrderPanel';
@@ -82,6 +83,12 @@ const SportsbetsTerminal: React.FC<Props> = ({ walletAddress, walletConnected, u
 
   return (
     <div className="hl-sb-terminal">
+      <SportsbetsHero
+        marketCount={session.questions.length}
+        syncing={session.catalogSyncing}
+        featured={session.selectedQuestion ?? session.questions[0] ?? null}
+      />
+
       <div className="hl-sb-toolbar">
         <div>
           <h1 className="hl-sb-toolbar-title">Betting</h1>

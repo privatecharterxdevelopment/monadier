@@ -1,6 +1,10 @@
 import React, { useMemo } from 'react';
-import { fmtPct } from '../../../lib/hyperliquid/format';
-import { previewOutcomeBuy, formatProfitUsd } from '../../../lib/hyperliquid/outcomes/payout';
+import {
+  formatDecimalOdds,
+  formatOutcomeButtonMeta,
+  formatOutcomeImpliedPct,
+  formatOutcomePriceCents,
+} from '../../../lib/hyperliquid/outcomes/display';
 import {
   formatCategoryBadge,
   resolveBettingCategory,
@@ -18,9 +22,14 @@ type Props = {
   onSelectLeg: (outcomeId: number, side: OutcomeSideIndex) => void;
 };
 
-function fmtProb(value: number): string {
-  if (value <= 0) return '—';
-  return `${(value * 100).toFixed(1)}¢`;
+function legMidYes(quote: OutcomeLegQuote | undefined): number {
+  if (!quote) return 0;
+  return quote.yes.mid > 0 ? quote.yes.mid : quote.yes.bestAsk;
+}
+
+function legMidNo(quote: OutcomeLegQuote | undefined): number {
+  if (!quote) return 0;
+  return quote.no.mid > 0 ? quote.no.mid : quote.no.bestAsk;
 }
 
 const SportsbetsEventDetail: React.FC<Props> = ({
@@ -31,50 +40,60 @@ const SportsbetsEventDetail: React.FC<Props> = ({
   selectedSide,
   onSelectLeg,
 }) => {
-  const summary = useMemo(() => {
-    const firstLine = question.description.split('\n')[0]?.trim();
-    if (firstLine && firstLine.length < 220) return firstLine;
-    return question.description.slice(0, 220).trim() + (question.description.length > 220 ? '…' : '');
-  }, [question.description]);
+  const description = typeof question.description === 'string' ? question.description : '';
 
-  const visuals = useMemo(
-    () => eventVisual(question.name, resolveBettingCategory(question)),
-    [question]
-  );
+  const summary = useMemo(() => {
+    if (!description) return '';
+    const firstLine = description.split('\n')[0]?.trim();
+    if (firstLine && firstLine.length < 220) return firstLine;
+    return description.slice(0, 220).trim() + (description.length > 220 ? '…' : '');
+  }, [description]);
+
+  const category = resolveBettingCategory(question);
+  const visuals = useMemo(() => eventVisual(question.name, category), [question.name, category]);
   const categoryBadge = useMemo(() => formatCategoryBadge(question), [question]);
 
   return (
     <section className="hl-sb-detail">
-      <header className="hl-sb-detail-head">
-        <div className="hl-sb-detail-title-row">
-          <span className="hl-sb-event-icon" aria-hidden>
-            {visuals.emoji}
-          </span>
-          {visuals.flagUrls.length >= 2 ? (
-            <div className="hl-sb-match-flags">
-              <img src={visuals.flagUrls[0]} alt="" width={28} height={21} loading="lazy" />
-              <span className="hl-sb-match-vs">vs</span>
-              <img src={visuals.flagUrls[1]} alt="" width={28} height={21} loading="lazy" />
-            </div>
-          ) : null}
-          <h2 className="hl-sb-detail-title">{question.name}</h2>
-          <span className="hl-sb-detail-badge">{categoryBadge}</span>
+      <header className="hl-sb-match-banner">
+        <div className="hl-sb-match-banner-bg" aria-hidden />
+        <div className="hl-sb-match-banner-content">
+          <div className="hl-sb-match-banner-top">
+            <span className="hl-sb-detail-badge hl-sb-detail-badge--banner">{categoryBadge}</span>
+            <span className="hl-sb-match-banner-live">Live market</span>
+          </div>
+          <div className="hl-sb-detail-title-row">
+            <span className="hl-sb-event-icon hl-sb-event-icon--lg" aria-hidden>
+              {visuals.emoji}
+            </span>
+            {visuals.flagUrls.length >= 2 ? (
+              <div className="hl-sb-match-flags hl-sb-match-flags--banner">
+                <img src={visuals.flagUrls[0]} alt="" width={40} height={30} loading="lazy" />
+                <span className="hl-sb-match-vs">vs</span>
+                <img src={visuals.flagUrls[1]} alt="" width={40} height={30} loading="lazy" />
+              </div>
+            ) : null}
+            <h2 className="hl-sb-detail-title">{question.name}</h2>
+          </div>
+          {summary ? <p className="hl-sb-detail-desc">{summary}</p> : null}
         </div>
-        <p className="hl-sb-detail-desc">{summary}</p>
       </header>
 
       <div className="hl-sb-legs">
         <div className="hl-sb-legs-head">
-          <span>Outcome</span>
-          <span>Yes · win preview</span>
-          <span>No</span>
+          <span>Selection</span>
+          <span>Yes · odds</span>
+          <span>No · odds</span>
         </div>
 
         {question.legs.map((leg) => {
           const quote = legQuotes[leg.outcomeId];
-          const yesAsk = quote?.yes.bestAsk ?? 0;
-          const noAsk = quote?.no.bestAsk ?? 0;
-          const yesHint = yesAsk > 0 ? previewOutcomeBuy({ stakeUsd: 100, price: yesAsk }) : null;
+          const yesPx = quote?.yes.bestAsk ?? 0;
+          const noPx = quote?.no.bestAsk ?? 0;
+          const yesMid = legMidYes(quote);
+          const noMid = legMidNo(quote);
+          const yesMeta = yesPx > 0 ? formatOutcomeButtonMeta(yesPx) : null;
+          const noMeta = noPx > 0 ? formatOutcomeButtonMeta(noPx) : null;
           const yesSelected = selectedOutcomeId === leg.outcomeId && selectedSide === 0;
           const noSelected = selectedOutcomeId === leg.outcomeId && selectedSide === 1;
 
@@ -82,14 +101,18 @@ const SportsbetsEventDetail: React.FC<Props> = ({
             <div key={leg.outcomeId} className="hl-sb-leg-row">
               <div className="hl-sb-leg-name">
                 <span className="hl-sb-leg-name-row">
-                  <TeamBadge name={leg.name} />
+                  <TeamBadge name={leg.name} size={28} />
                   <strong>{leg.name}</strong>
                 </span>
-                {quote ? (
-                  <span className="hl-sb-leg-implied">{fmtPct(quote.impliedYesPct, 1)} chance</span>
+                {quote && yesMid > 0 ? (
+                  <span className="hl-sb-leg-implied">
+                    Implied {formatOutcomeImpliedPct(yesMid)} · {formatDecimalOdds(yesMid)}×
+                  </span>
                 ) : quotesLoading ? (
-                  <span className="hl-sb-leg-implied">Loading…</span>
-                ) : null}
+                  <span className="hl-sb-leg-implied">Loading odds…</span>
+                ) : (
+                  <span className="hl-sb-leg-implied">No liquidity yet</span>
+                )}
               </div>
               <button
                 type="button"
@@ -97,11 +120,12 @@ const SportsbetsEventDetail: React.FC<Props> = ({
                 onClick={() => onSelectLeg(leg.outcomeId, 0)}
               >
                 <span className="hl-sb-side-label">{leg.yesLabel}</span>
-                <span className="hl-sb-side-price">{yesAsk > 0 ? fmtProb(yesAsk) : '—'}</span>
-                {yesHint ? (
-                  <span className="hl-sb-side-hint">
-                    $100 → {formatProfitUsd(yesHint.profitIfWin)}
-                  </span>
+                <span className="hl-sb-side-odds">{yesMeta ? yesMeta.odds : '—'}</span>
+                <span className="hl-sb-side-price">
+                  {yesPx > 0 ? `@ ${formatOutcomePriceCents(yesPx)}` : '—'}
+                </span>
+                {yesMeta ? (
+                  <span className="hl-sb-side-hint">{yesMeta.implied} implied</span>
                 ) : null}
               </button>
               <button
@@ -110,7 +134,13 @@ const SportsbetsEventDetail: React.FC<Props> = ({
                 onClick={() => onSelectLeg(leg.outcomeId, 1)}
               >
                 <span className="hl-sb-side-label">{leg.noLabel}</span>
-                <span className="hl-sb-side-price">{noAsk > 0 ? fmtProb(noAsk) : '—'}</span>
+                <span className="hl-sb-side-odds">{noMeta ? noMeta.odds : '—'}</span>
+                <span className="hl-sb-side-price">
+                  {noPx > 0 ? `@ ${formatOutcomePriceCents(noPx)}` : '—'}
+                </span>
+                {noMeta ? (
+                  <span className="hl-sb-side-hint">{noMeta.implied} implied</span>
+                ) : null}
               </button>
             </div>
           );
@@ -118,8 +148,8 @@ const SportsbetsEventDetail: React.FC<Props> = ({
       </div>
 
       <p className="hl-sb-footnote">
-        Win preview uses ~$100 notional at the live ask. Exact payout updates in Bet &amp; win when you
-        enter your stake.
+        Odds are decimal (payout per $1 staked). Price is per contract in cents — each winning
+        contract pays $1 USDC. Enter your stake in Bet &amp; win for an exact payout estimate.
       </p>
     </section>
   );

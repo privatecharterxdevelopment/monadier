@@ -7,7 +7,7 @@ import {
   questionListSubtitle,
   type BettingCategoryId,
 } from '../../../lib/hyperliquid/outcomes/categories';
-import { eventVisual } from '../../../lib/sports/teamVisuals';
+import { eventVisual, teamVisual } from '../../../lib/sports/teamVisuals';
 import type { HlOutcomeQuestion } from '../../../lib/hyperliquid/outcomes/types';
 import BettingCategoryNav from './BettingCategoryNav';
 
@@ -68,6 +68,8 @@ const BettingMarketList: React.FC<Props> = ({
         {filtered.map((question) => {
           const active = question.questionId === selectedQuestionId;
           const visuals = eventVisual(question.name, question.category);
+          const previewLeg = question.legs[0];
+          const legVisual = previewLeg ? teamVisual(previewLeg.name) : null;
 
           return (
             <button
@@ -78,13 +80,23 @@ const BettingMarketList: React.FC<Props> = ({
               className={`hl-sb-event ${active ? 'hl-sb-event--active' : ''}`}
               onClick={() => onSelect(question)}
             >
-              <span className="hl-sb-event-name">
-                <span className="hl-sb-event-emoji" aria-hidden>
-                  {visuals.emoji}
+              <span className="hl-sb-event-row">
+                <span className="hl-sb-event-thumb" aria-hidden>
+                  {legVisual?.flagUrl ? (
+                    <img src={legVisual.flagUrl} alt="" width={28} height={21} loading="lazy" />
+                  ) : visuals.flagUrls[0] ? (
+                    <img src={visuals.flagUrls[0]} alt="" width={28} height={21} loading="lazy" />
+                  ) : (
+                    <span className="hl-sb-event-emoji">{visuals.emoji}</span>
+                  )}
                 </span>
-                <span className="hl-sb-event-name-text">{question.name}</span>
+                <span className="hl-sb-event-copy">
+                  <span className="hl-sb-event-name">
+                    <span className="hl-sb-event-name-text">{question.name}</span>
+                  </span>
+                  <span className="hl-sb-event-meta">{questionListSubtitle(question)}</span>
+                </span>
               </span>
-              <span className="hl-sb-event-meta">{questionListSubtitle(question)}</span>
             </button>
           );
         })}
