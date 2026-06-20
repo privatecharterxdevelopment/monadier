@@ -207,21 +207,21 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
         <>
           <div className="hl-sb-order-head">
             <div className={`hl-sb-order-pick-box hl-sb-order-pick-box--${side === 0 ? 'yes' : 'no'}`}>
+              <button
+                type="button"
+                className={`hl-sb-order-pick-settings ${advancedOpen ? 'hl-sb-order-pick-settings--on' : ''}`}
+                aria-label="Order settings"
+                aria-expanded={advancedOpen}
+                onClick={() => setAdvancedOpen((open) => !open)}
+              >
+                <SlidersHorizontal size={12} aria-hidden />
+              </button>
               <span className="hl-sb-order-pick-side">{sideLabel}</span>
               <span className="hl-sb-order-pick-market">{formatBettingMarketName(market)}</span>
               {marketExpiry ? (
                 <span className="hl-sb-order-pick-expiry">{marketExpiry}</span>
               ) : null}
             </div>
-            <button
-              type="button"
-              className={`hl-sb-icon-btn ${advancedOpen ? 'hl-sb-icon-btn--on' : ''}`}
-              aria-label="Order settings"
-              aria-expanded={advancedOpen}
-              onClick={() => setAdvancedOpen((open) => !open)}
-            >
-              <SlidersHorizontal size={14} aria-hidden />
-            </button>
           </div>
 
           {canSell ? (

@@ -3514,17 +3514,13 @@
 }
 
 .hl-sb-order-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
   margin-bottom: 10px;
 }
 
 .hl-sb-order-pick-box {
-  flex: 1;
+  position: relative;
   min-width: 0;
-  padding: 10px 12px;
+  padding: 10px 36px 10px 12px;
   border-radius: 8px;
   background: var(--hl-bg-hover);
   border: 1px solid var(--hl-border);
@@ -3576,30 +3572,39 @@
   color: #52525b;
 }
 
-.hl-sb-icon-btn {
+.hl-sb-order-pick-settings {
+  position: absolute;
+  top: 6px;
+  right: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid var(--hl-border);
-  background: var(--hl-bg);
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
   color: var(--hl-text-muted);
+  opacity: 0.45;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
 }
 
-.hl-sb-icon-btn:hover {
-  background: var(--hl-bg-hover);
+.hl-sb-order-pick-settings:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--hl-text) 8%, transparent);
   color: var(--hl-text);
 }
 
-.hl-sb-icon-btn--on {
-  background: var(--hl-green-tint);
-  border-color: var(--hl-green-bright);
+.hl-sb-order-pick-settings--on {
+  opacity: 1;
+  background: color-mix(in srgb, var(--hl-green-bright) 14%, transparent);
   color: var(--hl-text);
+}
+
+.hl-sb-order-pick-settings--on:hover {
+  background: color-mix(in srgb, var(--hl-green-bright) 20%, transparent);
 }
 
 .hl-sb-order-settings {
