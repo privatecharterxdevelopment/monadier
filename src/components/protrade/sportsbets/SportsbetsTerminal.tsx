@@ -82,7 +82,6 @@ const SportsbetsTerminal: React.FC<Props> = ({ walletAddress, walletConnected, u
       <SportsbetsHero
         marketCount={session.questions.length}
         syncing={session.catalogSyncing}
-        featured={session.selectedQuestion ?? session.questions[0] ?? null}
       />
 
       <div className="hl-sb-toolbar">
