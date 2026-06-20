@@ -45,14 +45,25 @@ const SportsbetsHero: React.FC<Props> = ({
       </div>
 
       <div className="hl-sb-head-toolbar">
+        <BettingCategoryNav
+          tabs={BETTING_CATEGORY_TABS}
+          active={category}
+          counts={categoryCounts}
+          onChange={onCategoryChange}
+          variant="banner"
+        />
         <div className="hl-sb-head-toolbar-row">
-          <BettingCategoryNav
-            tabs={BETTING_CATEGORY_TABS}
-            active={category}
-            counts={categoryCounts}
-            onChange={onCategoryChange}
-            variant="banner"
-          />
+          <div className="hl-sb-search-wrap hl-sb-search-wrap--head">
+            <Search size={14} aria-hidden />
+            <input
+              type="search"
+              className="hl-sb-search"
+              placeholder="Search events, teams, macro…"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              aria-label="Search betting markets"
+            />
+          </div>
           <div className="hl-sb-head-toolbar-actions">
             <span className="hl-sb-head-live-pill">
               <span className={`hl-sb-live-dot ${syncing ? 'hl-sb-live-dot--sync' : ''}`} />
@@ -71,17 +82,6 @@ const SportsbetsHero: React.FC<Props> = ({
               </button>
             ) : null}
           </div>
-        </div>
-        <div className="hl-sb-search-wrap hl-sb-search-wrap--head">
-          <Search size={14} aria-hidden />
-          <input
-            type="search"
-            className="hl-sb-search"
-            placeholder="Search events, teams, macro…"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            aria-label="Search betting markets"
-          />
         </div>
       </div>
     </div>
