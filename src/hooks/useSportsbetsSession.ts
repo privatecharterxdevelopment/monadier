@@ -9,6 +9,7 @@ import { fetchHlOutcomePositions } from '../lib/hyperliquid/outcomes';
 import { OUTCOME_POSITIONS_POLL_MS } from '../lib/hyperliquid/outcomes/constants';
 import { syncBettingTradesToSupabase } from '../lib/betting/syncBettingTrades';
 import {
+  defaultQuestionForCategory,
   filterBettingQuestions,
   type BettingCategoryId,
 } from '../lib/hyperliquid/outcomes/categories';
@@ -66,8 +67,9 @@ export function useSportsbetsSession(walletAddress?: string, enabled = true, use
     ) {
       return;
     }
-    setSelectedQuestionId(categoryQuestions[0]?.questionId ?? null);
-  }, [enabled, categoryQuestions, selectedQuestionId]);
+    const next = defaultQuestionForCategory(questions, category);
+    setSelectedQuestionId(next?.questionId ?? null);
+  }, [enabled, categoryQuestions, selectedQuestionId, questions, category]);
 
   useEffect(() => {
     if (!selectedQuestion) {

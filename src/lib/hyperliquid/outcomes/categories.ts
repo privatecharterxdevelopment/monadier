@@ -96,6 +96,77 @@ export function filterBettingQuestions(
   });
 }
 
+/** Highlight World Cup + crypto binaries on the All tab. */
+export function isFeaturedBettingQuestion(question: HlOutcomeQuestion): boolean {
+  const title = question.name.toLowerCase();
+  if (/world cup champion/i.test(title)) return true;
+  if (/world cup:.+\svs\s/i.test(title)) return true;
+  return resolveBettingCategory(question) === 'crypto' && question.legs.length === 1;
+}
+
+function featuredSort(a: HlOutcomeQuestion, b: HlOutcomeQuestion): number {
+  const rank = (q: HlOutcomeQuestion) => {
+    const t = q.name.toLowerCase();
+    if (t.includes('champion')) return 0;
+    if (t.includes(' vs ')) return 1;
+    if (resolveBettingCategory(q) === 'crypto') return 2;
+    return 3;
+  };
+  const d = rank(a) - rank(b);
+  return d !== 0 ? d : a.name.localeCompare(b.name);
+}
+
+/** Split All-tab list into pinned featured rows + the rest (no duplicates). */
+export function splitFeaturedBettingQuestions(questions: HlOutcomeQuestion[]): {
+  featured: HlOutcomeQuestion[];
+  others: HlOutcomeQuestion[];
+} {
+  const featured: HlOutcomeQuestion[] = [];
+  const others: HlOutcomeQuestion[] = [];
+  let matchCount = 0;
+  let cryptoCount = 0;
+
+  for (const q of questions) {
+    const title = q.name.toLowerCase();
+    if (/world cup champion/i.test(title)) {
+      featured.push(q);
+      continue;
+    }
+    if (/world cup:.+\svs\s/i.test(title) && matchCount < 6) {
+      featured.push(q);
+      matchCount += 1;
+      continue;
+    }
+    if (
+      resolveBettingCategory(q) === 'crypto' &&
+      q.legs.length === 1 &&
+      cryptoCount < 4
+    ) {
+      featured.push(q);
+      cryptoCount += 1;
+      continue;
+    }
+    others.push(q);
+  }
+
+  featured.sort(featuredSort);
+  others.sort((a, b) => a.name.localeCompare(b.name));
+  return { featured, others };
+}
+
+export function defaultQuestionForCategory(
+  questions: HlOutcomeQuestion[],
+  category: BettingCategoryId
+): HlOutcomeQuestion | null {
+  const filtered = filterBettingQuestions(questions, category, '');
+  if (filtered.length === 0) return null;
+  if (category === 'all') {
+    const { featured } = splitFeaturedBettingQuestions(filtered);
+    return featured[0] ?? filtered[0];
+  }
+  return filtered[0];
+}
+
 export function formatCategoryBadge(question: HlOutcomeQuestion): string {
   const cat = resolveBettingCategory(question);
   if (cat === 'sports' && question.subCategory) {
