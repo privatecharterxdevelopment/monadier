@@ -349,23 +349,15 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
                     : `${formatDecimalOdds(referencePx)}× · ${formatOutcomePriceCents(referencePx)}`}
                 </strong>
               </div>
-              {canBet ? (
-                <>
-                  <div className="hl-sb-order-context-stat">
-                    <span className="hl-sb-order-context-label">Balance</span>
-                    <strong>{fmtUsdSymbol(bettingBalance)}</strong>
-                  </div>
-                  <div className="hl-sb-order-context-stat">
-                    <span className="hl-sb-order-context-label">Min</span>
-                    <strong>{fmtUsdSymbol(OUTCOME_MIN_NOTIONAL_USD)}</strong>
-                  </div>
-                  {isCashOut ? (
-                    <div className="hl-sb-order-context-stat">
-                      <span className="hl-sb-order-context-label">Position</span>
-                      <strong>{Math.floor(positionSize)}</strong>
-                    </div>
-                  ) : null}
-                </>
+              <div className="hl-sb-order-context-stat">
+                <span className="hl-sb-order-context-label">Min</span>
+                <strong>{fmtUsdSymbol(OUTCOME_MIN_NOTIONAL_USD)}</strong>
+              </div>
+              {canBet && isCashOut ? (
+                <div className="hl-sb-order-context-stat">
+                  <span className="hl-sb-order-context-label">Position</span>
+                  <strong>{Math.floor(positionSize)}</strong>
+                </div>
               ) : null}
             </div>
 

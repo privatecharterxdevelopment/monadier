@@ -218,15 +218,13 @@ const ProTradeDepositModal: React.FC<Props> = ({
         </div>
 
         <p className="hl-entry-hint hl-funds-trust">
-          Your funds are not locked by Monadier. Only your wallet can withdraw from Hyperliquid — the
-          trading agent cannot move USDC out.
+          USDC stays on Hyperliquid. Monadier is just the app — only your wallet can withdraw.
         </p>
 
         {tab === 'deposit' ? (
           <>
             <p className="hl-entry-hint hl-funds-lead">
-              Deposit <strong>in Monadier</strong> — your wallet sends USDC to Hyperliquid
-              {isBetting ? ' Spot' : ''}. No need to open hyperliquid.xyz.
+              Send USDC from your wallet to Hyperliquid{isBetting ? ' Spot' : ''}.
             </p>
 
             {!onArbitrum ? (
