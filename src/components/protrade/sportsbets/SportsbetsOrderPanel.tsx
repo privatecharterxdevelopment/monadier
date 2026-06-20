@@ -183,9 +183,9 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
       ) : (
         <>
           <div className="hl-sb-order-head">
-            <div className="hl-sb-order-pick">
-              <strong>{sideLabel}</strong>
-              <span>{formatBettingMarketName(market)}</span>
+            <div className={`hl-sb-order-pick-box hl-sb-order-pick-box--${side === 0 ? 'yes' : 'no'}`}>
+              <span className="hl-sb-order-pick-side">{sideLabel}</span>
+              <span className="hl-sb-order-pick-market">{formatBettingMarketName(market)}</span>
             </div>
             <button
               type="button"
