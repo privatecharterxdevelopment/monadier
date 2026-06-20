@@ -3694,6 +3694,111 @@
   cursor: pointer;
 }
 
+.hl-sb-order-context {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--hl-border);
+  background: var(--hl-bg-elevated);
+}
+
+.hl-root--light .hl-sb-order-context {
+  background: #f8f8f9;
+  border-color: #e4e4e7;
+}
+
+.hl-sb-order-context-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hl-sb-order-context-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--hl-bg-hover);
+  font-size: 11px;
+  color: var(--hl-text-muted);
+  white-space: nowrap;
+}
+
+.hl-root--light .hl-sb-order-context-stat {
+  background: #fff;
+}
+
+.hl-sb-order-context-stat--warn strong {
+  color: #b45309;
+}
+
+.hl-sb-order-context-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--hl-text-muted);
+}
+
+.hl-sb-order-context-stat strong {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--hl-text);
+}
+
+.hl-sb-order-context-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  padding: 7px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.hl-sb-order-context-banner--warn {
+  color: #92400e;
+  background: color-mix(in srgb, #f59e0b 14%, var(--hl-bg));
+  border: 1px solid color-mix(in srgb, #f59e0b 28%, var(--hl-border));
+}
+
+.hl-root--dark .hl-sb-order-context-banner--warn {
+  color: #fcd34d;
+  background: rgb(245 158 11 / 0.12);
+  border-color: rgb(245 158 11 / 0.28);
+}
+
+.hl-sb-order-context-banner--err {
+  color: var(--hl-pnl-neg);
+  background: var(--hl-red-tint);
+  border: 1px solid color-mix(in srgb, var(--hl-pnl-neg) 25%, var(--hl-border));
+}
+
+.hl-sb-order-context-banner--ok {
+  color: var(--hl-text-muted);
+  background: var(--hl-bg-hover);
+  border: 1px solid var(--hl-border);
+}
+
+.hl-sb-order-context-banner svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.hl-sb-order-context-fee {
+  margin: 0;
+  padding: 0 2px;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--hl-text-muted);
+}
+
 .hl-sb-order-odds {
   display: flex;
   align-items: baseline;

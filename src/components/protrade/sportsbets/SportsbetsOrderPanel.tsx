@@ -15,6 +15,7 @@ import {
 import {
   formatBettingOrderPickDisplay,
 } from '../../../lib/hyperliquid/outcomes/categories';
+import { formatBettingOrderError } from '../../../lib/hyperliquid/outcomes/bettingErrors';
 import { fmtUsdSymbol } from '../../../lib/hyperliquid/format';
 import type { HlOutcomeMarket, HlOutcomeQuestion, OutcomeLegQuote, OutcomeSideIndex } from '../../../lib/hyperliquid/outcomes/types';
 import type { useHyperliquidOutcomeTrading } from '../../../hooks/useHyperliquidOutcomeTrading';
@@ -135,6 +136,10 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   }, [isCashOut, positionSize, market?.outcomeId, side]);
 
   const statusMessage = trading.error ?? localMsg ?? validation;
+  const statusDisplay =
+    trading.error != null ? formatBettingOrderError(trading.error) : statusMessage;
+  const statusIsError = Boolean(trading.error || validation);
+  const needsDeposit = canBet && !isCashOut && bettingBalance <= 0;
 
   const handleGate = () => {
     if (signedIn) {
@@ -330,61 +335,59 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
             simple={!advancedOpen}
           />
 
-          <div className="hl-sb-order-odds">
-            <span>Odds</span>
-            <strong>
-              {quoteLoading || referencePx <= 0
-                ? '—'
-                : `${formatDecimalOdds(referencePx)}× · ${formatOutcomePriceCents(referencePx)}`}
-            </strong>
+          <div className="hl-sb-order-context">
+            <div className="hl-sb-order-context-stats">
+              <div className="hl-sb-order-context-stat">
+                <span className="hl-sb-order-context-label">Odds</span>
+                <strong>
+                  {quoteLoading || referencePx <= 0
+                    ? '—'
+                    : `${formatDecimalOdds(referencePx)}× · ${formatOutcomePriceCents(referencePx)}`}
+                </strong>
+              </div>
+              {canBet ? (
+                <>
+                  <div className={`hl-sb-order-context-stat ${needsDeposit ? 'hl-sb-order-context-stat--warn' : ''}`}>
+                    <span className="hl-sb-order-context-label">Balance</span>
+                    <strong>{fmtUsdSymbol(bettingBalance)}</strong>
+                  </div>
+                  <div className="hl-sb-order-context-stat">
+                    <span className="hl-sb-order-context-label">Min</span>
+                    <strong>{fmtUsdSymbol(OUTCOME_MIN_NOTIONAL_USD)}</strong>
+                  </div>
+                  {isCashOut ? (
+                    <div className="hl-sb-order-context-stat">
+                      <span className="hl-sb-order-context-label">Position</span>
+                      <strong>{Math.floor(positionSize)}</strong>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+
+            {needsDeposit ? (
+              <p className="hl-sb-order-context-banner hl-sb-order-context-banner--warn">
+                Deposit USDC to Hyperliquid Spot to place bets.
+              </p>
+            ) : null}
+
+            {statusMessage ? (
+              <div
+                className={`hl-sb-order-context-banner ${statusIsError ? 'hl-sb-order-context-banner--err' : 'hl-sb-order-context-banner--ok'}`}
+                role="status"
+              >
+                {statusIsError ? <AlertCircle size={13} aria-hidden /> : null}
+                <span>{statusDisplay}</span>
+              </div>
+            ) : null}
+
+            {builderFee.enabled && canBet ? (
+              <p className="hl-sb-order-context-fee">
+                Platform fee: {builderFee.buyFeeLabel} on bets · {builderFee.cashoutFeeLabel} on cash out
+                {!builderFee.platformReady ? ' · activating soon' : null}
+              </p>
+            ) : null}
           </div>
-
-          {canBet ? (
-            <div className="hl-sb-order-meta">
-              <span>
-                Balance <strong>{fmtUsdSymbol(bettingBalance)}</strong>
-              </span>
-              <span className="hl-sb-order-meta-sep" aria-hidden>
-                ·
-              </span>
-              <span>Min {fmtUsdSymbol(OUTCOME_MIN_NOTIONAL_USD)}</span>
-              {isCashOut ? (
-                <>
-                  <span className="hl-sb-order-meta-sep" aria-hidden>
-                    ·
-                  </span>
-                  <span>
-                    Position <strong>{Math.floor(positionSize)}</strong>
-                  </span>
-                </>
-              ) : null}
-              {!isCashOut && bettingBalance <= 0 ? (
-                <>
-                  <span className="hl-sb-order-meta-sep" aria-hidden>
-                    ·
-                  </span>
-                  <span className="hl-sb-order-meta-warn">Need USDC on HL</span>
-                </>
-              ) : null}
-            </div>
-          ) : null}
-
-          {statusMessage ? (
-            <div
-              className={`hl-sb-order-notice ${trading.error || validation ? 'hl-sb-order-notice--err' : ''}`}
-              role="status"
-            >
-              {trading.error || validation ? <AlertCircle size={12} aria-hidden /> : null}
-              <span>{statusMessage}</span>
-            </div>
-          ) : null}
-
-          {builderFee.enabled && canBet ? (
-            <p className="hl-sb-order-fee-note">
-              Platform fee: {builderFee.buyFeeLabel} on bets · {builderFee.cashoutFeeLabel} on cash out
-              {!builderFee.platformReady ? ' (fee collection activating soon)' : null}
-            </p>
-          ) : null}
 
           <button
             type="button"
