@@ -50,11 +50,14 @@ type Props = {
   orderCoin?: string;
   onIntervalChange: (interval: HlInterval) => void;
   layoutKey?: string;
-  /** Entry / liquidation lines for the active position on this coin */
+  /** Entry / liq / bot trailing SL for the active position on this coin */
   positionOverlay?: {
     entryPx: number;
     liqPx?: number;
     side: 'long' | 'short';
+    trailStopPx?: number;
+    trailStopLocked?: boolean;
+    trailFloorUsd?: number;
   };
   tradeMarkers?: SeriesMarker<UTCTimestamp>[];
 };

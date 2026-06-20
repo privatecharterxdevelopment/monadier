@@ -6,6 +6,7 @@ import { analyzeAggressiveScalpBySymbol } from './aggressiveScalpAnalysis';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { filterWeekendShortOnly, isWeekendShortOnlyWindow } from './weekendTradingRules';
+import { validatePreTradeLiquidity } from './liquiditySweepGate';
 
 export type BotSignalMode = 'standard' | 'aggressive';
 
@@ -65,6 +66,13 @@ async function scanStandardCoin(
     ) {
       return null;
     }
+    const liqGate = await validatePreTradeLiquidity({
+      symbol,
+      direction: analysis.direction,
+      dayVolumeUsd: liq.dayVolumeUsd,
+      timeframe: '5m',
+    });
+    if (!liqGate.ok) return null;
     return {
       coin,
       symbol,

@@ -40,6 +40,9 @@ type Props = {
     entryPx: number;
     liqPx?: number;
     side: 'long' | 'short';
+    trailStopPx?: number;
+    trailStopLocked?: boolean;
+    trailFloorUsd?: number;
   };
   tradeMarkers?: SeriesMarker<UTCTimestamp>[];
   /** Live mark price — horizontal line follows HL quote between candle closes. */
@@ -426,6 +429,23 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
           title: `Liq ${fmtPrice(positionOverlay.liqPx, 0)}`,
         });
         priceLinesRef.current.push(liqLine);
+      }
+
+      const trailPx = positionOverlay?.trailStopPx;
+      if (trailPx != null && trailPx > 0) {
+        const locked = positionOverlay.trailStopLocked === true;
+        const floorUsd = positionOverlay.trailFloorUsd ?? 0;
+        const trailLine = series.createPriceLine({
+          price: trailPx,
+          color: locked ? '#22c55e' : '#eab308',
+          lineWidth: 2,
+          lineStyle: locked ? LineStyle.Solid : LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: locked
+            ? `Trail SL +$${floorUsd.toFixed(2)}`
+            : 'Trail SL (arming)',
+        });
+        priceLinesRef.current.push(trailLine);
       }
     });
   }, [openOrders, overlayCoin, chartColors.down, chartColors.up, positionOverlay]);

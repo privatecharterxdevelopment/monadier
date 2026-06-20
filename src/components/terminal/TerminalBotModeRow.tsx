@@ -11,14 +11,18 @@ type Props = {
   settings: VaultSettingsSnapshot;
   walletAddress?: string;
   disabled?: boolean;
+  botRunning?: boolean;
+  onBlockedChange?: () => void;
   onSaved: () => void;
 };
 
-/** Bot tab — switch Standard ↔ Aggressive instantly (no stop/restart). */
+/** Bot tab — Standard ↔ Aggressive (stop bot first when running). */
 const TerminalBotModeRow: React.FC<Props> = ({
   settings,
   walletAddress,
   disabled,
+  botRunning = false,
+  onBlockedChange,
   onSaved,
 }) => {
   const { publicClient, walletClient } = useWeb3();
@@ -35,6 +39,11 @@ const TerminalBotModeRow: React.FC<Props> = ({
 
   const saveMode = useCallback(
     async (next: HlBotStrategy) => {
+      if (next === mode) return;
+      if (botRunning) {
+        onBlockedChange?.();
+        return;
+      }
       setMode(next);
       const wallet = walletAddress?.toLowerCase();
       if (!wallet || next === settings.hlBotStrategy) return;
@@ -68,6 +77,9 @@ const TerminalBotModeRow: React.FC<Props> = ({
       walletClient,
       isDemoUser,
       onSaved,
+      botRunning,
+      onBlockedChange,
+      mode,
     ]
   );
 
@@ -91,7 +103,7 @@ const TerminalBotModeRow: React.FC<Props> = ({
       <span className="term-panel-card-hint">{HL_BOT_STRATEGY_HINTS[mode]}</span>
       {saved ? (
         <span className="term-panel-card-hint term-panel-card-hint--ok">
-          Saved — active now (no stop/restart needed).
+          Mode saved — press Start bot to apply.
         </span>
       ) : null}
       {error ? <span className="term-panel-card-hint term-panel-card-hint--warn">{error}</span> : null}

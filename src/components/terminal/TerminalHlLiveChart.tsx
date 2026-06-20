@@ -3,6 +3,9 @@ import { Loader2 } from 'lucide-react';
 import ProTradeHlLightweightChart from '../protrade/ProTradeHlLightweightChart';
 import { useHyperliquidMarket } from '../../hooks/useHyperliquidMarket';
 import { useHlBotChartMarkers } from '../../hooks/useHlBotChartMarkers';
+import { useHyperliquidAccount } from '../../hooks/useHyperliquidAccount';
+import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
+import { useHlBotChartOverlay } from '../../hooks/useHlBotChartOverlay';
 import {
   PRO_TRADE_INTERVALS,
   PRO_TRADE_QUICK_PICKS,
@@ -39,6 +42,20 @@ const TerminalHlLiveChartInner: React.FC<Props> = ({
   const chartColors = getProTradeChartColors(theme);
 
   const market = useHyperliquidMarket(coin, interval, 'perp');
+  const { account } = useHyperliquidAccount(walletAddress ?? undefined);
+  const { settings: botSettings } = useTerminalBotSettings();
+  const openPosition = useMemo(
+    () =>
+      (account?.positions ?? []).find(
+        (p) => p.coin === coin && Math.abs(toNum(p.szi)) > 0
+      ) ?? null,
+    [account?.positions, coin]
+  );
+  const positionOverlay = useHlBotChartOverlay(
+    openPosition,
+    coin,
+    botSettings.hlBotStrategy
+  );
   const { seriesMarkers } = useHlBotChartMarkers(
     walletAddress?.toLowerCase(),
     coin,
@@ -150,6 +167,7 @@ const TerminalHlLiveChartInner: React.FC<Props> = ({
           theme={theme}
           layoutKey={`${coin}-${interval}`}
           tradeMarkers={seriesMarkers}
+          positionOverlay={positionOverlay}
           markPx={markPx > 0 ? markPx : undefined}
           scrollToLiveTick={scrollToLiveTick}
           onFollowLiveChange={setFollowLive}

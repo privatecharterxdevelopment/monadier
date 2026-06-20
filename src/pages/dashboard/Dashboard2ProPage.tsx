@@ -26,7 +26,8 @@ import ProTradeTransferModal from '../../components/protrade/ProTradeTransferMod
 import ProTradePortfolio from '../../components/protrade/ProTradePortfolio';
 import ProTradeSwap from '../../components/protrade/ProTradeSwap';
 import { useHyperliquidMarket } from '../../hooks/useHyperliquidMarket';
-import { useHyperliquidAccount } from '../../hooks/useHyperliquidAccount';
+import { useHlBotChartOverlay } from '../../hooks/useHlBotChartOverlay';
+import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
 import { useHyperliquidMarkets } from '../../hooks/useHyperliquidMarkets';
 import { useHyperliquidSpotMarkets } from '../../hooks/useHyperliquidSpotMarkets';
@@ -204,16 +205,12 @@ const Dashboard2ProPageContent: React.FC = () => {
     return list.find((p) => Math.abs(toNum(p.szi)) > 0) ?? null;
   }, [account?.positions]);
 
-  const botChartOverlay = useMemo(() => {
-    if (!botOpenPosition || botOpenPosition.coin !== perpCoin) return undefined;
-    const entryPx = toNum(botOpenPosition.entryPx);
-    if (entryPx <= 0) return undefined;
-    return {
-      entryPx,
-      liqPx: toNum(botOpenPosition.liquidationPx) || undefined,
-      side: (toNum(botOpenPosition.szi) >= 0 ? 'long' : 'short') as 'long' | 'short',
-    };
-  }, [botOpenPosition, perpCoin]);
+  const { settings: botVaultSettings } = useTerminalBotSettings();
+  const botChartOverlay = useHlBotChartOverlay(
+    botOpenPosition,
+    perpCoin,
+    botVaultSettings.hlBotStrategy
+  );
 
   useEffect(() => {
     if (section !== 'bot' || !botOpenPosition?.coin) return;

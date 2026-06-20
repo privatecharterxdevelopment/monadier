@@ -2741,6 +2741,27 @@
   outline-offset: 2px;
 }
 
+.term-panel-card--mode {
+  position: relative;
+}
+
+.term-lvrg-mode-blocker {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.term-bot-mode-toggle--locked {
+  pointer-events: none;
+  opacity: 0.85;
+}
+
 .term-panel-stack--locked {
   opacity: 0.65;
   pointer-events: none;

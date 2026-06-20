@@ -51,7 +51,12 @@ const TerminalLvrgPanel: React.FC<Props> = ({
   const settingsLocked = botRunning;
 
   const switchMode = async (next: typeof editor.hlBotStrategy) => {
-    if (!walletAddress || next === settings.hlBotStrategy) {
+    if (next === editor.hlBotStrategy) return;
+    if (settingsLocked) {
+      onBlockedSave?.();
+      return;
+    }
+    if (!walletAddress) {
       editor.setHlBotStrategy(next);
       return;
     }
@@ -76,9 +81,17 @@ const TerminalLvrgPanel: React.FC<Props> = ({
 
   return (
     <div className="term-panel-stack">
-      <div className="term-panel-card term-panel-card--muted">
+      <div className="term-panel-card term-panel-card--muted term-panel-card--mode">
         <span className="term-panel-card-label">Bot mode</span>
-        <div className="term-bot-mode-toggle" role="group" aria-label="Bot strategy">
+        <div
+          className={
+            settingsLocked
+              ? 'term-bot-mode-toggle term-bot-mode-toggle--locked'
+              : 'term-bot-mode-toggle'
+          }
+          role="group"
+          aria-label="Bot strategy"
+        >
           {(['standard', 'profit_grabber'] as const).map((mode) => (
             <button
               key={mode}
@@ -92,8 +105,21 @@ const TerminalLvrgPanel: React.FC<Props> = ({
           ))}
         </div>
         <span className="term-panel-card-hint">{HL_BOT_STRATEGY_HINTS[editor.hlBotStrategy]}</span>
+        {settingsLocked ? (
+          <span className="term-panel-card-hint term-panel-card-hint--warn">
+            Stop bot to switch Standard / Aggressive.
+          </span>
+        ) : null}
         {modeError ? (
           <span className="term-panel-card-hint term-panel-card-hint--warn">{modeError}</span>
+        ) : null}
+        {settingsLocked ? (
+          <button
+            type="button"
+            className="term-lvrg-mode-blocker"
+            aria-label="Stop bot to change mode"
+            onClick={() => onBlockedSave?.()}
+          />
         ) : null}
       </div>
 

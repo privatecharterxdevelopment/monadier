@@ -8,9 +8,9 @@ export const HL_BOT_STRATEGY_LABELS: Record<HlBotStrategy, string> = {
 
 export const HL_BOT_STRATEGY_HINTS: Record<HlBotStrategy, string> = {
   standard:
-    'Standard: MTF trend scan. SL −% cuts losses; profit lock + trail when in profit; optional TP %.',
+    'Standard: MTF trend scan on liquid HL pairs. Bot trails stop into profit automatically.',
   profit_grabber:
-    'Aggressive: last 6×1m candles → predict next 3; 5m trend must confirm UP/DOWN (no chop). Trail exit +$0.01 from +$0.02.',
+    'Aggressive: 6×1m → next 3 with 5m confirm. Tighter profit trail — bot manages exit.',
 };
 
 export const HL_AGGRESSIVE_PROFIT_LOCK = {

@@ -157,8 +157,6 @@ export function useBotSettingsEditor({
 
   const tradingParamsChanged =
     riskLevel !== baseline.riskPct ||
-    numChanged(takeProfit, baseline.takeProfit) ||
-    numChanged(stopLoss, baseline.stopLoss) ||
     leverage !== snapLeverageToStep(baseline.leverage, planTier, hlSliderMax);
 
   const hasChanges =
@@ -196,8 +194,8 @@ export function useBotSettingsEditor({
           autoTradeEnabled: autoTrade,
           riskPct: riskLevel,
           leverage: savedLeverage,
-          takeProfit,
-          stopLoss,
+          takeProfit: 0,
+          stopLoss: 0,
           askPermission,
           minWinRate,
           minTradesForWinRate,

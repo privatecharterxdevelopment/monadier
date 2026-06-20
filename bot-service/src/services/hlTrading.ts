@@ -3,12 +3,10 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { deriveUserHlAgent } from './hlAgent';
 import { hlAgentApprovalService } from './hlAgentApprovals';
-import { isHlCoinLiquid } from './hlLiquidity';
-import { globalSignalsForBotMode } from './globalMarketScan';
-import {
-  isOpenDirectionAllowed,
-  isWeekendShortOnlyWindow,
-} from './weekendTradingRules';
+import { getHlLiquidityForCoin, isHlCoinLiquid, type HlLiquidUniverse } from './hlLiquidity';
+import { globalSignalsForBotMode, type GlobalSignalCandidate } from './globalMarketScan';
+import { isOpenDirectionAllowed } from './weekendTradingRules';
+import { validatePreTradeLiquidity } from './liquiditySweepGate';
 import {
   coinToAssetIndex,
   maxLeverageForCoin,
@@ -168,6 +166,42 @@ export class HyperliquidTradingService {
     return this.tryOpenFromGlobalSignals(userAddress, settings, state, ctx);
   }
 
+  /** Walk ranked signals — first that passes 24h vol + sweep + candle volume. */
+  private async pickSignalPassingLiquidityGate(
+    signals: GlobalSignalCandidate[],
+    liquidUniverse: HlLiquidUniverse
+  ): Promise<GlobalSignalCandidate | null> {
+    for (const signal of signals) {
+      if (!isHlCoinLiquid(liquidUniverse, signal.coin)) continue;
+      if (!isOpenDirectionAllowed(signal.direction)) continue;
+
+      const liq = getHlLiquidityForCoin(liquidUniverse, signal.coin);
+      const gate = await validatePreTradeLiquidity({
+        symbol: signal.symbol,
+        direction: signal.direction,
+        dayVolumeUsd: liq?.dayVolumeUsd ?? signal.dayVolumeUsd,
+        timeframe: signal.botMode === 'aggressive' ? '1m' : '5m',
+      });
+
+      if (!gate.ok) {
+        logger.debug('HL signal skip: volume/sweep gate', {
+          coin: signal.coin,
+          direction: signal.direction,
+          reason: gate.reason,
+        });
+        continue;
+      }
+
+      logger.info('HL signal passed pre-trade gate', {
+        coin: signal.coin,
+        direction: signal.direction,
+        gate: gate.reason,
+      });
+      return signal;
+    }
+    return null;
+  }
+
   private async tryOpenFromGlobalSignals(
     userAddress: `0x${string}`,
     settings: Awaited<ReturnType<typeof subscriptionService.getUserTradingSettings>>,
@@ -206,18 +240,11 @@ export class HyperliquidTradingService {
       return 'skip';
     }
 
-    const best =
-      signals.find((s) => isHlCoinLiquid(ctx.liquidUniverse, s.coin)) ?? null;
+    const best = await this.pickSignalPassingLiquidityGate(signals, ctx.liquidUniverse);
     if (!best) {
-      logger.debug('HL open skip: no liquid signal', { user: userAddress.slice(0, 10) });
-      return 'skip';
-    }
-    if (!isOpenDirectionAllowed(best.direction)) {
-      logger.debug('HL open skip: weekend short-only window', {
+      logger.debug('HL open skip: no signal passed volume/sweep gate', {
         user: userAddress.slice(0, 10),
-        direction: best.direction,
-        coin: best.coin,
-        weekendShortOnly: isWeekendShortOnlyWindow(),
+        candidates: signals.length,
       });
       return 'skip';
     }

@@ -4,6 +4,7 @@
  */
 import { signalEngine, type Candle } from './signalEngine';
 import { logger } from '../utils/logger';
+import { detectLiquiditySweep } from './liquiditySweepGate';
 
 export type AggressiveScalpAnalysis = {
   direction: 'LONG' | 'SHORT';
@@ -128,11 +129,18 @@ export async function analyzeAggressiveScalpBySymbol(
     if (scalp.direction === 'LONG' && trend5m === 'DOWN') return null;
     if (scalp.direction === 'SHORT' && trend5m === 'UP') return null;
 
-    const confidence = Math.min(94, scalp.confidence + 5);
+    const sweep = detectLiquiditySweep(c1m);
+    if (!sweep.volumeOk) return null;
+    if (sweep.bias && sweep.bias !== scalp.direction) return null;
+
+    let confidence = Math.min(94, scalp.confidence + 5);
+    if (sweep.bias === scalp.direction) confidence = Math.min(96, confidence + 8);
+
     const reason = [
       `6×1m→3: ${scalp.reasonParts.join(', ')}`,
       `5m ${trend5m}`,
       `next3 ${scalp.predictedNext3}`,
+      sweep.bias ? `sweep ${sweep.bias}` : `vol ${sweep.volumeRatio.toFixed(1)}x`,
     ].join(' · ');
 
     return {

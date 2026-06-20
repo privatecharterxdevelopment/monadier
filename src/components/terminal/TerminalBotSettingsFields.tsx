@@ -43,10 +43,10 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
   setRiskLevel,
   leverage,
   setLeverage,
-  takeProfit,
-  setTakeProfit,
-  stopLoss,
-  setStopLoss,
+  takeProfit: _takeProfit,
+  setTakeProfit: _setTakeProfit,
+  stopLoss: _stopLoss,
+  setStopLoss: _setStopLoss,
   autoTrade,
   setAutoTrade,
   askPermission,
@@ -240,52 +240,9 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
         </div>
       </div>
 
-      <div className={isModal ? 'term-modal-grid-2' : 'term-panel-inputs'}>
-        <label className={isModal ? undefined : 'term-panel-input-wrap'}>
-          {isModal && (
-            <span className={labelClass} id="term-tp-label">
-              Take profit % (optional)
-            </span>
-          )}
-          {!isModal && <span>TP % (opt.)</span>}
-          <input
-            id="term-tp"
-            type="number"
-            className={inputClass}
-            value={takeProfit}
-            min={0}
-            step={0.1}
-            placeholder="0 = bot trail"
-            onChange={(e) => setTakeProfit(Math.max(0, parseFloat(e.target.value) || 0))}
-            disabled={disabled}
-            aria-labelledby={isModal ? 'term-tp-label' : undefined}
-          />
-        </label>
-        <label className={isModal ? undefined : 'term-panel-input-wrap'}>
-          {isModal && (
-            <span className={labelClass} id="term-sl-label">
-              Stop loss % (optional)
-            </span>
-          )}
-          {!isModal && <span>SL % (opt.)</span>}
-          <input
-            id="term-sl"
-            type="number"
-            className={inputClass}
-            value={stopLoss}
-            min={0}
-            step={0.5}
-            placeholder="0 = no auto SL"
-            onChange={(e) => setStopLoss(Math.max(0, parseFloat(e.target.value) || 0))}
-            disabled={disabled}
-            aria-labelledby={isModal ? 'term-sl-label' : undefined}
-          />
-        </label>
-      </div>
       <p className={hintClass}>
-        SL default −4% cuts losses. Set SL to 0 to disable. TP optional. In profit: trail starts at
-        +$0.06, locks min +$0.03, follows peak − ~$0.025 (Grabber slightly tighter). No instant
-        close on +$0.01 — winners can run.
+        <strong>Exits:</strong> Bot trails stop loss into profit automatically — no manual TP/SL.
+        Standard arms at +$0.06 uPnL (min lock +$0.03). Aggressive arms at +$0.02 (lock +$0.01).
       </p>
 
       {notice && (

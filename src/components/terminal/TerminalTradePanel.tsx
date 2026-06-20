@@ -551,6 +551,8 @@ const TerminalTradePanel: React.FC<Props> = ({
               settings={botSettings.settings}
               walletAddress={wallet}
               disabled={!walletReady || botSettings.isLoading}
+              botRunning={botRunning}
+              onBlockedChange={() => setShowStopFirstModal(true)}
               onSaved={refreshAll}
             />
 

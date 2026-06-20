@@ -112,6 +112,12 @@ export const config = {
     profitHoldMaxMs: Number(process.env.HL_PROFIT_HOLD_MAX_MS || 0),
     /** Fri 18:00 UTC through Sat 23:59 — new opens SHORT only when signaled. */
     fridayShortOnlyUtcHour: Number(process.env.HL_FRIDAY_SHORT_ONLY_UTC_HOUR || 18),
+    /** Pre-trade: min recent candle vol vs lookback avg. */
+    minTradeVolumeRatio: Number(process.env.HL_MIN_TRADE_VOLUME_RATIO || 1.25),
+    /** Without a sweep, require stronger volume confirmation. */
+    minNoSweepVolumeRatio: Number(process.env.HL_MIN_NO_SWEEP_VOLUME_RATIO || 1.55),
+    /** Bars (excl. last 3) used for swing high/low in sweep detection. */
+    sweepLookbackBars: Number(process.env.HL_SWEEP_LOOKBACK_BARS || 15),
     reentryCooldownMs: Number(process.env.HL_REENTRY_COOLDOWN_MS || 180_000),
     /** Minimum margin USD per HL open (small accounts use up to 10% of balance). */
     minMarginUsd: Number(process.env.HL_MIN_MARGIN_USD || 5),
