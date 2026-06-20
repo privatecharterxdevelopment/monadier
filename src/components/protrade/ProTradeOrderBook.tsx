@@ -1,3 +1,4 @@
+import React, { memo, useMemo, useState } from 'react';
 import { ensureArray } from '../../lib/ensureArray';
 import type { HlL2Book, HlRecentTrade } from '../../lib/hyperliquid/types';
 import { fmtPrice, fmtSize, fmtTimeMs } from '../../lib/hyperliquid/format';
