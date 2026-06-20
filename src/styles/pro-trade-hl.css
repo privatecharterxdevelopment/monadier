@@ -904,6 +904,30 @@
   height: 100%;
 }
 
+/* Bot terminal — taller chart, positions dock pinned lower */
+.hl-terminal--bot .hl-workspace-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.hl-terminal--bot .hl-chart-row {
+  flex: 1 1 0;
+  min-height: min(58vh, 580px);
+}
+
+.hl-terminal--bot .hl-bot-dock {
+  flex: 0 0 auto;
+  margin-top: auto;
+}
+
+.hl-terminal--bot .hl-bot-dock-inner {
+  min-height: 80px;
+  height: auto;
+  max-height: min(16vh, 155px);
+}
+
 .hl-chart-engine {
   flex: 1;
   min-height: 0;
@@ -3408,6 +3432,31 @@
     min-height: 240px;
     max-height: 300px;
     flex: 0 0 auto;
+  }
+
+  .hl-terminal--bot .hl-chart-row {
+    min-height: min(52vh, 380px);
+    max-height: min(58vh, 420px);
+    flex: 0 0 auto;
+  }
+
+  .hl-terminal--bot .hl-chart-wrap {
+    min-height: min(48vh, 340px);
+    max-height: min(54vh, 400px);
+  }
+
+  .hl-terminal--bot .hl-chart-canvas,
+  .hl-terminal--bot .hl-chart-tv-wrap,
+  .hl-terminal--bot .hl-chart-tv-canvas {
+    min-height: min(46vh, 320px);
+    height: min(48vh, 340px);
+    max-height: min(52vh, 380px);
+  }
+
+  .hl-terminal--bot .hl-bot-dock .hl-dock,
+  .hl-terminal--bot .hl-bot-dock .hl-bot-dock-inner {
+    min-height: 100px;
+    max-height: 140px;
   }
 
   .hl-chart-row .hl-book {

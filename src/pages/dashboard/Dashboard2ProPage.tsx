@@ -543,7 +543,7 @@ const Dashboard2ProPageContent: React.FC = () => {
   );
 
   const renderBotTerminal = () => (
-    <div className="hl-terminal">
+    <div className="hl-terminal hl-terminal--bot">
       <ProTradeTickerStrip markets={perpMarkets} coin={perpCoin} onCoinChange={setPerpCoin} />
       <ProTradeMarketBar
         coin={perpCoin}
