@@ -2247,7 +2247,8 @@
 
 .hl-sb-head-toolbar {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
   gap: 8px;
   min-width: 0;
 }
@@ -2259,11 +2260,7 @@
   min-width: 0;
 }
 
-.hl-sb-head-toolbar > .hl-bet-cats {
-  min-width: 0;
-}
-
-.hl-sb-head-toolbar-row .hl-sb-search-wrap--head {
+.hl-sb-head-toolbar .hl-bet-cats {
   flex: 1 1 auto;
   min-width: 0;
 }
@@ -2273,7 +2270,6 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
-  margin-left: auto;
 }
 
 .hl-sb-head-live-pill,
@@ -2309,13 +2305,21 @@
 }
 
 .hl-sb-head .hl-sb-search-wrap--head {
+  flex: 0 0 auto;
+  width: clamp(120px, 16vw, 168px);
   height: 32px;
   margin: 0;
-  padding: 0 10px;
+  padding: 0 8px;
+  gap: 6px;
   border-radius: 8px;
   border: 1px solid rgb(255 255 255 / 0.22);
   background: rgb(0 0 0 / 0.2);
   color: #fff;
+}
+
+.hl-sb-head .hl-sb-search-wrap--head .hl-sb-search {
+  min-width: 0;
+  font-size: 11px;
 }
 
 .hl-sb-head .hl-sb-search-wrap--head svg {
@@ -4840,20 +4844,28 @@
 }
 
 @media (max-width: 1100px) {
-  .hl-terminal--sb .hl-sb-head-toolbar-row {
+  .hl-terminal--sb .hl-sb-head-toolbar {
+    flex-direction: row;
     flex-wrap: nowrap;
+    align-items: center;
   }
 
-  .hl-terminal--sb .hl-sb-head-toolbar {
-    flex-direction: column;
-    align-items: stretch;
+  .hl-terminal--sb .hl-sb-head-toolbar .hl-bet-cats {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .hl-terminal--sb .hl-sb-search-wrap--head {
-    max-width: none;
+    flex: 0 0 auto;
+    width: clamp(100px, 14vw, 148px);
   }
 
   @media (max-width: 520px) {
+    .hl-sb-head .hl-sb-search-wrap--head,
+    .hl-terminal--sb .hl-sb-search-wrap--head {
+      width: 88px;
+    }
+
     .hl-sb-head-refresh-pill > span {
       display: none;
     }
@@ -5013,7 +5025,8 @@
 
 .hl-terminal--sb .hl-sb-head-toolbar {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
   gap: 8px;
   min-width: 0;
 }
@@ -5032,16 +5045,17 @@
   padding-bottom: 2px;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  min-width: 0;
 }
 
 .hl-terminal--sb .hl-sb-head-toolbar .hl-bet-cats::-webkit-scrollbar {
   display: none;
 }
 
-.hl-terminal--sb .hl-sb-head-toolbar-row .hl-sb-search-wrap--head {
-  flex: 1 1 auto;
+.hl-terminal--sb .hl-sb-head-toolbar .hl-sb-search-wrap--head {
+  flex: 0 0 auto;
+  width: clamp(120px, 16vw, 168px);
   min-width: 0;
-  max-width: none;
 }
 
 .hl-terminal--sb .hl-sb-head-copy,

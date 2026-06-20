@@ -52,36 +52,34 @@ const SportsbetsHero: React.FC<Props> = ({
           onChange={onCategoryChange}
           variant="banner"
         />
-        <div className="hl-sb-head-toolbar-row">
-          <div className="hl-sb-search-wrap hl-sb-search-wrap--head">
-            <Search size={14} aria-hidden />
-            <input
-              type="search"
-              className="hl-sb-search"
-              placeholder="Search events, teams, macro…"
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              aria-label="Search betting markets"
-            />
-          </div>
-          <div className="hl-sb-head-toolbar-actions">
-            <span className="hl-sb-head-live-pill">
-              <span className={`hl-sb-live-dot ${syncing ? 'hl-sb-live-dot--sync' : ''}`} />
-              {marketCount} markets · {syncing ? 'Syncing' : 'Live'}
-            </span>
-            {onRefresh ? (
-              <button
-                type="button"
-                className="hl-sb-head-refresh-pill"
-                onClick={onRefresh}
-                disabled={refreshDisabled}
-                aria-label="Refresh markets"
-              >
-                <RefreshCw size={13} className={syncing ? 'hl-spin' : undefined} aria-hidden />
-                <span>Refresh</span>
-              </button>
-            ) : null}
-          </div>
+        <div className="hl-sb-search-wrap hl-sb-search-wrap--head">
+          <Search size={14} aria-hidden />
+          <input
+            type="search"
+            className="hl-sb-search"
+            placeholder="Search…"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            aria-label="Search betting markets"
+          />
+        </div>
+        <div className="hl-sb-head-toolbar-actions">
+          <span className="hl-sb-head-live-pill">
+            <span className={`hl-sb-live-dot ${syncing ? 'hl-sb-live-dot--sync' : ''}`} />
+            {marketCount} markets · {syncing ? 'Syncing' : 'Live'}
+          </span>
+          {onRefresh ? (
+            <button
+              type="button"
+              className="hl-sb-head-refresh-pill"
+              onClick={onRefresh}
+              disabled={refreshDisabled}
+              aria-label="Refresh markets"
+            >
+              <RefreshCw size={13} className={syncing ? 'hl-spin' : undefined} aria-hidden />
+              <span>Refresh</span>
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
