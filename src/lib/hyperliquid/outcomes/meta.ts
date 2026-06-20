@@ -43,7 +43,7 @@ function buildQuestions(
   return questions
     .map((q) => {
       const meta = parseQuestionMetadata(q.description);
-      const legs = q.namedOutcomes
+      const legs = (q.namedOutcomes ?? [])
         .map((id) => outcomeById.get(id))
         .filter((m): m is HlOutcomeMarket => m != null);
 
@@ -78,7 +78,7 @@ export function warmHlOutcomeCatalog(raw: HlOutcomeMetaRaw): HlOutcomeCatalog {
 
   const referencedIds = new Set<number>();
   for (const q of raw.questions ?? []) {
-    for (const id of q.namedOutcomes) referencedIds.add(id);
+    for (const id of q.namedOutcomes ?? []) referencedIds.add(id);
     referencedIds.add(q.fallbackOutcome);
   }
 

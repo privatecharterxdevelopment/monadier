@@ -49,7 +49,9 @@ export function mergeActivityNotifications(
   betting: ActivityNotification[],
   limit = 100
 ): ActivityNotification[] {
-  return [...bot, ...betting]
+  const botRows = Array.isArray(bot) ? bot : [];
+  const bettingRows = Array.isArray(betting) ? betting : [];
+  return [...botRows, ...bettingRows]
     .sort((a, b) => new Date(b.closedAt).getTime() - new Date(a.closedAt).getTime())
     .slice(0, limit);
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useWalletClient } from 'wagmi';
 import { createHlExchangeClient } from '../lib/hyperliquid/exchange';
-import { firstOrderError } from '../lib/hyperliquid/orders';
+import { orderResponseError } from '../lib/hyperliquid/orders';
 import {
   buildOutcomeOrderLeg,
   fetchOutcomeLegQuote,
@@ -87,7 +87,7 @@ export function useHyperliquidOutcomeTrading() {
         const leg = buildOutcomeOrderLeg(opts);
         const client = createHlExchangeClient(requireWallet());
         const result = await client.order({ orders: [leg], grouping: 'na' });
-        const err = firstOrderError(result.response.data.statuses);
+        const err = orderResponseError(result);
         if (err) throw new Error(err);
         return result;
       }, 'Outcome order failed'),

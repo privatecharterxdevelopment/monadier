@@ -108,7 +108,37 @@ export function buildTriggerLeg(opts: {
   };
 }
 
-export function firstOrderError(statuses: unknown[]): string | null {
+/** Pull HL order status rows from exchange client responses (shape varies by SDK version). */
+export function extractOrderStatuses(result: unknown): unknown[] {
+  if (!result || typeof result !== 'object') return [];
+
+  const root = result as Record<string, unknown>;
+  if (Array.isArray(root.statuses)) return root.statuses;
+
+  const response = root.response;
+  if (!response || typeof response !== 'object') return [];
+
+  const resp = response as Record<string, unknown>;
+  if (Array.isArray(resp.statuses)) return resp.statuses;
+
+  const data = resp.data;
+  if (data && typeof data === 'object') {
+    const statuses = (data as Record<string, unknown>).statuses;
+    if (Array.isArray(statuses)) return statuses;
+  }
+
+  return [];
+}
+
+export function firstOrderError(statuses: unknown): string | null {
+  if (!Array.isArray(statuses)) {
+    if (statuses && typeof statuses === 'object' && 'error' in statuses) {
+      const err = (statuses as { error?: unknown }).error;
+      if (err) return String(err);
+    }
+    return null;
+  }
+
   for (const status of statuses) {
     if (status && typeof status === 'object' && 'error' in status) {
       const err = (status as { error?: string }).error;
@@ -116,4 +146,12 @@ export function firstOrderError(statuses: unknown[]): string | null {
     }
   }
   return null;
+}
+
+export function orderResponseError(result: unknown): string | null {
+  if (result && typeof result === 'object') {
+    const top = (result as { error?: unknown }).error;
+    if (top) return String(top);
+  }
+  return firstOrderError(extractOrderStatuses(result));
 }

@@ -166,8 +166,10 @@ function mergeClosedTradeArrays(
   b: ClosedTradeRow[],
   limit: number
 ): ClosedTradeRow[] {
+  const left = Array.isArray(a) ? a : [];
+  const right = Array.isArray(b) ? b : [];
   const merged = new Map<string, ClosedTradeRow>();
-  for (const row of [...a, ...b]) {
+  for (const row of [...left, ...right]) {
     merged.set(rowKey(row), row);
   }
   return Array.from(merged.values())
@@ -280,19 +282,23 @@ async function fetchClosedTradesDirect(
   );
 }
 
+function asRowArray(data: unknown): Record<string, unknown>[] {
+  return Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
+}
+
 function mergeClosedTradeRows(
-  historyRows: Record<string, unknown>[],
-  positionRows: Record<string, unknown>[],
+  historyRows: unknown,
+  positionRows: unknown,
   limit: number
 ): ClosedTradeRow[] {
   const merged = new Map<string, ClosedTradeRow>();
 
-  for (const row of historyRows) {
+  for (const row of asRowArray(historyRows)) {
     const mapped = mapFromTradeHistory(row);
     merged.set(rowKey(mapped), mapped);
   }
 
-  for (const row of positionRows) {
+  for (const row of asRowArray(positionRows)) {
     const status = String(row.status || '');
     if (status === 'closing') continue;
     if (status !== 'closed' && status !== 'failed') continue;

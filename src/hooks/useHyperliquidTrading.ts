@@ -10,7 +10,7 @@ import {
   buildScaleLegs,
   buildSimpleOrderLeg,
   buildTriggerLeg,
-  firstOrderError,
+  orderResponseError,
   type HlOrderLeg,
   type OrderSide,
   type SimpleOrderKind,
@@ -153,7 +153,7 @@ export function useHyperliquidTrading() {
         grouping: 'na',
         ...(builder ? { builder } : {}),
       });
-      const err = firstOrderError(result.response.data.statuses);
+      const err = orderResponseError(result);
       if (err) throw new Error(err);
       return result;
     },
