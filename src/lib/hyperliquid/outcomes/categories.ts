@@ -161,10 +161,61 @@ export function defaultQuestionForCategory(
   const filtered = filterBettingQuestions(questions, category, '');
   if (filtered.length === 0) return null;
   if (category === 'all') {
-    const { featured } = splitFeaturedBettingQuestions(filtered);
-    return featured[0] ?? filtered[0];
+    const ordered = orderQuestionsForAllView(filtered);
+    return ordered[0] ?? filtered[0];
   }
   return filtered[0];
+}
+
+/** Mix sports matches, crypto, macro — champion market last so other markets appear first. */
+export function orderQuestionsForAllView(questions: HlOutcomeQuestion[]): HlOutcomeQuestion[] {
+  const champion: HlOutcomeQuestion[] = [];
+  const sports: HlOutcomeQuestion[] = [];
+  const crypto: HlOutcomeQuestion[] = [];
+  const macro: HlOutcomeQuestion[] = [];
+  const other: HlOutcomeQuestion[] = [];
+
+  for (const q of questions) {
+    const title = q.name.toLowerCase();
+    const cat = resolveBettingCategory(q);
+    if (/world cup champion/i.test(title)) {
+      champion.push(q);
+    } else if (cat === 'sports') {
+      sports.push(q);
+    } else if (cat === 'crypto') {
+      crypto.push(q);
+    } else if (cat === 'macro') {
+      macro.push(q);
+    } else {
+      other.push(q);
+    }
+  }
+
+  const sortByName = (a: HlOutcomeQuestion, b: HlOutcomeQuestion) => a.name.localeCompare(b.name);
+  sports.sort(sortByName);
+  crypto.sort(sortByName);
+  macro.sort(sortByName);
+  other.sort(sortByName);
+  champion.sort(sortByName);
+
+  const buckets = [sports, crypto, macro, other] as const;
+  const indices = [0, 0, 0, 0];
+  const mixed: HlOutcomeQuestion[] = [];
+
+  while (true) {
+    let added = false;
+    for (let i = 0; i < buckets.length; i += 1) {
+      const bucket = buckets[i];
+      if (indices[i] < bucket.length) {
+        mixed.push(bucket[indices[i]]);
+        indices[i] += 1;
+        added = true;
+      }
+    }
+    if (!added) break;
+  }
+
+  return [...mixed, ...champion];
 }
 
 export function formatCategoryBadge(question: HlOutcomeQuestion): string {

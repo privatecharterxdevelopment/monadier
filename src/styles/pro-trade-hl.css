@@ -3632,6 +3632,110 @@
   padding: 14px 16px 0;
 }
 
+.hl-sb-detail-head--all {
+  padding-bottom: 4px;
+}
+
+.hl-sb-all-markets {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.hl-sb-all-markets-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: 8px;
+}
+
+.hl-sb-all-market-block {
+  margin: 0 16px 14px;
+}
+
+.hl-sb-all-market-block--active .hl-sb-all-market-title {
+  color: var(--hl-green-bright);
+}
+
+.hl-sb-all-market-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.hl-sb-all-market-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--hl-text);
+}
+
+.hl-sb-all-market-meta {
+  margin: 2px 0 0;
+  font-size: 10px;
+  color: var(--hl-text-muted);
+}
+
+.hl-sb-all-market-cat {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--hl-text-muted);
+  background: var(--hl-bg-hover);
+  border: 1px solid var(--hl-border);
+}
+
+.hl-sb-market-table--compact {
+  margin: 0;
+}
+
+.hl-sb-market-table--compact .hl-sb-market-row {
+  padding: 4px 8px;
+}
+
+.hl-sb-market-table--compact .hl-sb-odds-cell {
+  min-height: 36px;
+  padding: 4px 8px;
+}
+
+.hl-root--light .hl-sb-odds-cell,
+.hl-root--light .hl-terminal--sb .hl-sb-odds-cell {
+  background: #ffffff;
+}
+
+.hl-root--light .hl-terminal--sb .hl-sb-odds-cell--yes,
+.hl-root--light .hl-terminal--sb .hl-sb-odds-cell--no {
+  background: #ffffff;
+}
+
+.hl-root--light .hl-terminal--sb .hl-sb-odds-cell:hover {
+  background: #f4f4f5;
+}
+
+.hl-root--light .hl-terminal--sb .hl-sb-odds-cell--picked {
+  background: var(--hl-green-tint);
+}
+
+.hl-root--light .hl-terminal--sb .hl-sb-market-table {
+  background: #ffffff;
+}
+
+.hl-root--light .hl-terminal--sb .hl-sb-market-row:nth-child(even) {
+  background: #fafafa;
+}
+
+.hl-root--light .hl-terminal--sb .hl-sb-market-head {
+  background: #f4f4f5;
+}
+
 .hl-sb-detail-title {
   margin: 0;
   font-size: 17px;

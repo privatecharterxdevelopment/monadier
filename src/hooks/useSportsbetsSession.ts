@@ -148,6 +148,15 @@ export function useSportsbetsSession(walletAddress?: string, enabled = true, use
     setSelectedSide(0);
   }, []);
 
+  const pickQuestionLeg = useCallback(
+    (question: HlOutcomeQuestion, outcomeId: number, side: OutcomeSideIndex) => {
+      setSelectedQuestionId(question.questionId);
+      setSelectedOutcomeId(outcomeId);
+      setSelectedSide(side);
+    },
+    []
+  );
+
   const bettingBalance = useMemo(() => {
     const row = spotBalances.find((b) => b.coin === 'USDC');
     return row ? Number(row.total) : 0;
@@ -168,6 +177,7 @@ export function useSportsbetsSession(walletAddress?: string, enabled = true, use
     selectedOutcomeId,
     selectedSide,
     selectQuestion,
+    pickQuestionLeg,
     selectLeg,
     quote,
     quoteLoading,

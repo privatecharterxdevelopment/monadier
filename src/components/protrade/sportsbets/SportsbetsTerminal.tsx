@@ -1,13 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { OUTCOME_BOOK_POLL_MS } from '../../../lib/hyperliquid/outcomes/constants';
 import { fetchOutcomeLegQuotesFromMids, type OutcomeLegQuote } from '../../../lib/hyperliquid/outcomes';
-import { ensureArray } from '../../../lib/ensureArray';
-import { countByCategory } from '../../../lib/hyperliquid/outcomes/categories';
+import { countByCategory, filterBettingQuestions } from '../../../lib/hyperliquid/outcomes/categories';
 import { findOutcomeMarket } from '../../../lib/hyperliquid/outcomes/meta';
 import { useSportsbetsSession } from '../../../hooks/useSportsbetsSession';
 import SportsbetsHero from './SportsbetsHero';
 import BettingMarketList from './BettingMarketList';
+import SportsbetsAllMarketsView from './SportsbetsAllMarketsView';
 import SportsbetsEventDetail from './SportsbetsEventDetail';
 import SportsbetsRightRail from './SportsbetsRightRail';
 
@@ -36,6 +36,26 @@ const SportsbetsTerminal: React.FC<Props> = ({
     [session.questions]
   );
 
+  const filteredQuestions = useMemo(
+    () => filterBettingQuestions(session.questions, session.category, searchQuery),
+    [session.questions, session.category, searchQuery]
+  );
+
+  const showAllMarketsView = session.category === 'all' && filteredQuestions.length > 0;
+
+  const quoteLegs = useMemo(() => {
+    if (showAllMarketsView) {
+      return filteredQuestions.flatMap((q) =>
+        q.legs.map((leg) => ({ outcomeId: leg.outcomeId, name: leg.name }))
+      );
+    }
+    if (!session.selectedQuestion) return [];
+    return session.selectedQuestion.legs.map((leg) => ({
+      outcomeId: leg.outcomeId,
+      name: leg.name,
+    }));
+  }, [showAllMarketsView, filteredQuestions, session.selectedQuestion]);
+
   const selectedMarket = useMemo(() => {
     if (!session.catalog || session.selectedOutcomeId == null) return null;
     return findOutcomeMarket(session.catalog, session.selectedOutcomeId) ?? null;
@@ -50,22 +70,17 @@ const SportsbetsTerminal: React.FC<Props> = ({
   }, [session.positions, session.selectedOutcomeId, session.selectedSide]);
 
   useEffect(() => {
-    const question = session.selectedQuestion;
-    if (!question) {
+    if (quoteLegs.length === 0) {
       setLegQuotes({});
       return;
     }
 
     let cancelled = false;
-    const legs = ensureArray(question.legs).map((leg) => ({
-      outcomeId: leg.outcomeId,
-      name: leg.name,
-    }));
 
     const pullQuotes = async (background: boolean) => {
       if (!background) setQuotesLoading(true);
       try {
-        const next = await fetchOutcomeLegQuotesFromMids(legs);
+        const next = await fetchOutcomeLegQuotesFromMids(quoteLegs);
         if (cancelled) return;
         setLegQuotes(next);
       } catch {
@@ -85,12 +100,26 @@ const SportsbetsTerminal: React.FC<Props> = ({
       cancelled = true;
       window.clearInterval(poll);
     };
-  }, [session.selectedQuestion]);
+  }, [quoteLegs]);
 
   const handleCancelOrder = async (outcomeId: number, side: 0 | 1, oid: number) => {
     await session.trading.cancelOutcomeOrder(outcomeId, side, oid);
     await session.refreshAll();
   };
+
+  const handleSelectQuestion = useCallback(
+    (question: (typeof session.questions)[number]) => {
+      session.selectQuestion(question);
+      if (session.category === 'all') {
+        requestAnimationFrame(() => {
+          document
+            .getElementById(`sb-market-${question.questionId}`)
+            ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      }
+    },
+    [session.selectQuestion, session.category]
+  );
 
   return (
     <div className="hl-sb-terminal">
@@ -118,12 +147,22 @@ const SportsbetsTerminal: React.FC<Props> = ({
           selectedQuestionId={session.selectedQuestionId}
           category={session.category}
           searchQuery={searchQuery}
-          onSelect={session.selectQuestion}
+          onSelect={handleSelectQuestion}
           loading={session.catalogLoading}
         />
 
         <div className="hl-sb-center">
-          {session.selectedQuestion ? (
+          {showAllMarketsView ? (
+            <SportsbetsAllMarketsView
+              questions={filteredQuestions}
+              legQuotes={legQuotes}
+              quotesLoading={quotesLoading}
+              selectedQuestionId={session.selectedQuestionId}
+              selectedOutcomeId={session.selectedOutcomeId}
+              selectedSide={session.selectedSide}
+              onSelectLeg={session.pickQuestionLeg}
+            />
+          ) : session.selectedQuestion ? (
             <SportsbetsEventDetail
               question={session.selectedQuestion}
               legQuotes={legQuotes}
