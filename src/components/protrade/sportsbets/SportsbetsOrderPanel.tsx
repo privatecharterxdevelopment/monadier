@@ -13,6 +13,7 @@ import {
   formatStakeReturnPreview,
   OUTCOME_PREVIEW_STAKE_USD,
 } from '../../../lib/hyperliquid/outcomes/display';
+import { formatBettingMarketName } from '../../../lib/hyperliquid/outcomes/categories';
 import { fmtUsdSymbol } from '../../../lib/hyperliquid/format';
 import type { HlOutcomeMarket, OutcomeLegQuote, OutcomeSideIndex } from '../../../lib/hyperliquid/outcomes/types';
 import type { useHyperliquidOutcomeTrading } from '../../../hooks/useHyperliquidOutcomeTrading';
@@ -182,7 +183,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
       ) : (
         <>
           <p className="hl-sb-order-sub">
-            {market.name} · {sideLabel}
+            {formatBettingMarketName(market)} · {sideLabel}
           </p>
 
           <div className="hl-sb-order-tabs">

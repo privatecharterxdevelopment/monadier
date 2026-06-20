@@ -1,4 +1,8 @@
 import type { HlOutcomeMarket, HlOutcomeQuestion } from './types';
+import {
+  parsePriceBinaryMeta,
+  formatPriceBinaryTitle,
+} from './priceBinaryDisplay';
 
 export type BettingCategoryId = 'all' | 'sports' | 'crypto' | 'macro' | 'other';
 
@@ -127,33 +131,30 @@ export function buildStandaloneQuestions(
 }
 
 function parseStandaloneTitle(market: HlOutcomeMarket): string {
-  const desc = market.description;
-  if (!desc.includes('class:priceBinary')) {
-    return market.name || `Outcome ${market.outcomeId}`;
-  }
-
-  const parts = Object.fromEntries(
-    desc
-      .split('|')
-      .map((p) => p.split(':'))
-      .filter((p) => p.length === 2)
-      .map(([k, v]) => [k, v])
-  );
-
-  const underlying = parts.underlying ?? market.name;
-  const target = parts.targetPrice ? `$${Number(parts.targetPrice).toLocaleString()}` : '';
-  const expiry = parts.expiry ?? '';
-  const date = expiry.length >= 8 ? `${expiry.slice(6, 8)}.${expiry.slice(4, 6)}.` : '';
-
-  if (target) {
-    return `${underlying} above ${target}${date ? ` · ${date}` : ''}`;
-  }
-  return `${underlying} daily binary`;
+  const meta = parsePriceBinaryMeta(market.description);
+  if (meta) return formatPriceBinaryTitle(meta);
+  return market.name || `Outcome ${market.outcomeId}`;
 }
 
 export function questionListSubtitle(question: HlOutcomeQuestion): string {
-  const legs = question.legs.length;
   const badge = formatCategoryBadge(question);
+  const meta = parsePriceBinaryMeta(question.description) ??
+    question.legs.map((l) => parsePriceBinaryMeta(l.description)).find((m) => m != null);
+  if (meta) {
+    const target =
+      meta.targetPrice != null
+        ? `$${meta.targetPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+        : '';
+    return target ? `${badge} · above ${target}` : badge;
+  }
+  const legs = question.legs.length;
   if (legs === 1) return badge;
   return `${badge} · ${legs} outcomes`;
 }
+
+export {
+  formatBettingQuestionTitle,
+  formatBettingQuestionSummary,
+  formatBettingLegName,
+  formatBettingMarketName,
+} from './priceBinaryDisplay';

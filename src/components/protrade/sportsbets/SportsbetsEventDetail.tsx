@@ -6,9 +6,13 @@ import {
   OUTCOME_PREVIEW_STAKE_USD,
 } from '../../../lib/hyperliquid/outcomes/display';
 import {
+  formatBettingLegName,
+  formatBettingQuestionSummary,
+  formatBettingQuestionTitle,
   formatCategoryBadge,
   resolveBettingCategory,
 } from '../../../lib/hyperliquid/outcomes/categories';
+import { parsePriceBinaryMeta } from '../../../lib/hyperliquid/outcomes/priceBinaryDisplay';
 import { eventVisual } from '../../../lib/sports/teamVisuals';
 import type { HlOutcomeQuestion, OutcomeLegQuote, OutcomeSideIndex } from '../../../lib/hyperliquid/outcomes/types';
 import TeamBadge from './TeamBadge';
@@ -36,17 +40,10 @@ const SportsbetsEventDetail: React.FC<Props> = ({
   selectedSide,
   onSelectLeg,
 }) => {
-  const description = typeof question.description === 'string' ? question.description : '';
-
-  const summary = useMemo(() => {
-    if (!description) return '';
-    const firstLine = description.split('\n')[0]?.trim();
-    if (firstLine && firstLine.length < 220) return firstLine;
-    return description.slice(0, 220).trim() + (description.length > 220 ? '…' : '');
-  }, [description]);
-
+  const title = useMemo(() => formatBettingQuestionTitle(question), [question]);
+  const summary = useMemo(() => formatBettingQuestionSummary(question), [question]);
   const category = resolveBettingCategory(question);
-  const visuals = useMemo(() => eventVisual(question.name, category), [question.name, category]);
+  const visuals = useMemo(() => eventVisual(title, category), [title, category]);
   const categoryBadge = useMemo(() => formatCategoryBadge(question), [question]);
 
   return (
@@ -67,7 +64,7 @@ const SportsbetsEventDetail: React.FC<Props> = ({
                 <img src={visuals.flagUrls[1]} alt="" width={40} height={30} loading="lazy" />
               </div>
             ) : null}
-            <h2 className="hl-sb-detail-title">{question.name}</h2>
+            <h2 className="hl-sb-detail-title">{title}</h2>
           </div>
           {summary ? <p className="hl-sb-detail-desc">{summary}</p> : null}
       </header>
@@ -94,12 +91,15 @@ const SportsbetsEventDetail: React.FC<Props> = ({
                 ? 'Loading…'
                 : '—';
 
+          const legLabel = formatBettingLegName(leg);
+          const legBadge = parsePriceBinaryMeta(leg.description)?.underlying ?? leg.name;
+
           return (
             <div key={leg.outcomeId} className="hl-sb-market-row">
               <div className="hl-sb-market-team">
-                <TeamBadge name={leg.name} size={32} />
+                <TeamBadge name={legBadge} size={32} />
                 <div className="hl-sb-market-team-copy">
-                  <strong>{leg.name}</strong>
+                  <strong>{legLabel}</strong>
                   <span className="hl-sb-leg-implied">{implied}</span>
                 </div>
               </div>

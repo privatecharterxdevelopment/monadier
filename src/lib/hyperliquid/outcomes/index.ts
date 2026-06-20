@@ -8,3 +8,4 @@ export * from './positions';
 export * from './categories';
 export * from './payout';
 export * from './display';
+export * from './priceBinaryDisplay';

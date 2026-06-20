@@ -4,6 +4,7 @@ import {
   BETTING_CATEGORY_TABS,
   countByCategory,
   filterBettingQuestions,
+  formatBettingQuestionTitle,
   questionListSubtitle,
   type BettingCategoryId,
 } from '../../../lib/hyperliquid/outcomes/categories';
@@ -67,7 +68,7 @@ const BettingMarketList: React.FC<Props> = ({
         ) : null}
         {filtered.map((question) => {
           const active = question.questionId === selectedQuestionId;
-          const visuals = eventVisual(question.name, question.category);
+          const visuals = eventVisual(formatBettingQuestionTitle(question), question.category);
           const previewLeg = question.legs[0];
           const legVisual = previewLeg ? teamVisual(previewLeg.name) : null;
 
@@ -92,7 +93,7 @@ const BettingMarketList: React.FC<Props> = ({
                 </span>
                 <span className="hl-sb-event-copy">
                   <span className="hl-sb-event-name">
-                    <span className="hl-sb-event-name-text">{question.name}</span>
+                    <span className="hl-sb-event-name-text">{formatBettingQuestionTitle(question)}</span>
                   </span>
                   <span className="hl-sb-event-meta">{questionListSubtitle(question)}</span>
                 </span>
