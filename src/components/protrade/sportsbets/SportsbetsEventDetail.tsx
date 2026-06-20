@@ -9,15 +9,10 @@ import {
   formatBettingLegName,
   formatBettingQuestionSummary,
   formatBettingQuestionTitle,
-  formatCategoryBadge,
-  resolveBettingCategory,
 } from '../../../lib/hyperliquid/outcomes/categories';
 import { parsePriceBinaryMeta } from '../../../lib/hyperliquid/outcomes/priceBinaryDisplay';
-import { resolveEventBanner } from '../../../lib/sports/eventBanner';
-import { eventVisual } from '../../../lib/sports/teamVisuals';
 import type { HlOutcomeQuestion, OutcomeLegQuote, OutcomeSideIndex } from '../../../lib/hyperliquid/outcomes/types';
 import TeamBadge from './TeamBadge';
-import SportsbetsEventBanner from './SportsbetsEventBanner';
 import SportsbetsOddsButton from './SportsbetsOddsButton';
 
 type Props = {
@@ -45,23 +40,13 @@ const SportsbetsEventDetail: React.FC<Props> = ({
 }) => {
   const title = useMemo(() => formatBettingQuestionTitle(question), [question]);
   const summary = useMemo(() => formatBettingQuestionSummary(question), [question]);
-  const category = resolveBettingCategory(question);
-  const visuals = useMemo(() => eventVisual(title, category), [title, category]);
-  const categoryBadge = useMemo(() => formatCategoryBadge(question), [question]);
-  const banner = useMemo(
-    () => resolveEventBanner(question, title, category),
-    [question, title, category]
-  );
 
   return (
     <section className="hl-sb-detail">
-      <SportsbetsEventBanner
-        banner={banner}
-        badge={categoryBadge}
-        emoji={visuals.emoji}
-        title={title}
-        summary={summary}
-      />
+      <div className="hl-sb-detail-head">
+        <h2 className="hl-sb-detail-title">{title}</h2>
+        {summary ? <p className="hl-sb-detail-summary">{summary}</p> : null}
+      </div>
 
       <div className="hl-sb-market-table">
         <div className="hl-sb-market-head">

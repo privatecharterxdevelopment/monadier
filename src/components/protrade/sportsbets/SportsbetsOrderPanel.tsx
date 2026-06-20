@@ -193,7 +193,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
             <span> · {sideLabel}</span>
           </p>
 
-          <label className="hl-sb-field">
+          <label className="hl-sb-field hl-sb-field--stake">
             <span>
               {advancedOpen && stakeMode === 'contracts' ? 'Contracts' : 'How much to bet? (USD)'}
             </span>

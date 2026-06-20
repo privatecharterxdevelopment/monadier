@@ -3391,6 +3391,26 @@
   color: var(--hl-text-muted);
 }
 
+.hl-sb-detail-head {
+  padding: 14px 16px 0;
+}
+
+.hl-sb-detail-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--hl-text);
+}
+
+.hl-sb-detail-summary {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--hl-text-muted);
+}
+
 .hl-sb-field {
   display: flex;
   flex-direction: column;
@@ -3404,6 +3424,49 @@
   padding: 6px 8px;
   border-radius: 6px;
   font-size: 12px;
+  border: 1px solid var(--hl-border);
+  background: var(--hl-bg);
+  color: var(--hl-text);
+}
+
+.hl-sb-field input:focus {
+  outline: none;
+  border-color: var(--hl-border-strong);
+}
+
+.hl-sb-field--stake {
+  margin-bottom: 10px;
+}
+
+.hl-sb-field--stake > span {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--hl-text);
+}
+
+.hl-sb-field--stake input {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: var(--hl-bg-elevated);
+  border: 2px solid color-mix(in srgb, var(--hl-green-bright) 50%, var(--hl-border));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--hl-green-bright) 12%, transparent),
+    inset 0 1px 2px color-mix(in srgb, #000 4%, transparent);
+}
+
+.hl-sb-field--stake input:focus {
+  border-color: var(--hl-green-bright);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--hl-green-bright) 24%, transparent),
+    inset 0 1px 2px color-mix(in srgb, #000 4%, transparent);
+}
+
+.hl-sb-field--stake input::placeholder {
+  color: var(--hl-text-faint);
+  font-weight: 500;
 }
 
 .hl-sb-ref {
