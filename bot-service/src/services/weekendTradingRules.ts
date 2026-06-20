@@ -1,7 +1,7 @@
 import { config } from '../config';
 
 /**
- * Fri PM → end of Sat (UTC): HL liquidity thins — bot may only OPEN shorts.
+ * Fri 18:00 UTC → end of Sat: HL liquidity thins — bot may only OPEN shorts on signal.
  * Sunday+ resumes normal long/short from signals.
  */
 export function isWeekendShortOnlyWindow(now: Date = new Date()): boolean {
@@ -32,5 +32,5 @@ export function isOpenDirectionAllowed(
 
 export function weekendShortOnlyLabel(now: Date = new Date()): string | null {
   if (!isWeekendShortOnlyWindow(now)) return null;
-  return 'Weekend liquidity rule: SHORT opens only (Fri PM → Sat UTC)';
+  return 'Weekend liquidity rule: SHORT opens only (Fri 18:00 UTC → Sat)';
 }

@@ -110,8 +110,8 @@ export const config = {
     /** 0 = disabled — no forced close just for being in profit N ms. */
     profitGrabMaxHoldMs: Number(process.env.HL_PROFIT_GRAB_MAX_HOLD_MS || 0),
     profitHoldMaxMs: Number(process.env.HL_PROFIT_HOLD_MAX_MS || 0),
-    /** Fri from this UTC hour through Sat 23:59 — new opens SHORT only. */
-    fridayShortOnlyUtcHour: Number(process.env.HL_FRIDAY_SHORT_ONLY_UTC_HOUR || 14),
+    /** Fri 18:00 UTC through Sat 23:59 — new opens SHORT only when signaled. */
+    fridayShortOnlyUtcHour: Number(process.env.HL_FRIDAY_SHORT_ONLY_UTC_HOUR || 18),
     reentryCooldownMs: Number(process.env.HL_REENTRY_COOLDOWN_MS || 180_000),
     /** Minimum margin USD per HL open (small accounts use up to 10% of balance). */
     minMarginUsd: Number(process.env.HL_MIN_MARGIN_USD || 5),
