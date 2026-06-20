@@ -26,6 +26,7 @@ import ProTradeTransferModal from '../../components/protrade/ProTradeTransferMod
 import ProTradePortfolio from '../../components/protrade/ProTradePortfolio';
 import ProTradeSwap from '../../components/protrade/ProTradeSwap';
 import ProTradeSportsbets from '../../components/protrade/ProTradeSportsbets';
+import { BettingUiProvider } from '../../contexts/BettingUiContext';
 import type { ProTradeProfileTab } from '../../components/protrade/proTradeProfileTypes';
 import type { ActivityNotification } from '../../lib/activityNotifications';
 import { useHyperliquidMarket } from '../../hooks/useHyperliquidMarket';
@@ -589,6 +590,8 @@ const Dashboard2ProPageContent: React.FC = () => {
         onOpenBotHistory={() => openBotHistory()}
         onRequireSignIn={promptSignIn}
         onViewNotificationHistory={openNotificationHistory}
+        walletAddress={address ?? undefined}
+        walletConnected={isConnected}
       />
 
       {section === 'perps' ? renderPerpTerminal() : null}
@@ -702,7 +705,9 @@ const Dashboard2ProPageContent: React.FC = () => {
 
 const Dashboard2ProPage: React.FC = () => (
   <ProTradeShell>
-    <Dashboard2ProPageContent />
+    <BettingUiProvider>
+      <Dashboard2ProPageContent />
+    </BettingUiProvider>
   </ProTradeShell>
 );
 

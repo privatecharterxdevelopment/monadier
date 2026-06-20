@@ -5,6 +5,7 @@ import Logo from '../ui/Logo';
 import DockCountBadge from './DockCountBadge';
 import ProTradeAccountMenu from './ProTradeAccountMenu';
 import ProTradeNotificationsBell from './ProTradeNotificationsBell';
+import ProTradeBettingTopBarBalance from './ProTradeBettingTopBarBalance';
 import ProTradeThemeIcon from './ProTradeThemeIcon';
 import { useProTradeTheme } from '../../contexts/ProTradeThemeContext';
 import type { ProTradeProfileTab } from './proTradeProfileTypes';
@@ -50,6 +51,8 @@ type Props = {
   onOpenBotHistory?: () => void;
   onRequireSignIn?: (reason: string) => void;
   onViewNotificationHistory?: (notification?: ActivityNotification) => void;
+  walletAddress?: string;
+  walletConnected?: boolean;
 };
 
 const ProTradeTopNav: React.FC<Props> = ({
@@ -63,6 +66,8 @@ const ProTradeTopNav: React.FC<Props> = ({
   onOpenBotHistory,
   onRequireSignIn,
   onViewNotificationHistory,
+  walletAddress,
+  walletConnected = false,
 }) => {
   const { isLight } = useProTradeTheme();
   const { open } = useAppKit();
@@ -132,6 +137,13 @@ const ProTradeTopNav: React.FC<Props> = ({
         </nav>
       </div>
       <div className="hl-topnav-right">
+        {section === 'sportsbets' ? (
+          <ProTradeBettingTopBarBalance
+            walletAddress={walletAddress}
+            walletConnected={walletConnected}
+            onRequireSignIn={onRequireSignIn}
+          />
+        ) : null}
         {onViewNotificationHistory ? (
           <ProTradeNotificationsBell onViewHistory={onViewNotificationHistory} />
         ) : null}

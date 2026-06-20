@@ -5,9 +5,8 @@ import { fetchOutcomeLegQuotesFromMids, type OutcomeLegQuote } from '../../../li
 import { countByCategory, filterBettingQuestions } from '../../../lib/hyperliquid/outcomes/categories';
 import { findOutcomeMarket } from '../../../lib/hyperliquid/outcomes/meta';
 import type { HlOutcomePosition } from '../../../lib/hyperliquid/outcomes/types';
-import { countHlClosedFills, sumHlRealizedPnlFromFills } from '../../../lib/hyperliquid/hlPnl';
 import { useSportsbetsSession } from '../../../hooks/useSportsbetsSession';
-import { useAppKit } from '@reown/appkit/react';
+import { useBettingUi } from '../../../contexts/BettingUiContext';
 import SportsbetsHero from './SportsbetsHero';
 import BettingMarketList from './BettingMarketList';
 import SportsbetsAllMarketsView from './SportsbetsAllMarketsView';
@@ -29,7 +28,7 @@ const SportsbetsTerminal: React.FC<Props> = ({
   userId,
   onRequireSignIn,
 }) => {
-  const { open: openWallet } = useAppKit();
+  const { registerActions } = useBettingUi();
   const session = useSportsbetsSession(walletAddress, true, userId);
   const [legQuotes, setLegQuotes] = useState<Record<number, OutcomeLegQuote>>({});
   const [quotesLoading, setQuotesLoading] = useState(false);
@@ -80,20 +79,6 @@ const SportsbetsTerminal: React.FC<Props> = ({
     }
   }, [positionSize, orderAction]);
 
-  const walletSummary = useMemo(() => {
-    if (!signedIn || !walletConnected) return null;
-    const positionsValueUsd = session.positions.reduce((sum, p) => sum + p.valueUsd, 0);
-    const unrealizedPnlUsd = session.positions.reduce((sum, p) => sum + p.unrealizedPnl, 0);
-    return {
-      balanceUsd: session.bettingBalance,
-      positionsValueUsd,
-      unrealizedPnlUsd,
-      positionCount: session.positions.length,
-      closedCount: countHlClosedFills(session.outcomeFills),
-      realizedPnlUsd: sumHlRealizedPnlFromFills(session.outcomeFills),
-    };
-  }, [signedIn, walletConnected, session.positions, session.bettingBalance, session.outcomeFills]);
-
   const scrollToRail = useCallback(() => {
     requestAnimationFrame(() => {
       document.querySelector('.hl-sb-rail')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -115,6 +100,16 @@ const SportsbetsTerminal: React.FC<Props> = ({
     },
     [session, scrollToRail]
   );
+
+  useEffect(() => {
+    registerActions({
+      scrollToRail,
+      cashOutFirst: session.positions[0]
+        ? () => focusPositionForCashOut(session.positions[0])
+        : undefined,
+    });
+    return () => registerActions(null);
+  }, [registerActions, scrollToRail, session.positions, focusPositionForCashOut]);
 
   useEffect(() => {
     if (quoteLegs.length === 0) {
@@ -180,15 +175,6 @@ const SportsbetsTerminal: React.FC<Props> = ({
         onCategoryChange={session.setCategory}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        signedIn={signedIn}
-        walletConnected={walletConnected}
-        walletSummary={walletSummary}
-        onOpenPositions={scrollToRail}
-        onCashOutFirst={
-          session.positions[0] ? () => focusPositionForCashOut(session.positions[0]) : undefined
-        }
-        onRequireSignIn={() => onRequireSignIn?.('Sign in to see balance and bets.')}
-        onConnectWallet={() => openWallet()}
       />
 
       {session.catalogError ? (

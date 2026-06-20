@@ -180,6 +180,95 @@
   flex-shrink: 0;
 }
 
+.hl-topnav-betting-balance {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: min(52vw, 520px);
+  padding: 2px 4px;
+  border-radius: 8px;
+  border: 1px solid var(--hl-border);
+  background: var(--hl-bg-elevated);
+}
+
+.hl-topnav-betting-balance--cta {
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--hl-border);
+  background: var(--hl-bg-hover);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--hl-text-muted);
+  cursor: pointer;
+}
+
+.hl-topnav-betting-balance--cta:hover {
+  color: var(--hl-text);
+  background: var(--hl-bg);
+}
+
+.hl-topnav-bet-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--hl-text-muted);
+  white-space: nowrap;
+}
+
+.hl-topnav-bet-stat--btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.hl-topnav-bet-stat--btn:hover {
+  background: var(--hl-bg-hover);
+  color: var(--hl-text);
+}
+
+.hl-topnav-bet-stat--muted {
+  opacity: 0.75;
+}
+
+.hl-topnav-bet-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hl-topnav-bet-stat strong {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--hl-text);
+}
+
+.hl-topnav-bet-pnl {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.hl-topnav-bet-cashout {
+  padding: 4px 9px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--hl-green-bright) 45%, var(--hl-border));
+  background: var(--hl-green-tint);
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--hl-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.hl-topnav-bet-cashout:hover {
+  filter: brightness(1.05);
+}
+
 .hl-topnav-bot {
   padding: 5px 10px;
   border-radius: 6px;
@@ -7029,6 +7118,21 @@
 
   .hl-topnav-right {
     gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .hl-topnav-betting-balance {
+    max-width: min(42vw, 280px);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .hl-topnav-betting-balance::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hl-topnav-bet-cashout {
+    display: none;
   }
 
   .hl-topnav-bot {
