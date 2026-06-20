@@ -18,7 +18,7 @@ const ProTradeBettingTopBarBalance: React.FC<Props> = ({
 }) => {
   const { user } = useAuth();
   const { open } = useAppKit();
-  const { scrollToRail, cashOutFirst } = useBettingUi();
+  const { scrollToRail, cashOutFirst, openFunds } = useBettingUi();
   const signedIn = Boolean(user);
   const stats = useBettingHeaderBalance(walletAddress, signedIn && walletConnected);
 
@@ -44,10 +44,15 @@ const ProTradeBettingTopBarBalance: React.FC<Props> = ({
 
   return (
     <div className="hl-topnav-betting-balance" aria-label="Betting balance">
-      <span className="hl-topnav-bet-stat" title="USDC on Hyperliquid">
+      <button
+        type="button"
+        className="hl-topnav-bet-stat hl-topnav-bet-stat--btn"
+        title="Deposit or withdraw USDC on Hyperliquid"
+        onClick={() => openFunds('deposit')}
+      >
         <span className="hl-topnav-bet-label">Balance</span>
         <strong>{fmtUsdSymbol(stats.balanceUsd)}</strong>
-      </span>
+      </button>
       {stats.positionCount > 0 ? (
         <button
           type="button"

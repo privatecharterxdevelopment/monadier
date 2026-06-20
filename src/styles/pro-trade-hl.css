@@ -4923,6 +4923,15 @@
   background: #ef5350;
 }
 
+.hl-sb-order-submit--deposit {
+  background: color-mix(in srgb, #f59e0b 88%, #26a69a);
+  color: #fff;
+}
+
+.hl-sb-order-submit--deposit:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
 .hl-sb-order-note,
 .hl-sb-muted {
   margin: 10px 0 0;

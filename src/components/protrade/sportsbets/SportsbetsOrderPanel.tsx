@@ -20,6 +20,7 @@ import { fmtUsdSymbol } from '../../../lib/hyperliquid/format';
 import type { HlOutcomeMarket, HlOutcomeQuestion, OutcomeLegQuote, OutcomeSideIndex } from '../../../lib/hyperliquid/outcomes/types';
 import type { useHyperliquidOutcomeTrading } from '../../../hooks/useHyperliquidOutcomeTrading';
 import { useBettingBuilderFee } from '../../../hooks/useBettingBuilderFee';
+import { useBettingUi } from '../../../contexts/BettingUiContext';
 import SportsbetsPayoutCard from './SportsbetsPayoutCard';
 import BettingBuilderFeeModal from './BettingBuilderFeeModal';
 
@@ -82,6 +83,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   const [localMsg, setLocalMsg] = useState<string | null>(null);
   const [showBuilderModal, setShowBuilderModal] = useState(false);
   const builderFee = useBettingBuilderFee(walletAddress);
+  const { openFunds } = useBettingUi();
 
   const canBet = signedIn && walletConnected;
 
@@ -139,7 +141,9 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   const statusDisplay =
     trading.error != null ? formatBettingOrderError(trading.error) : statusMessage;
   const statusIsError = Boolean(trading.error || validation);
-  const needsDeposit = canBet && !isCashOut && bettingBalance <= 0;
+  const needsDeposit =
+    canBet && !isCashOut && bettingBalance < OUTCOME_MIN_NOTIONAL_USD;
+  const showDepositCta = needsDeposit;
 
   const handleGate = () => {
     if (signedIn) {
@@ -347,7 +351,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
               </div>
               {canBet ? (
                 <>
-                  <div className={`hl-sb-order-context-stat ${needsDeposit ? 'hl-sb-order-context-stat--warn' : ''}`}>
+                  <div className="hl-sb-order-context-stat">
                     <span className="hl-sb-order-context-label">Balance</span>
                     <strong>{fmtUsdSymbol(bettingBalance)}</strong>
                   </div>
@@ -364,12 +368,6 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
                 </>
               ) : null}
             </div>
-
-            {needsDeposit ? (
-              <p className="hl-sb-order-context-banner hl-sb-order-context-banner--warn">
-                Deposit USDC to Hyperliquid Spot to place bets.
-              </p>
-            ) : null}
 
             {statusMessage ? (
               <div
@@ -391,28 +389,38 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
 
           <button
             type="button"
-            className={`hl-sb-order-submit ${isCashOut ? 'hl-sb-order-submit--sell' : ''}`}
+            className={`hl-sb-order-submit ${isCashOut ? 'hl-sb-order-submit--sell' : ''} ${showDepositCta ? 'hl-sb-order-submit--deposit' : ''}`}
             disabled={
-              canBet &&
-              (trading.busy ||
-                quoteLoading ||
-                !quote ||
-                referencePx <= 0 ||
-                !payoutPreview ||
-                Boolean(validation) ||
-                notional < OUTCOME_MIN_NOTIONAL_USD ||
-                (isCashOut && payoutPreview.contracts > positionSize))
+              showDepositCta
+                ? trading.busy
+                : canBet &&
+                  (trading.busy ||
+                    quoteLoading ||
+                    !quote ||
+                    referencePx <= 0 ||
+                    !payoutPreview ||
+                    Boolean(validation) ||
+                    notional < OUTCOME_MIN_NOTIONAL_USD ||
+                    (isCashOut && payoutPreview.contracts > positionSize))
             }
-            onClick={() => void handleSubmit()}
+            onClick={() => {
+              if (showDepositCta) {
+                openFunds('deposit');
+                return;
+              }
+              void handleSubmit();
+            }}
           >
             {trading.busy ? <Loader2 size={16} className="hl-spin" aria-hidden /> : null}
             {!canBet
               ? signedIn
                 ? 'Connect wallet'
                 : 'Sign in'
-              : isCashOut
-                ? `Cash out ${sideLabel}`
-                : `Bet ${sideLabel}`}
+              : showDepositCta
+                ? 'Deposit now'
+                : isCashOut
+                  ? `Cash out ${sideLabel}`
+                  : `Bet ${sideLabel}`}
           </button>
         </>
       )}

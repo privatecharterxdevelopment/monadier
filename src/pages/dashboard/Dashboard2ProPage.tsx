@@ -26,7 +26,7 @@ import ProTradeTransferModal from '../../components/protrade/ProTradeTransferMod
 import ProTradePortfolio from '../../components/protrade/ProTradePortfolio';
 import ProTradeSwap from '../../components/protrade/ProTradeSwap';
 import ProTradeSportsbets from '../../components/protrade/ProTradeSportsbets';
-import { BettingUiProvider } from '../../contexts/BettingUiContext';
+import { BettingUiProvider, useBettingUi } from '../../contexts/BettingUiContext';
 import type { ProTradeProfileTab } from '../../components/protrade/proTradeProfileTypes';
 import type { ActivityNotification } from '../../lib/activityNotifications';
 import { useHyperliquidMarket } from '../../hooks/useHyperliquidMarket';
@@ -95,6 +95,13 @@ const Dashboard2ProPageContent: React.FC = () => {
   const { badge: botBadge } = useBotPositionBadge(botSyncTick);
   const { theme } = useProTradeTheme();
   const chartMarkerColors = useMemo(() => getProTradeChartColors(theme), [theme]);
+
+  const { registerOpenFunds } = useBettingUi();
+
+  useEffect(() => {
+    registerOpenFunds((tab) => setFundsModal(tab));
+    return () => registerOpenFunds(null);
+  }, [registerOpenFunds]);
 
   const { markets: perpMarkets, loading: perpMarketsLoading, refresh: refreshPerpMarkets } =
     useHyperliquidMarkets();
@@ -655,10 +662,11 @@ const Dashboard2ProPageContent: React.FC = () => {
 
       {toast ? <div className="hl-toast">{toast}</div> : null}
 
-      {fundsModal && section === 'perps' ? (
+      {fundsModal && (section === 'perps' || section === 'sportsbets') ? (
         <ProTradeDepositModal
           initialTab={fundsModal}
-          withdrawable={account?.withdrawable}
+          withdrawable={section === 'sportsbets' ? String(spotUsdc) : account?.withdrawable}
+          hlBalanceUsd={section === 'sportsbets' ? spotUsdc : perpAccountValue}
           onClose={() => setFundsModal(null)}
           onSuccess={() => void handleRefreshAll()}
         />
