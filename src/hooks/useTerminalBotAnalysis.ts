@@ -6,6 +6,8 @@ import { evaluateBotReadiness, readinessFromServerBlockers } from '../lib/botRea
 import { HL_MAX_CONCURRENT_POSITIONS } from '../lib/hlBotConstants';
 import { MIN_HL_BOT_USD } from '../lib/hyperliquid/hlBotAgent';
 import { getBotApiBase, type Timeframe } from '../lib/signalService';
+import { binanceSymbolToHlCoin, hlCoinToBotSymbol } from '../lib/botTradingPairs';
+import { pickNextScanCandidate } from '../lib/botScanCandidate';
 
 export const ANALYSIS_STEPS = [
   { label: 'Scanning all HL perps', progress: 15 },
@@ -43,6 +45,8 @@ type Options = {
   vaultUsd?: number;
   /** Connected wallet the bot trades on (0x…) */
   vaultWallet?: string | null;
+  /** HL coins with an open bot position — used to pick the next scan pair. */
+  openPositionCoins?: string[];
   symbol?: string;
   /** Show live scan bar (funded + agent, or bot running). */
   analysisActive?: boolean;
@@ -56,6 +60,7 @@ export function useTerminalBotAnalysis({
   maxConcurrentPositions = HL_MAX_CONCURRENT_POSITIONS,
   vaultUsd = 0,
   vaultWallet,
+  openPositionCoins = [],
   symbol = 'ETHUSDT',
   analysisActive,
   botRunning = false,
@@ -64,6 +69,8 @@ export function useTerminalBotAnalysis({
   const [serverBlockers, setServerBlockers] = useState<string[]>([]);
   const [serverMaxSlots, setServerMaxSlots] = useState(maxConcurrentPositions);
   const [globalBest, setGlobalBest] = useState<GlobalScanCandidate | null>(null);
+  const [globalCandidates, setGlobalCandidates] = useState<GlobalScanCandidate[]>([]);
+  const [serverOpenCoins, setServerOpenCoins] = useState<string[]>([]);
   const [globalScanCount, setGlobalScanCount] = useState(0);
   const [globalCoinsScanned, setGlobalCoinsScanned] = useState(0);
   const [step, setStep] = useState(0);
@@ -72,11 +79,44 @@ export function useTerminalBotAnalysis({
   const active = analysisActive ?? metrics.autoTradeEnabled;
   const scanning = active;
 
+  const effectiveOpenCoins = useMemo(() => {
+    const merged = new Set<string>();
+    for (const coin of openPositionCoins) merged.add(coin.toUpperCase());
+    for (const coin of serverOpenCoins) merged.add(coin.toUpperCase());
+    return [...merged];
+  }, [openPositionCoins, serverOpenCoins]);
+
+  const slotsLeft = openPositionsCount < serverMaxSlots;
+
+  const scanCandidate = useMemo(
+    () =>
+      pickNextScanCandidate(globalCandidates, globalBest, effectiveOpenCoins),
+    [globalCandidates, globalBest, effectiveOpenCoins]
+  );
+
+  const chartCoin = binanceSymbolToHlCoin(symbol).toUpperCase();
+  const chartIsOpenPair =
+    openPositionsCount > 0 && effectiveOpenCoins.includes(chartCoin);
+
+  /** MTF symbol for the next free slot — never the already-open pair. */
+  const scanSymbol = useMemo(() => {
+    if (scanCandidate?.coin) {
+      return hlCoinToBotSymbol(scanCandidate.coin);
+    }
+    if (slotsLeft && chartIsOpenPair) {
+      return null;
+    }
+    return symbol;
+  }, [scanCandidate?.coin, slotsLeft, chartIsOpenPair, symbol]);
+
+  const signalEnabled = Boolean(scanSymbol) && walletConnected && active;
+
   const { signal, isLoading } = useUnifiedSignal({
-    symbol,
+    symbol: scanSymbol ?? 'ETHUSDT',
     timeframes: MTF_TIMEFRAMES,
     refreshInterval: 5000,
-    autoRefresh: walletConnected && active,
+    autoRefresh: signalEnabled,
+    enabled: signalEnabled,
   });
 
   useEffect(() => {
@@ -114,6 +154,7 @@ export function useTerminalBotAnalysis({
   useEffect(() => {
     if (!walletConnected || !active) {
       setGlobalBest(null);
+      setGlobalCandidates([]);
       setGlobalScanCount(0);
       setGlobalCoinsScanned(0);
       return;
@@ -128,7 +169,9 @@ export function useTerminalBotAnalysis({
           coinsScanned?: number;
         };
         const list = Array.isArray(data.candidates) ? data.candidates : [];
-        setGlobalBest(list[0] ?? null);
+        setGlobalCandidates(list);
+        const next = pickNextScanCandidate(list, list[0] ?? null, effectiveOpenCoins);
+        setGlobalBest(next);
         setGlobalScanCount(typeof data.count === 'number' ? data.count : list.length);
         setGlobalCoinsScanned(typeof data.coinsScanned === 'number' ? data.coinsScanned : 0);
       } catch {
@@ -136,9 +179,9 @@ export function useTerminalBotAnalysis({
       }
     };
     void load();
-    const id = setInterval(load, 30000);
+    const id = setInterval(load, 15000);
     return () => clearInterval(id);
-  }, [walletConnected, active]);
+  }, [walletConnected, active, effectiveOpenCoins]);
 
   useEffect(() => {
     if (!vaultWallet || !botRunning) {
@@ -166,18 +209,19 @@ export function useTerminalBotAnalysis({
         if (typeof data.hyperliquid?.maxConcurrentPositions === 'number') {
           setServerMaxSlots(data.hyperliquid.maxConcurrentPositions);
         }
-        const openSet = new Set(
-          (data.hyperliquid?.openCoins ?? []).map((c) => c.toUpperCase())
-        );
+        const openCoins = Array.isArray(data.hyperliquid?.openCoins)
+          ? data.hyperliquid.openCoins
+          : [];
+        setServerOpenCoins(openCoins);
         const candidates = Array.isArray(data.globalScan?.candidates)
           ? data.globalScan.candidates
           : [];
-        const nextCandidate =
-          candidates.find((c) => c?.coin && !openSet.has(c.coin.toUpperCase())) ??
-          (data.globalScan?.best &&
-          !openSet.has(data.globalScan.best.coin.toUpperCase())
-            ? data.globalScan.best
-            : null);
+        setGlobalCandidates(candidates);
+        const nextCandidate = pickNextScanCandidate(
+          candidates,
+          data.globalScan?.best ?? null,
+          openCoins
+        );
         if (data.lastOpenError?.error) {
           blockers.push(
             `HL order failed${data.lastOpenError.coin ? ` (${data.lastOpenError.coin})` : ''}: ${data.lastOpenError.error}`
@@ -185,7 +229,6 @@ export function useTerminalBotAnalysis({
         }
         setServerBlockers(blockers);
         if (nextCandidate) setGlobalBest(nextCandidate);
-        else if (data.globalScan?.best) setGlobalBest(data.globalScan.best);
         if (typeof data.globalScan?.coinsScanned === 'number') {
           setGlobalCoinsScanned(data.globalScan.coinsScanned);
         }
@@ -197,7 +240,7 @@ export function useTerminalBotAnalysis({
       }
     };
     void load();
-    const id = setInterval(load, 30000);
+    const id = setInterval(load, 10000);
     return () => clearInterval(id);
   }, [vaultWallet, botRunning]);
 
@@ -207,6 +250,7 @@ export function useTerminalBotAnalysis({
       openPositionsCount,
       maxConcurrentPositions: serverMaxSlots,
       vaultUsd,
+      nextSetup: scanCandidate,
     });
     if (!botRunning && vaultUsd >= MIN_HL_BOT_USD) {
       return {
@@ -217,7 +261,15 @@ export function useTerminalBotAnalysis({
     }
     if (serverBlockers.length === 0) return local;
     return readinessFromServerBlockers(serverBlockers);
-  }, [signal, botRunning, openPositionsCount, serverMaxSlots, vaultUsd, serverBlockers]);
+  }, [
+    signal,
+    botRunning,
+    openPositionsCount,
+    serverMaxSlots,
+    vaultUsd,
+    serverBlockers,
+    scanCandidate,
+  ]);
 
   const slotsFull = openPositionsCount >= serverMaxSlots;
 
@@ -228,7 +280,8 @@ export function useTerminalBotAnalysis({
     signal,
     isLoading,
     dbAnalysis,
-    activeSymbol: symbol,
+    activeSymbol: scanSymbol,
+    scanCandidate,
     globalBest,
     globalScanCount,
     globalCoinsScanned,

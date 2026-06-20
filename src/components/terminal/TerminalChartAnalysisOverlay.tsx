@@ -176,9 +176,10 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
               {openPositionsCount > 0
                 ? ` · ${openPositionsCount}/${maxConcurrentPositions} slots used`
                 : ` · up to ${maxConcurrentPositions} trades`}
-              {' · '}Next: {globalBest.coin} {globalBest.direction}{' '}
-              {Math.round(globalBest.confidence)}%
-              {activeLabel ? ` · chart shows ${activeLabel} only` : ''}
+              {openPositionsCount > 0 && openPositionsCount < maxConcurrentPositions
+                ? ` · Slot ${openPositionsCount + 1} (independent): ${globalBest.coin} ${globalBest.direction} ${Math.round(globalBest.confidence)}%`
+                : ` · Next: ${globalBest.coin} ${globalBest.direction} ${Math.round(globalBest.confidence)}%`}
+              {activeLabel ? ` · MTF chart: ${activeLabel}` : ''}
             </p>
             {globalBest.reason ? (
               <p className="term-analysis-reason" title="Why the bot would open this trade">

@@ -11,6 +11,7 @@ type Props = {
   walletConnected: boolean;
   metrics: Dashboard2Metrics;
   vaultWallet?: string | null;
+  openPositionCoins?: string[];
   symbol?: string;
   placement?: 'chart' | 'dock';
 };
@@ -19,6 +20,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
   walletConnected,
   metrics,
   vaultWallet,
+  openPositionCoins = [],
   symbol = 'ETHUSDT',
   placement = 'dock',
 }) => {
@@ -43,6 +45,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     maxConcurrentPositions: maxSlots,
     vaultUsd: hlBalanceUsd,
     vaultWallet,
+    openPositionCoins,
     symbol,
     analysisActive: showAnalysis,
     botRunning,
@@ -61,7 +64,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
         signal={analysis.signal}
         dbAnalysis={analysis.dbAnalysis}
         activeSymbol={analysis.activeSymbol}
-        globalBest={analysis.globalBest}
+        globalBest={analysis.scanCandidate ?? analysis.globalBest}
         globalScanCount={analysis.globalScanCount}
         globalCoinsScanned={analysis.globalCoinsScanned}
         readiness={analysis.readiness}

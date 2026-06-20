@@ -686,6 +686,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
             walletConnected={walletConnected}
             metrics={botAnalysisMetrics}
             vaultWallet={botAnalysisWallet ?? address ?? null}
+            openPositionCoins={hlPositionCoins}
             symbol={botAnalysisSymbol}
             placement="dock"
           />

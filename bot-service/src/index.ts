@@ -334,6 +334,9 @@ const healthServer = http.createServer(async (req, res) => {
         dbSettings.hlBotStrategy
       );
       const bestGlobal = userSignals[0] ?? null;
+      const openCoinSet = new Set(hlOpenCoins.map((c) => c.toUpperCase()));
+      const bestAvailable =
+        userSignals.find((s) => !openCoinSet.has(s.coin.toUpperCase())) ?? null;
 
       const ethSignal = await marketService.getSignal(
         chainId,
@@ -375,12 +378,12 @@ const healthServer = http.createServer(async (req, res) => {
         );
       }
       if (!winRateGate.allowed) blockers.push(winRateGate.reason || 'win rate gate');
-      if (!bestGlobal) {
+      if (!bestAvailable && hlOpenCoins.length < maxPositions) {
         blockers.push(
           `no HL perp passed global scan (min ${config.hyperliquid.minSignalConfidence}% conf)`
         );
       }
-      if (bestGlobal && hlOpenCoins.length < maxPositions && dbSettings.autoTradeEnabled) {
+      if (bestAvailable && hlOpenCoins.length < maxPositions && dbSettings.autoTradeEnabled) {
         const balance = hlBalanceUsd;
         const perSlot = resolveHlMarginPerSlot(
           balance,
@@ -448,7 +451,15 @@ const healthServer = http.createServer(async (req, res) => {
             reason: s.reason,
             mode: s.botMode,
           })),
-          best: bestGlobal
+          best: bestAvailable
+            ? {
+                coin: bestAvailable.coin,
+                direction: bestAvailable.direction,
+                confidence: bestAvailable.confidence,
+                reason: bestAvailable.reason,
+              }
+            : null,
+          topGlobal: bestGlobal
             ? {
                 coin: bestGlobal.coin,
                 direction: bestGlobal.direction,

@@ -42,6 +42,7 @@ type Props = {
   botAnalysisMetrics?: Dashboard2Metrics;
   botAnalysisSymbol?: string;
   botAnalysisWallet?: string | null;
+  botOpenPositionCoins?: string[];
   className?: string;
 };
 
@@ -57,6 +58,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   botAnalysisMetrics,
   botAnalysisSymbol = 'ETHUSDT',
   botAnalysisWallet,
+  botOpenPositionCoins,
   className,
 }) => {
   const { address } = useAccount();
@@ -150,6 +152,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
             walletConnected={walletConnected}
             metrics={botAnalysisMetrics}
             vaultWallet={botAnalysisWallet ?? hlWallet ?? null}
+            openPositionCoins={botOpenPositionCoins ?? positionCoins}
             symbol={botAnalysisSymbol}
             placement="dock"
           />

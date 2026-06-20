@@ -20,6 +20,8 @@ interface UseUnifiedSignalOptions {
   timeframes?: Timeframe[];
   refreshInterval?: number; // ms
   autoRefresh?: boolean;
+  /** When false, skips fetch (e.g. waiting for slot-2 scan pair). */
+  enabled?: boolean;
 }
 
 interface UseUnifiedSignalResult {
@@ -39,7 +41,8 @@ export function useUnifiedSignal(options: UseUnifiedSignalOptions = {}): UseUnif
     symbol = 'ETHUSDT',
     timeframes = ['1m', '5m', '15m', '1h'],
     refreshInterval = 30000, // 30 seconds default
-    autoRefresh = true
+    autoRefresh = true,
+    enabled = true,
   } = options;
 
   const [signal, setSignal] = useState<UnifiedSignal | null>(null);
@@ -48,6 +51,11 @@ export function useUnifiedSignal(options: UseUnifiedSignalOptions = {}): UseUnif
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const refresh = useCallback(async (silent = false) => {
+    if (!enabled || !symbol) {
+      if (!silent) setIsLoading(false);
+      return;
+    }
+
     if (!silent) {
       setIsLoading(true);
       setError(null);
@@ -67,16 +75,21 @@ export function useUnifiedSignal(options: UseUnifiedSignalOptions = {}): UseUnif
     } finally {
       if (!silent) setIsLoading(false);
     }
-  }, [symbol, timeframes.join(',')]);
+  }, [enabled, symbol, timeframes.join(',')]);
 
   // Initial fetch
   useEffect(() => {
+    if (!enabled || !symbol) {
+      setSignal(null);
+      setIsLoading(false);
+      return;
+    }
     refresh(false);
-  }, [refresh]);
+  }, [refresh, enabled, symbol]);
 
   // Auto-refresh without flashing "Loading…" UI
   useEffect(() => {
-    if (!autoRefresh) return;
+    if (!autoRefresh || !enabled || !symbol) return;
 
     const interval = setInterval(() => refresh(true), refreshInterval);
     return () => clearInterval(interval);

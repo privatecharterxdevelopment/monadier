@@ -46,6 +46,8 @@ import type { HlMarket } from '../../lib/hyperliquid/markets';
 import { getSpotDisplayName, isHlSpotCoin } from '../../lib/hyperliquid/spot';
 import { readNum, toNum } from '../../lib/hyperliquid/parse';
 import { hlCoinToBotSymbol } from '../../lib/botTradingPairs';
+import { HL_MAX_CONCURRENT_POSITIONS } from '../../lib/hlBotConstants';
+import { useBotServerBlockers } from '../../hooks/useBotServerBlockers';
 import { useBotPositionBadge } from '../../hooks/useBotPositionBadge';
 import { useAuth } from '../../contexts/AuthContext';
 import ProTradeSignInModal from '../../components/protrade/ProTradeSignInModal';
@@ -212,17 +214,50 @@ const Dashboard2ProPageContent: React.FC = () => {
     return list.find((p) => Math.abs(toNum(p.szi)) > 0) ?? null;
   }, [account?.positions]);
 
+  const botOpenPositionCount = useMemo(
+    () => (account?.positions ?? []).filter((p) => Math.abs(toNum(p.szi)) > 0).length,
+    [account?.positions]
+  );
+
+  const botOpenPositionCoins = useMemo(
+    () =>
+      (account?.positions ?? [])
+        .filter((p) => Math.abs(toNum(p.szi)) > 0)
+        .map((p) => p.coin),
+    [account?.positions]
+  );
+
   const { settings: botVaultSettings } = useTerminalBotSettings();
+  const botServerStatus = useBotServerBlockers(
+    address?.toLowerCase(),
+    section === 'bot' && botVaultSettings.autoTradeEnabled
+  );
+  const botScanCoin = useMemo(() => {
+    if (botOpenPositionCount >= HL_MAX_CONCURRENT_POSITIONS) {
+      return botOpenPosition?.coin ?? perpCoin;
+    }
+    const next = botServerStatus.nextSetup?.coin?.toUpperCase();
+    if (botOpenPositionCount > 0 && next) return next;
+    return perpCoin;
+  }, [
+    botOpenPositionCount,
+    botOpenPosition?.coin,
+    botServerStatus.nextSetup?.coin,
+    perpCoin,
+  ]);
+
   const botChartOverlay = useHlBotChartOverlay(
     botOpenPosition,
-    perpCoin,
+    botScanCoin,
     botVaultSettings.hlBotStrategy
   );
 
   useEffect(() => {
-    if (section !== 'bot' || !botOpenPosition?.coin) return;
-    if (botOpenPosition.coin !== perpCoin) setPerpCoin(botOpenPosition.coin);
-  }, [section, botOpenPosition?.coin, perpCoin]);
+    if (section !== 'bot') return;
+    if (botScanCoin && botScanCoin !== perpCoin) {
+      setPerpCoin(botScanCoin);
+    }
+  }, [section, botScanCoin, perpCoin]);
 
   const perpMarkPrices = useMemo(() => {
     const map = { ...positionMarkPrices };
@@ -551,7 +586,8 @@ const Dashboard2ProPageContent: React.FC = () => {
           <ProTradeBotDockSlot
             dockTab={botDockTab}
             onDockTabChange={setBotDockTab}
-            analysisSymbol={hlCoinToBotSymbol(botOpenPosition?.coin ?? perpCoin)}
+            analysisSymbol={hlCoinToBotSymbol(botScanCoin)}
+            openPositionCoins={botOpenPositionCoins}
             onCoinClick={setPerpCoin}
           />
         </div>

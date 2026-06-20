@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { pickNextScanCandidate } from '../lib/botScanCandidate';
 import { getBotApiBase } from '../lib/signalService';
 import { HL_MAX_CONCURRENT_POSITIONS } from '../lib/hlBotConstants';
 
@@ -55,16 +56,14 @@ export function useBotServerBlockers(wallet: string | undefined, enabled: boolea
           typeof data.hyperliquid?.maxConcurrentPositions === 'number'
             ? data.hyperliquid.maxConcurrentPositions
             : HL_MAX_CONCURRENT_POSITIONS;
-        const openSet = new Set(openCoins.map((c) => c.toUpperCase()));
         const candidates = Array.isArray(data.globalScan?.candidates)
           ? data.globalScan!.candidates!
           : [];
-        const nextFromList =
-          candidates.find((c) => c?.coin && !openSet.has(c.coin.toUpperCase())) ?? null;
-        const best = data.globalScan?.best ?? null;
-        const nextSetup =
-          nextFromList ??
-          (best && !openSet.has(best.coin.toUpperCase()) ? best : null);
+        const nextSetup = pickNextScanCandidate(
+          candidates,
+          data.globalScan?.best ?? null,
+          openCoins
+        );
 
         setStatus({
           blockers: Array.isArray(data.blockers) ? data.blockers : [],
@@ -77,7 +76,7 @@ export function useBotServerBlockers(wallet: string | undefined, enabled: boolea
       }
     };
     void load();
-    const id = window.setInterval(load, 20_000);
+    const id = window.setInterval(load, 10_000);
     return () => window.clearInterval(id);
   }, [wallet, enabled]);
 

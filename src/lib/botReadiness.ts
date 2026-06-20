@@ -57,6 +57,13 @@ export function readinessFromServerBlockers(blockers: string[]): BotReadiness {
   };
 }
 
+export type BotScanSetup = {
+  coin: string;
+  direction: string;
+  confidence: number;
+  reason?: string;
+};
+
 export function evaluateBotReadiness(
   signal: UnifiedSignal | null,
   opts: {
@@ -65,6 +72,8 @@ export function evaluateBotReadiness(
     maxConcurrentPositions?: number;
     vaultUsd: number;
     minVaultUsd?: number;
+    /** Global scan target for the next free slot (independent high-volume pair). */
+    nextSetup?: BotScanSetup | null;
     /** @deprecated use openPositionsCount */
     hasOpenPosition?: boolean;
   }
@@ -99,38 +108,51 @@ export function evaluateBotReadiness(
     };
   }
 
-  if (!signal) {
+  if (!signal && !opts.nextSetup) {
     return {
       canEnter: false,
-      headline: 'Bot active',
-      detail: 'Loading market data…',
+      headline: openCount > 0 ? `Slot ${openCount + 1} scan` : 'Bot active',
+      detail:
+        openCount > 0
+          ? 'Scanning high-volume HL perps for an independent 2nd trade…'
+          : 'Loading market data…',
     };
   }
 
-  const conf = Math.round(signal.confidence);
-  const strong = conf >= BOT_MIN_CONFIDENCE_AGGRESSIVE && signal.direction !== 'HOLD';
+  const next = opts.nextSetup;
+  const nextConf = next ? Math.round(next.confidence) : 0;
+  const conf = Math.round(signal?.confidence ?? nextConf);
+  const direction = signal?.direction ?? next?.direction ?? 'HOLD';
+  const strong =
+    conf >= BOT_MIN_CONFIDENCE_AGGRESSIVE && direction !== 'HOLD';
   const slotLabel =
     openCount > 0
       ? `slot ${openCount + 1}/${maxSlots}`
       : `up to ${maxSlots} trades`;
+  const independentPair =
+    openCount > 0 && next?.coin
+      ? `${next.coin} ${next.direction} (${nextConf}%)`
+      : null;
 
   if (strong) {
     return {
       canEnter: true,
-      headline: openCount > 0 ? `Scanning ${slotLabel}` : 'Ready to trade',
+      headline: openCount > 0 ? `Slot ${openCount + 1}: ${next?.coin ?? 'scanning'}` : 'Ready to trade',
       detail:
-        openCount > 0
-          ? `${signal.direction} setup — bot may open a 2nd high-liquidity pair`
-          : `${signal.direction} setup found — next bot cycle ~10s`,
+        openCount > 0 && independentPair
+          ? `Independent ${independentPair} — high-volume pair, separate from open trade`
+          : `${direction} setup found — next bot cycle ~10s`,
     };
   }
 
   return {
     canEnter: false,
-    headline: openCount > 0 ? `Managing ${openCount} trade(s)` : 'Scanning markets',
+    headline: openCount > 0 ? `Slot ${openCount + 1} scan` : 'Scanning markets',
     detail:
       openCount > 0
-        ? `Scanning for ${slotLabel} on high-volume HL perps…`
+        ? independentPair
+          ? `Analyzing ${independentPair} on high-volume HL perps (not your open pair)…`
+          : `Scanning ${slotLabel} on high-volume HL perps…`
         : 'Waiting for a strong trade setup on Hyperliquid.',
   };
 }
