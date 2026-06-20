@@ -988,6 +988,18 @@
   flex-shrink: 0;
 }
 
+.hl-chart-toolbar--engines {
+  justify-content: flex-end;
+  gap: 4px;
+  height: 28px;
+  padding: 0 6px;
+}
+
+.hl-chart-tf:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .hl-chart-toolbar-left {
   display: flex;
   align-items: center;
@@ -2177,6 +2189,27 @@
 
 .hl-bot-dock .term-hl-open-table {
   width: 100%;
+}
+
+.hl-dock-market-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hl-bot-dock .term-trade-reason-hint {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.hl-bot-dock .term-trade-reason-hint:hover,
+.hl-bot-dock .term-trade-reason-hint:focus-visible {
+  color: #26a69a;
+}
+
+.hl-bot-dock .term-trade-reason-hint__tip {
+  background: rgba(12, 14, 18, 0.98);
+  border-color: rgba(38, 166, 154, 0.35);
+  color: #eceff1;
 }
 
 .hl-bot-dock .term-hl-open-actions-col {

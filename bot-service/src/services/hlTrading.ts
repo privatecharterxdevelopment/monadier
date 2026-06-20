@@ -29,6 +29,7 @@ import { resolveHlOrderBuilder, estimateCollectedSuccessFee } from './hlBuilderF
 import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from './hlSuccessFees';
 import { recordHlBotOpenMarker } from './hlChartMarkers';
 import {
+  shouldCloseNeverRedAfterGreen,
   shouldClosePeakDropUsd,
   shouldCloseProfitHoldTimeout,
   shouldCloseProfitLockUsd,
@@ -581,10 +582,10 @@ export class HyperliquidTradingService {
         leverage: pos.leverage?.value ?? 10,
       };
 
-      // Loss first — SL always applies when configured (even if profit lock was armed).
-      if (sl > 0 && shouldStopLossOnPnl(pnlPct, sl)) {
+      // Profit-first — once green, SL trails in profit; never hold red after a real peak.
+      if (shouldCloseNeverRedAfterGreen(pnl, peak, minGrabUsd)) {
         clearProfitLockState(lockKey);
-        await this.closeMarketPosition(userAddress, pos.coin, 'stop_loss', closeCtx);
+        await this.closeMarketPosition(userAddress, pos.coin, 'breakeven_scratch', closeCtx);
       } else if (
         locked &&
         peak >= minGrabUsd &&
@@ -592,14 +593,9 @@ export class HyperliquidTradingService {
       ) {
         clearProfitLockState(lockKey);
         await this.closeMarketPosition(userAddress, pos.coin, 'profit_lock', closeCtx);
-      } else if (
-        tp > 0 &&
-        exitPolicy.useTakeProfitPercent &&
-        shouldTakeProfitOnPnl(pnlPct, tp) &&
-        pnl >= minGrabUsd
-      ) {
+      } else if (shouldClosePeakDropUsd(pnl, peak, minGrabUsd, trailBufferUsd)) {
         clearProfitLockState(lockKey);
-        await this.closeMarketPosition(userAddress, pos.coin, 'take_profit', closeCtx);
+        await this.closeMarketPosition(userAddress, pos.coin, 'profit_grab_peak', closeCtx);
       } else if (
         exitPolicy.maxHoldInProfitMs > 0 &&
         shouldCloseProfitHoldTimeout(
@@ -613,11 +609,20 @@ export class HyperliquidTradingService {
         clearProfitLockState(lockKey);
         await this.closeMarketPosition(userAddress, pos.coin, 'profit_grab_timeout', closeCtx);
       } else if (
-        strategy === 'profit_grabber' &&
-        shouldClosePeakDropUsd(pnl, peak, minGrabUsd, trailBufferUsd)
+        tp > 0 &&
+        exitPolicy.useTakeProfitPercent &&
+        shouldTakeProfitOnPnl(pnlPct, tp) &&
+        pnl >= minGrabUsd
       ) {
         clearProfitLockState(lockKey);
-        await this.closeMarketPosition(userAddress, pos.coin, 'profit_grab_peak', closeCtx);
+        await this.closeMarketPosition(userAddress, pos.coin, 'take_profit', closeCtx);
+      } else if (
+        sl > 0 &&
+        peak < minGrabUsd &&
+        shouldStopLossOnPnl(pnlPct, sl)
+      ) {
+        clearProfitLockState(lockKey);
+        await this.closeMarketPosition(userAddress, pos.coin, 'stop_loss', closeCtx);
       }
     }
   }

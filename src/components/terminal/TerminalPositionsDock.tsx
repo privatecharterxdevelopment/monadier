@@ -696,6 +696,8 @@ const TerminalPositionsDock: React.FC<Props> = ({
             positions={hlOpenPositions}
             loading={hlPositionsLoading}
             configuredLeverage={configuredLeverage}
+            walletAddress={hlWallet}
+            reasonRefreshKey={refreshKey}
             closingCoin={hlClosingCoin}
             closeBusy={hlCloseBusy}
             onClose={(p) => setHlCloseConfirm(p)}

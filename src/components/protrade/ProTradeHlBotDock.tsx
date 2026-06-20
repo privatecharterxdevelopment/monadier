@@ -179,6 +179,8 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         actionBusy={closeBusy}
         onClosePosition={(p) => void handleClosePosition(p)}
         configuredLeverage={configuredLeverage}
+        walletAddress={hlWallet}
+        reasonRefreshKey={refreshKey}
       />
     </div>
   );

@@ -25,6 +25,8 @@ import {
 } from '../../lib/hyperliquid/format';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { toNum } from '../../lib/hyperliquid/parse';
+import { useHlOpenTradeReasons } from '../../hooks/useHlOpenTradeReasons';
+import TradeOpenReasonHint from '../terminal/TradeOpenReasonHint';
 import DockCountBadge from './DockCountBadge';
 
 function livePositionPnl(position: HlPosition, markPx: number): number {
@@ -73,6 +75,9 @@ type Props = {
   onClosePosition?: (position: HlPosition) => void;
   /** Saved bot leverage — shown in positions table when set. */
   configuredLeverage?: number;
+  /** Bot wallet — for open-trade reason tooltips. */
+  walletAddress?: string | null;
+  reasonRefreshKey?: number;
   /** Bot terminal: positions + balances + trade history only */
   mode?: 'full' | 'bot';
 };
@@ -98,6 +103,8 @@ const ProTradeDock: React.FC<Props> = ({
   onCancelTwap,
   onClosePosition,
   configuredLeverage,
+  walletAddress,
+  reasonRefreshKey = 0,
   mode = 'full',
 }) => {
   const isSpot = variant === 'spot';
@@ -118,6 +125,15 @@ const ProTradeDock: React.FC<Props> = ({
   };
 
   const positionCount = account?.positions.length ?? 0;
+  const positionCoins = useMemo(
+    () => (account?.positions ?? []).map((p) => p.coin),
+    [account?.positions]
+  );
+  const { byCoin: openReasons } = useHlOpenTradeReasons(
+    isBotMode ? (walletAddress ?? undefined) : undefined,
+    positionCoins,
+    reasonRefreshKey
+  );
   const positionUpnl = useMemo(
     () =>
       (account?.positions ?? []).reduce(
@@ -281,9 +297,14 @@ const ProTradeDock: React.FC<Props> = ({
                   return (
                     <tr key={p.coin}>
                       <td>
-                        <button type="button" className="hl-coin-link" onClick={() => onCoinClick?.(p.coin)}>
-                          {p.coin}
-                        </button>
+                        <span className="hl-dock-market-cell">
+                          <button type="button" className="hl-coin-link" onClick={() => onCoinClick?.(p.coin)}>
+                            {p.coin}
+                          </button>
+                          {isBotMode ? (
+                            <TradeOpenReasonHint reason={openReasons.get(p.coin.toUpperCase())?.reason} />
+                          ) : null}
+                        </span>
                       </td>
                       <td className={isLong ? 'hl-up' : 'hl-down'}>{isLong ? 'LONG' : 'SHORT'}</td>
                       <td>{fmtSize(Math.abs(toNum(p.szi)))}</td>

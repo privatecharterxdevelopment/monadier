@@ -1541,6 +1541,59 @@
   margin-top: 0;
 }
 
+.term-hl-open-market {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.term-trade-reason-hint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--term-text-muted, #71717a);
+  cursor: help;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.term-trade-reason-hint:hover,
+.term-trade-reason-hint:focus-visible {
+  color: var(--term-accent, #22c55e);
+}
+
+.term-trade-reason-hint__tip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  z-index: 40;
+  width: max-content;
+  max-width: min(320px, 72vw);
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #e4e4e7;
+  background: rgba(15, 15, 18, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease, visibility 0.12s ease;
+  white-space: normal;
+  text-align: left;
+}
+
+.term-trade-reason-hint:hover .term-trade-reason-hint__tip,
+.term-trade-reason-hint:focus-visible .term-trade-reason-hint__tip {
+  opacity: 1;
+  visibility: visible;
+}
+
 .term-hl-open-actions-col {
   width: 72px;
   min-width: 72px;

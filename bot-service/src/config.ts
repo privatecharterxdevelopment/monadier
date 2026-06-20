@@ -102,18 +102,18 @@ export const config = {
     /** Close HL perps at this % gain on margin (user DB setting overrides). */
     /** 0 = user disabled TP. */
     defaultTakeProfitPercent: Number(process.env.HL_DEFAULT_TP_PERCENT || 0),
-    /** Default −4% on margin when SL not set; 0 in DB = user disabled. */
-    defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 4),
+    /** Default −2% on margin when SL not set; 0 in DB = user disabled. */
+    defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 2),
     defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 2),
     /** Min uPnL before any profit exit (covers HL fees). */
-    minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
-    profitLockActivateUsd: Number(process.env.HL_PROFIT_LOCK_ACTIVATE_USD || 0.06),
-    profitLockFloorUsd: Number(process.env.HL_PROFIT_LOCK_FLOOR_USD || 0.03),
-    profitLockTrailBufferUsd: Number(process.env.HL_PROFIT_LOCK_TRAIL_BUFFER_USD || 0.025),
-    positionMonitorMs: Number(process.env.HL_POSITION_MONITOR_MS || 500),
+    minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.03),
+    profitLockActivateUsd: Number(process.env.HL_PROFIT_LOCK_ACTIVATE_USD || 0.04),
+    profitLockFloorUsd: Number(process.env.HL_PROFIT_LOCK_FLOOR_USD || 0.02),
+    profitLockTrailBufferUsd: Number(process.env.HL_PROFIT_LOCK_TRAIL_BUFFER_USD || 0.015),
+    positionMonitorMs: Number(process.env.HL_POSITION_MONITOR_MS || 250),
     /** 0 = disabled — no forced close just for being in profit N ms. */
-    profitGrabMaxHoldMs: Number(process.env.HL_PROFIT_GRAB_MAX_HOLD_MS || 0),
-    profitHoldMaxMs: Number(process.env.HL_PROFIT_HOLD_MAX_MS || 0),
+    profitGrabMaxHoldMs: Number(process.env.HL_PROFIT_GRAB_MAX_HOLD_MS || 30_000),
+    profitHoldMaxMs: Number(process.env.HL_PROFIT_HOLD_MAX_MS || 60_000),
     /** Fri 18:00 UTC through Sat 23:59 — new opens SHORT only when signaled. */
     fridayShortOnlyUtcHour: Number(process.env.HL_FRIDAY_SHORT_ONLY_UTC_HOUR || 18),
     /** Pre-trade: min recent candle vol vs lookback avg. */

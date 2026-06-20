@@ -3,12 +3,16 @@ import type { HlPosition } from '../../lib/hyperliquid/user';
 import { fmtTradeUsdSymbol } from '../../lib/hyperliquid/format';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
+import { useHlOpenTradeReasons } from '../../hooks/useHlOpenTradeReasons';
+import TradeOpenReasonHint from './TradeOpenReasonHint';
 
 type Props = {
   positions: HlPosition[];
   loading?: boolean;
   compact?: boolean;
   configuredLeverage?: number;
+  walletAddress?: string | null;
+  reasonRefreshKey?: number;
   onClose: (position: HlPosition) => void;
   closingCoin?: string | null;
   closeBusy?: boolean;
@@ -28,12 +32,19 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
   loading = false,
   compact = false,
   configuredLeverage,
+  walletAddress,
+  reasonRefreshKey = 0,
   onClose,
   closingCoin = null,
   closeBusy = false,
 }) => {
   const coins = positions.map((p) => p.coin);
   const { prices: markPrices } = useHyperliquidMarkPrices(coins);
+  const { byCoin: openReasons } = useHlOpenTradeReasons(
+    walletAddress ?? undefined,
+    coins,
+    reasonRefreshKey
+  );
 
   if (loading && positions.length === 0) {
     return <p className="term-hl-open-empty">Loading Hyperliquid positions…</p>;
@@ -65,10 +76,14 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
             const mark = markPrices[p.coin] ?? 0;
             const lev = resolveDisplayLeverage(configuredLeverage, p.leverage?.value);
             const isClosing = closingCoin === p.coin;
+            const openReason = openReasons.get(p.coin.toUpperCase())?.reason;
             return (
               <tr key={p.coin}>
                 <td>
-                  <strong>{p.coin}</strong>
+                  <span className="term-hl-open-market">
+                    <strong>{p.coin}</strong>
+                    <TradeOpenReasonHint reason={openReason} />
+                  </span>
                   <span className="term-dock-meta"> · HL</span>
                 </td>
                 <td>

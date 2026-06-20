@@ -46,6 +46,15 @@ export function shouldCloseProfitLockUsd(
   return pnlUsd <= floorUsd;
 }
 
+/** Once green, never hold red — close at breakeven or scratch. */
+export function shouldCloseNeverRedAfterGreen(
+  pnlUsd: number,
+  peakUsd: number,
+  minPeakUsd: number
+): boolean {
+  return minPeakUsd > 0 && peakUsd >= minPeakUsd && pnlUsd <= 0;
+}
+
 /** Close when price pulls back from peak — needs a real retracement, not noise. */
 export function shouldClosePeakDropUsd(
   pnlUsd: number,
@@ -55,7 +64,7 @@ export function shouldClosePeakDropUsd(
 ): boolean {
   if (peakUsd < minPeakUsd || pnlUsd <= 0 || dropBufferUsd <= 0) return false;
   const drop = peakUsd - pnlUsd;
-  const minDrop = Math.max(dropBufferUsd, peakUsd * 0.3);
+  const minDrop = Math.max(dropBufferUsd, peakUsd * 0.22);
   return drop >= minDrop;
 }
 

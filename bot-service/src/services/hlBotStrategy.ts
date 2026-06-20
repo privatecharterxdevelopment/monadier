@@ -15,13 +15,13 @@ export type HlExitPolicy = {
   useTakeProfitPercent: boolean;
 };
 
-/** Aggressive (profit_grabber): tight +$0.02 → +$0.01 trail. Standard: wider lock from config. */
+/** Aggressive (profit_grabber): tight trail. Standard: slightly wider — both profit-lock first. */
 export function resolveHlExitPolicy(strategy: HlBotStrategy): HlExitPolicy {
   if (strategy === 'profit_grabber') {
     return {
-      lockActivateUsd: 0.02,
-      lockFloorUsd: 0.01,
-      trailBufferUsd: 0.008,
+      lockActivateUsd: 0.015,
+      lockFloorUsd: 0.008,
+      trailBufferUsd: 0.006,
       maxHoldInProfitMs: config.hyperliquid.profitGrabMaxHoldMs,
       useTakeProfitPercent: false,
     };
@@ -32,6 +32,6 @@ export function resolveHlExitPolicy(strategy: HlBotStrategy): HlExitPolicy {
     lockFloorUsd: config.hyperliquid.profitLockFloorUsd,
     trailBufferUsd: config.hyperliquid.profitLockTrailBufferUsd,
     maxHoldInProfitMs: config.hyperliquid.profitHoldMaxMs,
-    useTakeProfitPercent: true,
+    useTakeProfitPercent: false,
   };
 }
