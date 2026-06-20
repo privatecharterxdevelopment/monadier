@@ -1403,14 +1403,14 @@
 }
 
 .hl-bot-dock .term-dock-analysis .term-analysis-bar,
-.hl-bot-dock-analyzer .term-analysis-bar {
+.hl-bot-dock-analyzer .term-analysis-bar:not(.term-analysis-bar--compact) {
   margin: 0;
   border-radius: 0;
   border: none;
   border-bottom: 1px solid var(--hl-border);
   background: var(--hl-bg-elevated);
   color: var(--hl-text-muted);
-  padding: 12px 14px;
+  padding: 8px 12px;
 }
 
 .hl-bot-dock .term-analysis-step,

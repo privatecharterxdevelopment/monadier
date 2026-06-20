@@ -29,7 +29,6 @@ type Props = {
   readiness?: BotReadiness;
   openPositionsCount?: number;
   maxConcurrentPositions?: number;
-  /** chart = overlay on chart; dock = inline in positions panel */
   placement?: 'chart' | 'dock';
 };
 
@@ -37,17 +36,29 @@ const CYCLE_MS = 2400;
 const TF_LINE_RE = /^(1m|5m|15m|1h|4h): /i;
 
 function formatTfLine(tf: UnifiedSignal['timeframes'][number]) {
-  return `1 TF only · ${tf.timeframe}: ${tf.direction} (${Math.round(tf.confidence)}%)`;
+  return `${tf.timeframe} ${tf.direction} ${Math.round(tf.confidence)}%`;
 }
 
 function slidesFromSignal(signal: UnifiedSignal | null): string[] {
   if (signal?.timeframes?.length) {
     return signal.timeframes.map((tf) => formatTfLine(tf));
   }
-  const fromReasons =
-    signal?.reasons?.filter((r) => TF_LINE_RE.test(r.trim())) ?? [];
-  if (fromReasons.length > 0) return fromReasons;
+  const fromReasons = signal?.reasons?.filter((r) => TF_LINE_RE.test(r.trim())) ?? [];
+  if (fromReasons.length > 0) {
+    return fromReasons.map((r) => r.replace(TF_LINE_RE, '').trim());
+  }
   return [];
+}
+
+function shortenDetail(detail: string): string {
+  return detail
+    .replace(
+      /no HL perp passed global scan \(min \d+% conf\)/i,
+      'No pair passed bot gates yet (55%+ · 3 TF align · volume)'
+    )
+    .replace(/margin too small for slot/i, 'Margin too small for next slot')
+    .replace(/ · /g, ' · ')
+    .trim();
 }
 
 const TerminalChartAnalysisOverlay: React.FC<Props> = ({
@@ -69,46 +80,26 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
 }) => {
   const [cycleIndex, setCycleIndex] = useState(0);
   const [slidePhase, setSlidePhase] = useState<'in' | 'out'>('in');
+  const compact = placement === 'dock';
 
   const action = signal?.direction ?? dbAnalysis?.signal ?? 'HOLD';
   const conf = Math.round(signal?.confidence ?? dbAnalysis?.confidence ?? 0);
-  const hasTfConflict = Boolean(
-    signal?.warnings?.some((w) => /conflict/i.test(w))
-  );
+  const hasTfConflict = Boolean(signal?.warnings?.some((w) => /conflict/i.test(w)));
   const signalClass =
     action === 'LONG' ? 'term-pnl-pos' : action === 'SHORT' ? 'term-pnl-neg' : '';
 
   const hasData = Boolean(signal || dbAnalysis);
-
   const activeLabel = activeSymbol ? pairLabel(activeSymbol) : null;
 
-  const dataSlides = useMemo(() => {
-    const fromSignal = slidesFromSignal(signal);
-    if (fromSignal.length > 0) {
-      return activeLabel
-        ? fromSignal.map((line) => `${activeLabel} · ${line}`)
-        : fromSignal;
-    }
-    if (dbAnalysis) {
-      const parts = [`RSI ${Math.round(dbAnalysis.rsi)}`];
-      if (dbAnalysis.pattern) parts.push(dbAnalysis.pattern);
-      return [parts.join(' · ')];
-    }
-    return [];
-  }, [signal, dbAnalysis, activeLabel]);
-
-  const loadingSlides = useMemo(
-    () => ANALYSIS_STEPS.map((s) => s.label),
-    []
-  );
-
-  const cycleSlides = isLoading && !hasData ? loadingSlides : dataSlides;
+  const tfSlides = useMemo(() => slidesFromSignal(signal), [signal]);
+  const loadingSlides = useMemo(() => ANALYSIS_STEPS.map((s) => s.label), []);
+  const cycleSlides = isLoading && !hasData ? loadingSlides : tfSlides;
   const slideCount = cycleSlides.length;
 
   const effectiveIndex =
-    scanning && slideCount > 0
-      ? step % slideCount
-      : cycleIndex % Math.max(slideCount, 1);
+    scanning && slideCount > 0 ? step % slideCount : cycleIndex % Math.max(slideCount, 1);
+
+  const currentTf = cycleSlides[effectiveIndex] ?? null;
 
   useEffect(() => {
     setCycleIndex(0);
@@ -117,7 +108,6 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
 
   useEffect(() => {
     if (!visible || slideCount <= 1 || scanning) return;
-
     const id = setInterval(() => {
       setSlidePhase('out');
       window.setTimeout(() => {
@@ -125,7 +115,6 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
         setSlidePhase('in');
       }, 180);
     }, CYCLE_MS);
-
     return () => clearInterval(id);
   }, [visible, slideCount, scanning, cycleSlides.join('|')]);
 
@@ -136,127 +125,161 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
     return () => clearTimeout(t);
   }, [scanning, step, slideCount]);
 
-  const rec =
-    signal?.reasons?.[0] ||
-    dbAnalysis?.recommendation?.split(' - ')[0] ||
-    (isLoading && !hasData ? 'Initializing market analysis…' : 'Monitoring…');
+  const headline = readiness?.headline ?? ANALYSIS_STEPS[step].label;
+  const detailShort = readiness?.detail ? shortenDetail(readiness.detail) : null;
 
-  const currentSlide = cycleSlides[effectiveIndex] ?? rec;
-  const showCycle = slideCount > 0;
-  const showMetaSignal = hasData || !isLoading;
+  const botStatusLine = useMemo(() => {
+    if (globalBest) {
+      const slot =
+        openPositionsCount > 0 && openPositionsCount < maxConcurrentPositions
+          ? `Slot ${openPositionsCount + 1}: `
+          : 'Next: ';
+      return `${slot}${globalBest.coin} ${globalBest.direction} ${Math.round(globalBest.confidence)}%`;
+    }
+    if (globalCoinsScanned > 0) {
+      const passed = globalScanCount > 0 ? `${globalScanCount} passed` : '0 passed';
+      return `${passed} · ${globalCoinsScanned} HL perps scanned`;
+    }
+    return null;
+  }, [
+    globalBest,
+    globalCoinsScanned,
+    globalScanCount,
+    openPositionsCount,
+    maxConcurrentPositions,
+  ]);
+
+  const chartVsBotNote = useMemo(() => {
+    if (globalBest) return null;
+    if (hasTfConflict) return 'Chart mixed TFs — bot waits for aligned global setup';
+    if (globalCoinsScanned > 0 && conf >= 40 && action !== 'HOLD') {
+      return 'Chart preview only — bot uses stricter global scan';
+    }
+    return null;
+  }, [globalBest, hasTfConflict, globalCoinsScanned, conf, action]);
+
+  const subline = useMemo(() => {
+    const parts: string[] = [];
+    if (botStatusLine) parts.push(botStatusLine);
+    if (chartVsBotNote && chartVsBotNote !== botStatusLine) parts.push(chartVsBotNote);
+    if (!globalBest && detailShort && !parts.some((p) => p.includes(detailShort.slice(0, 20)))) {
+      parts.push(detailShort);
+    }
+    if (openPositionsCount > 0) {
+      parts.push(`${openPositionsCount}/${maxConcurrentPositions} slots`);
+    }
+    return parts.join(' · ');
+  }, [
+    botStatusLine,
+    chartVsBotNote,
+    detailShort,
+    globalBest,
+    openPositionsCount,
+    maxConcurrentPositions,
+  ]);
+
+  if (compact) {
+    return (
+      <div className="term-dock-analysis">
+        <div className="term-analysis-bar term-analysis-bar--compact">
+          <div className="term-analysis-compact-row">
+            {scanning ? (
+              <Activity size={12} className="term-analysis-pulse" aria-hidden />
+            ) : null}
+            <span className="term-analysis-step term-analysis-step--compact">{headline}</span>
+            {scanning ? (
+              <>
+                <div className="term-analysis-track term-analysis-track--compact">
+                  <div
+                    className="term-analysis-fill"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <span className="term-analysis-pct">{Math.round(progress)}%</span>
+              </>
+            ) : null}
+            {hasData || !isLoading ? (
+              <>
+                <span className="term-analysis-sep">·</span>
+                <span className={signalClass}>{action}</span>
+                <span>{conf}%</span>
+                {hasTfConflict ? (
+                  <>
+                    <span className="term-analysis-sep">·</span>
+                    <span className="term-hint--warn" title="Timeframes disagree">
+                      mixed
+                    </span>
+                  </>
+                ) : null}
+                {activeLabel ? (
+                  <>
+                    <span className="term-analysis-sep">·</span>
+                    <span>{activeLabel}</span>
+                  </>
+                ) : null}
+              </>
+            ) : null}
+            {currentTf ? (
+              <>
+                <span className="term-analysis-sep">·</span>
+                <span
+                  className={`term-analysis-tf-tick ${
+                    slidePhase === 'out' ? 'term-analysis-cycle-text--out' : ''
+                  }`}
+                  aria-live="polite"
+                  title="Per-timeframe signal (can differ from combined %)"
+                >
+                  {currentTf}
+                </span>
+              </>
+            ) : null}
+          </div>
+          {subline ? (
+            <p className="term-analysis-subline" title={globalBest?.reason ?? detailShort ?? undefined}>
+              {subline}
+            </p>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={placement === 'dock' ? 'term-dock-analysis' : 'term-chart-overlay'}>
+    <div className="term-chart-overlay">
       <div className="term-analysis-bar">
-        {scanning && (
+        {scanning ? (
           <div className="term-analysis-bar-top">
             <Activity size={14} className="term-analysis-pulse" aria-hidden />
-            <span className="term-analysis-step">
-              {readiness?.headline ?? ANALYSIS_STEPS[step].label}
-            </span>
+            <span className="term-analysis-step">{headline}</span>
             <div className="term-analysis-track">
-              <div
-                className="term-analysis-fill"
-                style={{ width: `${progress}%` }}
-              />
+              <div className="term-analysis-fill" style={{ width: `${progress}%` }} />
             </div>
             <span className="term-analysis-pct">{Math.round(progress)}%</span>
           </div>
-        )}
-        {scanning && readiness?.detail ? (
-          <p className="term-analysis-hint">{readiness.detail}</p>
         ) : null}
-        {globalBest ? (
-          <>
-            <p className="term-analysis-hint term-analysis-hint--subtle">
-              {globalCoinsScanned > 0
-                ? `Scanned ${globalCoinsScanned} HL perps`
-                : 'Scanning all HL perps'}
-              {globalScanCount > 0 ? ` · ${globalScanCount} passed filter` : ''}
-              {openPositionsCount > 0
-                ? ` · ${openPositionsCount}/${maxConcurrentPositions} slots used`
-                : ` · up to ${maxConcurrentPositions} trades`}
-              {openPositionsCount > 0 && openPositionsCount < maxConcurrentPositions
-                ? ` · Slot ${openPositionsCount + 1} (independent): ${globalBest.coin} ${globalBest.direction} ${Math.round(globalBest.confidence)}%`
-                : ` · Next: ${globalBest.coin} ${globalBest.direction} ${Math.round(globalBest.confidence)}%`}
-              {activeLabel ? ` · MTF chart: ${activeLabel}` : ''}
-            </p>
-            {globalBest.reason ? (
-              <p className="term-analysis-reason" title="Why the bot would open this trade">
-                <strong>Why:</strong> {globalBest.reason}
-              </p>
-            ) : null}
-          </>
-        ) : globalCoinsScanned > 0 ? (
-          <p className="term-analysis-hint term-analysis-hint--subtle">
-            Scanned {globalCoinsScanned} HL perps — no setup above min confidence yet
-            {activeLabel ? ` · chart: ${activeLabel}` : ''}
-          </p>
-        ) : null}
-        {scanning && hasData ? (
-          <p className="term-analysis-hint term-analysis-hint--subtle">
-            Rotating line = one timeframe only (can show 100% while combined is lower)
-          </p>
-        ) : null}
-        <div
-          className={`term-analysis-meta ${showCycle ? 'term-analysis-meta--cycle' : ''}`}
-        >
-          {showCycle ? (
+        {subline ? <p className="term-analysis-hint term-analysis-hint--subtle">{subline}</p> : null}
+        <div className="term-analysis-meta">
+          <span className={signalClass}>{action}</span>
+          <span className="term-analysis-sep">·</span>
+          <span title="Combined 1m+5m+15m+1h">{conf}% combined</span>
+          {hasTfConflict ? (
             <>
-              {showMetaSignal && (
-                <>
-                  <span className={signalClass}>{action}</span>
-                  <span className="term-analysis-sep">·</span>
-                  <span title="Combined 1m+5m+15m+1h — this is what the chart pair signal uses">
-                    {conf}% combined
-                  </span>
-                  {hasTfConflict && (
-                    <>
-                      <span className="term-analysis-sep">·</span>
-                      <span className="term-hint--warn" title="Timeframes disagree — bot waits for higher combined confidence">
-                        mixed TFs
-                      </span>
-                    </>
-                  )}
-                  <span className="term-analysis-sep">·</span>
-                </>
-              )}
-              <span className="term-analysis-cycle-slot" aria-live="polite">
-                <span
-                  key={`${effectiveIndex}-${currentSlide}`}
-                  className={`term-analysis-cycle-text ${
-                    slidePhase === 'out' ? 'term-analysis-cycle-text--out' : ''
-                  } ${
-                    scanning || (isLoading && !hasData)
-                      ? 'term-analysis-cycle-text--scan'
-                      : ''
-                  }`}
-                >
-                  {currentSlide}
-                </span>
-              </span>
-              {slideCount > 1 && (
-                <span className="term-analysis-cycle-dots" aria-hidden>
-                  {cycleSlides.map((_, i) => (
-                    <span
-                      key={i}
-                      className={`term-analysis-cycle-dot ${
-                        i === effectiveIndex ? 'term-analysis-cycle-dot--on' : ''
-                      }`}
-                    />
-                  ))}
-                </span>
-              )}
+              <span className="term-analysis-sep">·</span>
+              <span className="term-hint--warn">mixed TFs</span>
             </>
-          ) : (
+          ) : null}
+          {activeLabel ? (
             <>
-              <span className={signalClass}>{action}</span>
               <span className="term-analysis-sep">·</span>
-              <span>{conf}% conf.</span>
-              <span className="term-analysis-sep">·</span>
-              <span className="term-analysis-rec">{rec}</span>
+              <span>{activeLabel}</span>
             </>
-          )}
+          ) : null}
+          {currentTf ? (
+            <>
+              <span className="term-analysis-sep">·</span>
+              <span className="term-analysis-cycle-text">{currentTf}</span>
+            </>
+          ) : null}
         </div>
       </div>
     </div>

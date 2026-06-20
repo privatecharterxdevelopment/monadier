@@ -1103,6 +1103,7 @@
   right: 0;
   width: var(--book-depth, 0%);
   pointer-events: none;
+  transition: width 0.08s linear;
 }
 
 .hl-book-row--ask .hl-book-depth { background: var(--hl-book-depth-ask); }
@@ -2045,8 +2046,8 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  min-height: 160px;
-  height: min(32vh, 280px);
+  min-height: 120px;
+  height: min(24vh, 220px);
   border: none;
   border-radius: 0;
   background: transparent;
@@ -2181,8 +2182,69 @@
 }
 
 .hl-bot-dock-analyzer {
-  padding: 0 12px 8px;
+  padding: 0;
   border-bottom: 1px solid var(--hl-border, rgba(255, 255, 255, 0.08));
+}
+
+.term-analysis-bar--compact {
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+}
+
+.term-analysis-compact-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.term-analysis-step--compact {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.term-analysis-track--compact {
+  flex: 1;
+  min-width: 48px;
+  max-width: 72px;
+  height: 3px;
+  margin: 0;
+}
+
+.term-analysis-subline {
+  margin: 4px 0 0;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--hl-text-faint, #71717a);
+  opacity: 0.95;
+}
+
+.term-analysis-tf-tick {
+  font-size: 10px;
+  color: var(--hl-text-faint, #71717a);
+  white-space: nowrap;
+  transition: opacity 0.12s ease;
+}
+
+.term-analysis-tf-tick.term-analysis-cycle-text--out {
+  opacity: 0.35;
+}
+
+.hl-bot-dock .term-analysis-bar--compact {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--hl-border);
+  background: var(--hl-bg-elevated);
+}
+
+.hl-bot-dock .term-analysis-subline {
+  color: var(--hl-text-faint);
+}
+
+.hl-bot-dock .term-analysis-step--compact {
+  color: var(--hl-text);
 }
 
 .term-center .hl-bot-dock {

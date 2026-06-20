@@ -137,7 +137,7 @@ const ProTradeChartInner: React.FC<Props> = ({
               type="button"
               className={`hl-chart-tf ${engine === 'hltv' ? 'hl-chart-tf--on' : ''}`}
               onClick={() => switchEngine('hltv')}
-              title="HL datafeed + TradingView Charting Library"
+              title="Drawing tools, indicators — HL data + TradingView library"
             >
               HL Pro
             </button>
@@ -146,6 +146,7 @@ const ProTradeChartInner: React.FC<Props> = ({
             type="button"
             className={`hl-chart-tf ${engine === 'tv' ? 'hl-chart-tf--on' : ''}`}
             onClick={() => switchEngine('tv')}
+            title="TradingView widget — indicators & drawings"
           >
             TV
           </button>

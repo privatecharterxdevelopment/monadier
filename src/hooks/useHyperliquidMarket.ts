@@ -42,10 +42,10 @@ type State = {
 
 const SNAPSHOT_POLL_MS = 10_000;
 const INTERVAL_DEBOUNCE_MS = 280;
-const BOOK_THROTTLE_MS = 80;
-const TRADES_THROTTLE_MS = 100;
+const BOOK_THROTTLE_MS = 16;
+const TRADES_THROTTLE_MS = 48;
 const CANDLE_THROTTLE_MS = 50;
-const MIDS_THROTTLE_MS = 100;
+const MIDS_THROTTLE_MS = 48;
 const MAX_TAPE_TRADES = 50;
 
 function normCoin(coin: string): string {
@@ -57,8 +57,10 @@ function coinMatches(a: string, b: string): boolean {
 }
 
 function bookLevelsKey(book: HlL2Book): string {
-  const asks = book.levels?.[1]?.slice(0, 3).map((l) => l.px).join(',') ?? '';
-  const bids = book.levels?.[0]?.slice(0, 3).map((l) => l.px).join(',') ?? '';
+  const fmt = (levels: { px: string; sz: string }[] | undefined, n: number) =>
+    levels?.slice(0, n).map((l) => `${l.px}:${l.sz}`).join('|') ?? '';
+  const asks = fmt(book.levels?.[1], 8);
+  const bids = fmt(book.levels?.[0], 8);
   return `${book.coin ?? ''}|${asks}|${bids}`;
 }
 
@@ -322,8 +324,6 @@ export function useHyperliquidMarket(
 
   const scheduleBook = useCallback(
     (book: HlL2Book) => {
-      const key = bookLevelsKey(book);
-      if (key === bookKeyRef.current && !bookTimerRef.current) return;
       pendingBookRef.current = book;
       if (bookTimerRef.current) return;
       bookTimerRef.current = setTimeout(flushBook, BOOK_THROTTLE_MS);
