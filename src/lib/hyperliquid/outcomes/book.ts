@@ -110,12 +110,26 @@ export function buildLegQuoteFromMids(
   name: string,
   mids: Map<string, number>
 ): OutcomeLegQuote {
-  const yesMid = mids.get(outcomeOrderCoin(outcomeId, 0)) ?? 0;
-  const noMid = mids.get(outcomeOrderCoin(outcomeId, 1)) ?? 0;
+  let yesMid = mids.get(outcomeOrderCoin(outcomeId, 0)) ?? 0;
+  let noMid = mids.get(outcomeOrderCoin(outcomeId, 1)) ?? 0;
+
+  // Thin books often publish only one side's mid — derive the other for display.
+  if (yesMid > 0 && yesMid < 1 && noMid <= 0) {
+    noMid = Math.max(0.001, Math.min(0.999, 1 - yesMid));
+  } else if (noMid > 0 && noMid < 1 && yesMid <= 0) {
+    yesMid = Math.max(0.001, Math.min(0.999, 1 - noMid));
+  }
+
   const yes = buildSideBookFromMid(outcomeId, 0, yesMid);
   const no = buildSideBookFromMid(outcomeId, 1, noMid);
   const impliedYesPct = yesMid > 0 ? yesMid * 100 : noMid > 0 ? (1 - noMid) * 100 : 0;
   return { outcomeId, name, yes, no, impliedYesPct };
+}
+
+/** Mid price for list/table cells — stable across selection; avoids ask/mid flicker. */
+export function outcomeListDisplayPx(book: OutcomeSideBook): number {
+  if (book.mid > 0) return book.mid;
+  return book.bestAsk > 0 ? book.bestAsk : book.bestBid;
 }
 
 export async function fetchOutcomeLegQuotesFromMids(

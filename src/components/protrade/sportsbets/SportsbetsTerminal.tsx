@@ -36,11 +36,6 @@ const SportsbetsTerminal: React.FC<Props> = ({
     [session.questions]
   );
 
-  const legQuotesForDetail = useMemo(() => {
-    if (session.selectedOutcomeId == null || !session.quote) return legQuotes;
-    return { ...legQuotes, [session.selectedOutcomeId]: session.quote };
-  }, [legQuotes, session.selectedOutcomeId, session.quote]);
-
   const selectedMarket = useMemo(() => {
     if (!session.catalog || session.selectedOutcomeId == null) return null;
     return findOutcomeMarket(session.catalog, session.selectedOutcomeId) ?? null;
@@ -131,7 +126,7 @@ const SportsbetsTerminal: React.FC<Props> = ({
           {session.selectedQuestion ? (
             <SportsbetsEventDetail
               question={session.selectedQuestion}
-              legQuotes={legQuotesForDetail}
+              legQuotes={legQuotes}
               quotesLoading={quotesLoading}
               selectedOutcomeId={session.selectedOutcomeId}
               selectedSide={session.selectedSide}

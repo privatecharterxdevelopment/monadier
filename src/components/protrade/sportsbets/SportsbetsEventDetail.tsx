@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { outcomeBuyReferencePx } from '../../../lib/hyperliquid/outcomes/book';
+import { outcomeListDisplayPx } from '../../../lib/hyperliquid/outcomes/book';
 import {
   formatDecimalOdds,
   formatOutcomeBetCell,
@@ -30,10 +30,10 @@ type Props = {
   onSelectLeg: (outcomeId: number, side: OutcomeSideIndex) => void;
 };
 
-function legBuyPrice(quote: OutcomeLegQuote | undefined, side: 0 | 1): number {
+function legDisplayPrice(quote: OutcomeLegQuote | undefined, side: 0 | 1): number {
   if (!quote) return 0;
   const book = side === 0 ? quote.yes : quote.no;
-  return outcomeBuyReferencePx(book);
+  return outcomeListDisplayPx(book);
 }
 
 const SportsbetsEventDetail: React.FC<Props> = ({
@@ -74,8 +74,8 @@ const SportsbetsEventDetail: React.FC<Props> = ({
         {question.legs.map((leg) => {
           const quote = legQuotes[leg.outcomeId];
           const indicative = isIndicativeOutcomeQuote(quote);
-          const yesPx = legBuyPrice(quote, 0);
-          const noPx = legBuyPrice(quote, 1);
+          const yesPx = legDisplayPrice(quote, 0);
+          const noPx = legDisplayPrice(quote, 1);
           const yesCell = yesPx > 0 ? formatOutcomeBetCell(yesPx, OUTCOME_PREVIEW_STAKE_USD, { indicative }) : null;
           const noCell = noPx > 0 ? formatOutcomeBetCell(noPx, OUTCOME_PREVIEW_STAKE_USD, { indicative }) : null;
           const yesSelected = selectedOutcomeId === leg.outcomeId && selectedSide === 0;
@@ -135,9 +135,8 @@ const SportsbetsEventDetail: React.FC<Props> = ({
       </div>
 
       <p className="hl-sb-footnote">
-        Previews use the live buy price (ask). Each contract pays $1 if it wins — profit = payout −
-        your stake. Rows marked ~ are mid-price estimates until the order book loads. Stake in the bet
-        slip on the right.
+        List prices are mid estimates (~). The bet slip uses the live buy price (ask) for your
+        selection. Each contract pays $1 if it wins — profit = payout − your stake.
       </p>
     </section>
   );

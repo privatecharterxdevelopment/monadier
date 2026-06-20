@@ -41,6 +41,10 @@ export function useHyperliquidOutcomeMarket(outcomeId: number | null, enabled = 
   }, [enabled, outcomeId]);
 
   useEffect(() => {
+    setQuote(null);
+  }, [outcomeId]);
+
+  useEffect(() => {
     void refresh(false);
     if (!enabled || outcomeId == null) return;
     const id = window.setInterval(() => void refresh(true), OUTCOME_SELECTED_BOOK_POLL_MS);
