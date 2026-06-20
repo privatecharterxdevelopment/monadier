@@ -51,14 +51,45 @@ export function formatOutcomeBetCell(
   stakeUsd = OUTCOME_PREVIEW_STAKE_USD,
   opts?: { indicative?: boolean }
 ): { odds: string; winLine: string; implied: string } | null {
+  const parts = formatOutcomeBetCellParts(price, stakeUsd, opts);
+  if (!parts) return null;
+  const profitPart = parts.profitLabel ? `${parts.profitLabel} win · ` : '';
+  return {
+    odds: parts.odds,
+    winLine: `${parts.indicativePrefix}${profitPart}${parts.stakeLabel} stake`,
+    implied: parts.implied,
+  };
+}
+
+export type OutcomeBetCellParts = {
+  odds: string;
+  implied: string;
+  stakeLabel: string;
+  profitLabel: string | null;
+  payoutLabel: string;
+  indicativePrefix: string;
+};
+
+/** Structured parts for sportsbook odds buttons (left-aligned layout). */
+export function formatOutcomeBetCellParts(
+  price: number,
+  stakeUsd = OUTCOME_PREVIEW_STAKE_USD,
+  opts?: { indicative?: boolean }
+): OutcomeBetCellParts | null {
   if (!Number.isFinite(price) || price <= 0) return null;
   const preview = previewOutcomeBuy({ stakeUsd, price });
   if (!preview) return null;
-  const prefix = opts?.indicative ? '~' : '';
+  const indicativePrefix = opts?.indicative ? '~' : '';
+  const profitLabel =
+    preview.profitIfWin >= 0.01 ? formatProfitUsd(preview.profitIfWin) : null;
+
   return {
-    odds: prefix + formatDecimalOdds(price),
-    winLine: `${prefix}${formatProfitUsd(preview.profitIfWin)} profit · ${fmtPreviewUsd(preview.stakeUsd)} stake`,
+    odds: indicativePrefix + formatDecimalOdds(price),
     implied: formatOutcomeImpliedPct(price),
+    stakeLabel: fmtPreviewUsd(preview.stakeUsd),
+    profitLabel,
+    payoutLabel: fmtPreviewUsd(preview.payoutIfWin),
+    indicativePrefix,
   };
 }
 
