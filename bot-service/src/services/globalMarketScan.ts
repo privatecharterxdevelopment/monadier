@@ -170,7 +170,7 @@ async function scanAggressiveCoin(
   try {
     const symbol = hlCoinToBinanceSymbol(coin);
     const scalp = await analyzeAggressiveScalpBySymbol(symbol);
-    const minConf = Math.max(62, config.hyperliquid.minSignalConfidence - 3);
+    const minConf = Math.max(60, config.hyperliquid.minSignalConfidence - 2);
     if (!scalp || scalp.confidence < minConf) return null;
 
     const h1Check = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);

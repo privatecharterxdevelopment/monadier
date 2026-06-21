@@ -397,7 +397,7 @@ const healthServer = http.createServer(async (req, res) => {
         blockers.push(
           weekendRule
             ? `${weekendRule} — no eligible SHORT on another pair yet`
-            : `no HL perp passed global scan (min ${config.hyperliquid.minSignalConfidence}% conf)`
+            : `no HL perp passed global scan (min ${config.hyperliquid.minSignalConfidence}% conf, ${config.hyperliquid.minDirectionalTfs} TFs, ${config.hyperliquid.minTrendAlignment}% align)`
         );
       }
       if (bestAvailable && hlOpenCoins.length < maxPositions && dbSettings.autoTradeEnabled) {
@@ -459,6 +459,14 @@ const healthServer = http.createServer(async (req, res) => {
           profitLockFloorUsd: config.hyperliquid.profitLockFloorUsd,
           profitLockTrailBufferUsd: config.hyperliquid.profitLockTrailBufferUsd,
           minSignalConfidence: config.hyperliquid.minSignalConfidence,
+          minDirectionalTfs: config.hyperliquid.minDirectionalTfs,
+          minTrendAlignment: config.hyperliquid.minTrendAlignment,
+        },
+        globalGates: {
+          minSignalConfidence: config.hyperliquid.minSignalConfidence,
+          minDirectionalTfs: config.hyperliquid.minDirectionalTfs,
+          minTrendAlignment: config.hyperliquid.minTrendAlignment,
+          weekendShortOnly: weekendRule,
         },
         globalScan: {
           coinsScanned: lastHlGlobalScanStats.coinsScanned,

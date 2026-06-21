@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { CheckCircle, Clock, Headphones, Loader2, Send } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { MONADIER_SUPPORT_INBOX } from '../../lib/supportConfig';
 import { submitSupportMessage } from '../../lib/supportMessage';
 
 type Props = {
@@ -68,31 +67,31 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
 
   return (
     <div className="hl-support-page">
-      <header className="hl-support-head">
-        <div className="hl-support-head-icon" aria-hidden>
-          <Headphones size={22} />
-        </div>
-        <div>
-          <h1 className="hl-support-title">Support</h1>
-          <p className="hl-support-lead">
-            Describe your issue — we reply to your account email within 24 hours.
-          </p>
-        </div>
-      </header>
-
       <div className="hl-support-card">
-        <div className="hl-support-user">
-          <p className="hl-support-user-label">Sending as</p>
-          <p className="hl-support-user-value">
-            {displayName} · {displayEmail}
-          </p>
-          <p className="hl-support-user-meta">
-            User ID: <code>{shortId}</code>
-            {profile?.username ? <> · @{profile.username}</> : null}
-          </p>
-        </div>
-
         <form className="hl-support-form" onSubmit={handleSubmit}>
+          <div className="hl-support-form-head">
+            <div className="hl-support-head-icon" aria-hidden>
+              <Headphones size={22} />
+            </div>
+            <div>
+              <h1 className="hl-support-title">Support</h1>
+              <p className="hl-support-lead">
+                Describe your issue — we reply to your account email within 24 hours.
+              </p>
+            </div>
+          </div>
+
+          <div className="hl-support-user">
+            <p className="hl-support-user-label">Sending as</p>
+            <p className="hl-support-user-value">
+              {displayName} · {displayEmail}
+            </p>
+            <p className="hl-support-user-meta">
+              User ID: <code>{shortId}</code>
+              {profile?.username ? <> · @{profile.username}</> : null}
+            </p>
+          </div>
+
           <label className="hl-support-label" htmlFor="hl-support-subject">
             Subject
           </label>
@@ -118,7 +117,7 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             maxLength={5000}
-            rows={6}
+            rows={9}
             disabled={sending || success}
             required
           />
@@ -166,11 +165,6 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
             <p>Monday – Sunday, 9:00 – 20:00 CET · replies within 24h</p>
           </div>
         </div>
-
-        <p className="hl-support-note">
-          Email only — inbox <span className="hl-support-inbox">{MONADIER_SUPPORT_INBOX}</span>. No Telegram
-          or social DMs.
-        </p>
       </div>
     </div>
   );

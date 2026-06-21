@@ -1,6 +1,6 @@
 import type { UnifiedSignal } from './signalService';
 import { MIN_HL_BOT_USD } from './hyperliquid/hlBotAgent';
-import { HL_MAX_CONCURRENT_POSITIONS } from './hlBotConstants';
+import { HL_MAX_CONCURRENT_POSITIONS, HL_MIN_SIGNAL_CONFIDENCE } from './hlBotConstants';
 
 /** Matches bot aggressive strategy floor (see bot-service market STRATEGY_CONFIGS). */
 export const BOT_MIN_CONFIDENCE_AGGRESSIVE = 25;
@@ -22,7 +22,7 @@ function formatBlocker(blocker: string): string {
     return 'Approve the Hyperliquid platform fee in the Bot panel';
   }
   if (/no HL perp passed global scan/i.test(blocker)) {
-    return 'No pair passed bot gates (50%+ conf, 2 aligned TFs, volume sweep)';
+    return `No pair passed bot gates (${HL_MIN_SIGNAL_CONFIDENCE}%+ conf, 2 aligned TFs, 60% trend align, volume sweep)`;
   }
   if (/no trade signal|MTF|bot conf/i.test(blocker)) {
     return 'No strong trade setup yet — bot keeps scanning';

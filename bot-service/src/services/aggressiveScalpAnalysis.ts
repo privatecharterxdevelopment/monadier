@@ -2,6 +2,7 @@
  * Aggressive bot mode — 1m/5m scalp only.
  * Reads last 6 × 1m candles → bias for next 3; 5m trend must confirm (no chop).
  */
+import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
 import { logger } from '../utils/logger';
 import { detectLiquiditySweep } from './liquiditySweepGate';
@@ -96,7 +97,7 @@ function analyzeSixOneMinute(candles: Candle[]): Omit<
     if (wickRejectsDirection(last, 'SHORT')) confidence -= 12;
   }
 
-  if (!direction || confidence < 64) return null;
+  if (!direction || confidence < config.hyperliquid.minSignalConfidence) return null;
 
   return {
     direction,

@@ -75,7 +75,7 @@ const STRATEGY_CONFIGS = {
     profitLockPercent: 0.5
   },
   normal: {
-    minConfidence: 40,
+    minConfidence: 60,
     minConditions: 2,
     patternOnly: false,
     profitLockPercent: 0.5
