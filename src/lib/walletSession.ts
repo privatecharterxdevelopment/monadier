@@ -1,12 +1,16 @@
 /** Keep wallet session alive across reloads — minimum 4 hours. */
 export const WALLET_SESSION_MS = 4 * 60 * 60 * 1000;
 
+/** While reconnect runs after reload, UI stays in "restoring" instead of prompting connect. */
+export const WALLET_RECONNECT_GRACE_MS = 60_000;
+
 const STORAGE_KEY = 'monadier-wallet-session-v1';
 
 export type WalletSessionRecord = {
   address: string;
   connectedAt: number;
   expiresAt: number;
+  connectorId?: string;
 };
 
 export function readWalletSession(): WalletSessionRecord | null {
@@ -26,12 +30,17 @@ export function readWalletSession(): WalletSessionRecord | null {
   }
 }
 
-export function writeWalletSession(address: string): WalletSessionRecord {
+export function writeWalletSession(
+  address: string,
+  connectorId?: string
+): WalletSessionRecord {
   const now = Date.now();
+  const existing = readWalletSession();
   const record: WalletSessionRecord = {
     address: address.toLowerCase(),
-    connectedAt: now,
+    connectedAt: existing?.address === address.toLowerCase() ? existing.connectedAt : now,
     expiresAt: now + WALLET_SESSION_MS,
+    connectorId: connectorId ?? existing?.connectorId,
   };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(record));
@@ -56,8 +65,11 @@ export function extendWalletSessionOnActivity(): WalletSessionRecord | null {
   return record;
 }
 
-export function touchWalletSession(address: string): WalletSessionRecord | null {
-  return writeWalletSession(address);
+export function touchWalletSession(
+  address: string,
+  connectorId?: string
+): WalletSessionRecord | null {
+  return writeWalletSession(address, connectorId);
 }
 
 export function clearWalletSession(): void {

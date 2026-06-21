@@ -76,14 +76,16 @@ const ProTradeTopNav: React.FC<Props> = ({
 }) => {
   const { isLight } = useProTradeTheme();
   const { open } = useAppKit();
-  const { address, isConnected } = useMonadierWallet();
+  const { address, isConnected, isRestoring } = useMonadierWallet();
   const isMobile = useMediaQuery('(max-width: 768px)');
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  const walletLabel = isConnected && address
-    ? `${address.slice(0, 6)}…${address.slice(-4)}`
-    : 'Connect';
+  const walletLabel = isRestoring
+    ? 'Restoring…'
+    : isConnected && address
+      ? `${address.slice(0, 6)}…${address.slice(-4)}`
+      : 'Connect';
 
   useEffect(() => {
     if (!mobileNavOpen) return;

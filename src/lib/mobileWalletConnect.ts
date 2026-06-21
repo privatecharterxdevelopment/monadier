@@ -6,6 +6,10 @@ export function isMobileBrowser(): boolean {
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 }
 
+export function isDesktopBrowser(): boolean {
+  return !isMobileBrowser();
+}
+
 /** MetaMask in-app browser exposes injected ethereum. */
 export function isMetaMaskInAppBrowser(): boolean {
   if (typeof window === 'undefined') return false;

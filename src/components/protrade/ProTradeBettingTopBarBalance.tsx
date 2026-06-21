@@ -4,6 +4,7 @@ import { openMonadierWalletModal } from '../../lib/openWalletModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBettingUi } from '../../contexts/BettingUiContext';
 import { useBettingHeaderBalance } from '../../hooks/useBettingHeaderBalance';
+import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { fmtClosedPnl, fmtUsdSymbol } from '../../lib/hyperliquid/format';
 
 type Props = {
@@ -22,6 +23,7 @@ const ProTradeBettingTopBarBalance: React.FC<Props> = ({
 }) => {
   const { user } = useAuth();
   const { open } = useAppKit();
+  const { isRestoring } = useMonadierWallet();
   const { scrollToRail, cashOutFirst, openFunds } = useBettingUi();
   const signedIn = Boolean(user);
   const stats = useBettingHeaderBalance(walletAddress, signedIn && walletConnected);
@@ -39,6 +41,13 @@ const ProTradeBettingTopBarBalance: React.FC<Props> = ({
   }
 
   if (!walletConnected) {
+    if (isRestoring) {
+      return (
+        <span className="hl-topnav-betting-balance hl-topnav-betting-balance--restoring">
+          Restoring wallet…
+        </span>
+      );
+    }
     return (
       <button
         type="button"
