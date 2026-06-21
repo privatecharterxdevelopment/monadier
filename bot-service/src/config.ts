@@ -192,6 +192,26 @@ export const config = {
       min15mRolloverPct: Number(process.env.HL_PUMP_SHORT_15M_ROLL || 0.08),
       minHigherTfLongBlock: Number(process.env.HL_PUMP_SHORT_HTF_LONG || 2),
     },
+    /** Cautious alts (UNI/SUI/CELO-style) — news check before open. */
+    cautiousNews: {
+      lookbackMs: Number(process.env.HL_NEWS_LOOKBACK_MS || 48 * 60 * 60 * 1000),
+      cacheMs: Number(process.env.HL_NEWS_CACHE_MS || 600_000),
+      maxHeadlines: Number(process.env.HL_NEWS_MAX_HEADLINES || 8),
+      cryptopanicToken: process.env.CRYPTOPANIC_AUTH_TOKEN || '',
+      blockUnknownHeadlines: process.env.HL_NEWS_BLOCK_UNKNOWN !== 'false',
+    },
+    /** Skip pair (LONG + SHORT) after a fat pump — mass alts retest highs. */
+    freshPump: {
+      cooldownMs: Number(process.env.HL_FRESH_PUMP_COOLDOWN_MS || 2 * 60 * 60 * 1000),
+      cautiousBlock15mPct: Number(process.env.HL_FRESH_PUMP_15M || 0.22),
+      cautiousBlock1hPct: Number(process.env.HL_FRESH_PUMP_1H || 0.4),
+      cautiousBlock4hPct: Number(process.env.HL_FRESH_PUMP_4H || 0.75),
+      cautiousNearRangeHigh: Number(process.env.HL_FRESH_PUMP_NEAR_HIGH || 0.82),
+      midBlock15mPct: Number(process.env.HL_FRESH_PUMP_MID_15M || 0.35),
+      midBlock1hPct: Number(process.env.HL_FRESH_PUMP_MID_1H || 0.55),
+      midBlock4hPct: Number(process.env.HL_FRESH_PUMP_MID_4H || 1.0),
+      midNearRangeHigh: Number(process.env.HL_FRESH_PUMP_MID_NEAR_HIGH || 0.88),
+    },
     /** Bot NEVER auto-closes in red — profit-only exits. */
     profitOnlyExits: process.env.HL_PROFIT_ONLY_EXITS !== 'false',
     /** BTC/ETH live volume flow for alt entry gate + open reasons. */

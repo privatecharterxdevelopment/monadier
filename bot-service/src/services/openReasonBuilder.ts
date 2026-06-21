@@ -3,6 +3,8 @@ import type { EntryLocationResult } from './entryLocationGate';
 import type { MacroBetaResult } from './macroBetaGate';
 import type { EntryMomentumResult } from './entryMomentumGate';
 import type { PumpShortResult } from './pumpShortGate';
+import type { CoinNewsResult } from './coinNewsGate';
+import type { FreshPumpResult } from './freshPumpGate';
 import { megaPairVolumeOpenReasonLine } from './megaPairVolumeMonitor';
 
 const SECTION = ' ‖ ';
@@ -16,6 +18,8 @@ export type OpenReasonParts = {
   macroGate: MacroBetaResult;
   momentumGate?: EntryMomentumResult;
   pumpShortGate?: PumpShortResult;
+  newsGate?: CoinNewsResult;
+  freshPumpGate?: FreshPumpResult;
   megaPairLine?: string;
   liquidityReason?: string;
 };
@@ -42,6 +46,17 @@ export function buildHlOpenReasonDoc(parts: OpenReasonParts): string {
 
   if (parts.pumpShortGate) {
     lines.push(`── Pump / fade ── ${parts.pumpShortGate.reason}`);
+  }
+
+  if (parts.newsGate) {
+    lines.push(`── News (1) ── ${parts.newsGate.reason}`);
+    if (parts.newsGate.headlines.length > 0) {
+      lines.push(`── Headlines ── ${parts.newsGate.headlines.slice(0, 3).join(' | ')}`);
+    }
+  }
+
+  if (parts.freshPumpGate) {
+    lines.push(`── Pump skip (2) ── ${parts.freshPumpGate.reason}`);
   }
 
   if (pick.mtfBreakdown) {
@@ -86,7 +101,7 @@ export function buildHlOpenReasonDoc(parts: OpenReasonParts): string {
     lines.push(`── Location scan ── ${pick.locationReason}`);
   }
 
-  lines.push(`── Gates passed ── macro · pump-fade · mega caps · momentum · liquidity · location · MTF`);
+  lines.push(`── Gates passed ── news · pump-cooldown · macro · short-timing · mega · momentum · location · MTF`);
 
   return lines.join(SECTION);
 }

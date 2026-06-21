@@ -34,6 +34,9 @@ import { validateEntryLocation } from './entryLocationGate';
 import { validateMacroBetaAlignment } from './macroBetaGate';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
+import { classifyCoinTier } from './coinTier';
+import { validateCoinNews } from './coinNewsGate';
+import { validateNotFreshlyPumped } from './freshPumpGate';
 import {
   validateMegaPairVolumeForDirection,
 } from './megaPairVolumeMonitor';
@@ -590,6 +593,34 @@ export class HyperliquidTradingService {
       if (size <= 0) return { success: false, error: 'Invalid size' };
 
       const symbol = hlCoinToBinanceSymbol(coin);
+      const { tier: coinTier } = classifyCoinTier(coin, opts.ctx.liquidUniverse);
+
+      const newsGate = await validateCoinNews({
+        coin,
+        direction: opts.direction,
+        tier: coinTier,
+      });
+      if (!newsGate.ok) {
+        logger.info('HL open blocked — news gate (step 1)', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          tier: coinTier,
+          reason: newsGate.reason,
+        });
+        return { success: false, error: newsGate.reason };
+      }
+
+      const freshPumpGate = await validateNotFreshlyPumped({ coin, tier: coinTier });
+      if (!freshPumpGate.ok) {
+        logger.info('HL open blocked — fresh pump skip (step 2)', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          reason: freshPumpGate.reason,
+        });
+        return { success: false, error: freshPumpGate.reason };
+      }
 
       const macroGate = await validateMacroBetaAlignment({
         coin,
@@ -670,6 +701,8 @@ export class HyperliquidTradingService {
         macroGate,
         momentumGate,
         pumpShortGate,
+        newsGate,
+        freshPumpGate,
         megaPairLine: megaGate.reason,
         liquidityReason: opts.pick.liquidityReason,
       });

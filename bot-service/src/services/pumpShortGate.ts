@@ -1,6 +1,6 @@
 /**
- * Block alt SHORTs right after a pump — no "fade the rip" on UNI-style names.
- * Requires higher-TF rollover before the bot may short.
+ * Alt SHORT timing — only after higher-TF rollover (not a blanket ban).
+ * Pair may still be skipped earlier by freshPumpGate if recently pumped.
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';

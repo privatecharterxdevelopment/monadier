@@ -8,6 +8,8 @@ import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { filterWeekendShortOnly, isWeekendShortOnlyWindow } from './weekendTradingRules';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
 import { validateNoAltPumpShort } from './pumpShortGate';
+import { classifyCoinTier, needsCautionPath } from './coinTier';
+import { validateNotFreshlyPumped } from './freshPumpGate';
 
 export type BotSignalMode = 'standard' | 'aggressive';
 
@@ -62,7 +64,8 @@ export let lastGlobalScanResult: GlobalScanResult = { standard: [], aggressive: 
 
 async function scanStandardCoin(
   coin: string,
-  liq: { dayVolumeUsd: number; openInterestUsd: number }
+  liq: { dayVolumeUsd: number; openInterestUsd: number },
+  preloadedUniverse?: HlLiquidUniverse
 ): Promise<GlobalSignalCandidate | null> {
   try {
     const symbol = hlCoinToBinanceSymbol(coin);
@@ -70,6 +73,14 @@ async function scanStandardCoin(
     if (!analysis || analysis.isWeak) return null;
     if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
     if (analysis.confidence < config.hyperliquid.minSignalConfidence) return null;
+    const tierInfo = classifyCoinTier(coin, preloadedUniverse);
+    if (needsCautionPath(tierInfo.tier)) {
+      const pumpSkip = await validateNotFreshlyPumped({ coin, tier: tierInfo.tier });
+      if (!pumpSkip.ok) {
+        logger.debug('HL scan skip: fresh pump cooldown', { coin, reason: pumpSkip.reason });
+        return null;
+      }
+    }
     if ((analysis.metrics?.directionalTfCount ?? 0) < config.hyperliquid.minDirectionalTfs) return null;
     if ((analysis.metrics?.trendAlignment ?? 0) < config.hyperliquid.minTrendAlignment) return null;
     if (
@@ -190,7 +201,7 @@ export async function scanGlobalHlSignals(
     mapPool(coins, concurrency, async (coin) => {
       const liq = liqByCoin.get(coin);
       if (!liq) return null;
-      return scanStandardCoin(coin, liq);
+      return scanStandardCoin(coin, liq, preloadedUniverse);
     }),
     mapPool(coins, concurrency, async (coin) => {
       const liq = liqByCoin.get(coin);
