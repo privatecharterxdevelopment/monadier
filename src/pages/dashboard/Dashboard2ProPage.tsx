@@ -660,7 +660,7 @@ const Dashboard2ProPageContent: React.FC = () => {
         </div>
 
         <ProTradeBotPanelSlot
-          onOpenHistory={() => setBotDockTab('positions')}
+          onOpenHistory={() => setBotDockTab('tradeHistory')}
           onRequireSignIn={promptSignIn}
         />
       </div>

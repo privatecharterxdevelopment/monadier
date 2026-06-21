@@ -18,6 +18,7 @@ import {
   globalSignalsForBotMode,
   type GlobalSignalCandidate,
 } from './services/globalMarketScan';
+import { getMegaPairVolumeSnapshot } from './services/megaPairVolumeMonitor';
 import {
   processUserBatch,
   sliceUsersForCycle,
@@ -489,6 +490,7 @@ const healthServer = http.createServer(async (req, res) => {
               }
             : null,
         },
+        megaPairVolume: getMegaPairVolumeSnapshot(),
         sampleSignal: ethSignal
           ? {
               direction: ethSignal.direction,

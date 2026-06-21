@@ -1,5 +1,5 @@
 import React from 'react';
-import { HelpCircle } from 'lucide-react';
+import { HelpCircle, Info } from 'lucide-react';
 import {
   formatHlBotCloseReason,
   formatHlBotOpenReason,
@@ -12,7 +12,7 @@ type Props = {
   className?: string;
 };
 
-/** (?) hover — why the bot opened, closed, or is waiting. */
+/** (i) hover — why the bot opened, closed, or is waiting. */
 const TradeReasonHint: React.FC<Props> = ({
   reason,
   kind = 'plain',
@@ -38,14 +38,17 @@ const TradeReasonHint: React.FC<Props> = ({
         ? 'Why the bot closed'
         : 'Why');
 
+  const Icon = kind === 'open' ? Info : HelpCircle;
+  const kindClass = kind === 'open' ? ' term-trade-reason-hint--open' : '';
+
   return (
     <span
-      className={`term-trade-reason-hint${className ? ` ${className}` : ''}`}
+      className={`term-trade-reason-hint${kindClass}${className ? ` ${className}` : ''}`}
       tabIndex={0}
       role="img"
       aria-label={`${heading}: ${text}`}
     >
-      <HelpCircle size={12} strokeWidth={2.2} aria-hidden />
+      <Icon size={13} strokeWidth={2} aria-hidden />
       <span className="term-trade-reason-hint__tip">
         <strong className="term-trade-reason-hint__title">{heading}</strong>
         <span className="term-trade-reason-hint__body">{text}</span>

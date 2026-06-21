@@ -33,6 +33,9 @@ import { recordHlBotOpenMarker } from './hlChartMarkers';
 import { validateEntryLocation } from './entryLocationGate';
 import { validateMacroBetaAlignment } from './macroBetaGate';
 import { validateEntryMomentum } from './entryMomentumGate';
+import {
+  validateMegaPairVolumeForDirection,
+} from './megaPairVolumeMonitor';
 import { buildHlOpenReasonDoc } from './openReasonBuilder';
 import {
   evaluatePositionThesis,
@@ -543,6 +546,17 @@ export class HyperliquidTradingService {
         return { success: false, error: momentumGate.reason };
       }
 
+      const megaGate = validateMegaPairVolumeForDirection(opts.direction);
+      if (!megaGate.ok) {
+        logger.info('HL open blocked — mega pair volume', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          reason: megaGate.reason,
+        });
+        return { success: false, error: megaGate.reason };
+      }
+
       const locationGate = await validateEntryLocation({
         symbol,
         direction: opts.direction,
@@ -566,9 +580,11 @@ export class HyperliquidTradingService {
         leverage: effectiveLeverage,
         locationGate,
         macroGate,
+        momentumGate,
+        megaPairLine: megaGate.reason,
         liquidityReason: opts.pick.liquidityReason,
       });
-      const openReasonFull = `${openReasonDoc} ‖ ${momentumGate.reason}`;
+      const openReasonFull = openReasonDoc;
 
       const client = createAgentClient(opts.userAddress);
       await client.updateLeverage({

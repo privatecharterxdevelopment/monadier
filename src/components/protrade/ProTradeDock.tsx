@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ExternalLink, Loader2, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import type {
   HlAccountState,
   HlFundingPayment,
@@ -28,6 +29,7 @@ import { hlWalletExplorerUrl } from '../../lib/hyperliquid/hlApp';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
+import TradeReasonHint from '../terminal/TradeReasonHint';
 import TradeReasonCell from '../terminal/TradeReasonCell';
 import DockCountBadge from './DockCountBadge';
 
@@ -80,7 +82,7 @@ type Props = {
   /** Bot wallet — for open-trade reason tooltips. */
   walletAddress?: string | null;
   reasonRefreshKey?: number;
-  /** Bot terminal: positions + balances only (history in Profile → Bot trades). */
+  /** Bot terminal dock — positions, balances, trade history. */
   mode?: 'full' | 'bot';
   /** Profile bot history — fills table only, no dock tabs. */
   historyOnly?: boolean;
@@ -117,7 +119,7 @@ const ProTradeDock: React.FC<Props> = ({
   const visibleTabs = historyOnly
     ? TABS.filter((t) => t.id === 'tradeHistory')
     : isBotMode
-    ? TABS.filter((t) => ['positions', 'balances'].includes(t.id))
+    ? TABS.filter((t) => ['positions', 'balances', 'tradeHistory'].includes(t.id))
     : isSpot
       ? TABS.filter((t) => !['positions', 'fundingHistory'].includes(t.id))
       : TABS;
@@ -180,6 +182,9 @@ const ProTradeDock: React.FC<Props> = ({
     if (id === 'trailing' && triggerOrders.length > 0) {
       return <span className="hl-dock-count">({triggerOrders.length})</span>;
     }
+    if (id === 'tradeHistory' && closeFills.length > 0) {
+      return <span className="hl-dock-count">({closeFills.length})</span>;
+    }
     return null;
   };
 
@@ -217,6 +222,14 @@ const ProTradeDock: React.FC<Props> = ({
           <p className="hl-dock-history-only-label">Closed fills &amp; P/L</p>
         )}
         <div className="hl-dock-tools">
+          {isBotMode && tab === 'tradeHistory' && !historyOnly ? (
+            <Link
+              to="/?section=profile&tab=botTrades"
+              className="hl-dock-full-history-link"
+            >
+              See complete history →
+            </Link>
+          ) : null}
           <input
             className="hl-dock-search"
             placeholder="Coins…"
@@ -306,7 +319,7 @@ const ProTradeDock: React.FC<Props> = ({
                   <th>Mark</th>
                   <th>PnL</th>
                   <th>Lev</th>
-                  {isBotMode ? <th>Why open</th> : null}
+                  {isBotMode ? <th aria-label="Open reason" /> : null}
                   <th />
                 </tr>
               </thead>
@@ -333,10 +346,9 @@ const ProTradeDock: React.FC<Props> = ({
                       <td>{fmtLeverage(resolveDisplayLeverage(configuredLeverage, p.leverage?.value))}</td>
                       {isBotMode ? (
                         <td className="term-hl-open-reason-col">
-                          <TradeReasonCell
+                          <TradeReasonHint
                             reason={openByCoin.get(p.coin.toUpperCase())?.reason}
                             kind="open"
-                            maxLines={4}
                           />
                         </td>
                       ) : null}

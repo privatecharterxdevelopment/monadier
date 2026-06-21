@@ -10,6 +10,10 @@ import { validatePreTradeLiquidity } from './liquiditySweepGate';
 import { validateEntryLocation } from './entryLocationGate';
 import { validateMacroBetaAlignment } from './macroBetaGate';
 import { validateEntryMomentum } from './entryMomentumGate';
+import {
+  refreshMegaPairVolumeMonitor,
+  validateMegaPairVolumeForDirection,
+} from './megaPairVolumeMonitor';
 
 export type BotSignalMode = 'standard' | 'aggressive';
 
@@ -29,6 +33,10 @@ export type GlobalSignalCandidate = {
   liquidityReason?: string;
   locationReason?: string;
   macroReason?: string;
+  momentumReason?: string;
+  megaPairReason?: string;
+  signalReasons?: string[];
+  indicators?: string[];
 };
 
 const STANDARD_STRATEGY: TradingStrategy = 'normal';
@@ -108,6 +116,15 @@ async function scanStandardCoin(
       });
       return null;
     }
+    const megaGate = validateMegaPairVolumeForDirection(analysis.direction);
+    if (!megaGate.ok) {
+      logger.debug('HL scan skip: mega pair volume', {
+        coin,
+        direction: analysis.direction,
+        reason: megaGate.reason,
+      });
+      return null;
+    }
     const momentumGate = await validateEntryMomentum({
       coin,
       direction: analysis.direction,
@@ -136,6 +153,10 @@ async function scanStandardCoin(
       liquidityReason: liqGate.reason,
       locationReason: locationGate.reason,
       macroReason: macroGate.reason,
+      momentumReason: momentumGate.reason,
+      megaPairReason: megaGate.reason,
+      signalReasons: analysis.signalReasons,
+      indicators: analysis.indicators,
     };
   } catch {
     return null;
@@ -195,6 +216,15 @@ async function scanAggressiveCoin(
       });
       return null;
     }
+    const megaGate = validateMegaPairVolumeForDirection(scalp.direction);
+    if (!megaGate.ok) {
+      logger.debug('HL scan skip: mega pair volume', {
+        coin,
+        direction: scalp.direction,
+        reason: megaGate.reason,
+      });
+      return null;
+    }
     const momentumGate = await validateEntryMomentum({
       coin,
       direction: scalp.direction,
@@ -216,9 +246,20 @@ async function scanAggressiveCoin(
       dayVolumeUsd: liq.dayVolumeUsd,
       openInterestUsd: liq.openInterestUsd,
       botMode: 'aggressive',
+      mtfBreakdown: h1Check?.mtfBreakdown,
+      trendAlignment: h1Check?.metrics?.trendAlignment,
+      directionalTfCount: h1Check?.metrics?.directionalTfCount,
+      h1Trend: h1Check?.metrics?.h1Trend,
       liquidityReason: liqGate.reason,
       locationReason: locationGate.reason,
       macroReason: macroGate.reason,
+      momentumReason: momentumGate.reason,
+      megaPairReason: megaGate.reason,
+      signalReasons: [
+        `Agg 1m ${scalp.trend1m} · next-3 ${scalp.predictedNext3} · 5m ${scalp.trend5m} · mom ${scalp.momentumPct.toFixed(2)}% · ${scalp.greenCount}/6 green`,
+        ...(h1Check?.signalReasons ?? []),
+      ],
+      indicators: h1Check?.indicators,
     };
   } catch {
     return null;
@@ -247,6 +288,8 @@ export async function scanGlobalHlSignals(
     lastGlobalScanResult = { standard: [], aggressive: [] };
     return lastGlobalScanResult;
   }
+
+  await refreshMegaPairVolumeMonitor(universe);
 
   const [standardRaw, aggressiveRaw] = await Promise.all([
     mapPool(coins, concurrency, async (coin) => {

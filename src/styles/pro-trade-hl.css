@@ -687,6 +687,15 @@
 }
 
 .hl-history-page--embedded {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.hl-history-page--embedded .hl-history-body {
+  flex: 1;
   min-height: 0;
 }
 
@@ -705,8 +714,16 @@
 .hl-bot-dock--history-only .hl-dock {
   flex: 1;
   min-height: 0;
+  max-height: none;
+  height: 100%;
   border: none;
   border-radius: 0;
+}
+
+.hl-bot-dock--history-only .hl-dock-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 .hl-dock-head--history-only {
@@ -1081,6 +1098,10 @@
   overflow: hidden;
 }
 
+.hl-terminal--bot .hl-bot-dock.hl-bot-dock--history-tab {
+  max-height: min(42vh, 480px);
+}
+
 .hl-terminal--bot .hl-bot-dock > .hl-dock,
 .hl-terminal--bot .hl-bot-dock > .hl-dock.hl-bot-dock-inner {
   flex: 1 1 auto;
@@ -1093,10 +1114,17 @@
 .hl-terminal--bot .hl-bot-dock-inner {
   min-height: 0;
   height: auto;
-  max-height: min(28vh, 260px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.hl-terminal--bot .hl-bot-dock:not(.hl-bot-dock--history-tab) .hl-bot-dock-inner {
+  max-height: min(28vh, 260px);
+}
+
+.hl-terminal--bot .hl-bot-dock.hl-bot-dock--history-tab .hl-bot-dock-inner {
+  max-height: min(42vh, 480px);
 }
 
 .hl-terminal--bot .hl-bot-dock .hl-dock-body,
@@ -1738,6 +1766,24 @@
   gap: 6px;
   padding: 0 10px;
   flex-shrink: 0;
+}
+
+.hl-dock-full-history-link {
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--hl-text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  border-radius: 4px;
+  border: 1px solid var(--hl-border);
+  background: var(--hl-bg);
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+
+.hl-dock-full-history-link:hover {
+  color: var(--hl-text);
+  border-color: var(--hl-text-faint);
 }
 
 .hl-dock-search {
@@ -6151,11 +6197,26 @@
   flex-direction: column;
   min-height: 120px;
   height: auto;
-  max-height: min(28vh, 260px);
   border: none;
   border-radius: 0;
   background: transparent;
   overflow: hidden;
+}
+
+.hl-terminal--bot .hl-bot-dock:not(.hl-bot-dock--history-only) .hl-bot-dock-inner {
+  max-height: min(28vh, 260px);
+}
+
+.hl-terminal--bot .hl-bot-dock.hl-bot-dock--history-tab .hl-bot-dock-inner {
+  max-height: min(42vh, 480px);
+}
+
+.hl-bot-dock--history-only .hl-bot-dock-inner,
+.hl-profile-body--bot-trades .hl-bot-dock-inner {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  height: auto;
 }
 
 .hl-bot-dock .hl-dock-mode-label {
@@ -7959,6 +8020,17 @@
     overflow: visible;
   }
 
+  .hl-profile-body--bot-trades .hl-history-page,
+  .hl-profile-body--bot-trades .hl-history-body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .hl-profile-body--bot-trades .hl-bot-dock-inner {
+    max-height: none;
+  }
+
   .hl-profile-body {
     padding: 12px;
     flex: 0 0 auto;
@@ -7969,6 +8041,12 @@
     flex: 0 0 auto;
     min-height: 280px;
     overflow: visible;
+  }
+
+  .hl-profile-body--bot-trades .hl-history-body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .hl-profile-toolbar {

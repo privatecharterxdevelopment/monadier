@@ -147,7 +147,11 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   const connected = walletConnected || Boolean(hlWallet);
 
   return (
-    <div className={`hl-bot-dock${historyOnly ? ' hl-bot-dock--history-only' : ''}${className ? ` ${className}` : ''}`}>
+    <div
+      className={`hl-bot-dock${historyOnly ? ' hl-bot-dock--history-only' : ''}${
+        dockTab === 'tradeHistory' && !historyOnly ? ' hl-bot-dock--history-tab' : ''
+      }${className ? ` ${className}` : ''}`}
+    >
       {!historyOnly ? (
         <div className="hl-dock-mode-label">HL Bot · Hyperliquid perps</div>
       ) : null}

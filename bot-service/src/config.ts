@@ -168,6 +168,12 @@ export const config = {
     },
     /** Bot NEVER auto-closes in red — profit-only exits. */
     profitOnlyExits: process.env.HL_PROFIT_ONLY_EXITS !== 'false',
+    /** BTC/ETH live volume flow for alt entry gate + open reasons. */
+    megaPairVolume: {
+      minVolRatio: Number(process.env.HL_MEGA_MIN_VOL_RATIO || 1.2),
+      pumpPct: Number(process.env.HL_MEGA_PUMP_5M || 0.1),
+      pumpPct15m: Number(process.env.HL_MEGA_PUMP_15M || 0.15),
+    },
     /** Open-position thesis — defer SL while macro+MTF still support direction. */
     thesisCheckCacheMs: Number(process.env.HL_THESIS_CACHE_MS || 5000),
     /** Force loss close at SL × this multiple even if thesis intact (safety cap). */

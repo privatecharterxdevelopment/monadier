@@ -1646,9 +1646,28 @@
 }
 
 .term-hl-open-reason-col {
-  min-width: 160px;
-  max-width: 300px;
-  vertical-align: top;
+  width: 28px;
+  min-width: 28px;
+  max-width: 36px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.term-trade-reason-hint--open {
+  color: #71717a;
+}
+
+.term-trade-reason-hint--open:hover,
+.term-trade-reason-hint--open:focus-visible {
+  color: #a1a1aa;
+}
+
+.term-trade-reason-hint--open .term-trade-reason-hint__tip {
+  max-width: min(520px, 92vw);
+}
+
+.term-trade-reason-hint--open .term-trade-reason-hint__title {
+  color: #d4d4d8;
 }
 
 .term-analysis-subline--why {
