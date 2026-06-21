@@ -8,6 +8,7 @@ type Props = {
 
 const TeamBadge: React.FC<Props> = ({ name, size = 22 }) => {
   const visual = teamVisual(name);
+  const dim = Number.isFinite(size) && size > 0 ? size : 22;
 
   if (visual.flagUrl) {
     return (
@@ -15,8 +16,8 @@ const TeamBadge: React.FC<Props> = ({ name, size = 22 }) => {
         className="hl-sb-team-flag"
         src={visual.flagUrl}
         alt=""
-        width={size}
-        height={Math.round(size * 0.75)}
+        width={dim}
+        height={Math.round(dim * 0.75)}
         loading="lazy"
         decoding="async"
       />

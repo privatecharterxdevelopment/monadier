@@ -44,8 +44,13 @@ const ProTradeAccountMenu: React.FC<Props> = ({
         setOpen(false);
       }
     };
+    const onCloseOverlays = () => setOpen(false);
     document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
+    window.addEventListener('monadier:close-overlays', onCloseOverlays);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      window.removeEventListener('monadier:close-overlays', onCloseOverlays);
+    };
   }, [open]);
 
   const requireUser = (reason: string): boolean => {

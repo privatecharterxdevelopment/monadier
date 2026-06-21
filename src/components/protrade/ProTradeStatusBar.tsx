@@ -98,7 +98,7 @@ const ProTradeStatusBar: React.FC<Props> = ({
     return (
       <footer className="hl-status">
         <div className="hl-status-left">
-          <span className="hl-status-mode hl-status-mode--bot">HL Bot · Hyperliquid</span>
+          <span className="hl-status-mode hl-status-mode--bot">Monadier bot</span>
           <span className={running ? 'hl-up' : undefined}>
             {running ? (
               <>

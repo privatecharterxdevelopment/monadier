@@ -71,7 +71,7 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
         <form className="hl-support-form" onSubmit={handleSubmit}>
           <div className="hl-support-form-head">
             <div className="hl-support-head-icon" aria-hidden>
-              <Headphones size={22} />
+              <Headphones size={18} />
             </div>
             <div>
               <h1 className="hl-support-title">Support</h1>
@@ -117,7 +117,7 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             maxLength={5000}
-            rows={9}
+            rows={5}
             disabled={sending || success}
             required
           />

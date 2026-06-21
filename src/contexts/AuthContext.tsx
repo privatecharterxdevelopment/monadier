@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, getUserProfile, ensureUserProfile } from '../lib/supabase';
 import { ensureFreeSubscription } from '../lib/ensureSubscription';
 import { isDemoModeEnabled, disableDemoMode } from '../lib/demoMode';
@@ -29,18 +29,29 @@ const AuthContext = createContext<AuthContextType>({
   sessionReady: false,
   isDemoUser: false,
   isDemoMode: false,
-  refreshProfile: async () => null
+  refreshProfile: async () => null,
 });
 
 export const useAuth = () => useContext(AuthContext);
 
-// Helper function to add timeout to promises
+const AUTH_SESSION_TIMEOUT_MS = 12_000;
+const PROFILE_TIMEOUT_MS = 15_000;
+const PROFILE_RETRY_MS = 3_000;
+const MAX_PROFILE_RETRIES = 3;
+
 const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> => {
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('Request timeout')), ms)
-  );
-  return Promise.race([promise, timeout]);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('Request timeout')), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
 };
+
+async function fetchProfileRow(userId: string) {
+  return withTimeout(getUserProfile(userId), PROFILE_TIMEOUT_MS);
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -48,6 +59,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [sessionReady, setSessionReady] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(isDemoModeEnabled);
+  const profileLoadSeq = useRef(0);
+  const profileRetryTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     const syncDemo = () => setIsDemoMode(isDemoModeEnabled());
@@ -59,11 +72,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  const clearProfileRetries = useCallback(() => {
+    profileRetryTimers.current.forEach((id) => clearTimeout(id));
+    profileRetryTimers.current = [];
+  }, []);
+
+  const hydrateProfile = useCallback(
+    async (currentUser: User, attempt = 0) => {
+      const seq = ++profileLoadSeq.current;
+
+      try {
+        await withTimeout(ensureUserProfile(currentUser), PROFILE_TIMEOUT_MS);
+      } catch (error) {
+        console.warn('[Auth] ensureUserProfile deferred:', error);
+      }
+
+      try {
+        const { data, error } = await fetchProfileRow(currentUser.id);
+        if (seq !== profileLoadSeq.current) return;
+        if (error) {
+          console.error('Error fetching profile:', error);
+        } else if (data) {
+          setProfile(data);
+          return;
+        }
+      } catch (error) {
+        if (seq !== profileLoadSeq.current) return;
+        console.warn('[Auth] Profile fetch timeout — retrying…', error);
+      }
+
+      if (attempt < MAX_PROFILE_RETRIES) {
+        const timer = setTimeout(() => {
+          void hydrateProfile(currentUser, attempt + 1);
+        }, PROFILE_RETRY_MS * (attempt + 1));
+        profileRetryTimers.current.push(timer);
+      }
+    },
+    []
+  );
+
   const refreshProfile = useCallback(async () => {
     const userId = user?.id;
     if (!userId) return null;
     try {
-      const { data, error } = await withTimeout(getUserProfile(userId), 5000);
+      const { data, error } = await fetchProfileRow(userId);
       if (error) {
         console.error('Error refreshing profile:', error);
         return null;
@@ -71,7 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setProfile(data);
       return data;
     } catch (error) {
-      console.error('Error refreshing profile:', error);
+      console.warn('Error refreshing profile:', error);
       return null;
     }
   }, [user?.id]);
@@ -81,10 +133,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const checkUser = async () => {
       try {
-        // Prefer local session (fast); avoid blocking UI on network getUser()
         const { data: { session } } = await withTimeout(
           supabase.auth.getSession(),
-          4000
+          AUTH_SESSION_TIMEOUT_MS
         );
         const currentUser = session?.user ?? null;
 
@@ -93,23 +144,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(currentUser);
 
         if (currentUser) {
-          try {
-            await withTimeout(ensureUserProfile(currentUser), 5000);
-            const { data } = await withTimeout(getUserProfile(currentUser.id), 5000);
-            if (isMounted) {
-              setProfile(data);
-            }
-          } catch (profileError) {
-            console.error('Error fetching profile:', profileError);
-          }
+          void hydrateProfile(currentUser);
         }
       } catch (error) {
-        console.error('Error checking auth state:', error);
-        // On error, assume not authenticated
-        if (isMounted) {
-          setUser(null);
-          setProfile(null);
-        }
+        console.warn('[Auth] Session restore slow — waiting for auth listener:', error);
       } finally {
         if (isMounted) {
           setSessionReady(true);
@@ -118,28 +156,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    checkUser();
+    void checkUser();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
 
-      setUser(session?.user ?? null);
+      const nextUser = session?.user ?? null;
+      setUser(nextUser);
 
-      if (session?.user) {
-        try {
-          await withTimeout(ensureUserProfile(session.user), 5000);
-          await withTimeout(ensureFreeSubscription(), 5000).catch((e) => {
-            console.error('ensureFreeSubscription:', e);
-          });
-          const { data } = await withTimeout(getUserProfile(session.user.id), 5000);
-          if (isMounted) {
-            setProfile(data);
-          }
-        } catch (error) {
-          console.error('Error fetching profile on auth change:', error);
-        }
+      if (nextUser) {
+        void hydrateProfile(nextUser);
+        void withTimeout(ensureFreeSubscription(), PROFILE_TIMEOUT_MS).catch((e) => {
+          console.warn('[Auth] ensureFreeSubscription deferred:', e);
+        });
 
-        // Apply referral code from localStorage (for Google OAuth flow)
         if (event === 'SIGNED_IN') {
           disableDemoMode();
           emitAuthSignedIn();
@@ -148,8 +178,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (storedReferralCode) {
             try {
               const result = await supabase.rpc('apply_referral_code', {
-                p_referred_user_id: session.user.id,
-                p_referral_code: storedReferralCode
+                p_referred_user_id: nextUser.id,
+                p_referral_code: storedReferralCode,
               });
               if (result.data?.success) {
                 console.log('Referral code applied successfully:', storedReferralCode);
@@ -161,6 +191,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
       } else {
+        profileLoadSeq.current += 1;
+        clearProfileRetries();
         setProfile(null);
       }
 
@@ -170,9 +202,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       isMounted = false;
+      profileLoadSeq.current += 1;
+      clearProfileRetries();
       authListener.subscription.unsubscribe();
     };
-  }, []);
+  }, [clearProfileRetries, hydrateProfile]);
 
   const isDemoUser = !!user && user.email === DEMO_EMAIL;
 
@@ -184,7 +218,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sessionReady,
     isDemoUser,
     isDemoMode,
-    refreshProfile
+    refreshProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

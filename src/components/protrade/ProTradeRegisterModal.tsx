@@ -322,9 +322,9 @@ const ProTradeRegisterModal: React.FC<Props> = ({
             />
             <div className="hl-auth-modal-visual-overlay">
               <p className="hl-auth-visual-kicker">Monadier Pro Trade</p>
-              <h3 className="hl-auth-visual-title">Hyperliquid bot + trading terminal</h3>
+              <h3 className="hl-auth-visual-title">Monadier bot + trading terminal</h3>
               <p className="hl-auth-visual-copy">
-                Perps, spot, portfolio, and Hyperliquid bot — one trading workspace.
+                Perps, spot, portfolio, and Monadier bot — one trading workspace.
               </p>
             </div>
           </aside>

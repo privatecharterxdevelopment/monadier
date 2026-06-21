@@ -55,7 +55,7 @@ export async function isWalletOwnedByOtherUser(
   return false;
 }
 
-/** Link wallet to user — refuses if another account already owns it. */
+/** Link wallet to user — prefers server RPC (no client 409 spam). */
 export async function linkWalletToUserSafe(
   userId: string,
   walletAddress: string,
@@ -63,6 +63,10 @@ export async function linkWalletToUserSafe(
 ): Promise<WalletLinkResult> {
   const wallet = walletAddress.toLowerCase();
   const key = registrationKey(userId, wallet);
+
+  if (registrationAttempted.has(key)) {
+    return { ok: true };
+  }
 
   const { data: ownRow } = await supabase
     .from('user_wallets')
@@ -74,6 +78,25 @@ export async function linkWalletToUserSafe(
   if (ownRow && ownRow.length > 0) {
     registrationAttempted.add(key);
     return { ok: true };
+  }
+
+  const { error: rpcError } = await supabase.rpc('register_my_wallet', { p_wallet: wallet });
+  if (!rpcError) {
+    registrationAttempted.add(key);
+    return { ok: true };
+  }
+
+  if (rpcError.message.includes('linked to another')) {
+    registrationAttempted.add(key);
+    return {
+      ok: false,
+      code: 'owned_by_other',
+      error: 'This wallet is already linked to another Monadier account.',
+    };
+  }
+
+  if (!rpcError.message.includes('Could not find the function')) {
+    return { ok: false, code: 'db_error', error: rpcError.message };
   }
 
   const { error } = await supabase.from('user_wallets').upsert(
@@ -116,13 +139,7 @@ export async function linkWalletToUserSafe(
     await supabase.from('profiles').update({ wallet_address: wallet }).eq('id', userId);
   }
 
-  registrationAttempted.add(registrationKey(userId, wallet));
-
-  const { error: rpcError } = await supabase.rpc('register_my_wallet', { p_wallet: wallet });
-  if (rpcError && !rpcError.message.includes('Could not find the function')) {
-    console.warn('[linkWalletToUserSafe] register_my_wallet', rpcError.message);
-  }
-
+  registrationAttempted.add(key);
   return { ok: true };
 }
 

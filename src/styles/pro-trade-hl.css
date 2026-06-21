@@ -2292,6 +2292,37 @@
   color: var(--hl-text-muted);
 }
 
+.hl-sportsbets-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: min(68vh, 520px);
+  gap: 10px;
+  padding: 32px 24px;
+  text-align: center;
+  color: var(--hl-text-muted);
+}
+
+.hl-sportsbets-loading-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--hl-text);
+}
+
+.hl-sportsbets-loading-sub {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--hl-text-faint);
+}
+
+.hl-sportsbets-loading .hl-spin {
+  color: var(--hl-green-bright);
+}
+
 .hl-sportsbets-blocked {
   border-color: color-mix(in srgb, #ef5350 35%, var(--hl-border));
   background: color-mix(in srgb, #ef5350 6%, var(--hl-surface));
@@ -6703,8 +6734,48 @@
 }
 
 .hl-bot-dock-analyzer {
-  padding: 0;
-  border-bottom: 1px solid var(--hl-border, rgba(255, 255, 255, 0.08));
+  flex-shrink: 0;
+  padding: 8px 10px 6px;
+  background: transparent;
+}
+
+.hl-bot-dock-analyzer .term-dock-analysis {
+  flex-shrink: 0;
+}
+
+.hl-bot-dock-analyzer .term-analysis-bar--compact {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--hl-border);
+  background: var(--hl-bg);
+  color: var(--hl-text-muted);
+}
+
+.hl-root--light .hl-bot-dock-analyzer .term-analysis-bar--compact {
+  background: #ececee;
+}
+
+.hl-root--dark .hl-bot-dock-analyzer .term-analysis-bar--compact {
+  background: var(--hl-bg-hover);
+}
+
+.hl-bot-dock-analyzer .term-analysis-compact-row {
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.hl-bot-dock-analyzer .term-analysis-step--compact {
+  color: var(--hl-text);
+  font-weight: 600;
+}
+
+.hl-bot-dock-analyzer .term-analysis-subline {
+  margin: 6px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--hl-border);
+  color: var(--hl-text-faint);
+  opacity: 1;
 }
 
 .term-analysis-bar--compact {
@@ -6861,6 +6932,11 @@
   justify-content: center;
   padding: 16px;
   background: var(--hl-backdrop);
+}
+
+.hl-modal-backdrop--auth {
+  z-index: 2500;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
 }
 
 .hl-modal {
@@ -7966,23 +8042,27 @@
   background: var(--hl-green-tint);
 }
 
+.hl-topnav-support-btn--desktop {
+  display: inline-flex;
+}
+
 /* ── Support page (registered users) ── */
 .hl-support-page {
-  max-width: 560px;
+  max-width: 480px;
   margin: 0 auto;
-  padding: 12px 16px 48px;
+  padding: 28px 16px 40px;
 }
 
 .hl-support-head,
 .hl-support-form-head {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .hl-support-form-head {
-  padding-bottom: 16px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--hl-border);
 }
 
@@ -7995,9 +8075,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   border: 1px solid var(--hl-border);
   background: var(--hl-bg-elevated);
   color: var(--hl-green-bright);
@@ -8006,24 +8086,24 @@
 
 .hl-support-gate {
   text-align: center;
-  padding: 32px 16px;
+  padding: 28px 16px;
 }
 
 .hl-support-gate-icon {
-  margin: 0 auto 16px;
+  margin: 0 auto 12px;
 }
 
 .hl-support-title {
-  margin: 0 0 8px;
-  font-size: 22px;
+  margin: 0 0 4px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--hl-text);
 }
 
 .hl-support-lead {
-  margin: 0 0 20px;
-  font-size: 13px;
-  line-height: 1.5;
+  margin: 0 0 16px;
+  font-size: 12px;
+  line-height: 1.45;
   color: var(--hl-text-muted);
 }
 
@@ -8031,17 +8111,17 @@
   border: 1px solid var(--hl-border);
   border-radius: 12px;
   background: var(--hl-bg-panel);
-  padding: 16px;
+  padding: 14px 16px 16px;
 }
 
 .hl-support-user {
-  margin-bottom: 4px;
-  padding-bottom: 14px;
+  margin-bottom: 2px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--hl-border);
 }
 
 .hl-support-user-label {
-  margin: 0 0 4px;
+  margin: 0 0 3px;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -8051,13 +8131,13 @@
 
 .hl-support-user-value {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--hl-text);
 }
 
 .hl-support-user-meta {
-  margin: 4px 0 0;
+  margin: 3px 0 0;
   font-size: 11px;
   color: var(--hl-text-muted);
 }
@@ -8069,7 +8149,7 @@
 .hl-support-form {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .hl-support-label {
@@ -8081,7 +8161,7 @@
 .hl-support-input,
 .hl-support-textarea {
   width: 100%;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid var(--hl-border);
   background: var(--hl-bg);
@@ -8091,7 +8171,8 @@
 }
 
 .hl-support-textarea {
-  min-height: 200px;
+  min-height: 112px;
+  max-height: 200px;
   resize: vertical;
 }
 
@@ -8101,8 +8182,8 @@
   justify-content: center;
   gap: 8px;
   width: 100%;
-  min-height: 42px;
-  margin-top: 8px;
+  min-height: 38px;
+  margin-top: 6px;
   border: none;
   border-radius: 8px;
   background: var(--hl-green-bright);
@@ -8142,8 +8223,8 @@
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  margin-top: 16px;
-  padding: 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
   border-radius: 8px;
   background: var(--hl-bg-elevated);
   border: 1px solid var(--hl-border);
@@ -8206,6 +8287,9 @@
     height: 100%;
     height: 100dvh;
     height: 100svh;
+    max-width: 100vw;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   /* Single scroll surface — chart + dock + buy/sell stack vertically */
@@ -8213,6 +8297,7 @@
     position: fixed;
     inset: 0;
     width: 100%;
+    max-width: 100vw;
     height: 100%;
     height: 100dvh;
     height: 100svh;
@@ -8247,9 +8332,12 @@
     display: flex;
     flex-direction: column;
     flex: 0 0 auto;
+    width: 100%;
+    max-width: 100%;
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
+    overflow-x: hidden !important;
     overflow: visible !important;
   }
 
@@ -8312,20 +8400,27 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
+    column-gap: 8px;
   }
 
   .hl-topnav--mobile .hl-topnav-left {
     min-width: 0;
     overflow: hidden;
-    gap: 6px;
+    gap: 0;
     align-items: center;
   }
 
   .hl-topnav--mobile .hl-topnav-right {
     gap: 4px;
     flex-shrink: 0;
-    max-width: none;
+    max-width: min(72vw, 320px);
     align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+
+  .hl-topnav-support-btn--desktop {
+    display: none;
   }
 
   .hl-topnav--mobile .hl-topnav-betting-balance--primary {
@@ -8682,9 +8777,22 @@
   .hl-modal,
   .hl-signin-modal,
   .hl-auth-modal {
-    width: calc(100vw - 24px);
+    width: min(100%, 400px);
     max-width: none;
-    margin: 12px;
+    margin: 0;
+    max-height: min(88dvh, 640px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .hl-modal-backdrop--auth {
+    align-items: center;
+    justify-content: center;
+  }
+
+  .hl-signin-modal .term-profile-input,
+  .hl-auth-modal .term-profile-input {
+    font-size: 16px;
   }
 
   .hl-notif-panel,
@@ -8834,6 +8942,14 @@
     width: 32px;
     height: 32px;
     flex-shrink: 0;
+  }
+
+  .hl-topnav-menu-btn {
+    margin-left: 2px;
+  }
+
+  .hl-topnav--mobile .hl-notif-bell-btn {
+    display: none;
   }
 
   .hl-topnav-wallet {

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import ProTradeShell from '../../components/protrade/ProTradeShell';
@@ -347,6 +348,15 @@ const Dashboard2ProPageContent: React.FC = () => {
   const switchToSignIn = useCallback(() => {
     setAuthModal('signin');
   }, []);
+
+  useEffect(() => {
+    if (!authModal) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [authModal]);
 
   const requireAuth = (reason: string): boolean => {
     if (user) return true;
@@ -756,28 +766,35 @@ const Dashboard2ProPageContent: React.FC = () => {
         />
       ) : null}
 
-      {authModal ? (
-        <div className="hl-modal-backdrop" role="presentation" onClick={closeAuthModal}>
-          {authModal === 'signin' ? (
-            <ProTradeSignInModal
-              key="signin"
-              embedded
-              open
-              reason={signInReason}
-              onClose={closeAuthModal}
-              onSwitchToRegister={switchToRegister}
-            />
-          ) : (
-            <ProTradeRegisterModal
-              key="register"
-              embedded
-              open
-              onClose={closeAuthModal}
-              onSwitchToSignIn={switchToSignIn}
-            />
-          )}
-        </div>
-      ) : null}
+      {authModal
+        ? createPortal(
+            <div
+              className="hl-modal-backdrop hl-modal-backdrop--auth"
+              role="presentation"
+              onClick={closeAuthModal}
+            >
+              {authModal === 'signin' ? (
+                <ProTradeSignInModal
+                  key="signin"
+                  embedded
+                  open
+                  reason={signInReason}
+                  onClose={closeAuthModal}
+                  onSwitchToRegister={switchToRegister}
+                />
+              ) : (
+                <ProTradeRegisterModal
+                  key="register"
+                  embedded
+                  open
+                  onClose={closeAuthModal}
+                  onSwitchToSignIn={switchToSignIn}
+                />
+              )}
+            </div>,
+            document.body
+          )
+        : null}
 
       {transferOpen ? (
         <ProTradeTransferModal

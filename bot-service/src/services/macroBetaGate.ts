@@ -179,34 +179,50 @@ export async function evaluateMacroBetaAlignment(opts: {
   const minGreen = cfg.minConsecutiveGreen15m;
   const minRed = cfg.minConsecutiveRed15m;
 
-  const isPumping = (m: MacroMomentum, label: string) => {
+  const isPumping = (m: MacroMomentum, label: string, require15mConfirmFor1h = false) => {
     const hits: string[] = [];
     if (m.change15mPct >= pump15) hits.push(`${label} 15m +${m.change15mPct.toFixed(2)}%`);
-    if (m.change1hPct >= pump1h) hits.push(`${label} 1h +${m.change1hPct.toFixed(2)}%`);
     if (m.consecutiveGreen15m >= minGreen) {
       hits.push(`${label} ${m.consecutiveGreen15m}× green 15m candles`);
+    }
+    if (m.change1hPct >= pump1h) {
+      const confirmed =
+        !require15mConfirmFor1h ||
+        m.trend15m === 'UP' ||
+        m.change15mPct >= pump15 * 0.5;
+      if (confirmed) {
+        hits.push(`${label} 1h +${m.change1hPct.toFixed(2)}%`);
+      }
     }
     return hits;
   };
 
-  const isDumping = (m: MacroMomentum, label: string) => {
+  const isDumping = (m: MacroMomentum, label: string, require15mConfirmFor1h = false) => {
     const hits: string[] = [];
     if (m.change15mPct <= -dump15) hits.push(`${label} 15m ${m.change15mPct.toFixed(2)}%`);
-    if (m.change1hPct <= -dump1h) hits.push(`${label} 1h ${m.change1hPct.toFixed(2)}%`);
     if (m.consecutiveRed15m >= minRed) {
       hits.push(`${label} ${m.consecutiveRed15m}× red 15m candles`);
+    }
+    if (m.change1hPct <= -dump1h) {
+      const confirmed =
+        !require15mConfirmFor1h ||
+        m.trend15m === 'DOWN' ||
+        m.change15mPct <= -dump15 * 0.5;
+      if (confirmed) {
+        hits.push(`${label} 1h ${m.change1hPct.toFixed(2)}%`);
+      }
     }
     return hits;
   };
 
   if (opts.direction === 'SHORT') {
-    blockers.push(...isPumping(btc, 'BTC'));
-    blockers.push(...isPumping(eth, 'ETH'));
-    blockers.push(...isPumping(snapshot.coinMom, coin));
+    blockers.push(...isPumping(btc, 'BTC', true));
+    blockers.push(...isPumping(eth, 'ETH', true));
+    blockers.push(...isPumping(snapshot.coinMom, coin, true));
   } else {
-    blockers.push(...isDumping(btc, 'BTC'));
-    blockers.push(...isDumping(eth, 'ETH'));
-    blockers.push(...isDumping(snapshot.coinMom, coin));
+    blockers.push(...isDumping(btc, 'BTC', true));
+    blockers.push(...isDumping(eth, 'ETH', true));
+    blockers.push(...isDumping(snapshot.coinMom, coin, true));
   }
 
   const macroSummary = [fmtMom('BTC', btc), fmtMom('ETH', eth)];

@@ -59,15 +59,18 @@ const ProTradeSportsbets: React.FC<Props> = ({
     [profileCountry, locale.country]
   );
 
-  const loading = profileLoading || locale.loading;
+  const loading =
+    Boolean(user?.id && profileLoading) ||
+    (locale.loading && profileCountry == null);
   const resolvedAddress = walletAddress ?? address ?? undefined;
 
   if (loading) {
     return (
       <div className="hl-terminal hl-terminal--sb">
-        <div className="hl-sportsbets-state" role="status">
-          <Loader2 size={20} className="hl-spin" aria-hidden />
-          <span>Checking eligibility…</span>
+        <div className="hl-sportsbets-loading" role="status" aria-live="polite">
+          <Loader2 size={28} className="hl-spin" aria-hidden />
+          <p className="hl-sportsbets-loading-title">Checking eligibility</p>
+          <p className="hl-sportsbets-loading-sub">Verifying regional access…</p>
         </div>
       </div>
     );

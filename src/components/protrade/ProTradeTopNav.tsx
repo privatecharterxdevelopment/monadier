@@ -114,15 +114,6 @@ const ProTradeTopNav: React.FC<Props> = ({
   return (
     <header className={`hl-topnav ${isMobile ? 'hl-topnav--mobile' : ''}`}>
       <div className="hl-topnav-left">
-        <button
-          type="button"
-          className="hl-topnav-menu-btn"
-          aria-label="Open menu"
-          aria-expanded={mobileNavOpen}
-          onClick={() => setMobileNavOpen(true)}
-        >
-          <Menu size={18} />
-        </button>
         <a
           href={getLandingPageUrl()}
           className="hl-topnav-logo"
@@ -164,7 +155,7 @@ const ProTradeTopNav: React.FC<Props> = ({
         <ProTradeThemeIcon />
         <button
           type="button"
-          className={`hl-topnav-icon-btn hl-topnav-support-btn${section === 'support' ? ' hl-topnav-support-btn--on' : ''}`}
+          className={`hl-topnav-icon-btn hl-topnav-support-btn hl-topnav-support-btn--desktop${section === 'support' ? ' hl-topnav-support-btn--on' : ''}`}
           aria-label="Support"
           aria-current={section === 'support' ? 'page' : undefined}
           onClick={openSupport}
@@ -194,6 +185,17 @@ const ProTradeTopNav: React.FC<Props> = ({
             onClick={() => openMonadierWalletModal(() => open())}
           >
             {walletLabel}
+          </button>
+        ) : null}
+        {isMobile ? (
+          <button
+            type="button"
+            className="hl-topnav-menu-btn"
+            aria-label="Open menu"
+            aria-expanded={mobileNavOpen}
+            onClick={() => setMobileNavOpen(true)}
+          >
+            <Menu size={18} />
           </button>
         ) : null}
       </div>

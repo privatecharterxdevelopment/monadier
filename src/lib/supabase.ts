@@ -226,8 +226,32 @@ export const linkWalletToUser = async (userId: string, walletAddress: string, la
     .limit(1);
 
   if (ownRow && ownRow.length > 0) {
-    await supabase.rpc('register_my_wallet', { p_wallet: wallet });
     return { data: ownRow, error: null };
+  }
+
+  const { error: rpcError } = await supabase.rpc('register_my_wallet', { p_wallet: wallet });
+  if (!rpcError) {
+    const { data: linked } = await supabase
+      .from('user_wallets')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('wallet_address', wallet)
+      .limit(1);
+    return { data: linked, error: null };
+  }
+
+  if (
+    !rpcError.message.includes('Could not find the function') &&
+    !rpcError.message.includes('linked to another')
+  ) {
+    return { data: null, error: rpcError };
+  }
+
+  if (rpcError.message.includes('linked to another')) {
+    return {
+      data: null,
+      error: new Error('This wallet is already linked to another Monadier account.'),
+    };
   }
 
   const { data, error } = await supabase.from('user_wallets').upsert(

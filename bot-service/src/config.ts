@@ -169,9 +169,9 @@ export const config = {
     macroBeta: {
       /** 15m % move that counts as "pumping" (blocks alt SHORT). */
       pumpBlock15mPct: Number(process.env.HL_MACRO_PUMP_15M || 0.12),
-      pumpBlock1hPct: Number(process.env.HL_MACRO_PUMP_1H || 0.25),
+      pumpBlock1hPct: Number(process.env.HL_MACRO_PUMP_1H || 0.35),
       dumpBlock15mPct: Number(process.env.HL_MACRO_DUMP_15M || 0.12),
-      dumpBlock1hPct: Number(process.env.HL_MACRO_DUMP_1H || 0.25),
+      dumpBlock1hPct: Number(process.env.HL_MACRO_DUMP_1H || 0.35),
       flatTrendPct: Number(process.env.HL_MACRO_FLAT_PCT || 0.08),
       minConsecutiveGreen15m: Number(process.env.HL_MACRO_MIN_GREEN_15M || 3),
       minConsecutiveRed15m: Number(process.env.HL_MACRO_MIN_RED_15M || 3),

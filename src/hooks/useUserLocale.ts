@@ -9,6 +9,7 @@ export type UserLocaleInfo = {
 };
 
 const CACHE_KEY = 'monadier_user_locale_v1';
+const FETCH_TIMEOUT_MS = 6_000;
 
 function greetingForHour(hour: number) {
   if (hour < 12) return 'Good morning';
@@ -17,15 +18,21 @@ function greetingForHour(hour: number) {
 }
 
 async function fetchLocaleFromIp(): Promise<Omit<UserLocaleInfo, 'loading'>> {
-  const res = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(8000) });
-  if (!res.ok) throw new Error('locale fetch failed');
-  const data = await res.json();
-  return {
-    city: data.city || '',
-    region: data.region || data.region_code || '',
-    country: data.country_name || data.country || '',
-    timezone: data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
-  };
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch('https://ipapi.co/json/', { signal: controller.signal });
+    if (!res.ok) throw new Error('locale fetch failed');
+    const data = await res.json();
+    return {
+      city: data.city || '',
+      region: data.region || data.region_code || '',
+      country: data.country_name || data.country || '',
+      timezone: data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 }
 
 export function useUserLocale() {
@@ -51,6 +58,13 @@ export function useUserLocale() {
   useEffect(() => {
     if (!locale.loading) return;
     let cancelled = false;
+
+    const hardTimeout = window.setTimeout(() => {
+      if (!cancelled) {
+        setLocale((prev) => ({ ...prev, loading: false }));
+      }
+    }, FETCH_TIMEOUT_MS + 500);
+
     fetchLocaleFromIp()
       .then((data) => {
         if (cancelled) return;
@@ -61,9 +75,14 @@ export function useUserLocale() {
         if (!cancelled) {
           setLocale((prev) => ({ ...prev, loading: false }));
         }
+      })
+      .finally(() => {
+        window.clearTimeout(hardTimeout);
       });
+
     return () => {
       cancelled = true;
+      window.clearTimeout(hardTimeout);
     };
   }, [locale.loading]);
 

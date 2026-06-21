@@ -453,7 +453,7 @@ const TerminalTradePanel: React.FC<Props> = ({
     <aside className="term-trade-panel">
       <div className="term-trade-header">
         <div className="term-trade-header-top">
-          <p className="term-trade-title">Hyperliquid bot</p>
+          <p className="term-trade-title">Monadier bot</p>
           <div className="term-trade-header-actions">
             {setupGuideComplete && walletReady && (
               <button
@@ -501,7 +501,7 @@ const TerminalTradePanel: React.FC<Props> = ({
             {!walletReady ? (
               <div className="term-panel-card term-panel-card--muted term-connect-banner">
                 <p className="term-hint term-connect-banner-text">
-                  Connect your wallet to set up the Hyperliquid bot.
+                  Connect your wallet to set up the Monadier bot.
                 </p>
                 <button
                   type="button"
@@ -685,7 +685,7 @@ const TerminalTradePanel: React.FC<Props> = ({
         {panelTab === 'lvrg' && (
           <div className="term-panel-stack">
             {!walletReady && (
-              <p className="term-hint">Connect wallet to save leverage & risk for the HL bot.</p>
+              <p className="term-hint">Connect wallet to save leverage & risk for the Monadier bot.</p>
             )}
             <TerminalLvrgPanel
               settings={botSettings.settings}

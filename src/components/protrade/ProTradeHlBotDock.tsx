@@ -153,7 +153,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
       }${className ? ` ${className}` : ''}`}
     >
       {!historyOnly ? (
-        <div className="hl-dock-mode-label">HL Bot · Hyperliquid perps</div>
+        <div className="hl-dock-mode-label">Monadier bot</div>
       ) : null}
       {showAnalyzer ? (
         <div className="hl-bot-dock-analyzer">
