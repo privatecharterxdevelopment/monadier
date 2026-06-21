@@ -139,14 +139,34 @@ const ProTradeHlBotDock: React.FC<Props> = ({
     [closePosition, hlWallet, markPrices, refreshAccount, onPositionChange]
   );
 
-  const showAnalyzer =
+  /** Always show the scan bar on Positions — it handles paused / connect states itself. */
+  const showAnalyzerStrip =
     showBotAnalysis &&
-    botRunning &&
-    botAnalysisMetrics &&
+    !historyOnly &&
     dockTab === 'positions' &&
-    !accountLoading;
+    Boolean(hlWallet || walletConnected || address);
 
   const connected = walletConnected || Boolean(hlWallet);
+
+  const analysisMetrics =
+    botAnalysisMetrics ??
+    ({
+      walletAvailableUsd: 0,
+      hlBalanceUsd: 0,
+      vaultUsd: 0,
+      hlWithdrawableUsd: 0,
+      activeTradeUsd: 0,
+      totalPnlUsd: 0,
+      realizedPnlUsd: 0,
+      unrealizedPnlUsd: 0,
+      withdrawnUsd: 0,
+      openPositionsCount: positions.length,
+      autoTradeEnabled: botRunning,
+      winRate: 0,
+      closedTradesCount: 0,
+      isLoading: false,
+      hasHlSnapshot: false,
+    } satisfies Dashboard2Metrics);
 
   return (
     <div
@@ -154,20 +174,20 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         dockTab === 'tradeHistory' && !historyOnly ? ' hl-bot-dock--history-tab' : ''
       }${className ? ` ${className}` : ''}`}
     >
-      {!historyOnly && !showAnalyzer ? (
-        <div className="hl-dock-mode-label">Monadier bot</div>
-      ) : null}
-      {showAnalyzer ? (
+      {showAnalyzerStrip ? (
         <div className="hl-bot-dock-analyzer">
           <TerminalBotAnalysisStrip
             walletConnected={connected}
-            metrics={botAnalysisMetrics}
+            metrics={analysisMetrics}
             vaultWallet={botAnalysisWallet ?? hlWallet ?? null}
             openPositionCoins={botOpenPositionCoins ?? positionCoins}
             symbol={botAnalysisSymbol}
             placement="dock"
+            botRunningHint={botRunning}
           />
         </div>
+      ) : !historyOnly ? (
+        <div className="hl-dock-mode-label">Monadier bot</div>
       ) : null}
       {closeNotice ? (
         <p className="hl-dock-notice" role="status">

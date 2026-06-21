@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
 import { useWeb3 } from '../contexts/Web3Context';
+import { useMonadierWallet } from './useMonadierWallet';
 import { MONADIER_VAULT_V11_ADDRESS } from '../lib/monadierVault';
 import { useTradingDashboardMetrics } from './useTradingDashboardMetrics';
 
@@ -77,7 +78,8 @@ async function fetchWithdrawnTotalUsd(wallet: string): Promise<number> {
 
 export function useDashboard2Metrics() {
   const { totalUsdValue, isLoadingBalances, refreshBalances } = useWeb3();
-  const { address } = useAccount();
+  const { address: wagmiAddress } = useAccount();
+  const { address: monadierAddress } = useMonadierWallet();
   const { isDemoUser } = useAuth();
   const { metrics, refresh: refreshTrading } = useTradingDashboardMetrics();
   const [withdrawnUsd, setWithdrawnUsd] = useState(0);
@@ -85,7 +87,7 @@ export function useDashboard2Metrics() {
 
   const queryWallet = isDemoUser
     ? DEMO_WALLET_ADDRESS
-    : address?.toLowerCase();
+    : (monadierAddress ?? wagmiAddress)?.toLowerCase();
 
   const refreshWithdrawn = useCallback(async () => {
     if (!queryWallet) {

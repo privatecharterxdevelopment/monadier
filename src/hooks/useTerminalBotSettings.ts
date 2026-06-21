@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useWeb3 } from '../contexts/Web3Context';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
+import { useMonadierWallet } from './useMonadierWallet';
 import { supabase } from '../lib/supabase';
 import { fetchUserWalletAddresses, pickPrimaryVaultWallet } from '../lib/userWallets';
 import { resolveVaultSettingsSnapshot } from '../lib/vaultSettingsSnapshot';
@@ -32,6 +33,7 @@ export type TerminalBotSettings = {
 
 export function useTerminalBotSettings(refreshKey = 0) {
   const { isConnected, address } = useWeb3();
+  const { address: monadierAddress } = useMonadierWallet();
   const { isDemoUser, user, profile } = useAuth();
   const [linkedWallets, setLinkedWallets] = useState<string[]>([]);
 
@@ -48,10 +50,11 @@ export function useTerminalBotSettings(refreshKey = 0) {
 
   const wallet = useMemo(() => {
     if (isDemoUser) return DEMO_WALLET_ADDRESS as `0x${string}`;
-    if (isConnected && address) return address as `0x${string}`;
-    const primary = pickPrimaryVaultWallet(linkedWallets, address);
+    const resolved = monadierAddress ?? (isConnected && address ? address : undefined);
+    if (resolved) return resolved as `0x${string}`;
+    const primary = pickPrimaryVaultWallet(linkedWallets, monadierAddress ?? address);
     return primary ? (primary as `0x${string}`) : undefined;
-  }, [isDemoUser, isConnected, address, linkedWallets]);
+  }, [isDemoUser, monadierAddress, isConnected, address, linkedWallets]);
 
   const [data, setData] = useState<TerminalBotSettings>({
     settings: defaultSettings,

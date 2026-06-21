@@ -14,6 +14,8 @@ type Props = {
   openPositionCoins?: string[];
   symbol?: string;
   placement?: 'chart' | 'dock';
+  /** Parent-computed bot on/off (settings + metrics). */
+  botRunningHint?: boolean;
 };
 
 const TerminalBotAnalysisStrip: React.FC<Props> = ({
@@ -23,6 +25,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
   openPositionCoins = [],
   symbol = 'ETHUSDT',
   placement = 'dock',
+  botRunningHint,
 }) => {
   const hlSetup = useHlBotSetup(vaultWallet ?? undefined);
   const botSettings = useTerminalBotSettings();
@@ -31,15 +34,23 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
   const slotsFull = openPositionsCount >= maxSlots;
 
   const botRunning = isHlBotEnabled(
-    botSettings.settings.autoTradeEnabled || metrics.autoTradeEnabled
+    botRunningHint ??
+      (botSettings.settings.autoTradeEnabled || metrics.autoTradeEnabled)
   );
-  const showAnalysis = walletConnected && botRunning;
+  const hasWallet = walletConnected || Boolean(vaultWallet);
+  const showLiveAnalysis = hasWallet && botRunning;
 
   const hlBalanceUsd =
     hlSetup.accountUsd > 0 || !hlSetup.loading ? hlSetup.accountUsd : metrics.hlBalanceUsd;
 
+  const idleReadiness = !hasWallet
+    ? { headline: 'Connect wallet', detail: 'Connect your wallet to scan HL perps' }
+    : !botRunning
+      ? { headline: 'Bot paused', detail: 'Press Start bot to resume market scan' }
+      : null;
+
   const analysis = useTerminalBotAnalysis({
-    walletConnected: walletConnected || showAnalysis,
+    walletConnected: hasWallet,
     metrics,
     openPositionsCount,
     maxConcurrentPositions: maxSlots,
@@ -47,20 +58,18 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     vaultWallet,
     openPositionCoins,
     symbol,
-    analysisActive: showAnalysis,
+    analysisActive: showLiveAnalysis,
     botRunning,
   });
 
-  if (!showAnalysis) return null;
+  if (placement !== 'dock' && !showLiveAnalysis) return null;
 
   return (
     <TerminalChartAnalysisOverlay
         placement={placement}
         visible
-        scanning={analysis.scanning}
         step={analysis.step}
         progress={analysis.progress}
-        isLoading={analysis.isLoading}
         signal={analysis.signal}
         dbAnalysis={analysis.dbAnalysis}
         activeSymbol={analysis.activeSymbol}
@@ -68,14 +77,17 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
         globalScanCount={analysis.globalScanCount}
         globalCoinsScanned={analysis.globalCoinsScanned}
         readiness={
-          slotsFull
+          idleReadiness ??
+          (slotsFull
             ? {
                 ...analysis.readiness,
                 headline: 'Slots full',
                 detail: `${openPositionsCount}/${maxSlots} positions open — monitoring exits`,
               }
-            : analysis.readiness
+            : analysis.readiness)
         }
+        scanning={idleReadiness ? false : analysis.scanning}
+        isLoading={idleReadiness ? false : analysis.isLoading}
         openPositionsCount={analysis.openPositionsCount}
         maxConcurrentPositions={analysis.maxConcurrentPositions}
       />

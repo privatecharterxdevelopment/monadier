@@ -1249,7 +1249,7 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) minmax(168px, min(38vh, 360px));
+  grid-template-rows: minmax(0, 1fr) minmax(212px, min(42vh, 400px));
   overflow: hidden;
 }
 

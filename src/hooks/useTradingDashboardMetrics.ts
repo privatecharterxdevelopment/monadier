@@ -3,6 +3,7 @@ import { useAccount } from 'wagmi';
 import { supabase } from '../lib/supabase';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
 import { useWeb3 } from '../contexts/Web3Context';
+import { useMonadierWallet } from './useMonadierWallet';
 import { pickPrimaryVaultWallet } from '../lib/userWallets';
 import { fetchUserPositions } from '../lib/userPositions';
 import { fetchHlUserFills } from '../lib/hyperliquid/user';
@@ -74,7 +75,8 @@ function pnlInWindow(
 }
 
 export function useTradingDashboardMetrics() {
-  const { address } = useAccount();
+  const { address: wagmiAddress } = useAccount();
+  const { address: monadierAddress } = useMonadierWallet();
   const { isDemoUser, user } = useAuth();
   const { publicClient, walletClient } = useWeb3();
   const [metrics, setMetrics] = useState<TradingDashboardMetrics>(defaultMetrics);
@@ -82,8 +84,10 @@ export function useTradingDashboardMetrics() {
   const refreshInFlightRef = useRef(false);
 
   const queryWallet = (
-    isDemoUser ? DEMO_WALLET_ADDRESS : address?.toLowerCase()
+    isDemoUser ? DEMO_WALLET_ADDRESS : (monadierAddress ?? wagmiAddress)?.toLowerCase()
   ) as `0x${string}` | undefined;
+
+  const connectedAddress = monadierAddress ?? wagmiAddress ?? undefined;
 
   const hlWallet = queryWallet;
   const { snapshot: hlSnap } = useHlAccountSnapshot(hlWallet);
@@ -123,7 +127,7 @@ export function useTradingDashboardMetrics() {
         [all, livePrices] = await Promise.all([
           fetchUserPositions({
             isDemoUser,
-            connectedAddress: address,
+            connectedAddress,
             userId: user?.id,
           }),
           fetchLiveTokenPrices(),
@@ -147,13 +151,13 @@ export function useTradingDashboardMetrics() {
       ];
       if (isDemoUser) {
         walletArray.push(DEMO_WALLET_ADDRESS);
-      } else if (address) {
-        walletArray.push(address.toLowerCase());
+      } else if (connectedAddress) {
+        walletArray.push(connectedAddress.toLowerCase());
       }
 
       const primaryWallet = pickPrimaryVaultWallet(
         [...new Set(walletArray)],
-        address
+        connectedAddress
       );
       let vaultSettings: { auto_trade_enabled?: boolean } | null = null;
       let agentApproved = false;
@@ -254,11 +258,11 @@ export function useTradingDashboardMetrics() {
     } finally {
       refreshInFlightRef.current = false;
     }
-  }, [address, isDemoUser, user?.id, publicClient, walletClient, queryWallet]);
+  }, [connectedAddress, isDemoUser, user?.id, publicClient, walletClient, queryWallet]);
 
   useEffect(() => {
     hasSnapshotRef.current = false;
-  }, [address, isDemoUser]);
+  }, [connectedAddress, isDemoUser]);
 
   useEffect(() => {
     refresh();
