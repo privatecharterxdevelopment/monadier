@@ -5,7 +5,6 @@ import { pairLabel } from '../../lib/botTradingPairs';
 import type { BotReadiness } from '../../lib/botReadiness';
 import { isBotScanNoiseDetail } from '../../lib/hlBotReasonLabels';
 import type { UnifiedSignal } from '../../lib/signalService';
-import { isBotScanNoiseDetail } from '../../lib/hlBotReasonLabels';
 
 type DbAnalysis = {
   signal: string;

@@ -52,6 +52,7 @@ import TerminalBotSettingsStrip from './TerminalBotSettingsStrip';
 import TerminalBotModeRow from './TerminalBotModeRow';
 import BotSettingsStopFirstModal from './BotSettingsStopFirstModal';
 import { sanitizeUserFacingError } from '../../lib/hyperliquid/builderPlatform';
+import { isBotScanNoiseDetail } from '../../lib/hlBotReasonLabels';
 type PanelTab = 'bot' | 'lvrg' | 'funds';
 
 type Props = {
