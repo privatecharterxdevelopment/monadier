@@ -72,12 +72,28 @@ async function scanStandardCoin(
     const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
     if (!analysis || analysis.isWeak) return null;
     if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
-    if (analysis.confidence < config.hyperliquid.minSignalConfidence) return null;
     const tierInfo = classifyCoinTier(coin, preloadedUniverse);
-    if (needsCautionPath(tierInfo.tier)) {
+    const cautious = needsCautionPath(tierInfo.tier);
+    const minConf = cautious
+      ? config.hyperliquid.cautiousScan.minSignalConfidence
+      : config.hyperliquid.minSignalConfidence;
+    if (analysis.confidence < minConf) return null;
+    if (cautious) {
       const pumpSkip = await validateNotFreshlyPumped({ coin, tier: tierInfo.tier });
       if (!pumpSkip.ok) {
         logger.debug('HL scan skip: fresh pump cooldown', { coin, reason: pumpSkip.reason });
+        return null;
+      }
+      if (
+        (analysis.metrics?.directionalTfCount ?? 0) <
+        config.hyperliquid.cautiousScan.minDirectionalTfs
+      ) {
+        return null;
+      }
+      if (
+        (analysis.metrics?.trendAlignment ?? 0) <
+        config.hyperliquid.cautiousScan.minTrendAlignment
+      ) {
         return null;
       }
     }
@@ -121,13 +137,26 @@ async function scanStandardCoin(
 
 async function scanAggressiveCoin(
   coin: string,
-  liq: { dayVolumeUsd: number; openInterestUsd: number }
+  liq: { dayVolumeUsd: number; openInterestUsd: number },
+  preloadedUniverse?: HlLiquidUniverse
 ): Promise<GlobalSignalCandidate | null> {
   try {
     const symbol = hlCoinToBinanceSymbol(coin);
     const scalp = await analyzeAggressiveScalpBySymbol(symbol);
-    const minConf = Math.max(60, config.hyperliquid.minSignalConfidence - 2);
+    const tierInfo = classifyCoinTier(coin, preloadedUniverse);
+    const cautious = needsCautionPath(tierInfo.tier);
+    const minConf = cautious
+      ? config.hyperliquid.cautiousScan.minSignalConfidence
+      : Math.max(60, config.hyperliquid.minSignalConfidence - 2);
     if (!scalp || scalp.confidence < minConf) return null;
+
+    if (cautious) {
+      const pumpSkip = await validateNotFreshlyPumped({ coin, tier: tierInfo.tier });
+      if (!pumpSkip.ok) {
+        logger.debug('HL agg scan skip: fresh pump cooldown', { coin, reason: pumpSkip.reason });
+        return null;
+      }
+    }
 
     const h1Check = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
     if (h1Check) {
@@ -201,12 +230,12 @@ export async function scanGlobalHlSignals(
     mapPool(coins, concurrency, async (coin) => {
       const liq = liqByCoin.get(coin);
       if (!liq) return null;
-      return scanStandardCoin(coin, liq, preloadedUniverse);
+      return scanStandardCoin(coin, liq, universe);
     }),
     mapPool(coins, concurrency, async (coin) => {
       const liq = liqByCoin.get(coin);
       if (!liq) return null;
-      return scanAggressiveCoin(coin, liq);
+      return scanAggressiveCoin(coin, liq, universe);
     }),
   ]);
 

@@ -20,6 +20,7 @@ export type OpenReasonParts = {
   pumpShortGate?: PumpShortResult;
   newsGate?: CoinNewsResult;
   freshPumpGate?: FreshPumpResult;
+  scalpAlignLine?: string;
   megaPairLine?: string;
   liquidityReason?: string;
 };
@@ -57,6 +58,10 @@ export function buildHlOpenReasonDoc(parts: OpenReasonParts): string {
 
   if (parts.freshPumpGate) {
     lines.push(`── Pump skip (2) ── ${parts.freshPumpGate.reason}`);
+  }
+
+  if (parts.scalpAlignLine) {
+    lines.push(`── Scalp 1m/5m ── ${parts.scalpAlignLine}`);
   }
 
   if (pick.mtfBreakdown) {

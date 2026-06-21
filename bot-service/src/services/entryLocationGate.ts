@@ -300,10 +300,11 @@ export async function validateEntryLocation(opts: {
   symbol: string;
   direction: 'LONG' | 'SHORT';
 }): Promise<EntryLocationResult> {
-  const candles15 = await signalEngine.fetchCandles(opts.symbol, '15m', 96);
-  const candles1h = await signalEngine.fetchCandles(opts.symbol, '1h', 72);
+  // Scalp S/R — ~4h on 5m + ~6h on 15m (not 24–72h 1h charts).
+  const candles5 = await signalEngine.fetchCandles(opts.symbol, '5m', 48);
+  const candles15 = await signalEngine.fetchCandles(opts.symbol, '15m', 24);
 
-  if (candles15.length < 24) {
+  if (candles15.length < 12 || candles5.length < 12) {
     return {
       ok: true,
       reason: 'insufficient candle history — location check skipped',
@@ -324,6 +325,6 @@ export async function validateEntryLocation(opts: {
     };
   }
 
-  const sr = analyzeSrZones(candles15, candles1h);
+  const sr = analyzeSrZones(candles5, candles15);
   return evaluateEntryLocation(opts.direction, sr);
 }

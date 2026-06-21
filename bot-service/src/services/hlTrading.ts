@@ -21,6 +21,7 @@ import {
 } from './hlInfo';
 import { checkHlBuilderFeeApproved } from './hlBuilder';
 import { checkWinRateGate } from './tradeGates';
+import { checkDailyLossGate, maybePauseAfterLossClose } from './dailyLossGate';
 import { subscriptionService } from './subscription';
 import type { TradingCycleContext } from './tradingCycleContext';
 import {
@@ -34,9 +35,10 @@ import { validateEntryLocation } from './entryLocationGate';
 import { validateMacroBetaAlignment } from './macroBetaGate';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
-import { classifyCoinTier } from './coinTier';
+import { classifyCoinTier, needsCautionPath, volumeRankForCoin } from './coinTier';
 import { validateCoinNews } from './coinNewsGate';
 import { validateNotFreshlyPumped } from './freshPumpGate';
+import { validateScalpAlignment } from './scalpAlignGate';
 import {
   validateMegaPairVolumeForDirection,
 } from './megaPairVolumeMonitor';
@@ -48,6 +50,10 @@ import {
   logProfitRunAnalysis,
   logTrailPullbackAnalysis,
   clearProfitAnalyzeLog,
+  shouldHardLossClose,
+  shouldForceLossCap,
+  logThesisDeferStopLoss,
+  buildCloseReasonDoc,
 } from './positionThesisGate';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import {
@@ -221,10 +227,11 @@ export function resolveHlMarginPerSlot(
   );
 }
 
-function liquidityPickScore(signal: GlobalSignalCandidate): number {
+function liquidityPickScore(signal: GlobalSignalCandidate, tier: 'major' | 'mid' | 'cautious'): number {
   const volM = signal.dayVolumeUsd / 1_000_000;
   const oiM = signal.openInterestUsd / 1_000_000;
-  return volM * 12 + oiM * 3 + signal.confidence * 0.15;
+  const tierBonus = tier === 'major' ? 40 : tier === 'mid' ? 15 : -25;
+  return volM * 12 + oiM * 3 + signal.confidence * 0.15 + tierBonus;
 }
 
 export type UserProcessResult = 'ok' | 'skip' | 'fail';
@@ -347,6 +354,21 @@ export class HyperliquidTradingService {
       return 'skip';
     }
 
+    const acctUsd = hlAccountValueUsd(state);
+    const dailyLossGate = await checkDailyLossGate(
+      userAddress,
+      config.arbitrum.chainId,
+      acctUsd
+    );
+    if (!dailyLossGate.allowed) {
+      logger.warn('HL user skip: daily loss limit', {
+        user: userAddress.slice(0, 10),
+        reason: dailyLossGate.reason,
+        todayPnl: dailyLossGate.todayPnlUsd?.toFixed(2),
+      });
+      return 'skip';
+    }
+
     return this.tryOpenFromGlobalSignals(userAddress, settings, state, ctx, openCoins);
   }
 
@@ -364,6 +386,22 @@ export class HyperliquidTradingService {
       if (excluded.has(signal.coin.toUpperCase())) continue;
       if (!isHlCoinLiquid(liquidUniverse, signal.coin)) continue;
       if (!isOpenDirectionAllowed(signal.direction)) continue;
+
+      const rank = volumeRankForCoin(liquidUniverse, signal.coin);
+      if (rank > config.hyperliquid.scalpOpen.maxVolumeRank) {
+        logger.debug('HL signal skip: outside top liquid universe', {
+          coin: signal.coin,
+          volumeRank: rank,
+          maxRank: config.hyperliquid.scalpOpen.maxVolumeRank,
+        });
+        continue;
+      }
+
+      const tier = classifyCoinTier(signal.coin, liquidUniverse).tier;
+      if (needsCautionPath(tier) && !config.hyperliquid.scalpOpen.allowCautiousAlts) {
+        logger.debug('HL signal skip: cautious alt (scalp whitelist off)', { coin: signal.coin });
+        continue;
+      }
 
       const liq = getHlLiquidityForCoin(liquidUniverse, signal.coin);
       const gate = await validatePreTradeLiquidity({
@@ -384,7 +422,10 @@ export class HyperliquidTradingService {
 
       passing.push({
         signal: { ...signal, liquidityReason: gate.reason },
-        score: liquidityPickScore(signal),
+        score: liquidityPickScore(
+          signal,
+          classifyCoinTier(signal.coin, liquidUniverse).tier
+        ),
       });
       logger.info('HL signal passed pre-trade gate', {
         coin: signal.coin,
@@ -595,6 +636,17 @@ export class HyperliquidTradingService {
       const symbol = hlCoinToBinanceSymbol(coin);
       const { tier: coinTier } = classifyCoinTier(coin, opts.ctx.liquidUniverse);
 
+      if (needsCautionPath(coinTier) && opts.pick.confidence < config.hyperliquid.cautiousScan.minSignalConfidence) {
+        const reason = `Cautious alt ${coin}: confidence ${opts.pick.confidence}% below ${config.hyperliquid.cautiousScan.minSignalConfidence}%`;
+        logger.info('HL open blocked — cautious confidence', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          reason,
+        });
+        return { success: false, error: reason };
+      }
+
       const newsGate = await validateCoinNews({
         coin,
         direction: opts.direction,
@@ -620,6 +672,20 @@ export class HyperliquidTradingService {
           reason: freshPumpGate.reason,
         });
         return { success: false, error: freshPumpGate.reason };
+      }
+
+      const scalpGate = await validateScalpAlignment({
+        coin,
+        direction: opts.direction,
+      });
+      if (!scalpGate.ok) {
+        logger.info('HL open blocked — scalp 1m/5m align', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          reason: scalpGate.reason,
+        });
+        return { success: false, error: scalpGate.reason };
       }
 
       const macroGate = await validateMacroBetaAlignment({
@@ -705,6 +771,7 @@ export class HyperliquidTradingService {
         freshPumpGate,
         megaPairLine: megaGate.reason,
         liquidityReason: opts.pick.liquidityReason,
+        scalpAlignLine: scalpGate.reason,
       });
       const openReasonFull = openReasonDoc;
 
@@ -978,6 +1045,72 @@ export class HyperliquidTradingService {
         size,
         leverage: pos.leverage?.value ?? 10,
       };
+
+      // ── LOSS PROTECTION (always — caps bleed even with profitOnlyExits) ──
+      if (pnl < 0 && config.hyperliquid.lossProtection.enforceHardCap) {
+        if (shouldHardLossClose(pnl, collateralEst, sl)) {
+          const thesis = await evaluatePositionThesis({
+            coin: pos.coin,
+            direction: positionDirection,
+          });
+          const detail = buildCloseReasonDoc({
+            closeCode: 'stop_loss',
+            coin: pos.coin,
+            direction: positionDirection,
+            pnlUsd: pnl,
+            pnlPct,
+            slPct: sl,
+            peakUsd: peak,
+            thesis,
+          });
+          clearProfitLockState(lockKey);
+          await this.closeMarketPosition(
+            userAddress,
+            pos.coin,
+            'stop_loss',
+            closeCtx,
+            detail
+          );
+          continue;
+        }
+      }
+
+      if (
+        pnl < 0 &&
+        config.hyperliquid.lossProtection.closeOnThesisBreak &&
+        holdMs >= config.hyperliquid.thesisMinHoldBeforeLossCloseMs
+      ) {
+        const thesis = await evaluatePositionThesis({
+          coin: pos.coin,
+          direction: positionDirection,
+        });
+        const forceCap = shouldForceLossCap(pnlPct, sl, pnl);
+        if (!thesis.thesisIntact || forceCap) {
+          const code = !thesis.thesisIntact ? 'signal_reversal' : 'stop_loss';
+          const detail = buildCloseReasonDoc({
+            closeCode: code,
+            coin: pos.coin,
+            direction: positionDirection,
+            pnlUsd: pnl,
+            pnlPct,
+            slPct: sl,
+            peakUsd: peak,
+            thesis,
+          });
+          clearProfitLockState(lockKey);
+          await this.closeMarketPosition(
+            userAddress,
+            pos.coin,
+            code,
+            closeCtx,
+            detail
+          );
+          continue;
+        }
+        if (sl > 0 && pnlPct <= -sl) {
+          logThesisDeferStopLoss(userAddress, pos.coin, positionDirection, pnlPct, sl, thesis);
+        }
+      }
 
       // ── MANDATORY trail exit — never go red after trail armed. ──
       if (
@@ -1367,6 +1500,17 @@ export class HyperliquidTradingService {
         viaHlBuilder,
       });
       hlLastCloseAt.set(userAddress.toLowerCase(), Date.now());
+
+      if (pnlUsd < 0) {
+        const acct = await fetchHlClearinghouseState(userAddress);
+        await maybePauseAfterLossClose(
+          userAddress,
+          config.arbitrum.chainId,
+          hlAccountValueUsd(acct),
+          pnlUsd
+        );
+      }
+
       return { success: true };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

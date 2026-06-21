@@ -91,9 +91,9 @@ export const config = {
     /** Global scan — min combined MTF confidence to qualify. */
     minSignalConfidence: Number(process.env.HL_MIN_SIGNAL_CONFIDENCE || 62),
     /** Global scan — min timeframes pointing same direction (of 1m/5m/15m/1h). */
-    minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 2),
+    minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 3),
     /** Global scan — min % of TFs sharing the dominant trend (0–100). */
-    minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 55),
+    minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 60),
     /** Max independent HL perp positions per wallet (different coins). */
     maxConcurrentPositions: Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 2),
     /** Minimum order notional — skips sloppy micro-trades. */
@@ -102,7 +102,7 @@ export const config = {
     minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 0),
     minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 0),
     /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all listed HL perps. */
-    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 0),
+    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 18),
     liquidUniverseCacheMs: Number(process.env.HL_LIQUID_UNIVERSE_CACHE_MS || 60_000),
     /** Close HL perps at this % gain on margin (user DB setting overrides). */
     /** 0 = user disabled TP. */
@@ -200,6 +200,32 @@ export const config = {
       cryptopanicToken: process.env.CRYPTOPANIC_AUTH_TOKEN || '',
       blockUnknownHeadlines: process.env.HL_NEWS_BLOCK_UNKNOWN !== 'false',
     },
+    /** Scalp opens — top liquid pairs only, fast TF alignment. */
+    scalpOpen: {
+      maxVolumeRank: Number(process.env.HL_OPEN_MAX_VOLUME_RANK || 12),
+      allowCautiousAlts: process.env.HL_ALLOW_CAUTIOUS_OPENS === 'true',
+      require1m5mAlign: process.env.HL_SCALP_REQUIRE_1M5M !== 'false',
+      minTfConfidence: Number(process.env.HL_SCALP_MIN_TF_CONF || 52),
+      minConfirm1mCandles: Number(process.env.HL_SCALP_1M_CONFIRM || 3),
+    },
+    /** Pause new opens after today's realized loss exceeds cap. */
+    dailyLoss: {
+      enabled: process.env.HL_DAILY_LOSS_GATE !== 'false',
+      maxUsd: Number(process.env.HL_DAILY_MAX_LOSS_USD || 12),
+      maxPctOfAccount: Number(process.env.HL_DAILY_MAX_LOSS_PCT || 0.08),
+      pauseMs: Number(process.env.HL_DAILY_LOSS_PAUSE_MS || 24 * 60 * 60 * 1000),
+    },
+    /** Stricter scan thresholds for mass-driven alts. */
+    cautiousScan: {
+      minSignalConfidence: Number(process.env.HL_CAUTIOUS_MIN_CONF || 74),
+      minDirectionalTfs: Number(process.env.HL_CAUTIOUS_MIN_TFS || 3),
+      minTrendAlignment: Number(process.env.HL_CAUTIOUS_MIN_ALIGN || 62),
+    },
+    /** Loss exits — always enforced even when profitOnlyExits holds small reds. */
+    lossProtection: {
+      enforceHardCap: process.env.HL_LOSS_CAP_ENFORCE !== 'false',
+      closeOnThesisBreak: process.env.HL_LOSS_THESIS_CLOSE !== 'false',
+    },
     /** Skip pair (LONG + SHORT) after a fat pump — mass alts retest highs. */
     freshPump: {
       cooldownMs: Number(process.env.HL_FRESH_PUMP_COOLDOWN_MS || 2 * 60 * 60 * 1000),
@@ -224,8 +250,8 @@ export const config = {
     thesisCheckCacheMs: Number(process.env.HL_THESIS_CACHE_MS || 5000),
     /** Force loss close at SL × this multiple even if thesis intact (safety cap). */
     thesisMaxLossSlMultiple: Number(process.env.HL_THESIS_MAX_LOSS_SL_MULT || 2.5),
-    /** Absolute USD loss cap — never bleed past this on bot closes. */
-    thesisMaxLossUsd: Number(process.env.HL_THESIS_MAX_LOSS_USD || 1.2),
+    /** Absolute USD loss cap per position — bot closes when uPnL hits this. */
+    thesisMaxLossUsd: Number(process.env.HL_THESIS_MAX_LOSS_USD || 2.5),
     /** Min ms position must be open before signal_reversal loss close (avoid open→instant close). */
     thesisMinHoldBeforeLossCloseMs: Number(process.env.HL_THESIS_MIN_HOLD_MS || 45_000),
     /** Minimum margin USD per HL open slot (split across max concurrent positions). */
