@@ -604,10 +604,12 @@ export class SignalEngine {
       else bearishPoints += weight * 3;
     }
 
-    // Price position relative to S/R
+    // Price position relative to S/R — strong penalty near wrong side of range
     const pricePosition = (currentPrice - support) / (resistance - support);
     if (pricePosition < 0.3) bullishPoints += 1; // Near support
     if (pricePosition > 0.7) bearishPoints += 1; // Near resistance
+    if (pricePosition > 0.72) bullishPoints = Math.max(0, bullishPoints - 2);
+    if (pricePosition < 0.28) bearishPoints = Math.max(0, bearishPoints - 2);
 
     // Calculate direction and confidence
     const totalPoints = bullishPoints + bearishPoints;

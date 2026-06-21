@@ -7,6 +7,7 @@ import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { filterWeekendShortOnly, isWeekendShortOnlyWindow } from './weekendTradingRules';
 import { validatePreTradeLiquidity } from './liquiditySweepGate';
+import { validateEntryLocation } from './entryLocationGate';
 
 export type BotSignalMode = 'standard' | 'aggressive';
 
@@ -73,6 +74,11 @@ async function scanStandardCoin(
       timeframe: '5m',
     });
     if (!liqGate.ok) return null;
+    const locationGate = await validateEntryLocation({
+      symbol,
+      direction: analysis.direction,
+    });
+    if (!locationGate.ok) return null;
     return {
       coin,
       symbol,
@@ -97,6 +103,11 @@ async function scanAggressiveCoin(
     const scalp = await analyzeAggressiveScalpBySymbol(symbol);
     const minConf = Math.max(62, config.hyperliquid.minSignalConfidence - 3);
     if (!scalp || scalp.confidence < minConf) return null;
+    const locationGate = await validateEntryLocation({
+      symbol,
+      direction: scalp.direction,
+    });
+    if (!locationGate.ok) return null;
     return {
       coin,
       symbol,
