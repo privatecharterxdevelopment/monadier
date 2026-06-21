@@ -27,7 +27,7 @@ const ProTradeBotAnalysis: React.FC<Props> = ({
   const symbol = hlCoinToBotSymbol(scanCoin ?? perpCoin);
 
   return (
-    <div className="hl-bot-analysis hl-bot-analysis--under-chart">
+    <div className="hl-bot-analysis">
       <TerminalBotAnalysisStrip
         walletConnected={walletConnected}
         metrics={metrics}

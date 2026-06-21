@@ -12,6 +12,7 @@ import {
   ProTradeBotProvider,
   ProTradeBotStatusBar,
 } from '../../components/protrade/ProTradeBotSide';
+import ProTradeBotAnalysis from '../../components/protrade/ProTradeBotAnalysis';
 import type { HlBotDockTab } from '../../components/protrade/ProTradeHlBotDock';
 import ProTradeTickerStrip from '../../components/protrade/ProTradeTickerStrip';
 import ProTradeMarketBar from '../../components/protrade/ProTradeMarketBar';
@@ -663,6 +664,12 @@ const Dashboard2ProPageContent: React.FC = () => {
                 markPx={perpMarkPx}
                 positionOverlay={botChartOverlay}
                 tradeMarkers={botTradeMarkers}
+              />
+              <ProTradeBotAnalysis
+                walletConnected={isConnected}
+                perpCoin={perpCoin}
+                scanCoin={botScanCoin}
+                openPositionCoins={botOpenPositionCoins}
               />
             </div>
             <ProTradeOrderBook

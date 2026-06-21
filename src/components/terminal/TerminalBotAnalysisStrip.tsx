@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTerminalBotAnalysis } from '../../hooks/useTerminalBotAnalysis';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
@@ -62,7 +62,34 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     botRunning,
   });
 
-  if (placement !== 'dock' && !showLiveAnalysis) return null;
+  const activeCandidate = analysis.scanCandidate ?? analysis.globalBest;
+  const hasBestCandidate = Boolean(activeCandidate?.coin);
+  const scanHeadline = hasBestCandidate
+    ? analysis.readiness.headline
+    : `Checking ${analysis.currentlyScanningCoin}`;
+
+  const readiness = useMemo(() => {
+    if (idleReadiness) return idleReadiness;
+    if (slotsFull) {
+      return {
+        ...analysis.readiness,
+        headline: 'Slots full',
+        detail: `${openPositionsCount}/${maxSlots} positions open — monitoring exits`,
+      };
+    }
+    return { ...analysis.readiness, headline: scanHeadline };
+  }, [
+    idleReadiness,
+    slotsFull,
+    analysis.readiness,
+    openPositionsCount,
+    maxSlots,
+    scanHeadline,
+  ]);
+
+  const keepScanning = botRunning && !slotsFull;
+
+  if (placement === 'chart' && !showLiveAnalysis) return null;
 
   return (
     <TerminalChartAnalysisOverlay
@@ -70,24 +97,15 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
         visible
         step={analysis.step}
         progress={analysis.progress}
-        signal={analysis.signal}
-        dbAnalysis={analysis.dbAnalysis}
-        activeSymbol={analysis.activeSymbol}
-        globalBest={analysis.scanCandidate ?? analysis.globalBest}
+        signal={hasBestCandidate ? analysis.signal : null}
+        dbAnalysis={hasBestCandidate ? analysis.dbAnalysis : null}
+        activeSymbol={analysis.activeSymbol ?? symbol}
+        globalBest={activeCandidate}
         globalScanCount={analysis.globalScanCount}
         globalCoinsScanned={analysis.globalCoinsScanned}
-        readiness={
-          idleReadiness ??
-          (slotsFull
-            ? {
-                ...analysis.readiness,
-                headline: 'Slots full',
-                detail: `${openPositionsCount}/${maxSlots} positions open — monitoring exits`,
-              }
-            : analysis.readiness)
-        }
-        scanning={idleReadiness ? false : botRunning && (analysis.scanning || openPositionsCount === 0)}
-        isLoading={idleReadiness ? false : analysis.isLoading}
+        readiness={readiness}
+        scanning={idleReadiness ? false : keepScanning}
+        isLoading={idleReadiness ? false : hasBestCandidate && analysis.isLoading}
         openPositionsCount={analysis.openPositionsCount}
         maxConcurrentPositions={analysis.maxConcurrentPositions}
       />

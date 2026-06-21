@@ -1,8 +1,8 @@
 /** Keep in sync with bot-service global scan defaults. */
 export const HL_MAX_CONCURRENT_POSITIONS = 2;
 export const HL_MIN_SIGNAL_CONFIDENCE = 62;
-export const HL_MIN_TREND_ALIGNMENT = 55;
-export const HL_MIN_DIRECTIONAL_TFS = 2;
+export const HL_MIN_TREND_ALIGNMENT = 60;
+export const HL_MIN_DIRECTIONAL_TFS = 3;
 
 /** Top HL perps by volume — UI rotation when global scan list not loaded yet. */
 export const HL_SCAN_UNIVERSE_SIZE = 18;

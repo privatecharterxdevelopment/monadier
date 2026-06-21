@@ -88,9 +88,7 @@ export function isBotScanNoiseDetail(detail: string): boolean {
   return (
     /HL perps scanned/i.test(d) ||
     /^\d+ passed/i.test(d) ||
-    /no HL perp passed global scan/i.test(d) ||
     /no pair passed bot gates/i.test(d) ||
-    /min \d+% conf,\s*\d+ TFs/i.test(d) ||
     /\d+\+?\s*conf,\s*2 aligned TFs/i.test(d) ||
     /Bot state out of sync/i.test(d) ||
     /Winning bot closes:/i.test(d) ||

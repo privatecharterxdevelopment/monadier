@@ -27,10 +27,20 @@ function formatBlocker(blocker: string): string {
     return 'Approve the Hyperliquid platform fee in the Bot panel';
   }
   if (/no HL perp passed global scan/i.test(blocker)) {
-    return '';
+    const m = blocker.match(/min (\d+)% conf, (\d+) TFs, (\d+)% align/i);
+    if (m) {
+      return `No HL pair meets entry rules yet (${m[1]}%+ confidence, ${m[2]}/4 timeframes aligned, ${m[3]}% trend)`;
+    }
+    return 'No HL pair passed the global scan yet — bot keeps checking all perps';
   }
   if (/Pre-trade gate blocked|volume\/liquidity|volume\/sweep/i.test(blocker)) {
-    return '';
+    return 'Volume or liquidity gate blocked the best scan candidates';
+  }
+  if (/notional.*below min/i.test(blocker)) {
+    return blocker.replace(
+      /raise risk % or leverage/i,
+      'raise Risk % or LVRG in bot settings, or deposit more USDC'
+    );
   }
   if (/no trade signal|MTF|bot conf/i.test(blocker)) {
     return 'No strong trade setup yet — bot keeps scanning';
