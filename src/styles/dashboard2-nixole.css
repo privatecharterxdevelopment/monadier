@@ -49,7 +49,7 @@
   top: max(16px, env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
-  z-index: 200;
+  z-index: 10150;
   pointer-events: none;
   padding: 0 16px;
   width: 100%;

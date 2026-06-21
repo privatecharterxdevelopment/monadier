@@ -7,7 +7,7 @@ import OpenAppLink from '../layout/OpenAppLink';
 const navLinks = [
   { to: '/how-it-works', label: 'How it works' },
   { to: '/trading-bot', label: 'Bot' },
-  { to: '/sports-betting', label: 'Sports' },
+  { to: '/sports-betting', label: 'Betting' },
   { to: '/technology', label: 'Technology' },
   { to: '/pricing', label: 'Pricing' },
   { to: '/roadmap', label: 'Roadmap' },

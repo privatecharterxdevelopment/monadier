@@ -5,10 +5,10 @@ import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
 import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
+import { isHlBotEnabled } from '../../lib/hlBotGates';
 import { toNum } from '../../lib/hyperliquid/parse';
 import type { HlPosition } from '../../lib/hyperliquid/user';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
-import { HL_MAX_CONCURRENT_POSITIONS } from '../../lib/hlBotConstants';
 import TerminalBotAnalysisStrip from '../terminal/TerminalBotAnalysisStrip';
 import ProTradeDock, { type ProTradeDockTab } from './ProTradeDock';
 
@@ -67,6 +67,9 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   const { address } = useAccount();
   const { wallet: settingsWallet, settings: botSettingsSnapshot } = useTerminalBotSettings();
   const configuredLeverage = effectiveHlBotSettings(botSettingsSnapshot).leverage;
+  const botRunning = isHlBotEnabled(
+    Boolean(botAnalysisMetrics?.autoTradeEnabled) || botSettingsSnapshot.autoTradeEnabled
+  );
   const hlWallet = (
     walletAddress ??
     settingsWallet ??
@@ -138,10 +141,9 @@ const ProTradeHlBotDock: React.FC<Props> = ({
 
   const showAnalyzer =
     showBotAnalysis &&
-    Boolean(botAnalysisMetrics?.autoTradeEnabled) &&
+    botRunning &&
     botAnalysisMetrics &&
     dockTab === 'positions' &&
-    positions.length < HL_MAX_CONCURRENT_POSITIONS &&
     !accountLoading;
 
   const connected = walletConnected || Boolean(hlWallet);
@@ -158,7 +160,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
       {showAnalyzer ? (
         <div className="hl-bot-dock-analyzer">
           <TerminalBotAnalysisStrip
-            walletConnected={walletConnected}
+            walletConnected={connected}
             metrics={botAnalysisMetrics}
             vaultWallet={botAnalysisWallet ?? hlWallet ?? null}
             openPositionCoins={botOpenPositionCoins ?? positionCoins}

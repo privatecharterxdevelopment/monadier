@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { ArrowRight } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import LandingNav from './LandingNav';
+import LandingHeroLines from './LandingHeroLines';
+import LandingProductCards from './LandingProductCards';
 import LandingProductPreview from './LandingProductPreview';
 import LandingBotArchitecture from './LandingBotArchitecture';
 import LandingPartnerLogos from './LandingPartnerLogos';
@@ -15,7 +17,7 @@ const heroReveal = (delay = 0) => ({
   transition: { duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] },
 });
 
-const HERO_MID_LINES = [
+const LANDING_ROTATE_LINES = [
   'on Hyperliquid',
   'with automated perps',
   'on verified sports on-chain',
@@ -25,25 +27,10 @@ const HERO_MID_LINES = [
   'across 200+ markets',
 ] as const;
 
-const HERO_MID_LONGEST = HERO_MID_LINES.reduce((a, b) => (a.length >= b.length ? a : b));
-
-const ROTATE_MS = 3200;
-
 const GmxStyleLanding: React.FC = () => {
-  const [midIndex, setMidIndex] = useState(0);
-
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      setMidIndex((i) => (i + 1) % HERO_MID_LINES.length);
-    }, ROTATE_MS);
-    return () => window.clearInterval(id);
-  }, []);
-
-  const midLine = HERO_MID_LINES[midIndex];
 
   return (
     <div className="landing-gmx">
@@ -53,31 +40,11 @@ const GmxStyleLanding: React.FC = () => {
         <div className="landing-gmx-hero-shell">
           <div className="landing-gmx-hero-stage">
             <div className="landing-gmx-hero-stack">
-              <div className="landing-gmx-hero-title" data-hero-version="static-3-rows">
-                <div className="landing-gmx-hero-lines">
-                  <div className="landing-gmx-hero-line landing-gmx-hero-line--dark">Trade</div>
-                  <div className="landing-gmx-hero-line landing-gmx-hero-line--rotate" aria-live="polite">
-                    <span className="landing-gmx-hero-line--rotate-sizer" aria-hidden>
-                      {HERO_MID_LONGEST}
-                    </span>
-                    <AnimatePresence mode="wait" initial={false}>
-                      <motion.span
-                        key={midLine}
-                        className="landing-gmx-hero-line landing-gmx-hero-line--muted landing-gmx-hero-line--rotate-visible"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                      >
-                        {midLine}
-                      </motion.span>
-                    </AnimatePresence>
-                  </div>
-                  <div className="landing-gmx-hero-line landing-gmx-hero-line--dark">
-                    from your HL account
-                  </div>
-                </div>
-              </div>
+              <LandingHeroLines
+                lineDarkTop="Trade"
+                rotateLines={LANDING_ROTATE_LINES}
+                lineDarkBottom="from your HL account"
+              />
               <motion.div {...heroReveal(0.1)} className="landing-gmx-hero-bottom">
                 <div className="landing-gmx-hero-bottom-left">
                   <div className="landing-gmx-hero-cta">
@@ -111,6 +78,7 @@ const GmxStyleLanding: React.FC = () => {
         </div>
       </section>
 
+      <LandingProductCards />
       <LandingProductPreview />
       <LandingBotArchitecture />
       <LandingPartnerLogos />

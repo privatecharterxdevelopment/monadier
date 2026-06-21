@@ -51,7 +51,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     botRunning,
   });
 
-  if (!showAnalysis || slotsFull) return null;
+  if (!showAnalysis) return null;
 
   return (
     <TerminalChartAnalysisOverlay
@@ -67,7 +67,15 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
         globalBest={analysis.scanCandidate ?? analysis.globalBest}
         globalScanCount={analysis.globalScanCount}
         globalCoinsScanned={analysis.globalCoinsScanned}
-        readiness={analysis.readiness}
+        readiness={
+          slotsFull
+            ? {
+                ...analysis.readiness,
+                headline: 'Slots full',
+                detail: `${openPositionsCount}/${maxSlots} positions open — monitoring exits`,
+              }
+            : analysis.readiness
+        }
         openPositionsCount={analysis.openPositionsCount}
         maxConcurrentPositions={analysis.maxConcurrentPositions}
       />

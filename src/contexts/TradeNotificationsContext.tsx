@@ -29,6 +29,9 @@ import {
 } from '../lib/activityNotifications';
 import { syncBettingTradesToSupabase } from '../lib/betting/syncBettingTrades';
 import { fetchHlOutcomeCatalog } from '../lib/hyperliquid/outcomes/meta';
+import { fetchHlUserFills } from '../lib/hyperliquid/user';
+import { isHlFillOpen } from '../lib/hyperliquid/format';
+import { toNum } from '../lib/hyperliquid/parse';
 import { useTermAuthToast } from '../components/terminal/TermAuthToast';
 
 type TradeNotificationsContextValue = {
@@ -66,6 +69,8 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
   const [lastSeenAt, setLastSeenAt] = useState<string | null>(null);
   const [wallets, setWallets] = useState<string[]>([]);
   const knownIdsRef = useRef<Set<string>>(new Set());
+  const hlCloseIdsRef = useRef<Set<string>>(new Set());
+  const hlCloseBootRef = useRef(false);
   const storageKey = storageKeyForUser(user?.id, isDemoUser);
 
   useEffect(() => {
@@ -73,15 +78,25 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
   }, [storageKey]);
 
   useEffect(() => {
+    hlCloseBootRef.current = false;
+    hlCloseIdsRef.current = new Set();
+  }, [address]);
+
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       const list = await fetchUserWalletAddresses(address, isDemoUser);
-      if (!cancelled) setWallets(list);
+      const merged = [...list];
+      const connected = address?.toLowerCase();
+      if (connected && !merged.includes(connected)) {
+        merged.push(connected);
+      }
+      if (!cancelled) setWallets(merged);
     })();
     return () => {
       cancelled = true;
     };
-  }, [address, isDemoUser]);
+  }, [address, isDemoUser, user?.id]);
 
   const syncBettingForWallets = useCallback(async () => {
     if (!user?.id || isDemoUser || wallets.length === 0) return;
@@ -96,9 +111,47 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
     }
   }, [user?.id, isDemoUser, wallets]);
 
+  const pollHlFillCloses = useCallback(async () => {
+    const wallet = address?.toLowerCase();
+    if (!wallet) return;
+
+    try {
+      const fills = await fetchHlUserFills(wallet, 100);
+      const closes = fills.filter((fill) => !isHlFillOpen(fill.dir));
+      const nextIds = new Set(
+        closes.map((fill) => String(fill.tid ?? `${fill.time}-${fill.coin}-${fill.closedPnl}`))
+      );
+
+      if (!hlCloseBootRef.current) {
+        hlCloseBootRef.current = true;
+        hlCloseIdsRef.current = nextIds;
+        return;
+      }
+
+      const fresh = closes.filter((fill) => {
+        const id = String(fill.tid ?? `${fill.time}-${fill.coin}-${fill.closedPnl}`);
+        return !hlCloseIdsRef.current.has(id);
+      });
+
+      if (fresh.length > 0) {
+        const latest = [...fresh].sort((a, b) => b.time - a.time)[0];
+        const pnl = toNum(latest.closedPnl);
+        const sign = pnl >= 0 ? '+' : '-';
+        showToast(
+          `Trade closed · ${latest.coin} ${sign}$${Math.abs(pnl).toFixed(2)}`,
+          3600
+        );
+      }
+
+      hlCloseIdsRef.current = nextIds;
+    } catch (err) {
+      console.error('[TradeNotifications] HL fills', err);
+    }
+  }, [address, showToast]);
+
   const load = useCallback(
     async (silent = false) => {
-      if (!isDemoUser && !user) {
+      if (!isDemoUser && !user && wallets.length === 0 && !address) {
         setNotifications([]);
         setIsLoading(false);
         return;
@@ -106,6 +159,10 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
 
       if (!silent) setIsLoading(true);
       try {
+        if (silent) {
+          await pollHlFillCloses();
+        }
+
         await syncBettingForWallets();
 
         const [botRowsRaw, bettingRowsRaw] = await Promise.all([
@@ -141,7 +198,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
         setIsLoading(false);
       }
     },
-    [isDemoUser, user, wallets, showToast, syncBettingForWallets]
+    [isDemoUser, user, wallets, address, showToast, syncBettingForWallets, pollHlFillCloses]
   );
 
   useEffect(() => {

@@ -16,7 +16,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
   const navLinks = [
     { path: '/how-it-works', label: 'How it works' },
     { path: '/trading-bot', label: 'Bot' },
-    { path: '/sports-betting', label: 'Sports' },
+    { path: '/sports-betting', label: 'Betting' },
     { path: '/technology', label: 'Technology' },
     { path: '/pricing', label: 'Pricing' },
     { path: '/roadmap', label: 'Roadmap' },
