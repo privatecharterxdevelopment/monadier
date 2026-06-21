@@ -59,6 +59,34 @@ export function isHlFillOpen(dir?: string): boolean {
   return action === 'Open';
 }
 
+function parseFillPositionDirection(dir: string): 'LONG' | 'SHORT' | null {
+  const d = dir.toLowerCase();
+  if (d.includes('long') && !d.includes('short')) return 'LONG';
+  if (d.includes('short') && !d.includes('long')) return 'SHORT';
+  if (d.includes('long') && d.includes('short')) {
+    if (d.startsWith('long')) return 'LONG';
+    if (d.startsWith('short')) return 'SHORT';
+  }
+  return null;
+}
+
+/** Position direction (LONG/SHORT) — not the fill side (Buy/Sell). */
+export function fillPositionDirection(fill: {
+  dir?: string;
+  side: string;
+}): 'LONG' | 'SHORT' {
+  const dir = fill.dir?.trim() ?? '';
+  const parsed = dir ? parseFillPositionDirection(dir) : null;
+  if (parsed) return parsed;
+
+  const isBuy = fill.side === 'B';
+  if (isHlFillOpen(dir)) {
+    return isBuy ? 'LONG' : 'SHORT';
+  }
+  // Close: sell closes a long, buy closes a short.
+  return isBuy ? 'SHORT' : 'LONG';
+}
+
 export function fmtPct(value: unknown, digits = 2): string {
   const n = toNum(value);
   const sign = n >= 0 ? '+' : '';

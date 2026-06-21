@@ -1,5 +1,6 @@
 import type { SeriesMarker, UTCTimestamp } from 'lightweight-charts';
 import type { HlUserFill } from './user';
+import { fillPositionDirection } from './format';
 import { toNum } from './parse';
 
 export type HlChartMarker = {
@@ -14,17 +15,6 @@ export type HlChartMarker = {
 
 export type ChartMarkerColors = { up: string; down: string };
 
-function parseDirection(dir: string): 'LONG' | 'SHORT' | null {
-  const d = dir.toLowerCase();
-  if (d.includes('long') && !d.includes('short')) return 'LONG';
-  if (d.includes('short') && !d.includes('long')) return 'SHORT';
-  if (d.includes('long') && d.includes('short')) {
-    if (d.startsWith('long')) return 'LONG';
-    if (d.startsWith('short')) return 'SHORT';
-  }
-  return null;
-}
-
 export function fillToChartMarker(fill: HlUserFill): HlChartMarker | null {
   const dir = fill.dir?.trim() ?? '';
   if (!dir) return null;
@@ -36,7 +26,7 @@ export function fillToChartMarker(fill: HlUserFill): HlChartMarker | null {
   else if (/short\s*>\s*long/i.test(dir)) eventType = 'close';
   else return null;
 
-  const direction = parseDirection(dir) ?? (fill.side === 'B' ? 'LONG' : 'SHORT');
+  const direction = fillPositionDirection(fill);
   const price = toNum(fill.px);
   const eventMs = fill.time > 1e12 ? fill.time : fill.time * 1000;
   if (price <= 0 || eventMs <= 0) return null;

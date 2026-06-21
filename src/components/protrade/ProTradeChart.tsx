@@ -2,12 +2,12 @@ import React, { Component, useEffect, useId, useState } from 'react';
 import type { SeriesMarker, UTCTimestamp } from 'lightweight-charts';
 import type { HlCandleBar, HlInterval } from '../../lib/hyperliquid/types';
 import type { HlOpenOrder } from '../../lib/hyperliquid/user';
+import { PRO_TRADE_INTERVALS } from '../../lib/hyperliquid/constants';
 import { probeChartingLibraryAvailable } from '../../lib/hyperliquid/chartingLibrary';
 import ProTradeTradingViewChart from './ProTradeTradingViewChart';
 import ProTradeChartingLibraryChart from './ProTradeChartingLibraryChart';
 import ProTradeHlLightweightChart from './ProTradeHlLightweightChart';
 import { useProTradeTheme } from '../../contexts/ProTradeThemeContext';
-import ChartBotToolbarPills from '../terminal/ChartBotToolbarPills';
 
 type ChartEngine = 'hl' | 'tv' | 'hltv';
 
@@ -60,9 +60,6 @@ type Props = {
     trailFloorUsd?: number;
   };
   tradeMarkers?: SeriesMarker<UTCTimestamp>[];
-  /** Bot terminal — show risk / LVRG pills on toolbar right */
-  showBotToolbar?: boolean;
-  hlBalanceUsd?: number;
 };
 
 const ProTradeChartInner: React.FC<Props> = ({
@@ -76,8 +73,6 @@ const ProTradeChartInner: React.FC<Props> = ({
   layoutKey,
   positionOverlay,
   tradeMarkers = [],
-  showBotToolbar = false,
-  hlBalanceUsd = 0,
 }) => {
   const { theme } = useProTradeTheme();
   const [engine, setEngine] = useState<ChartEngine>('hl');
@@ -110,41 +105,50 @@ const ProTradeChartInner: React.FC<Props> = ({
 
   return (
     <div className="hl-chart-wrap">
-      <div
-        className={`hl-chart-toolbar hl-chart-toolbar--engines${showBotToolbar ? ' hl-chart-toolbar--bot' : ''}`}
-      >
-        {showBotToolbar ? (
-          <ChartBotToolbarPills hlBalanceUsd={hlBalanceUsd} variant="dark" />
-        ) : null}
-        <button
-          type="button"
-          className={`hl-chart-tf ${engine === 'hl' ? 'hl-chart-tf--on' : ''}`}
-          onClick={() => switchEngine('hl')}
-          title="Hyperliquid lightweight chart"
-        >
-          HL
-        </button>
-        <button
-          type="button"
-          className={`hl-chart-tf ${engine === 'hltv' ? 'hl-chart-tf--on' : ''}`}
-          onClick={() => hlProAvailable && switchEngine('hltv')}
-          disabled={!hlProAvailable}
-          title={
-            hlProAvailable
-              ? 'Drawing tools & indicators (TradingView library + HL data)'
-              : 'HL Pro charting library not loaded'
-          }
-        >
-          HL Pro
-        </button>
-        <button
-          type="button"
-          className={`hl-chart-tf ${engine === 'tv' ? 'hl-chart-tf--on' : ''}`}
-          onClick={() => switchEngine('tv')}
-          title="TradingView widget — indicators & drawings"
-        >
-          TV
-        </button>
+      <div className="hl-chart-toolbar hl-chart-toolbar--engines">
+        <div className="hl-chart-toolbar-left" role="group" aria-label="Chart interval">
+          {PRO_TRADE_INTERVALS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              className={`hl-chart-tf ${interval === opt.value ? 'hl-chart-tf--on' : ''}`}
+              onClick={() => onIntervalChange(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <div className="hl-chart-toolbar-right" role="group" aria-label="Chart engine">
+          <button
+            type="button"
+            className={`hl-chart-tf ${engine === 'hl' ? 'hl-chart-tf--on' : ''}`}
+            onClick={() => switchEngine('hl')}
+            title="Hyperliquid lightweight chart"
+          >
+            HL
+          </button>
+          <button
+            type="button"
+            className={`hl-chart-tf ${engine === 'hltv' ? 'hl-chart-tf--on' : ''}`}
+            onClick={() => hlProAvailable && switchEngine('hltv')}
+            disabled={!hlProAvailable}
+            title={
+              hlProAvailable
+                ? 'Drawing tools & indicators (TradingView library + HL data)'
+                : 'HL Pro charting library not loaded'
+            }
+          >
+            HL Pro
+          </button>
+          <button
+            type="button"
+            className={`hl-chart-tf ${engine === 'tv' ? 'hl-chart-tf--on' : ''}`}
+            onClick={() => switchEngine('tv')}
+            title="TradingView widget — indicators & drawings"
+          >
+            TV
+          </button>
+        </div>
       </div>
       <ChartPaneErrorBoundary engine={mountedEngine === 'none' ? engine : mountedEngine}>
         <div className="hl-chart-engine">

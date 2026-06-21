@@ -28,7 +28,12 @@ export function botTradeToNotification(row: ClosedTradeRow): ActivityNotificatio
     profitLoss: row.profitLoss,
     closedAt: row.closedAt,
     highlightId: row.positionId || row.id,
-    verifyUrl: verifyUrlForTrade(row),
+    verifyUrl: verifyUrlForTrade({
+      exitTxHash: row.exitTxHash,
+      chainId: row.chainId,
+      executionVenue: row.executionVenue,
+      walletAddress: row.walletAddress,
+    }),
   };
 }
 

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Loader2, X } from 'lucide-react';
+import { ExternalLink, Loader2, X } from 'lucide-react';
 import type {
   HlAccountState,
   HlFundingPayment,
@@ -20,9 +20,11 @@ import {
   fmtTradeUsdSymbol,
   fmtClosedPnl,
   fmtFillAction,
+  fillPositionDirection,
   hlFillResultLabel,
   isHlFillOpen,
 } from '../../lib/hyperliquid/format';
+import { hlWalletExplorerUrl } from '../../lib/hyperliquid/hlApp';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
@@ -407,15 +409,18 @@ const ProTradeDock: React.FC<Props> = ({
                   <th>Result</th>
                   <th>Closed PnL</th>
                   {isBotMode ? <th>Why</th> : null}
+                  {walletAddress ? <th>Verify</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {closeFills.map((f, i) => {
                   const result = hlFillResultLabel(f.closedPnl);
                   const pnl = toNum(f.closedPnl);
+                  const positionDir = fillPositionDirection(f);
                   const closeWhy = isBotMode
                     ? closeReasonForFill(f.coin, f.time)
                     : undefined;
+                  const verifyHref = walletAddress ? hlWalletExplorerUrl(walletAddress) : null;
                   return (
                   <tr key={`${f.time}-${i}`}>
                     <td>{fmtTimeMs(f.time)}</td>
@@ -425,8 +430,8 @@ const ProTradeDock: React.FC<Props> = ({
                       </button>
                     </td>
                     <td>{fmtFillAction(f.dir)}</td>
-                    <td className={f.side === 'B' ? 'hl-up' : 'hl-down'}>
-                      {f.side === 'B' ? 'Buy' : 'Sell'}
+                    <td className={positionDir === 'LONG' ? 'hl-up' : 'hl-down'}>
+                      {positionDir}
                     </td>
                     <td>{f.sz}</td>
                     <td>{fmtPrice(f.px)}</td>
@@ -448,6 +453,24 @@ const ProTradeDock: React.FC<Props> = ({
                     {isBotMode ? (
                       <td>
                         <TradeReasonHint reason={closeWhy} kind="close" />
+                      </td>
+                    ) : null}
+                    {verifyHref ? (
+                      <td>
+                        <a
+                          href={verifyHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="term-history-verify"
+                          title={
+                            f.tid != null
+                              ? `View on Hyperliquid L1 (fill #${f.tid})`
+                              : 'View wallet on HypurrScan'
+                          }
+                        >
+                          HypurrScan
+                          <ExternalLink size={12} aria-hidden />
+                        </a>
                       </td>
                     ) : null}
                   </tr>

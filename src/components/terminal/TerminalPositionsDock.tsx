@@ -22,7 +22,7 @@ import {
   type ClosedTradeRow,
   fetchClosedTrades,
   mergeUnifiedHistory,
-  verifyUrlForTrade,
+  verifyLinkForTrade,
 } from '../../lib/closedTrades';
 import DockCountBadge from '../protrade/DockCountBadge';
 import { useTerminalVaultData } from '../../hooks/useTerminalVaultData';
@@ -729,7 +729,7 @@ const TerminalPositionsDock: React.FC<Props> = ({
             <tbody>
               {historyRows.map((t) => {
                 const { date, time } = fmtDateParts(t.closedAt);
-                const verify = verifyUrlForTrade(t);
+                const verify = verifyLinkForTrade(t);
                 const rowId = t.positionId || t.id;
                 const rowHighlight =
                   highlightPositionId === rowId || highlightPositionId === t.id;
@@ -775,12 +775,17 @@ const TerminalPositionsDock: React.FC<Props> = ({
                     <td>
                       {verify ? (
                         <a
-                          href={verify}
+                          href={verify.href}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="term-history-verify"
+                          title={
+                            verify.label === 'HypurrScan'
+                              ? 'HL perp fills settle on Hyperliquid L1 — verify wallet activity'
+                              : 'View exit transaction'
+                          }
                         >
-                          Arbiscan
+                          {verify.label}
                           <ExternalLink size={12} />
                         </a>
                       ) : (

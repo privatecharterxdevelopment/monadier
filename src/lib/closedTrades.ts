@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
+import { hlWalletExplorerUrl } from './hyperliquid/hlApp';
 import { explorerTxUrl } from './tradeExplorer';
 import { getAuthUserId, normalizeWalletAddresses, fetchUserWalletAddresses } from './userWallets';
 
@@ -36,8 +37,14 @@ export type UnifiedHistoryRow = {
   closedAt: string;
   exitTxHash: string | null;
   closeReason: string | null;
+  executionVenue: string | null;
   status: HistoryStatus;
   source: 'trade_history' | 'position';
+};
+
+export type TradeVerifyLink = {
+  href: string;
+  label: string;
 };
 
 function mapFromTradeHistory(row: Record<string, unknown>): ClosedTradeRow {
@@ -351,6 +358,7 @@ export function mergeUnifiedHistory(
       closedAt: t.closedAt,
       exitTxHash: t.exitTxHash,
       closeReason: t.closeReason,
+      executionVenue: t.executionVenue,
       status: 'closed',
       source: 'trade_history',
     });
@@ -381,6 +389,7 @@ export function mergeUnifiedHistory(
       closedAt,
       exitTxHash: p.exit_tx_hash,
       closeReason: p.close_reason,
+      executionVenue: null,
       status,
       source: 'position',
     });
@@ -391,14 +400,34 @@ export function mergeUnifiedHistory(
   );
 }
 
+export function verifyLinkForTrade(trade: {
+  exitTxHash: string | null;
+  chainId: number;
+  executionVenue?: string | null;
+  walletAddress?: string;
+}): TradeVerifyLink | null {
+  if (trade.exitTxHash) {
+    return {
+      href: explorerTxUrl(trade.chainId, trade.exitTxHash),
+      label: 'Arbiscan',
+    };
+  }
+  if (trade.executionVenue === 'hyperliquid' && trade.walletAddress) {
+    return {
+      href: hlWalletExplorerUrl(trade.walletAddress),
+      label: 'HypurrScan',
+    };
+  }
+  return null;
+}
+
 export function verifyUrlForTrade(trade: {
   exitTxHash: string | null;
   chainId: number;
+  executionVenue?: string | null;
+  walletAddress?: string;
 }): string | null {
-  if (trade.exitTxHash) {
-    return explorerTxUrl(trade.chainId, trade.exitTxHash);
-  }
-  return null;
+  return verifyLinkForTrade(trade)?.href ?? null;
 }
 
 export function storageKeyForUser(userId: string | undefined, isDemoUser: boolean) {

@@ -1122,16 +1122,12 @@
 }
 
 .hl-chart-toolbar--engines {
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 6px;
   height: auto;
   min-height: 28px;
   padding: 4px 6px;
   flex-wrap: wrap;
-}
-
-.hl-chart-toolbar--bot {
-  gap: 8px;
 }
 
 .hl-chart-bot-pills {
