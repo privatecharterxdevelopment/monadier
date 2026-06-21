@@ -753,12 +753,134 @@
   }
 }
 
+/* Reown AppKit — above app modals (.term-modal-overlay = 10050) */
+w3m-modal,
+[data-w3m-modal],
+appkit-modal,
+wui-modal {
+  --w3m-z-index: 10150 !important;
+  --apkt-z-index: 10150 !important;
+  z-index: 10150 !important;
+}
+
+.w3m-overlay,
+wui-overlay {
+  z-index: 10149 !important;
+}
+
 @media (max-width: 768px) {
-  w3m-modal, [data-w3m-modal] {
-    --w3m-z-index: 9999 !important;
+  w3m-modal,
+  [data-w3m-modal],
+  appkit-modal,
+  wui-modal {
+    --w3m-z-index: 10150 !important;
+    --apkt-z-index: 10150 !important;
   }
 
-  .w3m-overlay {
-    z-index: 9998 !important;
+  .w3m-overlay,
+  wui-overlay {
+    z-index: 10149 !important;
   }
+
+  /* Full-height wallet picker on phone — avoids clipped MetaMask list */
+  wui-flex[data-testid='w3m-connecting-swap'],
+  wui-flex[data-testid='w3m-wallet-list'] {
+    max-height: min(92dvh, 720px) !important;
+  }
+}
+
+/* Mobile wallet sheet — above AppKit */
+.mobile-wallet-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 10200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.mobile-wallet-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+
+.mobile-wallet-sheet__panel {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 480px;
+  padding: 20px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+  border-radius: 16px 16px 0 0;
+  background: #fff;
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.12);
+}
+
+.mobile-wallet-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.mobile-wallet-sheet__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #0a0a0a;
+}
+
+.mobile-wallet-sheet__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: #f0f0f4;
+  color: #0a0a0a;
+  cursor: pointer;
+}
+
+.mobile-wallet-sheet__hint,
+.mobile-wallet-sheet__foot {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #5c5c66;
+}
+
+.mobile-wallet-sheet__foot {
+  margin: 12px 0 0;
+  font-size: 12px;
+  text-align: center;
+}
+
+.mobile-wallet-sheet__btn {
+  display: block;
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.mobile-wallet-sheet__btn--primary {
+  border: 0;
+  background: #0a0a0a;
+  color: #fff;
+}
+
+.mobile-wallet-sheet__btn--secondary {
+  border: 1px solid #c5c5cb;
+  background: #fff;
+  color: #0a0a0a;
 }

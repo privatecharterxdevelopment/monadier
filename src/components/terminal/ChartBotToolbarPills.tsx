@@ -14,7 +14,7 @@ const WHY = {
   mode: 'Standard = wider profit trail. Aggressive = faster in/out on smaller moves.',
   risk: 'Share of your HL balance used as margin per trade — not the same as leverage.',
   lvrg: 'Hyperliquid multiplier on that margin. Bot clamps to each market’s max leverage.',
-  trail: 'Profit-only bot: no auto-close in red — holds until green. After 2.5 min in profit, trails SL.',
+  trail: 'Profit-only bot: no auto-close in red. After 2.5 min in profit, trail SL follows below live uPnL — closes if profit drops to the lock floor.',
 } as const;
 
 function fmtUsd(n: number) {

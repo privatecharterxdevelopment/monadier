@@ -1,10 +1,10 @@
 import React from 'react';
-import { useAppKitAccount } from '@reown/appkit/react';
+import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import ProTradeBettingTables from '../protrade/ProTradeBettingTables';
 import { useBettingPortfolio } from '../../hooks/useBettingPortfolio';
 
 const ProfileBettingPanel: React.FC = () => {
-  const { address, isConnected } = useAppKitAccount();
+  const { address, isConnected } = useMonadierWallet();
   const betting = useBettingPortfolio({
     walletAddress: address ?? undefined,
     enabled: isConnected,

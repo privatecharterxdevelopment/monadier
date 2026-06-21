@@ -13,6 +13,24 @@ export function trailingProfitLockFloorUsd(
   return Math.max(minFloorUsd, peakUsd - trailBufferUsd);
 }
 
+/** Must match bot-service `pnlExits.trailingProfitLockDisplayFloorUsd`. */
+export function trailingProfitLockDisplayFloorUsd(
+  peakUsd: number,
+  currentUsd: number,
+  minFloorUsd: number,
+  trailBufferUsd: number
+): { displayFloorUsd: number; closeFloorUsd: number; breached: boolean } {
+  const closeFloorUsd = trailingProfitLockFloorUsd(peakUsd, minFloorUsd, trailBufferUsd);
+  const breached =
+    closeFloorUsd > 0 && currentUsd > 0 && currentUsd <= closeFloorUsd;
+  if (breached || currentUsd <= 0) {
+    return { displayFloorUsd: closeFloorUsd, closeFloorUsd, breached };
+  }
+  const liveBelow = Math.max(minFloorUsd, currentUsd - trailBufferUsd);
+  const displayFloorUsd = Math.min(closeFloorUsd, liveBelow);
+  return { displayFloorUsd, closeFloorUsd, breached };
+}
+
 /** Margin % → price level (loss side). LONG: below entry; SHORT: above entry. */
 export function marginStopLossPx(
   entryPx: number,
@@ -43,10 +61,15 @@ export type HlChartPositionOverlay = {
   entryPx: number;
   liqPx?: number;
   side: 'long' | 'short';
-  /** Bot trailing stop — price where profit lock closes the position. */
+  /** Bot trailing stop — price on chart (below live uPnL when in profit). */
   trailStopPx?: number;
   trailStopLocked: boolean;
+  /** USD profit at the chart trail line (display). */
   trailFloorUsd: number;
+  /** Peak-ratchet exit floor — bot closes when uPnL ≤ this. */
+  trailCloseFloorUsd: number;
+  trailBreached: boolean;
+  unrealizedPnlUsd: number;
   peakPnlUsd: number;
   /** User/config stop loss on margin (%). */
   stopLossPx?: number;
@@ -92,10 +115,20 @@ export function computeHlChartPositionOverlay(opts: {
   const locked = holdMs >= minHold && peak >= lock.activateUsd;
 
   let trailFloorUsd = lock.floorUsd;
+  let trailCloseFloorUsd = lock.floorUsd;
+  let trailBreached = false;
   let trailStopPx: number | undefined;
 
   if (locked) {
-    trailFloorUsd = trailingProfitLockFloorUsd(peak, lock.floorUsd, trailBuffer);
+    const trail = trailingProfitLockDisplayFloorUsd(
+      peak,
+      opts.unrealizedPnlUsd,
+      lock.floorUsd,
+      trailBuffer
+    );
+    trailFloorUsd = trail.displayFloorUsd;
+    trailCloseFloorUsd = trail.closeFloorUsd;
+    trailBreached = trail.breached;
     const px = profitFloorUsdToStopPx(entryPx, opts.szi, trailFloorUsd);
     if (px != null) trailStopPx = px;
   }
@@ -111,6 +144,9 @@ export function computeHlChartPositionOverlay(opts: {
     trailStopPx,
     trailStopLocked: locked,
     trailFloorUsd,
+    trailCloseFloorUsd,
+    trailBreached,
+    unrealizedPnlUsd: opts.unrealizedPnlUsd,
     peakPnlUsd: peak,
     stopLossPx: marginStopLossPx(entryPx, opts.szi, lev, slPct) ?? undefined,
     takeProfitPx: marginTakeProfitPx(entryPx, opts.szi, lev, tpPct) ?? undefined,

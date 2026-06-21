@@ -5,13 +5,17 @@ import { fetchOutcomeLegQuotesFromMids, type OutcomeLegQuote } from '../../../li
 import { countByCategory, filterBettingQuestions } from '../../../lib/hyperliquid/outcomes/categories';
 import { findOutcomeMarket } from '../../../lib/hyperliquid/outcomes/meta';
 import type { HlOutcomePosition } from '../../../lib/hyperliquid/outcomes/types';
+import type { OutcomeSideIndex } from '../../../lib/hyperliquid/outcomes/types';
 import { useSportsbetsSession } from '../../../hooks/useSportsbetsSession';
 import { useBettingUi } from '../../../contexts/BettingUiContext';
+import { BETTING_MOBILE_MQ, useMediaQuery } from '../../../hooks/useMediaQuery';
 import SportsbetsHero from './SportsbetsHero';
 import BettingMarketList from './BettingMarketList';
 import SportsbetsAllMarketsView from './SportsbetsAllMarketsView';
 import SportsbetsEventDetail from './SportsbetsEventDetail';
 import SportsbetsRightRail from './SportsbetsRightRail';
+import SportsbetsOrderPanel from './SportsbetsOrderPanel';
+import SportsbetsMobileOrderSheet from './SportsbetsMobileOrderSheet';
 
 type Props = {
   walletAddress?: string;
@@ -28,7 +32,8 @@ const SportsbetsTerminal: React.FC<Props> = ({
   userId,
   onRequireSignIn,
 }) => {
-  const { registerActions } = useBettingUi();
+  const { registerActions, openOrderSheet, closeOrderSheet, orderSheetOpen } = useBettingUi();
+  const isMobileBetting = useMediaQuery(BETTING_MOBILE_MQ);
   const session = useSportsbetsSession(walletAddress, true, userId);
   const [legQuotes, setLegQuotes] = useState<Record<number, OutcomeLegQuote>>({});
   const [quotesLoading, setQuotesLoading] = useState(false);
@@ -91,10 +96,34 @@ const SportsbetsTerminal: React.FC<Props> = ({
   }, [positionSize, orderAction]);
 
   const scrollToRail = useCallback(() => {
+    if (isMobileBetting) {
+      openOrderSheet();
+      return;
+    }
     requestAnimationFrame(() => {
       document.querySelector('.hl-sb-rail')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
-  }, []);
+  }, [isMobileBetting, openOrderSheet]);
+
+  const handleSelectLeg = useCallback(
+    (outcomeId: number, side: OutcomeSideIndex) => {
+      session.selectLeg(outcomeId, side);
+      if (isMobileBetting) openOrderSheet();
+    },
+    [session.selectLeg, isMobileBetting, openOrderSheet]
+  );
+
+  const handlePickQuestionLeg = useCallback(
+    (
+      question: (typeof session.questions)[number],
+      outcomeId: number,
+      side: OutcomeSideIndex
+    ) => {
+      session.pickQuestionLeg(question, outcomeId, side);
+      if (isMobileBetting) openOrderSheet();
+    },
+    [session.pickQuestionLeg, isMobileBetting, openOrderSheet]
+  );
 
   const focusPositionForCashOut = useCallback(
     (position: HlOutcomePosition) => {
@@ -174,6 +203,29 @@ const SportsbetsTerminal: React.FC<Props> = ({
     [session.selectQuestion, session.category]
   );
 
+  const orderPanel = (
+    <SportsbetsOrderPanel
+      market={selectedMarket}
+      question={selectedQuestionForOrder}
+      side={session.selectedSide}
+      quote={session.quote}
+      quoteLoading={session.quoteLoading}
+      bettingBalance={session.bettingBalance}
+      walletAddress={walletAddress}
+      walletConnected={walletConnected}
+      signedIn={signedIn}
+      onRequireSignIn={onRequireSignIn}
+      trading={session.trading}
+      positionSize={positionSize}
+      onSuccess={() => {
+        void session.refreshAll();
+        if (isMobileBetting) closeOrderSheet();
+      }}
+      orderAction={orderAction}
+      onOrderActionChange={setOrderAction}
+    />
+  );
+
   return (
     <div className="hl-sb-terminal">
       <SportsbetsHero
@@ -212,7 +264,7 @@ const SportsbetsTerminal: React.FC<Props> = ({
               selectedQuestionId={session.selectedQuestionId}
               selectedOutcomeId={session.selectedOutcomeId}
               selectedSide={session.selectedSide}
-              onSelectLeg={session.pickQuestionLeg}
+              onSelectLeg={handlePickQuestionLeg}
             />
           ) : session.selectedQuestion ? (
             <SportsbetsEventDetail
@@ -221,7 +273,7 @@ const SportsbetsTerminal: React.FC<Props> = ({
               quotesLoading={quotesLoading}
               selectedOutcomeId={session.selectedOutcomeId}
               selectedSide={session.selectedSide}
-              onSelectLeg={session.selectLeg}
+              onSelectLeg={handleSelectLeg}
             />
           ) : (
             <div className="hl-sb-empty-main">
@@ -237,6 +289,7 @@ const SportsbetsTerminal: React.FC<Props> = ({
         </div>
 
         <SportsbetsRightRail
+          hideOrderPanel={isMobileBetting}
           market={selectedMarket}
           question={selectedQuestionForOrder}
           side={session.selectedSide}
@@ -258,8 +311,19 @@ const SportsbetsTerminal: React.FC<Props> = ({
           orderAction={orderAction}
           onOrderActionChange={setOrderAction}
           onCashOutPosition={focusPositionForCashOut}
+          orderPanel={!isMobileBetting ? orderPanel : undefined}
         />
       </div>
+
+      {isMobileBetting ? (
+        <SportsbetsMobileOrderSheet
+          open={orderSheetOpen && selectedMarket != null}
+          onClose={closeOrderSheet}
+          title={selectedMarket ? 'Place bet' : 'Bet slip'}
+        >
+          {orderPanel}
+        </SportsbetsMobileOrderSheet>
+      ) : null}
     </div>
   );
 };

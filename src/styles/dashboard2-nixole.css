@@ -1646,15 +1646,24 @@
 }
 
 .term-hl-open-reason-col {
-  width: 28px;
-  min-width: 28px;
-  max-width: 36px;
+  width: 36px;
+  min-width: 36px;
+  max-width: 44px;
   text-align: center;
   vertical-align: middle;
 }
 
+.term-hl-open-reason-col th {
+  font-size: 10px;
+  color: var(--term-text-muted, #71717a);
+}
+
 .term-trade-reason-hint--open {
   color: #71717a;
+}
+
+.term-trade-reason-hint--open .term-trade-reason-hint svg {
+  stroke: #71717a;
 }
 
 .term-trade-reason-hint--open:hover,
@@ -1672,6 +1681,14 @@
 
 .term-trade-reason-hint--close {
   color: #71717a;
+}
+
+.term-trade-reason-hint--close svg {
+  stroke: #71717a;
+}
+
+.term-trade-reason-hint--close.term-trade-reason-hint--empty {
+  opacity: 0.45;
 }
 
 .term-trade-reason-hint--close:hover,

@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useMemo, useRef } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 
 export type BettingUiActions = {
   scrollToRail?: () => void;
@@ -11,6 +11,9 @@ type BettingUiContextValue = {
   scrollToRail: () => void;
   cashOutFirst: () => void;
   openFunds: (tab: 'deposit' | 'withdraw') => void;
+  orderSheetOpen: boolean;
+  openOrderSheet: () => void;
+  closeOrderSheet: () => void;
 };
 
 const BettingUiContext = createContext<BettingUiContextValue | null>(null);
@@ -18,6 +21,7 @@ const BettingUiContext = createContext<BettingUiContextValue | null>(null);
 export function BettingUiProvider({ children }: { children: React.ReactNode }) {
   const actionsRef = useRef<BettingUiActions | null>(null);
   const openFundsRef = useRef<((tab: 'deposit' | 'withdraw') => void) | null>(null);
+  const [orderSheetOpen, setOrderSheetOpen] = useState(false);
 
   const registerActions = useCallback((actions: BettingUiActions | null) => {
     actionsRef.current = actions;
@@ -39,9 +43,30 @@ export function BettingUiProvider({ children }: { children: React.ReactNode }) {
     openFundsRef.current?.(tab);
   }, []);
 
+  const openOrderSheet = useCallback(() => setOrderSheetOpen(true), []);
+  const closeOrderSheet = useCallback(() => setOrderSheetOpen(false), []);
+
   const value = useMemo(
-    () => ({ registerActions, registerOpenFunds, scrollToRail, cashOutFirst, openFunds }),
-    [registerActions, registerOpenFunds, scrollToRail, cashOutFirst, openFunds]
+    () => ({
+      registerActions,
+      registerOpenFunds,
+      scrollToRail,
+      cashOutFirst,
+      openFunds,
+      orderSheetOpen,
+      openOrderSheet,
+      closeOrderSheet,
+    }),
+    [
+      registerActions,
+      registerOpenFunds,
+      scrollToRail,
+      cashOutFirst,
+      openFunds,
+      orderSheetOpen,
+      openOrderSheet,
+      closeOrderSheet,
+    ]
   );
 
   return <BettingUiContext.Provider value={value}>{children}</BettingUiContext.Provider>;
@@ -56,6 +81,9 @@ export function useBettingUi(): BettingUiContextValue {
       scrollToRail: () => {},
       cashOutFirst: () => {},
       openFunds: () => {},
+      orderSheetOpen: false,
+      openOrderSheet: () => {},
+      closeOrderSheet: () => {},
     };
   }
   return ctx;

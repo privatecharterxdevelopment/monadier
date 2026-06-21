@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAppKit } from '@reown/appkit/react';
+import { openMonadierWalletModal } from '../../lib/openWalletModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBettingUi } from '../../contexts/BettingUiContext';
 import { useBettingHeaderBalance } from '../../hooks/useBettingHeaderBalance';
@@ -36,7 +37,7 @@ const ProTradeBettingTopBarBalance: React.FC<Props> = ({
 
   if (!walletConnected) {
     return (
-      <button type="button" className="hl-topnav-betting-balance hl-topnav-betting-balance--cta" onClick={() => open()}>
+      <button type="button" className="hl-topnav-betting-balance hl-topnav-betting-balance--cta" onClick={() => openMonadierWalletModal(() => open())}>
         Connect · balance
       </button>
     );

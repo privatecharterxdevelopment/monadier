@@ -66,7 +66,7 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
             <th>Mark</th>
             <th>Lev</th>
             <th>uPnL</th>
-            <th aria-label="Open reason" />
+            <th className="term-hl-open-reason-col">Why</th>
             <th className="term-hl-open-actions-col">Close</th>
           </tr>
         </thead>

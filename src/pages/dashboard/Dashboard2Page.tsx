@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useUserLocale } from '../../hooks/useUserLocale';
 import { useAppKit } from '@reown/appkit/react';
+import { openMonadierWalletModal } from '../../lib/openWalletModal';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
@@ -266,14 +267,14 @@ const Dashboard2Page: React.FC = () => {
                 Bot settings
               </button>
               {isConnected && address ? (
-                <button type="button" className="term-btn-wallet" onClick={() => open()}>
+                <button type="button" className="term-btn-wallet" onClick={() => openMonadierWalletModal(() => open())}>
                   {shortAddr(address)}
                 </button>
               ) : (
                 <button
                   type="button"
                   className="term-btn-wallet term-btn-wallet--connect"
-                  onClick={() => open()}
+                  onClick={() => openMonadierWalletModal(() => open())}
                 >
                   <Wallet size={14} />
                   Connect wallet

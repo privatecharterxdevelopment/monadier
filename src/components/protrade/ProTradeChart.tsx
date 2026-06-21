@@ -1,10 +1,43 @@
-import React, { useEffect } from 'react';
+import React, { Component, useEffect, useId, useState } from 'react';
 import type { SeriesMarker, UTCTimestamp } from 'lightweight-charts';
 import type { HlCandleBar, HlInterval } from '../../lib/hyperliquid/types';
 import type { HlOpenOrder } from '../../lib/hyperliquid/user';
 import { PRO_TRADE_INTERVALS } from '../../lib/hyperliquid/constants';
+import ProTradeTradingViewChart from './ProTradeTradingViewChart';
 import ProTradeHlLightweightChart from './ProTradeHlLightweightChart';
 import { useProTradeTheme } from '../../contexts/ProTradeThemeContext';
+
+type ChartEngine = 'hl' | 'tv';
+
+type ChartPaneBoundaryProps = { children: React.ReactNode; engine: ChartEngine };
+type ChartPaneBoundaryState = { error: Error | null };
+
+class ChartPaneErrorBoundary extends Component<ChartPaneBoundaryProps, ChartPaneBoundaryState> {
+  state: ChartPaneBoundaryState = { error: null };
+
+  static getDerivedStateFromError(error: Error): ChartPaneBoundaryState {
+    return { error };
+  }
+
+  componentDidUpdate(prev: ChartPaneBoundaryProps) {
+    if (prev.engine !== this.props.engine && this.state.error) {
+      this.setState({ error: null });
+    }
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="hl-chart-empty">
+          Chart failed to load ({this.props.engine.toUpperCase()}). Switch to HL or refresh.
+          <br />
+          <span style={{ fontSize: 11, opacity: 0.7 }}>{this.state.error.message}</span>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 type Props = {
   coin: string;
@@ -15,6 +48,8 @@ type Props = {
   orderCoin?: string;
   onIntervalChange: (interval: HlInterval) => void;
   layoutKey?: string;
+  defaultEngine?: ChartEngine;
+  hideTvNote?: boolean;
   markPx?: number;
   positionOverlay?: {
     entryPx: number;
@@ -33,8 +68,20 @@ type Props = {
   onFollowLiveChange?: (following: boolean) => void;
 };
 
-/** Hyperliquid candle chart — single engine, HL data, Entry/SL/TP/Liq lines. */
-const ProTradeChart: React.FC<Props> = ({
+const CHART_ENGINE_STORAGE = 'monadier-hl-chart-engine';
+
+function readStoredEngine(fallback: ChartEngine): ChartEngine {
+  try {
+    const stored = localStorage.getItem(CHART_ENGINE_STORAGE);
+    if (stored === 'hl' || stored === 'tv') return stored;
+    if (stored === 'hltv') return 'hl';
+  } catch {
+    /* private mode */
+  }
+  return fallback;
+}
+
+const ProTradeChartInner: React.FC<Props> = ({
   coin,
   interval,
   candles,
@@ -43,6 +90,8 @@ const ProTradeChart: React.FC<Props> = ({
   orderCoin,
   onIntervalChange,
   layoutKey,
+  defaultEngine = 'hl',
+  hideTvNote = false,
   markPx,
   positionOverlay,
   tradeMarkers = [],
@@ -50,14 +99,28 @@ const ProTradeChart: React.FC<Props> = ({
   onFollowLiveChange,
 }) => {
   const { theme } = useProTradeTheme();
+  const [engine, setEngine] = useState<ChartEngine>(() => readStoredEngine(defaultEngine));
+  const [mountedEngine, setMountedEngine] = useState<ChartEngine | 'none'>(() =>
+    readStoredEngine(defaultEngine)
+  );
+  const instanceId = useId().replace(/:/g, '');
 
-  useEffect(() => {
+  const switchEngine = (next: ChartEngine) => {
+    if (next === engine) return;
+    setEngine(next);
+    setMountedEngine('none');
     try {
-      localStorage.removeItem('monadier-hl-chart-engine');
+      localStorage.setItem(CHART_ENGINE_STORAGE, next);
     } catch {
       /* ignore */
     }
-  }, []);
+  };
+
+  useEffect(() => {
+    if (mountedEngine === engine) return undefined;
+    const id = window.setTimeout(() => setMountedEngine(engine), 32);
+    return () => clearTimeout(id);
+  }, [engine, mountedEngine]);
 
   return (
     <div className="hl-chart-wrap">
@@ -74,9 +137,26 @@ const ProTradeChart: React.FC<Props> = ({
             </button>
           ))}
         </div>
-        <div className="hl-chart-toolbar-meta">Hyperliquid · live</div>
+        <div className="hl-chart-toolbar-right" role="group" aria-label="Chart engine">
+          <button
+            type="button"
+            className={`hl-chart-tf ${engine === 'hl' ? 'hl-chart-tf--on' : ''}`}
+            onClick={() => switchEngine('hl')}
+            title="Hyperliquid live chart — entry, SL, TP, bot markers"
+          >
+            HL
+          </button>
+          <button
+            type="button"
+            className={`hl-chart-tf ${engine === 'tv' ? 'hl-chart-tf--on' : ''}`}
+            onClick={() => switchEngine('tv')}
+            title="TradingView — indicators & drawings"
+          >
+            TV
+          </button>
+        </div>
       </div>
-      {positionOverlay ? (
+      {positionOverlay && engine === 'hl' ? (
         <div className="hl-chart-legend" aria-label="Chart position lines">
           <span className="hl-chart-legend__item hl-chart-legend__item--entry">Entry</span>
           {positionOverlay.stopLossPx ? (
@@ -93,25 +173,41 @@ const ProTradeChart: React.FC<Props> = ({
           ) : null}
         </div>
       ) : null}
-      <div className="hl-chart-engine">
-        <ProTradeHlLightweightChart
-          coin={coin}
-          interval={interval}
-          candles={candles}
-          loading={loading}
-          openOrders={openOrders}
-          orderCoin={orderCoin}
-          theme={theme}
-          layoutKey={layoutKey}
-          positionOverlay={positionOverlay}
-          tradeMarkers={tradeMarkers}
-          markPx={markPx}
-          scrollToLiveTick={scrollToLiveTick}
-          onFollowLiveChange={onFollowLiveChange}
-        />
-      </div>
+      <ChartPaneErrorBoundary engine={mountedEngine === 'none' ? engine : mountedEngine}>
+        <div className="hl-chart-engine">
+          {mountedEngine === 'none' ? (
+            <div className="hl-chart-empty" aria-hidden />
+          ) : mountedEngine === 'hl' ? (
+            <ProTradeHlLightweightChart
+              coin={coin}
+              interval={interval}
+              candles={candles}
+              loading={loading}
+              openOrders={openOrders}
+              orderCoin={orderCoin}
+              theme={theme}
+              layoutKey={layoutKey}
+              positionOverlay={positionOverlay}
+              tradeMarkers={tradeMarkers}
+              markPx={markPx}
+              scrollToLiveTick={scrollToLiveTick}
+              onFollowLiveChange={onFollowLiveChange}
+            />
+          ) : (
+            <ProTradeTradingViewChart
+              key={`tv-${instanceId}`}
+              coin={coin}
+              interval={interval}
+              theme={theme}
+              hideNote={hideTvNote}
+            />
+          )}
+        </div>
+      </ChartPaneErrorBoundary>
     </div>
   );
 };
 
-export default React.memo(ProTradeChart);
+const ProTradeChart = React.memo(ProTradeChartInner);
+
+export default ProTradeChart;

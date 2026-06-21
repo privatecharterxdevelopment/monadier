@@ -82,7 +82,7 @@ export function shouldCloseProfitHoldTimeout(
   return nowMs - inProfitSinceMs >= maxHoldMs;
 }
 
-/** Trailing profit floor from peak uPnL. */
+/** Peak-ratchet profit floor — exit when uPnL falls to this level (never moves down). */
 export function trailingProfitLockFloorUsd(
   peakUsd: number,
   minFloorUsd: number,
@@ -90,4 +90,22 @@ export function trailingProfitLockFloorUsd(
 ): number {
   if (peakUsd <= 0) return minFloorUsd;
   return Math.max(minFloorUsd, peakUsd - trailBufferUsd);
+}
+
+/** Chart: trail line sits below live uPnL; close still uses peak-ratchet floor. */
+export function trailingProfitLockDisplayFloorUsd(
+  peakUsd: number,
+  currentUsd: number,
+  minFloorUsd: number,
+  trailBufferUsd: number
+): { displayFloorUsd: number; closeFloorUsd: number; breached: boolean } {
+  const closeFloorUsd = trailingProfitLockFloorUsd(peakUsd, minFloorUsd, trailBufferUsd);
+  const breached =
+    closeFloorUsd > 0 && currentUsd > 0 && currentUsd <= closeFloorUsd;
+  if (breached || currentUsd <= 0) {
+    return { displayFloorUsd: closeFloorUsd, closeFloorUsd, breached };
+  }
+  const liveBelow = Math.max(minFloorUsd, currentUsd - trailBufferUsd);
+  const displayFloorUsd = Math.min(closeFloorUsd, liveBelow);
+  return { displayFloorUsd, closeFloorUsd, breached };
 }

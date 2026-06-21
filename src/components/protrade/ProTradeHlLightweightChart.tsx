@@ -445,14 +445,19 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       if (trailPx != null && trailPx > 0) {
         const locked = positionOverlay.trailStopLocked === true;
         const floorUsd = positionOverlay.trailFloorUsd ?? 0;
+        const upnl = positionOverlay.unrealizedPnlUsd ?? 0;
+        const closeFloor = positionOverlay.trailCloseFloorUsd ?? floorUsd;
+        const breached = positionOverlay.trailBreached === true;
         const trailLine = series.createPriceLine({
           price: trailPx,
-          color: locked ? '#22c55e' : '#eab308',
+          color: breached ? '#ef4444' : locked ? '#22c55e' : '#eab308',
           lineWidth: 2,
           lineStyle: locked ? LineStyle.Solid : LineStyle.Dashed,
           axisLabelVisible: true,
           title: locked
-            ? `Trail SL +$${floorUsd.toFixed(2)}`
+            ? breached
+              ? `Trail exit +$${closeFloor.toFixed(2)} (uPnL $${upnl.toFixed(2)})`
+              : `Trail +$${floorUsd.toFixed(2)} · uPnL $${upnl.toFixed(2)}`
             : 'Trail SL (2.5m analyze)',
         });
         priceLinesRef.current.push(trailLine);

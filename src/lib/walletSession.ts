@@ -41,11 +41,22 @@ export function writeWalletSession(address: string): WalletSessionRecord {
   return record;
 }
 
-export function touchWalletSession(address: string): WalletSessionRecord | null {
+export function extendWalletSessionOnActivity(): WalletSessionRecord | null {
   const existing = readWalletSession();
-  if (existing?.address === address.toLowerCase()) {
-    return writeWalletSession(address);
+  if (!existing) return null;
+  const record: WalletSessionRecord = {
+    ...existing,
+    expiresAt: Date.now() + WALLET_SESSION_MS,
+  };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(record));
+  } catch {
+    /* private mode / quota */
   }
+  return record;
+}
+
+export function touchWalletSession(address: string): WalletSessionRecord | null {
   return writeWalletSession(address);
 }
 

@@ -114,6 +114,12 @@ export const config = {
     /** After min hold — trail floor ≈ breakeven + ~0.1% margin on typical slot. */
     profitLockFloorUsd: Number(process.env.HL_PROFIT_LOCK_FLOOR_USD || 0.02),
     profitLockTrailBufferUsd: Number(process.env.HL_PROFIT_LOCK_TRAIL_BUFFER_USD || 0.045),
+    /** After trail armed: defer floor close this long if sweep+volume confirm rebound (still in profit only). */
+    trailSweepDeferMs: Number(process.env.HL_TRAIL_SWEEP_DEFER_MS || 90_000),
+    /** Max defer attempts per floor level before forced profit_lock close. */
+    trailSweepDeferMax: Number(process.env.HL_TRAIL_SWEEP_DEFER_MAX || 2),
+    /** If uPnL falls this far below trail floor during defer → close anyway. */
+    trailSweepDeferGiveUpUsd: Number(process.env.HL_TRAIL_SWEEP_GIVEUP_USD || 0.02),
     /** Fraction of peak uPnL retrace before peak-grab close (0.4 = 40%). */
     profitPeakDropFraction: Number(process.env.HL_PROFIT_PEAK_DROP_FRAC || 0.4),
     positionMonitorMs: Number(process.env.HL_POSITION_MONITOR_MS || 250),

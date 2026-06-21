@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Loader2, Wallet } from 'lucide-react';
-import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
+import { useAppKit } from '@reown/appkit/react';
+import { useMonadierWallet } from '../../hooks/useMonadierWallet';
+import { openMonadierWalletModal } from '../../lib/openWalletModal';
 import {
   useHyperliquidTrading,
   type MarginMode,
@@ -62,7 +64,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
   const marketKind = isSpot ? 'spot' as const : 'perp' as const;
   const coinLabel = displayCoin ?? coin;
   const { open } = useAppKit();
-  const { address, isConnected } = useAppKitAccount();
+  const { address, isConnected } = useMonadierWallet();
   const {
     busy,
     error,
@@ -509,7 +511,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
         ) : null}
 
         {!isConnected || !walletReady ? (
-          <button type="button" className="hl-entry-submit" onClick={() => open()}>
+          <button type="button" className="hl-entry-submit" onClick={() => openMonadierWalletModal(() => open())}>
             <Wallet size={14} style={{ display: 'inline', marginRight: 6 }} />
             Connect wallet
           </button>

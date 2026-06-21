@@ -17,10 +17,12 @@ import {
 } from '../../../lib/hyperliquid/outcomes/categories';
 import { formatBettingOrderError } from '../../../lib/hyperliquid/outcomes/bettingErrors';
 import { fmtUsdSymbol } from '../../../lib/hyperliquid/format';
+import { openMonadierWalletModal } from '../../../lib/openWalletModal';
 import type { HlOutcomeMarket, HlOutcomeQuestion, OutcomeLegQuote, OutcomeSideIndex } from '../../../lib/hyperliquid/outcomes/types';
 import type { useHyperliquidOutcomeTrading } from '../../../hooks/useHyperliquidOutcomeTrading';
 import { useBettingBuilderFee } from '../../../hooks/useBettingBuilderFee';
 import { useBettingUi } from '../../../contexts/BettingUiContext';
+import { BETTING_MOBILE_MQ } from '../../../hooks/useMediaQuery';
 import SportsbetsPayoutCard from './SportsbetsPayoutCard';
 import BettingBuilderFeeModal from './BettingBuilderFeeModal';
 
@@ -83,7 +85,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   const [localMsg, setLocalMsg] = useState<string | null>(null);
   const [showBuilderModal, setShowBuilderModal] = useState(false);
   const builderFee = useBettingBuilderFee(walletAddress);
-  const { openFunds } = useBettingUi();
+  const { openFunds, openOrderSheet } = useBettingUi();
 
   const canBet = signedIn && walletConnected;
 
@@ -145,9 +147,15 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
     canBet && !isCashOut && bettingBalance < OUTCOME_MIN_NOTIONAL_USD;
   const showDepositCta = needsDeposit;
 
+  const openSheetOnMobile = () => {
+    if (window.matchMedia(BETTING_MOBILE_MQ).matches) {
+      openOrderSheet();
+    }
+  };
+
   const handleGate = () => {
     if (signedIn) {
-      open();
+      openMonadierWalletModal(() => open());
       return;
     }
     onRequireSignIn?.('Sign in to place bets.');
@@ -310,7 +318,11 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
               min={effectiveStakeMode === 'contracts' ? 1 : OUTCOME_MIN_NOTIONAL_USD}
               step={1}
               value={stakeInput}
-              onChange={(e) => setStakeInput(e.target.value)}
+              onFocus={openSheetOnMobile}
+              onChange={(e) => {
+                setStakeInput(e.target.value);
+                openSheetOnMobile();
+              }}
               placeholder={
                 effectiveStakeMode === 'contracts' ? '10' : String(OUTCOME_PREVIEW_STAKE_USD)
               }
@@ -324,7 +336,10 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
                   key={amt}
                   type="button"
                   className={parsedStake === amt ? 'hl-sb-quick-stake hl-sb-quick-stake--on' : 'hl-sb-quick-stake'}
-                  onClick={() => setStakeInput(String(amt))}
+                  onClick={() => {
+                    setStakeInput(String(amt));
+                    openSheetOnMobile();
+                  }}
                 >
                   ${amt}
                 </button>

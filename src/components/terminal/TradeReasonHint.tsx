@@ -31,6 +31,7 @@ const TradeReasonHint: React.FC<Props> = ({
   const anchorRef = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<PopoverPos | null>(null);
+  const emptyFallback = kind === 'close' || kind === 'open';
 
   const formatted =
     kind === 'open'
@@ -38,13 +39,16 @@ const TradeReasonHint: React.FC<Props> = ({
       : kind === 'close'
         ? formatHlBotCloseReason(raw)
         : raw;
-  const sections = parseTradeReasonSections(raw);
+  const displayRaw = raw || (emptyFallback ? 'No bot reason recorded for this fill.' : '');
+  const sections = parseTradeReasonSections(displayRaw);
   const displaySections =
     sections.length > 0 && formatted
       ? sections
       : formatted
         ? [{ text: formatted }]
-        : [];
+        : emptyFallback
+          ? [{ text: 'No bot reason recorded for this fill.' }]
+          : [];
 
   const updatePos = useCallback(() => {
     const el = anchorRef.current;
@@ -76,7 +80,7 @@ const TradeReasonHint: React.FC<Props> = ({
     };
   }, [open, updatePos]);
 
-  if (!raw || !formatted) return null;
+  if (!emptyFallback && (!raw || !formatted)) return null;
 
   const heading =
     label ??
@@ -91,7 +95,7 @@ const TradeReasonHint: React.FC<Props> = ({
     kind === 'open'
       ? ' term-trade-reason-hint--open'
       : kind === 'close'
-        ? ' term-trade-reason-hint--close'
+        ? ` term-trade-reason-hint--close${raw ? '' : ' term-trade-reason-hint--empty'}`
         : '';
   const popoverKindClass =
     kind === 'open'
@@ -145,7 +149,7 @@ const TradeReasonHint: React.FC<Props> = ({
         className={`term-trade-reason-hint${kindClass}${className ? ` ${className}` : ''}`}
         tabIndex={0}
         role="img"
-        aria-label={`${heading}: ${formatted}`}
+        aria-label={`${heading}: ${formatted ?? displayRaw}`}
         onMouseEnter={show}
         onMouseLeave={hide}
         onFocus={show}

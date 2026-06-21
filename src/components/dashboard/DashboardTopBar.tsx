@@ -14,7 +14,9 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useNotifications } from '../../contexts/NotificationContext';
-import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
+import { useAppKit } from '@reown/appkit/react';
+import { useMonadierWallet } from '../../hooks/useMonadierWallet';
+import { openMonadierWalletModal } from '../../lib/openWalletModal';
 import { signOut } from '../../lib/supabase';
 
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
@@ -47,7 +49,7 @@ const DashboardTopBar: React.FC<DashboardTopBarProps> = ({ compact = false }) =>
   const { notifications, unreadCount, markAsRead, markAllAsRead, clearNotifications } =
     useNotifications();
   const { open } = useAppKit();
-  const { address, isConnected } = useAppKitAccount();
+  const { address, isConnected } = useMonadierWallet();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
@@ -131,7 +133,7 @@ const DashboardTopBar: React.FC<DashboardTopBarProps> = ({ compact = false }) =>
           >
             <button
               type="button"
-              onClick={() => open()}
+              onClick={() => openMonadierWalletModal(() => open())}
               className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs md:text-sm font-medium transition-colors ${
                 isConnected
                   ? 'border-green-500/40 bg-green-500/10 text-green-700'

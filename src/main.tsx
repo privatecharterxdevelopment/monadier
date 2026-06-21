@@ -15,6 +15,7 @@ import EnvSetupScreen from './components/EnvSetupScreen';
 import AuthWalletReset from './components/auth/AuthWalletReset';
 import AuthOAuthCapture from './components/auth/AuthOAuthCapture';
 import WalletSessionBridge from './components/auth/WalletSessionBridge';
+import MobileWalletConnectSheet from './components/wallet/MobileWalletConnectSheet';
 import './index.css';
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ createRoot(rootEl).render(
                 <NotificationProvider>
                   <Web3Provider>
                     <WalletSessionBridge />
+                    <MobileWalletConnectSheet />
                     <AuthOAuthCapture />
                     <AuthWalletReset />
                     <App />

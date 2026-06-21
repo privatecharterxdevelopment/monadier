@@ -5290,6 +5290,71 @@
   }
 }
 
+/* Smartphones — fixed bet sheet overlay (tablets keep inline rail) */
+@media (max-width: 768px) {
+  .hl-sb-rail--slip-only {
+    max-height: min(38vh, 320px);
+  }
+
+  .hl-sb-order-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10040;
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: rgb(0 0 0 / 0.45);
+    cursor: pointer;
+  }
+
+  .hl-sb-order-sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10045;
+    display: flex;
+    flex-direction: column;
+    max-height: min(72vh, 560px);
+    border-top: 1px solid var(--hl-border);
+    border-radius: 14px 14px 0 0;
+    background: var(--hl-bg-panel);
+    box-shadow: 0 -12px 40px rgb(0 0 0 / 0.28);
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  .hl-sb-order-sheet-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-shrink: 0;
+    padding: 10px 12px 8px;
+    border-bottom: 1px solid var(--hl-border);
+  }
+
+  .hl-sb-order-sheet-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--hl-text);
+  }
+
+  .hl-sb-order-sheet-close {
+    flex-shrink: 0;
+  }
+
+  .hl-sb-order-sheet-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .hl-sb-order-sheet-body .hl-sb-order {
+    border-top: none;
+  }
+}
+
 @media (max-width: 640px) {
   .hl-sb-all-markets .hl-sb-market-head,
   .hl-sb-all-markets .hl-sb-market-row,
@@ -6329,13 +6394,38 @@
   gap: 4px;
 }
 
-.hl-bot-dock .term-trade-reason-hint {
-  color: rgba(255, 255, 255, 0.45);
+.hl-bot-dock .term-trade-reason-hint,
+.hl-bot-dock .term-trade-reason-hint--open,
+.hl-bot-dock .term-trade-reason-hint--close {
+  color: var(--hl-text-muted, #71717a);
+}
+
+.hl-bot-dock .term-trade-reason-hint svg {
+  stroke: var(--hl-text-muted, #71717a);
 }
 
 .hl-bot-dock .term-trade-reason-hint:hover,
 .hl-bot-dock .term-trade-reason-hint:focus-visible {
-  color: #26a69a;
+  color: var(--hl-text, #eceff1);
+}
+
+.hl-bot-dock .term-trade-reason-hint:hover svg,
+.hl-bot-dock .term-trade-reason-hint:focus-visible svg {
+  stroke: var(--hl-accent, #26a69a);
+}
+
+.hl-bot-dock .term-hl-open-reason-col {
+  width: 40px;
+  min-width: 40px;
+  max-width: 48px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.hl-bot-dock .term-hl-open-reason-col th {
+  color: var(--hl-text-faint);
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .hl-bot-dock .term-trade-reason-hint__tip {
@@ -7851,10 +7941,62 @@
   }
 
   .hl-terminal--bot .hl-workspace-main {
+    display: flex;
+    flex-direction: column;
+    flex: none;
+    min-height: auto;
+    overflow: visible;
+    grid-template-rows: unset;
+  }
+
+  .hl-terminal--bot .hl-chart-row {
+    min-height: 220px;
+    max-height: 280px;
+    flex: 0 0 auto;
+  }
+
+  .hl-terminal--bot .hl-chart-wrap {
+    min-height: 220px;
+    max-height: 280px;
+  }
+
+  .hl-terminal--bot .hl-chart-canvas,
+  .hl-terminal--bot .hl-chart-tv-wrap,
+  .hl-terminal--bot .hl-chart-tv-canvas {
+    min-height: 220px;
+    height: 220px;
+    max-height: 260px;
+  }
+
+  .hl-terminal--bot .hl-bot-dock {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    min-height: 160px;
+    max-height: min(42vh, 320px);
+    overflow: hidden;
+  }
+
+  .hl-terminal--bot .hl-bot-dock.hl-bot-dock--history-tab {
+    max-height: min(50vh, 400px);
+  }
+
+  .hl-terminal--bot .hl-bot-dock .hl-bot-dock-inner {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: 100%;
+    overflow: hidden;
+  }
+
+  .hl-terminal--bot .hl-bot-dock .hl-dock-body {
     flex: 1;
     min-height: 0;
-    display: grid;
-    overflow: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .hl-bot-panel-wrap {
+    min-height: auto;
   }
 
   .hl-chart-row {
@@ -7863,36 +8005,6 @@
     min-height: 240px;
     max-height: 300px;
     flex: 0 0 auto;
-  }
-
-  .hl-terminal--bot .hl-workspace-main {
-    grid-template-rows: minmax(180px, 1fr) minmax(100px, min(32vh, 200px));
-  }
-
-  .hl-terminal--bot .hl-chart-row {
-    min-height: min(44vh, 320px);
-    max-height: min(50vh, 360px);
-    flex: 0 0 auto;
-  }
-
-  .hl-terminal--bot .hl-chart-wrap {
-    min-height: min(40vh, 300px);
-    max-height: min(48vh, 340px);
-  }
-
-  .hl-terminal--bot .hl-chart-canvas,
-  .hl-terminal--bot .hl-chart-tv-wrap,
-  .hl-terminal--bot .hl-chart-tv-canvas {
-    min-height: min(38vh, 280px);
-    height: min(42vh, 300px);
-    max-height: min(46vh, 320px);
-  }
-
-  .hl-terminal--bot .hl-bot-dock,
-  .hl-terminal--bot .hl-bot-dock .hl-dock,
-  .hl-terminal--bot .hl-bot-dock .hl-bot-dock-inner {
-    min-height: 100px;
-    max-height: min(32vh, 200px);
   }
 
   .hl-chart-row .hl-book {
@@ -7925,13 +8037,18 @@
     max-height: 260px;
   }
 
-  .hl-dock,
-  .hl-bot-dock .hl-dock,
-  .hl-bot-dock .hl-bot-dock-inner {
+  .hl-dock {
     height: auto;
     min-height: 150px;
     max-height: 200px;
     flex: 0 0 auto;
+  }
+
+  .hl-terminal--bot .hl-bot-dock .hl-dock,
+  .hl-terminal--bot .hl-bot-dock .hl-bot-dock-inner {
+    min-height: 140px;
+    max-height: min(42vh, 320px);
+    flex: 1 1 auto;
   }
 
   .hl-bot-dock {
@@ -7967,7 +8084,7 @@
 
   .hl-bot-panel-wrap {
     width: 100%;
-    min-height: 420px;
+    min-height: auto;
     border-left: none;
     border-top: 2px solid var(--hl-border-strong);
     flex: 0 0 auto;
@@ -8115,16 +8232,39 @@
     max-height: 180px;
   }
 
-  .hl-dock,
-  .hl-bot-dock .hl-dock,
-  .hl-bot-dock .hl-bot-dock-inner {
+  .hl-terminal--bot .hl-chart-row {
+    min-height: 180px;
+    max-height: 220px;
+  }
+
+  .hl-terminal--bot .hl-chart-wrap {
+    min-height: 160px;
+    max-height: 200px;
+  }
+
+  .hl-terminal--bot .hl-chart-canvas,
+  .hl-terminal--bot .hl-chart-tv-wrap,
+  .hl-terminal--bot .hl-chart-tv-canvas {
+    height: 160px;
+    min-height: 160px;
+    max-height: 180px;
+  }
+
+  .hl-terminal--bot .hl-bot-dock,
+  .hl-terminal--bot .hl-bot-dock .hl-dock,
+  .hl-terminal--bot .hl-bot-dock .hl-bot-dock-inner {
     min-height: 120px;
-    max-height: 160px;
+    max-height: min(38vh, 260px);
+  }
+
+  .hl-terminal--bot .hl-bot-dock.hl-bot-dock--history-tab,
+  .hl-terminal--bot .hl-bot-dock.hl-bot-dock--history-tab .hl-bot-dock-inner {
+    max-height: min(48vh, 340px);
   }
 
   .hl-order-panel,
   .hl-bot-panel-wrap {
-    min-height: 300px;
+    min-height: 280px;
   }
 }
 
@@ -8152,12 +8292,18 @@
   .hl-bot-dock .hl-dock,
   .hl-bot-dock .hl-bot-dock-inner {
     min-height: 140px;
-    max-height: 180px;
+    max-height: 200px;
+  }
+
+  .hl-terminal--bot .hl-bot-dock,
+  .hl-terminal--bot .hl-bot-dock .hl-dock,
+  .hl-terminal--bot .hl-bot-dock .hl-bot-dock-inner {
+    max-height: min(44vh, 300px);
   }
 
   .hl-order-panel,
   .hl-bot-panel-wrap {
-    min-height: 440px;
+    min-height: 320px;
   }
 }
 

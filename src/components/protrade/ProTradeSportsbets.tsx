@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Loader2 } from 'lucide-react';
-import { useAppKitAccount } from '@reown/appkit/react';
+import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUserLocale } from '../../hooks/useUserLocale';
 import { canAccessSportsbets } from '../../lib/compliance/predictionMarketAccess';
@@ -19,7 +19,7 @@ const ProTradeSportsbets: React.FC<Props> = ({
   onRequireSignIn,
 }) => {
   const { user } = useAuth();
-  const { address } = useAppKitAccount();
+  const { address } = useMonadierWallet();
   const locale = useUserLocale();
   const [profileCountry, setProfileCountry] = useState<string | null>(null);
   const [profileLoading, setProfileLoading] = useState(Boolean(user?.id));

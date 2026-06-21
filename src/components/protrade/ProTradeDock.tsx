@@ -318,7 +318,7 @@ const ProTradeDock: React.FC<Props> = ({
                   <th>Mark</th>
                   <th>PnL</th>
                   <th>Lev</th>
-                  {isBotMode ? <th aria-label="Open reason" /> : null}
+                  {isBotMode ? <th className="term-hl-open-reason-col">Why</th> : null}
                   <th />
                 </tr>
               </thead>
@@ -432,7 +432,7 @@ const ProTradeDock: React.FC<Props> = ({
                   <th>Fee</th>
                   <th>Result</th>
                   <th>Closed PnL</th>
-                  {isBotMode ? <th aria-label="Close reason" /> : null}
+                  {isBotMode ? <th className="term-hl-open-reason-col">Why</th> : null}
                   {walletAddress ? <th>Verify</th> : null}
                 </tr>
               </thead>

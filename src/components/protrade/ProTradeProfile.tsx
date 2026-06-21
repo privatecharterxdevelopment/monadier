@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAppKitAccount } from '@reown/appkit/react';
+import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useAuth } from '../../contexts/AuthContext';
 import ProfileAvatar from '../profile/ProfileAvatar';
 import TerminalProfilePanel from '../terminal/TerminalProfilePanel';
@@ -22,7 +22,7 @@ const ProTradeProfile: React.FC<Props> = ({
   botHistoryRefreshKey = 0,
 }) => {
   const { user, profile } = useAuth();
-  const { address, isConnected } = useAppKitAccount();
+  const { address, isConnected } = useMonadierWallet();
   const [internalTab, setInternalTab] = useState<ProTradeProfileTab>('identity');
   const tab = controlledTab ?? internalTab;
   const setTab = (next: ProTradeProfileTab) => {

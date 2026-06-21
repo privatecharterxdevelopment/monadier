@@ -2,11 +2,12 @@ import { createAppKit } from '@reown/appkit/react';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { createStorage } from '@wagmi/core';
 import { mainnet, arbitrum, polygon, base, bsc } from '@reown/appkit/networks';
+import { MONADIER_REOWN_PROJECT_ID } from './mobileWalletConnect';
 
-// Get project ID from https://cloud.reown.com
 const envProjectId =
   import.meta.env.VITE_REOWN_PROJECT_ID ||
   import.meta.env.VITE_WALLETCONNECT_PROJECT_ID ||
+  MONADIER_REOWN_PROJECT_ID ||
   '';
 
 const PLACEHOLDER_PROJECT_ID = '00000000000000000000000000000000';
@@ -18,9 +19,8 @@ export const hasWalletProjectId = Boolean(
 /** Always set — AppKit hooks throw if createAppKit was never called */
 export const projectId = hasWalletProjectId ? envProjectId : PLACEHOLDER_PROJECT_ID;
 
-// Get current origin for metadata
 const getOrigin = () => {
-  if (typeof window === 'undefined') return 'https://monadier.com';
+  if (typeof window === 'undefined') return 'https://app.monadier.com';
   return window.location.origin;
 };
 
@@ -31,14 +31,18 @@ const metadata = {
   icons: [`${getOrigin()}/favicon.svg`],
 };
 
-// All supported networks - Arbitrum first (default for V7)
+/** MetaMask — featured first on mobile WalletConnect list. */
+const METAMASK_WALLET_ID = 'c57ca95c075bbc3f4656fe7880bb88e88080e207664';
+
 const networks = [arbitrum, base, mainnet, bsc, polygon];
 
 export const wagmiAdapter = new WagmiAdapter({
   networks,
   projectId,
   ssr: false,
-  storage: createStorage({ storage: typeof localStorage !== 'undefined' ? localStorage : undefined }),
+  storage: createStorage({
+    storage: typeof localStorage !== 'undefined' ? localStorage : undefined,
+  }),
 });
 
 createAppKit({
@@ -53,6 +57,9 @@ createAppKit({
     allWallets: true,
   },
   enableWalletConnect: hasWalletProjectId,
+  enableMobileWalletLink: true,
+  enableInjected: true,
+  featuredWalletIds: [METAMASK_WALLET_ID],
   themeMode: 'light',
   themeVariables: {
     '--w3m-accent': '#0a0a0a',
@@ -65,9 +72,9 @@ createAppKit({
 
 void wagmiAdapter.syncConnections();
 
-if (!hasWalletProjectId && import.meta.env.DEV) {
-  console.warn(
-    'WalletConnect uses a placeholder project ID — set VITE_REOWN_PROJECT_ID in .env.local for full wallet modal (https://cloud.reown.com).'
+if (!hasWalletProjectId && import.meta.env.PROD) {
+  console.error(
+    'WalletConnect project id missing — mobile MetaMask will not work. Set VITE_REOWN_PROJECT_ID on Vercel.'
   );
 }
 

@@ -330,6 +330,16 @@ const Dashboard2ProPageContent: React.FC = () => {
     setSignInReason(undefined);
   }, []);
 
+  useEffect(() => {
+    const onCloseOverlays = () => {
+      setAuthModal(null);
+      setSignInReason(undefined);
+      setFundsModal(null);
+    };
+    window.addEventListener('monadier:close-overlays', onCloseOverlays);
+    return () => window.removeEventListener('monadier:close-overlays', onCloseOverlays);
+  }, []);
+
   const promptSignIn = useCallback((reason: string) => {
     setSignInReason(reason);
     setAuthModal('signin');

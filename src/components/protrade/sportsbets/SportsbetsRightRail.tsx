@@ -29,6 +29,10 @@ type Props = {
   orderAction?: 'buy' | 'sell';
   onOrderActionChange?: (action: 'buy' | 'sell') => void;
   onCashOutPosition?: (position: HlOutcomePosition) => void;
+  /** Mobile — order panel lives in fixed bottom sheet instead. */
+  hideOrderPanel?: boolean;
+  /** Desktop — inline order panel from parent (single instance). */
+  orderPanel?: React.ReactNode;
 };
 
 const SportsbetsRightRail: React.FC<Props> = ({
@@ -53,26 +57,32 @@ const SportsbetsRightRail: React.FC<Props> = ({
   orderAction,
   onOrderActionChange,
   onCashOutPosition,
+  hideOrderPanel = false,
+  orderPanel,
 }) => (
-  <div className="hl-sb-rail">
+  <div className={`hl-sb-rail${hideOrderPanel ? ' hl-sb-rail--slip-only' : ''}`}>
     <div className="hl-sb-rail-scroll">
-      <SportsbetsOrderPanel
-        market={market}
-        question={question}
-        side={side}
-        quote={quote}
-        quoteLoading={quoteLoading}
-        bettingBalance={bettingBalance}
-        walletAddress={walletAddress}
-        walletConnected={walletConnected}
-        signedIn={signedIn}
-        onRequireSignIn={onRequireSignIn}
-        trading={trading}
-        positionSize={positionSize}
-        onSuccess={onSuccess}
-        orderAction={orderAction}
-        onOrderActionChange={onOrderActionChange}
-      />
+      {!hideOrderPanel ? (
+        orderPanel ?? (
+          <SportsbetsOrderPanel
+            market={market}
+            question={question}
+            side={side}
+            quote={quote}
+            quoteLoading={quoteLoading}
+            bettingBalance={bettingBalance}
+            walletAddress={walletAddress}
+            walletConnected={walletConnected}
+            signedIn={signedIn}
+            onRequireSignIn={onRequireSignIn}
+            trading={trading}
+            positionSize={positionSize}
+            onSuccess={onSuccess}
+            orderAction={orderAction}
+            onOrderActionChange={onOrderActionChange}
+          />
+        )
+      ) : null}
       <SportsbetsBetSlip
         positions={positions}
         openOrders={openOrders}

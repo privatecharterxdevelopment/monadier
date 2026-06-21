@@ -12,6 +12,7 @@ import { useProTradeTheme } from '../../contexts/ProTradeThemeContext';
 import type { ProTradeProfileTab } from './proTradeProfileTypes';
 import type { ActivityNotification } from '../../lib/activityNotifications';
 import { getLandingPageUrl, goToLanding } from '../../lib/appUrls';
+import { openMonadierWalletModal } from '../../lib/openWalletModal';
 
 export type ProTradeSection =
   | 'perps'
@@ -164,7 +165,7 @@ const ProTradeTopNav: React.FC<Props> = ({
         <button
           type="button"
           className={`hl-topnav-wallet ${isConnected ? 'hl-topnav-wallet--connected' : ''}`}
-          onClick={() => open()}
+          onClick={() => openMonadierWalletModal(() => open())}
         >
           {walletLabel}
         </button>
@@ -219,7 +220,7 @@ const ProTradeTopNav: React.FC<Props> = ({
                 type="button"
                 className="hl-mobile-nav-wallet"
                 onClick={() => {
-                  open();
+                  openMonadierWalletModal(() => open());
                   setMobileNavOpen(false);
                 }}
               >

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { useAccount, useBalance, useChainId, useSwitchChain, usePublicClient, useWalletClient } from 'wagmi';
+import { useBalance, useChainId, useSwitchChain, usePublicClient, useWalletClient } from 'wagmi';
+import { useMonadierWallet } from '../hooks/useMonadierWallet';
 import { formatUnits, parseUnits, erc20Abi } from 'viem';
 import { SUPPORTED_CHAINS, getChainById, ChainConfig } from '../lib/chains';
 import { createDexRouter, createGridBot, DexRouter, GridBot, SwapResult, TradeRecord } from '../lib/dex';
@@ -174,7 +175,7 @@ const ERC20_ABI = [
 ] as const;
 
 export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useMonadierWallet();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
   const publicClient = usePublicClient();

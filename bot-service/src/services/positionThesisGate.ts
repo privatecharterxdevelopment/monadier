@@ -9,6 +9,7 @@ import { analyzeMarketMTFBySymbol } from './market';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { signalEngine } from './signalEngine';
 import { detectLiquiditySweep } from './liquiditySweepGate';
+import { validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
 
 export type PositionThesisVerdict = {
   thesisIntact: boolean;
@@ -288,4 +289,118 @@ export function logProfitRunAnalysis(
 
 export function clearProfitAnalyzeLog(user: string, coin: string): void {
   profitAnalyzeLogAt.delete(`${user.toLowerCase()}:${coin.toUpperCase()}`);
+}
+
+export type TrailPullbackVerdict = {
+  deferClose: boolean;
+  reason: string;
+  sweepBias: 'LONG' | 'SHORT' | null;
+  volumeRatio: number;
+  volumeOk: boolean;
+  runBias: ProfitRunBias;
+  thesis: PositionThesisVerdict;
+  megaOk: boolean;
+  logLine: string;
+};
+
+/** At trail floor touch — sweep + volume + MTF decide rebound hold vs profit_lock close. */
+export async function evaluateTrailPullbackAnalysis(opts: {
+  coin: string;
+  direction: 'LONG' | 'SHORT';
+  pnlUsd: number;
+  floorUsd: number;
+  peakUsd: number;
+}): Promise<TrailPullbackVerdict> {
+  const { coin, direction, pnlUsd, floorUsd, peakUsd } = opts;
+
+  const thesis = await evaluatePositionThesis({
+    coin,
+    direction,
+    forceRefresh: true,
+  });
+
+  let sweepBias: 'LONG' | 'SHORT' | null = null;
+  let volumeRatio = 1;
+  let volumeOk = false;
+  let sweepReason = 'vol n/a';
+
+  try {
+    const symbol = hlCoinToBinanceSymbol(coin);
+    const c5m = await signalEngine.fetchCandles(symbol, '5m', 30);
+    const sweep = detectLiquiditySweep(c5m);
+    sweepBias = sweep.bias;
+    volumeRatio = sweep.volumeRatio;
+    volumeOk = sweep.volumeOk;
+    sweepReason = sweep.reason;
+  } catch {
+    /* optional */
+  }
+
+  const runBias = deriveProfitRunBias(thesis, volumeRatio);
+
+  const mega =
+    coin === 'BTC' || coin === 'ETH'
+      ? { ok: true, reason: 'mega pair — self' }
+      : validateMegaPairVolumeForDirection(direction);
+
+  const sweepConfirms =
+    sweepBias === direction && volumeOk;
+  const strongRun =
+    runBias === 'strong_run' || runBias === 'run';
+  const weakness = runBias === 'fade' || runBias === 'reversal';
+
+  let deferClose = false;
+  let reason = '';
+
+  if (pnlUsd <= 0) {
+    reason = 'uPnL not green — no defer';
+  } else if (weakness || thesis.macroAgainst || thesis.signalAgainst) {
+    reason = `weakness ${runBias} — close at trail floor`;
+  } else if (!mega.ok) {
+    reason = `mega flow against — ${mega.reason}`;
+  } else if (sweepConfirms) {
+    deferClose = true;
+    reason = `Liquidity sweep confirms ${direction} — ${sweepReason}`;
+  } else if (strongRun && volumeOk && thesis.thesisIntact) {
+    deferClose = true;
+    reason = `Volume ${volumeRatio.toFixed(2)}x + thesis intact — expect rebound`;
+  } else {
+    reason = `No sweep rebound — close at floor ($${floorUsd.toFixed(3)}, peak $${peakUsd.toFixed(3)})`;
+  }
+
+  const logLine = [
+    `trail touch +$${pnlUsd.toFixed(3)} floor $${floorUsd.toFixed(3)}`,
+    sweepReason,
+    `bias ${runBias}`,
+    thesis.mtfSummary.slice(0, 80),
+    mega.reason.slice(0, 60),
+    deferClose ? 'DEFER close' : 'CLOSE now',
+  ].join(' · ');
+
+  return {
+    deferClose,
+    reason,
+    sweepBias,
+    volumeRatio,
+    volumeOk,
+    runBias,
+    thesis,
+    megaOk: mega.ok,
+    logLine,
+  };
+}
+
+export function logTrailPullbackAnalysis(
+  user: string,
+  coin: string,
+  verdict: TrailPullbackVerdict,
+  deferred: boolean
+): void {
+  logger.info(deferred ? 'HL trail close deferred — sweep rebound' : 'HL trail floor — closing', {
+    user: user.slice(0, 10),
+    coin,
+    defer: deferred,
+    reason: verdict.reason.slice(0, 220),
+    detail: verdict.logLine.slice(0, 320),
+  });
 }
