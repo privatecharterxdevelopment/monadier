@@ -1249,15 +1249,52 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto minmax(140px, min(32vh, 280px));
+  grid-template-rows: minmax(280px, 1fr) auto minmax(108px, min(24vh, 200px));
+  overflow: hidden;
+}
+
+.hl-terminal--bot .hl-workspace-main > .hl-chart-row {
+  grid-row: 1;
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
 }
 
 .hl-terminal--bot .hl-chart-row {
-  flex: none;
-  min-height: min(50vh, 520px);
-  max-height: 100%;
+  grid-template-columns: minmax(0, 1fr) 196px;
+  min-height: 0;
+  max-height: none;
+  align-items: stretch;
+}
+
+.hl-terminal--bot .hl-bot-chart-stack {
+  height: 100%;
+  min-height: 0;
+}
+
+.hl-terminal--bot .hl-bot-chart-stack .hl-chart-wrap {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+}
+
+.hl-terminal--bot .hl-bot-chart-stack .hl-chart-engine {
+  flex: 1;
+  min-height: 0;
+}
+
+.hl-terminal--bot .hl-chart-row .hl-book {
+  align-self: start;
+  max-height: min(320px, 46vh);
+  height: auto;
+  border-left: 1px solid var(--hl-border);
+}
+
+.hl-terminal--bot .hl-book-scroll {
+  max-height: 220px;
 }
 
 .hl-terminal--bot .hl-bot-dock {
@@ -6471,7 +6508,7 @@
   border: none;
   border-radius: 0;
   background: var(--hl-bg-elevated);
-  padding: 8px 10px;
+  padding: 6px 10px;
 }
 
 .hl-bot-analysis .hl-bot-analyzer-pills {
