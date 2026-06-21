@@ -8,37 +8,18 @@ export function normalizeHlBotStrategy(raw: string | null | undefined): HlBotStr
 }
 
 export type HlExitPolicy = {
-  lockActivateUsd: number;
-  lockFloorUsd: number;
-  trailBufferUsd: number;
-  maxHoldInProfitMs: number;
-  minProfitHoldBeforeExitMs: number;
-  peakDropFraction: number;
+  /** Dynamic trail — arm when ROE ≥ armMinRoePct or PnL ≥ fees × multiplier. */
+  armMinRoePct: number;
+  armFeesMultiplier: number;
   useTakeProfitPercent: boolean;
 };
 
-/** Let winners run — 2.5 min analyze, then trail SL in profit. */
-export function resolveHlExitPolicy(strategy: HlBotStrategy): HlExitPolicy {
-  const base = {
-    minProfitHoldBeforeExitMs: config.hyperliquid.profitMinHoldBeforeExitMs,
-    peakDropFraction: config.hyperliquid.profitPeakDropFraction,
-    maxHoldInProfitMs: 0,
-    useTakeProfitPercent: false,
-  };
-
-  if (strategy === 'profit_grabber') {
-    return {
-      ...base,
-      lockActivateUsd: 0.06,
-      lockFloorUsd: 0.015,
-      trailBufferUsd: 0.035,
-    };
-  }
-
+/** Exit policy — price-based dynamic trailing (no fixed USD floors). */
+export function resolveHlExitPolicy(_strategy: HlBotStrategy): HlExitPolicy {
+  const trail = config.hyperliquid.dynamicTrail;
   return {
-    ...base,
-    lockActivateUsd: config.hyperliquid.profitLockActivateUsd,
-    lockFloorUsd: config.hyperliquid.profitLockFloorUsd,
-    trailBufferUsd: config.hyperliquid.profitLockTrailBufferUsd,
+    armMinRoePct: trail.armMinRoePct,
+    armFeesMultiplier: trail.armFeesMultiplier,
+    useTakeProfitPercent: false,
   };
 }

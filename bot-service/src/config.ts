@@ -110,10 +110,28 @@ export const config = {
     /** 0 = user disabled SL in DB — do NOT override with default in monitor. */
     defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 4),
     defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 2),
-    /** Min uPnL before any profit exit (covers HL fees). */
+    /** Min uPnL before any profit exit (legacy — dynamic trail uses ROE/fees arm). */
     minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
-    /** Must stay green this long before trail SL arms or any profit exit (2–3 min analyze phase). */
-    profitMinHoldBeforeExitMs: Number(process.env.HL_PROFIT_MIN_HOLD_MS || 150_000),
+    /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
+    dynamicTrail: {
+      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 0.5),
+      armFeesMultiplier: Number(process.env.HL_TRAIL_ARM_FEES_MULT || 2),
+      breakevenBufferPct: Number(process.env.HL_TRAIL_BE_BUFFER_PCT || 0.02),
+      breakevenBufferFeesMult: Number(process.env.HL_TRAIL_BE_BUFFER_FEES_MULT || 0.5),
+      estimatedFeeBpsPerSide: Number(process.env.HL_TRAIL_FEE_BPS_SIDE || 3.5),
+      useAtr: process.env.HL_TRAIL_USE_ATR !== 'false',
+      atrPeriod: Number(process.env.HL_TRAIL_ATR_PERIOD || 14),
+      atrMultiplier: Number(process.env.HL_TRAIL_ATR_MULT || 1.5),
+      atrTimeframe: (process.env.HL_TRAIL_ATR_TF || '5m') as '1m' | '5m' | '15m',
+      atrCacheMs: Number(process.env.HL_TRAIL_ATR_CACHE_MS || 60_000),
+      atrMinPctOfFallback: Number(process.env.HL_TRAIL_ATR_MIN_PCT_FALLBACK || 0.5),
+      majorTrailPct: Number(process.env.HL_TRAIL_MAJOR_PCT || 0.0125),
+      midTrailPct: Number(process.env.HL_TRAIL_MID_PCT || 0.0175),
+      cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.0325),
+      neverRedAfterArm: process.env.HL_TRAIL_NEVER_RED_AFTER_ARM !== 'false',
+    },
+    /** Legacy profit-lock USD fields — unused when dynamicTrail active. */
+    profitMinHoldBeforeExitMs: Number(process.env.HL_PROFIT_MIN_HOLD_MS || 0),
     /** After analyze phase — arm in-profit SL at this uPnL floor (~0.1% margin). */
     profitLockActivateUsd: Number(process.env.HL_PROFIT_LOCK_ACTIVATE_USD || 0.05),
     /** After min hold — trail floor ≈ breakeven + ~0.1% margin on typical slot. */

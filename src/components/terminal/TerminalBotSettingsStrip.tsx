@@ -41,11 +41,9 @@ const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disable
         <span className="term-bot-settings-dot" aria-hidden>
           ·
         </span>
-        <span title="Bot trailing stop — line on chart moves into profit">
-          <span className="term-bot-settings-k">Trail SL</span>{' '}
-          <span className="term-bot-settings-v">
-            +${eff.profitLockActivateUsd.toFixed(2)} → +${eff.profitLockFloorUsd.toFixed(2)}
-          </span>
+        <span title="Dynamic ATR trailing stop — arms in profit, exits on price cross">
+          <span className="term-bot-settings-k">Trail</span>{' '}
+          <span className="term-bot-settings-v">+{eff.trailArmRoePct}% ROE · ATR</span>
         </span>
       </div>
       <button

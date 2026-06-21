@@ -14,7 +14,7 @@ const WHY = {
   mode: 'Standard = wider profit trail. Aggressive = faster in/out on smaller moves.',
   risk: 'Share of your HL balance used as margin per trade — not the same as leverage.',
   lvrg: 'Hyperliquid multiplier on that margin. Bot clamps to each market’s max leverage.',
-  trail: 'Profit-only bot: no auto-close in red. After 2.5 min in profit, trail SL follows below live uPnL — closes if profit drops to the lock floor.',
+  trail: 'Dynamic ATR trail: arms at +0.5% ROE (or 2× fees). Stop ratchets with price — winners can run hours. Never closes in red unless trail hit.',
 } as const;
 
 function fmtUsd(n: number) {
@@ -73,7 +73,7 @@ const ChartBotToolbarPills: React.FC<Props> = ({ hlBalanceUsd = 0, variant = 'li
           Trail SL
         </span>
         <span className={variant === 'dark' ? 'hl-chart-bot-pill__value' : 'term-chart-live-badge__pair'}>
-          +${eff.profitLockActivateUsd.toFixed(2)} @2.5m
+          +{eff.trailArmRoePct}% ROE arm
         </span>
         <TradeReasonHint reason={WHY.trail} kind="plain" label="Why trail SL" className="term-trade-reason-hint--inline" />
       </div>

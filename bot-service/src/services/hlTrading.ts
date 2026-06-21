@@ -25,7 +25,6 @@ import { subscriptionService } from './subscription';
 import type { TradingCycleContext } from './tradingCycleContext';
 import {
   normalizeHlBotStrategy,
-  resolveHlExitPolicy,
 } from './hlBotStrategy';
 import { resolveHlOrderBuilder, estimateCollectedSuccessFee } from './hlBuilderFee';
 import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from './hlSuccessFees';
@@ -44,42 +43,23 @@ import {
 } from './megaPairVolumeMonitor';
 import { buildHlOpenReasonDoc } from './openReasonBuilder';
 import {
-  evaluatePositionThesis,
   evaluateProfitRunAnalysis,
-  evaluateTrailPullbackAnalysis,
   logProfitRunAnalysis,
-  logTrailPullbackAnalysis,
   clearProfitAnalyzeLog,
 } from './positionThesisGate';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import {
-  shouldCloseNeverRedAfterGreen,
-  shouldClosePeakDropUsd,
-  shouldCloseProfitHoldTimeout,
-  shouldCloseProfitLockUsd,
-  shouldTakeProfitOnPnl,
-  effectiveProfitTrailBufferUsd,
-  trailingProfitLockFloorUsd,
-} from './pnlExits';
+  evaluateDynamicTrail,
+  markFromPosition,
+  type DynamicTrailRecord,
+} from './dynamicTrailingStop';
 import {
-  deleteProfitTrailRecord,
-  hydrateProfitTrailMaps,
-  persistProfitTrailMaps,
+  deleteDynamicTrailRecord,
+  getDynamicTrailRecord,
+  setDynamicTrailRecord,
 } from './profitTrailState';
 
 const transport = new HttpTransport();
-
-/** Per user+coin — SL trailed into profit after activate threshold. */
-const hlProfitLockActive = new Map<string, boolean>();
-
-/** Peak uPnL since open — used to trail profit lock floor upward. */
-const hlProfitPeakUsd = new Map<string, number>();
-
-/** Current profit-lock floor USD per position. */
-const hlProfitLockFloorUsd = new Map<string, number>();
-
-/** When uPnL first crossed min profit — for timeout grab. */
-const hlProfitSinceAt = new Map<string, number>();
 
 /** First time we saw an open position — min-hold before thesis loss close. */
 const hlPositionOpenedAt = new Map<string, number>();
@@ -92,15 +72,6 @@ let fastPositionMonitorRunning = false;
 
 /** Per user+coin — throttle "hold in red" logs. */
 const hlHoldRedLogAt = new Map<string, number>();
-
-/** Trail floor defer — sweep rebound window (ms until). */
-const hlTrailDeferUntil = new Map<string, number>();
-
-/** Defer count per floor level (key: lockKey:floorCents). */
-const hlTrailDeferCount = new Map<string, number>();
-
-/** When uPnL first touched trail floor — debounce noise exits. */
-const hlTrailFloorBreachSince = new Map<string, number>();
 
 /** Last HL open error per wallet — ops logs only; client API filters diagnostics. */
 const lastHlOpenError = new Map<string, { at: string; coin?: string; error: string }>();
@@ -133,44 +104,22 @@ function positionKey(userAddress: string, coin: string): string {
   return `${userAddress.toLowerCase()}:${coin.toUpperCase()}`;
 }
 
-function clearProfitLockState(lockKey: string): void {
-  hlProfitLockActive.delete(lockKey);
-  hlProfitPeakUsd.delete(lockKey);
-  hlProfitLockFloorUsd.delete(lockKey);
-  hlProfitSinceAt.delete(lockKey);
+function clearTrailState(lockKey: string): void {
   hlPositionOpenedAt.delete(lockKey);
   hlHoldRedLogAt.delete(lockKey);
-  hlTrailDeferUntil.delete(lockKey);
-  for (const k of [...hlTrailDeferCount.keys()]) {
-    if (k.startsWith(`${lockKey}:`)) hlTrailDeferCount.delete(k);
-  }
-  hlTrailFloorBreachSince.delete(lockKey);
-  deleteProfitTrailRecord(lockKey);
+  deleteDynamicTrailRecord(lockKey);
   const parts = lockKey.split(':');
   if (parts.length >= 2) {
     clearProfitAnalyzeLog(parts[0], parts.slice(1).join(':'));
   }
 }
 
-function syncTrailState(lockKey: string): void {
-  persistProfitTrailMaps(lockKey, {
-    locked: hlProfitLockActive,
-    peak: hlProfitPeakUsd,
-    floor: hlProfitLockFloorUsd,
-    profitSince: hlProfitSinceAt,
-    openedAt: hlPositionOpenedAt,
-  });
+function loadTrailRecord(lockKey: string): DynamicTrailRecord | null {
+  return getDynamicTrailRecord(lockKey) ?? null;
 }
 
-function ensureTrailHydrated(lockKey: string): void {
-  if (hlProfitLockActive.has(lockKey)) return;
-  hydrateProfitTrailMaps(lockKey, {
-    locked: hlProfitLockActive,
-    peak: hlProfitPeakUsd,
-    floor: hlProfitLockFloorUsd,
-    profitSince: hlProfitSinceAt,
-    openedAt: hlPositionOpenedAt,
-  });
+function saveTrailRecord(lockKey: string, rec: DynamicTrailRecord): void {
+  setDynamicTrailRecord(lockKey, rec);
 }
 
 function resolveMarginPerSlot(
@@ -885,7 +834,6 @@ export class HyperliquidTradingService {
     const fast = opts.fast === true;
     const meta = fast ? null : await fetchHlMeta();
     const configuredLev = Math.max(1, Math.floor(settings.leverageMultiplier || 5));
-    const minGrabUsd = config.hyperliquid.minProfitCloseUsd;
     const nowMs = Date.now();
 
     for (const row of state?.assetPositions ?? []) {
@@ -897,26 +845,18 @@ export class HyperliquidTradingService {
       const entry = Number(pos.entryPx ?? 0);
       const pnl = Number(pos.unrealizedPnl ?? 0);
       const lev = Math.max(1, pos.leverage?.value ?? 10);
+      const absSize = Math.abs(size);
       const notional = Math.abs(Number((pos as { positionValue?: string }).positionValue ?? 0));
       const collateralEst =
-        notional > 0 ? notional / lev : entry > 0 ? (Math.abs(size) * entry) / lev : 0;
-      const pnlPct = collateralEst > 0 ? (pnl / collateralEst) * 100 : 0;
-
-      const tp = settings.takeProfitPercent ?? 0;
-      const sl = settings.stopLossPercent ?? 0;
-      const strategy = normalizeHlBotStrategy(settings.hlBotStrategy);
-      const exitPolicy = resolveHlExitPolicy(strategy);
-      const minFloorUsd = exitPolicy.lockFloorUsd;
-      const trailBufferUsd = exitPolicy.trailBufferUsd;
+        notional > 0 ? notional / lev : entry > 0 ? (absSize * entry) / lev : 0;
 
       const lockKey = positionKey(userAddress, pos.coin);
-      ensureTrailHydrated(lockKey);
       if (!hlPositionOpenedAt.has(lockKey)) {
         hlPositionOpenedAt.set(lockKey, nowMs);
       }
-      const openedAt = hlPositionOpenedAt.get(lockKey) ?? nowMs;
-      const holdMs = nowMs - openedAt;
+      const holdMs = nowMs - (hlPositionOpenedAt.get(lockKey) ?? nowMs);
       const positionDirection: 'LONG' | 'SHORT' = size > 0 ? 'LONG' : 'SHORT';
+      const markPrice = markFromPosition(entry, size, pnl);
 
       if (!fast && meta) {
         const targetLev = Math.min(configuredLev, maxLeverageForCoin(meta, pos.coin));
@@ -931,109 +871,31 @@ export class HyperliquidTradingService {
         );
       }
 
-      let locked = hlProfitLockActive.get(lockKey) ?? false;
-      let peak = hlProfitPeakUsd.get(lockKey) ?? 0;
-      if (pnl > peak) {
-        peak = pnl;
-        hlProfitPeakUsd.set(lockKey, peak);
-      }
+      const trailRecord = loadTrailRecord(lockKey);
+      const trailResult = await evaluateDynamicTrail({
+        coin: pos.coin,
+        direction: positionDirection,
+        entryPrice: entry,
+        markPrice,
+        pnlUsd: pnl,
+        absSize,
+        notionalUsd: notional > 0 ? notional : absSize * markPrice,
+        collateralUsd: collateralEst,
+        nowMs,
+        record: trailRecord,
+      });
 
-      if (pnl >= minGrabUsd) {
-        if (!hlProfitSinceAt.has(lockKey)) {
-          hlProfitSinceAt.set(lockKey, nowMs);
-        }
-      } else if (pnl <= 0) {
-        hlProfitSinceAt.delete(lockKey);
-      }
+      saveTrailRecord(lockKey, trailResult.record);
 
-      let floorUsd = hlProfitLockFloorUsd.get(lockKey) ?? minFloorUsd;
-
-      const inProfitSince = hlProfitSinceAt.get(lockKey);
-      const profitHoldMs =
-        inProfitSince != null ? nowMs - inProfitSince : 0;
-      const profitExitReady =
-        locked || profitHoldMs >= exitPolicy.minProfitHoldBeforeExitMs;
-      const minHoldSec = Math.round(exitPolicy.minProfitHoldBeforeExitMs / 1000);
-
-      // Phase 1: in profit but inside 2–3 min analyze window — read macro/MTF/vol, no trail yet.
-      if (pnl > 0 && !profitExitReady) {
+      // Optional MTF/volume log while in profit (no exit side-effects).
+      if (pnl > 0 && trailResult.record.phase !== 'idle') {
         const runAnalysis = await evaluateProfitRunAnalysis({
           coin: pos.coin,
           direction: positionDirection,
-          profitHoldMs,
+          profitHoldMs: trailResult.record.timeInProfitMs,
           pnlUsd: pnl,
         });
-        logProfitRunAnalysis(userAddress, pos.coin, runAnalysis);
-        continue;
-      }
-
-      if (profitExitReady && (pnl >= minGrabUsd || locked)) {
-        let runAnalysis:
-          | Awaited<ReturnType<typeof evaluateProfitRunAnalysis>>
-          | null = null;
-
-        if (pnl >= minGrabUsd && profitExitReady) {
-          runAnalysis = await evaluateProfitRunAnalysis({
-            coin: pos.coin,
-            direction: positionDirection,
-            profitHoldMs,
-            pnlUsd: pnl,
-          });
-          logProfitRunAnalysis(userAddress, pos.coin, runAnalysis, locked);
-
-          if (!locked) {
-            locked = true;
-            hlProfitLockActive.set(lockKey, true);
-            floorUsd = minFloorUsd;
-            hlProfitLockFloorUsd.set(lockKey, floorUsd);
-            logger.info('HL profit trail SL armed', {
-              user: userAddress.slice(0, 10),
-              coin: pos.coin,
-              strategy,
-              profitHoldSec: Math.round(profitHoldMs / 1000),
-              minHoldSec,
-              pnlUsd: pnl.toFixed(4),
-              floorUsd: floorUsd.toFixed(4),
-              bias: runAnalysis.bias,
-              recommendation: runAnalysis.recommendation,
-            });
-          }
-        } else if (locked) {
-          runAnalysis = await evaluateProfitRunAnalysis({
-            coin: pos.coin,
-            direction: positionDirection,
-            profitHoldMs,
-            pnlUsd: pnl,
-          });
-        }
-
-        const runBias = runAnalysis?.bias ?? 'neutral';
-        const thesisIntact = runAnalysis?.thesis.thesisIntact ?? true;
-        const effectiveBuffer = effectiveProfitTrailBufferUsd(
-          peak,
-          trailBufferUsd,
-          runBias,
-          thesisIntact,
-          config.hyperliquid.profitTrailMinPeakFraction,
-          config.hyperliquid.profitTrailStrongRunMult
-        );
-        const trailed = trailingProfitLockFloorUsd(peak, minFloorUsd, effectiveBuffer);
-        if (trailed > floorUsd) {
-          floorUsd = trailed;
-          hlProfitLockFloorUsd.set(lockKey, floorUsd);
-        }
-        if (locked) syncTrailState(lockKey);
-      }
-
-      // Trail phase — continuous volume / sweep / MTF read while SL is armed.
-      if (locked && pnl > 0 && pnl >= minGrabUsd) {
-        const runAnalysis = await evaluateProfitRunAnalysis({
-          coin: pos.coin,
-          direction: positionDirection,
-          profitHoldMs,
-          pnlUsd: pnl,
-        });
-        logProfitRunAnalysis(userAddress, pos.coin, runAnalysis, false);
+        logProfitRunAnalysis(userAddress, pos.coin, runAnalysis, trailResult.record.phase === 'trailing');
       }
 
       const closeCtx = {
@@ -1043,152 +905,32 @@ export class HyperliquidTradingService {
         leverage: pos.leverage?.value ?? 10,
       };
 
-      // ── MANDATORY trail exit — never go red after trail armed. ──
-      if (
-        locked &&
-        peak >= minGrabUsd &&
-        shouldCloseNeverRedAfterGreen(pnl, peak, minGrabUsd)
-      ) {
-        clearProfitLockState(lockKey);
-        await this.closeMarketPosition(userAddress, pos.coin, 'profit_lock', closeCtx);
+      if (trailResult.shouldClose) {
+        clearTrailState(lockKey);
+        await this.closeMarketPosition(
+          userAddress,
+          pos.coin,
+          trailResult.exitReason,
+          closeCtx,
+          trailResult.closeDetail
+        );
         continue;
       }
 
-      if (
-        locked &&
-        peak >= minGrabUsd &&
-        shouldCloseProfitLockUsd(pnl, floorUsd, locked)
-      ) {
-        const hysteresis = 0.012;
-        if (pnl > floorUsd + hysteresis) {
-          hlTrailFloorBreachSince.delete(lockKey);
-        } else {
-          const breachSince = hlTrailFloorBreachSince.get(lockKey);
-          if (breachSince == null) {
-            hlTrailFloorBreachSince.set(lockKey, nowMs);
-          }
-        }
-
-        const breachSince = hlTrailFloorBreachSince.get(lockKey);
-        const breachMs =
-          breachSince != null ? nowMs - breachSince : 0;
-        const breachReady =
-          breachMs >= config.hyperliquid.profitTrailFloorBreachMs;
-
-        const giveUpBelow = floorUsd - config.hyperliquid.trailSweepDeferGiveUpUsd;
-        const deferUntil = hlTrailDeferUntil.get(lockKey) ?? 0;
-        const floorDeferKey = `${lockKey}:${Math.round(floorUsd * 1000)}`;
-        const deferCount = hlTrailDeferCount.get(floorDeferKey) ?? 0;
-        const maxDefer = config.hyperliquid.trailSweepDeferMax;
-
-        if (!breachReady) {
-          continue;
-        }
-
-        if (pnl > 0 && pnl > giveUpBelow && nowMs < deferUntil) {
-          continue;
-        }
-
-        if (pnl > 0 && pnl > giveUpBelow && deferCount < maxDefer) {
-          const pull = await evaluateTrailPullbackAnalysis({
-            coin: pos.coin,
-            direction: positionDirection,
-            pnlUsd: pnl,
-            floorUsd,
-            peakUsd: peak,
-          });
-          if (pull.deferClose) {
-            hlTrailDeferUntil.set(
-              lockKey,
-              nowMs + config.hyperliquid.trailSweepDeferMs
-            );
-            hlTrailDeferCount.set(floorDeferKey, deferCount + 1);
-            hlTrailFloorBreachSince.delete(lockKey);
-            logTrailPullbackAnalysis(userAddress, pos.coin, pull, true);
-            continue;
-          }
-          logTrailPullbackAnalysis(userAddress, pos.coin, pull, false);
-        }
-
-        clearProfitLockState(lockKey);
-        await this.closeMarketPosition(userAddress, pos.coin, 'profit_lock', closeCtx);
-        continue;
-      }
-
-      // ── IN RED: hold only if trail SL was never armed. ──
       if (pnl < 0 && config.hyperliquid.profitOnlyExits) {
-        const logKey = lockKey;
-        const lastLog = hlHoldRedLogAt.get(logKey) ?? 0;
+        const lastLog = hlHoldRedLogAt.get(lockKey) ?? 0;
         if (nowMs - lastLog >= 120_000) {
-          hlHoldRedLogAt.set(logKey, nowMs);
+          hlHoldRedLogAt.set(lockKey, nowMs);
           logger.info('HL hold in red — waiting for profit (no auto loss close)', {
             user: userAddress.slice(0, 10),
             coin: pos.coin,
             direction: positionDirection,
             pnlUsd: pnl.toFixed(4),
             holdMin: Math.round(holdMs / 60_000),
-            trailArmed: locked,
-            peakUsd: peak.toFixed(4),
-            floorUsd: floorUsd.toFixed(4),
-          });
-        }
-        continue;
-      }
-
-      // Other profit exits — only while still green.
-      if (pnl > 0 && profitExitReady) {
-        const thesis = await evaluatePositionThesis({
-          coin: pos.coin,
-          direction: positionDirection,
-        });
-        const momentumWithUs = thesis.thesisIntact;
-        const effectiveTrailBuffer = momentumWithUs
-          ? trailBufferUsd * 1.75
-          : trailBufferUsd;
-        const peakDropFrac = momentumWithUs
-          ? Math.min(0.55, exitPolicy.peakDropFraction + 0.15)
-          : exitPolicy.peakDropFraction;
-
-        if (
-          !locked &&
-          !momentumWithUs &&
-          shouldClosePeakDropUsd(
-            pnl,
-            peak,
-            minGrabUsd,
-            effectiveTrailBuffer,
-            peakDropFrac
-          )
-        ) {
-          clearProfitLockState(lockKey);
-          await this.closeMarketPosition(userAddress, pos.coin, 'profit_grab_peak', closeCtx);
-        } else if (
-          exitPolicy.maxHoldInProfitMs > 0 &&
-          shouldCloseProfitHoldTimeout(
-            pnl,
-            minGrabUsd,
-            inProfitSince,
-            exitPolicy.maxHoldInProfitMs,
-            nowMs
-          )
-        ) {
-          clearProfitLockState(lockKey);
-          await this.closeMarketPosition(userAddress, pos.coin, 'profit_grab_timeout', closeCtx);
-        } else if (
-          tp > 0 &&
-          exitPolicy.useTakeProfitPercent &&
-          shouldTakeProfitOnPnl(pnlPct, tp) &&
-          pnl >= minGrabUsd
-        ) {
-          clearProfitLockState(lockKey);
-          await this.closeMarketPosition(userAddress, pos.coin, 'take_profit', closeCtx);
-        } else if (momentumWithUs && pnl >= minGrabUsd && !locked) {
-          logger.debug('HL profit run — thesis intact, holding', {
-            user: userAddress.slice(0, 10),
-            coin: pos.coin,
-            pnlUsd: pnl.toFixed(4),
-            peakUsd: peak.toFixed(4),
-            profitHoldSec: Math.round(profitHoldMs / 1000),
+            trailPhase: trailResult.record.phase,
+            trailStop: trailResult.record.currentTrailStop?.toFixed(6),
+            highestPnl: trailResult.record.highestPnlSinceEntry.toFixed(4),
+            maxRunup: trailResult.record.maxRunup.toFixed(4),
           });
         }
       }
@@ -1267,7 +1009,7 @@ export class HyperliquidTradingService {
       const leverage = closeCtx?.leverage ?? row.leverage?.value ?? 10;
       const absSize = Math.abs(size);
 
-      if (config.hyperliquid.profitOnlyExits && pnlUsd < 0) {
+      if (config.hyperliquid.profitOnlyExits && pnlUsd < 0 && reason !== 'trailing_stop') {
         logger.warn('HL close rejected — never close in red', {
           user: userAddress.slice(0, 10),
           coin: coinUpper,

@@ -13,7 +13,8 @@ export function formatHlBotCloseReason(code: string | null | undefined): string 
 
   const key = raw.toLowerCase();
   const map: Record<string, string> = {
-    profit_lock: 'Profit lock — trailing stop in profit hit the floor',
+    trailing_stop: 'Dynamic trailing stop — price crossed ATR trail (never red after arm)',
+    profit_lock: 'Legacy profit lock',
     profit_grab_peak: 'Peak profit retraced — bot took the gain',
     profit_grab_timeout: 'Held in profit long enough — bot closed green',
     breakeven_scratch: 'Was green once — bot closed at breakeven (no red hold)',

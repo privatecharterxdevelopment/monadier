@@ -1,35 +1,8 @@
 import {
-  profitLockDisplayForStrategy,
+  HL_DYNAMIC_TRAIL,
+  shouldArmDynamicTrail,
   type HlBotStrategy,
 } from './hlBotStrategy';
-
-/** Must match bot-service `pnlExits.trailingProfitLockFloorUsd`. */
-export function trailingProfitLockFloorUsd(
-  peakUsd: number,
-  minFloorUsd: number,
-  trailBufferUsd: number
-): number {
-  if (peakUsd <= 0) return minFloorUsd;
-  return Math.max(minFloorUsd, peakUsd - trailBufferUsd);
-}
-
-/** Must match bot-service `pnlExits.trailingProfitLockDisplayFloorUsd`. */
-export function trailingProfitLockDisplayFloorUsd(
-  peakUsd: number,
-  currentUsd: number,
-  minFloorUsd: number,
-  trailBufferUsd: number
-): { displayFloorUsd: number; closeFloorUsd: number; breached: boolean } {
-  const closeFloorUsd = trailingProfitLockFloorUsd(peakUsd, minFloorUsd, trailBufferUsd);
-  const breached =
-    closeFloorUsd > 0 && currentUsd > 0 && currentUsd <= closeFloorUsd;
-  if (breached || currentUsd <= 0) {
-    return { displayFloorUsd: closeFloorUsd, closeFloorUsd, breached };
-  }
-  const liveBelow = Math.max(minFloorUsd, currentUsd - trailBufferUsd);
-  const displayFloorUsd = Math.min(closeFloorUsd, liveBelow);
-  return { displayFloorUsd, closeFloorUsd, breached };
-}
 
 /** Margin % → price level (loss side). LONG: below entry; SHORT: above entry. */
 export function marginStopLossPx(
@@ -61,32 +34,85 @@ export type HlChartPositionOverlay = {
   entryPx: number;
   liqPx?: number;
   side: 'long' | 'short';
-  /** Bot trailing stop — price on chart (below live uPnL when in profit). */
   trailStopPx?: number;
   trailStopLocked: boolean;
-  /** USD profit at the chart trail line (display). */
   trailFloorUsd: number;
-  /** Peak-ratchet exit floor — bot closes when uPnL ≤ this. */
   trailCloseFloorUsd: number;
   trailBreached: boolean;
   unrealizedPnlUsd: number;
   peakPnlUsd: number;
-  /** User/config stop loss on margin (%). */
   stopLossPx?: number;
   takeProfitPx?: number;
   stopLossMarginPct?: number;
   takeProfitMarginPct?: number;
 };
 
-/** Map locked profit floor (USD) → stop price on chart. pnl = size × (px − entry). */
-export function profitFloorUsdToStopPx(
+function markFromPosition(entryPx: number, szi: number, pnlUsd: number): number {
+  if (!entryPx || Math.abs(szi) < 1e-12) return entryPx;
+  return entryPx + pnlUsd / szi;
+}
+
+function breakevenPlusFeesStopPx(
+  direction: 'long' | 'short',
   entryPx: number,
-  signedSize: number,
-  floorUsd: number
-): number | null {
-  if (!entryPx || !signedSize || !Number.isFinite(floorUsd)) return null;
-  const px = entryPx + floorUsd / signedSize;
-  return Number.isFinite(px) && px > 0 ? px : null;
+  absSize: number,
+  notionalUsd: number
+): number {
+  const fees = notionalUsd * (HL_DYNAMIC_TRAIL.estimatedFeeBpsPerSide / 10_000) * 2;
+  const bufferUsd = Math.max(
+    fees * 0.5,
+    entryPx * absSize * (HL_DYNAMIC_TRAIL.breakevenBufferPct / 100)
+  );
+  const move = (fees + bufferUsd) / absSize;
+  return direction === 'long' ? entryPx + move : entryPx - move;
+}
+
+function ratchetStop(
+  direction: 'long' | 'short',
+  current: number | null,
+  candidate: number
+): number {
+  if (current == null) return candidate;
+  return direction === 'long' ? Math.max(current, candidate) : Math.min(current, candidate);
+}
+
+/** Dynamic price trail — mirrors bot-service evaluateDynamicTrail (tier % fallback). */
+export function computeDynamicTrailStopPx(opts: {
+  entryPx: number;
+  szi: number;
+  unrealizedPnlUsd: number;
+  extremeFavorablePx: number;
+  coin: string;
+  notionalUsd: number;
+  collateralUsd: number;
+}): { stopPx: number | null; armed: boolean; breached: boolean } {
+  const side = opts.szi >= 0 ? ('long' as const) : ('short' as const);
+  const absSize = Math.abs(opts.szi);
+  const mark = markFromPosition(opts.entryPx, opts.szi, opts.unrealizedPnlUsd);
+  const armed = shouldArmDynamicTrail(
+    opts.unrealizedPnlUsd,
+    opts.collateralUsd,
+    opts.notionalUsd
+  );
+  if (!armed) {
+    return { stopPx: null, armed: false, breached: false };
+  }
+
+  const trailPct = HL_DYNAMIC_TRAIL.midTrailPct;
+  const trailDist = mark * trailPct;
+  const extreme =
+    side === 'long'
+      ? Math.max(opts.extremeFavorablePx, mark)
+      : Math.min(opts.extremeFavorablePx, mark);
+
+  let stop = breakevenPlusFeesStopPx(side, opts.entryPx, absSize, opts.notionalUsd);
+  const trailCandidate = side === 'long' ? extreme - trailDist : extreme + trailDist;
+  stop = ratchetStop(side, stop, trailCandidate);
+
+  const breached =
+    side === 'long' ? mark <= stop : mark >= stop;
+
+  return { stopPx: stop, armed: true, breached };
 }
 
 export function computeHlChartPositionOverlay(opts: {
@@ -95,45 +121,35 @@ export function computeHlChartPositionOverlay(opts: {
   szi: number;
   unrealizedPnlUsd: number;
   peakPnlUsd: number;
+  extremeFavorablePx: number;
+  coin: string;
   strategy: HlBotStrategy;
-  trailBufferUsd?: number;
   leverage?: number;
   stopLossMarginPct?: number;
   takeProfitMarginPct?: number;
-  profitMinHoldMs?: number;
-  profitHoldMs?: number;
+  notionalUsd?: number;
+  collateralUsd?: number;
 }): HlChartPositionOverlay | undefined {
   const entryPx = opts.entryPx;
   if (entryPx <= 0 || !opts.szi) return undefined;
 
   const side = opts.szi >= 0 ? ('long' as const) : ('short' as const);
-  const lock = profitLockDisplayForStrategy(opts.strategy);
-  const trailBuffer = opts.trailBufferUsd ?? lock.trailBufferUsd;
-  const peak = Math.max(opts.peakPnlUsd, opts.unrealizedPnlUsd);
-  const minHold = opts.profitMinHoldMs ?? lock.minHoldMs;
-  const holdMs = opts.profitHoldMs ?? 0;
-  const locked = holdMs >= minHold && peak >= lock.activateUsd;
-
-  let trailFloorUsd = lock.floorUsd;
-  let trailCloseFloorUsd = lock.floorUsd;
-  let trailBreached = false;
-  let trailStopPx: number | undefined;
-
-  if (locked) {
-    const trail = trailingProfitLockDisplayFloorUsd(
-      peak,
-      opts.unrealizedPnlUsd,
-      lock.floorUsd,
-      trailBuffer
-    );
-    trailFloorUsd = trail.displayFloorUsd;
-    trailCloseFloorUsd = trail.closeFloorUsd;
-    trailBreached = trail.breached;
-    const px = profitFloorUsdToStopPx(entryPx, opts.szi, trailFloorUsd);
-    if (px != null) trailStopPx = px;
-  }
-
   const lev = opts.leverage ?? 10;
+  const absSize = Math.abs(opts.szi);
+  const notional = opts.notionalUsd ?? absSize * entryPx;
+  const collateral = opts.collateralUsd ?? notional / lev;
+  const peak = Math.max(opts.peakPnlUsd, opts.unrealizedPnlUsd);
+
+  const trail = computeDynamicTrailStopPx({
+    entryPx,
+    szi: opts.szi,
+    unrealizedPnlUsd: opts.unrealizedPnlUsd,
+    extremeFavorablePx: opts.extremeFavorablePx,
+    coin: opts.coin,
+    notionalUsd: notional,
+    collateralUsd: collateral,
+  });
+
   const slPct = opts.stopLossMarginPct ?? 0;
   const tpPct = opts.takeProfitMarginPct ?? 0;
 
@@ -141,11 +157,11 @@ export function computeHlChartPositionOverlay(opts: {
     entryPx,
     liqPx: opts.liqPx,
     side,
-    trailStopPx,
-    trailStopLocked: locked,
-    trailFloorUsd,
-    trailCloseFloorUsd,
-    trailBreached,
+    trailStopPx: trail.stopPx ?? undefined,
+    trailStopLocked: trail.armed,
+    trailFloorUsd: peak,
+    trailCloseFloorUsd: peak,
+    trailBreached: trail.breached,
     unrealizedPnlUsd: opts.unrealizedPnlUsd,
     peakPnlUsd: peak,
     stopLossPx: marginStopLossPx(entryPx, opts.szi, lev, slPct) ?? undefined,
