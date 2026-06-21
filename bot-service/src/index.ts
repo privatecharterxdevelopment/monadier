@@ -80,6 +80,16 @@ const healthServer = http.createServer(async (req, res) => {
       lastCheck: new Date(lastTradeCheck).toISOString(),
       tradesExecuted: totalTradesExecuted,
       version: 'v15.0-multi-user-scale',
+      gitCommit:
+        process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) ||
+        process.env.GIT_COMMIT?.slice(0, 7) ||
+        null,
+      policy: {
+        profitOnlyExits: config.hyperliquid.profitOnlyExits,
+        lossCapEnforce: config.hyperliquid.lossProtection.enforceHardCap,
+        dailyLossGate: config.hyperliquid.dailyLoss.enabled,
+        reentryCooldownMs: config.hyperliquid.reentryCooldownMs,
+      },
       lastCycle: lastCycleStats,
     };
     res.writeHead(200, corsHeaders);
