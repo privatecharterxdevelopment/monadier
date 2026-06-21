@@ -144,7 +144,7 @@ async function scanAggressiveCoin(
   }
 }
 
-/** Scan liquid HL perps — Standard (MTF) + Aggressive (6×1m → next 3, 5m confirm). */
+/** Scan all listed HL perps — Standard (MTF) + Aggressive (6×1m → next 3, 5m confirm). */
 export async function scanGlobalHlSignals(
   preloadedUniverse?: HlLiquidUniverse
 ): Promise<GlobalScanResult> {

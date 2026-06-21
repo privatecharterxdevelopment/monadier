@@ -441,6 +441,14 @@ export class HyperliquidTradingService {
         pickLimit
       );
       if (picks.length === 0) {
+        const top = signals.find(
+          (s) => !coinsOpen.some((c) => c.toUpperCase() === s.coin.toUpperCase())
+        );
+        lastHlOpenError.set(userAddress.toLowerCase(), {
+          at: new Date().toISOString(),
+          coin: top?.coin,
+          error: `Pre-trade gate blocked ${signals.length} scan candidate(s) — volume/liquidity check`,
+        });
         logger.debug('HL open skip: no signal passed volume/sweep gate', {
           user: userAddress.slice(0, 10),
           candidates: signals.length,

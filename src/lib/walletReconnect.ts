@@ -1,53 +1,44 @@
-import { connect, getConnections, reconnect } from '@wagmi/core';
+import { getConnections, reconnect } from '@wagmi/core';
 import { config, wagmiAdapter } from './wallet';
-import { isDesktopBrowser } from './mobileWalletConnect';
-import { readWalletSession, touchWalletSession } from './walletSession';
+import { readWalletSession } from './walletSession';
 
 let reconnectInFlight: Promise<boolean> | null = null;
+let lastSilentAttemptAt = 0;
+
+/** Min gap between silent reconnect tries — avoids MetaMask spam. */
+const SILENT_RECONNECT_COOLDOWN_MS = 60_000;
+
+function isLiveConnected(): boolean {
+  return getConnections(config).length > 0;
+}
 
 async function tryReconnect(connectors?: (typeof config.connectors)[number][]): Promise<boolean> {
+  if (isLiveConnected()) return true;
   const result = await reconnect(
     config,
     connectors?.length ? { connectors: [...connectors] } : undefined
   );
-  return result.length > 0;
+  return result.length > 0 || isLiveConnected();
 }
 
-async function tryConnectAuthorized(): Promise<boolean> {
-  if (typeof window === 'undefined') return false;
+type ReconnectOpts = {
+  /** Bypass cooldown (initial page load only). */
+  force?: boolean;
+};
 
-  const session = readWalletSession();
-  const sorted = [...config.connectors];
-
-  if (session?.connectorId) {
-    const preferred = sorted.find((c) => c.id === session.connectorId);
-    if (preferred) {
-      sorted.splice(sorted.indexOf(preferred), 1);
-      sorted.unshift(preferred);
-    }
-  }
-
-  for (const connector of sorted) {
-    try {
-      const authorized = await connector.isAuthorized();
-      if (!authorized) continue;
-      await connect(config, { connector });
-      const live = getConnections(config);
-      if (live.length === 0) continue;
-      const address = live[0]?.accounts[0];
-      if (address) touchWalletSession(address, connector.id);
-      return true;
-    } catch {
-      /* try next connector */
-    }
-  }
-
-  return false;
-}
-
-/** Restore wagmi + AppKit link after reload (injected + WalletConnect). */
-export async function runWalletReconnect(): Promise<boolean> {
+/**
+ * Restore wagmi after reload — reconnect() only (no connect()).
+ * connect() opens MetaMask; must run only when the user clicks Connect.
+ */
+export async function runWalletReconnect(opts?: ReconnectOpts): Promise<boolean> {
+  if (isLiveConnected()) return true;
   if (reconnectInFlight) return reconnectInFlight;
+
+  const now = Date.now();
+  if (!opts?.force && now - lastSilentAttemptAt < SILENT_RECONNECT_COOLDOWN_MS) {
+    return false;
+  }
+  lastSilentAttemptAt = now;
 
   reconnectInFlight = (async () => {
     try {
@@ -56,23 +47,23 @@ export async function runWalletReconnect(): Promise<boolean> {
       /* AppKit storage may not be ready yet */
     }
 
-    const session = readWalletSession();
+    if (isLiveConnected()) return true;
 
+    const session = readWalletSession();
     if (session?.connectorId) {
       const preferred = config.connectors.find((c) => c.id === session.connectorId);
       if (preferred && (await tryReconnect([preferred]))) return true;
     }
 
-    if (await tryReconnect()) return true;
-
-    if (isDesktopBrowser() || session) {
-      if (await tryConnectAuthorized()) return true;
-    }
-
-    return getConnections(config).length > 0;
+    return tryReconnect();
   })().finally(() => {
     reconnectInFlight = null;
   });
 
   return reconnectInFlight;
+}
+
+/** User clicked Connect — allow wagmi connect via AppKit modal (not used here). */
+export function markWalletConnectAttempt(): void {
+  lastSilentAttemptAt = Date.now();
 }

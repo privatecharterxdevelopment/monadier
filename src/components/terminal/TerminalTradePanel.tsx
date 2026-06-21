@@ -51,6 +51,7 @@ import TerminalLvrgPanel from './TerminalLvrgPanel';
 import TerminalBotSettingsStrip from './TerminalBotSettingsStrip';
 import TerminalBotModeRow from './TerminalBotModeRow';
 import BotSettingsStopFirstModal from './BotSettingsStopFirstModal';
+import { sanitizeUserFacingError } from '../../lib/hyperliquid/builderPlatform';
 type PanelTab = 'bot' | 'lvrg' | 'funds';
 
 type Props = {
@@ -127,10 +128,6 @@ const TerminalTradePanel: React.FC<Props> = ({
       setSetupGuideComplete(true);
     }
   }, [onboardingKey, walletReady, botRunning, autoTradeDb]);
-  const botSyncMismatch =
-    !botSettings.isLoading &&
-    autoTradeDb !== metrics.autoTradeEnabled &&
-    !metrics.isLoading;
   const timerWallet = wallet ?? address ?? undefined;
   const botRuntime = useBotRuntimeTimer(timerWallet, Boolean(walletReady && botEnabled));
 
@@ -290,16 +287,13 @@ const TerminalTradePanel: React.FC<Props> = ({
     if (/linked to another/i.test(msg)) {
       return 'This wallet is linked to another Monadier account. Sign in with that account or use a different wallet.';
     }
-    if (/builder has insufficient balance/i.test(msg)) {
-      return 'Monadier platform fee is not active yet (Hyperliquid requires $100+ on the Monadier builder wallet — not your $50). You can start the bot without this signature.';
-    }
-    if (/Monadier platform fee is not active/i.test(msg)) {
-      return msg;
+    if (/builder has insufficient balance|Monadier platform fee is not active/i.test(msg)) {
+      return '';
     }
     if (/409|duplicate key|user_wallets/i.test(msg)) {
       return 'Could not link wallet — refresh the page and try Start bot again.';
     }
-    return msg;
+    return sanitizeUserFacingError(msg) || 'Could not start bot — try again.';
   };
 
   const persistBotRunning = async (
@@ -524,20 +518,9 @@ const TerminalTradePanel: React.FC<Props> = ({
                 >
                   {sidebarStatus.headline}
                 </strong>
-                {sidebarStatus.detail ? (
+                {sidebarStatus.detail && !isBotScanNoiseDetail(sidebarStatus.detail) ? (
                   <p className="hl-bot-status-detail">{sidebarStatus.detail}</p>
                 ) : null}
-                {botSyncMismatch && (
-                  <p className="term-hint term-hint--warn">
-                    Bot state out of sync — press Start bot again to register with the server.
-                  </p>
-                )}
-                {walletReady && phase === 'ready' && builderConfig.enabled && !hasOpenPosition && (
-                  <p className="term-panel-card-hint term-hint--subtle">
-                    Winning bot closes: 10% of profit collected automatically via Hyperliquid (one-time
-                    fee approval). No fee on losing trades. Opens: no extra platform fee.
-                  </p>
-                )}
               </div>
             )}
 
@@ -596,20 +579,6 @@ const TerminalTradePanel: React.FC<Props> = ({
                     HL balance {fmt(hlFundingUsd)} is sufficient. MetaMask will ask to{' '}
                     <strong>allow trading</strong> — not to withdraw your USDC. A generic
                     &quot;assets at risk&quot; warning is normal for API approvals.
-                  </span>
-                </div>
-              )}
-
-            {walletReady &&
-              hlSetup.builderFeeEnabled &&
-              !hlSetup.builderPlatformReady &&
-              !botRunning && (
-                <div className="term-panel-info">
-                  <Info size={14} />
-                  <span>
-                    Platform success fee setup is pending on Monadier&apos;s side (Hyperliquid
-                    requires $100+ on the builder wallet). Your HL balance is fine — bot can start
-                    without the fee signature for now.
                   </span>
                 </div>
               )}

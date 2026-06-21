@@ -9,8 +9,8 @@ import {
 } from '../lib/walletSession';
 
 /**
- * Unified wallet connection — AppKit + wagmi + 30-day local session.
- * Reconnect is handled by WalletSessionBridge (single place — avoids MetaMask conflicts).
+ * Unified wallet connection — AppKit + wagmi + 5h local session.
+ * Reconnect is handled by WalletSessionBridge (silent reconnect only — no MetaMask spam).
  */
 export function useMonadierWallet() {
   const appKit = useAppKitAccount();

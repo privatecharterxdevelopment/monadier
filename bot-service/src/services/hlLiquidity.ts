@@ -9,7 +9,7 @@ export type HlPerpLiquidity = {
 };
 
 export type HlLiquidUniverse = {
-  /** Coins passing volume/OI filters, sorted by 24h notional volume (desc). */
+  /** All active HL perps in scan universe, sorted by 24h notional volume (desc). */
   coins: string[];
   markets: HlPerpLiquidity[];
   fetchedAt: number;
@@ -34,17 +34,22 @@ function toNum(raw: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function passesLiquidityGate(m: HlPerpLiquidity): boolean {
-  const minVol = config.hyperliquid.minDayVolumeUsd;
-  const minOi = config.hyperliquid.minOpenInterestUsd;
-  return (
-    m.markPx > 0 &&
-    m.dayVolumeUsd >= minVol &&
-    m.openInterestUsd >= minOi
-  );
+/** Every listed HL perp with a live mark — full scan universe. */
+function passesScanUniverse(m: HlPerpLiquidity): boolean {
+  return m.markPx > 0;
 }
 
-/** HL perps with real liquidity — used for bot scan/open universe. */
+/** Optional open-time floor — only when env sets minDayVolumeUsd / minOpenInterestUsd > 0. */
+export function passesOpenLiquidityGate(m: HlPerpLiquidity): boolean {
+  const minVol = config.hyperliquid.minDayVolumeUsd;
+  const minOi = config.hyperliquid.minOpenInterestUsd;
+  if (m.markPx <= 0) return false;
+  if (minVol > 0 && m.dayVolumeUsd < minVol) return false;
+  if (minOi > 0 && m.openInterestUsd < minOi) return false;
+  return true;
+}
+
+/** HL perps — scan universe is all listed coins; open floors are optional. */
 export async function fetchHlLiquidUniverse(force = false): Promise<HlLiquidUniverse> {
   const ttl = config.hyperliquid.liquidUniverseCacheMs;
   if (!force && cached && Date.now() - cached.fetchedAt < ttl) {
@@ -89,12 +94,12 @@ export async function fetchHlLiquidUniverse(force = false): Promise<HlLiquidUniv
     });
   });
 
-  const liquid = all
-    .filter(passesLiquidityGate)
+  const scannable = all
+    .filter(passesScanUniverse)
     .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd);
 
   const maxScan = config.hyperliquid.maxLiquidScanUniverse;
-  const trimmed = maxScan > 0 ? liquid.slice(0, maxScan) : liquid;
+  const trimmed = maxScan > 0 ? scannable.slice(0, maxScan) : scannable;
 
   const universe: HlLiquidUniverse = {
     coins: trimmed.map((m) => m.coin),
@@ -104,10 +109,12 @@ export async function fetchHlLiquidUniverse(force = false): Promise<HlLiquidUniv
 
   cached = universe;
 
+  const openEligible = trimmed.filter(passesOpenLiquidityGate).length;
+
   logger.info('HL liquid universe built', {
     listed: all.length,
-    passedFilters: liquid.length,
     scanning: trimmed.length,
+    openEligible,
     minDayVolumeUsd: config.hyperliquid.minDayVolumeUsd,
     minOpenInterestUsd: config.hyperliquid.minOpenInterestUsd,
     topCoin: trimmed[0]?.coin,
@@ -129,5 +136,6 @@ export function isHlCoinLiquid(
   universe: HlLiquidUniverse,
   coin: string
 ): boolean {
-  return getHlLiquidityForCoin(universe, coin) != null;
+  const row = getHlLiquidityForCoin(universe, coin);
+  return row != null && passesOpenLiquidityGate(row);
 }

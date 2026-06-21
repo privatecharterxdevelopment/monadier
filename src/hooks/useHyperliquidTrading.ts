@@ -1,7 +1,10 @@
 import { useCallback, useState } from 'react';
+import { getWalletClient } from '@wagmi/core';
 import { toNum } from '../lib/hyperliquid/parse';
 import { useWalletClient } from 'wagmi';
 import { createHlExchangeClient } from '../lib/hyperliquid/exchange';
+import { config } from '../lib/wallet';
+import { useMonadierWallet } from './useMonadierWallet';
 import { formatHlSize, getHlAssetIndex, getHlAssetMeta } from '../lib/hyperliquid/meta';
 import { getHlSpotAssetIndex, getHlSpotAssetMeta } from '../lib/hyperliquid/spot';
 import type { HlMarketKind } from './useHyperliquidMarket';
@@ -40,6 +43,7 @@ export type TwapState = {
 
 export function useHyperliquidTrading() {
   const { data: walletClient } = useWalletClient();
+  const { isLiveConnected } = useMonadierWallet();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [twap, setTwap] = useState<TwapState>({
@@ -54,9 +58,13 @@ export function useHyperliquidTrading() {
     setTwap({ active: false, twapId: null, coin: null, marketKind: 'perp', minutes: 0 });
   }, []);
 
-  const requireWallet = useCallback(() => {
-    if (!walletClient) throw new Error('Connect wallet first');
-    return walletClient;
+  const resolveWallet = useCallback(async () => {
+    try {
+      return await getWalletClient(config);
+    } catch {
+      if (walletClient?.account) return walletClient;
+      throw new Error('Connect wallet first');
+    }
   }, [walletClient]);
 
   const resolveAsset = useCallback(async (coin: string, marketKind: HlMarketKind = 'perp') => {
@@ -75,7 +83,7 @@ export function useHyperliquidTrading() {
   const applyTradeSettings = useCallback(
     async (coin: string, settings?: TradeSettings, marketKind: HlMarketKind = 'perp') => {
       if (marketKind === 'spot' || !settings?.leverage || settings.leverage <= 0) return;
-      const client = createHlExchangeClient(requireWallet());
+      const client = createHlExchangeClient(await resolveWallet());
       const assetIndex = await getHlAssetIndex(coin);
       await client.updateLeverage({
         asset: assetIndex,
@@ -83,7 +91,7 @@ export function useHyperliquidTrading() {
         leverage: settings.leverage,
       });
     },
-    [requireWallet]
+    [resolveWallet]
   );
 
   const resolveOrderBuilder = useCallback(
@@ -98,7 +106,7 @@ export function useHyperliquidTrading() {
     }) => {
       const config = getHlBuilderConfig();
       if (!config.enabled) return undefined;
-      const wallet = requireWallet();
+      const wallet = await resolveWallet();
       const user = wallet.account?.address;
       if (!user) return undefined;
       const approved = await fetchMaxBuilderFee(user, config.address);
@@ -126,7 +134,7 @@ export function useHyperliquidTrading() {
       });
       return param ?? undefined;
     },
-    [requireWallet]
+    [resolveWallet]
   );
 
   const submitOrders = useCallback(
@@ -143,7 +151,7 @@ export function useHyperliquidTrading() {
         profitUsd?: number;
       }
     ) => {
-      const client = createHlExchangeClient(requireWallet());
+      const client = createHlExchangeClient(await resolveWallet());
       await applyTradeSettings(coin, settings, marketKind);
       const builder = builderCtx
         ? await resolveOrderBuilder({ coin, marketKind, ...builderCtx })
@@ -157,7 +165,7 @@ export function useHyperliquidTrading() {
       if (err) throw new Error(err);
       return result;
     },
-    [applyTradeSettings, requireWallet, resolveOrderBuilder]
+    [applyTradeSettings, resolveWallet, resolveOrderBuilder]
   );
 
   const executeSimpleOrder = useCallback(
@@ -247,7 +255,7 @@ export function useHyperliquidTrading() {
       withBusy(async () => {
         const wallet =
           opts.walletAddress?.toLowerCase() ??
-          requireWallet().account?.address?.toLowerCase();
+          (await resolveWallet()).account?.address?.toLowerCase();
         if (!wallet) throw new Error('Connect wallet first');
 
         try {
@@ -268,7 +276,7 @@ export function useHyperliquidTrading() {
           throw err instanceof Error ? err : new Error(msg);
         }
       }, 'Close position failed'),
-    [requireWallet, withBusy]
+    [resolveWallet, withBusy]
   );
 
   const placeScaleOrder = useCallback(
@@ -366,7 +374,7 @@ export function useHyperliquidTrading() {
         const { index: assetIndex, meta } = await resolveAsset(opts.coin, marketKind);
         await applyTradeSettings(opts.coin, opts.settings, marketKind);
 
-        const client = createHlExchangeClient(requireWallet());
+        const client = createHlExchangeClient(await resolveWallet());
         const result = await client.twapOrder({
           twap: {
             a: assetIndex,
@@ -398,25 +406,25 @@ export function useHyperliquidTrading() {
           minutes,
         });
       }, 'TWAP failed'),
-    [applyTradeSettings, clearTwap, requireWallet, resolveAsset, withBusy]
+    [applyTradeSettings, clearTwap, resolveWallet, resolveAsset, withBusy]
   );
 
   const cancelOrder = useCallback(
     (coin: string, oid: number, marketKind: HlMarketKind = 'perp') =>
       withBusy(async () => {
-        const client = createHlExchangeClient(requireWallet());
+        const client = createHlExchangeClient(await resolveWallet());
         const assetIndex =
           marketKind === 'spot' ? await getHlSpotAssetIndex(coin) : await getHlAssetIndex(coin);
         await client.cancel({ cancels: [{ a: assetIndex, o: oid }] });
       }, 'Cancel failed'),
-    [requireWallet, withBusy]
+    [resolveWallet, withBusy]
   );
 
   const cancelAllOrders = useCallback(
     (orders: { coin: string; oid: number; marketKind?: HlMarketKind }[]) =>
       withBusy(async () => {
         if (orders.length === 0) return;
-        const client = createHlExchangeClient(requireWallet());
+        const client = createHlExchangeClient(await resolveWallet());
         const cancels = await Promise.all(
           orders.map(async (o) => ({
             a:
@@ -428,18 +436,18 @@ export function useHyperliquidTrading() {
         );
         await client.cancel({ cancels });
       }, 'Cancel all failed'),
-    [requireWallet, withBusy]
+    [resolveWallet, withBusy]
   );
 
   const cancelTwapOrder = useCallback(
     (coin: string, twapId: number, marketKind: HlMarketKind = 'perp') =>
       withBusy(async () => {
-        const client = createHlExchangeClient(requireWallet());
+        const client = createHlExchangeClient(await resolveWallet());
         const assetIndex =
           marketKind === 'spot' ? await getHlSpotAssetIndex(coin) : await getHlAssetIndex(coin);
         await client.twapCancel({ a: assetIndex, t: twapId });
       }, 'Cancel TWAP failed'),
-    [requireWallet, withBusy]
+    [resolveWallet, withBusy]
   );
 
   const cancelTwap = useCallback(async () => {
@@ -454,25 +462,25 @@ export function useHyperliquidTrading() {
   const transferUsdClass = useCallback(
     (amountUsdc: string, toPerp: boolean) =>
       withBusy(async () => {
-        const client = createHlExchangeClient(requireWallet());
+        const client = createHlExchangeClient(await resolveWallet());
         await client.usdClassTransfer({ amount: amountUsdc, toPerp });
       }, 'Transfer failed'),
-    [requireWallet, withBusy]
+    [resolveWallet, withBusy]
   );
 
   const deposit = useCallback(
     (amountUsdc: string) =>
-      withBusy(() => depositUsdcToHyperliquid(requireWallet(), amountUsdc), 'Deposit failed'),
-    [requireWallet, withBusy]
+      withBusy(async () => depositUsdcToHyperliquid(await resolveWallet(), amountUsdc), 'Deposit failed'),
+    [resolveWallet, withBusy]
   );
 
   const withdraw = useCallback(
     (amountUsdc: string, destination: `0x${string}`) =>
       withBusy(async () => {
-        const client = createHlExchangeClient(requireWallet());
+        const client = createHlExchangeClient(await resolveWallet());
         await client.withdraw3({ amount: amountUsdc, destination });
       }, 'Withdraw failed'),
-    [requireWallet, withBusy]
+    [resolveWallet, withBusy]
   );
 
   return {
@@ -491,6 +499,6 @@ export function useHyperliquidTrading() {
     withdraw,
     transferUsdClass,
     cancelTwapOrder,
-    walletReady: Boolean(walletClient),
+    walletReady: isLiveConnected && Boolean(walletClient),
   };
 }

@@ -132,7 +132,6 @@ export async function analyzeAggressiveScalpBySymbol(
 
     const sweep = detectLiquiditySweep(c1m);
     if (!sweep.volumeOk) return null;
-    if (sweep.bias && sweep.bias !== scalp.direction) return null;
 
     let confidence = Math.min(94, scalp.confidence + 5);
     if (sweep.bias === scalp.direction) confidence = Math.min(96, confidence + 8);

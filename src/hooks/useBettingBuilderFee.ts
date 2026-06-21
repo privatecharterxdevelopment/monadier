@@ -5,8 +5,8 @@ import { fetchMaxBuilderFee } from '../lib/hyperliquid/builder';
 import { getHlBuilderConfig } from '../lib/hyperliquid/builderConfig';
 import {
   fetchHlBuilderPlatformStatus,
-  formatBuilderPlatformError,
   isBuilderPlatformError,
+  sanitizeUserFacingError,
 } from '../lib/hyperliquid/builderPlatform';
 import {
   formatBettingBuyFeeLabel,
@@ -66,9 +66,7 @@ export function useBettingBuilderFee(address: string | undefined) {
     }
     const platform = await fetchHlBuilderPlatformStatus();
     if (!platform.ready) {
-      const msg = formatBuilderPlatformError(platform);
-      setError(msg);
-      throw new Error(msg);
+      return false;
     }
     setBusy(true);
     setError(null);
@@ -79,9 +77,11 @@ export function useBettingBuilderFee(address: string | undefined) {
         maxFeeRate: config.bettingMaxApprovalRate,
       });
       await refresh();
+      return true;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Builder fee approval failed';
-      const friendly = isBuilderPlatformError(msg) ? formatBuilderPlatformError(platform) : msg;
+      if (isBuilderPlatformError(msg)) return false;
+      const friendly = sanitizeUserFacingError(msg) || 'Builder fee approval failed';
       setError(friendly);
       throw new Error(friendly);
     } finally {

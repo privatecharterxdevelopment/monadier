@@ -1,6 +1,6 @@
 /**
- * Pre-trade gate: 24h volume + recent candle volume + liquidity sweep bias.
- * High sweep (stops above) → SHORT · Low sweep (stops below) → LONG.
+ * Pre-trade gate: optional 24h volume floor + basic recent candle volume.
+ * Liquidity sweep pattern is a bonus only — never required to open.
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
@@ -124,14 +124,6 @@ export async function validatePreTradeLiquidity(opts: {
     };
   }
 
-  if (sweep.bias && sweep.bias !== opts.direction) {
-    return {
-      ok: false,
-      reason: `Sweep ${sweep.bias} vs signal ${opts.direction}: ${sweep.reason}`,
-      sweep,
-    };
-  }
-
   if (sweep.bias === opts.direction) {
     return {
       ok: true,
@@ -140,18 +132,12 @@ export async function validatePreTradeLiquidity(opts: {
     };
   }
 
-  const minNoSweep = config.hyperliquid.minNoSweepVolumeRatio;
-  if (sweep.volumeRatio >= minNoSweep) {
-    return {
-      ok: true,
-      reason: `Strong volume ${sweep.volumeRatio.toFixed(2)}x (no sweep)`,
-      sweep,
-    };
-  }
-
   return {
-    ok: false,
-    reason: `No liquidity sweep — need ${minNoSweep}x vol, got ${sweep.volumeRatio.toFixed(2)}x`,
+    ok: true,
+    reason:
+      sweep.bias && sweep.bias !== opts.direction
+        ? `Volume OK ${sweep.volumeRatio.toFixed(2)}x (sweep ${sweep.bias} ignored)`
+        : `Volume ${sweep.volumeRatio.toFixed(2)}x OK`,
     sweep,
   };
 }

@@ -7,8 +7,7 @@ import { getHlBuilderConfig } from '../lib/hyperliquid/builderConfig';
 import { orderResponseError } from '../lib/hyperliquid/orders';
 import {
   fetchHlBuilderPlatformStatus,
-  formatBuilderPlatformError,
-  isBuilderPlatformError,
+  sanitizeUserFacingError,
 } from '../lib/hyperliquid/builderPlatform';
 import {
   buildOutcomeOrderLeg,
@@ -111,38 +110,34 @@ export function useHyperliquidOutcomeTrading() {
         if (!user) throw new Error('Connect wallet first');
 
         const platform = await fetchHlBuilderPlatformStatus();
-        if (!platform.ready) {
-          throw new Error(formatBuilderPlatformError(platform));
-        }
+        if (platform.ready) {
+          const approvedMax = await fetchMaxBuilderFee(user, config.address);
+          builder =
+            resolveOutcomeBuilderParam({
+              orderSide: opts.orderSide,
+              approvedMaxTenthsBps: approvedMax,
+            }) ?? undefined;
 
-        const approvedMax = await fetchMaxBuilderFee(user, config.address);
-        builder =
-          resolveOutcomeBuilderParam({
-            orderSide: opts.orderSide,
-            approvedMaxTenthsBps: approvedMax,
-          }) ?? undefined;
-
-        if (!builder) {
-          throw new Error(
-            'Approve Monadier betting fees first — one-time wallet signature (0.5% buy / 2.5% cash out).'
-          );
+          if (!builder) {
+            throw new Error(
+              'Approve Monadier betting fees first — one-time wallet signature (0.5% buy / 2.5% cash out).'
+            );
+          }
         }
       }
 
-      const result = await client.order({
+      let result = await client.order({
         orders: [leg],
         grouping: 'na',
         ...(builder ? { builder } : {}),
       });
-      const err = orderResponseError(result);
+      let err = orderResponseError(result);
+      if (err && builder && isBuilderOrderError(err)) {
+        result = await client.order({ orders: [leg], grouping: 'na' });
+        err = orderResponseError(result);
+      }
       if (err) {
-        if (builder && isBuilderOrderError(err)) {
-          const platform = await fetchHlBuilderPlatformStatus();
-          throw new Error(
-            isBuilderPlatformError(err) ? formatBuilderPlatformError(platform) : err
-          );
-        }
-        throw new Error(err);
+        throw new Error(sanitizeUserFacingError(err) || err);
       }
       return result;
     },

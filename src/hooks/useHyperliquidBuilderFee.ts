@@ -9,8 +9,8 @@ import { getHlBuilderConfig, formatBuilderFeeLabel } from '../lib/hyperliquid/bu
 import { formatProTradeSuccessFeeLabel } from '../lib/hyperliquid/proTradeBuilderFee';
 import {
   fetchHlBuilderPlatformStatus,
-  formatBuilderPlatformError,
   isBuilderPlatformError,
+  sanitizeUserFacingError,
 } from '../lib/hyperliquid/builderPlatform';
 
 export function useHyperliquidBuilderFee(address: string | undefined) {
@@ -65,9 +65,7 @@ export function useHyperliquidBuilderFee(address: string | undefined) {
     }
     const platform = await fetchHlBuilderPlatformStatus();
     if (!platform.ready) {
-      const msg = formatBuilderPlatformError(platform);
-      setError(msg);
-      throw new Error(msg);
+      return false;
     }
     setBusy(true);
     setError(null);
@@ -78,9 +76,11 @@ export function useHyperliquidBuilderFee(address: string | undefined) {
         maxFeeRate: config.maxApprovalRate,
       });
       await refresh();
+      return true;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Builder fee approval failed';
-      const friendly = isBuilderPlatformError(msg) ? formatBuilderPlatformError(platform) : msg;
+      if (isBuilderPlatformError(msg)) return false;
+      const friendly = sanitizeUserFacingError(msg) || 'Builder fee approval failed';
       setError(friendly);
       throw new Error(friendly);
     } finally {

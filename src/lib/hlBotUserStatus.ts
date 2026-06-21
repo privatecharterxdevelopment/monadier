@@ -1,6 +1,7 @@
 import type { BotReadiness } from './botReadiness';
 import { MIN_HL_BOT_USD } from './hyperliquid/hlBotAgent';
 import { HL_MAX_CONCURRENT_POSITIONS } from './hlBotConstants';
+import { isInternalPlatformOpsMessage } from './hyperliquid/builderPlatform';
 
 export type HlSetupPhase = 'connect' | 'loading' | 'approve' | 'fund' | 'ready';
 
@@ -13,6 +14,7 @@ export type HlBotSidebarStatus = {
 };
 
 function simplifyBlocker(raw: string): string {
+  if (isInternalPlatformOpsMessage(raw)) return '';
   if (/HL agent not approved/i.test(raw)) {
     return 'Trading agent not approved yet';
   }

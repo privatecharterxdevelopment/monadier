@@ -98,11 +98,11 @@ export const config = {
     maxConcurrentPositions: Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 2),
     /** Minimum order notional — skips sloppy micro-trades. */
     minNotionalUsd: Number(process.env.HL_MIN_NOTIONAL_USD || 20),
-    /** Bot only scans/opens perps above these HL liquidity floors. */
-    minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 12_000_000),
-    minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 2_000_000),
-    /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all liquid. */
-    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 20),
+    /** Bot open floor — 0 = scan all HL perps; only applied at order time if > 0. */
+    minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 0),
+    minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 0),
+    /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all listed HL perps. */
+    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 0),
     liquidUniverseCacheMs: Number(process.env.HL_LIQUID_UNIVERSE_CACHE_MS || 60_000),
     /** Close HL perps at this % gain on margin (user DB setting overrides). */
     /** 0 = user disabled TP. */
@@ -139,10 +139,10 @@ export const config = {
     profitHoldMaxMs: Number(process.env.HL_PROFIT_HOLD_MAX_MS || 0),
     /** Fri 18:00 UTC through Fri 23:59 — new opens SHORT only when signaled. */
     fridayShortOnlyUtcHour: Number(process.env.HL_FRIDAY_SHORT_ONLY_UTC_HOUR || 18),
-    /** Pre-trade: min recent candle vol vs lookback avg. */
-    minTradeVolumeRatio: Number(process.env.HL_MIN_TRADE_VOLUME_RATIO || 1.25),
-    /** Without a sweep, require stronger volume confirmation. */
-    minNoSweepVolumeRatio: Number(process.env.HL_MIN_NO_SWEEP_VOLUME_RATIO || 1.35),
+    /** Pre-trade: min recent candle vol vs lookback avg (no sweep pattern required). */
+    minTradeVolumeRatio: Number(process.env.HL_MIN_TRADE_VOLUME_RATIO || 1.05),
+    /** Legacy — sweep pattern no longer required to open; kept for env compat. */
+    minNoSweepVolumeRatio: Number(process.env.HL_MIN_NO_SWEEP_VOLUME_RATIO || 1.0),
     /** Bars (excl. last 3) used for swing high/low in sweep detection. */
     sweepLookbackBars: Number(process.env.HL_SWEEP_LOOKBACK_BARS || 15),
     reentryCooldownMs: Number(process.env.HL_REENTRY_COOLDOWN_MS || 180_000),

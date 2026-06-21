@@ -5,6 +5,7 @@ import { pairLabel } from '../../lib/botTradingPairs';
 import type { BotReadiness } from '../../lib/botReadiness';
 import { isBotScanNoiseDetail } from '../../lib/hlBotReasonLabels';
 import type { UnifiedSignal } from '../../lib/signalService';
+import { isBotScanNoiseDetail } from '../../lib/hlBotReasonLabels';
 
 type DbAnalysis = {
   signal: string;
@@ -113,7 +114,11 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
     return () => clearTimeout(t);
   }, [scanning, step, slideCount]);
 
-  const headline = readiness?.headline ?? ANALYSIS_STEPS[step].label;
+  const headline = useMemo(() => {
+    const h = readiness?.headline ?? ANALYSIS_STEPS[step].label;
+    if (h === 'Bot waiting' && !readiness?.detail?.trim()) return 'Scanning markets';
+    return h;
+  }, [readiness?.headline, readiness?.detail, step]);
 
   const whyLine = useMemo(() => {
     if (globalBest?.reason?.trim()) {
@@ -122,13 +127,11 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
         openPositionsCount > 0 && openPositionsCount < maxConcurrentPositions
           ? `Slot ${openPositionsCount + 1}: `
           : '';
-      return `${slot}${globalBest.coin} ${globalBest.direction} ${conf}% — ${globalBest.reason.trim()}`;
+      const line = `${slot}${globalBest.coin} ${globalBest.direction} ${conf}% — ${globalBest.reason.trim()}`;
+      return isBotScanNoiseDetail(line) ? null : line;
     }
     const detail = readiness?.detail?.trim();
     if (detail && !isBotScanNoiseDetail(detail)) return detail;
-    if (detail && /passed bot gates|global scan|momentum|macro|resistance|support/i.test(detail)) {
-      return detail;
-    }
     if (hasTfConflict) {
       return 'Chart timeframes on this pair disagree — bot still scans all HL perps for an aligned setup elsewhere.';
     }
@@ -144,61 +147,53 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
   if (compact) {
     return (
       <div className="term-dock-analysis">
-        <div className="term-analysis-bar term-analysis-bar--compact">
-          <div className="term-analysis-compact-row">
-            {scanning ? (
-              <Activity size={12} className="term-analysis-pulse" aria-hidden />
-            ) : null}
-            <span className="term-analysis-step term-analysis-step--compact">{headline}</span>
-            {scanning ? (
-              <>
-                <div className="term-analysis-track term-analysis-track--compact">
-                  <div
-                    className="term-analysis-fill"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                <span className="term-analysis-pct">{Math.round(progress)}%</span>
-              </>
-            ) : null}
+        <div className="term-analysis-bar term-analysis-bar--compact hl-bot-analyzer-bar">
+          <div className="hl-bot-analyzer-pills">
+            <div className="hl-bot-analyzer-pill">
+              <span className="hl-bot-analyzer-pill__label">Scan</span>
+              <span className="hl-bot-analyzer-pill__value hl-bot-analyzer-pill__value--row">
+                {scanning ? (
+                  <Activity size={11} className="term-analysis-pulse" aria-hidden />
+                ) : null}
+                <span>{headline}</span>
+                {scanning ? (
+                  <span className="hl-bot-analyzer-pill__meta">{Math.round(progress)}%</span>
+                ) : null}
+              </span>
+            </div>
             {hasData || !isLoading ? (
-              <>
-                <span className="term-analysis-sep">·</span>
-                <span className={signalClass}>{action}</span>
-                <span>{conf}%</span>
-                {hasTfConflict ? (
-                  <>
-                    <span className="term-analysis-sep">·</span>
-                    <span className="term-hint--warn" title="Timeframes disagree">
-                      mixed
-                    </span>
-                  </>
-                ) : null}
-                {activeLabel ? (
-                  <>
-                    <span className="term-analysis-sep">·</span>
-                    <span>{activeLabel}</span>
-                  </>
-                ) : null}
-              </>
+              <div className="hl-bot-analyzer-pill">
+                <span className="hl-bot-analyzer-pill__label">Signal</span>
+                <span className={`hl-bot-analyzer-pill__value ${signalClass}`}>
+                  {action} {conf}%
+                  {hasTfConflict ? (
+                    <span className="hl-bot-analyzer-pill__meta term-hint--warn"> mixed</span>
+                  ) : null}
+                </span>
+              </div>
+            ) : null}
+            {activeLabel ? (
+              <div className="hl-bot-analyzer-pill">
+                <span className="hl-bot-analyzer-pill__label">Pair</span>
+                <span className="hl-bot-analyzer-pill__value">{activeLabel}</span>
+              </div>
             ) : null}
             {currentTf ? (
-              <>
-                <span className="term-analysis-sep">·</span>
+              <div className="hl-bot-analyzer-pill">
+                <span className="hl-bot-analyzer-pill__label">TF</span>
                 <span
-                  className={`term-analysis-tf-tick ${
+                  className={`hl-bot-analyzer-pill__value hl-bot-analyzer-pill__value--muted ${
                     slidePhase === 'out' ? 'term-analysis-cycle-text--out' : ''
                   }`}
                   aria-live="polite"
-                  title="Per-timeframe signal (can differ from combined %)"
                 >
                   {currentTf}
                 </span>
-              </>
+              </div>
             ) : null}
           </div>
           {whyLine ? (
-            <p className="term-analysis-subline term-analysis-subline--why">{whyLine}</p>
+            <p className="hl-bot-analyzer-subline term-analysis-subline--why">{whyLine}</p>
           ) : null}
         </div>
       </div>

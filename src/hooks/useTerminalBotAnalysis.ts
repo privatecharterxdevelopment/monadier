@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { VAULT_CHAIN_ID } from '../lib/vault';
 import { useUnifiedSignal } from './useUnifiedSignal';
 import { evaluateBotReadiness, readinessFromServerBlockers } from '../lib/botReadiness';
+import { filterUserBlockers, isInternalPlatformOpsMessage } from '../lib/hyperliquid/builderPlatform';
 import { HL_MAX_CONCURRENT_POSITIONS } from '../lib/hlBotConstants';
 import { MIN_HL_BOT_USD } from '../lib/hyperliquid/hlBotAgent';
 import { getBotApiBase, type Timeframe } from '../lib/signalService';
@@ -223,11 +224,14 @@ export function useTerminalBotAnalysis({
           openCoins
         );
         if (data.lastOpenError?.error) {
-          blockers.push(
-            `HL order failed${data.lastOpenError.coin ? ` (${data.lastOpenError.coin})` : ''}: ${data.lastOpenError.error}`
-          );
+          const openErr = data.lastOpenError.error;
+          if (!isInternalPlatformOpsMessage(openErr)) {
+            blockers.push(
+              `HL order failed${data.lastOpenError.coin ? ` (${data.lastOpenError.coin})` : ''}: ${openErr}`
+            );
+          }
         }
-        setServerBlockers(blockers);
+        setServerBlockers(filterUserBlockers(blockers));
         if (nextCandidate) setGlobalBest(nextCandidate);
         if (typeof data.globalScan?.coinsScanned === 'number') {
           setGlobalCoinsScanned(data.globalScan.coinsScanned);

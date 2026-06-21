@@ -170,12 +170,6 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
       setShowBuilderModal(true);
       return;
     }
-    if (builderFee.enabled && !builderFee.platformReady) {
-      setLocalMsg(
-        'Platform fees are not active yet — deposit $100+ USDC to the Monadier builder wallet on Hyperliquid perps.'
-      );
-      return;
-    }
     if (!market || !quote || !payoutPreview) return;
     setLocalMsg(null);
     const size = payoutPreview.contracts;
@@ -395,7 +389,6 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
             {builderFee.enabled && canBet ? (
               <p className="hl-sb-order-context-fee">
                 Platform fee: {builderFee.buyFeeLabel} on bets · {builderFee.cashoutFeeLabel} on cash out
-                {!builderFee.platformReady ? ' · activating soon' : null}
               </p>
             ) : null}
           </div>

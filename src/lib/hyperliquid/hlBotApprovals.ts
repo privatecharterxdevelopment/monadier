@@ -4,7 +4,6 @@ import { fetchMaxBuilderFee, isBuilderApprovalSufficient } from './builder';
 import { getHlBuilderConfig } from './builderConfig';
 import {
   fetchHlBuilderPlatformStatus,
-  formatBuilderPlatformError,
   isBuilderPlatformError,
 } from './builderPlatform';
 import {
@@ -41,7 +40,7 @@ export async function approveHlBuilderFeeIfNeeded(
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     if (isBuilderPlatformError(msg)) {
-      throw new Error(formatBuilderPlatformError(platform));
+      return false;
     }
     throw err;
   }

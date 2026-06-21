@@ -64,7 +64,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
   const marketKind = isSpot ? 'spot' as const : 'perp' as const;
   const coinLabel = displayCoin ?? coin;
   const { open } = useAppKit();
-  const { address, isConnected, isRestoring } = useMonadierWallet();
+  const { address, isConnected, isRestoring, isLiveConnected } = useMonadierWallet();
   const {
     busy,
     error,
@@ -510,7 +510,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
           </div>
         ) : null}
 
-        {isRestoring && !walletReady ? (
+        {isRestoring || (isConnected && !isLiveConnected && !walletReady) ? (
           <button type="button" className="hl-entry-submit" disabled>
             <Loader2 size={14} className="animate-spin" style={{ display: 'inline', marginRight: 6 }} />
             Restoring wallet…

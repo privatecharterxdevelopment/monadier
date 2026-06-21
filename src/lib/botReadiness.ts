@@ -1,9 +1,11 @@
 import type { UnifiedSignal } from './signalService';
 import { MIN_HL_BOT_USD } from './hyperliquid/hlBotAgent';
-import { HL_MAX_CONCURRENT_POSITIONS, HL_MIN_SIGNAL_CONFIDENCE } from './hlBotConstants';
-
-/** Matches bot aggressive strategy floor (see bot-service market STRATEGY_CONFIGS). */
-export const BOT_MIN_CONFIDENCE_AGGRESSIVE = 25;
+import { isInternalPlatformOpsMessage } from './hyperliquid/builderPlatform';
+import {
+  HL_BOT_CYCLE_SEC,
+  HL_MAX_CONCURRENT_POSITIONS,
+  HL_MIN_SIGNAL_CONFIDENCE,
+} from './hlBotConstants';
 
 export type BotReadiness = {
   canEnter: boolean;
@@ -12,6 +14,7 @@ export type BotReadiness = {
 };
 
 function formatBlocker(blocker: string): string {
+  if (isInternalPlatformOpsMessage(blocker)) return '';
   if (/HL agent not approved/i.test(blocker)) {
     return 'Approve the trading agent in the Bot panel';
   }
@@ -22,7 +25,10 @@ function formatBlocker(blocker: string): string {
     return 'Approve the Hyperliquid platform fee in the Bot panel';
   }
   if (/no HL perp passed global scan/i.test(blocker)) {
-    return `No pair passed bot gates (${HL_MIN_SIGNAL_CONFIDENCE}%+ conf, 2 aligned TFs, 60% trend align, volume sweep)`;
+    return '';
+  }
+  if (/Pre-trade gate blocked|volume\/liquidity|volume\/sweep/i.test(blocker)) {
+    return blocker;
   }
   if (/no trade signal|MTF|bot conf/i.test(blocker)) {
     return 'No strong trade setup yet — bot keeps scanning';
@@ -32,6 +38,9 @@ function formatBlocker(blocker: string): string {
   }
   if (/HL position open/i.test(blocker)) {
     return `Open position: ${blocker.replace(/HL position open:\s*/i, '')}`;
+  }
+  if (/HL order failed/i.test(blocker)) {
+    return blocker;
   }
   if (/Must deposit before performing actions/i.test(blocker)) {
     return 'Deposit USDC on Hyperliquid first (min $20)';
@@ -53,10 +62,14 @@ function formatBlocker(blocker: string): string {
 }
 
 export function readinessFromServerBlockers(blockers: string[]): BotReadiness {
+  const detail = blockers
+    .map((b) => formatBlocker(b))
+    .filter(Boolean)
+    .join(' · ');
   return {
     canEnter: false,
-    headline: 'Bot waiting',
-    detail: blockers.map((b) => formatBlocker(b)).join(' · '),
+    headline: detail ? 'Bot waiting' : 'Scanning markets',
+    detail,
   };
 }
 
@@ -67,6 +80,12 @@ export type BotScanSetup = {
   reason?: string;
 };
 
+function setupLabel(setup: BotScanSetup | null | undefined): string | null {
+  if (!setup?.coin || !setup.direction || setup.direction === 'HOLD') return null;
+  const conf = Math.round(setup.confidence);
+  return `${setup.coin} ${setup.direction} ${conf}%`;
+}
+
 export function evaluateBotReadiness(
   signal: UnifiedSignal | null,
   opts: {
@@ -75,7 +94,7 @@ export function evaluateBotReadiness(
     maxConcurrentPositions?: number;
     vaultUsd: number;
     minVaultUsd?: number;
-    /** Global scan target for the next free slot (independent high-volume pair). */
+    /** Global scan target for the next free slot (independent pair). */
     nextSetup?: BotScanSetup | null;
     /** @deprecated use openPositionsCount */
     hasOpenPosition?: boolean;
@@ -117,7 +136,7 @@ export function evaluateBotReadiness(
       headline: openCount > 0 ? `Slot ${openCount + 1} scan` : 'Bot active',
       detail:
         openCount > 0
-          ? 'Scanning high-volume HL perps for an independent 2nd trade…'
+          ? 'Scanning all HL perps for an independent 2nd trade…'
           : 'Loading market data…',
     };
   }
@@ -126,25 +145,24 @@ export function evaluateBotReadiness(
   const nextConf = next ? Math.round(next.confidence) : 0;
   const conf = Math.round(signal?.confidence ?? nextConf);
   const direction = signal?.direction ?? next?.direction ?? 'HOLD';
-  const strong =
-    conf >= BOT_MIN_CONFIDENCE_AGGRESSIVE && direction !== 'HOLD';
+  const label = setupLabel(next) ?? (direction !== 'HOLD' ? `${direction} ${conf}%` : null);
+  const minConf = HL_MIN_SIGNAL_CONFIDENCE;
+  const strong = conf >= minConf && direction !== 'HOLD';
   const slotLabel =
     openCount > 0
       ? `slot ${openCount + 1}/${maxSlots}`
       : `up to ${maxSlots} trades`;
-  const independentPair =
-    openCount > 0 && next?.coin
-      ? `${next.coin} ${next.direction} (${nextConf}%)`
-      : null;
+  const cycleHint =
+    HL_BOT_CYCLE_SEC <= 1 ? 'next cycle (~1s)' : `next cycle (~${HL_BOT_CYCLE_SEC}s)`;
 
-  if (strong) {
+  if (strong && label) {
     return {
       canEnter: true,
-      headline: openCount > 0 ? `Slot ${openCount + 1}: ${next?.coin ?? 'scanning'}` : 'Ready to trade',
+      headline: openCount > 0 ? `Slot ${openCount + 1}: ${next?.coin ?? 'signal'}` : 'Opening trade',
       detail:
-        openCount > 0 && independentPair
-          ? `Independent ${independentPair} — high-volume pair, separate from open trade`
-          : `${direction} setup found — next bot cycle ~10s`,
+        openCount > 0
+          ? `${label} — independent pair, ${cycleHint}`
+          : `${label} — bot tries to open on ${cycleHint}`,
     };
   }
 
@@ -152,10 +170,12 @@ export function evaluateBotReadiness(
     canEnter: false,
     headline: openCount > 0 ? `Slot ${openCount + 1} scan` : 'Scanning markets',
     detail:
-      openCount > 0
-        ? independentPair
-          ? `Analyzing ${independentPair} on high-volume HL perps (not your open pair)…`
-          : `Scanning ${slotLabel} on high-volume HL perps…`
-        : 'Waiting for a strong trade setup on Hyperliquid.',
+      label && conf > 0 && conf < minConf
+        ? `${label} below ${minConf}% threshold — still scanning`
+        : openCount > 0
+          ? label
+            ? `Analyzing ${label} across HL perps (not your open pair)…`
+            : `Scanning ${slotLabel} across all HL perps…`
+          : 'Waiting for a strong trade setup on Hyperliquid.',
   };
 }
