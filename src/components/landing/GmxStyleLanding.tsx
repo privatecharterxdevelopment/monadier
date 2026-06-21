@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LandingNav from './LandingNav';
 import LandingProductPreview from './LandingProductPreview';
+import LandingBotArchitecture from './LandingBotArchitecture';
 import LandingPartnerLogos from './LandingPartnerLogos';
 import LandingFaqSection from './LandingFaqSection';
 import LandingFooter from './LandingFooter';
@@ -17,6 +18,7 @@ const heroReveal = (delay = 0) => ({
 const HERO_MID_LINES = [
   'on Hyperliquid',
   'with automated perps',
+  'on verified sports on-chain',
   'with hedge-fund signals',
   'with deep HL liquidity',
   'with an AI agent that performs',
@@ -85,8 +87,8 @@ const GmxStyleLanding: React.FC = () => {
                     </OpenAppLink>
                   </div>
                   <p className="landing-gmx-hero-lead">
-                    Automated perpetuals on Hyperliquid — deposit USDC, approve the bot agent once,
-                    and let Monadier trade 24/7 across all HL markets.
+                    Automated perpetuals and on-chain sports betting on Hyperliquid — deposit USDC,
+                    approve the bot agent once, and trade or bet from your HL account 24/7.
                   </p>
                 </div>
                 <div className="landing-gmx-hero-stats">
@@ -110,6 +112,7 @@ const GmxStyleLanding: React.FC = () => {
       </section>
 
       <LandingProductPreview />
+      <LandingBotArchitecture />
       <LandingPartnerLogos />
       <LandingFaqSection />
       <LandingFooter />

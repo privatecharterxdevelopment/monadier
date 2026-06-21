@@ -19,6 +19,7 @@ import { isAppHost, isMarketingPath, LANDING_PATH, OPEN_APP_PATH } from './lib/a
 import HowItWorksPage from './pages/HowItWorksPage';
 import CardPage from './pages/CardPage';
 import BotTradingPage from './pages/BotTradingPage';
+import SportsBettingPage from './pages/SportsBettingPage';
 import ForexPage from './pages/ForexPage';
 import AboutPage from './pages/AboutPage';
 import TechnologyPage from './pages/TechnologyPage';
@@ -107,6 +108,11 @@ function App() {
           <Route path="/trading-bot" element={
             <PageTransition>
               <BotTradingPage />
+            </PageTransition>
+          } />
+          <Route path="/sports-betting" element={
+            <PageTransition>
+              <SportsBettingPage />
             </PageTransition>
           } />
           <Route path="/forex" element={

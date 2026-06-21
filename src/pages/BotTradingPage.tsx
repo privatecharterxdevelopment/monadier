@@ -6,6 +6,7 @@ import MarketingInnerPage, {
   MarketingPageCta,
   MarketingDisclaimer,
 } from '../components/marketing/MarketingInnerPage';
+import BotArchitectureSection from '../components/marketing/BotArchitectureSection';
 
 const steps = [
   {
@@ -58,6 +59,8 @@ const BotTradingPage: React.FC = () => {
           <MarketingFeatureCard key={item.title} title={item.title} text={item.text} />
         ))}
       </MarketingPageGrid>
+
+      <BotArchitectureSection />
 
       <MarketingPageCta />
 

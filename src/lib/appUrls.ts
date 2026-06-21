@@ -35,6 +35,7 @@ const MARKETING_PREFIXES = [
   '/how-it-works',
   '/card',
   '/trading-bot',
+  '/sports-betting',
   '/forex',
   '/about',
   '/technology',

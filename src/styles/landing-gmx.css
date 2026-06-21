@@ -1850,3 +1850,147 @@
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+/* Landing — bot architecture section */
+.landing-gmx-architecture {
+  padding-top: 48px;
+  padding-bottom: 64px;
+}
+
+.landing-gmx-architecture-head {
+  max-width: 720px;
+  margin: 0 auto 36px;
+  text-align: center;
+}
+
+.landing-gmx-architecture-eyebrow {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lg-faint);
+}
+
+.landing-gmx-architecture-lead {
+  margin: 16px auto 0;
+  max-width: 560px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--lg-muted);
+}
+
+.landing-gmx-architecture-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px 24px;
+  max-width: 880px;
+  margin: 0 auto 32px;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 640px) {
+  .landing-gmx-architecture-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.landing-gmx-architecture-list li {
+  position: relative;
+  padding-left: 18px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--lg-text);
+}
+
+.landing-gmx-architecture-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lg-muted);
+}
+
+.landing-gmx-architecture-goal {
+  max-width: 640px;
+  margin: 0 auto 28px;
+  padding: 20px 24px;
+  border-radius: 14px;
+  font-size: 15px;
+  line-height: 1.6;
+  text-align: center;
+  color: var(--lg-text);
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+.landing-gmx-architecture-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
+.landing-gmx-architecture-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--lg-muted);
+  transition: color 0.15s ease;
+}
+
+.landing-gmx-architecture-link:hover {
+  color: var(--lg-text);
+}
+
+/* Marketing inner pages — bot architecture */
+.mkt-architecture-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px 24px;
+  margin: 0 0 28px;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 640px) {
+  .mkt-architecture-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.mkt-architecture-list li {
+  position: relative;
+  padding-left: 18px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--lg-muted);
+}
+
+.mkt-architecture-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.mkt-architecture-goal {
+  margin: 0 0 40px;
+  padding: 20px 24px;
+  border-radius: 14px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--lg-text);
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}

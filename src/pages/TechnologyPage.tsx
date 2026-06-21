@@ -18,6 +18,7 @@ import MarketingInnerPage, {
   MarketingPageCta,
   MarketingDisclaimer,
 } from '../components/marketing/MarketingInnerPage';
+import BotArchitectureSection from '../components/marketing/BotArchitectureSection';
 
 const engineFeatures = [
   {
@@ -42,8 +43,8 @@ const engineFeatures = [
   },
   {
     icon: LineChart,
-    title: 'Trailing & exit logic',
-    text: 'Take profit, stop loss, and trailing rules run automatically — you can also close manually from the terminal.',
+    title: 'Dynamic trailing stop',
+    text: 'ATR-based trailing lets winners run for hours while profits ratchet up automatically — exits only on price cross, not fixed USD floors.',
   },
   {
     icon: Cpu,
@@ -63,7 +64,7 @@ const pipeline = [
   },
   {
     title: 'Position management',
-    text: 'Entries include predefined TP/SL. The bot manages open positions until exit criteria are met.',
+    text: 'Dynamic trailing arms after fees are covered, then trails with ATR. Winners can run while profits stay secured until price crosses the stop.',
   },
   {
     title: 'Risk control',
@@ -113,6 +114,8 @@ const TechnologyPage: React.FC = () => {
           />
         ))}
       </MarketingPageGrid>
+
+      <BotArchitectureSection />
 
       <MarketingSectionHeading title="Key parameters" />
 

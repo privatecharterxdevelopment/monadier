@@ -1055,8 +1055,36 @@
   height: 28px;
   padding: 0 8px;
   border-bottom: 1px solid var(--hl-border);
-  overflow-x: auto;
+  overflow-y: hidden;
   flex-shrink: 0;
+}
+
+@media (min-width: 901px) {
+  .hl-ticker {
+    overflow-x: hidden;
+  }
+
+  .hl-ticker-item {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+  }
+
+  .hl-ticker-item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (max-width: 900px) {
+  .hl-ticker {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .hl-ticker::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .hl-ticker-item {
@@ -1073,6 +1101,7 @@
   cursor: pointer;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 
 .hl-ticker-item:hover {
@@ -1118,6 +1147,7 @@
   flex: 1;
   min-width: 0;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
 }
 
