@@ -32,23 +32,19 @@ import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from '.
 import { recordHlBotOpenMarker } from './hlChartMarkers';
 import { validateEntryLocation } from './entryLocationGate';
 import { validateMacroBetaAlignment } from './macroBetaGate';
+import { validateEntryMomentum } from './entryMomentumGate';
 import { buildHlOpenReasonDoc } from './openReasonBuilder';
 import {
-  buildCloseReasonDoc,
-  clearProfitAnalyzeLog,
   evaluatePositionThesis,
   evaluateProfitRunAnalysis,
   logProfitRunAnalysis,
-  logThesisDeferStopLoss,
-  shouldForceLossCap,
+  clearProfitAnalyzeLog,
 } from './positionThesisGate';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import {
-  shouldCloseNeverRedAfterGreen,
   shouldClosePeakDropUsd,
   shouldCloseProfitHoldTimeout,
   shouldCloseProfitLockUsd,
-  shouldStopLossOnPnl,
   shouldTakeProfitOnPnl,
   trailingProfitLockFloorUsd,
 } from './pnlExits';
@@ -76,6 +72,9 @@ const hlLastCloseAt = new Map<string, number>();
 /** Prevent overlapping fast monitor passes. */
 let fastPositionMonitorRunning = false;
 
+/** Per user+coin — throttle "hold in red" logs. */
+const hlHoldRedLogAt = new Map<string, number>();
+
 /** Last HL open error per wallet — surfaced in /api/bot-status diagnostics. */
 const lastHlOpenError = new Map<string, { at: string; coin?: string; error: string }>();
 
@@ -93,6 +92,7 @@ function clearProfitLockState(lockKey: string): void {
   hlProfitLockFloorUsd.delete(lockKey);
   hlProfitSinceAt.delete(lockKey);
   hlPositionOpenedAt.delete(lockKey);
+  hlHoldRedLogAt.delete(lockKey);
   const parts = lockKey.split(':');
   if (parts.length >= 2) {
     clearProfitAnalyzeLog(parts[0], parts.slice(1).join(':'));
@@ -529,6 +529,20 @@ export class HyperliquidTradingService {
         return { success: false, error: macroGate.reason };
       }
 
+      const momentumGate = await validateEntryMomentum({
+        coin,
+        direction: opts.direction,
+      });
+      if (!momentumGate.ok) {
+        logger.info('HL open blocked — entry momentum', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          reason: momentumGate.reason,
+        });
+        return { success: false, error: momentumGate.reason };
+      }
+
       const locationGate = await validateEntryLocation({
         symbol,
         direction: opts.direction,
@@ -554,6 +568,7 @@ export class HyperliquidTradingService {
         macroGate,
         liquidityReason: opts.pick.liquidityReason,
       });
+      const openReasonFull = `${openReasonDoc} ‖ ${momentumGate.reason}`;
 
       const client = createAgentClient(opts.userAddress);
       await client.updateLeverage({
@@ -598,7 +613,7 @@ export class HyperliquidTradingService {
         direction: opts.direction,
         leverage: effectiveLeverage,
         notionalUsd: opts.notionalUsd.toFixed(2),
-        openReason: openReasonDoc,
+        openReason: openReasonFull,
         macroBlockers: macroGate.blockers,
         openSlot: 'multi',
       });
@@ -608,7 +623,7 @@ export class HyperliquidTradingService {
         coin,
         direction: opts.direction,
         entryPx: markPx,
-        reason: openReasonDoc,
+        reason: openReasonFull,
       });
 
       hlPositionOpenedAt.set(positionKey(opts.userAddress, coin), Date.now());
@@ -689,7 +704,6 @@ export class HyperliquidTradingService {
       const sl = settings.stopLossPercent ?? 0;
       const strategy = normalizeHlBotStrategy(settings.hlBotStrategy);
       const exitPolicy = resolveHlExitPolicy(strategy);
-      const lockActivateUsd = exitPolicy.lockActivateUsd;
       const minFloorUsd = exitPolicy.lockFloorUsd;
       const trailBufferUsd = exitPolicy.trailBufferUsd;
 
@@ -795,6 +809,23 @@ export class HyperliquidTradingService {
         leverage: pos.leverage?.value ?? 10,
       };
 
+      // ── IN RED: never auto-close. Hold until green (profit-only bot policy). ──
+      if (pnl < 0 && config.hyperliquid.profitOnlyExits) {
+        const logKey = lockKey;
+        const lastLog = hlHoldRedLogAt.get(logKey) ?? 0;
+        if (nowMs - lastLog >= 120_000) {
+          hlHoldRedLogAt.set(logKey, nowMs);
+          logger.info('HL hold in red — waiting for profit (no auto loss close)', {
+            user: userAddress.slice(0, 10),
+            coin: pos.coin,
+            direction: positionDirection,
+            pnlUsd: pnl.toFixed(4),
+            holdMin: Math.round(holdMs / 60_000),
+          });
+        }
+        continue;
+      }
+
       // Profit exits — only after min green hold; defer while macro+MTF still with us.
       if (pnl > 0 && profitExitReady) {
         const thesis = await evaluatePositionThesis({
@@ -810,12 +841,6 @@ export class HyperliquidTradingService {
           : exitPolicy.peakDropFraction;
 
         if (
-          shouldCloseNeverRedAfterGreen(pnl, peak, minGrabUsd) &&
-          peak >= lockActivateUsd
-        ) {
-          clearProfitLockState(lockKey);
-          await this.closeMarketPosition(userAddress, pos.coin, 'breakeven_scratch', closeCtx);
-        } else if (
           locked &&
           peak >= minGrabUsd &&
           shouldCloseProfitLockUsd(pnl, floorUsd, locked) &&
@@ -863,70 +888,6 @@ export class HyperliquidTradingService {
             peakUsd: peak.toFixed(4),
             profitHoldSec: Math.round(profitHoldMs / 1000),
           });
-        }
-      } else if (pnl < 0) {
-        const thesis = await evaluatePositionThesis({
-          coin: pos.coin,
-          direction: positionDirection,
-        });
-        const minHold = config.hyperliquid.thesisMinHoldBeforeLossCloseMs;
-        const closeDocBase = {
-          coin: pos.coin,
-          direction: positionDirection,
-          pnlUsd: pnl,
-          pnlPct,
-          slPct: sl,
-          peakUsd: peak,
-          thesis,
-        };
-
-        if (
-          !thesis.thesisIntact &&
-          holdMs >= minHold &&
-          (thesis.macroAgainst || thesis.signalAgainst)
-        ) {
-          clearProfitLockState(lockKey);
-          hlPositionOpenedAt.delete(lockKey);
-          const detail = buildCloseReasonDoc({
-            closeCode: 'signal_reversal',
-            ...closeDocBase,
-          });
-          await this.closeMarketPosition(
-            userAddress,
-            pos.coin,
-            'signal_reversal',
-            closeCtx,
-            detail
-          );
-        } else if (
-          sl > 0 &&
-          peak < minGrabUsd &&
-          shouldStopLossOnPnl(pnlPct, sl)
-        ) {
-          if (thesis.thesisIntact && !shouldForceLossCap(pnlPct, sl, pnl)) {
-            logThesisDeferStopLoss(
-              userAddress,
-              pos.coin,
-              positionDirection,
-              pnlPct,
-              sl,
-              thesis
-            );
-          } else {
-            clearProfitLockState(lockKey);
-            hlPositionOpenedAt.delete(lockKey);
-            const detail = buildCloseReasonDoc({
-              closeCode: 'stop_loss',
-              ...closeDocBase,
-            });
-            await this.closeMarketPosition(
-              userAddress,
-              pos.coin,
-              'stop_loss',
-              closeCtx,
-              detail
-            );
-          }
         }
       }
     }

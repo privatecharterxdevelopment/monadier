@@ -121,10 +121,29 @@ export function buildCloseReasonDoc(opts: {
 }
 
 export function shouldForceLossCap(pnlPct: number, slPct: number, pnlUsd: number): boolean {
-  if (slPct <= 0) return false;
+  const capUsd = computeMaxLossCapUsd(999999, slPct); // pct-only leg
+  if (pnlUsd <= -capUsd) return true;
   const mult = config.hyperliquid.thesisMaxLossSlMultiple;
-  const minUsd = config.hyperliquid.thesisMaxLossUsd;
-  return pnlPct <= -slPct * mult || pnlUsd <= -minUsd;
+  return slPct > 0 && pnlPct <= -slPct * mult;
+}
+
+/** Tightest of: user SL% on margin, absolute USD cap. */
+export function computeMaxLossCapUsd(collateralUsd: number, slPct: number): number {
+  const absCap = config.hyperliquid.thesisMaxLossUsd;
+  const fromSl =
+    slPct > 0 && collateralUsd > 0 ? collateralUsd * (slPct / 100) : absCap;
+  if (slPct <= 0) return absCap;
+  return Math.min(fromSl, absCap);
+}
+
+export function shouldHardLossClose(
+  pnlUsd: number,
+  collateralUsd: number,
+  slPct: number
+): boolean {
+  if (pnlUsd >= 0) return false;
+  const cap = computeMaxLossCapUsd(collateralUsd, slPct);
+  return pnlUsd <= -cap;
 }
 
 export function logThesisDeferStopLoss(

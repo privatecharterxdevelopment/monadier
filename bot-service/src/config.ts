@@ -159,12 +159,21 @@ export const config = {
       minConsecutiveGreen15m: Number(process.env.HL_MACRO_MIN_GREEN_15M || 3),
       minConsecutiveRed15m: Number(process.env.HL_MACRO_MIN_RED_15M || 3),
     },
+    /** Pre-open — price must already move in trade direction (no blind entries). */
+    entryMomentum: {
+      minMove5mPct: Number(process.env.HL_ENTRY_MOM_5M || 0.08),
+      minMove15mPct: Number(process.env.HL_ENTRY_MOM_15M || 0.12),
+      maxCounter1hPct: Number(process.env.HL_ENTRY_MOM_1H_COUNTER || 0.15),
+      minConfirmCandles5m: Number(process.env.HL_ENTRY_MOM_5M_CANDLES || 2),
+    },
+    /** Bot NEVER auto-closes in red — profit-only exits. */
+    profitOnlyExits: process.env.HL_PROFIT_ONLY_EXITS !== 'false',
     /** Open-position thesis — defer SL while macro+MTF still support direction. */
     thesisCheckCacheMs: Number(process.env.HL_THESIS_CACHE_MS || 5000),
     /** Force loss close at SL × this multiple even if thesis intact (safety cap). */
     thesisMaxLossSlMultiple: Number(process.env.HL_THESIS_MAX_LOSS_SL_MULT || 2.5),
-    /** Absolute USD loss cap before forced close. */
-    thesisMaxLossUsd: Number(process.env.HL_THESIS_MAX_LOSS_USD || 1.5),
+    /** Absolute USD loss cap — never bleed past this on bot closes. */
+    thesisMaxLossUsd: Number(process.env.HL_THESIS_MAX_LOSS_USD || 1.2),
     /** Min ms position must be open before signal_reversal loss close (avoid open→instant close). */
     thesisMinHoldBeforeLossCloseMs: Number(process.env.HL_THESIS_MIN_HOLD_MS || 45_000),
     /** Minimum margin USD per HL open slot (split across max concurrent positions). */

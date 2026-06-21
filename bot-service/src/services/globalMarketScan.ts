@@ -9,6 +9,7 @@ import { filterWeekendShortOnly, isWeekendShortOnlyWindow } from './weekendTradi
 import { validatePreTradeLiquidity } from './liquiditySweepGate';
 import { validateEntryLocation } from './entryLocationGate';
 import { validateMacroBetaAlignment } from './macroBetaGate';
+import { validateEntryMomentum } from './entryMomentumGate';
 
 export type BotSignalMode = 'standard' | 'aggressive';
 
@@ -107,6 +108,18 @@ async function scanStandardCoin(
       });
       return null;
     }
+    const momentumGate = await validateEntryMomentum({
+      coin,
+      direction: analysis.direction,
+    });
+    if (!momentumGate.ok) {
+      logger.debug('HL scan skip: entry momentum', {
+        coin,
+        direction: analysis.direction,
+        reason: momentumGate.reason,
+      });
+      return null;
+    }
     return {
       coin,
       symbol,
@@ -179,6 +192,18 @@ async function scanAggressiveCoin(
         coin,
         direction: scalp.direction,
         blockers: macroGate.blockers,
+      });
+      return null;
+    }
+    const momentumGate = await validateEntryMomentum({
+      coin,
+      direction: scalp.direction,
+    });
+    if (!momentumGate.ok) {
+      logger.debug('HL scan skip: entry momentum', {
+        coin,
+        direction: scalp.direction,
+        reason: momentumGate.reason,
       });
       return null;
     }
