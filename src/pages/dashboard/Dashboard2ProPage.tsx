@@ -5,7 +5,6 @@ import ProTradeShell from '../../components/protrade/ProTradeShell';
 import ProTradeTopNav, { type ProTradeSection } from '../../components/protrade/ProTradeTopNav';
 import ProTradeMobileTradeFab from '../../components/protrade/ProTradeMobileTradeFab';
 import ProTradeProfile from '../../components/protrade/ProTradeProfile';
-import ProTradeBotHistory from '../../components/protrade/ProTradeBotHistory';
 import {
   ProTradeBotDockSlot,
   ProTradeBotPanelSlot,
@@ -57,7 +56,14 @@ import { useHlBotChartMarkers } from '../../hooks/useHlBotChartMarkers';
 import { useProTradeTheme } from '../../contexts/ProTradeThemeContext';
 import { getProTradeChartColors } from '../../lib/proTradeTheme';
 
-const PROFILE_TABS = new Set<ProTradeProfileTab>(['identity', 'security', 'wallets', 'betting', 'history']);
+const PROFILE_TABS = new Set<ProTradeProfileTab>([
+  'identity',
+  'security',
+  'wallets',
+  'betting',
+  'botTrades',
+  'history',
+]);
 
 function parseProfileTab(raw: string | null): ProTradeProfileTab {
   if (raw && PROFILE_TABS.has(raw as ProTradeProfileTab)) {
@@ -88,7 +94,6 @@ const Dashboard2ProPageContent: React.FC = () => {
   const [authModal, setAuthModal] = useState<'signin' | 'register' | null>(null);
   const [signInReason, setSignInReason] = useState<string | undefined>();
   const [botSyncTick, setBotSyncTick] = useState(0);
-  const [historyHighlightId, setHistoryHighlightId] = useState<string | null>(null);
   const [profileTab, setProfileTab] = useState<ProTradeProfileTab>(() =>
     parseProfileTab(searchParams.get('tab'))
   );
@@ -284,12 +289,9 @@ const Dashboard2ProPageContent: React.FC = () => {
       openProfile(profileTab);
       return;
     }
-    if (next === 'history' && !requireAuth('Sign in to view bot trade history from Supabase.')) {
-      return;
-    }
     setSection(next);
     setFundsModal(null);
-    if (next === 'bot' || next === 'history' || next === 'sportsbets') {
+    if (next === 'bot' || next === 'sportsbets') {
       const params = new URLSearchParams(searchParams);
       params.set('section', next);
       params.delete('tab');
@@ -317,8 +319,10 @@ const Dashboard2ProPageContent: React.FC = () => {
     const urlSection = searchParams.get('section');
     const urlTab = parseProfileTab(searchParams.get('tab'));
     if (!user) {
-      if (urlSection === 'profile' || urlSection === 'history') {
-        setProfileTab(urlTab);
+      if (urlSection === 'profile') {
+        setProfileTab(parseProfileTab(searchParams.get('tab')));
+      } else if (urlSection === 'history') {
+        setProfileTab('botTrades');
       } else if (urlSection === 'sportsbets' || urlSection === 'spot') {
         setSection('sportsbets');
       }
@@ -328,7 +332,8 @@ const Dashboard2ProPageContent: React.FC = () => {
       setProfileTab(urlTab);
       setSection('profile');
     } else if (urlSection === 'history') {
-      setSection('history');
+      setProfileTab('botTrades');
+      setSection('profile');
     } else if (urlSection === 'bot') {
       setSection('bot');
     } else if (urlSection === 'sportsbets' || urlSection === 'spot') {
@@ -338,7 +343,7 @@ const Dashboard2ProPageContent: React.FC = () => {
 
   useEffect(() => {
     if (!sessionReady || user) return;
-    if (section !== 'profile' && section !== 'history') return;
+    if (section !== 'profile') return;
 
     setSection('perps');
     const params = new URLSearchParams(searchParams);
@@ -380,13 +385,9 @@ const Dashboard2ProPageContent: React.FC = () => {
     await handleRefreshAll();
   };
 
-  const openBotHistory = (tradeId?: string) => {
+  const openBotHistory = (_tradeId?: string) => {
     if (!requireAuth('Sign in to view bot trade notifications and history.')) return;
-    setHistoryHighlightId(tradeId ?? null);
-    handleSectionChange('history');
-    if (tradeId) {
-      window.setTimeout(() => setHistoryHighlightId(null), 4500);
-    }
+    openProfile('botTrades');
   };
 
   const openBettingHistory = () => {
@@ -571,7 +572,7 @@ const Dashboard2ProPageContent: React.FC = () => {
         </div>
 
         <ProTradeBotPanelSlot
-          onOpenHistory={() => setBotDockTab('tradeHistory')}
+          onOpenHistory={() => setBotDockTab('positions')}
           onRequireSignIn={promptSignIn}
         />
       </div>
@@ -592,7 +593,6 @@ const Dashboard2ProPageContent: React.FC = () => {
           if (requireAuth('Sign in to contact support.')) setShowSupport(true);
         }}
         onOpenProfile={openProfile}
-        onOpenBotHistory={() => openBotHistory()}
         onRequireSignIn={promptSignIn}
         onViewNotificationHistory={openNotificationHistory}
         walletAddress={address ?? undefined}
@@ -604,13 +604,10 @@ const Dashboard2ProPageContent: React.FC = () => {
         <ProTradeBotProvider>{renderBotTerminal()}</ProTradeBotProvider>
       ) : null}
       {section === 'profile' ? (
-        <ProTradeProfile activeTab={profileTab} onTabChange={handleProfileTabChange} />
-      ) : null}
-      {section === 'history' ? (
-        <ProTradeBotHistory
-          refreshKey={botSyncTick}
-          walletAddress={address ?? undefined}
-          walletConnected={isConnected}
+        <ProTradeProfile
+          activeTab={profileTab}
+          onTabChange={handleProfileTabChange}
+          botHistoryRefreshKey={botSyncTick}
         />
       ) : null}
       {section === 'sportsbets' ? (

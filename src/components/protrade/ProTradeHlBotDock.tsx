@@ -44,6 +44,8 @@ type Props = {
   botAnalysisWallet?: string | null;
   botOpenPositionCoins?: string[];
   className?: string;
+  /** Full-page trade history (Profile → Bot trades) — fills table only. */
+  historyOnly?: boolean;
 };
 
 const ProTradeHlBotDock: React.FC<Props> = ({
@@ -60,6 +62,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   botAnalysisWallet,
   botOpenPositionCoins,
   className,
+  historyOnly = false,
 }) => {
   const { address } = useAccount();
   const { wallet: settingsWallet, settings: botSettingsSnapshot } = useTerminalBotSettings();
@@ -144,8 +147,10 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   const connected = walletConnected || Boolean(hlWallet);
 
   return (
-    <div className={`hl-bot-dock${className ? ` ${className}` : ''}`}>
-      <div className="hl-dock-mode-label">HL Bot · Hyperliquid perps</div>
+    <div className={`hl-bot-dock${historyOnly ? ' hl-bot-dock--history-only' : ''}${className ? ` ${className}` : ''}`}>
+      {!historyOnly ? (
+        <div className="hl-dock-mode-label">HL Bot · Hyperliquid perps</div>
+      ) : null}
       {showAnalyzer ? (
         <div className="hl-bot-dock-analyzer">
           <TerminalBotAnalysisStrip
@@ -165,6 +170,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
       ) : null}
       <ProTradeDock
         mode="bot"
+        historyOnly={historyOnly}
         account={account}
         openOrders={[]}
         fills={fills}

@@ -80,8 +80,10 @@ type Props = {
   /** Bot wallet — for open-trade reason tooltips. */
   walletAddress?: string | null;
   reasonRefreshKey?: number;
-  /** Bot terminal: positions + balances + trade history only */
+  /** Bot terminal: positions + balances only (history in Profile → Bot trades). */
   mode?: 'full' | 'bot';
+  /** Profile bot history — fills table only, no dock tabs. */
+  historyOnly?: boolean;
 };
 
 const ProTradeDock: React.FC<Props> = ({
@@ -108,19 +110,24 @@ const ProTradeDock: React.FC<Props> = ({
   walletAddress,
   reasonRefreshKey = 0,
   mode = 'full',
+  historyOnly = false,
 }) => {
   const isSpot = variant === 'spot';
   const isBotMode = mode === 'bot';
-  const visibleTabs = isBotMode
-    ? TABS.filter((t) => ['positions', 'balances', 'tradeHistory'].includes(t.id))
+  const visibleTabs = historyOnly
+    ? TABS.filter((t) => t.id === 'tradeHistory')
+    : isBotMode
+    ? TABS.filter((t) => ['positions', 'balances'].includes(t.id))
     : isSpot
       ? TABS.filter((t) => !['positions', 'fundingHistory'].includes(t.id))
       : TABS;
   const activeTwapCount = twapOrders.filter((t) => t.status === 'activated').length;
   const triggerOrders = openOrders.filter(isHlTriggerOrder);
-  const [internalTab, setInternalTab] = useState<TabId>(isBotMode ? 'positions' : 'positions');
+  const [internalTab, setInternalTab] = useState<TabId>(
+    historyOnly ? 'tradeHistory' : isBotMode ? 'positions' : 'positions'
+  );
   const [search, setSearch] = useState('');
-  const tab = activeTab ?? internalTab;
+  const tab = historyOnly ? 'tradeHistory' : activeTab ?? internalTab;
   const setTab = (next: TabId) => {
     onTabChange?.(next);
     if (activeTab == null) setInternalTab(next);
@@ -191,20 +198,24 @@ const ProTradeDock: React.FC<Props> = ({
 
   return (
     <section className={`hl-dock${isBotMode ? ' hl-bot-dock-inner' : ''}`}>
-      <div className="hl-dock-head">
-        <nav className="hl-dock-tabs" aria-label="Account panels">
-          {visibleTabs.map(({ id, label }) => (
-            <button
-              key={id}
-              type="button"
-              className={`hl-dock-tab ${tab === id ? 'hl-dock-tab--on' : ''}`}
-              onClick={() => setTab(id)}
-            >
-              {label}
-              {tabSuffix(id)}
-            </button>
-          ))}
-        </nav>
+      <div className={`hl-dock-head${historyOnly ? ' hl-dock-head--history-only' : ''}`}>
+        {!historyOnly ? (
+          <nav className="hl-dock-tabs" aria-label="Account panels">
+            {visibleTabs.map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                className={`hl-dock-tab ${tab === id ? 'hl-dock-tab--on' : ''}`}
+                onClick={() => setTab(id)}
+              >
+                {label}
+                {tabSuffix(id)}
+              </button>
+            ))}
+          </nav>
+        ) : (
+          <p className="hl-dock-history-only-label">Closed fills &amp; P/L</p>
+        )}
         <div className="hl-dock-tools">
           <input
             className="hl-dock-search"

@@ -20,14 +20,12 @@ import type { ProTradeProfileTab } from './proTradeProfileTypes';
 type Props = {
   onOpenSupport?: () => void;
   onOpenProfile?: (tab?: ProTradeProfileTab) => void;
-  onOpenBotHistory?: () => void;
   onRequireSignIn?: (reason: string) => void;
 };
 
 const ProTradeAccountMenu: React.FC<Props> = ({
   onOpenSupport,
   onOpenProfile,
-  onOpenBotHistory,
   onRequireSignIn,
 }) => {
   const { profile, user } = useAuth();
@@ -66,12 +64,6 @@ const ProTradeAccountMenu: React.FC<Props> = ({
     setOpen(false);
     if (!requireUser('Sign in to contact support.')) return;
     onOpenSupport?.();
-  };
-
-  const openBotHistory = () => {
-    setOpen(false);
-    if (!requireUser('Sign in to view bot trade history.')) return;
-    onOpenBotHistory?.();
   };
 
   const handleTriggerClick = () => {
@@ -184,7 +176,7 @@ const ProTradeAccountMenu: React.FC<Props> = ({
             type="button"
             className="hl-account-item"
             role="menuitem"
-            onClick={openBotHistory}
+            onClick={() => goProfile('botTrades')}
           >
             <History size={14} aria-hidden />
             Bot trade history

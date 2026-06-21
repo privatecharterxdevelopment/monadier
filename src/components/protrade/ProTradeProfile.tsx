@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAppKitAccount } from '@reown/appkit/react';
 import { useAuth } from '../../contexts/AuthContext';
 import ProfileAvatar from '../profile/ProfileAvatar';
 import TerminalProfilePanel from '../terminal/TerminalProfilePanel';
@@ -7,17 +8,21 @@ import {
   PRO_TRADE_PROFILE_TABS,
   type ProTradeProfileTab,
 } from './proTradeProfileTypes';
+import ProTradeBotHistory from './ProTradeBotHistory';
 
 type Props = {
   activeTab?: ProTradeProfileTab;
   onTabChange?: (tab: ProTradeProfileTab) => void;
+  botHistoryRefreshKey?: number;
 };
 
 const ProTradeProfile: React.FC<Props> = ({
   activeTab: controlledTab,
   onTabChange,
+  botHistoryRefreshKey = 0,
 }) => {
   const { user, profile } = useAuth();
+  const { address, isConnected } = useAppKitAccount();
   const [internalTab, setInternalTab] = useState<ProTradeProfileTab>('identity');
   const tab = controlledTab ?? internalTab;
   const setTab = (next: ProTradeProfileTab) => {
@@ -57,8 +62,19 @@ const ProTradeProfile: React.FC<Props> = ({
         </nav>
       </div>
 
-      <div className="hl-profile-body hl-profile-scope">
-        <TerminalProfilePanel activeSection={tab} variant="pro" />
+      <div
+        className={`hl-profile-body hl-profile-scope${tab === 'botTrades' ? ' hl-profile-body--bot-trades' : ''}`}
+      >
+        {tab === 'botTrades' ? (
+          <ProTradeBotHistory
+            embedded
+            refreshKey={botHistoryRefreshKey}
+            walletAddress={address ?? undefined}
+            walletConnected={isConnected}
+          />
+        ) : (
+          <TerminalProfilePanel activeSection={tab} variant="pro" />
+        )}
       </div>
     </div>
   );

@@ -48,7 +48,6 @@ type Props = {
   botOpenTone?: 'pos' | 'neg' | null;
   onOpenSupport?: () => void;
   onOpenProfile?: (tab?: ProTradeProfileTab) => void;
-  onOpenBotHistory?: () => void;
   onRequireSignIn?: (reason: string) => void;
   onViewNotificationHistory?: (notification?: ActivityNotification) => void;
   walletAddress?: string;
@@ -63,7 +62,6 @@ const ProTradeTopNav: React.FC<Props> = ({
   botOpenTone = null,
   onOpenSupport,
   onOpenProfile,
-  onOpenBotHistory,
   onRequireSignIn,
   onViewNotificationHistory,
   walletAddress,
@@ -151,7 +149,6 @@ const ProTradeTopNav: React.FC<Props> = ({
         <ProTradeAccountMenu
           onOpenSupport={onOpenSupport}
           onOpenProfile={onOpenProfile}
-          onOpenBotHistory={onOpenBotHistory}
           onRequireSignIn={onRequireSignIn}
         />
         <button
