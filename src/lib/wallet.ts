@@ -1,5 +1,6 @@
 import { createAppKit } from '@reown/appkit/react';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
+import { createStorage } from '@wagmi/core';
 import { mainnet, arbitrum, polygon, base, bsc } from '@reown/appkit/networks';
 
 // Get project ID from https://cloud.reown.com
@@ -37,6 +38,7 @@ export const wagmiAdapter = new WagmiAdapter({
   networks,
   projectId,
   ssr: false,
+  storage: createStorage({ storage: typeof localStorage !== 'undefined' ? localStorage : undefined }),
 });
 
 createAppKit({
@@ -60,6 +62,8 @@ createAppKit({
     '--w3m-font-family': 'inherit',
   },
 });
+
+void wagmiAdapter.syncConnections();
 
 if (!hasWalletProjectId && import.meta.env.DEV) {
   console.warn(

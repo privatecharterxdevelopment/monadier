@@ -8,14 +8,24 @@ export const HL_BOT_STRATEGY_LABELS: Record<HlBotStrategy, string> = {
 
 export const HL_BOT_STRATEGY_HINTS: Record<HlBotStrategy, string> = {
   standard:
-    'Standard: MTF trend scan on liquid HL pairs. Bot trails stop into profit automatically.',
+    'Standard: MTF trend scan on liquid HL pairs. After 60s green, trails SL into profit — lets winners run.',
   profit_grabber:
-    'Aggressive: 6×1m → next 3 with 5m confirm. Tighter profit trail — bot manages exit.',
+    'Aggressive: 6×1m → next 3 with 5m confirm. Same 60s green hold, slightly tighter trail.',
 };
 
+/** Must match bot-service resolveHlExitPolicy. */
 export const HL_AGGRESSIVE_PROFIT_LOCK = {
-  activateUsd: 0.02,
-  floorUsd: 0.01,
+  activateUsd: 0.06,
+  floorUsd: 0.015,
+  trailBufferUsd: 0.035,
+  minHoldMs: 60_000,
+} as const;
+
+export const HL_STANDARD_PROFIT_LOCK = {
+  activateUsd: 0.08,
+  floorUsd: 0.02,
+  trailBufferUsd: 0.045,
+  minHoldMs: 60_000,
 } as const;
 
 export function normalizeHlBotStrategy(raw: string | null | undefined): HlBotStrategy {
@@ -26,12 +36,11 @@ export function normalizeHlBotStrategy(raw: string | null | undefined): HlBotStr
 export function profitLockDisplayForStrategy(strategy: HlBotStrategy): {
   activateUsd: number;
   floorUsd: number;
+  trailBufferUsd: number;
+  minHoldMs: number;
 } {
   if (strategy === 'profit_grabber') {
-    return {
-      activateUsd: HL_AGGRESSIVE_PROFIT_LOCK.activateUsd,
-      floorUsd: HL_AGGRESSIVE_PROFIT_LOCK.floorUsd,
-    };
+    return { ...HL_AGGRESSIVE_PROFIT_LOCK };
   }
-  return { activateUsd: 0.06, floorUsd: 0.03 };
+  return { ...HL_STANDARD_PROFIT_LOCK };
 }

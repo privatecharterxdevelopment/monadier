@@ -28,7 +28,7 @@ import { hlWalletExplorerUrl } from '../../lib/hyperliquid/hlApp';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
-import TradeReasonHint from '../terminal/TradeReasonHint';
+import TradeReasonCell from '../terminal/TradeReasonCell';
 import DockCountBadge from './DockCountBadge';
 
 function livePositionPnl(position: HlPosition, markPx: number): number {
@@ -306,6 +306,7 @@ const ProTradeDock: React.FC<Props> = ({
                   <th>Mark</th>
                   <th>PnL</th>
                   <th>Lev</th>
+                  {isBotMode ? <th>Why open</th> : null}
                   <th />
                 </tr>
               </thead>
@@ -317,17 +318,9 @@ const ProTradeDock: React.FC<Props> = ({
                   return (
                     <tr key={p.coin}>
                       <td>
-                        <span className="hl-dock-market-cell">
-                          <button type="button" className="hl-coin-link" onClick={() => onCoinClick?.(p.coin)}>
-                            {p.coin}
-                          </button>
-                          {isBotMode ? (
-                            <TradeReasonHint
-                              reason={openByCoin.get(p.coin.toUpperCase())?.reason}
-                              kind="open"
-                            />
-                          ) : null}
-                        </span>
+                        <button type="button" className="hl-coin-link" onClick={() => onCoinClick?.(p.coin)}>
+                          {p.coin}
+                        </button>
                       </td>
                       <td className={isLong ? 'hl-up' : 'hl-down'}>{isLong ? 'LONG' : 'SHORT'}</td>
                       <td>{fmtSize(Math.abs(toNum(p.szi)))}</td>
@@ -338,6 +331,15 @@ const ProTradeDock: React.FC<Props> = ({
                         {fmtTradeUsdSymbol(upnl)}
                       </td>
                       <td>{fmtLeverage(resolveDisplayLeverage(configuredLeverage, p.leverage?.value))}</td>
+                      {isBotMode ? (
+                        <td className="term-hl-open-reason-col">
+                          <TradeReasonCell
+                            reason={openByCoin.get(p.coin.toUpperCase())?.reason}
+                            kind="open"
+                            maxLines={4}
+                          />
+                        </td>
+                      ) : null}
                       <td>
                         <button
                           type="button"
@@ -462,8 +464,8 @@ const ProTradeDock: React.FC<Props> = ({
                       {fmtClosedPnl(f.closedPnl)}
                     </td>
                     {isBotMode ? (
-                      <td>
-                        <TradeReasonHint reason={closeWhy} kind="close" />
+                      <td className="term-hl-open-reason-col">
+                        <TradeReasonCell reason={closeWhy} kind="close" maxLines={4} />
                       </td>
                     ) : null}
                     {verifyHref ? (

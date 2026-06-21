@@ -1578,7 +1578,7 @@
   transform: translateX(-50%);
   z-index: 40;
   width: max-content;
-  max-width: min(320px, 72vw);
+  max-width: min(420px, 85vw);
   padding: 8px 10px;
   font-size: 11px;
   font-weight: 500;
@@ -1612,8 +1612,43 @@
   color: var(--term-accent, #22c55e);
 }
 
+.term-trade-reason-hint__body {
+  display: block;
+  white-space: pre-line;
+}
+
 .term-trade-reason-hint--inline {
   margin-left: 2px;
+}
+
+.term-trade-reason-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 280px;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--term-text-muted, #a1a1aa);
+}
+
+.term-trade-reason-cell--empty {
+  color: var(--term-text-muted, #52525b);
+}
+
+.term-trade-reason-cell__line {
+  display: block;
+  word-break: break-word;
+}
+
+.term-trade-reason-cell__more {
+  font-size: 9px;
+  color: var(--term-accent, #22c55e);
+}
+
+.term-hl-open-reason-col {
+  min-width: 160px;
+  max-width: 300px;
+  vertical-align: top;
 }
 
 .term-analysis-subline--why {

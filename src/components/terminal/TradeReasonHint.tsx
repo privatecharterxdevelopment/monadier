@@ -48,7 +48,7 @@ const TradeReasonHint: React.FC<Props> = ({
       <HelpCircle size={12} strokeWidth={2.2} aria-hidden />
       <span className="term-trade-reason-hint__tip">
         <strong className="term-trade-reason-hint__title">{heading}</strong>
-        {text}
+        <span className="term-trade-reason-hint__body">{text}</span>
       </span>
     </span>
   );

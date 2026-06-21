@@ -6,7 +6,7 @@ import { useSubscription } from '../../contexts/SubscriptionContext';
 import { persistVaultSettings } from '../../lib/syncVaultSettings';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
 import { snapLeverageToStep } from '../../lib/leverageLimits';
-import type { HlBotStrategy } from '../../lib/hlBotStrategy';
+import { HL_DEFAULT_STOP_LOSS_PERCENT } from '../../lib/hlBotConstants';
 
 export type BotSettingsEditorOptions = {
   settings: VaultSettingsSnapshot;
@@ -194,8 +194,8 @@ export function useBotSettingsEditor({
           autoTradeEnabled: autoTrade,
           riskPct: riskLevel,
           leverage: savedLeverage,
-          takeProfit: 0,
-          stopLoss: 0,
+          takeProfit: takeProfit,
+          stopLoss: stopLoss > 0 ? stopLoss : HL_DEFAULT_STOP_LOSS_PERCENT,
           askPermission,
           minWinRate,
           minTradesForWinRate,

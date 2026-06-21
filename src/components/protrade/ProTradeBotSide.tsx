@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useState } from 'react';
-import { useAccount } from 'wagmi';
+import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
@@ -56,7 +56,7 @@ export const ProTradeBotDockSlot: React.FC<DockProps> = ({
   onCoinClick,
 }) => {
   const { metrics, dockRefreshKey, refresh } = useProTradeBot();
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useMonadierWallet();
 
   return (
     <ProTradeBotDock

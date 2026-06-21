@@ -4,7 +4,7 @@ import { fmtTradeUsdSymbol } from '../../lib/hyperliquid/format';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
 import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
-import TradeReasonHint from './TradeReasonHint';
+import TradeReasonCell from './TradeReasonCell';
 
 type Props = {
   positions: HlPosition[];
@@ -66,6 +66,7 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
             <th>Mark</th>
             <th>Lev</th>
             <th>uPnL</th>
+            <th>Why open</th>
             <th className="term-hl-open-actions-col">Close</th>
           </tr>
         </thead>
@@ -95,7 +96,6 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
                     ) : (
                       <strong>{p.coin}</strong>
                     )}
-                    <TradeReasonHint reason={openReason} kind="open" />
                   </span>
                   <span className="term-dock-meta"> · HL</span>
                 </td>
@@ -111,6 +111,9 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
                 <td className={upnl >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'}>
                   {upnl >= 0 ? '+' : ''}
                   {fmtUsd(upnl)}
+                </td>
+                <td className="term-hl-open-reason-col">
+                  <TradeReasonCell reason={openReason} kind="open" maxLines={4} />
                 </td>
                 <td className="term-dock-actions term-hl-open-actions-col">
                   <button

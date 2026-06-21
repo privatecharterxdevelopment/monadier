@@ -8,6 +8,7 @@ import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { filterWeekendShortOnly, isWeekendShortOnlyWindow } from './weekendTradingRules';
 import { validatePreTradeLiquidity } from './liquiditySweepGate';
 import { validateEntryLocation } from './entryLocationGate';
+import { validateMacroBetaAlignment } from './macroBetaGate';
 
 export type BotSignalMode = 'standard' | 'aggressive';
 
@@ -20,6 +21,13 @@ export type GlobalSignalCandidate = {
   dayVolumeUsd: number;
   openInterestUsd: number;
   botMode: BotSignalMode;
+  mtfBreakdown?: string;
+  trendAlignment?: number;
+  directionalTfCount?: number;
+  h1Trend?: string;
+  liquidityReason?: string;
+  locationReason?: string;
+  macroReason?: string;
 };
 
 const STANDARD_STRATEGY: TradingStrategy = 'normal';
@@ -86,15 +94,35 @@ async function scanStandardCoin(
       });
       return null;
     }
+    const macroGate = await validateMacroBetaAlignment({
+      coin,
+      direction: analysis.direction,
+    });
+    if (!macroGate.ok) {
+      logger.debug('HL scan skip: macro beta', {
+        coin,
+        direction: analysis.direction,
+        blockers: macroGate.blockers,
+        reason: macroGate.reason,
+      });
+      return null;
+    }
     return {
       coin,
       symbol,
       direction: analysis.direction,
       confidence: analysis.confidence,
-      reason: `${analysis.reason} · ${locationGate.reason}`,
+      reason: analysis.reason,
       dayVolumeUsd: liq.dayVolumeUsd,
       openInterestUsd: liq.openInterestUsd,
       botMode: 'standard',
+      mtfBreakdown: analysis.mtfBreakdown,
+      trendAlignment: analysis.metrics?.trendAlignment,
+      directionalTfCount: analysis.metrics?.directionalTfCount,
+      h1Trend: analysis.metrics?.h1Trend,
+      liquidityReason: liqGate.reason,
+      locationReason: locationGate.reason,
+      macroReason: macroGate.reason,
     };
   } catch {
     return null;
@@ -110,6 +138,26 @@ async function scanAggressiveCoin(
     const scalp = await analyzeAggressiveScalpBySymbol(symbol);
     const minConf = Math.max(62, config.hyperliquid.minSignalConfidence - 3);
     if (!scalp || scalp.confidence < minConf) return null;
+
+    const h1Check = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
+    if (h1Check) {
+      if (scalp.direction === 'SHORT' && h1Check.metrics?.h1Trend === 'UP') {
+        logger.debug('HL agg scan skip: 1h trend UP blocks SHORT', { coin });
+        return null;
+      }
+      if (scalp.direction === 'LONG' && h1Check.metrics?.h1Trend === 'DOWN') {
+        logger.debug('HL agg scan skip: 1h trend DOWN blocks LONG', { coin });
+        return null;
+      }
+    }
+
+    const liqGate = await validatePreTradeLiquidity({
+      symbol,
+      direction: scalp.direction,
+      dayVolumeUsd: liq.dayVolumeUsd,
+      timeframe: '1m',
+    });
+    if (!liqGate.ok) return null;
     const locationGate = await validateEntryLocation({
       symbol,
       direction: scalp.direction,
@@ -122,15 +170,30 @@ async function scanAggressiveCoin(
       });
       return null;
     }
+    const macroGate = await validateMacroBetaAlignment({
+      coin,
+      direction: scalp.direction,
+    });
+    if (!macroGate.ok) {
+      logger.debug('HL scan skip: macro beta', {
+        coin,
+        direction: scalp.direction,
+        blockers: macroGate.blockers,
+      });
+      return null;
+    }
     return {
       coin,
       symbol,
       direction: scalp.direction,
       confidence: scalp.confidence,
-      reason: `${scalp.reason} · ${locationGate.reason}`,
+      reason: scalp.reason,
       dayVolumeUsd: liq.dayVolumeUsd,
       openInterestUsd: liq.openInterestUsd,
       botMode: 'aggressive',
+      liquidityReason: liqGate.reason,
+      locationReason: locationGate.reason,
+      macroReason: macroGate.reason,
     };
   } catch {
     return null;

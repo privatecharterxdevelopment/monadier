@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Menu, X } from 'lucide-react';
-import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
+import { useAppKit } from '@reown/appkit/react';
+import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import Logo from '../ui/Logo';
 import DockCountBadge from './DockCountBadge';
 import ProTradeAccountMenu from './ProTradeAccountMenu';
@@ -69,7 +70,7 @@ const ProTradeTopNav: React.FC<Props> = ({
 }) => {
   const { isLight } = useProTradeTheme();
   const { open } = useAppKit();
-  const { address, isConnected } = useAppKitAccount();
+  const { address, isConnected } = useMonadierWallet();
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 

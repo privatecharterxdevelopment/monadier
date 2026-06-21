@@ -62,6 +62,10 @@ type Props = {
     trailStopPx?: number;
     trailStopLocked?: boolean;
     trailFloorUsd?: number;
+    stopLossPx?: number;
+    takeProfitPx?: number;
+    stopLossMarginPct?: number;
+    takeProfitMarginPct?: number;
   };
   tradeMarkers?: SeriesMarker<UTCTimestamp>[];
 };
@@ -181,6 +185,24 @@ const ProTradeChartInner: React.FC<Props> = ({
           </button>
         </div>
       </div>
+      {positionOverlay ? (
+        <div className="hl-chart-legend" aria-label="Chart position lines">
+          <span className="hl-chart-legend__item hl-chart-legend__item--entry">Entry</span>
+          {positionOverlay.stopLossPx ? (
+            <span className="hl-chart-legend__item hl-chart-legend__item--sl">SL</span>
+          ) : null}
+          {positionOverlay.takeProfitPx ? (
+            <span className="hl-chart-legend__item hl-chart-legend__item--tp">TP</span>
+          ) : null}
+          {positionOverlay.trailStopPx ? (
+            <span className="hl-chart-legend__item hl-chart-legend__item--trail">Trail SL</span>
+          ) : null}
+          {positionOverlay.liqPx ? (
+            <span className="hl-chart-legend__item hl-chart-legend__item--liq">Liq</span>
+          ) : null}
+          <span className="hl-chart-legend__hint">HL Pro tab = Hyperliquid-style drawing tools</span>
+        </div>
+      ) : null}
       <ChartPaneErrorBoundary engine={mountedEngine === 'none' ? engine : mountedEngine}>
         <div className="hl-chart-engine">
           {mountedEngine === 'none' ? (

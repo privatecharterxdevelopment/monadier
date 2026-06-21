@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useAppKitAccount } from '@reown/appkit/react';
+import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import ProTradeShell from '../../components/protrade/ProTradeShell';
 import ProTradeTopNav, { type ProTradeSection } from '../../components/protrade/ProTradeTopNav';
 import ProTradeMobileTradeFab from '../../components/protrade/ProTradeMobileTradeFab';
@@ -46,6 +46,7 @@ import type { HlPosition } from '../../lib/hyperliquid/user';
 import { isHlSpotCoin } from '../../lib/hyperliquid/spot';
 import { readNum, toNum } from '../../lib/hyperliquid/parse';
 import { hlCoinToBotSymbol, normalizeHlPerpCoin } from '../../lib/botTradingPairs';
+import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
 import { HL_MAX_CONCURRENT_POSITIONS } from '../../lib/hlBotConstants';
 import { useBotServerBlockers } from '../../hooks/useBotServerBlockers';
 import { useBotPositionBadge } from '../../hooks/useBotPositionBadge';
@@ -75,7 +76,7 @@ function parseProfileTab(raw: string | null): ProTradeProfileTab {
 const Dashboard2ProPageContent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, sessionReady } = useAuth();
-  const { address, isConnected } = useAppKitAccount();
+  const { address, isConnected } = useMonadierWallet();
   const initialSection = searchParams.get('section');
   const [section, setSection] = useState<ProTradeSection>(() => {
     if (initialSection === 'bot') return 'bot';
@@ -226,10 +227,39 @@ const Dashboard2ProPageContent: React.FC = () => {
     perpCoin,
   ]);
 
+  const botEffSettings = useMemo(
+    () => effectiveHlBotSettings(botVaultSettings),
+    [botVaultSettings]
+  );
+
   const botChartOverlay = useHlBotChartOverlay(
     botChartPosition,
     perpCoin,
-    botVaultSettings.hlBotStrategy
+    botVaultSettings.hlBotStrategy,
+    {
+      stopLossMarginPct: botEffSettings.stopLoss,
+      takeProfitMarginPct: botEffSettings.takeProfit,
+    }
+  );
+
+  const perpChartPosition = useMemo(
+    () =>
+      (account?.positions ?? []).find(
+        (p) =>
+          normalizeHlPerpCoin(p.coin) === normalizeHlPerpCoin(perpCoin) &&
+          Math.abs(toNum(p.szi)) > 0
+      ) ?? null,
+    [account?.positions, perpCoin]
+  );
+
+  const perpChartOverlay = useHlBotChartOverlay(
+    perpChartPosition,
+    perpCoin,
+    botVaultSettings.hlBotStrategy,
+    {
+      stopLossMarginPct: botEffSettings.stopLoss,
+      takeProfitMarginPct: botEffSettings.takeProfit,
+    }
   );
 
   /** User picked a position coin — don't auto-switch chart away from it. */
@@ -493,6 +523,8 @@ const Dashboard2ProPageContent: React.FC = () => {
               openOrders={perpOpenOrders}
               onIntervalChange={setInterval}
               layoutKey={`perps-${perpCoin}-${interval}`}
+              defaultEngine={perpChartOverlay ? 'hl' : 'hltv'}
+              positionOverlay={perpChartOverlay}
             />
             <ProTradeOrderBook
               book={perpMarket.book}
@@ -606,7 +638,7 @@ const Dashboard2ProPageContent: React.FC = () => {
               openOrders={perpOpenOrders}
               onIntervalChange={setInterval}
               layoutKey={`bot-${interval}`}
-              defaultEngine="hltv"
+              defaultEngine={botChartOverlay ? 'hl' : 'hltv'}
               hideTvNote
               positionOverlay={botChartOverlay}
               tradeMarkers={botTradeMarkers}

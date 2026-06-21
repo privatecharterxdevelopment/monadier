@@ -60,11 +60,12 @@ export function shouldClosePeakDropUsd(
   pnlUsd: number,
   peakUsd: number,
   minPeakUsd: number,
-  dropBufferUsd: number
+  dropBufferUsd: number,
+  peakDropFraction = 0.22
 ): boolean {
   if (peakUsd < minPeakUsd || pnlUsd <= 0 || dropBufferUsd <= 0) return false;
   const drop = peakUsd - pnlUsd;
-  const minDrop = Math.max(dropBufferUsd, peakUsd * 0.22);
+  const minDrop = Math.max(dropBufferUsd, peakUsd * peakDropFraction);
   return drop >= minDrop;
 }
 

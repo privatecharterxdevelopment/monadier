@@ -43,6 +43,10 @@ type Props = {
     trailStopPx?: number;
     trailStopLocked?: boolean;
     trailFloorUsd?: number;
+    stopLossPx?: number;
+    takeProfitPx?: number;
+    stopLossMarginPct?: number;
+    takeProfitMarginPct?: number;
   };
   tradeMarkers?: SeriesMarker<UTCTimestamp>[];
   /** Live mark price — horizontal line follows HL quote between candle closes. */
@@ -459,9 +463,37 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
           axisLabelVisible: true,
           title: locked
             ? `Trail SL +$${floorUsd.toFixed(2)}`
-            : 'Trail SL (arming)',
+            : 'Trail SL (60s hold)',
         });
         priceLinesRef.current.push(trailLine);
+      }
+
+      const slPx = positionOverlay?.stopLossPx;
+      if (slPx != null && slPx > 0) {
+        const slPct = positionOverlay.stopLossMarginPct ?? 0;
+        const slLine = series.createPriceLine({
+          price: slPx,
+          color: '#ef4444',
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: slPct > 0 ? `SL −${slPct}%` : 'Stop loss',
+        });
+        priceLinesRef.current.push(slLine);
+      }
+
+      const tpPx = positionOverlay?.takeProfitPx;
+      if (tpPx != null && tpPx > 0) {
+        const tpPct = positionOverlay.takeProfitMarginPct ?? 0;
+        const tpLine = series.createPriceLine({
+          price: tpPx,
+          color: '#22c55e',
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: tpPct > 0 ? `TP +${tpPct}%` : 'Take profit',
+        });
+        priceLinesRef.current.push(tpLine);
       }
     });
   }, [openOrders, overlayCoin, chartColors.down, chartColors.up, positionOverlay]);

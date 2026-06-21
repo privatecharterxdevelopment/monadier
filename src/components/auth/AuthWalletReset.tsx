@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useDisconnect } from 'wagmi';
+import { clearWalletSession } from '../../lib/walletSession';
 import { useAuth } from '../../contexts/AuthContext';
 import { disableDemoMode } from '../../lib/demoMode';
 
@@ -28,9 +29,11 @@ const AuthWalletReset: React.FC = () => {
       // Switch accounts or sign out — not on first session restore (null → user).
       if (prev != null && uid != null && prev !== uid) {
         disableDemoMode();
+        clearWalletSession();
         disconnect();
       } else if (prev != null && uid == null) {
         disableDemoMode();
+        clearWalletSession();
         disconnect();
       }
     }

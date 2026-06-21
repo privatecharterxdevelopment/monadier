@@ -31,6 +31,14 @@ import { resolveHlOrderBuilder, estimateCollectedSuccessFee } from './hlBuilderF
 import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from './hlSuccessFees';
 import { recordHlBotOpenMarker } from './hlChartMarkers';
 import { validateEntryLocation } from './entryLocationGate';
+import { validateMacroBetaAlignment } from './macroBetaGate';
+import { buildHlOpenReasonDoc } from './openReasonBuilder';
+import {
+  buildCloseReasonDoc,
+  evaluatePositionThesis,
+  logThesisDeferStopLoss,
+  shouldForceLossCap,
+} from './positionThesisGate';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import {
   shouldCloseNeverRedAfterGreen,
@@ -56,6 +64,9 @@ const hlProfitLockFloorUsd = new Map<string, number>();
 /** When uPnL first crossed min profit — for timeout grab. */
 const hlProfitSinceAt = new Map<string, number>();
 
+/** First time we saw an open position — min-hold before thesis loss close. */
+const hlPositionOpenedAt = new Map<string, number>();
+
 /** Last close timestamp per wallet — anti-churn cooldown before next open. */
 const hlLastCloseAt = new Map<string, number>();
 
@@ -78,6 +89,7 @@ function clearProfitLockState(lockKey: string): void {
   hlProfitPeakUsd.delete(lockKey);
   hlProfitLockFloorUsd.delete(lockKey);
   hlProfitSinceAt.delete(lockKey);
+  hlPositionOpenedAt.delete(lockKey);
 }
 
 function resolveMarginPerSlot(
@@ -291,7 +303,10 @@ export class HyperliquidTradingService {
         continue;
       }
 
-      passing.push({ signal, score: liquidityPickScore(signal) });
+      passing.push({
+        signal: { ...signal, liquidityReason: gate.reason },
+        score: liquidityPickScore(signal),
+      });
       logger.info('HL signal passed pre-trade gate', {
         coin: signal.coin,
         direction: signal.direction,
@@ -406,7 +421,8 @@ export class HyperliquidTradingService {
           direction: pick.direction,
           notionalUsd,
           leverage,
-          reason: `${strategy === 'profit_grabber' ? 'Agg' : 'Std'} ${pick.direction} ${pick.confidence}% · ${pick.coin} · ${pick.reason.slice(0, 80)}`,
+          pick,
+          botModeLabel: strategy === 'profit_grabber' ? 'Agg' : 'Std',
           ctx,
         });
 
@@ -471,7 +487,8 @@ export class HyperliquidTradingService {
     direction: 'LONG' | 'SHORT';
     notionalUsd: number;
     leverage: number;
-    reason: string;
+    pick: GlobalSignalCandidate;
+    botModeLabel: 'Std' | 'Agg';
     ctx: TradingCycleContext;
   }): Promise<{ success: boolean; error?: string }> {
     try {
@@ -489,6 +506,22 @@ export class HyperliquidTradingService {
       if (size <= 0) return { success: false, error: 'Invalid size' };
 
       const symbol = hlCoinToBinanceSymbol(coin);
+
+      const macroGate = await validateMacroBetaAlignment({
+        coin,
+        direction: opts.direction,
+      });
+      if (!macroGate.ok) {
+        logger.info('HL open blocked — macro beta gate', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          blockers: macroGate.blockers,
+          reason: macroGate.reason,
+        });
+        return { success: false, error: macroGate.reason };
+      }
+
       const locationGate = await validateEntryLocation({
         symbol,
         direction: opts.direction,
@@ -504,6 +537,16 @@ export class HyperliquidTradingService {
         });
         return { success: false, error: locationGate.reason };
       }
+
+      const openReasonDoc = buildHlOpenReasonDoc({
+        mode: opts.botModeLabel,
+        pick: opts.pick,
+        notionalUsd: opts.notionalUsd,
+        leverage: effectiveLeverage,
+        locationGate,
+        macroGate,
+        liquidityReason: opts.pick.liquidityReason,
+      });
 
       const client = createAgentClient(opts.userAddress);
       await client.updateLeverage({
@@ -548,7 +591,8 @@ export class HyperliquidTradingService {
         direction: opts.direction,
         leverage: effectiveLeverage,
         notionalUsd: opts.notionalUsd.toFixed(2),
-        reason: opts.reason,
+        openReason: openReasonDoc,
+        macroBlockers: macroGate.blockers,
         openSlot: 'multi',
       });
 
@@ -557,8 +601,10 @@ export class HyperliquidTradingService {
         coin,
         direction: opts.direction,
         entryPx: markPx,
-        reason: `${opts.reason} · ${locationGate.reason}`,
+        reason: openReasonDoc,
       });
+
+      hlPositionOpenedAt.set(positionKey(opts.userAddress, coin), Date.now());
 
       return { success: true };
     } catch (err: unknown) {
@@ -641,6 +687,12 @@ export class HyperliquidTradingService {
       const trailBufferUsd = exitPolicy.trailBufferUsd;
 
       const lockKey = positionKey(userAddress, pos.coin);
+      if (!hlPositionOpenedAt.has(lockKey)) {
+        hlPositionOpenedAt.set(lockKey, nowMs);
+      }
+      const openedAt = hlPositionOpenedAt.get(lockKey) ?? nowMs;
+      const holdMs = nowMs - openedAt;
+      const positionDirection: 'LONG' | 'SHORT' = size > 0 ? 'LONG' : 'SHORT';
 
       if (!fast && meta) {
         const targetLev = Math.min(configuredLev, maxLeverageForCoin(meta, pos.coin));
@@ -672,7 +724,12 @@ export class HyperliquidTradingService {
 
       let floorUsd = hlProfitLockFloorUsd.get(lockKey) ?? minFloorUsd;
 
-      if (pnl >= lockActivateUsd) {
+      const inProfitSince = hlProfitSinceAt.get(lockKey);
+      const profitHoldMs =
+        inProfitSince != null && pnl >= minGrabUsd ? nowMs - inProfitSince : 0;
+      const profitExitReady = profitHoldMs >= exitPolicy.minProfitHoldBeforeExitMs;
+
+      if (pnl >= lockActivateUsd && profitExitReady) {
         if (!locked) {
           locked = true;
           hlProfitLockActive.set(lockKey, true);
@@ -682,6 +739,7 @@ export class HyperliquidTradingService {
             user: userAddress.slice(0, 10),
             coin: pos.coin,
             strategy,
+            profitHoldSec: Math.round(profitHoldMs / 1000),
             pnlUsd: pnl.toFixed(4),
             floorUsd: floorUsd.toFixed(4),
           });
@@ -693,7 +751,6 @@ export class HyperliquidTradingService {
         }
       }
 
-      const inProfitSince = hlProfitSinceAt.get(lockKey);
       const closeCtx = {
         entryPx: entry,
         unrealizedPnlUsd: pnl,
@@ -701,47 +758,139 @@ export class HyperliquidTradingService {
         leverage: pos.leverage?.value ?? 10,
       };
 
-      // Profit-first — once green, SL trails in profit; never hold red after a real peak.
-      if (shouldCloseNeverRedAfterGreen(pnl, peak, minGrabUsd)) {
-        clearProfitLockState(lockKey);
-        await this.closeMarketPosition(userAddress, pos.coin, 'breakeven_scratch', closeCtx);
-      } else if (
-        locked &&
-        peak >= minGrabUsd &&
-        shouldCloseProfitLockUsd(pnl, floorUsd, locked)
-      ) {
-        clearProfitLockState(lockKey);
-        await this.closeMarketPosition(userAddress, pos.coin, 'profit_lock', closeCtx);
-      } else if (shouldClosePeakDropUsd(pnl, peak, minGrabUsd, trailBufferUsd)) {
-        clearProfitLockState(lockKey);
-        await this.closeMarketPosition(userAddress, pos.coin, 'profit_grab_peak', closeCtx);
-      } else if (
-        exitPolicy.maxHoldInProfitMs > 0 &&
-        shouldCloseProfitHoldTimeout(
-          pnl,
-          minGrabUsd,
-          inProfitSince,
-          exitPolicy.maxHoldInProfitMs,
-          nowMs
-        )
-      ) {
-        clearProfitLockState(lockKey);
-        await this.closeMarketPosition(userAddress, pos.coin, 'profit_grab_timeout', closeCtx);
-      } else if (
-        tp > 0 &&
-        exitPolicy.useTakeProfitPercent &&
-        shouldTakeProfitOnPnl(pnlPct, tp) &&
-        pnl >= minGrabUsd
-      ) {
-        clearProfitLockState(lockKey);
-        await this.closeMarketPosition(userAddress, pos.coin, 'take_profit', closeCtx);
-      } else if (
-        sl > 0 &&
-        peak < minGrabUsd &&
-        shouldStopLossOnPnl(pnlPct, sl)
-      ) {
-        clearProfitLockState(lockKey);
-        await this.closeMarketPosition(userAddress, pos.coin, 'stop_loss', closeCtx);
+      // Profit exits — only after min green hold; defer while macro+MTF still with us.
+      if (pnl > 0 && profitExitReady) {
+        const thesis = await evaluatePositionThesis({
+          coin: pos.coin,
+          direction: positionDirection,
+        });
+        const momentumWithUs = thesis.thesisIntact;
+        const effectiveTrailBuffer = momentumWithUs
+          ? trailBufferUsd * 1.75
+          : trailBufferUsd;
+        const peakDropFrac = momentumWithUs
+          ? Math.min(0.55, exitPolicy.peakDropFraction + 0.15)
+          : exitPolicy.peakDropFraction;
+
+        if (
+          shouldCloseNeverRedAfterGreen(pnl, peak, minGrabUsd) &&
+          peak >= lockActivateUsd
+        ) {
+          clearProfitLockState(lockKey);
+          await this.closeMarketPosition(userAddress, pos.coin, 'breakeven_scratch', closeCtx);
+        } else if (
+          locked &&
+          peak >= minGrabUsd &&
+          shouldCloseProfitLockUsd(pnl, floorUsd, locked) &&
+          !momentumWithUs
+        ) {
+          clearProfitLockState(lockKey);
+          await this.closeMarketPosition(userAddress, pos.coin, 'profit_lock', closeCtx);
+        } else if (
+          !momentumWithUs &&
+          shouldClosePeakDropUsd(
+            pnl,
+            peak,
+            minGrabUsd,
+            effectiveTrailBuffer,
+            peakDropFrac
+          )
+        ) {
+          clearProfitLockState(lockKey);
+          await this.closeMarketPosition(userAddress, pos.coin, 'profit_grab_peak', closeCtx);
+        } else if (
+          exitPolicy.maxHoldInProfitMs > 0 &&
+          shouldCloseProfitHoldTimeout(
+            pnl,
+            minGrabUsd,
+            inProfitSince,
+            exitPolicy.maxHoldInProfitMs,
+            nowMs
+          )
+        ) {
+          clearProfitLockState(lockKey);
+          await this.closeMarketPosition(userAddress, pos.coin, 'profit_grab_timeout', closeCtx);
+        } else if (
+          tp > 0 &&
+          exitPolicy.useTakeProfitPercent &&
+          shouldTakeProfitOnPnl(pnlPct, tp) &&
+          pnl >= minGrabUsd
+        ) {
+          clearProfitLockState(lockKey);
+          await this.closeMarketPosition(userAddress, pos.coin, 'take_profit', closeCtx);
+        } else if (momentumWithUs && pnl >= minGrabUsd) {
+          logger.debug('HL profit run — thesis intact, holding', {
+            user: userAddress.slice(0, 10),
+            coin: pos.coin,
+            pnlUsd: pnl.toFixed(4),
+            peakUsd: peak.toFixed(4),
+            profitHoldSec: Math.round(profitHoldMs / 1000),
+          });
+        }
+      } else if (pnl < 0) {
+        const thesis = await evaluatePositionThesis({
+          coin: pos.coin,
+          direction: positionDirection,
+        });
+        const minHold = config.hyperliquid.thesisMinHoldBeforeLossCloseMs;
+        const closeDocBase = {
+          coin: pos.coin,
+          direction: positionDirection,
+          pnlUsd: pnl,
+          pnlPct,
+          slPct: sl,
+          peakUsd: peak,
+          thesis,
+        };
+
+        if (
+          !thesis.thesisIntact &&
+          holdMs >= minHold &&
+          (thesis.macroAgainst || thesis.signalAgainst)
+        ) {
+          clearProfitLockState(lockKey);
+          hlPositionOpenedAt.delete(lockKey);
+          const detail = buildCloseReasonDoc({
+            closeCode: 'signal_reversal',
+            ...closeDocBase,
+          });
+          await this.closeMarketPosition(
+            userAddress,
+            pos.coin,
+            'signal_reversal',
+            closeCtx,
+            detail
+          );
+        } else if (
+          sl > 0 &&
+          peak < minGrabUsd &&
+          shouldStopLossOnPnl(pnlPct, sl)
+        ) {
+          if (thesis.thesisIntact && !shouldForceLossCap(pnlPct, sl, pnl)) {
+            logThesisDeferStopLoss(
+              userAddress,
+              pos.coin,
+              positionDirection,
+              pnlPct,
+              sl,
+              thesis
+            );
+          } else {
+            clearProfitLockState(lockKey);
+            hlPositionOpenedAt.delete(lockKey);
+            const detail = buildCloseReasonDoc({
+              closeCode: 'stop_loss',
+              ...closeDocBase,
+            });
+            await this.closeMarketPosition(
+              userAddress,
+              pos.coin,
+              'stop_loss',
+              closeCtx,
+              detail
+            );
+          }
+        }
       }
     }
   }
@@ -796,7 +945,8 @@ export class HyperliquidTradingService {
       unrealizedPnlUsd: number;
       size: number;
       leverage: number;
-    }
+    },
+    reasonDetail?: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const coinUpper = coin.toUpperCase();
@@ -960,7 +1110,7 @@ export class HyperliquidTradingService {
 
       await recordHlBotClose({
         walletAddress: userAddress,
-        reason,
+        reason: reasonDetail ?? reason,
         snapshot,
         collectedFeeUsd: collectedFee,
         viaHlBuilder,

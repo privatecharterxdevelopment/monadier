@@ -14,6 +14,7 @@ import { getEnvSetupIssue } from './lib/envCheck';
 import EnvSetupScreen from './components/EnvSetupScreen';
 import AuthWalletReset from './components/auth/AuthWalletReset';
 import AuthOAuthCapture from './components/auth/AuthOAuthCapture';
+import WalletSessionBridge from './components/auth/WalletSessionBridge';
 import './index.css';
 
 const queryClient = new QueryClient();
@@ -31,13 +32,14 @@ createRoot(rootEl).render(
       <EnvSetupScreen issue={envIssue} />
     ) : (
       <ErrorBoundary>
-      <WagmiProvider config={config}>
+      <WagmiProvider config={config} reconnectOnMount>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
             <AuthProvider>
               <SubscriptionProvider>
                 <NotificationProvider>
                   <Web3Provider>
+                    <WalletSessionBridge />
                     <AuthOAuthCapture />
                     <AuthWalletReset />
                     <App />

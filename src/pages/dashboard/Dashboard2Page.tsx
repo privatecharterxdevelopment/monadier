@@ -4,7 +4,8 @@ import { Wallet, ArrowDownLeft, ArrowUpRight, Settings } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useUserLocale } from '../../hooks/useUserLocale';
-import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
+import { useAppKit } from '@reown/appkit/react';
+import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { recordLoginActivity } from '../../lib/loginActivity';
@@ -46,7 +47,7 @@ const Dashboard2Page: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { profile, user, isDemoUser, isLoading: authLoading, sessionReady } = useAuth();
   const { open } = useAppKit();
-  const { address, isConnected } = useAppKitAccount();
+  const { address, isConnected } = useMonadierWallet();
   const { totalUsdValue } = useWeb3();
   const { metrics, refresh } = useDashboard2Metrics();
   const { greeting } = useUserLocale();

@@ -102,18 +102,23 @@ export const config = {
     /** Close HL perps at this % gain on margin (user DB setting overrides). */
     /** 0 = user disabled TP. */
     defaultTakeProfitPercent: Number(process.env.HL_DEFAULT_TP_PERCENT || 0),
-    /** Default −2% on margin when SL not set; 0 in DB = user disabled. */
-    defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 2),
+    /** 0 = user disabled SL in DB — do NOT override with default in monitor. */
+    defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 4),
     defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 2),
     /** Min uPnL before any profit exit (covers HL fees). */
-    minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.03),
-    profitLockActivateUsd: Number(process.env.HL_PROFIT_LOCK_ACTIVATE_USD || 0.04),
+    minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
+    /** Must stay green this long before ANY profit exit (let winners run). */
+    profitMinHoldBeforeExitMs: Number(process.env.HL_PROFIT_MIN_HOLD_MS || 60_000),
+    profitLockActivateUsd: Number(process.env.HL_PROFIT_LOCK_ACTIVATE_USD || 0.08),
+    /** After min hold — trail floor ≈ breakeven + ~0.1% margin on typical slot. */
     profitLockFloorUsd: Number(process.env.HL_PROFIT_LOCK_FLOOR_USD || 0.02),
-    profitLockTrailBufferUsd: Number(process.env.HL_PROFIT_LOCK_TRAIL_BUFFER_USD || 0.015),
+    profitLockTrailBufferUsd: Number(process.env.HL_PROFIT_LOCK_TRAIL_BUFFER_USD || 0.045),
+    /** Fraction of peak uPnL retrace before peak-grab close (0.4 = 40%). */
+    profitPeakDropFraction: Number(process.env.HL_PROFIT_PEAK_DROP_FRAC || 0.4),
     positionMonitorMs: Number(process.env.HL_POSITION_MONITOR_MS || 250),
     /** 0 = disabled — no forced close just for being in profit N ms. */
-    profitGrabMaxHoldMs: Number(process.env.HL_PROFIT_GRAB_MAX_HOLD_MS || 30_000),
-    profitHoldMaxMs: Number(process.env.HL_PROFIT_HOLD_MAX_MS || 60_000),
+    profitGrabMaxHoldMs: Number(process.env.HL_PROFIT_GRAB_MAX_HOLD_MS || 0),
+    profitHoldMaxMs: Number(process.env.HL_PROFIT_HOLD_MAX_MS || 0),
     /** Fri 18:00 UTC through Sat 23:59 — new opens SHORT only when signaled. */
     fridayShortOnlyUtcHour: Number(process.env.HL_FRIDAY_SHORT_ONLY_UTC_HOUR || 18),
     /** Pre-trade: min recent candle vol vs lookback avg. */
@@ -142,6 +147,25 @@ export const config = {
       /** Block long at ceiling after this many rejections at resistance. */
       minRejectionsToBlock: Number(process.env.HL_ENTRY_MIN_REJECTIONS || 2),
     },
+    /** BTC/ETH beta — block counter-trend alt entries (SHORT while pumping, LONG while dumping). */
+    macroBeta: {
+      /** 15m % move that counts as "pumping" (blocks alt SHORT). */
+      pumpBlock15mPct: Number(process.env.HL_MACRO_PUMP_15M || 0.12),
+      pumpBlock1hPct: Number(process.env.HL_MACRO_PUMP_1H || 0.25),
+      dumpBlock15mPct: Number(process.env.HL_MACRO_DUMP_15M || 0.12),
+      dumpBlock1hPct: Number(process.env.HL_MACRO_DUMP_1H || 0.25),
+      flatTrendPct: Number(process.env.HL_MACRO_FLAT_PCT || 0.08),
+      minConsecutiveGreen15m: Number(process.env.HL_MACRO_MIN_GREEN_15M || 3),
+      minConsecutiveRed15m: Number(process.env.HL_MACRO_MIN_RED_15M || 3),
+    },
+    /** Open-position thesis — defer SL while macro+MTF still support direction. */
+    thesisCheckCacheMs: Number(process.env.HL_THESIS_CACHE_MS || 5000),
+    /** Force loss close at SL × this multiple even if thesis intact (safety cap). */
+    thesisMaxLossSlMultiple: Number(process.env.HL_THESIS_MAX_LOSS_SL_MULT || 2.5),
+    /** Absolute USD loss cap before forced close. */
+    thesisMaxLossUsd: Number(process.env.HL_THESIS_MAX_LOSS_USD || 1.5),
+    /** Min ms position must be open before signal_reversal loss close (avoid open→instant close). */
+    thesisMinHoldBeforeLossCloseMs: Number(process.env.HL_THESIS_MIN_HOLD_MS || 45_000),
     /** Minimum margin USD per HL open slot (split across max concurrent positions). */
     minMarginUsd: Number(process.env.HL_MIN_MARGIN_USD || 8),
     /** Success fee on profitable bot closes — 1000 = 10% of realized profit. */

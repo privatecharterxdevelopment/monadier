@@ -1269,6 +1269,59 @@
   background: var(--hl-bg-hover);
 }
 
+.hl-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 4px 10px 6px;
+  font-size: 10px;
+  color: var(--hl-text-faint);
+  border-bottom: 1px solid var(--hl-border, rgba(255, 255, 255, 0.06));
+}
+
+.hl-chart-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.hl-chart-legend__item::before {
+  content: '';
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.hl-chart-legend__item--entry::before {
+  background: #22c55e;
+}
+
+.hl-chart-legend__item--sl::before {
+  background: #ef4444;
+  border-style: dashed;
+}
+
+.hl-chart-legend__item--tp::before {
+  background: #22c55e;
+  opacity: 0.65;
+}
+
+.hl-chart-legend__item--trail::before {
+  background: #eab308;
+}
+
+.hl-chart-legend__item--liq::before {
+  background: #ff9800;
+}
+
+.hl-chart-legend__hint {
+  margin-left: auto;
+  font-size: 9px;
+  opacity: 0.75;
+}
+
 .hl-chart-canvas {
   flex: 1;
   width: 100%;

@@ -44,6 +44,9 @@ interface MarketAnalysis {
   marketWarning?: string;
   isWeak?: boolean; // Signal is too weak to trade
   strength?: number; // Signal strength 1-10 (NEW)
+  /** Per-TF breakdown for open-reason logging. */
+  mtfBreakdown?: string;
+  signalReasons?: string[];
   metrics: {
     rsi: number;
     macd: string;
@@ -1217,9 +1220,16 @@ export async function analyzeMarketMTFBySymbol(
           (signal.warnings.length > 0 && signal.trendAlignment < 50)
         : signal.confidence < strategyConfig.minConfidence);
 
+    const mtfBreakdown = signal.timeframes
+      .map(
+        (tf) =>
+          `${tf.timeframe} ${tf.direction} ${Math.round(tf.confidence)}% RSI${Math.round(tf.rsi)} ${tf.trend}`
+      )
+      .join(' · ');
+
     const reason =
       signal.reasons.length > 0
-        ? signal.reasons.slice(0, 2).join(' | ')
+        ? signal.reasons.slice(0, 4).join(' | ')
         : `MTF: ${finalDirection} (${signal.confidence.toFixed(0)}%)`;
 
     let suggestedTP =
@@ -1249,6 +1259,8 @@ export async function analyzeMarketMTFBySymbol(
       confidence: Math.round(signal.confidence),
       strength: signalStrength,
       reason,
+      mtfBreakdown,
+      signalReasons: signal.reasons,
       indicators: indicators.slice(0, 5),
       isReversalSignal: signal.patternStrength > 50,
       suggestedTP,
