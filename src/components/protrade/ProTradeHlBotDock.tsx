@@ -152,7 +152,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         dockTab === 'tradeHistory' && !historyOnly ? ' hl-bot-dock--history-tab' : ''
       }${className ? ` ${className}` : ''}`}
     >
-      {!historyOnly ? (
+      {!historyOnly && !showAnalyzer ? (
         <div className="hl-dock-mode-label">Monadier bot</div>
       ) : null}
       {showAnalyzer ? (

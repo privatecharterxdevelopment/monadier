@@ -60,10 +60,7 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
   signal,
   dbAnalysis,
   activeSymbol,
-  globalBest,
   readiness,
-  openPositionsCount = 0,
-  maxConcurrentPositions = 2,
   placement = 'chart',
 }) => {
   const [cycleIndex, setCycleIndex] = useState(0);
@@ -115,89 +112,80 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
 
   const headline = useMemo(() => {
     const h = readiness?.headline ?? ANALYSIS_STEPS[step].label;
-    if (h === 'Bot waiting' && !readiness?.detail?.trim()) return 'Scanning markets';
+    if (h === 'Bot waiting' && !readiness?.detail?.trim()) return 'Scanning';
     return h;
   }, [readiness?.headline, readiness?.detail, step]);
-
-  const whyLine = useMemo(() => {
-    if (globalBest?.reason?.trim()) {
-      const conf = Math.round(globalBest.confidence);
-      const slot =
-        openPositionsCount > 0 && openPositionsCount < maxConcurrentPositions
-          ? `Slot ${openPositionsCount + 1}: `
-          : '';
-      const line = `${slot}${globalBest.coin} ${globalBest.direction} ${conf}% — ${globalBest.reason.trim()}`;
-      return isBotScanNoiseDetail(line) ? null : line;
-    }
-    const detail = readiness?.detail?.trim();
-    if (detail && !isBotScanNoiseDetail(detail)) return detail;
-    if (hasTfConflict) {
-      return 'Chart timeframes on this pair disagree — bot still scans all HL perps for an aligned setup elsewhere.';
-    }
-    return null;
-  }, [
-    globalBest,
-    readiness?.detail,
-    hasTfConflict,
-    openPositionsCount,
-    maxConcurrentPositions,
-  ]);
 
   if (compact) {
     return (
       <div className="term-dock-analysis">
-        <div className="term-analysis-bar term-analysis-bar--compact hl-bot-analyzer-bar">
-          <div className="hl-bot-analyzer-pills">
-            <div className="hl-bot-analyzer-pill">
-              <span className="hl-bot-analyzer-pill__label">Scan</span>
-              <span className="hl-bot-analyzer-pill__value hl-bot-analyzer-pill__value--row">
-                {scanning ? (
-                  <Activity size={11} className="term-analysis-pulse" aria-hidden />
-                ) : null}
-                <span>{headline}</span>
-                {scanning ? (
-                  <span className="hl-bot-analyzer-pill__meta">{Math.round(progress)}%</span>
-                ) : null}
-              </span>
-            </div>
-            {hasData || !isLoading ? (
-              <div className="hl-bot-analyzer-pill">
-                <span className="hl-bot-analyzer-pill__label">Signal</span>
-                <span className={`hl-bot-analyzer-pill__value ${signalClass}`}>
+        <div className="hl-bot-analyzer-bar hl-bot-analyzer-bar--single">
+          <span className="hl-bot-analyzer-brand">Monadier bot</span>
+          <span className="hl-bot-analyzer-vrule" aria-hidden />
+
+          <span className="hl-bot-analyzer-item">
+            <span className="hl-bot-analyzer-k">Scan</span>
+            <span className="hl-bot-analyzer-v">
+              {scanning ? (
+                <Activity size={10} className="term-analysis-pulse" aria-hidden />
+              ) : null}
+              {headline}
+              {scanning ? ` ${Math.round(progress)}%` : ''}
+            </span>
+          </span>
+
+          {(hasData || !isLoading) && (
+            <>
+              <span className="hl-bot-analyzer-vrule" aria-hidden />
+              <span className="hl-bot-analyzer-item">
+                <span className="hl-bot-analyzer-k">Signal</span>
+                <span className={`hl-bot-analyzer-v ${signalClass}`}>
                   {action} {conf}%
-                  {hasTfConflict ? (
-                    <span className="hl-bot-analyzer-pill__meta term-hint--warn"> mixed</span>
-                  ) : null}
+                  {hasTfConflict ? ' · mixed' : ''}
                 </span>
-              </div>
-            ) : null}
-            {activeLabel ? (
-              <div className="hl-bot-analyzer-pill">
-                <span className="hl-bot-analyzer-pill__label">Pair</span>
-                <span className="hl-bot-analyzer-pill__value">{activeLabel}</span>
-              </div>
-            ) : null}
-            {currentTf ? (
-              <div className="hl-bot-analyzer-pill">
-                <span className="hl-bot-analyzer-pill__label">TF</span>
+              </span>
+            </>
+          )}
+
+          {activeLabel ? (
+            <>
+              <span className="hl-bot-analyzer-vrule" aria-hidden />
+              <span className="hl-bot-analyzer-item">
+                <span className="hl-bot-analyzer-k">Pair</span>
+                <span className="hl-bot-analyzer-v">{activeLabel}</span>
+              </span>
+            </>
+          ) : null}
+
+          {currentTf ? (
+            <>
+              <span className="hl-bot-analyzer-vrule" aria-hidden />
+              <span className="hl-bot-analyzer-item">
+                <span className="hl-bot-analyzer-k">TF</span>
                 <span
-                  className={`hl-bot-analyzer-pill__value hl-bot-analyzer-pill__value--muted ${
+                  className={`hl-bot-analyzer-v hl-bot-analyzer-v--muted ${
                     slidePhase === 'out' ? 'term-analysis-cycle-text--out' : ''
                   }`}
                   aria-live="polite"
                 >
                   {currentTf}
                 </span>
-              </div>
-            ) : null}
-          </div>
-          {whyLine ? (
-            <p className="hl-bot-analyzer-subline term-analysis-subline--why">{whyLine}</p>
+              </span>
+            </>
           ) : null}
         </div>
       </div>
     );
   }
+
+  const whyLine = useMemo(() => {
+    const detail = readiness?.detail?.trim();
+    if (detail && !isBotScanNoiseDetail(detail)) return detail;
+    if (hasTfConflict) {
+      return 'Timeframes disagree on this pair — bot scans all HL perps for the best setup.';
+    }
+    return null;
+  }, [readiness?.detail, hasTfConflict]);
 
   return (
     <div className="term-chart-overlay">

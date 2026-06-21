@@ -94,6 +94,8 @@ export function isBotScanNoiseDetail(detail: string): boolean {
     /Bot state out of sync/i.test(d) ||
     /Winning bot closes:/i.test(d) ||
     /Pre-trade gate/i.test(d) ||
+    /Entry blocked/i.test(d) ||
+    /needs live momentum/i.test(d) ||
     /Macro beta/i.test(d) ||
     /HL order failed/i.test(d) ||
     /Volume 0\.00x/i.test(d) ||
