@@ -8,24 +8,24 @@ export const HL_BOT_STRATEGY_LABELS: Record<HlBotStrategy, string> = {
 
 export const HL_BOT_STRATEGY_HINTS: Record<HlBotStrategy, string> = {
   standard:
-    'Standard: MTF trend scan on liquid HL pairs. After 60s green, trails SL into profit — lets winners run.',
+    'Standard: MTF trend scan. First 2.5 min in profit = live analyze (macro/MTF/vol). Then trail SL in profit.',
   profit_grabber:
-    'Aggressive: 6×1m → next 3 with 5m confirm. Same 60s green hold, slightly tighter trail.',
+    'Aggressive: 1m scalp entries. Same 2.5 min green analyze window before profit trail SL.',
 };
 
 /** Must match bot-service resolveHlExitPolicy. */
 export const HL_AGGRESSIVE_PROFIT_LOCK = {
-  activateUsd: 0.06,
+  activateUsd: 0.05,
   floorUsd: 0.015,
   trailBufferUsd: 0.035,
-  minHoldMs: 60_000,
+  minHoldMs: 150_000,
 } as const;
 
 export const HL_STANDARD_PROFIT_LOCK = {
-  activateUsd: 0.08,
+  activateUsd: 0.05,
   floorUsd: 0.02,
   trailBufferUsd: 0.045,
-  minHoldMs: 60_000,
+  minHoldMs: 150_000,
 } as const;
 
 export function normalizeHlBotStrategy(raw: string | null | undefined): HlBotStrategy {

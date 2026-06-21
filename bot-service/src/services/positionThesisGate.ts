@@ -7,6 +7,8 @@ import { logger } from '../utils/logger';
 import { evaluateMacroBetaAlignment, type MacroBetaResult } from './macroBetaGate';
 import { analyzeMarketMTFBySymbol } from './market';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
+import { signalEngine } from './signalEngine';
+import { detectLiquiditySweep } from './liquiditySweepGate';
 
 export type PositionThesisVerdict = {
   thesisIntact: boolean;
@@ -141,4 +143,130 @@ export function logThesisDeferStopLoss(
     sl,
     thesis: thesis.reason.slice(0, 200),
   });
+}
+
+export type ProfitRunBias = 'strong_run' | 'run' | 'neutral' | 'fade' | 'reversal';
+
+export type ProfitRunAnalysis = {
+  bias: ProfitRunBias;
+  thesis: PositionThesisVerdict;
+  volumeRatio: number;
+  volumeNote: string;
+  profitHoldSec: number;
+  analyzePhase: boolean;
+  trailReady: boolean;
+  recommendation: string;
+  logLine: string;
+};
+
+function deriveProfitRunBias(
+  thesis: PositionThesisVerdict,
+  volumeRatio: number
+): ProfitRunBias {
+  if (thesis.signalAgainst || thesis.macroAgainst) {
+    return thesis.signalAgainst && thesis.macroAgainst ? 'reversal' : 'fade';
+  }
+  if (thesis.thesisIntact && volumeRatio >= 1.35) return 'strong_run';
+  if (thesis.thesisIntact) return 'run';
+  return 'neutral';
+}
+
+/** Live read while in profit — macro, MTF, volume before trail SL arms. */
+export async function evaluateProfitRunAnalysis(opts: {
+  coin: string;
+  direction: 'LONG' | 'SHORT';
+  profitHoldMs: number;
+  pnlUsd: number;
+}): Promise<ProfitRunAnalysis> {
+  const minHold = config.hyperliquid.profitMinHoldBeforeExitMs;
+  const profitHoldSec = Math.round(opts.profitHoldMs / 1000);
+  const analyzePhase = opts.profitHoldMs < minHold;
+  const trailReady = opts.profitHoldMs >= minHold && opts.pnlUsd > 0;
+
+  const thesis = await evaluatePositionThesis({
+    coin: opts.coin,
+    direction: opts.direction,
+  });
+
+  let volumeRatio = 1;
+  let volumeNote = 'vol n/a';
+  try {
+    const symbol = hlCoinToBinanceSymbol(opts.coin);
+    const c5m = await signalEngine.fetchCandles(symbol, '5m', 24);
+    const sweep = detectLiquiditySweep(c5m);
+    volumeRatio = sweep.volumeRatio;
+    volumeNote = sweep.volumeOk
+      ? `vol ${volumeRatio.toFixed(2)}x${sweep.bias ? ` · sweep ${sweep.bias}` : ''}`
+      : `vol weak ${volumeRatio.toFixed(2)}x`;
+  } catch {
+    /* optional */
+  }
+
+  const bias = deriveProfitRunBias(thesis, volumeRatio);
+  const recommendation =
+    analyzePhase
+      ? bias === 'reversal' || bias === 'fade'
+        ? 'watch — momentum fading during analyze window'
+        : 'hold — analyzing direction (no trail SL yet)'
+      : trailReady
+        ? bias === 'strong_run' || bias === 'run'
+          ? 'trail SL in profit — let winner run'
+          : bias === 'fade' || bias === 'reversal'
+            ? 'trail armed — tighten on weakness'
+            : 'trail SL armed at breakeven+'
+        : 'flat';
+
+  const phaseLabel = analyzePhase
+    ? `analyze ${profitHoldSec}s/${Math.round(minHold / 1000)}s`
+    : 'trail phase';
+
+  const logLine = [
+    `${phaseLabel}`,
+    `${opts.direction} ${opts.coin} +$${opts.pnlUsd.toFixed(3)}`,
+    thesis.mtfSummary,
+    volumeNote,
+    `bias ${bias}`,
+  ].join(' · ');
+
+  return {
+    bias,
+    thesis,
+    volumeRatio,
+    volumeNote,
+    profitHoldSec,
+    analyzePhase,
+    trailReady,
+    recommendation,
+    logLine,
+  };
+}
+
+const profitAnalyzeLogAt = new Map<string, number>();
+
+export function logProfitRunAnalysis(
+  user: string,
+  coin: string,
+  analysis: ProfitRunAnalysis,
+  force = false
+): void {
+  const key = `${user.toLowerCase()}:${coin.toUpperCase()}`;
+  const now = Date.now();
+  const last = profitAnalyzeLogAt.get(key) ?? 0;
+  const interval = analysis.analyzePhase ? 20_000 : 45_000;
+  if (!force && now - last < interval) return;
+  profitAnalyzeLogAt.set(key, now);
+
+  logger.info('HL profit run analysis', {
+    user: user.slice(0, 10),
+    coin,
+    phase: analysis.analyzePhase ? 'analyze' : 'trail',
+    profitHoldSec: analysis.profitHoldSec,
+    bias: analysis.bias,
+    recommendation: analysis.recommendation,
+    detail: analysis.logLine,
+  });
+}
+
+export function clearProfitAnalyzeLog(user: string, coin: string): void {
+  profitAnalyzeLogAt.delete(`${user.toLowerCase()}:${coin.toUpperCase()}`);
 }

@@ -35,7 +35,10 @@ import { validateMacroBetaAlignment } from './macroBetaGate';
 import { buildHlOpenReasonDoc } from './openReasonBuilder';
 import {
   buildCloseReasonDoc,
+  clearProfitAnalyzeLog,
   evaluatePositionThesis,
+  evaluateProfitRunAnalysis,
+  logProfitRunAnalysis,
   logThesisDeferStopLoss,
   shouldForceLossCap,
 } from './positionThesisGate';
@@ -90,6 +93,10 @@ function clearProfitLockState(lockKey: string): void {
   hlProfitLockFloorUsd.delete(lockKey);
   hlProfitSinceAt.delete(lockKey);
   hlPositionOpenedAt.delete(lockKey);
+  const parts = lockKey.split(':');
+  if (parts.length >= 2) {
+    clearProfitAnalyzeLog(parts[0], parts.slice(1).join(':'));
+  }
 }
 
 function resolveMarginPerSlot(
@@ -728,23 +735,53 @@ export class HyperliquidTradingService {
       const profitHoldMs =
         inProfitSince != null && pnl >= minGrabUsd ? nowMs - inProfitSince : 0;
       const profitExitReady = profitHoldMs >= exitPolicy.minProfitHoldBeforeExitMs;
+      const minHoldSec = Math.round(exitPolicy.minProfitHoldBeforeExitMs / 1000);
 
-      if (pnl >= lockActivateUsd && profitExitReady) {
+      // Phase 1: in profit but inside 2–3 min analyze window — read macro/MTF/vol, no trail yet.
+      if (pnl > 0 && !profitExitReady) {
+        const runAnalysis = await evaluateProfitRunAnalysis({
+          coin: pos.coin,
+          direction: positionDirection,
+          profitHoldMs,
+          pnlUsd: pnl,
+        });
+        logProfitRunAnalysis(userAddress, pos.coin, runAnalysis);
+        continue;
+      }
+
+      if (pnl >= minGrabUsd && profitExitReady) {
+        const runAnalysis = await evaluateProfitRunAnalysis({
+          coin: pos.coin,
+          direction: positionDirection,
+          profitHoldMs,
+          pnlUsd: pnl,
+        });
+        logProfitRunAnalysis(userAddress, pos.coin, runAnalysis, true);
+
         if (!locked) {
           locked = true;
           hlProfitLockActive.set(lockKey, true);
           floorUsd = minFloorUsd;
           hlProfitLockFloorUsd.set(lockKey, floorUsd);
-          logger.info('HL profit lock armed', {
+          logger.info('HL profit trail SL armed', {
             user: userAddress.slice(0, 10),
             coin: pos.coin,
             strategy,
             profitHoldSec: Math.round(profitHoldMs / 1000),
+            minHoldSec,
             pnlUsd: pnl.toFixed(4),
             floorUsd: floorUsd.toFixed(4),
+            bias: runAnalysis.bias,
+            recommendation: runAnalysis.recommendation,
           });
         }
-        const trailed = trailingProfitLockFloorUsd(peak, minFloorUsd, trailBufferUsd);
+        const trailMult =
+          runAnalysis.bias === 'strong_run' || runAnalysis.bias === 'run' ? 1.85 : 1;
+        const trailed = trailingProfitLockFloorUsd(
+          peak,
+          minFloorUsd,
+          trailBufferUsd * trailMult
+        );
         if (trailed > floorUsd) {
           floorUsd = trailed;
           hlProfitLockFloorUsd.set(lockKey, floorUsd);

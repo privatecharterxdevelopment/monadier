@@ -6,10 +6,10 @@ import {
 
 /** Standard-mode profit lock (must match bot-service config). */
 export const HL_BOT_EFFECTIVE = {
-  profitLockActivateUsd: 0.08,
+  profitLockActivateUsd: 0.05,
   profitLockFloorUsd: 0.02,
   profitLockTrailBufferUsd: 0.045,
-  profitMinHoldMs: 60_000,
+  profitMinHoldMs: 150_000,
   defaultStopLossPercent: 4,
 } as const;
 

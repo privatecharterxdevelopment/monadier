@@ -17,7 +17,7 @@ export type HlExitPolicy = {
   useTakeProfitPercent: boolean;
 };
 
-/** Let winners run — 60s min green hold, wide trail, no timeout grab. */
+/** Let winners run — 2.5 min analyze, then trail SL in profit. */
 export function resolveHlExitPolicy(strategy: HlBotStrategy): HlExitPolicy {
   const base = {
     minProfitHoldBeforeExitMs: config.hyperliquid.profitMinHoldBeforeExitMs,

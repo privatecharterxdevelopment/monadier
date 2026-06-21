@@ -463,7 +463,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
           axisLabelVisible: true,
           title: locked
             ? `Trail SL +$${floorUsd.toFixed(2)}`
-            : 'Trail SL (60s hold)',
+            : 'Trail SL (2.5m analyze)',
         });
         priceLinesRef.current.push(trailLine);
       }
