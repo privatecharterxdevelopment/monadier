@@ -1043,11 +1043,16 @@
   min-height: 220px;
   border-bottom: 1px solid var(--hl-border);
   align-items: stretch;
+  overflow: hidden;
 }
 
 .hl-chart-row > .hl-chart-wrap {
   min-height: 0;
   height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  isolation: isolate;
 }
 
 /* Bot terminal — taller chart, scrollable positions dock below */
@@ -1111,14 +1116,19 @@
 .hl-chart-engine {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  position: relative;
 }
 
 .hl-chart-engine .hl-chart-canvas,
 .hl-chart-engine .hl-chart-tv-wrap {
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .hl-order-panel {
@@ -1147,6 +1157,7 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
   background: var(--hl-chart-bg);
   border-right: 1px solid var(--hl-border);
 }
@@ -1261,7 +1272,15 @@
 .hl-chart-canvas {
   flex: 1;
   width: 100%;
+  max-width: 100%;
   min-height: 200px;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.hl-chart-canvas > div {
+  max-width: 100% !important;
 }
 
 .hl-chart-empty {
@@ -5810,6 +5829,8 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .hl-chart-tv-note {
@@ -5823,6 +5844,15 @@
 .hl-chart-tv-canvas {
   flex: 1;
   min-height: 280px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.hl-terminal--bot .hl-dock-head {
+  flex-wrap: wrap;
+  gap: 4px;
+  background: var(--hl-bg-panel);
+  z-index: 2;
 }
 
 .hl-entry-hint {

@@ -62,8 +62,15 @@ const ProTradeChartingLibraryChart: React.FC<Props> = ({ coin, interval, theme }
         theme: theme === 'light' ? 'light' : 'dark',
         timezone: 'Etc/UTC',
         datafeed: datafeedRef.current,
-        disabled_features: ['use_localstorage_for_settings'],
-        enabled_features: ['study_templates'],
+        disabled_features: ['use_localstorage_for_settings', 'header_symbol_search'],
+        enabled_features: [
+          'study_templates',
+          'side_toolbar_in_fullscreen_mode',
+          'header_chart_type',
+          'header_settings',
+          'header_undo_redo',
+          'header_screenshot',
+        ],
         overrides: {
           'paneProperties.background': colors.background,
           'paneProperties.vertGridProperties.color': colors.grid,

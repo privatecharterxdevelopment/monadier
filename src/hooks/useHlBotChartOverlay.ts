@@ -5,6 +5,7 @@ import {
   computeHlChartPositionOverlay,
   type HlChartPositionOverlay,
 } from '../lib/hlTrailingStopChart';
+import { normalizeHlPerpCoin } from '../lib/botTradingPairs';
 import { normalizeHlBotStrategy, type HlBotStrategy } from '../lib/hlBotStrategy';
 
 function positionTrackKey(p: HlPosition): string {
@@ -22,7 +23,11 @@ export function useHlBotChartOverlay(
   const trackKeyRef = useRef('');
 
   const active =
-    position && position.coin === coin && Math.abs(toNum(position.szi)) > 0 ? position : null;
+    position &&
+    normalizeHlPerpCoin(position.coin) === normalizeHlPerpCoin(coin) &&
+    Math.abs(toNum(position.szi)) > 0
+      ? position
+      : null;
 
   const trackKey = active ? positionTrackKey(active) : '';
   const upnl = active ? toNum(active.unrealizedPnl) : 0;

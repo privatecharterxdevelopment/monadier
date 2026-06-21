@@ -50,6 +50,10 @@ type Props = {
   orderCoin?: string;
   onIntervalChange: (interval: HlInterval) => void;
   layoutKey?: string;
+  /** Preferred chart engine on first load (HL Pro when library is present). */
+  defaultEngine?: ChartEngine;
+  /** Hide TradingView “external data” disclaimer under the chart. */
+  hideTvNote?: boolean;
   /** Entry / liq / bot trailing SL for the active position on this coin */
   positionOverlay?: {
     entryPx: number;
@@ -62,6 +66,18 @@ type Props = {
   tradeMarkers?: SeriesMarker<UTCTimestamp>[];
 };
 
+const CHART_ENGINE_STORAGE = 'monadier-hl-chart-engine';
+
+function readStoredEngine(fallback: ChartEngine): ChartEngine {
+  try {
+    const stored = localStorage.getItem(CHART_ENGINE_STORAGE);
+    if (stored === 'hl' || stored === 'tv' || stored === 'hltv') return stored;
+  } catch {
+    /* private mode */
+  }
+  return fallback;
+}
+
 const ProTradeChartInner: React.FC<Props> = ({
   coin,
   interval,
@@ -71,20 +87,30 @@ const ProTradeChartInner: React.FC<Props> = ({
   orderCoin,
   onIntervalChange,
   layoutKey,
+  defaultEngine = 'hltv',
+  hideTvNote = false,
   positionOverlay,
   tradeMarkers = [],
 }) => {
   const { theme } = useProTradeTheme();
-  const [engine, setEngine] = useState<ChartEngine>('hl');
-  const [mountedEngine, setMountedEngine] = useState<ChartEngine | 'none'>('hl');
+  const [engine, setEngine] = useState<ChartEngine>(() => readStoredEngine(defaultEngine));
+  const [mountedEngine, setMountedEngine] = useState<ChartEngine | 'none'>(() =>
+    readStoredEngine(defaultEngine)
+  );
   const [hlProAvailable, setHlProAvailable] = useState(false);
   const dataCoin = orderCoin ?? coin;
   const instanceId = useId().replace(/:/g, '');
 
   const switchEngine = (next: ChartEngine) => {
     if (next === engine) return;
+    if (next === 'hltv' && !hlProAvailable) return;
     setEngine(next);
     setMountedEngine('none');
+    try {
+      localStorage.setItem(CHART_ENGINE_STORAGE, next);
+    } catch {
+      /* ignore */
+    }
   };
 
   useEffect(() => {
@@ -96,7 +122,12 @@ const ProTradeChartInner: React.FC<Props> = ({
   useEffect(() => {
     let cancelled = false;
     void probeChartingLibraryAvailable().then((ok) => {
-      if (!cancelled) setHlProAvailable(ok);
+      if (cancelled) return;
+      setHlProAvailable(ok);
+      if (!ok) {
+        setEngine((cur) => (cur === 'hltv' ? 'hl' : cur));
+        setMountedEngine((cur) => (cur === 'hltv' || cur === 'none' ? 'hl' : cur));
+      }
     });
     return () => {
       cancelled = true;
@@ -180,6 +211,7 @@ const ProTradeChartInner: React.FC<Props> = ({
               coin={coin}
               interval={interval}
               theme={theme}
+              hideNote={hideTvNote}
             />
           )}
         </div>

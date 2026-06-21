@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAppKitAccount } from '@reown/appkit/react';
 import ProTradeShell from '../../components/protrade/ProTradeShell';
@@ -45,7 +45,7 @@ import type { HlInterval } from '../../lib/hyperliquid/types';
 import type { HlPosition } from '../../lib/hyperliquid/user';
 import { isHlSpotCoin } from '../../lib/hyperliquid/spot';
 import { readNum, toNum } from '../../lib/hyperliquid/parse';
-import { hlCoinToBotSymbol } from '../../lib/botTradingPairs';
+import { hlCoinToBotSymbol, normalizeHlPerpCoin } from '../../lib/botTradingPairs';
 import { HL_MAX_CONCURRENT_POSITIONS } from '../../lib/hlBotConstants';
 import { useBotServerBlockers } from '../../hooks/useBotServerBlockers';
 import { useBotPositionBadge } from '../../hooks/useBotPositionBadge';
@@ -183,6 +183,17 @@ const Dashboard2ProPageContent: React.FC = () => {
     return list.find((p) => Math.abs(toNum(p.szi)) > 0) ?? null;
   }, [account?.positions]);
 
+  /** Open HL position on the chart's active coin (not always the first in the list). */
+  const botChartPosition = useMemo(
+    () =>
+      (account?.positions ?? []).find(
+        (p) =>
+          normalizeHlPerpCoin(p.coin) === normalizeHlPerpCoin(perpCoin) &&
+          Math.abs(toNum(p.szi)) > 0
+      ) ?? null,
+    [account?.positions, perpCoin]
+  );
+
   const botOpenPositionCount = useMemo(
     () => (account?.positions ?? []).filter((p) => Math.abs(toNum(p.szi)) > 0).length,
     [account?.positions]
@@ -216,17 +227,51 @@ const Dashboard2ProPageContent: React.FC = () => {
   ]);
 
   const botChartOverlay = useHlBotChartOverlay(
-    botOpenPosition,
-    botScanCoin,
+    botChartPosition,
+    perpCoin,
     botVaultSettings.hlBotStrategy
   );
 
+  /** User picked a position coin — don't auto-switch chart away from it. */
+  const pinnedChartCoinRef = useRef<string | null>(null);
+
+  const selectChartCoin = useCallback((coin: string) => {
+    const next = normalizeHlPerpCoin(coin);
+    if (!next) return;
+    pinnedChartCoinRef.current = next;
+    setPerpCoin(next);
+    requestAnimationFrame(() => {
+      document.querySelector('.hl-chart-row')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    });
+  }, []);
+
+  const prevSectionRef = useRef(section);
   useEffect(() => {
-    if (section !== 'bot') return;
-    if (botScanCoin && botScanCoin !== perpCoin) {
-      setPerpCoin(botScanCoin);
+    if (section !== 'bot') {
+      pinnedChartCoinRef.current = null;
     }
-  }, [section, botScanCoin, perpCoin]);
+  }, [section]);
+
+  useEffect(() => {
+    const prev = prevSectionRef.current;
+    prevSectionRef.current = section;
+    if (prev === 'bot' || section !== 'bot') return;
+    if (botOpenPositionCoins.length === 0) return;
+    const pinned = pinnedChartCoinRef.current;
+    if (pinned && botOpenPositionCoins.some((c) => normalizeHlPerpCoin(c) === pinned)) {
+      setPerpCoin(pinned);
+      return;
+    }
+    setPerpCoin((current) => {
+      const norm = normalizeHlPerpCoin(current);
+      return botOpenPositionCoins.some((c) => normalizeHlPerpCoin(c) === norm)
+        ? norm
+        : normalizeHlPerpCoin(botOpenPositionCoins[0]);
+    });
+  }, [section, botOpenPositionCoins]);
 
   const perpMarkPrices = useMemo(() => {
     const map = { ...positionMarkPrices };
@@ -235,10 +280,20 @@ const Dashboard2ProPageContent: React.FC = () => {
   }, [positionMarkPrices, perpCoin, perpMarkPx]);
 
   useEffect(() => {
+    const norm = normalizeHlPerpCoin(perpCoin);
+    if (!norm || norm === perpCoin) return;
+    setPerpCoin(norm);
+  }, [perpCoin]);
+
+  useEffect(() => {
     if (perpMarkets.length === 0) return;
-    const valid = new Set(perpMarkets.map((m) => m.name));
-    if (!valid.has(perpCoin)) setPerpCoin(DEFAULT_PRO_COIN);
-  }, [perpMarkets, perpCoin]);
+    const norm = normalizeHlPerpCoin(perpCoin);
+    const valid = new Set(perpMarkets.map((m) => normalizeHlPerpCoin(m.name)));
+    if (valid.has(norm)) return;
+    const openMatch = botOpenPositionCoins.find((c) => normalizeHlPerpCoin(c) === norm);
+    if (openMatch) return;
+    setPerpCoin(DEFAULT_PRO_COIN);
+  }, [perpMarkets, perpCoin, botOpenPositionCoins]);
 
   const closeAuthModal = useCallback(() => {
     setAuthModal(null);
@@ -461,7 +516,7 @@ const Dashboard2ProPageContent: React.FC = () => {
                   connected={isConnected}
                   activeTab={perpDockTab}
                   onTabChange={setPerpDockTab}
-                  onCoinClick={setPerpCoin}
+                  onCoinClick={selectChartCoin}
                   actionBusy={tradeBusy}
                   onCancelOrder={async (c, oid) => {
                     await cancelOrder(c, oid, 'perp');
@@ -550,7 +605,9 @@ const Dashboard2ProPageContent: React.FC = () => {
               loading={perpMarket.loading}
               openOrders={perpOpenOrders}
               onIntervalChange={setInterval}
-              layoutKey={`bot-${perpCoin}-${interval}`}
+              layoutKey={`bot-${interval}`}
+              defaultEngine="hltv"
+              hideTvNote
               positionOverlay={botChartOverlay}
               tradeMarkers={botTradeMarkers}
             />
@@ -567,7 +624,7 @@ const Dashboard2ProPageContent: React.FC = () => {
             onDockTabChange={setBotDockTab}
             analysisSymbol={hlCoinToBotSymbol(botScanCoin)}
             openPositionCoins={botOpenPositionCoins}
-            onCoinClick={setPerpCoin}
+            onCoinClick={selectChartCoin}
           />
         </div>
 
@@ -644,7 +701,7 @@ const Dashboard2ProPageContent: React.FC = () => {
           connected={isConnected}
           walletAddress={address ?? undefined}
           onNavigatePerps={(coin) => {
-            setPerpCoin(coin);
+            selectChartCoin(coin);
             setSection('perps');
           }}
           onNavigateSpot={() => {

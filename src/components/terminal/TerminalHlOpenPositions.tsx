@@ -13,6 +13,8 @@ type Props = {
   configuredLeverage?: number;
   walletAddress?: string | null;
   reasonRefreshKey?: number;
+  /** Switch the live chart to this HL perp coin. */
+  onCoinClick?: (coin: string) => void;
   onClose: (position: HlPosition) => void;
   closingCoin?: string | null;
   closeBusy?: boolean;
@@ -34,6 +36,7 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
   configuredLeverage,
   walletAddress,
   reasonRefreshKey = 0,
+  onCoinClick,
   onClose,
   closingCoin = null,
   closeBusy = false,
@@ -81,7 +84,17 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
               <tr key={p.coin}>
                 <td>
                   <span className="term-hl-open-market">
-                    <strong>{p.coin}</strong>
+                    {onCoinClick ? (
+                      <button
+                        type="button"
+                        className="hl-coin-link term-hl-open-market__link"
+                        onClick={() => onCoinClick(p.coin)}
+                      >
+                        {p.coin}
+                      </button>
+                    ) : (
+                      <strong>{p.coin}</strong>
+                    )}
                     <TradeReasonHint reason={openReason} kind="open" />
                   </span>
                   <span className="term-dock-meta"> · HL</span>

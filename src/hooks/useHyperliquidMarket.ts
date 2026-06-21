@@ -178,6 +178,7 @@ export function useHyperliquidMarket(
 
   const refresh = useCallback(async () => {
     if (!enabled) return;
+    const requestedCoin = normCoin(coin);
     try {
       const [candles, book, snapshot, recentTrades] = await Promise.all([
         kind === 'spot'
@@ -187,23 +188,29 @@ export function useHyperliquidMarket(
         kind === 'spot' ? fetchHlSpotMarketSnapshot(coin) : fetchHlMarketSnapshot(coin),
         kind === 'spot' ? fetchHlSpotRecentTrades(coin) : fetchHlRecentTrades(coin),
       ]);
-      setState({
-        candles,
-        book,
-        snapshot,
-        recentTrades: sortTapeTrades(
-          recentTrades.filter((t) => coinMatches(t.coin, coin))
-        ),
-        loading: false,
-        error: null,
-        wsConnected: false,
+      setState((prev) => {
+        if (normCoin(coin) !== requestedCoin) return prev;
+        return {
+          candles,
+          book,
+          snapshot,
+          recentTrades: sortTapeTrades(
+            recentTrades.filter((t) => coinMatches(t.coin, requestedCoin))
+          ),
+          loading: false,
+          error: null,
+          wsConnected: false,
+        };
       });
     } catch (err: unknown) {
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        error: err instanceof Error ? err.message : 'Market data unavailable',
-      }));
+      setState((prev) => {
+        if (normCoin(coin) !== requestedCoin) return prev;
+        return {
+          ...prev,
+          loading: false,
+          error: err instanceof Error ? err.message : 'Market data unavailable',
+        };
+      });
     }
   }, [coin, interval, kind, enabled]);
 
@@ -220,15 +227,12 @@ export function useHyperliquidMarket(
       });
       return;
     }
-    setState({
-      candles: [],
-      book: null,
-      snapshot: null,
-      recentTrades: [],
+    setState((prev) => ({
+      ...prev,
       loading: true,
       error: null,
       wsConnected: false,
-    });
+    }));
     void refresh();
     // Interval changes are handled separately (candles only).
     // eslint-disable-next-line react-hooks/exhaustive-deps -- coin/kind/enabled only

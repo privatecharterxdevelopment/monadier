@@ -91,6 +91,42 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
   const aliveRef = useRef(true);
   const overlayCoin = orderCoin ?? coin;
   const chartColors = getProTradeChartColors(theme);
+  const overlayRef = useRef(positionOverlay);
+  overlayRef.current = positionOverlay;
+  const markPxRef = useRef(markPx);
+  markPxRef.current = markPx;
+
+  const buildAutoscaleProvider = () => {
+    return (original: () => { priceRange?: { minValue: number; maxValue: number } } | null) => {
+      const base = original();
+      if (!base?.priceRange) return base;
+      let { minValue, maxValue } = base.priceRange;
+      const overlay = overlayRef.current;
+      const extra: number[] = [];
+      if (overlay?.entryPx && overlay.entryPx > 0) extra.push(overlay.entryPx);
+      if (overlay?.liqPx && overlay.liqPx > 0) extra.push(overlay.liqPx);
+      if (overlay?.trailStopPx && overlay.trailStopPx > 0) extra.push(overlay.trailStopPx);
+      const liveMark = markPxRef.current;
+      if (liveMark != null && liveMark > 0) extra.push(liveMark);
+      for (const px of extra) {
+        minValue = Math.min(minValue, px);
+        maxValue = Math.max(maxValue, px);
+      }
+      const span = maxValue - minValue;
+      const mid = (maxValue + minValue) / 2;
+      if (!Number.isFinite(mid) || mid <= 0) return base;
+      const minSpan = mid * (interval === '1m' ? 0.002 : interval === '5m' ? 0.003 : 0.005);
+      if (span < minSpan) {
+        const half = minSpan / 2;
+        return { ...base, priceRange: { minValue: mid - half, maxValue: mid + half } };
+      }
+      const pad = span * 0.05;
+      return {
+        ...base,
+        priceRange: { minValue: minValue - pad, maxValue: maxValue + pad },
+      };
+    };
+  };
 
   useEffect(() => {
     aliveRef.current = true;
@@ -144,27 +180,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     });
 
     series.applyOptions({
-      autoscaleInfoProvider: (original) => {
-        const base = original();
-        if (!base?.priceRange) return base;
-        const { minValue, maxValue } = base.priceRange;
-        const span = maxValue - minValue;
-        const mid = (maxValue + minValue) / 2;
-        if (!Number.isFinite(mid) || mid <= 0) return base;
-        const minSpan = mid * (interval === '1m' ? 0.002 : interval === '5m' ? 0.003 : 0.005);
-        if (span < minSpan) {
-          const half = minSpan / 2;
-          return {
-            ...base,
-            priceRange: { minValue: mid - half, maxValue: mid + half },
-          };
-        }
-        const pad = span * 0.05;
-        return {
-          ...base,
-          priceRange: { minValue: minValue - pad, maxValue: maxValue + pad },
-        };
-      },
+      autoscaleInfoProvider: buildAutoscaleProvider(),
     });
 
     const volumeSeries = chart.addSeries(HistogramSeries, {
@@ -214,10 +230,10 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       chartRef.current = null;
       seriesRef.current = null;
       volumeRef.current = null;
-      volumeRef.current = null;
       priceLinesRef.current = [];
       markLineRef.current = null;
       markersPluginRef.current = null;
+      el.replaceChildren();
     };
   }, [theme, interval, onFollowLiveChange]);
 
@@ -449,6 +465,14 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       }
     });
   }, [openOrders, overlayCoin, chartColors.down, chartColors.up, positionOverlay]);
+
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series || !aliveRef.current) return;
+    safeChartOp(() => {
+      series.applyOptions({ autoscaleInfoProvider: buildAutoscaleProvider() });
+    });
+  }, [positionOverlay, markPx, interval]);
 
   useEffect(() => {
     const series = seriesRef.current;

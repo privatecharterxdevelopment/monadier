@@ -20,5 +20,10 @@ export function pairLabel(binanceSymbol: string): string {
 }
 
 export function pairLabelFromHlCoin(coin: string): string {
-  return coin.toUpperCase().replace(/-PERP$/i, '');
+  return normalizeHlPerpCoin(coin);
+}
+
+/** Normalize HL perp tickers from positions, clicks, and chart state. */
+export function normalizeHlPerpCoin(coin: string): string {
+  return coin.trim().toUpperCase().replace(/-PERP$/i, '');
 }
