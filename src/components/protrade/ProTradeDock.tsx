@@ -200,6 +200,12 @@ const ProTradeDock: React.FC<Props> = ({
     return list.filter((p) => p.coin.toLowerCase().includes(q));
   }, [account?.positions, search]);
 
+  const filteredCloseFills = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return closeFills;
+    return closeFills.filter((f) => f.coin.toLowerCase().includes(q));
+  }, [closeFills, search]);
+
   return (
     <section className={`hl-dock${isBotMode ? ' hl-bot-dock-inner' : ''}`}>
       <div className={`hl-dock-head${historyOnly ? ' hl-dock-head--history-only' : ''}`}>
@@ -420,6 +426,7 @@ const ProTradeDock: React.FC<Props> = ({
           )
         ) : tab === 'tradeHistory' ? (
           closeFills.length > 0 ? (
+            filteredCloseFills.length > 0 ? (
             <table className="hl-table">
               <thead>
                 <tr>
@@ -437,7 +444,7 @@ const ProTradeDock: React.FC<Props> = ({
                 </tr>
               </thead>
               <tbody>
-                {closeFills.map((f, i) => {
+                {filteredCloseFills.map((f, i) => {
                   const result = hlFillResultLabel(f.closedPnl);
                   const pnl = toNum(f.closedPnl);
                   const positionDir = fillPositionDirection(f);
@@ -502,6 +509,9 @@ const ProTradeDock: React.FC<Props> = ({
                 })}
               </tbody>
             </table>
+            ) : (
+              <p className="hl-dock-empty">No trades match &ldquo;{search.trim()}&rdquo;.</p>
+            )
           ) : (
             <p className="hl-dock-empty">No trade history yet.</p>
           )

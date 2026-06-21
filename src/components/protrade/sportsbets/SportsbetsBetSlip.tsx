@@ -78,7 +78,7 @@ const SportsbetsBetSlip: React.FC<Props> = ({
               {!signedIn && onRequireSignIn ? (
                 <button
                   type="button"
-                  className="hl-sb-link-btn hl-sb-slip-auth-btn"
+                  className="hl-sb-slip-auth-btn"
                   onClick={() => onRequireSignIn('Sign in to track your bets.')}
                 >
                   Sign in

@@ -19,11 +19,10 @@ import ProTradeOrderBook from '../../components/protrade/ProTradeOrderBook';
 import ProTradeOrderPanel from '../../components/protrade/ProTradeOrderPanel';
 import ProTradeDock, { type ProTradeDockTab } from '../../components/protrade/ProTradeDock';
 import ProTradeStatusBar from '../../components/protrade/ProTradeStatusBar';
-import TerminalSupportModal from '../../components/terminal/TerminalSupportModal';
 import ProTradeDepositModal from '../../components/protrade/ProTradeDepositModal';
 import ProTradeTransferModal from '../../components/protrade/ProTradeTransferModal';
 import ProTradePortfolio from '../../components/protrade/ProTradePortfolio';
-import ProTradeSwap from '../../components/protrade/ProTradeSwap';
+import ProTradeSupport from '../../components/protrade/ProTradeSupport';
 import ProTradeSportsbets from '../../components/protrade/ProTradeSportsbets';
 import { BettingUiProvider, useBettingUi } from '../../contexts/BettingUiContext';
 import type { ProTradeProfileTab } from '../../components/protrade/proTradeProfileTypes';
@@ -39,7 +38,6 @@ import { useHyperliquidSpotPrices } from '../../hooks/useHyperliquidSpotPrices';
 import {
   DEFAULT_PRO_COIN,
   DEFAULT_PRO_INTERVAL,
-  DEFAULT_SWAP_COIN,
 } from '../../lib/hyperliquid/constants';
 import type { HlInterval } from '../../lib/hyperliquid/types';
 import type { HlPosition } from '../../lib/hyperliquid/user';
@@ -91,7 +89,6 @@ const Dashboard2ProPageContent: React.FC = () => {
   const [perpDockTab, setPerpDockTab] = useState<ProTradeDockTab>('positions');
   const [botDockTab, setBotDockTab] = useState<HlBotDockTab>('positions');
   const [toast, setToast] = useState<string | null>(null);
-  const [showSupport, setShowSupport] = useState(false);
   const [authModal, setAuthModal] = useState<'signin' | 'register' | null>(null);
   const [signInReason, setSignInReason] = useState<string | undefined>();
   const [botSyncTick, setBotSyncTick] = useState(0);
@@ -114,9 +111,6 @@ const Dashboard2ProPageContent: React.FC = () => {
 
   const perpMarket = useHyperliquidMarket(perpCoin, interval, 'perp', {
     enabled: section === 'perps' || section === 'bot',
-  });
-  const swapMarket = useHyperliquidMarket(DEFAULT_SWAP_COIN, interval, 'spot', {
-    enabled: section === 'swap',
   });
 
   const {
@@ -386,7 +380,7 @@ const Dashboard2ProPageContent: React.FC = () => {
     }
     setSection(next);
     setFundsModal(null);
-    if (next === 'bot' || next === 'sportsbets') {
+    if (next === 'bot' || next === 'sportsbets' || next === 'support') {
       const params = new URLSearchParams(searchParams);
       params.set('section', next);
       params.delete('tab');
@@ -420,6 +414,10 @@ const Dashboard2ProPageContent: React.FC = () => {
         setProfileTab('botTrades');
       } else if (urlSection === 'sportsbets' || urlSection === 'spot') {
         setSection('sportsbets');
+      } else if (urlSection === 'support') {
+        setSection('support');
+      } else if (urlSection === 'swap') {
+        setSection('perps');
       }
       return;
     }
@@ -433,6 +431,10 @@ const Dashboard2ProPageContent: React.FC = () => {
       setSection('bot');
     } else if (urlSection === 'sportsbets' || urlSection === 'spot') {
       setSection('sportsbets');
+    } else if (urlSection === 'support') {
+      setSection('support');
+    } else if (urlSection === 'swap') {
+      setSection('perps');
     }
   }, [searchParams, sessionReady, user]);
 
@@ -457,12 +459,11 @@ const Dashboard2ProPageContent: React.FC = () => {
   }, [section]);
 
   const handleRefreshAll = async () => {
-    await Promise.all([
-      perpMarket.refresh(),
-      swapMarket.refresh(),
-      refreshAccount(),
-      refreshPerpMarkets(),
-    ]);
+    await Promise.all([perpMarket.refresh(), refreshAccount(), refreshPerpMarkets()]);
+  };
+
+  const openSupport = () => {
+    handleSectionChange('support');
   };
 
   const showToast = (msg: string) => {
@@ -687,9 +688,8 @@ const Dashboard2ProPageContent: React.FC = () => {
         onBotTradeToggle={handleBotTradeToggle}
         botOpenCount={botBadge.count}
         botOpenTone={botBadge.tone}
-        onOpenSupport={() => {
-          if (requireAuth('Sign in to contact support.')) setShowSupport(true);
-        }}
+        onOpenSupport={openSupport}
+        onSupportNavigate={openSupport}
         onOpenProfile={openProfile}
         onRequireSignIn={promptSignIn}
         onViewNotificationHistory={openNotificationHistory}
@@ -722,15 +722,8 @@ const Dashboard2ProPageContent: React.FC = () => {
         />
       ) : null}
 
-      {section === 'swap' ? (
-        <div className="hl-terminal">
-          <ProTradeSwap
-            spotBalances={spotBalances}
-            markPx={toNum(swapMarket.snapshot?.markPx)}
-            book={swapMarket.book}
-            onSuccess={() => void handleRefreshAll()}
-          />
-        </div>
+      {section === 'support' ? (
+        <ProTradeSupport onRequireSignIn={promptSignIn} />
       ) : null}
       {section === 'portfolio' ? (
         <div className="hl-terminal">
@@ -744,9 +737,6 @@ const Dashboard2ProPageContent: React.FC = () => {
           onNavigatePerps={(coin) => {
             selectChartCoin(coin);
             setSection('perps');
-          }}
-          onNavigateSpot={() => {
-            setSection('swap');
           }}
           onNavigateBetting={() => setSection('sportsbets')}
         />
@@ -764,10 +754,6 @@ const Dashboard2ProPageContent: React.FC = () => {
           onClose={() => setFundsModal(null)}
           onSuccess={() => void handleRefreshAll()}
         />
-      ) : null}
-
-      {showSupport ? (
-        <TerminalSupportModal onClose={() => setShowSupport(false)} />
       ) : null}
 
       {authModal ? (

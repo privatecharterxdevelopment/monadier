@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CheckCircle, Clock, Loader2, MessageCircle, Send } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { MONADIER_SUPPORT_INBOX } from '../../lib/supportConfig';
 import { submitSupportMessage } from '../../lib/supportMessage';
 import TerminalModalFrame from './TerminalModalFrame';
 
@@ -130,7 +131,7 @@ const TerminalSupportModal: React.FC<Props> = ({ onClose }) => {
 
           {success && (
             <p className="term-support-success" role="status">
-              Message sent to support@monadier.com. We&apos;ll reply to {displayEmail}.
+              Message sent. We&apos;ll reply to {displayEmail}.
             </p>
           )}
         </form>

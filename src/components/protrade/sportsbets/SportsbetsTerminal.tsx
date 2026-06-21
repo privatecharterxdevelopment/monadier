@@ -16,7 +16,6 @@ import SportsbetsEventDetail from './SportsbetsEventDetail';
 import SportsbetsRightRail from './SportsbetsRightRail';
 import SportsbetsOrderPanel from './SportsbetsOrderPanel';
 import SportsbetsMobileOrderSheet from './SportsbetsMobileOrderSheet';
-import ProTradeBettingTopBarBalance from '../ProTradeBettingTopBarBalance';
 
 type Props = {
   walletAddress?: string;
@@ -243,15 +242,6 @@ const SportsbetsTerminal: React.FC<Props> = ({
         onCategoryChange={session.setCategory}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        mobileBalanceSlot={
-          isMobileBetting ? (
-            <ProTradeBettingTopBarBalance
-              walletAddress={walletAddress}
-              walletConnected={walletConnected}
-              onRequireSignIn={onRequireSignIn}
-            />
-          ) : null
-        }
       />
 
       {session.catalogError ? (

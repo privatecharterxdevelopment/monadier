@@ -3,7 +3,7 @@ import { corsHeaders, handleCors } from '../_shared/cors.ts';
 import { createSupabaseAdmin, getUserFromToken } from '../_shared/supabase.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-const SUPPORT_INBOX = 'support@monadier.com';
+const SUPPORT_INBOX = Deno.env.get('SUPPORT_INBOX') || 'ipsunlorem@gmail.com';
 const FROM_ADDRESS = 'Monadier Support <hello@monadier.com>';
 
 const MAX_SUBJECT = 120;

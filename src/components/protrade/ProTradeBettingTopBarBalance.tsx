@@ -10,12 +10,15 @@ type Props = {
   walletAddress?: string;
   walletConnected: boolean;
   onRequireSignIn?: (reason: string) => void;
+  /** Header mobile — balance only, no open/closed strip */
+  compact?: boolean;
 };
 
 const ProTradeBettingTopBarBalance: React.FC<Props> = ({
   walletAddress,
   walletConnected,
   onRequireSignIn,
+  compact = false,
 }) => {
   const { user } = useAuth();
   const { open } = useAppKit();
@@ -27,7 +30,7 @@ const ProTradeBettingTopBarBalance: React.FC<Props> = ({
     return (
       <button
         type="button"
-        className="hl-topnav-betting-balance hl-topnav-betting-balance--cta"
+        className="hl-topnav-betting-balance hl-topnav-betting-balance--cta hl-topnav-betting-balance--primary"
         onClick={() => onRequireSignIn?.('Sign in to see betting balance.')}
       >
         Sign in · bets
@@ -37,8 +40,26 @@ const ProTradeBettingTopBarBalance: React.FC<Props> = ({
 
   if (!walletConnected) {
     return (
-      <button type="button" className="hl-topnav-betting-balance hl-topnav-betting-balance--cta" onClick={() => openMonadierWalletModal(() => open())}>
+      <button
+        type="button"
+        className="hl-topnav-betting-balance hl-topnav-betting-balance--cta hl-topnav-betting-balance--primary"
+        onClick={() => openMonadierWalletModal(() => open())}
+      >
         Connect · balance
+      </button>
+    );
+  }
+
+  if (compact) {
+    return (
+      <button
+        type="button"
+        className="hl-topnav-bet-stat hl-topnav-bet-stat--btn hl-topnav-bet-stat--compact"
+        title="Deposit or withdraw USDC on Hyperliquid"
+        onClick={() => openFunds('deposit')}
+      >
+        <span className="hl-topnav-bet-label">HL</span>
+        <strong>{fmtUsdSymbol(stats.balanceUsd)}</strong>
       </button>
     );
   }

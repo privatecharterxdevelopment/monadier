@@ -98,31 +98,39 @@ const ProTradeAccountMenu: React.FC<Props> = ({
       </button>
 
       {!user && open ? (
-        <div className="hl-account-panel hl-account-panel--guest" role="menu" aria-label="Guest account menu">
-          <p className="hl-account-guest-hint">
-            Charts and markets are open. Sign in for profile and bot settings.
-          </p>
+        <>
           <button
             type="button"
-            className="hl-account-item"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              onRequireSignIn?.('Sign in to your Monadier account.');
-            }}
-          >
-            <User size={14} aria-hidden />
-            Sign in
-          </button>
-          <a
-            href="/register"
-            className="hl-account-item"
-            role="menuitem"
+            className="hl-account-sheet-backdrop"
+            aria-label="Close account menu"
             onClick={() => setOpen(false)}
-          >
-            Create account
-          </a>
-        </div>
+          />
+          <div className="hl-account-panel hl-account-panel--guest" role="menu" aria-label="Guest account menu">
+            <div className="hl-account-guest-head">
+              <strong>Your Monadier account</strong>
+              <p>Sign in to save bot settings, profile, and trade history.</p>
+            </div>
+            <button
+              type="button"
+              className="hl-account-guest-primary"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onRequireSignIn?.('Sign in to your Monadier account.');
+              }}
+            >
+              Sign in
+            </button>
+            <a
+              href="/register"
+              className="hl-account-guest-secondary"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+            >
+              Create account
+            </a>
+          </div>
+        </>
       ) : null}
 
       {user && open ? (

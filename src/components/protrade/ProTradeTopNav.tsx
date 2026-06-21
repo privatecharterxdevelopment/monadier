@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Menu, X } from 'lucide-react';
+import { Headphones, Menu, X } from 'lucide-react';
 import { useAppKit } from '@reown/appkit/react';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
@@ -19,12 +19,15 @@ export type ProTradeSection =
   | 'perps'
   | 'bot'
   | 'sportsbets'
-  | 'swap'
   | 'portfolio'
+  | 'support'
   | 'profile'
   | 'history'
   | 'affiliate'
   | 'leaderboard';
+
+/** @deprecated Swap removed from app */
+export type ProTradeSectionLegacy = ProTradeSection | 'swap';
 
 /** @deprecated Use section === 'bot' instead */
 export type ProTradePanelMode = 'hl' | 'bot';
@@ -38,7 +41,6 @@ type NavItem = {
 const NAV: NavItem[] = [
   { id: 'perps', label: 'Perps', enabled: true },
   { id: 'sportsbets', label: 'Betting', enabled: true },
-  { id: 'swap', label: 'Swap', enabled: true },
   { id: 'portfolio', label: 'Portfolio', enabled: true },
   { id: 'leaderboard', label: 'Leaderboard', enabled: false },
 ];
@@ -50,6 +52,7 @@ type Props = {
   botOpenCount?: number;
   botOpenTone?: 'pos' | 'neg' | null;
   onOpenSupport?: () => void;
+  onSupportNavigate?: () => void;
   onOpenProfile?: (tab?: ProTradeProfileTab) => void;
   onRequireSignIn?: (reason: string) => void;
   onViewNotificationHistory?: (notification?: ActivityNotification) => void;
@@ -64,6 +67,7 @@ const ProTradeTopNav: React.FC<Props> = ({
   botOpenCount = 0,
   botOpenTone = null,
   onOpenSupport,
+  onSupportNavigate,
   onOpenProfile,
   onRequireSignIn,
   onViewNotificationHistory,
@@ -98,6 +102,11 @@ const ProTradeTopNav: React.FC<Props> = ({
     if (!enabled) return;
     onSectionChange(id);
     setMobileNavOpen(false);
+  };
+
+  const openSupport = () => {
+    onSupportNavigate?.();
+    onOpenSupport?.();
   };
 
   return (
@@ -139,17 +148,27 @@ const ProTradeTopNav: React.FC<Props> = ({
         </nav>
       </div>
       <div className="hl-topnav-right">
-        {section === 'sportsbets' && !isMobile ? (
+        {section === 'sportsbets' ? (
           <ProTradeBettingTopBarBalance
             walletAddress={walletAddress}
             walletConnected={walletConnected}
             onRequireSignIn={onRequireSignIn}
+            compact={isMobile}
           />
         ) : null}
-        {!isMobile && onViewNotificationHistory ? (
+        {onViewNotificationHistory ? (
           <ProTradeNotificationsBell onViewHistory={onViewNotificationHistory} />
         ) : null}
-        {!isMobile ? <ProTradeThemeIcon /> : null}
+        <ProTradeThemeIcon />
+        <button
+          type="button"
+          className={`hl-topnav-icon-btn hl-topnav-support-btn${section === 'support' ? ' hl-topnav-support-btn--on' : ''}`}
+          aria-label="Support"
+          aria-current={section === 'support' ? 'page' : undefined}
+          onClick={openSupport}
+        >
+          <Headphones size={16} aria-hidden />
+        </button>
         <ProTradeAccountMenu
           onOpenSupport={onOpenSupport}
           onOpenProfile={onOpenProfile}
@@ -209,6 +228,17 @@ const ProTradeTopNav: React.FC<Props> = ({
                   {label}
                 </button>
               ))}
+              <button
+                type="button"
+                className={`hl-mobile-nav-link hl-mobile-nav-link--support ${section === 'support' ? 'hl-mobile-nav-link--on' : ''}`}
+                onClick={() => {
+                  openSupport();
+                  setMobileNavOpen(false);
+                }}
+              >
+                <Headphones size={16} aria-hidden />
+                Support
+              </button>
               <button
                 type="button"
                 className={`hl-mobile-nav-link hl-mobile-nav-link--bot ${section === 'bot' ? 'hl-mobile-nav-link--on' : ''}`}
