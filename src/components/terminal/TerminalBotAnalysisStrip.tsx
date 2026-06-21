@@ -58,7 +58,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     vaultWallet,
     openPositionCoins,
     symbol,
-    analysisActive: showLiveAnalysis,
+    analysisActive: hasWallet && botRunning,
     botRunning,
   });
 
@@ -86,7 +86,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
               }
             : analysis.readiness)
         }
-        scanning={idleReadiness ? false : analysis.scanning}
+        scanning={idleReadiness ? false : botRunning && (analysis.scanning || openPositionsCount === 0)}
         isLoading={idleReadiness ? false : analysis.isLoading}
         openPositionsCount={analysis.openPositionsCount}
         maxConcurrentPositions={analysis.maxConcurrentPositions}

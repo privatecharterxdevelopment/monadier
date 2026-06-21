@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ExternalLink, Loader2, X, Activity } from 'lucide-react';
+import { ExternalLink, Loader2, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type {
   HlAccountState,
@@ -376,10 +376,15 @@ const ProTradeDock: React.FC<Props> = ({
               </tbody>
             </table>
           ) : isBotMode && botRunning ? (
-            <p className="hl-dock-empty hl-dock-empty--bot-scan">
-              <Activity size={14} className="term-analysis-pulse" aria-hidden />
-              Bot is reading market…
-            </p>
+            <div className="hl-dock-empty hl-dock-empty--bot-scan" role="status">
+              <div className="hl-dock-bot-scan-row">
+                <Loader2 size={14} className="hl-dock-bot-scan-loader animate-spin" aria-hidden />
+                <span className="hl-dock-bot-scan-title">Bot is reading market…</span>
+              </div>
+              <p className="hl-dock-bot-scan-sub">
+                Waiting for a strong trade setup on Hyperliquid.
+              </p>
+            </div>
           ) : (
             <p className="hl-dock-empty">No open positions.</p>
           )

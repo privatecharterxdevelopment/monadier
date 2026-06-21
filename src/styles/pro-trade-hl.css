@@ -2033,17 +2033,41 @@
 }
 
 .hl-dock-empty--bot-scan {
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 8px;
   width: 100%;
-  color: var(--hl-green-bright);
-  font-weight: 500;
+  padding: 22px 16px;
 }
 
-.hl-dock-empty--bot-scan .term-analysis-pulse {
+.hl-dock-bot-scan-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.hl-dock-bot-scan-loader {
   flex-shrink: 0;
+  color: var(--hl-green-bright);
+}
+
+.hl-dock-bot-scan-title {
+  color: var(--hl-green-bright);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.hl-dock-bot-scan-sub {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--hl-text-muted);
+  text-align: center;
+  max-width: 340px;
+  line-height: 1.45;
 }
 
 .hl-table {
