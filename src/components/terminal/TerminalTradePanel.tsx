@@ -29,7 +29,6 @@ import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import { getHlBuilderConfig } from '../../lib/hyperliquid/builderConfig';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { useBotRuntimeTimer } from '../../hooks/useBotRuntimeTimer';
-import { useBotServerBlockers } from '../../hooks/useBotServerBlockers';
 import { clearBotRuntimeTimer, markBotRuntimeStarted, readBotRuntimeStartMs } from '../../lib/botRuntimeTimer';
 import {
   isHlBotEnabled,
@@ -139,8 +138,7 @@ const TerminalTradePanel: React.FC<Props> = ({
     }
   }, [botEnabled, timerWallet]);
 
-  const botServer = useBotServerBlockers(timerWallet, Boolean(botRunning));
-  const serverBlockers = botServer.blockers;
+
   const hasOpenPosition = metrics.openPositionsCount > 0;
   const marginLockedUsd = hasOpenPosition
     ? Math.max(0, hlSetup.totalMarginUsedUsd)
