@@ -52,6 +52,7 @@ import {
   shouldCloseProfitHoldTimeout,
   shouldCloseProfitLockUsd,
   shouldTakeProfitOnPnl,
+  effectiveProfitTrailBufferUsd,
   trailingProfitLockFloorUsd,
 } from './pnlExits';
 import {
@@ -92,6 +93,9 @@ const hlTrailDeferUntil = new Map<string, number>();
 /** Defer count per floor level (key: lockKey:floorCents). */
 const hlTrailDeferCount = new Map<string, number>();
 
+/** When uPnL first touched trail floor — debounce noise exits. */
+const hlTrailFloorBreachSince = new Map<string, number>();
+
 /** Last HL open error per wallet — surfaced in /api/bot-status diagnostics. */
 const lastHlOpenError = new Map<string, { at: string; coin?: string; error: string }>();
 
@@ -114,6 +118,7 @@ function clearProfitLockState(lockKey: string): void {
   for (const k of [...hlTrailDeferCount.keys()]) {
     if (k.startsWith(`${lockKey}:`)) hlTrailDeferCount.delete(k);
   }
+  hlTrailFloorBreachSince.delete(lockKey);
   deleteProfitTrailRecord(lockKey);
   const parts = lockKey.split(':');
   if (parts.length >= 2) {
@@ -822,8 +827,12 @@ export class HyperliquidTradingService {
       }
 
       if (profitExitReady && (pnl >= minGrabUsd || locked)) {
+        let runAnalysis:
+          | Awaited<ReturnType<typeof evaluateProfitRunAnalysis>>
+          | null = null;
+
         if (pnl >= minGrabUsd && profitExitReady) {
-          const runAnalysis = await evaluateProfitRunAnalysis({
+          runAnalysis = await evaluateProfitRunAnalysis({
             coin: pos.coin,
             direction: positionDirection,
             profitHoldMs,
@@ -848,10 +857,26 @@ export class HyperliquidTradingService {
               recommendation: runAnalysis.recommendation,
             });
           }
+        } else if (locked) {
+          runAnalysis = await evaluateProfitRunAnalysis({
+            coin: pos.coin,
+            direction: positionDirection,
+            profitHoldMs,
+            pnlUsd: pnl,
+          });
         }
 
-        // Same buffer as chart — no extra widening on "strong run" (that let winners bleed to red).
-        const trailed = trailingProfitLockFloorUsd(peak, minFloorUsd, trailBufferUsd);
+        const runBias = runAnalysis?.bias ?? 'neutral';
+        const thesisIntact = runAnalysis?.thesis.thesisIntact ?? true;
+        const effectiveBuffer = effectiveProfitTrailBufferUsd(
+          peak,
+          trailBufferUsd,
+          runBias,
+          thesisIntact,
+          config.hyperliquid.profitTrailMinPeakFraction,
+          config.hyperliquid.profitTrailStrongRunMult
+        );
+        const trailed = trailingProfitLockFloorUsd(peak, minFloorUsd, effectiveBuffer);
         if (trailed > floorUsd) {
           floorUsd = trailed;
           hlProfitLockFloorUsd.set(lockKey, floorUsd);
@@ -860,7 +885,7 @@ export class HyperliquidTradingService {
       }
 
       // Trail phase — continuous volume / sweep / MTF read while SL is armed.
-      if (locked && pnl > 0) {
+      if (locked && pnl > 0 && pnl >= minGrabUsd) {
         const runAnalysis = await evaluateProfitRunAnalysis({
           coin: pos.coin,
           direction: positionDirection,
@@ -893,11 +918,31 @@ export class HyperliquidTradingService {
         peak >= minGrabUsd &&
         shouldCloseProfitLockUsd(pnl, floorUsd, locked)
       ) {
+        const hysteresis = 0.012;
+        if (pnl > floorUsd + hysteresis) {
+          hlTrailFloorBreachSince.delete(lockKey);
+        } else {
+          const breachSince = hlTrailFloorBreachSince.get(lockKey);
+          if (breachSince == null) {
+            hlTrailFloorBreachSince.set(lockKey, nowMs);
+          }
+        }
+
+        const breachSince = hlTrailFloorBreachSince.get(lockKey);
+        const breachMs =
+          breachSince != null ? nowMs - breachSince : 0;
+        const breachReady =
+          breachMs >= config.hyperliquid.profitTrailFloorBreachMs;
+
         const giveUpBelow = floorUsd - config.hyperliquid.trailSweepDeferGiveUpUsd;
         const deferUntil = hlTrailDeferUntil.get(lockKey) ?? 0;
         const floorDeferKey = `${lockKey}:${Math.round(floorUsd * 1000)}`;
         const deferCount = hlTrailDeferCount.get(floorDeferKey) ?? 0;
         const maxDefer = config.hyperliquid.trailSweepDeferMax;
+
+        if (!breachReady) {
+          continue;
+        }
 
         if (pnl > 0 && pnl > giveUpBelow && nowMs < deferUntil) {
           continue;
@@ -917,6 +962,7 @@ export class HyperliquidTradingService {
               nowMs + config.hyperliquid.trailSweepDeferMs
             );
             hlTrailDeferCount.set(floorDeferKey, deferCount + 1);
+            hlTrailFloorBreachSince.delete(lockKey);
             logTrailPullbackAnalysis(userAddress, pos.coin, pull, true);
             continue;
           }
@@ -963,6 +1009,7 @@ export class HyperliquidTradingService {
           : exitPolicy.peakDropFraction;
 
         if (
+          !locked &&
           !momentumWithUs &&
           shouldClosePeakDropUsd(
             pnl,

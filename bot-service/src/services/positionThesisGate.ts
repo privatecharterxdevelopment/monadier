@@ -361,6 +361,9 @@ export async function evaluateTrailPullbackAnalysis(opts: {
   } else if (sweepConfirms) {
     deferClose = true;
     reason = `Liquidity sweep confirms ${direction} — ${sweepReason}`;
+  } else if (strongRun && thesis.thesisIntact && mega.ok) {
+    deferClose = true;
+    reason = `Strong run (${runBias}) + thesis intact — let winner run`;
   } else if (strongRun && volumeOk && thesis.thesisIntact) {
     deferClose = true;
     reason = `Volume ${volumeRatio.toFixed(2)}x + thesis intact — expect rebound`;

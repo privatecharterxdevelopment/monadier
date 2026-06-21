@@ -92,6 +92,25 @@ export function trailingProfitLockFloorUsd(
   return Math.max(minFloorUsd, peakUsd - trailBufferUsd);
 }
 
+/** Wider trail on strong runs — min retrace as % of peak so noise does not exit winners. */
+export function effectiveProfitTrailBufferUsd(
+  peakUsd: number,
+  baseBufferUsd: number,
+  runBias: 'strong_run' | 'run' | 'neutral' | 'fade' | 'reversal',
+  thesisIntact: boolean,
+  minPeakFraction: number,
+  strongRunMult: number
+): number {
+  let buf = baseBufferUsd;
+  if (thesisIntact && (runBias === 'strong_run' || runBias === 'run')) {
+    buf *= strongRunMult;
+  }
+  if (peakUsd > 0 && minPeakFraction > 0) {
+    buf = Math.max(buf, peakUsd * minPeakFraction);
+  }
+  return buf;
+}
+
 /** Chart: trail line sits below live uPnL; close still uses peak-ratchet floor. */
 export function trailingProfitLockDisplayFloorUsd(
   peakUsd: number,
