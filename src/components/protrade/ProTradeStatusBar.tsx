@@ -165,6 +165,11 @@ const ProTradeStatusBar: React.FC<Props> = ({
             <span className="hl-status-dot" aria-hidden />
             Live
           </span>
+        ) : wsLive ? (
+          <span className="hl-status-connected">
+            <span className="hl-status-dot" aria-hidden />
+            Market live
+          </span>
         ) : walletConnected ? (
           <span>Connected</span>
         ) : (

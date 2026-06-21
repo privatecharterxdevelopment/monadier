@@ -41,12 +41,15 @@ type State = {
 };
 
 const SNAPSHOT_POLL_MS = 10_000;
+const BOOK_FALLBACK_POLL_MS = 2_000;
 const INTERVAL_DEBOUNCE_MS = 280;
 const BOOK_THROTTLE_MS = 16;
 const TRADES_THROTTLE_MS = 48;
 const CANDLE_THROTTLE_MS = 50;
 const MIDS_THROTTLE_MS = 48;
 const MAX_TAPE_TRADES = 50;
+/** Must match ProTradeOrderBook DEPTH — dedup ignored deeper levels otherwise. */
+const BOOK_LEVELS_KEY_DEPTH = 14;
 
 function normCoin(coin: string): string {
   return coin.trim().toUpperCase();
@@ -59,9 +62,9 @@ function coinMatches(a: string, b: string): boolean {
 function bookLevelsKey(book: HlL2Book): string {
   const fmt = (levels: { px: string; sz: string }[] | undefined, n: number) =>
     levels?.slice(0, n).map((l) => `${l.px}:${l.sz}`).join('|') ?? '';
-  const asks = fmt(book.levels?.[1], 8);
-  const bids = fmt(book.levels?.[0], 8);
-  return `${book.coin ?? ''}|${asks}|${bids}`;
+  const asks = fmt(book.levels?.[1], BOOK_LEVELS_KEY_DEPTH);
+  const bids = fmt(book.levels?.[0], BOOK_LEVELS_KEY_DEPTH);
+  return `${book.coin ?? ''}|${book.time}|${asks}|${bids}`;
 }
 
 function sortTapeTrades(trades: HlRecentTrade[]): HlRecentTrade[] {
@@ -130,6 +133,8 @@ export function useHyperliquidMarket(
     wsConnected: false,
   });
 
+  const bookKeyRef = useRef('');
+
   const refreshSnapshot = useCallback(async () => {
     if (!enabled) return;
     try {
@@ -148,6 +153,30 @@ export function useHyperliquidMarket(
       }));
     } catch {
       /* keep last snapshot */
+    }
+  }, [coin, kind, enabled]);
+
+  const refreshBook = useCallback(async () => {
+    if (!enabled) return;
+    const requestedCoin = normCoin(coin);
+    try {
+      const book =
+        kind === 'spot' ? await fetchHlSpotOrderBook(coin) : await fetchHlOrderBook(coin);
+      const key = bookLevelsKey(book);
+      setState((prev) => {
+        if (normCoin(coin) !== requestedCoin) return prev;
+        if (key === bookKeyRef.current) {
+          return { ...prev, wsConnected: getHlWsClient().isLive() };
+        }
+        bookKeyRef.current = key;
+        return {
+          ...prev,
+          book,
+          wsConnected: getHlWsClient().isLive(),
+        };
+      });
+    } catch {
+      /* keep last book */
     }
   }, [coin, kind, enabled]);
 
@@ -190,6 +219,7 @@ export function useHyperliquidMarket(
       ]);
       setState((prev) => {
         if (normCoin(coin) !== requestedCoin) return prev;
+        bookKeyRef.current = bookLevelsKey(book);
         return {
           candles,
           book,
@@ -262,7 +292,16 @@ export function useHyperliquidMarket(
     return () => window.clearInterval(id);
   }, [refreshSnapshot, enabled]);
 
-  const bookKeyRef = useRef('');
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const id = window.setInterval(() => {
+      const client = getHlWsClient();
+      if (client.isLive()) return;
+      void refreshBook();
+    }, BOOK_FALLBACK_POLL_MS);
+    return () => window.clearInterval(id);
+  }, [refreshBook, enabled]);
+
   const pendingBookRef = useRef<HlL2Book | null>(null);
   const bookTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingTradesRef = useRef<HlRecentTrade[]>([]);
@@ -320,8 +359,12 @@ export function useHyperliquidMarket(
     bookTimerRef.current = null;
     const next = pendingBookRef.current;
     if (!next) return;
+    pendingBookRef.current = null;
     const key = bookLevelsKey(next);
-    if (key === bookKeyRef.current) return;
+    if (key === bookKeyRef.current) {
+      setState((prev) => ({ ...prev, wsConnected: true }));
+      return;
+    }
     bookKeyRef.current = key;
     setState((prev) => ({ ...prev, book: next, wsConnected: true }));
   }, []);

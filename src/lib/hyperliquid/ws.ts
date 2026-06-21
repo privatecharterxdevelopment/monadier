@@ -29,6 +29,14 @@ class HlWsClient {
   private subs = new Map<string, HlWsSubscription>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private disposed = false;
+  private lastMessageAt = 0;
+
+  /** True when socket is open and HL sent data recently. */
+  isLive(staleMs = 12_000): boolean {
+    if (this.ws?.readyState !== WebSocket.OPEN) return false;
+    if (this.lastMessageAt <= 0) return false;
+    return Date.now() - this.lastMessageAt < staleMs;
+  }
 
   private connect() {
     if (this.disposed || this.ws?.readyState === WebSocket.OPEN) return;
@@ -43,6 +51,7 @@ class HlWsClient {
     };
 
     ws.onmessage = (ev) => {
+      this.lastMessageAt = Date.now();
       try {
         const msg = JSON.parse(String(ev.data)) as WsMessage;
         if (!msg.channel || msg.channel === 'subscriptionResponse') return;
