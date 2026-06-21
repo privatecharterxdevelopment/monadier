@@ -5,7 +5,7 @@ import { useUnifiedSignal } from './useUnifiedSignal';
 import { evaluateBotReadiness, readinessFromServerBlockers } from '../lib/botReadiness';
 import { filterUserBlockers } from '../lib/hyperliquid/builderPlatform';
 import { isBotScanNoiseDetail } from '../lib/hlBotReasonLabels';
-import { HL_MAX_CONCURRENT_POSITIONS } from '../lib/hlBotConstants';
+import { HL_MAX_CONCURRENT_POSITIONS, HL_SCAN_ROTATION_COINS, HL_SCAN_UNIVERSE_SIZE } from '../lib/hlBotConstants';
 import { MIN_HL_BOT_USD } from '../lib/hyperliquid/hlBotAgent';
 import { getBotApiBase, type Timeframe } from '../lib/signalService';
 import { binanceSymbolToHlCoin, hlCoinToBotSymbol } from '../lib/botTradingPairs';
@@ -38,6 +38,26 @@ type GlobalScanCandidate = {
   confidence: number;
   reason?: string;
 };
+
+function mergeGlobalScanCandidates(data: {
+  candidates?: GlobalScanCandidate[];
+  standardCandidates?: GlobalScanCandidate[];
+  aggressiveCandidates?: GlobalScanCandidate[];
+}): GlobalScanCandidate[] {
+  if (Array.isArray(data.candidates) && data.candidates.length > 0) {
+    return data.candidates;
+  }
+  const standard = Array.isArray(data.standardCandidates) ? data.standardCandidates : [];
+  const aggressive = Array.isArray(data.aggressiveCandidates) ? data.aggressiveCandidates : [];
+  const merged = [...standard, ...aggressive];
+  const seen = new Set<string>();
+  return merged.filter((c) => {
+    const key = c.coin?.toUpperCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 type Options = {
   walletConnected: boolean;
@@ -167,10 +187,12 @@ export function useTerminalBotAnalysis({
         if (!res.ok) return;
         const data = (await res.json()) as {
           candidates?: GlobalScanCandidate[];
+          standardCandidates?: GlobalScanCandidate[];
+          aggressiveCandidates?: GlobalScanCandidate[];
           count?: number;
           coinsScanned?: number;
         };
-        const list = Array.isArray(data.candidates) ? data.candidates : [];
+        const list = mergeGlobalScanCandidates(data);
         setGlobalCandidates(list);
         const next = pickNextScanCandidate(list, list[0] ?? null, effectiveOpenCoins);
         setGlobalBest(next);
@@ -275,6 +297,21 @@ export function useTerminalBotAnalysis({
 
   const slotsFull = openPositionsCount >= serverMaxSlots;
 
+  const scanRotationCoins = useMemo(() => {
+    const fromScan = globalCandidates.map((c) => c.coin.toUpperCase()).filter(Boolean);
+    if (fromScan.length >= 3) return fromScan;
+    const n = globalCoinsScanned > 0 ? globalCoinsScanned : HL_SCAN_UNIVERSE_SIZE;
+    return HL_SCAN_ROTATION_COINS.slice(0, Math.min(n, HL_SCAN_ROTATION_COINS.length));
+  }, [globalCandidates, globalCoinsScanned]);
+
+  const currentlyScanningCoin =
+    scanRotationCoins[step % Math.max(scanRotationCoins.length, 1)] ?? 'BTC';
+
+  const displaySymbol = useMemo(() => {
+    if (scanCandidate?.coin) return hlCoinToBotSymbol(scanCandidate.coin);
+    return hlCoinToBotSymbol(currentlyScanningCoin);
+  }, [scanCandidate?.coin, currentlyScanningCoin]);
+
   return {
     scanning,
     step,
@@ -282,7 +319,8 @@ export function useTerminalBotAnalysis({
     signal,
     isLoading,
     dbAnalysis,
-    activeSymbol: scanSymbol,
+    activeSymbol: displaySymbol,
+    scanSymbol,
     scanCandidate,
     globalBest,
     globalScanCount,
@@ -291,5 +329,7 @@ export function useTerminalBotAnalysis({
     openPositionsCount,
     maxConcurrentPositions: serverMaxSlots,
     slotsFull,
+    currentlyScanningCoin,
+    scanRotationCoins,
   };
 }

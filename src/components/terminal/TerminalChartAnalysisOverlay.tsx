@@ -115,6 +115,7 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
 
   const headline = useMemo(() => {
     const h = readiness?.headline ?? ANALYSIS_STEPS[step].label;
+    if (h.startsWith('Checking ')) return h;
     if (h === 'Bot waiting' && !readiness?.detail?.trim()) return 'Scanning markets';
     return h;
   }, [readiness?.headline, readiness?.detail, step]);

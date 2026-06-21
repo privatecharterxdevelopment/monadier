@@ -4,10 +4,7 @@ import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { HL_MAX_CONCURRENT_POSITIONS } from '../../lib/hlBotConstants';
 import { isHlBotEnabled } from '../../lib/hlBotGates';
-import {
-  binanceSymbolToHlCoin,
-  normalizeHlPerpCoin,
-} from '../../lib/botTradingPairs';
+import { normalizeHlPerpCoin } from '../../lib/botTradingPairs';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import TerminalChartAnalysisOverlay from '../terminal/TerminalChartAnalysisOverlay';
 
@@ -55,27 +52,32 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
   });
 
   const activeCandidate = analysis.scanCandidate ?? analysis.globalBest;
-
-  const analyzedCoin = useMemo(() => {
-    if (activeCandidate?.coin) return normalizeHlPerpCoin(activeCandidate.coin);
-    if (analysis.activeSymbol) return binanceSymbolToHlCoin(analysis.activeSymbol);
-    return binanceSymbolToHlCoin(symbol);
-  }, [activeCandidate?.coin, analysis.activeSymbol, symbol]);
+  const hasBestCandidate = Boolean(activeCandidate?.coin);
+  const scanned =
+    analysis.globalCoinsScanned > 0 ? analysis.globalCoinsScanned : analysis.scanRotationCoins.length;
 
   const universeLine = useMemo(() => {
-    const scanned =
-      analysis.globalCoinsScanned > 0 ? analysis.globalCoinsScanned : 18;
-    if (activeCandidate?.coin) {
+    if (hasBestCandidate && activeCandidate) {
       const c = normalizeHlPerpCoin(activeCandidate.coin);
       const conf = Math.round(activeCandidate.confidence);
-      return `Scanned ${scanned} HL perps · analyzing ${c} ${activeCandidate.direction} ${conf}%`;
+      return `Scanned ${scanned} HL perps · best setup ${c} ${activeCandidate.direction} ${conf}% · deep MTF check`;
     }
-    return `Scanning ${scanned} HL perps · MTF check on ${analyzedCoin} (chart)`;
+    const idx =
+      analysis.scanRotationCoins.indexOf(analysis.currentlyScanningCoin) + 1 ||
+      (analysis.step % analysis.scanRotationCoins.length) + 1;
+    return `Scanning ${scanned} HL perps · checking ${analysis.currentlyScanningCoin} (${idx}/${analysis.scanRotationCoins.length})`;
   }, [
     activeCandidate,
-    analysis.globalCoinsScanned,
-    analyzedCoin,
+    analysis.currentlyScanningCoin,
+    analysis.scanRotationCoins,
+    analysis.step,
+    hasBestCandidate,
+    scanned,
   ]);
+
+  const scanHeadline = hasBestCandidate
+    ? analysis.readiness.headline
+    : `Checking ${analysis.currentlyScanningCoin}`;
 
   const slotsFull = metrics.openPositionsCount >= HL_MAX_CONCURRENT_POSITIONS;
 
@@ -87,23 +89,24 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
         visible
         step={analysis.step}
         progress={analysis.progress}
-        signal={analysis.signal}
-        dbAnalysis={analysis.dbAnalysis}
+        signal={hasBestCandidate ? analysis.signal : null}
+        dbAnalysis={hasBestCandidate ? analysis.dbAnalysis : null}
         activeSymbol={analysis.activeSymbol ?? symbol}
         globalBest={activeCandidate}
         globalScanCount={analysis.globalScanCount}
         globalCoinsScanned={analysis.globalCoinsScanned}
-        readiness={
-          slotsFull
+        readiness={{
+          ...(slotsFull
             ? {
                 ...analysis.readiness,
                 headline: 'Slots full',
                 detail: `${metrics.openPositionsCount}/${HL_MAX_CONCURRENT_POSITIONS} open — monitoring exits`,
               }
-            : analysis.readiness
-        }
+            : analysis.readiness),
+          headline: scanHeadline,
+        }}
         scanning={botRunning && (analysis.scanning || metrics.openPositionsCount === 0)}
-        isLoading={analysis.isLoading}
+        isLoading={hasBestCandidate ? analysis.isLoading : false}
         openPositionsCount={metrics.openPositionsCount}
         maxConcurrentPositions={HL_MAX_CONCURRENT_POSITIONS}
       />
