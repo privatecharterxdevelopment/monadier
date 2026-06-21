@@ -1253,6 +1253,15 @@
   gap: 4px;
 }
 
+.hl-chart-toolbar-meta {
+  margin-left: auto;
+  padding: 0 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--hl-text-faint);
+  white-space: nowrap;
+}
+
 .hl-chart-tf {
   padding: 3px 8px;
   border: none;

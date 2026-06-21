@@ -523,7 +523,7 @@ const Dashboard2ProPageContent: React.FC = () => {
               openOrders={perpOpenOrders}
               onIntervalChange={setInterval}
               layoutKey={`perps-${perpCoin}-${interval}`}
-              defaultEngine={perpChartOverlay ? 'hl' : 'hltv'}
+              markPx={perpMarkPx}
               positionOverlay={perpChartOverlay}
             />
             <ProTradeOrderBook
@@ -637,9 +637,8 @@ const Dashboard2ProPageContent: React.FC = () => {
               loading={perpMarket.loading}
               openOrders={perpOpenOrders}
               onIntervalChange={setInterval}
-              layoutKey={`bot-${interval}`}
-              defaultEngine={botChartOverlay ? 'hl' : 'hltv'}
-              hideTvNote
+              layoutKey={`bot-${perpCoin}-${interval}`}
+              markPx={perpMarkPx}
               positionOverlay={botChartOverlay}
               tradeMarkers={botTradeMarkers}
             />

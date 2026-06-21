@@ -26,6 +26,7 @@ import {
   chartBarSpacing,
   chartSecondsVisible,
 } from '../../lib/hyperliquid/chartZoom';
+import { candlePriceRange, sanitizeChartCandles } from '../../lib/hyperliquid/chartCandles';
 
 type Props = {
   coin: string;
@@ -101,34 +102,20 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
   markPxRef.current = markPx;
 
   const buildAutoscaleProvider = () => {
-    return (original: () => { priceRange?: { minValue: number; maxValue: number } } | null) => {
-      const base = original();
-      if (!base?.priceRange) return base;
-      let { minValue, maxValue } = base.priceRange;
+    return () => {
       const overlay = overlayRef.current;
       const extra: number[] = [];
       if (overlay?.entryPx && overlay.entryPx > 0) extra.push(overlay.entryPx);
       if (overlay?.liqPx && overlay.liqPx > 0) extra.push(overlay.liqPx);
       if (overlay?.trailStopPx && overlay.trailStopPx > 0) extra.push(overlay.trailStopPx);
+      if (overlay?.stopLossPx && overlay.stopLossPx > 0) extra.push(overlay.stopLossPx);
+      if (overlay?.takeProfitPx && overlay.takeProfitPx > 0) extra.push(overlay.takeProfitPx);
       const liveMark = markPxRef.current;
       if (liveMark != null && liveMark > 0) extra.push(liveMark);
-      for (const px of extra) {
-        minValue = Math.min(minValue, px);
-        maxValue = Math.max(maxValue, px);
-      }
-      const span = maxValue - minValue;
-      const mid = (maxValue + minValue) / 2;
-      if (!Number.isFinite(mid) || mid <= 0) return base;
-      const minSpan = mid * (interval === '1m' ? 0.002 : interval === '5m' ? 0.003 : 0.005);
-      if (span < minSpan) {
-        const half = minSpan / 2;
-        return { ...base, priceRange: { minValue: mid - half, maxValue: mid + half } };
-      }
-      const pad = span * 0.05;
-      return {
-        ...base,
-        priceRange: { minValue: minValue - pad, maxValue: maxValue + pad },
-      };
+
+      const range = candlePriceRange(candlesRef.current, liveMark ?? undefined, extra);
+      if (range) return { priceRange: range };
+      return null;
     };
   };
 
@@ -198,8 +185,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     chartRef.current = chart;
     seriesRef.current = series;
     volumeRef.current = volumeSeries;
-    // Trade markers in the volume pane — keeps arrows off the candle bodies.
-    markersPluginRef.current = createSeriesMarkers(volumeSeries, [], { zOrder: 'top' });
+    markersPluginRef.current = createSeriesMarkers(series, [], { zOrder: 'top' });
 
     chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
       if (suppressFollowDetectRef.current) return;
@@ -346,11 +332,15 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       return;
     }
 
+    const refPx = markPxRef.current;
+    const clean = sanitizeChartCandles(candles, refPx && refPx > 0 ? refPx : undefined);
+    if (clean.length === 0) return;
+
     const prev = candlesRef.current;
     const prevFirst = prev[0]?.time;
-    const nextFirst = candles[0]?.time;
+    const nextFirst = clean[0]?.time;
     const fullReset =
-      prev.length === 0 || prevFirst !== nextFirst || candles.length < prev.length;
+      prev.length === 0 || prevFirst !== nextFirst || clean.length < prev.length;
 
     const toCandle = (c: HlCandleBar): CandlestickData => ({
       time: c.time as CandlestickData['time'],
@@ -368,28 +358,28 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
 
     safeChartOp(() => {
       if (fullReset) {
-        const data = candles.map(toCandle);
-        const volData = candles.filter((c) => (c.volume ?? 0) > 0).map(toVol);
+        const data = clean.map(toCandle);
+        const volData = clean.filter((c) => (c.volume ?? 0) > 0).map(toVol);
         series.setData(data);
         volumeSeries.setData(volData);
         showLatestBars(chart, data.length);
-        candlesRef.current = candles;
+        candlesRef.current = clean;
         return;
       }
 
-      const last = candles[candles.length - 1];
+      const last = clean[clean.length - 1];
       const prevLast = prev[prev.length - 1];
-      const newBar = last.time !== prevLast?.time && candles.length > prev.length;
+      const newBar = last.time !== prevLast?.time && clean.length > prev.length;
 
       series.update(toCandle(last));
       if ((last.volume ?? 0) > 0) {
         volumeSeries.update(toVol(last));
       }
 
-      if (newBar && candles.length > prev.length + 1) {
-        for (let i = prev.length; i < candles.length - 1; i++) {
-          series.update(toCandle(candles[i]));
-          const v = candles[i];
+      if (newBar && clean.length > prev.length + 1) {
+        for (let i = prev.length; i < clean.length - 1; i++) {
+          series.update(toCandle(clean[i]));
+          const v = clean[i];
           if ((v.volume ?? 0) > 0) volumeSeries.update(toVol(v));
         }
       }
@@ -398,9 +388,9 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         scrollLive(chart);
       }
 
-      candlesRef.current = candles;
+      candlesRef.current = clean;
     });
-  }, [candles, coin, interval, chartColors.volumeDown, chartColors.volumeUp]);
+  }, [candles, coin, interval, chartColors.volumeDown, chartColors.volumeUp, markPx]);
 
   useEffect(() => {
     const series = seriesRef.current;
