@@ -168,13 +168,15 @@ export const config = {
     /** BTC/ETH beta — block counter-trend alt entries (SHORT while pumping, LONG while dumping). */
     macroBeta: {
       /** 15m % move that counts as "pumping" (blocks alt SHORT). */
-      pumpBlock15mPct: Number(process.env.HL_MACRO_PUMP_15M || 0.12),
-      pumpBlock1hPct: Number(process.env.HL_MACRO_PUMP_1H || 0.35),
-      dumpBlock15mPct: Number(process.env.HL_MACRO_DUMP_15M || 0.12),
-      dumpBlock1hPct: Number(process.env.HL_MACRO_DUMP_1H || 0.35),
-      flatTrendPct: Number(process.env.HL_MACRO_FLAT_PCT || 0.08),
+      pumpBlock15mPct: Number(process.env.HL_MACRO_PUMP_15M || 0.35),
+      pumpBlock1hPct: Number(process.env.HL_MACRO_PUMP_1H || 0.45),
+      dumpBlock15mPct: Number(process.env.HL_MACRO_DUMP_15M || 0.35),
+      dumpBlock1hPct: Number(process.env.HL_MACRO_DUMP_1H || 0.45),
+      flatTrendPct: Number(process.env.HL_MACRO_FLAT_PCT || 0.1),
       minConsecutiveGreen15m: Number(process.env.HL_MACRO_MIN_GREEN_15M || 3),
       minConsecutiveRed15m: Number(process.env.HL_MACRO_MIN_RED_15M || 3),
+      /** Non-anchor major must exceed this 15m % before it can block an alt. */
+      strongCrossAnchor15mPct: Number(process.env.HL_MACRO_STRONG_CROSS_15M || 0.5),
     },
     /** Pre-open — price must already move in trade direction (no blind entries). */
     entryMomentum: {

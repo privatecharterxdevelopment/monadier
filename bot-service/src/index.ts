@@ -26,9 +26,7 @@ import {
 import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './services/hlAgent';
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
 import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlFreeMarginUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive } from './services/hlInfo';
-import { getLastHlOpenError, hyperliquidTradingService, resolveHlMarginPerSlot } from './services/hlTrading';
-import { validatePreTradeLiquidity } from './services/liquiditySweepGate';
-import { fetchHlLiquidUniverse, getHlLiquidityForCoin } from './services/hlLiquidity';
+import { getLastHlOpenError, getLastHlOpenErrorForClient, hyperliquidTradingService, resolveHlMarginPerSlot } from './services/hlTrading';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
 import { getHlFeeSummary } from './services/hlSuccessFees';
 import { isOpenDirectionAllowed, weekendShortOnlyLabel } from './services/weekendTradingRules';
@@ -427,24 +425,6 @@ const healthServer = http.createServer(async (req, res) => {
         }
       }
 
-      if (bestAvailable && hlOpenCoins.length < maxPositions && dbSettings.autoTradeEnabled) {
-        try {
-          const universe = await fetchHlLiquidUniverse();
-          const liq = getHlLiquidityForCoin(universe, bestAvailable.coin);
-          const gate = await validatePreTradeLiquidity({
-            symbol: bestAvailable.symbol,
-            direction: bestAvailable.direction,
-            dayVolumeUsd: liq?.dayVolumeUsd ?? bestAvailable.dayVolumeUsd,
-            timeframe: bestAvailable.botMode === 'aggressive' ? '1m' : '5m',
-          });
-          if (!gate.ok) {
-            blockers.push(`Pre-trade gate (${bestAvailable.coin}): ${gate.reason}`);
-          }
-        } catch {
-          /* status still useful without pre-trade probe */
-        }
-      }
-
       res.writeHead(200, corsHeaders);
       res.end(JSON.stringify({
         success: true,
@@ -537,7 +517,7 @@ const healthServer = http.createServer(async (req, res) => {
           dbOpenPositions: openDb.length,
           onChainOpenTokens: hlOpenCoins,
         },
-        lastOpenError: getLastHlOpenError(userAddress),
+        lastOpenError: getLastHlOpenErrorForClient(userAddress),
         tradeCycleSec: config.trading.checkIntervalMs / 1000,
         successFees: {
           accruedUsd: feeSummary.accruedUsd,

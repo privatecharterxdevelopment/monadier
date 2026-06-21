@@ -116,6 +116,22 @@ export async function validatePreTradeLiquidity(opts: {
   const candles = await signalEngine.fetchCandles(opts.symbol, opts.timeframe, limit);
   const sweep = detectLiquiditySweep(candles);
 
+  if (sweep.reason === 'insufficient candles') {
+    return {
+      ok: true,
+      reason: 'volume gate skipped — thin candle data',
+      sweep,
+    };
+  }
+
+  if (!sweep.volumeOk && sweep.volumeRatio === 0) {
+    return {
+      ok: true,
+      reason: 'volume gate skipped — no baseline volume',
+      sweep,
+    };
+  }
+
   if (!sweep.volumeOk) {
     return {
       ok: false,

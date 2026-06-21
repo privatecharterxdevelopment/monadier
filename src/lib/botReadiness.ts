@@ -1,6 +1,7 @@
 import type { UnifiedSignal } from './signalService';
 import { MIN_HL_BOT_USD } from './hyperliquid/hlBotAgent';
 import { isInternalPlatformOpsMessage } from './hyperliquid/builderPlatform';
+import { isBotScanNoiseDetail } from './hlBotReasonLabels';
 import {
   HL_BOT_CYCLE_SEC,
   HL_MAX_CONCURRENT_POSITIONS,
@@ -15,6 +16,7 @@ export type BotReadiness = {
 
 function formatBlocker(blocker: string): string {
   if (isInternalPlatformOpsMessage(blocker)) return '';
+  if (isBotScanNoiseDetail(blocker)) return '';
   if (/HL agent not approved/i.test(blocker)) {
     return 'Approve the trading agent in the Bot panel';
   }
@@ -28,7 +30,7 @@ function formatBlocker(blocker: string): string {
     return '';
   }
   if (/Pre-trade gate blocked|volume\/liquidity|volume\/sweep/i.test(blocker)) {
-    return blocker;
+    return '';
   }
   if (/no trade signal|MTF|bot conf/i.test(blocker)) {
     return 'No strong trade setup yet — bot keeps scanning';

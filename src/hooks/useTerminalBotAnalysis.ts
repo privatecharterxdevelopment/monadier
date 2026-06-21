@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase';
 import { VAULT_CHAIN_ID } from '../lib/vault';
 import { useUnifiedSignal } from './useUnifiedSignal';
 import { evaluateBotReadiness, readinessFromServerBlockers } from '../lib/botReadiness';
-import { filterUserBlockers, isInternalPlatformOpsMessage } from '../lib/hyperliquid/builderPlatform';
+import { filterUserBlockers } from '../lib/hyperliquid/builderPlatform';
+import { isBotScanNoiseDetail } from '../lib/hlBotReasonLabels';
 import { HL_MAX_CONCURRENT_POSITIONS } from '../lib/hlBotConstants';
 import { MIN_HL_BOT_USD } from '../lib/hyperliquid/hlBotAgent';
 import { getBotApiBase, type Timeframe } from '../lib/signalService';
@@ -223,13 +224,10 @@ export function useTerminalBotAnalysis({
           data.globalScan?.best ?? null,
           openCoins
         );
-        if (data.lastOpenError?.error) {
-          const openErr = data.lastOpenError.error;
-          if (!isInternalPlatformOpsMessage(openErr)) {
-            blockers.push(
-              `HL order failed${data.lastOpenError.coin ? ` (${data.lastOpenError.coin})` : ''}: ${openErr}`
-            );
-          }
+        if (data.lastOpenError?.error && !isBotScanNoiseDetail(data.lastOpenError.error)) {
+          blockers.push(
+            `HL order failed${data.lastOpenError.coin ? ` (${data.lastOpenError.coin})` : ''}: ${data.lastOpenError.error}`
+          );
         }
         setServerBlockers(filterUserBlockers(blockers));
         if (nextCandidate) setGlobalBest(nextCandidate);

@@ -96,11 +96,31 @@ const hlTrailDeferCount = new Map<string, number>();
 /** When uPnL first touched trail floor — debounce noise exits. */
 const hlTrailFloorBreachSince = new Map<string, number>();
 
-/** Last HL open error per wallet — surfaced in /api/bot-status diagnostics. */
+/** Last HL open error per wallet — ops logs only; client API filters diagnostics. */
 const lastHlOpenError = new Map<string, { at: string; coin?: string; error: string }>();
+
+function isInternalOpenDiagnostic(error: string): boolean {
+  return (
+    /Pre-trade gate/i.test(error) ||
+    /Macro beta/i.test(error) ||
+    /volume\/liquidity/i.test(error) ||
+    /Volume 0\.00x/i.test(error) ||
+    /ETH-beta|BTC-beta/i.test(error) ||
+    / ‖ /.test(error)
+  );
+}
 
 export function getLastHlOpenError(wallet: string): { at: string; coin?: string; error: string } | null {
   return lastHlOpenError.get(wallet.toLowerCase()) ?? null;
+}
+
+/** User-facing bot-status — hides gate diagnostics. */
+export function getLastHlOpenErrorForClient(
+  wallet: string
+): { at: string; coin?: string; error: string } | null {
+  const err = getLastHlOpenError(wallet);
+  if (!err || isInternalOpenDiagnostic(err.error)) return null;
+  return err;
 }
 
 function positionKey(userAddress: string, coin: string): string {

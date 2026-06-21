@@ -92,6 +92,14 @@ export function isBotScanNoiseDetail(detail: string): boolean {
     /min \d+% conf,\s*\d+ TFs/i.test(d) ||
     /\d+\+?\s*conf,\s*2 aligned TFs/i.test(d) ||
     /Bot state out of sync/i.test(d) ||
-    /Winning bot closes:/i.test(d)
+    /Winning bot closes:/i.test(d) ||
+    /Pre-trade gate/i.test(d) ||
+    /Macro beta/i.test(d) ||
+    /HL order failed/i.test(d) ||
+    /Volume 0\.00x/i.test(d) ||
+    /volume\/liquidity/i.test(d) ||
+    /ETH-beta|BTC-beta/i.test(d) ||
+    / ‖ /.test(d) ||
+    /15m \+?\d|1h \+?\d/i.test(d)
   );
 }

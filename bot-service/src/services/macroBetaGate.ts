@@ -216,13 +216,35 @@ export async function evaluateMacroBetaAlignment(opts: {
   };
 
   if (opts.direction === 'SHORT') {
-    blockers.push(...isPumping(btc, 'BTC', true));
-    blockers.push(...isPumping(eth, 'ETH', true));
-    blockers.push(...isPumping(snapshot.coinMom, coin, true));
+    const strongCross = cfg.strongCrossAnchor15mPct ?? 0.5;
+    if (anchor === 'ETH') {
+      blockers.push(...isPumping(eth, 'ETH', true));
+      blockers.push(...isPumping(snapshot.coinMom, coin, true));
+      if (btc.change15mPct >= strongCross || btc.consecutiveGreen15m >= minGreen) {
+        blockers.push(...isPumping(btc, 'BTC', true));
+      }
+    } else {
+      blockers.push(...isPumping(btc, 'BTC', true));
+      blockers.push(...isPumping(snapshot.coinMom, coin, true));
+      if (eth.change15mPct >= strongCross || eth.consecutiveGreen15m >= minGreen) {
+        blockers.push(...isPumping(eth, 'ETH', true));
+      }
+    }
   } else {
-    blockers.push(...isDumping(btc, 'BTC', true));
-    blockers.push(...isDumping(eth, 'ETH', true));
-    blockers.push(...isDumping(snapshot.coinMom, coin, true));
+    const strongCross = cfg.strongCrossAnchor15mPct ?? 0.5;
+    if (anchor === 'ETH') {
+      blockers.push(...isDumping(eth, 'ETH', true));
+      blockers.push(...isDumping(snapshot.coinMom, coin, true));
+      if (btc.change15mPct <= -strongCross || btc.consecutiveRed15m >= minRed) {
+        blockers.push(...isDumping(btc, 'BTC', true));
+      }
+    } else {
+      blockers.push(...isDumping(btc, 'BTC', true));
+      blockers.push(...isDumping(snapshot.coinMom, coin, true));
+      if (eth.change15mPct <= -strongCross || eth.consecutiveRed15m >= minRed) {
+        blockers.push(...isDumping(eth, 'ETH', true));
+      }
+    }
   }
 
   const macroSummary = [fmtMom('BTC', btc), fmtMom('ETH', eth)];

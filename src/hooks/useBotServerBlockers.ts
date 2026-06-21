@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { pickNextScanCandidate } from '../lib/botScanCandidate';
 import { filterUserBlockers } from '../lib/hyperliquid/builderPlatform';
+import { isBotScanNoiseDetail } from '../lib/hlBotReasonLabels';
 import { getBotApiBase } from '../lib/signalService';
 import { HL_MAX_CONCURRENT_POSITIONS } from '../lib/hlBotConstants';
 
@@ -67,7 +68,11 @@ export function useBotServerBlockers(wallet: string | undefined, enabled: boolea
         );
 
         setStatus({
-          blockers: filterUserBlockers(Array.isArray(data.blockers) ? data.blockers : []),
+          blockers: filterUserBlockers(
+            (Array.isArray(data.blockers) ? data.blockers : []).filter(
+              (b) => !isBotScanNoiseDetail(b)
+            )
+          ),
           maxConcurrentPositions: maxConcurrent,
           openCoins,
           nextSetup,

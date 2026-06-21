@@ -15,6 +15,9 @@ export type HlBotSidebarStatus = {
 
 function simplifyBlocker(raw: string): string {
   if (isInternalPlatformOpsMessage(raw)) return '';
+  if (/Pre-trade gate|Macro beta|HL order failed|Volume 0\.00x|volume\/liquidity|ETH-beta|BTC-beta| ‖ /.test(raw)) {
+    return '';
+  }
   if (/HL agent not approved/i.test(raw)) {
     return 'Trading agent not approved yet';
   }
