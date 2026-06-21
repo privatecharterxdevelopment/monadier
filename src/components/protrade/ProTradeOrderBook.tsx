@@ -1,7 +1,7 @@
 import React, { memo, useMemo, useState } from 'react';
 import { ensureArray } from '../../lib/ensureArray';
 import type { HlL2Book, HlRecentTrade } from '../../lib/hyperliquid/types';
-import { fmtPrice, fmtSize, fmtTimeMs } from '../../lib/hyperliquid/format';
+import { fmtMarketPrice, fmtSize, fmtTimeMs } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
 
 type Props = {
@@ -42,7 +42,7 @@ const BookLevelRow = memo(function BookLevelRow({
       }}
     >
       <span className="hl-book-depth" aria-hidden />
-      <span>{fmtPrice(level.px, 0)}</span>
+      <span>{fmtMarketPrice(level.px)}</span>
       <span>{fmtSize(level.sz)}</span>
       <span>{fmtSize(level.cum)}</span>
     </button>
@@ -141,7 +141,7 @@ const ProTradeOrderBook: React.FC<Props> = ({
               ))}
             </div>
             <div className="hl-book-mid">
-              {markPx > 0 ? fmtPrice(markPx, 0) : '—'}
+              {markPx > 0 ? fmtMarketPrice(markPx) : '—'}
               {spread != null ? (
                 <span className="hl-book-spread">Spread {spread.toFixed(2)}%</span>
               ) : null}
@@ -181,7 +181,7 @@ const ProTradeOrderBook: React.FC<Props> = ({
                   key={`${t.time}-${i}`}
                   className={`hl-book-row hl-book-row--static ${t.side === 'B' ? 'hl-book-row--bid' : 'hl-book-row--ask'}`}
                 >
-                  <span>{fmtPrice(t.px, 0)}</span>
+                  <span>{fmtMarketPrice(t.px)}</span>
                   <span>{fmtSize(t.sz)}</span>
                   <span className="hl-book-time-muted">{fmtTimeMs(t.time)}</span>
                 </div>

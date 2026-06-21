@@ -93,8 +93,35 @@ export function fmtPct(value: unknown, digits = 2): string {
   return `${sign}${n.toFixed(digits)}%`;
 }
 
-export function fmtPrice(value: unknown, maxFractionDigits = 2): string {
-  return localeNumber(value, { maximumFractionDigits: maxFractionDigits });
+/** Decimal places for perp/spot quote prices (UNI ~3.04 not "3"). */
+export function priceFractionDigits(px: number): number {
+  const abs = Math.abs(px);
+  if (abs >= 1000) return 2;
+  if (abs >= 100) return 2;
+  if (abs >= 10) return 3;
+  if (abs >= 1) return 4;
+  if (abs >= 0.1) return 5;
+  return 6;
+}
+
+export function fmtPrice(value: unknown, maxFractionDigits?: number): string {
+  const n = toNum(value);
+  const digits =
+    maxFractionDigits != null ? maxFractionDigits : priceFractionDigits(n);
+  return localeNumber(value, {
+    minimumFractionDigits: Math.min(2, digits),
+    maximumFractionDigits: digits,
+  });
+}
+
+/** Order book / tape — always show meaningful decimals for the price level. */
+export function fmtMarketPrice(value: unknown): string {
+  const n = toNum(value);
+  const digits = priceFractionDigits(n);
+  return localeNumber(value, {
+    minimumFractionDigits: digits >= 4 ? 2 : 0,
+    maximumFractionDigits: digits,
+  });
 }
 
 export function fmtSize(value: unknown, decimals = 4): string {

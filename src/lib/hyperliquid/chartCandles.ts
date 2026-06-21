@@ -1,5 +1,15 @@
 import type { HlCandleBar } from './types';
 
+/** Prefer candle close — markPx can lag one coin behind after switching pairs. */
+export function chartSanitizeRef(candles: HlCandleBar[], markPx?: number): number | undefined {
+  const fromBar = candles[candles.length - 1]?.close ?? candles[0]?.close ?? 0;
+  if (!(fromBar > 0)) return markPx && markPx > 0 ? markPx : undefined;
+  if (!markPx || markPx <= 0) return fromBar;
+  const ratio = markPx / fromBar;
+  if (ratio >= 0.85 && ratio <= 1.15) return fromBar;
+  return fromBar;
+}
+
 /** Drop corrupt OHLC bars (wrong coin / bad WS) that flatten the chart to 0–70k. */
 export function sanitizeChartCandles(
   candles: HlCandleBar[],

@@ -17,7 +17,7 @@ import {
 } from 'lightweight-charts';
 import type { HlCandleBar, HlInterval } from '../../lib/hyperliquid/types';
 import type { HlOpenOrder } from '../../lib/hyperliquid/user';
-import { fmtPrice } from '../../lib/hyperliquid/format';
+import { fmtMarketPrice } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
 import type { ProTradeTheme } from '../../lib/proTradeTheme';
 import { getProTradeChartColors } from '../../lib/proTradeTheme';
@@ -26,7 +26,7 @@ import {
   chartBarSpacing,
   chartSecondsVisible,
 } from '../../lib/hyperliquid/chartZoom';
-import { candlePriceRange, sanitizeChartCandles } from '../../lib/hyperliquid/chartCandles';
+import { candlePriceRange, chartSanitizeRef, sanitizeChartCandles } from '../../lib/hyperliquid/chartCandles';
 
 type Props = {
   coin: string;
@@ -104,6 +104,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
   onFollowLiveChangeRef.current = onFollowLiveChange;
   const themeRef = useRef(theme);
   const prevThemeForDataRef = useRef(theme);
+  const prevCoinForDataRef = useRef(coin);
 
   const buildAutoscaleProvider = () => {
     return () => {
@@ -381,17 +382,27 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       return;
     }
 
-    const refPx = markPxRef.current;
-    const clean = sanitizeChartCandles(candles, refPx && refPx > 0 ? refPx : undefined);
-    if (clean.length === 0) return;
+    const refPx = chartSanitizeRef(candles, markPxRef.current);
+    const clean = sanitizeChartCandles(candles, refPx);
+    if (clean.length === 0) {
+      candlesRef.current = [];
+      safeChartOp(() => {
+        series.setData([]);
+        volumeSeries.setData([]);
+      });
+      return;
+    }
 
     const prev = candlesRef.current;
     const prevFirst = prev[0]?.time;
     const nextFirst = clean[0]?.time;
     const themeChanged = prevThemeForDataRef.current !== theme;
+    const coinChanged = prevCoinForDataRef.current !== coin;
     if (themeChanged) prevThemeForDataRef.current = theme;
+    if (coinChanged) prevCoinForDataRef.current = coin;
     const fullReset =
       themeChanged ||
+      coinChanged ||
       prev.length === 0 ||
       prevFirst !== nextFirst ||
       clean.length < prev.length;
@@ -467,7 +478,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
           lineWidth: 1,
           lineStyle: LineStyle.Dashed,
           axisLabelVisible: true,
-          title: `Limit ${fmtPrice(px, 0)}`,
+          title: `Limit ${fmtMarketPrice(px)}`,
         });
         priceLinesRef.current.push(line);
       }
@@ -479,7 +490,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
           lineWidth: 2,
           lineStyle: LineStyle.Solid,
           axisLabelVisible: true,
-          title: `Entry ${fmtPrice(positionOverlay.entryPx, 0)}`,
+          title: `Entry ${fmtMarketPrice(positionOverlay.entryPx)}`,
         });
         priceLinesRef.current.push(entryLine);
       }
@@ -490,7 +501,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
           lineWidth: 1,
           lineStyle: LineStyle.Dotted,
           axisLabelVisible: true,
-          title: `Liq ${fmtPrice(positionOverlay.liqPx, 0)}`,
+          title: `Liq ${fmtMarketPrice(positionOverlay.liqPx)}`,
         });
         priceLinesRef.current.push(liqLine);
       }
