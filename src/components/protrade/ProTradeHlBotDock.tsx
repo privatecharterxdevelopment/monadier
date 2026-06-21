@@ -5,11 +5,9 @@ import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
 import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
-import { isHlBotEnabled } from '../../lib/hlBotGates';
 import { toNum } from '../../lib/hyperliquid/parse';
 import type { HlPosition } from '../../lib/hyperliquid/user';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
-import TerminalBotAnalysisStrip from '../terminal/TerminalBotAnalysisStrip';
 import ProTradeDock, { type ProTradeDockTab } from './ProTradeDock';
 
 /** Hyperliquid bot dock tabs — same as Pro Trade desk (no GMX/vault). */
@@ -56,20 +54,17 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   walletConnected = false,
   onCoinClick,
   onPositionChange,
-  showBotAnalysis = false,
-  botAnalysisMetrics,
-  botAnalysisSymbol = 'ETHUSDT',
-  botAnalysisWallet,
-  botOpenPositionCoins,
+  showBotAnalysis: _showBotAnalysis = false,
+  botAnalysisMetrics: _botAnalysisMetrics,
+  botAnalysisSymbol: _botAnalysisSymbol = 'ETHUSDT',
+  botAnalysisWallet: _botAnalysisWallet,
+  botOpenPositionCoins: _botOpenPositionCoins,
   className,
   historyOnly = false,
 }) => {
   const { address } = useAccount();
   const { wallet: settingsWallet, settings: botSettingsSnapshot } = useTerminalBotSettings();
   const configuredLeverage = effectiveHlBotSettings(botSettingsSnapshot).leverage;
-  const botRunning = isHlBotEnabled(
-    Boolean(botAnalysisMetrics?.autoTradeEnabled) || botSettingsSnapshot.autoTradeEnabled
-  );
   const hlWallet = (
     walletAddress ??
     settingsWallet ??
@@ -139,34 +134,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
     [closePosition, hlWallet, markPrices, refreshAccount, onPositionChange]
   );
 
-  /** Always show the scan bar on Positions — it handles paused / connect states itself. */
-  const showAnalyzerStrip =
-    showBotAnalysis &&
-    !historyOnly &&
-    dockTab === 'positions' &&
-    Boolean(hlWallet || walletConnected || address);
-
   const connected = walletConnected || Boolean(hlWallet);
-
-  const analysisMetrics =
-    botAnalysisMetrics ??
-    ({
-      walletAvailableUsd: 0,
-      hlBalanceUsd: 0,
-      vaultUsd: 0,
-      hlWithdrawableUsd: 0,
-      activeTradeUsd: 0,
-      totalPnlUsd: 0,
-      realizedPnlUsd: 0,
-      unrealizedPnlUsd: 0,
-      withdrawnUsd: 0,
-      openPositionsCount: positions.length,
-      autoTradeEnabled: botRunning,
-      winRate: 0,
-      closedTradesCount: 0,
-      isLoading: false,
-      hasHlSnapshot: false,
-    } satisfies Dashboard2Metrics);
 
   return (
     <div
@@ -174,21 +142,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         dockTab === 'tradeHistory' && !historyOnly ? ' hl-bot-dock--history-tab' : ''
       }${className ? ` ${className}` : ''}`}
     >
-      {showAnalyzerStrip ? (
-        <div className="hl-bot-dock-analyzer">
-          <TerminalBotAnalysisStrip
-            walletConnected={connected}
-            metrics={analysisMetrics}
-            vaultWallet={botAnalysisWallet ?? hlWallet ?? null}
-            openPositionCoins={botOpenPositionCoins ?? positionCoins}
-            symbol={botAnalysisSymbol}
-            placement="dock"
-            botRunningHint={botRunning}
-          />
-        </div>
-      ) : !historyOnly ? (
-        <div className="hl-dock-mode-label">Monadier bot</div>
-      ) : null}
+      {!historyOnly ? <div className="hl-dock-mode-label">Monadier bot</div> : null}
       {closeNotice ? (
         <p className="hl-dock-notice" role="status">
           {closeNotice}

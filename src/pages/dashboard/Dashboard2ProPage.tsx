@@ -12,6 +12,7 @@ import {
   ProTradeBotProvider,
   ProTradeBotStatusBar,
 } from '../../components/protrade/ProTradeBotSide';
+import ProTradeBotAnalysis from '../../components/protrade/ProTradeBotAnalysis';
 import type { HlBotDockTab } from '../../components/protrade/ProTradeHlBotDock';
 import ProTradeTickerStrip from '../../components/protrade/ProTradeTickerStrip';
 import ProTradeMarketBar from '../../components/protrade/ProTradeMarketBar';
@@ -651,18 +652,26 @@ const Dashboard2ProPageContent: React.FC = () => {
       <div className="hl-body">
         <div className="hl-workspace-main">
           <div className="hl-chart-row">
-            <ProTradeChart
-              coin={perpCoin}
-              interval={interval}
-              candles={perpMarket.candles}
-              loading={perpMarket.loading}
-              openOrders={perpOpenOrders}
-              onIntervalChange={setInterval}
-              layoutKey={`bot-${perpCoin}-${interval}`}
-              markPx={perpMarkPx}
-              positionOverlay={botChartOverlay}
-              tradeMarkers={botTradeMarkers}
-            />
+            <div className="hl-bot-chart-stack">
+              <ProTradeChart
+                coin={perpCoin}
+                interval={interval}
+                candles={perpMarket.candles}
+                loading={perpMarket.loading}
+                openOrders={perpOpenOrders}
+                onIntervalChange={setInterval}
+                layoutKey={`bot-${perpCoin}-${interval}`}
+                markPx={perpMarkPx}
+                positionOverlay={botChartOverlay}
+                tradeMarkers={botTradeMarkers}
+              />
+              <ProTradeBotAnalysis
+                walletConnected={isConnected}
+                perpCoin={perpCoin}
+                scanCoin={botScanCoin}
+                openPositionCoins={botOpenPositionCoins}
+              />
+            </div>
             <ProTradeOrderBook
               book={perpMarket.book}
               recentTrades={perpMarket.recentTrades}

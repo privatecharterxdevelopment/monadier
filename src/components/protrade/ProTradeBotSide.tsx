@@ -63,7 +63,7 @@ export const ProTradeBotDockSlot: React.FC<DockProps> = ({
       activeTab={dockTab}
       onTabChange={onDockTabChange}
       refreshKey={dockRefreshKey}
-      showBotAnalysis
+      showBotAnalysis={false}
       botAnalysisMetrics={metrics}
       botAnalysisWallet={address ?? null}
       botAnalysisSymbol={analysisSymbol}

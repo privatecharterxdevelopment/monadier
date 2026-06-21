@@ -1249,7 +1249,7 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) minmax(212px, min(42vh, 400px));
+  grid-template-rows: minmax(0, 1fr) minmax(168px, min(36vh, 320px));
   overflow: hidden;
 }
 
@@ -6438,6 +6438,32 @@
 .hl-bot-analysis {
   flex-shrink: 0;
   border-top: 1px solid var(--hl-border);
+  background: var(--hl-bg-elevated);
+  z-index: 2;
+}
+
+.hl-bot-analysis .term-dock-analysis {
+  margin: 0;
+}
+
+.hl-bot-analysis .hl-bot-analyzer-bar {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: var(--hl-bg-elevated);
+  padding: 8px 10px;
+}
+
+.hl-bot-analysis .hl-bot-analyzer-pills {
+  gap: 6px;
+}
+
+.hl-root--light .hl-bot-analysis .hl-bot-analyzer-bar {
+  background: #f0f0f3;
+}
+
+.hl-root--dark .hl-bot-analysis .hl-bot-analyzer-bar {
+  background: #141414;
 }
 
 .hl-bot-analysis .term-chart-overlay {
