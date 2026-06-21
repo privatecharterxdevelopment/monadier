@@ -93,7 +93,7 @@ export const config = {
     /** Global scan — min timeframes pointing same direction (of 1m/5m/15m/1h). */
     minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 2),
     /** Global scan — min % of TFs sharing the dominant trend (0–100). */
-    minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 60),
+    minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 55),
     /** Max independent HL perp positions per wallet (different coins). */
     maxConcurrentPositions: Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 2),
     /** Minimum order notional — skips sloppy micro-trades. */
@@ -142,7 +142,7 @@ export const config = {
     /** Pre-trade: min recent candle vol vs lookback avg. */
     minTradeVolumeRatio: Number(process.env.HL_MIN_TRADE_VOLUME_RATIO || 1.25),
     /** Without a sweep, require stronger volume confirmation. */
-    minNoSweepVolumeRatio: Number(process.env.HL_MIN_NO_SWEEP_VOLUME_RATIO || 1.55),
+    minNoSweepVolumeRatio: Number(process.env.HL_MIN_NO_SWEEP_VOLUME_RATIO || 1.35),
     /** Bars (excl. last 3) used for swing high/low in sweep detection. */
     sweepLookbackBars: Number(process.env.HL_SWEEP_LOOKBACK_BARS || 15),
     reentryCooldownMs: Number(process.env.HL_REENTRY_COOLDOWN_MS || 180_000),
@@ -163,7 +163,7 @@ export const config = {
       /** Price within this % of level = "at" resistance/support. */
       nearLevelPct: Number(process.env.HL_ENTRY_NEAR_LEVEL || 0.0035),
       /** Block long at ceiling after this many rejections at resistance. */
-      minRejectionsToBlock: Number(process.env.HL_ENTRY_MIN_REJECTIONS || 2),
+      minRejectionsToBlock: Number(process.env.HL_ENTRY_MIN_REJECTIONS || 3),
     },
     /** BTC/ETH beta — block counter-trend alt entries (SHORT while pumping, LONG while dumping). */
     macroBeta: {

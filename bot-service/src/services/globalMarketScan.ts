@@ -6,14 +6,7 @@ import { analyzeAggressiveScalpBySymbol } from './aggressiveScalpAnalysis';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { filterWeekendShortOnly, isWeekendShortOnlyWindow } from './weekendTradingRules';
-import { validatePreTradeLiquidity } from './liquiditySweepGate';
-import { validateEntryLocation } from './entryLocationGate';
-import { validateMacroBetaAlignment } from './macroBetaGate';
-import { validateEntryMomentum } from './entryMomentumGate';
-import {
-  refreshMegaPairVolumeMonitor,
-  validateMegaPairVolumeForDirection,
-} from './megaPairVolumeMonitor';
+import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
 
 export type BotSignalMode = 'standard' | 'aggressive';
 
@@ -84,59 +77,6 @@ async function scanStandardCoin(
     ) {
       return null;
     }
-    const liqGate = await validatePreTradeLiquidity({
-      symbol,
-      direction: analysis.direction,
-      dayVolumeUsd: liq.dayVolumeUsd,
-      timeframe: '5m',
-    });
-    if (!liqGate.ok) return null;
-    const locationGate = await validateEntryLocation({
-      symbol,
-      direction: analysis.direction,
-    });
-    if (!locationGate.ok) {
-      logger.debug('HL scan skip: resistance/support', {
-        coin,
-        direction: analysis.direction,
-        reason: locationGate.reason,
-      });
-      return null;
-    }
-    const macroGate = await validateMacroBetaAlignment({
-      coin,
-      direction: analysis.direction,
-    });
-    if (!macroGate.ok) {
-      logger.debug('HL scan skip: macro beta', {
-        coin,
-        direction: analysis.direction,
-        blockers: macroGate.blockers,
-        reason: macroGate.reason,
-      });
-      return null;
-    }
-    const megaGate = validateMegaPairVolumeForDirection(analysis.direction);
-    if (!megaGate.ok) {
-      logger.debug('HL scan skip: mega pair volume', {
-        coin,
-        direction: analysis.direction,
-        reason: megaGate.reason,
-      });
-      return null;
-    }
-    const momentumGate = await validateEntryMomentum({
-      coin,
-      direction: analysis.direction,
-    });
-    if (!momentumGate.ok) {
-      logger.debug('HL scan skip: entry momentum', {
-        coin,
-        direction: analysis.direction,
-        reason: momentumGate.reason,
-      });
-      return null;
-    }
     return {
       coin,
       symbol,
@@ -150,11 +90,6 @@ async function scanStandardCoin(
       trendAlignment: analysis.metrics?.trendAlignment,
       directionalTfCount: analysis.metrics?.directionalTfCount,
       h1Trend: analysis.metrics?.h1Trend,
-      liquidityReason: liqGate.reason,
-      locationReason: locationGate.reason,
-      macroReason: macroGate.reason,
-      momentumReason: momentumGate.reason,
-      megaPairReason: megaGate.reason,
       signalReasons: analysis.signalReasons,
       indicators: analysis.indicators,
     };
@@ -185,58 +120,6 @@ async function scanAggressiveCoin(
       }
     }
 
-    const liqGate = await validatePreTradeLiquidity({
-      symbol,
-      direction: scalp.direction,
-      dayVolumeUsd: liq.dayVolumeUsd,
-      timeframe: '1m',
-    });
-    if (!liqGate.ok) return null;
-    const locationGate = await validateEntryLocation({
-      symbol,
-      direction: scalp.direction,
-    });
-    if (!locationGate.ok) {
-      logger.debug('HL scan skip: resistance/support', {
-        coin,
-        direction: scalp.direction,
-        reason: locationGate.reason,
-      });
-      return null;
-    }
-    const macroGate = await validateMacroBetaAlignment({
-      coin,
-      direction: scalp.direction,
-    });
-    if (!macroGate.ok) {
-      logger.debug('HL scan skip: macro beta', {
-        coin,
-        direction: scalp.direction,
-        blockers: macroGate.blockers,
-      });
-      return null;
-    }
-    const megaGate = validateMegaPairVolumeForDirection(scalp.direction);
-    if (!megaGate.ok) {
-      logger.debug('HL scan skip: mega pair volume', {
-        coin,
-        direction: scalp.direction,
-        reason: megaGate.reason,
-      });
-      return null;
-    }
-    const momentumGate = await validateEntryMomentum({
-      coin,
-      direction: scalp.direction,
-    });
-    if (!momentumGate.ok) {
-      logger.debug('HL scan skip: entry momentum', {
-        coin,
-        direction: scalp.direction,
-        reason: momentumGate.reason,
-      });
-      return null;
-    }
     return {
       coin,
       symbol,
@@ -250,11 +133,6 @@ async function scanAggressiveCoin(
       trendAlignment: h1Check?.metrics?.trendAlignment,
       directionalTfCount: h1Check?.metrics?.directionalTfCount,
       h1Trend: h1Check?.metrics?.h1Trend,
-      liquidityReason: liqGate.reason,
-      locationReason: locationGate.reason,
-      macroReason: macroGate.reason,
-      momentumReason: momentumGate.reason,
-      megaPairReason: megaGate.reason,
       signalReasons: [
         `Agg 1m ${scalp.trend1m} · next-3 ${scalp.predictedNext3} · 5m ${scalp.trend5m} · mom ${scalp.momentumPct.toFixed(2)}% · ${scalp.greenCount}/6 green`,
         ...(h1Check?.signalReasons ?? []),

@@ -1,8 +1,8 @@
-/** Keep wallet session alive across reloads — minimum 4 hours. */
-export const WALLET_SESSION_MS = 4 * 60 * 60 * 1000;
+/** Keep wallet session alive across reloads — 30 days. */
+export const WALLET_SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** While reconnect runs after reload, UI stays in "restoring" instead of prompting connect. */
-export const WALLET_RECONNECT_GRACE_MS = 60_000;
+export const WALLET_RECONNECT_GRACE_MS = 5 * 60 * 1000;
 
 const STORAGE_KEY = 'monadier-wallet-session-v1';
 

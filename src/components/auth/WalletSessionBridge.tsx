@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
+import { getConnections } from '@wagmi/core';
 import { useAccount, useConnectionEffect } from 'wagmi';
 import { useAppKitAccount } from '@reown/appkit/react';
+import { config } from '../../lib/wallet';
 import {
   isDesktopBrowser,
   isMetaMaskInAppBrowser,
@@ -12,12 +14,21 @@ import {
   touchWalletSession,
 } from '../../lib/walletSession';
 
-const DESKTOP_RECONNECT_INTERVAL_MS = 3_000;
-const DESKTOP_MAX_RECONNECT_ATTEMPTS = 20;
-const MOBILE_RECONNECT_INTERVAL_MS = 5_000;
-const MOBILE_MAX_RECONNECT_ATTEMPTS = 8;
+const DESKTOP_RECONNECT_INTERVAL_MS = 2_000;
+const MOBILE_RECONNECT_INTERVAL_MS = 4_000;
 
-/** Keeps wagmi + AppKit in sync and maintains the 4h wallet session across reloads. */
+function persistSession(address: string, connectorId?: string) {
+  let cid = connectorId;
+  if (!cid) {
+    const match = getConnections(config).find((c) =>
+      c.accounts.some((a) => a.toLowerCase() === address.toLowerCase())
+    );
+    cid = match?.connector.id;
+  }
+  touchWalletSession(address, cid);
+}
+
+/** Keeps wagmi + AppKit in sync and maintains wallet session across reloads. */
 const WalletSessionBridge: React.FC = () => {
   const { address: wagmiAddress, isConnected: wagmiConnected, status: wagmiStatus } = useAccount();
   const { address: appKitAddress, isConnected: appKitConnected } = useAppKitAccount();
@@ -32,45 +43,45 @@ const WalletSessionBridge: React.FC = () => {
 
   useEffect(() => {
     void runWalletReconnect();
+    const t = window.setTimeout(() => void runWalletReconnect(), 400);
+    const t2 = window.setTimeout(() => void runWalletReconnect(), 1200);
+    return () => {
+      window.clearTimeout(t);
+      window.clearTimeout(t2);
+    };
   }, []);
 
   useConnectionEffect({
     onConnect({ address, connector }) {
-      if (address) touchWalletSession(address, connector?.id);
+      if (address) persistSession(address, connector?.id);
     },
   });
 
   useEffect(() => {
     const address = wagmiAddress ?? appKitAddress;
     if ((wagmiConnected || appKitConnected) && address) {
-      touchWalletSession(address);
+      persistSession(address);
     }
   }, [wagmiAddress, appKitAddress, wagmiConnected, appKitConnected]);
 
   useEffect(() => {
-    if (wagmiConnected || appKitConnected) return;
+    if (wagmiConnected || appKitConnected) return undefined;
     const session = readWalletSession();
-    if (!session) return;
-    if (isMetaMaskInAppBrowser() && wagmiStatus === 'connected') return;
+    if (!session) return undefined;
+    if (isMetaMaskInAppBrowser() && wagmiStatus === 'connected') return undefined;
 
-    const isDesktop = isDesktopBrowser();
-    const intervalMs = isDesktop
+    const intervalMs = isDesktopBrowser()
       ? DESKTOP_RECONNECT_INTERVAL_MS
       : MOBILE_RECONNECT_INTERVAL_MS;
-    const maxAttempts = isDesktop
-      ? DESKTOP_MAX_RECONNECT_ATTEMPTS
-      : MOBILE_MAX_RECONNECT_ATTEMPTS;
 
     void runWalletReconnect();
 
-    let attempts = 0;
     const id = window.setInterval(() => {
       if (wagmiConnectedRef.current || appKitConnectedRef.current) {
         window.clearInterval(id);
         return;
       }
-      attempts += 1;
-      if (attempts >= maxAttempts) {
+      if (!readWalletSession()) {
         window.clearInterval(id);
         return;
       }

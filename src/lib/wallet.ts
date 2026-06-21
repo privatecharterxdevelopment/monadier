@@ -70,12 +70,10 @@ createAppKit({
   },
 });
 
-void wagmiAdapter.syncConnections();
+export const config = wagmiAdapter.wagmiConfig;
 
 if (!hasWalletProjectId && import.meta.env.PROD) {
   console.error(
     'WalletConnect project id missing — mobile MetaMask will not work. Set VITE_REOWN_PROJECT_ID on Vercel.'
   );
 }
-
-export const config = wagmiAdapter.wagmiConfig;
