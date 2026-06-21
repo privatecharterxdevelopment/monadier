@@ -30,6 +30,8 @@ import {
 import { resolveHlOrderBuilder, estimateCollectedSuccessFee } from './hlBuilderFee';
 import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from './hlSuccessFees';
 import { recordHlBotOpenMarker } from './hlChartMarkers';
+import { validateEntryLocation } from './entryLocationGate';
+import { hlCoinToBinanceSymbol } from './hlSymbols';
 import {
   shouldCloseNeverRedAfterGreen,
   shouldClosePeakDropUsd,
@@ -486,6 +488,23 @@ export class HyperliquidTradingService {
       const size = opts.notionalUsd / markPx;
       if (size <= 0) return { success: false, error: 'Invalid size' };
 
+      const symbol = hlCoinToBinanceSymbol(coin);
+      const locationGate = await validateEntryLocation({
+        symbol,
+        direction: opts.direction,
+      });
+      if (!locationGate.ok) {
+        logger.info('HL open blocked — resistance/support gate', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          reason: locationGate.reason,
+          resistance: locationGate.analysis.resistance,
+          rejections: locationGate.analysis.resistanceRejections,
+        });
+        return { success: false, error: locationGate.reason };
+      }
+
       const client = createAgentClient(opts.userAddress);
       await client.updateLeverage({
         asset: assetIndex,
@@ -538,7 +557,7 @@ export class HyperliquidTradingService {
         coin,
         direction: opts.direction,
         entryPx: markPx,
-        reason: opts.reason,
+        reason: `${opts.reason} · ${locationGate.reason}`,
       });
 
       return { success: true };

@@ -123,6 +123,25 @@ export const config = {
     /** Bars (excl. last 3) used for swing high/low in sweep detection. */
     sweepLookbackBars: Number(process.env.HL_SWEEP_LOOKBACK_BARS || 15),
     reentryCooldownMs: Number(process.env.HL_REENTRY_COOLDOWN_MS || 180_000),
+    /** Resistance/support gate before opens (Standard + Aggressive scan + final open check). */
+    entryLocation: {
+      /** Price in top X of range = near resistance. */
+      rangeTopBlock: Number(process.env.HL_ENTRY_RANGE_TOP || 0.65),
+      rangeBottomBlock: Number(process.env.HL_ENTRY_RANGE_BOTTOM || 0.35),
+      /** Pullback long allowed below this position in range (0.52 = lower half). */
+      pullbackMaxPosition: Number(process.env.HL_ENTRY_PULLBACK_MAX || 0.52),
+      /** Close must exceed resistance by this fraction to count as breakout. */
+      breakoutBufferPct: Number(process.env.HL_ENTRY_BREAKOUT_BUFFER || 0.0015),
+      breakoutConfirmBars: Number(process.env.HL_ENTRY_BREAKOUT_BARS || 2),
+      /** Swing highs within this % cluster into one resistance level. */
+      swingClusterPct: Number(process.env.HL_ENTRY_SWING_CLUSTER || 0.004),
+      /** Wick within this % of level counts as a test. */
+      touchTolerancePct: Number(process.env.HL_ENTRY_TOUCH_TOL || 0.0025),
+      /** Price within this % of level = "at" resistance/support. */
+      nearLevelPct: Number(process.env.HL_ENTRY_NEAR_LEVEL || 0.0035),
+      /** Block long at ceiling after this many rejections at resistance. */
+      minRejectionsToBlock: Number(process.env.HL_ENTRY_MIN_REJECTIONS || 2),
+    },
     /** Minimum margin USD per HL open slot (split across max concurrent positions). */
     minMarginUsd: Number(process.env.HL_MIN_MARGIN_USD || 8),
     /** Success fee on profitable bot closes — 1000 = 10% of realized profit. */

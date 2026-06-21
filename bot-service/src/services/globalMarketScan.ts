@@ -78,13 +78,20 @@ async function scanStandardCoin(
       symbol,
       direction: analysis.direction,
     });
-    if (!locationGate.ok) return null;
+    if (!locationGate.ok) {
+      logger.debug('HL scan skip: resistance/support', {
+        coin,
+        direction: analysis.direction,
+        reason: locationGate.reason,
+      });
+      return null;
+    }
     return {
       coin,
       symbol,
       direction: analysis.direction,
       confidence: analysis.confidence,
-      reason: analysis.reason,
+      reason: `${analysis.reason} · ${locationGate.reason}`,
       dayVolumeUsd: liq.dayVolumeUsd,
       openInterestUsd: liq.openInterestUsd,
       botMode: 'standard',
@@ -107,13 +114,20 @@ async function scanAggressiveCoin(
       symbol,
       direction: scalp.direction,
     });
-    if (!locationGate.ok) return null;
+    if (!locationGate.ok) {
+      logger.debug('HL scan skip: resistance/support', {
+        coin,
+        direction: scalp.direction,
+        reason: locationGate.reason,
+      });
+      return null;
+    }
     return {
       coin,
       symbol,
       direction: scalp.direction,
       confidence: scalp.confidence,
-      reason: scalp.reason,
+      reason: `${scalp.reason} · ${locationGate.reason}`,
       dayVolumeUsd: liq.dayVolumeUsd,
       openInterestUsd: liq.openInterestUsd,
       botMode: 'aggressive',
