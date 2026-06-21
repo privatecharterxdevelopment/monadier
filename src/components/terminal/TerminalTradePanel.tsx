@@ -176,11 +176,6 @@ const TerminalTradePanel: React.FC<Props> = ({
         builderFeeApproved: hlSetup.builderFeeApproved,
         builderFeeEnabled: hlSetup.builderFeeEnabled,
         builderPlatformReady: hlSetup.builderPlatformReady,
-        hasOpenPosition,
-        openPositionsCount: metrics.openPositionsCount,
-        maxConcurrentPositions: botServer.maxConcurrentPositions,
-        nextSetupReason: botServer.nextSetup?.reason ?? null,
-        serverBlockers,
         runtimeLabel: botRuntime.formatted || (botRunning ? '0s' : undefined),
       }),
     [
@@ -191,10 +186,6 @@ const TerminalTradePanel: React.FC<Props> = ({
       hlSetup.agentApproved,
       hlSetup.builderFeeApproved,
       hlSetup.builderFeeEnabled,
-      hasOpenPosition,
-      botServer.maxConcurrentPositions,
-      botServer.nextSetup?.reason,
-      serverBlockers,
       botRuntime.formatted,
     ]
   );

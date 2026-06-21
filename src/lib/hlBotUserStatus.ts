@@ -1,6 +1,4 @@
-import type { BotReadiness } from './botReadiness';
 import { MIN_HL_BOT_USD } from './hyperliquid/hlBotAgent';
-import { HL_MAX_CONCURRENT_POSITIONS } from './hlBotConstants';
 import { isInternalPlatformOpsMessage } from './hyperliquid/builderPlatform';
 
 export type HlSetupPhase = 'connect' | 'loading' | 'approve' | 'fund' | 'ready';
@@ -71,12 +69,6 @@ export function getHlBotSidebarStatus(opts: {
   builderFeeApproved?: boolean;
   builderFeeEnabled?: boolean;
   builderPlatformReady?: boolean;
-  hasOpenPosition: boolean;
-  openPositionsCount?: number;
-  maxConcurrentPositions?: number;
-  nextSetupReason?: string | null;
-  serverBlockers?: string[];
-  readiness?: BotReadiness | null;
   runtimeLabel?: string;
 }): HlBotSidebarStatus {
   const {
@@ -88,12 +80,6 @@ export function getHlBotSidebarStatus(opts: {
     builderFeeApproved = true,
     builderFeeEnabled = false,
     builderPlatformReady = true,
-    hasOpenPosition,
-    openPositionsCount = hasOpenPosition ? 1 : 0,
-    maxConcurrentPositions = HL_MAX_CONCURRENT_POSITIONS,
-    nextSetupReason,
-    serverBlockers = [],
-    readiness,
     runtimeLabel,
   } = opts;
 
@@ -158,52 +144,9 @@ export function getHlBotSidebarStatus(opts: {
 
   const timer = runtimeLabel ? ` · ${runtimeLabel}` : '';
 
-  if (hasOpenPosition) {
-    const slotsFull = openPositionsCount >= maxConcurrentPositions;
-    const slotDetail = slotsFull
-      ? `Managing ${openPositionsCount} open trade(s)`
-      : `Managing ${openPositionsCount} trade(s) · scanning slot ${openPositionsCount + 1}/${maxConcurrentPositions}`;
-    const reasonLine = nextSetupReason?.trim();
-    return {
-      headline: `Running${timer}`,
-      detail: slotsFull
-        ? slotDetail
-        : [
-            slotDetail,
-            reasonLine ? `Next: ${reasonLine}` : null,
-            serverBlockers.length > 0 ? formatServerBlockers(serverBlockers) : null,
-          ]
-            .filter(Boolean)
-            .join(' · '),
-      tone: 'active',
-      setupStep: 3,
-      setupComplete: true,
-    };
-  }
-
-  if (serverBlockers.length > 0) {
-    return {
-      headline: `Running${timer}`,
-      detail: formatServerBlockers(serverBlockers),
-      tone: 'active',
-      setupStep: 3,
-      setupComplete: true,
-    };
-  }
-
-  if (readiness && !readiness.canEnter) {
-    return {
-      headline: `Running${timer}`,
-      detail: readiness.detail,
-      tone: 'active',
-      setupStep: 3,
-      setupComplete: true,
-    };
-  }
-
   return {
     headline: `Running${timer}`,
-    detail: 'Scanning Hyperliquid markets — opens a trade when setup looks good.',
+    detail: '',
     tone: 'active',
     setupStep: 3,
     setupComplete: true,
