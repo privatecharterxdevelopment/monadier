@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Activity } from 'lucide-react';
 import { ANALYSIS_STEPS } from '../../hooks/useTerminalBotAnalysis';
 import { pairLabel } from '../../lib/botTradingPairs';
+import { resolveBotAnalysisWhyLine } from '../../lib/botAnalysisDisplay';
 import type { BotReadiness } from '../../lib/botReadiness';
-import { isBotScanNoiseDetail } from '../../lib/hlBotReasonLabels';
 import type { UnifiedSignal } from '../../lib/signalService';
 
 type DbAnalysis = {
@@ -119,29 +119,23 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
     return h;
   }, [readiness?.headline, readiness?.detail, step]);
 
-  const whyLine = useMemo(() => {
-    if (globalBest?.reason?.trim()) {
-      const bestConf = Math.round(globalBest.confidence);
-      const slot =
-        openPositionsCount > 0 && openPositionsCount < maxConcurrentPositions
-          ? `Slot ${openPositionsCount + 1}: `
-          : '';
-      const line = `${slot}${globalBest.coin} ${globalBest.direction} ${bestConf}% — ${globalBest.reason.trim()}`;
-      return isBotScanNoiseDetail(line) ? null : line;
-    }
-    const detail = readiness?.detail?.trim();
-    if (detail && !isBotScanNoiseDetail(detail)) return detail;
-    if (hasTfConflict) {
-      return 'Chart timeframes on this pair disagree — bot still scans all HL perps for an aligned setup elsewhere.';
-    }
-    return null;
-  }, [
-    globalBest,
-    readiness?.detail,
-    hasTfConflict,
-    openPositionsCount,
-    maxConcurrentPositions,
-  ]);
+  const whyLine = useMemo(
+    () =>
+      resolveBotAnalysisWhyLine({
+        globalBest,
+        readiness,
+        hasTfConflict,
+        openPositionsCount,
+        maxConcurrentPositions,
+      }),
+    [
+      globalBest,
+      readiness,
+      hasTfConflict,
+      openPositionsCount,
+      maxConcurrentPositions,
+    ]
+  );
 
   if (compact) {
     return (

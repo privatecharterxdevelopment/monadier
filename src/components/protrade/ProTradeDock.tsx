@@ -31,6 +31,7 @@ import { toNum } from '../../lib/hyperliquid/parse';
 import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
 import TradeReasonHint from '../terminal/TradeReasonHint';
 import DockCountBadge from './DockCountBadge';
+import ProTradeBotScanInsights from './ProTradeBotScanInsights';
 
 function livePositionPnl(position: HlPosition, markPx: number): number {
   const szi = toNum(position.szi);
@@ -87,6 +88,10 @@ type Props = {
   historyOnly?: boolean;
   /** Bot auto-trade on — empty positions tab shows scan status. */
   botRunning?: boolean;
+  botScanSymbol?: string;
+  botScanMetrics?: Dashboard2Metrics;
+  botScanWallet?: string | null;
+  botOpenPositionCoins?: string[];
 };
 
 const ProTradeDock: React.FC<Props> = ({
@@ -115,6 +120,10 @@ const ProTradeDock: React.FC<Props> = ({
   mode = 'full',
   historyOnly = false,
   botRunning = false,
+  botScanSymbol,
+  botScanMetrics,
+  botScanWallet,
+  botOpenPositionCoins = [],
 }) => {
   const isSpot = variant === 'spot';
   const isBotMode = mode === 'bot';
@@ -384,6 +393,16 @@ const ProTradeDock: React.FC<Props> = ({
               <p className="hl-dock-bot-scan-sub">
                 Waiting for a strong trade setup on Hyperliquid.
               </p>
+              {botScanMetrics ? (
+                <ProTradeBotScanInsights
+                  walletConnected={connected}
+                  metrics={botScanMetrics}
+                  vaultWallet={botScanWallet}
+                  symbol={botScanSymbol}
+                  openPositionCoins={botOpenPositionCoins}
+                  botRunning={botRunning}
+                />
+              ) : null}
             </div>
           ) : (
             <p className="hl-dock-empty">No open positions.</p>

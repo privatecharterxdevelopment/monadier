@@ -57,9 +57,9 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   onPositionChange,
   showBotAnalysis: _showBotAnalysis = false,
   botAnalysisMetrics,
-  botAnalysisSymbol: _botAnalysisSymbol = 'ETHUSDT',
-  botAnalysisWallet: _botAnalysisWallet,
-  botOpenPositionCoins: _botOpenPositionCoins,
+  botAnalysisSymbol = 'ETHUSDT',
+  botAnalysisWallet,
+  botOpenPositionCoins = [],
   className,
   historyOnly = false,
 }) => {
@@ -171,6 +171,10 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         walletAddress={hlWallet}
         reasonRefreshKey={refreshKey}
         botRunning={botRunning}
+        botScanSymbol={botAnalysisSymbol}
+        botScanMetrics={botAnalysisMetrics}
+        botScanWallet={botAnalysisWallet ?? hlWallet ?? null}
+        botOpenPositionCoins={botOpenPositionCoins ?? positionCoins}
       />
     </div>
   );
