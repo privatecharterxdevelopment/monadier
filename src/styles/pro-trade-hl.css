@@ -6339,9 +6339,21 @@
 }
 
 .hl-bot-dock .term-trade-reason-hint__tip {
-  background: rgba(12, 14, 18, 0.98);
+  display: none;
+}
+
+.hl-bot-dock .term-trade-reason-popover {
   border-color: rgba(38, 166, 154, 0.35);
+  background: rgba(12, 14, 18, 0.98);
   color: #eceff1;
+}
+
+.hl-bot-dock .term-trade-reason-popover__title {
+  color: #90a4ae;
+}
+
+.hl-bot-dock .term-trade-reason-popover__label {
+  color: #78909c;
 }
 
 .hl-bot-dock .term-analysis-subline--why {

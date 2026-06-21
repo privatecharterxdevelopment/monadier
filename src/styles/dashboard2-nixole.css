@@ -1670,6 +1670,100 @@
   color: #d4d4d8;
 }
 
+.term-trade-reason-hint--close {
+  color: #71717a;
+}
+
+.term-trade-reason-hint--close:hover,
+.term-trade-reason-hint--close:focus-visible {
+  color: #a1a1aa;
+}
+
+/* Portal popover — full reason box on (i) hover */
+.term-trade-reason-popover {
+  position: fixed;
+  z-index: 10050;
+  width: max-content;
+  max-width: min(480px, calc(100vw - 24px));
+  max-height: min(70vh, 520px);
+  padding: 10px 12px;
+  overflow-y: auto;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #e4e4e7;
+  background: rgba(12, 12, 16, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.term-trade-reason-popover--top {
+  transform: translate(-50%, -100%);
+}
+
+.term-trade-reason-popover--bottom {
+  transform: translate(-50%, 0);
+}
+
+.term-trade-reason-popover__title {
+  display: block;
+  margin: 0 0 8px;
+  padding-bottom: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #a1a1aa;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.term-trade-reason-popover--open .term-trade-reason-popover__title {
+  color: #d4d4d8;
+}
+
+.term-trade-reason-popover__sections {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.term-trade-reason-popover__row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.term-trade-reason-popover__row--plain {
+  background: transparent;
+  padding: 2px 0;
+}
+
+.term-trade-reason-popover__label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #71717a;
+}
+
+.term-trade-reason-popover__text {
+  color: #e4e4e7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.hl-bot-dock .term-hl-open-reason-col {
+  overflow: visible;
+  position: relative;
+  z-index: 1;
+}
+
 .term-analysis-subline--why {
   margin: 4px 0 0;
   padding: 0 2px;

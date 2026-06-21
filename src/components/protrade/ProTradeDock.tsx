@@ -30,7 +30,6 @@ import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
 import TradeReasonHint from '../terminal/TradeReasonHint';
-import TradeReasonCell from '../terminal/TradeReasonCell';
 import DockCountBadge from './DockCountBadge';
 
 function livePositionPnl(position: HlPosition, markPx: number): number {
@@ -433,7 +432,7 @@ const ProTradeDock: React.FC<Props> = ({
                   <th>Fee</th>
                   <th>Result</th>
                   <th>Closed PnL</th>
-                  {isBotMode ? <th>Why</th> : null}
+                  {isBotMode ? <th aria-label="Close reason" /> : null}
                   {walletAddress ? <th>Verify</th> : null}
                 </tr>
               </thead>
@@ -477,7 +476,7 @@ const ProTradeDock: React.FC<Props> = ({
                     </td>
                     {isBotMode ? (
                       <td className="term-hl-open-reason-col">
-                        <TradeReasonCell reason={closeWhy} kind="close" maxLines={4} />
+                        <TradeReasonHint reason={closeWhy} kind="close" />
                       </td>
                     ) : null}
                     {verifyHref ? (

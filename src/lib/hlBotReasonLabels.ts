@@ -33,6 +33,40 @@ export function formatHlBotCloseReason(code: string | null | undefined): string 
   return raw.replace(/_/g, ' ');
 }
 
+export type TradeReasonSection = {
+  label?: string;
+  text: string;
+};
+
+/** Split bot open/close audit into labeled rows for the hover box. */
+export function parseTradeReasonSections(raw: string | null | undefined): TradeReasonSection[] {
+  const text = raw?.trim();
+  if (!text) return [];
+
+  const chunks = text.includes(' ‖ ')
+    ? text.split(' ‖ ').map((s) => s.trim()).filter(Boolean)
+    : text.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+
+  return chunks.map((line) => {
+    const section = line.match(/^──\s*(.+?)\s*──\s*(.+)$/);
+    if (section) {
+      return { label: section[1].trim(), text: section[2].trim() };
+    }
+
+    const macroVs = line.match(/^(Macro vs [^:]+):\s*(.+)$/i);
+    if (macroVs) {
+      return { label: macroVs[1].trim(), text: macroVs[2].trim() };
+    }
+
+    const labeled = line.match(/^([A-Za-z][A-Za-z /]+):\s*(.+)$/);
+    if (labeled && labeled[1].length <= 32) {
+      return { label: labeled[1].trim(), text: labeled[2].trim() };
+    }
+
+    return { text: line };
+  });
+}
+
 /** Open reason from bot marker — structured sections separated by ‖. */
 export function formatHlBotOpenReason(raw: string | null | undefined): string | null {
   const text = raw?.trim();
