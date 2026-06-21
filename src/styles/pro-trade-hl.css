@@ -1244,12 +1244,12 @@
   isolation: isolate;
 }
 
-/* Bot terminal — chart, analyzer strip, positions dock */
+/* Bot terminal — chart + positions dock (scan insights live in Positions tab) */
 .hl-terminal--bot .hl-workspace-main {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(280px, 1fr) auto minmax(108px, min(24vh, 200px));
+  grid-template-rows: minmax(280px, 1fr) minmax(108px, min(24vh, 200px));
   overflow: hidden;
 }
 
@@ -2070,23 +2070,51 @@
   line-height: 1.45;
 }
 
-.hl-dock-bot-scan-insights {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  max-width: 420px;
-  margin-top: 4px;
-}
-
-.hl-dock-bot-scan-detail {
-  margin: 0;
-  font-size: 11px;
-  font-weight: 400;
+.hl-dock-bot-scan-universe {
+  margin: 0 0 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
   color: var(--hl-text-faint);
   text-align: center;
+  line-height: 1.4;
+}
+
+.hl-dock-bot-scan-live {
+  width: 100%;
+  max-width: 520px;
+  margin-top: 6px;
+}
+
+.hl-dock-bot-scan-live .term-dock-analysis {
+  margin: 0;
+}
+
+.hl-dock-bot-scan-live .hl-bot-analyzer-bar {
+  margin: 0;
+  border: 1px solid var(--hl-border);
+  border-radius: 8px;
+  background: var(--hl-bg-panel);
+  padding: 8px 10px;
+}
+
+.hl-root--light .hl-dock-bot-scan-live .hl-bot-analyzer-bar {
+  background: #f0f0f3;
+  border-color: #e4e4e8;
+}
+
+.hl-root--dark .hl-dock-bot-scan-live .hl-bot-analyzer-bar {
+  background: #141414;
+  border-color: var(--hl-border);
+}
+
+.hl-dock-bot-scan-live .hl-bot-analyzer-subline {
+  margin: 6px 0 0;
+  font-size: 10px;
   line-height: 1.45;
+  color: var(--hl-text-muted);
+  text-align: center;
 }
 
 .hl-table {
