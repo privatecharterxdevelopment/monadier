@@ -145,7 +145,7 @@ export const config = {
     minNoSweepVolumeRatio: Number(process.env.HL_MIN_NO_SWEEP_VOLUME_RATIO || 1.0),
     /** Bars (excl. last 3) used for swing high/low in sweep detection. */
     sweepLookbackBars: Number(process.env.HL_SWEEP_LOOKBACK_BARS || 15),
-    reentryCooldownMs: Number(process.env.HL_REENTRY_COOLDOWN_MS || 180_000),
+    reentryCooldownMs: Number(process.env.HL_REENTRY_COOLDOWN_MS || 0),
     /** Resistance/support gate before opens (Standard + Aggressive scan + final open check). */
     entryLocation: {
       /** Price in top X of range = near resistance. */
@@ -221,9 +221,9 @@ export const config = {
       maxRejectionsAtLevel: Number(process.env.HL_PRE_OPEN_MAX_REJECTIONS || 2),
       minVolumeRatio: Number(process.env.HL_PRE_OPEN_MIN_VOL_RATIO || 0.85),
     },
-    /** Pause new opens after today's realized loss exceeds cap. */
+    /** Pause new opens after today's realized loss exceeds cap (off by default). */
     dailyLoss: {
-      enabled: process.env.HL_DAILY_LOSS_GATE !== 'false',
+      enabled: process.env.HL_DAILY_LOSS_GATE === 'true',
       maxUsd: Number(process.env.HL_DAILY_MAX_LOSS_USD || 12),
       maxPctOfAccount: Number(process.env.HL_DAILY_MAX_LOSS_PCT || 0.08),
       pauseMs: Number(process.env.HL_DAILY_LOSS_PAUSE_MS || 24 * 60 * 60 * 1000),
@@ -234,10 +234,10 @@ export const config = {
       minDirectionalTfs: Number(process.env.HL_CAUTIOUS_MIN_TFS || 3),
       minTrendAlignment: Number(process.env.HL_CAUTIOUS_MIN_ALIGN || 62),
     },
-    /** Loss exits — always enforced even when profitOnlyExits holds small reds. */
+    /** Loss exits — OFF by default; bot never auto-closes red (profitOnlyExits). */
     lossProtection: {
-      enforceHardCap: process.env.HL_LOSS_CAP_ENFORCE !== 'false',
-      closeOnThesisBreak: process.env.HL_LOSS_THESIS_CLOSE !== 'false',
+      enforceHardCap: process.env.HL_LOSS_CAP_ENFORCE === 'true',
+      closeOnThesisBreak: process.env.HL_LOSS_THESIS_CLOSE === 'true',
     },
     /** Skip pair (LONG + SHORT) after a fat pump — mass alts retest highs. */
     freshPump: {

@@ -21,7 +21,6 @@ import {
 } from './hlInfo';
 import { checkHlBuilderFeeApproved } from './hlBuilder';
 import { checkWinRateGate } from './tradeGates';
-import { checkDailyLossGate, maybePauseAfterLossClose } from './dailyLossGate';
 import { subscriptionService } from './subscription';
 import type { TradingCycleContext } from './tradingCycleContext';
 import {
@@ -51,10 +50,6 @@ import {
   logProfitRunAnalysis,
   logTrailPullbackAnalysis,
   clearProfitAnalyzeLog,
-  shouldHardLossClose,
-  shouldForceLossCap,
-  logThesisDeferStopLoss,
-  buildCloseReasonDoc,
 } from './positionThesisGate';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import {
@@ -351,21 +346,6 @@ export class HyperliquidTradingService {
       logger.debug('HL user skip: win rate gate', {
         user: userAddress.slice(0, 10),
         reason: winRateGate.reason,
-      });
-      return 'skip';
-    }
-
-    const acctUsd = hlAccountValueUsd(state);
-    const dailyLossGate = await checkDailyLossGate(
-      userAddress,
-      config.arbitrum.chainId,
-      acctUsd
-    );
-    if (!dailyLossGate.allowed) {
-      logger.warn('HL user skip: daily loss limit', {
-        user: userAddress.slice(0, 10),
-        reason: dailyLossGate.reason,
-        todayPnl: dailyLossGate.todayPnlUsd?.toFixed(2),
       });
       return 'skip';
     }
@@ -1063,72 +1043,6 @@ export class HyperliquidTradingService {
         leverage: pos.leverage?.value ?? 10,
       };
 
-      // ── LOSS PROTECTION (always — caps bleed even with profitOnlyExits) ──
-      if (pnl < 0 && config.hyperliquid.lossProtection.enforceHardCap) {
-        if (shouldHardLossClose(pnl, collateralEst, sl)) {
-          const thesis = await evaluatePositionThesis({
-            coin: pos.coin,
-            direction: positionDirection,
-          });
-          const detail = buildCloseReasonDoc({
-            closeCode: 'stop_loss',
-            coin: pos.coin,
-            direction: positionDirection,
-            pnlUsd: pnl,
-            pnlPct,
-            slPct: sl,
-            peakUsd: peak,
-            thesis,
-          });
-          clearProfitLockState(lockKey);
-          await this.closeMarketPosition(
-            userAddress,
-            pos.coin,
-            'stop_loss',
-            closeCtx,
-            detail
-          );
-          continue;
-        }
-      }
-
-      if (
-        pnl < 0 &&
-        config.hyperliquid.lossProtection.closeOnThesisBreak &&
-        holdMs >= config.hyperliquid.thesisMinHoldBeforeLossCloseMs
-      ) {
-        const thesis = await evaluatePositionThesis({
-          coin: pos.coin,
-          direction: positionDirection,
-        });
-        const forceCap = shouldForceLossCap(pnlPct, sl, pnl);
-        if (!thesis.thesisIntact || forceCap) {
-          const code = !thesis.thesisIntact ? 'signal_reversal' : 'stop_loss';
-          const detail = buildCloseReasonDoc({
-            closeCode: code,
-            coin: pos.coin,
-            direction: positionDirection,
-            pnlUsd: pnl,
-            pnlPct,
-            slPct: sl,
-            peakUsd: peak,
-            thesis,
-          });
-          clearProfitLockState(lockKey);
-          await this.closeMarketPosition(
-            userAddress,
-            pos.coin,
-            code,
-            closeCtx,
-            detail
-          );
-          continue;
-        }
-        if (sl > 0 && pnlPct <= -sl) {
-          logThesisDeferStopLoss(userAddress, pos.coin, positionDirection, pnlPct, sl, thesis);
-        }
-      }
-
       // ── MANDATORY trail exit — never go red after trail armed. ──
       if (
         locked &&
@@ -1353,6 +1267,16 @@ export class HyperliquidTradingService {
       const leverage = closeCtx?.leverage ?? row.leverage?.value ?? 10;
       const absSize = Math.abs(size);
 
+      if (config.hyperliquid.profitOnlyExits && pnlUsd < 0) {
+        logger.warn('HL close rejected — never close in red', {
+          user: userAddress.slice(0, 10),
+          coin: coinUpper,
+          reason,
+          pnlUsd: pnlUsd.toFixed(4),
+        });
+        return { success: false, error: 'Bot does not close in red (profitOnlyExits)' };
+      }
+
       if (reason === 'take_profit' && pnlUsd <= 0) {
         logger.debug('HL skip take_profit — not in profit', {
           user: userAddress.slice(0, 10),
@@ -1517,17 +1441,6 @@ export class HyperliquidTradingService {
         viaHlBuilder,
       });
       hlLastCloseAt.set(userAddress.toLowerCase(), Date.now());
-
-      if (pnlUsd < 0) {
-        const acct = await fetchHlClearinghouseState(userAddress);
-        await maybePauseAfterLossClose(
-          userAddress,
-          config.arbitrum.chainId,
-          hlAccountValueUsd(acct),
-          pnlUsd
-        );
-      }
-
       return { success: true };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

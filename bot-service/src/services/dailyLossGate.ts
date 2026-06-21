@@ -104,3 +104,23 @@ export async function maybePauseAfterLossClose(
     pausedUntil: until.toISOString(),
   });
 }
+
+/** Clear bot_banned_until on HL wallets — removes daily-loss pauses after deploy. */
+export async function releaseHlBotTradingPauses(): Promise<number> {
+  const { data, error } = await supabase
+    .from('vault_settings')
+    .update({ bot_banned_until: null })
+    .eq('execution_venue', 'hyperliquid')
+    .not('bot_banned_until', 'is', null)
+    .select('wallet_address');
+
+  if (error) {
+    logger.warn('Could not release HL bot pauses', { error: error.message });
+    return 0;
+  }
+  const n = data?.length ?? 0;
+  if (n > 0) {
+    logger.info('Released HL bot trading pauses', { wallets: n });
+  }
+  return n;
+}
