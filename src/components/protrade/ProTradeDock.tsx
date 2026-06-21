@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ExternalLink, Loader2, X } from 'lucide-react';
+import { ExternalLink, Loader2, X, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type {
   HlAccountState,
@@ -85,6 +85,8 @@ type Props = {
   mode?: 'full' | 'bot';
   /** Profile bot history — fills table only, no dock tabs. */
   historyOnly?: boolean;
+  /** Bot auto-trade on — empty positions tab shows scan status. */
+  botRunning?: boolean;
 };
 
 const ProTradeDock: React.FC<Props> = ({
@@ -112,6 +114,7 @@ const ProTradeDock: React.FC<Props> = ({
   reasonRefreshKey = 0,
   mode = 'full',
   historyOnly = false,
+  botRunning = false,
 }) => {
   const isSpot = variant === 'spot';
   const isBotMode = mode === 'bot';
@@ -372,6 +375,11 @@ const ProTradeDock: React.FC<Props> = ({
                 })}
               </tbody>
             </table>
+          ) : isBotMode && botRunning ? (
+            <p className="hl-dock-empty hl-dock-empty--bot-scan">
+              <Activity size={14} className="term-analysis-pulse" aria-hidden />
+              Bot is reading market…
+            </p>
           ) : (
             <p className="hl-dock-empty">No open positions.</p>
           )

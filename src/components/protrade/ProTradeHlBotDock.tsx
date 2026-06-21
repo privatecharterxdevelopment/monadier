@@ -5,6 +5,7 @@ import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
 import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
+import { isHlBotEnabled } from '../../lib/hlBotGates';
 import { toNum } from '../../lib/hyperliquid/parse';
 import type { HlPosition } from '../../lib/hyperliquid/user';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
@@ -55,7 +56,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   onCoinClick,
   onPositionChange,
   showBotAnalysis: _showBotAnalysis = false,
-  botAnalysisMetrics: _botAnalysisMetrics,
+  botAnalysisMetrics,
   botAnalysisSymbol: _botAnalysisSymbol = 'ETHUSDT',
   botAnalysisWallet: _botAnalysisWallet,
   botOpenPositionCoins: _botOpenPositionCoins,
@@ -65,6 +66,9 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   const { address } = useAccount();
   const { wallet: settingsWallet, settings: botSettingsSnapshot } = useTerminalBotSettings();
   const configuredLeverage = effectiveHlBotSettings(botSettingsSnapshot).leverage;
+  const botRunning = isHlBotEnabled(
+    Boolean(botAnalysisMetrics?.autoTradeEnabled) || botSettingsSnapshot.autoTradeEnabled
+  );
   const hlWallet = (
     walletAddress ??
     settingsWallet ??
@@ -142,7 +146,6 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         dockTab === 'tradeHistory' && !historyOnly ? ' hl-bot-dock--history-tab' : ''
       }${className ? ` ${className}` : ''}`}
     >
-      {!historyOnly ? <div className="hl-dock-mode-label">Monadier bot</div> : null}
       {closeNotice ? (
         <p className="hl-dock-notice" role="status">
           {closeNotice}
@@ -167,6 +170,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         configuredLeverage={configuredLeverage}
         walletAddress={hlWallet}
         reasonRefreshKey={refreshKey}
+        botRunning={botRunning}
       />
     </div>
   );

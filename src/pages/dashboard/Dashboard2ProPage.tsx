@@ -665,12 +665,6 @@ const Dashboard2ProPageContent: React.FC = () => {
                 positionOverlay={botChartOverlay}
                 tradeMarkers={botTradeMarkers}
               />
-              <ProTradeBotAnalysis
-                walletConnected={isConnected}
-                perpCoin={perpCoin}
-                scanCoin={botScanCoin}
-                openPositionCoins={botOpenPositionCoins}
-              />
             </div>
             <ProTradeOrderBook
               book={perpMarket.book}
@@ -680,6 +674,12 @@ const Dashboard2ProPageContent: React.FC = () => {
               onPriceClick={(px) => setLimitPrice(String(px))}
             />
           </div>
+          <ProTradeBotAnalysis
+            walletConnected={isConnected}
+            perpCoin={perpCoin}
+            scanCoin={botScanCoin}
+            openPositionCoins={botOpenPositionCoins}
+          />
           <ProTradeBotDockSlot
             dockTab={botDockTab}
             onDockTabChange={setBotDockTab}

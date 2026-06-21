@@ -1244,12 +1244,12 @@
   isolation: isolate;
 }
 
-/* Bot terminal — taller chart, scrollable positions dock below */
+/* Bot terminal — chart, analyzer strip, positions dock */
 .hl-terminal--bot .hl-workspace-main {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) minmax(168px, min(36vh, 320px));
+  grid-template-rows: minmax(0, 1fr) auto minmax(140px, min(32vh, 280px));
   overflow: hidden;
 }
 
@@ -1993,6 +1993,20 @@
   text-align: center;
   color: var(--hl-text-faint);
   font-size: 12px;
+}
+
+.hl-dock-empty--bot-scan {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  color: var(--hl-green-bright);
+  font-weight: 500;
+}
+
+.hl-dock-empty--bot-scan .term-analysis-pulse {
+  flex-shrink: 0;
 }
 
 .hl-table {
@@ -6440,6 +6454,12 @@
   border-top: 1px solid var(--hl-border);
   background: var(--hl-bg-elevated);
   z-index: 2;
+}
+
+.hl-bot-analysis--under-chart {
+  grid-row: 2;
+  border-top: 1px solid var(--hl-border);
+  border-bottom: 1px solid var(--hl-border);
 }
 
 .hl-bot-analysis .term-dock-analysis {
