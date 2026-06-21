@@ -170,6 +170,12 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
       setShowBuilderModal(true);
       return;
     }
+    if (builderFee.enabled && !builderFee.platformReady) {
+      setLocalMsg(
+        'Platform fees are not active yet — deposit $100+ USDC to the Monadier builder wallet on Hyperliquid perps.'
+      );
+      return;
+    }
     if (!market || !quote || !payoutPreview) return;
     setLocalMsg(null);
     const size = payoutPreview.contracts;

@@ -6,6 +6,11 @@ import { fetchMaxBuilderFee } from '../lib/hyperliquid/builder';
 import { getHlBuilderConfig } from '../lib/hyperliquid/builderConfig';
 import { orderResponseError } from '../lib/hyperliquid/orders';
 import {
+  fetchHlBuilderPlatformStatus,
+  formatBuilderPlatformError,
+  isBuilderPlatformError,
+} from '../lib/hyperliquid/builderPlatform';
+import {
   buildOutcomeOrderLeg,
   fetchOutcomeLegQuote,
   outcomeAssetId,
@@ -103,27 +108,42 @@ export function useHyperliquidOutcomeTrading() {
 
       if (config.enabled) {
         const user = requireWallet().account?.address;
-        if (user) {
-          const approvedMax = await fetchMaxBuilderFee(user, config.address);
-          builder =
-            resolveOutcomeBuilderParam({
-              orderSide: opts.orderSide,
-              approvedMaxTenthsBps: approvedMax,
-            }) ?? undefined;
+        if (!user) throw new Error('Connect wallet first');
+
+        const platform = await fetchHlBuilderPlatformStatus();
+        if (!platform.ready) {
+          throw new Error(formatBuilderPlatformError(platform));
+        }
+
+        const approvedMax = await fetchMaxBuilderFee(user, config.address);
+        builder =
+          resolveOutcomeBuilderParam({
+            orderSide: opts.orderSide,
+            approvedMaxTenthsBps: approvedMax,
+          }) ?? undefined;
+
+        if (!builder) {
+          throw new Error(
+            'Approve Monadier betting fees first — one-time wallet signature (0.5% buy / 2.5% cash out).'
+          );
         }
       }
 
-      let result = await client.order({
+      const result = await client.order({
         orders: [leg],
         grouping: 'na',
         ...(builder ? { builder } : {}),
       });
-      let err = orderResponseError(result);
-      if (builder && err && isBuilderOrderError(err)) {
-        result = await client.order({ orders: [leg], grouping: 'na' });
-        err = orderResponseError(result);
+      const err = orderResponseError(result);
+      if (err) {
+        if (builder && isBuilderOrderError(err)) {
+          const platform = await fetchHlBuilderPlatformStatus();
+          throw new Error(
+            isBuilderPlatformError(err) ? formatBuilderPlatformError(platform) : err
+          );
+        }
+        throw new Error(err);
       }
-      if (err) throw new Error(err);
       return result;
     },
     [requireWallet]

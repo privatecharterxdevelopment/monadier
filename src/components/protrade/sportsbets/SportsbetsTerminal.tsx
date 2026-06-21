@@ -16,6 +16,7 @@ import SportsbetsEventDetail from './SportsbetsEventDetail';
 import SportsbetsRightRail from './SportsbetsRightRail';
 import SportsbetsOrderPanel from './SportsbetsOrderPanel';
 import SportsbetsMobileOrderSheet from './SportsbetsMobileOrderSheet';
+import ProTradeBettingTopBarBalance from '../ProTradeBettingTopBarBalance';
 
 type Props = {
   walletAddress?: string;
@@ -192,6 +193,11 @@ const SportsbetsTerminal: React.FC<Props> = ({
   const handleSelectQuestion = useCallback(
     (question: (typeof session.questions)[number]) => {
       session.selectQuestion(question);
+      if (isMobileBetting && question.legs[0]) {
+        session.pickQuestionLeg(question, question.legs[0].outcomeId, 0);
+        openOrderSheet();
+        return;
+      }
       if (session.category === 'all') {
         requestAnimationFrame(() => {
           document
@@ -200,7 +206,7 @@ const SportsbetsTerminal: React.FC<Props> = ({
         });
       }
     },
-    [session.selectQuestion, session.category]
+    [session.selectQuestion, session.pickQuestionLeg, session.category, isMobileBetting, openOrderSheet]
   );
 
   const orderPanel = (
@@ -237,6 +243,15 @@ const SportsbetsTerminal: React.FC<Props> = ({
         onCategoryChange={session.setCategory}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        mobileBalanceSlot={
+          isMobileBetting ? (
+            <ProTradeBettingTopBarBalance
+              walletAddress={walletAddress}
+              walletConnected={walletConnected}
+              onRequireSignIn={onRequireSignIn}
+            />
+          ) : null
+        }
       />
 
       {session.catalogError ? (
@@ -317,7 +332,7 @@ const SportsbetsTerminal: React.FC<Props> = ({
 
       {isMobileBetting ? (
         <SportsbetsMobileOrderSheet
-          open={orderSheetOpen && selectedMarket != null}
+          open={orderSheetOpen && session.selectedOutcomeId != null}
           onClose={closeOrderSheet}
           title={selectedMarket ? 'Place bet' : 'Bet slip'}
         >

@@ -13,6 +13,7 @@ type Props = {
   onCategoryChange: (id: BettingCategoryId) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  mobileBalanceSlot?: React.ReactNode;
 };
 
 const SportsbetsHero: React.FC<Props> = ({
@@ -24,6 +25,7 @@ const SportsbetsHero: React.FC<Props> = ({
   onCategoryChange,
   searchQuery,
   onSearchChange,
+  mobileBalanceSlot,
 }) => (
   <header className="hl-sb-head">
     <div
@@ -84,6 +86,9 @@ const SportsbetsHero: React.FC<Props> = ({
           </button>
         ) : null}
       </div>
+      {mobileBalanceSlot ? (
+        <div className="hl-sb-head-mobile-balance">{mobileBalanceSlot}</div>
+      ) : null}
     </div>
   </header>
 );

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import { useAppKit } from '@reown/appkit/react';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import Logo from '../ui/Logo';
 import DockCountBadge from './DockCountBadge';
 import ProTradeAccountMenu from './ProTradeAccountMenu';
@@ -72,6 +73,7 @@ const ProTradeTopNav: React.FC<Props> = ({
   const { isLight } = useProTradeTheme();
   const { open } = useAppKit();
   const { address, isConnected } = useMonadierWallet();
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -99,7 +101,7 @@ const ProTradeTopNav: React.FC<Props> = ({
   };
 
   return (
-    <header className="hl-topnav">
+    <header className={`hl-topnav ${isMobile ? 'hl-topnav--mobile' : ''}`}>
       <div className="hl-topnav-left">
         <button
           type="button"
@@ -137,38 +139,42 @@ const ProTradeTopNav: React.FC<Props> = ({
         </nav>
       </div>
       <div className="hl-topnav-right">
-        {section === 'sportsbets' ? (
+        {section === 'sportsbets' && !isMobile ? (
           <ProTradeBettingTopBarBalance
             walletAddress={walletAddress}
             walletConnected={walletConnected}
             onRequireSignIn={onRequireSignIn}
           />
         ) : null}
-        {onViewNotificationHistory ? (
+        {!isMobile && onViewNotificationHistory ? (
           <ProTradeNotificationsBell onViewHistory={onViewNotificationHistory} />
         ) : null}
-        <ProTradeThemeIcon />
+        {!isMobile ? <ProTradeThemeIcon /> : null}
         <ProTradeAccountMenu
           onOpenSupport={onOpenSupport}
           onOpenProfile={onOpenProfile}
           onRequireSignIn={onRequireSignIn}
         />
-        <button
-          type="button"
-          className={`hl-topnav-bot ${section === 'bot' ? 'hl-topnav-bot--active' : ''}`}
-          onClick={onBotTradeToggle}
-          aria-pressed={section === 'bot'}
-        >
-          Bot trade
-          <DockCountBadge count={botOpenCount} tone={botOpenTone} />
-        </button>
-        <button
-          type="button"
-          className={`hl-topnav-wallet ${isConnected ? 'hl-topnav-wallet--connected' : ''}`}
-          onClick={() => openMonadierWalletModal(() => open())}
-        >
-          {walletLabel}
-        </button>
+        {!isMobile ? (
+          <button
+            type="button"
+            className={`hl-topnav-bot ${section === 'bot' ? 'hl-topnav-bot--active' : ''}`}
+            onClick={onBotTradeToggle}
+            aria-pressed={section === 'bot'}
+          >
+            Bot trade
+            <DockCountBadge count={botOpenCount} tone={botOpenTone} />
+          </button>
+        ) : null}
+        {!isMobile || !isConnected ? (
+          <button
+            type="button"
+            className={`hl-topnav-wallet ${isConnected ? 'hl-topnav-wallet--connected' : ''}`}
+            onClick={() => openMonadierWalletModal(() => open())}
+          >
+            {walletLabel}
+          </button>
+        ) : null}
       </div>
 
       {mobileNavOpen ? (

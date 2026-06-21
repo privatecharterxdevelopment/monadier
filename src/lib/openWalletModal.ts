@@ -1,4 +1,4 @@
-import { shouldUseMobileWalletSheet } from './mobileWalletConnect';
+import { isMetaMaskInAppBrowser, shouldUseMobileWalletSheet } from './mobileWalletConnect';
 
 /** Close app overlays so Reown AppKit is not hidden underneath. */
 export function openMonadierWalletModal(open: () => void): void {
@@ -7,6 +7,11 @@ export function openMonadierWalletModal(open: () => void): void {
     return;
   }
   window.dispatchEvent(new CustomEvent('monadier:close-overlays'));
+
+  if (isMetaMaskInAppBrowser()) {
+    requestAnimationFrame(() => open());
+    return;
+  }
 
   if (shouldUseMobileWalletSheet()) {
     window.dispatchEvent(

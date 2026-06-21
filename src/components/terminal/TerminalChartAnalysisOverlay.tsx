@@ -126,8 +126,11 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
     }
     const detail = readiness?.detail?.trim();
     if (detail && !isBotScanNoiseDetail(detail)) return detail;
+    if (detail && /passed bot gates|global scan|momentum|macro|resistance|support/i.test(detail)) {
+      return detail;
+    }
     if (hasTfConflict) {
-      return 'Chart timeframes disagree — bot waits for a aligned global setup before opening.';
+      return 'Chart timeframes on this pair disagree — bot still scans all HL perps for an aligned setup elsewhere.';
     }
     return null;
   }, [

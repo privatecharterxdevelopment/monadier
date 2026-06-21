@@ -5353,6 +5353,22 @@
   .hl-sb-order-sheet-body .hl-sb-order {
     border-top: none;
   }
+
+  .hl-sb-head-mobile-balance {
+    margin-top: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .hl-sb-head-mobile-balance::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hl-sb-head-mobile-balance .hl-topnav-betting-balance {
+    max-width: none;
+    width: max-content;
+    min-width: 100%;
+  }
 }
 
 @media (max-width: 640px) {
@@ -7858,10 +7874,47 @@
   }
 
   .hl-topnav {
-    height: 48px;
+    height: auto;
+    min-height: 48px;
     padding-left: max(8px, env(safe-area-inset-left));
     padding-right: max(8px, env(safe-area-inset-right));
     gap: 6px;
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  .hl-topnav--mobile {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .hl-topnav--mobile .hl-topnav-left {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .hl-topnav--mobile .hl-topnav-right {
+    gap: 6px;
+    flex-shrink: 0;
+    max-width: none;
+  }
+
+  .hl-topnav--mobile .hl-topnav-logo {
+    min-width: 0;
+  }
+
+  .hl-topnav--mobile .hl-topnav-logo img,
+  .hl-topnav--mobile .hl-topnav-logo svg {
+    max-height: 22px;
+    width: auto;
+  }
+
+  .hl-topnav--mobile .hl-topnav-wallet {
+    max-width: 108px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .hl-topnav-menu-btn {

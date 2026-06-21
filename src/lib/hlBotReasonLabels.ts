@@ -86,8 +86,6 @@ export function isBotScanNoiseDetail(detail: string): boolean {
   if (!d) return true;
   return (
     /HL perps scanned/i.test(d) ||
-    /^\d+ passed/i.test(d) ||
-    /No pair passed bot gates/i.test(d) ||
-    /no HL perp passed global scan/i.test(d)
+    /^\d+ passed/i.test(d)
   );
 }

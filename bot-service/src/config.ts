@@ -88,7 +88,12 @@ export const config = {
     minAccountUsd: Number(process.env.HL_MIN_BOT_ACCOUNT_USD || 20),
     /** Parallel MTF scans per trading cycle (all HL perps). */
     scanConcurrency: Number(process.env.HL_SCAN_CONCURRENCY || 8),
-    minSignalConfidence: Number(process.env.HL_MIN_SIGNAL_CONFIDENCE || 55),
+    /** Global scan — min combined MTF confidence to qualify. */
+    minSignalConfidence: Number(process.env.HL_MIN_SIGNAL_CONFIDENCE || 50),
+    /** Global scan — min timeframes pointing same direction (of 1m/5m/15m/1h). */
+    minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 2),
+    /** Global scan — min % of TFs sharing the dominant trend (0–100). */
+    minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 60),
     /** Max independent HL perp positions per wallet (different coins). */
     maxConcurrentPositions: Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 2),
     /** Minimum order notional — skips sloppy micro-trades. */

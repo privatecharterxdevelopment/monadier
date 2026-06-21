@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger';
+import { config } from '../config';
 import { parseUnits } from 'viem';
 
 // Trade signal interface for market analysis
@@ -1209,8 +1210,8 @@ export async function analyzeMarketMTFBySymbol(
       (finalDirection === 'LONG' && trend === 'DOWN') ||
       (finalDirection === 'SHORT' && trend === 'UP');
     const trendAligned =
-      directionalTfCount >= 3 &&
-      signal.trendAlignment >= 75 &&
+      directionalTfCount >= config.hyperliquid.minDirectionalTfs &&
+      signal.trendAlignment >= config.hyperliquid.minTrendAlignment &&
       !counterTrend;
 
     const isWeak =

@@ -3,6 +3,7 @@ import { getConnections } from '@wagmi/core';
 import { useAccount, useConnectionEffect, useReconnect } from 'wagmi';
 import { useAppKitAccount } from '@reown/appkit/react';
 import { config } from '../../lib/wallet';
+import { isMetaMaskInAppBrowser } from '../../lib/mobileWalletConnect';
 import {
   clearWalletSession,
   extendWalletSessionOnActivity,
@@ -11,8 +12,8 @@ import {
 } from '../../lib/walletSession';
 
 const DISCONNECT_GRACE_MS = 8_000;
-const RECONNECT_INTERVAL_MS = 4_000;
-const MAX_RECONNECT_ATTEMPTS = 15;
+const RECONNECT_INTERVAL_MS = 5_000;
+const MAX_RECONNECT_ATTEMPTS = 8;
 
 /** Keeps wagmi + AppKit in sync and maintains the 4h wallet session across reloads. */
 const WalletSessionBridge: React.FC = () => {
@@ -24,14 +25,19 @@ const WalletSessionBridge: React.FC = () => {
   const appKitConnectedRef = useRef(appKitConnected);
   const wagmiStatusRef = useRef(wagmiStatus);
   const disconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectBootRef = useRef(false);
 
   wagmiConnectedRef.current = wagmiConnected;
   appKitConnectedRef.current = appKitConnected;
   wagmiStatusRef.current = wagmiStatus;
 
   useEffect(() => {
-    void reconnect();
-  }, [reconnect]);
+    if (reconnectBootRef.current) return;
+    reconnectBootRef.current = true;
+    if (!wagmiConnected && !appKitConnected) {
+      void reconnect();
+    }
+  }, [reconnect, wagmiConnected, appKitConnected]);
 
   useConnectionEffect({
     onConnect({ address }) {
@@ -42,7 +48,6 @@ const WalletSessionBridge: React.FC = () => {
       if (address) touchWalletSession(address);
     },
     onDisconnect() {
-      // Do not clear session immediately — reload fires disconnect before reconnect.
       if (disconnectTimerRef.current) clearTimeout(disconnectTimerRef.current);
       disconnectTimerRef.current = setTimeout(() => {
         disconnectTimerRef.current = null;
@@ -50,7 +55,6 @@ const WalletSessionBridge: React.FC = () => {
         const status = wagmiStatusRef.current;
         if (status === 'reconnecting' || status === 'connecting') return;
         if (!readWalletSession()) return;
-        // User disconnected in AppKit — wagmi drops persisted connections.
         const connections = getConnections(config);
         if (connections.length === 0) clearWalletSession();
       }, DISCONNECT_GRACE_MS);
@@ -64,14 +68,13 @@ const WalletSessionBridge: React.FC = () => {
     }
   }, [wagmiAddress, appKitAddress, wagmiConnected, appKitConnected]);
 
-  // Retry reconnect while session is valid but wagmi has not restored yet.
   useEffect(() => {
+    if (wagmiConnected || appKitConnected) return;
     const session = readWalletSession();
-    if (!session || wagmiConnected || appKitConnected) return;
+    if (!session) return;
+    if (isMetaMaskInAppBrowser() && wagmiStatus === 'connected') return;
 
     let attempts = 0;
-    void reconnect();
-
     const id = window.setInterval(() => {
       if (wagmiConnectedRef.current || appKitConnectedRef.current) {
         window.clearInterval(id);
@@ -86,26 +89,27 @@ const WalletSessionBridge: React.FC = () => {
     }, RECONNECT_INTERVAL_MS);
 
     return () => window.clearInterval(id);
-  }, [wagmiConnected, appKitConnected, reconnect]);
+  }, [wagmiConnected, appKitConnected, wagmiStatus, reconnect]);
 
-  // Extend TTL on tab focus / return from MetaMask app.
   useEffect(() => {
     const onActivity = () => {
       if (document.visibilityState === 'hidden') return;
       const session = readWalletSession();
       if (!session) return;
       extendWalletSessionOnActivity();
-      if (!wagmiConnectedRef.current && !appKitConnectedRef.current) {
+      if (
+        !wagmiConnectedRef.current &&
+        !appKitConnectedRef.current &&
+        !isMetaMaskInAppBrowser()
+      ) {
         void reconnect();
       }
     };
 
     document.addEventListener('visibilitychange', onActivity);
-    window.addEventListener('focus', onActivity);
     window.addEventListener('pageshow', onActivity);
     return () => {
       document.removeEventListener('visibilitychange', onActivity);
-      window.removeEventListener('focus', onActivity);
       window.removeEventListener('pageshow', onActivity);
     };
   }, [reconnect]);

@@ -76,8 +76,8 @@ async function scanStandardCoin(
     if (!analysis || analysis.isWeak) return null;
     if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
     if (analysis.confidence < config.hyperliquid.minSignalConfidence) return null;
-    if ((analysis.metrics?.directionalTfCount ?? 0) < 3) return null;
-    if ((analysis.metrics?.trendAlignment ?? 0) < 75) return null;
+    if ((analysis.metrics?.directionalTfCount ?? 0) < config.hyperliquid.minDirectionalTfs) return null;
+    if ((analysis.metrics?.trendAlignment ?? 0) < config.hyperliquid.minTrendAlignment) return null;
     if (
       (analysis.direction === 'LONG' && analysis.metrics?.h1Trend === 'DOWN') ||
       (analysis.direction === 'SHORT' && analysis.metrics?.h1Trend === 'UP')

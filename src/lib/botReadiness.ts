@@ -22,7 +22,7 @@ function formatBlocker(blocker: string): string {
     return 'Approve the Hyperliquid platform fee in the Bot panel';
   }
   if (/no HL perp passed global scan/i.test(blocker)) {
-    return 'No pair passed bot gates (55%+ conf, 3 aligned TFs, volume sweep)';
+    return 'No pair passed bot gates (50%+ conf, 2 aligned TFs, volume sweep)';
   }
   if (/no trade signal|MTF|bot conf/i.test(blocker)) {
     return 'No strong trade setup yet — bot keeps scanning';

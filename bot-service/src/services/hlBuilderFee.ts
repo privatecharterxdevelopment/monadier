@@ -9,12 +9,15 @@ export function notionalBuilderFeeUsd(notionalUsd: number, tenthsBps: number): n
   return (notionalUsd * tenthsBps) / 100_000;
 }
 
+/** Hyperliquid builder max fee rates go up to 10% for some products; tenths bps = pct × 1000. */
+const HL_BUILDER_TENTHS_BPS_CEILING = 10_000;
+
 export function parseMaxBuilderTenthsBps(rate: string): number {
   const m = rate.trim().match(/^([\d.]+)\s*%?$/);
   if (!m) return 50;
   const pct = parseFloat(m[1]);
   if (!Number.isFinite(pct) || pct <= 0) return 50;
-  return Math.min(100, Math.floor(pct * 1000));
+  return Math.min(HL_BUILDER_TENTHS_BPS_CEILING, Math.floor(pct * 1000));
 }
 
 /** Pick builder `f` so fee ≈ successFeeBps% of profit, capped by user max approval. */

@@ -1238,12 +1238,18 @@ export class HyperliquidTradingService {
       if (closeBuilder) {
         viaHlBuilder = true;
       } else if (pnlUsd > 0 && feeSkipReason) {
-        logger.warn('HL success fee not auto-collected on close', {
+        logger.error('HL success fee not auto-collected on close', {
           user: userAddress.slice(0, 10),
           coin: coinUpper,
           reason: feeSkipReason,
           pnl: pnlUsd.toFixed(4),
-          builderAddress: config.hyperliquid.builderAddress?.slice(0, 10),
+          builderAddress: config.hyperliquid.builderAddress,
+          hint:
+            feeSkipReason === 'platform_wallet_underfunded'
+              ? 'Deposit $100+ USDC to builder address on Hyperliquid perps'
+              : feeSkipReason === 'user_builder_not_approved'
+                ? 'User must approve builder fee in bot setup'
+                : undefined,
         });
       }
 
