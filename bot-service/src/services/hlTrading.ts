@@ -39,6 +39,7 @@ import { classifyCoinTier, needsCautionPath, volumeRankForCoin } from './coinTie
 import { validateCoinNews } from './coinNewsGate';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import { validateScalpAlignment } from './scalpAlignGate';
+import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
 import {
   validateMegaPairVolumeForDirection,
 } from './megaPairVolumeMonitor';
@@ -674,6 +675,21 @@ export class HyperliquidTradingService {
         return { success: false, error: freshPumpGate.reason };
       }
 
+      const candleAnalytics = await validatePreOpenCandleAnalytics({
+        coin,
+        direction: opts.direction,
+      });
+      if (!candleAnalytics.ok) {
+        logger.info('HL open blocked — 20-candle analytics', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          reason: candleAnalytics.reason,
+          summary: candleAnalytics.summary,
+        });
+        return { success: false, error: candleAnalytics.reason };
+      }
+
       const scalpGate = await validateScalpAlignment({
         coin,
         direction: opts.direction,
@@ -772,6 +788,7 @@ export class HyperliquidTradingService {
         megaPairLine: megaGate.reason,
         liquidityReason: opts.pick.liquidityReason,
         scalpAlignLine: scalpGate.reason,
+        candleAnalyticsLine: candleAnalytics.summary,
       });
       const openReasonFull = openReasonDoc;
 

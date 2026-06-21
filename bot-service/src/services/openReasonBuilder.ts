@@ -21,6 +21,7 @@ export type OpenReasonParts = {
   newsGate?: CoinNewsResult;
   freshPumpGate?: FreshPumpResult;
   scalpAlignLine?: string;
+  candleAnalyticsLine?: string;
   megaPairLine?: string;
   liquidityReason?: string;
 };
@@ -62,6 +63,10 @@ export function buildHlOpenReasonDoc(parts: OpenReasonParts): string {
 
   if (parts.scalpAlignLine) {
     lines.push(`── Scalp 1m/5m ── ${parts.scalpAlignLine}`);
+  }
+
+  if (parts.candleAnalyticsLine) {
+    lines.push(`── Last 20 candles ── ${parts.candleAnalyticsLine}`);
   }
 
   if (pick.mtfBreakdown) {

@@ -208,6 +208,19 @@ export const config = {
       minTfConfidence: Number(process.env.HL_SCALP_MIN_TF_CONF || 52),
       minConfirm1mCandles: Number(process.env.HL_SCALP_1M_CONFIRM || 3),
     },
+    /** Mandatory last-N candle read immediately before every open. */
+    preOpenCandles: {
+      enabled: process.env.HL_PRE_OPEN_20_CANDLES !== 'false',
+      candleCount: Number(process.env.HL_PRE_OPEN_CANDLE_COUNT || 20),
+      timeframe: (process.env.HL_PRE_OPEN_CANDLE_TF || '1m') as '1m' | '5m',
+      minNetMovePct: Number(process.env.HL_PRE_OPEN_MIN_NET_PCT || 0.04),
+      minDirectionalCandleRatio: Number(process.env.HL_PRE_OPEN_MIN_DIR_RATIO || 0.52),
+      maxRangePositionLong: Number(process.env.HL_PRE_OPEN_MAX_RANGE_LONG || 0.8),
+      maxRangePositionShort: Number(process.env.HL_PRE_OPEN_MAX_RANGE_SHORT || 0.2),
+      breakoutRecentMovePct: Number(process.env.HL_PRE_OPEN_BREAKOUT_RECENT_PCT || 0.06),
+      maxRejectionsAtLevel: Number(process.env.HL_PRE_OPEN_MAX_REJECTIONS || 2),
+      minVolumeRatio: Number(process.env.HL_PRE_OPEN_MIN_VOL_RATIO || 0.85),
+    },
     /** Pause new opens after today's realized loss exceeds cap. */
     dailyLoss: {
       enabled: process.env.HL_DAILY_LOSS_GATE !== 'false',
