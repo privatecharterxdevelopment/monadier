@@ -185,6 +185,13 @@ export const config = {
       maxCounter1hPct: Number(process.env.HL_ENTRY_MOM_1H_COUNTER || 0.15),
       minConfirmCandles5m: Number(process.env.HL_ENTRY_MOM_5M_CANDLES || 2),
     },
+    /** Alts — never SHORT into a fresh pump / higher-TF rally. */
+    pumpShort: {
+      block1hPct: Number(process.env.HL_PUMP_SHORT_BLOCK_1H || 0.15),
+      block4hPct: Number(process.env.HL_PUMP_SHORT_BLOCK_4H || 0.35),
+      min15mRolloverPct: Number(process.env.HL_PUMP_SHORT_15M_ROLL || 0.08),
+      minHigherTfLongBlock: Number(process.env.HL_PUMP_SHORT_HTF_LONG || 2),
+    },
     /** Bot NEVER auto-closes in red — profit-only exits. */
     profitOnlyExits: process.env.HL_PROFIT_ONLY_EXITS !== 'false',
     /** BTC/ETH live volume flow for alt entry gate + open reasons. */

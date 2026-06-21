@@ -7,6 +7,7 @@ import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { filterWeekendShortOnly, isWeekendShortOnlyWindow } from './weekendTradingRules';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
+import { validateNoAltPumpShort } from './pumpShortGate';
 
 export type BotSignalMode = 'standard' | 'aggressive';
 
@@ -73,9 +74,18 @@ async function scanStandardCoin(
     if ((analysis.metrics?.trendAlignment ?? 0) < config.hyperliquid.minTrendAlignment) return null;
     if (
       (analysis.direction === 'LONG' && analysis.metrics?.h1Trend === 'DOWN') ||
-      (analysis.direction === 'SHORT' && analysis.metrics?.h1Trend === 'UP')
+      (analysis.direction === 'SHORT' &&
+        (/UP/i.test(String(analysis.metrics?.h1Trend ?? '')) ||
+          analysis.metrics?.h1Trend === 'STRONG_UPTREND'))
     ) {
       return null;
+    }
+    if (analysis.direction === 'SHORT') {
+      const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
+      if (!pumpGate.ok) {
+        logger.debug('HL scan skip: pump-short gate', { coin, reason: pumpGate.reason });
+        return null;
+      }
     }
     return {
       coin,
@@ -110,9 +120,16 @@ async function scanAggressiveCoin(
 
     const h1Check = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
     if (h1Check) {
-      if (scalp.direction === 'SHORT' && h1Check.metrics?.h1Trend === 'UP') {
-        logger.debug('HL agg scan skip: 1h trend UP blocks SHORT', { coin });
-        return null;
+      if (scalp.direction === 'SHORT') {
+        if (/UP/i.test(String(h1Check.metrics?.h1Trend ?? ''))) {
+          logger.debug('HL agg scan skip: 1h trend UP blocks SHORT', { coin });
+          return null;
+        }
+        const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
+        if (!pumpGate.ok) {
+          logger.debug('HL agg scan skip: pump-short gate', { coin, reason: pumpGate.reason });
+          return null;
+        }
       }
       if (scalp.direction === 'LONG' && h1Check.metrics?.h1Trend === 'DOWN') {
         logger.debug('HL agg scan skip: 1h trend DOWN blocks LONG', { coin });

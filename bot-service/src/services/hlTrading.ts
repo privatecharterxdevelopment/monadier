@@ -33,6 +33,7 @@ import { recordHlBotOpenMarker } from './hlChartMarkers';
 import { validateEntryLocation } from './entryLocationGate';
 import { validateMacroBetaAlignment } from './macroBetaGate';
 import { validateEntryMomentum } from './entryMomentumGate';
+import { validateNoAltPumpShort } from './pumpShortGate';
 import {
   validateMegaPairVolumeForDirection,
 } from './megaPairVolumeMonitor';
@@ -605,6 +606,20 @@ export class HyperliquidTradingService {
         return { success: false, error: macroGate.reason };
       }
 
+      const pumpShortGate = await validateNoAltPumpShort({
+        coin,
+        direction: opts.direction,
+      });
+      if (!pumpShortGate.ok) {
+        logger.info('HL open blocked — pump-short gate', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          reason: pumpShortGate.reason,
+        });
+        return { success: false, error: pumpShortGate.reason };
+      }
+
       const momentumGate = await validateEntryMomentum({
         coin,
         direction: opts.direction,
@@ -654,6 +669,7 @@ export class HyperliquidTradingService {
         locationGate,
         macroGate,
         momentumGate,
+        pumpShortGate,
         megaPairLine: megaGate.reason,
         liquidityReason: opts.pick.liquidityReason,
       });

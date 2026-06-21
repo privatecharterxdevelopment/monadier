@@ -2,6 +2,7 @@ import type { GlobalSignalCandidate } from './globalMarketScan';
 import type { EntryLocationResult } from './entryLocationGate';
 import type { MacroBetaResult } from './macroBetaGate';
 import type { EntryMomentumResult } from './entryMomentumGate';
+import type { PumpShortResult } from './pumpShortGate';
 import { megaPairVolumeOpenReasonLine } from './megaPairVolumeMonitor';
 
 const SECTION = ' ‖ ';
@@ -14,6 +15,7 @@ export type OpenReasonParts = {
   locationGate: EntryLocationResult;
   macroGate: MacroBetaResult;
   momentumGate?: EntryMomentumResult;
+  pumpShortGate?: PumpShortResult;
   megaPairLine?: string;
   liquidityReason?: string;
 };
@@ -36,6 +38,10 @@ export function buildHlOpenReasonDoc(parts: OpenReasonParts): string {
     lines.push(`── Entry momentum ── ${momentumGate.reason}`);
   } else if (pick.momentumReason) {
     lines.push(`── Entry momentum ── ${pick.momentumReason}`);
+  }
+
+  if (parts.pumpShortGate) {
+    lines.push(`── Pump / fade ── ${parts.pumpShortGate.reason}`);
   }
 
   if (pick.mtfBreakdown) {
@@ -80,7 +86,7 @@ export function buildHlOpenReasonDoc(parts: OpenReasonParts): string {
     lines.push(`── Location scan ── ${pick.locationReason}`);
   }
 
-  lines.push(`── Gates passed ── macro · mega caps · momentum · liquidity · location · MTF`);
+  lines.push(`── Gates passed ── macro · pump-fade · mega caps · momentum · liquidity · location · MTF`);
 
   return lines.join(SECTION);
 }
