@@ -100,6 +100,10 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
   overlayRef.current = positionOverlay;
   const markPxRef = useRef(markPx);
   markPxRef.current = markPx;
+  const onFollowLiveChangeRef = useRef(onFollowLiveChange);
+  onFollowLiveChangeRef.current = onFollowLiveChange;
+  const themeRef = useRef(theme);
+  const prevThemeForDataRef = useRef(theme);
 
   const buildAutoscaleProvider = () => {
     return () => {
@@ -119,12 +123,43 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     };
   };
 
+  const applyChartTheme = (
+    chart: IChartApi,
+    series: ISeriesApi<'Candlestick'>,
+    colors: ReturnType<typeof getProTradeChartColors>
+  ) => {
+    chart.applyOptions({
+      layout: {
+        background: { type: ColorType.Solid, color: colors.background },
+        textColor: colors.text,
+      },
+      grid: {
+        vertLines: { color: colors.grid },
+        horzLines: { color: colors.grid },
+      },
+      rightPriceScale: { borderColor: colors.border },
+      timeScale: { borderColor: colors.border },
+      crosshair: {
+        vertLine: { color: colors.crosshair, labelBackgroundColor: colors.crosshairLabel },
+        horzLine: { color: colors.crosshair, labelBackgroundColor: colors.crosshairLabel },
+      },
+    });
+    series.applyOptions({
+      upColor: colors.up,
+      downColor: colors.down,
+      borderUpColor: colors.up,
+      borderDownColor: colors.down,
+      wickUpColor: colors.up,
+      wickDownColor: colors.down,
+    });
+  };
+
   useEffect(() => {
     aliveRef.current = true;
     const el = containerRef.current;
     if (!el) return undefined;
 
-    const colors = getProTradeChartColors(theme);
+    const colors = getProTradeChartColors(themeRef.current);
 
     const chart = createChart(el, {
       layout: {
@@ -195,7 +230,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       const following = range.to >= n - 2;
       if (following !== followLiveRef.current) {
         followLiveRef.current = following;
-        onFollowLiveChange?.(following);
+        onFollowLiveChangeRef.current?.(following);
       }
     });
 
@@ -225,7 +260,21 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       markersPluginRef.current = null;
       el.replaceChildren();
     };
-  }, [theme, interval, onFollowLiveChange]);
+  }, [interval]);
+
+  useEffect(() => {
+    themeRef.current = theme;
+    const chart = chartRef.current;
+    const series = seriesRef.current;
+    const el = containerRef.current;
+    if (!chart || !series || !el || !aliveRef.current) return;
+
+    const colors = getProTradeChartColors(theme);
+    safeChartOp(() => {
+      applyChartTheme(chart, series, colors);
+      chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
+    });
+  }, [theme]);
 
   const applyChartZoom = (chart: IChartApi, barCount: number) => {
     if (barCount <= 0) return;
@@ -339,8 +388,13 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     const prev = candlesRef.current;
     const prevFirst = prev[0]?.time;
     const nextFirst = clean[0]?.time;
+    const themeChanged = prevThemeForDataRef.current !== theme;
+    if (themeChanged) prevThemeForDataRef.current = theme;
     const fullReset =
-      prev.length === 0 || prevFirst !== nextFirst || clean.length < prev.length;
+      themeChanged ||
+      prev.length === 0 ||
+      prevFirst !== nextFirst ||
+      clean.length < prev.length;
 
     const toCandle = (c: HlCandleBar): CandlestickData => ({
       time: c.time as CandlestickData['time'],
@@ -390,7 +444,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
 
       candlesRef.current = clean;
     });
-  }, [candles, coin, interval, chartColors.volumeDown, chartColors.volumeUp, markPx]);
+  }, [candles, coin, interval, theme, markPx]);
 
   useEffect(() => {
     const series = seriesRef.current;
@@ -491,7 +545,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         priceLinesRef.current.push(tpLine);
       }
     });
-  }, [openOrders, overlayCoin, chartColors.down, chartColors.up, positionOverlay]);
+  }, [openOrders, overlayCoin, theme, positionOverlay]);
 
   useEffect(() => {
     const series = seriesRef.current;
@@ -521,7 +575,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         });
       }
     });
-  }, [markPx, chartColors.crosshair]);
+  }, [markPx, theme]);
 
   return (
     <>

@@ -105,6 +105,8 @@ const ProTradeTradingViewChart: React.FC<Props> = ({ coin, interval, theme, hide
 
     return () => {
       cancelled = true;
+      safeRemoveWidget(widgetRef.current);
+      widgetRef.current = null;
     };
   }, [coin, interval, theme, containerId]);
 

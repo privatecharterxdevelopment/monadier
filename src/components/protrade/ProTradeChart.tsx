@@ -1,4 +1,4 @@
-import React, { Component, useEffect, useId, useState } from 'react';
+import React, { Component, useEffect, useState } from 'react';
 import type { SeriesMarker, UTCTimestamp } from 'lightweight-charts';
 import type { HlCandleBar, HlInterval } from '../../lib/hyperliquid/types';
 import type { HlOpenOrder } from '../../lib/hyperliquid/user';
@@ -9,7 +9,11 @@ import { useProTradeTheme } from '../../contexts/ProTradeThemeContext';
 
 type ChartEngine = 'hl' | 'tv';
 
-type ChartPaneBoundaryProps = { children: React.ReactNode; engine: ChartEngine };
+type ChartPaneBoundaryProps = {
+  children: React.ReactNode;
+  engine: ChartEngine;
+  theme: string;
+};
 type ChartPaneBoundaryState = { error: Error | null };
 
 class ChartPaneErrorBoundary extends Component<ChartPaneBoundaryProps, ChartPaneBoundaryState> {
@@ -20,7 +24,10 @@ class ChartPaneErrorBoundary extends Component<ChartPaneBoundaryProps, ChartPane
   }
 
   componentDidUpdate(prev: ChartPaneBoundaryProps) {
-    if (prev.engine !== this.props.engine && this.state.error) {
+    if (
+      (prev.engine !== this.props.engine || prev.theme !== this.props.theme) &&
+      this.state.error
+    ) {
       this.setState({ error: null });
     }
   }
@@ -103,7 +110,6 @@ const ProTradeChartInner: React.FC<Props> = ({
   const [mountedEngine, setMountedEngine] = useState<ChartEngine | 'none'>(() =>
     readStoredEngine(defaultEngine)
   );
-  const instanceId = useId().replace(/:/g, '');
 
   const switchEngine = (next: ChartEngine) => {
     if (next === engine) return;
@@ -173,7 +179,10 @@ const ProTradeChartInner: React.FC<Props> = ({
           ) : null}
         </div>
       ) : null}
-      <ChartPaneErrorBoundary engine={mountedEngine === 'none' ? engine : mountedEngine}>
+      <ChartPaneErrorBoundary
+        engine={mountedEngine === 'none' ? engine : mountedEngine}
+        theme={theme}
+      >
         <div className="hl-chart-engine">
           {mountedEngine === 'none' ? (
             <div className="hl-chart-empty" aria-hidden />
@@ -195,7 +204,7 @@ const ProTradeChartInner: React.FC<Props> = ({
             />
           ) : (
             <ProTradeTradingViewChart
-              key={`tv-${instanceId}`}
+              key={`tv-${theme}-${coin}-${interval}`}
               coin={coin}
               interval={interval}
               theme={theme}
