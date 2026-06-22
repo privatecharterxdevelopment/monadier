@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react';
 import { useTerminalBotAnalysis } from '../../hooks/useTerminalBotAnalysis';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
-import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
+import { useHlBotRunning } from '../../hooks/useHlBotRunning';
 import { HL_MAX_CONCURRENT_POSITIONS } from '../../lib/hlBotConstants';
-import { isHlBotEnabled } from '../../lib/hlBotGates';
 import { collectBotScanInsightLines } from '../../lib/botAnalysisDisplay';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 
@@ -26,12 +25,11 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
   botRunning: botRunningProp,
 }) => {
   const hlSetup = useHlBotSetup(vaultWallet ?? undefined);
-  const botSettings = useTerminalBotSettings();
+  const { botRunning: resolvedRunning } = useHlBotRunning({
+    metricsAutoTrade: metrics.autoTradeEnabled,
+  });
   const hasWallet = walletConnected || Boolean(vaultWallet);
-  const botRunning = isHlBotEnabled(
-    botRunningProp ??
-      (botSettings.settings.autoTradeEnabled || metrics.autoTradeEnabled)
-  );
+  const botRunning = botRunningProp ?? resolvedRunning;
 
   const hlBalanceUsd =
     hlSetup.accountUsd > 0 || !hlSetup.loading ? hlSetup.accountUsd : metrics.hlBalanceUsd;

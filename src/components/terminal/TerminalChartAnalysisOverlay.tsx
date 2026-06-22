@@ -155,7 +155,7 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
                 ) : null}
               </span>
             </div>
-            {hasData || !isLoading ? (
+            {scanning && (hasData || !isLoading) ? (
               <div className="hl-bot-analyzer-pill">
                 <span className="hl-bot-analyzer-pill__label">Signal</span>
                 <span className={`hl-bot-analyzer-pill__value ${signalClass}`}>
@@ -166,13 +166,13 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
                 </span>
               </div>
             ) : null}
-            {activeLabel ? (
+            {scanning && activeLabel ? (
               <div className="hl-bot-analyzer-pill">
                 <span className="hl-bot-analyzer-pill__label">Pair</span>
                 <span className="hl-bot-analyzer-pill__value">{activeLabel}</span>
               </div>
             ) : null}
-            {currentTf ? (
+            {scanning && currentTf ? (
               <div className="hl-bot-analyzer-pill">
                 <span className="hl-bot-analyzer-pill__label">TF</span>
                 <span

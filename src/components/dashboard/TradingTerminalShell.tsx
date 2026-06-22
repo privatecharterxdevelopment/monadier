@@ -119,7 +119,7 @@ const TradingTerminalShell: React.FC<TradingTerminalShellProps> = ({
 
           <div className="md:text-center">
             <p className="terminal-metric-label">
-              {isOverview ? 'Account total value' : 'Vault balance'}
+              {isOverview ? 'Account total value' : 'HL balance'}
             </p>
             <p className="terminal-metric-value">
               {metrics.isLoading
@@ -132,12 +132,16 @@ const TradingTerminalShell: React.FC<TradingTerminalShellProps> = ({
                   Wallet — {formatUsd(walletUsd, true)}
                 </p>
                 <p className="terminal-metric-sub">
-                  Vault — {formatUsd(metrics.vaultBalanceUsd, true)}
+                  HL — {formatUsd(metrics.vaultBalanceUsd, true)}
                 </p>
               </>
             ) : (
               <>
-                <p className="terminal-metric-sub">USDC · Arbitrum vault</p>
+                <p className="terminal-metric-sub">USDC · Hyperliquid perps</p>
+                <p className="terminal-metric-sub">
+                  Withdrawable —{' '}
+                  {metrics.isLoading ? '…' : formatUsd(metrics.withdrawableUsd)}
+                </p>
                 <p className="terminal-metric-sub">
                   Total P/L —{' '}
                   <span className={metrics.totalPnl >= 0 ? 'text-green-400' : 'text-red-400'}>

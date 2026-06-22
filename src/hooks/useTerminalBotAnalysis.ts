@@ -98,7 +98,7 @@ export function useTerminalBotAnalysis({
   const [step, setStep] = useState(0);
   const [progress, setProgress] = useState(ANALYSIS_STEPS[0].progress);
 
-  const active = analysisActive ?? metrics.autoTradeEnabled;
+  const active = botRunning && (analysisActive ?? false);
   const scanning = active;
 
   const effectiveOpenCoins = useMemo(() => {
@@ -179,6 +179,9 @@ export function useTerminalBotAnalysis({
       setGlobalCandidates([]);
       setGlobalScanCount(0);
       setGlobalCoinsScanned(0);
+      setServerBlockers([]);
+      setStep(0);
+      setProgress(ANALYSIS_STEPS[0].progress);
       return;
     }
     const load = async () => {
@@ -324,17 +327,17 @@ export function useTerminalBotAnalysis({
 
   return {
     scanning,
-    step,
-    progress,
-    signal,
-    isLoading,
-    dbAnalysis,
-    activeSymbol: displaySymbol,
-    scanSymbol,
-    scanCandidate,
-    globalBest,
-    globalScanCount,
-    globalCoinsScanned,
+    step: scanning ? step : 0,
+    progress: scanning ? progress : ANALYSIS_STEPS[0].progress,
+    signal: scanning ? signal : null,
+    isLoading: scanning && isLoading,
+    dbAnalysis: scanning ? dbAnalysis : null,
+    activeSymbol: scanning ? displaySymbol : undefined,
+    scanSymbol: scanning ? scanSymbol : null,
+    scanCandidate: scanning ? scanCandidate : null,
+    globalBest: scanning ? globalBest : null,
+    globalScanCount: scanning ? globalScanCount : 0,
+    globalCoinsScanned: scanning ? globalCoinsScanned : 0,
     readiness,
     openPositionsCount,
     maxConcurrentPositions: serverMaxSlots,

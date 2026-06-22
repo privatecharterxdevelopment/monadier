@@ -12,6 +12,11 @@ import {
   MarketingSectionHeading,
   MarketingDisclaimer,
 } from '../components/marketing/MarketingInnerPage';
+import {
+  MktWalletVisual,
+  MktDepositVisual,
+  MktBettingVisual,
+} from '../components/marketing/MarketingIllustrations';
 import { goToOpenApp } from '../lib/appUrls';
 
 const BETTING_ROTATE_LINES = [
@@ -26,14 +31,17 @@ const steps = [
   {
     title: 'Connect & fund',
     text: 'Sign in with your wallet and deposit USDC to your Hyperliquid spot balance for outcome markets.',
+    visual: <MktWalletVisual />,
   },
   {
     title: 'Pick a market',
     text: 'Open Betting in the app, browse leagues and events, and select Yes or No at live odds.',
+    visual: <MktBettingVisual />,
   },
   {
     title: 'Track & cash out',
     text: 'Monitor open bets, sell early when liquidity is available, or hold until the market settles.',
+    visual: <MktDepositVisual />,
   },
 ];
 
@@ -92,7 +100,13 @@ const SportsBettingPage: React.FC = () => {
 
           <MarketingPageGrid columns={3}>
             {steps.map((step, i) => (
-              <MarketingFeatureCard key={step.title} index={i} title={step.title} text={step.text} />
+              <MarketingFeatureCard
+                key={step.title}
+                index={i}
+                title={step.title}
+                text={step.text}
+                visual={step.visual}
+              />
             ))}
           </MarketingPageGrid>
 

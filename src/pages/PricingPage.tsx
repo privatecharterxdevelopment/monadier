@@ -16,37 +16,49 @@ import MarketingInnerPage, {
   MarketingDisclaimer,
 } from '../components/marketing/MarketingInnerPage';
 import PricingHeroGraphic from '../components/marketing/PricingHeroGraphic';
+import {
+  MktFeeVisual,
+  MktDepositVisual,
+  MktMarketsGridVisual,
+  MktSparkChartVisual,
+} from '../components/marketing/MarketingIllustrations';
 
-const steps: { title: string; text: string; icon: LucideIcon }[] = [
+const steps: { title: string; text: string; icon: LucideIcon; visual?: React.ReactNode }[] = [
   {
     icon: CircleOff,
     title: 'No platform fee',
     text: 'No subscription, no hidden platform charge, and no fee just to run the bot.',
+    visual: <MktSparkChartVisual />,
   },
   {
     icon: Fuel,
     title: 'Gas covered for you',
     text: 'Network gas on Arbitrum for bot trades is paid by Monadier — not billed to you per trade.',
+    visual: <MktDepositVisual />,
   },
   {
     icon: TrendingUp,
     title: 'Pay when you gain',
     text: 'A success fee applies only on profitable closes — 10% of profit. Losing trades have no success fee.',
+    visual: <MktFeeVisual />,
   },
   {
     icon: Wallet,
     title: 'You keep most gains',
     text: 'On winning trades you keep the bulk of profit after the success fee and normal market costs.',
+    visual: <MktFeeVisual />,
   },
   {
     icon: ArrowLeftRight,
     title: 'Hyperliquid execution costs',
     text: 'Standard HL open/close, funding, and execution fees apply per position — same as trading on Hyperliquid directly.',
+    visual: <MktMarketsGridVisual />,
   },
   {
     icon: Activity,
     title: 'Slippage & liquidity',
     text: 'Execution price can differ from the quote depending on size and liquidity. Major Arbitrum pairs usually see tighter spreads.',
+    visual: <MktSparkChartVisual />,
   },
 ];
 
@@ -69,6 +81,7 @@ const PricingPage: React.FC = () => {
             title={step.title}
             text={step.text}
             icon={step.icon}
+            visual={step.visual}
           />
         ))}
       </MarketingPageGrid>

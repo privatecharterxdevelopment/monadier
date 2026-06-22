@@ -28,7 +28,8 @@ import { useProfileOnboarding } from '../../hooks/useProfileOnboarding';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import { hlCoinToBotSymbol } from '../../lib/botTradingPairs';
 import { MIN_HL_BOT_USD, disableHlBotExecution } from '../../lib/hyperliquid/hlBotAgent';
-import { isHlBotEnabled } from '../../lib/hlBotGates';
+import { useHlBotRunning } from '../../hooks/useHlBotRunning';
+import { notifyHlBotRunningChange } from '../../lib/hlBotRunningStore';
 import { clearBotRuntimeTimer } from '../../lib/botRuntimeTimer';
 
 const MIN_BOT_CAPITAL_USD = MIN_HL_BOT_USD;
@@ -82,10 +83,7 @@ const Dashboard2Page: React.FC = () => {
 
   const walletReady = isConnected || isDemoUser;
 
-  const botEnabled = isHlBotEnabled(
-    botSettings.settings.autoTradeEnabled || metrics.autoTradeEnabled
-  );
-  const botRunning = botEnabled;
+  const { botRunning } = useHlBotRunning({ metricsAutoTrade: metrics.autoTradeEnabled });
 
   const handleRefresh = () => {
     refresh();
@@ -104,6 +102,7 @@ const Dashboard2Page: React.FC = () => {
     const w = (address ?? botSettings.wallet)?.toLowerCase();
     if (!w) return;
     setStopSettingsBusy(true);
+    notifyHlBotRunningChange(false);
     try {
       await disableHlBotExecution(w);
       clearBotRuntimeTimer(w);

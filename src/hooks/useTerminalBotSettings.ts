@@ -3,7 +3,8 @@ import { useWeb3 } from '../contexts/Web3Context';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
 import { useMonadierWallet } from './useMonadierWallet';
 import { supabase } from '../lib/supabase';
-import { fetchUserWalletAddresses, pickPrimaryVaultWallet } from '../lib/userWallets';
+import { fetchUserWalletAddresses } from '../lib/userWallets';
+import { resolveHlTradingWallet } from '../lib/hlTradingWallet';
 import { resolveVaultSettingsSnapshot } from '../lib/vaultSettingsSnapshot';
 import { snapLeverageToStep } from '../lib/leverageLimits';
 import type { VaultSettingsSnapshot } from '../lib/vaultSettingsSnapshot';
@@ -50,10 +51,12 @@ export function useTerminalBotSettings(refreshKey = 0) {
 
   const wallet = useMemo(() => {
     if (isDemoUser) return DEMO_WALLET_ADDRESS as `0x${string}`;
-    const resolved = monadierAddress ?? (isConnected && address ? address : undefined);
-    if (resolved) return resolved as `0x${string}`;
-    const primary = pickPrimaryVaultWallet(linkedWallets, monadierAddress ?? address);
-    return primary ? (primary as `0x${string}`) : undefined;
+    const connected = monadierAddress ?? (isConnected && address ? address : undefined);
+    const resolved = resolveHlTradingWallet({
+      connectedAddress: connected,
+      linkedWallets: linkedWallets,
+    });
+    return resolved ? (resolved as `0x${string}`) : undefined;
   }, [isDemoUser, monadierAddress, isConnected, address, linkedWallets]);
 
   const [data, setData] = useState<TerminalBotSettings>({

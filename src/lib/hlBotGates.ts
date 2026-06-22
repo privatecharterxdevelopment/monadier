@@ -16,6 +16,22 @@ export function isHlBotEnabled(autoTradeEnabled: boolean): boolean {
   return autoTradeEnabled;
 }
 
+/** Resolve bot on/off — optimistic stop/start wins; never keep running on stale metrics. */
+export function resolveHlBotRunning(opts: {
+  settingsAutoTrade: boolean;
+  settingsLoading?: boolean;
+  metricsAutoTrade?: boolean;
+  optimistic?: boolean | null;
+}): boolean {
+  if (opts.optimistic !== null && opts.optimistic !== undefined) {
+    return opts.optimistic;
+  }
+  if (!opts.settingsLoading) {
+    return opts.settingsAutoTrade;
+  }
+  return Boolean(opts.metricsAutoTrade);
+}
+
 /**
  * True when DB says on AND HL prerequisites are met (can open new trades this cycle).
  * Use isHlBotEnabled for Start/Stop UI — not this alone.

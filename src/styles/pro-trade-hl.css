@@ -7285,12 +7285,98 @@
   align-items: center;
   justify-content: center;
   padding: 16px;
-  background: var(--hl-backdrop);
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .hl-modal-backdrop--auth {
   z-index: 2500;
   padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  /* Portaled to document.body — outside .hl-root; always use a solid light auth surface */
+  --hl-bg-panel: #ffffff;
+  --hl-bg: #f4f4f5;
+  --hl-bg-hover: #f4f4f5;
+  --hl-bg-elevated: #ffffff;
+  --hl-border: #ebebf0;
+  --hl-border-strong: #c5c5cb;
+  --hl-text: #0a0a0a;
+  --hl-text-muted: #52525b;
+  --hl-text-faint: #71717a;
+  --hl-auth-form-bg: #ffffff;
+  --hl-green-bright: #15803d;
+  --hl-on-accent: #ffffff;
+  --hl-shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.18);
+  color: #0a0a0a;
+}
+
+.hl-modal-backdrop--auth .hl-modal,
+.hl-modal-backdrop--auth .hl-signin-modal,
+.hl-modal-backdrop--auth .hl-auth-modal {
+  background-color: #ffffff;
+  background: #ffffff;
+  color: #0a0a0a;
+  border-color: #ebebf0;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+.hl-modal-backdrop--auth .hl-auth-modal-form {
+  background-color: #ffffff;
+  background: #ffffff;
+  color: #0a0a0a;
+}
+
+.hl-modal-backdrop--auth .term-profile-label {
+  color: #52525b;
+}
+
+.hl-modal-backdrop--auth .term-profile-input {
+  background: #ffffff;
+  border-color: #ebebf0;
+  color: #0a0a0a;
+}
+
+.hl-modal-backdrop--auth .term-profile-input:focus {
+  border-color: #c5c5cb;
+}
+
+.hl-modal-backdrop--auth .hl-signin-google {
+  background: #f4f4f5;
+  border-color: #ebebf0;
+  color: #0a0a0a;
+}
+
+.hl-modal-backdrop--auth .hl-signin-google:hover {
+  background: #ebebf0;
+}
+
+.hl-modal-backdrop--auth .hl-signin-foot,
+.hl-modal-backdrop--auth .hl-signin-divider {
+  color: #71717a;
+}
+
+.hl-modal-backdrop--auth .hl-signin-link-btn,
+.hl-modal-backdrop--auth .hl-signin-link {
+  color: #15803d;
+}
+
+.hl-modal-backdrop--auth .hl-auth-modal-close {
+  background: rgba(0, 0, 0, 0.06);
+  color: #0a0a0a;
+}
+
+.hl-modal-backdrop--auth .hl-auth-modal-close:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.hl-modal-backdrop--auth .hl-modal-close {
+  color: #71717a;
+}
+
+.hl-modal-backdrop--auth .hl-modal-close:hover {
+  background: #f4f4f5;
+  color: #0a0a0a;
 }
 
 .hl-modal {
@@ -7887,9 +7973,10 @@
 
 .hl-signin-modal,
 .hl-auth-modal {
-  background: var(--hl-bg-panel);
-  color: var(--hl-text);
-  border: 1px solid var(--hl-border);
+  background-color: #ffffff;
+  background: #ffffff;
+  color: #0a0a0a;
+  border: 1px solid #ebebf0;
 }
 
 /* ── Dock mode labels (HL vs Bot) ── */
@@ -9142,6 +9229,35 @@
   .hl-modal-backdrop--auth {
     align-items: center;
     justify-content: center;
+    background: rgba(0, 0, 0, 0.48);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .hl-modal-backdrop--auth .hl-modal,
+  .hl-modal-backdrop--auth .hl-signin-modal,
+  .hl-modal-backdrop--auth .hl-auth-modal {
+    background-color: #ffffff;
+    background: #ffffff;
+    color: #0a0a0a;
+    border-color: #ebebf0;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.22);
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+
+  .hl-modal-backdrop--auth .hl-auth-modal-form {
+    background-color: #ffffff;
+    background: #ffffff;
+    color: #0a0a0a;
+  }
+
+  .hl-modal-backdrop--auth .term-profile-input {
+    background-color: #ffffff;
+    background: #ffffff;
+    color: #0a0a0a;
+    border-color: #ebebf0;
+    font-size: 16px;
   }
 
   .hl-signin-modal .term-profile-input,

@@ -25,7 +25,7 @@ import {
 } from './services/userBatchProcessor';
 import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './services/hlAgent';
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
-import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlFreeMarginUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive } from './services/hlInfo';
+import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlFreeMarginUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker } from './services/hlInfo';
 import { getLastHlOpenError, getLastHlOpenErrorForClient, hyperliquidTradingService, resolveHlMarginPerSlot } from './services/hlTrading';
 import { releaseHlBotTradingPauses } from './services/dailyLossGate';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
@@ -336,9 +336,10 @@ const healthServer = http.createServer(async (req, res) => {
       );
 
       const hlState = await fetchHlClearinghouseState(userAddress);
-      const hlBalanceUsd = hlAccountValueUsd(hlState);
-      const hlWithdrawable = hlWithdrawableUsd(hlState);
-      const hlFreeMargin = hlFreeMarginUsd(hlState);
+      const hlFunding = await fetchHlPerpFundingSnapshot(userAddress);
+      const hlBalanceUsd = hlFunding.perpUsd;
+      const hlWithdrawable = hlFunding.withdrawableUsd;
+      const hlFreeMargin = hlState ? hlFreeMarginUsd(hlState) : 0;
       const hlAgentAddr = deriveUserHlAgentAddress(userAddress);
       const hlAgentOk = await hlAgentApprovalService.isApproved(userAddress, hlAgentAddr);
       const builderGate = await checkHlBuilderFeeApproved(userAddress);
@@ -387,10 +388,12 @@ const healthServer = http.createServer(async (req, res) => {
       if (builderGate.required && !builderGate.approved) {
         blockers.push('HL builder fee not approved — approve platform fee in Bot panel');
       }
-      if (hlBalanceUsd < config.hyperliquid.minAccountUsd) {
-        blockers.push(
-          `HL balance $${hlBalanceUsd.toFixed(2)} (min $${config.hyperliquid.minAccountUsd})`
-        );
+      const balanceBlocker = describeHlPerpBalanceBlocker(
+        hlFunding,
+        config.hyperliquid.minAccountUsd
+      );
+      if (balanceBlocker) {
+        blockers.push(balanceBlocker);
       }
       const maxPositions = config.hyperliquid.maxConcurrentPositions;
       if (!dbSettings.autoTradeEnabled) blockers.push('auto-trade disabled in settings');
@@ -447,6 +450,8 @@ const healthServer = http.createServer(async (req, res) => {
         blockers,
         hyperliquid: {
           balanceUsd: hlBalanceUsd,
+          perpUsd: hlFunding.perpUsd,
+          spotUsdcUsd: hlFunding.spotUsdcUsd,
           withdrawableUsd: hlWithdrawable,
           freeMarginUsd: hlFreeMargin,
           agentAddress: hlAgentAddr,

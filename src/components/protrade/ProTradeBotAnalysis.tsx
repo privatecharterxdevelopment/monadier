@@ -1,8 +1,7 @@
 import React from 'react';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
-import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
+import { useHlBotRunning } from '../../hooks/useHlBotRunning';
 import { hlCoinToBotSymbol } from '../../lib/botTradingPairs';
-import { isHlBotEnabled } from '../../lib/hlBotGates';
 import TerminalBotAnalysisStrip from '../terminal/TerminalBotAnalysisStrip';
 import { useProTradeBot } from './ProTradeBotSide';
 
@@ -21,9 +20,10 @@ const ProTradeBotAnalysis: React.FC<Props> = ({
   openPositionCoins = [],
 }) => {
   const { address } = useMonadierWallet();
-  const { settings } = useTerminalBotSettings();
   const { metrics } = useProTradeBot();
-  const botRunning = isHlBotEnabled(settings.autoTradeEnabled || metrics.autoTradeEnabled);
+  const { botRunning, wallet: tradingWallet } = useHlBotRunning({
+    metricsAutoTrade: metrics.autoTradeEnabled,
+  });
   const symbol = hlCoinToBotSymbol(scanCoin ?? perpCoin);
 
   return (
@@ -31,7 +31,7 @@ const ProTradeBotAnalysis: React.FC<Props> = ({
       <TerminalBotAnalysisStrip
         walletConnected={walletConnected}
         metrics={metrics}
-        vaultWallet={address ?? null}
+        vaultWallet={tradingWallet ?? address ?? null}
         openPositionCoins={openPositionCoins}
         symbol={symbol}
         placement="dock"

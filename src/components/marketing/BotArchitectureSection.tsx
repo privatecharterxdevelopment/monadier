@@ -5,18 +5,25 @@ import {
   BOT_ARCHITECTURE_LEAD,
   BOT_ARCHITECTURE_TITLE,
 } from '../../lib/marketingBotArchitecture';
-import { MarketingSectionHeading } from './MarketingInnerPage';
+import { MarketingFeatureCard, MarketingPageGrid, MarketingSectionHeading } from './MarketingInnerPage';
+import { MktBotScanVisual } from './MarketingIllustrations';
 
 const BotArchitectureSection: React.FC = () => {
   return (
     <>
       <MarketingSectionHeading title={BOT_ARCHITECTURE_TITLE} sub={BOT_ARCHITECTURE_LEAD} />
-      <ul className="mkt-architecture-list">
-        {BOT_ARCHITECTURE_FEATURES.map((feature) => (
-          <li key={feature}>{feature}</li>
+      <MarketingPageGrid columns={2}>
+        {BOT_ARCHITECTURE_FEATURES.map((feature, i) => (
+          <MarketingFeatureCard
+            key={feature}
+            index={i}
+            title={feature.split('(')[0].trim()}
+            text={feature}
+            visual={i === 0 ? <MktBotScanVisual /> : i === 5 ? <MktBotScanVisual /> : undefined}
+          />
         ))}
-      </ul>
-      <p className="mkt-architecture-goal">{BOT_ARCHITECTURE_GOAL}</p>
+      </MarketingPageGrid>
+      <p className="mkt-architecture-goal landing-glass-card">{BOT_ARCHITECTURE_GOAL}</p>
     </>
   );
 };

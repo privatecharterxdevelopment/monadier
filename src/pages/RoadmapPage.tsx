@@ -14,6 +14,7 @@ import MarketingInnerPage, {
   MarketingPageHero,
   MarketingDisclaimer,
 } from '../components/marketing/MarketingInnerPage';
+import { MktRoadmapVisual } from '../components/marketing/MarketingIllustrations';
 
 const ROADMAP = [
   {
@@ -89,36 +90,42 @@ const RoadmapPage: React.FC = () => {
           const Icon = item.icon;
           const step = index + 1;
           const isLast = index === ROADMAP.length - 1;
+          const isActive = item.status === 'active';
 
           return (
             <li
               key={item.title}
-              className={`mkt-roadmap-step${item.status === 'active' ? ' mkt-roadmap-step--active' : ''}`}
+              className={`mkt-roadmap-step${isActive ? ' mkt-roadmap-step--active' : ''}`}
             >
               <div className="mkt-roadmap-rail" aria-hidden>
                 <span className="mkt-roadmap-step-badge">{step}</span>
                 {!isLast && <span className="mkt-roadmap-connector" />}
               </div>
-              <article className="mkt-roadmap-step-card">
-                <div className="mkt-roadmap-step-head">
-                  <span className="mkt-roadmap-step-label">
-                    Step {step}
-                    {item.status === 'active' ? ' · In progress' : ''}
-                  </span>
-                  <div className="mkt-roadmap-icon" aria-hidden>
-                    <Icon size={20} strokeWidth={1.75} />
-                  </div>
+              <article className="mkt-roadmap-step-card landing-glass-card">
+                <div className="mkt-roadmap-step-visual">
+                  <MktRoadmapVisual step={step} active={isActive} />
                 </div>
-                <span className="mkt-roadmap-milestone">{item.milestone}</span>
-                <h2 className="mkt-roadmap-title">{item.title}</h2>
-                <p className="mkt-roadmap-text">{item.text}</p>
+                <div className="mkt-roadmap-step-content">
+                  <div className="mkt-roadmap-step-head">
+                    <span className="mkt-roadmap-step-label">
+                      Step {step}
+                      {isActive ? ' · In progress' : ''}
+                    </span>
+                    <div className="mkt-roadmap-icon" aria-hidden>
+                      <Icon size={20} strokeWidth={1.75} />
+                    </div>
+                  </div>
+                  <span className="mkt-roadmap-milestone">{item.milestone}</span>
+                  <h2 className="mkt-roadmap-title">{item.title}</h2>
+                  <p className="mkt-roadmap-text">{item.text}</p>
+                </div>
               </article>
             </li>
           );
         })}
       </ol>
 
-      <div className="mkt-roadmap-warning">
+      <div className="mkt-roadmap-warning landing-glass-card">
         <h2 className="mkt-roadmap-warning-title">Support &amp; scams</h2>
         <p>
           Monadier customer support is <strong>email only</strong>. We do not offer Discord,

@@ -19,14 +19,16 @@ export const MarketingPageHero: React.FC<HeroProps> = ({
   sub,
   aside,
 }) => (
-  <header className={`mkt-hero${aside ? ' mkt-hero--split' : ''}`}>
-    <div className="mkt-hero-copy">
-      {eyebrow && <p className="mkt-hero-eyebrow">{eyebrow}</p>}
-      <h1 className="mkt-hero-title">{title}</h1>
-      <p className="mkt-hero-lead">{lead}</p>
-      {sub && <p className="mkt-hero-sub">{sub}</p>}
+  <header className="mkt-hero-band landing-glass-card">
+    <div className={`mkt-hero${aside ? ' mkt-hero--split' : ''}`}>
+      <div className="mkt-hero-copy">
+        {eyebrow && <p className="mkt-hero-eyebrow">{eyebrow}</p>}
+        <h1 className="mkt-hero-title">{title}</h1>
+        <p className="mkt-hero-lead">{lead}</p>
+        {sub && <p className="mkt-hero-sub">{sub}</p>}
+      </div>
+      {aside && <div className="mkt-hero-aside">{aside}</div>}
     </div>
-    {aside && <div className="mkt-hero-aside">{aside}</div>}
   </header>
 );
 
@@ -35,6 +37,8 @@ type FeatureCardProps = {
   title: string;
   text: string;
   icon?: LucideIcon;
+  visual?: React.ReactNode;
+  className?: string;
 };
 
 export const MarketingFeatureCard: React.FC<FeatureCardProps> = ({
@@ -42,18 +46,23 @@ export const MarketingFeatureCard: React.FC<FeatureCardProps> = ({
   title,
   text,
   icon: Icon,
+  visual,
+  className = '',
 }) => (
-  <article className="mkt-card">
-    {Icon && (
-      <div className="mkt-card-icon" aria-hidden>
-        <Icon size={20} strokeWidth={1.75} />
-      </div>
-    )}
-    {index !== undefined && (
-      <p className="mkt-card-index">{String(index + 1).padStart(2, '0')}</p>
-    )}
-    <h2 className="mkt-card-title">{title}</h2>
-    <p className="mkt-card-text">{text}</p>
+  <article className={`mkt-card landing-glass-card ${className}`.trim()}>
+    {visual && <div className="mkt-card-visual">{visual}</div>}
+    <div className="mkt-card-body">
+      {Icon && (
+        <div className="mkt-card-icon" aria-hidden>
+          <Icon size={20} strokeWidth={1.75} />
+        </div>
+      )}
+      {index !== undefined && (
+        <p className="mkt-card-index">{String(index + 1).padStart(2, '0')}</p>
+      )}
+      <h2 className="mkt-card-title">{title}</h2>
+      <p className="mkt-card-text">{text}</p>
+    </div>
   </article>
 );
 
@@ -111,7 +120,7 @@ export const MarketingStatCard: React.FC<{ value: string; label: string }> = ({
   value,
   label,
 }) => (
-  <div className="mkt-stat-card">
+  <div className="mkt-stat-card landing-glass-card">
     <p className="mkt-stat-value">{value}</p>
     <p className="mkt-stat-label">{label}</p>
   </div>

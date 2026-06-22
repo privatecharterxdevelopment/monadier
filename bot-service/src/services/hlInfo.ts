@@ -21,24 +21,101 @@ export type HlClearinghouseState = {
 export async function fetchHlClearinghouseState(
   userAddress: string
 ): Promise<HlClearinghouseState | null> {
+  const user = userAddress.toLowerCase();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const res = await fetch(config.hyperliquid.infoUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'clearinghouseState',
+          user,
+        }),
+      });
+      if (!res.ok) {
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+        continue;
+      }
+      return (await res.json()) as HlClearinghouseState;
+    } catch (err: unknown) {
+      if (attempt === 2) {
+        logger.debug('HL clearinghouseState failed', {
+          user: user.slice(0, 10),
+          error: err instanceof Error ? err.message : String(err),
+        });
+      } else {
+        await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+      }
+    }
+  }
+  return null;
+}
+
+/** USDC sitting in HL spot — bot perps need funds on the perp margin account. */
+export async function fetchHlSpotUsdcUsd(userAddress: string): Promise<number> {
   try {
     const res = await fetch(config.hyperliquid.infoUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        type: 'clearinghouseState',
+        type: 'spotClearinghouseState',
         user: userAddress.toLowerCase(),
       }),
     });
-    if (!res.ok) return null;
-    return (await res.json()) as HlClearinghouseState;
-  } catch (err: unknown) {
-    logger.debug('HL clearinghouseState failed', {
-      user: userAddress.slice(0, 10),
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return null;
+    if (!res.ok) return 0;
+    const data = (await res.json()) as {
+      balances?: Array<{ coin?: string; total?: string }>;
+    };
+    const row = (data.balances ?? []).find((b) => String(b.coin ?? '').toUpperCase() === 'USDC');
+    const n = row?.total != null ? Number(row.total) : 0;
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  } catch {
+    return 0;
   }
+}
+
+export type HlPerpFundingSnapshot = {
+  perpUsd: number;
+  spotUsdcUsd: number;
+  withdrawableUsd: number;
+  stateLoaded: boolean;
+};
+
+export async function fetchHlPerpFundingSnapshot(
+  userAddress: string
+): Promise<HlPerpFundingSnapshot> {
+  const [state, spotUsdcUsd] = await Promise.all([
+    fetchHlClearinghouseState(userAddress),
+    fetchHlSpotUsdcUsd(userAddress),
+  ]);
+  return {
+    perpUsd: hlAccountValueUsd(state),
+    spotUsdcUsd,
+    withdrawableUsd: hlWithdrawableUsd(state),
+    stateLoaded: state != null,
+  };
+}
+
+/** User-facing reason when perp margin is below min — distinguishes spot-only funds. */
+export function describeHlPerpBalanceBlocker(
+  funding: HlPerpFundingSnapshot,
+  minUsd: number
+): string | null {
+  if (!funding.stateLoaded) {
+    return 'HL balance check failed — retrying Hyperliquid account read';
+  }
+  if (funding.perpUsd >= minUsd) return null;
+
+  if (funding.spotUsdcUsd >= minUsd) {
+    return `Perp margin $${funding.perpUsd.toFixed(2)} — you have $${funding.spotUsdcUsd.toFixed(2)} USDC on HL Spot; transfer to Perps in Funds tab (bot trades perps only)`;
+  }
+
+  const total = funding.perpUsd + funding.spotUsdcUsd;
+  if (total >= minUsd) {
+    return `Perp margin $${funding.perpUsd.toFixed(2)} + spot $${funding.spotUsdcUsd.toFixed(2)} — move USDC to Perps to trade (min $${minUsd})`;
+  }
+
+  return `HL perp balance $${funding.perpUsd.toFixed(2)} (min $${minUsd})`;
 }
 
 export function hlAccountValueUsd(state: HlClearinghouseState | null): number {

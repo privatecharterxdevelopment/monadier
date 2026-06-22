@@ -11,6 +11,8 @@ import {
   coinToAssetIndex,
   maxLeverageForCoin,
   fetchHlClearinghouseState,
+  fetchHlPerpFundingSnapshot,
+  describeHlPerpBalanceBlocker,
   fetchHlAllMids,
   fetchHlMeta,
   formatHlPrice,
@@ -265,13 +267,13 @@ export class HyperliquidTradingService {
       };
     }
 
-    const state = await fetchHlClearinghouseState(userAddress);
-    const acct = hlAccountValueUsd(state);
-    if (acct < config.hyperliquid.minAccountUsd) {
-      return {
-        ok: false,
-        reason: `HL balance $${acct.toFixed(2)} (min $${config.hyperliquid.minAccountUsd})`,
-      };
+    const funding = await fetchHlPerpFundingSnapshot(userAddress);
+    const balanceBlocker = describeHlPerpBalanceBlocker(
+      funding,
+      config.hyperliquid.minAccountUsd
+    );
+    if (balanceBlocker) {
+      return { ok: false, reason: balanceBlocker };
     }
 
     return { ok: true };

@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react';
 import { useTerminalBotAnalysis } from '../../hooks/useTerminalBotAnalysis';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
-import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
+import { useHlBotRunning } from '../../hooks/useHlBotRunning';
 import { HL_MAX_CONCURRENT_POSITIONS } from '../../lib/hlBotConstants';
-import { isHlBotEnabled } from '../../lib/hlBotGates';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import TerminalChartAnalysisOverlay from './TerminalChartAnalysisOverlay';
 
@@ -14,7 +13,7 @@ type Props = {
   openPositionCoins?: string[];
   symbol?: string;
   placement?: 'chart' | 'dock';
-  /** Parent-computed bot on/off (settings + metrics). */
+  /** @deprecated useHlBotRunning — kept for parent override during migration */
   botRunningHint?: boolean;
 };
 
@@ -28,15 +27,15 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
   botRunningHint,
 }) => {
   const hlSetup = useHlBotSetup(vaultWallet ?? undefined);
-  const botSettings = useTerminalBotSettings();
+  const { botRunning: resolvedRunning, wallet: tradingWallet } = useHlBotRunning({
+    metricsAutoTrade: metrics.autoTradeEnabled,
+  });
+  const effectiveVaultWallet = tradingWallet ?? vaultWallet ?? null;
+  const botRunning = botRunningHint ?? resolvedRunning;
   const openPositionsCount = metrics.openPositionsCount;
   const maxSlots = HL_MAX_CONCURRENT_POSITIONS;
   const slotsFull = openPositionsCount >= maxSlots;
 
-  const botRunning = isHlBotEnabled(
-    botRunningHint ??
-      (botSettings.settings.autoTradeEnabled || metrics.autoTradeEnabled)
-  );
   const hasWallet = walletConnected || Boolean(vaultWallet);
   const showLiveAnalysis = hasWallet && botRunning;
 
@@ -55,18 +54,20 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     openPositionsCount,
     maxConcurrentPositions: maxSlots,
     vaultUsd: hlBalanceUsd,
-    vaultWallet,
+    vaultWallet: effectiveVaultWallet,
     openPositionCoins,
     symbol,
     analysisActive: hasWallet && botRunning,
     botRunning,
   });
 
-  const activeCandidate = analysis.scanCandidate ?? analysis.globalBest;
+  const activeCandidate = botRunning ? (analysis.scanCandidate ?? analysis.globalBest) : null;
   const hasBestCandidate = Boolean(activeCandidate?.coin);
   const scanHeadline = hasBestCandidate
     ? analysis.readiness.headline
-    : `Checking ${analysis.currentlyScanningCoin}`;
+    : botRunning
+      ? `Checking ${analysis.currentlyScanningCoin}`
+      : 'Bot paused';
 
   const readiness = useMemo(() => {
     if (idleReadiness) return idleReadiness;
@@ -99,13 +100,13 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
         progress={analysis.progress}
         signal={hasBestCandidate ? analysis.signal : null}
         dbAnalysis={hasBestCandidate ? analysis.dbAnalysis : null}
-        activeSymbol={analysis.activeSymbol ?? symbol}
+        activeSymbol={botRunning ? (analysis.activeSymbol ?? symbol) : undefined}
         globalBest={activeCandidate}
-        globalScanCount={analysis.globalScanCount}
-        globalCoinsScanned={analysis.globalCoinsScanned}
+        globalScanCount={botRunning ? analysis.globalScanCount : 0}
+        globalCoinsScanned={botRunning ? analysis.globalCoinsScanned : 0}
         readiness={readiness}
-        scanning={idleReadiness ? false : keepScanning}
-        isLoading={idleReadiness ? false : hasBestCandidate && analysis.isLoading}
+        scanning={keepScanning}
+        isLoading={keepScanning && hasBestCandidate && analysis.isLoading}
         openPositionsCount={analysis.openPositionsCount}
         maxConcurrentPositions={analysis.maxConcurrentPositions}
       />

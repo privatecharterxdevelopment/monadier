@@ -335,7 +335,7 @@ const ProTradeRegisterModal: React.FC<Props> = ({
   if (embedded) return dialog;
 
   return (
-    <div className="hl-modal-backdrop" role="presentation" onClick={onClose}>
+    <div className="hl-modal-backdrop hl-modal-backdrop--auth" role="presentation" onClick={onClose}>
       {dialog}
     </div>
   );

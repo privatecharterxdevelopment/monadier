@@ -204,9 +204,9 @@ const Dashboard2ProPageContent: React.FC = () => {
     [account?.positions]
   );
 
-  const { settings: botVaultSettings } = useTerminalBotSettings();
+  const { settings: botVaultSettings, wallet: botTradingWallet } = useTerminalBotSettings();
   const botServerStatus = useBotServerBlockers(
-    address?.toLowerCase(),
+    (botTradingWallet ?? address)?.toLowerCase(),
     section === 'bot' && botVaultSettings.autoTradeEnabled
   );
   const botScanCoin = useMemo(() => {

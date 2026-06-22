@@ -25,6 +25,12 @@ function simplifyBlocker(raw: string): string {
   if (/HL balance|HL-Guthaben/i.test(raw)) {
     return raw.replace(/HL balance/i, 'HL balance').replace(/HL-Guthaben/i, 'HL balance');
   }
+  if (/Perp margin|HL perp balance|transfer to Perps/i.test(raw)) {
+    return raw;
+  }
+  if (/HL balance check failed/i.test(raw)) {
+    return 'Checking your Hyperliquid balance — retrying…';
+  }
   if (/no trade signal|MTF|bot conf/i.test(raw)) {
     return 'No strong trade setup right now — bot keeps scanning';
   }
@@ -62,6 +68,7 @@ export function formatServerBlockers(blockers: string[]): string {
 
 export function getHlBotSidebarStatus(opts: {
   walletReady: boolean;
+  accountSignedIn?: boolean;
   phase: HlSetupPhase;
   botRunning: boolean;
   hlBalanceUsd: number;
@@ -73,6 +80,7 @@ export function getHlBotSidebarStatus(opts: {
 }): HlBotSidebarStatus {
   const {
     walletReady,
+    accountSignedIn = true,
     phase,
     botRunning,
     hlBalanceUsd,
@@ -88,6 +96,16 @@ export function getHlBotSidebarStatus(opts: {
       headline: 'Connect wallet',
       detail: 'Use the same wallet you use on Hyperliquid.',
       tone: 'neutral',
+      setupStep: 1,
+      setupComplete: false,
+    };
+  }
+
+  if (!accountSignedIn) {
+    return {
+      headline: 'Sign in required',
+      detail: 'Sign in to your Monadier account, then press Start bot. Your wallet is already connected.',
+      tone: 'warn',
       setupStep: 1,
       setupComplete: false,
     };

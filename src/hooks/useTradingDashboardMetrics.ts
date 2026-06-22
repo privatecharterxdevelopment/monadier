@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { supabase } from '../lib/supabase';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
 import { useWeb3 } from '../contexts/Web3Context';
 import { useMonadierWallet } from './useMonadierWallet';
-import { pickPrimaryVaultWallet } from '../lib/userWallets';
+import { fetchUserWalletAddresses } from '../lib/userWallets';
+import { resolveHlTradingWallet } from '../lib/hlTradingWallet';
 import { fetchUserPositions } from '../lib/userPositions';
 import { fetchHlUserFills } from '../lib/hyperliquid/user';
 import { sumHlRealizedPnlFromFills, countHlClosedFills } from '../lib/hyperliquid/hlPnl';
@@ -82,10 +83,28 @@ export function useTradingDashboardMetrics() {
   const [metrics, setMetrics] = useState<TradingDashboardMetrics>(defaultMetrics);
   const hasSnapshotRef = useRef(false);
   const refreshInFlightRef = useRef(false);
+  const [linkedWallets, setLinkedWallets] = useState<string[]>([]);
 
-  const queryWallet = (
-    isDemoUser ? DEMO_WALLET_ADDRESS : (monadierAddress ?? wagmiAddress)?.toLowerCase()
-  ) as `0x${string}` | undefined;
+  useEffect(() => {
+    if (isDemoUser) return;
+    let cancelled = false;
+    void fetchUserWalletAddresses(wagmiAddress, false).then((list) => {
+      if (!cancelled) setLinkedWallets(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [wagmiAddress, isDemoUser, user?.id]);
+
+  const queryWallet = useMemo(() => {
+    if (isDemoUser) return DEMO_WALLET_ADDRESS.toLowerCase() as `0x${string}`;
+    const connected = (monadierAddress ?? wagmiAddress)?.toLowerCase();
+    const resolved = resolveHlTradingWallet({
+      connectedAddress: connected,
+      linkedWallets,
+    });
+    return resolved ? (resolved as `0x${string}`) : undefined;
+  }, [isDemoUser, monadierAddress, wagmiAddress, linkedWallets]);
 
   const connectedAddress = monadierAddress ?? wagmiAddress ?? undefined;
 
@@ -155,10 +174,10 @@ export function useTradingDashboardMetrics() {
         walletArray.push(connectedAddress.toLowerCase());
       }
 
-      const primaryWallet = pickPrimaryVaultWallet(
-        [...new Set(walletArray)],
-        connectedAddress
-      );
+      const primaryWallet = resolveHlTradingWallet({
+        connectedAddress: connectedAddress,
+        linkedWallets: walletArray,
+      });
       let vaultSettings: { auto_trade_enabled?: boolean } | null = null;
       let agentApproved = false;
       let builderFeeApproved = true;

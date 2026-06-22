@@ -7,19 +7,29 @@ import MarketingInnerPage, {
   MarketingDisclaimer,
 } from '../components/marketing/MarketingInnerPage';
 import BotArchitectureSection from '../components/marketing/BotArchitectureSection';
+import {
+  MktBotAiVisual,
+  MktWalletVisual,
+  MktDepositVisual,
+  MktBotScanVisual,
+  MktMarketsGridVisual,
+} from '../components/marketing/MarketingIllustrations';
 
 const steps = [
   {
     title: 'Connect your wallet',
     text: 'MetaMask or WalletConnect. Your keys stay with you — Monadier never holds your private keys.',
+    visual: <MktWalletVisual />,
   },
   {
     title: 'Fund on Hyperliquid',
     text: 'Deposit USDC to your HL account from Monadier (Funds tab). Min $20 to run the bot.',
+    visual: <MktDepositVisual />,
   },
   {
     title: 'Approve agent & start',
     text: 'One-time HL agent approval, then set risk, take profit, and stop loss. Press Start bot.',
+    visual: <MktBotAiVisual />,
   },
 ];
 
@@ -27,14 +37,17 @@ const highlights = [
   {
     title: '24/7 execution',
     text: 'The bot scans 200+ Hyperliquid perpetuals around the clock — no manual chart watching.',
+    visual: <MktBotScanVisual />,
   },
   {
     title: 'Multi-market signals',
     text: 'Multi-timeframe analysis picks the strongest HL setup each cycle. Past results do not guarantee future performance.',
+    visual: <MktMarketsGridVisual />,
   },
   {
     title: 'You stay in control',
     text: 'Stop the bot, close positions manually, or withdraw HL funds whenever you choose.',
+    visual: <MktWalletVisual />,
   },
 ];
 
@@ -46,17 +59,29 @@ const BotTradingPage: React.FC = () => {
         title="Automated Hyperliquid trading"
         lead="Executes automatically — 24/7, 365 days a year. You start it; it analyzes markets and manages positions."
         sub="Controlled by you and your wallet. No technical skills required to get going."
+        aside={<MktBotAiVisual />}
       />
 
       <MarketingPageGrid columns={3}>
         {steps.map((step, i) => (
-          <MarketingFeatureCard key={step.title} index={i} title={step.title} text={step.text} />
+          <MarketingFeatureCard
+            key={step.title}
+            index={i}
+            title={step.title}
+            text={step.text}
+            visual={step.visual}
+          />
         ))}
       </MarketingPageGrid>
 
       <MarketingPageGrid columns={3} className="mkt-grid-follow">
         {highlights.map((item) => (
-          <MarketingFeatureCard key={item.title} title={item.title} text={item.text} />
+          <MarketingFeatureCard
+            key={item.title}
+            title={item.title}
+            text={item.text}
+            visual={item.visual}
+          />
         ))}
       </MarketingPageGrid>
 
