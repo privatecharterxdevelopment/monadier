@@ -1,3 +1,5 @@
+import { getBotApiBase } from './signalService';
+
 export type PositionPnlRow = {
   status: string;
   entry_price: number;
@@ -9,36 +11,14 @@ export type PositionPnlRow = {
   leverage_multiplier: number | null;
 };
 
+/** Live spot prices for vault PnL — proxied via bot-service (Binance blocks browser CORS). */
 export async function fetchLiveTokenPrices(): Promise<Record<string, number>> {
   try {
-    const symbols = ['ETHUSDT', 'BTCUSDT', 'BNBUSDT', 'MATICUSDT', 'ARBUSDT'];
-    const response = await fetch(
-      `https://api.binance.com/api/v3/ticker/price?symbols=${JSON.stringify(symbols)}`
-    );
-    const data = await response.json();
-    if (!Array.isArray(data)) return {};
-
-    const ethPrice = data.find((t: { symbol: string }) => t.symbol === 'ETHUSDT')?.price;
-    const btcPrice = data.find((t: { symbol: string }) => t.symbol === 'BTCUSDT')?.price;
-    const bnbPrice = data.find((t: { symbol: string }) => t.symbol === 'BNBUSDT')?.price;
-    const maticPrice = data.find((t: { symbol: string }) => t.symbol === 'MATICUSDT')?.price;
-    const arbPrice = data.find((t: { symbol: string }) => t.symbol === 'ARBUSDT')?.price;
-
-    return {
-      WETH: ethPrice ? parseFloat(ethPrice) : 0,
-      ETH: ethPrice ? parseFloat(ethPrice) : 0,
-      cbETH: ethPrice ? parseFloat(ethPrice) : 0,
-      WBTC: btcPrice ? parseFloat(btcPrice) : 0,
-      BTC: btcPrice ? parseFloat(btcPrice) : 0,
-      BTCB: btcPrice ? parseFloat(btcPrice) : 0,
-      WBNB: bnbPrice ? parseFloat(bnbPrice) : 0,
-      BNB: bnbPrice ? parseFloat(bnbPrice) : 0,
-      WMATIC: maticPrice ? parseFloat(maticPrice) : 0,
-      MATIC: maticPrice ? parseFloat(maticPrice) : 0,
-      ARB: arbPrice ? parseFloat(arbPrice) : 0,
-    };
-  } catch (err) {
-    console.error('[positionLivePnl] prices', err);
+    const response = await fetch(`${getBotApiBase()}/api/token-prices`);
+    if (!response.ok) return {};
+    const data = (await response.json()) as { success?: boolean; prices?: Record<string, number> };
+    return data.success && data.prices ? data.prices : {};
+  } catch {
     return {};
   }
 }

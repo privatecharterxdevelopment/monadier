@@ -32,6 +32,7 @@ import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './servic
 import { getHlFeeSummary } from './services/hlSuccessFees';
 import { isOpenDirectionAllowed, weekendShortOnlyLabel } from './services/weekendTradingRules';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
+import { fetchMappedTokenPrices } from './services/tokenPrices';
 
 // Health check server for Railway/cloud deployments
 const PORT = process.env.PORT || 3001;
@@ -555,7 +556,6 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // Ops: service + active HL bot count (no wallet required)
   if (url.pathname === '/api/global-signals') {
     try {
       const scan =
@@ -579,6 +579,20 @@ const healthServer = http.createServer(async (req, res) => {
     } catch (err: any) {
       res.writeHead(500, corsHeaders);
       res.end(JSON.stringify({ success: false, error: err.message || 'global-signals failed' }));
+    }
+    return;
+  }
+
+  /** CORS-safe Binance spot prices for vault position PnL (browser → same-origin proxy). */
+  if (url.pathname === '/api/token-prices' && req.method === 'GET') {
+    try {
+      const prices = await fetchMappedTokenPrices();
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, prices }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'token-prices failed';
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
     }
     return;
   }
@@ -648,6 +662,7 @@ healthServer.listen(PORT, () => {
   logger.info('  POST /api/hl-close - Close HL position via Monadier agent');
   logger.info('  GET /api/bot-status?wallet=0x… - Wallet bot diagnostics');
   logger.info('  GET /api/global-signals - Top HL perp signals from last scan');
+  logger.info('  GET /api/token-prices - Spot prices for vault PnL (Binance proxy)');
   logger.info('  GET /api/timeframe?symbol=ETHUSDT&tf=15m - Single timeframe analysis');
 });
 
