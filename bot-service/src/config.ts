@@ -198,10 +198,10 @@ export const config = {
     },
     /** Pre-open — price must already move in trade direction (no blind entries). */
     entryMomentum: {
-      minMove5mPct: Number(process.env.HL_ENTRY_MOM_5M || 0.08),
-      minMove15mPct: Number(process.env.HL_ENTRY_MOM_15M || 0.12),
-      maxCounter1hPct: Number(process.env.HL_ENTRY_MOM_1H_COUNTER || 0.15),
-      minConfirmCandles5m: Number(process.env.HL_ENTRY_MOM_5M_CANDLES || 2),
+      minMove5mPct: Number(process.env.HL_ENTRY_MOM_5M || 0.05),
+      minMove15mPct: Number(process.env.HL_ENTRY_MOM_15M || 0.08),
+      maxCounter1hPct: Number(process.env.HL_ENTRY_MOM_1H_COUNTER || 0.2),
+      minConfirmCandles5m: Number(process.env.HL_ENTRY_MOM_5M_CANDLES || 1),
     },
     /** Alts — never SHORT into a fresh pump / higher-TF rally. */
     pumpShort: {
@@ -224,7 +224,7 @@ export const config = {
       allowCautiousAlts: process.env.HL_ALLOW_CAUTIOUS_OPENS === 'true',
       require1m5mAlign: process.env.HL_SCALP_REQUIRE_1M5M !== 'false',
       minTfConfidence: Number(process.env.HL_SCALP_MIN_TF_CONF || 52),
-      minConfirm1mCandles: Number(process.env.HL_SCALP_1M_CONFIRM || 3),
+      minConfirm1mCandles: Number(process.env.HL_SCALP_1M_CONFIRM || 2),
     },
     /** Mandatory last-N candle read immediately before every open. */
     preOpenCandles: {

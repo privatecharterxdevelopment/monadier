@@ -78,26 +78,64 @@ const lastHlOpenError = new Map<string, { at: string; coin?: string; error: stri
 
 function isInternalOpenDiagnostic(error: string): boolean {
   return (
-    /Pre-trade gate/i.test(error) ||
-    /Macro beta/i.test(error) ||
-    /volume\/liquidity/i.test(error) ||
+    /Pre-trade gate blocked \d+ scan candidate/i.test(error) ||
     /Volume 0\.00x/i.test(error) ||
-    /ETH-beta|BTC-beta/i.test(error) ||
     / ‖ /.test(error)
   );
+}
+
+/** Global scan already proved 3+ TFs — skip redundant live-momentum re-checks. */
+function isStrongGlobalScanPick(pick: GlobalSignalCandidate): boolean {
+  return (
+    pick.botMode === 'standard' &&
+    pick.confidence >= 70 &&
+    (pick.directionalTfCount ?? 0) >= 3 &&
+    (pick.trendAlignment ?? 0) >= 70
+  );
+}
+
+function formatOpenErrorForClient(error: string): string {
+  if (/needs live momentum/i.test(error)) {
+    return 'Setup passed scan — waiting for price to move in trade direction';
+  }
+  if (/Scalp blocked/i.test(error)) {
+    return 'Setup passed scan — waiting for 1m/5m candle confirmation';
+  }
+  if (/Pre-trade gate/i.test(error) || /volume\/liquidity/i.test(error)) {
+    return 'Best setup blocked by volume/liquidity check — trying next pair';
+  }
+  if (/Macro beta|macro against/i.test(error)) {
+    return 'BTC/ETH momentum blocks this direction right now';
+  }
+  if (/Mega pair INFLOW blocks SHORT/i.test(error)) {
+    return 'BTC+ETH inflow blocks new SHORTs — bot waits for flow to flip';
+  }
+  if (/Mega pair OUTFLOW blocks LONG/i.test(error)) {
+    return 'BTC+ETH outflow blocks new LONGs — bot waits for flow to flip';
+  }
+  if (/notional below floor/i.test(error)) {
+    return 'Trade size too small — raise Risk % or LVRG, or deposit more USDC';
+  }
+  if (/20-candle|Pre-open candle/i.test(error)) {
+    return 'Recent candle structure blocks entry — bot waits for cleaner setup';
+  }
+  if (/resistance|support gate|chasing high/i.test(error)) {
+    return 'Price at bad level for entry (range high/low) — waiting';
+  }
+  return error.length > 120 ? `${error.slice(0, 117)}…` : error;
 }
 
 export function getLastHlOpenError(wallet: string): { at: string; coin?: string; error: string } | null {
   return lastHlOpenError.get(wallet.toLowerCase()) ?? null;
 }
 
-/** User-facing bot-status — hides gate diagnostics. */
+/** User-facing bot-status — plain-language last open attempt. */
 export function getLastHlOpenErrorForClient(
   wallet: string
 ): { at: string; coin?: string; error: string } | null {
   const err = getLastHlOpenError(wallet);
   if (!err || isInternalOpenDiagnostic(err.error)) return null;
-  return err;
+  return { ...err, error: formatOpenErrorForClient(err.error) };
 }
 
 function positionKey(userAddress: string, coin: string): string {
@@ -458,9 +496,21 @@ export class HyperliquidTradingService {
       let openedThisSlot = false;
 
       for (const pick of picks) {
-        const leverage = Math.min(leverageCap, maxLeverageForCoin(ctx.meta, pick.coin));
-        const notionalUsd = collateral * leverage;
+        const maxLev = maxLeverageForCoin(ctx.meta, pick.coin);
+        let leverage = Math.min(leverageCap, maxLev);
+        let notionalUsd = collateral * leverage;
+        if (notionalUsd < minNotional && collateral >= 1) {
+          const minLev = Math.ceil(minNotional / collateral);
+          leverage = Math.min(leverageCap, maxLev, Math.max(leverage, minLev));
+          notionalUsd = collateral * leverage;
+        }
         if (notionalUsd < minNotional) {
+          const err = `notional below floor ($${notionalUsd.toFixed(2)} < $${minNotional}, collateral $${collateral.toFixed(2)}, ${leverage}x)`;
+          lastHlOpenError.set(userAddress.toLowerCase(), {
+            at: new Date().toISOString(),
+            coin: pick.coin,
+            error: err,
+          });
           logger.debug('HL open skip: notional below floor', {
             user: userAddress.slice(0, 10),
             coin: pick.coin,
@@ -619,10 +669,11 @@ export class HyperliquidTradingService {
         return { success: false, error: candleAnalytics.reason };
       }
 
-      const scalpGate = await validateScalpAlignment({
-        coin,
-        direction: opts.direction,
-      });
+      const strongMtf = isStrongGlobalScanPick(opts.pick);
+
+      const scalpGate = strongMtf
+        ? { ok: true as const, reason: `Strong MTF scan (${opts.pick.confidence}%, ${opts.pick.directionalTfCount} TFs)` }
+        : await validateScalpAlignment({ coin, direction: opts.direction });
       if (!scalpGate.ok) {
         logger.info('HL open blocked — scalp 1m/5m align', {
           user: opts.userAddress.slice(0, 10),
@@ -662,10 +713,16 @@ export class HyperliquidTradingService {
         return { success: false, error: pumpShortGate.reason };
       }
 
-      const momentumGate = await validateEntryMomentum({
-        coin,
-        direction: opts.direction,
-      });
+      const momentumGate = strongMtf
+        ? {
+            ok: true as const,
+            reason: `Strong MTF scan — momentum confirm skipped (${opts.pick.confidence}%)`,
+            change5mPct: 0,
+            change15mPct: 0,
+            change1hPct: 0,
+            momentumAligned: true,
+          }
+        : await validateEntryMomentum({ coin, direction: opts.direction });
       if (!momentumGate.ok) {
         logger.info('HL open blocked — entry momentum', {
           user: opts.userAddress.slice(0, 10),

@@ -246,9 +246,11 @@ export function useTerminalBotAnalysis({
           data.globalScan?.best ?? null,
           openCoins
         );
-        if (data.lastOpenError?.error && !isBotScanNoiseDetail(data.lastOpenError.error)) {
+        if (data.lastOpenError?.error) {
           blockers.push(
-            `HL order failed${data.lastOpenError.coin ? ` (${data.lastOpenError.coin})` : ''}: ${data.lastOpenError.error}`
+            data.lastOpenError.coin
+              ? `Last open attempt (${data.lastOpenError.coin}): ${data.lastOpenError.error}`
+              : data.lastOpenError.error
           );
         }
         setServerBlockers(filterUserBlockers(blockers));

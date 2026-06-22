@@ -52,7 +52,13 @@ function formatBlocker(blocker: string): string {
     return `Open position: ${blocker.replace(/HL position open:\s*/i, '')}`;
   }
   if (/HL order failed/i.test(blocker)) {
-    return blocker;
+    return blocker.replace(/^HL order failed(?: \([^)]+\))?:\s*/i, 'Last open: ');
+  }
+  if (/Last open attempt/i.test(blocker)) {
+    return blocker.replace(/^Last open attempt \([^)]+\):\s*/i, 'Last open: ');
+  }
+  if (/Trade size too small|notional.*below min/i.test(blocker)) {
+    return 'Trade size below $20 min — raise Risk % or LVRG, or deposit more USDC';
   }
   if (/Must deposit before performing actions/i.test(blocker)) {
     return 'Deposit USDC on Hyperliquid first (min $20)';
