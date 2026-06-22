@@ -45,6 +45,7 @@ const REDUNDANT_HEADLINES = new Set([
   'Bot waiting',
   'Bot off',
   'Opening trade',
+  'Entry blocked',
   'Bot active',
 ]);
 

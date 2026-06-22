@@ -34,7 +34,13 @@ function formatBlocker(blocker: string): string {
     return 'No HL pair passed the global scan yet — bot keeps checking all perps';
   }
   if (/Pre-trade gate blocked|volume\/liquidity|volume\/sweep/i.test(blocker)) {
-    return 'Volume or liquidity gate blocked the best scan candidates';
+    return 'Volume gate blocked entry — bot retries next cycle';
+  }
+  if (/Mega pair OUTFLOW blocks LONG/i.test(blocker)) {
+    return 'BTC+ETH outflow blocks alt LONGs — majors (BTC/ETH) still allowed';
+  }
+  if (/Last open:.*outflow blocks new LONGs/i.test(blocker)) {
+    return 'BTC+ETH outflow blocked alt LONG — trying majors or next cycle';
   }
   if (/notional.*below min/i.test(blocker)) {
     return blocker.replace(

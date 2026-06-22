@@ -78,11 +78,13 @@ const hlHoldRedLogAt = new Map<string, number>();
 const lastHlOpenError = new Map<string, { at: string; coin?: string; error: string }>();
 
 function isInternalOpenDiagnostic(error: string): boolean {
-  return (
-    /Pre-trade gate blocked \d+ scan candidate/i.test(error) ||
-    /Volume 0\.00x/i.test(error) ||
-    / ‖ /.test(error)
-  );
+  return /Volume 0\.00x/i.test(error) || / ‖ /.test(error);
+}
+
+/** BTC/ETH and strong MTF picks already cleared scan — skip thin 1m volume re-check. */
+function bypassesLiquidityGate(signal: GlobalSignalCandidate): boolean {
+  if (MAJOR_COINS.has(signal.coin.toUpperCase())) return true;
+  return isStrongGlobalScanPick(signal);
 }
 
 /** Global scan already proved multi-TF alignment — skip redundant live re-checks. */
@@ -384,12 +386,24 @@ export class HyperliquidTradingService {
       }
 
       const liq = getHlLiquidityForCoin(liquidUniverse, signal.coin);
-      const gate = await validatePreTradeLiquidity({
-        symbol: signal.symbol,
-        direction: signal.direction,
-        dayVolumeUsd: liq?.dayVolumeUsd ?? signal.dayVolumeUsd,
-        timeframe: signal.botMode === 'aggressive' ? '1m' : '5m',
-      });
+      const gate = bypassesLiquidityGate(signal)
+        ? {
+            ok: true as const,
+            reason: `${signal.coin} — volume gate skipped (major/strong scan)`,
+            sweep: {
+              sweep: null,
+              bias: null,
+              volumeRatio: 1,
+              volumeOk: true,
+              reason: 'skipped',
+            },
+          }
+        : await validatePreTradeLiquidity({
+            symbol: signal.symbol,
+            direction: signal.direction,
+            dayVolumeUsd: liq?.dayVolumeUsd ?? signal.dayVolumeUsd,
+            timeframe: signal.botMode === 'aggressive' ? '1m' : '5m',
+          });
 
       if (!gate.ok) {
         logger.debug('HL signal skip: volume/sweep gate', {
@@ -467,6 +481,14 @@ export class HyperliquidTradingService {
         maxPositions
       );
       if (collateral < 1) {
+        const err =
+          coinsOpen.length > 0
+            ? `free margin too low for slot ${coinsOpen.length + 1} ($${freeMargin.toFixed(2)} free)`
+            : `margin too small for slot ($${collateral.toFixed(2)} from $${balance.toFixed(2)} balance)`;
+        lastHlOpenError.set(userAddress.toLowerCase(), {
+          at: new Date().toISOString(),
+          error: err,
+        });
         logger.info('HL open skip: margin too small for slot', {
           user: userAddress.slice(0, 10),
           balance,
@@ -760,7 +782,12 @@ export class HyperliquidTradingService {
         return { success: false, error: momentumGate.reason };
       }
 
-      const megaGate = validateMegaPairVolumeForDirection(opts.direction);
+      const megaGate = MAJOR_COINS.has(coin)
+        ? {
+            ok: true as const,
+            reason: `${coin} — mega flow gate skipped (trading mega pair)`,
+          }
+        : validateMegaPairVolumeForDirection(opts.direction);
       if (!megaGate.ok) {
         logger.info('HL open blocked — mega pair volume', {
           user: opts.userAddress.slice(0, 10),

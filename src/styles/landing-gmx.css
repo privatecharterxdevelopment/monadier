@@ -46,25 +46,61 @@
 
 .landing-gmx-hero {
   position: relative;
-  height: 100dvh;
-  height: 100svh;
-  max-height: 100dvh;
-  max-height: 100svh;
+  min-height: calc(100dvh + 120px);
+  min-height: calc(100svh + 120px);
   padding: 0 16px;
-  overflow: hidden;
+  overflow: clip;
   box-sizing: border-box;
 }
 
 @media (min-width: 640px) {
   .landing-gmx-hero {
     padding: 0 40px;
+    min-height: calc(100dvh + 140px);
+    min-height: calc(100svh + 140px);
+  }
+}
+
+.landing-gmx-hero-visual {
+  position: absolute;
+  right: -12%;
+  top: 46%;
+  transform: translateY(-48%);
+  width: min(118vw, 1280px);
+  max-height: 92vh;
+  object-fit: contain;
+  object-position: right center;
+  opacity: 0.26;
+  pointer-events: none;
+  z-index: 0;
+  filter: saturate(0.95) contrast(1.04);
+  -webkit-mask-image: linear-gradient(105deg, transparent 0%, #000 28%, #000 92%, transparent 100%);
+  mask-image: linear-gradient(105deg, transparent 0%, #000 28%, #000 92%, transparent 100%);
+}
+
+@media (min-width: 900px) {
+  .landing-gmx-hero-visual {
+    right: -8%;
+    width: min(96vw, 1380px);
+    opacity: 0.3;
+  }
+}
+
+@media (max-width: 639px) {
+  .landing-gmx-hero-visual {
+    right: -28%;
+    width: 140vw;
+    opacity: 0.18;
   }
 }
 
 .landing-gmx-hero-shell {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  min-height: calc(100dvh + 120px);
+  min-height: calc(100svh + 120px);
   max-width: 1200px;
   width: 100%;
   margin: 0 auto;
@@ -75,6 +111,8 @@
 @media (min-width: 640px) {
   .landing-gmx-hero-shell {
     padding-top: 148px;
+    min-height: calc(100dvh + 140px);
+    min-height: calc(100svh + 140px);
   }
 }
 
@@ -84,29 +122,68 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding-bottom: 32px;
+  z-index: 1;
+}
+
+.landing-gmx-hero-viewport {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: calc(100dvh - 112px);
+  min-height: calc(100svh - 112px);
+  padding-bottom: 28px;
+  box-sizing: border-box;
 }
 
 @media (min-width: 640px) {
-  .landing-gmx-hero-stage {
-    padding-bottom: 48px;
+  .landing-gmx-hero-viewport {
+    min-height: calc(100dvh - 148px);
+    min-height: calc(100svh - 148px);
+    padding-bottom: 36px;
   }
 }
 
-.landing-gmx-hero-stack {
-  position: relative;
+.landing-gmx-hero-bottom {
   display: flex;
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  flex-direction: column;
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px 40px;
+  padding-bottom: 32px;
+  opacity: 0;
+  transform: translateY(28px);
+  pointer-events: none;
+  transition:
+    opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.landing-gmx-hero--revealed .landing-gmx-hero-bottom {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-gmx-hero-bottom {
+    transition: none;
+  }
+
+  .landing-gmx-hero--revealed .landing-gmx-hero-bottom {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
 }
 
 .landing-gmx-hero-title {
+  position: relative;
+  z-index: 2;
   width: 100%;
-  margin: clamp(48px, 10vh, 120px) 0 28px;
-  padding: 0 0 28px;
+  max-width: 88%;
+  margin: 0;
+  padding: 0;
   border-bottom: none;
   font-size: clamp(2.75rem, 9vw, 4rem);
   font-weight: 500;
@@ -116,20 +193,21 @@
 
 @media (min-width: 640px) {
   .landing-gmx-hero-title {
-    margin-bottom: 36px;
-    padding-bottom: 36px;
+    max-width: 72%;
     font-size: clamp(4rem, 9.5vw, 7.25rem);
     letter-spacing: -0.048em;
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    padding-bottom: 36px;
   }
 }
 
 .landing-gmx-hero-lines {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  display: grid;
+  grid-template-rows: repeat(3, auto);
+  align-items: start;
   gap: 0;
   width: 100%;
+  max-width: 100%;
 }
 
 .landing-gmx-hero-line {
@@ -138,6 +216,10 @@
   line-height: 0.98;
   font-size: inherit;
   font-weight: inherit;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .landing-gmx-hero-line--dark {
@@ -152,17 +234,24 @@
   display: grid;
   width: max-content;
   max-width: 100%;
+  min-width: 0;
 }
 
 .landing-gmx-hero-line--rotate-sizer {
   grid-area: 1 / 1;
   visibility: hidden;
   white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .landing-gmx-hero-line--rotate-visible {
   grid-area: 1 / 1;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  min-width: 0;
 }
 
 /* Three separate rows — no float, no absolute, no stacked layers */
@@ -719,20 +808,6 @@
   }
 }
 
-.landing-gmx-hero-bottom {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px 0;
-}
-
-@media (min-width: 640px) {
-  .landing-gmx-hero-bottom {
-    gap: 24px 56px;
-  }
-}
-
 .landing-gmx-hero-bottom-left {
   display: flex;
   flex-direction: column;
@@ -741,13 +816,10 @@
   min-width: 0;
 }
 
-.landing-gmx-hero-lead {
-  max-width: 420px;
-  margin: 0;
-  font-size: 15px;
-  line-height: 1.55;
-  color: var(--lg-muted);
-  text-align: left;
+@media (min-width: 640px) {
+  .landing-gmx-hero-bottom {
+    gap: 24px 56px;
+  }
 }
 
 .landing-gmx-hero-stats {
@@ -1219,41 +1291,52 @@
 
   .landing-gmx-hero-shell {
     padding-top: 72px;
+    min-height: calc(100dvh + 100px);
+    min-height: calc(100svh + 100px);
+  }
+
+  .landing-gmx-hero-viewport {
+    min-height: calc(100dvh - 72px);
+    min-height: calc(100svh - 72px);
+    padding-bottom: 20px;
   }
 
   .landing-gmx-hero-title {
-    margin-bottom: 20px;
     padding-bottom: 20px;
     padding-right: 4px;
-    font-size: clamp(2.1rem, 10.5vw, 3rem);
+    font-size: clamp(1.85rem, 8.5vw, 2.75rem);
+    max-width: 96%;
   }
 
   .landing-gmx-hero-line {
-    line-height: 0.9;
+    line-height: 0.92;
   }
 
   .landing-gmx-hero-line--rotate {
-    position: relative;
-    display: block;
+    display: grid;
     width: 100%;
     max-width: 100%;
   }
 
   .landing-gmx-hero-line--rotate-sizer {
-    position: absolute;
-    width: 0;
-    height: 0;
-    overflow: hidden;
+    position: static;
+    width: auto;
+    height: auto;
+    grid-area: 1 / 1;
     visibility: hidden;
     white-space: nowrap;
+    overflow: hidden;
   }
 
   .landing-gmx-hero-line--rotate-visible {
     display: block;
+    grid-area: 1 / 1;
     width: 100%;
     max-width: 100%;
-    white-space: normal;
-    line-height: 0.9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 0.92;
   }
 
   .landing-gmx-section-hero-title {

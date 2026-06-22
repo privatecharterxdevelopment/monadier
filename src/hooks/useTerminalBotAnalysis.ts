@@ -286,7 +286,15 @@ export function useTerminalBotAnalysis({
       };
     }
     if (serverBlockers.length === 0) return local;
-    return readinessFromServerBlockers(serverBlockers);
+    const server = readinessFromServerBlockers(serverBlockers);
+    if (local.canEnter && server.detail) {
+      return {
+        canEnter: false,
+        headline: 'Entry blocked',
+        detail: server.detail,
+      };
+    }
+    return server;
   }, [
     signal,
     botRunning,
