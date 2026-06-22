@@ -1,15 +1,44 @@
 import { fetchHlOutcomeCatalog } from '../hyperliquid/outcomes/meta';
+import { fetchOutcomeLegQuotesFromMids, outcomeListDisplayPx } from '../hyperliquid/outcomes/book';
 import {
   filterBettingQuestions,
+  formatBettingLegName,
   formatCategoryBadge,
   orderQuestionsForAllView,
   resolveBettingCategory,
+  splitFeaturedBettingQuestions,
 } from '../hyperliquid/outcomes/categories';
+import {
+  formatDecimalOdds,
+  formatOutcomeImpliedPct,
+  isIndicativeOutcomeQuote,
+} from '../hyperliquid/outcomes/display';
+import { previewOutcomeBuy } from '../hyperliquid/outcomes/payout';
 import {
   formatBettingQuestionSummary,
   formatBettingQuestionTitle,
 } from '../hyperliquid/outcomes/priceBinaryDisplay';
-import type { HlOutcomeQuestion } from '../hyperliquid/outcomes/types';
+import { resolveEventBanner } from '../sports/eventBanner';
+import type { HlOutcomeMarket, HlOutcomeQuestion, OutcomeLegQuote } from '../hyperliquid/outcomes/types';
+
+export const LANDING_BET_STAKE_USD = 25;
+
+export type LandingBetMarket = {
+  id: string;
+  questionId: number;
+  outcomeId: number;
+  title: string;
+  selection: string;
+  categoryBadge: string;
+  winRate: string;
+  odds: string;
+  payoutLabel: string;
+  profitLabel: string;
+  description: string;
+  backgroundImage: string;
+  isLive: boolean;
+  indicative: boolean;
+};
 
 export type LandingSportsEvent = {
   id: string;
@@ -29,8 +58,92 @@ export type LandingPredictionStats = {
 
 const EVENTS_TTL_MS = 30_000;
 let cachedEvents: LandingSportsEvent[] | null = null;
+let cachedBetMarkets: LandingBetMarket[] | null = null;
 let cachedStats: LandingPredictionStats | null = null;
 let fetchedAt = 0;
+let betMarketsFetchedAt = 0;
+
+function pickLandingBetQuestions(questions: HlOutcomeQuestion[], limit: number): HlOutcomeQuestion[] {
+  const { featured, others } = splitFeaturedBettingQuestions(questions);
+  const merged: HlOutcomeQuestion[] = [];
+  const seen = new Set<number>();
+
+  for (const q of [...featured, ...others, ...orderQuestionsForAllView(questions)]) {
+    if (seen.has(q.questionId)) continue;
+    seen.add(q.questionId);
+    merged.push(q);
+    if (merged.length >= limit) break;
+  }
+
+  return merged;
+}
+
+function pickPrimaryLeg(
+  question: HlOutcomeQuestion,
+  quotes: Record<number, OutcomeLegQuote | undefined>
+): { leg: HlOutcomeMarket; price: number; quote: OutcomeLegQuote | undefined } {
+  let bestLeg = question.legs[0];
+  let bestPrice = 0;
+  let bestQuote: OutcomeLegQuote | undefined;
+
+  for (const leg of question.legs) {
+    const quote = quotes[leg.outcomeId];
+    const price = quote ? outcomeListDisplayPx(quote.yes) : 0;
+    if (price > bestPrice) {
+      bestPrice = price;
+      bestLeg = leg;
+      bestQuote = quote;
+    }
+  }
+
+  return { leg: bestLeg, price: bestPrice, quote: bestQuote };
+}
+
+function toBetMarket(
+  question: HlOutcomeQuestion,
+  quotes: Record<number, OutcomeLegQuote | undefined>,
+  stakeUsd: number
+): LandingBetMarket | null {
+  const { leg, price, quote } = pickPrimaryLeg(question, quotes);
+  if (!leg || price <= 0) return null;
+
+  const preview = previewOutcomeBuy({ stakeUsd, price });
+  if (!preview) return null;
+
+  const title = formatBettingQuestionTitle(question);
+  const category = resolveBettingCategory(question);
+  const banner = resolveEventBanner(question, title, category);
+  const legName = formatBettingLegName(leg);
+  const indicative = isIndicativeOutcomeQuote(quote);
+  const oddsPrefix = indicative ? '~' : '';
+  const payout =
+    preview.payoutIfWin >= 1000
+      ? `$${Math.round(preview.payoutIfWin).toLocaleString()}`
+      : `$${preview.payoutIfWin.toFixed(2)}`;
+  const profit =
+    preview.profitIfWin >= 0
+      ? `+$${preview.profitIfWin.toFixed(2)}`
+      : `-$${Math.abs(preview.profitIfWin).toFixed(2)}`;
+
+  return {
+    id: `${question.questionId}-${leg.outcomeId}`,
+    questionId: question.questionId,
+    outcomeId: leg.outcomeId,
+    title,
+    selection: question.legs.length === 1 ? 'Yes' : `Yes · ${legName}`,
+    categoryBadge: formatCategoryBadge(question),
+    winRate: formatOutcomeImpliedPct(price),
+    odds: `${oddsPrefix}${formatDecimalOdds(price)}×`,
+    payoutLabel: payout,
+    profitLabel: profit,
+    description:
+      formatBettingQuestionSummary(question) ||
+      `$${stakeUsd} on Yes — ${payout} return (${profit} profit) if it wins.`,
+    backgroundImage: banner.backgroundImage,
+    isLive: true,
+    indicative,
+  };
+}
 
 function toEvent(question: HlOutcomeQuestion): LandingSportsEvent {
   return {
@@ -87,4 +200,29 @@ export async function fetchLandingPredictionStats(): Promise<LandingPredictionSt
   }
 
   return stats;
+}
+
+/** Live HIP-4 markets with odds + $25 payout preview (same catalog as betting dashboard). */
+export async function fetchLandingBetMarkets(
+  limit = 8,
+  stakeUsd = LANDING_BET_STAKE_USD
+): Promise<LandingBetMarket[]> {
+  if (cachedBetMarkets && Date.now() - betMarketsFetchedAt < EVENTS_TTL_MS) {
+    return cachedBetMarkets.slice(0, limit);
+  }
+
+  const catalog = await fetchHlOutcomeCatalog();
+  const questions = pickLandingBetQuestions(catalog.questions, limit);
+  const quoteLegs = questions.flatMap((q) =>
+    q.legs.map((leg) => ({ outcomeId: leg.outcomeId, name: leg.name }))
+  );
+  const quotes = await fetchOutcomeLegQuotesFromMids(quoteLegs);
+
+  const markets = questions
+    .map((q) => toBetMarket(q, quotes, stakeUsd))
+    .filter((m): m is LandingBetMarket => m != null);
+
+  cachedBetMarkets = markets;
+  betMarketsFetchedAt = Date.now();
+  return markets.slice(0, limit);
 }

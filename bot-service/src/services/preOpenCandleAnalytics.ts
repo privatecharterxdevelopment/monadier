@@ -6,6 +6,7 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { signalEngine, type Candle, type Timeframe } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
+import { isPumpContinuationLong } from './pumpContinuation';
 
 export type PreOpenCandleAnalytics = {
   ok: boolean;
@@ -183,6 +184,32 @@ export async function validatePreOpenCandleAnalytics(opts: {
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
       if (pos >= cfg.maxRangePositionLong && recent5 < cfg.breakoutRecentMovePct) {
+        if (
+          isPumpContinuationLong({
+            coin,
+            direction: 'LONG',
+            recentMovePct: recent5,
+            netMovePct: net,
+            greenCount: greens,
+            candleCount: window.length,
+            structure,
+            rangePosition: pos,
+          })
+        ) {
+          return pass({
+            reason: `Pump continuation LONG — ${coin} at ${(pos * 100).toFixed(0)}% range with live momentum`,
+            summary,
+            netMovePct: net,
+            greenCount: greens,
+            redCount: reds,
+            rangePosition: pos,
+            recentMovePct: recent5,
+            volumeRatio: volR,
+            structure,
+            rejectionsAtHigh: rejH,
+            rejectionsAtLow: rejL,
+          });
+        }
         const reason = `Open blocked — ${coin} LONG: price at ${(pos * 100).toFixed(0)}% of ${window.length}-bar range (chasing high)`;
         logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });

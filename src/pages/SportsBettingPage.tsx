@@ -1,8 +1,10 @@
 import React, { useEffect } from 'react';
-import { ArrowRight, Shield, Trophy, Wallet, Zap } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import LandingNav from '../components/landing/LandingNav';
 import LandingFooter from '../components/landing/LandingFooter';
 import LandingHeroLines from '../components/landing/LandingHeroLines';
+import LandingBetMarketCards from '../components/landing/LandingBetMarketCards';
+import BettingFaqSection from '../components/landing/BettingFaqSection';
 import CookieConsent from '../components/ui/CookieConsent';
 import {
   MarketingFeatureCard,
@@ -19,29 +21,6 @@ const BETTING_ROTATE_LINES = [
   'bet on Market moves',
   'and more',
 ] as const;
-
-const highlights = [
-  {
-    icon: Trophy,
-    title: 'Verified sports markets',
-    text: 'Browse live and upcoming sports events listed as Hyperliquid HIP-4 outcome markets — odds update on-chain as the book moves.',
-  },
-  {
-    icon: Wallet,
-    title: 'Non-custodial betting',
-    text: 'Your USDC stays on your Hyperliquid account. Orders are wallet-signed; Monadier never holds your private keys.',
-  },
-  {
-    icon: Zap,
-    title: 'Fast on-chain execution',
-    text: 'Place Yes/No bets directly on Hyperliquid outcome contracts. Open positions, cash out, and track P/L in the app.',
-  },
-  {
-    icon: Shield,
-    title: 'Transparent settlement',
-    text: 'Markets resolve on verified outcomes. Positions and balances are visible on Hyperliquid — no opaque bookmaker ledger.',
-  },
-];
 
 const steps = [
   {
@@ -102,26 +81,16 @@ const SportsBettingPage: React.FC = () => {
         </div>
       </section>
 
-      <main className="landing-gmx-page-main landing-gmx-page-main--inner landing-gmx-page-main--tight-top">
-        <div className="mkt-page">
-          <MarketingPageGrid columns={2}>
-            {highlights.map((item, i) => (
-              <MarketingFeatureCard
-                key={item.title}
-                index={i}
-                title={item.title}
-                text={item.text}
-                icon={item.icon}
-              />
-            ))}
-          </MarketingPageGrid>
+      <LandingBetMarketCards limit={8} />
 
+      <main className="landing-gmx-page-main landing-gmx-page-main--inner">
+        <div className="mkt-page">
           <MarketingSectionHeading
             title="How it works"
             sub="Three steps from wallet to your first on-chain sports bet."
           />
 
-          <MarketingPageGrid columns={3} className="mkt-grid-follow">
+          <MarketingPageGrid columns={3}>
             {steps.map((step, i) => (
               <MarketingFeatureCard key={step.title} index={i} title={step.title} text={step.text} />
             ))}
@@ -133,6 +102,8 @@ const SportsBettingPage: React.FC = () => {
           </MarketingDisclaimer>
         </div>
       </main>
+
+      <BettingFaqSection />
 
       <LandingFooter />
       <CookieConsent />

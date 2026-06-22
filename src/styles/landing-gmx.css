@@ -2408,3 +2408,295 @@
   transform: translateY(-1px);
   color: #fff;
 }
+
+/* Emerald betting market cards (sports betting page) */
+.landing-bet-cards-section {
+  padding-top: 48px;
+  padding-bottom: 56px;
+}
+
+.landing-bet-cards-intro {
+  margin-bottom: 28px;
+  max-width: 720px;
+}
+
+.landing-bet-cards-sub {
+  margin: 10px 0 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--lg-grey);
+}
+
+.landing-bet-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 1200px) {
+  .landing-bet-cards-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .landing-bet-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.landing-bet-cards-grid--home {
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+@media (min-width: 700px) {
+  .landing-bet-cards-grid--home {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1100px) {
+  .landing-bet-cards-grid--home {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.landing-bet-cards-empty {
+  margin: 0;
+  font-size: 14px;
+  color: var(--lg-grey);
+}
+
+.landing-bet-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
+.landing-bet-card--skeleton {
+  min-height: 380px;
+  background: linear-gradient(110deg, #f4f4f5 8%, #fafafa 18%, #f4f4f5 33%);
+  background-size: 200% 100%;
+  animation: landing-bet-shimmer 1.2s linear infinite;
+}
+
+@keyframes landing-bet-shimmer {
+  to {
+    background-position-x: -200%;
+  }
+}
+
+.landing-bet-card-media {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background-size: cover;
+  background-position: center;
+}
+
+.landing-bet-card-media-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(105deg, rgb(6 52 44 / 0.92) 0%, rgb(12 92 78 / 0.84) 42%, rgb(18 120 102 / 0.78) 100%),
+    linear-gradient(180deg, rgb(0 0 0 / 0) 0%, rgb(0 0 0 / 0.35) 100%);
+}
+
+.landing-bet-card-live {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgb(0 0 0 / 0.28);
+  border: 1px solid rgb(255 255 255 / 0.2);
+}
+
+.landing-bet-card-live::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 8px #4ade80;
+}
+
+.landing-bet-card-body {
+  padding: 18px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.landing-bet-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.landing-bet-card-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #0a0a0a;
+  letter-spacing: -0.02em;
+}
+
+.landing-bet-card-odds {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: linear-gradient(105deg, rgb(6 52 44) 0%, rgb(16 118 99) 100%);
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.landing-bet-card-meta {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: #71717a;
+}
+
+.landing-bet-card-win {
+  color: rgb(16 118 99);
+  font-weight: 600;
+}
+
+.landing-bet-card-sep {
+  margin: 0 4px;
+  color: #d4d4d8;
+}
+
+.landing-bet-card-desc {
+  margin: 0;
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #71717a;
+}
+
+.landing-bet-card-desc strong {
+  color: #0a0a0a;
+  font-weight: 600;
+}
+
+.landing-bet-card-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 6px;
+  padding: 13px 16px;
+  border-radius: 999px;
+  background: linear-gradient(105deg, rgb(6 52 44) 0%, rgb(16 118 99) 45%, rgb(22 145 122) 100%);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: filter 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 4px 16px rgb(16 118 99 / 0.28);
+}
+
+.landing-bet-card-cta:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  color: #fff;
+  box-shadow: 0 6px 20px rgb(16 118 99 / 0.35);
+}
+
+/* Betting FAQ (sports page + can mirror landing) */
+.landing-betting-faq-section {
+  padding-top: 40px;
+  padding-bottom: 72px;
+}
+
+.landing-betting-faq-section--landing {
+  padding-top: 0;
+}
+
+.landing-betting-faq-lead {
+  margin: 12px 0 28px;
+  max-width: 560px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--lg-grey);
+}
+
+.landing-betting-faq-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .landing-betting-faq-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.landing-betting-faq-item {
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  overflow: hidden;
+}
+
+.landing-betting-faq-q {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 16px 18px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #0a0a0a;
+  cursor: pointer;
+}
+
+.landing-betting-faq-q:hover {
+  background: #fafafa;
+}
+
+.landing-betting-faq-chevron {
+  flex-shrink: 0;
+  color: #a1a1aa;
+  transition: transform 0.2s ease;
+}
+
+.landing-betting-faq-item--open .landing-betting-faq-chevron {
+  transform: rotate(180deg);
+}
+
+.landing-betting-faq-panel {
+  padding: 0 18px 16px;
+}
+
+.landing-betting-faq-a {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #71717a;
+}

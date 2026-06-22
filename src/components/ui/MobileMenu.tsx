@@ -3,6 +3,9 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import OpenAppLink from '../layout/OpenAppLink';
+import { useAuth } from '../../contexts/AuthContext';
+import { displayHandle } from '../../lib/username';
+import { goToOpenApp } from '../../lib/appUrls';
 
 interface MobileMenuProps {
   onDownloadClick?: () => void;
@@ -13,6 +16,9 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
   const light = variant === 'light';
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const { isAuthenticated, profile, user, sessionReady } = useAuth();
+  const displayName = displayHandle(profile, user?.email);
+  const showName = sessionReady && isAuthenticated;
   const navLinks = [
     { path: '/how-it-works', label: 'How it works' },
     { path: '/trading-bot', label: 'Bot' },
@@ -93,17 +99,41 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
                     light ? 'border-[#ececef]' : 'border-white/10'
                   }`}
                 >
-                  <Link
-                    to="/login"
-                    onClick={() => setIsOpen(false)}
-                    className={`px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
-                      light
-                        ? 'text-[#52525b] hover:text-[#0a0a0a] hover:bg-[#f4f4f5]'
-                        : 'text-zinc-400 hover:text-white hover:bg-white/10'
-                    }`}
-                  >
-                    Sign in
-                  </Link>
+                  {showName ? (
+                    <div className="px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsOpen(false);
+                          goToOpenApp('', false);
+                        }}
+                        className={`block text-[13px] font-medium ${
+                          light ? 'text-[#71717a]' : 'text-zinc-400'
+                        }`}
+                      >
+                        Sign in
+                      </button>
+                      <span
+                        className={`block mt-0.5 text-[12px] font-semibold truncate ${
+                          light ? 'text-[#107663]' : 'text-emerald-400'
+                        }`}
+                      >
+                        {displayName}
+                      </span>
+                    </div>
+                  ) : (
+                    <Link
+                      to="/login"
+                      onClick={() => setIsOpen(false)}
+                      className={`px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+                        light
+                          ? 'text-[#52525b] hover:text-[#0a0a0a] hover:bg-[#f4f4f5]'
+                          : 'text-zinc-400 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      Sign in
+                    </Link>
+                  )}
                   <OpenAppLink
                     onClick={() => setIsOpen(false)}
                     className="mx-1 mb-1 px-3 py-2 bg-[#0a0a0a] text-white rounded-lg text-[13px] font-medium text-center hover:bg-[#27272a] transition-colors"

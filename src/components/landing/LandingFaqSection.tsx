@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
+import { BETTING_FAQS } from '../../content/bettingFaqs';
 
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 20 },
@@ -9,12 +10,13 @@ const fadeUp = (delay = 0) => ({
   transition: { duration: 0.45, delay, ease: [0.22, 1, 0.36, 1] },
 });
 
-export type FaqTabId = 'all' | 'platform' | 'bot' | 'vault';
+export type FaqTabId = 'all' | 'platform' | 'bot' | 'vault' | 'betting';
 
 export const FAQ_TABS: { id: FaqTabId; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'platform', label: 'Platform' },
   { id: 'bot', label: 'Trading bot' },
+  { id: 'betting', label: 'Betting' },
   { id: 'vault', label: 'Deposit & fees' },
 ];
 
@@ -119,6 +121,11 @@ export const LANDING_FAQS: {
     q: 'Do I need to sign wallet transactions?',
     a: 'Yes for deposits, withdrawals, and the one-time agent approval. Ongoing bot trades are signed by the approved agent — you do not sign each trade manually.',
   },
+  ...BETTING_FAQS.map((item) => ({
+    tab: 'betting' as const,
+    q: item.q,
+    a: item.a,
+  })),
 ];
 
 const faqSchema = {

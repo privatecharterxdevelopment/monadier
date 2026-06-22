@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import Logo from '../ui/Logo';
 import MobileMenu from '../ui/MobileMenu';
 import OpenAppLink from '../layout/OpenAppLink';
+import { useAuth } from '../../contexts/AuthContext';
+import { displayHandle } from '../../lib/username';
+import { goToOpenApp } from '../../lib/appUrls';
 
 const navLinks = [
   { to: '/how-it-works', label: 'How it works' },
@@ -18,6 +21,44 @@ type LandingNavProps = {
   variant?: 'dark' | 'light';
   /** GMX-style wide bar + Open app CTA */
   layout?: 'pill' | 'gmx';
+};
+
+const LandingNavAuth: React.FC<{ light: boolean; gmx: boolean }> = ({ light, gmx }) => {
+  const { isAuthenticated, profile, user, sessionReady } = useAuth();
+  const displayName = displayHandle(profile, user?.email);
+  const showName = sessionReady && isAuthenticated;
+
+  const signInClass = gmx
+    ? 'text-[13px] font-medium text-[#71717a] hover:text-[#0a0a0a]'
+    : `text-[13px] font-medium transition-colors ${
+        light ? 'text-[#71717a] hover:text-[#0a0a0a]' : 'text-zinc-500 hover:text-primary'
+      }`;
+
+  return (
+    <div className="hidden md:flex flex-col items-end justify-center leading-tight min-w-0 max-w-[140px]">
+      <Link
+        to="/login"
+        className={`inline-flex px-3 py-1.5 ${signInClass}`}
+        onClick={(e) => {
+          if (!showName) return;
+          e.preventDefault();
+          goToOpenApp('', false);
+        }}
+      >
+        Sign in
+      </Link>
+      {showName ? (
+        <span
+          className={`px-3 text-[11px] font-semibold truncate max-w-full ${
+            light ? 'text-[#107663]' : 'text-emerald-400'
+          }`}
+          title={displayName}
+        >
+          {displayName}
+        </span>
+      ) : null}
+    </div>
+  );
 };
 
 const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pill' }) => {
@@ -53,12 +94,7 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pi
         <div className="flex items-center gap-1 md:gap-2">
           {gmx ? (
             <>
-              <Link
-                to="/login"
-                className="hidden md:inline-flex px-3 py-1.5 text-[13px] font-medium text-[#71717a] hover:text-[#0a0a0a]"
-              >
-                Sign in
-              </Link>
+              <LandingNavAuth light={light} gmx />
               <OpenAppLink className="inline-flex landing-gmx-nav-open md:inline-flex">
                 <span className="md:hidden">App</span>
                 <span className="hidden md:inline">Open app</span>
@@ -66,14 +102,7 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pi
             </>
           ) : (
             <>
-              <Link
-                to="/login"
-                className={`hidden md:inline-flex px-3 py-1.5 text-[13px] font-medium transition-colors ${
-                  light ? 'text-[#71717a] hover:text-[#0a0a0a]' : 'text-zinc-500 hover:text-primary'
-                }`}
-              >
-                Sign in
-              </Link>
+              <LandingNavAuth light={light} gmx={false} />
               <OpenAppLink className="inline-flex md:inline-flex">
                 <span
                   className={`inline-flex items-center px-3 md:px-4 py-1.5 md:py-2 rounded-full text-[12px] md:text-[13px] font-semibold transition-colors ${

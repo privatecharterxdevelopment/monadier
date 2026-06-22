@@ -3,9 +3,8 @@ import { ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import LandingNav from './LandingNav';
 import LandingHeroLines from './LandingHeroLines';
-import LandingProductCards from './LandingProductCards';
+import LandingBetMarketCards from './LandingBetMarketCards';
 import LandingProductPreview from './LandingProductPreview';
-import LandingBotArchitecture from './LandingBotArchitecture';
 import LandingPartnerLogos from './LandingPartnerLogos';
 import LandingFaqSection from './LandingFaqSection';
 import LandingFooter from './LandingFooter';
@@ -78,9 +77,12 @@ const GmxStyleLanding: React.FC = () => {
         </div>
       </section>
 
-      <LandingProductCards />
+      <LandingBetMarketCards
+        limit={4}
+        layout="home"
+        title="Trade and bet from one HL account"
+      />
       <LandingProductPreview />
-      <LandingBotArchitecture />
       <LandingPartnerLogos />
       <LandingFaqSection />
       <LandingFooter />

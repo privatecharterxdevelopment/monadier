@@ -29,11 +29,12 @@ import {
 import { resolveHlOrderBuilder, estimateCollectedSuccessFee } from './hlBuilderFee';
 import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from './hlSuccessFees';
 import { recordHlBotOpenMarker } from './hlChartMarkers';
+import { shouldTakeProfitOnPnl } from './pnlExits';
 import { validateEntryLocation } from './entryLocationGate';
 import { validateMacroBetaAlignment } from './macroBetaGate';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
-import { classifyCoinTier, needsCautionPath, volumeRankForCoin } from './coinTier';
+import { classifyCoinTier, MAJOR_COINS, needsCautionPath, volumeRankForCoin } from './coinTier';
 import { validateCoinNews } from './coinNewsGate';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import { validateScalpAlignment } from './scalpAlignGate';
@@ -84,14 +85,25 @@ function isInternalOpenDiagnostic(error: string): boolean {
   );
 }
 
-/** Global scan already proved 3+ TFs — skip redundant live-momentum re-checks. */
+/** Global scan already proved multi-TF alignment — skip redundant live re-checks. */
 function isStrongGlobalScanPick(pick: GlobalSignalCandidate): boolean {
-  return (
-    pick.botMode === 'standard' &&
-    pick.confidence >= 70 &&
-    (pick.directionalTfCount ?? 0) >= 3 &&
-    (pick.trendAlignment ?? 0) >= 70
-  );
+  const trendAlign = pick.trendAlignment ?? 0;
+  const conf = pick.confidence >= 70;
+  const tfs = (pick.directionalTfCount ?? 0) >= 3;
+  if (conf && tfs && trendAlign >= 70) return true;
+
+  const coin = pick.coin.toUpperCase();
+  if (
+    pick.direction === 'LONG' &&
+    MAJOR_COINS.has(coin) &&
+    pick.confidence >= 65 &&
+    (pick.directionalTfCount ?? 0) >= 2 &&
+    trendAlign >= 60
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 function formatOpenErrorForClient(error: string): string {
@@ -654,10 +666,27 @@ export class HyperliquidTradingService {
         return { success: false, error: freshPumpGate.reason };
       }
 
-      const candleAnalytics = await validatePreOpenCandleAnalytics({
-        coin,
-        direction: opts.direction,
-      });
+      const strongMtf = isStrongGlobalScanPick(opts.pick);
+
+      const candleAnalytics = strongMtf
+        ? {
+            ok: true as const,
+            reason: `Strong MTF scan — 20-candle check skipped (${opts.pick.confidence}%)`,
+            summary: `strong scan ${opts.pick.confidence}%`,
+            netMovePct: 0,
+            greenCount: 0,
+            redCount: 0,
+            rangePosition: 0.5,
+            recentMovePct: 0,
+            volumeRatio: 1,
+            structure: 'chop',
+            rejectionsAtHigh: 0,
+            rejectionsAtLow: 0,
+          }
+        : await validatePreOpenCandleAnalytics({
+            coin,
+            direction: opts.direction,
+          });
       if (!candleAnalytics.ok) {
         logger.info('HL open blocked — 20-candle analytics', {
           user: opts.userAddress.slice(0, 10),
@@ -668,8 +697,6 @@ export class HyperliquidTradingService {
         });
         return { success: false, error: candleAnalytics.reason };
       }
-
-      const strongMtf = isStrongGlobalScanPick(opts.pick);
 
       const scalpGate = strongMtf
         ? { ok: true as const, reason: `Strong MTF scan (${opts.pick.confidence}%, ${opts.pick.directionalTfCount} TFs)` }
@@ -744,10 +771,30 @@ export class HyperliquidTradingService {
         return { success: false, error: megaGate.reason };
       }
 
-      const locationGate = await validateEntryLocation({
-        symbol,
-        direction: opts.direction,
-      });
+      const locationGate = strongMtf
+        ? {
+            ok: true as const,
+            reason: `Strong MTF scan — S/R gate skipped (${opts.pick.confidence}%)`,
+            analysis: {
+              support: 0,
+              resistance: 0,
+              price: markPx,
+              pricePosition: 0.5,
+              resistanceTouches: 0,
+              resistanceRejections: 0,
+              supportTouches: 0,
+              supportRejections: 0,
+              confirmedBreakoutUp: false,
+              confirmedBreakdown: false,
+              nearResistance: false,
+              nearSupport: false,
+            },
+          }
+        : await validateEntryLocation({
+            symbol,
+            coin,
+            direction: opts.direction,
+          });
       if (!locationGate.ok) {
         logger.info('HL open blocked — resistance/support gate', {
           user: opts.userAddress.slice(0, 10),
@@ -970,6 +1017,19 @@ export class HyperliquidTradingService {
           trailResult.exitReason,
           closeCtx,
           trailResult.closeDetail
+        );
+        continue;
+      }
+
+      const roePct = collateralEst > 0 ? (pnl / collateralEst) * 100 : 0;
+      if (shouldTakeProfitOnPnl(roePct, settings.takeProfitPercent)) {
+        clearTrailState(lockKey);
+        await this.closeMarketPosition(
+          userAddress,
+          pos.coin,
+          'take_profit',
+          closeCtx,
+          `TAKE PROFIT — ${pos.coin} ROE ${roePct.toFixed(2)}% ≥ ${settings.takeProfitPercent}%`
         );
         continue;
       }

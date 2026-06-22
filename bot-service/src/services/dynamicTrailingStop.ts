@@ -300,6 +300,25 @@ export async function evaluateDynamicTrail(
       trailCandidate
     );
 
+    const peakFrac = config.hyperliquid.profitPeakDropFraction;
+    if (
+      rec.highestPnlSinceEntry >= feesUsd * 2.5 &&
+      input.pnlUsd > 0 &&
+      peakFrac > 0
+    ) {
+      const drop = rec.highestPnlSinceEntry - input.pnlUsd;
+      const minDrop = Math.max(feesUsd, rec.highestPnlSinceEntry * peakFrac);
+      if (drop >= minDrop) {
+        const detail = `PEAK PROFIT GRAB · ${input.direction} ${input.coin} · peak $${rec.highestPnlSinceEntry.toFixed(4)} → $${input.pnlUsd.toFixed(4)}`;
+        return {
+          record: rec,
+          shouldClose: true,
+          exitReason: 'profit_grab_peak',
+          closeDetail: detail,
+        };
+      }
+    }
+
     if (isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop)) {
       const detail = `TRAILING STOP · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
       return {

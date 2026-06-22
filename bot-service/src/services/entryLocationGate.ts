@@ -6,6 +6,8 @@
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
+import { MAJOR_COINS } from './coinTier';
+import { isPumpContinuationLong } from './pumpContinuation';
 
 export type SrZoneAnalysis = {
   support: number;
@@ -298,6 +300,7 @@ export function evaluateEntryLocation(
 
 export async function validateEntryLocation(opts: {
   symbol: string;
+  coin?: string;
   direction: 'LONG' | 'SHORT';
 }): Promise<EntryLocationResult> {
   // Scalp S/R — ~4h on 5m + ~6h on 15m (not 24–72h 1h charts).
@@ -326,5 +329,52 @@ export async function validateEntryLocation(opts: {
   }
 
   const sr = analyzeSrZones(candles5, candles15);
-  return evaluateEntryLocation(opts.direction, sr);
+  const result = evaluateEntryLocation(opts.direction, sr);
+
+  if (result.ok || opts.direction !== 'LONG') return result;
+
+  const coin = (opts.coin ?? opts.symbol.replace(/USDT$/i, '')).toUpperCase();
+  if (!MAJOR_COINS.has(coin) && sr.pricePosition < config.hyperliquid.entryLocation.rangeTopBlock) {
+    return result;
+  }
+
+  const closed = candles5.slice(0, -1);
+  const window = closed.slice(-20);
+  if (window.length < 8) return result;
+
+  const greens = window.filter((c) => c.close > c.open).length;
+  const net =
+    window[0]?.open > 0
+      ? ((window[window.length - 1].close - window[0].open) / window[0].open) * 100
+      : 0;
+  const recent5 =
+    window.length >= 5 && window[window.length - 5].open > 0
+      ? ((window[window.length - 1].close - window[window.length - 5].open) /
+          window[window.length - 5].open) *
+        100
+      : 0;
+  const hi = Math.max(...window.map((c) => c.high));
+  const lo = Math.min(...window.map((c) => c.low));
+  const pos = hi > lo ? (window[window.length - 1].close - lo) / (hi - lo) : 0.5;
+
+  if (
+    isPumpContinuationLong({
+      coin,
+      direction: 'LONG',
+      recentMovePct: recent5,
+      netMovePct: net,
+      greenCount: greens,
+      candleCount: window.length,
+      structure: net >= 0.08 ? 'up' : net <= -0.08 ? 'down' : 'chop',
+      rangePosition: pos,
+    })
+  ) {
+    return {
+      ok: true,
+      analysis: sr,
+      reason: `Pump continuation LONG — ${coin} momentum through resistance zone`,
+    };
+  }
+
+  return result;
 }
