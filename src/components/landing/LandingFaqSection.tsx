@@ -161,14 +161,14 @@ const LandingFaqSection: React.FC = () => {
 
   return (
     <section
-      className="landing-gmx-section landing-gmx-faq-section"
+      className="landing-gmx-section landing-gmx-gutter landing-gmx-faq-section"
       aria-labelledby="landing-faq-title"
     >
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
-      <div className="landing-gmx-container">
+      <div className="landing-gmx-shell">
         <motion.h2
           {...fadeUp(0)}
           id="landing-faq-title"

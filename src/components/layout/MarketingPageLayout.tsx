@@ -21,6 +21,7 @@ const MarketingPageLayout: React.FC<Props> = ({ children, narrow, centered, inne
       <main
         className={[
           'landing-gmx-page-main',
+          'landing-gmx-gutter',
           inner ? 'landing-gmx-page-main--inner' : '',
           narrow ? 'landing-gmx-page-main--narrow' : '',
           centered ? 'landing-gmx-page-main--centered' : '',
@@ -28,7 +29,9 @@ const MarketingPageLayout: React.FC<Props> = ({ children, narrow, centered, inne
           .filter(Boolean)
           .join(' ')}
       >
-        {children}
+        <div className={narrow ? 'landing-gmx-shell landing-gmx-shell--narrow' : 'landing-gmx-shell'}>
+          {children}
+        </div>
       </main>
       <LandingFooter />
       <CookieConsent />

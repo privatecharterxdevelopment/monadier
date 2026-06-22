@@ -11,6 +11,7 @@ import {
   MktDepositVisual,
   MktBotScanVisual,
   MktWithdrawVisual,
+  MktHowItWorksHeroVisual,
 } from '../components/marketing/MarketingIllustrations';
 
 const steps = [
@@ -44,7 +45,7 @@ const HowItWorksPage: React.FC = () => {
         title="How it works"
         lead="A proven hedge-fund strategy, packaged as a bot. You set it up once — it handles the rest."
         sub="Set your risk. Optional leverage for experienced traders only."
-        aside={<MktBotScanVisual />}
+        aside={<MktHowItWorksHeroVisual />}
       />
 
       <MarketingPageGrid columns={2}>

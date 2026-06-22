@@ -20,11 +20,19 @@ import MarketingInnerPage, {
 } from '../components/marketing/MarketingInnerPage';
 import BotArchitectureSection from '../components/marketing/BotArchitectureSection';
 import {
-  MktBotScanVisual,
-  MktMarketsGridVisual,
-  MktSparkChartVisual,
   MktBotAiVisual,
+  MktMtfStackVisual,
+  MktQuantStackVisual,
+  MktConfidenceGaugeVisual,
+  MktRiskGatesVisual,
+  MktDynamicTrailVisual,
+  MktHlExecVisual,
+  MktRadarScanVisual,
+  MktScoreRankVisual,
+  MktPositionSlotsVisual,
+  MktRiskDialVisual,
   MktWalletVisual,
+  MktLedgerVisual,
 } from '../components/marketing/MarketingIllustrations';
 
 const engineFeatures = [
@@ -32,37 +40,37 @@ const engineFeatures = [
     icon: Brain,
     title: 'Multi-timeframe analysis',
     text: 'The bot scans 1m through 1h charts across Hyperliquid markets to align short-term entries with broader trend context.',
-    visual: <MktBotScanVisual />,
+    visual: <MktMtfStackVisual />,
   },
   {
     icon: BarChart3,
     title: 'Quantitative signal stack',
     text: 'Momentum, mean-reversion, and volatility filters combined before any Hyperliquid perp entry is considered.',
-    visual: <MktMarketsGridVisual />,
+    visual: <MktQuantStackVisual />,
   },
   {
     icon: Target,
     title: 'Confidence scoring',
     text: 'Each setup receives a confidence score. Trades execute only when thresholds and your bot settings align.',
-    visual: <MktSparkChartVisual />,
+    visual: <MktConfidenceGaugeVisual />,
   },
   {
     icon: Activity,
     title: 'Dynamic risk gates',
     text: 'Position sizing, leverage caps, and exposure limits respond to HL balance and open-trade state.',
-    visual: <MktMarketsGridVisual />,
+    visual: <MktRiskGatesVisual />,
   },
   {
     icon: LineChart,
     title: 'Dynamic trailing stop',
     text: 'ATR-based trailing lets winners run for hours while profits ratchet up automatically — exits only on price cross, not fixed USD floors.',
-    visual: <MktSparkChartVisual />,
+    visual: <MktDynamicTrailVisual />,
   },
   {
     icon: Cpu,
     title: 'Hyperliquid execution',
     text: 'Direct integration with Hyperliquid perpetuals for fast fills, deep liquidity, and transparent settlement.',
-    visual: <MktBotAiVisual />,
+    visual: <MktHlExecVisual />,
   },
 ];
 
@@ -70,22 +78,22 @@ const pipeline = [
   {
     title: 'Market analysis',
     text: 'Continuous monitoring of price, volume, and multi-timeframe structure across 200+ HL perp markets.',
-    visual: <MktMarketsGridVisual />,
+    visual: <MktRadarScanVisual />,
   },
   {
     title: 'Confidence scoring',
     text: 'Signals are ranked against historical patterns and your minimum win-rate / trade-count settings.',
-    visual: <MktSparkChartVisual />,
+    visual: <MktScoreRankVisual />,
   },
   {
     title: 'Position management',
     text: 'Dynamic trailing arms after fees are covered, then trails with ATR. Winners can run while profits stay secured until price crosses the stop.',
-    visual: <MktBotScanVisual />,
+    visual: <MktPositionSlotsVisual />,
   },
   {
     title: 'Risk control',
     text: 'Configurable leverage and HL account limits help cap drawdown while the bot runs 24/7 on our servers.',
-    visual: <MktBotAiVisual />,
+    visual: <MktRiskDialVisual />,
   },
 ];
 
@@ -157,7 +165,7 @@ const TechnologyPage: React.FC = () => {
           icon={TrendingUp}
           title="Transparent performance"
           text="Every open and closed trade is visible in the dashboard with realized and unrealized P/L."
-          visual={<MktSparkChartVisual />}
+          visual={<MktLedgerVisual />}
         />
       </MarketingPageGrid>
 

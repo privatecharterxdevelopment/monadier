@@ -34,14 +34,14 @@ const BettingFaqSection: React.FC<Props> = ({ variant = 'page' }) => {
 
   return (
     <section
-      className={`landing-gmx-section landing-betting-faq-section${isLanding ? ' landing-betting-faq-section--landing' : ''}`}
+      className={`landing-gmx-section landing-gmx-gutter landing-betting-faq-section${isLanding ? ' landing-betting-faq-section--landing' : ''}`}
       aria-labelledby="betting-faq-title"
     >
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
-      <div className="landing-gmx-container">
+      <div className="landing-gmx-shell">
         <motion.h2
           {...fadeUp(0)}
           id="betting-faq-title"

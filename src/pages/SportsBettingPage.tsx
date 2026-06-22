@@ -14,8 +14,8 @@ import {
 } from '../components/marketing/MarketingInnerPage';
 import {
   MktWalletVisual,
-  MktDepositVisual,
   MktBettingVisual,
+  MktCashOutVisual,
 } from '../components/marketing/MarketingIllustrations';
 import { goToOpenApp } from '../lib/appUrls';
 
@@ -41,7 +41,7 @@ const steps = [
   {
     title: 'Track & cash out',
     text: 'Monitor open bets, sell early when liquidity is available, or hold until the market settles.',
-    visual: <MktDepositVisual />,
+    visual: <MktCashOutVisual />,
   },
 ];
 
@@ -54,8 +54,8 @@ const SportsBettingPage: React.FC = () => {
     <div className="landing-gmx">
       <LandingNav variant="light" layout="gmx" />
 
-      <section className="landing-gmx-hero landing-gmx-hero--subpage">
-        <div className="landing-gmx-hero-shell landing-gmx-hero-shell--subpage">
+      <section className="landing-gmx-hero landing-gmx-gutter landing-gmx-hero--subpage">
+        <div className="landing-gmx-shell landing-gmx-hero-shell landing-gmx-hero-shell--subpage">
           <div className="landing-gmx-hero-stage">
             <div className="landing-gmx-hero-stack landing-gmx-hero-stack--subpage">
               <LandingHeroLines
@@ -91,8 +91,9 @@ const SportsBettingPage: React.FC = () => {
 
       <LandingBetMarketCards limit={8} />
 
-      <main className="landing-gmx-page-main landing-gmx-page-main--inner">
-        <div className="mkt-page">
+      <main className="landing-gmx-page-main landing-gmx-page-main--inner landing-gmx-gutter">
+        <div className="landing-gmx-shell">
+          <div className="mkt-page">
           <MarketingSectionHeading
             title="How it works"
             sub="Three steps from wallet to your first on-chain sports bet."
@@ -114,6 +115,7 @@ const SportsBettingPage: React.FC = () => {
             Sports betting involves risk. Outcome markets can lose value; only bet what you can afford
             to lose. This is not financial advice.
           </MarketingDisclaimer>
+          </div>
         </div>
       </main>
 

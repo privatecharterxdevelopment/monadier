@@ -112,15 +112,15 @@ const LandingBetMarketCards: React.FC<Props> = ({
 
   const sectionClass =
     layout === 'home'
-      ? 'landing-gmx-section landing-gmx-product-cards-section landing-bet-cards-section'
-      : 'landing-gmx-section landing-bet-cards-section';
+      ? 'landing-gmx-section landing-gmx-gutter landing-gmx-product-cards-section landing-bet-cards-section'
+      : 'landing-gmx-section landing-gmx-gutter landing-bet-cards-section';
 
   return (
     <section
       className={sectionClass}
       aria-labelledby={showHeader ? 'landing-bet-cards-title' : undefined}
     >
-      <div className="landing-gmx-container">
+      <div className="landing-gmx-shell">
         {showHeader ? (
           <motion.div {...fadeUp(0)} className="landing-bet-cards-intro">
             {title ? (

@@ -19,10 +19,10 @@ const fadeUp = (delay = 0) => ({
 const LandingBotArchitecture: React.FC = () => {
   return (
     <section
-      className="landing-gmx-section landing-gmx-architecture"
+      className="landing-gmx-section landing-gmx-gutter landing-gmx-architecture"
       aria-labelledby="landing-bot-architecture-title"
     >
-      <div className="landing-gmx-container">
+      <div className="landing-gmx-shell">
         <motion.div {...fadeUp(0)} className="landing-gmx-architecture-head">
           <p className="landing-gmx-architecture-eyebrow">Trading bot</p>
           <h2 id="landing-bot-architecture-title" className="landing-gmx-section-title">

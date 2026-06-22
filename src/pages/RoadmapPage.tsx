@@ -14,7 +14,7 @@ import MarketingInnerPage, {
   MarketingPageHero,
   MarketingDisclaimer,
 } from '../components/marketing/MarketingInnerPage';
-import { MktRoadmapVisual } from '../components/marketing/MarketingIllustrations';
+import { ROADMAP_CARD_VISUALS } from '../components/marketing/MarketingIllustrations';
 
 const ROADMAP = [
   {
@@ -103,7 +103,10 @@ const RoadmapPage: React.FC = () => {
               </div>
               <article className="mkt-roadmap-step-card landing-glass-card">
                 <div className="mkt-roadmap-step-visual">
-                  <MktRoadmapVisual step={step} active={isActive} />
+                  {(() => {
+                    const Visual = ROADMAP_CARD_VISUALS[index];
+                    return Visual ? <Visual /> : null;
+                  })()}
                 </div>
                 <div className="mkt-roadmap-step-content">
                   <div className="mkt-roadmap-step-head">

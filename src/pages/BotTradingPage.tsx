@@ -11,8 +11,10 @@ import {
   MktBotAiVisual,
   MktWalletVisual,
   MktDepositVisual,
-  MktBotScanVisual,
-  MktMarketsGridVisual,
+  MktAgentApproveVisual,
+  MktUptimeVisual,
+  MktMtfStackVisual,
+  MktControlPanelVisual,
 } from '../components/marketing/MarketingIllustrations';
 
 const steps = [
@@ -29,7 +31,7 @@ const steps = [
   {
     title: 'Approve agent & start',
     text: 'One-time HL agent approval, then set risk, take profit, and stop loss. Press Start bot.',
-    visual: <MktBotAiVisual />,
+    visual: <MktAgentApproveVisual />,
   },
 ];
 
@@ -37,17 +39,17 @@ const highlights = [
   {
     title: '24/7 execution',
     text: 'The bot scans 200+ Hyperliquid perpetuals around the clock — no manual chart watching.',
-    visual: <MktBotScanVisual />,
+    visual: <MktUptimeVisual />,
   },
   {
     title: 'Multi-market signals',
     text: 'Multi-timeframe analysis picks the strongest HL setup each cycle. Past results do not guarantee future performance.',
-    visual: <MktMarketsGridVisual />,
+    visual: <MktMtfStackVisual />,
   },
   {
     title: 'You stay in control',
     text: 'Stop the bot, close positions manually, or withdraw HL funds whenever you choose.',
-    visual: <MktWalletVisual />,
+    visual: <MktControlPanelVisual />,
   },
 ];
 

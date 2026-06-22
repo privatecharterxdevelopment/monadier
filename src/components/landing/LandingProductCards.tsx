@@ -113,10 +113,10 @@ const LandingProductCards: React.FC = () => {
 
   return (
     <section
-      className="landing-gmx-section landing-gmx-product-cards-section"
+      className="landing-gmx-section landing-gmx-gutter landing-gmx-product-cards-section"
       aria-labelledby="landing-product-cards-title"
     >
-      <div className="landing-gmx-container">
+      <div className="landing-gmx-shell">
         <motion.h2 {...fadeUp(0)} id="landing-product-cards-title" className="landing-gmx-section-title">
           Trade and bet from one HL account
         </motion.h2>

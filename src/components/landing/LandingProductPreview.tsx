@@ -25,10 +25,10 @@ const PREVIEW_CHIPS = [
 const LandingProductPreview: React.FC = () => {
   return (
     <section
-      className="landing-gmx-section landing-gmx-preview-section"
+      className="landing-gmx-section landing-gmx-gutter landing-gmx-preview-section"
       aria-labelledby="landing-preview-title"
     >
-      <div className="landing-gmx-container">
+      <div className="landing-gmx-shell">
         <motion.h2
           {...fadeUp(0)}
           id="landing-preview-title"

@@ -275,10 +275,10 @@ const LandingHomeBentoCards: React.FC = () => {
 
   return (
     <section
-      className="landing-gmx-section landing-home-bento-section"
+      className="landing-gmx-section landing-gmx-gutter landing-home-bento-section"
       aria-labelledby="landing-home-bento-title"
     >
-      <div className="landing-gmx-container landing-home-bento-container">
+      <div className="landing-gmx-shell landing-home-bento-container">
         <motion.header {...fadeUp(0)} className="landing-home-bento-header">
           <div className="landing-home-bento-header-main">
             <span className="landing-home-bento-index">01</span>

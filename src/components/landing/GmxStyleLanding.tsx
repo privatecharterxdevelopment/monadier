@@ -38,8 +38,10 @@ const GmxStyleLanding: React.FC = () => {
     <div className="landing-gmx">
       <LandingNav variant="light" layout="gmx" />
 
-      <section className={`landing-gmx-hero${heroRevealed ? ' landing-gmx-hero--revealed' : ''}`}>
-        <div className="landing-gmx-hero-shell">
+      <section
+        className={`landing-gmx-hero landing-gmx-gutter${heroRevealed ? ' landing-gmx-hero--revealed' : ''}`}
+      >
+        <div className="landing-gmx-shell landing-gmx-hero-shell">
           <div className="landing-gmx-hero-stage">
             <img
               className="landing-gmx-hero-visual"

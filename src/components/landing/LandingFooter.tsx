@@ -13,8 +13,8 @@ const LandingFooter: React.FC = () => {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="landing-gmx-footer" role="contentinfo">
-      <div className="landing-gmx-footer-inner">
+    <footer className="landing-gmx-footer landing-gmx-gutter" role="contentinfo">
+      <div className="landing-gmx-shell landing-gmx-footer-inner">
         <nav className="landing-gmx-footer-links" aria-label="Site">
           {footerLinks.map((link) => (
             <Link key={link.to} to={link.to}>

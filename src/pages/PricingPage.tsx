@@ -17,10 +17,12 @@ import MarketingInnerPage, {
 } from '../components/marketing/MarketingInnerPage';
 import PricingHeroGraphic from '../components/marketing/PricingHeroGraphic';
 import {
+  MktNoFeeVisual,
+  MktGasCoveredVisual,
   MktFeeVisual,
-  MktDepositVisual,
-  MktMarketsGridVisual,
-  MktSparkChartVisual,
+  MktProfitShareVisual,
+  MktHlFeesVisual,
+  MktSlippageVisual,
 } from '../components/marketing/MarketingIllustrations';
 
 const steps: { title: string; text: string; icon: LucideIcon; visual?: React.ReactNode }[] = [
@@ -28,13 +30,13 @@ const steps: { title: string; text: string; icon: LucideIcon; visual?: React.Rea
     icon: CircleOff,
     title: 'No platform fee',
     text: 'No subscription, no hidden platform charge, and no fee just to run the bot.',
-    visual: <MktSparkChartVisual />,
+    visual: <MktNoFeeVisual />,
   },
   {
     icon: Fuel,
     title: 'Gas covered for you',
     text: 'Network gas on Arbitrum for bot trades is paid by Monadier — not billed to you per trade.',
-    visual: <MktDepositVisual />,
+    visual: <MktGasCoveredVisual />,
   },
   {
     icon: TrendingUp,
@@ -46,19 +48,19 @@ const steps: { title: string; text: string; icon: LucideIcon; visual?: React.Rea
     icon: Wallet,
     title: 'You keep most gains',
     text: 'On winning trades you keep the bulk of profit after the success fee and normal market costs.',
-    visual: <MktFeeVisual />,
+    visual: <MktProfitShareVisual />,
   },
   {
     icon: ArrowLeftRight,
     title: 'Hyperliquid execution costs',
     text: 'Standard HL open/close, funding, and execution fees apply per position — same as trading on Hyperliquid directly.',
-    visual: <MktMarketsGridVisual />,
+    visual: <MktHlFeesVisual />,
   },
   {
     icon: Activity,
     title: 'Slippage & liquidity',
     text: 'Execution price can differ from the quote depending on size and liquidity. Major Arbitrum pairs usually see tighter spreads.',
-    visual: <MktSparkChartVisual />,
+    visual: <MktSlippageVisual />,
   },
 ];
 
