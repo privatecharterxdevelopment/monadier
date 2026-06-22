@@ -2281,3 +2281,130 @@
 .landing-gmx-hero-line--rotate-word {
   color: var(--lg-grey);
 }
+
+/* Villa-style product listing cards (replaces legacy .landing-gmx-product-card layout) */
+.landing-villa-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
+.landing-villa-card-media {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background-size: cover;
+  background-position: center;
+}
+
+.landing-villa-card-media--btc {
+  background-image: url('https://images.unsplash.com/photo-1518546305921-5a4bb3e2a4bb?auto=format&fit=crop&w=800&q=80');
+}
+
+.landing-villa-card-media--pairs {
+  background-image: url('https://images.unsplash.com/photo-1611974789855-9c9a74416dd9?auto=format&fit=crop&w=800&q=80');
+}
+
+.landing-villa-card-media--sports {
+  background-image: url('https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=80');
+}
+
+.landing-villa-card-media--predictions {
+  background-image: url('https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=800&q=80');
+}
+
+.landing-villa-card-dots {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+}
+
+.landing-villa-card-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.landing-villa-card-dot--on {
+  background: #fff;
+  transform: scale(1.15);
+}
+
+.landing-villa-card-body {
+  padding: 18px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.landing-villa-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.landing-villa-card-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #0a0a0a;
+  letter-spacing: -0.02em;
+}
+
+.landing-villa-card-price {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #f4f4f5;
+  font-size: 11px;
+  font-weight: 600;
+  color: #3f3f46;
+  white-space: nowrap;
+}
+
+.landing-villa-card-rating {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: #a1a1aa;
+}
+
+.landing-villa-card-desc {
+  margin: 0;
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #71717a;
+}
+
+.landing-villa-card-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 6px;
+  padding: 13px 16px;
+  border-radius: 999px;
+  background: #0a0a0a;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.landing-villa-card-cta:hover {
+  background: #27272a;
+  transform: translateY(-1px);
+  color: #fff;
+}

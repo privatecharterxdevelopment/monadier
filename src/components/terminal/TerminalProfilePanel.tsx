@@ -12,6 +12,7 @@ import {
 import ProfileSecurityPanel from './ProfileSecurityPanel';
 import ProfileLoginHistoryPanel from './ProfileLoginHistoryPanel';
 import ProfileBettingPanel from './ProfileBettingPanel';
+import BotTradingWindowCard from './BotTradingWindowCard';
 import { useAuth } from '../../contexts/AuthContext';
 import ProfileAvatar from '../profile/ProfileAvatar';
 import {
@@ -241,6 +242,7 @@ const TerminalProfilePanel: React.FC<Props> = ({
         {show('identity') ? (
         <section id="profile-identity" className="term-profile-card term-profile-card--section">
           {isPro ? <h2 className="term-profile-card-title">Profile details</h2> : null}
+          <BotTradingWindowCard className="term-profile-bot-window" />
           <div className="term-profile-avatar-row">
             <ProfileAvatar profile={profile} userId={user?.id} size="md" />
             <div className="term-profile-avatar-actions">

@@ -49,6 +49,7 @@ import TerminalBotSettingsModal from './TerminalBotSettingsModal';
 import TerminalLvrgPanel from './TerminalLvrgPanel';
 import TerminalBotSettingsStrip from './TerminalBotSettingsStrip';
 import TerminalBotModeRow from './TerminalBotModeRow';
+import BotTradingWindowCard from './BotTradingWindowCard';
 import BotSettingsStopFirstModal from './BotSettingsStopFirstModal';
 import { sanitizeUserFacingError } from '../../lib/hyperliquid/builderPlatform';
 import { isBotScanNoiseDetail } from '../../lib/hlBotReasonLabels';
@@ -513,6 +514,8 @@ const TerminalTradePanel: React.FC<Props> = ({
                 ) : null}
               </div>
             )}
+
+            {walletReady ? <BotTradingWindowCard compact /> : null}
 
             {walletReady && !setupGuideComplete && (
               <HlBotSetupSteps

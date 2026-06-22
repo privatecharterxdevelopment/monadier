@@ -603,6 +603,34 @@
   background: color-mix(in srgb, var(--hl-green-bright) 10%, var(--hl-bg-elevated));
 }
 
+.hl-root .bot-trading-window {
+  border-color: var(--hl-border);
+  background: var(--hl-bg-elevated);
+}
+
+.hl-root .bot-trading-window-title {
+  color: var(--hl-text-muted);
+}
+
+.hl-root .bot-trading-window-detail,
+.hl-root .bot-trading-window-meta {
+  color: var(--hl-text-faint);
+}
+
+.hl-root .bot-trading-window-countdown-value {
+  color: var(--hl-text);
+}
+
+.hl-root .bot-trading-window-pill {
+  background: color-mix(in srgb, var(--hl-orange) 22%, var(--hl-bg-panel));
+  color: var(--hl-orange);
+}
+
+.hl-root .bot-trading-window-pill--long {
+  background: color-mix(in srgb, var(--hl-green-bright) 18%, var(--hl-bg-panel));
+  color: var(--hl-green-bright);
+}
+
 /* ── Notifications bell ── */
 .hl-notif-bell {
   position: relative;

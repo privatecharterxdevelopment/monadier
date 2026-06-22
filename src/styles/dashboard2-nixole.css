@@ -6589,3 +6589,87 @@
   color: #fff !important;
   border-color: var(--term-text) !important;
 }
+
+/* Bot LONG/SHORT entry window countdown (profile + bot panel) */
+.bot-trading-window {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--term-border-muted, #e4e4e7);
+  background: var(--term-bg-elevated, #fafafa);
+  margin-bottom: 16px;
+}
+
+.bot-trading-window--compact {
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.bot-trading-window-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.bot-trading-window-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--term-text-muted, #52525b);
+}
+
+.bot-trading-window-pill {
+  margin-left: auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.bot-trading-window-pill--long {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.bot-trading-window-detail {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--term-text-muted, #71717a);
+}
+
+.bot-trading-window-countdown {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.bot-trading-window-countdown-label {
+  font-size: 11px;
+  color: var(--term-text-faint, #a1a1aa);
+}
+
+.bot-trading-window-countdown-value {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--term-text, #0a0a0a);
+  letter-spacing: -0.02em;
+}
+
+.bot-trading-window-meta {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--term-text-faint, #a1a1aa);
+}
+
+.term-profile-bot-window {
+  margin-bottom: 18px;
+}

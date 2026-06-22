@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, Heart } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { goToOpenApp } from '../../lib/appUrls';
 import {
@@ -16,171 +15,57 @@ const fadeUp = (delay = 0) => ({
   transition: { duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] },
 });
 
-type CardStat = { label: string; value: string };
+type CardTheme = 'btc' | 'pairs' | 'sports' | 'predictions';
 
-type StaticCard = {
-  id: string;
-  badge: string;
+type VillaCardProps = {
+  theme: CardTheme;
   title: string;
-  subtitle: string;
+  priceBadge: string;
+  rating: string;
+  description: string;
   cta: string;
   href: string;
   onClick: () => void;
-  theme: 'btc' | 'pairs' | 'predictions';
-  stats: CardStat[];
-  footerLabel: string;
-  footerValue: string;
-  footerLevel: 'easy' | 'moderate' | 'hard';
-};
-
-const STATIC_CARDS: StaticCard[] = [
-  {
-    id: 'btc',
-    badge: 'Perps',
-    title: 'Trade on Bitcoin',
-    subtitle: 'BTC-USD · Hyperliquid',
-    cta: 'Open BTC',
-    href: '/',
-    onClick: () => goToOpenApp('', false),
-    theme: 'btc',
-    stats: [
-      { label: 'Markets', value: 'BTC' },
-      { label: 'Leverage', value: '40x' },
-      { label: 'Margin', value: 'USDC' },
-    ],
-    footerLabel: 'Execution',
-    footerValue: '24/7',
-    footerLevel: 'easy',
-  },
-  {
-    id: 'pairs',
-    badge: 'Popular',
-    title: 'Trade on 200+ pairs',
-    subtitle: 'All HL perpetuals',
-    cta: 'Open terminal',
-    href: '/',
-    onClick: () => goToOpenApp('', false),
-    theme: 'pairs',
-    stats: [
-      { label: 'Markets', value: '200+' },
-      { label: 'Bot', value: '24/7' },
-      { label: 'Liquidity', value: 'Deep' },
-    ],
-    footerLabel: 'Coverage',
-    footerValue: '4.9',
-    footerLevel: 'moderate',
-  },
-  {
-    id: 'predictions',
-    badge: 'HIP-4',
-    title: 'Bet on predictions',
-    subtitle: 'Macro · crypto · events',
-    cta: 'Open markets',
-    href: '/?section=sportsbets',
-    onClick: () => goToOpenApp('?section=sportsbets', false),
-    theme: 'predictions',
-    stats: [
-      { label: 'Crypto', value: '—' },
-      { label: 'Macro', value: '—' },
-      { label: 'More', value: '—' },
-    ],
-    footerLabel: 'Markets',
-    footerValue: 'Live',
-    footerLevel: 'hard',
-  },
-];
-
-function levelWidth(level: StaticCard['footerLevel']): string {
-  if (level === 'easy') return '38%';
-  if (level === 'moderate') return '62%';
-  return '88%';
-}
-
-function levelColor(level: StaticCard['footerLevel']): string {
-  if (level === 'easy') return '#3dd68c';
-  if (level === 'moderate') return '#60a5fa';
-  return '#f472b6';
-}
-
-type CardShellProps = {
-  badge: string;
-  title: string;
-  subtitle: string;
-  cta: string;
-  href: string;
-  onClick: () => void;
-  theme: StaticCard['theme'] | 'sports';
-  stats: CardStat[];
-  footerLabel: string;
-  footerValue: string;
-  footerLevel: StaticCard['footerLevel'];
-  footerExtra?: React.ReactNode;
   delay?: number;
 };
 
-const ProductCard: React.FC<CardShellProps> = ({
-  badge,
+const VillaCard: React.FC<VillaCardProps> = ({
+  theme,
   title,
-  subtitle,
+  priceBadge,
+  rating,
+  description,
   cta,
   href,
   onClick,
-  theme,
-  stats,
-  footerLabel,
-  footerValue,
-  footerLevel,
-  footerExtra,
   delay = 0,
 }) => (
-  <motion.article {...fadeUp(delay)} className="landing-gmx-product-card">
-    <div className={`landing-gmx-product-card-visual landing-gmx-product-card-visual--${theme}`}>
-      <div className="landing-gmx-product-card-visual-top">
-        <span className="landing-gmx-product-card-badge">{badge}</span>
-        <button type="button" className="landing-gmx-product-card-fav" aria-label="Save">
-          <Heart size={16} />
-        </button>
+  <motion.article {...fadeUp(delay)} className="landing-villa-card">
+    <div className={`landing-villa-card-media landing-villa-card-media--${theme}`}>
+      <div className="landing-villa-card-dots" aria-hidden>
+        <span className="landing-villa-card-dot landing-villa-card-dot--on" />
+        <span className="landing-villa-card-dot" />
+        <span className="landing-villa-card-dot" />
+        <span className="landing-villa-card-dot" />
       </div>
-      <div className="landing-gmx-product-card-visual-copy">
-        <h3>{title}</h3>
-        <p>{subtitle}</p>
+    </div>
+    <div className="landing-villa-card-body">
+      <div className="landing-villa-card-head">
+        <h3 className="landing-villa-card-title">{title}</h3>
+        <span className="landing-villa-card-price">{priceBadge}</span>
       </div>
+      <p className="landing-villa-card-rating">{rating}</p>
+      <p className="landing-villa-card-desc">{description}</p>
       <a
         href={href}
-        className="landing-gmx-product-card-cta"
+        className="landing-villa-card-cta"
         onClick={(e) => {
           e.preventDefault();
           onClick();
         }}
       >
         {cta}
-        <ArrowRight size={14} />
       </a>
-    </div>
-    <div className="landing-gmx-product-card-body">
-      <div className="landing-gmx-product-card-stats">
-        {stats.map((stat) => (
-          <div key={stat.label} className="landing-gmx-product-card-stat">
-            <strong>{stat.value}</strong>
-            <span>{stat.label}</span>
-          </div>
-        ))}
-      </div>
-      <div className="landing-gmx-product-card-footer">
-        <div className="landing-gmx-product-card-level">
-          <span>{footerLabel}</span>
-          <div className="landing-gmx-product-card-level-bar">
-            <span
-              style={{
-                width: levelWidth(footerLevel),
-                background: levelColor(footerLevel),
-              }}
-            />
-          </div>
-          <strong>{footerValue}</strong>
-        </div>
-        <div className="landing-gmx-product-card-graphic">{footerExtra ?? '◎'}</div>
-      </div>
     </div>
   </motion.article>
 );
@@ -202,9 +87,7 @@ const LandingProductCards: React.FC = () => {
         setSportsEvents(events);
         setPredictionStats(stats);
       } catch {
-        if (!cancelled) {
-          setSportsEvents([]);
-        }
+        if (!cancelled) setSportsEvents([]);
       }
     };
 
@@ -216,27 +99,17 @@ const LandingProductCards: React.FC = () => {
     };
   }, []);
 
-  const predictionsCard = STATIC_CARDS.find((c) => c.id === 'predictions');
-  const predictionsStats: CardStat[] = predictionStats
-    ? [
-        { label: 'Crypto', value: String(predictionStats.crypto) },
-        { label: 'Macro', value: String(predictionStats.macro) },
-        { label: 'Sports', value: String(predictionStats.sports) },
-      ]
-    : (predictionsCard?.stats ?? []);
-
-  const sportsStats: CardStat[] =
+  const sportsDesc =
     sportsEvents.length > 0
-      ? [
-          { label: 'Live', value: String(sportsEvents.length) },
-          { label: 'Legs', value: String(sportsEvents[0]?.legs ?? '—') },
-          { label: 'HL', value: 'HIP-4' },
-        ]
-      : [
-          { label: 'Markets', value: 'Live' },
-          { label: 'Odds', value: 'On-chain' },
-          { label: 'Settle', value: 'HL' },
-        ];
+      ? `Live on Hyperliquid — ${sportsEvents
+          .slice(0, 2)
+          .map((e) => e.title)
+          .join(' · ')}`
+      : 'World Cup, football, and basketball markets with on-chain settlement on Hyperliquid.';
+
+  const predictionsDesc = predictionStats
+    ? `${predictionStats.total} live markets — crypto, macro, and event outcomes settled on HL.`
+    : 'Macro, crypto, and event markets with on-chain odds and settlement on Hyperliquid.';
 
   return (
     <section
@@ -249,50 +122,60 @@ const LandingProductCards: React.FC = () => {
         </motion.h2>
 
         <div className="landing-gmx-product-cards-grid">
-          {STATIC_CARDS.filter((c) => c.id !== 'predictions').map((card, i) => (
-            <ProductCard key={card.id} {...card} delay={0.04 + i * 0.05} />
-          ))}
-
-          <ProductCard
-            badge="Live"
+          <VillaCard
+            theme="btc"
+            title="Trade Bitcoin"
+            priceBadge="40x max"
+            rating="Perps · 24/7 execution"
+            description="BTC-USD perpetuals on Hyperliquid with bot automation, live chart, and USDC margin."
+            cta="Open market"
+            href="/"
+            onClick={() => goToOpenApp('', false)}
+            delay={0.04}
+          />
+          <VillaCard
+            theme="pairs"
+            title="200+ HL pairs"
+            priceBadge="Deep book"
+            rating="Bot · Multi-slot"
+            description="Scan every liquid Hyperliquid perp — independent slots, global MTF signals, and automated entries."
+            cta="Open market"
+            href="/"
+            onClick={() => goToOpenApp('', false)}
+            delay={0.08}
+          />
+          <VillaCard
+            theme="sports"
             title="Bet on Sports"
-            subtitle={
-              sportsEvents[0]?.subtitle ??
-              'World Cup · football · basketball'
+            priceBadge="HIP-4"
+            rating={
+              sportsEvents.length > 0
+                ? `${sportsEvents.length} live events`
+                : 'Live · On-chain'
             }
-            cta="Open betting"
+            description={sportsDesc}
+            cta="Open market"
             href="/?section=sportsbets"
             onClick={() => goToOpenApp('?section=sportsbets', false)}
-            theme="sports"
-            stats={sportsStats}
-            footerLabel="Events"
-            footerValue={sportsEvents.length > 0 ? 'Live' : '…'}
-            footerLevel="moderate"
-            delay={0.14}
-            footerExtra={
-              <ul className="landing-gmx-product-card-events">
-                {(sportsEvents.length > 0
-                  ? sportsEvents
-                  : [{ id: 'loading', title: 'Loading HL sports…', badge: '', subtitle: '', legs: 0 }]
-                )
-                  .slice(0, 3)
-                  .map((event) => (
-                    <li key={event.id}>
-                      <span>{event.title}</span>
-                    </li>
-                  ))}
-              </ul>
-            }
+            delay={0.12}
           />
-
-          {predictionsCard ? (
-            <ProductCard
-              {...predictionsCard}
-              stats={predictionsStats}
-              footerValue={predictionStats ? String(predictionStats.total) : predictionsCard.footerValue}
-              delay={0.19}
-            />
-          ) : null}
+          <VillaCard
+            theme="predictions"
+            title="Predictions"
+            priceBadge={
+              predictionStats ? `${predictionStats.total} markets` : 'Macro + crypto'
+            }
+            rating={
+              predictionStats
+                ? `${predictionStats.crypto} crypto · ${predictionStats.sports} sports`
+                : 'HIP-4 · Events'
+            }
+            description={predictionsDesc}
+            cta="Open market"
+            href="/?section=sportsbets"
+            onClick={() => goToOpenApp('?section=sportsbets', false)}
+            delay={0.16}
+          />
         </div>
       </div>
     </section>
