@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import Logo from '../ui/Logo';
 import MobileMenu from '../ui/MobileMenu';
 import OpenAppLink from '../layout/OpenAppLink';
+import ProfileAvatar from '../profile/ProfileAvatar';
 import { useAuth } from '../../contexts/AuthContext';
 import { displayHandle } from '../../lib/username';
 import { goToOpenApp } from '../../lib/appUrls';
@@ -26,7 +27,7 @@ type LandingNavProps = {
 const LandingNavAuth: React.FC<{ light: boolean; gmx: boolean }> = ({ light, gmx }) => {
   const { isAuthenticated, profile, user, sessionReady } = useAuth();
   const displayName = displayHandle(profile, user?.email);
-  const showName = sessionReady && isAuthenticated;
+  const signedIn = sessionReady && isAuthenticated && user;
 
   const signInClass = gmx
     ? 'text-[13px] font-medium text-[#71717a] hover:text-[#0a0a0a]'
@@ -34,30 +35,24 @@ const LandingNavAuth: React.FC<{ light: boolean; gmx: boolean }> = ({ light, gmx
         light ? 'text-[#71717a] hover:text-[#0a0a0a]' : 'text-zinc-500 hover:text-primary'
       }`;
 
-  return (
-    <div className="hidden md:flex flex-col items-end justify-center leading-tight min-w-0 max-w-[140px]">
-      <Link
-        to="/login"
-        className={`inline-flex px-3 py-1.5 ${signInClass}`}
-        onClick={(e) => {
-          if (!showName) return;
-          e.preventDefault();
-          goToOpenApp('', false);
-        }}
+  if (signedIn) {
+    return (
+      <button
+        type="button"
+        className="landing-nav-profile-btn"
+        aria-label={`Open app, ${displayName}`}
+        title={displayName}
+        onClick={() => goToOpenApp('', false)}
       >
-        Sign in
-      </Link>
-      {showName ? (
-        <span
-          className={`px-3 text-[11px] font-semibold truncate max-w-full ${
-            light ? 'text-[#107663]' : 'text-emerald-400'
-          }`}
-          title={displayName}
-        >
-          {displayName}
-        </span>
-      ) : null}
-    </div>
+        <ProfileAvatar profile={profile} userId={user.id} size="xs" className="landing-nav-profile-avatar" />
+      </button>
+    );
+  }
+
+  return (
+    <Link to="/login" className={`hidden md:inline-flex px-3 py-1.5 ${signInClass}`}>
+      Sign in
+    </Link>
   );
 };
 

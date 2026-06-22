@@ -114,6 +114,8 @@ export const config = {
     minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
     /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
     dynamicTrail: {
+    /** Min ms in profit before arming breakeven / trail SL (5 min default). */
+      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 300_000),
       armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 0.5),
       armFeesMultiplier: Number(process.env.HL_TRAIL_ARM_FEES_MULT || 2),
       breakevenBufferPct: Number(process.env.HL_TRAIL_BE_BUFFER_PCT || 0.02),
@@ -130,8 +132,8 @@ export const config = {
       cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.0325),
       neverRedAfterArm: process.env.HL_TRAIL_NEVER_RED_AFTER_ARM !== 'false',
     },
-    /** Legacy profit-lock USD fields — unused when dynamicTrail active. */
-    profitMinHoldBeforeExitMs: Number(process.env.HL_PROFIT_MIN_HOLD_MS || 0),
+    /** Legacy profit-lock USD fields — analyze window before trail (aligned with arm hold). */
+    profitMinHoldBeforeExitMs: Number(process.env.HL_PROFIT_MIN_HOLD_MS || 300_000),
     /** After analyze phase — arm in-profit SL at this uPnL floor (~0.1% margin). */
     profitLockActivateUsd: Number(process.env.HL_PROFIT_LOCK_ACTIVATE_USD || 0.05),
     /** After min hold — trail floor ≈ breakeven + ~0.1% margin on typical slot. */
@@ -149,8 +151,10 @@ export const config = {
     trailSweepDeferMax: Number(process.env.HL_TRAIL_SWEEP_DEFER_MAX || 4),
     /** If uPnL falls this far below trail floor during defer → close anyway. */
     trailSweepDeferGiveUpUsd: Number(process.env.HL_TRAIL_SWEEP_GIVEUP_USD || 0.02),
-    /** Fraction of peak uPnL retrace before peak-grab close (0.4 = 40%). */
-    profitPeakDropFraction: Number(process.env.HL_PROFIT_PEAK_DROP_FRAC || 0.4),
+    /** Fraction of peak uPnL retrace before peak-grab close (0.5 = 50%). */
+    profitPeakDropFraction: Number(process.env.HL_PROFIT_PEAK_DROP_FRAC || 0.5),
+    /** Min peak (× round-trip fees) before peak-grab can fire. */
+    profitPeakMinFeesMult: Number(process.env.HL_PROFIT_PEAK_MIN_FEES_MULT || 4),
     positionMonitorMs: Number(process.env.HL_POSITION_MONITOR_MS || 250),
     /** 0 = disabled — no forced close just for being in profit N ms. */
     profitGrabMaxHoldMs: Number(process.env.HL_PROFIT_GRAB_MAX_HOLD_MS || 0),

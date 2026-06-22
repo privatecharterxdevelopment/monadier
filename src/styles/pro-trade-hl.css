@@ -366,27 +366,25 @@
 .hl-account-menu-trigger--signed-in {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  width: auto;
-  max-width: 148px;
-  padding: 3px 8px 3px 3px;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   border-radius: 999px;
   border: 1px solid var(--hl-border);
   background: var(--hl-bg-elevated);
 }
 
+.hl-account-menu-trigger--signed-in .hl-account-avatar,
+.hl-account-menu-trigger--signed-in .term-avatar {
+  width: 26px;
+  height: 26px;
+  font-size: 14px;
+}
+
 .hl-account-menu-trigger--signed-in:hover {
   background: var(--hl-bg-hover);
   border-color: var(--hl-border-strong, var(--hl-border));
-}
-
-.hl-account-trigger-name {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--hl-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .hl-account-panel {
@@ -7692,6 +7690,83 @@
   background: var(--hl-bg-panel);
 }
 
+.hl-signin-modal--modern {
+  padding: 0;
+  overflow: hidden;
+  border-radius: 16px;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.14);
+}
+
+.hl-signin-modern-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px 22px 18px;
+  background: linear-gradient(145deg, #f8faf9 0%, #eef6f3 55%, #faf8f5 100%);
+  border-bottom: 1px solid rgba(16, 118, 99, 0.1);
+}
+
+.hl-signin-modern-kicker {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #107663;
+}
+
+.hl-signin-modern-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #0a0a0a;
+}
+
+.hl-signin-modern-head .hl-signin-reason {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #52525b;
+}
+
+.hl-signin-modern-body {
+  padding: 20px 22px 22px;
+}
+
+.hl-signin-google--brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-weight: 600;
+  background: #ffffff;
+  border: 1px solid #e4e4e7;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.hl-signin-google--brand:hover {
+  background: #fafafa;
+  border-color: #d4d4d8;
+}
+
+.hl-signin-input {
+  border-radius: 10px;
+  padding: 11px 12px;
+}
+
+.hl-signin-modal--modern .hl-signin-submit {
+  border-radius: 10px;
+  min-height: 42px;
+  background: linear-gradient(135deg, #107663 0%, #0d5c4d 100%);
+  border-color: #107663;
+}
+
+.hl-modal-backdrop--auth .hl-signin-modal--modern .hl-signin-submit {
+  color: #ffffff;
+}
+
 .hl-signin-foot {
   margin: 14px 0 0;
   text-align: center;
@@ -8940,12 +9015,9 @@
   }
 
   .hl-account-menu-trigger--signed-in {
-    max-width: 36px;
-    padding: 3px;
-  }
-
-  .hl-account-trigger-name {
-    display: none;
+    width: 32px;
+    height: 32px;
+    padding: 0;
   }
 
   .hl-ticker-item {

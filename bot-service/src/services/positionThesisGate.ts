@@ -191,6 +191,15 @@ function deriveProfitRunBias(
   return 'neutral';
 }
 
+/** Widen trail on strong runs, tighten when thesis fades. */
+export function trailDistanceMultFromBias(bias: ProfitRunBias): number {
+  const strong = config.hyperliquid.profitTrailStrongRunMult;
+  if (bias === 'strong_run') return strong;
+  if (bias === 'run') return Math.max(1.12, strong * 0.72);
+  if (bias === 'fade' || bias === 'reversal') return 0.88;
+  return 1;
+}
+
 /** Live read while in profit — macro, MTF, volume before trail SL arms. */
 export async function evaluateProfitRunAnalysis(opts: {
   coin: string;

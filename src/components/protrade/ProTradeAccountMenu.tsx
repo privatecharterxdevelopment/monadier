@@ -93,10 +93,7 @@ const ProTradeAccountMenu: React.FC<Props> = ({
         onClick={handleTriggerClick}
       >
         {user ? (
-          <>
-            <ProfileAvatar profile={profile} userId={user.id} size="xs" className="hl-account-avatar" />
-            <span className="hl-account-trigger-name">{displayName}</span>
-          </>
+          <ProfileAvatar profile={profile} userId={user.id} size="xs" className="hl-account-avatar" />
         ) : (
           <User size={16} aria-hidden />
         )}

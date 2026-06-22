@@ -3,6 +3,7 @@ import { Loader2, X } from 'lucide-react';
 import { signIn, signInWithGoogle } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTermAuthToast } from '../terminal/TermAuthToast';
+import GoogleMark from '../ui/GoogleMark';
 
 type Props = {
   open: boolean;
@@ -26,6 +27,7 @@ const ProTradeSignInModal: React.FC<Props> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -60,26 +62,29 @@ const ProTradeSignInModal: React.FC<Props> = ({
 
   const handleGoogle = async () => {
     setError('');
+    setGoogleLoading(true);
     try {
       const { error: oauthError } = await signInWithGoogle();
       if (oauthError) throw oauthError;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to sign in with Google';
       setError(msg);
+      setGoogleLoading(false);
     }
   };
 
   const dialog = (
     <div
-      className="hl-modal hl-modal--sm hl-signin-modal"
+      className="hl-modal hl-modal--sm hl-signin-modal hl-signin-modal--modern"
       role="dialog"
       aria-labelledby="hl-signin-title"
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="hl-modal-head">
-        <div>
-          <h2 id="hl-signin-title" className="hl-modal-title">
-            Sign in
+      <div className="hl-signin-modern-head">
+        <div className="hl-signin-modern-head-copy">
+          <p className="hl-signin-modern-kicker">Monadier</p>
+          <h2 id="hl-signin-title" className="hl-signin-modern-title">
+            Welcome back
           </h2>
           {reason ? <p className="hl-signin-reason">{reason}</p> : null}
         </div>
@@ -88,54 +93,72 @@ const ProTradeSignInModal: React.FC<Props> = ({
         </button>
       </div>
 
-      {error ? <p className="hl-signin-error">{error}</p> : null}
+      <div className="hl-signin-modern-body">
+        {error ? <p className="hl-signin-error">{error}</p> : null}
 
-      <form className="hl-signin-form" onSubmit={handleSubmit}>
-        <label className="term-profile-label" htmlFor="hl-signin-email">
-          Email
-        </label>
-        <input
-          id="hl-signin-email"
-          className="term-profile-input"
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-
-        <label className="term-profile-label" htmlFor="hl-signin-password">
-          Password
-        </label>
-        <input
-          id="hl-signin-password"
-          className="term-profile-input"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-
-        <button type="submit" className="term-modal-primary hl-signin-submit" disabled={isLoading}>
-          {isLoading ? <Loader2 size={14} className="animate-spin" /> : 'Sign in'}
+        <button
+          type="button"
+          className="hl-signin-google hl-signin-google--brand"
+          onClick={handleGoogle}
+          disabled={googleLoading || isLoading}
+        >
+          {googleLoading ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <GoogleMark size={18} />
+          )}
+          Continue with Google
         </button>
-      </form>
 
-      <div className="hl-signin-divider">
-        <span>or</span>
+        <div className="hl-signin-divider">
+          <span>or sign in with email</span>
+        </div>
+
+        <form className="hl-signin-form" onSubmit={handleSubmit}>
+          <label className="term-profile-label" htmlFor="hl-signin-email">
+            Email
+          </label>
+          <input
+            id="hl-signin-email"
+            className="term-profile-input hl-signin-input"
+            type="email"
+            autoComplete="email"
+            placeholder="you@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+
+          <label className="term-profile-label" htmlFor="hl-signin-password">
+            Password
+          </label>
+          <input
+            id="hl-signin-password"
+            className="term-profile-input hl-signin-input"
+            type="password"
+            autoComplete="current-password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+
+          <button
+            type="submit"
+            className="term-modal-primary hl-signin-submit"
+            disabled={isLoading || googleLoading}
+          >
+            {isLoading ? <Loader2 size={14} className="animate-spin" /> : 'Sign in'}
+          </button>
+        </form>
+
+        <p className="hl-signin-foot">
+          New here?{' '}
+          <button type="button" className="hl-signin-link-btn" onClick={onSwitchToRegister}>
+            Create account
+          </button>
+        </p>
       </div>
-
-      <button type="button" className="hl-signin-google" onClick={handleGoogle}>
-        Continue with Google
-      </button>
-
-      <p className="hl-signin-foot">
-        New here?{' '}
-        <button type="button" className="hl-signin-link-btn" onClick={onSwitchToRegister}>
-          Register now
-        </button>
-      </p>
     </div>
   );
 

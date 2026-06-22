@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import OpenAppLink from '../layout/OpenAppLink';
+import ProfileAvatar from '../profile/ProfileAvatar';
 import { useAuth } from '../../contexts/AuthContext';
 import { displayHandle } from '../../lib/username';
 import { goToOpenApp } from '../../lib/appUrls';
@@ -18,7 +19,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
   const location = useLocation();
   const { isAuthenticated, profile, user, sessionReady } = useAuth();
   const displayName = displayHandle(profile, user?.email);
-  const showName = sessionReady && isAuthenticated;
+  const showName = sessionReady && isAuthenticated && user;
   const navLinks = [
     { path: '/how-it-works', label: 'How it works' },
     { path: '/trading-bot', label: 'Bot' },
@@ -100,27 +101,21 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
                   }`}
                 >
                   {showName ? (
-                    <div className="px-3 py-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsOpen(false);
-                          goToOpenApp('', false);
-                        }}
-                        className={`block text-[13px] font-medium ${
-                          light ? 'text-[#71717a]' : 'text-zinc-400'
-                        }`}
-                      >
-                        Sign in
-                      </button>
-                      <span
-                        className={`block mt-0.5 text-[12px] font-semibold truncate ${
-                          light ? 'text-[#107663]' : 'text-emerald-400'
-                        }`}
-                      >
-                        {displayName}
-                      </span>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsOpen(false);
+                        goToOpenApp('', false);
+                      }}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors w-full text-left ${
+                        light
+                          ? 'text-[#0a0a0a] hover:bg-[#f4f4f5]'
+                          : 'text-white hover:bg-white/10'
+                      }`}
+                    >
+                      <ProfileAvatar profile={profile} userId={user!.id} size="xs" className="landing-nav-profile-avatar" />
+                      <span className="truncate">{displayName}</span>
+                    </button>
                   ) : (
                     <Link
                       to="/login"

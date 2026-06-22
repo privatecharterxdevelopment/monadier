@@ -49,6 +49,7 @@ import {
   evaluateProfitRunAnalysis,
   logProfitRunAnalysis,
   clearProfitAnalyzeLog,
+  trailDistanceMultFromBias,
 } from './positionThesisGate';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import {
@@ -1005,6 +1006,25 @@ export class HyperliquidTradingService {
       }
 
       const trailRecord = loadTrailRecord(lockKey);
+      const profitHoldMsForAnalysis =
+        trailRecord?.profitSinceAt != null
+          ? nowMs - trailRecord.profitSinceAt
+          : pnl > 0
+            ? Math.max(0, holdMs)
+            : 0;
+
+      let trailDistanceMult = 1;
+      if (pnl > 0) {
+        const runAnalysis = await evaluateProfitRunAnalysis({
+          coin: pos.coin,
+          direction: positionDirection,
+          profitHoldMs: profitHoldMsForAnalysis,
+          pnlUsd: pnl,
+        });
+        trailDistanceMult = trailDistanceMultFromBias(runAnalysis.bias);
+        logProfitRunAnalysis(userAddress, pos.coin, runAnalysis, false);
+      }
+
       const trailResult = await evaluateDynamicTrail({
         coin: pos.coin,
         direction: positionDirection,
@@ -1016,20 +1036,10 @@ export class HyperliquidTradingService {
         collateralUsd: collateralEst,
         nowMs,
         record: trailRecord,
+        trailDistanceMult,
       });
 
       saveTrailRecord(lockKey, trailResult.record);
-
-      // Optional MTF/volume log while in profit (no exit side-effects).
-      if (pnl > 0 && trailResult.record.phase !== 'idle') {
-        const runAnalysis = await evaluateProfitRunAnalysis({
-          coin: pos.coin,
-          direction: positionDirection,
-          profitHoldMs: trailResult.record.timeInProfitMs,
-          pnlUsd: pnl,
-        });
-        logProfitRunAnalysis(userAddress, pos.coin, runAnalysis, trailResult.record.phase === 'trailing');
-      }
 
       const closeCtx = {
         entryPx: entry,

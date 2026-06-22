@@ -141,7 +141,7 @@ const TechnologyPage: React.FC = () => {
 
       <div className="mkt-stats-row">
         <MarketingStatCard value="55–75%" label="Confidence range" />
-        <MarketingStatCard value="0.6%" label="Trailing activation" />
+        <MarketingStatCard value="5 min" label="Profit SL arms after" />
         <MarketingStatCard value="40x" label="HL max leverage (BTC)" />
         <MarketingStatCard value="24/7" label="Market monitoring" />
       </div>
