@@ -6,25 +6,37 @@ import { useAppKit } from '@reown/appkit/react';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { openMonadierWalletModal } from '../../lib/openWalletModal';
 import { useChainId, useSwitchChain } from 'wagmi';
-import { arbitrum } from 'viem/chains';
 import { useWeb3 } from '../../contexts/Web3Context';
+import HlArbitrumUsdcCallout from './HlArbitrumUsdcCallout';
+import HlDepositFlowOverlay, { type HlDepositFlowState } from './HlDepositFlowOverlay';
 import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
 import { HL_ARBITRUM_CHAIN_ID } from '../../lib/hyperliquid/bridge';
 import { HL_MIN_DEPOSIT_USDC } from '../../lib/hyperliquid/hlApp';
 import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
+import { toNum } from '../../lib/hyperliquid/parse';
+import {
+  describeHlFundsPlacement,
+  fetchHlFundingSnapshot,
+  pollHlFundingAfterDeposit,
+  type HlFundingSnapshot,
+} from '../../lib/hyperliquid/funding';
 import { USDC_ADDRESSES, USDC_DECIMALS } from '../../lib/vault';
 import { ERC20_ABI } from '../../lib/dex/router';
 import { useProTradeThemeOptional } from '../../contexts/ProTradeThemeContext';
+
+const ARBITRUM_USDC_E = '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8' as const;
 
 type Props = {
   onClose: () => void;
   onSuccess?: () => void;
   withdrawable?: string;
   hlBalanceUsd?: number;
+  spotUsdc?: number;
   initialTab?: 'deposit' | 'withdraw';
   /** Betting uses Spot USDC; perps/bot use account value. */
   mode?: 'perps' | 'betting';
+  onTransfer?: () => void;
 };
 
 const ProTradeDepositModal: React.FC<Props> = ({
@@ -32,8 +44,10 @@ const ProTradeDepositModal: React.FC<Props> = ({
   onSuccess,
   withdrawable,
   hlBalanceUsd = 0,
+  spotUsdc = 0,
   initialTab = 'deposit',
   mode = 'perps',
+  onTransfer,
 }) => {
   const { open } = useAppKit();
   const { address, isConnected } = useMonadierWallet();
@@ -46,10 +60,29 @@ const ProTradeDepositModal: React.FC<Props> = ({
   const [localMsg, setLocalMsg] = useState<string | null>(null);
   const [switchBusy, setSwitchBusy] = useState(false);
   const [usdcBalance, setUsdcBalance] = useState('0');
+  const [usdceBalance, setUsdceBalance] = useState('0');
   const [balanceLoading, setBalanceLoading] = useState(false);
+  const [refreshBusy, setRefreshBusy] = useState(false);
+  const [depositFlow, setDepositFlow] = useState<HlDepositFlowState>({ phase: 'idle' });
+  const [liveFunding, setLiveFunding] = useState<HlFundingSnapshot | null>(null);
 
   const onArbitrum = chainId === HL_ARBITRUM_CHAIN_ID;
   const usdcNum = parseFloat(usdcBalance) || 0;
+  const usdceNum = parseFloat(usdceBalance) || 0;
+  const isBetting = mode === 'betting';
+
+  const perpUsd = liveFunding?.perpUsd ?? hlBalanceUsd;
+  const spotUsd = liveFunding?.spotUsdcUsd ?? spotUsdc;
+  const totalHlUsd = isBetting ? spotUsd : perpUsd + spotUsd;
+  const fundsPlacementHint = !isBetting ? describeHlFundsPlacement(
+    liveFunding ?? {
+      perpUsd,
+      spotUsdcUsd: spotUsd,
+      withdrawableUsd: toNum(withdrawable),
+      totalUsd: perpUsd + spotUsd,
+      stateLoaded: true,
+    }
+  ) : null;
 
   const suggestedDeposit = useMemo(() => {
     if (usdcNum < HL_MIN_DEPOSIT_USDC) return '';
@@ -60,6 +93,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
     const load = async () => {
       if (!address || !publicClient || !onArbitrum) {
         setUsdcBalance('0');
+        setUsdceBalance('0');
         setBalanceLoading(false);
         return;
       }
@@ -68,15 +102,25 @@ const ProTradeDepositModal: React.FC<Props> = ({
         const usdcAddress = USDC_ADDRESSES[HL_ARBITRUM_CHAIN_ID];
         if (!usdcAddress) {
           setUsdcBalance('0');
+          setUsdceBalance('0');
           return;
         }
-        const balance = await publicClient.readContract({
-          address: usdcAddress,
-          abi: ERC20_ABI,
-          functionName: 'balanceOf',
-          args: [address as `0x${string}`],
-        });
-        setUsdcBalance(formatUnits(balance as bigint, USDC_DECIMALS));
+        const [nativeBal, bridgedBal] = await Promise.all([
+          publicClient.readContract({
+            address: usdcAddress,
+            abi: ERC20_ABI,
+            functionName: 'balanceOf',
+            args: [address as `0x${string}`],
+          }),
+          publicClient.readContract({
+            address: ARBITRUM_USDC_E,
+            abi: ERC20_ABI,
+            functionName: 'balanceOf',
+            args: [address as `0x${string}`],
+          }),
+        ]);
+        setUsdcBalance(formatUnits(nativeBal as bigint, USDC_DECIMALS));
+        setUsdceBalance(formatUnits(bridgedBal as bigint, USDC_DECIMALS));
       } catch {
         setUsdcBalance('0');
       } finally {
@@ -85,6 +129,88 @@ const ProTradeDepositModal: React.FC<Props> = ({
     };
     void load();
   }, [address, publicClient, onArbitrum]);
+
+  useEffect(() => {
+    if (!address) {
+      setLiveFunding(null);
+      return;
+    }
+    void fetchHlFundingSnapshot(address).then(setLiveFunding);
+  }, [address, hlBalanceUsd, spotUsdc]);
+
+  const refreshHlFunding = async () => {
+    if (!address) return;
+    setRefreshBusy(true);
+    try {
+      const snap = await fetchHlFundingSnapshot(address);
+      setLiveFunding(snap);
+      onSuccess?.();
+      setLocalMsg(
+        snap.stateLoaded
+          ? `HL total ${fmtUsdSymbol(snap.totalUsd)} (Perps ${fmtUsdSymbol(snap.perpUsd)} · Spot ${fmtUsdSymbol(snap.spotUsdcUsd)})`
+          : 'Could not read Hyperliquid balance — try again in a moment.'
+      );
+    } finally {
+      setRefreshBusy(false);
+    }
+  };
+
+  const startDepositPolling = async (
+    baselineUsd: number,
+    depositedUsd: number,
+    txHash: string
+  ): Promise<HlFundingSnapshot | null> => {
+    if (!address) return null;
+    const snap = await pollHlFundingAfterDeposit(
+      address,
+      (next) => {
+        setLiveFunding(next);
+        onSuccess?.();
+      },
+      {
+        baselineUsd,
+        minIncreaseUsd: Math.max(1, depositedUsd * 0.25),
+        attempts: 24,
+        intervalMs: 5000,
+      }
+    );
+    const credited = snap.totalUsd >= baselineUsd + Math.max(1, depositedUsd * 0.25);
+    if (credited) {
+      setDepositFlow({
+        phase: 'success',
+        txHash,
+        amountUsd: depositedUsd,
+        totalUsd: snap.totalUsd,
+      });
+    } else {
+      setDepositFlow({
+        phase: 'delayed',
+        txHash,
+        amountUsd: depositedUsd,
+        totalUsd: snap.totalUsd,
+      });
+    }
+    return snap;
+  };
+
+  const resetDepositFlow = () => setDepositFlow({ phase: 'idle' });
+
+  const handleDelayedRefresh = async () => {
+    if (depositFlow.phase !== 'delayed') return;
+    const { txHash, amountUsd, totalUsd: prevTotal } = depositFlow;
+    const baseline = Math.max(0, prevTotal - amountUsd);
+    await refreshHlFunding();
+    const snap = await fetchHlFundingSnapshot(address!);
+    setLiveFunding(snap);
+    if (snap.totalUsd >= baseline + Math.max(1, amountUsd * 0.25)) {
+      setDepositFlow({
+        phase: 'success',
+        txHash,
+        amountUsd,
+        totalUsd: snap.totalUsd,
+      });
+    }
+  };
 
   const handleSwitchNetwork = async () => {
     try {
@@ -135,17 +261,43 @@ const ProTradeDepositModal: React.FC<Props> = ({
       return;
     }
     if (usd > usdcNum) {
+      if (usdceNum > 0 && usdcNum <= 0) {
+        setLocalMsg(
+          `You have ${usdceNum.toFixed(2)} USDC.e (bridged) — Hyperliquid needs native USDC on Arbitrum. Swap USDC.e → USDC first.`
+        );
+        return;
+      }
       setLocalMsg(`Wallet has ${usdcNum.toFixed(2)} USDC on Arbitrum — lower the amount.`);
       return;
     }
 
+    const baselineUsd = totalHlUsd;
     setLocalMsg(null);
+    setDepositFlow({ phase: 'signing' });
     try {
       const hash = await deposit(depositAmount);
-      setLocalMsg(`Sent — ${hash.slice(0, 10)}… Credits on Hyperliquid in ~1 min.`);
+      setDepositFlow({ phase: 'bridging', txHash: hash, amountUsd: usd });
       onSuccess?.();
-    } catch {
-      /* error in hook */
+
+      if (publicClient) {
+        const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+        if (receipt.status === 'reverted') {
+          setDepositFlow({
+            phase: 'error',
+            message:
+              'The Arbitrum transaction reverted — USDC was not sent to the Hyperliquid bridge.',
+            txHash: hash,
+          });
+          return;
+        }
+      }
+
+      await startDepositPolling(baselineUsd, usd, hash);
+    } catch (err: unknown) {
+      const msg =
+        (err instanceof Error ? err.message : null) ||
+        'Deposit was rejected or failed before reaching Hyperliquid.';
+      setDepositFlow({ phase: 'error', message: msg });
     }
   };
 
@@ -172,8 +324,13 @@ const ProTradeDepositModal: React.FC<Props> = ({
     }
   };
 
-  const primaryBusy = busy || switchBusy;
-  const isBetting = mode === 'betting';
+  const depositFlowActive = depositFlow.phase !== 'idle';
+  const primaryBusy =
+    busy ||
+    switchBusy ||
+    refreshBusy ||
+    depositFlow.phase === 'signing' ||
+    depositFlow.phase === 'bridging';
   const theme = useProTradeThemeOptional();
 
   const modal = (
@@ -183,7 +340,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
       onClick={onClose}
     >
       <div
-        className="hl-modal hl-modal--sm"
+        className={`hl-modal hl-modal--sm${depositFlowActive ? ' hl-modal--deposit-flow' : ''}`}
         role="dialog"
         aria-labelledby="pro-funds-title"
         onClick={(e) => e.stopPropagation()}
@@ -214,17 +371,51 @@ const ProTradeDepositModal: React.FC<Props> = ({
           </button>
         </div>
 
+        <div className={`hl-funds-body${depositFlowActive ? ' hl-funds-body--flow' : ''}`}>
+          <HlDepositFlowOverlay
+            flow={depositFlow}
+            walletAddress={address}
+            onDismiss={resetDepositFlow}
+            onRetryRefresh={() => void handleDelayedRefresh()}
+            refreshBusy={refreshBusy}
+          />
+
+          <div className={depositFlowActive ? 'hl-funds-content hl-funds-content--dimmed' : 'hl-funds-content'}>
         <div className="term-panel-card term-panel-card--muted hl-funds-balance">
           <span className="term-panel-card-label">
-            {isBetting ? 'Spot USDC (betting)' : 'HL balance (bot capital)'}
+            {isBetting ? 'Spot USDC (betting)' : 'Total on Hyperliquid'}
           </span>
-          <strong className="term-panel-card-value">{fmtUsdSymbol(String(hlBalanceUsd))}</strong>
+          <strong className="term-panel-card-value">{fmtUsdSymbol(String(totalHlUsd))}</strong>
+          {!isBetting ? (
+            <div className="hl-funds-breakdown">
+              <span>Perps {fmtUsdSymbol(perpUsd)}</span>
+              <span>Spot {fmtUsdSymbol(spotUsd)}</span>
+            </div>
+          ) : null}
           <span className="term-panel-card-hint">
             {isBetting
               ? `Withdrawable ${fmtUsdSymbol(withdrawable)} · min $10 to place a bet`
-              : `Withdrawable ${fmtUsdSymbol(withdrawable)} · min $${MIN_HL_BOT_USD} to run the bot`}
+              : `Withdrawable (perps) ${fmtUsdSymbol(withdrawable)} · min $${MIN_HL_BOT_USD} to run the bot`}
           </span>
         </div>
+
+        {fundsPlacementHint ? (
+          <div className="hl-funds-placement-hint">
+            <p>{fundsPlacementHint}</p>
+            {onTransfer ? (
+              <button type="button" className="term-btn-sm" onClick={onTransfer}>
+                Transfer Spot → Perps
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {usdceNum > 0 && usdcNum <= 0 ? (
+          <p className="term-profile-err">
+            Wallet has {usdceNum.toFixed(2)} USDC.e (bridged) but no native USDC — swap to native USDC
+            on Arbitrum before depositing to Hyperliquid.
+          </p>
+        ) : null}
 
         <p className="hl-entry-hint hl-funds-trust">
           USDC stays on Hyperliquid. Monadier is just the app — only your wallet can withdraw.
@@ -232,33 +423,18 @@ const ProTradeDepositModal: React.FC<Props> = ({
 
         {tab === 'deposit' ? (
           <>
+            <HlArbitrumUsdcCallout
+              onArbitrum={onArbitrum}
+              switchBusy={switchBusy}
+              onSwitch={handleSwitchNetwork}
+              usdcBalance={usdcNum}
+              balanceLoading={balanceLoading}
+              showBalance={isConnected}
+            />
+
             <p className="hl-entry-hint hl-funds-lead">
               Send USDC from your wallet to Hyperliquid{isBetting ? ' Spot' : ''}.
             </p>
-
-            {!onArbitrum ? (
-              <div className="term-arb-gate term-arb-gate--inline" style={{ marginBottom: 12 }}>
-                <p className="term-hint">
-                  One-time switch to <strong>{arbitrum.name}</strong> to move USDC into your HL
-                  account (~1 min credit).
-                </p>
-                <button
-                  type="button"
-                  className="term-btn-sm w-full justify-center"
-                  disabled={switchBusy}
-                  onClick={() => void handleSwitchNetwork()}
-                >
-                  {switchBusy ? <Loader2 size={14} className="animate-spin" /> : 'Switch to Arbitrum'}
-                </button>
-              </div>
-            ) : isConnected ? (
-              <div className="term-modal-card" style={{ marginBottom: 12 }}>
-                <span className="term-modal-label">Your USDC on Arbitrum</span>
-                <strong className="term-modal-value">
-                  {balanceLoading ? '…' : `${usdcNum.toFixed(2)} USDC`}
-                </strong>
-              </div>
-            ) : null}
 
             <label className="term-profile-label">Amount (USDC)</label>
             <div className="term-modal-input-row">
@@ -284,8 +460,8 @@ const ProTradeDepositModal: React.FC<Props> = ({
             </div>
 
             <p className="hl-entry-hint">
-              Min {HL_MIN_DEPOSIT_USDC} USDC. Need USDC on Arbitrum — withdraw from an exchange to
-              Arbitrum if your funds are elsewhere.
+              Min {HL_MIN_DEPOSIT_USDC} USDC. No Arbitrum USDC yet? Withdraw from an exchange
+              directly to Arbitrum (native USDC).
             </p>
 
             <button
@@ -310,12 +486,10 @@ const ProTradeDepositModal: React.FC<Props> = ({
             <button
               type="button"
               className="term-btn-sm term-btn-sm--ghost w-full justify-center"
-              onClick={() => {
-                onSuccess?.();
-                setLocalMsg('Refreshing HL balance…');
-              }}
+              disabled={refreshBusy || depositFlowActive}
+              onClick={() => void refreshHlFunding()}
             >
-              <RefreshCw size={14} />
+              <RefreshCw size={14} className={refreshBusy ? 'animate-spin' : undefined} />
               Refresh HL balance
             </button>
           </>
@@ -350,9 +524,11 @@ const ProTradeDepositModal: React.FC<Props> = ({
           </>
         )}
 
-        {(error || localMsg) && (
+        {(error || localMsg) && !depositFlowActive ? (
           <p className={error ? 'term-profile-err' : 'term-profile-ok'}>{error || localMsg}</p>
-        )}
+        ) : null}
+          </div>
+        </div>
       </div>
     </div>
   );

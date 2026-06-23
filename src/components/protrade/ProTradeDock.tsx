@@ -322,6 +322,16 @@ const ProTradeDock: React.FC<Props> = ({
                   <td>{fmtUsdSymbol(account?.withdrawable)}</td>
                 </tr>
                 <tr>
+                  <td>USDC (Spot)</td>
+                  <td>{fmtUsdSymbol(spotBalances?.find((b) => b.coin === 'USDC')?.total)}</td>
+                  <td>
+                    {fmtUsdSymbol(
+                      toNum(spotBalances?.find((b) => b.coin === 'USDC')?.total) -
+                        toNum(spotBalances?.find((b) => b.coin === 'USDC')?.hold)
+                    )}
+                  </td>
+                </tr>
+                <tr>
                   <td>Margin used</td>
                   <td colSpan={2}>{fmtUsdSymbol(account?.margin?.totalMarginUsed)}</td>
                 </tr>

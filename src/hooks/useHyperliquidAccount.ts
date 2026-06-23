@@ -132,6 +132,25 @@ export function useHyperliquidAccount(address: string | undefined) {
 
   useEffect(() => {
     if (!address) return undefined;
+
+    const pollBalances = async () => {
+      try {
+        const [account, spotBalances] = await Promise.all([
+          fetchHlAccountState(address),
+          fetchHlSpotBalances(address),
+        ]);
+        setState((prev) => ({ ...prev, account, spotBalances }));
+      } catch {
+        /* keep last snapshot */
+      }
+    };
+
+    const id = setInterval(() => void pollBalances(), 12_000);
+    return () => clearInterval(id);
+  }, [address]);
+
+  useEffect(() => {
+    if (!address) return undefined;
     const hasOpen = (state.account?.positions?.length ?? 0) > 0;
     if (!hasOpen) return undefined;
 

@@ -7903,6 +7903,415 @@
   background: var(--hl-bg-hover);
 }
 
+.hl-modal .hl-funds-chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--hl-border);
+  background: var(--hl-bg-panel);
+}
+
+.hl-modal .hl-funds-chain--ready {
+  border-color: color-mix(in srgb, #12aaff 42%, var(--hl-border));
+  background: color-mix(in srgb, #12aaff 8%, var(--hl-bg-panel));
+}
+
+.hl-modal .hl-funds-chain--switch {
+  border-color: color-mix(in srgb, #f59e0b 40%, var(--hl-border));
+  background: color-mix(in srgb, #f59e0b 10%, var(--hl-bg-panel));
+}
+
+.hl-modal .hl-funds-chain__brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.hl-modal .hl-funds-chain__logo {
+  display: block;
+  border-radius: 999px;
+  object-fit: contain;
+  background: #fff;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--hl-border) 70%, transparent);
+}
+
+.hl-modal .hl-funds-chain__logo--arb {
+  width: 36px;
+  height: 36px;
+  padding: 5px;
+}
+
+.hl-modal .hl-funds-chain__logo--usdc {
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  margin-left: -10px;
+}
+
+.hl-modal .hl-funds-chain__copy {
+  flex: 1;
+  min-width: 10rem;
+}
+
+.hl-modal .hl-funds-chain__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-bottom: 4px;
+}
+
+.hl-modal .hl-funds-chain__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hl-text);
+  line-height: 1.3;
+}
+
+.hl-modal .hl-funds-chain__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.hl-modal .hl-funds-chain__badge--ok {
+  color: #0d9488;
+  background: color-mix(in srgb, #14b8a6 14%, transparent);
+  border: 1px solid color-mix(in srgb, #14b8a6 35%, transparent);
+}
+
+.hl-modal .hl-funds-chain__badge--warn {
+  color: #b45309;
+  background: color-mix(in srgb, #f59e0b 16%, transparent);
+  border: 1px solid color-mix(in srgb, #f59e0b 35%, transparent);
+}
+
+.hl-modal .hl-funds-chain__desc {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--hl-text-muted);
+}
+
+.hl-modal .hl-funds-chain__desc strong {
+  color: var(--hl-text);
+  font-weight: 600;
+}
+
+.hl-modal .hl-funds-chain__balance {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--hl-text-muted);
+}
+
+.hl-modal .hl-funds-chain__balance strong {
+  color: var(--hl-text);
+  font-weight: 600;
+}
+
+.hl-modal .hl-funds-chain__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, #12aaff 45%, var(--hl-border));
+  border-radius: 8px;
+  background: color-mix(in srgb, #12aaff 14%, var(--hl-bg));
+  color: var(--hl-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.hl-modal .hl-funds-chain__action:hover:not(:disabled) {
+  background: color-mix(in srgb, #12aaff 22%, var(--hl-bg));
+  border-color: color-mix(in srgb, #12aaff 60%, var(--hl-border));
+}
+
+.hl-modal .hl-funds-chain__action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.hl-modal .hl-funds-chain__action-logo {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  padding: 2px;
+}
+
+@media (min-width: 480px) {
+  .hl-modal .hl-funds-chain__action {
+    width: auto;
+    align-self: center;
+    flex-shrink: 0;
+  }
+}
+
+.hl-modal.hl-modal--deposit-flow {
+  overflow: hidden;
+}
+
+.hl-modal .hl-funds-body {
+  position: relative;
+}
+
+.hl-modal .hl-funds-body--flow {
+  min-height: 280px;
+}
+
+.hl-modal .hl-funds-content--dimmed {
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.28;
+  filter: blur(1px);
+}
+
+.hl-modal .hl-deposit-flow {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px 18px 16px;
+  text-align: center;
+  border-radius: 0 0 10px 10px;
+  background: color-mix(in srgb, var(--hl-bg-panel) 88%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.hl-modal .hl-deposit-flow--success {
+  background: color-mix(in srgb, #14b8a6 10%, var(--hl-bg-panel) 90%);
+}
+
+.hl-modal .hl-deposit-flow--error {
+  background: color-mix(in srgb, #ef4444 8%, var(--hl-bg-panel) 92%);
+}
+
+.hl-modal .hl-deposit-flow--delayed {
+  background: color-mix(in srgb, #f59e0b 10%, var(--hl-bg-panel) 90%);
+}
+
+.hl-modal .hl-deposit-flow__ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  margin-bottom: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #12aaff 12%, var(--hl-bg));
+  border: 1px solid color-mix(in srgb, #12aaff 35%, var(--hl-border));
+}
+
+.hl-modal .hl-deposit-flow__ring--bridge .hl-deposit-flow__pulse {
+  position: absolute;
+  inset: -6px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, #12aaff 45%, transparent);
+  animation: hl-deposit-pulse 1.6s ease-out infinite;
+}
+
+.hl-modal .hl-deposit-flow__spin {
+  animation: spin 1s linear infinite;
+  color: #12aaff;
+}
+
+.hl-modal .hl-deposit-flow__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--hl-text);
+  line-height: 1.25;
+}
+
+.hl-modal .hl-deposit-flow__desc {
+  margin: 0;
+  max-width: 26rem;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--hl-text-muted);
+}
+
+.hl-modal .hl-deposit-flow__desc strong {
+  color: var(--hl-text);
+  font-weight: 600;
+}
+
+.hl-modal .hl-deposit-flow__meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--hl-text-muted);
+}
+
+.hl-modal .hl-deposit-flow__steps {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 8px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hl-modal .hl-deposit-flow__step {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--hl-text-faint);
+  border: 1px solid var(--hl-border);
+  background: var(--hl-bg);
+}
+
+.hl-modal .hl-deposit-flow__step--on {
+  color: #0d9488;
+  border-color: color-mix(in srgb, #14b8a6 40%, var(--hl-border));
+  background: color-mix(in srgb, #14b8a6 12%, var(--hl-bg));
+}
+
+.hl-modal .hl-deposit-flow__icon--ok {
+  color: #14b8a6;
+}
+
+.hl-modal .hl-deposit-flow__icon--warn {
+  color: #d97706;
+}
+
+.hl-modal .hl-deposit-flow__icon--err {
+  color: #ef4444;
+}
+
+.hl-modal .hl-deposit-flow__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.hl-modal .hl-deposit-flow__cta {
+  min-width: 9rem;
+}
+
+.hl-modal .hl-deposit-flow__links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 14px;
+  margin-top: 8px;
+  font-size: 11px;
+}
+
+.hl-modal .hl-deposit-flow__links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--hl-green-bright);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.hl-modal .hl-deposit-flow__links a:hover {
+  color: var(--hl-text);
+}
+
+@keyframes hl-deposit-pulse {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.85;
+  }
+  70% {
+    transform: scale(1.12);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.12);
+    opacity: 0;
+  }
+}
+
+.hl-modal .hl-funds-balance {
+  margin-bottom: 12px;
+}
+
+.hl-modal .hl-funds-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 4px 0 6px;
+  font-size: 11px;
+  color: var(--hl-text-muted);
+}
+
+.hl-modal .hl-funds-breakdown span strong,
+.hl-modal .hl-funds-breakdown span {
+  color: var(--hl-text);
+  font-weight: 600;
+}
+
+.hl-modal .hl-funds-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #b45309;
+}
+
+.hl-modal .hl-funds-placement-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, #f59e0b 35%, var(--hl-border));
+  background: color-mix(in srgb, #f59e0b 10%, var(--hl-bg-panel));
+}
+
+.hl-modal .hl-funds-placement-hint p {
+  flex: 1;
+  min-width: 12rem;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--hl-text);
+}
+
+.hl-modal .hl-funds-tx-link {
+  color: var(--hl-green-bright);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.hl-modal .hl-funds-tx-link:hover {
+  color: var(--hl-text);
+}
+
 .hl-modal .term-arb-gate {
   padding: 10px 12px;
   border-radius: 8px;

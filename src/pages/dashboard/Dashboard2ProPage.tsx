@@ -582,6 +582,7 @@ const Dashboard2ProPageContent: React.FC = () => {
                 <div className="hl-dock-mode-label">Hyperliquid · Perps account</div>
                 <ProTradeDock
                   account={account}
+                  spotBalances={spotBalances}
                   openOrders={perpOpenOrders}
                   fills={perpFills}
                   funding={funding}
@@ -809,8 +810,17 @@ const Dashboard2ProPageContent: React.FC = () => {
           initialTab={fundsModal}
           withdrawable={section === 'sportsbets' ? String(spotUsdc) : account?.withdrawable}
           hlBalanceUsd={section === 'sportsbets' ? spotUsdc : perpAccountValue}
+          spotUsdc={spotUsdc}
           onClose={() => setFundsModal(null)}
           onSuccess={() => void handleRefreshAll()}
+          onTransfer={
+            section === 'perps'
+              ? () => {
+                  setFundsModal(null);
+                  setTransferOpen(true);
+                }
+              : undefined
+          }
         />
       ) : null}
 
