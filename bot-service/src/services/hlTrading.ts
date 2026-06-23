@@ -41,6 +41,7 @@ import { validateCoinNews } from './coinNewsGate';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import { validateScalpAlignment } from './scalpAlignGate';
 import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
+import { validatePerpMarketContext } from './perpMarketContextGate';
 import {
   validateMegaPairVolumeForDirection,
 } from './megaPairVolumeMonitor';
@@ -50,6 +51,9 @@ import {
   logProfitRunAnalysis,
   clearProfitAnalyzeLog,
   trailDistanceMultFromBias,
+  shouldHardLossClose,
+  computeMaxLossCapUsd,
+  evaluatePositionThesis,
 } from './positionThesisGate';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import {
@@ -74,6 +78,9 @@ const hlLastCloseAt = new Map<string, number>();
 /** Prevent overlapping fast monitor passes. */
 let fastPositionMonitorRunning = false;
 
+/** Loss exits that must always execute — even when profitOnlyExits is on. */
+const HL_FORCED_LOSS_EXIT = new Set(['stop_loss', 'signal_reversal', 'emergency_close', 'trailing_stop']);
+
 /** Per user+coin — throttle "hold in red" logs. */
 const hlHoldRedLogAt = new Map<string, number>();
 
@@ -97,23 +104,12 @@ function isStrongGlobalScanPick(pick: GlobalSignalCandidate): boolean {
   const tfs = (pick.directionalTfCount ?? 0) >= 3;
   if (conf && tfs && trendAlign >= 70) return true;
 
-  const coin = pick.coin.toUpperCase();
-  if (
-    pick.direction === 'LONG' &&
-    MAJOR_COINS.has(coin) &&
-    pick.confidence >= 65 &&
-    (pick.directionalTfCount ?? 0) >= 2 &&
-    trendAlign >= 60
-  ) {
-    return true;
-  }
-
   return false;
 }
 
 function formatOpenErrorForClient(error: string): string {
-  if (/needs live momentum/i.test(error)) {
-    return 'Setup passed scan — waiting for price to move in trade direction';
+  if (/needs live momentum|buy low|sell high|wait for pullback|Dip-buy|Rally-fade/i.test(error)) {
+    return 'Waiting for pullback to buy low / rally to sell high';
   }
   if (/Scalp blocked/i.test(error)) {
     return 'Setup passed scan — waiting for 1m/5m candle confirmation';
@@ -138,6 +134,9 @@ function formatOpenErrorForClient(error: string): string {
   }
   if (/resistance|support gate|chasing high/i.test(error)) {
     return 'Price at bad level for entry (range high/low) — waiting';
+  }
+  if (/LONG blocked|SHORT blocked|buy high|sell low|crowded longs|crowded shorts|Perp context/i.test(error)) {
+    return 'Funding/24h range blocks chasing — bot waits for pullback';
   }
   return error.length > 120 ? `${error.slice(0, 117)}…` : error;
 }
@@ -692,26 +691,28 @@ export class HyperliquidTradingService {
       }
 
       const strongMtf = isStrongGlobalScanPick(opts.pick);
+      const relaxSecondaryGates = strongMtf && opts.direction === 'SHORT';
 
-      const candleAnalytics = strongMtf
-        ? {
-            ok: true as const,
-            reason: `Strong MTF scan — 20-candle check skipped (${opts.pick.confidence}%)`,
-            summary: `strong scan ${opts.pick.confidence}%`,
-            netMovePct: 0,
-            greenCount: 0,
-            redCount: 0,
-            rangePosition: 0.5,
-            recentMovePct: 0,
-            volumeRatio: 1,
-            structure: 'chop',
-            rejectionsAtHigh: 0,
-            rejectionsAtLow: 0,
-          }
-        : await validatePreOpenCandleAnalytics({
-            coin,
-            direction: opts.direction,
-          });
+      const candleAnalytics =
+        opts.direction === 'LONG' || !relaxSecondaryGates
+          ? await validatePreOpenCandleAnalytics({
+              coin,
+              direction: opts.direction,
+            })
+          : {
+              ok: true as const,
+              reason: `Strong MTF scan — 20-candle check skipped (${opts.pick.confidence}%)`,
+              summary: `strong scan ${opts.pick.confidence}%`,
+              netMovePct: 0,
+              greenCount: 0,
+              redCount: 0,
+              rangePosition: 0.5,
+              recentMovePct: 0,
+              volumeRatio: 1,
+              structure: 'chop' as const,
+              rejectionsAtHigh: 0,
+              rejectionsAtLow: 0,
+            };
       if (!candleAnalytics.ok) {
         logger.info('HL open blocked — 20-candle analytics', {
           user: opts.userAddress.slice(0, 10),
@@ -723,9 +724,13 @@ export class HyperliquidTradingService {
         return { success: false, error: candleAnalytics.reason };
       }
 
-      const scalpGate = strongMtf
-        ? { ok: true as const, reason: `Strong MTF scan (${opts.pick.confidence}%, ${opts.pick.directionalTfCount} TFs)` }
-        : await validateScalpAlignment({ coin, direction: opts.direction });
+      const scalpGate =
+        opts.direction === 'LONG' || !relaxSecondaryGates
+          ? await validateScalpAlignment({ coin, direction: opts.direction })
+          : {
+              ok: true as const,
+              reason: `Strong MTF scan (${opts.pick.confidence}%, ${opts.pick.directionalTfCount} TFs)`,
+            };
       if (!scalpGate.ok) {
         logger.info('HL open blocked — scalp 1m/5m align', {
           user: opts.userAddress.slice(0, 10),
@@ -765,26 +770,6 @@ export class HyperliquidTradingService {
         return { success: false, error: pumpShortGate.reason };
       }
 
-      const momentumGate = strongMtf
-        ? {
-            ok: true as const,
-            reason: `Strong MTF scan — momentum confirm skipped (${opts.pick.confidence}%)`,
-            change5mPct: 0,
-            change15mPct: 0,
-            change1hPct: 0,
-            momentumAligned: true,
-          }
-        : await validateEntryMomentum({ coin, direction: opts.direction });
-      if (!momentumGate.ok) {
-        logger.info('HL open blocked — entry momentum', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          reason: momentumGate.reason,
-        });
-        return { success: false, error: momentumGate.reason };
-      }
-
       const megaGate = MAJOR_COINS.has(coin)
         ? {
             ok: true as const,
@@ -801,30 +786,45 @@ export class HyperliquidTradingService {
         return { success: false, error: megaGate.reason };
       }
 
-      const locationGate = strongMtf
-        ? {
-            ok: true as const,
-            reason: `Strong MTF scan — S/R gate skipped (${opts.pick.confidence}%)`,
-            analysis: {
-              support: 0,
-              resistance: 0,
-              price: markPx,
-              pricePosition: 0.5,
-              resistanceTouches: 0,
-              resistanceRejections: 0,
-              supportTouches: 0,
-              supportRejections: 0,
-              confirmedBreakoutUp: false,
-              confirmedBreakdown: false,
-              nearResistance: false,
-              nearSupport: false,
-            },
-          }
-        : await validateEntryLocation({
-            symbol,
-            coin,
-            direction: opts.direction,
-          });
+      const perpCtxGate = await validatePerpMarketContext({
+        coin,
+        direction: opts.direction,
+      });
+      if (!perpCtxGate.ok) {
+        logger.info('HL open blocked — perp context (funding/24h/range)', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          reason: perpCtxGate.reason,
+        });
+        return { success: false, error: perpCtxGate.reason };
+      }
+
+      const locationGate =
+        opts.direction === 'LONG' || !relaxSecondaryGates
+          ? await validateEntryLocation({
+              symbol,
+              coin,
+              direction: opts.direction,
+            })
+          : {
+              ok: true as const,
+              reason: `Strong MTF scan — S/R gate skipped (${opts.pick.confidence}%)`,
+              analysis: {
+                support: 0,
+                resistance: 0,
+                price: markPx,
+                pricePosition: 0.5,
+                resistanceTouches: 0,
+                resistanceRejections: 0,
+                supportTouches: 0,
+                supportRejections: 0,
+                confirmedBreakoutUp: false,
+                confirmedBreakdown: false,
+                nearResistance: false,
+                nearSupport: false,
+              },
+            };
       if (!locationGate.ok) {
         logger.info('HL open blocked — resistance/support gate', {
           user: opts.userAddress.slice(0, 10),
@@ -835,6 +835,27 @@ export class HyperliquidTradingService {
           rejections: locationGate.analysis.resistanceRejections,
         });
         return { success: false, error: locationGate.reason };
+      }
+
+      const momentumGate =
+        opts.direction === 'LONG' || !relaxSecondaryGates
+          ? await validateEntryMomentum({ coin, direction: opts.direction })
+          : {
+              ok: true as const,
+              reason: `Strong MTF scan — momentum confirm skipped (${opts.pick.confidence}%)`,
+              change5mPct: 0,
+              change15mPct: 0,
+              change1hPct: 0,
+              momentumAligned: true,
+            };
+      if (!momentumGate.ok) {
+        logger.info('HL open blocked — entry momentum', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          reason: momentumGate.reason,
+        });
+        return { success: false, error: momentumGate.reason };
       }
 
       const openReasonDoc = buildHlOpenReasonDoc({
@@ -1073,6 +1094,39 @@ export class HyperliquidTradingService {
         continue;
       }
 
+      const slPct = settings.stopLossPercent;
+      if (shouldHardLossClose(pnl, collateralEst, slPct)) {
+        const capUsd = computeMaxLossCapUsd(collateralEst, slPct);
+        clearTrailState(lockKey);
+        await this.closeMarketPosition(
+          userAddress,
+          pos.coin,
+          'stop_loss',
+          closeCtx,
+          `STOP LOSS — ${pos.coin} uPnL $${pnl.toFixed(2)} ≤ −$${capUsd.toFixed(2)} (${slPct > 0 ? `${slPct}% margin` : 'max loss cap'})`
+        );
+        continue;
+      }
+
+      const minHoldLossMs = config.hyperliquid.thesisMinHoldBeforeLossCloseMs;
+      if (pnl < 0 && holdMs >= minHoldLossMs && !fast) {
+        const thesis = await evaluatePositionThesis({
+          coin: pos.coin,
+          direction: positionDirection,
+        });
+        if (thesis.signalAgainst || thesis.macroAgainst) {
+          clearTrailState(lockKey);
+          await this.closeMarketPosition(
+            userAddress,
+            pos.coin,
+            'signal_reversal',
+            closeCtx,
+            `SIGNAL REVERSAL — ${thesis.reason.slice(0, 220)}`
+          );
+          continue;
+        }
+      }
+
       if (pnl < 0 && config.hyperliquid.profitOnlyExits) {
         const lastLog = hlHoldRedLogAt.get(lockKey) ?? 0;
         if (nowMs - lastLog >= 120_000) {
@@ -1165,7 +1219,11 @@ export class HyperliquidTradingService {
       const leverage = closeCtx?.leverage ?? row.leverage?.value ?? 10;
       const absSize = Math.abs(size);
 
-      if (config.hyperliquid.profitOnlyExits && pnlUsd < 0 && reason !== 'trailing_stop') {
+      if (
+        config.hyperliquid.profitOnlyExits &&
+        pnlUsd < 0 &&
+        !HL_FORCED_LOSS_EXIT.has(reason)
+      ) {
         logger.warn('HL close rejected — never close in red', {
           user: userAddress.slice(0, 10),
           coin: coinUpper,

@@ -41,9 +41,6 @@ export async function validateNotFreshlyPumped(opts: {
   tier: CoinTier;
 }): Promise<FreshPumpResult> {
   const coin = opts.coin.toUpperCase();
-  if (opts.tier === 'major') {
-    return { ok: true, reason: 'Fresh-pump skip — majors exempt' };
-  }
 
   const now = Date.now();
   const cachedUntil = skipUntilByCoin.get(coin);
@@ -51,17 +48,18 @@ export async function validateNotFreshlyPumped(opts: {
     const waitMin = Math.ceil((cachedUntil - now) / 60_000);
     return {
       ok: false,
-      reason: `Pair skipped — ${coin} in post-pump cooldown (~${waitMin}m left); wait before trading`,
+      reason: `Pair skipped — ${coin} in post-pump cooldown (~${waitMin}m left); wait for pullback`,
       skipUntil: cachedUntil,
     };
   }
 
   const cfg = config.hyperliquid.freshPump;
   const strict = needsCautionPath(opts.tier);
-  const block1h = strict ? cfg.cautiousBlock1hPct : cfg.midBlock1hPct;
-  const block4h = strict ? cfg.cautiousBlock4hPct : cfg.midBlock4hPct;
-  const block15m = strict ? cfg.cautiousBlock15mPct : cfg.midBlock15mPct;
-  const nearHigh = strict ? cfg.cautiousNearRangeHigh : cfg.midNearRangeHigh;
+  const major = opts.tier === 'major';
+  const block1h = major ? cfg.midBlock1hPct : strict ? cfg.cautiousBlock1hPct : cfg.midBlock1hPct;
+  const block4h = major ? cfg.midBlock4hPct : strict ? cfg.cautiousBlock4hPct : cfg.midBlock4hPct;
+  const block15m = major ? cfg.midBlock15mPct : strict ? cfg.cautiousBlock15mPct : cfg.midBlock15mPct;
+  const nearHigh = major ? cfg.midNearRangeHigh : strict ? cfg.cautiousNearRangeHigh : cfg.midNearRangeHigh;
 
   try {
     const symbol = hlCoinToBinanceSymbol(coin);

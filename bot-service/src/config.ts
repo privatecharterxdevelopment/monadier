@@ -200,12 +200,22 @@ export const config = {
       /** Non-anchor major must exceed this 15m % before it can block an alt. */
       strongCrossAnchor15mPct: Number(process.env.HL_MACRO_STRONG_CROSS_15M || 0.5),
     },
-    /** Pre-open — price must already move in trade direction (no blind entries). */
+    /** Pre-open — price must confirm bounce/rejection at good level (not chase extended moves). */
     entryMomentum: {
       minMove5mPct: Number(process.env.HL_ENTRY_MOM_5M || 0.05),
       minMove15mPct: Number(process.env.HL_ENTRY_MOM_15M || 0.08),
       maxCounter1hPct: Number(process.env.HL_ENTRY_MOM_1H_COUNTER || 0.2),
       minConfirmCandles5m: Number(process.env.HL_ENTRY_MOM_5M_CANDLES || 1),
+      /** Block LONG when 15m/1h already extended up — wait for pullback. */
+      maxChase15mPct: Number(process.env.HL_ENTRY_MAX_CHASE_15M || 0.2),
+      maxChase1hPct: Number(process.env.HL_ENTRY_MAX_CHASE_1H || 0.35),
+      /** Block SHORT when 15m/1h already extended down — wait for bounce. */
+      maxChaseShort15mPct: Number(process.env.HL_ENTRY_MAX_CHASE_SHORT_15M || -0.2),
+      maxChaseShort1hPct: Number(process.env.HL_ENTRY_MAX_CHASE_SHORT_1H || -0.35),
+      /** LONG dip-buy: price must be in lower X of 1h range unless breakout. */
+      longMaxRangePosition: Number(process.env.HL_ENTRY_LONG_MAX_RANGE || 0.58),
+      /** SHORT rally-fade: price must be in upper X of 1h range unless breakdown. */
+      shortMinRangePosition: Number(process.env.HL_ENTRY_SHORT_MIN_RANGE || 0.42),
     },
     /** Alts — never SHORT into a fresh pump / higher-TF rally. */
     pumpShort: {
@@ -237,8 +247,8 @@ export const config = {
       timeframe: (process.env.HL_PRE_OPEN_CANDLE_TF || '1m') as '1m' | '5m',
       minNetMovePct: Number(process.env.HL_PRE_OPEN_MIN_NET_PCT || 0.04),
       minDirectionalCandleRatio: Number(process.env.HL_PRE_OPEN_MIN_DIR_RATIO || 0.52),
-      maxRangePositionLong: Number(process.env.HL_PRE_OPEN_MAX_RANGE_LONG || 0.8),
-      maxRangePositionShort: Number(process.env.HL_PRE_OPEN_MAX_RANGE_SHORT || 0.2),
+      maxRangePositionLong: Number(process.env.HL_PRE_OPEN_MAX_RANGE_LONG || 0.58),
+      maxRangePositionShort: Number(process.env.HL_PRE_OPEN_MAX_RANGE_SHORT || 0.42),
       breakoutRecentMovePct: Number(process.env.HL_PRE_OPEN_BREAKOUT_RECENT_PCT || 0.06),
       maxRejectionsAtLevel: Number(process.env.HL_PRE_OPEN_MAX_REJECTIONS || 2),
       minVolumeRatio: Number(process.env.HL_PRE_OPEN_MIN_VOL_RATIO || 0.85),
@@ -289,6 +299,18 @@ export const config = {
     thesisMaxLossUsd: Number(process.env.HL_THESIS_MAX_LOSS_USD || 2.5),
     /** Min ms position must be open before signal_reversal loss close (avoid open→instant close). */
     thesisMinHoldBeforeLossCloseMs: Number(process.env.HL_THESIS_MIN_HOLD_MS || 45_000),
+    /** HL funding, 24h change, mark/oracle — anti-chase before opens. */
+    perpContext: {
+      /** Block LONG above this fraction of 24h range (0.68 = top third). */
+      maxLongRangePosition: Number(process.env.HL_PERP_MAX_LONG_RANGE || 0.68),
+      /** Block LONG if 24h already up this much AND still in upper range. */
+      maxLong24hUpPct: Number(process.env.HL_PERP_MAX_LONG_24H || 1.2),
+      maxLong24hRangePosition: Number(process.env.HL_PERP_MAX_LONG_24H_RANGE || 0.55),
+      /** HL funding rate — block LONG when longs pay above this (decimal). */
+      maxLongFunding: Number(process.env.HL_PERP_MAX_LONG_FUNDING || 0.00012),
+      /** Block LONG when mark trades this % above oracle. */
+      maxLongMarkPremiumPct: Number(process.env.HL_PERP_MAX_MARK_PREMIUM || 0.08),
+    },
     /** Minimum margin USD per HL open slot (split across max concurrent positions). */
     minMarginUsd: Number(process.env.HL_MIN_MARGIN_USD || 8),
     /** Success fee on profitable bot closes — 1000 = 10% of realized profit. */
