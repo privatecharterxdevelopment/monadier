@@ -45,10 +45,13 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
 
   const idleReadiness = !hasWallet
     ? { headline: 'Connect wallet', detail: 'Connect your wallet to scan HL perps' }
-    : !botRunning && hlSetup.perpUsd < MIN_HL_BOT_USD && hlSetup.spotUsdcUsd >= MIN_HL_BOT_USD
+    : !botRunning &&
+        !hlSetup.unifiedAccount &&
+        hlSetup.perpUsd < MIN_HL_BOT_USD &&
+        hlSetup.spotUsdcUsd >= MIN_HL_BOT_USD
       ? {
           headline: 'Funds on HL Spot',
-          detail: 'Press Move to Perps in the bot panel — bot trades perps only.',
+          detail: 'Deposit again to auto-move to Perps on standard HL accounts.',
         }
     : !botRunning
       ? { headline: 'Bot off', detail: 'Press Start bot to scan markets' }

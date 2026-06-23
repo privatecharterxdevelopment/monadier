@@ -9,6 +9,11 @@ import { formatHlSize, getHlAssetIndex, getHlAssetMeta } from '../lib/hyperliqui
 import { getHlSpotAssetIndex, getHlSpotAssetMeta } from '../lib/hyperliquid/spot';
 import type { HlMarketKind } from './useHyperliquidMarket';
 import { depositUsdcToHyperliquid } from '../lib/hyperliquid/bridge';
+import { fetchHlUserAbstraction } from '../lib/hyperliquid/user';
+import {
+  isHlUnifiedMargin,
+  isHlUnifiedTransferDisabledError,
+} from '../lib/hyperliquid/funding';
 import {
   buildScaleLegs,
   buildSimpleOrderLeg,
@@ -462,8 +467,18 @@ export function useHyperliquidTrading() {
   const transferUsdClass = useCallback(
     (amountUsdc: string, toPerp: boolean) =>
       withBusy(async () => {
-        const client = createHlExchangeClient(await resolveWallet());
-        await client.usdClassTransfer({ amount: amountUsdc, toPerp });
+        const wallet = await resolveWallet();
+        const walletAddress = wallet.account?.address;
+        if (!walletAddress) throw new Error('Wallet not connected');
+        const abstraction = await fetchHlUserAbstraction(walletAddress);
+        if (isHlUnifiedMargin(abstraction)) return;
+        const client = createHlExchangeClient(wallet);
+        try {
+          await client.usdClassTransfer({ amount: amountUsdc, toPerp });
+        } catch (err: unknown) {
+          if (isHlUnifiedTransferDisabledError(err)) return;
+          throw err;
+        }
       }, 'Transfer failed'),
     [resolveWallet, withBusy]
   );

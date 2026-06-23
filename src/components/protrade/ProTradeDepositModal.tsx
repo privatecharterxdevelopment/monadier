@@ -71,9 +71,10 @@ const ProTradeDepositModal: React.FC<Props> = ({
   const usdceNum = parseFloat(usdceBalance) || 0;
   const isBetting = mode === 'betting';
 
-  const perpUsd = liveFunding?.perpUsd ?? hlBalanceUsd;
+  const perpUsd = liveFunding?.tradablePerpUsd ?? liveFunding?.perpUsd ?? hlBalanceUsd;
   const spotUsd = liveFunding?.spotUsdcUsd ?? spotUsdc;
-  const totalHlUsd = isBetting ? spotUsd : perpUsd + spotUsd;
+  const unifiedAccount = liveFunding?.unifiedAccount ?? false;
+  const totalHlUsd = isBetting ? spotUsd : perpUsd;
   const fundsPlacementHint = !isBetting ? describeHlFundsPlacement(
     liveFunding ?? {
       perpUsd,
@@ -178,9 +179,10 @@ const ProTradeDepositModal: React.FC<Props> = ({
 
     if (
       !isBetting &&
+      !snap.unifiedAccount &&
       walletReady &&
       snap.spotUsdcUsd >= 1 &&
-      snap.perpUsd < Math.max(1, depositedUsd * 0.25)
+      snap.tradablePerpUsd < Math.max(1, depositedUsd * 0.25)
     ) {
       const move = spotToPerpTransferAmount(snap.spotUsdcUsd);
       if (move) {
@@ -207,9 +209,9 @@ const ProTradeDepositModal: React.FC<Props> = ({
     }
 
     const credited =
-      finalSnap.perpUsd >= Math.max(1, depositedUsd * 0.25) ||
+      finalSnap.tradablePerpUsd >= Math.max(1, depositedUsd * 0.25) ||
       finalSnap.totalUsd >= baselineUsd + Math.max(1, depositedUsd * 0.25);
-    if (credited && finalSnap.perpUsd >= 1) {
+    if (credited && finalSnap.tradablePerpUsd >= 1) {
       setDepositFlow({
         phase: 'success',
         txHash,
@@ -432,14 +434,22 @@ const ProTradeDepositModal: React.FC<Props> = ({
           <strong className="term-panel-card-value">{fmtUsdSymbol(String(totalHlUsd))}</strong>
           {!isBetting ? (
             <div className="hl-funds-breakdown">
-              <span>Perps {fmtUsdSymbol(perpUsd)}</span>
-              <span>Spot {fmtUsdSymbol(spotUsd)}</span>
+              {unifiedAccount ? (
+                <span>Unified account — one balance for spot &amp; perps</span>
+              ) : (
+                <>
+                  <span>Perps {fmtUsdSymbol(perpUsd)}</span>
+                  <span>Spot {fmtUsdSymbol(spotUsd)}</span>
+                </>
+              )}
             </div>
           ) : null}
           <span className="term-panel-card-hint">
             {isBetting
               ? `Withdrawable ${fmtUsdSymbol(withdrawable)} · min $10 to place a bet`
-              : `Withdrawable (perps) ${fmtUsdSymbol(withdrawable)} · min $${MIN_HL_BOT_USD} to run the bot`}
+              : unifiedAccount
+                ? `Withdrawable ${fmtUsdSymbol(withdrawable)} · min $${MIN_HL_BOT_USD} to run the bot — no Spot→Perps transfer needed`
+                : `Withdrawable (perps) ${fmtUsdSymbol(withdrawable)} · min $${MIN_HL_BOT_USD} to run the bot`}
           </span>
         </div>
 
@@ -478,6 +488,9 @@ const ProTradeDepositModal: React.FC<Props> = ({
 
             <p className="hl-entry-hint hl-funds-lead">
               Send USDC from your wallet to Hyperliquid{isBetting ? ' Spot' : ''}.
+              {!isBetting && unifiedAccount
+                ? ' Unified account — funds are ready for perps and the bot after deposit.'
+                : ''}
             </p>
 
             <label className="term-profile-label">Amount (USDC)</label>

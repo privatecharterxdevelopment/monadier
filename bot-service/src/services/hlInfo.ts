@@ -18,6 +18,46 @@ export type HlClearinghouseState = {
   }>;
 };
 
+export type HlUserAbstraction =
+  | 'unifiedAccount'
+  | 'portfolioMargin'
+  | 'disabled'
+  | 'default'
+  | 'dexAbstraction';
+
+export function isHlUnifiedMargin(mode: HlUserAbstraction | null | undefined): boolean {
+  return mode === 'unifiedAccount' || mode === 'portfolioMargin';
+}
+
+export async function fetchHlUserAbstraction(
+  userAddress: string
+): Promise<HlUserAbstraction | null> {
+  try {
+    const res = await fetch(config.hyperliquid.infoUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'userAbstraction',
+        user: userAddress.toLowerCase(),
+      }),
+    });
+    if (!res.ok) return null;
+    const mode = (await res.json()) as string;
+    if (
+      mode === 'unifiedAccount' ||
+      mode === 'portfolioMargin' ||
+      mode === 'disabled' ||
+      mode === 'default' ||
+      mode === 'dexAbstraction'
+    ) {
+      return mode;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchHlClearinghouseState(
   userAddress: string
 ): Promise<HlClearinghouseState | null> {
@@ -51,7 +91,7 @@ export async function fetchHlClearinghouseState(
   return null;
 }
 
-/** USDC sitting in HL spot — bot perps need funds on the perp margin account. */
+/** USDC sitting in HL spot — on unified accounts this is the tradable perp balance too. */
 export async function fetchHlSpotUsdcUsd(userAddress: string): Promise<number> {
   try {
     const res = await fetch(config.hyperliquid.infoUrl, {
@@ -77,26 +117,46 @@ export async function fetchHlSpotUsdcUsd(userAddress: string): Promise<number> {
 export type HlPerpFundingSnapshot = {
   perpUsd: number;
   spotUsdcUsd: number;
+  tradablePerpUsd: number;
+  unifiedAccount: boolean;
   withdrawableUsd: number;
   stateLoaded: boolean;
 };
 
+export function hlTradablePerpUsd(
+  perpUsd: number,
+  spotUsdcUsd: number,
+  unified: boolean
+): number {
+  if (unified) return Math.max(perpUsd, spotUsdcUsd);
+  return perpUsd;
+}
+
 export async function fetchHlPerpFundingSnapshot(
   userAddress: string
 ): Promise<HlPerpFundingSnapshot> {
-  const [state, spotUsdcUsd] = await Promise.all([
+  const [state, spotUsdcUsd, abstraction] = await Promise.all([
     fetchHlClearinghouseState(userAddress),
     fetchHlSpotUsdcUsd(userAddress),
+    fetchHlUserAbstraction(userAddress),
   ]);
+  const perpUsd = hlAccountValueUsd(state);
+  const unifiedAccount = isHlUnifiedMargin(abstraction);
+  const tradablePerpUsd = hlTradablePerpUsd(perpUsd, spotUsdcUsd, unifiedAccount);
+  const perpWithdrawable = hlWithdrawableUsd(state);
   return {
-    perpUsd: hlAccountValueUsd(state),
+    perpUsd,
     spotUsdcUsd,
-    withdrawableUsd: hlWithdrawableUsd(state),
+    tradablePerpUsd,
+    unifiedAccount,
+    withdrawableUsd: unifiedAccount
+      ? Math.max(perpWithdrawable, spotUsdcUsd)
+      : perpWithdrawable,
     stateLoaded: state != null,
   };
 }
 
-/** User-facing reason when perp margin is below min — distinguishes spot-only funds. */
+/** User-facing reason when tradable perp balance is below min. */
 export function describeHlPerpBalanceBlocker(
   funding: HlPerpFundingSnapshot,
   minUsd: number
@@ -104,18 +164,18 @@ export function describeHlPerpBalanceBlocker(
   if (!funding.stateLoaded) {
     return 'HL balance check failed — retrying Hyperliquid account read';
   }
-  if (funding.perpUsd >= minUsd) return null;
+  if (funding.tradablePerpUsd >= minUsd) return null;
 
-  if (funding.spotUsdcUsd >= minUsd) {
+  if (!funding.unifiedAccount && funding.spotUsdcUsd >= minUsd) {
     return `Perp margin $${funding.perpUsd.toFixed(2)} — you have $${funding.spotUsdcUsd.toFixed(2)} USDC on HL Spot; transfer to Perps in Funds tab (bot trades perps only)`;
   }
 
   const total = funding.perpUsd + funding.spotUsdcUsd;
-  if (total >= minUsd) {
+  if (!funding.unifiedAccount && total >= minUsd) {
     return `Perp margin $${funding.perpUsd.toFixed(2)} + spot $${funding.spotUsdcUsd.toFixed(2)} — move USDC to Perps to trade (min $${minUsd})`;
   }
 
-  return `HL perp balance $${funding.perpUsd.toFixed(2)} (min $${minUsd})`;
+  return `HL perp balance $${funding.tradablePerpUsd.toFixed(2)} (min $${minUsd})`;
 }
 
 export function hlAccountValueUsd(state: HlClearinghouseState | null): number {

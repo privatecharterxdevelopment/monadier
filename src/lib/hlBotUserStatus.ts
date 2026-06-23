@@ -74,6 +74,7 @@ export function getHlBotSidebarStatus(opts: {
   hlBalanceUsd: number;
   perpUsd?: number;
   spotUsdcUsd?: number;
+  unifiedAccount?: boolean;
   agentApproved: boolean;
   builderFeeApproved?: boolean;
   builderFeeEnabled?: boolean;
@@ -88,6 +89,7 @@ export function getHlBotSidebarStatus(opts: {
     hlBalanceUsd,
     perpUsd = hlBalanceUsd,
     spotUsdcUsd = 0,
+    unifiedAccount = false,
     agentApproved,
     builderFeeApproved = true,
     builderFeeEnabled = false,
@@ -127,7 +129,9 @@ export function getHlBotSidebarStatus(opts: {
 
   const needsDeposit = perpUsd < MIN_HL_BOT_USD && perpUsd + spotUsdcUsd < MIN_HL_BOT_USD;
   const needsSpotTransfer =
-    perpUsd < MIN_HL_BOT_USD && spotUsdcUsd >= MIN_HL_BOT_USD;
+    !unifiedAccount &&
+    perpUsd < MIN_HL_BOT_USD &&
+    spotUsdcUsd >= MIN_HL_BOT_USD;
   const needsAgent = !agentApproved;
   const needsBuilderFee =
     builderFeeEnabled && builderPlatformReady && !builderFeeApproved;
@@ -146,7 +150,7 @@ export function getHlBotSidebarStatus(opts: {
     if (needsSpotTransfer) {
       return {
         headline: 'Move USDC to Perps',
-        detail: `$${spotUsdcUsd.toFixed(2)} is on HL Spot — the bot trades perps only. Press Move to Perps in the bot panel or Funds tab.`,
+        detail: `$${spotUsdcUsd.toFixed(2)} is on HL Spot — deposit again to auto-move on standard accounts, or use Funds → Transfer.`,
         tone: 'warn',
         setupStep: 2,
         setupComplete: false,

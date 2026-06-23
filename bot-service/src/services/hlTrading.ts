@@ -308,7 +308,7 @@ export class HyperliquidTradingService {
         autoTradeEnabled = false;
         logger.info('HL auto-trade disabled — perp balance below minimum', {
           user: userAddress.slice(0, 10),
-          perpUsd: funding.perpUsd.toFixed(2),
+          perpUsd: funding.tradablePerpUsd.toFixed(2),
           minUsd: config.hyperliquid.minAccountUsd,
         });
       }

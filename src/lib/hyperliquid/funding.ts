@@ -1,37 +1,76 @@
-import { fetchHlAccountState, fetchHlSpotBalances } from './user';
+import { fetchHlAccountState, fetchHlSpotBalances, fetchHlUserAbstraction } from './user';
 import { toNum } from './parse';
 import { MIN_HL_BOT_USD } from './hlBotAgent';
+import type { HlUserAbstraction } from './user';
 
 export type HlFundingSnapshot = {
+  /** Raw perp clearinghouse account value (often $0 on unified accounts). */
   perpUsd: number;
   spotUsdcUsd: number;
+  /** USDC available for perp trading — includes spot on unified / portfolio margin. */
+  tradablePerpUsd: number;
+  unifiedAccount: boolean;
   withdrawableUsd: number;
   totalUsd: number;
   stateLoaded: boolean;
 };
 
+export function isHlUnifiedMargin(mode: HlUserAbstraction | null | undefined): boolean {
+  return mode === 'unifiedAccount' || mode === 'portfolioMargin';
+}
+
+export function hlTradablePerpUsd(
+  perpUsd: number,
+  spotUsdcUsd: number,
+  unified: boolean
+): number {
+  if (unified) return Math.max(perpUsd, spotUsdcUsd);
+  return perpUsd;
+}
+
+export function isHlUnifiedTransferDisabledError(err: unknown): boolean {
+  const msg =
+    err instanceof Error
+      ? err.message
+      : typeof err === 'object' && err && 'message' in err
+        ? String((err as { message: unknown }).message)
+        : String(err ?? '');
+  return /unified account is active/i.test(msg);
+}
+
 export async function fetchHlFundingSnapshot(wallet: string): Promise<HlFundingSnapshot> {
   try {
-    const [account, spotBalances] = await Promise.all([
+    const [account, spotBalances, abstraction] = await Promise.all([
       fetchHlAccountState(wallet),
       fetchHlSpotBalances(wallet),
+      fetchHlUserAbstraction(wallet),
     ]);
     const perpUsd = toNum(account?.margin?.accountValue);
-    const withdrawableUsd = toNum(account?.withdrawable);
     const spotUsdcUsd = toNum(
       spotBalances.find((b) => b.coin.toUpperCase() === 'USDC')?.total
     );
+    const unifiedAccount = isHlUnifiedMargin(abstraction);
+    const tradablePerpUsd = hlTradablePerpUsd(perpUsd, spotUsdcUsd, unifiedAccount);
+    const perpWithdrawable = toNum(account?.withdrawable);
+    const withdrawableUsd = unifiedAccount
+      ? Math.max(perpWithdrawable, spotUsdcUsd)
+      : perpWithdrawable;
+    const totalUsd = unifiedAccount ? tradablePerpUsd : perpUsd + spotUsdcUsd;
     return {
       perpUsd,
       spotUsdcUsd,
+      tradablePerpUsd,
+      unifiedAccount,
       withdrawableUsd,
-      totalUsd: perpUsd + spotUsdcUsd,
+      totalUsd,
       stateLoaded: true,
     };
   } catch {
     return {
       perpUsd: 0,
       spotUsdcUsd: 0,
+      tradablePerpUsd: 0,
+      unifiedAccount: false,
       withdrawableUsd: 0,
       totalUsd: 0,
       stateLoaded: false,
@@ -73,18 +112,20 @@ export async function pollHlFundingAfterDeposit(
 export function needsSpotToPerpTransfer(
   perpUsd: number,
   spotUsdcUsd: number,
-  minUsd = MIN_HL_BOT_USD
+  minUsd = MIN_HL_BOT_USD,
+  unifiedAccount = false
 ): boolean {
+  if (unifiedAccount) return false;
   return perpUsd < minUsd && spotUsdcUsd >= 1;
 }
 
-/** Move all spot USDC to perps (bot + perp trading). */
+/** Move all spot USDC to perps (standard HL accounts only). */
 export function spotToPerpTransferAmount(spotUsdcUsd: number): string | null {
   if (spotUsdcUsd < 0.01) return null;
   return spotUsdcUsd.toFixed(2);
 }
 
-/** After usdClassTransfer, poll until perp margin reflects the move (usually instant). */
+/** After usdClassTransfer, poll until perp margin reflects the move (standard accounts). */
 export async function pollHlPerpAfterTransfer(
   wallet: string,
   opts?: { minPerpUsd?: number; attempts?: number; intervalMs?: number }
@@ -95,7 +136,7 @@ export async function pollHlPerpAfterTransfer(
 
   let latest = await fetchHlFundingSnapshot(wallet);
   for (let i = 0; i < attempts; i++) {
-    if (latest.perpUsd >= minPerpUsd) return latest;
+    if (latest.tradablePerpUsd >= minPerpUsd) return latest;
     await new Promise((r) => setTimeout(r, intervalMs));
     latest = await fetchHlFundingSnapshot(wallet);
   }
@@ -104,6 +145,7 @@ export async function pollHlPerpAfterTransfer(
 
 export function describeHlFundsPlacement(snap: HlFundingSnapshot): string | null {
   if (!snap.stateLoaded) return 'Could not read Hyperliquid balance — retrying…';
+  if (snap.unifiedAccount) return null;
   if (snap.perpUsd <= 0 && snap.spotUsdcUsd > 0) {
     return `${snap.spotUsdcUsd.toFixed(2)} USDC is on HL Spot — transfer Spot → Perps to trade or run the bot.`;
   }

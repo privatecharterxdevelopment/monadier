@@ -7,7 +7,6 @@ import {
   Wallet,
   ArrowDownLeft,
   ArrowUpRight,
-  ArrowLeftRight,
   RefreshCw,
   TrendingUp,
   AlertTriangle,
@@ -45,7 +44,6 @@ import { fireProfileOnboardingConfetti } from '../../lib/confettiCelebration';
 import HlBotSetupSteps from './HlBotSetupSteps';
 import HlBotSetupGuideModal from './HlBotSetupGuideModal';
 import ProTradeDepositModal from '../protrade/ProTradeDepositModal';
-import ProTradeTransferModal from '../protrade/ProTradeTransferModal';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import TerminalBotSettingsModal from './TerminalBotSettingsModal';
 import TerminalLvrgPanel from './TerminalLvrgPanel';
@@ -116,12 +114,10 @@ const TerminalTradePanel: React.FC<Props> = ({
   const hlSetup = useHlBotSetup(hlBalanceWallet);
   const builderConfig = getHlBuilderConfig();
   const [showFundsModal, setShowFundsModal] = useState(false);
-  const [showTransferModal, setShowTransferModal] = useState(false);
   const [fundsModalTab, setFundsModalTab] = useState<'deposit' | 'withdraw'>('deposit');
   const [showSettings, setShowSettings] = useState(false);
   const [startMode, setStartMode] = useState(false);
   const [botBusy, setBotBusy] = useState(false);
-  const [transferBusy, setTransferBusy] = useState(false);
   const [botError, setBotError] = useState<string | null>(null);
   const [stopNotice, setStopNotice] = useState<string | null>(null);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
@@ -143,7 +139,13 @@ const TerminalTradePanel: React.FC<Props> = ({
   const hlFundingUsd = hlSetup.accountUsd;
   const hlPerpUsd = hlSetup.perpUsd;
   const hlSpotUsd = hlSetup.spotUsdcUsd;
-  const hlNeedsSpotTransfer = needsSpotToPerpTransfer(hlPerpUsd, hlSpotUsd);
+  const hlUnifiedAccount = hlSetup.unifiedAccount;
+  const hlNeedsSpotTransfer = needsSpotToPerpTransfer(
+    hlSetup.rawPerpUsd,
+    hlSpotUsd,
+    MIN_HL_BOT_USD,
+    hlUnifiedAccount
+  );
   const autoTradeDb = botSettings.settings.autoTradeEnabled;
 
   useEffect(() => {
@@ -202,6 +204,7 @@ const TerminalTradePanel: React.FC<Props> = ({
         hlBalanceUsd: hlFundingUsd,
         perpUsd: hlPerpUsd,
         spotUsdcUsd: hlSpotUsd,
+        unifiedAccount: hlUnifiedAccount,
         agentApproved: hlSetup.agentApproved,
         builderFeeApproved: hlSetup.builderFeeApproved,
         builderFeeEnabled: hlSetup.builderFeeEnabled,
@@ -216,6 +219,7 @@ const TerminalTradePanel: React.FC<Props> = ({
       hlFundingUsd,
       hlPerpUsd,
       hlSpotUsd,
+      hlUnifiedAccount,
       hlSetup.agentApproved,
       hlSetup.builderFeeApproved,
       hlSetup.builderFeeEnabled,
@@ -329,44 +333,6 @@ const TerminalTradePanel: React.FC<Props> = ({
     return sanitizeUserFacingError(msg) || 'Could not start bot — try again.';
   };
 
-  const handleMoveSpotToPerps = async () => {
-    if (!walletReady || !wallet || !address) {
-      open();
-      return;
-    }
-    if (!isDemoUser && !isAuthenticated) {
-      onRequireSignIn?.('Sign in to Monadier, then move USDC to Perps.');
-      return;
-    }
-    const move = spotToPerpTransferAmount(hlSpotUsd);
-    if (!move) {
-      setBotError('No USDC on HL Spot to move.');
-      return;
-    }
-    if (!isDemoUser && (!publicClient || !walletClient)) {
-      setBotError('Wallet not ready — unlock your wallet and try again.');
-      return;
-    }
-
-    setBotError(null);
-    setTransferBusy(true);
-    try {
-      await transferUsdClass(move, true);
-      const snap = await pollHlPerpAfterTransfer(wallet, { minPerpUsd: 1 });
-      await hlSetup.refresh();
-      refreshAll();
-      if (snap.perpUsd < 1) {
-        throw new Error(
-          'Transfer submitted but Perps balance did not update — try Funds → Transfer Spot → Perps.'
-        );
-      }
-    } catch (err: unknown) {
-      setBotError(parseBotTxError(err) || 'Could not move USDC to Perps — try Funds → Transfer.');
-    } finally {
-      setTransferBusy(false);
-    }
-  };
-
   const persistBotRunning = async (
     autoTradeEnabled: boolean,
     ready?: { agentApproved: boolean; builderFeeApproved: boolean }
@@ -410,12 +376,11 @@ const TerminalTradePanel: React.FC<Props> = ({
   };
 
   const startButtonLabel = useMemo(() => {
-    if (hlNeedsSpotTransfer) return 'Move to Perps & start bot';
     if (needsHlApproval) {
       return hlSetup.agentApproved ? 'Approve fee & start bot' : 'Approve & start bot';
     }
     return 'Start bot';
-  }, [needsHlApproval, hlSetup.agentApproved, hlNeedsSpotTransfer]);
+  }, [needsHlApproval, hlSetup.agentApproved]);
 
   const handleStartBot = async () => {
     if (!walletReady) {
@@ -457,8 +422,8 @@ const TerminalTradePanel: React.FC<Props> = ({
           await transferUsdClass(move, true);
           const snap = await pollHlPerpAfterTransfer(wallet, { minPerpUsd: MIN_HL_BOT_USD });
           await hlSetup.refresh();
-          if (snap.perpUsd < MIN_HL_BOT_USD) {
-            throw new Error('Could not move USDC to Perps — try Move to Perps in Funds tab.');
+          if (snap.tradablePerpUsd < MIN_HL_BOT_USD) {
+            throw new Error('Could not move USDC to Perps — try Funds → Transfer Spot → Perps.');
           }
         }
       }
@@ -650,8 +615,8 @@ const TerminalTradePanel: React.FC<Props> = ({
                 <AlertTriangle size={14} />
                 <span>
                   {hlNeedsSpotTransfer
-                    ? `${fmt(hlSpotUsd)} on HL Spot — move to Perps first (bot trades perps only). Use the button below.`
-                    : `Perp margin ${fmt(hlPerpUsd)} — deposit at least $${MIN_HL_BOT_USD} USDC on HL.`}
+                    ? `${fmt(hlSpotUsd)} on HL Spot — deposit moves to Perps automatically on standard HL accounts.`
+                    : `Deposit at least $${MIN_HL_BOT_USD} USDC on Hyperliquid to run the bot.`}
                 </span>
               </div>
             )}
@@ -664,30 +629,14 @@ const TerminalTradePanel: React.FC<Props> = ({
                 <div className="term-panel-info">
                   <Info size={14} />
                   <span>
-                    HL perp margin {fmt(hlPerpUsd)} is sufficient. MetaMask will ask to{' '}
+                    HL balance {fmt(hlPerpUsd)} is sufficient. MetaMask will ask to{' '}
                     <strong>allow trading</strong> — not to withdraw your USDC. A generic
                     &quot;assets at risk&quot; warning is normal for API approvals.
                   </span>
                 </div>
               )}
 
-            {walletReady && hlNeedsSpotTransfer && !botRunning && (
-              <button
-                type="button"
-                className="term-btn-sm term-btn-sm--primary w-full justify-center"
-                disabled={transferBusy || botBusy}
-                onClick={() => void handleMoveSpotToPerps()}
-              >
-                {transferBusy ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <ArrowLeftRight size={14} />
-                )}
-                {transferBusy ? 'Moving to Perps…' : `Move ${fmt(hlSpotUsd)} to Perps`}
-              </button>
-            )}
-
-            {walletReady && phase === 'fund' && !botRunning && !hlNeedsSpotTransfer && (
+            {walletReady && phase === 'fund' && !botRunning && (
               <button
                 type="button"
                 className="term-btn-sm term-btn-sm--primary w-full justify-center"
@@ -798,19 +747,23 @@ const TerminalTradePanel: React.FC<Props> = ({
               ) : null}
               <div className="term-funds-breakdown">
                 <div className="term-field-row">
-                  <span>Total balance</span>
-                  <strong>{fmt(metrics.hlBalanceUsd)}</strong>
-                </div>
-                <div className="term-field-row term-field-row--hint">
-                  <span>Perps</span>
+                  <span>{hlUnifiedAccount ? 'Trading balance' : 'Total balance'}</span>
                   <strong>{fmt(hlPerpUsd)}</strong>
                 </div>
-                <div className="term-field-row term-field-row--hint">
-                  <span>Spot USDC</span>
-                  <strong>{fmt(hlSpotUsd)}</strong>
-                </div>
+                {!hlUnifiedAccount ? (
+                  <>
+                    <div className="term-field-row term-field-row--hint">
+                      <span>Perps</span>
+                      <strong>{fmt(hlSetup.rawPerpUsd)}</strong>
+                    </div>
+                    <div className="term-field-row term-field-row--hint">
+                      <span>Spot USDC</span>
+                      <strong>{fmt(hlSpotUsd)}</strong>
+                    </div>
+                  </>
+                ) : null}
                 <div className="term-field-row">
-                  <span>Withdrawable (perps)</span>
+                  <span>Withdrawable</span>
                   <strong>{fmt(metrics.hlWithdrawableUsd)}</strong>
                 </div>
                 {hasOpenPosition && marginLockedUsd > 0.01 ? (
@@ -821,49 +774,17 @@ const TerminalTradePanel: React.FC<Props> = ({
                 ) : null}
               </div>
               <span className="term-panel-card-hint">
-                {hlNeedsSpotTransfer
-                  ? `${fmt(hlSpotUsd)} on HL Spot — move to Perps before the bot can trade (min $${MIN_HL_BOT_USD} on perps).`
-                  : `Withdrawable is lower while a position is open — Hyperliquid holds margin as collateral (not a loss). Bot needs $${MIN_HL_BOT_USD}+ on HL Perps.`}
+                {hlUnifiedAccount
+                  ? 'Unified Hyperliquid account — spot and perps share one USDC balance. Deposit once, then Start bot.'
+                  : hlNeedsSpotTransfer
+                    ? `${fmt(hlSpotUsd)} on HL Spot — standard accounts auto-move to Perps after deposit.`
+                    : `Bot needs $${MIN_HL_BOT_USD}+ USDC on Hyperliquid. Withdrawable is lower while a position is open.`}
               </span>
             </div>
 
-            {walletReady && hlNeedsSpotTransfer && (
-              <button
-                type="button"
-                className="term-btn-sm term-btn-sm--primary w-full justify-center"
-                disabled={transferBusy}
-                onClick={() =>
-                  requireAccount('Sign in before transferring on Hyperliquid.', () =>
-                    void handleMoveSpotToPerps()
-                  )
-                }
-              >
-                {transferBusy ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <ArrowLeftRight size={14} />
-                )}
-                {transferBusy ? 'Moving to Perps…' : `Move ${fmt(hlSpotUsd)} Spot → Perps`}
-              </button>
-            )}
-
             <button
               type="button"
-              className="term-btn-sm w-full justify-center"
-              disabled={!hlNeedsSpotTransfer && hlSpotUsd <= 0 && hlPerpUsd <= 0}
-              onClick={() =>
-                requireAccount('Sign in before transferring on Hyperliquid.', () =>
-                  setShowTransferModal(true)
-                )
-              }
-            >
-              <ArrowLeftRight size={14} />
-              Transfer Spot ⇄ Perps
-            </button>
-
-            <button
-              type="button"
-              className={`term-btn-sm w-full justify-center${hlNeedsSpotTransfer ? '' : ' term-btn-sm--primary'}`}
+              className="term-btn-sm term-btn-sm--primary w-full justify-center"
               onClick={() =>
                 requireAccount('Sign in before depositing to Hyperliquid.', () =>
                   openFunds('deposit')
@@ -953,16 +874,6 @@ const TerminalTradePanel: React.FC<Props> = ({
             if (fundsModalTab === 'deposit') {
               void hlSetup.pollBalanceAfterDeposit();
             }
-          }}
-        />
-      )}
-      {showTransferModal && (
-        <ProTradeTransferModal
-          perpAvailable={hlSetup.withdrawableUsd}
-          spotUsdc={hlSpotUsd}
-          onClose={() => setShowTransferModal(false)}
-          onSuccess={() => {
-            refreshAll();
           }}
         />
       )}

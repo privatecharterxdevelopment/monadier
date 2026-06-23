@@ -4,10 +4,13 @@ import { fetchHlAccountState } from '../lib/hyperliquid/user';
 
 export type HlAccountSnapshot = {
   wallet: string;
-  /** Perp margin account value */
+  /** Raw perp clearinghouse value */
   accountUsd: number;
+  /** USDC available for perp trading (unified accounts include spot USDC) */
+  tradablePerpUsd: number;
+  unifiedAccount: boolean;
   spotUsdcUsd: number;
-  /** Perp + spot USDC */
+  /** Perp + spot USDC (no double-count on unified) */
   totalUsd: number;
   withdrawableUsd: number;
   totalMarginUsedUsd: number;
@@ -42,6 +45,8 @@ async function pollOnce(wallet: string): Promise<void> {
     snapshot = {
       wallet,
       accountUsd: funding.perpUsd,
+      tradablePerpUsd: funding.tradablePerpUsd,
+      unifiedAccount: funding.unifiedAccount,
       spotUsdcUsd: funding.spotUsdcUsd,
       totalUsd: funding.totalUsd,
       withdrawableUsd: funding.withdrawableUsd,

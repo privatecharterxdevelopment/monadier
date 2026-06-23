@@ -72,7 +72,7 @@ export function useHlBotSetup(walletAddress: string | undefined) {
     setHlLoaded(true);
     setPhase(
       computePhase(
-        hlSnap.accountUsd,
+        hlSnap.tradablePerpUsd,
         metaRef.current.agentApproved,
         metaRef.current.builderFeeEnabled,
         metaRef.current.builderPlatformReady,
@@ -81,8 +81,10 @@ export function useHlBotSetup(walletAddress: string | undefined) {
     );
   }, [hlSnap]);
 
-  const perpUsd = hlSnap?.accountUsd ?? 0;
+  const perpUsd = hlSnap?.tradablePerpUsd ?? 0;
+  const rawPerpUsd = hlSnap?.accountUsd ?? 0;
   const spotUsdcUsd = hlSnap?.spotUsdcUsd ?? 0;
+  const unifiedAccount = hlSnap?.unifiedAccount ?? false;
 
   const refreshMeta = useCallback(async (): Promise<number> => {
     if (!walletAddress) {
@@ -142,7 +144,7 @@ export function useHlBotSetup(walletAddress: string | undefined) {
       if (hasSnapshotRef.current) {
         setPhase(
           computePhase(
-            hlSnap.accountUsd,
+            hlSnap.tradablePerpUsd,
             agentCheck.approved,
             builderConfig.enabled,
             platform.ready,
@@ -212,7 +214,9 @@ export function useHlBotSetup(walletAddress: string | undefined) {
     agentLoaded,
     minUsd: MIN_HL_BOT_USD,
     perpUsd,
+    rawPerpUsd,
     spotUsdcUsd,
+    unifiedAccount,
     balanceWallet: walletAddress,
     refresh,
     pollBalanceAfterDeposit,

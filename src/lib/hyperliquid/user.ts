@@ -302,6 +302,34 @@ export async function fetchHlUserFills(user: string, limit = 50): Promise<HlUser
   }));
 }
 
+export type HlUserAbstraction =
+  | 'unifiedAccount'
+  | 'portfolioMargin'
+  | 'disabled'
+  | 'default'
+  | 'dexAbstraction';
+
+export async function fetchHlUserAbstraction(user: string): Promise<HlUserAbstraction | null> {
+  try {
+    const mode = await hlInfo<string>({
+      type: 'userAbstraction',
+      user: user.toLowerCase(),
+    });
+    if (
+      mode === 'unifiedAccount' ||
+      mode === 'portfolioMargin' ||
+      mode === 'disabled' ||
+      mode === 'default' ||
+      mode === 'dexAbstraction'
+    ) {
+      return mode;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchHlUserFunding(user: string, limit = 50): Promise<HlFundingPayment[]> {
   const rows = await hlInfo<Array<Record<string, unknown>>>({ type: 'userFunding', user });
   if (!Array.isArray(rows)) return [];
