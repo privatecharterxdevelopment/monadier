@@ -17,13 +17,13 @@ export type HlBotSetupPhase =
   | 'ready';
 
 function computePhase(
-  balance: number,
+  perpUsd: number,
   agentApproved: boolean,
   builderFeeEnabled: boolean,
   builderPlatformReady: boolean,
   builderFeeApproved: boolean
 ): HlBotSetupPhase {
-  if (balance < MIN_HL_BOT_USD) return 'fund';
+  if (perpUsd < MIN_HL_BOT_USD) return 'fund';
   if (
     !agentApproved ||
     (builderFeeEnabled && builderPlatformReady && !builderFeeApproved)
@@ -72,7 +72,7 @@ export function useHlBotSetup(walletAddress: string | undefined) {
     setHlLoaded(true);
     setPhase(
       computePhase(
-        hlSnap.totalUsd,
+        hlSnap.accountUsd,
         metaRef.current.agentApproved,
         metaRef.current.builderFeeEnabled,
         metaRef.current.builderPlatformReady,
@@ -142,7 +142,7 @@ export function useHlBotSetup(walletAddress: string | undefined) {
       if (hasSnapshotRef.current) {
         setPhase(
           computePhase(
-            balance,
+            hlSnap.accountUsd,
             agentCheck.approved,
             builderConfig.enabled,
             platform.ready,

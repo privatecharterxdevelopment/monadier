@@ -3,6 +3,7 @@ import { useTerminalBotAnalysis } from '../../hooks/useTerminalBotAnalysis';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import { useHlBotRunning } from '../../hooks/useHlBotRunning';
 import { HL_MAX_CONCURRENT_POSITIONS } from '../../lib/hlBotConstants';
+import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import TerminalChartAnalysisOverlay from './TerminalChartAnalysisOverlay';
 
@@ -44,8 +45,13 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
 
   const idleReadiness = !hasWallet
     ? { headline: 'Connect wallet', detail: 'Connect your wallet to scan HL perps' }
+    : !botRunning && hlSetup.perpUsd < MIN_HL_BOT_USD && hlSetup.spotUsdcUsd >= MIN_HL_BOT_USD
+      ? {
+          headline: 'Funds on HL Spot',
+          detail: 'Press Start bot to move USDC to Perps — bot trades perps only.',
+        }
     : !botRunning
-      ? { headline: 'Bot paused', detail: 'Press Start bot to resume market scan' }
+      ? { headline: 'Bot off', detail: 'Press Start bot to scan markets' }
       : null;
 
   const analysis = useTerminalBotAnalysis({
@@ -53,7 +59,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     metrics,
     openPositionsCount,
     maxConcurrentPositions: maxSlots,
-    vaultUsd: hlBalanceUsd,
+    vaultUsd: hlSetup.perpUsd > 0 ? hlSetup.perpUsd : hlBalanceUsd,
     vaultWallet: effectiveVaultWallet,
     openPositionCoins,
     symbol,
@@ -67,7 +73,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     ? analysis.readiness.headline
     : botRunning
       ? `Checking ${analysis.currentlyScanningCoin}`
-      : 'Bot paused';
+      : 'Bot off';
 
   const readiness = useMemo(() => {
     if (idleReadiness) return idleReadiness;

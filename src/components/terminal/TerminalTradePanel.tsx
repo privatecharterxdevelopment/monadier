@@ -53,7 +53,12 @@ import BotSettingsStopFirstModal from './BotSettingsStopFirstModal';
 import { sanitizeUserFacingError } from '../../lib/hyperliquid/builderPlatform';
 import { isBotScanNoiseDetail } from '../../lib/hlBotReasonLabels';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
+import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
 import { hlWalletExplorerUrl } from '../../lib/hyperliquid/hlApp';
+import {
+  needsSpotToPerpTransfer,
+  spotToPerpTransferAmount,
+} from '../../lib/hyperliquid/funding';
 type PanelTab = 'bot' | 'lvrg' | 'funds';
 
 type Props = {
@@ -88,6 +93,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   const { open } = useAppKit();
   const { isConnected, address, publicClient, walletClient } = useWeb3();
   const { address: monadierAddress } = useMonadierWallet();
+  const { transferUsdClass } = useHyperliquidTrading();
   const { isDemoUser, isAuthenticated, user } = useAuth();
   const { linkWallet, planTier } = useSubscription();
   const [panelTab, setPanelTab] = useState<PanelTab>('bot');
@@ -132,6 +138,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   const hlFundingUsd = hlSetup.accountUsd;
   const hlPerpUsd = hlSetup.perpUsd;
   const hlSpotUsd = hlSetup.spotUsdcUsd;
+  const hlNeedsSpotTransfer = needsSpotToPerpTransfer(hlPerpUsd, hlSpotUsd);
   const autoTradeDb = botSettings.settings.autoTradeEnabled;
 
   useEffect(() => {
@@ -162,9 +169,9 @@ const TerminalTradePanel: React.FC<Props> = ({
 
   const phase: SetupPhase = useMemo(() => {
     if (!walletReady) return 'connect';
-    if (hlSetup.loading && hlFundingUsd === 0) return 'loading';
+    if (hlSetup.loading && hlPerpUsd === 0 && hlSpotUsd === 0) return 'loading';
     if (hlSetup.phase !== 'connect') return hlSetup.phase;
-    if (hlFundingUsd < MIN_HL_BOT_USD) return 'fund';
+    if (hlPerpUsd < MIN_HL_BOT_USD) return 'fund';
     if (!hlSetup.agentApproved || (hlSetup.builderFeeEnabled && hlSetup.builderPlatformReady && !hlSetup.builderFeeApproved)) {
       return 'approve';
     }
@@ -176,7 +183,8 @@ const TerminalTradePanel: React.FC<Props> = ({
     hlSetup.agentApproved,
     hlSetup.builderFeeEnabled,
     hlSetup.builderFeeApproved,
-    hlFundingUsd,
+    hlPerpUsd,
+    hlSpotUsd,
   ]);
 
   const sidebarStatus = useMemo(
@@ -187,6 +195,8 @@ const TerminalTradePanel: React.FC<Props> = ({
         phase,
         botRunning,
         hlBalanceUsd: hlFundingUsd,
+        perpUsd: hlPerpUsd,
+        spotUsdcUsd: hlSpotUsd,
         agentApproved: hlSetup.agentApproved,
         builderFeeApproved: hlSetup.builderFeeApproved,
         builderFeeEnabled: hlSetup.builderFeeEnabled,
@@ -199,6 +209,8 @@ const TerminalTradePanel: React.FC<Props> = ({
       phase,
       botRunning,
       hlFundingUsd,
+      hlPerpUsd,
+      hlSpotUsd,
       hlSetup.agentApproved,
       hlSetup.builderFeeApproved,
       hlSetup.builderFeeEnabled,
@@ -208,8 +220,11 @@ const TerminalTradePanel: React.FC<Props> = ({
 
   const startBlocker = useMemo((): string | null => {
     if (!walletReady) return null;
-    if (hlSetup.loading && hlFundingUsd === 0) return 'Loading Hyperliquid balance…';
-    if (hlFundingUsd < MIN_HL_BOT_USD) {
+    if (hlSetup.loading && hlPerpUsd === 0 && hlSpotUsd === 0) {
+      return 'Loading Hyperliquid balance…';
+    }
+    if (hlNeedsSpotTransfer) return null;
+    if (hlPerpUsd < MIN_HL_BOT_USD && hlFundingUsd < MIN_HL_BOT_USD) {
       return `Deposit at least $${MIN_HL_BOT_USD} USDC on Hyperliquid to start the bot.`;
     }
     if (!isDemoUser && !isAuthenticated) return 'Sign in to Monadier, then press Start bot.';
@@ -217,7 +232,10 @@ const TerminalTradePanel: React.FC<Props> = ({
   }, [
     walletReady,
     hlSetup.loading,
+    hlPerpUsd,
+    hlSpotUsd,
     hlFundingUsd,
+    hlNeedsSpotTransfer,
     isDemoUser,
     isAuthenticated,
   ]);
@@ -227,7 +245,9 @@ const TerminalTradePanel: React.FC<Props> = ({
     (hlSetup.builderFeeEnabled && hlSetup.builderPlatformReady && !hlSetup.builderFeeApproved);
 
   const canStartBot =
-    !botRunning && (phase === 'ready' || phase === 'approve') && !startBlocker;
+    !botRunning &&
+    (phase === 'ready' || phase === 'approve' || (phase === 'fund' && hlNeedsSpotTransfer)) &&
+    !startBlocker;
 
   const requireAccount = (reason: string, next: () => void) => {
     if (!isDemoUser && !isAuthenticated) {
@@ -317,8 +337,8 @@ const TerminalTradePanel: React.FC<Props> = ({
         !hlSetup.builderFeeEnabled ||
         !builderPlatformReady ||
         (ready?.builderFeeApproved ?? hlSetup.builderFeeApproved);
-      if (!isHlBotReadyToRun(hlFundingUsd, agentOk, builderOk, builderPlatformReady)) {
-        throw new Error('Deposit USDC, approve the trading agent, then press Start bot again.');
+      if (!isHlBotReadyToRun(hlPerpUsd, agentOk, builderOk, builderPlatformReady)) {
+        throw new Error('Deposit USDC on Perps, approve the trading agent, then press Start bot again.');
       }
       await enableHlBotExecution(wallet);
     } else {
@@ -347,11 +367,12 @@ const TerminalTradePanel: React.FC<Props> = ({
   };
 
   const startButtonLabel = useMemo(() => {
+    if (hlNeedsSpotTransfer) return 'Move to Perps & start bot';
     if (needsHlApproval) {
       return hlSetup.agentApproved ? 'Approve fee & start bot' : 'Approve & start bot';
     }
     return 'Start bot';
-  }, [needsHlApproval, hlSetup.agentApproved]);
+  }, [needsHlApproval, hlSetup.agentApproved, hlNeedsSpotTransfer]);
 
   const handleStartBot = async () => {
     if (!walletReady) {
@@ -370,11 +391,11 @@ const TerminalTradePanel: React.FC<Props> = ({
       setBotError(startBlocker ?? 'Loading Hyperliquid account…');
       return;
     }
-    if (hlFundingUsd < MIN_HL_BOT_USD) {
+    if (hlPerpUsd < MIN_HL_BOT_USD && !hlNeedsSpotTransfer && hlFundingUsd < MIN_HL_BOT_USD) {
       setBotError(`Deposit at least $${MIN_HL_BOT_USD} USDC on Hyperliquid to start the bot.`);
       return;
     }
-    if (phase !== 'ready' && phase !== 'approve') {
+    if (phase !== 'ready' && phase !== 'approve' && !(phase === 'fund' && hlNeedsSpotTransfer)) {
       setBotError(startBlocker ?? 'Complete setup before starting the bot.');
       return;
     }
@@ -387,6 +408,20 @@ const TerminalTradePanel: React.FC<Props> = ({
     setBotBusy(true);
     notifyHlBotRunningChange(true);
     try {
+      if (hlNeedsSpotTransfer) {
+        const move = spotToPerpTransferAmount(hlSpotUsd);
+        if (move) {
+          await transferUsdClass(move, true);
+          await hlSetup.refresh();
+        }
+        if (hlSetup.perpUsd < MIN_HL_BOT_USD) {
+          const moved = await hlSetup.refresh();
+          if (moved < MIN_HL_BOT_USD) {
+            throw new Error('Could not move USDC to Perps — try Funds → Transfer Spot → Perps.');
+          }
+        }
+      }
+
       if (!isDemoUser && user?.id) {
         await registerWalletsForHistory([address], user.id);
       }
@@ -573,21 +608,22 @@ const TerminalTradePanel: React.FC<Props> = ({
               <div className="term-panel-info">
                 <AlertTriangle size={14} />
                 <span>
-                  Hyperliquid balance {fmt(hlFundingUsd)} — need at least ${MIN_HL_BOT_USD} USDC on
-                  HL (not in your MetaMask wallet). Use Deposit below.
+                  {hlNeedsSpotTransfer
+                    ? `${fmt(hlSpotUsd)} on HL Spot — press Start bot to move to Perps (bot trades perps only).`
+                    : `Perp margin ${fmt(hlPerpUsd)} — deposit at least $${MIN_HL_BOT_USD} USDC on HL.`}
                 </span>
               </div>
             )}
 
             {walletReady &&
-              hlFundingUsd >= MIN_HL_BOT_USD &&
+              hlPerpUsd >= MIN_HL_BOT_USD &&
               needsHlApproval &&
               !botRunning &&
               !botError && (
                 <div className="term-panel-info">
                   <Info size={14} />
                   <span>
-                    HL balance {fmt(hlFundingUsd)} is sufficient. MetaMask will ask to{' '}
+                    HL perp margin {fmt(hlPerpUsd)} is sufficient. MetaMask will ask to{' '}
                     <strong>allow trading</strong> — not to withdraw your USDC. A generic
                     &quot;assets at risk&quot; warning is normal for API approvals.
                   </span>
@@ -728,9 +764,9 @@ const TerminalTradePanel: React.FC<Props> = ({
                 ) : null}
               </div>
               <span className="term-panel-card-hint">
-                {hlSpotUsd >= MIN_HL_BOT_USD && hlPerpUsd < MIN_HL_BOT_USD
-                  ? `USDC is on HL Spot — transfer Spot → Perps to run the bot (min $${MIN_HL_BOT_USD}).`
-                  : `Withdrawable is lower while a position is open — Hyperliquid holds margin as collateral (not a loss). Bot needs $${MIN_HL_BOT_USD}+ on HL.`}
+                {hlNeedsSpotTransfer
+                  ? `${fmt(hlSpotUsd)} on HL Spot — press Start bot to move to Perps (min $${MIN_HL_BOT_USD} on perps for bot).`
+                  : `Withdrawable is lower while a position is open — Hyperliquid holds margin as collateral (not a loss). Bot needs $${MIN_HL_BOT_USD}+ on HL Perps.`}
               </span>
             </div>
 

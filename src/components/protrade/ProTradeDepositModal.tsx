@@ -19,7 +19,7 @@ import {
   describeHlFundsPlacement,
   fetchHlFundingSnapshot,
   pollHlFundingAfterDeposit,
-  type HlFundingSnapshot,
+  spotToPerpTransferAmount,
 } from '../../lib/hyperliquid/funding';
 import { USDC_ADDRESSES, USDC_DECIMALS } from '../../lib/vault';
 import { ERC20_ABI } from '../../lib/dex/router';
@@ -54,7 +54,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
   const { publicClient, walletClient } = useWeb3();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
-  const { deposit, withdraw, busy, error, walletReady } = useHyperliquidTrading();
+  const { deposit, withdraw, busy, error, walletReady, transferUsdClass } = useHyperliquidTrading();
   const [tab, setTab] = useState<'deposit' | 'withdraw'>(initialTab);
   const [amount, setAmount] = useState('');
   const [localMsg, setLocalMsg] = useState<string | null>(null);
@@ -174,23 +174,67 @@ const ProTradeDepositModal: React.FC<Props> = ({
         intervalMs: 5000,
       }
     );
-    const credited = snap.totalUsd >= baselineUsd + Math.max(1, depositedUsd * 0.25);
-    if (credited) {
+    let finalSnap = snap;
+
+    if (
+      !isBetting &&
+      walletReady &&
+      snap.spotUsdcUsd >= 1 &&
+      snap.perpUsd < Math.max(1, depositedUsd * 0.25)
+    ) {
+      const move = spotToPerpTransferAmount(snap.spotUsdcUsd);
+      if (move) {
+        try {
+          setDepositFlow({ phase: 'bridging', txHash, amountUsd: depositedUsd });
+          setLocalMsg('Moving USDC to Perps for trading…');
+          await transferUsdClass(move, true);
+          finalSnap = await fetchHlFundingSnapshot(address);
+          setLiveFunding(finalSnap);
+          onSuccess?.();
+        } catch {
+          setDepositFlow({
+            phase: 'delayed',
+            txHash,
+            amountUsd: depositedUsd,
+            totalUsd: snap.totalUsd,
+          });
+          setLocalMsg(
+            `${snap.spotUsdcUsd.toFixed(2)} USDC credited on HL Spot — use Transfer Spot → Perps in Funds.`
+          );
+          return snap;
+        }
+      }
+    }
+
+    const credited =
+      finalSnap.perpUsd >= Math.max(1, depositedUsd * 0.25) ||
+      finalSnap.totalUsd >= baselineUsd + Math.max(1, depositedUsd * 0.25);
+    if (credited && finalSnap.perpUsd >= 1) {
       setDepositFlow({
         phase: 'success',
         txHash,
         amountUsd: depositedUsd,
-        totalUsd: snap.totalUsd,
+        totalUsd: finalSnap.totalUsd,
       });
+    } else if (credited) {
+      setDepositFlow({
+        phase: 'delayed',
+        txHash,
+        amountUsd: depositedUsd,
+        totalUsd: finalSnap.totalUsd,
+      });
+      setLocalMsg(
+        `USDC on HL Spot (${fmtUsdSymbol(finalSnap.spotUsdcUsd)}) — transfer to Perps to trade.`
+      );
     } else {
       setDepositFlow({
         phase: 'delayed',
         txHash,
         amountUsd: depositedUsd,
-        totalUsd: snap.totalUsd,
+        totalUsd: finalSnap.totalUsd,
       });
     }
-    return snap;
+    return finalSnap;
   };
 
   const resetDepositFlow = () => setDepositFlow({ phase: 'idle' });

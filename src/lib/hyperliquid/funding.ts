@@ -1,5 +1,6 @@
 import { fetchHlAccountState, fetchHlSpotBalances } from './user';
 import { toNum } from './parse';
+import { MIN_HL_BOT_USD } from './hlBotAgent';
 
 export type HlFundingSnapshot = {
   perpUsd: number;
@@ -67,6 +68,20 @@ export async function pollHlFundingAfterDeposit(
   }
 
   return latest;
+}
+
+export function needsSpotToPerpTransfer(
+  perpUsd: number,
+  spotUsdcUsd: number,
+  minUsd = MIN_HL_BOT_USD
+): boolean {
+  return perpUsd < minUsd && spotUsdcUsd >= 1;
+}
+
+/** Move all spot USDC to perps (bot + perp trading). */
+export function spotToPerpTransferAmount(spotUsdcUsd: number): string | null {
+  if (spotUsdcUsd < 0.01) return null;
+  return spotUsdcUsd.toFixed(2);
 }
 
 export function describeHlFundsPlacement(snap: HlFundingSnapshot): string | null {

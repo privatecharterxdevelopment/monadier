@@ -72,6 +72,8 @@ export function getHlBotSidebarStatus(opts: {
   phase: HlSetupPhase;
   botRunning: boolean;
   hlBalanceUsd: number;
+  perpUsd?: number;
+  spotUsdcUsd?: number;
   agentApproved: boolean;
   builderFeeApproved?: boolean;
   builderFeeEnabled?: boolean;
@@ -84,6 +86,8 @@ export function getHlBotSidebarStatus(opts: {
     phase,
     botRunning,
     hlBalanceUsd,
+    perpUsd = hlBalanceUsd,
+    spotUsdcUsd = 0,
     agentApproved,
     builderFeeApproved = true,
     builderFeeEnabled = false,
@@ -121,7 +125,9 @@ export function getHlBotSidebarStatus(opts: {
     };
   }
 
-  const needsDeposit = hlBalanceUsd < MIN_HL_BOT_USD;
+  const needsDeposit = perpUsd < MIN_HL_BOT_USD && perpUsd + spotUsdcUsd < MIN_HL_BOT_USD;
+  const needsSpotTransfer =
+    perpUsd < MIN_HL_BOT_USD && spotUsdcUsd >= MIN_HL_BOT_USD;
   const needsAgent = !agentApproved;
   const needsBuilderFee =
     builderFeeEnabled && builderPlatformReady && !builderFeeApproved;
@@ -137,12 +143,21 @@ export function getHlBotSidebarStatus(opts: {
         setupComplete: false,
       };
     }
+    if (needsSpotTransfer) {
+      return {
+        headline: 'Move USDC to Perps',
+        detail: `$${spotUsdcUsd.toFixed(2)} is on HL Spot — the bot trades perps only. Press Start bot to move it automatically, or use Funds → Transfer.`,
+        tone: 'warn',
+        setupStep: 2,
+        setupComplete: false,
+      };
+    }
     if (needsApprove) {
-      const funded = hlBalanceUsd >= MIN_HL_BOT_USD;
+      const funded = perpUsd >= MIN_HL_BOT_USD;
       return {
         headline: funded ? 'Allow trading (one-time)' : 'Start bot',
         detail: funded
-          ? `Your HL balance ($${hlBalanceUsd.toFixed(2)}) is enough. Press Start bot — MetaMask asks to allow trading, not to withdraw USDC. It may show a generic safety warning; that is normal for Hyperliquid API approvals.`
+          ? `Perp margin $${perpUsd.toFixed(2)} — press Start bot. MetaMask asks to allow trading, not to withdraw USDC.`
           : needsAgent
             ? 'Press Start bot below — includes one-time Hyperliquid signatures (trading agent + platform fee, 1–2 wallet confirmations).'
             : 'Press Start bot below — includes one-time platform fee approval on Hyperliquid.',
@@ -153,7 +168,7 @@ export function getHlBotSidebarStatus(opts: {
     }
     return {
       headline: 'Ready',
-      detail: 'Account funded. Press Start bot below — deposit alone does not start trading.',
+      detail: `Perp margin $${perpUsd.toFixed(2)} — press Start bot below. Deposit alone does not start trading.`,
       tone: 'ok',
       setupStep: 3,
       setupComplete: true,
