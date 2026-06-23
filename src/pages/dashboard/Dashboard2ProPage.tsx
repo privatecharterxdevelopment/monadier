@@ -54,7 +54,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import ProTradeSignInModal from '../../components/protrade/ProTradeSignInModal';
 import ProTradeRegisterModal from '../../components/protrade/ProTradeRegisterModal';
 import { useHlBotChartMarkers } from '../../hooks/useHlBotChartMarkers';
-import { useProTradeTheme } from '../../contexts/ProTradeThemeContext';
+import { useHlBotMinBalanceGuard } from '../../hooks/useHlBotMinBalanceGuard';
 import { getProTradeChartColors } from '../../lib/proTradeTheme';
 
 const PROFILE_TABS = new Set<ProTradeProfileTab>([
@@ -204,7 +204,8 @@ const Dashboard2ProPageContent: React.FC = () => {
     [account?.positions]
   );
 
-  const { settings: botVaultSettings, wallet: botTradingWallet } = useTerminalBotSettings();
+  const { settings: botVaultSettings, wallet: botTradingWallet, reload: reloadBotSettings } =
+    useTerminalBotSettings(botSyncTick);
   const botServerStatus = useBotServerBlockers(
     (botTradingWallet ?? address)?.toLowerCase(),
     section === 'bot' && botVaultSettings.autoTradeEnabled
@@ -482,6 +483,20 @@ const Dashboard2ProPageContent: React.FC = () => {
     window.setTimeout(() => setToast(null), 4000);
   };
 
+  const onBotMinBalanceStopped = useCallback(() => {
+    void reloadBotSettings();
+    void handleRefreshAll();
+    showToast('Bot paused — deposit at least $20 USDC on Hyperliquid');
+  }, [reloadBotSettings, handleRefreshAll]);
+
+  useHlBotMinBalanceGuard({
+    wallet: botTradingWallet ?? address,
+    hlBalanceUsd: perpAccountValue,
+    autoTradeEnabled: botVaultSettings.autoTradeEnabled,
+    enabled: section === 'bot' && Boolean(botTradingWallet ?? address),
+    onStopped: onBotMinBalanceStopped,
+  });
+
   const handleClosePosition = async (position: HlPosition) => {
     const size = Math.abs(toNum(position.szi));
     const isLong = toNum(position.szi) >= 0;
@@ -686,6 +701,7 @@ const Dashboard2ProPageContent: React.FC = () => {
             analysisSymbol={hlCoinToBotSymbol(botScanCoin)}
             openPositionCoins={botOpenPositionCoins}
             onCoinClick={selectChartCoin}
+            onDeposit={() => setFundsModal('deposit')}
           />
         </div>
 

@@ -293,6 +293,25 @@ export class HyperliquidTradingService {
       userAddress,
       config.arbitrum.chainId
     );
+
+    let autoTradeEnabled = settings.autoTradeEnabled;
+    if (autoTradeEnabled) {
+      const funding = await fetchHlPerpFundingSnapshot(userAddress);
+      const balanceBlocker = describeHlPerpBalanceBlocker(
+        funding,
+        config.hyperliquid.minAccountUsd
+      );
+      if (balanceBlocker) {
+        await subscriptionService.disableAutoTrade(userAddress, config.arbitrum.chainId);
+        autoTradeEnabled = false;
+        logger.info('HL auto-trade disabled — perp balance below minimum', {
+          user: userAddress.slice(0, 10),
+          perpUsd: funding.perpUsd.toFixed(2),
+          minUsd: config.hyperliquid.minAccountUsd,
+        });
+      }
+    }
+
     const state = await fetchHlClearinghouseState(userAddress);
     if (!state) return 'skip';
 
@@ -303,7 +322,7 @@ export class HyperliquidTradingService {
       await this.monitorOpenPositions(userAddress, state, settings, { fast: false });
     }
 
-    if (!settings.autoTradeEnabled) {
+    if (!autoTradeEnabled) {
       if (openCoins.length > 0) {
         logger.debug('HL user: monitoring open positions (auto-trade off)', {
           user: userAddress.slice(0, 10),

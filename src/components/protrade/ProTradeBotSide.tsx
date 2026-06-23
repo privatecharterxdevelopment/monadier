@@ -46,6 +46,7 @@ type DockProps = {
   analysisSymbol?: string;
   openPositionCoins?: string[];
   onCoinClick?: (coin: string) => void;
+  onDeposit?: () => void;
 };
 
 export const ProTradeBotDockSlot: React.FC<DockProps> = ({
@@ -54,6 +55,7 @@ export const ProTradeBotDockSlot: React.FC<DockProps> = ({
   analysisSymbol = 'BTCUSDT',
   openPositionCoins = [],
   onCoinClick,
+  onDeposit,
 }) => {
   const { metrics, dockRefreshKey, refresh } = useProTradeBot();
   const { address, isConnected } = useMonadierWallet();
@@ -72,6 +74,8 @@ export const ProTradeBotDockSlot: React.FC<DockProps> = ({
       onPositionChange={refresh}
       onCoinClick={onCoinClick}
       walletAddress={address ?? null}
+      onDeposit={onDeposit}
+      botHlBalanceUsd={metrics.hlBalanceUsd}
     />
   );
 };

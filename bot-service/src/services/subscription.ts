@@ -732,6 +732,25 @@ export class SubscriptionService {
     }
   }
 
+  async disableAutoTrade(walletAddress: string, chainId: number): Promise<void> {
+    const wallet = walletAddress.toLowerCase();
+    const { error } = await this.supabase
+      .from('vault_settings')
+      .upsert(
+        {
+          wallet_address: wallet,
+          chain_id: chainId,
+          auto_trade_enabled: false,
+          updated_at: new Date().toISOString(),
+          synced_at: new Date().toISOString(),
+        },
+        { onConflict: 'wallet_address,chain_id' }
+      );
+    if (error) {
+      logger.error('Failed to disable auto-trade', { wallet, chainId, error });
+    }
+  }
+
   /**
    * Sync vault_settings from on-chain state
    * Creates or updates vault_settings when on-chain autoTrade is enabled

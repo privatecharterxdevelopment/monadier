@@ -32,6 +32,7 @@ import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
 import TradeReasonHint from '../terminal/TradeReasonHint';
 import DockCountBadge from './DockCountBadge';
 import ProTradeBotScanInsights from './ProTradeBotScanInsights';
+import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
 
 function livePositionPnl(position: HlPosition, markPx: number): number {
   const szi = toNum(position.szi);
@@ -92,6 +93,8 @@ type Props = {
   botScanMetrics?: Dashboard2Metrics;
   botScanWallet?: string | null;
   botOpenPositionCoins?: string[];
+  botHlBalanceUsd?: number;
+  onDeposit?: () => void;
 };
 
 const ProTradeDock: React.FC<Props> = ({
@@ -124,6 +127,8 @@ const ProTradeDock: React.FC<Props> = ({
   botScanMetrics,
   botScanWallet,
   botOpenPositionCoins = [],
+  botHlBalanceUsd = 0,
+  onDeposit,
 }) => {
   const isSpot = variant === 'spot';
   const isBotMode = mode === 'bot';
@@ -173,6 +178,10 @@ const ProTradeDock: React.FC<Props> = ({
   );
   const positionTone: 'pos' | 'neg' | null =
     positionCount > 0 ? (positionUpnl >= 0 ? 'pos' : 'neg') : null;
+
+  const botNeedsDeposit =
+    isBotMode && connected && !loading && botHlBalanceUsd < MIN_HL_BOT_USD;
+  const botUnderfunded = botNeedsDeposit;
 
   /** Closed fills only — open legs have no PnL and looked like blank "—,—" rows. */
   const closeFills = useMemo(
@@ -324,7 +333,24 @@ const ProTradeDock: React.FC<Props> = ({
             </table>
           )
         ) : tab === 'positions' ? (
-          filteredPositions.length > 0 ? (
+          <>
+            {botUnderfunded ? (
+              <div className="hl-dock-fund-banner" role="status">
+                <div className="hl-dock-fund-banner-copy">
+                  <strong>Deposit to run the bot</strong>
+                  <p>
+                    HL balance {fmtUsdSymbol(botHlBalanceUsd)} — minimum ${MIN_HL_BOT_USD} USDC on
+                    Hyperliquid perps. The bot is paused until you fund your account.
+                  </p>
+                </div>
+                {onDeposit ? (
+                  <button type="button" className="hl-dock-fund-banner-btn" onClick={onDeposit}>
+                    Deposit now
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+            {filteredPositions.length > 0 ? (
             <table className="hl-table">
               <thead>
                 <tr>
@@ -384,7 +410,7 @@ const ProTradeDock: React.FC<Props> = ({
                 })}
               </tbody>
             </table>
-          ) : isBotMode && botRunning ? (
+          ) : isBotMode && botRunning && !botNeedsDeposit ? (
             <div className="hl-dock-empty hl-dock-empty--bot-scan" role="status">
               <div className="hl-dock-bot-scan-row">
                 <Loader2 size={14} className="hl-dock-bot-scan-loader animate-spin" aria-hidden />
@@ -406,7 +432,8 @@ const ProTradeDock: React.FC<Props> = ({
             </div>
           ) : (
             <p className="hl-dock-empty">No open positions.</p>
-          )
+          )}
+          </>
         ) : tab === 'orders' ? (
           filteredOrders.length > 0 ? (
             <table className="hl-table">

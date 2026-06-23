@@ -43,6 +43,8 @@ type Props = {
   botAnalysisWallet?: string | null;
   botOpenPositionCoins?: string[];
   className?: string;
+  onDeposit?: () => void;
+  botHlBalanceUsd?: number;
   /** Full-page trade history (Profile → Bot trades) — fills table only. */
   historyOnly?: boolean;
 };
@@ -62,6 +64,8 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   botOpenPositionCoins = [],
   className,
   historyOnly = false,
+  onDeposit,
+  botHlBalanceUsd = 0,
 }) => {
   const { address } = useAccount();
   const { wallet: settingsWallet, settings: botSettingsSnapshot } = useTerminalBotSettings();
@@ -175,6 +179,12 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         botScanMetrics={botAnalysisMetrics}
         botScanWallet={botAnalysisWallet ?? hlWallet ?? null}
         botOpenPositionCoins={botOpenPositionCoins ?? positionCoins}
+        botHlBalanceUsd={
+          botAnalysisMetrics?.hlBalanceUsd ??
+          botHlBalanceUsd ??
+          toNum(account?.marginSummary?.accountValue)
+        }
+        onDeposit={onDeposit}
       />
     </div>
   );
