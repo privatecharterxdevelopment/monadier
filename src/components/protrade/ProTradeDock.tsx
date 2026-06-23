@@ -334,22 +334,6 @@ const ProTradeDock: React.FC<Props> = ({
           )
         ) : tab === 'positions' ? (
           <div className="hl-dock-positions-pane">
-            {botUnderfunded ? (
-              <div className="hl-dock-fund-banner hl-dock-fund-banner--mobile" role="status">
-                <div className="hl-dock-fund-banner-copy">
-                  <strong>Deposit to run the bot</strong>
-                  <p>
-                    HL balance {fmtUsdSymbol(botHlBalanceUsd)} — minimum ${MIN_HL_BOT_USD} USDC on
-                    Hyperliquid perps. The bot is paused until you fund your account.
-                  </p>
-                </div>
-                {onDeposit ? (
-                  <button type="button" className="hl-dock-fund-banner-btn" onClick={onDeposit}>
-                    Deposit now
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
             {filteredPositions.length > 0 ? (
             <table className="hl-table">
               <thead>

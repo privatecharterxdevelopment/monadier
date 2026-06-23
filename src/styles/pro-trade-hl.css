@@ -2086,17 +2086,6 @@
   font-size: 12px;
 }
 
-.hl-dock-fund-banner {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin: 0 0 12px;
-  padding: 14px;
-  border-radius: 10px;
-  border: 1px solid color-mix(in srgb, #f59e0b 35%, var(--hl-border));
-  background: color-mix(in srgb, #f59e0b 10%, var(--hl-bg-elevated));
-}
-
 .hl-dock-positions-pane {
   display: flex;
   flex-direction: column;
@@ -2108,10 +2097,6 @@
 }
 
 @media (min-width: 769px) {
-  .hl-dock-fund-banner--mobile {
-    display: none !important;
-  }
-
   .hl-dock-fund-nudge--desktop {
     display: flex;
     align-items: center;
@@ -2142,41 +2127,6 @@
   .hl-dock-fund-nudge-link:hover {
     color: var(--hl-text);
   }
-}
-
-.hl-dock-fund-banner-copy strong {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--hl-text);
-}
-
-.hl-dock-fund-banner-copy p {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--hl-text-muted);
-}
-
-.hl-dock-fund-banner-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 40px;
-  padding: 0 14px;
-  border: none;
-  border-radius: 10px;
-  background: #f59e0b;
-  color: #0a0a0a;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.hl-dock-fund-banner-btn:hover {
-  filter: brightness(1.05);
 }
 
 .hl-dock-bot-scan-sub {
