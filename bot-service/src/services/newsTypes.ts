@@ -9,6 +9,7 @@ export type NewsItem = {
   source: string;
   publishedAt: string;
   url?: string;
+  snippet?: string;
   assets: string[];
   category: 'crypto' | 'macro' | 'sports';
 };
@@ -23,6 +24,8 @@ export type NewsAnalysis = {
   priceHint: string;
   reasoning: string;
   suggestedAction: 'LONG' | 'SHORT' | 'WAIT' | 'FADE' | 'NONE';
+  /** openai = LLM pass; rules = keyword desk scan (fallback). */
+  engine: 'openai' | 'rules';
 };
 
 export type AnalyzedNewsItem = NewsItem & {

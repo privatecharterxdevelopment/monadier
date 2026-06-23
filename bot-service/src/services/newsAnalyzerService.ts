@@ -33,7 +33,7 @@ function horizonFromImpact(impact: NewsImpact): NewsHorizon {
 }
 
 function heuristicAnalysis(item: NewsItem): NewsAnalysis {
-  const text = item.headline;
+  const text = `${item.headline} ${item.snippet ?? ''}`;
   let bull = 0;
   let bear = 0;
   if (BULLISH_RE.test(text)) bull += 1;
@@ -49,7 +49,7 @@ function heuristicAnalysis(item: NewsItem): NewsAnalysis {
   } else if (bear > bull && bear > 0) {
     bias = 'bearish';
   } else if (bull === 0 && bear === 0) {
-    bias = item.category === 'sports' ? 'neutral' : 'unknown';
+    bias = item.category === 'sports' ? 'neutral' : 'neutral';
   }
 
   let impact: NewsImpact = 'low';
@@ -58,15 +58,15 @@ function heuristicAnalysis(item: NewsItem): NewsAnalysis {
   else if (bear >= 1 || bull >= 1 || item.category === 'sports') impact = 'medium';
 
   const confidence = Math.min(
-    92,
-    48 +
-      (impact === 'critical' ? 35 : impact === 'high' ? 22 : impact === 'medium' ? 12 : 4) +
-      Math.abs(bull - bear) * 8
+    72,
+    42 +
+      (impact === 'critical' ? 22 : impact === 'high' ? 14 : impact === 'medium' ? 8 : 2) +
+      Math.abs(bull - bear) * 6
   );
 
   let suggestedAction: NewsAnalysis['suggestedAction'] = 'NONE';
   if (bias === 'risk_off' || (bias === 'bearish' && impact !== 'low')) {
-    suggestedAction = item.category === 'crypto' ? 'SHORT' : 'WAIT';
+    suggestedAction = item.category === 'crypto' || item.category === 'macro' ? 'SHORT' : 'WAIT';
   } else if (bias === 'bullish' && impact !== 'low') {
     suggestedAction = 'LONG';
   } else if (bias === 'bearish') {
@@ -75,37 +75,44 @@ function heuristicAnalysis(item: NewsItem): NewsAnalysis {
     suggestedAction = 'WAIT';
   }
 
+  const majors = item.assets.filter((a) => ['BTC', 'ETH'].includes(a));
+  const target = majors.length > 0 ? majors.join('/') : item.assets.slice(0, 2).join('/') || 'BTC';
+
   const move =
     impact === 'critical'
-      ? '2–8% risk-off move on majors'
+      ? `${target} often −2% to −6% on risk-off (hours)`
       : impact === 'high'
-        ? '1–4% move likely'
+        ? `${target} ±1–3% drift likely (4–24h)`
         : impact === 'medium'
-          ? '0.5–2% drift'
-          : 'minimal drift';
+          ? `${target} ±0.3–1.2% — wait for zone confirmation`
+          : `${target} — noise, minimal drift expected`;
 
-  const priceHint =
-    item.category === 'sports'
-      ? 'Check matched betting market — odds may shift on this headline'
-      : `${item.assets.slice(0, 3).join('/')} — ${move} (${bias})`;
+  const priceHint = item.category === 'sports' ? 'Reprice matched outcome odds' : move;
 
   const reasoning =
     bias === 'risk_off'
-      ? 'Geopolitical / macro shock — flight to safety; BTC/ETH often dip on risk-off.'
+      ? 'Macro/geopolitical shock — risk assets (BTC/ETH) often sell first; fade bounces only after sweep.'
       : bias === 'bullish'
-        ? 'Positive catalyst language — upside bias short-term.'
+        ? 'Positive catalyst — but confirm price is not already at pump high before LONG.'
         : bias === 'bearish'
-          ? 'Negative catalyst — fade rallies or wait for sweep low.'
+          ? 'Negative headline — prefer SHORT fade near resistance or wait for sweep low.'
           : item.category === 'sports'
             ? INJURY_RE.test(text)
-              ? 'Player availability shift — reprice match odds.'
+              ? 'Availability change — shift win probability toward the healthy side.'
               : WIN_RE.test(text)
-                ? 'Result / form signal — momentum for winner side.'
-                : 'Sports headline — match to open betting markets.'
-            : 'No strong directional keyword — wait for technical zone.';
+                ? 'Form/result signal — short-term momentum for the named side.'
+                : 'Match-related headline — check linked betting market.'
+            : 'Desk scan: no strong keyword catalyst — treat as low conviction until price reacts.';
+
+  const summary =
+    item.snippet && item.snippet.length > 40 && item.snippet !== item.headline
+      ? item.snippet.slice(0, 200)
+      : item.headline.length > 120
+        ? `${item.headline.slice(0, 117)}…`
+        : item.headline;
 
   return {
-    summary: text.length > 120 ? `${text.slice(0, 117)}…` : text,
+    summary,
     bias,
     impact,
     confidence,
@@ -114,6 +121,7 @@ function heuristicAnalysis(item: NewsItem): NewsAnalysis {
     priceHint,
     reasoning,
     suggestedAction,
+    engine: 'rules',
   };
 }
 
@@ -136,11 +144,14 @@ async function llmAnalysis(item: NewsItem): Promise<NewsAnalysis | null> {
           {
             role: 'system',
             content:
-              'You are a crypto and sports trading analyst. Return JSON only with keys: summary, bias (bullish|bearish|neutral|risk_off|unknown), impact (low|medium|high|critical), confidence (0-100), affectedAssets (string array), horizon (1h|4h|24h), priceHint, reasoning, suggestedAction (LONG|SHORT|WAIT|FADE|NONE). For sports, focus on match outcome probability shifts.',
+              'You are a senior crypto/macro trading desk analyst. Be realistic and conservative — most headlines are LOW impact. Only use high/critical for genuine market movers (war, ETF approval, exchange hack, Fed surprise). Confidence rarely above 80. Return JSON: summary (1-2 sentences), bias (bullish|bearish|neutral|risk_off|unknown), impact (low|medium|high|critical), confidence (0-100), affectedAssets (tickers), horizon (1h|4h|24h), priceHint (specific BTC/ETH % range if relevant), reasoning (trader-facing), suggestedAction (LONG|SHORT|WAIT|FADE|NONE), engine ("openai").',
           },
           {
             role: 'user',
-            content: `Category: ${item.category}\nHeadline: ${item.headline}\nAssets: ${item.assets.join(', ')}`,
+            content:
+              `Source: ${item.source}\nCategory: ${item.category}\nHeadline: ${item.headline}\n` +
+              (item.snippet ? `Snippet: ${item.snippet}\n` : '') +
+              `Assets: ${item.assets.join(', ')}`,
           },
         ],
       }),
@@ -165,6 +176,7 @@ async function llmAnalysis(item: NewsItem): Promise<NewsAnalysis | null> {
       priceHint: String(parsed.priceHint ?? ''),
       reasoning: String(parsed.reasoning ?? ''),
       suggestedAction: (parsed.suggestedAction as NewsAnalysis['suggestedAction']) ?? 'WAIT',
+      engine: 'openai',
     };
   } catch (err) {
     logger.warn('LLM news analysis failed', { error: err instanceof Error ? err.message : String(err) });
@@ -196,6 +208,7 @@ export function analyzeHeadlinesHeuristic(headlines: string[], assets: string[])
       priceHint: 'No catalyst',
       reasoning: 'No news — technical zones lead.',
       suggestedAction: 'NONE',
+      engine: 'rules',
     };
   }
 

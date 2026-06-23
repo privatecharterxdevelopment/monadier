@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Loader2, Newspaper, Shield } from 'lucide-react';
-import { fetchNewsFeed, type NewsItemDto } from '../../lib/newsFeed';
+import { Loader2, Newspaper, RefreshCw, Shield } from 'lucide-react';
+import { fetchNewsFeed, type NewsFeedMeta, type NewsItemDto } from '../../lib/newsFeed';
 import {
   NEWS_TRADE_MODE_HINTS,
   NEWS_TRADE_MODE_LABELS,
@@ -21,9 +21,17 @@ type Props = {
 
 const MODES: NewsTradeMode[] = ['off', 'filter', 'boost'];
 
+function formatTime(iso?: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
 const ProTradeNews: React.FC<Props> = ({ walletAddress, onTradeCrypto, onTradeSports }) => {
   const [tab, setTab] = useState<Tab>('crypto');
   const [items, setItems] = useState<NewsItemDto[]>([]);
+  const [meta, setMeta] = useState<NewsFeedMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingMode, setSavingMode] = useState(false);
@@ -40,8 +48,9 @@ const ProTradeNews: React.FC<Props> = ({ walletAddress, onTradeCrypto, onTradeSp
     setLoading(true);
     setError(null);
     try {
-      const rows = await fetchNewsFeed(tab, 24);
+      const { items: rows, meta: feedMeta } = await fetchNewsFeed(tab, 28);
       setItems(rows);
+      setMeta(feedMeta ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load news');
       setItems([]);
@@ -69,6 +78,13 @@ const ProTradeNews: React.FC<Props> = ({ walletAddress, onTradeCrypto, onTradeSp
     }
   };
 
+  const engineLabel =
+    meta?.analysisEngine === 'openai'
+      ? 'GPT desk scan'
+      : meta?.hasOpenAi
+        ? 'Rules scan (AI unavailable)'
+        : 'Rules desk scan — set OPENAI_API_KEY on bot for GPT';
+
   return (
     <div className="hl-news-page">
       <header className="hl-news-hero">
@@ -76,31 +92,65 @@ const ProTradeNews: React.FC<Props> = ({ walletAddress, onTradeCrypto, onTradeSp
           <Newspaper size={22} aria-hidden />
           <div>
             <h1>News</h1>
-            <p>AI reads catalysts for crypto perps and sports bets — optional bot safety layer.</p>
+            <p className="hl-news-hero__lead">
+              Live headlines from CNBC, Reuters, Bloomberg, CoinDesk &amp; more → each item scanned for
+              market impact (GPT when configured, otherwise desk rules).
+            </p>
           </div>
         </div>
 
-        <div className="hl-news-tabs" role="tablist" aria-label="News category">
+        <div className="hl-news-hero__actions">
+          <div className="hl-news-tabs" role="tablist" aria-label="News category">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'crypto'}
+              className={`hl-news-tab ${tab === 'crypto' ? 'hl-news-tab--on' : ''}`}
+              onClick={() => setTab('crypto')}
+            >
+              Crypto
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'sports'}
+              className={`hl-news-tab ${tab === 'sports' ? 'hl-news-tab--on' : ''}`}
+              onClick={() => setTab('sports')}
+            >
+              Sports
+            </button>
+          </div>
           <button
             type="button"
-            role="tab"
-            aria-selected={tab === 'crypto'}
-            className={`hl-news-tab ${tab === 'crypto' ? 'hl-news-tab--on' : ''}`}
-            onClick={() => setTab('crypto')}
+            className="hl-news-refresh"
+            onClick={() => void load()}
+            disabled={loading}
+            aria-label="Refresh news"
           >
-            Crypto
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === 'sports'}
-            className={`hl-news-tab ${tab === 'sports' ? 'hl-news-tab--on' : ''}`}
-            onClick={() => setTab('sports')}
-          >
-            Sports
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} aria-hidden />
+            Refresh
           </button>
         </div>
       </header>
+
+      {meta ? (
+        <p className="hl-news-pipeline" role="status">
+          <span>{engineLabel}</span>
+          <span className="hl-news-pipeline__sep">·</span>
+          <span>
+            {meta.aiAnalyzedCount} AI / {meta.rulesAnalyzedCount} rules
+          </span>
+          <span className="hl-news-pipeline__sep">·</span>
+          <span>Updated {formatTime(meta.analyzedAt)}</span>
+        </p>
+      ) : null}
+
+      {meta && tab === 'crypto' ? (
+        <p className="hl-news-sources">
+          Sources: {meta.sources.slice(0, 10).join(' · ')}
+          {meta.sources.length > 10 ? ` · +${meta.sources.length - 10} more` : ''}
+        </p>
+      ) : null}
 
       <section className="hl-news-bot-mode" aria-label="Bot news mode">
         <div className="hl-news-bot-mode__head">
@@ -131,7 +181,7 @@ const ProTradeNews: React.FC<Props> = ({ walletAddress, onTradeCrypto, onTradeSp
       {loading && items.length === 0 ? (
         <div className="hl-news-loading">
           <Loader2 size={20} className="animate-spin" aria-hidden />
-          <span>Fetching headlines &amp; running AI analysis…</span>
+          <span>Fetching headlines &amp; running analysis…</span>
         </div>
       ) : null}
 

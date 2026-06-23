@@ -243,6 +243,7 @@ export const config = {
       blockUnknownHeadlines: process.env.HL_NEWS_BLOCK_UNKNOWN !== 'false',
       openaiApiKey: process.env.OPENAI_API_KEY || '',
       openaiModel: process.env.OPENAI_NEWS_MODEL || 'gpt-4o-mini',
+      analysisConcurrency: Number(process.env.HL_NEWS_ANALYSIS_CONCURRENCY || 4),
       sportsCatalogCacheMs: Number(process.env.HL_NEWS_SPORTS_CATALOG_MS || 60_000),
     },
     /** Scalp opens — top liquid pairs only, fast TF alignment. */

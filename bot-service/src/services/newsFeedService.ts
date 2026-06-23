@@ -153,45 +153,100 @@ async function fetchCoinGeckoStatus(coin: string): Promise<NewsItem[]> {
   return items;
 }
 
+function stripHtml(text: string): string {
+  return text
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, '$1')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function parseRssItems(xml: string, source: string, category: NewsItem['category']): NewsItem[] {
   const items: NewsItem[] = [];
   const blocks = xml.match(/<item[\s\S]*?<\/item>/gi) ?? [];
-  for (const block of blocks.slice(0, 12)) {
+  for (const block of blocks.slice(0, 16)) {
     const title = block.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i)?.[1]?.trim();
     if (!title) continue;
     const link = block.match(/<link>([\s\S]*?)<\/link>/i)?.[1]?.trim();
     const pub = block.match(/<pubDate>([\s\S]*?)<\/pubDate>/i)?.[1]?.trim();
+    const desc =
+      block.match(/<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i)?.[1]?.trim() ??
+      block.match(/<content:encoded>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content:encoded>/i)?.[1]?.trim();
     const ts = pub ? Date.parse(pub) : Date.now();
+    const headline = stripHtml(title);
+    const snippet = desc ? stripHtml(desc).slice(0, 420) : undefined;
     items.push({
-      id: itemId(source, title, String(ts)),
-      headline: title.replace(/<[^>]+>/g, ''),
+      id: itemId(source, headline, String(ts)),
+      headline,
       source,
       publishedAt: new Date(Number.isFinite(ts) ? ts : Date.now()).toISOString(),
       url: link,
-      assets: extractAssets(title),
+      snippet,
+      assets: extractAssets(`${headline} ${snippet ?? ''}`),
       category,
     });
   }
   return items;
 }
 
-async function fetchMacroRss(): Promise<NewsItem[]> {
-  const feeds = [
-    { url: 'https://www.coindesk.com/arc/outboundfeeds/rss/', source: 'CoinDesk' },
-    { url: 'https://cointelegraph.com/rss', source: 'Cointelegraph' },
-  ];
+type RssFeed = { url: string; source: string; category: NewsItem['category'] };
+
+const CRYPTO_RSS_FEEDS: RssFeed[] = [
+  { url: 'https://www.coindesk.com/arc/outboundfeeds/rss/', source: 'CoinDesk', category: 'crypto' },
+  { url: 'https://cointelegraph.com/rss', source: 'Cointelegraph', category: 'crypto' },
+  { url: 'https://decrypt.co/feed', source: 'Decrypt', category: 'crypto' },
+  { url: 'https://www.theblock.co/rss.xml', source: 'The Block', category: 'crypto' },
+  {
+    url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258',
+    source: 'CNBC Crypto',
+    category: 'macro',
+  },
+  {
+    url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15839069',
+    source: 'CNBC Markets',
+    category: 'macro',
+  },
+  {
+    url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114',
+    source: 'CNBC',
+    category: 'macro',
+  },
+  { url: 'https://feeds.reuters.com/reuters/businessNews', source: 'Reuters', category: 'macro' },
+  { url: 'https://feeds.reuters.com/reuters/topNews', source: 'Reuters', category: 'macro' },
+  { url: 'https://feeds.bloomberg.com/markets/news.rss', source: 'Bloomberg', category: 'macro' },
+  { url: 'https://feeds.marketwatch.com/marketwatch/topstories/', source: 'MarketWatch', category: 'macro' },
+];
+
+async function fetchRssFeeds(feeds: RssFeed[]): Promise<NewsItem[]> {
   const out: NewsItem[] = [];
-  for (const feed of feeds) {
-    try {
-      const res = await fetch(feed.url, { headers: { Accept: 'application/rss+xml' } });
-      if (!res.ok) continue;
-      const xml = await res.text();
-      out.push(...parseRssItems(xml, feed.source, 'macro'));
-    } catch {
-      /* optional */
-    }
-  }
+  await Promise.all(
+    feeds.map(async (feed) => {
+      try {
+        const res = await fetch(feed.url, {
+          headers: { Accept: 'application/rss+xml, application/xml, text/xml' },
+          signal: AbortSignal.timeout(12_000),
+        });
+        if (!res.ok) return;
+        const xml = await res.text();
+        out.push(...parseRssItems(xml, feed.source, feed.category));
+      } catch {
+        /* optional feed */
+      }
+    })
+  );
   return out;
+}
+
+async function fetchMacroRss(): Promise<NewsItem[]> {
+  return fetchRssFeeds(CRYPTO_RSS_FEEDS);
+}
+
+export function listActiveNewsSources(): string[] {
+  const names = new Set<string>(['CryptoPanic', 'CoinGecko']);
+  for (const f of CRYPTO_RSS_FEEDS) names.add(f.source);
+  names.add('BBC Sport');
+  names.add('ESPN');
+  return [...names];
 }
 
 export async function fetchSportsRssHeadlines(): Promise<NewsItem[]> {
@@ -241,6 +296,12 @@ export async function fetchCryptoNewsFeed(): Promise<NewsItem[]> {
   const items = dedupeNews([...panic, ...macro, ...btc, ...eth]);
   cache.set(cacheKey, { at: Date.now(), items });
   return items;
+}
+
+export function getCachedCryptoFeedAgeMs(): number | null {
+  const cached = cache.get('crypto-feed');
+  if (!cached) return null;
+  return Date.now() - cached.at;
 }
 
 export async function fetchHeadlinesForCoin(coin: string): Promise<string[]> {

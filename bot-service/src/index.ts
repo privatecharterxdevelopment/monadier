@@ -584,9 +584,17 @@ const healthServer = http.createServer(async (req, res) => {
         res.writeHead(200, corsHeaders);
         res.end(JSON.stringify({ success: true, tab: 'sports', items, count: items.length }));
       } else {
-        const items = await buildCryptoNewsFeed(limit);
+        const feed = await buildCryptoNewsFeed(limit);
         res.writeHead(200, corsHeaders);
-        res.end(JSON.stringify({ success: true, tab: 'crypto', items, count: items.length }));
+        res.end(
+          JSON.stringify({
+            success: true,
+            tab: 'crypto',
+            items: feed.items,
+            meta: feed.meta,
+            count: feed.items.length,
+          })
+        );
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

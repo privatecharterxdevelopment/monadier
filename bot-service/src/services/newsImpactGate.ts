@@ -158,12 +158,45 @@ export async function validateNewsImpact(opts: {
 
 /** Feed API — analyze crypto items with optional LLM. */
 export async function buildCryptoNewsFeed(limit = 20) {
-  const { fetchCryptoNewsFeed } = await import('./newsFeedService');
+  const { fetchCryptoNewsFeed, listActiveNewsSources, getCachedCryptoFeedAgeMs } = await import(
+    './newsFeedService'
+  );
+  const cfg = config.hyperliquid.news;
   const items = (await fetchCryptoNewsFeed()).slice(0, limit);
-  const out = [];
-  for (const item of items) {
-    const analysis = await analyzeNewsItem(item);
-    out.push({ ...item, analysis, analyzedAt: new Date().toISOString() });
+  const out: Awaited<ReturnType<typeof analyzeNewsItem>>[] = new Array(items.length);
+  const concurrency = cfg.analysisConcurrency;
+  let cursor = 0;
+
+  async function worker() {
+    while (cursor < items.length) {
+      const i = cursor++;
+      const item = items[i];
+      const analysis = await analyzeNewsItem(item);
+      out[i] = analysis;
+    }
   }
-  return out;
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()));
+
+  const analyzed = items.map((item, i) => ({
+    ...item,
+    analysis: out[i],
+    analyzedAt: new Date().toISOString(),
+  }));
+
+  const aiCount = analyzed.filter((r) => r.analysis.engine === 'openai').length;
+  const feedAge = getCachedCryptoFeedAgeMs();
+
+  return {
+    items: analyzed,
+    meta: {
+      sources: listActiveNewsSources(),
+      feedFetchedAt: feedAge != null ? new Date(Date.now() - feedAge).toISOString() : new Date().toISOString(),
+      analyzedAt: new Date().toISOString(),
+      analysisEngine: aiCount > 0 ? ('openai' as const) : ('rules' as const),
+      aiAnalyzedCount: aiCount,
+      rulesAnalyzedCount: analyzed.length - aiCount,
+      hasOpenAi: Boolean(cfg.openaiApiKey),
+    },
+  };
 }
