@@ -18,6 +18,7 @@ import {
   formatHlPrice,
   formatHlSize,
   hlAccountValueUsd,
+  hlTradableFreeMarginUsd,
   hlFreeMarginUsd,
   hlOpenPerpCoins,
 } from './hlInfo';
@@ -491,11 +492,12 @@ export class HyperliquidTradingService {
     let coinsOpen = [...openCoins];
     let cycleResult: UserProcessResult = 'skip';
     let lastError: string | undefined;
+    const funding = await fetchHlPerpFundingSnapshot(userAddress);
 
     while (coinsOpen.length < maxPositions) {
       const slotsLeft = maxPositions - coinsOpen.length;
-      const balance = hlAccountValueUsd(stateRef);
-      const freeMargin = hlFreeMarginUsd(stateRef);
+      const balance = funding.tradablePerpUsd;
+      const freeMargin = hlTradableFreeMarginUsd(funding, stateRef);
       const collateral = resolveMarginPerSlot(
         balance,
         freeMargin,

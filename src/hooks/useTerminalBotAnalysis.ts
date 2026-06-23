@@ -253,11 +253,17 @@ export function useTerminalBotAnalysis({
           openCoins
         );
         if (data.lastOpenError?.error) {
-          blockers.push(
-            data.lastOpenError.coin
-              ? `Last open attempt (${data.lastOpenError.coin}): ${data.lastOpenError.error}`
-              : data.lastOpenError.error
-          );
+          const marginStale =
+            /free margin too low|margin too small/i.test(data.lastOpenError.error) &&
+            vaultUsd >= MIN_HL_BOT_USD &&
+            openCoins.length === 0;
+          if (!marginStale) {
+            blockers.push(
+              data.lastOpenError.coin
+                ? `Last open attempt (${data.lastOpenError.coin}): ${data.lastOpenError.error}`
+                : data.lastOpenError.error
+            );
+          }
         }
         setServerBlockers(filterUserBlockers(blockers));
         setPumpSweepLines(

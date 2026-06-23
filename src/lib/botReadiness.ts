@@ -72,9 +72,9 @@ function formatBlocker(blocker: string): string {
   if (/margin too small|free margin too low/i.test(blocker)) {
     const m = blocker.match(/\$([\d.]+).*balance \$([\d.]+)/i);
     if (m) {
-      return `Not enough margin for next trade (~$${m[1]} from $${m[2]} on HL) — deposit more or lower risk in LVRG`;
+      return `Waiting for margin — ~$${m[1]} usable from $${m[2]} on HL (lower Risk % in LVRG or deposit more for a 2nd trade)`;
     }
-    return 'Not enough free margin for a 2nd trade — deposit more or lower risk in LVRG';
+    return 'Not enough free margin for another trade — lower Risk % in LVRG or deposit more USDC';
   }
   if (/HL balance \$([\d.]+).*min \$([\d.]+)/i.test(blocker)) {
     const m = blocker.match(/HL balance \$([\d.]+).*min \$([\d.]+)/i);

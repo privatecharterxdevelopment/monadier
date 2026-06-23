@@ -205,6 +205,20 @@ export function hlFreeMarginUsd(state: HlClearinghouseState | null): number {
   return Math.max(0, Math.min(withdrawable, derived) - 1);
 }
 
+/** Free margin for opening trades — unified accounts use spot USDC, not perp clearinghouse. */
+export function hlTradableFreeMarginUsd(
+  funding: HlPerpFundingSnapshot,
+  state: HlClearinghouseState | null
+): number {
+  if (!funding.stateLoaded) return 0;
+  if (funding.unifiedAccount) {
+    const marginUsed = hlMarginUsedUsd(state);
+    const derived = Math.max(0, funding.tradablePerpUsd - marginUsed);
+    return Math.max(0, Math.min(derived, funding.withdrawableUsd) - 1);
+  }
+  return hlFreeMarginUsd(state);
+}
+
 export function hlOpenPerpCoins(state: HlClearinghouseState | null): string[] {
   const coins: string[] = [];
   for (const row of state?.assetPositions ?? []) {
