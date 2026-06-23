@@ -85,7 +85,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   const [localMsg, setLocalMsg] = useState<string | null>(null);
   const [showBuilderModal, setShowBuilderModal] = useState(false);
   const builderFee = useBettingBuilderFee(walletAddress);
-  const { openFunds, openOrderSheet } = useBettingUi();
+  const { openFunds, openOrderSheet, closeOrderSheet } = useBettingUi();
 
   const canBet = signedIn && walletConnected;
 
@@ -411,6 +411,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
             }
             onClick={() => {
               if (showDepositCta) {
+                closeOrderSheet();
                 openFunds('deposit');
                 return;
               }

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Loader2, RefreshCw, X } from 'lucide-react';
 import { formatUnits } from 'viem';
 import { useAppKit } from '@reown/appkit/react';
@@ -14,6 +15,7 @@ import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { USDC_ADDRESSES, USDC_DECIMALS } from '../../lib/vault';
 import { ERC20_ABI } from '../../lib/dex/router';
+import { useProTradeThemeOptional } from '../../contexts/ProTradeThemeContext';
 
 type Props = {
   onClose: () => void;
@@ -172,9 +174,14 @@ const ProTradeDepositModal: React.FC<Props> = ({
 
   const primaryBusy = busy || switchBusy;
   const isBetting = mode === 'betting';
+  const theme = useProTradeThemeOptional();
 
-  return (
-    <div className="hl-modal-backdrop" role="presentation" onClick={onClose}>
+  const modal = (
+    <div
+      className={`hl-root hl-root--${theme} hl-modal-backdrop hl-modal-backdrop--funds`}
+      role="presentation"
+      onClick={onClose}
+    >
       <div
         className="hl-modal hl-modal--sm"
         role="dialog"
@@ -349,6 +356,10 @@ const ProTradeDepositModal: React.FC<Props> = ({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return modal;
+
+  return createPortal(modal, document.body);
 };
 
 export default ProTradeDepositModal;

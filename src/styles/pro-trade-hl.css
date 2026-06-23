@@ -2476,6 +2476,215 @@
   color: var(--hl-green-bright);
 }
 
+/* ── Sports betting — regional access (blocked / loading) ── */
+.hl-sb-region {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: min(72vh, 640px);
+  padding: 32px 20px 48px;
+  overflow: hidden;
+}
+
+.hl-sb-region--loading .hl-sb-region-card {
+  gap: 12px;
+}
+
+.hl-sb-region-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.hl-sb-region-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(72px);
+  opacity: 0.55;
+}
+
+.hl-sb-region-glow--a {
+  top: 8%;
+  left: 50%;
+  width: min(520px, 90vw);
+  height: min(320px, 50vh);
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--hl-green-bright) 22%, transparent);
+}
+
+.hl-sb-region-glow--b {
+  right: -8%;
+  bottom: -12%;
+  width: min(360px, 70vw);
+  height: min(280px, 40vh);
+  background: color-mix(in srgb, #6366f1 16%, transparent);
+}
+
+.hl-root--light .hl-sb-region-glow--a {
+  opacity: 0.35;
+}
+
+.hl-root--light .hl-sb-region-glow--b {
+  opacity: 0.28;
+}
+
+.hl-sb-region-card {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 460px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 36px 28px 30px;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--hl-border) 88%, #fff 12%);
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--hl-bg-elevated) 92%, #fff 8%) 0%,
+      color-mix(in srgb, var(--hl-surface) 96%, transparent) 100%
+    );
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 8%, transparent) inset,
+    0 24px 48px -28px color-mix(in srgb, #000 42%, transparent);
+}
+
+.hl-root--light .hl-sb-region-card {
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, #fff 96%, var(--hl-green-bright) 4%) 0%,
+      color-mix(in srgb, var(--hl-bg-elevated) 98%, transparent) 100%
+    );
+  box-shadow:
+    0 1px 0 #fff inset,
+    0 20px 40px -24px color-mix(in srgb, #0f172a 14%, transparent);
+}
+
+.hl-sb-region-card--loading {
+  padding: 40px 28px;
+}
+
+.hl-sb-region-icon-wrap {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 18px;
+  border-radius: 16px;
+  color: var(--hl-green-bright);
+  background: color-mix(in srgb, var(--hl-green-bright) 14%, var(--hl-bg-elevated));
+  border: 1px solid color-mix(in srgb, var(--hl-green-bright) 28%, var(--hl-border));
+  box-shadow: 0 8px 24px -12px color-mix(in srgb, var(--hl-green-bright) 45%, transparent);
+}
+
+.hl-sb-region-kicker {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hl-text-faint);
+}
+
+.hl-sb-region-title {
+  margin: 0 0 10px;
+  font-size: clamp(1.25rem, 2.8vw, 1.5rem);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--hl-text);
+}
+
+.hl-sb-region-copy {
+  margin: 0;
+  max-width: 36ch;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--hl-text-muted);
+}
+
+.hl-sb-region-location {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 8px;
+  margin-top: 20px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--hl-border);
+  background: color-mix(in srgb, var(--hl-bg-hover) 70%, transparent);
+  font-size: 12px;
+  color: var(--hl-text-muted);
+}
+
+.hl-sb-region-location-label {
+  color: var(--hl-text-faint);
+}
+
+.hl-sb-region-location-value {
+  font-weight: 600;
+  color: var(--hl-text);
+}
+
+.hl-sb-region-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 24px;
+  width: 100%;
+}
+
+.hl-sb-region-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.hl-sb-region-btn--primary {
+  width: 100%;
+  max-width: 280px;
+  color: var(--hl-accent-fg, #0a0a0a);
+  background: var(--hl-accent, #fff);
+  border-color: color-mix(in srgb, var(--hl-accent) 80%, var(--hl-border));
+}
+
+.hl-sb-region-btn--primary:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--hl-accent) 92%, #fff 8%);
+}
+
+.hl-sb-region-footnote {
+  margin: 20px 0 0;
+  max-width: 40ch;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--hl-text-faint);
+}
+
+.hl-sb-region-card--loading .hl-spin {
+  color: var(--hl-green-bright);
+  margin-bottom: 4px;
+}
+
 .hl-sportsbets-blocked {
   border-color: color-mix(in srgb, #ef5350 35%, var(--hl-border));
   background: color-mix(in srgb, #ef5350 6%, var(--hl-surface));
@@ -5722,6 +5931,8 @@
 
   .hl-sb-order-sheet-body .hl-sb-order {
     border-top: none;
+    background: var(--hl-bg-panel);
+    color: var(--hl-text);
   }
 
   .hl-sb-head-mobile-balance {
@@ -5739,6 +5950,79 @@
     width: max-content;
     min-width: 100%;
   }
+}
+
+/* Portaled mobile bet sheet — outside .hl-root; theme tokens + solid surfaces */
+.hl-sb-order-sheet-portal {
+  position: fixed;
+  inset: 0;
+  z-index: 10040;
+  pointer-events: none;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 12px;
+}
+
+.hl-sb-order-sheet-portal.hl-root--light {
+  --hl-bg: #f4f4f5;
+  --hl-bg-elevated: #ffffff;
+  --hl-bg-panel: #ffffff;
+  --hl-bg-hover: #f4f4f5;
+  --hl-border: #ebebf0;
+  --hl-border-strong: #c5c5cb;
+  --hl-text: #0a0a0a;
+  --hl-text-muted: #52525b;
+  --hl-text-faint: #71717a;
+  color: #0a0a0a;
+}
+
+.hl-sb-order-sheet-portal.hl-root--dark {
+  --hl-bg: #0b0b0b;
+  --hl-bg-elevated: #121212;
+  --hl-bg-panel: #121212;
+  --hl-bg-hover: #1a1a1a;
+  --hl-border: #262626;
+  --hl-border-strong: #404040;
+  --hl-text: #fafafa;
+  --hl-text-muted: #a1a1aa;
+  --hl-text-faint: #71717a;
+  color: #fafafa;
+}
+
+.hl-sb-order-sheet-portal .hl-sb-order-sheet-backdrop,
+.hl-sb-order-sheet-portal .hl-sb-order-sheet {
+  pointer-events: auto;
+}
+
+.hl-sb-order-sheet-portal .hl-sb-order-sheet {
+  background-color: var(--hl-bg-panel);
+  background: var(--hl-bg-panel);
+  color: var(--hl-text);
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+.hl-sb-order-sheet-portal .hl-sb-order-sheet-head,
+.hl-sb-order-sheet-portal .hl-sb-order-sheet-body {
+  background: var(--hl-bg-panel);
+}
+
+.hl-sb-order-sheet-portal .hl-sb-order-pick-box {
+  background: var(--hl-bg-hover);
+  border-color: var(--hl-border);
+}
+
+.hl-sb-order-sheet-portal .hl-sb-order-pick-line,
+.hl-sb-order-sheet-portal .hl-sb-order-pick-leg {
+  color: var(--hl-text);
+}
+
+.hl-sb-order-sheet-portal .hl-sb-muted,
+.hl-sb-order-sheet-portal .hl-sb-order-empty {
+  color: var(--hl-text-muted);
+}
+
+.hl-modal-backdrop--funds {
+  z-index: 10160;
 }
 
 @media (max-width: 640px) {

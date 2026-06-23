@@ -23,6 +23,12 @@ export function useProTradeTheme(): ProTradeThemeContextValue {
   return ctx;
 }
 
+/** For portaled overlays — falls back to stored theme when outside provider. */
+export function useProTradeThemeOptional(): ProTradeTheme {
+  const ctx = useContext(ProTradeThemeContext);
+  return ctx?.theme ?? readStoredProTradeTheme();
+}
+
 export const ProTradeThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<ProTradeTheme>(() => readStoredProTradeTheme());
 

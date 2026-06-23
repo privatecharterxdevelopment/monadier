@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Loader2 } from 'lucide-react';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUserLocale } from '../../hooks/useUserLocale';
 import { canAccessSportsbets } from '../../lib/compliance/predictionMarketAccess';
 import { supabase } from '../../lib/supabase';
 import SportsbetsTerminal from './sportsbets/SportsbetsTerminal';
+import SportsbetsRegionBlocked from './sportsbets/SportsbetsRegionBlocked';
+import SportsbetsRegionLoading from './sportsbets/SportsbetsRegionLoading';
 
 type Props = {
   walletConnected: boolean;
@@ -67,11 +68,7 @@ const ProTradeSportsbets: React.FC<Props> = ({
   if (loading) {
     return (
       <div className="hl-terminal hl-terminal--sb">
-        <div className="hl-sportsbets-loading" role="status" aria-live="polite">
-          <Loader2 size={28} className="hl-spin" aria-hidden />
-          <p className="hl-sportsbets-loading-title">Checking eligibility</p>
-          <p className="hl-sportsbets-loading-sub">Verifying regional access…</p>
-        </div>
+        <SportsbetsRegionLoading />
       </div>
     );
   }
@@ -79,23 +76,7 @@ const ProTradeSportsbets: React.FC<Props> = ({
   if (!access.allowed) {
     return (
       <div className="hl-terminal hl-terminal--sb">
-        <div className="hl-sportsbets">
-          <header className="hl-sb-head">
-            <div className="hl-sb-head-copy">
-              <h1 className="hl-sb-head-title">Betting</h1>
-            </div>
-          </header>
-          <div className="hl-sb-panel hl-sb-panel--alert" role="alert">
-            <AlertCircle size={18} strokeWidth={2} aria-hidden />
-            <div>
-              <p className="hl-sb-panel-title">Not available in your region</p>
-              <p className="hl-sb-muted">{access.reason}</p>
-              {access.countryLabel ? (
-                <p className="hl-sb-muted">Detected: {access.countryLabel}</p>
-              ) : null}
-            </div>
-          </div>
-        </div>
+        <SportsbetsRegionBlocked reason={access.reason} countryLabel={access.countryLabel} />
       </div>
     );
   }

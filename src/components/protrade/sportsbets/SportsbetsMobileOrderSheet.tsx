@@ -1,6 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { useProTradeThemeOptional } from '../../../contexts/ProTradeThemeContext';
 
 type Props = {
   open: boolean;
@@ -16,10 +17,12 @@ const SportsbetsMobileOrderSheet: React.FC<Props> = ({
   onClose,
   children,
 }) => {
+  const theme = useProTradeThemeOptional();
+
   if (!open || typeof document === 'undefined') return null;
 
   return createPortal(
-    <>
+    <div className={`hl-root hl-root--${theme} hl-sb-order-sheet-portal`}>
       <button
         type="button"
         className="hl-sb-order-sheet-backdrop"
@@ -35,7 +38,7 @@ const SportsbetsMobileOrderSheet: React.FC<Props> = ({
         </header>
         <div className="hl-sb-order-sheet-body">{children}</div>
       </div>
-    </>,
+    </div>,
     document.body
   );
 };
