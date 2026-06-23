@@ -118,7 +118,7 @@ export function useTradingDashboardMetrics() {
     hasSnapshotRef.current = true;
     setMetrics((prev) => ({
       ...prev,
-      vaultBalanceUsd: hlSnap.accountUsd,
+      vaultBalanceUsd: hlSnap.totalUsd,
       withdrawableUsd: hlSnap.withdrawableUsd,
       openPositionValueUsd: hlSnap.openNotionalUsd,
       openPositionsCount: hlSnap.openPositionsCount,
@@ -183,7 +183,7 @@ export function useTradingDashboardMetrics() {
       let builderFeeApproved = true;
       let builderPlatformReady = true;
 
-      let vaultBalanceUsd = hlSnapRef.current?.accountUsd ?? 0;
+      let vaultBalanceUsd = hlSnapRef.current?.totalUsd ?? hlSnapRef.current?.accountUsd ?? 0;
       let withdrawableUsd = hlSnapRef.current?.withdrawableUsd ?? 0;
       let hlOpenNotional = hlSnapRef.current?.openNotionalUsd ?? 0;
       let hlOpenCount = hlSnapRef.current?.openPositionsCount ?? 0;

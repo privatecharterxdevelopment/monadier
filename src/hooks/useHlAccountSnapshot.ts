@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { fetchHlFundingSnapshot } from '../lib/hyperliquid/funding';
 import { fetchHlAccountState } from '../lib/hyperliquid/user';
 
 export type HlAccountSnapshot = {
   wallet: string;
+  /** Perp margin account value */
   accountUsd: number;
+  spotUsdcUsd: number;
+  /** Perp + spot USDC */
+  totalUsd: number;
   withdrawableUsd: number;
   totalMarginUsedUsd: number;
   openPositionsCount: number;
@@ -30,11 +35,16 @@ async function pollOnce(wallet: string): Promise<void> {
   if (inFlight) return;
   inFlight = true;
   try {
-    const acct = await fetchHlAccountState(wallet);
+    const [funding, acct] = await Promise.all([
+      fetchHlFundingSnapshot(wallet),
+      fetchHlAccountState(wallet),
+    ]);
     snapshot = {
       wallet,
-      accountUsd: Number(acct?.margin?.accountValue ?? 0) || 0,
-      withdrawableUsd: Number(acct?.withdrawable ?? 0) || 0,
+      accountUsd: funding.perpUsd,
+      spotUsdcUsd: funding.spotUsdcUsd,
+      totalUsd: funding.totalUsd,
+      withdrawableUsd: funding.withdrawableUsd,
       totalMarginUsedUsd: Number(acct?.margin?.totalMarginUsed ?? 0) || 0,
       openPositionsCount: countOpen(acct?.positions),
       openNotionalUsd: (acct?.positions ?? []).reduce(
@@ -71,7 +81,7 @@ function startPoll(wallet: string): void {
   }
   stopPoll();
   void pollOnce(wallet);
-  pollTimer = setInterval(() => void pollOnce(wallet), 1500);
+  pollTimer = setInterval(() => void pollOnce(wallet), 4000);
 }
 
 function subscribe(wallet: string | undefined, listener: Listener): () => void {

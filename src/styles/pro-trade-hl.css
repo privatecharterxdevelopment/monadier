@@ -8253,6 +8253,19 @@
   }
 }
 
+.hl-bot-panel-wrap .hl-funds-wallet-link {
+  display: inline-block;
+  margin: 2px 0 8px;
+  font-size: 11px;
+  color: var(--hl-green-bright, #14b8a6);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.hl-bot-panel-wrap .hl-funds-wallet-link:hover {
+  color: var(--hl-text, #e8eaed);
+}
+
 .hl-modal .hl-funds-balance {
   margin-bottom: 12px;
 }

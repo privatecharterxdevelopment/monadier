@@ -64,15 +64,15 @@ export function useHlBotSetup(walletAddress: string | undefined) {
   useEffect(() => {
     if (!hlSnap) return;
     hasSnapshotRef.current = true;
-    accountUsdRef.current = hlSnap.accountUsd;
-    setAccountUsd(hlSnap.accountUsd);
+    accountUsdRef.current = hlSnap.totalUsd;
+    setAccountUsd(hlSnap.totalUsd);
     setWithdrawableUsd(hlSnap.withdrawableUsd);
     setTotalMarginUsedUsd(hlSnap.totalMarginUsedUsd);
     setOpenPositionsCount(hlSnap.openPositionsCount);
     setHlLoaded(true);
     setPhase(
       computePhase(
-        hlSnap.accountUsd,
+        hlSnap.totalUsd,
         metaRef.current.agentApproved,
         metaRef.current.builderFeeEnabled,
         metaRef.current.builderPlatformReady,
@@ -80,6 +80,9 @@ export function useHlBotSetup(walletAddress: string | undefined) {
       )
     );
   }, [hlSnap]);
+
+  const perpUsd = hlSnap?.accountUsd ?? 0;
+  const spotUsdcUsd = hlSnap?.spotUsdcUsd ?? 0;
 
   const refreshMeta = useCallback(async (): Promise<number> => {
     if (!walletAddress) {
@@ -208,6 +211,9 @@ export function useHlBotSetup(walletAddress: string | undefined) {
     hlLoaded,
     agentLoaded,
     minUsd: MIN_HL_BOT_USD,
+    perpUsd,
+    spotUsdcUsd,
+    balanceWallet: walletAddress,
     refresh,
     pollBalanceAfterDeposit,
   };

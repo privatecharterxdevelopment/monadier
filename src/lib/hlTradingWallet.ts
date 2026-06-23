@@ -1,15 +1,15 @@
 import { pickPrimaryVaultWallet } from './userWallets';
 
-/** Wallet the HL bot reads settings + perp balance from (not always the live connector). */
+/** Wallet for HL balance + bot settings. Live connector wins — deposits land on the connected wallet. */
 export function resolveHlTradingWallet(opts: {
   connectedAddress?: string | null;
   linkedWallets?: string[];
 }): string | undefined {
   const connected = opts.connectedAddress?.toLowerCase() || undefined;
+  if (connected) return connected;
+
   const linked = (opts.linkedWallets ?? []).map((w) => w.toLowerCase()).filter(Boolean);
-  const primary = pickPrimaryVaultWallet(linked, connected);
-  if (primary) return primary;
-  return connected;
+  return pickPrimaryVaultWallet(linked, undefined) ?? linked[0];
 }
 
 export function hlTradingWalletCandidates(opts: {

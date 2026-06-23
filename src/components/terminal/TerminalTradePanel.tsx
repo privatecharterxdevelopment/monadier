@@ -52,6 +52,8 @@ import TerminalBotModeRow from './TerminalBotModeRow';
 import BotSettingsStopFirstModal from './BotSettingsStopFirstModal';
 import { sanitizeUserFacingError } from '../../lib/hyperliquid/builderPlatform';
 import { isBotScanNoiseDetail } from '../../lib/hlBotReasonLabels';
+import { useMonadierWallet } from '../../hooks/useMonadierWallet';
+import { hlWalletExplorerUrl } from '../../lib/hyperliquid/hlApp';
 type PanelTab = 'bot' | 'lvrg' | 'funds';
 
 type Props = {
@@ -85,6 +87,7 @@ const TerminalTradePanel: React.FC<Props> = ({
 }) => {
   const { open } = useAppKit();
   const { isConnected, address, publicClient, walletClient } = useWeb3();
+  const { address: monadierAddress } = useMonadierWallet();
   const { isDemoUser, isAuthenticated, user } = useAuth();
   const { linkWallet, planTier } = useSubscription();
   const [panelTab, setPanelTab] = useState<PanelTab>('bot');
@@ -100,7 +103,8 @@ const TerminalTradePanel: React.FC<Props> = ({
     isLoading: botSettingsLoading,
     wallet: botWallet,
   };
-  const hlSetup = useHlBotSetup(botWallet ?? address ?? undefined);
+  const hlBalanceWallet = monadierAddress ?? address ?? botWallet ?? undefined;
+  const hlSetup = useHlBotSetup(hlBalanceWallet);
   const builderConfig = getHlBuilderConfig();
   const [showFundsModal, setShowFundsModal] = useState(false);
   const [fundsModalTab, setFundsModalTab] = useState<'deposit' | 'withdraw'>('deposit');
@@ -126,6 +130,8 @@ const TerminalTradePanel: React.FC<Props> = ({
   );
 
   const hlFundingUsd = hlSetup.accountUsd;
+  const hlPerpUsd = hlSetup.perpUsd;
+  const hlSpotUsd = hlSetup.spotUsdcUsd;
   const autoTradeDb = botSettings.settings.autoTradeEnabled;
 
   useEffect(() => {
@@ -687,13 +693,31 @@ const TerminalTradePanel: React.FC<Props> = ({
           <div className="term-panel-stack">
             <div className="term-panel-card term-panel-card--muted">
               <span className="term-panel-card-label">Hyperliquid account</span>
+              {hlBalanceWallet ? (
+                <a
+                  className="term-hint hl-funds-wallet-link"
+                  href={hlWalletExplorerUrl(hlBalanceWallet)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {hlBalanceWallet.slice(0, 6)}…{hlBalanceWallet.slice(-4)} on HypurrScan
+                </a>
+              ) : null}
               <div className="term-funds-breakdown">
                 <div className="term-field-row">
                   <span>Total balance</span>
                   <strong>{fmt(metrics.hlBalanceUsd)}</strong>
                 </div>
+                <div className="term-field-row term-field-row--hint">
+                  <span>Perps</span>
+                  <strong>{fmt(hlPerpUsd)}</strong>
+                </div>
+                <div className="term-field-row term-field-row--hint">
+                  <span>Spot USDC</span>
+                  <strong>{fmt(hlSpotUsd)}</strong>
+                </div>
                 <div className="term-field-row">
-                  <span>Withdrawable</span>
+                  <span>Withdrawable (perps)</span>
                   <strong>{fmt(metrics.hlWithdrawableUsd)}</strong>
                 </div>
                 {hasOpenPosition && marginLockedUsd > 0.01 ? (
@@ -704,9 +728,9 @@ const TerminalTradePanel: React.FC<Props> = ({
                 ) : null}
               </div>
               <span className="term-panel-card-hint">
-                Withdrawable is lower while a position is open — Hyperliquid holds margin as
-                collateral (not a loss). uPnL is shown separately. Bot needs ${MIN_HL_BOT_USD}+ on
-                HL.
+                {hlSpotUsd >= MIN_HL_BOT_USD && hlPerpUsd < MIN_HL_BOT_USD
+                  ? `USDC is on HL Spot — transfer Spot → Perps to run the bot (min $${MIN_HL_BOT_USD}).`
+                  : `Withdrawable is lower while a position is open — Hyperliquid holds margin as collateral (not a loss). Bot needs $${MIN_HL_BOT_USD}+ on HL.`}
               </span>
             </div>
 
@@ -791,6 +815,7 @@ const TerminalTradePanel: React.FC<Props> = ({
           onClose={() => setShowFundsModal(false)}
           withdrawable={hlSetup.withdrawableUsd.toFixed(2)}
           hlBalanceUsd={hlFundingUsd}
+          spotUsdc={hlSpotUsd}
           initialTab={fundsModalTab}
           onSuccess={() => {
             if (fundsModalTab === 'withdraw') setShowFundsModal(false);
