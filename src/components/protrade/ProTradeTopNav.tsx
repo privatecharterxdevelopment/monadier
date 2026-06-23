@@ -20,6 +20,7 @@ export type ProTradeSection =
   | 'bot'
   | 'sportsbets'
   | 'portfolio'
+  | 'news'
   | 'support'
   | 'profile'
   | 'history'
@@ -42,6 +43,7 @@ const NAV: NavItem[] = [
   { id: 'perps', label: 'Perps', enabled: true },
   { id: 'sportsbets', label: 'Betting', enabled: true },
   { id: 'portfolio', label: 'Portfolio', enabled: true },
+  { id: 'news', label: 'News', enabled: true },
   { id: 'leaderboard', label: 'Leaderboard', enabled: false },
 ];
 

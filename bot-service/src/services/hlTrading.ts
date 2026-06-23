@@ -38,7 +38,9 @@ import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, MAJOR_COINS, needsCautionPath, volumeRankForCoin } from './coinTier';
 import { validateCoinNews } from './coinNewsGate';
+import type { NewsTradeMode } from './newsTradeMode';
 import { validateNotFreshlyPumped } from './freshPumpGate';
+import { validatePumpSweepGate } from './pumpSweepGate';
 import { validateScalpAlignment } from './scalpAlignGate';
 import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
 import { validatePerpMarketContext } from './perpMarketContextGate';
@@ -587,6 +589,7 @@ export class HyperliquidTradingService {
           pick,
           botModeLabel: strategy === 'profit_grabber' ? 'Agg' : 'Std',
           ctx,
+          newsTradeMode: settings.newsTradeMode,
         });
 
         if (opened.success) {
@@ -653,6 +656,7 @@ export class HyperliquidTradingService {
     pick: GlobalSignalCandidate;
     botModeLabel: 'Std' | 'Agg';
     ctx: TradingCycleContext;
+    newsTradeMode?: NewsTradeMode;
   }): Promise<{ success: boolean; error?: string }> {
     try {
       const { meta, mids } = opts.ctx;
@@ -686,6 +690,7 @@ export class HyperliquidTradingService {
         coin,
         direction: opts.direction,
         tier: coinTier,
+        newsTradeMode: opts.newsTradeMode,
       });
       if (!newsGate.ok) {
         logger.info('HL open blocked — news gate (step 1)', {
@@ -819,6 +824,21 @@ export class HyperliquidTradingService {
         return { success: false, error: perpCtxGate.reason };
       }
 
+      const pumpSweepGate = await validatePumpSweepGate({
+        coin,
+        direction: opts.direction,
+      });
+      if (!pumpSweepGate.ok) {
+        logger.info('HL open blocked — pump apex / sweep gate', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          reason: pumpSweepGate.reason,
+          phase: pumpSweepGate.analysis?.phase,
+        });
+        return { success: false, error: pumpSweepGate.reason };
+      }
+
       const locationGate =
         opts.direction === 'LONG' || !relaxSecondaryGates
           ? await validateEntryLocation({
@@ -888,6 +908,7 @@ export class HyperliquidTradingService {
         pumpShortGate,
         newsGate,
         freshPumpGate,
+        pumpSweepGate,
         megaPairLine: megaGate.reason,
         liquidityReason: opts.pick.liquidityReason,
         scalpAlignLine: scalpGate.reason,

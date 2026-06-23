@@ -95,6 +95,7 @@ export function useTerminalBotAnalysis({
   const [serverOpenCoins, setServerOpenCoins] = useState<string[]>([]);
   const [globalScanCount, setGlobalScanCount] = useState(0);
   const [globalCoinsScanned, setGlobalCoinsScanned] = useState(0);
+  const [pumpSweepLines, setPumpSweepLines] = useState<string[]>([]);
   const [step, setStep] = useState(0);
   const [progress, setProgress] = useState(ANALYSIS_STEPS[0].progress);
 
@@ -213,6 +214,7 @@ export function useTerminalBotAnalysis({
   useEffect(() => {
     if (!vaultWallet || !botRunning) {
       setServerBlockers([]);
+      setPumpSweepLines([]);
       return;
     }
     const load = async () => {
@@ -230,6 +232,7 @@ export function useTerminalBotAnalysis({
             candidateCount?: number;
             candidates?: GlobalScanCandidate[];
           };
+          pumpSweep?: { lines?: string[] };
           lastOpenError?: { error: string; coin?: string; at: string } | null;
         };
         const blockers = Array.isArray(data.blockers) ? [...data.blockers] : [];
@@ -257,6 +260,11 @@ export function useTerminalBotAnalysis({
           );
         }
         setServerBlockers(filterUserBlockers(blockers));
+        setPumpSweepLines(
+          Array.isArray(data.pumpSweep?.lines)
+            ? data.pumpSweep.lines.filter((line) => typeof line === 'string' && line.trim())
+            : []
+        );
         if (nextCandidate) setGlobalBest(nextCandidate);
         if (typeof data.globalScan?.coinsScanned === 'number') {
           setGlobalCoinsScanned(data.globalScan.coinsScanned);
@@ -344,5 +352,6 @@ export function useTerminalBotAnalysis({
     slotsFull,
     currentlyScanningCoin,
     scanRotationCoins,
+    pumpSweepLines,
   };
 }

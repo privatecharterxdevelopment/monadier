@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { normalizeHlBotStrategy } from './hlBotStrategy';
+import { normalizeNewsTradeMode, type NewsTradeMode } from './newsTradeMode';
 
 /** 0 = disabled — bot uses profit-lock trail only unless user sets a % TP. */
 function normalizeHlTakeProfitPercent(raw: number | null | undefined): number {
@@ -65,6 +66,7 @@ export interface UserTradingSettings {
   riskLevelBps: number; // Risk in basis points (5000 = 50%)
   autoTradeEnabled: boolean;
   hlBotStrategy: 'standard' | 'profit_grabber';
+  newsTradeMode: NewsTradeMode;
   /** 0 = disabled — bot skips opens if closed-trade win rate is lower */
   minWinRatePercent: number;
   minTradesForWinRateGate: number;
@@ -491,7 +493,7 @@ export class SubscriptionService {
       const { data, error } = await this.supabase
         .from('vault_settings')
         .select(
-          'auto_trade_enabled, take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier, risk_level_bps, min_win_rate_percent, min_trades_for_win_rate_gate, prompt_withdraw_after_close, hl_bot_strategy'
+          'auto_trade_enabled, take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier, risk_level_bps, min_win_rate_percent, min_trades_for_win_rate_gate, prompt_withdraw_after_close, hl_bot_strategy, news_trade_mode'
         )
         .eq('wallet_address', walletAddress.toLowerCase())
         .eq('chain_id', chainId)
@@ -520,6 +522,7 @@ export class SubscriptionService {
           minTradesForWinRateGate: 5,
           promptWithdrawAfterClose: false,
           hlBotStrategy: 'standard',
+          newsTradeMode: 'filter',
         };
       }
 
@@ -550,6 +553,7 @@ export class SubscriptionService {
         minTradesForWinRateGate: Number(data.min_trades_for_win_rate_gate) || 5,
         promptWithdrawAfterClose: Boolean(data.prompt_withdraw_after_close),
         hlBotStrategy: normalizeHlBotStrategy(data.hl_bot_strategy as string | null),
+        newsTradeMode: normalizeNewsTradeMode(data.news_trade_mode as string | null),
       };
     } catch (err) {
       logger.error('Failed to get user trading settings', { walletAddress, error: err });
@@ -565,6 +569,7 @@ export class SubscriptionService {
         minTradesForWinRateGate: 5,
         promptWithdrawAfterClose: false,
         hlBotStrategy: 'standard',
+        newsTradeMode: 'filter',
       };
     }
   }

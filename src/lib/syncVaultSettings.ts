@@ -7,6 +7,7 @@ import {
   type VaultSettingsRow,
 } from './vaultSettingsSnapshot';
 import type { HlBotStrategy } from './hlBotStrategy';
+import type { NewsTradeMode } from './newsTradeMode';
 
 export type VaultSettingsWrite = {
   walletAddress: string;
@@ -19,6 +20,7 @@ export type VaultSettingsWrite = {
   minWinRate?: number;
   minTradesForWinRate?: number;
   hlBotStrategy?: HlBotStrategy;
+  newsTradeMode?: NewsTradeMode;
 };
 
 export type PersistVaultSettingsOptions = {
@@ -56,6 +58,7 @@ async function saveVaultSettingsToDatabase(
     p_min_win_rate_percent: settings.minWinRate ?? 0,
     p_min_trades_for_win_rate_gate: settings.minTradesForWinRate ?? 5,
     p_hl_bot_strategy: settings.hlBotStrategy ?? 'standard',
+    p_news_trade_mode: settings.newsTradeMode ?? 'filter',
   });
 
   if (error) {
@@ -72,6 +75,7 @@ async function saveVaultSettingsToDatabase(
         min_win_rate_percent: settings.minWinRate ?? 0,
         min_trades_for_win_rate_gate: settings.minTradesForWinRate ?? 5,
         hl_bot_strategy: settings.hlBotStrategy ?? 'standard',
+        news_trade_mode: settings.newsTradeMode ?? 'filter',
         updated_at: new Date().toISOString(),
         synced_at: new Date().toISOString(),
       };

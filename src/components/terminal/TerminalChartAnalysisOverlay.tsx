@@ -31,6 +31,7 @@ type Props = {
   openPositionsCount?: number;
   maxConcurrentPositions?: number;
   placement?: 'chart' | 'dock';
+  pumpSweepLines?: string[];
 };
 
 const CYCLE_MS = 2400;
@@ -65,6 +66,7 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
   openPositionsCount = 0,
   maxConcurrentPositions = 2,
   placement = 'chart',
+  pumpSweepLines = [],
 }) => {
   const [cycleIndex, setCycleIndex] = useState(0);
   const [slidePhase, setSlidePhase] = useState<'in' | 'out'>('in');
@@ -138,6 +140,8 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
     ]
   );
 
+  const sweepLine = pumpSweepLines[0]?.trim() || null;
+
   if (compact) {
     return (
       <div className="term-dock-analysis">
@@ -189,6 +193,9 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
           {whyLine ? (
             <p className="hl-bot-analyzer-subline term-analysis-subline--why">{whyLine}</p>
           ) : null}
+          {sweepLine ? (
+            <p className="hl-bot-analyzer-subline term-analysis-subline--sweep">{sweepLine}</p>
+          ) : null}
         </div>
       </div>
     );
@@ -210,6 +217,11 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
         {whyLine ? (
           <p className="term-analysis-hint term-analysis-hint--subtle term-analysis-subline--why">
             {whyLine}
+          </p>
+        ) : null}
+        {sweepLine ? (
+          <p className="term-analysis-hint term-analysis-hint--subtle term-analysis-subline--sweep">
+            {sweepLine}
           </p>
         ) : null}
         <div className="term-analysis-meta">

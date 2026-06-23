@@ -5,6 +5,7 @@ import type { EntryMomentumResult } from './entryMomentumGate';
 import type { PumpShortResult } from './pumpShortGate';
 import type { CoinNewsResult } from './coinNewsGate';
 import type { FreshPumpResult } from './freshPumpGate';
+import type { PumpSweepGateResult } from './pumpSweepGate';
 import { megaPairVolumeOpenReasonLine } from './megaPairVolumeMonitor';
 
 const SECTION = ' ‖ ';
@@ -20,6 +21,7 @@ export type OpenReasonParts = {
   pumpShortGate?: PumpShortResult;
   newsGate?: CoinNewsResult;
   freshPumpGate?: FreshPumpResult;
+  pumpSweepGate?: PumpSweepGateResult;
   scalpAlignLine?: string;
   candleAnalyticsLine?: string;
   megaPairLine?: string;
@@ -52,6 +54,9 @@ export function buildHlOpenReasonDoc(parts: OpenReasonParts): string {
 
   if (parts.newsGate) {
     lines.push(`── News (1) ── ${parts.newsGate.reason}`);
+    if (parts.newsGate.impact) {
+      lines.push(`── News impact ── ${parts.newsGate.impact} · sentiment ${parts.newsGate.sentiment}`);
+    }
     if (parts.newsGate.headlines.length > 0) {
       lines.push(`── Headlines ── ${parts.newsGate.headlines.slice(0, 3).join(' | ')}`);
     }
@@ -59,6 +64,15 @@ export function buildHlOpenReasonDoc(parts: OpenReasonParts): string {
 
   if (parts.freshPumpGate) {
     lines.push(`── Pump skip (2) ── ${parts.freshPumpGate.reason}`);
+  }
+
+  if (parts.pumpSweepGate?.analysis) {
+    const a = parts.pumpSweepGate.analysis;
+    lines.push(
+      `── Pump apex line ── $${a.pumpApex.toFixed(2)} (${a.apexAgeBars}h) · avg low $${a.avgSwingLow.toFixed(2)} · ` +
+        `sweep $${a.sweepLow.toFixed(2)} · turnaround ~$${a.turnaroundEstimate.toFixed(2)} · ${a.phase.replace(/_/g, ' ')}`
+    );
+    lines.push(`── Pump sweep gate ── ${parts.pumpSweepGate.reason}`);
   }
 
   if (parts.scalpAlignLine) {
@@ -111,7 +125,7 @@ export function buildHlOpenReasonDoc(parts: OpenReasonParts): string {
     lines.push(`── Location scan ── ${pick.locationReason}`);
   }
 
-  lines.push(`── Gates passed ── news · pump-cooldown · macro · short-timing · mega · momentum · location · MTF`);
+  lines.push(`── Gates passed ── news · pump-cooldown · macro · short-timing · mega · perp · pump-sweep · momentum · location · MTF`);
 
   return lines.join(SECTION);
 }

@@ -24,6 +24,7 @@ const defaultSettings: VaultSettingsSnapshot = {
   minTradesForWinRate: 5,
   autoTradeEnabled: false,
   hlBotStrategy: 'standard' as const,
+  newsTradeMode: 'filter' as const,
 };
 
 export type TerminalBotSettings = {
@@ -77,7 +78,7 @@ export function useTerminalBotSettings(refreshKey = 0) {
       const { data: row, error } = await supabase
         .from('vault_settings')
         .select(
-          'take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier, risk_level_bps, min_win_rate_percent, min_trades_for_win_rate_gate, auto_trade_enabled, execution_venue, hl_bot_strategy'
+          'take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier, risk_level_bps, min_win_rate_percent, min_trades_for_win_rate_gate, auto_trade_enabled, execution_venue, hl_bot_strategy, news_trade_mode'
         )
         .eq('wallet_address', wallet.toLowerCase())
         .eq('chain_id', BOT_SETTINGS_CHAIN_ID)

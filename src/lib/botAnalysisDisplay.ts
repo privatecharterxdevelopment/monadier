@@ -14,6 +14,8 @@ type WhyLineInput = {
   hasTfConflict: boolean;
   openPositionsCount: number;
   maxConcurrentPositions: number;
+  /** BTC/ETH pump apex + turnaround lines from bot-status. */
+  pumpSweepLines?: string[];
 };
 
 /** Primary analyzer subline — same copy as the chart analyzer strip. */
@@ -74,6 +76,11 @@ export function collectBotScanInsightLines(input: WhyLineInput): string[] {
     !detail?.includes(headline)
   ) {
     lines.push(headline);
+  }
+
+  for (const sweep of input.pumpSweepLines ?? []) {
+    const trimmed = sweep.trim();
+    if (trimmed && !lines.includes(trimmed)) lines.push(trimmed);
   }
 
   return lines;

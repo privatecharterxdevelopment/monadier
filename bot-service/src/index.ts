@@ -19,6 +19,9 @@ import {
   type GlobalSignalCandidate,
 } from './services/globalMarketScan';
 import { getMegaPairVolumeSnapshot } from './services/megaPairVolumeMonitor';
+import { fetchMegaPairPumpSweep, formatPumpSweepLine } from './services/pumpSweepAnalytics';
+import { buildCryptoNewsFeed } from './services/newsImpactGate';
+import { fetchAnalyzedSportsNews } from './services/sportsNewsService';
 import {
   processUserBatch,
   sliceUsersForCycle,
@@ -383,6 +386,11 @@ const healthServer = http.createServer(async (req, res) => {
 
       const openDb = await positionService.getOpenPositions(userAddress, chainId);
 
+      const megaPumpSweep = await fetchMegaPairPumpSweep();
+      const pumpSweepLines = [megaPumpSweep.BTC, megaPumpSweep.ETH]
+        .filter((row): row is NonNullable<typeof row> => Boolean(row))
+        .map(formatPumpSweepLine);
+
       const blockers: string[] = [];
       if (!hlAgentOk) blockers.push('HL agent not approved — enable bot in app');
       if (builderGate.required && !builderGate.approved) {
@@ -482,6 +490,7 @@ const healthServer = http.createServer(async (req, res) => {
           minSignalConfidence: config.hyperliquid.minSignalConfidence,
           minDirectionalTfs: config.hyperliquid.minDirectionalTfs,
           minTrendAlignment: config.hyperliquid.minTrendAlignment,
+          newsTradeMode: dbSettings.newsTradeMode,
         },
         globalGates: {
           minSignalConfidence: config.hyperliquid.minSignalConfidence,
@@ -520,6 +529,11 @@ const healthServer = http.createServer(async (req, res) => {
             : null,
         },
         megaPairVolume: getMegaPairVolumeSnapshot(),
+        pumpSweep: {
+          btc: megaPumpSweep.BTC ?? null,
+          eth: megaPumpSweep.ETH ?? null,
+          lines: pumpSweepLines,
+        },
         sampleSignal: ethSignal
           ? {
               direction: ethSignal.direction,
@@ -557,6 +571,28 @@ const healthServer = http.createServer(async (req, res) => {
       logger.error('API: bot-status failed', { error: err.message });
       res.writeHead(500, corsHeaders);
       res.end(JSON.stringify({ success: false, error: err.message || 'bot-status failed' }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/news') {
+    try {
+      const tab = url.searchParams.get('tab') || 'crypto';
+      const limit = Math.min(40, Math.max(1, Number(url.searchParams.get('limit') || 20)));
+      if (tab === 'sports') {
+        const items = await fetchAnalyzedSportsNews(limit);
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ success: true, tab: 'sports', items, count: items.length }));
+      } else {
+        const items = await buildCryptoNewsFeed(limit);
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ success: true, tab: 'crypto', items, count: items.length }));
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error('API: news failed', { error: msg });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg || 'news failed' }));
     }
     return;
   }

@@ -1,5 +1,6 @@
 import { normalizeHlBotStrategy } from './hlBotStrategy';
 import type { HlBotStrategy } from './hlBotStrategy';
+import { normalizeNewsTradeMode, type NewsTradeMode } from './newsTradeMode';
 
 export type VaultSettingsSnapshot = {
   riskPct: number;
@@ -11,6 +12,7 @@ export type VaultSettingsSnapshot = {
   minTradesForWinRate: number;
   autoTradeEnabled: boolean;
   hlBotStrategy: HlBotStrategy;
+  newsTradeMode: NewsTradeMode;
 };
 
 export type VaultSettingsRow = {
@@ -23,6 +25,7 @@ export type VaultSettingsRow = {
   min_trades_for_win_rate_gate?: number | null;
   auto_trade_enabled?: boolean | null;
   hl_bot_strategy?: string | null;
+  news_trade_mode?: string | null;
 };
 
 export type OnChainVaultSettingsFallback = {
@@ -49,6 +52,7 @@ export function resolveVaultSettingsSnapshot(
       minTradesForWinRate: 5,
       autoTradeEnabled: onChain.autoTradeEnabled,
       hlBotStrategy: 'standard',
+      newsTradeMode: 'filter',
     };
   }
 
@@ -62,6 +66,7 @@ export function resolveVaultSettingsSnapshot(
     minTradesForWinRate: Number(row.min_trades_for_win_rate_gate ?? 5),
     autoTradeEnabled: Boolean(row.auto_trade_enabled),
     hlBotStrategy: normalizeHlBotStrategy(row.hl_bot_strategy),
+    newsTradeMode: normalizeNewsTradeMode(row.news_trade_mode),
   };
 }
 

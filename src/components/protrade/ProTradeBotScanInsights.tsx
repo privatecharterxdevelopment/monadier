@@ -57,12 +57,14 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
       hasTfConflict,
       openPositionsCount: metrics.openPositionsCount,
       maxConcurrentPositions: HL_MAX_CONCURRENT_POSITIONS,
+      pumpSweepLines: analysis.pumpSweepLines,
     });
   }, [
     analysis.globalBest,
     analysis.scanCandidate,
     analysis.readiness,
     analysis.signal?.warnings,
+    analysis.pumpSweepLines,
     metrics.openPositionsCount,
   ]);
 

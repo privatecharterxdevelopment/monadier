@@ -232,6 +232,19 @@ export const config = {
       cryptopanicToken: process.env.CRYPTOPANIC_AUTH_TOKEN || '',
       blockUnknownHeadlines: process.env.HL_NEWS_BLOCK_UNKNOWN !== 'false',
     },
+    /** News feed + AI analysis (crypto + sports UI, bot safety). */
+    news: {
+      lookbackMs: Number(process.env.HL_NEWS_LOOKBACK_MS || 48 * 60 * 60 * 1000),
+      cacheMs: Number(process.env.HL_NEWS_CACHE_MS || 600_000),
+      analysisCacheMs: Number(process.env.HL_NEWS_ANALYSIS_CACHE_MS || 900_000),
+      maxHeadlines: Number(process.env.HL_NEWS_MAX_HEADLINES || 8),
+      maxFeedItems: Number(process.env.HL_NEWS_MAX_FEED || 24),
+      cryptopanicToken: process.env.CRYPTOPANIC_AUTH_TOKEN || '',
+      blockUnknownHeadlines: process.env.HL_NEWS_BLOCK_UNKNOWN !== 'false',
+      openaiApiKey: process.env.OPENAI_API_KEY || '',
+      openaiModel: process.env.OPENAI_NEWS_MODEL || 'gpt-4o-mini',
+      sportsCatalogCacheMs: Number(process.env.HL_NEWS_SPORTS_CATALOG_MS || 60_000),
+    },
     /** Scalp opens — top liquid pairs only, fast TF alignment. */
     scalpOpen: {
       maxVolumeRank: Number(process.env.HL_OPEN_MAX_VOLUME_RANK || 12),
@@ -310,6 +323,25 @@ export const config = {
       maxLongFunding: Number(process.env.HL_PERP_MAX_LONG_FUNDING || 0.00012),
       /** Block LONG when mark trades this % above oracle. */
       maxLongMarkPremiumPct: Number(process.env.HL_PERP_MAX_MARK_PREMIUM || 0.08),
+    },
+    /** Pump apex line + liquidity sweep / turnaround zone (1h swings). */
+    pumpSweep: {
+      enabled: process.env.HL_PUMP_SWEEP_ENABLED !== 'false',
+      majorsOnly: process.env.HL_PUMP_SWEEP_MAJORS_ONLY !== 'false',
+      blockAltsOnMegaFade: process.env.HL_PUMP_SWEEP_BLOCK_ALTS !== 'false',
+      lookbackBars1h: Number(process.env.HL_PUMP_SWEEP_LOOKBACK || 72),
+      apexMaxAgeBars: Number(process.env.HL_PUMP_SWEEP_APEX_AGE || 36),
+      nearApexPct: Number(process.env.HL_PUMP_SWEEP_NEAR_APEX || 0.004),
+      nearSweepPct: Number(process.env.HL_PUMP_SWEEP_NEAR_SWEEP || 0.006),
+      nearTurnaroundPct: Number(process.env.HL_PUMP_SWEEP_NEAR_TURN || 0.012),
+      sweepLowPosition: Number(process.env.HL_PUMP_SWEEP_SWEEP_POS || 0.18),
+      turnaroundMaxPosition: Number(process.env.HL_PUMP_SWEEP_TURN_POS || 0.42),
+      turnaroundRetraceRatio: Number(process.env.HL_PUMP_SWEEP_TURN_RATIO || 0.382),
+      minRetraceFromApexPct: Number(process.env.HL_PUMP_SWEEP_MIN_RETRACE || 0.35),
+      fadeMinPosition: Number(process.env.HL_PUMP_SWEEP_FADE_MIN || 0.48),
+      fadeTrendPct: Number(process.env.HL_PUMP_SWEEP_FADE_TREND || 0.08),
+      longBlockAbovePosition: Number(process.env.HL_PUMP_SWEEP_LONG_BLOCK || 0.52),
+      shortAllowAbovePosition: Number(process.env.HL_PUMP_SWEEP_SHORT_ALLOW || 0.58),
     },
     /** Minimum margin USD per HL open slot (split across max concurrent positions). */
     minMarginUsd: Number(process.env.HL_MIN_MARGIN_USD || 8),

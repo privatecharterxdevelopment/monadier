@@ -26,6 +26,7 @@ import ProTradeTransferModal from '../../components/protrade/ProTradeTransferMod
 import ProTradePortfolio from '../../components/protrade/ProTradePortfolio';
 import ProTradeSupport from '../../components/protrade/ProTradeSupport';
 import ProTradeSportsbets from '../../components/protrade/ProTradeSportsbets';
+import ProTradeNews from '../../components/protrade/ProTradeNews';
 import { BettingUiProvider, useBettingUi } from '../../contexts/BettingUiContext';
 import type { ProTradeProfileTab } from '../../components/protrade/proTradeProfileTypes';
 import type { ActivityNotification } from '../../lib/activityNotifications';
@@ -80,6 +81,7 @@ const Dashboard2ProPageContent: React.FC = () => {
   const initialSection = searchParams.get('section');
   const [section, setSection] = useState<ProTradeSection>(() => {
     if (initialSection === 'bot') return 'bot';
+    if (initialSection === 'news') return 'news';
     if (initialSection === 'sportsbets' || initialSection === 'spot') return 'sportsbets';
     return 'perps';
   });
@@ -392,7 +394,7 @@ const Dashboard2ProPageContent: React.FC = () => {
     }
     setSection(next);
     setFundsModal(null);
-    if (next === 'bot' || next === 'sportsbets' || next === 'support') {
+    if (next === 'bot' || next === 'sportsbets' || next === 'support' || next === 'news') {
       const params = new URLSearchParams(searchParams);
       params.set('section', next);
       params.delete('tab');
@@ -428,6 +430,8 @@ const Dashboard2ProPageContent: React.FC = () => {
         setSection('sportsbets');
       } else if (urlSection === 'support') {
         setSection('support');
+      } else if (urlSection === 'news') {
+        setSection('news');
       } else if (urlSection === 'swap') {
         setSection('perps');
       }
@@ -445,6 +449,8 @@ const Dashboard2ProPageContent: React.FC = () => {
       setSection('sportsbets');
     } else if (urlSection === 'support') {
       setSection('support');
+    } else if (urlSection === 'news') {
+      setSection('news');
     } else if (urlSection === 'swap') {
       setSection('perps');
     }
@@ -775,6 +781,22 @@ const Dashboard2ProPageContent: React.FC = () => {
           }}
           onNavigateBetting={() => setSection('sportsbets')}
         />
+        </div>
+      ) : null}
+      {section === 'news' ? (
+        <div className="hl-terminal hl-terminal--news">
+          <ProTradeNews
+            walletAddress={address ?? undefined}
+            onTradeCrypto={(coin) => {
+              selectChartCoin(coin);
+              handleSectionChange('perps');
+            }}
+            onTradeSports={() => {
+              handleSectionChange('sportsbets');
+              setToast('Open the matched event in Betting');
+              window.setTimeout(() => setToast(null), 4000);
+            }}
+          />
         </div>
       ) : null}
 

@@ -109,6 +109,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
         isLoading={keepScanning && hasBestCandidate && analysis.isLoading}
         openPositionsCount={analysis.openPositionsCount}
         maxConcurrentPositions={analysis.maxConcurrentPositions}
+        pumpSweepLines={analysis.pumpSweepLines}
       />
   );
 };
