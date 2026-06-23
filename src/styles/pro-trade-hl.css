@@ -6765,16 +6765,20 @@
 
 .hl-toast {
   position: fixed;
-  top: 52px;
+  top: max(52px, env(safe-area-inset-top, 0px));
   right: 12px;
-  z-index: 100;
+  z-index: 10150;
+  max-width: min(360px, calc(100vw - 24px));
   padding: 10px 14px;
-  border-radius: 6px;
-  background: var(--hl-green-tint);
-  border: 1px solid var(--hl-green-bright);
-  color: var(--hl-green-bright);
-  font-size: 12px;
-  font-weight: 600;
+  border-radius: 8px;
+  background: var(--hl-bg-elevated);
+  border: 1px solid var(--hl-border-strong);
+  color: var(--hl-text);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  box-shadow: var(--hl-shadow-dropdown);
+  pointer-events: none;
 }
 
 /* ── GMX Bot mode (Option B) ── */

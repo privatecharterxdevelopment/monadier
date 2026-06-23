@@ -5,6 +5,7 @@ import { disableHlBotExecution, MIN_HL_BOT_USD } from '../lib/hyperliquid/hlBotA
 export function useHlBotMinBalanceGuard(opts: {
   wallet?: string | null;
   hlBalanceUsd: number;
+  spotUsdcUsd?: number;
   autoTradeEnabled: boolean;
   enabled?: boolean;
   onStopped?: () => void;
@@ -15,7 +16,12 @@ export function useHlBotMinBalanceGuard(opts: {
     const wallet = opts.wallet?.toLowerCase();
     if (!opts.enabled || !wallet) return;
 
-    if (!opts.autoTradeEnabled || opts.hlBalanceUsd >= MIN_HL_BOT_USD) {
+    const spotUsd = opts.spotUsdcUsd ?? 0;
+    if (
+      !opts.autoTradeEnabled ||
+      opts.hlBalanceUsd >= MIN_HL_BOT_USD ||
+      spotUsd >= MIN_HL_BOT_USD
+    ) {
       stoppingRef.current = false;
       return;
     }
@@ -32,6 +38,7 @@ export function useHlBotMinBalanceGuard(opts: {
   }, [
     opts.wallet,
     opts.hlBalanceUsd,
+    opts.spotUsdcUsd,
     opts.autoTradeEnabled,
     opts.enabled,
     opts.onStopped,

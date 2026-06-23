@@ -84,6 +84,24 @@ export function spotToPerpTransferAmount(spotUsdcUsd: number): string | null {
   return spotUsdcUsd.toFixed(2);
 }
 
+/** After usdClassTransfer, poll until perp margin reflects the move (usually instant). */
+export async function pollHlPerpAfterTransfer(
+  wallet: string,
+  opts?: { minPerpUsd?: number; attempts?: number; intervalMs?: number }
+): Promise<HlFundingSnapshot> {
+  const minPerpUsd = opts?.minPerpUsd ?? 1;
+  const attempts = opts?.attempts ?? 8;
+  const intervalMs = opts?.intervalMs ?? 1500;
+
+  let latest = await fetchHlFundingSnapshot(wallet);
+  for (let i = 0; i < attempts; i++) {
+    if (latest.perpUsd >= minPerpUsd) return latest;
+    await new Promise((r) => setTimeout(r, intervalMs));
+    latest = await fetchHlFundingSnapshot(wallet);
+  }
+  return latest;
+}
+
 export function describeHlFundsPlacement(snap: HlFundingSnapshot): string | null {
   if (!snap.stateLoaded) return 'Could not read Hyperliquid balance — retrying…';
   if (snap.perpUsd <= 0 && snap.spotUsdcUsd > 0) {

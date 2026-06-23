@@ -146,7 +146,7 @@ export function getHlBotSidebarStatus(opts: {
     if (needsSpotTransfer) {
       return {
         headline: 'Move USDC to Perps',
-        detail: `$${spotUsdcUsd.toFixed(2)} is on HL Spot — the bot trades perps only. Press Start bot to move it automatically, or use Funds → Transfer.`,
+        detail: `$${spotUsdcUsd.toFixed(2)} is on HL Spot — the bot trades perps only. Press Move to Perps in the bot panel or Funds tab.`,
         tone: 'warn',
         setupStep: 2,
         setupComplete: false,

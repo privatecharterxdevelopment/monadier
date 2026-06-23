@@ -57,6 +57,7 @@ import ProTradeSignInModal from '../../components/protrade/ProTradeSignInModal';
 import ProTradeRegisterModal from '../../components/protrade/ProTradeRegisterModal';
 import { useHlBotChartMarkers } from '../../hooks/useHlBotChartMarkers';
 import { useHlBotMinBalanceGuard } from '../../hooks/useHlBotMinBalanceGuard';
+import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
 import { getProTradeChartColors } from '../../lib/proTradeTheme';
 
 const PROFILE_TABS = new Set<ProTradeProfileTab>([
@@ -493,12 +494,19 @@ const Dashboard2ProPageContent: React.FC = () => {
   const onBotMinBalanceStopped = useCallback(() => {
     void reloadBotSettings();
     void handleRefreshAll();
-    showToast('Bot paused — deposit at least $20 USDC on Hyperliquid');
-  }, [reloadBotSettings, handleRefreshAll]);
+    if (spotUsdc >= MIN_HL_BOT_USD && perpAccountValue < MIN_HL_BOT_USD) {
+      showToast(
+        `$${spotUsdc.toFixed(0)} USDC is on HL Spot — press Move to Perps in the bot panel or Funds tab`
+      );
+      return;
+    }
+    showToast('Bot paused — deposit at least $20 USDC on Hyperliquid Perps');
+  }, [reloadBotSettings, handleRefreshAll, spotUsdc, perpAccountValue]);
 
   useHlBotMinBalanceGuard({
     wallet: botTradingWallet ?? address,
     hlBalanceUsd: perpAccountValue,
+    spotUsdcUsd: spotUsdc,
     autoTradeEnabled: botVaultSettings.autoTradeEnabled,
     enabled: section === 'bot' && Boolean(botTradingWallet ?? address),
     onStopped: onBotMinBalanceStopped,

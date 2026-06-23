@@ -48,7 +48,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     : !botRunning && hlSetup.perpUsd < MIN_HL_BOT_USD && hlSetup.spotUsdcUsd >= MIN_HL_BOT_USD
       ? {
           headline: 'Funds on HL Spot',
-          detail: 'Press Start bot to move USDC to Perps — bot trades perps only.',
+          detail: 'Press Move to Perps in the bot panel — bot trades perps only.',
         }
     : !botRunning
       ? { headline: 'Bot off', detail: 'Press Start bot to scan markets' }
