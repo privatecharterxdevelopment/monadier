@@ -7,6 +7,11 @@ import { fetchUserWalletAddresses } from '../lib/userWallets';
 import { resolveHlTradingWallet } from '../lib/hlTradingWallet';
 import { resolveVaultSettingsSnapshot } from '../lib/vaultSettingsSnapshot';
 import { snapLeverageToStep } from '../lib/leverageLimits';
+import {
+  isMissingNewsTradeModeSchema,
+  VAULT_SETTINGS_COLUMNS_BASE,
+  VAULT_SETTINGS_COLUMNS_WITH_NEWS,
+} from '../lib/vaultSettingsSchema';
 import type { VaultSettingsSnapshot } from '../lib/vaultSettingsSnapshot';
 
 export type { VaultSettingsSnapshot };
@@ -75,14 +80,28 @@ export function useTerminalBotSettings(refreshKey = 0) {
     setData((d) => ({ ...d, isLoading: true, error: null }));
 
     try {
-      const { data: row, error } = await supabase
+      let row = null;
+      let error: { message: string } | null = null;
+
+      const full = await supabase
         .from('vault_settings')
-        .select(
-          'take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier, risk_level_bps, min_win_rate_percent, min_trades_for_win_rate_gate, auto_trade_enabled, execution_venue, hl_bot_strategy, news_trade_mode'
-        )
+        .select(VAULT_SETTINGS_COLUMNS_WITH_NEWS)
         .eq('wallet_address', wallet.toLowerCase())
         .eq('chain_id', BOT_SETTINGS_CHAIN_ID)
         .maybeSingle();
+      row = full.data;
+      error = full.error;
+
+      if (error && isMissingNewsTradeModeSchema(error.message)) {
+        const legacy = await supabase
+          .from('vault_settings')
+          .select(VAULT_SETTINGS_COLUMNS_BASE)
+          .eq('wallet_address', wallet.toLowerCase())
+          .eq('chain_id', BOT_SETTINGS_CHAIN_ID)
+          .maybeSingle();
+        row = legacy.data;
+        error = legacy.error;
+      }
 
       if (error) throw error;
 

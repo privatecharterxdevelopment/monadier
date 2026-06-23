@@ -8,6 +8,10 @@ import {
 } from './vaultSettingsSnapshot';
 import type { HlBotStrategy } from './hlBotStrategy';
 import type { NewsTradeMode } from './newsTradeMode';
+import {
+  isMissingNewsTradeModeSchema,
+  VAULT_SETTINGS_COLUMNS_BASE,
+} from './vaultSettingsSchema';
 
 export type VaultSettingsWrite = {
   walletAddress: string;
@@ -46,7 +50,7 @@ async function saveVaultSettingsToDatabase(
   settings: VaultSettingsWrite,
   leverage: number
 ): Promise<VaultSettingsSnapshot> {
-  const { data, error } = await supabase.rpc('save_vault_trading_settings', {
+  const rpcPayload = {
     p_wallet_address: wallet,
     p_chain_id: VAULT_CHAIN_ID,
     p_auto_trade_enabled: settings.autoTradeEnabled,
@@ -59,10 +63,28 @@ async function saveVaultSettingsToDatabase(
     p_min_trades_for_win_rate_gate: settings.minTradesForWinRate ?? 5,
     p_hl_bot_strategy: settings.hlBotStrategy ?? 'standard',
     p_news_trade_mode: settings.newsTradeMode ?? 'filter',
-  });
+  };
+
+  const { data, error } = await supabase.rpc('save_vault_trading_settings', rpcPayload);
 
   if (error) {
-    if (error.message.includes('Could not find the function')) {
+    const legacy =
+      error.message.includes('Could not find the function') ||
+      isMissingNewsTradeModeSchema(error.message);
+
+    if (legacy) {
+      const { p_news_trade_mode: _drop, ...legacyRpc } = rpcPayload;
+      const { data: legacyData, error: legacyRpcError } = await supabase.rpc(
+        'save_vault_trading_settings',
+        legacyRpc
+      );
+      if (!legacyRpcError && legacyData) {
+        return snapshotFromVaultSettingsRow({
+          ...(legacyData as VaultSettingsRow),
+          news_trade_mode: settings.newsTradeMode ?? 'filter',
+        });
+      }
+
       const payload = {
         wallet_address: wallet,
         chain_id: VAULT_CHAIN_ID,
@@ -75,21 +97,21 @@ async function saveVaultSettingsToDatabase(
         min_win_rate_percent: settings.minWinRate ?? 0,
         min_trades_for_win_rate_gate: settings.minTradesForWinRate ?? 5,
         hl_bot_strategy: settings.hlBotStrategy ?? 'standard',
-        news_trade_mode: settings.newsTradeMode ?? 'filter',
         updated_at: new Date().toISOString(),
         synced_at: new Date().toISOString(),
       };
       const { data: upserted, error: upsertError } = await supabase
         .from('vault_settings')
         .upsert(payload, { onConflict: 'wallet_address,chain_id' })
-        .select(
-          'risk_level_bps, take_profit_percent, stop_loss_percent, leverage_multiplier, auto_trade_enabled, ask_permission, min_win_rate_percent, min_trades_for_win_rate_gate, hl_bot_strategy'
-        )
+        .select(VAULT_SETTINGS_COLUMNS_BASE)
         .single();
       if (upsertError) {
         throw new Error(`Could not save settings: ${upsertError.message}`);
       }
-      return snapshotFromVaultSettingsRow(upserted as VaultSettingsRow);
+      return snapshotFromVaultSettingsRow({
+        ...(upserted as VaultSettingsRow),
+        news_trade_mode: settings.newsTradeMode ?? 'filter',
+      });
     }
     throw new Error(`Could not save settings: ${error.message}`);
   }
