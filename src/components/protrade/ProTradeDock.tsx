@@ -333,9 +333,9 @@ const ProTradeDock: React.FC<Props> = ({
             </table>
           )
         ) : tab === 'positions' ? (
-          <>
+          <div className="hl-dock-positions-pane">
             {botUnderfunded ? (
-              <div className="hl-dock-fund-banner" role="status">
+              <div className="hl-dock-fund-banner hl-dock-fund-banner--mobile" role="status">
                 <div className="hl-dock-fund-banner-copy">
                   <strong>Deposit to run the bot</strong>
                   <p>
@@ -433,7 +433,19 @@ const ProTradeDock: React.FC<Props> = ({
           ) : (
             <p className="hl-dock-empty">No open positions.</p>
           )}
-          </>
+            {botUnderfunded ? (
+              <p className="hl-dock-fund-nudge hl-dock-fund-nudge--desktop" role="status">
+                <span>
+                  HL {fmtUsdSymbol(botHlBalanceUsd)} · min ${MIN_HL_BOT_USD} to run bot (paused)
+                </span>
+                {onDeposit ? (
+                  <button type="button" className="hl-dock-fund-nudge-link" onClick={onDeposit}>
+                    Deposit
+                  </button>
+                ) : null}
+              </p>
+            ) : null}
+          </div>
         ) : tab === 'orders' ? (
           filteredOrders.length > 0 ? (
             <table className="hl-table">
