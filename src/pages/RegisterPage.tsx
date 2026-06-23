@@ -15,7 +15,11 @@ import { validateUsername } from '../lib/username';
 import { Gift } from 'lucide-react';
 import { useNotifications } from '../contexts/NotificationContext';
 import { afterAuthGo, OPEN_APP_PATH } from '../lib/appUrls';
-import { queueAuthToast } from '../lib/authToast';
+import {
+  applyStoredReferralForUser,
+  captureReferralFromSearch,
+  getStoredReferralCode,
+} from '../lib/referralCapture';
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -35,11 +39,12 @@ const RegisterPage: React.FC = () => {
   const [awaitingEmailConfirm, setAwaitingEmailConfirm] = useState(false);
 
   useEffect(() => {
-    const ref = searchParams.get('ref');
+    const ref = searchParams.get('ref') ?? searchParams.get('referral');
     if (ref) {
-      setReferralCode(ref.toUpperCase());
-      localStorage.setItem('referral_code', ref.toUpperCase());
+      captureReferralFromSearch(`?ref=${ref}`);
     }
+    const stored = getStoredReferralCode();
+    if (stored) setReferralCode(stored);
   }, [searchParams]);
 
   const handleGoogleSignIn = async () => {
@@ -91,20 +96,14 @@ const RegisterPage: React.FC = () => {
 
       sendWelcomeEmail(email, fullName).catch(console.error);
 
-      if (referralCode && data?.user?.id) {
+      if (data?.user?.id && getStoredReferralCode()) {
         try {
-          const result = await supabase.rpc('apply_referral_code', {
-            p_referred_user_id: data.user.id,
-            p_referral_code: referralCode,
-          });
-          localStorage.removeItem('referral_code');
-
-          if (result.data?.success) {
+          const result = await applyStoredReferralForUser(data.user.id);
+          if (result.success) {
             addNotification({
-              type: 'bonus',
-              title: '$5 USDC Bonus!',
-              message: 'Welcome bonus credited! Connect your wallet to receive payout.',
-              data: { profit: 5 },
+              type: 'info',
+              title: 'Referral linked',
+              message: 'Your referrer earns 2% when you close profitable bot trades.',
             });
           }
         } catch (refError) {
@@ -162,8 +161,8 @@ const RegisterPage: React.FC = () => {
                   <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2.5">
                     <Gift className="w-4 h-4 text-green-700 flex-shrink-0" />
                     <div>
-                      <p className="text-green-800 font-medium text-sm">$5 USDC Bonus!</p>
-                      <p className="text-xs text-secondary">Credited after sign-up</p>
+                      <p className="text-green-800 font-medium text-sm">Referral linked</p>
+                      <p className="text-xs text-secondary">Referrer earns 2% on your profitable bot trades</p>
                     </div>
                   </div>
                 )}

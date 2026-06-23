@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Gift, Copy, Check, Users, DollarSign, Clock, ExternalLink } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { buildReferralShareUrl } from '../../lib/referralCapture';
 
 interface Bonus {
   id: string;
@@ -75,15 +76,13 @@ const ReferralCard: React.FC = () => {
 
   const copyToClipboard = async () => {
     if (!referralCode) return;
-    const link = `${window.location.origin}/register?ref=${referralCode}`;
+    const link = buildReferralShareUrl(referralCode);
     await navigator.clipboard.writeText(link);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const referralLink = referralCode
-    ? `${window.location.origin}/register?ref=${referralCode}`
-    : '';
+  const referralLink = referralCode ? buildReferralShareUrl(referralCode) : '';
 
   if (isLoading) {
     return (
@@ -105,7 +104,7 @@ const ReferralCard: React.FC = () => {
         </div>
         <div>
           <h3 className="font-semibold text-primary">Refer & Earn</h3>
-          <p className="text-sm text-secondary">Give $5, Get $5 USDC</p>
+          <p className="text-sm text-secondary">Earn 2% on referrals&apos; profitable bot trades</p>
         </div>
       </div>
 
@@ -201,7 +200,8 @@ const ReferralCard: React.FC = () => {
       {/* How it works */}
       <div className="pt-4 border-t border-zinc-700">
         <p className="text-xs text-zinc-500">
-          Share your link. When someone signs up, you both get <span className="text-accent font-medium">$5 USDC</span> sent to your wallet.
+          Share your link. When referrals close profitable bot trades, you earn{' '}
+          <span className="text-accent font-medium">2% of their profits</span>.
         </p>
       </div>
     </div>

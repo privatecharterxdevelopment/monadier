@@ -129,7 +129,7 @@ const ProTradeOrderBook: React.FC<Props> = ({
             <span>Total</span>
           </div>
           <div className="hl-book-scroll">
-            <div>
+            <div className="hl-book-side hl-book-side--asks">
               {asks.map((level) => (
                 <BookLevelRow
                   key={`a-${level.px}`}
@@ -146,7 +146,7 @@ const ProTradeOrderBook: React.FC<Props> = ({
                 <span className="hl-book-spread">Spread {spread.toFixed(2)}%</span>
               ) : null}
             </div>
-            <div>
+            <div className="hl-book-side hl-book-side--bids">
               {bids.map((level) => (
                 <BookLevelRow
                   key={`b-${level.px}`}
@@ -172,7 +172,7 @@ const ProTradeOrderBook: React.FC<Props> = ({
             <span>Size</span>
             <span>Time</span>
           </div>
-          <div className="hl-book-scroll">
+          <div className="hl-book-scroll hl-book-scroll--tape">
             {tape.length === 0 ? (
               <p className="hl-dock-empty">No recent market trades</p>
             ) : (

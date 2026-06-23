@@ -5,6 +5,8 @@ import type { BettingCategoryId } from '../../../lib/hyperliquid/outcomes/catego
 import { BETTING_MOBILE_MQ, useMediaQuery } from '../../../hooks/useMediaQuery';
 import BettingCategoryNav from './BettingCategoryNav';
 
+const BETTING_BANNER_ART = '/images/betting/13-pomylok-u-stavkah-na-sport-yakyh-slid-unykaty-removebg-preview.png';
+
 type Props = {
   syncing?: boolean;
   onRefresh?: () => void;
@@ -66,6 +68,16 @@ const SportsbetsHero: React.FC<Props> = ({
             <p className="hl-sb-head-kicker">Hyperliquid · HIP-4</p>
             <h1 className="hl-sb-head-title">Betting</h1>
             <p className="hl-sb-head-sub">World Cup, crypto &amp; macro markets</p>
+          </div>
+          <div className="hl-sb-head-art" aria-hidden>
+            <img
+              src={BETTING_BANNER_ART}
+              alt=""
+              width={220}
+              height={160}
+              loading="lazy"
+              decoding="async"
+            />
           </div>
         </div>
 

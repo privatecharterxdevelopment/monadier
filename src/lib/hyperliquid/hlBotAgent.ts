@@ -284,6 +284,15 @@ export async function enableHlBotExecution(walletAddress: string): Promise<void>
     { onConflict: 'wallet_address,chain_id' }
   );
   if (error) throw new Error(error.message);
+
+  const base = getBotApiBase();
+  if (base) {
+    void fetch(`${base}/api/referral/try-qualify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet: walletAddress.toLowerCase(), botStarted: true }),
+    }).catch(() => undefined);
+  }
 }
 
 /** Tell Railway to skip this wallet — HL stop is DB-only (no MetaMask tx). */

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { supabase, getUserProfile, ensureUserProfile } from '../lib/supabase';
 import { ensureFreeSubscription } from '../lib/ensureSubscription';
 import { isDemoModeEnabled, disableDemoMode } from '../lib/demoMode';
+import { applyStoredReferralForUser } from '../lib/referralCapture';
 import { emitAuthSignedIn } from '../components/auth/AuthWalletReset';
 import { User } from '@supabase/supabase-js';
 
@@ -174,21 +175,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           disableDemoMode();
           emitAuthSignedIn();
 
-          const storedReferralCode = localStorage.getItem('referral_code');
-          if (storedReferralCode) {
-            try {
-              const result = await supabase.rpc('apply_referral_code', {
-                p_referred_user_id: nextUser.id,
-                p_referral_code: storedReferralCode,
-              });
-              if (result.data?.success) {
-                console.log('Referral code applied successfully:', storedReferralCode);
-              }
-              localStorage.removeItem('referral_code');
-            } catch (refError) {
-              console.error('Error applying referral code:', refError);
+          void applyStoredReferralForUser(nextUser.id).then((result) => {
+            if (result.success) {
+              console.log('[referral] applied on sign-in');
             }
-          }
+          });
         }
       } else {
         profileLoadSeq.current += 1;

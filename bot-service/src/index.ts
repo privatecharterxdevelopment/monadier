@@ -33,6 +33,7 @@ import { getLastHlOpenError, getLastHlOpenErrorForClient, hyperliquidTradingServ
 import { releaseHlBotTradingPauses } from './services/dailyLossGate';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
 import { getHlFeeSummary } from './services/hlSuccessFees';
+import { tryQualifyReferral } from './services/referralAffiliate';
 import { isOpenDirectionAllowed, weekendShortOnlyLabel } from './services/weekendTradingRules';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 import { fetchMappedTokenPrices } from './services/tokenPrices';
@@ -310,6 +311,30 @@ const healthServer = http.createServer(async (req, res) => {
       logger.error('API: hl-close failed', { error: err.message });
       res.writeHead(500, corsHeaders);
       res.end(JSON.stringify({ success: false, error: err.message || 'hl-close failed' }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/referral/try-qualify' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody();
+      const wallet = String(body.wallet ?? '').toLowerCase();
+      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
+        return;
+      }
+      const qualified = await tryQualifyReferral(wallet, {
+        botStarted: Boolean(body.botStarted),
+        profitableTrade: Boolean(body.profitableTrade),
+        tradeExecuted: Boolean(body.tradeExecuted),
+      });
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, qualified }));
+    } catch (err: any) {
+      logger.error('API: referral try-qualify failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'try-qualify failed' }));
     }
     return;
   }
@@ -711,6 +736,7 @@ healthServer.listen(PORT, () => {
   logger.info('  GET /api/hl-agent?wallet=0x… - Per-user HL agent address');
   logger.info('  POST /api/hl-agent/approval - Save HL agent approval (service role)');
   logger.info('  POST /api/hl-close - Close HL position via Monadier agent');
+  logger.info('  POST /api/referral/try-qualify - Qualify referral after HL fund + bot activity');
   logger.info('  GET /api/bot-status?wallet=0x… - Wallet bot diagnostics');
   logger.info('  GET /api/global-signals - Top HL perp signals from last scan');
   logger.info('  GET /api/token-prices - Spot prices for vault PnL (Binance proxy)');

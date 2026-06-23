@@ -27,6 +27,7 @@ import ProTradePortfolio from '../../components/protrade/ProTradePortfolio';
 import ProTradeSupport from '../../components/protrade/ProTradeSupport';
 import ProTradeSportsbets from '../../components/protrade/ProTradeSportsbets';
 import ProTradeNews from '../../components/protrade/ProTradeNews';
+import ProTradeAffiliate from '../../components/protrade/ProTradeAffiliate';
 import { BettingUiProvider, useBettingUi } from '../../contexts/BettingUiContext';
 import { useProTradeTheme } from '../../contexts/ProTradeThemeContext';
 import type { ProTradeProfileTab } from '../../components/protrade/proTradeProfileTypes';
@@ -398,9 +399,18 @@ const Dashboard2ProPageContent: React.FC = () => {
       openProfile(profileTab);
       return;
     }
+    if (next === 'affiliate') {
+      if (!requireAuth('Sign in to view your affiliate dashboard.')) return;
+    }
     setSection(next);
     setFundsModal(null);
-    if (next === 'bot' || next === 'sportsbets' || next === 'support' || next === 'news') {
+    if (
+      next === 'bot' ||
+      next === 'sportsbets' ||
+      next === 'support' ||
+      next === 'news' ||
+      next === 'affiliate'
+    ) {
       const params = new URLSearchParams(searchParams);
       params.set('section', next);
       params.delete('tab');
@@ -438,6 +448,8 @@ const Dashboard2ProPageContent: React.FC = () => {
         setSection('support');
       } else if (urlSection === 'news') {
         setSection('news');
+      } else if (urlSection === 'affiliate') {
+        setSection('affiliate');
       } else if (urlSection === 'swap') {
         setSection('perps');
       }
@@ -457,6 +469,8 @@ const Dashboard2ProPageContent: React.FC = () => {
       setSection('support');
     } else if (urlSection === 'news') {
       setSection('news');
+    } else if (urlSection === 'affiliate') {
+      setSection('affiliate');
     } else if (urlSection === 'swap') {
       setSection('perps');
     }
@@ -488,6 +502,10 @@ const Dashboard2ProPageContent: React.FC = () => {
 
   const openSupport = () => {
     handleSectionChange('support');
+  };
+
+  const openAffiliate = () => {
+    handleSectionChange('affiliate');
   };
 
   const showToast = (msg: string) => {
@@ -740,6 +758,7 @@ const Dashboard2ProPageContent: React.FC = () => {
         botOpenTone={botBadge.tone}
         onOpenSupport={openSupport}
         onSupportNavigate={openSupport}
+        onOpenAffiliate={openAffiliate}
         onOpenProfile={openProfile}
         onRequireSignIn={promptSignIn}
         onViewNotificationHistory={openNotificationHistory}
@@ -789,6 +808,7 @@ const Dashboard2ProPageContent: React.FC = () => {
             setSection('perps');
           }}
           onNavigateBetting={() => setSection('sportsbets')}
+          onNavigateAffiliate={openAffiliate}
         />
         </div>
       ) : null}
@@ -806,6 +826,11 @@ const Dashboard2ProPageContent: React.FC = () => {
               window.setTimeout(() => setToast(null), 4000);
             }}
           />
+        </div>
+      ) : null}
+      {section === 'affiliate' ? (
+        <div className="hl-terminal hl-terminal--affiliate">
+          <ProTradeAffiliate onRequireSignIn={promptSignIn} />
         </div>
       ) : null}
 

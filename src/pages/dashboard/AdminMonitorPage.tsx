@@ -26,8 +26,8 @@ import { formatUnits, createPublicClient, http } from 'viem';
 import { arbitrum } from 'viem/chains';
 import { VAULT_ADDRESS, VAULT_V8_ABI } from '../../lib/vault';
 import { useWeb3 } from '../../contexts/Web3Context';
-
 import { isAdminEmail } from '../../lib/admin';
+import AdminAffiliateOps from '../../components/admin/AdminAffiliateOps';
 
 // V11 Vault - Arbitrum Only (reconcile fix + fees direct to treasury)
 const V11_VAULT = VAULT_ADDRESS;
@@ -178,7 +178,7 @@ const AdminMonitorPage: React.FC = () => {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [vaultTransactions, setVaultTransactions] = useState<VaultTransaction[]>([]);
-  const [activeSection, setActiveSection] = useState<'overview' | 'users' | 'subscriptions' | 'trades' | 'vault' | 'fees' | 'payments' | 'emergency'>('overview');
+  const [activeSection, setActiveSection] = useState<'overview' | 'users' | 'subscriptions' | 'trades' | 'vault' | 'fees' | 'payments' | 'affiliate' | 'emergency'>('overview');
   const [emergencyActive, setEmergencyActive] = useState(false);
   const [emergencyInitiatedAt, setEmergencyInitiatedAt] = useState(0);
   const [emergencyCountdown, setEmergencyCountdown] = useState(0);
@@ -604,7 +604,7 @@ const AdminMonitorPage: React.FC = () => {
 
       {/* Section Tabs */}
       <div className="flex gap-2 p-1 bg-card-dark rounded-lg w-fit border border-border flex-wrap">
-        {(['overview', 'users', 'trades', 'vault', 'fees', 'payments', 'subscriptions', 'emergency'] as const).map((section) => (
+        {(['overview', 'users', 'trades', 'vault', 'fees', 'payments', 'affiliate', 'subscriptions', 'emergency'] as const).map((section) => (
           <button
             key={section}
             onClick={() => setActiveSection(section)}
@@ -620,6 +620,7 @@ const AdminMonitorPage: React.FC = () => {
             {section === 'vault' && <Wallet size={16} />}
             {section === 'fees' && <Coins size={16} />}
             {section === 'payments' && <DollarSign size={16} />}
+            {section === 'affiliate' && <Users size={16} />}
             {section === 'subscriptions' && <CreditCard size={16} />}
             {section === 'emergency' && <Zap size={16} />}
             {section.charAt(0).toUpperCase() + section.slice(1)}
@@ -1368,6 +1369,8 @@ const AdminMonitorPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {activeSection === 'affiliate' ? <AdminAffiliateOps /> : null}
 
       {/* ========== SUBSCRIPTIONS SECTION ========== */}
       {activeSection === 'subscriptions' && (

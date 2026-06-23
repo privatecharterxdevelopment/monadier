@@ -142,6 +142,10 @@
   flex-shrink: 0;
 }
 
+.hl-root--dark .hl-topnav-logo span {
+  color: #fafafa;
+}
+
 .hl-topnav-links {
   display: flex;
   align-items: center;
@@ -1313,14 +1317,14 @@
 }
 
 .hl-terminal--bot .hl-chart-row .hl-book {
-  align-self: start;
-  max-height: min(320px, 46vh);
-  height: auto;
+  align-self: stretch;
+  height: 100%;
+  max-height: none;
   border-left: 1px solid var(--hl-border);
 }
 
 .hl-terminal--bot .hl-book-scroll {
-  max-height: 220px;
+  max-height: none;
 }
 
 .hl-terminal--bot .hl-bot-dock {
@@ -1625,6 +1629,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: 100%;
   background: var(--hl-bg-panel);
 }
 
@@ -1664,19 +1669,61 @@
 .hl-book-scroll {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   contain: layout style;
 }
 
+.hl-book-side {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.hl-book-side--asks {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.hl-book-scroll--tape {
+  overflow-y: auto;
+  display: block;
+}
+
 .hl-book-mid {
-  padding: 6px 8px;
+  flex-shrink: 0;
+  padding: 4px 8px;
   text-align: center;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   border-top: 1px solid var(--hl-border);
   border-bottom: 1px solid var(--hl-border);
   background: var(--hl-bg);
+}
+
+.hl-chart-row .hl-book-row {
+  padding: 1px 6px;
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.hl-chart-row .hl-book-cols {
+  padding: 3px 6px;
+  font-size: 9px;
+}
+
+.hl-chart-row .hl-book-tab {
+  padding: 6px 4px;
+  font-size: 10px;
+}
+
+.hl-chart-row .hl-book-foot {
+  padding: 3px 6px;
+  font-size: 9px;
 }
 
 .hl-book-row {
@@ -2861,6 +2908,26 @@
   min-width: 0;
 }
 
+.hl-sb-head-art {
+  flex: 0 0 auto;
+  align-self: flex-end;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  margin: -6px -4px -14px 0;
+  pointer-events: none;
+}
+
+.hl-sb-head-art img {
+  display: block;
+  width: clamp(120px, 18vw, 220px);
+  height: auto;
+  max-height: 132px;
+  object-fit: contain;
+  object-position: bottom right;
+  filter: drop-shadow(0 8px 18px rgb(0 0 0 / 0.28));
+}
+
 .hl-sb-head-kicker {
   margin: 0;
   font-size: 10px;
@@ -3651,14 +3718,39 @@
   border-color: var(--hl-border-strong);
 }
 
-.hl-sb-odds-cell--picked {
-  border-color: var(--hl-green-bright);
-  background: var(--hl-green-tint);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hl-green-bright) 35%, transparent);
+.hl-sb-odds-cell--picked,
+.hl-sb-odds-cell.hl-sb-odds-cell--picked,
+.hl-terminal--sb .hl-sb-odds-cell--picked,
+.hl-terminal--sb .hl-sb-all-markets .hl-sb-odds-cell.hl-sb-odds-cell--picked,
+.hl-sb-all-markets .hl-sb-odds-cell.hl-sb-odds-cell--picked {
+  border: 2px solid var(--hl-green-bright) !important;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--hl-green-bright) 16%, var(--hl-bg-elevated)) !important;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--hl-green-bright) 35%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--hl-green-bright) 20%, transparent);
 }
 
-.hl-root--dark .hl-sb-odds-cell--picked {
-  background: var(--hl-green-tint);
+.hl-sb-odds-cell--picked .hl-sb-odds-side,
+.hl-sb-odds-cell.hl-sb-odds-cell--picked .hl-sb-odds-side {
+  color: var(--hl-green-bright);
+}
+
+.hl-root--dark .hl-sb-odds-cell--picked,
+.hl-root--dark .hl-sb-odds-cell.hl-sb-odds-cell--picked,
+.hl-root--dark .hl-terminal--sb .hl-sb-all-markets .hl-sb-odds-cell.hl-sb-odds-cell--picked {
+  background: color-mix(in srgb, var(--hl-green-bright) 18%, var(--hl-bg-elevated)) !important;
+}
+
+.hl-root--light .hl-terminal--sb .hl-sb-odds-cell--picked,
+.hl-root--light .hl-terminal--sb .hl-sb-all-markets .hl-sb-odds-cell.hl-sb-odds-cell--picked {
+  background: color-mix(in srgb, var(--hl-green-bright) 12%, #ffffff) !important;
+  border-color: #16a34a !important;
+}
+
+.hl-sb-odds-cell--picked .hl-sb-odds-line {
+  color: var(--hl-text);
+  font-weight: 600;
 }
 
 .hl-sb-odds-side {
@@ -3705,8 +3797,10 @@
   text-overflow: ellipsis;
 }
 
-.hl-sb-odds-cell--picked .hl-sb-odds-line {
-  color: var(--hl-text);
+.hl-sb-market-row--picked {
+  outline: 1px solid color-mix(in srgb, var(--hl-green-bright) 45%, transparent);
+  outline-offset: -1px;
+  background: color-mix(in srgb, var(--hl-green-bright) 6%, transparent);
 }
 
 .hl-sb-events {
@@ -5164,7 +5258,7 @@
   background: color-mix(in srgb, var(--hl-bg-hover) 55%, var(--hl-bg-elevated));
 }
 
-.hl-sb-all-markets .hl-sb-odds-cell {
+.hl-sb-all-markets .hl-sb-odds-cell:not(.hl-sb-odds-cell--picked) {
   background: transparent;
   border: none;
   border-radius: 0;
@@ -5181,8 +5275,10 @@
 }
 
 .hl-sb-all-markets .hl-sb-odds-cell--picked {
-  background: var(--hl-green-tint);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hl-green-bright) 35%, transparent);
+  background: color-mix(in srgb, var(--hl-green-bright) 16%, var(--hl-bg-elevated));
+  border: 2px solid var(--hl-green-bright);
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--hl-green-bright) 30%, transparent);
 }
 
 .hl-sb-all-markets .hl-sb-market-table--compact .hl-sb-market-row {
@@ -5206,10 +5302,6 @@
 
 .hl-root--light .hl-terminal--sb .hl-sb-odds-cell:hover {
   background: #f4f4f5;
-}
-
-.hl-root--light .hl-terminal--sb .hl-sb-odds-cell--picked {
-  background: var(--hl-green-tint);
 }
 
 .hl-root--light .hl-terminal--sb .hl-sb-market-table {
@@ -5277,7 +5369,8 @@
 
 .hl-root--light .hl-sb-all-markets .hl-sb-odds-cell--picked,
 .hl-root--light .hl-terminal--sb .hl-sb-all-markets .hl-sb-odds-cell--picked {
-  background: var(--hl-green-tint);
+  background: color-mix(in srgb, #16a34a 12%, #ffffff);
+  border: 2px solid #16a34a;
 }
 
 .hl-root--dark .hl-sb-all-markets .hl-sb-market-row:nth-child(even) {
@@ -5288,9 +5381,38 @@
   background: color-mix(in srgb, var(--hl-bg-hover) 45%, var(--hl-bg-elevated));
 }
 
-.hl-root--dark .hl-sb-all-markets .hl-sb-odds-cell,
-.hl-root--dark .hl-terminal--sb .hl-sb-all-markets .hl-sb-odds-cell {
+.hl-root--dark .hl-sb-all-markets .hl-sb-odds-cell:not(.hl-sb-odds-cell--picked),
+.hl-root--dark .hl-terminal--sb .hl-sb-all-markets .hl-sb-odds-cell:not(.hl-sb-odds-cell--picked) {
   background: transparent;
+}
+
+/* Dark theme — high-contrast picked state (green frame must read on dark panels) */
+.hl-root--dark .hl-sb-odds-cell.hl-sb-odds-cell--picked,
+.hl-root--dark .hl-terminal--sb .hl-sb-odds-cell.hl-sb-odds-cell--picked,
+.hl-root--dark .hl-terminal--sb .hl-sb-all-markets .hl-sb-odds-cell.hl-sb-odds-cell--picked,
+.hl-root--dark .hl-sb-all-markets .hl-sb-odds-cell.hl-sb-odds-cell--picked {
+  border: 2px solid #3dd68c !important;
+  border-radius: 8px !important;
+  background: color-mix(in srgb, #3dd68c 24%, var(--hl-bg-elevated)) !important;
+  box-shadow:
+    0 0 0 1px rgb(61 214 140 / 0.65),
+    0 0 14px rgb(61 214 140 / 0.28),
+    inset 0 0 0 1px rgb(61 214 140 / 0.4) !important;
+}
+
+.hl-root--dark .hl-sb-odds-cell.hl-sb-odds-cell--picked .hl-sb-odds-side {
+  color: #3dd68c !important;
+}
+
+.hl-root--dark .hl-sb-odds-cell.hl-sb-odds-cell--picked .hl-sb-odds-line {
+  color: #fafafa;
+  font-weight: 600;
+}
+
+.hl-root--dark .hl-sb-market-row--picked {
+  outline: 1px solid rgb(61 214 140 / 0.55);
+  outline-offset: -1px;
+  background: color-mix(in srgb, #3dd68c 10%, transparent);
 }
 
 .hl-sb-detail-title {
@@ -6096,6 +6218,15 @@
     padding: 12px 12px 10px;
   }
 
+  .hl-sb-head-art {
+    margin: -4px -2px -10px 0;
+  }
+
+  .hl-sb-head-art img {
+    width: clamp(96px, 28vw, 150px);
+    max-height: 96px;
+  }
+
   .hl-sb-all-market-block {
     margin-left: 10px;
     margin-right: 10px;
@@ -6419,9 +6550,9 @@
   background: color-mix(in srgb, var(--hl-bg-hover) 55%, var(--hl-bg-elevated));
 }
 
-.hl-terminal--sb .hl-sb-all-markets .hl-sb-odds-cell,
-.hl-terminal--sb .hl-sb-all-markets .hl-sb-odds-cell--yes,
-.hl-terminal--sb .hl-sb-all-markets .hl-sb-odds-cell--no {
+.hl-terminal--sb .hl-sb-all-markets .hl-sb-odds-cell:not(.hl-sb-odds-cell--picked),
+.hl-terminal--sb .hl-sb-all-markets .hl-sb-odds-cell--yes:not(.hl-sb-odds-cell--picked),
+.hl-terminal--sb .hl-sb-all-markets .hl-sb-odds-cell--no:not(.hl-sb-odds-cell--picked) {
   background: transparent;
   border: none;
   border-left: 1px solid color-mix(in srgb, var(--hl-border) 55%, transparent);
@@ -6450,10 +6581,14 @@
   transform: none;
 }
 
-.hl-terminal--sb .hl-sb-odds-cell--picked {
-  background: var(--hl-green-tint);
-  border-color: var(--hl-green-bright);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hl-green-bright) 35%, transparent);
+.hl-terminal--sb .hl-sb-odds-cell--picked,
+.hl-terminal--sb .hl-sb-all-markets .hl-sb-odds-cell.hl-sb-odds-cell--picked {
+  background: color-mix(in srgb, var(--hl-green-bright) 16%, var(--hl-bg-elevated)) !important;
+  border: 2px solid var(--hl-green-bright) !important;
+  border-radius: 8px !important;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--hl-green-bright) 45%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--hl-green-bright) 25%, transparent) !important;
 }
 
 .hl-terminal--sb .hl-sb-odds-val {
@@ -10735,4 +10870,223 @@
   .hl-news-hero__title h1 {
     font-size: 1.2rem;
   }
+}
+
+.hl-terminal--affiliate {
+  overflow: auto;
+}
+
+.hl-affiliate {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px 16px max(80px, env(safe-area-inset-bottom));
+}
+
+.hl-affiliate-hero {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.hl-affiliate-hero-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--hl-green-bright) 18%, transparent);
+  color: var(--hl-green-bright);
+  flex-shrink: 0;
+}
+
+.hl-affiliate-title {
+  margin: 0 0 6px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--hl-text);
+}
+
+.hl-affiliate-lead {
+  margin: 0;
+  color: var(--hl-text-muted);
+  line-height: 1.5;
+  max-width: 62ch;
+}
+
+.hl-affiliate-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.hl-affiliate-link {
+  flex: 1;
+  min-width: 200px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--hl-surface-2);
+  border: 1px solid var(--hl-border);
+  font-size: 12px;
+  color: var(--hl-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hl-affiliate-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--hl-border);
+  background: var(--hl-surface-2);
+  color: var(--hl-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hl-affiliate-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.hl-affiliate-section {
+  margin-bottom: 28px;
+}
+
+.hl-affiliate-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--hl-text);
+}
+
+.hl-affiliate-empty {
+  color: var(--hl-text-muted);
+  font-size: 13px;
+}
+
+.hl-affiliate-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--hl-border);
+  border-radius: 10px;
+}
+
+.hl-affiliate-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.hl-affiliate-table th,
+.hl-affiliate-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--hl-border);
+  white-space: nowrap;
+}
+
+.hl-affiliate-table th {
+  color: var(--hl-text-muted);
+  font-weight: 600;
+  background: var(--hl-surface-2);
+}
+
+.hl-affiliate-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.hl-affiliate-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.hl-affiliate-pill--pending {
+  background: color-mix(in srgb, var(--hl-amber, #f59e0b) 20%, transparent);
+  color: var(--hl-amber, #f59e0b);
+}
+
+.hl-affiliate-pill--paid {
+  background: color-mix(in srgb, var(--hl-green-bright) 20%, transparent);
+  color: var(--hl-green-bright);
+}
+
+.hl-affiliate-pill--scheduled {
+  background: color-mix(in srgb, var(--hl-blue, #3b82f6) 20%, transparent);
+  color: var(--hl-blue, #3b82f6);
+}
+
+.hl-affiliate-pill--failed {
+  background: color-mix(in srgb, var(--hl-red, #ef4444) 20%, transparent);
+  color: var(--hl-red, #ef4444);
+}
+
+.hl-affiliate-funnel {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.hl-affiliate-funnel-step {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--hl-border);
+  border-radius: 10px;
+  background: var(--hl-surface-2);
+}
+
+.hl-affiliate-funnel-step span {
+  font-size: 11px;
+  color: var(--hl-text-muted);
+}
+
+.hl-affiliate-funnel-step strong {
+  font-size: 1.1rem;
+  color: var(--hl-text);
+}
+
+.hl-portfolio-affiliate-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--hl-border);
+  background: color-mix(in srgb, var(--hl-green-bright) 10%, var(--hl-surface-2));
+  color: var(--hl-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.hl-portfolio-affiliate-btn strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.hl-portfolio-affiliate-btn span {
+  display: block;
+  font-size: 12px;
+  color: var(--hl-text-muted);
+}
+
+.hl-portfolio-affiliate-btn svg {
+  color: var(--hl-green-bright);
+  flex-shrink: 0;
 }

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Gift } from 'lucide-react';
 import type { HlAccountState, HlSpotBalance } from '../../lib/hyperliquid/user';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { readNum, toNum } from '../../lib/hyperliquid/parse';
@@ -16,6 +16,7 @@ type Props = {
   onNavigatePerps?: (coin: string) => void;
   onNavigateSpot?: (coin: string) => void;
   onNavigateBetting?: () => void;
+  onNavigateAffiliate?: () => void;
 };
 
 function spotUsdValue(b: HlSpotBalance, prices: Record<string, number>): number {
@@ -37,6 +38,7 @@ const ProTradePortfolio: React.FC<Props> = ({
   onNavigatePerps,
   onNavigateSpot,
   onNavigateBetting,
+  onNavigateAffiliate,
 }) => {
   const betting = useBettingPortfolio({
     walletAddress,
@@ -89,6 +91,18 @@ const ProTradePortfolio: React.FC<Props> = ({
           <span className="hl-portfolio-card-value">{fmtUsdSymbol(perpValue + spotTotal)}</span>
         </div>
       </div>
+
+      {onNavigateAffiliate ? (
+        <div className="hl-portfolio-section hl-portfolio-affiliate-cta">
+          <button type="button" className="hl-portfolio-affiliate-btn" onClick={onNavigateAffiliate}>
+            <Gift size={18} aria-hidden />
+            <div>
+              <strong>Affiliate program</strong>
+              <span>Earn 2% from your referrals&apos; profitable bot trades.</span>
+            </div>
+          </button>
+        </div>
+      ) : null}
 
       <div className="hl-portfolio-section">
         <h3 className="hl-portfolio-heading">Perp positions</h3>

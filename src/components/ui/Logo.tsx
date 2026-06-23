@@ -65,7 +65,7 @@ const Logo: React.FC<LogoProps> = ({
       {!iconOnly && (
         <span
           className={`font-sans font-medium tracking-tight ${
-            isLight ? 'text-[#0a0a0a]' : 'text-primary'
+            isLight ? 'text-[#0a0a0a]' : 'text-white'
           } ${sizeClasses[size]}`}
         >
           monadier

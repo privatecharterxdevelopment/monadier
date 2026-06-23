@@ -13,6 +13,7 @@ import { useNotifications } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTermAuthToast } from '../terminal/TermAuthToast';
 import { ensureFreeSubscription } from '../../lib/ensureSubscription';
+import { getStoredReferralCode, applyStoredReferralForUser } from '../../lib/referralCapture';
 import { dashboardPreview } from '../../assets/landing/dashboardPreview';
 
 type Props = {
@@ -47,8 +48,8 @@ const ProTradeRegisterModal: React.FC<Props> = ({
 
   useEffect(() => {
     if (!open) return;
-    const stored = localStorage.getItem('referral_code');
-    if (stored) setReferralCode(stored.toUpperCase());
+    const stored = getStoredReferralCode();
+    if (stored) setReferralCode(stored);
   }, [open]);
 
   useEffect(() => {
@@ -113,20 +114,14 @@ const ProTradeRegisterModal: React.FC<Props> = ({
 
       sendWelcomeEmail(email, fullName).catch(console.error);
 
-      if (referralCode && data?.user?.id) {
+      if (data?.user?.id && getStoredReferralCode()) {
         try {
-          const result = await supabase.rpc('apply_referral_code', {
-            p_referred_user_id: data.user.id,
-            p_referral_code: referralCode,
-          });
-          localStorage.removeItem('referral_code');
-
-          if (result.data?.success) {
+          const result = await applyStoredReferralForUser(data.user.id);
+          if (result.success) {
             addNotification({
-              type: 'bonus',
-              title: '$5 USDC Bonus!',
-              message: 'Welcome bonus credited! Connect your wallet to receive payout.',
-              data: { profit: 5 },
+              type: 'info',
+              title: 'Referral linked',
+              message: 'Your referrer earns 2% when you close profitable bot trades.',
             });
           }
         } catch (refError) {
@@ -187,7 +182,7 @@ const ProTradeRegisterModal: React.FC<Props> = ({
                 {referralCode ? (
                   <div className="hl-auth-referral">
                     <Gift size={14} aria-hidden />
-                    <span>$5 USDC welcome bonus with referral</span>
+                    <span>Referral code applied — referrer earns 2% on your profitable bot trades</span>
                   </div>
                 ) : null}
 

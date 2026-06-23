@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Clock,
+  Gift,
   HelpCircle,
   History,
   LogOut,
@@ -20,12 +21,14 @@ import type { ProTradeProfileTab } from './proTradeProfileTypes';
 type Props = {
   onOpenSupport?: () => void;
   onOpenProfile?: (tab?: ProTradeProfileTab) => void;
+  onOpenAffiliate?: () => void;
   onRequireSignIn?: (reason: string) => void;
 };
 
 const ProTradeAccountMenu: React.FC<Props> = ({
   onOpenSupport,
   onOpenProfile,
+  onOpenAffiliate,
   onRequireSignIn,
 }) => {
   const { profile, user } = useAuth();
@@ -63,6 +66,12 @@ const ProTradeAccountMenu: React.FC<Props> = ({
     setOpen(false);
     if (!requireUser('Sign in to open profile and bot settings.')) return;
     onOpenProfile?.(tab);
+  };
+
+  const openAffiliate = () => {
+    setOpen(false);
+    if (!requireUser('Sign in to view your affiliate dashboard.')) return;
+    onOpenAffiliate?.();
   };
 
   const openSupport = () => {
@@ -154,6 +163,15 @@ const ProTradeAccountMenu: React.FC<Props> = ({
           >
             <Settings size={14} aria-hidden />
             Profile &amp; settings
+          </button>
+          <button
+            type="button"
+            className="hl-account-item"
+            role="menuitem"
+            onClick={openAffiliate}
+          >
+            <Gift size={14} aria-hidden />
+            Affiliate program
           </button>
           <button
             type="button"

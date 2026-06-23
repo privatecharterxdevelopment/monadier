@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { recordHlChartMarker } from './hlChartMarkers';
+import { accrueReferralEarning, tryQualifyReferral } from './referralAffiliate';
 
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 
@@ -95,6 +96,12 @@ export async function recordHlBotClose(params: {
     return;
   }
 
+  await tryQualifyReferral(wallet, {
+    tradeExecuted: true,
+    profitableTrade: profitUsd > 0,
+    tradeId: tradeRow?.id ?? null,
+  });
+
   if (successFee <= 0) {
     logger.info('HL close recorded (no success fee)', {
       wallet: wallet.slice(0, 10),
@@ -132,6 +139,15 @@ export async function recordHlBotClose(params: {
     fee: successFee.toFixed(4),
     treasury: config.treasuryAddress.slice(0, 10),
   });
+
+  if (params.viaHlBuilder) {
+    await accrueReferralEarning({
+      walletAddress: wallet,
+      tradeId: tradeRow?.id ?? null,
+      profitUsd,
+      successFeeUsd: successFee,
+    });
+  }
 }
 
 export async function getHlFeeSummary(walletAddress: string): Promise<{

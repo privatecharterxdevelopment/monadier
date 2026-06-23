@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Headphones, Menu, X } from 'lucide-react';
+import { Headphones, Gift, Menu, X } from 'lucide-react';
 import { useAppKit } from '@reown/appkit/react';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
@@ -56,6 +56,7 @@ type Props = {
   onOpenSupport?: () => void;
   onSupportNavigate?: () => void;
   onOpenProfile?: (tab?: ProTradeProfileTab) => void;
+  onOpenAffiliate?: () => void;
   onRequireSignIn?: (reason: string) => void;
   onViewNotificationHistory?: (notification?: ActivityNotification) => void;
   walletAddress?: string;
@@ -71,6 +72,7 @@ const ProTradeTopNav: React.FC<Props> = ({
   onOpenSupport,
   onSupportNavigate,
   onOpenProfile,
+  onOpenAffiliate,
   onRequireSignIn,
   onViewNotificationHistory,
   walletAddress,
@@ -167,6 +169,7 @@ const ProTradeTopNav: React.FC<Props> = ({
         <ProTradeAccountMenu
           onOpenSupport={onOpenSupport}
           onOpenProfile={onOpenProfile}
+          onOpenAffiliate={onOpenAffiliate}
           onRequireSignIn={onRequireSignIn}
         />
         {!isMobile ? (
@@ -244,6 +247,14 @@ const ProTradeTopNav: React.FC<Props> = ({
               >
                 <Headphones size={16} aria-hidden />
                 Support
+              </button>
+              <button
+                type="button"
+                className={`hl-mobile-nav-link ${section === 'affiliate' ? 'hl-mobile-nav-link--on' : ''}`}
+                onClick={() => pickSection('affiliate', true)}
+              >
+                <Gift size={16} aria-hidden />
+                Affiliate
               </button>
               <button
                 type="button"

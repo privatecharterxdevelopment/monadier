@@ -14,6 +14,7 @@ import { getEnvSetupIssue } from './lib/envCheck';
 import EnvSetupScreen from './components/EnvSetupScreen';
 import AuthWalletReset from './components/auth/AuthWalletReset';
 import AuthOAuthCapture from './components/auth/AuthOAuthCapture';
+import ReferralCapture from './components/referral/ReferralCapture';
 import WalletSessionBridge from './components/auth/WalletSessionBridge';
 import MobileWalletConnectSheet from './components/wallet/MobileWalletConnectSheet';
 import './index.css';
@@ -43,6 +44,7 @@ createRoot(rootEl).render(
                     <WalletSessionBridge />
                     <MobileWalletConnectSheet />
                     <AuthOAuthCapture />
+                    <ReferralCapture />
                     <AuthWalletReset />
                     <App />
                   </Web3Provider>

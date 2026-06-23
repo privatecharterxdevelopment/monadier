@@ -20,6 +20,7 @@ const SportsbetsOddsButton: React.FC<Props> = ({ side, parts, picked, variant, o
   <button
     type="button"
     className={`hl-sb-odds-cell hl-sb-odds-cell--${variant} ${picked ? 'hl-sb-odds-cell--picked' : ''}`}
+    aria-pressed={picked}
     onClick={onClick}
   >
     <span className="hl-sb-odds-side">{side}</span>

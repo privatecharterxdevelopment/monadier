@@ -59,7 +59,10 @@ const SportsbetsMarketTable: React.FC<Props> = ({
       const legBadge = parsePriceBinaryMeta(leg.description)?.underlying ?? leg.name;
 
       return (
-        <div key={leg.outcomeId} className="hl-sb-market-row">
+        <div
+          key={leg.outcomeId}
+          className={`hl-sb-market-row${yesSelected || noSelected ? ' hl-sb-market-row--picked' : ''}`}
+        >
           <div className="hl-sb-market-team">
             <TeamBadge name={legBadge} size={compact ? 24 : 28} />
             <div className="hl-sb-market-team-copy">
