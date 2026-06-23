@@ -597,6 +597,7 @@ const Dashboard2ProPageContent: React.FC = () => {
                   markPrices={perpMarkPrices}
                   loading={accountLoading}
                   connected={isConnected}
+                  walletAddress={address ?? undefined}
                   activeTab={perpDockTab}
                   onTabChange={setPerpDockTab}
                   onCoinClick={selectChartCoin}

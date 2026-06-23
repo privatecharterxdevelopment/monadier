@@ -32,6 +32,7 @@ import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
 import TradeReasonHint from '../terminal/TradeReasonHint';
 import DockCountBadge from './DockCountBadge';
 import ProTradeBotScanInsights from './ProTradeBotScanInsights';
+import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
 import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
 
 function livePositionPnl(position: HlPosition, markPx: number): number {
@@ -132,6 +133,18 @@ const ProTradeDock: React.FC<Props> = ({
 }) => {
   const isSpot = variant === 'spot';
   const isBotMode = mode === 'bot';
+  const dockWallet = walletAddress?.toLowerCase();
+  const { snapshot: hlSnap } = useHlAccountSnapshot(dockWallet);
+  const unifiedAccount = hlSnap?.unifiedAccount ?? false;
+  const tradableHlUsd =
+    hlSnap?.tradablePerpUsd ??
+    toNum(account?.margin?.accountValue) +
+      (unifiedAccount ? 0 : toNum(spotBalances.find((b) => b.coin === 'USDC')?.total));
+  const spotUsdcUsd =
+    hlSnap?.spotUsdcUsd ?? toNum(spotBalances.find((b) => b.coin === 'USDC')?.total);
+  const rawPerpUsd = hlSnap?.accountUsd ?? toNum(account?.margin?.accountValue);
+  const hlWithdrawableUsd =
+    hlSnap?.withdrawableUsd ?? toNum(account?.withdrawable);
   const visibleTabs = historyOnly
     ? TABS.filter((t) => t.id === 'tradeHistory')
     : isBotMode
@@ -180,7 +193,10 @@ const ProTradeDock: React.FC<Props> = ({
     positionCount > 0 ? (positionUpnl >= 0 ? 'pos' : 'neg') : null;
 
   const botNeedsDeposit =
-    isBotMode && connected && !loading && botHlBalanceUsd < MIN_HL_BOT_USD;
+    isBotMode &&
+    connected &&
+    !loading &&
+    Math.max(botHlBalanceUsd, tradableHlUsd) < MIN_HL_BOT_USD;
   const botUnderfunded = botNeedsDeposit;
 
   /** Closed fills only — open legs have no PnL and looked like blank "—,—" rows. */
@@ -316,21 +332,31 @@ const ProTradeDock: React.FC<Props> = ({
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td>USDC (Perp)</td>
-                  <td>{fmtUsdSymbol(account?.margin?.accountValue)}</td>
-                  <td>{fmtUsdSymbol(account?.withdrawable)}</td>
-                </tr>
-                <tr>
-                  <td>USDC (Spot)</td>
-                  <td>{fmtUsdSymbol(spotBalances?.find((b) => b.coin === 'USDC')?.total)}</td>
-                  <td>
-                    {fmtUsdSymbol(
-                      toNum(spotBalances?.find((b) => b.coin === 'USDC')?.total) -
-                        toNum(spotBalances?.find((b) => b.coin === 'USDC')?.hold)
-                    )}
-                  </td>
-                </tr>
+                {unifiedAccount ? (
+                  <tr>
+                    <td>USDC (unified)</td>
+                    <td>{fmtUsdSymbol(tradableHlUsd)}</td>
+                    <td>{fmtUsdSymbol(hlWithdrawableUsd)}</td>
+                  </tr>
+                ) : (
+                  <>
+                    <tr>
+                      <td>USDC (Perp)</td>
+                      <td>{fmtUsdSymbol(rawPerpUsd)}</td>
+                      <td>{fmtUsdSymbol(hlWithdrawableUsd)}</td>
+                    </tr>
+                    <tr>
+                      <td>USDC (Spot)</td>
+                      <td>{fmtUsdSymbol(spotUsdcUsd)}</td>
+                      <td>
+                        {fmtUsdSymbol(
+                          spotUsdcUsd -
+                            toNum(spotBalances.find((b) => b.coin === 'USDC')?.hold)
+                        )}
+                      </td>
+                    </tr>
+                  </>
+                )}
                 <tr>
                   <td>Margin used</td>
                   <td colSpan={2}>{fmtUsdSymbol(account?.margin?.totalMarginUsed)}</td>

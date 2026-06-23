@@ -82,6 +82,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
 
   const {
     account,
+    spotBalances,
     fills,
     funding,
     orderHistory,
@@ -159,6 +160,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         mode="bot"
         historyOnly={historyOnly}
         account={account}
+        spotBalances={spotBalances}
         openOrders={[]}
         fills={fills}
         funding={funding}
@@ -182,7 +184,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         botHlBalanceUsd={
           botAnalysisMetrics?.hlBalanceUsd ??
           botHlBalanceUsd ??
-          toNum(account?.marginSummary?.accountValue)
+          toNum(account?.margin?.accountValue)
         }
         onDeposit={onDeposit}
       />
