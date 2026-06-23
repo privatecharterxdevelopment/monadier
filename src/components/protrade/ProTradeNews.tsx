@@ -87,19 +87,20 @@ const ProTradeNews: React.FC<Props> = ({ walletAddress, onTradeCrypto, onTradeSp
 
   return (
     <div className="hl-news-page">
-      <header className="hl-news-hero">
-        <div className="hl-news-hero__title">
-          <Newspaper size={22} aria-hidden />
+      <div className="hl-news-top">
+        <div className="hl-news-head">
+          <div className="hl-news-head__icon" aria-hidden>
+            <Newspaper size={20} />
+          </div>
           <div>
-            <h1>News</h1>
-            <p className="hl-news-hero__lead">
-              Live headlines from CNBC, Reuters, Bloomberg, CoinDesk &amp; more → each item scanned for
-              market impact (GPT when configured, otherwise desk rules).
+            <h1 className="hl-news-head__title">News</h1>
+            <p className="hl-news-head__lead">
+              Headlines from CNBC, Reuters, Bloomberg, CoinDesk &amp; more — scanned for market impact.
             </p>
           </div>
         </div>
 
-        <div className="hl-news-hero__actions">
+        <div className="hl-news-toolbar">
           <div className="hl-news-tabs" role="tablist" aria-label="News category">
             <button
               type="button"
@@ -131,25 +132,26 @@ const ProTradeNews: React.FC<Props> = ({ walletAddress, onTradeCrypto, onTradeSp
             Refresh
           </button>
         </div>
-      </header>
+      </div>
 
       {meta ? (
-        <p className="hl-news-pipeline" role="status">
-          <span>{engineLabel}</span>
-          <span className="hl-news-pipeline__sep">·</span>
-          <span>
-            {meta.aiAnalyzedCount} AI / {meta.rulesAnalyzedCount} rules
-          </span>
-          <span className="hl-news-pipeline__sep">·</span>
-          <span>Updated {formatTime(meta.analyzedAt)}</span>
-        </p>
-      ) : null}
-
-      {meta && tab === 'crypto' ? (
-        <p className="hl-news-sources">
-          Sources: {meta.sources.slice(0, 10).join(' · ')}
-          {meta.sources.length > 10 ? ` · +${meta.sources.length - 10} more` : ''}
-        </p>
+        <div className="hl-news-meta-card">
+          <p className="hl-news-pipeline" role="status">
+            <span>{engineLabel}</span>
+            <span className="hl-news-pipeline__sep">·</span>
+            <span>
+              {meta.aiAnalyzedCount} AI / {meta.rulesAnalyzedCount} rules
+            </span>
+            <span className="hl-news-pipeline__sep">·</span>
+            <span>Updated {formatTime(meta.analyzedAt)}</span>
+          </p>
+          {tab === 'crypto' ? (
+            <p className="hl-news-sources">
+              {meta.sources.slice(0, 8).join(' · ')}
+              {meta.sources.length > 8 ? ` · +${meta.sources.length - 8} more` : ''}
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
       <section className="hl-news-bot-mode" aria-label="Bot news mode">

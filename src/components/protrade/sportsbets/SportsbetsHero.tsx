@@ -73,8 +73,8 @@ const SportsbetsHero: React.FC<Props> = ({
             <img
               src={BETTING_BANNER_ART}
               alt=""
-              width={220}
-              height={160}
+              width={280}
+              height={168}
               loading="lazy"
               decoding="async"
             />

@@ -39,45 +39,52 @@ const NewsCard: React.FC<Props> = ({ item, variant, onTradeCrypto, onTradeSports
   return (
     <article className={`hl-news-card hl-news-card--${variant}`}>
       <header className="hl-news-card__head">
-        <span className={`hl-news-impact ${impactClass(a.impact)}`}>{a.impact}</span>
+        <div className="hl-news-card__tags">
+          <span className={`hl-news-impact ${impactClass(a.impact)}`}>{a.impact}</span>
+          {variant === 'crypto' && coin ? (
+            <span className="hl-news-card__asset">{coin}</span>
+          ) : null}
+        </div>
         <span className="hl-news-card__meta">
           {item.source} · {timeAgo(item.publishedAt)}
         </span>
       </header>
 
-      <h3 className="hl-news-card__title">{item.headline}</h3>
+      <div className="hl-news-card__body">
+        <h3 className="hl-news-card__title">{item.headline}</h3>
 
-      {item.snippet && item.snippet !== item.headline ? (
-        <p className="hl-news-card__snippet">{item.snippet}</p>
-      ) : null}
+        {item.snippet && item.snippet !== item.headline ? (
+          <p className="hl-news-card__snippet">{item.snippet}</p>
+        ) : null}
 
-      <div className="hl-news-ai">
-        <div className="hl-news-ai__row">
-          <span className={`hl-news-bias hl-news-bias--${a.bias}`}>
-            {biasIcon(a.bias)}
-            {a.engine === 'openai' ? 'GPT' : 'Desk'}: {a.bias.replace(/_/g, ' ')} · {a.confidence}%
-          </span>
-          <span className="hl-news-ai__horizon">{a.horizon} horizon</span>
+        <div className="hl-news-ai">
+          <div className="hl-news-ai__row">
+            <span className={`hl-news-bias hl-news-bias--${a.bias}`}>
+              {biasIcon(a.bias)}
+              {a.engine === 'openai' ? 'GPT' : 'Desk'}: {a.bias.replace(/_/g, ' ')} · {a.confidence}%
+            </span>
+            <span className="hl-news-ai__horizon">{a.horizon} horizon</span>
+          </div>
+          <p className="hl-news-ai__hint">{a.priceHint}</p>
+          <p className="hl-news-ai__reason">{a.reasoning}</p>
+          {a.suggestedAction && a.suggestedAction !== 'NONE' ? (
+            <p className="hl-news-ai__action">
+              Suggested: <strong>{a.suggestedAction}</strong>
+            </p>
+          ) : null}
         </div>
-        <p className="hl-news-ai__hint">{a.priceHint}</p>
-        <p className="hl-news-ai__reason">{a.reasoning}</p>
-        {a.suggestedAction && a.suggestedAction !== 'NONE' ? (
-          <p className="hl-news-ai__action">
-            Suggested: <strong>{a.suggestedAction}</strong>
-          </p>
+
+        {variant === 'sports' && item.prognosis ? (
+          <div className="hl-news-prognosis">
+            <p className="hl-news-prognosis__event">{item.prognosis.eventName}</p>
+            <p className="hl-news-prognosis__pick">
+              <strong>{item.prognosis.favoredLeg}</strong> — AI prognosis{' '}
+              <strong>{item.prognosis.prognosisPct}%</strong>
+            </p>
+            <p className="hl-news-prognosis__why">{item.prognosis.reasoning}</p>
+          </div>
         ) : null}
       </div>
-
-      {variant === 'sports' && item.prognosis ? (
-        <div className="hl-news-prognosis">
-          <p className="hl-news-prognosis__event">{item.prognosis.eventName}</p>
-          <p className="hl-news-prognosis__pick">
-            <strong>{item.prognosis.favoredLeg}</strong> — AI prognosis{' '}
-            <strong>{item.prognosis.prognosisPct}%</strong>
-          </p>
-          <p className="hl-news-prognosis__why">{item.prognosis.reasoning}</p>
-        </div>
-      ) : null}
 
       <footer className="hl-news-card__foot">
         {variant === 'crypto' && onTradeCrypto ? (

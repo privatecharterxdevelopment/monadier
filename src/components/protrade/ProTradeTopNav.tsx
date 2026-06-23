@@ -41,6 +41,7 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { id: 'perps', label: 'Perps', enabled: true },
+  { id: 'bot', label: 'Bot trade', enabled: true },
   { id: 'sportsbets', label: 'Betting', enabled: true },
   { id: 'portfolio', label: 'Portfolio', enabled: true },
   { id: 'news', label: 'News', enabled: true },
@@ -106,8 +107,21 @@ const ProTradeTopNav: React.FC<Props> = ({
 
   const pickSection = (id: ProTradeSection, enabled: boolean) => {
     if (!enabled) return;
-    onSectionChange(id);
+    if (id === 'bot') {
+      if (section !== 'bot') onBotTradeToggle();
+    } else {
+      onSectionChange(id);
+    }
     setMobileNavOpen(false);
+  };
+
+  const pickNavSection = (id: ProTradeSection, enabled: boolean) => {
+    if (!enabled) return;
+    if (id === 'bot') {
+      if (section !== 'bot') onBotTradeToggle();
+      return;
+    }
+    onSectionChange(id);
   };
 
   const openSupport = () => {
@@ -134,12 +148,14 @@ const ProTradeTopNav: React.FC<Props> = ({
             <button
               key={id}
               type="button"
-              className={`hl-topnav-link ${section === id ? 'hl-topnav-link--active' : ''}`}
-              onClick={() => enabled && onSectionChange(id)}
+              className={`hl-topnav-link ${section === id ? 'hl-topnav-link--active' : ''}${id === 'bot' && section === 'bot' ? ' hl-topnav-link--bot' : ''}`}
+              onClick={() => pickNavSection(id, enabled)}
               disabled={!enabled}
+              aria-current={section === id ? 'page' : undefined}
               style={enabled ? undefined : { opacity: 0.35, cursor: 'not-allowed' }}
             >
               {label}
+              {id === 'bot' ? <DockCountBadge count={botOpenCount} tone={botOpenTone} /> : null}
             </button>
           ))}
         </nav>
@@ -172,17 +188,6 @@ const ProTradeTopNav: React.FC<Props> = ({
           onOpenAffiliate={onOpenAffiliate}
           onRequireSignIn={onRequireSignIn}
         />
-        {!isMobile ? (
-          <button
-            type="button"
-            className={`hl-topnav-bot ${section === 'bot' ? 'hl-topnav-bot--active' : ''}`}
-            onClick={onBotTradeToggle}
-            aria-pressed={section === 'bot'}
-          >
-            Bot trade
-            <DockCountBadge count={botOpenCount} tone={botOpenTone} />
-          </button>
-        ) : null}
         {!isMobile || !isConnected ? (
           <button
             type="button"
@@ -230,11 +235,12 @@ const ProTradeTopNav: React.FC<Props> = ({
                 <button
                   key={id}
                   type="button"
-                  className={`hl-mobile-nav-link ${section === id ? 'hl-mobile-nav-link--on' : ''}`}
+                  className={`hl-mobile-nav-link ${section === id ? 'hl-mobile-nav-link--on' : ''}${id === 'bot' ? ' hl-mobile-nav-link--bot' : ''}`}
                   disabled={!enabled}
                   onClick={() => pickSection(id, enabled)}
                 >
                   {label}
+                  {id === 'bot' ? <DockCountBadge count={botOpenCount} tone={botOpenTone} /> : null}
                 </button>
               ))}
               <button
@@ -255,17 +261,6 @@ const ProTradeTopNav: React.FC<Props> = ({
               >
                 <Gift size={16} aria-hidden />
                 Affiliate
-              </button>
-              <button
-                type="button"
-                className={`hl-mobile-nav-link hl-mobile-nav-link--bot ${section === 'bot' ? 'hl-mobile-nav-link--on' : ''}`}
-                onClick={() => {
-                  onBotTradeToggle();
-                  setMobileNavOpen(false);
-                }}
-              >
-                Bot trade
-                <DockCountBadge count={botOpenCount} tone={botOpenTone} />
               </button>
             </nav>
             <div className="hl-mobile-nav-foot">
