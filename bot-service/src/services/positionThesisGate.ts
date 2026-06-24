@@ -128,12 +128,13 @@ export function shouldForceLossCap(pnlPct: number, slPct: number, pnlUsd: number
   return slPct > 0 && pnlPct <= -slPct * mult;
 }
 
-/** Tightest of: user SL% on margin, absolute USD cap. */
+/** User SL% on margin; optional absolute USD ceiling when thesisMaxLossUsd > 0. */
 export function computeMaxLossCapUsd(collateralUsd: number, slPct: number): number {
   const absCap = config.hyperliquid.thesisMaxLossUsd;
   const fromSl =
-    slPct > 0 && collateralUsd > 0 ? collateralUsd * (slPct / 100) : absCap;
-  if (slPct <= 0) return absCap;
+    slPct > 0 && collateralUsd > 0 ? collateralUsd * (slPct / 100) : 0;
+  if (absCap <= 0) return fromSl > 0 ? fromSl : 0;
+  if (fromSl <= 0) return absCap;
   return Math.min(fromSl, absCap);
 }
 
@@ -196,7 +197,8 @@ export function trailDistanceMultFromBias(bias: ProfitRunBias): number {
   const strong = config.hyperliquid.profitTrailStrongRunMult;
   if (bias === 'strong_run') return strong;
   if (bias === 'run') return Math.max(1.12, strong * 0.72);
-  if (bias === 'fade' || bias === 'reversal') return 0.88;
+  if (bias === 'reversal') return 0.92;
+  if (bias === 'fade') return 1;
   return 1;
 }
 

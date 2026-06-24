@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Loader2, Wallet } from 'lucide-react';
 import { useAppKit } from '@reown/appkit/react';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
@@ -75,6 +75,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
     startTwap,
     cancelTwap,
     walletReady,
+    applyTradeSettings,
   } = useHyperliquidTrading();
   const {
     enabled: builderEnabled,
@@ -106,6 +107,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
   const [twapRandomize, setTwapRandomize] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const settingsHydratedRef = useRef(false);
 
   const serverTwapActive =
     serverTwap?.status === 'activated' && serverTwap.coin === coin ? serverTwap : null;
@@ -140,16 +142,33 @@ const ProTradeOrderPanel: React.FC<Props> = ({
   useEffect(() => {
     if (isSpot || !address) return;
     let cancelled = false;
+    settingsHydratedRef.current = false;
     void (async () => {
       const state = await fetchHlAssetLeverage(address, coin);
-      if (cancelled || !state) return;
-      setMarginMode(state.marginMode);
-      setLeverage(Math.min(state.leverage, levMax));
+      if (cancelled) return;
+      if (state) {
+        setMarginMode(state.marginMode);
+        setLeverage(Math.min(state.leverage, levMax));
+      }
+      settingsHydratedRef.current = true;
     })();
     return () => {
       cancelled = true;
     };
   }, [address, coin, isSpot, levMax]);
+
+  const pushTradeSettings = useCallback(
+    async (next: { leverage: number; marginMode: MarginMode }) => {
+      if (isSpot || !walletReady || !settingsHydratedRef.current) return;
+      try {
+        await applyTradeSettings(coin, next, 'perp');
+        setLocalError(null);
+      } catch (err: unknown) {
+        setLocalError(err instanceof Error ? err.message : 'Failed to update leverage');
+      }
+    },
+    [isSpot, walletReady, applyTradeSettings, coin]
+  );
 
   useEffect(() => {
     if (leverage > levMax) setLeverage(levMax);
@@ -168,9 +187,9 @@ const ProTradeOrderPanel: React.FC<Props> = ({
   }, [sizeInCoin, markPx]);
 
   const applySizePreset = (pct: number) => {
+    setSizePct(pct);
     if (accountValue <= 0 || markPx <= 0) return;
     if (!isSpot && leverage <= 0) return;
-    setSizePct(pct);
     const notional = isSpot
       ? (accountValue * pct) / 100
       : (accountValue * leverage * pct) / 100;
@@ -298,7 +317,11 @@ const ProTradeOrderPanel: React.FC<Props> = ({
             <select
               className="hl-entry-select"
               value={marginMode}
-              onChange={(e) => setMarginMode(e.target.value as MarginMode)}
+              onChange={(e) => {
+                const mode = e.target.value as MarginMode;
+                setMarginMode(mode);
+                void pushTradeSettings({ leverage, marginMode: mode });
+              }}
             >
               <option value="isolated">Isolated</option>
               <option value="cross">Cross</option>
@@ -306,7 +329,11 @@ const ProTradeOrderPanel: React.FC<Props> = ({
             <select
               className="hl-entry-select"
               value={leverage}
-              onChange={(e) => setLeverage(Number(e.target.value))}
+              onChange={(e) => {
+                const lev = Number(e.target.value);
+                setLeverage(lev);
+                void pushTradeSettings({ leverage: lev, marginMode });
+              }}
             >
               {leverageOptionsForMax(levMax).map((n) => (
                 <option key={n} value={n}>{n}x</option>

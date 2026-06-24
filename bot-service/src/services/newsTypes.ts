@@ -19,6 +19,8 @@ export type NewsAnalysis = {
   bias: NewsBias;
   impact: NewsImpact;
   confidence: number;
+  /** Single HL perp most tied to this headline — null = macro / no clean coin edge. */
+  primaryAsset: string | null;
   affectedAssets: string[];
   horizon: NewsHorizon;
   priceHint: string;

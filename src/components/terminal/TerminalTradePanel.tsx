@@ -104,7 +104,10 @@ const TerminalTradePanel: React.FC<Props> = ({
     settingsLoading: botSettingsLoading,
     wallet: botWallet,
     bumpSettings,
-  } = useHlBotRunning({ metricsAutoTrade: metrics.autoTradeEnabled });
+  } = useHlBotRunning({
+    metricsAutoTrade: metrics.autoTradeEnabled,
+    metricsHasSnapshot: metrics.hasHlSnapshot,
+  });
   const botSettings = {
     settings: botSettingsSnapshot,
     isLoading: botSettingsLoading,

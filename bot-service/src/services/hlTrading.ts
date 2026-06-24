@@ -57,6 +57,9 @@ import {
   shouldHardLossClose,
   computeMaxLossCapUsd,
   evaluatePositionThesis,
+  evaluateTrailPullbackAnalysis,
+  logTrailPullbackAnalysis,
+  type ProfitRunAnalysis,
 } from './positionThesisGate';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import {
@@ -81,8 +84,20 @@ const hlLastCloseAt = new Map<string, number>();
 /** Prevent overlapping fast monitor passes. */
 let fastPositionMonitorRunning = false;
 
-/** Loss exits that must always execute — even when profitOnlyExits is on. */
-const HL_FORCED_LOSS_EXIT = new Set(['stop_loss', 'signal_reversal', 'emergency_close', 'trailing_stop']);
+/**
+ * Profit-only mode (default): hold losers until green — no tight stop or MTF flip exit.
+ * Opt-in via env: HL_LOSS_CAP_ENFORCE (stop_loss), HL_LOSS_THESIS_CLOSE (signal_reversal).
+ */
+function mayAutoCloseInRed(reason: string): boolean {
+  const cfg = config.hyperliquid;
+  if (reason === 'emergency_close') return true;
+  if (!cfg.profitOnlyExits) {
+    return reason === 'stop_loss' || reason === 'signal_reversal' || reason === 'trailing_stop';
+  }
+  if (reason === 'stop_loss' && cfg.lossProtection.enforceHardCap) return true;
+  if (reason === 'signal_reversal' && cfg.lossProtection.closeOnThesisBreak) return true;
+  return false;
+}
 
 /** Per user+coin — throttle "hold in red" logs. */
 const hlHoldRedLogAt = new Map<string, number>();
@@ -94,10 +109,12 @@ function isInternalOpenDiagnostic(error: string): boolean {
   return /Volume 0\.00x/i.test(error) || / ‖ /.test(error);
 }
 
-/** BTC/ETH and strong MTF picks already cleared scan — skip thin 1m volume re-check. */
+/** BTC/ETH, strong MTF picks, and liquid mid-caps — skip thin 1m volume re-check. */
 function bypassesLiquidityGate(signal: GlobalSignalCandidate): boolean {
   if (MAJOR_COINS.has(signal.coin.toUpperCase())) return true;
-  return isStrongGlobalScanPick(signal);
+  if (isStrongGlobalScanPick(signal)) return true;
+  const tfs = signal.directionalTfCount ?? 0;
+  return signal.confidence >= 65 && tfs >= 2;
 }
 
 /** Global scan already proved multi-TF alignment — skip redundant live re-checks. */
@@ -1068,7 +1085,7 @@ export class HyperliquidTradingService {
         );
       }
 
-      const trailRecord = loadTrailRecord(lockKey);
+      let trailRecord = loadTrailRecord(lockKey);
       const profitHoldMsForAnalysis =
         trailRecord?.profitSinceAt != null
           ? nowMs - trailRecord.profitSinceAt
@@ -1077,8 +1094,9 @@ export class HyperliquidTradingService {
             : 0;
 
       let trailDistanceMult = 1;
+      let runAnalysis: ProfitRunAnalysis | undefined;
       if (pnl > 0) {
-        const runAnalysis = await evaluateProfitRunAnalysis({
+        runAnalysis = await evaluateProfitRunAnalysis({
           coin: pos.coin,
           direction: positionDirection,
           profitHoldMs: profitHoldMsForAnalysis,
@@ -1087,6 +1105,10 @@ export class HyperliquidTradingService {
         trailDistanceMult = trailDistanceMultFromBias(runAnalysis.bias);
         logProfitRunAnalysis(userAddress, pos.coin, runAnalysis, false);
       }
+
+      const trailCloseDeferred =
+        trailRecord?.trailCloseDeferUntil != null &&
+        nowMs < trailRecord.trailCloseDeferUntil;
 
       const trailResult = await evaluateDynamicTrail({
         coin: pos.coin,
@@ -1100,9 +1122,53 @@ export class HyperliquidTradingService {
         nowMs,
         record: trailRecord,
         trailDistanceMult,
+        trailCloseDeferred,
       });
 
-      saveTrailRecord(lockKey, trailResult.record);
+      trailRecord = trailResult.record;
+      let shouldCloseTrail = trailResult.shouldClose;
+      let trailExitReason = trailResult.exitReason;
+      let trailCloseDetail = trailResult.closeDetail;
+
+      if (shouldCloseTrail && pnl > 0) {
+        const deferMax = config.hyperliquid.trailSweepDeferMax;
+        const deferMs = config.hyperliquid.trailSweepDeferMs;
+        const strongRun =
+          runAnalysis?.bias === 'strong_run' || runAnalysis?.bias === 'run';
+
+        if (trailExitReason === 'profit_grab_peak' && strongRun && runAnalysis?.thesis.thesisIntact) {
+          shouldCloseTrail = false;
+          logger.info('HL peak grab skipped — winner still running', {
+            user: userAddress.slice(0, 10),
+            coin: pos.coin,
+            bias: runAnalysis.bias,
+            pnlUsd: pnl.toFixed(4),
+            peakUsd: trailRecord.highestPnlSinceEntry.toFixed(4),
+          });
+        } else if (trailExitReason === 'trailing_stop') {
+          const verdict = await evaluateTrailPullbackAnalysis({
+            coin: pos.coin,
+            direction: positionDirection,
+            pnlUsd: pnl,
+            floorUsd: pnl,
+            peakUsd: trailRecord.highestPnlSinceEntry,
+          });
+          const canDefer =
+            verdict.deferClose &&
+            (trailRecord.trailCloseDeferCount ?? 0) < deferMax;
+          logTrailPullbackAnalysis(userAddress, pos.coin, verdict, canDefer);
+          if (canDefer) {
+            shouldCloseTrail = false;
+            trailRecord = {
+              ...trailRecord,
+              trailCloseDeferUntil: nowMs + deferMs,
+              trailCloseDeferCount: (trailRecord.trailCloseDeferCount ?? 0) + 1,
+            };
+          }
+        }
+      }
+
+      saveTrailRecord(lockKey, trailRecord);
 
       const closeCtx = {
         entryPx: entry,
@@ -1111,14 +1177,14 @@ export class HyperliquidTradingService {
         leverage: pos.leverage?.value ?? 10,
       };
 
-      if (trailResult.shouldClose) {
+      if (shouldCloseTrail) {
         clearTrailState(lockKey);
         await this.closeMarketPosition(
           userAddress,
           pos.coin,
-          trailResult.exitReason,
+          trailExitReason,
           closeCtx,
-          trailResult.closeDetail
+          trailCloseDetail
         );
         continue;
       }
@@ -1137,7 +1203,10 @@ export class HyperliquidTradingService {
       }
 
       const slPct = settings.stopLossPercent;
-      if (shouldHardLossClose(pnl, collateralEst, slPct)) {
+      if (
+        mayAutoCloseInRed('stop_loss') &&
+        shouldHardLossClose(pnl, collateralEst, slPct)
+      ) {
         const capUsd = computeMaxLossCapUsd(collateralEst, slPct);
         clearTrailState(lockKey);
         await this.closeMarketPosition(
@@ -1151,7 +1220,12 @@ export class HyperliquidTradingService {
       }
 
       const minHoldLossMs = config.hyperliquid.thesisMinHoldBeforeLossCloseMs;
-      if (pnl < 0 && holdMs >= minHoldLossMs && !fast) {
+      if (
+        mayAutoCloseInRed('signal_reversal') &&
+        pnl < 0 &&
+        holdMs >= minHoldLossMs &&
+        !fast
+      ) {
         const thesis = await evaluatePositionThesis({
           coin: pos.coin,
           direction: positionDirection,
@@ -1167,6 +1241,19 @@ export class HyperliquidTradingService {
           );
           continue;
         }
+      }
+
+      const emergencyCap = config.hyperliquid.thesisEmergencyMaxLossUsd;
+      if (pnl < 0 && emergencyCap > 0 && pnl <= -emergencyCap) {
+        clearTrailState(lockKey);
+        await this.closeMarketPosition(
+          userAddress,
+          pos.coin,
+          'emergency_close',
+          closeCtx,
+          `EMERGENCY LOSS CAP — ${pos.coin} uPnL $${pnl.toFixed(2)} ≤ −$${emergencyCap.toFixed(2)}`
+        );
+        continue;
       }
 
       if (pnl < 0 && config.hyperliquid.profitOnlyExits) {
@@ -1261,11 +1348,7 @@ export class HyperliquidTradingService {
       const leverage = closeCtx?.leverage ?? row.leverage?.value ?? 10;
       const absSize = Math.abs(size);
 
-      if (
-        config.hyperliquid.profitOnlyExits &&
-        pnlUsd < 0 &&
-        !HL_FORCED_LOSS_EXIT.has(reason)
-      ) {
+      if (config.hyperliquid.profitOnlyExits && pnlUsd < 0 && !mayAutoCloseInRed(reason)) {
         logger.warn('HL close rejected — never close in red', {
           user: userAddress.slice(0, 10),
           coin: coinUpper,

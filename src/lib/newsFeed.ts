@@ -5,6 +5,7 @@ export type NewsAnalysisDto = {
   bias: string;
   impact: string;
   confidence: number;
+  primaryAsset?: string | null;
   affectedAssets: string[];
   horizon: string;
   priceHint: string;

@@ -32,17 +32,46 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+function resolvePrimaryCoin(item: NewsItemDto): string | null {
+  const a = item.analysis;
+  if (a.primaryAsset) return a.primaryAsset;
+  const alts = item.assets.filter((t) => t !== 'BTC' && t !== 'ETH');
+  if (alts.length === 1) return alts[0];
+  if (a.affectedAssets?.length === 1) return a.affectedAssets[0];
+  if (item.assets.length === 1) return item.assets[0];
+  return null;
+}
+
 const NewsCard: React.FC<Props> = ({ item, variant, onTradeCrypto, onTradeSports }) => {
   const a = item.analysis;
-  const coin = item.assets[0] ?? 'BTC';
+  const primaryCoin = resolvePrimaryCoin(item);
+  const assetTags =
+    a.affectedAssets?.length > 0
+      ? a.affectedAssets
+      : item.assets.length > 0
+        ? item.assets
+        : [];
+  const actionable =
+    primaryCoin &&
+    (a.suggestedAction === 'LONG' || a.suggestedAction === 'SHORT' || a.suggestedAction === 'FADE');
 
   return (
     <article className={`hl-news-card hl-news-card--${variant}`}>
       <header className="hl-news-card__head">
         <div className="hl-news-card__tags">
           <span className={`hl-news-impact ${impactClass(a.impact)}`}>{a.impact}</span>
-          {variant === 'crypto' && coin ? (
-            <span className="hl-news-card__asset">{coin}</span>
+          {variant === 'crypto' && assetTags.length > 0 ? (
+            assetTags.slice(0, 3).map((ticker) => (
+              <span
+                key={ticker}
+                className={`hl-news-card__asset${ticker === primaryCoin ? ' hl-news-card__asset--primary' : ''}`}
+              >
+                {ticker}
+              </span>
+            ))
+          ) : null}
+          {variant === 'crypto' && assetTags.length === 0 ? (
+            <span className="hl-news-card__asset hl-news-card__asset--macro">Macro</span>
           ) : null}
         </div>
         <span className="hl-news-card__meta">
@@ -69,7 +98,11 @@ const NewsCard: React.FC<Props> = ({ item, variant, onTradeCrypto, onTradeSports
           <p className="hl-news-ai__reason">{a.reasoning}</p>
           {a.suggestedAction && a.suggestedAction !== 'NONE' ? (
             <p className="hl-news-ai__action">
-              Suggested: <strong>{a.suggestedAction}</strong>
+              Suggested:{' '}
+              <strong>
+                {a.suggestedAction}
+                {primaryCoin ? ` ${primaryCoin}` : ''}
+              </strong>
             </p>
           ) : null}
         </div>
@@ -87,9 +120,22 @@ const NewsCard: React.FC<Props> = ({ item, variant, onTradeCrypto, onTradeSports
       </div>
 
       <footer className="hl-news-card__foot">
-        {variant === 'crypto' && onTradeCrypto ? (
-          <button type="button" className="hl-news-btn hl-news-btn--primary" onClick={() => onTradeCrypto(coin)}>
-            Trade {coin}
+        {variant === 'crypto' && onTradeCrypto && actionable ? (
+          <button
+            type="button"
+            className="hl-news-btn hl-news-btn--primary"
+            onClick={() => onTradeCrypto(primaryCoin!)}
+          >
+            {a.suggestedAction} {primaryCoin}
+          </button>
+        ) : null}
+        {variant === 'crypto' && onTradeCrypto && primaryCoin && !actionable ? (
+          <button
+            type="button"
+            className="hl-news-btn hl-news-btn--ghost"
+            onClick={() => onTradeCrypto(primaryCoin)}
+          >
+            Chart {primaryCoin}
           </button>
         ) : null}
         {variant === 'sports' && item.prognosis?.outcomeId && onTradeSports ? (

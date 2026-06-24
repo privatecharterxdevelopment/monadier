@@ -51,7 +51,6 @@ const NAV: NavItem[] = [
 type Props = {
   section: ProTradeSection;
   onSectionChange: (section: ProTradeSection) => void;
-  onBotTradeToggle: () => void;
   botOpenCount?: number;
   botOpenTone?: 'pos' | 'neg' | null;
   onOpenSupport?: () => void;
@@ -67,7 +66,6 @@ type Props = {
 const ProTradeTopNav: React.FC<Props> = ({
   section,
   onSectionChange,
-  onBotTradeToggle,
   botOpenCount = 0,
   botOpenTone = null,
   onOpenSupport,
@@ -107,20 +105,12 @@ const ProTradeTopNav: React.FC<Props> = ({
 
   const pickSection = (id: ProTradeSection, enabled: boolean) => {
     if (!enabled) return;
-    if (id === 'bot') {
-      if (section !== 'bot') onBotTradeToggle();
-    } else {
-      onSectionChange(id);
-    }
+    onSectionChange(id);
     setMobileNavOpen(false);
   };
 
   const pickNavSection = (id: ProTradeSection, enabled: boolean) => {
     if (!enabled) return;
-    if (id === 'bot') {
-      if (section !== 'bot') onBotTradeToggle();
-      return;
-    }
     onSectionChange(id);
   };
 

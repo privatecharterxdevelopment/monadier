@@ -21,6 +21,8 @@ export function resolveHlBotRunning(opts: {
   settingsAutoTrade: boolean;
   settingsLoading?: boolean;
   metricsAutoTrade?: boolean;
+  metricsHasSnapshot?: boolean;
+  lastKnownAutoTrade?: boolean | null;
   optimistic?: boolean | null;
 }): boolean {
   if (opts.optimistic !== null && opts.optimistic !== undefined) {
@@ -28,6 +30,12 @@ export function resolveHlBotRunning(opts: {
   }
   if (!opts.settingsLoading) {
     return opts.settingsAutoTrade;
+  }
+  if (opts.metricsHasSnapshot) {
+    return Boolean(opts.metricsAutoTrade);
+  }
+  if (opts.lastKnownAutoTrade !== null && opts.lastKnownAutoTrade !== undefined) {
+    return opts.lastKnownAutoTrade;
   }
   return Boolean(opts.metricsAutoTrade);
 }

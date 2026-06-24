@@ -514,6 +514,7 @@ export function useHyperliquidTrading() {
     withdraw,
     transferUsdClass,
     cancelTwapOrder,
+    applyTradeSettings,
     walletReady: isLiveConnected && Boolean(walletClient),
   };
 }

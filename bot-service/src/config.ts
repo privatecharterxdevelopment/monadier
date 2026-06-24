@@ -116,18 +116,20 @@ export const config = {
     dynamicTrail: {
     /** Min ms in profit before arming breakeven / trail SL (5 min default). */
       armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 300_000),
-      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 0.5),
+      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 1),
+      /** After trail arms — min ms before trail/peak can close (lets candles develop). */
+      trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 180_000),
       armFeesMultiplier: Number(process.env.HL_TRAIL_ARM_FEES_MULT || 2),
       breakevenBufferPct: Number(process.env.HL_TRAIL_BE_BUFFER_PCT || 0.02),
       breakevenBufferFeesMult: Number(process.env.HL_TRAIL_BE_BUFFER_FEES_MULT || 0.5),
       estimatedFeeBpsPerSide: Number(process.env.HL_TRAIL_FEE_BPS_SIDE || 3.5),
       useAtr: process.env.HL_TRAIL_USE_ATR !== 'false',
       atrPeriod: Number(process.env.HL_TRAIL_ATR_PERIOD || 14),
-      atrMultiplier: Number(process.env.HL_TRAIL_ATR_MULT || 1.5),
+      atrMultiplier: Number(process.env.HL_TRAIL_ATR_MULT || 2),
       atrTimeframe: (process.env.HL_TRAIL_ATR_TF || '5m') as '1m' | '5m' | '15m',
       atrCacheMs: Number(process.env.HL_TRAIL_ATR_CACHE_MS || 60_000),
       atrMinPctOfFallback: Number(process.env.HL_TRAIL_ATR_MIN_PCT_FALLBACK || 0.5),
-      majorTrailPct: Number(process.env.HL_TRAIL_MAJOR_PCT || 0.0125),
+      majorTrailPct: Number(process.env.HL_TRAIL_MAJOR_PCT || 0.02),
       midTrailPct: Number(process.env.HL_TRAIL_MID_PCT || 0.0175),
       cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.0325),
       neverRedAfterArm: process.env.HL_TRAIL_NEVER_RED_AFTER_ARM !== 'false',
@@ -152,7 +154,7 @@ export const config = {
     /** If uPnL falls this far below trail floor during defer → close anyway. */
     trailSweepDeferGiveUpUsd: Number(process.env.HL_TRAIL_SWEEP_GIVEUP_USD || 0.02),
     /** Fraction of peak uPnL retrace before peak-grab close (0.5 = 50%). */
-    profitPeakDropFraction: Number(process.env.HL_PROFIT_PEAK_DROP_FRAC || 0.5),
+    profitPeakDropFraction: Number(process.env.HL_PROFIT_PEAK_DROP_FRAC || 0.38),
     /** Min peak (× round-trip fees) before peak-grab can fire. */
     profitPeakMinFeesMult: Number(process.env.HL_PROFIT_PEAK_MIN_FEES_MULT || 4),
     positionMonitorMs: Number(process.env.HL_POSITION_MONITOR_MS || 250),
@@ -248,8 +250,8 @@ export const config = {
     },
     /** Scalp opens — top liquid pairs only, fast TF alignment. */
     scalpOpen: {
-      maxVolumeRank: Number(process.env.HL_OPEN_MAX_VOLUME_RANK || 12),
-      allowCautiousAlts: process.env.HL_ALLOW_CAUTIOUS_OPENS === 'true',
+      maxVolumeRank: Number(process.env.HL_OPEN_MAX_VOLUME_RANK || 18),
+      allowCautiousAlts: process.env.HL_ALLOW_CAUTIOUS_OPENS !== 'false',
       require1m5mAlign: process.env.HL_SCALP_REQUIRE_1M5M !== 'false',
       minTfConfidence: Number(process.env.HL_SCALP_MIN_TF_CONF || 52),
       minConfirm1mCandles: Number(process.env.HL_SCALP_1M_CONFIRM || 2),
@@ -309,10 +311,12 @@ export const config = {
     thesisCheckCacheMs: Number(process.env.HL_THESIS_CACHE_MS || 5000),
     /** Force loss close at SL × this multiple even if thesis intact (safety cap). */
     thesisMaxLossSlMultiple: Number(process.env.HL_THESIS_MAX_LOSS_SL_MULT || 2.5),
-    /** Absolute USD loss cap per position — bot closes when uPnL hits this. */
-    thesisMaxLossUsd: Number(process.env.HL_THESIS_MAX_LOSS_USD || 2.5),
-    /** Min ms position must be open before signal_reversal loss close (avoid open→instant close). */
-    thesisMinHoldBeforeLossCloseMs: Number(process.env.HL_THESIS_MIN_HOLD_MS || 45_000),
+    /** Optional USD loss ceiling (0 = use bot SL% only — no flat $2.50 cap). */
+    thesisMaxLossUsd: Number(process.env.HL_THESIS_MAX_LOSS_USD || 0),
+    /** Catastrophic loss USD — optional escape hatch while profitOnlyExits (0 = disabled). */
+    thesisEmergencyMaxLossUsd: Number(process.env.HL_EMERGENCY_MAX_LOSS_USD || 0),
+    /** Min ms open before signal_reversal loss close when HL_LOSS_THESIS_CLOSE=true. */
+    thesisMinHoldBeforeLossCloseMs: Number(process.env.HL_THESIS_MIN_HOLD_MS || 600_000),
     /** HL funding, 24h change, mark/oracle — anti-chase before opens. */
     perpContext: {
       /** Block LONG above this fraction of 24h range (0.68 = top third). */

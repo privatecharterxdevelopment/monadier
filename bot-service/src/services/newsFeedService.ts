@@ -48,7 +48,7 @@ async function resolveCoingeckoId(coin: string): Promise<string | null> {
   }
 }
 
-function extractAssets(text: string): string[] {
+function extractAssets(text: string, category: NewsItem['category'] = 'crypto'): string[] {
   const found = new Set<string>();
   for (const m of text.matchAll(TICKER_RE)) {
     found.add(m[1].toUpperCase());
@@ -56,11 +56,14 @@ function extractAssets(text: string): string[] {
   if (/\b(bitcoin|btc)\b/i.test(text)) found.add('BTC');
   if (/\b(ethereum|ether|eth)\b/i.test(text)) found.add('ETH');
   if (/\b(solana|sol)\b/i.test(text)) found.add('SOL');
-  if (found.size === 0) {
-    found.add('BTC');
-    found.add('ETH');
-  }
-  return [...found];
+
+  if (found.size > 0) return [...found];
+
+  if (category === 'macro' || category === 'sports') return [];
+
+  if (/\b(crypto|digital asset|blockchain|defi|web3)\b/i.test(text)) return ['BTC'];
+
+  return [];
 }
 
 function itemId(source: string, headline: string, at: string): string {
@@ -103,7 +106,7 @@ async function fetchCryptoPanicPosts(filter: 'important' | 'hot' = 'important'):
         source: row.source?.title ?? 'CryptoPanic',
         publishedAt: new Date(ts).toISOString(),
         url: row.url,
-        assets: assets && assets.length > 0 ? assets : extractAssets(headline),
+        assets: assets && assets.length > 0 ? assets : extractAssets(headline, 'crypto'),
         category: /\b(war|iran|israel|fed|sec|etf|inflation|attack|sanctions)\b/i.test(headline)
           ? 'macro'
           : 'crypto',
@@ -182,7 +185,7 @@ function parseRssItems(xml: string, source: string, category: NewsItem['category
       publishedAt: new Date(Number.isFinite(ts) ? ts : Date.now()).toISOString(),
       url: link,
       snippet,
-      assets: extractAssets(`${headline} ${snippet ?? ''}`),
+      assets: extractAssets(`${headline} ${snippet ?? ''}`, category),
       category,
     });
   }

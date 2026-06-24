@@ -35,7 +35,9 @@ import type { ActivityNotification } from '../../lib/activityNotifications';
 import { useHyperliquidMarket } from '../../hooks/useHyperliquidMarket';
 import { useHyperliquidAccount } from '../../hooks/useHyperliquidAccount';
 import { useHlBotChartOverlay } from '../../hooks/useHlBotChartOverlay';
+import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
+import { setLastKnownHlBotAutoTrade } from '../../lib/hlBotRunningStore';
 import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
 import { useHyperliquidMarkets } from '../../hooks/useHyperliquidMarkets';
 import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
@@ -58,7 +60,6 @@ import ProTradeSignInModal from '../../components/protrade/ProTradeSignInModal';
 import ProTradeRegisterModal from '../../components/protrade/ProTradeRegisterModal';
 import { useHlBotChartMarkers } from '../../hooks/useHlBotChartMarkers';
 import { useHlBotMinBalanceGuard } from '../../hooks/useHlBotMinBalanceGuard';
-import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
 import { getProTradeChartColors } from '../../lib/proTradeTheme';
 
 const PROFILE_TABS = new Set<ProTradeProfileTab>([
@@ -159,11 +160,15 @@ const Dashboard2ProPageContent: React.FC = () => {
   const { prices: spotTokenPrices } = useHyperliquidSpotPrices(spotTokens);
 
   const perpAccountValue = readNum(account, ['margin', 'accountValue']);
-  const perpWithdrawable = toNum(account?.withdrawable);
   const spotUsdc = useMemo(
     () => toNum(spotBalances.find((b) => b.coin === 'USDC')?.total),
     [spotBalances]
   );
+  const { snapshot: perpHlSnapshot } = useHlAccountSnapshot(address?.toLowerCase());
+  const perpTradableUsd =
+    perpHlSnapshot?.tradablePerpUsd ??
+    (perpAccountValue > 0 ? perpAccountValue : Math.max(perpAccountValue, spotUsdc));
+  const perpWithdrawable = toNum(account?.withdrawable);
 
   const perpMarkPx = toNum(perpMarket.snapshot?.markPx);
 
@@ -209,8 +214,13 @@ const Dashboard2ProPageContent: React.FC = () => {
     [account?.positions]
   );
 
-  const { settings: botVaultSettings, wallet: botTradingWallet, reload: reloadBotSettings } =
+  const { settings: botVaultSettings, wallet: botTradingWallet, reload: reloadBotSettings, isLoading: botSettingsLoading } =
     useTerminalBotSettings(botSyncTick);
+
+  useEffect(() => {
+    if (botSettingsLoading) return;
+    setLastKnownHlBotAutoTrade(botVaultSettings.autoTradeEnabled);
+  }, [botVaultSettings.autoTradeEnabled, botSettingsLoading]);
   const { snapshot: botHlSnapshot } = useHlAccountSnapshot(
     (botTradingWallet ?? address)?.toLowerCase() ?? undefined
   );
@@ -404,6 +414,9 @@ const Dashboard2ProPageContent: React.FC = () => {
     }
     setSection(next);
     setFundsModal(null);
+    if (next === 'bot') {
+      setBotDockTab('positions');
+    }
     if (
       next === 'bot' ||
       next === 'sportsbets' ||
@@ -420,16 +433,6 @@ const Dashboard2ProPageContent: React.FC = () => {
       params.delete('section');
       params.delete('tab');
       setSearchParams(params, { replace: true });
-    }
-  };
-
-  const handleBotTradeToggle = () => {
-    setFundsModal(null);
-    if (section === 'bot') {
-      handleSectionChange('perps');
-    } else {
-      setBotDockTab('positions');
-      handleSectionChange('bot');
     }
   };
 
@@ -647,7 +650,7 @@ const Dashboard2ProPageContent: React.FC = () => {
                 ? perpMarket.snapshot.maxLeverage
                 : 0
             }
-            accountValue={perpAccountValue}
+            accountValue={perpTradableUsd}
             limitPrice={limitPrice}
             onLimitPriceChange={setLimitPrice}
             onSuccess={() => {
@@ -753,7 +756,6 @@ const Dashboard2ProPageContent: React.FC = () => {
       <ProTradeTopNav
         section={section}
         onSectionChange={handleSectionChange}
-        onBotTradeToggle={handleBotTradeToggle}
         botOpenCount={botBadge.count}
         botOpenTone={botBadge.tone}
         onOpenSupport={openSupport}
@@ -766,9 +768,11 @@ const Dashboard2ProPageContent: React.FC = () => {
         walletConnected={isConnected}
       />
 
-      {section === 'perps' ? renderPerpTerminal() : null}
-      {section === 'bot' ? (
-        <ProTradeBotProvider>{renderBotTerminal()}</ProTradeBotProvider>
+      {section === 'perps' || section === 'bot' ? (
+        <ProTradeBotProvider>
+          {section === 'perps' ? renderPerpTerminal() : null}
+          {section === 'bot' ? renderBotTerminal() : null}
+        </ProTradeBotProvider>
       ) : null}
       {section === 'profile' ? (
         <ProTradeProfile
@@ -795,7 +799,7 @@ const Dashboard2ProPageContent: React.FC = () => {
         <ProTradeSupport onRequireSignIn={promptSignIn} />
       ) : null}
       {section === 'portfolio' ? (
-        <div className="hl-terminal">
+        <div className="hl-terminal hl-terminal--portfolio">
         <ProTradePortfolio
           account={account}
           spotBalances={spotBalances}

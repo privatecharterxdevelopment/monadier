@@ -3,8 +3,10 @@ import { resolveHlBotRunning } from '../lib/hlBotGates';
 import {
   bumpHlBotSettings,
   getHlBotSettingsTick,
+  getLastKnownHlBotAutoTrade,
   getOptimisticHlBotRunning,
   notifyHlBotRunningChange,
+  setLastKnownHlBotAutoTrade,
   setOptimisticHlBotRunning,
   subscribeHlBotRunning,
 } from '../lib/hlBotRunningStore';
@@ -12,6 +14,7 @@ import { useTerminalBotSettings } from './useTerminalBotSettings';
 
 type Options = {
   metricsAutoTrade?: boolean;
+  metricsHasSnapshot?: boolean;
 };
 
 export function useHlBotRunning(opts: Options = {}) {
@@ -31,8 +34,16 @@ export function useHlBotRunning(opts: Options = {}) {
     settingsAutoTrade: settings.autoTradeEnabled,
     settingsLoading: isLoading,
     metricsAutoTrade: opts.metricsAutoTrade,
+    metricsHasSnapshot: opts.metricsHasSnapshot,
+    lastKnownAutoTrade: getLastKnownHlBotAutoTrade(),
     optimistic,
   });
+
+  useEffect(() => {
+    if (!isLoading) {
+      setLastKnownHlBotAutoTrade(settings.autoTradeEnabled);
+    }
+  }, [settings.autoTradeEnabled, isLoading]);
 
   useEffect(() => {
     if (optimistic === null || isLoading) return;

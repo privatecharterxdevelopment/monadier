@@ -25,6 +25,9 @@ export type DynamicTrailRecord = {
   estimatedFeesUsd: number;
   lastTrailDistancePx: number;
   timeInProfitMs: number;
+  /** Defer dynamic trail close while candles/thesis still favor direction. */
+  trailCloseDeferUntil: number | null;
+  trailCloseDeferCount: number;
 };
 
 export type TrailTickInput = {
@@ -40,6 +43,8 @@ export type TrailTickInput = {
   record: DynamicTrailRecord | null;
   /** Widen (>1) or tighten (<1) ATR/% trail from live run analysis. */
   trailDistanceMult?: number;
+  /** Skip close while defer window active (set by monitor after candle analysis). */
+  trailCloseDeferred?: boolean;
 };
 
 export type TrailTickResult = {
@@ -70,6 +75,8 @@ function emptyRecord(
     estimatedFeesUsd: feesUsd,
     lastTrailDistancePx: 0,
     timeInProfitMs: 0,
+    trailCloseDeferUntil: null,
+    trailCloseDeferCount: 0,
   };
 }
 
@@ -233,6 +240,15 @@ function formatAnalytics(rec: DynamicTrailRecord, mark: number): string {
   ].join(' · ');
 }
 
+function trailTooYoungToClose(rec: DynamicTrailRecord, nowMs: number, trailMult: number): boolean {
+  const minMs = config.hyperliquid.dynamicTrail.trailMinActiveBeforeCloseMs;
+  if (!rec.trailArmedAt || minMs <= 0) return false;
+  if (nowMs - rec.trailArmedAt < minMs) {
+    return trailMult >= 0.95;
+  }
+  return false;
+}
+
 export async function evaluateDynamicTrail(
   input: TrailTickInput
 ): Promise<TrailTickResult> {
@@ -342,16 +358,28 @@ export async function evaluateDynamicTrail(
       trailCandidate
     );
 
+    if (input.trailCloseDeferred) {
+      return {
+        record: rec,
+        shouldClose: false,
+        exitReason: '',
+        closeDetail: '',
+      };
+    }
+
     const peakFrac = config.hyperliquid.profitPeakDropFraction;
     const peakMinFees = config.hyperliquid.profitPeakMinFeesMult;
+    const runWiden =
+      trailMult >= 1.12 ? (trailMult >= 1.5 ? 1.45 : 1.2) : 1;
     if (
       rec.highestPnlSinceEntry >= feesUsd * peakMinFees &&
       input.pnlUsd > 0 &&
       peakFrac > 0 &&
-      rec.timeInProfitMs >= cfg.armMinProfitHoldMs
+      rec.timeInProfitMs >= cfg.armMinProfitHoldMs &&
+      !trailTooYoungToClose(rec, input.nowMs, trailMult)
     ) {
       const drop = rec.highestPnlSinceEntry - input.pnlUsd;
-      const minDrop = Math.max(feesUsd, rec.highestPnlSinceEntry * peakFrac);
+      const minDrop = Math.max(feesUsd, rec.highestPnlSinceEntry * peakFrac * runWiden);
       if (drop >= minDrop) {
         const detail = `PEAK PROFIT GRAB · ${input.direction} ${input.coin} · peak $${rec.highestPnlSinceEntry.toFixed(4)} → $${input.pnlUsd.toFixed(4)}`;
         return {
@@ -363,7 +391,10 @@ export async function evaluateDynamicTrail(
       }
     }
 
-    if (isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop)) {
+    if (
+      isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop) &&
+      !trailTooYoungToClose(rec, input.nowMs, trailMult)
+    ) {
       const detail = `TRAILING STOP · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
       return {
         record: rec,
