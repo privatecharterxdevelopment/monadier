@@ -180,7 +180,7 @@
   }
 
   .funds-explained-page .funds-card {
-    @apply rounded-2xl border border-[#c5c5cb] bg-white/70 backdrop-blur-xl px-6 py-6 text-left;
+    @apply rounded-2xl border border-[#c5c5cb] bg-white/70 backdrop-blur-xl px-7 py-7 text-left;
     box-shadow:
       0 8px 32px rgba(0, 0, 0, 0.05),
       inset 0 1px 0 rgba(255, 255, 255, 0.9);
@@ -592,16 +592,16 @@
   }
 
   .legal-doc-sections {
-    @apply space-y-6 mb-10;
+    @apply space-y-7 mb-10;
   }
 
   .legal-doc-section {
-    @apply rounded-2xl border border-[#c5c5cb] bg-white/70 backdrop-blur-xl px-5 py-5 sm:px-6 sm:py-6;
+    @apply rounded-2xl border border-[#c5c5cb] bg-white/70 backdrop-blur-xl px-6 py-6 sm:px-7 sm:py-7;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.9);
   }
 
   .legal-doc-section-title {
-    @apply font-display text-base sm:text-lg font-semibold mb-2.5;
+    @apply font-display text-base sm:text-lg font-semibold mb-3;
   }
 
   .legal-doc-section-body {

@@ -80,7 +80,7 @@ const CardPage: React.FC = () => {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7">
             {[
               {
                 icon: Globe,
@@ -119,7 +119,7 @@ const CardPage: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="group p-8 rounded-2xl border border-black/[0.06] hover:border-black/[0.08] hover:bg-black/[0.03] transition-all"
+                className="group px-8 py-9 rounded-2xl border border-black/[0.06] hover:border-black/[0.08] hover:bg-black/[0.03] transition-all"
               >
                 <div className="w-12 h-12 rounded-xl bg-black/[0.04] flex items-center justify-center mb-6 group-hover:bg-black/[0.06] transition-colors">
                   <feature.icon className="text-primary/60" size={24} />

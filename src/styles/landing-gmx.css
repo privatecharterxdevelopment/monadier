@@ -455,36 +455,41 @@
 
 .landing-gmx-faq-grid {
   display: grid;
-  gap: 0;
+  gap: 14px;
   grid-template-columns: 1fr;
 }
 
 @media (min-width: 1100px) {
   .landing-gmx-faq-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 24px;
+    gap: 16px 24px;
   }
 }
 
 .landing-gmx-faq-grid-item {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 18px;
+  padding: 2px 18px;
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   overflow: hidden;
   align-self: start;
 }
 
 .landing-gmx-faq-grid-item--open {
-  border-bottom-color: rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.58);
 }
 
 .landing-gmx-faq-grid-item .landing-gmx-faq-q {
-  padding: 14px 0;
+  padding: 16px 0;
   font-size: 14px;
   color: var(--lg-muted);
 }
 
 .landing-gmx-faq-grid-item .landing-gmx-faq-panel {
-  padding: 0 0 14px;
+  padding: 0 0 16px;
 }
 
 .landing-gmx-faq-chevron {
@@ -1547,19 +1552,22 @@
 /* —— Inner marketing pages (How it works, Bot, Pricing, About) —— */
 
 .mkt-page {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(28px, 4vw, 40px);
   width: 100%;
 }
 
-.mkt-hero-band {
-  padding: 28px 0 32px;
-  margin-bottom: 32px;
+.mkt-page > .mkt-hero-band,
+.mkt-page > .mkt-section-heading,
+.mkt-page > .mkt-cta-row,
+.mkt-page > .mkt-roadmap-warning {
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
-@media (min-width: 960px) {
-  .mkt-hero-band {
-    padding: 36px 0 40px;
-    margin-bottom: 40px;
-  }
+.mkt-hero-band {
+  padding: clamp(28px, 4vw, 36px) clamp(24px, 4vw, 32px);
 }
 
 .mkt-hero {
@@ -1630,25 +1638,25 @@
 
 .mkt-grid {
   display: grid;
-  gap: 20px;
+  gap: 24px;
   grid-template-columns: 1fr;
 }
 
 @media (min-width: 640px) {
   .mkt-grid--2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 22px;
+    gap: 26px;
   }
 }
 
 @media (min-width: 960px) {
   .mkt-grid--2 {
-    gap: 24px;
+    gap: 28px;
   }
 
   .mkt-grid--3 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 24px;
+    gap: 28px;
   }
 }
 
@@ -1681,9 +1689,15 @@
 .mkt-card-body {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  padding: 20px 24px 26px;
+  gap: 10px;
+  flex: 1;
+  padding: 24px 26px 28px;
+  border-top: none;
+}
+
+.mkt-card-visual + .mkt-card-body {
   border-top: 1px solid rgba(0, 0, 0, 0.05);
+  padding-top: 22px;
 }
 
 .mkt-card-icon {
@@ -1692,7 +1706,7 @@
   justify-content: center;
   width: 40px;
   height: 40px;
-  margin-bottom: 12px;
+  margin-bottom: 2px;
   border-radius: 12px;
   border: 1px solid rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.85);
@@ -1709,11 +1723,11 @@
 }
 
 .mkt-card-title {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: -0.02em;
-  line-height: 1.25;
+  line-height: 1.3;
   color: var(--lg-text);
 }
 
@@ -1730,7 +1744,7 @@
 
 .mkt-prose-grid {
   display: grid;
-  gap: 16px 22px;
+  gap: 24px 28px;
   grid-template-columns: 1fr;
 }
 
@@ -1741,7 +1755,7 @@
 }
 
 .mkt-prose-block {
-  padding: 28px 32px;
+  padding: 30px 32px;
   border-radius: 28px;
   min-height: 200px;
   display: flex;
@@ -1760,7 +1774,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 12px 20px;
-  margin-top: 40px;
+  margin-top: 0;
 }
 
 .mkt-cta-primary {
@@ -1815,17 +1829,11 @@
 }
 
 .mkt-section-heading {
-  margin: 36px 0 18px;
-}
-
-@media (min-width: 960px) {
-  .mkt-section-heading {
-    margin: 44px 0 22px;
-  }
+  margin: 0;
 }
 
 .mkt-section-title {
-  margin: 0 0 6px;
+  margin: 0 0 8px;
   font-size: clamp(1.25rem, 3vw, 1.65rem);
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -1842,19 +1850,19 @@
 
 .mkt-stats-row {
   display: grid;
-  gap: 14px 16px;
+  gap: 18px 20px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 @media (min-width: 768px) {
   .mkt-stats-row {
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 16px 18px;
+    gap: 20px 22px;
   }
 }
 
 .mkt-stat-card {
-  padding: 24px 28px;
+  padding: 26px 28px;
   text-align: center;
 }
 
@@ -1880,7 +1888,7 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 24px;
 }
 
 .mkt-roadmap-step {
@@ -1940,7 +1948,7 @@
 }
 
 .mkt-roadmap-step-card {
-  margin-bottom: 14px;
+  margin-bottom: 0;
   min-height: 280px;
   display: flex;
   flex-direction: column;
@@ -1948,11 +1956,12 @@
 }
 
 .mkt-roadmap-step-card .mkt-roadmap-step-content {
-  padding: 22px 24px 26px;
+  padding: 24px 26px 28px;
   border-top: 1px solid rgba(0, 0, 0, 0.05);
   flex: 1;
   display: flex;
   flex-direction: column;
+  gap: 8px;
 }
 
 .mkt-roadmap-step-visual {
@@ -2012,10 +2021,10 @@
 }
 
 .mkt-roadmap-title {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   font-size: 16px;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.3;
   color: var(--lg-text);
 }
 
@@ -2027,15 +2036,14 @@
 }
 
 .mkt-roadmap-warning {
-  margin-top: 36px;
-  padding: 22px 24px;
-  border-radius: 14px;
+  padding: 26px 28px;
+  border-radius: 20px;
   background: rgba(255, 255, 255, 0.6);
   border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .mkt-roadmap-warning-title {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   font-size: 15px;
   font-weight: 600;
   color: var(--lg-text);
@@ -2193,7 +2201,7 @@
 
 .mkt-architecture-goal {
   margin: 0 0 40px;
-  padding: 24px 28px;
+  padding: 28px 30px;
   border-radius: 28px;
   font-size: 15px;
   line-height: 1.6;
@@ -3358,7 +3366,7 @@
 .landing-bet-cards-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 20px;
+  gap: 24px;
 }
 
 @media (max-width: 1200px) {
@@ -3375,7 +3383,7 @@
 
 .landing-bet-cards-grid--home {
   grid-template-columns: 1fr;
-  gap: 20px;
+  gap: 24px;
 }
 
 @media (min-width: 700px) {
@@ -3462,10 +3470,10 @@
 }
 
 .landing-bet-card-body {
-  padding: 18px 18px 20px;
+  padding: 22px 22px 24px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   flex: 1;
 }
 
@@ -3626,13 +3634,13 @@
 .landing-home-bento {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 20px;
+  gap: 24px;
 }
 
 @media (min-width: 900px) {
   .landing-home-bento {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 22px;
+    gap: 28px;
   }
 }
 
@@ -3668,13 +3676,13 @@
   flex-direction: column;
   justify-content: space-between;
   gap: 20px;
-  padding: 28px 24px 24px;
+  padding: 32px 28px 28px;
   min-height: 280px;
 }
 
 @media (min-width: 768px) {
   .landing-home-bento-hero-panel {
-    padding: 32px 28px 28px;
+    padding: 36px 32px 32px;
     min-height: 300px;
   }
 }
@@ -3702,10 +3710,11 @@
 }
 
 .landing-home-bento-hero-panel-title {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   font-size: 20px;
   font-weight: 600;
   letter-spacing: -0.025em;
+  line-height: 1.3;
   color: var(--lg-text);
 }
 
@@ -3718,9 +3727,8 @@
 }
 
 .landing-home-bento-hero-foot {
-  padding: 0 24px 24px;
+  padding: 22px 28px 28px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
-  padding-top: 20px;
   margin-top: auto;
 }
 
@@ -3901,11 +3909,11 @@
 }
 
 .landing-bento-bet-copy {
-  padding: 28px 28px 16px;
+  padding: 30px 30px 18px;
 }
 
 .landing-bento-bet-title {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   font-size: clamp(1.125rem, 2vw, 1.35rem);
   font-weight: 600;
   line-height: 1.25;
@@ -4068,11 +4076,11 @@
 }
 
 .landing-bento-promo-copy {
-  padding: 28px 28px 16px;
+  padding: 30px 30px 18px;
 }
 
 .landing-bento-promo-title {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   font-size: clamp(1.125rem, 2vw, 1.35rem);
   font-weight: 600;
   line-height: 1.25;

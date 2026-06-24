@@ -104,7 +104,7 @@ const ForexPage: React.FC = () => {
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
               onClick={() => setSelectedPlan('lifetime')}
-              className={`relative p-8 rounded-2xl border cursor-pointer transition-all ${
+              className={`relative px-8 py-9 rounded-2xl border cursor-pointer transition-all ${
                 selectedPlan === 'lifetime'
                   ? 'border-blue-500 bg-blue-500/5'
                   : 'border-black/[0.08] bg-black/[0.03] hover:border-black/[0.1]'
@@ -171,7 +171,7 @@ const ForexPage: React.FC = () => {
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.1 }}
               onClick={() => setSelectedPlan('monthly')}
-              className={`relative p-8 rounded-2xl border cursor-pointer transition-all ${
+              className={`relative px-8 py-9 rounded-2xl border cursor-pointer transition-all ${
                 selectedPlan === 'monthly'
                   ? 'border-blue-500 bg-blue-500/5'
                   : 'border-black/[0.08] bg-black/[0.03] hover:border-black/[0.1]'
@@ -249,7 +249,7 @@ const ForexPage: React.FC = () => {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7">
             {features.map((feature, index) => (
               <motion.div
                 key={feature.title}
@@ -257,7 +257,7 @@ const ForexPage: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="p-6 rounded-2xl border border-black/[0.06] bg-black/[0.03] hover:border-black/[0.08] transition-colors"
+                className="px-7 py-7 rounded-2xl border border-black/[0.06] bg-black/[0.03] hover:border-black/[0.08] transition-colors"
               >
                 <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center mb-4">
                   <feature.icon className="w-6 h-6 text-blue-400" />
@@ -299,7 +299,7 @@ const ForexPage: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="relative p-6 rounded-2xl border border-black/[0.06] bg-black/[0.03]"
+                className="relative px-7 py-7 rounded-2xl border border-black/[0.06] bg-black/[0.03]"
               >
                 <span className="text-4xl font-display font-medium text-primary/10">
                   {item.step}

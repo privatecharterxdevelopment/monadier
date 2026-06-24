@@ -80,7 +80,7 @@ const FundsExplainedPage: React.FC = () => {
             Your funds stay on your Hyperliquid account until you choose to withdraw.
           </p>
 
-          <div className="space-y-4 mb-10 text-left">
+          <div className="space-y-6 mb-10 text-left">
             {sections.map((section, i) => {
               const Icon = section.icon;
               const cardClass =
@@ -101,7 +101,7 @@ const FundsExplainedPage: React.FC = () => {
                       />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h2 className="font-display text-lg font-semibold text-[#0a0a0a] mb-2">
+                      <h2 className="font-display text-lg font-semibold text-[#0a0a0a] mb-3">
                         {section.title}
                       </h2>
                       <p className="text-sm text-[#52525b] leading-relaxed">{section.body}</p>

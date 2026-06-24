@@ -53,27 +53,31 @@ const SupportPage: React.FC = () => {
       />
 
       <MarketingPageGrid columns={2}>
-        <article className="mkt-card">
-          <div className="mkt-card-icon" aria-hidden>
-            <Mail size={20} strokeWidth={1.75} />
+        <article className="mkt-card landing-glass-card">
+          <div className="mkt-card-body">
+            <div className="mkt-card-icon" aria-hidden>
+              <Mail size={20} strokeWidth={1.75} />
+            </div>
+            <h2 className="mkt-card-title">Email support</h2>
+            <p className="mkt-card-text">
+              Send us a message and we will get back to you within 24 hours.
+            </p>
+            <a href="mailto:support@monadier.com" className="mkt-cta-primary">
+              support@monadier.com
+            </a>
           </div>
-          <h2 className="mkt-card-title">Email support</h2>
-          <p className="mkt-card-text">
-            Send us a message and we will get back to you within 24 hours.
-          </p>
-          <a href="mailto:support@monadier.com" className="mkt-cta-primary">
-            support@monadier.com
-          </a>
         </article>
 
-        <article className="mkt-card">
-          <div className="mkt-card-icon" aria-hidden>
-            <Clock size={20} strokeWidth={1.75} />
+        <article className="mkt-card landing-glass-card">
+          <div className="mkt-card-body">
+            <div className="mkt-card-icon" aria-hidden>
+              <Clock size={20} strokeWidth={1.75} />
+            </div>
+            <h2 className="mkt-card-title">Support hours</h2>
+            <p className="mkt-card-text">
+              Monday – Sunday, 09:00 – 20:00 CET. The trading bot itself runs 24/7 on our infrastructure.
+            </p>
           </div>
-          <h2 className="mkt-card-title">Support hours</h2>
-          <p className="mkt-card-text">
-            Monday – Sunday, 09:00 – 20:00 CET. The trading bot itself runs 24/7 on our infrastructure.
-          </p>
         </article>
       </MarketingPageGrid>
 
@@ -94,7 +98,6 @@ const SupportPage: React.FC = () => {
       </MarketingPageGrid>
 
       <MarketingPageCta
-        href="mailto:support@monadier.com"
         label="Contact support"
         secondary={{ to: '/how-it-works', label: 'How it works' }}
       />
