@@ -381,6 +381,31 @@ export async function evaluateDynamicTrail(
       input.pnlUsd > 0 &&
       isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop)
     ) {
+      const peakRoe = roePct(rec.highestPnlSinceEntry, input.collateralUsd);
+      const minPeakUsd = Math.max(
+        feesUsd * 12,
+        input.collateralUsd * (cfg.breakevenArmRoePct / 100) * 1.1
+      );
+      // Don't scratch tiny winners on breakeven noise — let trends develop to full trail.
+      if (rec.highestPnlSinceEntry < minPeakUsd && peakRoe < cfg.armMinRoePct) {
+        logger.info('HL breakeven lock skipped — winner too small to lock', {
+          coin: input.coin,
+          direction: input.direction,
+          pnlUsd: input.pnlUsd.toFixed(4),
+          peakUsd: rec.highestPnlSinceEntry.toFixed(4),
+          minPeakUsd: minPeakUsd.toFixed(4),
+          peakRoe: peakRoe.toFixed(2),
+        });
+        rec.phase = 'idle';
+        rec.trailArmedAt = null;
+        rec.currentTrailStop = null;
+        return {
+          record: rec,
+          shouldClose: false,
+          exitReason: '',
+          closeDetail: '',
+        };
+      }
       const detail = `BREAKEVEN LOCK · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
       return {
         record: rec,
@@ -429,6 +454,7 @@ export async function evaluateDynamicTrail(
       trailMult >= 1.12 ? (trailMult >= 1.5 ? 1.45 : 1.2) : 1;
     if (
       rec.highestPnlSinceEntry >= feesUsd * peakMinFees &&
+      rec.highestPnlSinceEntry >= Math.max(input.collateralUsd * 0.02, feesUsd * 15) &&
       input.pnlUsd > 0 &&
       peakFrac > 0 &&
       rec.timeInProfitMs >= cfg.armMinProfitHoldMs &&
