@@ -322,12 +322,14 @@ export class HyperliquidTradingService {
         config.hyperliquid.minAccountUsd
       );
       if (balanceBlocker) {
-        await subscriptionService.disableAutoTrade(userAddress, config.arbitrum.chainId);
+        // Never flip auto_trade off in DB — user stops explicitly. Skip new opens this cycle only.
         autoTradeEnabled = false;
-        logger.info('HL auto-trade disabled — perp balance below minimum', {
+        logger.warn('HL skip new opens — balance gate', {
           user: userAddress.slice(0, 10),
+          reason: balanceBlocker,
           perpUsd: funding.tradablePerpUsd.toFixed(2),
           minUsd: config.hyperliquid.minAccountUsd,
+          stateLoaded: funding.stateLoaded,
         });
       }
     }

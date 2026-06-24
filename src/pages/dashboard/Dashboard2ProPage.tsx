@@ -517,10 +517,8 @@ const Dashboard2ProPageContent: React.FC = () => {
   };
 
   const onBotMinBalanceStopped = useCallback(() => {
-    void reloadBotSettings();
-    void handleRefreshAll();
-    showToast('Bot paused — deposit at least $20 USDC on Hyperliquid');
-  }, [reloadBotSettings, handleRefreshAll]);
+    showToast('Low HL balance — deposit $20+ USDC on Hyperliquid or new trades may be skipped');
+  }, [showToast]);
 
   useHlBotMinBalanceGuard({
     wallet: botTradingWallet ?? address,
