@@ -9,6 +9,7 @@ import {
   type ProTradeProfileTab,
 } from './proTradeProfileTypes';
 import ProTradeBotHistory from './ProTradeBotHistory';
+import ProTradePageShell from './ProTradePageShell';
 
 type Props = {
   activeTab?: ProTradeProfileTab;
@@ -35,7 +36,7 @@ const ProTradeProfile: React.FC<Props> = ({
   const username = profile?.username?.trim();
 
   return (
-    <div className="hl-profile-page">
+    <ProTradePageShell className="hl-profile-page">
       <header className="hl-profile-hero">
         <ProfileAvatar profile={profile} userId={user?.id} size="lg" />
         <div className="hl-profile-hero-meta">
@@ -76,7 +77,7 @@ const ProTradeProfile: React.FC<Props> = ({
           <TerminalProfilePanel activeSection={tab} variant="pro" />
         )}
       </div>
-    </div>
+    </ProTradePageShell>
   );
 };
 

@@ -17,8 +17,8 @@
   min-height: 0;
 }
 
-/* Pro Trade page wrapper (MonadierAppRoot) */
-.hl-page-shell {
+/* Pro Trade terminal viewport (full width — not the subpage card shell) */
+.hl-terminal-shell {
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
@@ -30,7 +30,7 @@
   overflow: hidden;
 }
 
-.hl-page-shell > .nix-app {
+.hl-terminal-shell > .nix-app {
   flex: 1;
   min-height: 0;
 }
@@ -2391,6 +2391,8 @@
   margin: 0 auto;
   padding: 20px 20px max(32px, env(safe-area-inset-bottom));
   box-sizing: border-box;
+  min-height: 0;
+  overflow: visible;
 }
 
 .hl-page-card {
@@ -2523,7 +2525,7 @@
 
 .hl-portfolio-page.hl-page-shell,
 .hl-news-page.hl-page-shell,
-.hl-affiliate.hl-page-shell {
+.hl-profile-page.hl-page-shell {
   gap: 0;
   padding: 20px 20px max(32px, env(safe-area-inset-bottom));
 }
@@ -10027,8 +10029,8 @@
 /* ── Pro Trade responsive layout (portrait + landscape) ── */
 @media (max-width: 900px) {
   /* One scroll container — body must not scroll behind the shell */
-  html:has(.hl-page-shell),
-  body:has(.hl-page-shell) {
+  html:has(.hl-terminal-shell),
+  body:has(.hl-terminal-shell) {
     overflow: hidden;
     height: 100%;
     height: 100dvh;
@@ -10039,7 +10041,7 @@
   }
 
   /* Single scroll surface — chart + dock + buy/sell stack vertically */
-  .hl-page-shell {
+  .hl-terminal-shell {
     position: fixed;
     inset: 0;
     width: 100%;
@@ -10057,7 +10059,7 @@
     touch-action: pan-y;
   }
 
-  .hl-page-shell .nix-app,
+  .hl-terminal-shell .nix-app,
   .nix-app:has(.hl-root) {
     height: auto !important;
     min-height: 0 !important;
@@ -10065,7 +10067,7 @@
     overflow: visible !important;
   }
 
-  .hl-page-shell .nix-app-inner,
+  .hl-terminal-shell .nix-app-inner,
   .nix-app-inner:has(.hl-root) {
     flex: 0 0 auto !important;
     overflow: visible !important;

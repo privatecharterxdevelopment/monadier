@@ -11,7 +11,7 @@ const ProTradeMobileTradeFab: React.FC<Props> = ({ label = 'Trade' }) => {
 
   useEffect(() => {
     const panel = document.getElementById('hl-trade-panel');
-    const scrollRoot = document.querySelector('.hl-page-shell');
+    const scrollRoot = document.querySelector('.hl-terminal-shell');
     if (!panel || !scrollRoot) return;
 
     const mq = window.matchMedia('(max-width: 900px)');

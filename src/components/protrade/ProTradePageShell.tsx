@@ -5,7 +5,7 @@ type Props = {
   className?: string;
 };
 
-/** Single glass-style card wrapper for News / Portfolio / Affiliate pages. */
+/** Glass card wrapper for Portfolio / Profile / News subpages only. */
 const ProTradePageShell: React.FC<Props> = ({ children, className = '' }) => (
   <div className={`hl-page-shell ${className}`.trim()}>
     <article className="hl-page-card">{children}</article>

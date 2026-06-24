@@ -3,7 +3,6 @@ import { Check, Copy, Gift, Loader2, Users } from 'lucide-react';
 import { buildReferralShareUrl } from '../../lib/referralCapture';
 import { supabase } from '../../lib/supabase';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
-import ProTradePageShell from './ProTradePageShell';
 
 type AffiliateSummary = {
   total_referrals: number;
@@ -173,15 +172,15 @@ const ProTradeAffiliate: React.FC<Props> = ({ onRequireSignIn }) => {
 
   if (loading) {
     return (
-      <ProTradePageShell className="hl-affiliate">
+      <div className="hl-affiliate">
         <Loader2 size={22} className="animate-spin hl-affiliate-loading" aria-hidden />
-      </ProTradePageShell>
+      </div>
     );
   }
 
   if (!data && !error) {
     return (
-      <ProTradePageShell className="hl-affiliate">
+      <div className="hl-affiliate">
         <div className="hl-support-gate">
           <div className="hl-support-gate-icon" aria-hidden>
             <Gift size={28} />
@@ -198,15 +197,15 @@ const ProTradeAffiliate: React.FC<Props> = ({ onRequireSignIn }) => {
             Sign in
           </button>
         </div>
-      </ProTradePageShell>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <ProTradePageShell className="hl-affiliate">
+      <div className="hl-affiliate">
         <p className="hl-affiliate-empty">{error}</p>
-      </ProTradePageShell>
+      </div>
     );
   }
 
@@ -217,7 +216,7 @@ const ProTradeAffiliate: React.FC<Props> = ({ onRequireSignIn }) => {
   const referralLink = data?.referral_code ? buildReferralShareUrl(data.referral_code) : null;
 
   return (
-    <ProTradePageShell className="hl-affiliate">
+    <div className="hl-affiliate">
       <header className="hl-affiliate-hero">
         <div className="hl-affiliate-hero-icon" aria-hidden>
           <Gift size={22} />
@@ -411,7 +410,7 @@ const ProTradeAffiliate: React.FC<Props> = ({ onRequireSignIn }) => {
           </div>
         )}
       </section>
-    </ProTradePageShell>
+    </div>
   );
 };
 
