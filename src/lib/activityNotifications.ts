@@ -3,6 +3,7 @@ import { verifyUrlForTrade } from './closedTrades';
 import { mapBettingCloseRow, type HlBettingCloseRow } from './betting/types';
 import { getAuthUserId } from './userWallets';
 import { supabase } from './supabase';
+import { devError } from './devLog';
 
 export type ActivityNotificationKind = 'bot' | 'betting';
 
@@ -97,7 +98,7 @@ export async function fetchBettingCloseNotifications(limit = 50): Promise<HlBett
     .limit(limit);
 
   if (error) {
-    console.error('[fetchBettingCloseNotifications]', error);
+    devError('[fetchBettingCloseNotifications]', error);
     return [];
   }
 

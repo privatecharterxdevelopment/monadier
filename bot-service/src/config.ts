@@ -116,7 +116,10 @@ export const config = {
     dynamicTrail: {
     /** Min ms in profit before arming breakeven / trail SL (5 min default). */
       armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 300_000),
-      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 1),
+      /** Min ROE before breakeven+fees lock (~2% — stage 1). */
+      breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 2),
+      /** Min ROE before full ATR/% trail ratchet (~4.5% — stage 2). */
+      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 4.5),
       /** After trail arms — min ms before trail/peak can close (lets candles develop). */
       trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 180_000),
       armFeesMultiplier: Number(process.env.HL_TRAIL_ARM_FEES_MULT || 2),

@@ -7,6 +7,7 @@ import { createDexRouter, createGridBot, DexRouter, GridBot, SwapResult, TradeRe
 import { calculateTradeFee, TREASURY_ADDRESS, TRADE_FEE_PERCENT } from '../lib/fees';
 import { supabase, isWalletLinked } from '../lib/supabase';
 import { isWalletOwnedByOtherUser, linkWalletToUserSafe } from '../lib/userWallets';
+import { devWarn, devError } from '../lib/devLog';
 import { useAuth } from './AuthContext';
 
 export interface TokenBalance {
@@ -199,24 +200,24 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
 
       try {
         if (await isWalletOwnedByOtherUser(user.id, address)) {
-          console.warn('[Web3] Wallet belongs to another account — not linking');
+          devWarn('[Web3] Wallet belongs to another account — not linking');
           return;
         }
 
         const { isLinked, error } = await isWalletLinked(user.id, address);
         if (error) {
-          console.error('Error checking wallet link:', error);
+          devError('Error checking wallet link:', error);
           return;
         }
 
         if (!isLinked) {
           const result = await linkWalletToUserSafe(user.id, address);
           if (!result.ok && result.code !== 'owned_by_other') {
-            console.error('Error linking wallet:', result.error);
+            devError('Error linking wallet:', result.error);
           }
         }
       } catch (err) {
-        console.error('Error in auto-save wallet:', err);
+        devError('Error in auto-save wallet:', err);
       }
     };
 

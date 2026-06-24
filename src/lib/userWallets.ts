@@ -1,11 +1,18 @@
 import { supabase } from './supabase';
 import { DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
+import { devError } from './devLog';
 
 export type WalletLinkResult =
   | { ok: true }
   | { ok: false; error: string; code?: 'owned_by_other' | 'db_error' | 'not_authenticated' };
 
 const registrationAttempted = new Set<string>();
+
+const ETH_ADDRESS_RE = /^0x[a-f0-9]{40}$/;
+
+export function isValidEthAddress(wallet: string | undefined | null): boolean {
+  return Boolean(wallet && ETH_ADDRESS_RE.test(wallet.trim().toLowerCase()));
+}
 
 function registrationKey(userId: string, wallet: string): string {
   return `${userId}:${wallet.toLowerCase()}`;
@@ -55,6 +62,43 @@ export async function isWalletOwnedByOtherUser(
   return false;
 }
 
+/** Best-effort wallet link — skips when logged out or invalid (no RPC spam). */
+export async function registerMyWalletQuiet(
+  walletAddress: string,
+  userId?: string
+): Promise<void> {
+  const wallet = walletAddress.trim().toLowerCase();
+  if (!isValidEthAddress(wallet)) return;
+
+  const uid = userId ?? (await getAuthUserId());
+  if (!uid) return;
+
+  const key = registrationKey(uid, wallet);
+  if (registrationAttempted.has(key)) return;
+
+  const { data: ownRow } = await supabase
+    .from('user_wallets')
+    .select('id')
+    .eq('user_id', uid)
+    .eq('wallet_address', wallet)
+    .limit(1);
+
+  if (ownRow && ownRow.length > 0) {
+    registrationAttempted.add(key);
+    return;
+  }
+
+  const { error } = await supabase.rpc('register_my_wallet', { p_wallet: wallet });
+  if (!error) {
+    registrationAttempted.add(key);
+    return;
+  }
+
+  if (/not authenticated|linked to another/i.test(error.message)) {
+    registrationAttempted.add(key);
+  }
+}
+
 /** Link wallet to user — prefers server RPC (no client 409 spam). */
 export async function linkWalletToUserSafe(
   userId: string,
@@ -62,6 +106,9 @@ export async function linkWalletToUserSafe(
   label?: string
 ): Promise<WalletLinkResult> {
   const wallet = walletAddress.toLowerCase();
+  if (!isValidEthAddress(wallet)) {
+    return { ok: false, code: 'db_error', error: 'Invalid wallet address' };
+  }
   const key = registrationKey(userId, wallet);
 
   if (registrationAttempted.has(key)) {
@@ -179,7 +226,7 @@ export async function fetchUserWalletAddresses(
       found.add(connected);
     }
   } catch (err) {
-    console.error('[userWallets]', err);
+    devError('[userWallets]', err);
   }
 
   return Array.from(found);
@@ -200,6 +247,7 @@ export async function registerWalletsForHistory(
   if (!uid) return;
 
   for (const w of unique) {
+    if (!isValidEthAddress(w)) continue;
     const key = registrationKey(uid, w);
     if (registrationAttempted.has(key)) continue;
     registrationAttempted.add(key);

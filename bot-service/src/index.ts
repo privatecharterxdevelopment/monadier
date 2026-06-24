@@ -508,6 +508,7 @@ const healthServer = http.createServer(async (req, res) => {
           tp: dbSettings.takeProfitPercent,
           sl: dbSettings.stopLossPercent,
           dynamicTrail: {
+            breakevenArmRoePct: config.hyperliquid.dynamicTrail.breakevenArmRoePct,
             armMinRoePct: config.hyperliquid.dynamicTrail.armMinRoePct,
             armFeesMultiplier: config.hyperliquid.dynamicTrail.armFeesMultiplier,
             majorTrailPct: config.hyperliquid.dynamicTrail.majorTrailPct,

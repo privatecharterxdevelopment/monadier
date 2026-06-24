@@ -21,12 +21,17 @@ const BotSettingsStopFirstModal: React.FC<Props> = ({ open, onClose, onStopBot, 
       closeDisabled={stopBusy}
       footer={
         <div className="term-modal-actions">
-          <button type="button" className="term-btn-sm" onClick={onClose} disabled={stopBusy}>
+          <button
+            type="button"
+            className="term-modal-secondary"
+            onClick={onClose}
+            disabled={stopBusy}
+          >
             Keep running
           </button>
           <button
             type="button"
-            className="term-btn-sm term-btn-sm--primary"
+            className="term-modal-primary"
             onClick={onStopBot}
             disabled={stopBusy}
           >

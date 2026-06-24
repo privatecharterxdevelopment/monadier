@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Loader2, Newspaper, RefreshCw, Shield } from 'lucide-react';
-import { fetchNewsFeed, type NewsFeedMeta, type NewsItemDto } from '../../lib/newsFeed';
+import { fetchNewsFeed, type NewsItemDto } from '../../lib/newsFeed';
 import {
   NEWS_TRADE_MODE_HINTS,
   NEWS_TRADE_MODE_LABELS,
@@ -10,6 +10,7 @@ import {
 import { saveNewsTradeMode } from '../../lib/saveNewsTradeMode';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import NewsCard from './news/NewsCard';
+import ProTradePageShell from './ProTradePageShell';
 
 type Tab = 'crypto' | 'sports';
 
@@ -21,17 +22,9 @@ type Props = {
 
 const MODES: NewsTradeMode[] = ['off', 'filter', 'boost'];
 
-function formatTime(iso?: string): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
 const ProTradeNews: React.FC<Props> = ({ walletAddress, onTradeCrypto, onTradeSports }) => {
   const [tab, setTab] = useState<Tab>('crypto');
   const [items, setItems] = useState<NewsItemDto[]>([]);
-  const [meta, setMeta] = useState<NewsFeedMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingMode, setSavingMode] = useState(false);
@@ -48,9 +41,8 @@ const ProTradeNews: React.FC<Props> = ({ walletAddress, onTradeCrypto, onTradeSp
     setLoading(true);
     setError(null);
     try {
-      const { items: rows, meta: feedMeta } = await fetchNewsFeed(tab, 28);
+      const { items: rows } = await fetchNewsFeed(tab, 28);
       setItems(rows);
-      setMeta(feedMeta ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load news');
       setItems([]);
@@ -78,15 +70,8 @@ const ProTradeNews: React.FC<Props> = ({ walletAddress, onTradeCrypto, onTradeSp
     }
   };
 
-  const engineLabel =
-    meta?.analysisEngine === 'openai'
-      ? 'GPT desk scan'
-      : meta?.hasOpenAi
-        ? 'Rules scan (AI unavailable)'
-        : 'Rules desk scan — set OPENAI_API_KEY on bot for GPT';
-
   return (
-    <div className="hl-news-page">
+    <ProTradePageShell className="hl-news-page">
       <div className="hl-news-top">
         <div className="hl-news-head">
           <div className="hl-news-head__icon" aria-hidden>
@@ -134,26 +119,6 @@ const ProTradeNews: React.FC<Props> = ({ walletAddress, onTradeCrypto, onTradeSp
         </div>
       </div>
 
-      {meta ? (
-        <div className="hl-news-meta-card">
-          <p className="hl-news-pipeline" role="status">
-            <span>{engineLabel}</span>
-            <span className="hl-news-pipeline__sep">·</span>
-            <span>
-              {meta.aiAnalyzedCount} AI / {meta.rulesAnalyzedCount} rules
-            </span>
-            <span className="hl-news-pipeline__sep">·</span>
-            <span>Updated {formatTime(meta.analyzedAt)}</span>
-          </p>
-          {tab === 'crypto' ? (
-            <p className="hl-news-sources">
-              {meta.sources.slice(0, 8).join(' · ')}
-              {meta.sources.length > 8 ? ` · +${meta.sources.length - 8} more` : ''}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-
       <section className="hl-news-bot-mode" aria-label="Bot news mode">
         <div className="hl-news-bot-mode__head">
           <Shield size={16} aria-hidden />
@@ -183,7 +148,7 @@ const ProTradeNews: React.FC<Props> = ({ walletAddress, onTradeCrypto, onTradeSp
       {loading && items.length === 0 ? (
         <div className="hl-news-loading">
           <Loader2 size={20} className="animate-spin" aria-hidden />
-          <span>Fetching headlines &amp; running analysis…</span>
+          <span>Loading headlines…</span>
         </div>
       ) : null}
 
@@ -204,7 +169,7 @@ const ProTradeNews: React.FC<Props> = ({ walletAddress, onTradeCrypto, onTradeSp
       {!loading && items.length === 0 && !error ? (
         <p className="hl-news-empty">No headlines in the last 48h — check back soon.</p>
       ) : null}
-    </div>
+    </ProTradePageShell>
   );
 };
 

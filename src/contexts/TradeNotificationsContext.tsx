@@ -33,6 +33,10 @@ import { fetchHlUserFills } from '../lib/hyperliquid/user';
 import { isHlFillOpen } from '../lib/hyperliquid/format';
 import { toNum } from '../lib/hyperliquid/parse';
 import { useTermAuthToast } from '../components/terminal/TermAuthToast';
+import { devError, isHlRateLimitError } from '../lib/devLog';
+
+const NOTIFICATION_POLL_MS = 45_000;
+const BETTING_SYNC_MS = 5 * 60_000;
 
 type TradeNotificationsContextValue = {
   notifications: ActivityNotification[];
@@ -71,6 +75,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
   const knownIdsRef = useRef<Set<string>>(new Set());
   const hlCloseIdsRef = useRef<Set<string>>(new Set());
   const hlCloseBootRef = useRef(false);
+  const lastBettingSyncAtRef = useRef(0);
   const storageKey = storageKeyForUser(user?.id, isDemoUser);
 
   useEffect(() => {
@@ -98,16 +103,21 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
     };
   }, [address, isDemoUser, user?.id]);
 
-  const syncBettingForWallets = useCallback(async () => {
+  const syncBettingForWallets = useCallback(async (force = false) => {
     if (!user?.id || isDemoUser || wallets.length === 0) return;
+    if (document.visibilityState === 'hidden') return;
+    const now = Date.now();
+    if (!force && now - lastBettingSyncAtRef.current < BETTING_SYNC_MS) return;
+
     try {
       const catalog = await fetchHlOutcomeCatalog();
-      const unique = [...new Set(wallets.map((w) => w.toLowerCase()))].slice(0, 3);
+      const unique = [...new Set(wallets.map((w) => w.toLowerCase()))].slice(0, 2);
       await Promise.all(
         unique.map((w) => syncBettingTradesToSupabase(user.id, w, catalog))
       );
+      lastBettingSyncAtRef.current = now;
     } catch (err) {
-      console.error('[TradeNotifications] betting sync', err);
+      if (!isHlRateLimitError(err)) devError('[TradeNotifications] betting sync', err);
     }
   }, [user?.id, isDemoUser, wallets]);
 
@@ -145,7 +155,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
 
       hlCloseIdsRef.current = nextIds;
     } catch (err) {
-      console.error('[TradeNotifications] HL fills', err);
+      if (!isHlRateLimitError(err)) devError('[TradeNotifications] HL fills', err);
     }
   }, [address, showToast]);
 
@@ -159,11 +169,13 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
 
       if (!silent) setIsLoading(true);
       try {
+        if (document.visibilityState === 'hidden') return;
+
         if (silent) {
           await pollHlFillCloses();
         }
 
-        await syncBettingForWallets();
+        await syncBettingForWallets(!silent);
 
         const [botRowsRaw, bettingRowsRaw] = await Promise.all([
           fetchClosedTrades({ isDemoUser, wallets, limit: 100 }),
@@ -192,7 +204,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
         knownIdsRef.current = new Set(merged.map((r) => r.id));
         setNotifications(merged);
       } catch (e) {
-        console.error('[TradeNotifications]', e);
+        if (!isHlRateLimitError(e)) devError('[TradeNotifications]', e);
         if (!silent) setNotifications([]);
       } finally {
         setIsLoading(false);
@@ -206,7 +218,10 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
   }, [load]);
 
   useEffect(() => {
-    const poll = setInterval(() => load(true), 12000);
+    const poll = setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      void load(true);
+    }, NOTIFICATION_POLL_MS);
     return () => clearInterval(poll);
   }, [load]);
 

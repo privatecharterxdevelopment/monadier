@@ -3,7 +3,7 @@ import type { WalletClient } from 'viem';
 import { walletClientToHlWallet } from './walletAdapter';
 import { getBotApiBase } from '../signalService';
 import { supabase } from '../supabase';
-import { getAuthUserId } from '../userWallets';
+import { getAuthUserId, registerMyWalletQuiet } from '../userWallets';
 import {
   fetchHlExtraAgents,
   isHlExtraAgentActive,
@@ -12,6 +12,11 @@ import {
 
 const transport = new HttpTransport();
 const AGENT_NAME_MAX = 16;
+const approvalSaveAttempted = new Set<string>();
+
+function approvalSaveKey(wallet: string, agent: string): string {
+  return `${wallet.toLowerCase()}:${agent.toLowerCase()}`;
+}
 
 export const MIN_HL_BOT_USD = 20;
 export const HL_AGENT_NAME = 'monadier';
@@ -128,6 +133,7 @@ export async function saveHlAgentApproval(params: {
 
   try {
     await saveHlAgentApprovalViaBotApi(params);
+    approvalSaveAttempted.add(approvalSaveKey(wallet, agent));
     return;
   } catch {
     /* fall back to Supabase when bot-service is unreachable */
@@ -138,7 +144,10 @@ export async function saveHlAgentApproval(params: {
     return;
   }
 
-  void supabase.rpc('register_my_wallet', { p_wallet: wallet });
+  const saveKey = approvalSaveKey(wallet, agent);
+  if (approvalSaveAttempted.has(saveKey)) return;
+
+  await registerMyWalletQuiet(wallet, userId);
 
   const { error } = await supabase.rpc('save_hl_agent_approval', {
     p_wallet_address: wallet,
@@ -146,13 +155,20 @@ export async function saveHlAgentApproval(params: {
     p_agent_name: params.agentName,
     p_expires_at: params.expiresAt ?? null,
   });
-  if (!error) return;
+  if (!error) {
+    approvalSaveAttempted.add(saveKey);
+    return;
+  }
 
   if (/not authenticated/i.test(error.message)) {
     throw new Error('Sign in to Monadier before approving the trading agent.');
   }
   if (/linked to another/i.test(error.message)) {
     throw new Error('This wallet is linked to another Monadier account.');
+  }
+  if (/agent not approved|not found on chain/i.test(error.message)) {
+    approvalSaveAttempted.add(saveKey);
+    return;
   }
   throw new Error(error.message);
 }
@@ -233,14 +249,17 @@ export async function resolveHlAgentApproval(
 
     const expiresAt = new Date(live.validUntil).toISOString();
     if (!db.approved) {
-      void saveHlAgentApproval({
-        walletAddress: wallet,
-        agentAddress: expectedAgentAddress.toLowerCase(),
-        agentName: live.name,
-        expiresAt,
-      }).catch(() => {
-        /* best-effort sync */
-      });
+      const saveKey = approvalSaveKey(wallet, expectedAgentAddress.toLowerCase());
+      if (!approvalSaveAttempted.has(saveKey)) {
+        void saveHlAgentApproval({
+          walletAddress: wallet,
+          agentAddress: expectedAgentAddress.toLowerCase(),
+          agentName: live.name,
+          expiresAt,
+        }).catch(() => {
+          /* best-effort sync */
+        });
+      }
     }
     return { approved: true, expiresAt };
   }

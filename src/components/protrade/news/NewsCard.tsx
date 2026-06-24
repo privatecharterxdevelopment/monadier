@@ -90,7 +90,7 @@ const NewsCard: React.FC<Props> = ({ item, variant, onTradeCrypto, onTradeSports
           <div className="hl-news-ai__row">
             <span className={`hl-news-bias hl-news-bias--${a.bias}`}>
               {biasIcon(a.bias)}
-              {a.engine === 'openai' ? 'GPT' : 'Desk'}: {a.bias.replace(/_/g, ' ')} · {a.confidence}%
+              {a.bias.replace(/_/g, ' ')} · {a.confidence}%
             </span>
             <span className="hl-news-ai__horizon">{a.horizon} horizon</span>
           </div>

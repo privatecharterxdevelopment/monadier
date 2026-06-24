@@ -3,6 +3,7 @@ import { Check, Copy, Gift, Loader2, Users } from 'lucide-react';
 import { buildReferralShareUrl } from '../../lib/referralCapture';
 import { supabase } from '../../lib/supabase';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
+import ProTradePageShell from './ProTradePageShell';
 
 type AffiliateSummary = {
   total_referrals: number;
@@ -172,15 +173,15 @@ const ProTradeAffiliate: React.FC<Props> = ({ onRequireSignIn }) => {
 
   if (loading) {
     return (
-      <div className="hl-affiliate">
-        <Loader2 size={22} className="animate-spin" style={{ margin: '48px auto' }} />
-      </div>
+      <ProTradePageShell className="hl-affiliate">
+        <Loader2 size={22} className="animate-spin hl-affiliate-loading" aria-hidden />
+      </ProTradePageShell>
     );
   }
 
   if (!data && !error) {
     return (
-      <div className="hl-affiliate">
+      <ProTradePageShell className="hl-affiliate">
         <div className="hl-support-gate">
           <div className="hl-support-gate-icon" aria-hidden>
             <Gift size={28} />
@@ -197,15 +198,15 @@ const ProTradeAffiliate: React.FC<Props> = ({ onRequireSignIn }) => {
             Sign in
           </button>
         </div>
-      </div>
+      </ProTradePageShell>
     );
   }
 
   if (error) {
     return (
-      <div className="hl-affiliate">
+      <ProTradePageShell className="hl-affiliate">
         <p className="hl-affiliate-empty">{error}</p>
-      </div>
+      </ProTradePageShell>
     );
   }
 
@@ -216,7 +217,7 @@ const ProTradeAffiliate: React.FC<Props> = ({ onRequireSignIn }) => {
   const referralLink = data?.referral_code ? buildReferralShareUrl(data.referral_code) : null;
 
   return (
-    <div className="hl-affiliate">
+    <ProTradePageShell className="hl-affiliate">
       <header className="hl-affiliate-hero">
         <div className="hl-affiliate-hero-icon" aria-hidden>
           <Gift size={22} />
@@ -410,7 +411,7 @@ const ProTradeAffiliate: React.FC<Props> = ({ onRequireSignIn }) => {
           </div>
         )}
       </section>
-    </div>
+    </ProTradePageShell>
   );
 };
 

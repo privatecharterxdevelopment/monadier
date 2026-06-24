@@ -86,7 +86,10 @@ function startPoll(wallet: string): void {
   }
   stopPoll();
   void pollOnce(wallet);
-  pollTimer = setInterval(() => void pollOnce(wallet), 4000);
+  pollTimer = setInterval(() => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    void pollOnce(wallet);
+  }, 15_000);
 }
 
 function subscribe(wallet: string | undefined, listener: Listener): () => void {

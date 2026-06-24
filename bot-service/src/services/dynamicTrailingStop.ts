@@ -1,6 +1,6 @@
 /**
- * Price-based dynamic trailing stop — 3 phases:
- * 1 idle (no stop), 2 arm at profit threshold (entry + fees + buffer), 3 ATR/% trail ratchet.
+ * Price-based dynamic trailing stop — 4 phases:
+ * 1 idle, 2 armed (breakeven+fees only ~2% ROE), 3 trailing (ATR/% ratchet ~4.5% ROE).
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
@@ -95,16 +95,33 @@ function roePct(pnlUsd: number, collateralUsd: number): number {
   return (pnlUsd / collateralUsd) * 100;
 }
 
-export function shouldArmProfitProtection(
+export function shouldArmBreakevenProtection(
   pnlUsd: number,
   collateralUsd: number,
-  feesUsd: number,
   timeInProfitMs: number
 ): boolean {
   const cfg = config.hyperliquid.dynamicTrail;
   if (timeInProfitMs < cfg.armMinProfitHoldMs) return false;
-  const roe = roePct(pnlUsd, collateralUsd);
-  return pnlUsd >= feesUsd * cfg.armFeesMultiplier || roe >= cfg.armMinRoePct;
+  if (pnlUsd <= 0 || collateralUsd <= 0) return false;
+  return roePct(pnlUsd, collateralUsd) >= cfg.breakevenArmRoePct;
+}
+
+export function shouldUpgradeToTrailing(
+  pnlUsd: number,
+  collateralUsd: number
+): boolean {
+  if (pnlUsd <= 0 || collateralUsd <= 0) return false;
+  return roePct(pnlUsd, collateralUsd) >= config.hyperliquid.dynamicTrail.armMinRoePct;
+}
+
+/** @deprecated use shouldArmBreakevenProtection / shouldUpgradeToTrailing */
+export function shouldArmProfitProtection(
+  pnlUsd: number,
+  collateralUsd: number,
+  _feesUsd: number,
+  timeInProfitMs: number
+): boolean {
+  return shouldUpgradeToTrailing(pnlUsd, collateralUsd) && timeInProfitMs >= config.hyperliquid.dynamicTrail.armMinProfitHoldMs;
 }
 
 function hasBreakevenLock(
@@ -285,9 +302,9 @@ export async function evaluateDynamicTrail(
     rec.timeInProfitMs = 0;
   }
 
-  // Phase 1 — idle: no profit SL until min hold + arm threshold + breakeven lock.
+  // Phase 1 — idle: no stop until ~2% ROE + min hold.
   if (rec.phase === 'idle') {
-    if (!shouldArmProfitProtection(input.pnlUsd, input.collateralUsd, feesUsd, rec.timeInProfitMs)) {
+    if (!shouldArmBreakevenProtection(input.pnlUsd, input.collateralUsd, rec.timeInProfitMs)) {
       return {
         record: rec,
         shouldClose: false,
@@ -323,15 +340,15 @@ export async function evaluateDynamicTrail(
     rec.trailArmedAt = input.nowMs;
     rec.currentTrailStop = initialStop;
     rec.estimatedFeesUsd = feesUsd;
-    logger.info('HL dynamic trail armed', {
+    logger.info('HL breakeven lock armed (stage 1)', {
       coin: input.coin,
       direction: input.direction,
       entry: input.entryPrice.toFixed(6),
       mark: input.markPrice.toFixed(6),
-      initialStop: initialStop.toFixed(6),
+      breakevenStop: initialStop.toFixed(6),
       pnlUsd: input.pnlUsd.toFixed(4),
-      profitHoldMin: Math.round(cfg.armMinProfitHoldMs / 1000),
       roe: roePct(input.pnlUsd, input.collateralUsd).toFixed(2),
+      trailAtRoe: cfg.armMinRoePct,
     });
     return {
       record: rec,
@@ -341,9 +358,48 @@ export async function evaluateDynamicTrail(
     };
   }
 
+  // Phase 2 — breakeven only: fixed stop, no tight trail until ~4.5% ROE.
+  if (rec.phase === 'armed' && rec.currentTrailStop != null) {
+    const beStop = breakevenPlusFeesStopPx(
+      input.direction,
+      input.entryPrice,
+      input.absSize,
+      feesUsd
+    );
+    rec.currentTrailStop = ratchetStop(input.direction, rec.currentTrailStop, beStop);
+
+    if (shouldUpgradeToTrailing(input.pnlUsd, input.collateralUsd)) {
+      rec.phase = 'trailing';
+      logger.info('HL trailing stop armed (stage 2)', {
+        coin: input.coin,
+        direction: input.direction,
+        roe: roePct(input.pnlUsd, input.collateralUsd).toFixed(2),
+        pnlUsd: input.pnlUsd.toFixed(4),
+        peakPnlUsd: rec.highestPnlSinceEntry.toFixed(4),
+      });
+    } else if (
+      input.pnlUsd > 0 &&
+      isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop)
+    ) {
+      const detail = `BREAKEVEN LOCK · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
+      return {
+        record: rec,
+        shouldClose: true,
+        exitReason: 'profit_lock',
+        closeDetail: detail,
+      };
+    } else {
+      return {
+        record: rec,
+        shouldClose: false,
+        exitReason: '',
+        closeDetail: '',
+      };
+    }
+  }
+
   // Phase 3 — ratchet trail (only moves in profit direction).
-  if ((rec.phase === 'armed' || rec.phase === 'trailing') && rec.currentTrailStop != null) {
-    rec.phase = 'trailing';
+  if (rec.phase === 'trailing' && rec.currentTrailStop != null) {
     const trailMult = Math.max(0.75, Math.min(2, input.trailDistanceMult ?? 1));
     const trailDist =
       (await resolveTrailDistancePx(input.coin, input.markPrice)) * trailMult;
@@ -393,7 +449,8 @@ export async function evaluateDynamicTrail(
 
     if (
       isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop) &&
-      !trailTooYoungToClose(rec, input.nowMs, trailMult)
+      !trailTooYoungToClose(rec, input.nowMs, trailMult) &&
+      input.pnlUsd > 0
     ) {
       const detail = `TRAILING STOP · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
       return {

@@ -3,6 +3,7 @@ import { useAccount } from 'wagmi';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchUserPositions } from '../lib/userPositions';
 import { calcPositionPnl, fetchLiveTokenPrices } from '../lib/positionLivePnl';
+import { devWarn } from '../lib/devLog';
 
 export type BotPositionBadge = {
   count: number;
@@ -41,7 +42,7 @@ export function useBotPositionBadge(refreshKey = 0) {
         loading: false,
       });
     } catch (e) {
-      console.warn('[useBotPositionBadge]', e);
+      devWarn('[useBotPositionBadge]', e);
       setBadge((prev) => ({ ...prev, loading: false }));
     }
   }, [address, isDemoUser]);
@@ -51,7 +52,10 @@ export function useBotPositionBadge(refreshKey = 0) {
   }, [refresh, refreshKey]);
 
   useEffect(() => {
-    const id = setInterval(() => void refresh(), 12_000);
+    const id = setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      void refresh();
+    }, 30_000);
     return () => clearInterval(id);
   }, [refresh]);
 

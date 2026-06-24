@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { devError } from '../devLog';
 import { fetchHlOutcomePositions } from '../hyperliquid/outcomes/positions';
 import { fetchHlUserFills } from '../hyperliquid/user';
 import {
@@ -54,9 +55,7 @@ export async function syncBettingTradesToSupabase(
       .from('hl_betting_positions')
       .upsert(rows, { onConflict: 'user_id,wallet_address,balance_coin' });
 
-    if (upsertErr) {
-      console.error('[betting sync] positions upsert', upsertErr);
-    }
+    if (upsertErr) devError('[betting sync] positions upsert', upsertErr);
   }
 
   const { data: existingOpens, error: loadErr } = await supabase
@@ -66,17 +65,17 @@ export async function syncBettingTradesToSupabase(
     .eq('wallet_address', wallet);
 
   if (loadErr) {
-    console.error('[betting sync] positions load', loadErr);
+    devError('[betting sync] positions load', loadErr);
   } else {
     const stale = (existingOpens ?? []).filter((r) => !openCoins.has(String(r.balance_coin)));
     if (stale.length > 0) {
       const ids = stale.map((r) => r.id);
       const { error: delErr } = await supabase.from('hl_betting_positions').delete().in('id', ids);
-      if (delErr) console.error('[betting sync] positions delete', delErr);
+      if (delErr) devError('[betting sync] positions delete', delErr);
     }
   }
 
-  const fills = await fetchHlUserFills(wallet, 250);
+  const fills = await fetchHlUserFills(wallet, 120);
   const closeRows: Array<Record<string, unknown>> = [];
 
   for (const f of fills) {
@@ -116,7 +115,7 @@ export async function syncBettingTradesToSupabase(
       const { error: closeErr } = await supabase
         .from('hl_betting_closes')
         .upsert(withTid, { onConflict: 'hl_fill_tid', ignoreDuplicates: true });
-      if (closeErr) console.error('[betting sync] closes upsert', closeErr);
+      if (closeErr) devError('[betting sync] closes upsert', closeErr);
     }
   }
 }

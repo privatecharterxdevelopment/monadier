@@ -5,6 +5,7 @@ import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { readNum, toNum } from '../../lib/hyperliquid/parse';
 import ProTradeBettingTables from './ProTradeBettingTables';
 import { useBettingPortfolio } from '../../hooks/useBettingPortfolio';
+import ProTradePageShell from './ProTradePageShell';
 
 type Props = {
   account: HlAccountState | null;
@@ -57,29 +58,27 @@ const ProTradePortfolio: React.FC<Props> = ({
 
   if (!connected) {
     return (
-      <div className="hl-portfolio-page">
-        <div className="hl-portfolio-state">
-          <p className="hl-portfolio-empty">Connect wallet to view portfolio.</p>
-        </div>
-      </div>
+      <ProTradePageShell className="hl-portfolio-page">
+        <p className="hl-portfolio-empty">Connect wallet to view portfolio.</p>
+      </ProTradePageShell>
     );
   }
 
   if (loading && !account) {
     return (
-      <div className="hl-portfolio-page">
-        <div className="hl-portfolio-state">
+      <ProTradePageShell className="hl-portfolio-page">
+        <div className="hl-portfolio-state hl-portfolio-state--inset">
           <Loader2 size={22} className="animate-spin" aria-hidden />
           <span>Loading portfolio…</span>
         </div>
-      </div>
+      </ProTradePageShell>
     );
   }
 
   const totalValue = perpValue + spotTotal;
 
   return (
-    <div className="hl-portfolio-page">
+    <ProTradePageShell className="hl-portfolio-page">
       <header className="hl-portfolio-hero">
         <div className="hl-portfolio-hero__icon" aria-hidden>
           <Wallet size={20} />
@@ -243,7 +242,7 @@ const ProTradePortfolio: React.FC<Props> = ({
           />
         </div>
       </section>
-    </div>
+    </ProTradePageShell>
   );
 };
 

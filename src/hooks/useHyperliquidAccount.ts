@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   fetchHlAccountState,
   fetchHlHistoricalOrders,
@@ -29,6 +29,15 @@ type State = {
   error: string | null;
 };
 
+const BALANCE_POLL_MS = 20_000;
+const POSITION_POLL_MS = 12_000;
+const HEAVY_REFRESH_MS = 120_000;
+const FILLS_LIMIT = 100;
+
+function isTabVisible(): boolean {
+  return typeof document === 'undefined' || document.visibilityState !== 'hidden';
+}
+
 export function useHyperliquidAccount(address: string | undefined) {
   const [state, setState] = useState<State>({
     account: null,
@@ -41,6 +50,40 @@ export function useHyperliquidAccount(address: string | undefined) {
     loading: false,
     error: null,
   });
+  const lastHeavyAtRef = useRef(0);
+
+  const refreshCore = useCallback(async (addr: string) => {
+    const [account, spotBalances, openOrders] = await Promise.all([
+      fetchHlAccountState(addr),
+      fetchHlSpotBalances(addr),
+      fetchHlOpenOrders(addr),
+    ]);
+    setState((prev) => ({
+      ...prev,
+      account,
+      spotBalances,
+      openOrders,
+      loading: false,
+      error: null,
+    }));
+  }, []);
+
+  const refreshHeavy = useCallback(async (addr: string) => {
+    const [fills, funding, orderHistory, twapOrders] = await Promise.all([
+      fetchHlUserFills(addr, FILLS_LIMIT),
+      fetchHlUserFunding(addr),
+      fetchHlHistoricalOrders(addr),
+      fetchHlTwapHistory(addr),
+    ]);
+    setState((prev) => ({
+      ...prev,
+      fills,
+      funding,
+      orderHistory,
+      twapOrders,
+    }));
+    lastHeavyAtRef.current = Date.now();
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!address) {
@@ -58,27 +101,11 @@ export function useHyperliquidAccount(address: string | undefined) {
       return;
     }
     try {
-      const [account, spotBalances, openOrders, fills, funding, orderHistory, twapOrders] =
-        await Promise.all([
-          fetchHlAccountState(address),
-          fetchHlSpotBalances(address),
-          fetchHlOpenOrders(address),
-          fetchHlUserFills(address, 200),
-          fetchHlUserFunding(address),
-          fetchHlHistoricalOrders(address),
-          fetchHlTwapHistory(address),
-        ]);
-      setState({
-        account,
-        spotBalances,
-        openOrders,
-        fills,
-        funding,
-        orderHistory,
-        twapOrders,
-        loading: false,
-        error: null,
-      });
+      await refreshCore(address);
+      const staleHeavy = Date.now() - lastHeavyAtRef.current > HEAVY_REFRESH_MS;
+      if (staleHeavy || lastHeavyAtRef.current === 0) {
+        await refreshHeavy(address);
+      }
     } catch (err: unknown) {
       setState((prev) => ({
         ...prev,
@@ -86,7 +113,7 @@ export function useHyperliquidAccount(address: string | undefined) {
         error: err instanceof Error ? err.message : 'Account sync failed',
       }));
     }
-  }, [address]);
+  }, [address, refreshCore, refreshHeavy]);
 
   useEffect(() => {
     if (!address) {
@@ -119,8 +146,9 @@ export function useHyperliquidAccount(address: string | undefined) {
     let debounce: ReturnType<typeof setTimeout> | null = null;
     const off = client.addListener((channel) => {
       if (channel !== 'userFills' && channel !== 'orderUpdates') return;
+      if (!isTabVisible()) return;
       if (debounce) clearTimeout(debounce);
-      debounce = setTimeout(() => void refresh(), 400);
+      debounce = setTimeout(() => void refresh(), 800);
     });
 
     return () => {
@@ -134,20 +162,38 @@ export function useHyperliquidAccount(address: string | undefined) {
     if (!address) return undefined;
 
     const pollBalances = async () => {
+      if (!isTabVisible()) return;
       try {
-        const [account, spotBalances] = await Promise.all([
-          fetchHlAccountState(address),
-          fetchHlSpotBalances(address),
-        ]);
-        setState((prev) => ({ ...prev, account, spotBalances }));
+        await refreshCore(address);
       } catch {
         /* keep last snapshot */
       }
     };
 
-    const id = setInterval(() => void pollBalances(), 12_000);
+    const id = setInterval(() => void pollBalances(), BALANCE_POLL_MS);
     return () => clearInterval(id);
+  }, [address, refreshCore]);
+
+  useEffect(() => {
+    lastHeavyAtRef.current = 0;
   }, [address]);
+
+  useEffect(() => {
+    if (!address) return undefined;
+
+    const pollHeavy = async () => {
+      if (!isTabVisible()) return;
+      if (Date.now() - lastHeavyAtRef.current < HEAVY_REFRESH_MS) return;
+      try {
+        await refreshHeavy(address);
+      } catch {
+        /* keep last snapshot */
+      }
+    };
+
+    const id = setInterval(() => void pollHeavy(), HEAVY_REFRESH_MS);
+    return () => clearInterval(id);
+  }, [address, refreshHeavy]);
 
   useEffect(() => {
     if (!address) return undefined;
@@ -155,6 +201,7 @@ export function useHyperliquidAccount(address: string | undefined) {
     if (!hasOpen) return undefined;
 
     const pollAccount = async () => {
+      if (!isTabVisible()) return;
       try {
         const account = await fetchHlAccountState(address);
         setState((prev) => ({ ...prev, account }));
@@ -163,7 +210,7 @@ export function useHyperliquidAccount(address: string | undefined) {
       }
     };
 
-    const id = setInterval(() => void pollAccount(), 5000);
+    const id = setInterval(() => void pollAccount(), POSITION_POLL_MS);
     return () => clearInterval(id);
   }, [address, state.account?.positions?.length]);
 

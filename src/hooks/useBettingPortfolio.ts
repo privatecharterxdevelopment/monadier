@@ -10,6 +10,7 @@ import {
 } from '../lib/betting/types';
 import { useHyperliquidOutcomes } from './useHyperliquidOutcomes';
 import { OUTCOME_POSITIONS_POLL_MS } from '../lib/hyperliquid/outcomes/constants';
+import { devError, isHlRateLimitError } from '../lib/devLog';
 
 type Options = {
   walletAddress?: string;
@@ -79,13 +80,17 @@ export function useBettingPortfolio({
       await loadFromDb();
       return;
     }
+    if (document.visibilityState === 'hidden') {
+      await loadFromDb();
+      return;
+    }
 
     setSyncing(true);
     try {
       await syncBettingTradesToSupabase(user.id, walletAddress, catalog);
       await loadFromDb();
     } catch (err: unknown) {
-      console.error('[useBettingPortfolio] sync', err);
+      if (!isHlRateLimitError(err)) devError('[useBettingPortfolio] sync', err);
       await loadFromDb();
     } finally {
       setSyncing(false);
@@ -98,7 +103,10 @@ export function useBettingPortfolio({
 
   useEffect(() => {
     if (!enabled || !user || !walletAddress || !syncFromHl) return;
-    const id = window.setInterval(() => void sync(), OUTCOME_POSITIONS_POLL_MS);
+    const id = window.setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      void sync();
+    }, OUTCOME_POSITIONS_POLL_MS);
     return () => window.clearInterval(id);
   }, [enabled, user, walletAddress, syncFromHl, sync]);
 

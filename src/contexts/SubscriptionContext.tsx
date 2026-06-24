@@ -18,7 +18,8 @@ import {
   PlanFeatures,
 } from '../lib/subscription';
 import { supabase } from '../lib/supabase';
-import { getAuthUserId } from '../lib/userWallets';
+import { getAuthUserId, linkWalletToUserSafe } from '../lib/userWallets';
+import { devWarn, devLog, devError } from '../lib/devLog';
 
 // Legacy types for backwards compatibility
 export interface Subscription {
@@ -511,20 +512,14 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     try {
       const uid = await getAuthUserId();
       if (!uid) {
-        console.log('No authenticated user, skipping wallet link');
+        devLog('No authenticated user, skipping wallet link');
         return;
       }
 
       const wallet = walletAddress.toLowerCase();
-      const { error: rpcError } = await supabase.rpc('register_my_wallet', { p_wallet: wallet });
-      if (rpcError && !rpcError.message.includes('Could not find the function')) {
-        if (!/not authenticated/i.test(rpcError.message)) {
-          const { linkWalletToUser } = await import('../lib/supabase');
-          const { error: walletError } = await linkWalletToUser(uid, wallet);
-          if (walletError && !walletError.message.includes('already linked')) {
-            console.warn('Failed to add to user_wallets:', walletError.message);
-          }
-        }
+      const result = await linkWalletToUserSafe(uid, wallet);
+      if (!result.ok && result.code !== 'owned_by_other') {
+        devWarn('Wallet link skipped:', result.error);
       }
 
       await supabase
@@ -544,9 +539,9 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
       }
 
-      console.log('Wallet linked successfully:', walletAddress);
+      devLog('Wallet linked successfully:', walletAddress);
     } catch (err) {
-      console.error('Failed to link wallet:', err);
+      devError('Failed to link wallet:', err);
     }
   }, [subscription]);
 
