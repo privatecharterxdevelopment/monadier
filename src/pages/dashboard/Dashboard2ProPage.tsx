@@ -775,11 +775,13 @@ const Dashboard2ProPageContent: React.FC = () => {
         </ProTradeBotProvider>
       ) : null}
       {section === 'profile' ? (
-        <ProTradeProfile
-          activeTab={profileTab}
-          onTabChange={handleProfileTabChange}
-          botHistoryRefreshKey={botSyncTick}
-        />
+        <div className="hl-terminal hl-terminal--profile">
+          <ProTradeProfile
+            activeTab={profileTab}
+            onTabChange={handleProfileTabChange}
+            botHistoryRefreshKey={botSyncTick}
+          />
+        </div>
       ) : null}
       {section === 'sportsbets' ? (
         <ProTradeSportsbets

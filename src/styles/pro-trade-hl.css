@@ -761,6 +761,45 @@
 }
 
 /* ── Profile page (in Pro Trade) ── */
+.hl-terminal--profile {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--hl-bg);
+}
+
+.hl-page-shell.hl-profile-page {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+.hl-page-shell.hl-profile-page .hl-page-card {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.hl-profile-page .hl-profile-hero,
+.hl-profile-page .hl-profile-toolbar {
+  flex-shrink: 0;
+}
+
+.hl-profile-page .hl-profile-hero {
+  border-bottom: 1px solid var(--hl-border);
+  background: transparent;
+}
+
+.hl-profile-page .hl-profile-toolbar {
+  background: transparent;
+}
+
 .hl-profile-page {
   flex: 1;
   display: flex;
@@ -768,6 +807,36 @@
   min-height: 0;
   overflow: hidden;
   background: var(--hl-bg);
+}
+
+.hl-profile-page .hl-profile-body {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 16px 4px 24px;
+}
+
+.hl-profile-page .hl-profile-body--bot-trades {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.hl-profile-page .hl-profile-body--bot-trades .hl-history-page--embedded,
+.hl-profile-page .hl-profile-body--bot-trades .hl-history-page {
+  flex: 1;
+  min-height: 0;
+}
+
+.hl-profile-page .hl-profile-body--bot-trades .hl-history-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .hl-profile-hero {
@@ -2527,7 +2596,7 @@
 .hl-news-page.hl-page-shell,
 .hl-profile-page.hl-page-shell {
   gap: 0;
-  padding: 20px 20px max(32px, env(safe-area-inset-bottom));
+  padding: 16px 20px max(28px, env(safe-area-inset-bottom));
 }
 
 .hl-portfolio-hero {
@@ -10520,6 +10589,19 @@
 
   .hl-profile-page,
   .hl-history-page {
+    flex: 0 0 auto;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .hl-terminal--profile {
+    flex: 0 0 auto;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .hl-page-shell.hl-profile-page,
+  .hl-page-shell.hl-profile-page .hl-page-card {
     flex: 0 0 auto;
     min-height: auto;
     overflow: visible;
