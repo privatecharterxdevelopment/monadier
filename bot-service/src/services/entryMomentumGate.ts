@@ -92,8 +92,16 @@ export async function validateEntryMomentum(opts: {
         reason =
           `LONG blocked — ${coin} at ${(rangePos * 100).toFixed(0)}% of 1h range (buy low, not at highs)`;
       } else if (!bounce5m) {
-        reason =
-          `LONG blocked — ${coin} needs 5m bounce from dip (5m ${change5mPct >= 0 ? '+' : ''}${change5mPct.toFixed(2)}%, range ${(rangePos * 100).toFixed(0)}%)`;
+        const inLowerRange = rangePos <= cfg.longMaxRangePosition;
+        const smallDip = change5mPct <= 0 && change5mPct > -0.3;
+        if (inLowerRange && smallDip) {
+          momentumAligned = true;
+          reason =
+            `Dip-buy OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · small 5m dip ${change5mPct.toFixed(2)}% to buy`;
+        } else {
+          reason =
+            `LONG blocked — ${coin} needs 5m bounce from dip (5m ${change5mPct >= 0 ? '+' : ''}${change5mPct.toFixed(2)}%, range ${(rangePos * 100).toFixed(0)}%)`;
+        }
       } else if (change1hPct < -cfg.maxCounter1hPct) {
         reason = `LONG blocked — ${coin} 1h still dumping (${change1hPct.toFixed(2)}%) — wait for higher-low`;
       } else {

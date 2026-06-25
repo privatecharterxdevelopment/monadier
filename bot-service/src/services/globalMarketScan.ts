@@ -62,11 +62,11 @@ export let lastHlGlobalScanStats: HlGlobalScanStats = {
 
 export let lastGlobalScanResult: GlobalScanResult = { standard: [], aggressive: [] };
 
-/** BTC/ETH only — when strict MTF scan finds nothing but chart still shows direction. */
+/** BTC/ETH only — chart direction from MTF (LONG or SHORT, whichever signal engine picks). */
 async function scanMajorChartFallback(
   coin: string,
   liq: { dayVolumeUsd: number; openInterestUsd: number },
-  preloadedUniverse?: HlLiquidUniverse
+  _preloadedUniverse?: HlLiquidUniverse
 ): Promise<GlobalSignalCandidate | null> {
   try {
     const symbol = hlCoinToBinanceSymbol(coin);
@@ -82,7 +82,7 @@ async function scanMajorChartFallback(
       symbol,
       direction: analysis.direction,
       confidence: analysis.confidence,
-      reason: `${analysis.reason} · major chart fallback (${analysis.confidence}% / ${tfs} TFs)`,
+      reason: `${analysis.reason} · major ${analysis.direction} fallback (${analysis.confidence}% / ${tfs} TFs)`,
       dayVolumeUsd: liq.dayVolumeUsd,
       openInterestUsd: liq.openInterestUsd,
       botMode: 'standard',

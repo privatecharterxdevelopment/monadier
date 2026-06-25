@@ -741,14 +741,10 @@ export class HyperliquidTradingService {
         strongMtf || opts.pick.confidence >= 48 || MAJOR_COINS.has(coin);
 
       const candleAnalytics = relaxSecondaryGates
-          ? await validatePreOpenCandleAnalytics({
-              coin,
-              direction: opts.direction,
-            })
-          : {
+          ? {
               ok: true as const,
-              reason: `Strong MTF scan — 20-candle check skipped (${opts.pick.confidence}%)`,
-              summary: `strong scan ${opts.pick.confidence}%`,
+              reason: `Scan pick — 20-candle check skipped (${opts.pick.confidence}%)`,
+              summary: `scan ${opts.pick.confidence}%`,
               netMovePct: 0,
               greenCount: 0,
               redCount: 0,
@@ -758,7 +754,11 @@ export class HyperliquidTradingService {
               structure: 'chop' as const,
               rejectionsAtHigh: 0,
               rejectionsAtLow: 0,
-            };
+            }
+          : await validatePreOpenCandleAnalytics({
+              coin,
+              direction: opts.direction,
+            });
       if (!candleAnalytics.ok) {
         logger.info('HL open blocked — 20-candle analytics', {
           user: opts.userAddress.slice(0, 10),
@@ -771,11 +771,11 @@ export class HyperliquidTradingService {
       }
 
       const scalpGate = relaxSecondaryGates
-          ? await validateScalpAlignment({ coin, direction: opts.direction })
-          : {
+          ? {
               ok: true as const,
-              reason: `Strong MTF scan (${opts.pick.confidence}%, ${opts.pick.directionalTfCount} TFs)`,
-            };
+              reason: `Scan pick — scalp confirm skipped (${opts.pick.confidence}%, ${opts.pick.directionalTfCount} TFs)`,
+            }
+          : await validateScalpAlignment({ coin, direction: opts.direction });
       if (!scalpGate.ok) {
         logger.info('HL open blocked — scalp 1m/5m align', {
           user: opts.userAddress.slice(0, 10),
@@ -851,10 +851,16 @@ export class HyperliquidTradingService {
         return { success: false, error: perpCtxGate.reason };
       }
 
-      const pumpSweepGate = await validatePumpSweepGate({
-        coin,
-        direction: opts.direction,
-      });
+      const pumpSweepGate = relaxSecondaryGates
+        ? {
+            ok: true as const,
+            reason: `Scan pick — pump sweep skipped (${opts.pick.confidence}%)`,
+            analysis: null,
+          }
+        : await validatePumpSweepGate({
+            coin,
+            direction: opts.direction,
+          });
       if (!pumpSweepGate.ok) {
         logger.info('HL open blocked — pump apex / sweep gate', {
           user: opts.userAddress.slice(0, 10),
@@ -867,14 +873,9 @@ export class HyperliquidTradingService {
       }
 
       const locationGate = relaxSecondaryGates
-          ? await validateEntryLocation({
-              symbol,
-              coin,
-              direction: opts.direction,
-            })
-          : {
+          ? {
               ok: true as const,
-              reason: `Strong MTF scan — S/R gate skipped (${opts.pick.confidence}%)`,
+              reason: `Scan pick — S/R gate skipped (${opts.pick.confidence}%)`,
               analysis: {
                 support: 0,
                 resistance: 0,
@@ -889,7 +890,12 @@ export class HyperliquidTradingService {
                 nearResistance: false,
                 nearSupport: false,
               },
-            };
+            }
+          : await validateEntryLocation({
+              symbol,
+              coin,
+              direction: opts.direction,
+            });
       if (!locationGate.ok) {
         logger.info('HL open blocked — resistance/support gate', {
           user: opts.userAddress.slice(0, 10),
@@ -903,15 +909,15 @@ export class HyperliquidTradingService {
       }
 
       const momentumGate = relaxSecondaryGates
-          ? await validateEntryMomentum({ coin, direction: opts.direction })
-          : {
+          ? {
               ok: true as const,
-              reason: `Strong MTF scan — momentum confirm skipped (${opts.pick.confidence}%)`,
+              reason: `Scan pick — momentum confirm skipped (${opts.pick.confidence}%)`,
               change5mPct: 0,
               change15mPct: 0,
               change1hPct: 0,
               momentumAligned: true,
-            };
+            }
+          : await validateEntryMomentum({ coin, direction: opts.direction });
       if (!momentumGate.ok) {
         logger.info('HL open blocked — entry momentum', {
           user: opts.userAddress.slice(0, 10),
