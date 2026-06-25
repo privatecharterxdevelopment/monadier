@@ -737,7 +737,8 @@ export class HyperliquidTradingService {
       }
 
       const strongMtf = isStrongGlobalScanPick(opts.pick);
-      const relaxSecondaryGates = strongMtf;
+      const relaxSecondaryGates =
+        strongMtf || opts.pick.confidence >= 48 || MAJOR_COINS.has(coin);
 
       const candleAnalytics = relaxSecondaryGates
           ? await validatePreOpenCandleAnalytics({

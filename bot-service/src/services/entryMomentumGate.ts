@@ -109,8 +109,16 @@ export async function validateEntryMomentum(opts: {
         reason =
           `SHORT blocked — ${coin} at ${(rangePos * 100).toFixed(0)}% of 1h range (sell high, not at lows)`;
       } else if (!fade5m) {
-        reason =
-          `SHORT blocked — ${coin} needs 5m rejection from rally (5m ${change5mPct >= 0 ? '+' : ''}${change5mPct.toFixed(2)}%, range ${(rangePos * 100).toFixed(0)}%)`;
+        const inUpperRange = rangePos >= cfg.shortMinRangePosition;
+        const smallRally = change5mPct >= 0 && change5mPct < 0.3;
+        if (inUpperRange && smallRally) {
+          momentumAligned = true;
+          reason =
+            `Rally-fade OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · small 5m bounce +${change5mPct.toFixed(2)}% to fade`;
+        } else {
+          reason =
+            `SHORT blocked — ${coin} needs 5m rejection from rally (5m ${change5mPct >= 0 ? '+' : ''}${change5mPct.toFixed(2)}%, range ${(rangePos * 100).toFixed(0)}%)`;
+        }
       } else if (change1hPct > cfg.maxCounter1hPct) {
         reason = `SHORT blocked — ${coin} 1h still ripping (+${change1hPct.toFixed(2)}%) — wait for lower-high`;
       } else {

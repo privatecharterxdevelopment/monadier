@@ -62,6 +62,42 @@ export let lastHlGlobalScanStats: HlGlobalScanStats = {
 
 export let lastGlobalScanResult: GlobalScanResult = { standard: [], aggressive: [] };
 
+/** BTC/ETH only — when strict MTF scan finds nothing but chart still shows direction. */
+async function scanMajorChartFallback(
+  coin: string,
+  liq: { dayVolumeUsd: number; openInterestUsd: number },
+  preloadedUniverse?: HlLiquidUniverse
+): Promise<GlobalSignalCandidate | null> {
+  try {
+    const symbol = hlCoinToBinanceSymbol(coin);
+    const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
+    if (!analysis) return null;
+    if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
+    if (analysis.confidence < 48) return null;
+    const tfs = analysis.metrics?.directionalTfCount ?? 0;
+    if (tfs < 1) return null;
+
+    return {
+      coin,
+      symbol,
+      direction: analysis.direction,
+      confidence: analysis.confidence,
+      reason: `${analysis.reason} · major chart fallback (${analysis.confidence}% / ${tfs} TFs)`,
+      dayVolumeUsd: liq.dayVolumeUsd,
+      openInterestUsd: liq.openInterestUsd,
+      botMode: 'standard',
+      mtfBreakdown: analysis.mtfBreakdown,
+      trendAlignment: analysis.metrics?.trendAlignment,
+      directionalTfCount: analysis.metrics?.directionalTfCount,
+      h1Trend: analysis.metrics?.h1Trend,
+      signalReasons: analysis.signalReasons,
+      indicators: analysis.indicators,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function scanStandardCoin(
   coin: string,
   liq: { dayVolumeUsd: number; openInterestUsd: number },
@@ -71,7 +107,7 @@ async function scanStandardCoin(
   try {
     const symbol = hlCoinToBinanceSymbol(coin);
     const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
-    if (!analysis || analysis.isWeak) return null;
+    if (!analysis) return null;
     if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
     const tierInfo = classifyCoinTier(coin, preloadedUniverse);
     const cautious = needsCautionPath(tierInfo.tier) && !relaxed;
@@ -269,7 +305,7 @@ export async function scanGlobalHlSignals(
   let aggressiveFiltered = filterWeekendShortOnly(aggressive);
 
   let finalStandard = standardFiltered;
-  if (standardFiltered.length === 0 && aggressiveFiltered.length === 0) {
+  if (standardFiltered.length === 0) {
     const topCoins = coins.slice(0, 10);
     const relaxedRaw = await mapPool(topCoins, concurrency, async (coin) => {
       const liq = liqByCoin.get(coin);
@@ -283,6 +319,28 @@ export async function scanGlobalHlSignals(
     );
     if (finalStandard.length > 0) {
       logger.info('Global HL scan — relaxed fallback used', {
+        count: finalStandard.length,
+        top: finalStandard[0]?.coin,
+        direction: finalStandard[0]?.direction,
+        conf: finalStandard[0]?.confidence,
+      });
+    }
+  }
+
+  if (finalStandard.length === 0) {
+    const majorCoins = ['BTC', 'ETH'].filter((c) => coins.includes(c));
+    const majorRaw = await mapPool(majorCoins, 2, async (coin) => {
+      const liq = liqByCoin.get(coin);
+      if (!liq) return null;
+      return scanMajorChartFallback(coin, liq, universe);
+    });
+    finalStandard = filterWeekendShortOnly(
+      majorRaw
+        .filter((c): c is GlobalSignalCandidate => c !== null)
+        .sort((a, b) => b.confidence - a.confidence)
+    );
+    if (finalStandard.length > 0) {
+      logger.info('Global HL scan — major chart fallback used', {
         count: finalStandard.length,
         top: finalStandard[0]?.coin,
         direction: finalStandard[0]?.direction,
