@@ -81,6 +81,51 @@ const hlPositionOpenedAt = new Map<string, number>();
 /** Last close timestamp per wallet — anti-churn cooldown before next open. */
 const hlLastCloseAt = new Map<string, number>();
 
+/** Last close per wallet+coin — blocks instant reverse (SHORT close → LONG open 4s later). */
+const hlLastCloseByCoin = new Map<
+  string,
+  { direction: 'LONG' | 'SHORT'; at: number }
+>();
+
+function coinCloseKey(wallet: string, coin: string): string {
+  return `${wallet.toLowerCase()}:${coin.toUpperCase()}`;
+}
+
+function isSameCoinOpenBlocked(
+  wallet: string,
+  coin: string,
+  direction: 'LONG' | 'SHORT'
+): { blocked: boolean; reason?: string } {
+  const mem = hlLastCloseByCoin.get(coinCloseKey(wallet, coin));
+  if (!mem) return { blocked: false };
+
+  const elapsed = Date.now() - mem.at;
+  const minReentry = config.hyperliquid.sameCoinReentryMinMs;
+  const blockOpposite = config.hyperliquid.blockOppositeSameCoinMs;
+
+  if (minReentry > 0 && elapsed < minReentry) {
+    const waitSec = Math.ceil((minReentry - elapsed) / 1000);
+    return {
+      blocked: true,
+      reason: `${coin} — re-entry blocked ${waitSec}s after close (anti-churn)`,
+    };
+  }
+  if (
+    blockOpposite > 0 &&
+    mem.direction !== direction &&
+    elapsed < blockOpposite
+  ) {
+    const waitMin = Math.ceil((blockOpposite - elapsed) / 60_000);
+    return {
+      blocked: true,
+      reason:
+        `${coin} — no ${direction} for ~${waitMin}m after ${mem.direction} close ` +
+        `(anti-flip; same coin or other pair OK)`,
+    };
+  }
+  return { blocked: false };
+}
+
 /** Prevent overlapping fast monitor passes. */
 let fastPositionMonitorRunning = false;
 
@@ -158,6 +203,12 @@ function formatOpenErrorForClient(error: string): string {
   }
   if (/LONG blocked|SHORT blocked|buy high|sell low|crowded longs|crowded shorts|Perp context/i.test(error)) {
     return 'Funding/24h range blocks chasing — bot waits for pullback';
+  }
+  if (/Funding\/24h range blocks chasing/i.test(error)) {
+    return 'Funding/24h range blocks chasing — bot waits for pullback';
+  }
+  if (/anti-flip|anti-churn|re-entry blocked/i.test(error)) {
+    return 'Just closed this pair — bot waits before re-entering (no instant reverse)';
   }
   return error.length > 120 ? `${error.slice(0, 117)}…` : error;
 }
@@ -400,6 +451,7 @@ export class HyperliquidTradingService {
 
   /** Ranked signals that pass liquidity gates — prefers high 24h volume / OI. */
   private async pickBestSignalsPassingLiquidityGate(
+    userAddress: string,
     signals: GlobalSignalCandidate[],
     liquidUniverse: HlLiquidUniverse,
     excludeCoins: string[],
@@ -412,6 +464,16 @@ export class HyperliquidTradingService {
       if (excluded.has(signal.coin.toUpperCase())) continue;
       if (!isHlCoinLiquid(liquidUniverse, signal.coin)) continue;
       if (!isOpenDirectionAllowed(signal.direction)) continue;
+
+      const flipGate = isSameCoinOpenBlocked(userAddress, signal.coin, signal.direction);
+      if (flipGate.blocked) {
+        logger.debug('HL signal skip: same-coin anti-flip', {
+          coin: signal.coin,
+          direction: signal.direction,
+          reason: flipGate.reason,
+        });
+        continue;
+      }
 
       const rank = volumeRankForCoin(liquidUniverse, signal.coin);
       if (rank > config.hyperliquid.scalpOpen.maxVolumeRank) {
@@ -547,6 +609,7 @@ export class HyperliquidTradingService {
 
       const pickLimit = Math.max(slotsLeft, 8);
       const picks = await this.pickBestSignalsPassingLiquidityGate(
+        userAddress,
         signals,
         ctx.liquidUniverse,
         coinsOpen,
@@ -683,6 +746,17 @@ export class HyperliquidTradingService {
     try {
       const { meta, mids } = opts.ctx;
       const coin = opts.coin.toUpperCase();
+      const flipGate = isSameCoinOpenBlocked(opts.userAddress, coin, opts.direction);
+      if (flipGate.blocked) {
+        logger.info('HL open blocked — same-coin anti-flip', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          reason: flipGate.reason,
+        });
+        return { success: false, error: flipGate.reason ?? 'Same-coin re-entry blocked' };
+      }
+
       const assetIndex = coinToAssetIndex(meta, coin);
       const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
       const effectiveLeverage = Math.min(opts.leverage, maxLeverageForCoin(meta, coin));
@@ -1534,6 +1608,10 @@ export class HyperliquidTradingService {
         viaHlBuilder,
       });
       hlLastCloseAt.set(userAddress.toLowerCase(), Date.now());
+      hlLastCloseByCoin.set(coinCloseKey(userAddress, coinUpper), {
+        direction: isLong ? 'LONG' : 'SHORT',
+        at: Date.now(),
+      });
       return { success: true };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
