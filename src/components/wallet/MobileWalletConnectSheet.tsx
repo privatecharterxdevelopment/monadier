@@ -1,6 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { getMetaMaskDappLink } from '../../lib/mobileWalletConnect';
+import {
+  detectWalletExtensionConflict,
+  phantomEvmHint,
+  walletConnectRetryHint,
+} from '../../lib/walletTroubleshoot';
 
 type OpenDetail = { appKitOpen?: () => void };
 
@@ -12,6 +17,9 @@ const MobileWalletConnectSheet: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [appKitOpen, setAppKitOpen] = useState<(() => void) | null>(null);
   const metamaskHref = getMetaMaskDappLink();
+  const walletHint = useMemo(() => {
+    return detectWalletExtensionConflict() ?? phantomEvmHint() ?? null;
+  }, [open]);
 
   useEffect(() => {
     const onOpen = (e: Event) => {
@@ -53,6 +61,14 @@ const MobileWalletConnectSheet: React.FC = () => {
         </div>
         <p className="mobile-wallet-sheet__hint">
           On phone, open Monadier inside the MetaMask app — then tap Connect. WalletConnect “Open app” often fails in Safari.
+        </p>
+        {walletHint ? (
+          <p className="mobile-wallet-sheet__warn" role="status">
+            {walletHint}
+          </p>
+        ) : null}
+        <p className="mobile-wallet-sheet__foot mobile-wallet-sheet__foot--muted">
+          {walletConnectRetryHint()}
         </p>
         <a
           className="mobile-wallet-sheet__btn mobile-wallet-sheet__btn--primary"

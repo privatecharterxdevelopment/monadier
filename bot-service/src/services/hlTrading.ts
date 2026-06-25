@@ -72,6 +72,12 @@ import {
   getDynamicTrailRecord,
   setDynamicTrailRecord,
 } from './profitTrailState';
+import {
+  isSameCoinOpenBlocked,
+  isSameCoinOpenBlockedSync,
+  rememberCoinClose,
+  warmCoinCloseCacheForWallet,
+} from './hlCoinCloseGuard';
 
 const transport = new HttpTransport();
 
@@ -80,51 +86,6 @@ const hlPositionOpenedAt = new Map<string, number>();
 
 /** Last close timestamp per wallet — anti-churn cooldown before next open. */
 const hlLastCloseAt = new Map<string, number>();
-
-/** Last close per wallet+coin — blocks instant reverse (SHORT close → LONG open 4s later). */
-const hlLastCloseByCoin = new Map<
-  string,
-  { direction: 'LONG' | 'SHORT'; at: number }
->();
-
-function coinCloseKey(wallet: string, coin: string): string {
-  return `${wallet.toLowerCase()}:${coin.toUpperCase()}`;
-}
-
-function isSameCoinOpenBlocked(
-  wallet: string,
-  coin: string,
-  direction: 'LONG' | 'SHORT'
-): { blocked: boolean; reason?: string } {
-  const mem = hlLastCloseByCoin.get(coinCloseKey(wallet, coin));
-  if (!mem) return { blocked: false };
-
-  const elapsed = Date.now() - mem.at;
-  const minReentry = config.hyperliquid.sameCoinReentryMinMs;
-  const blockOpposite = config.hyperliquid.blockOppositeSameCoinMs;
-
-  if (minReentry > 0 && elapsed < minReentry) {
-    const waitSec = Math.ceil((minReentry - elapsed) / 1000);
-    return {
-      blocked: true,
-      reason: `${coin} — re-entry blocked ${waitSec}s after close (anti-churn)`,
-    };
-  }
-  if (
-    blockOpposite > 0 &&
-    mem.direction !== direction &&
-    elapsed < blockOpposite
-  ) {
-    const waitMin = Math.ceil((blockOpposite - elapsed) / 60_000);
-    return {
-      blocked: true,
-      reason:
-        `${coin} — no ${direction} for ~${waitMin}m after ${mem.direction} close ` +
-        `(anti-flip; same coin or other pair OK)`,
-    };
-  }
-  return { blocked: false };
-}
 
 /** Prevent overlapping fast monitor passes. */
 let fastPositionMonitorRunning = false;
@@ -465,7 +426,7 @@ export class HyperliquidTradingService {
       if (!isHlCoinLiquid(liquidUniverse, signal.coin)) continue;
       if (!isOpenDirectionAllowed(signal.direction)) continue;
 
-      const flipGate = isSameCoinOpenBlocked(userAddress, signal.coin, signal.direction);
+      const flipGate = isSameCoinOpenBlockedSync(userAddress, signal.coin, signal.direction);
       if (flipGate.blocked) {
         logger.debug('HL signal skip: same-coin anti-flip', {
           coin: signal.coin,
@@ -608,6 +569,7 @@ export class HyperliquidTradingService {
       }
 
       const pickLimit = Math.max(slotsLeft, 8);
+      await warmCoinCloseCacheForWallet(userAddress);
       const picks = await this.pickBestSignalsPassingLiquidityGate(
         userAddress,
         signals,
@@ -746,7 +708,7 @@ export class HyperliquidTradingService {
     try {
       const { meta, mids } = opts.ctx;
       const coin = opts.coin.toUpperCase();
-      const flipGate = isSameCoinOpenBlocked(opts.userAddress, coin, opts.direction);
+      const flipGate = await isSameCoinOpenBlocked(opts.userAddress, coin, opts.direction);
       if (flipGate.blocked) {
         logger.info('HL open blocked — same-coin anti-flip', {
           user: opts.userAddress.slice(0, 10),
@@ -1611,10 +1573,7 @@ export class HyperliquidTradingService {
         viaHlBuilder,
       });
       hlLastCloseAt.set(userAddress.toLowerCase(), Date.now());
-      hlLastCloseByCoin.set(coinCloseKey(userAddress, coinUpper), {
-        direction: isLong ? 'LONG' : 'SHORT',
-        at: Date.now(),
-      });
+      rememberCoinClose(userAddress, coinUpper, isLong ? 'LONG' : 'SHORT');
       return { success: true };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

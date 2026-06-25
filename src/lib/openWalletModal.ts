@@ -1,4 +1,6 @@
 import { isMetaMaskInAppBrowser, shouldUseMobileWalletSheet } from './mobileWalletConnect';
+import { markWalletConnectAttempt } from './walletReconnect';
+import { detectWalletExtensionConflict, walletConnectRetryHint } from './walletTroubleshoot';
 
 /** Close app overlays so Reown AppKit is not hidden underneath. */
 export function openMonadierWalletModal(open: () => void): void {
@@ -7,6 +9,13 @@ export function openMonadierWalletModal(open: () => void): void {
     return;
   }
   window.dispatchEvent(new CustomEvent('monadier:close-overlays'));
+
+  markWalletConnectAttempt();
+
+  const conflict = detectWalletExtensionConflict();
+  if (conflict && typeof console !== 'undefined') {
+    console.warn('[Monadier wallet]', conflict, walletConnectRetryHint());
+  }
 
   if (isMetaMaskInAppBrowser()) {
     requestAnimationFrame(() => open());
