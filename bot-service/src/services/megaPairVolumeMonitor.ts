@@ -122,6 +122,36 @@ export function getMegaPairVolumeSnapshot(): MegaPairVolumeSnapshot | null {
   return lastSnapshot;
 }
 
+/** Live BTC/ETH dump — block LONG even when RSS feeds are empty. */
+export function isMacroRiskOffEnvironment(): { active: boolean; reason: string } {
+  const snap = lastSnapshot;
+  if (!snap || snap.pairs.length < 2) {
+    return { active: false, reason: 'Mega pairs — data pending' };
+  }
+
+  const btc = snap.pairs.find((p) => p.coin === 'BTC');
+  const eth = snap.pairs.find((p) => p.coin === 'ETH');
+  if (!btc || !eth) {
+    return { active: false, reason: 'Mega pairs — incomplete' };
+  }
+
+  const outflow = snap.pairs.filter((p) => p.flow === 'OUTFLOW').length;
+  const dump15m = btc.change15mPct <= -0.3 && eth.change15mPct <= -0.2;
+  const dump5m = btc.change5mPct <= -0.25 && eth.change5mPct <= -0.15;
+
+  if (outflow >= 2) {
+    return { active: true, reason: `BTC+ETH OUTFLOW — ${snap.summary}` };
+  }
+  if (dump15m || dump5m) {
+    return {
+      active: true,
+      reason: `BTC/ETH dumping (BTC 5m ${btc.change5mPct.toFixed(2)}% 15m ${btc.change15mPct.toFixed(2)}%) — ${snap.summary}`,
+    };
+  }
+
+  return { active: false, reason: snap.summary };
+}
+
 /** Gate alt entries against mega-cap volume flow. */
 export function validateMegaPairVolumeForDirection(direction: 'LONG' | 'SHORT'): {
   ok: boolean;

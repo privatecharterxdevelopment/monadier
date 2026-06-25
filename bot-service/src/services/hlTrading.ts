@@ -889,12 +889,15 @@ export class HyperliquidTradingService {
         return { success: false, error: pumpShortGate.reason };
       }
 
-      const megaGate = MAJOR_COINS.has(coin)
-        ? {
-            ok: true as const,
-            reason: `${coin} — mega flow gate skipped (trading mega pair)`,
-          }
-        : validateMegaPairVolumeForDirection(opts.direction);
+      const megaGate =
+        opts.direction === 'LONG'
+          ? validateMegaPairVolumeForDirection('LONG')
+          : MAJOR_COINS.has(coin)
+            ? {
+                ok: true as const,
+                reason: `${coin} — mega SHORT flow gate skipped (trading mega pair)`,
+              }
+            : validateMegaPairVolumeForDirection('SHORT');
       if (!megaGate.ok) {
         logger.info('HL open blocked — mega pair volume', {
           user: opts.userAddress.slice(0, 10),

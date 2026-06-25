@@ -12,7 +12,10 @@ const BULLISH_RE =
   /\b(launch|partnership|list(ing|ed)?|integrat(e|ion)|upgrade|mainnet|airdrop|etf approv|invest(?:ment|s)?|fund(?:ing|raise)?|surge|rally|soar|record high|buyback|inflow)\b/i;
 
 const BEARISH_RE =
-  /\b(hack|exploit|breach|sec sue|lawsuit|delist|bankrupt|delay|halt|crash|fraud|investigat|scam|rug|dump|layoff|shutdown|fine\b|subpoena|arrest|outflow)\b/i;
+  /\b(hack|exploit|breach|sec sue|lawsuit|delist|bankrupt|delay|halt|crash|fraud|investigat|scam|rug|dump|layoff|shutdown|fine\b|subpoena|arrest|outflow|loss|losses|drawdown|liquidat|capitulat|bloodbath|bear market|crypto winter|selloff|plunge|tumble)\b/i;
+
+const MARKET_CRASH_RE =
+  /\b(biggest|largest|worst|record).{0,48}(loss|decline|drop|selloff|drawdown|liquidation|dump)|since 20(1\d|2[0-5])|largest loss|biggest loss|worst (day|week|month|quarter|year)|steepest (drop|decline|fall)|mass liquidation/i;
 
 const CRITICAL_MACRO_RE =
   /\b(war|attack|missile|strike|invasion|iran|israel|hamas|hezbollah|nuclear|terror|assassination|martial law|state of emergency|world war|nato|embargo)\b/i;
@@ -211,6 +214,7 @@ function heuristicAnalysis(item: NewsItem): NewsAnalysis {
   if (BEARISH_RE.test(text)) bear += 1;
   if (RISK_OFF_RE.test(text)) bear += 2;
   if (CRITICAL_MACRO_RE.test(text)) bear += 3;
+  if (MARKET_CRASH_RE.test(text)) bear += 4;
 
   let bias: NewsBias = 'neutral';
   if (CRITICAL_MACRO_RE.test(text) || (RISK_OFF_RE.test(text) && bear > bull)) {
@@ -222,7 +226,7 @@ function heuristicAnalysis(item: NewsItem): NewsAnalysis {
   }
 
   let impact: NewsImpact = 'low';
-  if (CRITICAL_MACRO_RE.test(text)) impact = 'critical';
+  if (CRITICAL_MACRO_RE.test(text) || MARKET_CRASH_RE.test(text)) impact = 'critical';
   else if (HIGH_IMPACT_RE.test(text) || bear >= 3 || bull >= 2) impact = 'high';
   else if (bear >= 1 || bull >= 1 || item.category === 'sports') impact = 'medium';
 
@@ -398,19 +402,47 @@ export function analyzeHeadlinesHeuristic(headlines: string[], assets: string[])
     };
   }
 
-  const item: NewsItem = {
+  const joined = headlines.join(' · ');
+  let worst: NewsAnalysis | null = null;
+  for (const headline of headlines.slice(0, 10)) {
+    const item: NewsItem = {
+      id: `batch:${headline.slice(0, 32)}`,
+      headline,
+      source: 'aggregate',
+      publishedAt: new Date().toISOString(),
+      assets,
+      category:
+        CRITICAL_MACRO_RE.test(joined) || MARKET_CRASH_RE.test(joined) ? 'macro' : 'crypto',
+    };
+    const analysis = heuristicAnalysis(item);
+    if (
+      !worst ||
+      impactRank(analysis.impact) > impactRank(worst.impact) ||
+      (analysis.bias === 'risk_off' && worst.bias !== 'risk_off') ||
+      (analysis.bias === 'bearish' &&
+        worst.bias !== 'bearish' &&
+        worst.bias !== 'risk_off' &&
+        impactRank(analysis.impact) >= impactRank(worst.impact))
+    ) {
+      worst = analysis;
+    }
+  }
+  return worst ?? heuristicAnalysis({
     id: 'batch',
     headline: headlines[0],
     source: 'aggregate',
     publishedAt: new Date().toISOString(),
     assets,
-    category: CRITICAL_MACRO_RE.test(headlines.join(' ')) ? 'macro' : 'crypto',
-  };
-  return heuristicAnalysis(item);
+    category: 'crypto',
+  });
 }
 
 export function isCriticalMacroHeadline(text: string): boolean {
-  return CRITICAL_MACRO_RE.test(text) || (RISK_OFF_RE.test(text) && HIGH_IMPACT_RE.test(text));
+  return (
+    CRITICAL_MACRO_RE.test(text) ||
+    MARKET_CRASH_RE.test(text) ||
+    (RISK_OFF_RE.test(text) && HIGH_IMPACT_RE.test(text))
+  );
 }
 
 export { CRITICAL_MACRO_RE };

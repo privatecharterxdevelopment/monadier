@@ -6,7 +6,7 @@ import { analyzeAggressiveScalpBySymbol } from './aggressiveScalpAnalysis';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { filterWeekendShortOnly, isWeekendShortOnlyWindow } from './weekendTradingRules';
-import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
+import { refreshMegaPairVolumeMonitor, isMacroRiskOffEnvironment } from './megaPairVolumeMonitor';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
@@ -345,6 +345,19 @@ export async function scanGlobalHlSignals(
         top: finalStandard[0]?.coin,
         direction: finalStandard[0]?.direction,
         conf: finalStandard[0]?.confidence,
+      });
+    }
+  }
+
+  const macroRisk = isMacroRiskOffEnvironment();
+  if (macroRisk.active) {
+    const before = finalStandard.length;
+    finalStandard = finalStandard.filter((c) => c.direction !== 'LONG');
+    aggressiveFiltered = aggressiveFiltered.filter((c) => c.direction !== 'LONG');
+    if (before > finalStandard.length) {
+      logger.info('Global HL scan — LONG candidates removed (macro risk-off)', {
+        reason: macroRisk.reason,
+        removed: before - finalStandard.length,
       });
     }
   }

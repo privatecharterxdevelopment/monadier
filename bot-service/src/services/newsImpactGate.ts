@@ -10,6 +10,7 @@ import {
   analyzeNewsItem,
   isCriticalMacroHeadline,
 } from './newsAnalyzerService';
+import { isMacroRiskOffEnvironment, validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
 import { normalizeNewsTradeMode, type NewsTradeMode } from './newsTradeMode';
 import type { NewsBias, NewsGateResult, NewsImpact } from './newsTypes';
 
@@ -104,6 +105,35 @@ export async function validateNewsImpact(opts: {
   const coin = opts.coin.toUpperCase();
   const mode = normalizeNewsTradeMode(opts.newsTradeMode ?? 'filter');
   const cfg = config.hyperliquid.news;
+
+  if (opts.direction === 'LONG') {
+    const macroRisk = isMacroRiskOffEnvironment();
+    if (macroRisk.active) {
+      return {
+        ok: false,
+        reason: `LONG blocked — macro risk-off (${macroRisk.reason})`,
+        headlines: [],
+        sentiment: 'risk_off',
+        impact: 'high',
+        confidence: 78,
+        boostConfidence: 0,
+        criticalMacro: true,
+      };
+    }
+    const megaLong = validateMegaPairVolumeForDirection('LONG');
+    if (!megaLong.ok) {
+      return {
+        ok: false,
+        reason: megaLong.reason,
+        headlines: [],
+        sentiment: 'risk_off',
+        impact: 'medium',
+        confidence: 72,
+        boostConfidence: 0,
+        criticalMacro: false,
+      };
+    }
+  }
 
   const [coinHeadlines, macroItems] = await Promise.all([
     fetchHeadlinesForCoin(coin),
