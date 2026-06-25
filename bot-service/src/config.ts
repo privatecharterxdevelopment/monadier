@@ -114,14 +114,16 @@ export const config = {
     minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
     /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
     dynamicTrail: {
-    /** Min ms in profit before arming breakeven / trail SL (5 min default). */
-      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 420_000),
+      /** Min ms in profit before arming breakeven / trail SL (2 min default). */
+      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 120_000),
+      /** Max ms from open — force SL trail arm (profit BE or loss SL%). */
+      maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
       /** Min ROE before breakeven+fees lock (~2.5% — stage 1). */
       breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 2.5),
       /** Min ROE before full ATR/% trail ratchet (~5% — stage 2). */
       armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 5),
-      /** After trail arms — min ms before trail/peak can close (lets candles develop). */
-      trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 300_000),
+      /** After trail arms — min ms before trail/peak can close. */
+      trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 60_000),
       armFeesMultiplier: Number(process.env.HL_TRAIL_ARM_FEES_MULT || 2),
       breakevenBufferPct: Number(process.env.HL_TRAIL_BE_BUFFER_PCT || 0.02),
       breakevenBufferFeesMult: Number(process.env.HL_TRAIL_BE_BUFFER_FEES_MULT || 0.5),
@@ -138,7 +140,7 @@ export const config = {
       neverRedAfterArm: process.env.HL_TRAIL_NEVER_RED_AFTER_ARM !== 'false',
     },
     /** Legacy profit-lock USD fields — analyze window before trail (aligned with arm hold). */
-    profitMinHoldBeforeExitMs: Number(process.env.HL_PROFIT_MIN_HOLD_MS || 300_000),
+    profitMinHoldBeforeExitMs: Number(process.env.HL_PROFIT_MIN_HOLD_MS || 120_000),
     /** After analyze phase — arm in-profit SL at this uPnL floor (~0.1% margin). */
     profitLockActivateUsd: Number(process.env.HL_PROFIT_LOCK_ACTIVATE_USD || 0.05),
     /** After min hold — trail floor ≈ breakeven + ~0.1% margin on typical slot. */
@@ -339,7 +341,7 @@ export const config = {
     /** Pump apex line + liquidity sweep / turnaround zone (1h swings). */
     pumpSweep: {
       enabled: process.env.HL_PUMP_SWEEP_ENABLED !== 'false',
-      majorsOnly: process.env.HL_PUMP_SWEEP_MAJORS_ONLY !== 'false',
+      majorsOnly: process.env.HL_PUMP_SWEEP_MAJORS_ONLY === 'true',
       blockAltsOnMegaFade: process.env.HL_PUMP_SWEEP_BLOCK_ALTS !== 'false',
       lookbackBars1h: Number(process.env.HL_PUMP_SWEEP_LOOKBACK || 72),
       apexMaxAgeBars: Number(process.env.HL_PUMP_SWEEP_APEX_AGE || 36),

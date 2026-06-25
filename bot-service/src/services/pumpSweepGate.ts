@@ -70,6 +70,16 @@ function gateForDirection(
     };
   }
   if (a.phase === 'at_apex' || (a.phase === 'post_pump_fade' && a.positionInSweep >= cfg.shortAllowAbovePosition)) {
+    if (
+      direction === 'SHORT' &&
+      a.retraceFromApexPct < cfg.minRetraceFromApexPct * 0.5
+    ) {
+      return {
+        ok: false,
+        reason:
+          `SHORT blocked — ${coin} at apex but still climbing (+${(-a.retraceFromApexPct).toFixed(2)}% from low) — wait for real fade`,
+      };
+    }
     return {
       ok: true,
       reason: `Pump sweep OK — ${coin} fading from apex $${a.pumpApex.toFixed(2)} (SHORT fade zone)`,
