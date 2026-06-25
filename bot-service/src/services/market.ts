@@ -756,11 +756,9 @@ export async function analyzeMarket(
     conditionsMet = shortConditionsMet;
     conditions = shortConditions;
   } else if (longConditionsMet === shortConditionsMet && longConditionsMet >= 2) {
-    // Tie-breaker: use recent momentum
-    const momentum3 = ((closes[closes.length - 1] - closes[closes.length - 3]) / closes[closes.length - 3]) * 100;
-    direction = momentum3 > 0 ? 'LONG' : 'SHORT';
+    direction = 'HOLD';
     conditionsMet = longConditionsMet;
-    conditions = momentum3 > 0 ? longConditions : shortConditions;
+    conditions = longConditions;
   }
   // If less than 2 conditions: direction stays HOLD (no trade)
 
@@ -800,13 +798,36 @@ export async function analyzeMarket(
   const rawConfidence = calculateConfidence(conditionsMet, false);
   const confidence = Math.max(20, rawConfidence - confidencePenalty);
 
-  // If HOLD, force to stronger signal (same as UI)
-  let finalDirection: 'LONG' | 'SHORT' = direction as any;
+  // Unclear setup — neutral (no forced LONG/SHORT)
   if (direction === 'HOLD') {
-    finalDirection = longConditionsMet >= shortConditionsMet ? 'LONG' : 'SHORT';
-    conditionsMet = Math.max(longConditionsMet, shortConditionsMet);
-    logger.info(`Weak setup - forcing ${finalDirection} (${conditionsMet}/6 conditions)`);
+    logger.info(`Neutral — ${symbol} mixed signals (${longConditionsMet}L/${shortConditionsMet}S conditions)`);
+    return {
+      direction: 'LONG',
+      confidence: Math.round(confidence),
+      reason: `Neutral — mixed signals (${longConditionsMet} long / ${shortConditionsMet} short factors)`,
+      indicators: [],
+      isReversalSignal: false,
+      suggestedTP: 5,
+      suggestedSL: 1,
+      isOverheated: rsi > 75 || rsi < 25,
+      isWeekendWarning: false,
+      weekendAlertLevel: 'none' as const,
+      scalpingRecommended: false,
+      isWeak: true,
+      metrics: {
+        rsi: Math.round(rsi),
+        macd: macd.toFixed(4),
+        priceChange1h: priceChange1h.toFixed(2),
+        volumeRatio: volumeRatio.toFixed(1),
+        conditionsMet: Math.max(longConditionsMet, shortConditionsMet),
+        riskReward: '0',
+        trend,
+        dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
+      },
+    };
   }
+
+  let finalDirection: 'LONG' | 'SHORT' = direction as 'LONG' | 'SHORT';
 
   // Check minimum conditions for strategy
   // With minConditions=0, this will almost never trigger!
@@ -1198,9 +1219,52 @@ export async function analyzeMarketMTFBySymbol(
       const isBullishTrend = trend === 'UP' || trend.includes('UPTREND');
       const isBearishTrend = trend === 'DOWN' || trend.includes('DOWNTREND');
 
-      if (isBullishTrend) finalDirection = 'LONG';
-      else if (isBearishTrend) finalDirection = 'SHORT';
-      else finalDirection = longVotes >= shortVotes ? 'LONG' : 'SHORT';
+      if (isBullishTrend && longVotes > shortVotes) {
+        finalDirection = 'LONG';
+      } else if (isBearishTrend && shortVotes > longVotes) {
+        finalDirection = 'SHORT';
+      } else if (longVotes >= 3 && longVotes > shortVotes) {
+        finalDirection = 'LONG';
+      } else if (shortVotes >= 3 && shortVotes > longVotes) {
+        finalDirection = 'SHORT';
+      } else {
+        logger.debug('MTF neutral — no clear per-chart direction', {
+          symbol,
+          longVotes,
+          shortVotes,
+          trend,
+          confidence: signal.confidence,
+        });
+        return {
+          direction: 'LONG',
+          confidence: Math.round(signal.confidence),
+          reason: `Neutral — ${longVotes} LONG / ${shortVotes} SHORT higher TFs (mixed chart)`,
+          indicators: indicators.slice(0, 3),
+          isReversalSignal: false,
+          suggestedTP: 5,
+          suggestedSL: 1.5,
+          isOverheated: rsi > 75 || rsi < 25,
+          isWeekendWarning: weekendAlertLevel !== 'none',
+          weekendAlertLevel,
+          scalpingRecommended: false,
+          marketWarning,
+          isWeak: true,
+          metrics: {
+            rsi: Math.round(rsi),
+            macd: macdSignal,
+            priceChange1h: '0.00',
+            volumeRatio: '1.0',
+            conditionsMet: 0,
+            trendAlignment: Math.round(signal.trendAlignment),
+            directionalTfCount: 0,
+            h1Trend: trend,
+            riskReward: '0',
+            trend:
+              trend === 'UP' ? 'STRONG_UPTREND' : trend === 'DOWN' ? 'STRONG_DOWNTREND' : 'NEUTRAL',
+            dayOfWeek: dayNames[dayOfWeek],
+          },
+        };
+      }
     }
 
     const directionalTfCount = signal.timeframes.filter(

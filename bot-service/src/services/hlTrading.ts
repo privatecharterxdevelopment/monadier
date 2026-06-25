@@ -45,9 +45,6 @@ import { validatePumpSweepGate } from './pumpSweepGate';
 import { validateScalpAlignment } from './scalpAlignGate';
 import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
 import { validatePerpMarketContext } from './perpMarketContextGate';
-import {
-  validateMegaPairVolumeForDirection,
-} from './megaPairVolumeMonitor';
 import { buildHlOpenReasonDoc } from './openReasonBuilder';
 import {
   evaluateProfitRunAnalysis,
@@ -96,6 +93,7 @@ let fastPositionMonitorRunning = false;
  */
 function mayAutoCloseInRed(reason: string, holdMs = 0): boolean {
   const cfg = config.hyperliquid;
+  if (reason === 'hard_stop_usd' || reason === 'emergency_close') return true;
   const maxSlMs = cfg.dynamicTrail.maxHoldBeforeSlTrailMs;
   if (
     holdMs >= maxSlMs &&
@@ -103,7 +101,6 @@ function mayAutoCloseInRed(reason: string, holdMs = 0): boolean {
   ) {
     return true;
   }
-  if (reason === 'emergency_close') return true;
   if (!cfg.profitOnlyExits) {
     return reason === 'stop_loss' || reason === 'signal_reversal' || reason === 'trailing_stop';
   }
@@ -876,15 +873,10 @@ export class HyperliquidTradingService {
         return { success: false, error: pumpShortGate.reason };
       }
 
-      const megaGate =
-        opts.direction === 'LONG'
-          ? validateMegaPairVolumeForDirection('LONG')
-          : MAJOR_COINS.has(coin)
-            ? {
-                ok: true as const,
-                reason: `${coin} — mega SHORT flow gate skipped (trading mega pair)`,
-              }
-            : validateMegaPairVolumeForDirection('SHORT');
+      const megaGate = {
+        ok: true as const,
+        reason: `${coin} — per-coin chart/macro beta only (no global flow override)`,
+      };
       if (!megaGate.ok) {
         logger.info('HL open blocked — mega pair volume', {
           user: opts.userAddress.slice(0, 10),
@@ -1147,6 +1139,26 @@ export class HyperliquidTradingService {
       const holdMs = nowMs - (hlPositionOpenedAt.get(lockKey) ?? nowMs);
       const positionDirection: 'LONG' | 'SHORT' = size > 0 ? 'LONG' : 'SHORT';
       const markPrice = markFromPosition(entry, size, pnl);
+
+      const hardStopUsd = config.hyperliquid.hardStopLossUsd;
+      if (hardStopUsd > 0 && pnl <= -hardStopUsd) {
+        const closeCtx = {
+          entryPx: entry,
+          unrealizedPnlUsd: pnl,
+          size,
+          leverage: lev,
+          holdMs,
+        };
+        clearTrailState(lockKey);
+        await this.closeMarketPosition(
+          userAddress,
+          pos.coin,
+          'hard_stop_usd',
+          closeCtx,
+          `STOP LOSS — ${pos.coin} uPnL $${pnl.toFixed(2)} ≤ −$${hardStopUsd.toFixed(2)}`
+        );
+        continue;
+      }
 
       if (!fast && meta) {
         const targetLev = Math.min(configuredLev, maxLeverageForCoin(meta, pos.coin));
@@ -1457,7 +1469,7 @@ export class HyperliquidTradingService {
         });
         return { success: false, error: 'Profit grab requires positive uPnL' };
       }
-      if (reason === 'stop_loss' && pnlUsd > 0) {
+      if ((reason === 'stop_loss' || reason === 'hard_stop_usd') && pnlUsd > 0) {
         logger.debug('HL skip stop_loss — already in profit', {
           user: userAddress.slice(0, 10),
           coin: coinUpper,
