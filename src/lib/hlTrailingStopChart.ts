@@ -1,6 +1,7 @@
 import {
   HL_DYNAMIC_TRAIL,
   shouldArmDynamicTrail,
+  defaultTrailPctForCoin,
   type HlBotStrategy,
 } from './hlBotStrategy';
 
@@ -98,7 +99,7 @@ export function computeDynamicTrailStopPx(opts: {
     return { stopPx: null, armed: false, breached: false };
   }
 
-  const trailPct = HL_DYNAMIC_TRAIL.midTrailPct;
+  const trailPct = defaultTrailPctForCoin(opts.coin);
   const trailDist = mark * trailPct;
   const extreme =
     side === 'long'
@@ -168,5 +169,47 @@ export function computeHlChartPositionOverlay(opts: {
     takeProfitPx: marginTakeProfitPx(entryPx, opts.szi, lev, tpPct) ?? undefined,
     stopLossMarginPct: slPct > 0 ? slPct : undefined,
     takeProfitMarginPct: tpPct > 0 ? tpPct : undefined,
+  };
+}
+
+/** Trail stop price for open-position tables (mirrors bot dynamic trail). */
+export function trailStopForOpenPosition(opts: {
+  entryPx: number;
+  szi: number;
+  markPx: number;
+  unrealizedPnlUsd: number;
+  leverage: number;
+  coin: string;
+}): { stopPx: number | null; armed: boolean; label: string } {
+  const absSize = Math.abs(opts.szi);
+  if (opts.entryPx <= 0 || absSize <= 0 || opts.markPx <= 0) {
+    return { stopPx: null, armed: false, label: '—' };
+  }
+  const notional = absSize * opts.markPx;
+  const collateral = notional / Math.max(1, opts.leverage);
+  const trail = computeDynamicTrailStopPx({
+    entryPx: opts.entryPx,
+    szi: opts.szi,
+    unrealizedPnlUsd: opts.unrealizedPnlUsd,
+    extremeFavorablePx: opts.markPx,
+    coin: opts.coin,
+    notionalUsd: notional,
+    collateralUsd: collateral,
+  });
+  if (!trail.armed || trail.stopPx == null) {
+    return {
+      stopPx: null,
+      armed: false,
+      label: opts.unrealizedPnlUsd > 0 ? `Arming (+${HL_DYNAMIC_TRAIL.breakevenArmRoePct}% ROE)` : 'Idle',
+    };
+  }
+  const roe = collateral > 0 ? (opts.unrealizedPnlUsd / collateral) * 100 : 0;
+  const phase = roe >= HL_DYNAMIC_TRAIL.armMinRoePct ? 'Trail' : 'BE lock';
+  return {
+    stopPx: trail.stopPx,
+    armed: true,
+    label: `${phase} $${trail.stopPx.toLocaleString(undefined, {
+      maximumFractionDigits: opts.markPx >= 100 ? 2 : 4,
+    })}`,
   };
 }

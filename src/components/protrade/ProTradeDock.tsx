@@ -29,6 +29,7 @@ import { hlWalletExplorerUrl } from '../../lib/hyperliquid/hlApp';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
+import { trailStopForOpenPosition } from '../../lib/hlTrailingStopChart';
 import TradeReasonHint from '../terminal/TradeReasonHint';
 import DockCountBadge from './DockCountBadge';
 import ProTradeBotScanInsights from './ProTradeBotScanInsights';
@@ -382,6 +383,7 @@ const ProTradeDock: React.FC<Props> = ({
                   <th>Mark</th>
                   <th>PnL</th>
                   <th>Lev</th>
+                  {isBotMode ? <th>Trail SL</th> : null}
                   {isBotMode ? <th className="term-hl-open-reason-col">Why</th> : null}
                   <th />
                 </tr>
@@ -391,6 +393,15 @@ const ProTradeDock: React.FC<Props> = ({
                   const isLong = toNum(p.szi) >= 0;
                   const mark = markPrices[p.coin] ?? 0;
                   const upnl = livePositionPnl(p, mark);
+                  const lev = resolveDisplayLeverage(configuredLeverage, p.leverage?.value);
+                  const trail = trailStopForOpenPosition({
+                    entryPx: toNum(p.entryPx),
+                    szi: toNum(p.szi),
+                    markPx: mark > 0 ? mark : toNum(p.entryPx),
+                    unrealizedPnlUsd: upnl,
+                    leverage: lev,
+                    coin: p.coin,
+                  });
                   return (
                     <tr key={p.coin}>
                       <td>
@@ -406,7 +417,18 @@ const ProTradeDock: React.FC<Props> = ({
                       <td className={upnl >= 0 ? 'hl-up' : 'hl-down'}>
                         {fmtTradeUsdSymbol(upnl)}
                       </td>
-                      <td>{fmtLeverage(resolveDisplayLeverage(configuredLeverage, p.leverage?.value))}</td>
+                      <td>{fmtLeverage(lev)}</td>
+                      {isBotMode ? (
+                        <td
+                          title={
+                            trail.armed
+                              ? 'Bot-managed dynamic trail — market close on cross'
+                              : 'Arms after +2.5% ROE in profit'
+                          }
+                        >
+                          {trail.label}
+                        </td>
+                      ) : null}
                       {isBotMode ? (
                         <td className="term-hl-open-reason-col">
                           <TradeReasonHint

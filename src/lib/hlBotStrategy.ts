@@ -8,19 +8,20 @@ export const HL_BOT_STRATEGY_LABELS: Record<HlBotStrategy, string> = {
 
 export const HL_BOT_STRATEGY_HINTS: Record<HlBotStrategy, string> = {
   standard:
-    'Standard: MTF scan. Dynamic ATR trail — arms at +0.5% ROE, lets winners run hours.',
+    'Standard: MTF scan. Dynamic ATR trail — arms at +2.5% ROE, lets winners run hours.',
   profit_grabber:
     'Aggressive: 1m scalp entries. Same dynamic price trail — no fixed $0.02 floor.',
 };
 
 /** Must match bot-service config.hyperliquid.dynamicTrail defaults. */
 export const HL_DYNAMIC_TRAIL = {
-  armMinRoePct: 0.5,
+  breakevenArmRoePct: 2.5,
+  armMinRoePct: 5,
   armFeesMultiplier: 2,
   estimatedFeeBpsPerSide: 3.5,
-  majorTrailPct: 0.0125,
-  midTrailPct: 0.0175,
-  cautiousTrailPct: 0.0325,
+  majorTrailPct: 0.028,
+  midTrailPct: 0.024,
+  cautiousTrailPct: 0.038,
   breakevenBufferPct: 0.02,
 } as const;
 
@@ -53,14 +54,14 @@ export function shouldArmDynamicTrail(
   collateralUsd: number,
   notionalUsd: number
 ): boolean {
+  if (pnlUsd <= 0 || collateralUsd <= 0) return false;
   const fees = estimateRoundTripFeesUsd(notionalUsd);
-  const roe = collateralUsd > 0 ? (pnlUsd / collateralUsd) * 100 : 0;
-  return (
-    pnlUsd >= fees * HL_DYNAMIC_TRAIL.armFeesMultiplier ||
-    roe >= HL_DYNAMIC_TRAIL.armMinRoePct
-  );
+  const roe = (pnlUsd / collateralUsd) * 100;
+  return roe >= HL_DYNAMIC_TRAIL.breakevenArmRoePct || pnlUsd >= fees * HL_DYNAMIC_TRAIL.armFeesMultiplier;
 }
 
-export function defaultTrailPctForCoin(_coin: string): number {
+export function defaultTrailPctForCoin(coin: string): number {
+  const c = coin.toUpperCase();
+  if (c === 'BTC' || c === 'ETH') return HL_DYNAMIC_TRAIL.majorTrailPct;
   return HL_DYNAMIC_TRAIL.midTrailPct;
 }

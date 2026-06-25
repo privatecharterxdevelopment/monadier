@@ -4,6 +4,7 @@ import { fmtTradeUsdSymbol } from '../../lib/hyperliquid/format';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
 import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
+import { trailStopForOpenPosition } from '../../lib/hlTrailingStopChart';
 import TradeReasonHint from './TradeReasonHint';
 
 type Props = {
@@ -66,6 +67,7 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
             <th>Mark</th>
             <th>Lev</th>
             <th>uPnL</th>
+            <th>Trail SL</th>
             <th className="term-hl-open-reason-col">Why</th>
             <th className="term-hl-open-actions-col">Close</th>
           </tr>
@@ -81,6 +83,14 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
             const lev = resolveDisplayLeverage(configuredLeverage, p.leverage?.value);
             const isClosing = closingCoin === p.coin;
             const openReason = openByCoin.get(p.coin.toUpperCase())?.reason;
+            const trail = trailStopForOpenPosition({
+              entryPx: entry,
+              szi,
+              markPx: mark > 0 ? mark : entry,
+              unrealizedPnlUsd: upnl,
+              leverage: lev,
+              coin: p.coin,
+            });
             return (
               <tr key={p.coin}>
                 <td>
@@ -111,6 +121,16 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
                 <td className={upnl >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'}>
                   {upnl >= 0 ? '+' : ''}
                   {fmtUsd(upnl)}
+                </td>
+                <td
+                  className="term-hl-trail-col"
+                  title={
+                    trail.armed
+                      ? 'Bot-managed dynamic trail — closes at market when price crosses'
+                      : 'Trail arms after +2.5% ROE in profit (~7 min hold)'
+                  }
+                >
+                  {trail.label}
                 </td>
                 <td className="term-hl-open-reason-col">
                   <TradeReasonHint reason={openReason} kind="open" />
