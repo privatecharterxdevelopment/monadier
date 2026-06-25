@@ -65,7 +65,8 @@ export let lastGlobalScanResult: GlobalScanResult = { standard: [], aggressive: 
 async function scanStandardCoin(
   coin: string,
   liq: { dayVolumeUsd: number; openInterestUsd: number },
-  preloadedUniverse?: HlLiquidUniverse
+  preloadedUniverse?: HlLiquidUniverse,
+  relaxed = false
 ): Promise<GlobalSignalCandidate | null> {
   try {
     const symbol = hlCoinToBinanceSymbol(coin);
@@ -73,11 +74,23 @@ async function scanStandardCoin(
     if (!analysis || analysis.isWeak) return null;
     if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
     const tierInfo = classifyCoinTier(coin, preloadedUniverse);
-    const cautious = needsCautionPath(tierInfo.tier);
+    const cautious = needsCautionPath(tierInfo.tier) && !relaxed;
     const minConf = cautious
       ? config.hyperliquid.cautiousScan.minSignalConfidence
-      : config.hyperliquid.minSignalConfidence;
+      : relaxed
+        ? Math.max(52, config.hyperliquid.minSignalConfidence - 5)
+        : config.hyperliquid.minSignalConfidence;
     if (analysis.confidence < minConf) return null;
+    const minTfs = relaxed
+      ? 2
+      : cautious
+        ? config.hyperliquid.cautiousScan.minDirectionalTfs
+        : config.hyperliquid.minDirectionalTfs;
+    const minAlign = relaxed
+      ? 45
+      : cautious
+        ? config.hyperliquid.cautiousScan.minTrendAlignment
+        : config.hyperliquid.minTrendAlignment;
     if (cautious) {
       const pumpSkip = await validateNotFreshlyPumped({ coin, tier: tierInfo.tier });
       if (!pumpSkip.ok) {
@@ -97,13 +110,16 @@ async function scanStandardCoin(
         return null;
       }
     }
-    if ((analysis.metrics?.directionalTfCount ?? 0) < config.hyperliquid.minDirectionalTfs) return null;
-    if ((analysis.metrics?.trendAlignment ?? 0) < config.hyperliquid.minTrendAlignment) return null;
+    if ((analysis.metrics?.directionalTfCount ?? 0) < minTfs) return null;
+    if ((analysis.metrics?.trendAlignment ?? 0) < minAlign) return null;
     if (
-      (analysis.direction === 'LONG' && analysis.metrics?.h1Trend === 'DOWN') ||
-      (analysis.direction === 'SHORT' &&
-        (/UP/i.test(String(analysis.metrics?.h1Trend ?? '')) ||
-          analysis.metrics?.h1Trend === 'STRONG_UPTREND'))
+      !relaxed &&
+      (
+        (analysis.direction === 'LONG' && analysis.metrics?.h1Trend === 'DOWN') ||
+        (analysis.direction === 'SHORT' &&
+          (/UP/i.test(String(analysis.metrics?.h1Trend ?? '')) ||
+            analysis.metrics?.h1Trend === 'STRONG_UPTREND'))
+      )
     ) {
       return null;
     }
@@ -119,7 +135,9 @@ async function scanStandardCoin(
       symbol,
       direction: analysis.direction,
       confidence: analysis.confidence,
-      reason: analysis.reason,
+      reason: relaxed
+        ? `${analysis.reason} · relaxed scan (${analysis.confidence}% / ${analysis.metrics?.directionalTfCount} TFs)`
+        : analysis.reason,
       dayVolumeUsd: liq.dayVolumeUsd,
       openInterestUsd: liq.openInterestUsd,
       botMode: 'standard',
@@ -248,24 +266,47 @@ export async function scanGlobalHlSignals(
     .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence);
 
   const standardFiltered = filterWeekendShortOnly(standard);
-  const aggressiveFiltered = filterWeekendShortOnly(aggressive);
+  let aggressiveFiltered = filterWeekendShortOnly(aggressive);
 
-  lastGlobalScanResult = { standard: standardFiltered, aggressive: aggressiveFiltered };
+  let finalStandard = standardFiltered;
+  if (standardFiltered.length === 0 && aggressiveFiltered.length === 0) {
+    const topCoins = coins.slice(0, 10);
+    const relaxedRaw = await mapPool(topCoins, concurrency, async (coin) => {
+      const liq = liqByCoin.get(coin);
+      if (!liq) return null;
+      return scanStandardCoin(coin, liq, universe, true);
+    });
+    finalStandard = filterWeekendShortOnly(
+      relaxedRaw
+        .filter((c): c is GlobalSignalCandidate => c !== null)
+        .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence)
+    );
+    if (finalStandard.length > 0) {
+      logger.info('Global HL scan — relaxed fallback used', {
+        count: finalStandard.length,
+        top: finalStandard[0]?.coin,
+        direction: finalStandard[0]?.direction,
+        conf: finalStandard[0]?.confidence,
+      });
+    }
+  }
+
+  lastGlobalScanResult = { standard: finalStandard, aggressive: aggressiveFiltered };
   lastHlGlobalScanStats = {
     coinsScanned: coins.length,
     liquidUniverse: coins.length,
-    standardCandidates: standardFiltered.length,
+    standardCandidates: finalStandard.length,
     aggressiveCandidates: aggressiveFiltered.length,
-    candidates: standardFiltered.length + aggressiveFiltered.length,
+    candidates: finalStandard.length + aggressiveFiltered.length,
     scannedAt: new Date().toISOString(),
   };
 
   logger.info('Global HL signal scan complete', {
     liquidCoins: coins.length,
-    standard: standardFiltered.length,
+    standard: finalStandard.length,
     aggressive: aggressiveFiltered.length,
     weekendShortOnly: isWeekendShortOnlyWindow(),
-    topStandard: standardFiltered[0]?.coin,
+    topStandard: finalStandard[0]?.coin,
     topAggressive: aggressiveFiltered[0]?.coin,
     ms: Date.now() - started,
   });

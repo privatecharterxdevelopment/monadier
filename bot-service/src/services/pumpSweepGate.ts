@@ -63,6 +63,12 @@ function gateForDirection(
         `SHORT blocked — ${coin} at sweep low / turnaround zone ($${a.sweepLow.toFixed(2)}–$${a.turnaroundEstimate.toFixed(2)}) — do not sell the dip`,
     };
   }
+  if (a.phase === 'post_dump_bounce' && a.positionInSweep >= 0.3) {
+    return {
+      ok: true,
+      reason: `Pump sweep OK — ${coin} post-dump rally fade zone (${(a.positionInSweep * 100).toFixed(0)}% of range)`,
+    };
+  }
   if (a.phase === 'at_apex' || (a.phase === 'post_pump_fade' && a.positionInSweep >= cfg.shortAllowAbovePosition)) {
     return {
       ok: true,

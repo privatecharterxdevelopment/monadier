@@ -89,11 +89,11 @@ export const config = {
     /** Parallel MTF scans per trading cycle (all HL perps). */
     scanConcurrency: Number(process.env.HL_SCAN_CONCURRENCY || 8),
     /** Global scan — min combined MTF confidence to qualify. */
-    minSignalConfidence: Number(process.env.HL_MIN_SIGNAL_CONFIDENCE || 62),
+    minSignalConfidence: Number(process.env.HL_MIN_SIGNAL_CONFIDENCE || 55),
     /** Global scan — min timeframes pointing same direction (of 1m/5m/15m/1h). */
-    minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 3),
+    minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 2),
     /** Global scan — min % of TFs sharing the dominant trend (0–100). */
-    minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 60),
+    minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 50),
     /** Max independent HL perp positions per wallet (different coins). */
     maxConcurrentPositions: Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 2),
     /** Minimum order notional — skips sloppy micro-trades. */
@@ -207,20 +207,20 @@ export const config = {
     },
     /** Pre-open — price must confirm bounce/rejection at good level (not chase extended moves). */
     entryMomentum: {
-      minMove5mPct: Number(process.env.HL_ENTRY_MOM_5M || 0.05),
-      minMove15mPct: Number(process.env.HL_ENTRY_MOM_15M || 0.08),
-      maxCounter1hPct: Number(process.env.HL_ENTRY_MOM_1H_COUNTER || 0.2),
+      minMove5mPct: Number(process.env.HL_ENTRY_MOM_5M || 0.03),
+      minMove15mPct: Number(process.env.HL_ENTRY_MOM_15M || 0.06),
+      maxCounter1hPct: Number(process.env.HL_ENTRY_MOM_1H_COUNTER || 0.25),
       minConfirmCandles5m: Number(process.env.HL_ENTRY_MOM_5M_CANDLES || 1),
       /** Block LONG when 15m/1h already extended up — wait for pullback. */
-      maxChase15mPct: Number(process.env.HL_ENTRY_MAX_CHASE_15M || 0.2),
-      maxChase1hPct: Number(process.env.HL_ENTRY_MAX_CHASE_1H || 0.35),
+      maxChase15mPct: Number(process.env.HL_ENTRY_MAX_CHASE_15M || 0.28),
+      maxChase1hPct: Number(process.env.HL_ENTRY_MAX_CHASE_1H || 0.45),
       /** Block SHORT when 15m/1h already extended down — wait for bounce. */
-      maxChaseShort15mPct: Number(process.env.HL_ENTRY_MAX_CHASE_SHORT_15M || -0.2),
-      maxChaseShort1hPct: Number(process.env.HL_ENTRY_MAX_CHASE_SHORT_1H || -0.35),
+      maxChaseShort15mPct: Number(process.env.HL_ENTRY_MAX_CHASE_SHORT_15M || -0.28),
+      maxChaseShort1hPct: Number(process.env.HL_ENTRY_MAX_CHASE_SHORT_1H || -0.45),
       /** LONG dip-buy: price must be in lower X of 1h range unless breakout. */
-      longMaxRangePosition: Number(process.env.HL_ENTRY_LONG_MAX_RANGE || 0.58),
+      longMaxRangePosition: Number(process.env.HL_ENTRY_LONG_MAX_RANGE || 0.62),
       /** SHORT rally-fade: price must be in upper X of 1h range unless breakdown. */
-      shortMinRangePosition: Number(process.env.HL_ENTRY_SHORT_MIN_RANGE || 0.42),
+      shortMinRangePosition: Number(process.env.HL_ENTRY_SHORT_MIN_RANGE || 0.32),
     },
     /** Alts — never SHORT into a fresh pump / higher-TF rally. */
     pumpShort: {

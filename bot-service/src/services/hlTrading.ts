@@ -120,10 +120,11 @@ function bypassesLiquidityGate(signal: GlobalSignalCandidate): boolean {
 /** Global scan already proved multi-TF alignment — skip redundant live re-checks. */
 function isStrongGlobalScanPick(pick: GlobalSignalCandidate): boolean {
   const trendAlign = pick.trendAlignment ?? 0;
-  const conf = pick.confidence >= 70;
-  const tfs = (pick.directionalTfCount ?? 0) >= 3;
-  if (conf && tfs && trendAlign >= 70) return true;
-
+  const conf = pick.confidence;
+  const tfs = pick.directionalTfCount ?? 0;
+  if (conf >= 70 && tfs >= 3 && trendAlign >= 70) return true;
+  if (conf >= 54 && tfs >= 2 && trendAlign >= 48) return true;
+  if (MAJOR_COINS.has(pick.coin.toUpperCase()) && conf >= 52 && tfs >= 2) return true;
   return false;
 }
 
@@ -736,10 +737,9 @@ export class HyperliquidTradingService {
       }
 
       const strongMtf = isStrongGlobalScanPick(opts.pick);
-      const relaxSecondaryGates = strongMtf && opts.direction === 'SHORT';
+      const relaxSecondaryGates = strongMtf;
 
-      const candleAnalytics =
-        opts.direction === 'LONG' || !relaxSecondaryGates
+      const candleAnalytics = relaxSecondaryGates
           ? await validatePreOpenCandleAnalytics({
               coin,
               direction: opts.direction,
@@ -769,8 +769,7 @@ export class HyperliquidTradingService {
         return { success: false, error: candleAnalytics.reason };
       }
 
-      const scalpGate =
-        opts.direction === 'LONG' || !relaxSecondaryGates
+      const scalpGate = relaxSecondaryGates
           ? await validateScalpAlignment({ coin, direction: opts.direction })
           : {
               ok: true as const,
@@ -831,10 +830,16 @@ export class HyperliquidTradingService {
         return { success: false, error: megaGate.reason };
       }
 
-      const perpCtxGate = await validatePerpMarketContext({
-        coin,
-        direction: opts.direction,
-      });
+      const perpCtxGate = relaxSecondaryGates
+        ? {
+            ok: true as const,
+            reason: `Strong MTF scan — perp context skipped (${opts.pick.confidence}%)`,
+            ctx: null,
+          }
+        : await validatePerpMarketContext({
+            coin,
+            direction: opts.direction,
+          });
       if (!perpCtxGate.ok) {
         logger.info('HL open blocked — perp context (funding/24h/range)', {
           user: opts.userAddress.slice(0, 10),
@@ -860,8 +865,7 @@ export class HyperliquidTradingService {
         return { success: false, error: pumpSweepGate.reason };
       }
 
-      const locationGate =
-        opts.direction === 'LONG' || !relaxSecondaryGates
+      const locationGate = relaxSecondaryGates
           ? await validateEntryLocation({
               symbol,
               coin,
@@ -897,8 +901,7 @@ export class HyperliquidTradingService {
         return { success: false, error: locationGate.reason };
       }
 
-      const momentumGate =
-        opts.direction === 'LONG' || !relaxSecondaryGates
+      const momentumGate = relaxSecondaryGates
           ? await validateEntryMomentum({ coin, direction: opts.direction })
           : {
               ok: true as const,
