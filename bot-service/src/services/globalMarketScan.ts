@@ -99,6 +99,40 @@ async function scanMajorChartFallback(
   }
 }
 
+/** Fri short window — BTC/ETH SHORT only, slightly relaxed vs standard scan. */
+async function scanFridayMajorShortFallback(
+  coin: string,
+  liq: { dayVolumeUsd: number; openInterestUsd: number }
+): Promise<GlobalSignalCandidate | null> {
+  try {
+    const symbol = hlCoinToBinanceSymbol(coin);
+    const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
+    if (!analysis || analysis.direction !== 'SHORT') return null;
+    if (analysis.confidence < 42) return null;
+    const tfs = analysis.metrics?.directionalTfCount ?? 0;
+    if (tfs < 1) return null;
+
+    return {
+      coin,
+      symbol,
+      direction: 'SHORT',
+      confidence: analysis.confidence,
+      reason: `${analysis.reason} · Fri ${config.hyperliquid.fridayShortOnlyLocalHour}:00 MES short-window ${coin} (${analysis.confidence}% / ${tfs} TFs)`,
+      dayVolumeUsd: liq.dayVolumeUsd,
+      openInterestUsd: liq.openInterestUsd,
+      botMode: 'standard',
+      mtfBreakdown: analysis.mtfBreakdown,
+      trendAlignment: analysis.metrics?.trendAlignment,
+      directionalTfCount: analysis.metrics?.directionalTfCount,
+      h1Trend: analysis.metrics?.h1Trend,
+      signalReasons: analysis.signalReasons,
+      indicators: analysis.indicators,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function scanStandardCoin(
   coin: string,
   liq: { dayVolumeUsd: number; openInterestUsd: number },
@@ -348,6 +382,24 @@ export async function scanGlobalHlSignals(
         direction: finalStandard[0]?.direction,
         conf: finalStandard[0]?.confidence,
       });
+    }
+  }
+
+  if (finalStandard.length === 0 && isWeekendShortOnlyWindow()) {
+    for (const coin of ['BTC', 'ETH']) {
+      if (!coins.includes(coin)) continue;
+      const liq = liqByCoin.get(coin);
+      if (!liq) continue;
+      const shortHit = await scanFridayMajorShortFallback(coin, liq);
+      if (shortHit) {
+        finalStandard = [shortHit];
+        logger.info('Global HL scan — Fri MES short-window major SHORT', {
+          coin: shortHit.coin,
+          conf: shortHit.confidence,
+          reason: shortHit.reason,
+        });
+        break;
+      }
     }
   }
 

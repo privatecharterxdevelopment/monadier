@@ -8,6 +8,7 @@ import { fetchHeadlinesForCoin, fetchMacroHeadlines } from './newsFeedService';
 import {
   analyzeHeadlinesHeuristic,
   analyzeNewsItem,
+  coinMentionedInHeadline,
   isCriticalMacroHeadline,
 } from './newsAnalyzerService';
 import { normalizeNewsTradeMode, type NewsTradeMode } from './newsTradeMode';
@@ -59,18 +60,18 @@ function blocksDirection(
   if (impact === 'low' && mode === 'off') return false;
 
   if (bias === 'risk_off') {
-    if (direction === 'LONG' && impactRank(impact) >= 2) return true;
-    if (direction === 'SHORT' && impact === 'critical') return false;
+    if (direction === 'LONG' && impactRank(impact) >= 3) return true;
+    if (direction === 'SHORT') return false;
   }
 
   if (mode === 'off') {
     return bias === 'risk_off' && direction === 'LONG' && impactRank(impact) >= 3;
   }
 
-  if (direction === 'LONG' && (bias === 'bearish' || bias === 'risk_off') && impactRank(impact) >= 2) {
+  if (direction === 'LONG' && (bias === 'bearish' || bias === 'risk_off') && impactRank(impact) >= 3) {
     return true;
   }
-  if (direction === 'SHORT' && bias === 'bullish' && impactRank(impact) >= 2) {
+  if (direction === 'SHORT' && bias === 'bullish' && impactRank(impact) >= 3) {
     return true;
   }
   if (mode === 'filter' && bias === 'unknown' && impactRank(impact) >= 2 && config.hyperliquid.news.blockUnknownHeadlines) {
@@ -110,17 +111,26 @@ export async function validateNewsImpact(opts: {
     fetchMacroHeadlines(),
   ]);
   const macroHeadlines = macroItems.map((m) => m.headline);
+  const isMajor = MAJOR_COINS.has(coin);
+  const genericMacroShock = macroHeadlines.some(isCriticalMacroHeadline);
+  const macroForGate =
+    isMajor || cfg.blockAltsOnGenericMacro
+      ? macroHeadlines
+      : macroHeadlines.filter((h) => coinMentionedInHeadline(h, coin));
 
-  const merged = mergeAnalysis(coinHeadlines, macroHeadlines, coin);
+  const merged = mergeAnalysis(coinHeadlines, macroForGate, coin);
   const { headlines, bias, impact, confidence } = merged;
-  const criticalMacro = impact === 'critical' || macroHeadlines.some(isCriticalMacroHeadline);
+  const criticalMacro =
+    isMajor &&
+    (impact === 'critical' || macroHeadlines.some(isCriticalMacroHeadline));
+  const macroAdvisory = !isMajor && genericMacroShock && !cfg.blockAltsOnGenericMacro;
   const boostConfidence = newsBoost(opts.direction, bias, impact, mode);
 
   const macroNote =
-    criticalMacro && MAJOR_COINS.has(coin)
+    criticalMacro && isMajor
       ? `Macro shock — ${coin} risk-off gate active`
-      : criticalMacro
-        ? `Macro shock — majors affected; ${coin} gate`
+      : macroAdvisory
+        ? `Macro headlines noted — ${coin} uses coin-specific news only`
         : null;
 
   if (blocksDirection(opts.direction, bias, impact, mode)) {

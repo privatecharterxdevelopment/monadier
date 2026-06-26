@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import LandingLegalDisclaimers from './LandingLegalDisclaimers';
 
 const footerLinks = [
   { to: '/terms', label: 'Terms' },
@@ -21,14 +22,11 @@ const LandingFooter: React.FC = () => {
             </Link>
           ))}
         </nav>
-        <p className="landing-gmx-footer-disclaimer">
-          Monadier is a non-custodial trading interface for Hyperliquid. Your USDC stays on your HL
-          account in your name. The trading agent can place perp orders but cannot withdraw without
-          your wallet signature. Deposits and withdrawals are signed by you. Nothing on this site
-          constitutes financial advice.
-        </p>
+
+        <LandingLegalDisclaimers />
+
         <p className="landing-gmx-footer-meta">
-          © {year} Monadier · Hyperliquid automated trading · Email support only
+          © {year} Monadier · Hyperliquid automated trading · support@monadier.com
         </p>
       </div>
     </footer>

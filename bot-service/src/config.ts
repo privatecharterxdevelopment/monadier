@@ -166,7 +166,13 @@ export const config = {
     /** 0 = disabled — no forced close just for being in profit N ms. */
     profitGrabMaxHoldMs: Number(process.env.HL_PROFIT_GRAB_MAX_HOLD_MS || 0),
     profitHoldMaxMs: Number(process.env.HL_PROFIT_HOLD_MAX_MS || 0),
-    /** Fri 18:00 UTC through Fri 23:59 — new opens SHORT only when signaled. */
+    /** Fri 16:00 Europe/Zurich (MES/MEZ) through Fri 23:59 — new opens SHORT only when signaled. */
+    fridayShortOnlyTimezone:
+      process.env.HL_FRIDAY_SHORT_ONLY_TZ || 'Europe/Zurich',
+    fridayShortOnlyLocalHour: Number(
+      process.env.HL_FRIDAY_SHORT_ONLY_LOCAL_HOUR ?? 16
+    ),
+    /** @deprecated Use fridayShortOnlyLocalHour + fridayShortOnlyTimezone */
     fridayShortOnlyUtcHour: Number(process.env.HL_FRIDAY_SHORT_ONLY_UTC_HOUR || 18),
     /** Pre-trade: min recent candle vol vs lookback avg (no sweep pattern required). */
     minTradeVolumeRatio: Number(process.env.HL_MIN_TRADE_VOLUME_RATIO || 1.05),
@@ -252,6 +258,8 @@ export const config = {
       maxFeedItems: Number(process.env.HL_NEWS_MAX_FEED || 24),
       cryptopanicToken: process.env.CRYPTOPANIC_AUTH_TOKEN || '',
       blockUnknownHeadlines: process.env.HL_NEWS_BLOCK_UNKNOWN !== 'false',
+      /** When false (default), generic macro RSS does not block alt opens — only coin-tagged headlines. */
+      blockAltsOnGenericMacro: process.env.HL_NEWS_BLOCK_ALTS_MACRO === 'true',
       openaiApiKey: process.env.OPENAI_API_KEY || '',
       openaiModel: process.env.OPENAI_NEWS_MODEL || 'gpt-4o-mini',
       analysisConcurrency: Number(process.env.HL_NEWS_ANALYSIS_CONCURRENCY || 4),

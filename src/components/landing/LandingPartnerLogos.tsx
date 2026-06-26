@@ -81,18 +81,19 @@ const PartnerGroup: React.FC<{ partners: Partner[] }> = ({ partners }) => (
   </div>
 );
 
-const LandingPartnerLogos: React.FC = () => {
+const LandingPartnerLogos: React.FC<{ variant?: 'section' | 'hero' }> = ({ variant = 'section' }) => {
   const groups = Array.from({ length: REPEAT_COUNT }, (_, index) => (
     <PartnerGroup key={index} partners={PARTNERS} />
   ));
 
   return (
-    <section className="landing-gmx-partners" aria-label="Technology partners">
+    <section
+      className={`landing-gmx-partners${variant === 'hero' ? ' landing-gmx-partners--hero' : ''}`}
+      aria-label="Technology partners"
+    >
       <p className="landing-gmx-partners-eyebrow">Powered by</p>
       <div className="landing-gmx-partners-viewport">
-        <div className="landing-gmx-partners-track">
-          {groups}
-        </div>
+        <div className="landing-gmx-partners-track">{groups}</div>
       </div>
     </section>
   );

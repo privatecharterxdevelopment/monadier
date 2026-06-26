@@ -6,7 +6,9 @@ const ROTATE_MS = 3200;
 type Props = {
   lineDarkTop: string;
   rotateLines: readonly string[];
-  lineDarkBottom: string;
+  lineDarkBottom?: string;
+  /** middle = Trade | rotate | bottom (subpages). two-row = static block + rotate. */
+  rotatePosition?: 'middle' | 'two-row';
   lineMutedPrefix?: string;
   className?: string;
 };
@@ -14,7 +16,8 @@ type Props = {
 const LandingHeroLines: React.FC<Props> = ({
   lineDarkTop,
   rotateLines,
-  lineDarkBottom,
+  lineDarkBottom = '',
+  rotatePosition = 'middle',
   lineMutedPrefix,
   className = '',
 }) => {
@@ -30,35 +33,55 @@ const LandingHeroLines: React.FC<Props> = ({
     return () => window.clearInterval(id);
   }, [rotateLines.length]);
 
+  const rotateBlock = (
+    <div className="landing-gmx-hero-line landing-gmx-hero-line--rotate" aria-live="polite">
+      <span className="landing-gmx-hero-line--rotate-sizer" aria-hidden>
+        {lineMutedPrefix ? `${lineMutedPrefix} ${longest}` : longest}
+      </span>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={midLine}
+          className="landing-gmx-hero-line landing-gmx-hero-line--muted landing-gmx-hero-line--rotate-visible"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {lineMutedPrefix ? (
+            <>
+              {lineMutedPrefix}{' '}
+              <span className="landing-gmx-hero-line--rotate-word">{midLine}</span>
+            </>
+          ) : (
+            midLine
+          )}
+        </motion.span>
+      </AnimatePresence>
+    </div>
+  );
+
   return (
-    <div className={`landing-gmx-hero-title ${className}`.trim()} data-hero-version="static-3-rows">
+    <div className={`landing-gmx-hero-title ${className}`.trim()}>
       <div className="landing-gmx-hero-lines">
-        <div className="landing-gmx-hero-line landing-gmx-hero-line--dark">{lineDarkTop}</div>
-        <div className="landing-gmx-hero-line landing-gmx-hero-line--rotate" aria-live="polite">
-          <span className="landing-gmx-hero-line--rotate-sizer" aria-hidden>
-            {lineMutedPrefix ? `${lineMutedPrefix} ${longest}` : longest}
-          </span>
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.span
-              key={midLine}
-              className="landing-gmx-hero-line landing-gmx-hero-line--muted landing-gmx-hero-line--rotate-visible"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            >
-              {lineMutedPrefix ? (
-                <>
-                  {lineMutedPrefix}{' '}
-                  <span className="landing-gmx-hero-line--rotate-word">{midLine}</span>
-                </>
-              ) : (
-                midLine
-              )}
-            </motion.span>
-          </AnimatePresence>
-        </div>
-        <div className="landing-gmx-hero-line landing-gmx-hero-line--dark">{lineDarkBottom}</div>
+        {rotatePosition === 'two-row' ? (
+          <>
+            <div className="landing-gmx-hero-static-lines">
+              <div className="landing-gmx-hero-line landing-gmx-hero-line--dark">{lineDarkTop}</div>
+              {lineDarkBottom ? (
+                <div className="landing-gmx-hero-line landing-gmx-hero-line--dark">{lineDarkBottom}</div>
+              ) : null}
+            </div>
+            {rotateBlock}
+          </>
+        ) : (
+          <>
+            <div className="landing-gmx-hero-line landing-gmx-hero-line--dark">{lineDarkTop}</div>
+            {rotateBlock}
+            {lineDarkBottom ? (
+              <div className="landing-gmx-hero-line landing-gmx-hero-line--dark">{lineDarkBottom}</div>
+            ) : null}
+          </>
+        )}
       </div>
     </div>
   );

@@ -15,7 +15,7 @@ import TransactionToast from './components/ui/TransactionToast';
 import MonadierAppRoot from './components/app/MonadierAppRoot';
 import RedirectToApp from './components/app/RedirectToApp';
 import LandingPage from './pages/LandingPage';
-import { isAppHost, isMarketingPath, LANDING_PATH, OPEN_APP_PATH } from './lib/appUrls';
+import { LANDING_PATH } from './lib/appUrls';
 import HowItWorksPage from './pages/HowItWorksPage';
 import CardPage from './pages/CardPage';
 import BotTradingPage from './pages/BotTradingPage';
@@ -35,7 +35,6 @@ import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
 import KycFlowPage from './pages/KycFlowPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
-import SupportWidget from './components/ui/SupportWidget';
 import HostRedirects from './components/layout/HostRedirects';
 
 function App() {
@@ -60,26 +59,10 @@ function App() {
     return <LicenseActivation onActivated={() => setLicenseActivated(true)} />;
   }
 
-  // Show support widget on public pages only
-  const onAppSurface =
-    isAppHost() ||
-    location.pathname === OPEN_APP_PATH ||
-    location.pathname.startsWith(`${OPEN_APP_PATH}/`);
-
-  const showSupportWidget =
-    !onAppSurface &&
-    location.pathname !== '/' &&
-    !location.pathname.startsWith('/dashboard') &&
-    !location.pathname.startsWith('/dashboard2') &&
-    !location.pathname.startsWith('/login') &&
-    !location.pathname.startsWith('/register') &&
-    !location.pathname.startsWith('/kyc');
-
   return (
     <TransactionProvider>
       <ScrollToTop />
       <HostRedirects />
-      {showSupportWidget && <SupportWidget />}
       <TransactionToast />
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>

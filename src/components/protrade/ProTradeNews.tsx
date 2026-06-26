@@ -72,103 +72,112 @@ const ProTradeNews: React.FC<Props> = ({ walletAddress, onTradeCrypto, onTradeSp
 
   return (
     <ProTradePageShell className="hl-news-page">
-      <div className="hl-news-top">
-        <div className="hl-news-head">
-          <div className="hl-news-head__icon" aria-hidden>
-            <Newspaper size={20} />
+      <section className="hl-studio-card">
+        <header className="hl-studio-card__head hl-studio-card__head--split">
+          <div className="hl-studio-card__head-text">
+            <Newspaper size={18} aria-hidden />
+            <div>
+              <h1 className="hl-studio-card__title">News</h1>
+              <p className="hl-studio-card__sub">
+                CNBC, Reuters, Bloomberg, CoinDesk &amp; more — scanned for market impact.
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="hl-news-head__title">News</h1>
-            <p className="hl-news-head__lead">
-              Headlines from CNBC, Reuters, Bloomberg, CoinDesk &amp; more — scanned for market impact.
-            </p>
-          </div>
-        </div>
-
-        <div className="hl-news-toolbar">
-          <div className="hl-news-tabs" role="tablist" aria-label="News category">
+          <div className="hl-news-toolbar">
+            <div className="hl-news-tabs" role="tablist" aria-label="News category">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'crypto'}
+                className={`hl-news-tab ${tab === 'crypto' ? 'hl-news-tab--on' : ''}`}
+                onClick={() => setTab('crypto')}
+              >
+                Crypto
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'sports'}
+                className={`hl-news-tab ${tab === 'sports' ? 'hl-news-tab--on' : ''}`}
+                onClick={() => setTab('sports')}
+              >
+                Sports
+              </button>
+            </div>
             <button
               type="button"
-              role="tab"
-              aria-selected={tab === 'crypto'}
-              className={`hl-news-tab ${tab === 'crypto' ? 'hl-news-tab--on' : ''}`}
-              onClick={() => setTab('crypto')}
+              className="hl-news-refresh"
+              onClick={() => void load()}
+              disabled={loading}
+              aria-label="Refresh news"
             >
-              Crypto
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === 'sports'}
-              className={`hl-news-tab ${tab === 'sports' ? 'hl-news-tab--on' : ''}`}
-              onClick={() => setTab('sports')}
-            >
-              Sports
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} aria-hidden />
+              Refresh
             </button>
           </div>
-          <button
-            type="button"
-            className="hl-news-refresh"
-            onClick={() => void load()}
-            disabled={loading}
-            aria-label="Refresh news"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} aria-hidden />
-            Refresh
-          </button>
-        </div>
-      </div>
-
-      <section className="hl-news-bot-mode" aria-label="Bot news mode">
-        <div className="hl-news-bot-mode__head">
-          <Shield size={16} aria-hidden />
-          <span>Bot news mode</span>
-          {savingMode ? <Loader2 size={14} className="animate-spin" aria-hidden /> : null}
-        </div>
-        <div className="hl-news-mode-pills">
-          {MODES.map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              className={`hl-news-mode-pill ${newsMode === mode ? 'hl-news-mode-pill--on' : ''}`}
-              disabled={!effectiveWallet || savingMode}
-              title={NEWS_TRADE_MODE_HINTS[mode]}
-              onClick={() => void setMode(mode)}
-            >
-              {NEWS_TRADE_MODE_LABELS[mode]}
-            </button>
-          ))}
-        </div>
-        <p className="hl-news-bot-mode__hint">{NEWS_TRADE_MODE_HINTS[newsMode]}</p>
-        {!effectiveWallet ? (
-          <p className="hl-news-bot-mode__warn">Connect wallet to save bot news mode.</p>
-        ) : null}
+        </header>
       </section>
 
-      {loading && items.length === 0 ? (
-        <div className="hl-news-loading">
-          <Loader2 size={20} className="animate-spin" aria-hidden />
-          <span>Loading headlines…</span>
+      <section className="hl-studio-card" aria-label="Bot news mode">
+        <header className="hl-studio-card__head">
+          <Shield size={18} aria-hidden />
+          <span>Bot news mode</span>
+          {savingMode ? <Loader2 size={14} className="animate-spin hl-studio-card__head-extra" aria-hidden /> : null}
+        </header>
+        <div className="hl-studio-card__body hl-news-bot-mode">
+          <div className="hl-news-mode-pills">
+            {MODES.map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                className={`hl-news-mode-pill ${newsMode === mode ? 'hl-news-mode-pill--on' : ''}`}
+                disabled={!effectiveWallet || savingMode}
+                title={NEWS_TRADE_MODE_HINTS[mode]}
+                onClick={() => void setMode(mode)}
+              >
+                {NEWS_TRADE_MODE_LABELS[mode]}
+              </button>
+            ))}
+          </div>
+          <p className="hl-news-bot-mode__hint">{NEWS_TRADE_MODE_HINTS[newsMode]}</p>
+          {!effectiveWallet ? (
+            <p className="hl-news-bot-mode__warn">Connect wallet to save bot news mode.</p>
+          ) : null}
         </div>
-      ) : null}
+      </section>
 
-      {error ? <p className="hl-news-error">{error}</p> : null}
+      <section className="hl-studio-card">
+        <header className="hl-studio-card__head">
+          <Newspaper size={18} aria-hidden />
+          <span>Headlines</span>
+        </header>
+        <div className="hl-studio-card__body hl-studio-card__body--flush">
+          {loading && items.length === 0 ? (
+            <div className="hl-news-loading">
+              <Loader2 size={20} className="animate-spin" aria-hidden />
+              <span>Loading headlines…</span>
+            </div>
+          ) : null}
 
-      <div className="hl-news-grid">
-        {items.map((item) => (
-          <NewsCard
-            key={item.id}
-            item={item}
-            variant={tab}
-            onTradeCrypto={onTradeCrypto}
-            onTradeSports={onTradeSports}
-          />
-        ))}
-      </div>
+          {error ? <p className="hl-news-error">{error}</p> : null}
 
-      {!loading && items.length === 0 && !error ? (
-        <p className="hl-news-empty">No headlines in the last 48h — check back soon.</p>
-      ) : null}
+          <div className="hl-news-grid">
+            {items.map((item) => (
+              <NewsCard
+                key={item.id}
+                item={item}
+                variant={tab}
+                onTradeCrypto={onTradeCrypto}
+                onTradeSports={onTradeSports}
+              />
+            ))}
+          </div>
+
+          {!loading && items.length === 0 && !error ? (
+            <p className="hl-news-empty">No headlines in the last 48h — check back soon.</p>
+          ) : null}
+        </div>
+      </section>
     </ProTradePageShell>
   );
 };

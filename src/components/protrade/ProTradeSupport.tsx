@@ -40,46 +40,40 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
 
   if (!user) {
     return (
-      <div className="hl-support-page">
-        <div className="hl-support-gate">
-          <div className="hl-support-gate-icon" aria-hidden>
-            <Headphones size={28} />
+      <div className="hl-meta-canvas hl-support-page">
+        <section className="hl-studio-card">
+          <header className="hl-studio-card__head">
+            <Headphones size={18} aria-hidden />
+            <span>Support</span>
+          </header>
+          <div className="hl-studio-card__body hl-studio-card__body--center">
+            <p className="hl-support-lead">
+              Sign in to contact our team. Support is available for registered users only.
+            </p>
+            <button
+              type="button"
+              className="hl-support-primary"
+              onClick={() => onRequireSignIn?.('Sign in to contact support.')}
+            >
+              Sign in to get help
+            </button>
+            <p className="hl-support-note">
+              Never share your seed phrase or private keys — not even with support.
+            </p>
           </div>
-          <h1 className="hl-support-title">Support</h1>
-          <p className="hl-support-lead">
-            Sign in to your Monadier account to contact our team. Support is available for registered
-            users only.
-          </p>
-          <button
-            type="button"
-            className="hl-support-primary"
-            onClick={() => onRequireSignIn?.('Sign in to contact support.')}
-          >
-            Sign in to get help
-          </button>
-          <p className="hl-support-note">
-            Never share your seed phrase or private keys — not even with support.
-          </p>
-        </div>
+        </section>
       </div>
     );
   }
 
   return (
-    <div className="hl-support-page">
-      <div className="hl-support-card">
+    <div className="hl-meta-canvas hl-support-page">
+      <section className="hl-studio-card hl-support-studio-card">
         <form className="hl-support-form" onSubmit={handleSubmit}>
-          <div className="hl-support-form-head">
-            <div className="hl-support-head-icon" aria-hidden>
-              <Headphones size={18} />
-            </div>
-            <div>
-              <h1 className="hl-support-title">Support</h1>
-              <p className="hl-support-lead">
-                Describe your issue — we reply to your account email within 24 hours.
-              </p>
-            </div>
-          </div>
+          <header className="hl-studio-card__head">
+            <Headphones size={18} aria-hidden />
+            <span>Support</span>
+          </header>
 
           <div className="hl-support-user">
             <p className="hl-support-user-label">Sending as</p>
@@ -165,7 +159,7 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
             <p>Monday – Sunday, 9:00 – 20:00 CET · replies within 24h</p>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 };
