@@ -309,19 +309,26 @@ export async function fetchHlUserAbstraction(user: string): Promise<HlUserAbstra
       type: 'userAbstraction',
       user: user.toLowerCase(),
     });
-    if (
-      mode === 'unifiedAccount' ||
-      mode === 'portfolioMargin' ||
-      mode === 'disabled' ||
-      mode === 'default' ||
-      mode === 'dexAbstraction'
-    ) {
-      return mode;
-    }
-    return null;
+    return normalizeHlUserAbstraction(mode);
   } catch {
     return null;
   }
+}
+
+export function normalizeHlUserAbstraction(raw: unknown): HlUserAbstraction | null {
+  if (raw == null) return null;
+  let mode = typeof raw === 'string' ? raw.trim() : String(raw);
+  mode = mode.replace(/^"+|"+$/g, '');
+  if (
+    mode === 'unifiedAccount' ||
+    mode === 'portfolioMargin' ||
+    mode === 'disabled' ||
+    mode === 'default' ||
+    mode === 'dexAbstraction'
+  ) {
+    return mode;
+  }
+  return null;
 }
 
 export async function fetchHlUserFunding(user: string, limit = 50): Promise<HlFundingPayment[]> {
@@ -338,7 +345,7 @@ export async function fetchHlUserFunding(user: string, limit = 50): Promise<HlFu
 export async function fetchHlSpotBalances(user: string): Promise<HlSpotBalance[]> {
   const data = await hlInfo<{ balances?: HlSpotBalance[] }>({
     type: 'spotClearinghouseState',
-    user,
+    user: user.toLowerCase(),
   });
   if (!Array.isArray(data.balances)) return [];
   return data.balances

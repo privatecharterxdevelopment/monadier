@@ -436,12 +436,13 @@ const healthServer = http.createServer(async (req, res) => {
         );
       }
       if (!winRateGate.allowed) blockers.push(winRateGate.reason || 'win rate gate');
-      if (!bestAvailable && hlOpenCoins.length < maxPositions) {
+      const balanceGateOpen = !balanceBlocker;
+      if (balanceGateOpen && !bestAvailable && hlOpenCoins.length < maxPositions) {
         blockers.push(
           `no HL perp passed global scan (min ${config.hyperliquid.minSignalConfidence}% conf, ${config.hyperliquid.minDirectionalTfs} TFs, ${config.hyperliquid.minTrendAlignment}% align)`
         );
       }
-      if (bestAvailable && hlOpenCoins.length < maxPositions && dbSettings.autoTradeEnabled) {
+      if (balanceGateOpen && bestAvailable && hlOpenCoins.length < maxPositions && dbSettings.autoTradeEnabled) {
         const balance = hlBalanceUsd;
         const perSlot = resolveHlMarginPerSlot(
           balance,

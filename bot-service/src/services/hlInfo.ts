@@ -25,8 +25,36 @@ export type HlUserAbstraction =
   | 'default'
   | 'dexAbstraction';
 
+export function normalizeHlUserAbstraction(raw: unknown): HlUserAbstraction | null {
+  if (raw == null) return null;
+  let mode = typeof raw === 'string' ? raw.trim() : String(raw);
+  mode = mode.replace(/^"+|"+$/g, '');
+  if (
+    mode === 'unifiedAccount' ||
+    mode === 'portfolioMargin' ||
+    mode === 'disabled' ||
+    mode === 'default' ||
+    mode === 'dexAbstraction'
+  ) {
+    return mode;
+  }
+  return null;
+}
+
+/** Unified + portfolio margin + HL default mode (new accounts). */
 export function isHlUnifiedMargin(mode: HlUserAbstraction | null | undefined): boolean {
-  return mode === 'unifiedAccount' || mode === 'portfolioMargin';
+  return mode === 'unifiedAccount' || mode === 'portfolioMargin' || mode === 'default';
+}
+
+/** Unified/PM accounts often report $0 perp summary while USDC sits in spot. */
+export function inferHlUnifiedMargin(
+  perpUsd: number,
+  spotUsdcUsd: number,
+  abstraction: HlUserAbstraction | null
+): boolean {
+  if (isHlUnifiedMargin(abstraction)) return true;
+  if (perpUsd >= 0.01 || spotUsdcUsd < 1) return false;
+  return abstraction == null;
 }
 
 export async function fetchHlUserAbstraction(
@@ -42,17 +70,7 @@ export async function fetchHlUserAbstraction(
       }),
     });
     if (!res.ok) return null;
-    const mode = (await res.json()) as string;
-    if (
-      mode === 'unifiedAccount' ||
-      mode === 'portfolioMargin' ||
-      mode === 'disabled' ||
-      mode === 'default' ||
-      mode === 'dexAbstraction'
-    ) {
-      return mode;
-    }
-    return null;
+    return normalizeHlUserAbstraction(await res.json());
   } catch {
     return null;
   }
@@ -132,7 +150,7 @@ export function hlTradablePerpUsd(
   return perpUsd;
 }
 
-export async function fetchHlPerpFundingSnapshot(
+async function fetchHlPerpFundingSnapshotOnce(
   userAddress: string
 ): Promise<HlPerpFundingSnapshot> {
   const [state, spotUsdcUsd, abstraction] = await Promise.all([
@@ -141,7 +159,7 @@ export async function fetchHlPerpFundingSnapshot(
     fetchHlUserAbstraction(userAddress),
   ]);
   const perpUsd = hlAccountValueUsd(state);
-  const unifiedAccount = isHlUnifiedMargin(abstraction);
+  const unifiedAccount = inferHlUnifiedMargin(perpUsd, spotUsdcUsd, abstraction);
   const tradablePerpUsd = hlTradablePerpUsd(perpUsd, spotUsdcUsd, unifiedAccount);
   const perpWithdrawable = hlWithdrawableUsd(state);
   return {
@@ -154,6 +172,23 @@ export async function fetchHlPerpFundingSnapshot(
       : perpWithdrawable,
     stateLoaded: state != null,
   };
+}
+
+/** Live HL balance for bot gates — retries once when API reads empty but state loaded. */
+export async function fetchHlPerpFundingSnapshot(
+  userAddress: string
+): Promise<HlPerpFundingSnapshot> {
+  let snapshot = await fetchHlPerpFundingSnapshotOnce(userAddress);
+  if (
+    snapshot.stateLoaded &&
+    snapshot.tradablePerpUsd < 0.01 &&
+    snapshot.perpUsd < 0.01 &&
+    snapshot.spotUsdcUsd < 0.01
+  ) {
+    await new Promise((r) => setTimeout(r, 400));
+    snapshot = await fetchHlPerpFundingSnapshotOnce(userAddress);
+  }
+  return snapshot;
 }
 
 /** User-facing reason when tradable perp balance is below min. */

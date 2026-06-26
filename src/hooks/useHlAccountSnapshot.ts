@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchHlFundingSnapshot } from '../lib/hyperliquid/funding';
 import { fetchHlAccountState } from '../lib/hyperliquid/user';
+import { MIN_HL_BOT_USD } from '../lib/hyperliquid/hlBotAgent';
 
 export type HlAccountSnapshot = {
   wallet: string;
@@ -25,6 +26,7 @@ type Listener = (snapshot: HlAccountSnapshot | null) => void;
 let activeWallet: string | null = null;
 let snapshot: HlAccountSnapshot | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
+let pollIntervalMs = 15_000;
 let inFlight = false;
 const listeners = new Set<Listener>();
 
@@ -34,12 +36,12 @@ function countOpen(positions: { szi?: string | null }[] | undefined): number {
   ).length;
 }
 
-async function pollOnce(wallet: string): Promise<void> {
+async function pollOnce(wallet: string, fresh = false): Promise<void> {
   if (inFlight) return;
   inFlight = true;
   try {
     const [funding, acct] = await Promise.all([
-      fetchHlFundingSnapshot(wallet),
+      fetchHlFundingSnapshot(wallet, { fresh }),
       fetchHlAccountState(wallet),
     ]);
     snapshot = {
@@ -62,6 +64,18 @@ async function pollOnce(wallet: string): Promise<void> {
       ),
       updatedAt: Date.now(),
     };
+    const nextInterval =
+      funding.tradablePerpUsd < MIN_HL_BOT_USD ? 5_000 : 15_000;
+    if (nextInterval !== pollIntervalMs) {
+      pollIntervalMs = nextInterval;
+      if (pollTimer && activeWallet === wallet) {
+        stopPoll();
+        pollTimer = setInterval(() => {
+          if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+          void pollOnce(wallet, funding.tradablePerpUsd < MIN_HL_BOT_USD);
+        }, pollIntervalMs);
+      }
+    }
     for (const listener of listeners) listener(snapshot);
   } catch {
     if (snapshot?.wallet === wallet) {
@@ -83,13 +97,14 @@ function startPoll(wallet: string): void {
   if (activeWallet !== wallet) {
     activeWallet = wallet;
     snapshot = null;
+    pollIntervalMs = 15_000;
   }
   stopPoll();
-  void pollOnce(wallet);
+  void pollOnce(wallet, true);
   pollTimer = setInterval(() => {
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-    void pollOnce(wallet);
-  }, 15_000);
+    void pollOnce(wallet, snapshot != null && snapshot.tradablePerpUsd < MIN_HL_BOT_USD);
+  }, pollIntervalMs);
 }
 
 function subscribe(wallet: string | undefined, listener: Listener): () => void {
@@ -133,7 +148,7 @@ export function useHlAccountSnapshot(wallet: string | undefined) {
 
   const refresh = useCallback(async () => {
     if (!wallet) return;
-    await pollOnce(wallet.toLowerCase());
+    await pollOnce(wallet.toLowerCase(), true);
   }, [wallet]);
 
   return { snapshot: data, refresh, hasSnapshot: data != null };

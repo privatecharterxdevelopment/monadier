@@ -283,9 +283,9 @@ export function useTerminalBotAnalysis({
       }
     };
     void load();
-    const id = setInterval(load, 10000);
+    const id = setInterval(load, 5000);
     return () => clearInterval(id);
-  }, [vaultWallet, botRunning]);
+  }, [vaultWallet, botRunning, vaultUsd]);
 
   const readiness = useMemo(() => {
     const local = evaluateBotReadiness(signal, {

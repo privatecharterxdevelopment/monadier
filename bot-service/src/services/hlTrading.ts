@@ -555,9 +555,26 @@ export class HyperliquidTradingService {
     let coinsOpen = [...openCoins];
     let cycleResult: UserProcessResult = 'skip';
     let lastError: string | undefined;
-    const funding = await fetchHlPerpFundingSnapshot(userAddress);
 
     while (coinsOpen.length < maxPositions) {
+      const funding = await fetchHlPerpFundingSnapshot(userAddress);
+      const balanceBlocker = describeHlPerpBalanceBlocker(
+        funding,
+        config.hyperliquid.minAccountUsd
+      );
+      if (balanceBlocker) {
+        lastHlOpenError.set(userAddress.toLowerCase(), {
+          at: new Date().toISOString(),
+          error: balanceBlocker,
+        });
+        logger.info('HL open skip: balance gate', {
+          user: userAddress.slice(0, 10),
+          reason: balanceBlocker,
+          tradableUsd: funding.tradablePerpUsd.toFixed(2),
+        });
+        break;
+      }
+
       const slotsLeft = maxPositions - coinsOpen.length;
       const balance = funding.tradablePerpUsd;
       const freeMargin = hlTradableFreeMarginUsd(funding, stateRef);

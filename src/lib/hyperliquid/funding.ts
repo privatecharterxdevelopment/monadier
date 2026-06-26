@@ -1,5 +1,6 @@
-import { fetchHlAccountState, fetchHlSpotBalances, fetchHlUserAbstraction } from './user';
 import { toNum } from './parse';
+import { fetchHlAccountState, fetchHlSpotBalances, fetchHlUserAbstraction } from './user';
+import { clearHlInfoCache } from './hlInfoClient';
 import { MIN_HL_BOT_USD } from './hlBotAgent';
 import type { HlUserAbstraction } from './user';
 
@@ -15,8 +16,34 @@ export type HlFundingSnapshot = {
   stateLoaded: boolean;
 };
 
+export function normalizeHlUserAbstraction(raw: unknown): HlUserAbstraction | null {
+  if (raw == null) return null;
+  let mode = typeof raw === 'string' ? raw.trim() : String(raw);
+  mode = mode.replace(/^"+|"+$/g, '');
+  if (
+    mode === 'unifiedAccount' ||
+    mode === 'portfolioMargin' ||
+    mode === 'disabled' ||
+    mode === 'default' ||
+    mode === 'dexAbstraction'
+  ) {
+    return mode;
+  }
+  return null;
+}
+
 export function isHlUnifiedMargin(mode: HlUserAbstraction | null | undefined): boolean {
-  return mode === 'unifiedAccount' || mode === 'portfolioMargin';
+  return mode === 'unifiedAccount' || mode === 'portfolioMargin' || mode === 'default';
+}
+
+export function inferHlUnifiedMargin(
+  perpUsd: number,
+  spotUsdcUsd: number,
+  abstraction: HlUserAbstraction | null
+): boolean {
+  if (isHlUnifiedMargin(abstraction)) return true;
+  if (perpUsd >= 0.01 || spotUsdcUsd < 1) return false;
+  return abstraction == null;
 }
 
 export function hlTradablePerpUsd(
@@ -38,33 +65,52 @@ export function isHlUnifiedTransferDisabledError(err: unknown): boolean {
   return /unified account is active/i.test(msg);
 }
 
-export async function fetchHlFundingSnapshot(wallet: string): Promise<HlFundingSnapshot> {
+async function fetchHlFundingSnapshotOnce(wallet: string): Promise<HlFundingSnapshot> {
+  const [account, spotBalances, abstraction] = await Promise.all([
+    fetchHlAccountState(wallet),
+    fetchHlSpotBalances(wallet),
+    fetchHlUserAbstraction(wallet),
+  ]);
+  const perpUsd = toNum(account?.margin?.accountValue);
+  const spotUsdcUsd = toNum(
+    spotBalances.find((b) => b.coin.toUpperCase() === 'USDC')?.total
+  );
+  const unifiedAccount = inferHlUnifiedMargin(perpUsd, spotUsdcUsd, abstraction);
+  const tradablePerpUsd = hlTradablePerpUsd(perpUsd, spotUsdcUsd, unifiedAccount);
+  const perpWithdrawable = toNum(account?.withdrawable);
+  const withdrawableUsd = unifiedAccount
+    ? Math.max(perpWithdrawable, spotUsdcUsd)
+    : perpWithdrawable;
+  const totalUsd = unifiedAccount ? tradablePerpUsd : perpUsd + spotUsdcUsd;
+  return {
+    perpUsd,
+    spotUsdcUsd,
+    tradablePerpUsd,
+    unifiedAccount,
+    withdrawableUsd,
+    totalUsd,
+    stateLoaded: true,
+  };
+}
+
+export async function fetchHlFundingSnapshot(
+  wallet: string,
+  opts?: { fresh?: boolean }
+): Promise<HlFundingSnapshot> {
+  if (opts?.fresh) clearHlInfoCache();
   try {
-    const [account, spotBalances, abstraction] = await Promise.all([
-      fetchHlAccountState(wallet),
-      fetchHlSpotBalances(wallet),
-      fetchHlUserAbstraction(wallet),
-    ]);
-    const perpUsd = toNum(account?.margin?.accountValue);
-    const spotUsdcUsd = toNum(
-      spotBalances.find((b) => b.coin.toUpperCase() === 'USDC')?.total
-    );
-    const unifiedAccount = isHlUnifiedMargin(abstraction);
-    const tradablePerpUsd = hlTradablePerpUsd(perpUsd, spotUsdcUsd, unifiedAccount);
-    const perpWithdrawable = toNum(account?.withdrawable);
-    const withdrawableUsd = unifiedAccount
-      ? Math.max(perpWithdrawable, spotUsdcUsd)
-      : perpWithdrawable;
-    const totalUsd = unifiedAccount ? tradablePerpUsd : perpUsd + spotUsdcUsd;
-    return {
-      perpUsd,
-      spotUsdcUsd,
-      tradablePerpUsd,
-      unifiedAccount,
-      withdrawableUsd,
-      totalUsd,
-      stateLoaded: true,
-    };
+    let snap = await fetchHlFundingSnapshotOnce(wallet);
+    if (
+      snap.stateLoaded &&
+      snap.tradablePerpUsd < 0.01 &&
+      snap.perpUsd < 0.01 &&
+      snap.spotUsdcUsd < 0.01
+    ) {
+      clearHlInfoCache();
+      await new Promise((r) => setTimeout(r, 400));
+      snap = await fetchHlFundingSnapshotOnce(wallet);
+    }
+    return snap;
   } catch {
     return {
       perpUsd: 0,
@@ -94,7 +140,7 @@ export async function pollHlFundingAfterDeposit(
   const attempts = opts?.attempts ?? 24;
   const intervalMs = opts?.intervalMs ?? 5000;
 
-  let latest = await fetchHlFundingSnapshot(wallet);
+  let latest = await fetchHlFundingSnapshot(wallet, { fresh: true });
   onUpdate(latest);
 
   for (let i = 0; i < attempts; i++) {
@@ -102,7 +148,7 @@ export async function pollHlFundingAfterDeposit(
       return latest;
     }
     await new Promise((r) => setTimeout(r, intervalMs));
-    latest = await fetchHlFundingSnapshot(wallet);
+    latest = await fetchHlFundingSnapshot(wallet, { fresh: true });
     onUpdate(latest);
   }
 
