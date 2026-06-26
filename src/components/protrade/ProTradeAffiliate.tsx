@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Check, Copy, Gift, Loader2, Users } from 'lucide-react';
+import { Check, Copy, Gift, Loader2 } from 'lucide-react';
 import { buildReferralShareUrl } from '../../lib/referralCapture';
 import { supabase } from '../../lib/supabase';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
@@ -115,6 +115,14 @@ function earningStatusClass(status: string): string {
   return 'pending';
 }
 
+function AffiliateShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="hl-meta-page-shell hl-affiliate-page">
+      <div className="hl-meta-page hl-affiliate">{children}</div>
+    </div>
+  );
+}
+
 const ProTradeAffiliate: React.FC<Props> = ({ onRequireSignIn }) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<AffiliateDashboard | null>(null);
@@ -172,46 +180,44 @@ const ProTradeAffiliate: React.FC<Props> = ({ onRequireSignIn }) => {
 
   if (loading) {
     return (
-      <div className="hl-meta-page-shell hl-affiliate-page">
-        <div className="hl-meta-page hl-affiliate">
-          <Loader2 size={22} className="animate-spin hl-affiliate-loading" aria-hidden />
+      <AffiliateShell>
+        <div className="hl-affiliate-loading">
+          <Loader2 size={18} className="animate-spin" aria-hidden />
+          <span>Loading referral dashboard…</span>
         </div>
-      </div>
+      </AffiliateShell>
     );
   }
 
   if (!data && !error) {
     return (
-      <div className="hl-meta-page-shell hl-affiliate-page">
-        <div className="hl-meta-page hl-affiliate">
-        <div className="hl-support-gate">
-          <div className="hl-support-gate-icon" aria-hidden>
-            <Gift size={28} />
+      <AffiliateShell>
+        <header className="hl-affiliate-head">
+          <div className="hl-affiliate-head-main">
+            <h1 className="hl-affiliate-head-title">Referral program</h1>
+            <p className="hl-affiliate-head-sub">Earn 2% from referrals&apos; profitable bot trades.</p>
           </div>
-          <h1 className="hl-support-title">Affiliate program</h1>
-          <p className="hl-support-lead">
-            Sign in to get your referral link and track earnings from profitable bot trades.
-          </p>
+        </header>
+        <div className="hl-affiliate-gate">
+          <Gift size={22} aria-hidden />
+          <p>Sign in to get your referral link and track earnings.</p>
           <button
             type="button"
-            className="hl-support-primary"
+            className="hl-affiliate-copy"
             onClick={() => onRequireSignIn?.('Sign in to open the affiliate dashboard.')}
           >
             Sign in
           </button>
         </div>
-        </div>
-      </div>
+      </AffiliateShell>
     );
   }
 
   if (error) {
     return (
-      <div className="hl-meta-page-shell hl-affiliate-page">
-        <div className="hl-meta-page hl-affiliate">
-          <p className="hl-affiliate-empty">{error}</p>
-        </div>
-      </div>
+      <AffiliateShell>
+        <div className="hl-dock-empty">{error}</div>
+      </AffiliateShell>
     );
   }
 
@@ -222,203 +228,171 @@ const ProTradeAffiliate: React.FC<Props> = ({ onRequireSignIn }) => {
   const referralLink = data?.referral_code ? buildReferralShareUrl(data.referral_code) : null;
 
   return (
-    <div className="hl-meta-page-shell hl-affiliate-page">
-      <div className="hl-meta-page hl-affiliate">
-      <header className="hl-affiliate-hero">
-        <div className="hl-affiliate-hero-icon" aria-hidden>
-          <Gift size={22} />
-        </div>
-        <div>
-          <h1 className="hl-affiliate-title">Earn 2% from your referrals&apos; profitable bot trades</h1>
-          <p className="hl-affiliate-lead">
-            Invite friends to Monadier. Whenever your referrals close profitable bot trades, you earn
-            2% of their profits. No MLM, no hidden conditions, no limits.
+    <AffiliateShell>
+      <header className="hl-affiliate-head">
+        <div className="hl-affiliate-head-main">
+          <h1 className="hl-affiliate-head-title">Referral program</h1>
+          <p className="hl-affiliate-head-sub">
+            2% of your referrals&apos; profitable bot trade profits · paid monthly
           </p>
         </div>
+        {referralLink ? (
+          <div className="hl-affiliate-head-tools">
+            <code className="hl-affiliate-link">{referralLink}</code>
+            <button type="button" className="hl-affiliate-copy" onClick={() => void copyLink()}>
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+        ) : null}
       </header>
 
-      {referralLink ? (
-        <div className="hl-affiliate-link-row">
-          <code className="hl-affiliate-link">{referralLink}</code>
-          <button type="button" className="hl-affiliate-copy" onClick={() => void copyLink()}>
-            {copied ? <Check size={14} /> : <Copy size={14} />}
-            {copied ? 'Copied' : 'Copy link'}
-          </button>
-        </div>
-      ) : null}
-
       {summary ? (
-        <div className="hl-affiliate-cards">
-          <div className="hl-portfolio-card">
-            <span className="hl-portfolio-card-label">Total referrals</span>
-            <span className="hl-portfolio-card-value">{summary.total_referrals}</span>
+        <div className="hl-affiliate-metrics" aria-label="Referral summary">
+          <div className="hl-affiliate-metric">
+            <span className="hl-affiliate-metric-label">Referrals</span>
+            <span className="hl-affiliate-metric-value">{summary.total_referrals}</span>
           </div>
-          <div className="hl-portfolio-card">
-            <span className="hl-portfolio-card-label">Qualified referrals</span>
-            <span className="hl-portfolio-card-value">{summary.qualified_referrals}</span>
+          <div className="hl-affiliate-metric">
+            <span className="hl-affiliate-metric-label">Qualified</span>
+            <span className="hl-affiliate-metric-value">{summary.qualified_referrals}</span>
           </div>
-          <div className="hl-portfolio-card">
-            <span className="hl-portfolio-card-label">Active traders (30d)</span>
-            <span className="hl-portfolio-card-value">{summary.active_traders_30d}</span>
+          <div className="hl-affiliate-metric">
+            <span className="hl-affiliate-metric-label">Active 30d</span>
+            <span className="hl-affiliate-metric-value">{summary.active_traders_30d}</span>
           </div>
-          <div className="hl-portfolio-card hl-portfolio-card--accent">
-            <span className="hl-portfolio-card-label">Pending earnings</span>
-            <span className="hl-portfolio-card-value">{fmtUsdSymbol(summary.pending_earnings)}</span>
-            <span className="hl-portfolio-card-sub">
-              Min payout {fmtUsdSymbol(summary.min_payout_usd)} · monthly
+          <div className="hl-affiliate-metric">
+            <span className="hl-affiliate-metric-label">Pending</span>
+            <span className="hl-affiliate-metric-value">{fmtUsdSymbol(summary.pending_earnings)}</span>
+            <span className="hl-affiliate-metric-sub">
+              Min {fmtUsdSymbol(summary.min_payout_usd)}
             </span>
           </div>
-          <div className="hl-portfolio-card">
-            <span className="hl-portfolio-card-label">Paid earnings</span>
-            <span className="hl-portfolio-card-value">{fmtUsdSymbol(summary.paid_earnings)}</span>
+          <div className="hl-affiliate-metric">
+            <span className="hl-affiliate-metric-label">Paid</span>
+            <span className="hl-affiliate-metric-value">{fmtUsdSymbol(summary.paid_earnings)}</span>
           </div>
-          <div className="hl-portfolio-card">
-            <span className="hl-portfolio-card-label">Lifetime earnings</span>
-            <span className="hl-portfolio-card-value">{fmtUsdSymbol(summary.lifetime_earnings)}</span>
+          <div className="hl-affiliate-metric">
+            <span className="hl-affiliate-metric-label">Lifetime</span>
+            <span className="hl-affiliate-metric-value">{fmtUsdSymbol(summary.lifetime_earnings)}</span>
           </div>
         </div>
       ) : null}
 
-      {summary?.funnel ? (
-        <section className="hl-affiliate-section">
-          <h2 className="hl-affiliate-section-title">Conversion funnel</h2>
-          <div className="hl-affiliate-funnel">
-            <div className="hl-affiliate-funnel-step">
-              <span>Signups</span>
-              <strong>{summary.funnel.signups}</strong>
+      <div className="hl-affiliate-body">
+        {topReferrals.length > 0 ? (
+          <section className="hl-affiliate-panel">
+            <h2 className="hl-affiliate-panel__head">Top referrals</h2>
+            <div className="hl-affiliate-panel__body">
+              <table className="hl-table">
+                <thead>
+                  <tr>
+                    <th>Referral</th>
+                    <th>Volume</th>
+                    <th>Profit</th>
+                    <th>Your earnings</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topReferrals.map((row, idx) => (
+                    <tr key={`${row.label}-${idx}`}>
+                      <td>{row.label}</td>
+                      <td>{fmtUsdSymbol(row.trading_volume)}</td>
+                      <td>{fmtUsdSymbol(row.profit_generated)}</td>
+                      <td>{fmtUsdSymbol(row.your_earnings)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div className="hl-affiliate-funnel-step">
-              <span>Qualified</span>
-              <strong>{summary.funnel.qualified}</strong>
-            </div>
-            <div className="hl-affiliate-funnel-step">
-              <span>Trading</span>
-              <strong>{summary.funnel.trading}</strong>
-            </div>
-            <div className="hl-affiliate-funnel-step">
-              <span>Revenue generated</span>
-              <strong>{fmtUsdSymbol(summary.funnel.revenue_generated)}</strong>
-            </div>
+          </section>
+        ) : null}
+
+        <section className="hl-affiliate-panel">
+          <h2 className="hl-affiliate-panel__head">Referrals</h2>
+          <div className="hl-affiliate-panel__body">
+            {referrals.length === 0 ? (
+              <p className="hl-dock-empty">No referrals yet — share your link above.</p>
+            ) : (
+              <table className="hl-table">
+                <thead>
+                  <tr>
+                    <th>Referral</th>
+                    <th>Qualified</th>
+                    <th>Volume</th>
+                    <th>Trades</th>
+                    <th>Profit</th>
+                    <th>Monadier fees</th>
+                    <th>Your earnings</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {referrals.map((row) => (
+                    <tr key={row.id}>
+                      <td>{row.referred_label ?? maskEmail(row.referred_email)}</td>
+                      <td>
+                        {row.qualified_at
+                          ? new Date(row.qualified_at).toLocaleDateString()
+                          : '—'}
+                      </td>
+                      <td>{fmtUsdSymbol(row.trading_volume)}</td>
+                      <td>{row.profitable_trades}</td>
+                      <td>{fmtUsdSymbol(row.profit_generated)}</td>
+                      <td>{fmtUsdSymbol(row.monadier_fees_generated)}</td>
+                      <td>{fmtUsdSymbol(row.your_earnings)}</td>
+                      <td>{referralStatusLabel(row)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </section>
-      ) : null}
 
-      {topReferrals.length > 0 ? (
-        <section className="hl-affiliate-section">
-          <h2 className="hl-affiliate-section-title">Top referrals</h2>
-          <div className="hl-affiliate-table-wrap">
-            <table className="hl-affiliate-table">
-              <thead>
-                <tr>
-                  <th>Referral</th>
-                  <th>Volume</th>
-                  <th>Profit generated</th>
-                  <th>Your earnings</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topReferrals.map((row, idx) => (
-                  <tr key={`${row.label}-${idx}`}>
-                    <td>{row.label}</td>
-                    <td>{fmtUsdSymbol(row.trading_volume)}</td>
-                    <td>{fmtUsdSymbol(row.profit_generated)}</td>
-                    <td>{fmtUsdSymbol(row.your_earnings)}</td>
+        <section className="hl-affiliate-panel">
+          <h2 className="hl-affiliate-panel__head">Earnings history</h2>
+          <div className="hl-affiliate-panel__body">
+            {history.length === 0 ? (
+              <p className="hl-dock-empty">
+                Earnings appear when qualified referrals close profitable bot trades.
+              </p>
+            ) : (
+              <table className="hl-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Trade</th>
+                    <th>Profit</th>
+                    <th>Monadier fee</th>
+                    <th>Your share</th>
+                    <th>Payout</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {history.map((row) => (
+                    <tr key={row.id}>
+                      <td>{new Date(row.created_at).toLocaleString()}</td>
+                      <td>{row.coin ? `${row.coin} close` : 'Bot close'}</td>
+                      <td>{fmtUsdSymbol(row.profit_usd)}</td>
+                      <td>{fmtUsdSymbol(row.success_fee_usd)}</td>
+                      <td>{fmtUsdSymbol(row.referral_share_usd)}</td>
+                      <td>
+                        <span
+                          className={`hl-affiliate-pill hl-affiliate-pill--${earningStatusClass(row.status)}`}
+                        >
+                          {earningStatusLabel(row.status)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </section>
-      ) : null}
-
-      <section className="hl-affiliate-section">
-        <h2 className="hl-affiliate-section-title">
-          <Users size={16} aria-hidden />
-          Referrals
-        </h2>
-        {referrals.length === 0 ? (
-          <p className="hl-affiliate-empty">No referrals yet. Share your link to get started.</p>
-        ) : (
-          <div className="hl-affiliate-table-wrap">
-            <table className="hl-affiliate-table">
-              <thead>
-                <tr>
-                  <th>Referral</th>
-                  <th>Qualified</th>
-                  <th>Volume</th>
-                  <th>Profitable trades</th>
-                  <th>Profit generated</th>
-                  <th>Monadier fees</th>
-                  <th>Your earnings</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {referrals.map((row) => (
-                  <tr key={row.id}>
-                    <td>{row.referred_label ?? maskEmail(row.referred_email)}</td>
-                    <td>
-                      {row.qualified_at
-                        ? new Date(row.qualified_at).toLocaleDateString()
-                        : '—'}
-                    </td>
-                    <td>{fmtUsdSymbol(row.trading_volume)}</td>
-                    <td>{row.profitable_trades}</td>
-                    <td>{fmtUsdSymbol(row.profit_generated)}</td>
-                    <td>{fmtUsdSymbol(row.monadier_fees_generated)}</td>
-                    <td>{fmtUsdSymbol(row.your_earnings)}</td>
-                    <td>{referralStatusLabel(row)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      <section className="hl-affiliate-section">
-        <h2 className="hl-affiliate-section-title">Earnings history</h2>
-        {history.length === 0 ? (
-          <p className="hl-affiliate-empty">
-            Revenue share accrues when qualified referrals close profitable bot trades.
-          </p>
-        ) : (
-          <div className="hl-affiliate-table-wrap">
-            <table className="hl-affiliate-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Trade</th>
-                  <th>Profit</th>
-                  <th>Monadier fee</th>
-                  <th>Your share</th>
-                  <th>Payout</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((row) => (
-                  <tr key={row.id}>
-                    <td>{new Date(row.created_at).toLocaleString()}</td>
-                    <td>{row.coin ? `${row.coin} bot close` : 'Bot close'}</td>
-                    <td>{fmtUsdSymbol(row.profit_usd)}</td>
-                    <td>{fmtUsdSymbol(row.success_fee_usd)}</td>
-                    <td>{fmtUsdSymbol(row.referral_share_usd)}</td>
-                    <td>
-                      <span
-                        className={`hl-affiliate-pill hl-affiliate-pill--${earningStatusClass(row.status)}`}
-                      >
-                        {earningStatusLabel(row.status)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
       </div>
-    </div>
+    </AffiliateShell>
   );
 };
 
