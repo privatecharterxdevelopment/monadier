@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Logo from '../components/ui/Logo';
@@ -22,6 +23,7 @@ import {
 } from '../lib/referralCapture';
 
 const RegisterPage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { addNotification } = useNotifications();
@@ -53,7 +55,7 @@ const RegisterPage: React.FC = () => {
       const { error } = await signInWithGoogle();
       if (error) throw error;
     } catch (error: any) {
-      setError(error.message || 'Failed to sign in with Google');
+      setError(error.message || t('auth.googleSignInFailed'));
     }
   };
 
@@ -63,7 +65,7 @@ const RegisterPage: React.FC = () => {
     setIsLoading(true);
 
     if (!acceptedTerms) {
-      setError('You must accept the terms and conditions to continue');
+      setError(t('auth.register.acceptTermsRequired'));
       setIsLoading(false);
       return;
     }
@@ -78,7 +80,7 @@ const RegisterPage: React.FC = () => {
 
       const available = await isUsernameAvailable(username);
       if (!available) {
-        setError('That username is already taken');
+        setError(t('auth.register.usernameTaken'));
         setIsLoading(false);
         return;
       }
@@ -102,8 +104,8 @@ const RegisterPage: React.FC = () => {
           if (result.success) {
             addNotification({
               type: 'info',
-              title: 'Referral linked',
-              message: 'Your referrer earns 2% when you close profitable bot trades.',
+              title: t('auth.register.referralNotificationTitle'),
+              message: t('auth.register.referralNotificationMessage'),
             });
           }
         } catch (refError) {
@@ -123,7 +125,7 @@ const RegisterPage: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Registration error:', error);
-      setError(error.message || 'Failed to create account. Please try again.');
+      setError(error.message || t('auth.register.createFailed'));
       setIsLoading(false);
     }
   };
@@ -142,17 +144,16 @@ const RegisterPage: React.FC = () => {
               <Logo size="sm" theme="light" />
             </div>
 
-            <h1 className="auth-card-title">Apply for Access</h1>
+            <h1 className="auth-card-title">{t('auth.register.title')}</h1>
 
             {awaitingEmailConfirm ? (
               <div className="text-center py-2">
-                <p className="text-green-700 font-medium mb-2">Check your email</p>
+                <p className="text-green-700 font-medium mb-2">{t('auth.register.checkEmail')}</p>
                 <p className="text-secondary text-sm mb-5">
-                  We sent a confirmation link to <span className="text-primary">{email}</span>.
-                  Click it, then sign in.
+                  {t('auth.register.checkEmailDesc', { email })}
                 </p>
                 <Link to="/login" className="text-accent hover:underline text-sm">
-                  Go to sign in
+                  {t('auth.register.goToSignIn')}
                 </Link>
               </div>
             ) : (
@@ -161,8 +162,8 @@ const RegisterPage: React.FC = () => {
                   <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2.5">
                     <Gift className="w-4 h-4 text-green-700 flex-shrink-0" />
                     <div>
-                      <p className="text-green-800 font-medium text-sm">Referral linked</p>
-                      <p className="text-xs text-secondary">Referrer earns 2% on your profitable bot trades</p>
+                      <p className="text-green-800 font-medium text-sm">{t('auth.register.referralLinked')}</p>
+                      <p className="text-xs text-secondary">{t('auth.register.referralDesc')}</p>
                     </div>
                   </div>
                 )}
@@ -175,20 +176,20 @@ const RegisterPage: React.FC = () => {
 
                 <form onSubmit={handleSubmit} className="auth-form-grid">
                   <Input
-                    label="Full Name"
+                    label={t('auth.register.fullName')}
                     type="text"
                     id="fullName"
-                    placeholder="John Smith"
+                    placeholder={t('auth.register.fullNamePlaceholder')}
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
                   />
 
                   <Input
-                    label="Username"
+                    label={t('auth.register.username')}
                     type="text"
                     id="username"
-                    placeholder="trader_jane"
+                    placeholder={t('auth.register.usernamePlaceholder')}
                     value={username}
                     onChange={(e) =>
                       setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))
@@ -199,21 +200,21 @@ const RegisterPage: React.FC = () => {
                   />
 
                   <p className="auth-form-span-2 auth-form-hint">
-                    3–20 chars, lowercase, numbers, underscore. Cannot be changed later.
+                    {t('auth.register.usernameHint')}
                   </p>
 
                   <Input
-                    label="Email"
+                    label={t('auth.email')}
                     type="email"
                     id="email"
-                    placeholder="your@email.com"
+                    placeholder={t('auth.emailPlaceholder')}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
                   />
 
                   <Input
-                    label="Password"
+                    label={t('auth.password')}
                     type="password"
                     id="password"
                     placeholder="••••••••"
@@ -225,10 +226,10 @@ const RegisterPage: React.FC = () => {
 
                   <div className="auth-form-span-2">
                     <Input
-                      label="Country"
+                      label={t('auth.register.country')}
                       type="text"
                       id="country"
-                      placeholder="Switzerland"
+                      placeholder={t('auth.register.countryPlaceholder')}
                       value={country}
                       onChange={(e) => setCountry(e.target.value)}
                       required
@@ -245,13 +246,13 @@ const RegisterPage: React.FC = () => {
                         required
                       />
                       <span>
-                        I accept the{' '}
+                        {t('auth.register.acceptTerms')}{' '}
                         <Link to="/terms" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">
-                          Terms
+                          {t('auth.register.terms')}
                         </Link>{' '}
-                        and{' '}
+                        {t('auth.register.and')}{' '}
                         <Link to="/privacy" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">
-                          Privacy Policy
+                          {t('auth.register.privacy')}
                         </Link>
                       </span>
                     </label>
@@ -259,7 +260,7 @@ const RegisterPage: React.FC = () => {
 
                   <div className="auth-form-span-2 auth-form-actions">
                     <Button type="submit" variant="primary" fullWidth isLoading={isLoading}>
-                      Create Account
+                      {t('auth.register.createAccount')}
                     </Button>
                   </div>
                 </form>
@@ -269,7 +270,7 @@ const RegisterPage: React.FC = () => {
                     <div className="w-full border-t border-black/[0.08]" />
                   </div>
                   <div className="relative flex justify-center text-xs">
-                    <span className="px-3 bg-white/80 text-secondary">or continue with</span>
+                    <span className="px-3 bg-white/80 text-secondary">{t('auth.orContinueWith')}</span>
                   </div>
                 </div>
 
@@ -292,19 +293,19 @@ const RegisterPage: React.FC = () => {
                       d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                     />
                   </svg>
-                  <span className="text-[#0a0a0a] text-sm font-medium">Continue with Google</span>
+                  <span className="text-[#0a0a0a] text-sm font-medium">{t('auth.continueGoogle')}</span>
                 </button>
 
                 <div className="auth-footer-links">
-                  <span>Already have an account? </span>
+                  <span>{t('auth.register.alreadyHaveAccount')}</span>
                   <Link to="/login" className="text-accent hover:underline">
-                    Sign In
+                    {t('auth.register.signInLink')}
                   </Link>
                 </div>
 
                 <p className="auth-footer-meta">
                   <Link to="/your-funds" className="hover:text-accent underline">
-                    How your funds are stored
+                    {t('auth.fundsLink')}
                   </Link>
                 </p>
               </>

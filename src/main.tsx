@@ -17,7 +17,9 @@ import AuthOAuthCapture from './components/auth/AuthOAuthCapture';
 import ReferralCapture from './components/referral/ReferralCapture';
 import WalletSessionBridge from './components/auth/WalletSessionBridge';
 import MobileWalletConnectSheet from './components/wallet/MobileWalletConnectSheet';
+import './i18n';
 import './index.css';
+import './styles/language-switcher.css';
 
 const queryClient = new QueryClient();
 const rootEl = document.getElementById('root');

@@ -1,0 +1,604 @@
+{
+  "languages": {
+    "en": "English",
+    "de": "Deutsch",
+    "zh": "中文",
+    "ja": "日本語",
+    "th": "ไทย",
+    "es": "Español",
+    "it": "Italiano",
+    "ru": "Русский"
+  },
+  "language": {
+    "select": "Sprache wählen"
+  },
+  "nav": {
+    "howItWorks": "So funktioniert es",
+    "bot": "Bot",
+    "betting": "Wetten",
+    "technology": "Technologie",
+    "pricing": "Preise",
+    "about": "Über uns"
+  },
+  "common": {
+    "signIn": "Anmelden",
+    "signOut": "Abmelden",
+    "openApp": "App öffnen",
+    "app": "App",
+    "startBot": "Bot starten",
+    "connect": "Verbinden",
+    "restoring": "Wird wiederhergestellt…",
+    "support": "Support",
+    "affiliate": "Partner",
+    "download": "Download",
+    "trade": "Handel",
+    "createAccount": "Konto erstellen",
+    "closeMenu": "Menü schließen",
+    "openMenu": "Menü öffnen",
+    "toggleMenu": "Menü umschalten",
+    "getStarted": "Loslegen",
+    "openAppProfile": "App öffnen, {{name}}"
+  },
+  "footer": {
+    "terms": "AGB",
+    "privacy": "Datenschutz",
+    "support": "Support",
+    "about": "Über uns",
+    "copyright": "© {{year}} Monadier · Hyperliquid automatisierter Handel · support@monadier.com"
+  },
+  "landing": {
+    "hero": {
+      "lineDarkTop": "Handeln aus deiner Wallet",
+      "rotateLines": [
+        "mit KI-Autopilot",
+        "auf Hyperliquid",
+        "mit automatisierten Perps",
+        "mit verifizierten Sportmärkten on-chain",
+        "mit Hedgefonds-Signalen",
+        "mit tiefer HL-Liquidität",
+        "über 200+ Märkte"
+      ],
+      "disclaimer": "Monadier ermöglicht KI-automatisierten Perpetual-Handel über dein Hyperliquid-Konto. Dein USDC bleibt jederzeit auf Hyperliquid — wir sind non-custodial, halten nie deine Private Keys und können nicht auf deine Wallet zugreifen oder Geld abheben; wir stellen nur die Handels-Technologie und Automatisierung bereit. Gehebelter Krypto-Handel birgt erhebliches Verlustrisiko; KI und automatisierte Systeme können Märkte falsch lesen und Fehler machen. Vergangene Performance garantiert keine zukünftigen Ergebnisse. Keine Finanz-, Investitions-, Steuer- oder Rechtsberatung."
+    },
+    "carousel": {
+      "titleStart": "Starte",
+      "titleEarn": "Verdienen",
+      "rotateWords": [
+        "passiv",
+        "heute",
+        "morgen",
+        "wann immer"
+      ],
+      "description": "Monadier vereint automatisierten Bot-Handel, professionelle Perps-Ausführung, Sportwetten und Prognosemärkte auf Hyperliquid — ein Konto, eine Oberfläche. Lass den KI-Bot 200+ Märkte scannen und Positionen 24/7 verwalten, handle mit Live-Charts und Orderbuch, oder eröffne on-chain Outcome-Märkte für Sport, Krypto und Makro-Events. Dein USDC bleibt jederzeit auf Hyperliquid; wir stellen nur Automatisierung und Handelswerkzeuge bereit.",
+      "cards": {
+        "bot": {
+          "title": "Vollautomatischer Bot-Handel",
+          "cta": "Bot starten"
+        },
+        "perps": {
+          "title": "Pro Perps-Handel",
+          "cta": "Perps handeln"
+        },
+        "betting": {
+          "title": "Sportwetten",
+          "cta": "Wetten öffnen"
+        },
+        "predictions": {
+          "title": "Prognosemarkt",
+          "cta": "Märkte öffnen"
+        }
+      }
+    },
+    "bento": {
+      "ariaLabel": "Handelsfunktionen",
+      "bot": {
+        "title": "Mit Bot handeln",
+        "desc": "KI-Agent scannt 200+ HL-Perps pro Zyklus — eröffnet Einstiege, sichert Gewinne und schneidet Verlierer 24/7.",
+        "cta": "Bot starten",
+        "pillScan": "Scanne HL",
+        "pillLong": "BTC LONG 81%",
+        "pillTrail": "Trail aktiv"
+      },
+      "charts": {
+        "title": "Die Kerzen handeln",
+        "desc": "Live Hyperliquid-Charts, Tiefe und Ausführung — dieselbe Liquidität, die der Bot in Echtzeit liest.",
+        "cta": "Charts öffnen"
+      },
+      "sports": {
+        "title": "Sportwetten und Prognosemärkte",
+        "desc": "HIP-4 Outcome-Märkte auf Hyperliquid — Makro, Krypto und Live-Sport mit on-chain Abwicklung.",
+        "cta": "Wetten öffnen"
+      }
+    },
+    "pitch": {
+      "cta": "Bot starten",
+      "ctaFinal": "Start trading now",
+      "lines": [
+        [
+          {
+            "text": "Der weltweit fortschrittlichste ",
+            "muted": true
+          },
+          {
+            "text": "Trading-Bot"
+          }
+        ],
+        [
+          {
+            "text": "Durchsucht über ",
+            "muted": true
+          },
+          {
+            "text": "200 Paare"
+          },
+          {
+            "text": ", führt aus und schließt automatisch",
+            "muted": true
+          }
+        ],
+        [
+          {
+            "text": "$20 USD Minimum ",
+            "muted": true
+          },
+          {
+            "text": "und bis zu 40x Hebel"
+          }
+        ],
+        [
+          {
+            "text": "Läuft ",
+            "muted": true
+          },
+          {
+            "text": "24/7, 365 Tage"
+          },
+          {
+            "text": ", vollständig auf ",
+            "muted": true
+          },
+          {
+            "text": "Hyperliquid"
+          }
+        ],
+        [
+          {
+            "text": "Erhalte intelligente ",
+            "muted": true
+          },
+          {
+            "text": "KI-Analyse und News"
+          },
+          {
+            "text": " in Echtzeit",
+            "muted": true
+          }
+        ],
+        [
+          {
+            "text": "Starte ",
+            "muted": true
+          },
+          {
+            "text": "jetzt Geld zu verdienen"
+          }
+        ]
+      ]
+    },
+    "faq": {
+      "titleDark": "Häufig gestellte ",
+      "titleGrey": "Fragen",
+      "tabs": {
+        "all": "Alle",
+        "platform": "Plattform",
+        "bot": "Trading-Bot",
+        "betting": "Wetten",
+        "vault": "Einzahlung & Gebühren"
+      },
+      "tabPanelLabel": "{{tab}} Fragen",
+      "items": [
+        {
+          "tab": "platform",
+          "q": "Was ist Monadier?",
+          "a": "Monadier ist ein automatisierter Perpetuals-Bot auf Hyperliquid. Du zahlst USDC auf dein Hyperliquid-Konto ein, genehmigst einmal den Monadier Trading Agent, und unser Server scannt alle HL-Märkte 24/7, um Trades für dich zu eröffnen und zu schließen."
+        },
+        {
+          "tab": "platform",
+          "q": "Ist Monadier sicher?",
+          "a": "Monadier ist non-custodial auf Hyperliquid: dein USDC bleibt auf deinem HL-Konto auf deinen Namen. Der Trading Agent kann Trades platzieren, aber nicht ohne deine Wallet abheben. Auto-Trading läuft nur, wenn du Bot starten drückst."
+        },
+        {
+          "tab": "platform",
+          "q": "Ist Monadier non-custodial?",
+          "a": "Ja. Gelder liegen auf deinem Hyperliquid-Konto, nicht in einem Monadier-Vault. Wir halten nie deine Private Keys. Abhebungen erfordern immer deine Wallet-Signatur auf Hyperliquid."
+        },
+        {
+          "tab": "platform",
+          "q": "Ist Monadier vollständig dezentral?",
+          "a": "Handel wird über Hyperliquid-Infrastruktur via einem von dir genehmigten Agent ausgeführt. Signalanalyse und Automatisierung laufen auf Monadier-Servern (Railway). Du kannst Guthaben und Positionen jederzeit auf app.hyperliquid.xyz prüfen."
+        },
+        {
+          "tab": "platform",
+          "q": "Ist das Finanzberatung?",
+          "a": "Nein. Monadier stellt Software für automatisierten Hyperliquid-Perpetual-Handel bereit — keine Investitions-, Steuer- oder Rechtsberatung. Krypto und gehebelter Handel bergen erhebliches Risiko."
+        },
+        {
+          "tab": "platform",
+          "q": "Warum Hyperliquid für automatisierten Handel?",
+          "a": "Hyperliquid bietet tiefe Perp-Liquidität, schnelle Ausführung und USDC-Margin auf der eigenen L1. Eine Einzahlung auf HL treibt den Handel über alle gelisteten Märkte."
+        },
+        {
+          "tab": "bot",
+          "q": "Wie funktioniert der Trading-Bot?",
+          "a": "Während der Bot läuft, prüft der Monadier-Server (Railway) alle ~10 Sekunden dein HL-Guthaben, scannt alle Hyperliquid-Perps mit Multi-Timeframe-Signalen, eröffnet das stärkste Setup, überwacht TP/SL, schließt die Position und wiederholt."
+        },
+        {
+          "tab": "bot",
+          "q": "Wie lange läuft der Trading-Bot?",
+          "a": "24/7, solange Bot starten aktiv ist und du mindestens $20 USDC auf Hyperliquid hast. Kein Session-Timeout — der Server läuft, bis du Bot stoppen drückst."
+        },
+        {
+          "tab": "bot",
+          "q": "Kann der Bot 24/7 handeln?",
+          "a": "Ja. Krypto-Märkte schließen nie. Nach dem Start scannt der Bot alle HL-Perps rund um die Uhr."
+        },
+        {
+          "tab": "bot",
+          "q": "Kann ich Trades manuell schließen?",
+          "a": "Ja. Offene Positionen auf Hyperliquid können im Terminal oder auf app.hyperliquid.xyz geschlossen werden. Bot stoppen stoppt neue Einstiege."
+        },
+        {
+          "tab": "bot",
+          "q": "Welche Krypto-Assets handelt der Bot?",
+          "a": "Jedes aktive Hyperliquid-Perpetual mit gültigem Signal — der Bot lädt das volle HL-Universum (200+ Paare) und wählt pro Zyklus das stärkste Setup."
+        },
+        {
+          "tab": "bot",
+          "q": "Welchen Hebel nutzt der Bot?",
+          "a": "Du setzt Hebel, Take Profit und Stop Loss in den Bot-Einstellungen. Der Bot begrenzt auf Hyperliquids Maximum pro Asset (z.B. BTC 40×, ETH 25×)."
+        },
+        {
+          "tab": "bot",
+          "q": "Muss mein Computer eingeschaltet bleiben?",
+          "a": "Nein. Der Bot läuft auf Monadier-Servern (Railway). Nach Bot starten und finanziertem HL-Konto handelt er 24/7 ohne offenen Browser."
+        },
+        {
+          "tab": "bot",
+          "q": "Wie zahle ich ein, damit der Bot starten kann?",
+          "a": "In Monadier Funds (oder app.hyperliquid.xyz): nur natives USDC auf Arbitrum One einzahlen. Min. $5 auf HL; Bot braucht $20+. Dann Agent genehmigen → Bot starten."
+        },
+        {
+          "tab": "vault",
+          "q": "Wie viel USDC brauche ich zum Start?",
+          "a": "Mindestens $20 USDC auf deinem Hyperliquid-Konto für den Bot (HL-Mindesteinzahlung $5). Der Bot handelt von deinem HL-Guthaben, nicht aus einem separaten Vault."
+        },
+        {
+          "tab": "vault",
+          "q": "Welche Gebühren erhebt der Bot?",
+          "a": "Hyperliquid-Handelsgebühren gelten pro Perp-Trade. Monadier kann Builder-Gebühren und Abo-Stufen erheben. Prüfe die App für aktuelle Einstellungen."
+        },
+        {
+          "tab": "vault",
+          "q": "Kann ich USDC jederzeit abheben?",
+          "a": "Ja — von Hyperliquid in deine Wallet über das Funds-Panel oder app.hyperliquid.xyz. Schließe zuerst offene Positionen, wenn Margin genutzt wird."
+        },
+        {
+          "tab": "vault",
+          "q": "Warum Hyperliquid statt Vault?",
+          "a": "Dein USDC bleibt auf deinem Hyperliquid-Konto auf deinen Namen. Der Bot handelt nur via genehmigtem Agent und kann keine Gelder bewegen."
+        },
+        {
+          "tab": "vault",
+          "q": "Muss ich Wallet-Transaktionen signieren?",
+          "a": "Ja für Einzahlungen, Abhebungen und die einmalige Agent-Genehmigung. Laufende Bot-Trades werden vom Agent signiert."
+        },
+        {
+          "tab": "betting",
+          "q": "Was sind verifizierte Sportmärkte auf Monadier?",
+          "a": "Durchsuche Live- und kommende Sportevents als Hyperliquid HIP-4 Outcome-Märkte — Quoten aktualisieren sich on-chain."
+        },
+        {
+          "tab": "betting",
+          "q": "Ist Monadier-Wetten non-custodial?",
+          "a": "Dein USDC bleibt auf deinem Hyperliquid-Konto. Orders sind wallet-signiert; Monadier hält nie deine Private Keys."
+        },
+        {
+          "tab": "betting",
+          "q": "Wie schnell ist on-chain Wett-Ausführung?",
+          "a": "Platziere Ja/Nein-Wetten direkt auf Hyperliquid Outcome-Verträgen. Positionen, Cash-out und P/L in der App verfolgen."
+        },
+        {
+          "tab": "betting",
+          "q": "Wie funktioniert transparente Abwicklung?",
+          "a": "Märkte werden auf verifizierte Outcomes aufgelöst. Positionen und Guthaben sind auf Hyperliquid sichtbar — kein undurchsichtiges Buchmacher-Ledger."
+        }
+      ]
+    }
+  },
+  "auth": {
+    "welcomeBack": "Willkommen zurück",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "emailPlaceholder": "your@email.com",
+    "forgotPassword": "Passwort vergessen?",
+    "signInButton": "Anmelden",
+    "orContinueWith": "oder fortfahren mit",
+    "continueGoogle": "Mit Google fortfahren",
+    "noAccount": "Noch kein Konto? ",
+    "applyAccess": "Zugang beantragen",
+    "fundsLink": "Wie deine Gelder gespeichert werden",
+    "demoDashboard": "Demo-Dashboard öffnen (lokale Entwicklung)",
+    "signInFailed": "Anmeldung fehlgeschlagen",
+    "googleSignInFailed": "Anmeldung mit Google fehlgeschlagen",
+    "signInToAccount": "Melde dich bei deinem Monadier-Konto an.",
+    "signInToProfile": "Melde dich an, um Profil und Bot-Einstellungen zu öffnen.",
+    "signInToAffiliate": "Melde dich an, um dein Partner-Dashboard zu sehen.",
+    "signInToSupport": "Melde dich an, um den Support zu kontaktieren.",
+    "signInOrRegister": "Anmelden oder registrieren",
+    "register": {
+      "title": "Apply for Access",
+      "checkEmail": "Check your email",
+      "checkEmailDesc": "We sent a confirmation link to {{email}}. Click it, then sign in.",
+      "goToSignIn": "Go to sign in",
+      "referralLinked": "Referral linked",
+      "referralDesc": "Referrer earns 2% on your profitable bot trades",
+      "acceptTermsRequired": "You must accept the terms and conditions to continue",
+      "usernameTaken": "That username is already taken",
+      "createFailed": "Failed to create account. Please try again.",
+      "fullName": "Full Name",
+      "fullNamePlaceholder": "John Smith",
+      "username": "Username",
+      "usernamePlaceholder": "trader_jane",
+      "usernameHint": "3–20 chars, lowercase, numbers, underscore. Cannot be changed later.",
+      "country": "Country",
+      "countryPlaceholder": "Switzerland",
+      "createAccount": "Create Account",
+      "acceptTerms": "I accept the",
+      "terms": "Terms",
+      "and": "and",
+      "privacy": "Privacy Policy",
+      "alreadyHaveAccount": "Already have an account? ",
+      "signInLink": "Sign In",
+      "referralNotificationTitle": "Referral linked",
+      "referralNotificationMessage": "Your referrer earns 2% when you close profitable bot trades.",
+      "modalTitle": "Register",
+      "modalSub": "Create your Monadier account for bot trading and Pro Trade.",
+      "referralApplied": "Referral code applied — referrer earns 2% on your profitable bot trades",
+      "accountCreatedWelcome": "Account created — welcome!",
+      "createFailedShort": "Failed to create account",
+      "orDivider": "or",
+      "visualKicker": "Monadier Pro Trade",
+      "visualTitle": "Monadier bot + trading terminal",
+      "visualCopy": "Perps, spot, portfolio, and Monadier bot — one trading workspace.",
+      "fullNameLabel": "Full name"
+    },
+    "signInModal": {
+      "kicker": "Monadier",
+      "title": "Welcome back",
+      "close": "Close",
+      "continueGoogle": "Continue with Google",
+      "orEmail": "or sign in with email",
+      "signInButton": "Sign in",
+      "newHere": "New here?",
+      "createAccount": "Create account",
+      "signedInSuccess": "Signed in successfully"
+    }
+  },
+  "app": {
+    "nav": {
+      "perps": "Perps",
+      "bot": "Bot-Handel",
+      "betting": "Wetten",
+      "portfolio": "Portfolio",
+      "news": "News",
+      "leaderboard": "Bestenliste",
+      "sections": "Pro-Trade-Bereiche"
+    },
+    "account": {
+      "title": "Dein Monadier-Konto",
+      "guestDesc": "Melde dich an, um Bot-Einstellungen, Profil und Handelshistorie zu speichern.",
+      "profileSettings": "Profil & Einstellungen",
+      "profileSettingsFallback": "Profil & Bot-Einstellungen",
+      "affiliateProgram": "Partnerprogramm",
+      "securityPassword": "Sicherheit & Passwort",
+      "linkedWallets": "Verknüpfte Wallets",
+      "loginHistory": "Anmeldeverlauf",
+      "botTradeHistory": "Bot-Handelshistorie",
+      "closeAccountMenu": "Kontomenü schließen",
+      "accountMenu": "Kontomenü",
+      "guestAccountMenu": "Gast-Kontomenü"
+    },
+    "portfolio": {
+      "connectWallet": "Connect wallet to view portfolio.",
+      "loading": "Loading portfolio…",
+      "title": "Portfolio",
+      "lead": "Hyperliquid perps, spot balances, and betting positions in one view.",
+      "perpAccount": "Perp account",
+      "withdrawable": "Withdrawable {{amount}}",
+      "spotAccount": "Spot account",
+      "totalEst": "Total (est.)",
+      "perpsPlusSpot": "Perps + spot",
+      "affiliateProgram": "Affiliate program",
+      "affiliateDesc": "Earn 2% from your referrals' profitable bot trades.",
+      "perpPositions": "Perp positions",
+      "openCount": "{{count}} open",
+      "noPerpPositions": "No open perp positions.",
+      "coin": "Coin",
+      "size": "Size",
+      "entry": "Entry",
+      "upnl": "uPnL",
+      "spotBalances": "Spot balances",
+      "tokensCount": "{{count}} tokens",
+      "noSpotBalances": "No spot balances.",
+      "token": "Token",
+      "total": "Total",
+      "onHold": "On hold",
+      "mark": "Mark",
+      "valueEst": "Value (est.)",
+      "betting": "Betting"
+    },
+    "support": {
+      "title": "Support",
+      "guestLead": "Sign in to contact our team. Support is available for registered users only.",
+      "signInForHelp": "Sign in to get help",
+      "securityNote": "Never share your seed phrase or private keys — not even with support.",
+      "sendingAs": "Sending as",
+      "userId": "User ID:",
+      "subject": "Subject",
+      "subjectPlaceholder": "e.g. Bot not trading, deposit, withdrawal",
+      "message": "Message",
+      "messagePlaceholder": "Describe your issue — include wallet/network details if relevant.",
+      "messageSent": "Message sent. We'll reply to {{email}}.",
+      "sending": "Sending…",
+      "sent": "Sent",
+      "sendMessage": "Send message",
+      "supportHours": "Support hours",
+      "supportHoursDetail": "Monday – Sunday, 9:00 – 20:00 CET · replies within 24h"
+    }
+  },
+  "bot": {
+    "autoTrading": "Auto-Trading",
+    "autoTradingHintModal": "Bot handelt von deinem Hyperliquid-Guthaben auf Signale",
+    "autoTradingHintPanel": "Nutze den Bot-Tab → Bot starten (nicht dieses Panel), um den Handel zu aktivieren.",
+    "riskPerTrade": "Risiko pro Trade",
+    "riskHint": "% deines HL-Guthabens als Margin — <strong>nicht</strong> Hebel.",
+    "riskAria": "Risikoprozent des HL-Guthabens pro Trade",
+    "leverage": "Hebel (LVRG)",
+    "leverageHint": "Bis zu {{max}} auf Hyperliquid{{caps}}. Der Bot begrenzt auf das Markt-Maximum beim Öffnen.",
+    "leverageCaps": " (BTC {{btc}}x · ETH {{eth}}x laut HL)",
+    "leverageHigh": "Hoher Hebel: ~{{pct}}% Bewegung kann liquidieren.",
+    "leveragePnl": "+1% Preis ≈ +{{lev}}% auf Positions-P/L.",
+    "askBeforeTrade": "Vor jedem Trade fragen",
+    "askBeforeTradeHint": "5 Min. zur Genehmigung per Benachrichtigung",
+    "winRateGate": "Gewinnrate-Gate",
+    "winRateActive": "Aktiv",
+    "winRateOff": "Aus",
+    "winRateHint": "Optional: neue Trades pausieren, wenn die Gewinnrate unter deinen Schwellenwert fällt. 0% zum Deaktivieren.",
+    "minWinRate": "Min. Gewinnrate zum Öffnen (0 = aus)",
+    "closedTradesGate": "Geschlossene Trades bevor Gate greift",
+    "fewerTrades": "Weniger Trades",
+    "moreTrades": "Mehr Trades",
+    "exitsHint": "<strong>Exits:</strong> Bot zieht Stop-Loss automatisch in den Gewinn — kein manuelles TP/SL. Standard aktiviert bei +$0.06 uPnL (Min. Lock +$0.03). Aggressiv bei +$0.02 (Lock +$0.01)."
+  },
+  "trading": {
+    "order": {
+      "isolated": "Isolated",
+      "cross": "Cross",
+      "limit": "Limit",
+      "market": "Market",
+      "scale": "Scale",
+      "tpsl": "TP/SL",
+      "twap": "TWAP",
+      "buy": "Buy",
+      "sell": "Sell",
+      "buyLong": "Buy / Long",
+      "sellShort": "Sell / Short",
+      "buyMarket": "Buy / Market",
+      "buyLimit": "Buy / Limit",
+      "sellMarket": "Sell / Market",
+      "sellLimit": "Sell / Limit",
+      "availableToTrade": "Available to Trade",
+      "sizePercent": "Size percent",
+      "price": "Price",
+      "startPrice": "Start Price",
+      "endPrice": "End Price",
+      "totalOrders": "Total Orders",
+      "sizeSkew": "Size Skew",
+      "takeProfit": "Take Profit",
+      "stopLoss": "Stop Loss",
+      "optional": "Optional",
+      "duration": "Duration (minutes, min 5)",
+      "randomize": "Randomize slice timing",
+      "twapHint": "Runs on Hyperliquid servers — survives tab close.",
+      "serverTwapRunning": "Server TWAP #{{id}} running",
+      "filled": "Filled {{executed}} / {{total}} ({{pct}}%)",
+      "filledSimple": "Filled {{executed}} / {{total}}",
+      "size": "Size",
+      "sizeTotal": "Size (total)",
+      "sizeUnit": "Size unit",
+      "reduceOnly": "Reduce Only",
+      "orderValue": "Order Value: {{value}}",
+      "marginRequired": "Margin Required: {{value}}",
+      "scaleRange": "Start: {{start}} — End: {{end}}",
+      "restoringWallet": "Restoring wallet…",
+      "connectWallet": "Connect wallet",
+      "cancelTwap": "Cancel TWAP",
+      "hlDeposit": "HL Deposit",
+      "perpsSpot": "Perps ⇄ Spot",
+      "hlWithdraw": "HL Withdraw",
+      "successOrder": "Order submitted",
+      "successScale": "Scale orders submitted",
+      "successTpsl": "TP/SL orders submitted",
+      "successTwap": "TWAP submitted (server-side)",
+      "twapActive": "TWAP active ({{minutes}}m)",
+      "placeOrders": "Place {{count}} Orders",
+      "placeTpsl": "Place TP/SL",
+      "startTwap": "Start TWAP",
+      "failedLeverage": "Failed to update leverage"
+    }
+  },
+  "betting": {
+    "hero": {
+      "kicker": "Hyperliquid · HIP-4",
+      "title": "Betting",
+      "sub": "World Cup, crypto & macro markets"
+    },
+    "searchMarkets": "Search markets",
+    "searchPlaceholder": "Search markets…",
+    "searchAria": "Search betting markets",
+    "clearSearch": "Clear search",
+    "syncing": "Syncing",
+    "syncingAria": "Syncing markets",
+    "refresh": "Refresh",
+    "refreshAria": "Refresh markets",
+    "pickYesNo": "Pick Yes or No to bet.",
+    "orderSettings": "Order settings",
+    "betOrCashOut": "Bet or cash out",
+    "bet": "Bet",
+    "cashOut": "Cash out",
+    "limitPrice": "Limit price",
+    "contractsToSell": "Contracts to sell",
+    "contracts": "Contracts",
+    "amountUsd": "Amount (USD)",
+    "quickStakes": "Quick stake amounts",
+    "odds": "Odds",
+    "min": "Min",
+    "position": "Position",
+    "platformFee": "Platform fee: {{buyFee}} on bets · {{cashoutFee}} on cash out",
+    "depositNow": "Deposit now",
+    "betSide": "Bet {{side}}",
+    "cashOutSide": "Cash out {{side}}",
+    "betPlaced": "Bet placed",
+    "cashOutSubmitted": "Cash out submitted",
+    "signInToPlaceBets": "Sign in to place bets.",
+    "on": " on ",
+    "slip": {
+      "ariaLabel": "Bet slip",
+      "myBets": "My bets",
+      "pending": "Pending",
+      "history": "History",
+      "connectToSeeBets": "Connect wallet to see your bets.",
+      "signInToTrack": "Sign in to track bets and history.",
+      "signInToTrackReason": "Sign in to track your bets.",
+      "loadingBets": "Loading your bets…",
+      "noPositions": "No open positions. Pick Yes or No on a market to bet.",
+      "noPending": "No pending limit orders.",
+      "noHistory": "No recent fills yet.",
+      "signInPending": "Sign in and connect wallet to manage pending orders.",
+      "signInHistory": "Sign in to view your betting history.",
+      "cancel": "Cancel",
+      "cashOutBtn": "Cash out"
+    },
+    "placeBet": "Place bet",
+    "betSlip": "Bet slip",
+    "closeBetPanel": "Close bet panel",
+    "regionBlocked": "Sports betting on Hyperliquid outcome markets is limited to eligible regions.",
+    "region": {
+      "kicker": "Regional access",
+      "title": "Betting isn't available in your region",
+      "detectedLocation": "Detected location",
+      "tradePerpsInstead": "Trade perps instead",
+      "footnote": "Perps trading and the Monadier bot remain available. Outcome markets follow regional compliance rules."
+    }
+  }
+}

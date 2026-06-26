@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertCircle, CheckCircle } from 'lucide-react';
+import { Trans, useTranslation } from 'react-i18next';
 import { getMaxLeverageLabel } from '../../lib/leverageLimits';
 import LeverageRangeSlider from './LeverageRangeSlider';
 
@@ -62,6 +63,7 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
   notice,
   error,
 }) => {
+  const { t } = useTranslation();
   const maxLevLabel = getMaxLeverageLabel(planTier, hlSliderMax);
   const isModal = variant === 'modal';
   const labelClass = isModal ? 'term-modal-label' : 'term-panel-card-label';
@@ -77,11 +79,9 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
       {showAutoTrade && (
         <div className={isModal ? 'term-modal-toggle-row' : 'term-panel-card term-panel-card--flat'}>
           <div>
-            <p className={isModal ? 'term-modal-toggle-title' : labelClass}>Auto-trading</p>
+            <p className={isModal ? 'term-modal-toggle-title' : labelClass}>{t('bot.autoTrading')}</p>
             <p className={hintClass}>
-              {isModal
-                ? 'Bot trades from your Hyperliquid balance on signals'
-                : 'Use the Bot tab → Start bot (not this panel) to turn trading on.'}
+              {isModal ? t('bot.autoTradingHintModal') : t('bot.autoTradingHintPanel')}
             </p>
           </div>
           <button
@@ -96,9 +96,9 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
         </div>
       )}
 
-      <p className={labelClass}>Risk per trade</p>
+      <p className={labelClass}>{t('bot.riskPerTrade')}</p>
       <p className={`${hintClass} ${isModal ? 'mb-1' : ''}`}>
-        % of your HL balance used as margin — <strong>not</strong> leverage.
+        <Trans i18nKey="bot.riskHint" components={{ strong: <strong /> }} />
       </p>
       <div className={chipRowClass}>
         {RISK_PRESETS.map((v) => (
@@ -121,16 +121,18 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
         onChange={(e) => setRiskLevel(parseInt(e.target.value, 10))}
         className={rangeClass}
         disabled={disabled}
-        aria-label="Risk percent of HL balance per trade"
+        aria-label={t('bot.riskAria')}
       />
 
-      <p className={labelClass}>Leverage (LVRG)</p>
+      <p className={labelClass}>{t('bot.leverage')}</p>
       <p className={`${hintClass} ${isModal ? 'mb-2' : ''}`}>
-        Up to {maxLevLabel} on Hyperliquid
-        {hlBtcMax != null && hlEthMax != null
-          ? ` (BTC ${hlBtcMax}x · ETH ${hlEthMax}x per HL)`
-          : ''}
-        . The bot clamps to each market&apos;s cap when opening.
+        {t('bot.leverageHint', {
+          max: maxLevLabel,
+          caps:
+            hlBtcMax != null && hlEthMax != null
+              ? t('bot.leverageCaps', { btc: hlBtcMax, eth: hlEthMax })
+              : '',
+        })}
       </p>
       <div className={isModal ? undefined : 'term-panel-card term-panel-card--flat'}>
         <LeverageRangeSlider
@@ -146,8 +148,8 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
       {leverage >= 10 && (
         <p className={`${hintClass} term-hint--warn`}>
           {leverage >= 20
-            ? `High leverage: ~${((100 / leverage) * 0.9).toFixed(1)}% move can liquidate.`
-            : `+1% price ≈ +${leverage}% on position P/L.`}
+            ? t('bot.leverageHigh', { pct: ((100 / leverage) * 0.9).toFixed(1) })
+            : t('bot.leveragePnl', { lev: leverage })}
         </p>
       )}
 
@@ -158,8 +160,8 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
           }
         >
           <div>
-            <p className={isModal ? 'term-modal-toggle-title' : labelClass}>Ask before each trade</p>
-            <p className={hintClass}>5 min to approve via notification</p>
+            <p className={isModal ? 'term-modal-toggle-title' : labelClass}>{t('bot.askBeforeTrade')}</p>
+            <p className={hintClass}>{t('bot.askBeforeTradeHint')}</p>
           </div>
           <button
             type="button"
@@ -175,20 +177,18 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
 
       <div className={isModal ? 'term-modal-gate-box' : 'term-panel-card term-panel-card--flat'}>
         <div className={isModal ? 'term-modal-gate-head' : undefined}>
-          <p className={`${labelClass} ${isModal ? 'term-modal-label--flush' : ''}`}>Win rate gate</p>
+          <p className={`${labelClass} ${isModal ? 'term-modal-label--flush' : ''}`}>{t('bot.winRateGate')}</p>
           {isModal && (
             <span
               className={`term-modal-gate-badge${minWinRate > 0 ? ' term-modal-gate-badge--on' : ''}`}
             >
-              {minWinRate > 0 ? 'Active' : 'Off'}
+              {minWinRate > 0 ? t('bot.winRateActive') : t('bot.winRateOff')}
             </span>
           )}
         </div>
-        <p className={hintClass}>
-          Optional: pause new trades if recent win rate drops below your threshold. Set 0% to disable.
-        </p>
+        <p className={hintClass}>{t('bot.winRateHint')}</p>
 
-        <p className={labelClass}>Min win rate to open (0 = off)</p>
+        <p className={labelClass}>{t('bot.minWinRate')}</p>
         <input
           type="range"
           min={0}
@@ -201,7 +201,7 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
         />
 
         <label className={labelClass} htmlFor="term-min-trades">
-          Closed trades before gate applies
+          {t('bot.closedTradesGate')}
         </label>
         <div className="term-modal-gate-stepper">
           <button
@@ -209,7 +209,7 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
             className="term-modal-chip"
             disabled={disabled || minTradesForWinRate <= 1}
             onClick={() => setMinTradesForWinRate(Math.max(1, minTradesForWinRate - 1))}
-            aria-label="Fewer trades"
+            aria-label={t('bot.fewerTrades')}
           >
             −
           </button>
@@ -233,7 +233,7 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
             className="term-modal-chip"
             disabled={disabled || minTradesForWinRate >= 50}
             onClick={() => setMinTradesForWinRate(Math.min(50, minTradesForWinRate + 1))}
-            aria-label="More trades"
+            aria-label={t('bot.moreTrades')}
           >
             +
           </button>
@@ -241,8 +241,7 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
       </div>
 
       <p className={hintClass}>
-        <strong>Exits:</strong> Bot trails stop loss into profit automatically — no manual TP/SL.
-        Standard arms at +$0.06 uPnL (min lock +$0.03). Aggressive arms at +$0.02 (lock +$0.01).
+        <Trans i18nKey="bot.exitsHint" components={{ strong: <strong /> }} />
       </p>
 
       {notice && (

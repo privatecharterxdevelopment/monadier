@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { goToOpenApp } from '../../lib/appUrls';
 
 const fadeUp = (delay = 0) => ({
@@ -11,6 +12,8 @@ const fadeUp = (delay = 0) => ({
 });
 
 function BotAiAnimation() {
+  const { t } = useTranslation();
+
   return (
     <div className="landing-bento-ai-stage" aria-hidden>
       <div className="landing-bento-ai-orbit">
@@ -22,9 +25,9 @@ function BotAiAnimation() {
         </span>
       </div>
       <div className="landing-bento-ai-pills">
-        <span className="landing-bento-ai-pill landing-bento-ai-pill--a">Scanning HL</span>
-        <span className="landing-bento-ai-pill landing-bento-ai-pill--b">BTC LONG 81%</span>
-        <span className="landing-bento-ai-pill landing-bento-ai-pill--c">Trail armed</span>
+        <span className="landing-bento-ai-pill landing-bento-ai-pill--a">{t('landing.bento.bot.pillScan')}</span>
+        <span className="landing-bento-ai-pill landing-bento-ai-pill--b">{t('landing.bento.bot.pillLong')}</span>
+        <span className="landing-bento-ai-pill landing-bento-ai-pill--c">{t('landing.bento.bot.pillTrail')}</span>
       </div>
       <div className="landing-bento-ai-beam" />
       <svg className="landing-bento-ai-spark" viewBox="0 0 240 80" preserveAspectRatio="none">
@@ -85,73 +88,77 @@ const PromoBanner: React.FC<PromoBannerProps> = ({
   </motion.article>
 );
 
-const LandingHomeBentoCards: React.FC = () => (
-  <section
-    className="landing-gmx-section landing-gmx-gutter landing-trade-promos-section"
-    aria-label="Trading features"
-  >
-    <div className="landing-trade-promos-shell">
-      <div className="landing-home-bento-promos">
-        <PromoBanner
-          title="Trade by bot"
-          desc="AI agent scans 200+ HL perps every cycle — opens entries, trails profit, and cuts losers 24/7."
-          cta="Start bot"
-          href="/"
-          delay={0.08}
-          visual={<BotAiAnimation />}
-          onClick={(e) => {
-            e.preventDefault();
-            goToOpenApp('?section=bot', false);
-          }}
-        />
-        <PromoBanner
-          title="Trade the candles"
-          desc="Live Hyperliquid charts, depth, and execution — same liquidity the bot reads in real time."
-          cta="Open charts"
-          href="/"
-          delay={0.14}
-          visualClassName="landing-bento-promo-visual--candles"
-          visual={
-            <img
-              src="/images/landing/hero-visual.png"
-              alt=""
-              className="landing-bento-promo-candles-img"
-              decoding="async"
-            />
-          }
-          onClick={(e) => {
-            e.preventDefault();
-            goToOpenApp('', false);
-          }}
-        />
-        <PromoBanner
-          title="Bet on sports and market predictions"
-          desc="HIP-4 outcome markets on Hyperliquid — macro, crypto, and live sports with on-chain settlement."
-          cta="Open betting"
-          href="/"
-          delay={0.2}
-          className="landing-bento-promo-card--wide"
-          visualClassName="landing-bento-promo-visual--sports"
-          visual={
-            <video
-              className="landing-bento-promo-sports-video"
-              src="/videos/14757485_1920_1080_25fps.mp4"
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="auto"
-              aria-hidden
-            />
-          }
-          onClick={(e) => {
-            e.preventDefault();
-            goToOpenApp('?section=sportsbets', false);
-          }}
-        />
+const LandingHomeBentoCards: React.FC = () => {
+  const { t } = useTranslation();
+
+  return (
+    <section
+      className="landing-gmx-section landing-gmx-gutter landing-trade-promos-section"
+      aria-label={t('landing.bento.ariaLabel')}
+    >
+      <div className="landing-trade-promos-shell">
+        <div className="landing-home-bento-promos">
+          <PromoBanner
+            title={t('landing.bento.bot.title')}
+            desc={t('landing.bento.bot.desc')}
+            cta={t('landing.bento.bot.cta')}
+            href="/"
+            delay={0.08}
+            visual={<BotAiAnimation />}
+            onClick={(e) => {
+              e.preventDefault();
+              goToOpenApp('?section=bot', false);
+            }}
+          />
+          <PromoBanner
+            title={t('landing.bento.charts.title')}
+            desc={t('landing.bento.charts.desc')}
+            cta={t('landing.bento.charts.cta')}
+            href="/"
+            delay={0.14}
+            visualClassName="landing-bento-promo-visual--candles"
+            visual={
+              <img
+                src="/images/landing/hero-visual.png"
+                alt=""
+                className="landing-bento-promo-candles-img"
+                decoding="async"
+              />
+            }
+            onClick={(e) => {
+              e.preventDefault();
+              goToOpenApp('', false);
+            }}
+          />
+          <PromoBanner
+            title={t('landing.bento.sports.title')}
+            desc={t('landing.bento.sports.desc')}
+            cta={t('landing.bento.sports.cta')}
+            href="/"
+            delay={0.2}
+            className="landing-bento-promo-card--wide"
+            visualClassName="landing-bento-promo-visual--sports"
+            visual={
+              <video
+                className="landing-bento-promo-sports-video"
+                src="/videos/14757485_1920_1080_25fps.mp4"
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+                aria-hidden
+              />
+            }
+            onClick={(e) => {
+              e.preventDefault();
+              goToOpenApp('?section=sportsbets', false);
+            }}
+          />
+        </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
 export default LandingHomeBentoCards;

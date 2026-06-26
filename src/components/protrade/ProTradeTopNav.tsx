@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Headphones, Gift, Menu, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAppKit } from '@reown/appkit/react';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
@@ -9,6 +10,7 @@ import ProTradeAccountMenu from './ProTradeAccountMenu';
 import ProTradeNotificationsBell from './ProTradeNotificationsBell';
 import ProTradeBettingTopBarBalance from './ProTradeBettingTopBarBalance';
 import ProTradeThemeIcon from './ProTradeThemeIcon';
+import LanguageSwitcher from '../i18n/LanguageSwitcher';
 import { useProTradeTheme } from '../../contexts/ProTradeThemeContext';
 import type { ProTradeProfileTab } from './proTradeProfileTypes';
 import type { ActivityNotification } from '../../lib/activityNotifications';
@@ -35,17 +37,17 @@ export type ProTradePanelMode = 'hl' | 'bot';
 
 type NavItem = {
   id: ProTradeSection;
-  label: string;
+  labelKey: string;
   enabled: boolean;
 };
 
 const NAV: NavItem[] = [
-  { id: 'perps', label: 'Perps', enabled: true },
-  { id: 'bot', label: 'Bot trade', enabled: true },
-  { id: 'sportsbets', label: 'Betting', enabled: true },
-  { id: 'portfolio', label: 'Portfolio', enabled: true },
-  { id: 'news', label: 'News', enabled: true },
-  { id: 'leaderboard', label: 'Leaderboard', enabled: false },
+  { id: 'perps', labelKey: 'app.nav.perps', enabled: true },
+  { id: 'bot', labelKey: 'app.nav.bot', enabled: true },
+  { id: 'sportsbets', labelKey: 'app.nav.betting', enabled: true },
+  { id: 'portfolio', labelKey: 'app.nav.portfolio', enabled: true },
+  { id: 'news', labelKey: 'app.nav.news', enabled: true },
+  { id: 'leaderboard', labelKey: 'app.nav.leaderboard', enabled: false },
 ];
 
 type Props = {
@@ -77,6 +79,7 @@ const ProTradeTopNav: React.FC<Props> = ({
   walletAddress,
   walletConnected = false,
 }) => {
+  const { t } = useTranslation();
   const { isLight } = useProTradeTheme();
   const { open } = useAppKit();
   const { address, isConnected, isRestoring } = useMonadierWallet();
@@ -85,10 +88,10 @@ const ProTradeTopNav: React.FC<Props> = ({
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const walletLabel = isRestoring
-    ? 'Restoring…'
+    ? t('common.restoring')
     : isConnected && address
       ? `${address.slice(0, 6)}…${address.slice(-4)}`
-      : 'Connect';
+      : t('common.connect');
 
   useEffect(() => {
     if (!mobileNavOpen) return;
@@ -133,8 +136,8 @@ const ProTradeTopNav: React.FC<Props> = ({
         >
           <Logo size="sm" theme={isLight ? 'light' : 'dark'} linked={false} />
         </a>
-        <nav className="hl-topnav-links" aria-label="Pro trade sections">
-          {NAV.map(({ id, label, enabled }) => (
+        <nav className="hl-topnav-links" aria-label={t('app.nav.sections')}>
+          {NAV.map(({ id, labelKey, enabled }) => (
             <button
               key={id}
               type="button"
@@ -144,7 +147,7 @@ const ProTradeTopNav: React.FC<Props> = ({
               aria-current={section === id ? 'page' : undefined}
               style={enabled ? undefined : { opacity: 0.35, cursor: 'not-allowed' }}
             >
-              {label}
+              {t(labelKey)}
               {id === 'bot' ? <DockCountBadge count={botOpenCount} tone={botOpenTone} /> : null}
             </button>
           ))}
@@ -162,11 +165,12 @@ const ProTradeTopNav: React.FC<Props> = ({
         {onViewNotificationHistory ? (
           <ProTradeNotificationsBell onViewHistory={onViewNotificationHistory} />
         ) : null}
+        <LanguageSwitcher variant="app" />
         <ProTradeThemeIcon />
         <button
           type="button"
           className={`hl-topnav-icon-btn hl-topnav-support-btn hl-topnav-support-btn--desktop${section === 'support' ? ' hl-topnav-support-btn--on' : ''}`}
-          aria-label="Support"
+          aria-label={t('common.support')}
           aria-current={section === 'support' ? 'page' : undefined}
           onClick={openSupport}
         >
@@ -191,7 +195,7 @@ const ProTradeTopNav: React.FC<Props> = ({
           <button
             type="button"
             className="hl-topnav-menu-btn"
-            aria-label="Open menu"
+            aria-label={t('common.openMenu')}
             aria-expanded={mobileNavOpen}
             onClick={() => setMobileNavOpen(true)}
           >
@@ -201,27 +205,27 @@ const ProTradeTopNav: React.FC<Props> = ({
       </div>
 
       {mobileNavOpen ? (
-        <div className="hl-mobile-nav" role="dialog" aria-modal="true" aria-label="Navigation">
+        <div className="hl-mobile-nav" role="dialog" aria-modal="true" aria-label={t('common.trade')}>
           <button
             type="button"
             className="hl-mobile-nav-backdrop"
-            aria-label="Close menu"
+            aria-label={t('common.closeMenu')}
             onClick={() => setMobileNavOpen(false)}
           />
           <div className="hl-mobile-nav-sheet">
             <div className="hl-mobile-nav-head">
-              <span>Trade</span>
+              <span>{t('common.trade')}</span>
               <button
                 type="button"
                 className="hl-topnav-icon-btn"
-                aria-label="Close menu"
+                aria-label={t('common.closeMenu')}
                 onClick={() => setMobileNavOpen(false)}
               >
                 <X size={16} />
               </button>
             </div>
             <nav className="hl-mobile-nav-links">
-              {NAV.map(({ id, label, enabled }) => (
+              {NAV.map(({ id, labelKey, enabled }) => (
                 <button
                   key={id}
                   type="button"
@@ -229,7 +233,7 @@ const ProTradeTopNav: React.FC<Props> = ({
                   disabled={!enabled}
                   onClick={() => pickSection(id, enabled)}
                 >
-                  {label}
+                  {t(labelKey)}
                   {id === 'bot' ? <DockCountBadge count={botOpenCount} tone={botOpenTone} /> : null}
                 </button>
               ))}
@@ -242,7 +246,7 @@ const ProTradeTopNav: React.FC<Props> = ({
                 }}
               >
                 <Headphones size={16} aria-hidden />
-                Support
+                {t('common.support')}
               </button>
               <button
                 type="button"
@@ -250,7 +254,7 @@ const ProTradeTopNav: React.FC<Props> = ({
                 onClick={() => pickSection('affiliate', true)}
               >
                 <Gift size={16} aria-hidden />
-                Affiliate
+                {t('common.affiliate')}
               </button>
             </nav>
             <div className="hl-mobile-nav-foot">

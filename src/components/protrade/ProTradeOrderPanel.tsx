@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Loader2, Wallet } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAppKit } from '@reown/appkit/react';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { openMonadierWalletModal } from '../../lib/openWalletModal';
@@ -60,6 +61,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
   serverTwap,
   onCancelServerTwap,
 }) => {
+  const { t } = useTranslation();
   const isSpot = variant === 'spot';
   const marketKind = isSpot ? 'spot' as const : 'perp' as const;
   const coinLabel = displayCoin ?? coin;
@@ -164,10 +166,10 @@ const ProTradeOrderPanel: React.FC<Props> = ({
         await applyTradeSettings(coin, next, 'perp');
         setLocalError(null);
       } catch (err: unknown) {
-        setLocalError(err instanceof Error ? err.message : 'Failed to update leverage');
+        setLocalError(err instanceof Error ? err.message : t('trading.order.failedLeverage'));
       }
     },
-    [isSpot, walletReady, applyTradeSettings, coin]
+    [isSpot, walletReady, applyTradeSettings, coin, t]
   );
 
   useEffect(() => {
@@ -233,7 +235,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
           settings: isSpot ? undefined : settings,
           marketKind,
         });
-        showSuccess('Order submitted');
+        showSuccess(t('trading.order.successOrder'));
         return;
       }
 
@@ -248,7 +250,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
           settings: isSpot ? undefined : settings,
           marketKind,
         });
-        showSuccess('Scale orders submitted');
+        showSuccess(t('trading.order.successScale'));
         return;
       }
 
@@ -266,7 +268,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
           markPx,
           marketKind,
         });
-        showSuccess('TP/SL orders submitted');
+        showSuccess(t('trading.order.successTpsl'));
         return;
       }
 
@@ -281,7 +283,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
           settings: isSpot ? undefined : settings,
           marketKind,
         });
-        showSuccess('TWAP submitted (server-side)');
+        showSuccess(t('trading.order.successTwap'));
       }
     } catch (err: unknown) {
       if (err instanceof Error && !error) setLocalError(err.message);
@@ -291,20 +293,20 @@ const ProTradeOrderPanel: React.FC<Props> = ({
   const displayError = localError || error;
   const submitLabel =
     mode === 'twap' && twapActive
-      ? `TWAP active (${twapMinutesLabel}m)`
+      ? t('trading.order.twapActive', { minutes: twapMinutesLabel })
       : mode === 'scale'
-        ? `Place ${scaleOrders || '0'} Orders`
+        ? t('trading.order.placeOrders', { count: scaleOrders || '0' })
         : mode === 'tpsl'
-          ? 'Place TP/SL'
+          ? t('trading.order.placeTpsl')
           : mode === 'twap'
-            ? 'Start TWAP'
+            ? t('trading.order.startTwap')
             : side === 'long'
               ? kind === 'market'
-                ? isSpot ? 'Buy / Market' : 'Buy / Long'
-                : isSpot ? 'Buy / Limit' : 'Buy / Long'
+                ? isSpot ? t('trading.order.buyMarket') : t('trading.order.buyLong')
+                : isSpot ? t('trading.order.buyLimit') : t('trading.order.buyLong')
               : kind === 'market'
-                ? isSpot ? 'Sell / Market' : 'Sell / Short'
-                : isSpot ? 'Sell / Limit' : 'Sell / Short';
+                ? isSpot ? t('trading.order.sellMarket') : t('trading.order.sellShort')
+                : isSpot ? t('trading.order.sellLimit') : t('trading.order.sellShort');
 
   const marginEst =
     orderNotional > 0 && !isSpot && leverage > 0 ? orderNotional / leverage : isSpot ? orderNotional : 0;
@@ -323,8 +325,8 @@ const ProTradeOrderPanel: React.FC<Props> = ({
                 void pushTradeSettings({ leverage, marginMode: mode });
               }}
             >
-              <option value="isolated">Isolated</option>
-              <option value="cross">Cross</option>
+              <option value="isolated">{t('trading.order.isolated')}</option>
+              <option value="cross">{t('trading.order.cross')}</option>
             </select>
             <select
               className="hl-entry-select"
@@ -354,11 +356,11 @@ const ProTradeOrderPanel: React.FC<Props> = ({
             }
           }}
         >
-          <option value="limit">Limit</option>
-          <option value="market">Market</option>
-          <option value="scale">Scale</option>
-          <option value="tpsl">TP/SL</option>
-          <option value="twap">TWAP</option>
+          <option value="limit">{t('trading.order.limit')}</option>
+          <option value="market">{t('trading.order.market')}</option>
+          <option value="scale">{t('trading.order.scale')}</option>
+          <option value="tpsl">{t('trading.order.tpsl')}</option>
+          <option value="twap">{t('trading.order.twap')}</option>
         </select>
       </div>
 
@@ -369,19 +371,19 @@ const ProTradeOrderPanel: React.FC<Props> = ({
             className={`hl-entry-side-btn hl-entry-side-btn--long ${side === 'long' ? 'hl-entry-side-btn--on' : ''}`}
             onClick={() => setSide('long')}
           >
-            {isSpot ? 'Buy' : 'Buy / Long'}
+            {isSpot ? t('trading.order.buy') : t('trading.order.buyLong')}
           </button>
           <button
             type="button"
             className={`hl-entry-side-btn hl-entry-side-btn--short ${side === 'short' ? 'hl-entry-side-btn--on' : ''}`}
             onClick={() => setSide('short')}
           >
-            {isSpot ? 'Sell' : 'Sell / Short'}
+            {isSpot ? t('trading.order.sell') : t('trading.order.sellShort')}
           </button>
         </div>
 
         <div>
-          <div className="hl-entry-label">Available to Trade</div>
+          <div className="hl-entry-label">{t('trading.order.availableToTrade')}</div>
           <div style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
             {fmtUsdSymbol(accountValue)} USDC
           </div>
@@ -394,7 +396,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
           value={sizePct}
           onChange={(e) => applySizePreset(Number(e.target.value))}
           className="hl-entry-slider"
-          aria-label="Size percent"
+          aria-label={t('trading.order.sizePercent')}
         />
         <div className="hl-entry-presets">
           {SIZE_PRESETS.map((pct) => (
@@ -412,7 +414,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
 
         {mode === 'basic' && kind === 'limit' ? (
           <div>
-            <div className="hl-entry-label">Price</div>
+            <div className="hl-entry-label">{t('trading.order.price')}</div>
             <input
               className="hl-entry-input"
               value={limitPrice}
@@ -426,19 +428,19 @@ const ProTradeOrderPanel: React.FC<Props> = ({
         {mode === 'scale' ? (
           <>
             <div>
-              <div className="hl-entry-label">Start Price</div>
+              <div className="hl-entry-label">{t('trading.order.startPrice')}</div>
               <input className="hl-entry-input" value={scaleStart} onChange={(e) => setScaleStart(e.target.value)} inputMode="decimal" />
             </div>
             <div>
-              <div className="hl-entry-label">End Price</div>
+              <div className="hl-entry-label">{t('trading.order.endPrice')}</div>
               <input className="hl-entry-input" value={scaleEnd} onChange={(e) => setScaleEnd(e.target.value)} inputMode="decimal" />
             </div>
             <div>
-              <div className="hl-entry-label">Total Orders</div>
+              <div className="hl-entry-label">{t('trading.order.totalOrders')}</div>
               <input className="hl-entry-input" value={scaleOrders} onChange={(e) => setScaleOrders(e.target.value)} inputMode="numeric" />
             </div>
             <div>
-              <div className="hl-entry-label">Size Skew</div>
+              <div className="hl-entry-label">{t('trading.order.sizeSkew')}</div>
               <input className="hl-entry-input" value={scaleSkew} onChange={(e) => setScaleSkew(e.target.value)} inputMode="decimal" />
             </div>
           </>
@@ -447,12 +449,12 @@ const ProTradeOrderPanel: React.FC<Props> = ({
         {mode === 'tpsl' ? (
           <>
             <div>
-              <div className="hl-entry-label">Take Profit</div>
-              <input className="hl-entry-input" value={tpPrice} onChange={(e) => setTpPrice(e.target.value)} placeholder="Optional" inputMode="decimal" />
+              <div className="hl-entry-label">{t('trading.order.takeProfit')}</div>
+              <input className="hl-entry-input" value={tpPrice} onChange={(e) => setTpPrice(e.target.value)} placeholder={t('trading.order.optional')} inputMode="decimal" />
             </div>
             <div>
-              <div className="hl-entry-label">Stop Loss</div>
-              <input className="hl-entry-input" value={slPrice} onChange={(e) => setSlPrice(e.target.value)} placeholder="Optional" inputMode="decimal" />
+              <div className="hl-entry-label">{t('trading.order.stopLoss')}</div>
+              <input className="hl-entry-input" value={slPrice} onChange={(e) => setSlPrice(e.target.value)} placeholder={t('trading.order.optional')} inputMode="decimal" />
             </div>
           </>
         ) : null}
@@ -460,7 +462,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
         {mode === 'twap' ? (
           <>
             <div>
-              <div className="hl-entry-label">Duration (minutes, min 5)</div>
+              <div className="hl-entry-label">{t('trading.order.duration')}</div>
               <input
                 className="hl-entry-input"
                 value={twapMinutes}
@@ -474,15 +476,23 @@ const ProTradeOrderPanel: React.FC<Props> = ({
                 checked={twapRandomize}
                 onChange={(e) => setTwapRandomize(e.target.checked)}
               />
-              Randomize slice timing
+              {t('trading.order.randomize')}
             </label>
-            <p className="hl-entry-hint">Runs on Hyperliquid servers — survives tab close.</p>
+            <p className="hl-entry-hint">{t('trading.order.twapHint')}</p>
             {serverTwapActive ? (
               <div className="hl-entry-preview">
-                <div>Server TWAP #{serverTwapActive.twapId} running</div>
+                <div>{t('trading.order.serverTwapRunning', { id: serverTwapActive.twapId })}</div>
                 <div>
-                  Filled {serverTwapActive.executedSz} / {serverTwapActive.sz}
-                  {twapFilledPct != null ? ` (${twapFilledPct.toFixed(0)}%)` : ''}
+                  {twapFilledPct != null
+                    ? t('trading.order.filled', {
+                        executed: serverTwapActive.executedSz,
+                        total: serverTwapActive.sz,
+                        pct: twapFilledPct.toFixed(0),
+                      })
+                    : t('trading.order.filledSimple', {
+                        executed: serverTwapActive.executedSz,
+                        total: serverTwapActive.sz,
+                      })}
                 </div>
               </div>
             ) : null}
@@ -492,9 +502,9 @@ const ProTradeOrderPanel: React.FC<Props> = ({
         <div>
           <div className="hl-entry-label-row">
             <span className="hl-entry-label" style={{ marginBottom: 0 }}>
-              Size{mode === 'scale' || mode === 'twap' ? ' (total)' : ''}
+              {t(mode === 'scale' || mode === 'twap' ? 'trading.order.sizeTotal' : 'trading.order.size')}
             </span>
-            <div className="hl-entry-unit-toggle" role="group" aria-label="Size unit">
+            <div className="hl-entry-unit-toggle" role="group" aria-label={t('trading.order.sizeUnit')}>
               <button
                 type="button"
                 className={`hl-entry-unit-btn ${sizeUnit === 'coin' ? 'hl-entry-unit-btn--on' : ''}`}
@@ -523,16 +533,16 @@ const ProTradeOrderPanel: React.FC<Props> = ({
         {mode === 'basic' && !isSpot ? (
           <label className="hl-entry-check">
             <input type="checkbox" checked={reduceOnly} onChange={(e) => setReduceOnly(e.target.checked)} />
-            Reduce Only
+            {t('trading.order.reduceOnly')}
           </label>
         ) : null}
 
         {orderNotional > 0 ? (
           <div className="hl-entry-preview">
-            <div>Order Value: {fmtUsdSymbol(orderNotional)}</div>
-            {!isSpot ? <div>Margin Required: {fmtUsdSymbol(marginEst)}</div> : null}
+            <div>{t('trading.order.orderValue', { value: fmtUsdSymbol(orderNotional) })}</div>
+            {!isSpot ? <div>{t('trading.order.marginRequired', { value: fmtUsdSymbol(marginEst) })}</div> : null}
             {mode === 'scale' && scaleStart && scaleEnd ? (
-              <div>Start: {scaleStart} — End: {scaleEnd}</div>
+              <div>{t('trading.order.scaleRange', { start: scaleStart, end: scaleEnd })}</div>
             ) : null}
           </div>
         ) : null}
@@ -540,12 +550,12 @@ const ProTradeOrderPanel: React.FC<Props> = ({
         {isRestoring || (isConnected && !isLiveConnected && !walletReady) ? (
           <button type="button" className="hl-entry-submit" disabled>
             <Loader2 size={14} className="animate-spin" style={{ display: 'inline', marginRight: 6 }} />
-            Restoring wallet…
+            {t('trading.order.restoringWallet')}
           </button>
         ) : !isConnected || !walletReady ? (
           <button type="button" className="hl-entry-submit" onClick={() => openMonadierWalletModal(() => open())}>
             <Wallet size={14} style={{ display: 'inline', marginRight: 6 }} />
-            Connect wallet
+            {t('trading.order.connectWallet')}
           </button>
         ) : (
           <button
@@ -567,7 +577,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
               else void onCancelServerTwap?.();
             }}
           >
-            Cancel TWAP
+            {t('trading.order.cancelTwap')}
           </button>
         ) : null}
 
@@ -576,9 +586,9 @@ const ProTradeOrderPanel: React.FC<Props> = ({
       </div>
 
       <div className="hl-entry-foot">
-        <button type="button" className="hl-entry-foot-btn" onClick={onDeposit}>HL Deposit</button>
-        <button type="button" className="hl-entry-foot-btn" onClick={onTransfer}>Perps ⇄ Spot</button>
-        <button type="button" className="hl-entry-foot-btn" onClick={onWithdraw}>HL Withdraw</button>
+        <button type="button" className="hl-entry-foot-btn" onClick={onDeposit}>{t('trading.order.hlDeposit')}</button>
+        <button type="button" className="hl-entry-foot-btn" onClick={onTransfer}>{t('trading.order.perpsSpot')}</button>
+        <button type="button" className="hl-entry-foot-btn" onClick={onWithdraw}>{t('trading.order.hlWithdraw')}</button>
       </div>
 
       {showBuilderModal ? (

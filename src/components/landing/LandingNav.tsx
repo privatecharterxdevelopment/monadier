@@ -1,21 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Logo from '../ui/Logo';
 import MobileMenu from '../ui/MobileMenu';
 import OpenAppLink from '../layout/OpenAppLink';
 import ProfileAvatar from '../profile/ProfileAvatar';
+import LanguageSwitcher from '../i18n/LanguageSwitcher';
 import { useAuth } from '../../contexts/AuthContext';
 import { displayHandle } from '../../lib/username';
 import { goToOpenApp } from '../../lib/appUrls';
-
-const navLinks = [
-  { to: '/how-it-works', label: 'How it works' },
-  { to: '/trading-bot', label: 'Bot' },
-  { to: '/sports-betting', label: 'Betting' },
-  { to: '/technology', label: 'Technology' },
-  { to: '/pricing', label: 'Pricing' },
-  { to: '/about', label: 'About' },
-];
+import { LANDING_NAV_LINKS } from '../../lib/landingNavLinks';
 
 type LandingNavProps = {
   variant?: 'dark' | 'light';
@@ -24,6 +18,7 @@ type LandingNavProps = {
 };
 
 const LandingNavAuth: React.FC<{ light: boolean; gmx: boolean }> = ({ light, gmx }) => {
+  const { t } = useTranslation();
   const { isAuthenticated, profile, user, sessionReady } = useAuth();
   const displayName = displayHandle(profile, user?.email);
   const signedIn = sessionReady && isAuthenticated && user;
@@ -39,7 +34,7 @@ const LandingNavAuth: React.FC<{ light: boolean; gmx: boolean }> = ({ light, gmx
       <button
         type="button"
         className="landing-nav-profile-btn"
-        aria-label={`Open app, ${displayName}`}
+        aria-label={t('common.openAppProfile', { name: displayName })}
         title={displayName}
         onClick={() => goToOpenApp('', false)}
       >
@@ -50,14 +45,17 @@ const LandingNavAuth: React.FC<{ light: boolean; gmx: boolean }> = ({ light, gmx
 
   return (
     <Link to="/login" className={`hidden md:inline-flex px-3 py-1.5 ${signInClass}`}>
-      Sign in
+      {t('common.signIn')}
     </Link>
   );
 };
 
 const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pill' }) => {
+  const { t } = useTranslation();
   const light = variant === 'light';
   const gmx = layout === 'gmx';
+  const langVariant = light ? 'landing-light' : 'landing-dark';
+
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 ${gmx ? 'pt-3 md:pt-5 px-3 sm:px-5 md:px-8' : 'pt-5 md:pt-6 px-4'}`}>
       <nav
@@ -70,7 +68,7 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pi
         <Logo size="sm" theme={light ? 'light' : 'dark'} />
 
         <div className="hidden md:flex items-center gap-7">
-          {navLinks.map((link) => (
+          {LANDING_NAV_LINKS.map((link) => (
             <Link
               key={link.to}
               to={link.to}
@@ -80,18 +78,19 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pi
                   : 'text-zinc-500 hover:text-zinc-100'
               }`}
             >
-              {link.label}
+              {t(link.labelKey)}
             </Link>
           ))}
         </div>
 
         <div className="flex items-center gap-1 md:gap-2">
+          <LanguageSwitcher variant={langVariant} />
           {gmx ? (
             <>
               <LandingNavAuth light={light} gmx />
               <OpenAppLink className="inline-flex landing-gmx-nav-open md:inline-flex">
-                <span className="md:hidden">App</span>
-                <span className="hidden md:inline">Open app</span>
+                <span className="md:hidden">{t('common.app')}</span>
+                <span className="hidden md:inline">{t('common.openApp')}</span>
               </OpenAppLink>
             </>
           ) : (
@@ -105,8 +104,8 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pi
                       : 'bg-white text-[#08080a] hover:bg-zinc-100'
                   }`}
                 >
-                  <span className="md:hidden">App</span>
-                  <span className="hidden md:inline">Open app</span>
+                  <span className="md:hidden">{t('common.app')}</span>
+                  <span className="hidden md:inline">{t('common.openApp')}</span>
                 </span>
               </OpenAppLink>
             </>

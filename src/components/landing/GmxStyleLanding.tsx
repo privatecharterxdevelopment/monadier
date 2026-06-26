@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import LandingNav from './LandingNav';
 import LandingHeroLines from './LandingHeroLines';
 import LandingBotPitchSection from './LandingBotPitchSection';
@@ -15,7 +16,7 @@ import {
   unregisterLandingWheelConsumer,
 } from '../../lib/landingScrollLock';
 
-const LANDING_ROTATE_LINES = [
+const LANDING_ROTATE_LINES_FALLBACK = [
   'on AI autopilot',
   'on Hyperliquid',
   'with automated perps',
@@ -104,6 +105,12 @@ function heroDisclaimerColor(expand: number): string {
 }
 
 const GmxStyleLanding: React.FC = () => {
+  const { t } = useTranslation();
+  const rotateLinesRaw = t('landing.hero.rotateLines', { returnObjects: true });
+  const rotateLines = Array.isArray(rotateLinesRaw)
+    ? (rotateLinesRaw as string[])
+    : [...LANDING_ROTATE_LINES_FALLBACK];
+
   const expandRef = useRef(0);
   const targetExpandRef = useRef(0);
   const smoothRafRef = useRef<number | null>(null);
@@ -317,8 +324,8 @@ const GmxStyleLanding: React.FC = () => {
               <div className="landing-gmx-hero-chrome-spacer" aria-hidden />
               <div className="landing-gmx-hero-chrome-title">
                 <LandingHeroLines
-                  lineDarkTop="Trade from your Wallet"
-                  rotateLines={LANDING_ROTATE_LINES}
+                  lineDarkTop={t('landing.hero.lineDarkTop')}
+                  rotateLines={rotateLines}
                   rotatePosition="two-row"
                 />
               </div>
@@ -326,7 +333,7 @@ const GmxStyleLanding: React.FC = () => {
                 <div
                   className="landing-gmx-hero-fs-cta"
                   role="group"
-                  aria-label="Get started"
+                  aria-label={t('common.getStarted')}
                   aria-hidden={ctaReveal < 0.15}
                 >
                   <button
@@ -335,7 +342,7 @@ const GmxStyleLanding: React.FC = () => {
                     onClick={() => goToOpenApp('', false)}
                     tabIndex={ctaReveal > 0.4 ? 0 : -1}
                   >
-                    Open app
+                    {t('common.openApp')}
                     <ArrowRight size={16} aria-hidden />
                   </button>
                   <button
@@ -344,7 +351,7 @@ const GmxStyleLanding: React.FC = () => {
                     onClick={() => goToOpenApp('?section=bot', false)}
                     tabIndex={ctaReveal > 0.4 ? 0 : -1}
                   >
-                    Start bot
+                    {t('common.startBot')}
                     <ArrowRight size={16} aria-hidden />
                   </button>
                 </div>
@@ -353,13 +360,7 @@ const GmxStyleLanding: React.FC = () => {
                 className="landing-gmx-hero-disclaimer"
                 style={{ color: heroDisclaimerColor(expand) }}
               >
-                Monadier enables AI-automated perpetuals trading from your Hyperliquid account.
-                Your USDC remains on Hyperliquid at all times — we are non-custodial, never hold
-                your private keys, and cannot access your wallet or withdraw funds; we supply the
-                trading technology and automation only. Leveraged crypto trading carries
-                substantial risk of loss; AI and automated systems can misread markets and make
-                mistakes. Past performance does not guarantee future results. Not financial,
-                investment, tax, or legal advice.
+                {t('landing.hero.disclaimer')}
               </p>
             </div>
           </div>

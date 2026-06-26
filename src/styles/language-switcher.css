@@ -1,0 +1,117 @@
+/* Language switcher — landing nav + app header */
+
+.lang-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.lang-switch-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.lang-switch--landing-light .lang-switch-trigger {
+  color: #0a0a0a;
+}
+
+.lang-switch--landing-light .lang-switch-trigger:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #71717a;
+}
+
+.lang-switch--landing-dark .lang-switch-trigger {
+  color: #a1a1aa;
+}
+
+.lang-switch--landing-dark .lang-switch-trigger:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.lang-switch--app .lang-switch-trigger {
+  color: var(--hl-topnav-icon, #a1a1aa);
+}
+
+.lang-switch--app .lang-switch-trigger:hover {
+  background: var(--hl-topnav-icon-hover-bg, rgba(255, 255, 255, 0.08));
+  color: var(--hl-topnav-icon-hover, #fff);
+}
+
+.lang-switch-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 80;
+  min-width: 168px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+.lang-switch--landing-light .lang-switch-menu {
+  background: #fff;
+  border: 1px solid #e4e4e7;
+}
+
+.lang-switch--landing-dark .lang-switch-menu,
+.lang-switch--app .lang-switch-menu {
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.lang-switch-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.lang-switch--landing-light .lang-switch-option {
+  color: #27272a;
+}
+
+.lang-switch--landing-light .lang-switch-option:hover,
+.lang-switch--landing-light .lang-switch-option--active {
+  background: #f4f4f5;
+  color: #0a0a0a;
+}
+
+.lang-switch--landing-dark .lang-switch-option,
+.lang-switch--app .lang-switch-option {
+  color: #d4d4d8;
+}
+
+.lang-switch--landing-dark .lang-switch-option:hover,
+.lang-switch--landing-dark .lang-switch-option--active,
+.lang-switch--app .lang-switch-option:hover,
+.lang-switch--app .lang-switch-option--active {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.lang-switch-check {
+  flex-shrink: 0;
+  opacity: 0.85;
+}

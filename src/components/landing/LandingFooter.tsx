@@ -1,24 +1,20 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import LandingLegalDisclaimers from './LandingLegalDisclaimers';
-
-const footerLinks = [
-  { to: '/terms', label: 'Terms' },
-  { to: '/privacy', label: 'Privacy' },
-  { to: '/support', label: 'Support' },
-  { to: '/about', label: 'About' },
-] as const;
+import { LANDING_FOOTER_LINKS } from '../../lib/landingNavLinks';
 
 const LandingFooter: React.FC = () => {
+  const { t } = useTranslation();
   const year = new Date().getFullYear();
 
   return (
     <footer className="landing-gmx-footer landing-gmx-gutter" role="contentinfo">
       <div className="landing-gmx-shell landing-gmx-footer-inner">
         <nav className="landing-gmx-footer-links" aria-label="Site">
-          {footerLinks.map((link) => (
+          {LANDING_FOOTER_LINKS.map((link) => (
             <Link key={link.to} to={link.to}>
-              {link.label}
+              {t(link.labelKey)}
             </Link>
           ))}
         </nav>
@@ -26,7 +22,7 @@ const LandingFooter: React.FC = () => {
         <LandingLegalDisclaimers />
 
         <p className="landing-gmx-footer-meta">
-          © {year} Monadier · Hyperliquid automated trading · support@monadier.com
+          {t('footer.copyright', { year })}
         </p>
       </div>
     </footer>

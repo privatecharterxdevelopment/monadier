@@ -826,8 +826,24 @@
 @media (min-width: 900px) {
   .landing-gmx-product-carousel-layout {
     grid-template-columns: minmax(260px, 42%) minmax(0, 1fr);
-    gap: 0 20px;
+    grid-template-rows: auto auto;
+    gap: 24px 20px;
     min-height: min(68vh, 560px);
+  }
+
+  .landing-gmx-product-carousel-head {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .landing-gmx-product-carousel-lane {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .landing-gmx-product-carousel-desc {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 }
 
@@ -896,6 +912,19 @@
 .landing-gmx-product-carousel-title-rotate-visible {
   grid-area: 1 / 1;
   white-space: nowrap;
+}
+
+.landing-gmx-product-carousel-desc {
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+  font-size: clamp(13px, 1.2vw, 15px);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  color: var(--lg-text);
+  text-align: left;
+  text-wrap: pretty;
 }
 
 .landing-gmx-product-carousel-lane {

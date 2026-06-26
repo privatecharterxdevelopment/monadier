@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Logo from '../components/ui/Logo';
@@ -11,6 +12,7 @@ import { afterAuthGo, OPEN_APP_PATH } from '../lib/appUrls';
 import { queueAuthToast } from '../lib/authToast';
 
 const LoginPage: React.FC = () => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -41,7 +43,7 @@ const LoginPage: React.FC = () => {
       const { error } = await signInWithGoogle();
       if (error) throw error;
     } catch (error: any) {
-      setError(error.message || 'Failed to sign in with Google');
+      setError(error.message || t('auth.googleSignInFailed'));
     }
   };
 
@@ -66,7 +68,7 @@ const LoginPage: React.FC = () => {
       
       afterAuthGo(redirectTo, navigate);
     } catch (error: any) {
-      setError(error.message || 'Failed to sign in');
+      setError(error.message || t('auth.signInFailed'));
       setIsLoading(false);
     }
   };
@@ -85,7 +87,7 @@ const LoginPage: React.FC = () => {
           transition={{ duration: 0.5 }}
         >
           <div className="auth-card">
-            <h1 className="font-display text-3xl mb-6 text-center text-[#0a0a0a]">Welcome Back</h1>
+            <h1 className="font-display text-3xl mb-6 text-center text-[#0a0a0a]">{t('auth.welcomeBack')}</h1>
 
             {successMessage && (
               <div className="mb-6 p-3 bg-success/10 border border-success/30 rounded-md text-success text-sm">
@@ -101,17 +103,17 @@ const LoginPage: React.FC = () => {
             
             <form onSubmit={handleSubmit}>
               <Input
-                label="Email"
+                label={t('auth.email')}
                 type="email"
                 id="email"
-                placeholder="your@email.com"
+                placeholder={t('auth.emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
               
               <Input
-                label="Password"
+                label={t('auth.password')}
                 type="password"
                 id="password"
                 placeholder="••••••••"
@@ -125,7 +127,7 @@ const LoginPage: React.FC = () => {
                   to="/forgot-password"
                   className="text-sm text-secondary hover:text-accent transition-colors"
                 >
-                  Forgot Password?
+                  {t('auth.forgotPassword')}
                 </Link>
               </div>
               
@@ -135,7 +137,7 @@ const LoginPage: React.FC = () => {
                 fullWidth
                 isLoading={isLoading}
               >
-                Sign In
+                {t('auth.signInButton')}
               </Button>
             </form>
 
@@ -144,7 +146,7 @@ const LoginPage: React.FC = () => {
                 <div className="w-full border-t border-black/[0.08]"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-[#efeff2] text-secondary">or continue with</span>
+                <span className="px-4 bg-[#efeff2] text-secondary">{t('auth.orContinueWith')}</span>
               </div>
             </div>
 
@@ -167,18 +169,18 @@ const LoginPage: React.FC = () => {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              <span className="text-[#0a0a0a] text-sm font-medium">Continue with Google</span>
+              <span className="text-[#0a0a0a] text-sm font-medium">{t('auth.continueGoogle')}</span>
             </button>
 
             <div className="mt-6 text-center text-secondary">
-              <span>Don't have an account? </span>
+              <span>{t('auth.noAccount')}</span>
               <Link to="/register" className="text-accent hover:underline">
-                Apply for access
+                {t('auth.applyAccess')}
               </Link>
             </div>
             <p className="mt-4 text-center text-xs text-secondary">
               <Link to="/your-funds" className="hover:text-accent underline">
-                How your funds are stored
+                {t('auth.fundsLink')}
               </Link>
             </p>
 
@@ -188,7 +190,7 @@ const LoginPage: React.FC = () => {
                 onClick={handleDemoDashboard}
                 className="mt-6 w-full py-2.5 text-sm text-[#71717a] hover:text-[#0a0a0a] border border-[#c5c5cb] rounded-full bg-white/40 hover:bg-white/60 transition-colors"
               >
-                Open demo dashboard (local dev)
+                {t('auth.demoDashboard')}
               </button>
             )}
           </div>

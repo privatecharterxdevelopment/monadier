@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowRight, Globe2, MapPin } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { goToOpenApp } from '../../../lib/appUrls';
 
 type Props = {
@@ -8,9 +9,8 @@ type Props = {
 };
 
 const SportsbetsRegionBlocked: React.FC<Props> = ({ reason, countryLabel }) => {
-  const message =
-    reason ??
-    'Sports betting on Hyperliquid outcome markets is limited to eligible regions.';
+  const { t } = useTranslation();
+  const message = reason ?? t('betting.regionBlocked');
 
   return (
     <div className="hl-sb-region">
@@ -24,14 +24,14 @@ const SportsbetsRegionBlocked: React.FC<Props> = ({ reason, countryLabel }) => {
           <Globe2 size={26} strokeWidth={1.75} />
         </div>
 
-        <p className="hl-sb-region-kicker">Regional access</p>
-        <h2 className="hl-sb-region-title">Betting isn&apos;t available in your region</h2>
+        <p className="hl-sb-region-kicker">{t('betting.region.kicker')}</p>
+        <h2 className="hl-sb-region-title">{t('betting.region.title')}</h2>
         <p className="hl-sb-region-copy">{message}</p>
 
         {countryLabel ? (
           <div className="hl-sb-region-location">
             <MapPin size={14} strokeWidth={2} aria-hidden />
-            <span className="hl-sb-region-location-label">Detected location</span>
+            <span className="hl-sb-region-location-label">{t('betting.region.detectedLocation')}</span>
             <span className="hl-sb-region-location-value">{countryLabel}</span>
           </div>
         ) : null}
@@ -42,15 +42,12 @@ const SportsbetsRegionBlocked: React.FC<Props> = ({ reason, countryLabel }) => {
             className="hl-sb-region-btn hl-sb-region-btn--primary"
             onClick={() => goToOpenApp('', false)}
           >
-            Trade perps instead
+            {t('betting.region.tradePerpsInstead')}
             <ArrowRight size={16} strokeWidth={2} aria-hidden />
           </button>
         </div>
 
-        <p className="hl-sb-region-footnote">
-          Perps trading and the Monadier bot remain available. Outcome markets follow regional
-          compliance rules.
-        </p>
+        <p className="hl-sb-region-footnote">{t('betting.region.footnote')}</p>
       </div>
     </div>
   );

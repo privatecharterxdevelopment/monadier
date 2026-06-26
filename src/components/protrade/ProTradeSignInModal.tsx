@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Loader2, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { signIn, signInWithGoogle } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTermAuthToast } from '../terminal/TermAuthToast';
@@ -21,6 +22,7 @@ const ProTradeSignInModal: React.FC<Props> = ({
   onSwitchToRegister,
   embedded = false,
 }) => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { showToast } = useTermAuthToast();
   const closedForUserRef = useRef(false);
@@ -37,7 +39,7 @@ const ProTradeSignInModal: React.FC<Props> = ({
     }
     if (!user || closedForUserRef.current) return;
     closedForUserRef.current = true;
-    showToast('Signed in successfully', 2800);
+    showToast(t('auth.signInModal.signedInSuccess'), 2800);
     onClose();
   }, [open, user, onClose, showToast]);
 
@@ -50,10 +52,10 @@ const ProTradeSignInModal: React.FC<Props> = ({
     try {
       const { error: signInError } = await signIn(email, password);
       if (signInError) throw signInError;
-      showToast('Signed in successfully', 2800);
+      showToast(t('auth.signInModal.signedInSuccess'), 2800);
       onClose();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to sign in';
+      const msg = err instanceof Error ? err.message : t('auth.signInFailed');
       setError(msg);
     } finally {
       setIsLoading(false);
@@ -67,7 +69,7 @@ const ProTradeSignInModal: React.FC<Props> = ({
       const { error: oauthError } = await signInWithGoogle();
       if (oauthError) throw oauthError;
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to sign in with Google';
+      const msg = err instanceof Error ? err.message : t('auth.googleSignInFailed');
       setError(msg);
       setGoogleLoading(false);
     }
@@ -82,13 +84,13 @@ const ProTradeSignInModal: React.FC<Props> = ({
     >
       <div className="hl-signin-modern-head">
         <div className="hl-signin-modern-head-copy">
-          <p className="hl-signin-modern-kicker">Monadier</p>
+          <p className="hl-signin-modern-kicker">{t('auth.signInModal.kicker')}</p>
           <h2 id="hl-signin-title" className="hl-signin-modern-title">
-            Welcome back
+            {t('auth.signInModal.title')}
           </h2>
           {reason ? <p className="hl-signin-reason">{reason}</p> : null}
         </div>
-        <button type="button" className="hl-modal-close" onClick={onClose} aria-label="Close">
+        <button type="button" className="hl-modal-close" onClick={onClose} aria-label={t('auth.signInModal.close')}>
           <X size={16} />
         </button>
       </div>
@@ -107,30 +109,30 @@ const ProTradeSignInModal: React.FC<Props> = ({
           ) : (
             <GoogleMark size={18} />
           )}
-          Continue with Google
+          {t('auth.signInModal.continueGoogle')}
         </button>
 
         <div className="hl-signin-divider">
-          <span>or sign in with email</span>
+          <span>{t('auth.signInModal.orEmail')}</span>
         </div>
 
         <form className="hl-signin-form" onSubmit={handleSubmit}>
           <label className="term-profile-label" htmlFor="hl-signin-email">
-            Email
+            {t('auth.email')}
           </label>
           <input
             id="hl-signin-email"
             className="term-profile-input hl-signin-input"
             type="email"
             autoComplete="email"
-            placeholder="you@email.com"
+            placeholder={t('auth.emailPlaceholder')}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
 
           <label className="term-profile-label" htmlFor="hl-signin-password">
-            Password
+            {t('auth.password')}
           </label>
           <input
             id="hl-signin-password"
@@ -148,14 +150,14 @@ const ProTradeSignInModal: React.FC<Props> = ({
             className="term-modal-primary hl-signin-submit"
             disabled={isLoading || googleLoading}
           >
-            {isLoading ? <Loader2 size={14} className="animate-spin" /> : 'Sign in'}
+            {isLoading ? <Loader2 size={14} className="animate-spin" /> : t('auth.signInModal.signInButton')}
           </button>
         </form>
 
         <p className="hl-signin-foot">
-          New here?{' '}
+          {t('auth.signInModal.newHere')}{' '}
           <button type="button" className="hl-signin-link-btn" onClick={onSwitchToRegister}>
-            Create account
+            {t('auth.signInModal.createAccount')}
           </button>
         </p>
       </div>

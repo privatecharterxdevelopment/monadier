@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Loader2, SlidersHorizontal } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAppKit } from '@reown/appkit/react';
 import {
   OUTCOME_MIN_NOTIONAL_USD,
@@ -70,6 +71,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   orderAction: orderActionProp,
   onOrderActionChange,
 }) => {
+  const { t } = useTranslation();
   const { open } = useAppKit();
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [actionInternal, setActionInternal] = useState<Action>('buy');
@@ -158,7 +160,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
       openMonadierWalletModal(() => open());
       return;
     }
-    onRequireSignIn?.('Sign in to place bets.');
+    onRequireSignIn?.(t('betting.signInToPlaceBets'));
   };
 
   const handleSubmit = async () => {
@@ -183,7 +185,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
           limitPrice: effectiveMode === 'limit' ? parsedLimit : undefined,
           quote,
         });
-        setLocalMsg('Bet placed');
+        setLocalMsg(t('betting.betPlaced'));
         setAction('buy');
       } else {
         if (size > positionSize) {
@@ -198,7 +200,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
           quote,
           reduceOnly: true,
         });
-        setLocalMsg('Cash out submitted');
+        setLocalMsg(t('betting.cashOutSubmitted'));
         setAction('buy');
       }
       onSuccess?.();
@@ -210,7 +212,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   return (
     <aside className="hl-sb-order">
       {!market ? (
-        <p className="hl-sb-muted hl-sb-order-empty">Pick Yes or No to bet.</p>
+        <p className="hl-sb-muted hl-sb-order-empty">{t('betting.pickYesNo')}</p>
       ) : (
         <>
           <div className="hl-sb-order-head">
@@ -218,7 +220,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
               <button
                 type="button"
                 className={`hl-sb-order-pick-settings ${advancedOpen ? 'hl-sb-order-pick-settings--on' : ''}`}
-                aria-label="Order settings"
+                aria-label={t('betting.orderSettings')}
                 aria-expanded={advancedOpen}
                 onClick={() => setAdvancedOpen((open) => !open)}
               >
@@ -227,7 +229,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
               <span className="hl-sb-order-pick-event">{pickDisplay?.eventTitle}</span>
               <p className="hl-sb-order-pick-line">
                 <span className="hl-sb-order-pick-side">{pickDisplay?.sideLabel}</span>
-                <span className="hl-sb-order-pick-on"> on </span>
+                <span className="hl-sb-order-pick-on">{t('betting.on')}</span>
                 <span className="hl-sb-order-pick-leg">{pickDisplay?.legName}</span>
               </p>
               {pickDisplay?.expiry ? (
@@ -237,40 +239,40 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
           </div>
 
           {canSell ? (
-            <div className="hl-sb-order-tabs hl-sb-order-tabs--primary" role="group" aria-label="Bet or cash out">
+            <div className="hl-sb-order-tabs hl-sb-order-tabs--primary" role="group" aria-label={t('betting.betOrCashOut')}>
               <button
                 type="button"
                 className={action === 'buy' ? 'hl-sb-order-tab hl-sb-order-tab--on' : 'hl-sb-order-tab'}
                 onClick={() => setAction('buy')}
               >
-                Bet
+                {t('betting.bet')}
               </button>
               <button
                 type="button"
                 className={action === 'sell' ? 'hl-sb-order-tab hl-sb-order-tab--on hl-sb-order-tab--sell' : 'hl-sb-order-tab'}
                 onClick={() => setAction('sell')}
               >
-                Cash out
+                {t('betting.cashOut')}
               </button>
             </div>
           ) : null}
 
           {advancedOpen ? (
             <div className="hl-sb-order-settings">
-              <div className="hl-sb-order-controls hl-sb-order-controls--compact" role="group" aria-label="Order settings">
+              <div className="hl-sb-order-controls hl-sb-order-controls--compact" role="group" aria-label={t('betting.orderSettings')}>
                 <button
                   type="button"
                   className={mode === 'market' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
                   onClick={() => setMode('market')}
                 >
-                  Market
+                  {t('trading.order.market')}
                 </button>
                 <button
                   type="button"
                   className={mode === 'limit' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
                   onClick={() => setMode('limit')}
                 >
-                  Limit
+                  {t('trading.order.limit')}
                 </button>
                 <button
                   type="button"
@@ -284,13 +286,13 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
                   className={stakeMode === 'contracts' ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
                   onClick={() => setStakeMode('contracts')}
                 >
-                  Contracts
+                  {t('betting.contracts')}
                 </button>
               </div>
 
               {mode === 'limit' ? (
                 <label className="hl-sb-field hl-sb-field--compact">
-                  <span>Limit price</span>
+                  <span>{t('betting.limitPrice')}</span>
                   <input
                     type="number"
                     min={0.001}
@@ -308,10 +310,10 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
           <label className="hl-sb-field hl-sb-field--stake">
             <span>
               {isCashOut
-                ? 'Contracts to sell'
+                ? t('betting.contractsToSell')
                 : effectiveStakeMode === 'contracts'
-                  ? 'Contracts'
-                  : 'Amount (USD)'}
+                  ? t('betting.contracts')
+                  : t('betting.amountUsd')}
             </span>
             <input
               type="number"
@@ -330,7 +332,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
           </label>
 
           {effectiveStakeMode === 'usd' && !isCashOut ? (
-            <div className="hl-sb-quick-stakes" role="group" aria-label="Quick stake amounts">
+            <div className="hl-sb-quick-stakes" role="group" aria-label={t('betting.quickStakes')}>
               {QUICK_STAKES_USD.map((amt) => (
                 <button
                   key={amt}
@@ -357,7 +359,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
           <div className="hl-sb-order-context">
             <div className="hl-sb-order-context-stats">
               <div className="hl-sb-order-context-stat">
-                <span className="hl-sb-order-context-label">Odds</span>
+                <span className="hl-sb-order-context-label">{t('betting.odds')}</span>
                 <strong>
                   {quoteLoading || referencePx <= 0
                     ? '—'
@@ -365,12 +367,12 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
                 </strong>
               </div>
               <div className="hl-sb-order-context-stat">
-                <span className="hl-sb-order-context-label">Min</span>
+                <span className="hl-sb-order-context-label">{t('betting.min')}</span>
                 <strong>{fmtUsdSymbol(OUTCOME_MIN_NOTIONAL_USD)}</strong>
               </div>
               {canBet && isCashOut ? (
                 <div className="hl-sb-order-context-stat">
-                  <span className="hl-sb-order-context-label">Position</span>
+                  <span className="hl-sb-order-context-label">{t('betting.position')}</span>
                   <strong>{Math.floor(positionSize)}</strong>
                 </div>
               ) : null}
@@ -388,7 +390,10 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
 
             {builderFee.enabled && canBet ? (
               <p className="hl-sb-order-context-fee">
-                Platform fee: {builderFee.buyFeeLabel} on bets · {builderFee.cashoutFeeLabel} on cash out
+                {t('betting.platformFee', {
+                  buyFee: builderFee.buyFeeLabel,
+                  cashoutFee: builderFee.cashoutFeeLabel,
+                })}
               </p>
             ) : null}
           </div>
@@ -421,13 +426,13 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
             {trading.busy ? <Loader2 size={16} className="hl-spin" aria-hidden /> : null}
             {!canBet
               ? signedIn
-                ? 'Connect wallet'
-                : 'Sign in'
+                ? t('trading.order.connectWallet')
+                : t('common.signIn')
               : showDepositCta
-                ? 'Deposit now'
+                ? t('betting.depositNow')
                 : isCashOut
-                  ? `Cash out ${sideLabel}`
-                  : `Bet ${sideLabel}`}
+                  ? t('betting.cashOutSide', { side: sideLabel })
+                  : t('betting.betSide', { side: sideLabel })}
           </button>
         </>
       )}

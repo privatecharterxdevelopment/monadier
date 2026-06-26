@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { fmtClosedPnl, fmtUsdSymbol, fmtTimeMs } from '../../../lib/hyperliquid/format';
 import { parseOutcomeOrderCoin } from '../../../lib/hyperliquid/outcomes/encoding';
 import type { HlOpenOrder, HlUserFill } from '../../../lib/hyperliquid/user';
@@ -19,11 +20,7 @@ type Props = {
   onCashOutPosition?: (position: HlOutcomePosition) => void;
 };
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'positions', label: 'My bets' },
-  { id: 'orders', label: 'Pending' },
-  { id: 'history', label: 'History' },
-];
+const TAB_IDS: TabId[] = ['positions', 'orders', 'history'];
 
 const SportsbetsBetSlip: React.FC<Props> = ({
   positions,
@@ -37,6 +34,7 @@ const SportsbetsBetSlip: React.FC<Props> = ({
   cancelBusy,
   onCashOutPosition,
 }) => {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<TabId>('positions');
   const recentFills = fills.slice(0, 8);
 
@@ -49,21 +47,21 @@ const SportsbetsBetSlip: React.FC<Props> = ({
   const needsAuth = !signedIn || !walletConnected;
 
   return (
-    <aside className="hl-sb-slip" aria-label="Bet slip">
+    <aside className="hl-sb-slip" aria-label={t('betting.slip.ariaLabel')}>
       <div className="hl-sb-slip-head">
         <div className="hl-sb-slip-tabs" role="tablist">
-          {TABS.map((t) => (
+          {TAB_IDS.map((id) => (
             <button
-              key={t.id}
+              key={id}
               type="button"
               role="tab"
-              aria-selected={tab === t.id}
-              className={`hl-sb-slip-tab ${tab === t.id ? 'hl-sb-slip-tab--on' : ''}`}
-              onClick={() => setTab(t.id)}
+              aria-selected={tab === id}
+              className={`hl-sb-slip-tab ${tab === id ? 'hl-sb-slip-tab--on' : ''}`}
+              onClick={() => setTab(id)}
             >
-              {t.label}
-              {counts[t.id] > 0 ? (
-                <span className="hl-sb-slip-count">{counts[t.id]}</span>
+              {t(`betting.slip.${id === 'positions' ? 'myBets' : id}`)}
+              {counts[id] > 0 ? (
+                <span className="hl-sb-slip-count">{counts[id]}</span>
               ) : null}
             </button>
           ))}
@@ -74,21 +72,21 @@ const SportsbetsBetSlip: React.FC<Props> = ({
         {tab === 'positions' ? (
           needsAuth ? (
             <p className="hl-sb-slip-empty">
-              {signedIn ? 'Connect wallet to see your bets.' : 'Sign in to track bets and history.'}
+              {signedIn ? t('betting.slip.connectToSeeBets') : t('betting.slip.signInToTrack')}
               {!signedIn && onRequireSignIn ? (
                 <button
                   type="button"
                   className="hl-sb-slip-auth-btn"
-                  onClick={() => onRequireSignIn('Sign in to track your bets.')}
+                  onClick={() => onRequireSignIn(t('betting.slip.signInToTrackReason'))}
                 >
-                  Sign in
+                  {t('common.signIn')}
                 </button>
               ) : null}
             </p>
           ) : loading && positions.length === 0 ? (
-            <p className="hl-sb-slip-empty">Loading your bets…</p>
+            <p className="hl-sb-slip-empty">{t('betting.slip.loadingBets')}</p>
           ) : positions.length === 0 ? (
-            <p className="hl-sb-slip-empty">No open positions. Pick Yes or No on a market to bet.</p>
+            <p className="hl-sb-slip-empty">{t('betting.slip.noPositions')}</p>
           ) : (
             <ul className="hl-sb-slip-list">
               {positions.map((p) => (
@@ -109,7 +107,7 @@ const SportsbetsBetSlip: React.FC<Props> = ({
                         className="hl-sb-slip-cashout-btn"
                         onClick={() => onCashOutPosition(p)}
                       >
-                        Cash out
+                        {t('betting.slip.cashOutBtn')}
                       </button>
                     ) : null}
                   </div>
@@ -121,9 +119,9 @@ const SportsbetsBetSlip: React.FC<Props> = ({
 
         {tab === 'orders' ? (
           needsAuth ? (
-            <p className="hl-sb-slip-empty">Sign in and connect wallet to manage pending orders.</p>
+            <p className="hl-sb-slip-empty">{t('betting.slip.signInPending')}</p>
           ) : openOrders.length === 0 ? (
-            <p className="hl-sb-slip-empty">No pending limit orders.</p>
+            <p className="hl-sb-slip-empty">{t('betting.slip.noPending')}</p>
           ) : (
             <ul className="hl-sb-slip-list">
               {openOrders.map((o) => {
@@ -144,7 +142,7 @@ const SportsbetsBetSlip: React.FC<Props> = ({
                           disabled={cancelBusy}
                           onClick={() => onCancelOrder(parsed.outcomeId, parsed.side, o.oid)}
                         >
-                          Cancel
+                          {t('betting.slip.cancel')}
                         </button>
                       ) : null}
                     </div>
@@ -157,9 +155,9 @@ const SportsbetsBetSlip: React.FC<Props> = ({
 
         {tab === 'history' ? (
           needsAuth ? (
-            <p className="hl-sb-slip-empty">Sign in to view your betting history.</p>
+            <p className="hl-sb-slip-empty">{t('betting.slip.signInHistory')}</p>
           ) : recentFills.length === 0 ? (
-            <p className="hl-sb-slip-empty">No recent fills yet.</p>
+            <p className="hl-sb-slip-empty">{t('betting.slip.noHistory')}</p>
           ) : (
             <ul className="hl-sb-slip-list">
               {recentFills.map((f) => (

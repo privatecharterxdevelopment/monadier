@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { RefreshCw, Search, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { BETTING_CATEGORY_TABS } from '../../../lib/hyperliquid/outcomes/categories';
 import type { BettingCategoryId } from '../../../lib/hyperliquid/outcomes/categories';
 import { BETTING_MOBILE_MQ, useMediaQuery } from '../../../hooks/useMediaQuery';
@@ -26,6 +27,7 @@ const SportsbetsHero: React.FC<Props> = ({
   searchQuery,
   onSearchChange,
 }) => {
+  const { t } = useTranslation();
   const isMobile = useMediaQuery(BETTING_MOBILE_MQ);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -63,9 +65,9 @@ const SportsbetsHero: React.FC<Props> = ({
       <div className="hl-sb-head-inner">
         <div className="hl-sb-head-main">
           <div className="hl-sb-head-copy">
-            <p className="hl-sb-head-kicker">Hyperliquid · HIP-4</p>
-            <h1 className="hl-sb-head-title">Betting</h1>
-            <p className="hl-sb-head-sub">World Cup, crypto &amp; macro markets</p>
+            <p className="hl-sb-head-kicker">{t('betting.hero.kicker')}</p>
+            <h1 className="hl-sb-head-title">{t('betting.hero.title')}</h1>
+            <p className="hl-sb-head-sub">{t('betting.hero.sub')}</p>
           </div>
         </div>
 
@@ -85,7 +87,7 @@ const SportsbetsHero: React.FC<Props> = ({
               <button
                 type="button"
                 className="hl-sb-search-toggle"
-                aria-label="Search markets"
+                aria-label={t('betting.searchMarkets')}
                 onClick={() => setSearchOpen(true)}
               >
                 <Search size={15} aria-hidden />
@@ -103,16 +105,16 @@ const SportsbetsHero: React.FC<Props> = ({
                   ref={searchInputRef}
                   type="search"
                   className="hl-sb-search"
-                  placeholder="Search markets…"
+                  placeholder={t('betting.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => onSearchChange(e.target.value)}
-                  aria-label="Search betting markets"
+                  aria-label={t('betting.searchAria')}
                 />
                 {searchQuery || isMobile ? (
                   <button
                     type="button"
                     className="hl-sb-search-clear"
-                    aria-label="Clear search"
+                    aria-label={t('betting.clearSearch')}
                     onClick={() => (isMobile && !searchQuery ? closeSearch() : onSearchChange(''))}
                   >
                     <X size={12} aria-hidden />
@@ -127,10 +129,10 @@ const SportsbetsHero: React.FC<Props> = ({
                 className="hl-sb-head-refresh-pill"
                 onClick={onRefresh}
                 disabled={refreshDisabled}
-                aria-label={syncing ? 'Syncing markets' : 'Refresh markets'}
+                aria-label={syncing ? t('betting.syncingAria') : t('betting.refreshAria')}
               >
                 <RefreshCw size={13} className={syncing ? 'hl-spin' : undefined} aria-hidden />
-                <span>{syncing ? 'Syncing' : 'Refresh'}</span>
+                <span>{syncing ? t('betting.syncing') : t('betting.refresh')}</span>
               </button>
             ) : null}
           </div>

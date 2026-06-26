@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { OUTCOME_BOOK_POLL_MS } from '../../../lib/hyperliquid/outcomes/constants';
 import { fetchOutcomeLegQuotesFromMids, type OutcomeLegQuote } from '../../../lib/hyperliquid/outcomes';
 import { countByCategory, filterBettingQuestions } from '../../../lib/hyperliquid/outcomes/categories';
@@ -32,6 +33,7 @@ const SportsbetsTerminal: React.FC<Props> = ({
   userId,
   onRequireSignIn,
 }) => {
+  const { t } = useTranslation();
   const { registerActions, openOrderSheet, closeOrderSheet, orderSheetOpen } = useBettingUi();
   const isMobileBetting = useMediaQuery(BETTING_MOBILE_MQ);
   const session = useSportsbetsSession(walletAddress, true, userId);
@@ -324,7 +326,7 @@ const SportsbetsTerminal: React.FC<Props> = ({
         <SportsbetsMobileOrderSheet
           open={orderSheetOpen && session.selectedOutcomeId != null}
           onClose={closeOrderSheet}
-          title={selectedMarket ? 'Place bet' : 'Bet slip'}
+          title={selectedMarket ? t('betting.placeBet') : t('betting.betSlip')}
         >
           {orderPanel}
         </SportsbetsMobileOrderSheet>

@@ -10,6 +10,7 @@ import {
   User,
   Wallet,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { signOut } from '../../lib/supabase';
 import { getMarketingUrl, LANDING_PATH } from '../../lib/appUrls';
@@ -31,6 +32,7 @@ const ProTradeAccountMenu: React.FC<Props> = ({
   onOpenAffiliate,
   onRequireSignIn,
 }) => {
+  const { t } = useTranslation();
   const { profile, user } = useAuth();
   const { signOutWithToast } = useTermAuthToast();
   const [open, setOpen] = useState(false);
@@ -64,19 +66,19 @@ const ProTradeAccountMenu: React.FC<Props> = ({
 
   const goProfile = (tab: ProTradeProfileTab = 'identity') => {
     setOpen(false);
-    if (!requireUser('Sign in to open profile and bot settings.')) return;
+    if (!requireUser(t('auth.signInToProfile'))) return;
     onOpenProfile?.(tab);
   };
 
   const openAffiliate = () => {
     setOpen(false);
-    if (!requireUser('Sign in to view your affiliate dashboard.')) return;
+    if (!requireUser(t('auth.signInToAffiliate'))) return;
     onOpenAffiliate?.();
   };
 
   const openSupport = () => {
     setOpen(false);
-    if (!requireUser('Sign in to contact support.')) return;
+    if (!requireUser(t('auth.signInToSupport'))) return;
     onOpenSupport?.();
   };
 
@@ -97,7 +99,7 @@ const ProTradeAccountMenu: React.FC<Props> = ({
       <button
         type="button"
         className={`hl-topnav-icon-btn hl-account-menu-trigger ${user ? 'hl-account-menu-trigger--signed-in' : ''}`}
-        aria-label={user ? `Account menu, ${displayName}` : 'Sign in or register'}
+        aria-label={user ? `${t('app.account.accountMenu')}, ${displayName}` : t('auth.signInOrRegister')}
         aria-expanded={user ? open : undefined}
         onClick={handleTriggerClick}
       >
@@ -113,13 +115,13 @@ const ProTradeAccountMenu: React.FC<Props> = ({
           <button
             type="button"
             className="hl-account-sheet-backdrop"
-            aria-label="Close account menu"
+            aria-label={t('app.account.closeAccountMenu')}
             onClick={() => setOpen(false)}
           />
-          <div className="hl-account-panel hl-account-panel--guest" role="menu" aria-label="Guest account menu">
+          <div className="hl-account-panel hl-account-panel--guest" role="menu" aria-label={t('app.account.guestAccountMenu')}>
             <div className="hl-account-guest-head">
-              <strong>Your Monadier account</strong>
-              <p>Sign in to save bot settings, profile, and trade history.</p>
+              <strong>{t('app.account.title')}</strong>
+              <p>{t('app.account.guestDesc')}</p>
             </div>
             <button
               type="button"
@@ -127,10 +129,10 @@ const ProTradeAccountMenu: React.FC<Props> = ({
               role="menuitem"
               onClick={() => {
                 setOpen(false);
-                onRequireSignIn?.('Sign in to your Monadier account.');
+                onRequireSignIn?.(t('auth.signInToAccount'));
               }}
             >
-              Sign in
+              {t('common.signIn')}
             </button>
             <a
               href="/register"
@@ -138,20 +140,20 @@ const ProTradeAccountMenu: React.FC<Props> = ({
               role="menuitem"
               onClick={() => setOpen(false)}
             >
-              Create account
+              {t('common.createAccount')}
             </a>
           </div>
         </>
       ) : null}
 
       {user && open ? (
-        <div className="hl-account-panel" role="menu" aria-label="Account menu">
+        <div className="hl-account-panel" role="menu" aria-label={t('app.account.accountMenu')}>
           <div className="hl-account-panel-head">
             <ProfileAvatar profile={profile} userId={user.id} size="sm" />
             <div className="hl-account-panel-meta">
               <strong>{displayName}</strong>
               {username ? <span>@{username}</span> : null}
-              <span className="hl-account-panel-email">{email || 'Profile & bot settings'}</span>
+              <span className="hl-account-panel-email">{email || t('app.account.profileSettingsFallback')}</span>
             </div>
           </div>
 
@@ -162,7 +164,7 @@ const ProTradeAccountMenu: React.FC<Props> = ({
             onClick={() => goProfile('identity')}
           >
             <Settings size={14} aria-hidden />
-            Profile &amp; settings
+            {t('app.account.profileSettings')}
           </button>
           <button
             type="button"
@@ -171,7 +173,7 @@ const ProTradeAccountMenu: React.FC<Props> = ({
             onClick={openAffiliate}
           >
             <Gift size={14} aria-hidden />
-            Affiliate program
+            {t('app.account.affiliateProgram')}
           </button>
           <button
             type="button"
@@ -180,7 +182,7 @@ const ProTradeAccountMenu: React.FC<Props> = ({
             onClick={() => goProfile('security')}
           >
             <Shield size={14} aria-hidden />
-            Security &amp; password
+            {t('app.account.securityPassword')}
           </button>
           <button
             type="button"
@@ -189,7 +191,7 @@ const ProTradeAccountMenu: React.FC<Props> = ({
             onClick={() => goProfile('wallets')}
           >
             <Wallet size={14} aria-hidden />
-            Linked wallets
+            {t('app.account.linkedWallets')}
           </button>
           <button
             type="button"
@@ -198,7 +200,7 @@ const ProTradeAccountMenu: React.FC<Props> = ({
             onClick={() => goProfile('history')}
           >
             <Clock size={14} aria-hidden />
-            Login history
+            {t('app.account.loginHistory')}
           </button>
           <button
             type="button"
@@ -207,11 +209,11 @@ const ProTradeAccountMenu: React.FC<Props> = ({
             onClick={() => goProfile('botTrades')}
           >
             <History size={14} aria-hidden />
-            Bot trade history
+            {t('app.account.botTradeHistory')}
           </button>
           <button type="button" className="hl-account-item" role="menuitem" onClick={openSupport}>
             <HelpCircle size={14} aria-hidden />
-            Support
+            {t('common.support')}
           </button>
 
           <button
@@ -221,7 +223,7 @@ const ProTradeAccountMenu: React.FC<Props> = ({
             onClick={handleSignOut}
           >
             <LogOut size={14} aria-hidden />
-            Sign out
+            {t('common.signOut')}
           </button>
         </div>
       ) : null}

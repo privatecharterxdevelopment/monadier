@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Gift, Loader2, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
   signUp,
   signInWithGoogle,
@@ -30,6 +31,7 @@ const ProTradeRegisterModal: React.FC<Props> = ({
   onSwitchToSignIn,
   embedded = false,
 }) => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const closedForUserRef = useRef(false);
   const { showToast } = useTermAuthToast();
@@ -59,7 +61,7 @@ const ProTradeRegisterModal: React.FC<Props> = ({
     }
     if (!user || closedForUserRef.current) return;
     closedForUserRef.current = true;
-    showToast('Signed in successfully', 2800);
+    showToast(t('auth.signInModal.signedInSuccess'), 2800);
     onClose();
   }, [open, user, onClose, showToast]);
 
@@ -71,7 +73,7 @@ const ProTradeRegisterModal: React.FC<Props> = ({
       const { error: oauthError } = await signInWithGoogle();
       if (oauthError) throw oauthError;
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to sign in with Google';
+      const msg = err instanceof Error ? err.message : t('auth.googleSignInFailed');
       setError(msg);
     }
   };
@@ -81,7 +83,7 @@ const ProTradeRegisterModal: React.FC<Props> = ({
     setError('');
 
     if (!acceptedTerms) {
-      setError('You must accept the terms and conditions to continue');
+      setError(t('auth.register.acceptTermsRequired'));
       return;
     }
 
@@ -95,7 +97,7 @@ const ProTradeRegisterModal: React.FC<Props> = ({
 
       const available = await isUsernameAvailable(username);
       if (!available) {
-        setError('That username is already taken');
+        setError(t('auth.register.usernameTaken'));
         return;
       }
 
@@ -120,8 +122,8 @@ const ProTradeRegisterModal: React.FC<Props> = ({
           if (result.success) {
             addNotification({
               type: 'info',
-              title: 'Referral linked',
-              message: 'Your referrer earns 2% when you close profitable bot trades.',
+              title: t('auth.register.referralNotificationTitle'),
+              message: t('auth.register.referralNotificationMessage'),
             });
           }
         } catch (refError) {
@@ -130,13 +132,13 @@ const ProTradeRegisterModal: React.FC<Props> = ({
       }
 
       if (data?.session) {
-        showToast('Account created — welcome!', 3000);
+        showToast(t('auth.register.accountCreatedWelcome'), 3000);
         onClose();
       } else {
         setAwaitingEmailConfirm(true);
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to create account';
+      const msg = err instanceof Error ? err.message : t('auth.register.createFailedShort');
       setError(msg);
     } finally {
       setIsLoading(false);
@@ -150,31 +152,31 @@ const ProTradeRegisterModal: React.FC<Props> = ({
         aria-labelledby="hl-register-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <button type="button" className="hl-auth-modal-close" onClick={onClose} aria-label="Close">
+        <button type="button" className="hl-auth-modal-close" onClick={onClose} aria-label={t('auth.signInModal.close')}>
           <X size={16} />
         </button>
 
         <div className="hl-auth-modal-split">
           <div className="hl-auth-modal-form">
             <h2 id="hl-register-title" className="hl-auth-modal-title">
-              Register
+              {t('auth.register.modalTitle')}
             </h2>
             <p className="hl-auth-modal-sub">
-              Create your Monadier account for bot trading and Pro Trade.
+              {t('auth.register.modalSub')}
             </p>
 
             {awaitingEmailConfirm ? (
               <div className="hl-auth-confirm">
-                <p className="hl-auth-confirm-title">Check your email</p>
+                <p className="hl-auth-confirm-title">{t('auth.register.checkEmail')}</p>
                 <p className="hl-auth-confirm-text">
-                  We sent a confirmation link to <strong>{email}</strong>. Click it, then sign in.
+                  {t('auth.register.checkEmailDesc', { email })}
                 </p>
                 <button
                   type="button"
                   className="term-modal-primary hl-signin-submit"
                   onClick={() => onSwitchToSignIn?.()}
                 >
-                  Go to sign in
+                  {t('auth.register.goToSignIn')}
                 </button>
               </div>
             ) : (
@@ -182,7 +184,7 @@ const ProTradeRegisterModal: React.FC<Props> = ({
                 {referralCode ? (
                   <div className="hl-auth-referral">
                     <Gift size={14} aria-hidden />
-                    <span>Referral code applied — referrer earns 2% on your profitable bot trades</span>
+                    <span>{t('auth.register.referralApplied')}</span>
                   </div>
                 ) : null}
 
@@ -191,19 +193,19 @@ const ProTradeRegisterModal: React.FC<Props> = ({
                 <form className="hl-register-form" onSubmit={handleSubmit}>
                   <div className="hl-register-grid">
                     <label className="term-profile-label" htmlFor="hl-reg-name">
-                      Full name
+                      {t('auth.register.fullNameLabel')}
                     </label>
                     <input
                       id="hl-reg-name"
                       className="term-profile-input"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      placeholder="John Smith"
+                      placeholder={t('auth.register.fullNamePlaceholder')}
                       required
                     />
 
                     <label className="term-profile-label" htmlFor="hl-reg-username">
-                      Username
+                      {t('auth.register.username')}
                     </label>
                     <input
                       id="hl-reg-username"
@@ -212,17 +214,17 @@ const ProTradeRegisterModal: React.FC<Props> = ({
                       onChange={(e) =>
                         setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))
                       }
-                      placeholder="trader_jane"
+                      placeholder={t('auth.register.usernamePlaceholder')}
                       minLength={3}
                       maxLength={20}
                       required
                     />
                     <p className="hl-register-hint hl-register-span-2">
-                      3–20 chars, lowercase, numbers, underscore. Cannot be changed later.
+                      {t('auth.register.usernameHint')}
                     </p>
 
                     <label className="term-profile-label" htmlFor="hl-reg-email">
-                      Email
+                      {t('auth.email')}
                     </label>
                     <input
                       id="hl-reg-email"
@@ -231,12 +233,12 @@ const ProTradeRegisterModal: React.FC<Props> = ({
                       autoComplete="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="your@email.com"
+                      placeholder={t('auth.emailPlaceholder')}
                       required
                     />
 
                     <label className="term-profile-label" htmlFor="hl-reg-password">
-                      Password
+                      {t('auth.password')}
                     </label>
                     <input
                       id="hl-reg-password"
@@ -251,14 +253,14 @@ const ProTradeRegisterModal: React.FC<Props> = ({
                     />
 
                     <label className="term-profile-label hl-register-span-2" htmlFor="hl-reg-country">
-                      Country
+                      {t('auth.register.country')}
                     </label>
                     <input
                       id="hl-reg-country"
                       className="term-profile-input hl-register-span-2"
                       value={country}
                       onChange={(e) => setCountry(e.target.value)}
-                      placeholder="Switzerland"
+                      placeholder={t('auth.register.countryPlaceholder')}
                       required
                     />
 
@@ -270,13 +272,13 @@ const ProTradeRegisterModal: React.FC<Props> = ({
                         required
                       />
                       <span>
-                        I accept the{' '}
+                        {t('auth.register.acceptTerms')}{' '}
                         <Link to="/terms" target="_blank" rel="noopener noreferrer">
-                          Terms
+                          {t('auth.register.terms')}
                         </Link>{' '}
-                        and{' '}
+                        {t('auth.register.and')}{' '}
                         <Link to="/privacy" target="_blank" rel="noopener noreferrer">
-                          Privacy Policy
+                          {t('auth.register.privacy')}
                         </Link>
                       </span>
                     </label>
@@ -286,23 +288,23 @@ const ProTradeRegisterModal: React.FC<Props> = ({
                       className="term-modal-primary hl-signin-submit hl-register-span-2"
                       disabled={isLoading}
                     >
-                      {isLoading ? <Loader2 size={14} className="animate-spin" /> : 'Create account'}
+                      {isLoading ? <Loader2 size={14} className="animate-spin" /> : t('auth.register.createAccount')}
                     </button>
                   </div>
                 </form>
 
                 <div className="hl-signin-divider">
-                  <span>or</span>
+                  <span>{t('auth.register.orDivider')}</span>
                 </div>
 
                 <button type="button" className="hl-signin-google" onClick={handleGoogle}>
-                  Continue with Google
+                  {t('auth.continueGoogle')}
                 </button>
 
                 <p className="hl-signin-foot">
-                  Already have an account?{' '}
+                  {t('auth.register.alreadyHaveAccount')}{' '}
                   <button type="button" className="hl-signin-link-btn" onClick={onSwitchToSignIn}>
-                    Sign in
+                    {t('common.signIn')}
                   </button>
                 </p>
               </>
@@ -316,10 +318,10 @@ const ProTradeRegisterModal: React.FC<Props> = ({
               className="hl-auth-modal-visual-img"
             />
             <div className="hl-auth-modal-visual-overlay">
-              <p className="hl-auth-visual-kicker">Monadier Pro Trade</p>
-              <h3 className="hl-auth-visual-title">Monadier bot + trading terminal</h3>
+              <p className="hl-auth-visual-kicker">{t('auth.register.visualKicker')}</p>
+              <h3 className="hl-auth-visual-title">{t('auth.register.visualTitle')}</h3>
               <p className="hl-auth-visual-copy">
-                Perps, spot, portfolio, and Monadier bot — one trading workspace.
+                {t('auth.register.visualCopy')}
               </p>
             </div>
           </aside>

@@ -1,51 +1,20 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { goToOpenApp } from '../../lib/appUrls';
 import { useLandingScrollSequence } from './useLandingScrollSequence';
 
-const PRODUCT_CARDS = [
-  {
-    id: 'bot',
-    title: 'Full auto bot trading',
-    desc: 'AI scans 200+ HL perps — opens, trails profit, and cuts losers 24/7.',
-    image: '/images/landing/moadier-full-auto-bot-trading.jpeg',
-    cta: 'Start bot',
-    section: '?section=bot',
-    hideCopy: true,
-  },
-  {
-    id: 'perps',
-    title: 'Pro perps trading',
-    desc: 'Live charts, depth, and execution on Hyperliquid.',
-    image: '/images/landing/monadier-pro-pers-trading.jpeg',
-    cta: 'Trade perps',
-    section: '',
-    hideCopy: true,
-  },
-  {
-    id: 'betting',
-    title: 'Sports betting',
-    desc: 'HIP-4 outcome markets — macro, crypto, and live sports on-chain.',
-    image: '/images/landing/FIFA_World_Cup_Trophy_graphic_202606270302.jpeg',
-    cta: 'Open betting',
-    section: '?section=sportsbets',
-    hideCopy: true,
-  },
-  {
-    id: 'predictions',
-    title: 'Prediction market',
-    desc: '',
-    image: '/images/landing/monadier-prediciton-market.jpeg',
-    cta: 'Open markets',
-    section: '?section=sportsbets',
-    hideCopy: true,
-  },
+const PRODUCT_CARD_META = [
+  { id: 'bot', image: '/images/landing/landing-carousel-bot-brain.png', section: '?section=bot', hideCopy: true },
+  { id: 'perps', image: '/images/landing/landing-carousel-perps-candles.png', section: '', hideCopy: true },
+  { id: 'betting', image: '/images/landing/landing-carousel-betting-trophy.png', section: '?section=sportsbets', hideCopy: true },
+  { id: 'predictions', image: '/images/landing/landing-carousel-predictions-question.png', section: '?section=sportsbets', hideCopy: true },
 ] as const;
 
 const CAROUSEL_SCROLL_PX = 720;
-const TITLE_ROTATE_WORDS = ['passively', 'today', 'tomorrow', 'whenever'] as const;
 const TITLE_ROTATE_MS = 3200;
+const ROTATE_FALLBACK = ['passively', 'today', 'tomorrow', 'whenever'] as const;
 
 function measureCarouselTravel(lane: HTMLElement, track: HTMLElement): number {
   const cards = track.querySelectorAll<HTMLElement>('.landing-gmx-product-carousel-card');
@@ -58,19 +27,35 @@ function measureCarouselTravel(lane: HTMLElement, track: HTMLElement): number {
 }
 
 const LandingProductCarouselSection: React.FC = () => {
+  const { t } = useTranslation();
   const laneRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const finalScrollRef = useRef(0);
   const [rotateIndex, setRotateIndex] = useState(0);
-  const rotateWord = TITLE_ROTATE_WORDS[rotateIndex] ?? TITLE_ROTATE_WORDS[0];
-  const longestRotateWord = TITLE_ROTATE_WORDS.reduce((a, b) => (a.length >= b.length ? a : b));
+
+  const rotateWordsRaw = t('landing.carousel.rotateWords', { returnObjects: true });
+  const rotateWords = Array.isArray(rotateWordsRaw)
+    ? (rotateWordsRaw as string[])
+    : [...ROTATE_FALLBACK];
+  const rotateWord = rotateWords[rotateIndex] ?? rotateWords[0] ?? ROTATE_FALLBACK[0];
+  const longestRotateWord = rotateWords.reduce((a, b) => (a.length >= b.length ? a : b), '');
+
+  const productCards = useMemo(
+    () =>
+      PRODUCT_CARD_META.map((card) => ({
+        ...card,
+        title: t(`landing.carousel.cards.${card.id}.title`),
+        cta: t(`landing.carousel.cards.${card.id}.cta`),
+      })),
+    [t]
+  );
 
   useEffect(() => {
     const id = window.setInterval(() => {
-      setRotateIndex((i) => (i + 1) % TITLE_ROTATE_WORDS.length);
+      setRotateIndex((i) => (i + 1) % rotateWords.length);
     }, TITLE_ROTATE_MS);
     return () => window.clearInterval(id);
-  }, []);
+  }, [rotateWords.length]);
 
   const { sectionRef, progress, locked, unlocked } = useLandingScrollSequence({
     lockId: 'carousel',
@@ -154,8 +139,8 @@ const LandingProductCarouselSection: React.FC = () => {
             <div className="landing-gmx-product-carousel-head">
               <h2 id="landing-product-carousel-title" className="landing-gmx-product-carousel-title">
                 <span className="landing-gmx-product-carousel-title-row">
-                  <span className="landing-gmx-product-carousel-emphasis">Start </span>
-                  <span className="landing-gmx-product-carousel-emphasis">earning</span>
+                  <span className="landing-gmx-product-carousel-emphasis">{t('landing.carousel.titleStart')} </span>
+                  <span className="landing-gmx-product-carousel-emphasis">{t('landing.carousel.titleEarn')}</span>
                 </span>
                 <span
                   className="landing-gmx-product-carousel-title-rotate"
@@ -182,7 +167,7 @@ const LandingProductCarouselSection: React.FC = () => {
 
             <div ref={laneRef} className="landing-gmx-product-carousel-lane">
               <div ref={trackRef} className="landing-gmx-product-carousel-track">
-                {PRODUCT_CARDS.map((card) => (
+                {productCards.map((card) => (
                   <article
                     key={card.id}
                     className={`landing-gmx-product-card landing-gmx-product-carousel-card${
@@ -217,6 +202,8 @@ const LandingProductCarouselSection: React.FC = () => {
                 ))}
               </div>
             </div>
+
+            <p className="landing-gmx-product-carousel-desc">{t('landing.carousel.description')}</p>
           </div>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Loader2, Gift, Wallet } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { HlAccountState, HlSpotBalance } from '../../lib/hyperliquid/user';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { readNum, toNum } from '../../lib/hyperliquid/parse';
@@ -41,6 +42,7 @@ const ProTradePortfolio: React.FC<Props> = ({
   onNavigateBetting,
   onNavigateAffiliate,
 }) => {
+  const { t } = useTranslation();
   const betting = useBettingPortfolio({
     walletAddress,
     enabled: connected,
@@ -59,7 +61,7 @@ const ProTradePortfolio: React.FC<Props> = ({
   if (!connected) {
     return (
       <ProTradePageShell className="hl-portfolio-page">
-        <p className="hl-portfolio-empty">Connect wallet to view portfolio.</p>
+        <p className="hl-portfolio-empty">{t('app.portfolio.connectWallet')}</p>
       </ProTradePageShell>
     );
   }
@@ -69,7 +71,7 @@ const ProTradePortfolio: React.FC<Props> = ({
       <ProTradePageShell className="hl-portfolio-page">
         <div className="hl-portfolio-state hl-portfolio-state--inset">
           <Loader2 size={22} className="animate-spin" aria-hidden />
-          <span>Loading portfolio…</span>
+          <span>{t('app.portfolio.loading')}</span>
         </div>
       </ProTradePageShell>
     );
@@ -84,28 +86,28 @@ const ProTradePortfolio: React.FC<Props> = ({
           <Wallet size={20} />
         </div>
         <div>
-          <h1 className="hl-portfolio-hero__title">Portfolio</h1>
+          <h1 className="hl-portfolio-hero__title">{t('app.portfolio.title')}</h1>
           <p className="hl-portfolio-hero__lead">
-            Hyperliquid perps, spot balances, and betting positions in one view.
+            {t('app.portfolio.lead')}
           </p>
         </div>
       </header>
 
       <div className="hl-portfolio-summary">
         <article className="hl-portfolio-card">
-          <span className="hl-portfolio-card-label">Perp account</span>
+          <span className="hl-portfolio-card-label">{t('app.portfolio.perpAccount')}</span>
           <span className="hl-portfolio-card-value">{fmtUsdSymbol(perpValue)}</span>
-          <span className="hl-portfolio-card-sub">Withdrawable {fmtUsdSymbol(withdrawable)}</span>
+          <span className="hl-portfolio-card-sub">{t('app.portfolio.withdrawable', { amount: fmtUsdSymbol(withdrawable) })}</span>
         </article>
         <article className="hl-portfolio-card">
-          <span className="hl-portfolio-card-label">Spot account</span>
+          <span className="hl-portfolio-card-label">{t('app.portfolio.spotAccount')}</span>
           <span className="hl-portfolio-card-value">{fmtUsdSymbol(spotTotal)}</span>
           <span className="hl-portfolio-card-sub">USDC {fmtUsdSymbol(toNum(spotUsdc?.total))}</span>
         </article>
         <article className="hl-portfolio-card hl-portfolio-card--total">
-          <span className="hl-portfolio-card-label">Total (est.)</span>
+          <span className="hl-portfolio-card-label">{t('app.portfolio.totalEst')}</span>
           <span className="hl-portfolio-card-value">{fmtUsdSymbol(totalValue)}</span>
-          <span className="hl-portfolio-card-sub">Perps + spot</span>
+          <span className="hl-portfolio-card-sub">{t('app.portfolio.perpsPlusSpot')}</span>
         </article>
       </div>
 
@@ -115,29 +117,29 @@ const ProTradePortfolio: React.FC<Props> = ({
             <Gift size={18} />
           </span>
           <span className="hl-portfolio-affiliate-btn__copy">
-            <strong>Affiliate program</strong>
-            <span>Earn 2% from your referrals&apos; profitable bot trades.</span>
+            <strong>{t('app.portfolio.affiliateProgram')}</strong>
+            <span>{t('app.portfolio.affiliateDesc')}</span>
           </span>
         </button>
       ) : null}
 
       <section className="hl-portfolio-panel">
         <div className="hl-portfolio-panel__head">
-          <h2 className="hl-portfolio-panel__title">Perp positions</h2>
-          <span className="hl-portfolio-panel__meta">{(account?.positions ?? []).length} open</span>
+          <h2 className="hl-portfolio-panel__title">{t('app.portfolio.perpPositions')}</h2>
+          <span className="hl-portfolio-panel__meta">{t('app.portfolio.openCount', { count: (account?.positions ?? []).length })}</span>
         </div>
         <div className="hl-portfolio-panel__body">
           {(account?.positions ?? []).length === 0 ? (
-            <p className="hl-portfolio-empty">No open perp positions.</p>
+            <p className="hl-portfolio-empty">{t('app.portfolio.noPerpPositions')}</p>
           ) : (
             <div className="hl-portfolio-table-wrap">
               <table className="hl-dock-table hl-portfolio-table">
                 <thead>
                   <tr>
-                    <th>Coin</th>
-                    <th>Size</th>
-                    <th>Entry</th>
-                    <th>uPnL</th>
+                    <th>{t('app.portfolio.coin')}</th>
+                    <th>{t('app.portfolio.size')}</th>
+                    <th>{t('app.portfolio.entry')}</th>
+                    <th>{t('app.portfolio.upnl')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -172,22 +174,22 @@ const ProTradePortfolio: React.FC<Props> = ({
 
       <section className="hl-portfolio-panel">
         <div className="hl-portfolio-panel__head">
-          <h2 className="hl-portfolio-panel__title">Spot balances</h2>
-          <span className="hl-portfolio-panel__meta">{spotBalances.length} tokens</span>
+          <h2 className="hl-portfolio-panel__title">{t('app.portfolio.spotBalances')}</h2>
+          <span className="hl-portfolio-panel__meta">{t('app.portfolio.tokensCount', { count: spotBalances.length })}</span>
         </div>
         <div className="hl-portfolio-panel__body">
           {spotBalances.length === 0 ? (
-            <p className="hl-portfolio-empty">No spot balances.</p>
+            <p className="hl-portfolio-empty">{t('app.portfolio.noSpotBalances')}</p>
           ) : (
             <div className="hl-portfolio-table-wrap">
               <table className="hl-dock-table hl-portfolio-table">
                 <thead>
                   <tr>
-                    <th>Token</th>
-                    <th>Total</th>
-                    <th>On hold</th>
-                    <th>Mark</th>
-                    <th>Value (est.)</th>
+                    <th>{t('app.portfolio.token')}</th>
+                    <th>{t('app.portfolio.total')}</th>
+                    <th>{t('app.portfolio.onHold')}</th>
+                    <th>{t('app.portfolio.mark')}</th>
+                    <th>{t('app.portfolio.valueEst')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -226,7 +228,7 @@ const ProTradePortfolio: React.FC<Props> = ({
 
       <section className="hl-portfolio-panel hl-portfolio-panel--betting">
         <div className="hl-portfolio-panel__head">
-          <h2 className="hl-portfolio-panel__title">Betting</h2>
+          <h2 className="hl-portfolio-panel__title">{t('app.portfolio.betting')}</h2>
         </div>
         <div className="hl-portfolio-panel__body hl-portfolio-panel__body--flush">
           <ProTradeBettingTables

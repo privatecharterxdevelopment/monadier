@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CheckCircle, Clock, Headphones, Loader2, Send } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { submitSupportMessage } from '../../lib/supportMessage';
 
@@ -8,6 +9,7 @@ type Props = {
 };
 
 const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
+  const { t } = useTranslation();
   const { user, profile } = useAuth();
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -44,21 +46,21 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
         <section className="hl-studio-card">
           <header className="hl-studio-card__head">
             <Headphones size={18} aria-hidden />
-            <span>Support</span>
+            <span>{t('app.support.title')}</span>
           </header>
           <div className="hl-studio-card__body hl-studio-card__body--center">
             <p className="hl-support-lead">
-              Sign in to contact our team. Support is available for registered users only.
+              {t('app.support.guestLead')}
             </p>
             <button
               type="button"
               className="hl-support-primary"
-              onClick={() => onRequireSignIn?.('Sign in to contact support.')}
+              onClick={() => onRequireSignIn?.(t('auth.signInToSupport'))}
             >
-              Sign in to get help
+              {t('app.support.signInForHelp')}
             </button>
             <p className="hl-support-note">
-              Never share your seed phrase or private keys — not even with support.
+              {t('app.support.securityNote')}
             </p>
           </div>
         </section>
@@ -72,28 +74,28 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
         <form className="hl-support-form" onSubmit={handleSubmit}>
           <header className="hl-studio-card__head">
             <Headphones size={18} aria-hidden />
-            <span>Support</span>
+            <span>{t('app.support.title')}</span>
           </header>
 
           <div className="hl-support-user">
-            <p className="hl-support-user-label">Sending as</p>
+            <p className="hl-support-user-label">{t('app.support.sendingAs')}</p>
             <p className="hl-support-user-value">
               {displayName} · {displayEmail}
             </p>
             <p className="hl-support-user-meta">
-              User ID: <code>{shortId}</code>
+              {t('app.support.userId')} <code>{shortId}</code>
               {profile?.username ? <> · @{profile.username}</> : null}
             </p>
           </div>
 
           <label className="hl-support-label" htmlFor="hl-support-subject">
-            Subject
+            {t('app.support.subject')}
           </label>
           <input
             id="hl-support-subject"
             type="text"
             className="hl-support-input"
-            placeholder="e.g. Bot not trading, deposit, withdrawal"
+            placeholder={t('app.support.subjectPlaceholder')}
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             maxLength={120}
@@ -102,12 +104,12 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
           />
 
           <label className="hl-support-label" htmlFor="hl-support-message">
-            Message
+            {t('app.support.message')}
           </label>
           <textarea
             id="hl-support-message"
             className="hl-support-textarea"
-            placeholder="Describe your issue — include wallet/network details if relevant."
+            placeholder={t('app.support.messagePlaceholder')}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             maxLength={5000}
@@ -124,7 +126,7 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
 
           {success ? (
             <p className="hl-support-success" role="status">
-              Message sent. We&apos;ll reply to {displayEmail}.
+              {t('app.support.messageSent', { email: displayEmail })}
             </p>
           ) : null}
 
@@ -136,17 +138,17 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
             {sending ? (
               <>
                 <Loader2 size={16} className="hl-spin" aria-hidden />
-                Sending…
+                {t('app.support.sending')}
               </>
             ) : success ? (
               <>
                 <CheckCircle size={16} aria-hidden />
-                Sent
+                {t('app.support.sent')}
               </>
             ) : (
               <>
                 <Send size={16} aria-hidden />
-                Send message
+                {t('app.support.sendMessage')}
               </>
             )}
           </button>
@@ -155,8 +157,8 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
         <div className="hl-support-hours">
           <Clock size={16} aria-hidden />
           <div>
-            <strong>Support hours</strong>
-            <p>Monday – Sunday, 9:00 – 20:00 CET · replies within 24h</p>
+            <strong>{t('app.support.supportHours')}</strong>
+            <p>{t('app.support.supportHoursDetail')}</p>
           </div>
         </div>
       </section>
