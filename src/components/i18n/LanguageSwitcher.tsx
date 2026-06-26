@@ -49,14 +49,14 @@ const LanguageSwitcher: React.FC<Props> = ({ variant = 'landing-light', classNam
     >
       <button
         type="button"
-        className="lang-switch-trigger"
+        className={variant === 'app' ? 'hl-topnav-icon-btn' : 'lang-switch-trigger'}
         aria-label={t('language.select')}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
         onClick={() => setOpen((v) => !v)}
       >
-        <Globe size={16} aria-hidden />
+        <Globe size={15} aria-hidden />
       </button>
 
       {open ? (

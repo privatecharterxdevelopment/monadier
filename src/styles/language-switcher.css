@@ -38,13 +38,8 @@
   color: #fff;
 }
 
-.lang-switch--app .lang-switch-trigger {
-  color: var(--hl-topnav-icon, #a1a1aa);
-}
-
-.lang-switch--app .lang-switch-trigger:hover {
-  background: var(--hl-topnav-icon-hover-bg, rgba(255, 255, 255, 0.08));
-  color: var(--hl-topnav-icon-hover, #fff);
+.lang-switch--app {
+  flex-shrink: 0;
 }
 
 .lang-switch-menu {
