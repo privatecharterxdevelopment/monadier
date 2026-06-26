@@ -44,7 +44,6 @@ const MARKETING_PREFIXES = [
   '/your-funds',
   '/terms',
   '/privacy',
-  '/roadmap',
   '/forgot-password',
   '/reset-password',
   '/kyc',

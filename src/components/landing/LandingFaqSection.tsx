@@ -94,7 +94,7 @@ export const LANDING_FAQS: {
   {
     tab: 'bot',
     q: 'How do I deposit so the bot can start?',
-    a: 'Connect the same wallet on app.hyperliquid.xyz, tap Deposit, and send USDC (min. $5 on HL). The bot needs at least $20 on your HL balance. Then in Monadier: approve agent → Start bot.',
+    a: 'In Monadier Funds (or app.hyperliquid.xyz): deposit only native USDC on Arbitrum One — not BNB, BSC, ETH mainnet, or USDC on other chains. Min. $5 on HL; bot needs $20+. Then approve agent → Start bot.',
   },
   {
     tab: 'vault',

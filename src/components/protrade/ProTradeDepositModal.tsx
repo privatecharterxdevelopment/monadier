@@ -479,6 +479,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
           <>
             <HlArbitrumUsdcCallout
               onArbitrum={onArbitrum}
+              chainId={chainId}
               switchBusy={switchBusy}
               onSwitch={handleSwitchNetwork}
               usdcBalance={usdcNum}

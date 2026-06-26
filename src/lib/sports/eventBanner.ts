@@ -62,14 +62,25 @@ function legSideFlags(question: HlOutcomeQuestion, limit = 2): EventBannerSide[]
   return [...byName.values()].slice(0, limit);
 }
 
-function parseWorldCupMatch(title: string): EventBannerSide[] {
-  const vsMatch = title.match(/World Cup:\s*(.+?)\s+vs\s+(.+)$/i);
-  if (!vsMatch) return [];
-  const home = teamVisual(vsMatch[1].trim());
-  const away = teamVisual(vsMatch[2].trim());
-  return [home, away]
-    .filter((t) => t.flagUrl)
-    .map((t) => ({ url: t.flagUrl!, label: t.label }));
+function parseMatchFlags(title: string): EventBannerSide[] {
+  const patterns = [
+    /World Cup:\s*(.+?)\s+vs\.?\s+(.+)$/i,
+    /:\s*(.+?)\s+vs\.?\s+(.+)$/i,
+    /^(.+?)\s+vs\.?\s+(.+)$/i,
+  ];
+
+  for (const pattern of patterns) {
+    const vsMatch = title.match(pattern);
+    if (!vsMatch) continue;
+    const home = teamVisual(vsMatch[1].trim());
+    const away = teamVisual(vsMatch[2].trim());
+    const sides = [home, away]
+      .filter((t) => t.flagUrl)
+      .map((t) => ({ url: t.flagUrl!, label: t.label }));
+    if (sides.length > 0) return sides.slice(0, 2);
+  }
+
+  return [];
 }
 
 export function resolveEventBanner(
@@ -80,7 +91,7 @@ export function resolveEventBanner(
   const lower = title.toLowerCase();
   const isWorldCup = lower.includes('world cup');
   const isChampion = /champion/i.test(title);
-  const matchFlags = parseWorldCupMatch(title);
+  const matchFlags = parseMatchFlags(title);
 
   if (isWorldCup && isChampion) {
     return {
@@ -123,12 +134,13 @@ export function resolveEventBanner(
   }
 
   if (category === 'sports') {
+    const sportsFlags = matchFlags.length >= 2 ? matchFlags : legSideFlags(question, 2);
     return {
-      variant: 'sports',
+      variant: matchFlags.length >= 2 ? 'world-cup-match' : 'sports',
       backgroundImage: BANNERS.sports,
       accentColor: '#e53935',
-      tagline: 'LIVE SPORTS BETTING',
-      sideFlags: legSideFlags(question, 2),
+      tagline: matchFlags.length >= 2 ? 'MATCH WINNER · LIVE ODDS' : 'LIVE SPORTS BETTING',
+      sideFlags: sportsFlags,
     };
   }
 

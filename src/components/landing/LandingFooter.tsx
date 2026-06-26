@@ -2,7 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 const footerLinks = [
-  { to: '/roadmap', label: 'Roadmap' },
   { to: '/terms', label: 'Terms' },
   { to: '/privacy', label: 'Privacy' },
   { to: '/support', label: 'Support' },

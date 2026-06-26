@@ -49,9 +49,6 @@ export async function validateNoAltPumpShort(opts: {
   }
 
   const coin = opts.coin.toUpperCase();
-  if (coin === 'BTC' || coin === 'ETH') {
-    return { ok: true, reason: 'Pump-short gate — majors use macro beta only' };
-  }
 
   const cfg = config.hyperliquid.pumpShort;
   const symbol = hlCoinToBinanceSymbol(coin);

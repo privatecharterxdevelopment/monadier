@@ -8,7 +8,7 @@ const STEPS = [
   },
   {
     title: 'Deposit USDC',
-    body: `In the Bot panel, deposit USDC from Arbitrum to Hyperliquid (min. $${MIN_HL_BOT_USD}). All in Monadier — no site switch.`,
+    body: `Only native USDC on Arbitrum One (not BNB, not other chains). Deposit from the Funds tab in Monadier — min. $${MIN_HL_BOT_USD} for the bot.`,
   },
   {
     title: 'Approve agent',

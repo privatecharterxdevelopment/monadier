@@ -89,11 +89,12 @@ let fastPositionMonitorRunning = false;
 
 /**
  * Profit-only mode (default): hold losers until green — no tight stop or MTF flip exit.
- * Opt-in via env: HL_LOSS_CAP_ENFORCE (stop_loss), HL_LOSS_THESIS_CLOSE (signal_reversal).
+ * Opt-in via env: HL_LOSS_THESIS_CLOSE (signal_reversal). SL% from user settings always closes when enforceHardCap (default on).
  */
 function mayAutoCloseInRed(reason: string, holdMs = 0): boolean {
   const cfg = config.hyperliquid;
-  if (reason === 'hard_stop_usd' || reason === 'emergency_close') return true;
+  if (reason === 'emergency_close') return true;
+  if (reason === 'stop_loss' && cfg.lossProtection.enforceHardCap) return true;
   const maxSlMs = cfg.dynamicTrail.maxHoldBeforeSlTrailMs;
   if (
     holdMs >= maxSlMs &&
@@ -104,7 +105,6 @@ function mayAutoCloseInRed(reason: string, holdMs = 0): boolean {
   if (!cfg.profitOnlyExits) {
     return reason === 'stop_loss' || reason === 'signal_reversal' || reason === 'trailing_stop';
   }
-  if (reason === 'stop_loss' && cfg.lossProtection.enforceHardCap) return true;
   if (reason === 'signal_reversal' && cfg.lossProtection.closeOnThesisBreak) return true;
   return false;
 }
@@ -1140,26 +1140,6 @@ export class HyperliquidTradingService {
       const positionDirection: 'LONG' | 'SHORT' = size > 0 ? 'LONG' : 'SHORT';
       const markPrice = markFromPosition(entry, size, pnl);
 
-      const hardStopUsd = config.hyperliquid.hardStopLossUsd;
-      if (hardStopUsd > 0 && pnl <= -hardStopUsd) {
-        const closeCtx = {
-          entryPx: entry,
-          unrealizedPnlUsd: pnl,
-          size,
-          leverage: lev,
-          holdMs,
-        };
-        clearTrailState(lockKey);
-        await this.closeMarketPosition(
-          userAddress,
-          pos.coin,
-          'hard_stop_usd',
-          closeCtx,
-          `STOP LOSS — ${pos.coin} uPnL $${pnl.toFixed(2)} ≤ −$${hardStopUsd.toFixed(2)}`
-        );
-        continue;
-      }
-
       if (!fast && meta) {
         const targetLev = Math.min(configuredLev, maxLeverageForCoin(meta, pos.coin));
         const marginCross = pos.leverage?.type === 'cross';
@@ -1469,7 +1449,7 @@ export class HyperliquidTradingService {
         });
         return { success: false, error: 'Profit grab requires positive uPnL' };
       }
-      if ((reason === 'stop_loss' || reason === 'hard_stop_usd') && pnlUsd > 0) {
+      if (reason === 'stop_loss' && pnlUsd > 0) {
         logger.debug('HL skip stop_loss — already in profit', {
           user: userAddress.slice(0, 10),
           coin: coinUpper,

@@ -98,7 +98,10 @@ export function eventVisual(
   const isChampion = /champion/i.test(questionName);
   const emoji = isChampion ? EVENT_ICONS.champion : EVENT_ICONS.match;
 
-  const vsMatch = questionName.match(/World Cup:\s*(.+?)\s+vs\s+(.+)$/i);
+  const vsMatch =
+    questionName.match(/World Cup:\s*(.+?)\s+vs\.?\s+(.+)$/i) ??
+    questionName.match(/:\s*(.+?)\s+vs\.?\s+(.+)$/i) ??
+    questionName.match(/^(.+?)\s+vs\.?\s+(.+)$/i);
   if (vsMatch) {
     const home = teamVisual(vsMatch[1].trim());
     const away = teamVisual(vsMatch[2].trim());

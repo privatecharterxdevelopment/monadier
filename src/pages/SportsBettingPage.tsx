@@ -89,7 +89,11 @@ const SportsBettingPage: React.FC = () => {
         </div>
       </section>
 
-      <LandingBetMarketCards limit={8} />
+      <LandingBetMarketCards
+        limit={8}
+        title="Live events"
+        subtitle="Real HIP-4 markets on Hyperliquid — odds refresh every 30 seconds. Team matchups show live flags where available."
+      />
 
       <main className="landing-gmx-page-main landing-gmx-page-main--inner landing-gmx-gutter">
         <div className="landing-gmx-shell">

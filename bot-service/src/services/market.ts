@@ -1267,6 +1267,84 @@ export async function analyzeMarketMTFBySymbol(
       }
     }
 
+    const tf15Bar = signal.timeframes.find((t) => t.timeframe === '15m');
+    if (tf15Bar && tf15Bar.resistance > tf15Bar.support) {
+      const rangePos =
+        (tf15Bar.currentPrice - tf15Bar.support) / (tf15Bar.resistance - tf15Bar.support);
+      if (finalDirection === 'SHORT' && tf15Bar.rsi < 42 && rangePos < 0.38) {
+        logger.debug('MTF neutral — SHORT rejected at dip zone', {
+          symbol,
+          rsi: tf15Bar.rsi,
+          rangePos,
+        });
+        return {
+          direction: 'LONG',
+          confidence: Math.round(signal.confidence),
+          reason: `Neutral — dip zone RSI ${Math.round(tf15Bar.rsi)} at ${(rangePos * 100).toFixed(0)}% range (no short at bottom)`,
+          indicators: indicators.slice(0, 3),
+          isReversalSignal: false,
+          suggestedTP: 5,
+          suggestedSL: 1.5,
+          isOverheated: rsi > 75 || rsi < 25,
+          isWeekendWarning: weekendAlertLevel !== 'none',
+          weekendAlertLevel,
+          scalpingRecommended: false,
+          marketWarning,
+          isWeak: true,
+          metrics: {
+            rsi: Math.round(rsi),
+            macd: macdSignal,
+            priceChange1h: '0.00',
+            volumeRatio: '1.0',
+            conditionsMet: 0,
+            trendAlignment: Math.round(signal.trendAlignment),
+            directionalTfCount: 0,
+            h1Trend: trend,
+            riskReward: '0',
+            trend:
+              trend === 'UP' ? 'STRONG_UPTREND' : trend === 'DOWN' ? 'STRONG_DOWNTREND' : 'NEUTRAL',
+            dayOfWeek: dayNames[dayOfWeek],
+          },
+        };
+      }
+      if (finalDirection === 'LONG' && tf15Bar.rsi > 68 && rangePos > 0.62) {
+        logger.debug('MTF neutral — LONG rejected at range high', {
+          symbol,
+          rsi: tf15Bar.rsi,
+          rangePos,
+        });
+        return {
+          direction: 'LONG',
+          confidence: Math.round(signal.confidence),
+          reason: `Neutral — overbought RSI ${Math.round(tf15Bar.rsi)} at ${(rangePos * 100).toFixed(0)}% range (no long at top)`,
+          indicators: indicators.slice(0, 3),
+          isReversalSignal: false,
+          suggestedTP: 5,
+          suggestedSL: 1.5,
+          isOverheated: true,
+          isWeekendWarning: weekendAlertLevel !== 'none',
+          weekendAlertLevel,
+          scalpingRecommended: false,
+          marketWarning,
+          isWeak: true,
+          metrics: {
+            rsi: Math.round(rsi),
+            macd: macdSignal,
+            priceChange1h: '0.00',
+            volumeRatio: '1.0',
+            conditionsMet: 0,
+            trendAlignment: Math.round(signal.trendAlignment),
+            directionalTfCount: 0,
+            h1Trend: trend,
+            riskReward: '0',
+            trend:
+              trend === 'UP' ? 'STRONG_UPTREND' : trend === 'DOWN' ? 'STRONG_DOWNTREND' : 'NEUTRAL',
+            dayOfWeek: dayNames[dayOfWeek],
+          },
+        };
+      }
+    }
+
     const directionalTfCount = signal.timeframes.filter(
       (tf) => tf.direction === finalDirection
     ).length;

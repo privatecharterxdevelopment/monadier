@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import { goToOpenApp } from '../../lib/appUrls';
 import OpenAppLink from '../layout/OpenAppLink';
+import LandingEventBannerMedia from './LandingEventBannerMedia';
 import {
   fetchLandingBetMarkets,
   fetchLandingPredictionStats,
@@ -206,10 +207,17 @@ const GlassBetCard: React.FC<GlassBetCardProps> = ({ market, delay = 0 }) => (
       </p>
     </div>
 
-    <div
-      className="landing-bento-bet-visual"
-      style={{ backgroundImage: `url(${market.backgroundImage})` }}
-    >
+    <div className="landing-bento-bet-visual">
+      <LandingEventBannerMedia
+        backgroundImage={market.backgroundImage}
+        accentColor={market.accentColor}
+        tagline={market.tagline}
+        variant={market.variant}
+        sideFlags={market.sideFlags}
+        emoji={market.emoji}
+        compact
+        className="landing-bento-bet-visual-fill"
+      />
       <div className="landing-bento-bet-visual-glass" aria-hidden />
       {market.isLive ? (
         <span className="landing-bento-bet-live">
@@ -249,7 +257,7 @@ const LandingHomeBentoCards: React.FC = () => {
     const load = async () => {
       try {
         const [next, predictionStats] = await Promise.all([
-          fetchLandingBetMarkets(3),
+          fetchLandingBetMarkets(4),
           fetchLandingPredictionStats(),
         ]);
         if (!cancelled) {
@@ -319,7 +327,7 @@ const LandingHomeBentoCards: React.FC = () => {
           </motion.article>
 
           {loading && markets.length === 0
-            ? Array.from({ length: 3 }, (_, i) => (
+            ? Array.from({ length: 4 }, (_, i) => (
                 <div
                   key={i}
                   className="landing-bento-bet-card landing-glass-card landing-bento-bet-card--skeleton"
@@ -334,9 +342,21 @@ const LandingHomeBentoCards: React.FC = () => {
             </p>
           ) : null}
 
-          {markets.map((market, i) => (
-            <GlassBetCard key={market.id} market={market} delay={0.1 + i * 0.06} />
-          ))}
+          {markets.length > 0 ? (
+            <div className="landing-home-bento-live">
+              <div className="landing-home-bento-live-head">
+                <h3 className="landing-home-bento-live-title">Live events</h3>
+                <p className="landing-home-bento-live-sub">
+                  HIP-4 odds from Hyperliquid — team flags, live prices, on-chain settlement.
+                </p>
+              </div>
+              <div className="landing-home-bento-live-grid">
+                {markets.map((market, i) => (
+                  <GlassBetCard key={market.id} market={market} delay={0.1 + i * 0.06} />
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div className="landing-home-bento-promos">
             <PromoBanner

@@ -8,13 +8,16 @@ export const HL_BOT_STRATEGY_LABELS: Record<HlBotStrategy, string> = {
 
 export const HL_BOT_STRATEGY_HINTS: Record<HlBotStrategy, string> = {
   standard:
-    'Standard: MTF scan. Dynamic ATR trail — arms at +2.5% ROE, lets winners run hours.',
+    'Standard: MTF scan. Trail SL arms within 2 min (+2.5% ROE in profit, or loss SL% in red).',
   profit_grabber:
-    'Aggressive: 1m scalp entries. Same dynamic price trail — no fixed $0.02 floor.',
+    'Aggressive: 1m scalp entries. Same 2 min trail SL — breakeven or loss stop.',
 };
 
 /** Must match bot-service config.hyperliquid.dynamicTrail defaults. */
 export const HL_DYNAMIC_TRAIL = {
+  armMinProfitHoldMs: 120_000,
+  maxHoldBeforeSlTrailMs: 120_000,
+  trailMinActiveBeforeCloseMs: 60_000,
   breakevenArmRoePct: 2.5,
   armMinRoePct: 5,
   armFeesMultiplier: 2,

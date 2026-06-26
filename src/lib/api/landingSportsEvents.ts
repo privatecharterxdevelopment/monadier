@@ -18,7 +18,8 @@ import {
   formatBettingQuestionSummary,
   formatBettingQuestionTitle,
 } from '../hyperliquid/outcomes/priceBinaryDisplay';
-import { resolveEventBanner } from '../sports/eventBanner';
+import { resolveEventBanner, type EventBannerSide, type EventBannerVariant } from '../sports/eventBanner';
+import { eventVisual } from '../sports/teamVisuals';
 import type { HlOutcomeMarket, HlOutcomeQuestion, OutcomeLegQuote } from '../hyperliquid/outcomes/types';
 
 export const LANDING_BET_STAKE_USD = 25;
@@ -36,6 +37,11 @@ export type LandingBetMarket = {
   profitLabel: string;
   description: string;
   backgroundImage: string;
+  accentColor: string;
+  tagline: string | null;
+  variant: EventBannerVariant;
+  sideFlags: EventBannerSide[];
+  emoji: string;
   isLive: boolean;
   indicative: boolean;
 };
@@ -68,7 +74,14 @@ function pickLandingBetQuestions(questions: HlOutcomeQuestion[], limit: number):
   const merged: HlOutcomeQuestion[] = [];
   const seen = new Set<number>();
 
-  for (const q of [...featured, ...others, ...orderQuestionsForAllView(questions)]) {
+  const ordered = [...featured, ...others, ...orderQuestionsForAllView(questions)].sort((a, b) => {
+    const sportsA = resolveBettingCategory(a) === 'sports' ? 0 : 1;
+    const sportsB = resolveBettingCategory(b) === 'sports' ? 0 : 1;
+    if (sportsA !== sportsB) return sportsA - sportsB;
+    return 0;
+  });
+
+  for (const q of ordered) {
     if (seen.has(q.questionId)) continue;
     seen.add(q.questionId);
     merged.push(q);
@@ -113,6 +126,7 @@ function toBetMarket(
   const title = formatBettingQuestionTitle(question);
   const category = resolveBettingCategory(question);
   const banner = resolveEventBanner(question, title, category);
+  const visuals = eventVisual(title, category);
   const legName = formatBettingLegName(leg);
   const indicative = isIndicativeOutcomeQuote(quote);
   const oddsPrefix = indicative ? '~' : '';
@@ -140,6 +154,11 @@ function toBetMarket(
       formatBettingQuestionSummary(question) ||
       `$${stakeUsd} on Yes — ${payout} return (${profit} profit) if it wins.`,
     backgroundImage: banner.backgroundImage,
+    accentColor: banner.accentColor,
+    tagline: banner.tagline,
+    variant: banner.variant,
+    sideFlags: banner.sideFlags,
+    emoji: visuals.emoji,
     isLive: true,
     indicative,
   };

@@ -3430,16 +3430,22 @@
 .landing-bet-card-media {
   position: relative;
   aspect-ratio: 16 / 10;
-  background-size: cover;
-  background-position: center;
+  overflow: hidden;
+  background: #0c2822;
+}
+
+.landing-bet-card-media-inner {
+  position: absolute;
+  inset: 0;
 }
 
 .landing-bet-card-media-overlay {
   position: absolute;
   inset: 0;
+  z-index: 1;
+  pointer-events: none;
   background:
-    linear-gradient(105deg, rgb(6 52 44 / 0.92) 0%, rgb(12 92 78 / 0.84) 42%, rgb(18 120 102 / 0.78) 100%),
-    linear-gradient(180deg, rgb(0 0 0 / 0) 0%, rgb(0 0 0 / 0.35) 100%);
+    linear-gradient(180deg, rgb(0 0 0 / 0) 45%, rgb(0 0 0 / 0.45) 100%);
 }
 
 .landing-bet-card-live {
@@ -3934,23 +3940,29 @@
   margin: 0 16px;
   min-height: 220px;
   border-radius: 20px;
-  background-size: cover;
-  background-position: center;
   overflow: hidden;
+  background: #0c2822;
+}
+
+.landing-bento-bet-visual-fill {
+  position: absolute;
+  inset: 0;
 }
 
 .landing-bento-bet-visual-glass {
   position: absolute;
   inset: 0;
+  z-index: 1;
+  pointer-events: none;
   background:
-    linear-gradient(165deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 40%, rgba(0, 0, 0, 0.35) 100%),
-    linear-gradient(105deg, rgba(6, 52, 44, 0.55) 0%, rgba(16, 118, 99, 0.35) 100%);
+    linear-gradient(180deg, rgb(255 255 255 / 0.08) 0%, rgb(0 0 0 / 0.35) 100%);
 }
 
 .landing-bento-bet-live {
   position: absolute;
   top: 14px;
   left: 14px;
+  z-index: 3;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -3977,6 +3989,7 @@
 
 .landing-bento-bet-odds-float {
   position: absolute;
+  z-index: 3;
   left: 14px;
   right: 14px;
   bottom: 14px;
@@ -4036,6 +4049,189 @@
   margin: 0;
   font-size: 14px;
   color: var(--lg-grey);
+}
+
+/* Live event cards — team flags + matchup visuals */
+.landing-event-banner-media {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0c2822;
+}
+
+.landing-event-banner-media-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transform: scale(1.03);
+}
+
+.landing-event-banner-media-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(180deg, rgb(0 0 0 / 0.12) 0%, rgb(0 0 0 / 0.5) 100%),
+    linear-gradient(90deg, rgb(0 0 0 / 0.28) 0%, rgb(0 0 0 / 0.08) 50%, rgb(0 0 0 / 0.28) 100%);
+}
+
+.landing-event-banner-tagline {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  margin: 0;
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: rgb(255 255 255 / 0.95);
+  background: color-mix(in srgb, var(--landing-banner-accent, #e53935) 78%, transparent);
+}
+
+.landing-event-banner-matchup {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 10px;
+}
+
+.landing-event-banner-team {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.landing-event-banner-team img {
+  width: 72px;
+  height: 54px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 2px solid rgb(255 255 255 / 0.92);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.38);
+}
+
+.landing-event-banner-media--compact .landing-event-banner-team img {
+  width: 56px;
+  height: 42px;
+  border-radius: 8px;
+}
+
+.landing-event-banner-team span {
+  max-width: 76px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+  text-shadow: 0 1px 6px rgb(0 0 0 / 0.65);
+}
+
+.landing-event-banner-vs {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.78);
+}
+
+.landing-event-banner-solo {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.landing-event-banner-solo img {
+  border-radius: 12px;
+  border: 2px solid rgb(255 255 255 / 0.92);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.4);
+  object-fit: cover;
+}
+
+.landing-event-banner-solo span {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 6px rgb(0 0 0 / 0.65);
+}
+
+.landing-event-banner-emoji {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  filter: drop-shadow(0 8px 24px rgb(0 0 0 / 0.35));
+}
+
+.landing-home-bento-live {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.landing-home-bento-live-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.landing-home-bento-live-title {
+  margin: 0;
+  font-size: clamp(1.25rem, 2vw, 1.5rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--lg-text);
+}
+
+.landing-home-bento-live-sub {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--lg-muted);
+  max-width: 52ch;
+}
+
+.landing-home-bento-live-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+@media (min-width: 700px) {
+  .landing-home-bento-live-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  .landing-home-bento-live-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.landing-bet-card-live {
+  z-index: 3;
 }
 
 @media (max-width: 899px) {

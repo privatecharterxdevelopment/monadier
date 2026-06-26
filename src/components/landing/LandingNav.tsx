@@ -14,7 +14,6 @@ const navLinks = [
   { to: '/sports-betting', label: 'Betting' },
   { to: '/technology', label: 'Technology' },
   { to: '/pricing', label: 'Pricing' },
-  { to: '/roadmap', label: 'Roadmap' },
   { to: '/about', label: 'About' },
 ];
 

@@ -619,7 +619,7 @@ const TerminalTradePanel: React.FC<Props> = ({
                 <span>
                   {hlNeedsSpotTransfer
                     ? `${fmt(hlSpotUsd)} on HL Spot — deposit moves to Perps automatically on standard HL accounts.`
-                    : `Deposit at least $${MIN_HL_BOT_USD} USDC on Hyperliquid to run the bot.`}
+                    : `Deposit min. $${MIN_HL_BOT_USD} USDC on Hyperliquid — Arbitrum native USDC only (not BNB or other chains).`}
                 </span>
               </div>
             )}
@@ -811,10 +811,9 @@ const TerminalTradePanel: React.FC<Props> = ({
             </button>
 
             <p className="term-hint">
-              Non-custodial: USDC stays on your Hyperliquid account. Deposit from Arbitrum in
-              Monadier — no hyperliquid.xyz needed. Withdraw anytime with your wallet; the bot agent
-              cannot withdraw. While a trade is open, withdrawable balance may be lower (margin in
-              use).
+              Non-custodial: USDC stays on Hyperliquid. Deposit only <strong>native USDC on Arbitrum</strong>{' '}
+              (not BNB/BSC or other networks). Withdraw anytime with your wallet; the bot agent cannot
+              withdraw. While a trade is open, withdrawable balance may be lower (margin in use).
             </p>
           </div>
         )}

@@ -23,7 +23,7 @@ const faqs = [
   {
     question: 'Which exchange?',
     answer:
-      'Trading runs on Hyperliquid perpetuals across 200+ markets. Deposit USDC on HL from Monadier (Arbitrum bridge). A small amount of ETH on Arbitrum is needed for the deposit transaction.',
+      'Trading runs on Hyperliquid perpetuals. Deposit only native USDC on Arbitrum One (not BNB, BSC, or other chains). A little ETH on Arbitrum pays the deposit gas.',
   },
   {
     question: 'Can I stop the bot or close trades?',

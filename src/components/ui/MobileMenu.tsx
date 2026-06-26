@@ -26,7 +26,6 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
     { path: '/sports-betting', label: 'Betting' },
     { path: '/technology', label: 'Technology' },
     { path: '/pricing', label: 'Pricing' },
-    { path: '/roadmap', label: 'Roadmap' },
     { path: '/about', label: 'About' },
   ];
 

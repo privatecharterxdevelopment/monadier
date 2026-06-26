@@ -291,9 +291,9 @@ export const config = {
       minDirectionalTfs: Number(process.env.HL_CAUTIOUS_MIN_TFS || 3),
       minTrendAlignment: Number(process.env.HL_CAUTIOUS_MIN_ALIGN || 62),
     },
-    /** Loss exits — OFF by default; bot never auto-closes red (profitOnlyExits). */
+    /** Loss exits — SL% from user settings always enforced; thesis/signal loss optional. */
     lossProtection: {
-      enforceHardCap: process.env.HL_LOSS_CAP_ENFORCE === 'true',
+      enforceHardCap: process.env.HL_LOSS_CAP_ENFORCE !== 'false',
       closeOnThesisBreak: process.env.HL_LOSS_THESIS_CLOSE === 'true',
     },
     /** Skip pair (LONG + SHORT) after a fat pump — mass alts retest highs. */
@@ -322,8 +322,8 @@ export const config = {
     thesisMaxLossSlMultiple: Number(process.env.HL_THESIS_MAX_LOSS_SL_MULT || 2.5),
     /** Optional USD loss ceiling (0 = use bot SL% only — no flat $2.50 cap). */
     thesisMaxLossUsd: Number(process.env.HL_THESIS_MAX_LOSS_USD || 0),
-    /** Flat USD uPnL stop — always auto-close (default $20). Set 0 to disable. */
-    hardStopLossUsd: Number(process.env.HL_HARD_STOP_USD || 20),
+    /** Flat USD uPnL stop — off by default; use SL% in user settings instead. */
+    hardStopLossUsd: Number(process.env.HL_HARD_STOP_USD || 0),
     /** Catastrophic loss USD — optional escape hatch while profitOnlyExits (0 = disabled). */
     thesisEmergencyMaxLossUsd: Number(process.env.HL_EMERGENCY_MAX_LOSS_USD || 0),
     /** Min ms open before signal_reversal loss close when HL_LOSS_THESIS_CLOSE=true. */

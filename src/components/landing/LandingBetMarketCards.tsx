@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { goToOpenApp } from '../../lib/appUrls';
+import LandingEventBannerMedia from './LandingEventBannerMedia';
 import {
   fetchLandingBetMarkets,
   LANDING_BET_STAKE_USD,
@@ -21,10 +22,16 @@ type BetMarketCardProps = {
 
 const BetMarketCard: React.FC<BetMarketCardProps> = ({ market, delay = 0 }) => (
   <motion.article {...fadeUp(delay)} className="landing-bet-card">
-    <div
-      className="landing-bet-card-media"
-      style={{ backgroundImage: `url(${market.backgroundImage})` }}
-    >
+    <div className="landing-bet-card-media">
+      <LandingEventBannerMedia
+        backgroundImage={market.backgroundImage}
+        accentColor={market.accentColor}
+        tagline={market.tagline}
+        variant={market.variant}
+        sideFlags={market.sideFlags}
+        emoji={market.emoji}
+        className="landing-bet-card-media-inner"
+      />
       <div className="landing-bet-card-media-overlay" aria-hidden />
       {market.isLive ? (
         <span className="landing-bet-card-live">

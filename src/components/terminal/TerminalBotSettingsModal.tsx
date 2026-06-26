@@ -37,7 +37,7 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
     connect: 'Connect your wallet first.',
     loading: 'Loading Hyperliquid balance…',
     approve: 'Press Start bot on the Bot tab — includes one-time Hyperliquid approvals (1–2 signatures).',
-    fund: `Deposit at least $${minUsd} USDC in the Funds tab (wallet on Arbitrum).`,
+    fund: `Deposit at least $${minUsd} native USDC on Arbitrum only (not BNB/BSC or other chains) — Funds tab.`,
     ready: 'Adjust risk and leverage — then Start bot on the Bot tab.',
   };
 

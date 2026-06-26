@@ -141,7 +141,7 @@ export function getHlBotSidebarStatus(opts: {
     if (needsDeposit) {
       return {
         headline: 'Fund your account',
-        detail: `Deposit at least $${MIN_HL_BOT_USD} USDC on Hyperliquid to start the bot. Funds stay in your account — only your wallet can withdraw; the trading agent cannot.`,
+        detail: `Deposit at least $${MIN_HL_BOT_USD} native USDC on Arbitrum only (not BNB or other chains). Funds stay on Hyperliquid — only your wallet can withdraw.`,
         tone: 'warn',
         setupStep: 2,
         setupComplete: false,
