@@ -796,7 +796,9 @@ const Dashboard2ProPageContent: React.FC = () => {
       ) : null}
 
       {section === 'support' ? (
-        <ProTradeSupport onRequireSignIn={promptSignIn} />
+        <div className="hl-terminal hl-terminal--support">
+          <ProTradeSupport onRequireSignIn={promptSignIn} />
+        </div>
       ) : null}
       {section === 'portfolio' ? (
         <div className="hl-terminal hl-terminal--portfolio">

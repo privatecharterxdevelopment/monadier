@@ -2,7 +2,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Download } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useHyperliquidAccount } from '../../hooks/useHyperliquidAccount';
-import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
 import { exportBotTradesPdf } from '../../lib/exportBotTradesPdf';
 import { isHlFillOpen } from '../../lib/hyperliquid/format';
 import { displayHandle } from '../../lib/username';
@@ -32,15 +31,6 @@ const ProTradeBotHistory: React.FC<Props> = ({
     () => fills.filter((f) => !isHlFillOpen(f.dir)),
     [fills]
   );
-  const historyCoins = useMemo(
-    () => [...new Set(closeFills.map((f) => f.coin))],
-    [closeFills]
-  );
-  const { closeReasonForFill } = useHlTradeReasonMarkers(
-    wallet,
-    historyCoins,
-    refreshKey
-  );
   const [exporting, setExporting] = useState(false);
 
   const handleDownloadPdf = useCallback(() => {
@@ -52,18 +42,8 @@ const ProTradeBotHistory: React.FC<Props> = ({
       userId,
       username,
       displayName,
-      closeReasonForFill,
     }).finally(() => setExporting(false));
-  }, [
-    wallet,
-    closeFills.length,
-    exporting,
-    fills,
-    userId,
-    username,
-    displayName,
-    closeReasonForFill,
-  ]);
+  }, [wallet, closeFills.length, exporting, fills, userId, username, displayName]);
 
   const showPdfExport = embedded && Boolean(wallet) && closeFills.length > 0;
   const accountLine = username ? `@${username}` : displayName;

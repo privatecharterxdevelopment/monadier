@@ -172,15 +172,18 @@ const ProTradeAffiliate: React.FC<Props> = ({ onRequireSignIn }) => {
 
   if (loading) {
     return (
-      <div className="hl-affiliate">
-        <Loader2 size={22} className="animate-spin hl-affiliate-loading" aria-hidden />
+      <div className="hl-meta-page-shell hl-affiliate-page">
+        <div className="hl-meta-page hl-affiliate">
+          <Loader2 size={22} className="animate-spin hl-affiliate-loading" aria-hidden />
+        </div>
       </div>
     );
   }
 
   if (!data && !error) {
     return (
-      <div className="hl-affiliate">
+      <div className="hl-meta-page-shell hl-affiliate-page">
+        <div className="hl-meta-page hl-affiliate">
         <div className="hl-support-gate">
           <div className="hl-support-gate-icon" aria-hidden>
             <Gift size={28} />
@@ -197,14 +200,17 @@ const ProTradeAffiliate: React.FC<Props> = ({ onRequireSignIn }) => {
             Sign in
           </button>
         </div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="hl-affiliate">
-        <p className="hl-affiliate-empty">{error}</p>
+      <div className="hl-meta-page-shell hl-affiliate-page">
+        <div className="hl-meta-page hl-affiliate">
+          <p className="hl-affiliate-empty">{error}</p>
+        </div>
       </div>
     );
   }
@@ -216,7 +222,8 @@ const ProTradeAffiliate: React.FC<Props> = ({ onRequireSignIn }) => {
   const referralLink = data?.referral_code ? buildReferralShareUrl(data.referral_code) : null;
 
   return (
-    <div className="hl-affiliate">
+    <div className="hl-meta-page-shell hl-affiliate-page">
+      <div className="hl-meta-page hl-affiliate">
       <header className="hl-affiliate-hero">
         <div className="hl-affiliate-hero-icon" aria-hidden>
           <Gift size={22} />
@@ -410,6 +417,7 @@ const ProTradeAffiliate: React.FC<Props> = ({ onRequireSignIn }) => {
           </div>
         )}
       </section>
+      </div>
     </div>
   );
 };

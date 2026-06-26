@@ -16,8 +16,13 @@ export type BotTradesPdfOptions = {
   userId?: string | null;
   username?: string | null;
   displayName?: string | null;
-  closeReasonForFill?: (coin: string, fillTimeMs: number) => string | undefined;
 };
+
+const INK = [26, 26, 26] as const;
+const MUTED = [82, 82, 90] as const;
+const LINE = [220, 222, 228] as const;
+const HEAD_BG = [242, 243, 246] as const;
+const ROW_ALT = [250, 250, 252] as const;
 
 function fmtPdfTime(ms: number): string {
   const date = new Date(ms);
@@ -37,10 +42,12 @@ function drawMonadierMark(
   y: number,
   size = 7
 ): void {
-  doc.setFillColor(10, 10, 10);
-  doc.roundedRect(x, y, size, size, 1.6, 1.6, 'F');
-  doc.setDrawColor(255, 255, 255);
-  doc.setLineWidth(0.5);
+  doc.setFillColor(HEAD_BG[0], HEAD_BG[1], HEAD_BG[2]);
+  doc.setDrawColor(LINE[0], LINE[1], LINE[2]);
+  doc.setLineWidth(0.2);
+  doc.roundedRect(x, y, size, size, 1.2, 1.2, 'FD');
+  doc.setDrawColor(INK[0], INK[1], INK[2]);
+  doc.setLineWidth(0.45);
   const cx = x + size / 2;
   const cy = y + size / 2;
   const arm = size * 0.28;
@@ -73,7 +80,6 @@ export async function exportBotTradesPdf({
   userId,
   username,
   displayName,
-  closeReasonForFill,
 }: BotTradesPdfOptions): Promise<void> {
   const closeFills = fills
     .filter((f) => !isHlFillOpen(f.dir))
@@ -92,42 +98,39 @@ export async function exportBotTradesPdf({
 
   drawMonadierMark(doc, marginX, y - 1);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.setTextColor(10, 10, 10);
+  doc.setFontSize(16);
+  doc.setTextColor(INK[0], INK[1], INK[2]);
   doc.text('monadier', marginX + 9, y + 4.5);
 
-  y += 12;
-  doc.setFontSize(13);
+  y += 11;
+  doc.setFontSize(12);
   doc.text('Bot trade history', marginX, y);
 
   y += 6;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.setTextColor(80, 80, 80);
+  doc.setTextColor(INK[0], INK[1], INK[2]);
 
   const account = accountLabel({ username, displayName });
   if (account) {
     doc.text(`Account: ${account}`, marginX, y);
-    y += 4;
+    y += 4.5;
   }
   if (userId?.trim()) {
     doc.text(`User ID: ${userId.trim()}`, marginX, y);
-    y += 4;
+    y += 4.5;
   }
   doc.text(`Wallet: ${walletAddress}`, marginX, y);
-  y += 4;
+  y += 4.5;
   doc.text(`Generated: ${fmtPdfTime(Date.now())}`, marginX, y);
-  y += 4;
+  y += 4.5;
   doc.text(`Closed fills: ${closeFills.length}`, marginX, y);
 
   const netPnl = closeFills.reduce((sum, f) => sum + toNum(f.closedPnl), 0);
-  y += 4;
+  y += 4.5;
   doc.setFont('helvetica', 'bold');
-  const pnlRgb = netPnl >= 0 ? ([16, 120, 72] as const) : ([200, 48, 48] as const);
-  doc.setTextColor(pnlRgb[0], pnlRgb[1], pnlRgb[2]);
   doc.text(`Net closed P/L: ${fmtClosedPnl(netPnl)}`, marginX, y);
 
-  const includeWhy = Boolean(closeReasonForFill);
   const head = [
     'Time',
     'Coin',
@@ -138,45 +141,52 @@ export async function exportBotTradesPdf({
     'Fee',
     'Result',
     'Closed P/L',
-    ...(includeWhy ? ['Why'] : []),
   ];
 
-  const body = closeFills.map((f) => {
-    const result = hlFillResultLabel(f.closedPnl) ?? '—';
-    const row = [
-      fmtPdfTime(f.time),
-      f.coin,
-      fmtFillAction(f.dir),
-      fillPositionDirection(f),
-      fmtSize(f.sz),
-      fmtPrice(f.px),
-      `$${toNum(f.fee).toFixed(4)}`,
-      result,
-      fmtClosedPnl(f.closedPnl),
-    ];
-    if (includeWhy) {
-      row.push(closeReasonForFill!(f.coin, f.time) ?? '—');
-    }
-    return row;
-  });
+  const body = closeFills.map((f) => [
+    fmtPdfTime(f.time),
+    f.coin,
+    fmtFillAction(f.dir),
+    fillPositionDirection(f),
+    fmtSize(f.sz),
+    fmtPrice(f.px),
+    `$${toNum(f.fee).toFixed(4)}`,
+    hlFillResultLabel(f.closedPnl) ?? '—',
+    fmtClosedPnl(f.closedPnl),
+  ]);
 
   autoTable(doc, {
-    startY: y + 6,
+    startY: y + 7,
     head: [head],
     body,
+    theme: 'plain',
     styles: {
-      fontSize: 7.5,
-      cellPadding: 1.8,
+      font: 'helvetica',
+      fontSize: 8,
+      cellPadding: { top: 2.2, right: 2.5, bottom: 2.2, left: 2.5 },
+      textColor: INK,
+      lineColor: LINE,
+      lineWidth: 0.15,
       overflow: 'linebreak',
+      valign: 'middle',
     },
     headStyles: {
-      fillColor: [10, 10, 10],
-      textColor: [255, 255, 255],
+      fillColor: HEAD_BG,
+      textColor: INK,
       fontStyle: 'bold',
+      lineColor: LINE,
+      lineWidth: 0.2,
     },
-    columnStyles: includeWhy
-      ? { 0: { cellWidth: 28 }, 9: { cellWidth: 32 } }
-      : { 0: { cellWidth: 30 } },
+    alternateRowStyles: {
+      fillColor: ROW_ALT,
+    },
+    bodyStyles: {
+      fillColor: [255, 255, 255],
+    },
+    columnStyles: {
+      0: { cellWidth: 30 },
+      8: { halign: 'right' },
+    },
     margin: { left: marginX, right: marginX },
   });
 
@@ -185,8 +195,8 @@ export async function exportBotTradesPdf({
       .lastAutoTable?.finalY ?? y + 20;
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(120, 120, 120);
+  doc.setFontSize(7.5);
+  doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
   doc.text(
     'Hyperliquid perps fills from your connected wallet. Not financial advice.',
     marginX,
