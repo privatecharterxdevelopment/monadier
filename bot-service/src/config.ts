@@ -166,14 +166,6 @@ export const config = {
     /** 0 = disabled — no forced close just for being in profit N ms. */
     profitGrabMaxHoldMs: Number(process.env.HL_PROFIT_GRAB_MAX_HOLD_MS || 0),
     profitHoldMaxMs: Number(process.env.HL_PROFIT_HOLD_MAX_MS || 0),
-    /** Fri 16:00 Europe/Zurich (MES/MEZ) through Fri 23:59 — new opens SHORT only when signaled. */
-    fridayShortOnlyTimezone:
-      process.env.HL_FRIDAY_SHORT_ONLY_TZ || 'Europe/Zurich',
-    fridayShortOnlyLocalHour: Number(
-      process.env.HL_FRIDAY_SHORT_ONLY_LOCAL_HOUR ?? 16
-    ),
-    /** @deprecated Use fridayShortOnlyLocalHour + fridayShortOnlyTimezone */
-    fridayShortOnlyUtcHour: Number(process.env.HL_FRIDAY_SHORT_ONLY_UTC_HOUR || 18),
     /** Pre-trade: min recent candle vol vs lookback avg (no sweep pattern required). */
     minTradeVolumeRatio: Number(process.env.HL_MIN_TRADE_VOLUME_RATIO || 1.05),
     /** Legacy — sweep pattern no longer required to open; kept for env compat. */

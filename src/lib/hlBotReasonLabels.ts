@@ -93,7 +93,19 @@ export function isBotScanNoiseDetail(detail: string): boolean {
     /Bot state out of sync/i.test(d) ||
     /Winning bot closes:/i.test(d) ||
     /Volume 0\.00x/i.test(d) ||
+    /short-window/i.test(d) ||
+    /Fri \d{1,2}:00 MES/i.test(d) ||
+    /SHORT only/i.test(d) ||
     / ‖ /.test(d) ||
     /15m \+?\d|1h \+?\d/i.test(d)
   );
+}
+
+/** Strip internal scan suffixes from bot reason strings before UI display. */
+export function sanitizeBotScanReason(reason: string): string {
+  return reason
+    .replace(/\s*·\s*Fri \d{1,2}:00 MES short-window[^\n·]*/gi, '')
+    .replace(/\s*·\s*major SHORT fallback[^\n·]*/gi, '')
+    .replace(/\s*·\s*major (LONG|SHORT) fallback[^\n·]*/gi, '')
+    .trim();
 }

@@ -34,7 +34,6 @@ import { releaseHlBotTradingPauses } from './services/dailyLossGate';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
 import { getHlFeeSummary } from './services/hlSuccessFees';
 import { tryQualifyReferral } from './services/referralAffiliate';
-import { isOpenDirectionAllowed, weekendShortOnlyLabel } from './services/weekendTradingRules';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 import { fetchMappedTokenPrices } from './services/tokenPrices';
 
@@ -388,12 +387,7 @@ const healthServer = http.createServer(async (req, res) => {
       const bestGlobal = userSignals[0] ?? null;
       const openCoinSet = new Set(hlOpenCoins.map((c) => c.toUpperCase()));
       const bestAvailable =
-        userSignals.find(
-          (s) =>
-            !openCoinSet.has(s.coin.toUpperCase()) &&
-            isOpenDirectionAllowed(s.direction)
-        ) ?? null;
-      const weekendRule = weekendShortOnlyLabel();
+        userSignals.find((s) => !openCoinSet.has(s.coin.toUpperCase())) ?? null;
 
       const ethSignal = await marketService.getSignal(
         chainId,
@@ -444,9 +438,7 @@ const healthServer = http.createServer(async (req, res) => {
       if (!winRateGate.allowed) blockers.push(winRateGate.reason || 'win rate gate');
       if (!bestAvailable && hlOpenCoins.length < maxPositions) {
         blockers.push(
-          weekendRule
-            ? `${weekendRule} — no eligible SHORT on another pair yet`
-            : `no HL perp passed global scan (min ${config.hyperliquid.minSignalConfidence}% conf, ${config.hyperliquid.minDirectionalTfs} TFs, ${config.hyperliquid.minTrendAlignment}% align)`
+          `no HL perp passed global scan (min ${config.hyperliquid.minSignalConfidence}% conf, ${config.hyperliquid.minDirectionalTfs} TFs, ${config.hyperliquid.minTrendAlignment}% align)`
         );
       }
       if (bestAvailable && hlOpenCoins.length < maxPositions && dbSettings.autoTradeEnabled) {
@@ -520,12 +512,6 @@ const healthServer = http.createServer(async (req, res) => {
           minDirectionalTfs: config.hyperliquid.minDirectionalTfs,
           minTrendAlignment: config.hyperliquid.minTrendAlignment,
           newsTradeMode: dbSettings.newsTradeMode,
-        },
-        globalGates: {
-          minSignalConfidence: config.hyperliquid.minSignalConfidence,
-          minDirectionalTfs: config.hyperliquid.minDirectionalTfs,
-          minTrendAlignment: config.hyperliquid.minTrendAlignment,
-          weekendShortOnly: weekendRule,
         },
         globalScan: {
           coinsScanned: lastHlGlobalScanStats.coinsScanned,

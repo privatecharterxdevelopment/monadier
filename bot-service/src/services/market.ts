@@ -1267,6 +1267,63 @@ export async function analyzeMarketMTFBySymbol(
       }
     }
 
+    const isMajorSymbol = /^(BTC|ETH)/i.test(symbol.replace(/USDT.*/i, ''));
+    const isSideways1h = trend === 'SIDEWAYS';
+    if (isMajorSymbol && isSideways1h && finalDirection === 'SHORT') {
+      const tf15ForRange = signal.timeframes.find((t) => t.timeframe === '15m');
+      const tf1hBar = signal.timeframes.find((t) => t.timeframe === '1h');
+      const h1Sideways =
+        !tf1hBar ||
+        tf1hBar.trend === 'SIDEWAYS' ||
+        ((tf1hBar.rsi ?? 50) >= 38 && (tf1hBar.rsi ?? 50) <= 62);
+      if (h1Sideways) {
+        if (tf15ForRange && tf15ForRange.resistance > tf15ForRange.support) {
+          const rangePos =
+            (tf15ForRange.currentPrice - tf15ForRange.support) /
+            (tf15ForRange.resistance - tf15ForRange.support);
+          if (rangePos <= 0.58) {
+            logger.debug('MTF sideways major — prefer range LONG over short-term SHORT', {
+              symbol,
+              rangePos,
+            });
+            finalDirection = 'LONG';
+          } else {
+            logger.debug('MTF sideways major — skip SHORT in upper range', { symbol, rangePos });
+            return {
+              direction: 'LONG',
+              confidence: Math.round(signal.confidence),
+              reason: `Sideways ${symbol.replace(/USDT.*/i, '')} — no short at ${(rangePos * 100).toFixed(0)}% of range`,
+              indicators: indicators.slice(0, 3),
+              isReversalSignal: false,
+              suggestedTP: 5,
+              suggestedSL: 1.5,
+              isOverheated: rsi > 75 || rsi < 25,
+              isWeekendWarning: weekendAlertLevel !== 'none',
+              weekendAlertLevel,
+              scalpingRecommended: false,
+              marketWarning,
+              isWeak: true,
+              metrics: {
+                rsi: Math.round(rsi),
+                macd: macdSignal,
+                priceChange1h: '0.00',
+                volumeRatio: '1.0',
+                conditionsMet: 0,
+                trendAlignment: Math.round(signal.trendAlignment),
+                directionalTfCount: 0,
+                h1Trend: trend,
+                riskReward: '0',
+                trend: 'NEUTRAL',
+                dayOfWeek: dayNames[dayOfWeek],
+              },
+            };
+          }
+        } else {
+          finalDirection = 'LONG';
+        }
+      }
+    }
+
     const tf15Bar = signal.timeframes.find((t) => t.timeframe === '15m');
     if (tf15Bar && tf15Bar.resistance > tf15Bar.support) {
       const rangePos =

@@ -5,7 +5,6 @@ import { analyzeMarketMTFBySymbol, type TradingStrategy } from './market';
 import { analyzeAggressiveScalpBySymbol } from './aggressiveScalpAnalysis';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
-import { filterWeekendShortOnly, isWeekendShortOnlyWindow } from './weekendTradingRules';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
@@ -84,40 +83,6 @@ async function scanMajorChartFallback(
       direction: analysis.direction,
       confidence: analysis.confidence,
       reason: `${analysis.reason} · major ${analysis.direction} fallback (${analysis.confidence}% / ${tfs} TFs)`,
-      dayVolumeUsd: liq.dayVolumeUsd,
-      openInterestUsd: liq.openInterestUsd,
-      botMode: 'standard',
-      mtfBreakdown: analysis.mtfBreakdown,
-      trendAlignment: analysis.metrics?.trendAlignment,
-      directionalTfCount: analysis.metrics?.directionalTfCount,
-      h1Trend: analysis.metrics?.h1Trend,
-      signalReasons: analysis.signalReasons,
-      indicators: analysis.indicators,
-    };
-  } catch {
-    return null;
-  }
-}
-
-/** Fri short window — BTC/ETH SHORT only, slightly relaxed vs standard scan. */
-async function scanFridayMajorShortFallback(
-  coin: string,
-  liq: { dayVolumeUsd: number; openInterestUsd: number }
-): Promise<GlobalSignalCandidate | null> {
-  try {
-    const symbol = hlCoinToBinanceSymbol(coin);
-    const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
-    if (!analysis || analysis.direction !== 'SHORT') return null;
-    if (analysis.confidence < 42) return null;
-    const tfs = analysis.metrics?.directionalTfCount ?? 0;
-    if (tfs < 1) return null;
-
-    return {
-      coin,
-      symbol,
-      direction: 'SHORT',
-      confidence: analysis.confidence,
-      reason: `${analysis.reason} · Fri ${config.hyperliquid.fridayShortOnlyLocalHour}:00 MES short-window ${coin} (${analysis.confidence}% / ${tfs} TFs)`,
       dayVolumeUsd: liq.dayVolumeUsd,
       openInterestUsd: liq.openInterestUsd,
       botMode: 'standard',
@@ -337,22 +302,19 @@ export async function scanGlobalHlSignals(
     .filter((c): c is GlobalSignalCandidate => c !== null)
     .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence);
 
-  const standardFiltered = filterWeekendShortOnly(standard);
-  let aggressiveFiltered = filterWeekendShortOnly(aggressive);
+  let finalStandard = standard;
+  const aggressiveFiltered = aggressive;
 
-  let finalStandard = standardFiltered;
-  if (standardFiltered.length === 0) {
+  if (finalStandard.length === 0) {
     const topCoins = coins.slice(0, 10);
     const relaxedRaw = await mapPool(topCoins, concurrency, async (coin) => {
       const liq = liqByCoin.get(coin);
       if (!liq) return null;
       return scanStandardCoin(coin, liq, universe, true);
     });
-    finalStandard = filterWeekendShortOnly(
-      relaxedRaw
-        .filter((c): c is GlobalSignalCandidate => c !== null)
-        .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence)
-    );
+    finalStandard = relaxedRaw
+      .filter((c): c is GlobalSignalCandidate => c !== null)
+      .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence);
     if (finalStandard.length > 0) {
       logger.info('Global HL scan — relaxed fallback used', {
         count: finalStandard.length,
@@ -370,11 +332,9 @@ export async function scanGlobalHlSignals(
       if (!liq) return null;
       return scanMajorChartFallback(coin, liq, universe);
     });
-    finalStandard = filterWeekendShortOnly(
-      majorRaw
-        .filter((c): c is GlobalSignalCandidate => c !== null)
-        .sort((a, b) => b.confidence - a.confidence)
-    );
+    finalStandard = majorRaw
+      .filter((c): c is GlobalSignalCandidate => c !== null)
+      .sort((a, b) => b.confidence - a.confidence);
     if (finalStandard.length > 0) {
       logger.info('Global HL scan — major chart fallback used', {
         count: finalStandard.length,
@@ -382,24 +342,6 @@ export async function scanGlobalHlSignals(
         direction: finalStandard[0]?.direction,
         conf: finalStandard[0]?.confidence,
       });
-    }
-  }
-
-  if (finalStandard.length === 0 && isWeekendShortOnlyWindow()) {
-    for (const coin of ['BTC', 'ETH']) {
-      if (!coins.includes(coin)) continue;
-      const liq = liqByCoin.get(coin);
-      if (!liq) continue;
-      const shortHit = await scanFridayMajorShortFallback(coin, liq);
-      if (shortHit) {
-        finalStandard = [shortHit];
-        logger.info('Global HL scan — Fri MES short-window major SHORT', {
-          coin: shortHit.coin,
-          conf: shortHit.confidence,
-          reason: shortHit.reason,
-        });
-        break;
-      }
     }
   }
 
@@ -417,7 +359,6 @@ export async function scanGlobalHlSignals(
     liquidCoins: coins.length,
     standard: finalStandard.length,
     aggressive: aggressiveFiltered.length,
-    weekendShortOnly: isWeekendShortOnlyWindow(),
     topStandard: finalStandard[0]?.coin,
     topAggressive: aggressiveFiltered[0]?.coin,
     ms: Date.now() - started,

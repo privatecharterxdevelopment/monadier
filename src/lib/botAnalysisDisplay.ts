@@ -1,5 +1,5 @@
 import type { BotReadiness } from './botReadiness';
-import { isBotScanNoiseDetail } from './hlBotReasonLabels';
+import { isBotScanNoiseDetail, sanitizeBotScanReason } from './hlBotReasonLabels';
 
 type GlobalBest = {
   coin: string;
@@ -32,7 +32,9 @@ export function resolveBotAnalysisWhyLine({
       openPositionsCount > 0 && openPositionsCount < maxConcurrentPositions
         ? `Slot ${openPositionsCount + 1}: `
         : '';
-    const line = `${slot}${globalBest.coin} ${globalBest.direction} ${conf}% — ${globalBest.reason.trim()}`;
+    const cleanedReason = sanitizeBotScanReason(globalBest.reason.trim());
+    if (!cleanedReason || isBotScanNoiseDetail(cleanedReason)) return null;
+    const line = `${slot}${globalBest.coin} ${globalBest.direction} ${conf}% — ${cleanedReason}`;
     return isBotScanNoiseDetail(line) ? null : line;
   }
   const detail = readiness?.detail?.trim();
