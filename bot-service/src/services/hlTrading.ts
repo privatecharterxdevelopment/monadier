@@ -153,6 +153,9 @@ function formatOpenErrorForClient(error: string): string {
   if (/20-candle|structure still up|bullish/i.test(error)) {
     return 'Chart still trending against this direction — waiting';
   }
+  if (/Sideways grind OK/i.test(error)) {
+    return error.length > 120 ? `${error.slice(0, 117)}…` : error;
+  }
   if (/needs live momentum|buy low|sell high|wait for pullback|Dip-buy|Rally-fade/i.test(error)) {
     return 'Waiting for pullback to buy low / rally to sell high';
   }
