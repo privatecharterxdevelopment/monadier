@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import { goToOpenApp } from '../../lib/appUrls';
-import { dashboardPreview } from '../../assets/landing/dashboardPreview';
 import { useLandingScrollSequence } from './useLandingScrollSequence';
 
 const PRODUCT_CARDS = [
@@ -10,38 +9,42 @@ const PRODUCT_CARDS = [
     id: 'bot',
     title: 'Full auto bot trading',
     desc: 'AI scans 200+ HL perps — opens, trails profit, and cuts losers 24/7.',
-    image: dashboardPreview,
+    image: '/images/landing/moadier-full-auto-bot-trading.jpeg',
     cta: 'Start bot',
     section: '?section=bot',
+    hideCopy: true,
   },
   {
     id: 'perps',
     title: 'Pro perps trading',
     desc: 'Live charts, depth, and execution on Hyperliquid.',
-    image: '/images/landing/hero-visual.png',
+    image: '/images/landing/monadier-pro-pers-trading.jpeg',
     cta: 'Trade perps',
     section: '',
+    hideCopy: true,
   },
   {
     id: 'betting',
     title: 'Sports betting',
     desc: 'HIP-4 outcome markets — macro, crypto, and live sports on-chain.',
-    image: '/images/betting/sports-hero.png',
+    image: '/images/landing/FIFA_World_Cup_Trophy_graphic_202606270302.jpeg',
     cta: 'Open betting',
     section: '?section=sportsbets',
+    hideCopy: true,
   },
   {
-    id: 'pro-trade',
-    title: 'Professional trade',
-    desc: 'Full Hyperliquid terminal — charts, depth, and precision execution.',
-    image: '/images/landing/hero-visual.png',
-    cta: 'Open terminal',
-    section: '',
+    id: 'predictions',
+    title: 'Prediction market',
+    desc: '',
+    image: '/images/landing/monadier-prediciton-market.jpeg',
+    cta: 'Open markets',
+    section: '?section=sportsbets',
+    hideCopy: true,
   },
 ] as const;
 
 const CAROUSEL_SCROLL_PX = 720;
-const TITLE_ROTATE_WORDS = ['today', 'tomorrow', 'whenever'] as const;
+const TITLE_ROTATE_WORDS = ['passively', 'today', 'tomorrow', 'whenever'] as const;
 const TITLE_ROTATE_MS = 3200;
 
 function measureCarouselTravel(lane: HTMLElement, track: HTMLElement): number {
@@ -164,7 +167,7 @@ const LandingProductCarouselSection: React.FC = () => {
                   <AnimatePresence mode="wait" initial={false}>
                     <motion.span
                       key={rotateWord}
-                      className="landing-gmx-product-carousel-title-rotate-visible landing-gmx-product-carousel-emphasis"
+                      className="landing-gmx-product-carousel-title-rotate-visible landing-gmx-product-carousel-muted"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
@@ -182,13 +185,25 @@ const LandingProductCarouselSection: React.FC = () => {
                 {PRODUCT_CARDS.map((card) => (
                   <article
                     key={card.id}
-                    className="landing-gmx-product-card landing-gmx-product-carousel-card"
-                    style={{ backgroundImage: `url(${card.image})` }}
+                    className={`landing-gmx-product-card landing-gmx-product-carousel-card${
+                      card.hideCopy ? ' landing-gmx-product-carousel-card--cta-only' : ''
+                    }`}
+                    aria-label={card.hideCopy ? card.title : undefined}
                   >
-                    <div className="landing-gmx-product-card-shade" aria-hidden />
+                    <img
+                      src={card.image}
+                      alt=""
+                      className="landing-gmx-product-carousel-card-media"
+                      decoding="async"
+                      aria-hidden
+                    />
                     <div className="landing-gmx-product-card-copy">
-                      <h3 className="landing-gmx-product-card-title">{card.title}</h3>
-                      <p className="landing-gmx-product-card-desc">{card.desc}</p>
+                      {!card.hideCopy ? (
+                        <>
+                          <h3 className="landing-gmx-product-card-title">{card.title}</h3>
+                          <p className="landing-gmx-product-card-desc">{card.desc}</p>
+                        </>
+                      ) : null}
                       <button
                         type="button"
                         className="landing-gmx-product-card-cta"

@@ -51,6 +51,7 @@ type PromoBannerProps = {
   visual: React.ReactNode;
   visualClassName?: string;
   className?: string;
+  hideCopy?: boolean;
 };
 
 const PromoBanner: React.FC<PromoBannerProps> = ({
@@ -63,15 +64,19 @@ const PromoBanner: React.FC<PromoBannerProps> = ({
   visual,
   visualClassName = '',
   className = '',
+  hideCopy = false,
 }) => (
   <motion.article
     {...fadeUp(delay)}
     className={`landing-bento-promo-card landing-glass-card${className ? ` ${className}` : ''}`}
+    aria-label={hideCopy ? title : undefined}
   >
-    <div className="landing-bento-promo-copy">
-      <h3 className="landing-bento-promo-title">{title}</h3>
-      <p className="landing-bento-promo-desc">{desc}</p>
-    </div>
+    {!hideCopy ? (
+      <div className="landing-bento-promo-copy">
+        <h3 className="landing-bento-promo-title">{title}</h3>
+        <p className="landing-bento-promo-desc">{desc}</p>
+      </div>
+    ) : null}
     <div className={`landing-bento-promo-visual ${visualClassName}`.trim()}>{visual}</div>
     <a href={href} className="landing-bento-promo-cta" onClick={onClick}>
       {cta}

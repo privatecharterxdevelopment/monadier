@@ -32,6 +32,8 @@ supabase/.env
 *.sw?
 *.png
 !public/**/*.png
+!public/**/*.jpeg
+!public/**/*.jpg
 !src/assets/landing/dashboard-preview.png
 .vercel
 supabase/.temp/
