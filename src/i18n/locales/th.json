@@ -199,120 +199,126 @@
       "items": [
         {
           "tab": "platform",
-          "q": "What is Monadier?",
-          "a": "Monadier is an automated perpetuals bot on Hyperliquid. You deposit USDC on your Hyperliquid account, approve the Monadier trading agent once, and our server scans all HL markets 24/7 to open and close trades for you."
+          "q": "Monadier คืออะไร?",
+          "a": "Monadier เป็นบอท perpetual อัตโนมัติบน Hyperliquid คุณฝาก USDC ในบัญชี Hyperliquid อนุมัติ Monadier trading agent ครั้งเดียว และเซิร์ฟเวอร์ของเราสแกนตลาด HL ทั้งหมด 24/7 เพื่อเปิดและปิดเทรดให้คุณ"
         },
         {
           "tab": "platform",
-          "q": "Is Monadier safe to use?",
-          "a": "Monadier is non-custodial on Hyperliquid: your USDC stays on your HL account in your name. The trading agent can place trades but cannot withdraw without your wallet. Auto-trading runs only when you press Start bot."
+          "q": "Monadier ปลอดภัยไหม?",
+          "a": "Monadier เป็น non-custodial บน Hyperliquid: USDC ของคุณอยู่ในบัญชี HL ในชื่อคุณ trading agent สามารถวางออเดอร์ได้แต่ถอนเงินไม่ได้โดยไม่มี wallet ของคุณ การเทรดอัตโนมัติทำงานเมื่อกดเริ่มบอทเท่านั้น"
         },
         {
           "tab": "platform",
-          "q": "Is Monadier non-custodial?",
-          "a": "Yes. Funds sit on your Hyperliquid account, not in a Monadier vault. We never hold your private keys. Withdrawals always require your wallet signature on Hyperliquid."
+          "q": "Monadier เป็น non-custodial หรือไม่?",
+          "a": "ใช่ เงินอยู่ในบัญชี Hyperliquid ของคุณ ไม่ใช่ vault ของ Monadier เราไม่ถือ private key ของคุณ การถอนต้องมีลายเซ็น wallet บน Hyperliquid เสมอ"
         },
         {
           "tab": "platform",
-          "q": "Is Monadier fully decentralized?",
-          "a": "Trading executes on Hyperliquid infrastructure via an agent you approve. Signal analysis and automation run on Monadier servers (Railway). You can verify balances and positions on app.hyperliquid.xyz at any time."
+          "q": "Monadier เป็น decentralized เต็มรูปแบบหรือไม่?",
+          "a": "การเทรดดำเนินการบนโครงสร้าง Hyperliquid ผ่าน agent ที่คุณอนุมัติ การวิเคราะห์สัญญาณและระบบอัตโนมัติทำงานบนเซิร์ฟเวอร์ Monadier (Railway) คุณตรวจสอบยอดและพозишनได้ที่ app.hyperliquid.xyz ตลอดเวลา"
         },
         {
           "tab": "platform",
-          "q": "Is this financial advice?",
-          "a": "No. Monadier provides software for automated Hyperliquid perpetual trading — not investment, tax, or legal advice. Crypto and leveraged trading carry significant risk. Do your own research and only use funds you can afford to lose."
+          "q": "นี่คือคำแนะนำทางการเงินหรือไม่?",
+          "a": "ไม่ Monadier ให้ซอฟต์แวร์สำหรับเทรด perpetual Hyperliquid อัตโนมัติ — ไม่ใช่คำแนะนำการลงทุน ภาษี หรือกฎหมาย คริpto และ leverage มีความเสี่ยงสูง ศึกษาด้วยตนเองและใช้เงินที่เสียได้เท่านั้น"
         },
         {
           "tab": "platform",
-          "q": "Why Hyperliquid for automated trading?",
-          "a": "Hyperliquid offers deep perp liquidity, fast execution, and USDC margin on its own L1. One deposit on HL powers trading across all listed markets — simpler than bridging through legacy L2 vaults."
+          "q": "ทำไมใช้ Hyperliquid สำหรับเทรดอัตโนมัติ?",
+          "a": "Hyperliquid มีสภาพคล่อง perp ลึก การดำเนินการเร็ว และ margin USDC บน L1 ของตัวเอง ฝากครั้งเดียวบน HL ใช้เทรดทุกตลาดที่ลิสต์ — ง่ายกว่า bridge ผ่าน L2 vault เก่า"
         },
         {
           "tab": "bot",
-          "q": "How does the trading bot work?",
-          "a": "While the bot is running, Monadier server (Railway) checks your HL balance every ~10 seconds, scans all Hyperliquid perps with multi-timeframe signals, opens the strongest setup, monitors take profit / stop loss, closes the position, then repeats."
+          "q": "บอทเทรดทำงานอย่างไร?",
+          "a": "ขณะบอททำงาน เซิร์ฟเวอร์ Monadier (Railway) ตรวจยอด HL ทุก ~10 วินาที สแกน perp Hyperliquid ทั้งหมดด้วยสัญญาณ multi-timeframe เปิด setup ที่แข็งแกร่งที่สุด ติดตาม TP/SL ปิดพозишน แล้วทำซ้ำ"
         },
         {
           "tab": "bot",
-          "q": "How long does the trading bot run?",
-          "a": "24/7 while Start bot is on and you have at least $20 USDC on Hyperliquid. There is no session timeout — the server keeps cycling until you press Stop bot."
+          "q": "บอทเทรดทำงานนานแค่ไหน?",
+          "a": "24/7 ตราบใดที่เริ่มบอทเปิดอยู่และมี USDC อย่างน้อย $20 บน Hyperliquid ไม่มี session timeout — เซิร์ฟเวอร์วนจนกว่าจะกดหยุดบอท"
         },
         {
           "tab": "bot",
-          "q": "Can the bot trade 24/7?",
-          "a": "Yes. Crypto markets never close. Once started, the bot scans all HL perps around the clock and can open or close positions at any hour — you do not need to stay online."
+          "q": "บอทเทรด 24/7 ได้ไหม?",
+          "a": "ได้ ตลาดคริpto ไม่ปิด เมื่อเริ่มแล้ว บอทสแกน HL perp ตลอด 24 ชม. และเปิด/ปิดพозишนได้ทุกเวลา — ไม่ต้องออนไลน์"
         },
         {
           "tab": "bot",
-          "q": "Can I close trades manually?",
-          "a": "Yes. Open positions on Hyperliquid can be closed in the terminal or on app.hyperliquid.xyz. Stop bot halts new entries; existing HL positions remain until TP/SL or manual close."
+          "q": "ปิดเทรดด้วยตนเองได้ไหม?",
+          "a": "ได้ พозишนเปิดบน Hyperliquid ปิดได้ในเทอร์มินัลหรือ app.hyperliquid.xyz หยุดบอทหยุดการเปิดใหม่ พозишน HL ที่มีอยู่คงอยู่จน TP/SL หรือปิดเอง"
         },
         {
           "tab": "bot",
-          "q": "Which crypto assets does the bot trade?",
-          "a": "Any active Hyperliquid perpetual with a valid market signal — the bot loads the full HL universe (200+ pairs) and picks the strongest setup each cycle, not a fixed ETH/BTC list."
+          "q": "บอทเทรดสินทรัพย์คริpto อะไรบ้าง?",
+          "a": "perpetual Hyperliquid ที่ active และมีสัญญาณตลาดที่ valid — บอทโหลด universe HL ทั้งหมด (200+ คู่) และเลือก setup ที่แข็งแกร่งที่สุดแต่ละรอบ ไม่ใช่รายการ ETH/BTC คงที่"
         },
         {
           "tab": "bot",
-          "q": "What leverage does the bot use?",
-          "a": "You set leverage, take profit, and stop loss in bot settings. The bot clamps to Hyperliquid per-asset maximum (e.g. BTC 40×, ETH 25×) on each trade."
+          "q": "บอทใช้ leverage เท่าไหร่?",
+          "a": "คุณตั้ง leverage, take profit และ stop loss ในการตั้งค่าบอท บอทจำกัดตามค่าสูงสุดต่อ asset ของ Hyperliquid (เช่น BTC 40×, ETH 25×) ในแต่ละเทรด"
         },
         {
           "tab": "bot",
-          "q": "Do I need to keep my computer on?",
-          "a": "No. The bot runs on Monadier servers (Railway). After Start bot and a funded Hyperliquid account, it trades 24/7 without your browser open."
+          "q": "ต้องเปิดคอมพิวเตอร์ทิ้งไว้ไหม?",
+          "a": "ไม่ บอททำงานบนเซิร์ฟเวอร์ Monadier (Railway) หลังเริ่มบอทและมีเงิน HL แล้ว เทรด 24/7 โดยไม่ต้องเปิดเบราว์เซอร์"
         },
         {
           "tab": "bot",
-          "q": "How do I deposit so the bot can start?",
-          "a": "In Monadier Funds (or app.hyperliquid.xyz): deposit only native USDC on Arbitrum One — not BNB, BSC, ETH mainnet, or USDC on other chains. Min. $5 on HL; bot needs $20+. Then approve agent → Start bot."
+          "q": "ฝากเงินอย่างไรให้บอทเริ่มได้?",
+          "a": "ใน Monadier Funds (หรือ app.hyperliquid.xyz): ฝากเฉพาะ USDC native บน Arbitrum One — ไม่ใช่ BNB, BSC, ETH mainnet หรือ USDC บน chain อื่น ขั้นต่ำ $5 บน HL บอทต้องการ $20+ จากนั้นอนุมัติ agent → เริ่มบอท"
         },
         {
           "tab": "vault",
-          "q": "How much USDC do I need to start?",
-          "a": "At least $20 USDC on your Hyperliquid account for the bot (HL minimum deposit is $5). Only fund what you want the bot to use — it trades from your HL balance, not a separate vault."
+          "q": "ต้องมี USDC เท่าไหร่เพื่อเริ่ม?",
+          "a": "อย่างน้อย $20 USDC ในบัญชี Hyperliquid สำหรับบอท (ฝากขั้นต่ำ HL $5) ฝากเฉพาะที่ต้องการให้บอทใช้ — เทรดจากยอด HL ไม่ใช่ vault แยก"
         },
         {
           "tab": "vault",
-          "q": "What fees does the bot charge?",
-          "a": "Hyperliquid trading fees apply on each perp trade. Monadier may charge a builder fee on HL orders and subscription tiers for bot access. Check the app for current subscription and fee settings."
+          "q": "บอทคิดค่าธรรมเนียมอะไรบ้าง?",
+          "a": "ค่าธรรมเนียมเทรด Hyperliquid ใช้กับแต่ละ perp Monadier อาจคิด builder fee บนออเดอร์ HL และแผน subscription สำหรับการเข้าถึงบอท ตรวจการตั้งค่าในแอป"
         },
         {
           "tab": "vault",
-          "q": "Can I withdraw my USDC anytime?",
-          "a": "Yes — from Hyperliquid to your wallet via the Funds panel or app.hyperliquid.xyz. Close open positions first if margin is in use. The trading agent cannot withdraw for you."
+          "q": "ถอน USDC ได้ตลอดเวลาไหม?",
+          "a": "ได้ — จาก Hyperliquid ไป wallet ผ่านแผง Funds หรือ app.hyperliquid.xyz ปิดพозишนเปิดก่อนหากใช้ margin trading agent ถอนแทนคุณไม่ได้"
         },
         {
           "tab": "vault",
-          "q": "Why Hyperliquid instead of a vault?",
-          "a": "Your USDC stays on your Hyperliquid account in your name. The bot only trades via an agent you approve; it cannot move funds out. You see balance and positions directly on HL."
+          "q": "ทำไมใช้ Hyperliquid แทน vault?",
+          "a": "USDC อยู่ในบัญชี Hyperliquid ในชื่อคุณ บอทเทรดผ่าน agent ที่อนุมัติเท่านั้น ไม่สามารถย้ายเงินออก ดูยอดและพозишนได้ตรงบน HL"
         },
         {
           "tab": "vault",
-          "q": "Do I need to sign wallet transactions?",
-          "a": "Yes for deposits, withdrawals, and the one-time agent approval. Ongoing bot trades are signed by the approved agent — you do not sign each trade manually."
+          "q": "ต้องเซ็น transaction wallet ไหม?",
+          "a": "ใช่สำหรับฝาก ถอน และการอนุมัติ agent ครั้งเดียว เทรดบอทต่อเนื่องเซ็นโดย agent ที่อนุมัติ — ไม่ต้องเซ็นทุกเทรดเอง"
         },
         {
           "tab": "betting",
-          "q": "What are verified sports markets on Monadier?",
-          "a": "Browse live and upcoming sports events listed as Hyperliquid HIP-4 outcome markets — odds update on-chain as the book moves."
+          "q": "ตลาดกีฬาที่ verified บน Monadier คืออะไร?",
+          "a": "เรียกดูกิจกรรมกีฬา live และที่จะมาถึงที่ลิสต์เป็น Hyperliquid HIP-4 outcome markets — odds อัปเดต on-chain ตามการเคลื่อนไหวของ book"
         },
         {
           "tab": "betting",
-          "q": "Is Monadier betting non-custodial?",
-          "a": "Your USDC stays on your Hyperliquid account. Orders are wallet-signed; Monadier never holds your private keys."
+          "q": "การเดิมพัน Monadier เป็น non-custodial ไหม?",
+          "a": "USDC อยู่ในบัญชี Hyperliquid ของคุณ ออเดอร์เซ็นด้วย wallet Monadier ไม่ถือ private key"
         },
         {
           "tab": "betting",
-          "q": "How fast is on-chain betting execution?",
-          "a": "Place Yes/No bets directly on Hyperliquid outcome contracts. Open positions, cash out, and track P/L in the app."
+          "q": "การดำเนินการเดิมพัน on-chain เร็วแค่ไหน?",
+          "a": "วางเดิมพัน Yes/No โดยตรงบนสัญญา outcome ของ Hyperliquid เปิดพозишน cash out และติดตาม P/L ในแอป"
         },
         {
           "tab": "betting",
-          "q": "How does transparent settlement work?",
-          "a": "Markets resolve on verified outcomes. Positions and balances are visible on Hyperliquid — no opaque bookmaker ledger."
+          "q": "การชำระเงินแบบโปร่งใสทำงานอย่างไร?",
+          "a": "ตลาด resolve ตามผลที่ verified พозишนและยอดมองเห็นบน Hyperliquid — ไม่มี ledger bookmaker ที่ไม่โปร่งใส"
         }
       ]
+    },
+    "bettingFaq": {
+      "titleDark": "เดิมพัน ",
+      "titleGrey": "FAQ",
+      "pageTitle": "คำถามที่พบบ่อย",
+      "lead": "ตลาด outcome HIP-4 บน Hyperliquid — ลงนามด้วย wallet อัตราต่อรอง on-chain และการชำระเงินโปร่งใส"
     }
   },
   "auth": {

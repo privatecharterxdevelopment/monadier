@@ -313,6 +313,12 @@
           "a": "Markets resolve on verified outcomes. Positions and balances are visible on Hyperliquid — no opaque bookmaker ledger."
         }
       ]
+    },
+    "bettingFaq": {
+      "titleDark": "Betting ",
+      "titleGrey": "FAQ",
+      "pageTitle": "Frequently asked questions",
+      "lead": "HIP-4 outcome markets on Hyperliquid — wallet-signed, on-chain odds, and transparent settlement."
     }
   },
   "auth": {

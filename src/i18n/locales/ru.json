@@ -199,120 +199,126 @@
       "items": [
         {
           "tab": "platform",
-          "q": "What is Monadier?",
-          "a": "Monadier is an automated perpetuals bot on Hyperliquid. You deposit USDC on your Hyperliquid account, approve the Monadier trading agent once, and our server scans all HL markets 24/7 to open and close trades for you."
+          "q": "Что такое Monadier?",
+          "a": "Monadier — автоматизированный бот перпов на Hyperliquid. Вы вносите USDC на счёт Hyperliquid, один раз одобряете торгового агента Monadier, и наш сервер сканирует все рынки HL 24/7, открывая и закрывая сделки за вас."
         },
         {
           "tab": "platform",
-          "q": "Is Monadier safe to use?",
-          "a": "Monadier is non-custodial on Hyperliquid: your USDC stays on your HL account in your name. The trading agent can place trades but cannot withdraw without your wallet. Auto-trading runs only when you press Start bot."
+          "q": "Безопасен ли Monadier?",
+          "a": "Monadier некustodial на Hyperliquid: ваш USDC остаётся на HL-счёте на ваше имя. Агент может торговать, но не выводить средства без вашего кошелька. Авто-торговля работает только после нажатия «Запустить бота»."
         },
         {
           "tab": "platform",
-          "q": "Is Monadier non-custodial?",
-          "a": "Yes. Funds sit on your Hyperliquid account, not in a Monadier vault. We never hold your private keys. Withdrawals always require your wallet signature on Hyperliquid."
+          "q": "Monadier некustodial?",
+          "a": "Да. Средства на вашем счёте Hyperliquid, а не в vault Monadier. Мы никогда не храним ваши приватные ключи. Вывод всегда требует подписи кошелька на Hyperliquid."
         },
         {
           "tab": "platform",
-          "q": "Is Monadier fully decentralized?",
-          "a": "Trading executes on Hyperliquid infrastructure via an agent you approve. Signal analysis and automation run on Monadier servers (Railway). You can verify balances and positions on app.hyperliquid.xyz at any time."
+          "q": "Monadier полностью децентрализован?",
+          "a": "Торговля выполняется на инфраструктуре Hyperliquid через одобренного вами агента. Анализ сигналов и автоматизация работают на серверах Monadier (Railway). Баланс и позиции можно проверить на app.hyperliquid.xyz в любое время."
         },
         {
           "tab": "platform",
-          "q": "Is this financial advice?",
-          "a": "No. Monadier provides software for automated Hyperliquid perpetual trading — not investment, tax, or legal advice. Crypto and leveraged trading carry significant risk. Do your own research and only use funds you can afford to lose."
+          "q": "Это финансовая консультация?",
+          "a": "Нет. Monadier предоставляет ПО для автоматической торговли перпами Hyperliquid — не инвестиционные, налоговые или юридические советы. Крипто и плечо несут значительный риск. Проводите собственное исследование и используйте только средства, которые можете потерять."
         },
         {
           "tab": "platform",
-          "q": "Why Hyperliquid for automated trading?",
-          "a": "Hyperliquid offers deep perp liquidity, fast execution, and USDC margin on its own L1. One deposit on HL powers trading across all listed markets — simpler than bridging through legacy L2 vaults."
+          "q": "Почему Hyperliquid для автоторговли?",
+          "a": "Hyperliquid предлагает глубокую ликвидность перпов, быстрое исполнение и USDC-маржу на собственном L1. Один депозит на HL обеспечивает торговлю на всех листинговых рынках — проще, чем через legacy L2 vault."
         },
         {
           "tab": "bot",
-          "q": "How does the trading bot work?",
-          "a": "While the bot is running, Monadier server (Railway) checks your HL balance every ~10 seconds, scans all Hyperliquid perps with multi-timeframe signals, opens the strongest setup, monitors take profit / stop loss, closes the position, then repeats."
+          "q": "Как работает торговый бот?",
+          "a": "Пока бот работает, сервер Monadier (Railway) каждые ~10 секунд проверяет HL-баланс, сканирует все перпы Hyperliquid с мультитаймфреймовыми сигналами, открывает лучший сетап, следит за TP/SL, закрывает позицию и повторяет."
         },
         {
           "tab": "bot",
-          "q": "How long does the trading bot run?",
-          "a": "24/7 while Start bot is on and you have at least $20 USDC on Hyperliquid. There is no session timeout — the server keeps cycling until you press Stop bot."
+          "q": "Как долго работает бот?",
+          "a": "24/7, пока «Запустить бота» включён и на Hyperliquid не менее $20 USDC. Нет таймаута сессии — сервер работает, пока вы не нажмёте «Остановить бота»."
         },
         {
           "tab": "bot",
-          "q": "Can the bot trade 24/7?",
-          "a": "Yes. Crypto markets never close. Once started, the bot scans all HL perps around the clock and can open or close positions at any hour — you do not need to stay online."
+          "q": "Может ли бот торговать 24/7?",
+          "a": "Да. Крипторынки не закрываются. После запуска бот сканирует все HL-перпы круглосуточно и может открывать или закрывать позиции в любое время — быть онлайн не нужно."
         },
         {
           "tab": "bot",
-          "q": "Can I close trades manually?",
-          "a": "Yes. Open positions on Hyperliquid can be closed in the terminal or on app.hyperliquid.xyz. Stop bot halts new entries; existing HL positions remain until TP/SL or manual close."
+          "q": "Могу ли я закрыть сделки вручную?",
+          "a": "Да. Открытые позиции на Hyperliquid закрываются в терминале или на app.hyperliquid.xyz. Остановка бота блокирует новые входы; существующие HL-позиции остаются до TP/SL или ручного закрытия."
         },
         {
           "tab": "bot",
-          "q": "Which crypto assets does the bot trade?",
-          "a": "Any active Hyperliquid perpetual with a valid market signal — the bot loads the full HL universe (200+ pairs) and picks the strongest setup each cycle, not a fixed ETH/BTC list."
+          "q": "Какие криптоактивы торгует бот?",
+          "a": "Любой активный перп Hyperliquid с валидным сигналом — бот загружает полную HL-вселенную (200+ пар) и выбирает лучший сетап каждый цикл, а не фиксированный список ETH/BTC."
         },
         {
           "tab": "bot",
-          "q": "What leverage does the bot use?",
-          "a": "You set leverage, take profit, and stop loss in bot settings. The bot clamps to Hyperliquid per-asset maximum (e.g. BTC 40×, ETH 25×) on each trade."
+          "q": "Какое плечо использует бот?",
+          "a": "Вы задаёте плечо, take profit и stop loss в настройках бота. Бот ограничивает максимумом Hyperliquid по активу (напр. BTC 40×, ETH 25×) на каждой сделке."
         },
         {
           "tab": "bot",
-          "q": "Do I need to keep my computer on?",
-          "a": "No. The bot runs on Monadier servers (Railway). After Start bot and a funded Hyperliquid account, it trades 24/7 without your browser open."
+          "q": "Нужно ли держать компьютер включённым?",
+          "a": "Нет. Бот работает на серверах Monadier (Railway). После запуска бота и пополнения HL-счёта торгует 24/7 без открытого браузера."
         },
         {
           "tab": "bot",
-          "q": "How do I deposit so the bot can start?",
-          "a": "In Monadier Funds (or app.hyperliquid.xyz): deposit only native USDC on Arbitrum One — not BNB, BSC, ETH mainnet, or USDC on other chains. Min. $5 on HL; bot needs $20+. Then approve agent → Start bot."
+          "q": "Как внести депозит, чтобы бот запустился?",
+          "a": "В Monadier Funds (или app.hyperliquid.xyz): только нативный USDC на Arbitrum One — не BNB, BSC, ETH mainnet или USDC на других сетях. Мин. $5 на HL; боту нужно $20+. Затем одобрите агента → Запустить бота."
         },
         {
           "tab": "vault",
-          "q": "How much USDC do I need to start?",
-          "a": "At least $20 USDC on your Hyperliquid account for the bot (HL minimum deposit is $5). Only fund what you want the bot to use — it trades from your HL balance, not a separate vault."
+          "q": "Сколько USDC нужно для старта?",
+          "a": "Минимум $20 USDC на Hyperliquid для бота (минимальный депозит HL $5). Вносите только то, что хотите использовать — торговля с HL-баланса, а не отдельного vault."
         },
         {
           "tab": "vault",
-          "q": "What fees does the bot charge?",
-          "a": "Hyperliquid trading fees apply on each perp trade. Monadier may charge a builder fee on HL orders and subscription tiers for bot access. Check the app for current subscription and fee settings."
+          "q": "Какие комиссии берёт бот?",
+          "a": "На каждый перп действуют комиссии Hyperliquid. Monadier может взимать builder fee на HL-ордерах и подписки за доступ к боту. Актуальные тарифы — в приложении."
         },
         {
           "tab": "vault",
-          "q": "Can I withdraw my USDC anytime?",
-          "a": "Yes — from Hyperliquid to your wallet via the Funds panel or app.hyperliquid.xyz. Close open positions first if margin is in use. The trading agent cannot withdraw for you."
+          "q": "Могу ли я вывести USDC в любое время?",
+          "a": "Да — с Hyperliquid на кошелёк через панель Funds или app.hyperliquid.xyz. Сначала закройте открытые позиции, если используется маржа. Агент не может выводить за вас."
         },
         {
           "tab": "vault",
-          "q": "Why Hyperliquid instead of a vault?",
-          "a": "Your USDC stays on your Hyperliquid account in your name. The bot only trades via an agent you approve; it cannot move funds out. You see balance and positions directly on HL."
+          "q": "Почему Hyperliquid, а не vault?",
+          "a": "Ваш USDC остаётся на Hyperliquid на ваше имя. Бот торгует только через одобренного агента и не может перемещать средства. Баланс и позиции видны напрямую на HL."
         },
         {
           "tab": "vault",
-          "q": "Do I need to sign wallet transactions?",
-          "a": "Yes for deposits, withdrawals, and the one-time agent approval. Ongoing bot trades are signed by the approved agent — you do not sign each trade manually."
+          "q": "Нужно ли подписывать транзакции кошелька?",
+          "a": "Да для депозитов, выводов и одноразового одобрения агента. Текущие сделки бота подписывает одобренный агент — каждую сделку вручную подписывать не нужно."
         },
         {
           "tab": "betting",
-          "q": "What are verified sports markets on Monadier?",
-          "a": "Browse live and upcoming sports events listed as Hyperliquid HIP-4 outcome markets — odds update on-chain as the book moves."
+          "q": "Что такое верифицированные спортивные рынки Monadier?",
+          "a": "Просматривайте live и предстоящие спортивные события как HIP-4 outcome-рынки Hyperliquid — коэффициенты обновляются on-chain по мере движения книги."
         },
         {
           "tab": "betting",
-          "q": "Is Monadier betting non-custodial?",
-          "a": "Your USDC stays on your Hyperliquid account. Orders are wallet-signed; Monadier never holds your private keys."
+          "q": "Ставки Monadier некustodial?",
+          "a": "Ваш USDC остаётся на Hyperliquid. Ордера подписываются кошельком; Monadier никогда не хранит ваши приватные ключи."
         },
         {
           "tab": "betting",
-          "q": "How fast is on-chain betting execution?",
-          "a": "Place Yes/No bets directly on Hyperliquid outcome contracts. Open positions, cash out, and track P/L in the app."
+          "q": "Насколько быстро исполняются on-chain ставки?",
+          "a": "Размещайте ставки Да/Нет напрямую на outcome-контрактах Hyperliquid. Открывайте позиции, выводите и отслеживайте P/L в приложении."
         },
         {
           "tab": "betting",
-          "q": "How does transparent settlement work?",
-          "a": "Markets resolve on verified outcomes. Positions and balances are visible on Hyperliquid — no opaque bookmaker ledger."
+          "q": "Как работает прозрачный расчёт?",
+          "a": "Рынки разрешаются по верифицированным исходам. Позиции и балансы видны на Hyperliquid — без непрозрачной книги букмекера."
         }
       ]
+    },
+    "bettingFaq": {
+      "titleDark": "Ставки ",
+      "titleGrey": "FAQ",
+      "pageTitle": "Часто задаваемые вопросы",
+      "lead": "HIP-4 outcome-рынки на Hyperliquid — подпись кошельком, on-chain коэффициенты и прозрачный расчёт."
     }
   },
   "auth": {

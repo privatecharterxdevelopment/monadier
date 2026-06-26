@@ -220,12 +220,12 @@
         {
           "tab": "platform",
           "q": "Ist das Finanzberatung?",
-          "a": "Nein. Monadier stellt Software für automatisierten Hyperliquid-Perpetual-Handel bereit — keine Investitions-, Steuer- oder Rechtsberatung. Krypto und gehebelter Handel bergen erhebliches Risiko."
+          "a": "Nein. Monadier stellt Software für automatisierten Hyperliquid-Perpetual-Handel bereit — keine Investitions-, Steuer- oder Rechtsberatung. Krypto und gehebelter Handel bergen erhebliches Risiko. Eigene Recherche und nur Mittel einsetzen, deren Verlust du verkraften kannst."
         },
         {
           "tab": "platform",
           "q": "Warum Hyperliquid für automatisierten Handel?",
-          "a": "Hyperliquid bietet tiefe Perp-Liquidität, schnelle Ausführung und USDC-Margin auf der eigenen L1. Eine Einzahlung auf HL treibt den Handel über alle gelisteten Märkte."
+          "a": "Hyperliquid bietet tiefe Perp-Liquidität, schnelle Ausführung und USDC-Margin auf der eigenen L1. Eine Einzahlung auf HL treibt den Handel über alle gelisteten Märkte — einfacher als über Legacy-L2-Vaults."
         },
         {
           "tab": "bot",
@@ -240,22 +240,22 @@
         {
           "tab": "bot",
           "q": "Kann der Bot 24/7 handeln?",
-          "a": "Ja. Krypto-Märkte schließen nie. Nach dem Start scannt der Bot alle HL-Perps rund um die Uhr."
+          "a": "Ja. Krypto-Märkte schließen nie. Nach dem Start scannt der Bot alle HL-Perps rund um die Uhr und kann jederzeit Positionen eröffnen oder schließen — du musst nicht online bleiben."
         },
         {
           "tab": "bot",
           "q": "Kann ich Trades manuell schließen?",
-          "a": "Ja. Offene Positionen auf Hyperliquid können im Terminal oder auf app.hyperliquid.xyz geschlossen werden. Bot stoppen stoppt neue Einstiege."
+          "a": "Ja. Offene Positionen auf Hyperliquid können im Terminal oder auf app.hyperliquid.xyz geschlossen werden. Bot stoppen stoppt neue Einstiege; bestehende HL-Positionen bleiben bis TP/SL oder manuellem Schließen."
         },
         {
           "tab": "bot",
           "q": "Welche Krypto-Assets handelt der Bot?",
-          "a": "Jedes aktive Hyperliquid-Perpetual mit gültigem Signal — der Bot lädt das volle HL-Universum (200+ Paare) und wählt pro Zyklus das stärkste Setup."
+          "a": "Jedes aktive Hyperliquid-Perpetual mit gültigem Signal — der Bot lädt das volle HL-Universum (200+ Paare) und wählt pro Zyklus das stärkste Setup, keine feste ETH/BTC-Liste."
         },
         {
           "tab": "bot",
           "q": "Welchen Hebel nutzt der Bot?",
-          "a": "Du setzt Hebel, Take Profit und Stop Loss in den Bot-Einstellungen. Der Bot begrenzt auf Hyperliquids Maximum pro Asset (z.B. BTC 40×, ETH 25×)."
+          "a": "Du setzt Hebel, Take Profit und Stop Loss in den Bot-Einstellungen. Der Bot begrenzt auf Hyperliquids Maximum pro Asset (z. B. BTC 40×, ETH 25×) bei jedem Trade."
         },
         {
           "tab": "bot",
@@ -265,37 +265,37 @@
         {
           "tab": "bot",
           "q": "Wie zahle ich ein, damit der Bot starten kann?",
-          "a": "In Monadier Funds (oder app.hyperliquid.xyz): nur natives USDC auf Arbitrum One einzahlen. Min. $5 auf HL; Bot braucht $20+. Dann Agent genehmigen → Bot starten."
+          "a": "In Monadier Funds (oder app.hyperliquid.xyz): nur natives USDC auf Arbitrum One einzahlen — nicht BNB, BSC, ETH Mainnet oder USDC auf anderen Chains. Min. $5 auf HL; Bot braucht $20+. Dann Agent genehmigen → Bot starten."
         },
         {
           "tab": "vault",
           "q": "Wie viel USDC brauche ich zum Start?",
-          "a": "Mindestens $20 USDC auf deinem Hyperliquid-Konto für den Bot (HL-Mindesteinzahlung $5). Der Bot handelt von deinem HL-Guthaben, nicht aus einem separaten Vault."
+          "a": "Mindestens $20 USDC auf deinem Hyperliquid-Konto für den Bot (HL-Mindesteinzahlung $5). Nur so viel einzahlen, wie der Bot nutzen soll — er handelt von deinem HL-Guthaben, nicht aus einem separaten Vault."
         },
         {
           "tab": "vault",
           "q": "Welche Gebühren erhebt der Bot?",
-          "a": "Hyperliquid-Handelsgebühren gelten pro Perp-Trade. Monadier kann Builder-Gebühren und Abo-Stufen erheben. Prüfe die App für aktuelle Einstellungen."
+          "a": "Hyperliquid-Handelsgebühren gelten pro Perp-Trade. Monadier kann Builder-Gebühren auf HL-Orders und Abo-Stufen für Bot-Zugang erheben. Prüfe die App für aktuelle Abo- und Gebühreneinstellungen."
         },
         {
           "tab": "vault",
           "q": "Kann ich USDC jederzeit abheben?",
-          "a": "Ja — von Hyperliquid in deine Wallet über das Funds-Panel oder app.hyperliquid.xyz. Schließe zuerst offene Positionen, wenn Margin genutzt wird."
+          "a": "Ja — von Hyperliquid in deine Wallet über das Funds-Panel oder app.hyperliquid.xyz. Schließe zuerst offene Positionen, wenn Margin genutzt wird. Der Trading Agent kann nicht für dich abheben."
         },
         {
           "tab": "vault",
           "q": "Warum Hyperliquid statt Vault?",
-          "a": "Dein USDC bleibt auf deinem Hyperliquid-Konto auf deinen Namen. Der Bot handelt nur via genehmigtem Agent und kann keine Gelder bewegen."
+          "a": "Dein USDC bleibt auf deinem Hyperliquid-Konto auf deinen Namen. Der Bot handelt nur via genehmigtem Agent und kann keine Gelder bewegen. Guthaben und Positionen siehst du direkt auf HL."
         },
         {
           "tab": "vault",
           "q": "Muss ich Wallet-Transaktionen signieren?",
-          "a": "Ja für Einzahlungen, Abhebungen und die einmalige Agent-Genehmigung. Laufende Bot-Trades werden vom Agent signiert."
+          "a": "Ja für Einzahlungen, Abhebungen und die einmalige Agent-Genehmigung. Laufende Bot-Trades werden vom genehmigten Agent signiert — du signierst nicht jeden Trade manuell."
         },
         {
           "tab": "betting",
           "q": "Was sind verifizierte Sportmärkte auf Monadier?",
-          "a": "Durchsuche Live- und kommende Sportevents als Hyperliquid HIP-4 Outcome-Märkte — Quoten aktualisieren sich on-chain."
+          "a": "Durchsuche Live- und kommende Sportevents als Hyperliquid HIP-4 Outcome-Märkte — Quoten aktualisieren sich on-chain, wenn sich das Buch bewegt."
         },
         {
           "tab": "betting",
@@ -305,7 +305,7 @@
         {
           "tab": "betting",
           "q": "Wie schnell ist on-chain Wett-Ausführung?",
-          "a": "Platziere Ja/Nein-Wetten direkt auf Hyperliquid Outcome-Verträgen. Positionen, Cash-out und P/L in der App verfolgen."
+          "a": "Platziere Ja/Nein-Wetten direkt auf Hyperliquid Outcome-Verträgen. Positionen öffnen, auszahlen und P/L in der App verfolgen."
         },
         {
           "tab": "betting",
@@ -313,6 +313,12 @@
           "a": "Märkte werden auf verifizierte Outcomes aufgelöst. Positionen und Guthaben sind auf Hyperliquid sichtbar — kein undurchsichtiges Buchmacher-Ledger."
         }
       ]
+    },
+    "bettingFaq": {
+      "titleDark": "Wetten ",
+      "titleGrey": "FAQ",
+      "pageTitle": "Häufig gestellte Fragen",
+      "lead": "HIP-4 Outcome-Märkte auf Hyperliquid — wallet-signiert, on-chain Quoten und transparente Abwicklung."
     }
   },
   "auth": {

@@ -199,120 +199,126 @@
       "items": [
         {
           "tab": "platform",
-          "q": "What is Monadier?",
-          "a": "Monadier is an automated perpetuals bot on Hyperliquid. You deposit USDC on your Hyperliquid account, approve the Monadier trading agent once, and our server scans all HL markets 24/7 to open and close trades for you."
+          "q": "Monadier 是什么？",
+          "a": "Monadier 是 Hyperliquid 上的自动化永续合约机器人。您向 Hyperliquid 账户存入 USDC，一次性批准 Monadier 交易代理，我们的服务器 24/7 扫描所有 HL 市场，为您开仓和平仓。"
         },
         {
           "tab": "platform",
-          "q": "Is Monadier safe to use?",
-          "a": "Monadier is non-custodial on Hyperliquid: your USDC stays on your HL account in your name. The trading agent can place trades but cannot withdraw without your wallet. Auto-trading runs only when you press Start bot."
+          "q": "Monadier 安全吗？",
+          "a": "Monadier 在 Hyperliquid 上是非托管的：您的 USDC 始终在您名下的 HL 账户中。交易代理可以下单，但未经您的钱包无法提款。只有按下“启动机器人”后才会自动交易。"
         },
         {
           "tab": "platform",
-          "q": "Is Monadier non-custodial?",
-          "a": "Yes. Funds sit on your Hyperliquid account, not in a Monadier vault. We never hold your private keys. Withdrawals always require your wallet signature on Hyperliquid."
+          "q": "Monadier 是非托管的吗？",
+          "a": "是的。资金在您的 Hyperliquid 账户上，而非 Monadier 金库。我们从不持有您的私钥。提款始终需要您在 Hyperliquid 上的钱包签名。"
         },
         {
           "tab": "platform",
-          "q": "Is Monadier fully decentralized?",
-          "a": "Trading executes on Hyperliquid infrastructure via an agent you approve. Signal analysis and automation run on Monadier servers (Railway). You can verify balances and positions on app.hyperliquid.xyz at any time."
+          "q": "Monadier 完全去中心化吗？",
+          "a": "交易通过您批准的交易代理在 Hyperliquid 基础设施上执行。信号分析和自动化在 Monadier 服务器（Railway）上运行。您可随时在 app.hyperliquid.xyz 验证余额和仓位。"
         },
         {
           "tab": "platform",
-          "q": "Is this financial advice?",
-          "a": "No. Monadier provides software for automated Hyperliquid perpetual trading — not investment, tax, or legal advice. Crypto and leveraged trading carry significant risk. Do your own research and only use funds you can afford to lose."
+          "q": "这是财务建议吗？",
+          "a": "不是。Monadier 提供 Hyperliquid 永续合约自动交易软件——而非投资、税务或法律建议。加密货币和杠杆交易风险显著。请自行研究，仅使用您可承受损失的资金。"
         },
         {
           "tab": "platform",
-          "q": "Why Hyperliquid for automated trading?",
-          "a": "Hyperliquid offers deep perp liquidity, fast execution, and USDC margin on its own L1. One deposit on HL powers trading across all listed markets — simpler than bridging through legacy L2 vaults."
+          "q": "为什么用 Hyperliquid 做自动交易？",
+          "a": "Hyperliquid 提供深度永续流动性、快速执行及其 L1 上的 USDC 保证金。在 HL 上的一次存款即可交易所有上市市场——比通过旧版 L2 金库更简单。"
         },
         {
           "tab": "bot",
-          "q": "How does the trading bot work?",
-          "a": "While the bot is running, Monadier server (Railway) checks your HL balance every ~10 seconds, scans all Hyperliquid perps with multi-timeframe signals, opens the strongest setup, monitors take profit / stop loss, closes the position, then repeats."
+          "q": "交易机器人如何工作？",
+          "a": "机器人运行期间，Monadier 服务器（Railway）约每 10 秒检查您的 HL 余额，用多时间框架信号扫描所有 Hyperliquid 永续合约，开最强设置，监控止盈/止损，平仓后重复。"
         },
         {
           "tab": "bot",
-          "q": "How long does the trading bot run?",
-          "a": "24/7 while Start bot is on and you have at least $20 USDC on Hyperliquid. There is no session timeout — the server keeps cycling until you press Stop bot."
+          "q": "交易机器人运行多久？",
+          "a": "在“启动机器人”开启且 Hyperliquid 上至少有 $20 USDC 时 24/7 运行。无会话超时——服务器持续循环，直到您按下“停止机器人”。"
         },
         {
           "tab": "bot",
-          "q": "Can the bot trade 24/7?",
-          "a": "Yes. Crypto markets never close. Once started, the bot scans all HL perps around the clock and can open or close positions at any hour — you do not need to stay online."
+          "q": "机器人可以 24/7 交易吗？",
+          "a": "可以。加密货币市场从不休市。启动后，机器人全天候扫描所有 HL 永续合约，随时可开平仓——您无需保持在线。"
         },
         {
           "tab": "bot",
-          "q": "Can I close trades manually?",
-          "a": "Yes. Open positions on Hyperliquid can be closed in the terminal or on app.hyperliquid.xyz. Stop bot halts new entries; existing HL positions remain until TP/SL or manual close."
+          "q": "我可以手动平仓吗？",
+          "a": "可以。Hyperliquid 上的未平仓位可在终端或 app.hyperliquid.xyz 关闭。停止机器人会暂停新开仓；现有 HL 仓位保留至止盈/止损或手动平仓。"
         },
         {
           "tab": "bot",
-          "q": "Which crypto assets does the bot trade?",
-          "a": "Any active Hyperliquid perpetual with a valid market signal — the bot loads the full HL universe (200+ pairs) and picks the strongest setup each cycle, not a fixed ETH/BTC list."
+          "q": "机器人交易哪些加密资产？",
+          "a": "任何有有效市场信号的活跃 Hyperliquid 永续合约——机器人加载完整 HL  universe（200+ 交易对），每周期选择最强设置，而非固定 ETH/BTC 列表。"
         },
         {
           "tab": "bot",
-          "q": "What leverage does the bot use?",
-          "a": "You set leverage, take profit, and stop loss in bot settings. The bot clamps to Hyperliquid per-asset maximum (e.g. BTC 40×, ETH 25×) on each trade."
+          "q": "机器人使用什么杠杆？",
+          "a": "您在机器人设置中配置杠杆、止盈和止损。每笔交易机器人会限制在 Hyperliquid 各资产最大值（如 BTC 40×、ETH 25×）。"
         },
         {
           "tab": "bot",
-          "q": "Do I need to keep my computer on?",
-          "a": "No. The bot runs on Monadier servers (Railway). After Start bot and a funded Hyperliquid account, it trades 24/7 without your browser open."
+          "q": "我需要保持电脑开机吗？",
+          "a": "不需要。机器人在 Monadier 服务器（Railway）上运行。启动机器人并充值 Hyperliquid 账户后，无需打开浏览器即可 24/7 交易。"
         },
         {
           "tab": "bot",
-          "q": "How do I deposit so the bot can start?",
-          "a": "In Monadier Funds (or app.hyperliquid.xyz): deposit only native USDC on Arbitrum One — not BNB, BSC, ETH mainnet, or USDC on other chains. Min. $5 on HL; bot needs $20+. Then approve agent → Start bot."
+          "q": "如何存款以便机器人启动？",
+          "a": "在 Monadier 资金（或 app.hyperliquid.xyz）：仅存入 Arbitrum One 上的原生 USDC——不要用 BNB、BSC、ETH 主网或其他链上的 USDC。HL 最低 $5；机器人需 $20+。然后批准代理 → 启动机器人。"
         },
         {
           "tab": "vault",
-          "q": "How much USDC do I need to start?",
-          "a": "At least $20 USDC on your Hyperliquid account for the bot (HL minimum deposit is $5). Only fund what you want the bot to use — it trades from your HL balance, not a separate vault."
+          "q": "开始需要多少 USDC？",
+          "a": "Hyperliquid 账户至少 $20 USDC 供机器人使用（HL 最低存款 $5）。仅存入您希望机器人使用的金额——它从 HL 余额交易，而非单独金库。"
         },
         {
           "tab": "vault",
-          "q": "What fees does the bot charge?",
-          "a": "Hyperliquid trading fees apply on each perp trade. Monadier may charge a builder fee on HL orders and subscription tiers for bot access. Check the app for current subscription and fee settings."
+          "q": "机器人收取哪些费用？",
+          "a": "每笔永续交易适用 Hyperliquid 交易费。Monadier 可能对 HL 订单收取 builder 费及机器人访问订阅层级。请在应用中查看当前订阅和费用设置。"
         },
         {
           "tab": "vault",
-          "q": "Can I withdraw my USDC anytime?",
-          "a": "Yes — from Hyperliquid to your wallet via the Funds panel or app.hyperliquid.xyz. Close open positions first if margin is in use. The trading agent cannot withdraw for you."
+          "q": "我可以随时提取 USDC 吗？",
+          "a": "可以——通过资金面板或 app.hyperliquid.xyz 从 Hyperliquid 提到钱包。若保证金占用中，请先平仓。交易代理无法代您提款。"
         },
         {
           "tab": "vault",
-          "q": "Why Hyperliquid instead of a vault?",
-          "a": "Your USDC stays on your Hyperliquid account in your name. The bot only trades via an agent you approve; it cannot move funds out. You see balance and positions directly on HL."
+          "q": "为什么用 Hyperliquid 而不是金库？",
+          "a": "您的 USDC 始终在您名下的 Hyperliquid 账户。机器人仅通过您批准的代理交易，无法转出资金。余额和仓位直接在 HL 上可见。"
         },
         {
           "tab": "vault",
-          "q": "Do I need to sign wallet transactions?",
-          "a": "Yes for deposits, withdrawals, and the one-time agent approval. Ongoing bot trades are signed by the approved agent — you do not sign each trade manually."
+          "q": "我需要签署钱包交易吗？",
+          "a": "存款、提款和一次性代理批准需要签名。持续机器人交易由已批准代理签名——您无需每笔手动签名。"
         },
         {
           "tab": "betting",
-          "q": "What are verified sports markets on Monadier?",
-          "a": "Browse live and upcoming sports events listed as Hyperliquid HIP-4 outcome markets — odds update on-chain as the book moves."
+          "q": "Monadier 上的验证体育市场是什么？",
+          "a": "浏览作为 Hyperliquid HIP-4 结果市场列出的 live 和即将开始的体育赛事——赔率随盘口 on-chain 更新。"
         },
         {
           "tab": "betting",
-          "q": "Is Monadier betting non-custodial?",
-          "a": "Your USDC stays on your Hyperliquid account. Orders are wallet-signed; Monadier never holds your private keys."
+          "q": "Monadier 投注是非托管的吗？",
+          "a": "您的 USDC 留在 Hyperliquid 账户。订单由钱包签名；Monadier 从不持有您的私钥。"
         },
         {
           "tab": "betting",
-          "q": "How fast is on-chain betting execution?",
-          "a": "Place Yes/No bets directly on Hyperliquid outcome contracts. Open positions, cash out, and track P/L in the app."
+          "q": "链上投注执行有多快？",
+          "a": "直接在 Hyperliquid 结果合约上下 Yes/No 注。在应用中开仓、兑现并跟踪盈亏。"
         },
         {
           "tab": "betting",
-          "q": "How does transparent settlement work?",
-          "a": "Markets resolve on verified outcomes. Positions and balances are visible on Hyperliquid — no opaque bookmaker ledger."
+          "q": "透明结算如何运作？",
+          "a": "市场按验证结果结算。仓位和余额在 Hyperliquid 上可见——无不透明的博彩账本。"
         }
       ]
+    },
+    "bettingFaq": {
+      "titleDark": "投注 ",
+      "titleGrey": "FAQ",
+      "pageTitle": "常见问题",
+      "lead": "Hyperliquid 上的 HIP-4 结果市场 — 钱包签名、链上赔率和透明结算。"
     }
   },
   "auth": {
