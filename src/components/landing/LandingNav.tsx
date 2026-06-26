@@ -29,9 +29,9 @@ const LandingNavAuth: React.FC<{ light: boolean; gmx: boolean }> = ({ light, gmx
   const signedIn = sessionReady && isAuthenticated && user;
 
   const signInClass = gmx
-    ? 'text-[13px] font-medium text-[#71717a] hover:text-[#0a0a0a]'
+    ? 'text-[13px] font-medium text-[#0a0a0a] hover:text-[#71717a]'
     : `text-[13px] font-medium transition-colors ${
-        light ? 'text-[#71717a] hover:text-[#0a0a0a]' : 'text-zinc-500 hover:text-primary'
+        light ? 'text-[#0a0a0a] hover:text-[#71717a]' : 'text-zinc-500 hover:text-primary'
       }`;
 
   if (signedIn) {
@@ -76,7 +76,7 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pi
               to={link.to}
               className={`text-[13px] font-medium tracking-normal transition-colors ${
                 light
-                  ? 'text-[#71717a] hover:text-[#0a0a0a]'
+                  ? 'text-[#0a0a0a] hover:text-[#71717a]'
                   : 'text-zinc-500 hover:text-zinc-100'
               }`}
             >
@@ -111,7 +111,7 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pi
               </OpenAppLink>
             </>
           )}
-          <div className={light ? 'md:hidden [&_button]:text-[#52525b]' : 'md:hidden [&_button]:text-zinc-400'}>
+          <div className={light ? 'md:hidden [&_button]:text-[#0a0a0a]' : 'md:hidden [&_button]:text-zinc-400'}>
             <MobileMenu variant={variant} />
           </div>
         </div>

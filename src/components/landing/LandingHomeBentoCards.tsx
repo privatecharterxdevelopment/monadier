@@ -50,6 +50,7 @@ type PromoBannerProps = {
   delay?: number;
   visual: React.ReactNode;
   visualClassName?: string;
+  className?: string;
 };
 
 const PromoBanner: React.FC<PromoBannerProps> = ({
@@ -61,8 +62,12 @@ const PromoBanner: React.FC<PromoBannerProps> = ({
   delay = 0,
   visual,
   visualClassName = '',
+  className = '',
 }) => (
-  <motion.article {...fadeUp(delay)} className="landing-bento-promo-card landing-glass-card">
+  <motion.article
+    {...fadeUp(delay)}
+    className={`landing-bento-promo-card landing-glass-card${className ? ` ${className}` : ''}`}
+  >
     <div className="landing-bento-promo-copy">
       <h3 className="landing-bento-promo-title">{title}</h3>
       <p className="landing-bento-promo-desc">{desc}</p>
@@ -77,57 +82,68 @@ const PromoBanner: React.FC<PromoBannerProps> = ({
 
 const LandingHomeBentoCards: React.FC = () => (
   <section
-    className="landing-gmx-section landing-gmx-gutter landing-home-bento-section"
-    aria-labelledby="landing-home-bento-title"
+    className="landing-gmx-section landing-gmx-gutter landing-trade-promos-section"
+    aria-label="Trading features"
   >
-    <div className="landing-gmx-shell landing-home-bento-container">
-      <motion.header {...fadeUp(0)} className="landing-home-bento-header">
-        <div className="landing-home-bento-header-main">
-          <span className="landing-home-bento-index">01</span>
-          <h2 id="landing-home-bento-title" className="landing-home-bento-title">
-            Trade and bet from one HL account
-          </h2>
-        </div>
-        <p className="landing-home-bento-sub">
-          Perps bot, deep liquidity, and on-chain predictions — unified on Hyperliquid.
-        </p>
-      </motion.header>
-
-      <div className="landing-home-bento">
-        <div className="landing-home-bento-promos">
-          <PromoBanner
-            title="Trade by bot"
-            desc="AI agent scans 200+ HL perps every cycle — opens entries, trails profit, and cuts losers 24/7."
-            cta="Start bot"
-            href="/"
-            delay={0.1}
-            visual={<BotAiAnimation />}
-            onClick={(e) => {
-              e.preventDefault();
-              goToOpenApp('', false);
-            }}
-          />
-          <PromoBanner
-            title="Trade the candles"
-            desc="Live Hyperliquid charts, depth, and execution — same liquidity the bot reads in real time."
-            cta="Open charts"
-            href="/"
-            delay={0.16}
-            visualClassName="landing-bento-promo-visual--candles"
-            visual={
-              <img
-                src="/images/landing/hero-visual.png"
-                alt=""
-                className="landing-bento-promo-candles-img"
-                decoding="async"
-              />
-            }
-            onClick={(e) => {
-              e.preventDefault();
-              goToOpenApp('', false);
-            }}
-          />
-        </div>
+    <div className="landing-trade-promos-shell">
+      <div className="landing-home-bento-promos">
+        <PromoBanner
+          title="Trade by bot"
+          desc="AI agent scans 200+ HL perps every cycle — opens entries, trails profit, and cuts losers 24/7."
+          cta="Start bot"
+          href="/"
+          delay={0.08}
+          visual={<BotAiAnimation />}
+          onClick={(e) => {
+            e.preventDefault();
+            goToOpenApp('?section=bot', false);
+          }}
+        />
+        <PromoBanner
+          title="Trade the candles"
+          desc="Live Hyperliquid charts, depth, and execution — same liquidity the bot reads in real time."
+          cta="Open charts"
+          href="/"
+          delay={0.14}
+          visualClassName="landing-bento-promo-visual--candles"
+          visual={
+            <img
+              src="/images/landing/hero-visual.png"
+              alt=""
+              className="landing-bento-promo-candles-img"
+              decoding="async"
+            />
+          }
+          onClick={(e) => {
+            e.preventDefault();
+            goToOpenApp('', false);
+          }}
+        />
+        <PromoBanner
+          title="Bet on sports and market predictions"
+          desc="HIP-4 outcome markets on Hyperliquid — macro, crypto, and live sports with on-chain settlement."
+          cta="Open betting"
+          href="/"
+          delay={0.2}
+          className="landing-bento-promo-card--wide"
+          visualClassName="landing-bento-promo-visual--sports"
+          visual={
+            <video
+              className="landing-bento-promo-sports-video"
+              src="/videos/14757485_1920_1080_25fps.mp4"
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="auto"
+              aria-hidden
+            />
+          }
+          onClick={(e) => {
+            e.preventDefault();
+            goToOpenApp('?section=sportsbets', false);
+          }}
+        />
       </div>
     </div>
   </section>

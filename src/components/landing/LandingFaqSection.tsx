@@ -168,22 +168,12 @@ const LandingFaqSection: React.FC = () => {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
-      <div className="landing-gmx-shell">
-        <motion.h2
-          {...fadeUp(0)}
-          id="landing-faq-title"
-          className="landing-gmx-section-hero-title"
-        >
-          <span className="landing-gmx-title-dark">Frequently asked </span>
-          <span className="landing-gmx-title-grey">questions</span>
-        </motion.h2>
+      <motion.div {...fadeUp(0)} className="landing-gmx-faq-frame">
+          <h2 id="landing-faq-title" className="landing-gmx-faq-frame-title">
+            <span className="landing-gmx-title-dark">Frequently asked </span>
+            <span className="landing-gmx-title-grey">questions</span>
+          </h2>
 
-        <div className="landing-gmx-faq-layout">
-        <motion.aside {...fadeUp(0.04)} className="landing-gmx-faq-side">
-          <p className="landing-gmx-faq-lead">
-            Common questions about Hyperliquid deposits, 24/7 bot trading, and how Monadier
-            automates your HL account.
-          </p>
           <div className="landing-gmx-faq-tabs" role="tablist">
             {FAQ_TABS.map((tab) => (
               <button
@@ -198,14 +188,12 @@ const LandingFaqSection: React.FC = () => {
               </button>
             ))}
           </div>
-        </motion.aside>
 
-        <div
-          className="landing-gmx-faq-main"
-          role="tabpanel"
-          aria-label={`${FAQ_TABS.find((t) => t.id === activeTab)?.label} questions`}
-        >
-          <div className="landing-gmx-faq-grid">
+          <div
+            className="landing-gmx-faq-grid"
+            role="tabpanel"
+            aria-label={`${FAQ_TABS.find((t) => t.id === activeTab)?.label} questions`}
+          >
             {visibleFaqs.map((item, i) => {
               const isOpen = openKey === item.q;
               const panelId = `landing-faq-panel-${activeTab}-${i}`;
@@ -241,9 +229,7 @@ const LandingFaqSection: React.FC = () => {
               );
             })}
           </div>
-        </div>
-        </div>
-      </div>
+        </motion.div>
     </section>
   );
 };

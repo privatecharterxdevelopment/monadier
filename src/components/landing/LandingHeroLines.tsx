@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const ROTATE_MS = 3200;
@@ -22,12 +22,19 @@ const LandingHeroLines: React.FC<Props> = ({
   className = '',
 }) => {
   const [index, setIndex] = useState(0);
+  const hasAdvancedRef = useRef(false);
   const longest = rotateLines.reduce((a, b) => (a.length >= b.length ? a : b));
   const midLine = rotateLines[index] ?? rotateLines[0];
 
   useEffect(() => {
+    setIndex(0);
+    hasAdvancedRef.current = false;
+  }, [rotateLines]);
+
+  useEffect(() => {
     if (rotateLines.length <= 1) return undefined;
     const id = window.setInterval(() => {
+      hasAdvancedRef.current = true;
       setIndex((i) => (i + 1) % rotateLines.length);
     }, ROTATE_MS);
     return () => window.clearInterval(id);
@@ -42,7 +49,7 @@ const LandingHeroLines: React.FC<Props> = ({
         <motion.span
           key={midLine}
           className="landing-gmx-hero-line landing-gmx-hero-line--muted landing-gmx-hero-line--rotate-visible"
-          initial={{ opacity: 0 }}
+          initial={{ opacity: hasAdvancedRef.current ? 0 : 1 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
