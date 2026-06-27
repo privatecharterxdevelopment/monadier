@@ -31,36 +31,6 @@
       "has": [{ "type": "host", "value": "www.monadier.com" }],
       "destination": "https://monadier.com/:path*",
       "permanent": true
-    },
-    {
-      "source": "/dashboard2",
-      "destination": "/",
-      "permanent": false
-    },
-    {
-      "source": "/dashboard2/:path*",
-      "destination": "/",
-      "permanent": false
-    },
-    {
-      "source": "/app",
-      "destination": "/",
-      "permanent": false
-    },
-    {
-      "source": "/app/:path*",
-      "destination": "/",
-      "permanent": false
-    },
-    {
-      "source": "/dashboard",
-      "destination": "/",
-      "permanent": false
-    },
-    {
-      "source": "/dashboard/:path*",
-      "destination": "/",
-      "permanent": false
     }
   ],
   "rewrites": [

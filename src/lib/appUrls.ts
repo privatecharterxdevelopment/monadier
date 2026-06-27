@@ -1,13 +1,13 @@
 /**
  * Marketing site vs app subdomain routing.
- * Production: VITE_SITE_URL=https://monadier.com, VITE_APP_URL=https://app.monadier.com
- * Dev (no env): marketing landing at `/`, Pro Trade at `/app`
+ * Production (live domain): VITE_SITE_URL=https://monadier.com, VITE_APP_URL=https://app.monadier.com
+ * Vercel preview / local dev: marketing at `/`, Pro Trade at `/app` on the same origin
  */
 
 const APP_BASE = (import.meta.env.VITE_APP_URL as string | undefined)?.replace(/\/$/, '') ?? '';
 const SITE_BASE = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, '') ?? '';
 
-/** Local dev app entry when marketing and app share one origin. */
+/** Same-origin app entry when marketing + app share one host (Vercel preview, local dev). */
 const DEV_APP_PATH = '/app';
 
 function normalizePath(path: string): string {
@@ -23,32 +23,41 @@ function getSiteHostname(): string | null {
   }
 }
 
-/** Production marketing host only (monadier.com) — not Vercel previews or localhost. */
-function isProductionMarketingHost(): boolean {
+function getAppHostname(): string | null {
+  if (!APP_BASE) return null;
+  try {
+    return new URL(APP_BASE).hostname;
+  } catch {
+    return null;
+  }
+}
+
+/** Live split setup: marketing and app on different hostnames (monadier.com vs app.monadier.com). */
+function usesSplitDomainSetup(): boolean {
+  const siteHost = getSiteHostname();
+  const appHost = getAppHostname();
+  return Boolean(siteHost && appHost && siteHost !== appHost);
+}
+
+/** Current page is the configured production marketing host. */
+function isOnMarketingHost(): boolean {
   if (typeof window === 'undefined') return false;
   const siteHost = getSiteHostname();
   if (!siteHost) return false;
   return window.location.hostname === siteHost;
 }
 
-/** Cross-subdomain hard navigation — only from production marketing → app subdomain. */
+/** Hard-navigate marketing → app subdomain (only when split domains are live). */
 function shouldCrossNavigateToApp(): boolean {
-  if (!APP_BASE || typeof window === 'undefined') return false;
-  if (!isProductionMarketingHost()) return false;
-  try {
-    return new URL(APP_BASE).hostname !== window.location.hostname;
-  } catch {
-    return false;
-  }
+  return usesSplitDomainSetup() && isOnMarketingHost();
 }
 
 /** Marketing landing at site root. */
 export const LANDING_PATH = '/';
 
-/** Pro Trade — main app at site root on app subdomain. */
+/** Pro Trade at site root on the app subdomain. */
 export const OPEN_APP_PATH = '/';
 
-/** Pro Trade entry on app subdomain (app.monadier.com/). */
 export function getAppEntryPath(): string {
   return OPEN_APP_PATH;
 }
@@ -56,19 +65,16 @@ export function getAppEntryPath(): string {
 /** Resolved in-app path to open Pro Trade on the current origin. */
 export function getOpenAppPath(): string {
   if (typeof window === 'undefined') return OPEN_APP_PATH;
-  if (APP_BASE) {
-    try {
-      if (new URL(APP_BASE).hostname === window.location.hostname) {
-        return OPEN_APP_PATH;
-      }
-    } catch {
-      /* fall through */
-    }
-  }
-  if (window.location.hostname.startsWith('app.')) return OPEN_APP_PATH;
-  if (!APP_BASE) return DEV_APP_PATH;
-  if (!isProductionMarketingHost()) return DEV_APP_PATH;
-  return OPEN_APP_PATH;
+
+  const { hostname } = window.location;
+  const appHost = getAppHostname();
+
+  if (appHost && hostname === appHost) return OPEN_APP_PATH;
+  if (hostname.startsWith('app.')) return OPEN_APP_PATH;
+
+  if (shouldCrossNavigateToApp()) return OPEN_APP_PATH;
+
+  return DEV_APP_PATH;
 }
 
 const MARKETING_EXACT_PATHS = [
@@ -97,28 +103,28 @@ export function isMarketingPath(pathname: string): boolean {
   return MARKETING_PREFIX_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
 }
 
-/**
- * Navigate to Pro Trade (hard navigation — reliable from marketing CTAs).
- */
+/** Navigate to Pro Trade (hard navigation — reliable from marketing CTAs). */
 export function goToOpenApp(search = '', replace = false): void {
-  const path = getOpenAppPath() + search;
-  if (shouldCrossNavigateToApp()) {
+  if (shouldCrossNavigateToApp() && APP_BASE) {
     const url = `${APP_BASE}${OPEN_APP_PATH}${search}`;
     if (replace) window.location.replace(url);
     else window.location.assign(url);
     return;
   }
+
+  const path = getOpenAppPath() + search;
   if (replace) window.location.replace(path);
   else window.location.assign(path);
 }
 
 export function getAppUrl(path?: string): string {
   const p = normalizePath(path ?? getAppEntryPath());
-  if (typeof window !== 'undefined' && APP_BASE && !shouldCrossNavigateToApp()) {
+  if (shouldCrossNavigateToApp() && APP_BASE) return `${APP_BASE}${p}`;
+  if (typeof window !== 'undefined') {
     const local = getOpenAppPath();
     return p === OPEN_APP_PATH ? local : p;
   }
-  return APP_BASE ? `${APP_BASE}${p}` : p;
+  return APP_BASE ? `${APP_BASE}${p}` : DEV_APP_PATH;
 }
 
 export function getMarketingUrl(path = LANDING_PATH): string {
@@ -129,17 +135,11 @@ export function getMarketingUrl(path = LANDING_PATH): string {
 export function isAppHost(): boolean {
   if (typeof window === 'undefined') return false;
   const { hostname, pathname } = window.location;
+  const appHost = getAppHostname();
+  if (appHost && hostname === appHost) return true;
   if (hostname.startsWith('app.')) return true;
-  if (APP_BASE) {
-    try {
-      return new URL(APP_BASE).hostname === hostname;
-    } catch {
-      return false;
-    }
-  }
   const path = pathname.split('?')[0];
-  if (path === DEV_APP_PATH || path.startsWith(`${DEV_APP_PATH}/`)) return true;
-  return false;
+  return path === DEV_APP_PATH || path.startsWith(`${DEV_APP_PATH}/`);
 }
 
 export function isAppPath(pathname: string): boolean {
@@ -148,7 +148,7 @@ export function isAppPath(pathname: string): boolean {
   return path === DEV_APP_PATH || path.startsWith(`${DEV_APP_PATH}/`);
 }
 
-/** Legacy dashboard1 / dashboard2 / /app — redirect into Pro Trade. */
+/** Legacy dashboard1 / dashboard2 / /app on marketing host when app lives on subdomain. */
 export function isLegacyAppPath(pathname: string): boolean {
   const path = pathname.split('?')[0];
   if (
@@ -160,14 +160,12 @@ export function isLegacyAppPath(pathname: string): boolean {
     return true;
   }
   if (path === '/app' || path.startsWith('/app/')) {
-    return !!APP_BASE;
+    return shouldCrossNavigateToApp();
   }
   return false;
 }
 
-/**
- * Map legacy dashboard1/dashboard2/app URLs → Pro Trade entry path.
- */
+/** Map legacy dashboard1/dashboard2/app URLs → Pro Trade entry path. */
 export function mapLegacyPathToProTrade(pathname: string, search = ''): string {
   const path = pathname.split('?')[0].replace(/\/$/, '') || '/';
   const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
