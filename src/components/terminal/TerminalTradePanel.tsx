@@ -131,6 +131,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   const [showStopFirstModal, setShowStopFirstModal] = useState(false);
 
   const { openFunds: openGlobalFunds } = useBettingUi();
+  const walletReady = isDemoUser || isConnected || Boolean(monadierAddress);
   const wallet = botSettings.wallet;
   const accountSignedIn = isDemoUser || isAuthenticated;
   const needsAccountSignIn = walletReady && !accountSignedIn;
