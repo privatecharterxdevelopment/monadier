@@ -4,9 +4,9 @@ import LandingHeroLines from './LandingHeroLines';
 import { goToOpenApp } from '../../lib/appUrls';
 
 const BOT_ROTATE_LINES = [
-  'scans 200+ markets',
-  'trails profits',
+  '200+ markets',
   'runs 24/7',
+  'trails profits',
 ] as const;
 
 const BOT_VIDEO_SRC = '/videos/pitch-bg.mp4';
@@ -35,11 +35,10 @@ const BotVideoHero: React.FC = () => (
             <div className="landing-gmx-hero-chrome-spacer" aria-hidden />
             <div className="landing-gmx-hero-chrome-title">
               <LandingHeroLines
-                lineDarkTop="Full auto trading bot,"
+                lineDarkTop="Trading bot,"
                 rotateLines={BOT_ROTATE_LINES}
-                rotatePosition="middle"
-                lineDarkBottom="while you sleep"
-                lineDarkBottomMuted
+                rotatePosition="two-row"
+                rotateSuffix="on Hyperliquid"
                 className="landing-betting-hero-lines"
               />
             </div>

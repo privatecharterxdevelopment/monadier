@@ -1,8 +1,14 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { CheckCircle, Clock, Headphones, Loader2, Send } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { submitSupportMessage } from '../../lib/supportMessage';
+import LegacyVaultWithdraw from '../vault/LegacyVaultWithdraw';
+import {
+  LEGACY_VAULT_PAYOUT_ENABLED,
+  LEGACY_VAULT_PAYOUT_PATH,
+} from '../../lib/legacyVaultRegistry';
 
 type Props = {
   onRequireSignIn?: (reason: string) => void;
@@ -70,6 +76,20 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
 
   return (
     <div className="hl-meta-canvas hl-support-page">
+      {LEGACY_VAULT_PAYOUT_ENABLED ? (
+        <section className="hl-support-legacy-vault-banner">
+          <p className="hl-support-legacy-vault-banner-title">Legacy vault funds?</p>
+          <p className="hl-support-legacy-vault-banner-text">
+            If you deposited USDC into an old Monadier blockchain vault, use the temporary emergency
+            payout page to withdraw on Arbitrum.
+          </p>
+          <Link to={LEGACY_VAULT_PAYOUT_PATH} className="hl-support-legacy-vault-banner-link">
+            Open legacy vault payout
+          </Link>
+          <LegacyVaultWithdraw />
+        </section>
+      ) : null}
+
       <section className="hl-studio-card hl-support-studio-card">
         <form className="hl-support-form" onSubmit={handleSubmit}>
           <header className="hl-studio-card__head">

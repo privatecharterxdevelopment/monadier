@@ -2520,6 +2520,7 @@
 
 .landing-gmx-hero-line--rotate-visible {
   grid-area: 1 / 1;
+  display: inline-block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -6192,6 +6193,22 @@
   box-sizing: border-box;
 }
 
+/* Bot hero — darken video under title so white rotate line is visible */
+.landing-gmx-hero--bot .landing-gmx-hero-viewport--betting::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    rgb(0 0 0 / 0.08) 0%,
+    rgb(0 0 0 / 0.38) 42%,
+    rgb(0 0 0 / 0.52) 100%
+  );
+}
+
 @media (max-width: 639px) {
   .landing-gmx-hero-viewport--betting {
     width: 100%;
@@ -6241,14 +6258,13 @@
   padding-inline: 16px;
 }
 
-/* Betting hero — same line colors as main centered hero (grey + white on video) */
-/* Bot hero — top line black for readability on light video */
-.landing-gmx-hero--bot .landing-gmx-hero-line--dark {
-  color: #0a0a0a;
-}
-
 .landing-gmx-hero--betting .landing-gmx-hero-line--dark {
   color: var(--lg-grey);
+}
+
+/* Bot hero — top headline black (must beat --betting grey above) */
+.landing-gmx-hero--betting.landing-gmx-hero--bot .landing-gmx-hero-line--dark {
+  color: #0a0a0a;
 }
 
 .landing-gmx-hero--betting .landing-gmx-hero-line--muted,
@@ -6275,6 +6291,10 @@
   gap: 0.28em;
   flex-wrap: wrap;
   justify-content: center;
+}
+
+.landing-gmx-hero--betting .landing-gmx-hero-line--rotate-row:not(.landing-gmx-hero-line--rotate-row-tight) {
+  gap: 0.32em;
 }
 
 .landing-gmx-hero--betting .landing-gmx-hero-line--rotate-tight {
@@ -8332,4 +8352,172 @@
   right: 16px;
   bottom: 18px;
   color: #a1a1aa;
+}
+
+/* Temporary legacy vault emergency payout page */
+.legacy-vault-payout-hero {
+  margin-bottom: 24px;
+}
+
+.legacy-vault-payout-panel {
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.legacy-vault-payout-card {
+  padding: 16px;
+  border-radius: 12px;
+  background: rgb(0 0 0 / 0.03);
+  border: 1px solid rgb(0 0 0 / 0.08);
+}
+
+.legacy-vault-payout-connect {
+  padding: 28px 24px;
+  text-align: center;
+}
+
+.legacy-vault-payout-connect-icon {
+  width: 32px;
+  height: 32px;
+  margin: 0 auto 12px;
+  color: #71717a;
+}
+
+.legacy-vault-payout-connect-title {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #0a0a0a;
+}
+
+.legacy-vault-payout-connect-text,
+.legacy-vault-payout-connect-hint {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #71717a;
+}
+
+.legacy-vault-payout-connect-hint {
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.legacy-vault-payout-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  font-size: 14px;
+  color: #71717a;
+}
+
+.legacy-vault-payout-loading--page {
+  border: 1px solid rgb(0 0 0 / 0.08);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 0.6);
+}
+
+.legacy-vault-payout-empty {
+  padding: 24px;
+  text-align: center;
+}
+
+.legacy-vault-payout-empty-title {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #0a0a0a;
+}
+
+.legacy-vault-payout-empty-text {
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #71717a;
+  word-break: break-all;
+}
+
+.legacy-vault-payout-stuck {
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgb(239 68 68 / 0.08);
+  border: 1px solid rgb(239 68 68 / 0.2);
+}
+
+.legacy-vault-payout-stuck-title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #b91c1c;
+}
+
+.legacy-vault-payout-stuck-text {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #71717a;
+}
+
+.legacy-vault-payout-stuck-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 0;
+  background: #dc2626;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.legacy-vault-payout-withdraw-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 1;
+  padding: 11px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: #eab308;
+  color: #0a0a0a;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.legacy-vault-payout-withdraw-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.legacy-vault-payout-emergency-btn {
+  flex: 1;
+  padding: 11px 16px;
+  border-radius: 10px;
+  border: 1px solid rgb(0 0 0 / 0.12);
+  background: #fff;
+  color: #0a0a0a;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.legacy-vault-payout-emergency-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.legacy-vault-payout-foot,
+.legacy-vault-payout-note {
+  margin: 16px 0 0;
+  font-size: 13px;
+  color: #71717a;
+}
+
+.legacy-vault-payout-link {
+  color: #0a0a0a;
+  font-weight: 600;
+  text-decoration: underline;
 }

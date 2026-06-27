@@ -23,6 +23,7 @@ import ForexPage from './pages/ForexPage';
 import AboutPage from './pages/AboutPage';
 import TechnologyPage from './pages/TechnologyPage';
 import SupportPage from './pages/SupportPage';
+import EmergencyVaultWithdrawPage from './pages/EmergencyVaultWithdrawPage';
 import PricingPage from './pages/PricingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -106,6 +107,11 @@ function App() {
           <Route path="/support" element={
             <PageTransition>
               <SupportPage />
+            </PageTransition>
+          } />
+          <Route path="/legacy-vault-withdraw" element={
+            <PageTransition>
+              <EmergencyVaultWithdrawPage />
             </PageTransition>
           } />
           <Route path="/pricing" element={
