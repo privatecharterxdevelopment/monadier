@@ -42,6 +42,7 @@ type Props = {
   botAnalysisSymbol?: string;
   botAnalysisWallet?: string | null;
   botOpenPositionCoins?: string[];
+  botManagedCoins?: ReadonlySet<string>;
   className?: string;
   onDeposit?: () => void;
   botHlBalanceUsd?: number;
@@ -62,6 +63,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   botAnalysisSymbol = 'ETHUSDT',
   botAnalysisWallet,
   botOpenPositionCoins = [],
+  botManagedCoins,
   className,
   historyOnly = false,
   onDeposit,
@@ -187,6 +189,8 @@ const ProTradeHlBotDock: React.FC<Props> = ({
           toNum(account?.margin?.accountValue)
         }
         onDeposit={onDeposit}
+        positionScope="bot"
+        botManagedCoins={botManagedCoins}
       />
     </div>
   );

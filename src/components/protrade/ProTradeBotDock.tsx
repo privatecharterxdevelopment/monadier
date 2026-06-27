@@ -17,6 +17,7 @@ type Props = {
   botAnalysisWallet?: string | null;
   botAnalysisSymbol?: string;
   botOpenPositionCoins?: string[];
+  botManagedCoins?: ReadonlySet<string>;
   walletConnected?: boolean;
   onPositionChange?: () => void;
   onCoinClick?: (coin: string) => void;

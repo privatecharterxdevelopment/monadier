@@ -35,6 +35,8 @@ import DockCountBadge from './DockCountBadge';
 import { getAppQueryLink } from '../../lib/appUrls';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
 import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
+import { normalizeHlPerpCoin } from '../../lib/botTradingPairs';
+import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 
 function livePositionPnl(position: HlPosition, markPx: number): number {
   const szi = toNum(position.szi);
@@ -97,6 +99,9 @@ type Props = {
   botOpenPositionCoins?: string[];
   botHlBalanceUsd?: number;
   onDeposit?: () => void;
+  /** Perps = manual only; bot = bot-managed coins from hl_bot_chart_markers. */
+  positionScope?: 'manual' | 'bot';
+  botManagedCoins?: ReadonlySet<string>;
 };
 
 const ProTradeDock: React.FC<Props> = ({
@@ -131,9 +136,13 @@ const ProTradeDock: React.FC<Props> = ({
   botOpenPositionCoins = [],
   botHlBalanceUsd = 0,
   onDeposit,
+  positionScope,
+  botManagedCoins,
 }) => {
   const isSpot = variant === 'spot';
   const isBotMode = mode === 'bot';
+  const scope: 'manual' | 'bot' = positionScope ?? (isBotMode ? 'bot' : 'manual');
+  const managedCoins = botManagedCoins ?? new Set<string>();
   const positionOpenSinceRef = useRef<Map<string, number>>(new Map());
   const dockWallet = walletAddress?.toLowerCase();
   const { snapshot: hlSnap } = useHlAccountSnapshot(dockWallet);
@@ -166,10 +175,20 @@ const ProTradeDock: React.FC<Props> = ({
     if (activeTab == null) setInternalTab(next);
   };
 
-  const positionCount = account?.positions.length ?? 0;
+  const scopedPositions = useMemo(() => {
+    const list = account?.positions ?? [];
+    return list.filter((p) => {
+      if (Math.abs(toNum(p.szi)) <= 1e-12) return false;
+      const coin = normalizeHlPerpCoin(p.coin);
+      const isBot = managedCoins.has(coin);
+      return scope === 'bot' ? isBot : !isBot;
+    });
+  }, [account?.positions, managedCoins, scope]);
+
+  const positionCount = scopedPositions.length;
   const positionCoins = useMemo(
-    () => (account?.positions ?? []).map((p) => p.coin),
-    [account?.positions]
+    () => scopedPositions.map((p) => p.coin),
+    [scopedPositions]
   );
   useEffect(() => {
     const now = Date.now();
@@ -195,11 +214,11 @@ const ProTradeDock: React.FC<Props> = ({
   );
   const positionUpnl = useMemo(
     () =>
-      (account?.positions ?? []).reduce(
+      scopedPositions.reduce(
         (s, p) => s + livePositionPnl(p, markPrices[p.coin] ?? 0),
         0
       ),
-    [account?.positions, markPrices]
+    [scopedPositions, markPrices]
   );
   const positionTone: 'pos' | 'neg' | null =
     positionCount > 0 ? (positionUpnl >= 0 ? 'pos' : 'neg') : null;
@@ -244,10 +263,10 @@ const ProTradeDock: React.FC<Props> = ({
 
   const filteredPositions = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const list = account?.positions ?? [];
+    let list = scopedPositions;
     if (!q) return list;
     return list.filter((p) => p.coin.toLowerCase().includes(q));
-  }, [account?.positions, search]);
+  }, [scopedPositions, search]);
 
   const filteredCloseFills = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -403,7 +422,9 @@ const ProTradeDock: React.FC<Props> = ({
                   const isLong = toNum(p.szi) >= 0;
                   const mark = markPrices[p.coin] ?? 0;
                   const upnl = livePositionPnl(p, mark);
-                  const lev = resolveDisplayLeverage(configuredLeverage, p.leverage?.value);
+                  const lev = isBotMode
+                    ? resolveDisplayLeverage(configuredLeverage, p.leverage?.value)
+                    : Math.max(1, toNum(p.leverage?.value));
                   const trail = trailStopForOpenPosition({
                     entryPx: toNum(p.entryPx),
                     szi: toNum(p.szi),
@@ -464,7 +485,11 @@ const ProTradeDock: React.FC<Props> = ({
               <p className="hl-dock-bot-scan-sub">Scanning markets.</p>
             </div>
           ) : (
-            <p className="hl-dock-empty">No open positions.</p>
+            <p className="hl-dock-empty">
+              {scope === 'manual' && managedCoins.size > 0
+                ? 'No manual perp positions — open trades here or check Bot for automated positions.'
+                : 'No open positions.'}
+            </p>
           )}
             {botUnderfunded ? (
               <p className="hl-dock-fund-nudge hl-dock-fund-nudge--desktop" role="status">

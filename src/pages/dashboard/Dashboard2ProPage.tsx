@@ -35,6 +35,7 @@ import type { ActivityNotification } from '../../lib/activityNotifications';
 import { useHyperliquidMarket } from '../../hooks/useHyperliquidMarket';
 import { useHyperliquidAccount } from '../../hooks/useHyperliquidAccount';
 import { useHlBotChartOverlay } from '../../hooks/useHlBotChartOverlay';
+import { useHlBotManagedCoins } from '../../hooks/useHlBotManagedCoins';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { setLastKnownHlBotAutoTrade } from '../../lib/hlBotRunningStore';
@@ -51,6 +52,7 @@ import type { HlPosition } from '../../lib/hyperliquid/user';
 import { isHlSpotCoin } from '../../lib/hyperliquid/spot';
 import { readNum, toNum } from '../../lib/hyperliquid/parse';
 import { hlCoinToBotSymbol, normalizeHlPerpCoin } from '../../lib/botTradingPairs';
+import { filterHlPositions } from '../../lib/hyperliquid/splitHlPositions';
 import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
 import { HL_MAX_CONCURRENT_POSITIONS } from '../../lib/hlBotConstants';
 import { useBotServerBlockers } from '../../hooks/useBotServerBlockers';
@@ -144,6 +146,21 @@ const Dashboard2ProPageContent: React.FC = () => {
     [fills]
   );
 
+  const { coins: botManagedCoins, refresh: refreshBotManagedCoins } = useHlBotManagedCoins(
+    address?.toLowerCase(),
+    botSyncTick + perpFills.length
+  );
+
+  const botPositions = useMemo(
+    () => filterHlPositions(account?.positions, botManagedCoins, 'bot'),
+    [account?.positions, botManagedCoins]
+  );
+
+  const manualPositions = useMemo(
+    () => filterHlPositions(account?.positions, botManagedCoins, 'manual'),
+    [account?.positions, botManagedCoins]
+  );
+
   const botChartCoin = section === 'bot' ? perpCoin : undefined;
   const { seriesMarkers: botTradeMarkers } = useHlBotChartMarkers(
     address,
@@ -185,37 +202,26 @@ const Dashboard2ProPageContent: React.FC = () => {
   );
 
   const totalUpnl = useMemo(
-    () => (account?.positions ?? []).reduce((s, p) => s + toNum(p.unrealizedPnl), 0),
-    [account?.positions]
+    () => manualPositions.reduce((s, p) => s + toNum(p.unrealizedPnl), 0),
+    [manualPositions]
   );
 
-  const botOpenPosition = useMemo(() => {
-    const list = account?.positions ?? [];
-    return list.find((p) => Math.abs(toNum(p.szi)) > 0) ?? null;
-  }, [account?.positions]);
+  const botOpenPosition = useMemo(() => botPositions[0] ?? null, [botPositions]);
 
   /** Open HL position on the chart's active coin (not always the first in the list). */
   const botChartPosition = useMemo(
     () =>
-      (account?.positions ?? []).find(
-        (p) =>
-          normalizeHlPerpCoin(p.coin) === normalizeHlPerpCoin(perpCoin) &&
-          Math.abs(toNum(p.szi)) > 0
+      botPositions.find(
+        (p) => normalizeHlPerpCoin(p.coin) === normalizeHlPerpCoin(perpCoin)
       ) ?? null,
-    [account?.positions, perpCoin]
+    [botPositions, perpCoin]
   );
 
-  const botOpenPositionCount = useMemo(
-    () => (account?.positions ?? []).filter((p) => Math.abs(toNum(p.szi)) > 0).length,
-    [account?.positions]
-  );
+  const botOpenPositionCount = botPositions.length;
 
   const botOpenPositionCoins = useMemo(
-    () =>
-      (account?.positions ?? [])
-        .filter((p) => Math.abs(toNum(p.szi)) > 0)
-        .map((p) => p.coin),
-    [account?.positions]
+    () => botPositions.map((p) => p.coin),
+    [botPositions]
   );
 
   const { settings: botVaultSettings, wallet: botTradingWallet, reload: reloadBotSettings, isLoading: botSettingsLoading } =
@@ -254,26 +260,6 @@ const Dashboard2ProPageContent: React.FC = () => {
 
   const botChartOverlay = useHlBotChartOverlay(
     botChartPosition,
-    perpCoin,
-    botVaultSettings.hlBotStrategy,
-    {
-      stopLossMarginPct: botEffSettings.stopLoss,
-      takeProfitMarginPct: botEffSettings.takeProfit,
-    }
-  );
-
-  const perpChartPosition = useMemo(
-    () =>
-      (account?.positions ?? []).find(
-        (p) =>
-          normalizeHlPerpCoin(p.coin) === normalizeHlPerpCoin(perpCoin) &&
-          Math.abs(toNum(p.szi)) > 0
-      ) ?? null,
-    [account?.positions, perpCoin]
-  );
-
-  const perpChartOverlay = useHlBotChartOverlay(
-    perpChartPosition,
     perpCoin,
     botVaultSettings.hlBotStrategy,
     {
@@ -340,10 +326,10 @@ const Dashboard2ProPageContent: React.FC = () => {
     const norm = normalizeHlPerpCoin(perpCoin);
     const valid = new Set(perpMarkets.map((m) => normalizeHlPerpCoin(m.name)));
     if (valid.has(norm)) return;
-    const openMatch = botOpenPositionCoins.find((c) => normalizeHlPerpCoin(c) === norm);
+    const openMatch = manualPositions.find((p) => normalizeHlPerpCoin(p.coin) === norm);
     if (openMatch) return;
     setPerpCoin(DEFAULT_PRO_COIN);
-  }, [perpMarkets, perpCoin, botOpenPositionCoins]);
+  }, [perpMarkets, perpCoin, manualPositions]);
 
   const closeAuthModal = useCallback(() => {
     setAuthModal(null);
@@ -509,6 +495,7 @@ const Dashboard2ProPageContent: React.FC = () => {
       refreshAccount(),
       refreshPerpMarkets(),
       refreshHlSnapshot(),
+      refreshBotManagedCoins(),
     ]);
   };
 
@@ -602,7 +589,6 @@ const Dashboard2ProPageContent: React.FC = () => {
               onIntervalChange={setInterval}
               layoutKey={`perps-${perpCoin}-${interval}`}
               markPx={perpMarkPx}
-              positionOverlay={perpChartOverlay}
             />
             <ProTradeOrderBook
               book={perpMarket.book}
@@ -645,6 +631,8 @@ const Dashboard2ProPageContent: React.FC = () => {
                     await handleRefreshAll();
                   }}
                   onClosePosition={(p) => void handleClosePosition(p)}
+                  positionScope="manual"
+                  botManagedCoins={botManagedCoins}
                 />
               </div>
         </div>
@@ -682,7 +670,7 @@ const Dashboard2ProPageContent: React.FC = () => {
         walletConnected={isConnected}
         wsLive={perpMarket.wsConnected}
         openOrders={perpOpenOrders}
-        positions={account?.positions ?? []}
+        positions={manualPositions}
         totalUpnl={totalUpnl}
       />
     </div>
@@ -743,6 +731,7 @@ const Dashboard2ProPageContent: React.FC = () => {
             onDockTabChange={setBotDockTab}
             analysisSymbol={hlCoinToBotSymbol(botScanCoin)}
             openPositionCoins={botOpenPositionCoins}
+            botManagedCoins={botManagedCoins}
             onCoinClick={selectChartCoin}
             onDeposit={() => setFundsModal('deposit')}
           />

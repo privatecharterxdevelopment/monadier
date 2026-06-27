@@ -45,6 +45,7 @@ type DockProps = {
   onDockTabChange: (tab: HlBotDockTab) => void;
   analysisSymbol?: string;
   openPositionCoins?: string[];
+  botManagedCoins?: ReadonlySet<string>;
   onCoinClick?: (coin: string) => void;
   onDeposit?: () => void;
 };
@@ -54,6 +55,7 @@ export const ProTradeBotDockSlot: React.FC<DockProps> = ({
   onDockTabChange,
   analysisSymbol = 'BTCUSDT',
   openPositionCoins = [],
+  botManagedCoins,
   onCoinClick,
   onDeposit,
 }) => {
@@ -70,6 +72,7 @@ export const ProTradeBotDockSlot: React.FC<DockProps> = ({
       botAnalysisWallet={address ?? null}
       botAnalysisSymbol={analysisSymbol}
       botOpenPositionCoins={openPositionCoins}
+      botManagedCoins={botManagedCoins}
       walletConnected={isConnected}
       onPositionChange={refresh}
       onCoinClick={onCoinClick}

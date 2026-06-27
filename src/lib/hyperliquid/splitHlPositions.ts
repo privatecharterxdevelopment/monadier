@@ -1,0 +1,29 @@
+import { normalizeHlPerpCoin } from '../botTradingPairs';
+import type { HlAccountState, HlPosition } from './user';
+import { toNum } from './parse';
+
+export function filterHlPositions(
+  positions: HlPosition[] | undefined,
+  botManagedCoins: Set<string>,
+  scope: 'bot' | 'manual'
+): HlPosition[] {
+  const list = positions ?? [];
+  return list.filter((p) => {
+    if (Math.abs(toNum(p.szi)) <= 1e-12) return false;
+    const coin = normalizeHlPerpCoin(p.coin);
+    const isBot = botManagedCoins.has(coin);
+    return scope === 'bot' ? isBot : !isBot;
+  });
+}
+
+export function withFilteredHlPositions(
+  account: HlAccountState | null,
+  botManagedCoins: Set<string>,
+  scope: 'bot' | 'manual'
+): HlAccountState | null {
+  if (!account) return null;
+  return {
+    ...account,
+    positions: filterHlPositions(account.positions, botManagedCoins, scope),
+  };
+}

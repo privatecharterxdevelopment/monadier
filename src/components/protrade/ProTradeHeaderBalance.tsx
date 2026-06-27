@@ -1,12 +1,16 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useAppKit } from '@reown/appkit/react';
 import { openMonadierWalletModal } from '../../lib/openWalletModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBettingUi } from '../../contexts/BettingUiContext';
 import { useBettingHeaderBalance } from '../../hooks/useBettingHeaderBalance';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
+import { useHlBotManagedCoins } from '../../hooks/useHlBotManagedCoins';
+import { useHyperliquidAccount } from '../../hooks/useHyperliquidAccount';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
+import { filterHlPositions } from '../../lib/hyperliquid/splitHlPositions';
 import { fmtClosedPnl, fmtUsdSymbol } from '../../lib/hyperliquid/format';
+import { toNum } from '../../lib/hyperliquid/parse';
 
 export type HeaderBalanceSection = 'perps' | 'bot' | 'betting' | 'other';
 
@@ -33,7 +37,27 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
   const signedIn = Boolean(user);
   const enabled = signedIn && walletConnected;
   const { snapshot } = useHlAccountSnapshot(enabled ? walletAddress : undefined);
+  const { account } = useHyperliquidAccount(enabled ? walletAddress : undefined);
+  const { coins: botManagedCoins } = useHlBotManagedCoins(
+    enabled && section !== 'betting' ? walletAddress : undefined
+  );
   const betStats = useBettingHeaderBalance(walletAddress, enabled && section === 'betting');
+
+  const scopedHlPositions = useMemo(() => {
+    if (section === 'betting') return [];
+    const scope = section === 'bot' ? 'bot' : 'manual';
+    return filterHlPositions(account?.positions, botManagedCoins, scope);
+  }, [account?.positions, botManagedCoins, section]);
+
+  const scopedOpenCount = scopedHlPositions.length;
+  const scopedUnrealizedPnlUsd = useMemo(
+    () => scopedHlPositions.reduce((s, p) => s + toNum(p.unrealizedPnl), 0),
+    [scopedHlPositions]
+  );
+  const scopedOpenNotionalUsd = useMemo(
+    () => scopedHlPositions.reduce((s, p) => s + Math.abs(toNum(p.positionValue)), 0),
+    [scopedHlPositions]
+  );
 
   const balanceUsd = snapshot?.totalUsd ?? snapshot?.tradablePerpUsd ?? betStats.balanceUsd ?? 0;
   const showExtended = !compact && section !== 'other';
@@ -135,15 +159,24 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
     );
   }
 
-  const openCount = snapshot?.openPositionsCount ?? 0;
-  const unrealizedPnlUsd = snapshot?.unrealizedPnlUsd ?? 0;
-  const openNotionalUsd = snapshot?.openNotionalUsd ?? 0;
+  const openCount =
+    section === 'perps' || section === 'bot' ? scopedOpenCount : snapshot?.openPositionsCount ?? 0;
+  const unrealizedPnlUsd =
+    section === 'perps' || section === 'bot'
+      ? scopedUnrealizedPnlUsd
+      : snapshot?.unrealizedPnlUsd ?? 0;
+  const openNotionalUsd =
+    section === 'perps' || section === 'bot'
+      ? scopedOpenNotionalUsd
+      : snapshot?.openNotionalUsd ?? 0;
+  const openTitle =
+    section === 'bot' ? 'Open bot positions' : 'Open manual perp positions';
 
   return (
     <div className="hl-topnav-betting-balance" aria-label="Hyperliquid balance">
       {balancePill}
       {openCount > 0 ? (
-        <button type="button" className="hl-topnav-bet-stat hl-topnav-bet-stat--btn" title="Open perp positions">
+        <button type="button" className="hl-topnav-bet-stat hl-topnav-bet-stat--btn" title={openTitle}>
           <span className="hl-topnav-bet-label">Open</span>
           <strong>
             {openCount} · {fmtUsdSymbol(openNotionalUsd)}
