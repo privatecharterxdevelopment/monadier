@@ -4,6 +4,8 @@ import { createStorage } from '@wagmi/core';
 import { arbitrum } from '@reown/appkit/networks';
 import { MONADIER_REOWN_PROJECT_ID } from './mobileWalletConnect';
 import { HL_DEPOSIT_CHAIN_LABEL, HL_DEPOSIT_TOKEN } from './hlDepositRules';
+import { HL_ARBITRUM_CHAIN_ID } from './hyperliquid/bridge';
+import { USDC_ADDRESSES } from './vault';
 
 const envProjectId =
   import.meta.env.VITE_REOWN_PROJECT_ID ||
@@ -62,6 +64,13 @@ createAppKit({
   enableMobileWalletLink: true,
   enableInjected: true,
   featuredWalletIds: [METAMASK_WALLET_ID],
+  /** Show Arbitrum USDC in AppKit account view (fallback if custom sheet not used). */
+  tokens: {
+    [`eip155:${HL_ARBITRUM_CHAIN_ID}`]: {
+      address: USDC_ADDRESSES[HL_ARBITRUM_CHAIN_ID],
+      image: `${getOrigin()}/images/partners/usdc.svg`,
+    },
+  },
   themeMode: 'light',
   themeVariables: {
     '--w3m-accent': '#0a0a0a',

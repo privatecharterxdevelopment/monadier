@@ -203,7 +203,7 @@ const ProTradeTopNav: React.FC<Props> = ({
                 ? `Arbitrum wallet · ${walletUsdcLabel} (MetaMask may also show ETH for gas)`
                 : undefined
             }
-            onClick={() => openMonadierWalletModal(() => open())}
+            onClick={() => openMonadierWalletModal(() => open({ view: 'Connect' }), { connected: isConnected })}
           >
             {walletUsdcLabel ? (
               <span className="hl-topnav-wallet-usdc">{walletUsdcLabel}</span>
@@ -282,7 +282,7 @@ const ProTradeTopNav: React.FC<Props> = ({
                 type="button"
                 className="hl-mobile-nav-wallet"
                 onClick={() => {
-                  openMonadierWalletModal(() => open());
+                  openMonadierWalletModal(() => open({ view: 'Connect' }), { connected: isConnected });
                   setMobileNavOpen(false);
                 }}
               >

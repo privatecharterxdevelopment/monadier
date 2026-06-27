@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import ProTradeShell from '../../components/protrade/ProTradeShell';
+import MonadierWalletAccountSheet from '../../components/wallet/MonadierWalletAccountSheet';
 import ProTradeTopNav, { type ProTradeSection } from '../../components/protrade/ProTradeTopNav';
 import ProTradeMobileTradeFab from '../../components/protrade/ProTradeMobileTradeFab';
 import ProTradeProfile from '../../components/protrade/ProTradeProfile';
@@ -901,6 +902,7 @@ const Dashboard2ProPage: React.FC = () => (
   <ProTradeShell>
     <BettingUiProvider>
       <Dashboard2ProPageContent />
+      <MonadierWalletAccountSheet />
     </BettingUiProvider>
   </ProTradeShell>
 );

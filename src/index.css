@@ -916,9 +916,59 @@ wui-overlay {
 }
 
 .mobile-wallet-sheet__btn--primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   border: 0;
   background: #0a0a0a;
   color: #fff;
+}
+
+.monadier-wallet-account__addr {
+  margin: 0 0 16px;
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #525252;
+  text-align: center;
+}
+
+.monadier-wallet-account__balance {
+  margin-bottom: 12px;
+  padding: 20px 16px;
+  border-radius: 12px;
+  background: #f5f5f5;
+  text-align: center;
+}
+
+.monadier-wallet-account__balance-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #737373;
+}
+
+.monadier-wallet-account__balance-value {
+  display: block;
+  font-size: 28px;
+  font-weight: 600;
+  color: #0a0a0a;
+  line-height: 1.15;
+}
+
+.monadier-wallet-account .wallet-usdc-arb-hint {
+  margin-bottom: 16px;
+}
+
+.monadier-wallet-account__disconnect {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #dc2626;
 }
 
 .mobile-wallet-sheet__btn--secondary {
