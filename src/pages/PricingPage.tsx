@@ -15,6 +15,7 @@ import MarketingInnerPage, {
   MarketingPageCta,
   MarketingDisclaimer,
 } from '../components/marketing/MarketingInnerPage';
+import MarketingBotPromo from '../components/marketing/MarketingBotPromo';
 import PricingHeroGraphic from '../components/marketing/PricingHeroGraphic';
 import {
   MktNoFeeVisual,
@@ -88,7 +89,12 @@ const PricingPage: React.FC = () => {
         ))}
       </MarketingPageGrid>
 
-      <MarketingPageCta />
+      <MarketingPageCta
+        label="Open app"
+        secondary={{ to: '/trading-bot', label: 'Hyperliquid trading bot' }}
+      />
+
+      <MarketingBotPromo kicker="Fees for the full auto bot" />
 
       <MarketingDisclaimer>
         This is not financial advice. Fees may change; see dashboard for live details.

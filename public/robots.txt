@@ -1,4 +1,12 @@
 User-agent: *
 Allow: /
 
+# Auth and app utility paths — not primary SEO targets
+Disallow: /login
+Disallow: /register
+Disallow: /auth/
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /kyc
+
 Sitemap: https://monadier.com/sitemap.xml

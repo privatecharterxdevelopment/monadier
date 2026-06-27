@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
@@ -38,22 +39,24 @@ createRoot(rootEl).render(
       <ErrorBoundary>
       <WagmiProvider config={config} reconnectOnMount>
         <QueryClientProvider client={queryClient}>
-          <BrowserRouter>
-            <AuthProvider>
-              <SubscriptionProvider>
-                <NotificationProvider>
-                  <Web3Provider>
-                    <WalletSessionBridge />
-                    <MobileWalletConnectSheet />
-                    <AuthOAuthCapture />
-                    <ReferralCapture />
-                    <AuthWalletReset />
-                    <App />
-                  </Web3Provider>
-                </NotificationProvider>
-              </SubscriptionProvider>
-            </AuthProvider>
-          </BrowserRouter>
+          <HelmetProvider>
+            <BrowserRouter>
+              <AuthProvider>
+                <SubscriptionProvider>
+                  <NotificationProvider>
+                    <Web3Provider>
+                      <WalletSessionBridge />
+                      <MobileWalletConnectSheet />
+                      <AuthOAuthCapture />
+                      <ReferralCapture />
+                      <AuthWalletReset />
+                      <App />
+                    </Web3Provider>
+                  </NotificationProvider>
+                </SubscriptionProvider>
+              </AuthProvider>
+            </BrowserRouter>
+          </HelmetProvider>
         </QueryClientProvider>
       </WagmiProvider>
       </ErrorBoundary>

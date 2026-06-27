@@ -1,70 +1,83 @@
 /**
  * Marketing site vs app subdomain routing.
  * Production: VITE_SITE_URL=https://monadier.com, VITE_APP_URL=https://app.monadier.com
- * Dev: leave unset — Pro Trade at /, marketing landing at /welcome
+ * Dev (no env): marketing landing at `/`, Pro Trade at `/app`
  */
 
 const APP_BASE = (import.meta.env.VITE_APP_URL as string | undefined)?.replace(/\/$/, '') ?? '';
 const SITE_BASE = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, '') ?? '';
 
+/** Local dev app entry when marketing and app share one origin. */
+const DEV_APP_PATH = '/app';
+
 function normalizePath(path: string): string {
   return path.startsWith('/') ? path : `/${path}`;
 }
 
-/** Marketing landing (was `/`). */
-export const LANDING_PATH = '/welcome';
+/** Marketing landing at site root. */
+export const LANDING_PATH = '/';
 
-/** Pro Trade — main app at site root. */
+/** Pro Trade — main app at site root on app subdomain. */
 export const OPEN_APP_PATH = '/';
 
 /** Pro Trade entry on app subdomain (app.monadier.com/). */
 export function getAppEntryPath(): string {
-  return '/';
-}
-
-/** Always `/` — Pro Trade is the main app. */
-export function getOpenAppPath(): string {
   return OPEN_APP_PATH;
 }
 
-const MARKETING_PREFIXES = [
-  '/welcome',
+/** Resolved in-app path to open Pro Trade on the current origin. */
+export function getOpenAppPath(): string {
+  if (typeof window === 'undefined') return OPEN_APP_PATH;
+  if (APP_BASE) {
+    try {
+      if (new URL(APP_BASE).hostname === window.location.hostname) {
+        return OPEN_APP_PATH;
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  if (window.location.hostname.startsWith('app.')) return OPEN_APP_PATH;
+  if (!APP_BASE) return DEV_APP_PATH;
+  return OPEN_APP_PATH;
+}
+
+const MARKETING_EXACT_PATHS = [
+  '/',
   '/login',
   '/register',
-  '/auth',
   '/how-it-works',
-  '/card',
   '/trading-bot',
   '/sports-betting',
-  '/forex',
   '/about',
   '/technology',
   '/support',
   '/pricing',
-  '/your-funds',
   '/terms',
   '/privacy',
   '/forgot-password',
   '/reset-password',
   '/kyc',
-  '/dashboard',
 ] as const;
+
+const MARKETING_PREFIX_PATHS = ['/auth', '/your-funds'] as const;
 
 export function isMarketingPath(pathname: string): boolean {
   const path = pathname.split('?')[0];
-  return MARKETING_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
+  if ((MARKETING_EXACT_PATHS as readonly string[]).includes(path)) return true;
+  return MARKETING_PREFIX_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
 }
 
 /**
  * Navigate to Pro Trade (hard navigation — reliable from marketing CTAs).
  */
 export function goToOpenApp(search = '', replace = false): void {
-  const path = OPEN_APP_PATH + search;
+  const path = getOpenAppPath() + search;
   if (APP_BASE && typeof window !== 'undefined') {
     try {
       const appHost = new URL(APP_BASE).hostname;
       if (window.location.hostname !== appHost) {
-        const url = `${APP_BASE}${path}`;
+        const url = `${APP_BASE}${OPEN_APP_PATH}${search}`;
         if (replace) window.location.replace(url);
         else window.location.assign(url);
         return;
@@ -99,31 +112,35 @@ export function isAppHost(): boolean {
     }
   }
   const path = pathname.split('?')[0];
-  if (path === OPEN_APP_PATH) return true;
-  if (path === '/app' || path.startsWith('/app/')) return true;
+  if (path === DEV_APP_PATH || path.startsWith(`${DEV_APP_PATH}/`)) return true;
   return false;
 }
 
 export function isAppPath(pathname: string): boolean {
   const path = pathname.split('?')[0];
-  return path === OPEN_APP_PATH || path === '/app' || path.startsWith('/app/');
+  if (path === OPEN_APP_PATH && isAppHost()) return true;
+  return path === DEV_APP_PATH || path.startsWith(`${DEV_APP_PATH}/`);
 }
 
-/** Legacy dashboard1 / dashboard2 / /app — never shown, always Pro Trade. */
+/** Legacy dashboard1 / dashboard2 / /app — redirect into Pro Trade. */
 export function isLegacyAppPath(pathname: string): boolean {
   const path = pathname.split('?')[0];
-  return (
+  if (
     path === '/dashboard' ||
     path.startsWith('/dashboard/') ||
     path === '/dashboard2' ||
-    path.startsWith('/dashboard2/') ||
-    path === '/app' ||
-    path.startsWith('/app/')
-  );
+    path.startsWith('/dashboard2/')
+  ) {
+    return true;
+  }
+  if (path === '/app' || path.startsWith('/app/')) {
+    return !!APP_BASE;
+  }
+  return false;
 }
 
 /**
- * Map legacy dashboard1/dashboard2/app URLs → Pro Trade at `/`.
+ * Map legacy dashboard1/dashboard2/app URLs → Pro Trade entry path.
  */
 export function mapLegacyPathToProTrade(pathname: string, search = ''): string {
   const path = pathname.split('?')[0].replace(/\/$/, '') || '/';
@@ -133,7 +150,8 @@ export function mapLegacyPathToProTrade(pathname: string, search = ''): string {
     const next = new URLSearchParams(params);
     if (section) next.set('section', section);
     const q = next.toString();
-    return q ? `${OPEN_APP_PATH}?${q}` : OPEN_APP_PATH;
+    const base = getOpenAppPath();
+    return q ? `${base}?${q}` : base;
   };
 
   if (path === '/dashboard2' || path.startsWith('/dashboard2/')) {
@@ -191,13 +209,13 @@ function normalizeAuthTarget(path: string): string {
   if (isLegacyAppPath(pathname)) {
     return mapLegacyPathToProTrade(pathname, search ? `?${search}` : '');
   }
-  if (pathname === LANDING_PATH || pathname.startsWith(`${LANDING_PATH}/`)) {
-    return OPEN_APP_PATH;
+  if (pathname === LANDING_PATH && !isAppHost()) {
+    return getOpenAppPath();
   }
   return path;
 }
 
-/** After login/register — land on Pro Trade at `/`, never legacy dashboard2. */
+/** After login/register — land on Pro Trade, never legacy dashboard2. */
 export function afterAuthGo(
   path: string,
   navigate: (p: string, opts?: { replace?: boolean }) => void
@@ -234,16 +252,16 @@ export function goToMarketing(path = LANDING_PATH, replace = false): string | nu
 export function getLoginUrl(returnToApp = true): string {
   const base = getMarketingUrl('/login');
   if (!returnToApp) return base;
-  return `${base}?from=${encodeURIComponent(OPEN_APP_PATH)}`;
+  return `${base}?from=${encodeURIComponent(getOpenAppPath())}`;
 }
 
 export function getRegisterUrl(returnToApp = true): string {
   const base = getMarketingUrl('/register');
   if (!returnToApp) return base;
-  return `${base}?from=${encodeURIComponent(OPEN_APP_PATH)}`;
+  return `${base}?from=${encodeURIComponent(getOpenAppPath())}`;
 }
 
-/** Marketing landing — ?preview=landing skips auto-redirect into Pro Trade when signed in. */
+/** ?preview=landing skips auto-redirect into Pro Trade when signed in. */
 export function getLandingPageUrl(): string {
   const base = getMarketingUrl(LANDING_PATH);
   return base.includes('?') ? `${base}&preview=landing` : `${base}?preview=landing`;

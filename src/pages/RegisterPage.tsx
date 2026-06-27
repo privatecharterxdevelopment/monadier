@@ -15,7 +15,8 @@ import {
 import { validateUsername } from '../lib/username';
 import { Gift } from 'lucide-react';
 import { useNotifications } from '../contexts/NotificationContext';
-import { afterAuthGo, OPEN_APP_PATH } from '../lib/appUrls';
+import MarketingSeo from '../components/seo/MarketingSeo';
+import { afterAuthGo, getOpenAppPath } from '../lib/appUrls';
 import {
   applyStoredReferralForUser,
   captureReferralFromSearch,
@@ -117,7 +118,7 @@ const RegisterPage: React.FC = () => {
         queueAuthToast('signed_in');
         const returnTo = searchParams.get('from');
         afterAuthGo(
-          returnTo && returnTo.startsWith('/') ? returnTo : OPEN_APP_PATH,
+          returnTo && returnTo.startsWith('/') ? returnTo : getOpenAppPath(),
           navigate
         );
       } else {
@@ -132,6 +133,7 @@ const RegisterPage: React.FC = () => {
 
   return (
     <div className="auth-page auth-page--register">
+      <MarketingSeo path="/register" />
       <div className="auth-page-inner">
         <motion.div
           className="w-full max-w-lg"

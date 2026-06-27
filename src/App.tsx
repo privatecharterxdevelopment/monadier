@@ -14,8 +14,7 @@ import TransactionToast from './components/ui/TransactionToast';
 // Pages
 import MonadierAppRoot from './components/app/MonadierAppRoot';
 import RedirectToApp from './components/app/RedirectToApp';
-import LandingPage from './pages/LandingPage';
-import { LANDING_PATH } from './lib/appUrls';
+import SiteRootRoute from './components/app/SiteRootRoute';
 import HowItWorksPage from './pages/HowItWorksPage';
 import CardPage from './pages/CardPage';
 import BotTradingPage from './pages/BotTradingPage';
@@ -65,16 +64,9 @@ function App() {
       <TransactionToast />
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
-          <Route
-            path={LANDING_PATH}
-            element={
-              <PageTransition>
-                <LandingPage />
-              </PageTransition>
-            }
-          />
-          <Route path="/" element={<MonadierAppRoot />} />
-          <Route path="/app" element={<RedirectToApp />} />
+          <Route path="/" element={<SiteRootRoute />} />
+          <Route path="/welcome" element={<Navigate to="/" replace />} />
+          <Route path="/app" element={<MonadierAppRoot />} />
           <Route path="/app/*" element={<RedirectToApp />} />
           <Route path="/how-it-works" element={
             <PageTransition>

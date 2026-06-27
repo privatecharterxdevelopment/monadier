@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import CookieConsent from '../components/ui/CookieConsent';
 import GmxStyleLanding from '../components/landing/GmxStyleLanding';
+import MarketingSeo from '../components/seo/MarketingSeo';
 import { useAuth } from '../contexts/AuthContext';
 import { goToOpenApp } from '../lib/appUrls';
 
@@ -16,6 +17,7 @@ const LandingPage: React.FC = () => {
 
   return (
     <>
+      <MarketingSeo path="/" />
       <GmxStyleLanding />
       <CookieConsent />
     </>

@@ -2,6 +2,7 @@ import React from 'react';
 import LandingNav from '../landing/LandingNav';
 import LandingFooter from '../landing/LandingFooter';
 import CookieConsent from '../ui/CookieConsent';
+import MarketingSeo from '../seo/MarketingSeo';
 
 type Props = {
   children: React.ReactNode;
@@ -17,6 +18,7 @@ type Props = {
 const MarketingPageLayout: React.FC<Props> = ({ children, narrow, centered, inner }) => {
   return (
     <div className="landing-gmx min-h-[100dvh] min-h-[100svh]">
+      <MarketingSeo />
       <LandingNav variant="light" layout="gmx" />
       <main
         className={[

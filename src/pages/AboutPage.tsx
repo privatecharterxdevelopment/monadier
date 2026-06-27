@@ -3,6 +3,7 @@ import MarketingInnerPage, {
   MarketingPageHero,
   MarketingDisclaimer,
 } from '../components/marketing/MarketingInnerPage';
+import MarketingBotPromo from '../components/marketing/MarketingBotPromo';
 import { MktTeamVisual } from '../components/marketing/MarketingIllustrations';
 
 const AboutPage: React.FC = () => {
@@ -39,6 +40,8 @@ const AboutPage: React.FC = () => {
           </p>
         </div>
       </div>
+
+      <MarketingBotPromo kicker="Our core product" />
 
       <MarketingDisclaimer>This is not financial advice.</MarketingDisclaimer>
     </MarketingInnerPage>

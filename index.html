@@ -11,44 +11,50 @@
     <meta name="apple-mobile-web-app-title" content="Monadier" />
     <meta name="theme-color" content="#e8e8ec" />
 
-    <!-- SEO Meta Tags -->
+    <!-- SEO Meta Tags (fallback for crawlers — per-route tags via react-helmet-async) -->
     <link rel="canonical" href="https://monadier.com/" />
-    <meta name="description" content="Monadier is an automated Hyperliquid trading bot. Deposit USDC on HL, approve the agent once, and let the bot scan 200+ perp markets 24/7 — live charts, bot controls, and trade history in one terminal." />
-    <meta name="keywords" content="Hyperliquid trading bot, HL automated trading, crypto trading bot, Hyperliquid perpetuals bot, crypto auto trader, algorithmic trading Hyperliquid, DeFi trading bot, non-custodial HL trading, Monadier" />
+    <meta name="description" content="Monadier is a full auto Hyperliquid trading bot. Non-custodial USDC on HL, 200+ perpetual markets, 24/7 passive income automation — live charts and bot controls in one terminal." />
+    <meta name="keywords" content="hyperliquid bot, hyperliquid trading bot, full auto trading bot, automated trading bot, passive income bot, crypto trading bot, hyperliquid perpetuals bot, non-custodial HL trading, Monadier" />
     <meta name="author" content="Monadier" />
-    <meta name="robots" content="index, follow" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
 
     <!-- Open Graph / Social Media -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://monadier.com/" />
-    <meta property="og:title" content="Monadier | Hyperliquid Automated Trading Bot" />
-    <meta property="og:description" content="Automated Hyperliquid perpetuals trading. USDC on HL, live charts, and 24/7 bot execution across all HL markets." />
-    <meta property="og:image" content="https://gbgafseabgqinnvlfslc.supabase.co/storage/v1/object/public/monadier/og-image.png" />
+    <meta property="og:site_name" content="Monadier" />
+    <meta property="og:title" content="Monadier | Hyperliquid Trading Bot — Full Auto 24/7" />
+    <meta property="og:description" content="Full auto Hyperliquid trading bot. Non-custodial USDC on HL, 24/7 execution across 200+ perpetual markets." />
+    <meta property="og:image" content="https://monadier.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en_US" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Monadier | Hyperliquid Automated Trading Bot" />
-    <meta name="twitter:description" content="Automated Hyperliquid perpetuals trading. Live charts, bot controls, and 24/7 execution in one workspace." />
+    <meta name="twitter:title" content="Monadier | Hyperliquid Trading Bot — Full Auto 24/7" />
+    <meta name="twitter:description" content="Full auto Hyperliquid trading bot. Non-custodial, 24/7 passive income automation across 200+ HL markets." />
+    <meta name="twitter:image" content="https://monadier.com/og-image.png" />
 
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
-      "name": "Monadier",
+      "name": "Monadier Hyperliquid Trading Bot",
       "applicationCategory": "FinanceApplication",
       "operatingSystem": "Web",
       "url": "https://monadier.com",
-      "description": "Hyperliquid automated trading bot with USDC on HL, live charts, and perpetuals execution across 200+ markets.",
+      "description": "Full auto Hyperliquid trading bot with non-custodial USDC on HL, live charts, and 24/7 automated execution across 200+ perpetual markets.",
       "offers": {
         "@type": "Offer",
         "price": "0",
         "priceCurrency": "USD",
-        "description": "Free tier available; performance fee on profitable trades"
+        "description": "No platform subscription; 10% success fee on profitable closes only"
       },
       "featureList": [
-        "Hyperliquid perpetuals auto-trading",
-        "Non-custodial HL account trading",
-        "200+ Hyperliquid markets",
+        "Full auto Hyperliquid trading bot",
+        "Non-custodial Hyperliquid account trading",
+        "200+ Hyperliquid perpetual markets",
+        "24/7 passive income automation",
         "Live chart terminal",
         "Automated risk management"
       ]
@@ -58,7 +64,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
-    <title>Monadier | Hyperliquid Automated Trading Bot</title>
+    <title>Monadier | Hyperliquid Trading Bot — Full Auto 24/7</title>
   </head>
   <body class="bg-background text-[#0a0a0a] font-sans antialiased">
     <div id="root"></div>

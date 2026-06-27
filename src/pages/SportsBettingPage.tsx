@@ -17,6 +17,7 @@ import {
   MktBettingVisual,
   MktCashOutVisual,
 } from '../components/marketing/MarketingIllustrations';
+import MarketingSeo from '../components/seo/MarketingSeo';
 import { goToOpenApp } from '../lib/appUrls';
 
 const BETTING_ROTATE_LINES = [
@@ -52,6 +53,7 @@ const SportsBettingPage: React.FC = () => {
 
   return (
     <div className="landing-gmx">
+      <MarketingSeo path="/sports-betting" />
       <LandingNav variant="light" layout="gmx" />
 
       <section className="landing-gmx-hero landing-gmx-gutter landing-gmx-hero--subpage">

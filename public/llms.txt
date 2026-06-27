@@ -1,0 +1,50 @@
+# Monadier
+
+> Full auto Hyperliquid trading bot — non-custodial, 24/7 automated perpetuals execution across 200+ markets.
+
+Monadier is automated trading software for Hyperliquid. Users deposit USDC on their own Hyperliquid account, approve a trading agent once, and run a full auto trading bot that scans markets 24/7. Monadier never holds private keys or custodies funds.
+
+## Primary pages
+
+- Home: https://monadier.com/
+- Hyperliquid trading bot: https://monadier.com/trading-bot
+- How it works: https://monadier.com/how-it-works
+- Pricing & fees: https://monadier.com/pricing
+- Support & FAQ: https://monadier.com/support
+- Technology: https://monadier.com/technology
+- About: https://monadier.com/about
+- Sports betting (Hyperliquid outcome markets): https://monadier.com/sports-betting
+
+## Product summary
+
+- **Product**: Full auto Hyperliquid trading bot (web terminal)
+- **Custody**: Non-custodial — USDC stays on the user's Hyperliquid account
+- **Minimum deposit**: $20 USDC on Hyperliquid (deposits via Arbitrum One native USDC)
+- **Markets**: 200+ Hyperliquid perpetual pairs
+- **Automation**: 24/7 server-side bot; user starts/stops via dashboard
+- **Fees**: No platform subscription; 10% success fee on profitable closes only; Hyperliquid trading fees apply
+
+## Keywords
+
+hyperliquid bot, hyperliquid trading bot, full auto trading bot, automated trading bot, passive income bot, crypto trading bot, non-custodial hyperliquid bot
+
+## FAQ topics (see landing page)
+
+- What is Monadier?
+- Is Monadier non-custodial?
+- How does the trading bot work?
+- Can the bot trade 24/7?
+- How much USDC do I need to start?
+- What fees does the bot charge?
+- How do I deposit USDC on Hyperliquid?
+
+## Contact
+
+- Email: support@monadier.com
+- Website: https://monadier.com
+
+## Optional
+
+- Terms: https://monadier.com/terms
+- Privacy: https://monadier.com/privacy
+- App (trading terminal): https://app.monadier.com/

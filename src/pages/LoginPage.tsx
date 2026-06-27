@@ -8,7 +8,8 @@ import Logo from '../components/ui/Logo';
 import { signIn, signInWithGoogle } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { enableDemoMode, isDemoModeAllowed } from '../lib/demoMode';
-import { afterAuthGo, OPEN_APP_PATH } from '../lib/appUrls';
+import MarketingSeo from '../components/seo/MarketingSeo';
+import { afterAuthGo, getOpenAppPath } from '../lib/appUrls';
 import { queueAuthToast } from '../lib/authToast';
 
 const LoginPage: React.FC = () => {
@@ -30,7 +31,7 @@ const LoginPage: React.FC = () => {
     ((location.state as { from?: string })?.from?.startsWith('/')
       ? (location.state as { from: string }).from
       : null) ??
-    OPEN_APP_PATH;
+    getOpenAppPath();
 
   const handleDemoDashboard = () => {
     enableDemoMode();
@@ -75,6 +76,7 @@ const LoginPage: React.FC = () => {
 
   return (
     <div className="auth-page">
+      <MarketingSeo path="/login" />
       <div className="container-custom py-6">
         <Logo size="md" theme="light" />
       </div>

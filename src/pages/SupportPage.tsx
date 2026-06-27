@@ -6,6 +6,7 @@ import MarketingInnerPage, {
   MarketingPageCta,
   MarketingDisclaimer,
 } from '../components/marketing/MarketingInnerPage';
+import MarketingBotPromo from '../components/marketing/MarketingBotPromo';
 import MarketingFaqAccordion from '../components/marketing/MarketingFaqAccordion';
 import { pickSupportFaqs, type LandingFaqItem } from '../lib/supportFaq';
 
@@ -68,8 +69,10 @@ const SupportPage: React.FC = () => {
 
       <MarketingPageCta
         label={t('marketing.support.ctaContact')}
-        secondary={{ to: '/how-it-works', label: t('nav.howItWorks') }}
+        secondary={{ to: '/trading-bot', label: 'Hyperliquid trading bot' }}
       />
+
+      <MarketingBotPromo kicker="Need help running the bot?" />
 
       <MarketingDisclaimer>{t('marketing.support.disclaimer')}</MarketingDisclaimer>
     </MarketingInnerPage>
