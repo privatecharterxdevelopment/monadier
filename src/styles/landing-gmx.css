@@ -3414,6 +3414,9 @@
 }
 
 .mkt-cta-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 14px;
   color: var(--lg-faint);
   transition: color 0.15s ease;
@@ -5188,6 +5191,95 @@
 .landing-bet-cards-section {
   padding-top: 48px;
   padding-bottom: 56px;
+}
+
+.landing-bet-cards-section--flush {
+  padding-top: 12px;
+}
+
+@media (min-width: 640px) {
+  .landing-bet-cards-section--flush {
+    padding-top: 16px;
+  }
+}
+
+/* Sports betting — video hero header */
+.landing-betting-video-hero {
+  position: relative;
+  min-height: min(68vh, 640px);
+  display: flex;
+  align-items: flex-end;
+  padding-top: 88px;
+  padding-bottom: 8px;
+  overflow: hidden;
+}
+
+@media (min-width: 640px) {
+  .landing-betting-video-hero {
+    padding-top: 108px;
+    min-height: min(72vh, 680px);
+  }
+}
+
+.landing-betting-video-hero-media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.landing-betting-video-hero-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 35%;
+}
+
+.landing-betting-video-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgb(0 0 0 / 0.35) 0%, rgb(0 0 0 / 0.2) 40%, rgb(0 0 0 / 0.72) 100%),
+    linear-gradient(90deg, rgb(0 0 0 / 0.25) 0%, transparent 50%, rgb(0 0 0 / 0.25) 100%);
+}
+
+.landing-betting-video-hero-inner {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding-bottom: clamp(28px, 5vw, 40px);
+}
+
+.landing-betting-video-hero-copy {
+  max-width: 720px;
+}
+
+.landing-betting-video-hero .landing-gmx-hero-line--dark {
+  color: #fff;
+}
+
+.landing-betting-video-hero .landing-gmx-hero-line--muted {
+  color: rgb(255 255 255 / 0.78);
+}
+
+.landing-betting-video-hero-lead {
+  margin: 16px 0 0;
+  max-width: 36rem;
+  font-size: clamp(0.95rem, 2vw, 1.0625rem);
+  line-height: 1.55;
+  color: rgb(255 255 255 / 0.88);
+}
+
+.landing-betting-video-hero-cta {
+  margin-top: 22px;
+}
+
+.landing-betting-bot-promo {
+  padding-top: 0;
+  padding-bottom: 48px;
+}
+
+.landing-betting-bot-promo .mkt-bot-promo {
+  margin: 0;
 }
 
 .landing-bet-cards-intro {

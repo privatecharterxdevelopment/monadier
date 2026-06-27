@@ -3,6 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { useLocation } from 'react-router-dom';
 import { getPageSeo } from '../../lib/seo/pages';
 import { TRADING_BOT_FAQS } from '../../lib/seo/tradingBotContent';
+import { BETTING_FAQS } from '../../lib/seo/bettingContent';
 import { OG_IMAGE, SITE_NAME, absoluteUrl } from '../../lib/seo/site';
 import {
   breadcrumbSchema,
@@ -26,7 +27,13 @@ const MarketingSeo: React.FC<Props> = ({ path: pathOverride, faqs }) => {
   const seo = getPageSeo(path);
   const canonical = absoluteUrl(seo.path);
 
-  const faqItems = faqs ?? (path === '/trading-bot' ? TRADING_BOT_FAQS : undefined);
+  const faqItems =
+    faqs ??
+    (path === '/trading-bot'
+      ? TRADING_BOT_FAQS
+      : path === '/sports-betting'
+        ? BETTING_FAQS
+        : undefined);
 
   const jsonLd = useMemo(() => {
     const blocks: object[] = [webPageSchema({ path: seo.path, title: seo.title, description: seo.description })];
@@ -45,9 +52,13 @@ const MarketingSeo: React.FC<Props> = ({ path: pathOverride, faqs }) => {
           { name: 'Hyperliquid Trading Bot', path: '/trading-bot' },
         ])
       );
-      if (faqItems?.length) {
-        blocks.push(faqPageSchema(faqItems));
-      }
+    } else if (path === '/sports-betting') {
+      blocks.push(
+        breadcrumbSchema([
+          { name: 'Home', path: '/' },
+          { name: 'Sports Betting', path: '/sports-betting' },
+        ])
+      );
     } else {
       const label = seo.title.split('|')[0]?.trim() ?? seo.path;
       blocks.push(
@@ -56,6 +67,10 @@ const MarketingSeo: React.FC<Props> = ({ path: pathOverride, faqs }) => {
           { name: label, path: seo.path },
         ])
       );
+    }
+
+    if (faqItems?.length) {
+      blocks.push(faqPageSchema(faqItems));
     }
 
     return blocks;

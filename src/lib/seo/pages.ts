@@ -1,4 +1,5 @@
 import { SITE_NAME } from './site';
+import { BETTING_KEYWORDS } from './bettingContent';
 
 export type PageSeo = {
   path: string;
@@ -59,12 +60,12 @@ export const PAGE_SEO: Record<string, PageSeo> = {
   },
   '/sports-betting': {
     path: '/sports-betting',
-    title: `On-Chain Sports Betting on Hyperliquid | ${SITE_NAME}`,
+    title: `Hyperliquid Sports Betting & Prediction Markets | ${SITE_NAME}`,
     description:
-      'Bet on sports and prediction markets on Hyperliquid with USDC. Non-custodial outcome markets, live odds, and wallet-signed orders — alongside the Monadier trading bot.',
-    keywords: 'hyperliquid sports betting, on-chain prediction markets, crypto sports betting, hyperliquid bot',
+      'Bet on sports, World Cup, basketball, and crypto events on Hyperliquid HIP-4 outcome markets. Non-custodial on-chain sports betting with live odds, wallet-signed orders, and transparent settlement.',
+    keywords: `${BETTING_KEYWORDS}, hyperliquid prediction markets, on-chain betting platform, Monadier`,
     changefreq: 'weekly',
-    priority: 0.75,
+    priority: 0.85,
     sitemap: true,
   },
   '/technology': {

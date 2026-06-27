@@ -74,6 +74,10 @@ type Props = {
   subtitle?: string | null;
   /** 4-up grid (homepage) vs 2×4 grid (betting page) */
   layout?: 'home' | 'page';
+  /** Tighter top spacing when placed directly under video hero */
+  flushTop?: boolean;
+  /** Accessible name when section title is hidden */
+  ariaLabel?: string;
 };
 
 const LandingBetMarketCards: React.FC<Props> = ({
@@ -81,6 +85,8 @@ const LandingBetMarketCards: React.FC<Props> = ({
   title = null,
   subtitle = null,
   layout = 'page',
+  flushTop = false,
+  ariaLabel,
 }) => {
   const [markets, setMarkets] = useState<LandingBetMarket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,12 +126,15 @@ const LandingBetMarketCards: React.FC<Props> = ({
   const sectionClass =
     layout === 'home'
       ? 'landing-gmx-section landing-gmx-gutter landing-gmx-product-cards-section landing-bet-cards-section'
-      : 'landing-gmx-section landing-gmx-gutter landing-bet-cards-section';
+      : `landing-gmx-section landing-gmx-gutter landing-bet-cards-section${
+          flushTop ? ' landing-bet-cards-section--flush' : ''
+        }`;
 
   return (
     <section
       className={sectionClass}
       aria-labelledby={showHeader ? 'landing-bet-cards-title' : undefined}
+      aria-label={!showHeader ? ariaLabel : undefined}
     >
       <div className="landing-gmx-shell">
         {showHeader ? (

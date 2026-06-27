@@ -1,11 +1,13 @@
 import React, { useEffect } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, Shield, Zap, Wallet, Layers } from 'lucide-react';
 import LandingNav from '../components/landing/LandingNav';
 import LandingFooter from '../components/landing/LandingFooter';
-import LandingHeroLines from '../components/landing/LandingHeroLines';
+import BettingVideoHero from '../components/landing/BettingVideoHero';
 import LandingBetMarketCards from '../components/landing/LandingBetMarketCards';
 import BettingFaqSection from '../components/landing/BettingFaqSection';
 import CookieConsent from '../components/ui/CookieConsent';
+import MarketingBotPromo from '../components/marketing/MarketingBotPromo';
 import {
   MarketingFeatureCard,
   MarketingPageGrid,
@@ -18,15 +20,9 @@ import {
   MktCashOutVisual,
 } from '../components/marketing/MarketingIllustrations';
 import MarketingSeo from '../components/seo/MarketingSeo';
-import { goToOpenApp } from '../lib/appUrls';
+import { BETTING_BENEFITS, BETTING_FAQS } from '../lib/seo/bettingContent';
 
-const BETTING_ROTATE_LINES = [
-  'bet on World Cup',
-  'bet on football',
-  'bet on Basketball',
-  'bet on Market moves',
-  'and more',
-] as const;
+const BENEFIT_ICONS = [Zap, Shield, Layers, Wallet] as const;
 
 const steps = [
   {
@@ -53,79 +49,75 @@ const SportsBettingPage: React.FC = () => {
 
   return (
     <div className="landing-gmx">
-      <MarketingSeo path="/sports-betting" />
+      <MarketingSeo path="/sports-betting" faqs={BETTING_FAQS} />
       <LandingNav variant="light" layout="gmx" />
 
-      <section className="landing-gmx-hero landing-gmx-gutter landing-gmx-hero--subpage">
-        <div className="landing-gmx-shell landing-gmx-hero-shell landing-gmx-hero-shell--subpage">
-          <div className="landing-gmx-hero-stage">
-            <div className="landing-gmx-hero-stack landing-gmx-hero-stack--subpage">
-              <LandingHeroLines
-                lineDarkTop="Prediction market,"
-                rotateLines={BETTING_ROTATE_LINES}
-                lineDarkBottom="on chain"
-              />
-              <div className="landing-gmx-hero-bottom landing-gmx-hero-bottom--subpage">
-                <div className="landing-gmx-hero-bottom-left">
-                  <div className="landing-gmx-hero-cta">
-                    <a
-                      href="/?section=sportsbets"
-                      className="landing-gmx-btn-primary"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        goToOpenApp('?section=sportsbets', false);
-                      }}
-                    >
-                      Open betting
-                      <ArrowRight size={16} />
-                    </a>
-                  </div>
-                  <p className="landing-gmx-hero-lead">
-                    HIP-4 outcome markets on Hyperliquid — wallet-signed bets, live odds, and
-                    transparent on-chain settlement.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      <BettingVideoHero />
 
-      <LandingBetMarketCards
-        limit={8}
-        title="Live events"
-        subtitle="Real HIP-4 markets on Hyperliquid — odds refresh every 30 seconds. Team matchups show live flags where available."
-      />
+      <LandingBetMarketCards limit={8} layout="page" flushTop ariaLabel="Live Hyperliquid betting markets" />
 
       <main className="landing-gmx-page-main landing-gmx-page-main--inner landing-gmx-gutter">
         <div className="landing-gmx-shell">
           <div className="mkt-page">
-          <MarketingSectionHeading
-            title="How it works"
-            sub="Three steps from wallet to your first on-chain sports bet."
-          />
+            <MarketingSectionHeading
+              title="Why bet on Hyperliquid with Monadier"
+              sub="On-chain sports betting and prediction markets — non-custodial, transparent odds, one platform with our Hyperliquid trading bot."
+            />
 
-          <MarketingPageGrid columns={3}>
-            {steps.map((step, i) => (
-              <MarketingFeatureCard
-                key={step.title}
-                index={i}
-                title={step.title}
-                text={step.text}
-                visual={step.visual}
-              />
-            ))}
-          </MarketingPageGrid>
+            <MarketingPageGrid columns={2}>
+              {BETTING_BENEFITS.map((item, i) => (
+                <MarketingFeatureCard
+                  key={item.title}
+                  index={i}
+                  title={item.title}
+                  text={item.text}
+                  icon={BENEFIT_ICONS[i]}
+                />
+              ))}
+            </MarketingPageGrid>
 
-          <MarketingDisclaimer>
-            Sports betting involves risk. Outcome markets can lose value; only bet what you can afford
-            to lose. This is not financial advice.
-          </MarketingDisclaimer>
+            <MarketingSectionHeading
+              title="How sports betting works"
+              sub="Three steps from wallet to your first on-chain sports bet."
+            />
+
+            <MarketingPageGrid columns={3}>
+              {steps.map((step, i) => (
+                <MarketingFeatureCard
+                  key={step.title}
+                  index={i}
+                  title={step.title}
+                  text={step.text}
+                  visual={step.visual}
+                />
+              ))}
+            </MarketingPageGrid>
+
+            <div className="mkt-cta-row">
+              <Link to="/trading-bot" className="mkt-cta-secondary">
+                Hyperliquid trading bot
+                <ArrowRight size={16} strokeWidth={2.5} />
+              </Link>
+              <Link to="/pricing" className="mkt-cta-secondary">
+                View pricing
+              </Link>
+            </div>
+
+            <MarketingDisclaimer>
+              Sports betting involves risk. Outcome markets can lose value; only bet what you can afford
+              to lose. This is not financial advice.
+            </MarketingDisclaimer>
           </div>
         </div>
       </main>
 
       <BettingFaqSection />
+
+      <div className="landing-gmx-gutter landing-gmx-section landing-betting-bot-promo">
+        <div className="landing-gmx-shell">
+          <MarketingBotPromo kicker="Also on Monadier" />
+        </div>
+      </div>
 
       <LandingFooter />
       <CookieConsent />
