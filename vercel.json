@@ -18,12 +18,12 @@
     },
     {
       "source": "/welcome",
-      "destination": "https://monadier.com/",
+      "destination": "/",
       "permanent": true
     },
     {
       "source": "/welcome/:path*",
-      "destination": "https://monadier.com/",
+      "destination": "/",
       "permanent": true
     },
     {

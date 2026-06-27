@@ -4,55 +4,65 @@ import LandingHeroLines from './LandingHeroLines';
 import { goToOpenApp } from '../../lib/appUrls';
 
 const BETTING_ROTATE_LINES = [
-  'World Cup',
-  'football',
-  'basketball',
-  'crypto events',
-  'macro markets',
+  'bet on World Cup',
+  'bet on football',
+  'bet on Basketball',
+  'bet on Market moves',
+  'and more',
 ] as const;
 
 const BETTING_VIDEO_SRC = '/videos/14757485_1920_1080_25fps.mp4';
 
+/** Same framed video window as main landing — static, no scroll zoom. */
 const BettingVideoHero: React.FC = () => (
-  <section className="landing-betting-video-hero landing-gmx-gutter" aria-label="Sports betting on Hyperliquid">
-    <div className="landing-betting-video-hero-media" aria-hidden>
-      <video
-        className="landing-betting-video-hero-video"
-        src={BETTING_VIDEO_SRC}
-        autoPlay
-        loop
-        muted
-        playsInline
-        preload="metadata"
-      />
-      <div className="landing-betting-video-hero-overlay" />
-    </div>
+  <section
+    className="landing-gmx-hero landing-gmx-hero--centered landing-gmx-hero--betting landing-gmx-gutter"
+    aria-label="Sports betting on Hyperliquid"
+  >
+    <div className="landing-gmx-shell landing-gmx-hero-shell landing-gmx-hero-shell--betting">
+      <div className="landing-gmx-hero-stage landing-gmx-hero-stage--betting">
+        <div className="landing-gmx-hero-viewport landing-gmx-hero-viewport--betting">
+          <div className="landing-gmx-hero-video-zoom landing-gmx-hero-video-zoom--betting" aria-hidden>
+            <video
+              className="landing-gmx-hero-video"
+              src={BETTING_VIDEO_SRC}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+            />
+          </div>
 
-    <div className="landing-gmx-shell landing-betting-video-hero-inner">
-      <div className="landing-betting-video-hero-copy">
-        <LandingHeroLines
-          lineDarkTop="Bet on"
-          rotateLines={BETTING_ROTATE_LINES}
-          lineDarkBottom="on Hyperliquid"
-          rotatePosition="middle"
-          className="landing-betting-video-hero-lines"
-        />
-        <p className="landing-betting-video-hero-lead">
-          HIP-4 outcome markets — wallet-signed bets, live on-chain odds, and transparent
-          settlement. Non-custodial USDC on Hyperliquid.
-        </p>
-        <div className="landing-betting-video-hero-cta">
-          <a
-            href="/?section=sportsbets"
-            className="landing-gmx-btn-primary"
-            onClick={(e) => {
-              e.preventDefault();
-              goToOpenApp('?section=sportsbets', false);
-            }}
-          >
-            Open betting
-            <ArrowRight size={16} aria-hidden />
-          </a>
+          <div className="landing-gmx-hero-chrome landing-gmx-hero-chrome--betting">
+            <div className="landing-gmx-hero-chrome-spacer" aria-hidden />
+            <div className="landing-gmx-hero-chrome-title">
+              <LandingHeroLines
+                lineDarkTop="Prediction market,"
+                rotateLines={BETTING_ROTATE_LINES}
+                rotatePosition="two-row"
+                rotateSuffix="on chain"
+              />
+            </div>
+            <div className="landing-betting-hero-meta">
+              <p className="landing-betting-hero-lead">
+                HIP-4 outcome markets on Hyperliquid — wallet-signed bets, live odds, and
+                transparent on-chain settlement.
+              </p>
+              <a
+                href="/?section=sportsbets"
+                className="landing-gmx-btn-primary landing-betting-hero-cta"
+                onClick={(e) => {
+                  e.preventDefault();
+                  goToOpenApp('?section=sportsbets', false);
+                }}
+              >
+                Open betting
+                <ArrowRight size={16} aria-hidden />
+              </a>
+            </div>
+            <div className="landing-gmx-hero-chrome-spacer" aria-hidden />
+          </div>
         </div>
       </div>
     </div>

@@ -14,6 +14,34 @@ function normalizePath(path: string): string {
   return path.startsWith('/') ? path : `/${path}`;
 }
 
+function getSiteHostname(): string | null {
+  if (!SITE_BASE) return null;
+  try {
+    return new URL(SITE_BASE).hostname;
+  } catch {
+    return null;
+  }
+}
+
+/** Production marketing host only (monadier.com) — not Vercel previews or localhost. */
+function isProductionMarketingHost(): boolean {
+  if (typeof window === 'undefined') return false;
+  const siteHost = getSiteHostname();
+  if (!siteHost) return false;
+  return window.location.hostname === siteHost;
+}
+
+/** Cross-subdomain hard navigation — only from production marketing → app subdomain. */
+function shouldCrossNavigateToApp(): boolean {
+  if (!APP_BASE || typeof window === 'undefined') return false;
+  if (!isProductionMarketingHost()) return false;
+  try {
+    return new URL(APP_BASE).hostname !== window.location.hostname;
+  } catch {
+    return false;
+  }
+}
+
 /** Marketing landing at site root. */
 export const LANDING_PATH = '/';
 
@@ -39,6 +67,7 @@ export function getOpenAppPath(): string {
   }
   if (window.location.hostname.startsWith('app.')) return OPEN_APP_PATH;
   if (!APP_BASE) return DEV_APP_PATH;
+  if (!isProductionMarketingHost()) return DEV_APP_PATH;
   return OPEN_APP_PATH;
 }
 
@@ -73,18 +102,11 @@ export function isMarketingPath(pathname: string): boolean {
  */
 export function goToOpenApp(search = '', replace = false): void {
   const path = getOpenAppPath() + search;
-  if (APP_BASE && typeof window !== 'undefined') {
-    try {
-      const appHost = new URL(APP_BASE).hostname;
-      if (window.location.hostname !== appHost) {
-        const url = `${APP_BASE}${OPEN_APP_PATH}${search}`;
-        if (replace) window.location.replace(url);
-        else window.location.assign(url);
-        return;
-      }
-    } catch {
-      /* fall through */
-    }
+  if (shouldCrossNavigateToApp()) {
+    const url = `${APP_BASE}${OPEN_APP_PATH}${search}`;
+    if (replace) window.location.replace(url);
+    else window.location.assign(url);
+    return;
   }
   if (replace) window.location.replace(path);
   else window.location.assign(path);
@@ -92,6 +114,10 @@ export function goToOpenApp(search = '', replace = false): void {
 
 export function getAppUrl(path?: string): string {
   const p = normalizePath(path ?? getAppEntryPath());
+  if (typeof window !== 'undefined' && APP_BASE && !shouldCrossNavigateToApp()) {
+    const local = getOpenAppPath();
+    return p === OPEN_APP_PATH ? local : p;
+  }
   return APP_BASE ? `${APP_BASE}${p}` : p;
 }
 
@@ -196,12 +222,12 @@ export function isExternalAppUrl(url: string): boolean {
 /** Full navigation to app (cross-subdomain) or returns in-app path for React Router */
 export function goToApp(path?: string, replace = false): string | null {
   const url = getAppUrl(path);
-  if (isExternalAppUrl(url)) {
+  if (isExternalAppUrl(url) && shouldCrossNavigateToApp()) {
     if (replace) window.location.replace(url);
     else window.location.assign(url);
     return null;
   }
-  return url;
+  return isExternalAppUrl(url) ? getOpenAppPath() : url;
 }
 
 function normalizeAuthTarget(path: string): string {
@@ -224,16 +250,9 @@ export function afterAuthGo(
   const search = target.includes('?') ? target.slice(target.indexOf('?')) : '';
   const pathname = target.split('?')[0];
 
-  if (APP_BASE && typeof window !== 'undefined') {
-    try {
-      const appHost = new URL(APP_BASE).hostname;
-      if (window.location.hostname !== appHost) {
-        goToOpenApp(search, true);
-        return;
-      }
-    } catch {
-      /* fall through */
-    }
+  if (shouldCrossNavigateToApp()) {
+    goToOpenApp(search, true);
+    return;
   }
 
   navigate(pathname + search, { replace: true });

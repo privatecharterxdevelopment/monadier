@@ -10,6 +10,8 @@ type Props = {
   /** middle = Trade | rotate | bottom (subpages). two-row = static block + rotate. */
   rotatePosition?: 'middle' | 'two-row';
   lineMutedPrefix?: string;
+  /** Dark suffix on row 2 after rotate (two-row only). */
+  rotateSuffix?: string;
   className?: string;
 };
 
@@ -19,6 +21,7 @@ const LandingHeroLines: React.FC<Props> = ({
   lineDarkBottom = '',
   rotatePosition = 'middle',
   lineMutedPrefix,
+  rotateSuffix,
   className = '',
 }) => {
   const [index, setIndex] = useState(0);
@@ -74,11 +77,20 @@ const LandingHeroLines: React.FC<Props> = ({
           <>
             <div className="landing-gmx-hero-static-lines">
               <div className="landing-gmx-hero-line landing-gmx-hero-line--dark">{lineDarkTop}</div>
-              {lineDarkBottom ? (
+              {lineDarkBottom && !rotateSuffix ? (
                 <div className="landing-gmx-hero-line landing-gmx-hero-line--dark">{lineDarkBottom}</div>
               ) : null}
             </div>
-            {rotateBlock}
+            {rotateSuffix ? (
+              <div className="landing-gmx-hero-line landing-gmx-hero-line--rotate-row">
+                {rotateBlock}
+                <span className="landing-gmx-hero-line landing-gmx-hero-line--muted landing-gmx-hero-line--suffix">
+                  {rotateSuffix}
+                </span>
+              </div>
+            ) : (
+              rotateBlock
+            )}
           </>
         ) : (
           <>

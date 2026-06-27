@@ -78,7 +78,6 @@ const MarketingSeo: React.FC<Props> = ({ path: pathOverride, faqs }) => {
 
   return (
     <Helmet>
-      <html lang="en" />
       <title>{seo.title}</title>
       <meta name="description" content={seo.description} />
       {seo.keywords && <meta name="keywords" content={seo.keywords} />}

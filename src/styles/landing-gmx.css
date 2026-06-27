@@ -1212,6 +1212,29 @@
   max-width: 100%;
 }
 
+.landing-gmx-hero--centered .landing-gmx-hero-line--rotate-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.28em;
+  width: 100%;
+  max-width: 100%;
+  margin-inline: auto;
+}
+
+.landing-gmx-hero--centered .landing-gmx-hero-line--rotate-row .landing-gmx-hero-line--rotate {
+  display: grid;
+  width: max-content;
+  max-width: 100%;
+  margin: 0;
+}
+
+.landing-gmx-hero--centered .landing-gmx-hero-line--suffix {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 /* Hero perk widgets (under title — flat, no cards) */
 .landing-gmx-hero-perks {
   display: flex;
@@ -5194,83 +5217,114 @@
 }
 
 .landing-bet-cards-section--flush {
-  padding-top: 12px;
+  padding-top: 36px;
 }
 
 @media (min-width: 640px) {
   .landing-bet-cards-section--flush {
-    padding-top: 16px;
+    padding-top: 52px;
   }
 }
 
-/* Sports betting — video hero header */
-.landing-betting-video-hero {
-  position: relative;
-  min-height: min(68vh, 640px);
-  display: flex;
-  align-items: flex-end;
+/* Sports betting — framed video hero (main-page window, no zoom) */
+.landing-gmx-hero--betting {
+  min-height: 0;
+  overflow: visible;
+  padding: 0;
+}
+
+.landing-gmx-hero-shell--betting {
+  min-height: 0;
   padding-top: 88px;
-  padding-bottom: 8px;
-  overflow: hidden;
+  padding-bottom: 28px;
 }
 
 @media (min-width: 640px) {
-  .landing-betting-video-hero {
+  .landing-gmx-hero-shell--betting {
     padding-top: 108px;
-    min-height: min(72vh, 680px);
+    padding-bottom: 36px;
   }
 }
 
-.landing-betting-video-hero-media {
+.landing-gmx-hero-stage--betting {
+  flex: none;
+}
+
+.landing-gmx-hero-viewport--betting {
+  position: relative;
+  flex: none;
+  width: 100%;
+  min-height: clamp(280px, 66vw, 420px);
+  margin-top: 28px;
+  padding-bottom: 0;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+@media (min-width: 640px) {
+  .landing-gmx-hero-viewport--betting {
+    min-height: clamp(300px, min(50vw, 62vh), 560px);
+    margin-top: 12px;
+  }
+}
+
+.landing-gmx-hero-video-zoom--betting {
   position: absolute;
   inset: 0;
   z-index: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  pointer-events: none;
+  transform: none !important;
+  will-change: auto;
 }
 
-.landing-betting-video-hero-video {
+.landing-gmx-hero--betting .landing-gmx-hero-video {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
   object-position: center 35%;
 }
 
-.landing-betting-video-hero-overlay {
+.landing-gmx-hero-chrome--betting {
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(180deg, rgb(0 0 0 / 0.35) 0%, rgb(0 0 0 / 0.2) 40%, rgb(0 0 0 / 0.72) 100%),
-    linear-gradient(90deg, rgb(0 0 0 / 0.25) 0%, transparent 50%, rgb(0 0 0 / 0.25) 100%);
+  z-index: 5;
+  padding-top: 0;
+  pointer-events: none;
 }
 
-.landing-betting-video-hero-inner {
-  position: relative;
-  z-index: 1;
+.landing-gmx-hero--betting .landing-gmx-hero-chrome-title {
+  padding-inline: 16px;
+}
+
+.landing-betting-hero-meta {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
   width: 100%;
-  padding-bottom: clamp(28px, 5vw, 40px);
+  max-width: 28rem;
+  margin-inline: auto;
+  padding: 12px 16px 0;
+  box-sizing: border-box;
+  text-align: center;
+  pointer-events: none;
 }
 
-.landing-betting-video-hero-copy {
-  max-width: 720px;
+.landing-betting-hero-lead {
+  margin: 0;
+  font-size: clamp(0.8125rem, 1.8vw, 0.9375rem);
+  line-height: 1.5;
+  color: rgb(255 255 255 / 0.86);
 }
 
-.landing-betting-video-hero .landing-gmx-hero-line--dark {
-  color: #fff;
-}
-
-.landing-betting-video-hero .landing-gmx-hero-line--muted {
-  color: rgb(255 255 255 / 0.78);
-}
-
-.landing-betting-video-hero-lead {
-  margin: 16px 0 0;
-  max-width: 36rem;
-  font-size: clamp(0.95rem, 2vw, 1.0625rem);
-  line-height: 1.55;
-  color: rgb(255 255 255 / 0.88);
-}
-
-.landing-betting-video-hero-cta {
-  margin-top: 22px;
+.landing-betting-hero-cta {
+  pointer-events: auto;
 }
 
 .landing-betting-bot-promo {
