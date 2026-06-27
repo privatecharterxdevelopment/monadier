@@ -7,6 +7,7 @@
  */
 
 import { logger } from '../utils/logger';
+import { normalizeH1Trend, trendOnlyBlockReason } from './trendOnly';
 
 // ============================================================================
 // TYPES
@@ -588,22 +589,23 @@ export class SignalEngine {
     const span = resistance - support;
     const pricePosition = span > 0 ? (currentPrice - support) / span : 0.5;
 
-    // RSI + range — reversal zones outweigh lagging trend/MACD at extremes
-    if (rsi < 32) {
+    // RSI + MACD — trend frame must not flip to counter-trend on oversold/overbought alone
+    const isHigherTf = timeframe === '1h' || timeframe === '4h';
+    if (rsi < 32 && !(isHigherTf && trend === 'DOWN')) {
       bullishPoints += rsiRising ? 3 : 2;
       if (pricePosition < 0.35) bullishPoints += 2;
-    } else if (rsi < 40 && pricePosition < 0.35) {
+    } else if (rsi < 40 && pricePosition < 0.35 && !(isHigherTf && trend === 'DOWN')) {
       bullishPoints += rsiRising ? 2 : 1;
       bearishPoints = Math.max(0, bearishPoints - 1);
-    } else if (rsi > 68) {
+    } else if (rsi > 68 && !(isHigherTf && trend === 'UP')) {
       bearishPoints += rsiFalling ? 3 : 2;
       if (pricePosition > 0.65) bearishPoints += 2;
-    } else if (rsi > 60 && pricePosition > 0.65) {
+    } else if (rsi > 60 && pricePosition > 0.65 && !(isHigherTf && trend === 'UP')) {
       bearishPoints += rsiFalling ? 2 : 1;
       bullishPoints = Math.max(0, bullishPoints - 1);
-    } else if (rsi < 40) {
+    } else if (rsi < 40 && !(isHigherTf && trend === 'DOWN')) {
       bullishPoints += 1;
-    } else if (rsi > 60) {
+    } else if (rsi > 60 && !(isHigherTf && trend === 'UP')) {
       bearishPoints += 1;
     }
 
@@ -623,20 +625,24 @@ export class SignalEngine {
       else bearishPoints += weight * 3;
     }
 
-    // Price position relative to S/R — dip/support favors longs, apex favors shorts
-    if (pricePosition < 0.28) {
-      bullishPoints += 2;
-      bearishPoints = Math.max(0, bearishPoints - 2);
-    } else if (pricePosition < 0.38) {
-      bullishPoints += 1;
-      bearishPoints = Math.max(0, bearishPoints - 1);
+    // Price position — no dip-buy / apex-fade bias on higher timeframes
+    if (!isHigherTf || trend !== 'DOWN') {
+      if (pricePosition < 0.28) {
+        bullishPoints += 2;
+        bearishPoints = Math.max(0, bearishPoints - 2);
+      } else if (pricePosition < 0.38) {
+        bullishPoints += 1;
+        bearishPoints = Math.max(0, bearishPoints - 1);
+      }
     }
-    if (pricePosition > 0.72) {
-      bearishPoints += 2;
-      bullishPoints = Math.max(0, bullishPoints - 2);
-    } else if (pricePosition > 0.62) {
-      bearishPoints += 1;
-      bullishPoints = Math.max(0, bullishPoints - 1);
+    if (!isHigherTf || trend !== 'UP') {
+      if (pricePosition > 0.72) {
+        bearishPoints += 2;
+        bullishPoints = Math.max(0, bullishPoints - 2);
+      } else if (pricePosition > 0.62) {
+        bearishPoints += 1;
+        bullishPoints = Math.max(0, bullishPoints - 1);
+      }
     }
 
     // Calculate direction and confidence
@@ -745,74 +751,45 @@ export class SignalEngine {
     let direction: SignalDirection = 'HOLD';
     let confidence = 0;
 
-    const scoreDiff = Math.abs(bullishScore - bearishScore);
-    const tf15 = analyses.find((a) => a.timeframe === '15m');
-    const chartRef = tf15 ?? analyses.find((a) => a.timeframe === '1h') ?? analyses[0];
-    let chartRangePos = 0.5;
-    if (chartRef && chartRef.resistance > chartRef.support) {
-      chartRangePos =
-        (chartRef.currentPrice - chartRef.support) / (chartRef.resistance - chartRef.support);
-    }
-    const chartRsi = chartRef?.rsi ?? 50;
-
     if (bullishScore > bearishScore && bullishScore > 40) {
-      const atApexZone = chartRsi > 68 && chartRangePos > 0.62;
-      const strongBull = scoreDiff >= 18;
-      if (atApexZone && !strongBull) {
-        if (chartRsi > 72 && chartRef?.macdSignal === 'bearish') {
-          direction = 'SHORT';
-          confidence = Math.min(72, bearishScore + 12);
-          reasons.push(
-            `Apex fade — RSI ${chartRsi.toFixed(0)} at ${(chartRangePos * 100).toFixed(0)}% range, MACD turning down`
-          );
-        } else {
-          direction = 'HOLD';
-          confidence = 45;
-          warnings.push(
-            `Mixed at highs — RSI ${chartRsi.toFixed(0)} / ${(chartRangePos * 100).toFixed(0)}% range (no chase long)`
-          );
-        }
-      } else {
-        direction = 'LONG';
-        confidence = Math.min(100, bullishScore + (trendAlignment > 75 ? 10 : 0) + (patternStrength > 50 ? 10 : 0));
+      direction = 'LONG';
+      confidence = Math.min(100, bullishScore + (trendAlignment > 75 ? 10 : 0) + (patternStrength > 50 ? 10 : 0));
 
-        const bullishPatterns = recentPatterns.filter((p) => p.direction === 'bullish');
-        if (bullishPatterns.length > 0) {
-          reasons.push(
-            `Bullish patterns: ${bullishPatterns.map((p) => p.type.replace('_', ' ')).join(', ')}`
-          );
-        }
+      const bullishPatterns = recentPatterns.filter((p) => p.direction === 'bullish');
+      if (bullishPatterns.length > 0) {
+        reasons.push(
+          `Bullish patterns: ${bullishPatterns.map((p) => p.type.replace('_', ' ')).join(', ')}`
+        );
       }
     } else if (bearishScore > bullishScore && bearishScore > 40) {
-      const atDipZone = chartRsi < 42 && chartRangePos < 0.38;
-      const strongBear = scoreDiff >= 18;
-      if (atDipZone && !strongBear) {
-        if (chartRsi < 35 && chartRef?.macdSignal === 'bullish') {
-          direction = 'LONG';
-          confidence = Math.min(72, bullishScore + 12);
-          reasons.push(
-            `Dip reversal — RSI ${chartRsi.toFixed(0)} at ${(chartRangePos * 100).toFixed(0)}% range, MACD turning up`
-          );
-        } else {
-          direction = 'HOLD';
-          confidence = 45;
-          warnings.push(
-            `Mixed at dip — RSI ${chartRsi.toFixed(0)} / ${(chartRangePos * 100).toFixed(0)}% range (no fade short)`
-          );
-        }
-      } else {
-        direction = 'SHORT';
-        confidence = Math.min(100, bearishScore + (trendAlignment > 75 ? 10 : 0) + (patternStrength > 50 ? 10 : 0));
+      direction = 'SHORT';
+      confidence = Math.min(100, bearishScore + (trendAlignment > 75 ? 10 : 0) + (patternStrength > 50 ? 10 : 0));
 
-        const bearishPatterns = recentPatterns.filter(p => p.direction === 'bearish');
-        if (bearishPatterns.length > 0) {
-          reasons.push(`Bearish patterns: ${bearishPatterns.map(p => p.type.replace('_', ' ')).join(', ')}`);
-        }
+      const bearishPatterns = recentPatterns.filter((p) => p.direction === 'bearish');
+      if (bearishPatterns.length > 0) {
+        reasons.push(`Bearish patterns: ${bearishPatterns.map((p) => p.type.replace('_', ' ')).join(', ')}`);
       }
     } else {
       direction = 'HOLD';
       confidence = 50;
       warnings.push('Mixed signals across timeframes');
+    }
+
+    const tf1h = analyses.find((a) => a.timeframe === '1h');
+    const h1Trend = normalizeH1Trend(tf1h?.trend);
+    if (direction === 'LONG' || direction === 'SHORT') {
+      const block = trendOnlyBlockReason(direction, h1Trend);
+      if (block) {
+        if (direction === 'LONG' && h1Trend === 'DOWN' && bearishScore > bullishScore && bearishScore > 40) {
+          direction = 'SHORT';
+          confidence = Math.min(100, bearishScore);
+          reasons.push('1h down — trend SHORT (counter-trend long blocked)');
+        } else {
+          direction = 'HOLD';
+          confidence = Math.max(25, confidence - 15);
+          warnings.push(block);
+        }
+      }
     }
 
     // Add warnings for conflicting timeframes

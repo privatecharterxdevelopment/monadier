@@ -18,6 +18,7 @@ export interface TradeSignal {
 }
 import { positionService } from './positions';
 import { signalEngine, UnifiedSignal, Timeframe } from './signalEngine';
+import { isTrendOnlyLongAllowed, isTrendOnlyShortAllowed, trendOnlyBlockReason } from './trendOnly';
 
 // Candle data structure
 interface Candle {
@@ -640,8 +641,8 @@ export async function analyzeMarket(
     immediateBullish: immediateBullishMomentum,
     // BONUS: Strong pattern detection (chart arrows!)
     strongBullishPattern: hasBullishPattern,
-    // REVERSAL: Crash followed by 2 green candles
-    reversalPattern: isReversalPattern
+    // REVERSAL: Crash followed by 2 green candles — disabled for trend-only standard bot
+    reversalPattern: false && isReversalPattern
   };
   const longConditionsMet = Object.values(longConditions).filter(Boolean).length;
 
@@ -779,16 +780,8 @@ export async function analyzeMarket(
       confidencePenalty = 10;
     }
   } else if (direction === 'SHORT' && isVeryLargeCandle && lastCandleIsBullish) {
-    if (longConditionsMet >= 2) {
-      direction = 'LONG';
-      conditionsMet = longConditionsMet;
-      conditions = longConditions;
-      momentumOverride = true;
-      logger.info('⚠️ Momentum override: Large green candle switched SHORT to LONG');
-    } else {
-      // REDUCED: Don't go HOLD, just apply small penalty
-      confidencePenalty = 10;
-    }
+    confidencePenalty = 15;
+    logger.info('Trend-only: large green candle — SHORT kept (no flip to LONG)');
   } else if (direction === 'LONG' && isLargeCandle && lastCandleIsBearish) {
     confidencePenalty = 5;  // REDUCED from 15
   } else if (direction === 'SHORT' && isLargeCandle && lastCandleIsBullish) {
@@ -1225,12 +1218,8 @@ export async function analyzeMarketMTFBySymbol(
         finalDirection = 'LONG';
       } else if (isBearishTrend && shortVotes > longVotes) {
         finalDirection = 'SHORT';
-      } else if (longVotes >= minVotes && longVotes > shortVotes) {
-        finalDirection = 'LONG';
-      } else if (shortVotes >= minVotes && shortVotes > longVotes) {
-        finalDirection = 'SHORT';
       } else {
-        logger.debug('MTF neutral — no clear per-chart direction', {
+        logger.debug('MTF neutral — no 1h-aligned direction', {
           symbol,
           longVotes,
           shortVotes,
@@ -1240,7 +1229,7 @@ export async function analyzeMarketMTFBySymbol(
         return {
           direction: 'LONG',
           confidence: Math.round(signal.confidence),
-          reason: `Neutral — ${longVotes} LONG / ${shortVotes} SHORT higher TFs (mixed chart)`,
+          reason: `Neutral — ${longVotes} LONG / ${shortVotes} SHORT (1h ${trend}, trend-only)`,
           indicators: indicators.slice(0, 3),
           isReversalSignal: false,
           suggestedTP: 5,
@@ -1269,103 +1258,44 @@ export async function analyzeMarketMTFBySymbol(
       }
     }
 
-    const isMajorSymbol = /^(BTC|ETH)/i.test(symbol.replace(/USDT.*/i, ''));
-    const isSideways1h = trend === 'SIDEWAYS';
-    if (isMajorSymbol && isSideways1h && finalDirection === 'SHORT') {
-      const tf15ForRange = signal.timeframes.find((t) => t.timeframe === '15m');
-      const tf1hBar = signal.timeframes.find((t) => t.timeframe === '1h');
-      const h1Sideways =
-        !tf1hBar ||
-        tf1hBar.trend === 'SIDEWAYS' ||
-        ((tf1hBar.rsi ?? 50) >= 38 && (tf1hBar.rsi ?? 50) <= 62);
-      if (h1Sideways) {
-        if (tf15ForRange && tf15ForRange.resistance > tf15ForRange.support) {
-          const rangePos =
-            (tf15ForRange.currentPrice - tf15ForRange.support) /
-            (tf15ForRange.resistance - tf15ForRange.support);
-          if (rangePos <= 0.58) {
-            logger.debug('MTF sideways major — prefer range LONG over short-term SHORT', {
-              symbol,
-              rangePos,
-            });
-            finalDirection = 'LONG';
-          } else {
-            logger.debug('MTF sideways major — skip SHORT in upper range', { symbol, rangePos });
-            return {
-              direction: 'LONG',
-              confidence: Math.round(signal.confidence),
-              reason: `Sideways ${symbol.replace(/USDT.*/i, '')} — no short at ${(rangePos * 100).toFixed(0)}% of range`,
-              indicators: indicators.slice(0, 3),
-              isReversalSignal: false,
-              suggestedTP: 5,
-              suggestedSL: 1.5,
-              isOverheated: rsi > 75 || rsi < 25,
-              isWeekendWarning: weekendAlertLevel !== 'none',
-              weekendAlertLevel,
-              scalpingRecommended: false,
-              marketWarning,
-              isWeak: true,
-              metrics: {
-                rsi: Math.round(rsi),
-                macd: macdSignal,
-                priceChange1h: '0.00',
-                volumeRatio: '1.0',
-                conditionsMet: 0,
-                trendAlignment: Math.round(signal.trendAlignment),
-                directionalTfCount: 0,
-                h1Trend: trend,
-                riskReward: '0',
-                trend: 'NEUTRAL',
-                dayOfWeek: dayNames[dayOfWeek],
-              },
-            };
-          }
-        } else {
-          finalDirection = 'LONG';
-        }
-      }
+    const trendBlock = trendOnlyBlockReason(finalDirection, trend);
+    if (trendBlock) {
+      logger.debug('MTF trend-only block', { symbol, direction: finalDirection, trend, reason: trendBlock });
+      return {
+        direction: finalDirection,
+        confidence: Math.round(signal.confidence),
+        reason: trendBlock,
+        indicators: indicators.slice(0, 3),
+        isReversalSignal: false,
+        suggestedTP: 5,
+        suggestedSL: 1.5,
+        isOverheated: rsi > 75 || rsi < 25,
+        isWeekendWarning: weekendAlertLevel !== 'none',
+        weekendAlertLevel,
+        scalpingRecommended: false,
+        marketWarning,
+        isWeak: true,
+        metrics: {
+          rsi: Math.round(rsi),
+          macd: macdSignal,
+          priceChange1h: '0.00',
+          volumeRatio: '1.0',
+          conditionsMet: 0,
+          trendAlignment: Math.round(signal.trendAlignment),
+          directionalTfCount: 0,
+          h1Trend: trend,
+          riskReward: '0',
+          trend:
+            trend === 'UP' ? 'STRONG_UPTREND' : trend === 'DOWN' ? 'STRONG_DOWNTREND' : 'NEUTRAL',
+          dayOfWeek: dayNames[dayOfWeek],
+        },
+      };
     }
 
     const tf15Bar = signal.timeframes.find((t) => t.timeframe === '15m');
     if (tf15Bar && tf15Bar.resistance > tf15Bar.support) {
       const rangePos =
         (tf15Bar.currentPrice - tf15Bar.support) / (tf15Bar.resistance - tf15Bar.support);
-      if (finalDirection === 'SHORT' && tf15Bar.rsi < 42 && rangePos < 0.38) {
-        logger.debug('MTF neutral — SHORT rejected at dip zone', {
-          symbol,
-          rsi: tf15Bar.rsi,
-          rangePos,
-        });
-        return {
-          direction: 'LONG',
-          confidence: Math.round(signal.confidence),
-          reason: `Neutral — dip zone RSI ${Math.round(tf15Bar.rsi)} at ${(rangePos * 100).toFixed(0)}% range (no short at bottom)`,
-          indicators: indicators.slice(0, 3),
-          isReversalSignal: false,
-          suggestedTP: 5,
-          suggestedSL: 1.5,
-          isOverheated: rsi > 75 || rsi < 25,
-          isWeekendWarning: weekendAlertLevel !== 'none',
-          weekendAlertLevel,
-          scalpingRecommended: false,
-          marketWarning,
-          isWeak: true,
-          metrics: {
-            rsi: Math.round(rsi),
-            macd: macdSignal,
-            priceChange1h: '0.00',
-            volumeRatio: '1.0',
-            conditionsMet: 0,
-            trendAlignment: Math.round(signal.trendAlignment),
-            directionalTfCount: 0,
-            h1Trend: trend,
-            riskReward: '0',
-            trend:
-              trend === 'UP' ? 'STRONG_UPTREND' : trend === 'DOWN' ? 'STRONG_DOWNTREND' : 'NEUTRAL',
-            dayOfWeek: dayNames[dayOfWeek],
-          },
-        };
-      }
       if (finalDirection === 'LONG' && tf15Bar.rsi > 68 && rangePos > 0.62) {
         logger.debug('MTF neutral — LONG rejected at range high', {
           symbol,
@@ -1408,8 +1338,8 @@ export async function analyzeMarketMTFBySymbol(
       (tf) => tf.direction === finalDirection
     ).length;
     const counterTrend =
-      (finalDirection === 'LONG' && trend === 'DOWN') ||
-      (finalDirection === 'SHORT' && trend === 'UP');
+      (finalDirection === 'LONG' && !isTrendOnlyLongAllowed(trend)) ||
+      (finalDirection === 'SHORT' && !isTrendOnlyShortAllowed(trend));
     const trendAligned =
       directionalTfCount >= config.hyperliquid.minDirectionalTfs &&
       signal.trendAlignment >= config.hyperliquid.minTrendAlignment &&

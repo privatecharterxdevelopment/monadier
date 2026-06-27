@@ -7,6 +7,7 @@ import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
 import { validateNoAltPumpShort } from './pumpShortGate';
+import { isTrendOnlyLongAllowed, isTrendOnlyShortAllowed } from './trendOnly';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 
@@ -151,12 +152,8 @@ async function scanStandardCoin(
     if ((analysis.metrics?.trendAlignment ?? 0) < minAlign) return null;
     if (
       !relaxed &&
-      (
-        (analysis.direction === 'LONG' && analysis.metrics?.h1Trend === 'DOWN') ||
-        (analysis.direction === 'SHORT' &&
-          (/UP/i.test(String(analysis.metrics?.h1Trend ?? '')) ||
-            analysis.metrics?.h1Trend === 'STRONG_UPTREND'))
-      )
+      ((analysis.direction === 'LONG' && !isTrendOnlyLongAllowed(analysis.metrics?.h1Trend)) ||
+        (analysis.direction === 'SHORT' && !isTrendOnlyShortAllowed(analysis.metrics?.h1Trend)))
     ) {
       return null;
     }
@@ -226,8 +223,12 @@ async function scanAggressiveCoin(
           return null;
         }
       }
-      if (scalp.direction === 'LONG' && h1Check.metrics?.h1Trend === 'DOWN') {
-        logger.debug('HL agg scan skip: 1h trend DOWN blocks LONG', { coin });
+      if (scalp.direction === 'LONG' && !isTrendOnlyLongAllowed(h1Check?.metrics?.h1Trend)) {
+        logger.debug('HL agg scan skip: 1h blocks LONG (trend-only)', { coin });
+        return null;
+      }
+      if (scalp.direction === 'SHORT' && !isTrendOnlyShortAllowed(h1Check?.metrics?.h1Trend)) {
+        logger.debug('HL agg scan skip: 1h blocks SHORT (trend-only)', { coin });
         return null;
       }
     }

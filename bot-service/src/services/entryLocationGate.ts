@@ -288,7 +288,11 @@ export function evaluateEntryLocation(
         reason: `SHORT blocked — support ${fmtLevel(analysis.support)} held ${failedTests}× (need break below or rally off support)`,
       };
     }
-    if (failedTests >= 1 || analysis.pricePosition <= cfg.rangeBottomBlock) {
+    if (
+      failedTests >= 1 &&
+      analysis.pricePosition <= cfg.rangeBottomBlock &&
+      !analysis.confirmedBreakdown
+    ) {
       return {
         ok: false,
         analysis,
@@ -298,10 +302,17 @@ export function evaluateEntryLocation(
   }
 
   if (analysis.pricePosition < cfg.rangeBottomBlock) {
+    if (analysis.confirmedBreakdown || analysis.supportRejections === 0) {
+      return {
+        ok: true,
+        analysis,
+        reason: `Trend SHORT — ${(analysis.pricePosition * 100).toFixed(0)}% of range (downtrend continuation)`,
+      };
+    }
     return {
       ok: false,
       analysis,
-      reason: `SHORT blocked — ${(analysis.pricePosition * 100).toFixed(0)}% of range (sell high — need rally above ${((1 - cfg.pullbackMaxPosition) * 100).toFixed(0)}% or confirmed breakdown)`,
+      reason: `SHORT blocked — ${(analysis.pricePosition * 100).toFixed(0)}% of range (support still holding)`,
     };
   }
 

@@ -8,7 +8,7 @@ export const HL_BOT_STRATEGY_LABELS: Record<HlBotStrategy, string> = {
 
 export const HL_BOT_STRATEGY_HINTS: Record<HlBotStrategy, string> = {
   standard:
-    'Standard: MTF scan. Trail SL arms after 2 min in profit (+2.5% ROE, or ≥$2 uPnL).',
+    'Standard: MTF trend-only (1h up = long, 1h down = short). No dip reversals. Trail SL after 2 min in profit.',
   profit_grabber:
     'Aggressive: 1m scalp entries. Same trail — 2 min, then BE lock or loss stop.',
 };

@@ -215,13 +215,16 @@ export async function validatePreOpenCandleAnalytics(opts: {
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
       if (pos <= cfg.maxRangePositionShort && recent5 > -cfg.breakoutRecentMovePct) {
+        const trendContinuationShort =
+          structure === 'down' && net <= -minNet && dir === 'SHORT';
         const sidewaysGrindShort =
+          !trendContinuationShort &&
           pos > 0.32 &&
           recent5 <= 0 &&
           net <= minNet &&
           (structure === 'down' || structure === 'chop') &&
           rejL < cfg.maxRejectionsAtLevel;
-        if (!sidewaysGrindShort) {
+        if (!trendContinuationShort && !sidewaysGrindShort) {
           const reason = `Open blocked — ${coin} SHORT: price at ${(pos * 100).toFixed(0)}% of ${window.length}-bar range (shorting lows)`;
           logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
           return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
