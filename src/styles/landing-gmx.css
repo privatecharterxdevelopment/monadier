@@ -3004,14 +3004,26 @@
     padding-inline: 0;
   }
 
-  .landing-gmx-footer {
+  .landing-gmx-footer.landing-gmx-gutter {
+    padding-left: max(24px, calc(env(safe-area-inset-left, 0px) + 8px));
+    padding-right: max(24px, calc(env(safe-area-inset-right, 0px) + 8px));
     padding-bottom: max(36px, env(safe-area-inset-bottom, 0px));
   }
 
+  .landing-gmx-footer-inner {
+    padding-inline: 2px;
+    box-sizing: border-box;
+  }
+
   .landing-gmx-footer-disclaimer,
+  .landing-gmx-footer-legal,
   .landing-gmx-footer-legal-p,
-  .landing-gmx-footer-meta {
+  .landing-gmx-footer-legal-heading,
+  .landing-gmx-footer-legal-tagline,
+  .landing-gmx-footer-meta,
+  .landing-gmx-footer-links {
     text-wrap: pretty;
+    overflow-wrap: anywhere;
   }
 
   .landing-gmx-hero-bottom {
