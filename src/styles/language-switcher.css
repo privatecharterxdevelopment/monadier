@@ -38,10 +38,6 @@
   color: #fff;
 }
 
-.lang-switch--app {
-  flex-shrink: 0;
-}
-
 .lang-switch-menu {
   position: absolute;
   top: calc(100% + 6px);
@@ -60,8 +56,7 @@
   border: 1px solid #e4e4e7;
 }
 
-.lang-switch--landing-dark .lang-switch-menu,
-.lang-switch--app .lang-switch-menu {
+.lang-switch--landing-dark .lang-switch-menu {
   background: #18181b;
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -93,15 +88,12 @@
   color: #0a0a0a;
 }
 
-.lang-switch--landing-dark .lang-switch-option,
-.lang-switch--app .lang-switch-option {
+.lang-switch--landing-dark .lang-switch-option {
   color: #d4d4d8;
 }
 
 .lang-switch--landing-dark .lang-switch-option:hover,
-.lang-switch--landing-dark .lang-switch-option--active,
-.lang-switch--app .lang-switch-option:hover,
-.lang-switch--app .lang-switch-option--active {
+.lang-switch--landing-dark .lang-switch-option--active {
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
 }

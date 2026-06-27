@@ -367,6 +367,65 @@
   background: var(--hl-bg-hover);
 }
 
+/* ── Language switcher (dashboard top nav) ── */
+.hl-lang-switch {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.hl-lang-switch-btn {
+  flex-shrink: 0;
+}
+
+.hl-lang-switch-btn svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+.hl-lang-switch-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 1100;
+  min-width: 168px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border-radius: 8px;
+  background: var(--hl-bg-panel);
+  border: 1px solid var(--hl-border);
+  box-shadow: var(--hl-shadow-dropdown);
+}
+
+.hl-lang-switch-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  color: var(--hl-text-muted);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.hl-lang-switch-option:hover,
+.hl-lang-switch-option--active {
+  background: var(--hl-bg-hover);
+  color: var(--hl-text);
+}
+
+.hl-lang-switch-option .lang-switch-check {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
 /* ── Account menu ── */
 .hl-account-menu {
   position: relative;

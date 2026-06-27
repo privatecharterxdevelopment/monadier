@@ -42,42 +42,66 @@ const LanguageSwitcher: React.FC<Props> = ({ variant = 'landing-light', classNam
     close();
   };
 
+  const menu = (
+    <ul id={listId} className={variant === 'app' ? 'hl-lang-switch-menu' : 'lang-switch-menu'} role="listbox" aria-label={t('language.select')}>
+      {APP_LANGUAGES.map(({ code, labelKey }) => {
+        const selected = current === code;
+        return (
+          <li key={code} role="option" aria-selected={selected}>
+            <button
+              type="button"
+              className={
+                variant === 'app'
+                  ? `hl-lang-switch-option${selected ? ' hl-lang-switch-option--active' : ''}`
+                  : `lang-switch-option${selected ? ' lang-switch-option--active' : ''}`
+              }
+              onClick={() => pick(code)}
+            >
+              <span>{t(labelKey)}</span>
+              {selected ? <Check size={14} aria-hidden className="lang-switch-check" /> : null}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+
+  if (variant === 'app') {
+    return (
+      <div ref={rootRef} className={`hl-lang-switch${className ? ` ${className}` : ''}`}>
+        <button
+          type="button"
+          className="hl-topnav-icon-btn hl-lang-switch-btn"
+          aria-label={t('language.select')}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={listId}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <Globe size={16} strokeWidth={1.75} aria-hidden />
+        </button>
+        {open ? menu : null}
+      </div>
+    );
+  }
+
   return (
     <div
       ref={rootRef}
-      className={`lang-switch ${variant ? `lang-switch--${variant}` : ''} ${className}`.trim()}
+      className={`lang-switch lang-switch--${variant}${className ? ` ${className}` : ''}`.trim()}
     >
       <button
         type="button"
-        className={variant === 'app' ? 'hl-topnav-icon-btn' : 'lang-switch-trigger'}
+        className="lang-switch-trigger"
         aria-label={t('language.select')}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
         onClick={() => setOpen((v) => !v)}
       >
-        <Globe size={15} aria-hidden />
+        <Globe size={16} aria-hidden />
       </button>
-
-      {open ? (
-        <ul id={listId} className="lang-switch-menu" role="listbox" aria-label={t('language.select')}>
-          {APP_LANGUAGES.map(({ code, labelKey }) => {
-            const selected = current === code;
-            return (
-              <li key={code} role="option" aria-selected={selected}>
-                <button
-                  type="button"
-                  className={`lang-switch-option${selected ? ' lang-switch-option--active' : ''}`}
-                  onClick={() => pick(code)}
-                >
-                  <span>{t(labelKey)}</span>
-                  {selected ? <Check size={14} aria-hidden className="lang-switch-check" /> : null}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
+      {open ? menu : null}
     </div>
   );
 };
