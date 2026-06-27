@@ -823,6 +823,61 @@
   font-size: 11px;
 }
 
+.term-profile-notify-email {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--term-panel-border);
+}
+
+.term-profile-notify-email-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.term-profile-notify-email-title {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--term-text);
+}
+
+.term-profile-notify-email-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.term-profile-toggle {
+  flex-shrink: 0;
+  min-width: 52px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--term-panel-border);
+  background: var(--term-glass);
+  color: var(--term-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.term-profile-toggle--on {
+  background: var(--term-accent, #0a0a0a);
+  border-color: transparent;
+  color: #fff;
+}
+
+.term-profile-toggle:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.hl-notif-roi {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
 .term-profile-card {
   padding: 18px 20px;
   border-radius: 14px;

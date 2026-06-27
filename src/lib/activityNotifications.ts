@@ -15,10 +15,15 @@ export type ActivityNotification = {
   /** Secondary line, e.g. side label for bets */
   detail?: string | null;
   profitLoss: number;
+  /** ROI on margin (%), when available */
+  profitLossPercent?: number | null;
   closedAt: string;
   /** Bot history row highlight */
   highlightId?: string | null;
   verifyUrl?: string | null;
+  /** Server-persisted notification row */
+  dbId?: string | null;
+  readAt?: string | null;
 };
 
 export function botTradeToNotification(row: ClosedTradeRow): ActivityNotification {
@@ -27,6 +32,7 @@ export function botTradeToNotification(row: ClosedTradeRow): ActivityNotificatio
     kind: 'bot',
     headline: `${row.direction} ${row.tokenSymbol}`,
     profitLoss: row.profitLoss,
+    profitLossPercent: row.profitLossPercent,
     closedAt: row.closedAt,
     highlightId: row.positionId || row.id,
     verifyUrl: verifyUrlForTrade({
@@ -66,6 +72,7 @@ export function isActivityUnread(
   notification: ActivityNotification,
   lastSeenAt: string | null
 ): boolean {
+  if (notification.readAt) return false;
   if (!lastSeenAt) return true;
   return new Date(notification.closedAt).getTime() > new Date(lastSeenAt).getTime();
 }
@@ -73,16 +80,20 @@ export function isActivityUnread(
 export function toastMessageForNotification(n: ActivityNotification): string {
   const sign = n.profitLoss >= 0 ? '+' : '-';
   const amount = Math.abs(n.profitLoss).toFixed(2);
+  const roi =
+    n.profitLossPercent != null && Number.isFinite(n.profitLossPercent)
+      ? ` · ${n.profitLossPercent >= 0 ? '+' : ''}${n.profitLossPercent.toFixed(2)}% ROI`
+      : '';
 
   if (n.kind === 'betting') {
     const won = n.profitLoss > 0;
     const lost = n.profitLoss < 0;
     const prefix = won ? 'Bet won' : lost ? 'Bet lost' : 'Bet settled';
     const side = n.detail ? ` · ${n.detail}` : '';
-    return `${prefix}${side} ${sign}$${amount}`;
+    return `${prefix}${side} ${sign}$${amount}${roi}`;
   }
 
-  return `Trade closed · ${n.headline} ${sign}$${amount}`;
+  return `Trade closed · ${n.headline} ${sign}$${amount}${roi}`;
 }
 
 /** Load recent closed bets for the signed-in user (Supabase RLS). */

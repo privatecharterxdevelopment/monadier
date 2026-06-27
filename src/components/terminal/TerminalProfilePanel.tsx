@@ -10,6 +10,7 @@ import {
   ImageIcon,
 } from 'lucide-react';
 import ProfileSecurityPanel from './ProfileSecurityPanel';
+import ProfileTradeEmailToggle from './ProfileTradeEmailToggle';
 import ProfileLoginHistoryPanel from './ProfileLoginHistoryPanel';
 import ProfileBettingPanel from './ProfileBettingPanel';
 import { useAuth } from '../../contexts/AuthContext';
@@ -372,6 +373,7 @@ const TerminalProfilePanel: React.FC<Props> = ({
           className="term-profile-card term-profile-card--section term-profile-card--security"
         >
           <h2 className="term-profile-card-title">Security &amp; credentials</h2>
+          <ProfileTradeEmailToggle />
           <ProfileSecurityPanel idPrefix="profile-sec" mode="credentials" />
         </section>
         ) : null}

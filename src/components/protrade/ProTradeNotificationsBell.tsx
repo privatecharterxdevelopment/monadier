@@ -98,6 +98,13 @@ const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                         <span className={t.profitLoss >= 0 ? 'hl-up' : 'hl-down'}>
                           {t.profitLoss >= 0 ? '+' : ''}
                           {fmtUsd(t.profitLoss)}
+                          {t.profitLossPercent != null && Number.isFinite(t.profitLossPercent) ? (
+                            <span className="hl-notif-roi">
+                              {' '}
+                              · {t.profitLossPercent >= 0 ? '+' : ''}
+                              {t.profitLossPercent.toFixed(2)}%
+                            </span>
+                          ) : null}
                         </span>
                       </span>
                       <span className="hl-notif-item-meta">

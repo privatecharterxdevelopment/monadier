@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { recordHlChartMarker } from './hlChartMarkers';
+import { processPendingTradeCloseEmails } from './tradeCloseEmail';
 import { accrueReferralEarning, tryQualifyReferral } from './referralAffiliate';
 
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
@@ -95,6 +96,13 @@ export async function recordHlBotClose(params: {
     });
     return;
   }
+
+  void processPendingTradeCloseEmails(5).catch((err) => {
+    logger.warn('Trade close email dispatch failed', {
+      wallet: wallet.slice(0, 10),
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
 
   await tryQualifyReferral(wallet, {
     tradeExecuted: true,

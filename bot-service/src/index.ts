@@ -33,6 +33,7 @@ import { getLastHlOpenError, getLastHlOpenErrorForClient, hyperliquidTradingServ
 import { releaseHlBotTradingPauses } from './services/dailyLossGate';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
 import { getHlFeeSummary } from './services/hlSuccessFees';
+import { processPendingTradeCloseEmails } from './services/tradeCloseEmail';
 import { tryQualifyReferral } from './services/referralAffiliate';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 import { fetchMappedTokenPrices } from './services/tokenPrices';
@@ -988,6 +989,11 @@ async function main(): Promise<void> {
   logger.info(`- Payment monitoring: ACTIVE (treasury watched)`);
   logger.info(`- HL trading cycle: every ${tradeIntervalSeconds}s`);
   logger.info(`- HL position monitor: every ${positionMonitorMs}ms (fast profit grab)`);
+
+  setInterval(() => {
+    void processPendingTradeCloseEmails(40);
+  }, 30_000);
+  logger.info('- Trade close emails: every 30s (pending queue)');
 
   if (process.env.ENABLE_DEMO_SIMULATOR === 'true') {
     startDemoSimulator().catch((err) => {

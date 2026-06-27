@@ -377,6 +377,11 @@ export const config = {
     builderMaxApprovalRate: process.env.HL_BUILDER_MAX_APPROVAL || '0.1%',
   },
 
+  email: {
+    resendApiKey: process.env.RESEND_API_KEY || '',
+    from: process.env.RESEND_FROM || 'Monadier <hello@monadier.com>',
+  },
+
   /** Multi-user scale — 1M+ signups, thousands of concurrent bots */
   scaling: {
     /** Parallel HL users processed per cycle */
