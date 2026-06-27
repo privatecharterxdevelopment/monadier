@@ -32,17 +32,26 @@ const ProTradeBotHistory: React.FC<Props> = ({
     [fills]
   );
   const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
-  const handleDownloadPdf = useCallback(() => {
+  const handleDownloadPdf = useCallback(async () => {
     if (!wallet || closeFills.length === 0 || exporting) return;
+    setExportError(null);
     setExporting(true);
-    void exportBotTradesPdf({
-      fills,
-      walletAddress: wallet,
-      userId,
-      username,
-      displayName,
-    }).finally(() => setExporting(false));
+    try {
+      await exportBotTradesPdf({
+        fills,
+        walletAddress: wallet,
+        userId,
+        username,
+        displayName,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'PDF export failed.';
+      setExportError(msg);
+    } finally {
+      setExporting(false);
+    }
   }, [wallet, closeFills.length, exporting, fills, userId, username, displayName]);
 
   const showPdfExport = embedded && Boolean(wallet) && closeFills.length > 0;
@@ -66,16 +75,23 @@ const ProTradeBotHistory: React.FC<Props> = ({
             ) : null}
           </div>
           {showPdfExport ? (
-            <button
-              type="button"
-              className="hl-history-pdf-btn"
-              onClick={handleDownloadPdf}
-              disabled={exporting}
-              aria-label="Download bot trade history as PDF"
-            >
-              <Download size={14} aria-hidden />
-              {exporting ? 'Exporting…' : 'Download PDF'}
-            </button>
+            <div className="hl-history-pdf-wrap">
+              <button
+                type="button"
+                className="hl-history-pdf-btn"
+                onClick={() => void handleDownloadPdf()}
+                disabled={exporting}
+                aria-label="Download bot trade history as PDF"
+              >
+                <Download size={14} aria-hidden />
+                {exporting ? 'Exporting…' : 'Download PDF'}
+              </button>
+              {exportError ? (
+                <p className="hl-history-pdf-error" role="alert">
+                  {exportError}
+                </p>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </header>

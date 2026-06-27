@@ -39,13 +39,29 @@
       "destination": "https://monadier-production.up.railway.app/:path*"
     },
     {
-      "source": "/((?!api/|bot-service/).*)",
+      "source": "/((?!api/|bot-service/|assets/).*)",
       "destination": "/index.html"
     }
   ],
   "headers": [
     {
-      "source": "/og-image.png",
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/index.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
       "headers": [
         {
           "key": "Cache-Control",

@@ -94,7 +94,7 @@ export async function registerMyWalletQuiet(
     return;
   }
 
-  if (/not authenticated|linked to another/i.test(error.message)) {
+  if (/not authenticated|linked to another|JWT expired/i.test(error.message)) {
     registrationAttempted.add(key);
   }
 }
