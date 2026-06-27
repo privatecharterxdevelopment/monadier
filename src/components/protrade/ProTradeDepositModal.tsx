@@ -12,7 +12,6 @@ import HlDepositFlowOverlay, { type HlDepositFlowState } from './HlDepositFlowOv
 import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
 import { HL_ARBITRUM_CHAIN_ID } from '../../lib/hyperliquid/bridge';
 import { HL_MIN_DEPOSIT_USDC } from '../../lib/hyperliquid/hlApp';
-import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
 import {
@@ -34,8 +33,6 @@ type Props = {
   hlBalanceUsd?: number;
   spotUsdc?: number;
   initialTab?: 'deposit' | 'withdraw';
-  /** Betting uses Spot USDC; perps/bot use account value. */
-  mode?: 'perps' | 'betting';
   onTransfer?: () => void;
 };
 
@@ -46,7 +43,6 @@ const ProTradeDepositModal: React.FC<Props> = ({
   hlBalanceUsd = 0,
   spotUsdc = 0,
   initialTab = 'deposit',
-  mode = 'perps',
   onTransfer,
 }) => {
   const { open } = useAppKit();
@@ -69,13 +65,12 @@ const ProTradeDepositModal: React.FC<Props> = ({
   const onArbitrum = chainId === HL_ARBITRUM_CHAIN_ID;
   const usdcNum = parseFloat(usdcBalance) || 0;
   const usdceNum = parseFloat(usdceBalance) || 0;
-  const isBetting = mode === 'betting';
 
   const perpUsd = liveFunding?.tradablePerpUsd ?? liveFunding?.perpUsd ?? hlBalanceUsd;
   const spotUsd = liveFunding?.spotUsdcUsd ?? spotUsdc;
   const unifiedAccount = liveFunding?.unifiedAccount ?? false;
-  const totalHlUsd = isBetting ? spotUsd : perpUsd;
-  const fundsPlacementHint = !isBetting ? describeHlFundsPlacement(
+  const totalHlUsd = liveFunding?.totalUsd ?? Math.max(perpUsd, spotUsd);
+  const fundsPlacementHint = describeHlFundsPlacement(
     liveFunding ?? {
       perpUsd,
       spotUsdcUsd: spotUsd,
@@ -83,7 +78,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
       totalUsd: perpUsd + spotUsd,
       stateLoaded: true,
     }
-  ) : null;
+  );
 
   const suggestedDeposit = useMemo(() => {
     if (usdcNum < HL_MIN_DEPOSIT_USDC) return '';
@@ -178,7 +173,6 @@ const ProTradeDepositModal: React.FC<Props> = ({
     let finalSnap = snap;
 
     if (
-      !isBetting &&
       !snap.unifiedAccount &&
       walletReady &&
       snap.spotUsdcUsd >= 1 &&
@@ -386,21 +380,21 @@ const ProTradeDepositModal: React.FC<Props> = ({
       onClick={onClose}
     >
       <div
-        className={`hl-modal hl-modal--sm${depositFlowActive ? ' hl-modal--deposit-flow' : ''}`}
+        className={`hl-modal hl-modal--sm hl-modal--funds-compact${depositFlowActive ? ' hl-modal--deposit-flow' : ''}`}
         role="dialog"
         aria-labelledby="pro-funds-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="hl-modal-head">
+        <div className="hl-modal-head hl-modal-head--compact">
           <h2 id="pro-funds-title" className="hl-modal-title">
-            {isBetting ? 'Betting balance' : 'Hyperliquid funds'}
+            Hyperliquid · USDC
           </h2>
           <button type="button" className="hl-modal-close" onClick={onClose} aria-label="Close">
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
-        <div className="term-pro-funds-tabs">
+        <div className="term-pro-funds-tabs term-pro-funds-tabs--compact">
           <button
             type="button"
             className={tab === 'deposit' ? 'term-pro-funds-tab--on' : ''}
@@ -427,164 +421,142 @@ const ProTradeDepositModal: React.FC<Props> = ({
           />
 
           <div className={depositFlowActive ? 'hl-funds-content hl-funds-content--dimmed' : 'hl-funds-content'}>
-        <div className="term-panel-card term-panel-card--muted hl-funds-balance">
-          <span className="term-panel-card-label">
-            {isBetting ? 'Spot USDC (betting)' : 'Total on Hyperliquid'}
-          </span>
-          <strong className="term-panel-card-value">{fmtUsdSymbol(String(totalHlUsd))}</strong>
-          {!isBetting ? (
-            <div className="hl-funds-breakdown">
-              {unifiedAccount ? (
-                <span>Unified account — one balance for spot &amp; perps</span>
-              ) : (
-                <>
-                  <span>Perps {fmtUsdSymbol(perpUsd)}</span>
-                  <span>Spot {fmtUsdSymbol(spotUsd)}</span>
-                </>
-              )}
+            <div className="hl-funds-summary">
+              <div className="hl-funds-summary__row">
+                <span>On Hyperliquid</span>
+                <strong>{fmtUsdSymbol(totalHlUsd)}</strong>
+              </div>
+              {!unifiedAccount ? (
+                <div className="hl-funds-summary__sub">
+                  Perps {fmtUsdSymbol(perpUsd)} · Spot {fmtUsdSymbol(spotUsd)}
+                </div>
+              ) : null}
+              <div className="hl-funds-summary__sub">
+                Withdrawable {fmtUsdSymbol(withdrawable)} · perps, bot &amp; betting
+              </div>
             </div>
-          ) : null}
-          <span className="term-panel-card-hint">
-            {isBetting
-              ? `Withdrawable ${fmtUsdSymbol(withdrawable)} · min $10 to place a bet`
-              : unifiedAccount
-                ? `Withdrawable ${fmtUsdSymbol(withdrawable)} · min $${MIN_HL_BOT_USD} to run the bot — no Spot→Perps transfer needed`
-                : `Withdrawable (perps) ${fmtUsdSymbol(withdrawable)} · min $${MIN_HL_BOT_USD} to run the bot`}
-          </span>
-        </div>
 
-        {fundsPlacementHint ? (
-          <div className="hl-funds-placement-hint">
-            <p>{fundsPlacementHint}</p>
-            {onTransfer ? (
-              <button type="button" className="term-btn-sm" onClick={onTransfer}>
-                Transfer Spot → Perps
-              </button>
+            {fundsPlacementHint && tab === 'deposit' ? (
+              <div className="hl-funds-placement-hint hl-funds-placement-hint--compact">
+                <p>{fundsPlacementHint}</p>
+                {onTransfer ? (
+                  <button type="button" className="term-btn-sm" onClick={onTransfer}>
+                    Spot → Perps
+                  </button>
+                ) : null}
+              </div>
             ) : null}
-          </div>
-        ) : null}
 
-        {usdceNum > 0 && usdcNum <= 0 ? (
-          <p className="term-profile-err">
-            Wallet has {usdceNum.toFixed(2)} USDC.e (bridged) but no native USDC — swap to native USDC
-            on Arbitrum before depositing to Hyperliquid.
-          </p>
-        ) : null}
+            {usdceNum > 0 && usdcNum <= 0 && tab === 'deposit' ? (
+              <p className="term-profile-err hl-funds-inline-err">
+                {usdceNum.toFixed(2)} USDC.e — swap to native USDC first.
+              </p>
+            ) : null}
 
-        <p className="hl-entry-hint hl-funds-trust">
-          USDC stays on Hyperliquid. Monadier is just the app — only your wallet can withdraw.
-        </p>
+            {tab === 'deposit' ? (
+              <>
+                <HlArbitrumUsdcCallout
+                  compact
+                  onArbitrum={onArbitrum}
+                  chainId={chainId}
+                  switchBusy={switchBusy}
+                  onSwitch={handleSwitchNetwork}
+                  usdcBalance={usdcNum}
+                  balanceLoading={balanceLoading}
+                  showBalance={isConnected}
+                />
 
-        {tab === 'deposit' ? (
-          <>
-            <HlArbitrumUsdcCallout
-              onArbitrum={onArbitrum}
-              chainId={chainId}
-              switchBusy={switchBusy}
-              onSwitch={handleSwitchNetwork}
-              usdcBalance={usdcNum}
-              balanceLoading={balanceLoading}
-              showBalance={isConnected}
-            />
+                <label className="term-profile-label hl-funds-amount-label">Amount (USDC)</label>
+                <div className="term-modal-input-row">
+                  <input
+                    className="term-profile-input"
+                    value={amount}
+                    onChange={(e) => {
+                      setAmount(e.target.value);
+                      setLocalMsg(null);
+                    }}
+                    placeholder={String(HL_MIN_DEPOSIT_USDC)}
+                    inputMode="decimal"
+                    disabled={!onArbitrum}
+                  />
+                  <button
+                    type="button"
+                    className="term-modal-link"
+                    onClick={handleMax}
+                    disabled={balanceLoading || !onArbitrum || usdcNum <= 0}
+                  >
+                    Max
+                  </button>
+                </div>
 
-            <p className="hl-entry-hint hl-funds-lead">
-              Send USDC from your wallet to Hyperliquid{isBetting ? ' Spot' : ''}.
-              {!isBetting && unifiedAccount
-                ? ' Unified account — funds are ready for perps and the bot after deposit.'
-                : ''}
-            </p>
+                <button
+                  type="button"
+                  className="term-modal-primary hl-funds-primary"
+                  disabled={primaryBusy}
+                  onClick={() =>
+                    void (
+                      !isConnected
+                        ? openMonadierWalletModal(() => open())
+                        : !onArbitrum
+                          ? handleSwitchNetwork()
+                          : handleDeposit()
+                    )
+                  }
+                >
+                  {primaryBusy ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : !isConnected ? (
+                    'Connect wallet'
+                  ) : !onArbitrum ? (
+                    'Switch to Arbitrum'
+                  ) : (
+                    'Deposit to Hyperliquid'
+                  )}
+                </button>
 
-            <label className="term-profile-label">Amount (USDC)</label>
-            <div className="term-modal-input-row">
-              <input
-                className="term-profile-input"
-                value={amount}
-                onChange={(e) => {
-                  setAmount(e.target.value);
-                  setLocalMsg(null);
-                }}
-                placeholder={String(HL_MIN_DEPOSIT_USDC)}
-                inputMode="decimal"
-                disabled={!onArbitrum}
-              />
-              <button
-                type="button"
-                className="term-modal-link"
-                onClick={handleMax}
-                disabled={balanceLoading || !onArbitrum || usdcNum <= 0}
-              >
-                Max
-              </button>
-            </div>
+                <button
+                  type="button"
+                  className="hl-funds-refresh-link"
+                  disabled={refreshBusy || depositFlowActive}
+                  onClick={() => void refreshHlFunding()}
+                >
+                  <RefreshCw size={12} className={refreshBusy ? 'animate-spin' : undefined} />
+                  Refresh balance
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="hl-funds-withdraw-hint">
+                  To your Arbitrum wallet · available{' '}
+                  <strong>{fmtUsdSymbol(withdrawable)}</strong>
+                </p>
+                <label className="term-profile-label hl-funds-amount-label">Amount (USDC)</label>
+                <input
+                  className="term-profile-input"
+                  value={amount}
+                  onChange={(e) => {
+                    setAmount(e.target.value);
+                    setLocalMsg(null);
+                  }}
+                  placeholder="0"
+                  inputMode="decimal"
+                />
+                <button
+                  type="button"
+                  className="term-modal-primary hl-funds-primary"
+                  disabled={primaryBusy}
+                  onClick={() => void handleWithdraw()}
+                >
+                  {primaryBusy ? <Loader2 size={16} className="animate-spin" /> : 'Withdraw from HL'}
+                </button>
+              </>
+            )}
 
-            <p className="hl-entry-hint">
-              Min {HL_MIN_DEPOSIT_USDC} USDC. No Arbitrum USDC yet? Withdraw from an exchange
-              directly to Arbitrum (native USDC).
-            </p>
-
-            <button
-              type="button"
-              className="term-modal-primary"
-              disabled={primaryBusy}
-              onClick={() =>
-                void (!isConnected ? openMonadierWalletModal(() => open()) : !onArbitrum ? handleSwitchNetwork() : handleDeposit())
-              }
-            >
-              {primaryBusy ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : !isConnected ? (
-                'Connect wallet'
-              ) : !onArbitrum ? (
-                'Switch to Arbitrum'
-              ) : (
-                'Deposit to Hyperliquid'
-              )}
-            </button>
-
-            <button
-              type="button"
-              className="term-btn-sm term-btn-sm--ghost w-full justify-center"
-              disabled={refreshBusy || depositFlowActive}
-              onClick={() => void refreshHlFunding()}
-            >
-              <RefreshCw size={14} className={refreshBusy ? 'animate-spin' : undefined} />
-              Refresh HL balance
-            </button>
-          </>
-        ) : (
-          <>
-            <p className="hl-entry-hint">
-              Withdraw to your Arbitrum wallet. Signed by you only — the bot cannot withdraw on your
-              behalf. Open positions may reduce the amount available to withdraw.
-            </p>
-            <p className="hl-entry-hint">
-              Available: <strong>{fmtUsdSymbol(withdrawable)}</strong>
-            </p>
-            <label className="term-profile-label">Amount (USDC)</label>
-            <input
-              className="term-profile-input"
-              value={amount}
-              onChange={(e) => {
-                setAmount(e.target.value);
-                setLocalMsg(null);
-              }}
-              placeholder="0"
-              inputMode="decimal"
-            />
-            <button
-              type="button"
-              className="term-modal-primary"
-              disabled={primaryBusy}
-              onClick={() => void handleWithdraw()}
-            >
-              {primaryBusy ? <Loader2 size={16} className="animate-spin" /> : 'Withdraw from HL'}
-            </button>
-          </>
-        )}
-
-        {(error || localMsg) && !depositFlowActive ? (
-          <p className={error ? 'term-profile-err' : 'term-profile-ok'}>{error || localMsg}</p>
-        ) : null}
+            {(error || localMsg) && !depositFlowActive ? (
+              <p className={error ? 'term-profile-err hl-funds-inline-err' : 'term-profile-ok hl-funds-inline-err'}>
+                {error || localMsg}
+              </p>
+            ) : null}
           </div>
         </div>
       </div>

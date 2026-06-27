@@ -60,6 +60,7 @@ import {
   pollHlPerpAfterTransfer,
   spotToPerpTransferAmount,
 } from '../../lib/hyperliquid/funding';
+import { useBettingUi } from '../../contexts/BettingUiContext';
 type PanelTab = 'bot' | 'lvrg' | 'funds';
 
 type Props = {
@@ -73,6 +74,8 @@ type Props = {
   fundsAction?: 'deposit' | 'withdraw' | null;
   onFundsActionHandled?: () => void;
   onRequireSignIn?: (reason: string) => void;
+  /** Pro Trade app — one shared HL funds modal in the page header shell. */
+  useGlobalFundsModal?: boolean;
 };
 
 function fmt(n: number) {
@@ -90,6 +93,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   fundsAction = vaultAction,
   onFundsActionHandled = onVaultActionHandled,
   onRequireSignIn,
+  useGlobalFundsModal = false,
 }) => {
   const { open } = useAppKit();
   const { isConnected, address, publicClient, walletClient } = useWeb3();
@@ -126,7 +130,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   const [showSetupGuide, setShowSetupGuide] = useState(false);
   const [showStopFirstModal, setShowStopFirstModal] = useState(false);
 
-  const walletReady = isConnected || isDemoUser;
+  const { openFunds: openGlobalFunds } = useBettingUi();
   const wallet = botSettings.wallet;
   const accountSignedIn = isDemoUser || isAuthenticated;
   const needsAccountSignIn = walletReady && !accountSignedIn;
@@ -139,7 +143,7 @@ const TerminalTradePanel: React.FC<Props> = ({
     readHlBotOnboardingComplete(onboardingKey)
   );
 
-  const hlFundingUsd = hlSetup.accountUsd;
+  const hlFundingUsd = metrics.hasHlSnapshot ? metrics.hlBalanceUsd : hlSetup.accountUsd;
   const hlPerpUsd = hlSetup.perpUsd;
   const hlSpotUsd = hlSetup.spotUsdcUsd;
   const hlUnifiedAccount = hlSetup.unifiedAccount;
@@ -270,6 +274,10 @@ const TerminalTradePanel: React.FC<Props> = ({
   };
 
   const openFunds = (tab: 'deposit' | 'withdraw') => {
+    if (useGlobalFundsModal) {
+      openGlobalFunds(tab);
+      return;
+    }
     setFundsModalTab(tab);
     setShowFundsModal(true);
   };
@@ -860,7 +868,7 @@ const TerminalTradePanel: React.FC<Props> = ({
         </div>
       </div>
 
-      {showFundsModal && (
+      {showFundsModal && !useGlobalFundsModal ? (
         <ProTradeDepositModal
           onClose={() => setShowFundsModal(false)}
           withdrawable={hlSetup.withdrawableUsd.toFixed(2)}
@@ -878,7 +886,7 @@ const TerminalTradePanel: React.FC<Props> = ({
             }
           }}
         />
-      )}
+      ) : null}
       {showSettings && (
         <TerminalBotSettingsModal
           setupPhase={phase}

@@ -216,7 +216,7 @@ export function trailStopForOpenPosition(opts: {
     return {
       stopPx: null,
       armed: false,
-      label: opts.unrealizedPnlUsd > 0 ? `Arming (+${HL_DYNAMIC_TRAIL.breakevenArmRoePct}% ROE)` : 'Idle',
+      label: opts.unrealizedPnlUsd > 0 ? `Arming (+${HL_DYNAMIC_TRAIL.breakevenArmRoePct}% ROE or $${HL_DYNAMIC_TRAIL.armMinProfitUsd})` : 'Idle',
     };
   }
   const roe = collateral > 0 ? (opts.unrealizedPnlUsd / collateral) * 100 : 0;

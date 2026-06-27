@@ -164,11 +164,15 @@ const Dashboard2ProPageContent: React.FC = () => {
     () => toNum(spotBalances.find((b) => b.coin === 'USDC')?.total),
     [spotBalances]
   );
-  const { snapshot: perpHlSnapshot } = useHlAccountSnapshot(address?.toLowerCase());
+  const { snapshot: perpHlSnapshot, refresh: refreshHlSnapshot } = useHlAccountSnapshot(
+    address?.toLowerCase()
+  );
+  const perpWithdrawable = toNum(account?.withdrawable);
+  const hlTotalUsd = perpHlSnapshot?.totalUsd ?? perpHlSnapshot?.tradablePerpUsd ?? 0;
+  const hlWithdrawable = perpHlSnapshot?.withdrawableUsd ?? perpWithdrawable;
   const perpTradableUsd =
     perpHlSnapshot?.tradablePerpUsd ??
     (perpAccountValue > 0 ? perpAccountValue : Math.max(perpAccountValue, spotUsdc));
-  const perpWithdrawable = toNum(account?.withdrawable);
 
   const perpMarkPx = toNum(perpMarket.snapshot?.markPx);
 
@@ -500,7 +504,12 @@ const Dashboard2ProPageContent: React.FC = () => {
   }, [section]);
 
   const handleRefreshAll = async () => {
-    await Promise.all([perpMarket.refresh(), refreshAccount(), refreshPerpMarkets()]);
+    await Promise.all([
+      perpMarket.refresh(),
+      refreshAccount(),
+      refreshPerpMarkets(),
+      refreshHlSnapshot(),
+    ]);
   };
 
   const openSupport = () => {
@@ -842,23 +851,18 @@ const Dashboard2ProPageContent: React.FC = () => {
 
       {toast ? <div className="hl-toast">{toast}</div> : null}
 
-      {fundsModal && (section === 'perps' || section === 'sportsbets') ? (
+      {fundsModal ? (
         <ProTradeDepositModal
-          mode={section === 'sportsbets' ? 'betting' : 'perps'}
           initialTab={fundsModal}
-          withdrawable={section === 'sportsbets' ? String(spotUsdc) : account?.withdrawable}
-          hlBalanceUsd={section === 'sportsbets' ? spotUsdc : perpAccountValue}
+          withdrawable={String(hlWithdrawable)}
+          hlBalanceUsd={hlTotalUsd}
           spotUsdc={spotUsdc}
           onClose={() => setFundsModal(null)}
           onSuccess={() => void handleRefreshAll()}
-          onTransfer={
-            section === 'perps'
-              ? () => {
-                  setFundsModal(null);
-                  setTransferOpen(true);
-                }
-              : undefined
-          }
+          onTransfer={() => {
+            setFundsModal(null);
+            setTransferOpen(true);
+          }}
         />
       ) : null}
 

@@ -306,6 +306,35 @@
   filter: brightness(1.05);
 }
 
+.hl-topnav-network-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--hl-amber, #f59e0b) 55%, var(--hl-border));
+  background: color-mix(in srgb, var(--hl-amber, #f59e0b) 12%, transparent);
+  color: var(--hl-text);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.hl-topnav-network-switch:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.hl-topnav-network-switch:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.hl-topnav-network-switch--compact {
+  padding: 3px 6px;
+  font-size: 9px;
+}
+
 .hl-topnav-bot {
   padding: 5px 10px;
   border-radius: 6px;
@@ -330,6 +359,9 @@
 }
 
 .hl-topnav-wallet {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 5px 12px;
   border-radius: 6px;
   border: none;
@@ -338,6 +370,19 @@
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.hl-topnav-wallet-usdc {
+  font-size: 10px;
+  font-weight: 700;
+  color: inherit;
+  opacity: 0.92;
+  white-space: nowrap;
+}
+
+.hl-topnav-wallet--connected .hl-topnav-wallet-usdc {
+  color: var(--hl-green-bright, #26a69a);
+  opacity: 1;
 }
 
 .hl-topnav-wallet--connected {
@@ -8370,6 +8415,133 @@
   max-width: 380px;
 }
 
+.hl-modal--funds-compact {
+  max-width: 340px;
+  padding: 12px 14px;
+  max-height: min(88vh, 520px);
+  overflow-y: auto;
+}
+
+.hl-modal-head--compact {
+  margin-bottom: 8px;
+}
+
+.hl-modal-head--compact .hl-modal-title {
+  font-size: 14px;
+}
+
+.hl-modal .term-pro-funds-tabs--compact {
+  margin-bottom: 8px;
+}
+
+.hl-modal .term-pro-funds-tabs--compact button {
+  padding: 6px 8px;
+  font-size: 11px;
+}
+
+.hl-funds-summary {
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  background: var(--hl-bg);
+  border: 1px solid var(--hl-border);
+}
+
+.hl-funds-summary__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--hl-text-muted);
+}
+
+.hl-funds-summary__row strong {
+  font-size: 15px;
+  color: var(--hl-text);
+}
+
+.hl-funds-summary__sub {
+  margin-top: 3px;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--hl-text-muted);
+}
+
+.hl-funds-deposit-rules--compact .hl-funds-chain {
+  padding: 8px;
+  gap: 8px;
+}
+
+.hl-funds-deposit-rules--compact .hl-funds-chain__desc,
+.hl-funds-deposit-rules--compact .hl-funds-chain__gas-note {
+  display: none;
+}
+
+.hl-funds-deposit-rules--compact .hl-funds-chain__title {
+  font-size: 11px;
+}
+
+.hl-funds-deposit-rules--compact .hl-funds-chain__balance {
+  margin: 2px 0 0;
+  font-size: 10px;
+}
+
+.hl-funds-deposit-rules--compact .hl-funds-chain__action {
+  min-height: 30px;
+  padding: 4px 8px;
+  font-size: 10px;
+}
+
+.hl-funds-amount-label {
+  margin-bottom: 4px !important;
+  font-size: 10px !important;
+}
+
+.hl-funds-primary {
+  margin-top: 8px;
+  min-height: 36px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.hl-funds-refresh-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: var(--hl-text-muted);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.hl-funds-refresh-link:hover:not(:disabled) {
+  color: var(--hl-text);
+}
+
+.hl-funds-withdraw-hint {
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--hl-text-muted);
+}
+
+.hl-funds-inline-err {
+  margin: 6px 0 0 !important;
+  font-size: 11px !important;
+}
+
+.hl-funds-placement-hint--compact {
+  margin-bottom: 6px;
+  padding: 6px 8px;
+  font-size: 10px;
+}
+
 .hl-modal-head {
   display: flex;
   align-items: center;
@@ -8660,6 +8832,18 @@
   font-weight: 600;
 }
 
+.hl-modal .hl-funds-chain__gas-note {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--hl-text-muted);
+}
+
+.hl-modal .hl-funds-chain__gas-note strong {
+  color: var(--hl-text);
+  font-weight: 600;
+}
+
 .hl-modal .hl-funds-chain__balance {
   margin: 6px 0 0;
   font-size: 12px;
@@ -8777,6 +8961,10 @@
 
 .hl-modal .hl-funds-body--flow {
   min-height: 280px;
+}
+
+.hl-modal.hl-modal--funds-compact .hl-funds-body--flow {
+  min-height: 200px;
 }
 
 .hl-modal .hl-funds-content--dimmed {
@@ -10228,6 +10416,10 @@
 }
 
 .hl-mobile-nav-wallet {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
   width: 100%;
   min-height: 44px;
   padding: 10px 14px;
@@ -10238,6 +10430,12 @@
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.hl-mobile-nav-wallet-usdc {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.92;
 }
 
 /* ── Pro Trade responsive layout (portrait + landscape) ── */

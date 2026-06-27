@@ -8,9 +8,9 @@ export const HL_BOT_STRATEGY_LABELS: Record<HlBotStrategy, string> = {
 
 export const HL_BOT_STRATEGY_HINTS: Record<HlBotStrategy, string> = {
   standard:
-    'Standard: MTF scan. Trail SL arms within 2 min (+2.5% ROE in profit, or loss SL% in red).',
+    'Standard: MTF scan. Trail SL arms after 2 min in profit (+2.5% ROE, or ≥$2 uPnL).',
   profit_grabber:
-    'Aggressive: 1m scalp entries. Same 2 min trail SL — breakeven or loss stop.',
+    'Aggressive: 1m scalp entries. Same trail — 2 min, then BE lock or loss stop.',
 };
 
 /** Must match bot-service config.hyperliquid.dynamicTrail defaults. */
@@ -19,6 +19,7 @@ export const HL_DYNAMIC_TRAIL = {
   maxHoldBeforeSlTrailMs: 120_000,
   trailMinActiveBeforeCloseMs: 60_000,
   breakevenArmRoePct: 2.5,
+  armMinProfitUsd: 2,
   armMinRoePct: 5,
   armFeesMultiplier: 2,
   estimatedFeeBpsPerSide: 3.5,
@@ -67,7 +68,11 @@ export function shouldArmDynamicTrail(
   if (!holdOk) return false;
   const fees = estimateRoundTripFeesUsd(notionalUsd);
   const roe = (pnlUsd / collateralUsd) * 100;
-  return roe >= HL_DYNAMIC_TRAIL.breakevenArmRoePct || pnlUsd >= fees * HL_DYNAMIC_TRAIL.armFeesMultiplier;
+  const roeOk = roe >= HL_DYNAMIC_TRAIL.breakevenArmRoePct;
+  const feesOk = pnlUsd >= fees * HL_DYNAMIC_TRAIL.armFeesMultiplier;
+  const absOk =
+    HL_DYNAMIC_TRAIL.armMinProfitUsd > 0 && pnlUsd >= HL_DYNAMIC_TRAIL.armMinProfitUsd;
+  return roeOk || feesOk || absOk;
 }
 
 export function defaultTrailPctForCoin(coin: string): number {

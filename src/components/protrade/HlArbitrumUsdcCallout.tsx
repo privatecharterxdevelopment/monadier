@@ -1,9 +1,7 @@
 import React from 'react';
-import { AlertTriangle, Check, Loader2, X } from 'lucide-react';
+import { AlertTriangle, Check, Loader2 } from 'lucide-react';
 import {
-  HL_DEPOSIT_DO_NOT_USE,
   HL_DEPOSIT_RULE_HEADLINE,
-  HL_DEPOSIT_RULE_SUBLINE,
   hlDepositWrongNetworkMessage,
 } from '../../lib/hlDepositRules';
 
@@ -18,6 +16,7 @@ type Props = {
   usdcBalance?: number;
   balanceLoading?: boolean;
   showBalance?: boolean;
+  compact?: boolean;
 };
 
 const HlArbitrumUsdcCallout: React.FC<Props> = ({
@@ -28,11 +27,12 @@ const HlArbitrumUsdcCallout: React.FC<Props> = ({
   usdcBalance = 0,
   balanceLoading = false,
   showBalance = false,
+  compact = false,
 }) => {
   const wrongNetwork = hlDepositWrongNetworkMessage(chainId);
 
   return (
-    <div className="hl-funds-deposit-rules">
+    <div className={`hl-funds-deposit-rules${compact ? ' hl-funds-deposit-rules--compact' : ''}`}>
       <div
         className={`hl-funds-chain ${onArbitrum ? 'hl-funds-chain--ready' : 'hl-funds-chain--switch'}`}
         role="status"
@@ -44,29 +44,30 @@ const HlArbitrumUsdcCallout: React.FC<Props> = ({
 
         <div className="hl-funds-chain__copy">
           <div className="hl-funds-chain__title-row">
-            <strong className="hl-funds-chain__title">{HL_DEPOSIT_RULE_HEADLINE}</strong>
+            <strong className="hl-funds-chain__title">
+              {compact ? 'Native USDC · Arbitrum' : HL_DEPOSIT_RULE_HEADLINE}
+            </strong>
             {onArbitrum ? (
               <span className="hl-funds-chain__badge hl-funds-chain__badge--ok">
                 <Check size={12} aria-hidden />
-                On Arbitrum
+                OK
               </span>
             ) : (
-              <span className="hl-funds-chain__badge hl-funds-chain__badge--warn">Switch required</span>
+              <span className="hl-funds-chain__badge hl-funds-chain__badge--warn">Switch</span>
             )}
           </div>
-          <p className="hl-funds-chain__desc">{HL_DEPOSIT_RULE_SUBLINE}</p>
           {wrongNetwork ? (
             <p className="hl-funds-chain__wrong-net">
               <AlertTriangle size={14} aria-hidden />
               {wrongNetwork}
             </p>
           ) : null}
-          {showBalance && onArbitrum && (
+          {showBalance && onArbitrum ? (
             <p className="hl-funds-chain__balance">
-              Wallet balance:{' '}
+              Wallet:{' '}
               <strong>{balanceLoading ? '…' : `${usdcBalance.toFixed(2)} USDC`}</strong>
             </p>
-          )}
+          ) : null}
         </div>
 
         {!onArbitrum && onSwitch ? (
@@ -81,21 +82,9 @@ const HlArbitrumUsdcCallout: React.FC<Props> = ({
             ) : (
               <img src={ARBITRUM_LOGO} alt="" className="hl-funds-chain__action-logo" aria-hidden />
             )}
-            Switch to Arbitrum
+            Arbitrum
           </button>
         ) : null}
-      </div>
-
-      <div className="hl-funds-deny" role="note" aria-label="Deposit restrictions">
-        <p className="hl-funds-deny__title">
-          <X size={14} aria-hidden />
-          Do not use
-        </p>
-        <ul className="hl-funds-deny__list">
-          {HL_DEPOSIT_DO_NOT_USE.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
       </div>
     </div>
   );

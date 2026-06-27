@@ -8,7 +8,9 @@ import Logo from '../ui/Logo';
 import DockCountBadge from './DockCountBadge';
 import ProTradeAccountMenu from './ProTradeAccountMenu';
 import ProTradeNotificationsBell from './ProTradeNotificationsBell';
-import ProTradeBettingTopBarBalance from './ProTradeBettingTopBarBalance';
+import ProTradeHeaderBalance, { headerBalanceSection } from './ProTradeHeaderBalance';
+import ProTradeHlNetworkSwitch from './ProTradeHlNetworkSwitch';
+import { useArbitrumWalletUsdc } from '../../hooks/useArbitrumWalletUsdc';
 import ProTradeThemeIcon from './ProTradeThemeIcon';
 import LanguageSwitcher from '../i18n/LanguageSwitcher';
 import { useProTradeTheme } from '../../contexts/ProTradeThemeContext';
@@ -83,6 +85,9 @@ const ProTradeTopNav: React.FC<Props> = ({
   const { isLight } = useProTradeTheme();
   const { open } = useAppKit();
   const { address, isConnected, isRestoring } = useMonadierWallet();
+  const { usdcBalance, usdcLoading } = useArbitrumWalletUsdc(
+    isConnected ? address : undefined
+  );
   const isMobile = useMediaQuery('(max-width: 768px)');
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -92,6 +97,13 @@ const ProTradeTopNav: React.FC<Props> = ({
     : isConnected && address
       ? `${address.slice(0, 6)}…${address.slice(-4)}`
       : t('common.connect');
+
+  const walletUsdcLabel =
+    isConnected && !usdcLoading
+      ? `${usdcBalance.toFixed(2)} USDC`
+      : isConnected && usdcLoading
+        ? '… USDC'
+        : null;
 
   useEffect(() => {
     if (!mobileNavOpen) return;
@@ -154,14 +166,14 @@ const ProTradeTopNav: React.FC<Props> = ({
         </nav>
       </div>
       <div className="hl-topnav-right">
-        {section === 'sportsbets' ? (
-          <ProTradeBettingTopBarBalance
-            walletAddress={walletAddress}
-            walletConnected={walletConnected}
-            onRequireSignIn={onRequireSignIn}
-            compact={isMobile}
-          />
-        ) : null}
+        <ProTradeHeaderBalance
+          section={headerBalanceSection(section)}
+          walletAddress={walletAddress}
+          walletConnected={walletConnected}
+          onRequireSignIn={onRequireSignIn}
+          compact={isMobile}
+        />
+        {isConnected ? <ProTradeHlNetworkSwitch compact={isMobile} /> : null}
         {onViewNotificationHistory ? (
           <ProTradeNotificationsBell onViewHistory={onViewNotificationHistory} />
         ) : null}
@@ -186,8 +198,16 @@ const ProTradeTopNav: React.FC<Props> = ({
           <button
             type="button"
             className={`hl-topnav-wallet ${isConnected ? 'hl-topnav-wallet--connected' : ''}`}
+            title={
+              walletUsdcLabel
+                ? `Arbitrum wallet · ${walletUsdcLabel} (MetaMask may also show ETH for gas)`
+                : undefined
+            }
             onClick={() => openMonadierWalletModal(() => open())}
           >
+            {walletUsdcLabel ? (
+              <span className="hl-topnav-wallet-usdc">{walletUsdcLabel}</span>
+            ) : null}
             {walletLabel}
           </button>
         ) : null}
@@ -266,6 +286,9 @@ const ProTradeTopNav: React.FC<Props> = ({
                   setMobileNavOpen(false);
                 }}
               >
+                {walletUsdcLabel ? (
+                  <span className="hl-mobile-nav-wallet-usdc">{walletUsdcLabel}</span>
+                ) : null}
                 {walletLabel}
               </button>
             </div>

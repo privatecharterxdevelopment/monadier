@@ -103,7 +103,8 @@ export function shouldArmBreakevenProtection(
   pnlUsd: number,
   collateralUsd: number,
   timeInProfitMs: number,
-  totalHoldMs: number
+  totalHoldMs: number,
+  feesUsd = 0
 ): boolean {
   const cfg = config.hyperliquid.dynamicTrail;
   const holdOk =
@@ -111,7 +112,10 @@ export function shouldArmBreakevenProtection(
     totalHoldMs >= cfg.maxHoldBeforeSlTrailMs;
   if (!holdOk) return false;
   if (pnlUsd <= 0 || collateralUsd <= 0) return false;
-  return roePct(pnlUsd, collateralUsd) >= cfg.breakevenArmRoePct;
+  const roeOk = roePct(pnlUsd, collateralUsd) >= cfg.breakevenArmRoePct;
+  const feesOk = feesUsd > 0 && pnlUsd >= feesUsd * cfg.armFeesMultiplier;
+  const absOk = cfg.armMinProfitUsd > 0 && pnlUsd >= cfg.armMinProfitUsd;
+  return roeOk || feesOk || absOk;
 }
 
 export function lossStopPricePx(
@@ -334,7 +338,8 @@ export async function evaluateDynamicTrail(
         input.pnlUsd,
         input.collateralUsd,
         rec.timeInProfitMs,
-        input.totalHoldMs
+        input.totalHoldMs,
+        feesUsd
       )
     ) {
       if (

@@ -1,0 +1,178 @@
+import React from 'react';
+import { useAppKit } from '@reown/appkit/react';
+import { openMonadierWalletModal } from '../../lib/openWalletModal';
+import { useAuth } from '../../contexts/AuthContext';
+import { useBettingUi } from '../../contexts/BettingUiContext';
+import { useBettingHeaderBalance } from '../../hooks/useBettingHeaderBalance';
+import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
+import { useMonadierWallet } from '../../hooks/useMonadierWallet';
+import { fmtClosedPnl, fmtUsdSymbol } from '../../lib/hyperliquid/format';
+
+export type HeaderBalanceSection = 'perps' | 'bot' | 'betting' | 'other';
+
+type Props = {
+  section: HeaderBalanceSection;
+  walletAddress?: string;
+  walletConnected: boolean;
+  onRequireSignIn?: (reason: string) => void;
+  compact?: boolean;
+};
+
+/** One Hyperliquid account — same USDC for perps, bot, and betting. */
+const ProTradeHeaderBalance: React.FC<Props> = ({
+  section,
+  walletAddress,
+  walletConnected,
+  onRequireSignIn,
+  compact = false,
+}) => {
+  const { user } = useAuth();
+  const { open } = useAppKit();
+  const { isRestoring } = useMonadierWallet();
+  const { scrollToRail, cashOutFirst, openFunds } = useBettingUi();
+  const signedIn = Boolean(user);
+  const enabled = signedIn && walletConnected;
+  const { snapshot } = useHlAccountSnapshot(enabled ? walletAddress : undefined);
+  const betStats = useBettingHeaderBalance(walletAddress, enabled && section === 'betting');
+
+  const balanceUsd = snapshot?.totalUsd ?? snapshot?.tradablePerpUsd ?? betStats.balanceUsd ?? 0;
+  const showExtended = !compact && section !== 'other';
+
+  const balancePill = (
+    <button
+      type="button"
+      className={
+        compact || !showExtended
+          ? 'hl-topnav-bet-stat hl-topnav-bet-stat--btn hl-topnav-bet-stat--compact'
+          : 'hl-topnav-bet-stat hl-topnav-bet-stat--btn'
+      }
+      title="Deposit or withdraw USDC on Hyperliquid"
+      onClick={() => openFunds('deposit')}
+    >
+      <span className="hl-topnav-bet-label">{showExtended && !compact ? 'Balance' : 'HL'}</span>
+      <strong>{fmtUsdSymbol(balanceUsd)}</strong>
+    </button>
+  );
+
+  if (!signedIn) {
+    return (
+      <button
+        type="button"
+        className="hl-topnav-betting-balance hl-topnav-betting-balance--cta hl-topnav-betting-balance--primary"
+        onClick={() => onRequireSignIn?.('Sign in to see your Hyperliquid balance.')}
+      >
+        Sign in · HL
+      </button>
+    );
+  }
+
+  if (!walletConnected) {
+    if (isRestoring) {
+      return (
+        <span className="hl-topnav-betting-balance hl-topnav-betting-balance--restoring">
+          Restoring wallet…
+        </span>
+      );
+    }
+    return (
+      <button
+        type="button"
+        className="hl-topnav-betting-balance hl-topnav-betting-balance--cta hl-topnav-betting-balance--primary"
+        onClick={() => openMonadierWalletModal(() => open())}
+      >
+        Connect · HL
+      </button>
+    );
+  }
+
+  if (compact || !showExtended) {
+    return balancePill;
+  }
+
+  if (section === 'betting') {
+    return (
+      <div className="hl-topnav-betting-balance" aria-label="Hyperliquid balance">
+        {balancePill}
+        {betStats.positionCount > 0 ? (
+          <button
+            type="button"
+            className="hl-topnav-bet-stat hl-topnav-bet-stat--btn"
+            title="Open bets"
+            onClick={scrollToRail}
+          >
+            <span className="hl-topnav-bet-label">Open</span>
+            <strong>
+              {betStats.positionCount} · {fmtUsdSymbol(betStats.positionsValueUsd)}
+            </strong>
+            <span
+              className={
+                betStats.unrealizedPnlUsd >= 0 ? 'hl-topnav-bet-pnl hl-pos' : 'hl-topnav-bet-pnl hl-neg'
+              }
+            >
+              {fmtClosedPnl(betStats.unrealizedPnlUsd)}
+            </span>
+          </button>
+        ) : (
+          <span className="hl-topnav-bet-stat hl-topnav-bet-stat--muted">
+            <span className="hl-topnav-bet-label">Open</span>
+            <strong>0</strong>
+          </span>
+        )}
+        <span className="hl-topnav-bet-stat" title="Closed bets realized P/L">
+          <span className="hl-topnav-bet-label">Closed</span>
+          <strong>
+            {betStats.closedCount > 0
+              ? `${betStats.closedCount} · ${fmtClosedPnl(betStats.realizedPnlUsd)}`
+              : '0'}
+          </strong>
+        </span>
+        {betStats.positionCount > 0 ? (
+          <button type="button" className="hl-topnav-bet-cashout" onClick={cashOutFirst}>
+            Cash out
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
+  const openCount = snapshot?.openPositionsCount ?? 0;
+  const unrealizedPnlUsd = snapshot?.unrealizedPnlUsd ?? 0;
+  const openNotionalUsd = snapshot?.openNotionalUsd ?? 0;
+
+  return (
+    <div className="hl-topnav-betting-balance" aria-label="Hyperliquid balance">
+      {balancePill}
+      {openCount > 0 ? (
+        <button type="button" className="hl-topnav-bet-stat hl-topnav-bet-stat--btn" title="Open perp positions">
+          <span className="hl-topnav-bet-label">Open</span>
+          <strong>
+            {openCount} · {fmtUsdSymbol(openNotionalUsd)}
+          </strong>
+          <span
+            className={
+              unrealizedPnlUsd >= 0 ? 'hl-topnav-bet-pnl hl-pos' : 'hl-topnav-bet-pnl hl-neg'
+            }
+          >
+            {fmtClosedPnl(unrealizedPnlUsd)}
+          </span>
+        </button>
+      ) : (
+        <span className="hl-topnav-bet-stat hl-topnav-bet-stat--muted">
+          <span className="hl-topnav-bet-label">Open</span>
+          <strong>0</strong>
+        </span>
+      )}
+    </div>
+  );
+};
+
+export default ProTradeHeaderBalance;
+
+function headerBalanceSection(section: string): HeaderBalanceSection {
+  if (section === 'sportsbets') return 'betting';
+  if (section === 'perps') return 'perps';
+  if (section === 'bot') return 'bot';
+  return 'other';
+}
+
+export { headerBalanceSection };

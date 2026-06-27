@@ -26,8 +26,8 @@ const WalletUsdcArbitrumHint: React.FC<Props> = ({ compact = false, className = 
       </strong>
       <p className="wallet-usdc-arb-hint__desc">
         {compact
-          ? 'Native USDC on Arbitrum One — required to fund Hyperliquid and run the bot.'
-          : 'Connect on Arbitrum One with native USDC in your wallet. This is all you need for the bot — not BNB, ETH mainnet, or USDC on other chains.'}
+          ? 'Use native USDC on Arbitrum One. MetaMask may show ETH — that is only for gas.'
+          : 'Connect on Arbitrum One with native USDC. MetaMask shows ETH for gas fees; deposits and trading use USDC on Arbitrum — not BNB, ETH mainnet, or USDC on other chains.'}
       </p>
     </div>
   </div>

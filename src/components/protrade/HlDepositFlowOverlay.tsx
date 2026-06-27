@@ -68,14 +68,14 @@ const HlDepositFlowOverlay: React.FC<Props> = ({
             <span className="hl-deposit-flow__pulse" />
             <Loader2 size={30} className="hl-deposit-flow__spin" />
           </div>
-          <h3 className="hl-deposit-flow__title">Bridging to Hyperliquid</h3>
+          <h3 className="hl-deposit-flow__title">Depositing to Hyperliquid</h3>
           <p className="hl-deposit-flow__desc">
-            Sent {fmtUsdSymbol(flow.amountUsd)} — waiting for Arbitrum confirmation and HL credit
-            (~1–3 min).
+            Sent {fmtUsdSymbol(flow.amountUsd)} USDC on Arbitrum — waiting for confirmation and HL
+            credit (~1–3 min).
           </p>
           <ol className="hl-deposit-flow__steps">
             <li className="hl-deposit-flow__step hl-deposit-flow__step--on">Wallet signed</li>
-            <li className="hl-deposit-flow__step hl-deposit-flow__step--on">Arbitrum bridge</li>
+            <li className="hl-deposit-flow__step hl-deposit-flow__step--on">Arbitrum confirmed</li>
             <li className="hl-deposit-flow__step">Hyperliquid credit</li>
           </ol>
         </>

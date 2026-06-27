@@ -100,6 +100,7 @@ export const ProTradeBotPanelSlot: React.FC<PanelProps> = ({
         onRefresh={refresh}
         onOpenHistory={onOpenHistory}
         onRequireSignIn={onRequireSignIn}
+        useGlobalFundsModal
         fundsAction={fundsAction}
         onFundsActionHandled={() => setFundsAction(null)}
       />

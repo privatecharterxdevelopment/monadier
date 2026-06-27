@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { getConnections } from '@wagmi/core';
-import { useAccount, useConnectionEffect } from 'wagmi';
+import { useAccount, useChainId, useConnectionEffect, useSwitchChain } from 'wagmi';
 import { useAppKitAccount } from '@reown/appkit/react';
+import { ensureHlWalletChain } from '../../lib/ensureHlWalletChain';
+import { HL_ARBITRUM_CHAIN_ID } from '../../lib/hyperliquid/bridge';
 import { config } from '../../lib/wallet';
 import { runWalletReconnect } from '../../lib/walletReconnect';
 import {
@@ -25,6 +27,8 @@ function persistSession(address: string, connectorId?: string) {
 const WalletSessionBridge: React.FC = () => {
   const { address: wagmiAddress, isConnected: wagmiConnected, status: wagmiStatus } = useAccount();
   const { address: appKitAddress, isConnected: appKitConnected } = useAppKitAccount();
+  const chainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
 
   const wagmiConnectedRef = useRef(wagmiConnected);
   const appKitConnectedRef = useRef(appKitConnected);
@@ -44,8 +48,14 @@ const WalletSessionBridge: React.FC = () => {
   useConnectionEffect({
     onConnect({ address, connector }) {
       if (address) persistSession(address, connector?.id);
+      void switchChainAsync?.({ chainId: HL_ARBITRUM_CHAIN_ID }).catch(() => {});
     },
   });
+
+  useEffect(() => {
+    if (!wagmiConnected && !appKitConnected) return;
+    void ensureHlWalletChain(chainId, switchChainAsync);
+  }, [wagmiConnected, appKitConnected, chainId, switchChainAsync]);
 
   useEffect(() => {
     const address = wagmiAddress ?? appKitAddress;

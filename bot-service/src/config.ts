@@ -120,6 +120,8 @@ export const config = {
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
       /** Min ROE before breakeven+fees lock (~2.5% — stage 1). */
       breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 2.5),
+      /** Arm BE lock when uPnL ≥ this USD (after min hold) — catches $2–3 wins below ROE%. */
+      armMinProfitUsd: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_USD || 2),
       /** Min ROE before full ATR/% trail ratchet (~5% — stage 2). */
       armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 5),
       /** After trail arms — min ms before trail/peak can close. */
