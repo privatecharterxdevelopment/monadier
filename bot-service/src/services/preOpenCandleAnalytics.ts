@@ -1,6 +1,6 @@
 /**
  * Pre-open analytics — read last N closed candles before any HL market open.
- * Blocks trades that fight visible 1m structure (wrong side of range, wrong momentum).
+ * Blocks trades that fight visible candle structure (wrong side of range, wrong momentum).
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
@@ -106,6 +106,8 @@ function buildSummary(
 export async function validatePreOpenCandleAnalytics(opts: {
   coin: string;
   direction: 'LONG' | 'SHORT';
+  /** Standard opens use 5m structure; aggressive uses 1m. */
+  timeframe?: '1m' | '5m';
 }): Promise<PreOpenCandleAnalytics> {
   const cfg = config.hyperliquid.preOpenCandles;
   const fail = (partial: Omit<PreOpenCandleAnalytics, 'ok'>): PreOpenCandleAnalytics => ({
@@ -135,7 +137,7 @@ export async function validatePreOpenCandleAnalytics(opts: {
 
   const coin = opts.coin.toUpperCase();
   const symbol = hlCoinToBinanceSymbol(coin);
-  const tf = cfg.timeframe;
+  const tf = opts.timeframe ?? cfg.timeframe;
   const n = cfg.candleCount;
 
   try {

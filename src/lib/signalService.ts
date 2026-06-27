@@ -80,7 +80,7 @@ interface TimeframeResponse {
  */
 export async function fetchUnifiedSignal(
   symbol: string = 'ETHUSDT',
-  timeframes: Timeframe[] = ['1m', '5m', '15m', '1h']
+  timeframes: Timeframe[] = ['5m', '15m', '1h']
 ): Promise<UnifiedSignal | null> {
   const base = getBotApiBase();
   if (!base) {

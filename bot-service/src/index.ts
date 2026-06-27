@@ -103,11 +103,11 @@ const healthServer = http.createServer(async (req, res) => {
   }
 
   // API: Get unified MTF signal
-  // Usage: /api/signal?symbol=ETHUSDT&timeframes=1m,5m,15m,1h
+  // Usage: /api/signal?symbol=ETHUSDT&timeframes=5m,15m,1h
   if (url.pathname === '/api/signal') {
     try {
       const symbol = url.searchParams.get('symbol') || 'ETHUSDT';
-      const tfParam = url.searchParams.get('timeframes') || '1m,5m,15m,1h';
+      const tfParam = url.searchParams.get('timeframes') || '5m,15m,1h';
       const timeframes = tfParam.split(',') as Timeframe[];
 
       logger.info('API: Fetching MTF signal', { symbol, timeframes });
@@ -721,7 +721,7 @@ healthServer.listen(PORT, () => {
   logger.info(`API server running on port ${PORT}`);
   logger.info('Available endpoints:');
   logger.info('  GET /health - Health check');
-  logger.info('  GET /api/signal?symbol=ETHUSDT&timeframes=1m,5m,15m,1h - MTF Signal');
+  logger.info('  GET /api/signal?symbol=ETHUSDT&timeframes=5m,15m,1h - MTF Signal');
   logger.info('  GET /api/hl-agent?wallet=0x… - Per-user HL agent address');
   logger.info('  POST /api/hl-agent/approval - Save HL agent approval (service role)');
   logger.info('  POST /api/hl-close - Close HL position via Monadier agent');

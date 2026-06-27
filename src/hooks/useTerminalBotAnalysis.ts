@@ -9,17 +9,18 @@ import { HL_MAX_CONCURRENT_POSITIONS, HL_SCAN_ROTATION_COINS, HL_SCAN_UNIVERSE_S
 import { MIN_HL_BOT_USD } from '../lib/hyperliquid/hlBotAgent';
 import { getBotApiBase, type Timeframe } from '../lib/signalService';
 import { binanceSymbolToHlCoin, hlCoinToBotSymbol } from '../lib/botTradingPairs';
+import { normalizeHlBotStrategy, type HlBotStrategy } from '../lib/hlBotStrategy';
 import { pickNextScanCandidate } from '../lib/botScanCandidate';
 
 export const ANALYSIS_STEPS = [
   { label: 'Scanning all HL perps', progress: 15 },
-  { label: 'Analyzing 1m / 5m charts', progress: 35 },
+  { label: 'Analyzing 5m / 15m charts', progress: 35 },
   { label: 'Checking 15m patterns', progress: 55 },
   { label: 'Evaluating 1h momentum', progress: 75 },
   { label: 'Picking best setup', progress: 95 },
 ] as const;
 
-const MTF_TIMEFRAMES: Timeframe[] = ['1m', '5m', '15m', '1h'];
+const MTF_TIMEFRAMES: Timeframe[] = ['5m', '15m', '1h'];
 
 type DbAnalysis = {
   signal: string;
@@ -39,24 +40,22 @@ type GlobalScanCandidate = {
   reason?: string;
 };
 
-function mergeGlobalScanCandidates(data: {
-  candidates?: GlobalScanCandidate[];
-  standardCandidates?: GlobalScanCandidate[];
-  aggressiveCandidates?: GlobalScanCandidate[];
-}): GlobalScanCandidate[] {
+function mergeGlobalScanCandidates(
+  data: {
+    candidates?: GlobalScanCandidate[];
+    standardCandidates?: GlobalScanCandidate[];
+    aggressiveCandidates?: GlobalScanCandidate[];
+  },
+  botStrategy: 'standard' | 'profit_grabber' = 'standard'
+): GlobalScanCandidate[] {
+  const standard = Array.isArray(data.standardCandidates) ? data.standardCandidates : [];
+  const aggressive = Array.isArray(data.aggressiveCandidates) ? data.aggressiveCandidates : [];
+  const modeList = botStrategy === 'profit_grabber' ? aggressive : standard;
+  if (modeList.length > 0) return modeList;
   if (Array.isArray(data.candidates) && data.candidates.length > 0) {
     return data.candidates;
   }
-  const standard = Array.isArray(data.standardCandidates) ? data.standardCandidates : [];
-  const aggressive = Array.isArray(data.aggressiveCandidates) ? data.aggressiveCandidates : [];
-  const merged = [...standard, ...aggressive];
-  const seen = new Set<string>();
-  return merged.filter((c) => {
-    const key = c.coin?.toUpperCase();
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  return botStrategy === 'profit_grabber' ? aggressive : standard;
 }
 
 type Options = {
@@ -72,7 +71,8 @@ type Options = {
   symbol?: string;
   /** Show live scan bar (funded + agent, or bot running). */
   analysisActive?: boolean;
-  botRunning?: boolean;
+  /** Bot mode — Standard uses MTF scan only; Aggressive uses scalp scan. */
+  hlBotStrategy?: HlBotStrategy | string | null;
 };
 
 export function useTerminalBotAnalysis({
@@ -86,7 +86,9 @@ export function useTerminalBotAnalysis({
   symbol = 'ETHUSDT',
   analysisActive,
   botRunning = false,
+  hlBotStrategy = 'standard',
 }: Options) {
+  const botMode = normalizeHlBotStrategy(hlBotStrategy ?? 'standard');
   const [dbAnalysis, setDbAnalysis] = useState<DbAnalysis | null>(null);
   const [serverBlockers, setServerBlockers] = useState<string[]>([]);
   const [serverMaxSlots, setServerMaxSlots] = useState(maxConcurrentPositions);
@@ -196,7 +198,7 @@ export function useTerminalBotAnalysis({
           count?: number;
           coinsScanned?: number;
         };
-        const list = mergeGlobalScanCandidates(data);
+        const list = mergeGlobalScanCandidates(data, botMode);
         setGlobalCandidates(list);
         const next = pickNextScanCandidate(list, list[0] ?? null, effectiveOpenCoins);
         setGlobalBest(next);
@@ -209,7 +211,7 @@ export function useTerminalBotAnalysis({
     void load();
     const id = setInterval(load, 15000);
     return () => clearInterval(id);
-  }, [walletConnected, active, effectiveOpenCoins]);
+  }, [walletConnected, active, effectiveOpenCoins, botMode]);
 
   useEffect(() => {
     if (!vaultWallet || !botRunning) {

@@ -6,7 +6,6 @@ import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../../contexts/AuthContext';
 import { VAULT_ABI, VAULT_ADDRESS, VAULT_CHAIN_ID, VaultClient } from '../../lib/vault';
 import VaultSettingsModal from '../../components/vault/VaultSettingsModal';
-import LegacyVaultWithdraw from '../../components/vault/LegacyVaultWithdraw';
 
 // Legacy trade format (from localStorage)
 interface LegacyTrade {
@@ -1060,10 +1059,6 @@ const BotHistoryPage: React.FC<BotHistoryPageProps> = ({
         )}
       </div>
       )}
-
-      {/* Legacy Vault Warning - Disabled after recovery complete
-      <LegacyVaultWithdraw />
-      */}
 
       {/* Positions Table (from Supabase) */}
       <div className="dashboard-panel overflow-hidden">

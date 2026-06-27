@@ -2762,38 +2762,6 @@
   }
 }
 
-.hl-support-legacy-vault-banner {
-  max-width: 640px;
-  width: 100%;
-  margin-bottom: 16px;
-  padding: 16px 18px;
-  border-radius: 12px;
-  border: 1px solid rgb(234 179 8 / 0.35);
-  background: rgb(234 179 8 / 0.08);
-}
-
-.hl-support-legacy-vault-banner-title {
-  margin: 0 0 6px;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--hl-text, #f4f4f5);
-}
-
-.hl-support-legacy-vault-banner-text {
-  margin: 0 0 10px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--hl-muted, #a1a1aa);
-}
-
-.hl-support-legacy-vault-banner-link {
-  display: inline-flex;
-  font-size: 13px;
-  font-weight: 600;
-  color: #facc15;
-  text-decoration: underline;
-}
-
 .hl-portfolio-card {
   display: flex;
   flex-direction: column;

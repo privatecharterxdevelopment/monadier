@@ -107,5 +107,7 @@ export function sanitizeBotScanReason(reason: string): string {
     .replace(/\s*·\s*Fri \d{1,2}:00 MES short-window[^\n·]*/gi, '')
     .replace(/\s*·\s*major SHORT fallback[^\n·]*/gi, '')
     .replace(/\s*·\s*major (LONG|SHORT) fallback[^\n·]*/gi, '')
+    .replace(/\s*·\s*relaxed scan[^\n·]*/gi, '')
+    .replace(/\s*·\s*top-pairs fallback[^\n·]*/gi, '')
     .trim();
 }

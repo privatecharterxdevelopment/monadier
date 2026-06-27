@@ -98,17 +98,6 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     priority: 0.6,
     sitemap: true,
   },
-  '/legacy-vault-withdraw': {
-    path: '/legacy-vault-withdraw',
-    title: `Legacy Vault Emergency Payout | ${SITE_NAME}`,
-    description:
-      'Temporary page to withdraw USDC from older Monadier on-chain vault contracts on Arbitrum.',
-    keywords: 'Monadier legacy vault withdraw',
-    changefreq: 'monthly',
-    priority: 0.2,
-    sitemap: false,
-    noindex: true,
-  },
   '/terms': {
     path: '/terms',
     title: `Terms of Service | ${SITE_NAME}`,

@@ -111,11 +111,11 @@ async function scanStandardCoin(
     if (analysis.isWeak) return null;
     if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
     const tierInfo = classifyCoinTier(coin, preloadedUniverse);
-    const cautious = needsCautionPath(tierInfo.tier) && !relaxed;
+    const cautious = needsCautionPath(tierInfo.tier);
     const minConf = cautious
       ? config.hyperliquid.cautiousScan.minSignalConfidence
       : relaxed
-        ? Math.max(52, config.hyperliquid.minSignalConfidence - 5)
+        ? Math.max(47, config.hyperliquid.minSignalConfidence - 5)
         : config.hyperliquid.minSignalConfidence;
     if (analysis.confidence < minConf) return null;
     const minTfs = relaxed
@@ -173,7 +173,7 @@ async function scanStandardCoin(
       direction: analysis.direction,
       confidence: analysis.confidence,
       reason: relaxed
-        ? `${analysis.reason} · relaxed scan (${analysis.confidence}% / ${analysis.metrics?.directionalTfCount} TFs)`
+        ? `${analysis.reason} · top-pairs fallback (${analysis.confidence}% / ${analysis.metrics?.directionalTfCount} TFs)`
         : analysis.reason,
       dayVolumeUsd: liq.dayVolumeUsd,
       openInterestUsd: liq.openInterestUsd,
@@ -316,7 +316,7 @@ export async function scanGlobalHlSignals(
       .filter((c): c is GlobalSignalCandidate => c !== null)
       .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence);
     if (finalStandard.length > 0) {
-      logger.info('Global HL scan — relaxed fallback used', {
+      logger.info('Global HL scan — top-pairs fallback used', {
         count: finalStandard.length,
         top: finalStandard[0]?.coin,
         direction: finalStandard[0]?.direction,

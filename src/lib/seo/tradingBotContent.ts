@@ -75,7 +75,7 @@ export const TRADING_BOT_BENEFITS = [
 export const TRADING_BOT_FEATURES = [
   {
     title: 'Multi-timeframe signals',
-    text: 'Combines 1m through 1h structure to align short-term entries with broader Hyperliquid trend context.',
+    text: 'Combines 5m through 1h structure to align entries with broader Hyperliquid trend context.',
   },
   {
     title: 'Dynamic trailing stops',

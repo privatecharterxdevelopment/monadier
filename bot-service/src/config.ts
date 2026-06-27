@@ -88,9 +88,9 @@ export const config = {
     minAccountUsd: Number(process.env.HL_MIN_BOT_ACCOUNT_USD || 20),
     /** Parallel MTF scans per trading cycle (all HL perps). */
     scanConcurrency: Number(process.env.HL_SCAN_CONCURRENCY || 8),
-    /** Global scan — min combined MTF confidence to qualify. */
-    minSignalConfidence: Number(process.env.HL_MIN_SIGNAL_CONFIDENCE || 55),
-    /** Global scan — min timeframes pointing same direction (of 1m/5m/15m/1h). */
+    /** Global scan — min combined MTF confidence (5m/15m/1h). */
+    minSignalConfidence: Number(process.env.HL_MIN_SIGNAL_CONFIDENCE || 52),
+    /** Global scan — min timeframes pointing same direction (of 5m/15m/1h). */
     minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 2),
     /** Global scan — min % of TFs sharing the dominant trend (0–100). */
     minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 50),
@@ -102,7 +102,7 @@ export const config = {
     minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 0),
     minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 0),
     /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all listed HL perps. */
-    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 18),
+    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 0),
     liquidUniverseCacheMs: Number(process.env.HL_LIQUID_UNIVERSE_CACHE_MS || 60_000),
     /** Close HL perps at this % gain on margin (user DB setting overrides). */
     /** 0 = user disabled TP. */
@@ -259,7 +259,8 @@ export const config = {
     },
     /** Scalp opens — top liquid pairs only, fast TF alignment. */
     scalpOpen: {
-      maxVolumeRank: Number(process.env.HL_OPEN_MAX_VOLUME_RANK || 18),
+      /** 0 = no rank cap — any scannable HL perp can open. */
+      maxVolumeRank: Number(process.env.HL_OPEN_MAX_VOLUME_RANK || 0),
       allowCautiousAlts: process.env.HL_ALLOW_CAUTIOUS_OPENS !== 'false',
       require1m5mAlign: process.env.HL_SCALP_REQUIRE_1M5M !== 'false',
       minTfConfidence: Number(process.env.HL_SCALP_MIN_TF_CONF || 52),
@@ -268,8 +269,8 @@ export const config = {
     /** Mandatory last-N candle read immediately before every open. */
     preOpenCandles: {
       enabled: process.env.HL_PRE_OPEN_20_CANDLES !== 'false',
-      candleCount: Number(process.env.HL_PRE_OPEN_CANDLE_COUNT || 20),
-      timeframe: (process.env.HL_PRE_OPEN_CANDLE_TF || '1m') as '1m' | '5m',
+      candleCount: Number(process.env.HL_PRE_OPEN_CANDLE_COUNT || 12),
+      timeframe: (process.env.HL_PRE_OPEN_CANDLE_TF || '5m') as '1m' | '5m',
       minNetMovePct: Number(process.env.HL_PRE_OPEN_MIN_NET_PCT || 0.04),
       minDirectionalCandleRatio: Number(process.env.HL_PRE_OPEN_MIN_DIR_RATIO || 0.52),
       maxRangePositionLong: Number(process.env.HL_PRE_OPEN_MAX_RANGE_LONG || 0.58),
@@ -287,9 +288,9 @@ export const config = {
     },
     /** Stricter scan thresholds for mass-driven alts. */
     cautiousScan: {
-      minSignalConfidence: Number(process.env.HL_CAUTIOUS_MIN_CONF || 74),
-      minDirectionalTfs: Number(process.env.HL_CAUTIOUS_MIN_TFS || 3),
-      minTrendAlignment: Number(process.env.HL_CAUTIOUS_MIN_ALIGN || 62),
+      minSignalConfidence: Number(process.env.HL_CAUTIOUS_MIN_CONF || 68),
+      minDirectionalTfs: Number(process.env.HL_CAUTIOUS_MIN_TFS || 2),
+      minTrendAlignment: Number(process.env.HL_CAUTIOUS_MIN_ALIGN || 55),
     },
     /** Loss exits — SL% from user settings always enforced; thesis/signal loss optional. */
     lossProtection: {

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useTerminalBotAnalysis } from '../../hooks/useTerminalBotAnalysis';
+import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import { useHlBotRunning } from '../../hooks/useHlBotRunning';
 import { HL_MAX_CONCURRENT_POSITIONS } from '../../lib/hlBotConstants';
@@ -25,6 +26,7 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
   botRunning: botRunningProp,
 }) => {
   const hlSetup = useHlBotSetup(vaultWallet ?? undefined);
+  const { settings: botSettings } = useTerminalBotSettings();
   const { botRunning: resolvedRunning } = useHlBotRunning({
     metricsAutoTrade: metrics.autoTradeEnabled,
   });
@@ -45,6 +47,7 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
     symbol,
     analysisActive: hasWallet && botRunning,
     botRunning,
+    hlBotStrategy: botSettings.hlBotStrategy,
   });
 
   const insightLines = useMemo(() => {

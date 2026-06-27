@@ -26,10 +26,20 @@ function formatBlocker(blocker: string): string {
   if (/builder fee|platform fee/i.test(blocker)) {
     return 'Approve the Hyperliquid platform fee in the Bot panel';
   }
+  if (/Cautious alt.*confidence.*below/i.test(blocker)) {
+    const m = blocker.match(/Cautious alt (\w+): confidence (\d+)% below (\d+)%/i);
+    if (m) {
+      return `${m[1]} needs ${m[3]}%+ confidence (small-cap alt) — had ${m[2]}%, trying next pair`;
+    }
+    return 'Small-cap alt needs higher confidence — bot tries next pair';
+  }
+  if (/top-pairs fallback|relaxed scan/i.test(blocker)) {
+    return 'Scanning top HL pairs with slightly relaxed rules';
+  }
   if (/no HL perp passed global scan/i.test(blocker)) {
     const m = blocker.match(/min (\d+)% conf, (\d+) TFs, (\d+)% align/i);
     if (m) {
-      return `No HL pair meets entry rules yet (${m[1]}%+ confidence, ${m[2]}/4 timeframes aligned, ${m[3]}% trend)`;
+      return `No HL pair meets entry rules yet (${m[1]}%+ confidence, ${m[2]}/3 timeframes aligned, ${m[3]}% trend)`;
     }
     return 'No HL pair passed the global scan yet — bot keeps checking all perps';
   }
@@ -65,6 +75,12 @@ function formatBlocker(blocker: string): string {
   }
   if (/Last open attempt/i.test(blocker)) {
     return blocker.replace(/^Last open attempt \([^)]+\):\s*/i, 'Last open: ');
+  }
+  if (/Last open:.*Cautious alt/i.test(blocker)) {
+    const m = blocker.match(/Last open: Cautious alt (\w+): confidence (\d+)% below (\d+)%/i);
+    if (m) {
+      return `Last try ${m[1]}: ${m[2]}% — small-cap alts need ${m[3]}%+`;
+    }
   }
   if (/Trade size too small|notional.*below min/i.test(blocker)) {
     return 'Trade size below $20 min — raise Risk % or LVRG, or deposit more USDC';

@@ -126,13 +126,17 @@ function bypassesLiquidityGate(signal: GlobalSignalCandidate): boolean {
   return signal.confidence >= 65 && tfs >= 2;
 }
 
-/** Every open runs full per-pair chart gates — scan never replaces live analysis. */
+/** Strong scan picks already passed MTF — skip redundant live re-checks at open. */
 function shouldRelaxSecondaryGates(
-  _pick: GlobalSignalCandidate,
-  _coin: string,
+  pick: GlobalSignalCandidate,
+  coin: string,
   _direction: 'LONG' | 'SHORT'
 ): boolean {
-  return false;
+  if (MAJOR_COINS.has(coin.toUpperCase())) return true;
+  if (isStrongGlobalScanPick(pick)) return true;
+  if (/top-pairs fallback|relaxed scan/i.test(pick.reason)) return true;
+  const tfs = pick.directionalTfCount ?? 0;
+  return pick.confidence >= 65 && tfs >= 2;
 }
 
 /** Global scan already proved multi-TF alignment — skip redundant live re-checks. */
@@ -457,7 +461,8 @@ export class HyperliquidTradingService {
       }
 
       const rank = volumeRankForCoin(liquidUniverse, signal.coin);
-      if (rank > config.hyperliquid.scalpOpen.maxVolumeRank) {
+      const maxRank = config.hyperliquid.scalpOpen.maxVolumeRank;
+      if (maxRank > 0 && rank > maxRank) {
         logger.debug('HL signal skip: outside top liquid universe', {
           coin: signal.coin,
           volumeRank: rank,
@@ -819,7 +824,7 @@ export class HyperliquidTradingService {
       const candleAnalytics = relaxSecondaryGates
           ? {
               ok: true as const,
-              reason: `Scan pick — 20-candle check skipped (${opts.pick.confidence}%)`,
+              reason: `Scan pick — pre-open candle check skipped (${opts.pick.confidence}%)`,
               summary: `scan ${opts.pick.confidence}%`,
               netMovePct: 0,
               greenCount: 0,
@@ -834,6 +839,7 @@ export class HyperliquidTradingService {
           : await validatePreOpenCandleAnalytics({
               coin,
               direction: opts.direction,
+              timeframe: opts.pick.botMode === 'aggressive' ? '1m' : '5m',
             });
       if (!candleAnalytics.ok) {
         logger.info('HL open blocked — 20-candle analytics', {
@@ -846,10 +852,14 @@ export class HyperliquidTradingService {
         return { success: false, error: candleAnalytics.reason };
       }
 
-      const scalpGate = relaxSecondaryGates
+      const isAggressive = opts.pick.botMode === 'aggressive';
+      const scalpGate =
+        relaxSecondaryGates || !isAggressive
           ? {
               ok: true as const,
-              reason: `Scan pick — scalp confirm skipped (${opts.pick.confidence}%, ${opts.pick.directionalTfCount} TFs)`,
+              reason: isAggressive
+                ? `Scan pick — scalp confirm skipped (${opts.pick.confidence}%, ${opts.pick.directionalTfCount} TFs)`
+                : 'Standard mode — 1m scalp confirm not required',
             }
           : await validateScalpAlignment({ coin, direction: opts.direction });
       if (!scalpGate.ok) {

@@ -5,14 +5,12 @@ import LandingNav from '../components/landing/LandingNav';
 import LandingFooter from '../components/landing/LandingFooter';
 import CookieConsent from '../components/ui/CookieConsent';
 import BotVideoHero from '../components/landing/BotVideoHero';
-import BotPageBento from '../components/landing/BotPageBento';
+import BotEstimateSection from '../components/landing/BotEstimateSection';
+import BotSetupStepsSection from '../components/landing/BotSetupStepsSection';
 import BotBenefitsList from '../components/landing/BotBenefitsList';
-import BotSetupSteps from '../components/landing/BotSetupSteps';
 import BotPipelineSection from '../components/landing/BotPipelineSection';
-import BotDetailsSection from '../components/landing/BotDetailsSection';
-import MarketingFaqAccordion from '../components/marketing/MarketingFaqAccordion';
+import BotFaqSection from '../components/landing/BotFaqSection';
 import MarketingSeo from '../components/seo/MarketingSeo';
-import { MarketingDisclaimer, MarketingSectionHeading } from '../components/marketing/MarketingInnerPage';
 import { TRADING_BOT_FAQS } from '../lib/seo/tradingBotContent';
 import { goToOpenApp } from '../lib/appUrls';
 
@@ -27,47 +25,36 @@ const BotTradingPage: React.FC = () => {
       <LandingNav variant="light" layout="gmx" />
 
       <BotVideoHero />
-      <BotPageBento />
+      <BotEstimateSection />
+      <BotSetupStepsSection />
+      <BotBenefitsList />
+      <BotPipelineSection />
+      <BotFaqSection />
 
-      <main className="landing-gmx-page-main landing-gmx-page-main--inner landing-gmx-gutter">
-        <div className="landing-gmx-shell">
-          <div className="mkt-page">
-            <BotBenefitsList />
-            <BotSetupSteps />
-            <BotDetailsSection />
-            <BotPipelineSection />
-
-            <MarketingSectionHeading
-              title="Trading bot FAQ"
-              sub="Setup, fees, non-custodial funds, and 24/7 automation on Hyperliquid."
-            />
-
-            <MarketingFaqAccordion items={TRADING_BOT_FAQS} idPrefix="trading-bot-faq" />
-
-            <div className="mkt-cta-row">
-              <button
-                type="button"
-                className="mkt-cta-primary"
-                onClick={() => goToOpenApp('?section=bot', false)}
-              >
-                Start the trading bot
-                <ArrowRight size={16} strokeWidth={2.5} />
-              </button>
-              <Link to="/pricing" className="mkt-cta-secondary">
-                View pricing
-              </Link>
-              <Link to="/how-it-works" className="mkt-cta-secondary">
-                How it works
-              </Link>
-            </div>
-
-            <MarketingDisclaimer>
-              This is not financial advice. Crypto and leveraged trading carry substantial risk of loss.
-              Passive income automation does not guarantee profits.
-            </MarketingDisclaimer>
+      <section className="landing-gmx-gutter landing-bot-page-cta-section">
+        <div className="landing-gmx-shell landing-bot-page-cta-shell">
+          <div className="landing-bot-page-cta-row">
+            <button
+              type="button"
+              className="landing-bot-page-cta-primary"
+              onClick={() => goToOpenApp('?section=bot', false)}
+            >
+              Start the trading bot
+              <ArrowRight size={16} strokeWidth={2.5} aria-hidden />
+            </button>
+            <Link to="/pricing" className="landing-bot-page-cta-secondary">
+              View pricing
+            </Link>
+            <Link to="/how-it-works" className="landing-bot-page-cta-secondary">
+              How it works
+            </Link>
           </div>
+          <p className="landing-bot-page-disclaimer">
+            This is not financial advice. Crypto and leveraged trading carry substantial risk of loss.
+            Passive income automation does not guarantee profits.
+          </p>
         </div>
-      </main>
+      </section>
 
       <LandingFooter />
       <CookieConsent />

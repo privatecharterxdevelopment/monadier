@@ -1,5 +1,6 @@
 import { logger } from '../utils/logger';
 import { config } from '../config';
+import { STANDARD_MTF_TIMEFRAMES } from '../lib/mtfTimeframes';
 import { parseUnits } from 'viem';
 
 // Trade signal interface for market analysis
@@ -1159,7 +1160,7 @@ export async function analyzeMarketMTFBySymbol(
   strategy: TradingStrategy = 'normal'
 ): Promise<MarketAnalysis | null> {
   try {
-    const timeframes: Timeframe[] = ['1m', '5m', '15m', '1h'];
+    const timeframes: Timeframe[] = [...STANDARD_MTF_TIMEFRAMES];
     const rawSignal = await signalEngine.generateSignal(symbol, timeframes);
     const boosted = applyAggressiveTfBoost(rawSignal, strategy);
     const signal = { ...rawSignal, direction: boosted.direction, confidence: boosted.confidence };
@@ -1213,9 +1214,10 @@ export async function analyzeMarketMTFBySymbol(
 
     let finalDirection: 'LONG' | 'SHORT' = signal.direction as 'LONG' | 'SHORT';
     if (signal.direction === 'HOLD') {
-      const higherTFs = signal.timeframes.filter((tf) => tf.timeframe !== '1m');
+      const higherTFs = signal.timeframes;
       const longVotes = higherTFs.filter((tf) => tf.direction === 'LONG').length;
       const shortVotes = higherTFs.filter((tf) => tf.direction === 'SHORT').length;
+      const minVotes = Math.max(2, config.hyperliquid.minDirectionalTfs);
       const isBullishTrend = trend === 'UP' || trend.includes('UPTREND');
       const isBearishTrend = trend === 'DOWN' || trend.includes('DOWNTREND');
 
@@ -1223,9 +1225,9 @@ export async function analyzeMarketMTFBySymbol(
         finalDirection = 'LONG';
       } else if (isBearishTrend && shortVotes > longVotes) {
         finalDirection = 'SHORT';
-      } else if (longVotes >= 3 && longVotes > shortVotes) {
+      } else if (longVotes >= minVotes && longVotes > shortVotes) {
         finalDirection = 'LONG';
-      } else if (shortVotes >= 3 && shortVotes > longVotes) {
+      } else if (shortVotes >= minVotes && shortVotes > longVotes) {
         finalDirection = 'SHORT';
       } else {
         logger.debug('MTF neutral — no clear per-chart direction', {
@@ -1696,7 +1698,10 @@ export class MarketService {
   /**
    * Get raw unified signal from SignalEngine (for API/frontend)
    */
-  async getUnifiedSignal(symbol: string, timeframes: Timeframe[] = ['1m', '5m', '15m', '1h']): Promise<UnifiedSignal> {
+  async getUnifiedSignal(
+    symbol: string,
+    timeframes: Timeframe[] = [...STANDARD_MTF_TIMEFRAMES]
+  ): Promise<UnifiedSignal> {
     return signalEngine.generateSignal(symbol, timeframes);
   }
 }

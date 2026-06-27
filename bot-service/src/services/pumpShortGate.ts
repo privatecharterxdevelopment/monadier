@@ -6,6 +6,7 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
+import { STANDARD_MTF_TIMEFRAMES } from '../lib/mtfTimeframes';
 
 export type PumpShortResult = {
   ok: boolean;
@@ -55,7 +56,7 @@ export async function validateNoAltPumpShort(opts: {
 
   try {
     const [signal, c5m, c15m, c1h] = await Promise.all([
-      signalEngine.generateSignal(symbol, ['1m', '5m', '15m', '1h']),
+      signalEngine.generateSignal(symbol, [...STANDARD_MTF_TIMEFRAMES]),
       signalEngine.fetchCandles(symbol, '5m', 24),
       signalEngine.fetchCandles(symbol, '15m', 16),
       signalEngine.fetchCandles(symbol, '1h', 8),
