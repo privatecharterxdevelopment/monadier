@@ -5,7 +5,6 @@ export const LANDING_NAV_LINKS = [
   { to: '/sports-betting', labelKey: 'nav.betting' },
   { to: '/technology', labelKey: 'nav.technology' },
   { to: '/pricing', labelKey: 'nav.pricing' },
-  { to: '/about', labelKey: 'nav.about' },
 ] as const;
 
 export const LANDING_FOOTER_LINKS = [

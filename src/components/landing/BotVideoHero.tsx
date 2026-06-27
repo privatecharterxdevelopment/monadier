@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
 import LandingHeroLines from './LandingHeroLines';
-import { goToOpenApp } from '../../lib/appUrls';
+import { goToOpenApp, getAppQueryLink } from '../../lib/appUrls';
 
 const BOT_ROTATE_LINES = [
   '200+ markets',
@@ -48,7 +48,7 @@ const BotVideoHero: React.FC = () => (
                 perpetual 24/7 — non-custodial, server-side automation.
               </p>
               <a
-                href="/?section=bot"
+                href={getAppQueryLink('section=bot')}
                 className="landing-gmx-btn-primary landing-betting-hero-cta"
                 onClick={(e) => {
                   e.preventDefault();

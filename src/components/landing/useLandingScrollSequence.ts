@@ -89,11 +89,8 @@ export function useLandingScrollSequence(options: Options) {
       unlockedRef.current = true;
       engagedRef.current = false;
       unlockPageScroll({ scrollY: exitY }, lockId);
-
-      requestAnimationFrame(() => {
-        setLocked(false);
-        setUnlocked(true);
-      });
+      setLocked(false);
+      setUnlocked(true);
     },
     [lockId]
   );

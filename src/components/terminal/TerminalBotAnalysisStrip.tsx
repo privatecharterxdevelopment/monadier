@@ -71,35 +71,38 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
   });
 
   const activeCandidate = botRunning ? (analysis.scanCandidate ?? analysis.globalBest) : null;
-  const hasBestCandidate = Boolean(activeCandidate?.coin);
-  const scanHeadline = hasBestCandidate
-    ? analysis.readiness.headline
-    : botRunning
-      ? `Checking ${analysis.currentlyScanningCoin}`
-      : 'Bot off';
+  const scanHeadline = botRunning ? 'Scanning markets' : 'Bot off';
 
   const readiness = useMemo(() => {
     if (idleReadiness) return idleReadiness;
     if (slotsFull) {
       return {
-        ...analysis.readiness,
-        headline: 'Slots full',
-        detail: `${openPositionsCount}/${maxSlots} positions open — monitoring exits`,
+        canEnter: false,
+        headline: 'Managing trades',
+        detail: '',
       };
     }
-    return { ...analysis.readiness, headline: scanHeadline };
+    if (botRunning) {
+      return {
+        ...analysis.readiness,
+        headline: scanHeadline,
+        detail: '',
+      };
+    }
+    return analysis.readiness;
   }, [
     idleReadiness,
     slotsFull,
     analysis.readiness,
-    openPositionsCount,
-    maxSlots,
+    botRunning,
     scanHeadline,
   ]);
 
   const keepScanning = botRunning && !slotsFull;
+  const hasBestCandidate = Boolean(activeCandidate?.coin);
 
   if (placement === 'chart' && !showLiveAnalysis) return null;
+  if (placement === 'chart' && botRunning) return null;
 
   return (
     <TerminalChartAnalysisOverlay

@@ -86,6 +86,8 @@ export function computeDynamicTrailStopPx(opts: {
   coin: string;
   notionalUsd: number;
   collateralUsd: number;
+  holdMs?: number;
+  timeInProfitMs?: number;
 }): { stopPx: number | null; armed: boolean; breached: boolean } {
   const side = opts.szi >= 0 ? ('long' as const) : ('short' as const);
   const absSize = Math.abs(opts.szi);
@@ -93,7 +95,8 @@ export function computeDynamicTrailStopPx(opts: {
   const armed = shouldArmDynamicTrail(
     opts.unrealizedPnlUsd,
     opts.collateralUsd,
-    opts.notionalUsd
+    opts.notionalUsd,
+    { holdMs: opts.holdMs, timeInProfitMs: opts.timeInProfitMs }
   );
   if (!armed) {
     return { stopPx: null, armed: false, breached: false };
@@ -180,6 +183,8 @@ export function trailStopForOpenPosition(opts: {
   unrealizedPnlUsd: number;
   leverage: number;
   coin: string;
+  /** Ms since position first seen in UI — approximates min-hold before BE lock. */
+  holdMs?: number;
 }): { stopPx: number | null; armed: boolean; label: string } {
   const absSize = Math.abs(opts.szi);
   if (opts.entryPx <= 0 || absSize <= 0 || opts.markPx <= 0) {
@@ -187,6 +192,7 @@ export function trailStopForOpenPosition(opts: {
   }
   const notional = absSize * opts.markPx;
   const collateral = notional / Math.max(1, opts.leverage);
+  const holdMs = opts.holdMs ?? 0;
   const trail = computeDynamicTrailStopPx({
     entryPx: opts.entryPx,
     szi: opts.szi,
@@ -195,8 +201,18 @@ export function trailStopForOpenPosition(opts: {
     coin: opts.coin,
     notionalUsd: notional,
     collateralUsd: collateral,
+    holdMs,
+    timeInProfitMs: opts.unrealizedPnlUsd > 0 ? holdMs : 0,
   });
   if (!trail.armed || trail.stopPx == null) {
+    const armingMin = Math.ceil(HL_DYNAMIC_TRAIL.armMinProfitHoldMs / 60_000);
+    if (opts.unrealizedPnlUsd > 0 && holdMs < HL_DYNAMIC_TRAIL.armMinProfitHoldMs) {
+      return {
+        stopPx: null,
+        armed: false,
+        label: `Arming (~${armingMin}m)`,
+      };
+    }
     return {
       stopPx: null,
       armed: false,

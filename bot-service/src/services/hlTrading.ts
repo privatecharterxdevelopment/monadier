@@ -93,6 +93,16 @@ let fastPositionMonitorRunning = false;
 function mayAutoCloseInRed(reason: string, holdMs = 0): boolean {
   const cfg = config.hyperliquid;
   if (reason === 'emergency_close') return true;
+  // Breakeven / trail exits — always honor once armed (even scratch red beats holding a loser).
+  if (
+    reason === 'profit_lock' ||
+    reason === 'breakeven_scratch' ||
+    reason === 'trailing_stop' ||
+    reason === 'profit_grab_peak' ||
+    reason === 'profit_grab_timeout'
+  ) {
+    return true;
+  }
   if (reason === 'stop_loss' && cfg.lossProtection.enforceHardCap) return true;
   const maxSlMs = cfg.dynamicTrail.maxHoldBeforeSlTrailMs;
   if (

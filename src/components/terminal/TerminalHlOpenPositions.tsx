@@ -3,9 +3,7 @@ import type { HlPosition } from '../../lib/hyperliquid/user';
 import { fmtTradeUsdSymbol } from '../../lib/hyperliquid/format';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
-import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
 import { trailStopForOpenPosition } from '../../lib/hlTrailingStopChart';
-import TradeReasonHint from './TradeReasonHint';
 
 type Props = {
   positions: HlPosition[];
@@ -44,11 +42,6 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
 }) => {
   const coins = positions.map((p) => p.coin);
   const { prices: markPrices } = useHyperliquidMarkPrices(coins);
-  const { openByCoin } = useHlTradeReasonMarkers(
-    walletAddress ?? undefined,
-    coins,
-    reasonRefreshKey
-  );
 
   if (loading && positions.length === 0) {
     return <p className="term-hl-open-empty">Loading Hyperliquid positions…</p>;
@@ -68,7 +61,6 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
             <th>Lev</th>
             <th>uPnL</th>
             <th>Trail SL</th>
-            <th className="term-hl-open-reason-col">Why</th>
             <th className="term-hl-open-actions-col">Close</th>
           </tr>
         </thead>
@@ -82,7 +74,6 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
             const mark = markPrices[p.coin] ?? 0;
             const lev = resolveDisplayLeverage(configuredLeverage, p.leverage?.value);
             const isClosing = closingCoin === p.coin;
-            const openReason = openByCoin.get(p.coin.toUpperCase())?.reason;
             const trail = trailStopForOpenPosition({
               entryPx: entry,
               szi,
@@ -131,9 +122,6 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
                   }
                 >
                   {trail.label}
-                </td>
-                <td className="term-hl-open-reason-col">
-                  <TradeReasonHint reason={openReason} kind="open" />
                 </td>
                 <td className="term-dock-actions term-hl-open-actions-col">
                   <button

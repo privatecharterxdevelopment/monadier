@@ -103,6 +103,12 @@ export function isMarketingPath(pathname: string): boolean {
   return MARKETING_PREFIX_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
 }
 
+/** In-app deep link — works on app subdomain (`/`) and same-origin dev (`/app`). */
+export function getAppQueryLink(search: string): string {
+  const q = search.startsWith('?') ? search : `?${search}`;
+  return `${getOpenAppPath()}${q}`;
+}
+
 /** Navigate to Pro Trade (hard navigation — reliable from marketing CTAs). */
 export function goToOpenApp(search = '', replace = false): void {
   if (shouldCrossNavigateToApp() && APP_BASE) {

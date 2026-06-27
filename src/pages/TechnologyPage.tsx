@@ -19,7 +19,6 @@ import MarketingInnerPage, {
   MarketingDisclaimer,
 } from '../components/marketing/MarketingInnerPage';
 import MarketingBotPromo from '../components/marketing/MarketingBotPromo';
-import BotArchitectureSection from '../components/marketing/BotArchitectureSection';
 import {
   MktBotAiVisual,
   MktMtfStackVisual,
@@ -143,8 +142,6 @@ const TechnologyPage: React.FC = () => {
           />
         ))}
       </MarketingPageGrid>
-
-      <BotArchitectureSection />
 
       <MarketingSectionHeading title="Key parameters" />
 

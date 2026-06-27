@@ -55,9 +55,16 @@ export function estimateRoundTripFeesUsd(notionalUsd: number): number {
 export function shouldArmDynamicTrail(
   pnlUsd: number,
   collateralUsd: number,
-  notionalUsd: number
+  notionalUsd: number,
+  opts?: { holdMs?: number; timeInProfitMs?: number }
 ): boolean {
   if (pnlUsd <= 0 || collateralUsd <= 0) return false;
+  const holdMs = opts?.holdMs ?? 0;
+  const timeInProfitMs = opts?.timeInProfitMs ?? (pnlUsd > 0 ? holdMs : 0);
+  const holdOk =
+    timeInProfitMs >= HL_DYNAMIC_TRAIL.armMinProfitHoldMs ||
+    holdMs >= HL_DYNAMIC_TRAIL.maxHoldBeforeSlTrailMs;
+  if (!holdOk) return false;
   const fees = estimateRoundTripFeesUsd(notionalUsd);
   const roe = (pnlUsd / collateralUsd) * 100;
   return roe >= HL_DYNAMIC_TRAIL.breakevenArmRoePct || pnlUsd >= fees * HL_DYNAMIC_TRAIL.armFeesMultiplier;

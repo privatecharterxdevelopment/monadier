@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { goToOpenApp } from '../../lib/appUrls';
+import { goToOpenApp, getAppQueryLink } from '../../lib/appUrls';
 import {
   fetchLandingPredictionStats,
   fetchLandingSportsEvents,
@@ -155,7 +155,7 @@ const LandingProductCards: React.FC = () => {
             }
             description={sportsDesc}
             cta="Open market"
-            href="/?section=sportsbets"
+            href={getAppQueryLink('section=sportsbets')}
             onClick={() => goToOpenApp('?section=sportsbets', false)}
             delay={0.12}
           />
@@ -172,7 +172,7 @@ const LandingProductCards: React.FC = () => {
             }
             description={predictionsDesc}
             cta="Open market"
-            href="/?section=sportsbets"
+            href={getAppQueryLink('section=sportsbets')}
             onClick={() => goToOpenApp('?section=sportsbets', false)}
             delay={0.16}
           />

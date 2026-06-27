@@ -68,18 +68,9 @@ export function parseTradeReasonSections(raw: string | null | undefined): TradeR
   });
 }
 
-/** Open reason from bot marker — structured sections separated by ‖. */
-export function formatHlBotOpenReason(raw: string | null | undefined): string | null {
-  const text = raw?.trim();
-  if (!text) return null;
-  if (text.includes(' ‖ ')) {
-    return text
-      .split(' ‖ ')
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .join('\n');
-  }
-  return text;
+/** Open reason audit — internal only; not shown in user UI. */
+export function formatHlBotOpenReason(_raw: string | null | undefined): string | null {
+  return null;
 }
 
 export function isBotScanNoiseDetail(detail: string): boolean {

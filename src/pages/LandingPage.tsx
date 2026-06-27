@@ -10,7 +10,15 @@ const LandingPage: React.FC = () => {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (isAuthenticated && params.get('preview') !== 'landing') {
+    if (params.get('preview') === 'landing') return;
+
+    const hasAppDeepLink = params.has('section') || params.has('tab');
+    if (hasAppDeepLink) {
+      goToOpenApp(window.location.search, true);
+      return;
+    }
+
+    if (isAuthenticated) {
       goToOpenApp('', true);
     }
   }, [isAuthenticated]);

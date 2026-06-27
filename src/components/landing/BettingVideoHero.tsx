@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
 import LandingHeroLines from './LandingHeroLines';
-import { goToOpenApp } from '../../lib/appUrls';
+import { goToOpenApp, getAppQueryLink } from '../../lib/appUrls';
 
 const BETTING_ROTATE_LINES = [
   'bet on World Cup',
@@ -52,7 +52,7 @@ const BettingVideoHero: React.FC = () => (
                 transparent on-chain settlement.
               </p>
               <a
-                href="/?section=sportsbets"
+                href={getAppQueryLink('section=sportsbets')}
                 className="landing-gmx-btn-primary landing-betting-hero-cta"
                 onClick={(e) => {
                   e.preventDefault();

@@ -13,7 +13,7 @@ export type HlBotSidebarStatus = {
 
 function simplifyBlocker(raw: string): string {
   if (isInternalPlatformOpsMessage(raw)) return '';
-  if (/Pre-trade gate|Macro beta|HL order failed|Volume 0\.00x|volume\/liquidity|ETH-beta|BTC-beta| ‖ /.test(raw)) {
+  if (/no trade signal|MTF|bot conf|Pre-trade gate|Macro beta|Volume 0\.00x|ETH-beta|BTC-beta| ‖ /.test(raw)) {
     return '';
   }
   if (/HL agent not approved/i.test(raw)) {
@@ -32,7 +32,7 @@ function simplifyBlocker(raw: string): string {
     return 'Checking your Hyperliquid balance — retrying…';
   }
   if (/no trade signal|MTF|bot conf/i.test(raw)) {
-    return 'No strong trade setup right now — bot keeps scanning';
+    return '';
   }
   if (/HL max positions/i.test(raw)) {
     return 'All bot slots in use — managing open trades';

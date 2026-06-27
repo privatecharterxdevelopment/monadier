@@ -459,7 +459,7 @@ export async function evaluateDynamicTrail(
   }
 
   // Phase 2 — breakeven only: fixed stop, no tight trail until ~5% ROE.
-  if (rec.phase === 'armed' && rec.currentTrailStop != null) {
+  if (rec.phase === 'armed' && rec.currentTrailStop != null && !rec.lossSlArmed) {
     const beStop = breakevenPlusFeesStopPx(
       input.direction,
       input.entryPrice,
@@ -477,40 +477,17 @@ export async function evaluateDynamicTrail(
         pnlUsd: input.pnlUsd.toFixed(4),
         peakPnlUsd: rec.highestPnlSinceEntry.toFixed(4),
       });
-    } else if (
-      input.pnlUsd > 0 &&
-      isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop)
-    ) {
-      const peakRoe = roePct(rec.highestPnlSinceEntry, input.collateralUsd);
-      const minPeakUsd = Math.max(
-        feesUsd * 12,
-        input.collateralUsd * (cfg.breakevenArmRoePct / 100) * 1.1
-      );
-      // Don't scratch tiny winners on breakeven noise — let trends develop to full trail.
-      if (rec.highestPnlSinceEntry < minPeakUsd && peakRoe < cfg.armMinRoePct) {
-        logger.info('HL breakeven lock skipped — winner too small to lock', {
-          coin: input.coin,
-          direction: input.direction,
-          pnlUsd: input.pnlUsd.toFixed(4),
-          peakUsd: rec.highestPnlSinceEntry.toFixed(4),
-          minPeakUsd: minPeakUsd.toFixed(4),
-          peakRoe: peakRoe.toFixed(2),
-        });
-        rec.phase = 'idle';
-        rec.trailArmedAt = null;
-        rec.currentTrailStop = null;
-        return {
-          record: rec,
-          shouldClose: false,
-          exitReason: '',
-          closeDetail: '',
-        };
-      }
-      const detail = `BREAKEVEN LOCK · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
+    } else if (isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop)) {
+      const wasGreen = rec.highestPnlSinceEntry > 0;
+      const exitReason = input.pnlUsd > 0 ? 'profit_lock' : wasGreen ? 'breakeven_scratch' : 'stop_loss';
+      const detail =
+        exitReason === 'breakeven_scratch'
+          ? `BREAKEVEN SCRATCH · ${input.direction} ${input.coin} · lock crossed after peak $${rec.highestPnlSinceEntry.toFixed(4)} · ${formatAnalytics(rec, input.markPrice)}`
+          : `BREAKEVEN LOCK · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
       return {
         record: rec,
         shouldClose: true,
-        exitReason: 'profit_lock',
+        exitReason,
         closeDetail: detail,
       };
     } else {

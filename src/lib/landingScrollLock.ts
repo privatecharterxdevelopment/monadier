@@ -37,12 +37,24 @@ export function unlockPageScroll(snapshot: ScrollLockSnapshot, owner?: string) {
 
   const scrollY = Math.max(0, Math.round(snapshot.scrollY));
   scrollLockOwner = null;
+
+  // While body is still fixed, prime the document scroll position so the first
+  // paint after unlock is already at the target — prevents a one-frame flash to Y=0.
+  const html = document.documentElement;
+  const prevScrollBehavior = html.style.scrollBehavior;
+  html.style.scrollBehavior = 'auto';
+  html.scrollTop = scrollY;
+  if (document.body.scrollTop !== scrollY) {
+    document.body.scrollTop = scrollY;
+  }
+
   document.body.style.overflow = '';
   document.body.style.position = '';
   document.body.style.top = '';
   document.body.style.width = '';
 
   window.scrollTo(0, scrollY);
+  html.style.scrollBehavior = prevScrollBehavior;
 
   requestAnimationFrame(() => {
     window.scrollTo(0, scrollY);
@@ -83,18 +95,21 @@ export function resolveSectionReleaseScrollY(
   const momentum =
     continueDelta > 0 ? Math.min(Math.abs(continueDelta) * 0.35, 72) : 32;
 
-  if (section) {
+  if (section && isBodyScrollLocked()) {
     const rect = section.getBoundingClientRect();
     const currentY = readScrollY();
     const sectionTopY = Math.round(currentY + rect.top);
     const sectionBottomY = Math.round(currentY + rect.bottom);
     const storedEnd = snapshot.sectionEndY ?? sectionBottomY;
     const exitY = Math.max(storedEnd, sectionBottomY) + momentum;
-    // Never release above the section we just animated — prevents hero jump on bad snapshots
     return Math.max(exitY, sectionTopY + 48, lockedScrollY + momentum);
   }
 
-  const fallbackEnd = snapshot.sectionEndY ?? lockedScrollY;
+  if (snapshot.sectionEndY != null) {
+    return Math.max(snapshot.sectionEndY + momentum, lockedScrollY + momentum);
+  }
+
+  const fallbackEnd = lockedScrollY;
   return Math.max(fallbackEnd + momentum, lockedScrollY + momentum);
 }
 

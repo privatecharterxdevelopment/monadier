@@ -208,6 +208,9 @@ const GmxStyleLanding: React.FC = () => {
   };
 
   useEffect(() => {
+    const prevScrollRestoration = history.scrollRestoration;
+    history.scrollRestoration = 'manual';
+
     window.scrollTo(0, 0);
     expandRef.current = 0;
     targetExpandRef.current = 0;
@@ -281,6 +284,7 @@ const GmxStyleLanding: React.FC = () => {
     window.addEventListener('keydown', onKeyDown);
 
     return () => {
+      history.scrollRestoration = prevScrollRestoration;
       if (smoothRafRef.current != null) cancelAnimationFrame(smoothRafRef.current);
       unregisterLandingWheelConsumer('hero');
       if (!unlockedRef.current) {

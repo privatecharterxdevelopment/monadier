@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ExternalLink, Loader2, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type {
@@ -32,7 +32,7 @@ import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
 import { trailStopForOpenPosition } from '../../lib/hlTrailingStopChart';
 import TradeReasonHint from '../terminal/TradeReasonHint';
 import DockCountBadge from './DockCountBadge';
-import ProTradeBotScanInsights from './ProTradeBotScanInsights';
+import { getAppQueryLink } from '../../lib/appUrls';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
 import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
 
@@ -134,6 +134,7 @@ const ProTradeDock: React.FC<Props> = ({
 }) => {
   const isSpot = variant === 'spot';
   const isBotMode = mode === 'bot';
+  const positionOpenSinceRef = useRef<Map<string, number>>(new Map());
   const dockWallet = walletAddress?.toLowerCase();
   const { snapshot: hlSnap } = useHlAccountSnapshot(dockWallet);
   const unifiedAccount = hlSnap?.unifiedAccount ?? false;
@@ -170,6 +171,16 @@ const ProTradeDock: React.FC<Props> = ({
     () => (account?.positions ?? []).map((p) => p.coin),
     [account?.positions]
   );
+  useEffect(() => {
+    const now = Date.now();
+    const seen = positionOpenSinceRef.current;
+    for (const coin of positionCoins) {
+      if (!seen.has(coin)) seen.set(coin, now);
+    }
+    for (const coin of [...seen.keys()]) {
+      if (!positionCoins.includes(coin)) seen.delete(coin);
+    }
+  }, [positionCoins]);
   const historyCoins = useMemo(() => {
     const set = new Set<string>(positionCoins);
     for (const f of fills) {
@@ -177,7 +188,7 @@ const ProTradeDock: React.FC<Props> = ({
     }
     return [...set];
   }, [positionCoins, fills]);
-  const { openByCoin, closeReasonForFill } = useHlTradeReasonMarkers(
+  const { closeReasonForFill } = useHlTradeReasonMarkers(
     isBotMode ? (walletAddress ?? undefined) : undefined,
     historyCoins,
     reasonRefreshKey
@@ -267,7 +278,7 @@ const ProTradeDock: React.FC<Props> = ({
         <div className="hl-dock-tools">
           {isBotMode && tab === 'tradeHistory' && !historyOnly ? (
             <Link
-              to="/?section=profile&tab=botTrades"
+              to={getAppQueryLink('section=profile&tab=botTrades')}
               className="hl-dock-full-history-link"
             >
               See complete history →
@@ -384,7 +395,6 @@ const ProTradeDock: React.FC<Props> = ({
                   <th>PnL</th>
                   <th>Lev</th>
                   {isBotMode ? <th>Trail SL</th> : null}
-                  {isBotMode ? <th className="term-hl-open-reason-col">Why</th> : null}
                   <th />
                 </tr>
               </thead>
@@ -401,6 +411,7 @@ const ProTradeDock: React.FC<Props> = ({
                     unrealizedPnlUsd: upnl,
                     leverage: lev,
                     coin: p.coin,
+                    holdMs: Date.now() - (positionOpenSinceRef.current.get(p.coin) ?? Date.now()),
                   });
                   return (
                     <tr key={p.coin}>
@@ -429,14 +440,6 @@ const ProTradeDock: React.FC<Props> = ({
                           {trail.label}
                         </td>
                       ) : null}
-                      {isBotMode ? (
-                        <td className="term-hl-open-reason-col">
-                          <TradeReasonHint
-                            reason={openByCoin.get(p.coin.toUpperCase())?.reason}
-                            kind="open"
-                          />
-                        </td>
-                      ) : null}
                       <td>
                         <button
                           type="button"
@@ -458,19 +461,7 @@ const ProTradeDock: React.FC<Props> = ({
                 <Loader2 size={14} className="hl-dock-bot-scan-loader animate-spin" aria-hidden />
                 <span className="hl-dock-bot-scan-title">Bot is reading market…</span>
               </div>
-              <p className="hl-dock-bot-scan-sub">
-                Waiting for a strong trade setup on Hyperliquid.
-              </p>
-              {botScanMetrics ? (
-                <ProTradeBotScanInsights
-                  walletConnected={connected}
-                  metrics={botScanMetrics}
-                  vaultWallet={botScanWallet}
-                  symbol={botScanSymbol}
-                  openPositionCoins={botOpenPositionCoins}
-                  botRunning={botRunning}
-                />
-              ) : null}
+              <p className="hl-dock-bot-scan-sub">Scanning markets.</p>
             </div>
           ) : (
             <p className="hl-dock-empty">No open positions.</p>
