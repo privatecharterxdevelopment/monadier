@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Loader2, Save, Wallet } from 'lucide-react';
-import { useAppKit } from '@reown/appkit/react';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useHlLeverageCap } from '../../hooks/useHlLeverageCap';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
 import TerminalBotSettingsFields from './TerminalBotSettingsFields';
@@ -31,7 +31,7 @@ const TerminalLvrgPanel: React.FC<Props> = ({
   onBlockedSave,
   onSaved,
 }) => {
-  const { open } = useAppKit();
+  const { open } = useMonadierAppKit();
   const { publicClient, walletClient } = useWeb3();
   const { isDemoUser } = useAuth();
   const { planTier } = useSubscription();

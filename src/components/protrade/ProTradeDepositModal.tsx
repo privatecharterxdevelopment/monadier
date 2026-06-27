@@ -2,9 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Loader2, RefreshCw, X } from 'lucide-react';
 import { formatUnits } from 'viem';
-import { useAppKit } from '@reown/appkit/react';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
-import { openMonadierWalletModal } from '../../lib/openWalletModal';
 import { useChainId, useSwitchChain } from 'wagmi';
 import { useWeb3 } from '../../contexts/Web3Context';
 import HlArbitrumUsdcCallout from './HlArbitrumUsdcCallout';
@@ -45,7 +44,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
   initialTab = 'deposit',
   onTransfer,
 }) => {
-  const { open } = useAppKit();
+  const { open } = useMonadierAppKit();
   const { address, isConnected } = useMonadierWallet();
   const { publicClient, walletClient } = useWeb3();
   const chainId = useChainId();
@@ -272,7 +271,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
 
   const handleDeposit = async () => {
     if (!isConnected || !address) {
-      openMonadierWalletModal(() => open());
+      open();
       return;
     }
     if (!onArbitrum) {
@@ -343,7 +342,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
 
   const handleWithdraw = async () => {
     if (!address) {
-      openMonadierWalletModal(() => open());
+      open();
       return;
     }
     if (!amount.trim() || parseFloat(amount) <= 0) {
@@ -496,7 +495,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
                   onClick={() =>
                     void (
                       !isConnected
-                        ? openMonadierWalletModal(() => open())
+                        ? open()
                         : !onArbitrum
                           ? handleSwitchNetwork()
                           : handleDeposit()

@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../../contexts/AuthContext';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
-import { useAppKit } from '@reown/appkit/react';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { supabase } from '../../lib/supabase';
 import { VaultBalanceCard, WithdrawPromptBanner } from '../../components/vault';
 import OnboardingBanner from '../../components/onboarding/OnboardingBanner';
@@ -60,7 +60,7 @@ const DashboardOverview: React.FC = () => {
   } = useWeb3();
   const { planTier, dailyTradesRemaining } = useSubscription();
   const { isComplete: isProfileComplete, isLoading: isOnboardingLoading } = useOnboarding();
-  const { open } = useAppKit();
+  const { open } = useMonadierAppKit();
   const { metrics, refresh } = useTradingDashboardMetrics();
 
   const [activeTab, setActiveTab] = useState<OverviewTab>('summary');

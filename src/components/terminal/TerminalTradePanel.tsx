@@ -13,7 +13,7 @@ import {
   ShieldCheck,
   Info,
 } from 'lucide-react';
-import { useAppKit } from '@reown/appkit/react';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
@@ -95,7 +95,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   onRequireSignIn,
   useGlobalFundsModal = false,
 }) => {
-  const { open } = useAppKit();
+  const { open } = useMonadierAppKit();
   const { isConnected, address, publicClient, walletClient } = useWeb3();
   const { address: monadierAddress } = useMonadierWallet();
   const { transferUsdClass } = useHyperliquidTrading();

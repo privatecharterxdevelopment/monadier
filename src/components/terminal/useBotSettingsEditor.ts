@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useAppKit } from '@reown/appkit/react';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
@@ -53,7 +53,7 @@ export function useBotSettingsEditor({
   hlSliderMax,
   onSaved,
 }: BotSettingsEditorOptions) {
-  const { open } = useAppKit();
+  const { open } = useMonadierAppKit();
   const { address, publicClient, walletClient } = useWeb3();
   const { isDemoUser } = useAuth();
   const { linkWallet, planTier } = useSubscription();

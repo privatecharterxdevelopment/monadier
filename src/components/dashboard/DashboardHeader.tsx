@@ -3,9 +3,8 @@ import { Bell, ChevronDown, Wallet, X, TrendingUp, TrendingDown, Check, User, Lo
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useNotifications } from '../../contexts/NotificationContext';
-import { useAppKit } from '@reown/appkit/react';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
-import { openMonadierWalletModal } from '../../lib/openWalletModal';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from '../../lib/supabase';
 
@@ -17,7 +16,7 @@ const DashboardHeader: React.FC = () => {
   // Get display name - prefer full_name, then email username, then fallback
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Member';
   const { notifications, unreadCount, markAsRead, markAllAsRead, clearNotifications } = useNotifications();
-  const { open } = useAppKit();
+  const { open } = useMonadierAppKit();
   const { address, isConnected } = useMonadierWallet();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -80,7 +79,7 @@ const DashboardHeader: React.FC = () => {
         <div className="flex items-center space-x-2 md:space-x-4 flex-shrink-0">
           {/* Connect Wallet Button - Compact, more compact on mobile */}
           <button
-            onClick={() => openMonadierWalletModal(() => open())}
+            onClick={() => open()}
             className={`flex items-center gap-1 md:gap-1.5 px-2 md:px-2.5 py-1.5 rounded-lg text-xs md:text-sm transition-all ${
               isConnected
                 ? 'bg-green-500/10 text-green-400 border border-green-500/30 hover:bg-green-500/20'

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Headphones, Gift, Menu, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useAppKit } from '@reown/appkit/react';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import Logo from '../ui/Logo';
@@ -17,7 +17,6 @@ import { useProTradeTheme } from '../../contexts/ProTradeThemeContext';
 import type { ProTradeProfileTab } from './proTradeProfileTypes';
 import type { ActivityNotification } from '../../lib/activityNotifications';
 import { getLandingPageUrl, goToLanding } from '../../lib/appUrls';
-import { openMonadierWalletModal } from '../../lib/openWalletModal';
 
 export type ProTradeSection =
   | 'perps'
@@ -83,7 +82,7 @@ const ProTradeTopNav: React.FC<Props> = ({
 }) => {
   const { t } = useTranslation();
   const { isLight } = useProTradeTheme();
-  const { open } = useAppKit();
+  const { open } = useMonadierAppKit();
   const { address, isConnected, isRestoring } = useMonadierWallet();
   const { usdcBalance, usdcLoading } = useArbitrumWalletUsdc(
     isConnected ? address : undefined
@@ -203,7 +202,7 @@ const ProTradeTopNav: React.FC<Props> = ({
                 ? `Arbitrum wallet · ${walletUsdcLabel} (MetaMask may also show ETH for gas)`
                 : undefined
             }
-            onClick={() => openMonadierWalletModal(() => open({ view: 'Connect' }), { connected: isConnected })}
+            onClick={() => open()}
           >
             {walletUsdcLabel ? (
               <span className="hl-topnav-wallet-usdc">{walletUsdcLabel}</span>
@@ -282,7 +281,7 @@ const ProTradeTopNav: React.FC<Props> = ({
                 type="button"
                 className="hl-mobile-nav-wallet"
                 onClick={() => {
-                  openMonadierWalletModal(() => open({ view: 'Connect' }), { connected: isConnected });
+                  open();
                   setMobileNavOpen(false);
                 }}
               >

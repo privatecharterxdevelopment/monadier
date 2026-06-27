@@ -4,8 +4,7 @@ import { Wallet, ArrowDownLeft, ArrowUpRight, Settings } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useUserLocale } from '../../hooks/useUserLocale';
-import { useAppKit } from '@reown/appkit/react';
-import { openMonadierWalletModal } from '../../lib/openWalletModal';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
@@ -48,7 +47,7 @@ const Dashboard2Page: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { profile, user, isDemoUser, isLoading: authLoading, sessionReady } = useAuth();
-  const { open } = useAppKit();
+  const { open } = useMonadierAppKit();
   const { address, isConnected } = useMonadierWallet();
   const { totalUsdValue } = useWeb3();
   const { metrics, refresh } = useDashboard2Metrics();
@@ -266,14 +265,14 @@ const Dashboard2Page: React.FC = () => {
                 Bot settings
               </button>
               {isConnected && address ? (
-                <button type="button" className="term-btn-wallet" onClick={() => openMonadierWalletModal(() => open())}>
+                <button type="button" className="term-btn-wallet" onClick={() => open()}>
                   {shortAddr(address)}
                 </button>
               ) : (
                 <button
                   type="button"
                   className="term-btn-wallet term-btn-wallet--connect"
-                  onClick={() => openMonadierWalletModal(() => open())}
+                  onClick={() => open()}
                 >
                   <Wallet size={14} />
                   Connect wallet

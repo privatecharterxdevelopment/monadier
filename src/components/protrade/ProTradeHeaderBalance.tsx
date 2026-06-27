@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
-import { useAppKit } from '@reown/appkit/react';
-import { openMonadierWalletModal } from '../../lib/openWalletModal';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBettingUi } from '../../contexts/BettingUiContext';
 import { useBettingHeaderBalance } from '../../hooks/useBettingHeaderBalance';
@@ -31,7 +30,7 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
   compact = false,
 }) => {
   const { user } = useAuth();
-  const { open } = useAppKit();
+  const { open } = useMonadierAppKit();
   const { isRestoring } = useMonadierWallet();
   const { scrollToRail, cashOutFirst, openFunds } = useBettingUi();
   const signedIn = Boolean(user);
@@ -102,7 +101,7 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
       <button
         type="button"
         className="hl-topnav-betting-balance hl-topnav-betting-balance--cta hl-topnav-betting-balance--primary"
-        onClick={() => openMonadierWalletModal(() => open())}
+        onClick={() => open()}
       >
         Connect · HL
       </button>

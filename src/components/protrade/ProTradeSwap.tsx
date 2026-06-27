@@ -1,8 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { AlertCircle, ArrowDownUp, Loader2 } from 'lucide-react';
-import { useAppKit } from '@reown/appkit/react';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
-import { openMonadierWalletModal } from '../../lib/openWalletModal';
 import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
 import type { HlSpotBalance } from '../../lib/hyperliquid/user';
 import { DEFAULT_SWAP_COIN } from '../../lib/hyperliquid/constants';
@@ -19,7 +18,7 @@ type Props = {
 };
 
 const ProTradeSwap: React.FC<Props> = ({ spotBalances, markPx, book, onSuccess }) => {
-  const { open } = useAppKit();
+  const { open } = useMonadierAppKit();
   const { isConnected } = useMonadierWallet();
   const { placeOrder, busy, error, walletReady } = useHyperliquidTrading();
   const [amount, setAmount] = useState('');
@@ -149,7 +148,7 @@ const ProTradeSwap: React.FC<Props> = ({ spotBalances, markPx, book, onSuccess }
         ) : null}
 
         {!isConnected || !walletReady ? (
-          <button type="button" className="hl-entry-submit" onClick={() => openMonadierWalletModal(() => open())}>
+          <button type="button" className="hl-entry-submit" onClick={() => open()}>
             Connect wallet
           </button>
         ) : (

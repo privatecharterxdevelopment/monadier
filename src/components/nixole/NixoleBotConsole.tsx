@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bot, Play, Square, Settings, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import { useWeb3 } from '../../contexts/Web3Context';
-import { useAppKit } from '@reown/appkit/react';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import VaultDepositModal from '../vault/VaultDepositModal';
@@ -27,7 +27,7 @@ const NixoleBotConsole: React.FC<Props> = ({
   vaultAction,
   onVaultActionHandled,
 }) => {
-  const { open } = useAppKit();
+  const { open } = useMonadierAppKit();
   const { isConnected, address } = useWeb3();
   const { isDemoUser } = useAuth();
 

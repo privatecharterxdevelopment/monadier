@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowDownLeft, Loader2, AlertCircle, LogIn } from 'lucide-react';
 import { formatUnits } from 'viem';
-import { useAppKit } from '@reown/appkit/react';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTransactions } from '../../contexts/TransactionContext';
@@ -33,7 +33,7 @@ type Props = {
 type Gate = 'connect' | 'network' | 'min' | 'balance' | null;
 
 const TerminalDepositModal: React.FC<Props> = ({ onClose, onSuccess, onRequireSignIn }) => {
-  const { open } = useAppKit();
+  const { open } = useMonadierAppKit();
   const { user, isDemoUser } = useAuth();
   const { chainId, address, publicClient, walletClient, switchChain } = useWeb3();
   const needsSignIn = !isDemoUser && !user;

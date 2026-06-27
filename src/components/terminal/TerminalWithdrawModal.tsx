@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowUpRight, Loader2, AlertCircle, LogIn } from 'lucide-react';
-import { useAppKit } from '@reown/appkit/react';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTransactions } from '../../contexts/TransactionContext';
@@ -27,7 +27,7 @@ const TerminalWithdrawModal: React.FC<Props> = ({
   onSuccess,
   onRequireSignIn,
 }) => {
-  const { open } = useAppKit();
+  const { open } = useMonadierAppKit();
   const { user, isDemoUser } = useAuth();
   const needsSignIn = !isDemoUser && !user;
   const { chainId, address, publicClient, walletClient } = useWeb3();

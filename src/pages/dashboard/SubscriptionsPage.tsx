@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { useSubscription, Subscription } from '../../contexts/SubscriptionContext';
 import { useWeb3 } from '../../contexts/Web3Context';
-import { useAppKit } from '@reown/appkit/react';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import Card from '../../components/ui/Card';
 import { supabase } from '../../lib/supabase';
 import { generateLicenseCode, getUserTimezone, SUBSCRIPTION_PLANS } from '../../lib/subscription';
@@ -59,7 +59,7 @@ const SubscriptionsPage: React.FC = () => {
     transferToken,
     refreshBalances
   } = useWeb3();
-  const { open } = useAppKit();
+  const { open } = useMonadierAppKit();
 
   const [selectedTab, setSelectedTab] = useState<'trading' | 'software' | 'forex'>('trading');
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');

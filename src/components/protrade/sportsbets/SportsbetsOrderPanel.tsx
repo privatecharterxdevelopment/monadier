@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Loader2, SlidersHorizontal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useAppKit } from '@reown/appkit/react';
+import { useMonadierAppKit } from '../../../hooks/useMonadierAppKit';
 import {
   OUTCOME_MIN_NOTIONAL_USD,
   validateOutcomeOrder,
@@ -18,7 +18,6 @@ import {
 } from '../../../lib/hyperliquid/outcomes/categories';
 import { formatBettingOrderError } from '../../../lib/hyperliquid/outcomes/bettingErrors';
 import { fmtUsdSymbol } from '../../../lib/hyperliquid/format';
-import { openMonadierWalletModal } from '../../../lib/openWalletModal';
 import type { HlOutcomeMarket, HlOutcomeQuestion, OutcomeLegQuote, OutcomeSideIndex } from '../../../lib/hyperliquid/outcomes/types';
 import type { useHyperliquidOutcomeTrading } from '../../../hooks/useHyperliquidOutcomeTrading';
 import { useBettingBuilderFee } from '../../../hooks/useBettingBuilderFee';
@@ -72,7 +71,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   onOrderActionChange,
 }) => {
   const { t } = useTranslation();
-  const { open } = useAppKit();
+  const { open } = useMonadierAppKit();
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [actionInternal, setActionInternal] = useState<Action>('buy');
   const action = orderActionProp ?? actionInternal;
@@ -157,7 +156,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
 
   const handleGate = () => {
     if (signedIn) {
-      openMonadierWalletModal(() => open());
+      open();
       return;
     }
     onRequireSignIn?.(t('betting.signInToPlaceBets'));

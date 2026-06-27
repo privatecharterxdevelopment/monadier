@@ -1,6 +1,6 @@
 import React from 'react';
 import { Settings, Loader2, CheckCircle, Zap, Wallet } from 'lucide-react';
-import { useAppKit } from '@reown/appkit/react';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import TerminalModalFrame from './TerminalModalFrame';
 import TerminalBotSettingsFields from './TerminalBotSettingsFields';
 import { useBotSettingsEditor } from './useBotSettingsEditor';
@@ -52,7 +52,7 @@ const TerminalBotSettingsModal: React.FC<Props> = ({
     return order[setupPhase] >= n;
   };
 
-  const { open } = useAppKit();
+  const { open } = useMonadierAppKit();
   const editor = useBotSettingsEditor({
     settings,
     walletAddress,

@@ -5,7 +5,7 @@ import { Bot, Lock, Zap, Crown, Rocket, Check, Play, Square, Clock, Users, Walle
 import { useWeb3, RealSwapResult } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useNotifications } from '../../contexts/NotificationContext';
-import { useAppKit } from '@reown/appkit/react';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { SUPPORTED_CHAINS, TESTNET_CHAINS, getChainById, getAllChains, isTestnet, CHAIN_GAS_ESTIMATES } from '../../lib/chains';
 import { parseUnits, formatUnits } from 'viem';
 import { TradingSettings, GasEstimator, getDefaultConfig, TradingConfig, TradeHistoryItem, PendingApprovalCard } from '../../components/trading';
@@ -164,7 +164,7 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
   onPairChange,
 }) => {
   const navigate = useNavigate();
-  const { open } = useAppKit();
+  const { open } = useMonadierAppKit();
   const {
     isConnected,
     address,

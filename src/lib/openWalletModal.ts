@@ -1,4 +1,6 @@
+import { getAccount } from '@wagmi/core';
 import { isMetaMaskInAppBrowser, shouldUseMobileWalletSheet } from './mobileWalletConnect';
+import { config } from './wallet';
 import { markWalletConnectAttempt } from './walletReconnect';
 import { detectWalletExtensionConflict, walletConnectRetryHint } from './walletTroubleshoot';
 
@@ -15,7 +17,15 @@ export function openMonadierWalletModal(
   }
   window.dispatchEvent(new CustomEvent('monadier:close-overlays'));
 
-  if (options?.connected) {
+  const connected =
+    options?.connected ??
+    (typeof window !== 'undefined' &&
+      (() => {
+        const account = getAccount(config);
+        return account.isConnected && Boolean(account.address);
+      })());
+
+  if (connected) {
     window.dispatchEvent(new CustomEvent('monadier:open-wallet-account'));
     return;
   }
