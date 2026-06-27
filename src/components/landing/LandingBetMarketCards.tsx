@@ -1,11 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
-import { goToOpenApp } from '../../lib/appUrls';
-import LandingEventBannerMedia from './LandingEventBannerMedia';
+import LandingBetSportWidgetCard from './LandingBetSportWidgetCard';
 import {
   fetchLandingBetMarkets,
-  LANDING_BET_STAKE_USD,
   type LandingBetMarket,
 } from '../../lib/api/landingSportsEvents';
 
@@ -19,61 +16,13 @@ const fadeUp = (delay = 0) => ({
 type BetMarketCardProps = {
   market: LandingBetMarket;
   delay?: number;
+  surface?: 'photo' | 'light';
 };
 
-const BetMarketCard: React.FC<BetMarketCardProps> = ({ market, delay = 0 }) => (
-  <motion.article {...fadeUp(delay)} className="landing-bet-card landing-gmx-product-card">
-    <div className="landing-bet-card-visual">
-      <LandingEventBannerMedia
-        backgroundImage={market.backgroundImage}
-        accentColor={market.accentColor}
-        tagline={market.tagline}
-        variant={market.variant}
-        sideFlags={market.sideFlags}
-        emoji={market.emoji}
-        className="landing-bet-card-visual-media"
-      />
-      <div className="landing-bet-card-visual-shade" aria-hidden />
-      <div className="landing-bet-card-visual-top">
-        <span className="landing-gmx-product-card-badge">{market.categoryBadge}</span>
-        {market.isLive ? (
-          <span className="landing-bet-card-live-pill">
-            {market.indicative ? 'Live · mid' : 'Live'}
-          </span>
-        ) : null}
-      </div>
-      <div className="landing-bet-card-visual-copy">
-        <h3 className="landing-bet-card-visual-title">{market.title}</h3>
-        <p className="landing-bet-card-visual-selection">{market.selection}</p>
-      </div>
-    </div>
-    <div className="landing-bet-card-body">
-      <div className="landing-bet-card-stats">
-        <div className="landing-bet-card-stat">
-          <span className="landing-bet-card-stat-label">Implied</span>
-          <span className="landing-bet-card-stat-value">{market.winRate}</span>
-        </div>
-        <div className="landing-bet-card-stat landing-bet-card-stat--odds">
-          <span className="landing-bet-card-stat-label">Odds</span>
-          <span className="landing-bet-card-stat-value">{market.odds}</span>
-        </div>
-      </div>
-      <p className="landing-bet-card-payout">
-        ${LANDING_BET_STAKE_USD} stake → <strong>{market.payoutLabel}</strong> ({market.profitLabel})
-      </p>
-      <a
-        href="/?section=sportsbets"
-        className="landing-bet-card-cta"
-        onClick={(e) => {
-          e.preventDefault();
-          goToOpenApp('?section=sportsbets', false);
-        }}
-      >
-        Open market
-        <ArrowRight size={15} aria-hidden />
-      </a>
-    </div>
-  </motion.article>
+const BetMarketCard: React.FC<BetMarketCardProps> = ({ market, delay = 0, surface = 'photo' }) => (
+  <motion.div {...fadeUp(delay)}>
+    <LandingBetSportWidgetCard market={market} surface={surface} />
+  </motion.div>
 );
 
 type Props = {
@@ -126,7 +75,7 @@ const LandingBetMarketCards: React.FC<Props> = ({
   const gridClass =
     layout === 'home'
       ? 'landing-bet-cards-grid landing-bet-cards-grid--home'
-      : 'landing-bet-cards-grid';
+      : 'landing-bet-cards-grid landing-bet-cards-grid--glass';
 
   const sectionClass =
     layout === 'home'
@@ -156,7 +105,13 @@ const LandingBetMarketCards: React.FC<Props> = ({
         {loading && markets.length === 0 ? (
           <div className={`${gridClass} landing-bet-cards-grid--loading`}>
             {Array.from({ length: limit }, (_, i) => (
-              <div key={i} className="landing-bet-card landing-bet-card--skeleton" aria-hidden />
+              <div
+                key={i}
+                className={`landing-sport-widget-card landing-sport-widget-card--skeleton${
+                  layout === 'page' ? ' landing-sport-widget-card--light' : ''
+                }`}
+                aria-hidden
+              />
             ))}
           </div>
         ) : null}
@@ -170,7 +125,12 @@ const LandingBetMarketCards: React.FC<Props> = ({
         {markets.length > 0 ? (
           <div className={gridClass}>
             {markets.map((market, i) => (
-              <BetMarketCard key={market.id} market={market} delay={0.04 + i * 0.03} />
+              <BetMarketCard
+                key={market.id}
+                market={market}
+                delay={0.04 + i * 0.03}
+                surface={layout === 'page' ? 'light' : 'photo'}
+              />
             ))}
           </div>
         ) : null}

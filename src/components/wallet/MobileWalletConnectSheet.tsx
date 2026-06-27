@@ -6,6 +6,7 @@ import {
   phantomEvmHint,
   walletConnectRetryHint,
 } from '../../lib/walletTroubleshoot';
+import WalletUsdcArbitrumHint from './WalletUsdcArbitrumHint';
 
 type OpenDetail = { appKitOpen?: () => void };
 
@@ -59,6 +60,7 @@ const MobileWalletConnectSheet: React.FC = () => {
             <X size={18} />
           </button>
         </div>
+        <WalletUsdcArbitrumHint compact />
         <p className="mobile-wallet-sheet__hint">
           On phone, open Monadier inside the MetaMask app — then tap Connect. WalletConnect “Open app” often fails in Safari.
         </p>

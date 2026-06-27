@@ -91,6 +91,8 @@
     },
     "bento": {
       "ariaLabel": "Handelsfunktionen",
+      "title": "Alles in einem Konto",
+      "sub": "Powered by Hyperliquid's framework.",
       "bot": {
         "title": "Mit Bot handeln",
         "desc": "KI-Agent scannt 200+ HL-Perps pro Zyklus — eröffnet Einstiege, sichert Gewinne und schneidet Verlierer 24/7.",
@@ -108,6 +110,47 @@
         "title": "Sportwetten und Prognosemärkte",
         "desc": "HIP-4 Outcome-Märkte auf Hyperliquid — Makro, Krypto und Live-Sport mit on-chain Abwicklung.",
         "cta": "Wetten öffnen"
+      }
+    },
+    "widgets": {
+      "title": "Alles in einem Konto",
+      "sub": "Powered by Hyperliquid's framework.",
+      "bot": {
+        "title": "Mit KI handeln",
+        "desc": "MTF-Scan über 200+ Hyperliquid-Perps. Der Bot eröffnet, trailt Gewinne und schneidet Verlierer 24/7."
+      },
+      "perps": {
+        "title": "Die Kerzen handeln",
+        "desc": "Pro-Charts, Tiefe und Ausführung auf derselben HL-Liquidität wie der Bot."
+      },
+      "sports": {
+        "title": "Sportwetten",
+        "desc": "HIP-4 Outcome-Märkte — Live-Fußball, WM und on-chain Settlement."
+      },
+      "predictions": {
+        "title": "Prediction Market",
+        "desc": "Makro-, Krypto- und Event-Märkte — transparente Yes/No-Odds auf Hyperliquid."
+      },
+      "calc": {
+        "eyebrow": "Bot ROI",
+        "title": "Gewinn schätzen",
+        "stakeLabel": "USDC-Guthaben auf Hyperliquid",
+        "leverage": "Hebel",
+        "monthlyProfit": "Geschätzter Gewinn / Monat",
+        "endBalance": "Geschätztes Guthaben",
+        "tradesDay": "Trades / Tag",
+        "returnMult": "Monats-Multiple",
+        "perWin": "Pro Gewinntrade",
+        "perLoss": "Risiko pro Verlust",
+        "weeklyTrades": "Trades / Woche",
+        "slots": "Max. Slots",
+        "winsCopy": "{{wins}} von {{total}} Trades erfolgreich",
+        "winsSub": "~{{min}}–{{max}} Trades/Tag · {{winRate}} Winrate · nur Illustration",
+        "footnote": "Keine Finanzberatung. Kleine Guthaben: realistisch ~2–3× pro Monat, nicht 10×. Ergebnisse variieren."
+      },
+      "markets": {
+        "volume24h": "24h Volumen",
+        "change24h": "24h Änderung"
       }
     },
     "pitch": {

@@ -29,6 +29,9 @@ export type LandingBetMarket = {
   questionId: number;
   outcomeId: number;
   title: string;
+  /** Short label for cards (team names, World Cup 2026, etc.). */
+  cardTitle: string;
+  cardHeadline: string;
   selection: string;
   categoryBadge: string;
   winRate: string;
@@ -112,6 +115,59 @@ function pickPrimaryLeg(
   return { leg: bestLeg, price: bestPrice, quote: bestQuote };
 }
 
+function formatLandingBetCardDisplay(
+  question: HlOutcomeQuestion,
+  leg: HlOutcomeMarket,
+  rawTitle: string
+): { cardTitle: string; cardHeadline: string; selection: string } {
+  const legName = formatBettingLegName(leg);
+  const lower = rawTitle.toLowerCase();
+  const pickName =
+    legName === 'Yes outcome' || legName === 'Recurring' || legName === 'Fallback'
+      ? 'Yes'
+      : legName;
+
+  if (lower.includes('world cup') && /champion/.test(lower)) {
+    return {
+      cardTitle: 'World Cup 2026',
+      cardHeadline: pickName === 'Yes' ? 'Outright winner' : pickName,
+      selection: pickName === 'Yes' ? 'Yes' : `Yes · ${pickName}`,
+    };
+  }
+
+  const vsMatch =
+    rawTitle.match(/World Cup:\s*(.+?)\s+vs\.?\s+(.+)$/i) ||
+    rawTitle.match(/:\s*(.+?)\s+vs\.?\s+(.+)$/i) ||
+    rawTitle.match(/^(.+?)\s+vs\.?\s+(.+)$/i);
+
+  if (vsMatch) {
+    const home = vsMatch[1].trim();
+    const away = vsMatch[2].trim();
+    const pick =
+      pickName.toLowerCase() === home.toLowerCase()
+        ? home
+        : pickName.toLowerCase() === away.toLowerCase()
+          ? away
+          : pickName.toLowerCase() === 'draw'
+            ? 'Draw'
+            : pickName;
+    return {
+      cardTitle: `${home} vs ${away}`,
+      cardHeadline: 'Match winner',
+      selection: `Yes · ${pick}`,
+    };
+  }
+
+  const cleaned = rawTitle.replace(/^[^:]+:\s*/, '').trim() || rawTitle;
+  const cardTitle = cleaned.length > 48 ? `${cleaned.slice(0, 46).trim()}…` : cleaned;
+
+  return {
+    cardTitle,
+    cardHeadline: formatCategoryBadge(question),
+    selection: question.legs.length === 1 ? `Yes · ${pickName}` : `Yes · ${pickName}`,
+  };
+}
+
 function toBetMarket(
   question: HlOutcomeQuestion,
   quotes: Record<number, OutcomeLegQuote | undefined>,
@@ -127,7 +183,7 @@ function toBetMarket(
   const category = resolveBettingCategory(question);
   const banner = resolveEventBanner(question, title, category);
   const visuals = eventVisual(title, category);
-  const legName = formatBettingLegName(leg);
+  const card = formatLandingBetCardDisplay(question, leg, title);
   const indicative = isIndicativeOutcomeQuote(quote);
   const oddsPrefix = indicative ? '~' : '';
   const payout =
@@ -144,7 +200,9 @@ function toBetMarket(
     questionId: question.questionId,
     outcomeId: leg.outcomeId,
     title,
-    selection: question.legs.length === 1 ? 'Yes' : `Yes · ${legName}`,
+    cardTitle: card.cardTitle,
+    cardHeadline: card.cardHeadline,
+    selection: card.selection,
     categoryBadge: formatCategoryBadge(question),
     winRate: formatOutcomeImpliedPct(price),
     odds: `${oddsPrefix}${formatDecimalOdds(price)}×`,

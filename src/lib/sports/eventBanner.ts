@@ -25,6 +25,7 @@ export type EventBannerVisual = {
 
 const BANNERS = {
   worldCup: '/images/betting/world-cup-hero.png',
+  worldCupTrophy: '/images/landing/landing-carousel-betting-trophy.png',
   sports: '/images/betting/sports-hero.png',
   crypto: '/images/betting/crypto-hero.png',
 } as const;
@@ -83,6 +84,17 @@ function parseMatchFlags(title: string): EventBannerSide[] {
   return [];
 }
 
+function isFootballMarket(title: string, category: BettingCategoryId): boolean {
+  const lower = title.toLowerCase();
+  return (
+    category === 'sports' ||
+    lower.includes('world cup') ||
+    lower.includes('football') ||
+    lower.includes('soccer') ||
+    /\bvs\.?\b/.test(lower)
+  );
+}
+
 export function resolveEventBanner(
   question: HlOutcomeQuestion,
   title: string,
@@ -96,9 +108,9 @@ export function resolveEventBanner(
   if (isWorldCup && isChampion) {
     return {
       variant: 'world-cup-champion',
-      backgroundImage: BANNERS.worldCup,
+      backgroundImage: BANNERS.worldCupTrophy,
       accentColor: '#e53935',
-      tagline: 'WHO WILL LIFT THE TROPHY?',
+      tagline: 'OUTRIGHT WINNER',
       sideFlags: legSideFlags(question, 2),
     };
   }
@@ -106,7 +118,7 @@ export function resolveEventBanner(
   if (isWorldCup && matchFlags.length >= 2) {
     return {
       variant: 'world-cup-match',
-      backgroundImage: BANNERS.worldCup,
+      backgroundImage: BANNERS.worldCupTrophy,
       accentColor: '#e53935',
       tagline: 'MATCH WINNER · LIVE ODDS',
       sideFlags: matchFlags.slice(0, 2),
@@ -135,12 +147,23 @@ export function resolveEventBanner(
 
   if (category === 'sports') {
     const sportsFlags = matchFlags.length >= 2 ? matchFlags : legSideFlags(question, 2);
+    const football = isFootballMarket(title, category);
     return {
       variant: matchFlags.length >= 2 ? 'world-cup-match' : 'sports',
-      backgroundImage: BANNERS.sports,
+      backgroundImage: football ? BANNERS.worldCupTrophy : BANNERS.sports,
       accentColor: '#e53935',
       tagline: matchFlags.length >= 2 ? 'MATCH WINNER · LIVE ODDS' : 'LIVE SPORTS BETTING',
       sideFlags: sportsFlags,
+    };
+  }
+
+  if (isFootballMarket(title, category)) {
+    return {
+      variant: 'sports',
+      backgroundImage: BANNERS.worldCupTrophy,
+      accentColor: '#e53935',
+      tagline: 'LIVE SPORTS BETTING',
+      sideFlags: parseMatchFlags(title).slice(0, 2),
     };
   }
 

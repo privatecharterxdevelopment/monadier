@@ -11,7 +11,7 @@ const BETTING_ROTATE_LINES = [
   'and more',
 ] as const;
 
-const BETTING_VIDEO_SRC = '/videos/betting-hero.mp4';
+const BETTING_VIDEO_SRC = '/videos/sports-betting-hero.mp4';
 
 /** Same framed video window as main landing — static, no scroll zoom. */
 const BettingVideoHero: React.FC = () => (
@@ -42,6 +42,8 @@ const BettingVideoHero: React.FC = () => (
                 rotateLines={BETTING_ROTATE_LINES}
                 rotatePosition="two-row"
                 rotateSuffix="on chain"
+                tightRotateSuffix
+                className="landing-betting-hero-lines"
               />
             </div>
             <div className="landing-betting-hero-meta">

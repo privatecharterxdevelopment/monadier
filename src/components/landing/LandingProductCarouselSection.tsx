@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { goToOpenApp } from '../../lib/appUrls';
 import { useLandingScrollSequence } from './useLandingScrollSequence';
+import LandingProductWidgetCard from './LandingProductWidgetCard';
 
 const PRODUCT_CARD_META = [
   { id: 'bot', image: '/images/landing/landing-carousel-bot-brain.png', section: '?section=bot', hideCopy: true },
@@ -168,38 +168,12 @@ const LandingProductCarouselSection: React.FC = () => {
             <div ref={laneRef} className="landing-gmx-product-carousel-lane">
               <div ref={trackRef} className="landing-gmx-product-carousel-track">
                 {productCards.map((card) => (
-                  <article
+                  <LandingProductWidgetCard
                     key={card.id}
-                    className={`landing-gmx-product-card landing-gmx-product-carousel-card${
-                      card.hideCopy ? ' landing-gmx-product-carousel-card--cta-only' : ''
-                    }`}
-                    aria-label={card.hideCopy ? card.title : undefined}
-                  >
-                    <img
-                      src={card.image}
-                      alt=""
-                      className="landing-gmx-product-carousel-card-media"
-                      loading="lazy"
-                      decoding="async"
-                      aria-hidden
-                    />
-                    <div className="landing-gmx-product-card-copy">
-                      {!card.hideCopy ? (
-                        <>
-                          <h3 className="landing-gmx-product-card-title">{card.title}</h3>
-                          <p className="landing-gmx-product-card-desc">{card.desc}</p>
-                        </>
-                      ) : null}
-                      <button
-                        type="button"
-                        className="landing-gmx-product-card-cta"
-                        onClick={() => goToOpenApp(card.section, false)}
-                      >
-                        {card.cta}
-                        <ArrowRight size={14} aria-hidden />
-                      </button>
-                    </div>
-                  </article>
+                    image={card.image}
+                    label={card.cta}
+                    section={card.section}
+                  />
                 ))}
               </div>
             </div>

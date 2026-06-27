@@ -460,6 +460,867 @@
   box-sizing: border-box;
 }
 
+.landing-home-widget-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+@media (min-width: 640px) {
+  .landing-home-widget-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+  }
+}
+
+.landing-home-widget-cell {
+  min-width: 0;
+}
+
+/* Apple-style widget bento grid — inside landing-home-bento-section */
+.landing-apple-widgets-bento {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 900px) {
+  .landing-apple-widgets-bento {
+    grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+    align-items: stretch;
+    gap: 14px;
+  }
+}
+
+.landing-apple-widgets-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.landing-apple-widgets-tiles {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 640px) {
+  .landing-apple-widgets-tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
+.landing-apple-widgets-cell {
+  min-width: 0;
+}
+
+.landing-apple-widgets-cell > * {
+  height: 100%;
+}
+
+.landing-apple-widgets-cell--hero {
+  min-height: 280px;
+}
+
+@media (min-width: 900px) {
+  .landing-apple-widgets-cell--hero {
+    min-height: 100%;
+  }
+}
+
+.landing-apple-widget {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 148px;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgb(0 0 0 / 0.06);
+  background: rgb(255 255 255 / 0.55);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.8) inset,
+    0 8px 24px rgb(0 0 0 / 0.05);
+}
+
+.landing-apple-widget--has-cover .landing-apple-widget-photo,
+.landing-apple-widget-media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.landing-apple-widget--has-media .landing-apple-widget-visual,
+.landing-apple-widget--has-media .landing-apple-widget-content,
+.landing-apple-widget--has-media .landing-apple-widget-foot {
+  position: relative;
+  z-index: 1;
+}
+
+.landing-apple-widget--light {
+  background: rgb(255 255 255 / 0.72);
+  color: var(--lg-text);
+}
+
+.landing-apple-widget--dark {
+  background: linear-gradient(165deg, #141416 0%, #1a1a1e 100%);
+  color: #fff;
+  border-color: rgb(255 255 255 / 0.08);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.14);
+}
+
+.landing-apple-widget--photo {
+  background: #e8ebf0;
+}
+
+.landing-apple-widget--hero {
+  min-height: 300px;
+  border-radius: 22px;
+}
+
+.landing-apple-widget--compact {
+  min-height: 132px;
+}
+
+.landing-apple-widget--no-cta .landing-apple-widget-content {
+  padding-bottom: 12px;
+}
+
+.landing-apple-widget--no-cta.landing-apple-widget--compact .landing-apple-widget-content {
+  padding: 10px 12px 12px;
+}
+
+.landing-apple-widget--compact.landing-apple-widget--has-cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgb(0 0 0 / 0.04) 0%, rgb(0 0 0 / 0.62) 100%);
+  pointer-events: none;
+}
+
+.landing-apple-widget--compact.landing-apple-widget--has-cover .landing-apple-widget-content {
+  margin-top: auto;
+  padding: 12px;
+}
+
+.landing-apple-widget--compact.landing-apple-widget--photo .landing-apple-widget-title {
+  color: #fff;
+  font-size: 0.875rem;
+  text-shadow: 0 1px 10px rgb(0 0 0 / 0.45);
+}
+
+.landing-apple-widget-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.landing-apple-widget-media-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgb(0 0 0 / 0.08) 0%, rgb(0 0 0 / 0.55) 100%);
+}
+
+.landing-apple-widget--has-image .landing-apple-widget-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.landing-apple-widget--image-top {
+  display: flex;
+  flex-direction: column;
+}
+
+.landing-apple-widget--image-top .landing-apple-widget-photo--top {
+  position: relative;
+  inset: auto;
+  height: 72px;
+  object-fit: cover;
+  object-position: center top;
+  flex-shrink: 0;
+}
+
+.landing-apple-widget--image-top.landing-apple-widget--has-image {
+  background: #f4f5f8;
+}
+
+.landing-apple-widget--image-top.landing-apple-widget--has-media .landing-apple-widget-photo--top {
+  position: relative;
+}
+
+.landing-apple-widget-visual {
+  position: relative;
+  flex: 1;
+  min-height: 72px;
+  padding: 10px 12px 0;
+}
+
+.landing-apple-widget--compact .landing-apple-widget-visual {
+  min-height: 58px;
+  padding-top: 8px;
+}
+
+.landing-apple-widget--dark .landing-apple-widget-visual {
+  color: #7dd3fc;
+}
+
+.landing-apple-widget--light .landing-apple-widget-visual {
+  color: #0a0a0a;
+}
+
+.landing-apple-widget-content {
+  flex: 1;
+  padding: 12px 14px 0;
+  min-height: 0;
+}
+
+.landing-apple-widget--has-media .landing-apple-widget-content {
+  margin-top: auto;
+  padding: 14px 14px 0;
+}
+
+.landing-apple-widget--photo .landing-apple-widget-content,
+.landing-apple-widget--hero .landing-apple-widget-content {
+  margin-top: auto;
+}
+
+.landing-apple-widget--photo .landing-apple-widget-title,
+.landing-apple-widget--hero .landing-apple-widget-title {
+  color: #fff;
+  text-shadow: 0 1px 12px rgb(0 0 0 / 0.45);
+}
+
+.landing-apple-widget-foot {
+  margin-top: auto;
+  padding: 10px 14px 14px;
+  flex-shrink: 0;
+}
+
+.landing-apple-widget--compact .landing-apple-widget-foot {
+  padding: 8px 12px 12px;
+}
+
+.landing-apple-widget--photo .landing-apple-widget-foot,
+.landing-apple-widget--hero .landing-apple-widget-foot {
+  padding: 10px 14px 14px;
+}
+
+.landing-apple-widget--dark .landing-apple-widget-content {
+  padding-top: 0;
+}
+
+.landing-apple-widget-eyebrow {
+  margin: 0 0 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lg-faint);
+}
+
+.landing-apple-widget-title {
+  margin: 0 0 4px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.landing-apple-widget--hero .landing-apple-widget-title {
+  font-size: 1.0625rem;
+}
+
+.landing-apple-widget--dark .landing-apple-widget-title {
+  color: #fff;
+}
+
+.landing-apple-widget-desc {
+  display: none;
+}
+
+.landing-apple-widget-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 999px;
+  background: #0a0a0a;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+  box-sizing: border-box;
+}
+
+.landing-apple-widget--dark .landing-apple-widget-cta {
+  background: rgb(255 255 255 / 0.12);
+  border: 1px solid rgb(255 255 255 / 0.16);
+  color: #fff;
+}
+
+.landing-apple-widget--photo .landing-apple-widget-cta,
+.landing-apple-widget--hero .landing-apple-widget-cta {
+  background: rgb(255 255 255 / 0.92);
+  color: #0a0a0a;
+}
+
+.landing-apple-widget-cta:hover {
+  transform: translateY(-1px);
+  background: #1a1a1a;
+}
+
+.landing-apple-widget--dark .landing-apple-widget-cta:hover {
+  background: rgb(255 255 255 / 0.18);
+}
+
+/* Calculator widget — compact glass (3 rows) */
+.landing-apple-widget--calc {
+  background: rgb(255 255 255 / 0.22);
+  backdrop-filter: blur(28px) saturate(165%);
+  -webkit-backdrop-filter: blur(28px) saturate(165%);
+  border: 1px solid rgb(255 255 255 / 0.48);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.72) inset,
+    0 16px 40px rgb(0 0 0 / 0.06),
+    0 2px 8px rgb(0 0 0 / 0.03);
+  padding: 12px 14px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+
+.landing-apple-widget-calc-row {
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.22);
+  border: 1px solid rgb(255 255 255 / 0.38);
+}
+
+.landing-apple-widget-calc-row--controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 0;
+  padding: 8px 10px;
+  align-items: stretch;
+}
+
+.landing-apple-widget-calc-stake {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 10px;
+  border-right: 1px solid rgb(0 0 0 / 0.06);
+  min-width: 0;
+}
+
+.landing-apple-widget-calc-lev {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 10px;
+  min-width: 0;
+  justify-content: center;
+}
+
+.landing-apple-widget-calc-label {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  color: var(--lg-muted);
+}
+
+.landing-apple-widget-calc-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.62);
+  border: 1px solid rgb(0 0 0 / 0.07);
+}
+
+.landing-apple-widget-calc-currency {
+  flex-shrink: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--lg-muted);
+}
+
+.landing-apple-widget-calc-unit {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--lg-faint);
+}
+
+.landing-apple-widget-calc-input {
+  flex: 1;
+  min-width: 0;
+  width: 3.5rem;
+  border: none;
+  background: transparent;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--lg-text);
+  outline: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.landing-apple-widget-calc-lev-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.landing-apple-widget-calc-lev-value {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--lg-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.landing-apple-widget-calc-range {
+  width: 100%;
+  height: 3px;
+  margin: 2px 0 0;
+  accent-color: #0a0a0a;
+}
+
+.landing-apple-widget-calc-row--result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgb(255 255 255 / 0.92);
+  border: 1px solid rgb(0 0 0 / 0.07);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.95) inset;
+}
+
+.landing-apple-widget-calc-roi {
+  margin: 0;
+  margin-left: auto;
+  font-size: clamp(1.5rem, 4.5vw, 1.875rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--lg-text);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.landing-apple-widget-calc-result-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+  text-align: left;
+}
+
+.landing-apple-widget-calc-roi-label {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--lg-muted);
+}
+
+.landing-apple-widget-calc-mini {
+  margin: 0;
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--lg-faint);
+  white-space: nowrap;
+}
+
+.landing-apple-widget-calc-mini .sep {
+  margin: 0 3px;
+  opacity: 0.65;
+}
+
+.landing-apple-widget-calc-mini .is-gain {
+  color: #15803d;
+}
+
+.landing-apple-widget-calc-mini .is-loss {
+  color: #b91c1c;
+}
+
+@media (max-width: 639px) {
+  .landing-apple-widget--calc {
+    padding: 10px 12px;
+    gap: 6px;
+  }
+
+  .landing-apple-widget-calc-row--controls {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .landing-apple-widget-calc-stake {
+    padding-right: 0;
+    border-right: none;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgb(0 0 0 / 0.06);
+  }
+
+  .landing-apple-widget-calc-lev {
+    padding-left: 0;
+  }
+
+  .landing-apple-widget-calc-range {
+    height: 6px;
+    margin-top: 4px;
+  }
+
+  .landing-apple-widget-calc-row--result {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .landing-apple-widget-calc-roi {
+    font-size: clamp(1.375rem, 7vw, 1.625rem);
+  }
+
+  .landing-apple-widget-calc-mini {
+    display: none;
+  }
+}
+
+.landing-apple-widgets-cell--charts {
+  min-width: 0;
+}
+
+.landing-bento-market-charts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  height: 100%;
+}
+
+@media (max-width: 639px) {
+  .landing-bento-market-charts {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .landing-bento-chart-card {
+    min-height: 0;
+    padding: 12px;
+    border-radius: 18px;
+  }
+
+  .landing-bento-chart-plot {
+    min-height: 44px;
+    margin-bottom: 6px;
+  }
+
+  .landing-bento-chart-svg {
+    min-height: 44px;
+  }
+
+  .landing-bento-chart-stat-value {
+    font-size: 11px;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 899px) {
+  .landing-bento-market-charts {
+    gap: 8px;
+  }
+
+  .landing-bento-chart-card {
+    padding: 12px 10px;
+    border-radius: 18px;
+  }
+
+  .landing-bento-chart-price {
+    font-size: clamp(0.875rem, 2vw, 1.125rem);
+  }
+}
+
+.landing-bento-chart-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 168px;
+  padding: 14px 14px 12px;
+  border-radius: 22px;
+  background: #ececee;
+  border: 1px solid rgb(0 0 0 / 0.05);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.65) inset;
+  color: var(--lg-text);
+  overflow: hidden;
+}
+
+.landing-bento-chart-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.landing-bento-chart-head {
+  min-width: 0;
+}
+
+.landing-bento-chart-pair {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--lg-muted);
+}
+
+.landing-bento-chart-price {
+  margin: 0;
+  font-size: clamp(0.9375rem, 2.4vw, 1.375rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--lg-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.landing-bento-chart-price-skel {
+  width: 72%;
+  height: 1.25rem;
+  margin-top: 2px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 0.06);
+  animation: landing-bento-pulse 1.2s ease-in-out infinite;
+}
+
+.landing-bento-chart-icon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  color: var(--lg-text);
+  opacity: 0.72;
+}
+
+.landing-bento-chart-plot {
+  flex: 1;
+  min-height: 52px;
+  margin: 4px -2px 8px;
+}
+
+.landing-bento-chart-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 52px;
+}
+
+.landing-bento-chart-baseline {
+  stroke: rgb(0 0 0 / 0.12);
+  stroke-width: 0.6;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.landing-bento-chart-line {
+  fill: none;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.landing-bento-chart-plot-skel {
+  width: 100%;
+  height: 52px;
+  border-radius: 8px;
+  background: rgb(0 0 0 / 0.04);
+  animation: landing-bento-pulse 1.2s ease-in-out infinite;
+}
+
+.landing-bento-chart-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.landing-bento-chart-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.landing-bento-chart-stat--right {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.landing-bento-chart-stat-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--lg-faint);
+}
+
+.landing-bento-chart-stat-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.landing-bento-chart-stat-value.is-up {
+  color: #15803d;
+}
+
+.landing-bento-chart-stat-value.is-down {
+  color: #b91c1c;
+}
+
+.landing-bento-chart-caret {
+  font-size: 8px;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+@keyframes landing-bento-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Bot / perps widget visuals */
+.landing-apple-bot-visual {
+  position: relative;
+  height: 100%;
+  min-height: 58px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.landing-apple-bot-visual .landing-bento-ai-orbit {
+  transform: scale(0.62);
+}
+
+.landing-apple-bot-pills {
+  display: none;
+}
+
+.landing-apple-bot-spark {
+  display: none;
+}
+
+.landing-apple-perps-visual {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  justify-content: center;
+}
+
+.landing-apple-perps-visual .landing-bento-mock-chart {
+  height: 52px;
+  color: #0a0a0a;
+}
+
+.landing-apple-perps-pairs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.landing-apple-perps-pairs span {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 600;
+  background: rgb(0 0 0 / 0.05);
+  color: var(--lg-muted);
+}
+
+.landing-apple-perps-pairs .is-hot {
+  background: #0a0a0a;
+  color: #fff;
+}
+
+.landing-gmx-product-widget-card {
+  width: 100%;
+  min-height: clamp(280px, 42vw, 380px);
+  border-radius: 20px;
+  background-color: #e8e8ec;
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.08);
+}
+
+.landing-gmx-product-widget-card .landing-gmx-product-card-copy {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 100%;
+  padding: 14px 0 0;
+  box-sizing: border-box;
+}
+
+.landing-gmx-product-widget-card .landing-gmx-product-card-cta {
+  width: 100%;
+  justify-content: center;
+  margin-top: auto;
+  padding: 12px 16px;
+  border-radius: 0 0 20px 20px;
+  background: rgba(255, 255, 255, 0.96);
+  border: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  color: #0a0a0a;
+  font-size: 13px;
+  font-weight: 600;
+  backdrop-filter: none;
+  box-sizing: border-box;
+}
+
+.landing-gmx-product-widget-card .landing-gmx-product-card-cta:hover {
+  background: #fff;
+  border-top-color: rgba(0, 0, 0, 0.12);
+  color: #0a0a0a;
+}
+
 .landing-gmx-mobile-banner-shell {
   width: 100%;
   max-width: 1200px;
@@ -1182,6 +2043,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 0.12em;
   width: 100%;
 }
 
@@ -3421,6 +4283,47 @@
   grid-column: 1 / -1;
 }
 
+.mkt-about-philosophy {
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.mkt-about-philosophy-section {
+  background: var(--lg-surface, #f5f5f7);
+  border-block: 1px solid rgb(0 0 0 / 0.06);
+}
+
+.mkt-about-philosophy-inner {
+  max-width: 52rem;
+}
+
+.mkt-about-philosophy-title {
+  margin: 0 0 16px;
+  font-size: clamp(1.75rem, 4.5vw, 2.75rem);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  color: var(--lg-text);
+}
+
+.mkt-about-philosophy-text {
+  margin: 0;
+  max-width: 52rem;
+  font-size: clamp(1rem, 2.2vw, 1.125rem);
+  line-height: 1.65;
+  color: var(--lg-muted);
+}
+
+@media (max-width: 767px) {
+  .mkt-about-philosophy {
+    margin-top: 4px;
+  }
+
+  .mkt-about-philosophy-title {
+    margin-bottom: 12px;
+  }
+}
+
 .mkt-cta-row {
   display: flex;
   flex-wrap: wrap;
@@ -5323,7 +6226,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 35%;
+  object-position: center 42%;
 }
 
 .landing-gmx-hero-chrome--betting {
@@ -5336,6 +6239,118 @@
 
 .landing-gmx-hero--betting .landing-gmx-hero-chrome-title {
   padding-inline: 16px;
+}
+
+/* Betting hero — same line colors as main centered hero (grey + white on video) */
+/* Bot hero — top line black for readability on light video */
+.landing-gmx-hero--bot .landing-gmx-hero-line--dark {
+  color: #0a0a0a;
+}
+
+.landing-gmx-hero--betting .landing-gmx-hero-line--dark {
+  color: var(--lg-grey);
+}
+
+.landing-gmx-hero--betting .landing-gmx-hero-line--muted,
+.landing-gmx-hero--betting .landing-gmx-hero-line--suffix {
+  color: #fff;
+}
+
+.landing-betting-hero-lines.landing-gmx-hero-title {
+  font-size: clamp(2rem, 7vw, 3.25rem);
+}
+
+@media (min-width: 640px) {
+  .landing-betting-hero-lines.landing-gmx-hero-title {
+    font-size: clamp(2.75rem, 6.5vw, 5.5rem);
+  }
+}
+
+.landing-gmx-hero--betting .landing-gmx-hero-lines,
+.landing-gmx-hero--betting .landing-gmx-hero-static-lines {
+  gap: 0.14em;
+}
+
+.landing-gmx-hero--betting .landing-gmx-hero-line--rotate-row-tight {
+  gap: 0.28em;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.landing-gmx-hero--betting .landing-gmx-hero-line--rotate-tight {
+  width: auto;
+  display: inline-grid;
+  vertical-align: baseline;
+}
+
+.landing-gmx-hero--betting .landing-gmx-hero-line--rotate-row-tight .landing-gmx-hero-line--suffix {
+  margin-left: 0;
+}
+
+.landing-betting-benefits {
+  margin-bottom: 52px;
+}
+
+.landing-betting-benefits-title {
+  margin: 0;
+  font-size: clamp(1.5rem, 3.5vw, 2rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: #0a0a0a;
+}
+
+.landing-betting-benefits-lead {
+  margin: 10px 0 0;
+  max-width: 640px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--lg-grey);
+}
+
+.landing-betting-benefits-list {
+  list-style: none;
+  margin: 28px 0 0;
+  padding: 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.landing-betting-benefits-item {
+  margin: 0;
+}
+
+.landing-betting-benefits-row {
+  display: grid;
+  grid-template-columns: minmax(148px, 220px) 1fr;
+  gap: 12px 28px;
+  padding: 18px 0;
+}
+
+@media (max-width: 639px) {
+  .landing-betting-benefits-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 16px 0;
+  }
+}
+
+.landing-betting-benefits-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #0a0a0a;
+}
+
+.landing-betting-benefits-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--lg-grey);
+}
+
+.landing-betting-benefits-rule {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
 }
 
 .landing-betting-hero-meta {
@@ -5389,6 +6404,17 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 24px;
+}
+
+.landing-bet-cards-grid--glass {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+}
+
+@media (min-width: 1200px) {
+  .landing-bet-cards-grid--glass {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 1200px) {
@@ -5451,11 +6477,11 @@
 
 .landing-bet-card-visual {
   position: relative;
-  min-height: 168px;
+  min-height: 148px;
   padding: 14px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   color: #fff;
   overflow: hidden;
 }
@@ -5471,16 +6497,12 @@
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background: linear-gradient(180deg, rgb(0 0 0 / 0.12) 0%, rgb(0 0 0 / 0.62) 100%);
-}
-
-.landing-bet-card-visual-top,
-.landing-bet-card-visual-copy {
-  position: relative;
-  z-index: 2;
+  background: linear-gradient(180deg, rgb(0 0 0 / 0.08) 0%, rgb(0 0 0 / 0.38) 100%);
 }
 
 .landing-bet-card-visual-top {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -5511,29 +6533,39 @@
   box-shadow: 0 0 8px #4ade80;
 }
 
-.landing-bet-card-visual-title {
-  margin: 0 0 4px;
-  font-size: clamp(1.05rem, 2.2vw, 1.25rem);
-  font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
-  text-shadow: 0 1px 10px rgb(0 0 0 / 0.45);
-}
-
-.landing-bet-card-visual-selection {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 500;
-  color: rgb(255 255 255 / 0.86);
-  text-shadow: 0 1px 8px rgb(0 0 0 / 0.4);
-}
-
 .landing-bet-card-body {
   padding: 16px 16px 14px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   flex: 1;
+}
+
+.landing-bet-card-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.landing-bet-card-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: #0a0a0a;
+}
+
+.landing-bet-card-headline {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--lg-grey);
+}
+
+.landing-bet-card-pick {
+  color: #0a0a0a;
+  font-weight: 500;
 }
 
 .landing-bet-card-stats {
@@ -5622,6 +6654,29 @@
 .landing-home-bento-section {
   padding-top: 56px;
   padding-bottom: 72px;
+}
+
+@media (max-width: 639px) {
+  .landing-home-bento-section {
+    padding-top: 40px;
+    padding-bottom: 48px;
+  }
+
+  .landing-home-bento-header {
+    margin-bottom: 24px;
+  }
+
+  .landing-apple-widgets-bento {
+    gap: 10px;
+  }
+
+  .landing-apple-widgets-stack {
+    gap: 10px;
+  }
+
+  .landing-apple-widgets-cell--hero {
+    min-height: 220px;
+  }
 }
 
 .landing-home-bento-container {
@@ -6091,6 +7146,435 @@
   margin: 0;
   font-size: 14px;
   color: var(--lg-grey);
+}
+
+/* Sports bet widget cards — compact panel over hero image */
+.landing-sport-widget-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 300px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #0a0a0a;
+  border: 1px solid rgb(0 0 0 / 0.08);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.1);
+}
+
+.landing-sport-widget-card--skeleton {
+  background: linear-gradient(110deg, #1a1a1a 8%, #242424 18%, #1a1a1a 33%);
+  background-size: 200% 100%;
+  animation: landing-bet-shimmer 1.2s linear infinite;
+}
+
+.landing-sport-widget-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+}
+
+.landing-sport-widget-bg-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, rgb(0 0 0 / 0.2) 0%, rgb(0 0 0 / 0.72) 100%);
+}
+
+.landing-sport-widget-body {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  flex: 1;
+  gap: 10px;
+  min-height: 300px;
+  padding: 14px;
+  box-sizing: border-box;
+}
+
+.landing-sport-widget-panel {
+  border-radius: 16px;
+  background: rgb(14 14 16 / 0.82);
+  border: 1px solid rgb(255 255 255 / 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  overflow: hidden;
+}
+
+.landing-sport-widget-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 14px 10px;
+}
+
+.landing-sport-widget-head-copy {
+  min-width: 0;
+}
+
+.landing-sport-widget-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgb(0 0 0 / 0.35);
+  border: 1px solid rgb(255 255 255 / 0.14);
+}
+
+.landing-sport-widget-live::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #4ade80;
+}
+
+.landing-sport-widget-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.landing-sport-widget-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  padding: 0 8px 10px;
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+}
+
+.landing-sport-widget-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 6px;
+  text-align: center;
+  color: rgb(255 255 255 / 0.42);
+}
+
+.landing-sport-widget-stat:not(:last-child) {
+  border-right: 1px solid rgb(255 255 255 / 0.08);
+}
+
+.landing-sport-widget-stat--primary .landing-sport-widget-stat-value {
+  font-size: 1.125rem;
+}
+
+.landing-sport-widget-stat-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.38);
+}
+
+.landing-sport-widget-stat-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.landing-sport-widget-prediction {
+  margin: 0;
+  padding: 10px 14px 12px;
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgb(255 255 255 / 0.72);
+}
+
+.landing-sport-widget-prediction-stake {
+  color: rgb(255 255 255 / 0.45);
+}
+
+.landing-sport-widget-flags {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 6px 8px;
+  border-radius: 12px;
+  background: rgb(0 0 0 / 0.28);
+  border: 1px solid rgb(255 255 255 / 0.1);
+}
+
+.landing-sport-widget-flags img {
+  display: block;
+  width: 32px;
+  height: 24px;
+  object-fit: cover;
+  border-radius: 3px;
+}
+
+.landing-sport-widget-flags span {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.5);
+}
+
+.landing-sport-widget-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 11px 16px;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.1);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.landing-sport-widget-cta:hover {
+  background: rgb(255 255 255 / 0.16);
+  transform: translateY(-1px);
+}
+
+/* Betting page — light grey live cards (no hero photo) */
+.landing-sport-widget-card--light {
+  min-height: 0;
+  background: #ececee;
+  border: 1px solid rgb(0 0 0 / 0.05);
+  box-shadow: none;
+}
+
+.landing-sport-widget-card--light.landing-sport-widget-card--skeleton {
+  background: linear-gradient(110deg, #e4e4e8 8%, #ececee 18%, #e4e4e8 33%);
+  background-size: 200% 100%;
+}
+
+.landing-sport-widget-card--light .landing-sport-widget-body {
+  min-height: 0;
+  justify-content: flex-start;
+  padding: 10px;
+}
+
+.landing-sport-widget-card--light .landing-sport-widget-panel {
+  background: rgb(255 255 255 / 0.78);
+  border: 1px solid rgb(0 0 0 / 0.06);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.landing-sport-widget-card--light .landing-sport-widget-head {
+  padding: 12px 12px 8px;
+}
+
+.landing-sport-widget-card--light .landing-sport-widget-live {
+  color: #15803d;
+  background: rgb(22 163 74 / 0.1);
+  border-color: rgb(22 163 74 / 0.18);
+}
+
+.landing-sport-widget-card--light .landing-sport-widget-live::before {
+  background: #22c55e;
+}
+
+.landing-sport-widget-card--light .landing-sport-widget-title {
+  color: var(--lg-text, #111);
+}
+
+.landing-sport-widget-card--light .landing-sport-widget-stats {
+  border-top-color: rgb(0 0 0 / 0.06);
+  padding: 0 6px 8px;
+}
+
+.landing-sport-widget-card--light .landing-sport-widget-stat {
+  color: var(--lg-muted, #666);
+  padding: 8px 4px;
+}
+
+.landing-sport-widget-card--light .landing-sport-widget-stat:not(:last-child) {
+  border-right-color: rgb(0 0 0 / 0.06);
+}
+
+.landing-sport-widget-card--light .landing-sport-widget-stat-label {
+  color: rgb(0 0 0 / 0.42);
+}
+
+.landing-sport-widget-card--light .landing-sport-widget-stat-value {
+  color: var(--lg-text, #111);
+}
+
+.landing-sport-widget-card--light .landing-sport-widget-prediction {
+  border-top-color: rgb(0 0 0 / 0.06);
+  padding: 8px 12px 10px;
+  color: rgb(0 0 0 / 0.62);
+}
+
+.landing-sport-widget-card--light .landing-sport-widget-prediction-stake {
+  color: rgb(0 0 0 / 0.42);
+}
+
+.landing-sport-widget-card--light .landing-sport-widget-flags {
+  background: rgb(0 0 0 / 0.04);
+  border-color: rgb(0 0 0 / 0.08);
+}
+
+.landing-sport-widget-card--light .landing-sport-widget-flags span {
+  color: rgb(0 0 0 / 0.45);
+}
+
+.landing-sport-widget-card--light .landing-sport-widget-cta {
+  padding: 9px 14px;
+  border-color: rgb(0 0 0 / 0.1);
+  background: rgb(0 0 0 / 0.04);
+  color: var(--lg-text, #111);
+}
+
+.landing-sport-widget-card--light .landing-sport-widget-cta:hover {
+  background: rgb(0 0 0 / 0.07);
+}
+
+/* Bot page bento */
+.landing-bot-page-bento {
+  padding-top: 48px;
+}
+
+.landing-bot-quick-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 48px;
+}
+
+@media (min-width: 768px) {
+  .landing-bot-quick-facts {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+.landing-bot-quick-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+}
+
+.landing-bot-quick-fact-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--lg-grey);
+}
+
+.landing-bot-quick-fact-value {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--lg-text);
+}
+
+.landing-bot-features {
+  margin-bottom: 52px;
+}
+
+.landing-bot-features-title {
+  margin: 0;
+  font-size: clamp(1.5rem, 3.5vw, 2rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: #0a0a0a;
+}
+
+.landing-bot-features-lead {
+  margin: 10px 0 0;
+  max-width: 640px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--lg-grey);
+}
+
+.landing-bot-features-grid {
+  list-style: none;
+  margin: 24px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 640px) {
+  .landing-bot-features-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+@media (min-width: 900px) {
+  .landing-bot-features-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.landing-bot-features-item {
+  padding: 16px 18px;
+}
+
+.landing-bot-features-name {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #0a0a0a;
+}
+
+.landing-bot-features-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--lg-grey);
+}
+
+.landing-bot-pipeline {
+  margin-bottom: 56px;
+  padding-top: 8px;
+}
+
+.landing-bot-bento-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 72px;
+}
+
+.landing-bot-bento-icon span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--lg-text);
+  background: rgb(0 0 0 / 0.06);
 }
 
 /* Live event cards — team flags + matchup visuals */

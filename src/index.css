@@ -825,6 +825,58 @@ wui-overlay {
   color: #5c5c66;
 }
 
+.wallet-usdc-arb-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f4f4f5;
+  border: 1px solid rgb(0 0 0 / 0.06);
+}
+
+.wallet-usdc-arb-hint--compact {
+  padding: 10px 12px;
+}
+
+.wallet-usdc-arb-hint__brand {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.wallet-usdc-arb-hint__logo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.wallet-usdc-arb-hint__logo--usdc {
+  width: 20px;
+  height: 20px;
+}
+
+.wallet-usdc-arb-hint__copy {
+  min-width: 0;
+}
+
+.wallet-usdc-arb-hint__title {
+  display: block;
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0a0a0a;
+}
+
+.wallet-usdc-arb-hint__desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #52525b;
+}
+
 .mobile-wallet-sheet__foot {
   margin: 12px 0 0;
   font-size: 12px;

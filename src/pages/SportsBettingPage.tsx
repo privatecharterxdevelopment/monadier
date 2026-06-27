@@ -1,10 +1,11 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Shield, Zap, Wallet, Layers } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import LandingNav from '../components/landing/LandingNav';
 import LandingFooter from '../components/landing/LandingFooter';
 import BettingVideoHero from '../components/landing/BettingVideoHero';
 import LandingBetMarketCards from '../components/landing/LandingBetMarketCards';
+import BettingBenefitsList from '../components/landing/BettingBenefitsList';
 import BettingFaqSection from '../components/landing/BettingFaqSection';
 import CookieConsent from '../components/ui/CookieConsent';
 import MarketingBotPromo from '../components/marketing/MarketingBotPromo';
@@ -20,9 +21,7 @@ import {
   MktCashOutVisual,
 } from '../components/marketing/MarketingIllustrations';
 import MarketingSeo from '../components/seo/MarketingSeo';
-import { BETTING_BENEFITS, BETTING_FAQS } from '../lib/seo/bettingContent';
-
-const BENEFIT_ICONS = [Zap, Shield, Layers, Wallet] as const;
+import { BETTING_FAQS } from '../lib/seo/bettingContent';
 
 const steps = [
   {
@@ -59,22 +58,7 @@ const SportsBettingPage: React.FC = () => {
       <main className="landing-gmx-page-main landing-gmx-page-main--inner landing-gmx-gutter">
         <div className="landing-gmx-shell">
           <div className="mkt-page">
-            <MarketingSectionHeading
-              title="Why bet on Hyperliquid with Monadier"
-              sub="On-chain sports betting and prediction markets — non-custodial, transparent odds, one platform with our Hyperliquid trading bot."
-            />
-
-            <MarketingPageGrid columns={2}>
-              {BETTING_BENEFITS.map((item, i) => (
-                <MarketingFeatureCard
-                  key={item.title}
-                  index={i}
-                  title={item.title}
-                  text={item.text}
-                  icon={BENEFIT_ICONS[i]}
-                />
-              ))}
-            </MarketingPageGrid>
+            <BettingBenefitsList />
 
             <MarketingSectionHeading
               title="How sports betting works"

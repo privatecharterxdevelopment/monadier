@@ -91,6 +91,8 @@
     },
     "bento": {
       "ariaLabel": "Trading features",
+      "title": "Everything in one account",
+      "sub": "Powered by Hyperliquid's framework.",
       "bot": {
         "title": "Trade by bot",
         "desc": "AI agent scans 200+ HL perps every cycle — opens entries, trails profit, and cuts losers 24/7.",
@@ -108,6 +110,47 @@
         "title": "Bet on sports and market predictions",
         "desc": "HIP-4 outcome markets on Hyperliquid — macro, crypto, and live sports with on-chain settlement.",
         "cta": "Open betting"
+      }
+    },
+    "widgets": {
+      "title": "Everything in one account",
+      "sub": "Powered by Hyperliquid's framework.",
+      "bot": {
+        "title": "Trade with AI",
+        "desc": "MTF scan across 200+ Hyperliquid perps. The bot opens, trails profit, and cuts losers 24/7."
+      },
+      "perps": {
+        "title": "Trade the candles",
+        "desc": "Pro charts, depth, and execution on the same HL liquidity the bot uses."
+      },
+      "sports": {
+        "title": "Sports betting",
+        "desc": "HIP-4 outcome markets — live football, World Cup, and on-chain settlement."
+      },
+      "predictions": {
+        "title": "Prediction market",
+        "desc": "Macro, crypto, and event markets — transparent Yes/No odds on Hyperliquid."
+      },
+      "calc": {
+        "eyebrow": "Bot ROI",
+        "title": "Estimate your gains",
+        "stakeLabel": "USDC balance on Hyperliquid",
+        "leverage": "Leverage",
+        "monthlyProfit": "Est. profit / month",
+        "endBalance": "Est. balance",
+        "tradesDay": "Trades / day",
+        "returnMult": "Monthly multiple",
+        "perWin": "Per winning trade",
+        "perLoss": "Risk per loss",
+        "weeklyTrades": "Trades / week",
+        "slots": "Max slots",
+        "winsCopy": "{{wins}} of {{total}} trades successful",
+        "winsSub": "~{{min}}–{{max}} trades/day · {{winRate}} win rate · illustrative only",
+        "footnote": "Not financial advice. Small balances typically target ~2–3× per month, not 10×. Results vary."
+      },
+      "markets": {
+        "volume24h": "24h volume",
+        "change24h": "24h change"
       }
     },
     "pitch": {

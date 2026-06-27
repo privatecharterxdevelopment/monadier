@@ -1,8 +1,9 @@
 import { createAppKit } from '@reown/appkit/react';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { createStorage } from '@wagmi/core';
-import { mainnet, arbitrum, polygon, base, bsc } from '@reown/appkit/networks';
+import { arbitrum } from '@reown/appkit/networks';
 import { MONADIER_REOWN_PROJECT_ID } from './mobileWalletConnect';
+import { HL_DEPOSIT_CHAIN_LABEL, HL_DEPOSIT_TOKEN } from './hlDepositRules';
 
 const envProjectId =
   import.meta.env.VITE_REOWN_PROJECT_ID ||
@@ -26,7 +27,7 @@ const getOrigin = () => {
 
 const metadata = {
   name: 'Monadier',
-  description: 'Decentralized Trading Platform',
+  description: `${HL_DEPOSIT_TOKEN} on ${HL_DEPOSIT_CHAIN_LABEL} — fund Hyperliquid & run the bot`,
   url: getOrigin(),
   icons: [`${getOrigin()}/favicon.svg`],
 };
@@ -34,7 +35,8 @@ const metadata = {
 /** MetaMask — featured first on mobile WalletConnect list. */
 const METAMASK_WALLET_ID = 'c57ca95c075bbc3f4656fe7880bb88e88080e207664';
 
-const networks = [arbitrum, base, mainnet, bsc, polygon];
+/** Bot + HL funding: Arbitrum One only — avoids wrong-network deposits. */
+const networks = [arbitrum];
 
 export const wagmiAdapter = new WagmiAdapter({
   networks,

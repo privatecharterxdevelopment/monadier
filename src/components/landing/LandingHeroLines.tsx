@@ -12,6 +12,10 @@ type Props = {
   lineMutedPrefix?: string;
   /** Dark suffix on row 2 after rotate (two-row only). */
   rotateSuffix?: string;
+  /** Drop rotate sizer width so suffix sits flush after animated text (betting hero). */
+  tightRotateSuffix?: boolean;
+  /** Bottom line uses muted/white styling instead of dark grey. */
+  lineDarkBottomMuted?: boolean;
   className?: string;
 };
 
@@ -22,6 +26,8 @@ const LandingHeroLines: React.FC<Props> = ({
   rotatePosition = 'middle',
   lineMutedPrefix,
   rotateSuffix,
+  tightRotateSuffix = false,
+  lineDarkBottomMuted = false,
   className = '',
 }) => {
   const [index, setIndex] = useState(0);
@@ -44,10 +50,17 @@ const LandingHeroLines: React.FC<Props> = ({
   }, [rotateLines.length]);
 
   const rotateBlock = (
-    <div className="landing-gmx-hero-line landing-gmx-hero-line--rotate" aria-live="polite">
-      <span className="landing-gmx-hero-line--rotate-sizer" aria-hidden>
-        {lineMutedPrefix ? `${lineMutedPrefix} ${longest}` : longest}
-      </span>
+    <div
+      className={`landing-gmx-hero-line landing-gmx-hero-line--rotate${
+        tightRotateSuffix ? ' landing-gmx-hero-line--rotate-tight' : ''
+      }`.trim()}
+      aria-live="polite"
+    >
+      {!tightRotateSuffix ? (
+        <span className="landing-gmx-hero-line--rotate-sizer" aria-hidden>
+          {lineMutedPrefix ? `${lineMutedPrefix} ${longest}` : longest}
+        </span>
+      ) : null}
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
           key={midLine}
@@ -82,7 +95,11 @@ const LandingHeroLines: React.FC<Props> = ({
               ) : null}
             </div>
             {rotateSuffix ? (
-              <div className="landing-gmx-hero-line landing-gmx-hero-line--rotate-row">
+              <div
+                className={`landing-gmx-hero-line landing-gmx-hero-line--rotate-row${
+                  tightRotateSuffix ? ' landing-gmx-hero-line--rotate-row-tight' : ''
+                }`.trim()}
+              >
                 {rotateBlock}
                 <span className="landing-gmx-hero-line landing-gmx-hero-line--muted landing-gmx-hero-line--suffix">
                   {rotateSuffix}
@@ -97,7 +114,13 @@ const LandingHeroLines: React.FC<Props> = ({
             <div className="landing-gmx-hero-line landing-gmx-hero-line--dark">{lineDarkTop}</div>
             {rotateBlock}
             {lineDarkBottom ? (
-              <div className="landing-gmx-hero-line landing-gmx-hero-line--dark">{lineDarkBottom}</div>
+              <div
+                className={`landing-gmx-hero-line ${
+                  lineDarkBottomMuted ? 'landing-gmx-hero-line--muted' : 'landing-gmx-hero-line--dark'
+                }`.trim()}
+              >
+                {lineDarkBottom}
+              </div>
             ) : null}
           </>
         )}
