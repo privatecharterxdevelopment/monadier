@@ -30,7 +30,6 @@ import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
-import FundsExplainedPage from './pages/FundsExplainedPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
 import KycFlowPage from './pages/KycFlowPage';
@@ -137,11 +136,10 @@ function App() {
               <AuthCallbackPage />
             </PageTransition>
           } />
-          <Route path="/your-funds" element={
-            <PageTransition>
-              <FundsExplainedPage />
-            </PageTransition>
-          } />
+          <Route
+            path="/your-funds"
+            element={<Navigate to={{ pathname: '/how-it-works', hash: '#funds' }} replace />}
+          />
           <Route path="/terms" element={
             <PageTransition>
               <TermsPage />

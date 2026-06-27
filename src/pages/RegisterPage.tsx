@@ -304,7 +304,7 @@ const RegisterPage: React.FC = () => {
                 </div>
 
                 <p className="auth-footer-meta">
-                  <Link to="/your-funds" className="hover:text-accent underline">
+                  <Link to="/how-it-works#funds" className="hover:text-accent underline">
                     {t('auth.fundsLink')}
                   </Link>
                 </p>

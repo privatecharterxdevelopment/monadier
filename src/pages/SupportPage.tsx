@@ -1,110 +1,77 @@
-import React from 'react';
-import { Mail, Clock, HelpCircle } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Mail, Clock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import MarketingInnerPage, {
   MarketingPageHero,
-  MarketingFeatureCard,
-  MarketingPageGrid,
-  MarketingSectionHeading,
   MarketingPageCta,
   MarketingDisclaimer,
 } from '../components/marketing/MarketingInnerPage';
-
-const faqs = [
-  {
-    question: 'How do I get started?',
-    answer:
-      'Create an account, connect your wallet, approve the Hyperliquid agent, deposit USDC on HL, configure bot settings, and start the bot. See How it works for the full walkthrough.',
-  },
-  {
-    question: 'Is my wallet safe?',
-    answer:
-      'Monadier is non-custodial. Your USDC stays on your Hyperliquid account; only your connected wallet can deposit or withdraw. We never access your private keys.',
-  },
-  {
-    question: 'Which exchange?',
-    answer:
-      'Trading runs on Hyperliquid perpetuals. Deposit only native USDC on Arbitrum One (not BNB, BSC, or other chains). A little ETH on Arbitrum pays the deposit gas.',
-  },
-  {
-    question: 'Can I stop the bot or close trades?',
-    answer:
-      'Yes. Use Stop bot in the trade panel to halt new entries. Close position queues an exit on the next cycle. Withdraw HL funds when no active trade locks margin.',
-  },
-  {
-    question: 'What fees apply?',
-    answer:
-      'No platform subscription fee. A success fee applies on profitable closed trades only. Standard Hyperliquid trading fees apply per position.',
-  },
-  {
-    question: 'How fast is support?',
-    answer:
-      'Email support@monadier.com — we aim to reply within 24 hours, Monday–Sunday 09:00–20:00 CET.',
-  },
-];
+import MarketingFaqAccordion from '../components/marketing/MarketingFaqAccordion';
+import { pickSupportFaqs, type LandingFaqItem } from '../lib/supportFaq';
 
 const SupportPage: React.FC = () => {
+  const { t } = useTranslation();
+
+  const faqs = useMemo(() => {
+    const items = t('landing.faq.items', { returnObjects: true });
+    const landing = Array.isArray(items) ? (items as LandingFaqItem[]) : [];
+    const basics = pickSupportFaqs(landing);
+    const extraQ = t('marketing.support.faqExtra.q');
+    const extraA = t('marketing.support.faqExtra.a');
+    if (extraQ && extraA && extraQ !== 'marketing.support.faqExtra.q') {
+      return [...basics, { tab: 'platform', q: extraQ, a: extraA }];
+    }
+    return basics;
+  }, [t]);
+
   return (
     <MarketingInnerPage>
       <MarketingPageHero
-        eyebrow="Support"
-        title="Help & contact"
-        lead="Questions about your HL account, the trading bot, or your account? Reach out or browse common answers below."
-        sub="For urgent trading issues, include your wallet address and a screenshot from the dashboard."
+        eyebrow={t('marketing.support.eyebrow')}
+        title={t('marketing.support.title')}
+        lead={t('marketing.support.lead')}
+        sub={t('marketing.support.sub')}
       />
 
-      <MarketingPageGrid columns={2}>
-        <article className="mkt-card landing-glass-card">
-          <div className="mkt-card-body">
-            <div className="mkt-card-icon" aria-hidden>
-              <Mail size={20} strokeWidth={1.75} />
+      <article className="mkt-card mkt-support-contact-card landing-glass-card">
+        <div className="mkt-card-body mkt-support-contact-body">
+          <div className="mkt-support-contact-row">
+            <div className="mkt-support-contact-item">
+              <div className="mkt-card-icon" aria-hidden>
+                <Mail size={20} strokeWidth={1.75} />
+              </div>
+              <div className="mkt-support-contact-copy">
+                <h2 className="mkt-card-title">{t('marketing.support.contactEmailTitle')}</h2>
+                <p className="mkt-card-text">{t('marketing.support.contactEmailText')}</p>
+                <a href="mailto:support@monadier.com" className="mkt-cta-primary">
+                  support@monadier.com
+                </a>
+              </div>
             </div>
-            <h2 className="mkt-card-title">Email support</h2>
-            <p className="mkt-card-text">
-              Send us a message and we will get back to you within 24 hours.
-            </p>
-            <a href="mailto:support@monadier.com" className="mkt-cta-primary">
-              support@monadier.com
-            </a>
-          </div>
-        </article>
 
-        <article className="mkt-card landing-glass-card">
-          <div className="mkt-card-body">
-            <div className="mkt-card-icon" aria-hidden>
-              <Clock size={20} strokeWidth={1.75} />
+            <div className="mkt-support-contact-divider" aria-hidden />
+
+            <div className="mkt-support-contact-item">
+              <div className="mkt-card-icon" aria-hidden>
+                <Clock size={20} strokeWidth={1.75} />
+              </div>
+              <div className="mkt-support-contact-copy">
+                <h2 className="mkt-card-title">{t('marketing.support.contactHoursTitle')}</h2>
+                <p className="mkt-card-text">{t('marketing.support.contactHoursText')}</p>
+              </div>
             </div>
-            <h2 className="mkt-card-title">Support hours</h2>
-            <p className="mkt-card-text">
-              Monday – Sunday, 09:00 – 20:00 CET. The trading bot itself runs 24/7 on our infrastructure.
-            </p>
           </div>
-        </article>
-      </MarketingPageGrid>
+        </div>
+      </article>
 
-      <MarketingSectionHeading
-        title="Frequently asked questions"
-        sub="Quick answers about setup, safety, and fees."
-      />
-
-      <MarketingPageGrid columns={2}>
-        {faqs.map((faq) => (
-          <MarketingFeatureCard
-            key={faq.question}
-            title={faq.question}
-            text={faq.answer}
-            icon={HelpCircle}
-          />
-        ))}
-      </MarketingPageGrid>
+      <MarketingFaqAccordion items={faqs} idPrefix="support-faq" />
 
       <MarketingPageCta
-        label="Contact support"
-        secondary={{ to: '/how-it-works', label: 'How it works' }}
+        label={t('marketing.support.ctaContact')}
+        secondary={{ to: '/how-it-works', label: t('nav.howItWorks') }}
       />
 
-      <MarketingDisclaimer>
-        For account security, never share your seed phrase or private keys with anyone — including support.
-      </MarketingDisclaimer>
+      <MarketingDisclaimer>{t('marketing.support.disclaimer')}</MarketingDisclaimer>
     </MarketingInnerPage>
   );
 };

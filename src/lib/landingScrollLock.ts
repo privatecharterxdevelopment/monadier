@@ -1,5 +1,7 @@
 export type ScrollLockSnapshot = {
   scrollY: number;
+  /** Document Y of section bottom when lock was taken — used on forward release. */
+  sectionEndY?: number;
 };
 
 export type LandingWheelConsumer = {
@@ -64,6 +66,39 @@ export function resolveEngageScrollY(section: HTMLElement): number {
   return Math.max(0, Math.round(readScrollY() + rect.top));
 }
 
+export function resolveEngageSectionEndY(section: HTMLElement, scrollY: number): number {
+  const rect = section.getBoundingClientRect();
+  return Math.max(scrollY, Math.round(scrollY + rect.height));
+}
+
+export function resolveSectionReleaseScrollY(
+  section: HTMLElement | null,
+  snapshot: ScrollLockSnapshot,
+  forward: boolean,
+  continueDelta = 0
+): number {
+  const lockedScrollY = Math.max(0, Math.round(snapshot.scrollY));
+  if (!forward) return lockedScrollY;
+
+  const momentum =
+    continueDelta > 0 ? Math.min(Math.abs(continueDelta) * 0.35, 72) : 32;
+
+  if (section) {
+    const rect = section.getBoundingClientRect();
+    const currentY = readScrollY();
+    const sectionTopY = Math.round(currentY + rect.top);
+    const sectionBottomY = Math.round(currentY + rect.bottom);
+    const storedEnd = snapshot.sectionEndY ?? sectionBottomY;
+    const exitY = Math.max(storedEnd, sectionBottomY) + momentum;
+    // Never release above the section we just animated — prevents hero jump on bad snapshots
+    return Math.max(exitY, sectionTopY + 48, lockedScrollY + momentum);
+  }
+
+  const fallbackEnd = snapshot.sectionEndY ?? lockedScrollY;
+  return Math.max(fallbackEnd + momentum, lockedScrollY + momentum);
+}
+
+/** @deprecated Use resolveSectionReleaseScrollY */
 export function sectionReleaseScrollY(
   lockedScrollY: number,
   forward: boolean,
@@ -78,7 +113,8 @@ function routeWheelEvent(e: WheelEvent) {
   for (let i = wheelConsumers.length - 1; i >= 0; i -= 1) {
     const consumer = wheelConsumers[i];
     if (!consumer.isActive()) continue;
-    if (consumer.onWheel(e.deltaY)) {
+    const consumed = consumer.onWheel(e.deltaY);
+    if (consumed) {
       e.preventDefault();
     }
     return;

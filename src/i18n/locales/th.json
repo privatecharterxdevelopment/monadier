@@ -321,6 +321,87 @@
       "lead": "ตลาด outcome HIP-4 บน Hyperliquid — ลงนามด้วย wallet อัตราต่อรอง on-chain และการชำระเงินโปร่งใส"
     }
   },
+  "marketing": {
+    "howItWorks": {
+      "eyebrow": "ผลิตภัณฑ์",
+      "title": "วิธีการทำงาน",
+      "lead": "ฝาก USDC แบบ native บน Arbitrum อนุมัติบอทครั้งเดียว — กลยุทธ์ของเราทำงาน 24/7 บน Hyperliquid",
+      "sub": "Non-custodial กุญแจของคุณ บัญชี HL ของคุณ เงินของคุณ",
+      "arbitrum": {
+        "title": "USDC บน Arbitrum One — จำเป็น",
+        "text": "เพื่อรันบอทคุณต้องมี USDC แบบ native บน Arbitrum One ใน wallet Hyperliquid ไม่รับ BNB ETH mainnet หรือ USDC จาก chain อื่น",
+        "minHl": "ฝากขั้นต่ำ $5 บน HL · $20+ สำหรับบอท",
+        "gas": "เก็บ ETH เล็กน้อยบน Arbitrum สำหรับ gas ฝากเงิน",
+        "doNotUse": "ห้ามใช้"
+      },
+      "stepsTitle": "ตั้งค่า 4 ขั้นตอน",
+      "stepsSub": "ตั้งค่าครั้งเดียวในแอป Monadier",
+      "steps": [
+        {
+          "title": "เชื่อม wallet",
+          "text": "เข้าสู่ระบบและเชื่อม MetaMask หรือ WalletConnect บน Arbitrum"
+        },
+        {
+          "title": "ฝาก USDC",
+          "text": "จากแท็บ Funds ส่ง USDC native จาก wallet Arbitrum ไปยังบัญชี Hyperliquid"
+        },
+        {
+          "title": "อนุมัติ agent & เริ่มบอท",
+          "text": "ลายเซ็นครั้งเดียวอนุญาตให้บอทเทรด — ไม่ถอนเงิน กดเริ่มบอท"
+        },
+        {
+          "title": "ถอนได้ทุกเมื่อ",
+          "text": "P/L อยู่บน HL จนกว่าคุณจะถอน USDC กลับ wallet Arbitrum"
+        }
+      ],
+      "fundsTitle": "เงินของคุณเก็บอย่างไร",
+      "fundsSub": "ไม่ใช่ vault รวม — บัญชี Hyperliquid ในชื่อคุณ",
+      "funds": [
+        {
+          "title": "Login vs wallet",
+          "text": "อีเมล/Google = แดชบอร์ด Monadier MetaMask = ลงนามฝากถอน"
+        },
+        {
+          "title": "บัญชี HL ของคุณ",
+          "text": "USDC อยู่บนบัญชี Hyperliquid บอทเทรดผ่าน agent approval เท่านั้น — ถอนไม่ได้"
+        },
+        {
+          "title": "เมื่อเทรดปิด",
+          "text": "P/L เข้ายอด HL ไม่เข้า MetaMask อัตโนมัติ"
+        },
+        {
+          "title": "ถอนเงิน",
+          "text": "แท็บ Funds → ถอน คุณลงนามทุกครั้งที่ถอน"
+        }
+      ],
+      "risksTitle": "ความเสี่ยง",
+      "risks": [
+        "ความเสี่ยง Hyperliquid และบอท",
+        "ความผันผวนคrypto และ leverage",
+        "ฝากเฉพาะที่เสียได้"
+      ],
+      "ctaSecondary": "ราคาและค่าธรรมเนียม",
+      "disclaimer": "ไม่ใช่คำแนะนำทางการเงิน เงินทุนของคุณมีความเสี่ยง"
+    },
+    "support": {
+      "eyebrow": "สนับสนุน",
+      "title": "ความช่วยเหลือและติดต่อ",
+      "lead": "มีคำถามเกี่ยวกับบัญชี HL บอทเทรด หรือบัญชี Monadier? ติดต่อเราหรือดูคำตอบด้านล่าง",
+      "sub": "ปัญหาเทรดเร่งด่วน แนบที่อยู่ wallet และภาพหน้าจอจาก dashboard",
+      "contactEmailTitle": "อีเมลสนับสนุน",
+      "contactEmailText": "ส่งข้อความถึงเรา — เรามุ่งตอบภายใน 24 ชั่วโมง",
+      "contactHoursTitle": "เวลาสนับสนุน",
+      "contactHoursText": "จันทร์ – อาทิตย์ 09:00 – 20:00 CET บอทเทรดทำงาน 24/7 บนโครงสร้างของเรา",
+      "faqTitle": "คำถามที่พบบ่อย",
+      "faqSub": "คำตอบสั้นๆ เรื่องการตั้งค่า ความปลอดภัย และค่าธรรมเนียม",
+      "faqExtra": {
+        "q": "สนับสนุนเร็วแค่ไหน?",
+        "a": "อีเมล support@monadier.com — เป้าหมายตอบภายใน 24 ชม. จ–อา 09:00–20:00 CET"
+      },
+      "ctaContact": "ติดต่อฝ่ายสนับสนุน",
+      "disclaimer": "เพื่อความปลอดภัย อย่าแชร์ seed phrase หรือ private key กับใคร — รวมถึง support"
+    }
+  },
   "auth": {
     "welcomeBack": "ยินดีต้อนรับกลับ",
     "email": "อีเมล",

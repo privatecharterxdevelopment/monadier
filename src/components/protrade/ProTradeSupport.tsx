@@ -43,7 +43,7 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
   if (!user) {
     return (
       <div className="hl-meta-canvas hl-support-page">
-        <section className="hl-studio-card">
+        <section className="hl-studio-card hl-support-studio-card hl-support-gate-card">
           <header className="hl-studio-card__head">
             <Headphones size={18} aria-hidden />
             <span>{t('app.support.title')}</span>

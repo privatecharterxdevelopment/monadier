@@ -6,6 +6,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyFaqTranslations } from './faq-translations.mjs';
+import { applySupportMarketing } from './support-page-translations.mjs';
+import { applyHowItWorksMarketing } from './how-it-works-translations.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const localesDir = path.join(__dirname, '../src/i18n/locales');
@@ -159,6 +161,8 @@ const locales = { de, zh: deepMerge(en, zhPatch), ja: deepMerge(en, jaPatch), th
 
 for (const code of ['de', 'zh', 'ja', 'th', 'es', 'it', 'ru']) {
   applyFaqTranslations(locales[code], en.landing.faq.items, code);
+  applySupportMarketing(locales[code], code);
+  applyHowItWorksMarketing(locales[code], code);
 }
 
 for (const [code, data] of Object.entries(locales)) {

@@ -7,7 +7,8 @@ import {
   readScrollY,
   registerLandingWheelConsumer,
   resolveEngageScrollY,
-  sectionReleaseScrollY,
+  resolveEngageSectionEndY,
+  resolveSectionReleaseScrollY,
   unlockPageScroll,
   unregisterLandingWheelConsumer,
 } from '../../lib/landingScrollLock';
@@ -77,19 +78,21 @@ export function useLandingScrollSequence(options: Options) {
       const snapshot = lockSnapshotRef.current;
       lockSnapshotRef.current = null;
 
-      const lockedScrollY = snapshot?.scrollY ?? readScrollY();
-      const exitY = sectionReleaseScrollY(lockedScrollY, forward, continueDelta);
+      const section = sectionRef.current;
+      const exitY = resolveSectionReleaseScrollY(
+        section,
+        snapshot ?? captureScrollLock(readScrollY()),
+        forward,
+        continueDelta
+      );
 
       unlockedRef.current = true;
       engagedRef.current = false;
       unlockPageScroll({ scrollY: exitY }, lockId);
 
       requestAnimationFrame(() => {
-        window.scrollTo(0, exitY);
-        requestAnimationFrame(() => {
-          setLocked(false);
-          setUnlocked(true);
-        });
+        setLocked(false);
+        setUnlocked(true);
       });
     },
     [lockId]
@@ -130,7 +133,10 @@ export function useLandingScrollSequence(options: Options) {
 
     const scrollY = resolveEngageScrollY(section);
     if (scrollY < 8) return false;
-    lockSnapshotRef.current = captureScrollLock(scrollY);
+    lockSnapshotRef.current = {
+      ...captureScrollLock(scrollY),
+      sectionEndY: resolveEngageSectionEndY(section, scrollY),
+    };
     engagedRef.current = true;
     setLocked(true);
     lockPageScroll(scrollY, lockId);
@@ -141,7 +147,9 @@ export function useLandingScrollSequence(options: Options) {
     const section = sectionRef.current;
     if (!section) return false;
     const rect = section.getBoundingClientRect();
-    return rect.top <= window.innerHeight * 0.92 && rect.bottom >= window.innerHeight * 0.08;
+    const vh = window.innerHeight;
+    // Only hijack scroll when the section is close to pinning at the top — not while hero/previous content is still visible
+    return rect.top <= vh * 0.28 && rect.bottom >= vh * 0.72;
   }, []);
 
   const tryEngage = useCallback(() => {
@@ -213,10 +221,33 @@ export function useLandingScrollSequence(options: Options) {
       }
 
       applyProgress(progressRef.current + deltaY / scrollPx);
+      if (completeRef.current && deltaY > 0) {
+        releaseLock(true, deltaY);
+        return false;
+      }
       return true;
     },
     [applyProgress, bumpStep, engage, isStepMode, lockId, releaseLock, scrollPx]
   );
+
+  const handleWheelDeltaRef = useRef(handleWheelDelta);
+  handleWheelDeltaRef.current = handleWheelDelta;
+  const tryEngageRef = useRef(tryEngage);
+  tryEngageRef.current = tryEngage;
+  const isSectionNearViewportRef = useRef(isSectionNearViewport);
+  isSectionNearViewportRef.current = isSectionNearViewport;
+  const isStepModeRef = useRef(isStepMode);
+  isStepModeRef.current = isStepMode;
+  const applyProgressRef = useRef(applyProgress);
+  applyProgressRef.current = applyProgress;
+  const bumpStepRef = useRef(bumpStep);
+  bumpStepRef.current = bumpStep;
+  const releaseLockRef = useRef(releaseLock);
+  releaseLockRef.current = releaseLock;
+  const applyStepRef = useRef(applyStep);
+  applyStepRef.current = applyStep;
+  const stepCountRef = useRef(stepCount);
+  stepCountRef.current = stepCount;
 
   useEffect(() => {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -225,8 +256,8 @@ export function useLandingScrollSequence(options: Options) {
       unlockedRef.current = true;
       setComplete(true);
       setUnlocked(true);
-      if (isStepMode) applyStep(stepCount - 1);
-      else applyProgress(1);
+      if (isStepModeRef.current) applyStepRef.current(stepCountRef.current - 1);
+      else applyProgressRef.current(1);
       return undefined;
     }
 
@@ -237,13 +268,13 @@ export function useLandingScrollSequence(options: Options) {
         const owner = getScrollLockOwner();
         if (owner === lockId || engagedRef.current) return true;
         if (isBodyScrollLocked()) return false;
-        return isSectionNearViewport();
+        return isSectionNearViewportRef.current();
       },
-      onWheel: handleWheelDelta,
+      onWheel: (deltaY) => handleWheelDeltaRef.current(deltaY),
     });
 
     const onScroll = () => {
-      tryEngage();
+      tryEngageRef.current();
     };
 
     const onTouchStart = (e: TouchEvent) => {
@@ -258,7 +289,7 @@ export function useLandingScrollSequence(options: Options) {
       const delta = touchYRef.current - y;
       touchYRef.current = y;
       if (Math.abs(delta) < 2) return;
-      const consumed = handleWheelDelta(delta);
+      const consumed = handleWheelDeltaRef.current(delta);
       if (consumed) e.preventDefault();
     };
 
@@ -270,25 +301,25 @@ export function useLandingScrollSequence(options: Options) {
       if (unlockedRef.current || !engagedRef.current) return;
       if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
         e.preventDefault();
-        if (isStepMode) {
-          if (completeRef.current) releaseLock(true, 48);
-          else bumpStep(1);
+        if (isStepModeRef.current) {
+          if (completeRef.current) releaseLockRef.current(true, 48);
+          else bumpStepRef.current(1);
           return;
         }
-        if (completeRef.current) releaseLock(true, 48);
-        else applyProgress(progressRef.current + 0.12);
+        if (completeRef.current) releaseLockRef.current(true, 48);
+        else applyProgressRef.current(progressRef.current + 0.12);
       }
       if (e.key === 'ArrowUp' || e.key === 'PageUp') {
         e.preventDefault();
-        if (isStepMode) {
+        if (isStepModeRef.current) {
           if (completeRef.current) {
             completeRef.current = false;
             setComplete(false);
           }
-          bumpStep(-1);
+          bumpStepRef.current(-1);
           return;
         }
-        applyProgress(progressRef.current - 0.12);
+        applyProgressRef.current(progressRef.current - 0.12);
       }
     };
 
@@ -305,7 +336,10 @@ export function useLandingScrollSequence(options: Options) {
       }
       if (engagedRef.current && !unlockedRef.current) {
         const snapshot = lockSnapshotRef.current;
-        if (snapshot) unlockPageScroll(snapshot, lockId);
+        if (snapshot) {
+          const exitY = resolveSectionReleaseScrollY(sectionRef.current, snapshot, true, 0);
+          unlockPageScroll({ scrollY: exitY }, lockId);
+        }
       }
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('touchstart', onTouchStart);
@@ -313,18 +347,7 @@ export function useLandingScrollSequence(options: Options) {
       window.removeEventListener('touchend', onTouchEnd);
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [
-    applyProgress,
-    applyStep,
-    bumpStep,
-    handleWheelDelta,
-    isSectionNearViewport,
-    isStepMode,
-    lockId,
-    releaseLock,
-    stepCount,
-    tryEngage,
-  ]);
+  }, [lockId]);
 
   return {
     sectionRef,

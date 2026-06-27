@@ -321,6 +321,87 @@
       "lead": "Mercati outcome HIP-4 su Hyperliquid — firmati dal wallet, quote on-chain e regolamento trasparente."
     }
   },
+  "marketing": {
+    "howItWorks": {
+      "eyebrow": "Prodotto",
+      "title": "Come funziona",
+      "lead": "Deposita USDC nativo su Arbitrum, approva il bot una volta — la strategia gira 24/7 su Hyperliquid.",
+      "sub": "Non-custodial. Le tue chiavi, il tuo account HL, i tuoi fondi.",
+      "arbitrum": {
+        "title": "USDC su Arbitrum One — obbligatorio",
+        "text": "Per il bot serve USDC nativo su Arbitrum One nel wallet. Hyperliquid non accetta BNB, ETH mainnet o USDC da altre chain.",
+        "minHl": "Min. $5 su HL · $20+ per il bot",
+        "gas": "Tieni un po' di ETH su Arbitrum per il gas del deposito.",
+        "doNotUse": "Non usare"
+      },
+      "stepsTitle": "Setup in quattro passi",
+      "stepsSub": "Configurazione una tantum nell'app Monadier.",
+      "steps": [
+        {
+          "title": "Connetti wallet",
+          "text": "Accedi e collega MetaMask o WalletConnect su Arbitrum."
+        },
+        {
+          "title": "Deposita USDC",
+          "text": "Dalla scheda Funds, invia USDC nativo dal wallet Arbitrum al tuo account Hyperliquid."
+        },
+        {
+          "title": "Approva agent e avvia bot",
+          "text": "Una firma permette di tradare — non prelevare. Premi Avvia bot."
+        },
+        {
+          "title": "Preleva quando vuoi",
+          "text": "Il P/L resta su HL finché non prelevi USDC sul wallet Arbitrum."
+        }
+      ],
+      "fundsTitle": "Come sono custoditi i fondi",
+      "fundsSub": "Non un vault condiviso — il tuo account Hyperliquid a tuo nome.",
+      "funds": [
+        {
+          "title": "Login vs wallet",
+          "text": "Email/Google = dashboard Monadier. MetaMask = firma depositi e prelievi."
+        },
+        {
+          "title": "Il tuo account HL",
+          "text": "L'USDC è sul tuo account Hyperliquid. Il bot opera solo con approvazione agent — non può prelevare."
+        },
+        {
+          "title": "Alla chiusura trade",
+          "text": "Il P/L va al saldo HL, non automaticamente su MetaMask."
+        },
+        {
+          "title": "Prelievo",
+          "text": "Scheda Funds → Preleva. Firmi ogni prelievo tu stesso."
+        }
+      ],
+      "risksTitle": "Rischi",
+      "risks": [
+        "Rischio operativo Hyperliquid e bot",
+        "Volatilità crypto e leva",
+        "Deposita solo ciò che puoi perdere"
+      ],
+      "ctaSecondary": "Prezzi e commissioni",
+      "disclaimer": "Non è consulenza finanziaria. Il capitale è a rischio."
+    },
+    "support": {
+      "eyebrow": "Supporto",
+      "title": "Aiuto e contatti",
+      "lead": "Domande sul tuo account HL, il bot o Monadier? Scrivici o consulta le risposte qui sotto.",
+      "sub": "Per problemi urgenti di trading, includi l'indirizzo wallet e uno screenshot della dashboard.",
+      "contactEmailTitle": "Supporto email",
+      "contactEmailText": "Inviaci un messaggio — rispondiamo entro 24 ore.",
+      "contactHoursTitle": "Orari di supporto",
+      "contactHoursText": "Lunedì – domenica, 09:00 – 20:00 CET. Il bot opera 24/7 sulla nostra infrastruttura.",
+      "faqTitle": "Domande frequenti",
+      "faqSub": "Risposte rapide su setup, sicurezza e commissioni.",
+      "faqExtra": {
+        "q": "Quanto è veloce il supporto?",
+        "a": "Email a support@monadier.com — obiettivo risposta entro 24 ore, lun–dom 09:00–20:00 CET."
+      },
+      "ctaContact": "Contatta il supporto",
+      "disclaimer": "Per sicurezza, non condividere mai seed phrase o chiavi private — nemmeno con il supporto."
+    }
+  },
   "auth": {
     "welcomeBack": "Bentornato",
     "email": "Email",

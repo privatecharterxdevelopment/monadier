@@ -179,7 +179,7 @@ const LoginPage: React.FC = () => {
               </Link>
             </div>
             <p className="mt-4 text-center text-xs text-secondary">
-              <Link to="/your-funds" className="hover:text-accent underline">
+              <Link to="/how-it-works#funds" className="hover:text-accent underline">
                 {t('auth.fundsLink')}
               </Link>
             </p>

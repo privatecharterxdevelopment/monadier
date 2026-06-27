@@ -321,6 +321,87 @@
       "lead": "Hyperliquid 上の HIP-4 結果マーケット — ウォレット署名、オンチェーンオッズ、透明な決済。"
     }
   },
+  "marketing": {
+    "howItWorks": {
+      "eyebrow": "プロダクト",
+      "title": "仕組み",
+      "lead": "Arbitrum でネイティブ USDC を入金し、ボットを一度承認 — 戦略が Hyperliquid で 24/7 稼働します。",
+      "sub": "ノンカストディアル。あなたの鍵、HL アカウント、資金。",
+      "arbitrum": {
+        "title": "Arbitrum One の USDC — 必須",
+        "text": "ボットを動かすにはウォレットに Arbitrum One のネイティブ USDC が必要です。Hyperliquid は BNB、ETH メインネット、その他チェーンの USDC を受け付けません。",
+        "minHl": "HL 最低 $5 入金 · ボットは $20+",
+        "gas": "入金 gas 用に Arbitrum で少量の ETH を用意してください。",
+        "doNotUse": "使用不可"
+      },
+      "stepsTitle": "4 ステップでセットアップ",
+      "stepsSub": "Monadier アプリで一度だけ設定。",
+      "steps": [
+        {
+          "title": "ウォレット接続",
+          "text": "サインインし、Arbitrum で MetaMask または WalletConnect をリンク。"
+        },
+        {
+          "title": "USDC 入金",
+          "text": "Funds タブから Arbitrum ウォレットのネイティブ USDC を Hyperliquid アカウントへ。"
+        },
+        {
+          "title": "エージェント承認 & ボット開始",
+          "text": "1 回の署名で取引のみ許可 — 出金不可。ボット開始を押す。"
+        },
+        {
+          "title": "いつでも出金",
+          "text": "P/L は HL に残り、Arbitrum ウォレットへ USDC を出金するまで。"
+        }
+      ],
+      "fundsTitle": "資金の保管方法",
+      "fundsSub": "共有ボールトではなく — あなた名義の Hyperliquid アカウント。",
+      "funds": [
+        {
+          "title": "ログイン vs ウォレット",
+          "text": "メール/Google = Monadier ダッシュボード。MetaMask = 入出金に署名。"
+        },
+        {
+          "title": "HL アカウント",
+          "text": "USDC は Hyperliquid アカウントに。ボットはエージェント承認でのみ取引 — 出金不可。"
+        },
+        {
+          "title": "取引決済時",
+          "text": "P/L は HL 残高に計上、MetaMask には自動送金されません。"
+        },
+        {
+          "title": "出金",
+          "text": "Funds タブ → 出金。すべての出金は自分で署名。"
+        }
+      ],
+      "risksTitle": "リスク",
+      "risks": [
+        "Hyperliquid とボットの運用リスク",
+        "暗号資産のボラティリティとレバレッジ",
+        "失ってもよい金額のみ入金"
+      ],
+      "ctaSecondary": "料金",
+      "disclaimer": "金融アドバイスではありません。資本はリスクにさらされます。"
+    },
+    "support": {
+      "eyebrow": "サポート",
+      "title": "ヘルプとお問い合わせ",
+      "lead": "HL アカウント、取引ボット、Monadier アカウントについて — お問い合わせまたは FAQ をご覧ください。",
+      "sub": "緊急の取引問題には、ウォレットアドレスとダッシュボードのスクリーンショットを添付してください。",
+      "contactEmailTitle": "メールサポート",
+      "contactEmailText": "メッセージをお送りください — 通常 24 時間以内に返信します。",
+      "contactHoursTitle": "サポート時間",
+      "contactHoursText": "月曜–日曜 09:00–20:00 CET。ボット自体は 24/7 当社インフラで稼働します。",
+      "faqTitle": "よくある質問",
+      "faqSub": "セットアップ、安全性、手数料に関する簡潔な回答。",
+      "faqExtra": {
+        "q": "サポートの返信はどのくらい早いですか？",
+        "a": "support@monadier.com へメール — 24 時間以内を目標、月–日 09:00–20:00 CET。"
+      },
+      "ctaContact": "サポートに連絡",
+      "disclaimer": "セキュリティのため、シードフレーズや秘密鍵は誰にも共有しないでください — サポートを含め。"
+    }
+  },
   "auth": {
     "welcomeBack": "おかえりなさい",
     "email": "メール",

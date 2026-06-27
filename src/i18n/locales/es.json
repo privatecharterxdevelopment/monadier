@@ -321,6 +321,87 @@
       "lead": "Mercados outcome HIP-4 en Hyperliquid — firmados con wallet, cuotas on-chain y liquidación transparente."
     }
   },
+  "marketing": {
+    "howItWorks": {
+      "eyebrow": "Producto",
+      "title": "Cómo funciona",
+      "lead": "Deposita USDC nativo en Arbitrum, aprueba el bot una vez — nuestra estrategia opera 24/7 en Hyperliquid.",
+      "sub": "No custodial. Tus claves, tu cuenta HL, tus fondos.",
+      "arbitrum": {
+        "title": "USDC en Arbitrum One — obligatorio",
+        "text": "Para el bot necesitas USDC nativo en Arbitrum One en tu wallet. Hyperliquid no acepta BNB, ETH mainnet ni USDC de otras redes.",
+        "minHl": "Mín. $5 en HL · $20+ para el bot",
+        "gas": "Mantén un poco de ETH en Arbitrum para el gas del depósito.",
+        "doNotUse": "No usar"
+      },
+      "stepsTitle": "Configuración en cuatro pasos",
+      "stepsSub": "Configuración única en la app Monadier.",
+      "steps": [
+        {
+          "title": "Conectar wallet",
+          "text": "Inicia sesión y vincula MetaMask o WalletConnect en Arbitrum."
+        },
+        {
+          "title": "Depositar USDC",
+          "text": "Desde la pestaña Funds, envía USDC nativo de tu wallet Arbitrum a tu cuenta Hyperliquid."
+        },
+        {
+          "title": "Aprobar agente e iniciar bot",
+          "text": "Una firma permite operar — no retirar. Pulsa Iniciar bot."
+        },
+        {
+          "title": "Retirar cuando quieras",
+          "text": "El P/L queda en HL hasta que retires USDC a tu wallet Arbitrum."
+        }
+      ],
+      "fundsTitle": "Cómo se guardan tus fondos",
+      "fundsSub": "No es un vault compartido — tu cuenta Hyperliquid a tu nombre.",
+      "funds": [
+        {
+          "title": "Login vs wallet",
+          "text": "Email/Google = panel Monadier. MetaMask = firma depósitos y retiros."
+        },
+        {
+          "title": "Tu cuenta HL",
+          "text": "El USDC está en tu cuenta Hyperliquid. El bot opera solo con aprobación de agente — no puede retirar."
+        },
+        {
+          "title": "Al cerrar operaciones",
+          "text": "El P/L se acredita en tu saldo HL, no en MetaMask automáticamente."
+        },
+        {
+          "title": "Retirar",
+          "text": "Pestaña Funds → Retirar. Tú firmas cada retiro."
+        }
+      ],
+      "risksTitle": "Riesgos",
+      "risks": [
+        "Riesgo operativo de Hyperliquid y del bot",
+        "Volatilidad cripto y apalancamiento",
+        "Solo deposita lo que puedas perder"
+      ],
+      "ctaSecondary": "Precios y comisiones",
+      "disclaimer": "No es asesoramiento financiero. Tu capital está en riesgo."
+    },
+    "support": {
+      "eyebrow": "Soporte",
+      "title": "Ayuda y contacto",
+      "lead": "¿Preguntas sobre tu cuenta HL, el bot o tu cuenta Monadier? Escríbenos o consulta las respuestas abajo.",
+      "sub": "Para problemas urgentes de trading, incluye tu dirección de wallet y una captura del panel.",
+      "contactEmailTitle": "Soporte por email",
+      "contactEmailText": "Envíanos un mensaje — respondemos en un plazo de 24 horas.",
+      "contactHoursTitle": "Horario de soporte",
+      "contactHoursText": "Lunes – domingo, 09:00 – 20:00 CET. El bot opera 24/7 en nuestra infraestructura.",
+      "faqTitle": "Preguntas frecuentes",
+      "faqSub": "Respuestas rápidas sobre configuración, seguridad y comisiones.",
+      "faqExtra": {
+        "q": "¿Qué tan rápido responde el soporte?",
+        "a": "Email a support@monadier.com — objetivo: respuesta en 24 h, lun–dom 09:00–20:00 CET."
+      },
+      "ctaContact": "Contactar soporte",
+      "disclaimer": "Por seguridad, nunca compartas tu frase semilla o claves privadas — ni siquiera con soporte."
+    }
+  },
   "auth": {
     "welcomeBack": "Bienvenido de nuevo",
     "email": "Correo",

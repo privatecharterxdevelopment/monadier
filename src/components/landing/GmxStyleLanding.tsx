@@ -48,7 +48,7 @@ function viewportHeight(): number {
 function headerGutterPx(viewportW: number): number {
   if (viewportW >= 768) return 32;
   if (viewportW >= 640) return 20;
-  return 12;
+  return 16;
 }
 
 function headerContentBox(viewportW: number) {
@@ -66,15 +66,36 @@ function computeHeroLayout(progress: number, viewportW: number, viewportH: numbe
   const p = Math.min(1, Math.max(0, progress));
   const margin = HERO_MARGIN_PX;
   const header = headerContentBox(viewportW);
+  const isMobile = viewportW < 640;
 
-  const startW = header.width;
-  const startLeft = header.left;
-  const startTop = header.navBottom + HEADER_GAP_BELOW_NAV;
-  const startH = Math.min(
-    Math.max(280, Math.round(startW * 0.5)),
-    Math.round(viewportH * 0.62),
-    viewportH - startTop - 24
-  );
+  let startW: number;
+  let startLeft: number;
+  let startTop: number;
+  let startH: number;
+
+  if (isMobile) {
+    // Symmetric inset — centered frame, larger & lower before the expand animation
+    const inset = Math.max(16, headerGutterPx(viewportW));
+    startW = viewportW - inset * 2;
+    startLeft = inset;
+    startTop = header.navBottom + 28;
+    const reservedBottom = 128;
+    const maxH = Math.max(260, viewportH - startTop - reservedBottom);
+    startH = Math.min(
+      Math.round(startW * 0.66),
+      Math.round(viewportH * 0.46),
+      maxH
+    );
+  } else {
+    startW = header.width;
+    startLeft = header.left;
+    startTop = header.navBottom + HEADER_GAP_BELOW_NAV;
+    startH = Math.min(
+      Math.max(280, Math.round(startW * 0.5)),
+      Math.round(viewportH * 0.62),
+      viewportH - startTop - 24
+    );
+  }
 
   const endW = viewportW - margin * 2;
   const endH = viewportH - margin * 2;

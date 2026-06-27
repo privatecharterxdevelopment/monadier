@@ -321,6 +321,87 @@
       "lead": "HIP-4 Outcome-Märkte auf Hyperliquid — wallet-signiert, on-chain Quoten und transparente Abwicklung."
     }
   },
+  "marketing": {
+    "howItWorks": {
+      "eyebrow": "Produkt",
+      "title": "So funktioniert es",
+      "lead": "Native USDC auf Arbitrum einzahlen, Bot einmal freigeben — unsere Strategie läuft dann 24/7 auf Hyperliquid.",
+      "sub": "Non-custodial. Deine Keys, dein HL-Konto, deine Gelder.",
+      "arbitrum": {
+        "title": "USDC auf Arbitrum One — erforderlich",
+        "text": "Für den Bot brauchst du natives USDC auf Arbitrum One in deiner Wallet. Hyperliquid akzeptiert kein BNB, kein ETH-Mainnet und kein USDC von anderen Chains.",
+        "minHl": "Min. $5 Einzahlung auf HL · $20+ für den Bot",
+        "gas": "Halte etwas ETH auf Arbitrum für Deposit-Gas bereit.",
+        "doNotUse": "Nicht verwenden"
+      },
+      "stepsTitle": "Setup in vier Schritten",
+      "stepsSub": "Einmalige Einrichtung in der Monadier-App.",
+      "steps": [
+        {
+          "title": "Wallet verbinden",
+          "text": "Anmelden und MetaMask oder WalletConnect auf Arbitrum verknüpfen."
+        },
+        {
+          "title": "USDC einzahlen",
+          "text": "Im Tab Funds natives USDC von deiner Arbitrum-Wallet auf dein Hyperliquid-Konto senden."
+        },
+        {
+          "title": "Agent freigeben & Bot starten",
+          "text": "Eine Signatur erlaubt dem Bot zu handeln — nicht abzuheben. Bot starten drücken."
+        },
+        {
+          "title": "Jederzeit abheben",
+          "text": "P/L bleibt auf HL, bis du USDC zurück auf deine Arbitrum-Wallet abhebst."
+        }
+      ],
+      "fundsTitle": "Wie deine Gelder gespeichert werden",
+      "fundsSub": "Kein gemeinsamer Vault — dein Hyperliquid-Konto auf deinen Namen.",
+      "funds": [
+        {
+          "title": "Login vs. Wallet",
+          "text": "E-Mail/Google = Monadier-Dashboard. MetaMask = signiert Ein- und Auszahlungen."
+        },
+        {
+          "title": "Dein HL-Konto",
+          "text": "USDC liegt auf deinem Hyperliquid-Konto. Der Bot handelt nur per Agent-Freigabe — kann nicht abheben."
+        },
+        {
+          "title": "Wenn Trades schließen",
+          "text": "P/L wird deinem HL-Guthaben gutgeschrieben, nicht automatisch auf MetaMask."
+        },
+        {
+          "title": "Abheben",
+          "text": "Tab Funds → Abheben. Jede Auszahlung signierst du selbst."
+        }
+      ],
+      "risksTitle": "Risiken",
+      "risks": [
+        "Hyperliquid- und Bot-Betriebsrisiko",
+        "Krypto-Volatilität und Hebel",
+        "Nur einzahlen, was du verlieren kannst"
+      ],
+      "ctaSecondary": "Preise & Gebühren",
+      "disclaimer": "Keine Finanzberatung. Dein Kapital ist Risiko ausgesetzt."
+    },
+    "support": {
+      "eyebrow": "Support",
+      "title": "Hilfe & Kontakt",
+      "lead": "Fragen zu deinem HL-Konto, dem Trading-Bot oder deinem Account? Schreib uns oder lies die häufigsten Antworten.",
+      "sub": "Bei dringenden Trading-Problemen: Wallet-Adresse und Screenshot vom Dashboard mitschicken.",
+      "contactEmailTitle": "E-Mail-Support",
+      "contactEmailText": "Schreib uns — wir antworten in der Regel innerhalb von 24 Stunden.",
+      "contactHoursTitle": "Support-Zeiten",
+      "contactHoursText": "Montag – Sonntag, 09:00 – 20:00 MEZ. Der Bot selbst läuft 24/7 auf unserer Infrastruktur.",
+      "faqTitle": "Häufig gestellte Fragen",
+      "faqSub": "Kurze Antworten zu Setup, Sicherheit und Gebühren.",
+      "faqExtra": {
+        "q": "Wie schnell antwortet der Support?",
+        "a": "E-Mail an support@monadier.com — Ziel: Antwort innerhalb von 24 Stunden, Mo–So 09:00–20:00 MEZ."
+      },
+      "ctaContact": "Support kontaktieren",
+      "disclaimer": "Teile aus Sicherheitsgründen niemals deine Seed Phrase oder Private Keys — auch nicht mit dem Support."
+    }
+  },
   "auth": {
     "welcomeBack": "Willkommen zurück",
     "email": "E-Mail",

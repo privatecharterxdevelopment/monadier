@@ -38,11 +38,11 @@
   }
 }
 
-/* Page gutters — match GMX header (px-3 / sm:px-5 / md:px-8) */
+/* Page gutters — match GMX header (px-3 / sm:px-5 / md:px-8) + safe-area on phones */
 .landing-gmx-gutter {
   box-sizing: border-box;
-  padding-left: 12px;
-  padding-right: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
 
 @media (min-width: 640px) {
@@ -263,9 +263,11 @@
   display: flex;
   justify-content: center;
   width: 100%;
-  padding-inline: 16px;
+  max-width: 100%;
+  padding-inline: max(16px, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
   box-sizing: border-box;
   pointer-events: none;
+  overflow: hidden;
 }
 
 .landing-gmx-hero-cta-slot {
@@ -374,10 +376,10 @@
   z-index: 5;
   flex: 0 0 auto;
   flex-shrink: 0;
-  margin: 0 auto 2px;
-  width: min(calc(100% - 32px), 720px);
-  max-width: 720px;
-  padding-inline: 16px;
+  margin: 0 auto;
+  width: 100%;
+  max-width: min(720px, 100%);
+  padding-inline: max(16px, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
   padding-bottom: clamp(18px, 3vh, 28px);
   box-sizing: border-box;
   font-size: 10.5px;
@@ -2795,11 +2797,11 @@
 
 @media (max-width: 639px) {
   .landing-gmx-section {
-    padding: 40px 16px;
+    padding: 40px max(16px, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
   }
 
   .landing-gmx-hero {
-    padding: 0 12px;
+    padding: 0;
   }
 
   .landing-gmx-hero-shell {
@@ -2814,15 +2816,24 @@
     padding-bottom: 20px;
   }
 
+  .landing-gmx-hero--scroll-expand .landing-gmx-hero-chrome {
+    padding-top: clamp(64px, 9.5vh, 84px);
+  }
+
   .landing-gmx-hero-title {
     padding-bottom: 20px;
-    padding-right: 4px;
-    font-size: clamp(1.85rem, 8.5vw, 2.75rem);
-    max-width: 96%;
+    padding-right: 0;
+    font-size: clamp(1.65rem, 7.2vw, 2.35rem);
+    max-width: 100%;
   }
 
   .landing-gmx-hero-line {
-    line-height: 0.92;
+    line-height: 1.08;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    text-wrap: balance;
+    overflow-wrap: break-word;
   }
 
   .landing-gmx-hero-line--rotate {
@@ -2837,7 +2848,8 @@
     height: auto;
     grid-area: 1 / 1;
     visibility: hidden;
-    white-space: nowrap;
+    white-space: normal;
+    text-wrap: balance;
     overflow: hidden;
   }
 
@@ -2846,28 +2858,43 @@
     grid-area: 1 / 1;
     width: 100%;
     max-width: 100%;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    line-height: 0.92;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    text-wrap: balance;
+    overflow-wrap: break-word;
+    line-height: 1.08;
   }
 
   .landing-gmx-hero--centered .landing-gmx-hero-title {
     max-width: 100%;
     padding-right: 0;
     padding-bottom: 0;
-    line-height: 1.1;
+    line-height: 1.12;
+    font-size: clamp(1.6rem, 6.8vw, 2.25rem);
+  }
+
+  .landing-gmx-hero--centered .landing-gmx-hero-lines,
+  .landing-gmx-hero--centered .landing-gmx-hero-static-lines {
+    width: 100%;
+    max-width: 100%;
+    padding-inline: 2px;
+    box-sizing: border-box;
   }
 
   .landing-gmx-hero--centered .landing-gmx-hero-line,
   .landing-gmx-hero--centered .landing-gmx-hero-line--rotate-visible,
-  .landing-gmx-hero--centered .landing-gmx-hero-line--rotate-sizer {
-    line-height: 1.1;
+  .landing-gmx-hero--centered .landing-gmx-hero-line--rotate-sizer,
+  .landing-gmx-hero--centered .landing-gmx-hero-static-lines .landing-gmx-hero-line--dark {
+    line-height: 1.12;
     overflow: visible;
     text-overflow: clip;
     text-align: center;
     width: 100%;
     max-width: 100%;
+    white-space: normal;
+    text-wrap: balance;
+    overflow-wrap: break-word;
   }
 
   .landing-gmx-hero--centered .landing-gmx-hero-line--rotate {
@@ -2876,9 +2903,92 @@
     justify-items: center;
   }
 
+  .landing-gmx-hero-disclaimer {
+    padding-bottom: max(18px, env(safe-area-inset-bottom, 0px));
+    font-size: 10px;
+    line-height: 1.45;
+  }
+
   .landing-gmx-section-hero-title {
-    padding-right: 8px;
-    line-height: 1.02;
+    padding-right: 0;
+    line-height: 1.08;
+    white-space: normal;
+    text-wrap: balance;
+  }
+
+  .landing-gmx-bot-pitch-line {
+    width: min(94vw, 980px);
+    padding: 0 max(12px, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+    font-size: clamp(1.75rem, 6.8vw, 2.35rem);
+    line-height: 1.08;
+    text-wrap: balance;
+  }
+
+  .landing-gmx-product-carousel-title {
+    font-size: clamp(1.75rem, 6.2vw, 2.35rem);
+  }
+
+  .landing-gmx-product-carousel-desc {
+    padding-right: 4px;
+  }
+
+  .landing-gmx-page-main {
+    padding: 76px 0 40px;
+  }
+
+  .landing-gmx-page-main--inner {
+    padding-top: 88px;
+    padding-bottom: 56px;
+  }
+
+  .mkt-page {
+    gap: 22px;
+  }
+
+  .mkt-hero-band {
+    padding: 22px 18px;
+  }
+
+  .mkt-card {
+    min-height: 0;
+  }
+
+  .mkt-hero-title {
+    font-size: clamp(1.65rem, 6.5vw, 2.1rem);
+    line-height: 1.1;
+    text-wrap: balance;
+  }
+
+  .mkt-hero-lead,
+  .mkt-section-sub {
+    text-wrap: pretty;
+  }
+
+  .mkt-compact-steps {
+    padding-inline: 16px;
+  }
+
+  .mkt-arbitrum-callout {
+    padding: 20px 18px;
+  }
+
+  .mkt-funds-list-item,
+  .mkt-funds-risks {
+    padding-inline: 16px;
+  }
+
+  .mkt-faq-accordion {
+    padding-inline: 0;
+  }
+
+  .landing-gmx-footer {
+    padding-bottom: max(36px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .landing-gmx-footer-disclaimer,
+  .landing-gmx-footer-legal-p,
+  .landing-gmx-footer-meta {
+    text-wrap: pretty;
   }
 
   .landing-gmx-hero-bottom {
@@ -2941,10 +3051,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .landing-gmx-page-main {
-    padding: 76px 0 40px;
   }
 }
 
@@ -3192,6 +3298,67 @@
   margin-top: 12px;
 }
 
+.mkt-support-contact-card {
+  min-height: 0;
+}
+
+.mkt-support-contact-body {
+  padding: 22px 24px 24px;
+}
+
+.mkt-support-contact-row {
+  display: grid;
+  gap: 22px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 720px) {
+  .mkt-support-contact-row {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: stretch;
+    gap: 28px;
+  }
+}
+
+.mkt-support-contact-item {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.mkt-support-contact-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mkt-support-contact-copy .mkt-card-title {
+  margin: 0;
+}
+
+.mkt-support-contact-copy .mkt-card-text {
+  margin: 0;
+}
+
+.mkt-support-contact-divider {
+  display: none;
+}
+
+@media (min-width: 720px) {
+  .mkt-support-contact-divider {
+    display: block;
+    width: 1px;
+    align-self: stretch;
+    background: rgba(0, 0, 0, 0.08);
+  }
+}
+
+.mkt-faq-accordion {
+  margin-bottom: 8px;
+}
+
 .mkt-prose-grid {
   display: grid;
   gap: 24px 28px;
@@ -3262,6 +3429,228 @@
   letter-spacing: 0.04em;
   color: var(--lg-faint);
   max-width: 36rem;
+}
+
+/* How it works — compact flow + Arbitrum callout */
+.mkt-arbitrum-callout {
+  display: grid;
+  gap: 20px 28px;
+  padding: clamp(22px, 3vw, 28px) clamp(22px, 3.5vw, 32px);
+  border-color: rgba(40, 160, 240, 0.22);
+  background: linear-gradient(135deg, rgba(40, 160, 240, 0.06) 0%, rgba(255, 255, 255, 0.72) 55%);
+}
+
+@media (min-width: 640px) {
+  .mkt-arbitrum-callout {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.mkt-arbitrum-callout-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mkt-arbitrum-callout-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--lg-border);
+  padding: 6px;
+}
+
+.mkt-arbitrum-callout-logo--usdc {
+  padding: 7px;
+}
+
+.mkt-arbitrum-callout-title {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--lg-text);
+}
+
+.mkt-arbitrum-callout-text {
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--lg-muted);
+}
+
+.mkt-arbitrum-callout-meta {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--lg-text);
+}
+
+.mkt-arbitrum-callout-dont {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--lg-border);
+}
+
+.mkt-arbitrum-callout-dont-label {
+  margin: 0 0 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lg-faint);
+}
+
+.mkt-arbitrum-callout-dont ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+
+.mkt-arbitrum-callout-dont li {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--lg-muted);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--lg-border);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.mkt-compact-steps {
+  margin: 0;
+  padding: clamp(8px, 1.5vw, 12px) clamp(20px, 3vw, 28px);
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.mkt-compact-step {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr);
+  gap: 12px 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--lg-border);
+}
+
+.mkt-compact-step:last-child {
+  border-bottom: none;
+  padding-bottom: 8px;
+}
+
+.mkt-compact-step-num {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--lg-faint);
+  padding-top: 3px;
+}
+
+.mkt-compact-step-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--lg-text);
+}
+
+.mkt-compact-step-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--lg-muted);
+}
+
+.mkt-funds-section {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(20px, 3vw, 28px);
+  scroll-margin-top: 88px;
+}
+
+.mkt-funds-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .mkt-funds-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+}
+
+.mkt-funds-list-item {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  min-height: 0;
+  padding: clamp(18px, 2.5vw, 22px);
+  text-align: left;
+}
+
+.mkt-funds-list-item .mkt-card-icon {
+  margin: 0;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+}
+
+.mkt-funds-list-title {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--lg-text);
+}
+
+.mkt-funds-list-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--lg-muted);
+}
+
+.mkt-funds-risks {
+  padding: clamp(18px, 2.5vw, 22px) clamp(20px, 3vw, 26px);
+  border-color: rgba(217, 119, 6, 0.25);
+  background: rgba(255, 251, 235, 0.65);
+}
+
+.mkt-funds-risks-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  color: #b45309;
+}
+
+.mkt-funds-risks-head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--lg-text);
+}
+
+.mkt-funds-risks ul {
+  margin: 0;
+  padding: 0 0 0 18px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--lg-muted);
+}
+
+.mkt-funds-risks li + li {
+  margin-top: 4px;
 }
 
 .mkt-grid-follow {

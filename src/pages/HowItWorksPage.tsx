@@ -1,70 +1,105 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { AlertTriangle, Shield, Wallet, Database } from 'lucide-react';
 import MarketingInnerPage, {
   MarketingPageHero,
-  MarketingFeatureCard,
-  MarketingPageGrid,
+  MarketingSectionHeading,
   MarketingPageCta,
   MarketingDisclaimer,
+  MarketingArbitrumCallout,
+  MarketingCompactSteps,
+  MarketingFundsList,
 } from '../components/marketing/MarketingInnerPage';
-import {
-  MktWalletVisual,
-  MktDepositVisual,
-  MktBotScanVisual,
-  MktWithdrawVisual,
-  MktHowItWorksHeroVisual,
-} from '../components/marketing/MarketingIllustrations';
+import { HL_DEPOSIT_DO_NOT_USE } from '../lib/hlDepositRules';
 
-const steps = [
-  {
-    title: 'Connect your wallet',
-    text: 'Sign in and link MetaMask or WalletConnect. Non-custodial — we never see your private keys.',
-    visual: <MktWalletVisual />,
-  },
-  {
-    title: 'Deposit on Hyperliquid',
-    text: 'Add USDC to your HL account from Monadier (Funds tab). You choose how much capital to use.',
-    visual: <MktDepositVisual />,
-  },
-  {
-    title: 'The bot runs for you',
-    text: 'Our strategy executes on Hyperliquid automatically — 24/7, 365 days a year. It scans all HL perps, enters, and manages positions.',
-    visual: <MktBotScanVisual />,
-  },
-  {
-    title: 'Withdraw when you want',
-    text: 'Profits stay on your HL account until you withdraw USDC back to your wallet. You stay in control.',
-    visual: <MktWithdrawVisual />,
-  },
-];
+type StepItem = { title: string; text: string };
+type FundItem = { title: string; text: string };
+
+const FUND_ICONS = [Wallet, Shield, Database, Wallet] as const;
 
 const HowItWorksPage: React.FC = () => {
+  const { t } = useTranslation();
+  const { hash } = useLocation();
+
+  useEffect(() => {
+    if (hash !== '#funds') return;
+    const el = document.getElementById('funds');
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [hash]);
+
+  const steps = useMemo(() => {
+    const items = t('marketing.howItWorks.steps', { returnObjects: true });
+    return Array.isArray(items) ? (items as StepItem[]) : [];
+  }, [t]);
+
+  const funds = useMemo(() => {
+    const items = t('marketing.howItWorks.funds', { returnObjects: true });
+    return Array.isArray(items) ? (items as FundItem[]) : [];
+  }, [t]);
+
+  const risks = useMemo(() => {
+    const items = t('marketing.howItWorks.risks', { returnObjects: true });
+    return Array.isArray(items) ? (items as string[]) : [];
+  }, [t]);
+
   return (
     <MarketingInnerPage>
       <MarketingPageHero
-        eyebrow="Product"
-        title="How it works"
-        lead="A proven hedge-fund strategy, packaged as a bot. You set it up once — it handles the rest."
-        sub="Set your risk. Optional leverage for experienced traders only."
-        aside={<MktHowItWorksHeroVisual />}
+        eyebrow={t('marketing.howItWorks.eyebrow')}
+        title={t('marketing.howItWorks.title')}
+        lead={t('marketing.howItWorks.lead')}
+        sub={t('marketing.howItWorks.sub')}
       />
 
-      <MarketingPageGrid columns={2}>
-        {steps.map((step, i) => (
-          <MarketingFeatureCard
-            key={step.title}
-            index={i}
-            title={step.title}
-            text={step.text}
-            visual={step.visual}
-          />
-        ))}
-      </MarketingPageGrid>
-
-      <MarketingPageCta
-        secondary={{ to: '/your-funds', label: 'How your funds are stored' }}
+      <MarketingArbitrumCallout
+        title={t('marketing.howItWorks.arbitrum.title')}
+        text={t('marketing.howItWorks.arbitrum.text')}
+        minHl={t('marketing.howItWorks.arbitrum.minHl')}
+        gas={t('marketing.howItWorks.arbitrum.gas')}
+        doNotUseLabel={t('marketing.howItWorks.arbitrum.doNotUse')}
+        doNotUseItems={[...HL_DEPOSIT_DO_NOT_USE]}
       />
 
-      <MarketingDisclaimer>This is not financial advice. Your capital is at risk.</MarketingDisclaimer>
+      <MarketingSectionHeading
+        title={t('marketing.howItWorks.stepsTitle')}
+        sub={t('marketing.howItWorks.stepsSub')}
+      />
+
+      <MarketingCompactSteps steps={steps} />
+
+      <div id="funds" className="mkt-funds-section">
+        <MarketingSectionHeading
+          title={t('marketing.howItWorks.fundsTitle')}
+          sub={t('marketing.howItWorks.fundsSub')}
+        />
+
+        <MarketingFundsList
+          items={funds.map((item, i) => ({
+            ...item,
+            icon: FUND_ICONS[i] ?? Wallet,
+          }))}
+        />
+
+        <article className="mkt-funds-risks landing-glass-card">
+          <div className="mkt-funds-risks-head">
+            <AlertTriangle size={18} strokeWidth={1.75} aria-hidden />
+            <h3>{t('marketing.howItWorks.risksTitle')}</h3>
+          </div>
+          <ul>
+            {risks.map((risk) => (
+              <li key={risk}>{risk}</li>
+            ))}
+          </ul>
+        </article>
+      </div>
+
+      <MarketingPageCta secondary={{ to: '/pricing', label: t('marketing.howItWorks.ctaSecondary') }} />
+
+      <MarketingDisclaimer>{t('marketing.howItWorks.disclaimer')}</MarketingDisclaimer>
     </MarketingInnerPage>
   );
 };

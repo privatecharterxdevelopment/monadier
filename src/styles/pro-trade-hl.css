@@ -10015,12 +10015,6 @@
 }
 
 /* ── Support page (registered users) ── */
-.hl-support-page {
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 28px 16px 40px;
-}
-
 .hl-support-head,
 .hl-support-form-head {
   display: flex;
@@ -11735,6 +11729,28 @@
   background: var(--hl-meta-canvas-bg, var(--hl-bg));
 }
 
+.hl-terminal--support {
+  min-height: calc(100dvh - 44px);
+  justify-content: center;
+  align-items: center;
+  overflow-y: auto;
+  padding: 32px 20px;
+  box-sizing: border-box;
+}
+
+.hl-terminal--support .hl-meta-canvas.hl-support-page {
+  flex: none;
+  display: block;
+  align-items: stretch;
+  justify-content: flex-start;
+  min-height: 0;
+  width: 100%;
+  max-width: 640px;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+}
+
 .hl-meta-page-shell {
   flex: 1;
   display: flex;
@@ -12136,6 +12152,11 @@
 }
 
 /* ── Support ── */
+.hl-terminal--support .hl-support-page > .hl-studio-card {
+  flex-shrink: 0;
+  width: 100%;
+}
+
 .hl-support-page {
   flex: 1;
   min-height: 0;
@@ -12144,7 +12165,10 @@
 .hl-support-studio-card {
   max-width: 640px;
   width: 100%;
-  margin: 0 auto;
+}
+
+.hl-support-gate-card {
+  max-width: 420px;
 }
 
 .hl-support-form {

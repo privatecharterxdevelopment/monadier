@@ -321,6 +321,87 @@
       "lead": "HIP-4 outcome markets on Hyperliquid — wallet-signed, on-chain odds, and transparent settlement."
     }
   },
+  "marketing": {
+    "howItWorks": {
+      "eyebrow": "Product",
+      "title": "How it works",
+      "lead": "Deposit native USDC on Arbitrum, approve the bot once — then our strategy runs 24/7 on Hyperliquid.",
+      "sub": "Non-custodial. Your keys, your HL account, your funds.",
+      "arbitrum": {
+        "title": "USDC on Arbitrum One — required",
+        "text": "To fund the bot you need native USDC on Arbitrum One in your wallet. Hyperliquid does not accept BNB, ETH mainnet, or USDC from other chains.",
+        "minHl": "Min. $5 deposit on HL · $20+ to run the bot",
+        "gas": "Keep a little ETH on Arbitrum for deposit gas.",
+        "doNotUse": "Do not use"
+      },
+      "stepsTitle": "Setup in four steps",
+      "stepsSub": "One-time setup in the Monadier app.",
+      "steps": [
+        {
+          "title": "Connect wallet",
+          "text": "Sign in and link MetaMask or WalletConnect on Arbitrum."
+        },
+        {
+          "title": "Deposit USDC",
+          "text": "From the Funds tab, send native USDC from your Arbitrum wallet to your Hyperliquid account."
+        },
+        {
+          "title": "Approve agent & start bot",
+          "text": "One signature allows the bot to trade — not withdraw. Press Start bot."
+        },
+        {
+          "title": "Withdraw anytime",
+          "text": "P/L stays on HL until you withdraw USDC back to your Arbitrum wallet."
+        }
+      ],
+      "fundsTitle": "How your funds are stored",
+      "fundsSub": "Not a pooled vault — your Hyperliquid account in your name.",
+      "funds": [
+        {
+          "title": "Login vs wallet",
+          "text": "Email/Google = Monadier dashboard. MetaMask = signs deposits and withdrawals."
+        },
+        {
+          "title": "Your HL account",
+          "text": "USDC sits on your Hyperliquid account. The bot trades via agent approval only — it cannot withdraw."
+        },
+        {
+          "title": "When trades close",
+          "text": "P/L credits your HL balance, not MetaMask automatically."
+        },
+        {
+          "title": "Withdraw",
+          "text": "Funds tab → Withdraw. You sign every withdrawal yourself."
+        }
+      ],
+      "risksTitle": "Risks to know",
+      "risks": [
+        "Hyperliquid and bot operational risk",
+        "Crypto volatility and leverage",
+        "Only deposit what you can afford to lose"
+      ],
+      "ctaSecondary": "Pricing & fees",
+      "disclaimer": "This is not financial advice. Your capital is at risk."
+    },
+    "support": {
+      "eyebrow": "Support",
+      "title": "Help & contact",
+      "lead": "Questions about your HL account, the trading bot, or your account? Reach out or browse common answers below.",
+      "sub": "For urgent trading issues, include your wallet address and a screenshot from the dashboard.",
+      "contactEmailTitle": "Email support",
+      "contactEmailText": "Send us a message and we will get back to you within 24 hours.",
+      "contactHoursTitle": "Support hours",
+      "contactHoursText": "Monday – Sunday, 09:00 – 20:00 CET. The trading bot itself runs 24/7 on our infrastructure.",
+      "faqTitle": "Frequently asked questions",
+      "faqSub": "Quick answers about setup, safety, and fees.",
+      "faqExtra": {
+        "q": "How fast is support?",
+        "a": "Email support@monadier.com — we aim to reply within 24 hours, Monday–Sunday 09:00–20:00 CET."
+      },
+      "ctaContact": "Contact support",
+      "disclaimer": "For account security, never share your seed phrase or private keys with anyone — including support."
+    }
+  },
   "auth": {
     "welcomeBack": "Welcome Back",
     "email": "Email",

@@ -321,6 +321,87 @@
       "lead": "Hyperliquid 上的 HIP-4 结果市场 — 钱包签名、链上赔率和透明结算。"
     }
   },
+  "marketing": {
+    "howItWorks": {
+      "eyebrow": "产品",
+      "title": "工作原理",
+      "lead": "在 Arbitrum 上存入原生 USDC，批准机器人一次 — 然后我们的策略在 Hyperliquid 上 24/7 运行。",
+      "sub": "非托管。您的密钥、您的 HL 账户、您的资金。",
+      "arbitrum": {
+        "title": "Arbitrum One 上的 USDC — 必需",
+        "text": "运行机器人需要在钱包中有 Arbitrum One 上的原生 USDC。Hyperliquid 不接受 BNB、ETH 主网或其他链上的 USDC。",
+        "minHl": "HL 最低 $5 存款 · 机器人需 $20+",
+        "gas": "在 Arbitrum 上保留少量 ETH 用于存款 gas。",
+        "doNotUse": "请勿使用"
+      },
+      "stepsTitle": "四步设置",
+      "stepsSub": "在 Monadier 应用中一次性完成。",
+      "steps": [
+        {
+          "title": "连接钱包",
+          "text": "登录并在 Arbitrum 上链接 MetaMask 或 WalletConnect。"
+        },
+        {
+          "title": "存入 USDC",
+          "text": "在 Funds 标签页，从 Arbitrum 钱包将原生 USDC 发送到 Hyperliquid 账户。"
+        },
+        {
+          "title": "批准代理并启动机器人",
+          "text": "一次签名允许机器人交易 — 不能提款。点击启动机器人。"
+        },
+        {
+          "title": "随时提款",
+          "text": "盈亏留在 HL 上，直到您将 USDC 提回 Arbitrum 钱包。"
+        }
+      ],
+      "fundsTitle": "您的资金如何存储",
+      "fundsSub": "不是共享金库 — 以您名义的 Hyperliquid 账户。",
+      "funds": [
+        {
+          "title": "登录 vs 钱包",
+          "text": "邮箱/Google = Monadier 仪表板。MetaMask = 签署存取款。"
+        },
+        {
+          "title": "您的 HL 账户",
+          "text": "USDC 在您的 Hyperliquid 账户上。机器人仅通过代理批准交易 — 无法提款。"
+        },
+        {
+          "title": "交易平仓时",
+          "text": "盈亏记入 HL 余额，不会自动到 MetaMask。"
+        },
+        {
+          "title": "提款",
+          "text": "Funds 标签 → 提款。每次提款都由您自己签名。"
+        }
+      ],
+      "risksTitle": "风险",
+      "risks": [
+        "Hyperliquid 和机器人运营风险",
+        "加密货币波动和杠杆",
+        "只存入您能承受损失的资金"
+      ],
+      "ctaSecondary": "定价和费用",
+      "disclaimer": "非财务建议。您的资本面临风险。"
+    },
+    "support": {
+      "eyebrow": "支持",
+      "title": "帮助与联系",
+      "lead": "关于 Hyperliquid 账户、交易机器人或 Monadier 账户的问题？联系我们或浏览下方常见问题。",
+      "sub": "紧急交易问题请附上钱包地址和仪表盘截图。",
+      "contactEmailTitle": "邮件支持",
+      "contactEmailText": "给我们发邮件，我们通常会在 24 小时内回复。",
+      "contactHoursTitle": "支持时间",
+      "contactHoursText": "周一至周日 09:00–20:00（中欧时间）。交易机器人本身 24/7 在我们的服务器上运行。",
+      "faqTitle": "常见问题",
+      "faqSub": "关于设置、安全和费用的快速解答。",
+      "faqExtra": {
+        "q": "支持响应有多快？",
+        "a": "发送邮件至 support@monadier.com — 我们力争 24 小时内回复，周一至周日 09:00–20:00 CET。"
+      },
+      "ctaContact": "联系支持",
+      "disclaimer": "为了账户安全，切勿与任何人分享助记词或私钥 — 包括支持人员。"
+    }
+  },
   "auth": {
     "welcomeBack": "欢迎回来",
     "email": "电子邮件",
