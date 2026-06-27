@@ -11,7 +11,7 @@ const BETTING_ROTATE_LINES = [
   'and more',
 ] as const;
 
-const BETTING_VIDEO_SRC = '/videos/14757485_1920_1080_25fps.mp4';
+const BETTING_VIDEO_SRC = '/videos/betting-hero.mp4';
 
 /** Same framed video window as main landing — static, no scroll zoom. */
 const BettingVideoHero: React.FC = () => (

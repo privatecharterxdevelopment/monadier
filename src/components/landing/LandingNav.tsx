@@ -57,7 +57,13 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pi
   const langVariant = light ? 'landing-light' : 'landing-dark';
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 ${gmx ? 'pt-3 md:pt-5 px-4 sm:px-5 md:px-8' : 'pt-5 md:pt-6 px-4'}`}>
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 ${
+        gmx
+          ? 'pt-[max(20px,env(safe-area-inset-top,0px))] md:pt-5 px-4 sm:px-5 md:px-8'
+          : 'pt-5 md:pt-6 px-4'
+      }`}
+    >
       <nav
         className={`mx-auto flex items-center justify-between gap-2 h-12 md:h-14 ${
           gmx

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { ArrowRight } from 'lucide-react';
 import { goToOpenApp } from '../../lib/appUrls';
 import LandingEventBannerMedia from './LandingEventBannerMedia';
 import {
@@ -21,8 +22,8 @@ type BetMarketCardProps = {
 };
 
 const BetMarketCard: React.FC<BetMarketCardProps> = ({ market, delay = 0 }) => (
-  <motion.article {...fadeUp(delay)} className="landing-bet-card">
-    <div className="landing-bet-card-media">
+  <motion.article {...fadeUp(delay)} className="landing-bet-card landing-gmx-product-card">
+    <div className="landing-bet-card-visual">
       <LandingEventBannerMedia
         backgroundImage={market.backgroundImage}
         accentColor={market.accentColor}
@@ -30,28 +31,35 @@ const BetMarketCard: React.FC<BetMarketCardProps> = ({ market, delay = 0 }) => (
         variant={market.variant}
         sideFlags={market.sideFlags}
         emoji={market.emoji}
-        className="landing-bet-card-media-inner"
+        className="landing-bet-card-visual-media"
       />
-      <div className="landing-bet-card-media-overlay" aria-hidden />
-      {market.isLive ? (
-        <span className="landing-bet-card-live">
-          {market.indicative ? 'Live · mid' : 'Live'}
-        </span>
-      ) : null}
+      <div className="landing-bet-card-visual-shade" aria-hidden />
+      <div className="landing-bet-card-visual-top">
+        <span className="landing-gmx-product-card-badge">{market.categoryBadge}</span>
+        {market.isLive ? (
+          <span className="landing-bet-card-live-pill">
+            {market.indicative ? 'Live · mid' : 'Live'}
+          </span>
+        ) : null}
+      </div>
+      <div className="landing-bet-card-visual-copy">
+        <h3 className="landing-bet-card-visual-title">{market.title}</h3>
+        <p className="landing-bet-card-visual-selection">{market.selection}</p>
+      </div>
     </div>
     <div className="landing-bet-card-body">
-      <div className="landing-bet-card-head">
-        <h3 className="landing-bet-card-title">{market.title}</h3>
-        <span className="landing-bet-card-odds">{market.odds}</span>
+      <div className="landing-bet-card-stats">
+        <div className="landing-bet-card-stat">
+          <span className="landing-bet-card-stat-label">Implied</span>
+          <span className="landing-bet-card-stat-value">{market.winRate}</span>
+        </div>
+        <div className="landing-bet-card-stat landing-bet-card-stat--odds">
+          <span className="landing-bet-card-stat-label">Odds</span>
+          <span className="landing-bet-card-stat-value">{market.odds}</span>
+        </div>
       </div>
-      <p className="landing-bet-card-meta">
-        <span className="landing-bet-card-win">{market.winRate} win</span>
-        <span className="landing-bet-card-sep">·</span>
-        <span>{market.selection}</span>
-      </p>
-      <p className="landing-bet-card-desc">
-        ${LANDING_BET_STAKE_USD} stake → <strong>{market.payoutLabel}</strong> if Yes wins (
-        {market.profitLabel} profit). {market.categoryBadge}.
+      <p className="landing-bet-card-payout">
+        ${LANDING_BET_STAKE_USD} stake → <strong>{market.payoutLabel}</strong> ({market.profitLabel})
       </p>
       <a
         href="/?section=sportsbets"
@@ -62,6 +70,7 @@ const BetMarketCard: React.FC<BetMarketCardProps> = ({ market, delay = 0 }) => (
         }}
       >
         Open market
+        <ArrowRight size={15} aria-hidden />
       </a>
     </div>
   </motion.article>
@@ -69,14 +78,10 @@ const BetMarketCard: React.FC<BetMarketCardProps> = ({ market, delay = 0 }) => (
 
 type Props = {
   limit?: number;
-  /** Section heading — omit to hide the whole header block */
   title?: string | null;
   subtitle?: string | null;
-  /** 4-up grid (homepage) vs 2×4 grid (betting page) */
   layout?: 'home' | 'page';
-  /** Tighter top spacing when placed directly under video hero */
   flushTop?: boolean;
-  /** Accessible name when section title is hidden */
   ariaLabel?: string;
 };
 

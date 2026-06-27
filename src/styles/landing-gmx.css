@@ -2828,19 +2828,19 @@
   }
 
   .landing-gmx-hero-shell {
-    padding-top: 72px;
+    padding-top: 96px;
     min-height: calc(100dvh + 100px);
     min-height: calc(100svh + 100px);
   }
 
   .landing-gmx-hero-viewport {
-    min-height: calc(100dvh - 72px);
-    min-height: calc(100svh - 72px);
+    min-height: calc(100dvh - 96px);
+    min-height: calc(100svh - 96px);
     padding-bottom: 20px;
   }
 
   .landing-gmx-hero--scroll-expand .landing-gmx-hero-chrome {
-    padding-top: clamp(64px, 9.5vh, 84px);
+    padding-top: clamp(88px, 14vh, 108px);
   }
 
   .landing-gmx-hero-title {
@@ -5233,16 +5233,31 @@
   padding: 0;
 }
 
+@media (max-width: 639px) {
+  .landing-gmx-hero--betting.landing-gmx-gutter {
+    padding-left: max(20px, env(safe-area-inset-left, 0px));
+    padding-right: max(20px, env(safe-area-inset-right, 0px));
+  }
+}
+
 .landing-gmx-hero-shell--betting {
   min-height: 0;
   padding-top: 88px;
   padding-bottom: 28px;
+  box-sizing: border-box;
 }
 
 @media (min-width: 640px) {
   .landing-gmx-hero-shell--betting {
     padding-top: 108px;
     padding-bottom: 36px;
+  }
+}
+
+@media (max-width: 639px) {
+  .landing-gmx-hero-shell--betting {
+    padding-top: max(84px, calc(env(safe-area-inset-top, 0px) + 68px));
+    padding-inline: 0;
   }
 }
 
@@ -5259,6 +5274,16 @@
   padding-bottom: 0;
   overflow: hidden;
   border-radius: 14px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 639px) {
+  .landing-gmx-hero-viewport--betting {
+    width: 100%;
+    max-width: 100%;
+    margin-inline: auto;
+    margin-top: 20px;
+  }
 }
 
 @media (min-width: 640px) {
@@ -5392,15 +5417,15 @@
 .landing-bet-card {
   display: flex;
   flex-direction: column;
-  border-radius: 20px;
+  border-radius: 22px;
   overflow: hidden;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  background: var(--lg-card-strong);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06);
 }
 
 .landing-bet-card--skeleton {
-  min-height: 380px;
+  min-height: 360px;
   background: linear-gradient(110deg, #f4f4f5 8%, #fafafa 18%, #f4f4f5 33%);
   background-size: 200% 100%;
   animation: landing-bet-shimmer 1.2s linear infinite;
@@ -5412,31 +5437,45 @@
   }
 }
 
-.landing-bet-card-media {
+.landing-bet-card-visual {
   position: relative;
-  aspect-ratio: 16 / 10;
+  min-height: 168px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #fff;
   overflow: hidden;
-  background: #0c2822;
 }
 
-.landing-bet-card-media-inner {
+.landing-bet-card-visual-media {
   position: absolute;
   inset: 0;
+  z-index: 0;
 }
 
-.landing-bet-card-media-overlay {
+.landing-bet-card-visual-shade {
   position: absolute;
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background:
-    linear-gradient(180deg, rgb(0 0 0 / 0) 45%, rgb(0 0 0 / 0.45) 100%);
+  background: linear-gradient(180deg, rgb(0 0 0 / 0.12) 0%, rgb(0 0 0 / 0.62) 100%);
 }
 
-.landing-bet-card-live {
-  position: absolute;
-  top: 12px;
-  left: 12px;
+.landing-bet-card-visual-top,
+.landing-bet-card-visual-copy {
+  position: relative;
+  z-index: 2;
+}
+
+.landing-bet-card-visual-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.landing-bet-card-live-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -5451,7 +5490,7 @@
   border: 1px solid rgb(255 255 255 / 0.2);
 }
 
-.landing-bet-card-live::before {
+.landing-bet-card-live-pill::before {
   content: '';
   width: 6px;
   height: 6px;
@@ -5460,93 +5499,99 @@
   box-shadow: 0 0 8px #4ade80;
 }
 
+.landing-bet-card-visual-title {
+  margin: 0 0 4px;
+  font-size: clamp(1.05rem, 2.2vw, 1.25rem);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  text-shadow: 0 1px 10px rgb(0 0 0 / 0.45);
+}
+
+.landing-bet-card-visual-selection {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgb(255 255 255 / 0.86);
+  text-shadow: 0 1px 8px rgb(0 0 0 / 0.4);
+}
+
 .landing-bet-card-body {
-  padding: 22px 22px 24px;
+  padding: 16px 16px 14px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   flex: 1;
 }
 
-.landing-bet-card-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+.landing-bet-card-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
 
-.landing-bet-card-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1.3;
+.landing-bet-card-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.landing-bet-card-stat--odds .landing-bet-card-stat-value {
   color: #0a0a0a;
-  letter-spacing: -0.02em;
 }
 
-.landing-bet-card-odds {
-  flex-shrink: 0;
-  padding: 5px 10px;
-  border-radius: 999px;
-  background: linear-gradient(105deg, rgb(6 52 44) 0%, rgb(16 118 99) 100%);
-  font-size: 11px;
-  font-weight: 700;
-  color: #fff;
-  white-space: nowrap;
-}
-
-.landing-bet-card-meta {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 500;
-  color: #71717a;
-}
-
-.landing-bet-card-win {
-  color: rgb(16 118 99);
+.landing-bet-card-stat-label {
+  font-size: 10px;
   font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lg-grey);
 }
 
-.landing-bet-card-sep {
-  margin: 0 4px;
-  color: #d4d4d8;
+.landing-bet-card-stat-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0a0a0a;
+  letter-spacing: -0.01em;
 }
 
-.landing-bet-card-desc {
+.landing-bet-card-payout {
   margin: 0;
-  flex: 1;
   font-size: 13px;
-  line-height: 1.55;
-  color: #71717a;
+  line-height: 1.5;
+  color: var(--lg-muted);
 }
 
-.landing-bet-card-desc strong {
+.landing-bet-card-payout strong {
   color: #0a0a0a;
   font-weight: 600;
 }
 
 .landing-bet-card-cta {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   width: 100%;
-  margin-top: 6px;
-  padding: 13px 16px;
+  margin-top: auto;
+  padding: 12px 16px;
   border-radius: 999px;
-  background: linear-gradient(105deg, rgb(6 52 44) 0%, rgb(16 118 99) 45%, rgb(22 145 122) 100%);
+  background: #0a0a0a;
   color: #fff;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   text-decoration: none;
-  transition: filter 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
-  box-shadow: 0 4px 16px rgb(16 118 99 / 0.28);
+  transition: background 0.15s ease, transform 0.15s ease;
 }
 
 .landing-bet-card-cta:hover {
-  filter: brightness(1.06);
+  background: #1a1a1a;
   transform: translateY(-1px);
   color: #fff;
-  box-shadow: 0 6px 20px rgb(16 118 99 / 0.35);
 }
 
 /* Homepage bento — Apple glass (1 hero + 3 prediction bets) */
@@ -6213,10 +6258,6 @@
   .landing-home-bento-live-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
-}
-
-.landing-bet-card-live {
-  z-index: 3;
 }
 
 @media (max-width: 899px) {
