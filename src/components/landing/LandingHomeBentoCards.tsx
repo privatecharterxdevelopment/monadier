@@ -122,6 +122,7 @@ const LandingHomeBentoCards: React.FC = () => {
                 src="/images/landing/hero-visual.png"
                 alt=""
                 className="landing-bento-promo-candles-img"
+                loading="lazy"
                 decoding="async"
               />
             }

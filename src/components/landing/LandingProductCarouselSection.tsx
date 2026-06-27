@@ -179,6 +179,7 @@ const LandingProductCarouselSection: React.FC = () => {
                       src={card.image}
                       alt=""
                       className="landing-gmx-product-carousel-card-media"
+                      loading="lazy"
                       decoding="async"
                       aria-hidden
                     />

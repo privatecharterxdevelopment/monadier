@@ -5,19 +5,31 @@
   "outputDirectory": "dist",
   "redirects": [
     {
-      "source": "/:path*",
-      "has": [{ "type": "host", "value": "www.monadier.com" }],
-      "destination": "https://monadier.com/:path*",
-      "permanent": true
-    },
-    {
       "source": "/welcome",
-      "destination": "/",
+      "has": [{ "type": "host", "value": "www.monadier.com" }],
+      "destination": "https://monadier.com/",
       "permanent": true
     },
     {
       "source": "/welcome/:path*",
-      "destination": "/",
+      "has": [{ "type": "host", "value": "www.monadier.com" }],
+      "destination": "https://monadier.com/",
+      "permanent": true
+    },
+    {
+      "source": "/welcome",
+      "destination": "https://monadier.com/",
+      "permanent": true
+    },
+    {
+      "source": "/welcome/:path*",
+      "destination": "https://monadier.com/",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "www.monadier.com" }],
+      "destination": "https://monadier.com/:path*",
       "permanent": true
     },
     {
@@ -62,6 +74,24 @@
     }
   ],
   "headers": [
+    {
+      "source": "/og-image.png",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/images/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=604800, stale-while-revalidate=86400"
+        }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [

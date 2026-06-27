@@ -148,8 +148,8 @@ export const MarketingArbitrumCallout: React.FC<ArbitrumCalloutProps> = ({
 }) => (
   <article className="mkt-arbitrum-callout landing-glass-card">
     <div className="mkt-arbitrum-callout-brand" aria-hidden>
-      <img src={ARBITRUM_LOGO} alt="" className="mkt-arbitrum-callout-logo" />
-      <img src={USDC_LOGO} alt="" className="mkt-arbitrum-callout-logo mkt-arbitrum-callout-logo--usdc" />
+      <img src={ARBITRUM_LOGO} alt="" className="mkt-arbitrum-callout-logo" loading="lazy" decoding="async" />
+      <img src={USDC_LOGO} alt="" className="mkt-arbitrum-callout-logo mkt-arbitrum-callout-logo--usdc" loading="lazy" decoding="async" />
     </div>
     <div className="mkt-arbitrum-callout-body">
       <h2 className="mkt-arbitrum-callout-title">{title}</h2>
