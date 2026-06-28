@@ -29,6 +29,7 @@ import ProTradeSupport from '../../components/protrade/ProTradeSupport';
 import ProTradeSportsbets from '../../components/protrade/ProTradeSportsbets';
 import ProTradeNews from '../../components/protrade/ProTradeNews';
 import ProTradeAffiliate from '../../components/protrade/ProTradeAffiliate';
+import { BettingUiProvider, useBettingUi } from '../../contexts/BettingUiContext';
 import { LegalAcceptanceProvider } from '../../contexts/LegalAcceptanceContext';
 import { useProTradeTheme } from '../../contexts/ProTradeThemeContext';
 import type { ProTradeProfileTab } from '../../components/protrade/proTradeProfileTypes';
