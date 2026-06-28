@@ -172,7 +172,7 @@ export function getHlBotSidebarStatus(opts: {
     }
     return {
       headline: 'Ready',
-      detail: `Perp margin $${perpUsd.toFixed(2)} — press Start bot below. Deposit alone does not start trading.`,
+      detail: `HL balance ${hlBalanceUsd.toFixed(2)} — press Start bot below. Deposit alone does not start trading.`,
       tone: 'ok',
       setupStep: 3,
       setupComplete: true,

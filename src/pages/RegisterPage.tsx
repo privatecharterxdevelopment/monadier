@@ -95,6 +95,8 @@ const RegisterPage: React.FC = () => {
       if (data?.session) {
         const { ensureFreeSubscription } = await import('../lib/ensureSubscription');
         void ensureFreeSubscription().catch(console.error);
+        const { acceptUserLegalTerms } = await import('../lib/legalAcceptance');
+        void acceptUserLegalTerms().catch(console.error);
       }
 
       sendWelcomeEmail(email, fullName).catch(console.error);

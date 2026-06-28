@@ -38,3 +38,4 @@ supabase/.env
 .vercel
 supabase/.temp/
 bot-service-source-review.zip
+.env*

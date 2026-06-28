@@ -17,13 +17,15 @@ export type HlBotSetupPhase =
   | 'ready';
 
 function computePhase(
-  perpUsd: number,
+  tradableUsd: number,
   agentApproved: boolean,
   builderFeeEnabled: boolean,
   builderPlatformReady: boolean,
-  builderFeeApproved: boolean
+  builderFeeApproved: boolean,
+  hlLoaded: boolean
 ): HlBotSetupPhase {
-  if (perpUsd < MIN_HL_BOT_USD) return 'fund';
+  if (!hlLoaded) return 'loading';
+  if (tradableUsd < MIN_HL_BOT_USD) return 'fund';
   if (
     !agentApproved ||
     (builderFeeEnabled && builderPlatformReady && !builderFeeApproved)
@@ -54,6 +56,7 @@ export function useHlBotSetup(walletAddress: string | undefined) {
   const hasSnapshotRef = useRef(false);
   const refreshInFlightRef = useRef(false);
   const accountUsdRef = useRef(0);
+  const tradableUsdRef = useRef(0);
   const metaRef = useRef({
     agentApproved: false,
     builderFeeEnabled: false,
@@ -65,6 +68,7 @@ export function useHlBotSetup(walletAddress: string | undefined) {
     if (!hlSnap) return;
     hasSnapshotRef.current = true;
     accountUsdRef.current = hlSnap.totalUsd;
+    tradableUsdRef.current = hlSnap.tradablePerpUsd;
     setAccountUsd(hlSnap.totalUsd);
     setWithdrawableUsd(hlSnap.withdrawableUsd);
     setTotalMarginUsedUsd(hlSnap.totalMarginUsedUsd);
@@ -76,7 +80,8 @@ export function useHlBotSetup(walletAddress: string | undefined) {
         metaRef.current.agentApproved,
         metaRef.current.builderFeeEnabled,
         metaRef.current.builderPlatformReady,
-        metaRef.current.builderFeeApproved
+        metaRef.current.builderFeeApproved,
+        true
       )
     );
   }, [hlSnap]);
@@ -144,11 +149,12 @@ export function useHlBotSetup(walletAddress: string | undefined) {
       if (hasSnapshotRef.current) {
         setPhase(
           computePhase(
-            hlSnap.tradablePerpUsd,
+            tradableUsdRef.current,
             agentCheck.approved,
             builderConfig.enabled,
             platform.ready,
-            builderOk
+            builderOk,
+            true
           )
         );
       }
@@ -196,9 +202,12 @@ export function useHlBotSetup(walletAddress: string | undefined) {
     return () => clearInterval(id);
   }, [walletAddress, refreshMeta]);
 
+  const setupSettled = hlLoaded && agentLoaded;
+
   return {
     phase,
     loading: Boolean(walletAddress) && !hlSnap,
+    setupSettled,
     error,
     accountUsd,
     withdrawableUsd,

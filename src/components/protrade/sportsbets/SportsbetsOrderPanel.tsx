@@ -22,6 +22,7 @@ import type { HlOutcomeMarket, HlOutcomeQuestion, OutcomeLegQuote, OutcomeSideIn
 import type { useHyperliquidOutcomeTrading } from '../../../hooks/useHyperliquidOutcomeTrading';
 import { useBettingBuilderFee } from '../../../hooks/useBettingBuilderFee';
 import { useBettingUi } from '../../../contexts/BettingUiContext';
+import { useLegalAcceptance } from '../../../contexts/LegalAcceptanceContext';
 import { BETTING_MOBILE_MQ } from '../../../hooks/useMediaQuery';
 import SportsbetsPayoutCard from './SportsbetsPayoutCard';
 import BettingBuilderFeeModal from './BettingBuilderFeeModal';
@@ -87,6 +88,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   const [showBuilderModal, setShowBuilderModal] = useState(false);
   const builderFee = useBettingBuilderFee(walletAddress);
   const { openFunds, openOrderSheet, closeOrderSheet } = useBettingUi();
+  const { ensureAccepted } = useLegalAcceptance();
 
   const canBet = signedIn && walletConnected;
 
@@ -162,7 +164,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
     onRequireSignIn?.(t('betting.signInToPlaceBets'));
   };
 
-  const handleSubmit = async () => {
+  const submitBet = async () => {
     if (!canBet) {
       handleGate();
       return;
@@ -206,6 +208,10 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
     } catch {
       /* trading hook sets error */
     }
+  };
+
+  const handleSubmit = () => {
+    ensureAccepted(() => void submitBet());
   };
 
   return (

@@ -60,7 +60,7 @@ import {
   pollHlPerpAfterTransfer,
   spotToPerpTransferAmount,
 } from '../../lib/hyperliquid/funding';
-import { useBettingUi } from '../../contexts/BettingUiContext';
+import { useLegalAcceptance } from '../../contexts/LegalAcceptanceContext';
 type PanelTab = 'bot' | 'lvrg' | 'funds';
 
 type Props = {
@@ -130,6 +130,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   const [showSetupGuide, setShowSetupGuide] = useState(false);
   const [showStopFirstModal, setShowStopFirstModal] = useState(false);
 
+  const { ensureAccepted } = useLegalAcceptance();
   const { openFunds: openGlobalFunds } = useBettingUi();
   const walletReady = isDemoUser || isConnected || Boolean(monadierAddress);
   const wallet = botSettings.wallet;
@@ -144,7 +145,11 @@ const TerminalTradePanel: React.FC<Props> = ({
     readHlBotOnboardingComplete(onboardingKey)
   );
 
-  const hlFundingUsd = metrics.hasHlSnapshot ? metrics.hlBalanceUsd : hlSetup.accountUsd;
+  const hlFundingUsd = hlSetup.hlLoaded
+    ? Math.max(hlSetup.perpUsd, hlSetup.accountUsd)
+    : metrics.hasHlSnapshot
+      ? metrics.hlBalanceUsd
+      : 0;
   const hlPerpUsd = hlSetup.perpUsd;
   const hlSpotUsd = hlSetup.spotUsdcUsd;
   const hlUnifiedAccount = hlSetup.unifiedAccount;
@@ -184,20 +189,17 @@ const TerminalTradePanel: React.FC<Props> = ({
 
   const phase: SetupPhase = useMemo(() => {
     if (!walletReady) return 'connect';
-    if (hlSetup.loading && hlPerpUsd === 0 && hlSpotUsd === 0) return 'loading';
-    if (hlSetup.phase !== 'connect') return hlSetup.phase;
-    if (hlPerpUsd < MIN_HL_BOT_USD) return 'fund';
-    if (!hlSetup.agentApproved || (hlSetup.builderFeeEnabled && hlSetup.builderPlatformReady && !hlSetup.builderFeeApproved)) {
-      return 'approve';
+    if (!hlSetup.setupSettled && hlSetup.loading && hlPerpUsd === 0 && hlSpotUsd === 0) {
+      return 'loading';
     }
-    return 'ready';
+    if (hlSetup.setupSettled) return hlSetup.phase;
+    if (hlSetup.loading && hlPerpUsd === 0 && hlSpotUsd === 0) return 'loading';
+    return hlSetup.phase;
   }, [
     walletReady,
+    hlSetup.setupSettled,
     hlSetup.loading,
     hlSetup.phase,
-    hlSetup.agentApproved,
-    hlSetup.builderFeeEnabled,
-    hlSetup.builderFeeApproved,
     hlPerpUsd,
     hlSpotUsd,
   ]);
@@ -237,20 +239,20 @@ const TerminalTradePanel: React.FC<Props> = ({
 
   const startBlocker = useMemo((): string | null => {
     if (!walletReady) return null;
-    if (hlSetup.loading && hlPerpUsd === 0 && hlSpotUsd === 0) {
+    if (!hlSetup.setupSettled && hlSetup.loading && hlPerpUsd === 0 && hlSpotUsd === 0) {
       return 'Loading Hyperliquid balance…';
     }
     if (hlNeedsSpotTransfer) return null;
-    if (hlPerpUsd < MIN_HL_BOT_USD && hlFundingUsd < MIN_HL_BOT_USD) {
+    if (hlSetup.setupSettled && hlPerpUsd < MIN_HL_BOT_USD && hlFundingUsd < MIN_HL_BOT_USD) {
       return `Deposit at least $${MIN_HL_BOT_USD} USDC on Hyperliquid to start the bot.`;
     }
     if (!isDemoUser && !isAuthenticated) return 'Sign in to Monadier, then press Start bot.';
     return null;
   }, [
     walletReady,
+    hlSetup.setupSettled,
     hlSetup.loading,
     hlPerpUsd,
-    hlSpotUsd,
     hlFundingUsd,
     hlNeedsSpotTransfer,
     isDemoUser,
@@ -394,7 +396,7 @@ const TerminalTradePanel: React.FC<Props> = ({
     return 'Start bot';
   }, [needsHlApproval, hlSetup.agentApproved]);
 
-  const handleStartBot = async () => {
+  const runStartBot = async () => {
     if (!walletReady) {
       open();
       return;
@@ -470,6 +472,10 @@ const TerminalTradePanel: React.FC<Props> = ({
     } finally {
       setBotBusy(false);
     }
+  };
+
+  const handleStartBot = () => {
+    ensureAccepted(() => void runStartBot());
   };
 
   const handleStopBot = async () => {
@@ -622,7 +628,7 @@ const TerminalTradePanel: React.FC<Props> = ({
               </div>
             )}
 
-            {walletReady && phase === 'fund' && !botRunning && (
+            {walletReady && hlSetup.setupSettled && phase === 'fund' && !botRunning && (
               <div className="term-panel-info">
                 <AlertTriangle size={14} />
                 <span>
@@ -648,7 +654,7 @@ const TerminalTradePanel: React.FC<Props> = ({
                 </div>
               )}
 
-            {walletReady && phase === 'fund' && !botRunning && (
+            {walletReady && hlSetup.setupSettled && phase === 'fund' && !botRunning && (
               <button
                 type="button"
                 className="term-btn-sm term-btn-sm--primary w-full justify-center"

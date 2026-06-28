@@ -14,7 +14,7 @@ import { fetchHlAssetLeverage, leverageOptionsForMax } from '../../lib/hyperliqu
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
 import type { HlTwapOrder } from '../../lib/hyperliquid/user';
-import ProTradeBuilderFeeModal from './ProTradeBuilderFeeModal';
+import { useLegalAcceptance } from '../../contexts/LegalAcceptanceContext';
 
 type OrderMode = 'basic' | 'scale' | 'tpsl' | 'twap';
 type SizeUnit = 'coin' | 'usd';
@@ -87,6 +87,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
     config: builderConfig,
     feeLabelPerp,
   } = useHyperliquidBuilderFee(address);
+  const { ensureAccepted } = useLegalAcceptance();
 
   const [showBuilderModal, setShowBuilderModal] = useState(false);
   const [mode, setMode] = useState<OrderMode>('basic');
@@ -214,7 +215,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
     window.setTimeout(() => setSuccess(null), 4000);
   };
 
-  const handleSubmit = async () => {
+  const submitOrder = async () => {
     setLocalError(null);
     setSuccess(null);
     if (builderEnabled && needsBuilderApproval) {
@@ -287,6 +288,10 @@ const ProTradeOrderPanel: React.FC<Props> = ({
     } catch (err: unknown) {
       if (err instanceof Error && !error) setLocalError(err.message);
     }
+  };
+
+  const handleSubmit = () => {
+    ensureAccepted(() => void submitOrder());
   };
 
   const displayError = localError || error;
