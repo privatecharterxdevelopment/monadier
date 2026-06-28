@@ -634,17 +634,10 @@ const TerminalTradePanel: React.FC<Props> = ({
           <button
             key={t.id}
             type="button"
-            className={`term-panel-tab ${panelTab === t.id ? 'term-panel-tab--on' : ''}${
-              t.id === 'bot' ? ' term-panel-tab--bot' : ''
-            }`}
+            className={`term-panel-tab ${panelTab === t.id ? 'term-panel-tab--on' : ''}`}
             onClick={() => (t.id === 'lvrg' ? requestLvrgAccess() : setPanelTab(t.id))}
           >
-            <span className="term-panel-tab__stack">
-              <span className="term-panel-tab__label">{t.label}</span>
-              {t.id === 'bot' ? (
-                <span className="term-panel-tab__meta">{botEff.leverage}x</span>
-              ) : null}
-            </span>
+            {t.label}
           </button>
         ))}
       </div>
@@ -667,21 +660,31 @@ const TerminalTradePanel: React.FC<Props> = ({
                 </button>
               </div>
             ) : (
-              <div
-                className={`term-panel-card term-panel-card--muted hl-bot-status-card hl-bot-status-card--${sidebarStatus.tone}`}
-              >
-                <span className="term-panel-card-label">Bot status</span>
-                <strong
-                  className={`term-panel-card-value hl-bot-status-headline ${
-                    botRunning ? 'term-pnl-pos' : ''
-                  }`}
+              <>
+                <div
+                  className={`term-panel-card term-panel-card--muted hl-bot-status-card hl-bot-status-card--${sidebarStatus.tone}`}
                 >
-                  {sidebarStatus.headline}
-                </strong>
-                {sidebarStatus.detail && !isBotScanNoiseDetail(sidebarStatus.detail) ? (
-                  <p className="hl-bot-status-detail">{sidebarStatus.detail}</p>
-                ) : null}
-              </div>
+                  <span className="term-panel-card-label">Bot status</span>
+                  <strong
+                    className={`term-panel-card-value hl-bot-status-headline ${
+                      botRunning ? 'term-pnl-pos' : ''
+                    }`}
+                  >
+                    {sidebarStatus.headline}
+                  </strong>
+                  {sidebarStatus.detail && !isBotScanNoiseDetail(sidebarStatus.detail) ? (
+                    <p className="hl-bot-status-detail">{sidebarStatus.detail}</p>
+                  ) : null}
+                </div>
+
+                <div className="term-panel-card term-panel-card--muted">
+                  <span className="term-panel-card-label">Leverage</span>
+                  <strong className="term-panel-card-value">{botEff.leverage}x</strong>
+                  <span className="term-panel-card-hint">
+                    Hyperliquid multiplier on margin per trade
+                  </span>
+                </div>
+              </>
             )}
 
             {walletReady && !setupGuideComplete && (

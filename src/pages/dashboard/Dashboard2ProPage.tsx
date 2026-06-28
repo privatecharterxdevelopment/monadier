@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
+import { useHlActiveWallet } from '../../hooks/useHlActiveWallet';
 import ProTradeShell from '../../components/protrade/ProTradeShell';
 import MonadierWalletAccountSheet from '../../components/wallet/MonadierWalletAccountSheet';
 import ProTradeTopNav, { type ProTradeSection } from '../../components/protrade/ProTradeTopNav';
@@ -86,6 +87,7 @@ const Dashboard2ProPageContent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, sessionReady } = useAuth();
   const { address, isConnected } = useMonadierWallet();
+  const { wallet: hlActiveWallet, walletMismatch } = useHlActiveWallet();
   const initialSection = searchParams.get('section');
   const [section, setSection] = useState<ProTradeSection>(() => {
     if (initialSection === 'bot') return 'bot';
@@ -135,7 +137,7 @@ const Dashboard2ProPageContent: React.FC = () => {
     twapOrders,
     loading: accountLoading,
     refresh: refreshAccount,
-  } = useHyperliquidAccount(address);
+  } = useHyperliquidAccount(hlActiveWallet ?? address);
   const { cancelOrder, cancelAllOrders, cancelTwapOrder, closePosition, busy: tradeBusy } =
     useHyperliquidTrading();
 
@@ -149,7 +151,7 @@ const Dashboard2ProPageContent: React.FC = () => {
   );
 
   const { coins: botManagedCoins, refresh: refreshBotManagedCoins } = useHlBotManagedCoins(
-    address?.toLowerCase(),
+    (hlActiveWallet ?? address)?.toLowerCase(),
     botSyncTick + perpFills.length
   );
 
@@ -165,7 +167,7 @@ const Dashboard2ProPageContent: React.FC = () => {
 
   const botChartCoin = section === 'bot' ? perpCoin : undefined;
   const { seriesMarkers: botTradeMarkers } = useHlBotChartMarkers(
-    address,
+    hlActiveWallet ?? address,
     botChartCoin,
     chartMarkerColors,
     botSyncTick + perpFills.length
@@ -184,7 +186,7 @@ const Dashboard2ProPageContent: React.FC = () => {
     [spotBalances]
   );
   const { snapshot: perpHlSnapshot, refresh: refreshHlSnapshot } = useHlAccountSnapshot(
-    address?.toLowerCase()
+    (hlActiveWallet ?? address)?.toLowerCase()
   );
   const perpWithdrawable = toNum(account?.withdrawable);
   const hlTotalUsd = perpHlSnapshot?.totalUsd ?? perpHlSnapshot?.tradablePerpUsd ?? 0;

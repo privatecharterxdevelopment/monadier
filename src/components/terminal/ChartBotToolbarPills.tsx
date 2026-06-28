@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
-import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
+import { effectiveHlBotSettings, formatHlSlLabel } from '../../lib/hlBotEffectiveSettings';
 import { HL_DYNAMIC_TRAIL } from '../../lib/hlBotStrategy';
 import BotMetricPill from './BotMetricPill';
 
@@ -14,6 +14,7 @@ const DESCRIPTIONS = {
   risk: 'Share of your HL balance used as margin per trade — not the same as leverage.',
   lvrg: 'Hyperliquid multiplier on that margin. Bot clamps to each market’s max leverage.',
   trail: `Stage 1: +${HL_DYNAMIC_TRAIL.breakevenArmRoePct}% ROE locks +${HL_DYNAMIC_TRAIL.armMinRoePct}%. Stage 2: peak ≥+${HL_DYNAMIC_TRAIL.fullTrailArmRoePct}% → trail +${HL_DYNAMIC_TRAIL.trailGapRoePct}% from peak.`,
+  sl: 'Max loss on margin while the position is red. In profit the bot uses automatic profit trail instead.',
 } as const;
 
 function fmtUsd(n: number) {
@@ -45,8 +46,14 @@ const ChartBotToolbarPills: React.FC<Props> = ({ hlBalanceUsd = 0, variant = 'li
       />
       <BotMetricPill
         variant={variant}
+        label="SL"
+        value={formatHlSlLabel(settings.stopLoss)}
+        description={DESCRIPTIONS.sl}
+      />
+      <BotMetricPill
+        variant={variant}
         label="Trail"
-        value={`S1 +${HL_DYNAMIC_TRAIL.breakevenArmRoePct}%→+${HL_DYNAMIC_TRAIL.armMinRoePct}% · S2 +${HL_DYNAMIC_TRAIL.fullTrailArmRoePct}%`}
+        value={`+${HL_DYNAMIC_TRAIL.breakevenArmRoePct}%→+${HL_DYNAMIC_TRAIL.armMinRoePct}%`}
         description={DESCRIPTIONS.trail}
       />
     </div>

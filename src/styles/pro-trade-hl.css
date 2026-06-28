@@ -1690,6 +1690,24 @@
   min-width: 72px;
 }
 
+.hl-active-sl__btn {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.hl-active-sl__btn:hover .hl-active-sl__price,
+.hl-active-sl__btn:focus-visible .hl-active-sl__price {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .hl-active-sl__price {
   display: block;
   font-size: 11px;
@@ -1721,6 +1739,10 @@
 
 .hl-active-sl--loss_cap .hl-active-sl__price {
   color: var(--hl-text-muted);
+}
+
+.hl-active-sl--close_now .hl-active-sl__price {
+  color: #ef4444;
 }
 
 .hl-chart-tf:disabled {
@@ -2633,6 +2655,30 @@
   background: var(--hl-bg-hover);
   border: 1px solid var(--hl-border);
   border-radius: 4px;
+}
+
+.hl-dock-notice--warn {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.hl-dock-wallet {
+  margin: 0 0 6px;
+  padding: 0 2px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--hl-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.hl-dock-wallet__link {
+  color: var(--hl-text);
+  text-decoration: none;
+}
+
+.hl-dock-wallet__link:hover {
+  text-decoration: underline;
 }
 
 /* ── Picker dropdown (dark) ── */

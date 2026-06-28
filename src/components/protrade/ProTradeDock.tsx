@@ -26,15 +26,17 @@ import {
   isHlFillOpen,
 } from '../../lib/hyperliquid/format';
 import { hlWalletExplorerUrl } from '../../lib/hyperliquid/hlApp';
+import { fmtHlWalletShort } from '../../hooks/useHlActiveWallet';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
-import { trailStopForOpenPosition } from '../../lib/hlTrailingStopChart';
+import { trailStopForOpenPosition, type ActiveSlDisplay } from '../../lib/hlTrailingStopChart';
 import { useHlPositionPeakPnl } from '../../hooks/useHlPositionPeakPnl';
 import { useHlBotTrailSnapshots } from '../../hooks/useHlBotTrailSnapshots';
 import { HL_DEFAULT_STOP_LOSS_PERCENT } from '../../lib/hlBotConstants';
 import TradeReasonHint from '../terminal/TradeReasonHint';
 import DockCountBadge from './DockCountBadge';
+import PositionStopEditModal from './PositionStopEditModal';
 import { getAppQueryLink } from '../../lib/appUrls';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
 import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
@@ -87,8 +89,12 @@ type Props = {
   onClosePosition?: (position: HlPosition) => void;
   /** Saved bot leverage — shown in positions table when set. */
   configuredLeverage?: number;
-  /** Max loss % on margin (settings) — shown when position is red. */
+  /** Max loss % on margin (settings) — shown when position is in loss. */
   stopLossMarginPct?: number;
+  /** Persist new max-loss % from position stop editor. */
+  onSaveStopLoss?: (stopLossPct: number) => Promise<{ ok: boolean; error?: string }>;
+  /** HL wallet used for this dock (fills, positions, closes). */
+  hlActiveWallet?: string | null;
   /** Bot wallet — for open-trade reason tooltips. */
   walletAddress?: string | null;
   reasonRefreshKey?: number;
@@ -131,6 +137,8 @@ const ProTradeDock: React.FC<Props> = ({
   onClosePosition,
   configuredLeverage,
   stopLossMarginPct = HL_DEFAULT_STOP_LOSS_PERCENT,
+  onSaveStopLoss,
+  hlActiveWallet,
   walletAddress,
   reasonRefreshKey = 0,
   mode = 'full',
@@ -175,6 +183,14 @@ const ProTradeDock: React.FC<Props> = ({
     historyOnly ? 'tradeHistory' : isBotMode ? 'positions' : 'positions'
   );
   const [search, setSearch] = useState('');
+  const [stopEdit, setStopEdit] = useState<{
+    position: HlPosition;
+    activeSl: ActiveSlDisplay;
+    entryPx: number;
+    szi: number;
+    markPx: number;
+    leverage: number;
+  } | null>(null);
   const tab = historyOnly ? 'tradeHistory' : activeTab ?? internalTab;
   const setTab = (next: TabId) => {
     onTabChange?.(next);
@@ -315,6 +331,19 @@ const ProTradeDock: React.FC<Props> = ({
         ) : (
           <p className="hl-dock-history-only-label">Closed fills &amp; P/L</p>
         )}
+        {isBotMode && hlActiveWallet ? (
+          <p className="hl-dock-wallet" title={hlActiveWallet}>
+            HL account:{' '}
+            <a
+              href={hlWalletExplorerUrl(hlActiveWallet)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hl-dock-wallet__link"
+            >
+              {fmtHlWalletShort(hlActiveWallet)}
+            </a>
+          </p>
+        ) : null}
         <div className="hl-dock-tools">
           {isBotMode && tab === 'tradeHistory' && !historyOnly ? (
             <Link
@@ -434,7 +463,7 @@ const ProTradeDock: React.FC<Props> = ({
                   <th>Mark</th>
                   <th>PnL</th>
                   <th>Lev</th>
-                  {isBotMode ? <th>Active SL</th> : null}
+                  {isBotMode ? <th>Stop</th> : null}
                   <th />
                 </tr>
               </thead>
@@ -486,11 +515,30 @@ const ProTradeDock: React.FC<Props> = ({
                       </td>
                       <td>{fmtLeverage(lev)}</td>
                       {isBotMode ? (
-                        <td className={`hl-active-sl hl-active-sl--${activeSl.kind}`} title={activeSl.title}>
-                          <span className="hl-active-sl__price">{activeSl.label}</span>
-                          {activeSl.sublabel ? (
-                            <span className="hl-active-sl__roe">{activeSl.sublabel}</span>
-                          ) : null}
+                        <td className={`hl-active-sl hl-active-sl--${activeSl.kind}`}>
+                          {onSaveStopLoss ? (
+                            <button
+                              type="button"
+                              className="hl-active-sl__btn"
+                              title={activeSl.title ?? 'Edit stop loss'}
+                              onClick={() =>
+                                setStopEdit({
+                                  position: p,
+                                  activeSl,
+                                  entryPx: toNum(p.entryPx),
+                                  szi: toNum(p.szi),
+                                  markPx: mark > 0 ? mark : toNum(p.entryPx),
+                                  leverage: lev,
+                                })
+                              }
+                            >
+                              <span className="hl-active-sl__price">{activeSl.label}</span>
+                            </button>
+                          ) : (
+                            <span className="hl-active-sl__price" title={activeSl.title}>
+                              {activeSl.label}
+                            </span>
+                          )}
                         </td>
                       ) : null}
                       <td>
@@ -848,6 +896,18 @@ const ProTradeDock: React.FC<Props> = ({
           <p className="hl-dock-empty">No data.</p>
         )}
       </div>
+      {stopEdit && onSaveStopLoss ? (
+        <PositionStopEditModal
+          position={stopEdit.position}
+          activeSl={stopEdit.activeSl}
+          entryPx={stopEdit.entryPx}
+          szi={stopEdit.szi}
+          markPx={stopEdit.markPx}
+          leverage={stopEdit.leverage}
+          onClose={() => setStopEdit(null)}
+          onSave={onSaveStopLoss}
+        />
+      ) : null}
     </section>
   );
 };

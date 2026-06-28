@@ -72,6 +72,12 @@ import {
   rememberCoinClose,
   warmCoinCloseCacheForWallet,
 } from './hlCoinCloseGuard';
+import {
+  hlOrderStatusError,
+  isHlOrderFilled,
+  waitForHlPositionFlat,
+  type HlOrderStatus,
+} from './hlOrderVerify';
 
 const transport = new HttpTransport();
 
@@ -1501,25 +1507,39 @@ export class HyperliquidTradingService {
         grouping: 'na' as const,
       };
 
+      const successFeeRequired =
+        pnlUsd > 0 && Boolean(config.hyperliquid.builderAddress);
+
       let viaHlBuilder = false;
       let closeBuilder: { b: `0x${string}`; f: number } | undefined;
-      let feeSkipReason: string | null = null;
-      if (pnlUsd > 0) {
+
+      if (successFeeRequired) {
         const builderGate = await checkHlBuilderFeeApproved(userAddress);
         if (!builderGate.platformReady) {
-          feeSkipReason = 'platform_wallet_underfunded';
-        } else if (!builderGate.approved) {
-          feeSkipReason = 'user_builder_not_approved';
-        } else {
-          closeBuilder = resolveHlOrderBuilder({
-            notionalUsd,
-            profitUsd: pnlUsd,
-            isClose: true,
-            approvedMaxTenthsBps: builderGate.approvedMax,
-          });
-          if (!closeBuilder) {
-            feeSkipReason = 'builder_fee_calc_zero';
-          }
+          return {
+            success: false,
+            error:
+              'Success fee collection is offline. Profitable closes are blocked until the platform wallet is funded — close on app.hyperliquid.xyz if urgent.',
+          };
+        }
+        if (!builderGate.approved) {
+          return {
+            success: false,
+            error:
+              'Approve the 10% success fee in Bot setup before closing this trade in profit.',
+          };
+        }
+        closeBuilder = resolveHlOrderBuilder({
+          notionalUsd,
+          profitUsd: pnlUsd,
+          isClose: true,
+          approvedMaxTenthsBps: builderGate.approvedMax,
+        });
+        if (!closeBuilder) {
+          return {
+            success: false,
+            error: 'Could not compute success fee for this close.',
+          };
         }
       }
 
@@ -1528,17 +1548,20 @@ export class HyperliquidTradingService {
         ...(closeBuilder ? { builder: closeBuilder } : {}),
       });
 
-      let status = result.response?.data?.statuses?.[0] as
-        | { filled?: unknown; error?: string }
-        | undefined;
+      let status = result.response?.data?.statuses?.[0] as HlOrderStatus | undefined;
 
       if (
         closeBuilder &&
         status &&
-        'error' in status &&
         status.error &&
         isBuilderOrderError(String(status.error))
       ) {
+        if (successFeeRequired) {
+          return {
+            success: false,
+            error: `Close rejected: ${status.error}. Profitable closes must include the 10% success fee.`,
+          };
+        }
         logger.warn('HL close builder error — retrying without builder', {
           user: userAddress.slice(0, 10),
           coin: coinUpper,
@@ -1546,31 +1569,30 @@ export class HyperliquidTradingService {
         });
         closeBuilder = undefined;
         result = await client.order(orderPayload);
-        status = result.response?.data?.statuses?.[0] as
-          | { filled?: unknown; error?: string }
-          | undefined;
+        status = result.response?.data?.statuses?.[0] as HlOrderStatus | undefined;
       }
 
-      if (status && 'error' in status && status.error) {
-        return { success: false, error: String(status.error) };
+      const statusErr = hlOrderStatusError(status);
+      if (statusErr && !isHlOrderFilled(status)) {
+        const flatAfterReject = await waitForHlPositionFlat(userAddress, coinUpper, {
+          maxMs: 2_500,
+          intervalMs: 400,
+        });
+        if (!flatAfterReject) {
+          return { success: false, error: statusErr };
+        }
+      }
+
+      const flat = await waitForHlPositionFlat(userAddress, coinUpper);
+      if (!flat) {
+        return {
+          success: false,
+          error: 'Close not confirmed on Hyperliquid — position still open. Check app.hyperliquid.xyz.',
+        };
       }
 
       if (closeBuilder) {
         viaHlBuilder = true;
-      } else if (pnlUsd > 0 && feeSkipReason) {
-        logger.error('HL success fee not auto-collected on close', {
-          user: userAddress.slice(0, 10),
-          coin: coinUpper,
-          reason: feeSkipReason,
-          pnl: pnlUsd.toFixed(4),
-          builderAddress: config.hyperliquid.builderAddress,
-          hint:
-            feeSkipReason === 'platform_wallet_underfunded'
-              ? 'Deposit $100+ USDC to builder address on Hyperliquid perps'
-              : feeSkipReason === 'user_builder_not_approved'
-                ? 'User must approve builder fee in bot setup'
-                : undefined,
-        });
       }
 
       const collateralUsd =
@@ -1600,16 +1622,12 @@ export class HyperliquidTradingService {
         collectedFeeUsd: collectedFee,
         viaHlBuilder,
       });
-      if (reason === 'manual') {
-        void recordClose.catch((err) => {
-          logger.warn('HL manual close history record failed', {
-            user: userAddress.slice(0, 10),
-            error: err instanceof Error ? err.message : String(err),
-          });
+      await recordClose.catch((err) => {
+        logger.warn('HL close history record failed', {
+          user: userAddress.slice(0, 10),
+          error: err instanceof Error ? err.message : String(err),
         });
-      } else {
-        await recordClose;
-      }
+      });
 
       logger.info('HL position closed', {
         user: userAddress.slice(0, 10),

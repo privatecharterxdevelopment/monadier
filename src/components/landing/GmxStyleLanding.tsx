@@ -9,12 +9,6 @@ import LandingHomeBentoCards from './LandingHomeBentoCards';
 import LandingFaqSection from './LandingFaqSection';
 import LandingFooter from './LandingFooter';
 import { goToOpenApp } from '../../lib/appUrls';
-import {
-  lockPageScroll,
-  registerLandingWheelConsumer,
-  unlockPageScroll,
-  unregisterLandingWheelConsumer,
-} from '../../lib/landingScrollLock';
 
 const LANDING_ROTATE_LINES_FALLBACK = [
   'on AI autopilot',
@@ -208,99 +202,15 @@ const GmxStyleLanding: React.FC = () => {
   };
 
   useEffect(() => {
-    const prevScrollRestoration = history.scrollRestoration;
-    history.scrollRestoration = 'manual';
-
-    window.scrollTo(0, 0);
-    expandRef.current = 0;
-    targetExpandRef.current = 0;
-    unlockedRef.current = false;
-    setScrollUnlocked(false);
-    setHeroRevealed(false);
-    setExpand(0);
-    setLayout(computeHeroLayout(0, window.innerWidth, viewportHeight()));
-
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduceMotion) {
-      applyProgress(1);
-      unlockScroll();
-      return undefined;
-    }
-
-    lockSnapshotRef.current = { scrollY: 0 };
-    lockPageScroll(0, 'hero');
-
-    registerLandingWheelConsumer({
-      id: 'hero',
-      isActive: () => !unlockedRef.current,
-      onWheel: (deltaY) => {
-        if (unlockedRef.current) return false;
-        if (Math.abs(deltaY) < 4) return true;
-        nudgeHeroProgress(deltaY > 0 ? 1 : -1);
-        return true;
-      },
-    });
-
-    const onResize = () => {
-      setLayout(computeHeroLayout(expandRef.current, window.innerWidth, viewportHeight()));
-    };
-
-    const onTouchStart = (e: TouchEvent) => {
-      if (unlockedRef.current) return;
-      touchYRef.current = e.touches[0]?.clientY ?? null;
-    };
-
-    const onTouchMove = (e: TouchEvent) => {
-      if (unlockedRef.current || touchYRef.current == null) return;
-      if (document.body.style.position !== 'fixed') return;
-      const y = e.touches[0]?.clientY;
-      if (y == null) return;
-      e.preventDefault();
-      if (Math.abs(touchYRef.current - y) < 4) return;
-      nudgeHeroProgress(touchYRef.current - y > 0 ? 1 : -1);
-      touchYRef.current = y;
-    };
-
-    const onTouchEnd = () => {
-      touchYRef.current = null;
-    };
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (unlockedRef.current) return;
-      if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
-        e.preventDefault();
-        nudgeHeroProgress(1);
-      }
-      if (e.key === 'ArrowUp' || e.key === 'PageUp') {
-        e.preventDefault();
-        nudgeHeroProgress(-1);
-      }
-    };
-
-    window.addEventListener('resize', onResize);
-    window.addEventListener('touchstart', onTouchStart, { passive: true });
-    window.addEventListener('touchmove', onTouchMove, { passive: false });
-    window.addEventListener('touchend', onTouchEnd);
-    window.addEventListener('keydown', onKeyDown);
-
-    return () => {
-      history.scrollRestoration = prevScrollRestoration;
-      if (smoothRafRef.current != null) cancelAnimationFrame(smoothRafRef.current);
-      unregisterLandingWheelConsumer('hero');
-      if (!unlockedRef.current) {
-        const snapshot = lockSnapshotRef.current;
-        if (snapshot) unlockPageScroll(snapshot, 'hero');
-      }
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-      window.removeEventListener('resize', onResize);
-      window.removeEventListener('touchstart', onTouchStart);
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('touchend', onTouchEnd);
-      window.removeEventListener('keydown', onKeyDown);
-    };
+    applyProgress(1);
+    unlockedRef.current = true;
+    setScrollUnlocked(true);
+    setHeroRevealed(true);
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.width = '';
+    return undefined;
   }, []);
 
   const locked = !scrollUnlocked;

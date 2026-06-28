@@ -1,11 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useAccount } from 'wagmi';
+import { useWeb3 } from '../../contexts/Web3Context';
+import { useAuth } from '../../contexts/AuthContext';
+import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useHyperliquidAccount } from '../../hooks/useHyperliquidAccount';
 import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
 import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
+import { useHlActiveWallet } from '../../hooks/useHlActiveWallet';
 import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
 import { isHlBotEnabled } from '../../lib/hlBotGates';
+import { persistVaultSettings } from '../../lib/syncVaultSettings';
+import { snapLeverageToStep } from '../../lib/leverageLimits';
 import { toNum } from '../../lib/hyperliquid/parse';
 import type { HlPosition } from '../../lib/hyperliquid/user';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
@@ -69,20 +74,25 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   onDeposit,
   botHlBalanceUsd = 0,
 }) => {
-  const { address } = useAccount();
-  const { wallet: settingsWallet, settings: botSettingsSnapshot } = useTerminalBotSettings();
+  const { publicClient, walletClient } = useWeb3();
+  const { isDemoUser } = useAuth();
+  const { planTier } = useSubscription();
+  const {
+    wallet: hlWallet,
+    walletMismatch,
+    connectedWallet,
+    settingsWallet,
+  } = useHlActiveWallet(walletAddress);
+  const { settings: botSettingsSnapshot, reload: reloadBotSettings } =
+    useTerminalBotSettings();
   const botEff = effectiveHlBotSettings(botSettingsSnapshot);
   const configuredLeverage = botEff.leverage;
   const configuredStopLoss = botEff.stopLoss;
+  const [stopLossOverride, setStopLossOverride] = useState<number | null>(null);
+  const stopLossMarginPct = stopLossOverride ?? configuredStopLoss;
   const botRunning = isHlBotEnabled(
     Boolean(botAnalysisMetrics?.autoTradeEnabled) || botSettingsSnapshot.autoTradeEnabled
   );
-  const hlWallet = (
-    walletAddress ??
-    settingsWallet ??
-    address ??
-    undefined
-  )?.toLowerCase() as `0x${string}` | undefined;
 
   const {
     account,
@@ -111,6 +121,60 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   useEffect(() => {
     void refreshAccount();
   }, [refreshAccount, refreshKey]);
+
+  useEffect(() => {
+    setStopLossOverride(null);
+  }, [configuredStopLoss]);
+
+  const handleSaveStopLoss = useCallback(
+    async (stopLossPct: number): Promise<{ ok: boolean; error?: string }> => {
+      if (!hlWallet) {
+        return { ok: false, error: 'Connect wallet first.' };
+      }
+      try {
+        const savedLeverage = snapLeverageToStep(botSettingsSnapshot.leverage, planTier);
+        await persistVaultSettings({
+          settings: {
+            walletAddress: hlWallet,
+            autoTradeEnabled: botSettingsSnapshot.autoTradeEnabled,
+            riskPct: botSettingsSnapshot.riskPct,
+            leverage: savedLeverage,
+            takeProfit: botSettingsSnapshot.takeProfit,
+            stopLoss: stopLossPct,
+            askPermission: botSettingsSnapshot.askPermission,
+            minWinRate: botSettingsSnapshot.minWinRate,
+            minTradesForWinRate: botSettingsSnapshot.minTradesForWinRate,
+            hlBotStrategy: botSettingsSnapshot.hlBotStrategy,
+            newsTradeMode: botSettingsSnapshot.newsTradeMode,
+          },
+          planTier,
+          publicClient,
+          walletClient,
+          userAddress: hlWallet,
+          isDemoUser,
+          syncTradingParams: false,
+          syncAutoTrade: false,
+        });
+        setStopLossOverride(stopLossPct);
+        void reloadBotSettings();
+        return { ok: true };
+      } catch (err: unknown) {
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : 'Failed to save stop loss',
+        };
+      }
+    },
+    [
+      hlWallet,
+      botSettingsSnapshot,
+      planTier,
+      publicClient,
+      walletClient,
+      isDemoUser,
+      reloadBotSettings,
+    ]
+  );
 
   const handleClosePosition = useCallback(
     async (position: HlPosition) => {
@@ -160,6 +224,12 @@ const ProTradeHlBotDock: React.FC<Props> = ({
           {closeNotice}
         </p>
       ) : null}
+      {walletMismatch ? (
+        <p className="hl-dock-notice hl-dock-notice--warn" role="alert">
+          Wallet mismatch — connected {connectedWallet?.slice(0, 10)}… but bot settings use{' '}
+          {settingsWallet?.slice(0, 10)}…. Reconnect the wallet you funded on Hyperliquid.
+        </p>
+      ) : null}
       <ProTradeDock
         mode="bot"
         historyOnly={historyOnly}
@@ -178,7 +248,9 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         actionBusy={closeBusy}
         onClosePosition={(p) => void handleClosePosition(p)}
         configuredLeverage={configuredLeverage}
-        stopLossMarginPct={configuredStopLoss}
+        stopLossMarginPct={stopLossMarginPct}
+        onSaveStopLoss={handleSaveStopLoss}
+        hlActiveWallet={hlWallet}
         walletAddress={hlWallet}
         reasonRefreshKey={refreshKey}
         botRunning={botRunning}

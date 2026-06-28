@@ -1,14 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Loader2, Newspaper, RefreshCw, Shield } from 'lucide-react';
+import { Loader2, Newspaper, RefreshCw } from 'lucide-react';
 import { fetchNewsFeed, type NewsItemDto } from '../../lib/newsFeed';
-import {
-  NEWS_TRADE_MODE_HINTS,
-  NEWS_TRADE_MODE_LABELS,
-  normalizeNewsTradeMode,
-  type NewsTradeMode,
-} from '../../lib/newsTradeMode';
-import { saveNewsTradeMode } from '../../lib/saveNewsTradeMode';
-import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import NewsCard from './news/NewsCard';
 import ProTradePageShell from './ProTradePageShell';
 
@@ -20,22 +12,11 @@ type Props = {
   onTradeSports?: (outcomeId: number, eventName: string) => void;
 };
 
-const MODES: NewsTradeMode[] = ['off', 'filter', 'boost'];
-
-const ProTradeNews: React.FC<Props> = ({ walletAddress, onTradeCrypto, onTradeSports }) => {
+const ProTradeNews: React.FC<Props> = ({ onTradeCrypto, onTradeSports }) => {
   const [tab, setTab] = useState<Tab>('crypto');
   const [items, setItems] = useState<NewsItemDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [savingMode, setSavingMode] = useState(false);
-  const { settings, wallet } = useTerminalBotSettings();
-  const effectiveWallet = walletAddress ?? wallet;
-  const [localMode, setLocalMode] = useState<NewsTradeMode>(settings.newsTradeMode ?? 'filter');
-  const newsMode = localMode;
-
-  useEffect(() => {
-    setLocalMode(settings.newsTradeMode ?? 'filter');
-  }, [settings.newsTradeMode]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,19 +37,6 @@ const ProTradeNews: React.FC<Props> = ({ walletAddress, onTradeCrypto, onTradeSp
     const id = setInterval(() => void load(), 120_000);
     return () => clearInterval(id);
   }, [load]);
-
-  const setMode = async (mode: NewsTradeMode) => {
-    if (!effectiveWallet || normalizeNewsTradeMode(mode) === newsMode) return;
-    setSavingMode(true);
-    try {
-      await saveNewsTradeMode(effectiveWallet, mode);
-      setLocalMode(mode);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save bot news mode');
-    } finally {
-      setSavingMode(false);
-    }
-  };
 
   return (
     <ProTradePageShell className="hl-news-page">
@@ -116,34 +84,6 @@ const ProTradeNews: React.FC<Props> = ({ walletAddress, onTradeCrypto, onTradeSp
             </button>
           </div>
         </header>
-      </section>
-
-      <section className="hl-studio-card" aria-label="Bot news mode">
-        <header className="hl-studio-card__head">
-          <Shield size={18} aria-hidden />
-          <span>Bot news mode</span>
-          {savingMode ? <Loader2 size={14} className="animate-spin hl-studio-card__head-extra" aria-hidden /> : null}
-        </header>
-        <div className="hl-studio-card__body hl-news-bot-mode">
-          <div className="hl-news-mode-pills">
-            {MODES.map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                className={`hl-news-mode-pill ${newsMode === mode ? 'hl-news-mode-pill--on' : ''}`}
-                disabled={!effectiveWallet || savingMode}
-                title={NEWS_TRADE_MODE_HINTS[mode]}
-                onClick={() => void setMode(mode)}
-              >
-                {NEWS_TRADE_MODE_LABELS[mode]}
-              </button>
-            ))}
-          </div>
-          <p className="hl-news-bot-mode__hint">{NEWS_TRADE_MODE_HINTS[newsMode]}</p>
-          {!effectiveWallet ? (
-            <p className="hl-news-bot-mode__warn">Connect wallet to save bot news mode.</p>
-          ) : null}
-        </div>
       </section>
 
       <section className="hl-studio-card">

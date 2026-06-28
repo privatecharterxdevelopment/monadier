@@ -1,7 +1,7 @@
 import React from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
-import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
+import { effectiveHlBotSettings, formatHlSlLabel } from '../../lib/hlBotEffectiveSettings';
 import { HL_DYNAMIC_TRAIL } from '../../lib/hlBotStrategy';
 import BotMetricPill from './BotMetricPill';
 
@@ -15,6 +15,7 @@ const DESCRIPTIONS = {
   risk: 'Share of your HL balance used as margin per trade — not the same as leverage.',
   lvrg: 'Hyperliquid multiplier on that margin. Bot clamps to each market’s max leverage.',
   trail: `Stage 1: +${HL_DYNAMIC_TRAIL.breakevenArmRoePct}% ROE locks +${HL_DYNAMIC_TRAIL.armMinRoePct}%. Stage 2: peak ≥+${HL_DYNAMIC_TRAIL.fullTrailArmRoePct}% → trail.`,
+  sl: 'Max loss on margin while the position is red. In profit the bot uses automatic profit trail instead.',
 } as const;
 
 const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disabled }) => {
@@ -36,6 +37,11 @@ const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disable
           label="LVRG"
           value={`${eff.leverage}x`}
           description={DESCRIPTIONS.lvrg}
+        />
+        <BotMetricPill
+          label="SL"
+          value={formatHlSlLabel(settings.stopLoss)}
+          description={DESCRIPTIONS.sl}
         />
         <BotMetricPill
           label="Trail"

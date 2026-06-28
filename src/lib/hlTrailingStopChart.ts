@@ -3,6 +3,7 @@ import {
   shouldArmDynamicTrail,
   type HlBotStrategy,
 } from './hlBotStrategy';
+import { effectiveStopLossPct } from './hlBotEffectiveSettings';
 
 /** Margin % → price level (loss side). LONG: below entry; SHORT: above entry. */
 export function marginStopLossPx(
@@ -168,7 +169,7 @@ export function computeHlChartPositionOverlay(opts: {
     collateralUsd: collateral,
   });
 
-  const slPct = opts.stopLossMarginPct ?? 0;
+  const slPct = effectiveStopLossPct(opts.stopLossMarginPct ?? 0);
   const tpPct = opts.takeProfitMarginPct ?? 0;
   const hideLossSl = trail.armed;
 
@@ -207,11 +208,29 @@ export function lossStopPricePx(
   return Number.isFinite(px) && px > 0 ? px : null;
 }
 
-function fmtStopPx(px: number): string {
+export function fmtStopPx(px: number): string {
   if (px >= 1000) return px.toLocaleString(undefined, { maximumFractionDigits: 2 });
   if (px >= 1) return px.toFixed(4);
   if (px >= 0.01) return px.toFixed(5);
   return px.toFixed(6);
+}
+
+/** Stop price → max-loss % on margin (inverse of lossStopPricePx). */
+export function marginPctFromStopPrice(
+  direction: 'long' | 'short',
+  entryPx: number,
+  absSize: number,
+  collateralUsd: number,
+  stopPx: number
+): number | null {
+  if (entryPx <= 0 || absSize <= 0 || collateralUsd <= 0 || stopPx <= 0) return null;
+  const maxLossUsd =
+    direction === 'long'
+      ? (entryPx - stopPx) * absSize
+      : (stopPx - entryPx) * absSize;
+  if (!Number.isFinite(maxLossUsd) || maxLossUsd <= 0) return null;
+  const pct = (maxLossUsd / collateralUsd) * 100;
+  return Number.isFinite(pct) && pct > 0 ? pct : null;
 }
 
 export type ActiveSlDisplay = {
@@ -259,17 +278,15 @@ export function trailStopForOpenPosition(opts: {
     opts.peakPnlUsd ?? opts.unrealizedPnlUsd,
     opts.unrealizedPnlUsd
   );
-  const slPct = opts.stopLossMarginPct ?? 0;
+  const slPct = effectiveStopLossPct(opts.stopLossMarginPct ?? 0);
 
   if (server?.wouldCloseNow && server.stopPx != null) {
-    const lockUsd = server.lockPnlUsd;
     return {
       stopPx: server.stopPx,
       armed: true,
       kind: 'close_now',
       label: fmtStopPx(server.stopPx),
-      sublabel: `≤$${lockUsd.toFixed(2)} · CLOSE`,
-      title: `Mark crossed bot profit SL at $${fmtStopPx(server.stopPx)} (peak $${server.peakPnlUsd.toFixed(2)}). Bot should market-close now.`,
+      title: `Mark crossed bot profit SL at ${fmtStopPx(server.stopPx)}. Bot should market-close now.`,
     };
   }
 
@@ -279,10 +296,9 @@ export function trailStopForOpenPosition(opts: {
       armed: true,
       kind: 'profit',
       label: fmtStopPx(server.stopPx),
-      sublabel: `$${server.lockPnlUsd.toFixed(2)} min · peak $${server.peakPnlUsd.toFixed(2)}`,
       title: server.stateTracked
-        ? `Bot profit SL at $${fmtStopPx(server.stopPx)} — locks ≥$${server.lockPnlUsd.toFixed(2)} (peak uPnL $${server.peakPnlUsd.toFixed(2)}). Stop only moves up.`
-        : `Profit SL at $${fmtStopPx(server.stopPx)} — bot peak state was reset (redeploy). Peak may rebuild from here.`,
+        ? `Bot profit SL at ${fmtStopPx(server.stopPx)} — stop only moves up with peak uPnL.`
+        : `Profit SL at ${fmtStopPx(server.stopPx)} — bot peak state was reset (redeploy).`,
     };
   }
 
@@ -297,26 +313,25 @@ export function trailStopForOpenPosition(opts: {
   });
 
   if (trail.armed && trail.stopPx != null) {
-    const lockPnlUsd = collateral * (trail.lockRoePct / 100);
     return {
       stopPx: trail.stopPx,
       armed: true,
       kind: 'profit',
       label: fmtStopPx(trail.stopPx),
-      sublabel: `$${lockPnlUsd.toFixed(2)} min · peak $${peak.toFixed(2)}`,
-      title: `Profit SL — bot closes in profit if price crosses $${fmtStopPx(trail.stopPx)} (≥$${lockPnlUsd.toFixed(2)} locked). Settings SL is max loss only while red.`,
+      title: `Profit SL — bot closes in profit if price crosses ${fmtStopPx(trail.stopPx)}.`,
     };
   }
 
   if (opts.unrealizedPnlUsd > 0) {
+    const lossPx =
+      slPct > 0 ? lossStopPricePx(side, opts.entryPx, absSize, collateral, slPct) : null;
     const roe = roePct(opts.unrealizedPnlUsd, collateral);
     return {
-      stopPx: null,
+      stopPx: lossPx,
       armed: false,
       kind: 'arming',
-      label: 'Arming profit SL',
-      sublabel: `+${HL_DYNAMIC_TRAIL.breakevenArmRoePct}% ROE`,
-      title: `Profit SL arms at +${HL_DYNAMIC_TRAIL.breakevenArmRoePct}% ROE (now ${roe.toFixed(2)}%) — then stop moves into profit automatically.`,
+      label: lossPx != null ? fmtStopPx(lossPx) : '—',
+      title: `Max loss at ${lossPx != null ? fmtStopPx(lossPx) : '—'} until profit SL arms (+${HL_DYNAMIC_TRAIL.breakevenArmRoePct}% ROE, now ${roe.toFixed(2)}%).`,
     };
   }
 
@@ -326,9 +341,8 @@ export function trailStopForOpenPosition(opts: {
       stopPx: lossPx,
       armed: false,
       kind: 'loss_cap',
-      label: `Max −${slPct}%`,
-      sublabel: lossPx != null ? fmtStopPx(lossPx) : undefined,
-      title: `Max loss from settings (−${slPct}% of margin) while position is red. In profit, bot switches to automatic profit SL.`,
+      label: lossPx != null ? fmtStopPx(lossPx) : '—',
+      title: `Max stop loss — bot closes if price crosses ${lossPx != null ? fmtStopPx(lossPx) : '—'}.`,
     };
   }
 
@@ -336,7 +350,7 @@ export function trailStopForOpenPosition(opts: {
     stopPx: null,
     armed: false,
     kind: 'idle',
-    label: 'Hold red',
-    title: 'No loss SL % in settings — bot waits for profit trail when green.',
+    label: '—',
+    title: 'No max loss configured.',
   };
 }

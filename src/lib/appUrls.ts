@@ -19,16 +19,23 @@ function configuredAppBase(): string {
   return (import.meta.env.VITE_APP_URL as string | undefined)?.replace(/\/$/, '') ?? '';
 }
 
+/** Split marketing/app hosts only when explicitly enabled (production custom domains later). */
+function splitDomainsEnabled(): boolean {
+  return import.meta.env.VITE_SPLIT_DOMAINS === 'true';
+}
+
 /**
  * Preview / local — stay on current origin even when Vercel env has monadier.io URLs.
- * (Otherwise logo, login, landing links hard-jump to production.)
  */
 export function isUnifiedOriginHost(hostname?: string): boolean {
-  const h =
-    hostname ?? (typeof window !== 'undefined' ? window.location.hostname : '');
-  if (!h) return false;
-  if (import.meta.env.VITE_UNIFIED_ORIGIN === 'true') return true;
-  return h === 'localhost' || h === '127.0.0.1' || h.endsWith('.vercel.app');
+  if (splitDomainsEnabled()) {
+    const h =
+      hostname ?? (typeof window !== 'undefined' ? window.location.hostname : '');
+    if (!h) return false;
+    if (import.meta.env.VITE_UNIFIED_ORIGIN === 'true') return true;
+    return h === 'localhost' || h === '127.0.0.1' || h.endsWith('.vercel.app');
+  }
+  return true;
 }
 
 function effectiveSiteBase(): string {

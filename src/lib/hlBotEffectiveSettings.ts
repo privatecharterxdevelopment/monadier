@@ -1,4 +1,5 @@
 import type { VaultSettingsSnapshot } from './vaultSettingsSnapshot';
+import { HL_DEFAULT_STOP_LOSS_PERCENT } from './hlBotConstants';
 import { HL_DYNAMIC_TRAIL, type HlBotStrategy } from './hlBotStrategy';
 
 /** Dynamic trail defaults (must match bot-service config). */
@@ -13,13 +14,18 @@ export type HlBotEffectiveSettings = VaultSettingsSnapshot & {
   trailArmRoePct: number;
 };
 
+export function effectiveStopLossPct(stopLoss: number): number {
+  return stopLoss > 0 ? stopLoss : HL_DEFAULT_STOP_LOSS_PERCENT;
+}
+
 export function effectiveHlBotSettings(
   raw: VaultSettingsSnapshot
 ): HlBotEffectiveSettings {
+  const stopLoss = effectiveStopLossPct(raw.stopLoss);
   return {
     ...raw,
     takeProfit: Math.max(0, raw.takeProfit),
-    stopLoss: Math.max(0, raw.stopLoss),
+    stopLoss,
     trailArmRoePct: HL_DYNAMIC_TRAIL.armMinRoePct,
   };
 }
@@ -36,6 +42,5 @@ export function formatHlSlLabel(
   stopLoss: number,
   _strategy: HlBotStrategy = 'standard'
 ): string {
-  if (stopLoss <= 0) return 'hold red';
-  return `Max −${stopLoss}%`;
+  return `Max −${effectiveStopLossPct(stopLoss)}%`;
 }

@@ -75,6 +75,20 @@ export function sanitizeChartCandles(
     .filter((c): c is HlCandleBar => c != null);
 }
 
+/** Live mark patches the forming bar (TradingView-style wick/close). */
+export function patchFormingCandleWithMark(
+  candles: HlCandleBar[],
+  markPx?: number
+): HlCandleBar[] {
+  if (!markPx || markPx <= 0 || candles.length === 0) return candles;
+  const last = candles[candles.length - 1];
+  const close = markPx;
+  const high = Math.max(last.high, markPx);
+  const low = Math.min(last.low, markPx);
+  if (close === last.close && high === last.high && low === last.low) return candles;
+  return [...candles.slice(0, -1), { ...last, close, high, low }];
+}
+
 export function candlePriceRange(
   candles: HlCandleBar[],
   refPx?: number,
