@@ -663,9 +663,9 @@ const TerminalTradePanel: React.FC<Props> = ({
             ) : (
               <>
                 <div
-                  className={`term-panel-card term-panel-card--muted hl-bot-status-card hl-bot-status-card--${sidebarStatus.tone}`}
+                  className={`term-panel-card term-panel-card--muted term-panel-card--compact hl-bot-status-card hl-bot-status-card--${sidebarStatus.tone}`}
                 >
-                  <span className="term-panel-card-label">Bot status</span>
+                  <span className="term-panel-card-label">Status</span>
                   <strong
                     className={`term-panel-card-value hl-bot-status-headline ${
                       botRunning ? 'term-pnl-pos' : ''
@@ -676,14 +676,6 @@ const TerminalTradePanel: React.FC<Props> = ({
                   {sidebarStatus.detail && !isBotScanNoiseDetail(sidebarStatus.detail) ? (
                     <p className="hl-bot-status-detail">{sidebarStatus.detail}</p>
                   ) : null}
-                </div>
-
-                <div className="term-panel-card term-panel-card--muted">
-                  <span className="term-panel-card-label">Leverage</span>
-                  <strong className="term-panel-card-value">{botEff.leverage}x</strong>
-                  <span className="term-panel-card-hint">
-                    Hyperliquid multiplier on margin per trade
-                  </span>
                 </div>
               </>
             )}
@@ -698,30 +690,6 @@ const TerminalTradePanel: React.FC<Props> = ({
                 botRunning={botRunning}
                 currentStep={sidebarStatus.setupStep}
               />
-            )}
-
-            <TerminalBotSettingsStrip
-              settings={botSettings.settings}
-              disabled={walletReady && hlSetup.loading}
-              onAdjust={requestLvrgAccess}
-            />
-
-            {botError && (
-              <div className="term-panel-alert">
-                <AlertTriangle size={14} />
-                <span>{botError}</span>
-              </div>
-            )}
-
-            {walletReady && hlSetup.setupSettled && phase === 'fund' && !botRunning && (
-              <button
-                type="button"
-                className="term-btn-sm term-btn-sm--primary w-full justify-center"
-                onClick={() => openFunds('deposit')}
-              >
-                <ArrowDownLeft size={14} />
-                Deposit USDC
-              </button>
             )}
 
             <div className="term-bot-action-stack flex flex-col gap-2">
@@ -805,6 +773,30 @@ const TerminalTradePanel: React.FC<Props> = ({
                 </>
               )}
             </div>
+
+            <TerminalBotSettingsStrip
+              settings={botSettings.settings}
+              disabled={walletReady && hlSetup.loading}
+              onAdjust={requestLvrgAccess}
+            />
+
+            {botError && (
+              <div className="term-panel-alert">
+                <AlertTriangle size={14} />
+                <span>{botError}</span>
+              </div>
+            )}
+
+            {walletReady && hlSetup.setupSettled && phase === 'fund' && !botRunning && (
+              <button
+                type="button"
+                className="term-btn-sm term-btn-sm--primary w-full justify-center"
+                onClick={() => openFunds('deposit')}
+              >
+                <ArrowDownLeft size={14} />
+                Deposit USDC
+              </button>
+            )}
 
             {onOpenHistory && (
               <button type="button" className="term-link-btn" onClick={onOpenHistory}>

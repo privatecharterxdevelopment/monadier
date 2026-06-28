@@ -101,6 +101,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
     funding,
     orderHistory,
     loading: accountLoading,
+    fillsLoading,
     refresh: refreshAccount,
   } = useHyperliquidAccount(hlWallet);
 
@@ -211,6 +212,14 @@ const ProTradeHlBotDock: React.FC<Props> = ({
     [closePosition, hlWallet, markPrices, refreshAccount, onPositionChange]
   );
 
+  const handleDockTabChange = useCallback(
+    (tab: ProTradeDockTab) => {
+      onTabChange?.(normalizeHlBotDockTab(tab));
+      if (tab === 'tradeHistory') void refreshAccount();
+    },
+    [onTabChange, refreshAccount]
+  );
+
   const connected = walletConnected || Boolean(hlWallet);
 
   return (
@@ -241,9 +250,10 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         orderHistory={orderHistory}
         markPrices={markPrices}
         loading={accountLoading}
+        fillsLoading={fillsLoading}
         connected={connected}
         activeTab={dockTab}
-        onTabChange={(tab) => onTabChange?.(tab as HlBotDockTab)}
+        onTabChange={handleDockTabChange}
         onCoinClick={onCoinClick}
         actionBusy={closeBusy}
         onClosePosition={(p) => void handleClosePosition(p)}

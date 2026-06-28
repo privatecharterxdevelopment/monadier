@@ -26,13 +26,14 @@ type State = {
   orderHistory: HlHistoricalOrder[];
   twapOrders: HlTwapOrder[];
   loading: boolean;
+  fillsLoading: boolean;
   error: string | null;
 };
 
 const BALANCE_POLL_MS = 20_000;
 const POSITION_POLL_MS = 12_000;
 const HEAVY_REFRESH_MS = 120_000;
-const FILLS_LIMIT = 100;
+const FILLS_LIMIT = 500;
 
 function isTabVisible(): boolean {
   return typeof document === 'undefined' || document.visibilityState !== 'hidden';
@@ -48,6 +49,7 @@ export function useHyperliquidAccount(address: string | undefined) {
     orderHistory: [],
     twapOrders: [],
     loading: false,
+    fillsLoading: false,
     error: null,
   });
   const lastHeavyAtRef = useRef(0);
@@ -69,20 +71,26 @@ export function useHyperliquidAccount(address: string | undefined) {
   }, []);
 
   const refreshHeavy = useCallback(async (addr: string) => {
-    const [fills, funding, orderHistory, twapOrders] = await Promise.all([
-      fetchHlUserFills(addr, FILLS_LIMIT),
-      fetchHlUserFunding(addr),
-      fetchHlHistoricalOrders(addr),
-      fetchHlTwapHistory(addr),
-    ]);
-    setState((prev) => ({
-      ...prev,
-      fills,
-      funding,
-      orderHistory,
-      twapOrders,
-    }));
-    lastHeavyAtRef.current = Date.now();
+    setState((prev) => ({ ...prev, fillsLoading: true }));
+    try {
+      const [fills, funding, orderHistory, twapOrders] = await Promise.all([
+        fetchHlUserFills(addr, FILLS_LIMIT),
+        fetchHlUserFunding(addr),
+        fetchHlHistoricalOrders(addr),
+        fetchHlTwapHistory(addr),
+      ]);
+      setState((prev) => ({
+        ...prev,
+        fills,
+        funding,
+        orderHistory,
+        twapOrders,
+        fillsLoading: false,
+      }));
+      lastHeavyAtRef.current = Date.now();
+    } catch {
+      setState((prev) => ({ ...prev, fillsLoading: false }));
+    }
   }, []);
 
   const refresh = useCallback(async () => {
@@ -96,6 +104,7 @@ export function useHyperliquidAccount(address: string | undefined) {
         orderHistory: [],
         twapOrders: [],
         loading: false,
+        fillsLoading: false,
         error: null,
       });
       return;
@@ -126,6 +135,7 @@ export function useHyperliquidAccount(address: string | undefined) {
         orderHistory: [],
         twapOrders: [],
         loading: false,
+        fillsLoading: false,
         error: null,
       });
       return;

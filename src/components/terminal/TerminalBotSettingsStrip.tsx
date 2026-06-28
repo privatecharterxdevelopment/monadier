@@ -3,7 +3,6 @@ import { SlidersHorizontal } from 'lucide-react';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
 import { effectiveHlBotSettings, formatHlSlLabel } from '../../lib/hlBotEffectiveSettings';
 import { HL_DYNAMIC_TRAIL } from '../../lib/hlBotStrategy';
-import BotMetricPill from './BotMetricPill';
 
 type Props = {
   settings: VaultSettingsSnapshot;
@@ -11,53 +10,44 @@ type Props = {
   disabled?: boolean;
 };
 
-const DESCRIPTIONS = {
-  risk: 'Share of your HL balance used as margin per trade — not the same as leverage.',
-  lvrg: 'Hyperliquid multiplier on that margin. Bot clamps to each market’s max leverage.',
-  trail: `Stage 1: +${HL_DYNAMIC_TRAIL.breakevenArmRoePct}% ROE locks +${HL_DYNAMIC_TRAIL.armMinRoePct}%. Stage 2: peak ≥+${HL_DYNAMIC_TRAIL.fullTrailArmRoePct}% → trail.`,
-  sl: 'Max loss on margin while the position is red. In profit the bot uses automatic profit trail instead.',
-} as const;
-
 const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disabled }) => {
   const eff = effectiveHlBotSettings(settings);
+  const sl = formatHlSlLabel(settings.stopLoss).replace(/^Max /, '');
+  const trail = `+${HL_DYNAMIC_TRAIL.breakevenArmRoePct}→+${HL_DYNAMIC_TRAIL.armMinRoePct}%`;
 
   return (
     <div
-      className={`term-bot-settings ${disabled ? 'term-bot-settings--disabled' : ''}`}
+      className={`term-bot-settings term-bot-settings--compact ${disabled ? 'term-bot-settings--disabled' : ''}`}
       role="group"
       aria-label="Bot risk and leverage settings"
     >
-      <div className="term-bot-settings-pills">
-        <BotMetricPill
-          label="Risk"
-          value={`${eff.riskPct}%`}
-          description={DESCRIPTIONS.risk}
-        />
-        <BotMetricPill
-          label="LVRG"
-          value={`${eff.leverage}x`}
-          description={DESCRIPTIONS.lvrg}
-        />
-        <BotMetricPill
-          label="SL"
-          value={formatHlSlLabel(settings.stopLoss)}
-          description={DESCRIPTIONS.sl}
-        />
-        <BotMetricPill
-          label="Trail"
-          value={`+${HL_DYNAMIC_TRAIL.breakevenArmRoePct}%→+${HL_DYNAMIC_TRAIL.armMinRoePct}%`}
-          description={DESCRIPTIONS.trail}
-        />
+      <div className="term-bot-settings-inline">
+        <span className="term-bot-settings-chip">
+          <span className="term-bot-settings-chip-k">Risk</span>
+          <span className="term-bot-settings-chip-v">{eff.riskPct}%</span>
+        </span>
+        <span className="term-bot-settings-chip">
+          <span className="term-bot-settings-chip-k">LVRG</span>
+          <span className="term-bot-settings-chip-v">{eff.leverage}x</span>
+        </span>
+        <span className="term-bot-settings-chip">
+          <span className="term-bot-settings-chip-k">SL</span>
+          <span className="term-bot-settings-chip-v">{sl}</span>
+        </span>
+        <span className="term-bot-settings-chip">
+          <span className="term-bot-settings-chip-k">Trail</span>
+          <span className="term-bot-settings-chip-v">{trail}</span>
+        </span>
       </div>
       <button
         type="button"
-        className="term-icon-btn term-bot-settings-edit"
+        className="term-icon-btn term-bot-settings-edit term-bot-settings-edit--compact"
         onClick={onAdjust}
         disabled={disabled}
-        title="Adjust bot settings"
-        aria-label="Adjust bot settings"
+        title="Adjust risk & leverage"
+        aria-label="Adjust risk and leverage"
       >
-        <SlidersHorizontal size={14} />
+        <SlidersHorizontal size={13} />
       </button>
     </div>
   );

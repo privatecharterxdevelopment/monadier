@@ -3807,6 +3807,82 @@
   flex-shrink: 0;
 }
 
+/* Compact single-row bot metrics — keeps Start bot above the fold */
+.term-bot-settings--compact {
+  padding: 6px 8px;
+  gap: 6px;
+  border-radius: 10px;
+  margin-top: 0;
+}
+
+.term-bot-settings-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.term-bot-settings-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.term-bot-settings-chip-k {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--term-text-faint, #a1a1aa);
+}
+
+.term-bot-settings-chip-v {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--term-text, #18181b);
+  letter-spacing: -0.01em;
+}
+
+.term-bot-settings-edit--compact {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+}
+
+.term-panel-card--compact {
+  padding: 8px 10px;
+}
+
+.term-panel-card--compact .term-panel-card-label {
+  font-size: 10px;
+}
+
+.term-panel-card--compact .term-panel-card-value {
+  font-size: 14px;
+}
+
+.term-panel-card--compact .hl-bot-status-detail {
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.term-bot-action-stack {
+  margin-top: 0;
+}
+
+.term-bot-action-stack .term-btn-sm--primary {
+  min-height: 42px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+
 .term-panel-alert {
   display: flex;
   align-items: flex-start;

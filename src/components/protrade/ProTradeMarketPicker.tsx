@@ -71,11 +71,22 @@ const ProTradeMarketPicker: React.FC<Props> = ({
 
   useEffect(() => {
     if (!onClose) return undefined;
-    const onDoc = (e: MouseEvent) => {
+
+    let armed = false;
+    const arm = window.setTimeout(() => {
+      armed = true;
+    }, 120);
+
+    const onDoc = (e: PointerEvent) => {
+      if (!armed) return;
       if (!rootRef.current?.contains(e.target as Node)) onClose();
     };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
+
+    document.addEventListener('pointerdown', onDoc, true);
+    return () => {
+      window.clearTimeout(arm);
+      document.removeEventListener('pointerdown', onDoc, true);
+    };
   }, [onClose]);
 
   const select = (name: string) => {
@@ -130,11 +141,24 @@ const ProTradeMarketPicker: React.FC<Props> = ({
 
   return (
     <div ref={rootRef}>
+      {onClose ? (
+        <button
+          type="button"
+          className="hl-picker-backdrop"
+          aria-label="Close market picker"
+          onClick={onClose}
+        />
+      ) : null}
       <div className={menuClass} role="listbox" aria-label="Markets">
         <div className={variant === 'hl' ? 'hl-picker-search' : 'term-pro-picker-search'}>
           <Search size={14} />
           <input
             type="search"
+            inputMode="search"
+            enterKeyHint="search"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={`Search ${markets.length || '…'} markets`}

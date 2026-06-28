@@ -23,10 +23,9 @@ import {
   fmtFillAction,
   fillPositionDirection,
   hlFillResultLabel,
-  isHlFillOpen,
+  isHlFillClose,
 } from '../../lib/hyperliquid/format';
 import { hlWalletExplorerUrl } from '../../lib/hyperliquid/hlApp';
-import { fmtHlWalletShort } from '../../hooks/useHlActiveWallet';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
@@ -77,6 +76,7 @@ type Props = {
   twapOrders?: HlTwapOrder[];
   markPrices: Record<string, number>;
   loading: boolean;
+  fillsLoading?: boolean;
   connected: boolean;
   activeTab?: ProTradeDockTab;
   onTabChange?: (tab: ProTradeDockTab) => void;
@@ -93,7 +93,7 @@ type Props = {
   stopLossMarginPct?: number;
   /** Persist new max-loss % from position stop editor. */
   onSaveStopLoss?: (stopLossPct: number) => Promise<{ ok: boolean; error?: string }>;
-  /** HL wallet used for this dock (fills, positions, closes). */
+  /** @deprecated Wallet shown elsewhere — not in dock tabs. */
   hlActiveWallet?: string | null;
   /** Bot wallet — for open-trade reason tooltips. */
   walletAddress?: string | null;
@@ -125,6 +125,7 @@ const ProTradeDock: React.FC<Props> = ({
   twapOrders = [],
   markPrices,
   loading,
+  fillsLoading = false,
   connected,
   activeTab,
   onTabChange,
@@ -138,7 +139,7 @@ const ProTradeDock: React.FC<Props> = ({
   configuredLeverage,
   stopLossMarginPct = HL_DEFAULT_STOP_LOSS_PERCENT,
   onSaveStopLoss,
-  hlActiveWallet,
+  hlActiveWallet: _hlActiveWallet,
   walletAddress,
   reasonRefreshKey = 0,
   mode = 'full',
@@ -225,7 +226,7 @@ const ProTradeDock: React.FC<Props> = ({
   const historyCoins = useMemo(() => {
     const set = new Set<string>(positionCoins);
     for (const f of fills) {
-      if (!isHlFillOpen(f.dir)) set.add(f.coin);
+      if (isHlFillClose(f.dir, f.closedPnl)) set.add(f.coin);
     }
     return [...set];
   }, [positionCoins, fills]);
@@ -252,9 +253,8 @@ const ProTradeDock: React.FC<Props> = ({
     Math.max(botHlBalanceUsd, tradableHlUsd) < MIN_HL_BOT_USD;
   const botUnderfunded = botNeedsDeposit;
 
-  /** Closed fills only — open legs have no PnL and looked like blank "—,—" rows. */
   const closeFills = useMemo(
-    () => fills.filter((f) => !isHlFillOpen(f.dir)),
+    () => fills.filter((f) => isHlFillClose(f.dir, f.closedPnl)),
     [fills]
   );
 
@@ -331,19 +331,6 @@ const ProTradeDock: React.FC<Props> = ({
         ) : (
           <p className="hl-dock-history-only-label">Closed fills &amp; P/L</p>
         )}
-        {isBotMode && hlActiveWallet ? (
-          <p className="hl-dock-wallet" title={hlActiveWallet}>
-            HL account:{' '}
-            <a
-              href={hlWalletExplorerUrl(hlActiveWallet)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hl-dock-wallet__link"
-            >
-              {fmtHlWalletShort(hlActiveWallet)}
-            </a>
-          </p>
-        ) : null}
         <div className="hl-dock-tools">
           {isBotMode && tab === 'tradeHistory' && !historyOnly ? (
             <Link
@@ -634,7 +621,11 @@ const ProTradeDock: React.FC<Props> = ({
             <p className="hl-dock-empty">No open orders.</p>
           )
         ) : tab === 'tradeHistory' ? (
-          closeFills.length > 0 ? (
+          fillsLoading && closeFills.length === 0 ? (
+            <p className="hl-dock-empty">
+              <Loader2 size={14} className="animate-spin inline" /> Loading trade history…
+            </p>
+          ) : closeFills.length > 0 ? (
             filteredCloseFills.length > 0 ? (
             <table className="hl-table">
               <thead>

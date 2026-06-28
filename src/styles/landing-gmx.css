@@ -194,6 +194,99 @@
   background: var(--lg-bg);
 }
 
+/* Static hero — no scroll hijack / expand animation (stable on mobile + desktop) */
+.landing-gmx-hero--static {
+  min-height: 100dvh;
+  min-height: 100svh;
+  height: auto;
+  overflow: visible;
+  background: var(--lg-bg);
+}
+
+.landing-gmx-hero-static-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  min-height: 100svh;
+  box-sizing: border-box;
+}
+
+.landing-gmx-hero-video-wrap {
+  position: absolute;
+  top: clamp(72px, 11vh, 96px);
+  left: max(12px, env(safe-area-inset-left, 0px));
+  right: max(12px, env(safe-area-inset-right, 0px));
+  bottom: clamp(120px, 18vh, 160px);
+  border-radius: 16px;
+  overflow: hidden;
+  background: #0a0a0a;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.landing-gmx-hero-video-wrap--ready {
+  opacity: 1;
+}
+
+.landing-gmx-hero--static .landing-gmx-hero-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.landing-gmx-hero-chrome--static {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  min-height: 100svh;
+  padding-top: clamp(76px, 11vh, 96px);
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.landing-gmx-hero-chrome--static .landing-gmx-hero-fs-cta,
+.landing-gmx-hero-chrome--static .landing-gmx-hero-fs-btn {
+  pointer-events: auto;
+}
+
+.landing-gmx-hero-fs-cta--static {
+  opacity: 1 !important;
+  transform: none !important;
+  pointer-events: auto !important;
+}
+
+.landing-gmx-hero--static .landing-gmx-hero-fs-btn {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.landing-gmx-hero-disclaimer--static {
+  color: var(--lg-muted);
+}
+
+@media (min-width: 640px) {
+  .landing-gmx-hero-video-wrap {
+    top: clamp(88px, 12vh, 108px);
+    left: max(20px, env(safe-area-inset-left, 0px));
+    right: max(20px, env(safe-area-inset-right, 0px));
+    bottom: clamp(140px, 20vh, 180px);
+    border-radius: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-gmx-hero-video-wrap {
+    transition: none;
+    opacity: 1;
+  }
+}
+
 .landing-gmx-hero--scroll-locked {
   overflow: hidden;
 }

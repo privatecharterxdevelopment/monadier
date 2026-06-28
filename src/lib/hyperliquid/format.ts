@@ -59,6 +59,14 @@ export function isHlFillOpen(dir?: string): boolean {
   return action === 'Open';
 }
 
+/** Closed leg — excludes opens and ambiguous zero-PnL noise rows. */
+export function isHlFillClose(dir?: string, closedPnl?: unknown): boolean {
+  if (isHlFillOpen(dir)) return false;
+  const d = dir?.trim() ?? '';
+  if (/^close/i.test(d) || /long\s*>\s*short|short\s*>\s*long/i.test(d)) return true;
+  return toNum(closedPnl) !== 0;
+}
+
 function parseFillPositionDirection(dir: string): 'LONG' | 'SHORT' | null {
   const d = dir.toLowerCase();
   if (d.includes('long') && !d.includes('short')) return 'LONG';

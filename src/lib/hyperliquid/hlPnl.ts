@@ -1,4 +1,4 @@
-import { isHlFillOpen } from './format';
+import { isHlFillClose } from './format';
 import { toNum } from './parse';
 import type { HlUserFill } from './user';
 
@@ -6,7 +6,7 @@ import type { HlUserFill } from './user';
 export function sumHlRealizedPnlFromFills(fills: HlUserFill[]): number {
   let sum = 0;
   for (const f of fills) {
-    if (isHlFillOpen(f.dir)) continue;
+    if (!isHlFillClose(f.dir, f.closedPnl)) continue;
     const pnl = toNum(f.closedPnl);
     if (Number.isFinite(pnl)) sum += pnl;
   }
@@ -14,5 +14,5 @@ export function sumHlRealizedPnlFromFills(fills: HlUserFill[]): number {
 }
 
 export function countHlClosedFills(fills: HlUserFill[]): number {
-  return fills.filter((f) => !isHlFillOpen(f.dir)).length;
+  return fills.filter((f) => isHlFillClose(f.dir, f.closedPnl)).length;
 }
