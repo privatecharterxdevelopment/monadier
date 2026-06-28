@@ -65,10 +65,10 @@ const LandingHeroLines: React.FC<Props> = ({
         <motion.span
           key={midLine}
           className="landing-gmx-hero-line landing-gmx-hero-line--muted landing-gmx-hero-line--rotate-visible"
-          initial={{ opacity: hasAdvancedRef.current ? 0 : 1 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+          initial={{ opacity: hasAdvancedRef.current ? 0 : 1, y: hasAdvancedRef.current ? 12 : 0 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -12 }}
+          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
         >
           {lineMutedPrefix ? (
             <>
