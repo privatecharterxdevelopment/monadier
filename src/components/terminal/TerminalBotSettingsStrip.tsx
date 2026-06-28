@@ -1,5 +1,5 @@
 import React from 'react';
-import { SlidersHorizontal } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
 import { effectiveHlBotSettings, formatHlSlLabel } from '../../lib/hlBotEffectiveSettings';
 import { HL_DYNAMIC_TRAIL } from '../../lib/hlBotStrategy';
@@ -10,7 +10,7 @@ type Props = {
   disabled?: boolean;
 };
 
-const ROWS = [
+const METRICS = [
   { key: 'risk', label: 'Risk' },
   { key: 'lvrg', label: 'LVRG' },
   { key: 'sl', label: 'SL' },
@@ -22,7 +22,7 @@ const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disable
   const sl = formatHlSlLabel(settings.stopLoss).replace(/^Max /, '');
   const trail = `+${HL_DYNAMIC_TRAIL.breakevenArmRoePct}→+${HL_DYNAMIC_TRAIL.armMinRoePct}%`;
 
-  const values: Record<(typeof ROWS)[number]['key'], string> = {
+  const values: Record<(typeof METRICS)[number]['key'], string> = {
     risk: `${eff.riskPct}%`,
     lvrg: `${eff.leverage}x`,
     sl,
@@ -30,30 +30,31 @@ const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disable
   };
 
   return (
-    <div
-      className={`term-bot-settings term-bot-settings--stacked ${disabled ? 'term-bot-settings--disabled' : ''}`}
-      role="group"
-      aria-label="Bot risk and leverage settings"
+    <section
+      className={`term-bot-settings term-bot-settings--grid ${disabled ? 'term-bot-settings--disabled' : ''}`}
+      aria-label="Bot parameters"
     >
-      <div className="term-bot-settings-rows">
-        {ROWS.map((row) => (
-          <div key={row.key} className="term-bot-settings-row">
-            <span className="term-bot-settings-row-k">{row.label}</span>
-            <span className="term-bot-settings-row-v">{values[row.key]}</span>
+      <div className="term-bot-settings-head">
+        <h3 className="term-bot-settings-head-title">Parameters</h3>
+        <button
+          type="button"
+          className="term-bot-settings-head-adjust"
+          onClick={onAdjust}
+          disabled={disabled}
+        >
+          Adjust
+          <ChevronRight size={13} aria-hidden />
+        </button>
+      </div>
+      <div className="term-bot-settings-grid">
+        {METRICS.map((m) => (
+          <div key={m.key} className="term-bot-settings-cell">
+            <span className="term-bot-settings-cell-k">{m.label}</span>
+            <span className="term-bot-settings-cell-v">{values[m.key]}</span>
           </div>
         ))}
       </div>
-      <div className="term-bot-settings-sep" role="separator" aria-hidden />
-      <button
-        type="button"
-        className="term-bot-settings-adjust"
-        onClick={onAdjust}
-        disabled={disabled}
-      >
-        <SlidersHorizontal size={13} aria-hidden />
-        Adjust
-      </button>
-    </div>
+    </section>
   );
 };
 

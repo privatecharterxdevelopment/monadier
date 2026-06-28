@@ -8,7 +8,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   RefreshCw,
-  TrendingUp,
+  ChevronRight,
   AlertTriangle,
   ShieldCheck,
   Info,
@@ -799,9 +799,9 @@ const TerminalTradePanel: React.FC<Props> = ({
             )}
 
             {onOpenHistory && (
-              <button type="button" className="term-link-btn" onClick={onOpenHistory}>
-                <TrendingUp size={12} className="inline mr-1" />
-                Open positions →
+              <button type="button" className="term-bot-positions-row" onClick={onOpenHistory}>
+                <span>Open positions</span>
+                <ChevronRight size={14} aria-hidden />
               </button>
             )}
 
