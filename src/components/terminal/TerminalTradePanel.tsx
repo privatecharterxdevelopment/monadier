@@ -629,32 +629,6 @@ const TerminalTradePanel: React.FC<Props> = ({
             )}
 
             {walletReady && hlSetup.setupSettled && phase === 'fund' && !botRunning && (
-              <div className="term-panel-info">
-                <AlertTriangle size={14} />
-                <span>
-                  {hlNeedsSpotTransfer
-                    ? `${fmt(hlSpotUsd)} on HL Spot — deposit moves to Perps automatically on standard HL accounts.`
-                    : `Deposit min. $${MIN_HL_BOT_USD} USDC on Hyperliquid — Arbitrum native USDC only (not BNB or other chains).`}
-                </span>
-              </div>
-            )}
-
-            {walletReady &&
-              hlPerpUsd >= MIN_HL_BOT_USD &&
-              needsHlApproval &&
-              !botRunning &&
-              !botError && (
-                <div className="term-panel-info">
-                  <Info size={14} />
-                  <span>
-                    HL balance {fmt(hlPerpUsd)} is sufficient. MetaMask will ask to{' '}
-                    <strong>allow trading</strong> — not to withdraw your USDC. A generic
-                    &quot;assets at risk&quot; warning is normal for API approvals.
-                  </span>
-                </div>
-              )}
-
-            {walletReady && hlSetup.setupSettled && phase === 'fund' && !botRunning && (
               <button
                 type="button"
                 className="term-btn-sm term-btn-sm--primary w-full justify-center"

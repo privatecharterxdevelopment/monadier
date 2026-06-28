@@ -157,22 +157,20 @@ export function getHlBotSidebarStatus(opts: {
       };
     }
     if (needsApprove) {
-      const funded = perpUsd >= MIN_HL_BOT_USD;
+      const funded = hlBalanceUsd >= MIN_HL_BOT_USD || perpUsd >= MIN_HL_BOT_USD;
       return {
-        headline: funded ? 'Allow trading (one-time)' : 'Start bot',
+        headline: 'One-time approval',
         detail: funded
-          ? `Perp margin $${perpUsd.toFixed(2)} — press Start bot. MetaMask asks to allow trading, not to withdraw USDC.`
-          : needsAgent
-            ? 'Press Start bot below — includes one-time Hyperliquid signatures (trading agent + platform fee, 1–2 wallet confirmations).'
-            : 'Press Start bot below — includes one-time platform fee approval on Hyperliquid.',
-        tone: 'warn',
+          ? `Balance ${hlBalanceUsd.toFixed(2)} — press Start bot, then confirm in MetaMask.`
+          : 'Press Start bot — one or two wallet signatures, then the bot runs 24/7.',
+        tone: 'ok',
         setupStep: 3,
         setupComplete: false,
       };
     }
     return {
       headline: 'Ready',
-      detail: `HL balance ${hlBalanceUsd.toFixed(2)} — press Start bot below. Deposit alone does not start trading.`,
+      detail: `Balance ${hlBalanceUsd.toFixed(2)} — press Start bot.`,
       tone: 'ok',
       setupStep: 3,
       setupComplete: true,
