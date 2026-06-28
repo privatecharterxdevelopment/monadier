@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Key, Loader2, AlertCircle, Check, Monitor } from 'lucide-react';
 import { useDesktopLicense } from '../../hooks/useDesktopLicense';
+import { getMarketingUrl } from '../../lib/appUrls';
 import Logo from '../ui/Logo';
 
 interface LicenseActivationProps {
@@ -168,7 +169,7 @@ const LicenseActivation: React.FC<LicenseActivationProps> = ({ onActivated }) =>
             <p className="text-secondary text-sm text-center">
               Don't have a license?{' '}
               <a
-                href="https://www.monadier.io/pricing"
+                href={getMarketingUrl('/pricing')}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-accent hover:text-accent-hover"

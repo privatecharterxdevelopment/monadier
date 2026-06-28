@@ -1,8 +1,13 @@
-/** Canonical marketing origin — runtime uses current host (Vercel preview until custom domain). */
+/** Live deploy origin until monadier.io custom domain + DNS are verified on Vercel. */
+export const FALLBACK_SITE_ORIGIN = 'https://monadier.vercel.app';
+
+/** Canonical marketing origin — always prefer the page the user is actually on. */
 export function getSiteOrigin(): string {
-  if (typeof window !== 'undefined') return window.location.origin;
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin;
+  }
   const configured = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, '');
-  return configured || 'https://monadier.vercel.app';
+  return configured || FALLBACK_SITE_ORIGIN;
 }
 
 /** @deprecated use getSiteOrigin() — build-time fallback only */

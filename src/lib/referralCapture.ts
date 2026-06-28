@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getSiteOrigin } from './seo/site';
 
 export const REFERRAL_CODE_STORAGE_KEY = 'referral_code';
 
@@ -39,11 +40,7 @@ export function clearStoredReferralCode(): void {
 
 /** Share link — works on any page; ?ref= is captured globally before signup. */
 export function buildReferralShareUrl(code: string): string {
-  const origin =
-    typeof window !== 'undefined' && window.location.origin
-      ? window.location.origin
-      : 'https://www.monadier.io';
-  return `${origin}/?ref=${encodeURIComponent(normalizeReferralCode(code) ?? code)}`;
+  return `${getSiteOrigin()}/?ref=${encodeURIComponent(normalizeReferralCode(code) ?? code)}`;
 }
 
 const PERMANENT_REFERRAL_ERRORS = new Set([

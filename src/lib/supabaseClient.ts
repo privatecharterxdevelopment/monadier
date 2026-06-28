@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { FALLBACK_SITE_ORIGIN } from './seo/site';
 
 function requireEnv(name: string, value: string | undefined, hint?: string): string {
   if (!value || value.includes('your-') || value.includes('example')) {
@@ -60,7 +61,7 @@ export function getAuthRedirectBase(): string {
   }
   return (
     import.meta.env.VITE_SITE_URL ||
-    (import.meta.env.PROD ? 'https://monadier.vercel.app' : 'http://localhost:5173')
+    (import.meta.env.PROD ? FALLBACK_SITE_ORIGIN : 'http://localhost:5173')
   );
 }
 
