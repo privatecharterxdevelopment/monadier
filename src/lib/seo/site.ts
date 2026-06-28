@@ -1,7 +1,7 @@
 /** Canonical marketing origin — used for SEO tags and sitemap URLs. */
 export const SITE_ORIGIN =
   (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, '') ||
-  'https://monadier.com';
+  'https://www.monadier.io';
 
 export const SITE_NAME = 'Monadier';
 
@@ -11,7 +11,7 @@ export function ogImageUrl(path = '/og-image.png'): string {
   return `${SITE_ORIGIN}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
-export const SUPPORT_EMAIL = 'support@monadier.com';
+export const SUPPORT_EMAIL = 'support@monadier.io';
 
 export function absoluteUrl(path: string): string {
   const p = path.startsWith('/') ? path : `/${path}`;

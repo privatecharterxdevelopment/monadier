@@ -1,4 +1,4 @@
-import { MONADIER_VAULT_V11_TREASURY_ADDRESS } from '../monadierVault';
+import { HL_PLATFORM_DEFAULT_BUILDER } from '../hlPlatform';
 
 /** Tenths of a basis point (10 = 1 bp = 0.01%). */
 export type HlBuilderFeeTenthsBps = number;
@@ -19,7 +19,7 @@ export type HlBuilderConfig = {
   bettingMaxApprovalRate: string;
 };
 
-const DEFAULT_TREASURY = MONADIER_VAULT_V11_TREASURY_ADDRESS.toLowerCase() as `0x${string}`;
+const DEFAULT_TREASURY = HL_PLATFORM_DEFAULT_BUILDER.toLowerCase() as `0x${string}`;
 
 function parseAddress(raw: string | undefined): `0x${string}` | null {
   const v = raw?.trim().toLowerCase();

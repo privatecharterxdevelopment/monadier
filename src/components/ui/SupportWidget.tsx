@@ -36,7 +36,7 @@ const SupportWidget: React.FC = () => {
 
               <div className="text-center">
                 <a
-                  href="mailto:support@monadier.com"
+                  href="mailto:support@monadier.io"
                   className="inline-flex items-center gap-2 text-secondary hover:text-primary text-sm transition-colors"
                 >
                   <Mail size={14} />

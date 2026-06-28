@@ -215,7 +215,7 @@ const healthServer = http.createServer(async (req, res) => {
           ready: platform.ready,
           feeCollectionActive: platform.ready,
           builderAddress: platform.builderAddress,
-          treasuryAddress: config.treasuryAddress,
+          platformWallet: config.platformWalletAddress,
           accountUsd: platform.accountUsd,
           minUsd: platform.minUsd,
           note: platform.ready
@@ -576,7 +576,6 @@ const healthServer = http.createServer(async (req, res) => {
           settledUsd: feeSummary.settledUsd,
           tradeCount: feeSummary.tradeCount,
           ratePercent: config.hyperliquid.successFeeBps / 100,
-          treasury: config.treasuryAddress,
           builderAddress: config.hyperliquid.builderAddress,
           feeCollectionActive: builderGate.feeCollectionActive,
           note: '10% of profit on winning closes — collected via HL builder fee when platform wallet is funded and user approved.',
@@ -949,9 +948,14 @@ async function main(): Promise<void> {
   logStartupInfo();
   await validateProductionEnvironment();
 
-  // Start payment monitoring (listens for USDC transfers to treasury)
-  await paymentService.startMonitoring();
-  logger.info('Payment monitoring started - watching treasury for incoming USDC');
+  if (process.env.ENABLE_ARBITRUM_PAYMENT_MONITOR !== 'false') {
+    await paymentService.startMonitoring();
+    logger.info('Subscription payment monitor: Arbitrum USDC → HL builder wallet', {
+      wallet: config.platformWalletAddress,
+    });
+  } else {
+    logger.info('Arbitrum subscription payment monitor disabled');
+  }
 
   if (!config.scaling.skipSubscriptionBootstrap) {
     await subscriptionService.ensureFreeSubscriptionsForMissingUsers();
@@ -986,14 +990,16 @@ async function main(): Promise<void> {
   }
 
   logger.info(`Bot service started.`);
-  logger.info(`- Payment monitoring: ACTIVE (treasury watched)`);
+  logger.info(
+    `- Subscription payments: ${process.env.ENABLE_ARBITRUM_PAYMENT_MONITOR !== 'false' ? 'Arbitrum USDC → builder wallet' : 'OFF'}`
+  );
   logger.info(`- HL trading cycle: every ${tradeIntervalSeconds}s`);
   logger.info(`- HL position monitor: every ${positionMonitorMs}ms (fast profit grab)`);
 
   setInterval(() => {
-    void processPendingTradeCloseEmails(40);
-  }, 30_000);
-  logger.info('- Trade close emails: every 30s (pending queue)');
+    void processPendingTradeCloseEmails(50);
+  }, 15_000);
+  logger.info('- Trade close emails: every 15s (pending queue)');
 
   if (process.env.ENABLE_DEMO_SIMULATOR === 'true') {
     startDemoSimulator().catch((err) => {

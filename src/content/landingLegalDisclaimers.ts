@@ -8,7 +8,7 @@ export type LegalDisclaimerBlock = {
 
 export const LANDING_OPERATOR_DISCLOSURE = [
   'Trading on Monadier connects your wallet to your own Hyperliquid account. Orders are placed on Hyperliquid perpetual and outcome markets using your USDC margin — this is live trading with real financial instruments, not a simulated or demo evaluation program.',
-  'Monadier is a software platform operated by the Monadier team. The website monadier.com provides access to automated trading tools, dashboards, and optional sports outcome markets on Hyperliquid. For legal or compliance inquiries, contact support@monadier.com.',
+  'Monadier is a software platform operated by the Monadier team. The website monadier.io provides access to automated trading tools, dashboards, and optional sports outcome markets on Hyperliquid. For legal or compliance inquiries, contact support@monadier.io.',
 ];
 
 export const LANDING_LEGAL_BLOCKS: LegalDisclaimerBlock[] = [

@@ -11,49 +11,39 @@ Service: `b65e307a-42cd-48ce-b8bd-5e04bc6dbcc6`
 | **Build** | Nixpacks (`npm ci` + `npm run build`) |
 | **Start** | `npm run start` (see `bot-service/railway.json`) |
 | **Health check** | `/health` |
-| **Public networking** | `https://monadier-production.up.railway.app` (generate domain if missing) |
+| **Public networking** | `https://monadier-production.up.railway.app` |
 
-## Required variables
+## Required variables (Hyperliquid-only — no Arbitrum vault)
 
-See `bot-service/.env.example` and `docs/PRODUCTION.md`:
+See `bot-service/.env.example`:
 
 - `BOT_PRIVATE_KEY`
+- `HL_BUILDER_ADDRESS` — fee wallet (≥$100 USDC on **Hyperliquid perps**)
+- `HL_AGENT_MASTER_SECRET` (or falls back to `BOT_PRIVATE_KEY`)
+- `HL_BUILDER_FEE_PERP=30`, `HL_BUILDER_MAX_APPROVAL=0.1%`, `HL_SUCCESS_FEE_BPS=1000`
 - `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`
-- `TREASURY_ADDRESS`
-- `ARBITRUM_VAULT_ADDRESS=0x7dE97f35887b2623dCad2ebA68197f58F7607854`
-- `ARBITRUM_RPC_URL` (Alchemy/Infura recommended)
-- `NODE_ENV=production`
-- `ENABLE_DEMO_SIMULATOR=false`
-- Optional: `EXPECTED_BOT_ADDRESS` (must match vault `bot`)
-- **Hyperliquid bot:** `HL_AGENT_MASTER_SECRET`, `HL_MIN_BOT_ACCOUNT_USD=20`
+- `NODE_ENV=production`, `ENABLE_DEMO_SIMULATOR=false`
+- `RESEND_API_KEY`, `RESEND_FROM`, `APP_PUBLIC_URL`
+- Optional: `ARBITRUM_RPC_URL` + `ENABLE_ARBITRUM_PAYMENT_MONITOR=true` (subscription USDC → same builder wallet)
+
+**Do not use** `TREASURY_ADDRESS` or `ARBITRUM_VAULT_ADDRESS` — vault contracts removed.
 
 ## Verify deploy (CLI)
 
 ```bash
 cd bot-service
-npx @railway/cli login          # refresh if "Unauthorized"
+npx @railway/cli login
 npx @railway/cli link -p 38979153-d629-42f6-ae11-eb8f1418d750 -s b65e307a-42cd-48ce-b8bd-5e04bc6dbcc6
-npx @railway/cli domain         # copy public URL
+npx @railway/cli variables set HL_BUILDER_ADDRESS=0x... HL_BUILDER_FEE_PERP=30 HL_BUILDER_MAX_APPROVAL=0.1%
 cd .. && ./scripts/verify-bot-api.sh "$(cd bot-service && npx @railway/cli domain)"
+curl -s "$(cd bot-service && npx @railway/cli domain)/api/hl-builder/status" | jq
 ```
-
-Healthy Monadier `/health` includes `"version":"v13.0-hyperliquid-only"`.
 
 ## Vercel (production dashboard)
 
-On the team that hosts **monadier.vercel.app** (not a fork):
+- `VITE_BOT_API_URL` = Railway public URL
+- `VITE_SITE_URL=https://www.monadier.io`
+- `VITE_APP_URL=https://app.monadier.io`
+- `VITE_HL_BUILDER_ADDRESS` = same as Railway `HL_BUILDER_ADDRESS`
 
-1. `VITE_BOT_API_URL` = Railway public URL (no trailing slash)
-2. Redeploy production
-
-Without this, Dashboard2 analysis shows **Bot service API: Offline** (DB fallback only).
-
-## Logs to confirm
-
-After deploy, **Deploy logs** should show:
-
-- `Production vault check`
-- `API server running on port …`
-- Cron: trade loop, monitor, reconcile
-
-**Supabase** `bot_analysis.updated_at` should advance within a few minutes when the bot is scanning.
+Redeploy production after env changes.

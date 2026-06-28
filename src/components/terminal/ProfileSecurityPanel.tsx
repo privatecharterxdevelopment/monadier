@@ -325,8 +325,8 @@ const ProfileSecurityPanel: React.FC<Props> = ({
           <h3 className="term-security-block-title">Login history</h3>
           <p className="term-security-block-desc">
             Recent sign-ins on this account. Contact{' '}
-            <a href="mailto:support@monadier.com" className="term-security-inline-link">
-              support@monadier.com
+            <a href="mailto:support@monadier.io" className="term-security-inline-link">
+              support@monadier.io
             </a>{' '}
             if you see activity you don&apos;t recognize.
           </p>

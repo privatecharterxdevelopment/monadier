@@ -72,7 +72,7 @@ const LandingProductPreview: React.FC = () => {
                     <span />
                     <span />
                   </div>
-                  <div className="landing-gmx-preview-url">app.monadier.com</div>
+                  <div className="landing-gmx-preview-url">app.monadier.io</div>
                 </div>
                 <div
                   className="landing-gmx-preview-screen"

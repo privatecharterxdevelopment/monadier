@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { VAULT_CHAIN_ID } from './vault';
+import { ARBITRUM_ONE_CHAIN_ID } from './usdcArbitrum';
 import { normalizeNewsTradeMode, type NewsTradeMode } from './newsTradeMode';
 import {
   isMissingNewsTradeModeSchema,
@@ -20,7 +20,7 @@ export async function saveNewsTradeMode(
     .from('vault_settings')
     .select(VAULT_SETTINGS_COLUMNS_WITH_NEWS)
     .eq('wallet_address', wallet)
-    .eq('chain_id', VAULT_CHAIN_ID)
+    .eq('chain_id', ARBITRUM_ONE_CHAIN_ID)
     .maybeSingle();
 
   if (read.error && isMissingNewsTradeModeSchema(read.error.message)) {
@@ -28,7 +28,7 @@ export async function saveNewsTradeMode(
       .from('vault_settings')
       .select(VAULT_SETTINGS_COLUMNS_BASE)
       .eq('wallet_address', wallet)
-      .eq('chain_id', VAULT_CHAIN_ID)
+      .eq('chain_id', ARBITRUM_ONE_CHAIN_ID)
       .maybeSingle();
     row = legacy.data;
     readError = legacy.error;
@@ -42,7 +42,7 @@ export async function saveNewsTradeMode(
 
   const payload = {
     wallet_address: wallet,
-    chain_id: VAULT_CHAIN_ID,
+    chain_id: ARBITRUM_ONE_CHAIN_ID,
     auto_trade_enabled: row?.auto_trade_enabled ?? false,
     risk_level_bps: row?.risk_level_bps ?? 500,
     leverage_multiplier: row?.leverage_multiplier ?? 5,

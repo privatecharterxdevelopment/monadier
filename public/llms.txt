@@ -6,14 +6,14 @@ Monadier is automated trading software for Hyperliquid. Users deposit USDC on th
 
 ## Primary pages
 
-- Home: https://monadier.com/
-- Hyperliquid trading bot: https://monadier.com/trading-bot
-- How it works: https://monadier.com/how-it-works
-- Pricing & fees: https://monadier.com/pricing
-- Support & FAQ: https://monadier.com/support
-- Technology: https://monadier.com/technology
-- About: https://monadier.com/about
-- Sports betting (Hyperliquid outcome markets): https://monadier.com/sports-betting
+- Home: https://www.monadier.io/
+- Hyperliquid trading bot: https://www.monadier.io/trading-bot
+- How it works: https://www.monadier.io/how-it-works
+- Pricing & fees: https://www.monadier.io/pricing
+- Support & FAQ: https://www.monadier.io/support
+- Technology: https://www.monadier.io/technology
+- About: https://www.monadier.io/about
+- Sports betting (Hyperliquid outcome markets): https://www.monadier.io/sports-betting
 
 ## Product summary
 
@@ -40,11 +40,11 @@ hyperliquid bot, hyperliquid trading bot, full auto trading bot, automated tradi
 
 ## Contact
 
-- Email: support@monadier.com
-- Website: https://monadier.com
+- Email: support@monadier.io
+- Website: https://www.monadier.io
 
 ## Optional
 
-- Terms: https://monadier.com/terms
-- Privacy: https://monadier.com/privacy
-- App (trading terminal): https://app.monadier.com/
+- Terms: https://www.monadier.io/terms
+- Privacy: https://www.monadier.io/privacy
+- App (trading terminal): https://app.monadier.io/

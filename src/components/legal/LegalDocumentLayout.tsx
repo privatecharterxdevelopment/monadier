@@ -43,8 +43,8 @@ const LegalDocumentLayout: React.FC<Props> = ({
 
         <p className="legal-doc-footer">
           Questions? Contact{' '}
-          <a href="mailto:support@monadier.com" className="legal-doc-link">
-            support@monadier.com
+          <a href="mailto:support@monadier.io" className="legal-doc-link">
+            support@monadier.io
           </a>
           .
         </p>

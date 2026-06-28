@@ -48,13 +48,13 @@ export class PaymentService {
     });
 
     logger.info('Payment service initialized', {
-      treasury: config.treasuryAddress,
-      chain: 'Arbitrum'
+      platformWallet: config.platformWalletAddress,
+      chain: 'Arbitrum',
     });
   }
 
   /**
-   * Start monitoring treasury for incoming payments
+   * Start monitoring platform wallet for subscription USDC on Arbitrum
    */
   async startMonitoring() {
     if (this.isMonitoring) {
@@ -70,7 +70,7 @@ export class PaymentService {
   }
 
   /**
-   * Monitor for USDC transfers to treasury
+   * Monitor for USDC transfers to HL builder / platform wallet
    */
   private async monitorPayments() {
     const usdcAddress = config.arbitrum.usdcAddress;
@@ -78,16 +78,15 @@ export class PaymentService {
     logger.info('Monitoring USDC transfers', {
       chain: 'Arbitrum',
       usdc: usdcAddress,
-      treasury: config.treasuryAddress
+      platformWallet: config.platformWalletAddress,
     });
 
-    // Watch for Transfer events to treasury
     this.publicClient.watchContractEvent({
       address: usdcAddress,
       abi: ERC20_ABI,
       eventName: 'Transfer',
       args: {
-        to: config.treasuryAddress
+        to: config.platformWalletAddress,
       },
       onLogs: async (logs) => {
         for (const log of logs) {
@@ -287,7 +286,7 @@ export class PaymentService {
 
     return {
       amount,
-      treasury: config.treasuryAddress
+      treasury: config.platformWalletAddress,
     };
   }
 

@@ -1,5 +1,4 @@
 import dotenv from 'dotenv';
-import { MONADIER_VAULT_V11_ADDRESS } from './monadierVault';
 
 dotenv.config();
 
@@ -8,7 +7,7 @@ const requiredEnvVars = [
   'BOT_PRIVATE_KEY',
   'SUPABASE_URL',
   'SUPABASE_SERVICE_KEY',
-  'TREASURY_ADDRESS'
+  'HL_BUILDER_ADDRESS',
 ];
 
 for (const envVar of requiredEnvVars) {
@@ -25,18 +24,17 @@ export const config = {
   supabaseUrl: process.env.SUPABASE_URL!,
   supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
 
-  // Treasury
-  treasuryAddress: process.env.TREASURY_ADDRESS as `0x${string}`,
+  /** HL builder + subscription USDC destination (no Arbitrum vault contract). */
+  platformWalletAddress: process.env.HL_BUILDER_ADDRESS as `0x${string}`,
+  /** @deprecated Use platformWalletAddress — legacy payment/subscription code */
+  get treasuryAddress(): `0x${string}` {
+    return this.platformWalletAddress;
+  },
 
-  // ============================================
-  // ARBITRUM ONLY - V11 GMX VAULT (RECONCILE FIX)
-  // ============================================
+  /** Arbitrum — optional USDC subscription deposits to platform wallet (no vault). */
   arbitrum: {
     chainId: 42161,
     rpcUrl: process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc',
-    // V11 vault — override only when deploying a new contract
-    vaultAddress: (process.env.ARBITRUM_VAULT_ADDRESS ||
-      MONADIER_VAULT_V11_ADDRESS) as `0x${string}`,
     usdcAddress: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' as `0x${string}`,
   },
 
@@ -368,8 +366,7 @@ export const config = {
     successFeeBps: Number(process.env.HL_SUCCESS_FEE_BPS || 1000),
     minSuccessFeeUsd: Number(process.env.HL_MIN_SUCCESS_FEE_USD || 0.01),
     infoUrl: process.env.HL_INFO_URL || 'https://api.hyperliquid.xyz/info',
-    builderAddress: (process.env.HL_BUILDER_ADDRESS ||
-      process.env.TREASURY_ADDRESS) as `0x${string}`,
+    builderAddress: process.env.HL_BUILDER_ADDRESS as `0x${string}`,
     builderFeePerp: Number(process.env.HL_BUILDER_FEE_PERP || 30),
     /** Flat builder on bot opens — 0 = fee only on profitable closes (auto success fee). */
     openBuilderFeePerp: Number(process.env.HL_OPEN_BUILDER_FEE_PERP || 0),
@@ -379,7 +376,7 @@ export const config = {
 
   email: {
     resendApiKey: process.env.RESEND_API_KEY || '',
-    from: process.env.RESEND_FROM || 'Monadier <hello@monadier.com>',
+    from: process.env.RESEND_FROM || 'Monadier <hello@monadier.io>',
   },
 
   /** Multi-user scale — 1M+ signups, thousands of concurrent bots */

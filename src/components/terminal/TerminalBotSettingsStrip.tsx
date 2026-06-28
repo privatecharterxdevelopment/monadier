@@ -1,6 +1,6 @@
 import React from 'react';
 import { SlidersHorizontal } from 'lucide-react';
-import type { VaultSettingsSnapshot } from '../../hooks/useTerminalVaultData';
+import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
 import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
 import { HL_BOT_STRATEGY_LABELS } from '../../lib/hlBotStrategy';
 

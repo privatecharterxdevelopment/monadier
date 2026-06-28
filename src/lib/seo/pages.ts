@@ -92,7 +92,7 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     path: '/support',
     title: `Support & FAQ | ${SITE_NAME} Trading Bot`,
     description:
-      'Get help with the Monadier Hyperliquid trading bot — deposits, agent approval, bot settings, fees, and withdrawals. Contact support@monadier.com.',
+      'Get help with the Monadier Hyperliquid trading bot — deposits, agent approval, bot settings, fees, and withdrawals. Contact support@monadier.io.',
     keywords: `hyperliquid bot support, trading bot help, ${BOT_KEYWORDS}`,
     changefreq: 'monthly',
     priority: 0.6,

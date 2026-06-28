@@ -97,7 +97,7 @@ export async function recordHlBotClose(params: {
     return;
   }
 
-  void processPendingTradeCloseEmails(5).catch((err) => {
+  void processPendingTradeCloseEmails(25).catch((err) => {
     logger.warn('Trade close email dispatch failed', {
       wallet: wallet.slice(0, 10),
       error: err instanceof Error ? err.message : String(err),
@@ -145,7 +145,7 @@ export async function recordHlBotClose(params: {
     coin: snapshot.coin,
     profit: profitUsd.toFixed(4),
     fee: successFee.toFixed(4),
-    treasury: config.treasuryAddress.slice(0, 10),
+    builder: config.hyperliquid.builderAddress.slice(0, 10),
   });
 
   if (params.viaHlBuilder) {

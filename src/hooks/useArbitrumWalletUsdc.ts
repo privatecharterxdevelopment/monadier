@@ -3,7 +3,7 @@ import { formatUnits } from 'viem';
 import { useChainId, usePublicClient } from 'wagmi';
 import { ERC20_ABI } from '../lib/dex/router';
 import { HL_ARBITRUM_CHAIN_ID } from '../lib/hyperliquid/bridge';
-import { USDC_ADDRESSES, USDC_DECIMALS } from '../lib/vault';
+import { USDC_ADDRESSES, USDC_DECIMALS } from '../lib/usdcArbitrum';
 
 /** Native USDC in the connected wallet on Arbitrum One (for deposits). */
 export function useArbitrumWalletUsdc(address: string | undefined) {

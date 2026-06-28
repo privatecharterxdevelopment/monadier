@@ -44,7 +44,7 @@
     "privacy": "プライバシー",
     "support": "サポート",
     "about": "概要",
-    "copyright": "© {{year}} Monadier · Hyperliquid 自動取引 · support@monadier.com"
+    "copyright": "© {{year}} Monadier · Hyperliquid 自動取引 · support@monadier.io"
   },
   "landing": {
     "hero": {
@@ -396,7 +396,7 @@
       "faqSub": "セットアップ、安全性、手数料に関する簡潔な回答。",
       "faqExtra": {
         "q": "サポートの返信はどのくらい早いですか？",
-        "a": "support@monadier.com へメール — 24 時間以内を目標、月–日 09:00–20:00 CET。"
+        "a": "support@monadier.io へメール — 24 時間以内を目標、月–日 09:00–20:00 CET。"
       },
       "ctaContact": "サポートに連絡",
       "disclaimer": "セキュリティのため、シードフレーズや秘密鍵は誰にも共有しないでください — サポートを含め。"

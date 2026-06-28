@@ -1,5 +1,4 @@
 import type { PublicClient, WalletClient } from 'viem';
-import { VaultClient, VAULT_CHAIN_ID } from './vault';
 import { supabase } from './supabase';
 import { clampLeverage } from './leverageLimits';
 import {
@@ -12,6 +11,7 @@ import {
   isMissingNewsTradeModeSchema,
   VAULT_SETTINGS_COLUMNS_BASE,
 } from './vaultSettingsSchema';
+import { ARBITRUM_ONE_CHAIN_ID } from './usdcArbitrum';
 
 export type VaultSettingsWrite = {
   walletAddress: string;
@@ -42,17 +42,17 @@ export type PersistVaultSettingsResult = {
   savedToDatabase: boolean;
   syncedOnChain: boolean;
   chainWarning?: string;
-  settings: VaultSettingsSnapshot;
+  settings: import('./vaultSettingsSnapshot').VaultSettingsSnapshot;
 };
 
 async function saveVaultSettingsToDatabase(
   wallet: string,
   settings: VaultSettingsWrite,
   leverage: number
-): Promise<VaultSettingsSnapshot> {
+): Promise<import('./vaultSettingsSnapshot').VaultSettingsSnapshot> {
   const rpcPayload = {
     p_wallet_address: wallet,
-    p_chain_id: VAULT_CHAIN_ID,
+    p_chain_id: ARBITRUM_ONE_CHAIN_ID,
     p_auto_trade_enabled: settings.autoTradeEnabled,
     p_risk_level_bps: Math.round(settings.riskPct * 100),
     p_leverage_multiplier: leverage,
@@ -87,7 +87,7 @@ async function saveVaultSettingsToDatabase(
 
       const payload = {
         wallet_address: wallet,
-        chain_id: VAULT_CHAIN_ID,
+        chain_id: ARBITRUM_ONE_CHAIN_ID,
         auto_trade_enabled: settings.autoTradeEnabled,
         risk_level_bps: Math.round(settings.riskPct * 100),
         take_profit_percent: settings.takeProfit,
@@ -123,66 +123,12 @@ async function saveVaultSettingsToDatabase(
   return snapshotFromVaultSettingsRow(data as VaultSettingsRow);
 }
 
-/** Persist vault settings to Supabase (source of truth for bot), then optional Arbitrum sync. */
+/** Persist bot settings to Supabase (HL bot source of truth — no on-chain vault). */
 export async function persistVaultSettings(
   opts: PersistVaultSettingsOptions
 ): Promise<PersistVaultSettingsResult> {
   const wallet = opts.settings.walletAddress.toLowerCase();
   const leverage = clampLeverage(opts.settings.leverage, opts.planTier);
-
   const savedSettings = await saveVaultSettingsToDatabase(wallet, opts.settings, leverage);
-
-  const canChain =
-    !opts.isDemoUser &&
-    opts.publicClient &&
-    opts.walletClient &&
-    opts.userAddress;
-
-  if (!canChain || (!opts.syncTradingParams && !opts.syncAutoTrade)) {
-    return { savedToDatabase: true, syncedOnChain: false, settings: savedSettings };
-  }
-
-  try {
-    const client = new VaultClient(
-      opts.publicClient as PublicClient,
-      opts.walletClient as WalletClient,
-      VAULT_CHAIN_ID
-    );
-
-    if (opts.syncTradingParams) {
-      const hash = await client.setTradingSettings(
-        opts.userAddress!,
-        false,
-        opts.settings.riskPct,
-        leverage,
-        opts.settings.stopLoss,
-        opts.settings.takeProfit
-      );
-      await opts.publicClient!.waitForTransactionReceipt({ hash });
-    }
-
-    if (opts.syncAutoTrade) {
-      const hash = await client.setAutoTrade(
-        opts.settings.autoTradeEnabled,
-        opts.userAddress!
-      );
-      await opts.publicClient!.waitForTransactionReceipt({ hash });
-    }
-
-    await supabase
-      .from('vault_settings')
-      .update({ synced_at: new Date().toISOString() })
-      .eq('wallet_address', wallet)
-      .eq('chain_id', VAULT_CHAIN_ID);
-
-    return { savedToDatabase: true, syncedOnChain: true, settings: savedSettings };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'On-chain sync failed';
-    return {
-      savedToDatabase: true,
-      syncedOnChain: false,
-      settings: savedSettings,
-      chainWarning: `Saved for the bot. On-chain sync needs your wallet on Arbitrum (${msg}).`,
-    };
-  }
+  return { savedToDatabase: true, syncedOnChain: false, settings: savedSettings };
 }

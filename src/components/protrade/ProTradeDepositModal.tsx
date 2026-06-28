@@ -19,7 +19,7 @@ import {
   pollHlFundingAfterDeposit,
   spotToPerpTransferAmount,
 } from '../../lib/hyperliquid/funding';
-import { USDC_ADDRESSES, USDC_DECIMALS } from '../../lib/vault';
+import { USDC_ADDRESSES, USDC_DECIMALS } from '../../lib/usdcArbitrum';
 import { ERC20_ABI } from '../../lib/dex/router';
 import { useProTradeThemeOptional } from '../../contexts/ProTradeThemeContext';
 

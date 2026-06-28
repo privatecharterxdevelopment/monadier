@@ -466,7 +466,7 @@ export const MktRoadmapVaultVisual: React.FC = () => (
 );
 export const MktRoadmapReferralVisual: React.FC = () => (
   <Scene id="rm-referral" className="mkt-scene--referral">
-    <div className="mkt-ref-link">monadier.com/r/you</div>
+    <div className="mkt-ref-link">monadier.io/r/you</div>
     <div className="mkt-ref-reward">+ USDC</div>
   </Scene>
 );

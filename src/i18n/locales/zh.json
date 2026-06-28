@@ -44,7 +44,7 @@
     "privacy": "隐私",
     "support": "支持",
     "about": "关于",
-    "copyright": "© {{year}} Monadier · Hyperliquid 自动交易 · support@monadier.com"
+    "copyright": "© {{year}} Monadier · Hyperliquid 自动交易 · support@monadier.io"
   },
   "landing": {
     "hero": {
@@ -396,7 +396,7 @@
       "faqSub": "关于设置、安全和费用的快速解答。",
       "faqExtra": {
         "q": "支持响应有多快？",
-        "a": "发送邮件至 support@monadier.com — 我们力争 24 小时内回复，周一至周日 09:00–20:00 CET。"
+        "a": "发送邮件至 support@monadier.io — 我们力争 24 小时内回复，周一至周日 09:00–20:00 CET。"
       },
       "ctaContact": "联系支持",
       "disclaimer": "为了账户安全，切勿与任何人分享助记词或私钥 — 包括支持人员。"

@@ -13,7 +13,7 @@ export const SUPPORT_MARKETING_BY_LANG = {
     faqSub: 'Kurze Antworten zu Setup, Sicherheit und Gebühren.',
     faqExtra: {
       q: 'Wie schnell antwortet der Support?',
-      a: 'E-Mail an support@monadier.com — Ziel: Antwort innerhalb von 24 Stunden, Mo–So 09:00–20:00 MEZ.',
+      a: 'E-Mail an support@monadier.io — Ziel: Antwort innerhalb von 24 Stunden, Mo–So 09:00–20:00 MEZ.',
     },
     ctaContact: 'Support kontaktieren',
     disclaimer:
@@ -32,7 +32,7 @@ export const SUPPORT_MARKETING_BY_LANG = {
     faqSub: '关于设置、安全和费用的快速解答。',
     faqExtra: {
       q: '支持响应有多快？',
-      a: '发送邮件至 support@monadier.com — 我们力争 24 小时内回复，周一至周日 09:00–20:00 CET。',
+      a: '发送邮件至 support@monadier.io — 我们力争 24 小时内回复，周一至周日 09:00–20:00 CET。',
     },
     ctaContact: '联系支持',
     disclaimer: '为了账户安全，切勿与任何人分享助记词或私钥 — 包括支持人员。',
@@ -50,7 +50,7 @@ export const SUPPORT_MARKETING_BY_LANG = {
     faqSub: 'セットアップ、安全性、手数料に関する簡潔な回答。',
     faqExtra: {
       q: 'サポートの返信はどのくらい早いですか？',
-      a: 'support@monadier.com へメール — 24 時間以内を目標、月–日 09:00–20:00 CET。',
+      a: 'support@monadier.io へメール — 24 時間以内を目標、月–日 09:00–20:00 CET。',
     },
     ctaContact: 'サポートに連絡',
     disclaimer: 'セキュリティのため、シードフレーズや秘密鍵は誰にも共有しないでください — サポートを含め。',
@@ -68,7 +68,7 @@ export const SUPPORT_MARKETING_BY_LANG = {
     faqSub: 'คำตอบสั้นๆ เรื่องการตั้งค่า ความปลอดภัย และค่าธรรมเนียม',
     faqExtra: {
       q: 'สนับสนุนเร็วแค่ไหน?',
-      a: 'อีเมล support@monadier.com — เป้าหมายตอบภายใน 24 ชม. จ–อา 09:00–20:00 CET',
+      a: 'อีเมล support@monadier.io — เป้าหมายตอบภายใน 24 ชม. จ–อา 09:00–20:00 CET',
     },
     ctaContact: 'ติดต่อฝ่ายสนับสนุน',
     disclaimer: 'เพื่อความปลอดภัย อย่าแชร์ seed phrase หรือ private key กับใคร — รวมถึง support',
@@ -86,7 +86,7 @@ export const SUPPORT_MARKETING_BY_LANG = {
     faqSub: 'Respuestas rápidas sobre configuración, seguridad y comisiones.',
     faqExtra: {
       q: '¿Qué tan rápido responde el soporte?',
-      a: 'Email a support@monadier.com — objetivo: respuesta en 24 h, lun–dom 09:00–20:00 CET.',
+      a: 'Email a support@monadier.io — objetivo: respuesta en 24 h, lun–dom 09:00–20:00 CET.',
     },
     ctaContact: 'Contactar soporte',
     disclaimer:
@@ -105,7 +105,7 @@ export const SUPPORT_MARKETING_BY_LANG = {
     faqSub: 'Risposte rapide su setup, sicurezza e commissioni.',
     faqExtra: {
       q: 'Quanto è veloce il supporto?',
-      a: 'Email a support@monadier.com — obiettivo risposta entro 24 ore, lun–dom 09:00–20:00 CET.',
+      a: 'Email a support@monadier.io — obiettivo risposta entro 24 ore, lun–dom 09:00–20:00 CET.',
     },
     ctaContact: 'Contatta il supporto',
     disclaimer:
@@ -124,7 +124,7 @@ export const SUPPORT_MARKETING_BY_LANG = {
     faqSub: 'Краткие ответы о настройке, безопасности и комиссиях.',
     faqExtra: {
       q: 'Как быстро отвечает поддержка?',
-      a: 'Email на support@monadier.com — цель: ответ за 24 ч, пн–вс 09:00–20:00 CET.',
+      a: 'Email на support@monadier.io — цель: ответ за 24 ч, пн–вс 09:00–20:00 CET.',
     },
     ctaContact: 'Связаться с поддержкой',
     disclaimer:

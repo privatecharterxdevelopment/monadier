@@ -3,10 +3,10 @@ import PageTransition from '../animations/PageTransition';
 import Dashboard2Layout from '../../layouts/Dashboard2Layout';
 import Dashboard2ProPage from '../../pages/dashboard/Dashboard2ProPage';
 
-/** Pro Trade terminal — main window at app.monadier.com */
+/** Pro Trade terminal — main window at app.monadier.io */
 const MonadierAppRoot: React.FC = () => {
   useEffect(() => {
-    document.title = 'Monadier · app.monadier.com';
+    document.title = 'Monadier · app.monadier.io';
   }, []);
 
   return (

@@ -42,7 +42,7 @@ export function buildReferralShareUrl(code: string): string {
   const origin =
     typeof window !== 'undefined' && window.location.origin
       ? window.location.origin
-      : 'https://monadier.com';
+      : 'https://www.monadier.io';
   return `${origin}/?ref=${encodeURIComponent(normalizeReferralCode(code) ?? code)}`;
 }
 

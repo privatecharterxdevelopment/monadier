@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Activity } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { VAULT_CHAIN_ID } from '../../lib/vault';
+import { ARBITRUM_ONE_CHAIN_ID } from '../../lib/usdcArbitrum';
 
 const ANALYSIS_STEPS = [
   { label: 'Scanning 1m chart', progress: 15 },
@@ -53,7 +53,7 @@ const TerminalBotAnalysisBar: React.FC<Props> = ({ active = false }) => {
         const { data } = await supabase
           .from('bot_analysis')
           .select('signal, confidence, rsi, trend, pattern, recommendation, updated_at')
-          .eq('chain_id', VAULT_CHAIN_ID)
+          .eq('chain_id', ARBITRUM_ONE_CHAIN_ID)
           .order('updated_at', { ascending: false })
           .limit(1)
           .maybeSingle();

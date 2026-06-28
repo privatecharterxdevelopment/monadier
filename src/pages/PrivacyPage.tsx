@@ -13,10 +13,10 @@ const PrivacyPage: React.FC = () => {
           title: '1. Who we are',
           body: (
             <p>
-              Monadier operates the monadier.com website and app.monadier.com trading application. For
+              Monadier operates the monadier.io website and app.monadier.io trading application. For
               privacy enquiries contact{' '}
-              <a href="mailto:support@monadier.com" className="legal-doc-link">
-                support@monadier.com
+              <a href="mailto:support@monadier.io" className="legal-doc-link">
+                support@monadier.io
               </a>
               .
             </p>
@@ -84,8 +84,8 @@ const PrivacyPage: React.FC = () => {
             <p>
               Depending on your location you may have rights to access, correct, delete, or export your
               data, and to object to certain processing. Contact{' '}
-              <a href="mailto:support@monadier.com" className="legal-doc-link">
-                support@monadier.com
+              <a href="mailto:support@monadier.io" className="legal-doc-link">
+                support@monadier.io
               </a>{' '}
               to exercise these rights.
             </p>

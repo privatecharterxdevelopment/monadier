@@ -44,7 +44,7 @@
     "privacy": "Конфиденциальность",
     "support": "Поддержка",
     "about": "О нас",
-    "copyright": "© {{year}} Monadier · Автоматическая торговля Hyperliquid · support@monadier.com"
+    "copyright": "© {{year}} Monadier · Автоматическая торговля Hyperliquid · support@monadier.io"
   },
   "landing": {
     "hero": {
@@ -396,7 +396,7 @@
       "faqSub": "Краткие ответы о настройке, безопасности и комиссиях.",
       "faqExtra": {
         "q": "Как быстро отвечает поддержка?",
-        "a": "Email на support@monadier.com — цель: ответ за 24 ч, пн–вс 09:00–20:00 CET."
+        "a": "Email на support@monadier.io — цель: ответ за 24 ч, пн–вс 09:00–20:00 CET."
       },
       "ctaContact": "Связаться с поддержкой",
       "disclaimer": "Не делитесь seed phrase или приватными ключами ни с кем — включая поддержку."

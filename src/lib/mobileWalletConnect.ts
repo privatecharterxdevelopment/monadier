@@ -19,7 +19,7 @@ export function isMetaMaskInAppBrowser(): boolean {
 
 /** Opens the dApp inside MetaMask mobile browser — most reliable mobile connect path. */
 export function getMetaMaskDappLink(): string {
-  if (typeof window === 'undefined') return 'https://metamask.app.link/dapp/app.monadier.com';
+  if (typeof window === 'undefined') return 'https://metamask.app.link/dapp/app.monadier.io';
   const href = window.location.href.split('#')[0];
   const withoutProto = href.replace(/^https?:\/\//i, '');
   return `https://metamask.app.link/dapp/${withoutProto}`;

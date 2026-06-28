@@ -6,14 +6,14 @@
   "redirects": [
     {
       "source": "/welcome",
-      "has": [{ "type": "host", "value": "www.monadier.com" }],
-      "destination": "https://monadier.com/",
+      "has": [{ "type": "host", "value": "monadier.io" }],
+      "destination": "https://www.monadier.io/",
       "permanent": true
     },
     {
       "source": "/welcome/:path*",
-      "has": [{ "type": "host", "value": "www.monadier.com" }],
-      "destination": "https://monadier.com/",
+      "has": [{ "type": "host", "value": "monadier.io" }],
+      "destination": "https://www.monadier.io/",
       "permanent": true
     },
     {
@@ -28,8 +28,8 @@
     },
     {
       "source": "/:path*",
-      "has": [{ "type": "host", "value": "www.monadier.com" }],
-      "destination": "https://monadier.com/:path*",
+      "has": [{ "type": "host", "value": "monadier.io" }],
+      "destination": "https://www.monadier.io/:path*",
       "permanent": true
     }
   ],

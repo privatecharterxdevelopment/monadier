@@ -44,7 +44,7 @@
     "privacy": "Privacidad",
     "support": "Soporte",
     "about": "Acerca de",
-    "copyright": "© {{year}} Monadier · Trading automatizado Hyperliquid · support@monadier.com"
+    "copyright": "© {{year}} Monadier · Trading automatizado Hyperliquid · support@monadier.io"
   },
   "landing": {
     "hero": {
@@ -396,7 +396,7 @@
       "faqSub": "Respuestas rápidas sobre configuración, seguridad y comisiones.",
       "faqExtra": {
         "q": "¿Qué tan rápido responde el soporte?",
-        "a": "Email a support@monadier.com — objetivo: respuesta en 24 h, lun–dom 09:00–20:00 CET."
+        "a": "Email a support@monadier.io — objetivo: respuesta en 24 h, lun–dom 09:00–20:00 CET."
       },
       "ctaContact": "Contactar soporte",
       "disclaimer": "Por seguridad, nunca compartas tu frase semilla o claves privadas — ni siquiera con soporte."

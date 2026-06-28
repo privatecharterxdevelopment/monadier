@@ -5,7 +5,7 @@ import { arbitrum } from '@reown/appkit/networks';
 import { MONADIER_REOWN_PROJECT_ID } from './mobileWalletConnect';
 import { HL_DEPOSIT_CHAIN_LABEL, HL_DEPOSIT_TOKEN } from './hlDepositRules';
 import { HL_ARBITRUM_CHAIN_ID } from './hyperliquid/bridge';
-import { USDC_ADDRESSES } from './vault';
+import { USDC_ADDRESSES } from './usdcArbitrum';
 
 const envProjectId =
   import.meta.env.VITE_REOWN_PROJECT_ID ||
@@ -23,7 +23,7 @@ export const hasWalletProjectId = Boolean(
 export const projectId = hasWalletProjectId ? envProjectId : PLACEHOLDER_PROJECT_ID;
 
 const getOrigin = () => {
-  if (typeof window === 'undefined') return 'https://app.monadier.com';
+  if (typeof window === 'undefined') return 'https://app.monadier.io';
   return window.location.origin;
 };
 

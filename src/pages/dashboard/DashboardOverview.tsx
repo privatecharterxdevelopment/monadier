@@ -16,13 +16,12 @@ import { useWeb3 } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { supabase } from '../../lib/supabase';
-import { VaultBalanceCard, WithdrawPromptBanner } from '../../components/vault';
 import OnboardingBanner from '../../components/onboarding/OnboardingBanner';
 import { useOnboarding } from '../../hooks/useOnboarding';
 import { useTradingDashboardMetrics } from '../../hooks/useTradingDashboardMetrics';
 import TradingTerminalShell from '../../components/dashboard/TradingTerminalShell';
 
-type OverviewTab = 'summary' | 'wallet' | 'vault' | 'activity';
+type OverviewTab = 'summary' | 'wallet' | 'activity';
 
 interface Payment {
   id: string;
@@ -140,7 +139,6 @@ const DashboardOverview: React.FC = () => {
   const tabs = [
     { id: 'summary' as const, label: 'Summary' },
     { id: 'wallet' as const, label: 'Wallet' },
-    { id: 'vault' as const, label: 'Vault & bot' },
     { id: 'activity' as const, label: 'Activity', badge: recentTrades.length || undefined },
   ];
 
@@ -151,7 +149,7 @@ const DashboardOverview: React.FC = () => {
           Portfolio overview
         </h2>
         <p className="text-sm text-[#52525b]">
-          Combined wallet + vault · bot P/L on the right
+          Combined wallet + Hyperliquid · bot P/L on the right
         </p>
       </div>
       <div className="rounded-xl border border-[#e4e4e8] bg-[#f7f7f9] p-6 min-h-[200px] flex flex-col justify-center">
@@ -246,23 +244,6 @@ const DashboardOverview: React.FC = () => {
     </div>
   );
 
-  const vaultPanel = (
-    <div className="space-y-4">
-      {isConnected && address && (
-        <WithdrawPromptBanner chainId={42161} walletAddress={address} />
-      )}
-      <VaultBalanceCard compact />
-      <div className="dashboard-panel p-5 text-sm text-[#52525b]">
-        <p>
-          Deposit USDC to the Arbitrum vault for auto-trading. P/L stays in the vault until you withdraw.
-        </p>
-        <Link to="/dashboard/bot-trading" className="inline-flex items-center gap-1 mt-3 text-[#0a0a0a] font-medium hover:underline">
-          Manage bot & positions <ArrowRight size={14} />
-        </Link>
-      </div>
-    </div>
-  );
-
   const activityPanel = (
     <div className="space-y-6">
       <div className="dashboard-panel overflow-hidden">
@@ -350,6 +331,13 @@ const DashboardOverview: React.FC = () => {
     </div>
   );
 
+  const tabContent =
+    activeTab === 'wallet'
+      ? walletPanel
+      : activeTab === 'activity'
+        ? activityPanel
+        : null;
+
   const summaryFooter = (
     <div className="space-y-6">
       <OnboardingBanner />
@@ -401,15 +389,6 @@ const DashboardOverview: React.FC = () => {
       </div>
     </div>
   );
-
-  const tabContent =
-    activeTab === 'wallet'
-      ? walletPanel
-      : activeTab === 'vault'
-        ? vaultPanel
-        : activeTab === 'activity'
-          ? activityPanel
-          : null;
 
   return (
     <TradingTerminalShell

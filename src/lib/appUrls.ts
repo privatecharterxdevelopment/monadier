@@ -1,6 +1,6 @@
 /**
  * Marketing site vs app subdomain routing.
- * Production (live domain): VITE_SITE_URL=https://monadier.com, VITE_APP_URL=https://app.monadier.com
+ * Production (live domain): VITE_SITE_URL=https://www.monadier.io, VITE_APP_URL=https://app.monadier.io
  * Vercel preview / local dev: marketing at `/`, Pro Trade at `/app` on the same origin
  */
 
@@ -32,7 +32,7 @@ function getAppHostname(): string | null {
   }
 }
 
-/** Live split setup: marketing and app on different hostnames (monadier.com vs app.monadier.com). */
+/** Live split setup: marketing and app on different hostnames (monadier.io vs app.monadier.io). */
 function usesSplitDomainSetup(): boolean {
   const siteHost = getSiteHostname();
   const appHost = getAppHostname();
@@ -189,6 +189,10 @@ export function mapLegacyPathToProTrade(pathname: string, search = ''): string {
     return build();
   }
 
+  if (path === '/dashboard/monitor' || path.startsWith('/dashboard/monitor/')) {
+    return getAdminDashboardPath();
+  }
+
   if (path === '/dashboard' || path.startsWith('/dashboard/')) {
     if (path.includes('/profile') || path.includes('/settings')) return build('profile');
     if (
@@ -208,13 +212,31 @@ export function mapLegacyPathToProTrade(pathname: string, search = ''): string {
   return build();
 }
 
-/** Hard-navigate from any legacy app path into Pro Trade. */
+/** Full URL to the HL admin monitor (works on app subdomain and local dev). */
+export function getAdminDashboardPath(): string {
+  return '/admin';
+}
+
+export function getAdminDashboardUrl(): string {
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}${getAdminDashboardPath()}`;
+  }
+  if (APP_BASE) return `${APP_BASE}${getAdminDashboardPath()}`;
+  return getAdminDashboardPath();
+}
+
+/** Hard-navigate from any legacy app path into Pro Trade (or /admin for monitor). */
 export function redirectLegacyToProTrade(
   pathname: string,
   search = '',
   replace = true
 ): void {
   const target = mapLegacyPathToProTrade(pathname, search);
+  if (target === getAdminDashboardPath()) {
+    if (replace) window.location.replace(target);
+    else window.location.assign(target);
+    return;
+  }
   const searchOnly = target.includes('?') ? target.slice(target.indexOf('?')) : '';
   goToOpenApp(searchOnly, replace);
 }
@@ -236,6 +258,9 @@ export function goToApp(path?: string, replace = false): string | null {
 
 function normalizeAuthTarget(path: string): string {
   const [pathname, search = ''] = path.split('?');
+  if (pathname === getAdminDashboardPath() || pathname.startsWith(`${getAdminDashboardPath()}/`)) {
+    return path;
+  }
   if (isLegacyAppPath(pathname)) {
     return mapLegacyPathToProTrade(pathname, search ? `?${search}` : '');
   }

@@ -58,7 +58,7 @@ const welcomeEmailHtml = (userName: string) => `
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                       <tr>
                         <td align="center">
-                          <a href="https://monadier.com/dashboard" style="display: inline-block; padding: 14px 32px; background-color: #0a0a0a; color: #ffffff; font-size: 14px; font-weight: 500; text-decoration: none; border-radius: 50px;">
+                          <a href="https://app.monadier.io/" style="display: inline-block; padding: 14px 32px; background-color: #0a0a0a; color: #ffffff; font-size: 14px; font-weight: 500; text-decoration: none; border-radius: 50px;">
                             Start Bot Trading
                           </a>
                         </td>
@@ -77,8 +77,8 @@ const welcomeEmailHtml = (userName: string) => `
               <p style="margin: 0 0 8px 0; font-size: 13px; color: #888888;">
                 Questions? Contact us anytime
               </p>
-              <a href="mailto:support@monadier.com" style="font-size: 13px; color: #0a0a0a; text-decoration: none;">
-                support@monadier.com
+              <a href="mailto:support@monadier.io" style="font-size: 13px; color: #0a0a0a; text-decoration: none;">
+                support@monadier.io
               </a>
               <p style="margin: 24px 0 0 0; font-size: 12px; color: #888888;">
                 © 2026 Monadier. All rights reserved.
@@ -112,7 +112,7 @@ serve(async (req) => {
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "Monadier <hello@monadier.com>",
+        from: "Monadier <hello@monadier.io>",
         to: email,
         subject: "Welcome to Monadier",
         html: welcomeEmailHtml(name || ""),

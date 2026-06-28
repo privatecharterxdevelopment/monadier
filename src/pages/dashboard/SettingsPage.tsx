@@ -12,9 +12,7 @@ import {
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { supabase, updatePassword, resetPassword } from '../../lib/supabase';
 import { SUBSCRIPTION_PLANS } from '../../lib/subscription';
-import { Link } from 'react-router-dom';
-import { VaultBalanceCard } from '../../components/vault';
-
+import { goToOpenApp } from '../../lib/appUrls';
 interface ReferralReward {
   id: string;
   referrer_id: string;
@@ -778,30 +776,23 @@ const SettingsPage: React.FC = () => {
             )}
           </Card>
 
-          {/* V8 Auto-Trading Vault */}
-          <VaultBalanceCard />
-
-          {/* Smart Contract Info - Compact */}
+          {/* Hyperliquid bot — settings in Pro Trade app */}
           <div className="p-4 bg-black/[0.04] border border-border rounded-xl">
             <div className="flex items-center gap-2 mb-2">
               <FileCheck className="w-4 h-4 text-blue-400" />
-              <span className="text-primary text-sm font-medium">V11 Vault Contract</span>
+              <span className="text-primary text-sm font-medium">Hyperliquid bot</span>
             </div>
             <p className="text-secondary text-xs mb-3">
-              Non-custodial & verified on-chain. Your funds, your control.
+              Auto-trading runs on Hyperliquid perps. Deposit USDC on Arbitrum, bridge to HL, then start the bot in the app.
             </p>
-            <code className="block text-[10px] text-secondary font-mono mb-2 break-all">
-              0x7dE97f35887b2623dCad2ebA68197f58F7607854
-            </code>
-            <a
-              href="https://arbiscan.io/address/0x7dE97f35887b2623dCad2ebA68197f58F7607854#code"
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={() => goToOpenApp('?section=bot', false)}
               className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 text-xs"
             >
+              Open bot in app
               <ExternalLink size={12} />
-              Verify on Arbiscan
-            </a>
+            </button>
           </div>
         </div>
 

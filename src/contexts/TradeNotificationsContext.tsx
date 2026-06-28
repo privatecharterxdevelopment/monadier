@@ -31,6 +31,8 @@ import {
   fetchUserTradeNotifications,
   markAllUserTradeNotificationsRead,
   markUserTradeNotificationsReadThrough,
+  userTradeNotificationToActivity,
+  type UserTradeNotificationRow,
 } from '../lib/userTradeNotifications';
 import { syncBettingTradesToSupabase } from '../lib/betting/syncBettingTrades';
 import { fetchHlOutcomeCatalog } from '../lib/hyperliquid/outcomes/meta';
@@ -210,7 +212,20 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
           table: 'user_trade_notifications',
           filter: `user_id=eq.${user.id}`,
         },
-        () => load(true)
+        (payload) => {
+          const row = payload.new as UserTradeNotificationRow | undefined;
+          if (row?.id) {
+            const fresh = userTradeNotificationToActivity(row);
+            if (!knownIdsRef.current.has(fresh.id)) {
+              knownIdsRef.current.add(fresh.id);
+              showToast(toastMessageForNotification(fresh), 4500);
+              setNotifications((prev) =>
+                mergeActivityNotifications([fresh, ...prev], [], 100)
+              );
+            }
+          }
+          void load(true);
+        }
       )
       .on(
         'postgres_changes',
@@ -220,7 +235,9 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
           table: 'hl_betting_closes',
           filter: `user_id=eq.${user.id}`,
         },
-        () => load(true)
+        () => {
+          void load(true);
+        }
       )
       .subscribe();
 

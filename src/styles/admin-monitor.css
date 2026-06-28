@@ -1,0 +1,22 @@
+/* Admin monitor — dark tokens inside Pro Trade shell */
+.admin-monitor-scope .text-primary {
+  color: #fafafa;
+}
+.admin-monitor-scope .text-secondary {
+  color: #a1a1aa;
+}
+.admin-monitor-scope .text-muted {
+  color: #71717a;
+}
+.admin-monitor-scope .bg-card-dark {
+  background: #141416;
+}
+.admin-monitor-scope .bg-background {
+  background: #0f0f11;
+}
+.admin-monitor-scope .border-border {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.admin-monitor-scope .divide-border > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(255, 255, 255, 0.08);
+}

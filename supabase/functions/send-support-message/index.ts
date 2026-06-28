@@ -4,7 +4,7 @@ import { createSupabaseAdmin, getUserFromToken } from '../_shared/supabase.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const SUPPORT_INBOX = Deno.env.get('SUPPORT_INBOX') || 'ipsunlorem@gmail.com';
-const FROM_ADDRESS = 'Monadier Support <hello@monadier.com>';
+const FROM_ADDRESS = 'Monadier Support <hello@monadier.io>';
 
 const MAX_SUBJECT = 120;
 const MAX_MESSAGE = 5000;

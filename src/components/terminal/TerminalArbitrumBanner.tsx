@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useWeb3 } from '../../contexts/Web3Context';
-import { VAULT_CHAIN_ID } from '../../lib/vault';
+import { ARBITRUM_ONE_CHAIN_ID } from '../../lib/usdcArbitrum';
 
 type Props = {
   /** compact: single line in header; inline: inside modals */
@@ -12,12 +12,12 @@ const TerminalArbitrumBanner: React.FC<Props> = ({ variant = 'banner' }) => {
   const { chainId, switchChain } = useWeb3();
   const [busy, setBusy] = useState(false);
 
-  if (chainId === VAULT_CHAIN_ID) return null;
+  if (chainId === ARBITRUM_ONE_CHAIN_ID) return null;
 
   const handleSwitch = async () => {
     try {
       setBusy(true);
-      await switchChain(VAULT_CHAIN_ID);
+      await switchChain(ARBITRUM_ONE_CHAIN_ID);
     } catch {
       /* wallet rejected */
     } finally {

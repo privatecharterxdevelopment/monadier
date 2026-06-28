@@ -168,7 +168,7 @@ const LicenseActivation: React.FC<LicenseActivationProps> = ({ onActivated }) =>
             <p className="text-secondary text-sm text-center">
               Don't have a license?{' '}
               <a
-                href="https://monadier.com/pricing"
+                href="https://www.monadier.io/pricing"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-accent hover:text-accent-hover"

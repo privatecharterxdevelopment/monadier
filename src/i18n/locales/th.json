@@ -44,7 +44,7 @@
     "privacy": "ความเป็นส่วนตัว",
     "support": "สนับสนุน",
     "about": "เกี่ยวกับ",
-    "copyright": "© {{year}} Monadier · Hyperliquid automated trading · support@monadier.com"
+    "copyright": "© {{year}} Monadier · Hyperliquid automated trading · support@monadier.io"
   },
   "landing": {
     "hero": {
@@ -396,7 +396,7 @@
       "faqSub": "คำตอบสั้นๆ เรื่องการตั้งค่า ความปลอดภัย และค่าธรรมเนียม",
       "faqExtra": {
         "q": "สนับสนุนเร็วแค่ไหน?",
-        "a": "อีเมล support@monadier.com — เป้าหมายตอบภายใน 24 ชม. จ–อา 09:00–20:00 CET"
+        "a": "อีเมล support@monadier.io — เป้าหมายตอบภายใน 24 ชม. จ–อา 09:00–20:00 CET"
       },
       "ctaContact": "ติดต่อฝ่ายสนับสนุน",
       "disclaimer": "เพื่อความปลอดภัย อย่าแชร์ seed phrase หรือ private key กับใคร — รวมถึง support"
