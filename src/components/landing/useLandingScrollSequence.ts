@@ -13,10 +13,9 @@ import {
   unregisterLandingWheelConsumer,
 } from '../../lib/landingScrollLock';
 import {
-  beginProgrammaticScroll,
-  getAnchorScrollY,
   getElementScrollY,
   isProgrammaticScroll,
+  scrollToAnchorY,
 } from '../../lib/landingScrollAnchors';
 
 type ContinuousOptions = {
@@ -87,28 +86,35 @@ export function useLandingScrollSequence(options: Options) {
 
       const snapshot = lockSnapshotRef.current;
       lockSnapshotRef.current = null;
+      const currentY = readScrollY();
+
+      unlockedRef.current = true;
+      engagedRef.current = false;
+      setLocked(false);
+      setUnlocked(true);
+
+      if (forward && releaseAnchorId) {
+        unlockPageScroll({ scrollY: currentY }, lockId);
+        requestAnimationFrame(() => {
+          scrollToAnchorY(releaseAnchorId, 'smooth');
+        });
+        return;
+      }
 
       const section = sectionRef.current;
       let exitY: number;
-      if (forward && releaseAnchorId) {
-        exitY = getAnchorScrollY(releaseAnchorId);
-        beginProgrammaticScroll(550);
-      } else if (forward && section) {
+      if (forward && section) {
         exitY = getElementScrollY(section);
       } else {
         exitY = resolveSectionReleaseScrollY(
           section,
-          snapshot ?? captureScrollLock(readScrollY()),
+          snapshot ?? captureScrollLock(currentY),
           forward,
           continueDelta
         );
       }
 
-      unlockedRef.current = true;
-      engagedRef.current = false;
       unlockPageScroll({ scrollY: exitY }, lockId);
-      setLocked(false);
-      setUnlocked(true);
     },
     [lockId, releaseAnchorId]
   );

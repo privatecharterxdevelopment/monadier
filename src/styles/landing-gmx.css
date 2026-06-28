@@ -6767,11 +6767,29 @@
 
 .landing-home-bento-section {
   position: relative;
+  height: auto;
+  min-height: 0;
+  padding-top: 56px;
+  padding-bottom: 72px;
+  overflow: visible;
+  isolation: isolate;
+}
+
+@media (max-width: 639px) {
+  .landing-home-bento-section.landing-gmx-gutter {
+    padding-left: max(20px, env(safe-area-inset-left, 0px));
+    padding-right: max(20px, env(safe-area-inset-right, 0px));
+    padding-top: 48px;
+    padding-bottom: 64px;
+  }
+}
+
+.landing-home-bento-section--locked {
   height: 100dvh;
   height: 100svh;
-  padding: 0;
+  padding-top: 0;
+  padding-bottom: 0;
   overflow: hidden;
-  isolation: isolate;
 }
 
 .landing-home-bento-section--unlocked {
@@ -6783,16 +6801,25 @@
 }
 
 .landing-home-bento-sticky {
+  position: relative;
+  height: auto;
+  display: flex;
+  align-items: stretch;
+  overflow: visible;
+  padding-top: 0;
+  padding-bottom: 0;
+  box-sizing: border-box;
+}
+
+.landing-home-bento-section--locked .landing-home-bento-sticky {
   position: sticky;
   top: 0;
   height: 100dvh;
   height: 100svh;
-  display: flex;
   align-items: center;
   overflow: hidden;
   padding-top: 48px;
   padding-bottom: 32px;
-  box-sizing: border-box;
 }
 
 .landing-home-bento-section--unlocked .landing-home-bento-sticky {
@@ -6805,8 +6832,8 @@
 
 @media (max-width: 639px) {
   .landing-home-bento-section--unlocked {
-    padding-top: 40px;
-    padding-bottom: 48px;
+    padding-top: 48px;
+    padding-bottom: 64px;
   }
 
   .landing-home-bento-section--unlocked .landing-home-bento-header {
@@ -6825,9 +6852,25 @@
     min-height: 220px;
   }
 
-  .landing-home-bento-sticky {
+  .landing-home-bento-section--locked .landing-home-bento-sticky {
     padding-top: 36px;
     padding-bottom: 24px;
+  }
+
+  .landing-home-bento-header {
+    margin-bottom: 24px;
+  }
+
+  .landing-apple-widgets-bento {
+    gap: 10px;
+  }
+
+  .landing-apple-widgets-stack {
+    gap: 10px;
+  }
+
+  .landing-apple-widgets-cell--hero {
+    min-height: 220px;
   }
 }
 
@@ -6836,7 +6879,7 @@
 }
 
 .landing-home-bento-section--locked .landing-apple-widgets-bento {
-  max-height: min(52vh, 520px);
+  max-height: min(58vh, 560px);
   overflow: hidden;
 }
 
@@ -6880,6 +6923,7 @@
 
 .landing-home-bento-title {
   margin: 0;
+  scroll-margin-top: 76px;
   font-size: clamp(1.75rem, 4.5vw, 2.75rem);
   font-weight: 600;
   line-height: 1.08;

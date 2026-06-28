@@ -1,7 +1,7 @@
 import { readScrollY } from './landingScrollLock';
 
 /** Sticky nav clearance when snapping section titles to the top. */
-const ANCHOR_TOP_OFFSET_PX = 12;
+const ANCHOR_TOP_OFFSET_PX = 76;
 
 let programmaticScrollUntil = 0;
 
