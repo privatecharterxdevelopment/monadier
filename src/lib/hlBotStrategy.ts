@@ -8,19 +8,23 @@ export const HL_BOT_STRATEGY_LABELS: Record<HlBotStrategy, string> = {
 
 export const HL_BOT_STRATEGY_HINTS: Record<HlBotStrategy, string> = {
   standard:
-    'Standard: MTF trend-only (1h up = long, 1h down = short). No dip reversals. Trail SL after 2 min in profit.',
+    'Standard: MTF trend-only. In profit: trail SL at +0.1% ROE once +0.2% ROE hit.',
   profit_grabber:
-    'Aggressive: 1m scalp entries. Same trail — 2 min, then BE lock or loss stop.',
+    'Aggressive: 1m scalp entries. Same profit trail (+0.2% arm, +0.1% lock).',
 };
 
 /** Must match bot-service config.hyperliquid.dynamicTrail defaults. */
 export const HL_DYNAMIC_TRAIL = {
-  armMinProfitHoldMs: 120_000,
+  armMinProfitHoldMs: 0,
   maxHoldBeforeSlTrailMs: 120_000,
-  trailMinActiveBeforeCloseMs: 60_000,
-  breakevenArmRoePct: 2.5,
-  armMinProfitUsd: 2,
-  armMinRoePct: 5,
+  trailMinActiveBeforeCloseMs: 0,
+  /** Arm trail when ROE ≥ this. */
+  breakevenArmRoePct: 0.2,
+  armMinProfitUsd: 0,
+  /** Min locked ROE% once armed. */
+  armMinRoePct: 0.1,
+  /** Peak ROE minus this gap when ratcheting. */
+  trailGapRoePct: 0.1,
   armFeesMultiplier: 2,
   estimatedFeeBpsPerSide: 3.5,
   majorTrailPct: 0.028,
@@ -56,23 +60,12 @@ export function estimateRoundTripFeesUsd(notionalUsd: number): number {
 export function shouldArmDynamicTrail(
   pnlUsd: number,
   collateralUsd: number,
-  notionalUsd: number,
-  opts?: { holdMs?: number; timeInProfitMs?: number }
+  _notionalUsd?: number,
+  _opts?: { holdMs?: number; timeInProfitMs?: number }
 ): boolean {
   if (pnlUsd <= 0 || collateralUsd <= 0) return false;
-  const holdMs = opts?.holdMs ?? 0;
-  const timeInProfitMs = opts?.timeInProfitMs ?? (pnlUsd > 0 ? holdMs : 0);
-  const holdOk =
-    timeInProfitMs >= HL_DYNAMIC_TRAIL.armMinProfitHoldMs ||
-    holdMs >= HL_DYNAMIC_TRAIL.maxHoldBeforeSlTrailMs;
-  if (!holdOk) return false;
-  const fees = estimateRoundTripFeesUsd(notionalUsd);
   const roe = (pnlUsd / collateralUsd) * 100;
-  const roeOk = roe >= HL_DYNAMIC_TRAIL.breakevenArmRoePct;
-  const feesOk = pnlUsd >= fees * HL_DYNAMIC_TRAIL.armFeesMultiplier;
-  const absOk =
-    HL_DYNAMIC_TRAIL.armMinProfitUsd > 0 && pnlUsd >= HL_DYNAMIC_TRAIL.armMinProfitUsd;
-  return roeOk || feesOk || absOk;
+  return roe >= HL_DYNAMIC_TRAIL.breakevenArmRoePct;
 }
 
 export function defaultTrailPctForCoin(coin: string): number {

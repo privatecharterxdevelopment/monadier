@@ -1,4 +1,8 @@
 import { MIN_HL_BOT_USD } from './hyperliquid/hlBotAgent';
+import {
+  formatHlBotSuccessFeePercent,
+  hlBotSuccessFeeShortLabel,
+} from './hyperliquid/hlBotSuccessFee';
 import { isInternalPlatformOpsMessage } from './hyperliquid/builderPlatform';
 
 export type HlSetupPhase = 'connect' | 'loading' | 'approve' | 'fund' | 'ready';
@@ -19,8 +23,8 @@ function simplifyBlocker(raw: string): string {
   if (/HL agent not approved/i.test(raw)) {
     return 'Trading agent not approved yet';
   }
-  if (/builder fee|platform fee/i.test(raw)) {
-    return 'Press Start bot to approve the Hyperliquid platform fee';
+  if (/builder fee|platform fee|success fee/i.test(raw)) {
+    return `Approve ${hlBotSuccessFeeShortLabel()} first — then Start bot`;
   }
   if (/HL balance|HL-Guthaben/i.test(raw)) {
     return raw.replace(/HL balance/i, 'HL balance').replace(/HL-Guthaben/i, 'HL balance');
@@ -133,8 +137,7 @@ export function getHlBotSidebarStatus(opts: {
     perpUsd < MIN_HL_BOT_USD &&
     spotUsdcUsd >= MIN_HL_BOT_USD;
   const needsAgent = !agentApproved;
-  const needsBuilderFee =
-    builderFeeEnabled && builderPlatformReady && !builderFeeApproved;
+  const needsBuilderFee = builderFeeEnabled && !builderFeeApproved;
   const needsApprove = needsAgent || needsBuilderFee;
 
   if (!botRunning) {
@@ -158,11 +161,20 @@ export function getHlBotSidebarStatus(opts: {
     }
     if (needsApprove) {
       const funded = hlBalanceUsd >= MIN_HL_BOT_USD || perpUsd >= MIN_HL_BOT_USD;
+      const detail = needsAgent && needsBuilderFee
+        ? funded
+          ? `Step 1: Approve trading agent · Step 2: ${hlBotSuccessFeeShortLabel()} · then Start bot.`
+          : 'Approve trading agent, then success fee, before starting the bot.'
+        : needsBuilderFee
+          ? builderPlatformReady
+            ? `Approve ${hlBotSuccessFeeShortLabel()} on Hyperliquid (separate wallet signature), then Start bot.`
+            : 'Success fee approval activating — try again in a minute.'
+          : funded
+            ? 'Approve the trading agent, then press Start bot.'
+            : 'Approve the trading agent before starting the bot.';
       return {
-        headline: 'One-time approval',
-        detail: funded
-          ? `Balance ${hlBalanceUsd.toFixed(2)} — press Start bot, then confirm in MetaMask.`
-          : 'Press Start bot — one or two wallet signatures, then the bot runs 24/7.',
+        headline: needsBuilderFee && !needsAgent ? `${formatHlBotSuccessFeePercent()} success fee` : 'One-time approval',
+        detail,
         tone: 'ok',
         setupStep: 3,
         setupComplete: false,

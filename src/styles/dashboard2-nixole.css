@@ -3578,6 +3578,59 @@
   color: var(--term-text-muted);
 }
 
+.term-bot-settings-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.term-bot-metric-pill {
+  cursor: help;
+}
+
+.term-bot-metric-popover {
+  position: fixed;
+  z-index: 10050;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 24px));
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #e4e4e7;
+  background: rgba(12, 12, 16, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.term-bot-metric-popover--top {
+  transform: translate(-50%, -100%);
+}
+
+.term-bot-metric-popover--bottom {
+  transform: translate(-50%, 0);
+}
+
+.term-bot-metric-popover__label {
+  display: block;
+  margin: 0 0 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #a1a1aa;
+}
+
+.term-bot-metric-popover__text {
+  margin: 0;
+  color: #e4e4e7;
+}
+
 .term-bot-settings-k {
   color: var(--term-text-faint);
   font-weight: 500;
@@ -4006,6 +4059,7 @@
   overflow: hidden;
 }
 
+.term-hl-live-chart__canvas-wrap .hl-chart-canvas-wrap,
 .term-hl-live-chart__canvas-wrap .hl-chart-canvas {
   position: absolute;
   inset: 0;

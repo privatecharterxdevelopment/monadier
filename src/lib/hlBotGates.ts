@@ -1,13 +1,29 @@
 import { MIN_HL_BOT_USD } from './hyperliquid/hlBotAgent';
 
-/** User has funded HL, approved agent, and platform builder fee when HL builder is active. */
+/** Platform fee must be on-chain before bot runs when builder fees are enabled. */
+export function isHlBuilderFeeGateSatisfied(
+  builderFeeEnabled: boolean,
+  builderFeeApproved: boolean,
+  builderPlatformReady: boolean
+): boolean {
+  if (!builderFeeEnabled) return true;
+  if (!builderPlatformReady) return false;
+  return builderFeeApproved;
+}
+
+/** User has funded HL, approved agent, and platform builder fee when required. */
 export function isHlBotReadyToRun(
   hlBalanceUsd: number,
   agentApproved: boolean,
   builderFeeApproved = true,
-  builderPlatformReady = true
+  builderPlatformReady = true,
+  builderFeeEnabled = true
 ): boolean {
-  const builderOk = !builderPlatformReady || builderFeeApproved;
+  const builderOk = isHlBuilderFeeGateSatisfied(
+    builderFeeEnabled,
+    builderFeeApproved,
+    builderPlatformReady
+  );
   return hlBalanceUsd >= MIN_HL_BOT_USD && agentApproved && builderOk;
 }
 
@@ -49,11 +65,18 @@ export function effectiveHlBotRunning(
   hlBalanceUsd: number,
   agentApproved: boolean,
   builderFeeApproved = true,
-  builderPlatformReady = true
+  builderPlatformReady = true,
+  builderFeeEnabled = true
 ): boolean {
   return (
     autoTradeEnabled &&
-    isHlBotReadyToRun(hlBalanceUsd, agentApproved, builderFeeApproved, builderPlatformReady)
+    isHlBotReadyToRun(
+      hlBalanceUsd,
+      agentApproved,
+      builderFeeApproved,
+      builderPlatformReady,
+      builderFeeEnabled
+    )
   );
 }
 

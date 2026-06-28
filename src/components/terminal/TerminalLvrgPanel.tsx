@@ -1,15 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Loader2, Save, Wallet } from 'lucide-react';
 import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useHlLeverageCap } from '../../hooks/useHlLeverageCap';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
 import TerminalBotSettingsFields from './TerminalBotSettingsFields';
 import { useBotSettingsEditor } from './useBotSettingsEditor';
-import { HL_BOT_STRATEGY_HINTS, HL_BOT_STRATEGY_LABELS } from '../../lib/hlBotStrategy';
-import { saveHlBotStrategyMode } from '../../lib/saveHlBotStrategyMode';
 import { useWeb3 } from '../../contexts/Web3Context';
-import { useAuth } from '../../contexts/AuthContext';
-import { useSubscription } from '../../contexts/SubscriptionContext';
 
 type Props = {
   settings: VaultSettingsSnapshot;
@@ -32,12 +28,7 @@ const TerminalLvrgPanel: React.FC<Props> = ({
   onSaved,
 }) => {
   const { open } = useMonadierAppKit();
-  const { publicClient, walletClient } = useWeb3();
-  const { isDemoUser } = useAuth();
-  const { planTier } = useSubscription();
   const { caps } = useHlLeverageCap();
-  const [modeBusy, setModeBusy] = useState(false);
-  const [modeError, setModeError] = useState<string | null>(null);
   const editor = useBotSettingsEditor({
     settings,
     walletAddress,
@@ -50,79 +41,8 @@ const TerminalLvrgPanel: React.FC<Props> = ({
 
   const settingsLocked = botRunning;
 
-  const switchMode = async (next: typeof editor.hlBotStrategy) => {
-    if (next === editor.hlBotStrategy) return;
-    if (settingsLocked) {
-      onBlockedSave?.();
-      return;
-    }
-    if (!walletAddress) {
-      editor.setHlBotStrategy(next);
-      return;
-    }
-    setModeBusy(true);
-    setModeError(null);
-    try {
-      await saveHlBotStrategyMode(walletAddress.toLowerCase(), settings, next, {
-        planTier,
-        publicClient,
-        walletClient,
-        userAddress: walletAddress.toLowerCase() as `0x${string}`,
-        isDemoUser,
-      });
-      editor.setHlBotStrategy(next);
-      onSaved();
-    } catch (e: unknown) {
-      setModeError(e instanceof Error ? e.message : 'Could not save mode');
-    } finally {
-      setModeBusy(false);
-    }
-  };
-
   return (
     <div className="term-panel-stack">
-      <div className="term-panel-card term-panel-card--muted term-panel-card--mode">
-        <span className="term-panel-card-label">Bot mode</span>
-        <div
-          className={
-            settingsLocked
-              ? 'term-bot-mode-toggle term-bot-mode-toggle--locked'
-              : 'term-bot-mode-toggle'
-          }
-          role="group"
-          aria-label="Bot strategy"
-        >
-          {(['standard', 'profit_grabber'] as const).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              className={`term-btn-sm ${editor.hlBotStrategy === mode ? 'term-btn-sm--primary' : ''}`}
-              disabled={disabled || editor.isLoading || modeBusy}
-              onClick={() => void switchMode(mode)}
-            >
-              {HL_BOT_STRATEGY_LABELS[mode]}
-            </button>
-          ))}
-        </div>
-        <span className="term-panel-card-hint">{HL_BOT_STRATEGY_HINTS[editor.hlBotStrategy]}</span>
-        {settingsLocked ? (
-          <span className="term-panel-card-hint term-panel-card-hint--warn">
-            Stop bot to switch Standard / Aggressive.
-          </span>
-        ) : null}
-        {modeError ? (
-          <span className="term-panel-card-hint term-panel-card-hint--warn">{modeError}</span>
-        ) : null}
-        {settingsLocked ? (
-          <button
-            type="button"
-            className="term-lvrg-mode-blocker"
-            aria-label="Stop bot to change mode"
-            onClick={() => onBlockedSave?.()}
-          />
-        ) : null}
-      </div>
-
       <div
         className={
           settingsLocked

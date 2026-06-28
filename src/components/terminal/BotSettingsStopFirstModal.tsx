@@ -15,7 +15,7 @@ const BotSettingsStopFirstModal: React.FC<Props> = ({ open, onClose, onStopBot, 
   return (
     <TerminalModalFrame
       title="Stop bot first"
-      subtitle="Bot mode, leverage, and risk are locked while the bot is running"
+      subtitle="Leverage and risk are locked while the bot is running"
       icon={<AlertTriangle size={20} />}
       onClose={onClose}
       closeDisabled={stopBusy}
@@ -42,12 +42,11 @@ const BotSettingsStopFirstModal: React.FC<Props> = ({ open, onClose, onStopBot, 
       }
     >
       <p className="term-modal-hint">
-        <strong>1.</strong> Stop the bot · <strong>2.</strong> Change mode or settings ·{' '}
-        <strong>3.</strong> Press <strong>Start bot</strong> again.
+        <strong>1.</strong> Stop the bot · <strong>2.</strong> Change settings · <strong>3.</strong>{' '}
+        Press <strong>Start bot</strong> again.
       </p>
       <p className="term-modal-hint" style={{ marginTop: 12 }}>
-        Applies to <strong>Standard / Aggressive</strong> mode, leverage, and risk — not while the
-        bot is active.
+        Applies to leverage and risk — not while the bot is active.
       </p>
       <p className="term-modal-hint term-modal-hint--ok" style={{ marginTop: 12 }}>
         Exits are automatic: the bot trails stop loss into profit (no manual TP/SL needed).

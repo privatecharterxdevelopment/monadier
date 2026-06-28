@@ -1,6 +1,7 @@
 /**
- * Price-based dynamic trailing stop — 4 phases:
- * 1 idle, 2 armed (breakeven+fees only ~2% ROE), 3 trailing (ATR/% ratchet ~4.5% ROE).
+ * Simple in-profit trail:
+ * +0.2% ROE → arm immediately, stop locks +0.1% ROE (ratchets peak − 0.1%).
+ * Cross → market close in profit. Loss SL% only after max hold while red.
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
@@ -14,7 +15,6 @@ export type DynamicTrailRecord = {
   phase: TrailPhase;
   direction: 'LONG' | 'SHORT';
   entryPrice: number;
-  /** Max mark for LONG, min mark for SHORT (favorable extreme). */
   highestPriceSinceEntry: number;
   highestPnlSinceEntry: number;
   currentTrailStop: number | null;
@@ -25,9 +25,7 @@ export type DynamicTrailRecord = {
   estimatedFeesUsd: number;
   lastTrailDistancePx: number;
   timeInProfitMs: number;
-  /** Armed via max-hold loss SL% (allows red exit after 2 min). */
   lossSlArmed?: boolean;
-  /** Defer dynamic trail close while candles/thesis still favor direction. */
   trailCloseDeferUntil: number | null;
   trailCloseDeferCount: number;
 };
@@ -45,9 +43,7 @@ export type TrailTickInput = {
   totalHoldMs: number;
   stopLossPct: number;
   record: DynamicTrailRecord | null;
-  /** Widen (>1) or tighten (<1) ATR/% trail from live run analysis. */
   trailDistanceMult?: number;
-  /** Skip close while defer window active (set by monitor after candle analysis). */
   trailCloseDeferred?: boolean;
 };
 
@@ -99,23 +95,45 @@ function roePct(pnlUsd: number, collateralUsd: number): number {
   return (pnlUsd / collateralUsd) * 100;
 }
 
+/** Stop price for a given locked ROE% on margin. */
+export function stopPxForRoePct(
+  direction: 'LONG' | 'SHORT',
+  entryPrice: number,
+  absSize: number,
+  collateralUsd: number,
+  lockRoePct: number
+): number {
+  if (absSize <= 0 || entryPrice <= 0 || collateralUsd <= 0) {
+    return direction === 'LONG' ? 0 : Number.POSITIVE_INFINITY;
+  }
+  const lockPnlUsd = collateralUsd * (lockRoePct / 100);
+  const move = lockPnlUsd / absSize;
+  return direction === 'LONG' ? entryPrice + move : entryPrice - move;
+}
+
+/** Locked ROE% = max(floor, peak − gap). */
+export function profitTrailLockRoePct(peakPnlUsd: number, collateralUsd: number): number {
+  const cfg = config.hyperliquid.dynamicTrail;
+  const peakRoe = roePct(peakPnlUsd, collateralUsd);
+  const floor = cfg.armMinRoePct;
+  const gap = cfg.trailGapRoePct;
+  return Math.max(floor, peakRoe - gap);
+}
+
+export function shouldArmProfitTrail(pnlUsd: number, collateralUsd: number): boolean {
+  if (pnlUsd <= 0 || collateralUsd <= 0) return false;
+  return roePct(pnlUsd, collateralUsd) >= config.hyperliquid.dynamicTrail.breakevenArmRoePct;
+}
+
+/** @deprecated */
 export function shouldArmBreakevenProtection(
   pnlUsd: number,
   collateralUsd: number,
-  timeInProfitMs: number,
-  totalHoldMs: number,
-  feesUsd = 0
+  _timeInProfitMs: number,
+  _totalHoldMs: number,
+  _feesUsd = 0
 ): boolean {
-  const cfg = config.hyperliquid.dynamicTrail;
-  const holdOk =
-    timeInProfitMs >= cfg.armMinProfitHoldMs ||
-    totalHoldMs >= cfg.maxHoldBeforeSlTrailMs;
-  if (!holdOk) return false;
-  if (pnlUsd <= 0 || collateralUsd <= 0) return false;
-  const roeOk = roePct(pnlUsd, collateralUsd) >= cfg.breakevenArmRoePct;
-  const feesOk = feesUsd > 0 && pnlUsd >= feesUsd * cfg.armFeesMultiplier;
-  const absOk = cfg.armMinProfitUsd > 0 && pnlUsd >= cfg.armMinProfitUsd;
-  return roeOk || feesOk || absOk;
+  return shouldArmProfitTrail(pnlUsd, collateralUsd);
 }
 
 export function lossStopPricePx(
@@ -133,48 +151,19 @@ export function lossStopPricePx(
   return direction === 'LONG' ? entryPrice - priceMove : entryPrice + priceMove;
 }
 
-export function shouldUpgradeToTrailing(
-  pnlUsd: number,
-  collateralUsd: number
-): boolean {
-  if (pnlUsd <= 0 || collateralUsd <= 0) return false;
-  return roePct(pnlUsd, collateralUsd) >= config.hyperliquid.dynamicTrail.armMinRoePct;
+/** @deprecated */
+export function shouldUpgradeToTrailing(pnlUsd: number, collateralUsd: number): boolean {
+  return shouldArmProfitTrail(pnlUsd, collateralUsd);
 }
 
-/** @deprecated use shouldArmBreakevenProtection / shouldUpgradeToTrailing */
+/** @deprecated */
 export function shouldArmProfitProtection(
   pnlUsd: number,
   collateralUsd: number,
   _feesUsd: number,
-  timeInProfitMs: number
+  _timeInProfitMs: number
 ): boolean {
-  return shouldUpgradeToTrailing(pnlUsd, collateralUsd) && timeInProfitMs >= config.hyperliquid.dynamicTrail.armMinProfitHoldMs;
-}
-
-function hasBreakevenLock(
-  direction: 'LONG' | 'SHORT',
-  markPrice: number,
-  entryPrice: number,
-  absSize: number,
-  feesUsd: number
-): boolean {
-  const lockPx = breakevenPlusFeesStopPx(direction, entryPrice, absSize, feesUsd);
-  return direction === 'LONG' ? markPrice >= lockPx : markPrice <= lockPx;
-}
-
-function breakevenPlusFeesStopPx(
-  direction: 'LONG' | 'SHORT',
-  entryPrice: number,
-  absSize: number,
-  feesUsd: number
-): number {
-  const cfg = config.hyperliquid.dynamicTrail;
-  const bufferUsd = Math.max(
-    feesUsd * cfg.breakevenBufferFeesMult,
-    entryPrice * absSize * (cfg.breakevenBufferPct / 100)
-  );
-  const move = (feesUsd + bufferUsd) / absSize;
-  return direction === 'LONG' ? entryPrice + move : entryPrice - move;
+  return shouldArmProfitTrail(pnlUsd, collateralUsd);
 }
 
 function updateFavorableExtreme(
@@ -265,7 +254,7 @@ export async function resolveTrailDistancePx(
       return Math.max(atr * cfg.atrMultiplier, pctDistance * cfg.atrMinPctOfFallback);
     }
   } catch {
-    /* fallback to tier % */
+    /* fallback */
   }
   return pctDistance;
 }
@@ -273,24 +262,26 @@ export async function resolveTrailDistancePx(
 function formatAnalytics(rec: DynamicTrailRecord, mark: number): string {
   return [
     `phase=${rec.phase}`,
-    `highestPrice=${rec.highestPriceSinceEntry.toFixed(6)}`,
-    `highestPnl=$${rec.highestPnlSinceEntry.toFixed(4)}`,
     `trailStop=${rec.currentTrailStop?.toFixed(6) ?? '—'}`,
     `mark=${mark.toFixed(6)}`,
-    `armedAt=${rec.trailArmedAt ? new Date(rec.trailArmedAt).toISOString() : '—'}`,
-    `timeInProfitMs=${rec.timeInProfitMs}`,
-    `maxRunup=$${rec.maxRunup.toFixed(4)}`,
-    `trailDistPx=${rec.lastTrailDistancePx.toFixed(6)}`,
+    `peakPnl=$${rec.highestPnlSinceEntry.toFixed(4)}`,
   ].join(' · ');
 }
 
-function trailTooYoungToClose(rec: DynamicTrailRecord, nowMs: number, trailMult: number): boolean {
-  const minMs = config.hyperliquid.dynamicTrail.trailMinActiveBeforeCloseMs;
-  if (!rec.trailArmedAt || minMs <= 0) return false;
-  if (nowMs - rec.trailArmedAt < minMs) {
-    return trailMult >= 0.95;
-  }
-  return false;
+function refreshProfitTrailStop(
+  rec: DynamicTrailRecord,
+  input: TrailTickInput
+): void {
+  const lockRoe = profitTrailLockRoePct(rec.highestPnlSinceEntry, input.collateralUsd);
+  const stopPx = stopPxForRoePct(
+    input.direction,
+    input.entryPrice,
+    input.absSize,
+    input.collateralUsd,
+    lockRoe
+  );
+  rec.currentTrailStop = ratchetStop(input.direction, rec.currentTrailStop, stopPx);
+  rec.lastTrailDistancePx = 0;
 }
 
 export async function evaluateDynamicTrail(
@@ -313,13 +304,8 @@ export async function evaluateDynamicTrail(
     rec.highestPriceSinceEntry,
     input.markPrice
   );
-
-  if (input.pnlUsd > rec.highestPnlSinceEntry) {
-    rec.highestPnlSinceEntry = input.pnlUsd;
-  }
-  if (input.pnlUsd > rec.maxRunup) {
-    rec.maxRunup = input.pnlUsd;
-  }
+  if (input.pnlUsd > rec.highestPnlSinceEntry) rec.highestPnlSinceEntry = input.pnlUsd;
+  if (input.pnlUsd > rec.maxRunup) rec.maxRunup = input.pnlUsd;
 
   if (input.pnlUsd > 0) {
     if (rec.profitSinceAt == null) rec.profitSinceAt = input.nowMs;
@@ -329,66 +315,50 @@ export async function evaluateDynamicTrail(
     rec.timeInProfitMs = 0;
   }
 
-  // Phase 1 — idle: arm breakeven trail in profit or loss SL% after max hold (2 min default).
-  if (rec.phase === 'idle') {
-    const maxSlDue = input.totalHoldMs >= cfg.maxHoldBeforeSlTrailMs;
+  const noClose = {
+    shouldClose: false as const,
+    exitReason: '',
+    closeDetail: '',
+  };
 
-    if (
-      shouldArmBreakevenProtection(
-        input.pnlUsd,
-        input.collateralUsd,
-        rec.timeInProfitMs,
-        input.totalHoldMs,
-        feesUsd
-      )
-    ) {
-      if (
-        !hasBreakevenLock(
-          input.direction,
-          input.markPrice,
-          input.entryPrice,
-          input.absSize,
-          feesUsd
-        )
-      ) {
-        return {
-          record: rec,
-          shouldClose: false,
-          exitReason: '',
-          closeDetail: '',
-        };
-      }
-
-      const initialStop = breakevenPlusFeesStopPx(
-        input.direction,
-        input.entryPrice,
-        input.absSize,
-        feesUsd
-      );
-      rec.phase = 'armed';
-      rec.trailArmedAt = input.nowMs;
-      rec.currentTrailStop = initialStop;
-      rec.estimatedFeesUsd = feesUsd;
-      logger.info('HL breakeven lock armed (stage 1)', {
-        coin: input.coin,
-        direction: input.direction,
-        entry: input.entryPrice.toFixed(6),
-        mark: input.markPrice.toFixed(6),
-        breakevenStop: initialStop.toFixed(6),
-        pnlUsd: input.pnlUsd.toFixed(4),
-        roe: roePct(input.pnlUsd, input.collateralUsd).toFixed(2),
-        trailAtRoe: cfg.armMinRoePct,
-        holdMs: input.totalHoldMs,
-      });
+  // —— In-profit ROE trail (+0.2% arm, +0.1% lock, 0.1% gap) ——
+  if (rec.phase === 'trailing' && !rec.lossSlArmed) {
+    refreshProfitTrailStop(rec, input);
+    if (isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop!)) {
+      const lockRoe = profitTrailLockRoePct(rec.highestPnlSinceEntry, input.collateralUsd);
+      const detail = `PROFIT TRAIL +${lockRoe.toFixed(2)}% ROE · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
       return {
         record: rec,
-        shouldClose: false,
-        exitReason: '',
-        closeDetail: '',
+        shouldClose: true,
+        exitReason: 'trailing_stop',
+        closeDetail: detail,
       };
     }
+    return { record: rec, ...noClose };
+  }
 
-    if (maxSlDue && input.pnlUsd <= 0 && input.stopLossPct > 0) {
+  if (
+    rec.phase === 'idle' &&
+    shouldArmProfitTrail(input.pnlUsd, input.collateralUsd)
+  ) {
+    rec.phase = 'trailing';
+    rec.trailArmedAt = input.nowMs;
+    rec.estimatedFeesUsd = feesUsd;
+    refreshProfitTrailStop(rec, input);
+    logger.info('HL profit trail armed', {
+      coin: input.coin,
+      direction: input.direction,
+      roe: roePct(input.pnlUsd, input.collateralUsd).toFixed(3),
+      lockRoe: profitTrailLockRoePct(rec.highestPnlSinceEntry, input.collateralUsd).toFixed(3),
+      stop: rec.currentTrailStop?.toFixed(6),
+      pnlUsd: input.pnlUsd.toFixed(4),
+    });
+    return { record: rec, ...noClose };
+  }
+
+  // —— Loss SL trail after max hold while red ——
+  if (rec.phase === 'idle' && input.totalHoldMs >= cfg.maxHoldBeforeSlTrailMs) {
+    if (input.pnlUsd <= 0 && input.stopLossPct > 0) {
       const lossStop = lossStopPricePx(
         input.direction,
         input.entryPrice,
@@ -401,181 +371,41 @@ export async function evaluateDynamicTrail(
       rec.trailArmedAt = input.nowMs;
       rec.currentTrailStop = lossStop;
       rec.estimatedFeesUsd = feesUsd;
-      logger.info('HL loss SL trail armed (max hold)', {
+      logger.info('HL loss SL armed (max hold)', {
         coin: input.coin,
-        direction: input.direction,
-        entry: input.entryPrice.toFixed(6),
-        mark: input.markPrice.toFixed(6),
-        lossStop: lossStop.toFixed(6),
         slPct: input.stopLossPct,
         pnlUsd: input.pnlUsd.toFixed(4),
-        holdMs: input.totalHoldMs,
       });
-      return {
-        record: rec,
-        shouldClose: false,
-        exitReason: '',
-        closeDetail: '',
-      };
+      return { record: rec, ...noClose };
     }
-
-    return {
-      record: rec,
-      shouldClose: false,
-      exitReason: '',
-      closeDetail: '',
-    };
   }
 
-  // Loss SL trail — ratchet stop on bounces, close when SL crossed (after min active ms).
   if (rec.phase === 'armed' && rec.lossSlArmed && rec.currentTrailStop != null) {
-    const trailMult = Math.max(0.75, Math.min(2, input.trailDistanceMult ?? 1));
-    const trailDist =
-      (await resolveTrailDistancePx(input.coin, input.markPrice)) * trailMult;
+    const trailDist = await resolveTrailDistancePx(input.coin, input.markPrice);
     rec.lastTrailDistancePx = trailDist;
-    const favorableCandidate =
+    const candidate =
       input.direction === 'LONG'
         ? rec.highestPriceSinceEntry - trailDist
         : rec.highestPriceSinceEntry + trailDist;
-    rec.currentTrailStop = ratchetStop(
-      input.direction,
-      rec.currentTrailStop,
-      favorableCandidate
-    );
+    rec.currentTrailStop = ratchetStop(input.direction, rec.currentTrailStop, candidate);
 
-    if (
-      isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop) &&
-      !trailTooYoungToClose(rec, input.nowMs, trailMult)
-    ) {
-      const detail = `LOSS SL TRAIL · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
+    if (isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop)) {
       return {
         record: rec,
         shouldClose: true,
         exitReason: 'stop_loss',
-        closeDetail: detail,
+        closeDetail: `LOSS SL · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`,
       };
     }
-    return {
-      record: rec,
-      shouldClose: false,
-      exitReason: '',
-      closeDetail: '',
-    };
+    return { record: rec, ...noClose };
   }
 
-  // Phase 2 — breakeven only: fixed stop, no tight trail until ~5% ROE.
-  if (rec.phase === 'armed' && rec.currentTrailStop != null && !rec.lossSlArmed) {
-    const beStop = breakevenPlusFeesStopPx(
-      input.direction,
-      input.entryPrice,
-      input.absSize,
-      feesUsd
-    );
-    rec.currentTrailStop = ratchetStop(input.direction, rec.currentTrailStop, beStop);
-
-    if (shouldUpgradeToTrailing(input.pnlUsd, input.collateralUsd)) {
-      rec.phase = 'trailing';
-      logger.info('HL trailing stop armed (stage 2)', {
-        coin: input.coin,
-        direction: input.direction,
-        roe: roePct(input.pnlUsd, input.collateralUsd).toFixed(2),
-        pnlUsd: input.pnlUsd.toFixed(4),
-        peakPnlUsd: rec.highestPnlSinceEntry.toFixed(4),
-      });
-    } else if (isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop)) {
-      const wasGreen = rec.highestPnlSinceEntry > 0;
-      const exitReason = input.pnlUsd > 0 ? 'profit_lock' : wasGreen ? 'breakeven_scratch' : 'stop_loss';
-      const detail =
-        exitReason === 'breakeven_scratch'
-          ? `BREAKEVEN SCRATCH · ${input.direction} ${input.coin} · lock crossed after peak $${rec.highestPnlSinceEntry.toFixed(4)} · ${formatAnalytics(rec, input.markPrice)}`
-          : `BREAKEVEN LOCK · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
-      return {
-        record: rec,
-        shouldClose: true,
-        exitReason,
-        closeDetail: detail,
-      };
-    } else {
-      return {
-        record: rec,
-        shouldClose: false,
-        exitReason: '',
-        closeDetail: '',
-      };
-    }
+  // Fell back below arm threshold while never armed — stay idle
+  if (rec.phase === 'idle' && input.pnlUsd > 0 && !shouldArmProfitTrail(input.pnlUsd, input.collateralUsd)) {
+    return { record: rec, ...noClose };
   }
 
-  // Phase 3 — ratchet trail (only moves in profit direction).
-  if (rec.phase === 'trailing' && rec.currentTrailStop != null) {
-    const trailMult = Math.max(0.75, Math.min(2, input.trailDistanceMult ?? 1));
-    const trailDist =
-      (await resolveTrailDistancePx(input.coin, input.markPrice)) * trailMult;
-    rec.lastTrailDistancePx = trailDist;
-    const trailCandidate =
-      input.direction === 'LONG'
-        ? rec.highestPriceSinceEntry - trailDist
-        : rec.highestPriceSinceEntry + trailDist;
-    rec.currentTrailStop = ratchetStop(
-      input.direction,
-      rec.currentTrailStop,
-      trailCandidate
-    );
-
-    if (input.trailCloseDeferred) {
-      return {
-        record: rec,
-        shouldClose: false,
-        exitReason: '',
-        closeDetail: '',
-      };
-    }
-
-    const peakFrac = config.hyperliquid.profitPeakDropFraction;
-    const peakMinFees = config.hyperliquid.profitPeakMinFeesMult;
-    const runWiden =
-      trailMult >= 1.12 ? (trailMult >= 1.5 ? 1.45 : 1.2) : 1;
-    if (
-      rec.highestPnlSinceEntry >= feesUsd * peakMinFees &&
-      rec.highestPnlSinceEntry >= Math.max(input.collateralUsd * 0.02, feesUsd * 15) &&
-      input.pnlUsd > 0 &&
-      peakFrac > 0 &&
-      rec.timeInProfitMs >= cfg.armMinProfitHoldMs &&
-      !trailTooYoungToClose(rec, input.nowMs, trailMult)
-    ) {
-      const drop = rec.highestPnlSinceEntry - input.pnlUsd;
-      const minDrop = Math.max(feesUsd, rec.highestPnlSinceEntry * peakFrac * runWiden);
-      if (drop >= minDrop) {
-        const detail = `PEAK PROFIT GRAB · ${input.direction} ${input.coin} · peak $${rec.highestPnlSinceEntry.toFixed(4)} → $${input.pnlUsd.toFixed(4)}`;
-        return {
-          record: rec,
-          shouldClose: true,
-          exitReason: 'profit_grab_peak',
-          closeDetail: detail,
-        };
-      }
-    }
-
-    if (
-      isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop) &&
-      !trailTooYoungToClose(rec, input.nowMs, trailMult) &&
-      input.pnlUsd > 0
-    ) {
-      const detail = `TRAILING STOP · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
-      return {
-        record: rec,
-        shouldClose: true,
-        exitReason: 'trailing_stop',
-        closeDetail: detail,
-      };
-    }
-  }
-
-  return {
-    record: rec,
-    shouldClose: false,
-    exitReason: '',
-    closeDetail: '',
-  };
+  return { record: rec, ...noClose };
 }
 
 export function trailRecordToLegacyPeak(rec: DynamicTrailRecord): number {

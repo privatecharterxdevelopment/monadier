@@ -2,13 +2,21 @@ import React from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
 import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
-import { HL_BOT_STRATEGY_LABELS } from '../../lib/hlBotStrategy';
+import { HL_DYNAMIC_TRAIL } from '../../lib/hlBotStrategy';
+import BotMetricPill from './BotMetricPill';
 
 type Props = {
   settings: VaultSettingsSnapshot;
   onAdjust: () => void;
   disabled?: boolean;
 };
+
+const DESCRIPTIONS = {
+  risk: 'Share of your HL balance used as margin per trade — not the same as leverage.',
+  lvrg: 'Hyperliquid multiplier on that margin. Bot clamps to each market’s max leverage.',
+  trail:
+    'Dynamic ATR trail: arms in profit, stop ratchets with price. Winners can run; exits only when trail is hit.',
+} as const;
 
 const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disabled }) => {
   const eff = effectiveHlBotSettings(settings);
@@ -19,32 +27,22 @@ const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disable
       role="group"
       aria-label="Bot risk and leverage settings"
     >
-      <div className="term-bot-settings-values">
-        <span>
-          <span className="term-bot-settings-k">Mode</span>{' '}
-          <span className="term-bot-settings-v">{HL_BOT_STRATEGY_LABELS[settings.hlBotStrategy]}</span>
-        </span>
-        <span className="term-bot-settings-dot" aria-hidden>
-          ·
-        </span>
-        <span>
-          <span className="term-bot-settings-k">Risk</span>{' '}
-          <span className="term-bot-settings-v">{eff.riskPct}%</span>
-        </span>
-        <span className="term-bot-settings-dot" aria-hidden>
-          ·
-        </span>
-        <span>
-          <span className="term-bot-settings-k">LVRG</span>{' '}
-          <span className="term-bot-settings-v">{eff.leverage}x</span>
-        </span>
-        <span className="term-bot-settings-dot" aria-hidden>
-          ·
-        </span>
-        <span title="Dynamic ATR trailing stop — arms in profit, exits on price cross">
-          <span className="term-bot-settings-k">Trail</span>{' '}
-          <span className="term-bot-settings-v">+{eff.trailArmRoePct}% ROE · ATR</span>
-        </span>
+      <div className="term-bot-settings-pills">
+        <BotMetricPill
+          label="Risk"
+          value={`${eff.riskPct}%`}
+          description={DESCRIPTIONS.risk}
+        />
+        <BotMetricPill
+          label="LVRG"
+          value={`${eff.leverage}x`}
+          description={DESCRIPTIONS.lvrg}
+        />
+        <BotMetricPill
+          label="Trail"
+          value={`+${HL_DYNAMIC_TRAIL.breakevenArmRoePct}%→+${HL_DYNAMIC_TRAIL.armMinRoePct}%`}
+          description={`Arms at +${HL_DYNAMIC_TRAIL.breakevenArmRoePct}% ROE in profit, locks +${HL_DYNAMIC_TRAIL.armMinRoePct}% with ${HL_DYNAMIC_TRAIL.trailGapRoePct}% air from peak.`}
+        />
       </div>
       <button
         type="button"

@@ -160,10 +160,18 @@ const TerminalHlLiveChartInner: React.FC<Props> = ({
         ) : null}
         {market.error && !hasCandles ? (
           <div className="term-hl-live-chart__loading term-hl-live-chart__loading--err">
-            {market.error}
+            <span>{market.error}</span>
+            <button
+              type="button"
+              className="term-hl-live-follow-btn"
+              onClick={() => void market.refresh()}
+            >
+              Retry chart
+            </button>
           </div>
         ) : null}
         <ProTradeHlLightweightChart
+          key={`hl-${coin}-${interval}`}
           coin={coin}
           interval={interval}
           candles={market.candles}
@@ -175,6 +183,10 @@ const TerminalHlLiveChartInner: React.FC<Props> = ({
           markPx={markPx > 0 ? markPx : undefined}
           scrollToLiveTick={scrollToLiveTick}
           onFollowLiveChange={setFollowLive}
+          onRetry={() => void market.refresh()}
+          wsConnected={market.wsConnected}
+          chartError={market.error}
+          fetchAttempts={market.fetchAttempts}
         />
       </div>
     </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   CandlestickSeries,
   ColorType,
@@ -26,7 +26,9 @@ import {
   chartBarSpacing,
   chartSecondsVisible,
 } from '../../lib/hyperliquid/chartZoom';
-import { candlePriceRange, chartSanitizeRef, sanitizeChartCandles } from '../../lib/hyperliquid/chartCandles';
+import { candlePriceRange, chartSanitizeRef, resolveChartCandlesForDisplay } from '../../lib/hyperliquid/chartCandles';
+import { chartDebugLog, chartDebugWarn } from '../../lib/hyperliquid/chartDebug';
+import ChartDebugOverlay, { type ChartHealthSnapshot } from './ChartDebugOverlay';
 
 type Props = {
   coin: string;
@@ -55,6 +57,10 @@ type Props = {
   /** Bump to re-enable auto-scroll after user panned away. */
   scrollToLiveTick?: number;
   onFollowLiveChange?: (following: boolean) => void;
+  onRetry?: () => void;
+  wsConnected?: boolean;
+  chartError?: string | null;
+  fetchAttempts?: number;
 };
 
 function safeChartOp(fn: () => void) {
@@ -82,6 +88,10 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
   markPx,
   scrollToLiveTick = 0,
   onFollowLiveChange,
+  onRetry,
+  wsConnected,
+  chartError,
+  fetchAttempts,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -105,6 +115,22 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
   const themeRef = useRef(theme);
   const prevThemeForDataRef = useRef(theme);
   const prevCoinForDataRef = useRef(coin);
+  const prevIntervalForDataRef = useRef(interval);
+  const [health, setHealth] = useState<ChartHealthSnapshot>({
+    coin,
+    interval,
+    loading,
+    rawCount: 0,
+    displayCount: 0,
+    dropped: 0,
+    usedFallback: false,
+    containerW: 0,
+    containerH: 0,
+    blankReason: loading ? 'loading' : candles.length === 0 ? 'no-data' : null,
+    wsConnected,
+    error: chartError ?? null,
+    fetchAttempts,
+  });
 
   const buildAutoscaleProvider = () => {
     return () => {
@@ -237,12 +263,18 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
 
     const ro = new ResizeObserver(() => {
       if (!aliveRef.current) return;
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      if (w < 2 || h < 2) {
+        chartDebugWarn('canvas', 'zero-size', { w, h, coin, interval });
+      }
       safeChartOp(() => {
-        chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
+        chart.applyOptions({ width: w, height: h });
         if (candlesRef.current.length > 0) {
           applyChartZoom(chart, candlesRef.current.length);
         }
       });
+      setHealth((prev) => ({ ...prev, containerW: w, containerH: h }));
     });
     ro.observe(el);
     safeChartOp(() => {
@@ -324,21 +356,71 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
   }, [tradeMarkers, coin]);
 
   useEffect(() => {
+    const series = seriesRef.current;
+    const volumeSeries = volumeRef.current;
+    const chart = chartRef.current;
+    if (!series || !volumeSeries || !chart || !aliveRef.current) return;
+
+    candlesRef.current = [];
+    prevCoinForDataRef.current = '';
+    prevIntervalForDataRef.current = '';
+    followLiveRef.current = true;
+
+    safeChartOp(() => {
+      series.setData([]);
+      volumeSeries.setData([]);
+      for (const line of priceLinesRef.current) {
+        series.removePriceLine(line);
+      }
+      priceLinesRef.current = [];
+      if (markLineRef.current) {
+        series.removePriceLine(markLineRef.current);
+        markLineRef.current = null;
+      }
+      markersPluginRef.current?.setMarkers([]);
+    });
+  }, [coin, interval, layoutKey]);
+
+  useEffect(() => {
     const chart = chartRef.current;
     const el = containerRef.current;
     if (!chart || !el || !aliveRef.current) return;
-    candlesRef.current = [];
-    followLiveRef.current = true;
     const frame = requestAnimationFrame(() => {
       if (!aliveRef.current) return;
       safeChartOp(() => {
         chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
-        if (candlesRef.current.length > 0) {
-          showLatestBars(chart, candlesRef.current.length);
-        }
       });
     });
     return () => cancelAnimationFrame(frame);
+  }, [layoutKey, coin, interval]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || !aliveRef.current) return undefined;
+    let attempts = 0;
+    let raf = 0;
+    const ensureSize = () => {
+      if (!aliveRef.current) return;
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      setHealth((prev) => ({ ...prev, containerW: w, containerH: h }));
+      if ((w < 2 || h < 2) && attempts < 24) {
+        attempts += 1;
+        raf = requestAnimationFrame(ensureSize);
+        return;
+      }
+      const chart = chartRef.current;
+      if (chart && w >= 2 && h >= 2) {
+        safeChartOp(() => {
+          chart.applyOptions({ width: w, height: h });
+          if (candlesRef.current.length > 0) {
+            applyChartZoom(chart, candlesRef.current.length);
+          }
+        });
+      }
+    };
+    ensureSize();
+    return () => cancelAnimationFrame(raf);
   }, [layoutKey, coin, interval]);
 
   useEffect(() => {
@@ -375,17 +457,76 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
 
     if (candles.length === 0) {
       candlesRef.current = [];
+      setHealth((prev) => ({
+        ...prev,
+        coin,
+        interval,
+        loading,
+        rawCount: 0,
+        displayCount: 0,
+        dropped: 0,
+        usedFallback: false,
+        blankReason: loading ? 'loading' : chartError ?? 'no-data',
+        wsConnected,
+        error: chartError ?? null,
+        fetchAttempts,
+      }));
       safeChartOp(() => {
         series.setData([]);
         volumeSeries.setData([]);
       });
+      if (!loading) {
+        chartDebugWarn('canvas', 'no-candles', { coin, interval, chartError });
+      }
       return;
     }
 
     const refPx = chartSanitizeRef(candles, markPxRef.current);
-    const clean = sanitizeChartCandles(candles, refPx);
+    const resolved = resolveChartCandlesForDisplay(candles, refPx);
+    const clean = resolved.candles;
+    if (resolved.usedFallback) {
+      chartDebugWarn('canvas', 'sanitize-fallback', {
+        coin,
+        interval,
+        rawCount: resolved.rawCount,
+        refPx,
+      });
+    } else if (resolved.dropped > 0) {
+      chartDebugLog('canvas', 'sanitize-dropped', {
+        coin,
+        interval,
+        rawCount: resolved.rawCount,
+        cleanCount: resolved.cleanCount,
+        dropped: resolved.dropped,
+      });
+    }
+
+    const el = containerRef.current;
+    const containerW = el?.clientWidth ?? 0;
+    const containerH = el?.clientHeight ?? 0;
+    const blankReason =
+      containerW < 2 || containerH < 2
+        ? `canvas zero-size (${containerW}×${containerH})`
+        : null;
+    setHealth({
+      coin,
+      interval,
+      loading,
+      rawCount: resolved.rawCount,
+      displayCount: resolved.cleanCount,
+      dropped: resolved.dropped,
+      usedFallback: resolved.usedFallback,
+      containerW,
+      containerH,
+      blankReason,
+      wsConnected,
+      error: chartError ?? null,
+      fetchAttempts,
+    });
+
     if (clean.length === 0) {
       candlesRef.current = [];
+      chartDebugWarn('canvas', 'display-empty', { coin, interval, rawCount: candles.length });
       safeChartOp(() => {
         series.setData([]);
         volumeSeries.setData([]);
@@ -398,11 +539,14 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     const nextFirst = clean[0]?.time;
     const themeChanged = prevThemeForDataRef.current !== theme;
     const coinChanged = prevCoinForDataRef.current !== coin;
+    const intervalChanged = prevIntervalForDataRef.current !== interval;
     if (themeChanged) prevThemeForDataRef.current = theme;
     if (coinChanged) prevCoinForDataRef.current = coin;
+    if (intervalChanged) prevIntervalForDataRef.current = interval;
     const fullReset =
       themeChanged ||
       coinChanged ||
+      intervalChanged ||
       prev.length === 0 ||
       prevFirst !== nextFirst ||
       clean.length < prev.length;
@@ -455,7 +599,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
 
       candlesRef.current = clean;
     });
-  }, [candles, coin, interval, theme, markPx]);
+  }, [candles, coin, interval, theme, markPx, loading, chartError, wsConnected, fetchAttempts]);
 
   useEffect(() => {
     const series = seriesRef.current;
@@ -588,16 +732,31 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     });
   }, [markPx, theme]);
 
+  const isBlank = !loading && candles.length === 0;
+  const showDebug = isBlank || health.blankReason != null;
+
   return (
-    <>
+    <div className="hl-chart-canvas-wrap">
       {loading && candles.length === 0 ? (
         <div className="hl-chart-empty">Loading chart…</div>
       ) : null}
-      {!loading && candles.length === 0 ? (
-        <div className="hl-chart-empty">Chart data unavailable</div>
+      {isBlank ? (
+        <div className="hl-chart-empty hl-chart-empty--action">
+          <span>{chartError ?? 'Chart data unavailable'}</span>
+          {onRetry ? (
+            <button type="button" className="hl-chart-empty__retry" onClick={onRetry}>
+              Retry
+            </button>
+          ) : null}
+        </div>
       ) : null}
       <div ref={containerRef} className="hl-chart-canvas" />
-    </>
+      <ChartDebugOverlay
+        health={health}
+        onRetry={onRetry}
+        forceVisible={showDebug}
+      />
+    </div>
   );
 };
 

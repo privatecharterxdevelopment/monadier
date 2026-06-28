@@ -14,6 +14,7 @@ import {
 } from '../lib/hyperliquid/spot';
 import { toNum } from '../lib/hyperliquid/parse';
 import { chartLookbackMs } from '../lib/hyperliquid/chartZoom';
+import { chartDebugLog, chartDebugWarn } from '../lib/hyperliquid/chartDebug';
 import { getHlWsClient } from '../lib/hyperliquid/ws';
 import type {
   HlCandleBar,
@@ -38,11 +39,13 @@ type State = {
   loading: boolean;
   error: string | null;
   wsConnected: boolean;
+  fetchAttempts: number;
 };
 
 const SNAPSHOT_POLL_MS = 10_000;
 const BOOK_FALLBACK_POLL_MS = 2_000;
-const INTERVAL_DEBOUNCE_MS = 280;
+const EMPTY_CANDLE_RETRY_MS = 900;
+const MAX_EMPTY_CANDLE_RETRIES = 4;
 const BOOK_THROTTLE_MS = 16;
 const TRADES_THROTTLE_MS = 48;
 const CANDLE_THROTTLE_MS = 50;
@@ -131,9 +134,43 @@ export function useHyperliquidMarket(
     loading: true,
     error: null,
     wsConnected: false,
+    fetchAttempts: 0,
   });
 
   const bookKeyRef = useRef('');
+  const emptyRetryRef = useRef(0);
+  const emptyRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Block WS candle merges until REST history for coin+interval is applied. */
+  const historyReadyRef = useRef(false);
+  const marketKeyRef = useRef('');
+
+  const marketKey = `${normCoin(coin)}:${interval}:${kind}`;
+
+  const clearEmptyRetry = useCallback(() => {
+    if (emptyRetryTimerRef.current) {
+      clearTimeout(emptyRetryTimerRef.current);
+      emptyRetryTimerRef.current = null;
+    }
+    emptyRetryRef.current = 0;
+  }, []);
+
+  const scheduleEmptyRetry = useCallback(
+    (reason: string, run: () => Promise<void>) => {
+      if (emptyRetryRef.current >= MAX_EMPTY_CANDLE_RETRIES) {
+        chartDebugWarn('market', 'empty-candles-gave-up', { coin, interval, reason });
+        historyReadyRef.current = true;
+        return;
+      }
+      emptyRetryRef.current += 1;
+      const attempt = emptyRetryRef.current;
+      chartDebugWarn('market', 'empty-candles-retry', { coin, interval, reason, attempt });
+      emptyRetryTimerRef.current = setTimeout(() => {
+        emptyRetryTimerRef.current = null;
+        void run();
+      }, EMPTY_CANDLE_RETRY_MS * attempt);
+    },
+    [coin, interval]
+  );
 
   const refreshSnapshot = useCallback(async () => {
     if (!enabled) return;
@@ -182,32 +219,76 @@ export function useHyperliquidMarket(
 
   const refreshCandles = useCallback(async () => {
     if (!enabled) return;
+    const requestedCoin = normCoin(coin);
+    const attempt = emptyRetryRef.current + 1;
+    chartDebugLog('market', 'fetch-candles-start', { coin: requestedCoin, interval, attempt });
     try {
       const candles =
         kind === 'spot'
           ? await fetchHlSpotCandles(coin, interval)
           : await fetchHlCandles(coin, interval, chartLookbackMs(interval));
-      setState((prev) => ({
-        ...prev,
-        candles,
-        loading: false,
-        error: null,
-      }));
+      let shouldRetry = false;
+      setState((prev) => {
+        if (normCoin(coin) !== requestedCoin) return prev;
+        if (candles.length === 0) {
+          shouldRetry = true;
+          return {
+            ...prev,
+            loading: false,
+            error: prev.candles.length > 0 ? null : 'No candle data from Hyperliquid',
+            fetchAttempts: attempt,
+          };
+        }
+        clearEmptyRetry();
+        historyReadyRef.current = true;
+        chartDebugLog('market', 'fetch-candles-ok', {
+          coin: requestedCoin,
+          interval,
+          count: candles.length,
+          attempt,
+        });
+        return {
+          ...prev,
+          candles,
+          loading: false,
+          error: null,
+          fetchAttempts: attempt,
+        };
+      });
+      if (shouldRetry) {
+        scheduleEmptyRetry('empty-response', refreshCandles);
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Chart data unavailable';
       const isRateLimit = message.includes('429');
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        // Keep last candles visible during brief HL rate limits.
-        error: isRateLimit && prev.candles.length > 0 ? null : message,
-      }));
+      let shouldRetry = false;
+      chartDebugWarn('market', 'fetch-candles-fail', {
+        coin: requestedCoin,
+        interval,
+        message,
+        attempt,
+      });
+      setState((prev) => {
+        if (normCoin(coin) !== requestedCoin) return prev;
+        shouldRetry = !isRateLimit || prev.candles.length === 0;
+        return {
+          ...prev,
+          loading: false,
+          error: isRateLimit && prev.candles.length > 0 ? null : message,
+          fetchAttempts: attempt,
+        };
+      });
+      if (shouldRetry) {
+        scheduleEmptyRetry('fetch-error', refreshCandles);
+      }
     }
-  }, [coin, interval, kind, enabled]);
+  }, [coin, interval, kind, enabled, clearEmptyRetry, scheduleEmptyRetry]);
 
   const refresh = useCallback(async () => {
     if (!enabled) return;
     const requestedCoin = normCoin(coin);
+    const attempt = emptyRetryRef.current + 1;
+    chartDebugLog('market', 'refresh-start', { coin: requestedCoin, interval, kind, attempt });
     try {
       const [candles, book, snapshot, recentTrades] = await Promise.all([
         kind === 'spot'
@@ -217,9 +298,33 @@ export function useHyperliquidMarket(
         kind === 'spot' ? fetchHlSpotMarketSnapshot(coin) : fetchHlMarketSnapshot(coin),
         kind === 'spot' ? fetchHlSpotRecentTrades(coin) : fetchHlRecentTrades(coin),
       ]);
+      let shouldRetry = false;
       setState((prev) => {
         if (normCoin(coin) !== requestedCoin) return prev;
         bookKeyRef.current = bookLevelsKey(book);
+        if (candles.length === 0) {
+          shouldRetry = true;
+          return {
+            ...prev,
+            book,
+            snapshot,
+            recentTrades: sortTapeTrades(
+              recentTrades.filter((t) => coinMatches(t.coin, requestedCoin))
+            ),
+            loading: false,
+            error: prev.candles.length > 0 ? null : 'No candle data from Hyperliquid',
+            wsConnected: false,
+            fetchAttempts: attempt,
+          };
+        }
+        clearEmptyRetry();
+        historyReadyRef.current = true;
+        chartDebugLog('market', 'refresh-ok', {
+          coin: requestedCoin,
+          interval,
+          candleCount: candles.length,
+          attempt,
+        });
         return {
           candles,
           book,
@@ -230,22 +335,37 @@ export function useHyperliquidMarket(
           loading: false,
           error: null,
           wsConnected: false,
+          fetchAttempts: attempt,
         };
       });
+      if (shouldRetry) {
+        scheduleEmptyRetry('empty-response', refreshCandles);
+      }
     } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Market data unavailable';
+      chartDebugWarn('market', 'refresh-fail', { coin: requestedCoin, interval, message, attempt });
+      let shouldRetry = false;
       setState((prev) => {
         if (normCoin(coin) !== requestedCoin) return prev;
+        shouldRetry = prev.candles.length === 0;
         return {
           ...prev,
           loading: false,
-          error: err instanceof Error ? err.message : 'Market data unavailable',
+          error: message,
+          fetchAttempts: attempt,
         };
       });
+      if (shouldRetry) {
+        scheduleEmptyRetry('refresh-error', refreshCandles);
+      }
     }
-  }, [coin, interval, kind, enabled]);
+  }, [coin, interval, kind, enabled, clearEmptyRetry, scheduleEmptyRetry, refreshCandles]);
 
   useEffect(() => {
     if (!enabled) {
+      clearEmptyRetry();
+      historyReadyRef.current = false;
+      marketKeyRef.current = '';
       setState({
         candles: [],
         book: null,
@@ -254,37 +374,33 @@ export function useHyperliquidMarket(
         loading: false,
         error: null,
         wsConnected: false,
+        fetchAttempts: 0,
       });
       return;
     }
-    setState((prev) => ({
-      ...prev,
+    clearEmptyRetry();
+    historyReadyRef.current = false;
+    marketKeyRef.current = marketKey;
+    setState({
+      candles: [],
+      book: null,
+      snapshot: null,
+      recentTrades: [],
       loading: true,
       error: null,
       wsConnected: false,
-    }));
+      fetchAttempts: 0,
+    });
+    chartDebugLog('market', 'market-change', {
+      coin: normCoin(coin),
+      interval,
+      kind,
+      marketKey,
+    });
     void refresh();
-    // Interval changes are handled separately (candles only).
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- coin/kind/enabled only
-  }, [coin, kind, enabled]);
+  }, [coin, interval, kind, enabled, marketKey, clearEmptyRetry, refresh]);
 
-  const prevIntervalRef = useRef<HlInterval | null>(null);
-
-  useEffect(() => {
-    prevIntervalRef.current = null;
-  }, [coin, kind, enabled]);
-
-  useEffect(() => {
-    if (!enabled) return undefined;
-    if (prevIntervalRef.current === null) {
-      prevIntervalRef.current = interval;
-      return undefined;
-    }
-    if (prevIntervalRef.current === interval) return undefined;
-    prevIntervalRef.current = interval;
-    const id = window.setTimeout(() => void refreshCandles(), INTERVAL_DEBOUNCE_MS);
-    return () => window.clearTimeout(id);
-  }, [interval, refreshCandles, enabled]);
+  useEffect(() => () => clearEmptyRetry(), [clearEmptyRetry]);
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -316,12 +432,14 @@ export function useHyperliquidMarket(
     const bar = pendingCandleRef.current;
     if (!bar) return;
     pendingCandleRef.current = null;
+    if (!historyReadyRef.current) return;
+    if (marketKeyRef.current !== marketKey) return;
     setState((prev) => ({
       ...prev,
       candles: mergeCandle(prev.candles, bar),
       wsConnected: true,
     }));
-  }, []);
+  }, [marketKey]);
 
   const scheduleCandle = useCallback(
     (bar: HlCandleBar) => {

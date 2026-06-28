@@ -53,8 +53,6 @@ import {
   shouldHardLossClose,
   computeMaxLossCapUsd,
   evaluatePositionThesis,
-  evaluateTrailPullbackAnalysis,
-  logTrailPullbackAnalysis,
   type ProfitRunAnalysis,
 } from './positionThesisGate';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
@@ -1234,47 +1232,9 @@ export class HyperliquidTradingService {
       });
 
       trailRecord = trailResult.record;
-      let shouldCloseTrail = trailResult.shouldClose;
-      let trailExitReason = trailResult.exitReason;
-      let trailCloseDetail = trailResult.closeDetail;
-
-      if (shouldCloseTrail && pnl > 0) {
-        const deferMax = config.hyperliquid.trailSweepDeferMax;
-        const deferMs = config.hyperliquid.trailSweepDeferMs;
-        const strongRun =
-          runAnalysis?.bias === 'strong_run' || runAnalysis?.bias === 'run';
-
-        if (trailExitReason === 'profit_grab_peak' && strongRun && runAnalysis?.thesis.thesisIntact) {
-          shouldCloseTrail = false;
-          logger.info('HL peak grab skipped — winner still running', {
-            user: userAddress.slice(0, 10),
-            coin: pos.coin,
-            bias: runAnalysis.bias,
-            pnlUsd: pnl.toFixed(4),
-            peakUsd: trailRecord.highestPnlSinceEntry.toFixed(4),
-          });
-        } else if (trailExitReason === 'trailing_stop') {
-          const verdict = await evaluateTrailPullbackAnalysis({
-            coin: pos.coin,
-            direction: positionDirection,
-            pnlUsd: pnl,
-            floorUsd: pnl,
-            peakUsd: trailRecord.highestPnlSinceEntry,
-          });
-          const canDefer =
-            verdict.deferClose &&
-            (trailRecord.trailCloseDeferCount ?? 0) < deferMax;
-          logTrailPullbackAnalysis(userAddress, pos.coin, verdict, canDefer);
-          if (canDefer) {
-            shouldCloseTrail = false;
-            trailRecord = {
-              ...trailRecord,
-              trailCloseDeferUntil: nowMs + deferMs,
-              trailCloseDeferCount: (trailRecord.trailCloseDeferCount ?? 0) + 1,
-            };
-          }
-        }
-      }
+      const shouldCloseTrail = trailResult.shouldClose;
+      const trailExitReason = trailResult.exitReason;
+      const trailCloseDetail = trailResult.closeDetail;
 
       saveTrailRecord(lockKey, trailRecord);
 

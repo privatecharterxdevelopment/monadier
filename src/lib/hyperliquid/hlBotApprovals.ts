@@ -17,19 +17,41 @@ export type HlBotApprovalResult = {
   builderFeeSigned: boolean;
 };
 
-/** One-time HL platform fee — skipped when Monadier builder wallet is not funded on HL yet. */
-export async function approveHlBuilderFeeIfNeeded(
-  walletClient: WalletClient,
-  walletAddress: string
-): Promise<boolean> {
+const BUILDER_VERIFY_ATTEMPTS = 10;
+const BUILDER_VERIFY_DELAY_MS = 600;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Read maxBuilderFee from Hyperliquid — source of truth for fee approval. */
+export async function verifyHlBuilderFeeOnChain(walletAddress: string): Promise<boolean> {
   const config = getHlBuilderConfig();
-  if (!config.enabled) return false;
+  if (!config.enabled) return true;
 
   const platform = await fetchHlBuilderPlatformStatus();
   if (!platform.ready) return false;
 
   const max = await fetchMaxBuilderFee(walletAddress, config.address);
-  if (isBuilderApprovalSufficient(max)) return false;
+  return isBuilderApprovalSufficient(max);
+}
+
+/** Sign + verify platform fee on HL. Throws if still not approved on-chain. */
+export async function approveHlBuilderFeeRequired(
+  walletClient: WalletClient,
+  walletAddress: string
+): Promise<void> {
+  const config = getHlBuilderConfig();
+  if (!config.enabled) return;
+
+  const platform = await fetchHlBuilderPlatformStatus();
+  if (!platform.ready) {
+    throw new Error(
+      'Platform fee is not active yet — wait a minute and try Approve platform fee again.'
+    );
+  }
+
+  if (await verifyHlBuilderFeeOnChain(walletAddress)) return;
 
   const client = createHlExchangeClient(walletClient);
   try {
@@ -40,22 +62,39 @@ export async function approveHlBuilderFeeIfNeeded(
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     if (isBuilderPlatformError(msg)) {
-      return false;
+      throw new Error(
+        'Platform fee could not be approved — Monadier builder wallet may still be funding. Try again shortly.'
+      );
     }
     throw err;
   }
+
+  for (let i = 0; i < BUILDER_VERIFY_ATTEMPTS; i++) {
+    if (await verifyHlBuilderFeeOnChain(walletAddress)) return;
+    await sleep(BUILDER_VERIFY_DELAY_MS);
+  }
+
+  throw new Error(
+    'Platform fee not detected on Hyperliquid. Confirm the fee approval signature in your wallet (separate from the trading agent), then try again.'
+  );
+}
+
+/** @deprecated Use approveHlBuilderFeeRequired — never skip silently. */
+export async function approveHlBuilderFeeIfNeeded(
+  walletClient: WalletClient,
+  walletAddress: string
+): Promise<boolean> {
+  const before = await verifyHlBuilderFeeOnChain(walletAddress);
+  if (before) return false;
+  await approveHlBuilderFeeRequired(walletClient, walletAddress);
   return true;
 }
 
-/**
- * Agent + platform fee in one flow (1–2 wallet signatures).
- * Same approvals as manual Pro Trade — bundled for the bot panel.
- */
-export async function completeHlBotApprovals(opts: {
+export async function approveHlBotAgentRequired(opts: {
   walletClient: WalletClient;
   walletAddress: string;
   userId?: string;
-}): Promise<HlBotApprovalResult> {
+}): Promise<boolean> {
   const { walletClient, walletAddress } = opts;
 
   const meta = await fetchHlAgentAddress(walletAddress);
@@ -66,6 +105,7 @@ export async function completeHlBotApprovals(opts: {
   const hadAgent = Boolean(
     await findActiveHlAgent(walletAddress, meta.agentAddress)
   );
+  if (hadAgent) return false;
 
   await approveAndSaveHlBotAgent({
     walletClient,
@@ -75,11 +115,23 @@ export async function completeHlBotApprovals(opts: {
     expiresAt: meta.expiresAt ?? null,
     userId: opts.userId,
   });
+  return true;
+}
 
-  const builderFeeSigned = await approveHlBuilderFeeIfNeeded(walletClient, walletAddress);
-
-  return {
-    agentSigned: !hadAgent,
-    builderFeeSigned,
-  };
+/**
+ * @deprecated Bot start must not bundle approvals — use approveHlBotAgentRequired
+ * and approveHlBuilderFeeRequired as separate steps before Start bot.
+ */
+export async function completeHlBotApprovals(opts: {
+  walletClient: WalletClient;
+  walletAddress: string;
+  userId?: string;
+}): Promise<HlBotApprovalResult> {
+  const agentSigned = await approveHlBotAgentRequired(opts);
+  const beforeFee = await verifyHlBuilderFeeOnChain(opts.walletAddress);
+  if (!beforeFee) {
+    await approveHlBuilderFeeRequired(opts.walletClient, opts.walletAddress);
+  }
+  const builderFeeSigned = !beforeFee;
+  return { agentSigned, builderFeeSigned };
 }

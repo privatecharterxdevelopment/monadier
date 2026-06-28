@@ -1,6 +1,10 @@
 import React from 'react';
 import { Check } from 'lucide-react';
 import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
+import {
+  hlBotSuccessFeeApprovalDescription,
+  hlBotSuccessFeeShortLabel,
+} from '../../lib/hyperliquid/hlBotSuccessFee';
 
 type Props = {
   walletReady: boolean;
@@ -18,12 +22,12 @@ const STEPS = [
   {
     n: 2,
     title: 'Deposit USDC',
-    body: `Min $${MIN_HL_BOT_USD} on HL — in Monadier, no site switch.`,
+    body: `Only native USDC on Arbitrum One (not BNB or other chains). Deposit in Monadier — min $${MIN_HL_BOT_USD} for the bot.`,
   },
   {
     n: 3,
-    title: 'Start bot',
-    body: 'One-time HL signatures (agent + platform fee), then runs 24/7 until you stop it.',
+    title: 'Approvals & start',
+    body: 'Approve trading agent, then platform fee (two wallet signatures), then Start bot.',
   },
 ] as const;
 
@@ -33,16 +37,16 @@ function stepBody(
   builderFeeEnabled: boolean
 ): string {
   if (step.n === 2 && hlBalanceUsd >= MIN_HL_BOT_USD) {
-    return `HL balance $${hlBalanceUsd.toFixed(2)} — funded (min $${MIN_HL_BOT_USD}).`;
+    return `HL balance $${hlBalanceUsd.toFixed(2)} — funded (min $${MIN_HL_BOT_USD}). Native USDC on Arbitrum only.`;
   }
   if (step.n === 3 && hlBalanceUsd >= MIN_HL_BOT_USD) {
     const feeNote = builderFeeEnabled
-      ? ` + platform fee (max ${import.meta.env.VITE_HL_BUILDER_MAX_APPROVAL || '0.1%'})`
+      ? ` Approve ${hlBotSuccessFeeShortLabel()} before Start bot.`
       : '';
-    return `Press Start bot — MetaMask allows trading only (no USDC withdrawal). Agent${feeNote}, then bot runs 24/7.`;
+    return `Balance funded — approve trading agent${feeNote} Agent allows trading only (no withdrawals).`;
   }
   if (step.n === 3 && builderFeeEnabled) {
-    return `Press Start bot — one-time signatures: trading agent (no withdrawals) + auto 10% success fee on wins via HL (max ${import.meta.env.VITE_HL_BUILDER_MAX_APPROVAL || '0.1%'}).`;
+    return `Approve trading agent, then ${hlBotSuccessFeeShortLabel()}, then Start bot. ${hlBotSuccessFeeApprovalDescription()}`;
   }
   return step.body;
 }

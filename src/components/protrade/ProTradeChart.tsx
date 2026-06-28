@@ -1,4 +1,4 @@
-import React, { Component, useEffect, useState } from 'react';
+import React, { Component, useState } from 'react';
 import type { SeriesMarker, UTCTimestamp } from 'lightweight-charts';
 import type { HlCandleBar, HlInterval } from '../../lib/hyperliquid/types';
 import type { HlOpenOrder } from '../../lib/hyperliquid/user';
@@ -73,6 +73,10 @@ type Props = {
   tradeMarkers?: SeriesMarker<UTCTimestamp>[];
   scrollToLiveTick?: number;
   onFollowLiveChange?: (following: boolean) => void;
+  onChartRetry?: () => void;
+  wsConnected?: boolean;
+  chartError?: string | null;
+  fetchAttempts?: number;
 };
 
 const CHART_ENGINE_STORAGE = 'monadier-hl-chart-engine';
@@ -104,29 +108,23 @@ const ProTradeChartInner: React.FC<Props> = ({
   tradeMarkers = [],
   scrollToLiveTick,
   onFollowLiveChange,
+  onChartRetry,
+  wsConnected,
+  chartError,
+  fetchAttempts,
 }) => {
   const { theme } = useProTradeTheme();
   const [engine, setEngine] = useState<ChartEngine>(() => readStoredEngine(defaultEngine));
-  const [mountedEngine, setMountedEngine] = useState<ChartEngine | 'none'>(() =>
-    readStoredEngine(defaultEngine)
-  );
 
   const switchEngine = (next: ChartEngine) => {
     if (next === engine) return;
     setEngine(next);
-    setMountedEngine('none');
     try {
       localStorage.setItem(CHART_ENGINE_STORAGE, next);
     } catch {
       /* ignore */
     }
   };
-
-  useEffect(() => {
-    if (mountedEngine === engine) return undefined;
-    const id = window.setTimeout(() => setMountedEngine(engine), 32);
-    return () => clearTimeout(id);
-  }, [engine, mountedEngine]);
 
   return (
     <div className="hl-chart-wrap">
@@ -179,15 +177,11 @@ const ProTradeChartInner: React.FC<Props> = ({
           ) : null}
         </div>
       ) : null}
-      <ChartPaneErrorBoundary
-        engine={mountedEngine === 'none' ? engine : mountedEngine}
-        theme={theme}
-      >
+      <ChartPaneErrorBoundary engine={engine} theme={theme}>
         <div className="hl-chart-engine">
-          {mountedEngine === 'none' ? (
-            <div className="hl-chart-empty" aria-hidden />
-          ) : mountedEngine === 'hl' ? (
+          {engine === 'hl' ? (
             <ProTradeHlLightweightChart
+              key={`hl-${coin}-${interval}`}
               coin={coin}
               interval={interval}
               candles={candles}
@@ -201,6 +195,10 @@ const ProTradeChartInner: React.FC<Props> = ({
               markPx={markPx}
               scrollToLiveTick={scrollToLiveTick}
               onFollowLiveChange={onFollowLiveChange}
+              onRetry={onChartRetry}
+              wsConnected={wsConnected}
+              chartError={chartError}
+              fetchAttempts={fetchAttempts}
             />
           ) : (
             <ProTradeTradingViewChart

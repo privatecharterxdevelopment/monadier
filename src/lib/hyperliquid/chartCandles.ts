@@ -1,5 +1,41 @@
 import type { HlCandleBar } from './types';
 
+export type ChartCandleResolve = {
+  candles: HlCandleBar[];
+  rawCount: number;
+  cleanCount: number;
+  dropped: number;
+  usedFallback: boolean;
+};
+
+/** Sanitize for display; if band filter removes everything, keep raw bars so chart never goes blank. */
+export function resolveChartCandlesForDisplay(
+  candles: HlCandleBar[],
+  refPx?: number
+): ChartCandleResolve {
+  const rawCount = candles.length;
+  if (rawCount === 0) {
+    return { candles: [], rawCount: 0, cleanCount: 0, dropped: 0, usedFallback: false };
+  }
+  const clean = sanitizeChartCandles(candles, refPx);
+  if (clean.length > 0) {
+    return {
+      candles: clean,
+      rawCount,
+      cleanCount: clean.length,
+      dropped: rawCount - clean.length,
+      usedFallback: false,
+    };
+  }
+  return {
+    candles,
+    rawCount,
+    cleanCount: rawCount,
+    dropped: 0,
+    usedFallback: true,
+  };
+}
+
 /** Prefer candle close — markPx can lag one coin behind after switching pairs. */
 export function chartSanitizeRef(candles: HlCandleBar[], markPx?: number): number | undefined {
   const fromBar = candles[candles.length - 1]?.close ?? candles[0]?.close ?? 0;
@@ -45,14 +81,15 @@ export function candlePriceRange(
   extraPx: number[] = []
 ): { minValue: number; maxValue: number } | null {
   const clean = sanitizeChartCandles(candles, refPx);
-  if (clean.length < 2) return null;
+  if (clean.length === 0) return null;
 
   const ref =
     refPx && refPx > 0 ? refPx : clean[clean.length - 1].close;
   let minV = ref;
   let maxV = ref;
 
-  for (const c of clean.slice(-120)) {
+  const slice = clean.slice(-120);
+  for (const c of slice) {
     minV = Math.min(minV, c.low);
     maxV = Math.max(maxV, c.high);
   }

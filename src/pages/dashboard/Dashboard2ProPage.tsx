@@ -194,6 +194,8 @@ const Dashboard2ProPageContent: React.FC = () => {
     (perpAccountValue > 0 ? perpAccountValue : Math.max(perpAccountValue, spotUsdc));
 
   const perpMarkPx = toNum(perpMarket.snapshot?.markPx);
+  const chartMarkPx =
+    perpMarket.loading && perpMarket.candles.length === 0 ? undefined : perpMarkPx;
 
   const activePerpTwap = useMemo(
     () =>
@@ -590,7 +592,11 @@ const Dashboard2ProPageContent: React.FC = () => {
               openOrders={perpOpenOrders}
               onIntervalChange={setInterval}
               layoutKey={`perps-${perpCoin}-${interval}`}
-              markPx={perpMarkPx}
+              markPx={chartMarkPx}
+              onChartRetry={() => void perpMarket.refresh()}
+              wsConnected={perpMarket.wsConnected}
+              chartError={perpMarket.error}
+              fetchAttempts={perpMarket.fetchAttempts}
             />
             <ProTradeOrderBook
               book={perpMarket.book}
@@ -709,9 +715,13 @@ const Dashboard2ProPageContent: React.FC = () => {
                 openOrders={perpOpenOrders}
                 onIntervalChange={setInterval}
                 layoutKey={`bot-${perpCoin}-${interval}`}
-                markPx={perpMarkPx}
+                markPx={chartMarkPx}
                 positionOverlay={botChartOverlay}
                 tradeMarkers={botTradeMarkers}
+                onChartRetry={() => void perpMarket.refresh()}
+                wsConnected={perpMarket.wsConnected}
+                chartError={perpMarket.error}
+                fetchAttempts={perpMarket.fetchAttempts}
               />
               <ProTradeBotAnalysis
                 walletConnected={isConnected}

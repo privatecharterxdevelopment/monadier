@@ -4,9 +4,6 @@
  * Vercel preview / local dev: marketing at `/`, Pro Trade at `/app` on the same origin
  */
 
-const APP_BASE = (import.meta.env.VITE_APP_URL as string | undefined)?.replace(/\/$/, '') ?? '';
-const SITE_BASE = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, '') ?? '';
-
 /** Same-origin app entry when marketing + app share one host (Vercel preview, local dev). */
 const DEV_APP_PATH = '/app';
 
@@ -14,19 +11,51 @@ function normalizePath(path: string): string {
   return path.startsWith('/') ? path : `/${path}`;
 }
 
+function configuredSiteBase(): string {
+  return (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, '') ?? '';
+}
+
+function configuredAppBase(): string {
+  return (import.meta.env.VITE_APP_URL as string | undefined)?.replace(/\/$/, '') ?? '';
+}
+
+/**
+ * Preview / local — stay on current origin even when Vercel env has monadier.io URLs.
+ * (Otherwise logo, login, landing links hard-jump to production.)
+ */
+export function isUnifiedOriginHost(hostname?: string): boolean {
+  const h =
+    hostname ?? (typeof window !== 'undefined' ? window.location.hostname : '');
+  if (!h) return false;
+  if (import.meta.env.VITE_UNIFIED_ORIGIN === 'true') return true;
+  return h === 'localhost' || h === '127.0.0.1' || h.endsWith('.vercel.app');
+}
+
+function effectiveSiteBase(): string {
+  if (typeof window !== 'undefined' && isUnifiedOriginHost()) return '';
+  return configuredSiteBase();
+}
+
+function effectiveAppBase(): string {
+  if (typeof window !== 'undefined' && isUnifiedOriginHost()) return '';
+  return configuredAppBase();
+}
+
 function getSiteHostname(): string | null {
-  if (!SITE_BASE) return null;
+  const siteBase = effectiveSiteBase();
+  if (!siteBase) return null;
   try {
-    return new URL(SITE_BASE).hostname;
+    return new URL(siteBase).hostname;
   } catch {
     return null;
   }
 }
 
 function getAppHostname(): string | null {
-  if (!APP_BASE) return null;
+  const appBase = effectiveAppBase();
+  if (!appBase) return null;
   try {
-    return new URL(APP_BASE).hostname;
+    return new URL(appBase).hostname;
   } catch {
     return null;
   }
@@ -34,6 +63,7 @@ function getAppHostname(): string | null {
 
 /** Live split setup: marketing and app on different hostnames (monadier.io vs app.monadier.io). */
 function usesSplitDomainSetup(): boolean {
+  if (typeof window !== 'undefined' && isUnifiedOriginHost()) return false;
   const siteHost = getSiteHostname();
   const appHost = getAppHostname();
   return Boolean(siteHost && appHost && siteHost !== appHost);
@@ -42,6 +72,7 @@ function usesSplitDomainSetup(): boolean {
 /** Current page is the configured production marketing host. */
 function isOnMarketingHost(): boolean {
   if (typeof window === 'undefined') return false;
+  if (isUnifiedOriginHost()) return false;
   const siteHost = getSiteHostname();
   if (!siteHost) return false;
   return window.location.hostname === siteHost;
@@ -111,8 +142,9 @@ export function getAppQueryLink(search: string): string {
 
 /** Navigate to Pro Trade (hard navigation — reliable from marketing CTAs). */
 export function goToOpenApp(search = '', replace = false): void {
-  if (shouldCrossNavigateToApp() && APP_BASE) {
-    const url = `${APP_BASE}${OPEN_APP_PATH}${search}`;
+  const appBase = effectiveAppBase();
+  if (shouldCrossNavigateToApp() && appBase) {
+    const url = `${appBase}${OPEN_APP_PATH}${search}`;
     if (replace) window.location.replace(url);
     else window.location.assign(url);
     return;
@@ -125,17 +157,19 @@ export function goToOpenApp(search = '', replace = false): void {
 
 export function getAppUrl(path?: string): string {
   const p = normalizePath(path ?? getAppEntryPath());
-  if (shouldCrossNavigateToApp() && APP_BASE) return `${APP_BASE}${p}`;
+  const appBase = effectiveAppBase();
+  if (shouldCrossNavigateToApp() && appBase) return `${appBase}${p}`;
   if (typeof window !== 'undefined') {
     const local = getOpenAppPath();
     return p === OPEN_APP_PATH ? local : p;
   }
-  return APP_BASE ? `${APP_BASE}${p}` : DEV_APP_PATH;
+  return appBase ? `${appBase}${p}` : DEV_APP_PATH;
 }
 
 export function getMarketingUrl(path = LANDING_PATH): string {
   const p = normalizePath(path);
-  return SITE_BASE ? `${SITE_BASE}${p}` : p;
+  const siteBase = effectiveSiteBase();
+  return siteBase ? `${siteBase}${p}` : p;
 }
 
 export function isAppHost(): boolean {
@@ -221,7 +255,8 @@ export function getAdminDashboardUrl(): string {
   if (typeof window !== 'undefined') {
     return `${window.location.origin}${getAdminDashboardPath()}`;
   }
-  if (APP_BASE) return `${APP_BASE}${getAdminDashboardPath()}`;
+  const appBase = effectiveAppBase();
+  if (appBase) return `${appBase}${getAdminDashboardPath()}`;
   return getAdminDashboardPath();
 }
 
@@ -289,7 +324,7 @@ export function afterAuthGo(
 
 export function goToMarketing(path = LANDING_PATH, replace = false): string | null {
   const url = getMarketingUrl(path);
-  if (isExternalAppUrl(url)) {
+  if (isExternalAppUrl(url) && !isUnifiedOriginHost()) {
     if (replace) window.location.replace(url);
     else window.location.assign(url);
     return null;

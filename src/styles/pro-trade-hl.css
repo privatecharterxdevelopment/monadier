@@ -1697,6 +1697,7 @@
   border: 1px solid var(--hl-border);
   font-variant-numeric: tabular-nums;
   max-width: 100%;
+  cursor: help;
 }
 
 .hl-chart-bot-pill__label {
@@ -1821,6 +1822,22 @@
   opacity: 0.75;
 }
 
+.hl-chart-canvas-wrap {
+  flex: 1;
+  width: 100%;
+  min-height: 200px;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hl-chart-canvas-wrap .hl-chart-canvas {
+  flex: 1;
+  min-height: 0;
+}
+
 .hl-chart-canvas {
   flex: 1;
   width: 100%;
@@ -1842,6 +1859,94 @@
   justify-content: center;
   color: var(--hl-text-faint);
   font-size: 12px;
+}
+
+.hl-chart-empty--action {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  flex-direction: column;
+  gap: 10px;
+  background: color-mix(in srgb, var(--hl-chart-bg) 88%, transparent);
+  pointer-events: auto;
+}
+
+.hl-chart-empty__retry,
+.hl-chart-debug__retry {
+  border: 1px solid var(--hl-border);
+  background: var(--hl-bg-panel);
+  color: var(--hl-text);
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.hl-chart-empty__retry:hover,
+.hl-chart-debug__retry:hover {
+  background: var(--hl-bg-hover);
+}
+
+.hl-chart-debug {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 4;
+  max-width: min(420px, calc(100% - 16px));
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--hl-border) 80%, #f59e0b);
+  background: color-mix(in srgb, var(--hl-bg-panel) 92%, #000 8%);
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--hl-text-faint);
+  pointer-events: auto;
+}
+
+.hl-chart-debug__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.hl-chart-debug__title {
+  font-weight: 600;
+  color: var(--hl-text);
+}
+
+.hl-chart-debug__reason {
+  color: #f59e0b;
+}
+
+.hl-chart-debug__ok {
+  color: #22c55e;
+}
+
+.hl-chart-debug__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hl-chart-debug__err {
+  color: #ef4444;
+}
+
+.hl-chart-debug__log {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 72px;
+  overflow: auto;
+  opacity: 0.85;
+}
+
+.hl-chart-debug__log li {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Order book ── */

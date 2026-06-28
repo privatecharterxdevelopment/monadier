@@ -1,7 +1,6 @@
 import {
   HL_DYNAMIC_TRAIL,
   shouldArmDynamicTrail,
-  defaultTrailPctForCoin,
   type HlBotStrategy,
 } from './hlBotStrategy';
 
@@ -48,24 +47,26 @@ export type HlChartPositionOverlay = {
   takeProfitMarginPct?: number;
 };
 
-function markFromPosition(entryPx: number, szi: number, pnlUsd: number): number {
-  if (!entryPx || Math.abs(szi) < 1e-12) return entryPx;
-  return entryPx + pnlUsd / szi;
+function roePct(pnlUsd: number, collateralUsd: number): number {
+  if (collateralUsd <= 0) return 0;
+  return (pnlUsd / collateralUsd) * 100;
 }
 
-function breakevenPlusFeesStopPx(
+function stopPxForRoePct(
   direction: 'long' | 'short',
   entryPx: number,
   absSize: number,
-  notionalUsd: number
+  collateralUsd: number,
+  lockRoePct: number
 ): number {
-  const fees = notionalUsd * (HL_DYNAMIC_TRAIL.estimatedFeeBpsPerSide / 10_000) * 2;
-  const bufferUsd = Math.max(
-    fees * 0.5,
-    entryPx * absSize * (HL_DYNAMIC_TRAIL.breakevenBufferPct / 100)
-  );
-  const move = (fees + bufferUsd) / absSize;
+  const lockPnlUsd = collateralUsd * (lockRoePct / 100);
+  const move = lockPnlUsd / absSize;
   return direction === 'long' ? entryPx + move : entryPx - move;
+}
+
+function profitTrailLockRoePct(peakPnlUsd: number, collateralUsd: number): number {
+  const peakRoe = roePct(peakPnlUsd, collateralUsd);
+  return Math.max(HL_DYNAMIC_TRAIL.armMinRoePct, peakRoe - HL_DYNAMIC_TRAIL.trailGapRoePct);
 }
 
 function ratchetStop(
@@ -77,46 +78,43 @@ function ratchetStop(
   return direction === 'long' ? Math.max(current, candidate) : Math.min(current, candidate);
 }
 
-/** Dynamic price trail — mirrors bot-service evaluateDynamicTrail (tier % fallback). */
+/** ROE trail — mirrors bot: +0.2% arm, +0.1% lock, 0.1% gap from peak. */
 export function computeDynamicTrailStopPx(opts: {
   entryPx: number;
   szi: number;
   unrealizedPnlUsd: number;
-  extremeFavorablePx: number;
+  peakPnlUsd?: number;
   coin: string;
   notionalUsd: number;
   collateralUsd: number;
-  holdMs?: number;
-  timeInProfitMs?: number;
-}): { stopPx: number | null; armed: boolean; breached: boolean } {
+}): { stopPx: number | null; armed: boolean; breached: boolean; lockRoePct: number } {
   const side = opts.szi >= 0 ? ('long' as const) : ('short' as const);
   const absSize = Math.abs(opts.szi);
-  const mark = markFromPosition(opts.entryPx, opts.szi, opts.unrealizedPnlUsd);
   const armed = shouldArmDynamicTrail(
     opts.unrealizedPnlUsd,
     opts.collateralUsd,
-    opts.notionalUsd,
-    { holdMs: opts.holdMs, timeInProfitMs: opts.timeInProfitMs }
+    opts.notionalUsd
   );
   if (!armed) {
-    return { stopPx: null, armed: false, breached: false };
+    return { stopPx: null, armed: false, breached: false, lockRoePct: 0 };
   }
 
-  const trailPct = defaultTrailPctForCoin(opts.coin);
-  const trailDist = mark * trailPct;
-  const extreme =
-    side === 'long'
-      ? Math.max(opts.extremeFavorablePx, mark)
-      : Math.min(opts.extremeFavorablePx, mark);
+  const peakPnl = Math.max(opts.peakPnlUsd ?? opts.unrealizedPnlUsd, opts.unrealizedPnlUsd);
+  const lockRoe = profitTrailLockRoePct(peakPnl, opts.collateralUsd);
+  let stop = stopPxForRoePct(
+    side,
+    opts.entryPx,
+    absSize,
+    opts.collateralUsd,
+    lockRoe
+  );
+  stop = ratchetStop(side, null, stop);
 
-  let stop = breakevenPlusFeesStopPx(side, opts.entryPx, absSize, opts.notionalUsd);
-  const trailCandidate = side === 'long' ? extreme - trailDist : extreme + trailDist;
-  stop = ratchetStop(side, stop, trailCandidate);
+  const mark =
+    opts.entryPx + (opts.unrealizedPnlUsd / opts.szi);
+  const breached = side === 'long' ? mark <= stop : mark >= stop;
 
-  const breached =
-    side === 'long' ? mark <= stop : mark >= stop;
-
-  return { stopPx: stop, armed: true, breached };
+  return { stopPx: stop, armed: true, breached, lockRoePct: lockRoe };
 }
 
 export function computeHlChartPositionOverlay(opts: {
@@ -148,7 +146,7 @@ export function computeHlChartPositionOverlay(opts: {
     entryPx,
     szi: opts.szi,
     unrealizedPnlUsd: opts.unrealizedPnlUsd,
-    extremeFavorablePx: opts.extremeFavorablePx,
+    peakPnlUsd: peak,
     coin: opts.coin,
     notionalUsd: notional,
     collateralUsd: collateral,
@@ -175,7 +173,7 @@ export function computeHlChartPositionOverlay(opts: {
   };
 }
 
-/** Trail stop price for open-position tables (mirrors bot dynamic trail). */
+/** Trail stop for open-position tables. */
 export function trailStopForOpenPosition(opts: {
   entryPx: number;
   szi: number;
@@ -183,49 +181,39 @@ export function trailStopForOpenPosition(opts: {
   unrealizedPnlUsd: number;
   leverage: number;
   coin: string;
-  /** Ms since position first seen in UI — approximates min-hold before BE lock. */
   holdMs?: number;
-}): { stopPx: number | null; armed: boolean; label: string } {
+}): { stopPx: number | null; armed: boolean; label: string; title?: string } {
   const absSize = Math.abs(opts.szi);
   if (opts.entryPx <= 0 || absSize <= 0 || opts.markPx <= 0) {
     return { stopPx: null, armed: false, label: '—' };
   }
   const notional = absSize * opts.markPx;
   const collateral = notional / Math.max(1, opts.leverage);
-  const holdMs = opts.holdMs ?? 0;
   const trail = computeDynamicTrailStopPx({
     entryPx: opts.entryPx,
     szi: opts.szi,
     unrealizedPnlUsd: opts.unrealizedPnlUsd,
-    extremeFavorablePx: opts.markPx,
+    peakPnlUsd: opts.unrealizedPnlUsd,
     coin: opts.coin,
     notionalUsd: notional,
     collateralUsd: collateral,
-    holdMs,
-    timeInProfitMs: opts.unrealizedPnlUsd > 0 ? holdMs : 0,
   });
+
   if (!trail.armed || trail.stopPx == null) {
-    const armingMin = Math.ceil(HL_DYNAMIC_TRAIL.armMinProfitHoldMs / 60_000);
-    if (opts.unrealizedPnlUsd > 0 && holdMs < HL_DYNAMIC_TRAIL.armMinProfitHoldMs) {
-      return {
-        stopPx: null,
-        armed: false,
-        label: `Arming (~${armingMin}m)`,
-      };
+    const roe = roePct(opts.unrealizedPnlUsd, collateral);
+    if (opts.unrealizedPnlUsd > 0 && roe < HL_DYNAMIC_TRAIL.breakevenArmRoePct) {
+      return { stopPx: null, armed: false, label: 'Arming SL' };
     }
-    return {
-      stopPx: null,
-      armed: false,
-      label: opts.unrealizedPnlUsd > 0 ? `Arming (+${HL_DYNAMIC_TRAIL.breakevenArmRoePct}% ROE or $${HL_DYNAMIC_TRAIL.armMinProfitUsd})` : 'Idle',
-    };
+    if (opts.unrealizedPnlUsd > 0) {
+      return { stopPx: null, armed: false, label: 'Arming SL' };
+    }
+    return { stopPx: null, armed: false, label: 'Idle' };
   }
-  const roe = collateral > 0 ? (opts.unrealizedPnlUsd / collateral) * 100 : 0;
-  const phase = roe >= HL_DYNAMIC_TRAIL.armMinRoePct ? 'Trail' : 'BE lock';
+
   return {
     stopPx: trail.stopPx,
     armed: true,
-    label: `${phase} $${trail.stopPx.toLocaleString(undefined, {
-      maximumFractionDigits: opts.markPx >= 100 ? 2 : 4,
-    })}`,
+    label: `Trail +${trail.lockRoePct.toFixed(2)}%`,
+    title: `Profit trail locked at +${trail.lockRoePct.toFixed(2)}% ROE — closes on cross`,
   };
 }

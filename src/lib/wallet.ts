@@ -23,7 +23,7 @@ export const hasWalletProjectId = Boolean(
 export const projectId = hasWalletProjectId ? envProjectId : PLACEHOLDER_PROJECT_ID;
 
 const getOrigin = () => {
-  if (typeof window === 'undefined') return 'https://app.monadier.io';
+  if (typeof window === 'undefined') return 'http://localhost:5173';
   return window.location.origin;
 };
 

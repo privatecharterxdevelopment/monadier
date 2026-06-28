@@ -26,12 +26,8 @@ function computePhase(
 ): HlBotSetupPhase {
   if (!hlLoaded) return 'loading';
   if (tradableUsd < MIN_HL_BOT_USD) return 'fund';
-  if (
-    !agentApproved ||
-    (builderFeeEnabled && builderPlatformReady && !builderFeeApproved)
-  ) {
-    return 'approve';
-  }
+  if (!agentApproved) return 'approve';
+  if (builderFeeEnabled && !builderFeeApproved) return 'approve';
   return 'ready';
 }
 

@@ -453,9 +453,10 @@ const ProTradeDock: React.FC<Props> = ({
                       {isBotMode ? (
                         <td
                           title={
-                            trail.armed
+                            trail.title ??
+                            (trail.armed
                               ? 'Bot-managed dynamic trail — market close on cross'
-                              : 'Arms after +2.5% ROE in profit'
+                              : 'Trail in profit — stop arms automatically')
                           }
                         >
                           {trail.label}

@@ -116,9 +116,10 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
                 <td
                   className="term-hl-trail-col"
                   title={
-                    trail.armed
+                    trail.title ??
+                    (trail.armed
                       ? 'Bot-managed dynamic trail — closes at market when price crosses'
-                      : 'Trail arms after +2.5% ROE in profit (~7 min hold)'
+                      : 'Trail in profit — stop arms automatically')
                   }
                 >
                   {trail.label}
