@@ -7,7 +7,7 @@ import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
 import { validateNoAltPumpShort } from './pumpShortGate';
-import { isTrendOnlyLongAllowed, isTrendOnlyShortAllowed } from './trendOnly';
+import { mtfOverridesTrendOnlyFilter } from './analysisFirstOpen';
 import { classifyCoinTier, isBotExcludedCoin, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 
@@ -152,8 +152,11 @@ async function scanStandardCoin(
     if ((analysis.metrics?.trendAlignment ?? 0) < minAlign) return null;
     if (
       !relaxed &&
-      ((analysis.direction === 'LONG' && !isTrendOnlyLongAllowed(analysis.metrics?.h1Trend)) ||
-        (analysis.direction === 'SHORT' && !isTrendOnlyShortAllowed(analysis.metrics?.h1Trend)))
+      !mtfOverridesTrendOnlyFilter(
+        analysis.direction,
+        analysis.metrics?.h1Trend,
+        analysis.metrics?.directionalTfCount
+      )
     ) {
       return null;
     }
@@ -213,22 +216,25 @@ async function scanAggressiveCoin(
     const h1Check = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
     if (h1Check) {
       if (scalp.direction === 'SHORT') {
-        if (/UP/i.test(String(h1Check.metrics?.h1Trend ?? ''))) {
-          logger.debug('HL agg scan skip: 1h trend UP blocks SHORT', { coin });
-          return null;
-        }
         const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
         if (!pumpGate.ok) {
           logger.debug('HL agg scan skip: pump-short gate', { coin, reason: pumpGate.reason });
           return null;
         }
       }
-      if (scalp.direction === 'LONG' && !isTrendOnlyLongAllowed(h1Check?.metrics?.h1Trend)) {
-        logger.debug('HL agg scan skip: 1h blocks LONG (trend-only)', { coin });
-        return null;
-      }
-      if (scalp.direction === 'SHORT' && !isTrendOnlyShortAllowed(h1Check?.metrics?.h1Trend)) {
-        logger.debug('HL agg scan skip: 1h blocks SHORT (trend-only)', { coin });
+      if (
+        h1Check &&
+        !mtfOverridesTrendOnlyFilter(
+          scalp.direction,
+          h1Check.metrics?.h1Trend,
+          h1Check.metrics?.directionalTfCount
+        )
+      ) {
+        logger.debug('HL agg scan skip: 1h blocks direction', {
+          coin,
+          direction: scalp.direction,
+          h1: h1Check.metrics?.h1Trend,
+        });
         return null;
       }
     }

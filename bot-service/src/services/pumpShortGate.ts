@@ -7,6 +7,7 @@ import { logger } from '../utils/logger';
 import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { STANDARD_MTF_TIMEFRAMES } from '../lib/mtfTimeframes';
+import { MAJOR_COINS } from './coinTier';
 
 export type PumpShortResult = {
   ok: boolean;
@@ -50,6 +51,13 @@ export async function validateNoAltPumpShort(opts: {
   }
 
   const coin = opts.coin.toUpperCase();
+
+  if (MAJOR_COINS.has(coin)) {
+    return {
+      ok: true,
+      reason: `${coin} major — chart MTF drives SHORT timing (no alt-pump gate)`,
+    };
+  }
 
   const cfg = config.hyperliquid.pumpShort;
   const symbol = hlCoinToBinanceSymbol(coin);

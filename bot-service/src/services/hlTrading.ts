@@ -39,6 +39,7 @@ import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, isBotExcludedCoin, MAJOR_COINS, needsCautionPath, volumeRankForCoin } from './coinTier';
 import { validateCoinNews } from './coinNewsGate';
 import type { NewsTradeMode } from './newsTradeMode';
+import { trustsScanAnalysis } from './analysisFirstOpen';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import { validatePumpSweepGate } from './pumpSweepGate';
 import { validateScalpAlignment } from './scalpAlignGate';
@@ -144,8 +145,9 @@ function bypassesLiquidityGate(signal: GlobalSignalCandidate): boolean {
 function shouldRelaxSecondaryGates(
   pick: GlobalSignalCandidate,
   coin: string,
-  _direction: 'LONG' | 'SHORT'
+  direction: 'LONG' | 'SHORT'
 ): boolean {
+  if (trustsScanAnalysis(pick) && pick.direction === direction) return true;
   if (MAJOR_COINS.has(coin.toUpperCase())) return true;
   if (isStrongGlobalScanPick(pick)) return true;
   if (/top-pairs fallback|relaxed scan/i.test(pick.reason)) return true;
@@ -828,7 +830,22 @@ export class HyperliquidTradingService {
         return { success: false, error: newsGate.reason };
       }
 
-      const freshPumpGate = await validateNotFreshlyPumped({ coin, tier: coinTier });
+      const strongMtf = isStrongGlobalScanPick(opts.pick);
+      const relaxSecondaryGates = shouldRelaxSecondaryGates(
+        opts.pick,
+        coin,
+        opts.direction
+      );
+      const trustAnalysis =
+        trustsScanAnalysis(opts.pick) && opts.pick.direction === opts.direction;
+
+      const freshPumpGate =
+        trustAnalysis
+          ? {
+              ok: true as const,
+              reason: `Scan MTF ${opts.pick.confidence}% — fresh-pump re-check skipped`,
+            }
+          : await validateNotFreshlyPumped({ coin, tier: coinTier });
       if (!freshPumpGate.ok) {
         logger.info('HL open blocked — fresh pump skip (step 2)', {
           user: opts.userAddress.slice(0, 10),
@@ -838,13 +855,6 @@ export class HyperliquidTradingService {
         });
         return { success: false, error: freshPumpGate.reason };
       }
-
-      const strongMtf = isStrongGlobalScanPick(opts.pick);
-      const relaxSecondaryGates = shouldRelaxSecondaryGates(
-        opts.pick,
-        coin,
-        opts.direction
-      );
 
       const candleAnalytics = relaxSecondaryGates
           ? {
@@ -897,10 +907,45 @@ export class HyperliquidTradingService {
         return { success: false, error: scalpGate.reason };
       }
 
-      const macroGate = await validateMacroBetaAlignment({
-        coin,
-        direction: opts.direction,
-      });
+      const macroGate = trustAnalysis
+        ? {
+            ok: true as const,
+            reason: `Scan MTF ${opts.pick.confidence}% / ${opts.pick.directionalTfCount ?? 0} TFs — macro re-check skipped`,
+            snapshot: {
+              coin,
+              anchor: MAJOR_COINS.has(coin) ? ('SELF' as const) : ('BTC' as const),
+              btc: {
+                change15mPct: 0,
+                change1hPct: 0,
+                trend15m: 'FLAT' as const,
+                trend1h: 'FLAT' as const,
+                consecutiveGreen15m: 0,
+                consecutiveRed15m: 0,
+              },
+              eth: {
+                change15mPct: 0,
+                change1hPct: 0,
+                trend15m: 'FLAT' as const,
+                trend1h: 'FLAT' as const,
+                consecutiveGreen15m: 0,
+                consecutiveRed15m: 0,
+              },
+              coinMom: {
+                change15mPct: 0,
+                change1hPct: 0,
+                trend15m: 'FLAT' as const,
+                trend1h: 'FLAT' as const,
+                consecutiveGreen15m: 0,
+                consecutiveRed15m: 0,
+              },
+              checkedAt: new Date().toISOString(),
+            },
+            blockers: [] as string[],
+          }
+        : await validateMacroBetaAlignment({
+            coin,
+            direction: opts.direction,
+          });
       if (!macroGate.ok) {
         logger.info('HL open blocked — macro beta gate', {
           user: opts.userAddress.slice(0, 10),
@@ -912,10 +957,19 @@ export class HyperliquidTradingService {
         return { success: false, error: macroGate.reason };
       }
 
-      const pumpShortGate = await validateNoAltPumpShort({
-        coin,
-        direction: opts.direction,
-      });
+      const pumpShortGate =
+        trustAnalysis || opts.direction === 'LONG'
+          ? {
+              ok: true as const,
+              reason:
+                opts.direction === 'LONG'
+                  ? 'Pump-short gate — LONG entries allowed'
+                  : `Scan MTF ${opts.pick.confidence}% — pump-short re-check skipped`,
+            }
+          : await validateNoAltPumpShort({
+              coin,
+              direction: opts.direction,
+            });
       if (!pumpShortGate.ok) {
         logger.info('HL open blocked — pump-short gate', {
           user: opts.userAddress.slice(0, 10),

@@ -17,7 +17,10 @@ export type HlBotSidebarStatus = {
 
 function simplifyBlocker(raw: string): string {
   if (isInternalPlatformOpsMessage(raw)) return '';
-  if (/no trade signal|MTF|bot conf|Pre-trade gate|Macro beta|Volume 0\.00x|ETH-beta|BTC-beta| ‖ /.test(raw)) {
+  if (/SHORT blocked|Pair still pumping|macro against|Macro beta|LONG blocked/i.test(raw)) {
+    return raw.length > 140 ? `${raw.slice(0, 137)}…` : raw;
+  }
+  if (/no trade signal|MTF|bot conf|Pre-trade gate|Volume 0\.00x|ETH-beta|BTC-beta| ‖ /.test(raw)) {
     return '';
   }
   if (/HL agent not approved/i.test(raw)) {
