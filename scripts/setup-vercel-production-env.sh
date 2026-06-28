@@ -59,7 +59,7 @@ else
   echo "⚠ Skip wallet project id — add VITE_WALLETCONNECT_PROJECT_ID to .env.local (https://cloud.reown.com)"
 fi
 
-add_env VITE_HL_BUILDER_ADDRESS "${VITE_HL_BUILDER_ADDRESS:-0x64d79e57640A8d4A56Ad1d08c932B5CCF0B263a9}"
+add_env VITE_HL_BUILDER_ADDRESS "${VITE_HL_BUILDER_ADDRESS:-0x1fbc2a0ab6a8fa5f6b9645392433483b25a8cd84}"
 
 if [[ -n "${VITE_ADMIN_EMAILS:-}" ]]; then
   add_env VITE_ADMIN_EMAILS "$VITE_ADMIN_EMAILS"
