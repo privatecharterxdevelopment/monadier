@@ -11,6 +11,7 @@ import { mtfOverridesTrendOnlyFilter } from './analysisFirstOpen';
 import { classifyCoinTier, isBotExcludedCoin, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
+import { validateEntryLocation } from './entryLocationGate';
 
 export type BotSignalMode = 'standard' | 'aggressive';
 
@@ -37,6 +38,20 @@ export type GlobalSignalCandidate = {
 };
 
 const STANDARD_STRATEGY: TradingStrategy = 'normal';
+
+async function validateScanEntryLocation(
+  coin: string,
+  symbol: string,
+  direction: 'LONG' | 'SHORT'
+): Promise<{ ok: true; locationReason: string } | { ok: false }> {
+  if (direction !== 'LONG') return { ok: true, locationReason: '' };
+  const loc = await validateEntryLocation({ symbol, coin, direction });
+  if (!loc.ok) {
+    logger.debug('HL scan skip: S/R gate', { coin, direction, reason: loc.reason });
+    return { ok: false };
+  }
+  return { ok: true, locationReason: loc.reason };
+}
 
 export type HlGlobalScanStats = {
   coinsScanned: number;
@@ -168,6 +183,8 @@ async function scanStandardCoin(
         return null;
       }
     }
+    const location = await validateScanEntryLocation(coin, symbol, analysis.direction);
+    if (!location.ok) return null;
     return {
       coin,
       symbol,
@@ -185,6 +202,7 @@ async function scanStandardCoin(
       h1Trend: analysis.metrics?.h1Trend,
       signalReasons: analysis.signalReasons,
       indicators: analysis.indicators,
+      locationReason: location.locationReason || undefined,
     };
   } catch {
     return null;
@@ -240,6 +258,9 @@ async function scanAggressiveCoin(
       }
     }
 
+    const location = await validateScanEntryLocation(coin, symbol, scalp.direction);
+    if (!location.ok) return null;
+
     return {
       coin,
       symbol,
@@ -258,6 +279,7 @@ async function scanAggressiveCoin(
         ...(h1Check?.signalReasons ?? []),
       ],
       indicators: h1Check?.indicators,
+      locationReason: location.locationReason || undefined,
     };
   } catch {
     return null;

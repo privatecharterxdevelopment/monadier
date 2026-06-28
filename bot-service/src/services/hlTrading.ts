@@ -147,8 +147,8 @@ function bypassesLiquidityGate(signal: GlobalSignalCandidate): boolean {
   return signal.confidence >= 65 && tfs >= 2;
 }
 
-/** Strong scan picks already passed MTF — skip redundant live re-checks at open. */
-function shouldRelaxSecondaryGates(
+/** Macro/pump gates — may skip when MTF scan already aligned (never for entry level). */
+function shouldRelaxMacroGates(
   pick: GlobalSignalCandidate,
   coin: string,
   direction: 'LONG' | 'SHORT'
@@ -159,6 +159,16 @@ function shouldRelaxSecondaryGates(
   if (/top-pairs fallback|relaxed scan/i.test(pick.reason)) return true;
   const tfs = pick.directionalTfCount ?? 0;
   return pick.confidence >= 65 && tfs >= 2;
+}
+
+/** S/R, 20-candle, momentum — always enforced on LONG (MTF ≠ good entry price). */
+function shouldRelaxStructuralGates(
+  pick: GlobalSignalCandidate,
+  coin: string,
+  direction: 'LONG' | 'SHORT'
+): boolean {
+  if (direction === 'LONG') return false;
+  return shouldRelaxMacroGates(pick, coin, direction);
 }
 
 /** Global scan already proved multi-TF alignment — skip redundant live re-checks. */
@@ -861,7 +871,8 @@ export class HyperliquidTradingService {
       }
 
       const strongMtf = isStrongGlobalScanPick(opts.pick);
-      const relaxSecondaryGates = shouldRelaxSecondaryGates(
+      const relaxMacroGates = shouldRelaxMacroGates(opts.pick, coin, opts.direction);
+      const relaxStructuralGates = shouldRelaxStructuralGates(
         opts.pick,
         coin,
         opts.direction
@@ -886,7 +897,7 @@ export class HyperliquidTradingService {
         return { success: false, error: freshPumpGate.reason };
       }
 
-      const candleAnalytics = relaxSecondaryGates
+      const candleAnalytics = relaxStructuralGates
           ? {
               ok: true as const,
               reason: `Scan pick — pre-open candle check skipped (${opts.pick.confidence}%)`,
@@ -919,7 +930,7 @@ export class HyperliquidTradingService {
 
       const isAggressive = opts.pick.botMode === 'aggressive';
       const scalpGate =
-        relaxSecondaryGates || !isAggressive
+        relaxStructuralGates || !isAggressive
           ? {
               ok: true as const,
               reason: isAggressive
@@ -1029,7 +1040,7 @@ export class HyperliquidTradingService {
         return { success: false, error: megaGate.reason };
       }
 
-      const perpCtxGate = relaxSecondaryGates
+      const perpCtxGate = relaxStructuralGates
         ? {
             ok: true as const,
             reason: `Strong MTF scan — perp context skipped (${opts.pick.confidence}%)`,
@@ -1049,7 +1060,7 @@ export class HyperliquidTradingService {
         return { success: false, error: perpCtxGate.reason };
       }
 
-      const pumpSweepGate = relaxSecondaryGates
+      const pumpSweepGate = relaxStructuralGates
         ? {
             ok: true as const,
             reason: `Scan pick — pump sweep skipped (${opts.pick.confidence}%)`,
@@ -1070,7 +1081,7 @@ export class HyperliquidTradingService {
         return { success: false, error: pumpSweepGate.reason };
       }
 
-      const locationGate = relaxSecondaryGates
+      const locationGate = relaxStructuralGates
           ? {
               ok: true as const,
               reason: `Scan pick — S/R gate skipped (${opts.pick.confidence}%)`,
@@ -1106,7 +1117,7 @@ export class HyperliquidTradingService {
         return { success: false, error: locationGate.reason };
       }
 
-      const momentumGate = relaxSecondaryGates
+      const momentumGate = relaxStructuralGates
           ? {
               ok: true as const,
               reason: `Scan pick — momentum confirm skipped (${opts.pick.confidence}%)`,

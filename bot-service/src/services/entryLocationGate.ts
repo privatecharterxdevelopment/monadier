@@ -230,22 +230,16 @@ export function evaluateEntryLocation(
       };
     }
 
-    if (analysis.nearResistance) {
+    if (analysis.nearResistance && !analysis.confirmedBreakoutUp) {
       const failedTests = analysis.resistanceRejections;
-      if (failedTests >= cfg.minRejectionsToBlock) {
-        return {
-          ok: false,
-          analysis,
-          reason: `LONG blocked — resistance ${fmtLevel(analysis.resistance)} rejected ${failedTests}× (need break above or pullback to support)`,
-        };
-      }
-      if (failedTests >= 1 || analysis.pricePosition >= cfg.rangeTopBlock) {
-        return {
-          ok: false,
-          analysis,
-          reason: `LONG blocked — price at resistance ${fmtLevel(analysis.resistance)} without breakout (${failedTests} rejection${failedTests === 1 ? '' : 's'})`,
-        };
-      }
+      return {
+        ok: false,
+        analysis,
+        reason:
+          failedTests >= 1
+            ? `LONG blocked — resistance ${fmtLevel(analysis.resistance)} rejected ${failedTests}× without breakout`
+            : `LONG blocked — price at resistance ${fmtLevel(analysis.resistance)} (${(analysis.pricePosition * 100).toFixed(0)}% of range) — need confirmed break above`,
+      };
     }
 
     if (analysis.pricePosition > cfg.rangeTopBlock) {
@@ -330,7 +324,7 @@ export async function validateEntryLocation(opts: {
 }): Promise<EntryLocationResult> {
   // Scalp S/R — ~4h on 5m + ~6h on 15m (not 24–72h 1h charts).
   const candles5 = await signalEngine.fetchCandles(opts.symbol, '5m', 48);
-  const candles15 = await signalEngine.fetchCandles(opts.symbol, '15m', 24);
+  const candles15 = await signalEngine.fetchCandles(opts.symbol, '15m', 48);
 
   if (candles15.length < 12 || candles5.length < 12) {
     return {
