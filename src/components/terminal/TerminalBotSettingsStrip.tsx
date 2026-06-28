@@ -10,44 +10,48 @@ type Props = {
   disabled?: boolean;
 };
 
+const ROWS = [
+  { key: 'risk', label: 'Risk' },
+  { key: 'lvrg', label: 'LVRG' },
+  { key: 'sl', label: 'SL' },
+  { key: 'trail', label: 'Trail' },
+] as const;
+
 const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disabled }) => {
   const eff = effectiveHlBotSettings(settings);
   const sl = formatHlSlLabel(settings.stopLoss).replace(/^Max /, '');
   const trail = `+${HL_DYNAMIC_TRAIL.breakevenArmRoePct}→+${HL_DYNAMIC_TRAIL.armMinRoePct}%`;
 
+  const values: Record<(typeof ROWS)[number]['key'], string> = {
+    risk: `${eff.riskPct}%`,
+    lvrg: `${eff.leverage}x`,
+    sl,
+    trail,
+  };
+
   return (
     <div
-      className={`term-bot-settings term-bot-settings--compact ${disabled ? 'term-bot-settings--disabled' : ''}`}
+      className={`term-bot-settings term-bot-settings--stacked ${disabled ? 'term-bot-settings--disabled' : ''}`}
       role="group"
       aria-label="Bot risk and leverage settings"
     >
-      <div className="term-bot-settings-inline">
-        <span className="term-bot-settings-chip">
-          <span className="term-bot-settings-chip-k">Risk</span>
-          <span className="term-bot-settings-chip-v">{eff.riskPct}%</span>
-        </span>
-        <span className="term-bot-settings-chip">
-          <span className="term-bot-settings-chip-k">LVRG</span>
-          <span className="term-bot-settings-chip-v">{eff.leverage}x</span>
-        </span>
-        <span className="term-bot-settings-chip">
-          <span className="term-bot-settings-chip-k">SL</span>
-          <span className="term-bot-settings-chip-v">{sl}</span>
-        </span>
-        <span className="term-bot-settings-chip">
-          <span className="term-bot-settings-chip-k">Trail</span>
-          <span className="term-bot-settings-chip-v">{trail}</span>
-        </span>
+      <div className="term-bot-settings-rows">
+        {ROWS.map((row) => (
+          <div key={row.key} className="term-bot-settings-row">
+            <span className="term-bot-settings-row-k">{row.label}</span>
+            <span className="term-bot-settings-row-v">{values[row.key]}</span>
+          </div>
+        ))}
       </div>
+      <div className="term-bot-settings-sep" role="separator" aria-hidden />
       <button
         type="button"
-        className="term-icon-btn term-bot-settings-edit term-bot-settings-edit--compact"
+        className="term-bot-settings-adjust"
         onClick={onAdjust}
         disabled={disabled}
-        title="Adjust risk & leverage"
-        aria-label="Adjust risk and leverage"
       >
-        <SlidersHorizontal size={13} />
+        <SlidersHorizontal size={13} aria-hidden />
+        Adjust
       </button>
     </div>
   );
