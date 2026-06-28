@@ -7,14 +7,19 @@ export type BotScanCandidate = {
   reason?: string;
 };
 
-/** Next pair to scan/open — skips coins that already have an open HL position. */
+function rankCandidate(a: BotScanCandidate, b: BotScanCandidate): number {
+  return b.confidence - a.confidence;
+}
+
+/** Next pair to scan/open — highest-confidence free slot, not volume order. */
 export function pickNextScanCandidate(
   candidates: BotScanCandidate[],
   best: BotScanCandidate | null | undefined,
   openCoins: string[]
 ): BotScanCandidate | null {
   const openSet = new Set(openCoins.map((c) => c.toUpperCase()));
-  const fromList = candidates.find(
+  const sorted = [...candidates].sort(rankCandidate);
+  const fromList = sorted.find(
     (c) =>
       c?.coin &&
       !openSet.has(c.coin.toUpperCase()) &&

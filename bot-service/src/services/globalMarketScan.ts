@@ -5,11 +5,12 @@ import { analyzeMarketMTFBySymbol, type TradingStrategy } from './market';
 import { analyzeAggressiveScalpBySymbol } from './aggressiveScalpAnalysis';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
-import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
+import { sortGlobalSignals } from './marketRegime';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { mtfOverridesTrendOnlyFilter } from './analysisFirstOpen';
 import { classifyCoinTier, isBotExcludedCoin, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
+import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
 
 export type BotSignalMode = 'standard' | 'aggressive';
 
@@ -301,13 +302,13 @@ export async function scanGlobalHlSignals(
     }),
   ]);
 
-  const standard = standardRaw
-    .filter((c): c is GlobalSignalCandidate => c !== null)
-    .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence);
+  const standard = sortGlobalSignals(
+    standardRaw.filter((c): c is GlobalSignalCandidate => c !== null)
+  );
 
-  const aggressive = aggressiveRaw
-    .filter((c): c is GlobalSignalCandidate => c !== null)
-    .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence);
+  const aggressive = sortGlobalSignals(
+    aggressiveRaw.filter((c): c is GlobalSignalCandidate => c !== null)
+  );
 
   let finalStandard = standard;
   const aggressiveFiltered = aggressive;
@@ -319,9 +320,9 @@ export async function scanGlobalHlSignals(
       if (!liq) return null;
       return scanStandardCoin(coin, liq, universe, true);
     });
-    finalStandard = relaxedRaw
-      .filter((c): c is GlobalSignalCandidate => c !== null)
-      .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence);
+    finalStandard = sortGlobalSignals(
+      relaxedRaw.filter((c): c is GlobalSignalCandidate => c !== null)
+    );
     if (finalStandard.length > 0) {
       logger.info('Global HL scan — top-pairs fallback used', {
         count: finalStandard.length,
@@ -339,9 +340,9 @@ export async function scanGlobalHlSignals(
       if (!liq) return null;
       return scanMajorChartFallback(coin, liq, universe);
     });
-    finalStandard = majorRaw
-      .filter((c): c is GlobalSignalCandidate => c !== null)
-      .sort((a, b) => b.confidence - a.confidence);
+    finalStandard = sortGlobalSignals(
+      majorRaw.filter((c): c is GlobalSignalCandidate => c !== null)
+    );
     if (finalStandard.length > 0) {
       logger.info('Global HL scan — major chart fallback used', {
         count: finalStandard.length,

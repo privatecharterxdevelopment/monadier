@@ -1,4 +1,4 @@
-import { MAJOR_COINS } from './analysisFirstOpen';
+import { isWeekendThinLiquidityWindow, MAJOR_COINS } from './analysisFirstOpen';
 import type { GlobalSignalCandidate, GlobalScanResult } from './globalMarketScan';
 import {
   getMegaPairVolumeSnapshot,
@@ -7,6 +7,24 @@ import {
 } from './megaPairVolumeMonitor';
 
 export type MacroRegime = 'risk_off' | 'risk_on' | 'neutral';
+
+export function rankGlobalSignal(a: GlobalSignalCandidate, b: GlobalSignalCandidate): number {
+  const tfsA = a.directionalTfCount ?? 0;
+  const tfsB = b.directionalTfCount ?? 0;
+  const majorA = MAJOR_COINS.has(a.coin.toUpperCase()) ? 1 : 0;
+  const majorB = MAJOR_COINS.has(b.coin.toUpperCase()) ? 1 : 0;
+  return (
+    b.confidence - a.confidence ||
+    tfsB - tfsA ||
+    majorB - majorA ||
+    (b.trendAlignment ?? 0) - (a.trendAlignment ?? 0) ||
+    b.dayVolumeUsd - a.dayVolumeUsd
+  );
+}
+
+export function sortGlobalSignals(signals: GlobalSignalCandidate[]): GlobalSignalCandidate[] {
+  return [...signals].sort(rankGlobalSignal);
+}
 
 export function resolveMacroRegime(): { regime: MacroRegime; reason: string } {
   const riskOff = isMacroRiskOffEnvironment();
@@ -35,48 +53,96 @@ function majorScanBias(
   };
 }
 
-/** Drop alt LONGs when BTC/ETH dump or mega-cap flow is risk-off. */
-export function filterSignalsForMacroRegime(
+/** Signals the bot is allowed to open — same list the UI must show. */
+export function applyOpenUniverseFilters(
   signals: GlobalSignalCandidate[],
   scan?: GlobalScanResult
-): { signals: GlobalSignalCandidate[]; dropped: number; reason: string } {
-  const { regime, reason } = resolveMacroRegime();
+): { signals: GlobalSignalCandidate[]; dropped: number; reasons: string[] } {
+  const reasons: string[] = [];
+  let filtered = sortGlobalSignals(signals);
+  let dropped = 0;
+
+  if (isWeekendThinLiquidityWindow()) {
+    const before = filtered.length;
+    filtered = filtered.filter((s) => MAJOR_COINS.has(s.coin.toUpperCase()));
+    const n = before - filtered.length;
+    if (n > 0) {
+      dropped += n;
+      reasons.push(`Weekend thin liquidity — BTC/ETH only (${n} alt setup(s) skipped)`);
+    }
+  }
+
+  const { regime, reason: regimeReason } = resolveMacroRegime();
   const majors = scan ? majorScanBias(scan) : {};
+  const btcLong = majors.btc?.direction === 'LONG';
+  const ethLong = majors.eth?.direction === 'LONG';
   const btcShort = majors.btc?.direction === 'SHORT';
   const ethShort = majors.eth?.direction === 'SHORT';
   const megaLongBlock = !validateMegaPairVolumeForDirection('LONG').ok;
 
-  const filtered = signals.filter((s) => {
-    if (MAJOR_COINS.has(s.coin.toUpperCase())) return true;
-    if (s.direction !== 'LONG') return true;
+  const beforeMacro = filtered.length;
+  filtered = filtered.filter((s) => {
+    const coin = s.coin.toUpperCase();
+    if (MAJOR_COINS.has(coin)) return true;
+    if (s.direction === 'SHORT') return true;
 
     if (regime === 'risk_off') return false;
     if (megaLongBlock) return false;
-    if (btcShort && ethShort) return false;
-    if (btcShort && (majors.eth?.direction !== 'LONG')) return false;
-
+    if (btcShort || ethShort) return false;
+    if (!(btcLong && ethLong && regime === 'risk_on')) return false;
     return true;
   });
+  const macroDropped = beforeMacro - filtered.length;
+  if (macroDropped > 0) {
+    dropped += macroDropped;
+    reasons.push(
+      `No alt LONGs — ${regimeReason}${btcShort || ethShort ? ` · BTC ${majors.btc?.direction ?? '—'} · ETH ${majors.eth?.direction ?? '—'}` : ''}`
+    );
+  }
 
-  const dropped = signals.length - filtered.length;
-  const detail =
-    dropped > 0
-      ? `${reason}${btcShort || ethShort ? ` · BTC scan ${majors.btc?.direction ?? '—'} · ETH ${majors.eth?.direction ?? '—'}` : ''}`
-      : reason;
-
-  return { signals: filtered, dropped, reason: detail };
+  return { signals: filtered, dropped, reasons };
 }
 
-/** Prefer SHORT + majors when market is dumping; don't let TRX volume beat BTC/ETH thesis. */
+/** @deprecated use applyOpenUniverseFilters */
+export function filterSignalsForMacroRegime(
+  signals: GlobalSignalCandidate[],
+  scan?: GlobalScanResult
+): { signals: GlobalSignalCandidate[]; dropped: number; reason: string } {
+  const result = applyOpenUniverseFilters(signals, scan);
+  return {
+    signals: result.signals,
+    dropped: result.dropped,
+    reason: result.reasons.join(' · ') || resolveMacroRegime().reason,
+  };
+}
+
 export function macroAlignedPickBonus(
   signal: GlobalSignalCandidate,
   regime: MacroRegime
 ): number {
   const coin = signal.coin.toUpperCase();
   let bonus = 0;
-  if (MAJOR_COINS.has(coin)) bonus += 35;
-  if (regime === 'risk_off' && signal.direction === 'SHORT') bonus += 45;
-  if (regime === 'risk_off' && signal.direction === 'LONG' && !MAJOR_COINS.has(coin)) bonus -= 80;
-  if (regime === 'risk_on' && signal.direction === 'LONG') bonus += 20;
+  if (MAJOR_COINS.has(coin)) bonus += 50;
+  if (regime === 'risk_off' && signal.direction === 'SHORT') bonus += 55;
+  if (regime === 'risk_off' && signal.direction === 'LONG' && !MAJOR_COINS.has(coin)) bonus -= 120;
+  if (regime === 'risk_on' && signal.direction === 'LONG' && MAJOR_COINS.has(coin)) bonus += 25;
   return bonus;
+}
+
+export function describeOpenUniverseForClient(scan?: GlobalScanResult): {
+  regime: MacroRegime;
+  weekendMajorsOnly: boolean;
+  summary: string;
+} {
+  const { regime, reason } = resolveMacroRegime();
+  const weekendMajorsOnly = isWeekendThinLiquidityWindow();
+  const parts = [reason];
+  if (weekendMajorsOnly) parts.unshift('Weekend — bot trades BTC/ETH only');
+  if (scan) {
+    const { btc, eth } = majorScanBias(scan);
+    if (btc || eth) {
+      parts.push(`Scan BTC ${btc?.direction ?? '—'} · ETH ${eth?.direction ?? '—'}`);
+    }
+  }
+  return { regime, weekendMajorsOnly, summary: parts.join(' · ') };
 }

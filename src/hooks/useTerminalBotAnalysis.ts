@@ -52,7 +52,9 @@ function mergeGlobalScanCandidates(
   const aggressive = Array.isArray(data.aggressiveCandidates) ? data.aggressiveCandidates : [];
   const modeList = botStrategy === 'profit_grabber' ? aggressive : standard;
   const allowed = (list: GlobalScanCandidate[]) =>
-    list.filter((c) => c?.coin && !isBotExcludedHlCoin(c.coin));
+    list
+      .filter((c) => c?.coin && !isBotExcludedHlCoin(c.coin))
+      .sort((a, b) => b.confidence - a.confidence);
   if (modeList.length > 0) return allowed(modeList);
   if (Array.isArray(data.candidates) && data.candidates.length > 0) {
     return allowed(data.candidates);
@@ -75,6 +77,7 @@ type Options = {
   analysisActive?: boolean;
   /** Bot mode — Standard uses MTF scan only; Aggressive uses scalp scan. */
   hlBotStrategy?: HlBotStrategy | string | null;
+  botRunning?: boolean;
 };
 
 export function useTerminalBotAnalysis({
@@ -197,10 +200,16 @@ export function useTerminalBotAnalysis({
           candidates?: GlobalScanCandidate[];
           standardCandidates?: GlobalScanCandidate[];
           aggressiveCandidates?: GlobalScanCandidate[];
+          tradeableCandidates?: GlobalScanCandidate[];
           count?: number;
           coinsScanned?: number;
+          openUniverse?: { summary?: string };
         };
-        const list = mergeGlobalScanCandidates(data, botMode);
+        const rawList =
+          Array.isArray(data.tradeableCandidates) && data.tradeableCandidates.length > 0
+            ? data.tradeableCandidates
+            : mergeGlobalScanCandidates(data, botMode);
+        const list = [...rawList].sort((a, b) => b.confidence - a.confidence);
         setGlobalCandidates(list);
         const next = pickNextScanCandidate(list, list[0] ?? null, effectiveOpenCoins);
         setGlobalBest(next);
@@ -234,7 +243,10 @@ export function useTerminalBotAnalysis({
             best?: GlobalScanCandidate | null;
             coinsScanned?: number;
             candidateCount?: number;
+            rawCandidateCount?: number;
             candidates?: GlobalScanCandidate[];
+            openUniverse?: { summary?: string };
+            filterReasons?: string[];
           };
           pumpSweep?: { lines?: string[] };
           lastOpenError?: { error: string; coin?: string; at: string } | null;
@@ -248,8 +260,14 @@ export function useTerminalBotAnalysis({
           : [];
         setServerOpenCoins(openCoins);
         const candidates = Array.isArray(data.globalScan?.candidates)
-          ? data.globalScan.candidates
+          ? [...data.globalScan.candidates].sort((a, b) => b.confidence - a.confidence)
           : [];
+        if (data.globalScan?.openUniverse?.summary) {
+          blockers.push(data.globalScan.openUniverse.summary);
+        }
+        for (const reason of data.globalScan?.filterReasons ?? []) {
+          if (reason && !blockers.includes(reason)) blockers.push(reason);
+        }
         setGlobalCandidates(candidates);
         const nextCandidate = pickNextScanCandidate(
           candidates,

@@ -42,7 +42,7 @@ import type { NewsTradeMode } from './newsTradeMode';
 import { trustsScanAnalysis } from './analysisFirstOpen';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import {
-  filterSignalsForMacroRegime,
+  applyOpenUniverseFilters,
   macroAlignedPickBonus,
   resolveMacroRegime,
 } from './marketRegime';
@@ -575,16 +575,13 @@ export class HyperliquidTradingService {
   ): Promise<UserProcessResult> {
     const strategy = normalizeHlBotStrategy(settings.hlBotStrategy);
     const rawSignals = globalSignalsForBotMode(ctx.globalScan, strategy);
-    const { signals, dropped, reason: regimeReason } = filterSignalsForMacroRegime(
-      rawSignals,
-      ctx.globalScan
-    );
+    const { signals, dropped, reasons } = applyOpenUniverseFilters(rawSignals, ctx.globalScan);
     if (dropped > 0) {
-      logger.info('HL open — alt LONGs filtered for macro regime', {
+      logger.info('HL open — universe filtered', {
         user: userAddress.slice(0, 10),
         dropped,
         remaining: signals.length,
-        reason: regimeReason,
+        reasons,
       });
     }
     const maxPositions = config.hyperliquid.maxConcurrentPositions;

@@ -19,6 +19,10 @@ import {
   type GlobalSignalCandidate,
 } from './services/globalMarketScan';
 import { getMegaPairVolumeSnapshot } from './services/megaPairVolumeMonitor';
+import {
+  applyOpenUniverseFilters,
+  describeOpenUniverseForClient,
+} from './services/marketRegime';
 import { fetchMegaPairPumpSweep, formatPumpSweepLine } from './services/pumpSweepAnalytics';
 import { buildCryptoNewsFeed } from './services/newsImpactGate';
 import { fetchAnalyzedSportsNews } from './services/sportsNewsService';
@@ -386,10 +390,16 @@ const healthServer = http.createServer(async (req, res) => {
         lastGlobalScanResult.standard.length + lastGlobalScanResult.aggressive.length > 0
           ? lastGlobalScanResult
           : await scanGlobalHlSignals();
-      const userSignals = globalSignalsForBotMode(
+      const rawUserSignals = globalSignalsForBotMode(
         globalScan,
         dbSettings.hlBotStrategy
       );
+      const {
+        signals: userSignals,
+        dropped: filteredSignalCount,
+        reasons: filterReasons,
+      } = applyOpenUniverseFilters(rawUserSignals, globalScan);
+      const openUniverse = describeOpenUniverseForClient(globalScan);
       const bestGlobal = userSignals[0] ?? null;
       const openCoinSet = new Set(hlOpenCoins.map((c) => c.toUpperCase()));
       const bestAvailable =
@@ -443,9 +453,18 @@ const healthServer = http.createServer(async (req, res) => {
       }
       if (!winRateGate.allowed) blockers.push(winRateGate.reason || 'win rate gate');
       const balanceGateOpen = !balanceBlocker;
-      if (balanceGateOpen && !bestAvailable && hlOpenCoins.length < maxPositions) {
+      if (balanceGateOpen && userSignals.length === 0 && hlOpenCoins.length < maxPositions) {
         blockers.push(
-          `no HL perp passed global scan (min ${config.hyperliquid.minSignalConfidence}% conf, ${config.hyperliquid.minDirectionalTfs} TFs, ${config.hyperliquid.minTrendAlignment}% align)`
+          filterReasons[0] ??
+            `no tradeable setup after macro/weekend filter (raw scan ${rawUserSignals.length})`
+        );
+      }
+      if (balanceGateOpen && !bestAvailable && userSignals.length > 0 && hlOpenCoins.length < maxPositions) {
+        blockers.push('all tradeable pairs already have open positions or are blocked');
+      }
+      if (balanceGateOpen && !bestAvailable && userSignals.length === 0 && rawUserSignals.length > 0 && hlOpenCoins.length < maxPositions) {
+        blockers.push(
+          `scan found ${rawUserSignals.length} raw signal(s) but 0 passed open filters — ${openUniverse.summary}`
         );
       }
       if (balanceGateOpen && bestAvailable && hlOpenCoins.length < maxPositions && dbSettings.autoTradeEnabled) {
@@ -526,7 +545,11 @@ const healthServer = http.createServer(async (req, res) => {
           coinsScanned: lastHlGlobalScanStats.coinsScanned,
           standardCandidates: globalScan.standard.length,
           aggressiveCandidates: globalScan.aggressive.length,
+          rawCandidateCount: rawUserSignals.length,
           candidateCount: userSignals.length,
+          filteredSignalCount,
+          filterReasons,
+          openUniverse,
           botMode: dbSettings.hlBotStrategy,
           candidates: userSignals.slice(0, 8).map((s) => ({
             coin: s.coin,
@@ -653,6 +676,12 @@ const healthServer = http.createServer(async (req, res) => {
         lastGlobalScanResult.standard.length + lastGlobalScanResult.aggressive.length > 0
           ? lastGlobalScanResult
           : await scanGlobalHlSignals();
+      const tradeableResult = applyOpenUniverseFilters(
+        [...scan.standard, ...scan.aggressive],
+        scan
+      );
+      const tradeable = tradeableResult.signals.slice(0, 8);
+      const openUniverse = describeOpenUniverseForClient(scan);
       res.writeHead(200, corsHeaders);
       res.end(
         JSON.stringify({
@@ -660,9 +689,12 @@ const healthServer = http.createServer(async (req, res) => {
           coinsScanned: lastHlGlobalScanStats.coinsScanned,
           standard: scan.standard.length,
           aggressive: scan.aggressive.length,
-          count: scan.standard.length + scan.aggressive.length,
-          standardCandidates: scan.standard.slice(0, 8),
-          aggressiveCandidates: scan.aggressive.slice(0, 8),
+          count: tradeable.length,
+          standardCandidates: tradeable.filter((s) => s.botMode === 'standard').slice(0, 8),
+          aggressiveCandidates: tradeable.filter((s) => s.botMode === 'aggressive').slice(0, 8),
+          tradeableCandidates: tradeable,
+          openUniverse,
+          filterReasons: tradeableResult.reasons,
           scannedAt: lastHlGlobalScanStats.scannedAt || lastCycleStats?.at || new Date().toISOString(),
           minConfidence: config.hyperliquid.minSignalConfidence,
         })
