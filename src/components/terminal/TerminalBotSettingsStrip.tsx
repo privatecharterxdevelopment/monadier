@@ -1,5 +1,4 @@
 import React from 'react';
-import { ChevronRight } from 'lucide-react';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
 import { effectiveHlBotSettings, formatHlSlLabel } from '../../lib/hlBotEffectiveSettings';
 import { HL_DYNAMIC_TRAIL } from '../../lib/hlBotStrategy';
@@ -43,7 +42,9 @@ const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disable
           disabled={disabled}
         >
           Adjust
-          <ChevronRight size={13} aria-hidden />
+          <span className="term-bot-settings-head-chevron" aria-hidden>
+            ›
+          </span>
         </button>
       </div>
       <div className="term-bot-settings-grid">

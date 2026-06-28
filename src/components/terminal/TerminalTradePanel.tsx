@@ -8,7 +8,6 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   RefreshCw,
-  ChevronRight,
   AlertTriangle,
   ShieldCheck,
   Info,
@@ -801,7 +800,9 @@ const TerminalTradePanel: React.FC<Props> = ({
             {onOpenHistory && (
               <button type="button" className="term-bot-positions-row" onClick={onOpenHistory}>
                 <span>Open positions</span>
-                <ChevronRight size={14} aria-hidden />
+                <span className="term-bot-positions-chevron" aria-hidden>
+                  ›
+                </span>
               </button>
             )}
 
