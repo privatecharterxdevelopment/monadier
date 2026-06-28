@@ -60,6 +60,7 @@ import {
   pollHlPerpAfterTransfer,
   spotToPerpTransferAmount,
 } from '../../lib/hyperliquid/funding';
+import { useBettingUi } from '../../contexts/BettingUiContext';
 import { useLegalAcceptance } from '../../contexts/LegalAcceptanceContext';
 type PanelTab = 'bot' | 'lvrg' | 'funds';
 
