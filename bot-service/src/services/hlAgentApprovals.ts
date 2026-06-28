@@ -33,19 +33,37 @@ class HlAgentApprovalService {
     return data as HlAgentApproval | null;
   }
 
-  async isApproved(walletAddress: string, expectedAgent: string): Promise<boolean> {
+  async isApprovedOnChain(walletAddress: string, expectedAgent: string): Promise<boolean> {
     const agents = await fetchHlExtraAgents(walletAddress);
-    const onChain = agents.find(
+    return agents.some(
       (a) =>
         a.address.toLowerCase() === expectedAgent.toLowerCase() && isHlExtraAgentActive(a)
     );
-    if (onChain) return true;
+  }
 
+  /** On-chain HL extraAgents — required to sign trades/closes. */
+  async isApproved(walletAddress: string, expectedAgent: string): Promise<boolean> {
+    return this.isApprovedOnChain(walletAddress, expectedAgent);
+  }
+
+  /** Why agent cannot trade — for API errors. */
+  async describeAgentBlocker(
+    walletAddress: string,
+    expectedAgent: string
+  ): Promise<string | null> {
+    const agents = await fetchHlExtraAgents(walletAddress);
+    const ours = agents.find(
+      (a) => a.address.toLowerCase() === expectedAgent.toLowerCase()
+    );
+    if (ours && !isHlExtraAgentActive(ours)) {
+      const when = new Date(ours.validUntil).toLocaleString();
+      return `HL trading agent expired on Hyperliquid (${when}) — open Bot tab → Start bot → approve again in MetaMask (1 signature).`;
+    }
     const row = await this.getApproval(walletAddress);
-    if (!row) return false;
-    if (row.agent_address.toLowerCase() !== expectedAgent.toLowerCase()) return false;
-    if (row.expires_at && Date.parse(row.expires_at) < Date.now()) return false;
-    return true;
+    if (row && row.agent_address.toLowerCase() === expectedAgent.toLowerCase()) {
+      return 'HL trading agent not active on Hyperliquid — open Bot tab → Start bot → complete the MetaMask approval.';
+    }
+    return 'HL trading agent not approved — open Bot tab → Start bot → complete the MetaMask approval first.';
   }
 
   async saveApproval(params: {

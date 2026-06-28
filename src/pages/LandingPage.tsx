@@ -3,14 +3,23 @@ import CookieConsent from '../components/ui/CookieConsent';
 import GmxStyleLanding from '../components/landing/GmxStyleLanding';
 import MarketingSeo from '../components/seo/MarketingSeo';
 import { useAuth } from '../contexts/AuthContext';
-import { goToOpenApp } from '../lib/appUrls';
+import { consumeLandingViewIntent, goToOpenApp } from '../lib/appUrls';
 
 const LandingPage: React.FC = () => {
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('preview') === 'landing') return;
+    const previewLanding = params.get('preview') === 'landing';
+    if (previewLanding) {
+      params.delete('preview');
+      const qs = params.toString();
+      const clean = qs ? `/?${qs}` : '/';
+      window.history.replaceState(null, '', clean);
+      return;
+    }
+
+    if (consumeLandingViewIntent()) return;
 
     const hasAppDeepLink = params.has('section') || params.has('tab');
     if (hasAppDeepLink) {

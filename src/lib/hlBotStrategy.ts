@@ -8,9 +8,9 @@ export const HL_BOT_STRATEGY_LABELS: Record<HlBotStrategy, string> = {
 
 export const HL_BOT_STRATEGY_HINTS: Record<HlBotStrategy, string> = {
   standard:
-    'Standard: MTF trend-only. In profit: trail SL at +0.1% ROE once +0.2% ROE hit.',
+    'Standard: MTF trend-only. Stage 1: +0.2% ROE locks +0.1%. Stage 2: peak ≥+2% ROE → trail follows peak.',
   profit_grabber:
-    'Aggressive: 1m scalp entries. Same profit trail (+0.2% arm, +0.1% lock).',
+    'Aggressive: 1m scalp entries. Same two-stage profit SL (+0.2% lock, +2% full trail).',
 };
 
 /** Must match bot-service config.hyperliquid.dynamicTrail defaults. */
@@ -23,8 +23,10 @@ export const HL_DYNAMIC_TRAIL = {
   armMinProfitUsd: 0,
   /** Min locked ROE% once armed. */
   armMinRoePct: 0.1,
-  /** Peak ROE minus this gap when ratcheting. */
+  /** Peak ROE minus this gap when ratcheting (stage 2). */
   trailGapRoePct: 0.1,
+  /** Stage 2 arms when peak ROE ≥ this. */
+  fullTrailArmRoePct: 2,
   armFeesMultiplier: 2,
   estimatedFeeBpsPerSide: 3.5,
   majorTrailPct: 0.028,

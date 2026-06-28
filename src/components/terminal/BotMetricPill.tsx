@@ -16,7 +16,7 @@ type PopoverPos = {
   placement: 'top' | 'bottom';
 };
 
-/** Grey metric pill — description on hover only (minimal popover). */
+/** Bot metric chip — label + value stack, description on hover. */
 const BotMetricPill: React.FC<Props> = ({
   label,
   value,
@@ -29,16 +29,13 @@ const BotMetricPill: React.FC<Props> = ({
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<PopoverPos | null>(null);
 
-  const pillClass =
-    variant === 'dark'
-      ? 'hl-chart-bot-pill'
-      : 'term-chart-live-badge term-chart-bot-pill term-bot-metric-pill';
-  const labelClass =
-    variant === 'dark' ? 'hl-chart-bot-pill__label' : 'term-chart-live-badge__label';
-  const valueClass =
-    variant === 'dark' ? 'hl-chart-bot-pill__value' : 'term-chart-live-badge__pair';
-  const metaClass =
-    variant === 'dark' ? 'hl-chart-bot-pill__meta' : 'term-chart-live-badge__price';
+  const pillClass = [
+    'term-bot-metric-pill',
+    variant === 'dark' ? 'term-bot-metric-pill--dark' : 'term-bot-metric-pill--light',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   const updatePos = useCallback(() => {
     const el = anchorRef.current;
@@ -95,7 +92,7 @@ const BotMetricPill: React.FC<Props> = ({
     <>
       <div
         ref={anchorRef}
-        className={`${pillClass}${className ? ` ${className}` : ''}`}
+        className={pillClass}
         tabIndex={0}
         aria-label={`${label}: ${value}. ${description}`}
         onMouseEnter={show}
@@ -103,9 +100,9 @@ const BotMetricPill: React.FC<Props> = ({
         onFocus={show}
         onBlur={hide}
       >
-        <span className={labelClass}>{label}</span>
-        <span className={valueClass}>{value}</span>
-        {meta ? <span className={metaClass}>{meta}</span> : null}
+        <span className="term-bot-metric-pill__label">{label}</span>
+        <span className="term-bot-metric-pill__value">{value}</span>
+        {meta ? <span className="term-bot-metric-pill__meta">{meta}</span> : null}
       </div>
       {popover}
     </>

@@ -37,6 +37,8 @@ import { processPendingTradeCloseEmails } from './services/tradeCloseEmail';
 import { tryQualifyReferral } from './services/referralAffiliate';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 import { fetchMappedTokenPrices } from './services/tokenPrices';
+import { getHlPositionTrailSnapshots } from './services/hlPositionTrailStatus';
+import { bootstrapProfitTrailStateFromDb } from './services/profitTrailState';
 
 // Health check server for Railway/cloud deployments
 const PORT = process.env.PORT || 3001;
@@ -262,7 +264,7 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // API: Manual close via Monadier HL agent (MetaMask cannot sign L1 chainId 1337)
+  // API: Manual close via Monadier HL agent (no MetaMask — approved once at Start bot)
   if (url.pathname === '/api/hl-close' && req.method === 'POST') {
     try {
       const body = await readJsonBody();
@@ -282,19 +284,11 @@ const healthServer = http.createServer(async (req, res) => {
       }
 
       const agentAddr = deriveUserHlAgentAddress(wallet);
-      const agents = await fetchHlExtraAgents(wallet);
-      const live = agents.find(
-        (a) => a.address.toLowerCase() === agentAddr.toLowerCase() && isHlExtraAgentActive(a)
-      );
-      if (!live) {
+      const approved = await hlAgentApprovalService.isApprovedOnChain(wallet, agentAddr);
+      if (!approved) {
+        const blocker = await hlAgentApprovalService.describeAgentBlocker(wallet, agentAddr);
         res.writeHead(400, corsHeaders);
-        res.end(
-          JSON.stringify({
-            success: false,
-            error:
-              'HL trading agent not approved on Hyperliquid — press Start bot and approve in MetaMask first.',
-          })
-        );
+        res.end(JSON.stringify({ success: false, error: blocker }));
         return;
       }
 
@@ -508,6 +502,8 @@ const healthServer = http.createServer(async (req, res) => {
           dynamicTrail: {
             breakevenArmRoePct: config.hyperliquid.dynamicTrail.breakevenArmRoePct,
             armMinRoePct: config.hyperliquid.dynamicTrail.armMinRoePct,
+            trailGapRoePct: config.hyperliquid.dynamicTrail.trailGapRoePct,
+            fullTrailArmRoePct: config.hyperliquid.dynamicTrail.fullTrailArmRoePct,
             armFeesMultiplier: config.hyperliquid.dynamicTrail.armFeesMultiplier,
             majorTrailPct: config.hyperliquid.dynamicTrail.majorTrailPct,
             midTrailPct: config.hyperliquid.dynamicTrail.midTrailPct,
@@ -590,6 +586,25 @@ const healthServer = http.createServer(async (req, res) => {
       logger.error('API: bot-status failed', { error: err.message });
       res.writeHead(500, corsHeaders);
       res.end(JSON.stringify({ success: false, error: err.message || 'bot-status failed' }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/hl-position-trails') {
+    try {
+      const wallet = url.searchParams.get('wallet')?.trim();
+      if (!wallet || !/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet query required (0x…)' }));
+        return;
+      }
+      const trails = await getHlPositionTrailSnapshots(wallet as `0x${string}`);
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, wallet, trails, timestamp: new Date().toISOString() }));
+    } catch (err: any) {
+      logger.error('API: hl-position-trails failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'hl-position-trails failed' }));
     }
     return;
   }
@@ -730,6 +745,7 @@ healthServer.listen(PORT, () => {
   logger.info('  POST /api/hl-close - Close HL position via Monadier agent');
   logger.info('  POST /api/referral/try-qualify - Qualify referral after HL fund + bot activity');
   logger.info('  GET /api/bot-status?wallet=0x… - Wallet bot diagnostics');
+  logger.info('  GET /api/hl-position-trails?wallet=0x… - Live profit-trail stop truth');
   logger.info('  GET /api/global-signals - Top HL perp signals from last scan');
   logger.info('  GET /api/token-prices - Spot prices for vault PnL (Binance proxy)');
   logger.info('  GET /api/timeframe?symbol=ETHUSDT&tf=15m - Single timeframe analysis');
@@ -950,6 +966,7 @@ function logStartupInfo(): void {
 async function main(): Promise<void> {
   logStartupInfo();
   await validateProductionEnvironment();
+  await bootstrapProfitTrailStateFromDb();
 
   if (process.env.ENABLE_ARBITRUM_PAYMENT_MONITOR !== 'false') {
     await paymentService.startMonitoring();

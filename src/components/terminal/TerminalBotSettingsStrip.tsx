@@ -14,8 +14,7 @@ type Props = {
 const DESCRIPTIONS = {
   risk: 'Share of your HL balance used as margin per trade — not the same as leverage.',
   lvrg: 'Hyperliquid multiplier on that margin. Bot clamps to each market’s max leverage.',
-  trail:
-    'Dynamic ATR trail: arms in profit, stop ratchets with price. Winners can run; exits only when trail is hit.',
+  trail: `Stage 1: +${HL_DYNAMIC_TRAIL.breakevenArmRoePct}% ROE locks +${HL_DYNAMIC_TRAIL.armMinRoePct}%. Stage 2: peak ≥+${HL_DYNAMIC_TRAIL.fullTrailArmRoePct}% → trail.`,
 } as const;
 
 const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disabled }) => {
@@ -41,7 +40,7 @@ const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disable
         <BotMetricPill
           label="Trail"
           value={`+${HL_DYNAMIC_TRAIL.breakevenArmRoePct}%→+${HL_DYNAMIC_TRAIL.armMinRoePct}%`}
-          description={`Arms at +${HL_DYNAMIC_TRAIL.breakevenArmRoePct}% ROE in profit, locks +${HL_DYNAMIC_TRAIL.armMinRoePct}% with ${HL_DYNAMIC_TRAIL.trailGapRoePct}% air from peak.`}
+          description={DESCRIPTIONS.trail}
         />
       </div>
       <button

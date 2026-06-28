@@ -258,28 +258,23 @@ export function useHyperliquidTrading() {
       walletAddress?: string;
     }) =>
       withBusy(async () => {
-        const wallet =
-          opts.walletAddress?.toLowerCase() ??
-          (await resolveWallet()).account?.address?.toLowerCase();
-        if (!wallet) throw new Error('Connect wallet first');
-
-        try {
-          await closeHlPositionViaAgent({
-            walletAddress: wallet,
-            coin: opts.coin,
-          });
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
-          if (/agent not approved|approve.*agent/i.test(msg)) {
-            throw new Error(
-              'HL trading agent not approved — press Start bot and complete the MetaMask approval first.'
-            );
+        let wallet = opts.walletAddress?.toLowerCase();
+        if (!wallet) {
+          try {
+            wallet = (await resolveWallet()).account?.address?.toLowerCase();
+          } catch {
+            /* bot dock may pass walletAddress without an active signer */
           }
-          if (/no hl position|zero size/i.test(msg)) {
-            throw new Error('No open position found on Hyperliquid for this coin.');
-          }
-          throw err instanceof Error ? err : new Error(msg);
         }
+        if (!wallet) {
+          throw new Error('Link your wallet on the Bot tab to close this position.');
+        }
+
+        // Monadier HL agent — one-time approve at Start bot, no MetaMask per close.
+        await closeHlPositionViaAgent({
+          walletAddress: wallet,
+          coin: opts.coin,
+        });
       }, 'Close position failed'),
     [resolveWallet, withBusy]
   );

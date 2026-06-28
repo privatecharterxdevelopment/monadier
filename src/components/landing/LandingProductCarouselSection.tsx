@@ -60,20 +60,13 @@ const LandingProductCarouselSection: React.FC = () => {
   const { sectionRef, progress, locked, unlocked } = useLandingScrollSequence({
     lockId: 'carousel',
     scrollPx: CAROUSEL_SCROLL_PX,
+    releaseAnchorId: 'landing-home-bento-title',
   });
 
-  const applyCarouselOffset = useCallback((offsetPx: number, useTransform: boolean) => {
-    const lane = laneRef.current;
+  const applyCarouselOffset = useCallback((offsetPx: number) => {
     const track = trackRef.current;
-    if (!lane || !track) return;
-
-    if (useTransform) {
-      track.style.transform = `translate3d(-${offsetPx}px, 0, 0)`;
-      lane.scrollLeft = 0;
-    } else {
-      track.style.transform = 'none';
-      lane.scrollLeft = offsetPx;
-    }
+    if (!track) return;
+    track.style.transform = `translate3d(-${offsetPx}px, 0, 0)`;
   }, []);
 
   const syncFromProgress = useCallback(
@@ -85,9 +78,9 @@ const LandingProductCarouselSection: React.FC = () => {
       const travel = measureCarouselTravel(lane, track);
       const offset = Math.min(travel, p * travel);
       finalScrollRef.current = offset;
-      applyCarouselOffset(offset, !unlocked);
+      applyCarouselOffset(offset);
     },
-    [applyCarouselOffset, unlocked]
+    [applyCarouselOffset]
   );
 
   useEffect(() => {
@@ -96,11 +89,6 @@ const LandingProductCarouselSection: React.FC = () => {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, [progress, syncFromProgress]);
-
-  useEffect(() => {
-    if (!unlocked) return;
-    applyCarouselOffset(finalScrollRef.current, false);
-  }, [unlocked, applyCarouselOffset]);
 
   useEffect(() => {
     if (!unlocked) return undefined;

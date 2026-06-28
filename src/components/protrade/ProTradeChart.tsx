@@ -164,13 +164,13 @@ const ProTradeChartInner: React.FC<Props> = ({
         <div className="hl-chart-legend" aria-label="Chart position lines">
           <span className="hl-chart-legend__item hl-chart-legend__item--entry">Entry</span>
           {positionOverlay.stopLossPx ? (
-            <span className="hl-chart-legend__item hl-chart-legend__item--sl">SL</span>
+            <span className="hl-chart-legend__item hl-chart-legend__item--sl">Max loss</span>
           ) : null}
           {positionOverlay.takeProfitPx ? (
             <span className="hl-chart-legend__item hl-chart-legend__item--tp">TP</span>
           ) : null}
           {positionOverlay.trailStopPx ? (
-            <span className="hl-chart-legend__item hl-chart-legend__item--trail">Trail SL</span>
+            <span className="hl-chart-legend__item hl-chart-legend__item--trail">Profit SL</span>
           ) : null}
           {positionOverlay.liqPx ? (
             <span className="hl-chart-legend__item hl-chart-legend__item--liq">Liq</span>

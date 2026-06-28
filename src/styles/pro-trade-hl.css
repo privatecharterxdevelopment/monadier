@@ -1681,42 +1681,45 @@
 .hl-chart-bot-pills {
   display: inline-flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
+  align-items: stretch;
+  gap: 5px;
   margin-left: auto;
 }
 
-.hl-chart-bot-pill {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 6px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: var(--hl-bg-hover);
-  border: 1px solid var(--hl-border);
-  font-variant-numeric: tabular-nums;
-  max-width: 100%;
-  cursor: help;
+.hl-active-sl {
+  min-width: 72px;
 }
 
-.hl-chart-bot-pill__label {
+.hl-active-sl__price {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.hl-active-sl__roe {
+  display: block;
+  margin-top: 2px;
   font-size: 9px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--hl-text-faint);
+  color: var(--hl-text-muted);
+  line-height: 1.2;
 }
 
-.hl-chart-bot-pill__value {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--hl-text);
+.hl-active-sl--profit .hl-active-sl__price {
+  color: #22c55e;
 }
 
-.hl-chart-bot-pill__meta {
-  font-size: 10px;
-  font-weight: 500;
+.hl-active-sl--profit .hl-active-sl__roe {
+  color: #4ade80;
+}
+
+.hl-active-sl--arming .hl-active-sl__price {
+  color: #eab308;
+}
+
+.hl-active-sl--loss_cap .hl-active-sl__price {
   color: var(--hl-text-muted);
 }
 
@@ -9992,7 +9995,7 @@
   flex: 1;
   padding: 6px 8px;
   border: 1px solid var(--hl-border);
-  border-radius: 4px;
+  border-radius: 8px;
   background: transparent;
   color: var(--hl-text-muted);
   font-size: 11px;
@@ -10000,10 +10003,35 @@
   cursor: pointer;
 }
 
+.hl-bot-panel-wrap .term-panel-tab__stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  line-height: 1.1;
+}
+
+.hl-bot-panel-wrap .term-panel-tab__label {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.hl-bot-panel-wrap .term-panel-tab__meta {
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--hl-text-faint);
+  letter-spacing: 0.02em;
+}
+
 .hl-bot-panel-wrap .term-panel-tab--on {
   color: var(--hl-text);
   background: var(--hl-bg-hover);
   border-color: var(--hl-border-strong);
+}
+
+.hl-bot-panel-wrap .term-panel-tab--on .term-panel-tab__meta {
+  color: var(--hl-text-muted);
 }
 
 .hl-bot-panel-wrap .term-trade-body {
@@ -10040,6 +10068,8 @@
   background: var(--hl-bg);
   border-color: var(--hl-border);
   color: var(--hl-text-muted);
+  border-radius: 12px;
+  padding: 10px;
 }
 
 .hl-bot-panel-wrap .term-bot-settings-k {

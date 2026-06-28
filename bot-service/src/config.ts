@@ -118,6 +118,8 @@ export const config = {
       armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 0.1),
       /** Trail ratchets at peak ROE minus this gap (default 0.1% air). */
       trailGapRoePct: Number(process.env.HL_TRAIL_GAP_ROE_PCT || 0.1),
+      /** Stage 2 — ratchet trail when peak ROE ≥ this (default 2%). */
+      fullTrailArmRoePct: Number(process.env.HL_TRAIL_FULL_ARM_ROE_PCT || 2),
       /** No wait — arm as soon as +0.2% ROE. */
       armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 0),
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),

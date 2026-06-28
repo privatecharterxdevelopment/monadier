@@ -37,5 +37,5 @@ export function formatHlSlLabel(
   _strategy: HlBotStrategy = 'standard'
 ): string {
   if (stopLoss <= 0) return 'hold red';
-  return `−${stopLoss}% manual`;
+  return `Max −${stopLoss}%`;
 }

@@ -245,23 +245,35 @@ export async function resolveHlAgentApproval(
 
   if (expectedAgentAddress) {
     const live = await findActiveHlAgent(wallet, expectedAgentAddress);
-    if (!live) return db;
-
-    const expiresAt = new Date(live.validUntil).toISOString();
-    if (!db.approved) {
-      const saveKey = approvalSaveKey(wallet, expectedAgentAddress.toLowerCase());
-      if (!approvalSaveAttempted.has(saveKey)) {
-        void saveHlAgentApproval({
-          walletAddress: wallet,
-          agentAddress: expectedAgentAddress.toLowerCase(),
-          agentName: live.name,
-          expiresAt,
-        }).catch(() => {
-          /* best-effort sync */
-        });
+    if (live) {
+      const expiresAt = new Date(live.validUntil).toISOString();
+      if (!db.approved) {
+        const saveKey = approvalSaveKey(wallet, expectedAgentAddress.toLowerCase());
+        if (!approvalSaveAttempted.has(saveKey)) {
+          void saveHlAgentApproval({
+            walletAddress: wallet,
+            agentAddress: expectedAgentAddress.toLowerCase(),
+            agentName: live.name,
+            expiresAt,
+          }).catch(() => {
+            /* best-effort sync */
+          });
+        }
       }
+      return { approved: true, expiresAt };
     }
-    return { approved: true, expiresAt };
+
+    // On-chain is source of truth — DB cache alone cannot sign HL orders.
+    const expiredOnChain = (await fetchHlExtraAgents(wallet)).find(
+      (a) => a.address.toLowerCase() === expectedAgentAddress.toLowerCase()
+    );
+    if (expiredOnChain) {
+      return {
+        approved: false,
+        expiresAt: new Date(expiredOnChain.validUntil).toISOString(),
+      };
+    }
+    return { approved: false, expiresAt: db.expiresAt };
   }
 
   return db;

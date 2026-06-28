@@ -38,12 +38,14 @@ const LandingBotPitchSection: React.FC = () => {
     lockId: 'pitch',
     mode: 'step',
     stepCount: Math.max(1, pitchLines.length),
+    releaseAnchorId: 'landing-faq-title',
   });
 
   const activeLine = pitchLines[stepIndex] ?? pitchLines[0] ?? [];
 
   return (
     <section
+      id="landing-pitch-section"
       ref={sectionRef}
       className={`landing-gmx-bot-pitch-section${
         locked ? ' landing-gmx-scroll-sequence--locked' : ''

@@ -27,3 +27,10 @@ export function pairLabelFromHlCoin(coin: string): string {
 export function normalizeHlPerpCoin(coin: string): string {
   return coin.trim().toUpperCase().replace(/-PERP$/i, '');
 }
+
+/** HL perps the bot must never open (mirrors bot-service coinTier.BOT_EXCLUDED_COINS). */
+export const BOT_EXCLUDED_HL_COINS = new Set(['CRV']);
+
+export function isBotExcludedHlCoin(coin: string): boolean {
+  return BOT_EXCLUDED_HL_COINS.has(normalizeHlPerpCoin(coin));
+}

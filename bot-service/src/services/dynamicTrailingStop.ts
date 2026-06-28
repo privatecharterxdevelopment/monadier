@@ -1,7 +1,7 @@
 /**
- * Simple in-profit trail:
- * +0.2% ROE → arm immediately, stop locks +0.1% ROE (ratchets peak − 0.1%).
- * Cross → market close in profit. Loss SL% only after max hold while red.
+ * Two-stage in-profit SL:
+ * Stage 1 (+0.2% ROE): lock +0.1% ROE fixed — stop does not chase peak yet.
+ * Stage 2 (peak ≥ +2% ROE): ratchet peak − 0.1% ROE gap until trail cross.
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
@@ -9,7 +9,7 @@ import { signalEngine, type Candle } from './signalEngine';
 import { classifyCoinTier, type CoinTier } from './coinTier';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 
-export type TrailPhase = 'idle' | 'armed' | 'trailing';
+export type TrailPhase = 'idle' | 'armed' | 'profit_lock' | 'trailing';
 
 export type DynamicTrailRecord = {
   phase: TrailPhase;
@@ -111,13 +111,33 @@ export function stopPxForRoePct(
   return direction === 'LONG' ? entryPrice + move : entryPrice - move;
 }
 
-/** Locked ROE% = max(floor, peak − gap). */
+/** Stage 2 lock — max(floor, peak − gap). */
 export function profitTrailLockRoePct(peakPnlUsd: number, collateralUsd: number): number {
   const cfg = config.hyperliquid.dynamicTrail;
   const peakRoe = roePct(peakPnlUsd, collateralUsd);
   const floor = cfg.armMinRoePct;
   const gap = cfg.trailGapRoePct;
   return Math.max(floor, peakRoe - gap);
+}
+
+/** Stage 1 lock — fixed min ROE once green. */
+export function profitLockStage1RoePct(): number {
+  return config.hyperliquid.dynamicTrail.armMinRoePct;
+}
+
+export function resolveProfitTrailLockRoe(
+  phase: TrailPhase,
+  peakPnlUsd: number,
+  collateralUsd: number
+): number {
+  if (phase === 'profit_lock') return profitLockStage1RoePct();
+  if (phase === 'trailing') return profitTrailLockRoePct(peakPnlUsd, collateralUsd);
+  return 0;
+}
+
+export function shouldUpgradeToFullTrail(peakPnlUsd: number, collateralUsd: number): boolean {
+  if (collateralUsd <= 0) return false;
+  return roePct(peakPnlUsd, collateralUsd) >= config.hyperliquid.dynamicTrail.fullTrailArmRoePct;
 }
 
 export function shouldArmProfitTrail(pnlUsd: number, collateralUsd: number): boolean {
@@ -272,7 +292,11 @@ function refreshProfitTrailStop(
   rec: DynamicTrailRecord,
   input: TrailTickInput
 ): void {
-  const lockRoe = profitTrailLockRoePct(rec.highestPnlSinceEntry, input.collateralUsd);
+  const lockRoe = resolveProfitTrailLockRoe(
+    rec.phase,
+    rec.highestPnlSinceEntry,
+    input.collateralUsd
+  );
   const stopPx = stopPxForRoePct(
     input.direction,
     input.entryPrice,
@@ -321,12 +345,12 @@ export async function evaluateDynamicTrail(
     closeDetail: '',
   };
 
-  // —— In-profit ROE trail (+0.2% arm, +0.1% lock, 0.1% gap) ——
+  // —— Stage 2: full in-profit ratchet trail ——
   if (rec.phase === 'trailing' && !rec.lossSlArmed) {
     refreshProfitTrailStop(rec, input);
     if (isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop!)) {
       const lockRoe = profitTrailLockRoePct(rec.highestPnlSinceEntry, input.collateralUsd);
-      const detail = `PROFIT TRAIL +${lockRoe.toFixed(2)}% ROE · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
+      const detail = `PROFIT TRAIL S2 +${lockRoe.toFixed(2)}% ROE · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
       return {
         record: rec,
         shouldClose: true,
@@ -337,24 +361,55 @@ export async function evaluateDynamicTrail(
     return { record: rec, ...noClose };
   }
 
+  // —— Stage 1: fixed min-profit lock (+0.1% ROE) ——
+  if (rec.phase === 'profit_lock' && !rec.lossSlArmed) {
+    if (shouldUpgradeToFullTrail(rec.highestPnlSinceEntry, input.collateralUsd)) {
+      rec.phase = 'trailing';
+      refreshProfitTrailStop(rec, input);
+      logger.info('HL profit trail stage 2 armed', {
+        coin: input.coin,
+        direction: input.direction,
+        peakRoe: roePct(rec.highestPnlSinceEntry, input.collateralUsd).toFixed(3),
+        stop: rec.currentTrailStop?.toFixed(6),
+      });
+      return { record: rec, ...noClose };
+    }
+
+    refreshProfitTrailStop(rec, input);
+    if (isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop!)) {
+      const lockRoe = profitLockStage1RoePct();
+      const detail = `PROFIT LOCK S1 +${lockRoe.toFixed(2)}% ROE · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
+      return {
+        record: rec,
+        shouldClose: true,
+        exitReason: 'trailing_stop',
+        closeDetail: detail,
+      };
+    }
+    return { record: rec, ...noClose };
+  }
+
+  // —— Arm stage 1 at +0.2% ROE ——
   if (
     rec.phase === 'idle' &&
     shouldArmProfitTrail(input.pnlUsd, input.collateralUsd)
   ) {
-    rec.phase = 'trailing';
+    rec.phase = 'profit_lock';
     rec.trailArmedAt = input.nowMs;
     rec.estimatedFeesUsd = feesUsd;
     refreshProfitTrailStop(rec, input);
-    logger.info('HL profit trail armed', {
+    logger.info('HL profit trail stage 1 armed', {
       coin: input.coin,
       direction: input.direction,
       roe: roePct(input.pnlUsd, input.collateralUsd).toFixed(3),
-      lockRoe: profitTrailLockRoePct(rec.highestPnlSinceEntry, input.collateralUsd).toFixed(3),
+      lockRoe: profitLockStage1RoePct().toFixed(3),
       stop: rec.currentTrailStop?.toFixed(6),
       pnlUsd: input.pnlUsd.toFixed(4),
     });
     return { record: rec, ...noClose };
   }
+
+  // (removed duplicate trailing block below)
 
   // —— Loss SL trail after max hold while red ——
   if (rec.phase === 'idle' && input.totalHoldMs >= cfg.maxHoldBeforeSlTrailMs) {

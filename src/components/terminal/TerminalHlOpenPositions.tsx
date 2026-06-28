@@ -3,6 +3,9 @@ import type { HlPosition } from '../../lib/hyperliquid/user';
 import { fmtTradeUsdSymbol } from '../../lib/hyperliquid/format';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
+import { useHlPositionPeakPnl } from '../../hooks/useHlPositionPeakPnl';
+import { useHlBotTrailSnapshots } from '../../hooks/useHlBotTrailSnapshots';
+import { HL_DEFAULT_STOP_LOSS_PERCENT } from '../../lib/hlBotConstants';
 import { trailStopForOpenPosition } from '../../lib/hlTrailingStopChart';
 
 type Props = {
@@ -10,6 +13,7 @@ type Props = {
   loading?: boolean;
   compact?: boolean;
   configuredLeverage?: number;
+  stopLossMarginPct?: number;
   walletAddress?: string | null;
   reasonRefreshKey?: number;
   /** Switch the live chart to this HL perp coin. */
@@ -33,6 +37,7 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
   loading = false,
   compact = false,
   configuredLeverage,
+  stopLossMarginPct = HL_DEFAULT_STOP_LOSS_PERCENT,
   walletAddress,
   reasonRefreshKey = 0,
   onCoinClick,
@@ -42,6 +47,20 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
 }) => {
   const coins = positions.map((p) => p.coin);
   const { prices: markPrices } = useHyperliquidMarkPrices(coins);
+
+  const livePnlByCoin = Object.fromEntries(
+    positions.map((p) => {
+      const mark = markPrices[p.coin] ?? 0;
+      const szi = Number.parseFloat(p.szi || '0');
+      const entry = Number.parseFloat(p.entryPx || '0');
+      const upnl =
+        Number.parseFloat(p.unrealizedPnl || '0') ||
+        (mark > 0 && szi ? (mark - entry) * szi : 0);
+      return [p.coin, upnl];
+    })
+  );
+  const peakPnlFor = useHlPositionPeakPnl(positions, livePnlByCoin);
+  const botTrailByCoin = useHlBotTrailSnapshots(walletAddress, Boolean(walletAddress));
 
   if (loading && positions.length === 0) {
     return <p className="term-hl-open-empty">Loading Hyperliquid positions…</p>;
@@ -60,7 +79,7 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
             <th>Mark</th>
             <th>Lev</th>
             <th>uPnL</th>
-            <th>Trail SL</th>
+            <th>Active SL</th>
             <th className="term-hl-open-actions-col">Close</th>
           </tr>
         </thead>
@@ -74,13 +93,27 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
             const mark = markPrices[p.coin] ?? 0;
             const lev = resolveDisplayLeverage(configuredLeverage, p.leverage?.value);
             const isClosing = closingCoin === p.coin;
-            const trail = trailStopForOpenPosition({
+            const peakPnl = peakPnlFor(p.coin, entry, szi, upnl);
+            const botTrail = botTrailByCoin[p.coin];
+            const activeSl = trailStopForOpenPosition({
               entryPx: entry,
               szi,
               markPx: mark > 0 ? mark : entry,
               unrealizedPnlUsd: upnl,
               leverage: lev,
               coin: p.coin,
+              peakPnlUsd: peakPnl,
+              stopLossMarginPct,
+              serverTrail: botTrail
+                ? {
+                    peakPnlUsd: botTrail.peakPnlUsd,
+                    lockPnlUsd: botTrail.lockPnlUsd,
+                    lockRoePct: botTrail.lockRoePct,
+                    stopPx: botTrail.stopPx,
+                    wouldCloseNow: botTrail.wouldCloseNow,
+                    stateTracked: botTrail.stateTracked,
+                  }
+                : undefined,
             });
             return (
               <tr key={p.coin}>
@@ -114,15 +147,13 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
                   {fmtUsd(upnl)}
                 </td>
                 <td
-                  className="term-hl-trail-col"
-                  title={
-                    trail.title ??
-                    (trail.armed
-                      ? 'Bot-managed dynamic trail — closes at market when price crosses'
-                      : 'Trail in profit — stop arms automatically')
-                  }
+                  className={`term-hl-trail-col term-active-sl term-active-sl--${activeSl.kind}`}
+                  title={activeSl.title}
                 >
-                  {trail.label}
+                  <span className="term-active-sl__price">{activeSl.label}</span>
+                  {activeSl.sublabel ? (
+                    <span className="term-active-sl__roe">{activeSl.sublabel}</span>
+                  ) : null}
                 </td>
                 <td className="term-dock-actions term-hl-open-actions-col">
                   <button

@@ -307,7 +307,7 @@ const GmxStyleLanding: React.FC = () => {
   const ctaReveal = Math.min(1, Math.max(0, (expand - 0.72) / 0.28));
 
   const frameBox: React.CSSProperties = {
-    position: locked ? 'fixed' : 'absolute',
+    position: 'absolute',
     top: layout.frameTop,
     left: layout.frameLeft,
     width: layout.frameWidth,

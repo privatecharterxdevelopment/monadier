@@ -30,6 +30,9 @@ import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
 import { trailStopForOpenPosition } from '../../lib/hlTrailingStopChart';
+import { useHlPositionPeakPnl } from '../../hooks/useHlPositionPeakPnl';
+import { useHlBotTrailSnapshots } from '../../hooks/useHlBotTrailSnapshots';
+import { HL_DEFAULT_STOP_LOSS_PERCENT } from '../../lib/hlBotConstants';
 import TradeReasonHint from '../terminal/TradeReasonHint';
 import DockCountBadge from './DockCountBadge';
 import { getAppQueryLink } from '../../lib/appUrls';
@@ -84,6 +87,8 @@ type Props = {
   onClosePosition?: (position: HlPosition) => void;
   /** Saved bot leverage — shown in positions table when set. */
   configuredLeverage?: number;
+  /** Max loss % on margin (settings) — shown when position is red. */
+  stopLossMarginPct?: number;
   /** Bot wallet — for open-trade reason tooltips. */
   walletAddress?: string | null;
   reasonRefreshKey?: number;
@@ -125,6 +130,7 @@ const ProTradeDock: React.FC<Props> = ({
   onCancelTwap,
   onClosePosition,
   configuredLeverage,
+  stopLossMarginPct = HL_DEFAULT_STOP_LOSS_PERCENT,
   walletAddress,
   reasonRefreshKey = 0,
   mode = 'full',
@@ -267,6 +273,21 @@ const ProTradeDock: React.FC<Props> = ({
     if (!q) return list;
     return list.filter((p) => p.coin.toLowerCase().includes(q));
   }, [scopedPositions, search]);
+
+  const livePnlByCoin = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const p of filteredPositions) {
+      const mark = markPrices[p.coin] ?? 0;
+      map[p.coin] = livePositionPnl(p, mark);
+    }
+    return map;
+  }, [filteredPositions, markPrices]);
+
+  const peakPnlFor = useHlPositionPeakPnl(filteredPositions, livePnlByCoin);
+  const botTrailByCoin = useHlBotTrailSnapshots(
+    isBotMode ? walletAddress : null,
+    isBotMode && Boolean(walletAddress)
+  );
 
   const filteredCloseFills = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -413,7 +434,7 @@ const ProTradeDock: React.FC<Props> = ({
                   <th>Mark</th>
                   <th>PnL</th>
                   <th>Lev</th>
-                  {isBotMode ? <th>Trail SL</th> : null}
+                  {isBotMode ? <th>Active SL</th> : null}
                   <th />
                 </tr>
               </thead>
@@ -425,14 +446,28 @@ const ProTradeDock: React.FC<Props> = ({
                   const lev = isBotMode
                     ? resolveDisplayLeverage(configuredLeverage, p.leverage?.value)
                     : Math.max(1, toNum(p.leverage?.value));
-                  const trail = trailStopForOpenPosition({
+                  const peakPnl = peakPnlFor(p.coin, toNum(p.entryPx), toNum(p.szi), upnl);
+                  const botTrail = botTrailByCoin[p.coin];
+                  const activeSl = trailStopForOpenPosition({
                     entryPx: toNum(p.entryPx),
                     szi: toNum(p.szi),
                     markPx: mark > 0 ? mark : toNum(p.entryPx),
                     unrealizedPnlUsd: upnl,
                     leverage: lev,
                     coin: p.coin,
+                    peakPnlUsd: peakPnl,
+                    stopLossMarginPct,
                     holdMs: Date.now() - (positionOpenSinceRef.current.get(p.coin) ?? Date.now()),
+                    serverTrail: botTrail
+                      ? {
+                          peakPnlUsd: botTrail.peakPnlUsd,
+                          lockPnlUsd: botTrail.lockPnlUsd,
+                          lockRoePct: botTrail.lockRoePct,
+                          stopPx: botTrail.stopPx,
+                          wouldCloseNow: botTrail.wouldCloseNow,
+                          stateTracked: botTrail.stateTracked,
+                        }
+                      : undefined,
                   });
                   return (
                     <tr key={p.coin}>
@@ -451,15 +486,11 @@ const ProTradeDock: React.FC<Props> = ({
                       </td>
                       <td>{fmtLeverage(lev)}</td>
                       {isBotMode ? (
-                        <td
-                          title={
-                            trail.title ??
-                            (trail.armed
-                              ? 'Bot-managed dynamic trail — market close on cross'
-                              : 'Trail in profit — stop arms automatically')
-                          }
-                        >
-                          {trail.label}
+                        <td className={`hl-active-sl hl-active-sl--${activeSl.kind}`} title={activeSl.title}>
+                          <span className="hl-active-sl__price">{activeSl.label}</span>
+                          {activeSl.sublabel ? (
+                            <span className="hl-active-sl__roe">{activeSl.sublabel}</span>
+                          ) : null}
                         </td>
                       ) : null}
                       <td>

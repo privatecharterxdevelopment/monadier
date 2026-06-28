@@ -8,7 +8,7 @@ import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { isTrendOnlyLongAllowed, isTrendOnlyShortAllowed } from './trendOnly';
-import { classifyCoinTier, needsCautionPath } from './coinTier';
+import { classifyCoinTier, isBotExcludedCoin, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 
 export type BotSignalMode = 'standard' | 'aggressive';
@@ -263,7 +263,7 @@ export async function scanGlobalHlSignals(
 ): Promise<GlobalScanResult> {
   const started = Date.now();
   const universe = preloadedUniverse ?? (await fetchHlLiquidUniverse());
-  const coins = universe.coins;
+  const coins = universe.coins.filter((coin) => !isBotExcludedCoin(coin));
   const concurrency = config.scaling.globalScanConcurrency;
   const liqByCoin = new Map(universe.markets.map((m) => [m.coin, m]));
 

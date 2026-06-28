@@ -1,3 +1,5 @@
+import { isBotExcludedHlCoin } from './botTradingPairs';
+
 export type BotScanCandidate = {
   coin: string;
   direction: string;
@@ -13,9 +15,14 @@ export function pickNextScanCandidate(
 ): BotScanCandidate | null {
   const openSet = new Set(openCoins.map((c) => c.toUpperCase()));
   const fromList = candidates.find(
-    (c) => c?.coin && !openSet.has(c.coin.toUpperCase())
+    (c) =>
+      c?.coin &&
+      !openSet.has(c.coin.toUpperCase()) &&
+      !isBotExcludedHlCoin(c.coin)
   );
   if (fromList) return fromList;
-  if (best && !openSet.has(best.coin.toUpperCase())) return best;
+  if (best && !openSet.has(best.coin.toUpperCase()) && !isBotExcludedHlCoin(best.coin)) {
+    return best;
+  }
   return null;
 }

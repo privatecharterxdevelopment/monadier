@@ -69,6 +69,21 @@ function profitTrailLockRoePct(peakPnlUsd: number, collateralUsd: number): numbe
   return Math.max(HL_DYNAMIC_TRAIL.armMinRoePct, peakRoe - HL_DYNAMIC_TRAIL.trailGapRoePct);
 }
 
+function profitLockStage1RoePct(): number {
+  return HL_DYNAMIC_TRAIL.armMinRoePct;
+}
+
+function resolveProfitTrailLockRoe(
+  peakPnlUsd: number,
+  collateralUsd: number,
+  peakRoePct: number
+): number {
+  if (peakRoePct >= HL_DYNAMIC_TRAIL.fullTrailArmRoePct) {
+    return profitTrailLockRoePct(peakPnlUsd, collateralUsd);
+  }
+  return profitLockStage1RoePct();
+}
+
 function ratchetStop(
   direction: 'long' | 'short',
   current: number | null,
@@ -78,7 +93,7 @@ function ratchetStop(
   return direction === 'long' ? Math.max(current, candidate) : Math.min(current, candidate);
 }
 
-/** ROE trail — mirrors bot: +0.2% arm, +0.1% lock, 0.1% gap from peak. */
+/** Two-stage ROE trail — mirrors bot (S1 lock, S2 ratchet). */
 export function computeDynamicTrailStopPx(opts: {
   entryPx: number;
   szi: number;
@@ -100,7 +115,8 @@ export function computeDynamicTrailStopPx(opts: {
   }
 
   const peakPnl = Math.max(opts.peakPnlUsd ?? opts.unrealizedPnlUsd, opts.unrealizedPnlUsd);
-  const lockRoe = profitTrailLockRoePct(peakPnl, opts.collateralUsd);
+  const peakRoe = roePct(peakPnl, opts.collateralUsd);
+  const lockRoe = resolveProfitTrailLockRoe(peakPnl, opts.collateralUsd, peakRoe);
   let stop = stopPxForRoePct(
     side,
     opts.entryPx,
@@ -154,6 +170,7 @@ export function computeHlChartPositionOverlay(opts: {
 
   const slPct = opts.stopLossMarginPct ?? 0;
   const tpPct = opts.takeProfitMarginPct ?? 0;
+  const hideLossSl = trail.armed;
 
   return {
     entryPx,
@@ -166,14 +183,56 @@ export function computeHlChartPositionOverlay(opts: {
     trailBreached: trail.breached,
     unrealizedPnlUsd: opts.unrealizedPnlUsd,
     peakPnlUsd: peak,
-    stopLossPx: marginStopLossPx(entryPx, opts.szi, lev, slPct) ?? undefined,
+    stopLossPx:
+      !hideLossSl && slPct > 0
+        ? lossStopPricePx(side, entryPx, absSize, collateral, slPct) ?? undefined
+        : undefined,
     takeProfitPx: marginTakeProfitPx(entryPx, opts.szi, lev, tpPct) ?? undefined,
-    stopLossMarginPct: slPct > 0 ? slPct : undefined,
+    stopLossMarginPct: !hideLossSl && slPct > 0 ? slPct : undefined,
     takeProfitMarginPct: tpPct > 0 ? tpPct : undefined,
   };
 }
 
-/** Trail stop for open-position tables. */
+export function lossStopPricePx(
+  direction: 'long' | 'short',
+  entryPx: number,
+  absSize: number,
+  collateralUsd: number,
+  slMarginPct: number
+): number | null {
+  if (slMarginPct <= 0 || absSize <= 0 || entryPx <= 0 || collateralUsd <= 0) return null;
+  const maxLossUsd = collateralUsd * (slMarginPct / 100);
+  const priceMove = maxLossUsd / absSize;
+  const px = direction === 'long' ? entryPx - priceMove : entryPx + priceMove;
+  return Number.isFinite(px) && px > 0 ? px : null;
+}
+
+function fmtStopPx(px: number): string {
+  if (px >= 1000) return px.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  if (px >= 1) return px.toFixed(4);
+  if (px >= 0.01) return px.toFixed(5);
+  return px.toFixed(6);
+}
+
+export type ActiveSlDisplay = {
+  stopPx: number | null;
+  armed: boolean;
+  kind: 'profit' | 'arming' | 'loss_cap' | 'idle' | 'close_now';
+  label: string;
+  sublabel?: string;
+  title?: string;
+};
+
+export type BotTrailServerTruth = {
+  peakPnlUsd: number;
+  lockPnlUsd: number;
+  lockRoePct: number;
+  stopPx: number | null;
+  wouldCloseNow?: boolean;
+  stateTracked?: boolean;
+};
+
+/** Active bot stop — profit SL when green; max-loss cap from settings when red. */
 export function trailStopForOpenPosition(opts: {
   entryPx: number;
   szi: number;
@@ -181,39 +240,103 @@ export function trailStopForOpenPosition(opts: {
   unrealizedPnlUsd: number;
   leverage: number;
   coin: string;
+  peakPnlUsd?: number;
+  stopLossMarginPct?: number;
   holdMs?: number;
-}): { stopPx: number | null; armed: boolean; label: string; title?: string } {
+  serverTrail?: BotTrailServerTruth;
+}): ActiveSlDisplay {
   const absSize = Math.abs(opts.szi);
   if (opts.entryPx <= 0 || absSize <= 0 || opts.markPx <= 0) {
-    return { stopPx: null, armed: false, label: '—' };
+    return { stopPx: null, armed: false, kind: 'idle', label: '—' };
   }
+
+  const side = opts.szi >= 0 ? ('long' as const) : ('short' as const);
   const notional = absSize * opts.markPx;
   const collateral = notional / Math.max(1, opts.leverage);
+  const server = opts.serverTrail;
+  const peak = Math.max(
+    server?.peakPnlUsd ?? 0,
+    opts.peakPnlUsd ?? opts.unrealizedPnlUsd,
+    opts.unrealizedPnlUsd
+  );
+  const slPct = opts.stopLossMarginPct ?? 0;
+
+  if (server?.wouldCloseNow && server.stopPx != null) {
+    const lockUsd = server.lockPnlUsd;
+    return {
+      stopPx: server.stopPx,
+      armed: true,
+      kind: 'close_now',
+      label: fmtStopPx(server.stopPx),
+      sublabel: `≤$${lockUsd.toFixed(2)} · CLOSE`,
+      title: `Mark crossed bot profit SL at $${fmtStopPx(server.stopPx)} (peak $${server.peakPnlUsd.toFixed(2)}). Bot should market-close now.`,
+    };
+  }
+
+  if (server?.stopPx != null && server.lockRoePct > 0) {
+    return {
+      stopPx: server.stopPx,
+      armed: true,
+      kind: 'profit',
+      label: fmtStopPx(server.stopPx),
+      sublabel: `$${server.lockPnlUsd.toFixed(2)} min · peak $${server.peakPnlUsd.toFixed(2)}`,
+      title: server.stateTracked
+        ? `Bot profit SL at $${fmtStopPx(server.stopPx)} — locks ≥$${server.lockPnlUsd.toFixed(2)} (peak uPnL $${server.peakPnlUsd.toFixed(2)}). Stop only moves up.`
+        : `Profit SL at $${fmtStopPx(server.stopPx)} — bot peak state was reset (redeploy). Peak may rebuild from here.`,
+    };
+  }
+
   const trail = computeDynamicTrailStopPx({
     entryPx: opts.entryPx,
     szi: opts.szi,
     unrealizedPnlUsd: opts.unrealizedPnlUsd,
-    peakPnlUsd: opts.unrealizedPnlUsd,
+    peakPnlUsd: peak,
     coin: opts.coin,
     notionalUsd: notional,
     collateralUsd: collateral,
   });
 
-  if (!trail.armed || trail.stopPx == null) {
+  if (trail.armed && trail.stopPx != null) {
+    const lockPnlUsd = collateral * (trail.lockRoePct / 100);
+    return {
+      stopPx: trail.stopPx,
+      armed: true,
+      kind: 'profit',
+      label: fmtStopPx(trail.stopPx),
+      sublabel: `$${lockPnlUsd.toFixed(2)} min · peak $${peak.toFixed(2)}`,
+      title: `Profit SL — bot closes in profit if price crosses $${fmtStopPx(trail.stopPx)} (≥$${lockPnlUsd.toFixed(2)} locked). Settings SL is max loss only while red.`,
+    };
+  }
+
+  if (opts.unrealizedPnlUsd > 0) {
     const roe = roePct(opts.unrealizedPnlUsd, collateral);
-    if (opts.unrealizedPnlUsd > 0 && roe < HL_DYNAMIC_TRAIL.breakevenArmRoePct) {
-      return { stopPx: null, armed: false, label: 'Arming SL' };
-    }
-    if (opts.unrealizedPnlUsd > 0) {
-      return { stopPx: null, armed: false, label: 'Arming SL' };
-    }
-    return { stopPx: null, armed: false, label: 'Idle' };
+    return {
+      stopPx: null,
+      armed: false,
+      kind: 'arming',
+      label: 'Arming profit SL',
+      sublabel: `+${HL_DYNAMIC_TRAIL.breakevenArmRoePct}% ROE`,
+      title: `Profit SL arms at +${HL_DYNAMIC_TRAIL.breakevenArmRoePct}% ROE (now ${roe.toFixed(2)}%) — then stop moves into profit automatically.`,
+    };
+  }
+
+  if (slPct > 0) {
+    const lossPx = lossStopPricePx(side, opts.entryPx, absSize, collateral, slPct);
+    return {
+      stopPx: lossPx,
+      armed: false,
+      kind: 'loss_cap',
+      label: `Max −${slPct}%`,
+      sublabel: lossPx != null ? fmtStopPx(lossPx) : undefined,
+      title: `Max loss from settings (−${slPct}% of margin) while position is red. In profit, bot switches to automatic profit SL.`,
+    };
   }
 
   return {
-    stopPx: trail.stopPx,
-    armed: true,
-    label: `Trail +${trail.lockRoePct.toFixed(2)}%`,
-    title: `Profit trail locked at +${trail.lockRoePct.toFixed(2)}% ROE — closes on cross`,
+    stopPx: null,
+    armed: false,
+    kind: 'idle',
+    label: 'Hold red',
+    title: 'No loss SL % in settings — bot waits for profit trail when green.',
   };
 }

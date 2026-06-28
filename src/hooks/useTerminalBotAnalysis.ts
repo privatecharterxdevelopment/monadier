@@ -8,7 +8,7 @@ import { isBotScanNoiseDetail } from '../lib/hlBotReasonLabels';
 import { HL_MAX_CONCURRENT_POSITIONS, HL_SCAN_ROTATION_COINS, HL_SCAN_UNIVERSE_SIZE } from '../lib/hlBotConstants';
 import { MIN_HL_BOT_USD } from '../lib/hyperliquid/hlBotAgent';
 import { getBotApiBase, type Timeframe } from '../lib/signalService';
-import { binanceSymbolToHlCoin, hlCoinToBotSymbol } from '../lib/botTradingPairs';
+import { binanceSymbolToHlCoin, hlCoinToBotSymbol, isBotExcludedHlCoin } from '../lib/botTradingPairs';
 import { normalizeHlBotStrategy, type HlBotStrategy } from '../lib/hlBotStrategy';
 import { pickNextScanCandidate } from '../lib/botScanCandidate';
 
@@ -51,11 +51,13 @@ function mergeGlobalScanCandidates(
   const standard = Array.isArray(data.standardCandidates) ? data.standardCandidates : [];
   const aggressive = Array.isArray(data.aggressiveCandidates) ? data.aggressiveCandidates : [];
   const modeList = botStrategy === 'profit_grabber' ? aggressive : standard;
-  if (modeList.length > 0) return modeList;
+  const allowed = (list: GlobalScanCandidate[]) =>
+    list.filter((c) => c?.coin && !isBotExcludedHlCoin(c.coin));
+  if (modeList.length > 0) return allowed(modeList);
   if (Array.isArray(data.candidates) && data.candidates.length > 0) {
-    return data.candidates;
+    return allowed(data.candidates);
   }
-  return botStrategy === 'profit_grabber' ? aggressive : standard;
+  return allowed(botStrategy === 'profit_grabber' ? aggressive : standard);
 }
 
 type Options = {

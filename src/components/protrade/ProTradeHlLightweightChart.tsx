@@ -665,9 +665,9 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
           axisLabelVisible: true,
           title: locked
             ? breached
-              ? `Trail exit +$${closeFloor.toFixed(2)} (uPnL $${upnl.toFixed(2)})`
-              : `Trail +$${floorUsd.toFixed(2)} · uPnL $${upnl.toFixed(2)}`
-            : 'Trail SL (2.5m analyze)',
+              ? `Profit SL exit +$${closeFloor.toFixed(2)} (uPnL $${upnl.toFixed(2)})`
+              : `Profit SL — locked in profit`
+            : 'Profit SL arming',
         });
         priceLinesRef.current.push(trailLine);
       }
@@ -681,7 +681,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
           lineWidth: 1,
           lineStyle: LineStyle.Dashed,
           axisLabelVisible: true,
-          title: slPct > 0 ? `SL −${slPct}%` : 'Stop loss',
+          title: slPct > 0 ? `Max loss −${slPct}% (settings)` : 'Stop loss',
         });
         priceLinesRef.current.push(slLine);
       }

@@ -58,6 +58,7 @@ import TerminalBotSettingsModal from './TerminalBotSettingsModal';
 import TerminalLvrgPanel from './TerminalLvrgPanel';
 import TerminalBotSettingsStrip from './TerminalBotSettingsStrip';
 import BotSettingsStopFirstModal from './BotSettingsStopFirstModal';
+import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
 import { sanitizeUserFacingError } from '../../lib/hyperliquid/builderPlatform';
 import { isBotScanNoiseDetail } from '../../lib/hlBotReasonLabels';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
@@ -587,6 +588,8 @@ const TerminalTradePanel: React.FC<Props> = ({
     }
   };
 
+  const botEff = effectiveHlBotSettings(botSettings.settings);
+
   const handleStopForSettings = async () => {
     await handleStopBot();
     setShowStopFirstModal(false);
@@ -631,10 +634,17 @@ const TerminalTradePanel: React.FC<Props> = ({
           <button
             key={t.id}
             type="button"
-            className={`term-panel-tab ${panelTab === t.id ? 'term-panel-tab--on' : ''}`}
+            className={`term-panel-tab ${panelTab === t.id ? 'term-panel-tab--on' : ''}${
+              t.id === 'bot' ? ' term-panel-tab--bot' : ''
+            }`}
             onClick={() => (t.id === 'lvrg' ? requestLvrgAccess() : setPanelTab(t.id))}
           >
-            {t.label}
+            <span className="term-panel-tab__stack">
+              <span className="term-panel-tab__label">{t.label}</span>
+              {t.id === 'bot' ? (
+                <span className="term-panel-tab__meta">{botEff.leverage}x</span>
+              ) : null}
+            </span>
           </button>
         ))}
       </div>

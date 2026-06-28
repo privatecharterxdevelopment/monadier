@@ -12,11 +12,19 @@ import {
   unlockPageScroll,
   unregisterLandingWheelConsumer,
 } from '../../lib/landingScrollLock';
+import {
+  beginProgrammaticScroll,
+  getAnchorScrollY,
+  getElementScrollY,
+  isProgrammaticScroll,
+} from '../../lib/landingScrollAnchors';
 
 type ContinuousOptions = {
   lockId: string;
   mode?: 'continuous';
   scrollPx: number;
+  /** Snap here on forward release (next section title). */
+  releaseAnchorId?: string;
 };
 
 type StepOptions = {
@@ -24,12 +32,14 @@ type StepOptions = {
   mode: 'step';
   stepCount: number;
   wheelThreshold?: number;
+  releaseAnchorId?: string;
 };
 
 type Options = ContinuousOptions | StepOptions;
 
 export function useLandingScrollSequence(options: Options) {
   const lockId = options.lockId;
+  const releaseAnchorId = options.releaseAnchorId;
   const isStepMode = options.mode === 'step';
   const scrollPx = isStepMode ? 1 : options.scrollPx;
   const stepCount = isStepMode ? options.stepCount : 1;
@@ -79,12 +89,20 @@ export function useLandingScrollSequence(options: Options) {
       lockSnapshotRef.current = null;
 
       const section = sectionRef.current;
-      const exitY = resolveSectionReleaseScrollY(
-        section,
-        snapshot ?? captureScrollLock(readScrollY()),
-        forward,
-        continueDelta
-      );
+      let exitY: number;
+      if (forward && releaseAnchorId) {
+        exitY = getAnchorScrollY(releaseAnchorId);
+        beginProgrammaticScroll(550);
+      } else if (forward && section) {
+        exitY = getElementScrollY(section);
+      } else {
+        exitY = resolveSectionReleaseScrollY(
+          section,
+          snapshot ?? captureScrollLock(readScrollY()),
+          forward,
+          continueDelta
+        );
+      }
 
       unlockedRef.current = true;
       engagedRef.current = false;
@@ -92,7 +110,7 @@ export function useLandingScrollSequence(options: Options) {
       setLocked(false);
       setUnlocked(true);
     },
-    [lockId]
+    [lockId, releaseAnchorId]
   );
 
   const applyProgress = useCallback((next: number) => {
@@ -130,6 +148,9 @@ export function useLandingScrollSequence(options: Options) {
 
     const scrollY = resolveEngageScrollY(section);
     if (scrollY < 8) return false;
+
+    window.scrollTo({ top: scrollY, behavior: 'auto' });
+
     lockSnapshotRef.current = {
       ...captureScrollLock(scrollY),
       sectionEndY: resolveEngageSectionEndY(section, scrollY),
@@ -151,6 +172,7 @@ export function useLandingScrollSequence(options: Options) {
 
   const tryEngage = useCallback(() => {
     if (unlockedRef.current || engagedRef.current) return;
+    if (isProgrammaticScroll()) return;
     if (isBodyScrollLocked() && getScrollLockOwner() !== lockId) return;
     if (!isSectionNearViewport()) return;
     engage();
@@ -174,7 +196,7 @@ export function useLandingScrollSequence(options: Options) {
       stepCooldownTimerRef.current = window.setTimeout(() => {
         stepCooldownRef.current = false;
         stepCooldownTimerRef.current = null;
-      }, 720);
+      }, 820);
     },
     [advanceStep]
   );
@@ -192,6 +214,14 @@ export function useLandingScrollSequence(options: Options) {
       if (Math.abs(deltaY) < 2) return true;
 
       if (isStepMode) {
+        if (stepCount === 1 && deltaY > 0) {
+          if (!engagedRef.current) {
+            engage();
+            return Boolean(engagedRef.current);
+          }
+          releaseLock(true, deltaY);
+          return false;
+        }
         if (deltaY > 0) {
           if (completeRef.current) {
             releaseLock(true, deltaY);
@@ -262,6 +292,7 @@ export function useLandingScrollSequence(options: Options) {
       id: lockId,
       isActive: () => {
         if (unlockedRef.current) return false;
+        if (isProgrammaticScroll()) return false;
         const owner = getScrollLockOwner();
         if (owner === lockId || engagedRef.current) return true;
         if (isBodyScrollLocked()) return false;

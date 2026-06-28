@@ -344,12 +344,65 @@ export function getRegisterUrl(returnToApp = true): string {
   return `${base}?from=${encodeURIComponent(getOpenAppPath())}`;
 }
 
-/** ?preview=landing skips auto-redirect into Pro Trade when signed in. */
+const LANDING_VIEW_INTENT_KEY = 'monadier:view-landing';
+const LANDING_VIEW_INTENT_COOKIE = 'monadier_view_landing';
+
+function landingIntentUsesCookie(): boolean {
+  if (typeof window === 'undefined') return false;
+  const h = window.location.hostname;
+  if (h === 'localhost' || h === '127.0.0.1' || h.endsWith('.vercel.app')) return false;
+  return h.includes('.');
+}
+
+function landingIntentCookieDomain(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  const parts = window.location.hostname.split('.');
+  if (parts.length < 2) return undefined;
+  return `.${parts.slice(-2).join('.')}`;
+}
+
+/** Remember explicit “back to landing” navigation (logo, home links). */
+export function setLandingViewIntent(): void {
+  if (typeof window === 'undefined') return;
+  if (landingIntentUsesCookie()) {
+    const domain = landingIntentCookieDomain();
+    const domainAttr = domain ? `; domain=${domain}` : '';
+    document.cookie = `${LANDING_VIEW_INTENT_COOKIE}=1; path=/${domainAttr}; max-age=120; SameSite=Lax`;
+    return;
+  }
+  sessionStorage.setItem(LANDING_VIEW_INTENT_KEY, '1');
+}
+
+function clearLandingViewIntent(): void {
+  if (typeof window === 'undefined') return;
+  if (landingIntentUsesCookie()) {
+    const domain = landingIntentCookieDomain();
+    const domainAttr = domain ? `; domain=${domain}` : '';
+    document.cookie = `${LANDING_VIEW_INTENT_COOKIE}=; path=/${domainAttr}; max-age=0; SameSite=Lax`;
+    return;
+  }
+  sessionStorage.removeItem(LANDING_VIEW_INTENT_KEY);
+}
+
+/** True when user explicitly opened the marketing landing (consumes one-shot intent). */
+export function consumeLandingViewIntent(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (landingIntentUsesCookie()) {
+    const has = document.cookie.split('; ').some((c) => c === `${LANDING_VIEW_INTENT_COOKIE}=1`);
+    if (!has) return false;
+    clearLandingViewIntent();
+    return true;
+  }
+  const has = sessionStorage.getItem(LANDING_VIEW_INTENT_KEY) === '1';
+  if (has) clearLandingViewIntent();
+  return has;
+}
+
 export function getLandingPageUrl(): string {
-  const base = getMarketingUrl(LANDING_PATH);
-  return base.includes('?') ? `${base}&preview=landing` : `${base}?preview=landing`;
+  return getMarketingUrl(LANDING_PATH);
 }
 
 export function goToLanding(replace = false): string | null {
-  return goToMarketing(`${LANDING_PATH}?preview=landing`, replace);
+  setLandingViewIntent();
+  return goToMarketing(LANDING_PATH, replace);
 }

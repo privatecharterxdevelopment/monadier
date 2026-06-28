@@ -1859,7 +1859,8 @@
 }
 
 .landing-gmx-scroll-sequence--locked.landing-gmx-bot-pitch-section,
-.landing-gmx-scroll-sequence--locked.landing-gmx-product-carousel-section {
+.landing-gmx-scroll-sequence--locked.landing-gmx-product-carousel-section,
+.landing-gmx-scroll-sequence--locked.landing-home-bento-section {
   z-index: 10;
 }
 
@@ -6672,31 +6673,86 @@
 }
 
 .landing-home-bento-section {
+  position: relative;
+  height: 100dvh;
+  height: 100svh;
+  padding: 0;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.landing-home-bento-section--unlocked {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
   padding-top: 56px;
   padding-bottom: 72px;
 }
 
+.landing-home-bento-sticky {
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  height: 100svh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  padding-top: 48px;
+  padding-bottom: 32px;
+  box-sizing: border-box;
+}
+
+.landing-home-bento-section--unlocked .landing-home-bento-sticky {
+  position: static;
+  height: auto;
+  overflow: visible;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 @media (max-width: 639px) {
-  .landing-home-bento-section {
+  .landing-home-bento-section--unlocked {
     padding-top: 40px;
     padding-bottom: 48px;
   }
 
-  .landing-home-bento-header {
+  .landing-home-bento-section--unlocked .landing-home-bento-header {
     margin-bottom: 24px;
   }
 
-  .landing-apple-widgets-bento {
+  .landing-home-bento-section--unlocked .landing-apple-widgets-bento {
     gap: 10px;
   }
 
-  .landing-apple-widgets-stack {
+  .landing-home-bento-section--unlocked .landing-apple-widgets-stack {
     gap: 10px;
   }
 
-  .landing-apple-widgets-cell--hero {
+  .landing-home-bento-section--unlocked .landing-apple-widgets-cell--hero {
     min-height: 220px;
   }
+
+  .landing-home-bento-sticky {
+    padding-top: 36px;
+    padding-bottom: 24px;
+  }
+}
+
+.landing-home-bento-section--locked .landing-home-bento-header {
+  margin-bottom: 20px;
+}
+
+.landing-home-bento-section--locked .landing-apple-widgets-bento {
+  max-height: min(52vh, 520px);
+  overflow: hidden;
+}
+
+/* Legacy padding block — only when scroll sequence finished */
+.landing-home-bento-section:not(.landing-home-bento-section--locked):not(
+    .landing-home-bento-section--unlocked
+  ) {
+  padding-top: 56px;
+  padding-bottom: 72px;
 }
 
 .landing-home-bento-container {

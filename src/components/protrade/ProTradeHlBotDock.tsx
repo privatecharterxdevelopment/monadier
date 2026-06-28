@@ -71,7 +71,9 @@ const ProTradeHlBotDock: React.FC<Props> = ({
 }) => {
   const { address } = useAccount();
   const { wallet: settingsWallet, settings: botSettingsSnapshot } = useTerminalBotSettings();
-  const configuredLeverage = effectiveHlBotSettings(botSettingsSnapshot).leverage;
+  const botEff = effectiveHlBotSettings(botSettingsSnapshot);
+  const configuredLeverage = botEff.leverage;
+  const configuredStopLoss = botEff.stopLoss;
   const botRunning = isHlBotEnabled(
     Boolean(botAnalysisMetrics?.autoTradeEnabled) || botSettingsSnapshot.autoTradeEnabled
   );
@@ -176,6 +178,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         actionBusy={closeBusy}
         onClosePosition={(p) => void handleClosePosition(p)}
         configuredLeverage={configuredLeverage}
+        stopLossMarginPct={configuredStopLoss}
         walletAddress={hlWallet}
         reasonRefreshKey={refreshKey}
         botRunning={botRunning}

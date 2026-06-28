@@ -36,7 +36,7 @@ import { validateEntryLocation } from './entryLocationGate';
 import { validateMacroBetaAlignment } from './macroBetaGate';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
-import { classifyCoinTier, MAJOR_COINS, needsCautionPath, volumeRankForCoin } from './coinTier';
+import { classifyCoinTier, isBotExcludedCoin, MAJOR_COINS, needsCautionPath, volumeRankForCoin } from './coinTier';
 import { validateCoinNews } from './coinNewsGate';
 import type { NewsTradeMode } from './newsTradeMode';
 import { validateNotFreshlyPumped } from './freshPumpGate';
@@ -90,7 +90,7 @@ let fastPositionMonitorRunning = false;
  */
 function mayAutoCloseInRed(reason: string, holdMs = 0): boolean {
   const cfg = config.hyperliquid;
-  if (reason === 'emergency_close') return true;
+  if (reason === 'emergency_close' || reason === 'manual') return true;
   // Breakeven / trail exits — always honor once armed (even scratch red beats holding a loser).
   if (
     reason === 'profit_lock' ||
@@ -320,9 +320,10 @@ export class HyperliquidTradingService {
 
   async canTrade(userAddress: string): Promise<{ ok: boolean; reason?: string }> {
     const agentAddr = await this.getAgentAddress(userAddress);
-    const approved = await hlAgentApprovalService.isApproved(userAddress, agentAddr);
+    const approved = await hlAgentApprovalService.isApprovedOnChain(userAddress, agentAddr);
     if (!approved) {
-      return { ok: false, reason: 'HL agent not approved — enable bot in app' };
+      const reason = await hlAgentApprovalService.describeAgentBlocker(userAddress, agentAddr);
+      return { ok: false, reason: reason ?? 'HL agent not approved — enable bot in app' };
     }
 
     const builderGate = await checkHlBuilderFeeApproved(userAddress);
@@ -455,6 +456,7 @@ export class HyperliquidTradingService {
     const passing: Array<{ signal: GlobalSignalCandidate; score: number }> = [];
 
     for (const signal of signals) {
+      if (isBotExcludedCoin(signal.coin)) continue;
       if (excluded.has(signal.coin.toUpperCase())) continue;
       if (!isHlCoinLiquid(liquidUniverse, signal.coin)) continue;
 
@@ -758,6 +760,15 @@ export class HyperliquidTradingService {
     try {
       const { meta, mids } = opts.ctx;
       const coin = opts.coin.toUpperCase();
+      if (isBotExcludedCoin(coin)) {
+        const reason = `${coin} is excluded from bot trading`;
+        logger.info('HL open blocked — excluded coin', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+        });
+        return { success: false, error: reason };
+      }
       const flipGate = await isSameCoinOpenBlocked(opts.userAddress, coin, opts.direction);
       if (flipGate.blocked) {
         logger.info('HL open blocked — same-coin anti-flip', {
@@ -1401,7 +1412,11 @@ export class HyperliquidTradingService {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const coinUpper = coin.toUpperCase();
-      const state = await fetchHlClearinghouseState(userAddress);
+      const [state, meta, mids] = await Promise.all([
+        fetchHlClearinghouseState(userAddress),
+        fetchHlMeta(),
+        fetchHlAllMids(),
+      ]);
       const row = state?.assetPositions?.find(
         (p) => p.position?.coin?.toUpperCase() === coinUpper
       )?.position;
@@ -1418,7 +1433,12 @@ export class HyperliquidTradingService {
       const leverage = closeCtx?.leverage ?? row.leverage?.value ?? 10;
       const absSize = Math.abs(size);
 
-      if (config.hyperliquid.profitOnlyExits && pnlUsd < 0 && !mayAutoCloseInRed(reason, closeCtx?.holdMs ?? 0)) {
+      if (
+        config.hyperliquid.profitOnlyExits &&
+        pnlUsd < 0 &&
+        reason !== 'manual' &&
+        !mayAutoCloseInRed(reason, closeCtx?.holdMs ?? 0)
+      ) {
         logger.warn('HL close rejected — never close in red', {
           user: userAddress.slice(0, 10),
           coin: coinUpper,
@@ -1456,8 +1476,6 @@ export class HyperliquidTradingService {
         return { success: false, error: 'Stop loss skipped while in profit' };
       }
 
-      const meta = await fetchHlMeta();
-      const mids = await fetchHlAllMids();
       const assetIndex = coinToAssetIndex(meta, coinUpper);
       const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
       const markPx = Number(mids[coinUpper] ?? mids[coin] ?? 0);
@@ -1575,13 +1593,23 @@ export class HyperliquidTradingService {
             : calculateHlSuccessFee(pnlUsd)
           : 0;
 
-      await recordHlBotClose({
+      const recordClose = recordHlBotClose({
         walletAddress: userAddress,
         reason: reasonDetail ?? reason,
         snapshot,
         collectedFeeUsd: collectedFee,
         viaHlBuilder,
       });
+      if (reason === 'manual') {
+        void recordClose.catch((err) => {
+          logger.warn('HL manual close history record failed', {
+            user: userAddress.slice(0, 10),
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+      } else {
+        await recordClose;
+      }
 
       logger.info('HL position closed', {
         user: userAddress.slice(0, 10),

@@ -608,7 +608,7 @@
     "closedTradesGate": "Closed trades before gate applies",
     "fewerTrades": "Fewer trades",
     "moreTrades": "More trades",
-    "exitsHint": "<strong>Exits:</strong> Bot trails stop loss into profit automatically — no manual TP/SL. Standard arms at +$0.06 uPnL (min lock +$0.03). Aggressive arms at +$0.02 (lock +$0.01)."
+    "exitsHint": "<strong>Exits:</strong> SL % in settings = max loss on margin while red. In profit the bot sets a <strong>profit SL</strong> automatically (+0.2% ROE arm → +0.1% lock, 0.1% trail from peak)."
   },
   "trading": {
     "order": {
