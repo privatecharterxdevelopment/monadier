@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { goToOpenApp } from '../../lib/appUrls';
+import { useLandingScrollSequence } from './useLandingScrollSequence';
 
 type PitchPart = {
   text: string;
@@ -10,7 +11,7 @@ type PitchPart = {
 
 function PitchLine({ parts }: { parts: readonly PitchPart[] }) {
   return (
-    <p className="landing-gmx-bot-pitch-line">
+    <p className="landing-gmx-bot-pitch-line landing-gmx-bot-pitch-line--active">
       {parts.map((part, i) => (
         <span
           key={`${part.text}-${i}`}
@@ -23,7 +24,7 @@ function PitchLine({ parts }: { parts: readonly PitchPart[] }) {
   );
 }
 
-/** Full-viewport scroll section — one centered title per screen, native scroll-snap. */
+/** Pinned full-viewport section — wheel advances one centered title at a time. */
 const LandingBotPitchSection: React.FC = () => {
   const { t } = useTranslation();
   const pitchLinesRaw = t('landing.pitch.lines', { returnObjects: true });
@@ -33,21 +34,32 @@ const LandingBotPitchSection: React.FC = () => {
   }, [pitchLinesRaw]);
   const lastStep = Math.max(0, pitchLines.length - 1);
 
+  const { sectionRef, stepIndex, locked, unlocked } = useLandingScrollSequence({
+    lockId: 'pitch',
+    mode: 'step',
+    stepCount: Math.max(1, pitchLines.length),
+    releaseAnchorId: 'landing-faq-title',
+  });
+
+  const activeLine = pitchLines[stepIndex] ?? pitchLines[0] ?? [];
+
   return (
     <section
       id="landing-pitch-section"
-      className="landing-gmx-bot-pitch-section"
+      ref={sectionRef}
+      className={`landing-gmx-bot-pitch-section${
+        locked ? ' landing-gmx-scroll-sequence--locked' : ''
+      }${unlocked ? ' landing-gmx-bot-pitch-section--unlocked' : ''}`}
       aria-label="Trading bot highlights"
     >
-      {pitchLines.map((line, index) => (
-        <article
-          key={index}
-          className="landing-gmx-bot-pitch-slide"
-          aria-hidden={false}
-        >
-          <div className="landing-gmx-bot-pitch-slide-inner">
-            <PitchLine parts={line} />
-            {index === lastStep ? (
+      <div className="landing-gmx-bot-pitch-sticky">
+        <div className="landing-gmx-pitch-stage">
+          <div className="landing-gmx-bot-pitch-lines" aria-live="polite">
+            <PitchLine key={stepIndex} parts={activeLine} />
+          </div>
+
+          {stepIndex === lastStep ? (
+            <div className="landing-gmx-bot-pitch-cta-wrap landing-gmx-bot-pitch-cta-wrap--visible">
               <button
                 type="button"
                 className="landing-gmx-bot-pitch-cta"
@@ -56,10 +68,12 @@ const LandingBotPitchSection: React.FC = () => {
                 {t('landing.pitch.ctaFinal', { defaultValue: t('landing.pitch.cta') })}
                 <ArrowRight size={16} aria-hidden />
               </button>
-            ) : null}
-          </div>
-        </article>
-      ))}
+            </div>
+          ) : (
+            <div className="landing-gmx-bot-pitch-cta-wrap" aria-hidden />
+          )}
+        </div>
+      </div>
     </section>
   );
 };
