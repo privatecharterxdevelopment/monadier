@@ -41,6 +41,12 @@ import { validateCoinNews } from './coinNewsGate';
 import type { NewsTradeMode } from './newsTradeMode';
 import { trustsScanAnalysis } from './analysisFirstOpen';
 import { validateNotFreshlyPumped } from './freshPumpGate';
+import {
+  filterSignalsForMacroRegime,
+  macroAlignedPickBonus,
+  resolveMacroRegime,
+} from './marketRegime';
+import { validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
 import { validatePumpSweepGate } from './pumpSweepGate';
 import { validateScalpAlignment } from './scalpAlignGate';
 import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
@@ -300,11 +306,24 @@ export function resolveHlMarginPerSlot(
   );
 }
 
-function liquidityPickScore(signal: GlobalSignalCandidate, tier: 'major' | 'mid' | 'cautious'): number {
+function liquidityPickScore(
+  signal: GlobalSignalCandidate,
+  tier: 'major' | 'mid' | 'cautious',
+  regime: ReturnType<typeof resolveMacroRegime>['regime']
+): number {
   const volM = signal.dayVolumeUsd / 1_000_000;
   const oiM = signal.openInterestUsd / 1_000_000;
   const tierBonus = tier === 'major' ? 40 : tier === 'mid' ? 15 : -25;
-  return volM * 12 + oiM * 3 + signal.confidence * 0.15 + tierBonus;
+  const tfs = signal.directionalTfCount ?? 0;
+  const mtfBonus = tfs >= 3 ? 25 : tfs >= 2 ? 12 : 0;
+  return (
+    signal.confidence * 2.5 +
+    mtfBonus +
+    macroAlignedPickBonus(signal, regime) +
+    tierBonus +
+    volM * 4 +
+    oiM * 1.5
+  );
 }
 
 export type UserProcessResult = 'ok' | 'skip' | 'fail';
@@ -460,6 +479,7 @@ export class HyperliquidTradingService {
     excludeCoins: string[],
     limit: number
   ): Promise<GlobalSignalCandidate[]> {
+    const { regime } = resolveMacroRegime();
     const excluded = new Set(excludeCoins.map((c) => c.toUpperCase()));
     const passing: Array<{ signal: GlobalSignalCandidate; score: number }> = [];
 
@@ -528,7 +548,8 @@ export class HyperliquidTradingService {
         signal: { ...signal, liquidityReason: gate.reason },
         score: liquidityPickScore(
           signal,
-          classifyCoinTier(signal.coin, liquidUniverse).tier
+          classifyCoinTier(signal.coin, liquidUniverse).tier,
+          regime
         ),
       });
       logger.info('HL signal passed pre-trade gate', {
@@ -553,7 +574,19 @@ export class HyperliquidTradingService {
     openCoins: string[]
   ): Promise<UserProcessResult> {
     const strategy = normalizeHlBotStrategy(settings.hlBotStrategy);
-    const signals = globalSignalsForBotMode(ctx.globalScan, strategy);
+    const rawSignals = globalSignalsForBotMode(ctx.globalScan, strategy);
+    const { signals, dropped, reason: regimeReason } = filterSignalsForMacroRegime(
+      rawSignals,
+      ctx.globalScan
+    );
+    if (dropped > 0) {
+      logger.info('HL open — alt LONGs filtered for macro regime', {
+        user: userAddress.slice(0, 10),
+        dropped,
+        remaining: signals.length,
+        reason: regimeReason,
+      });
+    }
     const maxPositions = config.hyperliquid.maxConcurrentPositions;
 
     if (signals.length === 0) {
@@ -907,7 +940,9 @@ export class HyperliquidTradingService {
         return { success: false, error: scalpGate.reason };
       }
 
-      const macroGate = trustAnalysis
+      const skipMacroAtOpen =
+        trustAnalysis && (opts.direction === 'SHORT' || MAJOR_COINS.has(coin));
+      const macroGate = skipMacroAtOpen
         ? {
             ok: true as const,
             reason: `Scan MTF ${opts.pick.confidence}% / ${opts.pick.directionalTfCount ?? 0} TFs — macro re-check skipped`,
@@ -980,10 +1015,13 @@ export class HyperliquidTradingService {
         return { success: false, error: pumpShortGate.reason };
       }
 
-      const megaGate = {
-        ok: true as const,
-        reason: `${coin} — per-coin chart/macro beta only (no global flow override)`,
-      };
+      const megaGate =
+        MAJOR_COINS.has(coin)
+          ? {
+              ok: true as const,
+              reason: `${coin} major — mega flow gate skipped`,
+            }
+          : validateMegaPairVolumeForDirection(opts.direction);
       if (!megaGate.ok) {
         logger.info('HL open blocked — mega pair volume', {
           user: opts.userAddress.slice(0, 10),
