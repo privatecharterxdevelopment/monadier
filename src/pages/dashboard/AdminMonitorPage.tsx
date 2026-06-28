@@ -260,9 +260,9 @@ function OverviewPanel({
         />
         <Kpi label="Win rate" value={`${stats.win_rate}%`} sub={`${stats.closed_trades_24h} closes / 24h`} />
         <Kpi
-          label="HL fees"
+          label="HL fees (10%)"
           value={fmtUsd(stats.hl_fees_total_usd)}
-          sub={`${fmtUsd(stats.hl_fees_settled_usd)} settled`}
+          sub={`${fmtUsd(stats.hl_fees_settled_usd)} on builder wallet`}
         />
       </div>
 
@@ -363,26 +363,38 @@ function BuilderCard({
 }) {
   const b = live?.builder;
   const ready = b?.ready;
+  const feeRatePct = 10;
 
   return (
     <div className={`rounded-xl border p-5 ${ready ? 'border-green-500/30' : 'border-red-500/40'} bg-card-dark`}>
       <div className="flex items-center gap-2 mb-3">
         <Coins size={20} className={ready ? 'text-green-400' : 'text-red-400'} />
-        <h3 className="font-semibold text-primary">HL builder wallet</h3>
+        <h3 className="font-semibold text-primary">Builder wallet — fee destination</h3>
         <span
           className={`ml-auto text-xs px-2 py-0.5 rounded-full ${
             ready ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
           }`}
         >
-          {ready ? 'fee collection active' : 'underfunded'}
+          {ready ? 'auto fee collection ON' : 'underfunded'}
         </span>
       </div>
       <p className="text-2xl font-bold text-primary">{fmtUsd(b?.accountUsd ?? 0)}</p>
-      <p className="text-xs text-secondary mt-1 break-all">{b?.builderAddress}</p>
-      <p className="text-sm text-secondary mt-3">
-        Min {fmtUsd(b?.minUsd ?? 100)} on HL perps · 10% success fee on bot wins
-      </p>
-      <p className="text-xs text-secondary mt-2">{pendingEmail} emails pending in queue</p>
+      <p className="text-xs text-secondary mt-1 break-all font-mono">{b?.builderAddress}</p>
+      <dl className="mt-4 grid grid-cols-1 gap-2 text-sm">
+        <div className="flex justify-between gap-4">
+          <dt className="text-secondary">Success fee rate</dt>
+          <dd className="text-primary font-medium">{feeRatePct}% of profit on every winning close</dd>
+        </div>
+        <div className="flex justify-between gap-4">
+          <dt className="text-secondary">Collection</dt>
+          <dd className="text-primary">Automatic via HL builder — no per-close wallet prompt</dd>
+        </div>
+        <div className="flex justify-between gap-4">
+          <dt className="text-secondary">HL minimum</dt>
+          <dd className="text-primary">{fmtUsd(b?.minUsd ?? 100)} on perps</dd>
+        </div>
+      </dl>
+      <p className="text-xs text-secondary mt-3">{pendingEmail} trade emails pending</p>
       {b?.builderAddress && (
         <a
           href={`https://app.hyperliquid.xyz/explorer/address/${b.builderAddress}`}
@@ -487,7 +499,8 @@ function TradesPanel({ rows }: { rows: AdminHlDashboard['recent_closes'] }) {
           <th className="px-4 py-3">Pair</th>
           <th className="px-4 py-3">Dir</th>
           <th className="px-4 py-3">P/L</th>
-          <th className="px-4 py-3">Fee</th>
+          <th className="px-4 py-3">10% fee</th>
+          <th className="px-4 py-3">Fee status</th>
           <th className="px-4 py-3">Reason</th>
           <th className="px-4 py-3">Venue</th>
         </tr>
@@ -510,6 +523,15 @@ function TradesPanel({ rows }: { rows: AdminHlDashboard['recent_closes'] }) {
             </td>
             <td className="px-4 py-2 font-mono text-xs text-green-400/90">
               {t.platform_success_fee != null ? fmtUsd(t.platform_success_fee) : '—'}
+            </td>
+            <td className="px-4 py-2 text-xs uppercase">
+              {t.platform_fee_status === 'settled' ? (
+                <span className="text-green-400">settled → builder</span>
+              ) : t.platform_fee_status === 'accrued' ? (
+                <span className="text-amber-400">accrued</span>
+              ) : (
+                <span className="text-secondary">—</span>
+              )}
             </td>
             <td className="px-4 py-2 text-xs text-secondary max-w-[120px] truncate">
               {t.close_reason ?? '—'}
@@ -564,22 +586,37 @@ function FeesPanel({
   stats: AdminHlDashboard['stats'];
   builder: AdminLiveContext['builder'];
 }) {
+  const builderAddr = builder?.builderAddress ?? '—';
+
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Kpi label="Total fees" value={fmtUsd(stats.hl_fees_total_usd)} />
-        <Kpi label="Accrued" value={fmtUsd(stats.hl_fees_accrued_usd)} sub="awaiting HL settlement" />
-        <Kpi label="Settled" value={fmtUsd(stats.hl_fees_settled_usd)} sub={builder.ready ? 'builder funded' : 'builder underfunded'} />
+      <div className="rounded-xl border border-border bg-card-dark p-4 text-sm">
+        <p className="text-primary font-medium">10% success fee — automatic on every profitable close</p>
+        <p className="text-secondary mt-1">
+          Collected via Hyperliquid builder fee and credited to{' '}
+          <span className="font-mono text-xs break-all">{builderAddr}</span>. Users approve once at
+          bot setup; closes never prompt again.
+        </p>
       </div>
-      <TableShell title="Fee ledger" subtitle="hl_fee_ledger">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Kpi label="Total fees (10%)" value={fmtUsd(stats.hl_fees_total_usd)} />
+        <Kpi label="Accrued" value={fmtUsd(stats.hl_fees_accrued_usd)} sub="missing HL settlement" />
+        <Kpi
+          label="Settled on builder"
+          value={fmtUsd(stats.hl_fees_settled_usd)}
+          sub={builder?.ready ? `wallet ${fmtUsd(builder.accountUsd)}` : 'builder underfunded'}
+        />
+      </div>
+      <TableShell title="Fee ledger" subtitle="hl_fee_ledger · 10% of gross profit per winning close">
         <thead>
           <tr className="text-left text-secondary text-xs">
             <th className="px-4 py-3">When</th>
-            <th className="px-4 py-3">Wallet</th>
+            <th className="px-4 py-3">User wallet</th>
             <th className="px-4 py-3">Coin</th>
-            <th className="px-4 py-3">Profit</th>
-            <th className="px-4 py-3">Fee</th>
+            <th className="px-4 py-3">Gross profit</th>
+            <th className="px-4 py-3">10% fee</th>
             <th className="px-4 py-3">Status</th>
+            <th className="px-4 py-3">Reason</th>
           </tr>
         </thead>
         <tbody>
@@ -589,8 +626,17 @@ function FeesPanel({
               <td className="px-4 py-2 font-mono text-xs">{shortWallet(f.wallet_address, 8)}</td>
               <td className="px-4 py-2">{f.coin}</td>
               <td className="px-4 py-2 font-mono text-green-400">{fmtUsd(f.gross_profit_usd)}</td>
-              <td className="px-4 py-2 font-mono">{fmtUsd(f.success_fee_usd)}</td>
-              <td className="px-4 py-2 text-xs uppercase">{f.status}</td>
+              <td className="px-4 py-2 font-mono text-cyan-400">{fmtUsd(f.success_fee_usd)}</td>
+              <td className="px-4 py-2 text-xs uppercase">
+                {f.status === 'settled' ? (
+                  <span className="text-green-400">settled → builder</span>
+                ) : (
+                  <span className="text-amber-400">{f.status}</span>
+                )}
+              </td>
+              <td className="px-4 py-2 text-xs text-secondary max-w-[140px] truncate">
+                {f.close_reason ?? '—'}
+              </td>
             </tr>
           ))}
         </tbody>

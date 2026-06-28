@@ -1415,7 +1415,12 @@ export class HyperliquidTradingService {
       holdMs?: number;
     },
     reasonDetail?: string
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    successFeeUsd?: number;
+    viaHlBuilder?: boolean;
+  }> {
     try {
       const coinUpper = coin.toUpperCase();
       const [state, meta, mids] = await Promise.all([
@@ -1629,6 +1634,23 @@ export class HyperliquidTradingService {
         });
       });
 
+      if (pnlUsd > 0 && config.hyperliquid.builderAddress) {
+        if (!viaHlBuilder || collectedFee <= 0) {
+          logger.error('Profitable HL close without builder fee — blocked', {
+            user: userAddress.slice(0, 10),
+            coin: coinUpper,
+            pnl: pnlUsd.toFixed(4),
+            viaHlBuilder,
+            collectedFee,
+          });
+          return {
+            success: false,
+            error:
+              'Profitable close must auto-collect the 10% success fee to the platform wallet. Re-approve platform fee in Bot setup.',
+          };
+        }
+      }
+
       logger.info('HL position closed', {
         user: userAddress.slice(0, 10),
         coin: coinUpper,
@@ -1639,7 +1661,7 @@ export class HyperliquidTradingService {
       });
       hlLastCloseAt.set(userAddress.toLowerCase(), Date.now());
       rememberCoinClose(userAddress, coinUpper, isLong ? 'LONG' : 'SHORT');
-      return { success: true };
+      return { success: true, successFeeUsd: collectedFee, viaHlBuilder };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.warn('HL close failed', { user: userAddress.slice(0, 10), error: msg });

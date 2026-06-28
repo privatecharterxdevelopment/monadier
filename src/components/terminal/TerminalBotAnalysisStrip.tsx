@@ -71,38 +71,33 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
   });
 
   const activeCandidate = botRunning ? (analysis.scanCandidate ?? analysis.globalBest) : null;
-  const scanHeadline = botRunning ? 'Scanning markets' : 'Bot off';
+  const hasBestCandidate = Boolean(activeCandidate?.coin);
+  const scanHeadline = hasBestCandidate
+    ? analysis.readiness.headline
+    : `Checking ${analysis.currentlyScanningCoin}`;
 
   const readiness = useMemo(() => {
     if (idleReadiness) return idleReadiness;
     if (slotsFull) {
       return {
-        canEnter: false,
-        headline: 'Managing trades',
-        detail: '',
-      };
-    }
-    if (botRunning) {
-      return {
         ...analysis.readiness,
-        headline: scanHeadline,
-        detail: '',
+        headline: 'Slots full',
+        detail: `${openPositionsCount}/${maxSlots} positions open — monitoring exits`,
       };
     }
-    return analysis.readiness;
+    return { ...analysis.readiness, headline: scanHeadline };
   }, [
     idleReadiness,
     slotsFull,
     analysis.readiness,
-    botRunning,
+    openPositionsCount,
+    maxSlots,
     scanHeadline,
   ]);
 
   const keepScanning = botRunning && !slotsFull;
-  const hasBestCandidate = Boolean(activeCandidate?.coin);
 
   if (placement === 'chart' && !showLiveAnalysis) return null;
-  if (placement === 'chart' && botRunning) return null;
 
   return (
     <TerminalChartAnalysisOverlay
@@ -112,13 +107,13 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
         progress={analysis.progress}
         signal={hasBestCandidate ? analysis.signal : null}
         dbAnalysis={hasBestCandidate ? analysis.dbAnalysis : null}
-        activeSymbol={botRunning ? (analysis.activeSymbol ?? symbol) : undefined}
+        activeSymbol={analysis.activeSymbol ?? symbol}
         globalBest={activeCandidate}
-        globalScanCount={botRunning ? analysis.globalScanCount : 0}
-        globalCoinsScanned={botRunning ? analysis.globalCoinsScanned : 0}
+        globalScanCount={analysis.globalScanCount}
+        globalCoinsScanned={analysis.globalCoinsScanned}
         readiness={readiness}
-        scanning={keepScanning}
-        isLoading={keepScanning && hasBestCandidate && analysis.isLoading}
+        scanning={idleReadiness ? false : keepScanning}
+        isLoading={idleReadiness ? false : hasBestCandidate && analysis.isLoading}
         openPositionsCount={analysis.openPositionsCount}
         maxConcurrentPositions={analysis.maxConcurrentPositions}
         pumpSweepLines={analysis.pumpSweepLines}

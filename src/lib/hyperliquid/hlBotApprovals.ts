@@ -119,8 +119,8 @@ export async function approveHlBotAgentRequired(opts: {
 }
 
 /**
- * @deprecated Bot start must not bundle approvals — use approveHlBotAgentRequired
- * and approveHlBuilderFeeRequired as separate steps before Start bot.
+ * One-time bot setup: trading agent then platform success fee (auto-chained).
+ * Closes after this never prompt for fees — 10% is taken on profitable exits via HL builder.
  */
 export async function completeHlBotApprovals(opts: {
   walletClient: WalletClient;

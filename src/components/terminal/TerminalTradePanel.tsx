@@ -25,8 +25,8 @@ import {
 } from '../../lib/hyperliquid/hlBotAgent';
 import { registerWalletsForHistory } from '../../lib/userWallets';
 import {
-  approveHlBotAgentRequired,
   approveHlBuilderFeeRequired,
+  completeHlBotApprovals,
   verifyHlBuilderFeeOnChain,
 } from '../../lib/hyperliquid/hlBotApprovals';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
@@ -433,7 +433,8 @@ const TerminalTradePanel: React.FC<Props> = ({
     setBotError(null);
     setBotBusy(true);
     try {
-      await approveHlBotAgentRequired({
+      // Agent + platform fee in one flow — two wallet signatures, no per-close prompts.
+      await completeHlBotApprovals({
         walletClient,
         walletAddress: address,
         userId: user?.id,
