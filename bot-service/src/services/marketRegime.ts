@@ -64,11 +64,15 @@ export function applyOpenUniverseFilters(
 
   if (isWeekendThinLiquidityWindow()) {
     const before = filtered.length;
-    filtered = filtered.filter((s) => MAJOR_COINS.has(s.coin.toUpperCase()));
+    filtered = filtered.filter((s) => {
+      const coin = s.coin.toUpperCase();
+      if (s.direction === 'LONG') return false;
+      return MAJOR_COINS.has(coin);
+    });
     const n = before - filtered.length;
     if (n > 0) {
       dropped += n;
-      reasons.push(`Weekend thin liquidity — BTC/ETH only (${n} alt setup(s) skipped)`);
+      reasons.push(`Weekend — no LONGs · BTC/ETH SHORT only (${n} setup(s) skipped)`);
     }
   }
 
@@ -137,7 +141,7 @@ export function describeOpenUniverseForClient(scan?: GlobalScanResult): {
   const { regime, reason } = resolveMacroRegime();
   const weekendMajorsOnly = isWeekendThinLiquidityWindow();
   const parts = [reason];
-  if (weekendMajorsOnly) parts.unshift('Weekend — bot trades BTC/ETH only');
+  if (weekendMajorsOnly) parts.unshift('Weekend — no LONGs · BTC/ETH SHORT only');
   if (scan) {
     const { btc, eth } = majorScanBias(scan);
     if (btc || eth) {

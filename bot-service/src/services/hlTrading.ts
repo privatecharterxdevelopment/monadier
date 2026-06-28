@@ -39,7 +39,7 @@ import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, isBotExcludedCoin, MAJOR_COINS, needsCautionPath, volumeRankForCoin } from './coinTier';
 import { validateCoinNews } from './coinNewsGate';
 import type { NewsTradeMode } from './newsTradeMode';
-import { trustsScanAnalysis } from './analysisFirstOpen';
+import { trustsScanAnalysis, weekendOpenBlocked } from './analysisFirstOpen';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import {
   applyOpenUniverseFilters,
@@ -816,6 +816,16 @@ export class HyperliquidTradingService {
           direction: opts.direction,
         });
         return { success: false, error: reason };
+      }
+      const weekendGate = weekendOpenBlocked(coin, opts.direction);
+      if (weekendGate.blocked) {
+        logger.info('HL open blocked — weekend gate', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          reason: weekendGate.reason,
+        });
+        return { success: false, error: weekendGate.reason ?? 'Weekend open blocked' };
       }
       const flipGate = await isSameCoinOpenBlocked(opts.userAddress, coin, opts.direction);
       if (flipGate.blocked) {
