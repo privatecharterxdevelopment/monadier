@@ -1,29 +1,47 @@
 import { config } from '../config';
 import { logger } from '../utils/logger';
-import { fetchHlClearinghouseState, hlAccountValueUsd } from './hlInfo';
+import { fetchHlPerpFundingSnapshot } from './hlInfo';
 import { parseMaxBuilderTenthsBps } from './hlBuilderFee';
 
-/** Hyperliquid requires the builder wallet to hold this much perps account value. */
+/** Hyperliquid builder wallet minimum (unified accounts: spot USDC counts). */
 export const HL_BUILDER_MIN_PLATFORM_USD = 100;
+/** Bridge/deposit fees often leave ~$99.9 — treat ≥$99 as funded. */
+const HL_BUILDER_READY_FLOOR_USD = 99;
 
 export async function fetchHlBuilderPlatformReady(builderAddress?: string): Promise<{
   ready: boolean;
   builderAddress: string;
   accountUsd: number;
+  perpUsd: number;
+  spotUsdcUsd: number;
+  unifiedAccount: boolean;
   minUsd: number;
 }> {
   const addr = (builderAddress ?? config.hyperliquid.builderAddress)?.toLowerCase() ?? '';
   const minUsd = HL_BUILDER_MIN_PLATFORM_USD;
   if (!addr || !/^0x[a-f0-9]{40}$/.test(addr)) {
-    return { ready: false, builderAddress: addr, accountUsd: 0, minUsd };
+    return {
+      ready: false,
+      builderAddress: addr,
+      accountUsd: 0,
+      perpUsd: 0,
+      spotUsdcUsd: 0,
+      unifiedAccount: false,
+      minUsd,
+    };
   }
 
-  const state = await fetchHlClearinghouseState(addr);
-  const accountUsd = hlAccountValueUsd(state);
+  const funding = await fetchHlPerpFundingSnapshot(addr);
+  const accountUsd = funding.tradablePerpUsd;
+  const ready = accountUsd >= HL_BUILDER_READY_FLOOR_USD;
+
   return {
-    ready: accountUsd >= minUsd,
+    ready,
     builderAddress: addr,
     accountUsd,
+    perpUsd: funding.perpUsd,
+    spotUsdcUsd: funding.spotUsdcUsd,
+    unifiedAccount: funding.unifiedAccount,
     minUsd,
   };
 }

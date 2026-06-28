@@ -32,7 +32,7 @@ export async function validateProductionEnvironment(): Promise<void> {
         builderAddress: platform.builderAddress,
         accountUsd: platform.accountUsd,
         requiredUsd: platform.minUsd,
-        action: `Deposit at least $${platform.minUsd} USDC to this address on Hyperliquid (perps account, not Arbitrum).`,
+        action: `Deposit at least $${platform.minUsd} USDC on Hyperliquid for the builder wallet (spot counts on unified accounts).`,
       });
     } else {
       logger.info('HL builder wallet ready — fee collection active', {

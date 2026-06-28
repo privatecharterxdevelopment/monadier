@@ -217,10 +217,13 @@ const healthServer = http.createServer(async (req, res) => {
           builderAddress: platform.builderAddress,
           platformWallet: config.platformWalletAddress,
           accountUsd: platform.accountUsd,
+          perpUsd: platform.perpUsd,
+          spotUsdcUsd: platform.spotUsdcUsd,
+          unifiedAccount: platform.unifiedAccount,
           minUsd: platform.minUsd,
           note: platform.ready
-            ? 'Builder wallet funded — success fees collect on profitable bot closes when users approve builder fee.'
-            : `Deposit at least $${platform.minUsd} USDC to the builder address on Hyperliquid perps to activate fee collection.`,
+            ? 'Builder wallet funded on Hyperliquid — fees collect when users approve builder fee.'
+            : `Deposit at least $${platform.minUsd} USDC on Hyperliquid for the builder wallet (unified accounts: spot USDC counts).`,
         })
       );
     } catch (err: any) {
