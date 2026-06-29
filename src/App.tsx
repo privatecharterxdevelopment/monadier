@@ -33,7 +33,6 @@ import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
 import KycFlowPage from './pages/KycFlowPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
-import Dashboard2Layout from './layouts/Dashboard2Layout';
 import AdminMonitorPage from './pages/dashboard/AdminMonitorPage';
 import AdminMonitorLayout from './layouts/AdminMonitorLayout';
 import HostRedirects from './components/layout/HostRedirects';
@@ -168,13 +167,9 @@ function App() {
             path="/admin"
             element={
               <ProtectedRoute>
-                <PageTransition fillViewport>
-                  <Dashboard2Layout>
-                    <AdminMonitorLayout>
-                      <AdminMonitorPage />
-                    </AdminMonitorLayout>
-                  </Dashboard2Layout>
-                </PageTransition>
+                <AdminMonitorLayout>
+                  <AdminMonitorPage />
+                </AdminMonitorLayout>
               </ProtectedRoute>
             }
           />

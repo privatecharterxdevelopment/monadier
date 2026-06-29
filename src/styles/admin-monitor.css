@@ -20,3 +20,15 @@
 .admin-monitor-scope .divide-border > :not([hidden]) ~ :not([hidden]) {
   border-color: rgba(255, 255, 255, 0.08);
 }
+
+.admin-monitor-page {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+.admin-monitor-table-scroll {
+  max-height: min(72vh, 780px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}

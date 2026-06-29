@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { getBotApiBase } from './signalService';
 import { fetchHlBuilderPlatformStatus, type HlBuilderPlatformStatus } from './hyperliquid/builderPlatform';
+import { fetchHlAccountState } from './hyperliquid/user';
 
 export type AdminHlStats = {
   total_users: number;
@@ -195,13 +196,327 @@ export type AdminLiveContext = {
   serviceStatus: BotServiceStatus | null;
 };
 
-export async function fetchAdminHlDashboard(): Promise<AdminHlDashboard | null> {
+export type AdminSessionCheck = {
+  uid: string | null;
+  email: string;
+  is_admin: boolean;
+};
+
+export type AdminHlDashboardResult = {
+  data: AdminHlDashboard | null;
+  error: string | null;
+  source?: 'rpc' | 'tables';
+};
+
+export async function fetchAdminSessionCheck(): Promise<AdminSessionCheck | null> {
+  const { data, error } = await supabase.rpc('get_admin_session_check');
+  if (error || !data) return null;
+  return data as AdminSessionCheck;
+}
+
+function num(v: unknown): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null> {
+  const dayAgo = new Date(Date.now() - 86_400_000).toISOString();
+
+  const [
+    profilesRes,
+    vaultRes,
+    agentsRes,
+    positionsRes,
+    tradeHistoryRes,
+    eventsRes,
+    feeRes,
+    bettingPosRes,
+    bettingCloseRes,
+    subsRes,
+    paymentsRes,
+  ] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('id,email,wallet_address,membership_tier,trade_close_email_enabled,created_at')
+      .order('created_at', { ascending: false })
+      .limit(500),
+    supabase
+      .from('vault_settings')
+      .select(
+        'wallet_address,user_id,auto_trade_enabled,execution_venue,leverage_multiplier,take_profit_percent,stop_loss_percent,hl_bot_strategy,news_trade_mode,updated_at'
+      )
+      .order('updated_at', { ascending: false })
+      .limit(200),
+    supabase
+      .from('hl_agent_approvals')
+      .select('wallet_address,approved_at,expires_at,revoked_at')
+      .is('revoked_at', null),
+    supabase
+      .from('positions')
+      .select(
+        'id,wallet_address,token_symbol,direction,status,entry_amount,entry_price,profit_loss,profit_loss_percent,leverage_multiplier,created_at'
+      )
+      .in('status', ['open', 'closing'])
+      .order('created_at', { ascending: false })
+      .limit(100),
+    supabase
+      .from('trade_history')
+      .select(
+        'id,wallet_address,token_symbol,direction,profit_loss,profit_loss_percent,close_reason,execution_venue,platform_success_fee,platform_fee_status,closed_at'
+      )
+      .not('closed_at', 'is', null)
+      .order('closed_at', { ascending: false })
+      .limit(80),
+    supabase
+      .from('user_trade_notifications')
+      .select(
+        'id,user_id,wallet_address,kind,headline,profit_loss,profit_loss_percent,closed_at,read_at,email_sent_at,created_at'
+      )
+      .order('closed_at', { ascending: false })
+      .limit(60),
+    supabase
+      .from('hl_fee_ledger')
+      .select(
+        'id,wallet_address,coin,gross_profit_usd,success_fee_usd,status,close_reason,created_at,settled_at'
+      )
+      .order('created_at', { ascending: false })
+      .limit(100),
+    supabase
+      .from('hl_betting_positions')
+      .select('id,wallet_address,market_name,side_label,size,entry_px,mark_px,unrealized_pnl,updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(50),
+    supabase
+      .from('hl_betting_closes')
+      .select('id,wallet_address,market_name,side_label,size,exit_px,realized_pnl,closed_at')
+      .order('closed_at', { ascending: false })
+      .limit(40),
+    supabase
+      .from('subscriptions')
+      .select('id,user_id,wallet_address,plan_tier,status,billing_cycle,start_date,end_date')
+      .order('start_date', { ascending: false })
+      .limit(200),
+    supabase
+      .from('pending_payments')
+      .select(
+        'id,user_id,wallet_address,plan_tier,billing_cycle,expected_amount,status,tx_hash,created_at,completed_at'
+      )
+      .order('created_at', { ascending: false })
+      .limit(200),
+  ]);
+
+  const errors = [
+    profilesRes.error,
+    vaultRes.error,
+    positionsRes.error,
+    tradeHistoryRes.error,
+    eventsRes.error,
+    feeRes.error,
+    subsRes.error,
+  ].filter(Boolean);
+
+  if (errors.length > 0) {
+    console.error('[adminDashboard] table fallback partial errors', errors);
+    const denied = errors.some((e) => /permission|policy|42501|admin/i.test(e?.message ?? ''));
+    if (denied) return null;
+  }
+
+  const profiles = profilesRes.data ?? [];
+  const profileById = new Map(profiles.map((p) => [p.id, p]));
+  const profileByWallet = new Map(
+    profiles
+      .filter((p) => p.wallet_address)
+      .map((p) => [String(p.wallet_address).toLowerCase(), p])
+  );
+
+  const agents = new Map(
+    (agentsRes.data ?? []).map((a) => [String(a.wallet_address).toLowerCase(), a])
+  );
+
+  const hlVaults = (vaultRes.data ?? []).filter(
+    (v) => !v.execution_venue || v.execution_venue === 'hyperliquid'
+  );
+
+  const activeBots: AdminHlBot[] = hlVaults.map((v) => {
+    const w = String(v.wallet_address ?? '').toLowerCase();
+    const agent = agents.get(w);
+    const profile = v.user_id ? profileById.get(v.user_id) : undefined;
+    return {
+      wallet_address: w,
+      user_id: v.user_id ?? null,
+      email: profile?.email ?? null,
+      auto_trade_enabled: Boolean(v.auto_trade_enabled),
+      execution_venue: v.execution_venue ?? 'hyperliquid',
+      leverage_multiplier: num(v.leverage_multiplier) || 1,
+      take_profit_percent: num(v.take_profit_percent),
+      stop_loss_percent: num(v.stop_loss_percent),
+      hl_bot_strategy: v.hl_bot_strategy ?? null,
+      news_trade_mode: v.news_trade_mode ?? null,
+      updated_at: v.updated_at ?? new Date().toISOString(),
+      agent_approved: Boolean(agent),
+      agent_approved_at: agent?.approved_at ?? null,
+      agent_expires_at: agent?.expires_at ?? null,
+    };
+  });
+
+  const openPositions: AdminOpenPosition[] = (positionsRes.data ?? []).map((p) => ({
+    id: p.id,
+    wallet_address: String(p.wallet_address ?? '').toLowerCase(),
+    token_symbol: p.token_symbol,
+    direction: p.direction ?? 'LONG',
+    status: p.status,
+    entry_amount: num(p.entry_amount),
+    entry_price: p.entry_price != null ? num(p.entry_price) : null,
+    profit_loss: p.profit_loss != null ? num(p.profit_loss) : null,
+    profit_loss_percent: p.profit_loss_percent != null ? num(p.profit_loss_percent) : null,
+    leverage_multiplier: p.leverage_multiplier != null ? num(p.leverage_multiplier) : null,
+    created_at: p.created_at,
+  }));
+
+  const recentCloses: AdminTradeClose[] = (tradeHistoryRes.data ?? []).map((t) => ({
+    id: t.id,
+    wallet_address: String(t.wallet_address ?? '').toLowerCase(),
+    token_symbol: t.token_symbol,
+    direction: t.direction ?? 'LONG',
+    profit_loss: t.profit_loss != null ? num(t.profit_loss) : null,
+    profit_loss_percent: t.profit_loss_percent != null ? num(t.profit_loss_percent) : null,
+    close_reason: t.close_reason ?? null,
+    execution_venue: t.execution_venue ?? null,
+    platform_success_fee: t.platform_success_fee != null ? num(t.platform_success_fee) : null,
+    platform_fee_status: t.platform_fee_status ?? null,
+    closed_at: t.closed_at ?? '',
+    email: profileByWallet.get(String(t.wallet_address ?? '').toLowerCase())?.email ?? null,
+  }));
+
+  const recentEvents: AdminTradeEvent[] = (eventsRes.data ?? []).map((e) => ({
+    id: e.id,
+    user_id: e.user_id,
+    email: profileById.get(e.user_id)?.email ?? null,
+    wallet_address: String(e.wallet_address ?? '').toLowerCase(),
+    kind: e.kind,
+    headline: e.headline,
+    profit_loss: num(e.profit_loss),
+    profit_loss_percent: e.profit_loss_percent != null ? num(e.profit_loss_percent) : null,
+    closed_at: e.closed_at,
+    read_at: e.read_at ?? null,
+    email_sent_at: e.email_sent_at ?? null,
+    created_at: e.created_at,
+  }));
+
+  const feeLedger: AdminFeeLedgerRow[] = (feeRes.data ?? []).map((f) => ({
+    id: f.id,
+    wallet_address: String(f.wallet_address ?? '').toLowerCase(),
+    coin: f.coin,
+    gross_profit_usd: num(f.gross_profit_usd),
+    success_fee_usd: num(f.success_fee_usd),
+    status: f.status,
+    close_reason: f.close_reason ?? null,
+    created_at: f.created_at,
+    settled_at: f.settled_at ?? null,
+  }));
+
+  const closedAll = tradeHistoryRes.data ?? [];
+  const closedHl = closedAll.filter(
+    (t) => !t.execution_venue || t.execution_venue === 'hyperliquid'
+  );
+  const closed24h = closedHl.filter((t) => t.closed_at && t.closed_at >= dayAgo);
+  const wins = closedHl.filter((t) => num(t.profit_loss) > 0).length;
+
+  const stats: AdminHlStats = {
+    total_users: profiles.length,
+    users_with_wallet: profiles.filter((p) => p.wallet_address?.trim()).length,
+    hl_bots_active: hlVaults.filter((v) => v.auto_trade_enabled).length,
+    hl_bots_total: hlVaults.length,
+    agents_approved: agentsRes.data?.length ?? 0,
+    open_positions: openPositions.length,
+    closed_trades_24h: closed24h.length,
+    closed_trades_total: closedHl.length,
+    total_pnl: closedHl.reduce((s, t) => s + num(t.profit_loss), 0),
+    pnl_24h: closed24h.reduce((s, t) => s + num(t.profit_loss), 0),
+    win_rate: closedHl.length > 0 ? Math.round((wins / closedHl.length) * 1000) / 10 : 0,
+    hl_fees_accrued_usd: feeLedger
+      .filter((f) => f.status === 'accrued')
+      .reduce((s, f) => s + f.success_fee_usd, 0),
+    hl_fees_settled_usd: feeLedger
+      .filter((f) => f.status === 'settled')
+      .reduce((s, f) => s + f.success_fee_usd, 0),
+    hl_fees_total_usd: feeLedger.reduce((s, f) => s + f.success_fee_usd, 0),
+    notifications_pending_email: recentEvents.filter((e) => !e.email_sent_at).length,
+    betting_open: bettingPosRes.data?.length ?? 0,
+    active_subscriptions: (subsRes.data ?? []).filter((s) => s.status === 'active').length,
+  };
+
+  return {
+    generated_at: new Date().toISOString(),
+    stats,
+    active_bots: activeBots,
+    open_positions: openPositions,
+    recent_closes: recentCloses,
+    recent_events: recentEvents,
+    fee_ledger: feeLedger,
+    betting_positions: (bettingPosRes.data ?? []) as AdminBettingPosition[],
+    betting_closes: (bettingCloseRes.data ?? []) as AdminBettingClose[],
+    users: profiles as AdminUserRow[],
+    subscriptions: (subsRes.data ?? []) as AdminSubscriptionRow[],
+    payments: (paymentsRes.data ?? []) as AdminPaymentRow[],
+  };
+}
+
+export async function fetchAdminHlDashboard(): Promise<AdminHlDashboardResult> {
   const { data, error } = await supabase.rpc('get_admin_hl_dashboard');
+  if (!error && data) {
+    return { data: data as AdminHlDashboard, error: null, source: 'rpc' };
+  }
+
   if (error) {
     console.error('[adminDashboard] rpc failed', error);
-    return null;
   }
-  return data as AdminHlDashboard;
+
+  const fallback = await fetchAdminHlDashboardViaTables();
+  if (fallback) {
+    return {
+      data: fallback,
+      error: error
+        ? `RPC unavailable (${error.message?.trim() || error.code}) — showing data via admin table access.`
+        : null,
+      source: 'tables',
+    };
+  }
+
+  const session = await fetchAdminSessionCheck();
+  const msg = error?.message?.trim() || error?.code || 'RPC failed';
+
+  if (session && !session.is_admin) {
+    return {
+      data: null,
+      error: `Supabase session is not admin (signed in as ${session.email || 'unknown'}). Sign in with lorenzo.vanza@hotmail.com or ipsunlorem@gmail.com.`,
+    };
+  }
+
+  if (/admin access required/i.test(msg)) {
+    return {
+      data: null,
+      error: `Admin RPC denied (${msg}). Session email: ${session?.email ?? 'unknown'}.`,
+    };
+  }
+
+  if (/could not find the function/i.test(msg)) {
+    return {
+      data: null,
+      error: `Admin RPC not found on Supabase (${msg}). Run pending migrations and reload API schema.`,
+    };
+  }
+
+  if (/admin_dashboard:/i.test(msg)) {
+    return { data: null, error: msg };
+  }
+
+  return {
+    data: null,
+    error: session
+      ? `Admin snapshot failed: ${msg} (session ${session.email}, is_admin=${session.is_admin})`
+      : `Admin snapshot failed: ${msg}`,
+  };
 }
 
 export async function fetchAdminLiveContext(): Promise<AdminLiveContext> {
@@ -227,6 +542,77 @@ export async function fetchAdminLiveContext(): Promise<AdminLiveContext> {
   }
 
   return { builder, health, serviceStatus };
+}
+
+/** Live HL perps — DB `positions` is legacy GMX and is often empty/wrong for HL bots. */
+export async function fetchAdminHlLiveOpenPositions(
+  wallets: string[]
+): Promise<AdminOpenPosition[]> {
+  const unique = [...new Set(wallets.map((w) => w.toLowerCase()).filter((w) => /^0x[a-f0-9]{40}$/.test(w)))];
+  const out: AdminOpenPosition[] = [];
+
+  await Promise.all(
+    unique.slice(0, 48).map(async (wallet) => {
+      try {
+        const state = await fetchHlAccountState(wallet);
+        for (const p of state.positions) {
+          const szi = Number.parseFloat(p.szi);
+          if (!Number.isFinite(szi) || Math.abs(szi) < 1e-12) continue;
+          const upnl = Number.parseFloat(p.unrealizedPnl);
+          const entryPx = Number.parseFloat(p.entryPx);
+          const notional = Number.parseFloat(p.positionValue);
+          out.push({
+            id: `${wallet}:${p.coin}`,
+            wallet_address: wallet,
+            token_symbol: p.coin,
+            direction: szi >= 0 ? 'LONG' : 'SHORT',
+            status: 'open',
+            entry_amount: Number.isFinite(notional) ? notional : 0,
+            entry_price: Number.isFinite(entryPx) ? entryPx : null,
+            profit_loss: Number.isFinite(upnl) ? upnl : 0,
+            profit_loss_percent: null,
+            leverage_multiplier: p.leverage?.value ?? null,
+            created_at: new Date().toISOString(),
+          });
+        }
+      } catch (err) {
+        console.warn('[adminDashboard] HL live positions failed', wallet.slice(0, 10), err);
+      }
+    })
+  );
+
+  return out.sort((a, b) => (a.profit_loss ?? 0) - (b.profit_loss ?? 0));
+}
+
+export async function enrichAdminHlDashboard(
+  dash: AdminHlDashboard
+): Promise<AdminHlDashboard> {
+  const botWallets = dash.active_bots
+    .filter((b) => b.auto_trade_enabled)
+    .map((b) => b.wallet_address);
+  const hlLive = await fetchAdminHlLiveOpenPositions(botWallets);
+
+  const hlCloses = dash.recent_closes.filter(
+    (t) => !t.execution_venue || t.execution_venue === 'hyperliquid'
+  );
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const closed24h = hlCloses.filter((t) => t.closed_at >= dayAgo);
+  const wins = hlCloses.filter((t) => (t.profit_loss ?? 0) > 0).length;
+
+  return {
+    ...dash,
+    open_positions: hlLive.length > 0 ? hlLive : dash.open_positions,
+    recent_closes: hlCloses,
+    stats: {
+      ...dash.stats,
+      open_positions: hlLive.length > 0 ? hlLive.length : dash.stats.open_positions,
+      closed_trades_total: hlCloses.length,
+      closed_trades_24h: closed24h.length,
+      total_pnl: hlCloses.reduce((s, t) => s + (t.profit_loss ?? 0), 0),
+      pnl_24h: closed24h.reduce((s, t) => s + (t.profit_loss ?? 0), 0),
+      win_rate: hlCloses.length > 0 ? Math.round((wins / hlCloses.length) * 1000) / 10 : 0,
+    },
+  };
 }
 
 export function formatTimeAgo(dateStr: string): string {

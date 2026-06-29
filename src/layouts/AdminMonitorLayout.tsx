@@ -11,7 +11,7 @@ type Props = {
 /** Full-page admin shell — reachable at /admin */
 const AdminMonitorLayout: React.FC<Props> = ({ children }) => {
   return (
-    <div className="min-h-[100dvh] bg-[#0a0a0c] text-[#fafafa]">
+    <div className="admin-monitor-page min-h-[100dvh] bg-[#0a0a0c] text-[#fafafa] overflow-y-auto overflow-x-hidden">
       <header className="sticky top-0 z-20 border-b border-white/10 bg-[#0a0a0c]/95 backdrop-blur px-4 py-3 md:px-8">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-4">
           <Link

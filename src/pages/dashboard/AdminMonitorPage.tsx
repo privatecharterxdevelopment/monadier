@@ -19,6 +19,7 @@ import {
 import { supabase } from '../../lib/supabase';
 import { isAdminEmail } from '../../lib/admin';
 import {
+  enrichAdminHlDashboard,
   fetchAdminHlDashboard,
   fetchAdminLiveContext,
   fmtUsd,
@@ -79,16 +80,20 @@ const AdminMonitorPage: React.FC = () => {
   const refresh = useCallback(async () => {
     setLoading(true);
     setRpcError(null);
-    const [snapshot, ctx] = await Promise.all([
+    const [snapshotResult, ctx] = await Promise.all([
       fetchAdminHlDashboard(),
       fetchAdminLiveContext(),
     ]);
-    if (!snapshot) {
+    if (!snapshotResult.data) {
       setRpcError(
-        'Admin snapshot unavailable — apply migration 20260725120000_admin_hl_dashboard.sql on Supabase.'
+        snapshotResult.error ??
+          'Admin snapshot unavailable — sign in with an admin email and refresh.'
       );
+      setDash(null);
     } else {
-      setDash(snapshot);
+      setRpcError(snapshotResult.error);
+      const enriched = await enrichAdminHlDashboard(snapshotResult.data);
+      setDash(enriched);
     }
     setLive(ctx);
     setLastRefresh(new Date());
@@ -273,7 +278,7 @@ function OverviewPanel({
         <Kpi
           label="P/L 24h"
           value={fmtUsd(stats.pnl_24h, true)}
-          sub={`Total ${fmtUsd(stats.total_pnl, true)}`}
+          sub={`HL closes only · total ${fmtUsd(stats.total_pnl, true)}`}
           positive={stats.pnl_24h >= 0}
         />
         <Kpi label="Win rate" value={`${stats.win_rate}%`} sub={`${stats.closed_trades_24h} closes / 24h`} />
@@ -468,7 +473,11 @@ function BotsPanel({ bots }: { bots: AdminHlDashboard['active_bots'] }) {
 
 function PositionsPanel({ rows }: { rows: AdminHlDashboard['open_positions'] }) {
   return (
-    <TableShell title={`Open positions (${rows.length})`} subtitle="positions table · bot + manual">
+    <TableShell
+      title={`Open HL positions (${rows.length})`}
+      subtitle="Live from Hyperliquid API · not legacy vault positions table"
+      scrollable
+    >
       <thead>
         <tr className="text-left text-secondary text-xs">
           <th className="px-4 py-3">Wallet</th>
@@ -509,7 +518,11 @@ function PositionsPanel({ rows }: { rows: AdminHlDashboard['open_positions'] }) 
 
 function TradesPanel({ rows }: { rows: AdminHlDashboard['recent_closes'] }) {
   return (
-    <TableShell title={`Closed trades (${rows.length})`} subtitle="trade_history · HL + legacy">
+    <TableShell
+      title={`Closed HL trades (${rows.length})`}
+      subtitle="trade_history · hyperliquid venue only"
+      scrollable
+    >
       <thead>
         <tr className="text-left text-secondary text-xs">
           <th className="px-4 py-3">Closed</th>
@@ -564,7 +577,11 @@ function TradesPanel({ rows }: { rows: AdminHlDashboard['recent_closes'] }) {
 
 function EventsPanel({ rows }: { rows: AdminHlDashboard['recent_events'] }) {
   return (
-    <TableShell title={`Notifications (${rows.length})`} subtitle="user_trade_notifications · email queue">
+    <TableShell
+      title={`Notifications (${rows.length})`}
+      subtitle="user_trade_notifications · email queue"
+      scrollable
+    >
       <thead>
         <tr className="text-left text-secondary text-xs">
           <th className="px-4 py-3">When</th>
@@ -903,10 +920,12 @@ function StatusPill({ on, onLabel, offLabel }: { on: boolean; onLabel: string; o
 function TableShell({
   title,
   subtitle,
+  scrollable = false,
   children,
 }: {
   title: string;
   subtitle?: string;
+  scrollable?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -915,7 +934,7 @@ function TableShell({
         <h3 className="font-semibold text-primary">{title}</h3>
         {subtitle && <p className="text-xs text-secondary mt-0.5">{subtitle}</p>}
       </div>
-      <div className="overflow-x-auto">
+      <div className={scrollable ? 'admin-monitor-table-scroll overflow-x-auto' : 'overflow-x-auto'}>
         <table className="w-full">{children}</table>
       </div>
     </div>
