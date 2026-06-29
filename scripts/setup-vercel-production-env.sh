@@ -62,9 +62,8 @@ fi
 
 add_env VITE_HL_BUILDER_ADDRESS "${VITE_HL_BUILDER_ADDRESS:-0x1fbc2a0ab6a8fa5f6b9645392433483b25a8cd84}"
 
-if [[ -n "${VITE_ADMIN_EMAILS:-}" ]]; then
-  add_env VITE_ADMIN_EMAILS "$VITE_ADMIN_EMAILS"
-fi
+VITE_ADMIN_EMAILS="${VITE_ADMIN_EMAILS:-ipsunlorem@gmail.com,lorenzo.vanza@hotmail.com}"
+add_env VITE_ADMIN_EMAILS "$VITE_ADMIN_EMAILS"
 
 echo ""
 echo "Done. Redeploy production:"
