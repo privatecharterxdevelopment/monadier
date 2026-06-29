@@ -195,6 +195,19 @@ function updateFavorableExtreme(
   return Math.min(current, mark);
 }
 
+/** Peak uPnL implied by best favorable price since entry (survives brief HL uPnL dips). */
+function peakPnlFromExtreme(
+  direction: 'LONG' | 'SHORT',
+  entryPrice: number,
+  absSize: number,
+  extremePx: number
+): number {
+  if (absSize <= 0 || entryPrice <= 0) return 0;
+  return direction === 'LONG'
+    ? (extremePx - entryPrice) * absSize
+    : (entryPrice - extremePx) * absSize;
+}
+
 function ratchetStop(
   direction: 'LONG' | 'SHORT',
   currentStop: number | null,
@@ -328,8 +341,18 @@ export async function evaluateDynamicTrail(
     rec.highestPriceSinceEntry,
     input.markPrice
   );
-  if (input.pnlUsd > rec.highestPnlSinceEntry) rec.highestPnlSinceEntry = input.pnlUsd;
-  if (input.pnlUsd > rec.maxRunup) rec.maxRunup = input.pnlUsd;
+  const peakFromExtreme = peakPnlFromExtreme(
+    input.direction,
+    input.entryPrice,
+    input.absSize,
+    rec.highestPriceSinceEntry
+  );
+  rec.highestPnlSinceEntry = Math.max(
+    rec.highestPnlSinceEntry,
+    input.pnlUsd,
+    peakFromExtreme
+  );
+  if (rec.highestPnlSinceEntry > rec.maxRunup) rec.maxRunup = rec.highestPnlSinceEntry;
 
   if (input.pnlUsd > 0) {
     if (rec.profitSinceAt == null) rec.profitSinceAt = input.nowMs;
@@ -389,10 +412,10 @@ export async function evaluateDynamicTrail(
     return { record: rec, ...noClose };
   }
 
-  // —— Arm stage 1 at +0.2% ROE ——
+  // —— Arm stage 1 at +0.2% ROE (peak since entry — not only this tick's uPnL) ——
   if (
     rec.phase === 'idle' &&
-    shouldArmProfitTrail(input.pnlUsd, input.collateralUsd)
+    shouldArmProfitTrail(rec.highestPnlSinceEntry, input.collateralUsd)
   ) {
     rec.phase = 'profit_lock';
     rec.trailArmedAt = input.nowMs;
@@ -401,10 +424,11 @@ export async function evaluateDynamicTrail(
     logger.info('HL profit trail stage 1 armed', {
       coin: input.coin,
       direction: input.direction,
-      roe: roePct(input.pnlUsd, input.collateralUsd).toFixed(3),
+      roe: roePct(rec.highestPnlSinceEntry, input.collateralUsd).toFixed(3),
       lockRoe: profitLockStage1RoePct().toFixed(3),
       stop: rec.currentTrailStop?.toFixed(6),
       pnlUsd: input.pnlUsd.toFixed(4),
+      peakPnlUsd: rec.highestPnlSinceEntry.toFixed(4),
     });
     return { record: rec, ...noClose };
   }
@@ -456,7 +480,11 @@ export async function evaluateDynamicTrail(
   }
 
   // Fell back below arm threshold while never armed — stay idle
-  if (rec.phase === 'idle' && input.pnlUsd > 0 && !shouldArmProfitTrail(input.pnlUsd, input.collateralUsd)) {
+  if (
+    rec.phase === 'idle' &&
+    input.pnlUsd > 0 &&
+    !shouldArmProfitTrail(rec.highestPnlSinceEntry, input.collateralUsd)
+  ) {
     return { record: rec, ...noClose };
   }
 

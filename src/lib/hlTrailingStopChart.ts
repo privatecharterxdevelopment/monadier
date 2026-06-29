@@ -106,16 +106,17 @@ export function computeDynamicTrailStopPx(opts: {
 }): { stopPx: number | null; armed: boolean; breached: boolean; lockRoePct: number } {
   const side = opts.szi >= 0 ? ('long' as const) : ('short' as const);
   const absSize = Math.abs(opts.szi);
+  const peakPnl = Math.max(opts.peakPnlUsd ?? opts.unrealizedPnlUsd, opts.unrealizedPnlUsd);
   const armed = shouldArmDynamicTrail(
     opts.unrealizedPnlUsd,
     opts.collateralUsd,
-    opts.notionalUsd
+    opts.notionalUsd,
+    { peakPnlUsd: peakPnl }
   );
   if (!armed) {
     return { stopPx: null, armed: false, breached: false, lockRoePct: 0 };
   }
 
-  const peakPnl = Math.max(opts.peakPnlUsd ?? opts.unrealizedPnlUsd, opts.unrealizedPnlUsd);
   const peakRoe = roePct(peakPnl, opts.collateralUsd);
   const lockRoe = resolveProfitTrailLockRoe(peakPnl, opts.collateralUsd, peakRoe);
   let stop = stopPxForRoePct(

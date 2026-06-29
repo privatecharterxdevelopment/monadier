@@ -1270,6 +1270,40 @@ export class HyperliquidTradingService {
     }
   }
 
+  /** Close position; only wipe profit-trail state after HL confirms flat. */
+  private async closePositionClearingTrailOnSuccess(
+    lockKey: string,
+    userAddress: `0x${string}`,
+    coin: string,
+    reason: string,
+    closeCtx: {
+      entryPx: number;
+      unrealizedPnlUsd: number;
+      size: number;
+      leverage: number;
+      holdMs?: number;
+    },
+    reasonDetail?: string
+  ): Promise<void> {
+    const result = await this.closeMarketPosition(
+      userAddress,
+      coin,
+      reason,
+      closeCtx,
+      reasonDetail
+    );
+    if (result.success) {
+      clearTrailState(lockKey);
+      return;
+    }
+    logger.warn('HL auto-close failed — keeping trail state for retry', {
+      user: userAddress.slice(0, 10),
+      coin,
+      reason,
+      error: result.error,
+    });
+  }
+
   private async monitorOpenPositions(
     userAddress: `0x${string}`,
     state: Awaited<ReturnType<typeof fetchHlClearinghouseState>>,
@@ -1374,8 +1408,8 @@ export class HyperliquidTradingService {
       };
 
       if (shouldCloseTrail) {
-        clearTrailState(lockKey);
-        await this.closeMarketPosition(
+        await this.closePositionClearingTrailOnSuccess(
+          lockKey,
           userAddress,
           pos.coin,
           trailExitReason,
@@ -1387,8 +1421,8 @@ export class HyperliquidTradingService {
 
       const roePct = collateralEst > 0 ? (pnl / collateralEst) * 100 : 0;
       if (shouldTakeProfitOnPnl(roePct, settings.takeProfitPercent)) {
-        clearTrailState(lockKey);
-        await this.closeMarketPosition(
+        await this.closePositionClearingTrailOnSuccess(
+          lockKey,
           userAddress,
           pos.coin,
           'take_profit',
@@ -1404,8 +1438,8 @@ export class HyperliquidTradingService {
         shouldHardLossClose(pnl, collateralEst, slPct)
       ) {
         const capUsd = computeMaxLossCapUsd(collateralEst, slPct);
-        clearTrailState(lockKey);
-        await this.closeMarketPosition(
+        await this.closePositionClearingTrailOnSuccess(
+          lockKey,
           userAddress,
           pos.coin,
           'stop_loss',
@@ -1427,8 +1461,8 @@ export class HyperliquidTradingService {
           direction: positionDirection,
         });
         if (thesis.signalAgainst || thesis.macroAgainst) {
-          clearTrailState(lockKey);
-          await this.closeMarketPosition(
+          await this.closePositionClearingTrailOnSuccess(
+            lockKey,
             userAddress,
             pos.coin,
             'signal_reversal',
@@ -1441,8 +1475,8 @@ export class HyperliquidTradingService {
 
       const emergencyCap = config.hyperliquid.thesisEmergencyMaxLossUsd;
       if (pnl < 0 && emergencyCap > 0 && pnl <= -emergencyCap) {
-        clearTrailState(lockKey);
-        await this.closeMarketPosition(
+        await this.closePositionClearingTrailOnSuccess(
+          lockKey,
           userAddress,
           pos.coin,
           'emergency_close',

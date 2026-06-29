@@ -63,10 +63,12 @@ export function shouldArmDynamicTrail(
   pnlUsd: number,
   collateralUsd: number,
   _notionalUsd?: number,
-  _opts?: { holdMs?: number; timeInProfitMs?: number }
+  opts?: { holdMs?: number; timeInProfitMs?: number; peakPnlUsd?: number }
 ): boolean {
-  if (pnlUsd <= 0 || collateralUsd <= 0) return false;
-  const roe = (pnlUsd / collateralUsd) * 100;
+  if (collateralUsd <= 0) return false;
+  const peak = Math.max(pnlUsd, opts?.peakPnlUsd ?? pnlUsd);
+  if (peak <= 0) return false;
+  const roe = (peak / collateralUsd) * 100;
   return roe >= HL_DYNAMIC_TRAIL.breakevenArmRoePct;
 }
 

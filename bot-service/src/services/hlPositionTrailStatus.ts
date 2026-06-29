@@ -76,7 +76,10 @@ export async function getHlPositionTrailSnapshots(
 
     const peakPnlUsd = Math.max(rec?.highestPnlSinceEntry ?? currentPnlUsd, currentPnlUsd);
     const peakRoePct = roePct(peakPnlUsd, collateral);
-    const armed = shouldArmProfitTrail(currentPnlUsd, collateral);
+    const armed =
+      rec?.phase === 'profit_lock' ||
+      rec?.phase === 'trailing' ||
+      shouldArmProfitTrail(peakPnlUsd, collateral);
     const trailPhase: TrailPhase =
       rec?.phase === 'trailing' || rec?.phase === 'profit_lock'
         ? rec.phase
