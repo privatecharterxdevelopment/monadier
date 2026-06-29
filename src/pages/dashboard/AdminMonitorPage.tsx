@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Activity,
   Bell,
@@ -55,10 +56,20 @@ const SECTIONS: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'affiliate', label: 'Affiliate', icon: <Users size={16} /> },
 ];
 
+const SECTION_IDS = new Set<Section>(SECTIONS.map((s) => s.id));
+
+function sectionFromQuery(tab: string | null): Section {
+  if (tab && SECTION_IDS.has(tab as Section)) return tab as Section;
+  return 'overview';
+}
+
 const AdminMonitorPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [email, setEmail] = useState<string | null>(null);
-  const [section, setSection] = useState<Section>('overview');
+  const [section, setSection] = useState<Section>(() =>
+    sectionFromQuery(searchParams.get('tab'))
+  );
   const [dash, setDash] = useState<AdminHlDashboard | null>(null);
   const [live, setLive] = useState<AdminLiveContext | null>(null);
   const [loading, setLoading] = useState(true);
@@ -83,6 +94,11 @@ const AdminMonitorPage: React.FC = () => {
     setLastRefresh(new Date());
     setLoading(false);
   }, []);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab) setSection(sectionFromQuery(tab));
+  }, [searchParams]);
 
   useEffect(() => {
     void (async () => {
@@ -212,7 +228,9 @@ const AdminMonitorPage: React.FC = () => {
       {section === 'betting' && dash && (
         <BettingPanel positions={dash.betting_positions} closes={dash.betting_closes} />
       )}
-      {section === 'users' && dash && <UsersPanel rows={dash.users} />}
+      {section === 'users' && dash && (
+        <UsersPanel rows={dash.users} openPositions={dash.open_positions} />
+      )}
       {section === 'subscriptions' && dash && <SubsPanel rows={dash.subscriptions} />}
       {section === 'payments' && dash && <PaymentsPanel rows={dash.payments} />}
       {section === 'affiliate' && <AdminAffiliateOps />}
@@ -706,28 +724,83 @@ function BettingPanel({
   );
 }
 
-function UsersPanel({ rows }: { rows: AdminHlDashboard['users'] }) {
+function UsersPanel({
+  rows,
+  openPositions,
+}: {
+  rows: AdminHlDashboard['users'];
+  openPositions: AdminHlDashboard['open_positions'];
+}) {
+  const positionsByWallet = useMemo(() => {
+    const map = new Map<string, AdminHlDashboard['open_positions']>();
+    for (const p of openPositions) {
+      const key = p.wallet_address.toLowerCase();
+      const list = map.get(key);
+      if (list) list.push(p);
+      else map.set(key, [p]);
+    }
+    return map;
+  }, [openPositions]);
+
+  const sortedRows = useMemo(() => {
+    return [...rows].sort((a, b) => {
+      const aOpen = a.wallet_address
+        ? (positionsByWallet.get(a.wallet_address.toLowerCase())?.length ?? 0)
+        : 0;
+      const bOpen = b.wallet_address
+        ? (positionsByWallet.get(b.wallet_address.toLowerCase())?.length ?? 0)
+        : 0;
+      return bOpen - aOpen || (a.email ?? '').localeCompare(b.email ?? '');
+    });
+  }, [rows, positionsByWallet]);
+
   return (
-    <TableShell title={`Users (${rows.length})`} subtitle="profiles">
+    <TableShell
+      title={`Users (${rows.length})`}
+      subtitle={`${openPositions.length} open position(s) across wallets`}
+    >
       <thead>
         <tr className="text-left text-secondary text-xs">
           <th className="px-4 py-3">Email</th>
           <th className="px-4 py-3">Wallet</th>
+          <th className="px-4 py-3">Open positions</th>
+          <th className="px-4 py-3">uPnL (open)</th>
           <th className="px-4 py-3">Tier</th>
-          <th className="px-4 py-3">Trade emails</th>
           <th className="px-4 py-3">Joined</th>
         </tr>
       </thead>
       <tbody>
-        {rows.map((u) => (
-          <tr key={u.id} className="border-t border-border text-sm">
-            <td className="px-4 py-2">{u.email ?? '—'}</td>
-            <td className="px-4 py-2 font-mono text-xs">{shortWallet(u.wallet_address, 8)}</td>
-            <td className="px-4 py-2 text-xs">{u.membership_tier ?? 'free'}</td>
-            <td className="px-4 py-2 text-xs">{u.trade_close_email_enabled !== false ? 'on' : 'off'}</td>
-            <td className="px-4 py-2 text-secondary text-xs">{formatTimeAgo(u.created_at)}</td>
-          </tr>
-        ))}
+        {sortedRows.map((u) => {
+          const walletKey = u.wallet_address?.toLowerCase() ?? '';
+          const positions = walletKey ? positionsByWallet.get(walletKey) ?? [] : [];
+          const openUpnl = positions.reduce((sum, p) => sum + (p.profit_loss ?? 0), 0);
+          return (
+            <tr key={u.id} className="border-t border-border text-sm hover:bg-black/[0.03]">
+              <td className="px-4 py-2">{u.email ?? '—'}</td>
+              <td className="px-4 py-2 font-mono text-xs">{shortWallet(u.wallet_address, 8)}</td>
+              <td className="px-4 py-2 text-xs">
+                {positions.length === 0 ? (
+                  <span className="text-secondary">—</span>
+                ) : (
+                  <span className="font-medium">
+                    {positions
+                      .map((p) => `${p.token_symbol} ${p.direction}`)
+                      .join(' · ')}
+                  </span>
+                )}
+              </td>
+              <td
+                className={`px-4 py-2 font-mono text-xs ${
+                  openUpnl >= 0 ? 'text-green-400' : 'text-red-400'
+                }`}
+              >
+                {positions.length > 0 ? fmtUsd(openUpnl, true) : '—'}
+              </td>
+              <td className="px-4 py-2 text-xs">{u.membership_tier ?? 'free'}</td>
+              <td className="px-4 py-2 text-secondary text-xs">{formatTimeAgo(u.created_at)}</td>
+            </tr>
+          );
+        })}
       </tbody>
     </TableShell>
   );
