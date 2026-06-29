@@ -1,7 +1,10 @@
 import { supabase } from './supabase';
 import { getBotApiBase } from './signalService';
 import { fetchHlBuilderPlatformStatus, type HlBuilderPlatformStatus } from './hyperliquid/builderPlatform';
-import { fetchHlAccountState } from './hyperliquid/user';
+import {
+  fetchAdminHlLiveOpenPositions,
+  sumAdminOpenUpnl,
+} from './adminHlLivePositions';
 
 export type AdminHlStats = {
   total_users: number;
@@ -10,6 +13,7 @@ export type AdminHlStats = {
   hl_bots_total: number;
   agents_approved: number;
   open_positions: number;
+  open_upnl_total: number;
   closed_trades_24h: number;
   closed_trades_total: number;
   total_pnl: number;
@@ -43,9 +47,15 @@ export type AdminHlBot = {
 export type AdminOpenPosition = {
   id: string;
   wallet_address: string;
+  email?: string | null;
   token_symbol: string;
   direction: string;
   status: string;
+  /** Signed coin size (HL szi). */
+  size?: number | null;
+  abs_size?: number | null;
+  notional_usd?: number | null;
+  mark_price?: number | null;
   entry_amount: number;
   entry_price: number | null;
   profit_loss: number | null;
@@ -429,6 +439,7 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
     hl_bots_total: hlVaults.length,
     agents_approved: agentsRes.data?.length ?? 0,
     open_positions: openPositions.length,
+    open_upnl_total: 0,
     closed_trades_24h: closed24h.length,
     closed_trades_total: closedHl.length,
     total_pnl: closedHl.reduce((s, t) => s + num(t.profit_loss), 0),
@@ -465,7 +476,8 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
 export async function fetchAdminHlDashboard(): Promise<AdminHlDashboardResult> {
   const { data, error } = await supabase.rpc('get_admin_hl_dashboard');
   if (!error && data) {
-    return { data: data as AdminHlDashboard, error: null, source: 'rpc' };
+    const enriched = await enrichAdminHlDashboard(data as AdminHlDashboard);
+    return { data: enriched, error: null, source: 'rpc' };
   }
 
   if (error) {
@@ -474,8 +486,9 @@ export async function fetchAdminHlDashboard(): Promise<AdminHlDashboardResult> {
 
   const fallback = await fetchAdminHlDashboardViaTables();
   if (fallback) {
+    const enriched = await enrichAdminHlDashboard(fallback);
     return {
-      data: fallback,
+      data: enriched,
       error: error
         ? `RPC unavailable (${error.message?.trim() || error.code}) — showing data via admin table access.`
         : null,
@@ -544,53 +557,11 @@ export async function fetchAdminLiveContext(): Promise<AdminLiveContext> {
   return { builder, health, serviceStatus };
 }
 
-/** Live HL perps — DB `positions` is legacy GMX and is often empty/wrong for HL bots. */
-export async function fetchAdminHlLiveOpenPositions(
-  wallets: string[]
-): Promise<AdminOpenPosition[]> {
-  const unique = [...new Set(wallets.map((w) => w.toLowerCase()).filter((w) => /^0x[a-f0-9]{40}$/.test(w)))];
-  const out: AdminOpenPosition[] = [];
-
-  await Promise.all(
-    unique.slice(0, 48).map(async (wallet) => {
-      try {
-        const state = await fetchHlAccountState(wallet);
-        for (const p of state.positions) {
-          const szi = Number.parseFloat(p.szi);
-          if (!Number.isFinite(szi) || Math.abs(szi) < 1e-12) continue;
-          const upnl = Number.parseFloat(p.unrealizedPnl);
-          const entryPx = Number.parseFloat(p.entryPx);
-          const notional = Number.parseFloat(p.positionValue);
-          out.push({
-            id: `${wallet}:${p.coin}`,
-            wallet_address: wallet,
-            token_symbol: p.coin,
-            direction: szi >= 0 ? 'LONG' : 'SHORT',
-            status: 'open',
-            entry_amount: Number.isFinite(notional) ? notional : 0,
-            entry_price: Number.isFinite(entryPx) ? entryPx : null,
-            profit_loss: Number.isFinite(upnl) ? upnl : 0,
-            profit_loss_percent: null,
-            leverage_multiplier: p.leverage?.value ?? null,
-            created_at: new Date().toISOString(),
-          });
-        }
-      } catch (err) {
-        console.warn('[adminDashboard] HL live positions failed', wallet.slice(0, 10), err);
-      }
-    })
-  );
-
-  return out.sort((a, b) => (a.profit_loss ?? 0) - (b.profit_loss ?? 0));
-}
-
+/** Overlay live HL perps + HL-only close stats onto the DB snapshot. */
 export async function enrichAdminHlDashboard(
   dash: AdminHlDashboard
 ): Promise<AdminHlDashboard> {
-  const botWallets = dash.active_bots
-    .filter((b) => b.auto_trade_enabled)
-    .map((b) => b.wallet_address);
-  const hlLive = await fetchAdminHlLiveOpenPositions(botWallets);
+  const hlLive = await fetchAdminHlLiveOpenPositions(dash);
 
   const hlCloses = dash.recent_closes.filter(
     (t) => !t.execution_venue || t.execution_venue === 'hyperliquid'
@@ -598,20 +569,23 @@ export async function enrichAdminHlDashboard(
   const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const closed24h = hlCloses.filter((t) => t.closed_at >= dayAgo);
   const wins = hlCloses.filter((t) => (t.profit_loss ?? 0) > 0).length;
+  const openUpnl = sumAdminOpenUpnl(hlLive);
 
   return {
     ...dash,
-    open_positions: hlLive.length > 0 ? hlLive : dash.open_positions,
+    open_positions: hlLive,
     recent_closes: hlCloses,
     stats: {
       ...dash.stats,
-      open_positions: hlLive.length > 0 ? hlLive.length : dash.stats.open_positions,
+      open_positions: hlLive.length,
+      open_upnl_total: openUpnl,
       closed_trades_total: hlCloses.length,
       closed_trades_24h: closed24h.length,
       total_pnl: hlCloses.reduce((s, t) => s + (t.profit_loss ?? 0), 0),
       pnl_24h: closed24h.reduce((s, t) => s + (t.profit_loss ?? 0), 0),
       win_rate: hlCloses.length > 0 ? Math.round((wins / hlCloses.length) * 1000) / 10 : 0,
     },
+    generated_at: new Date().toISOString(),
   };
 }
 

@@ -19,7 +19,6 @@ import {
 import { supabase } from '../../lib/supabase';
 import { isAdminEmail } from '../../lib/admin';
 import {
-  enrichAdminHlDashboard,
   fetchAdminHlDashboard,
   fetchAdminLiveContext,
   fmtUsd,
@@ -28,6 +27,7 @@ import {
   type AdminHlDashboard,
   type AdminLiveContext,
 } from '../../lib/adminDashboard';
+import { fmtPrice, fmtSize } from '../../lib/hyperliquid/format';
 import AdminAffiliateOps from '../../components/admin/AdminAffiliateOps';
 
 type Section =
@@ -92,8 +92,7 @@ const AdminMonitorPage: React.FC = () => {
       setDash(null);
     } else {
       setRpcError(snapshotResult.error);
-      const enriched = await enrichAdminHlDashboard(snapshotResult.data);
-      setDash(enriched);
+      setDash(snapshotResult.data);
     }
     setLive(ctx);
     setLastRefresh(new Date());
@@ -274,7 +273,7 @@ function OverviewPanel({
           value={String(stats.hl_bots_active)}
           sub={`${stats.hl_bots_total} configured · ${stats.agents_approved} agents`}
         />
-        <Kpi label="Open perps" value={String(stats.open_positions)} sub={`${stats.betting_open} bets open`} />
+        <Kpi label="Open perps" value={String(stats.open_positions)} sub={`uPnL ${fmtUsd(stats.open_upnl_total, true)}`} />
         <Kpi
           label="P/L 24h"
           value={fmtUsd(stats.pnl_24h, true)}
@@ -472,45 +471,76 @@ function BotsPanel({ bots }: { bots: AdminHlDashboard['active_bots'] }) {
 }
 
 function PositionsPanel({ rows }: { rows: AdminHlDashboard['open_positions'] }) {
+  const totalUpnl = rows.reduce((s, p) => s + (p.profit_loss ?? 0), 0);
   return (
     <TableShell
       title={`Open HL positions (${rows.length})`}
-      subtitle="Live from Hyperliquid API · not legacy vault positions table"
+      subtitle={`Live Hyperliquid · same marks/uPnL as Pro Trade · total uPnL ${fmtUsd(totalUpnl, true)}`}
       scrollable
     >
       <thead>
         <tr className="text-left text-secondary text-xs">
+          <th className="px-4 py-3">User</th>
           <th className="px-4 py-3">Wallet</th>
           <th className="px-4 py-3">Pair</th>
           <th className="px-4 py-3">Dir</th>
           <th className="px-4 py-3">Size</th>
+          <th className="px-4 py-3">Notional</th>
+          <th className="px-4 py-3">Entry</th>
+          <th className="px-4 py-3">Mark</th>
           <th className="px-4 py-3">Lev</th>
           <th className="px-4 py-3">uPnL</th>
-          <th className="px-4 py-3">Status</th>
-          <th className="px-4 py-3">Opened</th>
+          <th className="px-4 py-3">ROE</th>
         </tr>
       </thead>
       <tbody>
-        {rows.map((p) => (
-          <tr key={p.id} className="border-t border-border text-sm hover:bg-black/[0.03]">
-            <td className="px-4 py-2 font-mono text-xs">{shortWallet(p.wallet_address, 8)}</td>
-            <td className="px-4 py-2 font-medium">{p.token_symbol}</td>
-            <td className="px-4 py-2">{p.direction}</td>
-            <td className="px-4 py-2 font-mono">{fmtUsd(p.entry_amount)}</td>
-            <td className="px-4 py-2">{p.leverage_multiplier ?? 1}x</td>
-            <td
-              className={`px-4 py-2 font-mono ${
-                (p.profit_loss ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'
-              }`}
-            >
-              {p.profit_loss != null ? fmtUsd(p.profit_loss, true) : '—'}
+        {rows.length === 0 ? (
+          <tr>
+            <td colSpan={11} className="px-4 py-8 text-center text-secondary text-sm">
+              No open perps on tracked wallets
             </td>
-            <td className="px-4 py-2">
-              <StatusPill on={p.status === 'open'} onLabel={p.status} offLabel={p.status} />
-            </td>
-            <td className="px-4 py-2 text-secondary text-xs">{formatTimeAgo(p.created_at)}</td>
           </tr>
-        ))}
+        ) : (
+          rows.map((p) => (
+            <tr key={p.id} className="border-t border-border text-sm hover:bg-black/[0.03]">
+              <td className="px-4 py-2 text-xs text-secondary max-w-[140px] truncate">
+                {p.email ?? '—'}
+              </td>
+              <td className="px-4 py-2 font-mono text-xs">{shortWallet(p.wallet_address, 8)}</td>
+              <td className="px-4 py-2 font-medium">{p.token_symbol}</td>
+              <td className="px-4 py-2">{p.direction}</td>
+              <td className="px-4 py-2 font-mono">
+                {p.abs_size != null ? fmtSize(p.abs_size) : '—'}
+              </td>
+              <td className="px-4 py-2 font-mono">
+                {fmtUsd(p.notional_usd ?? p.entry_amount)}
+              </td>
+              <td className="px-4 py-2 font-mono">
+                {p.entry_price != null ? fmtPrice(p.entry_price) : '—'}
+              </td>
+              <td className="px-4 py-2 font-mono">
+                {p.mark_price != null ? fmtPrice(p.mark_price) : '—'}
+              </td>
+              <td className="px-4 py-2">{p.leverage_multiplier ?? 1}x</td>
+              <td
+                className={`px-4 py-2 font-mono ${
+                  (p.profit_loss ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'
+                }`}
+              >
+                {p.profit_loss != null ? fmtUsd(p.profit_loss, true) : '—'}
+              </td>
+              <td
+                className={`px-4 py-2 font-mono text-xs ${
+                  (p.profit_loss_percent ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'
+                }`}
+              >
+                {p.profit_loss_percent != null
+                  ? `${p.profit_loss_percent >= 0 ? '+' : ''}${p.profit_loss_percent.toFixed(2)}%`
+                  : '—'}
+              </td>
+            </tr>
+          ))
+        )}
       </tbody>
     </TableShell>
   );
@@ -774,7 +804,8 @@ function UsersPanel({
   return (
     <TableShell
       title={`Users (${rows.length})`}
-      subtitle={`${openPositions.length} open position(s) across wallets`}
+      subtitle={`${openPositions.length} HL open leg(s) · live uPnL`}
+      scrollable
     >
       <thead>
         <tr className="text-left text-secondary text-xs">
