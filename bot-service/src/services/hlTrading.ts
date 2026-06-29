@@ -114,7 +114,7 @@ function mayAutoCloseInRed(
 ): boolean {
   const cfg = config.hyperliquid;
   if (reason === 'emergency_close' || reason === 'manual') return true;
-  // Breakeven / trail exits — always honor once armed (even scratch red beats holding a loser).
+  // Breakeven / trail — closeMarketPosition rejects trailing_stop when uPnL < 0.
   if (
     reason === 'profit_lock' ||
     reason === 'breakeven_scratch' ||
@@ -1320,9 +1320,10 @@ export class HyperliquidTradingService {
     userAddress: `0x${string}`,
     state: Awaited<ReturnType<typeof fetchHlClearinghouseState>>,
     settings: Awaited<ReturnType<typeof subscriptionService.getUserTradingSettings>>,
-    opts: { fast?: boolean } = {}
+    opts: { fast?: boolean; liveMids?: Record<string, string> } = {}
   ): Promise<void> {
     const fast = opts.fast === true;
+    const liveMids = opts.liveMids;
     const meta = fast ? null : await fetchHlMeta();
     const configuredLev = Math.max(1, Math.floor(settings.leverageMultiplier || 5));
     const nowMs = Date.now();
@@ -1347,7 +1348,12 @@ export class HyperliquidTradingService {
       }
       const holdMs = nowMs - (hlPositionOpenedAt.get(lockKey) ?? nowMs);
       const positionDirection: 'LONG' | 'SHORT' = size > 0 ? 'LONG' : 'SHORT';
-      const markPrice = markFromPosition(entry, size, pnl);
+      const coinUpper = pos.coin.toUpperCase();
+      const midFromBook = Number(liveMids?.[coinUpper] ?? liveMids?.[pos.coin] ?? 0);
+      const markPrice =
+        Number.isFinite(midFromBook) && midFromBook > 0
+          ? midFromBook
+          : markFromPosition(entry, size, pnl);
 
       if (!fast && meta) {
         const targetLev = Math.min(configuredLev, maxLeverageForCoin(meta, pos.coin));
@@ -1529,6 +1535,8 @@ export class HyperliquidTradingService {
       const wallets = await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId);
       if (wallets.length === 0) return;
 
+      const liveMids = await fetchHlAllMids().catch(() => ({} as Record<string, string>));
+
       const concurrency = Math.min(32, config.scaling.userProcessConcurrency);
       let idx = 0;
       const workers = Array.from({ length: concurrency }, async () => {
@@ -1541,7 +1549,10 @@ export class HyperliquidTradingService {
               wallet,
               config.arbitrum.chainId
             );
-            await this.monitorOpenPositions(wallet, state, settings, { fast: true });
+            await this.monitorOpenPositions(wallet, state, settings, {
+              fast: true,
+              liveMids,
+            });
           } catch (err) {
             logger.debug('Fast position monitor skip', {
               user: wallet.slice(0, 10),
@@ -1619,6 +1630,15 @@ export class HyperliquidTradingService {
           pnlUsd: pnlUsd.toFixed(4),
         });
         return { success: false, error: 'Bot does not close in red (profitOnlyExits)' };
+      }
+
+      if (reason === 'trailing_stop' && pnlUsd < 0) {
+        logger.info('HL profit trail rejected — refuses to close in red', {
+          user: userAddress.slice(0, 10),
+          coin: coinUpper,
+          pnlUsd: pnlUsd.toFixed(4),
+        });
+        return { success: false, error: 'Profit trail does not close in red' };
       }
 
       if (reason === 'take_profit' && pnlUsd <= 0) {

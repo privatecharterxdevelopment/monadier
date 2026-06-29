@@ -130,8 +130,9 @@ export function resolveProfitTrailLockRoe(
   peakPnlUsd: number,
   collateralUsd: number
 ): number {
-  if (phase === 'profit_lock') return profitLockStage1RoePct();
-  if (phase === 'trailing') return profitTrailLockRoePct(peakPnlUsd, collateralUsd);
+  if (phase === 'profit_lock' || phase === 'trailing') {
+    return profitTrailLockRoePct(peakPnlUsd, collateralUsd);
+  }
   return 0;
 }
 
@@ -147,11 +148,11 @@ export function shouldArmProfitTrail(peakPnlUsd: number, collateralUsd: number):
   return roePct(peakPnlUsd, collateralUsd) >= cfg.breakevenArmRoePct;
 }
 
-/**
- * Trail stop crossed — always execute the close.
- * neverRedAfterArm applies to discretionary exits only; a crossed trail is the stop firing.
- */
-export function shouldExecuteProfitTrailClose(_pnlUsd: number): boolean {
+/** Profit trail closes only while green — never dump an open loser at −$7. */
+export function shouldExecuteProfitTrailClose(pnlUsd: number): boolean {
+  if (pnlUsd < 0) return false;
+  const minClose = config.hyperliquid.dynamicTrail.profitTrailMinClosePnlUsd;
+  if (minClose > 0 && pnlUsd < minClose) return false;
   return true;
 }
 
@@ -382,6 +383,17 @@ export async function evaluateDynamicTrail(
   if (rec.phase === 'trailing' && !rec.lossSlArmed) {
     refreshProfitTrailStop(rec, input);
     if (isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop!)) {
+      if (!shouldExecuteProfitTrailClose(input.pnlUsd)) {
+        logger.info('HL profit trail hold — stop crossed but uPnL not green (no loss close)', {
+          coin: input.coin,
+          direction: input.direction,
+          stage: 2,
+          pnlUsd: input.pnlUsd.toFixed(4),
+          mark: input.markPrice.toFixed(6),
+          stop: rec.currentTrailStop?.toFixed(6),
+        });
+        return { record: rec, ...noClose };
+      }
       const lockRoe = profitTrailLockRoePct(rec.highestPnlSinceEntry, input.collateralUsd);
       const detail = `PROFIT TRAIL S2 +${lockRoe.toFixed(2)}% ROE · ${input.direction} ${input.coin} · uPnL $${input.pnlUsd.toFixed(2)} · ${formatAnalytics(rec, input.markPrice)}`;
       return {
@@ -410,7 +422,22 @@ export async function evaluateDynamicTrail(
 
     refreshProfitTrailStop(rec, input);
     if (isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop!)) {
-      const lockRoe = profitLockStage1RoePct();
+      if (!shouldExecuteProfitTrailClose(input.pnlUsd)) {
+        logger.info('HL profit trail hold — stop crossed but uPnL not green (no loss close)', {
+          coin: input.coin,
+          direction: input.direction,
+          stage: 1,
+          pnlUsd: input.pnlUsd.toFixed(4),
+          mark: input.markPrice.toFixed(6),
+          stop: rec.currentTrailStop?.toFixed(6),
+        });
+        return { record: rec, ...noClose };
+      }
+      const lockRoe = resolveProfitTrailLockRoe(
+        rec.phase,
+        rec.highestPnlSinceEntry,
+        input.collateralUsd
+      );
       const detail = `PROFIT LOCK S1 +${lockRoe.toFixed(2)}% ROE · ${input.direction} ${input.coin} · uPnL $${input.pnlUsd.toFixed(2)} · ${formatAnalytics(rec, input.markPrice)}`;
       return {
         record: rec,
