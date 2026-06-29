@@ -5,6 +5,7 @@ import Logo from '../components/ui/Logo';
 import { supabase } from '../lib/supabase';
 import { afterAuthGo, OPEN_APP_PATH } from '../lib/appUrls';
 import { queueAuthToast } from '../lib/authToast';
+import { markPasswordRecoveryPending } from '../lib/passwordRecovery';
 
 /**
  * Finishes Supabase OAuth (Google) and password-recovery redirects.
@@ -15,6 +16,11 @@ const AuthCallbackPage: React.FC = () => {
 
   useEffect(() => {
     let done = false;
+
+    const goToRecovery = () => {
+      markPasswordRecoveryPending();
+      go('/reset-password?recovery=1');
+    };
 
     const go = (path: string) => {
       if (done) return;
@@ -47,7 +53,7 @@ const AuthCallbackPage: React.FC = () => {
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!session) return;
       if (event === 'PASSWORD_RECOVERY' || isRecovery) {
-        go('/reset-password');
+        goToRecovery();
       } else if (event === 'SIGNED_IN') {
         go(OPEN_APP_PATH);
       }
@@ -67,7 +73,8 @@ const AuthCallbackPage: React.FC = () => {
         if (sessionError) throw sessionError;
 
         if (session) {
-          go(isRecovery ? '/reset-password' : OPEN_APP_PATH);
+          if (isRecovery) goToRecovery();
+          else go(OPEN_APP_PATH);
           return;
         }
 
@@ -76,7 +83,8 @@ const AuthCallbackPage: React.FC = () => {
           await new Promise((r) => setTimeout(r, 800));
           const { data: { session: retry } } = await supabase.auth.getSession();
           if (retry) {
-            go(isRecovery ? '/reset-password' : OPEN_APP_PATH);
+            if (isRecovery) goToRecovery();
+            else go(OPEN_APP_PATH);
             return;
           }
         }

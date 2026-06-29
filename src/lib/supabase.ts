@@ -97,7 +97,10 @@ export function getAccountProviders(user: {
 }
 
 // Update password (for logged-in users or from reset link)
-export const updatePassword = async (newPassword: string) => {
+export const updatePassword = async (
+  newPassword: string,
+  opts?: { fromRecovery?: boolean }
+) => {
   const {
     data: { user },
     error: userError,
@@ -108,7 +111,11 @@ export const updatePassword = async (newPassword: string) => {
   }
 
   const providers = getAccountProviders(user);
-  if (!providers.includes('email') && providers.length > 0) {
+  if (
+    !opts?.fromRecovery &&
+    !providers.includes('email') &&
+    providers.length > 0
+  ) {
     return {
       data: null,
       error: new Error(

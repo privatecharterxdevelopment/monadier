@@ -6,6 +6,11 @@ import Button from '../components/ui/Button';
 import Logo from '../components/ui/Logo';
 import { updatePassword, supabase } from '../lib/supabase';
 import { getAppEntryPath } from '../lib/appUrls';
+import {
+  clearPasswordRecoveryPending,
+  isPasswordRecoveryPending,
+  markPasswordRecoveryPending,
+} from '../lib/passwordRecovery';
 
 const ResetPasswordPage: React.FC = () => {
   const [password, setPassword] = useState('');
@@ -36,24 +41,26 @@ const ResetPasswordPage: React.FC = () => {
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
-        const isRecovery =
-          window.location.hash.includes('type=recovery') || event === 'PASSWORD_RECOVERY';
-        if (isRecovery) markValid();
+      if (event === 'PASSWORD_RECOVERY') {
+        markPasswordRecoveryPending();
+        markValid();
+        return;
+      }
+      if (event === 'SIGNED_IN' && session && isPasswordRecoveryPending()) {
+        markValid();
       }
     });
 
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      const hashRecovery = window.location.hash.includes('type=recovery');
-      if (session && hashRecovery) {
+      if (session && isPasswordRecoveryPending()) {
         markValid();
         return;
       }
-      // Give Supabase time to parse hash from email link
+      // Give Supabase time to parse hash from email link (legacy implicit flow)
       await new Promise((r) => setTimeout(r, 1500));
       const { data: { session: retry } } = await supabase.auth.getSession();
-      if (retry && (hashRecovery || window.location.hash.includes('access_token'))) {
+      if (retry && isPasswordRecoveryPending()) {
         markValid();
       } else if (!settled) {
         markInvalid();
@@ -82,12 +89,15 @@ const ResetPasswordPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await updatePassword(password);
+      const { error } = await updatePassword(password, {
+        fromRecovery: isPasswordRecoveryPending(),
+      });
 
       if (error) {
         throw error;
       }
 
+      clearPasswordRecoveryPending();
       setSuccess(true);
 
       // Redirect to dashboard after 3 seconds

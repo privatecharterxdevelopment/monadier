@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Loader2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { signIn, signInWithGoogle } from '../../lib/supabase';
@@ -144,6 +145,12 @@ const ProTradeSignInModal: React.FC<Props> = ({
             onChange={(e) => setPassword(e.target.value)}
             required
           />
+
+          <p className="hl-signin-forgot">
+            <Link to="/forgot-password" className="hl-signin-link-btn" onClick={onClose}>
+              {t('auth.forgotPassword')}
+            </Link>
+          </p>
 
           <button
             type="submit"
