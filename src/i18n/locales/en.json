@@ -608,7 +608,7 @@
     "closedTradesGate": "Closed trades before gate applies",
     "fewerTrades": "Fewer trades",
     "moreTrades": "More trades",
-    "exitsHint": "<strong>Exits:</strong> SL % in settings = max loss on margin while red. In profit the bot sets a <strong>profit SL</strong> automatically (+0.2% ROE arm → +0.1% lock, 0.1% trail from peak)."
+    "exitsHint": "<strong>Exits:</strong> SL % in settings = max loss on margin while red. In profit the bot sets a <strong>profit SL</strong> automatically (+0.5% ROE & $0.25 peak arm → +0.25% lock, 0.15% trail from peak)."
   },
   "trading": {
     "order": {

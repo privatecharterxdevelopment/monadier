@@ -140,9 +140,20 @@ export function shouldUpgradeToFullTrail(peakPnlUsd: number, collateralUsd: numb
   return roePct(peakPnlUsd, collateralUsd) >= config.hyperliquid.dynamicTrail.fullTrailArmRoePct;
 }
 
-export function shouldArmProfitTrail(pnlUsd: number, collateralUsd: number): boolean {
-  if (pnlUsd <= 0 || collateralUsd <= 0) return false;
-  return roePct(pnlUsd, collateralUsd) >= config.hyperliquid.dynamicTrail.breakevenArmRoePct;
+export function shouldArmProfitTrail(peakPnlUsd: number, collateralUsd: number): boolean {
+  if (peakPnlUsd <= 0 || collateralUsd <= 0) return false;
+  const cfg = config.hyperliquid.dynamicTrail;
+  if (cfg.armMinProfitUsd > 0 && peakPnlUsd < cfg.armMinProfitUsd) return false;
+  return roePct(peakPnlUsd, collateralUsd) >= cfg.breakevenArmRoePct;
+}
+
+/** Skip profit-trail market close when uPnL is below floor (hold for profit-only). */
+export function shouldExecuteProfitTrailClose(pnlUsd: number): boolean {
+  const cfg = config.hyperliquid.dynamicTrail;
+  if (cfg.neverRedAfterArm && pnlUsd < 0) return false;
+  const minClose = cfg.profitTrailMinClosePnlUsd;
+  if (minClose > 0 && pnlUsd < minClose) return false;
+  return true;
 }
 
 /** @deprecated */
@@ -371,7 +382,10 @@ export async function evaluateDynamicTrail(
   // —— Stage 2: full in-profit ratchet trail ——
   if (rec.phase === 'trailing' && !rec.lossSlArmed) {
     refreshProfitTrailStop(rec, input);
-    if (isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop!)) {
+    if (
+      isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop!) &&
+      shouldExecuteProfitTrailClose(input.pnlUsd)
+    ) {
       const lockRoe = profitTrailLockRoePct(rec.highestPnlSinceEntry, input.collateralUsd);
       const detail = `PROFIT TRAIL S2 +${lockRoe.toFixed(2)}% ROE · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
       return {
@@ -381,10 +395,24 @@ export async function evaluateDynamicTrail(
         closeDetail: detail,
       };
     }
+    if (
+      isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop!) &&
+      !shouldExecuteProfitTrailClose(input.pnlUsd)
+    ) {
+      logger.info('HL profit trail close skipped — uPnL below min close floor', {
+        coin: input.coin,
+        direction: input.direction,
+        stage: 2,
+        pnlUsd: input.pnlUsd.toFixed(4),
+        minCloseUsd: config.hyperliquid.dynamicTrail.profitTrailMinClosePnlUsd,
+        mark: input.markPrice.toFixed(6),
+        stop: rec.currentTrailStop?.toFixed(6),
+      });
+    }
     return { record: rec, ...noClose };
   }
 
-  // —— Stage 1: fixed min-profit lock (+0.1% ROE) ——
+  // —— Stage 1: fixed min-profit lock ——
   if (rec.phase === 'profit_lock' && !rec.lossSlArmed) {
     if (shouldUpgradeToFullTrail(rec.highestPnlSinceEntry, input.collateralUsd)) {
       rec.phase = 'trailing';
@@ -399,7 +427,10 @@ export async function evaluateDynamicTrail(
     }
 
     refreshProfitTrailStop(rec, input);
-    if (isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop!)) {
+    if (
+      isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop!) &&
+      shouldExecuteProfitTrailClose(input.pnlUsd)
+    ) {
       const lockRoe = profitLockStage1RoePct();
       const detail = `PROFIT LOCK S1 +${lockRoe.toFixed(2)}% ROE · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
       return {
@@ -409,10 +440,24 @@ export async function evaluateDynamicTrail(
         closeDetail: detail,
       };
     }
+    if (
+      isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop!) &&
+      !shouldExecuteProfitTrailClose(input.pnlUsd)
+    ) {
+      logger.info('HL profit trail close skipped — uPnL below min close floor', {
+        coin: input.coin,
+        direction: input.direction,
+        stage: 1,
+        pnlUsd: input.pnlUsd.toFixed(4),
+        minCloseUsd: config.hyperliquid.dynamicTrail.profitTrailMinClosePnlUsd,
+        mark: input.markPrice.toFixed(6),
+        stop: rec.currentTrailStop?.toFixed(6),
+      });
+    }
     return { record: rec, ...noClose };
   }
 
-  // —— Arm stage 1 at +0.2% ROE (peak since entry — not only this tick's uPnL) ——
+  // —— Arm stage 1 when peak passes ROE + USD thresholds ——
   if (
     rec.phase === 'idle' &&
     shouldArmProfitTrail(rec.highestPnlSinceEntry, input.collateralUsd)
