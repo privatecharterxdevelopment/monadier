@@ -65,6 +65,9 @@ import {
   trailDistanceMultFromBias,
   shouldHardLossClose,
   computeMaxLossCapUsd,
+  effectiveStopLossPct,
+  shouldEmergencyLossClose,
+  perPositionEmergencyLossUsd,
   evaluatePositionThesis,
   type ProfitRunAnalysis,
 } from './positionThesisGate';
@@ -281,7 +284,8 @@ function resolveMarginPerSlot(
 
   const slotsRemaining = maxSlots - openCount;
   const minMargin = config.hyperliquid.minMarginUsd;
-  const totalRiskUsd = (balance * riskLevelBps) / 10000;
+  const effectiveRiskBps = Math.min(riskLevelBps, config.hyperliquid.maxRiskLevelBps);
+  const totalRiskUsd = (balance * effectiveRiskBps) / 10000;
   const perSlot = totalRiskUsd / Math.max(1, maxSlots);
 
   let collateral = perSlot >= minMargin ? perSlot : 0;
@@ -297,9 +301,10 @@ function resolveMarginPerSlot(
     }
   }
 
-  // Split free margin across remaining slots so slot 1 never eats all collateral.
   const maxFromFree = freeMarginUsd / slotsRemaining;
-  collateral = Math.min(collateral, maxFromFree);
+  const slotPctCap = balance * config.hyperliquid.maxMarginPctPerSlot;
+  const equalSlotCap = balance / maxSlots;
+  collateral = Math.min(collateral, maxFromFree, slotPctCap, equalSlotCap);
 
   return collateral >= 1 ? collateral : 0;
 }
@@ -1327,6 +1332,7 @@ export class HyperliquidTradingService {
     const meta = fast ? null : await fetchHlMeta();
     const configuredLev = Math.max(1, Math.floor(settings.leverageMultiplier || 5));
     const nowMs = Date.now();
+    const accountBalanceUsd = hlAccountValueUsd(state);
 
     for (const row of state?.assetPositions ?? []) {
       const pos = row.position;
@@ -1452,19 +1458,39 @@ export class HyperliquidTradingService {
       }
 
       const slPct = settings.stopLossPercent;
+      const enforcedSlPct = effectiveStopLossPct(slPct);
       if (
-        slPct > 0 &&
-        mayAutoCloseInRed('stop_loss', holdMs, { userStopLossPct: slPct }) &&
+        enforcedSlPct > 0 &&
+        mayAutoCloseInRed('stop_loss', holdMs, { userStopLossPct: enforcedSlPct }) &&
         shouldHardLossClose(pnl, collateralEst, slPct)
       ) {
-        const capUsd = computeMaxLossCapUsd(collateralEst, slPct);
+        const capUsd = computeMaxLossCapUsd(collateralEst, enforcedSlPct);
         await this.closePositionClearingTrailOnSuccess(
           lockKey,
           userAddress,
           pos.coin,
           'stop_loss',
           closeCtx,
-          `STOP LOSS — ${pos.coin} uPnL $${pnl.toFixed(2)} ≤ −$${capUsd.toFixed(2)} (${slPct > 0 ? `${slPct}% margin` : 'max loss cap'})`
+          `STOP LOSS — ${pos.coin} uPnL $${pnl.toFixed(2)} ≤ −$${capUsd.toFixed(2)} (${enforcedSlPct}% margin cap, user ${slPct > 0 ? `${slPct}%` : 'off'})`
+        );
+        continue;
+      }
+
+      if (
+        shouldEmergencyLossClose(pnl, accountBalanceUsd, collateralEst, slPct)
+      ) {
+        const capUsd = perPositionEmergencyLossUsd(
+          accountBalanceUsd,
+          collateralEst,
+          slPct
+        );
+        await this.closePositionClearingTrailOnSuccess(
+          lockKey,
+          userAddress,
+          pos.coin,
+          'emergency_close',
+          closeCtx,
+          `LOSS CAP — ${pos.coin} uPnL $${pnl.toFixed(2)} ≤ −$${capUsd.toFixed(2)} (account protection)`
         );
         continue;
       }
@@ -1491,19 +1517,6 @@ export class HyperliquidTradingService {
           );
           continue;
         }
-      }
-
-      const emergencyCap = config.hyperliquid.thesisEmergencyMaxLossUsd;
-      if (pnl < 0 && emergencyCap > 0 && pnl <= -emergencyCap) {
-        await this.closePositionClearingTrailOnSuccess(
-          lockKey,
-          userAddress,
-          pos.coin,
-          'emergency_close',
-          closeCtx,
-          `EMERGENCY LOSS CAP — ${pos.coin} uPnL $${pnl.toFixed(2)} ≤ −$${emergencyCap.toFixed(2)}`
-        );
-        continue;
       }
 
       if (pnl < 0 && config.hyperliquid.profitOnlyExits) {

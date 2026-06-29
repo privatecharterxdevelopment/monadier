@@ -547,7 +547,10 @@ export class SubscriptionService {
         leverageMultiplier: normalizeHlLeverage(
           data.leverage_multiplier != null ? Number(data.leverage_multiplier) : null
         ),
-        riskLevelBps: data.risk_level_bps || 500,
+        riskLevelBps: Math.min(
+          data.risk_level_bps || 500,
+          config.hyperliquid.maxRiskLevelBps
+        ),
         autoTradeEnabled: Boolean(data.auto_trade_enabled),
         minWinRatePercent: Number(data.min_win_rate_percent) || 0,
         minTradesForWinRateGate: Number(data.min_trades_for_win_rate_gate) || 5,

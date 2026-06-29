@@ -96,6 +96,14 @@ export const config = {
     maxConcurrentPositions: Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 2),
     /** Minimum order notional — skips sloppy micro-trades. */
     minNotionalUsd: Number(process.env.HL_MIN_NOTIONAL_USD || 20),
+    /** Cap user risk % — 3000 = 30% of balance max (split across slots). */
+    maxRiskLevelBps: Number(process.env.HL_MAX_RISK_LEVEL_BPS || 3000),
+    /** Never allocate more than this fraction of balance to one HL slot. */
+    maxMarginPctPerSlot: Number(process.env.HL_MAX_MARGIN_PCT_PER_SLOT || 0.22),
+    /** Auto stop-loss ceiling on margin — tightens user SL above this (e.g. 50% → 18%). */
+    maxAutoStopLossPct: Number(process.env.HL_MAX_AUTO_SL_PCT || 18),
+    /** Used when user SL is 0 — bot still cuts losers (profit-only mode off for SL). */
+    defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 12),
     /** Bot open floor — 0 = scan all HL perps; only applied at order time if > 0. */
     minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 0),
     minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 0),
@@ -105,9 +113,6 @@ export const config = {
     /** Close HL perps at this % gain on margin (user DB setting overrides). */
     /** 0 = user disabled TP. */
     defaultTakeProfitPercent: Number(process.env.HL_DEFAULT_TP_PERCENT || 0),
-    /** 0 = user disabled SL in DB — do NOT override with default in monitor. */
-    /** 0 = off until user sets SL% in bot settings or position stop editor. */
-    defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 0),
     defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 2),
     /** Min uPnL before any profit exit (legacy — dynamic trail uses ROE/fees arm). */
     minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
@@ -330,8 +335,11 @@ export const config = {
     thesisMaxLossUsd: Number(process.env.HL_THESIS_MAX_LOSS_USD || 0),
     /** Flat USD uPnL stop — off by default; use SL% in user settings instead. */
     hardStopLossUsd: Number(process.env.HL_HARD_STOP_USD || 0),
-    /** Catastrophic loss USD — optional escape hatch while profitOnlyExits (0 = disabled). */
+    /** Catastrophic loss USD — per-position floor (also % of account in code). */
     thesisEmergencyMaxLossUsd: Number(process.env.HL_EMERGENCY_MAX_LOSS_USD || 0),
+    /** Per-position loss cap as fraction of account balance (e.g. 0.07 = 7%). */
+    emergencyMaxLossAccountPct: Number(process.env.HL_EMERGENCY_MAX_LOSS_ACCOUNT_PCT || 0.07),
+    emergencyMaxLossUsdFloor: Number(process.env.HL_EMERGENCY_MAX_LOSS_FLOOR_USD || 2.5),
     /** Min ms open before signal_reversal loss close when HL_LOSS_THESIS_CLOSE=true. */
     thesisMinHoldBeforeLossCloseMs: Number(process.env.HL_THESIS_MIN_HOLD_MS || 600_000),
     /** HL funding, 24h change, mark/oracle — anti-chase before opens. */
