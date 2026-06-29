@@ -285,11 +285,35 @@ export async function checkHlBotAgentApproved(
 ): Promise<{ approved: boolean; expiresAt: string | null; loaded: boolean }> {
   const wallet = walletAddress.toLowerCase();
   try {
-    const meta = await fetchHlAgentAddress(wallet);
-    if (meta.success && meta.agentAddress) {
-      const result = await resolveHlAgentApproval(wallet, meta.agentAddress);
+    let agentAddress: string | null = null;
+    try {
+      const meta = await fetchHlAgentAddress(wallet);
+      if (meta.success && meta.agentAddress) {
+        agentAddress = meta.agentAddress.toLowerCase();
+      }
+    } catch {
+      /* bot API optional — on-chain HL read is source of truth */
+    }
+
+    if (agentAddress) {
+      const live = await findActiveHlAgent(wallet, agentAddress);
+      if (live) {
+        const expiresAt = new Date(live.validUntil).toISOString();
+        const saveKey = approvalSaveKey(wallet, agentAddress);
+        if (!approvalSaveAttempted.has(saveKey)) {
+          void saveHlAgentApproval({
+            walletAddress: wallet,
+            agentAddress,
+            agentName: live.name,
+            expiresAt,
+          }).catch(() => undefined);
+        }
+        return { approved: true, expiresAt, loaded: true };
+      }
+      const result = await resolveHlAgentApproval(wallet, agentAddress);
       return { ...result, loaded: true };
     }
+
     const fallback = await resolveHlAgentApproval(wallet, null);
     return { ...fallback, loaded: true };
   } catch {

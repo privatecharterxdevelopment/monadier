@@ -55,15 +55,19 @@ class HlAgentApprovalService {
     const ours = agents.find(
       (a) => a.address.toLowerCase() === expectedAgent.toLowerCase()
     );
+    if (ours && isHlExtraAgentActive(ours)) return null;
     if (ours && !isHlExtraAgentActive(ours)) {
       const when = new Date(ours.validUntil).toLocaleString();
-      return `HL trading agent expired on Hyperliquid (${when}) — open Bot tab → Start bot → approve again in MetaMask (1 signature).`;
+      return `HL trading agent expired (${when}) — Bot tab → Approve trading agent once (one signature; closes never need your wallet).`;
+    }
+    if (agents.length === 0) {
+      return 'Could not read HL agent status from Hyperliquid — retrying. Closes do not need your wallet; one-time agent approval only.';
     }
     const row = await this.getApproval(walletAddress);
     if (row && row.agent_address.toLowerCase() === expectedAgent.toLowerCase()) {
-      return 'HL trading agent not active on Hyperliquid — open Bot tab → Start bot → complete the MetaMask approval.';
+      return 'Trading agent not active on Hyperliquid — Bot tab → Approve trading agent once (one signature, not per trade).';
     }
-    return 'HL trading agent not approved — open Bot tab → Start bot → complete the MetaMask approval first.';
+    return 'Trading agent not approved — Bot tab → Approve trading agent once, then Start bot.';
   }
 
   async saveApproval(params: {

@@ -80,7 +80,7 @@ export async function fetchHlClearinghouseState(
   userAddress: string
 ): Promise<HlClearinghouseState | null> {
   const user = userAddress.toLowerCase();
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
     try {
       const res = await fetch(config.hyperliquid.infoUrl, {
         method: 'POST',
@@ -91,18 +91,18 @@ export async function fetchHlClearinghouseState(
         }),
       });
       if (!res.ok) {
-        if (attempt < 2) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+        if (attempt < 3) await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
         continue;
       }
       return (await res.json()) as HlClearinghouseState;
     } catch (err: unknown) {
-      if (attempt === 2) {
+      if (attempt === 3) {
         logger.debug('HL clearinghouseState failed', {
           user: user.slice(0, 10),
           error: err instanceof Error ? err.message : String(err),
         });
       } else {
-        await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+        await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
       }
     }
   }
@@ -272,33 +272,47 @@ export type HlExtraAgent = {
   validUntil: number;
 };
 
+function parseHlExtraAgents(rows: unknown): HlExtraAgent[] {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((r) => ({
+      address: String((r as { address?: string }).address ?? '').toLowerCase(),
+      name: String((r as { name?: string }).name ?? ''),
+      validUntil: Number((r as { validUntil?: number }).validUntil ?? 0),
+    }))
+    .filter((r) => r.address.length >= 42);
+}
+
+/** HL extraAgents — retried (Railway→HL reads are often flaky; empty ≠ not approved). */
 export async function fetchHlExtraAgents(userAddress: string): Promise<HlExtraAgent[]> {
-  try {
-    const res = await fetch(config.hyperliquid.infoUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'extraAgents',
-        user: userAddress.toLowerCase(),
-      }),
-    });
-    if (!res.ok) return [];
-    const rows = (await res.json()) as Array<{
-      address?: string;
-      name?: string;
-      validUntil?: number;
-    }>;
-    if (!Array.isArray(rows)) return [];
-    return rows
-      .map((r) => ({
-        address: String(r.address ?? '').toLowerCase(),
-        name: String(r.name ?? ''),
-        validUntil: Number(r.validUntil ?? 0),
-      }))
-      .filter((r) => r.address.length >= 42);
-  } catch {
-    return [];
+  const user = userAddress.toLowerCase();
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      const res = await fetch(config.hyperliquid.infoUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'extraAgents',
+          user,
+        }),
+      });
+      if (!res.ok) {
+        if (attempt < 3) await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+        continue;
+      }
+      return parseHlExtraAgents(await res.json());
+    } catch (err: unknown) {
+      if (attempt === 3) {
+        logger.debug('HL extraAgents failed', {
+          user: user.slice(0, 10),
+          error: err instanceof Error ? err.message : String(err),
+        });
+      } else {
+        await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+      }
+    }
   }
+  return [];
 }
 
 export function isHlExtraAgentActive(agent: HlExtraAgent): boolean {

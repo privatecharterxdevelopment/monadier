@@ -385,16 +385,26 @@ export class HyperliquidTradingService {
     userAddress: `0x${string}`,
     ctx: TradingCycleContext
   ): Promise<UserProcessResult> {
-    const gate = await this.canTrade(userAddress);
-    if (!gate.ok) {
-      logger.debug('HL user skip: gate', { user: userAddress.slice(0, 10), reason: gate.reason });
-      return 'skip';
-    }
-
     const settings = await subscriptionService.getUserTradingSettings(
       userAddress,
       config.arbitrum.chainId
     );
+
+    const state = await fetchHlClearinghouseState(userAddress);
+    const openCoins = state ? hlOpenPerpCoins(state) : [];
+
+    // Profit trail / SL closes run even when balance/agent reads flap — never block monitoring on gate.
+    if (state && openCoins.length > 0) {
+      await this.monitorOpenPositions(userAddress, state, settings, { fast: false });
+    }
+
+    const gate = await this.canTrade(userAddress);
+    if (!gate.ok) {
+      logger.debug('HL user skip: gate', { user: userAddress.slice(0, 10), reason: gate.reason });
+      return openCoins.length > 0 ? 'ok' : 'skip';
+    }
+
+    if (!state) return openCoins.length > 0 ? 'ok' : 'skip';
 
     let autoTradeEnabled = settings.autoTradeEnabled;
     if (autoTradeEnabled) {
@@ -416,15 +426,7 @@ export class HyperliquidTradingService {
       }
     }
 
-    const state = await fetchHlClearinghouseState(userAddress);
-    if (!state) return 'skip';
-
-    const openCoins = hlOpenPerpCoins(state);
     const maxPositions = config.hyperliquid.maxConcurrentPositions;
-
-    if (openCoins.length > 0) {
-      await this.monitorOpenPositions(userAddress, state, settings, { fast: false });
-    }
 
     if (!autoTradeEnabled) {
       if (openCoins.length > 0) {
