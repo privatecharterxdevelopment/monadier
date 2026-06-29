@@ -1663,6 +1663,12 @@ export class HyperliquidTradingService {
 
       const successFeeRequired =
         pnlUsd > 0 && Boolean(config.hyperliquid.builderAddress);
+      const botProfitExit =
+        reason === 'trailing_stop' ||
+        reason === 'profit_lock' ||
+        reason === 'take_profit' ||
+        reason === 'profit_grab_peak' ||
+        reason === 'profit_grab_timeout';
 
       let viaHlBuilder = false;
       let closeBuilder: { b: `0x${string}`; f: number } | undefined;
@@ -1670,30 +1676,45 @@ export class HyperliquidTradingService {
       if (successFeeRequired) {
         const builderGate = await checkHlBuilderFeeApproved(userAddress);
         if (!builderGate.platformReady) {
-          return {
-            success: false,
-            error:
-              'Success fee collection is offline. Profitable closes are blocked until the platform wallet is funded — close on app.hyperliquid.xyz if urgent.',
-          };
-        }
-        if (!builderGate.approved) {
-          return {
-            success: false,
-            error:
-              'Approve the 10% success fee in Bot setup before closing this trade in profit.',
-          };
-        }
-        closeBuilder = resolveHlOrderBuilder({
-          notionalUsd,
-          profitUsd: pnlUsd,
-          isClose: true,
-          approvedMaxTenthsBps: builderGate.approvedMax,
-        });
-        if (!closeBuilder) {
-          return {
-            success: false,
-            error: 'Could not compute success fee for this close.',
-          };
+          if (!botProfitExit) {
+            return {
+              success: false,
+              error:
+                'Success fee collection is offline. Profitable closes are blocked until the platform wallet is funded — close on app.hyperliquid.xyz if urgent.',
+            };
+          }
+          logger.warn('HL bot profit exit — platform wallet not ready, closing without success fee', {
+            user: userAddress.slice(0, 10),
+            coin: coinUpper,
+            reason,
+          });
+        } else if (!builderGate.approved) {
+          if (!botProfitExit) {
+            return {
+              success: false,
+              error:
+                'Approve the 10% success fee in Bot setup before closing this trade in profit.',
+            };
+          }
+          logger.warn('HL bot profit exit — success fee not approved, closing without builder', {
+            user: userAddress.slice(0, 10),
+            coin: coinUpper,
+            reason,
+            pnlUsd: pnlUsd.toFixed(4),
+          });
+        } else {
+          closeBuilder = resolveHlOrderBuilder({
+            notionalUsd,
+            profitUsd: pnlUsd,
+            isClose: true,
+            approvedMaxTenthsBps: builderGate.approvedMax,
+          });
+          if (!closeBuilder) {
+            return {
+              success: false,
+              error: 'Could not compute success fee for this close.',
+            };
+          }
         }
       }
 
@@ -1710,7 +1731,7 @@ export class HyperliquidTradingService {
         status.error &&
         isBuilderOrderError(String(status.error))
       ) {
-        if (successFeeRequired) {
+        if (successFeeRequired && !botProfitExit) {
           return {
             success: false,
             error: `Close rejected: ${status.error}. Profitable closes must include the 10% success fee.`,
@@ -1783,7 +1804,7 @@ export class HyperliquidTradingService {
         });
       });
 
-      if (pnlUsd > 0 && config.hyperliquid.builderAddress) {
+      if (pnlUsd > 0 && config.hyperliquid.builderAddress && !botProfitExit) {
         if (!viaHlBuilder || collectedFee <= 0) {
           logger.error('Profitable HL close without builder fee — blocked', {
             user: userAddress.slice(0, 10),
@@ -1798,6 +1819,13 @@ export class HyperliquidTradingService {
               'Profitable close must auto-collect the 10% success fee to the platform wallet. Re-approve platform fee in Bot setup.',
           };
         }
+      } else if (pnlUsd > 0 && botProfitExit && !viaHlBuilder) {
+        logger.warn('HL bot profit exit closed without on-chain success fee', {
+          user: userAddress.slice(0, 10),
+          coin: coinUpper,
+          reason,
+          pnl: pnlUsd.toFixed(4),
+        });
       }
 
       logger.info('HL position closed', {
