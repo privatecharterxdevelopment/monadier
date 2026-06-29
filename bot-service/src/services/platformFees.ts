@@ -92,29 +92,42 @@ export function splitPlatformFee(
   return { totalUsd, builderUsd, accruedUsd, feeBps };
 }
 
-async function bumpSuccessWinCount(wallet: string): Promise<number> {
-  const { data: existing } = await supabase
-    .from('wallet_platform_fee_state')
-    .select('success_win_count')
+async function countUnpaidBotFeeWins(wallet: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('hl_fee_ledger')
+    .select('id', { count: 'exact', head: true })
     .eq('wallet_address', wallet)
-    .maybeSingle();
+    .eq('fee_source', 'bot')
+    .eq('status', 'accrued')
+    .gt('success_fee_usd', 0);
 
-  const next = (Number(existing?.success_win_count) || 0) + 1;
+  if (error) {
+    logger.debug('platform fee win count read failed', {
+      wallet: wallet.slice(0, 10),
+      error: error.message,
+    });
+    return 0;
+  }
+  return count ?? 0;
+}
+
+async function syncSuccessWinCount(wallet: string): Promise<number> {
+  const count = await countUnpaidBotFeeWins(wallet);
   const { error } = await supabase.from('wallet_platform_fee_state').upsert(
     {
       wallet_address: wallet,
-      success_win_count: next,
+      success_win_count: count,
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'wallet_address' }
   );
   if (error) {
-    logger.warn('platform fee win count upsert failed', {
+    logger.warn('platform fee win count sync failed', {
       wallet: wallet.slice(0, 10),
       error: error.message,
     });
   }
-  return next;
+  return count;
 }
 
 export async function resetPlatformFeeCycle(wallet: string): Promise<void> {
@@ -153,22 +166,7 @@ export async function getPlatformFeeStatus(walletAddress: string): Promise<Platf
     }
   }
 
-  const { data: stateRow } = await supabase
-    .from('wallet_platform_fee_state')
-    .select('success_win_count')
-    .eq('wallet_address', wallet)
-    .maybeSingle();
-
-  const { count: ledgerWinCount } = await supabase
-    .from('hl_fee_ledger')
-    .select('id', { count: 'exact', head: true })
-    .eq('wallet_address', wallet)
-    .gt('gross_profit_usd', 0);
-
-  const successWinCount = Math.max(
-    Number(stateRow?.success_win_count) || 0,
-    ledgerWinCount ?? 0
-  );
+  const successWinCount = await countUnpaidBotFeeWins(wallet);
   const opensBlocked =
     successWinCount >= PLATFORM_FEE_WINS_BEFORE_BLOCK && accruedUsd > 0.000_001;
   const withdrawBlocked = accruedUsd > 0.000_001;
@@ -225,7 +223,15 @@ export async function recordProfitableClose(input: ProfitableCloseInput): Promis
     if (dupe?.id) return;
   }
 
-  const successWinCount = await bumpSuccessWinCount(wallet);
+  if (totalUsd <= 0) {
+    logger.info('profitable close — no platform fee', {
+      wallet: wallet.slice(0, 10),
+      coin: input.coin,
+      profit: profitUsd.toFixed(4),
+      source: input.source,
+    });
+    return;
+  }
 
   const collateralUsd = input.collateralUsd ?? 0;
   const pnlPct = collateralUsd > 0 ? (profitUsd / collateralUsd) * 100 : 0;
@@ -288,16 +294,6 @@ export async function recordProfitableClose(input: ProfitableCloseInput): Promis
     });
   }
 
-  if (totalUsd <= 0) {
-    logger.info('profitable close — no platform fee', {
-      wallet: wallet.slice(0, 10),
-      coin: input.coin,
-      profit: profitUsd.toFixed(4),
-      wins: successWinCount,
-    });
-    return;
-  }
-
   const ledgerStatus = accruedUsd > 0 ? 'accrued' : 'settled';
   const { error: ledgerErr } = await supabase.from('hl_fee_ledger').insert({
     wallet_address: wallet,
@@ -331,6 +327,11 @@ export async function recordProfitableClose(input: ProfitableCloseInput): Promis
       profitUsd,
       successFeeUsd: totalUsd,
     });
+  }
+
+  let successWinCount = 0;
+  if (input.source === 'bot' && ledgerStatus === 'accrued') {
+    successWinCount = await syncSuccessWinCount(wallet);
   }
 
   logger.info('platform fee recorded', {
@@ -369,6 +370,9 @@ export async function listAccruedFeeTrades(
       'id, coin, gross_profit_usd, success_fee_usd, builder_fee_usd, accrued_fee_usd, close_reason, fee_source, created_at, status'
     )
     .eq('wallet_address', wallet)
+    .eq('fee_source', 'bot')
+    .eq('status', 'accrued')
+    .gt('success_fee_usd', 0)
     .order('created_at', { ascending: false })
     .limit(limit);
 

@@ -189,7 +189,7 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
           <span className="hl-topnav-bet-label">Bot fees</span>
           <strong>{fmtUsdSymbol(feesOwed)}</strong>
           <span className="hl-topnav-bet-pnl hl-topnav-bet-pnl--muted">
-            {platformFees.successWinCount}/{platformFees.winsBeforeBlock} wins
+            {platformFees.successWinCount}/{platformFees.winsBeforeBlock} win trades
           </span>
         </button>
       ) : openCount > 0 ? (

@@ -41,7 +41,7 @@ const PlatformFeePayModal: React.FC<Props> = ({
   const [error, setError] = useState<string | null>(null);
 
   const winTrades = useMemo(
-    () => trades.filter((t) => t.grossProfitUsd > 0),
+    () => trades.filter((t) => t.totalFeeUsd > 0 && t.grossProfitUsd > 0),
     [trades]
   );
 
@@ -143,7 +143,7 @@ const PlatformFeePayModal: React.FC<Props> = ({
             <strong className="hl-fee-modal-kpi-value">{fmtUsdSymbol(accruedUsd)}</strong>
           </div>
           <div>
-            <span className="hl-fee-modal-kpi-label">Winning closes</span>
+            <span className="hl-fee-modal-kpi-label">Win trades (10% fee)</span>
             <strong className="hl-fee-modal-kpi-value">
               {successWinCount} / {winsBeforeBlock}
             </strong>
@@ -151,7 +151,7 @@ const PlatformFeePayModal: React.FC<Props> = ({
         </div>
 
         <section className="hl-fee-modal-trades" aria-label="Successful trades">
-          <h3>Successful trades ({winTrades.length})</h3>
+          <h3>Win trades with platform fee ({winTrades.length})</h3>
           <div className="hl-fee-modal-trades-scroll">
             {winTrades.length === 0 ? (
               <p className="hl-fee-modal-empty">No fee entries yet.</p>

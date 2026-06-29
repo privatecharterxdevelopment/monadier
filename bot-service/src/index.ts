@@ -365,7 +365,7 @@ const healthServer = http.createServer(async (req, res) => {
       }
       const status = await getPlatformFeeStatus(wallet);
       const trades = await listAccruedFeeTrades(wallet, 50);
-      const recentWins = trades.filter((t) => t.grossProfitUsd > 0);
+      const recentWins = trades.filter((t) => t.totalFeeUsd > 0);
       res.writeHead(200, corsHeaders);
       res.end(
         JSON.stringify({

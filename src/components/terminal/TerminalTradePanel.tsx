@@ -880,7 +880,7 @@ const TerminalTradePanel: React.FC<Props> = ({
                   >
                     <strong>{fmt(platformFees.accruedUsd)}</strong>
                     <span className="term-fee-owed-sub">
-                      {platformFees.successWinCount}/{platformFees.winsBeforeBlock} wins
+                      {platformFees.successWinCount}/{platformFees.winsBeforeBlock} win trades
                     </span>
                   </button>
                 </div>
