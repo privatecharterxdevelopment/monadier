@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import { devError } from '../devLog';
+import { recordBettingPlatformFee } from '../platformFeesApi';
 import { fetchHlOutcomePositions } from '../hyperliquid/outcomes/positions';
 import { fetchHlUserFills } from '../hyperliquid/user';
 import {
@@ -116,6 +117,22 @@ export async function syncBettingTradesToSupabase(
         .from('hl_betting_closes')
         .upsert(withTid, { onConflict: 'hl_fill_tid', ignoreDuplicates: true });
       if (closeErr) devError('[betting sync] closes upsert', closeErr);
+      else {
+        for (const row of withTid) {
+          const pnl = Number(row.realized_pnl) || 0;
+          if (pnl <= 0) continue;
+          const size = Number(row.size) || 0;
+          const px = Number(row.exit_px) || 0;
+          void recordBettingPlatformFee({
+            wallet,
+            profitUsd: pnl,
+            notionalUsd: size * px,
+            coin: String(row.market_name ?? 'BET'),
+            fillTid: row.hl_fill_tid as string | number,
+            builderFeeUsd: toNum(row.fee),
+          });
+        }
+      }
     }
   }
 }

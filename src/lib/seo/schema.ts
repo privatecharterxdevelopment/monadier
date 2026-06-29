@@ -45,7 +45,7 @@ export function softwareApplicationSchema(opts?: { path?: string; name?: string;
       '@type': 'Offer',
       price: '0',
       priceCurrency: 'USD',
-      description: 'No platform subscription; 10% success fee on profitable closes only',
+      description: 'No platform subscription; no Monadier success fee on closes',
     },
     featureList: [
       'Full auto Hyperliquid trading bot',

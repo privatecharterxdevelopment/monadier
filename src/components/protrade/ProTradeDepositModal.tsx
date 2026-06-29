@@ -22,6 +22,7 @@ import {
 import { USDC_ADDRESSES, USDC_DECIMALS } from '../../lib/usdcArbitrum';
 import { ERC20_ABI } from '../../lib/dex/router';
 import { useProTradeThemeOptional } from '../../contexts/ProTradeThemeContext';
+import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
 
 const ARBITRUM_USDC_E = '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8' as const;
 
@@ -45,6 +46,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
   onTransfer,
 }) => {
   const { open } = useMonadierAppKit();
+  const { withdrawBlocked, accruedUsd, openPayModal } = usePlatformFeeGate();
   const { address, isConnected } = useMonadierWallet();
   const { publicClient, walletClient } = useWeb3();
   const chainId = useChainId();
@@ -529,6 +531,14 @@ const ProTradeDepositModal: React.FC<Props> = ({
                   To your Arbitrum wallet · available{' '}
                   <strong>{fmtUsdSymbol(withdrawable)}</strong>
                 </p>
+                {withdrawBlocked ? (
+                  <p className="term-profile-err hl-funds-inline-err">
+                    Pay {fmtUsdSymbol(accruedUsd)} platform fees before withdrawing via Monadier.{' '}
+                    <button type="button" className="hl-fee-inline-pay" onClick={openPayModal}>
+                      Pay now
+                    </button>
+                  </p>
+                ) : null}
                 <label className="term-profile-label hl-funds-amount-label">Amount (USDC)</label>
                 <input
                   className="term-profile-input"
@@ -543,7 +553,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
                 <button
                   type="button"
                   className="term-modal-primary hl-funds-primary"
-                  disabled={primaryBusy}
+                  disabled={primaryBusy || withdrawBlocked}
                   onClick={() => void handleWithdraw()}
                 >
                   {primaryBusy ? <Loader2 size={16} className="animate-spin" /> : 'Withdraw from HL'}

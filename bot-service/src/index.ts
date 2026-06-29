@@ -36,7 +36,13 @@ import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTrad
 import { getLastHlOpenError, getLastHlOpenErrorForClient, hyperliquidTradingService, resolveHlMarginPerSlot } from './services/hlTrading';
 import { releaseHlBotTradingPauses } from './services/dailyLossGate';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
-import { getHlFeeSummary } from './services/hlSuccessFees';
+import {
+  getPlatformFeeStatus,
+  listAccruedFeeTrades,
+  recordProfitableClose,
+  settleAccruedFees,
+  PLATFORM_FEE_WINS_BEFORE_BLOCK,
+} from './services/platformFees';
 import { processPendingTradeCloseEmails } from './services/tradeCloseEmail';
 import { tryQualifyReferral } from './services/referralAffiliate';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
@@ -349,6 +355,106 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/platform-fees' && req.method === 'GET') {
+    try {
+      const wallet = url.searchParams.get('wallet')?.trim().toLowerCase();
+      if (!wallet || !/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet query required (0x…)' }));
+        return;
+      }
+      const status = await getPlatformFeeStatus(wallet);
+      const trades = await listAccruedFeeTrades(wallet, 50);
+      const recentWins = trades.filter((t) => t.grossProfitUsd > 0);
+      res.writeHead(200, corsHeaders);
+      res.end(
+        JSON.stringify({
+          success: true,
+          wallet,
+          status,
+          winsBeforeBlock: PLATFORM_FEE_WINS_BEFORE_BLOCK,
+          builderAddress: config.hyperliquid.builderAddress,
+          trades: recentWins,
+          timestamp: new Date().toISOString(),
+        })
+      );
+    } catch (err: any) {
+      logger.error('API: platform-fees GET failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'platform-fees failed' }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/platform-fees/confirm-payment' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody();
+      const wallet = String(body.wallet ?? '').toLowerCase();
+      const amountUsd = Number(body.amountUsd);
+      const paymentRef = body.paymentRef != null ? String(body.paymentRef) : undefined;
+      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
+        return;
+      }
+      if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'amountUsd required' }));
+        return;
+      }
+      const result = await settleAccruedFees(wallet, amountUsd, paymentRef);
+      const status = await getPlatformFeeStatus(wallet);
+      res.writeHead(result.ok ? 200 : 400, corsHeaders);
+      res.end(JSON.stringify({ success: result.ok, settledUsd: result.settledUsd, status }));
+    } catch (err: any) {
+      logger.error('API: platform-fees confirm failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'confirm-payment failed' }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/platform-fees/record-betting' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody();
+      const wallet = String(body.wallet ?? '').toLowerCase();
+      const profitUsd = Number(body.profitUsd);
+      const notionalUsd = Number(body.notionalUsd ?? 0);
+      const coin = String(body.coin ?? 'BET').trim();
+      const fillTid = body.fillTid != null ? String(body.fillTid) : undefined;
+      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
+        return;
+      }
+      if (!Number.isFinite(profitUsd) || profitUsd <= 0) {
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ success: true, skipped: true }));
+        return;
+      }
+      await recordProfitableClose({
+        walletAddress: wallet,
+        coin,
+        direction: 'LONG',
+        profitUsd,
+        notionalUsd: Number.isFinite(notionalUsd) && notionalUsd > 0 ? notionalUsd : profitUsd * 10,
+        closeReason: String(body.reason ?? 'betting_cashout'),
+        source: 'betting',
+        builderFeeUsd: Number(body.builderFeeUsd) > 0 ? Number(body.builderFeeUsd) : undefined,
+        builderTenthsBps: 1000,
+        externalRef: fillTid ? `betting:${fillTid}` : undefined,
+      });
+      const status = await getPlatformFeeStatus(wallet);
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, status }));
+    } catch (err: any) {
+      logger.error('API: platform-fees record-betting failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'record-betting failed' }));
+    }
+    return;
+  }
+
   // API: Diagnose why bot is not trading for a wallet
   // Usage: /api/bot-status?wallet=0x...
   if (url.pathname === '/api/bot-status') {
@@ -381,7 +487,7 @@ const healthServer = http.createServer(async (req, res) => {
       const hlAgentAddr = deriveUserHlAgentAddress(userAddress);
       const hlAgentOk = await hlAgentApprovalService.isApproved(userAddress, hlAgentAddr);
       const builderGate = await checkHlBuilderFeeApproved(userAddress);
-      const feeSummary = await getHlFeeSummary(userAddress);
+      const feeSummary = await getPlatformFeeStatus(userAddress);
       const hlOpenCoins = hlOpenPerpCoins(hlState);
 
       const collateralForSignal = BigInt(Math.floor(Math.max(hlBalanceUsd, 0) * 1e6));
@@ -429,8 +535,10 @@ const healthServer = http.createServer(async (req, res) => {
 
       const blockers: string[] = [];
       if (!hlAgentOk) blockers.push('HL agent not approved — enable bot in app');
-      if (builderGate.required && !builderGate.approved) {
-        blockers.push('HL builder fee not approved — approve platform fee in Bot panel');
+      if (feeSummary.opensBlocked) {
+        blockers.push(
+          `PLATFORM_FEES_DUE — pay ${feeSummary.accruedUsd.toFixed(2)} USDC after ${feeSummary.successWinCount} winning closes`
+        );
       }
       const balanceBlocker = describeHlPerpBalanceBlocker(
         hlFunding,
@@ -604,12 +712,15 @@ const healthServer = http.createServer(async (req, res) => {
         successFees: {
           accruedUsd: feeSummary.accruedUsd,
           settledUsd: feeSummary.settledUsd,
-          tradeCount: feeSummary.tradeCount,
+          builderSettledUsd: feeSummary.builderSettledUsd,
+          successWinCount: feeSummary.successWinCount,
+          opensBlocked: feeSummary.opensBlocked,
+          withdrawBlocked: feeSummary.withdrawBlocked,
+          winsUntilBlock: feeSummary.winsUntilBlock,
+          winsBeforeBlock: PLATFORM_FEE_WINS_BEFORE_BLOCK,
           ratePercent: config.hyperliquid.successFeeBps / 100,
           builderAddress: config.hyperliquid.builderAddress,
           feeCollectionActive: builderGate.feeCollectionActive,
-          note: '10% of profit on winning closes — collected via HL builder fee when platform wallet is funded and user approved.',
-          autoCollect: builderGate.feeCollectionActive,
         },
         timestamp: new Date().toISOString(),
       }));

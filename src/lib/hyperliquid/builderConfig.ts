@@ -53,15 +53,17 @@ export function getHlBuilderConfig(): HlBuilderConfig {
   const maxApprovalRate =
     import.meta.env.VITE_HL_BUILDER_MAX_APPROVAL?.trim() || '0.1%';
   const bettingBuyFeeTenthsBps = parsePercentToTenthsBps(
-    import.meta.env.VITE_HL_BETTING_BUY_FEE?.trim() || '0.5%',
-    500
+    import.meta.env.VITE_HL_BETTING_BUY_FEE?.trim() || '1%',
+    1000,
+    1000
   );
   const bettingCashoutFeeTenthsBps = parsePercentToTenthsBps(
-    import.meta.env.VITE_HL_BETTING_CASHOUT_FEE?.trim() || '2.5%',
-    2500
+    import.meta.env.VITE_HL_BETTING_CASHOUT_FEE?.trim() || '1%',
+    1000,
+    1000
   );
   const bettingMaxApprovalRate =
-    import.meta.env.VITE_HL_BETTING_MAX_APPROVAL?.trim() || '2.5%';
+    import.meta.env.VITE_HL_BETTING_MAX_APPROVAL?.trim() || '1%';
 
   const explicitlyEnabled =
     import.meta.env.VITE_HL_BUILDER_ENABLED === 'true' ||

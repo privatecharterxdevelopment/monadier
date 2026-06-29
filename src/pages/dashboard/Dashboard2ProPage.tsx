@@ -66,6 +66,7 @@ import ProTradeRegisterModal from '../../components/protrade/ProTradeRegisterMod
 import { useHlBotChartMarkers } from '../../hooks/useHlBotChartMarkers';
 import { useHlBotMinBalanceGuard } from '../../hooks/useHlBotMinBalanceGuard';
 import { getProTradeChartColors } from '../../lib/proTradeTheme';
+import { PlatformFeeProvider } from '../../contexts/PlatformFeeContext';
 
 const PROFILE_TABS = new Set<ProTradeProfileTab>([
   'identity',
@@ -762,7 +763,8 @@ const Dashboard2ProPageContent: React.FC = () => {
   );
 
   return (
-    <>
+    <PlatformFeeProvider wallet={address ?? null} enabled={isConnected}>
+      <>
       <ProTradeTopNav
         section={section}
         onSectionChange={handleSectionChange}
@@ -907,7 +909,8 @@ const Dashboard2ProPageContent: React.FC = () => {
           onSuccess={() => void handleRefreshAll()}
         />
       ) : null}
-    </>
+      </>
+    </PlatformFeeProvider>
   );
 };
 

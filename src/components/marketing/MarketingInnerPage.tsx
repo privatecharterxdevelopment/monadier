@@ -22,7 +22,7 @@ export const MarketingPageHero: React.FC<HeroProps> = ({
   sub,
   aside,
 }) => (
-  <header className="mkt-hero-band landing-glass-card">
+  <header className="mkt-hero-band mkt-hero-band--plain">
     <div className={`mkt-hero${aside ? ' mkt-hero--split' : ''}`}>
       <div className="mkt-hero-copy">
         {eyebrow && <p className="mkt-hero-eyebrow">{eyebrow}</p>}

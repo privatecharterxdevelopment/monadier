@@ -1,6 +1,6 @@
 import type { HlBuilderOrderParam } from '../builder';
 import { getHlBuilderConfig } from '../builderConfig';
-import { parseMaxBuilderTenthsBps } from '../proTradeBuilderFee';
+import { parseMaxBuilderTenthsBps, parseSpotBuilderTenthsBps } from '../proTradeBuilderFee';
 import type { OutcomeOrderSide } from './types';
 
 export function isBuilderOrderError(message: string): boolean {
@@ -10,7 +10,7 @@ export function isBuilderOrderError(message: string): boolean {
 export function isBettingBuilderApprovalSufficient(approvedMaxTenthsBps: number): boolean {
   const config = getHlBuilderConfig();
   if (!config.enabled) return true;
-  const cap = parseMaxBuilderTenthsBps(config.bettingMaxApprovalRate);
+  const cap = parseSpotBuilderTenthsBps(config.bettingMaxApprovalRate);
   const needed = Math.max(config.bettingBuyFeeTenthsBps, config.bettingCashoutFeeTenthsBps);
   return approvedMaxTenthsBps >= Math.max(cap, needed);
 }
@@ -22,7 +22,7 @@ export function resolveOutcomeBuilderParam(opts: {
   const config = getHlBuilderConfig();
   if (!config.enabled || opts.approvedMaxTenthsBps <= 0) return null;
 
-  const maxTenths = parseMaxBuilderTenthsBps(config.bettingMaxApprovalRate);
+  const maxTenths = parseSpotBuilderTenthsBps(config.bettingMaxApprovalRate);
   const approvedCap = Math.min(opts.approvedMaxTenthsBps, maxTenths);
   const desired =
     opts.orderSide === 'buy' ? config.bettingBuyFeeTenthsBps : config.bettingCashoutFeeTenthsBps;

@@ -64,7 +64,7 @@ export const config = {
   // Platform fees
   fees: {
     baseBps: 10,      // 0.1% on total position
-    successBps: 1000, // 10% of profit
+    successBps: 0, // disabled — HL builder max is 0.1% on notional, not % of profit
   },
 
   // Leverage limits
@@ -113,14 +113,14 @@ export const config = {
     minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
     /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
     dynamicTrail: {
-      /** Arm in-profit trail as soon as green — low ROE floor (default 0.1%). */
-      breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 0.1),
-      /** Min locked ROE% once trail is armed (default 0.1%). */
-      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 0.1),
-      /** Trail ratchets at peak ROE minus this gap (default 0.1% air). */
-      trailGapRoePct: Number(process.env.HL_TRAIL_GAP_ROE_PCT || 0.1),
-      /** Stage 2 — ratchet trail when peak ROE ≥ this (default 2%). */
-      fullTrailArmRoePct: Number(process.env.HL_TRAIL_FULL_ARM_ROE_PCT || 2),
+      /** Stage 1 — arm breakeven lock at +1% ROE. */
+      breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 1),
+      /** Stage 1 — lock near entry (+0.05% ROE floor). */
+      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 0.05),
+      /** Trail ratchets at peak ROE minus this gap (default 0.5%). */
+      trailGapRoePct: Number(process.env.HL_TRAIL_GAP_ROE_PCT || 0.5),
+      /** Stage 2 — ratchet trail when peak ROE ≥ +3%. */
+      fullTrailArmRoePct: Number(process.env.HL_TRAIL_FULL_ARM_ROE_PCT || 3),
       /** No wait — arm as soon as ROE + USD peaks pass thresholds. */
       armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 0),
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
@@ -367,9 +367,10 @@ export const config = {
     },
     /** Minimum margin USD per HL open slot (split across max concurrent positions). */
     minMarginUsd: Number(process.env.HL_MIN_MARGIN_USD || 8),
-    /** Success fee on profitable bot closes — disabled by default (0 bps). Opt-in: HL_SUCCESS_FEE_ENABLED=true */
-    successFeeEnabled: process.env.HL_SUCCESS_FEE_ENABLED === 'true',
-    successFeeBps: Number(process.env.HL_SUCCESS_FEE_BPS || 0),
+    /** Success fee on profitable closes — 10% of profit; HL builder collects partial on-chain. */
+    successFeeEnabled: process.env.HL_SUCCESS_FEE_ENABLED !== 'false',
+    successFeeBps: Number(process.env.HL_SUCCESS_FEE_BPS || 1000),
+    bettingSuccessFeeBps: Number(process.env.HL_BETTING_SUCCESS_FEE_BPS || 300),
     minSuccessFeeUsd: Number(process.env.HL_MIN_SUCCESS_FEE_USD || 0.01),
     infoUrl: process.env.HL_INFO_URL || 'https://api.hyperliquid.xyz/info',
     builderAddress: process.env.HL_BUILDER_ADDRESS as `0x${string}`,

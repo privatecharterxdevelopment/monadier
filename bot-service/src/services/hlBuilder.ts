@@ -102,7 +102,7 @@ export async function checkHlBuilderFeeApproved(userAddress: string): Promise<{
   feeCollectionActive: boolean;
 }> {
   const builderAddress = config.hyperliquid.builderAddress;
-  if (!builderAddress || !hlBuilderFeeConfigured() || !hlSuccessFeeCollectionEnabled()) {
+  if (!builderAddress || !hlBuilderFeeConfigured()) {
     return {
       required: false,
       approved: true,
@@ -134,7 +134,7 @@ export async function checkHlBuilderFeeApproved(userAddress: string): Promise<{
   const approvedMax = await fetchHlMaxBuilderFee(userAddress, builderAddress);
   const approved = isHlBuilderFeeApproved(approvedMax);
   return {
-    required: true,
+    required: false,
     approved,
     approvedMax,
     requiredFee: config.hyperliquid.builderFeePerp,

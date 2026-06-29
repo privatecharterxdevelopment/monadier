@@ -23,14 +23,19 @@ import {
   fetchHlRecentCloseFillSummary,
 } from './hlInfo';
 import { checkHlBuilderFeeApproved } from './hlBuilder';
+import {
+  canOpenNewPositions,
+  recordProfitableClose,
+  splitPlatformFee,
+  platformFeeCollectionEnabled,
+} from './platformFees';
 import { checkWinRateGate } from './tradeGates';
 import { subscriptionService } from './subscription';
 import type { TradingCycleContext } from './tradingCycleContext';
 import {
   normalizeHlBotStrategy,
 } from './hlBotStrategy';
-import { resolveHlOrderBuilder, estimateCollectedSuccessFee, hlSuccessFeeCollectionEnabled } from './hlBuilderFee';
-import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from './hlSuccessFees';
+import { resolveHlOrderBuilder } from './hlBuilderFee';
 import { recordHlBotOpenMarker } from './hlChartMarkers';
 import { shouldTakeProfitOnPnl } from './pnlExits';
 import { validateEntryLocation } from './entryLocationGate';
@@ -363,12 +368,8 @@ export class HyperliquidTradingService {
     }
 
     const builderGate = await checkHlBuilderFeeApproved(userAddress);
-    if (builderGate.required && !builderGate.approved) {
-      return {
-        ok: false,
-        reason: 'HL builder fee not approved — approve platform fee in Bot panel',
-      };
-    }
+    // Builder fee is collected on closes when approved — never block trading or closes.
+    void builderGate;
 
     const funding = await fetchHlPerpFundingSnapshot(userAddress);
     const balanceBlocker = describeHlPerpBalanceBlocker(
@@ -477,6 +478,16 @@ export class HyperliquidTradingService {
         reason: winRateGate.reason,
       });
       return 'skip';
+    }
+
+    const feeOpenGate = await canOpenNewPositions(userAddress);
+    if (!feeOpenGate.allowed) {
+      logger.debug('HL user skip: platform fees due', {
+        user: userAddress.slice(0, 10),
+        wins: feeOpenGate.status.successWinCount,
+        accrued: feeOpenGate.status.accruedUsd,
+      });
+      return openCoins.length > 0 ? 'ok' : 'skip';
     }
 
     return this.tryOpenFromGlobalSignals(userAddress, settings, state, ctx, openCoins);
@@ -1669,16 +1680,18 @@ export class HyperliquidTradingService {
 
       let viaHlBuilder = false;
       let closeBuilder: { b: `0x${string}`; f: number } | undefined;
+      let builderTenthsBps = 0;
 
-      if (hlSuccessFeeCollectionEnabled() && pnlUsd > 0) {
+      if (platformFeeCollectionEnabled() && pnlUsd > 0) {
         const builderGate = await checkHlBuilderFeeApproved(userAddress);
-        if (builderGate.approved) {
+        if (builderGate.approvedMax > 0) {
           closeBuilder = resolveHlOrderBuilder({
             notionalUsd,
             profitUsd: pnlUsd,
             isClose: true,
             approvedMaxTenthsBps: builderGate.approvedMax,
           });
+          builderTenthsBps = closeBuilder?.f ?? 0;
         }
       }
 
@@ -1740,30 +1753,27 @@ export class HyperliquidTradingService {
 
       const collateralUsd =
         entryPx > 0 ? (closedSize * entryPx) / leverage : 0;
-      const snapshot: HlCloseSnapshot = {
+
+      const feeSplit = splitPlatformFee(realizedPnlUsd, notionalUsd, {
+        source: 'bot',
+        builderTenthsBps: builderTenthsBps || undefined,
+      });
+
+      const recordClose = recordProfitableClose({
+        walletAddress: userAddress,
         coin: coinUpper,
         direction: isLong ? 'LONG' : 'SHORT',
+        profitUsd: realizedPnlUsd,
+        notionalUsd,
         entryPx,
         exitPx,
         size: closedSize,
         leverage,
-        unrealizedPnlUsd: realizedPnlUsd,
         collateralUsd,
-      };
-
-      const collectedFee =
-        hlSuccessFeeCollectionEnabled() && realizedPnlUsd > 0
-          ? viaHlBuilder && closeBuilder
-            ? estimateCollectedSuccessFee(realizedPnlUsd, notionalUsd, closeBuilder.f)
-            : calculateHlSuccessFee(realizedPnlUsd)
-          : 0;
-
-      const recordClose = recordHlBotClose({
-        walletAddress: userAddress,
-        reason: reasonDetail ?? reason,
-        snapshot,
-        collectedFeeUsd: collectedFee,
-        viaHlBuilder,
+        closeReason: reasonDetail ?? reason,
+        source: 'bot',
+        builderFeeUsd: feeSplit.builderUsd,
+        builderTenthsBps: builderTenthsBps || undefined,
       });
       await recordClose.catch((err) => {
         logger.warn('HL close history record failed', {
@@ -1778,12 +1788,18 @@ export class HyperliquidTradingService {
         reason,
         pnl: realizedPnlUsd.toFixed(4),
         fills: fillTruth?.fillCount ?? 1,
-        successFee: collectedFee > 0 ? collectedFee.toFixed(4) : '0',
+        successFee: feeSplit.totalUsd > 0 ? feeSplit.totalUsd.toFixed(4) : '0',
+        builderFee: feeSplit.builderUsd.toFixed(4),
+        accruedFee: feeSplit.accruedUsd.toFixed(4),
         viaHlBuilder,
       });
       hlLastCloseAt.set(userAddress.toLowerCase(), Date.now());
       rememberCoinClose(userAddress, coinUpper, isLong ? 'LONG' : 'SHORT');
-      return { success: true, successFeeUsd: collectedFee, viaHlBuilder };
+      return {
+        success: true,
+        successFeeUsd: feeSplit.totalUsd,
+        viaHlBuilder,
+      };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.warn('HL close failed', { user: userAddress.slice(0, 10), error: msg });

@@ -70,6 +70,7 @@ import {
 } from '../../lib/hyperliquid/funding';
 import { useBettingUi } from '../../contexts/BettingUiContext';
 import { useLegalAcceptance } from '../../contexts/LegalAcceptanceContext';
+import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
 type PanelTab = 'bot' | 'lvrg' | 'funds';
 
 type Props = {
@@ -130,6 +131,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   const hlSetup = useHlBotSetup(hlBalanceWallet);
   const builderConfig = getHlBuilderConfig();
   const botSuccessFeeLabel = hlBotSuccessFeeStepButtonLabel(2);
+  const platformFees = usePlatformFeeGate();
   const [showFundsModal, setShowFundsModal] = useState(false);
   const [fundsModalTab, setFundsModalTab] = useState<'deposit' | 'withdraw'>('deposit');
   const [showSettings, setShowSettings] = useState(false);
@@ -502,6 +504,13 @@ const TerminalTradePanel: React.FC<Props> = ({
       setBotError('Approve the platform fee before starting the bot.');
       return;
     }
+    if (platformFees.opensBlocked) {
+      setBotError(
+        `Pay ${fmt(platformFees.accruedUsd)} in platform fees after ${platformFees.successWinCount} winning closes to start the bot.`
+      );
+      platformFees.openPayModal();
+      return;
+    }
     if (!hlSetup.agentApproved) {
       setBotError('Approve the trading agent before starting the bot.');
       return;
@@ -862,6 +871,19 @@ const TerminalTradePanel: React.FC<Props> = ({
                   <span>Withdrawable</span>
                   <strong>{fmt(metrics.hlWithdrawableUsd)}</strong>
                 </div>
+                <div className="term-field-row term-field-row--fee">
+                  <span>Bot fees owed</span>
+                  <button
+                    type="button"
+                    className="term-fee-owed-btn"
+                    onClick={platformFees.openPayModal}
+                  >
+                    <strong>{fmt(platformFees.accruedUsd)}</strong>
+                    <span className="term-fee-owed-sub">
+                      {platformFees.successWinCount}/{platformFees.winsBeforeBlock} wins
+                    </span>
+                  </button>
+                </div>
                 {hasOpenPosition && marginLockedUsd > 0.01 ? (
                   <div className="term-field-row term-field-row--hint">
                     <span>Margin in open trade</span>
@@ -894,9 +916,15 @@ const TerminalTradePanel: React.FC<Props> = ({
             <button
               type="button"
               className="term-btn-sm w-full justify-center"
-              disabled={walletReady && hlSetup.withdrawableUsd <= 0}
+              disabled={
+                (walletReady && hlSetup.withdrawableUsd <= 0) || platformFees.withdrawBlocked
+              }
               onClick={() =>
-                requireAccount('Sign in before withdrawing.', () => openFunds('withdraw'))
+                requireAccount('Sign in before withdrawing.', () =>
+                  platformFees.withdrawBlocked
+                    ? platformFees.openPayModal()
+                    : openFunds('withdraw')
+                )
               }
             >
               <ArrowUpRight size={14} />

@@ -15,6 +15,7 @@ import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
 import type { HlTwapOrder } from '../../lib/hyperliquid/user';
 import { useLegalAcceptance } from '../../contexts/LegalAcceptanceContext';
+import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
 
 type OrderMode = 'basic' | 'scale' | 'tpsl' | 'twap';
 type SizeUnit = 'coin' | 'usd';
@@ -78,6 +79,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
     walletReady,
     applyTradeSettings,
   } = useHyperliquidTrading();
+  const platformFees = usePlatformFeeGate();
   const {
     enabled: builderEnabled,
     needsApproval: needsBuilderApproval,
@@ -218,6 +220,11 @@ const ProTradeOrderPanel: React.FC<Props> = ({
   const submitOrder = async () => {
     setLocalError(null);
     setSuccess(null);
+    if (platformFees.opensBlocked) {
+      platformFees.openPayModal();
+      setLocalError('Pay Monadier platform fees to continue trading.');
+      return;
+    }
     if (builderEnabled && needsBuilderApproval) {
       setShowBuilderModal(true);
       return;

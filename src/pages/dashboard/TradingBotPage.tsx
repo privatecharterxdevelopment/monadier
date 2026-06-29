@@ -3271,17 +3271,16 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
                         </div>
                         <div className="flex justify-between text-secondary">
                           <span className="flex items-center gap-1">
-                            Win Fee
-                            <span className="text-muted text-[10px]">(10% of profit)</span>
+                            Monadier fee
+                            <span className="text-muted text-[10px]">(none)</span>
                           </span>
-                          <span className="text-secondary">{currentPnL > 0 ? `-$${(currentPnL * 0.1).toFixed(2)}` : '$0.00'}</span>
+                          <span className="text-secondary">$0.00</span>
                         </div>
                         <div className="flex justify-between pt-1 border-t border-[#c5c5cb]">
                           <span className="text-secondary">Net P/L (est.)</span>
                           {(() => {
                             const dexFee = tradeAmount * 0.001; // 0.1% DEX fee
-                            const winFee = currentPnL > 0 ? currentPnL * 0.1 : 0; // 10% of profit
-                            const netPnL = currentPnL - dexFee - winFee;
+                            const netPnL = currentPnL - dexFee;
                             return (
                               <span className={netPnL >= 0 ? 'text-green-400 font-medium' : 'text-red-400 font-medium'}>
                                 {netPnL >= 0 ? '+' : ''}{netPnL.toFixed(2)}

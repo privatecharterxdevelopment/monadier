@@ -22,7 +22,7 @@ Monadier is automated trading software for Hyperliquid. Users deposit USDC on th
 - **Minimum deposit**: $20 USDC on Hyperliquid (deposits via Arbitrum One native USDC)
 - **Markets**: 200+ Hyperliquid perpetual pairs
 - **Automation**: 24/7 server-side bot; user starts/stops via dashboard
-- **Fees**: No platform subscription; 10% success fee on profitable closes only; Hyperliquid trading fees apply
+- **Fees**: No platform subscription; no Monadier success fee on closes; Hyperliquid trading fees apply
 
 ## Keywords
 

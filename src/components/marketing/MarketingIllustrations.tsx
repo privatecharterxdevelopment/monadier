@@ -148,10 +148,9 @@ export const MktSparkChartVisual: React.FC = () => (
 export const MktFeeVisual: React.FC = () => (
   <div className="mkt-illus mkt-illus--fee" aria-hidden>
     <div className="mkt-illus-fee-bar">
-      <span className="mkt-illus-fee-seg mkt-illus-fee-seg--you">90%</span>
-      <span className="mkt-illus-fee-seg mkt-illus-fee-seg--fee">10%</span>
+      <span className="mkt-illus-fee-seg mkt-illus-fee-seg--you">100%</span>
     </div>
-    <p className="mkt-illus-fee-caption">Success fee on profit only</p>
+    <p className="mkt-illus-fee-caption">No Monadier success fee</p>
   </div>
 );
 

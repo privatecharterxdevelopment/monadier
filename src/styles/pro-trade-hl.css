@@ -12842,3 +12842,240 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Platform fee pay modal */
+.hl-fee-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.hl-fee-modal {
+  width: min(520px, 100%);
+  max-height: min(90vh, 720px);
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid var(--hl-border, #2a2e39);
+  background: var(--hl-bg-elevated, #1a1d26);
+  color: var(--hl-text, #e8eaed);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+}
+
+.hl-fee-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--hl-border, #2a2e39);
+}
+
+.hl-fee-modal-head h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.hl-fee-modal-close {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 1.25rem;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.hl-fee-modal-lead {
+  margin: 0;
+  padding: 12px 18px;
+  font-size: 0.8125rem;
+  color: var(--hl-text-muted, #9aa0a6);
+  line-height: 1.45;
+}
+
+.hl-fee-modal-kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 0 18px 12px;
+}
+
+.hl-fee-modal-kpi-label {
+  display: block;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--hl-text-muted, #9aa0a6);
+}
+
+.hl-fee-modal-kpi-value {
+  font-size: 1.125rem;
+}
+
+.hl-fee-modal-trades {
+  padding: 0 18px 12px;
+}
+
+.hl-fee-modal-trades h3 {
+  margin: 0 0 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.hl-fee-modal-trades-scroll {
+  max-height: 180px;
+  overflow: auto;
+  border: 1px solid var(--hl-border, #2a2e39);
+  border-radius: 8px;
+}
+
+.hl-fee-modal-trades table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+
+.hl-fee-modal-trades th,
+.hl-fee-modal-trades td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--hl-border, #2a2e39);
+}
+
+.hl-fee-modal-scroll-hint,
+.hl-fee-modal-empty {
+  margin: 6px 0 0;
+  font-size: 0.6875rem;
+  color: var(--hl-text-muted, #9aa0a6);
+}
+
+.hl-fee-modal-error {
+  margin: 0 18px 8px;
+  font-size: 0.75rem;
+  color: #ef5350;
+}
+
+.hl-fee-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 14px 18px 18px;
+  border-top: 1px solid var(--hl-border, #2a2e39);
+}
+
+.hl-fee-modal-cancel,
+.hl-fee-modal-pay {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.hl-fee-modal-cancel {
+  border: 1px solid var(--hl-border, #2a2e39);
+  background: transparent;
+  color: inherit;
+}
+
+.hl-fee-modal-pay {
+  border: none;
+  background: var(--hl-green-bright, #26a69a);
+  color: #0b1210;
+  font-weight: 600;
+}
+
+.hl-fee-modal-pay:disabled,
+.hl-fee-modal-cancel:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.hl-fee-modal-phase {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 18px 8px;
+  font-size: 0.8125rem;
+  color: var(--hl-green-bright, #26a69a);
+}
+
+.hl-fee-modal--success {
+  width: min(380px, 100%);
+  text-align: center;
+}
+
+.hl-fee-modal-success-body {
+  padding: 36px 24px 32px;
+}
+
+.hl-fee-modal-success-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+  color: #4ade80;
+  animation: hl-fee-success-pop 0.45s ease-out;
+}
+
+.hl-fee-modal-success-body h2 {
+  margin: 0 0 8px;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.hl-fee-modal-success-body p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--hl-text-muted, #9aa0a6);
+}
+
+@keyframes hl-fee-success-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.hl-topnav-bet-stat--fee-due strong {
+  color: #f59e0b;
+}
+
+.hl-fee-inline-pay {
+  margin-left: 6px;
+  border: none;
+  background: none;
+  color: var(--hl-green-bright, #26a69a);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+}
+
+.term-fee-owed-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.term-fee-owed-sub {
+  font-size: 0.6875rem;
+  color: var(--hl-text-muted, #9aa0a6);
+}

@@ -42,6 +42,14 @@ import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
 import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
 import { normalizeHlPerpCoin } from '../../lib/botTradingPairs';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
+import { usePlatformFees } from '../../hooks/usePlatformFees';
+
+const PLATFORM_FEE_BPS = 1000;
+function platformFeeFromPnl(closedPnl: string | number): number {
+  const pnl = toNum(closedPnl);
+  if (pnl <= 0) return 0;
+  return Math.round(((pnl * PLATFORM_FEE_BPS) / 10_000) * 1e6) / 1e6;
+}
 
 function livePositionPnl(position: HlPosition, markPx: number): number {
   const szi = toNum(position.szi);
@@ -59,6 +67,7 @@ const TABS = [
   { id: 'twap', label: 'TWAP' },
   { id: 'trailing', label: 'Trailing' },
   { id: 'tradeHistory', label: 'Trade History' },
+  { id: 'feeHistory', label: 'Fee History' },
   { id: 'fundingHistory', label: 'Funding History' },
   { id: 'orderHistory', label: 'Order History' },
 ] as const;
@@ -161,6 +170,7 @@ const ProTradeDock: React.FC<Props> = ({
   const managedCoins = botManagedCoins ?? new Set<string>();
   const positionOpenSinceRef = useRef<Map<string, number>>(new Map());
   const dockWallet = walletAddress?.toLowerCase();
+  const platformFeeLedger = usePlatformFees(dockWallet, Boolean(dockWallet));
   const { snapshot: hlSnap } = useHlAccountSnapshot(dockWallet);
   const unifiedAccount = hlSnap?.unifiedAccount ?? false;
   const tradableHlUsd =
@@ -638,6 +648,7 @@ const ProTradeDock: React.FC<Props> = ({
                   <th>Size</th>
                   <th>Price</th>
                   <th>Fee</th>
+                  <th>Platform</th>
                   <th>Result</th>
                   <th>Closed PnL</th>
                   {isBotMode ? <th className="term-hl-open-reason-col">Why</th> : null}
@@ -668,6 +679,7 @@ const ProTradeDock: React.FC<Props> = ({
                     <td>{f.fillCount > 1 ? `${f.sz} (${f.fillCount} fills)` : f.sz}</td>
                     <td>{fmtPrice(f.px)}</td>
                     <td>{fmtUsdSymbol(f.fee, 4)}</td>
+                    <td>{fmtUsdSymbol(platformFeeFromPnl(f.closedPnl), 4)}</td>
                     <td
                       className={
                         result === 'Win'
@@ -715,6 +727,39 @@ const ProTradeDock: React.FC<Props> = ({
             )
           ) : (
             <p className="hl-dock-empty">No trade history yet.</p>
+          )
+        ) : tab === 'feeHistory' ? (
+          platformFeeLedger.trades.length > 0 ? (
+            <table className="hl-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Asset</th>
+                  <th>Source</th>
+                  <th>Profit</th>
+                  <th>Fee (10%)</th>
+                  <th>HL paid</th>
+                  <th>Owed</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {platformFeeLedger.trades.map((t) => (
+                  <tr key={t.id}>
+                    <td>{fmtTimeMs(new Date(t.createdAt).getTime())}</td>
+                    <td>{t.coin}</td>
+                    <td>{t.feeSource}</td>
+                    <td className="hl-up">{fmtUsdSymbol(t.grossProfitUsd)}</td>
+                    <td>{fmtUsdSymbol(t.totalFeeUsd)}</td>
+                    <td>{fmtUsdSymbol(t.builderFeeUsd)}</td>
+                    <td>{fmtUsdSymbol(t.accruedFeeUsd)}</td>
+                    <td>{t.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="hl-dock-empty">No platform fees recorded yet.</p>
           )
         ) : tab === 'fundingHistory' ? (
           funding.length > 0 ? (

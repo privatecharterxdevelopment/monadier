@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { Loader2, X } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import type { HlPosition } from '../../lib/hyperliquid/user';
 import { marginPctFromStopPrice, type ActiveSlDisplay } from '../../lib/hlTrailingStopChart';
+import TerminalModalFrame from '../terminal/TerminalModalFrame';
 
 type Props = {
   position: HlPosition;
@@ -81,68 +82,55 @@ const PositionStopEditModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="term-modal-backdrop" role="presentation" onClick={onClose}>
-      <div
-        className="term-modal term-modal--sm"
-        role="dialog"
-        aria-labelledby="position-stop-title"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="term-modal-head">
-          <h2 id="position-stop-title" className="term-modal-title">
-            Stop — {position.coin}
-          </h2>
-          <button type="button" className="term-modal-close" onClick={onClose} aria-label="Close">
-            <X size={18} />
-          </button>
-        </div>
+    <TerminalModalFrame
+      title={`Stop — ${position.coin}`}
+      onClose={onClose}
+      closeDisabled={busy}
+      footer={
+        <button
+          type="button"
+          className="term-modal-primary"
+          disabled={busy || Boolean(validationError)}
+          onClick={() => void handleSave()}
+        >
+          {busy ? <Loader2 size={16} className="animate-spin" aria-hidden /> : 'Save & apply'}
+        </button>
+      }
+    >
+      {profitManaged ? (
+        <p className="term-modal-hint">
+          Active profit stop ({activeSl.label}) is managed by the bot. Set max-loss price below —
+          applies immediately when the position is in loss.
+        </p>
+      ) : (
+        <p className="term-modal-hint">
+          Bot closes this {side.toUpperCase()} if mark crosses this price.
+        </p>
+      )}
 
-        <div className="term-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {profitManaged ? (
-            <p className="term-modal-hint">
-              Active profit stop ({activeSl.label}) is managed by the bot. Set max-loss price below —
-              applies immediately when the position is in loss.
-            </p>
-          ) : (
-            <p className="term-modal-hint">
-              Bot closes this {side.toUpperCase()} if mark crosses this price.
-            </p>
-          )}
+      <label className="term-modal-label" htmlFor="position-stop-price">
+        Stop price
+      </label>
+      <input
+        id="position-stop-price"
+        type="text"
+        inputMode="decimal"
+        className="term-modal-input"
+        value={price}
+        onChange={(e) => setPrice(e.target.value)}
+        autoFocus
+      />
 
-          <label className="term-modal-label" htmlFor="position-stop-price">
-            Stop price
-          </label>
-          <input
-            id="position-stop-price"
-            type="text"
-            inputMode="decimal"
-            className="term-modal-input"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            autoFocus
-          />
+      {previewPct != null && !validationError ? (
+        <p className="term-modal-hint term-modal-hint--ok">
+          ≈ {previewPct.toFixed(2)}% of margin — saved to bot settings
+        </p>
+      ) : null}
 
-          {previewPct != null && !validationError ? (
-            <p className="term-modal-hint term-modal-hint--ok">
-              ≈ {previewPct.toFixed(2)}% of margin — saved to bot settings
-            </p>
-          ) : null}
-
-          {error || validationError ? (
-            <p className="term-modal-hint term-modal-hint--warn">{error ?? validationError}</p>
-          ) : null}
-
-          <button
-            type="button"
-            className="term-modal-primary"
-            disabled={busy || Boolean(validationError)}
-            onClick={() => void handleSave()}
-          >
-            {busy ? <Loader2 size={16} className="animate-spin" aria-hidden /> : 'Save & apply'}
-          </button>
-        </div>
-      </div>
-    </div>
+      {error || validationError ? (
+        <p className="term-modal-hint term-modal-hint--warn">{error ?? validationError}</p>
+      ) : null}
+    </TerminalModalFrame>
   );
 };
 

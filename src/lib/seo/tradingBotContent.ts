@@ -29,7 +29,7 @@ export const TRADING_BOT_FAQS: TradingBotFaq[] = [
   },
   {
     q: 'What fees does the Hyperliquid trading bot charge?',
-    a: 'No platform subscription. Monadier covers Arbitrum gas for bot trades. A 10% success fee applies only on profitable closes. Standard Hyperliquid trading and funding fees also apply.',
+    a: 'No platform subscription. Monadier covers Arbitrum gas for bot trades. No Monadier success fee on closes — standard Hyperliquid trading and funding fees apply.',
   },
   {
     q: 'Can I stop the bot or close trades manually?',
@@ -64,7 +64,7 @@ export const TRADING_BOT_BENEFITS = [
   },
   {
     title: 'No subscription',
-    text: 'No monthly platform fee to run the bot. You pay a success fee only when trades close in profit.',
+    text: 'No monthly platform fee and no Monadier success fee on bot closes. Standard HL trading costs apply.',
   },
   {
     title: 'You stay in control',

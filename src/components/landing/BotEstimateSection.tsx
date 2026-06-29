@@ -40,7 +40,7 @@ const FEATURES = [
 
 const QUICK_FACTS = [
   { label: 'Min. balance', value: '$20 USDC' },
-  { label: 'Success fee', value: '10% on wins' },
+  { label: 'Monadier fee', value: 'None on closes' },
   { label: 'Platform fee', value: 'No subscription' },
   { label: 'Arbitrum gas', value: 'Covered by Monadier' },
 ] as const;

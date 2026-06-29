@@ -1,41 +1,52 @@
-/** User-facing copy for HL bot success fee (default 10% of profit on winning closes). */
+import { getHlBuilderConfig } from './builderConfig';
 
-const DEFAULT_BOT_SUCCESS_FEE_BPS = 1000;
+/** HL perp builder fee cap — 0.1% of notional (100 tenths bps), not % of profit. */
+export const HL_PERP_BUILDER_MAX_TENTHS_BPS = 100;
+
+/** Bot success fee is opt-in only; default off. */
+export function hlBotSuccessFeeEnabled(): boolean {
+  const cfg = getHlBuilderConfig();
+  return cfg.enabled && getHlBotSuccessFeeBps() > 0;
+}
 
 export function getHlBotSuccessFeeBps(): number {
   const raw = import.meta.env.VITE_HL_BOT_SUCCESS_FEE_BPS;
-  const n = raw != null && raw !== '' ? Number(raw) : DEFAULT_BOT_SUCCESS_FEE_BPS;
-  if (!Number.isFinite(n) || n <= 0) return DEFAULT_BOT_SUCCESS_FEE_BPS;
+  const n = raw != null && raw !== '' ? Number(raw) : 0;
+  if (!Number.isFinite(n) || n <= 0) return 0;
   return Math.min(10_000, Math.floor(n));
 }
 
-/** e.g. "10%" */
 export function formatHlBotSuccessFeePercent(): string {
   const pct = getHlBotSuccessFeeBps() / 100;
+  if (pct <= 0) return '0%';
   return Number.isInteger(pct) ? `${pct}%` : `${pct.toFixed(1)}%`;
 }
 
-/** Primary label — what users actually pay. */
 export function hlBotSuccessFeeShortLabel(): string {
-  return `${formatHlBotSuccessFeePercent()} success fee on wins`;
+  if (!hlBotSuccessFeeEnabled()) return 'platform builder fee';
+  return `${formatHlBotSuccessFeePercent()} builder fee on notional`;
 }
 
-/** Button / modal title. */
 export function hlBotSuccessFeeApprovalTitle(): string {
-  return `Approve ${formatHlBotSuccessFeePercent()} success fee`;
+  if (!hlBotSuccessFeeEnabled()) return 'Approve platform builder fee';
+  return `Approve ${formatHlBotSuccessFeePercent()} builder fee cap`;
 }
 
-/** Step button with order prefix. */
 export function hlBotSuccessFeeStepButtonLabel(step = 2): string {
-  return `${step}. Approve ${formatHlBotSuccessFeePercent()} success fee`;
+  if (!hlBotSuccessFeeEnabled()) return `${step}. Approve platform builder fee`;
+  return `${step}. ${hlBotSuccessFeeApprovalTitle()}`;
 }
 
-/** One-line explanation for tooltips and status text. */
 export function hlBotSuccessFeeApprovalHint(): string {
-  return `${formatHlBotSuccessFeePercent()} of profit on profitable bot closes only — no fee on losses. One-time Hyperliquid wallet approval.`;
+  if (!hlBotSuccessFeeEnabled()) {
+    return 'Optional Hyperliquid builder fee approval (max 0.1% of notional on perps). Bot runs without it.';
+  }
+  return `Hyperliquid builder fee on perp notional (protocol max 0.1%) — not a % of profit. One-time wallet approval.`;
 }
 
-/** Longer copy for modals / setup steps. */
 export function hlBotSuccessFeeApprovalDescription(): string {
-  return `Monadier charges a ${formatHlBotSuccessFeePercent()} success fee when the bot closes a trade in profit. Losing closes are free. You approve once in your wallet — Monadier never gets withdrawal access.`;
+  if (!hlBotSuccessFeeEnabled()) {
+    return 'No Monadier success fee on bot closes. Standard Hyperliquid trading and funding fees apply. Optional builder approval is only needed if platform fees are enabled.';
+  }
+  return `Optional builder fee on Hyperliquid perp notional (capped at 0.1% by HL). Monadier never gets withdrawal access — approve once in your wallet.`;
 }

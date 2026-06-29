@@ -282,7 +282,7 @@ function OverviewPanel({
         />
         <Kpi label="Win rate" value={`${stats.win_rate}%`} sub={`${stats.closed_trades_24h} closes / 24h`} />
         <Kpi
-          label="HL fees (10%)"
+          label="HL builder fees"
           value={fmtUsd(stats.hl_fees_total_usd)}
           sub={`${fmtUsd(stats.hl_fees_settled_usd)} on builder wallet`}
         />
@@ -587,7 +587,7 @@ function TradesPanel({ rows }: { rows: AdminHlDashboard['recent_closes'] }) {
           <th className="px-4 py-3">Pair</th>
           <th className="px-4 py-3">Dir</th>
           <th className="px-4 py-3">P/L</th>
-          <th className="px-4 py-3">10% fee</th>
+          <th className="px-4 py-3">Builder fee</th>
           <th className="px-4 py-3">Fee status</th>
           <th className="px-4 py-3">Reason</th>
           <th className="px-4 py-3">Venue</th>
@@ -683,15 +683,15 @@ function FeesPanel({
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-border bg-card-dark p-4 text-sm">
-        <p className="text-primary font-medium">10% success fee — automatic on every profitable close</p>
+        <p className="text-primary font-medium">HL builder fees (opt-in, max 0.1% on perp notional)</p>
         <p className="text-secondary mt-1">
-          Collected via Hyperliquid builder fee and credited to{' '}
-          <span className="font-mono text-xs break-all">{builderAddr}</span>. Users approve once at
-          bot setup; closes never prompt again.
+          When enabled, collected via Hyperliquid builder codes and credited to{' '}
+          <span className="font-mono text-xs break-all">{builderAddr}</span>. Success-fee collection is
+          disabled by default — closes are never blocked for missing builder approval.
         </p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Kpi label="Total fees (10%)" value={fmtUsd(stats.hl_fees_total_usd)} />
+        <Kpi label="Total builder fees" value={fmtUsd(stats.hl_fees_total_usd)} />
         <Kpi label="Accrued" value={fmtUsd(stats.hl_fees_accrued_usd)} sub="missing HL settlement" />
         <Kpi
           label="Settled on builder"
@@ -699,14 +699,14 @@ function FeesPanel({
           sub={builder?.ready ? `wallet ${fmtUsd(builder.accountUsd)}` : 'builder underfunded'}
         />
       </div>
-      <TableShell title="Fee ledger" subtitle="hl_fee_ledger · 10% of gross profit per winning close">
+      <TableShell title="Fee ledger" subtitle="hl_fee_ledger · HL builder fee on closes (when enabled)">
         <thead>
           <tr className="text-left text-secondary text-xs">
             <th className="px-4 py-3">When</th>
             <th className="px-4 py-3">User wallet</th>
             <th className="px-4 py-3">Coin</th>
             <th className="px-4 py-3">Gross profit</th>
-            <th className="px-4 py-3">10% fee</th>
+            <th className="px-4 py-3">Builder fee</th>
             <th className="px-4 py-3">Status</th>
             <th className="px-4 py-3">Reason</th>
           </tr>

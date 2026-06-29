@@ -41,14 +41,14 @@ const steps: { title: string; text: string; icon: LucideIcon; visual?: React.Rea
   },
   {
     icon: TrendingUp,
-    title: 'Pay when you gain',
-    text: 'A success fee applies only on profitable closes — 10% of profit. Losing trades have no success fee.',
+    title: 'No success fee',
+    text: 'No Monadier cut on profitable closes. You only pay standard Hyperliquid trading and funding costs.',
     visual: <MktFeeVisual />,
   },
   {
     icon: Wallet,
-    title: 'You keep most gains',
-    text: 'On winning trades you keep the bulk of profit after the success fee and normal market costs.',
+    title: 'You keep your gains',
+    text: 'Wins stay yours minus normal HL execution costs — no hidden platform take on profit.',
     visual: <MktProfitShareVisual />,
   },
   {
@@ -71,7 +71,7 @@ const PricingPage: React.FC = () => {
       <MarketingPageHero
         eyebrow="Pricing"
         title="Transparent fees"
-        lead="No platform fee — you mainly pay when the bot gains."
+        lead="No platform fee — standard Hyperliquid costs only."
         sub="Full breakdowns and live numbers are in your dashboard before you trade."
         aside={<PricingHeroGraphic />}
       />

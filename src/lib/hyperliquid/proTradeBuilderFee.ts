@@ -8,15 +8,24 @@ export function notionalBuilderFeeUsd(notionalUsd: number, tenthsBps: number): n
   return (notionalUsd * tenthsBps) / 100_000;
 }
 
-/** Hyperliquid builder max fee rates go up to 10% for some products; tenths bps = pct × 1000. */
-const HL_BUILDER_TENTHS_BPS_CEILING = 10_000;
+/** HL perp builder max = 0.1% (100 tenths bps). Spot/outcomes max = 1% (1000). */
+const HL_PERP_BUILDER_TENTHS_BPS_CEILING = 100;
+const HL_SPOT_BUILDER_TENTHS_BPS_CEILING = 1000;
 
 export function parseMaxBuilderTenthsBps(rate: string): number {
   const m = rate.trim().match(/^([\d.]+)\s*%?$/);
   if (!m) return 100;
   const pct = parseFloat(m[1]);
   if (!Number.isFinite(pct) || pct <= 0) return 100;
-  return Math.min(HL_BUILDER_TENTHS_BPS_CEILING, Math.floor(pct * 1000));
+  return Math.min(HL_PERP_BUILDER_TENTHS_BPS_CEILING, Math.floor(pct * 1000));
+}
+
+export function parseSpotBuilderTenthsBps(rate: string): number {
+  const m = rate.trim().match(/^([\d.]+)\s*%?$/);
+  if (!m) return 1000;
+  const pct = parseFloat(m[1]);
+  if (!Number.isFinite(pct) || pct <= 0) return 1000;
+  return Math.min(HL_SPOT_BUILDER_TENTHS_BPS_CEILING, Math.floor(pct * 1000));
 }
 
 /** Pick builder `f` so fee ≈ successFeeBps% of profit, capped by user max approval. */

@@ -108,11 +108,6 @@ const TechnologyPage: React.FC = () => {
         aside={<MktBotAiVisual />}
       />
 
-      <MarketingSectionHeading
-        title="Trading engine"
-        sub="Core components that power automated execution on Hyperliquid."
-      />
-
       <MarketingPageGrid columns={3}>
         {engineFeatures.map((item, i) => (
           <MarketingFeatureCard

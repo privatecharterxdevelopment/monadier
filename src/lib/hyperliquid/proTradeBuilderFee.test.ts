@@ -7,12 +7,12 @@ describe('parseMaxBuilderTenthsBps', () => {
     expect(parseMaxBuilderTenthsBps('0.1%')).toBe(100);
   });
 
-  it('parses 2.5% for betting cashout cap (not clamped to 0.1%)', () => {
-    expect(parseMaxBuilderTenthsBps('2.5%')).toBe(2500);
+  it('clamps perp builder above HL max 0.1%', () => {
+    expect(parseMaxBuilderTenthsBps('2.5%')).toBe(100);
   });
 
-  it('parses 0.5% for betting buy', () => {
-    expect(parseMaxBuilderTenthsBps('0.5%')).toBe(500);
+  it('parses 0.05% perp builder', () => {
+    expect(parseMaxBuilderTenthsBps('0.05%')).toBe(50);
   });
 });
 

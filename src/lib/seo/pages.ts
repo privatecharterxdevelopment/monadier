@@ -52,7 +52,7 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     path: '/pricing',
     title: `Trading Bot Pricing & Fees | ${SITE_NAME}`,
     description:
-      'No platform subscription for the Hyperliquid trading bot. Gas covered on Arbitrum; pay a 10% success fee only on profitable closes. Transparent pricing for full auto trading.',
+      'No platform subscription for the Hyperliquid trading bot. Gas covered on Arbitrum; no Monadier success fee on closes. Transparent pricing for full auto trading.',
     keywords: `hyperliquid bot fees, trading bot pricing, no subscription trading bot, ${BOT_KEYWORDS}`,
     changefreq: 'monthly',
     priority: 0.8,

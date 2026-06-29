@@ -1,6 +1,5 @@
 import { MIN_HL_BOT_USD } from './hyperliquid/hlBotAgent';
 import {
-  formatHlBotSuccessFeePercent,
   hlBotSuccessFeeShortLabel,
 } from './hyperliquid/hlBotSuccessFee';
 import { isInternalPlatformOpsMessage } from './hyperliquid/builderPlatform';
@@ -176,7 +175,7 @@ export function getHlBotSidebarStatus(opts: {
             ? 'Approve the trading agent, then press Start bot.'
             : 'Approve the trading agent before starting the bot.';
       return {
-        headline: needsBuilderFee && !needsAgent ? `${formatHlBotSuccessFeePercent()} success fee` : 'One-time approval',
+        headline: needsBuilderFee && !needsAgent ? 'Platform builder fee' : 'One-time approval',
         detail,
         tone: 'ok',
         setupStep: 3,

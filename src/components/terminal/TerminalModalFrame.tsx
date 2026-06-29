@@ -3,11 +3,11 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 function getModalPortalRoot(): HTMLElement {
-  return (
-    document.querySelector('.nix-app') ??
-    document.getElementById('root') ??
-    document.body
-  );
+  // Body — not .nix-app / .hl-dock (overflow:hidden clips in-panel modals).
+  if (typeof document !== 'undefined') {
+    return document.body;
+  }
+  return document.getElementById('root') ?? document.body;
 }
 
 type Props = {

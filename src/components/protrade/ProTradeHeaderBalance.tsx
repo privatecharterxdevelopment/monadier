@@ -10,6 +10,7 @@ import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { filterHlPositions } from '../../lib/hyperliquid/splitHlPositions';
 import { fmtClosedPnl, fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
+import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
 
 export type HeaderBalanceSection = 'perps' | 'bot' | 'betting' | 'other';
 
@@ -41,6 +42,7 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
     enabled && section !== 'betting' ? walletAddress : undefined
   );
   const betStats = useBettingHeaderBalance(walletAddress, enabled && section === 'betting');
+  const platformFees = usePlatformFeeGate();
 
   const scopedHlPositions = useMemo(() => {
     if (section === 'betting') return [];
@@ -171,10 +173,26 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
   const openTitle =
     section === 'bot' ? 'Open bot positions' : 'Open manual perp positions';
 
+  const feesOwed = platformFees.accruedUsd;
+  const showFees = feesOwed > 0 || platformFees.successWinCount > 0;
+
   return (
     <div className="hl-topnav-betting-balance" aria-label="Hyperliquid balance">
       {balancePill}
-      {openCount > 0 ? (
+      {showFees ? (
+        <button
+          type="button"
+          className={`hl-topnav-bet-stat hl-topnav-bet-stat--btn${feesOwed > 0 ? ' hl-topnav-bet-stat--fee-due' : ''}`}
+          title="Platform fees on winning closes"
+          onClick={platformFees.openPayModal}
+        >
+          <span className="hl-topnav-bet-label">Bot fees</span>
+          <strong>{fmtUsdSymbol(feesOwed)}</strong>
+          <span className="hl-topnav-bet-pnl hl-topnav-bet-pnl--muted">
+            {platformFees.successWinCount}/{platformFees.winsBeforeBlock} wins
+          </span>
+        </button>
+      ) : openCount > 0 ? (
         <button type="button" className="hl-topnav-bet-stat hl-topnav-bet-stat--btn" title={openTitle}>
           <span className="hl-topnav-bet-label">Open</span>
           <strong>

@@ -119,8 +119,7 @@ export async function approveHlBotAgentRequired(opts: {
 }
 
 /**
- * One-time bot setup: trading agent then platform success fee (auto-chained).
- * Closes after this never prompt for fees — 10% is taken on profitable exits via HL builder.
+ * One-time bot setup: trading agent, then optional platform builder fee when enabled.
  */
 export async function completeHlBotApprovals(opts: {
   walletClient: WalletClient;
