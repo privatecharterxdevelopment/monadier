@@ -4,6 +4,22 @@ import { ensureUserProfile, patchUserProfile } from './profile';
 
 export { supabase };
 
+/** Production password-reset landing — never localhost (Supabase Site URL may still be wrong). */
+export const PRODUCTION_PASSWORD_RESET_URL = 'https://monadier.vercel.app/reset-password';
+
+function passwordResetRedirectUrl(): string {
+  if (typeof window !== 'undefined') {
+    const { hostname, origin } = window.location;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return `${origin}/reset-password`;
+    }
+  }
+  if (import.meta.env.DEV) {
+    return `${getAuthRedirectBase()}/reset-password`;
+  }
+  return PRODUCTION_PASSWORD_RESET_URL;
+}
+
 // Auth helpers
 export const signUp = async (
   email: string,
@@ -74,14 +90,34 @@ export const signInWithGoogle = async () => {
   return { data, error };
 };
 
-// Password reset — email link lands on /reset-password (PKCE code or token_hash)
+// Password reset — edge function builds link with hardcoded production URL (no localhost)
 export const resetPassword = async (email: string) => {
-  const base = getAuthRedirectBase();
-  const redirectTo = `${base}/reset-password`;
-  const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo,
-  });
-  return { data, error };
+  const trimmed = email.trim().toLowerCase();
+  if (!trimmed) {
+    return { data: null, error: new Error('Email required') };
+  }
+
+  try {
+    const { data, error } = await supabase.functions.invoke('request-password-reset', {
+      body: { email: trimmed },
+    });
+    if (error) throw error;
+    if (data && typeof data === 'object' && 'success' in data && !data.success) {
+      const msg =
+        typeof (data as { error?: string }).error === 'string'
+          ? (data as { error: string }).error
+          : 'Failed to send reset email';
+      return { data: null, error: new Error(msg) };
+    }
+    return { data, error: null };
+  } catch (edgeErr) {
+    console.warn('[resetPassword] edge function failed, using client fallback', edgeErr);
+    const redirectTo = passwordResetRedirectUrl();
+    const { data, error } = await supabase.auth.resetPasswordForEmail(trimmed, {
+      redirectTo,
+    });
+    return { data, error };
+  }
 };
 
 /** Providers linked to this account (email, google, etc.) */

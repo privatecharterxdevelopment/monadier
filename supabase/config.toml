@@ -25,8 +25,17 @@ file_size_limit = "50MiB"
 
 [auth]
 enabled = true
-site_url = "http://localhost:5173"
-additional_redirect_urls = ["http://localhost:5173/auth/callback"]
+site_url = "https://monadier.vercel.app"
+additional_redirect_urls = [
+  "https://monadier.vercel.app/reset-password",
+  "https://monadier.vercel.app/auth/callback",
+  "https://app.monadier.io/reset-password",
+  "https://app.monadier.io/auth/callback",
+  "https://www.monadier.io/reset-password",
+  "https://www.monadier.io/auth/callback",
+  "http://localhost:5173/reset-password",
+  "http://localhost:5173/auth/callback",
+]
 jwt_expiry = 3600
 enable_signup = true
 
