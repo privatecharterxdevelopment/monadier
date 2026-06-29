@@ -5,9 +5,14 @@ export const HL_BUILDER_MIN_PLATFORM_USD = 100;
 
 export type HlBuilderPlatformStatus = {
   ready: boolean;
+  feeCollectionActive: boolean;
   builderAddress: string;
   accountUsd: number;
+  perpUsd: number;
+  spotUsdcUsd: number;
+  unifiedAccount: boolean;
   minUsd: number;
+  fetchError?: string | null;
 };
 
 const INTERNAL_PLATFORM_OPS = [
@@ -48,30 +53,56 @@ export async function fetchHlBuilderPlatformStatus(): Promise<HlBuilderPlatformS
   const config = getHlBuilderConfig();
   const fallback: HlBuilderPlatformStatus = {
     ready: false,
+    feeCollectionActive: false,
     builderAddress: config.address,
     accountUsd: 0,
+    perpUsd: 0,
+    spotUsdcUsd: 0,
+    unifiedAccount: false,
     minUsd: HL_BUILDER_MIN_PLATFORM_USD,
+    fetchError: null,
   };
 
   try {
     const base = getBotApiBase();
-    const res = await fetch(`${base}/api/hl-builder/status`);
+    const res = await fetch(`${base}/api/hl-builder/status`, { cache: 'no-store' });
     const json = (await res.json()) as {
       success?: boolean;
       ready?: boolean;
+      feeCollectionActive?: boolean;
       builderAddress?: string;
       accountUsd?: number;
+      perpUsd?: number;
+      spotUsdcUsd?: number;
+      unifiedAccount?: boolean;
       minUsd?: number;
+      error?: string;
     };
-    if (!res.ok || !json.success) return fallback;
+    if (!res.ok || !json.success) {
+      return {
+        ...fallback,
+        fetchError: json.error ?? `HTTP ${res.status}`,
+      };
+    }
+    const accountUsd = Number(json.accountUsd);
+    const perpUsd = Number(json.perpUsd);
+    const spotUsdcUsd = Number(json.spotUsdcUsd);
     return {
       ready: Boolean(json.ready),
+      feeCollectionActive: Boolean(json.feeCollectionActive ?? json.ready),
       builderAddress: String(json.builderAddress ?? config.address).toLowerCase(),
-      accountUsd: Number(json.accountUsd) || 0,
+      accountUsd: Number.isFinite(accountUsd) ? accountUsd : 0,
+      perpUsd: Number.isFinite(perpUsd) ? perpUsd : 0,
+      spotUsdcUsd: Number.isFinite(spotUsdcUsd) ? spotUsdcUsd : 0,
+      unifiedAccount: Boolean(json.unifiedAccount),
       minUsd: Number(json.minUsd) || HL_BUILDER_MIN_PLATFORM_USD,
+      fetchError: null,
     };
-  } catch {
-    return fallback;
+  } catch (err) {
+    return {
+      ...fallback,
+      fetchError: err instanceof Error ? err.message : 'Bot API unreachable',
+    };
   }
 }
 

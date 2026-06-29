@@ -7,14 +7,19 @@
 
 /**
  * Same-origin /bot-service proxy (Vite dev + Vercel prod) → Railway bot.
- * Override with VITE_BOT_API_URL=http://localhost:3001 when running bot-service locally.
+ * In the browser we always use the proxy so admin/trading never hit CORS or a stale VITE_BOT_API_URL.
+ * Override with VITE_BOT_API_URL only for local dev when bot-service runs on another port.
  */
 export function getBotApiBase(): string {
-  const fromEnv = import.meta.env.VITE_BOT_API_URL?.replace(/\/$/, '') ?? '';
-  if (fromEnv) return fromEnv;
   if (typeof window !== 'undefined') {
+    if (import.meta.env.DEV) {
+      const local = import.meta.env.VITE_BOT_API_URL?.replace(/\/$/, '') ?? '';
+      if (local) return local;
+    }
     return `${window.location.origin}/bot-service`;
   }
+  const fromEnv = import.meta.env.VITE_BOT_API_URL?.replace(/\/$/, '') ?? '';
+  if (fromEnv) return fromEnv;
   return import.meta.env.DEV
     ? 'http://localhost:3001'
     : 'https://monadier-production.up.railway.app';

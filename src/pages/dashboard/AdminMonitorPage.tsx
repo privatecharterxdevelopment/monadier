@@ -386,22 +386,45 @@ function BuilderCard({
   const b = live?.builder;
   const ready = b?.ready;
   const feeRatePct = 10;
+  const fetchFailed = Boolean(b?.fetchError);
 
   return (
-    <div className={`rounded-xl border p-5 ${ready ? 'border-green-500/30' : 'border-red-500/40'} bg-card-dark`}>
+    <div
+      className={`rounded-xl border p-5 ${
+        fetchFailed
+          ? 'border-amber-500/40'
+          : ready
+            ? 'border-green-500/30'
+            : 'border-red-500/40'
+      } bg-card-dark`}
+    >
       <div className="flex items-center gap-2 mb-3">
-        <Coins size={20} className={ready ? 'text-green-400' : 'text-red-400'} />
+        <Coins size={20} className={ready && !fetchFailed ? 'text-green-400' : 'text-amber-400'} />
         <h3 className="font-semibold text-primary">Builder wallet — fee destination</h3>
         <span
           className={`ml-auto text-xs px-2 py-0.5 rounded-full ${
-            ready ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+            fetchFailed
+              ? 'bg-amber-500/20 text-amber-400'
+              : ready
+                ? 'bg-green-500/20 text-green-400'
+                : 'bg-red-500/20 text-red-400'
           }`}
         >
-          {ready ? 'auto fee collection ON' : 'underfunded'}
+          {fetchFailed ? 'fetch failed' : ready ? 'auto fee collection ON' : 'underfunded'}
         </span>
       </div>
       <p className="text-2xl font-bold text-primary">{fmtUsd(b?.accountUsd ?? 0)}</p>
+      {b?.unifiedAccount && (b.spotUsdcUsd > 0 || b.perpUsd >= 0) ? (
+        <p className="text-xs text-secondary mt-1">
+          Unified HL · spot USDC {fmtUsd(b.spotUsdcUsd)} · perp {fmtUsd(b.perpUsd)}
+        </p>
+      ) : null}
       <p className="text-xs text-secondary mt-1 break-all font-mono">{b?.builderAddress}</p>
+      {fetchFailed ? (
+        <p className="text-xs text-amber-400 mt-2">
+          Could not load builder balance ({b?.fetchError}). Check /bot-service proxy and Railway.
+        </p>
+      ) : null}
       <dl className="mt-4 grid grid-cols-1 gap-2 text-sm">
         <div className="flex justify-between gap-4">
           <dt className="text-secondary">Success fee rate</dt>
@@ -409,11 +432,15 @@ function BuilderCard({
         </div>
         <div className="flex justify-between gap-4">
           <dt className="text-secondary">Collection</dt>
-          <dd className="text-primary">Automatic via HL builder — no per-close wallet prompt</dd>
+          <dd className="text-primary">
+            {b?.feeCollectionActive
+              ? 'Active via HL builder'
+              : 'Inactive until wallet ≥ $100 on HL'}
+          </dd>
         </div>
         <div className="flex justify-between gap-4">
           <dt className="text-secondary">HL minimum</dt>
-          <dd className="text-primary">{fmtUsd(b?.minUsd ?? 100)} on perps</dd>
+          <dd className="text-primary">{fmtUsd(b?.minUsd ?? 100)} tradable on HL</dd>
         </div>
       </dl>
       <p className="text-xs text-secondary mt-3">{pendingEmail} trade emails pending</p>
