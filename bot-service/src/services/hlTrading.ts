@@ -361,7 +361,7 @@ export class HyperliquidTradingService {
 
   async canTrade(userAddress: string): Promise<{ ok: boolean; reason?: string }> {
     const agentAddr = await this.getAgentAddress(userAddress);
-    const approved = await hlAgentApprovalService.isApprovedOnChain(userAddress, agentAddr);
+    const approved = await hlAgentApprovalService.isApproved(userAddress, agentAddr);
     if (!approved) {
       const reason = await hlAgentApprovalService.describeAgentBlocker(userAddress, agentAddr);
       return { ok: false, reason: reason ?? 'HL agent not approved — enable bot in app' };

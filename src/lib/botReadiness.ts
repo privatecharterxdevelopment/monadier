@@ -17,8 +17,11 @@ export type BotReadiness = {
 function formatBlocker(blocker: string): string {
   if (isInternalPlatformOpsMessage(blocker)) return '';
   if (isBotScanNoiseDetail(blocker)) return '';
-  if (/HL agent not approved/i.test(blocker)) {
+  if (/HL agent not approved|Trading agent not approved/i.test(blocker)) {
     return 'Approve the trading agent in the Bot panel';
+  }
+  if (/Hyperliquid temporarily unreachable/i.test(blocker)) {
+    return 'Checking trading agent — try again in a moment.';
   }
   if (/HL balance check failed/i.test(blocker)) {
     return 'Checking your Hyperliquid balance — retrying…';

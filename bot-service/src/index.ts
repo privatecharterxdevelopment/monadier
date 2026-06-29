@@ -184,7 +184,7 @@ const healthServer = http.createServer(async (req, res) => {
         return;
       }
 
-      const agents = await fetchHlExtraAgents(wallet);
+      const { agents, loaded } = await fetchHlExtraAgents(wallet);
       const live = agents.find(
         (a) => a.address.toLowerCase() === agentAddress && isHlExtraAgentActive(a)
       );
@@ -193,7 +193,9 @@ const healthServer = http.createServer(async (req, res) => {
         res.end(
           JSON.stringify({
             success: false,
-            error: 'Agent not approved on Hyperliquid yet — complete the wallet signature first',
+            error: loaded
+              ? 'Agent not approved on Hyperliquid yet — complete the wallet signature first'
+              : 'Could not verify agent on Hyperliquid — wait a moment and try again',
           })
         );
         return;
@@ -294,12 +296,21 @@ const healthServer = http.createServer(async (req, res) => {
       }
 
       const agentAddr = deriveUserHlAgentAddress(wallet);
-      const approved = await hlAgentApprovalService.isApprovedOnChain(wallet, agentAddr);
+      const approved = await hlAgentApprovalService.isApproved(wallet, agentAddr);
       if (!approved) {
         const blocker = await hlAgentApprovalService.describeAgentBlocker(wallet, agentAddr);
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: blocker }));
-        return;
+        const transientHlRead = /temporarily unreachable/i.test(blocker ?? '');
+        if (blocker && !transientHlRead) {
+          res.writeHead(400, corsHeaders);
+          res.end(
+            JSON.stringify({
+              success: false,
+              error: blocker,
+            })
+          );
+          return;
+        }
+        // HL /info flake — attempt close anyway; exchange rejects if agent truly missing.
       }
 
       const result = await hyperliquidTradingService.closeMarketPosition(
@@ -486,6 +497,9 @@ const healthServer = http.createServer(async (req, res) => {
       const hlFreeMargin = hlTradableFreeMarginUsd(hlFunding, hlState);
       const hlAgentAddr = deriveUserHlAgentAddress(userAddress);
       const hlAgentOk = await hlAgentApprovalService.isApproved(userAddress, hlAgentAddr);
+      const hlAgentBlocker = hlAgentOk
+        ? null
+        : await hlAgentApprovalService.describeAgentBlocker(userAddress, hlAgentAddr);
       const builderGate = await checkHlBuilderFeeApproved(userAddress);
       const feeSummary = await getPlatformFeeStatus(userAddress);
       const hlOpenCoins = hlOpenPerpCoins(hlState);
@@ -534,7 +548,9 @@ const healthServer = http.createServer(async (req, res) => {
         .map(formatPumpSweepLine);
 
       const blockers: string[] = [];
-      if (!hlAgentOk) blockers.push('HL agent not approved — enable bot in app');
+      if (!hlAgentOk) {
+        blockers.push(hlAgentBlocker ?? 'HL agent not approved — enable bot in app');
+      }
       if (feeSummary.opensBlocked) {
         blockers.push(
           `PLATFORM_FEES_DUE — pay ${feeSummary.accruedUsd.toFixed(2)} USDC after ${feeSummary.successWinCount} winning closes`

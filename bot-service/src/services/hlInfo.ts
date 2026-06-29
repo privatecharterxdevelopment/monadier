@@ -274,6 +274,12 @@ export type HlExtraAgent = {
   validUntil: number;
 };
 
+export type HlExtraAgentsResult = {
+  agents: HlExtraAgent[];
+  /** false when HL /info failed after retries — empty agents then means unknown, not revoked */
+  loaded: boolean;
+};
+
 function parseHlExtraAgents(rows: unknown): HlExtraAgent[] {
   if (!Array.isArray(rows)) return [];
   return rows
@@ -285,10 +291,27 @@ function parseHlExtraAgents(rows: unknown): HlExtraAgent[] {
     .filter((r) => r.address.length >= 42);
 }
 
-/** HL extraAgents — retried (Railway→HL reads are often flaky; empty ≠ not approved). */
-export async function fetchHlExtraAgents(userAddress: string): Promise<HlExtraAgent[]> {
+const extraAgentsCache = new Map<string, { at: number; result: HlExtraAgentsResult }>();
+const EXTRA_AGENTS_CACHE_MS = 90_000;
+const EXTRA_AGENTS_STALE_MS = 10 * 60_000;
+
+function readExtraAgentsCache(user: string, maxAgeMs: number): HlExtraAgentsResult | null {
+  const row = extraAgentsCache.get(user);
+  if (!row || Date.now() - row.at > maxAgeMs) return null;
+  return row.result;
+}
+
+function writeExtraAgentsCache(user: string, result: HlExtraAgentsResult): void {
+  extraAgentsCache.set(user, { at: Date.now(), result });
+}
+
+/** HL extraAgents — retried + cached (Railway→HL reads are often flaky; empty ≠ not approved). */
+export async function fetchHlExtraAgents(userAddress: string): Promise<HlExtraAgentsResult> {
   const user = userAddress.toLowerCase();
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  const fresh = readExtraAgentsCache(user, EXTRA_AGENTS_CACHE_MS);
+  if (fresh) return fresh;
+
+  for (let attempt = 0; attempt < 6; attempt += 1) {
     try {
       const res = await fetch(config.hyperliquid.infoUrl, {
         method: 'POST',
@@ -299,22 +322,33 @@ export async function fetchHlExtraAgents(userAddress: string): Promise<HlExtraAg
         }),
       });
       if (!res.ok) {
-        if (attempt < 3) await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+        if (attempt < 5) await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
         continue;
       }
-      return parseHlExtraAgents(await res.json());
+      const result: HlExtraAgentsResult = {
+        agents: parseHlExtraAgents(await res.json()),
+        loaded: true,
+      };
+      writeExtraAgentsCache(user, result);
+      return result;
     } catch (err: unknown) {
-      if (attempt === 3) {
+      if (attempt === 5) {
         logger.debug('HL extraAgents failed', {
           user: user.slice(0, 10),
           error: err instanceof Error ? err.message : String(err),
         });
       } else {
-        await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+        await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
       }
     }
   }
-  return [];
+
+  const stale = readExtraAgentsCache(user, EXTRA_AGENTS_STALE_MS);
+  if (stale?.loaded && stale.agents.length > 0) {
+    return stale;
+  }
+
+  return { agents: [], loaded: false };
 }
 
 export function isHlExtraAgentActive(agent: HlExtraAgent): boolean {

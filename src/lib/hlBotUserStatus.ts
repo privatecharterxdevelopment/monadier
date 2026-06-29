@@ -22,8 +22,11 @@ function simplifyBlocker(raw: string): string {
   if (/no trade signal|MTF|bot conf|Pre-trade gate|Volume 0\.00x|ETH-beta|BTC-beta| ‖ /.test(raw)) {
     return '';
   }
-  if (/HL agent not approved/i.test(raw)) {
+  if (/HL agent not approved|Trading agent not approved/i.test(raw)) {
     return 'Trading agent not approved yet';
+  }
+  if (/Hyperliquid temporarily unreachable/i.test(raw)) {
+    return 'Checking trading agent — try again in a moment';
   }
   if (/builder fee|platform fee|success fee/i.test(raw)) {
     return `Approve ${hlBotSuccessFeeShortLabel()} first — then Start bot`;
