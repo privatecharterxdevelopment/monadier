@@ -118,22 +118,22 @@ export const config = {
     minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
     /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
     dynamicTrail: {
-      /** Arm profit trail at +0.6% ROE — lock gains early. */
-      breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 0.6),
-      /** Floor lock ROE once trail is armed. */
-      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 0.08),
-      /** Ratchet gap from peak ROE (default 0.35%). */
-      trailGapRoePct: Number(process.env.HL_TRAIL_GAP_ROE_PCT || 0.35),
-      /** Full ratchet from first arm (was stage 2 only). */
-      fullTrailArmRoePct: Number(process.env.HL_TRAIL_FULL_ARM_ROE_PCT || 0.6),
+      /** Arm breakeven lock at +1% ROE — let small green breathe. */
+      breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 1),
+      /** Stage-1 floor lock (breakeven+) — not peak ratchet yet. */
+      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 0.1),
+      /** Stage-2 ratchet gap from peak ROE (wider = more room to run). */
+      trailGapRoePct: Number(process.env.HL_TRAIL_GAP_ROE_PCT || 0.65),
+      /** Switch to peak ratchet after this peak ROE. */
+      fullTrailArmRoePct: Number(process.env.HL_TRAIL_FULL_ARM_ROE_PCT || 2.5),
       /** No wait — arm as soon as ROE + USD peaks pass thresholds. */
-      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 0),
+      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 15_000),
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
       /** Peak uPnL > $0 required — no USD floor beyond green (default $0). */
       armMinProfitUsd: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_USD || 0),
       /** Profit trail close only when uPnL ≥ this (default $0.01 — no −$0.01 scratch exits). */
       profitTrailMinClosePnlUsd: Number(process.env.HL_TRAIL_MIN_CLOSE_PNL_USD || 0.01),
-      trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 0),
+      trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 10_000),
       armFeesMultiplier: Number(process.env.HL_TRAIL_ARM_FEES_MULT || 2),
       breakevenBufferPct: Number(process.env.HL_TRAIL_BE_BUFFER_PCT || 0.02),
       breakevenBufferFeesMult: Number(process.env.HL_TRAIL_BE_BUFFER_FEES_MULT || 0.5),
@@ -156,8 +156,8 @@ export const config = {
     /** After min hold — trail floor ≈ breakeven + ~0.1% margin on typical slot. */
     profitLockFloorUsd: Number(process.env.HL_PROFIT_LOCK_FLOOR_USD || 0.02),
     profitLockTrailBufferUsd: Number(process.env.HL_PROFIT_LOCK_TRAIL_BUFFER_USD || 0.045),
-    /** Min trail distance as fraction of peak uPnL (0.28 = need 28% retrace from peak). */
-    profitTrailMinPeakFraction: Number(process.env.HL_PROFIT_TRAIL_MIN_PEAK_FRAC || 0.28),
+    /** Min trail distance as fraction of peak uPnL (0.22 = need 22% retrace from peak). */
+    profitTrailMinPeakFraction: Number(process.env.HL_PROFIT_TRAIL_MIN_PEAK_FRAC || 0.22),
     /** Widen trail buffer when MTF/volume say strong run. */
     profitTrailStrongRunMult: Number(process.env.HL_PROFIT_TRAIL_STRONG_MULT || 1.65),
     /** uPnL must stay at/below trail floor this long before profit_lock (ms). */

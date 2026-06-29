@@ -111,6 +111,8 @@ export async function getHlPositionTrailSnapshots(
         collateralUsd: collateral,
         direction,
         markPrice: markPx,
+        nowMs: Date.now(),
+        trailDistanceMult: 1,
       });
 
     out.push({

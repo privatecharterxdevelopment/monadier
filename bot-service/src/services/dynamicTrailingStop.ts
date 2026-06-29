@@ -111,12 +111,16 @@ export function stopPxForRoePct(
   return direction === 'LONG' ? entryPrice + move : entryPrice - move;
 }
 
-/** Stage 2 lock — max(floor, peak − gap). */
-export function profitTrailLockRoePct(peakPnlUsd: number, collateralUsd: number): number {
+/** Stage 2 lock — max(floor, peak − gap). gapMult widens on strong runs. */
+export function profitTrailLockRoePct(
+  peakPnlUsd: number,
+  collateralUsd: number,
+  gapMult = 1
+): number {
   const cfg = config.hyperliquid.dynamicTrail;
   const peakRoe = roePct(peakPnlUsd, collateralUsd);
   const floor = cfg.armMinRoePct;
-  const gap = cfg.trailGapRoePct;
+  const gap = cfg.trailGapRoePct * Math.max(1, gapMult);
   return Math.max(floor, peakRoe - gap);
 }
 
@@ -128,11 +132,11 @@ export function profitLockStage1RoePct(): number {
 export function resolveProfitTrailLockRoe(
   phase: TrailPhase,
   peakPnlUsd: number,
-  collateralUsd: number
+  collateralUsd: number,
+  gapMult = 1
 ): number {
-  if (phase === 'profit_lock' || phase === 'trailing') {
-    return profitTrailLockRoePct(peakPnlUsd, collateralUsd);
-  }
+  if (phase === 'profit_lock') return profitLockStage1RoePct();
+  if (phase === 'trailing') return profitTrailLockRoePct(peakPnlUsd, collateralUsd, gapMult);
   return 0;
 }
 
@@ -156,21 +160,49 @@ export function shouldExecuteProfitTrailClose(pnlUsd: number): boolean {
   return true;
 }
 
-/** Close while uPnL is still green once profit retraces to the locked ROE (don't wait for red). */
+/** Close in green only after a real pullback from peak — not every tick of noise. */
 export function shouldCloseProfitTrailInGreen(
   rec: DynamicTrailRecord,
-  input: Pick<TrailTickInput, 'pnlUsd' | 'collateralUsd' | 'direction' | 'markPrice'>
+  input: Pick<
+    TrailTickInput,
+    'pnlUsd' | 'collateralUsd' | 'direction' | 'markPrice' | 'nowMs' | 'trailDistanceMult'
+  >
 ): boolean {
   if (rec.phase !== 'profit_lock' && rec.phase !== 'trailing') return false;
   if (!shouldExecuteProfitTrailClose(input.pnlUsd)) return false;
 
+  const cfg = config.hyperliquid.dynamicTrail;
+  const armedMs =
+    rec.trailArmedAt != null ? input.nowMs - rec.trailArmedAt : 0;
+  if (armedMs < cfg.armMinProfitHoldMs) return false;
+  if (armedMs < cfg.trailMinActiveBeforeCloseMs) return false;
+
+  const peak = rec.highestPnlSinceEntry;
+  const minRetraceUsd = Math.max(
+    cfg.profitTrailMinClosePnlUsd,
+    peak * config.hyperliquid.profitTrailMinPeakFraction
+  );
+  const retraceUsd = Math.max(0, peak - input.pnlUsd);
+
+  const gapMult = input.trailDistanceMult ?? 1;
   const lockRoe = resolveProfitTrailLockRoe(
     rec.phase,
-    rec.highestPnlSinceEntry,
-    input.collateralUsd
+    peak,
+    input.collateralUsd,
+    gapMult
   );
+
+  // Stage 1: breakeven lock only — close on price stop, not ROE noise.
+  if (rec.phase === 'profit_lock') {
+    if (rec.currentTrailStop == null) return false;
+    return isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop);
+  }
+
+  // Stage 2: need meaningful retrace from peak before ratchet exit.
+  if (retraceUsd < minRetraceUsd) return false;
+
   const currentRoe = roePct(input.pnlUsd, input.collateralUsd);
-  if (currentRoe <= lockRoe + 0.04) return true;
+  if (currentRoe <= lockRoe) return true;
 
   if (rec.currentTrailStop == null) return false;
   return isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop);
@@ -336,10 +368,12 @@ function refreshProfitTrailStop(
   rec: DynamicTrailRecord,
   input: TrailTickInput
 ): void {
+  const gapMult = input.trailDistanceMult ?? 1;
   const lockRoe = resolveProfitTrailLockRoe(
     rec.phase,
     rec.highestPnlSinceEntry,
-    input.collateralUsd
+    input.collateralUsd,
+    gapMult
   );
   const stopPx = stopPxForRoePct(
     input.direction,
@@ -380,7 +414,8 @@ function tryProfitTrailGreenClose(
   const lockRoe = resolveProfitTrailLockRoe(
     rec.phase,
     rec.highestPnlSinceEntry,
-    input.collateralUsd
+    input.collateralUsd,
+    input.trailDistanceMult ?? 1
   );
   const detail = `PROFIT TRAIL ${stageLabel} · lock +${lockRoe.toFixed(2)}% ROE · ${input.direction} ${input.coin} · uPnL $${input.pnlUsd.toFixed(2)} (peak $${rec.highestPnlSinceEntry.toFixed(2)}) · ${formatAnalytics(rec, input.markPrice)}`;
   return {
@@ -461,36 +496,27 @@ export async function evaluateDynamicTrail(
     return { record: rec, ...noClose };
   }
 
-  // —— Arm trail when green — ratchet from first arm ——
+  // —— Arm trail when green — stage 1 breakeven lock only ——
   if (
     rec.phase === 'idle' &&
     shouldArmProfitTrail(rec.highestPnlSinceEntry, input.collateralUsd)
   ) {
-    rec.phase = 'trailing';
+    rec.phase = 'profit_lock';
     rec.trailArmedAt = input.nowMs;
     rec.estimatedFeesUsd = feesUsd;
     refreshProfitTrailStop(rec, input);
-    logger.info('HL profit trail armed', {
+    logger.info('HL profit trail stage 1 armed', {
       coin: input.coin,
       direction: input.direction,
       roe: roePct(rec.highestPnlSinceEntry, input.collateralUsd).toFixed(3),
-      lockRoe: resolveProfitTrailLockRoe(
-        rec.phase,
-        rec.highestPnlSinceEntry,
-        input.collateralUsd
-      ).toFixed(3),
+      lockRoe: profitLockStage1RoePct().toFixed(3),
       stop: rec.currentTrailStop?.toFixed(6),
       pnlUsd: input.pnlUsd.toFixed(4),
       peakPnlUsd: rec.highestPnlSinceEntry.toFixed(4),
     });
-    const greenClose = tryProfitTrailGreenClose(rec, input, 'ARM');
-    if (greenClose) return greenClose;
     return { record: rec, ...noClose };
   }
 
-  // Loss SL trail while red — disabled in profit-only mode (user must set SL% explicitly).
-
-  // Fell back below arm threshold while never armed — stay idle
   if (
     rec.phase === 'idle' &&
     input.pnlUsd > 0 &&
