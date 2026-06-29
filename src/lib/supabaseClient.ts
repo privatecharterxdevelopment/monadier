@@ -54,15 +54,16 @@ export const supabase: SupabaseClient = new Proxy({} as SupabaseClient, {
   },
 });
 
-/** Base URL for auth redirects (production domain or local dev). */
+/** Base URL for auth email links — prefer VITE_SITE_URL so redirects match Supabase allowlist. */
 export function getAuthRedirectBase(): string {
+  const configured = import.meta.env.VITE_SITE_URL as string | undefined;
+  if (configured?.startsWith('http')) {
+    return configured.replace(/\/$/, '');
+  }
   if (typeof window !== 'undefined' && window.location?.origin) {
     return window.location.origin;
   }
-  return (
-    import.meta.env.VITE_SITE_URL ||
-    (import.meta.env.PROD ? FALLBACK_SITE_ORIGIN : 'http://localhost:5173')
-  );
+  return import.meta.env.PROD ? FALLBACK_SITE_ORIGIN : 'http://localhost:5173';
 }
 
 /** Production Supabase project (Monadier). Used when env is missing in local preview. */

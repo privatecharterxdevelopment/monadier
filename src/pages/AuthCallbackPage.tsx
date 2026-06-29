@@ -5,7 +5,11 @@ import Logo from '../components/ui/Logo';
 import { supabase } from '../lib/supabase';
 import { afterAuthGo, OPEN_APP_PATH } from '../lib/appUrls';
 import { queueAuthToast } from '../lib/authToast';
-import { markPasswordRecoveryPending } from '../lib/passwordRecovery';
+import {
+  bootstrapSupabaseAuthFromUrl,
+  isPasswordRecoveryPending,
+  markPasswordRecoveryPending,
+} from '../lib/passwordRecovery';
 
 /**
  * Finishes Supabase OAuth (Google) and password-recovery redirects.
@@ -18,26 +22,17 @@ const AuthCallbackPage: React.FC = () => {
     let done = false;
 
     const goToRecovery = () => {
-      markPasswordRecoveryPending();
-      go('/reset-password?recovery=1');
-    };
-
-    const go = (path: string) => {
       if (done) return;
       done = true;
-      if (
-        path === OPEN_APP_PATH ||
-        path.startsWith('/app') ||
-        path === '/dashboard' ||
-        path.startsWith('/dashboard/') ||
-        path === '/dashboard2' ||
-        path.startsWith('/dashboard2/')
-      ) {
-        queueAuthToast('signed_in');
-        afterAuthGo(path, navigate);
-      } else {
-        navigate(path, { replace: true });
-      }
+      markPasswordRecoveryPending();
+      navigate('/reset-password?recovery=1', { replace: true });
+    };
+
+    const goApp = () => {
+      if (done) return;
+      done = true;
+      queueAuthToast('signed_in');
+      afterAuthGo(OPEN_APP_PATH, navigate);
     };
 
     const fail = (message: string) => {
@@ -46,53 +41,45 @@ const AuthCallbackPage: React.FC = () => {
       setError(message);
     };
 
-    const isRecovery =
-      window.location.hash.includes('type=recovery') ||
-      new URLSearchParams(window.location.search).get('type') === 'recovery';
-
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!session) return;
-      if (event === 'PASSWORD_RECOVERY' || isRecovery) {
+      if (event === 'PASSWORD_RECOVERY') {
         goToRecovery();
-      } else if (event === 'SIGNED_IN') {
-        go(OPEN_APP_PATH);
       }
     });
 
     const run = async () => {
       try {
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('code')) {
-          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(
-            window.location.href
-          );
-          if (exchangeError) throw exchangeError;
-        }
+        const result = await bootstrapSupabaseAuthFromUrl();
 
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
-
-        if (session) {
-          if (isRecovery) goToRecovery();
-          else go(OPEN_APP_PATH);
+        if (result === 'recovery' || isPasswordRecoveryPending()) {
+          goToRecovery();
           return;
         }
 
-        // Hash-based tokens (some email / legacy flows)
-        if (window.location.hash.includes('access_token')) {
-          await new Promise((r) => setTimeout(r, 800));
-          const { data: { session: retry } } = await supabase.auth.getSession();
-          if (retry) {
-            if (isRecovery) goToRecovery();
-            else go(OPEN_APP_PATH);
-            return;
-          }
+        if (result === 'sign_in') {
+          goApp();
+          return;
+        }
+
+        if (result === 'error') {
+          fail('This reset link is invalid or expired. Request a new one from the login page.');
+          return;
+        }
+
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (session) {
+          goApp();
+          return;
         }
 
         fail('Sign-in could not be completed. Please try again from the login page.');
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Auth callback error:', err);
-        fail(err.message || 'Sign-in failed.');
+        const message = err instanceof Error ? err.message : 'Sign-in failed.';
+        fail(message);
       }
     };
 
@@ -108,10 +95,10 @@ const AuthCallbackPage: React.FC = () => {
         <p className="mt-6 text-red-400 text-sm text-center max-w-md">{error}</p>
         <button
           type="button"
-          onClick={() => navigate('/login', { replace: true })}
+          onClick={() => navigate('/forgot-password', { replace: true })}
           className="mt-4 text-accent hover:underline text-sm"
         >
-          Back to login
+          Request new reset link
         </button>
       </div>
     );

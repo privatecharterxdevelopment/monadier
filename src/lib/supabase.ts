@@ -74,10 +74,10 @@ export const signInWithGoogle = async () => {
   return { data, error };
 };
 
-// Password reset — email link → /auth/callback → /reset-password (see AuthCallbackPage)
+// Password reset — email link lands on /reset-password (PKCE code or token_hash)
 export const resetPassword = async (email: string) => {
   const base = getAuthRedirectBase();
-  const redirectTo = `${base}/auth/callback?type=recovery`;
+  const redirectTo = `${base}/reset-password`;
   const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo,
   });

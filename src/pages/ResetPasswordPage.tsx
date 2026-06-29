@@ -7,6 +7,7 @@ import Logo from '../components/ui/Logo';
 import { updatePassword, supabase } from '../lib/supabase';
 import { getAppEntryPath } from '../lib/appUrls';
 import {
+  bootstrapSupabaseAuthFromUrl,
   clearPasswordRecoveryPending,
   isPasswordRecoveryPending,
   markPasswordRecoveryPending,
@@ -52,13 +53,23 @@ const ResetPasswordPage: React.FC = () => {
     });
 
     const checkSession = async () => {
+      const bootstrap = await bootstrapSupabaseAuthFromUrl();
+      if (bootstrap === 'recovery') {
+        markValid();
+        return;
+      }
+      if (bootstrap === 'error') {
+        markInvalid();
+        return;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (session && isPasswordRecoveryPending()) {
         markValid();
         return;
       }
-      // Give Supabase time to parse hash from email link (legacy implicit flow)
-      await new Promise((r) => setTimeout(r, 1500));
+      // Give Supabase time to parse hash from legacy email links
+      await new Promise((r) => setTimeout(r, 1200));
       const { data: { session: retry } } = await supabase.auth.getSession();
       if (retry && isPasswordRecoveryPending()) {
         markValid();

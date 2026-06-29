@@ -2,8 +2,8 @@ import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 /**
- * Supabase OAuth sometimes lands on `/?code=...` (Site URL) instead of `/auth/callback`.
- * Forward the code to the callback route on whatever host the user is on.
+ * Supabase auth links often land on `/` (Site URL) instead of `/auth/callback` or `/reset-password`.
+ * Forward codes and hash tokens to the route that can finish the flow.
  */
 export default function AuthOAuthCapture() {
   const location = useLocation();
@@ -11,10 +11,26 @@ export default function AuthOAuthCapture() {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    if (!params.get('code')) return;
-    if (location.pathname === '/auth/callback') return;
+    const hash = location.hash;
+    const hasCode = Boolean(params.get('code'));
+    const hasTokenHash = Boolean(params.get('token_hash'));
+    const hasHashToken =
+      hash.includes('access_token') || hash.includes('type=recovery');
 
-    const target = `/auth/callback${location.search}${location.hash}`;
+    if (!hasCode && !hasTokenHash && !hasHashToken) return;
+    if (location.pathname === '/auth/callback' || location.pathname === '/reset-password') {
+      return;
+    }
+
+    const recoveryHint =
+      params.get('type') === 'recovery' ||
+      params.get('recovery') === '1' ||
+      hash.includes('type=recovery');
+
+    const target = recoveryHint
+      ? `/reset-password${location.search}${hash}`
+      : `/auth/callback${location.search}${hash}`;
+
     navigate(target, { replace: true });
   }, [location.pathname, location.search, location.hash, navigate]);
 
