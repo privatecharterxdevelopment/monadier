@@ -113,19 +113,19 @@ export const config = {
     minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
     /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
     dynamicTrail: {
-      /** Arm in-profit trail when peak ROE ≥ this (default 0.5% — avoids micro arm on $0.01 peaks). */
-      breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 0.5),
-      /** Min locked ROE% once trail is armed (default 0.25%). */
-      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 0.25),
-      /** Trail ratchets at peak ROE minus this gap (default 0.15% air). */
-      trailGapRoePct: Number(process.env.HL_TRAIL_GAP_ROE_PCT || 0.15),
+      /** Arm in-profit trail as soon as green — low ROE floor (default 0.1%). */
+      breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 0.1),
+      /** Min locked ROE% once trail is armed (default 0.1%). */
+      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 0.1),
+      /** Trail ratchets at peak ROE minus this gap (default 0.1% air). */
+      trailGapRoePct: Number(process.env.HL_TRAIL_GAP_ROE_PCT || 0.1),
       /** Stage 2 — ratchet trail when peak ROE ≥ this (default 2%). */
       fullTrailArmRoePct: Number(process.env.HL_TRAIL_FULL_ARM_ROE_PCT || 2),
       /** No wait — arm as soon as ROE + USD peaks pass thresholds. */
       armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 0),
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
-      /** Peak uPnL must reach this USD before arming (default $0.25). */
-      armMinProfitUsd: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_USD || 0.25),
+      /** Peak uPnL > $0 required — no USD floor beyond green (default $0). */
+      armMinProfitUsd: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_USD || 0),
       /** Profit trail close only when uPnL ≥ this (default $0.01 — no −$0.01 scratch exits). */
       profitTrailMinClosePnlUsd: Number(process.env.HL_TRAIL_MIN_CLOSE_PNL_USD || 0.01),
       trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 0),
