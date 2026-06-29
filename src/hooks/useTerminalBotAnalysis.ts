@@ -10,6 +10,7 @@ import { MIN_HL_BOT_USD } from '../lib/hyperliquid/hlBotAgent';
 import { getBotApiBase, type Timeframe } from '../lib/signalService';
 import { binanceSymbolToHlCoin, hlCoinToBotSymbol, isBotExcludedHlCoin } from '../lib/botTradingPairs';
 import { normalizeHlBotStrategy, type HlBotStrategy } from '../lib/hlBotStrategy';
+import { pickNextScanCandidate } from '../lib/botScanCandidate';
 import { nextPollDelayMs } from '../lib/pollBackoff';
 
 export const ANALYSIS_STEPS = [
