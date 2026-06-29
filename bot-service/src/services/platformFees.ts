@@ -5,6 +5,7 @@ import { notionalBuilderFeeUsd } from './hlBuilderFee';
 import { recordHlChartMarker } from './hlChartMarkers';
 import { processPendingTradeCloseEmails } from './tradeCloseEmail';
 import { accrueReferralEarning, tryQualifyReferral } from './referralAffiliate';
+import { isFeeExemptWallet, waivedPlatformFeeStatus } from './feeExempt';
 
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 
@@ -41,6 +42,7 @@ export type PlatformFeeStatus = {
   withdrawBlocked: boolean;
   winsUntilBlock: number;
   successFeeBps: number;
+  feesWaived?: boolean;
 };
 
 export function successFeeBpsForSource(source: FeeSource): number {
@@ -143,6 +145,10 @@ export async function resetPlatformFeeCycle(wallet: string): Promise<void> {
 
 export async function getPlatformFeeStatus(walletAddress: string): Promise<PlatformFeeStatus> {
   const wallet = walletAddress.toLowerCase();
+  if (await isFeeExemptWallet(wallet)) {
+    return waivedPlatformFeeStatus();
+  }
+
   const { data: ledger, error: ledgerErr } = await supabase
     .from('hl_fee_ledger')
     .select('success_fee_usd, builder_fee_usd, accrued_fee_usd, status')
@@ -203,6 +209,11 @@ export async function recordProfitableClose(input: ProfitableCloseInput): Promis
   const wallet = input.walletAddress.toLowerCase();
   const profitUsd = input.profitUsd;
   if (!Number.isFinite(profitUsd) || profitUsd <= 0) return;
+
+  if (await isFeeExemptWallet(wallet)) {
+    await recordProfitableCloseFeeWaived(input);
+    return;
+  }
 
   const { totalUsd, builderUsd, accruedUsd, feeBps } = splitPlatformFee(
     profitUsd,
@@ -451,6 +462,77 @@ export async function settleAccruedFees(
   });
 
   return { settledUsd: status.accruedUsd, ok: true };
+}
+
+/** Trade history only — no fee ledger for exempt wallets. */
+async function recordProfitableCloseFeeWaived(input: ProfitableCloseInput): Promise<void> {
+  const wallet = input.walletAddress.toLowerCase();
+  const profitUsd = input.profitUsd;
+  const collateralUsd = input.collateralUsd ?? 0;
+  const pnlPct = collateralUsd > 0 ? (profitUsd / collateralUsd) * 100 : 0;
+  const closedAt = new Date().toISOString();
+  const entryAmount = collateralUsd;
+  const exitAmount = entryAmount + profitUsd;
+
+  const { data: tradeRow, error: tradeErr } = await supabase
+    .from('trade_history')
+    .insert({
+      wallet_address: wallet,
+      chain_id: config.arbitrum.chainId,
+      token_symbol: input.coin,
+      direction: input.direction,
+      leverage: Math.max(1, Math.round(input.leverage ?? 1)),
+      entry_price: input.entryPx ?? null,
+      exit_price: input.exitPx ?? null,
+      entry_amount: entryAmount,
+      exit_amount: exitAmount,
+      profit_loss: profitUsd,
+      profit_loss_percent: pnlPct,
+      close_reason: input.closeReason,
+      opened_at: null,
+      closed_at: closedAt,
+      execution_venue: input.source === 'betting' ? 'hyperliquid_betting' : 'hyperliquid',
+      platform_success_fee: null,
+      platform_fee_status: 'waived',
+    })
+    .select('id')
+    .single();
+
+  if (input.source === 'bot') {
+    await recordHlChartMarker({
+      walletAddress: wallet,
+      coin: input.coin,
+      eventType: 'close',
+      direction: input.direction,
+      price: input.exitPx ?? 0,
+      eventTs: closedAt,
+      pnlUsd: profitUsd,
+      closeReason: input.closeReason,
+      source: 'bot',
+    });
+  }
+
+  if (tradeErr) {
+    logger.warn('fee-waived trade_history insert failed', {
+      wallet: wallet.slice(0, 10),
+      error: tradeErr.message,
+    });
+    return;
+  }
+
+  void processPendingTradeCloseEmails(25).catch(() => undefined);
+  await tryQualifyReferral(wallet, {
+    tradeExecuted: true,
+    profitableTrade: true,
+    tradeId: tradeRow?.id ?? null,
+  });
+
+  logger.info('profitable close recorded (fee waived)', {
+    wallet: wallet.slice(0, 10),
+    coin: input.coin,
+    profit: profitUsd.toFixed(4),
+    source: input.source,
+  });
 }
 
 /** @deprecated use getPlatformFeeStatus */
