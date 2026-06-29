@@ -367,8 +367,9 @@ export const config = {
     },
     /** Minimum margin USD per HL open slot (split across max concurrent positions). */
     minMarginUsd: Number(process.env.HL_MIN_MARGIN_USD || 8),
-    /** Success fee on profitable bot closes — 1000 = 10% of realized profit. */
-    successFeeBps: Number(process.env.HL_SUCCESS_FEE_BPS || 1000),
+    /** Success fee on profitable bot closes — disabled by default (0 bps). Opt-in: HL_SUCCESS_FEE_ENABLED=true */
+    successFeeEnabled: process.env.HL_SUCCESS_FEE_ENABLED === 'true',
+    successFeeBps: Number(process.env.HL_SUCCESS_FEE_BPS || 0),
     minSuccessFeeUsd: Number(process.env.HL_MIN_SUCCESS_FEE_USD || 0.01),
     infoUrl: process.env.HL_INFO_URL || 'https://api.hyperliquid.xyz/info',
     builderAddress: process.env.HL_BUILDER_ADDRESS as `0x${string}`,

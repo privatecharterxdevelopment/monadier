@@ -128,6 +128,10 @@ export async function completeHlBotApprovals(opts: {
   userId?: string;
 }): Promise<HlBotApprovalResult> {
   const agentSigned = await approveHlBotAgentRequired(opts);
+  const builderConfig = getHlBuilderConfig();
+  if (!builderConfig.enabled) {
+    return { agentSigned, builderFeeSigned: false };
+  }
   const beforeFee = await verifyHlBuilderFeeOnChain(opts.walletAddress);
   if (!beforeFee) {
     await approveHlBuilderFeeRequired(opts.walletClient, opts.walletAddress);

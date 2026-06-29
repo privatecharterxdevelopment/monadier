@@ -9,7 +9,7 @@ export type HlBuilderConfig = {
   /** Legacy flat perp fee (tenths bps); Pro Trade opens use 0 — success fee on profitable closes only. */
   feePerp: HlBuilderFeeTenthsBps;
   feeSpotSell: HlBuilderFeeTenthsBps;
-  /** Manual Pro Trade: bps of profit on winning closes (250 = 2.5%). */
+  /** Manual Pro Trade: bps of profit on winning closes (150 = 1.5%). */
   proTradeSuccessFeeBps: number;
   maxApprovalRate: string;
   /** HIP-4 betting buy — tenths bps (500 = 0.5%). */
@@ -48,7 +48,7 @@ export function getHlBuilderConfig(): HlBuilderConfig {
   const feeSpotSell = parseFee(import.meta.env.VITE_HL_BUILDER_FEE_SPOT, 50, 1000);
   const proTradeSuccessFeeBps = Math.min(
     10_000,
-    Math.max(0, Math.floor(Number(import.meta.env.VITE_HL_PRO_TRADE_SUCCESS_FEE_BPS || 250)))
+    Math.max(0, Math.floor(Number(import.meta.env.VITE_HL_PRO_TRADE_SUCCESS_FEE_BPS || 150)))
   );
   const maxApprovalRate =
     import.meta.env.VITE_HL_BUILDER_MAX_APPROVAL?.trim() || '0.1%';
@@ -63,12 +63,12 @@ export function getHlBuilderConfig(): HlBuilderConfig {
   const bettingMaxApprovalRate =
     import.meta.env.VITE_HL_BETTING_MAX_APPROVAL?.trim() || '2.5%';
 
-  const explicitlyDisabled =
-    import.meta.env.VITE_HL_BUILDER_ENABLED === 'false' ||
-    import.meta.env.VITE_HL_BUILDER_ENABLED === '0';
+  const explicitlyEnabled =
+    import.meta.env.VITE_HL_BUILDER_ENABLED === 'true' ||
+    import.meta.env.VITE_HL_BUILDER_ENABLED === '1';
 
   return {
-    enabled: !explicitlyDisabled && Boolean(address),
+    enabled: explicitlyEnabled && Boolean(address),
     address,
     feePerp,
     feeSpotSell,

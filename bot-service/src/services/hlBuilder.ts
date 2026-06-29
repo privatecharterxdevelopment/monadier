@@ -1,7 +1,7 @@
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { fetchHlPerpFundingSnapshot } from './hlInfo';
-import { parseMaxBuilderTenthsBps } from './hlBuilderFee';
+import { parseMaxBuilderTenthsBps, hlSuccessFeeCollectionEnabled } from './hlBuilderFee';
 
 /** Hyperliquid builder wallet minimum (unified accounts: spot USDC counts). */
 export const HL_BUILDER_MIN_PLATFORM_USD = 100;
@@ -102,13 +102,13 @@ export async function checkHlBuilderFeeApproved(userAddress: string): Promise<{
   feeCollectionActive: boolean;
 }> {
   const builderAddress = config.hyperliquid.builderAddress;
-  if (!builderAddress || !hlBuilderFeeConfigured()) {
+  if (!builderAddress || !hlBuilderFeeConfigured() || !hlSuccessFeeCollectionEnabled()) {
     return {
       required: false,
       approved: true,
       approvedMax: 0,
       requiredFee: 0,
-      builderAddress: null,
+      builderAddress: builderAddress ?? null,
       platformReady: true,
       platformAccountUsd: 0,
       platformMinUsd: HL_BUILDER_MIN_PLATFORM_USD,

@@ -28,7 +28,7 @@ import type { TradingCycleContext } from './tradingCycleContext';
 import {
   normalizeHlBotStrategy,
 } from './hlBotStrategy';
-import { resolveHlOrderBuilder, estimateCollectedSuccessFee } from './hlBuilderFee';
+import { resolveHlOrderBuilder, estimateCollectedSuccessFee, hlSuccessFeeCollectionEnabled } from './hlBuilderFee';
 import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from './hlSuccessFees';
 import { recordHlBotOpenMarker } from './hlChartMarkers';
 import { shouldTakeProfitOnPnl } from './pnlExits';
@@ -1570,11 +1570,12 @@ export class HyperliquidTradingService {
   }> {
     try {
       const coinUpper = coin.toUpperCase();
-      const [state, meta, mids] = await Promise.all([
+      const [state, meta, midsRaw] = await Promise.all([
         fetchHlClearinghouseState(userAddress),
         fetchHlMeta(),
-        fetchHlAllMids(),
+        fetchHlAllMids().catch(() => ({}) as Record<string, string>),
       ]);
+      const mids = midsRaw ?? {};
       const row = state?.assetPositions?.find(
         (p) => p.position?.coin?.toUpperCase() === coinUpper
       )?.position;
@@ -1638,7 +1639,11 @@ export class HyperliquidTradingService {
 
       const assetIndex = coinToAssetIndex(meta, coinUpper);
       const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
-      const markPx = Number(mids[coinUpper] ?? mids[coin] ?? 0);
+      const markPxFromMids = Number(mids[coinUpper] ?? mids[coin] ?? 0);
+      const markPx =
+        Number.isFinite(markPxFromMids) && markPxFromMids > 0
+          ? markPxFromMids
+          : markFromPosition(entryPx, size, pnlUsd);
       if (!Number.isFinite(markPx) || markPx <= 0) {
         return { success: false, error: 'Could not read mark price — try again' };
       }
@@ -1661,60 +1666,18 @@ export class HyperliquidTradingService {
         grouping: 'na' as const,
       };
 
-      const successFeeRequired =
-        pnlUsd > 0 && Boolean(config.hyperliquid.builderAddress);
-      const botProfitExit =
-        reason === 'trailing_stop' ||
-        reason === 'profit_lock' ||
-        reason === 'take_profit' ||
-        reason === 'profit_grab_peak' ||
-        reason === 'profit_grab_timeout';
-
       let viaHlBuilder = false;
       let closeBuilder: { b: `0x${string}`; f: number } | undefined;
 
-      if (successFeeRequired) {
+      if (hlSuccessFeeCollectionEnabled() && pnlUsd > 0) {
         const builderGate = await checkHlBuilderFeeApproved(userAddress);
-        if (!builderGate.platformReady) {
-          if (!botProfitExit) {
-            return {
-              success: false,
-              error:
-                'Success fee collection is offline. Profitable closes are blocked until the platform wallet is funded — close on app.hyperliquid.xyz if urgent.',
-            };
-          }
-          logger.warn('HL bot profit exit — platform wallet not ready, closing without success fee', {
-            user: userAddress.slice(0, 10),
-            coin: coinUpper,
-            reason,
-          });
-        } else if (!builderGate.approved) {
-          if (!botProfitExit) {
-            return {
-              success: false,
-              error:
-                'Approve the 10% success fee in Bot setup before closing this trade in profit.',
-            };
-          }
-          logger.warn('HL bot profit exit — success fee not approved, closing without builder', {
-            user: userAddress.slice(0, 10),
-            coin: coinUpper,
-            reason,
-            pnlUsd: pnlUsd.toFixed(4),
-          });
-        } else {
+        if (builderGate.approved) {
           closeBuilder = resolveHlOrderBuilder({
             notionalUsd,
             profitUsd: pnlUsd,
             isClose: true,
             approvedMaxTenthsBps: builderGate.approvedMax,
           });
-          if (!closeBuilder) {
-            return {
-              success: false,
-              error: 'Could not compute success fee for this close.',
-            };
-          }
         }
       }
 
@@ -1731,12 +1694,6 @@ export class HyperliquidTradingService {
         status.error &&
         isBuilderOrderError(String(status.error))
       ) {
-        if (successFeeRequired && !botProfitExit) {
-          return {
-            success: false,
-            error: `Close rejected: ${status.error}. Profitable closes must include the 10% success fee.`,
-          };
-        }
         logger.warn('HL close builder error — retrying without builder', {
           user: userAddress.slice(0, 10),
           coin: coinUpper,
@@ -1784,7 +1741,7 @@ export class HyperliquidTradingService {
       };
 
       const collectedFee =
-        pnlUsd > 0
+        hlSuccessFeeCollectionEnabled() && pnlUsd > 0
           ? viaHlBuilder && closeBuilder
             ? estimateCollectedSuccessFee(pnlUsd, notionalUsd, closeBuilder.f)
             : calculateHlSuccessFee(pnlUsd)
@@ -1803,30 +1760,6 @@ export class HyperliquidTradingService {
           error: err instanceof Error ? err.message : String(err),
         });
       });
-
-      if (pnlUsd > 0 && config.hyperliquid.builderAddress && !botProfitExit) {
-        if (!viaHlBuilder || collectedFee <= 0) {
-          logger.error('Profitable HL close without builder fee — blocked', {
-            user: userAddress.slice(0, 10),
-            coin: coinUpper,
-            pnl: pnlUsd.toFixed(4),
-            viaHlBuilder,
-            collectedFee,
-          });
-          return {
-            success: false,
-            error:
-              'Profitable close must auto-collect the 10% success fee to the platform wallet. Re-approve platform fee in Bot setup.',
-          };
-        }
-      } else if (pnlUsd > 0 && botProfitExit && !viaHlBuilder) {
-        logger.warn('HL bot profit exit closed without on-chain success fee', {
-          user: userAddress.slice(0, 10),
-          coin: coinUpper,
-          reason,
-          pnl: pnlUsd.toFixed(4),
-        });
-      }
 
       logger.info('HL position closed', {
         user: userAddress.slice(0, 10),

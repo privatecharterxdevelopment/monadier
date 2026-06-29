@@ -1,5 +1,13 @@
 import { config } from '../config';
 
+export function hlSuccessFeeCollectionEnabled(): boolean {
+  return (
+    config.hyperliquid.successFeeEnabled &&
+    config.hyperliquid.successFeeBps > 0 &&
+    Boolean(config.hyperliquid.builderAddress)
+  );
+}
+
 /**
  * HL builder fee `f` is tenths of a basis point.
  * Fee USD ≈ notional × (f / 100_000).
@@ -51,6 +59,7 @@ export function resolveHlOrderBuilder(opts: {
   const approvedCap = Math.min(opts.approvedMaxTenthsBps ?? maxTenths, maxTenths);
 
   if (opts.isClose) {
+    if (!hlSuccessFeeCollectionEnabled()) return undefined;
     const profit = opts.profitUsd ?? 0;
     if (profit <= 0 || opts.notionalUsd <= 0 || approvedCap <= 0) return undefined;
     const f = successFeeToCloseBuilderTenthsBps(

@@ -322,23 +322,55 @@ export function isHlExtraAgentActive(agent: HlExtraAgent): boolean {
 export async function fetchHlMeta(): Promise<{
   universe: { name: string; szDecimals: number; maxLeverage?: number; isDelisted?: boolean }[];
 }> {
-  const res = await fetch(config.hyperliquid.infoUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type: 'meta' }),
-  });
-  if (!res.ok) throw new Error('HL meta fetch failed');
-  return res.json();
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      const res = await fetch(config.hyperliquid.infoUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'meta' }),
+      });
+      if (!res.ok) {
+        if (attempt < 3) await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+        continue;
+      }
+      return res.json();
+    } catch (err: unknown) {
+      if (attempt === 3) {
+        logger.debug('HL meta failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      } else {
+        await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+      }
+    }
+  }
+  throw new Error('HL meta fetch failed');
 }
 
 export async function fetchHlAllMids(): Promise<Record<string, string>> {
-  const res = await fetch(config.hyperliquid.infoUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type: 'allMids' }),
-  });
-  if (!res.ok) throw new Error('HL allMids fetch failed');
-  return res.json();
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      const res = await fetch(config.hyperliquid.infoUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'allMids' }),
+      });
+      if (!res.ok) {
+        if (attempt < 3) await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+        continue;
+      }
+      return res.json();
+    } catch (err: unknown) {
+      if (attempt === 3) {
+        logger.debug('HL allMids failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      } else {
+        await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+      }
+    }
+  }
+  throw new Error('HL allMids fetch failed');
 }
 
 export function maxLeverageForCoin(

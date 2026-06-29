@@ -19,6 +19,9 @@ export type HlCloseSnapshot = {
 };
 
 export function calculateHlSuccessFee(profitUsd: number): number {
+  if (!config.hyperliquid.successFeeEnabled || config.hyperliquid.successFeeBps <= 0) {
+    return 0;
+  }
   if (!Number.isFinite(profitUsd) || profitUsd <= 0) return 0;
   const bps = config.hyperliquid.successFeeBps;
   const fee = (profitUsd * bps) / 10000;
