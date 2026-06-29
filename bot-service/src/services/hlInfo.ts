@@ -347,6 +347,84 @@ export async function fetchHlMeta(): Promise<{
   throw new Error('HL meta fetch failed');
 }
 
+export type HlUserFill = {
+  coin: string;
+  px: string;
+  sz: string;
+  side: string;
+  time: number;
+  closedPnl: string;
+  fee: string;
+  dir?: string;
+};
+
+export async function fetchHlUserFills(userAddress: string): Promise<HlUserFill[]> {
+  const user = userAddress.toLowerCase();
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      const res = await fetch(config.hyperliquid.infoUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'userFills', user }),
+      });
+      if (!res.ok) {
+        if (attempt < 3) await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+        continue;
+      }
+      const rows = (await res.json()) as HlUserFill[];
+      return Array.isArray(rows) ? rows : [];
+    } catch (err: unknown) {
+      if (attempt === 3) {
+        logger.debug('HL userFills failed', {
+          user: user.slice(0, 10),
+          error: err instanceof Error ? err.message : String(err),
+        });
+      } else {
+        await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+      }
+    }
+  }
+  return [];
+}
+
+/** Sum all close fills for a coin since timestamp — HL may split one close into legs. */
+export async function fetchHlRecentCloseFillSummary(
+  userAddress: string,
+  coin: string,
+  sinceMs: number
+): Promise<{
+  closedPnlUsd: number;
+  exitPx: number;
+  size: number;
+  fillCount: number;
+} | null> {
+  const fills = await fetchHlUserFills(userAddress);
+  const coinUpper = coin.toUpperCase();
+  const relevant = fills.filter((f) => {
+    if (f.coin.toUpperCase() !== coinUpper || f.time < sinceMs) return false;
+    const dir = (f.dir ?? '').toLowerCase();
+    return dir.includes('close');
+  });
+  if (relevant.length === 0) return null;
+
+  let totalSz = 0;
+  let totalPnl = 0;
+  let wPxSum = 0;
+  for (const f of relevant) {
+    const sz = Number(f.sz) || 0;
+    const px = Number(f.px) || 0;
+    totalSz += sz;
+    totalPnl += Number(f.closedPnl) || 0;
+    wPxSum += px * sz;
+  }
+  return {
+    closedPnlUsd: totalPnl,
+    exitPx: totalSz > 0 ? wPxSum / totalSz : Number(relevant[0].px) || 0,
+    size: totalSz,
+    fillCount: relevant.length,
+  };
+}
+
 export async function fetchHlAllMids(): Promise<Record<string, string>> {
   for (let attempt = 0; attempt < 4; attempt += 1) {
     try {

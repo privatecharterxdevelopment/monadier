@@ -20,6 +20,7 @@ import {
   hlTradableFreeMarginUsd,
   hlFreeMarginUsd,
   hlOpenPerpCoins,
+  fetchHlRecentCloseFillSummary,
 } from './hlInfo';
 import { checkHlBuilderFeeApproved } from './hlBuilder';
 import { checkWinRateGate } from './tradeGates';
@@ -1723,28 +1724,38 @@ export class HyperliquidTradingService {
         };
       }
 
+      const closeStartedMs = Date.now() - 120_000;
+      const fillTruth = await fetchHlRecentCloseFillSummary(
+        userAddress,
+        coinUpper,
+        closeStartedMs
+      );
+      const realizedPnlUsd = fillTruth?.closedPnlUsd ?? pnlUsd;
+      const exitPx = fillTruth?.exitPx ?? markPx;
+      const closedSize = fillTruth?.size ?? absSize;
+
       if (closeBuilder) {
         viaHlBuilder = true;
       }
 
       const collateralUsd =
-        entryPx > 0 ? (absSize * entryPx) / leverage : 0;
+        entryPx > 0 ? (closedSize * entryPx) / leverage : 0;
       const snapshot: HlCloseSnapshot = {
         coin: coinUpper,
         direction: isLong ? 'LONG' : 'SHORT',
         entryPx,
-        exitPx: markPx,
-        size: absSize,
+        exitPx,
+        size: closedSize,
         leverage,
-        unrealizedPnlUsd: pnlUsd,
+        unrealizedPnlUsd: realizedPnlUsd,
         collateralUsd,
       };
 
       const collectedFee =
-        hlSuccessFeeCollectionEnabled() && pnlUsd > 0
+        hlSuccessFeeCollectionEnabled() && realizedPnlUsd > 0
           ? viaHlBuilder && closeBuilder
-            ? estimateCollectedSuccessFee(pnlUsd, notionalUsd, closeBuilder.f)
-            : calculateHlSuccessFee(pnlUsd)
+            ? estimateCollectedSuccessFee(realizedPnlUsd, notionalUsd, closeBuilder.f)
+            : calculateHlSuccessFee(realizedPnlUsd)
           : 0;
 
       const recordClose = recordHlBotClose({
@@ -1765,7 +1776,8 @@ export class HyperliquidTradingService {
         user: userAddress.slice(0, 10),
         coin: coinUpper,
         reason,
-        pnl: pnlUsd.toFixed(4),
+        pnl: realizedPnlUsd.toFixed(4),
+        fills: fillTruth?.fillCount ?? 1,
         successFee: collectedFee > 0 ? collectedFee.toFixed(4) : '0',
         viaHlBuilder,
       });

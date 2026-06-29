@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { HlUserFill } from './hyperliquid/user';
-import { isHlFillOpen } from './hyperliquid/format';
+import { aggregateHlCloseFills } from './hyperliquid/hlFillAggregate';
 import {
   fillPositionDirection,
   fmtClosedPnl,
@@ -9,6 +9,7 @@ import {
   fmtPrice,
   fmtSize,
   hlFillResultLabel,
+  isHlFillClose,
 } from './hyperliquid/format';
 import { toNum } from './hyperliquid/parse';
 
@@ -85,9 +86,9 @@ export async function exportBotTradesPdf({
   username,
   displayName,
 }: BotTradesPdfOptions): Promise<void> {
-  const closeFills = fills
-    .filter((f) => !isHlFillOpen(f.dir))
-    .sort((a, b) => b.time - a.time);
+  const closeFills = aggregateHlCloseFills(
+    fills.filter((f) => isHlFillClose(f.dir, f.closedPnl))
+  );
 
   if (closeFills.length === 0) {
     throw new BotTradesPdfError('No closed trades to export.');

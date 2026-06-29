@@ -26,6 +26,7 @@ import {
   isHlFillClose,
 } from '../../lib/hyperliquid/format';
 import { hlWalletExplorerUrl } from '../../lib/hyperliquid/hlApp';
+import { aggregateHlCloseFills, type AggregatedHlCloseFill } from '../../lib/hyperliquid/hlFillAggregate';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
@@ -254,7 +255,7 @@ const ProTradeDock: React.FC<Props> = ({
   const botUnderfunded = botNeedsDeposit;
 
   const closeFills = useMemo(
-    () => fills.filter((f) => isHlFillClose(f.dir, f.closedPnl)),
+    () => aggregateHlCloseFills(fills),
     [fills]
   );
 
@@ -644,7 +645,7 @@ const ProTradeDock: React.FC<Props> = ({
                 </tr>
               </thead>
               <tbody>
-                {filteredCloseFills.map((f, i) => {
+                {filteredCloseFills.map((f: AggregatedHlCloseFill, i) => {
                   const result = hlFillResultLabel(f.closedPnl);
                   const pnl = toNum(f.closedPnl);
                   const positionDir = fillPositionDirection(f);
@@ -664,7 +665,7 @@ const ProTradeDock: React.FC<Props> = ({
                     <td className={positionDir === 'LONG' ? 'hl-up' : 'hl-down'}>
                       {positionDir}
                     </td>
-                    <td>{f.sz}</td>
+                    <td>{f.fillCount > 1 ? `${f.sz} (${f.fillCount} fills)` : f.sz}</td>
                     <td>{fmtPrice(f.px)}</td>
                     <td>{fmtUsdSymbol(f.fee, 4)}</td>
                     <td
