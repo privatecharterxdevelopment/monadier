@@ -1,9 +1,5 @@
 import { config } from '../config';
 
-export function hlSuccessFeeCollectionEnabled(): boolean {
-  return config.hyperliquid.successFeeBps > 0;
-}
-
 /**
  * HL builder fee `f` is tenths of a basis point.
  * Fee USD ≈ notional × (f / 100_000).
@@ -13,15 +9,15 @@ export function notionalBuilderFeeUsd(notionalUsd: number, tenthsBps: number): n
   return (notionalUsd * tenthsBps) / 100_000;
 }
 
-/** HL perp builder max = 0.1% of notional (100 tenths bps). */
-const HL_PERP_BUILDER_TENTHS_BPS_CEILING = 100;
+/** Hyperliquid builder max fee rates go up to 10% for some products; tenths bps = pct × 1000. */
+const HL_BUILDER_TENTHS_BPS_CEILING = 10_000;
 
 export function parseMaxBuilderTenthsBps(rate: string): number {
   const m = rate.trim().match(/^([\d.]+)\s*%?$/);
   if (!m) return 50;
   const pct = parseFloat(m[1]);
   if (!Number.isFinite(pct) || pct <= 0) return 50;
-  return Math.min(HL_PERP_BUILDER_TENTHS_BPS_CEILING, Math.floor(pct * 1000));
+  return Math.min(HL_BUILDER_TENTHS_BPS_CEILING, Math.floor(pct * 1000));
 }
 
 /** Pick builder `f` so fee ≈ successFeeBps% of profit, capped by user max approval. */
@@ -39,7 +35,7 @@ export function successFeeToCloseBuilderTenthsBps(
   return Math.min(Math.max(1, raw), maxTenthsBps);
 }
 
-/** Attach Monadier builder on opens (optional flat) and profitable closes when success fee opt-in is on. */
+/** Attach Monadier builder on opens (optional flat) and profitable closes (10% success fee). */
 export function resolveHlOrderBuilder(opts: {
   notionalUsd: number;
   profitUsd?: number;
@@ -55,7 +51,6 @@ export function resolveHlOrderBuilder(opts: {
   const approvedCap = Math.min(opts.approvedMaxTenthsBps ?? maxTenths, maxTenths);
 
   if (opts.isClose) {
-    if (!hlSuccessFeeCollectionEnabled()) return undefined;
     const profit = opts.profitUsd ?? 0;
     if (profit <= 0 || opts.notionalUsd <= 0 || approvedCap <= 0) return undefined;
     const f = successFeeToCloseBuilderTenthsBps(

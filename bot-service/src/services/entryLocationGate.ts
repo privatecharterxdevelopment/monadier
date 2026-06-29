@@ -230,16 +230,22 @@ export function evaluateEntryLocation(
       };
     }
 
-    if (analysis.nearResistance && !analysis.confirmedBreakoutUp) {
+    if (analysis.nearResistance) {
       const failedTests = analysis.resistanceRejections;
-      return {
-        ok: false,
-        analysis,
-        reason:
-          failedTests >= 1
-            ? `LONG blocked — resistance ${fmtLevel(analysis.resistance)} rejected ${failedTests}× without breakout`
-            : `LONG blocked — price at resistance ${fmtLevel(analysis.resistance)} (${(analysis.pricePosition * 100).toFixed(0)}% of range) — need confirmed break above`,
-      };
+      if (failedTests >= cfg.minRejectionsToBlock) {
+        return {
+          ok: false,
+          analysis,
+          reason: `LONG blocked — resistance ${fmtLevel(analysis.resistance)} rejected ${failedTests}× (need break above or pullback to support)`,
+        };
+      }
+      if (failedTests >= 1 || analysis.pricePosition >= cfg.rangeTopBlock) {
+        return {
+          ok: false,
+          analysis,
+          reason: `LONG blocked — price at resistance ${fmtLevel(analysis.resistance)} without breakout (${failedTests} rejection${failedTests === 1 ? '' : 's'})`,
+        };
+      }
     }
 
     if (analysis.pricePosition > cfg.rangeTopBlock) {
@@ -282,11 +288,7 @@ export function evaluateEntryLocation(
         reason: `SHORT blocked — support ${fmtLevel(analysis.support)} held ${failedTests}× (need break below or rally off support)`,
       };
     }
-    if (
-      failedTests >= 1 &&
-      analysis.pricePosition <= cfg.rangeBottomBlock &&
-      !analysis.confirmedBreakdown
-    ) {
+    if (failedTests >= 1 || analysis.pricePosition <= cfg.rangeBottomBlock) {
       return {
         ok: false,
         analysis,
@@ -296,17 +298,10 @@ export function evaluateEntryLocation(
   }
 
   if (analysis.pricePosition < cfg.rangeBottomBlock) {
-    if (analysis.confirmedBreakdown || analysis.supportRejections === 0) {
-      return {
-        ok: true,
-        analysis,
-        reason: `Trend SHORT — ${(analysis.pricePosition * 100).toFixed(0)}% of range (downtrend continuation)`,
-      };
-    }
     return {
       ok: false,
       analysis,
-      reason: `SHORT blocked — ${(analysis.pricePosition * 100).toFixed(0)}% of range (support still holding)`,
+      reason: `SHORT blocked — ${(analysis.pricePosition * 100).toFixed(0)}% of range (sell high — need rally above ${((1 - cfg.pullbackMaxPosition) * 100).toFixed(0)}% or confirmed breakdown)`,
     };
   }
 
@@ -324,7 +319,7 @@ export async function validateEntryLocation(opts: {
 }): Promise<EntryLocationResult> {
   // Scalp S/R — ~4h on 5m + ~6h on 15m (not 24–72h 1h charts).
   const candles5 = await signalEngine.fetchCandles(opts.symbol, '5m', 48);
-  const candles15 = await signalEngine.fetchCandles(opts.symbol, '15m', 48);
+  const candles15 = await signalEngine.fetchCandles(opts.symbol, '15m', 24);
 
   if (candles15.length < 12 || candles5.length < 12) {
     return {

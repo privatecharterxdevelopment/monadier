@@ -778,7 +778,7 @@ export class SubscriptionService {
           risk_level: settings.riskLevel || 100,
           // Default TP/SL
           take_profit_percent: 5,
-          stop_loss_percent: 0,
+          stop_loss_percent: 1.5,
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'wallet_address,chain_id'

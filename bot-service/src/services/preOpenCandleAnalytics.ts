@@ -1,6 +1,6 @@
 /**
  * Pre-open analytics — read last N closed candles before any HL market open.
- * Blocks trades that fight visible candle structure (wrong side of range, wrong momentum).
+ * Blocks trades that fight visible 1m structure (wrong side of range, wrong momentum).
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
@@ -106,8 +106,6 @@ function buildSummary(
 export async function validatePreOpenCandleAnalytics(opts: {
   coin: string;
   direction: 'LONG' | 'SHORT';
-  /** Standard opens use 5m structure; aggressive uses 1m. */
-  timeframe?: '1m' | '5m';
 }): Promise<PreOpenCandleAnalytics> {
   const cfg = config.hyperliquid.preOpenCandles;
   const fail = (partial: Omit<PreOpenCandleAnalytics, 'ok'>): PreOpenCandleAnalytics => ({
@@ -137,7 +135,7 @@ export async function validatePreOpenCandleAnalytics(opts: {
 
   const coin = opts.coin.toUpperCase();
   const symbol = hlCoinToBinanceSymbol(coin);
-  const tf = opts.timeframe ?? cfg.timeframe;
+  const tf = cfg.timeframe;
   const n = cfg.candleCount;
 
   try {
@@ -185,17 +183,9 @@ export async function validatePreOpenCandleAnalytics(opts: {
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
       if (pos >= cfg.maxRangePositionLong && recent5 < cfg.breakoutRecentMovePct) {
-        const sidewaysGrindLong =
-          pos < 0.68 &&
-          recent5 >= 0 &&
-          net >= -minNet &&
-          (structure === 'up' || structure === 'chop') &&
-          rejH < cfg.maxRejectionsAtLevel;
-        if (!sidewaysGrindLong) {
-          const reason = `Open blocked — ${coin} LONG: price at ${(pos * 100).toFixed(0)}% of ${window.length}-bar range (buy low — wait for pullback)`;
-          logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
-          return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
-        }
+        const reason = `Open blocked — ${coin} LONG: price at ${(pos * 100).toFixed(0)}% of ${window.length}-bar range (buy low — wait for pullback)`;
+        logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
+        return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
       if (rejH >= cfg.maxRejectionsAtLevel && recent5 < minNet) {
         const reason = `Open blocked — ${coin} LONG: ${rejH} rejections at range high in last 8 bars`;
@@ -215,20 +205,9 @@ export async function validatePreOpenCandleAnalytics(opts: {
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
       if (pos <= cfg.maxRangePositionShort && recent5 > -cfg.breakoutRecentMovePct) {
-        const trendContinuationShort =
-          structure === 'down' && net <= -minNet && dir === 'SHORT';
-        const sidewaysGrindShort =
-          !trendContinuationShort &&
-          pos > 0.32 &&
-          recent5 <= 0 &&
-          net <= minNet &&
-          (structure === 'down' || structure === 'chop') &&
-          rejL < cfg.maxRejectionsAtLevel;
-        if (!trendContinuationShort && !sidewaysGrindShort) {
-          const reason = `Open blocked — ${coin} SHORT: price at ${(pos * 100).toFixed(0)}% of ${window.length}-bar range (shorting lows)`;
-          logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
-          return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
-        }
+        const reason = `Open blocked — ${coin} SHORT: price at ${(pos * 100).toFixed(0)}% of ${window.length}-bar range (shorting lows)`;
+        logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
+        return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
       if (rejL >= cfg.maxRejectionsAtLevel && recent5 > -minNet) {
         const reason = `Open blocked — ${coin} SHORT: ${rejL} rejections at range low in last 8 bars`;

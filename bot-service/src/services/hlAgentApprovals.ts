@@ -33,41 +33,19 @@ class HlAgentApprovalService {
     return data as HlAgentApproval | null;
   }
 
-  async isApprovedOnChain(walletAddress: string, expectedAgent: string): Promise<boolean> {
+  async isApproved(walletAddress: string, expectedAgent: string): Promise<boolean> {
     const agents = await fetchHlExtraAgents(walletAddress);
-    return agents.some(
+    const onChain = agents.find(
       (a) =>
         a.address.toLowerCase() === expectedAgent.toLowerCase() && isHlExtraAgentActive(a)
     );
-  }
+    if (onChain) return true;
 
-  /** On-chain HL extraAgents — required to sign trades/closes. */
-  async isApproved(walletAddress: string, expectedAgent: string): Promise<boolean> {
-    return this.isApprovedOnChain(walletAddress, expectedAgent);
-  }
-
-  /** Why agent cannot trade — for API errors. */
-  async describeAgentBlocker(
-    walletAddress: string,
-    expectedAgent: string
-  ): Promise<string | null> {
-    const agents = await fetchHlExtraAgents(walletAddress);
-    const ours = agents.find(
-      (a) => a.address.toLowerCase() === expectedAgent.toLowerCase()
-    );
-    if (ours && isHlExtraAgentActive(ours)) return null;
-    if (ours && !isHlExtraAgentActive(ours)) {
-      const when = new Date(ours.validUntil).toLocaleString();
-      return `HL trading agent expired (${when}) — Bot tab → Approve trading agent once (one signature; closes never need your wallet).`;
-    }
-    if (agents.length === 0) {
-      return 'Could not read HL agent status from Hyperliquid — retrying. Closes do not need your wallet; one-time agent approval only.';
-    }
     const row = await this.getApproval(walletAddress);
-    if (row && row.agent_address.toLowerCase() === expectedAgent.toLowerCase()) {
-      return 'Trading agent not active on Hyperliquid — Bot tab → Approve trading agent once (one signature, not per trade).';
-    }
-    return 'Trading agent not approved — Bot tab → Approve trading agent once, then Start bot.';
+    if (!row) return false;
+    if (row.agent_address.toLowerCase() !== expectedAgent.toLowerCase()) return false;
+    if (row.expires_at && Date.parse(row.expires_at) < Date.now()) return false;
+    return true;
   }
 
   async saveApproval(params: {

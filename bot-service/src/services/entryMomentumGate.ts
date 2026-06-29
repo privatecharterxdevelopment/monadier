@@ -45,45 +45,6 @@ function rangePosition(candles: Candle[]): number {
   return (price - lo) / span;
 }
 
-/** Sideways higher-low drift — bottom already in, slow grind up (not a fresh dip). */
-function isSidewaysGrindLong(
-  rangePos: number,
-  change5mPct: number,
-  change15mPct: number,
-  change1hPct: number,
-  cfg: (typeof config.hyperliquid)['entryMomentum']
-): boolean {
-  return (
-    rangePos >= 0.38 &&
-    rangePos <= cfg.longMaxRangePosition + 0.06 &&
-    change5mPct >= -0.1 &&
-    change5mPct <= cfg.maxChase15mPct &&
-    change15mPct >= -0.15 &&
-    change15mPct <= cfg.maxChase15mPct &&
-    change1hPct >= -cfg.maxCounter1hPct &&
-    change1hPct <= cfg.maxChase1hPct
-  );
-}
-
-function isSidewaysGrindShort(
-  rangePos: number,
-  change5mPct: number,
-  change15mPct: number,
-  change1hPct: number,
-  cfg: (typeof config.hyperliquid)['entryMomentum']
-): boolean {
-  return (
-    rangePos <= 0.62 &&
-    rangePos >= cfg.shortMinRangePosition - 0.06 &&
-    change5mPct <= 0.1 &&
-    change5mPct >= cfg.maxChaseShort15mPct &&
-    change15mPct <= 0.15 &&
-    change15mPct >= cfg.maxChaseShort15mPct &&
-    change1hPct <= cfg.maxCounter1hPct &&
-    change1hPct >= cfg.maxChaseShort1hPct
-  );
-}
-
 export async function validateEntryMomentum(opts: {
   coin: string;
   direction: 'LONG' | 'SHORT';
@@ -133,21 +94,10 @@ export async function validateEntryMomentum(opts: {
       } else if (!bounce5m) {
         const inLowerRange = rangePos <= cfg.longMaxRangePosition;
         const smallDip = change5mPct <= 0 && change5mPct > -0.3;
-        const sidewaysGrind = isSidewaysGrindLong(
-          rangePos,
-          change5mPct,
-          change15mPct,
-          change1hPct,
-          cfg
-        );
         if (inLowerRange && smallDip) {
           momentumAligned = true;
           reason =
             `Dip-buy OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · small 5m dip ${change5mPct.toFixed(2)}% to buy`;
-        } else if (sidewaysGrind) {
-          momentumAligned = true;
-          reason =
-            `Sideways grind OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · higher-low drift (5m ${change5mPct >= 0 ? '+' : ''}${change5mPct.toFixed(2)}%)`;
         } else {
           reason =
             `LONG blocked — ${coin} needs 5m bounce from dip (5m ${change5mPct >= 0 ? '+' : ''}${change5mPct.toFixed(2)}%, range ${(rangePos * 100).toFixed(0)}%)`;
@@ -169,21 +119,10 @@ export async function validateEntryMomentum(opts: {
       } else if (!fade5m) {
         const inUpperRange = rangePos >= cfg.shortMinRangePosition;
         const smallRally = change5mPct >= 0 && change5mPct < 0.3;
-        const sidewaysGrind = isSidewaysGrindShort(
-          rangePos,
-          change5mPct,
-          change15mPct,
-          change1hPct,
-          cfg
-        );
         if (inUpperRange && smallRally) {
           momentumAligned = true;
           reason =
             `Rally-fade OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · small 5m bounce +${change5mPct.toFixed(2)}% to fade`;
-        } else if (sidewaysGrind) {
-          momentumAligned = true;
-          reason =
-            `Sideways grind OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · lower-high drift (5m ${change5mPct >= 0 ? '+' : ''}${change5mPct.toFixed(2)}%)`;
         } else {
           reason =
             `SHORT blocked — ${coin} needs 5m rejection from rally (5m ${change5mPct >= 0 ? '+' : ''}${change5mPct.toFixed(2)}%, range ${(rangePos * 100).toFixed(0)}%)`;

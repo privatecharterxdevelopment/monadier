@@ -445,11 +445,4 @@ export function isCriticalMacroHeadline(text: string): boolean {
   );
 }
 
-/** True when a headline is about this HL coin (ticker or common name). */
-export function coinMentionedInHeadline(headline: string, coin: string): boolean {
-  const upper = coin.toUpperCase();
-  if (new RegExp(`\\b${upper}\\b`, 'i').test(headline)) return true;
-  return Boolean(ASSET_NAME_RE[upper]?.test(headline));
-}
-
 export { CRITICAL_MACRO_RE };
