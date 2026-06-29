@@ -1,6 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import PlatformFeePayModal from '../components/protrade/PlatformFeePayModal';
 import { useTermAuthToast } from '../components/terminal/TermAuthToast';
+import { useAuth } from './AuthContext';
+import { isFeeExemptUser } from '../lib/admin';
 import { usePlatformFees } from '../hooks/usePlatformFees';
 
 type PlatformFeeCtx = {
@@ -10,26 +12,34 @@ type PlatformFeeCtx = {
   successWinCount: number;
   winsUntilBlock: number;
   winsBeforeBlock: number;
+  feesWaived: boolean;
+  botTradingBlocked: boolean;
+  feesDue: boolean;
+  canPayEarly: boolean;
   refresh: () => void;
   openPayModal: () => void;
+};
+
+const EXEMPT_CTX: PlatformFeeCtx = {
+  accruedUsd: 0,
+  opensBlocked: false,
+  withdrawBlocked: false,
+  successWinCount: 0,
+  winsUntilBlock: 20,
+  winsBeforeBlock: 20,
+  feesWaived: true,
+  botTradingBlocked: false,
+  feesDue: false,
+  canPayEarly: false,
+  refresh: () => undefined,
+  openPayModal: () => undefined,
 };
 
 const Ctx = createContext<PlatformFeeCtx | null>(null);
 
 export function usePlatformFeeGate(): PlatformFeeCtx {
   const ctx = useContext(Ctx);
-  if (!ctx) {
-    return {
-      accruedUsd: 0,
-      opensBlocked: false,
-      withdrawBlocked: false,
-      successWinCount: 0,
-      winsUntilBlock: 20,
-      winsBeforeBlock: 20,
-      refresh: () => undefined,
-      openPayModal: () => undefined,
-    };
-  }
+  if (!ctx) return { ...EXEMPT_CTX, feesWaived: false };
   return ctx;
 }
 
@@ -38,42 +48,81 @@ export const PlatformFeeProvider: React.FC<{
   enabled?: boolean;
   children: React.ReactNode;
 }> = ({ wallet, enabled = true, children }) => {
-  const fees = usePlatformFees(wallet, enabled && Boolean(wallet));
+  const { user } = useAuth();
+  const feeExempt = isFeeExemptUser(user?.email, wallet);
+  const fees = usePlatformFees(wallet, enabled && Boolean(wallet) && !feeExempt);
   const { showToast } = useTermAuthToast();
   const [modalOpen, setModalOpen] = useState(false);
   const [autoPrompted, setAutoPrompted] = useState(false);
   const refreshFees = fees.refresh;
 
-  const openPayModal = useCallback(() => setModalOpen(true), []);
+  const feesWaived = feeExempt || fees.feesWaived;
+  const accruedUsd = feeExempt ? 0 : fees.accruedUsd;
+  const opensBlocked = feeExempt ? false : fees.opensBlocked;
+  const withdrawBlocked = feeExempt ? false : fees.withdrawBlocked;
+  const successWinCount = feeExempt ? 0 : fees.successWinCount;
+  const botTradingBlocked = opensBlocked && !feesWaived;
+  const feesDue = botTradingBlocked;
+  const canPayEarly =
+    !feesWaived && accruedUsd > 0.000_001 && !botTradingBlocked;
+
+  const openPayModal = useCallback(() => {
+    if (feeExempt) return;
+    setModalOpen(true);
+  }, [feeExempt]);
 
   const handlePaymentSuccess = useCallback(() => {
-    showToast('Account ready to trade', 3200);
+    showToast('Fees paid — win counter reset to 0/20', 3200);
     void refreshFees();
   }, [showToast, refreshFees]);
 
   useEffect(() => {
-    if (fees.opensBlocked && fees.accruedUsd > 0 && !autoPrompted) {
+    if (feeExempt) {
+      setModalOpen(false);
+      setAutoPrompted(false);
+      return;
+    }
+    if (botTradingBlocked && accruedUsd > 0 && !autoPrompted) {
       setModalOpen(true);
       setAutoPrompted(true);
     }
-    if (!fees.opensBlocked && fees.accruedUsd <= 0) {
+    if (!botTradingBlocked && accruedUsd <= 0) {
       setAutoPrompted(false);
     }
-  }, [fees.opensBlocked, fees.accruedUsd, autoPrompted]);
+  }, [feeExempt, botTradingBlocked, accruedUsd, autoPrompted]);
 
   const value = useMemo<PlatformFeeCtx>(
     () => ({
-      accruedUsd: fees.accruedUsd,
-      opensBlocked: fees.opensBlocked,
-      withdrawBlocked: fees.withdrawBlocked,
-      successWinCount: fees.successWinCount,
+      accruedUsd,
+      opensBlocked,
+      withdrawBlocked,
+      successWinCount,
       winsUntilBlock: fees.winsUntilBlock,
       winsBeforeBlock: fees.winsBeforeBlock,
+      feesWaived,
+      botTradingBlocked,
+      feesDue,
+      canPayEarly,
       refresh: fees.refresh,
       openPayModal,
     }),
-    [fees, openPayModal]
+    [
+      accruedUsd,
+      opensBlocked,
+      withdrawBlocked,
+      successWinCount,
+      fees,
+      feesWaived,
+      botTradingBlocked,
+      feesDue,
+      canPayEarly,
+      openPayModal,
+    ]
   );
+
+  if (feeExempt) {
+    return <Ctx.Provider value={EXEMPT_CTX}>{children}</Ctx.Provider>;
+  }
 
   return (
     <Ctx.Provider value={value}>
