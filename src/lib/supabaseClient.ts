@@ -54,16 +54,42 @@ export const supabase: SupabaseClient = new Proxy({} as SupabaseClient, {
   },
 });
 
-/** Base URL for auth email links — prefer VITE_SITE_URL so redirects match Supabase allowlist. */
-export function getAuthRedirectBase(): string {
-  const configured = import.meta.env.VITE_SITE_URL as string | undefined;
-  if (configured?.startsWith('http')) {
-    return configured.replace(/\/$/, '');
+/** Live deploy origin until monadier.io custom domain + DNS are verified on Vercel. */
+export const FALLBACK_SITE_ORIGIN = 'https://monadier.vercel.app';
+
+function isLocalhostOrigin(url: string): boolean {
+  try {
+    const host = new URL(url).hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+  } catch {
+    return false;
   }
+}
+
+/**
+ * Origin for Supabase auth email links (reset password, confirm email, OAuth).
+ * Production bundles must NEVER send localhost — even if VITE_SITE_URL is missing.
+ */
+export function getAuthRedirectBase(): string {
+  const fromEnv = [
+    import.meta.env.VITE_SITE_URL,
+    import.meta.env.VITE_APP_URL,
+  ].filter((u): u is string => typeof u === 'string' && u.startsWith('http'));
+
+  for (const raw of fromEnv) {
+    const origin = raw.replace(/\/$/, '');
+    if (!isLocalhostOrigin(origin)) return origin;
+  }
+
+  if (import.meta.env.PROD) {
+    return FALLBACK_SITE_ORIGIN;
+  }
+
   if (typeof window !== 'undefined' && window.location?.origin) {
     return window.location.origin;
   }
-  return import.meta.env.PROD ? FALLBACK_SITE_ORIGIN : 'http://localhost:5173';
+
+  return 'http://localhost:5173';
 }
 
 /** Production Supabase project (Monadier). Used when env is missing in local preview. */
