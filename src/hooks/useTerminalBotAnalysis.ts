@@ -10,7 +10,7 @@ import { MIN_HL_BOT_USD } from '../lib/hyperliquid/hlBotAgent';
 import { getBotApiBase, type Timeframe } from '../lib/signalService';
 import { binanceSymbolToHlCoin, hlCoinToBotSymbol, isBotExcludedHlCoin } from '../lib/botTradingPairs';
 import { normalizeHlBotStrategy, type HlBotStrategy } from '../lib/hlBotStrategy';
-import { pickNextScanCandidate } from '../lib/botScanCandidate';
+import { nextPollDelayMs } from '../lib/pollBackoff';
 
 export const ANALYSIS_STEPS = [
   { label: 'Scanning all HL perps', progress: 15 },
@@ -207,9 +207,20 @@ export function useTerminalBotAnalysis({
       setProgress(ANALYSIS_STEPS[0].progress);
       return;
     }
-    const load = async () => {
+    let cancelled = false;
+    let delayMs = 15_000;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const schedule = () => {
+      if (!cancelled) timer = setTimeout(() => void tick(), delayMs);
+    };
+
+    const tick = async () => {
+      if (cancelled) return;
+      let ok = false;
       try {
         const res = await fetch(`${getBotApiBase()}/api/global-signals`);
+        ok = res.ok;
         if (!res.ok) return;
         const data = (await res.json()) as {
           candidates?: GlobalScanCandidate[];
@@ -238,12 +249,17 @@ export function useTerminalBotAnalysis({
             (typeof data.aggressive === 'number' ? data.aggressive : 0)
         );
       } catch {
-        /* bot API offline */
+        ok = false;
+      } finally {
+        delayMs = nextPollDelayMs(delayMs, ok);
+        schedule();
       }
     };
-    void load();
-    const id = setInterval(load, 15000);
-    return () => clearInterval(id);
+    void tick();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, [walletConnected, active, effectiveOpenCoins, botMode]);
 
   useEffect(() => {
@@ -252,11 +268,22 @@ export function useTerminalBotAnalysis({
       setPumpSweepLines([]);
       return;
     }
-    const load = async () => {
+    let cancelled = false;
+    let delayMs = 5_000;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const schedule = () => {
+      if (!cancelled) timer = setTimeout(() => void tick(), delayMs);
+    };
+
+    const tick = async () => {
+      if (cancelled) return;
+      let ok = false;
       try {
         const res = await fetch(
           `${getBotApiBase()}/api/bot-status?wallet=${encodeURIComponent(vaultWallet)}`
         );
+        ok = res.ok;
         if (!res.ok) return;
         const data = (await res.json()) as {
           blockers?: string[];
@@ -329,12 +356,17 @@ export function useTerminalBotAnalysis({
           setRawScanCandidateCount(data.globalScan.rawCandidateCount);
         }
       } catch {
-        /* bot API offline — UI falls back to local readiness */
+        ok = false;
+      } finally {
+        delayMs = nextPollDelayMs(delayMs, ok);
+        schedule();
       }
     };
-    void load();
-    const id = setInterval(load, 5000);
-    return () => clearInterval(id);
+    void tick();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, [vaultWallet, botRunning, vaultUsd]);
 
   const readiness = useMemo(() => {
