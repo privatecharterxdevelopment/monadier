@@ -174,18 +174,20 @@ async function fetchHlPerpFundingSnapshotOnce(
   };
 }
 
-/** Live HL balance for bot gates — retries once when API reads empty but state loaded. */
+/** Live HL balance for bot gates — retries when API reads empty but state loaded. */
 export async function fetchHlPerpFundingSnapshot(
   userAddress: string
 ): Promise<HlPerpFundingSnapshot> {
   let snapshot = await fetchHlPerpFundingSnapshotOnce(userAddress);
-  if (
-    snapshot.stateLoaded &&
-    snapshot.tradablePerpUsd < 0.01 &&
-    snapshot.perpUsd < 0.01 &&
-    snapshot.spotUsdcUsd < 0.01
-  ) {
-    await new Promise((r) => setTimeout(r, 400));
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const needsRetry =
+      !snapshot.stateLoaded ||
+      (snapshot.stateLoaded &&
+        snapshot.tradablePerpUsd < 0.01 &&
+        snapshot.perpUsd < 0.01 &&
+        snapshot.spotUsdcUsd < 0.01);
+    if (!needsRetry) break;
+    await new Promise((r) => setTimeout(r, 350 * (attempt + 1)));
     snapshot = await fetchHlPerpFundingSnapshotOnce(userAddress);
   }
   return snapshot;

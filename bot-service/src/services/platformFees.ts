@@ -159,7 +159,16 @@ export async function getPlatformFeeStatus(walletAddress: string): Promise<Platf
     .eq('wallet_address', wallet)
     .maybeSingle();
 
-  const successWinCount = Number(stateRow?.success_win_count) || 0;
+  const { count: ledgerWinCount } = await supabase
+    .from('hl_fee_ledger')
+    .select('id', { count: 'exact', head: true })
+    .eq('wallet_address', wallet)
+    .gt('gross_profit_usd', 0);
+
+  const successWinCount = Math.max(
+    Number(stateRow?.success_win_count) || 0,
+    ledgerWinCount ?? 0
+  );
   const opensBlocked =
     successWinCount >= PLATFORM_FEE_WINS_BEFORE_BLOCK && accruedUsd > 0.000_001;
   const withdrawBlocked = accruedUsd > 0.000_001;

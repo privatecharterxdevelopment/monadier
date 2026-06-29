@@ -5,7 +5,7 @@ import { useUnifiedSignal } from './useUnifiedSignal';
 import { evaluateBotReadiness, readinessFromServerBlockers } from '../lib/botReadiness';
 import { filterUserBlockers } from '../lib/hyperliquid/builderPlatform';
 import { isBotScanNoiseDetail } from '../lib/hlBotReasonLabels';
-import { HL_MAX_CONCURRENT_POSITIONS, HL_SCAN_ROTATION_COINS, HL_SCAN_UNIVERSE_SIZE } from '../lib/hlBotConstants';
+import { HL_MAX_CONCURRENT_POSITIONS, HL_SCAN_ROTATION_COINS, HL_SCAN_UNIVERSE_SIZE, HL_MIN_SIGNAL_CONFIDENCE } from '../lib/hlBotConstants';
 import { MIN_HL_BOT_USD } from '../lib/hyperliquid/hlBotAgent';
 import { getBotApiBase, type Timeframe } from '../lib/signalService';
 import { binanceSymbolToHlCoin, hlCoinToBotSymbol, isBotExcludedHlCoin } from '../lib/botTradingPairs';
@@ -102,6 +102,8 @@ export function useTerminalBotAnalysis({
   const [serverOpenCoins, setServerOpenCoins] = useState<string[]>([]);
   const [globalScanCount, setGlobalScanCount] = useState(0);
   const [globalCoinsScanned, setGlobalCoinsScanned] = useState(0);
+  const [openUniverseSummary, setOpenUniverseSummary] = useState<string | null>(null);
+  const [rawScanCandidateCount, setRawScanCandidateCount] = useState(0);
   const [pumpSweepLines, setPumpSweepLines] = useState<string[]>([]);
   const [step, setStep] = useState(0);
   const [progress, setProgress] = useState(ANALYSIS_STEPS[0].progress);
@@ -124,6 +126,16 @@ export function useTerminalBotAnalysis({
     [globalCandidates, globalBest, effectiveOpenCoins]
   );
 
+  const scanRotationCoins = useMemo(() => {
+    const fromScan = globalCandidates.map((c) => c.coin.toUpperCase()).filter(Boolean);
+    if (fromScan.length >= 3) return fromScan;
+    const n = globalCoinsScanned > 0 ? globalCoinsScanned : HL_SCAN_UNIVERSE_SIZE;
+    return HL_SCAN_ROTATION_COINS.slice(0, Math.min(n, HL_SCAN_ROTATION_COINS.length));
+  }, [globalCandidates, globalCoinsScanned]);
+
+  const currentlyScanningCoin =
+    scanRotationCoins[step % Math.max(scanRotationCoins.length, 1)] ?? 'BTC';
+
   const chartCoin = binanceSymbolToHlCoin(symbol).toUpperCase();
   const chartIsOpenPair =
     openPositionsCount > 0 && effectiveOpenCoins.includes(chartCoin);
@@ -136,8 +148,11 @@ export function useTerminalBotAnalysis({
     if (slotsLeft && chartIsOpenPair) {
       return null;
     }
+    if (active) {
+      return hlCoinToBotSymbol(currentlyScanningCoin);
+    }
     return symbol;
-  }, [scanCandidate?.coin, slotsLeft, chartIsOpenPair, symbol]);
+  }, [scanCandidate?.coin, slotsLeft, chartIsOpenPair, symbol, active, currentlyScanningCoin]);
 
   const signalEnabled = Boolean(scanSymbol) && walletConnected && active;
 
@@ -203,6 +218,8 @@ export function useTerminalBotAnalysis({
           tradeableCandidates?: GlobalScanCandidate[];
           count?: number;
           coinsScanned?: number;
+          standard?: number;
+          aggressive?: number;
           openUniverse?: { summary?: string };
         };
         const rawList =
@@ -215,6 +232,11 @@ export function useTerminalBotAnalysis({
         setGlobalBest(next);
         setGlobalScanCount(typeof data.count === 'number' ? data.count : list.length);
         setGlobalCoinsScanned(typeof data.coinsScanned === 'number' ? data.coinsScanned : 0);
+        setOpenUniverseSummary(data.openUniverse?.summary ?? null);
+        setRawScanCandidateCount(
+          (typeof data.standard === 'number' ? data.standard : 0) +
+            (typeof data.aggressive === 'number' ? data.aggressive : 0)
+        );
       } catch {
         /* bot API offline */
       }
@@ -300,6 +322,12 @@ export function useTerminalBotAnalysis({
         if (typeof data.globalScan?.candidateCount === 'number') {
           setGlobalScanCount(data.globalScan.candidateCount);
         }
+        if (data.globalScan?.openUniverse?.summary) {
+          setOpenUniverseSummary(data.globalScan.openUniverse.summary);
+        }
+        if (typeof data.globalScan?.rawCandidateCount === 'number') {
+          setRawScanCandidateCount(data.globalScan.rawCandidateCount);
+        }
       } catch {
         /* bot API offline — UI falls back to local readiness */
       }
@@ -324,7 +352,26 @@ export function useTerminalBotAnalysis({
         detail: 'Press Start bot to trade on these signals.',
       };
     }
-    if (serverBlockers.length === 0) return local;
+    if (serverBlockers.length === 0) {
+      if (
+        botRunning &&
+        globalScanCount === 0 &&
+        globalCoinsScanned > 0 &&
+        !scanCandidate
+      ) {
+        const regime = openUniverseSummary?.trim();
+        const rawHint =
+          rawScanCandidateCount === 0
+            ? `Scanned ${globalCoinsScanned} HL perps — no pair meets ${HL_MIN_SIGNAL_CONFIDENCE}%+ MTF right now`
+            : `Scanned ${globalCoinsScanned} HL perps — macro filters removed all ${rawScanCandidateCount} raw setup(s)`;
+        return {
+          canEnter: false,
+          headline: 'No tradeable setup',
+          detail: regime ? `${rawHint}. ${regime}` : rawHint,
+        };
+      }
+      return local;
+    }
     const server = readinessFromServerBlockers(serverBlockers);
     if (local.canEnter && server.detail) {
       return {
@@ -342,19 +389,13 @@ export function useTerminalBotAnalysis({
     vaultUsd,
     serverBlockers,
     scanCandidate,
+    globalScanCount,
+    globalCoinsScanned,
+    openUniverseSummary,
+    rawScanCandidateCount,
   ]);
 
   const slotsFull = openPositionsCount >= serverMaxSlots;
-
-  const scanRotationCoins = useMemo(() => {
-    const fromScan = globalCandidates.map((c) => c.coin.toUpperCase()).filter(Boolean);
-    if (fromScan.length >= 3) return fromScan;
-    const n = globalCoinsScanned > 0 ? globalCoinsScanned : HL_SCAN_UNIVERSE_SIZE;
-    return HL_SCAN_ROTATION_COINS.slice(0, Math.min(n, HL_SCAN_ROTATION_COINS.length));
-  }, [globalCandidates, globalCoinsScanned]);
-
-  const currentlyScanningCoin =
-    scanRotationCoins[step % Math.max(scanRotationCoins.length, 1)] ?? 'BTC';
 
   const displaySymbol = useMemo(() => {
     if (scanCandidate?.coin) return hlCoinToBotSymbol(scanCandidate.coin);

@@ -83,7 +83,13 @@ export function readinessFromServerBlockers(blockers: string[]): BotReadiness {
     .filter((b) => USER_SETUP_BLOCKER.test(b))
     .map((b) => formatBlocker(b))
     .filter(Boolean);
-  const detail = [...new Set(actionable)].join(' · ');
+  const unique = [...new Set(actionable)];
+  const hasAgentBlocker = unique.some((b) => /trading agent/i.test(b));
+  const detail = (
+    hasAgentBlocker
+      ? unique.filter((b) => !/Checking your Hyperliquid balance|retrying/i.test(b))
+      : unique
+  ).join(' · ');
   return {
     canEnter: false,
     headline: detail ? 'Setup needed' : 'Scanning markets',
