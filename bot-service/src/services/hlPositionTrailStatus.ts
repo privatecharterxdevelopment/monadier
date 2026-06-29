@@ -7,8 +7,10 @@ import {
   profitLockStage1RoePct,
   resolveProfitTrailLockRoe,
   shouldArmProfitTrail,
+  shouldCloseProfitTrailInGreen,
   shouldUpgradeToFullTrail,
   stopPxForRoePct,
+  type DynamicTrailRecord,
   type TrailPhase,
 } from './dynamicTrailingStop';
 
@@ -102,7 +104,14 @@ export async function getHlPositionTrailSnapshots(
         ? ratchetStop(direction, rec?.currentTrailStop ?? null, candidateStop)
         : null;
     const wouldCloseNow =
-      armed && stopPx != null && isTrailStopCrossed(direction, markPx, stopPx);
+      armed &&
+      rec != null &&
+      shouldCloseProfitTrailInGreen(rec as DynamicTrailRecord, {
+        pnlUsd: currentPnlUsd,
+        collateralUsd: collateral,
+        direction,
+        markPrice: markPx,
+      });
 
     out.push({
       coin,

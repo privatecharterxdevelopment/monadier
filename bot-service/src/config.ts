@@ -118,14 +118,14 @@ export const config = {
     minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
     /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
     dynamicTrail: {
-      /** Stage 1 — arm breakeven lock at +1% ROE. */
-      breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 1),
-      /** Stage 1 — lock near entry (+0.05% ROE floor). */
-      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 0.05),
-      /** Trail ratchets at peak ROE minus this gap (default 0.5%). */
-      trailGapRoePct: Number(process.env.HL_TRAIL_GAP_ROE_PCT || 0.5),
-      /** Stage 2 — ratchet peak − gap when peak ROE ≥ +2%. */
-      fullTrailArmRoePct: Number(process.env.HL_TRAIL_FULL_ARM_ROE_PCT || 2),
+      /** Arm profit trail at +0.6% ROE — lock gains early. */
+      breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 0.6),
+      /** Floor lock ROE once trail is armed. */
+      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 0.08),
+      /** Ratchet gap from peak ROE (default 0.35%). */
+      trailGapRoePct: Number(process.env.HL_TRAIL_GAP_ROE_PCT || 0.35),
+      /** Full ratchet from first arm (was stage 2 only). */
+      fullTrailArmRoePct: Number(process.env.HL_TRAIL_FULL_ARM_ROE_PCT || 0.6),
       /** No wait — arm as soon as ROE + USD peaks pass thresholds. */
       armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 0),
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),

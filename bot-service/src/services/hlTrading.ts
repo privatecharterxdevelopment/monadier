@@ -1645,13 +1645,13 @@ export class HyperliquidTradingService {
         return { success: false, error: 'Bot does not close in red (profitOnlyExits)' };
       }
 
-      if (reason === 'trailing_stop' && pnlUsd < 0) {
-        logger.info('HL profit trail rejected — refuses to close in red', {
+      if (reason === 'trailing_stop' && pnlUsd <= 0) {
+        logger.info('HL profit trail rejected — only closes in profit', {
           user: userAddress.slice(0, 10),
           coin: coinUpper,
           pnlUsd: pnlUsd.toFixed(4),
         });
-        return { success: false, error: 'Profit trail does not close in red' };
+        return { success: false, error: 'Profit trail only closes in green' };
       }
 
       if (reason === 'take_profit' && pnlUsd <= 0) {
