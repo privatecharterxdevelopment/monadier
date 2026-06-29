@@ -131,6 +131,8 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
         openPositionsCount,
         maxConcurrentPositions,
         pumpSweepLines,
+        signal,
+        scanningCoin: activeSymbol,
       }),
     [
       globalBest,
@@ -139,6 +141,8 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
       openPositionsCount,
       maxConcurrentPositions,
       pumpSweepLines,
+      signal,
+      activeSymbol,
     ]
   );
 

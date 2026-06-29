@@ -1,5 +1,6 @@
 import type { BotReadiness } from './botReadiness';
 import { isBotScanNoiseDetail, sanitizeBotScanReason } from './hlBotReasonLabels';
+import type { UnifiedSignal } from './signalService';
 
 type GlobalBest = {
   coin: string;
@@ -14,9 +15,17 @@ type WhyLineInput = {
   hasTfConflict: boolean;
   openPositionsCount: number;
   maxConcurrentPositions: number;
-  /** BTC/ETH pump apex + turnaround lines from bot-status. */
   pumpSweepLines?: string[];
+  signal?: UnifiedSignal | null;
+  scanningCoin?: string;
 };
+
+function formatTfSummary(signal: UnifiedSignal | null | undefined): string | null {
+  if (!signal?.timeframes?.length) return null;
+  return signal.timeframes
+    .map((tf) => `${tf.timeframe} ${tf.direction} ${Math.round(tf.confidence)}%`)
+    .join(' · ');
+}
 
 /** Primary analyzer subline — same copy as the chart analyzer strip. */
 export function resolveBotAnalysisWhyLine({
@@ -25,6 +34,8 @@ export function resolveBotAnalysisWhyLine({
   hasTfConflict,
   openPositionsCount,
   maxConcurrentPositions,
+  signal,
+  scanningCoin,
 }: WhyLineInput): string | null {
   if (globalBest?.reason?.trim()) {
     const conf = Math.round(globalBest.confidence);
@@ -39,8 +50,16 @@ export function resolveBotAnalysisWhyLine({
   }
   const detail = readiness?.detail?.trim();
   if (detail && !isBotScanNoiseDetail(detail)) return detail;
+  const tfSummary = formatTfSummary(signal);
   if (hasTfConflict) {
+    const pair = scanningCoin ?? globalBest?.coin ?? 'This pair';
+    if (tfSummary) {
+      return `${pair}: ${tfSummary} — timeframes disagree; bot scans all HL perps for an aligned setup`;
+    }
     return 'Chart timeframes on this pair disagree — bot still scans all HL perps for an aligned setup elsewhere.';
+  }
+  if (tfSummary && scanningCoin) {
+    return `Checking ${scanningCoin}: ${tfSummary}`;
   }
   return null;
 }
@@ -78,6 +97,13 @@ export function collectBotScanInsightLines(input: WhyLineInput): string[] {
     !detail?.includes(headline)
   ) {
     lines.push(headline);
+  }
+
+  const tfSummary = formatTfSummary(input.signal);
+  if (tfSummary && !lines.some((l) => l.includes(tfSummary))) {
+    const coin = input.scanningCoin ?? input.globalBest?.coin;
+    const tfLine = coin ? `${coin} MTF: ${tfSummary}` : `MTF: ${tfSummary}`;
+    if (!lines.includes(tfLine)) lines.push(tfLine);
   }
 
   for (const sweep of input.pumpSweepLines ?? []) {

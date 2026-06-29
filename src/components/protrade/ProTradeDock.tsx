@@ -43,6 +43,8 @@ import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
 import { normalizeHlPerpCoin } from '../../lib/botTradingPairs';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { usePlatformFees } from '../../hooks/usePlatformFees';
+import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
+import ProTradeBotScanInsights from './ProTradeBotScanInsights';
 
 const PLATFORM_FEE_BPS = 1000;
 function platformFeeFromPnl(closedPnl: string | number): number {
@@ -170,6 +172,7 @@ const ProTradeDock: React.FC<Props> = ({
   const managedCoins = botManagedCoins ?? new Set<string>();
   const positionOpenSinceRef = useRef<Map<string, number>>(new Map());
   const dockWallet = walletAddress?.toLowerCase();
+  const platformFees = usePlatformFeeGate();
   const platformFeeLedger = usePlatformFees(dockWallet, Boolean(dockWallet));
   const { snapshot: hlSnap } = useHlAccountSnapshot(dockWallet);
   const unifiedAccount = hlSnap?.unifiedAccount ?? false;
@@ -554,13 +557,32 @@ const ProTradeDock: React.FC<Props> = ({
                 })}
               </tbody>
             </table>
+          ) : isBotMode && platformFees.botTradingBlocked ? (
+            <div className="hl-dock-empty hl-dock-empty--bot-scan" role="status">
+              <span className="hl-dock-bot-scan-title">Bot fees due</span>
+              <p className="hl-dock-bot-scan-sub">
+                Pay {fmtUsdSymbol(platformFees.accruedUsd)} to resume bot trading and market analysis (
+                {platformFees.successWinCount}/{platformFees.winsBeforeBlock} wins).
+              </p>
+            </div>
           ) : isBotMode && botRunning && !botNeedsDeposit ? (
             <div className="hl-dock-empty hl-dock-empty--bot-scan" role="status">
               <div className="hl-dock-bot-scan-row">
                 <Loader2 size={14} className="hl-dock-bot-scan-loader animate-spin" aria-hidden />
                 <span className="hl-dock-bot-scan-title">Bot is reading market…</span>
               </div>
-              <p className="hl-dock-bot-scan-sub">Scanning markets.</p>
+              {botScanMetrics ? (
+                <ProTradeBotScanInsights
+                  walletConnected={Boolean(walletAddress)}
+                  metrics={botScanMetrics}
+                  vaultWallet={botScanWallet ?? walletAddress ?? null}
+                  symbol={botScanSymbol}
+                  openPositionCoins={botOpenPositionCoins}
+                  botRunning={botRunning}
+                />
+              ) : (
+                <p className="hl-dock-bot-scan-sub">Loading analyzer…</p>
+              )}
             </div>
           ) : (
             <p className="hl-dock-empty">

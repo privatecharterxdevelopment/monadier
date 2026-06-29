@@ -87,8 +87,7 @@ export function isBotScanNoiseDetail(detail: string): boolean {
     /short-window/i.test(d) ||
     /Fri \d{1,2}:00 MES/i.test(d) ||
     /SHORT only/i.test(d) ||
-    / ‖ /.test(d) ||
-    /15m \+?\d|1h \+?\d/i.test(d)
+    / ‖ /.test(d)
   );
 }
 
