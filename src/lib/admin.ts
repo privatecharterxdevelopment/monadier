@@ -24,3 +24,22 @@ export function isAdminEmail(email: string | undefined | null): boolean {
   if (!email) return false;
   return getAdminEmails().includes(email.toLowerCase());
 }
+
+/** Wallets with unlimited bot access — no platform fees or fee gates (keep in sync with platform_fee_waivers). */
+export const FEE_EXEMPT_WALLETS = [
+  '0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c',
+] as const;
+
+export function isFeeExemptWallet(wallet: string | undefined | null): boolean {
+  if (!wallet) return false;
+  const w = wallet.trim().toLowerCase();
+  return FEE_EXEMPT_WALLETS.some((a) => a === w);
+}
+
+/** Admin email or exempt wallet — skip all platform fee UI, gates, and bot blockers. */
+export function isFeeExemptUser(
+  email: string | undefined | null,
+  wallet?: string | undefined | null
+): boolean {
+  return isAdminEmail(email) || isFeeExemptWallet(wallet);
+}

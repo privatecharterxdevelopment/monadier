@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { pickNextScanCandidate } from '../lib/botScanCandidate';
+import { isFeeExemptWallet } from '../lib/admin';
 import { filterUserBlockers } from '../lib/hyperliquid/builderPlatform';
 import { isBotScanNoiseDetail } from '../lib/hlBotReasonLabels';
 import { getBotApiBase } from '../lib/signalService';
@@ -71,7 +72,8 @@ export function useBotServerBlockers(wallet: string | undefined, enabled: boolea
           blockers: filterUserBlockers(
             (Array.isArray(data.blockers) ? data.blockers : []).filter(
               (b) => !isBotScanNoiseDetail(b)
-            )
+            ),
+            { exemptFromFees: isFeeExemptWallet(wallet) }
           ),
           maxConcurrentPositions: maxConcurrent,
           openCoins,

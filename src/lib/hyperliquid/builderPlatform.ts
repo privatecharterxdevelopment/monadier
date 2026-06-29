@@ -37,8 +37,26 @@ export function isInternalPlatformOpsMessage(text: string): boolean {
   return INTERNAL_PLATFORM_OPS.some((re) => re.test(t));
 }
 
-export function filterUserBlockers(blockers: string[]): string[] {
-  return blockers.filter((b) => b.trim() && !isInternalPlatformOpsMessage(b));
+export function isPlatformFeeUserBlocker(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  return (
+    /PLATFORM_FEES_DUE/i.test(t) ||
+    /pay [\d.]+ USDC after \d+ winning closes/i.test(t) ||
+    /platform fees due/i.test(t)
+  );
+}
+
+export function filterUserBlockers(
+  blockers: string[],
+  opts?: { exemptFromFees?: boolean }
+): string[] {
+  return blockers.filter((b) => {
+    const t = b.trim();
+    if (!t || isInternalPlatformOpsMessage(t)) return false;
+    if (opts?.exemptFromFees && isPlatformFeeUserBlocker(t)) return false;
+    return true;
+  });
 }
 
 /** Strip internal platform ops copy; return empty when nothing user-safe remains. */

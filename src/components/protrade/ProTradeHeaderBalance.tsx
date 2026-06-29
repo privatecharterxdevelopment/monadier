@@ -174,7 +174,9 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
     section === 'bot' ? 'Open bot positions' : 'Open manual perp positions';
 
   const feesOwed = platformFees.accruedUsd;
-  const showFees = feesOwed > 0 || platformFees.successWinCount > 0;
+  const showFees =
+    !platformFees.feesWaived && (feesOwed > 0 || platformFees.successWinCount > 0);
+  const feeGateActive = platformFees.opensBlocked;
 
   return (
     <div className="hl-topnav-betting-balance" aria-label="Hyperliquid balance">
@@ -182,9 +184,13 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
       {showFees ? (
         <button
           type="button"
-          className={`hl-topnav-bet-stat hl-topnav-bet-stat--btn${feesOwed > 0 ? ' hl-topnav-bet-stat--fee-due' : ''}`}
-          title="Platform fees on winning closes"
-          onClick={platformFees.openPayModal}
+          className={`hl-topnav-bet-stat hl-topnav-bet-stat--btn${feeGateActive ? ' hl-topnav-bet-stat--fee-due' : ''}`}
+          title={
+            feeGateActive
+              ? 'Pay platform fees to continue bot trading'
+              : 'Platform fees on winning closes — pay early to reset the win counter'
+          }
+          onClick={feesOwed > 0 ? platformFees.openPayModal : undefined}
         >
           <span className="hl-topnav-bet-label">Bot fees</span>
           <strong>{fmtUsdSymbol(feesOwed)}</strong>

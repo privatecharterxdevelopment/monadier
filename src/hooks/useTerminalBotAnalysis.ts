@@ -4,6 +4,8 @@ import { ARBITRUM_ONE_CHAIN_ID } from '../lib/usdcArbitrum';
 import { useUnifiedSignal } from './useUnifiedSignal';
 import { evaluateBotReadiness, readinessFromServerBlockers } from '../lib/botReadiness';
 import { filterUserBlockers } from '../lib/hyperliquid/builderPlatform';
+import { isFeeExemptUser } from '../lib/admin';
+import { useAuth } from '../contexts/AuthContext';
 import { isBotScanNoiseDetail } from '../lib/hlBotReasonLabels';
 import { HL_MAX_CONCURRENT_POSITIONS, HL_SCAN_ROTATION_COINS, HL_SCAN_UNIVERSE_SIZE, HL_MIN_SIGNAL_CONFIDENCE } from '../lib/hlBotConstants';
 import { MIN_HL_BOT_USD } from '../lib/hyperliquid/hlBotAgent';
@@ -94,6 +96,8 @@ export function useTerminalBotAnalysis({
   botRunning = false,
   hlBotStrategy = 'standard',
 }: Options) {
+  const { user } = useAuth();
+  const feeExempt = isFeeExemptUser(user?.email, vaultWallet);
   const botMode = normalizeHlBotStrategy(hlBotStrategy ?? 'standard');
   const [dbAnalysis, setDbAnalysis] = useState<DbAnalysis | null>(null);
   const [serverBlockers, setServerBlockers] = useState<string[]>([]);
@@ -337,7 +341,7 @@ export function useTerminalBotAnalysis({
             );
           }
         }
-        setServerBlockers(filterUserBlockers(blockers));
+        setServerBlockers(filterUserBlockers(blockers, { exemptFromFees: feeExempt }));
         setPumpSweepLines(
           Array.isArray(data.pumpSweep?.lines)
             ? data.pumpSweep.lines.filter((line) => typeof line === 'string' && line.trim())
@@ -368,7 +372,7 @@ export function useTerminalBotAnalysis({
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [vaultWallet, botRunning, vaultUsd]);
+  }, [vaultWallet, botRunning, vaultUsd, feeExempt]);
 
   const readiness = useMemo(() => {
     const local = evaluateBotReadiness(signal, {
