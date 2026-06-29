@@ -117,8 +117,11 @@ export function useHlBotSetup(walletAddress: string | undefined) {
 
       balance = accountUsdRef.current;
 
-      setAgentApproved(agentCheck.approved);
-      setAgentExpiresAt(agentCheck.expiresAt);
+      if (agentCheck.loaded) {
+        setAgentApproved(agentCheck.approved);
+        setAgentExpiresAt(agentCheck.expiresAt);
+        metaRef.current.agentApproved = agentCheck.approved;
+      }
       setAgentAddress(agentMeta.agentAddress ?? null);
 
       const builderConfig = getHlBuilderConfig();
@@ -136,7 +139,9 @@ export function useHlBotSetup(walletAddress: string | undefined) {
       setBuilderFeeApproved(builderOk);
 
       metaRef.current = {
-        agentApproved: agentCheck.approved,
+        agentApproved: agentCheck.loaded
+          ? agentCheck.approved
+          : metaRef.current.agentApproved,
         builderFeeEnabled: builderConfig.enabled,
         builderPlatformReady: platform.ready,
         builderFeeApproved: builderOk,
@@ -146,7 +151,7 @@ export function useHlBotSetup(walletAddress: string | undefined) {
         setPhase(
           computePhase(
             tradableUsdRef.current,
-            agentCheck.approved,
+            metaRef.current.agentApproved,
             builderConfig.enabled,
             platform.ready,
             builderOk,

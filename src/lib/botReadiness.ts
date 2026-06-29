@@ -22,6 +22,9 @@ function formatBlocker(blocker: string): string {
   if (/HL agent not approved/i.test(blocker)) {
     return 'Approve the trading agent in the Bot panel';
   }
+  if (/HL balance check failed/i.test(blocker)) {
+    return 'Checking your Hyperliquid balance — retrying…';
+  }
   if (/HL balance/i.test(blocker)) {
     return blocker.replace(/HL balance/i, 'HL balance');
   }
@@ -72,9 +75,6 @@ function formatBlocker(blocker: string): string {
   if (/Perp margin \$|HL perp balance/i.test(blocker)) {
     return blocker;
   }
-  if (/HL balance check failed/i.test(blocker)) {
-    return 'Checking your Hyperliquid balance — retrying…';
-  }
   return blocker;
 }
 
@@ -87,7 +87,10 @@ export function readinessFromServerBlockers(blockers: string[]): BotReadiness {
   const hasAgentBlocker = unique.some((b) => /trading agent/i.test(b));
   const detail = (
     hasAgentBlocker
-      ? unique.filter((b) => !/Checking your Hyperliquid balance|retrying/i.test(b))
+      ? unique.filter(
+          (b) =>
+            !/Checking your Hyperliquid balance|HL balance check failed|retrying/i.test(b)
+        )
       : unique
   ).join(' · ');
   return {

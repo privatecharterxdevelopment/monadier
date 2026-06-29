@@ -540,11 +540,11 @@ const healthServer = http.createServer(async (req, res) => {
           `PLATFORM_FEES_DUE — pay ${feeSummary.accruedUsd.toFixed(2)} USDC after ${feeSummary.successWinCount} winning closes`
         );
       }
-      const balanceBlocker = describeHlPerpBalanceBlocker(
-        hlFunding,
-        config.hyperliquid.minAccountUsd
-      );
-      if (balanceBlocker) {
+      const balanceBlocker =
+        hlAgentOk || hlFunding.stateLoaded
+          ? describeHlPerpBalanceBlocker(hlFunding, config.hyperliquid.minAccountUsd)
+          : null;
+      if (balanceBlocker && (hlAgentOk || !/HL balance check failed/i.test(balanceBlocker))) {
         blockers.push(balanceBlocker);
       }
       const maxPositions = config.hyperliquid.maxConcurrentPositions;

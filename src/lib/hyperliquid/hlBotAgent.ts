@@ -311,18 +311,13 @@ export async function checkHlBotAgentApproved(
         return { approved: true, expiresAt, loaded: true };
       }
       const result = await resolveHlAgentApproval(wallet, agentAddress);
-      return { ...result, loaded: true };
+      return { approved: result.approved, expiresAt: result.expiresAt, loaded: true };
     }
 
-    const fallback = await resolveHlAgentApproval(wallet, null);
-    return { ...fallback, loaded: true };
+    // Without the bot API agent address we cannot trust DB-only approval.
+    return { approved: false, expiresAt: null, loaded: false };
   } catch {
-    try {
-      const fallback = await resolveHlAgentApproval(wallet, null);
-      return { ...fallback, loaded: true };
-    } catch {
-      return { approved: false, expiresAt: null, loaded: false };
-    }
+    return { approved: false, expiresAt: null, loaded: false };
   }
 }
 
