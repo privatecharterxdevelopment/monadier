@@ -106,7 +106,8 @@ export const config = {
     /** 0 = user disabled TP. */
     defaultTakeProfitPercent: Number(process.env.HL_DEFAULT_TP_PERCENT || 0),
     /** 0 = user disabled SL in DB — do NOT override with default in monitor. */
-    defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 4),
+    /** 0 = off until user sets SL% in bot settings or position stop editor. */
+    defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 0),
     defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 2),
     /** Min uPnL before any profit exit (legacy — dynamic trail uses ROE/fees arm). */
     minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
@@ -293,9 +294,9 @@ export const config = {
       minDirectionalTfs: Number(process.env.HL_CAUTIOUS_MIN_TFS || 2),
       minTrendAlignment: Number(process.env.HL_CAUTIOUS_MIN_ALIGN || 55),
     },
-    /** Loss exits — SL% from user settings always enforced; thesis/signal loss optional. */
+    /** Loss exits — SL% only when user set stop_loss_percent > 0; thesis/signal loss optional. */
     lossProtection: {
-      enforceHardCap: process.env.HL_LOSS_CAP_ENFORCE !== 'false',
+      enforceHardCap: process.env.HL_LOSS_CAP_ENFORCE === 'true',
       closeOnThesisBreak: process.env.HL_LOSS_THESIS_CLOSE === 'true',
     },
     /** Skip pair (LONG + SHORT) after a fat pump — mass alts retest highs. */

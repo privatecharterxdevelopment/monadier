@@ -17,4 +17,4 @@ export const HL_SCAN_ROTATION_COINS = [
 export const HL_BOT_CYCLE_SEC = 1;
 
 /** Keep in sync with bot-service `HL_DEFAULT_STOP_LOSS_PERCENT` / config defaultStopLossPercent. */
-export const HL_DEFAULT_STOP_LOSS_PERCENT = 4;
+export const HL_DEFAULT_STOP_LOSS_PERCENT = 0;

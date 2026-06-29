@@ -98,10 +98,14 @@ const hlLastCloseAt = new Map<string, number>();
 let fastPositionMonitorRunning = false;
 
 /**
- * Profit-only mode (default): hold losers until green — no tight stop or MTF flip exit.
- * Opt-in via env: HL_LOSS_THESIS_CLOSE (signal_reversal). SL% from user settings always closes when enforceHardCap (default on).
+ * Profit-only mode (default): hold losers — no auto loss close unless user set SL% > 0.
+ * Opt-in via env: HL_LOSS_THESIS_CLOSE (signal_reversal), HL_LOSS_CAP_ENFORCE (force SL% for all).
  */
-function mayAutoCloseInRed(reason: string, holdMs = 0): boolean {
+function mayAutoCloseInRed(
+  reason: string,
+  holdMs = 0,
+  opts?: { userStopLossPct?: number }
+): boolean {
   const cfg = config.hyperliquid;
   if (reason === 'emergency_close' || reason === 'manual') return true;
   // Breakeven / trail exits — always honor once armed (even scratch red beats holding a loser).
@@ -114,14 +118,8 @@ function mayAutoCloseInRed(reason: string, holdMs = 0): boolean {
   ) {
     return true;
   }
-  if (reason === 'stop_loss' && cfg.lossProtection.enforceHardCap) return true;
-  const maxSlMs = cfg.dynamicTrail.maxHoldBeforeSlTrailMs;
-  if (
-    holdMs >= maxSlMs &&
-    (reason === 'stop_loss' || reason === 'trailing_stop')
-  ) {
-    return true;
-  }
+  const userSl = opts?.userStopLossPct ?? 0;
+  if (reason === 'stop_loss' && userSl > 0) return true;
   if (!cfg.profitOnlyExits) {
     return reason === 'stop_loss' || reason === 'signal_reversal' || reason === 'trailing_stop';
   }
@@ -1405,6 +1403,7 @@ export class HyperliquidTradingService {
         size,
         leverage: pos.leverage?.value ?? 10,
         holdMs,
+        userStopLossPct: settings.stopLossPercent,
       };
 
       if (shouldCloseTrail) {
@@ -1434,7 +1433,8 @@ export class HyperliquidTradingService {
 
       const slPct = settings.stopLossPercent;
       if (
-        mayAutoCloseInRed('stop_loss', holdMs) &&
+        slPct > 0 &&
+        mayAutoCloseInRed('stop_loss', holdMs, { userStopLossPct: slPct }) &&
         shouldHardLossClose(pnl, collateralEst, slPct)
       ) {
         const capUsd = computeMaxLossCapUsd(collateralEst, slPct);
@@ -1557,6 +1557,7 @@ export class HyperliquidTradingService {
       size: number;
       leverage: number;
       holdMs?: number;
+      userStopLossPct?: number;
     },
     reasonDetail?: string
   ): Promise<{
@@ -1592,7 +1593,9 @@ export class HyperliquidTradingService {
         config.hyperliquid.profitOnlyExits &&
         pnlUsd < 0 &&
         reason !== 'manual' &&
-        !mayAutoCloseInRed(reason, closeCtx?.holdMs ?? 0)
+        !mayAutoCloseInRed(reason, closeCtx?.holdMs ?? 0, {
+          userStopLossPct: closeCtx?.userStopLossPct,
+        })
       ) {
         logger.warn('HL close rejected — never close in red', {
           user: userAddress.slice(0, 10),

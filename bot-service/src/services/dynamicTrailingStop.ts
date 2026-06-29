@@ -435,49 +435,7 @@ export async function evaluateDynamicTrail(
 
   // (removed duplicate trailing block below)
 
-  // —— Loss SL trail after max hold while red ——
-  if (rec.phase === 'idle' && input.totalHoldMs >= cfg.maxHoldBeforeSlTrailMs) {
-    if (input.pnlUsd <= 0 && input.stopLossPct > 0) {
-      const lossStop = lossStopPricePx(
-        input.direction,
-        input.entryPrice,
-        input.absSize,
-        input.collateralUsd,
-        input.stopLossPct
-      );
-      rec.phase = 'armed';
-      rec.lossSlArmed = true;
-      rec.trailArmedAt = input.nowMs;
-      rec.currentTrailStop = lossStop;
-      rec.estimatedFeesUsd = feesUsd;
-      logger.info('HL loss SL armed (max hold)', {
-        coin: input.coin,
-        slPct: input.stopLossPct,
-        pnlUsd: input.pnlUsd.toFixed(4),
-      });
-      return { record: rec, ...noClose };
-    }
-  }
-
-  if (rec.phase === 'armed' && rec.lossSlArmed && rec.currentTrailStop != null) {
-    const trailDist = await resolveTrailDistancePx(input.coin, input.markPrice);
-    rec.lastTrailDistancePx = trailDist;
-    const candidate =
-      input.direction === 'LONG'
-        ? rec.highestPriceSinceEntry - trailDist
-        : rec.highestPriceSinceEntry + trailDist;
-    rec.currentTrailStop = ratchetStop(input.direction, rec.currentTrailStop, candidate);
-
-    if (isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop)) {
-      return {
-        record: rec,
-        shouldClose: true,
-        exitReason: 'stop_loss',
-        closeDetail: `LOSS SL · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`,
-      };
-    }
-    return { record: rec, ...noClose };
-  }
+  // Loss SL trail while red — disabled in profit-only mode (user must set SL% explicitly).
 
   // Fell back below arm threshold while never armed — stay idle
   if (

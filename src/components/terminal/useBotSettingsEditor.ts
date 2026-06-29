@@ -195,7 +195,7 @@ export function useBotSettingsEditor({
           riskPct: riskLevel,
           leverage: savedLeverage,
           takeProfit: takeProfit,
-          stopLoss: stopLoss > 0 ? stopLoss : HL_DEFAULT_STOP_LOSS_PERCENT,
+          stopLoss: stopLoss > 0 ? stopLoss : 0,
           askPermission,
           minWinRate,
           minTradesForWinRate,
