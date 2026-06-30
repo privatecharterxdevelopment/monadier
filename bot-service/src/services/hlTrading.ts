@@ -44,6 +44,10 @@ import { validateMacroBetaAlignment } from './macroBetaGate';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, isBotExcludedCoin, MAJOR_COINS, needsCautionPath, volumeRankForCoin } from './coinTier';
+import {
+  assessHigherTfShortBias,
+  evaluateShortWithHigherTfBias,
+} from './higherTfShortBias';
 import { validateCoinNews } from './coinNewsGate';
 import type { NewsTradeMode } from './newsTradeMode';
 import { trustsScanAnalysis, weekendOpenBlocked } from './analysisFirstOpen';
@@ -1088,13 +1092,13 @@ export class HyperliquidTradingService {
       }
 
       const pumpShortGate =
-        trustAnalysis || opts.direction === 'LONG'
+        opts.direction === 'LONG' || MAJOR_COINS.has(coin)
           ? {
               ok: true as const,
               reason:
                 opts.direction === 'LONG'
                   ? 'Pump-short gate — LONG entries allowed'
-                  : `Scan MTF ${opts.pick.confidence}% — pump-short re-check skipped`,
+                  : `${coin} major — pump-short gate skipped`,
             }
           : await validateNoAltPumpShort({
               coin,
@@ -1108,6 +1112,22 @@ export class HyperliquidTradingService {
           reason: pumpShortGate.reason,
         });
         return { success: false, error: pumpShortGate.reason };
+      }
+
+      if (opts.direction === 'SHORT' && !MAJOR_COINS.has(coin)) {
+        const bias = await assessHigherTfShortBias(coin);
+        const minShortConf = needsCautionPath(coinTier)
+          ? config.hyperliquid.cautiousScan.minSignalConfidence
+          : config.hyperliquid.minSignalConfidence;
+        const htf = evaluateShortWithHigherTfBias(opts.pick.confidence, minShortConf, bias);
+        if (!htf.ok) {
+          logger.info('HL open blocked — 4h/24h SHORT bias (live)', {
+            user: opts.userAddress.slice(0, 10),
+            coin,
+            reason: htf.reason,
+          });
+          return { success: false, error: htf.reason };
+        }
       }
 
       const megaGate =

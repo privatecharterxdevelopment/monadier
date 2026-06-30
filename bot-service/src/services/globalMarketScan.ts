@@ -8,10 +8,14 @@ import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { sortGlobalSignals } from './marketRegime';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { mtfOverridesTrendOnlyFilter } from './analysisFirstOpen';
-import { classifyCoinTier, isBotExcludedCoin, needsCautionPath } from './coinTier';
+import { classifyCoinTier, isBotExcludedCoin, MAJOR_COINS, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
 import { validateEntryLocation } from './entryLocationGate';
+import {
+  assessHigherTfShortBias,
+  evaluateShortWithHigherTfBias,
+} from './higherTfShortBias';
 
 export type BotSignalMode = 'standard' | 'aggressive';
 
@@ -185,15 +189,29 @@ async function scanStandardCoin(
         return null;
       }
     }
+
+    let signalConfidence = analysis.confidence;
+    let macroReason: string | undefined;
+    if (analysis.direction === 'SHORT' && !MAJOR_COINS.has(coin.toUpperCase())) {
+      const bias = await assessHigherTfShortBias(coin);
+      const htf = evaluateShortWithHigherTfBias(signalConfidence, minConf, bias);
+      if (!htf.ok) {
+        logger.debug('HL scan skip: 4h/24h SHORT bias', { coin, reason: htf.reason });
+        return null;
+      }
+      signalConfidence = htf.adjustedConfidence;
+      macroReason = htf.reason;
+    }
+
     const location = await validateScanEntryLocation(coin, symbol, analysis.direction);
     if (!location.ok) return null;
     return {
       coin,
       symbol,
       direction: analysis.direction,
-      confidence: analysis.confidence,
+      confidence: signalConfidence,
       reason: relaxed
-        ? `${analysis.reason} · top-pairs fallback (${analysis.confidence}% / ${analysis.metrics?.directionalTfCount} TFs)`
+        ? `${analysis.reason} · top-pairs fallback (${signalConfidence}% / ${analysis.metrics?.directionalTfCount} TFs)`
         : analysis.reason,
       dayVolumeUsd: liq.dayVolumeUsd,
       openInterestUsd: liq.openInterestUsd,
@@ -205,6 +223,7 @@ async function scanStandardCoin(
       signalReasons: analysis.signalReasons,
       indicators: analysis.indicators,
       locationReason: location.locationReason || undefined,
+      macroReason,
     };
   } catch {
     return null;
@@ -263,11 +282,24 @@ async function scanAggressiveCoin(
     const location = await validateScanEntryLocation(coin, symbol, scalp.direction);
     if (!location.ok) return null;
 
+    let signalConfidence = scalp.confidence;
+    let macroReason: string | undefined;
+    if (scalp.direction === 'SHORT' && !MAJOR_COINS.has(coin.toUpperCase())) {
+      const bias = await assessHigherTfShortBias(coin);
+      const htf = evaluateShortWithHigherTfBias(signalConfidence, minConf, bias);
+      if (!htf.ok) {
+        logger.debug('HL agg scan skip: 4h/24h SHORT bias', { coin, reason: htf.reason });
+        return null;
+      }
+      signalConfidence = htf.adjustedConfidence;
+      macroReason = htf.reason;
+    }
+
     return {
       coin,
       symbol,
       direction: scalp.direction,
-      confidence: scalp.confidence,
+      confidence: signalConfidence,
       reason: scalp.reason,
       dayVolumeUsd: liq.dayVolumeUsd,
       openInterestUsd: liq.openInterestUsd,
@@ -282,6 +314,7 @@ async function scanAggressiveCoin(
       ],
       indicators: h1Check?.indicators,
       locationReason: location.locationReason || undefined,
+      macroReason,
     };
   } catch {
     return null;

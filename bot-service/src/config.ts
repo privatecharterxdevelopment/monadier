@@ -252,6 +252,17 @@ export const config = {
       /** SHORT rally-fade: price must be in upper X of 1h range unless breakdown. */
       shortMinRangePosition: Number(process.env.HL_ENTRY_SHORT_MIN_RANGE || 0.32),
     },
+    /** Alt SHORT — soft 4h/24h bias (penalty in macro UP, bonus in macro DOWN; never hard-ban). */
+    higherTfShort: {
+      enabled: process.env.HL_HIGHER_TF_SHORT_BIAS !== 'false',
+      strongUp4hPct: Number(process.env.HL_HTF_SHORT_UP_4H || 2.5),
+      strongDown4hPct: Number(process.env.HL_HTF_SHORT_DOWN_4H || -2.5),
+      strongUp24hPct: Number(process.env.HL_HTF_SHORT_UP_24H || 6),
+      strongDown24hPct: Number(process.env.HL_HTF_SHORT_DOWN_24H || -6),
+      shortConfPenaltyStrongUp: Number(process.env.HL_HTF_SHORT_PENALTY || 10),
+      shortMinConfBumpStrongUp: Number(process.env.HL_HTF_SHORT_MIN_BUMP || 8),
+      shortConfBonusStrongDown: Number(process.env.HL_HTF_SHORT_BONUS || 5),
+    },
     /** Alts — never SHORT into a fresh pump / higher-TF rally. */
     pumpShort: {
       block1hPct: Number(process.env.HL_PUMP_SHORT_BLOCK_1H || 0.15),
