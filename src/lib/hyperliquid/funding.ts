@@ -10,6 +10,8 @@ export type HlFundingSnapshot = {
   spotUsdcUsd: number;
   /** USDC available for perp trading — includes spot on unified / portfolio margin. */
   tradablePerpUsd: number;
+  /** Total account equity for min-deposit gates — not free margin alone. */
+  accountEquityUsd: number;
   unifiedAccount: boolean;
   withdrawableUsd: number;
   totalUsd: number;
@@ -33,7 +35,12 @@ export function normalizeHlUserAbstraction(raw: unknown): HlUserAbstraction | nu
 }
 
 export function isHlUnifiedMargin(mode: HlUserAbstraction | null | undefined): boolean {
-  return mode === 'unifiedAccount' || mode === 'portfolioMargin' || mode === 'default';
+  return (
+    mode === 'unifiedAccount' ||
+    mode === 'portfolioMargin' ||
+    mode === 'default' ||
+    mode === 'dexAbstraction'
+  );
 }
 
 export function inferHlUnifiedMargin(
@@ -42,8 +49,18 @@ export function inferHlUnifiedMargin(
   abstraction: HlUserAbstraction | null
 ): boolean {
   if (isHlUnifiedMargin(abstraction)) return true;
-  if (perpUsd >= 0.01 || spotUsdcUsd < 1) return false;
+  if (spotUsdcUsd >= 1 && spotUsdcUsd > perpUsd + 1) return true;
+  if (perpUsd >= 0.01 && spotUsdcUsd < 1) return false;
   return abstraction == null;
+}
+
+export function hlTotalAccountEquityUsd(
+  perpUsd: number,
+  spotUsdcUsd: number,
+  unifiedAccount: boolean
+): number {
+  const combined = unifiedAccount ? Math.max(perpUsd, spotUsdcUsd) : perpUsd + spotUsdcUsd;
+  return Math.max(combined, perpUsd);
 }
 
 export function hlTradablePerpUsd(
@@ -77,15 +94,17 @@ async function fetchHlFundingSnapshotOnce(wallet: string): Promise<HlFundingSnap
   );
   const unifiedAccount = inferHlUnifiedMargin(perpUsd, spotUsdcUsd, abstraction);
   const tradablePerpUsd = hlTradablePerpUsd(perpUsd, spotUsdcUsd, unifiedAccount);
+  const accountEquityUsd = hlTotalAccountEquityUsd(perpUsd, spotUsdcUsd, unifiedAccount);
   const perpWithdrawable = toNum(account?.withdrawable);
   const withdrawableUsd = unifiedAccount
     ? Math.max(perpWithdrawable, spotUsdcUsd)
     : perpWithdrawable;
-  const totalUsd = unifiedAccount ? tradablePerpUsd : perpUsd + spotUsdcUsd;
+  const totalUsd = accountEquityUsd;
   return {
     perpUsd,
     spotUsdcUsd,
     tradablePerpUsd,
+    accountEquityUsd,
     unifiedAccount,
     withdrawableUsd,
     totalUsd,
@@ -116,6 +135,7 @@ export async function fetchHlFundingSnapshot(
       perpUsd: 0,
       spotUsdcUsd: 0,
       tradablePerpUsd: 0,
+      accountEquityUsd: 0,
       unifiedAccount: false,
       withdrawableUsd: 0,
       totalUsd: 0,

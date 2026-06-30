@@ -721,7 +721,7 @@ export class HyperliquidTradingService {
       }
 
       const slotsLeft = maxPositions - coinsOpen.length;
-      const balance = funding.tradablePerpUsd;
+      const balance = funding.accountEquityUsd;
       const freeMargin = hlTradableFreeMarginUsd(funding, stateRef);
       const collateral = resolveMarginPerSlot(
         balance,

@@ -497,7 +497,7 @@ const healthServer = http.createServer(async (req, res) => {
 
       const hlState = await fetchHlClearinghouseState(userAddress);
       const hlFunding = await fetchHlPerpFundingSnapshot(userAddress);
-      const hlBalanceUsd = hlFunding.tradablePerpUsd;
+      const hlBalanceUsd = hlFunding.accountEquityUsd;
       const hlWithdrawable = hlFunding.withdrawableUsd;
       const hlFreeMargin = hlTradableFreeMarginUsd(hlFunding, hlState);
       const hlAgentAddr = deriveUserHlAgentAddress(userAddress);
@@ -633,6 +633,7 @@ const healthServer = http.createServer(async (req, res) => {
         hyperliquid: {
           balanceUsd: hlBalanceUsd,
           perpUsd: hlFunding.perpUsd,
+          accountEquityUsd: hlFunding.accountEquityUsd,
           tradablePerpUsd: hlFunding.tradablePerpUsd,
           spotUsdcUsd: hlFunding.spotUsdcUsd,
           unifiedAccount: hlFunding.unifiedAccount,

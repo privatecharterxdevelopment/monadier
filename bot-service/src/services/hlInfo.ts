@@ -6,6 +6,10 @@ export type HlClearinghouseState = {
     accountValue?: string;
     totalMarginUsed?: string;
   };
+  crossMarginSummary?: {
+    accountValue?: string;
+    totalMarginUsed?: string;
+  };
   withdrawable?: string;
   assetPositions?: Array<{
     position?: {
@@ -43,7 +47,12 @@ export function normalizeHlUserAbstraction(raw: unknown): HlUserAbstraction | nu
 
 /** Unified + portfolio margin + HL default mode (new accounts). */
 export function isHlUnifiedMargin(mode: HlUserAbstraction | null | undefined): boolean {
-  return mode === 'unifiedAccount' || mode === 'portfolioMargin' || mode === 'default';
+  return (
+    mode === 'unifiedAccount' ||
+    mode === 'portfolioMargin' ||
+    mode === 'default' ||
+    mode === 'dexAbstraction'
+  );
 }
 
 /** Unified/PM accounts often report $0 perp summary while USDC sits in spot. */
@@ -53,7 +62,9 @@ export function inferHlUnifiedMargin(
   abstraction: HlUserAbstraction | null
 ): boolean {
   if (isHlUnifiedMargin(abstraction)) return true;
-  if (perpUsd >= 0.01 || spotUsdcUsd < 1) return false;
+  // Spot holds most USDC — perp marginSummary alone is not the account total.
+  if (spotUsdcUsd >= 1 && spotUsdcUsd > perpUsd + 1) return true;
+  if (perpUsd >= 0.01 && spotUsdcUsd < 1) return false;
   return abstraction == null;
 }
 
@@ -136,10 +147,29 @@ export type HlPerpFundingSnapshot = {
   perpUsd: number;
   spotUsdcUsd: number;
   tradablePerpUsd: number;
+  /** Total account equity for min-deposit gates — not free margin for the next slot. */
+  accountEquityUsd: number;
   unifiedAccount: boolean;
   withdrawableUsd: number;
   stateLoaded: boolean;
 };
+
+export function hlCrossAccountValueUsd(state: HlClearinghouseState | null): number {
+  const raw = state?.crossMarginSummary?.accountValue;
+  const n = raw != null ? Number(raw) : 0;
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/** Total HL equity for min-account checks (perp + spot + cross summary). */
+export function hlTotalAccountEquityUsd(
+  perpUsd: number,
+  spotUsdcUsd: number,
+  unifiedAccount: boolean,
+  crossAccountValueUsd: number
+): number {
+  const combined = unifiedAccount ? Math.max(perpUsd, spotUsdcUsd) : perpUsd + spotUsdcUsd;
+  return Math.max(combined, crossAccountValueUsd, perpUsd);
+}
 
 export function hlTradablePerpUsd(
   perpUsd: number,
@@ -159,13 +189,21 @@ async function fetchHlPerpFundingSnapshotOnce(
     fetchHlUserAbstraction(userAddress),
   ]);
   const perpUsd = hlAccountValueUsd(state);
+  const crossUsd = hlCrossAccountValueUsd(state);
   const unifiedAccount = inferHlUnifiedMargin(perpUsd, spotUsdcUsd, abstraction);
   const tradablePerpUsd = hlTradablePerpUsd(perpUsd, spotUsdcUsd, unifiedAccount);
+  const accountEquityUsd = hlTotalAccountEquityUsd(
+    perpUsd,
+    spotUsdcUsd,
+    unifiedAccount,
+    crossUsd
+  );
   const perpWithdrawable = hlWithdrawableUsd(state);
   return {
     perpUsd,
     spotUsdcUsd,
     tradablePerpUsd,
+    accountEquityUsd,
     unifiedAccount,
     withdrawableUsd: unifiedAccount
       ? Math.max(perpWithdrawable, spotUsdcUsd)
@@ -193,15 +231,16 @@ export async function fetchHlPerpFundingSnapshot(
   return snapshot;
 }
 
-/** User-facing reason when tradable perp balance is below min. */
+/** User-facing reason when total account equity is below min (not free margin alone). */
 export function describeHlPerpBalanceBlocker(
   funding: HlPerpFundingSnapshot,
   minUsd: number
 ): string | null {
-  if (!funding.stateLoaded && funding.tradablePerpUsd < minUsd) {
+  const equityUsd = funding.accountEquityUsd;
+  if (!funding.stateLoaded && equityUsd < minUsd) {
     return 'HL balance check failed — retrying Hyperliquid account read';
   }
-  if (funding.tradablePerpUsd >= minUsd) return null;
+  if (equityUsd >= minUsd) return null;
 
   if (!funding.unifiedAccount && funding.spotUsdcUsd >= minUsd) {
     return `Perp margin $${funding.perpUsd.toFixed(2)} — you have $${funding.spotUsdcUsd.toFixed(2)} USDC on HL Spot; transfer to Perps in Funds tab (bot trades perps only)`;
@@ -212,13 +251,19 @@ export function describeHlPerpBalanceBlocker(
     return `Perp margin $${funding.perpUsd.toFixed(2)} + spot $${funding.spotUsdcUsd.toFixed(2)} — move USDC to Perps to trade (min $${minUsd})`;
   }
 
-  return `HL perp balance $${funding.tradablePerpUsd.toFixed(2)} (min $${minUsd})`;
+  return `HL account equity $${equityUsd.toFixed(2)} (min $${minUsd}) — free margin $${funding.withdrawableUsd.toFixed(2)}`;
 }
 
 export function hlAccountValueUsd(state: HlClearinghouseState | null): number {
-  const raw = state?.marginSummary?.accountValue;
-  const n = raw != null ? Number(raw) : 0;
-  return Number.isFinite(n) ? n : 0;
+  const margin = state?.marginSummary?.accountValue;
+  const cross = state?.crossMarginSummary?.accountValue;
+  const marginN = margin != null ? Number(margin) : 0;
+  const crossN = cross != null ? Number(cross) : 0;
+  const best = Math.max(
+    Number.isFinite(marginN) ? marginN : 0,
+    Number.isFinite(crossN) ? crossN : 0
+  );
+  return best;
 }
 
 export function hlWithdrawableUsd(state: HlClearinghouseState | null): number {

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { TrendingUp, UserPlus, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useLandingScrollSequence } from './useLandingScrollSequence';
 
@@ -250,6 +251,7 @@ const LandingSleepEarningsSection: React.FC = () => {
                         ease: NOTIF_EASE,
                       }}
                     >
+                      <TrendingUp size={16} strokeWidth={2.25} aria-hidden />
                       {t(`landing.sleepEarnings.pills.${key}`)}
                     </motion.span>
                   ))}
@@ -265,6 +267,7 @@ const LandingSleepEarningsSection: React.FC = () => {
                     }}
                   >
                     <Link to="/register" className="landing-sleep-pill-register-link">
+                      <UserPlus size={16} strokeWidth={2.25} aria-hidden />
                       {t('landing.sleepEarnings.registerCta')}
                     </Link>
                   </motion.div>
@@ -281,6 +284,7 @@ const LandingSleepEarningsSection: React.FC = () => {
                   >
                     <Link to="/how-it-works" className="landing-sleep-pill-rainbow-link">
                       {t('nav.howItWorks')}
+                      <ArrowRight size={16} strokeWidth={2.25} aria-hidden />
                     </Link>
                   </motion.div>
                 </motion.div>

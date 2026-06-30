@@ -1,8 +1,13 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { goToOpenApp } from '../../lib/appUrls';
 import { useLandingScrollSequence } from './useLandingScrollSequence';
+
+const PITCH_LINE_IN_MS = 720;
+const PITCH_CTA_FADE_MS = 550;
+const PITCH_VIDEO_WEBM = '/videos/pitch-money-bg.webm';
+const PITCH_VIDEO_MP4 = '/videos/pitch-money-bg.mp4';
 
 type PitchPart = {
   text: string;
@@ -33,15 +38,60 @@ const LandingBotPitchSection: React.FC = () => {
     return pitchLinesRaw as PitchPart[][];
   }, [pitchLinesRaw]);
   const lastStep = Math.max(0, pitchLines.length - 1);
+  const releaseBlockedRef = useRef(false);
+  const pitchVideoRef = useRef<HTMLVideoElement>(null);
+  const [mp4BlendFallback, setMp4BlendFallback] = useState(false);
+  const [ctaRevealed, setCtaRevealed] = useState(false);
+  const [ctaFadeDone, setCtaFadeDone] = useState(false);
 
   const { sectionRef, stepIndex, locked, unlocked } = useLandingScrollSequence({
     lockId: 'pitch',
     mode: 'step',
     stepCount: Math.max(1, pitchLines.length),
-    releaseInPlace: true,
+    releaseAnchorId: 'landing-faq-title',
+    releaseBlockedRef,
   });
 
+  const onLastStep = stepIndex === lastStep;
+
+  useEffect(() => {
+    const probe = document.createElement('video');
+    const canWebmVp9 = probe.canPlayType('video/webm; codecs="vp9"');
+    setMp4BlendFallback(canWebmVp9 !== 'probably' && canWebmVp9 !== 'maybe');
+  }, []);
+
+  useEffect(() => {
+    if (!onLastStep) {
+      setCtaRevealed(false);
+      setCtaFadeDone(false);
+      return undefined;
+    }
+
+    const revealTimer = window.setTimeout(() => setCtaRevealed(true), PITCH_LINE_IN_MS);
+    return () => window.clearTimeout(revealTimer);
+  }, [onLastStep, stepIndex]);
+
+  useEffect(() => {
+    if (!ctaRevealed) {
+      setCtaFadeDone(false);
+      return undefined;
+    }
+
+    const fadeTimer = window.setTimeout(() => setCtaFadeDone(true), PITCH_CTA_FADE_MS);
+    return () => window.clearTimeout(fadeTimer);
+  }, [ctaRevealed]);
+
+  useEffect(() => {
+    const video = pitchVideoRef.current;
+    if (!video) return;
+
+    void video.play().catch(() => {});
+  }, [locked, stepIndex, mp4BlendFallback]);
+
+  releaseBlockedRef.current = onLastStep && !ctaFadeDone && !unlocked;
+
   const activeLine = pitchLines[stepIndex] ?? pitchLines[0] ?? [];
+  const showCtaVisible = onLastStep && (ctaRevealed || unlocked);
 
   return (
     <section
@@ -49,17 +99,38 @@ const LandingBotPitchSection: React.FC = () => {
       ref={sectionRef}
       className={`landing-gmx-bot-pitch-section${
         locked ? ' landing-gmx-scroll-sequence--locked' : ''
-      }${unlocked ? ' landing-gmx-bot-pitch-section--unlocked' : ''}`}
+      }${unlocked ? ' landing-gmx-bot-pitch-section--unlocked' : ''} landing-gmx-bot-pitch-section--with-video${
+        onLastStep ? ' landing-gmx-bot-pitch-section--final' : ''
+      }`}
       aria-label="Trading bot highlights"
     >
       <div className="landing-gmx-bot-pitch-sticky">
+        <div className="landing-gmx-bot-pitch-video-wrap landing-gmx-bot-pitch-video-wrap--visible" aria-hidden>
+          <video
+            ref={pitchVideoRef}
+            className={`landing-gmx-bot-pitch-video${
+              mp4BlendFallback ? ' landing-gmx-bot-pitch-video--blend-fallback' : ''
+            }`}
+            muted
+            loop
+            playsInline
+            preload="auto"
+          >
+            <source src={PITCH_VIDEO_WEBM} type="video/webm" />
+            <source src={PITCH_VIDEO_MP4} type="video/mp4" />
+          </video>
+        </div>
         <div className="landing-gmx-pitch-stage">
           <div className="landing-gmx-bot-pitch-lines" aria-live="polite">
             <PitchLine key={stepIndex} parts={activeLine} />
           </div>
 
-          {stepIndex === lastStep ? (
-            <div className="landing-gmx-bot-pitch-cta-wrap landing-gmx-bot-pitch-cta-wrap--visible">
+          {onLastStep ? (
+            <div
+              className={`landing-gmx-bot-pitch-cta-wrap${
+                showCtaVisible ? ' landing-gmx-bot-pitch-cta-wrap--visible' : ''
+              }`}
+            >
               <div className="landing-gmx-bot-pitch-cta-group" role="group" aria-label={t('common.getStarted')}>
                 <button
                   type="button"

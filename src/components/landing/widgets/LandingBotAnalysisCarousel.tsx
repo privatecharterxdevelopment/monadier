@@ -180,31 +180,37 @@ const LandingBotAnalysisCarousel: React.FC = () => {
         </div>
 
         <div
+          key={scan.coin + scan.pos}
           className={`landing-bot-analysis-body${fade ? ' landing-bot-analysis-body--in' : ' landing-bot-analysis-body--out'}`}
         >
           <div className="landing-bot-analyzer-tabs" role="tablist" aria-label="Bot scan fields">
             <div className="landing-bot-analyzer-tab" role="tab" aria-selected="true">
               <span className="landing-bot-analyzer-tab-label">Scan</span>
-              <span className="landing-bot-analyzer-tab-value">
+              <span className="landing-bot-analyzer-tab-value landing-bot-analyzer-tab-value--scan">
                 <Activity size={10} className="term-analysis-pulse" aria-hidden />
-                {scan.coin}
+                <span className="landing-bot-analyzer-tab-main">{scan.coin}</span>
                 <span className="landing-bot-analyzer-tab-meta">{scan.pos}/{SCAN_TOTAL}</span>
                 <span className="landing-bot-analyzer-tab-meta">{scan.progress}%</span>
               </span>
             </div>
             <div className="landing-bot-analyzer-tab" role="tab">
               <span className="landing-bot-analyzer-tab-label">Signal</span>
-              <span className={`landing-bot-analyzer-tab-value ${signalClass}`}>
+              <span className={`landing-bot-analyzer-tab-value landing-bot-analyzer-tab-value--single ${signalClass}`}>
                 {scan.direction} {scan.confidence}%
               </span>
             </div>
             <div className="landing-bot-analyzer-tab" role="tab">
               <span className="landing-bot-analyzer-tab-label">Pair</span>
-              <span className="landing-bot-analyzer-tab-value">{scan.coin}</span>
+              <span className="landing-bot-analyzer-tab-value landing-bot-analyzer-tab-value--single">
+                {scan.coin}
+              </span>
             </div>
             <div className="landing-bot-analyzer-tab landing-bot-analyzer-tab--tf" role="tab">
               <span className="landing-bot-analyzer-tab-label">TF</span>
-              <span className="landing-bot-analyzer-tab-value landing-bot-analyzer-tab-value--muted">
+              <span
+                className="landing-bot-analyzer-tab-value landing-bot-analyzer-tab-value--muted"
+                title={scan.tfSummary}
+              >
                 {scan.tfSummary}
               </span>
             </div>

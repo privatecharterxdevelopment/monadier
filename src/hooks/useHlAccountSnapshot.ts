@@ -65,14 +65,14 @@ async function pollOnce(wallet: string, fresh = false): Promise<void> {
       updatedAt: Date.now(),
     };
     const nextInterval =
-      funding.tradablePerpUsd < MIN_HL_BOT_USD ? 5_000 : 15_000;
+      funding.accountEquityUsd < MIN_HL_BOT_USD ? 5_000 : 15_000;
     if (nextInterval !== pollIntervalMs) {
       pollIntervalMs = nextInterval;
       if (pollTimer && activeWallet === wallet) {
         stopPoll();
         pollTimer = setInterval(() => {
           if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-          void pollOnce(wallet, funding.tradablePerpUsd < MIN_HL_BOT_USD);
+          void pollOnce(wallet, funding.accountEquityUsd < MIN_HL_BOT_USD);
         }, pollIntervalMs);
       }
     }
@@ -103,7 +103,7 @@ function startPoll(wallet: string): void {
   void pollOnce(wallet, true);
   pollTimer = setInterval(() => {
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-    void pollOnce(wallet, snapshot != null && snapshot.tradablePerpUsd < MIN_HL_BOT_USD);
+    void pollOnce(wallet, snapshot != null && snapshot.totalUsd < MIN_HL_BOT_USD);
   }, pollIntervalMs);
 }
 

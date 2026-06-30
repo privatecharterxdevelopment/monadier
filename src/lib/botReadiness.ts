@@ -107,7 +107,7 @@ function formatBlocker(blocker: string): string {
       return `HL balance $${m[1]} — need $${m[2]}+ on Hyperliquid to trade`;
     }
   }
-  if (/Perp margin \$|HL perp balance/i.test(blocker)) {
+  if (/Perp margin \$|HL perp balance|HL account equity/i.test(blocker)) {
     return blocker;
   }
   return blocker;

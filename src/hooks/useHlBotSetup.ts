@@ -64,7 +64,7 @@ export function useHlBotSetup(walletAddress: string | undefined) {
     if (!hlSnap) return;
     hasSnapshotRef.current = true;
     accountUsdRef.current = hlSnap.totalUsd;
-    tradableUsdRef.current = hlSnap.tradablePerpUsd;
+    tradableUsdRef.current = hlSnap.totalUsd;
     setAccountUsd(hlSnap.totalUsd);
     setWithdrawableUsd(hlSnap.withdrawableUsd);
     setTotalMarginUsedUsd(hlSnap.totalMarginUsedUsd);
@@ -72,7 +72,7 @@ export function useHlBotSetup(walletAddress: string | undefined) {
     setHlLoaded(true);
     setPhase(
       computePhase(
-        hlSnap.tradablePerpUsd,
+        hlSnap.totalUsd,
         metaRef.current.agentApproved,
         metaRef.current.builderFeeEnabled,
         metaRef.current.builderPlatformReady,
