@@ -564,12 +564,11 @@
   }
 
   .legal-doc-sections {
-    @apply space-y-7 mb-10;
+    @apply space-y-8 mb-10;
   }
 
   .legal-doc-section {
-    @apply rounded-2xl border border-[#c5c5cb] bg-white/70 backdrop-blur-xl px-6 py-6 sm:px-7 sm:py-7;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    @apply pt-8 border-t border-[#e4e4e7]/60 first:border-t-0 first:pt-0;
   }
 
   .legal-doc-section-title {
@@ -604,16 +603,43 @@
     @apply text-[#0a0a0a] underline underline-offset-2 hover:text-[#52525b] transition-colors;
   }
 
+  .legal-doc-contact-card {
+    @apply rounded-2xl border border-[#e4e4e7] bg-white px-6 py-7 sm:px-8 sm:py-8 mb-8;
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.05),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  }
+
+  .legal-doc-contact-card-title {
+    @apply font-display text-base sm:text-lg font-semibold mb-3 text-[#0a0a0a];
+  }
+
+  .legal-doc-contact-card-body {
+    @apply text-sm text-[#52525b] leading-relaxed space-y-2;
+  }
+
+  .legal-doc-contact-card-footer {
+    @apply pt-6 mt-6 border-t border-[#ececef];
+  }
+
+  .legal-doc-contact-card-footer--solo {
+    @apply pt-0 mt-0 border-t-0;
+  }
+
   .legal-doc-footer {
-    @apply text-sm text-[#71717a] mb-6;
+    @apply text-sm text-[#71717a] mb-4;
   }
 
   .legal-doc-nav {
-    @apply flex flex-wrap items-center gap-x-4 gap-y-2 text-sm pb-8;
+    @apply flex flex-wrap items-center gap-x-4 gap-y-2 text-sm;
   }
 
   .legal-doc-back {
-    @apply inline-flex items-center text-[#0a0a0a] font-medium hover:underline;
+    @apply inline-flex items-center rounded-full border border-[#e4e4e7] bg-[#fafafa] px-4 py-2 text-[#0a0a0a] text-sm font-medium transition-colors hover:bg-[#f4f4f5];
+  }
+
+  .legal-doc-nav .legal-doc-link {
+    @apply inline-flex items-center rounded-full border border-transparent px-4 py-2 text-sm font-medium text-[#52525b] no-underline transition-colors hover:border-[#e4e4e7] hover:bg-[#fafafa] hover:text-[#0a0a0a];
   }
 
   .glass-step {

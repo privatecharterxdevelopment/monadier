@@ -17,6 +17,10 @@ type Props = {
   backLabel?: string;
 };
 
+function isContactSection(section: LegalSection): boolean {
+  return /contact/i.test(section.title.replace(/^\d+\.\s*/, '').trim());
+}
+
 const LegalDocumentLayout: React.FC<Props> = ({
   title,
   updated,
@@ -25,8 +29,13 @@ const LegalDocumentLayout: React.FC<Props> = ({
   backHref = '/register',
   backLabel = 'Back to registration',
 }) => {
+  const lastSection = sections[sections.length - 1];
+  const contactSection =
+    lastSection && isContactSection(lastSection) ? lastSection : null;
+  const mainSections = contactSection ? sections.slice(0, -1) : sections;
+
   return (
-    <MarketingPageLayout narrow>
+    <MarketingPageLayout inner legal>
       <article className="legal-doc">
         <p className="legal-doc-eyebrow">Legal</p>
         <h1 className="legal-doc-title">{title}</h1>
@@ -34,7 +43,7 @@ const LegalDocumentLayout: React.FC<Props> = ({
         <p className="legal-doc-intro">{intro}</p>
 
         <div className="legal-doc-sections">
-          {sections.map((section) => (
+          {mainSections.map((section) => (
             <section key={section.title} className="legal-doc-section">
               <h2 className="legal-doc-section-title">{section.title}</h2>
               <div className="legal-doc-section-body">{section.body}</div>
@@ -42,28 +51,45 @@ const LegalDocumentLayout: React.FC<Props> = ({
           ))}
         </div>
 
-        <p className="legal-doc-footer">
-          Questions? Contact{' '}
-          <a href={`mailto:${SUPPORT_EMAIL}`} className="legal-doc-link">
-            {SUPPORT_EMAIL}
-          </a>
-          .
-        </p>
+        <aside className="legal-doc-contact-card" aria-label="Contact and links">
+          {contactSection ? (
+            <div className="legal-doc-contact-card-main">
+              <h2 className="legal-doc-contact-card-title">{contactSection.title}</h2>
+              <div className="legal-doc-contact-card-body">{contactSection.body}</div>
+            </div>
+          ) : null}
 
-        <div className="legal-doc-nav">
-          <Link to={backHref} className="legal-doc-back">
-            {backLabel}
-          </Link>
-          {title.includes('Terms') ? (
-            <Link to="/privacy" className="legal-doc-link">
-              Privacy Policy
-            </Link>
-          ) : (
-            <Link to="/terms" className="legal-doc-link">
-              Terms of Service
-            </Link>
-          )}
-        </div>
+          <div
+            className={
+              contactSection
+                ? 'legal-doc-contact-card-footer'
+                : 'legal-doc-contact-card-footer legal-doc-contact-card-footer--solo'
+            }
+          >
+            <p className="legal-doc-footer">
+              Questions? Contact{' '}
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="legal-doc-link">
+                {SUPPORT_EMAIL}
+              </a>
+              .
+            </p>
+
+            <div className="legal-doc-nav">
+              <Link to={backHref} className="legal-doc-back">
+                {backLabel}
+              </Link>
+              {title.includes('Terms') ? (
+                <Link to="/privacy" className="legal-doc-link">
+                  Privacy Policy
+                </Link>
+              ) : (
+                <Link to="/terms" className="legal-doc-link">
+                  Terms of Service
+                </Link>
+              )}
+            </div>
+          </div>
+        </aside>
       </article>
     </MarketingPageLayout>
   );

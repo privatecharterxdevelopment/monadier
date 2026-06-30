@@ -752,10 +752,12 @@ export const HYPERGAIN_TERMS_SECTIONS: LegalSection[] = [
           </a>
         )}
         {p(
-          `${BRAND_NAME} · `,
-          BRAND_DOMAIN,
-          ' · ',
-          BRAND_APP_URL
+          <>
+            {BRAND_NAME} · {BRAND_DOMAIN} ·{' '}
+            <a href={BRAND_APP_URL} className="legal-doc-link" target="_blank" rel="noopener noreferrer">
+              {BRAND_APP_URL}
+            </a>
+          </>
         )}
       </>
     ),

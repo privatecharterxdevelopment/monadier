@@ -153,6 +153,7 @@ export async function resetPlatformFeeCycle(wallet: string): Promise<void> {
     {
       wallet_address: wallet,
       success_win_count: 0,
+      fee_due_email_sent_at: null,
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'wallet_address' }
@@ -641,6 +642,15 @@ export async function recordProfitableClose(input: ProfitableCloseInput): Promis
     let successWinCount = 0;
     if (input.source === 'bot' && ledgerStatus === 'accrued') {
       successWinCount = await syncSuccessWinCount(wallet);
+      if (successWinCount >= PLATFORM_FEE_WINS_BEFORE_BLOCK) {
+        const { maybeSendPlatformFeeDueEmail } = await import('./platformFeeDueEmail');
+        void maybeSendPlatformFeeDueEmail(wallet).catch((err) => {
+          logger.warn('platform fee due email failed', {
+            wallet: wallet.slice(0, 10),
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+      }
     }
 
     logger.info('platform fee recorded', {

@@ -12,10 +12,12 @@ type Props = {
   centered?: boolean;
   /** Full-width inner pages (How it works, Pricing, etc.) */
   inner?: boolean;
+  /** Legal prose — slightly narrower than nav/header (1200px) */
+  legal?: boolean;
 };
 
 /** Public marketing pages — same nav bar and top spacing as GMX landing */
-const MarketingPageLayout: React.FC<Props> = ({ children, narrow, centered, inner }) => {
+const MarketingPageLayout: React.FC<Props> = ({ children, narrow, centered, inner, legal }) => {
   return (
     <div className="landing-gmx min-h-[100dvh] min-h-[100svh]">
       <MarketingSeo />
@@ -31,7 +33,15 @@ const MarketingPageLayout: React.FC<Props> = ({ children, narrow, centered, inne
           .filter(Boolean)
           .join(' ')}
       >
-        <div className={narrow ? 'landing-gmx-shell landing-gmx-shell--narrow' : 'landing-gmx-shell'}>
+        <div
+          className={
+            narrow
+              ? 'landing-gmx-shell landing-gmx-shell--narrow'
+              : legal
+                ? 'landing-gmx-shell landing-gmx-shell--legal'
+                : 'landing-gmx-shell'
+          }
+        >
           {children}
         </div>
       </main>

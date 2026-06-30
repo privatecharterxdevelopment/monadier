@@ -93,6 +93,10 @@
   max-width: 640px;
 }
 
+.landing-gmx-shell--legal {
+  max-width: 1000px;
+}
+
 .landing-gmx-container {
   width: 100%;
   max-width: 1200px;

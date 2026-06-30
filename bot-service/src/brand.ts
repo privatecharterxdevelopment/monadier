@@ -13,3 +13,9 @@ export function notificationEmailUnsubscribeUrl(
   const base = baseUrl.replace(/\/$/, '');
   return `${base}/?section=profile#profile-trade-email`;
 }
+
+/** Dashboard deep link — opens bot section and fee payment modal. */
+export function platformFeePayDeepLink(baseUrl: string = BRAND_SITE_URL): string {
+  const base = baseUrl.replace(/\/$/, '');
+  return `${base}/?section=bot&payFees=1`;
+}

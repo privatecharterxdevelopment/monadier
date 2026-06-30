@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import PlatformFeePayModal from '../components/protrade/PlatformFeePayModal';
 import { useTermAuthToast } from '../components/terminal/TermAuthToast';
 import { useAuth } from './AuthContext';
@@ -49,6 +50,7 @@ export const PlatformFeeProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ wallet, enabled = true, children }) => {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const feeExempt = isFeeExemptUser(user?.email, wallet);
   const fees = usePlatformFees(wallet, enabled && Boolean(wallet) && !feeExempt);
   const { showToast } = useTermAuthToast();
@@ -90,6 +92,24 @@ export const PlatformFeeProvider: React.FC<{
       setAutoPrompted(false);
     }
   }, [feeExempt, botTradingBlocked, accruedUsd, autoPrompted]);
+
+  useEffect(() => {
+    if (feeExempt || fees.loading) return;
+    if (searchParams.get('payFees') !== '1') return;
+    if (accruedUsd <= 0 && !opensBlocked) return;
+
+    setModalOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete('payFees');
+    setSearchParams(next, { replace: true });
+  }, [
+    feeExempt,
+    fees.loading,
+    searchParams,
+    setSearchParams,
+    accruedUsd,
+    opensBlocked,
+  ]);
 
   const value = useMemo<PlatformFeeCtx>(
     () => ({

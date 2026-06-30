@@ -45,6 +45,7 @@ import {
   PLATFORM_FEE_WINS_BEFORE_BLOCK,
 } from './services/platformFees';
 import { processPendingTradeCloseEmails } from './services/tradeCloseEmail';
+import { processPendingPlatformFeeDueEmails } from './services/platformFeeDueEmail';
 import { reconcilePendingFillCloses } from './services/platformFees';
 import { tryQualifyReferral } from './services/referralAffiliate';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
@@ -1197,6 +1198,12 @@ async function main(): Promise<void> {
   }, 15_000);
   void processPendingTradeCloseEmails(40).catch(() => undefined);
   logger.info('- Trade close emails: every 15s (1 email per profitable trade)');
+
+  setInterval(() => {
+    void processPendingPlatformFeeDueEmails(20);
+  }, 30_000);
+  void processPendingPlatformFeeDueEmails(20).catch(() => undefined);
+  logger.info('- Platform fee due emails: every 30s (20/20 win gate)');
 
   setInterval(() => {
     void reconcilePendingFillCloses(40).catch((err) => {
