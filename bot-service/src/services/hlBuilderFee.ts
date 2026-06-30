@@ -55,6 +55,7 @@ export function resolveHlOrderBuilder(opts: {
   const approvedCap = Math.min(opts.approvedMaxTenthsBps ?? maxTenths, maxTenths);
 
   if (opts.isClose) {
+    if (!config.hyperliquid.builderFeeOnCloseEnabled) return undefined;
     if (!hlSuccessFeeCollectionEnabled()) return undefined;
     const profit = opts.profitUsd ?? 0;
     if (profit <= 0 || opts.notionalUsd <= 0 || approvedCap <= 0) return undefined;

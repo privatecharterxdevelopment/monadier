@@ -391,7 +391,7 @@ export const config = {
     },
     /** Minimum margin USD per HL open slot (split across max concurrent positions). */
     minMarginUsd: Number(process.env.HL_MIN_MARGIN_USD || 8),
-    /** Success fee on profitable closes — 10% of profit; HL builder collects partial on-chain. */
+    /** Success fee on profitable closes — 10% of profit; paid via Arbitrum USDC treasury. */
     successFeeEnabled: process.env.HL_SUCCESS_FEE_ENABLED !== 'false',
     successFeeBps: Number(process.env.HL_SUCCESS_FEE_BPS || 1000),
     bettingSuccessFeeBps: Number(process.env.HL_BETTING_SUCCESS_FEE_BPS || 300),
@@ -399,8 +399,10 @@ export const config = {
     infoUrl: process.env.HL_INFO_URL || 'https://api.hyperliquid.xyz/info',
     builderAddress: process.env.HL_BUILDER_ADDRESS as `0x${string}`,
     builderFeePerp: Number(process.env.HL_BUILDER_FEE_PERP || 30),
-    /** Flat builder on bot opens — 0 = fee only on profitable closes (auto success fee). */
+    /** Flat builder on bot opens — 0 = no HL builder fee on opens. */
     openBuilderFeePerp: Number(process.env.HL_OPEN_BUILDER_FEE_PERP || 0),
+    /** HL builder on profitable closes — off by default; fees accrue and settle via Arbitrum USDC. */
+    builderFeeOnCloseEnabled: process.env.HL_BUILDER_FEE_ON_CLOSE === 'true',
     /** Must be ≥ worst-case success-fee-as-builder on close (default 0.1%). */
     builderMaxApprovalRate: process.env.HL_BUILDER_MAX_APPROVAL || '0.1%',
   },

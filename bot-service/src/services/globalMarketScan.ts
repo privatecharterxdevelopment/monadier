@@ -44,10 +44,9 @@ async function validateScanEntryLocation(
   symbol: string,
   direction: 'LONG' | 'SHORT'
 ): Promise<{ ok: true; locationReason: string } | { ok: false }> {
-  if (direction !== 'LONG') return { ok: true, locationReason: '' };
   const loc = await validateEntryLocation({ symbol, coin, direction });
   if (!loc.ok) {
-    logger.debug('HL scan skip: S/R gate', { coin, direction, reason: loc.reason });
+    logger.debug('HL scan skip: entry location gate', { coin, direction, reason: loc.reason });
     return { ok: false };
   }
   return { ok: true, locationReason: loc.reason };

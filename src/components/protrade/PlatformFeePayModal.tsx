@@ -12,7 +12,7 @@ import {
 } from '../../lib/arbitrumUsdcTransfer';
 import { HL_ARBITRUM_CHAIN_ID } from '../../lib/hyperliquid/bridge';
 
-type PayPhase = 'idle' | 'wallet' | 'confirming' | 'success';
+type PayPhase = 'idle' | 'wallet' | 'onchain' | 'confirming' | 'success';
 
 type Props = {
   open: boolean;
@@ -49,6 +49,7 @@ const PlatformFeePayModal: React.FC<Props> = ({
   const { switchChainAsync } = useSwitchChain();
   const [phase, setPhase] = useState<PayPhase>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
   const [arbitrumUsdc, setArbitrumUsdc] = useState<number | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
 
@@ -64,6 +65,7 @@ const PlatformFeePayModal: React.FC<Props> = ({
     if (!open) {
       setPhase('idle');
       setError(null);
+      setTxHash(null);
       setArbitrumUsdc(null);
       return;
     }
@@ -101,7 +103,7 @@ const PlatformFeePayModal: React.FC<Props> = ({
 
   if (!open) return null;
 
-  const busy = phase === 'wallet' || phase === 'confirming';
+  const busy = phase === 'wallet' || phase === 'onchain' || phase === 'confirming';
   const treasuryReady = Boolean(treasury && /^0x[a-f0-9]{40}$/.test(treasury));
 
   const insufficientBalance =
@@ -122,6 +124,7 @@ const PlatformFeePayModal: React.FC<Props> = ({
 
     setPhase('wallet');
     setError(null);
+    setTxHash(null);
     try {
       if (walletClient.chain?.id !== HL_ARBITRUM_CHAIN_ID && switchChainAsync) {
         await switchChainAsync({ chainId: ARBITRUM_ONE_CHAIN_ID });
@@ -132,6 +135,8 @@ const PlatformFeePayModal: React.FC<Props> = ({
         treasury as `0x${string}`,
         accruedUsd
       );
+      setTxHash(hash);
+      setPhase('onchain');
 
       if (publicClient) {
         const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
@@ -185,9 +190,13 @@ const PlatformFeePayModal: React.FC<Props> = ({
   const phaseLabel =
     phase === 'wallet'
       ? 'Confirm USDC transfer in MetaMask (Arbitrum)…'
-      : phase === 'confirming'
-        ? 'Verifying on-chain payment…'
-        : null;
+      : phase === 'onchain'
+        ? 'Waiting for Arbitrum confirmation…'
+        : phase === 'confirming'
+          ? 'Verifying payment on-chain…'
+          : null;
+
+  const arbiscanTxUrl = txHash ? `https://arbiscan.io/tx/${txHash}` : null;
 
   return (
     <div className="hl-fee-modal-backdrop" role="dialog" aria-modal aria-labelledby="hl-fee-modal-title">
@@ -208,7 +217,7 @@ const PlatformFeePayModal: React.FC<Props> = ({
         <p className="hl-fee-modal-lead">
           {opensBlocked
             ? `Pay outstanding fees to restart the bot.`
-            : 'Success fee on winning closes — HL takes up to 0.1% as builder fee; the rest is paid here.'}
+            : '10% success fee on winning closes — pay accrued fees here before the next block.'}
         </p>
 
         <p className="hl-fee-modal-hint">
@@ -254,7 +263,6 @@ const PlatformFeePayModal: React.FC<Props> = ({
                     <th>Asset</th>
                     <th>Profit</th>
                     <th>Fee</th>
-                    <th>HL 0.1%</th>
                     <th>Owed</th>
                   </tr>
                 </thead>
@@ -264,7 +272,6 @@ const PlatformFeePayModal: React.FC<Props> = ({
                       <td>{t.coin}</td>
                       <td>{fmtUsdSymbol(t.grossProfitUsd)}</td>
                       <td>{fmtUsdSymbol(t.totalFeeUsd)}</td>
-                      <td>{fmtUsdSymbol(t.builderFeeUsd)}</td>
                       <td>{fmtUsdSymbol(t.accruedFeeUsd)}</td>
                     </tr>
                   ))}
@@ -278,10 +285,20 @@ const PlatformFeePayModal: React.FC<Props> = ({
         </section>
 
         {phaseLabel ? (
-          <p className="hl-fee-modal-phase" role="status">
-            <Loader2 size={14} className="animate-spin" aria-hidden />
-            {phaseLabel}
-          </p>
+          <div className="hl-fee-modal-phase" role="status">
+            <p>
+              <Loader2 size={14} className="animate-spin" aria-hidden />
+              {phaseLabel}
+            </p>
+            {txHash && arbiscanTxUrl ? (
+              <p className="hl-fee-modal-hint hl-fee-modal-hint--mono">
+                Tx:{' '}
+                <a href={arbiscanTxUrl} target="_blank" rel="noopener noreferrer">
+                  {txHash.slice(0, 10)}…{txHash.slice(-8)}
+                </a>
+              </p>
+            ) : null}
+          </div>
         ) : null}
 
         {insufficientBalance ? (

@@ -90,9 +90,19 @@ export function splitPlatformFee(
   }
 
   let builderUsd = 0;
-  if (opts?.hlBuilderCollectedUsd != null && opts.hlBuilderCollectedUsd > 0) {
+  const hlBuilderOnClose = config.hyperliquid.builderFeeOnCloseEnabled;
+  if (
+    hlBuilderOnClose &&
+    opts?.hlBuilderCollectedUsd != null &&
+    opts.hlBuilderCollectedUsd > 0
+  ) {
     builderUsd = Math.min(totalUsd, opts.hlBuilderCollectedUsd);
-  } else if (opts?.builderTenthsBps && opts.builderTenthsBps > 0 && notionalUsd > 0) {
+  } else if (
+    hlBuilderOnClose &&
+    opts?.builderTenthsBps &&
+    opts.builderTenthsBps > 0 &&
+    notionalUsd > 0
+  ) {
     builderUsd = Math.min(totalUsd, notionalBuilderFeeUsd(notionalUsd, opts.builderTenthsBps));
   }
 

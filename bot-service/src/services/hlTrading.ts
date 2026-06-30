@@ -229,14 +229,13 @@ function shouldRelaxMacroGates(
   return pick.confidence >= 65 && tfs >= 2;
 }
 
-/** S/R, 20-candle, momentum — always enforced on LONG (MTF ≠ good entry price). */
+/** S/R, 20-candle, momentum, pump-sweep — enforced for LONG and SHORT equally. */
 function shouldRelaxStructuralGates(
-  pick: GlobalSignalCandidate,
-  coin: string,
-  direction: 'LONG' | 'SHORT'
+  _pick: GlobalSignalCandidate,
+  _coin: string,
+  _direction: 'LONG' | 'SHORT'
 ): boolean {
-  if (direction === 'LONG') return false;
-  return shouldRelaxMacroGates(pick, coin, direction);
+  return false;
 }
 
 /** Global scan already proved multi-TF alignment — skip redundant live re-checks. */
