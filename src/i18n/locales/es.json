@@ -201,28 +201,28 @@
       "items": [
         {
           "tab": "platform",
-          "q": "¿Qué es Monadier?",
-          "a": "Monadier es un bot automatizado de perpetuos en Hyperliquid. Depositas USDC en tu cuenta Hyperliquid, apruebas una vez el agente de trading de Monadier y nuestro servidor escanea todos los mercados HL 24/7 para abrir y cerrar operaciones por ti."
+          "q": "¿Qué es HyperGain?",
+          "a": "HyperGain es un bot automatizado de perpetuos en Hyperliquid. Depositas USDC en tu cuenta Hyperliquid, apruebas una vez el agente de trading de HyperGain y nuestro servidor escanea todos los mercados HL 24/7 para abrir y cerrar operaciones por ti."
         },
         {
           "tab": "platform",
-          "q": "¿Es seguro usar Monadier?",
-          "a": "Monadier es no custodial en Hyperliquid: tu USDC permanece en tu cuenta HL a tu nombre. El agente puede operar pero no retirar sin tu wallet. El auto-trading solo funciona cuando pulsas Iniciar bot."
+          "q": "¿Es seguro usar HyperGain?",
+          "a": "HyperGain es no custodial en Hyperliquid: tu USDC permanece en tu cuenta HL a tu nombre. El agente puede operar pero no retirar sin tu wallet. El auto-trading solo funciona cuando pulsas Iniciar bot."
         },
         {
           "tab": "platform",
-          "q": "¿Monadier es no custodial?",
-          "a": "Sí. Los fondos están en tu cuenta Hyperliquid, no en un vault de Monadier. Nunca tenemos tus claves privadas. Los retiros siempre requieren la firma de tu wallet en Hyperliquid."
+          "q": "¿HyperGain es no custodial?",
+          "a": "Sí. Los fondos están en tu cuenta Hyperliquid, no en un vault de HyperGain. Nunca tenemos tus claves privadas. Los retiros siempre requieren la firma de tu wallet en Hyperliquid."
         },
         {
           "tab": "platform",
-          "q": "¿Monadier es totalmente descentralizado?",
-          "a": "El trading se ejecuta en la infraestructura Hyperliquid mediante un agente que apruebas. El análisis de señales y la automatización corren en servidores Monadier (Railway). Puedes verificar saldo y posiciones en app.hyperliquid.xyz en cualquier momento."
+          "q": "¿HyperGain es totalmente descentralizado?",
+          "a": "El trading se ejecuta en la infraestructura Hyperliquid mediante un agente que apruebas. El análisis de señales y la automatización corren en servidores HyperGain (Railway). Puedes verificar saldo y posiciones en app.hyperliquid.xyz en cualquier momento."
         },
         {
           "tab": "platform",
           "q": "¿Es esto asesoramiento financiero?",
-          "a": "No. Monadier proporciona software para trading automatizado de perpetuos en Hyperliquid — no asesoramiento de inversión, fiscal o legal. Cripto y apalancamiento conllevan riesgo significativo. Investiga por tu cuenta y usa solo fondos que puedas perder."
+          "a": "No. HyperGain proporciona software para trading automatizado de perpetuos en Hyperliquid — no asesoramiento de inversión, fiscal o legal. Cripto y apalancamiento conllevan riesgo significativo. Investiga por tu cuenta y usa solo fondos que puedas perder."
         },
         {
           "tab": "platform",
@@ -232,7 +232,7 @@
         {
           "tab": "bot",
           "q": "¿Cómo funciona el bot de trading?",
-          "a": "Con el bot activo, el servidor Monadier (Railway) revisa tu saldo HL cada ~10 segundos, escanea todos los perps de Hyperliquid con señales multi-timeframe, abre el mejor setup, monitoriza TP/SL, cierra la posición y repite."
+          "a": "Con el bot activo, el servidor HyperGain (Railway) revisa tu saldo HL cada ~10 segundos, escanea todos los perps de Hyperliquid con señales multi-timeframe, abre el mejor setup, monitoriza TP/SL, cierra la posición y repite."
         },
         {
           "tab": "bot",
@@ -262,12 +262,12 @@
         {
           "tab": "bot",
           "q": "¿Debo dejar el ordenador encendido?",
-          "a": "No. El bot corre en servidores Monadier (Railway). Tras Iniciar bot y una cuenta HL financiada, opera 24/7 sin el navegador abierto."
+          "a": "No. El bot corre en servidores HyperGain (Railway). Tras Iniciar bot y una cuenta HL financiada, opera 24/7 sin el navegador abierto."
         },
         {
           "tab": "bot",
           "q": "¿Cómo deposito para que el bot arranque?",
-          "a": "En Monadier Funds (o app.hyperliquid.xyz): deposita solo USDC nativo en Arbitrum One — no BNB, BSC, ETH mainnet ni USDC en otras chains. Mín. $5 en HL; el bot necesita $20+. Luego aprueba agente → Iniciar bot."
+          "a": "En HyperGain Funds (o app.hyperliquid.xyz): deposita solo USDC nativo en Arbitrum One — no BNB, BSC, ETH mainnet ni USDC en otras chains. Mín. $5 en HL; el bot necesita $20+. Luego aprueba agente → Iniciar bot."
         },
         {
           "tab": "vault",
@@ -277,7 +277,7 @@
         {
           "tab": "vault",
           "q": "¿Qué comisiones cobra el bot?",
-          "a": "Aplican comisiones de trading Hyperliquid en cada perp. Monadier puede cobrar builder fee en órdenes HL y planes de suscripción para acceso al bot. Consulta la app para tarifas actuales."
+          "a": "Aplican comisiones de trading Hyperliquid en cada perp. HyperGain puede cobrar builder fee en órdenes HL y planes de suscripción para acceso al bot. Consulta la app para tarifas actuales."
         },
         {
           "tab": "vault",
@@ -296,13 +296,13 @@
         },
         {
           "tab": "betting",
-          "q": "¿Qué son los mercados deportivos verificados en Monadier?",
+          "q": "¿Qué son los mercados deportivos verificados en HyperGain?",
           "a": "Explora eventos deportivos en vivo y próximos listados como mercados de outcome HIP-4 de Hyperliquid — las cuotas se actualizan on-chain con el book."
         },
         {
           "tab": "betting",
-          "q": "¿Las apuestas Monadier son no custodiales?",
-          "a": "Tu USDC permanece en tu cuenta Hyperliquid. Las órdenes se firman con wallet; Monadier nunca tiene tus claves privadas."
+          "q": "¿Las apuestas HyperGain son no custodiales?",
+          "a": "Tu USDC permanece en tu cuenta Hyperliquid. Las órdenes se firman con wallet; HyperGain nunca tiene tus claves privadas."
         },
         {
           "tab": "betting",

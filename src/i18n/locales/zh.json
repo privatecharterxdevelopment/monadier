@@ -201,28 +201,28 @@
       "items": [
         {
           "tab": "platform",
-          "q": "Monadier 是什么？",
-          "a": "Monadier 是 Hyperliquid 上的自动化永续合约机器人。您向 Hyperliquid 账户存入 USDC，一次性批准 Monadier 交易代理，我们的服务器 24/7 扫描所有 HL 市场，为您开仓和平仓。"
+          "q": "HyperGain 是什么？",
+          "a": "HyperGain 是 Hyperliquid 上的自动化永续合约机器人。您向 Hyperliquid 账户存入 USDC，一次性批准 HyperGain 交易代理，我们的服务器 24/7 扫描所有 HL 市场，为您开仓和平仓。"
         },
         {
           "tab": "platform",
-          "q": "Monadier 安全吗？",
-          "a": "Monadier 在 Hyperliquid 上是非托管的：您的 USDC 始终在您名下的 HL 账户中。交易代理可以下单，但未经您的钱包无法提款。只有按下“启动机器人”后才会自动交易。"
+          "q": "HyperGain 安全吗？",
+          "a": "HyperGain 在 Hyperliquid 上是非托管的：您的 USDC 始终在您名下的 HL 账户中。交易代理可以下单，但未经您的钱包无法提款。只有按下“启动机器人”后才会自动交易。"
         },
         {
           "tab": "platform",
-          "q": "Monadier 是非托管的吗？",
-          "a": "是的。资金在您的 Hyperliquid 账户上，而非 Monadier 金库。我们从不持有您的私钥。提款始终需要您在 Hyperliquid 上的钱包签名。"
+          "q": "HyperGain 是非托管的吗？",
+          "a": "是的。资金在您的 Hyperliquid 账户上，而非 HyperGain 金库。我们从不持有您的私钥。提款始终需要您在 Hyperliquid 上的钱包签名。"
         },
         {
           "tab": "platform",
-          "q": "Monadier 完全去中心化吗？",
-          "a": "交易通过您批准的交易代理在 Hyperliquid 基础设施上执行。信号分析和自动化在 Monadier 服务器（Railway）上运行。您可随时在 app.hyperliquid.xyz 验证余额和仓位。"
+          "q": "HyperGain 完全去中心化吗？",
+          "a": "交易通过您批准的交易代理在 Hyperliquid 基础设施上执行。信号分析和自动化在 HyperGain 服务器（Railway）上运行。您可随时在 app.hyperliquid.xyz 验证余额和仓位。"
         },
         {
           "tab": "platform",
           "q": "这是财务建议吗？",
-          "a": "不是。Monadier 提供 Hyperliquid 永续合约自动交易软件——而非投资、税务或法律建议。加密货币和杠杆交易风险显著。请自行研究，仅使用您可承受损失的资金。"
+          "a": "不是。HyperGain 提供 Hyperliquid 永续合约自动交易软件——而非投资、税务或法律建议。加密货币和杠杆交易风险显著。请自行研究，仅使用您可承受损失的资金。"
         },
         {
           "tab": "platform",
@@ -232,7 +232,7 @@
         {
           "tab": "bot",
           "q": "交易机器人如何工作？",
-          "a": "机器人运行期间，Monadier 服务器（Railway）约每 10 秒检查您的 HL 余额，用多时间框架信号扫描所有 Hyperliquid 永续合约，开最强设置，监控止盈/止损，平仓后重复。"
+          "a": "机器人运行期间，HyperGain 服务器（Railway）约每 10 秒检查您的 HL 余额，用多时间框架信号扫描所有 Hyperliquid 永续合约，开最强设置，监控止盈/止损，平仓后重复。"
         },
         {
           "tab": "bot",
@@ -262,12 +262,12 @@
         {
           "tab": "bot",
           "q": "我需要保持电脑开机吗？",
-          "a": "不需要。机器人在 Monadier 服务器（Railway）上运行。启动机器人并充值 Hyperliquid 账户后，无需打开浏览器即可 24/7 交易。"
+          "a": "不需要。机器人在 HyperGain 服务器（Railway）上运行。启动机器人并充值 Hyperliquid 账户后，无需打开浏览器即可 24/7 交易。"
         },
         {
           "tab": "bot",
           "q": "如何存款以便机器人启动？",
-          "a": "在 Monadier 资金（或 app.hyperliquid.xyz）：仅存入 Arbitrum One 上的原生 USDC——不要用 BNB、BSC、ETH 主网或其他链上的 USDC。HL 最低 $5；机器人需 $20+。然后批准代理 → 启动机器人。"
+          "a": "在 HyperGain 资金（或 app.hyperliquid.xyz）：仅存入 Arbitrum One 上的原生 USDC——不要用 BNB、BSC、ETH 主网或其他链上的 USDC。HL 最低 $5；机器人需 $20+。然后批准代理 → 启动机器人。"
         },
         {
           "tab": "vault",
@@ -277,7 +277,7 @@
         {
           "tab": "vault",
           "q": "机器人收取哪些费用？",
-          "a": "每笔永续交易适用 Hyperliquid 交易费。Monadier 可能对 HL 订单收取 builder 费及机器人访问订阅层级。请在应用中查看当前订阅和费用设置。"
+          "a": "每笔永续交易适用 Hyperliquid 交易费。HyperGain 可能对 HL 订单收取 builder 费及机器人访问订阅层级。请在应用中查看当前订阅和费用设置。"
         },
         {
           "tab": "vault",
@@ -296,13 +296,13 @@
         },
         {
           "tab": "betting",
-          "q": "Monadier 上的验证体育市场是什么？",
+          "q": "HyperGain 上的验证体育市场是什么？",
           "a": "浏览作为 Hyperliquid HIP-4 结果市场列出的 live 和即将开始的体育赛事——赔率随盘口 on-chain 更新。"
         },
         {
           "tab": "betting",
-          "q": "Monadier 投注是非托管的吗？",
-          "a": "您的 USDC 留在 Hyperliquid 账户。订单由钱包签名；Monadier 从不持有您的私钥。"
+          "q": "HyperGain 投注是非托管的吗？",
+          "a": "您的 USDC 留在 Hyperliquid 账户。订单由钱包签名；HyperGain 从不持有您的私钥。"
         },
         {
           "tab": "betting",

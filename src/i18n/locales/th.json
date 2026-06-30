@@ -201,28 +201,28 @@
       "items": [
         {
           "tab": "platform",
-          "q": "Monadier คืออะไร?",
-          "a": "Monadier เป็นบอท perpetual อัตโนมัติบน Hyperliquid คุณฝาก USDC ในบัญชี Hyperliquid อนุมัติ Monadier trading agent ครั้งเดียว และเซิร์ฟเวอร์ของเราสแกนตลาด HL ทั้งหมด 24/7 เพื่อเปิดและปิดเทรดให้คุณ"
+          "q": "HyperGain คืออะไร?",
+          "a": "HyperGain เป็นบอท perpetual อัตโนมัติบน Hyperliquid คุณฝาก USDC ในบัญชี Hyperliquid อนุมัติ HyperGain trading agent ครั้งเดียว และเซิร์ฟเวอร์ของเราสแกนตลาด HL ทั้งหมด 24/7 เพื่อเปิดและปิดเทรดให้คุณ"
         },
         {
           "tab": "platform",
-          "q": "Monadier ปลอดภัยไหม?",
-          "a": "Monadier เป็น non-custodial บน Hyperliquid: USDC ของคุณอยู่ในบัญชี HL ในชื่อคุณ trading agent สามารถวางออเดอร์ได้แต่ถอนเงินไม่ได้โดยไม่มี wallet ของคุณ การเทรดอัตโนมัติทำงานเมื่อกดเริ่มบอทเท่านั้น"
+          "q": "HyperGain ปลอดภัยไหม?",
+          "a": "HyperGain เป็น non-custodial บน Hyperliquid: USDC ของคุณอยู่ในบัญชี HL ในชื่อคุณ trading agent สามารถวางออเดอร์ได้แต่ถอนเงินไม่ได้โดยไม่มี wallet ของคุณ การเทรดอัตโนมัติทำงานเมื่อกดเริ่มบอทเท่านั้น"
         },
         {
           "tab": "platform",
-          "q": "Monadier เป็น non-custodial หรือไม่?",
-          "a": "ใช่ เงินอยู่ในบัญชี Hyperliquid ของคุณ ไม่ใช่ vault ของ Monadier เราไม่ถือ private key ของคุณ การถอนต้องมีลายเซ็น wallet บน Hyperliquid เสมอ"
+          "q": "HyperGain เป็น non-custodial หรือไม่?",
+          "a": "ใช่ เงินอยู่ในบัญชี Hyperliquid ของคุณ ไม่ใช่ vault ของ HyperGain เราไม่ถือ private key ของคุณ การถอนต้องมีลายเซ็น wallet บน Hyperliquid เสมอ"
         },
         {
           "tab": "platform",
-          "q": "Monadier เป็น decentralized เต็มรูปแบบหรือไม่?",
-          "a": "การเทรดดำเนินการบนโครงสร้าง Hyperliquid ผ่าน agent ที่คุณอนุมัติ การวิเคราะห์สัญญาณและระบบอัตโนมัติทำงานบนเซิร์ฟเวอร์ Monadier (Railway) คุณตรวจสอบยอดและพозишनได้ที่ app.hyperliquid.xyz ตลอดเวลา"
+          "q": "HyperGain เป็น decentralized เต็มรูปแบบหรือไม่?",
+          "a": "การเทรดดำเนินการบนโครงสร้าง Hyperliquid ผ่าน agent ที่คุณอนุมัติ การวิเคราะห์สัญญาณและระบบอัตโนมัติทำงานบนเซิร์ฟเวอร์ HyperGain (Railway) คุณตรวจสอบยอดและพозишनได้ที่ app.hyperliquid.xyz ตลอดเวลา"
         },
         {
           "tab": "platform",
           "q": "นี่คือคำแนะนำทางการเงินหรือไม่?",
-          "a": "ไม่ Monadier ให้ซอฟต์แวร์สำหรับเทรด perpetual Hyperliquid อัตโนมัติ — ไม่ใช่คำแนะนำการลงทุน ภาษี หรือกฎหมาย คริpto และ leverage มีความเสี่ยงสูง ศึกษาด้วยตนเองและใช้เงินที่เสียได้เท่านั้น"
+          "a": "ไม่ HyperGain ให้ซอฟต์แวร์สำหรับเทรด perpetual Hyperliquid อัตโนมัติ — ไม่ใช่คำแนะนำการลงทุน ภาษี หรือกฎหมาย คริpto และ leverage มีความเสี่ยงสูง ศึกษาด้วยตนเองและใช้เงินที่เสียได้เท่านั้น"
         },
         {
           "tab": "platform",
@@ -232,7 +232,7 @@
         {
           "tab": "bot",
           "q": "บอทเทรดทำงานอย่างไร?",
-          "a": "ขณะบอททำงาน เซิร์ฟเวอร์ Monadier (Railway) ตรวจยอด HL ทุก ~10 วินาที สแกน perp Hyperliquid ทั้งหมดด้วยสัญญาณ multi-timeframe เปิด setup ที่แข็งแกร่งที่สุด ติดตาม TP/SL ปิดพозишน แล้วทำซ้ำ"
+          "a": "ขณะบอททำงาน เซิร์ฟเวอร์ HyperGain (Railway) ตรวจยอด HL ทุก ~10 วินาที สแกน perp Hyperliquid ทั้งหมดด้วยสัญญาณ multi-timeframe เปิด setup ที่แข็งแกร่งที่สุด ติดตาม TP/SL ปิดพозишน แล้วทำซ้ำ"
         },
         {
           "tab": "bot",
@@ -262,12 +262,12 @@
         {
           "tab": "bot",
           "q": "ต้องเปิดคอมพิวเตอร์ทิ้งไว้ไหม?",
-          "a": "ไม่ บอททำงานบนเซิร์ฟเวอร์ Monadier (Railway) หลังเริ่มบอทและมีเงิน HL แล้ว เทรด 24/7 โดยไม่ต้องเปิดเบราว์เซอร์"
+          "a": "ไม่ บอททำงานบนเซิร์ฟเวอร์ HyperGain (Railway) หลังเริ่มบอทและมีเงิน HL แล้ว เทรด 24/7 โดยไม่ต้องเปิดเบราว์เซอร์"
         },
         {
           "tab": "bot",
           "q": "ฝากเงินอย่างไรให้บอทเริ่มได้?",
-          "a": "ใน Monadier Funds (หรือ app.hyperliquid.xyz): ฝากเฉพาะ USDC native บน Arbitrum One — ไม่ใช่ BNB, BSC, ETH mainnet หรือ USDC บน chain อื่น ขั้นต่ำ $5 บน HL บอทต้องการ $20+ จากนั้นอนุมัติ agent → เริ่มบอท"
+          "a": "ใน HyperGain Funds (หรือ app.hyperliquid.xyz): ฝากเฉพาะ USDC native บน Arbitrum One — ไม่ใช่ BNB, BSC, ETH mainnet หรือ USDC บน chain อื่น ขั้นต่ำ $5 บน HL บอทต้องการ $20+ จากนั้นอนุมัติ agent → เริ่มบอท"
         },
         {
           "tab": "vault",
@@ -277,7 +277,7 @@
         {
           "tab": "vault",
           "q": "บอทคิดค่าธรรมเนียมอะไรบ้าง?",
-          "a": "ค่าธรรมเนียมเทรด Hyperliquid ใช้กับแต่ละ perp Monadier อาจคิด builder fee บนออเดอร์ HL และแผน subscription สำหรับการเข้าถึงบอท ตรวจการตั้งค่าในแอป"
+          "a": "ค่าธรรมเนียมเทรด Hyperliquid ใช้กับแต่ละ perp HyperGain อาจคิด builder fee บนออเดอร์ HL และแผน subscription สำหรับการเข้าถึงบอท ตรวจการตั้งค่าในแอป"
         },
         {
           "tab": "vault",
@@ -296,13 +296,13 @@
         },
         {
           "tab": "betting",
-          "q": "ตลาดกีฬาที่ verified บน Monadier คืออะไร?",
+          "q": "ตลาดกีฬาที่ verified บน HyperGain คืออะไร?",
           "a": "เรียกดูกิจกรรมกีฬา live และที่จะมาถึงที่ลิสต์เป็น Hyperliquid HIP-4 outcome markets — odds อัปเดต on-chain ตามการเคลื่อนไหวของ book"
         },
         {
           "tab": "betting",
-          "q": "การเดิมพัน Monadier เป็น non-custodial ไหม?",
-          "a": "USDC อยู่ในบัญชี Hyperliquid ของคุณ ออเดอร์เซ็นด้วย wallet Monadier ไม่ถือ private key"
+          "q": "การเดิมพัน HyperGain เป็น non-custodial ไหม?",
+          "a": "USDC อยู่ในบัญชี Hyperliquid ของคุณ ออเดอร์เซ็นด้วย wallet HyperGain ไม่ถือ private key"
         },
         {
           "tab": "betting",

@@ -201,28 +201,28 @@
       "items": [
         {
           "tab": "platform",
-          "q": "Monadier とは？",
-          "a": "Monadier は Hyperliquid 上の自動パーペチュアルボットです。Hyperliquid アカウントに USDC を入金し、Monadier 取引エージェントを一度承認すると、サーバーが HL 全マーケットを 24/7 スキャンして取引の開閉を行います。"
+          "q": "HyperGain とは？",
+          "a": "HyperGain は Hyperliquid 上の自動パーペチュアルボットです。Hyperliquid アカウントに USDC を入金し、HyperGain 取引エージェントを一度承認すると、サーバーが HL 全マーケットを 24/7 スキャンして取引の開閉を行います。"
         },
         {
           "tab": "platform",
-          "q": "Monadier は安全ですか？",
-          "a": "Monadier は Hyperliquid 上で非カストディアルです。USDC はあなた名義の HL アカウントに残ります。取引エージェントは注文できますが、ウォレットなしでは出金できません。自動取引は「ボット開始」を押したときのみ動作します。"
+          "q": "HyperGain は安全ですか？",
+          "a": "HyperGain は Hyperliquid 上で非カストディアルです。USDC はあなた名義の HL アカウントに残ります。取引エージェントは注文できますが、ウォレットなしでは出金できません。自動取引は「ボット開始」を押したときのみ動作します。"
         },
         {
           "tab": "platform",
-          "q": "Monadier は非カストディアルですか？",
-          "a": "はい。資金は Monadier のボルトではなく Hyperliquid アカウントにあります。私たちは秘密鍵を保持しません。出金には常に Hyperliquid 上でのウォレット署名が必要です。"
+          "q": "HyperGain は非カストディアルですか？",
+          "a": "はい。資金は HyperGain のボルトではなく Hyperliquid アカウントにあります。私たちは秘密鍵を保持しません。出金には常に Hyperliquid 上でのウォレット署名が必要です。"
         },
         {
           "tab": "platform",
-          "q": "Monadier は完全分散型ですか？",
-          "a": "取引は承認したエージェント経由で Hyperliquid インフラ上で実行されます。シグナル分析と自動化は Monadier サーバー（Railway）で動作します。残高とポジションは app.hyperliquid.xyz でいつでも確認できます。"
+          "q": "HyperGain は完全分散型ですか？",
+          "a": "取引は承認したエージェント経由で Hyperliquid インフラ上で実行されます。シグナル分析と自動化は HyperGain サーバー（Railway）で動作します。残高とポジションは app.hyperliquid.xyz でいつでも確認できます。"
         },
         {
           "tab": "platform",
           "q": "これは金融アドバイスですか？",
-          "a": "いいえ。Monadier は Hyperliquid パーペ自動取引用ソフトウェアを提供するもので、投資・税務・法律のアドバイスではありません。暗号資産とレバレッジ取引には大きなリスクがあります。自己責任で、失ってもよい資金のみご利用ください。"
+          "a": "いいえ。HyperGain は Hyperliquid パーペ自動取引用ソフトウェアを提供するもので、投資・税務・法律のアドバイスではありません。暗号資産とレバレッジ取引には大きなリスクがあります。自己責任で、失ってもよい資金のみご利用ください。"
         },
         {
           "tab": "platform",
@@ -232,7 +232,7 @@
         {
           "tab": "bot",
           "q": "取引ボットはどう動きますか？",
-          "a": "ボット稼働中、Monadier サーバー（Railway）が約 10 秒ごとに HL 残高を確認し、マルチタイムフレームシグナルで全 Hyperliquid パーペをスキャン、最強セットアップを開き、TP/SL を監視して決済後に繰り返します。"
+          "a": "ボット稼働中、HyperGain サーバー（Railway）が約 10 秒ごとに HL 残高を確認し、マルチタイムフレームシグナルで全 Hyperliquid パーペをスキャン、最強セットアップを開き、TP/SL を監視して決済後に繰り返します。"
         },
         {
           "tab": "bot",
@@ -262,12 +262,12 @@
         {
           "tab": "bot",
           "q": "PC をつけたままにする必要はありますか？",
-          "a": "いいえ。ボットは Monadier サーバー（Railway）で動作します。ボット開始と HL 入金後、ブラウザを開かなくても 24/7 取引します。"
+          "a": "いいえ。ボットは HyperGain サーバー（Railway）で動作します。ボット開始と HL 入金後、ブラウザを開かなくても 24/7 取引します。"
         },
         {
           "tab": "bot",
           "q": "ボットを開始するにはどう入金しますか？",
-          "a": "Monadier 資金（または app.hyperliquid.xyz）で、Arbitrum One 上のネイティブ USDC のみ入金 — BNB、BSC、ETH メインネットや他チェーンの USDC は不可。HL 最低 $5、ボットは $20+。その後エージェント承認 → ボット開始。"
+          "a": "HyperGain 資金（または app.hyperliquid.xyz）で、Arbitrum One 上のネイティブ USDC のみ入金 — BNB、BSC、ETH メインネットや他チェーンの USDC は不可。HL 最低 $5、ボットは $20+。その後エージェント承認 → ボット開始。"
         },
         {
           "tab": "vault",
@@ -277,7 +277,7 @@
         {
           "tab": "vault",
           "q": "ボットの手数料は？",
-          "a": "各パーペ取引に Hyperliquid 取引手数料がかかります。Monadier は HL 注文に builder 手数料やボットアクセス用サブスクリプションを課す場合があります。最新設定はアプリで確認してください。"
+          "a": "各パーペ取引に Hyperliquid 取引手数料がかかります。HyperGain は HL 注文に builder 手数料やボットアクセス用サブスクリプションを課す場合があります。最新設定はアプリで確認してください。"
         },
         {
           "tab": "vault",
@@ -296,13 +296,13 @@
         },
         {
           "tab": "betting",
-          "q": "Monadier の検証済みスポーツマーケットとは？",
+          "q": "HyperGain の検証済みスポーツマーケットとは？",
           "a": "Hyperliquid HIP-4 結果マーケットとして掲載されたライブ・ upcoming スポーツイベントを閲覧 — オッズは板の動きに合わせ on-chain で更新されます。"
         },
         {
           "tab": "betting",
-          "q": "Monadier ベッティングは非カストディアルですか？",
-          "a": "USDC は Hyperliquid アカウントに残ります。注文はウォレット署名。Monadier は秘密鍵を保持しません。"
+          "q": "HyperGain ベッティングは非カストディアルですか？",
+          "a": "USDC は Hyperliquid アカウントに残ります。注文はウォレット署名。HyperGain は秘密鍵を保持しません。"
         },
         {
           "tab": "betting",

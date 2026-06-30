@@ -201,28 +201,28 @@
       "items": [
         {
           "tab": "platform",
-          "q": "Cos'è Monadier?",
-          "a": "Monadier è un bot automatizzato di perpetui su Hyperliquid. Depositi USDC sul tuo account Hyperliquid, approvi una volta l'agente di trading Monadier e il nostro server scansiona tutti i mercati HL 24/7 per aprire e chiudere trade per te."
+          "q": "Cos'è HyperGain?",
+          "a": "HyperGain è un bot automatizzato di perpetui su Hyperliquid. Depositi USDC sul tuo account Hyperliquid, approvi una volta l'agente di trading HyperGain e il nostro server scansiona tutti i mercati HL 24/7 per aprire e chiudere trade per te."
         },
         {
           "tab": "platform",
-          "q": "Monadier è sicuro?",
-          "a": "Monadier è non-custodial su Hyperliquid: il tuo USDC resta sul tuo account HL a tuo nome. L'agente può operare ma non prelevare senza il wallet. L'auto-trading parte solo quando premi Avvia bot."
+          "q": "HyperGain è sicuro?",
+          "a": "HyperGain è non-custodial su Hyperliquid: il tuo USDC resta sul tuo account HL a tuo nome. L'agente può operare ma non prelevare senza il wallet. L'auto-trading parte solo quando premi Avvia bot."
         },
         {
           "tab": "platform",
-          "q": "Monadier è non-custodial?",
-          "a": "Sì. I fondi sono sul tuo account Hyperliquid, non in un vault Monadier. Non deteniamo mai le tue chiavi private. I prelievi richiedono sempre la firma del wallet su Hyperliquid."
+          "q": "HyperGain è non-custodial?",
+          "a": "Sì. I fondi sono sul tuo account Hyperliquid, non in un vault HyperGain. Non deteniamo mai le tue chiavi private. I prelievi richiedono sempre la firma del wallet su Hyperliquid."
         },
         {
           "tab": "platform",
-          "q": "Monadier è completamente decentralizzato?",
-          "a": "Il trading avviene sull'infrastruttura Hyperliquid tramite un agente che approvi. Analisi segnali e automazione girano sui server Monadier (Railway). Puoi verificare saldo e posizioni su app.hyperliquid.xyz in qualsiasi momento."
+          "q": "HyperGain è completamente decentralizzato?",
+          "a": "Il trading avviene sull'infrastruttura Hyperliquid tramite un agente che approvi. Analisi segnali e automazione girano sui server HyperGain (Railway). Puoi verificare saldo e posizioni su app.hyperliquid.xyz in qualsiasi momento."
         },
         {
           "tab": "platform",
           "q": "È consulenza finanziaria?",
-          "a": "No. Monadier fornisce software per trading automatizzato di perpetui Hyperliquid — non consulenza d'investimento, fiscale o legale. Crypto e leva comportano rischio significativo. Fai le tue ricerche e usa solo fondi che puoi permetterti di perdere."
+          "a": "No. HyperGain fornisce software per trading automatizzato di perpetui Hyperliquid — non consulenza d'investimento, fiscale o legale. Crypto e leva comportano rischio significativo. Fai le tue ricerche e usa solo fondi che puoi permetterti di perdere."
         },
         {
           "tab": "platform",
@@ -232,7 +232,7 @@
         {
           "tab": "bot",
           "q": "Come funziona il bot di trading?",
-          "a": "Con il bot attivo, il server Monadier (Railway) controlla il saldo HL ogni ~10 secondi, scansiona tutti i perp Hyperliquid con segnali multi-timeframe, apre il setup più forte, monitora TP/SL, chiude la posizione e ripete."
+          "a": "Con il bot attivo, il server HyperGain (Railway) controlla il saldo HL ogni ~10 secondi, scansiona tutti i perp Hyperliquid con segnali multi-timeframe, apre il setup più forte, monitora TP/SL, chiude la posizione e ripete."
         },
         {
           "tab": "bot",
@@ -262,12 +262,12 @@
         {
           "tab": "bot",
           "q": "Devo lasciare acceso il computer?",
-          "a": "No. Il bot gira sui server Monadier (Railway). Dopo Avvia bot e account HL finanziato, opera 24/7 senza browser aperto."
+          "a": "No. Il bot gira sui server HyperGain (Railway). Dopo Avvia bot e account HL finanziato, opera 24/7 senza browser aperto."
         },
         {
           "tab": "bot",
           "q": "Come deposito per far partire il bot?",
-          "a": "In Monadier Funds (o app.hyperliquid.xyz): deposita solo USDC nativo su Arbitrum One — non BNB, BSC, ETH mainnet o USDC su altre chain. Min. $5 su HL; il bot richiede $20+. Poi approva agente → Avvia bot."
+          "a": "In HyperGain Funds (o app.hyperliquid.xyz): deposita solo USDC nativo su Arbitrum One — non BNB, BSC, ETH mainnet o USDC su altre chain. Min. $5 su HL; il bot richiede $20+. Poi approva agente → Avvia bot."
         },
         {
           "tab": "vault",
@@ -277,7 +277,7 @@
         {
           "tab": "vault",
           "q": "Quali commissioni addebita il bot?",
-          "a": "Si applicano le commissioni Hyperliquid su ogni perp. Monadier può addebitare builder fee sugli ordini HL e piani abbonamento per l'accesso al bot. Controlla l'app per tariffe attuali."
+          "a": "Si applicano le commissioni Hyperliquid su ogni perp. HyperGain può addebitare builder fee sugli ordini HL e piani abbonamento per l'accesso al bot. Controlla l'app per tariffe attuali."
         },
         {
           "tab": "vault",
@@ -296,13 +296,13 @@
         },
         {
           "tab": "betting",
-          "q": "Cosa sono i mercati sportivi verificati su Monadier?",
+          "q": "Cosa sono i mercati sportivi verificati su HyperGain?",
           "a": "Sfoglia eventi sportivi live e in programma elencati come mercati outcome HIP-4 su Hyperliquid — le quote si aggiornano on-chain con il book."
         },
         {
           "tab": "betting",
-          "q": "Le scommesse Monadier sono non-custodial?",
-          "a": "Il tuo USDC resta sul tuo account Hyperliquid. Gli ordini sono firmati dal wallet; Monadier non detiene mai le tue chiavi private."
+          "q": "Le scommesse HyperGain sono non-custodial?",
+          "a": "Il tuo USDC resta sul tuo account Hyperliquid. Gli ordini sono firmati dal wallet; HyperGain non detiene mai le tue chiavi private."
         },
         {
           "tab": "betting",
