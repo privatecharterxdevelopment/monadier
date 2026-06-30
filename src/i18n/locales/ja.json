@@ -217,7 +217,7 @@
         {
           "tab": "platform",
           "q": "HyperGain は完全分散型ですか？",
-          "a": "取引は承認したエージェント経由で Hyperliquid インフラ上で実行されます。シグナル分析と自動化は HyperGain サーバー（Railway）で動作します。残高とポジションは app.hyperliquid.xyz でいつでも確認できます。"
+          "a": "取引は承認したエージェント経由で Hyperliquid インフラ上で実行されます。シグナル分析と自動化は HyperGain サーバー（Railway）で動作します。残高とポジションは HyperGain ダッシュボードでいつでも確認できます。"
         },
         {
           "tab": "platform",
@@ -247,7 +247,7 @@
         {
           "tab": "bot",
           "q": "手動で決済できますか？",
-          "a": "はい。Hyperliquid の未決済ポジションはターミナルまたは app.hyperliquid.xyz で決済できます。ボット停止は新規エントリーのみ停止。既存 HL ポジションは TP/SL または手動決済まで残ります。"
+          "a": "はい。未決済ポジションは HyperGain ターミナルで決済できます。ボット停止は新規エントリーのみ停止。既存ポジションは TP/SL または手動決済まで残ります。"
         },
         {
           "tab": "bot",
@@ -267,7 +267,7 @@
         {
           "tab": "bot",
           "q": "ボットを開始するにはどう入金しますか？",
-          "a": "HyperGain 資金（または app.hyperliquid.xyz）で、Arbitrum One 上のネイティブ USDC のみ入金 — BNB、BSC、ETH メインネットや他チェーンの USDC は不可。HL 最低 $5、ボットは $20+。その後エージェント承認 → ボット開始。"
+          "a": "HyperGain 資金パネルで、Arbitrum One 上のネイティブ USDC のみ入金 — BNB、BSC、ETH メインネットや他チェーンの USDC は不可。HL 最低 $5、ボットは $20+。その後エージェント承認 → ボット開始。"
         },
         {
           "tab": "vault",
@@ -282,7 +282,7 @@
         {
           "tab": "vault",
           "q": "USDC はいつでも出金できますか？",
-          "a": "はい — 資金パネルまたは app.hyperliquid.xyz から Hyperliquid からウォレットへ。証拠金使用中は先にポジションを決済。取引エージェントは代わりに出金できません。"
+          "a": "はい — HyperGain 資金パネルから Hyperliquid からウォレットへ。証拠金使用中は先にポジションを決済。取引エージェントは代わりに出金できません。"
         },
         {
           "tab": "vault",

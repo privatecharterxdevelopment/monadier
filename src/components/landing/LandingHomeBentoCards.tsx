@@ -1,18 +1,20 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import LandingAppleFeatureWidget from './widgets/LandingAppleFeatureWidget';
 import LandingBentoMarketCharts from './widgets/LandingBentoMarketCharts';
 
-const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 20 },
-  whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true, margin: '-60px' },
-  transition: { duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] },
-});
-
 const LandingHomeBentoCards: React.FC = () => {
   const { t } = useTranslation();
+  const isMobile = useMediaQuery('(max-width: 639px)');
+
+  const fadeUp = (delay = 0) => ({
+    initial: isMobile ? { opacity: 0 } : { opacity: 0, y: 20 },
+    whileInView: { opacity: 1, y: 0 },
+    viewport: { once: true, margin: '-60px' },
+    transition: { duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] },
+  });
 
   return (
     <section

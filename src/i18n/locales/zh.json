@@ -217,7 +217,7 @@
         {
           "tab": "platform",
           "q": "HyperGain 完全去中心化吗？",
-          "a": "交易通过您批准的交易代理在 Hyperliquid 基础设施上执行。信号分析和自动化在 HyperGain 服务器（Railway）上运行。您可随时在 app.hyperliquid.xyz 验证余额和仓位。"
+          "a": "交易通过您批准的交易代理在 Hyperliquid 基础设施上执行。信号分析和自动化在 HyperGain 服务器（Railway）上运行。您可随时在 HyperGain 仪表板中验证余额和仓位。"
         },
         {
           "tab": "platform",
@@ -247,7 +247,7 @@
         {
           "tab": "bot",
           "q": "我可以手动平仓吗？",
-          "a": "可以。Hyperliquid 上的未平仓位可在终端或 app.hyperliquid.xyz 关闭。停止机器人会暂停新开仓；现有 HL 仓位保留至止盈/止损或手动平仓。"
+          "a": "可以。未平仓位可在 HyperGain 终端中关闭。停止机器人会暂停新开仓；现有仓位保留至止盈/止损或手动平仓。"
         },
         {
           "tab": "bot",
@@ -267,7 +267,7 @@
         {
           "tab": "bot",
           "q": "如何存款以便机器人启动？",
-          "a": "在 HyperGain 资金（或 app.hyperliquid.xyz）：仅存入 Arbitrum One 上的原生 USDC——不要用 BNB、BSC、ETH 主网或其他链上的 USDC。HL 最低 $5；机器人需 $20+。然后批准代理 → 启动机器人。"
+          "a": "在 HyperGain 资金面板：仅存入 Arbitrum One 上的原生 USDC——不要用 BNB、BSC、ETH 主网或其他链上的 USDC。HL 最低 $5；机器人需 $20+。然后批准代理 → 启动机器人。"
         },
         {
           "tab": "vault",
@@ -282,7 +282,7 @@
         {
           "tab": "vault",
           "q": "我可以随时提取 USDC 吗？",
-          "a": "可以——通过资金面板或 app.hyperliquid.xyz 从 Hyperliquid 提到钱包。若保证金占用中，请先平仓。交易代理无法代您提款。"
+          "a": "可以——通过 HyperGain 资金面板从 Hyperliquid 提到钱包。若保证金占用中，请先平仓。交易代理无法代您提款。"
         },
         {
           "tab": "vault",

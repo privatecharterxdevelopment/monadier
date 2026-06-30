@@ -1,8 +1,8 @@
 import { toNum } from './parse';
+import type { HlAccountState, HlUserAbstraction } from './user';
 import { fetchHlAccountState, fetchHlSpotBalances, fetchHlUserAbstraction } from './user';
 import { clearHlInfoCache } from './hlInfoClient';
 import { MIN_HL_BOT_USD } from './hlBotAgent';
-import type { HlUserAbstraction } from './user';
 
 export type HlFundingSnapshot = {
   /** Raw perp clearinghouse account value (often $0 on unified accounts). */
@@ -57,10 +57,22 @@ export function inferHlUnifiedMargin(
 export function hlTotalAccountEquityUsd(
   perpUsd: number,
   spotUsdcUsd: number,
-  unifiedAccount: boolean
+  unifiedAccount: boolean,
+  crossAccountValueUsd = 0,
+  account: HlAccountState | null = null
 ): number {
   const combined = unifiedAccount ? Math.max(perpUsd, spotUsdcUsd) : perpUsd + spotUsdcUsd;
-  return Math.max(combined, perpUsd);
+  const marginSummaryN = toNum(account?.margin?.totalMarginUsed);
+  const marginCrossN = toNum(account?.crossMargin?.totalMarginUsed);
+  let positionsMargin = 0;
+  for (const pos of account?.positions ?? []) {
+    const n = toNum(pos.marginUsed);
+    if (n > 0) positionsMargin += n;
+  }
+  const marginUsed = Math.max(marginSummaryN, marginCrossN, positionsMargin);
+  const withdrawable = toNum(account?.withdrawable);
+  const reconstructed = withdrawable + marginUsed;
+  return Math.max(combined, crossAccountValueUsd, perpUsd, reconstructed, spotUsdcUsd);
 }
 
 export function hlTradablePerpUsd(
@@ -89,12 +101,19 @@ async function fetchHlFundingSnapshotOnce(wallet: string): Promise<HlFundingSnap
     fetchHlUserAbstraction(wallet),
   ]);
   const perpUsd = toNum(account?.margin?.accountValue);
+  const crossAccountValueUsd = toNum(account?.crossMargin?.accountValue);
   const spotUsdcUsd = toNum(
     spotBalances.find((b) => b.coin.toUpperCase() === 'USDC')?.total
   );
   const unifiedAccount = inferHlUnifiedMargin(perpUsd, spotUsdcUsd, abstraction);
   const tradablePerpUsd = hlTradablePerpUsd(perpUsd, spotUsdcUsd, unifiedAccount);
-  const accountEquityUsd = hlTotalAccountEquityUsd(perpUsd, spotUsdcUsd, unifiedAccount);
+  const accountEquityUsd = hlTotalAccountEquityUsd(
+    perpUsd,
+    spotUsdcUsd,
+    unifiedAccount,
+    crossAccountValueUsd,
+    account
+  );
   const perpWithdrawable = toNum(account?.withdrawable);
   const withdrawableUsd = unifiedAccount
     ? Math.max(perpWithdrawable, spotUsdcUsd)

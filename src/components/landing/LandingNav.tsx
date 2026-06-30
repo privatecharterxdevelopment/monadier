@@ -94,7 +94,7 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pi
           {gmx ? (
             <>
               <LandingNavAuth light={light} gmx />
-              <OpenAppLink className="inline-flex landing-gmx-nav-open md:inline-flex">
+              <OpenAppLink className="hidden md:inline-flex landing-gmx-nav-open">
                 <span className="md:hidden">{t('common.app')}</span>
                 <span className="hidden md:inline">{t('common.openApp')}</span>
               </OpenAppLink>

@@ -136,7 +136,7 @@ export function getHlBotSidebarStatus(opts: {
     };
   }
 
-  const needsDeposit = perpUsd < MIN_HL_BOT_USD && perpUsd + spotUsdcUsd < MIN_HL_BOT_USD;
+  const needsDeposit = hlBalanceUsd < MIN_HL_BOT_USD;
   const needsSpotTransfer =
     !unifiedAccount &&
     perpUsd < MIN_HL_BOT_USD &&

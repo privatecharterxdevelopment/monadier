@@ -18,7 +18,10 @@ type Props = {
 };
 
 function isContactSection(section: LegalSection): boolean {
-  return /contact/i.test(section.title.replace(/^\d+\.\s*/, '').trim());
+  const normalized = section.title.replace(/^\d+\.\s*/, '').trim().toLowerCase();
+  return /contact|kontakt|联系|お問い合わせ|ติดต่อ|contacto|contatti|контакт/i.test(
+    normalized
+  );
 }
 
 const LegalDocumentLayout: React.FC<Props> = ({

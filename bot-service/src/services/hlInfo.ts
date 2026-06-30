@@ -17,6 +17,7 @@ export type HlClearinghouseState = {
       szi?: string;
       entryPx?: string;
       unrealizedPnl?: string;
+      marginUsed?: string;
       leverage?: { value?: number; type?: 'cross' | 'isolated' };
     };
   }>;
@@ -160,15 +161,40 @@ export function hlCrossAccountValueUsd(state: HlClearinghouseState | null): numb
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-/** Total HL equity for min-account checks (perp + spot + cross summary). */
+function hlSummaryMarginUsedUsd(state: HlClearinghouseState | null): number {
+  const margin = state?.marginSummary?.totalMarginUsed;
+  const cross = state?.crossMarginSummary?.totalMarginUsed;
+  const marginN = margin != null ? Number(margin) : 0;
+  const crossN = cross != null ? Number(cross) : 0;
+  return Math.max(
+    Number.isFinite(marginN) ? marginN : 0,
+    Number.isFinite(crossN) ? crossN : 0
+  );
+}
+
+/** Sum marginUsed across open positions (isolated wallets may not reflect in summary). */
+export function hlPositionsMarginUsedUsd(state: HlClearinghouseState | null): number {
+  let sum = 0;
+  for (const row of state?.assetPositions ?? []) {
+    const n = Number(row.position?.marginUsed ?? 0);
+    if (Number.isFinite(n) && n > 0) sum += n;
+  }
+  return sum;
+}
+
+/** Total HL equity for min-account checks (perp + spot + cross summary + locked margin). */
 export function hlTotalAccountEquityUsd(
   perpUsd: number,
   spotUsdcUsd: number,
   unifiedAccount: boolean,
-  crossAccountValueUsd: number
+  crossAccountValueUsd: number,
+  state: HlClearinghouseState | null
 ): number {
   const combined = unifiedAccount ? Math.max(perpUsd, spotUsdcUsd) : perpUsd + spotUsdcUsd;
-  return Math.max(combined, crossAccountValueUsd, perpUsd);
+  const marginUsed = Math.max(hlSummaryMarginUsedUsd(state), hlPositionsMarginUsedUsd(state));
+  const withdrawable = hlWithdrawableUsd(state);
+  const reconstructed = withdrawable + marginUsed;
+  return Math.max(combined, crossAccountValueUsd, perpUsd, reconstructed, spotUsdcUsd);
 }
 
 export function hlTradablePerpUsd(
@@ -196,7 +222,8 @@ async function fetchHlPerpFundingSnapshotOnce(
     perpUsd,
     spotUsdcUsd,
     unifiedAccount,
-    crossUsd
+    crossUsd,
+    state
   );
   const perpWithdrawable = hlWithdrawableUsd(state);
   return {
@@ -251,7 +278,10 @@ export function describeHlPerpBalanceBlocker(
     return `Perp margin $${funding.perpUsd.toFixed(2)} + spot $${funding.spotUsdcUsd.toFixed(2)} — move USDC to Perps to trade (min $${minUsd})`;
   }
 
-  return `HL account equity $${equityUsd.toFixed(2)} (min $${minUsd}) — free margin $${funding.withdrawableUsd.toFixed(2)}`;
+  return (
+    `HL account equity $${equityUsd.toFixed(2)} (min $${minUsd}) — ` +
+    `free margin $${funding.withdrawableUsd.toFixed(2)} · perp $${funding.perpUsd.toFixed(2)} · spot $${funding.spotUsdcUsd.toFixed(2)}`
+  );
 }
 
 export function hlAccountValueUsd(state: HlClearinghouseState | null): number {
@@ -273,9 +303,7 @@ export function hlWithdrawableUsd(state: HlClearinghouseState | null): number {
 }
 
 export function hlMarginUsedUsd(state: HlClearinghouseState | null): number {
-  const raw = state?.marginSummary?.totalMarginUsed;
-  const n = raw != null ? Number(raw) : 0;
-  return Number.isFinite(n) ? n : 0;
+  return Math.max(hlSummaryMarginUsedUsd(state), hlPositionsMarginUsedUsd(state));
 }
 
 /** USD available to open another HL perp (withdrawable, cross-checked vs balance − margin used). */

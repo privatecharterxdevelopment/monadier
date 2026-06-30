@@ -1210,6 +1210,21 @@
 @media (max-width: 639px) {
   .landing-bento-bets-carousel {
     min-height: 0;
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+
+  .landing-bento-bets-carousel-track {
+    animation: landing-bento-bets-marquee 56s linear infinite;
+  }
+
+  .landing-gmx-product-carousel-lane {
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+
+  .landing-gmx-product-carousel-track {
+    padding-left: 0;
   }
 
   .landing-bento-carousel-card {
@@ -5590,10 +5605,20 @@
     padding-top: clamp(88px, 14vh, 108px);
   }
 
+  .landing-gmx-hero--scroll-expand .landing-gmx-hero-video-zoom {
+    background: transparent;
+  }
+
+  .landing-gmx-hero--scroll-expand .landing-gmx-hero-video {
+    background: transparent;
+    object-fit: cover;
+    object-position: center;
+  }
+
   .landing-gmx-hero-title {
     padding-bottom: 20px;
     padding-right: 0;
-    font-size: clamp(1.65rem, 7.2vw, 2.35rem);
+    font-size: clamp(2rem, 9.2vw, 2.85rem);
     max-width: 100%;
   }
 
@@ -5640,8 +5665,8 @@
     max-width: 100%;
     padding-right: 0;
     padding-bottom: 0;
-    line-height: 1.12;
-    font-size: clamp(1.6rem, 6.8vw, 2.25rem);
+    line-height: 1.1;
+    font-size: clamp(2rem, 9.2vw, 2.85rem);
   }
 
   .landing-gmx-hero--centered .landing-gmx-hero-lines,
@@ -5699,7 +5724,7 @@
   }
 
   .landing-gmx-product-carousel-title {
-    font-size: clamp(1.75rem, 6.2vw, 2.35rem);
+    font-size: clamp(2rem, 8.4vw, 2.65rem);
   }
 
   .landing-gmx-product-carousel-desc {

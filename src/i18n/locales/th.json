@@ -217,7 +217,7 @@
         {
           "tab": "platform",
           "q": "HyperGain เป็น decentralized เต็มรูปแบบหรือไม่?",
-          "a": "การเทรดดำเนินการบนโครงสร้าง Hyperliquid ผ่าน agent ที่คุณอนุมัติ การวิเคราะห์สัญญาณและระบบอัตโนมัติทำงานบนเซิร์ฟเวอร์ HyperGain (Railway) คุณตรวจสอบยอดและพозишनได้ที่ app.hyperliquid.xyz ตลอดเวลา"
+          "a": "การเทรดดำเนินการบนโครงสร้าง Hyperliquid ผ่าน agent ที่คุณอนุมัติ การวิเคราะห์สัญญาณและระบบอัตโนมัติทำงานบนเซิร์ฟเวอร์ HyperGain (Railway) คุณตรวจสอบยอดและพозишनได้ใน HyperGain แดชบอร์ดตลอดเวลา"
         },
         {
           "tab": "platform",
@@ -247,7 +247,7 @@
         {
           "tab": "bot",
           "q": "ปิดเทรดด้วยตนเองได้ไหม?",
-          "a": "ได้ พозишนเปิดบน Hyperliquid ปิดได้ในเทอร์มินัลหรือ app.hyperliquid.xyz หยุดบอทหยุดการเปิดใหม่ พозишน HL ที่มีอยู่คงอยู่จน TP/SL หรือปิดเอง"
+          "a": "ได้ ปิดพозишนเปิดได้ใน HyperGain เทอร์มินัล หยุดบอทหยุดการเปิดใหม่ พозишนที่มีอยู่คงอยู่จน TP/SL หรือปิดเอง"
         },
         {
           "tab": "bot",
@@ -267,7 +267,7 @@
         {
           "tab": "bot",
           "q": "ฝากเงินอย่างไรให้บอทเริ่มได้?",
-          "a": "ใน HyperGain Funds (หรือ app.hyperliquid.xyz): ฝากเฉพาะ USDC native บน Arbitrum One — ไม่ใช่ BNB, BSC, ETH mainnet หรือ USDC บน chain อื่น ขั้นต่ำ $5 บน HL บอทต้องการ $20+ จากนั้นอนุมัติ agent → เริ่มบอท"
+          "a": "ใน HyperGain Funds: ฝากเฉพาะ USDC native บน Arbitrum One — ไม่ใช่ BNB, BSC, ETH mainnet หรือ USDC บน chain อื่น ขั้นต่ำ $5 บน HL บอทต้องการ $20+ จากนั้นอนุมัติ agent → เริ่มบอท"
         },
         {
           "tab": "vault",
@@ -282,7 +282,7 @@
         {
           "tab": "vault",
           "q": "ถอน USDC ได้ตลอดเวลาไหม?",
-          "a": "ได้ — จาก Hyperliquid ไป wallet ผ่านแผง Funds หรือ app.hyperliquid.xyz ปิดพозишนเปิดก่อนหากใช้ margin trading agent ถอนแทนคุณไม่ได้"
+          "a": "ได้ — จาก Hyperliquid ไป wallet ผ่าน HyperGain Funds ปิดพозишนเปิดก่อนหากใช้ margin trading agent ถอนแทนคุณไม่ได้"
         },
         {
           "tab": "vault",

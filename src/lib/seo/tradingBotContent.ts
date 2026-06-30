@@ -33,7 +33,7 @@ export const TRADING_BOT_FAQS: TradingBotFaq[] = [
   },
   {
     q: 'Can I stop the bot or close trades manually?',
-    a: 'Yes. Press Stop bot to halt new entries. Open positions remain on Hyperliquid until take profit, stop loss, or manual close in the terminal or on app.hyperliquid.xyz.',
+    a: 'Yes. Press Stop bot to halt new entries. Open positions remain until take profit, stop loss, or manual close in the HyperGain terminal.',
   },
   {
     q: 'Do I need trading experience to use the bot?',

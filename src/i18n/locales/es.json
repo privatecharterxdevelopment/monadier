@@ -217,7 +217,7 @@
         {
           "tab": "platform",
           "q": "¿HyperGain es totalmente descentralizado?",
-          "a": "El trading se ejecuta en la infraestructura Hyperliquid mediante un agente que apruebas. El análisis de señales y la automatización corren en servidores HyperGain (Railway). Puedes verificar saldo y posiciones en app.hyperliquid.xyz en cualquier momento."
+          "a": "El trading se ejecuta en la infraestructura Hyperliquid mediante un agente que apruebas. El análisis de señales y la automatización corren en servidores HyperGain (Railway). Puedes verificar saldo y posiciones en tu panel HyperGain en cualquier momento."
         },
         {
           "tab": "platform",
@@ -247,7 +247,7 @@
         {
           "tab": "bot",
           "q": "¿Puedo cerrar operaciones manualmente?",
-          "a": "Sí. Las posiciones abiertas en Hyperliquid se cierran en el terminal o en app.hyperliquid.xyz. Detener bot pausa nuevas entradas; las posiciones HL existentes permanecen hasta TP/SL o cierre manual."
+          "a": "Sí. Las posiciones abiertas se cierran en el terminal HyperGain. Detener bot pausa nuevas entradas; las posiciones existentes permanecen hasta TP/SL o cierre manual."
         },
         {
           "tab": "bot",
@@ -267,7 +267,7 @@
         {
           "tab": "bot",
           "q": "¿Cómo deposito para que el bot arranque?",
-          "a": "En HyperGain Funds (o app.hyperliquid.xyz): deposita solo USDC nativo en Arbitrum One — no BNB, BSC, ETH mainnet ni USDC en otras chains. Mín. $5 en HL; el bot necesita $20+. Luego aprueba agente → Iniciar bot."
+          "a": "En HyperGain Funds: deposita solo USDC nativo en Arbitrum One — no BNB, BSC, ETH mainnet ni USDC en otras chains. Mín. $5 en HL; el bot necesita $20+. Luego aprueba agente → Iniciar bot."
         },
         {
           "tab": "vault",
@@ -282,7 +282,7 @@
         {
           "tab": "vault",
           "q": "¿Puedo retirar USDC en cualquier momento?",
-          "a": "Sí — de Hyperliquid a tu wallet vía el panel Funds o app.hyperliquid.xyz. Cierra posiciones abiertas si hay margen en uso. El agente no puede retirar por ti."
+          "a": "Sí — de Hyperliquid a tu wallet vía el panel HyperGain Funds. Cierra posiciones abiertas si hay margen en uso. El agente no puede retirar por ti."
         },
         {
           "tab": "vault",

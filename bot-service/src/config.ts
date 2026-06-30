@@ -314,7 +314,7 @@ export const config = {
       maxRangePositionShort: Number(process.env.HL_PRE_OPEN_MAX_RANGE_SHORT || 0.42),
       breakoutRecentMovePct: Number(process.env.HL_PRE_OPEN_BREAKOUT_RECENT_PCT || 0.06),
       maxRejectionsAtLevel: Number(process.env.HL_PRE_OPEN_MAX_REJECTIONS || 2),
-      minVolumeRatio: Number(process.env.HL_PRE_OPEN_MIN_VOL_RATIO || 0.85),
+      minVolumeRatio: Number(process.env.HL_PRE_OPEN_MIN_VOL_RATIO || 0.72),
     },
     /** Pause new opens after today's realized loss exceeds cap (off by default). */
     dailyLoss: {

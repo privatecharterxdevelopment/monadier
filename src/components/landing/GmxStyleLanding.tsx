@@ -76,17 +76,14 @@ function computeHeroLayout(progress: number, viewportW: number, viewportH: numbe
   let startH: number;
 
   if (isMobile) {
-    // Symmetric inset — centered frame, larger & lower before the expand animation
-    const inset = Math.max(16, headerGutterPx(viewportW));
-    startW = viewportW - inset * 2;
-    startLeft = inset;
-    startTop = header.navBottom + 28;
-    const reservedBottom = 128;
-    const maxH = Math.max(260, viewportH - startTop - reservedBottom);
+    // Same framing as desktop — nav-aligned width, video below header (no bottom black box)
+    startW = header.width;
+    startLeft = header.left;
+    startTop = header.navBottom + HEADER_GAP_BELOW_NAV;
     startH = Math.min(
-      Math.round(startW * 0.66),
-      Math.round(viewportH * 0.46),
-      maxH
+      Math.max(260, Math.round(startW * 0.5)),
+      Math.round(viewportH * 0.52),
+      viewportH - startTop - 112
     );
   } else {
     startW = header.width;

@@ -310,7 +310,7 @@
         {
           "tab": "platform",
           "q": "Ist HyperGain vollständig dezentral?",
-          "a": "Handel wird über Hyperliquid-Infrastruktur via einem von dir genehmigten Agent ausgeführt. Signalanalyse und Automatisierung laufen auf HyperGain-Servern (Railway). Du kannst Guthaben und Positionen jederzeit auf app.hyperliquid.xyz prüfen."
+          "a": "Handel wird über Hyperliquid-Infrastruktur via einem von dir genehmigten Agent ausgeführt. Signalanalyse und Automatisierung laufen auf HyperGain-Servern (Railway). Du kannst Guthaben und Positionen jederzeit in deinem HyperGain-Dashboard prüfen."
         },
         {
           "tab": "platform",
@@ -340,7 +340,7 @@
         {
           "tab": "bot",
           "q": "Kann ich Trades manuell schließen?",
-          "a": "Ja. Offene Positionen auf Hyperliquid können im Terminal oder auf app.hyperliquid.xyz geschlossen werden. Bot stoppen stoppt neue Einstiege; bestehende HL-Positionen bleiben bis TP/SL oder manuellem Schließen."
+          "a": "Ja. Offene Positionen können im HyperGain-Terminal geschlossen werden. Bot stoppen stoppt neue Einstiege; bestehende Positionen bleiben bis TP/SL oder manuellem Schließen."
         },
         {
           "tab": "bot",
@@ -360,7 +360,7 @@
         {
           "tab": "bot",
           "q": "Wie zahle ich ein, damit der Bot starten kann?",
-          "a": "In HyperGain Funds (oder app.hyperliquid.xyz): nur natives USDC auf Arbitrum One einzahlen — nicht BNB, BSC, ETH Mainnet oder USDC auf anderen Chains. Min. $5 auf HL; Bot braucht $20+. Dann Agent genehmigen → Bot starten."
+          "a": "In HyperGain Funds: nur natives USDC auf Arbitrum One einzahlen — nicht BNB, BSC, ETH Mainnet oder USDC auf anderen Chains. Min. $5 auf HL; Bot braucht $20+. Dann Agent genehmigen → Bot starten."
         },
         {
           "tab": "vault",
@@ -375,7 +375,7 @@
         {
           "tab": "vault",
           "q": "Kann ich USDC jederzeit abheben?",
-          "a": "Ja — von Hyperliquid in deine Wallet über das Funds-Panel oder app.hyperliquid.xyz. Schließe zuerst offene Positionen, wenn Margin genutzt wird. Der Trading Agent kann nicht für dich abheben."
+          "a": "Ja — von Hyperliquid in deine Wallet über das HyperGain Funds-Panel. Schließe zuerst offene Positionen, wenn Margin genutzt wird. Der Trading Agent kann nicht für dich abheben."
         },
         {
           "tab": "vault",

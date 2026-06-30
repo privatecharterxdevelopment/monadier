@@ -176,7 +176,9 @@ const ProTradeTopNav: React.FC<Props> = ({
         {onViewNotificationHistory ? (
           <ProTradeNotificationsBell onViewHistory={onViewNotificationHistory} />
         ) : null}
-        <LanguageSwitcher variant="app" />
+        <div className="hidden md:block">
+          <LanguageSwitcher variant="app" />
+        </div>
         <ProTradeThemeIcon />
         <button
           type="button"
@@ -193,7 +195,7 @@ const ProTradeTopNav: React.FC<Props> = ({
           onOpenAffiliate={onOpenAffiliate}
           onRequireSignIn={onRequireSignIn}
         />
-        {!isMobile || !isConnected ? (
+        {!isMobile ? (
           <button
             type="button"
             className={`hl-topnav-wallet ${isConnected ? 'hl-topnav-wallet--connected' : ''}`}
@@ -242,6 +244,9 @@ const ProTradeTopNav: React.FC<Props> = ({
               >
                 <X size={16} />
               </button>
+            </div>
+            <div className="hl-mobile-nav-lang">
+              <LanguageSwitcher variant="app" />
             </div>
             <nav className="hl-mobile-nav-links">
               {NAV.map(({ id, labelKey, enabled }) => (

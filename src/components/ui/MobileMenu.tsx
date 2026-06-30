@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import OpenAppLink from '../layout/OpenAppLink';
 import ProfileAvatar from '../profile/ProfileAvatar';
-import LanguageSwitcher from '../i18n/LanguageSwitcher';
 import { useAuth } from '../../contexts/AuthContext';
 import { displayHandle } from '../../lib/username';
 import { goToOpenApp } from '../../lib/appUrls';
@@ -89,10 +88,6 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
                     {t('common.download')}
                   </button>
                 )}
-
-                <div className={`px-3 py-2 ${light ? '' : ''}`}>
-                  <LanguageSwitcher variant={light ? 'landing-light' : 'landing-dark'} />
-                </div>
 
                 <div
                   className={`mt-1 pt-1 border-t flex flex-col gap-0.5 ${

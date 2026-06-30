@@ -14,6 +14,7 @@ export type HlPosition = {
   entryPx: string;
   positionValue: string;
   unrealizedPnl: string;
+  marginUsed?: string;
   leverage: { type: string; value: number };
   liquidationPx: string | null;
 };
@@ -89,6 +90,7 @@ export type HlSpotBalance = {
 
 export type HlAccountState = {
   margin: HlMarginSummary;
+  crossMargin?: HlMarginSummary;
   positions: HlPosition[];
   withdrawable: string;
 };
@@ -103,6 +105,7 @@ async function hlInfo<T>(body: Record<string, unknown>): Promise<T> {
 
 type ClearinghouseState = {
   marginSummary?: HlMarginSummary;
+  crossMarginSummary?: HlMarginSummary;
   withdrawable?: string;
   assetPositions?: Array<{
     position?: {
@@ -111,6 +114,7 @@ type ClearinghouseState = {
       entryPx?: string;
       positionValue?: string;
       unrealizedPnl?: string;
+      marginUsed?: string;
       leverage?: { type?: string; value?: number } | number;
       liquidationPx?: string | null;
     };
@@ -147,6 +151,7 @@ function normalizePosition(
     entryPx: String(raw.entryPx ?? '0'),
     positionValue: String(raw.positionValue ?? '0'),
     unrealizedPnl: String(raw.unrealizedPnl ?? '0'),
+    marginUsed: raw.marginUsed != null ? String(raw.marginUsed) : undefined,
     leverage: normalizeLeverage(raw.leverage),
     liquidationPx: raw.liquidationPx ?? null,
   };
@@ -183,16 +188,29 @@ export async function fetchHlAccountState(user: string): Promise<HlAccountState>
     user: user.toLowerCase(),
   });
   const margin = data.marginSummary ?? EMPTY_MARGIN;
+  const crossMargin = data.crossMarginSummary ?? EMPTY_MARGIN;
+  const marginAccountValue = Math.max(
+    toNum(margin.accountValue),
+    toNum(crossMargin.accountValue)
+  );
   const positions = (data.assetPositions ?? [])
     .map((row) => normalizePosition(row.position))
     .filter((p): p is HlPosition => p != null);
 
   return {
     margin: {
-      accountValue: String(margin.accountValue ?? '0'),
-      totalNtlPos: String(margin.totalNtlPos ?? '0'),
-      totalRawUsd: String(margin.totalRawUsd ?? '0'),
-      totalMarginUsed: String(margin.totalMarginUsed ?? '0'),
+      accountValue: String(marginAccountValue),
+      totalNtlPos: String(margin.totalNtlPos ?? crossMargin.totalNtlPos ?? '0'),
+      totalRawUsd: String(margin.totalRawUsd ?? crossMargin.totalRawUsd ?? '0'),
+      totalMarginUsed: String(
+        Math.max(toNum(margin.totalMarginUsed), toNum(crossMargin.totalMarginUsed))
+      ),
+    },
+    crossMargin: {
+      accountValue: String(crossMargin.accountValue ?? '0'),
+      totalNtlPos: String(crossMargin.totalNtlPos ?? '0'),
+      totalRawUsd: String(crossMargin.totalRawUsd ?? '0'),
+      totalMarginUsed: String(crossMargin.totalMarginUsed ?? '0'),
     },
     withdrawable: String(data.withdrawable ?? '0'),
     positions,
