@@ -576,12 +576,19 @@ export async function fetchAdminLiveContext(): Promise<AdminLiveContext> {
   return { builder, health, serviceStatus };
 }
 
+function closeReasonStem(reason: string | null | undefined): string {
+  return (reason ?? '')
+    .replace(/ ‖ fill pending$/, '')
+    .replace(/ ‖ signal uPnL.*$/, '')
+    .slice(0, 120);
+}
+
 function dedupeAdminTradeCloses(rows: AdminTradeClose[]): AdminTradeClose[] {
   const seen = new Set<string>();
   const out: AdminTradeClose[] = [];
   for (const t of rows) {
-    const closedMin = t.closed_at?.slice(0, 16) ?? '';
-    const key = `${t.wallet_address.toLowerCase()}:${t.token_symbol.toUpperCase()}:${t.direction}:${closedMin}:${t.profit_loss ?? ''}`;
+    const stem = closeReasonStem(t.close_reason);
+    const key = `${t.wallet_address.toLowerCase()}:${t.token_symbol.toUpperCase()}:${t.direction}:${stem}:${t.profit_loss ?? t.snapshot_pnl_usd ?? ''}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(t);

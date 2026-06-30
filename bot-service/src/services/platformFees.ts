@@ -244,16 +244,19 @@ export async function recordPendingFillClose(input: PendingFillCloseInput): Prom
   const wallet = input.walletAddress.toLowerCase();
   const closedAt = new Date().toISOString();
   const collateralUsd = input.collateralUsd ?? 0;
-  const since = new Date(Date.now() - 5 * 60_000).toISOString();
-  const { data: dupe } = await supabase
-    .from('trade_history')
-    .select('id')
-    .eq('wallet_address', wallet)
-    .eq('token_symbol', input.coin.toUpperCase())
-    .eq('platform_fee_status', 'pending_fill')
-    .gte('closed_at', since)
-    .maybeSingle();
-  if (dupe?.id) return;
+
+  const dupeId = await findRecentBotCloseDupe(wallet, input.coin, input.direction, {
+    snapshotPnlUsd: input.snapshotPnlUsd ?? null,
+    closeReason: input.closeReason,
+  });
+  if (dupeId) {
+    logger.debug('pending_fill skipped — recent close already recorded', {
+      wallet: wallet.slice(0, 10),
+      coin: input.coin,
+      existingId: dupeId,
+    });
+    return;
+  }
 
   const { error } = await supabase.from('trade_history').insert({
     wallet_address: wallet,
@@ -351,6 +354,8 @@ export async function reconcilePendingFillCloses(limit = 40): Promise<number> {
       existingTradeHistoryId: row.id,
     });
 
+    await purgeStalePendingFillRows(row.wallet_address, row.token_symbol, row.id);
+
     reconciled += 1;
     logger.info('pending_fill reconciled', {
       wallet: row.wallet_address.slice(0, 10),
@@ -369,6 +374,23 @@ export async function recordBotCloseOutcome(
   const wallet = input.walletAddress.toLowerCase();
   const realized = input.profitUsd;
   if (!Number.isFinite(realized)) return;
+
+  if (!input.existingTradeHistoryId) {
+    const dupeId = await findRecentBotCloseDupe(wallet, input.coin, input.direction, {
+      profitUsd: realized,
+      snapshotPnlUsd: input.snapshotPnlUsd ?? null,
+      closeReason: input.closeReason,
+    });
+    if (dupeId) {
+      logger.debug('bot close skipped — duplicate trade_history', {
+        wallet: wallet.slice(0, 10),
+        coin: input.coin,
+        profit: realized.toFixed(4),
+        existingId: dupeId,
+      });
+      return;
+    }
+  }
 
   if (await isFeeExemptWallet(wallet)) {
     await recordProfitableCloseFeeWaived(input);
@@ -740,29 +762,70 @@ export async function settleAccruedFees(
   return { settledUsd: status.accruedUsd, ok: true };
 }
 
-async function findRecentFeeWaivedCloseDupe(
+function closeReasonStem(reason: string | null | undefined): string {
+  return (reason ?? '')
+    .replace(/ ‖ fill pending$/, '')
+    .replace(/ ‖ signal uPnL.*$/, '')
+    .slice(0, 120);
+}
+
+/** Skip burst duplicate closes — includes pending_fill rows (was the reconcile gap). */
+async function findRecentBotCloseDupe(
   wallet: string,
   coin: string,
   direction: string,
-  profitUsd: number,
-  withinMs = 5 * 60_000
+  opts: {
+    profitUsd?: number | null;
+    snapshotPnlUsd?: number | null;
+    closeReason?: string | null;
+    withinMs?: number;
+  } = {}
 ): Promise<string | null> {
+  const withinMs = opts.withinMs ?? 24 * 60 * 60_000;
   const since = new Date(Date.now() - withinMs).toISOString();
+  const stem = opts.closeReason ? closeReasonStem(opts.closeReason) : '';
+
   const { data: recent } = await supabase
     .from('trade_history')
-    .select('id, profit_loss, platform_fee_status')
+    .select('id, profit_loss, snapshot_pnl_usd, close_reason, platform_fee_status')
     .eq('wallet_address', wallet)
     .eq('token_symbol', coin.toUpperCase())
     .eq('direction', direction)
     .gte('closed_at', since)
-    .neq('platform_fee_status', 'pending_fill')
     .order('closed_at', { ascending: false })
-    .limit(5);
+    .limit(20);
 
-  const match = (recent ?? []).find(
-    (row) => Math.abs(Number(row.profit_loss) - profitUsd) < 0.02
-  );
+  const profit = opts.profitUsd;
+  const snapshot = opts.snapshotPnlUsd;
+
+  const match = (recent ?? []).find((row) => {
+    if (stem && closeReasonStem(String(row.close_reason ?? '')) === stem) return true;
+    if (profit != null && Number.isFinite(profit)) {
+      return Math.abs(Number(row.profit_loss) - profit) < 0.02;
+    }
+    if (snapshot != null && Number.isFinite(snapshot)) {
+      return Math.abs(Number(row.snapshot_pnl_usd) - snapshot) < 0.02;
+    }
+    return false;
+  });
+
   return match?.id ?? null;
+}
+
+async function purgeStalePendingFillRows(
+  wallet: string,
+  coin: string,
+  keepId: string
+): Promise<void> {
+  const since = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
+  await supabase
+    .from('trade_history')
+    .delete()
+    .eq('wallet_address', wallet)
+    .eq('token_symbol', coin.toUpperCase())
+    .eq('platform_fee_status', 'pending_fill')
+    .gte('closed_at', since)
+    .neq('id', keepId);
 }
 
 /** Trade history only — no fee ledger for exempt wallets. */
@@ -810,12 +873,11 @@ async function recordProfitableCloseFeeWaived(input: ProfitableCloseInput): Prom
     tradeErr = error;
     tradeRow = { id: input.existingTradeHistoryId };
   } else {
-    const dupeId = await findRecentFeeWaivedCloseDupe(
-      wallet,
-      input.coin,
-      input.direction,
-      profitUsd
-    );
+    const dupeId = await findRecentBotCloseDupe(wallet, input.coin, input.direction, {
+      profitUsd,
+      snapshotPnlUsd: snapshot,
+      closeReason: input.closeReason,
+    });
     if (dupeId) {
       logger.debug('fee-waived close skipped — recent duplicate', {
         wallet: wallet.slice(0, 10),
