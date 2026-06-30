@@ -545,6 +545,7 @@
       "lead": "Hyperliquid perps, spot balances, and betting positions in one view.",
       "perpAccount": "Perp account",
       "withdrawable": "Withdrawable {{amount}}",
+      "withdrawableMargin": "Withdrawable {{withdrawable}} · {{margin}} in margin",
       "spotAccount": "Spot account",
       "totalEst": "Total (est.)",
       "perpsPlusSpot": "Perps + spot",
@@ -614,7 +615,11 @@
     "closedTradesGateShort": "After this many closed trades",
     "fewerTrades": "Fewer trades",
     "moreTrades": "More trades",
-    "exitsHint": "<strong>Exits:</strong> SL % in settings = max loss on margin while red. In profit the bot sets a <strong>profit SL</strong> automatically (green → +0.1% ROE arm → +0.1% lock; closes only ≥ $0.01 uPnL)."
+    "exitsHint": "<strong>Exits:</strong> SL % in settings = max loss on margin while red. In profit the bot sets a <strong>profit SL</strong> automatically (green → +0.1% ROE arm → +0.1% lock; closes only ≥ $0.01 uPnL).",
+    "stopLossTitle": "Stop loss",
+    "stopLossHint": "Max loss on margin while the position is in the red. Off = profit trail only (no auto close in red).",
+    "stopLossOff": "Off",
+    "stopLossCustom": "Custom %"
   },
   "trading": {
     "order": {

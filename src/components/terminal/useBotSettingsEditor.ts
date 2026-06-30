@@ -164,6 +164,7 @@ export function useBotSettingsEditor({
 
   const hasChanges =
     tradingParamsChanged ||
+    numChanged(stopLoss, baseline.stopLoss) ||
     autoTrade !== baseline.autoTradeEnabled ||
     askPermission !== baseline.askPermission ||
     minWinRate !== baseline.minWinRate ||
@@ -198,7 +199,7 @@ export function useBotSettingsEditor({
           riskPct: riskLevel,
           leverage: savedLeverage,
           takeProfit: takeProfit,
-          stopLoss: profitOnlyHoldLosers ? 0 : stopLoss > 0 ? stopLoss : 0,
+          stopLoss: stopLoss > 0 ? Math.min(50, Math.round(stopLoss * 10) / 10) : 0,
           askPermission,
           minWinRate,
           minTradesForWinRate,

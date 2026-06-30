@@ -86,11 +86,24 @@ export type AdminTradeClose = {
   email: string | null;
 };
 
+export type AdminTradeHistoryUserStats = {
+  wallet_address: string;
+  email: string | null;
+  closed_pnl_total: number;
+  closed_trades_count: number;
+  open_positions_count: number;
+  fees_accrued_usd: number;
+  fees_paid_usd: number;
+  fee_win_count: number;
+  wins_until_fee: number;
+};
+
 export type AdminHlTradeHistoryPage = {
   total: number;
   limit: number;
   offset: number;
   rows: AdminTradeClose[];
+  user_stats?: AdminTradeHistoryUserStats | null;
 };
 
 export type AdminTradeEvent = {
@@ -151,6 +164,20 @@ export type AdminUserRow = {
   membership_tier: string | null;
   trade_close_email_enabled?: boolean;
   created_at: string;
+  username?: string | null;
+  full_name?: string | null;
+  country?: string | null;
+  timezone?: string | null;
+  kyc_status?: string | null;
+  onboarding_completed?: boolean | null;
+  closed_pnl_total?: number;
+  closed_trades_count?: number;
+  open_positions_count?: number;
+  fees_accrued_usd?: number;
+  fees_settled_usd?: number;
+  fees_paid_usd?: number;
+  fee_win_count?: number;
+  wins_until_fee?: number;
 };
 
 export type AdminSubscriptionRow = {
@@ -664,19 +691,26 @@ function mapAdminTradeCloseRow(raw: Record<string, unknown>): AdminTradeClose {
   };
 }
 
-/** Full paginated HL trade_history for admin History tab (not capped at 80). */
+/** Full paginated HL trade_history for admin History tab. */
 export async function fetchAdminHlTradeHistory(
-  opts: { limit?: number; offset?: number } = {}
+  opts: {
+    limit?: number;
+    offset?: number;
+    wallet?: string | null;
+    email?: string | null;
+  } = {}
 ): Promise<AdminHlTradeHistoryPage> {
-  const pageSize = Math.min(5000, Math.max(1, opts.limit ?? 1000));
+  const pageSize = Math.min(500, Math.max(1, opts.limit ?? 25));
   const { data, error } = await supabase.rpc('get_admin_hl_trade_history', {
     p_limit: pageSize,
     p_offset: Math.max(0, opts.offset ?? 0),
+    p_wallet: opts.wallet?.trim() || null,
+    p_email: opts.email?.trim() || null,
   });
 
   if (error) {
     console.error('[adminDashboard] get_admin_hl_trade_history failed', error);
-    return { total: 0, limit: pageSize, offset: opts.offset ?? 0, rows: [] };
+    return { total: 0, limit: pageSize, offset: opts.offset ?? 0, rows: [], user_stats: null };
   }
 
   const payload = (data ?? {}) as {
@@ -684,13 +718,30 @@ export async function fetchAdminHlTradeHistory(
     limit?: number;
     offset?: number;
     rows?: Record<string, unknown>[];
+    user_stats?: Record<string, unknown> | null;
   };
+
+  const rawStats = payload.user_stats;
+  const userStats: AdminTradeHistoryUserStats | null = rawStats
+    ? {
+        wallet_address: String(rawStats.wallet_address ?? ''),
+        email: rawStats.email != null ? String(rawStats.email) : null,
+        closed_pnl_total: num(rawStats.closed_pnl_total),
+        closed_trades_count: Number(rawStats.closed_trades_count) || 0,
+        open_positions_count: Number(rawStats.open_positions_count) || 0,
+        fees_accrued_usd: num(rawStats.fees_accrued_usd),
+        fees_paid_usd: num(rawStats.fees_paid_usd),
+        fee_win_count: Number(rawStats.fee_win_count) || 0,
+        wins_until_fee: Number(rawStats.wins_until_fee) || 0,
+      }
+    : null;
 
   return {
     total: Number(payload.total) || 0,
     limit: Number(payload.limit) || pageSize,
     offset: Number(payload.offset) || 0,
     rows: (payload.rows ?? []).map(mapAdminTradeCloseRow),
+    user_stats: userStats,
   };
 }
 
@@ -728,8 +779,20 @@ export function shortWallet(addr: string | null | undefined, chars = 6): string 
   return `${a.slice(0, chars)}…${a.slice(-4)}`;
 }
 
-export function fmtUsd(n: number | null | undefined, signed = false): string {
+export function fmtUsd(
+  n: number | null | undefined,
+  signed = false,
+  decimals = 2
+): string {
   const v = Number(n) || 0;
   const prefix = signed && v > 0 ? '+' : '';
-  return `${prefix}$${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `${prefix}$${v.toLocaleString(undefined, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })}`;
+}
+
+/** Admin trade P/L — 4 decimal places. */
+export function fmtUsdTrade(n: number | null | undefined, signed = false): string {
+  return fmtUsd(n, signed, 4);
 }

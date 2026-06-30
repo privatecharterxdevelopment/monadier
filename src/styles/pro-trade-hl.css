@@ -881,6 +881,14 @@
   background: transparent;
 }
 
+.hl-page-shell.hl-portfolio-page,
+.hl-meta-page-shell.hl-portfolio-page {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
 .hl-page-shell.hl-profile-page .hl-page-card {
   flex: 1;
   min-height: 0;
@@ -2915,7 +2923,7 @@
 .hl-news-page.hl-page-shell,
 .hl-profile-page.hl-page-shell {
   gap: 0;
-  padding: 16px 20px max(28px, env(safe-area-inset-bottom));
+  padding: 0;
 }
 
 .hl-portfolio-hero {
@@ -10259,6 +10267,16 @@
   color: #0a0a0a;
 }
 
+.hl-bot-panel-wrap .term-btn-sm:hover:not(:disabled):not(.term-btn-sm--primary) {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: var(--hl-border-strong);
+  color: #0a0a0a;
+}
+
+.hl-bot-panel-wrap .term-btn-sm:hover:not(:disabled):not(.term-btn-sm--primary) svg {
+  color: #0a0a0a;
+}
+
 .hl-bot-panel-wrap .term-btn-sm--ghost {
   background: transparent;
   color: var(--hl-text-muted);
@@ -10341,6 +10359,59 @@
 
 .hl-bot-panel-wrap .term-field-row strong {
   color: var(--hl-text);
+}
+
+/* Settings tab (ex-LVRG) — dark panel cards, chips, gates */
+.hl-bot-panel-wrap .term-lvrg-setting-card {
+  background: var(--hl-bg);
+  border: 1px solid var(--hl-border);
+}
+
+.hl-bot-panel-wrap .term-lvrg-setting-title,
+.hl-bot-panel-wrap .term-lvrg-setting-value,
+.hl-bot-panel-wrap .term-lvrg-gate-value {
+  color: var(--hl-text);
+}
+
+.hl-bot-panel-wrap .term-lvrg-setting-desc,
+.hl-bot-panel-wrap .term-lvrg-setting-foot,
+.hl-bot-panel-wrap .term-lvrg-gate-label {
+  color: var(--hl-text-muted);
+}
+
+.hl-bot-panel-wrap .term-lvrg-save-hint {
+  color: var(--hl-text-faint);
+}
+
+.hl-bot-panel-wrap .term-lvrg-setting-card .term-modal-input,
+.hl-bot-panel-wrap .term-lvrg-setting-card .term-panel-input {
+  background: var(--hl-bg-elevated);
+  border: 1px solid var(--hl-border);
+  color: var(--hl-text);
+}
+
+.hl-bot-panel-wrap .term-lvrg-setting-card .term-modal-input:focus,
+.hl-bot-panel-wrap .term-lvrg-setting-card .term-panel-input:focus {
+  border-color: var(--hl-border-strong);
+  outline: none;
+}
+
+.hl-bot-panel-wrap .term-modal-switch {
+  background: var(--hl-bg-hover);
+  border: 1px solid var(--hl-border);
+}
+
+.hl-bot-panel-wrap .term-modal-switch--on {
+  background: var(--hl-green-tint);
+  border-color: var(--hl-green-bright);
+}
+
+.hl-bot-panel-wrap .term-modal-switch-knob {
+  background: var(--hl-text-muted);
+}
+
+.hl-bot-panel-wrap .term-modal-switch--on .term-modal-switch-knob {
+  background: var(--hl-green-bright);
 }
 
 .hl-bot-panel-wrap .term-icon-btn {
@@ -11340,6 +11411,19 @@
   }
 
   .hl-terminal--profile {
+    flex: 0 0 auto;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .hl-terminal--portfolio {
+    flex: 0 0 auto;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .hl-page-shell.hl-portfolio-page,
+  .hl-meta-page-shell.hl-portfolio-page {
     flex: 0 0 auto;
     min-height: auto;
     overflow: visible;

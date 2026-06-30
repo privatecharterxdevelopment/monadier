@@ -33,7 +33,6 @@ const TerminalLvrgPanel: React.FC<Props> = ({
     settings,
     walletAddress,
     hlSliderMax: caps.sliderMax,
-    profitOnlyHoldLosers: true,
     onSaved,
   });
 
@@ -79,8 +78,8 @@ const TerminalLvrgPanel: React.FC<Props> = ({
         />
 
         <p className="term-hint term-lvrg-save-hint">
-          Saves risk, leverage, and win-rate gate for the {BRAND_NAME} bot. Start/stop trading in the{' '}
-          <strong>Bot</strong> tab.
+          Saves risk, leverage, stop loss, and win-rate gate for the {BRAND_NAME} bot. Start/stop
+          trading in the <strong>Bot</strong> tab.
         </p>
 
         <button
@@ -115,7 +114,7 @@ const TerminalLvrgPanel: React.FC<Props> = ({
           <button
             type="button"
             className="term-lvrg-section-blocker"
-            aria-label="Stop bot to change leverage, risk, or win-rate gate"
+            aria-label="Stop bot to change leverage, risk, stop loss, or win-rate gate"
             onClick={() => onBlockedSave?.()}
           />
         ) : null}

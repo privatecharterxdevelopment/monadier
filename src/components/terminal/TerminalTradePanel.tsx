@@ -637,7 +637,7 @@ const TerminalTradePanel: React.FC<Props> = ({
         {(
           [
             { id: 'bot' as const, label: 'Bot' },
-            { id: 'lvrg' as const, label: 'LVRG' },
+            { id: 'lvrg' as const, label: 'Settings' },
             { id: 'funds' as const, label: 'Funds' },
           ] as const
         ).map((t) => (

@@ -6,6 +6,7 @@ import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { readNum, toNum } from '../../lib/hyperliquid/parse';
 import ProTradeBettingTables from './ProTradeBettingTables';
 import { useBettingPortfolio } from '../../hooks/useBettingPortfolio';
+import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
 import ProTradePageShell from './ProTradePageShell';
 
 type Props = {
@@ -47,8 +48,14 @@ const ProTradePortfolio: React.FC<Props> = ({
     walletAddress,
     enabled: connected,
   });
-  const perpValue = readNum(account, ['margin', 'accountValue']);
-  const withdrawable = toNum(account?.withdrawable);
+  const { snapshot: hlSnapshot } = useHlAccountSnapshot(walletAddress?.toLowerCase());
+  const rawPerpValue = readNum(account, ['margin', 'accountValue']);
+  const rawWithdrawable = toNum(account?.withdrawable);
+  const perpValue = hlSnapshot?.accountUsd ?? rawPerpValue;
+  const tradablePerpUsd = hlSnapshot?.tradablePerpUsd ?? rawPerpValue;
+  const withdrawable = hlSnapshot?.withdrawableUsd ?? rawWithdrawable;
+  const marginInUse = hlSnapshot?.totalMarginUsedUsd ?? 0;
+  const unifiedAccount = hlSnapshot?.unifiedAccount ?? false;
   const spotUsdc = useMemo(
     () => spotBalances.find((b) => b.coin === 'USDC'),
     [spotBalances]
@@ -57,6 +64,18 @@ const ProTradePortfolio: React.FC<Props> = ({
     () => spotBalances.reduce((s, b) => s + spotUsdValue(b, spotPrices), 0),
     [spotBalances, spotPrices]
   );
+  const totalValue = hlSnapshot?.totalUsd ?? perpValue + spotTotal;
+  const perpSubline = useMemo(() => {
+    if (marginInUse > 0.005) {
+      return t('app.portfolio.withdrawableMargin', {
+        withdrawable: fmtUsdSymbol(withdrawable),
+        margin: fmtUsdSymbol(marginInUse),
+      });
+    }
+    return t('app.portfolio.withdrawable', { amount: fmtUsdSymbol(withdrawable) });
+  }, [marginInUse, t, withdrawable]);
+  const perpMainValue =
+    unifiedAccount && tradablePerpUsd > perpValue + 0.005 ? tradablePerpUsd : perpValue;
 
   if (!connected) {
     return (
@@ -77,8 +96,6 @@ const ProTradePortfolio: React.FC<Props> = ({
     );
   }
 
-  const totalValue = perpValue + spotTotal;
-
   return (
     <ProTradePageShell className="hl-portfolio-page">
       <header className="hl-portfolio-hero">
@@ -96,8 +113,8 @@ const ProTradePortfolio: React.FC<Props> = ({
       <div className="hl-portfolio-summary">
         <article className="hl-portfolio-card">
           <span className="hl-portfolio-card-label">{t('app.portfolio.perpAccount')}</span>
-          <span className="hl-portfolio-card-value">{fmtUsdSymbol(perpValue)}</span>
-          <span className="hl-portfolio-card-sub">{t('app.portfolio.withdrawable', { amount: fmtUsdSymbol(withdrawable) })}</span>
+          <span className="hl-portfolio-card-value">{fmtUsdSymbol(perpMainValue)}</span>
+          <span className="hl-portfolio-card-sub">{perpSubline}</span>
         </article>
         <article className="hl-portfolio-card">
           <span className="hl-portfolio-card-label">{t('app.portfolio.spotAccount')}</span>

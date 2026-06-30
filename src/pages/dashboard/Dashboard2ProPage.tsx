@@ -822,7 +822,7 @@ const Dashboard2ProPageContent: React.FC = () => {
           spotPrices={spotTokenPrices}
           loading={accountLoading}
           connected={isConnected}
-          walletAddress={address ?? undefined}
+          walletAddress={(hlActiveWallet ?? address)?.toLowerCase()}
           onNavigatePerps={(coin) => {
             selectChartCoin(coin);
             setSection('perps');

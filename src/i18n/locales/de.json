@@ -544,7 +544,8 @@
       "title": "Portfolio",
       "lead": "Hyperliquid perps, spot balances, and betting positions in one view.",
       "perpAccount": "Perp account",
-      "withdrawable": "Withdrawable {{amount}}",
+      "withdrawable": "Abhebbar {{amount}}",
+      "withdrawableMargin": "Abhebbar {{withdrawable}} · {{margin}} in Margin",
       "spotAccount": "Spot account",
       "totalEst": "Total (est.)",
       "perpsPlusSpot": "Perps + spot",
@@ -608,7 +609,11 @@
     "closedTradesGate": "Geschlossene Trades bevor Gate greift",
     "fewerTrades": "Weniger Trades",
     "moreTrades": "Mehr Trades",
-    "exitsHint": "<strong>Exits:</strong> Bot zieht Stop-Loss automatisch in den Gewinn — kein manuelles TP/SL. Standard aktiviert bei +$0.06 uPnL (Min. Lock +$0.03). Aggressiv bei +$0.02 (Lock +$0.01)."
+    "exitsHint": "<strong>Exits:</strong> Bot zieht Stop-Loss automatisch in den Gewinn — kein manuelles TP/SL. Standard aktiviert bei +$0.06 uPnL (Min. Lock +$0.03). Aggressiv bei +$0.02 (Lock +$0.01).",
+    "stopLossTitle": "Stop loss",
+    "stopLossHint": "Max. Verlust auf die Margin, solange die Position im Minus ist. Aus = nur Profit-Trail (kein Auto-Close im Rot).",
+    "stopLossOff": "Aus",
+    "stopLossCustom": "Eigener %"
   },
   "trading": {
     "order": {

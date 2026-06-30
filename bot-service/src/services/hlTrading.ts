@@ -145,7 +145,7 @@ function mayAutoCloseInRed(
   }
 
   if (reason === 'stop_loss') {
-    return cfg.lossProtection.enforceHardCap && (opts?.userStopLossPct ?? 0) > 0;
+    return (opts?.userStopLossPct ?? 0) > 0;
   }
   if (reason === 'signal_reversal' && cfg.lossProtection.closeOnThesisBreak) return true;
   return false;

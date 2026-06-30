@@ -19,14 +19,16 @@ import { supabase } from '../../lib/supabase';
 import { isAdminEmail } from '../../lib/admin';
 import {
   fetchAdminHlDashboard,
+  fetchAdminHlTradeHistory,
   fetchAdminLiveContext,
-  fetchAllAdminHlTradeHistory,
   fmtUsd,
+  fmtUsdTrade,
   formatTimeAgo,
   shortWallet,
   type AdminHlDashboard,
   type AdminLiveContext,
   type AdminTradeClose,
+  type AdminTradeHistoryUserStats,
 } from '../../lib/adminDashboard';
 import { fmtPrice, fmtSize } from '../../lib/hyperliquid/format';
 import { countAdminPositionsByCoin } from '../../lib/adminHlLivePositions';
@@ -58,6 +60,28 @@ const SECTIONS: { id: Section; label: string; icon: React.ReactNode }[] = [
 ];
 
 const SECTION_IDS = new Set<Section>(SECTIONS.map((s) => s.id));
+const ADMIN_PAGE_SIZE = 25;
+
+type HistoryUserFilter = { wallet?: string; email?: string } | null;
+
+type PaginationProps = {
+  page: number;
+  totalPages: number;
+  total: number;
+  onPageChange: (page: number) => void;
+};
+
+function paginate<T>(items: T[], page: number, pageSize = ADMIN_PAGE_SIZE) {
+  const total = items.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(Math.max(0, page), totalPages - 1);
+  return {
+    pageRows: items.slice(safePage * pageSize, safePage * pageSize + pageSize),
+    totalPages,
+    safePage,
+    total,
+  };
+}
 
 function sectionFromQuery(tab: string | null): Section {
   if (tab === 'payments') return 'overview';
@@ -77,6 +101,7 @@ const AdminMonitorPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [rpcError, setRpcError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [historyFilter, setHistoryFilter] = useState<HistoryUserFilter>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -225,7 +250,12 @@ const AdminMonitorPage: React.FC = () => {
 
       {section === 'bots' && dash && <BotsPanel bots={dash.active_bots} />}
       {section === 'positions' && dash && <PositionsPanel rows={dash.open_positions} />}
-      {section === 'trades' && <TradesPanel />}
+      {section === 'trades' && (
+        <TradesPanel
+          userFilter={historyFilter}
+          onClearUserFilter={() => setHistoryFilter(null)}
+        />
+      )}
       {section === 'events' && dash && <EventsPanel rows={dash.recent_events} />}
       {section === 'fees' && dash && live && (
         <FeesPanel ledger={dash.fee_ledger} stats={dash.stats} builder={live.builder} />
@@ -234,7 +264,14 @@ const AdminMonitorPage: React.FC = () => {
         <BettingPanel positions={dash.betting_positions} closes={dash.betting_closes} />
       )}
       {section === 'users' && dash && (
-        <UsersPanel rows={dash.users} openPositions={dash.open_positions} />
+        <UsersPanel
+          rows={dash.users}
+          openPositions={dash.open_positions}
+          onViewHistory={(wallet, email) => {
+            setHistoryFilter({ wallet, email: email ?? undefined });
+            setSection('trades');
+          }}
+        />
       )}
       {section === 'subscriptions' && dash && <SubsPanel rows={dash.subscriptions} />}
       {section === 'affiliate' && <AdminAffiliateOps />}
@@ -311,7 +348,7 @@ function OverviewPanel({
                 <span className="font-mono text-xs text-secondary">{shortWallet(e.wallet)}</span>
                 {e.email && <span className="text-xs text-secondary truncate max-w-[140px]">{e.email}</span>}
                 <span className={e.pnl >= 0 ? 'text-green-400 font-mono' : 'text-red-400 font-mono'}>
-                  {fmtUsd(e.pnl, true)}
+                  {fmtUsdTrade(e.pnl, true)}
                 </span>
                 {!e.emailSent && (
                   <span className="text-[10px] uppercase text-amber-400">email pending</span>
@@ -459,8 +496,24 @@ function BuilderCard({
 }
 
 function BotsPanel({ bots }: { bots: AdminHlDashboard['active_bots'] }) {
+  const [page, setPage] = useState(0);
+  const { pageRows, totalPages, safePage, total } = useMemo(
+    () => paginate(bots, page),
+    [bots, page]
+  );
+
   return (
-    <TableShell title={`HL bot configs (${bots.length})`} subtitle="vault_settings · agent · strategy">
+    <TableShell
+      title={`HL bot configs (${total})`}
+      subtitle="vault_settings · agent · strategy"
+      scrollable
+      pagination={{
+        page: safePage,
+        totalPages,
+        total,
+        onPageChange: setPage,
+      }}
+    >
       <thead>
         <tr className="text-left text-secondary text-xs">
           <th className="px-4 py-3">Wallet</th>
@@ -474,7 +527,7 @@ function BotsPanel({ bots }: { bots: AdminHlDashboard['active_bots'] }) {
         </tr>
       </thead>
       <tbody>
-        {bots.map((b) => (
+        {pageRows.map((b) => (
           <tr key={b.wallet_address} className="border-t border-border text-sm hover:bg-black/[0.03]">
             <td className="px-4 py-2 font-mono text-xs">{shortWallet(b.wallet_address, 8)}</td>
             <td className="px-4 py-2 text-xs text-secondary max-w-[160px] truncate">{b.email ?? '—'}</td>
@@ -498,7 +551,12 @@ function BotsPanel({ bots }: { bots: AdminHlDashboard['active_bots'] }) {
 }
 
 function PositionsPanel({ rows }: { rows: AdminHlDashboard['open_positions'] }) {
+  const [page, setPage] = useState(0);
   const totalUpnl = rows.reduce((s, p) => s + (p.profit_loss ?? 0), 0);
+  const { pageRows, totalPages, safePage, total } = useMemo(
+    () => paginate(rows, page),
+    [rows, page]
+  );
   const coinSummary = useMemo(() => {
     const counts = countAdminPositionsByCoin(rows);
     return [...counts.entries()]
@@ -509,9 +567,15 @@ function PositionsPanel({ rows }: { rows: AdminHlDashboard['open_positions'] }) 
 
   return (
     <TableShell
-      title={`Open HL positions (${rows.length})`}
-      subtitle={`Live Hyperliquid · total uPnL ${fmtUsd(totalUpnl, true)}${coinSummary ? ` · ${coinSummary}` : ''}`}
+      title={`Open HL positions (${total})`}
+      subtitle={`Live Hyperliquid · total uPnL ${fmtUsdTrade(totalUpnl, true)}${coinSummary ? ` · ${coinSummary}` : ''}`}
       scrollable
+      pagination={{
+        page: safePage,
+        totalPages,
+        total,
+        onPageChange: setPage,
+      }}
     >
       <thead>
         <tr className="text-left text-secondary text-xs">
@@ -536,7 +600,7 @@ function PositionsPanel({ rows }: { rows: AdminHlDashboard['open_positions'] }) 
             </td>
           </tr>
         ) : (
-          rows.map((p) => (
+          pageRows.map((p) => (
             <tr key={p.id} className="border-t border-border text-sm hover:bg-black/[0.03]">
               <td className="px-4 py-2 text-xs text-secondary max-w-[140px] truncate">
                 {p.email ?? '—'}
@@ -562,7 +626,7 @@ function PositionsPanel({ rows }: { rows: AdminHlDashboard['open_positions'] }) 
                   (p.profit_loss ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'
                 }`}
               >
-                {p.profit_loss != null ? fmtUsd(p.profit_loss, true) : '—'}
+                {p.profit_loss != null ? fmtUsdTrade(p.profit_loss, true) : '—'}
               </td>
               <td
                 className={`px-4 py-2 font-mono text-xs ${
@@ -581,180 +645,301 @@ function PositionsPanel({ rows }: { rows: AdminHlDashboard['open_positions'] }) 
   );
 }
 
-function TradesPanel() {
+function TradesPanel({
+  userFilter,
+  onClearUserFilter,
+}: {
+  userFilter: HistoryUserFilter;
+  onClearUserFilter: () => void;
+}) {
   const [rows, setRows] = useState<AdminTradeClose[]>([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [userStats, setUserStats] = useState<AdminTradeHistoryUserStats | null>(null);
+  const [walletInput, setWalletInput] = useState(userFilter?.wallet ?? '');
+  const [emailInput, setEmailInput] = useState(userFilter?.email ?? '');
+  const [appliedFilter, setAppliedFilter] = useState({
+    wallet: userFilter?.wallet?.trim() ?? '',
+    email: userFilter?.email?.trim() ?? '',
+  });
+
+  useEffect(() => {
+    const wallet = userFilter?.wallet?.trim() ?? '';
+    const email = userFilter?.email?.trim() ?? '';
+    setWalletInput(wallet);
+    setEmailInput(email);
+    setAppliedFilter({ wallet, email });
+    setPage(0);
+  }, [userFilter?.wallet, userFilter?.email]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const page = await fetchAllAdminHlTradeHistory();
-      setRows(page.rows);
-      setTotal(page.total);
+      const result = await fetchAdminHlTradeHistory({
+        limit: ADMIN_PAGE_SIZE,
+        offset: page * ADMIN_PAGE_SIZE,
+        wallet: appliedFilter.wallet || null,
+        email: appliedFilter.email || null,
+      });
+      setRows(result.rows);
+      setTotal(result.total);
+      setUserStats(result.user_stats ?? null);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Failed to load trade history');
       setRows([]);
       setTotal(0);
+      setUserStats(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, appliedFilter.wallet, appliedFilter.email]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const coinSummary = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const t of rows) {
-      const c = t.token_symbol.toUpperCase();
-      m.set(c, (m.get(c) ?? 0) + 1);
-    }
-    return [...m.entries()]
-      .filter(([, n]) => n > 1)
-      .sort((a, b) => b[1] - a[1])
-      .map(([coin, n]) => `${coin}×${n}`)
-      .join(' · ');
-  }, [rows]);
-
-  const totalPnl = useMemo(
+  const totalPages = Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE));
+  const pagePnl = useMemo(
     () => rows.reduce((s, t) => s + (t.profit_loss ?? 0), 0),
     [rows]
   );
 
+  const applyFilter = () => {
+    setAppliedFilter({
+      wallet: walletInput.trim(),
+      email: emailInput.trim(),
+    });
+    setPage(0);
+  };
+
+  const hasFilter = Boolean(appliedFilter.wallet || appliedFilter.email);
+
   return (
-    <TableShell
-      title={`Closed HL trades (${rows.length}${total > rows.length ? ` / ${total}` : ''})`}
-      subtitle={`trade_history · hyperliquid only · sum ${fmtUsd(totalPnl, true)}${coinSummary ? ` · ${coinSummary}` : ''}`}
-      scrollable
-      headerRight={
+    <div className="space-y-4">
+      <div className="rounded-xl border border-border bg-card-dark p-4 flex flex-wrap gap-3 items-end">
+        <label className="flex flex-col gap-1 text-xs text-secondary min-w-[200px] flex-1">
+          Filter by email
+          <input
+            type="search"
+            value={emailInput}
+            onChange={(e) => setEmailInput(e.target.value)}
+            placeholder="user@example.com"
+            className="px-3 py-2 rounded-lg bg-black/30 border border-border text-sm text-primary"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-secondary min-w-[200px] flex-1">
+          Filter by wallet
+          <input
+            type="search"
+            value={walletInput}
+            onChange={(e) => setWalletInput(e.target.value)}
+            placeholder="0x…"
+            className="px-3 py-2 rounded-lg bg-black/30 border border-border text-sm text-primary font-mono"
+          />
+        </label>
         <button
           type="button"
-          className="text-xs text-cyan-400 hover:underline disabled:opacity-50"
-          onClick={() => void load()}
-          disabled={loading}
+          onClick={applyFilter}
+          className="px-4 py-2 rounded-lg bg-white text-black text-sm font-medium"
         >
-          {loading ? 'Loading…' : 'Reload'}
+          Apply
         </button>
-      }
-    >
-      {loadError && (
-        <p className="px-4 py-2 text-sm text-red-400 border-b border-border">{loadError}</p>
-      )}
-      <thead>
-        <tr className="text-left text-secondary text-xs">
-          <th className="px-4 py-3 whitespace-nowrap">Closed (UTC)</th>
-          <th className="px-4 py-3">ID</th>
-          <th className="px-4 py-3">User</th>
-          <th className="px-4 py-3">Wallet</th>
-          <th className="px-4 py-3">Pair</th>
-          <th className="px-4 py-3">Dir</th>
-          <th className="px-4 py-3">Lev</th>
-          <th className="px-4 py-3">Entry</th>
-          <th className="px-4 py-3">Exit</th>
-          <th className="px-4 py-3">Fill P/L</th>
-          <th className="px-4 py-3">Snap P/L</th>
-          <th className="px-4 py-3">Builder fee</th>
-          <th className="px-4 py-3">Fee status</th>
-          <th className="px-4 py-3 min-w-[280px]">Reason (full)</th>
-        </tr>
-      </thead>
-      <tbody>
-        {loading && rows.length === 0 ? (
-          <tr>
-            <td colSpan={13} className="px-4 py-8 text-center text-secondary text-sm">
-              Loading full trade history…
-            </td>
-          </tr>
-        ) : rows.length === 0 ? (
-          <tr>
-            <td colSpan={13} className="px-4 py-8 text-center text-secondary text-sm">
-              No closed HL trades in database.
-            </td>
-          </tr>
-        ) : (
-          rows.map((t) => {
-            const snap = t.snapshot_pnl_usd;
-            const fill = t.profit_loss;
-            const snapMismatch =
-              snap != null &&
-              fill != null &&
-              Number.isFinite(snap) &&
-              Number.isFinite(fill) &&
-              Math.abs(snap - fill) > 0.02;
-            return (
-              <tr key={t.id} className="border-t border-border text-sm hover:bg-black/[0.03] align-top">
-                <td className="px-4 py-2 text-secondary text-xs whitespace-nowrap font-mono">
-                  {t.closed_at ? new Date(t.closed_at).toISOString().replace('T', ' ').slice(0, 19) : '—'}
-                  <div className="text-[10px] opacity-70">{formatTimeAgo(t.closed_at)}</div>
-                </td>
-                <td className="px-4 py-2 font-mono text-[10px] text-secondary max-w-[72px] break-all">
-                  {t.id.slice(0, 8)}…
-                </td>
-                <td className="px-4 py-2 text-xs text-secondary max-w-[120px] truncate">
-                  {t.email ?? '—'}
-                </td>
-                <td className="px-4 py-2 font-mono text-xs">{shortWallet(t.wallet_address, 8)}</td>
-                <td className="px-4 py-2 font-medium">{t.token_symbol}</td>
-                <td className="px-4 py-2">{t.direction}</td>
-                <td className="px-4 py-2">{t.leverage != null ? `${t.leverage}x` : '—'}</td>
-                <td className="px-4 py-2 font-mono text-xs">
-                  {t.entry_price != null ? fmtUsd(t.entry_price) : '—'}
-                </td>
-                <td className="px-4 py-2 font-mono text-xs">
-                  {t.exit_price != null ? fmtUsd(t.exit_price) : '—'}
-                </td>
-                <td
-                  className={`px-4 py-2 font-mono ${
-                    (fill ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'
-                  }`}
-                >
-                  {fill != null ? fmtUsd(fill, true) : '—'}
-                </td>
-                <td
-                  className={`px-4 py-2 font-mono text-xs ${
-                    snapMismatch ? 'text-amber-400' : 'text-secondary'
-                  }`}
-                >
-                  {snap != null ? fmtUsd(snap, true) : '—'}
-                </td>
-                <td className="px-4 py-2 font-mono text-xs text-green-400/90">
-                  {t.platform_success_fee != null ? fmtUsd(t.platform_success_fee) : '—'}
-                </td>
-                <td className="px-4 py-2 text-xs uppercase whitespace-nowrap">
-                  {t.platform_fee_status === 'settled' ? (
-                    <span className="text-green-400">settled</span>
-                  ) : t.platform_fee_status === 'accrued' ? (
-                    <span className="text-amber-400">accrued</span>
-                  ) : t.platform_fee_status === 'waived' ? (
-                    <span className="text-secondary">waived</span>
-                  ) : t.platform_fee_status === 'pending_fill' ? (
-                    <span className="text-cyan-400">pending_fill</span>
-                  ) : (
-                    <span className="text-secondary">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-2 text-xs text-secondary whitespace-pre-wrap break-words max-w-md">
-                  {t.close_reason ?? '—'}
-                </td>
-              </tr>
-            );
-          })
+        {(hasFilter || walletInput || emailInput) && (
+          <button
+            type="button"
+            onClick={() => {
+              setWalletInput('');
+              setEmailInput('');
+              setAppliedFilter({ wallet: '', email: '' });
+              onClearUserFilter();
+              setPage(0);
+            }}
+            className="px-4 py-2 rounded-lg border border-border text-sm text-secondary hover:text-primary"
+          >
+            Clear filter
+          </button>
         )}
-      </tbody>
-    </TableShell>
+      </div>
+
+      {userStats && hasFilter ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+          <Kpi
+            label="Closed P/L"
+            value={fmtUsdTrade(userStats.closed_pnl_total, true)}
+            positive={userStats.closed_pnl_total >= 0}
+          />
+          <Kpi label="Closed trades" value={String(userStats.closed_trades_count)} />
+          <Kpi label="Open positions" value={String(userStats.open_positions_count)} />
+          <Kpi
+            label="Fees owed"
+            value={fmtUsd(userStats.fees_accrued_usd)}
+            sub={userStats.fees_accrued_usd > 0 ? 'pending payment' : 'clear'}
+          />
+          <Kpi label="Fees paid" value={fmtUsd(userStats.fees_paid_usd)} />
+          <Kpi
+            label="Fee wins"
+            value={String(userStats.fee_win_count)}
+            sub={`${userStats.wins_until_fee} until next block`}
+          />
+          <Kpi
+            label="User"
+            value={userStats.email ?? shortWallet(userStats.wallet_address, 6)}
+            sub={shortWallet(userStats.wallet_address, 8)}
+          />
+        </div>
+      ) : null}
+
+      <TableShell
+        title={`Closed HL trades (${total})`}
+        subtitle={`Page P/L ${fmtUsdTrade(pagePnl, true)} · hyperliquid only`}
+        scrollable
+        pagination={{
+          page,
+          totalPages,
+          total,
+          onPageChange: setPage,
+        }}
+        headerRight={
+          <button
+            type="button"
+            className="text-xs text-cyan-400 hover:underline disabled:opacity-50"
+            onClick={() => void load()}
+            disabled={loading}
+          >
+            {loading ? 'Loading…' : 'Reload'}
+          </button>
+        }
+      >
+        {loadError && (
+          <p className="px-4 py-2 text-sm text-red-400 border-b border-border">{loadError}</p>
+        )}
+        <thead>
+          <tr className="text-left text-secondary text-xs">
+            <th className="px-4 py-3 whitespace-nowrap">Closed (UTC)</th>
+            <th className="px-4 py-3">ID</th>
+            <th className="px-4 py-3">User</th>
+            <th className="px-4 py-3">Wallet</th>
+            <th className="px-4 py-3">Pair</th>
+            <th className="px-4 py-3">Dir</th>
+            <th className="px-4 py-3">Lev</th>
+            <th className="px-4 py-3">Entry</th>
+            <th className="px-4 py-3">Exit</th>
+            <th className="px-4 py-3">Fill P/L</th>
+            <th className="px-4 py-3">Snap P/L</th>
+            <th className="px-4 py-3">Builder fee</th>
+            <th className="px-4 py-3">Fee status</th>
+            <th className="px-4 py-3 min-w-[280px]">Reason (full)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {loading && rows.length === 0 ? (
+            <tr>
+              <td colSpan={13} className="px-4 py-8 text-center text-secondary text-sm">
+                Loading trade history…
+              </td>
+            </tr>
+          ) : rows.length === 0 ? (
+            <tr>
+              <td colSpan={13} className="px-4 py-8 text-center text-secondary text-sm">
+                No closed HL trades match this filter.
+              </td>
+            </tr>
+          ) : (
+            rows.map((t) => {
+              const snap = t.snapshot_pnl_usd;
+              const fill = t.profit_loss;
+              const snapMismatch =
+                snap != null &&
+                fill != null &&
+                Number.isFinite(snap) &&
+                Number.isFinite(fill) &&
+                Math.abs(snap - fill) > 0.02;
+              return (
+                <tr key={t.id} className="border-t border-border text-sm hover:bg-black/[0.03] align-top">
+                  <td className="px-4 py-2 text-secondary text-xs whitespace-nowrap font-mono">
+                    {t.closed_at ? new Date(t.closed_at).toISOString().replace('T', ' ').slice(0, 19) : '—'}
+                    <div className="text-[10px] opacity-70">{formatTimeAgo(t.closed_at)}</div>
+                  </td>
+                  <td className="px-4 py-2 font-mono text-[10px] text-secondary max-w-[72px] break-all">
+                    {t.id.slice(0, 8)}…
+                  </td>
+                  <td className="px-4 py-2 text-xs text-secondary max-w-[120px] truncate">
+                    {t.email ?? '—'}
+                  </td>
+                  <td className="px-4 py-2 font-mono text-xs">{shortWallet(t.wallet_address, 8)}</td>
+                  <td className="px-4 py-2 font-medium">{t.token_symbol}</td>
+                  <td className="px-4 py-2">{t.direction}</td>
+                  <td className="px-4 py-2">{t.leverage != null ? `${t.leverage}x` : '—'}</td>
+                  <td className="px-4 py-2 font-mono text-xs">
+                    {t.entry_price != null ? fmtUsd(t.entry_price) : '—'}
+                  </td>
+                  <td className="px-4 py-2 font-mono text-xs">
+                    {t.exit_price != null ? fmtUsd(t.exit_price) : '—'}
+                  </td>
+                  <td
+                    className={`px-4 py-2 font-mono ${
+                      (fill ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'
+                    }`}
+                  >
+                    {fill != null ? fmtUsdTrade(fill, true) : '—'}
+                  </td>
+                  <td
+                    className={`px-4 py-2 font-mono text-xs ${
+                      snapMismatch ? 'text-amber-400' : 'text-secondary'
+                    }`}
+                  >
+                    {snap != null ? fmtUsdTrade(snap, true) : '—'}
+                  </td>
+                  <td className="px-4 py-2 font-mono text-xs text-green-400/90">
+                    {t.platform_success_fee != null ? fmtUsd(t.platform_success_fee) : '—'}
+                  </td>
+                  <td className="px-4 py-2 text-xs uppercase whitespace-nowrap">
+                    {t.platform_fee_status === 'settled' ? (
+                      <span className="text-green-400">settled</span>
+                    ) : t.platform_fee_status === 'accrued' ? (
+                      <span className="text-amber-400">accrued</span>
+                    ) : t.platform_fee_status === 'waived' ? (
+                      <span className="text-secondary">waived</span>
+                    ) : t.platform_fee_status === 'pending_fill' ? (
+                      <span className="text-cyan-400">pending_fill</span>
+                    ) : (
+                      <span className="text-secondary">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-xs text-secondary whitespace-pre-wrap break-words max-w-md">
+                    {t.close_reason ?? '—'}
+                  </td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </TableShell>
+    </div>
   );
 }
 
 function EventsPanel({ rows }: { rows: AdminHlDashboard['recent_events'] }) {
+  const [page, setPage] = useState(0);
+  const { pageRows, totalPages, safePage, total } = useMemo(
+    () => paginate(rows, page),
+    [rows, page]
+  );
+
   return (
     <TableShell
-      title={`Notifications (${rows.length})`}
+      title={`Notifications (${total})`}
       subtitle="user_trade_notifications · email queue"
       scrollable
+      pagination={{
+        page: safePage,
+        totalPages,
+        total,
+        onPageChange: setPage,
+      }}
     >
       <thead>
         <tr className="text-left text-secondary text-xs">
@@ -768,14 +953,14 @@ function EventsPanel({ rows }: { rows: AdminHlDashboard['recent_events'] }) {
         </tr>
       </thead>
       <tbody>
-        {rows.map((n) => (
+        {pageRows.map((n) => (
           <tr key={n.id} className="border-t border-border text-sm hover:bg-black/[0.03]">
             <td className="px-4 py-2 text-secondary text-xs">{formatTimeAgo(n.closed_at)}</td>
             <td className="px-4 py-2 text-xs uppercase text-cyan-400">{n.kind}</td>
             <td className="px-4 py-2 max-w-xs truncate">{n.headline}</td>
             <td className="px-4 py-2 text-xs text-secondary truncate max-w-[140px]">{n.email ?? shortWallet(n.wallet_address)}</td>
             <td className={`px-4 py-2 font-mono ${n.profit_loss >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {fmtUsd(n.profit_loss, true)}
+              {fmtUsdTrade(n.profit_loss, true)}
             </td>
             <td className="px-4 py-2 text-xs">{n.email_sent_at ? 'sent' : 'pending'}</td>
             <td className="px-4 py-2 text-xs">{n.read_at ? 'yes' : 'no'}</td>
@@ -795,6 +980,11 @@ function FeesPanel({
   stats: AdminHlDashboard['stats'];
   builder: AdminLiveContext['builder'];
 }) {
+  const [page, setPage] = useState(0);
+  const { pageRows, totalPages, safePage, total } = useMemo(
+    () => paginate(ledger, page),
+    [ledger, page]
+  );
   const builderAddr = builder?.builderAddress ?? '—';
 
   return (
@@ -816,7 +1006,17 @@ function FeesPanel({
           sub={builder?.ready ? `wallet ${fmtUsd(builder.accountUsd)}` : 'builder underfunded'}
         />
       </div>
-      <TableShell title="Fee ledger" subtitle="hl_fee_ledger · HL builder fee on closes (when enabled)">
+      <TableShell
+        title={`Fee ledger (${total})`}
+        subtitle="hl_fee_ledger · platform success fees"
+        scrollable
+        pagination={{
+          page: safePage,
+          totalPages,
+          total,
+          onPageChange: setPage,
+        }}
+      >
         <thead>
           <tr className="text-left text-secondary text-xs">
             <th className="px-4 py-3">When</th>
@@ -830,7 +1030,7 @@ function FeesPanel({
           </tr>
         </thead>
         <tbody>
-          {ledger.map((f) => (
+          {pageRows.map((f) => (
             <tr key={f.id} className="border-t border-border text-sm">
               <td className="px-4 py-2 text-xs text-secondary">{formatTimeAgo(f.created_at)}</td>
               <td className="px-4 py-2 font-mono text-xs">{shortWallet(f.wallet_address, 8)}</td>
@@ -840,10 +1040,10 @@ function FeesPanel({
                   f.gross_profit_usd >= 0 ? 'text-green-400' : 'text-red-400'
                 }`}
               >
-                {fmtUsd(f.gross_profit_usd, true)}
+                {fmtUsdTrade(f.gross_profit_usd, true)}
               </td>
               <td className="px-4 py-2 font-mono text-secondary">
-                {f.snapshot_pnl_usd != null ? fmtUsd(f.snapshot_pnl_usd, true) : '—'}
+                {f.snapshot_pnl_usd != null ? fmtUsdTrade(f.snapshot_pnl_usd, true) : '—'}
               </td>
               <td className="px-4 py-2 font-mono text-cyan-400">{fmtUsd(f.success_fee_usd)}</td>
               <td className="px-4 py-2 text-xs uppercase">
@@ -871,9 +1071,24 @@ function BettingPanel({
   positions: AdminHlDashboard['betting_positions'];
   closes: AdminHlDashboard['betting_closes'];
 }) {
+  const [openPage, setOpenPage] = useState(0);
+  const [closePage, setClosePage] = useState(0);
+  const openPaginated = useMemo(() => paginate(positions, openPage), [positions, openPage]);
+  const closePaginated = useMemo(() => paginate(closes, closePage), [closes, closePage]);
+
   return (
     <div className="space-y-6">
-      <TableShell title={`Open bets (${positions.length})`} subtitle="hl_betting_positions">
+      <TableShell
+        title={`Open bets (${openPaginated.total})`}
+        subtitle="hl_betting_positions"
+        scrollable
+        pagination={{
+          page: openPaginated.safePage,
+          totalPages: openPaginated.totalPages,
+          total: openPaginated.total,
+          onPageChange: setOpenPage,
+        }}
+      >
         <thead>
           <tr className="text-left text-secondary text-xs">
             <th className="px-4 py-3">Market</th>
@@ -885,7 +1100,7 @@ function BettingPanel({
           </tr>
         </thead>
         <tbody>
-          {positions.map((p) => (
+          {openPaginated.pageRows.map((p) => (
             <tr key={p.id} className="border-t border-border text-sm">
               <td className="px-4 py-2">{p.market_name}</td>
               <td className="px-4 py-2">{p.side_label}</td>
@@ -893,13 +1108,23 @@ function BettingPanel({
               <td className="px-4 py-2 font-mono">{p.entry_px}</td>
               <td className="px-4 py-2 font-mono">{p.mark_px ?? '—'}</td>
               <td className={`px-4 py-2 font-mono ${(p.unrealized_pnl ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {p.unrealized_pnl != null ? fmtUsd(p.unrealized_pnl, true) : '—'}
+                {p.unrealized_pnl != null ? fmtUsdTrade(p.unrealized_pnl, true) : '—'}
               </td>
             </tr>
           ))}
         </tbody>
       </TableShell>
-      <TableShell title={`Recent bet closes (${closes.length})`} subtitle="hl_betting_closes">
+      <TableShell
+        title={`Recent bet closes (${closePaginated.total})`}
+        subtitle="hl_betting_closes"
+        scrollable
+        pagination={{
+          page: closePaginated.safePage,
+          totalPages: closePaginated.totalPages,
+          total: closePaginated.total,
+          onPageChange: setClosePage,
+        }}
+      >
         <thead>
           <tr className="text-left text-secondary text-xs">
             <th className="px-4 py-3">Closed</th>
@@ -909,13 +1134,13 @@ function BettingPanel({
           </tr>
         </thead>
         <tbody>
-          {closes.map((c) => (
+          {closePaginated.pageRows.map((c) => (
             <tr key={c.id} className="border-t border-border text-sm">
               <td className="px-4 py-2 text-xs text-secondary">{formatTimeAgo(c.closed_at)}</td>
               <td className="px-4 py-2">{c.market_name}</td>
               <td className="px-4 py-2">{c.side_label}</td>
               <td className={`px-4 py-2 font-mono ${c.realized_pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {fmtUsd(c.realized_pnl, true)}
+                {fmtUsdTrade(c.realized_pnl, true)}
               </td>
             </tr>
           ))}
@@ -928,10 +1153,13 @@ function BettingPanel({
 function UsersPanel({
   rows,
   openPositions,
+  onViewHistory,
 }: {
   rows: AdminHlDashboard['users'];
   openPositions: AdminHlDashboard['open_positions'];
+  onViewHistory: (wallet: string, email: string | null) => void;
 }) {
+  const [page, setPage] = useState(0);
   const positionsByWallet = useMemo(() => {
     const map = new Map<string, AdminHlDashboard['open_positions']>();
     for (const p of openPositions) {
@@ -945,49 +1173,90 @@ function UsersPanel({
 
   const sortedRows = useMemo(() => {
     return [...rows].sort((a, b) => {
-      const aOpen = a.wallet_address
+      const aOpen = a.open_positions_count ?? (a.wallet_address
         ? (positionsByWallet.get(a.wallet_address.toLowerCase())?.length ?? 0)
-        : 0;
-      const bOpen = b.wallet_address
+        : 0);
+      const bOpen = b.open_positions_count ?? (b.wallet_address
         ? (positionsByWallet.get(b.wallet_address.toLowerCase())?.length ?? 0)
-        : 0;
+        : 0);
       return bOpen - aOpen || (a.email ?? '').localeCompare(b.email ?? '');
     });
   }, [rows, positionsByWallet]);
 
+  const { pageRows, totalPages, safePage, total } = useMemo(
+    () => paginate(sortedRows, page),
+    [sortedRows, page]
+  );
+
   return (
     <TableShell
-      title={`Users (${rows.length})`}
-      subtitle={`${openPositions.length} HL open leg(s) · live uPnL`}
+      title={`Users (${total})`}
+      subtitle="profiles · closed P/L · fees · open positions"
       scrollable
+      pagination={{
+        page: safePage,
+        totalPages,
+        total,
+        onPageChange: setPage,
+      }}
     >
       <thead>
         <tr className="text-left text-secondary text-xs">
           <th className="px-4 py-3">Email</th>
+          <th className="px-4 py-3">Username</th>
+          <th className="px-4 py-3">Name</th>
           <th className="px-4 py-3">Wallet</th>
-          <th className="px-4 py-3">Open positions</th>
-          <th className="px-4 py-3">uPnL (open)</th>
+          <th className="px-4 py-3">Country</th>
           <th className="px-4 py-3">Tier</th>
+          <th className="px-4 py-3">Closed P/L</th>
+          <th className="px-4 py-3">Trades</th>
+          <th className="px-4 py-3">Open</th>
+          <th className="px-4 py-3">Open uPnL</th>
+          <th className="px-4 py-3">Fees owed</th>
+          <th className="px-4 py-3">Fees paid</th>
+          <th className="px-4 py-3">Fee cycle</th>
           <th className="px-4 py-3">Joined</th>
+          <th className="px-4 py-3">Actions</th>
         </tr>
       </thead>
       <tbody>
-        {sortedRows.map((u) => {
+        {pageRows.map((u) => {
           const walletKey = u.wallet_address?.toLowerCase() ?? '';
           const positions = walletKey ? positionsByWallet.get(walletKey) ?? [] : [];
+          const openCount = u.open_positions_count ?? positions.length;
           const openUpnl = positions.reduce((sum, p) => sum + (p.profit_loss ?? 0), 0);
+          const closedPnl = u.closed_pnl_total ?? 0;
+          const feesOwed = u.fees_accrued_usd ?? 0;
+          const feesPaid = u.fees_paid_usd ?? 0;
+          const winsUntil = u.wins_until_fee ?? 20;
+          const feeWins = u.fee_win_count ?? 0;
+
           return (
-            <tr key={u.id} className="border-t border-border text-sm hover:bg-black/[0.03]">
-              <td className="px-4 py-2">{u.email ?? '—'}</td>
-              <td className="px-4 py-2 font-mono text-xs">{shortWallet(u.wallet_address, 8)}</td>
+            <tr key={u.id} className="border-t border-border text-sm hover:bg-black/[0.03] align-top">
+              <td className="px-4 py-2 text-xs max-w-[160px] truncate">{u.email ?? '—'}</td>
+              <td className="px-4 py-2 text-xs">{u.username ? `@${u.username}` : '—'}</td>
+              <td className="px-4 py-2 text-xs max-w-[120px] truncate">{u.full_name ?? '—'}</td>
+              <td className="px-4 py-2 font-mono text-[10px] break-all max-w-[120px]">
+                {u.wallet_address ? shortWallet(u.wallet_address, 8) : '—'}
+              </td>
+              <td className="px-4 py-2 text-xs">{u.country ?? '—'}</td>
+              <td className="px-4 py-2 text-xs">{u.membership_tier ?? 'free'}</td>
+              <td
+                className={`px-4 py-2 font-mono text-xs ${
+                  closedPnl >= 0 ? 'text-green-400' : 'text-red-400'
+                }`}
+              >
+                {fmtUsdTrade(closedPnl, true)}
+              </td>
+              <td className="px-4 py-2 text-xs">{u.closed_trades_count ?? 0}</td>
               <td className="px-4 py-2 text-xs">
-                {positions.length === 0 ? (
-                  <span className="text-secondary">—</span>
+                {openCount === 0 ? (
+                  '—'
                 ) : (
                   <span className="font-medium">
-                    {positions
-                      .map((p) => `${p.token_symbol} ${p.direction}`)
-                      .join(' · ')}
+                    {positions.length > 0
+                      ? positions.map((p) => `${p.token_symbol} ${p.direction}`).join(' · ')
+                      : openCount}
                   </span>
                 )}
               </td>
@@ -996,10 +1265,38 @@ function UsersPanel({
                   openUpnl >= 0 ? 'text-green-400' : 'text-red-400'
                 }`}
               >
-                {positions.length > 0 ? fmtUsd(openUpnl, true) : '—'}
+                {openCount > 0 ? fmtUsdTrade(openUpnl, true) : '—'}
               </td>
-              <td className="px-4 py-2 text-xs">{u.membership_tier ?? 'free'}</td>
-              <td className="px-4 py-2 text-secondary text-xs">{formatTimeAgo(u.created_at)}</td>
+              <td className="px-4 py-2 font-mono text-xs">
+                {feesOwed > 0 ? (
+                  <span className="text-amber-400">{fmtUsd(feesOwed)} pending</span>
+                ) : (
+                  <span className="text-secondary">—</span>
+                )}
+              </td>
+              <td className="px-4 py-2 font-mono text-xs text-green-400/90">
+                {feesPaid > 0 ? fmtUsd(feesPaid) : '—'}
+              </td>
+              <td className="px-4 py-2 text-xs">
+                <span className="text-secondary">{feeWins} wins</span>
+                <span className="block text-[10px] text-secondary">{winsUntil} until block</span>
+              </td>
+              <td className="px-4 py-2 text-secondary text-xs whitespace-nowrap">
+                {formatTimeAgo(u.created_at)}
+              </td>
+              <td className="px-4 py-2">
+                {u.wallet_address ? (
+                  <button
+                    type="button"
+                    className="text-xs text-cyan-400 hover:underline whitespace-nowrap"
+                    onClick={() => onViewHistory(u.wallet_address!, u.email)}
+                  >
+                    History
+                  </button>
+                ) : (
+                  '—'
+                )}
+              </td>
             </tr>
           );
         })}
@@ -1009,8 +1306,23 @@ function UsersPanel({
 }
 
 function SubsPanel({ rows }: { rows: AdminHlDashboard['subscriptions'] }) {
+  const [page, setPage] = useState(0);
+  const { pageRows, totalPages, safePage, total } = useMemo(
+    () => paginate(rows, page),
+    [rows, page]
+  );
+
   return (
-    <TableShell title={`Subscriptions (${rows.length})`}>
+    <TableShell
+      title={`Subscriptions (${total})`}
+      scrollable
+      pagination={{
+        page: safePage,
+        totalPages,
+        total,
+        onPageChange: setPage,
+      }}
+    >
       <thead>
         <tr className="text-left text-secondary text-xs">
           <th className="px-4 py-3">Wallet</th>
@@ -1021,7 +1333,7 @@ function SubsPanel({ rows }: { rows: AdminHlDashboard['subscriptions'] }) {
         </tr>
       </thead>
       <tbody>
-        {rows.map((s) => (
+        {pageRows.map((s) => (
           <tr key={s.id} className="border-t border-border text-sm">
             <td className="px-4 py-2 font-mono text-xs">{shortWallet(s.wallet_address, 8)}</td>
             <td className="px-4 py-3 uppercase text-xs">{s.plan_tier}</td>
@@ -1073,31 +1385,74 @@ function StatusPill({ on, onLabel, offLabel }: { on: boolean; onLabel: string; o
   );
 }
 
+function PaginationBar({ page, totalPages, total, onPageChange }: PaginationProps) {
+  const start = total === 0 ? 0 : page * ADMIN_PAGE_SIZE + 1;
+  const end = Math.min(total, (page + 1) * ADMIN_PAGE_SIZE);
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-border bg-black/20 text-xs text-secondary">
+      <span>
+        Showing {start}–{end} of {total}
+      </span>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={page <= 0}
+          onClick={() => onPageChange(page - 1)}
+          className="px-3 py-1.5 rounded-md border border-border disabled:opacity-40 hover:bg-white/5"
+        >
+          Previous
+        </button>
+        <span className="text-primary font-medium">
+          Page {page + 1} / {totalPages}
+        </span>
+        <button
+          type="button"
+          disabled={page >= totalPages - 1}
+          onClick={() => onPageChange(page + 1)}
+          className="px-3 py-1.5 rounded-md border border-border disabled:opacity-40 hover:bg-white/5"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function TableShell({
   title,
   subtitle,
   scrollable = false,
   headerRight,
+  pagination,
   children,
 }: {
   title: string;
   subtitle?: string;
   scrollable?: boolean;
   headerRight?: React.ReactNode;
+  pagination?: PaginationProps;
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-card-dark rounded-xl border border-border overflow-hidden">
-      <div className="px-4 py-3 border-b border-border flex items-start justify-between gap-3">
+    <div className="bg-card-dark rounded-xl border border-border overflow-hidden flex flex-col max-h-[min(78vh,860px)]">
+      <div className="px-4 py-3 border-b border-border flex items-start justify-between gap-3 shrink-0">
         <div>
           <h3 className="font-semibold text-primary">{title}</h3>
           {subtitle && <p className="text-xs text-secondary mt-0.5">{subtitle}</p>}
         </div>
         {headerRight}
       </div>
-      <div className={scrollable ? 'admin-monitor-table-scroll overflow-x-auto' : 'overflow-x-auto'}>
+      <div
+        className={
+          scrollable
+            ? 'admin-monitor-table-scroll overflow-x-auto flex-1 min-h-0'
+            : 'overflow-x-auto flex-1 min-h-0'
+        }
+      >
         <table className="w-full">{children}</table>
       </div>
+      {pagination ? <PaginationBar {...pagination} /> : null}
     </div>
   );
 }

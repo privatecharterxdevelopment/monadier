@@ -27,7 +27,9 @@
 }
 
 .admin-monitor-table-scroll {
-  max-height: min(72vh, 780px);
+  flex: 1;
+  min-height: 0;
+  max-height: none;
   overflow: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;

@@ -14,7 +14,7 @@ const DESCRIPTIONS = {
   risk: 'Share of your HL balance used as margin per trade — not the same as leverage.',
   lvrg: 'Hyperliquid multiplier on that margin. Bot clamps to each market’s max leverage.',
   trail: `Stage 1: +${HL_DYNAMIC_TRAIL.breakevenArmRoePct}% ROE locks +${HL_DYNAMIC_TRAIL.armMinRoePct}%. Stage 2: peak ≥+${HL_DYNAMIC_TRAIL.fullTrailArmRoePct}% → trail +${HL_DYNAMIC_TRAIL.trailGapRoePct}% from peak.`,
-  sl: 'Profit-only mode — bot trails winners; no auto close in the red. Set max loss on an open position from the chart (SL line) if needed.',
+  sl: 'Max loss on margin while red — set in Settings. Off = profit trail only on winners.',
 } as const;
 
 function fmtUsd(n: number) {

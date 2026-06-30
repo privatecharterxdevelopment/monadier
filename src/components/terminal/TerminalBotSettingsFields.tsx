@@ -5,6 +5,16 @@ import { getMaxLeverageLabel } from '../../lib/leverageLimits';
 import LeverageRangeSlider from './LeverageRangeSlider';
 
 const RISK_PRESETS = [1, 5, 25, 50, 100] as const;
+const STOP_LOSS_PRESETS = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50] as const;
+
+function clampStopLossPct(raw: number): number {
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  return Math.min(50, Math.round(raw * 10) / 10);
+}
+
+function stopLossPresetActive(current: number, preset: number): boolean {
+  return Math.abs(current - preset) < 0.05;
+}
 
 export type BotSettingsFieldsProps = {
   planTier: string;
@@ -47,8 +57,8 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
   setLeverage,
   takeProfit: _takeProfit,
   setTakeProfit: _setTakeProfit,
-  stopLoss: _stopLoss,
-  setStopLoss: _setStopLoss,
+  stopLoss,
+  setStopLoss,
   autoTrade,
   setAutoTrade,
   askPermission,
@@ -142,6 +152,62 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
               ~${collateralUsd.toFixed(2)} margin · ~${notionalUsd.toFixed(0)} notional
             </p>
           ) : null}
+        </div>
+
+        <div className="term-lvrg-setting-card">
+          <div className="term-lvrg-setting-head">
+            <p className="term-lvrg-setting-title">{t('bot.stopLossTitle')}</p>
+            <span className="term-lvrg-setting-value">
+              {stopLoss > 0 ? `−${stopLoss}%` : t('bot.stopLossOff')}
+            </span>
+          </div>
+          <p className="term-lvrg-setting-desc">{t('bot.stopLossHint')}</p>
+          <div className={chipRowClass}>
+            <button
+              type="button"
+              className={`term-modal-chip ${stopLoss <= 0 ? 'term-modal-chip--on' : ''}`}
+              onClick={() => setStopLoss(0)}
+              disabled={disabled}
+            >
+              {t('bot.stopLossOff')}
+            </button>
+            {STOP_LOSS_PRESETS.map((v) => (
+              <button
+                key={v}
+                type="button"
+                className={`term-modal-chip ${stopLossPresetActive(stopLoss, v) ? 'term-modal-chip--on' : ''}`}
+                onClick={() => setStopLoss(v)}
+                disabled={disabled}
+              >
+                {v}%
+              </button>
+            ))}
+          </div>
+          <div className="term-lvrg-gate-row term-lvrg-gate-row--trades">
+            <label className="term-lvrg-gate-label" htmlFor="lvrg-stop-loss-custom">
+              {t('bot.stopLossCustom')}
+            </label>
+            <input
+              id="lvrg-stop-loss-custom"
+              type="number"
+              className={`${inputClass} term-modal-input--center`}
+              min={0}
+              max={50}
+              step={0.1}
+              placeholder="7.5"
+              value={stopLoss > 0 ? stopLoss : ''}
+              onChange={(e) => {
+                const raw = e.target.value.trim();
+                if (!raw) {
+                  setStopLoss(0);
+                  return;
+                }
+                const n = parseFloat(raw);
+                if (!Number.isNaN(n)) setStopLoss(clampStopLossPct(n));
+              }}
+              disabled={disabled}
+            />
+          </div>
         </div>
 
         <div className="term-lvrg-setting-card">
