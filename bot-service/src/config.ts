@@ -102,8 +102,8 @@ export const config = {
     maxMarginPctPerSlot: Number(process.env.HL_MAX_MARGIN_PCT_PER_SLOT || 0.22),
     /** Auto stop-loss ceiling on margin — tightens user SL above this (e.g. 50% → 18%). */
     maxAutoStopLossPct: Number(process.env.HL_MAX_AUTO_SL_PCT || 18),
-    /** Used when user SL is 0 — bot still cuts losers (profit-only mode off for SL). */
-    defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 12),
+    /** Used only when HL_LOSS_CAP_ENFORCE=true — 0 = no default loss exit. */
+    defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 0),
     /** Bot open floor — 0 = scan all HL perps; only applied at order time if > 0. */
     minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 0),
     minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 0),
