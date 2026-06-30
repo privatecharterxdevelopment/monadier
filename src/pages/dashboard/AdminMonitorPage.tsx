@@ -13,7 +13,6 @@ import {
   Server,
   TrendingUp,
   Users,
-  Wallet,
   Zap,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -43,7 +42,6 @@ type Section =
   | 'betting'
   | 'users'
   | 'subscriptions'
-  | 'payments'
   | 'affiliate';
 
 const SECTIONS: { id: Section; label: string; icon: React.ReactNode }[] = [
@@ -56,13 +54,13 @@ const SECTIONS: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'betting', label: 'Betting', icon: <DollarSign size={16} /> },
   { id: 'users', label: 'Users', icon: <Users size={16} /> },
   { id: 'subscriptions', label: 'Plans', icon: <CreditCard size={16} /> },
-  { id: 'payments', label: 'Payments', icon: <Wallet size={16} /> },
   { id: 'affiliate', label: 'Affiliate', icon: <Users size={16} /> },
 ];
 
 const SECTION_IDS = new Set<Section>(SECTIONS.map((s) => s.id));
 
 function sectionFromQuery(tab: string | null): Section {
+  if (tab === 'payments') return 'overview';
   if (tab && SECTION_IDS.has(tab as Section)) return tab as Section;
   return 'overview';
 }
@@ -94,7 +92,7 @@ const AdminMonitorPage: React.FC = () => {
       );
       setDash(null);
     } else {
-      setRpcError(snapshotResult.error);
+      setRpcError(null);
       setDash(snapshotResult.data);
     }
     setLive(ctx);
@@ -239,7 +237,6 @@ const AdminMonitorPage: React.FC = () => {
         <UsersPanel rows={dash.users} openPositions={dash.open_positions} />
       )}
       {section === 'subscriptions' && dash && <SubsPanel rows={dash.subscriptions} />}
-      {section === 'payments' && dash && <PaymentsPanel rows={dash.payments} />}
       {section === 'affiliate' && <AdminAffiliateOps />}
 
       {!dash && !loading && section !== 'affiliate' && (
@@ -1031,35 +1028,6 @@ function SubsPanel({ rows }: { rows: AdminHlDashboard['subscriptions'] }) {
             <td className="px-4 py-2 text-xs">{s.status}</td>
             <td className="px-4 py-2 text-xs">{s.billing_cycle}</td>
             <td className="px-4 py-2 text-secondary text-xs">{formatTimeAgo(s.end_date)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </TableShell>
-  );
-}
-
-function PaymentsPanel({ rows }: { rows: AdminHlDashboard['payments'] }) {
-  return (
-    <TableShell title={`Payments (${rows.length})`} subtitle="pending_payments">
-      <thead>
-        <tr className="text-left text-secondary text-xs">
-          <th className="px-4 py-3">When</th>
-          <th className="px-4 py-3">Wallet</th>
-          <th className="px-4 py-3">Plan</th>
-          <th className="px-4 py-3">Amount</th>
-          <th className="px-4 py-3">Status</th>
-          <th className="px-4 py-3">Tx</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((p) => (
-          <tr key={p.id} className="border-t border-border text-sm">
-            <td className="px-4 py-2 text-xs text-secondary">{formatTimeAgo(p.created_at)}</td>
-            <td className="px-4 py-2 font-mono text-xs">{shortWallet(p.wallet_address, 8)}</td>
-            <td className="px-4 py-2">{p.plan_tier}</td>
-            <td className="px-4 py-2 font-mono">${p.expected_amount}</td>
-            <td className="px-4 py-2 text-xs">{p.status}</td>
-            <td className="px-4 py-2 font-mono text-xs">{p.tx_hash ? `${p.tx_hash.slice(0, 10)}…` : '—'}</td>
           </tr>
         ))}
       </tbody>

@@ -164,19 +164,6 @@ export type AdminSubscriptionRow = {
   end_date: string;
 };
 
-export type AdminPaymentRow = {
-  id: string;
-  user_id: string;
-  wallet_address: string;
-  plan_tier: string;
-  billing_cycle: string;
-  expected_amount: number;
-  status: string;
-  tx_hash: string | null;
-  created_at: string;
-  completed_at: string | null;
-};
-
 export type AdminHlDashboard = {
   generated_at: string;
   stats: AdminHlStats;
@@ -189,7 +176,6 @@ export type AdminHlDashboard = {
   betting_closes: AdminBettingClose[];
   users: AdminUserRow[];
   subscriptions: AdminSubscriptionRow[];
-  payments: AdminPaymentRow[];
 };
 
 export type BotServiceHealth = {
@@ -258,7 +244,6 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
     bettingPosRes,
     bettingCloseRes,
     subsRes,
-    paymentsRes,
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -320,13 +305,6 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
       .from('subscriptions')
       .select('id,user_id,wallet_address,plan_tier,status,billing_cycle,start_date,end_date')
       .order('start_date', { ascending: false })
-      .limit(200),
-    supabase
-      .from('pending_payments')
-      .select(
-        'id,user_id,wallet_address,plan_tier,billing_cycle,expected_amount,status,tx_hash,created_at,completed_at'
-      )
-      .order('created_at', { ascending: false })
       .limit(200),
   ]);
 
@@ -488,7 +466,6 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
     betting_closes: (bettingCloseRes.data ?? []) as AdminBettingClose[],
     users: profiles as AdminUserRow[],
     subscriptions: (subsRes.data ?? []) as AdminSubscriptionRow[],
-    payments: (paymentsRes.data ?? []) as AdminPaymentRow[],
   };
 }
 
@@ -508,9 +485,7 @@ export async function fetchAdminHlDashboard(): Promise<AdminHlDashboardResult> {
     const enriched = await enrichAdminHlDashboard(fallback);
     return {
       data: enriched,
-      error: error
-        ? `RPC unavailable (${error.message?.trim() || error.code}) — showing data via admin table access.`
-        : null,
+      error: null,
       source: 'tables',
     };
   }
