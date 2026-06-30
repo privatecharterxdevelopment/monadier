@@ -12,6 +12,8 @@ type Props = {
   hlSliderMax?: number;
   disabled?: boolean;
   id?: string;
+  /** Hide duplicate title when parent card already shows leverage. */
+  embedded?: boolean;
 };
 
 const LeverageRangeSlider: React.FC<Props> = ({
@@ -21,18 +23,21 @@ const LeverageRangeSlider: React.FC<Props> = ({
   hlSliderMax,
   disabled,
   id = 'leverage-range',
+  embedded = false,
 }) => {
   const max = getMaxLeverageForPlan(planTier, hlSliderMax);
   const snapped = snapLeverageToStep(value, planTier, hlSliderMax);
 
   return (
-    <div className="term-leverage-slider">
-      <div className="term-leverage-slider-head">
-        <label className="term-panel-card-label" htmlFor={id}>
-          Leverage
-        </label>
-        <strong className="term-leverage-slider-value">{snapped}x</strong>
-      </div>
+    <div className={`term-leverage-slider${embedded ? ' term-leverage-slider--embedded' : ''}`}>
+      {!embedded ? (
+        <div className="term-leverage-slider-head">
+          <label className="term-panel-card-label" htmlFor={id}>
+            Leverage
+          </label>
+          <strong className="term-leverage-slider-value">{snapped}x</strong>
+        </div>
+      ) : null}
       <input
         id={id}
         type="range"
@@ -50,8 +55,10 @@ const LeverageRangeSlider: React.FC<Props> = ({
         <span>1x</span>
         <span>{getMaxLeverageLabel(planTier, hlSliderMax)} max</span>
       </div>
-      <p className="term-hint term-leverage-slider-hint">
-        HL per-asset caps (e.g. BTC {hlSliderMax ?? max}x, ETH often 25x) · applied when the bot opens
+      <p className={`term-hint term-leverage-slider-hint${embedded ? ' term-leverage-slider-hint--compact' : ''}`}>
+        {embedded
+          ? `HL caps per asset (BTC ${hlSliderMax ?? max}x max on slider)`
+          : `HL per-asset caps (e.g. BTC ${hlSliderMax ?? max}x, ETH often 25x) · applied when the bot opens`}
       </p>
     </div>
   );

@@ -10,6 +10,7 @@ import type { HlOpenOrder, HlPosition } from '../../lib/hyperliquid/user';
 import { fmtTradeUsdSymbol, fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
+import { BRAND_NAME } from '../../lib/brand';
 
 function fmtUsd(n: number) {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -98,7 +99,7 @@ const ProTradeStatusBar: React.FC<Props> = ({
     return (
       <footer className="hl-status">
         <div className="hl-status-left">
-          <span className="hl-status-mode hl-status-mode--bot">Monadier bot</span>
+          <span className="hl-status-mode hl-status-mode--bot">{BRAND_NAME} bot</span>
           <span className={running ? 'hl-up' : undefined}>
             {running ? (
               <>

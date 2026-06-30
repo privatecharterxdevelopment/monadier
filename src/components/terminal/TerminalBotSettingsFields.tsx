@@ -28,11 +28,12 @@ export type BotSettingsFieldsProps = {
   minTradesForWinRate: number;
   setMinTradesForWinRate: (v: number) => void;
   disabled?: boolean;
-  variant?: 'panel' | 'modal';
+  variant?: 'panel' | 'modal' | 'lvrg';
   showAutoTrade?: boolean;
   walletConnected?: boolean;
   notice?: string | null;
   error?: string | null;
+  hlBalanceUsd?: number;
 };
 
 const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
@@ -62,10 +63,12 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
   walletConnected = true,
   notice,
   error,
+  hlBalanceUsd = 0,
 }) => {
   const { t } = useTranslation();
   const maxLevLabel = getMaxLeverageLabel(planTier, hlSliderMax);
   const isModal = variant === 'modal';
+  const isLvrg = variant === 'lvrg';
   const labelClass = isModal ? 'term-modal-label' : 'term-panel-card-label';
   const hintClass = isModal ? 'term-modal-hint' : 'term-hint';
   const chipRowClass = isModal
@@ -73,6 +76,174 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
     : 'term-modal-chip-row term-modal-chip-row--wrap';
   const rangeClass = isModal ? 'term-modal-range' : 'term-modal-range';
   const inputClass = isModal ? 'term-modal-input' : 'term-panel-input';
+  const collateralUsd = (hlBalanceUsd * riskLevel) / 100;
+  const notionalUsd = collateralUsd * leverage;
+  const winRateGateOn = minWinRate > 0;
+
+  if (isLvrg) {
+    return (
+      <>
+        <div className="term-lvrg-setting-card">
+          <div className="term-lvrg-setting-head">
+            <p className="term-lvrg-setting-title">{t('bot.leverageShort')}</p>
+            <span className="term-lvrg-setting-value">{leverage}x</span>
+          </div>
+          <LeverageRangeSlider
+            embedded
+            value={leverage}
+            onChange={setLeverage}
+            planTier={planTier}
+            hlSliderMax={hlSliderMax}
+            disabled={disabled}
+            id="lvrg-panel-leverage"
+          />
+          {leverage >= 10 && (
+            <p className={`${hintClass} term-hint--warn term-lvrg-setting-foot`}>
+              {leverage >= 20
+                ? t('bot.leverageHigh', { pct: ((100 / leverage) * 0.9).toFixed(1) })
+                : t('bot.leveragePnl', { lev: leverage })}
+            </p>
+          )}
+        </div>
+
+        <div className="term-lvrg-setting-card">
+          <div className="term-lvrg-setting-head">
+            <p className="term-lvrg-setting-title">{t('bot.riskPerTrade')}</p>
+            <span className="term-lvrg-setting-value">{riskLevel}%</span>
+          </div>
+          <p className="term-lvrg-setting-desc">
+            <Trans i18nKey="bot.riskHintShort" components={{ strong: <strong /> }} />
+          </p>
+          <div className={chipRowClass}>
+            {RISK_PRESETS.map((v) => (
+              <button
+                key={v}
+                type="button"
+                className={`term-modal-chip ${riskLevel === v ? 'term-modal-chip--on' : ''}`}
+                onClick={() => setRiskLevel(v)}
+                disabled={disabled}
+              >
+                {v}%
+              </button>
+            ))}
+          </div>
+          <input
+            type="range"
+            min={1}
+            max={100}
+            value={riskLevel}
+            onChange={(e) => setRiskLevel(parseInt(e.target.value, 10))}
+            className={rangeClass}
+            disabled={disabled}
+            aria-label={t('bot.riskAria')}
+          />
+          {hlBalanceUsd > 0 ? (
+            <p className="term-lvrg-setting-foot">
+              ~${collateralUsd.toFixed(2)} margin · ~${notionalUsd.toFixed(0)} notional
+            </p>
+          ) : null}
+        </div>
+
+        <div className="term-lvrg-setting-card">
+          <div className="term-lvrg-setting-head term-lvrg-setting-head--gate">
+            <div>
+              <p className="term-lvrg-setting-title">{t('bot.winRateGate')}</p>
+              <p className="term-lvrg-setting-desc">{t('bot.winRateGateShort')}</p>
+            </div>
+            <button
+              type="button"
+              className={`term-modal-switch ${winRateGateOn ? 'term-modal-switch--on' : ''}`}
+              onClick={() => setMinWinRate(winRateGateOn ? 0 : Math.max(minWinRate, 40) || 40)}
+              disabled={disabled}
+              aria-pressed={winRateGateOn}
+              aria-label={winRateGateOn ? t('bot.winRateActive') : t('bot.winRateOff')}
+            >
+              <span className="term-modal-switch-knob" />
+            </button>
+          </div>
+
+          {winRateGateOn ? (
+            <div className="term-lvrg-gate-fields">
+              <div className="term-lvrg-gate-row">
+                <label className="term-lvrg-gate-label" htmlFor="lvrg-min-win-rate">
+                  {t('bot.minWinRateShort')}
+                </label>
+                <span className="term-lvrg-gate-value">{minWinRate}%</span>
+              </div>
+              <input
+                id="lvrg-min-win-rate"
+                type="range"
+                min={20}
+                max={80}
+                step={5}
+                value={minWinRate}
+                onChange={(e) => setMinWinRate(parseInt(e.target.value, 10))}
+                className={rangeClass}
+                disabled={disabled}
+              />
+
+              <div className="term-lvrg-gate-row term-lvrg-gate-row--trades">
+                <label className="term-lvrg-gate-label" htmlFor="lvrg-min-trades">
+                  {t('bot.closedTradesGateShort')}
+                </label>
+                <div className="term-modal-gate-stepper">
+                  <button
+                    type="button"
+                    className="term-modal-chip"
+                    disabled={disabled || minTradesForWinRate <= 1}
+                    onClick={() => setMinTradesForWinRate(Math.max(1, minTradesForWinRate - 1))}
+                    aria-label={t('bot.fewerTrades')}
+                  >
+                    −
+                  </button>
+                  <input
+                    id="lvrg-min-trades"
+                    type="number"
+                    className={`${inputClass} term-modal-input--center`}
+                    min={1}
+                    max={50}
+                    value={minTradesForWinRate}
+                    onChange={(e) => {
+                      const raw = parseInt(e.target.value, 10);
+                      if (!Number.isNaN(raw)) {
+                        setMinTradesForWinRate(Math.min(50, Math.max(1, raw)));
+                      }
+                    }}
+                    disabled={disabled}
+                  />
+                  <button
+                    type="button"
+                    className="term-modal-chip"
+                    disabled={disabled || minTradesForWinRate >= 50}
+                    onClick={() => setMinTradesForWinRate(Math.min(50, minTradesForWinRate + 1))}
+                    aria-label={t('bot.moreTrades')}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="term-lvrg-setting-foot">{t('bot.winRateOffHint')}</p>
+          )}
+        </div>
+
+        {notice && (
+          <div className="term-panel-alert">
+            <AlertCircle size={14} />
+            <span>{notice}</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="term-panel-alert">
+            <AlertCircle size={14} />
+            <span>{error}</span>
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <>
@@ -240,9 +411,11 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
         </div>
       </div>
 
-      <p className={hintClass}>
-        <Trans i18nKey="bot.exitsHint" components={{ strong: <strong /> }} />
-      </p>
+      {isModal && (
+        <p className={hintClass}>
+          <Trans i18nKey="bot.exitsHint" components={{ strong: <strong /> }} />
+        </p>
+      )}
 
       {notice && (
         <div className={isModal ? 'term-modal-alert term-modal-alert--ok' : 'term-panel-alert'}>

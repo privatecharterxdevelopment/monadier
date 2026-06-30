@@ -5,7 +5,7 @@ import { useHlLeverageCap } from '../../hooks/useHlLeverageCap';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
 import TerminalBotSettingsFields from './TerminalBotSettingsFields';
 import { useBotSettingsEditor } from './useBotSettingsEditor';
-import { useWeb3 } from '../../contexts/Web3Context';
+import { BRAND_NAME } from '../../lib/brand';
 
 type Props = {
   settings: VaultSettingsSnapshot;
@@ -17,7 +17,7 @@ type Props = {
   onSaved: () => void;
 };
 
-/** Inline HL bot settings — leverage, risk, TP/SL. */
+/** Inline HL bot settings — leverage, risk, win-rate gate. */
 const TerminalLvrgPanel: React.FC<Props> = ({
   settings,
   walletAddress,
@@ -36,9 +36,6 @@ const TerminalLvrgPanel: React.FC<Props> = ({
     onSaved,
   });
 
-  const collateralUsd = (hlBalanceUsd * editor.riskLevel) / 100;
-  const notionalUsd = collateralUsd * editor.leverage;
-
   const settingsLocked = botRunning;
 
   return (
@@ -50,21 +47,13 @@ const TerminalLvrgPanel: React.FC<Props> = ({
             : 'term-lvrg-locked-section'
         }
       >
-        <div className="term-panel-card term-panel-card--muted">
-          <span className="term-panel-card-label">Bot settings</span>
-          <strong className="term-panel-card-value">{editor.leverage}x leverage</strong>
-          <span className="term-panel-card-hint">
-            Risk {editor.riskLevel}% of HL balance · ~${collateralUsd.toFixed(2)} margin · ~$
-            {notionalUsd.toFixed(0)} notional · HL caps BTC {caps.btc}x / ETH {caps.eth}x
-          </span>
-        </div>
-
         <TerminalBotSettingsFields
-          variant="panel"
+          variant="lvrg"
           planTier={editor.planTier}
           hlSliderMax={caps.sliderMax}
           hlBtcMax={caps.btc}
           hlEthMax={caps.eth}
+          hlBalanceUsd={hlBalanceUsd}
           riskLevel={editor.riskLevel}
           setRiskLevel={editor.setRiskLevel}
           leverage={editor.leverage}
@@ -88,9 +77,9 @@ const TerminalLvrgPanel: React.FC<Props> = ({
           showAutoTrade={false}
         />
 
-        <p className="term-hint">
-          To run the bot, open the <strong>Bot</strong> tab and press <strong>Start bot</strong>{' '}
-          after deposit and agent approval. LVRG here only saves risk and leverage.
+        <p className="term-hint term-lvrg-save-hint">
+          Saves risk, leverage, and win-rate gate for the {BRAND_NAME} bot. Start/stop trading in the{' '}
+          <strong>Bot</strong> tab.
         </p>
 
         <button
@@ -125,7 +114,7 @@ const TerminalLvrgPanel: React.FC<Props> = ({
           <button
             type="button"
             className="term-lvrg-section-blocker"
-            aria-label="Stop bot to change leverage, risk, TP or SL"
+            aria-label="Stop bot to change leverage, risk, or win-rate gate"
             onClick={() => onBlockedSave?.()}
           />
         ) : null}

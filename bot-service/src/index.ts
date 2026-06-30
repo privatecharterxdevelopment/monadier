@@ -1189,10 +1189,10 @@ async function main(): Promise<void> {
   logger.info(`- HL position monitor: every ${positionMonitorMs}ms (fast profit grab)`);
 
   setInterval(() => {
-    void processPendingTradeCloseEmails(15);
+    void processPendingTradeCloseEmails(40);
   }, 15_000);
-  void processPendingTradeCloseEmails(15).catch(() => undefined);
-  logger.info('- Trade close emails: every 15s (max 15 per tick, deduped)');
+  void processPendingTradeCloseEmails(40).catch(() => undefined);
+  logger.info('- Trade close emails: every 15s (1 email per profitable trade)');
 
   setInterval(() => {
     void reconcilePendingFillCloses(40).catch((err) => {

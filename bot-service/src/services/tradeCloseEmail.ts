@@ -13,6 +13,7 @@ const APP_TRADE_HISTORY_URL =
 type PendingRow = {
   id: string;
   user_id: string;
+  trade_history_id: string | null;
   headline: string;
   profit_loss: number;
   profit_loss_percent: number | null;
@@ -167,33 +168,32 @@ async function resolveUserEmail(userId: string): Promise<{
   };
 }
 
-/** Skip if this user already got a win email for same headline+P/L in the last 24h. */
-async function alreadyEmailedSimilarWin(
-  userId: string,
-  headline: string,
-  profitUsd: number
-): Promise<boolean> {
-  const since = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
+/** Exactly one win email per trade_history row (profitable close). */
+async function tradeHistoryEmailAlreadySent(tradeHistoryId: string | null): Promise<boolean> {
+  if (!tradeHistoryId) return false;
   const { data } = await supabase
     .from('user_trade_notifications')
-    .select('id, profit_loss')
-    .eq('user_id', userId)
-    .eq('headline', headline)
+    .select('id')
+    .eq('trade_history_id', tradeHistoryId)
     .not('email_sent_at', 'is', null)
-    .gte('closed_at', since)
-    .order('email_sent_at', { ascending: false })
-    .limit(10);
-
-  return (data ?? []).some(
-    (row) => Math.abs(Number(row.profit_loss) - profitUsd) < 0.02
-  );
+    .limit(1);
+  return (data?.length ?? 0) > 0;
 }
 
-/** Send pending trade-close emails (bot + betting + manual). */
+async function markNotificationEmailHandled(notificationId: string): Promise<void> {
+  await supabase
+    .from('user_trade_notifications')
+    .update({ email_sent_at: new Date().toISOString() })
+    .eq('id', notificationId);
+}
+
+/** Send pending trade-close emails — one Resend message per profitable trade_history row. */
 export async function processPendingTradeCloseEmails(limit = 40): Promise<number> {
   const { data, error } = await supabase
     .from('user_trade_notifications')
-    .select('id, user_id, headline, profit_loss, profit_loss_percent, closed_at, kind')
+    .select(
+      'id, user_id, trade_history_id, headline, profit_loss, profit_loss_percent, closed_at, kind'
+    )
     .is('email_sent_at', null)
     .order('created_at', { ascending: true })
     .limit(limit);
@@ -207,6 +207,7 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
   if (rows.length === 0) return 0;
 
   let sent = 0;
+  const emailedTradeIds = new Set<string>();
 
   for (const row of rows) {
     try {
@@ -214,35 +215,28 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
       const roiPct =
         row.profit_loss_percent != null ? Number(row.profit_loss_percent) : null;
 
-      // Successful trades only — losses stay in-app, no email.
+      // Losses / break-even: in-app only — mark handled, no email.
       if (profitUsd <= 0) {
-        await supabase
-          .from('user_trade_notifications')
-          .update({ email_sent_at: new Date().toISOString() })
-          .eq('id', row.id);
+        await markNotificationEmailHandled(row.id);
         continue;
       }
 
-      if (await alreadyEmailedSimilarWin(row.user_id, row.headline, profitUsd)) {
-        await supabase
-          .from('user_trade_notifications')
-          .update({ email_sent_at: new Date().toISOString() })
-          .eq('id', row.id);
-        logger.debug('Trade close email skipped — duplicate win already sent', {
-          userId: row.user_id,
-          headline: row.headline,
-          profitUsd: profitUsd.toFixed(4),
-        });
-        continue;
+      const tradeId = row.trade_history_id?.trim() || null;
+      if (tradeId) {
+        if (emailedTradeIds.has(tradeId)) {
+          await markNotificationEmailHandled(row.id);
+          continue;
+        }
+        if (await tradeHistoryEmailAlreadySent(tradeId)) {
+          await markNotificationEmailHandled(row.id);
+          continue;
+        }
       }
 
       const { email, emailEnabled } = await resolveUserEmail(row.user_id);
 
       if (!emailEnabled) {
-        await supabase
-          .from('user_trade_notifications')
-          .update({ email_sent_at: new Date().toISOString() })
-          .eq('id', row.id);
+        await markNotificationEmailHandled(row.id);
         continue;
       }
 
@@ -261,9 +255,7 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
             : profitUsd < 0
               ? 'Bet lost'
               : 'Bet settled'
-          : profitUsd >= 0
-            ? 'Trade closed in profit'
-            : 'Trade closed';
+          : 'Trade closed in profit';
 
       const subject = `${BRAND_NAME} · ${subjectPrefix} · ${row.headline} (${fmtUsd(profitUsd)})`;
       const ok = await sendResendEmail(
@@ -280,10 +272,8 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
 
       if (ok) {
         sent += 1;
-        await supabase
-          .from('user_trade_notifications')
-          .update({ email_sent_at: new Date().toISOString() })
-          .eq('id', row.id);
+        if (tradeId) emailedTradeIds.add(tradeId);
+        await markNotificationEmailHandled(row.id);
       }
     } catch (err) {
       logger.warn('Trade close email row failed', {

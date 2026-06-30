@@ -3101,6 +3101,9 @@
 
 .term-lvrg-locked-section {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .term-lvrg-locked-section--dim {
@@ -3122,6 +3125,106 @@
 .term-lvrg-section-blocker:focus-visible {
   outline: 2px solid var(--term-accent, #16a34a);
   outline-offset: 2px;
+}
+
+.term-lvrg-setting-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.term-lvrg-setting-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.term-lvrg-setting-head--gate {
+  align-items: flex-start;
+}
+
+.term-lvrg-setting-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--term-text);
+  letter-spacing: -0.01em;
+}
+
+.term-lvrg-setting-value {
+  flex-shrink: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--term-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.term-lvrg-setting-desc {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--term-text-muted, #737373);
+}
+
+.term-lvrg-setting-foot {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--term-text-faint, #888);
+}
+
+.term-lvrg-save-hint {
+  margin-top: 2px;
+}
+
+.term-lvrg-gate-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.term-lvrg-gate-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.term-lvrg-gate-row--trades {
+  margin-top: 4px;
+}
+
+.term-lvrg-gate-label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--term-text-muted, #737373);
+}
+
+.term-lvrg-gate-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--term-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.term-lvrg-setting-card .term-modal-gate-stepper {
+  margin-bottom: 0;
+}
+
+.term-leverage-slider--embedded {
+  gap: 8px;
+}
+
+.term-leverage-slider-hint--compact {
+  margin: 0;
+  font-size: 11px;
 }
 
 .term-panel-card--mode {

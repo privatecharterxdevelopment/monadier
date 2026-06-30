@@ -70,7 +70,7 @@ import {
 } from '../../lib/hyperliquid/funding';
 import { useBettingUi } from '../../contexts/BettingUiContext';
 import { useLegalAcceptance } from '../../contexts/LegalAcceptanceContext';
-import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
+import { BRAND_NAME } from '../../lib/brand';
 type PanelTab = 'bot' | 'lvrg' | 'funds';
 
 type Props = {
@@ -258,7 +258,7 @@ const TerminalTradePanel: React.FC<Props> = ({
     if (hlSetup.setupSettled && hlPerpUsd < MIN_HL_BOT_USD && hlFundingUsd < MIN_HL_BOT_USD) {
       return `Deposit at least $${MIN_HL_BOT_USD} USDC on Hyperliquid to start the bot.`;
     }
-    if (!isDemoUser && !isAuthenticated) return 'Sign in to Monadier, then press Start bot.';
+    if (!isDemoUser && !isAuthenticated) return `Sign in to ${BRAND_NAME}, then press Start bot.`;
     return null;
   }, [
     walletReady,
@@ -361,7 +361,7 @@ const TerminalTradePanel: React.FC<Props> = ({
       return 'This API wallet is already registered on Hyperliquid. If you approved before, refresh the page — otherwise revoke an old API key at app.hyperliquid.xyz → More → API.';
     }
     if (/linked to another/i.test(msg)) {
-      return 'This wallet is linked to another Monadier account. Sign in with that account or use a different wallet.';
+      return `This wallet is linked to another ${BRAND_NAME} account. Sign in with that account or use a different wallet.`;
     }
     if (/builder has insufficient balance|Monadier platform fee is not active/i.test(msg)) {
       return '';
@@ -479,7 +479,7 @@ const TerminalTradePanel: React.FC<Props> = ({
       return;
     }
     if (!isDemoUser && !isAuthenticated) {
-      onRequireSignIn?.('Sign in to Monadier, then press Start bot.');
+      onRequireSignIn?.(`Sign in to ${BRAND_NAME}, then press Start bot.`);
       return;
     }
     if (phase === 'connect' || phase === 'loading') {
@@ -574,7 +574,7 @@ const TerminalTradePanel: React.FC<Props> = ({
       return;
     }
     if (!isDemoUser && !isAuthenticated) {
-      onRequireSignIn?.('Sign in to Monadier, then press Stop bot.');
+      onRequireSignIn?.(`Sign in to ${BRAND_NAME}, then press Stop bot.`);
       return;
     }
     setBotError(null);
@@ -609,7 +609,7 @@ const TerminalTradePanel: React.FC<Props> = ({
     <aside className="term-trade-panel">
       <div className="term-trade-header">
         <div className="term-trade-header-top">
-          <p className="term-trade-title">Monadier bot</p>
+          <p className="term-trade-title">{BRAND_NAME} bot</p>
           <div className="term-trade-header-actions">
             {setupGuideComplete && walletReady && (
               <button
@@ -657,7 +657,7 @@ const TerminalTradePanel: React.FC<Props> = ({
             {!walletReady ? (
               <div className="term-panel-card term-panel-card--muted term-connect-banner">
                 <p className="term-hint term-connect-banner-text">
-                  Connect your wallet to set up the Monadier bot.
+                  Connect your wallet to set up the {BRAND_NAME} bot.
                 </p>
                 <button
                   type="button"
@@ -822,7 +822,7 @@ const TerminalTradePanel: React.FC<Props> = ({
         {panelTab === 'lvrg' && (
           <div className="term-panel-stack">
             {!walletReady && (
-              <p className="term-hint">Connect wallet to save leverage & risk for the Monadier bot.</p>
+              <p className="term-hint">Connect wallet to save leverage & risk for the {BRAND_NAME} bot.</p>
             )}
             <TerminalLvrgPanel
               settings={botSettings.settings}
