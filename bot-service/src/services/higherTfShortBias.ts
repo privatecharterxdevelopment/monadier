@@ -1,12 +1,11 @@
 /**
- * Alt SHORT — 4h / ~24h structural bias (soft filter, not a hard ban).
- * Strong macro UP → higher bar for SHORT. Strong macro DOWN → slight favor.
+ * Perp SHORT — 4h / ~24h structural bias for all coins.
+ * Strong macro UP → SHORT blocked. Strong macro DOWN → slight favor.
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
-import { MAJOR_COINS } from './coinTier';
 
 export type HigherTfRegime = 'strong_up' | 'neutral' | 'strong_down';
 
@@ -55,11 +54,11 @@ function classifyRegime(ch4h: number, ch24h: number): HigherTfRegime {
   return 'neutral';
 }
 
-/** Live 4h + ~24h (6×4h) move for alt SHORT bias — majors skipped. */
+/** 4h / ~24h structural bias — all perps (ZEC, alts, majors). Strong macro UP blocks SHORT. */
 export async function assessHigherTfShortBias(coin: string): Promise<HigherTfShortBias> {
   const cfg = config.hyperliquid.higherTfShort;
   const key = coin.toUpperCase();
-  if (!cfg.enabled || MAJOR_COINS.has(key)) {
+  if (!cfg.enabled) {
     return neutralBias();
   }
 
@@ -121,6 +120,15 @@ export function evaluateShortWithHigherTfBias(
   requiredConfidence: number;
   reason: string;
 } {
+  if (bias.regime === 'strong_up') {
+    return {
+      ok: false,
+      adjustedConfidence: baseConfidence + bias.confidenceAdjust,
+      requiredConfidence: minConfidence + bias.minConfidenceExtra,
+      reason: `${bias.reason} — SHORT blocked (4h/24h still pumping)`,
+    };
+  }
+
   const adjustedConfidence = baseConfidence + bias.confidenceAdjust;
   const requiredConfidence = minConfidence + bias.minConfidenceExtra;
   const ok = adjustedConfidence >= requiredConfidence;

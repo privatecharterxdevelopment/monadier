@@ -60,7 +60,10 @@ const LandingProductCarouselSection: React.FC = () => {
   const { sectionRef, progress, locked, unlocked } = useLandingScrollSequence({
     lockId: 'carousel',
     scrollPx: CAROUSEL_SCROLL_PX,
-    releaseAnchorId: 'landing-home-bento-title',
+    releaseAnchorId: 'landing-sleep-earnings-section',
+    releaseAnchorOffsetPx: 0,
+    releaseScrollBehavior: 'auto',
+    handoffLockId: 'sleep-earnings',
   });
 
   const applyCarouselOffset = useCallback((offsetPx: number) => {

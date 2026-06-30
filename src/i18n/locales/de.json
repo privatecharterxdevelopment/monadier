@@ -89,9 +89,27 @@
         }
       }
     },
+    "sleepEarnings": {
+      "appName": "HyperGain",
+      "title": "KI-Agent, der für dich tradet",
+      "description": "Märkte schlafen nie — und dein Edge sollte es auch nicht. HyperGain folgt einer klaren Philosophie: Disziplin schlägt Emotion, Geduld schlägt Lärm, und Kapital soll wachsen, während du ruhest.",
+      "notificationTitle": "{{pair}}-Trade mit Gewinn geschlossen",
+      "amount": "+${{amount}}",
+      "minutesAgo_one": "vor {{count}} Min.",
+      "minutesAgo_other": "vor {{count}} Min.",
+      "pillsAria": "Bot-Vorteile",
+      "registerCta": "Kostenlos registrieren",
+      "pills": {
+        "adjust": "An deine Bedürfnisse anpassen",
+        "run247": "71,4 % avg. Winrate",
+        "wealth": "Fully on Blockchain",
+        "payOnPerf": "Nur zahlen, wenn der Bot performt"
+      }
+    },
     "bento": {
       "ariaLabel": "Handelsfunktionen",
-      "title": "Alles in einem Konto",
+      "title": "Alles",
+      "titleMuted": "in einem Konto",
       "sub": "Powered by Hyperliquid's framework.",
       "bot": {
         "title": "Mit Bot handeln",

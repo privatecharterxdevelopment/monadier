@@ -25,7 +25,8 @@ const LandingHomeBentoCards: React.FC = () => {
           <motion.header {...fadeUp(0)} className="landing-home-bento-header">
             <div className="landing-home-bento-header-main">
               <h2 id="landing-home-bento-title" className="landing-home-bento-title">
-                {t('landing.bento.title')}
+                {t('landing.bento.title')}{' '}
+                <span className="landing-home-bento-title-muted">{t('landing.bento.titleMuted')}</span>
               </h2>
             </div>
             <p className="landing-home-bento-sub">{t('landing.bento.sub')}</p>

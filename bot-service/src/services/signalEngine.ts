@@ -837,6 +837,10 @@ export class SignalEngine {
       direction = 'LONG';
       confidence = Math.max(minDirectionScore, Math.round(bullishScore || 45));
       reasons.push('Uptrend — LONG from aligned lower timeframes');
+    } else if (tradeTrend === 'UP' && bearishScore > bullishScore) {
+      direction = 'HOLD';
+      confidence = Math.max(25, Math.round(bearishScore * 0.5));
+      warnings.push('1h uptrend — no counter-trend SHORT on RSI fade');
     } else {
       direction = 'HOLD';
       confidence = 50;

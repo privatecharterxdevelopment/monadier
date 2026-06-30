@@ -1,5 +1,5 @@
 /**
- * Alt SHORT timing — only after higher-TF rollover (not a blanket ban).
+ * Perp SHORT timing — all coins (ZEC, alts, majors). Only after higher-TF rollover.
  * Pair may still be skipped earlier by freshPumpGate if recently pumped.
  */
 import { config } from '../config';
@@ -7,7 +7,6 @@ import { logger } from '../utils/logger';
 import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { STANDARD_MTF_TIMEFRAMES } from '../lib/mtfTimeframes';
-import { MAJOR_COINS } from './coinTier';
 
 export type PumpShortResult = {
   ok: boolean;
@@ -51,13 +50,6 @@ export async function validateNoAltPumpShort(opts: {
   }
 
   const coin = opts.coin.toUpperCase();
-
-  if (MAJOR_COINS.has(coin)) {
-    return {
-      ok: true,
-      reason: `${coin} major — chart MTF drives SHORT timing (no alt-pump gate)`,
-    };
-  }
 
   const cfg = config.hyperliquid.pumpShort;
   const symbol = hlCoinToBinanceSymbol(coin);
@@ -137,14 +129,14 @@ export async function validateNoAltPumpShort(opts: {
     if (tf15?.direction !== 'SHORT' && tf1h?.direction !== 'SHORT') {
       return {
         ok: false,
-        reason: `SHORT blocked — ${coin}: need 15m or 1h SHORT confirmation before alt short`,
+        reason: `SHORT blocked — ${coin}: need 15m or 1h SHORT confirmation before entry`,
       };
     }
 
     return {
       ok: true,
       reason:
-        `Alt SHORT ok ${coin} — higher TFs faded (15m ${ch15m.toFixed(2)}%, 1h ${ch1h.toFixed(2)}%)`,
+        `SHORT ok ${coin} — higher TFs faded (15m ${ch15m.toFixed(2)}%, 1h ${ch1h.toFixed(2)}%)`,
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

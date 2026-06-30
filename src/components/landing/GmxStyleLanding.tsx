@@ -5,6 +5,7 @@ import LandingNav from './LandingNav';
 import LandingHeroLines from './LandingHeroLines';
 import LandingBotPitchSection from './LandingBotPitchSection';
 import LandingProductCarouselSection from './LandingProductCarouselSection';
+import LandingSleepEarningsSection from './LandingSleepEarningsSection';
 import LandingHomeBentoCards from './LandingHomeBentoCards';
 import LandingFaqSection from './LandingFaqSection';
 import LandingFooter from './LandingFooter';
@@ -393,6 +394,7 @@ const GmxStyleLanding: React.FC = () => {
       </section>
 
       <LandingProductCarouselSection />
+      <LandingSleepEarningsSection />
       <LandingHomeBentoCards />
       <LandingBotPitchSection />
       <LandingFaqSection />

@@ -192,7 +192,7 @@ async function scanStandardCoin(
 
     let signalConfidence = analysis.confidence;
     let macroReason: string | undefined;
-    if (analysis.direction === 'SHORT' && !MAJOR_COINS.has(coin.toUpperCase())) {
+    if (analysis.direction === 'SHORT') {
       const bias = await assessHigherTfShortBias(coin);
       const htf = evaluateShortWithHigherTfBias(signalConfidence, minConf, bias);
       if (!htf.ok) {
@@ -284,7 +284,7 @@ async function scanAggressiveCoin(
 
     let signalConfidence = scalp.confidence;
     let macroReason: string | undefined;
-    if (scalp.direction === 'SHORT' && !MAJOR_COINS.has(coin.toUpperCase())) {
+    if (scalp.direction === 'SHORT') {
       const bias = await assessHigherTfShortBias(coin);
       const htf = evaluateShortWithHigherTfBias(signalConfidence, minConf, bias);
       if (!htf.ok) {

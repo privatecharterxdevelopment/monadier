@@ -10361,10 +10361,38 @@
   color: var(--hl-text);
 }
 
-/* Settings tab (ex-LVRG) — dark panel cards, chips, gates */
+/* Settings tab (ex-LVRG) — panel cards, chips, gates (overrides dashboard2 light glass) */
 .hl-bot-panel-wrap .term-lvrg-setting-card {
+  background: var(--hl-bg-elevated);
+  border: 1px solid var(--hl-border);
+}
+
+.hl-bot-panel-wrap .term-lvrg-locked-section {
+  gap: 10px;
+}
+
+.hl-bot-panel-wrap .term-lvrg-gate-fields {
+  gap: 8px;
+}
+
+.hl-bot-panel-wrap .term-lvrg-setting-card .term-modal-gate-stepper .term-modal-chip {
   background: var(--hl-bg);
   border: 1px solid var(--hl-border);
+  color: var(--hl-text-muted);
+}
+
+.hl-bot-panel-wrap .term-lvrg-setting-card .term-modal-gate-stepper .term-modal-chip:hover:not(:disabled) {
+  background: var(--hl-bg-hover);
+  color: var(--hl-text);
+}
+
+.hl-bot-panel-wrap .term-leverage-slider-hint,
+.hl-bot-panel-wrap .term-leverage-slider-hint .term-hint {
+  color: var(--hl-text-muted);
+}
+
+.hl-bot-panel-wrap .term-hint--warn {
+  color: var(--hl-orange);
 }
 
 .hl-bot-panel-wrap .term-lvrg-setting-title,
@@ -10412,6 +10440,70 @@
 
 .hl-bot-panel-wrap .term-modal-switch--on .term-modal-switch-knob {
   background: var(--hl-green-bright);
+}
+
+/* Dark theme — force Settings tab off dashboard2 light glass */
+.hl-root--dark .hl-bot-panel-wrap .term-lvrg-setting-card {
+  background: var(--hl-bg-elevated) !important;
+  border-color: var(--hl-border) !important;
+  box-shadow: none;
+}
+
+.hl-root--dark .hl-bot-panel-wrap .term-lvrg-setting-title,
+.hl-root--dark .hl-bot-panel-wrap .term-lvrg-setting-value,
+.hl-root--dark .hl-bot-panel-wrap .term-lvrg-gate-value {
+  color: var(--hl-text) !important;
+}
+
+.hl-root--dark .hl-bot-panel-wrap .term-lvrg-setting-desc,
+.hl-root--dark .hl-bot-panel-wrap .term-lvrg-setting-foot,
+.hl-root--dark .hl-bot-panel-wrap .term-lvrg-gate-label,
+.hl-root--dark .hl-bot-panel-wrap .term-lvrg-save-hint,
+.hl-root--dark .hl-bot-panel-wrap .term-leverage-slider-scale {
+  color: var(--hl-text-muted) !important;
+}
+
+.hl-root--dark .hl-bot-panel-wrap .term-modal-chip,
+.hl-root--dark .hl-bot-panel-wrap .term-lvrg-setting-card .term-modal-gate-stepper .term-modal-chip {
+  background: var(--hl-bg-hover) !important;
+  border-color: var(--hl-border) !important;
+  color: var(--hl-text-muted) !important;
+}
+
+.hl-root--dark .hl-bot-panel-wrap .term-modal-chip--on {
+  background: var(--hl-green-tint) !important;
+  border-color: var(--hl-green-bright) !important;
+  color: var(--hl-green-bright) !important;
+}
+
+.hl-root--dark .hl-bot-panel-wrap .term-lvrg-setting-card .term-modal-input,
+.hl-root--dark .hl-bot-panel-wrap .term-lvrg-setting-card .term-panel-input {
+  background: var(--hl-bg) !important;
+  border-color: var(--hl-border) !important;
+  color: var(--hl-text) !important;
+}
+
+.hl-root--dark .hl-bot-panel-wrap .term-modal-switch {
+  background: var(--hl-bg-hover) !important;
+  border-color: var(--hl-border) !important;
+}
+
+.hl-root--dark .hl-bot-panel-wrap .term-modal-switch-knob {
+  background: var(--hl-text-muted) !important;
+  box-shadow: none;
+}
+
+.hl-root--dark .hl-bot-panel-wrap .term-modal-switch--on {
+  background: var(--hl-green-tint) !important;
+  border-color: var(--hl-green-bright) !important;
+}
+
+.hl-root--dark .hl-bot-panel-wrap .term-modal-switch--on .term-modal-switch-knob {
+  background: var(--hl-green-bright) !important;
+}
+
+.hl-root--dark .hl-bot-panel-wrap .term-modal-range {
+  accent-color: var(--hl-accent);
 }
 
 .hl-bot-panel-wrap .term-icon-btn {

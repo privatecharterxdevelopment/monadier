@@ -219,12 +219,13 @@ function bypassesLiquidityGate(signal: GlobalSignalCandidate): boolean {
   return signal.confidence >= 65 && tfs >= 2;
 }
 
-/** Macro/pump gates — may skip when MTF scan already aligned (never for entry level). */
+/** Macro/pump gates — may skip when MTF scan already aligned (never for SHORT). */
 function shouldRelaxMacroGates(
   pick: GlobalSignalCandidate,
   coin: string,
   direction: 'LONG' | 'SHORT'
 ): boolean {
+  if (direction === 'SHORT') return false;
   if (trustsScanAnalysis(pick) && pick.direction === direction) return true;
   if (MAJOR_COINS.has(coin.toUpperCase())) return true;
   if (isStrongGlobalScanPick(pick)) return true;
@@ -972,7 +973,7 @@ export class HyperliquidTradingService {
         trustsScanAnalysis(opts.pick) && opts.pick.direction === opts.direction;
 
       const freshPumpGate =
-        trustAnalysis
+        trustAnalysis && opts.direction !== 'SHORT'
           ? {
               ok: true as const,
               reason: `Scan MTF ${opts.pick.confidence}% — fresh-pump re-check skipped`,
@@ -1040,7 +1041,9 @@ export class HyperliquidTradingService {
       }
 
       const skipMacroAtOpen =
-        trustAnalysis && (opts.direction === 'SHORT' || MAJOR_COINS.has(coin));
+        trustAnalysis &&
+        opts.direction === 'LONG' &&
+        (MAJOR_COINS.has(coin) || (opts.pick.directionalTfCount ?? 0) >= 3);
       const macroGate = skipMacroAtOpen
         ? {
             ok: true as const,
@@ -1092,13 +1095,10 @@ export class HyperliquidTradingService {
       }
 
       const pumpShortGate =
-        opts.direction === 'LONG' || MAJOR_COINS.has(coin)
+        opts.direction === 'LONG'
           ? {
               ok: true as const,
-              reason:
-                opts.direction === 'LONG'
-                  ? 'Pump-short gate — LONG entries allowed'
-                  : `${coin} major — pump-short gate skipped`,
+              reason: 'Pump-short gate — LONG entries allowed',
             }
           : await validateNoAltPumpShort({
               coin,
@@ -1114,7 +1114,7 @@ export class HyperliquidTradingService {
         return { success: false, error: pumpShortGate.reason };
       }
 
-      if (opts.direction === 'SHORT' && !MAJOR_COINS.has(coin)) {
+      if (opts.direction === 'SHORT') {
         const bias = await assessHigherTfShortBias(coin);
         const minShortConf = needsCautionPath(coinTier)
           ? config.hyperliquid.cautiousScan.minSignalConfidence
@@ -1130,13 +1130,7 @@ export class HyperliquidTradingService {
         }
       }
 
-      const megaGate =
-        MAJOR_COINS.has(coin)
-          ? {
-              ok: true as const,
-              reason: `${coin} major — mega flow gate skipped`,
-            }
-          : validateMegaPairVolumeForDirection(opts.direction);
+      const megaGate = validateMegaPairVolumeForDirection(opts.direction);
       if (!megaGate.ok) {
         logger.info('HL open blocked — mega pair volume', {
           user: opts.userAddress.slice(0, 10),

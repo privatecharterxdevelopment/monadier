@@ -89,9 +89,27 @@
         }
       }
     },
+    "sleepEarnings": {
+      "appName": "HyperGain",
+      "title": "AI agent that trades for you",
+      "description": "Markets never sleep — and your edge shouldn't either. HyperGain is built on one belief: discipline beats emotion, patience beats noise, and capital should compound while you rest.",
+      "notificationTitle": "{{pair}} position closed in profit",
+      "amount": "+${{amount}}",
+      "minutesAgo_one": "{{count}}m ago",
+      "minutesAgo_other": "{{count}}m ago",
+      "pillsAria": "Bot benefits",
+      "registerCta": "Register for free",
+      "pills": {
+        "adjust": "Adjust to your needs",
+        "run247": "71.4% avg. winrate",
+        "wealth": "Fully on Blockchain",
+        "payOnPerf": "Pay only when the bot performs"
+      }
+    },
     "bento": {
       "ariaLabel": "Trading features",
-      "title": "Everything in one account",
+      "title": "Everything",
+      "titleMuted": "in one account",
       "sub": "Powered by Hyperliquid's framework.",
       "bot": {
         "title": "Trade by bot",

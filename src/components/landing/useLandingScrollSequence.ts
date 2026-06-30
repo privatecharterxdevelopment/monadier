@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import {
   captureScrollLock,
   getScrollLockOwner,
@@ -24,6 +24,10 @@ type ContinuousOptions = {
   scrollPx: number;
   /** Snap here on forward release (next section title). */
   releaseAnchorId?: string;
+  releaseAnchorOffsetPx?: number;
+  releaseScrollBehavior?: ScrollBehavior;
+  /** Auto-engage this scroll lock after release anchor snap (seamless section handoff). */
+  handoffLockId?: string;
 };
 
 type StepOptions = {
@@ -32,6 +36,8 @@ type StepOptions = {
   stepCount: number;
   wheelThreshold?: number;
   releaseAnchorId?: string;
+  /** When true, forward/back release at complete is suppressed (e.g. until overlay animation finishes). */
+  releaseBlockedRef?: MutableRefObject<boolean>;
 };
 
 type Options = ContinuousOptions | StepOptions;
@@ -39,9 +45,13 @@ type Options = ContinuousOptions | StepOptions;
 export function useLandingScrollSequence(options: Options) {
   const lockId = options.lockId;
   const releaseAnchorId = options.releaseAnchorId;
+  const releaseAnchorOffsetPx = options.releaseAnchorOffsetPx;
+  const releaseScrollBehavior = options.releaseScrollBehavior;
+  const handoffLockId = 'handoffLockId' in options ? options.handoffLockId : undefined;
   const isStepMode = options.mode === 'step';
   const scrollPx = isStepMode ? 1 : options.scrollPx;
   const stepCount = isStepMode ? options.stepCount : 1;
+  const releaseBlockedRef = isStepMode ? options.releaseBlockedRef : undefined;
 
   const sectionRef = useRef<HTMLElement>(null);
   const progressRef = useRef(0);
@@ -96,7 +106,18 @@ export function useLandingScrollSequence(options: Options) {
       if (forward && releaseAnchorId) {
         unlockPageScroll({ scrollY: currentY }, lockId);
         requestAnimationFrame(() => {
-          scrollToAnchorY(releaseAnchorId, 'smooth');
+          scrollToAnchorY(
+            releaseAnchorId,
+            releaseScrollBehavior ?? 'auto',
+            releaseAnchorOffsetPx ?? 76
+          );
+          if (handoffLockId) {
+            window.dispatchEvent(
+              new CustomEvent('landing-scroll-handoff', {
+                detail: { engageLockId: handoffLockId },
+              })
+            );
+          }
         });
         return;
       }
@@ -116,8 +137,20 @@ export function useLandingScrollSequence(options: Options) {
 
       unlockPageScroll({ scrollY: exitY }, lockId);
     },
-    [lockId, releaseAnchorId]
+    [handoffLockId, lockId, releaseAnchorId, releaseAnchorOffsetPx, releaseScrollBehavior]
   );
+
+  /** Unlock scroll in place — keep final step/visual state (no anchor jump). */
+  const unlockInPlace = useCallback(() => {
+    if (unlockedRef.current) return;
+    const currentY = readScrollY();
+    lockSnapshotRef.current = null;
+    unlockedRef.current = true;
+    engagedRef.current = false;
+    setLocked(false);
+    setUnlocked(true);
+    unlockPageScroll({ scrollY: currentY }, lockId);
+  }, [lockId]);
 
   const applyProgress = useCallback((next: number) => {
     const p = Math.min(1, Math.max(0, next));
@@ -155,7 +188,10 @@ export function useLandingScrollSequence(options: Options) {
     const scrollY = resolveEngageScrollY(section);
     if (scrollY < 8) return false;
 
-    window.scrollTo({ top: scrollY, behavior: 'auto' });
+    const currentScrollY = readScrollY();
+    if (Math.abs(currentScrollY - scrollY) > 1) {
+      window.scrollTo({ top: scrollY, behavior: 'auto' });
+    }
 
     lockSnapshotRef.current = {
       ...captureScrollLock(scrollY),
@@ -230,14 +266,16 @@ export function useLandingScrollSequence(options: Options) {
         }
         if (deltaY > 0) {
           if (completeRef.current) {
+            if (releaseBlockedRef?.current) return true;
             releaseLock(true, deltaY);
             return false;
           }
           bumpStep(1);
         } else {
           if (completeRef.current) {
-            completeRef.current = false;
-            setComplete(false);
+            if (releaseBlockedRef?.current) return true;
+            releaseLock(false, deltaY);
+            return false;
           }
           bumpStep(-1);
         }
@@ -260,7 +298,7 @@ export function useLandingScrollSequence(options: Options) {
       }
       return true;
     },
-    [applyProgress, bumpStep, engage, isStepMode, lockId, releaseLock, scrollPx]
+    [applyProgress, bumpStep, engage, isStepMode, lockId, releaseBlockedRef, releaseLock, scrollPx]
   );
 
   const handleWheelDeltaRef = useRef(handleWheelDelta);
@@ -281,6 +319,9 @@ export function useLandingScrollSequence(options: Options) {
   applyStepRef.current = applyStep;
   const stepCountRef = useRef(stepCount);
   stepCountRef.current = stepCount;
+
+  const engageRef = useRef(engage);
+  engageRef.current = engage;
 
   useEffect(() => {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -336,8 +377,10 @@ export function useLandingScrollSequence(options: Options) {
       if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
         e.preventDefault();
         if (isStepModeRef.current) {
-          if (completeRef.current) releaseLockRef.current(true, 48);
-          else bumpStepRef.current(1);
+          if (completeRef.current) {
+            if (releaseBlockedRef?.current) return;
+            releaseLockRef.current(true, 48);
+          } else bumpStepRef.current(1);
           return;
         }
         if (completeRef.current) releaseLockRef.current(true, 48);
@@ -347,8 +390,9 @@ export function useLandingScrollSequence(options: Options) {
         e.preventDefault();
         if (isStepModeRef.current) {
           if (completeRef.current) {
-            completeRef.current = false;
-            setComplete(false);
+            if (releaseBlockedRef?.current) return;
+            releaseLockRef.current(false, 48);
+            return;
           }
           bumpStepRef.current(-1);
           return;
@@ -357,6 +401,17 @@ export function useLandingScrollSequence(options: Options) {
       }
     };
 
+    const onHandoff = (event: Event) => {
+      const detail = (event as CustomEvent<{ engageLockId?: string }>).detail;
+      if (detail?.engageLockId !== lockId || unlockedRef.current || engagedRef.current) return;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          engageRef.current();
+        });
+      });
+    };
+
+    window.addEventListener('landing-scroll-handoff', onHandoff);
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('touchstart', onTouchStart, { passive: true });
     window.addEventListener('touchmove', onTouchMove, { passive: false });
@@ -375,6 +430,7 @@ export function useLandingScrollSequence(options: Options) {
           unlockPageScroll({ scrollY: exitY }, lockId);
         }
       }
+      window.removeEventListener('landing-scroll-handoff', onHandoff);
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('touchstart', onTouchStart);
       window.removeEventListener('touchmove', onTouchMove);
@@ -392,5 +448,6 @@ export function useLandingScrollSequence(options: Options) {
     complete,
     unlocked,
     applyProgress,
+    unlockInPlace,
   };
 }

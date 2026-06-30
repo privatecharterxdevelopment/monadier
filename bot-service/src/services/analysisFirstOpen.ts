@@ -1,9 +1,10 @@
 import { config } from '../config';
 import type { GlobalSignalCandidate } from './globalMarketScan';
+import { normalizeH1Trend } from './trendOnly';
 
 const MAJOR_COINS = new Set(['BTC', 'ETH']);
 
-/** Global scan already aligned 5m/15m/1h — open on that thesis without re-blocking SHORT. */
+/** Global scan already aligned 5m/15m/1h — open on that thesis without re-blocking. */
 export function trustsScanAnalysis(pick: GlobalSignalCandidate): boolean {
   const tfs = pick.directionalTfCount ?? 0;
   const minTfs = config.hyperliquid.minDirectionalTfs;
@@ -15,16 +16,19 @@ export function trustsScanAnalysis(pick: GlobalSignalCandidate): boolean {
   );
 }
 
+/** MTF vote count only overrides trend-only when direction matches 1h macro trend. */
 export function mtfOverridesTrendOnlyFilter(
   direction: 'LONG' | 'SHORT',
   h1Trend: string | undefined | null,
   directionalTfCount: number | undefined
 ): boolean {
   const tfs = directionalTfCount ?? 0;
-  if (tfs >= config.hyperliquid.minDirectionalTfs) return true;
-  const h1 = String(h1Trend ?? 'SIDEWAYS').toUpperCase();
-  if (direction === 'LONG') return h1.includes('UP');
-  if (direction === 'SHORT') return h1.includes('DOWN');
+  const minTfs = config.hyperliquid.minDirectionalTfs;
+  if (tfs < minTfs) return false;
+
+  const h1 = normalizeH1Trend(h1Trend);
+  if (direction === 'LONG' && (h1 === 'UP' || h1 === 'SIDEWAYS')) return true;
+  if (direction === 'SHORT' && h1 === 'DOWN') return true;
   return false;
 }
 
