@@ -32,13 +32,40 @@ export function collectAdminHlWalletAddresses(dash: AdminHlDashboard): string[] 
     if (w && WALLET_RE.test(w)) set.add(w);
   };
 
-  for (const u of dash.users) add(u.wallet_address);
+  // Canonical HL wallets only — avoid polling every historic address from fees/closes/events
+  // (was inflating open-position counts with stale or duplicate legs).
   for (const b of dash.active_bots) add(b.wallet_address);
-  for (const t of dash.recent_closes) add(t.wallet_address);
-  for (const e of dash.recent_events) add(e.wallet_address);
-  for (const f of dash.fee_ledger) add(f.wallet_address);
+  for (const u of dash.users) add(u.wallet_address);
 
   return [...set];
+}
+
+/** One row per wallet+coin (Hyperliquid allows one net position per coin). */
+export function dedupeAdminOpenPositions(rows: AdminOpenPosition[]): AdminOpenPosition[] {
+  const byKey = new Map<string, AdminOpenPosition>();
+  for (const row of rows) {
+    const wallet = row.wallet_address.toLowerCase();
+    const coin = row.token_symbol.toUpperCase();
+    const key = `${wallet}:${coin}`;
+    const prev = byKey.get(key);
+    if (!prev) {
+      byKey.set(key, row);
+      continue;
+    }
+    const prevAbs = prev.abs_size ?? 0;
+    const nextAbs = row.abs_size ?? 0;
+    if (nextAbs > prevAbs) byKey.set(key, row);
+  }
+  return [...byKey.values()];
+}
+
+export function countAdminPositionsByCoin(rows: AdminOpenPosition[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const p of rows) {
+    const c = p.token_symbol.toUpperCase();
+    m.set(c, (m.get(c) ?? 0) + 1);
+  }
+  return m;
 }
 
 function emailForWallet(
@@ -141,7 +168,9 @@ export async function fetchAdminHlLiveOpenPositions(
     for (const list of rows) out.push(...list);
   }
 
-  return out.sort((a, b) => (a.profit_loss ?? 0) - (b.profit_loss ?? 0));
+  return dedupeAdminOpenPositions(out).sort(
+    (a, b) => (a.profit_loss ?? 0) - (b.profit_loss ?? 0)
+  );
 }
 
 export function sumAdminOpenUpnl(rows: AdminOpenPosition[]): number {

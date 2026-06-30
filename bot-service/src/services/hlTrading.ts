@@ -106,6 +106,8 @@ const hlPositionOpenedAt = new Map<string, number>();
 
 /** Last close timestamp per wallet — anti-churn cooldown before next open. */
 const hlLastCloseAt = new Map<string, number>();
+/** One HL close attempt per open position at a time (fast monitor + reconcile). */
+const hlPositionCloseInFlight = new Set<string>();
 
 /** Prevent overlapping fast monitor passes. */
 let fastPositionMonitorRunning = false;
@@ -1352,23 +1354,36 @@ export class HyperliquidTradingService {
     },
     reasonDetail?: string
   ): Promise<void> {
-    const result = await this.closeMarketPosition(
-      userAddress,
-      coin,
-      reason,
-      closeCtx,
-      reasonDetail
-    );
-    if (result.success) {
-      clearTrailState(lockKey);
+    if (hlPositionCloseInFlight.has(lockKey)) {
+      logger.debug('HL close skip — already in flight', {
+        user: userAddress.slice(0, 10),
+        coin,
+        reason,
+      });
       return;
     }
-    logger.warn('HL auto-close failed — keeping trail state for retry', {
-      user: userAddress.slice(0, 10),
-      coin,
-      reason,
-      error: result.error,
-    });
+    hlPositionCloseInFlight.add(lockKey);
+    try {
+      const result = await this.closeMarketPosition(
+        userAddress,
+        coin,
+        reason,
+        closeCtx,
+        reasonDetail
+      );
+      if (result.success) {
+        clearTrailState(lockKey);
+        return;
+      }
+      logger.warn('HL auto-close failed — keeping trail state for retry', {
+        user: userAddress.slice(0, 10),
+        coin,
+        reason,
+        error: result.error,
+      });
+    } finally {
+      hlPositionCloseInFlight.delete(lockKey);
+    }
   }
 
   private async monitorOpenPositions(

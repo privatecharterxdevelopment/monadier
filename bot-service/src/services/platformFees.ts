@@ -740,44 +740,106 @@ export async function settleAccruedFees(
   return { settledUsd: status.accruedUsd, ok: true };
 }
 
+async function findRecentFeeWaivedCloseDupe(
+  wallet: string,
+  coin: string,
+  direction: string,
+  profitUsd: number,
+  withinMs = 5 * 60_000
+): Promise<string | null> {
+  const since = new Date(Date.now() - withinMs).toISOString();
+  const { data: recent } = await supabase
+    .from('trade_history')
+    .select('id, profit_loss, platform_fee_status')
+    .eq('wallet_address', wallet)
+    .eq('token_symbol', coin.toUpperCase())
+    .eq('direction', direction)
+    .gte('closed_at', since)
+    .neq('platform_fee_status', 'pending_fill')
+    .order('closed_at', { ascending: false })
+    .limit(5);
+
+  const match = (recent ?? []).find(
+    (row) => Math.abs(Number(row.profit_loss) - profitUsd) < 0.02
+  );
+  return match?.id ?? null;
+}
+
 /** Trade history only — no fee ledger for exempt wallets. */
 async function recordProfitableCloseFeeWaived(input: ProfitableCloseInput): Promise<void> {
   const wallet = input.walletAddress.toLowerCase();
   const profitUsd = input.profitUsd;
+  if (!Number.isFinite(profitUsd)) return;
+
   const collateralUsd = input.collateralUsd ?? 0;
   const pnlPct = collateralUsd > 0 ? (profitUsd / collateralUsd) * 100 : 0;
   const closedAt = new Date().toISOString();
   const entryAmount = collateralUsd;
   const exitAmount = entryAmount + profitUsd;
+  const snapshot = input.snapshotPnlUsd ?? null;
 
-  const { data: tradeRow, error: tradeErr } = await supabase
-    .from('trade_history')
-    .insert({
-      wallet_address: wallet,
-      chain_id: config.arbitrum.chainId,
-      token_symbol: input.coin,
-      direction: input.direction,
-      leverage: Math.max(1, Math.round(input.leverage ?? 1)),
-      entry_price: input.entryPx ?? null,
-      exit_price: input.exitPx ?? null,
-      entry_amount: entryAmount,
-      exit_amount: exitAmount,
-      profit_loss: profitUsd,
-      profit_loss_percent: pnlPct,
-      close_reason: input.closeReason,
-      opened_at: null,
-      closed_at: closedAt,
-      execution_venue: input.source === 'betting' ? 'hyperliquid_betting' : 'hyperliquid',
-      platform_success_fee: null,
-      platform_fee_status: 'waived',
-    })
-    .select('id')
-    .single();
+  const tradePayload = {
+    wallet_address: wallet,
+    chain_id: config.arbitrum.chainId,
+    token_symbol: input.coin.toUpperCase(),
+    direction: input.direction,
+    leverage: Math.max(1, Math.round(input.leverage ?? 1)),
+    entry_price: input.entryPx ?? null,
+    exit_price: input.exitPx ?? null,
+    entry_amount: entryAmount,
+    exit_amount: exitAmount,
+    profit_loss: profitUsd,
+    profit_loss_percent: pnlPct,
+    close_reason: input.closeReason,
+    snapshot_pnl_usd: snapshot,
+    opened_at: null,
+    ...(input.existingTradeHistoryId ? {} : { closed_at: closedAt }),
+    execution_venue: input.source === 'betting' ? 'hyperliquid_betting' : 'hyperliquid',
+    platform_success_fee: null,
+    platform_fee_status: 'waived',
+  };
+
+  let tradeRow: { id: string } | null = null;
+  let tradeErr: { message: string } | null = null;
+
+  if (input.existingTradeHistoryId) {
+    const { error } = await supabase
+      .from('trade_history')
+      .update(tradePayload)
+      .eq('id', input.existingTradeHistoryId);
+    tradeErr = error;
+    tradeRow = { id: input.existingTradeHistoryId };
+  } else {
+    const dupeId = await findRecentFeeWaivedCloseDupe(
+      wallet,
+      input.coin,
+      input.direction,
+      profitUsd
+    );
+    if (dupeId) {
+      logger.debug('fee-waived close skipped — recent duplicate', {
+        wallet: wallet.slice(0, 10),
+        coin: input.coin,
+        profit: profitUsd.toFixed(4),
+        existingId: dupeId,
+      });
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('trade_history')
+      .insert(tradePayload)
+      .select('id')
+      .single();
+    tradeErr = error;
+    tradeRow = data;
+  }
 
   if (tradeErr) {
-    logger.warn('fee-waived trade_history insert failed', {
+    logger.warn('fee-waived trade_history write failed', {
       wallet: wallet.slice(0, 10),
       error: tradeErr.message,
+      update: Boolean(input.existingTradeHistoryId),
     });
     return;
   }

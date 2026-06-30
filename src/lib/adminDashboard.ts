@@ -4,6 +4,7 @@ import { fetchHlBuilderPlatformStatus, type HlBuilderPlatformStatus } from './hy
 import {
   fetchAdminHlLiveOpenPositions,
   sumAdminOpenUpnl,
+  countAdminPositionsByCoin,
 } from './adminHlLivePositions';
 
 export type AdminHlStats = {
@@ -69,14 +70,27 @@ export type AdminTradeClose = {
   wallet_address: string;
   token_symbol: string;
   direction: string;
+  leverage?: number | null;
+  entry_price?: number | null;
+  exit_price?: number | null;
+  entry_amount?: number | null;
+  exit_amount?: number | null;
   profit_loss: number | null;
   profit_loss_percent: number | null;
+  snapshot_pnl_usd?: number | null;
   close_reason: string | null;
   execution_venue: string | null;
   platform_success_fee: number | null;
   platform_fee_status: string | null;
   closed_at: string;
   email: string | null;
+};
+
+export type AdminHlTradeHistoryPage = {
+  total: number;
+  limit: number;
+  offset: number;
+  rows: AdminTradeClose[];
 };
 
 export type AdminTradeEvent = {
@@ -562,18 +576,30 @@ export async function fetchAdminLiveContext(): Promise<AdminLiveContext> {
   return { builder, health, serviceStatus };
 }
 
+function dedupeAdminTradeCloses(rows: AdminTradeClose[]): AdminTradeClose[] {
+  const seen = new Set<string>();
+  const out: AdminTradeClose[] = [];
+  for (const t of rows) {
+    const closedMin = t.closed_at?.slice(0, 16) ?? '';
+    const key = `${t.wallet_address.toLowerCase()}:${t.token_symbol.toUpperCase()}:${t.direction}:${closedMin}:${t.profit_loss ?? ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(t);
+  }
+  return out;
+}
+
 /** Overlay live HL perps + HL-only close stats onto the DB snapshot. */
 export async function enrichAdminHlDashboard(
   dash: AdminHlDashboard
 ): Promise<AdminHlDashboard> {
   const hlLive = await fetchAdminHlLiveOpenPositions(dash);
 
-  const hlCloses = dash.recent_closes.filter(
-    (t) => !t.execution_venue || t.execution_venue === 'hyperliquid'
+  const hlCloses = dedupeAdminTradeCloses(
+    dash.recent_closes.filter(
+      (t) => !t.execution_venue || t.execution_venue === 'hyperliquid'
+    )
   );
-  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const closed24h = hlCloses.filter((t) => t.closed_at >= dayAgo);
-  const wins = hlCloses.filter((t) => (t.profit_loss ?? 0) > 0).length;
   const openUpnl = sumAdminOpenUpnl(hlLive);
 
   return {
@@ -584,14 +610,83 @@ export async function enrichAdminHlDashboard(
       ...dash.stats,
       open_positions: hlLive.length,
       open_upnl_total: openUpnl,
-      closed_trades_total: hlCloses.length,
-      closed_trades_24h: closed24h.length,
-      total_pnl: hlCloses.reduce((s, t) => s + (t.profit_loss ?? 0), 0),
-      pnl_24h: closed24h.reduce((s, t) => s + (t.profit_loss ?? 0), 0),
-      win_rate: hlCloses.length > 0 ? Math.round((wins / hlCloses.length) * 1000) / 10 : 0,
     },
     generated_at: new Date().toISOString(),
   };
+}
+
+function mapAdminTradeCloseRow(raw: Record<string, unknown>): AdminTradeClose {
+  return {
+    id: String(raw.id),
+    wallet_address: String(raw.wallet_address ?? ''),
+    token_symbol: String(raw.token_symbol ?? ''),
+    direction: String(raw.direction ?? 'LONG'),
+    leverage: raw.leverage != null ? num(raw.leverage) : null,
+    entry_price: raw.entry_price != null ? num(raw.entry_price) : null,
+    exit_price: raw.exit_price != null ? num(raw.exit_price) : null,
+    entry_amount: raw.entry_amount != null ? num(raw.entry_amount) : null,
+    exit_amount: raw.exit_amount != null ? num(raw.exit_amount) : null,
+    profit_loss: raw.profit_loss != null ? num(raw.profit_loss) : null,
+    profit_loss_percent:
+      raw.profit_loss_percent != null ? num(raw.profit_loss_percent) : null,
+    snapshot_pnl_usd: raw.snapshot_pnl_usd != null ? num(raw.snapshot_pnl_usd) : null,
+    close_reason: raw.close_reason != null ? String(raw.close_reason) : null,
+    execution_venue: raw.execution_venue != null ? String(raw.execution_venue) : null,
+    platform_success_fee:
+      raw.platform_success_fee != null ? num(raw.platform_success_fee) : null,
+    platform_fee_status:
+      raw.platform_fee_status != null ? String(raw.platform_fee_status) : null,
+    closed_at: String(raw.closed_at ?? ''),
+    email: raw.email != null ? String(raw.email) : null,
+  };
+}
+
+/** Full paginated HL trade_history for admin History tab (not capped at 80). */
+export async function fetchAdminHlTradeHistory(
+  opts: { limit?: number; offset?: number } = {}
+): Promise<AdminHlTradeHistoryPage> {
+  const pageSize = Math.min(5000, Math.max(1, opts.limit ?? 1000));
+  const { data, error } = await supabase.rpc('get_admin_hl_trade_history', {
+    p_limit: pageSize,
+    p_offset: Math.max(0, opts.offset ?? 0),
+  });
+
+  if (error) {
+    console.error('[adminDashboard] get_admin_hl_trade_history failed', error);
+    return { total: 0, limit: pageSize, offset: opts.offset ?? 0, rows: [] };
+  }
+
+  const payload = (data ?? {}) as {
+    total?: number;
+    limit?: number;
+    offset?: number;
+    rows?: Record<string, unknown>[];
+  };
+
+  return {
+    total: Number(payload.total) || 0,
+    limit: Number(payload.limit) || pageSize,
+    offset: Number(payload.offset) || 0,
+    rows: (payload.rows ?? []).map(mapAdminTradeCloseRow),
+  };
+}
+
+/** Load every HL close row (paginated RPC, max 5k per page). */
+export async function fetchAllAdminHlTradeHistory(): Promise<AdminHlTradeHistoryPage> {
+  const pageSize = 5000;
+  let offset = 0;
+  let total = 0;
+  const rows: AdminTradeClose[] = [];
+
+  for (;;) {
+    const page = await fetchAdminHlTradeHistory({ limit: pageSize, offset });
+    total = page.total;
+    rows.push(...page.rows);
+    offset += page.rows.length;
+    if (page.rows.length === 0 || offset >= total) break;
+  }
+
+  return { total, limit: pageSize, offset: 0, rows };
 }
 
 export function formatTimeAgo(dateStr: string): string {

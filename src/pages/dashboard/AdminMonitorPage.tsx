@@ -21,13 +21,16 @@ import { isAdminEmail } from '../../lib/admin';
 import {
   fetchAdminHlDashboard,
   fetchAdminLiveContext,
+  fetchAllAdminHlTradeHistory,
   fmtUsd,
   formatTimeAgo,
   shortWallet,
   type AdminHlDashboard,
   type AdminLiveContext,
+  type AdminTradeClose,
 } from '../../lib/adminDashboard';
 import { fmtPrice, fmtSize } from '../../lib/hyperliquid/format';
+import { countAdminPositionsByCoin } from '../../lib/adminHlLivePositions';
 import AdminAffiliateOps from '../../components/admin/AdminAffiliateOps';
 
 type Section =
@@ -224,7 +227,7 @@ const AdminMonitorPage: React.FC = () => {
 
       {section === 'bots' && dash && <BotsPanel bots={dash.active_bots} />}
       {section === 'positions' && dash && <PositionsPanel rows={dash.open_positions} />}
-      {section === 'trades' && dash && <TradesPanel rows={dash.recent_closes} />}
+      {section === 'trades' && <TradesPanel />}
       {section === 'events' && dash && <EventsPanel rows={dash.recent_events} />}
       {section === 'fees' && dash && live && (
         <FeesPanel ledger={dash.fee_ledger} stats={dash.stats} builder={live.builder} />
@@ -499,10 +502,18 @@ function BotsPanel({ bots }: { bots: AdminHlDashboard['active_bots'] }) {
 
 function PositionsPanel({ rows }: { rows: AdminHlDashboard['open_positions'] }) {
   const totalUpnl = rows.reduce((s, p) => s + (p.profit_loss ?? 0), 0);
+  const coinSummary = useMemo(() => {
+    const counts = countAdminPositionsByCoin(rows);
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([coin, n]) => (n > 1 ? `${coin}×${n}` : coin))
+      .join(' · ');
+  }, [rows]);
+
   return (
     <TableShell
       title={`Open HL positions (${rows.length})`}
-      subtitle={`Live Hyperliquid · same marks/uPnL as Pro Trade · total uPnL ${fmtUsd(totalUpnl, true)}`}
+      subtitle={`Live Hyperliquid · total uPnL ${fmtUsd(totalUpnl, true)}${coinSummary ? ` · ${coinSummary}` : ''}`}
       scrollable
     >
       <thead>
@@ -573,60 +584,169 @@ function PositionsPanel({ rows }: { rows: AdminHlDashboard['open_positions'] }) 
   );
 }
 
-function TradesPanel({ rows }: { rows: AdminHlDashboard['recent_closes'] }) {
+function TradesPanel() {
+  const [rows, setRows] = useState<AdminTradeClose[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const page = await fetchAllAdminHlTradeHistory();
+      setRows(page.rows);
+      setTotal(page.total);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Failed to load trade history');
+      setRows([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const coinSummary = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const t of rows) {
+      const c = t.token_symbol.toUpperCase();
+      m.set(c, (m.get(c) ?? 0) + 1);
+    }
+    return [...m.entries()]
+      .filter(([, n]) => n > 1)
+      .sort((a, b) => b[1] - a[1])
+      .map(([coin, n]) => `${coin}×${n}`)
+      .join(' · ');
+  }, [rows]);
+
+  const totalPnl = useMemo(
+    () => rows.reduce((s, t) => s + (t.profit_loss ?? 0), 0),
+    [rows]
+  );
+
   return (
     <TableShell
-      title={`Closed HL trades (${rows.length})`}
-      subtitle="trade_history · hyperliquid venue only"
+      title={`Closed HL trades (${rows.length}${total > rows.length ? ` / ${total}` : ''})`}
+      subtitle={`trade_history · hyperliquid only · sum ${fmtUsd(totalPnl, true)}${coinSummary ? ` · ${coinSummary}` : ''}`}
       scrollable
+      headerRight={
+        <button
+          type="button"
+          className="text-xs text-cyan-400 hover:underline disabled:opacity-50"
+          onClick={() => void load()}
+          disabled={loading}
+        >
+          {loading ? 'Loading…' : 'Reload'}
+        </button>
+      }
     >
+      {loadError && (
+        <p className="px-4 py-2 text-sm text-red-400 border-b border-border">{loadError}</p>
+      )}
       <thead>
         <tr className="text-left text-secondary text-xs">
-          <th className="px-4 py-3">Closed</th>
+          <th className="px-4 py-3 whitespace-nowrap">Closed (UTC)</th>
+          <th className="px-4 py-3">ID</th>
+          <th className="px-4 py-3">User</th>
           <th className="px-4 py-3">Wallet</th>
           <th className="px-4 py-3">Pair</th>
           <th className="px-4 py-3">Dir</th>
-          <th className="px-4 py-3">P/L</th>
+          <th className="px-4 py-3">Lev</th>
+          <th className="px-4 py-3">Entry</th>
+          <th className="px-4 py-3">Exit</th>
+          <th className="px-4 py-3">Fill P/L</th>
+          <th className="px-4 py-3">Snap P/L</th>
           <th className="px-4 py-3">Builder fee</th>
           <th className="px-4 py-3">Fee status</th>
-          <th className="px-4 py-3">Reason</th>
-          <th className="px-4 py-3">Venue</th>
+          <th className="px-4 py-3 min-w-[280px]">Reason (full)</th>
         </tr>
       </thead>
       <tbody>
-        {rows.map((t) => (
-          <tr key={t.id} className="border-t border-border text-sm hover:bg-black/[0.03]">
-            <td className="px-4 py-2 text-secondary text-xs whitespace-nowrap">
-              {formatTimeAgo(t.closed_at)}
+        {loading && rows.length === 0 ? (
+          <tr>
+            <td colSpan={13} className="px-4 py-8 text-center text-secondary text-sm">
+              Loading full trade history…
             </td>
-            <td className="px-4 py-2 font-mono text-xs">{shortWallet(t.wallet_address, 8)}</td>
-            <td className="px-4 py-2">{t.token_symbol}</td>
-            <td className="px-4 py-2">{t.direction}</td>
-            <td
-              className={`px-4 py-2 font-mono ${
-                (t.profit_loss ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'
-              }`}
-            >
-              {fmtUsd(t.profit_loss ?? 0, true)}
-            </td>
-            <td className="px-4 py-2 font-mono text-xs text-green-400/90">
-              {t.platform_success_fee != null ? fmtUsd(t.platform_success_fee) : '—'}
-            </td>
-            <td className="px-4 py-2 text-xs uppercase">
-              {t.platform_fee_status === 'settled' ? (
-                <span className="text-green-400">settled → builder</span>
-              ) : t.platform_fee_status === 'accrued' ? (
-                <span className="text-amber-400">accrued</span>
-              ) : (
-                <span className="text-secondary">—</span>
-              )}
-            </td>
-            <td className="px-4 py-2 text-xs text-secondary max-w-[120px] truncate">
-              {t.close_reason ?? '—'}
-            </td>
-            <td className="px-4 py-2 text-xs uppercase">{t.execution_venue ?? '—'}</td>
           </tr>
-        ))}
+        ) : rows.length === 0 ? (
+          <tr>
+            <td colSpan={13} className="px-4 py-8 text-center text-secondary text-sm">
+              No closed HL trades in database.
+            </td>
+          </tr>
+        ) : (
+          rows.map((t) => {
+            const snap = t.snapshot_pnl_usd;
+            const fill = t.profit_loss;
+            const snapMismatch =
+              snap != null &&
+              fill != null &&
+              Number.isFinite(snap) &&
+              Number.isFinite(fill) &&
+              Math.abs(snap - fill) > 0.02;
+            return (
+              <tr key={t.id} className="border-t border-border text-sm hover:bg-black/[0.03] align-top">
+                <td className="px-4 py-2 text-secondary text-xs whitespace-nowrap font-mono">
+                  {t.closed_at ? new Date(t.closed_at).toISOString().replace('T', ' ').slice(0, 19) : '—'}
+                  <div className="text-[10px] opacity-70">{formatTimeAgo(t.closed_at)}</div>
+                </td>
+                <td className="px-4 py-2 font-mono text-[10px] text-secondary max-w-[72px] break-all">
+                  {t.id.slice(0, 8)}…
+                </td>
+                <td className="px-4 py-2 text-xs text-secondary max-w-[120px] truncate">
+                  {t.email ?? '—'}
+                </td>
+                <td className="px-4 py-2 font-mono text-xs">{shortWallet(t.wallet_address, 8)}</td>
+                <td className="px-4 py-2 font-medium">{t.token_symbol}</td>
+                <td className="px-4 py-2">{t.direction}</td>
+                <td className="px-4 py-2">{t.leverage != null ? `${t.leverage}x` : '—'}</td>
+                <td className="px-4 py-2 font-mono text-xs">
+                  {t.entry_price != null ? fmtUsd(t.entry_price) : '—'}
+                </td>
+                <td className="px-4 py-2 font-mono text-xs">
+                  {t.exit_price != null ? fmtUsd(t.exit_price) : '—'}
+                </td>
+                <td
+                  className={`px-4 py-2 font-mono ${
+                    (fill ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'
+                  }`}
+                >
+                  {fill != null ? fmtUsd(fill, true) : '—'}
+                </td>
+                <td
+                  className={`px-4 py-2 font-mono text-xs ${
+                    snapMismatch ? 'text-amber-400' : 'text-secondary'
+                  }`}
+                >
+                  {snap != null ? fmtUsd(snap, true) : '—'}
+                </td>
+                <td className="px-4 py-2 font-mono text-xs text-green-400/90">
+                  {t.platform_success_fee != null ? fmtUsd(t.platform_success_fee) : '—'}
+                </td>
+                <td className="px-4 py-2 text-xs uppercase whitespace-nowrap">
+                  {t.platform_fee_status === 'settled' ? (
+                    <span className="text-green-400">settled</span>
+                  ) : t.platform_fee_status === 'accrued' ? (
+                    <span className="text-amber-400">accrued</span>
+                  ) : t.platform_fee_status === 'waived' ? (
+                    <span className="text-secondary">waived</span>
+                  ) : t.platform_fee_status === 'pending_fill' ? (
+                    <span className="text-cyan-400">pending_fill</span>
+                  ) : (
+                    <span className="text-secondary">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-2 text-xs text-secondary whitespace-pre-wrap break-words max-w-md">
+                  {t.close_reason ?? '—'}
+                </td>
+              </tr>
+            );
+          })
+        )}
       </tbody>
     </TableShell>
   );
@@ -989,18 +1109,23 @@ function TableShell({
   title,
   subtitle,
   scrollable = false,
+  headerRight,
   children,
 }: {
   title: string;
   subtitle?: string;
   scrollable?: boolean;
+  headerRight?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="bg-card-dark rounded-xl border border-border overflow-hidden">
-      <div className="px-4 py-3 border-b border-border">
-        <h3 className="font-semibold text-primary">{title}</h3>
-        {subtitle && <p className="text-xs text-secondary mt-0.5">{subtitle}</p>}
+      <div className="px-4 py-3 border-b border-border flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-primary">{title}</h3>
+          {subtitle && <p className="text-xs text-secondary mt-0.5">{subtitle}</p>}
+        </div>
+        {headerRight}
       </div>
       <div className={scrollable ? 'admin-monitor-table-scroll overflow-x-auto' : 'overflow-x-auto'}>
         <table className="w-full">{children}</table>
