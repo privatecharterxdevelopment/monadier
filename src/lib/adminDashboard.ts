@@ -691,28 +691,24 @@ function mapAdminTradeCloseRow(raw: Record<string, unknown>): AdminTradeClose {
   };
 }
 
-/** Full paginated HL trade_history for admin History tab. */
-export async function fetchAdminHlTradeHistory(
-  opts: {
-    limit?: number;
-    offset?: number;
-    wallet?: string | null;
-    email?: string | null;
-  } = {}
-): Promise<AdminHlTradeHistoryPage> {
-  const pageSize = Math.min(500, Math.max(1, opts.limit ?? 25));
-  const { data, error } = await supabase.rpc('get_admin_hl_trade_history', {
-    p_limit: pageSize,
-    p_offset: Math.max(0, opts.offset ?? 0),
-    p_wallet: opts.wallet?.trim() || null,
-    p_email: opts.email?.trim() || null,
-  });
+function isMissingAdminTradeHistoryRpc(error: {
+  code?: string;
+  message?: string;
+  details?: string;
+}): boolean {
+  const msg = `${error.message ?? ''} ${error.details ?? ''}`;
+  return (
+    error.code === 'PGRST202' ||
+    error.code === '42883' ||
+    /Could not find the function/i.test(msg) ||
+    /function public\.get_admin_hl_trade_history/i.test(msg)
+  );
+}
 
-  if (error) {
-    console.error('[adminDashboard] get_admin_hl_trade_history failed', error);
-    return { total: 0, limit: pageSize, offset: opts.offset ?? 0, rows: [], user_stats: null };
-  }
-
+function parseAdminHlTradeHistoryPayload(
+  data: unknown,
+  pageSize: number
+): AdminHlTradeHistoryPage {
   const payload = (data ?? {}) as {
     total?: number;
     limit?: number;
@@ -743,6 +739,59 @@ export async function fetchAdminHlTradeHistory(
     rows: (payload.rows ?? []).map(mapAdminTradeCloseRow),
     user_stats: userStats,
   };
+}
+
+/** Full paginated HL trade_history for admin History tab. */
+export async function fetchAdminHlTradeHistory(
+  opts: {
+    limit?: number;
+    offset?: number;
+    wallet?: string | null;
+    email?: string | null;
+  } = {}
+): Promise<AdminHlTradeHistoryPage> {
+  const pageSize = Math.min(500, Math.max(1, opts.limit ?? 25));
+  const offset = Math.max(0, opts.offset ?? 0);
+  const wallet = opts.wallet?.trim() || null;
+  const email = opts.email?.trim() || null;
+
+  const { data, error } = await supabase.rpc('get_admin_hl_trade_history', {
+    p_limit: pageSize,
+    p_offset: offset,
+    p_wallet: wallet,
+    p_email: email,
+  });
+
+  if (!error) {
+    return parseAdminHlTradeHistoryPayload(data, pageSize);
+  }
+
+  if (isMissingAdminTradeHistoryRpc(error)) {
+    const legacy = await supabase.rpc('get_admin_hl_trade_history', {
+      p_limit: pageSize,
+      p_offset: offset,
+    });
+    if (!legacy.error) {
+      const page = parseAdminHlTradeHistoryPayload(legacy.data, pageSize);
+      if (!wallet && !email) return page;
+
+      const walletNeedle = wallet?.toLowerCase() ?? '';
+      const emailNeedle = email?.toLowerCase() ?? '';
+      const rows = page.rows.filter((row) => {
+        const walletMatch =
+          !walletNeedle || row.wallet_address.toLowerCase().includes(walletNeedle);
+        const emailMatch =
+          !emailNeedle || (row.email ?? '').toLowerCase().includes(emailNeedle);
+        return walletMatch && emailMatch;
+      });
+      return { ...page, rows, user_stats: null };
+    }
+    console.error('[adminDashboard] get_admin_hl_trade_history legacy failed', legacy.error);
+    return { total: 0, limit: pageSize, offset, rows: [], user_stats: null };
+  }
+
+  console.error('[adminDashboard] get_admin_hl_trade_history failed', error);
+  return { total: 0, limit: pageSize, offset, rows: [], user_stats: null };
 }
 
 /** Load every HL close row (paginated RPC, max 5k per page). */
