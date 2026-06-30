@@ -211,8 +211,9 @@ const AdminAffiliateOps: React.FC = () => {
         </div>
       ) : null}
 
-      <div className="bg-card-dark border border-border rounded-xl overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="bg-card-dark border border-border rounded-xl overflow-hidden flex flex-col h-[min(62dvh,680px)] min-w-0">
+        <div className="admin-monitor-table-scroll flex-1 min-h-0 min-w-0">
+        <table className="w-full min-w-max text-sm">
           <thead>
             <tr className="text-secondary border-b border-border">
               <th className="text-left p-3">Referrer</th>
@@ -274,6 +275,7 @@ const AdminAffiliateOps: React.FC = () => {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {(data?.fraud_flags?.length ?? 0) > 0 ? (

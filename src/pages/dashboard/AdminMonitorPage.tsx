@@ -226,13 +226,13 @@ const AdminMonitorPage: React.FC = () => {
         </button>
       </header>
 
-      <nav className="flex gap-1.5 p-1 bg-card-dark rounded-lg border border-border flex-wrap w-full">
+      <nav className="admin-monitor-tabs flex gap-1.5 p-1 bg-card-dark rounded-lg border border-border flex-nowrap w-full overflow-x-auto">
         {SECTIONS.map((s) => (
           <button
             key={s.id}
             type="button"
             onClick={() => setSection(s.id)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
               section === s.id
                 ? 'bg-white text-black'
                 : 'text-secondary hover:text-primary hover:bg-black/[0.04]'
@@ -1435,9 +1435,13 @@ function TableShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-card-dark rounded-xl border border-border overflow-hidden flex flex-col max-h-[min(78vh,860px)]">
-      <div className="px-4 py-3 border-b border-border flex items-start justify-between gap-3 shrink-0">
-        <div>
+    <div
+      className={`bg-card-dark rounded-xl border border-border overflow-hidden flex flex-col min-w-0 ${
+        scrollable ? 'h-[min(62dvh,680px)]' : ''
+      }`}
+    >
+      <div className="px-4 py-3 border-b border-border flex items-start justify-between gap-3 shrink-0 min-w-0">
+        <div className="min-w-0">
           <h3 className="font-semibold text-primary">{title}</h3>
           {subtitle && <p className="text-xs text-secondary mt-0.5">{subtitle}</p>}
         </div>
@@ -1446,11 +1450,11 @@ function TableShell({
       <div
         className={
           scrollable
-            ? 'admin-monitor-table-scroll overflow-x-auto flex-1 min-h-0'
-            : 'overflow-x-auto flex-1 min-h-0'
+            ? 'admin-monitor-table-scroll flex-1 min-h-0 min-w-0'
+            : 'overflow-x-auto flex-1 min-h-0 min-w-0'
         }
       >
-        <table className="w-full">{children}</table>
+        <table className="w-full min-w-max">{children}</table>
       </div>
       {pagination ? <PaginationBar {...pagination} /> : null}
     </div>

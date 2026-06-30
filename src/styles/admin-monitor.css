@@ -22,15 +22,57 @@
 }
 
 .admin-monitor-page {
+  touch-action: pan-y;
+}
+
+.admin-monitor-scroll {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
+  touch-action: pan-y;
+}
+
+.admin-monitor-tabs {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+  scrollbar-width: thin;
+}
+
+.admin-monitor-tabs::-webkit-scrollbar {
+  display: block;
+  height: 6px;
+}
+
+.admin-monitor-tabs::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
 }
 
 .admin-monitor-table-scroll {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
-  max-height: none;
+  min-width: 0;
   overflow: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  scrollbar-width: thin;
+}
+
+.admin-monitor-table-scroll::-webkit-scrollbar {
+  display: block;
+  width: 8px;
+  height: 8px;
+}
+
+.admin-monitor-table-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+}
+
+.admin-monitor-table-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #141416;
 }

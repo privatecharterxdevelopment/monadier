@@ -11,8 +11,8 @@ type Props = {
 /** Full-page admin shell — reachable at /admin */
 const AdminMonitorLayout: React.FC<Props> = ({ children }) => {
   return (
-    <div className="admin-monitor-page min-h-[100dvh] bg-[#0a0a0c] text-[#fafafa] overflow-y-auto overflow-x-hidden">
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-[#0a0a0c]/95 backdrop-blur px-4 py-3 md:px-8">
+    <div className="admin-monitor-page h-[100dvh] flex flex-col bg-[#0a0a0c] text-[#fafafa] overflow-hidden">
+      <header className="shrink-0 z-20 border-b border-white/10 bg-[#0a0a0c]/95 backdrop-blur px-4 py-3 md:px-8">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-4">
           <Link
             to={getOpenAppPath()}
@@ -24,7 +24,11 @@ const AdminMonitorLayout: React.FC<Props> = ({ children }) => {
           <span className="text-xs uppercase tracking-wider text-[#71717a]">Admin · Hyperliquid</span>
         </div>
       </header>
-      <div className="max-w-[1600px] mx-auto px-4 py-6 md:px-8 md:py-8 admin-monitor-scope">{children}</div>
+      <main className="admin-monitor-scroll flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">
+        <div className="max-w-[1600px] mx-auto px-4 py-6 md:px-8 md:py-8 admin-monitor-scope min-w-0">
+          {children}
+        </div>
+      </main>
     </div>
   );
 };
