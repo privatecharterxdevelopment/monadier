@@ -70,6 +70,7 @@ import {
 } from '../../lib/hyperliquid/funding';
 import { useBettingUi } from '../../contexts/BettingUiContext';
 import { useLegalAcceptance } from '../../contexts/LegalAcceptanceContext';
+import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
 import { BRAND_NAME } from '../../lib/brand';
 type PanelTab = 'bot' | 'lvrg' | 'funds';
 
