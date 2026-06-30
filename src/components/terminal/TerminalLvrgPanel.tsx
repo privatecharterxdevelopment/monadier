@@ -33,6 +33,7 @@ const TerminalLvrgPanel: React.FC<Props> = ({
     settings,
     walletAddress,
     hlSliderMax: caps.sliderMax,
+    profitOnlyHoldLosers: true,
     onSaved,
   });
 

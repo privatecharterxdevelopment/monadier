@@ -138,14 +138,14 @@ export function computeMaxLossCapUsd(collateralUsd: number, slPct: number): numb
   return Math.min(fromSl, absCap);
 }
 
-/** Bot-enforced SL — caps wide user settings and applies default when SL is off. */
+/** Bot-enforced SL — 0 in profit-only mode unless HL_LOSS_CAP_ENFORCE. */
 export function effectiveStopLossPct(userSlPct: number): number {
   const cfg = config.hyperliquid;
-  const ceiling = cfg.maxAutoStopLossPct;
-  if (userSlPct <= 0) {
-    const fallback = cfg.defaultStopLossPercent;
-    return fallback > 0 ? Math.min(fallback, ceiling) : ceiling;
+  if (cfg.profitOnlyExits && !cfg.lossProtection.enforceHardCap) {
+    return 0;
   }
+  const ceiling = cfg.maxAutoStopLossPct;
+  if (userSlPct <= 0) return 0;
   return Math.min(userSlPct, ceiling);
 }
 

@@ -22,7 +22,7 @@ const BOT_SETTINGS_CHAIN_ID = 42161;
 const defaultSettings: VaultSettingsSnapshot = {
   riskPct: 5,
   takeProfit: 0,
-  stopLoss: 4,
+  stopLoss: 0,
   leverage: 5,
   askPermission: false,
   minWinRate: 0,

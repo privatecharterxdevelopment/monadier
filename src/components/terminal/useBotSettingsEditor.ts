@@ -14,6 +14,8 @@ export type BotSettingsEditorOptions = {
   startMode?: boolean;
   allowAutoTrade?: boolean;
   hlSliderMax?: number;
+  /** Profit-only HL bot — never persist a loss stop % from this editor. */
+  profitOnlyHoldLosers?: boolean;
   onSaved: () => void;
 };
 
@@ -51,6 +53,7 @@ export function useBotSettingsEditor({
   startMode = false,
   allowAutoTrade = false,
   hlSliderMax,
+  profitOnlyHoldLosers = false,
   onSaved,
 }: BotSettingsEditorOptions) {
   const { open } = useMonadierAppKit();
@@ -195,7 +198,7 @@ export function useBotSettingsEditor({
           riskPct: riskLevel,
           leverage: savedLeverage,
           takeProfit: takeProfit,
-          stopLoss: stopLoss > 0 ? stopLoss : 0,
+          stopLoss: profitOnlyHoldLosers ? 0 : stopLoss > 0 ? stopLoss : 0,
           askPermission,
           minWinRate,
           minTradesForWinRate,
@@ -256,6 +259,7 @@ export function useBotSettingsEditor({
     open,
     linkWallet,
     allowAutoTrade,
+    profitOnlyHoldLosers,
     baseline.autoTradeEnabled,
   ]);
 

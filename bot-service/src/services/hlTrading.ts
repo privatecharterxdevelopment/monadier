@@ -113,8 +113,8 @@ const hlPositionCloseInFlight = new Set<string>();
 let fastPositionMonitorRunning = false;
 
 /**
- * Profit-only mode (default): hold losers — no auto loss close unless user set SL% > 0.
- * Opt-in via env: HL_LOSS_THESIS_CLOSE (signal_reversal), HL_LOSS_CAP_ENFORCE (force SL% for all).
+ * Profit-only mode (default): NEVER auto-close in red.
+ * Loss exits only when Railway sets HL_LOSS_CAP_ENFORCE=true (opt-in).
  */
 function mayAutoCloseInRed(
   reason: string,
@@ -122,7 +122,12 @@ function mayAutoCloseInRed(
   opts?: { userStopLossPct?: number }
 ): boolean {
   const cfg = config.hyperliquid;
-  if (reason === 'emergency_close' || reason === 'manual') return true;
+  if (reason === 'manual') return true;
+
+  if (reason === 'emergency_close') {
+    return !cfg.profitOnlyExits || cfg.lossProtection.enforceHardCap;
+  }
+
   // Breakeven / trail — closeMarketPosition rejects trailing_stop when uPnL < 0.
   if (
     reason === 'profit_lock' ||
@@ -133,10 +138,14 @@ function mayAutoCloseInRed(
   ) {
     return true;
   }
-  const userSl = opts?.userStopLossPct ?? 0;
-  if (reason === 'stop_loss' && userSl > 0) return true;
+
   if (!cfg.profitOnlyExits) {
+    if (reason === 'stop_loss' && (opts?.userStopLossPct ?? 0) > 0) return true;
     return reason === 'stop_loss' || reason === 'signal_reversal' || reason === 'trailing_stop';
+  }
+
+  if (reason === 'stop_loss') {
+    return cfg.lossProtection.enforceHardCap && (opts?.userStopLossPct ?? 0) > 0;
   }
   if (reason === 'signal_reversal' && cfg.lossProtection.closeOnThesisBreak) return true;
   return false;
@@ -1542,6 +1551,7 @@ export class HyperliquidTradingService {
       }
 
       if (
+        mayAutoCloseInRed('emergency_close', holdMs) &&
         shouldEmergencyLossClose(pnl, accountBalanceUsd, collateralEst, slPct)
       ) {
         const capUsd = perPositionEmergencyLossUsd(
