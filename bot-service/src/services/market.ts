@@ -18,7 +18,7 @@ export interface TradeSignal {
 }
 import { positionService } from './positions';
 import { signalEngine, UnifiedSignal, Timeframe } from './signalEngine';
-import { isTrendOnlyLongAllowed, isTrendOnlyShortAllowed, trendOnlyBlockReason } from './trendOnly';
+import { isTrendOnlyLongAllowed, isTrendOnlyShortAllowed, trendOnlyBlockReason, computeTradeTrend } from './trendOnly';
 
 // Candle data structure
 interface Candle {
@@ -1203,21 +1203,32 @@ export async function analyzeMarketMTFBySymbol(
     const tf15m = signal.timeframes.find((t) => t.timeframe === '15m');
     const rsi = tf15m?.rsi || 50;
     const macdSignal = tf15m?.macdSignal || 'neutral';
-    const trend = tf1h?.trend || tf15m?.trend || 'SIDEWAYS';
+    const longVotes = signal.timeframes.filter((tf) => tf.direction === 'LONG').length;
+    const shortVotes = signal.timeframes.filter((tf) => tf.direction === 'SHORT').length;
+    const trend = computeTradeTrend({
+      h1Trend: tf1h?.trend,
+      m15Trend: tf15m?.trend,
+      shortTfVotes: shortVotes,
+      longTfVotes: longVotes,
+      change1hPct: tf1h?.priceChangePct,
+      change15mPct: tf15m?.priceChangePct,
+    });
 
     let finalDirection: 'LONG' | 'SHORT' = signal.direction as 'LONG' | 'SHORT';
     if (signal.direction === 'HOLD') {
       const higherTFs = signal.timeframes;
-      const longVotes = higherTFs.filter((tf) => tf.direction === 'LONG').length;
-      const shortVotes = higherTFs.filter((tf) => tf.direction === 'SHORT').length;
       const minVotes = Math.max(2, config.hyperliquid.minDirectionalTfs);
-      const isBullishTrend = trend === 'UP' || trend.includes('UPTREND');
-      const isBearishTrend = trend === 'DOWN' || trend.includes('DOWNTREND');
+      const isBullishTrend = trend === 'UP';
+      const isBearishTrend = trend === 'DOWN';
 
       if (isBullishTrend && longVotes > shortVotes) {
         finalDirection = 'LONG';
       } else if (isBearishTrend && shortVotes > longVotes) {
         finalDirection = 'SHORT';
+      } else if (isBearishTrend && shortVotes >= minVotes) {
+        finalDirection = 'SHORT';
+      } else if (isBullishTrend && longVotes >= minVotes) {
+        finalDirection = 'LONG';
       } else {
         logger.debug('MTF neutral — no 1h-aligned direction', {
           symbol,

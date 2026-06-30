@@ -34,6 +34,30 @@ function lastNCandlesMove(candles: Candle[], n: number, direction: 'LONG' | 'SHO
   return closed.every((c) => c.close <= c.open * 1.0001);
 }
 
+function isMacroDowntrend(
+  c1h: Candle[],
+  change15mPct: number,
+  change1hPct: number
+): boolean {
+  if (change1hPct < -0.12 && change15mPct < -0.05) return true;
+  if (c1h.length < 20) return false;
+  const sma20 = c1h.slice(-20).reduce((a, c) => a + c.close, 0) / 20;
+  const px = c1h[c1h.length - 1]?.close ?? 0;
+  return px < sma20 * 0.999 && change15mPct < 0 && change1hPct < 0;
+}
+
+function isMacroUptrend(
+  c1h: Candle[],
+  change15mPct: number,
+  change1hPct: number
+): boolean {
+  if (change1hPct > 0.12 && change15mPct > 0.05) return true;
+  if (c1h.length < 20) return false;
+  const sma20 = c1h.slice(-20).reduce((a, c) => a + c.close, 0) / 20;
+  const px = c1h[c1h.length - 1]?.close ?? 0;
+  return px > sma20 * 1.001 && change15mPct > 0 && change1hPct > 0;
+}
+
 function rangePosition(candles: Candle[]): number {
   const closed = candles.slice(0, -1).slice(-24);
   if (closed.length < 4) return 0.5;
@@ -160,7 +184,15 @@ export async function validateEntryMomentum(opts: {
           `Dip-buy OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · 5m +${change5mPct.toFixed(2)}% bounce · 15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}%`;
       }
     } else {
-      if (change15mPct <= cfg.maxChaseShort15mPct && change1hPct <= cfg.maxChaseShort1hPct) {
+      const macroDown = isMacroDowntrend(c1h, change15mPct, change1hPct);
+      const pushDown = fade5m || change5mPct <= -min5;
+      const driftDown = change5mPct <= 0.08 && change15mPct <= -0.05;
+
+      if (macroDown && (pushDown || driftDown) && change15mPct > -2.5 && change1hPct > -6) {
+        momentumAligned = true;
+        reason =
+          `Breakdown short OK — ${coin} downtrend (5m ${change5mPct.toFixed(2)}%, 15m ${change15mPct.toFixed(2)}%, 1h ${change1hPct.toFixed(2)}%)`;
+      } else if (change15mPct <= cfg.maxChaseShort15mPct && change1hPct <= cfg.maxChaseShort1hPct) {
         reason =
           `SHORT blocked — ${coin} already extended down (15m ${change15mPct.toFixed(2)}%, 1h ${change1hPct.toFixed(2)}%) — wait for bounce, sell high`;
       } else if (rangePos < cfg.shortMinRangePosition) {

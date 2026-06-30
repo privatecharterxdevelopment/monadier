@@ -9,6 +9,33 @@ export function normalizeH1Trend(raw: H1Trend | undefined | null): 'UP' | 'DOWN'
   return 'SIDEWAYS';
 }
 
+/** Macro bias for trend-only entries — 1h label + 15m + TF votes + price drift. */
+export function computeTradeTrend(opts: {
+  h1Trend?: H1Trend | null;
+  m15Trend?: H1Trend | null;
+  shortTfVotes?: number;
+  longTfVotes?: number;
+  change1hPct?: number;
+  change15mPct?: number;
+}): 'UP' | 'DOWN' | 'SIDEWAYS' {
+  const h1 = normalizeH1Trend(opts.h1Trend);
+  if (h1 !== 'SIDEWAYS') return h1;
+
+  const m15 = normalizeH1Trend(opts.m15Trend);
+  const shortVotes = opts.shortTfVotes ?? 0;
+  const longVotes = opts.longTfVotes ?? 0;
+
+  if (m15 === 'DOWN' && shortVotes >= longVotes && shortVotes >= 2) return 'DOWN';
+  if (m15 === 'UP' && longVotes >= shortVotes && longVotes >= 2) return 'UP';
+
+  const c1h = opts.change1hPct ?? 0;
+  const c15 = opts.change15mPct ?? 0;
+  if (c1h < -0.12 && c15 < -0.05) return 'DOWN';
+  if (c1h > 0.12 && c15 > 0.05) return 'UP';
+
+  return 'SIDEWAYS';
+}
+
 export function isTrendOnlyLongAllowed(h1: H1Trend | undefined | null): boolean {
   return normalizeH1Trend(h1) === 'UP';
 }

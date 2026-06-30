@@ -7,7 +7,7 @@
  */
 
 import { logger } from '../utils/logger';
-import { normalizeH1Trend, trendOnlyBlockReason } from './trendOnly';
+import { normalizeH1Trend, trendOnlyBlockReason, computeTradeTrend } from './trendOnly';
 
 // ============================================================================
 // TYPES
@@ -50,6 +50,8 @@ export interface TimeframeAnalysis {
   support: number;
   resistance: number;
   currentPrice: number;
+  /** Recent % move on this timeframe (closed bars). */
+  priceChangePct?: number;
 }
 
 export interface UnifiedSignal {
@@ -528,10 +530,31 @@ export class SignalEngine {
       : sma20;
 
     const currentPrice = candles[candles.length - 1].close;
+    const mom3 = this.priceChangePct(candles, 3);
+    const mom6 = this.priceChangePct(candles, 6);
+    const mom12 = this.priceChangePct(candles, 12);
 
     if (currentPrice > sma20 && sma20 > sma50) return 'UP';
     if (currentPrice < sma20 && sma20 < sma50) return 'DOWN';
+
+    // Grinding moves — SMA stack lags; use recent momentum (fixes 3h drift stuck SIDEWAYS).
+    if (currentPrice < sma20 && mom3 < -0.06 && mom6 <= 0) return 'DOWN';
+    if (currentPrice < sma20 && mom6 < -0.15) return 'DOWN';
+    if (currentPrice < sma20 && mom12 < -0.25) return 'DOWN';
+
+    if (currentPrice > sma20 && mom3 > 0.06 && mom6 >= 0) return 'UP';
+    if (currentPrice > sma20 && mom6 > 0.15) return 'UP';
+    if (currentPrice > sma20 && mom12 > 0.25) return 'UP';
+
     return 'SIDEWAYS';
+  }
+
+  private priceChangePct(candles: Candle[], bars: number): number {
+    if (candles.length < bars + 1) return 0;
+    const start = candles[candles.length - 1 - bars].close;
+    const end = candles[candles.length - 1].close;
+    if (!start || start <= 0) return 0;
+    return ((end - start) / start) * 100;
   }
 
   calculateSupportResistance(candles: Candle[]): { support: number; resistance: number } {
@@ -569,10 +592,13 @@ export class SignalEngine {
         support: 0,
         resistance: 0,
         currentPrice: candles[candles.length - 1]?.close || 0,
+        priceChangePct: 0,
       };
     }
 
     const currentPrice = candles[candles.length - 1].close;
+    const momBars = timeframe === '1h' ? 3 : timeframe === '15m' ? 4 : 6;
+    const priceChangePct = this.priceChangePct(candles, momBars);
     const rsi = this.calculateRSI(candles);
     const rsiPrev = candles.length > 31 ? this.calculateRSI(candles.slice(0, -1)) : rsi;
     const rsiRising = rsi > rsiPrev + 0.5;
@@ -589,23 +615,36 @@ export class SignalEngine {
     const span = resistance - support;
     const pricePosition = span > 0 ? (currentPrice - support) / span : 0.5;
 
-    // RSI + MACD — trend frame must not flip to counter-trend on oversold/overbought alone
+    // RSI + MACD — higher TF oversold ≠ auto-LONG in a dump (was blocking all SHORTs).
     const isHigherTf = timeframe === '1h' || timeframe === '4h';
-    if (rsi < 32 && !(isHigherTf && trend === 'DOWN')) {
+    const bearishDrift =
+      isHigherTf &&
+      (trend === 'DOWN' ||
+        (macd.histogram < 0 && macd.macd < macd.signal && priceChangePct < -0.04));
+    const bullishDrift =
+      isHigherTf &&
+      (trend === 'UP' ||
+        (macd.histogram > 0 && macd.macd > macd.signal && priceChangePct > 0.04));
+
+    if (rsi < 32 && bearishDrift) {
+      bearishPoints += rsiFalling ? 3 : 2;
+    } else if (rsi < 32 && !bearishDrift) {
       bullishPoints += rsiRising ? 3 : 2;
-      if (pricePosition < 0.35) bullishPoints += 2;
-    } else if (rsi < 40 && pricePosition < 0.35 && !(isHigherTf && trend === 'DOWN')) {
+      if (pricePosition < 0.35 && !bearishDrift) bullishPoints += 2;
+    } else if (rsi < 40 && pricePosition < 0.35 && !bearishDrift) {
       bullishPoints += rsiRising ? 2 : 1;
       bearishPoints = Math.max(0, bearishPoints - 1);
-    } else if (rsi > 68 && !(isHigherTf && trend === 'UP')) {
+    } else if (rsi > 68 && bullishDrift) {
+      bullishPoints += rsiRising ? 3 : 2;
+    } else if (rsi > 68 && !bullishDrift) {
       bearishPoints += rsiFalling ? 3 : 2;
       if (pricePosition > 0.65) bearishPoints += 2;
-    } else if (rsi > 60 && pricePosition > 0.65 && !(isHigherTf && trend === 'UP')) {
+    } else if (rsi > 60 && pricePosition > 0.65 && !bullishDrift) {
       bearishPoints += rsiFalling ? 2 : 1;
       bullishPoints = Math.max(0, bullishPoints - 1);
-    } else if (rsi < 40 && !(isHigherTf && trend === 'DOWN')) {
+    } else if (rsi < 40 && !bearishDrift) {
       bullishPoints += 1;
-    } else if (rsi > 60 && !(isHigherTf && trend === 'UP')) {
+    } else if (rsi > 60 && !bullishDrift) {
       bearishPoints += 1;
     }
 
@@ -613,9 +652,12 @@ export class SignalEngine {
     if (macd.histogram > 0 && macd.macd > macd.signal) bullishPoints += 2;
     else if (macd.histogram < 0 && macd.macd < macd.signal) bearishPoints += 2;
 
-    // Trend
+    // Trend — extra weight on active drift (helps SHORT during grinding dumps).
     if (trend === 'UP') bullishPoints += 2;
-    else if (trend === 'DOWN') bearishPoints += 2;
+    else if (trend === 'DOWN') {
+      bearishPoints += 2;
+      if (!isHigherTf && priceChangePct < -0.04) bearishPoints += 2;
+    }
 
     // Patterns (recent only - last 3 candles)
     const recentPatterns = patterns.filter(p => p.candleIndex >= candles.length - 3);
@@ -653,11 +695,13 @@ export class SignalEngine {
     if (totalPoints > 0) {
       const bullishRatio = bullishPoints / totalPoints;
       const bearishRatio = bearishPoints / totalPoints;
+      const shortThresh = trend === 'DOWN' ? 0.52 : 0.6;
+      const longThresh = trend === 'UP' ? 0.52 : 0.6;
 
-      if (bullishRatio > 0.6) {
+      if (bullishRatio > longThresh) {
         direction = 'LONG';
         confidence = Math.min(100, bullishRatio * 100);
-      } else if (bearishRatio > 0.6) {
+      } else if (bearishRatio > shortThresh) {
         direction = 'SHORT';
         confidence = Math.min(100, bearishRatio * 100);
       } else {
@@ -677,6 +721,7 @@ export class SignalEngine {
       support,
       resistance,
       currentPrice,
+      priceChangePct,
     };
   }
 
@@ -739,6 +784,21 @@ export class SignalEngine {
     const bullishScore = totalWeight > 0 ? (weightedBullish / totalWeight) * 100 : 0;
     const bearishScore = totalWeight > 0 ? (weightedBearish / totalWeight) * 100 : 0;
 
+    const tf1h = analyses.find((a) => a.timeframe === '1h');
+    const tf15m = analyses.find((a) => a.timeframe === '15m');
+    const shortTfVotes = analyses.filter((a) => a.direction === 'SHORT').length;
+    const longTfVotes = analyses.filter((a) => a.direction === 'LONG').length;
+    const tradeTrend = computeTradeTrend({
+      h1Trend: tf1h?.trend,
+      m15Trend: tf15m?.trend,
+      shortTfVotes,
+      longTfVotes,
+      change1hPct: tf1h?.priceChangePct,
+      change15mPct: tf15m?.priceChangePct,
+    });
+
+    const minDirectionScore = tradeTrend === 'DOWN' ? 36 : tradeTrend === 'UP' ? 36 : 40;
+
     // Pattern strength bonus
     let patternStrength = 0;
     const recentPatterns = allPatterns.filter(p => p.candleIndex >= 0);
@@ -751,7 +811,7 @@ export class SignalEngine {
     let direction: SignalDirection = 'HOLD';
     let confidence = 0;
 
-    if (bullishScore > bearishScore && bullishScore > 40) {
+    if (bullishScore > bearishScore && bullishScore > minDirectionScore) {
       direction = 'LONG';
       confidence = Math.min(100, bullishScore + (trendAlignment > 75 ? 10 : 0) + (patternStrength > 50 ? 10 : 0));
 
@@ -761,7 +821,7 @@ export class SignalEngine {
           `Bullish patterns: ${bullishPatterns.map((p) => p.type.replace('_', ' ')).join(', ')}`
         );
       }
-    } else if (bearishScore > bullishScore && bearishScore > 40) {
+    } else if (bearishScore > bullishScore && bearishScore > minDirectionScore) {
       direction = 'SHORT';
       confidence = Math.min(100, bearishScore + (trendAlignment > 75 ? 10 : 0) + (patternStrength > 50 ? 10 : 0));
 
@@ -769,21 +829,33 @@ export class SignalEngine {
       if (bearishPatterns.length > 0) {
         reasons.push(`Bearish patterns: ${bearishPatterns.map((p) => p.type.replace('_', ' ')).join(', ')}`);
       }
+    } else if (tradeTrend === 'DOWN' && shortTfVotes >= 2 && shortTfVotes > longTfVotes) {
+      direction = 'SHORT';
+      confidence = Math.max(minDirectionScore, Math.round(bearishScore || 45));
+      reasons.push('Downtrend — SHORT from aligned lower timeframes');
+    } else if (tradeTrend === 'UP' && longTfVotes >= 2 && longTfVotes > shortTfVotes) {
+      direction = 'LONG';
+      confidence = Math.max(minDirectionScore, Math.round(bullishScore || 45));
+      reasons.push('Uptrend — LONG from aligned lower timeframes');
     } else {
       direction = 'HOLD';
       confidence = 50;
       warnings.push('Mixed signals across timeframes');
     }
 
-    const tf1h = analyses.find((a) => a.timeframe === '1h');
     const h1Trend = normalizeH1Trend(tf1h?.trend);
     if (direction === 'LONG' || direction === 'SHORT') {
-      const block = trendOnlyBlockReason(direction, h1Trend);
+      const block = trendOnlyBlockReason(direction, tradeTrend);
       if (block) {
-        if (direction === 'LONG' && h1Trend === 'DOWN' && bearishScore > bullishScore && bearishScore > 40) {
+        if (direction === 'LONG' && tradeTrend === 'DOWN' && bearishScore > bullishScore && bearishScore > minDirectionScore) {
           direction = 'SHORT';
           confidence = Math.min(100, bearishScore);
-          reasons.push('1h down — trend SHORT (counter-trend long blocked)');
+          reasons.push('Downtrend — SHORT (counter-trend long blocked)');
+        } else if (direction === 'SHORT' && tradeTrend === 'DOWN' && bearishScore >= bullishScore) {
+          // Keep SHORT — macro down; don't flip to HOLD on stale 1h SIDEWAYS label.
+          reasons.push('Downtrend — trend SHORT');
+        } else if (direction === 'LONG' && tradeTrend === 'UP' && bullishScore >= bearishScore) {
+          reasons.push('Uptrend — trend LONG');
         } else {
           direction = 'HOLD';
           confidence = Math.max(25, confidence - 15);
