@@ -59,6 +59,8 @@ export type HlGlobalScanStats = {
   standardCandidates: number;
   aggressiveCandidates: number;
   candidates: number;
+  /** Full HL perp list from the last global scan (volume-sorted, exclusions applied). */
+  scanUniverseCoins: string[];
   scannedAt: string;
 };
 
@@ -73,6 +75,7 @@ export let lastHlGlobalScanStats: HlGlobalScanStats = {
   standardCandidates: 0,
   aggressiveCandidates: 0,
   candidates: 0,
+  scanUniverseCoins: [],
   scannedAt: '',
 };
 
@@ -303,6 +306,7 @@ export async function scanGlobalHlSignals(
       standardCandidates: 0,
       aggressiveCandidates: 0,
       candidates: 0,
+      scanUniverseCoins: [],
       scannedAt: new Date().toISOString(),
     };
     lastGlobalScanResult = { standard: [], aggressive: [] };
@@ -382,6 +386,7 @@ export async function scanGlobalHlSignals(
     standardCandidates: finalStandard.length,
     aggressiveCandidates: aggressiveFiltered.length,
     candidates: finalStandard.length + aggressiveFiltered.length,
+    scanUniverseCoins: coins,
     scannedAt: new Date().toISOString(),
   };
 

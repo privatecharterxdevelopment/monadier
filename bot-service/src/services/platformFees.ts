@@ -6,6 +6,7 @@ import { recordHlChartMarker } from './hlChartMarkers';
 import { processPendingTradeCloseEmails } from './tradeCloseEmail';
 import { accrueReferralEarning, tryQualifyReferral } from './referralAffiliate';
 import { isFeeExemptWallet, waivedPlatformFeeStatus } from './feeExempt';
+import { fetchHlRecentCloseFillSummaryWithRetry } from './hlInfo';
 
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 
@@ -19,7 +20,10 @@ export type ProfitableCloseInput = {
   walletAddress: string;
   coin: string;
   direction: 'LONG' | 'SHORT';
+  /** Realized PnL from HL fill (source of truth for fees & stats). */
   profitUsd: number;
+  /** uPnL at close signal — diagnostic only. */
+  snapshotPnlUsd?: number | null;
   notionalUsd: number;
   entryPx?: number;
   exitPx?: number;
@@ -31,6 +35,8 @@ export type ProfitableCloseInput = {
   builderFeeUsd?: number;
   builderTenthsBps?: number;
   externalRef?: string;
+  /** When set, update this trade_history row instead of inserting. */
+  existingTradeHistoryId?: string;
 };
 
 export type PlatformFeeStatus = {
@@ -205,6 +211,244 @@ export async function canOpenNewPositions(walletAddress: string): Promise<{
   return { allowed: true, status };
 }
 
+function appendFillReconciliation(
+  closeReason: string,
+  snapshot: number | null | undefined,
+  realized: number
+): string {
+  if (snapshot == null || !Number.isFinite(snapshot)) return closeReason;
+  if (Math.abs(snapshot - realized) < 0.015) return closeReason;
+  const delta = realized - snapshot;
+  return (
+    `${closeReason} ‖ signal uPnL ${snapshot >= 0 ? '+' : ''}$${snapshot.toFixed(4)} · ` +
+    `fill ${realized >= 0 ? '+' : ''}$${realized.toFixed(4)} · ` +
+    `Δ ${delta >= 0 ? '+' : ''}$${delta.toFixed(4)}`
+  );
+}
+
+export type PendingFillCloseInput = {
+  walletAddress: string;
+  coin: string;
+  direction: 'LONG' | 'SHORT';
+  snapshotPnlUsd?: number | null;
+  notionalUsd: number;
+  entryPx?: number;
+  leverage?: number;
+  collateralUsd?: number;
+  closeReason: string;
+  source: FeeSource;
+};
+
+/** Position flat on HL but fill not indexed yet — record placeholder for reconcile. */
+export async function recordPendingFillClose(input: PendingFillCloseInput): Promise<void> {
+  const wallet = input.walletAddress.toLowerCase();
+  const closedAt = new Date().toISOString();
+  const collateralUsd = input.collateralUsd ?? 0;
+  const since = new Date(Date.now() - 5 * 60_000).toISOString();
+  const { data: dupe } = await supabase
+    .from('trade_history')
+    .select('id')
+    .eq('wallet_address', wallet)
+    .eq('token_symbol', input.coin.toUpperCase())
+    .eq('platform_fee_status', 'pending_fill')
+    .gte('closed_at', since)
+    .maybeSingle();
+  if (dupe?.id) return;
+
+  const { error } = await supabase.from('trade_history').insert({
+    wallet_address: wallet,
+    chain_id: config.arbitrum.chainId,
+    token_symbol: input.coin.toUpperCase(),
+    direction: input.direction,
+    leverage: Math.max(1, Math.round(input.leverage ?? 1)),
+    entry_price: input.entryPx ?? null,
+    exit_price: null,
+    entry_amount: collateralUsd > 0 ? collateralUsd : null,
+    exit_amount: null,
+    profit_loss: null,
+    profit_loss_percent: null,
+    close_reason: `${input.closeReason} ‖ fill pending`,
+    snapshot_pnl_usd: input.snapshotPnlUsd ?? null,
+    opened_at: null,
+    closed_at: closedAt,
+    execution_venue: input.source === 'betting' ? 'hyperliquid_betting' : 'hyperliquid',
+    platform_success_fee: null,
+    platform_fee_status: 'pending_fill',
+  });
+
+  if (error) {
+    logger.warn('pending_fill trade_history insert failed', {
+      wallet: wallet.slice(0, 10),
+      coin: input.coin,
+      error: error.message,
+    });
+  }
+}
+
+type PendingFillRow = {
+  id: string;
+  wallet_address: string;
+  token_symbol: string;
+  direction: string;
+  entry_amount: number | null;
+  entry_price: number | null;
+  leverage: number | null;
+  snapshot_pnl_usd: number | null;
+  close_reason: string | null;
+  closed_at: string | null;
+};
+
+/** Poll HL fills for pending_fill rows — fill is truth for PnL and fees. */
+export async function reconcilePendingFillCloses(limit = 40): Promise<number> {
+  const { data: rows, error } = await supabase
+    .from('trade_history')
+    .select(
+      'id,wallet_address,token_symbol,direction,entry_amount,entry_price,leverage,snapshot_pnl_usd,close_reason,closed_at'
+    )
+    .eq('platform_fee_status', 'pending_fill')
+    .order('closed_at', { ascending: true })
+    .limit(limit);
+
+  if (error || !rows?.length) return 0;
+
+  let reconciled = 0;
+  for (const row of rows as PendingFillRow[]) {
+    const closedAtMs = row.closed_at ? new Date(row.closed_at).getTime() : Date.now() - 60_000;
+    const sinceMs = closedAtMs - 90_000;
+    const fill = await fetchHlRecentCloseFillSummaryWithRetry(
+      row.wallet_address as `0x${string}`,
+      row.token_symbol,
+      sinceMs,
+      { attempts: 6, delayMs: 500 }
+    );
+    if (!fill) continue;
+
+    const realized = fill.closedPnlUsd;
+    if (!Number.isFinite(realized)) continue;
+
+    const snapshot = row.snapshot_pnl_usd;
+    const baseReason = (row.close_reason ?? 'bot_close').replace(/ ‖ fill pending$/, '');
+    const closeReason = appendFillReconciliation(baseReason, snapshot, realized);
+    const collateral = Number(row.entry_amount) || 0;
+    const leverage = Math.max(1, Number(row.leverage) || 1);
+    const pnlPct = collateral > 0 ? (realized / collateral) * 100 : 0;
+    const notionalUsd = fill.size * fill.exitPx;
+
+    await recordBotCloseOutcome({
+      walletAddress: row.wallet_address,
+      coin: row.token_symbol,
+      direction: row.direction as 'LONG' | 'SHORT',
+      profitUsd: realized,
+      snapshotPnlUsd: snapshot,
+      notionalUsd,
+      entryPx: row.entry_price ?? undefined,
+      exitPx: fill.exitPx,
+      size: fill.size,
+      leverage,
+      collateralUsd: collateral,
+      closeReason,
+      source: 'bot',
+      existingTradeHistoryId: row.id,
+    });
+
+    reconciled += 1;
+    logger.info('pending_fill reconciled', {
+      wallet: row.wallet_address.slice(0, 10),
+      coin: row.token_symbol,
+      realized: realized.toFixed(4),
+      snapshot: snapshot != null ? Number(snapshot).toFixed(4) : '—',
+    });
+  }
+  return reconciled;
+}
+
+/** Record bot close — realized fill PnL is truth; snapshot is diagnostic. */
+export async function recordBotCloseOutcome(
+  input: ProfitableCloseInput
+): Promise<void> {
+  const wallet = input.walletAddress.toLowerCase();
+  const realized = input.profitUsd;
+  if (!Number.isFinite(realized)) return;
+
+  if (await isFeeExemptWallet(wallet)) {
+    await recordProfitableCloseFeeWaived(input);
+    return;
+  }
+
+  const snapshot = input.snapshotPnlUsd ?? null;
+  const closeReason = appendFillReconciliation(input.closeReason, snapshot, realized);
+
+  if (realized <= 0) {
+    const collateralUsd = input.collateralUsd ?? 0;
+    const pnlPct = collateralUsd > 0 ? (realized / collateralUsd) * 100 : 0;
+    const closedAt = new Date().toISOString();
+    const entryAmount = collateralUsd;
+    const exitAmount = entryAmount + realized;
+
+    const lossRow = {
+      wallet_address: wallet,
+      chain_id: config.arbitrum.chainId,
+      token_symbol: input.coin,
+      direction: input.direction,
+      leverage: Math.max(1, Math.round(input.leverage ?? 1)),
+      entry_price: input.entryPx ?? null,
+      exit_price: input.exitPx ?? null,
+      entry_amount: entryAmount,
+      exit_amount: exitAmount,
+      profit_loss: realized,
+      profit_loss_percent: pnlPct,
+      close_reason: closeReason,
+      snapshot_pnl_usd: snapshot,
+      opened_at: null,
+      ...(input.existingTradeHistoryId ? {} : { closed_at: closedAt }),
+      execution_venue: input.source === 'betting' ? 'hyperliquid_betting' : 'hyperliquid',
+      platform_success_fee: null,
+      platform_fee_status: 'none',
+    };
+
+    const tradeErr = input.existingTradeHistoryId
+      ? (
+          await supabase
+            .from('trade_history')
+            .update(lossRow)
+            .eq('id', input.existingTradeHistoryId)
+        ).error
+      : (await supabase.from('trade_history').insert(lossRow)).error;
+
+    if (input.source === 'bot') {
+      await recordHlChartMarker({
+        walletAddress: wallet,
+        coin: input.coin,
+        eventType: 'close',
+        direction: input.direction,
+        price: input.exitPx ?? 0,
+        eventTs: closedAt,
+        pnlUsd: realized,
+        closeReason,
+        source: 'bot',
+      });
+    }
+
+    if (tradeErr) {
+      logger.warn('bot loss close trade_history insert failed', {
+        wallet: wallet.slice(0, 10),
+        error: tradeErr.message,
+      });
+    } else {
+      logger.warn('bot close realized non-profit', {
+        wallet: wallet.slice(0, 10),
+        coin: input.coin,
+        snapshotPnl: snapshot != null ? snapshot.toFixed(4) : '—',
+        realizedPnl: realized.toFixed(4),
+        reason: closeReason.slice(0, 120),
+      });
+    }
+    return;
+  }
+
+  await recordProfitableClose({ ...input, closeReason, profitUsd: realized });
+}
+
 export async function recordProfitableClose(input: ProfitableCloseInput): Promise<void> {
   const wallet = input.walletAddress.toLowerCase();
   const profitUsd = input.profitUsd;
@@ -214,6 +458,9 @@ export async function recordProfitableClose(input: ProfitableCloseInput): Promis
     await recordProfitableCloseFeeWaived(input);
     return;
   }
+
+  const snapshot = input.snapshotPnlUsd ?? null;
+  const closeReason = appendFillReconciliation(input.closeReason, snapshot, profitUsd);
 
   const { totalUsd, builderUsd, accruedUsd, feeBps } = splitPlatformFee(
     profitUsd,
@@ -253,29 +500,46 @@ export async function recordProfitableClose(input: ProfitableCloseInput): Promis
   const feeStatus =
     totalUsd <= 0 ? 'none' : accruedUsd <= 0 && builderUsd > 0 ? 'settled' : 'accrued';
 
-  const { data: tradeRow, error: tradeErr } = await supabase
-    .from('trade_history')
-    .insert({
-      wallet_address: wallet,
-      chain_id: config.arbitrum.chainId,
-      token_symbol: input.coin,
-      direction: input.direction,
-      leverage: Math.max(1, Math.round(input.leverage ?? 1)),
-      entry_price: input.entryPx ?? null,
-      exit_price: input.exitPx ?? null,
-      entry_amount: entryAmount,
-      exit_amount: exitAmount,
-      profit_loss: profitUsd,
-      profit_loss_percent: pnlPct,
-      close_reason: input.closeReason,
-      opened_at: null,
-      closed_at: closedAt,
-      execution_venue: input.source === 'betting' ? 'hyperliquid_betting' : 'hyperliquid',
-      platform_success_fee: totalUsd > 0 ? totalUsd : null,
-      platform_fee_status: feeStatus,
-    })
-    .select('id')
-    .single();
+  const tradePayload = {
+    wallet_address: wallet,
+    chain_id: config.arbitrum.chainId,
+    token_symbol: input.coin,
+    direction: input.direction,
+    leverage: Math.max(1, Math.round(input.leverage ?? 1)),
+    entry_price: input.entryPx ?? null,
+    exit_price: input.exitPx ?? null,
+    entry_amount: entryAmount,
+    exit_amount: exitAmount,
+    profit_loss: profitUsd,
+    profit_loss_percent: pnlPct,
+    close_reason: closeReason,
+    snapshot_pnl_usd: snapshot,
+    opened_at: null,
+    ...(input.existingTradeHistoryId ? {} : { closed_at: closedAt }),
+    execution_venue: input.source === 'betting' ? 'hyperliquid_betting' : 'hyperliquid',
+    platform_success_fee: totalUsd > 0 ? totalUsd : null,
+    platform_fee_status: feeStatus,
+  };
+
+  let tradeRow: { id: string } | null = null;
+  let tradeErr: { message: string } | null = null;
+
+  if (input.existingTradeHistoryId) {
+    const { error } = await supabase
+      .from('trade_history')
+      .update(tradePayload)
+      .eq('id', input.existingTradeHistoryId);
+    tradeErr = error;
+    tradeRow = { id: input.existingTradeHistoryId };
+  } else {
+    const { data, error } = await supabase
+      .from('trade_history')
+      .insert(tradePayload)
+      .select('id')
+      .single();
+    tradeErr = error;
+    tradeRow = data;
+  }
 
   if (input.source === 'bot') {
     await recordHlChartMarker({
@@ -286,7 +550,7 @@ export async function recordProfitableClose(input: ProfitableCloseInput): Promis
       price: input.exitPx ?? 0,
       eventTs: closedAt,
       pnlUsd: profitUsd,
-      closeReason: input.closeReason,
+      closeReason,
       source: 'bot',
     });
   }
@@ -311,13 +575,14 @@ export async function recordProfitableClose(input: ProfitableCloseInput): Promis
     trade_history_id: tradeRow?.id ?? null,
     coin: input.coin,
     gross_profit_usd: profitUsd,
+    snapshot_pnl_usd: snapshot,
     success_fee_usd: totalUsd,
     builder_fee_usd: builderUsd,
     accrued_fee_usd: accruedUsd,
     success_fee_bps: feeBps,
     status: ledgerStatus,
     fee_source: input.source,
-    close_reason: input.closeReason,
+    close_reason: closeReason,
     settlement_ref: builderUsd > 0 ? 'hl_builder:auto' : null,
     external_ref: input.externalRef ?? null,
     settled_at: ledgerStatus === 'settled' ? closedAt : null,

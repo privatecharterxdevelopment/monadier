@@ -91,7 +91,10 @@ export async function getHlPositionTrailSnapshots(
             : 'profit_lock'
           : 'idle';
     const lockRoePct = armed
-      ? resolveProfitTrailLockRoe(trailPhase, peakPnlUsd, collateral)
+      ? resolveProfitTrailLockRoe(trailPhase, peakPnlUsd, collateral, 1, {
+          notionalUsd: notional,
+          coin,
+        })
       : 0;
     const lockPnlUsd = armed ? collateral * (lockRoePct / 100) : 0;
     const direction = szi >= 0 ? ('LONG' as const) : ('SHORT' as const);
@@ -107,12 +110,14 @@ export async function getHlPositionTrailSnapshots(
       armed &&
       rec != null &&
       shouldCloseProfitTrailInGreen(rec as DynamicTrailRecord, {
+        coin,
         pnlUsd: currentPnlUsd,
         collateralUsd: collateral,
         direction,
         markPrice: markPx,
         nowMs: Date.now(),
         trailDistanceMult: 1,
+        notionalUsd: notional,
       });
 
     out.push({

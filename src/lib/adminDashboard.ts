@@ -99,6 +99,7 @@ export type AdminFeeLedgerRow = {
   wallet_address: string;
   coin: string;
   gross_profit_usd: number;
+  snapshot_pnl_usd: number | null;
   success_fee_usd: number;
   status: string;
   close_reason: string | null;
@@ -287,7 +288,7 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
     supabase
       .from('hl_fee_ledger')
       .select(
-        'id,wallet_address,coin,gross_profit_usd,success_fee_usd,status,close_reason,created_at,settled_at'
+        'id,wallet_address,coin,gross_profit_usd,snapshot_pnl_usd,success_fee_usd,status,close_reason,created_at,settled_at'
       )
       .order('created_at', { ascending: false })
       .limit(100),
@@ -418,6 +419,10 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
     wallet_address: String(f.wallet_address ?? '').toLowerCase(),
     coin: f.coin,
     gross_profit_usd: num(f.gross_profit_usd),
+    snapshot_pnl_usd:
+      f.snapshot_pnl_usd != null && Number.isFinite(num(f.snapshot_pnl_usd))
+        ? num(f.snapshot_pnl_usd)
+        : null,
     success_fee_usd: num(f.success_fee_usd),
     status: f.status,
     close_reason: f.close_reason ?? null,

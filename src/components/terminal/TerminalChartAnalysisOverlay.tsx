@@ -27,6 +27,9 @@ type Props = {
   globalBest?: { coin: string; direction: string; confidence: number; reason?: string } | null;
   globalScanCount?: number;
   globalCoinsScanned?: number;
+  currentlyScanningCoin?: string;
+  scanCoinIndex?: number;
+  scanCoinTotal?: number;
   readiness?: BotReadiness;
   openPositionsCount?: number;
   maxConcurrentPositions?: number;
@@ -62,6 +65,10 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
   dbAnalysis,
   activeSymbol,
   globalBest,
+  globalCoinsScanned = 0,
+  currentlyScanningCoin,
+  scanCoinIndex = 0,
+  scanCoinTotal = 0,
   readiness,
   openPositionsCount = 0,
   maxConcurrentPositions = 2,
@@ -122,6 +129,31 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
     return h;
   }, [readiness?.headline, readiness?.detail, step]);
 
+  const scanLabel = useMemo(() => {
+    if (!scanning) return headline;
+    const coin = currentlyScanningCoin?.toUpperCase();
+    const total = scanCoinTotal > 0 ? scanCoinTotal : globalCoinsScanned;
+    if (coin && total > 0) {
+      const pos = scanCoinTotal > 0 ? scanCoinIndex + 1 : null;
+      return pos != null ? `${coin} · ${pos}/${total}` : coin;
+    }
+    return headline;
+  }, [
+    scanning,
+    headline,
+    currentlyScanningCoin,
+    scanCoinTotal,
+    scanCoinIndex,
+    globalCoinsScanned,
+  ]);
+
+  const scanMeta = useMemo(() => {
+    if (!scanning) return null;
+    const total = globalCoinsScanned > 0 ? globalCoinsScanned : scanCoinTotal;
+    if (total > 0) return `${total} HL perps`;
+    return null;
+  }, [scanning, globalCoinsScanned, scanCoinTotal]);
+
   const whyLine = useMemo(
     () =>
       resolveBotAnalysisWhyLine({
@@ -157,7 +189,10 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
                 {scanning ? (
                   <Activity size={11} className="term-analysis-pulse" aria-hidden />
                 ) : null}
-                <span>{headline}</span>
+                <span>{scanLabel}</span>
+                {scanMeta ? (
+                  <span className="hl-bot-analyzer-pill__meta">{scanMeta}</span>
+                ) : null}
                 {scanning ? (
                   <span className="hl-bot-analyzer-pill__meta">{Math.round(progress)}%</span>
                 ) : null}
@@ -177,7 +212,9 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
             {activeLabel ? (
               <div className="hl-bot-analyzer-pill">
                 <span className="hl-bot-analyzer-pill__label">Pair</span>
-                <span className="hl-bot-analyzer-pill__value">{activeLabel}</span>
+                <span className="hl-bot-analyzer-pill__value">
+                  {currentlyScanningCoin?.toUpperCase() ?? activeLabel}
+                </span>
               </div>
             ) : null}
             {currentTf ? (

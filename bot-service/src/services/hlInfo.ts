@@ -461,6 +461,30 @@ export async function fetchHlRecentCloseFillSummary(
   };
 }
 
+/** Poll HL fills after close — avoids recording snapshot uPnL when fills lag. */
+export async function fetchHlRecentCloseFillSummaryWithRetry(
+  userAddress: string,
+  coin: string,
+  sinceMs: number,
+  opts?: { attempts?: number; delayMs?: number }
+): Promise<{
+  closedPnlUsd: number;
+  exitPx: number;
+  size: number;
+  fillCount: number;
+} | null> {
+  const attempts = opts?.attempts ?? 5;
+  const delayMs = opts?.delayMs ?? 400;
+  for (let i = 0; i < attempts; i += 1) {
+    const summary = await fetchHlRecentCloseFillSummary(userAddress, coin, sinceMs);
+    if (summary) return summary;
+    if (i < attempts - 1) {
+      await new Promise((r) => setTimeout(r, delayMs * (i + 1)));
+    }
+  }
+  return null;
+}
+
 export async function fetchHlAllMids(): Promise<Record<string, string>> {
   for (let attempt = 0; attempt < 4; attempt += 1) {
     try {

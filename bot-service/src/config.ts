@@ -118,10 +118,10 @@ export const config = {
     minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
     /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
     dynamicTrail: {
-      /** Arm breakeven lock at +1% ROE — let small green breathe. */
-      breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 1),
-      /** Stage-1 floor lock (breakeven+) — not peak ratchet yet. */
-      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 0.1),
+      /** Arm stage-1 profit lock at +1.5% ROE (was 1% — avoids micro-scratch on small alts). */
+      breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 1.5),
+      /** Stage-1 floor lock (breakeven+) — not peak ratchet yet; also floor vs minNet. */
+      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 0.4),
       /** Stage-2 ratchet gap from peak ROE (wider = more room to run). */
       trailGapRoePct: Number(process.env.HL_TRAIL_GAP_ROE_PCT || 0.65),
       /** Switch to peak ratchet after this peak ROE. */
@@ -131,8 +131,18 @@ export const config = {
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
       /** Peak uPnL > $0 required — no USD floor beyond green (default $0). */
       armMinProfitUsd: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_USD || 0),
-      /** Profit trail close only when uPnL ≥ this (default $0.01 — no −$0.01 scratch exits). */
+      /** Gross uPnL floor before trail close (secondary to min net). */
       profitTrailMinClosePnlUsd: Number(process.env.HL_TRAIL_MIN_CLOSE_PNL_USD || 0.01),
+      /** Min expected net after exit fee + slippage before profit exit (floor; see minNetNotionalPct). */
+      profitTrailMinNetPnlUsd: Number(process.env.HL_TRAIL_MIN_NET_PNL_USD || 0.08),
+      /** Dynamic min-net floor: max(fees×2, this × notional, profitTrailMinNetPnlUsd). */
+      minNetNotionalPct: Number(process.env.HL_TRAIL_MIN_NET_NOTIONAL_PCT || 0.0025),
+      /** Tier slippage estimates (bps on notional) for exit-cost / net gate. */
+      exitSlippageBpsMajor: Number(process.env.HL_TRAIL_EXIT_SLIP_BPS_MAJOR || 8),
+      exitSlippageBpsMid: Number(process.env.HL_TRAIL_EXIT_SLIP_BPS_MID || 15),
+      exitSlippageBpsCautious: Number(process.env.HL_TRAIL_EXIT_SLIP_BPS_CAUTIOUS || 20),
+      /** Legacy default slippage when coin tier unknown. */
+      estimatedSlippageBps: Number(process.env.HL_TRAIL_EST_SLIPPAGE_BPS || 20),
       trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 10_000),
       armFeesMultiplier: Number(process.env.HL_TRAIL_ARM_FEES_MULT || 2),
       breakevenBufferPct: Number(process.env.HL_TRAIL_BE_BUFFER_PCT || 0.02),

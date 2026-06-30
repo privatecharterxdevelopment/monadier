@@ -74,7 +74,9 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
   const hasBestCandidate = Boolean(activeCandidate?.coin);
   const scanHeadline = hasBestCandidate
     ? analysis.readiness.headline
-    : `Checking ${analysis.currentlyScanningCoin}`;
+    : analysis.scanCoinTotal > 0
+      ? `Checking ${analysis.currentlyScanningCoin} · ${analysis.scanCoinIndex + 1}/${analysis.scanCoinTotal}`
+      : `Checking ${analysis.currentlyScanningCoin}`;
 
   const readiness = useMemo(() => {
     if (idleReadiness) return idleReadiness;
@@ -111,6 +113,9 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
         globalBest={activeCandidate}
         globalScanCount={analysis.globalScanCount}
         globalCoinsScanned={analysis.globalCoinsScanned}
+        currentlyScanningCoin={analysis.currentlyScanningCoin}
+        scanCoinIndex={analysis.scanCoinIndex}
+        scanCoinTotal={analysis.scanCoinTotal}
         readiness={readiness}
         scanning={idleReadiness ? false : keepScanning}
         isLoading={idleReadiness ? false : analysis.isLoading}

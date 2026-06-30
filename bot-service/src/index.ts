@@ -44,6 +44,7 @@ import {
   PLATFORM_FEE_WINS_BEFORE_BLOCK,
 } from './services/platformFees';
 import { processPendingTradeCloseEmails } from './services/tradeCloseEmail';
+import { reconcilePendingFillCloses } from './services/platformFees';
 import { tryQualifyReferral } from './services/referralAffiliate';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 import { fetchMappedTokenPrices } from './services/tokenPrices';
@@ -667,6 +668,7 @@ const healthServer = http.createServer(async (req, res) => {
         },
         globalScan: {
           coinsScanned: lastHlGlobalScanStats.coinsScanned,
+          scanUniverseCoins: lastHlGlobalScanStats.scanUniverseCoins,
           standardCandidates: globalScan.standard.length,
           aggressiveCandidates: globalScan.aggressive.length,
           rawCandidateCount: rawUserSignals.length,
@@ -814,6 +816,7 @@ const healthServer = http.createServer(async (req, res) => {
         JSON.stringify({
           success: true,
           coinsScanned: lastHlGlobalScanStats.coinsScanned,
+          scanUniverseCoins: lastHlGlobalScanStats.scanUniverseCoins,
           standard: scan.standard.length,
           aggressive: scan.aggressive.length,
           count: tradeable.length,
@@ -1187,6 +1190,15 @@ async function main(): Promise<void> {
     void processPendingTradeCloseEmails(50);
   }, 15_000);
   logger.info('- Trade close emails: every 15s (pending queue)');
+
+  setInterval(() => {
+    void reconcilePendingFillCloses(40).catch((err) => {
+      logger.debug('pending_fill reconcile tick failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+  }, 12_000);
+  logger.info('- HL fill reconcile: every 12s (pending_fill queue)');
 
   if (process.env.ENABLE_DEMO_SIMULATOR === 'true') {
     startDemoSimulator().catch((err) => {

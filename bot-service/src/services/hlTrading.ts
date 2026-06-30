@@ -20,12 +20,13 @@ import {
   hlTradableFreeMarginUsd,
   hlFreeMarginUsd,
   hlOpenPerpCoins,
-  fetchHlRecentCloseFillSummary,
+  fetchHlRecentCloseFillSummaryWithRetry,
 } from './hlInfo';
 import { checkHlBuilderFeeApproved } from './hlBuilder';
 import {
   canOpenNewPositions,
-  recordProfitableClose,
+  recordBotCloseOutcome,
+  recordPendingFillClose,
   splitPlatformFee,
   platformFeeCollectionEnabled,
 } from './platformFees';
@@ -74,7 +75,10 @@ import {
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import {
   evaluateDynamicTrail,
+  expectedNetPnlUsd,
   markFromPosition,
+  minNetProfitFloorUsd,
+  passesProfitExitNetGate,
   type DynamicTrailRecord,
 } from './dynamicTrailingStop';
 import {
@@ -134,6 +138,52 @@ function mayAutoCloseInRed(
   }
   if (reason === 'signal_reversal' && cfg.lossProtection.closeOnThesisBreak) return true;
   return false;
+}
+
+function isProfitExitReason(reason: string): boolean {
+  return (
+    reason === 'trailing_stop' ||
+    reason === 'take_profit' ||
+    reason === 'profit_grab_peak' ||
+    reason === 'profit_grab_timeout'
+  );
+}
+
+function rejectProfitExit(
+  reason: string,
+  pnlUsd: number,
+  notionalUsd: number,
+  coin: string,
+  userAddress: `0x${string}`
+): { blocked: true; error: string } | { blocked: false } {
+  if (!isProfitExitReason(reason)) return { blocked: false };
+  if (pnlUsd <= 0) {
+    logger.info('HL profit exit rejected — only closes in profit', {
+      user: userAddress.slice(0, 10),
+      coin,
+      reason,
+      pnlUsd: pnlUsd.toFixed(4),
+    });
+    return { blocked: true, error: 'Profit exit only closes in green' };
+  }
+  if (!passesProfitExitNetGate(pnlUsd, notionalUsd, coin)) {
+    const net = expectedNetPnlUsd(pnlUsd, notionalUsd, coin);
+    const floor = minNetProfitFloorUsd(notionalUsd);
+    logger.info('HL profit exit rejected — net below floor after exit costs', {
+      user: userAddress.slice(0, 10),
+      coin,
+      reason,
+      pnlUsd: pnlUsd.toFixed(4),
+      expectedNet: net.toFixed(4),
+      minNet: floor.toFixed(4),
+      notionalUsd: notionalUsd.toFixed(2),
+    });
+    return {
+      blocked: true,
+      error: `Profit exit needs ≥$${floor.toFixed(3)} net after fees (expected $${net.toFixed(3)})`,
+    };
+  }
+  return { blocked: false };
 }
 
 /** Per user+coin — throttle "hold in red" logs. */
@@ -1603,6 +1653,7 @@ export class HyperliquidTradingService {
     error?: string;
     successFeeUsd?: number;
     viaHlBuilder?: boolean;
+    pendingFill?: boolean;
   }> {
     try {
       const coinUpper = coin.toUpperCase();
@@ -1623,10 +1674,14 @@ export class HyperliquidTradingService {
       }
 
       const entryPx = closeCtx?.entryPx ?? Number(row.entryPx ?? 0);
+      const snapshotPnlUsd = closeCtx?.unrealizedPnlUsd;
+      const livePnlUsd = Number(row.unrealizedPnl ?? 0);
       const pnlUsd =
-        closeCtx?.unrealizedPnlUsd ?? Number(row.unrealizedPnl ?? 0);
+        Number.isFinite(livePnlUsd) ? livePnlUsd : snapshotPnlUsd ?? 0;
       const leverage = closeCtx?.leverage ?? row.leverage?.value ?? 10;
       const absSize = Math.abs(size);
+      const markPxFromRow = markFromPosition(entryPx, size, pnlUsd);
+      let notionalUsd = absSize * markPxFromRow;
 
       if (
         config.hyperliquid.profitOnlyExits &&
@@ -1645,34 +1700,17 @@ export class HyperliquidTradingService {
         return { success: false, error: 'Bot does not close in red (profitOnlyExits)' };
       }
 
-      if (reason === 'trailing_stop' && pnlUsd <= 0) {
-        logger.info('HL profit trail rejected — only closes in profit', {
-          user: userAddress.slice(0, 10),
-          coin: coinUpper,
-          pnlUsd: pnlUsd.toFixed(4),
-        });
-        return { success: false, error: 'Profit trail only closes in green' };
+      const profitExitBlock = rejectProfitExit(
+        reason,
+        pnlUsd,
+        notionalUsd,
+        coinUpper,
+        userAddress
+      );
+      if (profitExitBlock.blocked) {
+        return { success: false, error: profitExitBlock.error };
       }
 
-      if (reason === 'take_profit' && pnlUsd <= 0) {
-        logger.debug('HL skip take_profit — not in profit', {
-          user: userAddress.slice(0, 10),
-          coin: coinUpper,
-          pnlUsd,
-        });
-        return { success: false, error: 'Take profit requires positive uPnL' };
-      }
-      if (
-        (reason === 'profit_grab_peak' || reason === 'profit_grab_timeout') &&
-        pnlUsd <= 0
-      ) {
-        logger.debug('HL skip profit grab — not in profit', {
-          user: userAddress.slice(0, 10),
-          coin: coinUpper,
-          pnlUsd,
-        });
-        return { success: false, error: 'Profit grab requires positive uPnL' };
-      }
       if (reason === 'stop_loss' && pnlUsd > 0) {
         logger.debug('HL skip stop_loss — already in profit', {
           user: userAddress.slice(0, 10),
@@ -1696,7 +1734,7 @@ export class HyperliquidTradingService {
       const limitPx = isLong ? markPx * 0.95 : markPx * 1.05;
 
       const client = createAgentClient(userAddress);
-      const notionalUsd = absSize * markPx;
+      notionalUsd = absSize * markPx;
       const orderPayload = {
         orders: [
           {
@@ -1771,12 +1809,45 @@ export class HyperliquidTradingService {
       }
 
       const closeStartedMs = Date.now() - 120_000;
-      const fillTruth = await fetchHlRecentCloseFillSummary(
+      const fillTruth = await fetchHlRecentCloseFillSummaryWithRetry(
         userAddress,
         coinUpper,
         closeStartedMs
       );
-      const realizedPnlUsd = fillTruth?.closedPnlUsd ?? pnlUsd;
+      const profitExit = isProfitExitReason(reason);
+      const realizedPnlUsd =
+        fillTruth?.closedPnlUsd ?? (profitExit ? null : pnlUsd);
+      if (realizedPnlUsd == null || !Number.isFinite(realizedPnlUsd)) {
+        const collateralUsd =
+          entryPx > 0 ? (absSize * entryPx) / leverage : 0;
+        await recordPendingFillClose({
+          walletAddress: userAddress,
+          coin: coinUpper,
+          direction: isLong ? 'LONG' : 'SHORT',
+          snapshotPnlUsd: snapshotPnlUsd ?? pnlUsd,
+          notionalUsd,
+          entryPx,
+          leverage,
+          collateralUsd,
+          closeReason: reasonDetail ?? reason,
+          source: 'bot',
+        }).catch((err) => {
+          logger.warn('HL pending_fill record failed', {
+            user: userAddress.slice(0, 10),
+            coin: coinUpper,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+        logger.warn('HL close fill pending — queued reconcile', {
+          user: userAddress.slice(0, 10),
+          coin: coinUpper,
+          reason,
+          snapshotPnl: (snapshotPnlUsd ?? pnlUsd).toFixed(4),
+        });
+        hlLastCloseAt.set(userAddress.toLowerCase(), Date.now());
+        rememberCoinClose(userAddress, coinUpper, isLong ? 'LONG' : 'SHORT');
+        return { success: true, pendingFill: true };
+      }
       const exitPx = fillTruth?.exitPx ?? markPx;
       const closedSize = fillTruth?.size ?? absSize;
 
@@ -1792,11 +1863,12 @@ export class HyperliquidTradingService {
         builderTenthsBps: builderTenthsBps || undefined,
       });
 
-      const recordClose = recordProfitableClose({
+      const recordClose = recordBotCloseOutcome({
         walletAddress: userAddress,
         coin: coinUpper,
         direction: isLong ? 'LONG' : 'SHORT',
         profitUsd: realizedPnlUsd,
+        snapshotPnlUsd: snapshotPnlUsd ?? pnlUsd,
         notionalUsd,
         entryPx,
         exitPx,
@@ -1819,7 +1891,8 @@ export class HyperliquidTradingService {
         user: userAddress.slice(0, 10),
         coin: coinUpper,
         reason,
-        pnl: realizedPnlUsd.toFixed(4),
+        snapshotPnl: (snapshotPnlUsd ?? pnlUsd).toFixed(4),
+        realizedPnl: realizedPnlUsd.toFixed(4),
         fills: fillTruth?.fillCount ?? 1,
         successFee: feeSplit.totalUsd > 0 ? feeSplit.totalUsd.toFixed(4) : '0',
         builderFee: feeSplit.builderUsd.toFixed(4),

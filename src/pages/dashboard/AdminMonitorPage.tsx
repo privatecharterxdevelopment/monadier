@@ -705,7 +705,8 @@ function FeesPanel({
             <th className="px-4 py-3">When</th>
             <th className="px-4 py-3">User wallet</th>
             <th className="px-4 py-3">Coin</th>
-            <th className="px-4 py-3">Gross profit</th>
+            <th className="px-4 py-3">Realized</th>
+            <th className="px-4 py-3">Signal uPnL</th>
             <th className="px-4 py-3">Builder fee</th>
             <th className="px-4 py-3">Status</th>
             <th className="px-4 py-3">Reason</th>
@@ -717,7 +718,16 @@ function FeesPanel({
               <td className="px-4 py-2 text-xs text-secondary">{formatTimeAgo(f.created_at)}</td>
               <td className="px-4 py-2 font-mono text-xs">{shortWallet(f.wallet_address, 8)}</td>
               <td className="px-4 py-2">{f.coin}</td>
-              <td className="px-4 py-2 font-mono text-green-400">{fmtUsd(f.gross_profit_usd)}</td>
+              <td
+                className={`px-4 py-2 font-mono ${
+                  f.gross_profit_usd >= 0 ? 'text-green-400' : 'text-red-400'
+                }`}
+              >
+                {fmtUsd(f.gross_profit_usd, true)}
+              </td>
+              <td className="px-4 py-2 font-mono text-secondary">
+                {f.snapshot_pnl_usd != null ? fmtUsd(f.snapshot_pnl_usd, true) : '—'}
+              </td>
               <td className="px-4 py-2 font-mono text-cyan-400">{fmtUsd(f.success_fee_usd)}</td>
               <td className="px-4 py-2 text-xs uppercase">
                 {f.status === 'settled' ? (

@@ -1,15 +1,16 @@
 import { toNum } from './parse';
 
-/** Show saved bot leverage when set; otherwise HL position leverage. */
+/** Actual HL position leverage; configured bot setting is only a fallback before fill. */
 export function resolveDisplayLeverage(
   configuredLeverage: number | undefined,
   positionLeverage: unknown
 ): number {
+  const onChain = toNum(positionLeverage);
+  if (onChain > 0) return onChain;
   const configured =
     configuredLeverage != null && Number.isFinite(configuredLeverage) && configuredLeverage > 0
       ? configuredLeverage
       : 0;
-  const onChain = toNum(positionLeverage);
   if (configured > 0) return configured;
-  return onChain > 0 ? onChain : 1;
+  return 1;
 }

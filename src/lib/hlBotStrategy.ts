@@ -8,9 +8,9 @@ export const HL_BOT_STRATEGY_LABELS: Record<HlBotStrategy, string> = {
 
 export const HL_BOT_STRATEGY_HINTS: Record<HlBotStrategy, string> = {
   standard:
-    'Standard: MTF trend-only. Stage 1: green → +0.1% ROE arms, locks +0.1%. Stage 2: peak ≥+2% ROE → trail follows peak.',
+    'Standard: MTF trend-only. Stage 1: +1.5% ROE arms, locks ≥+0.4% (minNet-scaled). Stage 2: peak ≥+2.5% ROE → trail follows peak.',
   profit_grabber:
-    'Aggressive: 1m scalp entries. Same two-stage profit SL (+0.1% arm/lock, +2% full trail).',
+    'Aggressive: 1m scalp entries. Same two-stage profit SL (+1.5% arm, +2.5% full trail).',
 };
 
 /** Must match bot-service config.hyperliquid.dynamicTrail defaults. */
@@ -18,15 +18,15 @@ export const HL_DYNAMIC_TRAIL = {
   armMinProfitHoldMs: 0,
   maxHoldBeforeSlTrailMs: 120_000,
   trailMinActiveBeforeCloseMs: 0,
-  /** Arm trail as soon as peak uPnL > $0 and ROE ≥ this. */
-  breakevenArmRoePct: 0.1,
+  /** Arm stage-1 profit lock at +1.5% ROE. */
+  breakevenArmRoePct: 1.5,
   armMinProfitUsd: 0,
-  /** Min locked ROE% once armed. */
-  armMinRoePct: 0.1,
+  /** Min locked ROE% once armed (floor; may scale up with minNet). */
+  armMinRoePct: 0.4,
   /** Peak ROE minus this gap when ratcheting (stage 2). */
   trailGapRoePct: 0.1,
   /** Stage 2 arms when peak ROE ≥ this. */
-  fullTrailArmRoePct: 2,
+  fullTrailArmRoePct: 2.5,
   armFeesMultiplier: 2,
   estimatedFeeBpsPerSide: 3.5,
   majorTrailPct: 0.028,

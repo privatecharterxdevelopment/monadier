@@ -107,10 +107,12 @@ export function useTerminalBotAnalysis({
   const [serverOpenCoins, setServerOpenCoins] = useState<string[]>([]);
   const [globalScanCount, setGlobalScanCount] = useState(0);
   const [globalCoinsScanned, setGlobalCoinsScanned] = useState(0);
+  const [scanUniverseCoins, setScanUniverseCoins] = useState<string[]>([]);
   const [openUniverseSummary, setOpenUniverseSummary] = useState<string | null>(null);
   const [rawScanCandidateCount, setRawScanCandidateCount] = useState(0);
   const [pumpSweepLines, setPumpSweepLines] = useState<string[]>([]);
   const [step, setStep] = useState(0);
+  const [coinRotationIndex, setCoinRotationIndex] = useState(0);
   const [progress, setProgress] = useState(ANALYSIS_STEPS[0].progress);
 
   const active = botRunning && (analysisActive ?? false);
@@ -132,14 +134,17 @@ export function useTerminalBotAnalysis({
   );
 
   const scanRotationCoins = useMemo(() => {
-    const fromScan = globalCandidates.map((c) => c.coin.toUpperCase()).filter(Boolean);
-    if (fromScan.length >= 3) return fromScan;
+    const fromApi = scanUniverseCoins.map((c) => c.toUpperCase()).filter(Boolean);
+    if (fromApi.length > 0) return fromApi;
     const n = globalCoinsScanned > 0 ? globalCoinsScanned : HL_SCAN_UNIVERSE_SIZE;
     return HL_SCAN_ROTATION_COINS.slice(0, Math.min(n, HL_SCAN_ROTATION_COINS.length));
-  }, [globalCandidates, globalCoinsScanned]);
+  }, [scanUniverseCoins, globalCoinsScanned]);
 
-  const currentlyScanningCoin =
-    scanRotationCoins[step % Math.max(scanRotationCoins.length, 1)] ?? 'BTC';
+  const scanCoinTotal = scanRotationCoins.length;
+  const scanCoinIndex =
+    scanCoinTotal > 0 ? coinRotationIndex % scanCoinTotal : 0;
+
+  const currentlyScanningCoin = scanRotationCoins[scanCoinIndex] ?? 'BTC';
 
   const chartCoin = binanceSymbolToHlCoin(symbol).toUpperCase();
   const chartIsOpenPair =
@@ -172,6 +177,7 @@ export function useTerminalBotAnalysis({
   useEffect(() => {
     if (!scanning) {
       setStep(0);
+      setCoinRotationIndex(0);
       setProgress(ANALYSIS_STEPS[0].progress);
       return;
     }
@@ -184,6 +190,18 @@ export function useTerminalBotAnalysis({
     }, 2000);
     return () => clearInterval(id);
   }, [scanning]);
+
+  useEffect(() => {
+    if (!scanning || scanRotationCoins.length === 0) {
+      setCoinRotationIndex(0);
+      return;
+    }
+    const ms = Math.min(1200, Math.max(450, Math.round(90_000 / scanRotationCoins.length)));
+    const id = setInterval(() => {
+      setCoinRotationIndex((i) => (i + 1) % scanRotationCoins.length);
+    }, ms);
+    return () => clearInterval(id);
+  }, [scanning, scanRotationCoins]);
 
   useEffect(() => {
     const load = async () => {
@@ -207,8 +225,10 @@ export function useTerminalBotAnalysis({
       setGlobalCandidates([]);
       setGlobalScanCount(0);
       setGlobalCoinsScanned(0);
+      setScanUniverseCoins([]);
       setServerBlockers([]);
       setStep(0);
+      setCoinRotationIndex(0);
       setProgress(ANALYSIS_STEPS[0].progress);
       return;
     }
@@ -234,6 +254,7 @@ export function useTerminalBotAnalysis({
           tradeableCandidates?: GlobalScanCandidate[];
           count?: number;
           coinsScanned?: number;
+          scanUniverseCoins?: string[];
           standard?: number;
           aggressive?: number;
           openUniverse?: { summary?: string };
@@ -248,6 +269,9 @@ export function useTerminalBotAnalysis({
         setGlobalBest(next);
         setGlobalScanCount(typeof data.count === 'number' ? data.count : list.length);
         setGlobalCoinsScanned(typeof data.coinsScanned === 'number' ? data.coinsScanned : 0);
+        if (Array.isArray(data.scanUniverseCoins) && data.scanUniverseCoins.length > 0) {
+          setScanUniverseCoins(data.scanUniverseCoins.map((c) => c.toUpperCase()));
+        }
         setOpenUniverseSummary(data.openUniverse?.summary ?? null);
         setRawScanCandidateCount(
           (typeof data.standard === 'number' ? data.standard : 0) +
@@ -296,6 +320,7 @@ export function useTerminalBotAnalysis({
           globalScan?: {
             best?: GlobalScanCandidate | null;
             coinsScanned?: number;
+            scanUniverseCoins?: string[];
             candidateCount?: number;
             rawCandidateCount?: number;
             candidates?: GlobalScanCandidate[];
@@ -350,6 +375,12 @@ export function useTerminalBotAnalysis({
         if (nextCandidate) setGlobalBest(nextCandidate);
         if (typeof data.globalScan?.coinsScanned === 'number') {
           setGlobalCoinsScanned(data.globalScan.coinsScanned);
+        }
+        if (
+          Array.isArray(data.globalScan?.scanUniverseCoins) &&
+          data.globalScan.scanUniverseCoins.length > 0
+        ) {
+          setScanUniverseCoins(data.globalScan.scanUniverseCoins.map((c) => c.toUpperCase()));
         }
         if (typeof data.globalScan?.candidateCount === 'number') {
           setGlobalScanCount(data.globalScan.candidateCount);
@@ -452,6 +483,8 @@ export function useTerminalBotAnalysis({
     globalBest: scanning ? globalBest : null,
     globalScanCount: scanning ? globalScanCount : 0,
     globalCoinsScanned: scanning ? globalCoinsScanned : 0,
+    scanCoinIndex: scanning ? scanCoinIndex : 0,
+    scanCoinTotal: scanning ? scanCoinTotal : 0,
     readiness,
     openPositionsCount,
     maxConcurrentPositions: serverMaxSlots,
