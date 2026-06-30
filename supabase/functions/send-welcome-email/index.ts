@@ -1,4 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import {
+  BRAND_APP_URL,
+  BRAND_NAME,
+  EMAIL_FROM,
+  SUPPORT_EMAIL,
+} from "../_shared/brand.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
@@ -15,14 +21,12 @@ const welcomeEmailHtml = (userName: string) => `
       <td align="center" style="padding: 40px 20px;">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 480px;">
 
-          <!-- Logo -->
           <tr>
             <td align="center" style="padding-bottom: 40px;">
-              <span style="font-size: 28px; font-weight: 600; color: #0a0a0a; letter-spacing: -0.5px;">+Monadier</span>
+              <span style="font-size: 28px; font-weight: 600; color: #0a0a0a; letter-spacing: -0.5px;">${BRAND_NAME}</span>
             </td>
           </tr>
 
-          <!-- Main Card -->
           <tr>
             <td>
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f5f5f5; border-radius: 16px;">
@@ -30,14 +34,13 @@ const welcomeEmailHtml = (userName: string) => `
                   <td style="padding: 40px 32px;">
 
                     <h1 style="margin: 0 0 16px 0; font-size: 24px; font-weight: 500; color: #0a0a0a; text-align: center;">
-                      Welcome to Monadier${userName ? `, ${userName}` : ''}
+                      Welcome to ${BRAND_NAME}${userName ? `, ${userName}` : ''}
                     </h1>
 
                     <p style="margin: 0 0 32px 0; font-size: 15px; line-height: 1.6; color: #525252; text-align: center;">
-                      Your account is ready. Start automated trading on the best decentralized exchanges across multiple chains.
+                      Your account is ready. Start automated Hyperliquid trading with live charts and 24/7 bot execution.
                     </p>
 
-                    <!-- What you can do -->
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 32px;">
                       <tr>
                         <td style="padding: 16px 20px; background-color: #ffffff; border-radius: 12px;">
@@ -46,19 +49,18 @@ const welcomeEmailHtml = (userName: string) => `
                           </p>
                           <ul style="margin: 0; padding: 0 0 0 20px; font-size: 14px; line-height: 1.8; color: #525252;">
                             <li>Connect your wallet securely</li>
-                            <li>Set up automated trading strategies</li>
-                            <li>Trade on Uniswap, PancakeSwap & more</li>
+                            <li>Approve the HL trading agent once</li>
+                            <li>Run the full-auto bot on Hyperliquid perps</li>
                             <li>Monitor performance 24/7</li>
                           </ul>
                         </td>
                       </tr>
                     </table>
 
-                    <!-- CTA Button -->
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                       <tr>
                         <td align="center">
-                          <a href="https://app.monadier.io/" style="display: inline-block; padding: 14px 32px; background-color: #0a0a0a; color: #ffffff; font-size: 14px; font-weight: 500; text-decoration: none; border-radius: 50px;">
+                          <a href="${BRAND_APP_URL}/" style="display: inline-block; padding: 14px 32px; background-color: #0a0a0a; color: #ffffff; font-size: 14px; font-weight: 500; text-decoration: none; border-radius: 50px;">
                             Start Bot Trading
                           </a>
                         </td>
@@ -71,17 +73,16 @@ const welcomeEmailHtml = (userName: string) => `
             </td>
           </tr>
 
-          <!-- Footer -->
           <tr>
             <td style="padding-top: 32px; text-align: center;">
               <p style="margin: 0 0 8px 0; font-size: 13px; color: #888888;">
                 Questions? Contact us anytime
               </p>
-              <a href="mailto:support@monadier.io" style="font-size: 13px; color: #0a0a0a; text-decoration: none;">
-                support@monadier.io
+              <a href="mailto:${SUPPORT_EMAIL}" style="font-size: 13px; color: #0a0a0a; text-decoration: none;">
+                ${SUPPORT_EMAIL}
               </a>
               <p style="margin: 24px 0 0 0; font-size: 12px; color: #888888;">
-                © 2026 Monadier. All rights reserved.
+                © 2026 ${BRAND_NAME}. All rights reserved.
               </p>
             </td>
           </tr>
@@ -112,9 +113,9 @@ serve(async (req) => {
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "Monadier <hello@monadier.io>",
+        from: EMAIL_FROM,
         to: email,
-        subject: "Welcome to Monadier",
+        subject: `Welcome to ${BRAND_NAME}`,
         html: welcomeEmailHtml(name || ""),
       }),
     });

@@ -34,7 +34,7 @@ const ProfileTradeEmailToggle: React.FC = () => {
   const email = profile?.email || user?.email;
 
   return (
-    <div className="term-profile-notify-email">
+    <div id="profile-trade-email" className="term-profile-notify-email">
       <div className="term-profile-notify-email-row">
         <div>
           <p className="term-profile-notify-email-title">Trade close emails</p>

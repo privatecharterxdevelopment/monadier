@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { config } from '../config';
 import { logger } from '../utils/logger';
-import { BRAND_NAME, BRAND_SITE_URL, EMAIL_FROM } from '../brand';
+import { BRAND_NAME, BRAND_SITE_URL, EMAIL_FROM, notificationEmailUnsubscribeUrl } from '../brand';
 
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 
@@ -61,6 +61,7 @@ function tradeCloseEmailHtml(params: {
     kind === 'betting'
       ? `${APP_TRADE_HISTORY_URL.replace(/\/$/, '')}/?section=sportsbets`
       : tradeHistoryDeepLink();
+  const unsubscribeUrl = notificationEmailUnsubscribeUrl(APP_TRADE_HISTORY_URL);
 
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
@@ -84,7 +85,11 @@ function tradeCloseEmailHtml(params: {
 <a href="${historyUrl}" style="display:block;text-align:center;padding:14px 24px;background:#0a0a0a;color:#fff;text-decoration:none;border-radius:50px;font-size:14px;font-weight:500;">View in ${BRAND_NAME}</a>
 </td></tr>
 <tr><td style="padding-top:24px;text-align:center;">
-<p style="margin:0;font-size:12px;color:#888;">Turn off these emails in Profile → Security.</p>
+<p style="margin:0 0 8px;font-size:12px;color:#888;">Trade notification email</p>
+<p style="margin:0;font-size:12px;color:#888;">
+<a href="${unsubscribeUrl}" style="color:#525252;text-decoration:underline;">Unsubscribe</a>
+ in your ${BRAND_NAME} dashboard (Profile → Security).
+</p>
 </td></tr>
 </table>
 </td></tr></table>
@@ -225,7 +230,7 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
             ? 'Trade closed in profit'
             : 'Trade closed';
 
-      const subject = `${subjectPrefix} · ${row.headline} (${fmtUsd(profitUsd)})`;
+      const subject = `${BRAND_NAME} · ${subjectPrefix} · ${row.headline} (${fmtUsd(profitUsd)})`;
       const ok = await sendResendEmail(
         email,
         subject,

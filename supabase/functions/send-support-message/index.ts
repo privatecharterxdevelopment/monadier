@@ -2,9 +2,11 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { corsHeaders, handleCors } from '../_shared/cors.ts';
 import { createSupabaseAdmin, getUserFromToken } from '../_shared/supabase.ts';
 
+import { BRAND_NAME, EMAIL_FROM_SUPPORT } from '../_shared/brand.ts';
+
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const SUPPORT_INBOX = Deno.env.get('SUPPORT_INBOX') || 'ipsunlorem@gmail.com';
-const FROM_ADDRESS = 'Monadier Support <hello@monadier.io>';
+const FROM_ADDRESS = EMAIL_FROM_SUPPORT;
 
 const MAX_SUBJECT = 120;
 const MAX_MESSAGE = 5000;
@@ -49,7 +51,7 @@ function supportEmailHtml(opts: {
 <html><body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f4f4f5;">
   <table role="presentation" width="100%" style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e4e4e7;">
     <tr><td style="padding:24px;">
-      <p style="margin:0 0 8px;font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#71717a;">Dashboard2 support</p>
+      <p style="margin:0 0 8px;font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#71717a;">${BRAND_NAME} support</p>
       <h1 style="margin:0 0 20px;font-size:18px;font-weight:600;color:#0a0a0a;">${escapeHtml(opts.subject)}</h1>
       <table role="presentation" width="100%" style="margin-bottom:20px;border-collapse:collapse;background:#fafafa;border-radius:8px;">${metaRows}</table>
       <p style="margin:0 0 8px;font-size:12px;font-weight:600;color:#71717a;">Message</p>
@@ -117,7 +119,7 @@ serve(async (req: Request) => {
     const username = profile?.username || '';
     const walletAddress = profile?.wallet_address || '';
 
-    const mailSubject = `[Monadier] ${subject}`;
+    const mailSubject = `[${BRAND_NAME}] ${subject}`;
     const html = supportEmailHtml({
       subject,
       message,

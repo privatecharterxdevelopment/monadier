@@ -2,11 +2,17 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { corsHeaders, handleCors } from '../_shared/cors.ts';
 import { createSupabaseAdmin } from '../_shared/supabase.ts';
 
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-const FROM_ADDRESS = 'Monadier <hello@monadier.io>';
+import {
+  BRAND_NAME,
+  BRAND_SITE_URL,
+  EMAIL_FROM,
+} from '../_shared/brand.ts';
 
-/** Hardcoded — never localhost. Matches Vercel production + Supabase allowlist. */
-const PASSWORD_RESET_REDIRECT = 'https://monadier.vercel.app/reset-password';
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+const FROM_ADDRESS = EMAIL_FROM;
+
+/** Production password reset — hypergain.io */
+const PASSWORD_RESET_REDIRECT = `${BRAND_SITE_URL}/reset-password`;
 
 function escapeHtml(text: string): string {
   return text
@@ -27,7 +33,7 @@ function resetEmailHtml(resetLink: string): string {
         <table role="presentation" width="100%" style="max-width:480px;background:#f5f5f5;border-radius:16px;">
           <tr>
             <td style="padding:40px 32px;text-align:center;">
-              <p style="margin:0 0 8px;font-size:28px;font-weight:600;color:#0a0a0a;">+Monadier</p>
+              <p style="margin:0 0 8px;font-size:28px;font-weight:600;color:#0a0a0a;">${BRAND_NAME}</p>
               <h1 style="margin:0 0 16px;font-size:22px;font-weight:500;color:#0a0a0a;">Reset your password</h1>
               <p style="margin:0 0 28px;font-size:15px;line-height:1.6;color:#525252;">
                 Click the button below to choose a new password. This link expires in about an hour.
@@ -59,7 +65,7 @@ async function sendViaResend(to: string, resetLink: string): Promise<boolean> {
     body: JSON.stringify({
       from: FROM_ADDRESS,
       to: [to],
-      subject: 'Reset your Monadier password',
+      subject: `Reset your ${BRAND_NAME} password`,
       html: resetEmailHtml(resetLink),
     }),
   });
