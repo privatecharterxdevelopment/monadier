@@ -44,7 +44,7 @@
     "privacy": "Datenschutz",
     "support": "Support",
     "about": "Über uns",
-    "copyright": "© {{year}} Monadier · Hyperliquid automatisierter Handel · support@monadier.io"
+    "copyright": "© {{year}} HyperGain · Hyperliquid automatisierter Handel · support@hypergain.io"
   },
   "landing": {
     "hero": {
@@ -58,7 +58,7 @@
         "mit tiefer HL-Liquidität",
         "über 200+ Märkte"
       ],
-      "disclaimer": "Monadier ermöglicht KI-automatisierten Perpetual-Handel über dein Hyperliquid-Konto. Dein USDC bleibt jederzeit auf Hyperliquid — wir sind non-custodial, halten nie deine Private Keys und können nicht auf deine Wallet zugreifen oder Geld abheben; wir stellen nur die Handels-Technologie und Automatisierung bereit. Gehebelter Krypto-Handel birgt erhebliches Verlustrisiko; KI und automatisierte Systeme können Märkte falsch lesen und Fehler machen. Vergangene Performance garantiert keine zukünftigen Ergebnisse. Keine Finanz-, Investitions-, Steuer- oder Rechtsberatung."
+      "disclaimer": "HyperGain ermöglicht KI-automatisierten Perpetual-Handel über dein Hyperliquid-Konto. Dein USDC bleibt jederzeit auf Hyperliquid — wir sind non-custodial, halten nie deine Private Keys und können nicht auf deine Wallet zugreifen oder Geld abheben; wir stellen nur die Handels-Technologie und Automatisierung bereit. Gehebelter Krypto-Handel birgt erhebliches Verlustrisiko; KI und automatisierte Systeme können Märkte falsch lesen und Fehler machen. Keine versprochenen Renditen — vergangene Performance garantiert keine zukünftigen Ergebnisse. Keine Finanz-, Investitions-, Steuer- oder Rechtsberatung."
     },
     "carousel": {
       "titleStart": "Starte",
@@ -275,7 +275,7 @@
             "muted": true
           },
           {
-            "text": "jetzt Geld zu verdienen"
+            "text": "jetzt\u00A0Geld\u00A0zu\u00A0verdienen"
           }
         ]
       ]

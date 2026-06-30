@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import MarketingPageLayout from '../layout/MarketingPageLayout';
+import { SUPPORT_EMAIL } from '../../lib/brand';
 
 export type LegalSection = {
   title: string;
@@ -43,8 +44,8 @@ const LegalDocumentLayout: React.FC<Props> = ({
 
         <p className="legal-doc-footer">
           Questions? Contact{' '}
-          <a href="mailto:support@monadier.io" className="legal-doc-link">
-            support@monadier.io
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="legal-doc-link">
+            {SUPPORT_EMAIL}
           </a>
           .
         </p>

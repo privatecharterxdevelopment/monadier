@@ -584,6 +584,22 @@
     @apply list-disc pl-5 space-y-1.5;
   }
 
+  .legal-doc-section-body ol.legal-doc-clause-list {
+    @apply list-decimal pl-5 space-y-2 my-2;
+  }
+
+  .legal-doc-section-body ol.legal-doc-clause-list ol {
+    @apply list-[lower-alpha] pl-5 mt-1.5 space-y-1.5;
+  }
+
+  .legal-doc-section-body ol.legal-doc-clause-list ol ol {
+    @apply list-[lower-roman] pl-5;
+  }
+
+  .legal-doc-section-body .legal-doc-clause-label {
+    @apply font-medium text-[#3f3f46];
+  }
+
   .legal-doc-link {
     @apply text-[#0a0a0a] underline underline-offset-2 hover:text-[#52525b] transition-colors;
   }

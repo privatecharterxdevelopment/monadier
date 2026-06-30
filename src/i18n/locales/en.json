@@ -58,7 +58,7 @@
         "with deep HL liquidity",
         "across 200+ markets"
       ],
-      "disclaimer": "HyperGain enables AI-automated perpetuals trading from your Hyperliquid account. Your USDC remains on Hyperliquid at all times — we are non-custodial, never hold your private keys, and cannot access your wallet or withdraw funds; we supply the trading technology and automation only. Leveraged crypto trading carries substantial risk of loss; AI and automated systems can misread markets and make mistakes. Past performance does not guarantee future results. Not financial, investment, tax, or legal advice."
+      "disclaimer": "HyperGain enables AI-automated perpetuals trading from your Hyperliquid account. Your USDC remains on Hyperliquid at all times — we are non-custodial, never hold your private keys, and cannot access your wallet or withdraw funds; we supply the trading technology and automation only. Leveraged crypto trading carries substantial risk of loss; AI and automated systems can misread markets and make mistakes. No promised or guaranteed returns — past performance does not guarantee future results. Not financial, investment, tax, or legal advice."
     },
     "carousel": {
       "titleStart": "Start",
@@ -275,7 +275,7 @@
             "muted": true
           },
           {
-            "text": "making money now"
+            "text": "making\u00A0money\u00A0now"
           }
         ]
       ]

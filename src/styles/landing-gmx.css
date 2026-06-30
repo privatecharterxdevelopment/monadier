@@ -1793,18 +1793,30 @@
   margin: 0;
   padding: 0 12px;
   box-sizing: border-box;
-  font-size: clamp(2.4rem, 8vw, 3.5rem);
+  font-size: clamp(2rem, 6.2vw, 4.25rem);
   font-weight: 600;
-  line-height: 1.06;
+  line-height: 1.08;
   letter-spacing: -0.04em;
-  text-wrap: balance;
+  text-wrap: pretty;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
   transform: translate(-50%, -50%);
 }
 
 @media (min-width: 640px) {
   .landing-gmx-bot-pitch-line {
-    font-size: clamp(3.25rem, 8.5vw, 5.5rem);
+    font-size: clamp(2.75rem, 7vw, 4.5rem);
   }
+}
+
+.landing-gmx-bot-pitch-section--final .landing-gmx-bot-pitch-line {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+  white-space: nowrap;
+  font-size: clamp(1.85rem, 6.8vw, 4.75rem);
 }
 
 .landing-gmx-bot-pitch-muted {
@@ -5673,9 +5685,13 @@
   .landing-gmx-bot-pitch-line {
     width: min(94vw, 980px);
     padding: 0 max(12px, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
-    font-size: clamp(1.75rem, 6.8vw, 2.35rem);
+    font-size: clamp(1.45rem, 5.2vw, 2rem);
     line-height: 1.08;
-    text-wrap: balance;
+    text-wrap: pretty;
+  }
+
+  .landing-gmx-bot-pitch-section--final .landing-gmx-bot-pitch-line {
+    font-size: clamp(1.35rem, 5.8vw, 2rem);
   }
 
   .landing-gmx-product-carousel-title {
