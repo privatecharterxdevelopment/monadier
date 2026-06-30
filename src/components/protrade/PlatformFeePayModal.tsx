@@ -37,7 +37,7 @@ const PlatformFeePayModal: React.FC<Props> = ({
   winsBeforeBlock,
   opensBlocked,
   builderAddress,
-  trades,
+  trades = [],
   onPaid,
   onPaymentSuccess,
 }) => {
@@ -48,7 +48,7 @@ const PlatformFeePayModal: React.FC<Props> = ({
   const [balanceLoading, setBalanceLoading] = useState(false);
 
   const winTrades = useMemo(
-    () => trades.filter((t) => t.totalFeeUsd > 0 && t.grossProfitUsd > 0),
+    () => (trades ?? []).filter((t) => t.totalFeeUsd > 0 && t.grossProfitUsd > 0),
     [trades]
   );
 

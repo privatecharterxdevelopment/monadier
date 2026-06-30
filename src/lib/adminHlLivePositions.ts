@@ -34,8 +34,8 @@ export function collectAdminHlWalletAddresses(dash: AdminHlDashboard): string[] 
 
   // Canonical HL wallets only — avoid polling every historic address from fees/closes/events
   // (was inflating open-position counts with stale or duplicate legs).
-  for (const b of dash.active_bots) add(b.wallet_address);
-  for (const u of dash.users) add(u.wallet_address);
+  for (const b of dash.active_bots ?? []) add(b.wallet_address);
+  for (const u of dash.users ?? []) add(u.wallet_address);
 
   return [...set];
 }

@@ -147,7 +147,7 @@ const AdminMonitorPage: React.FC = () => {
 
   const mergedEvents = useMemo(() => {
     if (!dash) return [];
-    const fromNotifs = dash.recent_events.map((e) => ({
+    const fromNotifs = (dash.recent_events ?? []).map((e) => ({
       id: e.id,
       at: e.closed_at,
       kind: e.kind,

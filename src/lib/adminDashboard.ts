@@ -178,6 +178,45 @@ export type AdminHlDashboard = {
   subscriptions: AdminSubscriptionRow[];
 };
 
+const EMPTY_ADMIN_STATS: AdminHlStats = {
+  total_users: 0,
+  users_with_wallet: 0,
+  hl_bots_active: 0,
+  hl_bots_total: 0,
+  agents_approved: 0,
+  open_positions: 0,
+  open_upnl_total: 0,
+  closed_trades_24h: 0,
+  closed_trades_total: 0,
+  total_pnl: 0,
+  pnl_24h: 0,
+  win_rate: 0,
+  hl_fees_accrued_usd: 0,
+  hl_fees_settled_usd: 0,
+  hl_fees_total_usd: 0,
+  notifications_pending_email: 0,
+  betting_open: 0,
+  active_subscriptions: 0,
+};
+
+/** RPC jsonb may omit null array keys after schema changes — never crash admin UI. */
+export function normalizeAdminHlDashboard(raw: Partial<AdminHlDashboard> | null | undefined): AdminHlDashboard {
+  const dash = raw ?? {};
+  return {
+    generated_at: dash.generated_at ?? new Date().toISOString(),
+    stats: { ...EMPTY_ADMIN_STATS, ...(dash.stats ?? {}) },
+    active_bots: dash.active_bots ?? [],
+    open_positions: dash.open_positions ?? [],
+    recent_closes: dash.recent_closes ?? [],
+    recent_events: dash.recent_events ?? [],
+    fee_ledger: dash.fee_ledger ?? [],
+    betting_positions: dash.betting_positions ?? [],
+    betting_closes: dash.betting_closes ?? [],
+    users: dash.users ?? [],
+    subscriptions: dash.subscriptions ?? [],
+  };
+}
+
 export type BotServiceHealth = {
   status: string;
   uptime?: string;
@@ -472,7 +511,9 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
 export async function fetchAdminHlDashboard(): Promise<AdminHlDashboardResult> {
   const { data, error } = await supabase.rpc('get_admin_hl_dashboard');
   if (!error && data) {
-    const enriched = await enrichAdminHlDashboard(data as AdminHlDashboard);
+    const enriched = await enrichAdminHlDashboard(
+      normalizeAdminHlDashboard(data as Partial<AdminHlDashboard>)
+    );
     return { data: enriched, error: null, source: 'rpc' };
   }
 
@@ -482,7 +523,7 @@ export async function fetchAdminHlDashboard(): Promise<AdminHlDashboardResult> {
 
   const fallback = await fetchAdminHlDashboardViaTables();
   if (fallback) {
-    const enriched = await enrichAdminHlDashboard(fallback);
+    const enriched = await enrichAdminHlDashboard(normalizeAdminHlDashboard(fallback));
     return {
       data: enriched,
       error: null,
@@ -663,9 +704,10 @@ export async function fetchAllAdminHlTradeHistory(): Promise<AdminHlTradeHistory
   for (;;) {
     const page = await fetchAdminHlTradeHistory({ limit: pageSize, offset });
     total = page.total;
-    rows.push(...page.rows);
-    offset += page.rows.length;
-    if (page.rows.length === 0 || offset >= total) break;
+    const batch = page.rows ?? [];
+    rows.push(...batch);
+    offset += batch.length;
+    if (batch.length === 0 || offset >= total) break;
   }
 
   return { total, limit: pageSize, offset: 0, rows };
