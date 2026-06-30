@@ -3,7 +3,6 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { notionalBuilderFeeUsd } from './hlBuilderFee';
 import { recordHlChartMarker } from './hlChartMarkers';
-import { processPendingTradeCloseEmails } from './tradeCloseEmail';
 import { accrueReferralEarning, tryQualifyReferral } from './referralAffiliate';
 import { isFeeExemptWallet, waivedPlatformFeeStatus } from './feeExempt';
 import { fetchHlRecentCloseFillSummaryWithRetry } from './hlInfo';
@@ -466,7 +465,6 @@ export async function recordBotCloseOutcome(
       realizedPnl: realized.toFixed(4),
       reason: closeReason.slice(0, 120),
     });
-    void processPendingTradeCloseEmails(25).catch(() => undefined);
     return;
   }
 
@@ -586,7 +584,6 @@ export async function recordProfitableClose(input: ProfitableCloseInput): Promis
     });
   }
 
-  void processPendingTradeCloseEmails(25).catch(() => undefined);
   await tryQualifyReferral(wallet, {
     tradeExecuted: true,
     profitableTrade: true,
@@ -920,7 +917,6 @@ async function recordProfitableCloseFeeWaived(input: ProfitableCloseInput): Prom
     });
   }
 
-  void processPendingTradeCloseEmails(25).catch(() => undefined);
   await tryQualifyReferral(wallet, {
     tradeExecuted: true,
     profitableTrade: true,

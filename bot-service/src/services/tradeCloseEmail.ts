@@ -167,6 +167,28 @@ async function resolveUserEmail(userId: string): Promise<{
   };
 }
 
+/** Skip if this user already got a win email for same headline+P/L in the last 24h. */
+async function alreadyEmailedSimilarWin(
+  userId: string,
+  headline: string,
+  profitUsd: number
+): Promise<boolean> {
+  const since = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
+  const { data } = await supabase
+    .from('user_trade_notifications')
+    .select('id, profit_loss')
+    .eq('user_id', userId)
+    .eq('headline', headline)
+    .not('email_sent_at', 'is', null)
+    .gte('closed_at', since)
+    .order('email_sent_at', { ascending: false })
+    .limit(10);
+
+  return (data ?? []).some(
+    (row) => Math.abs(Number(row.profit_loss) - profitUsd) < 0.02
+  );
+}
+
 /** Send pending trade-close emails (bot + betting + manual). */
 export async function processPendingTradeCloseEmails(limit = 40): Promise<number> {
   const { data, error } = await supabase
@@ -198,6 +220,19 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
           .from('user_trade_notifications')
           .update({ email_sent_at: new Date().toISOString() })
           .eq('id', row.id);
+        continue;
+      }
+
+      if (await alreadyEmailedSimilarWin(row.user_id, row.headline, profitUsd)) {
+        await supabase
+          .from('user_trade_notifications')
+          .update({ email_sent_at: new Date().toISOString() })
+          .eq('id', row.id);
+        logger.debug('Trade close email skipped — duplicate win already sent', {
+          userId: row.user_id,
+          headline: row.headline,
+          profitUsd: profitUsd.toFixed(4),
+        });
         continue;
       }
 
