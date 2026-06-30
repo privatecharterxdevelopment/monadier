@@ -12897,9 +12897,17 @@
   line-height: 1.45;
 }
 
+.hl-fee-modal-hint {
+  margin: 0;
+  padding: 0 18px 12px;
+  font-size: 0.75rem;
+  color: var(--hl-text-muted, #9aa0a6);
+  line-height: 1.45;
+}
+
 .hl-fee-modal-kpis {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   padding: 0 18px 12px;
 }

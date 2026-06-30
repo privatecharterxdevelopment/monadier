@@ -130,6 +130,7 @@ export const PlatformFeeProvider: React.FC<{
       <PlatformFeePayModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
+        payerWallet={wallet}
         accruedUsd={fees.accruedUsd}
         successWinCount={fees.successWinCount}
         winsBeforeBlock={fees.winsBeforeBlock}

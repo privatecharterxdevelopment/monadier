@@ -43,5 +43,5 @@ export function formatHlSlLabel(
   _strategy: HlBotStrategy = 'standard'
 ): string {
   const pct = effectiveStopLossPct(stopLoss);
-  return pct > 0 ? `Max −${pct}%` : 'No SL — set manually';
+  return pct > 0 ? `Max −${pct}%` : 'Profit trail';
 }
