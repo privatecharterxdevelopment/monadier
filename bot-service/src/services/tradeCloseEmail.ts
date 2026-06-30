@@ -10,20 +10,58 @@ const APP_TRADE_HISTORY_URL =
   process.env.APP_PUBLIC_URL ||
   BRAND_SITE_URL;
 
+type TradeHistoryJoin = {
+  profit_loss: number | string | null;
+  profit_loss_percent: number | string | null;
+  platform_fee_status: string | null;
+};
+
 type PendingRow = {
   id: string;
   user_id: string;
   trade_history_id: string | null;
+  hl_betting_close_id: string | null;
   headline: string;
-  profit_loss: number;
-  profit_loss_percent: number | null;
+  profit_loss: number | string;
+  profit_loss_percent: number | string | null;
   closed_at: string;
   kind: string;
+  trade_history: TradeHistoryJoin | TradeHistoryJoin[] | null;
 };
 
-function fmtUsd(n: number): string {
-  const sign = n >= 0 ? '+' : '-';
-  return `${sign}$${Math.abs(n).toFixed(2)}`;
+function asTradeHistory(
+  row: PendingRow
+): TradeHistoryJoin | null {
+  const th = row.trade_history;
+  if (!th) return null;
+  return Array.isArray(th) ? th[0] ?? null : th;
+}
+
+/** Exact realized win in USD — trade_history is source of truth when linked. */
+function resolveWinUsd(row: PendingRow): number {
+  const th = asTradeHistory(row);
+  if (th?.profit_loss != null && Number.isFinite(Number(th.profit_loss))) {
+    return Number(th.profit_loss);
+  }
+  const fromNotif = Number(row.profit_loss);
+  return Number.isFinite(fromNotif) ? fromNotif : 0;
+}
+
+function resolveRoiPct(row: PendingRow): number | null {
+  const th = asTradeHistory(row);
+  const raw = th?.profit_loss_percent ?? row.profit_loss_percent;
+  if (raw == null) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Format exact win amount — enough precision for small bot profits. */
+function fmtExactWinUsd(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return '$0.00';
+  const abs = Math.abs(n);
+  if (abs < 0.01) return `+$${n.toFixed(4)}`;
+  if (abs < 1) return `+$${n.toFixed(3)}`;
+  return `+$${n.toFixed(2)}`;
 }
 
 function fmtPct(n: number | null | undefined): string {
@@ -45,19 +83,15 @@ function tradeCloseEmailHtml(params: {
   kind: string;
 }): string {
   const { headline, profitUsd, roiPct, closedAt, kind } = params;
-  const pnlColor = profitUsd >= 0 ? '#16a34a' : '#dc2626';
+  const winLabel = fmtExactWinUsd(profitUsd);
   const when = new Date(closedAt).toLocaleString(undefined, {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
   const title =
     kind === 'betting'
-      ? profitUsd >= 0
-        ? 'Bet settled — win'
-        : profitUsd < 0
-          ? 'Bet settled — loss'
-          : 'Bet settled'
-      : 'Trade closed';
+      ? 'Bet settled — win'
+      : 'Trade closed in profit';
   const historyUrl =
     kind === 'betting'
       ? `${APP_TRADE_HISTORY_URL.replace(/\/$/, '')}/?section=sportsbets`
@@ -78,15 +112,15 @@ function tradeCloseEmailHtml(params: {
 <p style="margin:0 0 24px;font-size:15px;color:#525252;text-align:center;">${headline}</p>
 <table width="100%" style="background:#fff;border-radius:12px;margin-bottom:24px;">
 <tr><td style="padding:20px;text-align:center;">
-<p style="margin:0 0 4px;font-size:13px;color:#737373;text-transform:uppercase;letter-spacing:0.5px;">P/L</p>
-<p style="margin:0;font-size:28px;font-weight:600;color:${pnlColor};">${fmtUsd(profitUsd)}</p>
+<p style="margin:0 0 4px;font-size:13px;color:#737373;text-transform:uppercase;letter-spacing:0.5px;">Win (USD)</p>
+<p style="margin:0;font-size:28px;font-weight:600;color:#16a34a;">${winLabel}</p>
 <p style="margin:8px 0 0;font-size:15px;color:#525252;">${fmtPct(roiPct)}</p>
 </td></tr></table>
 <p style="margin:0 0 24px;font-size:13px;color:#888;text-align:center;">Closed ${when}</p>
 <a href="${historyUrl}" style="display:block;text-align:center;padding:14px 24px;background:#0a0a0a;color:#fff;text-decoration:none;border-radius:50px;font-size:14px;font-weight:500;">View in ${BRAND_NAME}</a>
 </td></tr>
 <tr><td style="padding-top:24px;text-align:center;">
-<p style="margin:0 0 8px;font-size:12px;color:#888;">Trade notification email</p>
+<p style="margin:0 0 8px;font-size:12px;color:#888;">One email per profitable close</p>
 <p style="margin:0;font-size:12px;color:#888;">
 <a href="${unsubscribeUrl}" style="color:#525252;text-decoration:underline;">Unsubscribe</a>
  in your ${BRAND_NAME} dashboard (Profile → Security).
@@ -168,16 +202,18 @@ async function resolveUserEmail(userId: string): Promise<{
   };
 }
 
-/** Exactly one win email per trade_history row (profitable close). */
-async function tradeHistoryEmailAlreadySent(tradeHistoryId: string | null): Promise<boolean> {
-  if (!tradeHistoryId) return false;
-  const { data } = await supabase
+async function syncNotificationProfitFromTradeHistory(
+  notificationId: string,
+  profitUsd: number,
+  roiPct: number | null
+): Promise<void> {
+  await supabase
     .from('user_trade_notifications')
-    .select('id')
-    .eq('trade_history_id', tradeHistoryId)
-    .not('email_sent_at', 'is', null)
-    .limit(1);
-  return (data?.length ?? 0) > 0;
+    .update({
+      profit_loss: profitUsd,
+      profit_loss_percent: roiPct,
+    })
+    .eq('id', notificationId);
 }
 
 async function markNotificationEmailHandled(notificationId: string): Promise<void> {
@@ -187,12 +223,30 @@ async function markNotificationEmailHandled(notificationId: string): Promise<voi
     .eq('id', notificationId);
 }
 
-/** Send pending trade-close emails — one Resend message per profitable trade_history row. */
+/**
+ * Send pending win emails — exactly one Resend message per profitable trade_history row.
+ * Losses / break-even: in-app notification only (marked handled, no email).
+ */
 export async function processPendingTradeCloseEmails(limit = 40): Promise<number> {
   const { data, error } = await supabase
     .from('user_trade_notifications')
     .select(
-      'id, user_id, trade_history_id, headline, profit_loss, profit_loss_percent, closed_at, kind'
+      `
+      id,
+      user_id,
+      trade_history_id,
+      hl_betting_close_id,
+      headline,
+      profit_loss,
+      profit_loss_percent,
+      closed_at,
+      kind,
+      trade_history (
+        profit_loss,
+        profit_loss_percent,
+        platform_fee_status
+      )
+    `
     )
     .is('email_sent_at', null)
     .order('created_at', { ascending: true })
@@ -207,30 +261,30 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
   if (rows.length === 0) return 0;
 
   let sent = 0;
-  const emailedTradeIds = new Set<string>();
 
   for (const row of rows) {
     try {
-      const profitUsd = Number(row.profit_loss) || 0;
-      const roiPct =
-        row.profit_loss_percent != null ? Number(row.profit_loss_percent) : null;
+      const th = asTradeHistory(row);
+      if (th?.platform_fee_status === 'pending_fill') {
+        continue;
+      }
 
-      // Losses / break-even: in-app only — mark handled, no email.
+      const profitUsd = resolveWinUsd(row);
+      const roiPct = resolveRoiPct(row);
+
+      // Loss / break-even — in-app only.
       if (profitUsd <= 0) {
         await markNotificationEmailHandled(row.id);
         continue;
       }
 
-      const tradeId = row.trade_history_id?.trim() || null;
-      if (tradeId) {
-        if (emailedTradeIds.has(tradeId)) {
-          await markNotificationEmailHandled(row.id);
-          continue;
-        }
-        if (await tradeHistoryEmailAlreadySent(tradeId)) {
-          await markNotificationEmailHandled(row.id);
-          continue;
-        }
+      const notifProfit = Number(row.profit_loss);
+      if (
+        th &&
+        Number.isFinite(notifProfit) &&
+        Math.abs(notifProfit - profitUsd) > 0.000_001
+      ) {
+        await syncNotificationProfitFromTradeHistory(row.id, profitUsd, roiPct);
       }
 
       const { email, emailEnabled } = await resolveUserEmail(row.user_id);
@@ -244,20 +298,16 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
         logger.warn('Trade close email skipped — no email for user', {
           userId: row.user_id,
           notificationId: row.id,
+          tradeHistoryId: row.trade_history_id,
         });
         continue;
       }
 
+      const winLabel = fmtExactWinUsd(profitUsd);
       const subjectPrefix =
-        row.kind === 'betting'
-          ? profitUsd >= 0
-            ? 'Bet won'
-            : profitUsd < 0
-              ? 'Bet lost'
-              : 'Bet settled'
-          : 'Trade closed in profit';
+        row.kind === 'betting' ? 'Bet won' : 'Trade closed in profit';
+      const subject = `${BRAND_NAME} · ${subjectPrefix} · ${row.headline} (${winLabel})`;
 
-      const subject = `${BRAND_NAME} · ${subjectPrefix} · ${row.headline} (${fmtUsd(profitUsd)})`;
       const ok = await sendResendEmail(
         email,
         subject,
@@ -272,8 +322,13 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
 
       if (ok) {
         sent += 1;
-        if (tradeId) emailedTradeIds.add(tradeId);
         await markNotificationEmailHandled(row.id);
+        logger.info('Trade close win email sent', {
+          userId: row.user_id.slice(0, 8),
+          notificationId: row.id,
+          tradeHistoryId: row.trade_history_id,
+          profitUsd: profitUsd.toFixed(6),
+        });
       }
     } catch (err) {
       logger.warn('Trade close email row failed', {
@@ -284,7 +339,7 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
   }
 
   if (sent > 0) {
-    logger.info('Trade close emails sent', { sent, processed: rows.length });
+    logger.info('Trade close emails batch', { sent, processed: rows.length });
   }
 
   return sent;
