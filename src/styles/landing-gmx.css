@@ -5618,7 +5618,7 @@
   .landing-gmx-hero-title {
     padding-bottom: 20px;
     padding-right: 0;
-    font-size: clamp(2rem, 9.2vw, 2.85rem);
+    font-size: clamp(1.65rem, 7.2vw, 2.35rem);
     max-width: 100%;
   }
 
@@ -5665,8 +5665,8 @@
     max-width: 100%;
     padding-right: 0;
     padding-bottom: 0;
-    line-height: 1.1;
-    font-size: clamp(2rem, 9.2vw, 2.85rem);
+    line-height: 1.12;
+    font-size: clamp(1.6rem, 6.8vw, 2.25rem);
   }
 
   .landing-gmx-hero--centered .landing-gmx-hero-lines,
@@ -5714,17 +5714,19 @@
   .landing-gmx-bot-pitch-line {
     width: min(94vw, 980px);
     padding: 0 max(12px, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
-    font-size: clamp(1.45rem, 5.2vw, 2rem);
+    font-size: clamp(2rem, 8.2vw, 2.85rem);
     line-height: 1.08;
     text-wrap: pretty;
   }
 
   .landing-gmx-bot-pitch-section--final .landing-gmx-bot-pitch-line {
-    font-size: clamp(1.35rem, 5.8vw, 2rem);
+    font-size: clamp(2.35rem, 10vw, 3.25rem);
+    white-space: normal;
+    text-wrap: balance;
   }
 
   .landing-gmx-product-carousel-title {
-    font-size: clamp(2rem, 8.4vw, 2.65rem);
+    font-size: clamp(1.75rem, 6.2vw, 2.35rem);
   }
 
   .landing-gmx-product-carousel-desc {
