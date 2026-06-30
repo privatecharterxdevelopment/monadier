@@ -36,6 +36,8 @@ type StepOptions = {
   stepCount: number;
   wheelThreshold?: number;
   releaseAnchorId?: string;
+  /** Unlock at current scroll position instead of snapping to releaseAnchorId. */
+  releaseInPlace?: boolean;
   /** When true, forward/back release at complete is suppressed (e.g. until overlay animation finishes). */
   releaseBlockedRef?: MutableRefObject<boolean>;
 };
@@ -52,6 +54,7 @@ export function useLandingScrollSequence(options: Options) {
   const scrollPx = isStepMode ? 1 : options.scrollPx;
   const stepCount = isStepMode ? options.stepCount : 1;
   const releaseBlockedRef = isStepMode ? options.releaseBlockedRef : undefined;
+  const releaseInPlace = isStepMode ? Boolean(options.releaseInPlace) : false;
 
   const sectionRef = useRef<HTMLElement>(null);
   const progressRef = useRef(0);
@@ -93,6 +96,17 @@ export function useLandingScrollSequence(options: Options) {
   const releaseLock = useCallback(
     (forward = true, continueDelta = 0) => {
       if (unlockedRef.current) return;
+
+      if (releaseInPlace) {
+        const currentY = readScrollY();
+        lockSnapshotRef.current = null;
+        unlockedRef.current = true;
+        engagedRef.current = false;
+        setLocked(false);
+        setUnlocked(true);
+        unlockPageScroll({ scrollY: currentY }, lockId);
+        return;
+      }
 
       const snapshot = lockSnapshotRef.current;
       lockSnapshotRef.current = null;
@@ -137,7 +151,7 @@ export function useLandingScrollSequence(options: Options) {
 
       unlockPageScroll({ scrollY: exitY }, lockId);
     },
-    [handoffLockId, lockId, releaseAnchorId, releaseAnchorOffsetPx, releaseScrollBehavior]
+    [handoffLockId, lockId, releaseAnchorId, releaseAnchorOffsetPx, releaseInPlace, releaseScrollBehavior]
   );
 
   /** Unlock scroll in place — keep final step/visual state (no anchor jump). */

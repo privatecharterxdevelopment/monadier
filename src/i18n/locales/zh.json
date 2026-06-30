@@ -112,6 +112,8 @@
     },
     "pitch": {
       "cta": "启动机器人",
+      "ctaRegister": "免费注册",
+      "ctaLaunchBot": "立即启动 Bot",
       "ctaFinal": "Start trading now",
       "lines": [
         [

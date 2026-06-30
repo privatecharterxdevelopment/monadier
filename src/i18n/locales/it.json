@@ -112,6 +112,8 @@
     },
     "pitch": {
       "cta": "Avvia bot",
+      "ctaRegister": "Registrati gratis",
+      "ctaLaunchBot": "Avvia Bot ora",
       "ctaFinal": "Start trading now",
       "lines": [
         [

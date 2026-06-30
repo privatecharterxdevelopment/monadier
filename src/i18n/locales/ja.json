@@ -112,6 +112,8 @@
     },
     "pitch": {
       "cta": "ボット開始",
+      "ctaRegister": "無料登録",
+      "ctaLaunchBot": "Botを今すぐ起動",
       "ctaFinal": "Start trading now",
       "lines": [
         [

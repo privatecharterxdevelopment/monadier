@@ -106,6 +106,31 @@
         "payOnPerf": "Nur zahlen, wenn der Bot performt"
       }
     },
+    "agentSections": {
+      "aria": "HyperGain Bot-Funktionen",
+      "calc": {
+        "eyebrow": "Bot ROI",
+        "title": "Schätze deinen monatlichen Edge",
+        "desc": "Trage dein Hyperliquid-USDC-Guthaben und den Hebel ein — sieh Gewinn pro Win, Risiko pro Loss, monatlichen Multiplikator und Winrate, bevor du den Bot startest."
+      },
+      "toolkit": {
+        "aria": "HyperGain Bot-Marktanalyse",
+        "eyebrow": "14+ Pre-Open-Gates",
+        "title": "14+ Trade-Gates vor dem Open",
+        "desc": "Macro Beta, Pump-Short, 4h/24h-Bias, Fresh-Pump, Location und mehr — dieselbe Multi-Gate-Pipeline wie im Live-Terminal, bevor ein HL-Perp geöffnet wird.",
+        "portfolioDesc": "Hyperliquid-Perps, Spot-Salden und Wett-Positionen in einer Portfolio-Ansicht.",
+        "newsDesc": "Makro- und Krypto-Headlines für aktive Trader — direkt im Pro-Trade-Workspace.",
+        "openCta": "{{section}} in der App öffnen"
+      },
+      "winrate": {
+        "eyebrow": "One-Click-Connect",
+        "title": "Verbinde dein bestehendes Wallet",
+        "desc": "MetaMask, Coinbase Wallet, Binance Web3, WalletConnect und mehr — auf Arbitrum verbinden und Hyperliquid direkt aus HyperGain finanzieren.",
+        "boxAria": "Unterstützte Wallet-Verbindungen",
+        "boxLabel": "Unterstützte Wallets",
+        "boxCaption": "Arbitrum One · natives USDC · WalletConnect & injected"
+      }
+    },
     "bento": {
       "ariaLabel": "Handelsfunktionen",
       "title": "Alles",
@@ -168,11 +193,20 @@
       },
       "markets": {
         "volume24h": "24h Volumen",
-        "change24h": "24h Änderung"
+        "change24h": "24h Änderung",
+        "impliedWin": "Impl. Sieg",
+        "marketOdds": "Marktquote",
+        "decimalOdds": "Quote",
+        "payoutStake": "Auszahlung $25",
+        "stake": "Einsatz",
+        "sportsBet": "Sportwette",
+        "toWin": "Gewinn"
       }
     },
     "pitch": {
       "cta": "Bot starten",
+      "ctaRegister": "Kostenlos registrieren",
+      "ctaLaunchBot": "Bot jetzt starten",
       "ctaFinal": "Start trading now",
       "lines": [
         [

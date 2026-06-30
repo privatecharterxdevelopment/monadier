@@ -2,7 +2,6 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import LandingAppleFeatureWidget from './widgets/LandingAppleFeatureWidget';
-import LandingBotCalculatorWidget from './widgets/LandingBotCalculatorWidget';
 import LandingBentoMarketCharts from './widgets/LandingBentoMarketCharts';
 
 const fadeUp = (delay = 0) => ({
@@ -17,53 +16,60 @@ const LandingHomeBentoCards: React.FC = () => {
 
   return (
     <section
-      className="landing-gmx-gutter landing-home-bento-section"
+      className="landing-home-bento-section"
       aria-labelledby="landing-home-bento-title"
     >
-      <div className="landing-home-bento-sticky">
-        <div className="landing-home-bento-container">
-          <motion.header {...fadeUp(0)} className="landing-home-bento-header">
-            <div className="landing-home-bento-header-main">
-              <h2 id="landing-home-bento-title" className="landing-home-bento-title">
-                {t('landing.bento.title')}{' '}
-                <span className="landing-home-bento-title-muted">{t('landing.bento.titleMuted')}</span>
-              </h2>
-            </div>
-            <p className="landing-home-bento-sub">{t('landing.bento.sub')}</p>
-          </motion.header>
-
-          <div className="landing-apple-widgets-bento">
-            <div className="landing-apple-widgets-stack">
-              <motion.div
-                {...fadeUp(0.04)}
-                className="landing-apple-widgets-cell landing-apple-widgets-cell--calc"
-              >
-                <LandingBotCalculatorWidget />
-              </motion.div>
-
-              <motion.div
-                {...fadeUp(0.07)}
-                className="landing-apple-widgets-cell landing-apple-widgets-cell--charts"
-              >
-                <LandingBentoMarketCharts />
-              </motion.div>
-            </div>
+      <div className="landing-gmx-gutter landing-gmx-shell">
+        <div className="landing-apple-widgets-bento">
+          <div className="landing-apple-widgets-stack">
+            <motion.div
+              {...fadeUp(0.04)}
+              className="landing-apple-widgets-cell landing-apple-widgets-cell--title"
+            >
+              <div className="landing-bento-title-gradient-box">
+                <div className="landing-bento-title-gradient-mark" aria-hidden>
+                  <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="32" height="32" rx="8" fill="white" fillOpacity="0.12" />
+                    <path
+                      d="M16 8V24M8 16H24"
+                      stroke="white"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </div>
+                <div className="landing-bento-title-gradient-copy">
+                  <h2 id="landing-home-bento-title" className="landing-bento-title-gradient-heading">
+                    {t('landing.bento.title')}{' '}
+                    <span className="landing-bento-title-gradient-muted">{t('landing.bento.titleMuted')}</span>
+                  </h2>
+                  <p className="landing-bento-title-gradient-sub">{t('landing.bento.sub')}</p>
+                </div>
+              </div>
+            </motion.div>
 
             <motion.div
-              {...fadeUp(0.08)}
-              className="landing-apple-widgets-cell landing-apple-widgets-cell--hero"
+              {...fadeUp(0.07)}
+              className="landing-apple-widgets-cell landing-apple-widgets-cell--charts"
             >
-              <LandingAppleFeatureWidget
-                title={t('landing.bento.sports.title')}
-                desc={t('landing.bento.sports.desc')}
-                cta={t('landing.bento.sports.cta')}
-                section="?section=sportsbets"
-                tone="photo"
-                video="/videos/sports-bento-bg.mp4"
-                layout="hero"
-              />
+              <LandingBentoMarketCharts />
             </motion.div>
           </div>
+
+          <motion.div
+            {...fadeUp(0.08)}
+            className="landing-apple-widgets-cell landing-apple-widgets-cell--hero"
+          >
+            <LandingAppleFeatureWidget
+              title={t('landing.bento.sports.title')}
+              desc={t('landing.bento.sports.desc')}
+              cta={t('landing.bento.sports.cta')}
+              section="?section=sportsbets"
+              tone="photo"
+              video="/videos/sports-bento-bg.mp4"
+              layout="hero"
+            />
+          </motion.div>
         </div>
       </div>
     </section>

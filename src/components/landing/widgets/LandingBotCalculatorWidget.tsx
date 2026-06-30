@@ -8,10 +8,18 @@ import {
   formatWinRate,
 } from '../../../lib/landing/botRoiCalculator';
 
-const LandingBotCalculatorWidget: React.FC = () => {
+type Props = {
+  defaultStake?: string;
+  defaultLeverage?: number;
+};
+
+const LandingBotCalculatorWidget: React.FC<Props> = ({
+  defaultStake = '50',
+  defaultLeverage = BOT_ROI_DEFAULTS.refLeverage,
+}) => {
   const { t } = useTranslation();
-  const [stakeInput, setStakeInput] = useState('50');
-  const [leverage, setLeverage] = useState(BOT_ROI_DEFAULTS.refLeverage);
+  const [stakeInput, setStakeInput] = useState(defaultStake);
+  const [leverage, setLeverage] = useState(defaultLeverage);
 
   const stakeUsd = useMemo(() => {
     const parsed = Number.parseFloat(stakeInput.replace(/,/g, ''));

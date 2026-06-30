@@ -112,6 +112,8 @@
     },
     "pitch": {
       "cta": "เริ่มบอท",
+      "ctaRegister": "สมัครฟรี",
+      "ctaLaunchBot": "เปิด Bot ตอนนี้",
       "ctaFinal": "Start trading now",
       "lines": [
         [

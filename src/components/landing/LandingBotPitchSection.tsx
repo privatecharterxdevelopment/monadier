@@ -38,7 +38,7 @@ const LandingBotPitchSection: React.FC = () => {
     lockId: 'pitch',
     mode: 'step',
     stepCount: Math.max(1, pitchLines.length),
-    releaseAnchorId: 'landing-faq-title',
+    releaseInPlace: true,
   });
 
   const activeLine = pitchLines[stepIndex] ?? pitchLines[0] ?? [];
@@ -60,14 +60,24 @@ const LandingBotPitchSection: React.FC = () => {
 
           {stepIndex === lastStep ? (
             <div className="landing-gmx-bot-pitch-cta-wrap landing-gmx-bot-pitch-cta-wrap--visible">
-              <button
-                type="button"
-                className="landing-gmx-bot-pitch-cta"
-                onClick={() => goToOpenApp('?section=bot', false)}
-              >
-                {t('landing.pitch.ctaFinal', { defaultValue: t('landing.pitch.cta') })}
-                <ArrowRight size={16} aria-hidden />
-              </button>
+              <div className="landing-gmx-bot-pitch-cta-group" role="group" aria-label={t('common.getStarted')}>
+                <button
+                  type="button"
+                  className="landing-gmx-bot-pitch-cta landing-gmx-bot-pitch-cta--light"
+                  onClick={() => goToOpenApp('', false)}
+                >
+                  {t('landing.pitch.ctaRegister')}
+                  <ArrowRight size={16} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className="landing-gmx-bot-pitch-cta landing-gmx-bot-pitch-cta--dark"
+                  onClick={() => goToOpenApp('?section=bot', false)}
+                >
+                  {t('landing.pitch.ctaLaunchBot')}
+                  <ArrowRight size={16} aria-hidden />
+                </button>
+              </div>
             </div>
           ) : (
             <div className="landing-gmx-bot-pitch-cta-wrap" aria-hidden />

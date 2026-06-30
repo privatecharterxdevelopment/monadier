@@ -112,6 +112,8 @@
     },
     "pitch": {
       "cta": "Запустить бота",
+      "ctaRegister": "Регистрация бесплатно",
+      "ctaLaunchBot": "Запустить Bot сейчас",
       "ctaFinal": "Start trading now",
       "lines": [
         [
