@@ -22,11 +22,13 @@ function cacheKey(body: Record<string, unknown>): string {
   const user =
     typeof body.user === 'string' ? body.user.toLowerCase() : undefined;
   if (type === 'candleSnapshot' && body.req && typeof body.req === 'object') {
-    const req = body.req as { coin?: string; interval?: string };
+    const req = body.req as { coin?: string; interval?: string; startTime?: number; endTime?: number };
     return JSON.stringify({
       type: 'candleSnapshot',
       coin: req.coin,
       interval: req.interval,
+      startTime: req.startTime,
+      endTime: req.endTime,
     });
   }
   if (

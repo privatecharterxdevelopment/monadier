@@ -1,7 +1,8 @@
 import { hlInfoPost } from './hlInfoClient';
 import { toNum } from './parse';
 import type { HlAssetMeta, HlCandle, HlCandleBar, HlInterval, HlL2Book, HlRecentTrade } from './types';
-import { candleToBar } from './api';
+import { candleToBar, fetchHlCandles } from './api';
+import { chartLookbackMs } from './chartZoom';
 
 export type HlSpotToken = {
   name: string;
@@ -215,15 +216,9 @@ export async function fetchHlSpotMarketSnapshot(coin: string): Promise<HlSpotMar
 export async function fetchHlSpotCandles(
   coin: string,
   interval: HlInterval,
-  lookbackMs = 7 * 24 * 60 * 60 * 1000
+  lookbackMs?: number
 ): Promise<HlCandleBar[]> {
-  const endTime = Date.now();
-  const startTime = endTime - lookbackMs;
-  const rows = await hlInfo<HlCandle[]>({
-    type: 'candleSnapshot',
-    req: { coin, interval, startTime, endTime },
-  });
-  return rows.map(candleToBar).sort((a, b) => a.time - b.time);
+  return fetchHlCandles(coin, interval, lookbackMs ?? chartLookbackMs(interval));
 }
 
 export async function fetchHlSpotOrderBook(coin: string): Promise<HlL2Book> {

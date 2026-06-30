@@ -171,13 +171,13 @@ const TerminalHlLiveChartInner: React.FC<Props> = ({
           </div>
         ) : null}
         <ProTradeHlLightweightChart
-          key={`hl-${coin}-${interval}`}
+          key={`hl-${coin}`}
           coin={coin}
           interval={interval}
           candles={market.candles}
           loading={market.loading}
           theme={theme}
-          layoutKey={`${coin}-${interval}`}
+          layoutKey={coin}
           tradeMarkers={seriesMarkers}
           positionOverlay={positionOverlay}
           markPx={markPx > 0 ? markPx : undefined}

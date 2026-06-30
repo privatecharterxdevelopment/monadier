@@ -594,7 +594,7 @@ const Dashboard2ProPageContent: React.FC = () => {
               loading={perpMarket.loading}
               openOrders={perpOpenOrders}
               onIntervalChange={setInterval}
-              layoutKey={`perps-${perpCoin}-${interval}`}
+              layoutKey={`perps-${perpCoin}`}
               markPx={chartMarkPx}
               onChartRetry={() => void perpMarket.refresh()}
               wsConnected={perpMarket.wsConnected}
@@ -717,7 +717,7 @@ const Dashboard2ProPageContent: React.FC = () => {
                 loading={perpMarket.loading}
                 openOrders={perpOpenOrders}
                 onIntervalChange={setInterval}
-                layoutKey={`bot-${perpCoin}-${interval}`}
+                layoutKey={`bot-${perpCoin}`}
                 markPx={chartMarkPx}
                 positionOverlay={botChartOverlay}
                 tradeMarkers={botTradeMarkers}

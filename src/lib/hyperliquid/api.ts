@@ -26,18 +26,49 @@ export function candleToBar(c: HlCandle): HlCandleBar {
   };
 }
 
+import { chartIntervalMs } from './chartZoom';
+
+const HL_CANDLE_PAGE_BARS = 4500;
+
 export async function fetchHlCandles(
   coin: string,
   interval: HlInterval,
   lookbackMs = 7 * 24 * 60 * 60 * 1000
 ): Promise<HlCandleBar[]> {
+  const stepMs = chartIntervalMs(interval);
   const endTime = Date.now();
   const startTime = endTime - lookbackMs;
-  const rows = await hlInfo<HlCandle[]>({
-    type: 'candleSnapshot',
-    req: { coin, interval, startTime, endTime },
-  });
-  return rows.map(candleToBar).sort((a, b) => a.time - b.time);
+  const estimatedBars = Math.ceil(lookbackMs / stepMs);
+
+  if (estimatedBars <= HL_CANDLE_PAGE_BARS) {
+    const rows = await hlInfo<HlCandle[]>({
+      type: 'candleSnapshot',
+      req: { coin, interval, startTime, endTime },
+    });
+    return rows.map(candleToBar).sort((a, b) => a.time - b.time);
+  }
+
+  const byTime = new Map<number, HlCandleBar>();
+  let chunkEnd = endTime;
+
+  while (chunkEnd > startTime) {
+    const chunkStart = Math.max(startTime, chunkEnd - HL_CANDLE_PAGE_BARS * stepMs);
+    const rows = await hlInfo<HlCandle[]>({
+      type: 'candleSnapshot',
+      req: { coin, interval, startTime: chunkStart, endTime: chunkEnd },
+    });
+    if (!rows.length) break;
+    for (const row of rows) {
+      const bar = candleToBar(row);
+      byTime.set(bar.time, bar);
+    }
+    const earliest = Math.min(...rows.map((r) => r.t));
+    if (earliest <= chunkStart + stepMs) break;
+    chunkEnd = earliest - 1;
+    if (chunkEnd <= startTime) break;
+  }
+
+  return [...byTime.values()].sort((a, b) => a.time - b.time);
 }
 
 export async function fetchHlOrderBook(coin: string): Promise<HlL2Book> {

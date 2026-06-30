@@ -181,7 +181,7 @@ const ProTradeChartInner: React.FC<Props> = ({
         <div className="hl-chart-engine">
           {engine === 'hl' ? (
             <ProTradeHlLightweightChart
-              key={`hl-${coin}-${interval}`}
+              key={`hl-${coin}`}
               coin={coin}
               interval={interval}
               candles={candles}

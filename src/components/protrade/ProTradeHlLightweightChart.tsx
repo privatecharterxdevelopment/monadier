@@ -44,6 +44,9 @@ type Props = {
     trailStopPx?: number;
     trailStopLocked?: boolean;
     trailFloorUsd?: number;
+    trailCloseFloorUsd?: number;
+    trailBreached?: boolean;
+    unrealizedPnlUsd?: number;
     stopLossPx?: number;
     takeProfitPx?: number;
     stopLossMarginPct?: number;
@@ -66,6 +69,119 @@ function safeChartOp(fn: () => void) {
     fn();
   } catch (e) {
     console.warn('[ProTradeHlLightweightChart]', e);
+  }
+}
+
+type OverlayProps = NonNullable<Props['positionOverlay']>;
+
+function applyPositionPriceLines(
+  series: ISeriesApi<'Candlestick'>,
+  priceLinesRef: React.MutableRefObject<IPriceLine[]>,
+  opts: {
+    openOrders: HlOpenOrder[];
+    overlayCoin: string;
+    positionOverlay?: OverlayProps;
+    chartColors: ReturnType<typeof getProTradeChartColors>;
+  }
+) {
+  for (const line of priceLinesRef.current) {
+    series.removePriceLine(line);
+  }
+  priceLinesRef.current = [];
+
+  const { openOrders, overlayCoin, positionOverlay, chartColors } = opts;
+  const coinOrders = openOrders.filter((o) => o.coin === overlayCoin);
+  for (const o of coinOrders) {
+    const px = toNum(o.limitPx);
+    if (px <= 0) continue;
+    const isBuy = o.side === 'B';
+    const line = series.createPriceLine({
+      price: px,
+      color: isBuy ? chartColors.up : chartColors.down,
+      lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+      axisLabelVisible: true,
+      title: `Limit ${fmtMarketPrice(px)}`,
+    });
+    priceLinesRef.current.push(line);
+  }
+
+  if (positionOverlay && positionOverlay.entryPx > 0) {
+    priceLinesRef.current.push(
+      series.createPriceLine({
+        price: positionOverlay.entryPx,
+        color: positionOverlay.side === 'long' ? chartColors.up : chartColors.down,
+        lineWidth: 2,
+        lineStyle: LineStyle.Solid,
+        axisLabelVisible: true,
+        title: `Entry ${fmtMarketPrice(positionOverlay.entryPx)}`,
+      })
+    );
+  }
+  if (positionOverlay?.liqPx && positionOverlay.liqPx > 0) {
+    priceLinesRef.current.push(
+      series.createPriceLine({
+        price: positionOverlay.liqPx,
+        color: '#ff9800',
+        lineWidth: 1,
+        lineStyle: LineStyle.Dotted,
+        axisLabelVisible: true,
+        title: `Liq ${fmtMarketPrice(positionOverlay.liqPx)}`,
+      })
+    );
+  }
+
+  const trailPx = positionOverlay?.trailStopPx;
+  if (trailPx != null && trailPx > 0) {
+    const locked = positionOverlay.trailStopLocked === true;
+    const floorUsd = positionOverlay.trailFloorUsd ?? 0;
+    const upnl = positionOverlay.unrealizedPnlUsd ?? 0;
+    const closeFloor = positionOverlay.trailCloseFloorUsd ?? floorUsd;
+    const breached = positionOverlay.trailBreached === true;
+    priceLinesRef.current.push(
+      series.createPriceLine({
+        price: trailPx,
+        color: breached ? '#ef4444' : locked ? '#22c55e' : '#eab308',
+        lineWidth: 2,
+        lineStyle: locked ? LineStyle.Solid : LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: locked
+          ? breached
+            ? `Profit SL exit +$${closeFloor.toFixed(2)} (uPnL $${upnl.toFixed(2)})`
+            : `Profit SL — locked in profit`
+          : 'Profit SL arming',
+      })
+    );
+  }
+
+  const slPx = positionOverlay?.stopLossPx;
+  if (slPx != null && slPx > 0) {
+    const slPct = positionOverlay.stopLossMarginPct ?? 0;
+    priceLinesRef.current.push(
+      series.createPriceLine({
+        price: slPx,
+        color: '#ef4444',
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: slPct > 0 ? `Max SL −${slPct}% margin` : 'Max SL',
+      })
+    );
+  }
+
+  const tpPx = positionOverlay?.takeProfitPx;
+  if (tpPx != null && tpPx > 0) {
+    const tpPct = positionOverlay.takeProfitMarginPct ?? 0;
+    priceLinesRef.current.push(
+      series.createPriceLine({
+        price: tpPx,
+        color: '#22c55e',
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: tpPct > 0 ? `TP +${tpPct}%` : 'Take profit',
+      })
+    );
   }
 }
 
@@ -275,7 +391,33 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       markersPluginRef.current = null;
       el.replaceChildren();
     };
-  }, [interval]);
+  }, []);
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    const series = seriesRef.current;
+    if (!chart || !series || !aliveRef.current) return;
+
+    const el = containerRef.current;
+    const width = el?.clientWidth ?? 800;
+    const spacing = chartBarSpacing(width, interval);
+    safeChartOp(() => {
+      chart.timeScale().applyOptions({
+        barSpacing: spacing,
+        minBarSpacing: Math.max(6, spacing - 4),
+        secondsVisible: chartSecondsVisible(interval),
+      });
+      applyPositionPriceLines(series, priceLinesRef, {
+        openOrders,
+        overlayCoin,
+        positionOverlay: overlayRef.current,
+        chartColors: getProTradeChartColors(themeRef.current),
+      });
+      if (candlesRef.current.length > 0) {
+        applyChartZoom(chart, candlesRef.current.length);
+      }
+    });
+  }, [interval, openOrders, overlayCoin]);
 
   useEffect(() => {
     themeRef.current = theme;
@@ -301,11 +443,15 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     try {
       chart.timeScale().applyOptions({
         barSpacing: spacing,
-        minBarSpacing: Math.max(8, spacing - 4),
+        minBarSpacing: Math.max(6, spacing - 4),
         secondsVisible: chartSecondsVisible(interval),
       });
-      const from = Math.max(0, barCount - visibleBars);
-      chart.timeScale().setVisibleLogicalRange({ from, to: barCount + 2 });
+      if (barCount <= visibleBars + 24) {
+        chart.timeScale().fitContent();
+      } else {
+        const from = Math.max(0, barCount - visibleBars);
+        chart.timeScale().setVisibleLogicalRange({ from, to: barCount + 2 });
+      }
       followLiveRef.current = true;
     } finally {
       requestAnimationFrame(() => {
@@ -361,7 +507,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       }
       markersPluginRef.current?.setMarkers([]);
     });
-  }, [coin, interval, layoutKey]);
+  }, [coin, layoutKey]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -531,101 +677,14 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     if (!series || !aliveRef.current) return;
 
     safeChartOp(() => {
-      for (const line of priceLinesRef.current) {
-        series.removePriceLine(line);
-      }
-      priceLinesRef.current = [];
-
-      const coinOrders = openOrders.filter((o) => o.coin === overlayCoin);
-      for (const o of coinOrders) {
-        const px = toNum(o.limitPx);
-        if (px <= 0) continue;
-        const isBuy = o.side === 'B';
-        const line = series.createPriceLine({
-          price: px,
-          color: isBuy ? chartColors.up : chartColors.down,
-          lineWidth: 1,
-          lineStyle: LineStyle.Dashed,
-          axisLabelVisible: true,
-          title: `Limit ${fmtMarketPrice(px)}`,
-        });
-        priceLinesRef.current.push(line);
-      }
-
-      if (positionOverlay && positionOverlay.entryPx > 0) {
-        const entryLine = series.createPriceLine({
-          price: positionOverlay.entryPx,
-          color: positionOverlay.side === 'long' ? chartColors.up : chartColors.down,
-          lineWidth: 2,
-          lineStyle: LineStyle.Solid,
-          axisLabelVisible: true,
-          title: `Entry ${fmtMarketPrice(positionOverlay.entryPx)}`,
-        });
-        priceLinesRef.current.push(entryLine);
-      }
-      if (positionOverlay?.liqPx && positionOverlay.liqPx > 0) {
-        const liqLine = series.createPriceLine({
-          price: positionOverlay.liqPx,
-          color: '#ff9800',
-          lineWidth: 1,
-          lineStyle: LineStyle.Dotted,
-          axisLabelVisible: true,
-          title: `Liq ${fmtMarketPrice(positionOverlay.liqPx)}`,
-        });
-        priceLinesRef.current.push(liqLine);
-      }
-
-      const trailPx = positionOverlay?.trailStopPx;
-      if (trailPx != null && trailPx > 0) {
-        const locked = positionOverlay.trailStopLocked === true;
-        const floorUsd = positionOverlay.trailFloorUsd ?? 0;
-        const upnl = positionOverlay.unrealizedPnlUsd ?? 0;
-        const closeFloor = positionOverlay.trailCloseFloorUsd ?? floorUsd;
-        const breached = positionOverlay.trailBreached === true;
-        const trailLine = series.createPriceLine({
-          price: trailPx,
-          color: breached ? '#ef4444' : locked ? '#22c55e' : '#eab308',
-          lineWidth: 2,
-          lineStyle: locked ? LineStyle.Solid : LineStyle.Dashed,
-          axisLabelVisible: true,
-          title: locked
-            ? breached
-              ? `Profit SL exit +$${closeFloor.toFixed(2)} (uPnL $${upnl.toFixed(2)})`
-              : `Profit SL — locked in profit`
-            : 'Profit SL arming',
-        });
-        priceLinesRef.current.push(trailLine);
-      }
-
-      const slPx = positionOverlay?.stopLossPx;
-      if (slPx != null && slPx > 0) {
-        const slPct = positionOverlay.stopLossMarginPct ?? 0;
-        const slLine = series.createPriceLine({
-          price: slPx,
-          color: '#ef4444',
-          lineWidth: 1,
-          lineStyle: LineStyle.Dashed,
-          axisLabelVisible: true,
-          title: slPct > 0 ? `Max SL −${slPct}% margin` : 'Max SL',
-        });
-        priceLinesRef.current.push(slLine);
-      }
-
-      const tpPx = positionOverlay?.takeProfitPx;
-      if (tpPx != null && tpPx > 0) {
-        const tpPct = positionOverlay.takeProfitMarginPct ?? 0;
-        const tpLine = series.createPriceLine({
-          price: tpPx,
-          color: '#22c55e',
-          lineWidth: 1,
-          lineStyle: LineStyle.Dashed,
-          axisLabelVisible: true,
-          title: tpPct > 0 ? `TP +${tpPct}%` : 'Take profit',
-        });
-        priceLinesRef.current.push(tpLine);
-      }
+      applyPositionPriceLines(series, priceLinesRef, {
+        openOrders,
+        overlayCoin,
+        positionOverlay,
+        chartColors,
+      });
     });
-  }, [openOrders, overlayCoin, theme, positionOverlay]);
+  }, [openOrders, overlayCoin, theme, positionOverlay, chartColors]);
 
   useEffect(() => {
     const series = seriesRef.current;

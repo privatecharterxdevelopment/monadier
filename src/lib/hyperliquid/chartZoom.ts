@@ -1,37 +1,58 @@
 import type { HlInterval } from './types';
 
-/** Bars on screen — fewer on 1m = wider, readable candles. */
+/** Bars on screen when user follows live (recent window). */
 export const CHART_VISIBLE_BARS: Record<HlInterval, number> = {
-  '1m': 48,
-  '5m': 64,
-  '15m': 72,
-  '1h': 84,
-  '4h': 96,
-  '1d': 120,
+  '1m': 96,
+  '5m': 120,
+  '15m': 120,
+  '1h': 140,
+  '4h': 160,
+  '1d': 180,
 };
 
-/** HL candleSnapshot lookback — avoid loading 7d of 1m (10k+ squashed bars). */
+const DAY = 24 * 60 * 60 * 1000;
+
+/** HL candleSnapshot lookback — deep history; paginated in fetchHlCandles when > ~4.5k bars. */
 export function chartLookbackMs(interval: HlInterval): number {
   switch (interval) {
     case '1m':
-      return 6 * 60 * 60 * 1000;
+      return 7 * DAY;
     case '5m':
-      return 36 * 60 * 60 * 1000;
+      return 30 * DAY;
     case '15m':
-      return 5 * 24 * 60 * 60 * 1000;
+      return 90 * DAY;
     case '1h':
-      return 14 * 24 * 60 * 60 * 1000;
+      return 180 * DAY;
     case '4h':
-      return 30 * 24 * 60 * 60 * 1000;
+      return 365 * DAY;
     default:
-      return 90 * 24 * 60 * 60 * 1000;
+      return 2 * 365 * DAY;
+  }
+}
+
+export function chartIntervalMs(interval: HlInterval): number {
+  switch (interval) {
+    case '1m':
+      return 60_000;
+    case '5m':
+      return 5 * 60_000;
+    case '15m':
+      return 15 * 60_000;
+    case '1h':
+      return 60 * 60_000;
+    case '4h':
+      return 4 * 60 * 60_000;
+    case '1d':
+      return DAY;
+    default:
+      return 60 * 60_000;
   }
 }
 
 export function chartBarSpacing(containerWidthPx: number, interval: HlInterval): number {
-  const visible = CHART_VISIBLE_BARS[interval] ?? 72;
+  const visible = CHART_VISIBLE_BARS[interval] ?? 120;
   const usable = Math.max(320, containerWidthPx - 56);
-  return Math.max(11, Math.min(26, Math.floor(usable / visible)));
+  return Math.max(8, Math.min(22, Math.floor(usable / visible)));
 }
 
 export function chartSecondsVisible(interval: HlInterval): boolean {
