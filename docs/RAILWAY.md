@@ -18,7 +18,8 @@ Service: `b65e307a-42cd-48ce-b8bd-5e04bc6dbcc6`
 See `bot-service/.env.example`:
 
 - `BOT_PRIVATE_KEY`
-- `HL_BUILDER_ADDRESS` — fee wallet (≥$100 USDC on **Hyperliquid perps**)
+- `HL_BUILDER_ADDRESS` — **HL builder wallet only** (≥$100 USDC on Hyperliquid perps for 0.1% builder fee)
+- `PLATFORM_FEE_TREASURY_ADDRESS` — **your MetaMask** on Arbitrum — users pay bot success fees (10%) here as native USDC
 - `HL_AGENT_MASTER_SECRET` (or falls back to `BOT_PRIVATE_KEY`)
 - `HL_BUILDER_FEE_PERP=0`, `HL_BUILDER_MAX_APPROVAL=0.1%`, `HL_SUCCESS_FEE_BPS=0` (fees off by default)
 - `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`
@@ -44,6 +45,7 @@ curl -s "$(cd bot-service && npx @railway/cli domain)/api/hl-builder/status" | j
 - `VITE_BOT_API_URL` = Railway public URL
 - `VITE_SITE_URL=https://www.monadier.io`
 - `VITE_APP_URL=https://app.monadier.io`
-- `VITE_HL_BUILDER_ADDRESS` = same as Railway `HL_BUILDER_ADDRESS`
+- `VITE_HL_BUILDER_ADDRESS` = Railway `HL_BUILDER_ADDRESS` (HL 0.1% builder only)
+- `VITE_PLATFORM_FEE_TREASURY_ADDRESS` = Railway `PLATFORM_FEE_TREASURY_ADDRESS` (your MetaMask for success fees)
 
 Redeploy production after env changes.

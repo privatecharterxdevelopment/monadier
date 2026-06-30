@@ -5,6 +5,7 @@ import { notionalBuilderFeeUsd } from './hlBuilderFee';
 import { recordHlChartMarker } from './hlChartMarkers';
 import { accrueReferralEarning, tryQualifyReferral } from './referralAffiliate';
 import { isFeeExemptWallet, waivedPlatformFeeStatus } from './feeExempt';
+import { verifyArbitrumUsdcFeePayment } from './arbitrumFeeVerify';
 import { fetchHlRecentCloseFillSummaryWithRetry } from './hlInfo';
 
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
@@ -713,6 +714,25 @@ export async function settleAccruedFees(
   }
 
   if (paidUsd + 0.01 < status.accruedUsd) {
+    return { settledUsd: 0, ok: false };
+  }
+
+  const treasury = config.platformFeeTreasuryAddress?.toLowerCase() ?? '';
+  if (paymentRef?.startsWith('arbitrum_usdc:')) {
+    const txHash = paymentRef.slice('arbitrum_usdc:'.length).trim();
+    const verified = await verifyArbitrumUsdcFeePayment({
+      payerWallet: wallet,
+      treasuryAddress: treasury,
+      minUsd: status.accruedUsd,
+      txHash,
+    });
+    if (!verified) {
+      return { settledUsd: 0, ok: false };
+    }
+  } else if (paymentRef?.startsWith('hl_usd_send:')) {
+    logger.warn('platform fee hl_usd_send settlement rejected — use Arbitrum USDC to treasury', {
+      wallet: wallet.slice(0, 10),
+    });
     return { settledUsd: 0, ok: false };
   }
 

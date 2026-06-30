@@ -1,9 +1,10 @@
-// Platform fee config — HL builder wallet only (no Arbitrum vault).
+// Platform fee config — Arbitrum USDC treasury (MetaMask) separate from HL builder wallet.
 
+import { getPlatformFeeTreasuryAddress } from './platformFeeTreasury';
 import { HL_PLATFORM_DEFAULT_BUILDER } from './hlPlatform';
 
-/** Subscription USDC destination on Arbitrum — same address as HL builder fee wallet. */
-export const TREASURY_ADDRESS = HL_PLATFORM_DEFAULT_BUILDER;
+/** Bot success-fee USDC on Arbitrum — set VITE_PLATFORM_FEE_TREASURY_ADDRESS to your MetaMask. */
+export const TREASURY_ADDRESS = getPlatformFeeTreasuryAddress() ?? HL_PLATFORM_DEFAULT_BUILDER;
 
 export const TRADE_FEE_PERCENT = 0.5;
 

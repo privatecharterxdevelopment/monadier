@@ -9,6 +9,7 @@ import {
 export function usePlatformFees(wallet?: string | null, enabled = true) {
   const [status, setStatus] = useState<PlatformFeeStatus | null>(null);
   const [trades, setTrades] = useState<PlatformFeeTrade[]>([]);
+  const [treasuryAddress, setTreasuryAddress] = useState<string>('');
   const [builderAddress, setBuilderAddress] = useState<string>('');
   const [winsBeforeBlock, setWinsBeforeBlock] = useState(20);
   const [loading, setLoading] = useState(false);
@@ -26,6 +27,7 @@ export function usePlatformFees(wallet?: string | null, enabled = true) {
       if (data?.success) {
         setStatus(data.status);
         setTrades(data.trades ?? []);
+        setTreasuryAddress(data.treasuryAddress ?? data.builderAddress ?? '');
         setBuilderAddress(data.builderAddress ?? '');
         setWinsBeforeBlock(data.winsBeforeBlock ?? 20);
       }
@@ -60,6 +62,7 @@ export function usePlatformFees(wallet?: string | null, enabled = true) {
     status,
     trades,
     builderAddress,
+    treasuryAddress,
     winsBeforeBlock,
     loading,
     refresh,

@@ -386,7 +386,10 @@ const healthServer = http.createServer(async (req, res) => {
           wallet,
           status,
           winsBeforeBlock: PLATFORM_FEE_WINS_BEFORE_BLOCK,
+          treasuryAddress: config.platformFeeTreasuryAddress,
           builderAddress: config.hyperliquid.builderAddress,
+          paymentChain: 'arbitrum',
+          paymentToken: 'USDC',
           trades: recentWins,
           timestamp: new Date().toISOString(),
         })

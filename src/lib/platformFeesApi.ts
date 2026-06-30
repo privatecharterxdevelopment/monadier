@@ -29,7 +29,12 @@ export type PlatformFeesResponse = {
   wallet: string;
   status: PlatformFeeStatus;
   winsBeforeBlock: number;
+  /** Arbitrum MetaMask wallet — success-fee USDC destination */
+  treasuryAddress: string;
+  /** HL builder wallet — 0.1% perp builder fee only */
   builderAddress: string;
+  paymentChain?: string;
+  paymentToken?: string;
   trades: PlatformFeeTrade[];
 };
 

@@ -135,7 +135,7 @@ export const PlatformFeeProvider: React.FC<{
         successWinCount={fees.successWinCount}
         winsBeforeBlock={fees.winsBeforeBlock}
         opensBlocked={fees.opensBlocked}
-        builderAddress={fees.builderAddress}
+        treasuryAddress={fees.treasuryAddress}
         trades={fees.trades}
         onPaid={fees.confirmPayment}
         onPaymentSuccess={handlePaymentSuccess}

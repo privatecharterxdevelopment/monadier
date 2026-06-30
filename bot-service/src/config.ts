@@ -24,11 +24,17 @@ export const config = {
   supabaseUrl: process.env.SUPABASE_URL!,
   supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
 
-  /** HL builder + subscription USDC destination (no Arbitrum vault contract). */
-  platformWalletAddress: process.env.HL_BUILDER_ADDRESS as `0x${string}`,
-  /** @deprecated Use platformWalletAddress — legacy payment/subscription code */
+  /** MetaMask / Arbitrum USDC — bot success-fee payments (10% profit share). */
+  platformFeeTreasuryAddress: (
+    process.env.PLATFORM_FEE_TREASURY_ADDRESS || process.env.HL_BUILDER_ADDRESS
+  ) as `0x${string}`,
+  /** @deprecated Legacy alias — use platformFeeTreasuryAddress for success-fee payouts. */
+  platformWalletAddress: (
+    process.env.PLATFORM_FEE_TREASURY_ADDRESS || process.env.HL_BUILDER_ADDRESS
+  ) as `0x${string}`,
+  /** @deprecated Use platformFeeTreasuryAddress */
   get treasuryAddress(): `0x${string}` {
-    return this.platformWalletAddress;
+    return this.platformFeeTreasuryAddress;
   },
 
   /** Arbitrum — optional USDC subscription deposits to platform wallet (no vault). */
