@@ -1,6 +1,7 @@
 import { privateKeyToAccount } from 'viem/accounts';
 import { config } from '../config';
 import { logger } from '../utils/logger';
+import { BRAND_DOMAIN } from '../brand';
 import { fetchHlBuilderPlatformReady } from '../services/hlBuilder';
 
 const EXPECTED_BOT_ADDRESS = process.env.EXPECTED_BOT_ADDRESS as `0x${string}` | undefined;
@@ -51,6 +52,29 @@ export async function validateProductionEnvironment(): Promise<void> {
   if (!config.email.resendApiKey) {
     logger.warn('RESEND_API_KEY not set — trade close emails will NOT send');
   } else {
-    logger.info('Trade close emails enabled (Resend)', { from: config.email.from });
+    const from = config.email.from;
+    logger.info('Trade close emails enabled (Resend)', { from });
+    try {
+      const res = await fetch('https://api.resend.com/domains', {
+        headers: { Authorization: `Bearer ${config.email.resendApiKey}` },
+      });
+      if (res.ok) {
+        const body = (await res.json()) as { data?: Array<{ name: string; status: string }> };
+        const domain = from.replace(/^.*@/, '').replace(/[> ].*$/, '').trim();
+        const match = body.data?.find((d) => d.name === domain);
+        if (!match || match.status !== 'verified') {
+          logger.error(
+            'RESEND DOMAIN NOT VERIFIED — trade close emails will fail until DNS is configured',
+            {
+              domain,
+              status: match?.status ?? 'not_found',
+              action: `Verify ${BRAND_DOMAIN} at https://resend.com/domains and set RESEND_FROM to a verified address.`,
+            }
+          );
+        }
+      }
+    } catch {
+      // non-fatal — email loop will log per-send failures
+    }
   }
 }

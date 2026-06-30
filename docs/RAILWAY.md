@@ -23,7 +23,7 @@ See `bot-service/.env.example`:
 - `HL_BUILDER_FEE_PERP=0`, `HL_BUILDER_MAX_APPROVAL=0.1%`, `HL_SUCCESS_FEE_BPS=0` (fees off by default)
 - `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`
 - `NODE_ENV=production`, `ENABLE_DEMO_SIMULATOR=false`
-- `RESEND_API_KEY`, `RESEND_FROM`, `APP_PUBLIC_URL`
+- `RESEND_API_KEY`, `RESEND_FROM` (must use a **verified** Resend domain — e.g. `HyperGain <hello@hypergain.io>` after DNS at [resend.com/domains](https://resend.com/domains)), `APP_PUBLIC_URL=https://hypergain.io`
 - Optional: `ARBITRUM_RPC_URL` + `ENABLE_ARBITRUM_PAYMENT_MONITOR=true` (subscription USDC → same builder wallet)
 
 **Do not use** `TREASURY_ADDRESS` or `ARBITRUM_VAULT_ADDRESS` — vault contracts removed.

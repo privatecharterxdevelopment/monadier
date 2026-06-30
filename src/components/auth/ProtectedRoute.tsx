@@ -40,7 +40,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen auth-page">
         <div className="animate-pulse-subtle mb-4">
-          <span className="font-display text-accent text-3xl">Monadier</span>
+          <span className="font-display text-accent text-3xl">HyperGain</span>
         </div>
         <p className="text-[#52525b] text-sm mb-4">Restoring your session…</p>
 

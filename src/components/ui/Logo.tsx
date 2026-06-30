@@ -68,7 +68,7 @@ const Logo: React.FC<LogoProps> = ({
             isLight ? 'text-[#0a0a0a]' : 'text-white'
           } ${sizeClasses[size]}`}
         >
-          monadier
+          HyperGain
         </span>
       )}
     </>

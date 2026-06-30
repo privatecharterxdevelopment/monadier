@@ -170,7 +170,7 @@ async function fetchHlPerpFundingSnapshotOnce(
     withdrawableUsd: unifiedAccount
       ? Math.max(perpWithdrawable, spotUsdcUsd)
       : perpWithdrawable,
-    stateLoaded: state != null,
+    stateLoaded: state != null || spotUsdcUsd >= 0.01,
   };
 }
 
@@ -198,7 +198,7 @@ export function describeHlPerpBalanceBlocker(
   funding: HlPerpFundingSnapshot,
   minUsd: number
 ): string | null {
-  if (!funding.stateLoaded) {
+  if (!funding.stateLoaded && funding.tradablePerpUsd < minUsd) {
     return 'HL balance check failed — retrying Hyperliquid account read';
   }
   if (funding.tradablePerpUsd >= minUsd) return null;

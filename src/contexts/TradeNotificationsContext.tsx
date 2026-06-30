@@ -70,12 +70,13 @@ function notifyFreshToasts(
   fresh: ActivityNotification[],
   showToast: (msg: string, ms?: number) => void
 ) {
-  if (fresh.length === 0) return;
-  const sorted = [...fresh].sort(
+  const wins = fresh.filter((n) => n.profitLoss > 0);
+  if (wins.length === 0) return;
+  const sorted = [...wins].sort(
     (a, b) => new Date(a.closedAt).getTime() - new Date(b.closedAt).getTime()
   );
   for (const n of sorted) {
-    showToast(toastMessageForNotification(n), 4000);
+    showToast(toastMessageForNotification(n), 4500);
   }
 }
 
@@ -216,9 +217,14 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
           const row = payload.new as UserTradeNotificationRow | undefined;
           if (row?.id) {
             const fresh = userTradeNotificationToActivity(row);
-            if (!knownIdsRef.current.has(fresh.id)) {
+            if (!knownIdsRef.current.has(fresh.id) && fresh.profitLoss > 0) {
               knownIdsRef.current.add(fresh.id);
               showToast(toastMessageForNotification(fresh), 4500);
+              setNotifications((prev) =>
+                mergeActivityNotifications([fresh, ...prev], [], 100)
+              );
+            } else if (!knownIdsRef.current.has(fresh.id)) {
+              knownIdsRef.current.add(fresh.id);
               setNotifications((prev) =>
                 mergeActivityNotifications([fresh, ...prev], [], 100)
               );

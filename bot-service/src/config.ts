@@ -401,7 +401,7 @@ export const config = {
 
   email: {
     resendApiKey: process.env.RESEND_API_KEY || '',
-    from: process.env.RESEND_FROM || 'Monadier <hello@monadier.io>',
+    from: process.env.RESEND_FROM || 'HyperGain <hello@hypergain.io>',
   },
 
   /** Multi-user scale — 1M+ signups, thousands of concurrent bots */

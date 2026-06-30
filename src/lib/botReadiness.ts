@@ -23,8 +23,8 @@ function formatBlocker(blocker: string): string {
   if (/Hyperliquid temporarily unreachable/i.test(blocker)) {
     return 'Checking trading agent — try again in a moment.';
   }
-  if (/HL balance check failed/i.test(blocker)) {
-    return 'Checking your Hyperliquid balance — retrying…';
+  if (/HL balance check failed|Could not read Hyperliquid balance|Checking your Hyperliquid balance/i.test(blocker)) {
+    return '';
   }
   if (/HL balance/i.test(blocker)) {
     return blocker.replace(/HL balance/i, 'HL balance');

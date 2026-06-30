@@ -1,13 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 import { config } from '../config';
 import { logger } from '../utils/logger';
+import { BRAND_NAME, BRAND_SITE_URL, EMAIL_FROM } from '../brand';
 
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 
 const APP_TRADE_HISTORY_URL =
   process.env.APP_TRADE_HISTORY_URL ||
   process.env.APP_PUBLIC_URL ||
-  'https://app.monadier.io';
+  BRAND_SITE_URL;
 
 type PendingRow = {
   id: string;
@@ -68,7 +69,7 @@ function tradeCloseEmailHtml(params: {
 <tr><td align="center">
 <table width="100%" style="max-width:480px;">
 <tr><td align="center" style="padding-bottom:32px;">
-<span style="font-size:24px;font-weight:600;color:#0a0a0a;">Monadier</span>
+<span style="font-size:24px;font-weight:600;color:#0a0a0a;">${BRAND_NAME}</span>
 </td></tr>
 <tr><td style="background:#f5f5f5;border-radius:16px;padding:32px;">
 <h1 style="margin:0 0 8px;font-size:20px;font-weight:500;color:#0a0a0a;text-align:center;">${title}</h1>
@@ -80,7 +81,7 @@ function tradeCloseEmailHtml(params: {
 <p style="margin:8px 0 0;font-size:15px;color:#525252;">${fmtPct(roiPct)}</p>
 </td></tr></table>
 <p style="margin:0 0 24px;font-size:13px;color:#888;text-align:center;">Closed ${when}</p>
-<a href="${historyUrl}" style="display:block;text-align:center;padding:14px 24px;background:#0a0a0a;color:#fff;text-decoration:none;border-radius:50px;font-size:14px;font-weight:500;">View in Monadier</a>
+<a href="${historyUrl}" style="display:block;text-align:center;padding:14px 24px;background:#0a0a0a;color:#fff;text-decoration:none;border-radius:50px;font-size:14px;font-weight:500;">View in ${BRAND_NAME}</a>
 </td></tr>
 <tr><td style="padding-top:24px;text-align:center;">
 <p style="margin:0;font-size:12px;color:#888;">Turn off these emails in Profile → Security.</p>
@@ -90,6 +91,13 @@ function tradeCloseEmailHtml(params: {
 </body></html>`;
 }
 
+function normalizeResendFrom(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return EMAIL_FROM;
+  if (trimmed.includes('<') && trimmed.includes('>')) return trimmed;
+  return `${BRAND_NAME} <${trimmed}>`;
+}
+
 async function sendResendEmail(to: string, subject: string, html: string): Promise<boolean> {
   const apiKey = config.email.resendApiKey;
   if (!apiKey) {
@@ -97,6 +105,7 @@ async function sendResendEmail(to: string, subject: string, html: string): Promi
     return false;
   }
 
+  const from = normalizeResendFrom(config.email.from);
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -104,7 +113,7 @@ async function sendResendEmail(to: string, subject: string, html: string): Promi
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      from: config.email.from,
+      from,
       to,
       subject,
       html,
@@ -113,7 +122,11 @@ async function sendResendEmail(to: string, subject: string, html: string): Promi
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    logger.warn('Resend trade close email failed', { status: res.status, body: body.slice(0, 200) });
+    logger.warn('Resend trade close email failed', {
+      status: res.status,
+      from,
+      body: body.slice(0, 300),
+    });
     return false;
   }
   return true;
@@ -170,10 +183,20 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
 
   for (const row of rows) {
     try {
-      const { email, emailEnabled } = await resolveUserEmail(row.user_id);
       const profitUsd = Number(row.profit_loss) || 0;
       const roiPct =
         row.profit_loss_percent != null ? Number(row.profit_loss_percent) : null;
+
+      // Successful trades only — losses stay in-app, no email.
+      if (profitUsd <= 0) {
+        await supabase
+          .from('user_trade_notifications')
+          .update({ email_sent_at: new Date().toISOString() })
+          .eq('id', row.id);
+        continue;
+      }
+
+      const { email, emailEnabled } = await resolveUserEmail(row.user_id);
 
       if (!emailEnabled) {
         await supabase

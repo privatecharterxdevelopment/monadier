@@ -415,6 +415,14 @@ export async function recordBotCloseOutcome(
         ).error
       : (await supabase.from('trade_history').insert(lossRow)).error;
 
+    if (tradeErr) {
+      logger.warn('bot loss close trade_history insert failed', {
+        wallet: wallet.slice(0, 10),
+        error: tradeErr.message,
+      });
+      return;
+    }
+
     if (input.source === 'bot') {
       await recordHlChartMarker({
         walletAddress: wallet,
@@ -429,20 +437,14 @@ export async function recordBotCloseOutcome(
       });
     }
 
-    if (tradeErr) {
-      logger.warn('bot loss close trade_history insert failed', {
-        wallet: wallet.slice(0, 10),
-        error: tradeErr.message,
-      });
-    } else {
-      logger.warn('bot close realized non-profit', {
-        wallet: wallet.slice(0, 10),
-        coin: input.coin,
-        snapshotPnl: snapshot != null ? snapshot.toFixed(4) : '—',
-        realizedPnl: realized.toFixed(4),
-        reason: closeReason.slice(0, 120),
-      });
-    }
+    logger.warn('bot close realized non-profit', {
+      wallet: wallet.slice(0, 10),
+      coin: input.coin,
+      snapshotPnl: snapshot != null ? snapshot.toFixed(4) : '—',
+      realizedPnl: realized.toFixed(4),
+      reason: closeReason.slice(0, 120),
+    });
+    void processPendingTradeCloseEmails(25).catch(() => undefined);
     return;
   }
 
@@ -482,13 +484,12 @@ export async function recordProfitableClose(input: ProfitableCloseInput): Promis
   }
 
   if (totalUsd <= 0) {
-    logger.info('profitable close — no platform fee', {
+    logger.info('profitable close — no platform fee (still recording trade)', {
       wallet: wallet.slice(0, 10),
       coin: input.coin,
       profit: profitUsd.toFixed(4),
       source: input.source,
     });
-    return;
   }
 
   const collateralUsd = input.collateralUsd ?? 0;
@@ -541,6 +542,14 @@ export async function recordProfitableClose(input: ProfitableCloseInput): Promis
     tradeRow = data;
   }
 
+  if (tradeErr) {
+    logger.warn('platform fee trade_history insert failed', {
+      wallet: wallet.slice(0, 10),
+      error: tradeErr.message,
+    });
+    return;
+  }
+
   if (input.source === 'bot') {
     await recordHlChartMarker({
       walletAddress: wallet,
@@ -555,71 +564,73 @@ export async function recordProfitableClose(input: ProfitableCloseInput): Promis
     });
   }
 
-  if (tradeErr) {
-    logger.warn('platform fee trade_history insert failed', {
+  void processPendingTradeCloseEmails(25).catch(() => undefined);
+  await tryQualifyReferral(wallet, {
+    tradeExecuted: true,
+    profitableTrade: true,
+    tradeId: tradeRow?.id ?? null,
+  });
+
+  if (totalUsd > 0) {
+    const ledgerStatus = accruedUsd > 0 ? 'accrued' : 'settled';
+    const { error: ledgerErr } = await supabase.from('hl_fee_ledger').insert({
+      wallet_address: wallet,
+      trade_history_id: tradeRow?.id ?? null,
+      coin: input.coin,
+      gross_profit_usd: profitUsd,
+      snapshot_pnl_usd: snapshot,
+      success_fee_usd: totalUsd,
+      builder_fee_usd: builderUsd,
+      accrued_fee_usd: accruedUsd,
+      success_fee_bps: feeBps,
+      status: ledgerStatus,
+      fee_source: input.source,
+      close_reason: closeReason,
+      settlement_ref: builderUsd > 0 ? 'hl_builder:auto' : null,
+      external_ref: input.externalRef ?? null,
+      settled_at: ledgerStatus === 'settled' ? closedAt : null,
+    });
+
+    if (ledgerErr) {
+      logger.warn('platform fee ledger insert failed', {
+        wallet: wallet.slice(0, 10),
+        error: ledgerErr.message,
+      });
+      return;
+    }
+
+    if (input.source === 'bot' && tradeRow?.id) {
+      await accrueReferralEarning({
+        walletAddress: wallet,
+        tradeId: tradeRow.id,
+        profitUsd,
+        successFeeUsd: totalUsd,
+      });
+    }
+
+    let successWinCount = 0;
+    if (input.source === 'bot' && ledgerStatus === 'accrued') {
+      successWinCount = await syncSuccessWinCount(wallet);
+    }
+
+    logger.info('platform fee recorded', {
       wallet: wallet.slice(0, 10),
-      error: tradeErr.message,
+      coin: input.coin,
+      source: input.source,
+      profit: profitUsd.toFixed(4),
+      total: totalUsd.toFixed(4),
+      builder: builderUsd.toFixed(4),
+      accrued: accruedUsd.toFixed(4),
+      wins: successWinCount,
     });
   } else {
-    void processPendingTradeCloseEmails(25).catch(() => undefined);
-    await tryQualifyReferral(wallet, {
-      tradeExecuted: true,
-      profitableTrade: true,
-      tradeId: tradeRow?.id ?? null,
-    });
-  }
-
-  const ledgerStatus = accruedUsd > 0 ? 'accrued' : 'settled';
-  const { error: ledgerErr } = await supabase.from('hl_fee_ledger').insert({
-    wallet_address: wallet,
-    trade_history_id: tradeRow?.id ?? null,
-    coin: input.coin,
-    gross_profit_usd: profitUsd,
-    snapshot_pnl_usd: snapshot,
-    success_fee_usd: totalUsd,
-    builder_fee_usd: builderUsd,
-    accrued_fee_usd: accruedUsd,
-    success_fee_bps: feeBps,
-    status: ledgerStatus,
-    fee_source: input.source,
-    close_reason: closeReason,
-    settlement_ref: builderUsd > 0 ? 'hl_builder:auto' : null,
-    external_ref: input.externalRef ?? null,
-    settled_at: ledgerStatus === 'settled' ? closedAt : null,
-  });
-
-  if (ledgerErr) {
-    logger.warn('platform fee ledger insert failed', {
+    logger.info('profitable close recorded (no platform fee)', {
       wallet: wallet.slice(0, 10),
-      error: ledgerErr.message,
-    });
-    return;
-  }
-
-  if (input.source === 'bot' && totalUsd > 0 && tradeRow?.id) {
-    await accrueReferralEarning({
-      walletAddress: wallet,
-      tradeId: tradeRow.id,
-      profitUsd,
-      successFeeUsd: totalUsd,
+      coin: input.coin,
+      profit: profitUsd.toFixed(4),
+      source: input.source,
     });
   }
-
-  let successWinCount = 0;
-  if (input.source === 'bot' && ledgerStatus === 'accrued') {
-    successWinCount = await syncSuccessWinCount(wallet);
-  }
-
-  logger.info('platform fee recorded', {
-    wallet: wallet.slice(0, 10),
-    coin: input.coin,
-    source: input.source,
-    profit: profitUsd.toFixed(4),
-    total: totalUsd.toFixed(4),
-    builder: builderUsd.toFixed(4),
-    accrued: accruedUsd.toFixed(4),
-    wins: successWinCount,
-  });
 }
 
 export async function listAccruedFeeTrades(
@@ -763,6 +774,14 @@ async function recordProfitableCloseFeeWaived(input: ProfitableCloseInput): Prom
     .select('id')
     .single();
 
+  if (tradeErr) {
+    logger.warn('fee-waived trade_history insert failed', {
+      wallet: wallet.slice(0, 10),
+      error: tradeErr.message,
+    });
+    return;
+  }
+
   if (input.source === 'bot') {
     await recordHlChartMarker({
       walletAddress: wallet,
@@ -775,14 +794,6 @@ async function recordProfitableCloseFeeWaived(input: ProfitableCloseInput): Prom
       closeReason: input.closeReason,
       source: 'bot',
     });
-  }
-
-  if (tradeErr) {
-    logger.warn('fee-waived trade_history insert failed', {
-      wallet: wallet.slice(0, 10),
-      error: tradeErr.message,
-    });
-    return;
   }
 
   void processPendingTradeCloseEmails(25).catch(() => undefined);

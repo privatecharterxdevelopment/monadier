@@ -140,8 +140,9 @@ export function describeOpenUniverseForClient(scan?: GlobalScanResult): {
 } {
   const { regime, reason } = resolveMacroRegime();
   const weekendMajorsOnly = isWeekendThinLiquidityWindow();
-  const parts = [reason];
-  if (weekendMajorsOnly) parts.unshift('Weekend — no LONGs · BTC/ETH SHORT only');
+  const parts: string[] = [];
+  if (weekendMajorsOnly) parts.push('Weekend — no LONGs · BTC/ETH SHORT only');
+  parts.push(reason);
   if (scan) {
     const { btc, eth } = majorScanBias(scan);
     if (btc || eth) {
@@ -149,4 +150,16 @@ export function describeOpenUniverseForClient(scan?: GlobalScanResult): {
     }
   }
   return { regime, weekendMajorsOnly, summary: parts.join(' · ') };
+}
+
+/** Human blocker when no tradeable signal — never blame weekend on weekdays. */
+export function describeNoTradeableSetupBlocker(
+  rawCount: number,
+  filterReasons: string[]
+): string {
+  if (rawCount === 0) {
+    return 'No aligned setup in global scan (174 perps) — waiting for BTC/ETH momentum or MTF signal';
+  }
+  if (filterReasons.length > 0) return filterReasons.join(' · ');
+  return `Scan found ${rawCount} setup(s) but none passed macro filters`;
 }

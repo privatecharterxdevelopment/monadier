@@ -22,8 +22,8 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     path: '/',
     title: `${SITE_NAME} | Hyperliquid Trading Bot — Full Auto 24/7`,
     description:
-      'Monadier is a full auto Hyperliquid trading bot. Deposit USDC on HL, approve the agent once, and let the bot scan 200+ perpetual markets 24/7 — non-custodial, passive income automation.',
-    keywords: `${BOT_KEYWORDS}, Monadier, Hyperliquid automated trading, DeFi trading bot`,
+      'HyperGain is a full auto Hyperliquid trading bot. Deposit USDC on HL, approve the agent once, and let the bot scan 200+ perpetual markets 24/7 — non-custodial, passive income automation.',
+    keywords: `${BOT_KEYWORDS}, HyperGain, Hyperliquid automated trading, DeFi trading bot`,
     changefreq: 'weekly',
     priority: 1.0,
     sitemap: true,
@@ -42,7 +42,7 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     path: '/how-it-works',
     title: `How the Hyperliquid Bot Works | ${SITE_NAME}`,
     description:
-      "Learn how Monadier's non-custodial Hyperliquid trading bot works: wallet connect, USDC deposit on Arbitrum, agent approval, and 24/7 full auto execution on Hyperliquid.",
+      "Learn how HyperGain's non-custodial Hyperliquid trading bot works: wallet connect, USDC deposit on Arbitrum, agent approval, and 24/7 full auto execution on Hyperliquid.",
     keywords: `how hyperliquid bot works, hyperliquid agent approval, USDC Arbitrum Hyperliquid, ${BOT_KEYWORDS}`,
     changefreq: 'monthly',
     priority: 0.85,
@@ -52,7 +52,7 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     path: '/pricing',
     title: `Trading Bot Pricing & Fees | ${SITE_NAME}`,
     description:
-      'No platform subscription for the Hyperliquid trading bot. Gas covered on Arbitrum; no Monadier success fee on closes. Transparent pricing for full auto trading.',
+      'No platform subscription for the Hyperliquid trading bot. Gas covered on Arbitrum; no HyperGain success fee on closes. Transparent pricing for full auto trading.',
     keywords: `hyperliquid bot fees, trading bot pricing, no subscription trading bot, ${BOT_KEYWORDS}`,
     changefreq: 'monthly',
     priority: 0.8,
@@ -63,7 +63,7 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     title: `Hyperliquid Sports Betting & Prediction Markets | ${SITE_NAME}`,
     description:
       'Bet on sports, World Cup, basketball, and crypto events on Hyperliquid HIP-4 outcome markets. Non-custodial on-chain sports betting with live odds, wallet-signed orders, and transparent settlement.',
-    keywords: `${BETTING_KEYWORDS}, hyperliquid prediction markets, on-chain betting platform, Monadier`,
+    keywords: `${BETTING_KEYWORDS}, hyperliquid prediction markets, on-chain betting platform, HyperGain`,
     changefreq: 'weekly',
     priority: 0.85,
     sitemap: true,
@@ -72,7 +72,7 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     path: '/technology',
     title: `Trading Bot Technology & Infrastructure | ${SITE_NAME}`,
     description:
-      'How Monadier powers full auto Hyperliquid trading: multi-timeframe signals, non-custodial agent execution, live charts, and 24/7 server-side automation.',
+      'How HyperGain powers full auto Hyperliquid trading: multi-timeframe signals, non-custodial agent execution, live charts, and 24/7 server-side automation.',
     keywords: `hyperliquid bot technology, automated trading infrastructure, ${BOT_KEYWORDS}`,
     changefreq: 'monthly',
     priority: 0.7,
@@ -82,8 +82,8 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     path: '/about',
     title: `About ${SITE_NAME} | Hyperliquid Automated Trading`,
     description:
-      'Monadier builds non-custodial automated trading tools for Hyperliquid — full auto trading bot, live terminal, and on-chain sports markets in one platform.',
-    keywords: `about Monadier, hyperliquid trading platform, ${BOT_KEYWORDS}`,
+      'HyperGain builds non-custodial automated trading tools for Hyperliquid — full auto trading bot, live terminal, and on-chain sports markets in one platform.',
+    keywords: `about HyperGain, hyperliquid trading platform, ${BOT_KEYWORDS}`,
     changefreq: 'monthly',
     priority: 0.65,
     sitemap: true,
@@ -92,7 +92,7 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     path: '/support',
     title: `Support & FAQ | ${SITE_NAME} Trading Bot`,
     description:
-      'Get help with the Monadier Hyperliquid trading bot — deposits, agent approval, bot settings, fees, and withdrawals. Contact support@monadier.io.',
+      'Get help with the HyperGain Hyperliquid trading bot — deposits, agent approval, bot settings, fees, and withdrawals. Contact support@hypergain.io.',
     keywords: `hyperliquid bot support, trading bot help, ${BOT_KEYWORDS}`,
     changefreq: 'monthly',
     priority: 0.6,
@@ -101,8 +101,8 @@ export const PAGE_SEO: Record<string, PageSeo> = {
   '/terms': {
     path: '/terms',
     title: `Terms of Service | ${SITE_NAME}`,
-    description: 'Terms of service for Monadier automated Hyperliquid trading software.',
-    keywords: 'Monadier terms',
+    description: 'Terms of service for HyperGain automated Hyperliquid trading software.',
+    keywords: 'HyperGain terms',
     changefreq: 'yearly',
     priority: 0.3,
     sitemap: true,
@@ -110,8 +110,8 @@ export const PAGE_SEO: Record<string, PageSeo> = {
   '/privacy': {
     path: '/privacy',
     title: `Privacy Policy | ${SITE_NAME}`,
-    description: 'Privacy policy for Monadier — Hyperliquid trading bot and platform.',
-    keywords: 'Monadier privacy',
+    description: 'Privacy policy for HyperGain — Hyperliquid trading bot and platform.',
+    keywords: 'HyperGain privacy',
     changefreq: 'yearly',
     priority: 0.3,
     sitemap: true,
@@ -119,7 +119,7 @@ export const PAGE_SEO: Record<string, PageSeo> = {
   '/login': {
     path: '/login',
     title: `Sign In | ${SITE_NAME}`,
-    description: 'Sign in to your Monadier account to access the Hyperliquid trading bot terminal.',
+    description: 'Sign in to your HyperGain account to access the Hyperliquid trading bot terminal.',
     keywords: BOT_KEYWORDS,
     changefreq: 'monthly',
     priority: 0.2,
@@ -129,7 +129,7 @@ export const PAGE_SEO: Record<string, PageSeo> = {
   '/register': {
     path: '/register',
     title: `Create Account | ${SITE_NAME}`,
-    description: 'Create a Monadier account and start the full auto Hyperliquid trading bot.',
+    description: 'Create a HyperGain account and start the full auto Hyperliquid trading bot.',
     keywords: BOT_KEYWORDS,
     changefreq: 'monthly',
     priority: 0.2,

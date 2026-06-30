@@ -87,6 +87,9 @@ export function isBotScanNoiseDetail(detail: string): boolean {
     /short-window/i.test(d) ||
     /Fri \d{1,2}:00 MES/i.test(d) ||
     /SHORT only/i.test(d) ||
+    /Checking your Hyperliquid balance/i.test(d) ||
+    /HL balance check failed/i.test(d) ||
+    /Could not read Hyperliquid balance/i.test(d) ||
     / ‖ /.test(d)
   );
 }

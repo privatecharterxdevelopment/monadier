@@ -21,6 +21,7 @@ import {
 import { getMegaPairVolumeSnapshot } from './services/megaPairVolumeMonitor';
 import {
   applyOpenUniverseFilters,
+  describeNoTradeableSetupBlocker,
   describeOpenUniverseForClient,
 } from './services/marketRegime';
 import { fetchMegaPairPumpSweep, formatPumpSweepLine } from './services/pumpSweepAnalytics';
@@ -561,7 +562,9 @@ const healthServer = http.createServer(async (req, res) => {
         hlAgentOk || hlFunding.stateLoaded
           ? describeHlPerpBalanceBlocker(hlFunding, config.hyperliquid.minAccountUsd)
           : null;
-      if (balanceBlocker && (hlAgentOk || !/HL balance check failed/i.test(balanceBlocker))) {
+      const balanceReadFlake =
+        balanceBlocker != null && /HL balance check failed/i.test(balanceBlocker);
+      if (balanceBlocker && !balanceReadFlake) {
         blockers.push(balanceBlocker);
       }
       const maxPositions = config.hyperliquid.maxConcurrentPositions;
@@ -577,11 +580,10 @@ const healthServer = http.createServer(async (req, res) => {
         );
       }
       if (!winRateGate.allowed) blockers.push(winRateGate.reason || 'win rate gate');
-      const balanceGateOpen = !balanceBlocker;
+      const balanceGateOpen = !balanceBlocker || balanceReadFlake;
       if (balanceGateOpen && userSignals.length === 0 && hlOpenCoins.length < maxPositions) {
         blockers.push(
-          filterReasons[0] ??
-            `no tradeable setup after macro/weekend filter (raw scan ${rawUserSignals.length})`
+          describeNoTradeableSetupBlocker(rawUserSignals.length, filterReasons)
         );
       }
       if (balanceGateOpen && !bestAvailable && userSignals.length > 0 && hlOpenCoins.length < maxPositions) {
@@ -1189,6 +1191,7 @@ async function main(): Promise<void> {
   setInterval(() => {
     void processPendingTradeCloseEmails(50);
   }, 15_000);
+  void processPendingTradeCloseEmails(100).catch(() => undefined);
   logger.info('- Trade close emails: every 15s (pending queue)');
 
   setInterval(() => {

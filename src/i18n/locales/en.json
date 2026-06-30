@@ -44,7 +44,7 @@
     "privacy": "Privacy",
     "support": "Support",
     "about": "About",
-    "copyright": "© {{year}} Monadier · Hyperliquid automated trading · support@monadier.io"
+    "copyright": "© {{year}} HyperGain · Hyperliquid automated trading · support@hypergain.io"
   },
   "landing": {
     "hero": {
@@ -58,7 +58,7 @@
         "with deep HL liquidity",
         "across 200+ markets"
       ],
-      "disclaimer": "Monadier enables AI-automated perpetuals trading from your Hyperliquid account. Your USDC remains on Hyperliquid at all times — we are non-custodial, never hold your private keys, and cannot access your wallet or withdraw funds; we supply the trading technology and automation only. Leveraged crypto trading carries substantial risk of loss; AI and automated systems can misread markets and make mistakes. Past performance does not guarantee future results. Not financial, investment, tax, or legal advice."
+      "disclaimer": "HyperGain enables AI-automated perpetuals trading from your Hyperliquid account. Your USDC remains on Hyperliquid at all times — we are non-custodial, never hold your private keys, and cannot access your wallet or withdraw funds; we supply the trading technology and automation only. Leveraged crypto trading carries substantial risk of loss; AI and automated systems can misread markets and make mistakes. Past performance does not guarantee future results. Not financial, investment, tax, or legal advice."
     },
     "carousel": {
       "titleStart": "Start",
@@ -69,7 +69,7 @@
         "tomorrow",
         "whenever"
       ],
-      "description": "Monadier combines automated bot trading, professional perps execution, sports betting, and prediction markets on Hyperliquid — one account, one interface. Let the AI bot scan 200+ markets and manage positions 24/7, trade with live charts and depth, or open on-chain outcome markets for sports, crypto, and macro events. Your USDC stays on Hyperliquid at all times; we provide the automation and trading tools only.",
+      "description": "HyperGain combines automated bot trading, professional perps execution, sports betting, and prediction markets on Hyperliquid — one account, one interface. Let the AI bot scan 200+ markets and manage positions 24/7, trade with live charts and depth, or open on-chain outcome markets for sports, crypto, and macro events. Your USDC stays on Hyperliquid at all times; we provide the automation and trading tools only.",
       "cards": {
         "bot": {
           "title": "Full auto bot trading",
@@ -242,28 +242,28 @@
       "items": [
         {
           "tab": "platform",
-          "q": "What is Monadier?",
-          "a": "Monadier is an automated perpetuals bot on Hyperliquid. You deposit USDC on your Hyperliquid account, approve the Monadier trading agent once, and our server scans all HL markets 24/7 to open and close trades for you."
+          "q": "What is HyperGain?",
+          "a": "HyperGain is an automated perpetuals bot on Hyperliquid. You deposit USDC on your Hyperliquid account, approve the HyperGain trading agent once, and our server scans all HL markets 24/7 to open and close trades for you."
         },
         {
           "tab": "platform",
-          "q": "Is Monadier safe to use?",
-          "a": "Monadier is non-custodial on Hyperliquid: your USDC stays on your HL account in your name. The trading agent can place trades but cannot withdraw without your wallet. Auto-trading runs only when you press Start bot."
+          "q": "Is HyperGain safe to use?",
+          "a": "HyperGain is non-custodial on Hyperliquid: your USDC stays on your HL account in your name. The trading agent can place trades but cannot withdraw without your wallet. Auto-trading runs only when you press Start bot."
         },
         {
           "tab": "platform",
-          "q": "Is Monadier non-custodial?",
-          "a": "Yes. Funds sit on your Hyperliquid account, not in a Monadier vault. We never hold your private keys. Withdrawals always require your wallet signature on Hyperliquid."
+          "q": "Is HyperGain non-custodial?",
+          "a": "Yes. Funds sit on your Hyperliquid account, not in a HyperGain vault. We never hold your private keys. Withdrawals always require your wallet signature on Hyperliquid."
         },
         {
           "tab": "platform",
-          "q": "Is Monadier fully decentralized?",
-          "a": "Trading executes on Hyperliquid infrastructure via an agent you approve. Signal analysis and automation run on Monadier servers (Railway). You can verify balances and positions on app.hyperliquid.xyz at any time."
+          "q": "Is HyperGain fully decentralized?",
+          "a": "Trading executes on Hyperliquid infrastructure via an agent you approve. Signal analysis and automation run on HyperGain servers (Railway). You can verify balances and positions on app.hyperliquid.xyz at any time."
         },
         {
           "tab": "platform",
           "q": "Is this financial advice?",
-          "a": "No. Monadier provides software for automated Hyperliquid perpetual trading — not investment, tax, or legal advice. Crypto and leveraged trading carry significant risk. Do your own research and only use funds you can afford to lose."
+          "a": "No. HyperGain provides software for automated Hyperliquid perpetual trading — not investment, tax, or legal advice. Crypto and leveraged trading carry significant risk. Do your own research and only use funds you can afford to lose."
         },
         {
           "tab": "platform",
@@ -273,7 +273,7 @@
         {
           "tab": "bot",
           "q": "How does the trading bot work?",
-          "a": "While the bot is running, Monadier server (Railway) checks your HL balance every ~10 seconds, scans all Hyperliquid perps with multi-timeframe signals, opens the strongest setup, monitors take profit / stop loss, closes the position, then repeats."
+          "a": "While the bot is running, HyperGain server (Railway) checks your HL balance every ~10 seconds, scans all Hyperliquid perps with multi-timeframe signals, opens the strongest setup, monitors take profit / stop loss, closes the position, then repeats."
         },
         {
           "tab": "bot",
@@ -303,12 +303,12 @@
         {
           "tab": "bot",
           "q": "Do I need to keep my computer on?",
-          "a": "No. The bot runs on Monadier servers (Railway). After Start bot and a funded Hyperliquid account, it trades 24/7 without your browser open."
+          "a": "No. The bot runs on HyperGain servers (Railway). After Start bot and a funded Hyperliquid account, it trades 24/7 without your browser open."
         },
         {
           "tab": "bot",
           "q": "How do I deposit so the bot can start?",
-          "a": "In Monadier Funds (or app.hyperliquid.xyz): deposit only native USDC on Arbitrum One — not BNB, BSC, ETH mainnet, or USDC on other chains. Min. $5 on HL; bot needs $20+. Then approve agent → Start bot."
+          "a": "In HyperGain Funds (or app.hyperliquid.xyz): deposit only native USDC on Arbitrum One — not BNB, BSC, ETH mainnet, or USDC on other chains. Min. $5 on HL; bot needs $20+. Then approve agent → Start bot."
         },
         {
           "tab": "vault",
@@ -318,7 +318,7 @@
         {
           "tab": "vault",
           "q": "What fees does the bot charge?",
-          "a": "Hyperliquid trading fees apply on each perp trade. Monadier may charge a builder fee on HL orders and subscription tiers for bot access. Check the app for current subscription and fee settings."
+          "a": "Hyperliquid trading fees apply on each perp trade. HyperGain may charge a builder fee on HL orders and subscription tiers for bot access. Check the app for current subscription and fee settings."
         },
         {
           "tab": "vault",
@@ -337,13 +337,13 @@
         },
         {
           "tab": "betting",
-          "q": "What are verified sports markets on Monadier?",
+          "q": "What are verified sports markets on HyperGain?",
           "a": "Browse live and upcoming sports events listed as Hyperliquid HIP-4 outcome markets — odds update on-chain as the book moves."
         },
         {
           "tab": "betting",
-          "q": "Is Monadier betting non-custodial?",
-          "a": "Your USDC stays on your Hyperliquid account. Orders are wallet-signed; Monadier never holds your private keys."
+          "q": "Is HyperGain betting non-custodial?",
+          "a": "Your USDC stays on your Hyperliquid account. Orders are wallet-signed; HyperGain never holds your private keys."
         },
         {
           "tab": "betting",
@@ -378,7 +378,7 @@
         "doNotUse": "Do not use"
       },
       "stepsTitle": "Setup in four steps",
-      "stepsSub": "One-time setup in the Monadier app.",
+      "stepsSub": "One-time setup in the HyperGain app.",
       "steps": [
         {
           "title": "Connect wallet",
@@ -402,7 +402,7 @@
       "funds": [
         {
           "title": "Login vs wallet",
-          "text": "Email/Google = Monadier dashboard. MetaMask = signs deposits and withdrawals."
+          "text": "Email/Google = HyperGain dashboard. MetaMask = signs deposits and withdrawals."
         },
         {
           "title": "Your HL account",
@@ -439,7 +439,7 @@
       "faqSub": "Quick answers about setup, safety, and fees.",
       "faqExtra": {
         "q": "How fast is support?",
-        "a": "Email support@monadier.io — we aim to reply within 24 hours, Monday–Sunday 09:00–20:00 CET."
+        "a": "Email support@hypergain.io — we aim to reply within 24 hours, Monday–Sunday 09:00–20:00 CET."
       },
       "ctaContact": "Contact support",
       "disclaimer": "For account security, never share your seed phrase or private keys with anyone — including support."
@@ -460,7 +460,7 @@
     "demoDashboard": "Open demo dashboard (local dev)",
     "signInFailed": "Failed to sign in",
     "googleSignInFailed": "Failed to sign in with Google",
-    "signInToAccount": "Sign in to your Monadier account.",
+    "signInToAccount": "Sign in to your HyperGain account.",
     "signInToProfile": "Sign in to open profile and bot settings.",
     "signInToAffiliate": "Sign in to view your affiliate dashboard.",
     "signInToSupport": "Sign in to contact support.",
@@ -492,18 +492,18 @@
       "referralNotificationTitle": "Referral linked",
       "referralNotificationMessage": "Your referrer earns 2% when you close profitable bot trades.",
       "modalTitle": "Register",
-      "modalSub": "Create your Monadier account for bot trading and Pro Trade.",
+      "modalSub": "Create your HyperGain account for bot trading and Pro Trade.",
       "referralApplied": "Referral code applied — referrer earns 2% on your profitable bot trades",
       "accountCreatedWelcome": "Account created — welcome!",
       "createFailedShort": "Failed to create account",
       "orDivider": "or",
-      "visualKicker": "Monadier Pro Trade",
-      "visualTitle": "Monadier bot + trading terminal",
-      "visualCopy": "Perps, spot, portfolio, and Monadier bot — one trading workspace.",
+      "visualKicker": "HyperGain Pro Trade",
+      "visualTitle": "HyperGain bot + trading terminal",
+      "visualCopy": "Perps, spot, portfolio, and HyperGain bot — one trading workspace.",
       "fullNameLabel": "Full name"
     },
     "signInModal": {
-      "kicker": "Monadier",
+      "kicker": "HyperGain",
       "title": "Welcome back",
       "close": "Close",
       "continueGoogle": "Continue with Google",
@@ -525,7 +525,7 @@
       "sections": "Pro trade sections"
     },
     "account": {
-      "title": "Your Monadier account",
+      "title": "Your HyperGain account",
       "guestDesc": "Sign in to save bot settings, profile, and trade history.",
       "profileSettings": "Profile & settings",
       "profileSettingsFallback": "Profile & bot settings",
@@ -728,7 +728,7 @@
       "title": "Betting isn't available in your region",
       "detectedLocation": "Detected location",
       "tradePerpsInstead": "Trade perps instead",
-      "footnote": "Perps trading and the Monadier bot remain available. Outcome markets follow regional compliance rules."
+      "footnote": "Perps trading and the HyperGain bot remain available. Outcome markets follow regional compliance rules."
     }
   }
 }

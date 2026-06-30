@@ -31,8 +31,11 @@ function simplifyBlocker(raw: string): string {
   if (/builder fee|platform fee|success fee/i.test(raw)) {
     return `Approve ${hlBotSuccessFeeShortLabel()} first — then Start bot`;
   }
-  if (/HL balance check failed/i.test(raw)) {
-    return 'Checking your Hyperliquid balance — retrying…';
+  if (/HL balance check failed|Could not read Hyperliquid balance/i.test(raw)) {
+    return '';
+  }
+  if (/Checking your Hyperliquid balance|retrying/i.test(raw)) {
+    return '';
   }
   if (/HL balance|HL-Guthaben/i.test(raw)) {
     return raw.replace(/HL balance/i, 'HL balance').replace(/HL-Guthaben/i, 'HL balance');

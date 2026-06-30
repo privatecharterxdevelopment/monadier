@@ -1,6 +1,6 @@
 /**
  * Marketing site vs app subdomain routing.
- * Production (live domain): VITE_SITE_URL=https://www.monadier.io, VITE_APP_URL=https://app.monadier.io
+ * Production (live domain): VITE_SITE_URL=https://hypergain.io, VITE_APP_URL=https://app.hypergain.io
  * Vercel preview / local dev: marketing at `/`, Pro Trade at `/app` on the same origin
  */
 
@@ -25,7 +25,7 @@ function splitDomainsEnabled(): boolean {
 }
 
 /**
- * Preview / local — stay on current origin even when Vercel env has monadier.io URLs.
+ * Preview / local — stay on current origin even when Vercel env has hypergain.io URLs.
  */
 export function isUnifiedOriginHost(hostname?: string): boolean {
   if (splitDomainsEnabled()) {
@@ -68,7 +68,7 @@ function getAppHostname(): string | null {
   }
 }
 
-/** Live split setup: marketing and app on different hostnames (monadier.io vs app.monadier.io). */
+/** Live split setup: marketing and app on different hostnames (hypergain.io vs app.hypergain.io). */
 function usesSplitDomainSetup(): boolean {
   if (typeof window !== 'undefined' && isUnifiedOriginHost()) return false;
   const siteHost = getSiteHostname();
