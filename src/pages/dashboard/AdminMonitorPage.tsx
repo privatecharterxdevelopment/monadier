@@ -29,6 +29,7 @@ import {
   type AdminLiveContext,
   type AdminTradeClose,
   type AdminTradeHistoryUserStats,
+  type AdminWalletFee,
 } from '../../lib/adminDashboard';
 import { fmtPrice, fmtSize } from '../../lib/hyperliquid/format';
 import { countAdminPositionsByCoin } from '../../lib/adminHlLivePositions';
@@ -248,7 +249,9 @@ const AdminMonitorPage: React.FC = () => {
         <OverviewPanel stats={stats} live={live} events={mergedEvents} />
       )}
 
-      {section === 'bots' && dash && <BotsPanel bots={dash.active_bots} />}
+      {section === 'bots' && dash && (
+        <BotsPanel bots={dash.active_bots} runnableCount={dash.stats.hl_bots_runnable} />
+      )}
       {section === 'positions' && dash && <PositionsPanel rows={dash.open_positions} />}
       {section === 'trades' && (
         <TradesPanel
@@ -258,7 +261,12 @@ const AdminMonitorPage: React.FC = () => {
       )}
       {section === 'events' && dash && <EventsPanel rows={dash.recent_events} />}
       {section === 'fees' && dash && live && (
-        <FeesPanel ledger={dash.fee_ledger} stats={dash.stats} builder={live.builder} />
+        <FeesPanel
+          ledger={dash.fee_ledger}
+          walletFees={dash.wallet_fees ?? []}
+          stats={dash.stats}
+          builder={live.builder}
+        />
       )}
       {section === 'betting' && dash && (
         <BettingPanel positions={dash.betting_positions} closes={dash.betting_closes} />
@@ -306,9 +314,9 @@ function OverviewPanel({
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <Kpi label="Users" value={String(stats.total_users)} sub={`${stats.users_with_wallet} wallets`} />
         <Kpi
-          label="HL bots on"
-          value={String(stats.hl_bots_active)}
-          sub={`${stats.hl_bots_total} configured · ${stats.agents_approved} agents`}
+          label="HL bots runnable"
+          value={String(stats.hl_bots_runnable ?? stats.hl_bots_active)}
+          sub={`${stats.hl_bots_toggle_on ?? stats.hl_bots_active} toggle on · ${stats.hl_bots_total} configured · ${stats.agents_approved} agents`}
         />
         <Kpi label="Open perps" value={String(stats.open_positions)} sub={`uPnL ${fmtUsd(stats.open_upnl_total, true)}`} />
         <Kpi
@@ -319,14 +327,18 @@ function OverviewPanel({
         />
         <Kpi label="Win rate" value={`${stats.win_rate}%`} sub={`${stats.closed_trades_24h} closes / 24h`} />
         <Kpi
-          label="HL builder fees"
-          value={fmtUsd(stats.hl_fees_total_usd)}
-          sub={`${fmtUsd(stats.hl_fees_settled_usd)} on builder wallet`}
+          label="Platform fees"
+          value={fmtUsd(stats.platform_fees_owed_usd ?? stats.hl_fees_accrued_usd)}
+          sub={`owed · ${fmtUsd(stats.platform_fees_paid_usd ?? stats.hl_fees_settled_usd)} paid`}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <BotServiceCard live={live} activeBots={stats.hl_bots_active} />
+        <BotServiceCard
+          live={live}
+          activeBots={stats.hl_bots_runnable ?? stats.hl_bots_active}
+          toggleOn={stats.hl_bots_toggle_on}
+        />
         <BuilderCard live={live} pendingEmail={stats.notifications_pending_email} />
       </div>
 
@@ -365,9 +377,11 @@ function OverviewPanel({
 function BotServiceCard({
   live,
   activeBots,
+  toggleOn,
 }: {
   live: AdminLiveContext | null;
   activeBots: number;
+  toggleOn?: number;
 }) {
   const health = live?.health;
   const svc = live?.serviceStatus;
@@ -395,7 +409,12 @@ function BotServiceCard({
           <dt className="text-secondary">Trades executed</dt>
           <dd className="text-primary">{health.tradesExecuted ?? '—'}</dd>
           <dt className="text-secondary">Auto-trade wallets</dt>
-          <dd className="text-primary">{svc?.activeAutoTradeWallets ?? activeBots}</dd>
+          <dd className="text-primary">
+            {svc?.activeAutoTradeWallets ?? activeBots}
+            {toggleOn != null && toggleOn !== (svc?.activeAutoTradeWallets ?? activeBots) ? (
+              <span className="text-secondary text-xs"> · {toggleOn} toggle on</span>
+            ) : null}
+          </dd>
           <dt className="text-secondary">Scan interval</dt>
           <dd className="text-primary">{svc?.tradeIntervalSec ? `${svc.tradeIntervalSec}s` : '—'}</dd>
           <dt className="text-secondary">Venue</dt>
@@ -495,8 +514,16 @@ function BuilderCard({
   );
 }
 
-function BotsPanel({ bots }: { bots: AdminHlDashboard['active_bots'] }) {
+function BotsPanel({
+  bots,
+  runnableCount,
+}: {
+  bots: AdminHlDashboard['active_bots'];
+  runnableCount?: number;
+}) {
   const [page, setPage] = useState(0);
+  const runnable = runnableCount ?? bots.filter((b) => b.bot_runnable).length;
+  const toggleOn = bots.filter((b) => b.auto_trade_enabled).length;
   const { pageRows, totalPages, safePage, total } = useMemo(
     () => paginate(bots, page),
     [bots, page]
@@ -505,7 +532,7 @@ function BotsPanel({ bots }: { bots: AdminHlDashboard['active_bots'] }) {
   return (
     <TableShell
       title={`HL bot configs (${total})`}
-      subtitle="vault_settings · agent · strategy"
+      subtitle={`${runnable} runnable (Railway cycle) · ${toggleOn} toggle on · chain 42161 + agent required`}
       scrollable
       pagination={{
         page: safePage,
@@ -518,31 +545,43 @@ function BotsPanel({ bots }: { bots: AdminHlDashboard['active_bots'] }) {
         <tr className="text-left text-secondary text-xs">
           <th className="px-4 py-3">Wallet</th>
           <th className="px-4 py-3">User</th>
-          <th className="px-4 py-3">Bot</th>
+          <th className="px-4 py-3">Runnable</th>
+          <th className="px-4 py-3">Toggle</th>
           <th className="px-4 py-3">Agent</th>
+          <th className="px-4 py-3">Chain</th>
+          <th className="px-4 py-3">Fees owed</th>
+          <th className="px-4 py-3">Blockers</th>
           <th className="px-4 py-3">Lev</th>
-          <th className="px-4 py-3">TP / SL</th>
           <th className="px-4 py-3">Strategy</th>
-          <th className="px-4 py-3">Updated</th>
         </tr>
       </thead>
       <tbody>
         {pageRows.map((b) => (
-          <tr key={b.wallet_address} className="border-t border-border text-sm hover:bg-black/[0.03]">
+          <tr key={`${b.wallet_address}-${b.chain_id ?? 'x'}`} className="border-t border-border text-sm hover:bg-black/[0.03] align-top">
             <td className="px-4 py-2 font-mono text-xs">{shortWallet(b.wallet_address, 8)}</td>
-            <td className="px-4 py-2 text-xs text-secondary max-w-[160px] truncate">{b.email ?? '—'}</td>
+            <td className="px-4 py-2 text-xs text-secondary max-w-[140px] truncate">{b.email ?? '—'}</td>
             <td className="px-4 py-2">
-              <StatusPill on={b.auto_trade_enabled} onLabel="RUNNING" offLabel="stopped" />
+              <StatusPill on={Boolean(b.bot_runnable)} onLabel="yes" offLabel="no" />
             </td>
             <td className="px-4 py-2">
-              <StatusPill on={b.agent_approved} onLabel="approved" offLabel="missing" />
+              <StatusPill on={b.auto_trade_enabled} onLabel="ON" offLabel="off" />
+            </td>
+            <td className="px-4 py-2">
+              <StatusPill on={b.agent_approved} onLabel="yes" offLabel="no" />
+            </td>
+            <td className="px-4 py-2 text-xs font-mono">{b.chain_id ?? '—'}</td>
+            <td className="px-4 py-2 font-mono text-xs">
+              {(b.fees_owed_usd ?? 0) > 0 ? (
+                <span className="text-amber-400">{fmtUsd(b.fees_owed_usd)}</span>
+              ) : (
+                <span className="text-secondary">—</span>
+              )}
+            </td>
+            <td className="px-4 py-2 text-xs text-amber-400/90 max-w-[200px]">
+              {b.blockers || '—'}
             </td>
             <td className="px-4 py-2">{b.leverage_multiplier}x</td>
-            <td className="px-4 py-2 text-xs">
-              {b.take_profit_percent}% / {b.stop_loss_percent}%
-            </td>
             <td className="px-4 py-2 text-xs">{b.hl_bot_strategy ?? '—'}</td>
-            <td className="px-4 py-2 text-secondary text-xs">{formatTimeAgo(b.updated_at)}</td>
           </tr>
         ))}
       </tbody>
@@ -973,48 +1012,109 @@ function EventsPanel({ rows }: { rows: AdminHlDashboard['recent_events'] }) {
 
 function FeesPanel({
   ledger,
+  walletFees,
   stats,
   builder,
 }: {
   ledger: AdminHlDashboard['fee_ledger'];
+  walletFees: AdminWalletFee[];
   stats: AdminHlDashboard['stats'];
   builder: AdminLiveContext['builder'];
 }) {
-  const [page, setPage] = useState(0);
-  const { pageRows, totalPages, safePage, total } = useMemo(
-    () => paginate(ledger, page),
-    [ledger, page]
+  const [ledgerPage, setLedgerPage] = useState(0);
+  const [walletPage, setWalletPage] = useState(0);
+  const ledgerPaginated = useMemo(
+    () => paginate(ledger, ledgerPage),
+    [ledger, ledgerPage]
+  );
+  const walletPaginated = useMemo(
+    () => paginate(walletFees, walletPage),
+    [walletFees, walletPage]
   );
   const builderAddr = builder?.builderAddress ?? '—';
+  const owedTotal = stats.platform_fees_owed_usd ?? stats.hl_fees_accrued_usd;
+  const paidTotal = stats.platform_fees_paid_usd ?? 0;
 
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-border bg-card-dark p-4 text-sm">
-        <p className="text-primary font-medium">HL builder fees (opt-in, max 0.1% on perp notional)</p>
+        <p className="text-primary font-medium">Platform success fees & HL builder fees</p>
         <p className="text-secondary mt-1">
-          When enabled, collected via Hyperliquid builder codes and credited to{' '}
-          <span className="font-mono text-xs break-all">{builderAddr}</span>. Success-fee collection is
-          disabled by default — closes are never blocked for missing builder approval.
+          Success fees accrue on profitable closes; users pay owed fees before new opens when win
+          count exceeds threshold. HL builder fees (opt-in) settle to{' '}
+          <span className="font-mono text-xs break-all">{builderAddr}</span>.
         </p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Kpi label="Total builder fees" value={fmtUsd(stats.hl_fees_total_usd)} />
-        <Kpi label="Accrued" value={fmtUsd(stats.hl_fees_accrued_usd)} sub="missing HL settlement" />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Kpi label="Fees owed (platform)" value={fmtUsd(owedTotal)} sub="unpaid accrued" />
+        <Kpi label="Fees paid" value={fmtUsd(paidTotal)} sub="user payments recorded" />
+        <Kpi label="HL builder accrued" value={fmtUsd(stats.hl_fees_accrued_usd)} sub="missing HL settlement" />
         <Kpi
-          label="Settled on builder"
+          label="HL builder settled"
           value={fmtUsd(stats.hl_fees_settled_usd)}
           sub={builder?.ready ? `wallet ${fmtUsd(builder.accountUsd)}` : 'builder underfunded'}
         />
       </div>
       <TableShell
-        title={`Fee ledger (${total})`}
-        subtitle="hl_fee_ledger · platform success fees"
+        title={`Per-wallet fees (${walletPaginated.total})`}
+        subtitle="owed vs paid · opens blocked when owed + win threshold"
         scrollable
         pagination={{
-          page: safePage,
-          totalPages,
-          total,
-          onPageChange: setPage,
+          page: walletPaginated.safePage,
+          totalPages: walletPaginated.totalPages,
+          total: walletPaginated.total,
+          onPageChange: setWalletPage,
+        }}
+      >
+        <thead>
+          <tr className="text-left text-secondary text-xs">
+            <th className="px-4 py-3">Wallet</th>
+            <th className="px-4 py-3">User</th>
+            <th className="px-4 py-3">Status</th>
+            <th className="px-4 py-3">Owed</th>
+            <th className="px-4 py-3">Paid</th>
+            <th className="px-4 py-3">Accrued</th>
+            <th className="px-4 py-3">Settled (HL)</th>
+            <th className="px-4 py-3">Wins</th>
+            <th className="px-4 py-3">Opens blocked</th>
+          </tr>
+        </thead>
+        <tbody>
+          {walletPaginated.pageRows.map((w) => (
+            <tr key={w.wallet_address} className="border-t border-border text-sm hover:bg-black/[0.03]">
+              <td className="px-4 py-2 font-mono text-xs">{shortWallet(w.wallet_address, 8)}</td>
+              <td className="px-4 py-2 text-xs text-secondary max-w-[140px] truncate">{w.email ?? '—'}</td>
+              <td className="px-4 py-2">
+                <FeeStatusPill status={w.fee_payment_status} />
+              </td>
+              <td className="px-4 py-2 font-mono text-amber-400">
+                {w.fees_owed_usd > 0 ? fmtUsd(w.fees_owed_usd) : '—'}
+              </td>
+              <td className="px-4 py-2 font-mono text-green-400">
+                {w.fees_paid_usd > 0 ? fmtUsd(w.fees_paid_usd) : '—'}
+              </td>
+              <td className="px-4 py-2 font-mono">{fmtUsd(w.fees_accrued_usd)}</td>
+              <td className="px-4 py-2 font-mono text-secondary">{fmtUsd(w.fees_settled_usd)}</td>
+              <td className="px-4 py-2 text-xs">
+                {w.fee_win_count}
+                <span className="text-secondary"> / {w.wins_until_fee} left</span>
+              </td>
+              <td className="px-4 py-2">
+                <StatusPill on={!w.fee_opens_blocked} onLabel="no" offLabel="BLOCKED" />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </TableShell>
+      <TableShell
+        title={`Fee ledger (${ledgerPaginated.total})`}
+        subtitle="hl_fee_ledger · per-close fee rows"
+        scrollable
+        pagination={{
+          page: ledgerPaginated.safePage,
+          totalPages: ledgerPaginated.totalPages,
+          total: ledgerPaginated.total,
+          onPageChange: setLedgerPage,
         }}
       >
         <thead>
@@ -1030,7 +1130,7 @@ function FeesPanel({
           </tr>
         </thead>
         <tbody>
-          {pageRows.map((f) => (
+          {ledgerPaginated.pageRows.map((f) => (
             <tr key={f.id} className="border-t border-border text-sm">
               <td className="px-4 py-2 text-xs text-secondary">{formatTimeAgo(f.created_at)}</td>
               <td className="px-4 py-2 font-mono text-xs">{shortWallet(f.wallet_address, 8)}</td>
@@ -1370,6 +1470,20 @@ function Kpi({
       </p>
       {sub && <p className="text-[11px] text-secondary mt-1">{sub}</p>}
     </div>
+  );
+}
+
+function FeeStatusPill({ status }: { status: AdminWalletFee['fee_payment_status'] }) {
+  const styles =
+    status === 'paid'
+      ? 'bg-green-500/20 text-green-400'
+      : status === 'owed'
+        ? 'bg-amber-500/20 text-amber-400'
+        : 'bg-gray-500/20 text-secondary';
+  return (
+    <span className={`text-[10px] uppercase px-2 py-0.5 rounded-full font-medium ${styles}`}>
+      {status}
+    </span>
   );
 }
 

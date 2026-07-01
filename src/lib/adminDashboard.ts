@@ -10,7 +10,12 @@ import {
 export type AdminHlStats = {
   total_users: number;
   users_with_wallet: number;
+  /** Matches Railway bot-service cycle (chain 42161 + agent + no fee block). */
   hl_bots_active: number;
+  /** Toggle ON in vault_settings (may not be runnable). */
+  hl_bots_toggle_on?: number;
+  /** Same as hl_bots_active — explicit alias from RPC. */
+  hl_bots_runnable?: number;
   hl_bots_total: number;
   agents_approved: number;
   open_positions: number;
@@ -23,6 +28,8 @@ export type AdminHlStats = {
   hl_fees_accrued_usd: number;
   hl_fees_settled_usd: number;
   hl_fees_total_usd: number;
+  platform_fees_owed_usd?: number;
+  platform_fees_paid_usd?: number;
   notifications_pending_email: number;
   betting_open: number;
   active_subscriptions: number;
@@ -32,6 +39,7 @@ export type AdminHlBot = {
   wallet_address: string;
   user_id: string | null;
   email: string | null;
+  chain_id?: number;
   auto_trade_enabled: boolean;
   execution_venue: string;
   leverage_multiplier: number;
@@ -43,6 +51,28 @@ export type AdminHlBot = {
   agent_approved: boolean;
   agent_approved_at: string | null;
   agent_expires_at: string | null;
+  bot_runnable?: boolean;
+  blockers?: string;
+  fees_accrued_usd?: number;
+  fees_settled_usd?: number;
+  fees_paid_usd?: number;
+  fees_owed_usd?: number;
+  fee_win_count?: number;
+  fee_opens_blocked?: boolean;
+};
+
+export type AdminWalletFee = {
+  wallet_address: string;
+  email: string | null;
+  auto_trade_enabled: boolean;
+  fees_accrued_usd: number;
+  fees_settled_usd: number;
+  fees_paid_usd: number;
+  fees_owed_usd: number;
+  fee_win_count: number;
+  wins_until_fee: number;
+  fee_opens_blocked: boolean;
+  fee_payment_status: 'paid' | 'owed' | 'clear';
 };
 
 export type AdminOpenPosition = {
@@ -195,6 +225,7 @@ export type AdminHlDashboard = {
   generated_at: string;
   stats: AdminHlStats;
   active_bots: AdminHlBot[];
+  wallet_fees?: AdminWalletFee[];
   open_positions: AdminOpenPosition[];
   recent_closes: AdminTradeClose[];
   recent_events: AdminTradeEvent[];
@@ -233,6 +264,7 @@ export function normalizeAdminHlDashboard(raw: Partial<AdminHlDashboard> | null 
     generated_at: dash.generated_at ?? new Date().toISOString(),
     stats: { ...EMPTY_ADMIN_STATS, ...(dash.stats ?? {}) },
     active_bots: dash.active_bots ?? [],
+    wallet_fees: dash.wallet_fees ?? [],
     open_positions: dash.open_positions ?? [],
     recent_closes: dash.recent_closes ?? [],
     recent_events: dash.recent_events ?? [],
@@ -291,6 +323,50 @@ export async function fetchAdminSessionCheck(): Promise<AdminSessionCheck | null
   return data as AdminSessionCheck;
 }
 
+const HL_BOT_CHAIN_ID = 42161;
+const FEE_WINS_BEFORE_BLOCK = 20;
+
+function botBlockers(
+  v: {
+    auto_trade_enabled?: boolean | null;
+    chain_id?: number | null;
+    execution_venue?: string | null;
+  },
+  agentApproved: boolean,
+  feesAccrued: number,
+  feeWinCount: number
+): string {
+  const parts: string[] = [];
+  if (!v.auto_trade_enabled) parts.push('toggle off');
+  if (v.chain_id != null && v.chain_id !== HL_BOT_CHAIN_ID) parts.push(`chain ${v.chain_id}`);
+  if (v.execution_venue == null) parts.push('venue null');
+  if (v.execution_venue && v.execution_venue !== 'hyperliquid') parts.push(`venue ${v.execution_venue}`);
+  if (!agentApproved) parts.push('no agent');
+  if (feesAccrued > 0.000_001 && feeWinCount >= FEE_WINS_BEFORE_BLOCK) {
+    parts.push(`fees due (${feeWinCount}/20 wins)`);
+  }
+  return parts.join(' · ');
+}
+
+function isBotRunnable(
+  v: {
+    auto_trade_enabled?: boolean | null;
+    chain_id?: number | null;
+    execution_venue?: string | null;
+  },
+  agentApproved: boolean,
+  feesAccrued: number,
+  feeWinCount: number
+): boolean {
+  return (
+    Boolean(v.auto_trade_enabled) &&
+    v.chain_id === HL_BOT_CHAIN_ID &&
+    v.execution_venue === 'hyperliquid' &&
+    agentApproved &&
+    !(feesAccrued > 0.000_001 && feeWinCount >= FEE_WINS_BEFORE_BLOCK)
+  );
+}
+
 function num(v: unknown): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -310,6 +386,8 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
     bettingPosRes,
     bettingCloseRes,
     subsRes,
+    feePaymentsRes,
+    feeStateRes,
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -319,7 +397,7 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
     supabase
       .from('vault_settings')
       .select(
-        'wallet_address,user_id,auto_trade_enabled,execution_venue,leverage_multiplier,take_profit_percent,stop_loss_percent,hl_bot_strategy,news_trade_mode,updated_at'
+        'wallet_address,user_id,chain_id,auto_trade_enabled,execution_venue,leverage_multiplier,take_profit_percent,stop_loss_percent,hl_bot_strategy,news_trade_mode,updated_at'
       )
       .order('updated_at', { ascending: false })
       .limit(200),
@@ -353,7 +431,7 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
     supabase
       .from('hl_fee_ledger')
       .select(
-        'id,wallet_address,coin,gross_profit_usd,snapshot_pnl_usd,success_fee_usd,status,close_reason,created_at,settled_at'
+        'id,wallet_address,coin,gross_profit_usd,snapshot_pnl_usd,success_fee_usd,accrued_fee_usd,status,close_reason,created_at,settled_at'
       )
       .order('created_at', { ascending: false })
       .limit(100),
@@ -372,6 +450,8 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
       .select('id,user_id,wallet_address,plan_tier,status,billing_cycle,start_date,end_date')
       .order('start_date', { ascending: false })
       .limit(200),
+    supabase.from('platform_fee_payments').select('wallet_address,amount_usd'),
+    supabase.from('wallet_platform_fee_state').select('wallet_address,success_win_count'),
   ]);
 
   const errors = [
@@ -406,14 +486,41 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
     (v) => !v.execution_venue || v.execution_venue === 'hyperliquid'
   );
 
+  const feesByWallet = new Map<string, { accrued: number; settled: number }>();
+  for (const row of feeRes.data ?? []) {
+    const w = String(row.wallet_address ?? '').toLowerCase();
+    const cur = feesByWallet.get(w) ?? { accrued: 0, settled: 0 };
+    const amount = num(row.accrued_fee_usd) || num(row.success_fee_usd);
+    if (row.status === 'accrued') cur.accrued += amount;
+    if (row.status === 'settled') cur.settled += num(row.success_fee_usd);
+    feesByWallet.set(w, cur);
+  }
+
+  const paidByWallet = new Map<string, number>();
+  for (const row of feePaymentsRes.data ?? []) {
+    const w = String(row.wallet_address ?? '').toLowerCase();
+    paidByWallet.set(w, (paidByWallet.get(w) ?? 0) + num(row.amount_usd));
+  }
+
+  const feeWinByWallet = new Map<string, number>();
+  for (const row of feeStateRes.data ?? []) {
+    feeWinByWallet.set(String(row.wallet_address ?? '').toLowerCase(), num(row.success_win_count));
+  }
+
   const activeBots: AdminHlBot[] = hlVaults.map((v) => {
     const w = String(v.wallet_address ?? '').toLowerCase();
     const agent = agents.get(w);
     const profile = v.user_id ? profileById.get(v.user_id) : undefined;
+    const fees = feesByWallet.get(w) ?? { accrued: 0, settled: 0 };
+    const feesPaid = paidByWallet.get(w) ?? 0;
+    const feeWinCount = feeWinByWallet.get(w) ?? 0;
+    const agentApproved = Boolean(agent);
+    const bot_runnable = isBotRunnable(v, agentApproved, fees.accrued, feeWinCount);
     return {
       wallet_address: w,
       user_id: v.user_id ?? null,
       email: profile?.email ?? null,
+      chain_id: v.chain_id != null ? num(v.chain_id) : undefined,
       auto_trade_enabled: Boolean(v.auto_trade_enabled),
       execution_venue: v.execution_venue ?? 'hyperliquid',
       leverage_multiplier: num(v.leverage_multiplier) || 1,
@@ -422,11 +529,50 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
       hl_bot_strategy: v.hl_bot_strategy ?? null,
       news_trade_mode: v.news_trade_mode ?? null,
       updated_at: v.updated_at ?? new Date().toISOString(),
-      agent_approved: Boolean(agent),
+      agent_approved: agentApproved,
       agent_approved_at: agent?.approved_at ?? null,
       agent_expires_at: agent?.expires_at ?? null,
+      bot_runnable,
+      blockers: botBlockers(v, agentApproved, fees.accrued, feeWinCount),
+      fees_accrued_usd: fees.accrued,
+      fees_settled_usd: fees.settled,
+      fees_paid_usd: feesPaid,
+      fees_owed_usd: Math.max(0, fees.accrued - feesPaid),
+      fee_win_count: feeWinCount,
+      fee_opens_blocked: fees.accrued > 0.000_001 && feeWinCount >= FEE_WINS_BEFORE_BLOCK,
     };
   });
+
+  const wallet_fees: AdminWalletFee[] = hlVaults
+    .map((v) => {
+      const w = String(v.wallet_address ?? '').toLowerCase();
+      const profile = v.user_id ? profileById.get(v.user_id) : undefined;
+      const fees = feesByWallet.get(w) ?? { accrued: 0, settled: 0 };
+      const feesPaid = paidByWallet.get(w) ?? 0;
+      const feesOwed = Math.max(0, fees.accrued - feesPaid);
+      const feeWinCount = feeWinByWallet.get(w) ?? 0;
+      if (fees.accrued <= 0 && feesPaid <= 0 && !v.auto_trade_enabled) return null;
+      return {
+        wallet_address: w,
+        email: profile?.email ?? null,
+        auto_trade_enabled: Boolean(v.auto_trade_enabled),
+        fees_accrued_usd: fees.accrued,
+        fees_settled_usd: fees.settled,
+        fees_paid_usd: feesPaid,
+        fees_owed_usd: feesOwed,
+        fee_win_count: feeWinCount,
+        wins_until_fee: Math.max(0, FEE_WINS_BEFORE_BLOCK - feeWinCount),
+        fee_opens_blocked: fees.accrued > 0.000_001 && feeWinCount >= FEE_WINS_BEFORE_BLOCK,
+        fee_payment_status:
+          feesPaid > 0 && fees.accrued <= feesPaid
+            ? ('paid' as const)
+            : fees.accrued > 0.000_001
+              ? ('owed' as const)
+              : ('clear' as const),
+      };
+    })
+    .filter((row): row is AdminWalletFee => row != null)
+    .sort((a, b) => b.fees_owed_usd - a.fees_owed_usd || b.fees_accrued_usd - a.fees_accrued_usd);
 
   const openPositions: AdminOpenPosition[] = (positionsRes.data ?? []).map((p) => ({
     id: p.id,
@@ -495,10 +641,19 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
   const closed24h = closedHl.filter((t) => t.closed_at && t.closed_at >= dayAgo);
   const wins = closedHl.filter((t) => num(t.profit_loss) > 0).length;
 
+  const toggleOn = hlVaults.filter((v) => v.auto_trade_enabled).length;
+  const runnable = activeBots.filter((b) => b.bot_runnable).length;
+  const platformFeesPaid = [...paidByWallet.values()].reduce((s, n) => s + n, 0);
+  const platformFeesOwed = feeLedger
+    .filter((f) => f.status === 'accrued')
+    .reduce((s, f) => s + f.success_fee_usd, 0);
+
   const stats: AdminHlStats = {
     total_users: profiles.length,
     users_with_wallet: profiles.filter((p) => p.wallet_address?.trim()).length,
-    hl_bots_active: hlVaults.filter((v) => v.auto_trade_enabled).length,
+    hl_bots_active: runnable,
+    hl_bots_toggle_on: toggleOn,
+    hl_bots_runnable: runnable,
     hl_bots_total: hlVaults.length,
     agents_approved: agentsRes.data?.length ?? 0,
     open_positions: openPositions.length,
@@ -515,6 +670,8 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
       .filter((f) => f.status === 'settled')
       .reduce((s, f) => s + f.success_fee_usd, 0),
     hl_fees_total_usd: feeLedger.reduce((s, f) => s + f.success_fee_usd, 0),
+    platform_fees_owed_usd: platformFeesOwed,
+    platform_fees_paid_usd: platformFeesPaid,
     notifications_pending_email: recentEvents.filter((e) => !e.email_sent_at).length,
     betting_open: bettingPosRes.data?.length ?? 0,
     active_subscriptions: (subsRes.data ?? []).filter((s) => s.status === 'active').length,
@@ -524,6 +681,7 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
     generated_at: new Date().toISOString(),
     stats,
     active_bots: activeBots,
+    wallet_fees,
     open_positions: openPositions,
     recent_closes: recentCloses,
     recent_events: recentEvents,
