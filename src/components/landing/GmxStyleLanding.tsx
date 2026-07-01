@@ -17,6 +17,7 @@ import {
   unlockPageScroll,
   unregisterLandingWheelConsumer,
 } from '../../lib/landingScrollLock';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const LANDING_ROTATE_LINES_FALLBACK = [
   'on AI autopilot',
@@ -124,8 +125,11 @@ function heroDisclaimerColor(expand: number): string {
   return `rgb(${mix[0]}, ${mix[1]}, ${mix[2]})`;
 }
 
+const MOBILE_HERO_MQ = '(max-width: 639px)';
+
 const GmxStyleLanding: React.FC = () => {
   const { t } = useTranslation();
+  const isMobileHero = useMediaQuery(MOBILE_HERO_MQ);
   const rotateLinesRaw = t('landing.hero.rotateLines', { returnObjects: true });
   const rotateLines = Array.isArray(rotateLinesRaw)
     ? (rotateLinesRaw as string[])
@@ -207,6 +211,14 @@ const GmxStyleLanding: React.FC = () => {
   };
 
   useEffect(() => {
+    if (isMobileHero) {
+      unlockedRef.current = true;
+      setScrollUnlocked(true);
+      setHeroRevealed(true);
+      applyProgress(1);
+      return undefined;
+    }
+
     const prevScrollRestoration = history.scrollRestoration;
     history.scrollRestoration = 'manual';
 
@@ -300,9 +312,9 @@ const GmxStyleLanding: React.FC = () => {
       window.removeEventListener('touchend', onTouchEnd);
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, []);
+  }, [isMobileHero]);
 
-  const locked = !scrollUnlocked;
+  const locked = !isMobileHero && !scrollUnlocked;
   const ctaReveal = Math.min(1, Math.max(0, (expand - 0.72) / 0.28));
 
   const frameBox: React.CSSProperties = {
@@ -314,82 +326,107 @@ const GmxStyleLanding: React.FC = () => {
     borderRadius: layout.videoRadius,
   };
 
+  const heroTitle = (
+    <LandingHeroLines
+      lineDarkTop={t('landing.hero.lineDarkTop')}
+      rotateLines={rotateLines}
+      rotatePosition="two-row"
+    />
+  );
+
+  const heroCta = (staticLayout: boolean) => (
+    <div
+      className={`landing-gmx-hero-fs-cta${staticLayout ? ' landing-gmx-hero-fs-cta--static' : ''}`}
+      role="group"
+      aria-label={t('common.getStarted')}
+      aria-hidden={staticLayout ? false : ctaReveal < 0.15}
+    >
+      <button
+        type="button"
+        className="landing-gmx-hero-fs-btn landing-gmx-hero-fs-btn--light"
+        onClick={() => goToOpenApp('', false)}
+        tabIndex={staticLayout || ctaReveal > 0.4 ? 0 : -1}
+      >
+        {t('common.openApp')}
+        <ArrowRight size={16} aria-hidden />
+      </button>
+      <button
+        type="button"
+        className="landing-gmx-hero-fs-btn landing-gmx-hero-fs-btn--dark"
+        onClick={() => goToOpenApp('?section=bot', false)}
+        tabIndex={staticLayout || ctaReveal > 0.4 ? 0 : -1}
+      >
+        {t('common.startBot')}
+        <ArrowRight size={16} aria-hidden />
+      </button>
+    </div>
+  );
+
+  const heroVideo = (
+    <video
+      className="landing-gmx-hero-video"
+      src="/videos/hero-bg.mp4"
+      autoPlay
+      loop
+      muted
+      playsInline
+      preload="auto"
+    />
+  );
+
   return (
     <div className="landing-gmx">
       <LandingNav variant="light" layout="gmx" />
 
-      <section
-        className={`landing-gmx-hero landing-gmx-hero--centered landing-gmx-hero--scroll-expand${
-          heroRevealed ? ' landing-gmx-hero--revealed' : ''
-        }${locked ? ' landing-gmx-hero--scroll-locked' : ''}${
-          ctaReveal > 0.02 ? ' landing-gmx-hero--cta-visible' : ''
-        }${expand >= 0.98 ? ' landing-gmx-hero--fullscreen-cta' : ''}`}
-        style={
-          {
-            '--hero-video-expand': expand,
-            '--hero-cta-reveal': ctaReveal,
-          } as React.CSSProperties
-        }
-      >
-        <div className="landing-gmx-hero-sticky">
-          <div className="landing-gmx-hero-viewport">
-            <div className="landing-gmx-hero-video-zoom" style={frameBox} aria-hidden>
-              <video
-                className="landing-gmx-hero-video"
-                src="/videos/hero-bg.mp4"
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="auto"
-              />
+      {isMobileHero ? (
+        <section className="landing-gmx-hero landing-gmx-hero--centered landing-gmx-hero--static landing-gmx-hero--revealed">
+          <div className="landing-gmx-hero-static-frame">
+            <div className="landing-gmx-hero-video-wrap landing-gmx-hero-video-wrap--ready" aria-hidden>
+              {heroVideo}
             </div>
-            <div className="landing-gmx-hero-chrome">
-              <div className="landing-gmx-hero-chrome-spacer" aria-hidden />
-              <div className="landing-gmx-hero-chrome-title">
-                <LandingHeroLines
-                  lineDarkTop={t('landing.hero.lineDarkTop')}
-                  rotateLines={rotateLines}
-                  rotatePosition="two-row"
-                />
-              </div>
-              <div className="landing-gmx-hero-cta-slot">
-                <div
-                  className="landing-gmx-hero-fs-cta"
-                  role="group"
-                  aria-label={t('common.getStarted')}
-                  aria-hidden={ctaReveal < 0.15}
-                >
-                  <button
-                    type="button"
-                    className="landing-gmx-hero-fs-btn landing-gmx-hero-fs-btn--light"
-                    onClick={() => goToOpenApp('', false)}
-                    tabIndex={ctaReveal > 0.4 ? 0 : -1}
-                  >
-                    {t('common.openApp')}
-                    <ArrowRight size={16} aria-hidden />
-                  </button>
-                  <button
-                    type="button"
-                    className="landing-gmx-hero-fs-btn landing-gmx-hero-fs-btn--dark"
-                    onClick={() => goToOpenApp('?section=bot', false)}
-                    tabIndex={ctaReveal > 0.4 ? 0 : -1}
-                  >
-                    {t('common.startBot')}
-                    <ArrowRight size={16} aria-hidden />
-                  </button>
-                </div>
-              </div>
-              <p
-                className="landing-gmx-hero-disclaimer"
-                style={{ color: heroDisclaimerColor(expand) }}
-              >
+            <div className="landing-gmx-hero-chrome landing-gmx-hero-chrome--static">
+              <div className="landing-gmx-hero-chrome-title">{heroTitle}</div>
+              <div className="landing-gmx-hero-cta-slot">{heroCta(true)}</div>
+              <p className="landing-gmx-hero-disclaimer landing-gmx-hero-disclaimer--static">
                 {t('landing.hero.disclaimer')}
               </p>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : (
+        <section
+          className={`landing-gmx-hero landing-gmx-hero--centered landing-gmx-hero--scroll-expand${
+            heroRevealed ? ' landing-gmx-hero--revealed' : ''
+          }${locked ? ' landing-gmx-hero--scroll-locked' : ''}${
+            ctaReveal > 0.02 ? ' landing-gmx-hero--cta-visible' : ''
+          }${expand >= 0.98 ? ' landing-gmx-hero--fullscreen-cta' : ''}`}
+          style={
+            {
+              '--hero-video-expand': expand,
+              '--hero-cta-reveal': ctaReveal,
+            } as React.CSSProperties
+          }
+        >
+          <div className="landing-gmx-hero-sticky">
+            <div className="landing-gmx-hero-viewport">
+              <div className="landing-gmx-hero-video-zoom" style={frameBox} aria-hidden>
+                {heroVideo}
+              </div>
+              <div className="landing-gmx-hero-chrome">
+                <div className="landing-gmx-hero-chrome-spacer" aria-hidden />
+                <div className="landing-gmx-hero-chrome-title">{heroTitle}</div>
+                <div className="landing-gmx-hero-cta-slot">{heroCta(false)}</div>
+                <p
+                  className="landing-gmx-hero-disclaimer"
+                  style={{ color: heroDisclaimerColor(expand) }}
+                >
+                  {t('landing.hero.disclaimer')}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <LandingProductCarouselSection />
       <LandingSleepEarningsSection />

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { goToOpenApp } from '../../lib/appUrls';
-import { useLandingScrollSequence } from './useLandingScrollSequence';
+import { useLandingAutoSequence } from './useLandingAutoSequence';
 import LandingProductWidgetCard from './LandingProductWidgetCard';
 
 const PRODUCT_CARD_META = [
@@ -12,7 +12,7 @@ const PRODUCT_CARD_META = [
   { id: 'predictions', image: '/images/landing/landing-carousel-predictions-question.png', section: '?section=sportsbets', hideCopy: true },
 ] as const;
 
-const CAROUSEL_SCROLL_PX = 720;
+const CAROUSEL_AUTO_MS = 5200;
 const TITLE_ROTATE_MS = 3200;
 const ROTATE_FALLBACK = ['passively', 'today', 'tomorrow', 'whenever'] as const;
 
@@ -57,13 +57,9 @@ const LandingProductCarouselSection: React.FC = () => {
     return () => window.clearInterval(id);
   }, [rotateWords.length]);
 
-  const { sectionRef, progress, locked, unlocked } = useLandingScrollSequence({
-    lockId: 'carousel',
-    scrollPx: CAROUSEL_SCROLL_PX,
-    releaseAnchorId: 'landing-sleep-earnings-section',
-    releaseAnchorOffsetPx: 0,
-    releaseScrollBehavior: 'auto',
-    handoffLockId: 'sleep-earnings',
+  const { sectionRef, progress } = useLandingAutoSequence({
+    durationMs: CAROUSEL_AUTO_MS,
+    visibilityThreshold: 0.25,
   });
 
   const applyCarouselOffset = useCallback((offsetPx: number) => {
@@ -93,35 +89,10 @@ const LandingProductCarouselSection: React.FC = () => {
     return () => window.removeEventListener('resize', onResize);
   }, [progress, syncFromProgress]);
 
-  useEffect(() => {
-    if (!unlocked) return undefined;
-    const lane = laneRef.current;
-    if (!lane) return undefined;
-
-    const onLaneWheel = (e: WheelEvent) => {
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-      if (lane.scrollWidth <= lane.clientWidth + 1) return;
-
-      const atStart = lane.scrollLeft <= 1;
-      const atEnd = lane.scrollLeft + lane.clientWidth >= lane.scrollWidth - 1;
-
-      if ((e.deltaY > 0 && !atEnd) || (e.deltaY < 0 && !atStart)) {
-        e.preventDefault();
-        e.stopPropagation();
-        lane.scrollLeft += e.deltaY;
-      }
-    };
-
-    lane.addEventListener('wheel', onLaneWheel, { passive: false });
-    return () => lane.removeEventListener('wheel', onLaneWheel);
-  }, [unlocked]);
-
   return (
     <section
       ref={sectionRef}
-      className={`landing-gmx-section landing-gmx-product-carousel-section${
-        locked ? ' landing-gmx-scroll-sequence--locked' : ''
-      }${unlocked ? ' landing-gmx-product-carousel-section--unlocked' : ''}`}
+      className="landing-gmx-section landing-gmx-product-carousel-section landing-gmx-section--auto-play"
       aria-labelledby="landing-product-carousel-title"
     >
       <div className="landing-gmx-product-carousel-sticky">

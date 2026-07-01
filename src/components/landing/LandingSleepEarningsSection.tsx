@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { TrendingUp, UserPlus, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useLandingScrollSequence } from './useLandingScrollSequence';
+import { useLandingAutoSequence } from './useLandingAutoSequence';
 
 type WinNotification = {
   amount: number;
@@ -20,6 +20,7 @@ const WIN_NOTIFICATIONS: WinNotification[] = [
 
 const PILL_KEYS = ['run247'] as const;
 
+const NOTIF_STEP_MS = 1650;
 const NOTIF_EASE = [0.22, 1, 0.36, 1] as const;
 const LOCK_SCREEN_TIME = '9:41';
 
@@ -56,7 +57,6 @@ const LandingSleepEarningsSection: React.FC = () => {
   const { t, i18n } = useTranslation();
   const [titleDone, setTitleDone] = useState(false);
   const [descriptionDone, setDescriptionDone] = useState(false);
-  const releaseBlockedRef = useRef(false);
 
   const lockDate = useMemo(
     () =>
@@ -83,20 +83,17 @@ const LandingSleepEarningsSection: React.FC = () => {
   const overlayStep = notifications.length;
   const stepCount = notifications.length + 1;
 
-  const { sectionRef, stepIndex, locked, unlocked, complete, unlockInPlace } = useLandingScrollSequence({
-    lockId: 'sleep-earnings',
+  const { sectionRef, stepIndex, complete } = useLandingAutoSequence({
     mode: 'step',
     stepCount,
-    wheelThreshold: 36,
-    releaseBlockedRef,
+    stepDurationMs: NOTIF_STEP_MS,
+    visibilityThreshold: 0.28,
   });
 
   const visibleCount = Math.min(stepIndex + 1, notifications.length);
   const showOverlay = stepIndex >= overlayStep;
   const visibleNotifications = notifications.slice(0, visibleCount);
-  const sequenceFinished = complete && unlocked;
-
-  releaseBlockedRef.current = complete && !descriptionDone;
+  const sequenceFinished = complete && descriptionDone;
 
   useEffect(() => {
     if (stepIndex < overlayStep) {
@@ -105,19 +102,11 @@ const LandingSleepEarningsSection: React.FC = () => {
     }
   }, [stepIndex, overlayStep]);
 
-  useEffect(() => {
-    if (descriptionDone && complete && !unlocked) {
-      unlockInPlace();
-    }
-  }, [descriptionDone, complete, unlocked, unlockInPlace]);
-
   return (
     <section
       id="landing-sleep-earnings-section"
       ref={sectionRef}
-      className={`landing-sleep-section${
-        locked ? ' landing-gmx-scroll-sequence--locked' : ''
-      }${unlocked ? ' landing-sleep-section--unlocked' : ''}${
+      className={`landing-sleep-section landing-gmx-section--auto-play${
         sequenceFinished ? ' landing-sleep-section--finished' : ''
       }`}
       aria-labelledby="landing-sleep-earnings-title"

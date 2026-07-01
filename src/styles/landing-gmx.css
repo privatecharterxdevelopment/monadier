@@ -2189,6 +2189,37 @@
   isolation: isolate;
 }
 
+/* Auto-play sections — normal document scroll, no wheel hijack */
+.landing-gmx-section--auto-play {
+  height: auto;
+  overflow: visible;
+}
+
+.landing-gmx-section--auto-play .landing-gmx-product-carousel-sticky,
+.landing-gmx-section--auto-play .landing-sleep-sticky,
+.landing-gmx-section--auto-play .landing-gmx-bot-pitch-sticky {
+  position: relative;
+  top: auto;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+.landing-gmx-product-carousel-section.landing-gmx-section--auto-play {
+  min-height: min(92dvh, 92svh);
+  padding: clamp(28px, 5vh, 56px) 0;
+}
+
+.landing-sleep-section.landing-gmx-section--auto-play {
+  min-height: min(100dvh, 100svh);
+  padding-bottom: 40px;
+}
+
+.landing-gmx-bot-pitch-section.landing-gmx-section--auto-play {
+  min-height: min(88dvh, 88svh);
+  padding: clamp(40px, 7vh, 72px) 0;
+}
+
 .landing-gmx-scroll-sequence--locked.landing-gmx-bot-pitch-section,
 .landing-gmx-scroll-sequence--locked.landing-gmx-product-carousel-section,
 .landing-gmx-scroll-sequence--locked.landing-sleep-section,
