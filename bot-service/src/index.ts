@@ -34,7 +34,15 @@ import {
 import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './services/hlAgent';
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
 import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker } from './services/hlInfo';
-import { getLastHlOpenError, getLastHlOpenErrorForClient, hyperliquidTradingService, resolveHlMarginPerSlot } from './services/hlTrading';
+import {
+  buildNotionalBelowFloorError,
+  getLastHlOpenError,
+  getLastHlOpenErrorForClient,
+  hyperliquidTradingService,
+  minHlMarginForNotionalFloor,
+  resolveHlMarginPerSlot,
+  resolveHlOrderLeverage,
+} from './services/hlTrading';
 import { releaseHlBotTradingPauses } from './services/dailyLossGate';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
 import {
@@ -600,12 +608,24 @@ const healthServer = http.createServer(async (req, res) => {
       }
       if (balanceGateOpen && bestAvailable && hlOpenCoins.length < maxPositions && dbSettings.autoTradeEnabled) {
         const balance = hlBalanceUsd;
-        const perSlot = resolveHlMarginPerSlot(
+        let perSlot = resolveHlMarginPerSlot(
           balance,
           dbSettings.riskLevelBps,
           hlOpenCoins.length,
           hlFreeMargin
         );
+        const lev = Math.max(1, Math.floor(dbSettings.leverageMultiplier || 10));
+        const minNotional = config.hyperliquid.minNotionalUsd;
+        const slotsLeft = maxPositions - hlOpenCoins.length;
+        const marginHeadroom = Math.min(
+          hlFreeMargin / Math.max(1, slotsLeft),
+          balance * config.hyperliquid.maxMarginPctPerSlot,
+          balance / maxPositions
+        );
+        const minCollateral = minHlMarginForNotionalFloor(perSlot, lev, minNotional);
+        if (balance >= config.hyperliquid.minAccountUsd && marginHeadroom >= minCollateral) {
+          perSlot = Math.min(Math.max(perSlot, minCollateral), marginHeadroom);
+        }
         if (perSlot < 1) {
           blockers.push(
             hlOpenCoins.length > 0
@@ -613,11 +633,16 @@ const healthServer = http.createServer(async (req, res) => {
               : `margin too small for slot ($${perSlot.toFixed(2)} from $${balance.toFixed(2)} balance, ${hlOpenCoins.length}/${maxPositions} open)`
           );
         } else {
-          const lev = Math.max(1, Math.floor(dbSettings.leverageMultiplier || 10));
-          const notional = perSlot * lev;
-          if (notional < config.hyperliquid.minNotionalUsd) {
+          const previewLev = resolveHlOrderLeverage(perSlot, lev, 50, minNotional);
+          if (previewLev.notionalUsd < minNotional) {
             blockers.push(
-              `notional $${notional.toFixed(2)} below min $${config.hyperliquid.minNotionalUsd} (raise risk % or leverage)`
+              buildNotionalBelowFloorError(
+                previewLev.notionalUsd,
+                minNotional,
+                perSlot,
+                previewLev.leverage,
+                lev
+              )
             );
           }
         }

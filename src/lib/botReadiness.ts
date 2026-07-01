@@ -88,8 +88,18 @@ function formatBlocker(blocker: string): string {
       return `Last try ${m[1]}: ${m[2]}% — small-cap alts need ${m[3]}%+`;
     }
   }
-  if (/Trade size too small|notional.*below min/i.test(blocker)) {
-    return 'Trade size below $20 min — raise Risk % or LVRG, or deposit more USDC';
+  if (/notional below floor|Trade size too small|notional.*below min/i.test(blocker)) {
+    const detail = blocker.match(
+      /need ~\$([\d.]+) margin at your (\d+)x, ~\$([\d.]+) at 5x, ~\$([\d.]+) at 20x/i
+    );
+    if (detail) {
+      const margin = blocker.match(/margin \$([\d.]+)/i)?.[1];
+      return (
+        `HL $20 min — you have $${margin ?? '?'} margin: need ~$${detail[1]} at your ${detail[2]}x, ` +
+        `or only ~$${detail[3]} at 5x / ~$${detail[4]} at 20x. Raise LVRG or Risk %.`
+      );
+    }
+    return 'Trade size below $20 min — raise LVRG or Risk % in bot settings';
   }
   if (/Must deposit before performing actions/i.test(blocker)) {
     return 'Deposit USDC on Hyperliquid first (min $20)';

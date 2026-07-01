@@ -283,7 +283,40 @@ function formatOpenErrorForClient(error: string): string {
     return 'BTC+ETH outflow blocks new LONGs — bot waits for flow to flip';
   }
   if (/notional below floor/i.test(error)) {
-    return 'Trade size too small — raise Risk % or LVRG, or deposit more USDC';
+    const m = error.match(
+      /notional below floor \(\$([\d.]+) < \$([\d.]+), margin \$([\d.]+) at (\d+)x, userCap (\d+)x\).*need ~\$([\d.]+) margin at your (\d+)x, ~\$([\d.]+) at 5x, ~\$([\d.]+) at 20x/
+    );
+    if (m) {
+      const notional = m[1];
+      const min = m[2];
+      const collateral = m[3];
+      const lev = m[4];
+      const cap = m[5];
+      const needUser = m[6];
+      const need5 = m[8];
+      const need20 = m[9];
+      return (
+        `$${notional} at ${lev}x (${cap}x cap) — HL min $${min}. ` +
+        `Margin $${collateral}: need ~$${needUser} at your ${cap}x, or ~$${need5} at 5x / ~$${need20} at 20x. ` +
+        `Raise LVRG or Risk % (or free margin for slot 2).`
+      );
+    }
+    const legacy = error.match(
+      /notional below floor \(\$([\d.]+) < \$([\d.]+), collateral \$([\d.]+), (\d+)x\)/
+    );
+    if (legacy) {
+      const min = Number(legacy[2]);
+      const collateral = Number(legacy[3]);
+      const cap = Number(legacy[4]);
+      const need5 = (min / HL_AUTO_LEV_MIN).toFixed(2);
+      const need20 = (min / 20).toFixed(2);
+      const needUser = (min / Math.max(cap, 1)).toFixed(2);
+      return (
+        `HL min $${min} — margin $${collateral.toFixed(2)} at ${cap}x. ` +
+        `Need ~$${needUser} at your ${cap}x, ~$${need5} at 5x, ~$${need20} at 20x. Raise LVRG or Risk %.`
+      );
+    }
+    return 'Trade size below $20 min — raise LVRG or Risk % in bot settings';
   }
   if (/20-candle|Pre-open candle/i.test(error)) {
     return 'Recent candle structure blocks entry — bot waits for cleaner setup';
@@ -387,6 +420,95 @@ export function resolveHlMarginPerSlot(
     riskLevelBps,
     openCount,
     config.hyperliquid.maxConcurrentPositions
+  );
+}
+
+/** When user LVRG cap cannot hit HL min notional, auto-bump within this band. */
+export const HL_AUTO_LEV_MIN = 5;
+export const HL_AUTO_LEV_MAX = 15;
+
+export type HlOrderLeverageResult = {
+  leverage: number;
+  notionalUsd: number;
+  usedAutoLeverage: boolean;
+  userLeverageCap: number;
+};
+
+/** Pick leverage for HL min-notional. User cap first; else 5–15× when margin allows. */
+export function resolveHlOrderLeverage(
+  collateral: number,
+  userLeverageCap: number,
+  maxLevForCoin: number,
+  minNotional: number = config.hyperliquid.minNotionalUsd
+): HlOrderLeverageResult {
+  const cap = Math.max(1, Math.floor(userLeverageCap));
+  let leverage = Math.min(cap, maxLevForCoin);
+  let notionalUsd = collateral * leverage;
+
+  if (notionalUsd >= minNotional) {
+    return { leverage, notionalUsd, usedAutoLeverage: false, userLeverageCap: cap };
+  }
+
+  const minLevRequired = Math.ceil(minNotional / Math.max(collateral, 0.01));
+
+  leverage = Math.min(cap, maxLevForCoin, Math.max(leverage, minLevRequired));
+  notionalUsd = collateral * leverage;
+  if (notionalUsd >= minNotional) {
+    return { leverage, notionalUsd, usedAutoLeverage: false, userLeverageCap: cap };
+  }
+
+  if (minLevRequired <= HL_AUTO_LEV_MAX && maxLevForCoin >= HL_AUTO_LEV_MIN) {
+    const autoLev = Math.min(
+      maxLevForCoin,
+      HL_AUTO_LEV_MAX,
+      Math.max(HL_AUTO_LEV_MIN, minLevRequired)
+    );
+    if (autoLev > cap) {
+      notionalUsd = collateral * autoLev;
+      if (notionalUsd >= minNotional) {
+        return {
+          leverage: autoLev,
+          notionalUsd,
+          usedAutoLeverage: true,
+          userLeverageCap: cap,
+        };
+      }
+    }
+  }
+
+  return { leverage, notionalUsd, usedAutoLeverage: false, userLeverageCap: cap };
+}
+
+/** Min margin to clear HL floor given current usable margin + LVRG settings. */
+export function minHlMarginForNotionalFloor(
+  usableMargin: number,
+  leverageCap: number,
+  minNotional: number = config.hyperliquid.minNotionalUsd
+): number {
+  const cap = Math.max(1, Math.floor(leverageCap));
+  const minLev = Math.ceil(minNotional / Math.max(usableMargin, 0.01));
+  let effectiveLev = Math.min(cap, minLev);
+  if (effectiveLev < minLev && minLev <= HL_AUTO_LEV_MAX) {
+    effectiveLev = Math.min(HL_AUTO_LEV_MAX, Math.max(HL_AUTO_LEV_MIN, minLev));
+  }
+  return minNotional / Math.max(1, effectiveLev);
+}
+
+export function buildNotionalBelowFloorError(
+  notionalUsd: number,
+  minNotional: number,
+  collateral: number,
+  leverage: number,
+  userLeverageCap: number
+): string {
+  const cap = Math.max(1, Math.floor(userLeverageCap));
+  const needAtUser = (minNotional / cap).toFixed(2);
+  const needAt5 = (minNotional / HL_AUTO_LEV_MIN).toFixed(2);
+  const needAt20 = (minNotional / 20).toFixed(2);
+  return (
+    `notional below floor ($${notionalUsd.toFixed(2)} < $${minNotional}, ` +
+    `margin $${collateral.toFixed(2)} at ${leverage}x, userCap ${cap}x) — ` +
+    `need ~$${needAtUser} margin at your ${cap}x, ~$${needAt5} at 5x, ~$${needAt20} at 20x`
   );
 }
 
@@ -723,7 +845,7 @@ export class HyperliquidTradingService {
       const slotsLeft = maxPositions - coinsOpen.length;
       const balance = funding.accountEquityUsd;
       const freeMargin = hlTradableFreeMarginUsd(funding, stateRef);
-      const collateral = resolveMarginPerSlot(
+      let collateral = resolveMarginPerSlot(
         balance,
         freeMargin,
         settings.riskLevelBps,
@@ -779,19 +901,46 @@ export class HyperliquidTradingService {
 
       const leverageCap = Math.max(1, Math.floor(settings.leverageMultiplier || 10));
       const minNotional = config.hyperliquid.minNotionalUsd;
+      const slotsRemaining = maxPositions - coinsOpen.length;
+      const marginHeadroom = Math.min(
+        freeMargin / Math.max(1, slotsRemaining),
+        balance * config.hyperliquid.maxMarginPctPerSlot,
+        balance / maxPositions
+      );
+      // Funded accounts: bump margin to clear HL min notional (user LVRG or 5–15× auto band).
+      const minCollateralForNotional = minHlMarginForNotionalFloor(
+        collateral,
+        leverageCap,
+        minNotional
+      );
+      if (
+        balance >= config.hyperliquid.minAccountUsd &&
+        marginHeadroom >= minCollateralForNotional
+      ) {
+        collateral = Math.min(
+          Math.max(collateral, minCollateralForNotional),
+          marginHeadroom
+        );
+      }
       let openedThisSlot = false;
 
       for (const pick of picks) {
         const maxLev = maxLeverageForCoin(ctx.meta, pick.coin);
-        let leverage = Math.min(leverageCap, maxLev);
-        let notionalUsd = collateral * leverage;
-        if (notionalUsd < minNotional && collateral >= 1) {
-          const minLev = Math.ceil(minNotional / collateral);
-          leverage = Math.min(leverageCap, maxLev, Math.max(leverage, minLev));
-          notionalUsd = collateral * leverage;
-        }
+        const levPick = resolveHlOrderLeverage(
+          collateral,
+          leverageCap,
+          maxLev,
+          minNotional
+        );
+        const { leverage, notionalUsd, usedAutoLeverage } = levPick;
         if (notionalUsd < minNotional) {
-          const err = `notional below floor ($${notionalUsd.toFixed(2)} < $${minNotional}, collateral $${collateral.toFixed(2)}, ${leverage}x)`;
+          const err = buildNotionalBelowFloorError(
+            notionalUsd,
+            minNotional,
+            collateral,
+            leverage,
+            leverageCap
+          );
           lastHlOpenError.set(userAddress.toLowerCase(), {
             at: new Date().toISOString(),
             coin: pick.coin,
@@ -804,9 +953,20 @@ export class HyperliquidTradingService {
             minNotional,
             collateral,
             leverage,
+            leverageCap,
             slot: coinsOpen.length + 1,
           });
           continue;
+        }
+        if (usedAutoLeverage) {
+          logger.info('HL open: auto LVRG for min notional', {
+            user: userAddress.slice(0, 10),
+            coin: pick.coin,
+            leverage,
+            leverageCap,
+            collateral: collateral.toFixed(2),
+            notionalUsd: notionalUsd.toFixed(2),
+          });
         }
 
         const opened = await this.openMarketPosition({

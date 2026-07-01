@@ -101,8 +101,6 @@ const PlatformFeePayModal: React.FC<Props> = ({
     return () => window.clearTimeout(timer);
   }, [phase, onClose, onPaymentSuccess]);
 
-  if (!open) return null;
-
   const busy = phase === 'wallet' || phase === 'onchain' || phase === 'confirming';
   const treasuryReady = Boolean(treasury && /^0x[a-f0-9]{40}$/.test(treasury));
 
@@ -170,6 +168,8 @@ const PlatformFeePayModal: React.FC<Props> = ({
     publicClient,
     onPaid,
   ]);
+
+  if (!open) return null;
 
   if (phase === 'success') {
     return (

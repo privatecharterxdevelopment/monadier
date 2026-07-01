@@ -1,8 +1,10 @@
 import { useCallback, useState } from 'react';
 import { getWalletClient } from '@wagmi/core';
+import { arbitrum } from '@reown/appkit/networks';
 import { toNum } from '../lib/hyperliquid/parse';
 import { useWalletClient } from 'wagmi';
 import { createHlExchangeClient } from '../lib/hyperliquid/exchange';
+import { formatHlWalletSignError } from '../lib/hyperliquid/walletAdapter';
 import { config } from '../lib/wallet';
 import { useMonadierWallet } from './useMonadierWallet';
 import { formatHlSize, getHlAssetIndex, getHlAssetMeta } from '../lib/hyperliquid/meta';
@@ -65,7 +67,7 @@ export function useHyperliquidTrading() {
 
   const resolveWallet = useCallback(async () => {
     try {
-      return await getWalletClient(config);
+      return await getWalletClient(config, { chainId: arbitrum.id });
     } catch {
       if (walletClient?.account) return walletClient;
       throw new Error('Connect wallet first');
@@ -222,7 +224,7 @@ export function useHyperliquidTrading() {
       try {
         return await fn();
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : fallbackMsg;
+        const msg = formatHlWalletSignError(err) || fallbackMsg;
         setError(msg);
         throw err;
       } finally {
