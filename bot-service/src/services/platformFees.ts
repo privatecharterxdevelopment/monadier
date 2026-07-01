@@ -190,8 +190,10 @@ export async function getPlatformFeeStatus(walletAddress: string): Promise<Platf
   }
 
   const successWinCount = await countUnpaidBotFeeWins(wallet);
+  // Opens: block at 20 unpaid bot wins + fees owed (lets users keep trading while fees accrue).
   const opensBlocked =
     successWinCount >= PLATFORM_FEE_WINS_BEFORE_BLOCK && accruedUsd > 0.000_001;
+  // Withdraw (in-app): block as soon as any platform fee is owed — prevents exit without paying.
   const withdrawBlocked = accruedUsd > 0.000_001;
 
   return {

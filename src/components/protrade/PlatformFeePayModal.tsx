@@ -22,6 +22,7 @@ type Props = {
   successWinCount: number;
   winsBeforeBlock: number;
   opensBlocked: boolean;
+  withdrawBlocked?: boolean;
   treasuryAddress: string;
   trades: PlatformFeeTrade[];
   onPaid: (amountUsd: number, paymentRef?: string) => Promise<boolean>;
@@ -39,6 +40,7 @@ const PlatformFeePayModal: React.FC<Props> = ({
   successWinCount,
   winsBeforeBlock,
   opensBlocked,
+  withdrawBlocked = false,
   treasuryAddress,
   trades = [],
   onPaid,
@@ -180,7 +182,11 @@ const PlatformFeePayModal: React.FC<Props> = ({
               <CheckCircle size={56} strokeWidth={1.5} />
             </div>
             <h2 id="hl-fee-modal-success">Payment successful</h2>
-            <p>Your account is ready to trade again.</p>
+            <p>
+              {opensBlocked
+                ? 'Withdrawal unlocked — bot can open new trades again.'
+                : 'Withdrawal unlocked in Monadier.'}
+            </p>
           </div>
         </div>
       </div>
@@ -216,8 +222,10 @@ const PlatformFeePayModal: React.FC<Props> = ({
 
         <p className="hl-fee-modal-lead">
           {opensBlocked
-            ? `Pay outstanding fees to restart the bot.`
-            : '10% success fee on winning closes — pay accrued fees here before the next block.'}
+            ? 'Pay outstanding fees to restart the bot.'
+            : withdrawBlocked
+              ? `Pay ${fmtUsdSymbol(accruedUsd)} now to unlock withdrawals in Monadier. Bot trading continues until ${winsBeforeBlock} wins.`
+              : '10% success fee on winning closes — pay accrued fees here anytime.'}
         </p>
 
         <p className="hl-fee-modal-hint">

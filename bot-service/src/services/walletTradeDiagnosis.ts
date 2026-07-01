@@ -148,6 +148,12 @@ export async function diagnoseWalletTrading(
       FUNNEL.user.platformFees,
       `PLATFORM_FEES_DUE — pay ${feeSummary.accruedUsd.toFixed(2)} USDC after ${feeSummary.successWinCount} winning closes`
     );
+  } else if (feeSummary.withdrawBlocked) {
+    pass(
+      FUNNEL.user.platformFees,
+      'user',
+      `Fees owed $${feeSummary.accruedUsd.toFixed(2)} — withdraw blocked in app (${feeSummary.successWinCount}/${PLATFORM_FEE_WINS_BEFORE_BLOCK} wins, bot opens OK)`
+    );
   } else {
     pass(
       FUNNEL.user.platformFees,

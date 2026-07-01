@@ -533,7 +533,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
                 </p>
                 {withdrawBlocked ? (
                   <p className="term-profile-err hl-funds-inline-err">
-                    Pay {fmtUsdSymbol(accruedUsd)} platform fees before withdrawing via Monadier.{' '}
+                    Platform fees due ({fmtUsdSymbol(accruedUsd)}) — pay to unlock withdrawal in Monadier.{' '}
                     <button type="button" className="hl-fee-inline-pay" onClick={openPayModal}>
                       Pay now
                     </button>

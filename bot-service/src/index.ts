@@ -982,6 +982,20 @@ const healthServer = http.createServer(async (req, res) => {
   if (url.pathname === '/api/service-status') {
     try {
       const activeWallets = await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId);
+      const diagnoses = await diagnoseWalletTradingBatch(activeWallets as `0x${string}`[]);
+      const walletStatus = activeWallets.map((w) => {
+        const d = diagnoses[w.toLowerCase()];
+        const blocking = (d?.gates ?? []).filter((g) => g.blocking).map((g) => g.id);
+        return {
+          wallet: w,
+          canTrade: Boolean(d?.canTrade),
+          wouldProcessOpens: Boolean(d?.wouldProcessOpens),
+          summary: d?.summary ?? 'unknown',
+          blockingGates: blocking.slice(0, 4),
+          equityUsd: d?.hyperliquid.accountEquityUsd ?? null,
+          openCoins: d?.hyperliquid.openCoins ?? [],
+        };
+      });
       res.writeHead(200, corsHeaders);
       res.end(
         JSON.stringify({
@@ -989,6 +1003,8 @@ const healthServer = http.createServer(async (req, res) => {
           service: 'healthy',
           executionVenue: config.executionVenue,
           activeAutoTradeWallets: activeWallets.length,
+          activeWallets,
+          walletStatus,
           sampleWallets: activeWallets.slice(0, 5).map((w) => `${w.slice(0, 6)}…${w.slice(-4)}`),
           lastCycle: lastCycleStats,
           tradeIntervalSec: config.trading.checkIntervalMs / 1000,

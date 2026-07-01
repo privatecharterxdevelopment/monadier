@@ -323,7 +323,7 @@ function OverviewPanel({
         <Kpi
           label="P/L 24h"
           value={fmtUsd(stats.pnl_24h, true)}
-          sub={`HL closes only · total ${fmtUsd(stats.total_pnl, true)}`}
+          sub={`HL bot closes · ${stats.closed_trades_24h} in 24h · all-time ${fmtUsd(stats.total_pnl, true)}`}
           positive={stats.pnl_24h >= 0}
         />
         <Kpi label="Win rate" value={`${stats.win_rate}%`} sub={`${stats.closed_trades_24h} closes / 24h`} />
@@ -424,6 +424,41 @@ function BotServiceCard({
       ) : (
         <p className="text-secondary text-sm">Cannot reach bot-service — check VITE_BOT_API_URL / Railway.</p>
       )}
+      {svc?.walletStatus && svc.walletStatus.length > 0 ? (
+        <div className="mt-4 border-t border-border pt-3">
+          <p className="text-xs text-secondary mb-2">
+            Live per-wallet gates (Railway) — same signal, individual blockers
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-secondary">
+                  <th className="py-1 pr-2">Wallet</th>
+                  <th className="py-1 pr-2">Opens?</th>
+                  <th className="py-1 pr-2">Equity</th>
+                  <th className="py-1 pr-2">Open</th>
+                  <th className="py-1">Blocking</th>
+                </tr>
+              </thead>
+              <tbody>
+                {svc.walletStatus.map((w) => (
+                  <tr key={w.wallet} className="border-t border-border/50">
+                    <td className="py-1 pr-2 font-mono">{shortWallet(w.wallet, 6)}</td>
+                    <td className={`py-1 pr-2 ${w.wouldProcessOpens ? 'text-green-400' : 'text-red-400'}`}>
+                      {w.wouldProcessOpens ? 'YES' : 'NO'}
+                    </td>
+                    <td className="py-1 pr-2 font-mono">
+                      {w.equityUsd != null ? fmtUsd(w.equityUsd, true) : '—'}
+                    </td>
+                    <td className="py-1 pr-2 font-mono">{w.openCoins.join(', ') || '—'}</td>
+                    <td className="py-1 text-amber-400/90">{w.summary}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
       {health?.lastCycle && (
         <pre className="mt-3 text-[10px] text-secondary bg-black/20 rounded p-2 overflow-x-auto max-h-24">
           {JSON.stringify(health.lastCycle, null, 0)}
@@ -823,9 +858,13 @@ function TradesPanel({
           />
           <Kpi label="Fees paid" value={fmtUsd(userStats.fees_paid_usd)} />
           <Kpi
-            label="Fee wins"
-            value={String(userStats.fee_win_count)}
-            sub={`${userStats.wins_until_fee} until next block`}
+            label="Unpaid bot wins"
+            value={`${userStats.fee_win_count ?? 0} / 20`}
+            sub={
+              (userStats.fee_win_count ?? 0) >= 20 && (userStats.fees_accrued_usd ?? 0) > 0
+                ? 'opens blocked until fees paid'
+                : `${userStats.wins_until_fee ?? 20} until block`
+            }
           />
           <Kpi
             label="User"
@@ -1061,7 +1100,7 @@ function FeesPanel({
       </div>
       <TableShell
         title={`Per-wallet fees (${walletPaginated.total})`}
-        subtitle="owed vs paid · opens blocked when owed + win threshold"
+        subtitle="owed vs paid · opens blocked at 20 unpaid bot wins + fees owed"
         scrollable
         pagination={{
           page: walletPaginated.safePage,
@@ -1079,8 +1118,9 @@ function FeesPanel({
             <th className="px-4 py-3">Paid</th>
             <th className="px-4 py-3">Accrued</th>
             <th className="px-4 py-3">Settled (HL)</th>
-            <th className="px-4 py-3">Wins</th>
+            <th className="px-4 py-3">Unpaid wins</th>
             <th className="px-4 py-3">Opens blocked</th>
+            <th className="px-4 py-3">Withdraw blocked</th>
           </tr>
         </thead>
         <tbody>
@@ -1100,11 +1140,20 @@ function FeesPanel({
               <td className="px-4 py-2 font-mono">{fmtUsd(w.fees_accrued_usd)}</td>
               <td className="px-4 py-2 font-mono text-secondary">{fmtUsd(w.fees_settled_usd)}</td>
               <td className="px-4 py-2 text-xs">
-                {w.fee_win_count}
-                <span className="text-secondary"> / {w.wins_until_fee} left</span>
+                <span className={w.fee_win_count >= 20 ? 'text-amber-400 font-medium' : ''}>
+                  {w.fee_win_count}
+                </span>
+                <span className="text-secondary"> / 20</span>
               </td>
               <td className="px-4 py-2">
                 <StatusPill on={!w.fee_opens_blocked} onLabel="no" offLabel="BLOCKED" />
+              </td>
+              <td className="px-4 py-2">
+                <StatusPill
+                  on={w.fees_owed_usd <= 0.000_001}
+                  onLabel="no"
+                  offLabel="BLOCKED"
+                />
               </td>
             </tr>
           ))}
@@ -1382,8 +1431,14 @@ function UsersPanel({
                 {feesPaid > 0 ? fmtUsd(feesPaid) : '—'}
               </td>
               <td className="px-4 py-2 text-xs">
-                <span className="text-secondary">{feeWins} wins</span>
-                <span className="block text-[10px] text-secondary">{winsUntil} until block</span>
+                <span className={feeWins >= 20 ? 'text-amber-400 font-medium' : 'text-secondary'}>
+                  {feeWins} / 20
+                </span>
+                {feeWins >= 20 && feesOwed > 0 ? (
+                  <span className="block text-[10px] text-amber-400">blocked</span>
+                ) : (
+                  <span className="block text-[10px] text-secondary">{winsUntil} until block</span>
+                )}
               </td>
               <td className="px-4 py-2 text-secondary text-xs whitespace-nowrap">
                 {formatTimeAgo(u.created_at)}

@@ -152,6 +152,27 @@ export function fmtTimeMs(ms: unknown): string {
   });
 }
 
+/** Short "since" label for trading timeline cards. */
+export function fmtTradingSince(ms: unknown): string {
+  const n = toNum(ms);
+  if (n <= 0) return '—';
+  const date = new Date(n);
+  if (Number.isNaN(date.getTime())) return '—';
+
+  const dateStr = date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const days = Math.max(0, Math.floor((Date.now() - n) / 86_400_000));
+  if (days < 1) return `Since today · ${dateStr}`;
+  if (days < 30) return `Since ${dateStr} · ${days}d`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `Since ${dateStr} · ${months} mo`;
+  const years = Math.floor(months / 12);
+  return `Since ${dateStr} · ${years} yr`;
+}
+
 export function fmtLeverage(value: unknown): string {
   const n = toNum(value);
   return n > 0 ? `${n}x` : '—';

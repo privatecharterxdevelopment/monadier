@@ -64,9 +64,8 @@ export const PlatformFeeProvider: React.FC<{
   const withdrawBlocked = feeExempt ? false : fees.withdrawBlocked;
   const successWinCount = feeExempt ? 0 : fees.successWinCount;
   const botTradingBlocked = opensBlocked && !feesWaived;
-  const feesDue = botTradingBlocked;
-  const canPayEarly =
-    !feesWaived && accruedUsd > 0.000_001 && !botTradingBlocked;
+  const feesDue = !feesWaived && accruedUsd > 0.000_001;
+  const canPayEarly = feesDue;
 
   const openPayModal = useCallback(() => {
     if (feeExempt) return;
@@ -74,7 +73,7 @@ export const PlatformFeeProvider: React.FC<{
   }, [feeExempt]);
 
   const handlePaymentSuccess = useCallback(() => {
-    showToast('Fees paid — win counter reset to 0/20', 3200);
+    showToast('Fees paid — withdraw unlocked, win counter reset', 3200);
     void refreshFees();
   }, [showToast, refreshFees]);
 
@@ -84,14 +83,14 @@ export const PlatformFeeProvider: React.FC<{
       setAutoPrompted(false);
       return;
     }
-    if (botTradingBlocked && accruedUsd > 0 && !autoPrompted) {
+    if (feesDue && !autoPrompted) {
       setModalOpen(true);
       setAutoPrompted(true);
     }
-    if (!botTradingBlocked && accruedUsd <= 0) {
+    if (!feesDue) {
       setAutoPrompted(false);
     }
-  }, [feeExempt, botTradingBlocked, accruedUsd, autoPrompted]);
+  }, [feeExempt, feesDue, autoPrompted]);
 
   useEffect(() => {
     if (feeExempt || fees.loading) return;
@@ -155,6 +154,7 @@ export const PlatformFeeProvider: React.FC<{
         successWinCount={fees.successWinCount}
         winsBeforeBlock={fees.winsBeforeBlock}
         opensBlocked={fees.opensBlocked}
+        withdrawBlocked={fees.withdrawBlocked}
         treasuryAddress={fees.treasuryAddress}
         trades={fees.trades}
         onPaid={fees.confirmPayment}

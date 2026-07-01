@@ -934,8 +934,18 @@ const TerminalTradePanel: React.FC<Props> = ({
 
             <p className="term-hint">
               Non-custodial: USDC stays on Hyperliquid. Deposit only <strong>native USDC on Arbitrum</strong>{' '}
-              (not BNB/BSC or other networks). Withdraw anytime with your wallet; the bot agent cannot
-              withdraw. While a trade is open, withdrawable balance may be lower (margin in use).
+              (not BNB/BSC or other networks). The bot agent cannot withdraw.
+              {platformFees.withdrawBlocked ? (
+                <>
+                  {' '}
+                  <strong>Platform fees are due</strong> — pay via Monadier to unlock in-app withdrawal.
+                </>
+              ) : (
+                <>
+                  {' '}
+                  While a trade is open, withdrawable balance may be lower (margin in use).
+                </>
+              )}
             </p>
           </div>
         )}
