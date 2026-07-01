@@ -5,8 +5,6 @@ import { AlertTriangle, Shield, Wallet, Database } from 'lucide-react';
 import MarketingInnerPage, {
   MarketingPageHero,
   MarketingSectionHeading,
-  MarketingPageCta,
-  MarketingDisclaimer,
   MarketingArbitrumCallout,
   MarketingCompactSteps,
   MarketingFundsList,
@@ -96,10 +94,6 @@ const HowItWorksPage: React.FC = () => {
           </ul>
         </article>
       </div>
-
-      <MarketingPageCta secondary={{ to: '/pricing', label: t('marketing.howItWorks.ctaSecondary') }} />
-
-      <MarketingDisclaimer>{t('marketing.howItWorks.disclaimer')}</MarketingDisclaimer>
     </MarketingInnerPage>
   );
 };

@@ -17,6 +17,13 @@ const BEARISH_RE =
 const MARKET_CRASH_RE =
   /\b(biggest|largest|worst|record).{0,48}(loss|decline|drop|selloff|drawdown|liquidation|dump)|since 20(1\d|2[0-5])|largest loss|biggest loss|worst (day|week|month|quarter|year)|steepest (drop|decline|fall)|mass liquidation/i;
 
+/** Headlines about gold, equities, etc. — not crypto market crashes. */
+const NON_CRYPTO_MACRO_RE =
+  /\b(gold|silver|bullion|platinum|palladium|dow jones|dow futures|s&p|nasdaq|nikkei|treasury bond|mortgage|real estate|personal finance|wheat|corn futures|crude oil|natural gas futures|bullion)\b/i;
+
+const CRYPTO_HEADLINE_RE =
+  /\b(bitcoin|btc|ethereum|eth|crypto|defi|hyperliquid|solana|altcoin|perp|stablecoin|usdc|usdt)\b/i;
+
 const CRITICAL_MACRO_RE =
   /\b(war|attack|missile|strike|invasion|iran|israel|hamas|hezbollah|nuclear|terror|assassination|martial law|state of emergency|world war|nato|embargo)\b/i;
 
@@ -438,11 +445,21 @@ export function analyzeHeadlinesHeuristic(headlines: string[], assets: string[])
 }
 
 export function isCriticalMacroHeadline(text: string): boolean {
-  return (
-    CRITICAL_MACRO_RE.test(text) ||
-    MARKET_CRASH_RE.test(text) ||
-    (RISK_OFF_RE.test(text) && HIGH_IMPACT_RE.test(text))
-  );
+  const normalized = text.trim();
+  if (!normalized) return false;
+
+  // Gold / equities / commodities headlines must mention crypto to count as HL macro shock.
+  if (NON_CRYPTO_MACRO_RE.test(normalized) && !CRYPTO_HEADLINE_RE.test(normalized)) {
+    return false;
+  }
+
+  if (CRITICAL_MACRO_RE.test(normalized)) return true;
+
+  if (MARKET_CRASH_RE.test(normalized)) {
+    return CRYPTO_HEADLINE_RE.test(normalized);
+  }
+
+  return RISK_OFF_RE.test(normalized) && HIGH_IMPACT_RE.test(normalized);
 }
 
 /** True when a headline is about this HL coin (ticker or common name). */

@@ -72,6 +72,56 @@ export const TRADING_BOT_BENEFITS = [
   },
 ] as const;
 
+/** Three headline capabilities — /trading-bot cards row */
+export const TRADING_BOT_CAPABILITIES = [
+  {
+    title: 'Scans 200+ HL perps',
+    text: 'Every cycle ranks the full Hyperliquid perpetual universe — not a fixed BTC/ETH list — and picks the strongest setup for your slot.',
+    icon: 'scan' as const,
+  },
+  {
+    title: '14+ gates before open',
+    text: 'Macro beta, volume, structure, pump-short, and location checks run before any trade — same pipeline as the live terminal.',
+    icon: 'shield' as const,
+  },
+  {
+    title: 'Trails profit 24/7',
+    text: 'ATR-based trailing lets winners run while the bot cuts losers — server-side, even when your phone is locked.',
+    icon: 'trend' as const,
+  },
+] as const;
+
+export const TRADING_BOT_WALLET_BANNER = {
+  eyebrow: 'One-click connect',
+  title: 'Connect your preferred wallet',
+} as const;
+
+export const TRADING_BOT_RISK_BANNER = {
+  eyebrow: 'Risk management',
+  title: 'You set the guardrails',
+  desc: 'Risk % controls margin per trade — not leverage. Cap LVRG, limit concurrent positions, and preview illustrative P/L before you press Start bot.',
+} as const;
+
+export const BOT_AUDIENCE_VIDEO_BANNER = {
+  videoSrc: '/videos/6667321-uhd_4096_2160_25fps.mp4',
+  lineOne: 'Focus on what matters',
+  lineTwo: 'with a bot you can trust',
+} as const;
+
+export const BOT_PAGE_HERO = {
+  title: 'Trading bot',
+  rotateLines: ['200+ markets', 'runs 24/7', 'trails profits'],
+  footer: 'on Hyperliquid',
+  tagline: 'A bot built for passive income — transparent performance on-chain.',
+  lead: 'Approve once, fund HL USDC, and let the agent scan every perpetual while you are offline.',
+} as const;
+
+export const BOT_PAGE_LEADERBOARD = {
+  eyebrow: 'On-chain proof',
+  title: 'Leaderboard',
+  lead: 'Real Hyperliquid closes from bot wallets — wallet labels only, full addresses on HypurrScan.',
+} as const;
+
 export const TRADING_BOT_FEATURES = [
   {
     title: 'Multi-timeframe signals',

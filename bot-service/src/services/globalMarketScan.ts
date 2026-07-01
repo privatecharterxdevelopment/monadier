@@ -14,6 +14,7 @@ import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
 import { validateEntryLocation } from './entryLocationGate';
 import {
   assessHigherTfShortBias,
+  evaluateLongWithHigherTfBias,
   evaluateShortWithHigherTfBias,
 } from './higherTfShortBias';
 
@@ -201,6 +202,15 @@ async function scanStandardCoin(
       }
       signalConfidence = htf.adjustedConfidence;
       macroReason = htf.reason;
+    } else if (analysis.direction === 'LONG') {
+      const bias = await assessHigherTfShortBias(coin);
+      const htf = evaluateLongWithHigherTfBias(signalConfidence, minConf, bias);
+      if (!htf.ok) {
+        logger.debug('HL scan skip: 4h/24h LONG bias', { coin, reason: htf.reason });
+        return null;
+      }
+      signalConfidence = htf.adjustedConfidence;
+      macroReason = htf.reason;
     }
 
     const location = await validateScanEntryLocation(coin, symbol, analysis.direction);
@@ -289,6 +299,15 @@ async function scanAggressiveCoin(
       const htf = evaluateShortWithHigherTfBias(signalConfidence, minConf, bias);
       if (!htf.ok) {
         logger.debug('HL agg scan skip: 4h/24h SHORT bias', { coin, reason: htf.reason });
+        return null;
+      }
+      signalConfidence = htf.adjustedConfidence;
+      macroReason = htf.reason;
+    } else if (scalp.direction === 'LONG') {
+      const bias = await assessHigherTfShortBias(coin);
+      const htf = evaluateLongWithHigherTfBias(signalConfidence, minConf, bias);
+      if (!htf.ok) {
+        logger.debug('HL agg scan skip: 4h/24h LONG bias', { coin, reason: htf.reason });
         return null;
       }
       signalConfidence = htf.adjustedConfidence;

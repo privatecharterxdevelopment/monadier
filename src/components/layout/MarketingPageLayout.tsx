@@ -3,6 +3,7 @@ import LandingNav from '../landing/LandingNav';
 import LandingFooter from '../landing/LandingFooter';
 import CookieConsent from '../ui/CookieConsent';
 import MarketingSeo from '../seo/MarketingSeo';
+import MarketingPageBottomCta from '../marketing/MarketingPageBottomCta';
 
 type Props = {
   children: React.ReactNode;
@@ -45,6 +46,7 @@ const MarketingPageLayout: React.FC<Props> = ({ children, narrow, centered, inne
           {children}
         </div>
       </main>
+      {!legal && !narrow ? <MarketingPageBottomCta /> : null}
       <LandingFooter />
       <CookieConsent />
     </div>

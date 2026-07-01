@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import MarketingInnerPage, {
   MarketingPageHero,
-  MarketingDisclaimer,
 } from '../components/marketing/MarketingInnerPage';
 import { ROADMAP_CARD_VISUALS } from '../components/marketing/MarketingIllustrations';
 
@@ -141,8 +140,6 @@ const RoadmapPage: React.FC = () => {
           <Link to="/support">Support page</Link> or the email listed in the app.
         </p>
       </div>
-
-      <MarketingDisclaimer>Roadmap items are plans, not guarantees.</MarketingDisclaimer>
     </MarketingInnerPage>
   );
 };

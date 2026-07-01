@@ -15,3 +15,8 @@ export function hlDepositUrl(): string {
 export function hlWalletExplorerUrl(wallet: string): string {
   return `${HYPURRSCAN_URL}/address/${wallet}`;
 }
+
+export function hlTxExplorerUrl(txHash: string): string {
+  const hash = txHash.trim();
+  return `${HYPURRSCAN_URL}/tx/${hash}`;
+}

@@ -4,6 +4,18 @@ import { normalizeH1Trend } from './trendOnly';
 
 const MAJOR_COINS = new Set(['BTC', 'ETH']);
 
+/** Multi-TF scan pick strong enough to bypass macro “wait for BTC+ETH INFLOW” on alt LONGs. */
+export function isStrongMtfPick(pick: GlobalSignalCandidate): boolean {
+  const trendAlign = pick.trendAlignment ?? 0;
+  const conf = pick.confidence;
+  const tfs = pick.directionalTfCount ?? 0;
+  const coin = pick.coin.toUpperCase();
+  if (conf >= 70 && tfs >= 3 && trendAlign >= 70) return true;
+  if (conf >= 54 && tfs >= 2 && trendAlign >= 48) return true;
+  if (MAJOR_COINS.has(coin) && conf >= 52 && tfs >= 2) return true;
+  return false;
+}
+
 /** Global scan already aligned 5m/15m/1h — open on that thesis without re-blocking. */
 export function trustsScanAnalysis(pick: GlobalSignalCandidate): boolean {
   const tfs = pick.directionalTfCount ?? 0;

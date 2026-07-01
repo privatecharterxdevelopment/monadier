@@ -316,6 +316,8 @@ export function useTerminalBotAnalysis({
         if (!res.ok) return;
         const data = (await res.json()) as {
           blockers?: string[];
+          userBlockers?: string[];
+          marketBlockers?: string[];
           hyperliquid?: { maxConcurrentPositions?: number; openCoins?: string[] };
           globalScan?: {
             best?: GlobalScanCandidate | null;
@@ -330,7 +332,14 @@ export function useTerminalBotAnalysis({
           pumpSweep?: { lines?: string[] };
           lastOpenError?: { error: string; coin?: string; at: string } | null;
         };
-        const blockers = Array.isArray(data.blockers) ? [...data.blockers] : [];
+        const apiUserBlockers = Array.isArray(data.userBlockers) ? data.userBlockers : [];
+        const apiMarketBlockers = Array.isArray(data.marketBlockers) ? data.marketBlockers : [];
+        const blockers =
+          apiUserBlockers.length > 0 || apiMarketBlockers.length > 0
+            ? [...apiUserBlockers, ...apiMarketBlockers]
+            : Array.isArray(data.blockers)
+              ? [...data.blockers]
+              : [];
         if (typeof data.hyperliquid?.maxConcurrentPositions === 'number') {
           setServerMaxSlots(data.hyperliquid.maxConcurrentPositions);
         }
@@ -342,7 +351,10 @@ export function useTerminalBotAnalysis({
           ? [...data.globalScan.candidates].sort((a, b) => b.confidence - a.confidence)
           : [];
         if (data.globalScan?.openUniverse?.summary) {
-          blockers.push(data.globalScan.openUniverse.summary);
+          const summary = data.globalScan.openUniverse.summary;
+          if (!blockers.some((b) => b.includes(summary.slice(0, 24)))) {
+            blockers.push(summary);
+          }
         }
         for (const reason of data.globalScan?.filterReasons ?? []) {
           if (reason && !blockers.includes(reason)) blockers.push(reason);

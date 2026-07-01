@@ -780,8 +780,16 @@ export async function analyzeMarket(
       confidencePenalty = 10;
     }
   } else if (direction === 'SHORT' && isVeryLargeCandle && lastCandleIsBullish) {
-    confidencePenalty = 15;
-    logger.info('Trend-only: large green candle — SHORT kept (no flip to LONG)');
+    if (longConditionsMet >= 2 && longConditionsMet > shortConditionsMet) {
+      direction = 'LONG';
+      conditionsMet = longConditionsMet;
+      conditions = longConditions;
+      momentumOverride = true;
+      logger.info('⚠️ Momentum override: Large green candle switched SHORT to LONG');
+    } else {
+      confidencePenalty = 15;
+      logger.info('Trend-only: large green candle — SHORT kept (long factors insufficient to flip)');
+    }
   } else if (direction === 'LONG' && isLargeCandle && lastCandleIsBearish) {
     confidencePenalty = 5;  // REDUCED from 15
   } else if (direction === 'SHORT' && isLargeCandle && lastCandleIsBullish) {

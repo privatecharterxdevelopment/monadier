@@ -3,11 +3,8 @@ import LandingNav from '../components/landing/LandingNav';
 import LandingFooter from '../components/landing/LandingFooter';
 import CookieConsent from '../components/ui/CookieConsent';
 import MarketingSeo from '../components/seo/MarketingSeo';
-import {
-  MarketingPageHero,
-  MarketingDisclaimer,
-} from '../components/marketing/MarketingInnerPage';
-import MarketingBotPromo from '../components/marketing/MarketingBotPromo';
+import MarketingPageBottomCta from '../components/marketing/MarketingPageBottomCta';
+import { MarketingPageHero } from '../components/marketing/MarketingInnerPage';
 import { MktTeamVisual } from '../components/marketing/MarketingIllustrations';
 
 const AboutPage: React.FC = () => {
@@ -63,14 +60,7 @@ const AboutPage: React.FC = () => {
         </div>
       </section>
 
-      <main className="landing-gmx-page-main landing-gmx-page-main--inner landing-gmx-gutter">
-        <div className="landing-gmx-shell">
-          <div className="mkt-page">
-            <MarketingBotPromo kicker="Our core product" />
-            <MarketingDisclaimer>This is not financial advice.</MarketingDisclaimer>
-          </div>
-        </div>
-      </main>
+      <MarketingPageBottomCta />
 
       <LandingFooter />
       <CookieConsent />

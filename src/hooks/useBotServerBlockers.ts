@@ -43,6 +43,8 @@ export function useBotServerBlockers(wallet: string | undefined, enabled: boolea
         if (!res.ok) return;
         const data = (await res.json()) as {
           blockers?: string[];
+          userBlockers?: string[];
+          marketBlockers?: string[];
           hyperliquid?: {
             openCoins?: string[];
             maxConcurrentPositions?: number;
@@ -68,11 +70,16 @@ export function useBotServerBlockers(wallet: string | undefined, enabled: boolea
           openCoins
         );
 
+        const mergedBlockers =
+          Array.isArray(data.userBlockers) || Array.isArray(data.marketBlockers)
+            ? [...(data.userBlockers ?? []), ...(data.marketBlockers ?? [])]
+            : Array.isArray(data.blockers)
+              ? data.blockers
+              : [];
+
         setStatus({
           blockers: filterUserBlockers(
-            (Array.isArray(data.blockers) ? data.blockers : []).filter(
-              (b) => !isBotScanNoiseDetail(b)
-            ),
+            mergedBlockers.filter((b) => !isBotScanNoiseDetail(b)),
             { exemptFromFees: isFeeExemptWallet(wallet) }
           ),
           maxConcurrentPositions: maxConcurrent,

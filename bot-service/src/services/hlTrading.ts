@@ -50,7 +50,7 @@ import {
 } from './higherTfShortBias';
 import { validateCoinNews } from './coinNewsGate';
 import type { NewsTradeMode } from './newsTradeMode';
-import { trustsScanAnalysis, weekendOpenBlocked } from './analysisFirstOpen';
+import { trustsScanAnalysis, weekendOpenBlocked, isStrongMtfPick } from './analysisFirstOpen';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import {
   applyOpenUniverseFilters,
@@ -245,13 +245,7 @@ function shouldRelaxStructuralGates(
 
 /** Global scan already proved multi-TF alignment — skip redundant live re-checks. */
 function isStrongGlobalScanPick(pick: GlobalSignalCandidate): boolean {
-  const trendAlign = pick.trendAlignment ?? 0;
-  const conf = pick.confidence;
-  const tfs = pick.directionalTfCount ?? 0;
-  if (conf >= 70 && tfs >= 3 && trendAlign >= 70) return true;
-  if (conf >= 54 && tfs >= 2 && trendAlign >= 48) return true;
-  if (MAJOR_COINS.has(pick.coin.toUpperCase()) && conf >= 52 && tfs >= 2) return true;
-  return false;
+  return isStrongMtfPick(pick);
 }
 
 function formatOpenErrorForClient(error: string): string {
@@ -1105,12 +1099,32 @@ export class HyperliquidTradingService {
         return { success: false, error: reason };
       }
 
-      const newsGate = await validateCoinNews({
+      const strongMtf = isStrongGlobalScanPick(opts.pick);
+      const relaxMacroGates = shouldRelaxMacroGates(opts.pick, coin, opts.direction);
+      const relaxStructuralGates = shouldRelaxStructuralGates(
+        opts.pick,
         coin,
-        direction: opts.direction,
-        tier: coinTier,
-        newsTradeMode: opts.newsTradeMode,
-      });
+        opts.direction
+      );
+      const trustAnalysis =
+        trustsScanAnalysis(opts.pick) && opts.pick.direction === opts.direction;
+
+      const newsGate =
+        (trustAnalysis || strongMtf || relaxMacroGates) &&
+        opts.pick.direction === opts.direction
+          ? {
+              ok: true as const,
+              reason: `Scan MTF ${opts.pick.confidence}% — news macro re-check skipped`,
+              tier: coinTier,
+              headlines: [] as string[],
+              sentiment: 'neutral' as const,
+            }
+          : await validateCoinNews({
+              coin,
+              direction: opts.direction,
+              tier: coinTier,
+              newsTradeMode: opts.newsTradeMode,
+            });
       if (!newsGate.ok) {
         logger.info('HL open blocked — news gate (step 1)', {
           user: opts.userAddress.slice(0, 10),
@@ -1121,16 +1135,6 @@ export class HyperliquidTradingService {
         });
         return { success: false, error: newsGate.reason };
       }
-
-      const strongMtf = isStrongGlobalScanPick(opts.pick);
-      const relaxMacroGates = shouldRelaxMacroGates(opts.pick, coin, opts.direction);
-      const relaxStructuralGates = shouldRelaxStructuralGates(
-        opts.pick,
-        coin,
-        opts.direction
-      );
-      const trustAnalysis =
-        trustsScanAnalysis(opts.pick) && opts.pick.direction === opts.direction;
 
       const freshPumpGate =
         trustAnalysis && opts.direction !== 'SHORT'
@@ -1200,10 +1204,7 @@ export class HyperliquidTradingService {
         return { success: false, error: scalpGate.reason };
       }
 
-      const skipMacroAtOpen =
-        trustAnalysis &&
-        opts.direction === 'LONG' &&
-        (MAJOR_COINS.has(coin) || (opts.pick.directionalTfCount ?? 0) >= 3);
+      const skipMacroAtOpen = relaxMacroGates && opts.direction === 'LONG';
       const macroGate = skipMacroAtOpen
         ? {
             ok: true as const,
@@ -1290,7 +1291,13 @@ export class HyperliquidTradingService {
         }
       }
 
-      const megaGate = validateMegaPairVolumeForDirection(opts.direction);
+      const megaGate =
+        relaxMacroGates && opts.direction === 'LONG'
+          ? {
+              ok: true as const,
+              reason: `Scan MTF ${opts.pick.confidence}% — mega pair re-check skipped`,
+            }
+          : validateMegaPairVolumeForDirection(opts.direction);
       if (!megaGate.ok) {
         logger.info('HL open blocked — mega pair volume', {
           user: opts.userAddress.slice(0, 10),

@@ -5,6 +5,7 @@ import { config } from '../config';
 import { MAJOR_COINS } from './coinTier';
 import type { CoinTier } from './coinTier';
 import { fetchHeadlinesForCoin, fetchMacroHeadlines } from './newsFeedService';
+import { getMegaPairVolumeSnapshot } from './megaPairVolumeMonitor';
 import {
   analyzeHeadlinesHeuristic,
   analyzeNewsItem,
@@ -21,6 +22,18 @@ function impactRank(impact: NewsImpact): number {
   if (impact === 'high') return 3;
   if (impact === 'medium') return 2;
   return 1;
+}
+
+function liveMajorMomentumSupportsLong(coin: string): boolean {
+  const key = coin.toUpperCase();
+  if (!MAJOR_COINS.has(key)) return false;
+  const snap = getMegaPairVolumeSnapshot();
+  if (!snap?.pairs.length) return false;
+  const row = snap.pairs.find((p) => p.coin === key);
+  if (!row) return false;
+  if (row.flow === 'INFLOW') return true;
+  const cfg = config.hyperliquid.megaPairVolume;
+  return row.change5mPct >= cfg.pumpPct * 0.65 || row.change15mPct >= cfg.pumpPct15m * 0.65;
 }
 
 function mergeAnalysis(
@@ -132,6 +145,28 @@ export async function validateNewsImpact(opts: {
       : macroAdvisory
         ? `Macro headlines noted — ${coin} uses coin-specific news only`
         : null;
+
+  if (
+    opts.direction === 'LONG' &&
+    isMajor &&
+    liveMajorMomentumSupportsLong(coin) &&
+    (criticalMacro || blocksDirection(opts.direction, bias, impact, mode))
+  ) {
+    const summary =
+      headlines.length > 0
+        ? `News OK — live ${coin} momentum overrides macro headline noise (${headlines.length} headline(s))`
+        : `News OK — live ${coin} momentum`;
+    return {
+      ok: true,
+      reason: summary,
+      headlines,
+      sentiment: bias,
+      impact,
+      confidence,
+      boostConfidence,
+      criticalMacro: false,
+    };
+  }
 
   if (blocksDirection(opts.direction, bias, impact, mode)) {
     const lead = headlines[0] ?? 'recent headlines';

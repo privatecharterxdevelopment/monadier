@@ -1,4 +1,4 @@
-import { isWeekendThinLiquidityWindow, MAJOR_COINS } from './analysisFirstOpen';
+import { isStrongMtfPick, isWeekendThinLiquidityWindow, MAJOR_COINS } from './analysisFirstOpen';
 import type { GlobalSignalCandidate, GlobalScanResult } from './globalMarketScan';
 import {
   getMegaPairVolumeSnapshot,
@@ -93,8 +93,10 @@ export function applyOpenUniverseFilters(
     if (regime === 'risk_off') return false;
     if (megaLongBlock) return false;
     if (btcShort || ethShort) return false;
-    if (!(btcLong && ethLong && regime === 'risk_on')) return false;
-    return true;
+    // Strong per-coin MTF LONG — do not wait for BTC+ETH both LONG + dual INFLOW (SHORT alts are not gated this hard).
+    if (isStrongMtfPick(s)) return true;
+    if (btcLong && ethLong && regime === 'risk_on') return true;
+    return false;
   });
   const macroDropped = beforeMacro - filtered.length;
   if (macroDropped > 0) {

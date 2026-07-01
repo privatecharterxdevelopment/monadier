@@ -110,6 +110,53 @@ export async function assessHigherTfShortBias(coin: string): Promise<HigherTfSho
   }
 }
 
+/** LONG mirror — block into 4h/24h dumps; favor aligned macro UP (e.g. MORPHO-style pumps). */
+export function evaluateLongWithHigherTfBias(
+  baseConfidence: number,
+  minConfidence: number,
+  bias: HigherTfShortBias
+): {
+  ok: boolean;
+  adjustedConfidence: number;
+  requiredConfidence: number;
+  reason: string;
+} {
+  const cfg = config.hyperliquid.higherTfShort;
+
+  if (bias.regime === 'strong_down') {
+    return {
+      ok: false,
+      adjustedConfidence: baseConfidence - cfg.shortConfBonusStrongDown,
+      requiredConfidence: minConfidence + bias.minConfidenceExtra,
+      reason: `${bias.reason} — LONG blocked (4h/24h still dumping)`,
+    };
+  }
+
+  if (bias.regime === 'strong_up') {
+    const adjustedConfidence = baseConfidence + Math.round(cfg.shortConfPenaltyStrongUp * 0.45);
+    const ok = adjustedConfidence >= minConfidence;
+    return {
+      ok,
+      adjustedConfidence,
+      requiredConfidence: minConfidence,
+      reason: ok
+        ? `${bias.reason} · LONG aligned · effective ${adjustedConfidence.toFixed(0)}%`
+        : `${bias.reason} · effective ${adjustedConfidence.toFixed(0)}% < ${minConfidence}%`,
+    };
+  }
+
+  const adjustedConfidence = baseConfidence;
+  const ok = adjustedConfidence >= minConfidence;
+  return {
+    ok,
+    adjustedConfidence,
+    requiredConfidence: minConfidence,
+    reason: ok
+      ? `${bias.reason} · effective ${adjustedConfidence.toFixed(0)}%`
+      : `${bias.reason} · effective ${adjustedConfidence.toFixed(0)}% < ${minConfidence}%`,
+  };
+}
+
 export function evaluateShortWithHigherTfBias(
   baseConfidence: number,
   minConfidence: number,

@@ -212,6 +212,7 @@ export async function canOpenNewPositions(walletAddress: string): Promise<{
   status: PlatformFeeStatus;
 }> {
   const status = await getPlatformFeeStatus(walletAddress);
+  // Wallet-scoped only — never blocks other users in the trading cycle.
   if (status.opensBlocked) {
     return {
       allowed: false,

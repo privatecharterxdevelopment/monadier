@@ -562,12 +562,24 @@ const healthServer = http.createServer(async (req, res) => {
         .map(formatPumpSweepLine);
 
       const blockers: string[] = [];
+      const userBlockers: string[] = [];
+      const marketBlockers: string[] = [];
+
+      const pushUser = (msg: string) => {
+        userBlockers.push(msg);
+        blockers.push(msg);
+      };
+      const pushMarket = (msg: string) => {
+        marketBlockers.push(msg);
+        blockers.push(msg);
+      };
+
       if (!hlAgentOk) {
-        blockers.push(hlAgentBlocker ?? 'HL agent not approved — enable bot in app');
+        pushUser(hlAgentBlocker ?? 'HL agent not approved — enable bot in app');
       }
       if (feeSummary.opensBlocked) {
-        blockers.push(
-          `PLATFORM_FEES_DUE — pay ${feeSummary.accruedUsd.toFixed(2)} USDC after ${feeSummary.successWinCount} winning closes`
+        pushUser(
+          `PLATFORM_FEES_DUE — pay ${feeSummary.accruedUsd.toFixed(2)} USDC after ${feeSummary.successWinCount} winning closes (this wallet only)`
         );
       }
       const balanceBlocker =
@@ -577,32 +589,32 @@ const healthServer = http.createServer(async (req, res) => {
       const balanceReadFlake =
         balanceBlocker != null && /HL balance check failed/i.test(balanceBlocker);
       if (balanceBlocker && !balanceReadFlake) {
-        blockers.push(balanceBlocker);
+        pushUser(balanceBlocker);
       }
       const maxPositions = config.hyperliquid.maxConcurrentPositions;
-      if (!dbSettings.autoTradeEnabled) blockers.push('auto-trade disabled in settings');
+      if (!dbSettings.autoTradeEnabled) pushUser('auto-trade disabled in settings');
       if (hlOpenCoins.length >= maxPositions) {
-        blockers.push(
+        pushUser(
           `HL max positions (${maxPositions}/${maxPositions}): ${hlOpenCoins.join(', ')}`
         );
       }
       if (banStatus.isBanned) {
-        blockers.push(
+        pushUser(
           `bot banned until ${banStatus.bannedUntil?.toISOString() ?? 'unknown'}`
         );
       }
-      if (!winRateGate.allowed) blockers.push(winRateGate.reason || 'win rate gate');
+      if (!winRateGate.allowed) pushUser(winRateGate.reason || 'win rate gate');
       const balanceGateOpen = !balanceBlocker || balanceReadFlake;
       if (balanceGateOpen && userSignals.length === 0 && hlOpenCoins.length < maxPositions) {
-        blockers.push(
+        pushMarket(
           describeNoTradeableSetupBlocker(rawUserSignals.length, filterReasons)
         );
       }
       if (balanceGateOpen && !bestAvailable && userSignals.length > 0 && hlOpenCoins.length < maxPositions) {
-        blockers.push('all tradeable pairs already have open positions or are blocked');
+        pushMarket('all tradeable pairs already have open positions or are blocked');
       }
       if (balanceGateOpen && !bestAvailable && userSignals.length === 0 && rawUserSignals.length > 0 && hlOpenCoins.length < maxPositions) {
-        blockers.push(
+        pushMarket(
           `scan found ${rawUserSignals.length} raw signal(s) but 0 passed open filters — ${openUniverse.summary}`
         );
       }
@@ -627,7 +639,7 @@ const healthServer = http.createServer(async (req, res) => {
           perSlot = Math.min(Math.max(perSlot, minCollateral), marginHeadroom);
         }
         if (perSlot < 1) {
-          blockers.push(
+          pushUser(
             hlOpenCoins.length > 0
               ? `free margin too low for slot 2 ($${hlFreeMargin.toFixed(2)} free from $${balance.toFixed(2)} balance, $${hlWithdrawable.toFixed(2)} withdrawable, ${hlOpenCoins.length}/${maxPositions} open)`
               : `margin too small for slot ($${perSlot.toFixed(2)} from $${balance.toFixed(2)} balance, ${hlOpenCoins.length}/${maxPositions} open)`
@@ -635,7 +647,7 @@ const healthServer = http.createServer(async (req, res) => {
         } else {
           const previewLev = resolveHlOrderLeverage(perSlot, lev, 50, minNotional);
           if (previewLev.notionalUsd < minNotional) {
-            blockers.push(
+            pushUser(
               buildNotionalBelowFloorError(
                 previewLev.notionalUsd,
                 minNotional,
@@ -648,14 +660,21 @@ const healthServer = http.createServer(async (req, res) => {
         }
       }
 
+      const userReady = userBlockers.length === 0;
+      const marketReady = Boolean(bestAvailable) || hlOpenCoins.length > 0;
+
       res.writeHead(200, corsHeaders);
       res.end(JSON.stringify({
         success: true,
         wallet: userAddress,
         userId: userId ? `${userId.slice(0, 8)}…` : null,
         executionVenue: 'hyperliquid',
-        canTrade: blockers.length === 0,
+        canTrade: userReady && marketReady,
+        userReady,
+        marketReady,
         blockers,
+        userBlockers,
+        marketBlockers,
         hyperliquid: {
           balanceUsd: hlBalanceUsd,
           perpUsd: hlFunding.perpUsd,

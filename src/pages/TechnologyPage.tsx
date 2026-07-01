@@ -15,10 +15,7 @@ import MarketingInnerPage, {
   MarketingPageGrid,
   MarketingSectionHeading,
   MarketingStatCard,
-  MarketingPageCta,
-  MarketingDisclaimer,
 } from '../components/marketing/MarketingInnerPage';
-import MarketingBotPromo from '../components/marketing/MarketingBotPromo';
 import {
   MktBotAiVisual,
   MktMtfStackVisual,
@@ -161,15 +158,6 @@ const TechnologyPage: React.FC = () => {
           visual={<MktLedgerVisual />}
         />
       </MarketingPageGrid>
-
-      <MarketingPageCta
-        label="Open app"
-        secondary={{ to: '/trading-bot', label: 'Hyperliquid trading bot' }}
-      />
-
-      <MarketingBotPromo kicker="Automated execution on Hyperliquid" />
-
-      <MarketingDisclaimer>This is not financial advice. Your capital is at risk.</MarketingDisclaimer>
     </MarketingInnerPage>
   );
 };

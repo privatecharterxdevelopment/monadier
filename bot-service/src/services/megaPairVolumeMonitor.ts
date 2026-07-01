@@ -40,6 +40,11 @@ function classifyFlow(change5m: number, change15m: number, volRatio: number): Me
   const cfg = config.hyperliquid.megaPairVolume;
   const pumping = change5m >= cfg.pumpPct || change15m >= cfg.pumpPct15m;
   const dumping = change5m <= -cfg.pumpPct || change15m <= -cfg.pumpPct15m;
+
+  // Price-led flow — thin vol ratio must not hide an active BTC/ETH move.
+  if (change15m > 0.04 || change5m > 0.03) return 'INFLOW';
+  if (change15m < -0.04 || change5m < -0.03) return 'OUTFLOW';
+
   if (pumping && volRatio >= cfg.minVolRatio) return 'INFLOW';
   if (dumping && volRatio >= cfg.minVolRatio) return 'OUTFLOW';
   return 'FLAT';
