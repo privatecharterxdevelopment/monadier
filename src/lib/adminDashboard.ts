@@ -693,9 +693,18 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
   };
 }
 
+function isStaleAdminRpc(dash: Partial<AdminHlDashboard> | null | undefined): boolean {
+  if (!dash) return true;
+  if (dash.stats?.hl_bots_runnable == null) return true;
+  if (!Array.isArray(dash.wallet_fees)) return true;
+  const bots = dash.active_bots ?? [];
+  if (bots.length > 0 && bots.some((b) => b.bot_runnable === undefined)) return true;
+  return false;
+}
+
 export async function fetchAdminHlDashboard(): Promise<AdminHlDashboardResult> {
   const { data, error } = await supabase.rpc('get_admin_hl_dashboard');
-  if (!error && data) {
+  if (!error && data && !isStaleAdminRpc(data as Partial<AdminHlDashboard>)) {
     const enriched = await enrichAdminHlDashboard(
       normalizeAdminHlDashboard(data as Partial<AdminHlDashboard>)
     );
@@ -704,6 +713,8 @@ export async function fetchAdminHlDashboard(): Promise<AdminHlDashboardResult> {
 
   if (error) {
     console.error('[adminDashboard] rpc failed', error);
+  } else if (data) {
+    console.warn('[adminDashboard] rpc schema stale — using table fallback');
   }
 
   const fallback = await fetchAdminHlDashboardViaTables();
