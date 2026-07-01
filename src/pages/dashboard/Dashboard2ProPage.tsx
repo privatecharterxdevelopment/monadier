@@ -792,6 +792,7 @@ const Dashboard2ProPageContent: React.FC = () => {
             activeTab={profileTab}
             onTabChange={handleProfileTabChange}
             botHistoryRefreshKey={botSyncTick}
+            onRequireSignIn={promptSignIn}
           />
         </div>
       ) : null}
@@ -829,6 +830,7 @@ const Dashboard2ProPageContent: React.FC = () => {
           }}
           onNavigateBetting={() => setSection('sportsbets')}
           onNavigateAffiliate={openAffiliate}
+          onRequireSignIn={promptSignIn}
         />
         </div>
       ) : null}
