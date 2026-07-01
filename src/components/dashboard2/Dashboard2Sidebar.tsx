@@ -1,6 +1,7 @@
 import React from 'react';
 import Logo from '../ui/Logo';
 import { getMarketingUrl, isExternalAppUrl, LANDING_PATH } from '../../lib/appUrls';
+import { BRAND_NAME } from '../../lib/brand';
 import {
   TrendingUp,
   CandlestickChart,
@@ -72,7 +73,7 @@ const Dashboard2Sidebar: React.FC<Props> = ({
     <aside className="term-sidebar">
       <div className="term-side-logo">
         {isExternalAppUrl(getMarketingUrl(LANDING_PATH)) ? (
-          <a href={getMarketingUrl(LANDING_PATH)} className="term-side-logo-link" aria-label="Monadier home">
+          <a href={getMarketingUrl(LANDING_PATH)} className="term-side-logo-link" aria-label={`${BRAND_NAME} home`}>
             <Logo size="sm" theme="light" />
           </a>
         ) : (

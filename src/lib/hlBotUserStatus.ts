@@ -119,7 +119,7 @@ export function getHlBotSidebarStatus(opts: {
   if (!accountSignedIn) {
     return {
       headline: 'Sign in required',
-      detail: 'Sign in to your Monadier account, then press Start bot. Your wallet is already connected.',
+      detail: 'Sign in to your HyperGain account, then press Start bot. Your wallet is already connected.',
       tone: 'warn',
       setupStep: 1,
       setupComplete: false,

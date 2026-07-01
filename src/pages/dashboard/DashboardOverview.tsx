@@ -11,6 +11,7 @@ import {
   LineChart,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { BRAND_NAME } from '../../lib/brand';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../../contexts/AuthContext';
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useSubscription } from '../../contexts/SubscriptionContext';
@@ -392,7 +393,7 @@ const DashboardOverview: React.FC = () => {
 
   return (
     <TradingTerminalShell
-      headerTitle="Monadier"
+      headerTitle={BRAND_NAME}
       variant="overview"
       metrics={metrics}
       walletUsd={totalUsdValue}

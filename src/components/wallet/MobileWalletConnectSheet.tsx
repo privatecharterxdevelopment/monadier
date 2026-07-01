@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
+import { BRAND_NAME } from '../../lib/brand';
 import { getMetaMaskDappLink } from '../../lib/mobileWalletConnect';
 import {
   detectWalletExtensionConflict,
@@ -62,7 +63,7 @@ const MobileWalletConnectSheet: React.FC = () => {
         </div>
         <WalletUsdcArbitrumHint compact />
         <p className="mobile-wallet-sheet__hint">
-          On phone, open Monadier inside the MetaMask app — then tap Connect. WalletConnect “Open app” often fails in Safari.
+          On phone, open {BRAND_NAME} inside the MetaMask app — then tap Connect. WalletConnect “Open app” often fails in Safari.
         </p>
         {walletHint ? (
           <p className="mobile-wallet-sheet__warn" role="status">

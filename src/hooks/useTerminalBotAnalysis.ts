@@ -169,7 +169,7 @@ export function useTerminalBotAnalysis({
   const { signal, isLoading } = useUnifiedSignal({
     symbol: scanSymbol ?? 'ETHUSDT',
     timeframes: MTF_TIMEFRAMES,
-    refreshInterval: 5000,
+    refreshInterval: 2500,
     autoRefresh: signalEnabled,
     enabled: signalEnabled,
   });
@@ -233,7 +233,7 @@ export function useTerminalBotAnalysis({
       return;
     }
     let cancelled = false;
-    let delayMs = 15_000;
+    let delayMs = 3_000;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const schedule = () => {

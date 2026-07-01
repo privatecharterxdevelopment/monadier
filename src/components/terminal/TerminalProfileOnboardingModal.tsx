@@ -9,6 +9,7 @@ import {
 } from '../../lib/profile';
 import { validateUsername, normalizeUsernameInput } from '../../lib/username';
 import { fireProfileOnboardingConfetti } from '../../lib/confettiCelebration';
+import { BRAND_NAME } from '../../lib/brand';
 import HlBotFlowGuide from './HlBotFlowGuide';
 
 type Props = {
@@ -127,7 +128,7 @@ const TerminalProfileOnboardingModal: React.FC<Props> = ({ onComplete }) => {
 
   return (
     <TerminalModalFrame
-      title="Welcome to Monadier"
+      title={`Welcome to ${BRAND_NAME}`}
       subtitle="Complete your profile to get started"
       icon={<User size={18} />}
       onClose={() => {}}

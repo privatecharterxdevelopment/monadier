@@ -1,5 +1,6 @@
 import React from 'react';
 import { Loader2, X } from 'lucide-react';
+import { BRAND_NAME } from '../../lib/brand';
 
 type Props = {
   feeLabelPerp: string;
@@ -34,12 +35,12 @@ const ProTradeBuilderFeeModal: React.FC<Props> = ({
         </button>
       </div>
       <p className="hl-entry-hint" style={{ marginBottom: 12 }}>
-        Monadier Pro Trade charges a {feeLabelPerp} success fee on profitable perp closes only — no
+        {BRAND_NAME} Pro Trade charges a {feeLabelPerp} success fee on profitable perp closes only — no
         fee on opens or losing closes. Spot sells use a small flat fee. Separate from Hyperliquid
-        trading fees and the Monadier bot subscription.
+        trading fees and the {BRAND_NAME} bot subscription.
       </p>
       <p className="hl-entry-hint" style={{ marginBottom: 12 }}>
-        One-time approval (max {maxApprovalRate}). You sign with your wallet — Monadier never gets
+        One-time approval (max {maxApprovalRate}). You sign with your wallet — {BRAND_NAME} never gets
         access to your funds.
       </p>
       {error ? <p className="hl-entry-err">{error}</p> : null}

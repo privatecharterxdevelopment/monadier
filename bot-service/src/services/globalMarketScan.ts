@@ -85,6 +85,8 @@ export let lastHlGlobalScanStats: HlGlobalScanStats = {
 
 export let lastGlobalScanResult: GlobalScanResult = { standard: [], aggressive: [] };
 
+let cachedGlobalScan: { result: GlobalScanResult; at: number; universeAt: number } | null = null;
+
 /** BTC/ETH only — chart direction from MTF (LONG or SHORT, whichever signal engine picks). */
 async function scanMajorChartFallback(
   coin: string,
@@ -344,8 +346,18 @@ async function scanAggressiveCoin(
 export async function scanGlobalHlSignals(
   preloadedUniverse?: HlLiquidUniverse
 ): Promise<GlobalScanResult> {
-  const started = Date.now();
   const universe = preloadedUniverse ?? (await fetchHlLiquidUniverse());
+  const cacheMs = config.hyperliquid.globalScanCacheMs;
+  if (
+    cacheMs > 0 &&
+    cachedGlobalScan &&
+    Date.now() - cachedGlobalScan.at < cacheMs &&
+    cachedGlobalScan.universeAt === universe.fetchedAt
+  ) {
+    return cachedGlobalScan.result;
+  }
+
+  const started = Date.now();
   const coins = universe.coins.filter((coin) => !isBotExcludedCoin(coin));
   const concurrency = config.scaling.globalScanConcurrency;
   const liqByCoin = new Map(universe.markets.map((m) => [m.coin, m]));
@@ -431,6 +443,11 @@ export async function scanGlobalHlSignals(
   }
 
   lastGlobalScanResult = { standard: finalStandard, aggressive: aggressiveFiltered };
+  cachedGlobalScan = {
+    result: lastGlobalScanResult,
+    at: Date.now(),
+    universeAt: universe.fetchedAt,
+  };
   lastHlGlobalScanStats = {
     coinsScanned: coins.length,
     liquidUniverse: coins.length,

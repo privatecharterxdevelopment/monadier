@@ -1,4 +1,4 @@
-import { isStrongMtfPick, isWeekendThinLiquidityWindow, MAJOR_COINS } from './analysisFirstOpen';
+import { isStrongMtfPick, isWeekendThinLiquidityWindow, MAJOR_COINS, trustsScanAnalysis } from './analysisFirstOpen';
 import type { GlobalSignalCandidate, GlobalScanResult } from './globalMarketScan';
 import {
   getMegaPairVolumeSnapshot,
@@ -92,6 +92,16 @@ export function applyOpenUniverseFilters(
 
     // Strong per-coin MTF LONG — bypass macro wait (must run before risk_off / mega OUTFLOW).
     if (isStrongMtfPick(s)) return true;
+    // Scan-qualified alt LONG — already passed MTF + location at scan time; don't drop again here.
+    if (
+      trustsScanAnalysis(s) &&
+      regime !== 'risk_off' &&
+      !megaLongBlock &&
+      !btcShort &&
+      !ethShort
+    ) {
+      return true;
+    }
 
     if (regime === 'risk_off') return false;
     if (megaLongBlock) return false;

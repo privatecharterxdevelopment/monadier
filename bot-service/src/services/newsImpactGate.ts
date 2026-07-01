@@ -115,6 +115,19 @@ export async function validateNewsImpact(opts: {
   tier: CoinTier;
   newsTradeMode?: NewsTradeMode | string | null;
 }): Promise<NewsGateResult> {
+  if (!config.hyperliquid.news.gateOnOpens) {
+    return {
+      ok: true,
+      reason: 'News gate off — headlines are UI-only, not used for bot entries',
+      headlines: [],
+      sentiment: 'neutral',
+      impact: 'low',
+      confidence: 0,
+      boostConfidence: 0,
+      criticalMacro: false,
+    };
+  }
+
   const coin = opts.coin.toUpperCase();
   const mode = normalizeNewsTradeMode(opts.newsTradeMode ?? 'filter');
   const cfg = config.hyperliquid.news;

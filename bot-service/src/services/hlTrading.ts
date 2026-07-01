@@ -48,8 +48,6 @@ import {
   assessHigherTfShortBias,
   evaluateShortWithHigherTfBias,
 } from './higherTfShortBias';
-import { validateCoinNews } from './coinNewsGate';
-import type { NewsTradeMode } from './newsTradeMode';
 import { trustsScanAnalysis, weekendOpenBlocked, isStrongMtfPick } from './analysisFirstOpen';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import {
@@ -216,30 +214,35 @@ function bypassesLiquidityGate(signal: GlobalSignalCandidate): boolean {
   if (MAJOR_COINS.has(signal.coin.toUpperCase())) return true;
   if (isStrongGlobalScanPick(signal)) return true;
   const tfs = signal.directionalTfCount ?? 0;
-  return signal.confidence >= 65 && tfs >= 2;
+  return signal.confidence >= 58 && tfs >= 2;
 }
 
-/** Macro/pump gates — may skip when MTF scan already aligned (never for SHORT). */
+/** Macro/pump gates — skip redundant live re-check when scan already aligned. */
 function shouldRelaxMacroGates(
   pick: GlobalSignalCandidate,
   coin: string,
   direction: 'LONG' | 'SHORT'
 ): boolean {
-  if (direction === 'SHORT') return false;
   if (trustsScanAnalysis(pick) && pick.direction === direction) return true;
+  if (direction === 'SHORT') {
+    return isStrongGlobalScanPick(pick);
+  }
   if (MAJOR_COINS.has(coin.toUpperCase())) return true;
   if (isStrongGlobalScanPick(pick)) return true;
   if (/top-pairs fallback|relaxed scan/i.test(pick.reason)) return true;
   const tfs = pick.directionalTfCount ?? 0;
-  return pick.confidence >= 65 && tfs >= 2;
+  return pick.confidence >= 58 && tfs >= 2;
 }
 
-/** S/R, 20-candle, momentum, pump-sweep — enforced for LONG and SHORT equally. */
+/** S/R, 20-candle, momentum — skip when global scan already validated the thesis. */
 function shouldRelaxStructuralGates(
-  _pick: GlobalSignalCandidate,
-  _coin: string,
-  _direction: 'LONG' | 'SHORT'
+  pick: GlobalSignalCandidate,
+  coin: string,
+  direction: 'LONG' | 'SHORT'
 ): boolean {
+  if (trustsScanAnalysis(pick) && pick.direction === direction) return true;
+  if (isStrongGlobalScanPick(pick)) return true;
+  if (MAJOR_COINS.has(coin.toUpperCase()) && pick.confidence >= 52) return true;
   return false;
 }
 
@@ -972,7 +975,6 @@ export class HyperliquidTradingService {
           pick,
           botModeLabel: strategy === 'profit_grabber' ? 'Agg' : 'Std',
           ctx,
-          newsTradeMode: settings.newsTradeMode,
         });
 
         if (opened.success) {
@@ -1039,7 +1041,6 @@ export class HyperliquidTradingService {
     pick: GlobalSignalCandidate;
     botModeLabel: 'Std' | 'Agg';
     ctx: TradingCycleContext;
-    newsTradeMode?: NewsTradeMode;
   }): Promise<{ success: boolean; error?: string }> {
     try {
       const { meta, mids } = opts.ctx;
@@ -1109,32 +1110,13 @@ export class HyperliquidTradingService {
       const trustAnalysis =
         trustsScanAnalysis(opts.pick) && opts.pick.direction === opts.direction;
 
-      const newsGate =
-        (trustAnalysis || strongMtf || relaxMacroGates) &&
-        opts.pick.direction === opts.direction
-          ? {
-              ok: true as const,
-              reason: `Scan MTF ${opts.pick.confidence}% — news macro re-check skipped`,
-              tier: coinTier,
-              headlines: [] as string[],
-              sentiment: 'neutral' as const,
-            }
-          : await validateCoinNews({
-              coin,
-              direction: opts.direction,
-              tier: coinTier,
-              newsTradeMode: opts.newsTradeMode,
-            });
-      if (!newsGate.ok) {
-        logger.info('HL open blocked — news gate (step 1)', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          tier: coinTier,
-          reason: newsGate.reason,
-        });
-        return { success: false, error: newsGate.reason };
-      }
+      const newsGate = {
+        ok: true as const,
+        reason: 'News not used for bot entries (UI feed only)',
+        tier: coinTier,
+        headlines: [] as string[],
+        sentiment: 'neutral' as const,
+      };
 
       const freshPumpGate =
         trustAnalysis && opts.direction !== 'SHORT'
@@ -1275,7 +1257,7 @@ export class HyperliquidTradingService {
         return { success: false, error: pumpShortGate.reason };
       }
 
-      if (opts.direction === 'SHORT') {
+      if (opts.direction === 'SHORT' && !(trustsScanAnalysis(opts.pick) && opts.pick.direction === 'SHORT')) {
         const bias = await assessHigherTfShortBias(coin);
         const minShortConf = needsCautionPath(coinTier)
           ? config.hyperliquid.cautiousScan.minSignalConfidence
@@ -1291,8 +1273,10 @@ export class HyperliquidTradingService {
         }
       }
 
-      const megaGate =
-        relaxMacroGates && opts.direction === 'LONG'
+      const skipMegaRecheck =
+        (relaxMacroGates && opts.direction === 'LONG') ||
+        (trustsScanAnalysis(opts.pick) && opts.pick.direction === opts.direction);
+      const megaGate = skipMegaRecheck
           ? {
               ok: true as const,
               reason: `Scan MTF ${opts.pick.confidence}% — mega pair re-check skipped`,

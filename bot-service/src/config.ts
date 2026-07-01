@@ -86,7 +86,7 @@ export const config = {
     /** Seeds per-user agent keys — never expose to frontend */
     agentMasterSecret:
       process.env.HL_AGENT_MASTER_SECRET || process.env.BOT_PRIVATE_KEY!,
-    agentName: process.env.HL_AGENT_NAME || 'monadier',
+    agentName: process.env.HL_AGENT_NAME || 'hypergain',
     /** Agent approval validity (days) */
     agentValidityDays: Number(process.env.HL_AGENT_VALIDITY_DAYS || 90),
     minAccountUsd: Number(process.env.HL_MIN_BOT_ACCOUNT_USD || 20),
@@ -116,6 +116,8 @@ export const config = {
     /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all listed HL perps. */
     maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 0),
     liquidUniverseCacheMs: Number(process.env.HL_LIQUID_UNIVERSE_CACHE_MS || 60_000),
+    /** Reuse last global signal scan when younger than this (ms) — faster cycles, same picks. */
+    globalScanCacheMs: Number(process.env.HL_GLOBAL_SCAN_CACHE_MS || 3000),
     /** Close HL perps at this % gain on margin (user DB setting overrides). */
     /** 0 = user disabled TP. */
     defaultTakeProfitPercent: Number(process.env.HL_DEFAULT_TP_PERCENT || 0),
@@ -278,8 +280,10 @@ export const config = {
       cryptopanicToken: process.env.CRYPTOPANIC_AUTH_TOKEN || '',
       blockUnknownHeadlines: process.env.HL_NEWS_BLOCK_UNKNOWN !== 'false',
     },
-    /** News feed + AI analysis (crypto + sports UI, bot safety). */
+    /** News feed + AI analysis for /api/news UI only — never blocks bot opens by default. */
     news: {
+      /** Set HL_NEWS_GATE_ON_OPENS=true to re-enable headline blocks on trade opens (not recommended). */
+      gateOnOpens: process.env.HL_NEWS_GATE_ON_OPENS === 'true',
       lookbackMs: Number(process.env.HL_NEWS_LOOKBACK_MS || 48 * 60 * 60 * 1000),
       cacheMs: Number(process.env.HL_NEWS_CACHE_MS || 600_000),
       analysisCacheMs: Number(process.env.HL_NEWS_ANALYSIS_CACHE_MS || 900_000),

@@ -2,6 +2,7 @@ import { createAppKit } from '@reown/appkit/react';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { createStorage } from '@wagmi/core';
 import { arbitrum } from '@reown/appkit/networks';
+import { BRAND_NAME } from './brand';
 import { MONADIER_REOWN_PROJECT_ID } from './mobileWalletConnect';
 import { HL_DEPOSIT_CHAIN_LABEL, HL_DEPOSIT_TOKEN } from './hlDepositRules';
 import { HL_ARBITRUM_CHAIN_ID } from './hyperliquid/bridge';
@@ -28,8 +29,8 @@ const getOrigin = () => {
 };
 
 const metadata = {
-  name: 'Monadier',
-  description: `${HL_DEPOSIT_TOKEN} on ${HL_DEPOSIT_CHAIN_LABEL} — fund Hyperliquid & run the bot`,
+  name: BRAND_NAME,
+  description: `${HL_DEPOSIT_TOKEN} on ${HL_DEPOSIT_CHAIN_LABEL} — fund Hyperliquid & run the ${BRAND_NAME} bot`,
   url: getOrigin(),
   icons: [`${getOrigin()}/favicon.svg`],
 };

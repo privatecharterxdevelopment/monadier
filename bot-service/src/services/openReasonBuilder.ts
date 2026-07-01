@@ -125,7 +125,7 @@ export function buildHlOpenReasonDoc(parts: OpenReasonParts): string {
     lines.push(`── Location scan ── ${pick.locationReason}`);
   }
 
-  lines.push(`── Gates passed ── news · pump-cooldown · macro · short-timing · mega · perp · pump-sweep · momentum · location · MTF`);
+  lines.push(`── Gates passed ── pump-cooldown · macro · short-timing · mega · perp · pump-sweep · momentum · location · MTF`);
 
   return lines.join(SECTION);
 }

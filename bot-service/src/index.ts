@@ -1108,11 +1108,8 @@ async function runTradingCycle(): Promise<void> {
   logger.info('Starting trading cycle');
 
   try {
-    // First, process any approved trades
+    // Dashboard MTF display — separate from trade cycle (was blocking opens every tick).
     await processApprovedTrades();
-
-    // UPDATE ANALYSIS FOR ALL USERS TO SEE (before checking individual users)
-    await updateBotAnalysis();
 
     try {
       const cycleStarted = Date.now();
@@ -1208,6 +1205,7 @@ async function main(): Promise<void> {
 
   // Run immediately on startup
   await runTradingCycle();
+  void updateBotAnalysis().catch((err) => logger.error('Initial bot analysis update failed', { error: err }));
   void hyperliquidTradingService.runFastPositionMonitor();
 
   const tradeIntervalSeconds = Math.floor(config.trading.checkIntervalMs / 1000);
@@ -1215,6 +1213,14 @@ async function main(): Promise<void> {
 
   cron.schedule(tradeCronExpression, async () => {
     await runTradingCycle();
+  });
+
+  cron.schedule('*/20 * * * * *', async () => {
+    try {
+      await updateBotAnalysis();
+    } catch (err) {
+      logger.error('Bot analysis dashboard update failed', { error: err });
+    }
   });
 
   const positionMonitorMs = config.hyperliquid.positionMonitorMs;
@@ -1235,6 +1241,7 @@ async function main(): Promise<void> {
     `- Subscription payments: ${process.env.ENABLE_ARBITRUM_PAYMENT_MONITOR !== 'false' ? 'Arbitrum USDC → builder wallet' : 'OFF'}`
   );
   logger.info(`- HL trading cycle: every ${tradeIntervalSeconds}s`);
+  logger.info('- Dashboard bot_analysis refresh: every 20s');
   logger.info(`- HL position monitor: every ${positionMonitorMs}ms (fast profit grab)`);
 
   setInterval(() => {

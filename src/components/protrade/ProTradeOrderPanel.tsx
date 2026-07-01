@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Loader2, Wallet } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { BRAND_NAME } from '../../lib/brand';
 import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import {
@@ -222,7 +223,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
     setSuccess(null);
     if (platformFees.opensBlocked) {
       platformFees.openPayModal();
-      setLocalError('Pay Monadier platform fees to continue trading.');
+      setLocalError(`Pay ${BRAND_NAME} platform fees to continue trading.`);
       return;
     }
     if (builderEnabled && needsBuilderApproval) {
