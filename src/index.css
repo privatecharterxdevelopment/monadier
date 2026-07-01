@@ -577,6 +577,8 @@
 
   .legal-doc-section-body {
     @apply text-sm text-[#52525b] leading-relaxed space-y-2;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .legal-doc-section-body ul {

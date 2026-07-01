@@ -28,6 +28,7 @@ const MarketingPageLayout: React.FC<Props> = ({ children, narrow, centered, inne
           'landing-gmx-page-main',
           'landing-gmx-gutter',
           inner ? 'landing-gmx-page-main--inner' : '',
+          legal ? 'landing-gmx-page-main--legal' : '',
           narrow ? 'landing-gmx-page-main--narrow' : '',
           centered ? 'landing-gmx-page-main--centered' : '',
         ]

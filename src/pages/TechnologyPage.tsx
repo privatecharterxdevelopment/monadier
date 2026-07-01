@@ -1,8 +1,6 @@
 import React from 'react';
 import {
   Brain,
-  TrendingUp,
-  Shield,
   Target,
   Activity,
   BarChart3,
@@ -14,7 +12,6 @@ import MarketingInnerPage, {
   MarketingFeatureCard,
   MarketingPageGrid,
   MarketingSectionHeading,
-  MarketingStatCard,
 } from '../components/marketing/MarketingInnerPage';
 import {
   MktBotAiVisual,
@@ -28,8 +25,6 @@ import {
   MktScoreRankVisual,
   MktPositionSlotsVisual,
   MktRiskDialVisual,
-  MktWalletVisual,
-  MktLedgerVisual,
 } from '../components/marketing/MarketingIllustrations';
 
 const engineFeatures = [
@@ -133,30 +128,6 @@ const TechnologyPage: React.FC = () => {
             visual={step.visual}
           />
         ))}
-      </MarketingPageGrid>
-
-      <MarketingSectionHeading title="Key parameters" />
-
-      <div className="mkt-stats-row">
-        <MarketingStatCard value="55–75%" label="Confidence range" />
-        <MarketingStatCard value="5 min" label="Profit SL arms after" />
-        <MarketingStatCard value="40x" label="HL max leverage (BTC)" />
-        <MarketingStatCard value="24/7" label="Market monitoring" />
-      </div>
-
-      <MarketingPageGrid columns={2} className="mkt-grid-follow">
-        <MarketingFeatureCard
-          icon={Shield}
-          title="Non-custodial architecture"
-          text="USDC sits on your Hyperliquid account in your name. Only your wallet can deposit or withdraw — we never hold private keys."
-          visual={<MktWalletVisual />}
-        />
-        <MarketingFeatureCard
-          icon={TrendingUp}
-          title="Transparent performance"
-          text="Every open and closed trade is visible in the dashboard with realized and unrealized P/L."
-          visual={<MktLedgerVisual />}
-        />
       </MarketingPageGrid>
     </MarketingInnerPage>
   );
