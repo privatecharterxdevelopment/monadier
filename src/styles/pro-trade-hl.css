@@ -13489,3 +13489,228 @@
   font-size: 0.6875rem;
   color: var(--hl-text-muted, #9aa0a6);
 }
+
+/* In-app leaderboard */
+.hl-leaderboard-page {
+  padding: 16px 18px 24px;
+  overflow: auto;
+}
+
+.hl-leaderboard-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.hl-leaderboard-hero__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--hl-green-bright) 14%, var(--hl-bg-elevated));
+  color: var(--hl-green-bright);
+  flex-shrink: 0;
+}
+
+.hl-leaderboard-hero__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.hl-leaderboard-hero__lead {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--hl-text-muted);
+  line-height: 1.45;
+  max-width: 56ch;
+}
+
+.hl-leaderboard-panel {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--hl-border);
+  border-radius: 14px;
+  background: var(--hl-bg-elevated);
+}
+
+.hl-leaderboard-panel__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.hl-leaderboard-panel__head h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.hl-leaderboard-panel__head span:last-child {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--hl-text-faint);
+}
+
+.hl-leaderboard-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  font-size: 12px;
+  color: var(--hl-text-muted);
+}
+
+.hl-leaderboard-state--compact {
+  padding: 16px;
+}
+
+.hl-leaderboard-empty {
+  margin: 0;
+  padding: 16px 4px;
+  font-size: 12px;
+  color: var(--hl-text-muted);
+  line-height: 1.45;
+}
+
+.hl-leaderboard-table-wrap {
+  overflow: auto;
+}
+
+.hl-leaderboard-table th.is-num,
+.hl-leaderboard-table td.is-num {
+  text-align: right;
+}
+
+.hl-leaderboard-table th.is-action,
+.hl-leaderboard-table td.is-action {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.hl-leaderboard-table td.is-mono {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+}
+
+.hl-leaderboard-table td.is-time {
+  font-size: 11px;
+  color: var(--hl-text-muted);
+  white-space: nowrap;
+}
+
+.hl-leaderboard-side {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.hl-leaderboard-side--long {
+  color: var(--hl-green-bright);
+  background: color-mix(in srgb, var(--hl-green-bright) 12%, transparent);
+}
+
+.hl-leaderboard-side--short {
+  color: #ef5350;
+  background: color-mix(in srgb, #ef5350 12%, transparent);
+}
+
+.hl-leaderboard-verify {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--hl-green-bright);
+  text-decoration: none;
+}
+
+.hl-leaderboard-verify:hover {
+  text-decoration: underline;
+}
+
+.hl-leaderboard-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.5);
+  animation: hl-leaderboard-pulse 2s infinite;
+}
+
+@keyframes hl-leaderboard-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(74, 222, 128, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(74, 222, 128, 0);
+  }
+}
+
+.hl-leaderboard-live-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.hl-leaderboard-live-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--hl-border);
+  font-size: 12px;
+}
+
+.hl-leaderboard-live-row:last-child {
+  border-bottom: none;
+}
+
+.hl-leaderboard-live-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hl-leaderboard-live-main .is-mono {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+}
+
+.hl-leaderboard-live-side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.hl-leaderboard-live-badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #4ade80;
+  background: color-mix(in srgb, #4ade80 14%, transparent);
+}
+
+.hl-terminal--leaderboard {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}

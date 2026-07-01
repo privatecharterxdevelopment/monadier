@@ -48,7 +48,7 @@ const NAV: NavItem[] = [
   { id: 'sportsbets', labelKey: 'app.nav.betting', enabled: true },
   { id: 'portfolio', labelKey: 'app.nav.portfolio', enabled: true },
   { id: 'news', labelKey: 'app.nav.news', enabled: true },
-  { id: 'leaderboard', labelKey: 'app.nav.leaderboard', enabled: false },
+  { id: 'leaderboard', labelKey: 'app.nav.leaderboard', enabled: true },
 ];
 
 type Props = {

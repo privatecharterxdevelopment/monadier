@@ -30,6 +30,7 @@ import ProTradeSupport from '../../components/protrade/ProTradeSupport';
 import ProTradeSportsbets from '../../components/protrade/ProTradeSportsbets';
 import ProTradeNews from '../../components/protrade/ProTradeNews';
 import ProTradeAffiliate from '../../components/protrade/ProTradeAffiliate';
+import ProTradeLeaderboard from '../../components/protrade/ProTradeLeaderboard';
 import { BettingUiProvider, useBettingUi } from '../../contexts/BettingUiContext';
 import { LegalAcceptanceProvider } from '../../contexts/LegalAcceptanceContext';
 import { useProTradeTheme } from '../../contexts/ProTradeThemeContext';
@@ -93,6 +94,7 @@ const Dashboard2ProPageContent: React.FC = () => {
   const [section, setSection] = useState<ProTradeSection>(() => {
     if (initialSection === 'bot') return 'bot';
     if (initialSection === 'news') return 'news';
+    if (initialSection === 'leaderboard') return 'leaderboard';
     if (initialSection === 'sportsbets' || initialSection === 'spot') return 'sportsbets';
     return 'perps';
   });
@@ -419,6 +421,7 @@ const Dashboard2ProPageContent: React.FC = () => {
       next === 'sportsbets' ||
       next === 'support' ||
       next === 'news' ||
+      next === 'leaderboard' ||
       next === 'affiliate'
     ) {
       const params = new URLSearchParams(searchParams);
@@ -448,6 +451,8 @@ const Dashboard2ProPageContent: React.FC = () => {
         setSection('support');
       } else if (urlSection === 'news') {
         setSection('news');
+      } else if (urlSection === 'leaderboard') {
+        setSection('leaderboard');
       } else if (urlSection === 'affiliate') {
         setSection('affiliate');
       } else if (urlSection === 'swap') {
@@ -469,6 +474,8 @@ const Dashboard2ProPageContent: React.FC = () => {
       setSection('support');
     } else if (urlSection === 'news') {
       setSection('news');
+    } else if (urlSection === 'leaderboard') {
+      setSection('leaderboard');
     } else if (urlSection === 'affiliate') {
       setSection('affiliate');
     } else if (urlSection === 'swap') {
@@ -853,6 +860,11 @@ const Dashboard2ProPageContent: React.FC = () => {
       {section === 'affiliate' ? (
         <div className="hl-terminal hl-terminal--affiliate">
           <ProTradeAffiliate onRequireSignIn={promptSignIn} />
+        </div>
+      ) : null}
+      {section === 'leaderboard' ? (
+        <div className="hl-terminal hl-terminal--leaderboard">
+          <ProTradeLeaderboard />
         </div>
       ) : null}
 
