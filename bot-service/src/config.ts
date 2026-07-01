@@ -118,6 +118,8 @@ export const config = {
     liquidUniverseCacheMs: Number(process.env.HL_LIQUID_UNIVERSE_CACHE_MS || 60_000),
     /** Reuse last global signal scan when younger than this (ms) — faster cycles, same picks. */
     globalScanCacheMs: Number(process.env.HL_GLOBAL_SCAN_CACHE_MS || 3000),
+    /** Max % mark-price move since scan before open is blocked (chase protection). */
+    openPriceMaxDriftPct: Number(process.env.HL_OPEN_PRICE_MAX_DRIFT_PCT || 1.5),
     /** Close HL perps at this % gain on margin (user DB setting overrides). */
     /** 0 = user disabled TP. */
     defaultTakeProfitPercent: Number(process.env.HL_DEFAULT_TP_PERCENT || 0),
@@ -210,8 +212,8 @@ export const config = {
       /** Price in top X of range = near resistance. */
       rangeTopBlock: Number(process.env.HL_ENTRY_RANGE_TOP || 0.65),
       rangeBottomBlock: Number(process.env.HL_ENTRY_RANGE_BOTTOM || 0.35),
-      /** Pullback long allowed below this position in range (0.52 = lower half). */
-      pullbackMaxPosition: Number(process.env.HL_ENTRY_PULLBACK_MAX || 0.52),
+      /** Pullback entry threshold — symmetric distance from range midpoint (0.50 = exact mid). */
+      pullbackMaxPosition: Number(process.env.HL_ENTRY_PULLBACK_MAX || 0.5),
       /** Close must exceed resistance by this fraction to count as breakout. */
       breakoutBufferPct: Number(process.env.HL_ENTRY_BREAKOUT_BUFFER || 0.0015),
       breakoutConfirmBars: Number(process.env.HL_ENTRY_BREAKOUT_BARS || 2),

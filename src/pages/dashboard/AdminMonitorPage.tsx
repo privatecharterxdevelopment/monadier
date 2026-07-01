@@ -34,6 +34,7 @@ import {
 import { fmtPrice, fmtSize } from '../../lib/hyperliquid/format';
 import { countAdminPositionsByCoin } from '../../lib/adminHlLivePositions';
 import AdminAffiliateOps from '../../components/admin/AdminAffiliateOps';
+import { BotTradeDiagnosisPanel } from '../../components/admin/BotTradeDiagnosisPanel';
 
 type Section =
   | 'overview'
@@ -530,9 +531,11 @@ function BotsPanel({
   );
 
   return (
-    <TableShell
-      title={`HL bot configs (${total})`}
-      subtitle={`${runnable} runnable (Railway cycle) · ${toggleOn} toggle on · chain 42161 + agent required`}
+    <>
+      <BotTradeDiagnosisPanel bots={bots} />
+      <TableShell
+        title={`HL bot configs (${total})`}
+        subtitle={`${runnable} runnable (Railway cycle) · ${toggleOn} toggle on · chain 42161 + agent required`}
       scrollable
       pagination={{
         page: safePage,
@@ -586,6 +589,7 @@ function BotsPanel({
         ))}
       </tbody>
     </TableShell>
+    </>
   );
 }
 

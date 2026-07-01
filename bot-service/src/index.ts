@@ -12,6 +12,16 @@ import { validateProductionEnvironment } from './startup/validateProduction';
 import { checkWinRateGate } from './services/tradeGates';
 import { buildTradingCycleContext } from './services/tradingCycleContext';
 import {
+  createTradingCycleId,
+  insertTradingCycleStart,
+  PipelineFunnelRecorder,
+  queryPipelineFunnelStats,
+} from './services/pipelineFunnelLog';
+import {
+  diagnoseWalletTrading,
+  diagnoseWalletTradingBatch,
+} from './services/walletTradeDiagnosis';
+import {
   lastHlGlobalScanStats,
   lastGlobalScanResult,
   scanGlobalHlSignals,
@@ -480,6 +490,38 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  // API: Batch live trade diagnosis for admin (all gates + funnel IDs)
+  if (url.pathname === '/api/admin/bot-diagnosis-batch' && req.method === 'POST') {
+    try {
+      let body = '';
+      for await (const chunk of req) {
+        body += chunk;
+      }
+      const parsed = JSON.parse(body || '{}') as { wallets?: string[] };
+      const wallets = (parsed.wallets ?? [])
+        .map((w) => w?.toLowerCase?.())
+        .filter((w): w is string => typeof w === 'string' && /^0x[a-f0-9]{40}$/.test(w));
+      if (wallets.length === 0) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallets[] required' }));
+        return;
+      }
+      if (wallets.length > 50) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'max 50 wallets per batch' }));
+        return;
+      }
+      const diagnoses = await diagnoseWalletTradingBatch(wallets as `0x${string}`[]);
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, diagnoses, timestamp: new Date().toISOString() }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'bot-diagnosis-batch failed';
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
+    }
+    return;
+  }
+
   // API: Diagnose why bot is not trading for a wallet
   // Usage: /api/bot-status?wallet=0x...
   if (url.pathname === '/api/bot-status') {
@@ -604,6 +646,11 @@ const healthServer = http.createServer(async (req, res) => {
         );
       }
       if (!winRateGate.allowed) pushUser(winRateGate.reason || 'win rate gate');
+      const tradePerm = await subscriptionService.canTrade(userAddress);
+      if (!tradePerm.allowed) {
+        pushUser(`subscription: ${tradePerm.reason || 'not allowed'}`);
+      }
+
       const balanceGateOpen = !balanceBlocker || balanceReadFlake;
       if (balanceGateOpen && userSignals.length === 0 && hlOpenCoins.length < maxPositions) {
         pushMarket(
@@ -663,6 +710,8 @@ const healthServer = http.createServer(async (req, res) => {
       const userReady = userBlockers.length === 0;
       const marketReady = Boolean(bestAvailable) || hlOpenCoins.length > 0;
 
+      const tradeDiagnosis = await diagnoseWalletTrading(userAddress, { globalScan });
+
       res.writeHead(200, corsHeaders);
       res.end(JSON.stringify({
         success: true,
@@ -675,6 +724,11 @@ const healthServer = http.createServer(async (req, res) => {
         blockers,
         userBlockers,
         marketBlockers,
+        tradeDiagnosis,
+        summary: tradeDiagnosis.summary,
+        wouldProcessOpens: tradeDiagnosis.wouldProcessOpens,
+        runnable: tradeDiagnosis.runnable,
+        gates: tradeDiagnosis.gates,
         hyperliquid: {
           balanceUsd: hlBalanceUsd,
           perpUsd: hlFunding.perpUsd,
@@ -772,7 +826,7 @@ const healthServer = http.createServer(async (req, res) => {
               reason: btcSignal.reason,
             }
           : null,
-        gates: {
+        openPositionCounts: {
           dbOpenPositions: openDb.length,
           onChainOpenTokens: hlOpenCoins,
         },
@@ -846,6 +900,30 @@ const healthServer = http.createServer(async (req, res) => {
       logger.error('API: news failed', { error: msg });
       res.writeHead(500, corsHeaders);
       res.end(JSON.stringify({ success: false, error: msg || 'news failed' }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/pipeline-funnel-stats' && req.method === 'GET') {
+    const adminSecret = process.env.BOT_ADMIN_SECRET;
+    const provided =
+      url.searchParams.get('secret') ||
+      req.headers['x-bot-admin-secret']?.toString() ||
+      '';
+    if (adminSecret && provided !== adminSecret) {
+      res.writeHead(401, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: 'Unauthorized' }));
+      return;
+    }
+    try {
+      const sinceHours = Number(url.searchParams.get('hours') || 24);
+      const stats = await queryPipelineFunnelStats({ sinceHours });
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, sinceHours, ...stats }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'pipeline-funnel-stats failed';
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
     }
     return;
   }
@@ -1113,6 +1191,10 @@ async function runTradingCycle(): Promise<void> {
 
     try {
       const cycleStarted = Date.now();
+      const cycleId = createTradingCycleId();
+      const funnel = new PipelineFunnelRecorder(cycleId);
+      await insertTradingCycleStart(cycleId);
+
       const allUsers = await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId);
       const { wallets, total, offset } = sliceUsersForCycle(allUsers);
 
@@ -1120,12 +1202,19 @@ async function runTradingCycle(): Promise<void> {
         activeBots: total,
         processing: wallets.length,
         roundRobinOffset: offset,
+        cycleId: cycleId.slice(0, 8),
       });
 
-      const ctx = await buildTradingCycleContext();
+      const ctx = await buildTradingCycleContext(cycleId, funnel);
       lastGlobalSignals = ctx.globalSignals;
 
       const stats = await processUserBatch(wallets, ctx, total);
+
+      await funnel.flush({
+        activeBots: total,
+        globalSignals: ctx.globalScan.standard.length + ctx.globalScan.aggressive.length,
+        durationMs: Date.now() - cycleStarted,
+      });
 
       lastTradeCheck = Date.now();
       lastCycleStats = {

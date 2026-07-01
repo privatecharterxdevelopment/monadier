@@ -232,13 +232,17 @@ export function evaluateEntryLocation(
 
     if (analysis.nearResistance && !analysis.confirmedBreakoutUp) {
       const failedTests = analysis.resistanceRejections;
+      if (failedTests >= cfg.minRejectionsToBlock) {
+        return {
+          ok: false,
+          analysis,
+          reason: `LONG blocked — resistance ${fmtLevel(analysis.resistance)} rejected ${failedTests}× without breakout`,
+        };
+      }
       return {
         ok: false,
         analysis,
-        reason:
-          failedTests >= 1
-            ? `LONG blocked — resistance ${fmtLevel(analysis.resistance)} rejected ${failedTests}× without breakout`
-            : `LONG blocked — price at resistance ${fmtLevel(analysis.resistance)} (${(analysis.pricePosition * 100).toFixed(0)}% of range) — need confirmed break above`,
+        reason: `LONG blocked — price at resistance ${fmtLevel(analysis.resistance)} (${(analysis.pricePosition * 100).toFixed(0)}% of range) — need confirmed break above`,
       };
     }
 
@@ -282,11 +286,7 @@ export function evaluateEntryLocation(
         reason: `SHORT blocked — support ${fmtLevel(analysis.support)} held ${failedTests}× (need break below or rally off support)`,
       };
     }
-    if (
-      failedTests >= 1 &&
-      analysis.pricePosition <= cfg.rangeBottomBlock &&
-      !analysis.confirmedBreakdown
-    ) {
+    if (!analysis.confirmedBreakdown && analysis.pricePosition <= cfg.rangeBottomBlock) {
       return {
         ok: false,
         analysis,

@@ -39,28 +39,19 @@ import {
 import { resolveHlOrderBuilder } from './hlBuilderFee';
 import { recordHlBotOpenMarker } from './hlChartMarkers';
 import { shouldTakeProfitOnPnl } from './pnlExits';
-import { validateEntryLocation } from './entryLocationGate';
-import { validateMacroBetaAlignment } from './macroBetaGate';
-import { validateEntryMomentum } from './entryMomentumGate';
-import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, isBotExcludedCoin, MAJOR_COINS, needsCautionPath, volumeRankForCoin } from './coinTier';
-import {
-  assessHigherTfShortBias,
-  evaluateShortWithHigherTfBias,
-} from './higherTfShortBias';
-import { trustsScanAnalysis, weekendOpenBlocked, isStrongMtfPick } from './analysisFirstOpen';
-import { validateNotFreshlyPumped } from './freshPumpGate';
+import { isStrongMtfPick } from './analysisFirstOpen';
 import {
   applyOpenUniverseFilters,
   macroAlignedPickBonus,
   resolveMacroRegime,
 } from './marketRegime';
 import { validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
-import { validatePumpSweepGate } from './pumpSweepGate';
-import { validateScalpAlignment } from './scalpAlignGate';
-import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
-import { validatePerpMarketContext } from './perpMarketContextGate';
+import { validateEntryMomentum } from './entryMomentumGate';
+import { validatePerpFundingAtOpen } from './perpFundingGate';
+import { validateScanPriceDrift } from './priceValidityGate';
 import { buildHlOpenReasonDoc } from './openReasonBuilder';
+import { FUNNEL } from './pipelineFunnelReasons';
 import {
   evaluateProfitRunAnalysis,
   logProfitRunAnalysis,
@@ -74,7 +65,6 @@ import {
   evaluatePositionThesis,
   type ProfitRunAnalysis,
 } from './positionThesisGate';
-import { hlCoinToBinanceSymbol } from './hlSymbols';
 import {
   evaluateDynamicTrail,
   expectedNetPnlUsd,
@@ -217,36 +207,7 @@ function bypassesLiquidityGate(signal: GlobalSignalCandidate): boolean {
   return signal.confidence >= 58 && tfs >= 2;
 }
 
-/** Macro/pump gates — skip redundant live re-check when scan already aligned. */
-function shouldRelaxMacroGates(
-  pick: GlobalSignalCandidate,
-  coin: string,
-  direction: 'LONG' | 'SHORT'
-): boolean {
-  if (trustsScanAnalysis(pick) && pick.direction === direction) return true;
-  if (direction === 'SHORT') {
-    return isStrongGlobalScanPick(pick);
-  }
-  if (MAJOR_COINS.has(coin.toUpperCase())) return true;
-  if (isStrongGlobalScanPick(pick)) return true;
-  if (/top-pairs fallback|relaxed scan/i.test(pick.reason)) return true;
-  const tfs = pick.directionalTfCount ?? 0;
-  return pick.confidence >= 58 && tfs >= 2;
-}
-
-/** S/R, 20-candle, momentum — skip when global scan already validated the thesis. */
-function shouldRelaxStructuralGates(
-  pick: GlobalSignalCandidate,
-  coin: string,
-  direction: 'LONG' | 'SHORT'
-): boolean {
-  if (trustsScanAnalysis(pick) && pick.direction === direction) return true;
-  if (isStrongGlobalScanPick(pick)) return true;
-  if (MAJOR_COINS.has(coin.toUpperCase()) && pick.confidence >= 52) return true;
-  return false;
-}
-
-/** Global scan already proved multi-TF alignment — skip redundant live re-checks. */
+/** Global scan already proved multi-TF alignment — skip redundant live volume re-check. */
 function isStrongGlobalScanPick(pick: GlobalSignalCandidate): boolean {
   return isStrongMtfPick(pick);
 }
@@ -576,6 +537,23 @@ export class HyperliquidTradingService {
     userAddress: `0x${string}`,
     ctx: TradingCycleContext
   ): Promise<UserProcessResult> {
+    const funnel = ctx.funnel;
+    const logUser = (
+      passed: boolean,
+      direction: 'LONG' | 'SHORT',
+      skipReason?: string,
+      coin = '__wallet__'
+    ) => {
+      funnel.log({
+        coin,
+        stage: 'user',
+        direction,
+        passed,
+        skip_reason: skipReason ?? null,
+        wallet_address: userAddress,
+      });
+    };
+
     const settings = await subscriptionService.getUserTradingSettings(
       userAddress,
       config.arbitrum.chainId
@@ -591,6 +569,7 @@ export class HyperliquidTradingService {
 
     const gate = await this.canTrade(userAddress);
     if (!gate.ok) {
+      logUser(false, 'LONG', FUNNEL.user.agent);
       logger.debug('HL user skip: gate', { user: userAddress.slice(0, 10), reason: gate.reason });
       return openCoins.length > 0 ? 'ok' : 'skip';
     }
@@ -625,12 +604,14 @@ export class HyperliquidTradingService {
           user: userAddress.slice(0, 10),
         });
       } else {
+        logUser(false, 'LONG', FUNNEL.user.autoTradeOff);
         logger.debug('HL user skip: auto-trade off', { user: userAddress.slice(0, 10) });
       }
       return openCoins.length > 0 ? 'ok' : 'skip';
     }
 
     if (openCoins.length >= maxPositions) {
+      logUser(true, 'LONG', undefined, '__wallet__');
       return 'ok';
     }
 
@@ -639,6 +620,7 @@ export class HyperliquidTradingService {
       config.arbitrum.chainId
     );
     if (banStatus.isBanned) {
+      logUser(false, 'LONG', FUNNEL.user.ban);
       logger.debug('HL user skip: bot ban', {
         user: userAddress.slice(0, 10),
         until: banStatus.bannedUntil?.toISOString(),
@@ -648,6 +630,7 @@ export class HyperliquidTradingService {
 
     const tradePerm = await subscriptionService.canTrade(userAddress);
     if (!tradePerm.allowed) {
+      logUser(false, 'LONG', FUNNEL.user.subscription);
       logger.debug('HL user skip: subscription', {
         user: userAddress.slice(0, 10),
         reason: tradePerm.reason,
@@ -662,6 +645,7 @@ export class HyperliquidTradingService {
       settings.minTradesForWinRateGate
     );
     if (!winRateGate.allowed) {
+      logUser(false, 'LONG', FUNNEL.user.winRate);
       logger.debug('HL user skip: win rate gate', {
         user: userAddress.slice(0, 10),
         reason: winRateGate.reason,
@@ -671,6 +655,7 @@ export class HyperliquidTradingService {
 
     const feeOpenGate = await canOpenNewPositions(userAddress);
     if (!feeOpenGate.allowed) {
+      logUser(false, 'LONG', FUNNEL.user.platformFees);
       logger.debug('HL user skip: platform fees due', {
         user: userAddress.slice(0, 10),
         wins: feeOpenGate.status.successWinCount,
@@ -688,19 +673,41 @@ export class HyperliquidTradingService {
     signals: GlobalSignalCandidate[],
     liquidUniverse: HlLiquidUniverse,
     excludeCoins: string[],
-    limit: number
+    limit: number,
+    funnel?: TradingCycleContext['funnel']
   ): Promise<GlobalSignalCandidate[]> {
     const { regime } = resolveMacroRegime();
     const excluded = new Set(excludeCoins.map((c) => c.toUpperCase()));
     const passing: Array<{ signal: GlobalSignalCandidate; score: number }> = [];
 
+    const logPick = (signal: GlobalSignalCandidate, passed: boolean, skipReason?: string) => {
+      funnel?.log({
+        coin: signal.coin,
+        stage: 'pick',
+        direction: signal.direction,
+        passed,
+        skip_reason: skipReason ?? null,
+        wallet_address: userAddress,
+      });
+    };
+
     for (const signal of signals) {
-      if (isBotExcludedCoin(signal.coin)) continue;
-      if (excluded.has(signal.coin.toUpperCase())) continue;
-      if (!isHlCoinLiquid(liquidUniverse, signal.coin)) continue;
+      if (isBotExcludedCoin(signal.coin)) {
+        logPick(signal, false, FUNNEL.pick.excluded);
+        continue;
+      }
+      if (excluded.has(signal.coin.toUpperCase())) {
+        logPick(signal, false, FUNNEL.pick.alreadyOpen);
+        continue;
+      }
+      if (!isHlCoinLiquid(liquidUniverse, signal.coin)) {
+        logPick(signal, false, FUNNEL.pick.notLiquid);
+        continue;
+      }
 
       const flipGate = isSameCoinOpenBlockedSync(userAddress, signal.coin, signal.direction);
       if (flipGate.blocked) {
+        logPick(signal, false, FUNNEL.pick.antiFlip);
         logger.debug('HL signal skip: same-coin anti-flip', {
           coin: signal.coin,
           direction: signal.direction,
@@ -712,6 +719,7 @@ export class HyperliquidTradingService {
       const rank = volumeRankForCoin(liquidUniverse, signal.coin);
       const maxRank = config.hyperliquid.scalpOpen.maxVolumeRank;
       if (maxRank > 0 && rank > maxRank) {
+        logPick(signal, false, FUNNEL.pick.volumeRank);
         logger.debug('HL signal skip: outside top liquid universe', {
           coin: signal.coin,
           volumeRank: rank,
@@ -722,6 +730,7 @@ export class HyperliquidTradingService {
 
       const tier = classifyCoinTier(signal.coin, liquidUniverse).tier;
       if (needsCautionPath(tier) && !config.hyperliquid.scalpOpen.allowCautiousAlts) {
+        logPick(signal, false, FUNNEL.pick.cautiousWhitelist);
         logger.debug('HL signal skip: cautious alt (scalp whitelist off)', { coin: signal.coin });
         continue;
       }
@@ -747,6 +756,7 @@ export class HyperliquidTradingService {
           });
 
       if (!gate.ok) {
+        logPick(signal, false, FUNNEL.pick.liquidity);
         logger.debug('HL signal skip: volume/sweep gate', {
           coin: signal.coin,
           direction: signal.direction,
@@ -755,6 +765,7 @@ export class HyperliquidTradingService {
         continue;
       }
 
+      logPick(signal, true);
       passing.push({
         signal: { ...signal, liquidityReason: gate.reason },
         score: liquidityPickScore(
@@ -786,7 +797,23 @@ export class HyperliquidTradingService {
   ): Promise<UserProcessResult> {
     const strategy = normalizeHlBotStrategy(settings.hlBotStrategy);
     const rawSignals = globalSignalsForBotMode(ctx.globalScan, strategy);
-    const { signals, dropped, reasons } = applyOpenUniverseFilters(rawSignals, ctx.globalScan);
+    const { signals, dropped, reasons } = applyOpenUniverseFilters(
+      rawSignals,
+      ctx.globalScan,
+      ctx.funnel
+    );
+
+    for (const s of signals) {
+      ctx.funnel.log({
+        coin: s.coin,
+        stage: 'user',
+        direction: s.direction,
+        passed: true,
+        skip_reason: null,
+        wallet_address: userAddress,
+      });
+    }
+
     if (dropped > 0) {
       logger.info('HL open — universe filtered', {
         user: userAddress.slice(0, 10),
@@ -798,6 +825,14 @@ export class HyperliquidTradingService {
     const maxPositions = config.hyperliquid.maxConcurrentPositions;
 
     if (signals.length === 0) {
+      ctx.funnel.log({
+        coin: '__wallet__',
+        stage: 'user',
+        direction: 'LONG',
+        passed: false,
+        skip_reason: FUNNEL.user.noSignals,
+        wallet_address: userAddress,
+      });
       logger.debug('HL open skip: no signals for mode', {
         user: userAddress.slice(0, 10),
         strategy,
@@ -876,9 +911,22 @@ export class HyperliquidTradingService {
         signals,
         ctx.liquidUniverse,
         coinsOpen,
-        pickLimit
+        pickLimit,
+        ctx.funnel
       );
       if (picks.length === 0) {
+        for (const s of signals.filter(
+          (sig) => !coinsOpen.some((c) => c.toUpperCase() === sig.coin.toUpperCase())
+        )) {
+          ctx.funnel.log({
+            coin: s.coin,
+            stage: 'pick',
+            direction: s.direction,
+            passed: false,
+            skip_reason: FUNNEL.pick.noCandidates,
+            wallet_address: userAddress,
+          });
+        }
         const top = signals.find(
           (s) => !coinsOpen.some((c) => c.toUpperCase() === s.coin.toUpperCase())
         );
@@ -1045,33 +1093,28 @@ export class HyperliquidTradingService {
     try {
       const { meta, mids } = opts.ctx;
       const coin = opts.coin.toUpperCase();
+      const funnel = opts.ctx.funnel;
+      const wallet = opts.userAddress;
+
+      const logOpen = (passed: boolean, skipReason?: string) => {
+        funnel.log({
+          coin,
+          stage: 'open',
+          direction: opts.direction,
+          passed,
+          skip_reason: skipReason ?? null,
+          wallet_address: wallet,
+        });
+      };
+
       if (isBotExcludedCoin(coin)) {
-        const reason = `${coin} is excluded from bot trading`;
-        logger.info('HL open blocked — excluded coin', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-        });
-        return { success: false, error: reason };
+        logOpen(false, FUNNEL.open.excluded);
+        return { success: false, error: `${coin} is excluded from bot trading` };
       }
-      const weekendGate = weekendOpenBlocked(coin, opts.direction);
-      if (weekendGate.blocked) {
-        logger.info('HL open blocked — weekend gate', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          reason: weekendGate.reason,
-        });
-        return { success: false, error: weekendGate.reason ?? 'Weekend open blocked' };
-      }
+
       const flipGate = await isSameCoinOpenBlocked(opts.userAddress, coin, opts.direction);
       if (flipGate.blocked) {
-        logger.info('HL open blocked — same-coin anti-flip', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          reason: flipGate.reason,
-        });
+        logOpen(false, FUNNEL.open.antiFlip);
         return { success: false, error: flipGate.reason ?? 'Same-coin re-entry blocked' };
       }
 
@@ -1080,210 +1123,17 @@ export class HyperliquidTradingService {
       const effectiveLeverage = Math.min(opts.leverage, maxLeverageForCoin(meta, coin));
       const markPx = Number(mids[coin] ?? mids[`${coin}-PERP`] ?? 0);
       if (!markPx || !Number.isFinite(markPx)) {
+        logOpen(false, FUNNEL.open.noMark);
         return { success: false, error: 'No HL mark price' };
       }
 
       const size = opts.notionalUsd / markPx;
       if (size <= 0) return { success: false, error: 'Invalid size' };
 
-      const symbol = hlCoinToBinanceSymbol(coin);
-      const { tier: coinTier } = classifyCoinTier(coin, opts.ctx.liquidUniverse);
-
-      if (needsCautionPath(coinTier) && opts.pick.confidence < config.hyperliquid.cautiousScan.minSignalConfidence) {
-        const reason = `Cautious alt ${coin}: confidence ${opts.pick.confidence}% below ${config.hyperliquid.cautiousScan.minSignalConfidence}%`;
-        logger.info('HL open blocked — cautious confidence', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          reason,
-        });
-        return { success: false, error: reason };
-      }
-
-      const strongMtf = isStrongGlobalScanPick(opts.pick);
-      const relaxMacroGates = shouldRelaxMacroGates(opts.pick, coin, opts.direction);
-      const relaxStructuralGates = shouldRelaxStructuralGates(
-        opts.pick,
-        coin,
-        opts.direction
-      );
-      const trustAnalysis =
-        trustsScanAnalysis(opts.pick) && opts.pick.direction === opts.direction;
-
-      const newsGate = {
-        ok: true as const,
-        reason: 'News not used for bot entries (UI feed only)',
-        tier: coinTier,
-        headlines: [] as string[],
-        sentiment: 'neutral' as const,
-      };
-
-      const freshPumpGate =
-        trustAnalysis && opts.direction !== 'SHORT'
-          ? {
-              ok: true as const,
-              reason: `Scan MTF ${opts.pick.confidence}% — fresh-pump re-check skipped`,
-            }
-          : await validateNotFreshlyPumped({ coin, tier: coinTier });
-      if (!freshPumpGate.ok) {
-        logger.info('HL open blocked — fresh pump skip (step 2)', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          reason: freshPumpGate.reason,
-        });
-        return { success: false, error: freshPumpGate.reason };
-      }
-
-      const candleAnalytics = relaxStructuralGates
-          ? {
-              ok: true as const,
-              reason: `Scan pick — pre-open candle check skipped (${opts.pick.confidence}%)`,
-              summary: `scan ${opts.pick.confidence}%`,
-              netMovePct: 0,
-              greenCount: 0,
-              redCount: 0,
-              rangePosition: 0.5,
-              recentMovePct: 0,
-              volumeRatio: 1,
-              structure: 'chop' as const,
-              rejectionsAtHigh: 0,
-              rejectionsAtLow: 0,
-            }
-          : await validatePreOpenCandleAnalytics({
-              coin,
-              direction: opts.direction,
-              timeframe: opts.pick.botMode === 'aggressive' ? '1m' : '5m',
-            });
-      if (!candleAnalytics.ok) {
-        logger.info('HL open blocked — 20-candle analytics', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          reason: candleAnalytics.reason,
-          summary: candleAnalytics.summary,
-        });
-        return { success: false, error: candleAnalytics.reason };
-      }
-
-      const isAggressive = opts.pick.botMode === 'aggressive';
-      const scalpGate =
-        relaxStructuralGates || !isAggressive
-          ? {
-              ok: true as const,
-              reason: isAggressive
-                ? `Scan pick — scalp confirm skipped (${opts.pick.confidence}%, ${opts.pick.directionalTfCount} TFs)`
-                : 'Standard mode — 1m scalp confirm not required',
-            }
-          : await validateScalpAlignment({ coin, direction: opts.direction });
-      if (!scalpGate.ok) {
-        logger.info('HL open blocked — scalp 1m/5m align', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          reason: scalpGate.reason,
-        });
-        return { success: false, error: scalpGate.reason };
-      }
-
-      const skipMacroAtOpen = relaxMacroGates && opts.direction === 'LONG';
-      const macroGate = skipMacroAtOpen
-        ? {
-            ok: true as const,
-            reason: `Scan MTF ${opts.pick.confidence}% / ${opts.pick.directionalTfCount ?? 0} TFs — macro re-check skipped`,
-            snapshot: {
-              coin,
-              anchor: MAJOR_COINS.has(coin) ? ('SELF' as const) : ('BTC' as const),
-              btc: {
-                change15mPct: 0,
-                change1hPct: 0,
-                trend15m: 'FLAT' as const,
-                trend1h: 'FLAT' as const,
-                consecutiveGreen15m: 0,
-                consecutiveRed15m: 0,
-              },
-              eth: {
-                change15mPct: 0,
-                change1hPct: 0,
-                trend15m: 'FLAT' as const,
-                trend1h: 'FLAT' as const,
-                consecutiveGreen15m: 0,
-                consecutiveRed15m: 0,
-              },
-              coinMom: {
-                change15mPct: 0,
-                change1hPct: 0,
-                trend15m: 'FLAT' as const,
-                trend1h: 'FLAT' as const,
-                consecutiveGreen15m: 0,
-                consecutiveRed15m: 0,
-              },
-              checkedAt: new Date().toISOString(),
-            },
-            blockers: [] as string[],
-          }
-        : await validateMacroBetaAlignment({
-            coin,
-            direction: opts.direction,
-          });
-      if (!macroGate.ok) {
-        logger.info('HL open blocked — macro beta gate', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          blockers: macroGate.blockers,
-          reason: macroGate.reason,
-        });
-        return { success: false, error: macroGate.reason };
-      }
-
-      const pumpShortGate =
-        opts.direction === 'LONG'
-          ? {
-              ok: true as const,
-              reason: 'Pump-short gate — LONG entries allowed',
-            }
-          : await validateNoAltPumpShort({
-              coin,
-              direction: opts.direction,
-            });
-      if (!pumpShortGate.ok) {
-        logger.info('HL open blocked — pump-short gate', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          reason: pumpShortGate.reason,
-        });
-        return { success: false, error: pumpShortGate.reason };
-      }
-
-      if (opts.direction === 'SHORT' && !(trustsScanAnalysis(opts.pick) && opts.pick.direction === 'SHORT')) {
-        const bias = await assessHigherTfShortBias(coin);
-        const minShortConf = needsCautionPath(coinTier)
-          ? config.hyperliquid.cautiousScan.minSignalConfidence
-          : config.hyperliquid.minSignalConfidence;
-        const htf = evaluateShortWithHigherTfBias(opts.pick.confidence, minShortConf, bias);
-        if (!htf.ok) {
-          logger.info('HL open blocked — 4h/24h SHORT bias (live)', {
-            user: opts.userAddress.slice(0, 10),
-            coin,
-            reason: htf.reason,
-          });
-          return { success: false, error: htf.reason };
-        }
-      }
-
-      const skipMegaRecheck =
-        (relaxMacroGates && opts.direction === 'LONG') ||
-        (trustsScanAnalysis(opts.pick) && opts.pick.direction === opts.direction);
-      const megaGate = skipMegaRecheck
-          ? {
-              ok: true as const,
-              reason: `Scan MTF ${opts.pick.confidence}% — mega pair re-check skipped`,
-            }
-          : validateMegaPairVolumeForDirection(opts.direction);
+      const megaGate = validateMegaPairVolumeForDirection(opts.direction);
       if (!megaGate.ok) {
-        logger.info('HL open blocked — mega pair volume', {
+        logOpen(false, FUNNEL.open.megaFlow);
+        logger.info('HL open blocked — mega pair flow', {
           user: opts.userAddress.slice(0, 10),
           coin,
           direction: opts.direction,
@@ -1292,94 +1142,33 @@ export class HyperliquidTradingService {
         return { success: false, error: megaGate.reason };
       }
 
-      const perpCtxGate = relaxStructuralGates
-        ? {
-            ok: true as const,
-            reason: `Strong MTF scan — perp context skipped (${opts.pick.confidence}%)`,
-            ctx: null,
-          }
-        : await validatePerpMarketContext({
-            coin,
-            direction: opts.direction,
-          });
-      if (!perpCtxGate.ok) {
-        logger.info('HL open blocked — perp context (funding/24h/range)', {
+      const fundingGate = await validatePerpFundingAtOpen({ coin, direction: opts.direction });
+      if (!fundingGate.ok) {
+        logOpen(false, FUNNEL.open.funding);
+        logger.info('HL open blocked — funding', {
           user: opts.userAddress.slice(0, 10),
           coin,
           direction: opts.direction,
-          reason: perpCtxGate.reason,
+          reason: fundingGate.reason,
         });
-        return { success: false, error: perpCtxGate.reason };
+        return { success: false, error: fundingGate.reason };
       }
 
-      const pumpSweepGate = relaxStructuralGates
-        ? {
-            ok: true as const,
-            reason: `Scan pick — pump sweep skipped (${opts.pick.confidence}%)`,
-            analysis: null,
-          }
-        : await validatePumpSweepGate({
-            coin,
-            direction: opts.direction,
-          });
-      if (!pumpSweepGate.ok) {
-        logger.info('HL open blocked — pump apex / sweep gate', {
+      const priceGate = validateScanPriceDrift({ pick: opts.pick, currentMarkPx: markPx });
+      if (!priceGate.ok) {
+        logOpen(false, FUNNEL.open.priceDrift);
+        logger.info('HL open blocked — price drift since scan', {
           user: opts.userAddress.slice(0, 10),
           coin,
           direction: opts.direction,
-          reason: pumpSweepGate.reason,
-          phase: pumpSweepGate.analysis?.phase,
+          reason: priceGate.reason,
         });
-        return { success: false, error: pumpSweepGate.reason };
+        return { success: false, error: priceGate.reason };
       }
 
-      const locationGate = relaxStructuralGates
-          ? {
-              ok: true as const,
-              reason: `Scan pick — S/R gate skipped (${opts.pick.confidence}%)`,
-              analysis: {
-                support: 0,
-                resistance: 0,
-                price: markPx,
-                pricePosition: 0.5,
-                resistanceTouches: 0,
-                resistanceRejections: 0,
-                supportTouches: 0,
-                supportRejections: 0,
-                confirmedBreakoutUp: false,
-                confirmedBreakdown: false,
-                nearResistance: false,
-                nearSupport: false,
-              },
-            }
-          : await validateEntryLocation({
-              symbol,
-              coin,
-              direction: opts.direction,
-            });
-      if (!locationGate.ok) {
-        logger.info('HL open blocked — resistance/support gate', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          reason: locationGate.reason,
-          resistance: locationGate.analysis.resistance,
-          rejections: locationGate.analysis.resistanceRejections,
-        });
-        return { success: false, error: locationGate.reason };
-      }
-
-      const momentumGate = relaxStructuralGates
-          ? {
-              ok: true as const,
-              reason: `Scan pick — momentum confirm skipped (${opts.pick.confidence}%)`,
-              change5mPct: 0,
-              change15mPct: 0,
-              change1hPct: 0,
-              momentumAligned: true,
-            }
-          : await validateEntryMomentum({ coin, direction: opts.direction });
+      const momentumGate = await validateEntryMomentum({ coin, direction: opts.direction });
       if (!momentumGate.ok) {
+        logOpen(false, FUNNEL.open.momentum);
         logger.info('HL open blocked — entry momentum', {
           user: opts.userAddress.slice(0, 10),
           coin,
@@ -1389,22 +1178,18 @@ export class HyperliquidTradingService {
         return { success: false, error: momentumGate.reason };
       }
 
+      logOpen(true);
+
       const openReasonDoc = buildHlOpenReasonDoc({
         mode: opts.botModeLabel,
         pick: opts.pick,
         notionalUsd: opts.notionalUsd,
         leverage: effectiveLeverage,
-        locationGate,
-        macroGate,
+        megaGateLine: megaGate.reason,
+        fundingGate,
         momentumGate,
-        pumpShortGate,
-        newsGate,
-        freshPumpGate,
-        pumpSweepGate,
-        megaPairLine: megaGate.reason,
+        priceGate,
         liquidityReason: opts.pick.liquidityReason,
-        scalpAlignLine: scalpGate.reason,
-        candleAnalyticsLine: candleAnalytics.summary,
       });
       const openReasonFull = openReasonDoc;
 
@@ -1442,8 +1227,18 @@ export class HyperliquidTradingService {
         | { filled?: unknown; error?: string }
         | undefined;
       if (status && 'error' in status && status.error) {
+        logOpen(false, FUNNEL.open.orderError);
         return { success: false, error: String(status.error) };
       }
+
+      funnel.log({
+        coin,
+        stage: 'executed',
+        direction: opts.direction,
+        passed: true,
+        skip_reason: FUNNEL.executed.filled,
+        wallet_address: wallet,
+      });
 
       logger.info('HL position opened', {
         user: opts.userAddress.slice(0, 10),
@@ -1452,7 +1247,6 @@ export class HyperliquidTradingService {
         leverage: effectiveLeverage,
         notionalUsd: opts.notionalUsd.toFixed(2),
         openReason: openReasonFull,
-        macroBlockers: macroGate.blockers,
         openSlot: 'multi',
       });
 
