@@ -41,9 +41,9 @@ function classifyFlow(change5m: number, change15m: number, volRatio: number): Me
   const pumping = change5m >= cfg.pumpPct || change15m >= cfg.pumpPct15m;
   const dumping = change5m <= -cfg.pumpPct || change15m <= -cfg.pumpPct15m;
 
-  // Price-led flow — thin vol ratio must not hide an active BTC/ETH move.
-  if (change15m > 0.04 || change5m > 0.03) return 'INFLOW';
-  if (change15m < -0.04 || change5m < -0.03) return 'OUTFLOW';
+  // Price-led flow — ignore micro drift; require a real 15m/5m move.
+  if (change15m > 0.12 || change5m > 0.08) return 'INFLOW';
+  if (change15m < -0.12 || change5m < -0.08) return 'OUTFLOW';
 
   if (pumping && volRatio >= cfg.minVolRatio) return 'INFLOW';
   if (dumping && volRatio >= cfg.minVolRatio) return 'OUTFLOW';
@@ -143,8 +143,14 @@ export function isMacroRiskOffEnvironment(): { active: boolean; reason: string }
   const outflow = snap.pairs.filter((p) => p.flow === 'OUTFLOW').length;
   const dump15m = btc.change15mPct <= -0.3 && eth.change15mPct <= -0.2;
   const dump5m = btc.change5mPct <= -0.25 && eth.change5mPct <= -0.15;
+  const softOutflow =
+    outflow >= 2 &&
+    (btc.change15mPct <= -0.12 ||
+      eth.change15mPct <= -0.12 ||
+      btc.change5mPct <= -0.1 ||
+      eth.change5mPct <= -0.1);
 
-  if (outflow >= 2) {
+  if (softOutflow) {
     return { active: true, reason: `BTC+ETH OUTFLOW — ${snap.summary}` };
   }
   if (dump15m || dump5m) {
@@ -177,10 +183,15 @@ export function validateMegaPairVolumeForDirection(direction: 'LONG' | 'SHORT'):
     };
   }
   if (direction === 'LONG' && outflow.length >= 2) {
-    return {
-      ok: false,
-      reason: `Mega pair OUTFLOW blocks LONG — ${snap.summary}`,
-    };
+    const meaningful = outflow.every(
+      (p) => p.change15mPct <= -0.12 || p.change5mPct <= -0.1
+    );
+    if (meaningful) {
+      return {
+        ok: false,
+        reason: `Mega pair OUTFLOW blocks LONG — ${snap.summary}`,
+      };
+    }
   }
 
   return {

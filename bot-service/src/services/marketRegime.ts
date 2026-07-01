@@ -90,11 +90,12 @@ export function applyOpenUniverseFilters(
     if (MAJOR_COINS.has(coin)) return true;
     if (s.direction === 'SHORT') return true;
 
+    // Strong per-coin MTF LONG — bypass macro wait (must run before risk_off / mega OUTFLOW).
+    if (isStrongMtfPick(s)) return true;
+
     if (regime === 'risk_off') return false;
     if (megaLongBlock) return false;
     if (btcShort || ethShort) return false;
-    // Strong per-coin MTF LONG — do not wait for BTC+ETH both LONG + dual INFLOW (SHORT alts are not gated this hard).
-    if (isStrongMtfPick(s)) return true;
     if (btcLong && ethLong && regime === 'risk_on') return true;
     return false;
   });
