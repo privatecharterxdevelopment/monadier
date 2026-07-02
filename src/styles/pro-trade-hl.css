@@ -1228,54 +1228,86 @@
 }
 
 .hl-history-overview {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(108px, 1fr));
-  gap: 8px;
-  flex: 1 1 320px;
-  max-width: 520px;
-}
-
-.hl-history-overview-card {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--hl-surface-2, rgba(255, 255, 255, 0.04));
-  border: 1px solid var(--hl-border, rgba(255, 255, 255, 0.08));
+  align-items: flex-end;
+  gap: 5px;
+  flex: 0 1 auto;
+  max-width: 100%;
+}
+
+.hl-history-overview-strip {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0;
+}
+
+.hl-history-overview-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 12px;
+  border-left: 1px solid var(--hl-border);
   min-width: 0;
 }
 
-.hl-history-overview-label {
-  font-size: 10px;
-  color: var(--hl-text-faint);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.hl-history-overview-stat:first-child {
+  padding-left: 0;
+  border-left: none;
 }
 
-.hl-history-overview-value {
-  font-size: 14px;
+.hl-history-overview-k {
+  font-size: 10px;
+  color: var(--hl-text-faint);
+  line-height: 1.2;
+}
+
+.hl-history-overview-v {
+  font-size: 13px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--hl-text);
-  line-height: 1.25;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
-.hl-history-overview-value--sm {
+.hl-history-overview-meta {
+  font-weight: 500;
   font-size: 11px;
-  font-weight: 600;
-  line-height: 1.35;
+  color: var(--hl-text-faint);
 }
 
-.hl-history-overview-sub {
+.hl-history-overview-since {
+  margin: 0;
   font-size: 10px;
   color: var(--hl-text-faint);
+  text-align: right;
   line-height: 1.3;
+  white-space: nowrap;
 }
 
 @media (max-width: 720px) {
   .hl-history-overview {
+    align-items: flex-start;
     flex-basis: 100%;
-    max-width: none;
+    width: 100%;
+  }
+
+  .hl-history-overview-strip {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    width: 100%;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .hl-history-overview-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hl-history-overview-since {
+    text-align: left;
   }
 }
 

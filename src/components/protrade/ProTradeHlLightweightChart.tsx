@@ -17,7 +17,6 @@ import {
 } from 'lightweight-charts';
 import type { HlCandleBar, HlInterval } from '../../lib/hyperliquid/types';
 import type { HlOpenOrder } from '../../lib/hyperliquid/user';
-import { fmtMarketPrice } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
 import type { ProTradeTheme } from '../../lib/proTradeTheme';
 import { getProTradeChartColors } from '../../lib/proTradeTheme';
@@ -27,6 +26,11 @@ import {
   chartSecondsVisible,
 } from '../../lib/hyperliquid/chartZoom';
 import { candlePriceRange, chartSanitizeRef, patchFormingCandleWithMark, resolveChartCandlesForDisplay } from '../../lib/hyperliquid/chartCandles';
+import {
+  buildChartPriceFormatter,
+  buildChartTickmarksFormatter,
+  buildSeriesPriceFormat,
+} from '../../lib/hyperliquid/chartPriceAxis';
 
 type Props = {
   coin: string;
@@ -101,7 +105,7 @@ function applyPositionPriceLines(
       lineWidth: 1,
       lineStyle: LineStyle.Dashed,
       axisLabelVisible: true,
-      title: `Limit ${fmtMarketPrice(px)}`,
+      title: '',
     });
     priceLinesRef.current.push(line);
   }
@@ -114,7 +118,7 @@ function applyPositionPriceLines(
         lineWidth: 2,
         lineStyle: LineStyle.Solid,
         axisLabelVisible: true,
-        title: `Entry ${fmtMarketPrice(positionOverlay.entryPx)}`,
+        title: 'Entry',
       })
     );
   }
@@ -126,7 +130,7 @@ function applyPositionPriceLines(
         lineWidth: 1,
         lineStyle: LineStyle.Dotted,
         axisLabelVisible: true,
-        title: `Liq ${fmtMarketPrice(positionOverlay.liqPx)}`,
+        title: 'Liq',
       })
     );
   }
@@ -134,9 +138,6 @@ function applyPositionPriceLines(
   const trailPx = positionOverlay?.trailStopPx;
   if (trailPx != null && trailPx > 0) {
     const locked = positionOverlay.trailStopLocked === true;
-    const floorUsd = positionOverlay.trailFloorUsd ?? 0;
-    const upnl = positionOverlay.unrealizedPnlUsd ?? 0;
-    const closeFloor = positionOverlay.trailCloseFloorUsd ?? floorUsd;
     const breached = positionOverlay.trailBreached === true;
     priceLinesRef.current.push(
       series.createPriceLine({
@@ -145,11 +146,7 @@ function applyPositionPriceLines(
         lineWidth: 2,
         lineStyle: locked ? LineStyle.Solid : LineStyle.Dashed,
         axisLabelVisible: true,
-        title: locked
-          ? breached
-            ? `Profit SL exit +$${closeFloor.toFixed(2)} (uPnL $${upnl.toFixed(2)})`
-            : `Profit SL — locked in profit`
-          : 'Profit SL arming',
+        title: locked ? (breached ? 'Trail!' : 'Trail') : 'Trail',
       })
     );
   }
@@ -164,7 +161,7 @@ function applyPositionPriceLines(
         lineWidth: 1,
         lineStyle: LineStyle.Dashed,
         axisLabelVisible: true,
-        title: slPct > 0 ? `Max SL −${slPct}% margin` : 'Max SL',
+        title: slPct > 0 ? `SL −${slPct}%` : 'SL',
       })
     );
   }
@@ -249,6 +246,28 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     };
   };
 
+  const applyChartPriceAxis = (
+    chart: IChartApi,
+    series: ISeriesApi<'Candlestick'>,
+    refPx: number
+  ) => {
+    const px = refPx > 0 ? refPx : 1;
+    chart.applyOptions({
+      localization: {
+        priceFormatter: buildChartPriceFormatter(px),
+        tickmarksPriceFormatter: buildChartTickmarksFormatter(px),
+      },
+      rightPriceScale: {
+        minimumWidth: 84,
+        ticksVisible: true,
+        alignLabels: true,
+      },
+    });
+    series.applyOptions({
+      priceFormat: buildSeriesPriceFormat(px),
+    });
+  };
+
   const applyChartTheme = (
     chart: IChartApi,
     series: ISeriesApi<'Candlestick'>,
@@ -302,6 +321,9 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         borderColor: colors.border,
         scaleMargins: { top: 0.04, bottom: 0.2 },
         autoScale: true,
+        minimumWidth: 84,
+        ticksVisible: true,
+        alignLabels: true,
       },
       timeScale: {
         borderColor: colors.border,
@@ -335,6 +357,12 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       autoscaleInfoProvider: buildAutoscaleProvider(),
     });
 
+    const seedPx =
+      candlesRef.current[candlesRef.current.length - 1]?.close ??
+      markPxRef.current ??
+      1;
+    applyChartPriceAxis(chart, series, seedPx);
+
     const volumeSeries = chart.addSeries(HistogramSeries, {
       priceFormat: { type: 'volume' },
       priceScaleId: 'volume',
@@ -358,6 +386,11 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         followLiveRef.current = following;
         onFollowLiveChangeRef.current?.(following);
       }
+      const ref =
+        candlesRef.current[candlesRef.current.length - 1]?.close ??
+        markPxRef.current ??
+        1;
+      applyChartPriceAxis(chart, series, ref);
     });
 
     const ro = new ResizeObserver(() => {
@@ -636,7 +669,12 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       color: c.close >= c.open ? chartColors.volumeUp : chartColors.volumeDown,
     });
 
+    const axisRefPx =
+      refPx ?? clean[clean.length - 1]?.close ?? markPxRef.current ?? 1;
+
     safeChartOp(() => {
+      applyChartPriceAxis(chart, series, axisRefPx);
+
       if (fullReset) {
         const data = clean.map(toCandle);
         const volData = clean.filter((c) => (c.volume ?? 0) > 0).map(toVol);
