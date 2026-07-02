@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { isAdminEmail } from '../../lib/admin';
+import { adminReconcilePlatformFee } from '../../lib/platformFeesApi';
 import {
   fetchAdminHlDashboard,
   fetchAdminHlTradeHistory,
@@ -267,6 +268,7 @@ const AdminMonitorPage: React.FC = () => {
           walletFees={dash.wallet_fees ?? []}
           stats={dash.stats}
           builder={live.builder}
+          onRefresh={refresh}
         />
       )}
       {section === 'betting' && dash && (
@@ -1058,14 +1060,24 @@ function FeesPanel({
   walletFees,
   stats,
   builder,
+  onRefresh,
 }: {
   ledger: AdminHlDashboard['fee_ledger'];
   walletFees: AdminWalletFee[];
   stats: AdminHlDashboard['stats'];
   builder: AdminLiveContext['builder'];
+  onRefresh: () => void | Promise<void>;
 }) {
   const [ledgerPage, setLedgerPage] = useState(0);
   const [walletPage, setWalletPage] = useState(0);
+  const [reconcileEmail, setReconcileEmail] = useState('');
+  const [reconcileWallet, setReconcileWallet] = useState('');
+  const [reconcileTx, setReconcileTx] = useState('');
+  const [reconcileSecret, setReconcileSecret] = useState(
+    () => (import.meta.env.VITE_BOT_ADMIN_SECRET as string | undefined) ?? ''
+  );
+  const [reconcileBusy, setReconcileBusy] = useState(false);
+  const [reconcileMsg, setReconcileMsg] = useState<string | null>(null);
   const ledgerPaginated = useMemo(
     () => paginate(ledger, ledgerPage),
     [ledger, ledgerPage]
@@ -1078,8 +1090,96 @@ function FeesPanel({
   const owedTotal = stats.platform_fees_owed_usd ?? stats.hl_fees_accrued_usd;
   const paidTotal = stats.platform_fees_paid_usd ?? 0;
 
+  const handleReconcile = async () => {
+    if (!reconcileTx.trim()) {
+      setReconcileMsg('Arbitrum tx hash required.');
+      return;
+    }
+    if (!reconcileSecret.trim() && !import.meta.env.VITE_BOT_ADMIN_SECRET) {
+      setReconcileMsg('Admin secret required.');
+      return;
+    }
+    setReconcileBusy(true);
+    setReconcileMsg(null);
+    try {
+      const result = await adminReconcilePlatformFee({
+        txHash: reconcileTx.trim(),
+        email: reconcileEmail.trim() || undefined,
+        wallet: reconcileWallet.trim() || undefined,
+        adminSecret: reconcileSecret.trim(),
+      });
+      if (result.success) {
+        setReconcileMsg(
+          `Settled ${fmtUsd(result.settledUsd ?? result.amountUsd ?? 0)} for ${result.wallet?.slice(0, 10) ?? 'wallet'}…`
+        );
+        setReconcileTx('');
+        await onRefresh();
+      } else {
+        setReconcileMsg(result.error ?? 'Reconcile failed');
+      }
+    } catch (err: unknown) {
+      setReconcileMsg(err instanceof Error ? err.message : 'Reconcile failed');
+    } finally {
+      setReconcileBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
+      <div className="rounded-xl border border-border bg-card-dark p-4 text-sm space-y-3">
+        <p className="text-primary font-medium">Record on-chain fee payment (recovery)</p>
+        <p className="text-secondary text-xs">
+          If USDC arrived on treasury but the app did not confirm, paste the Arbitrum tx hash.
+          Uses bot-service verify + ledger settle.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <input
+            type="email"
+            className="rounded-lg border border-border bg-black/20 px-3 py-2 text-xs font-mono"
+            placeholder="User email (e.g. claudio.steyskal@icloud.com)"
+            value={reconcileEmail}
+            onChange={(e) => setReconcileEmail(e.target.value)}
+          />
+          <input
+            type="text"
+            className="rounded-lg border border-border bg-black/20 px-3 py-2 text-xs font-mono"
+            placeholder="Wallet 0x… (optional if email set)"
+            value={reconcileWallet}
+            onChange={(e) => setReconcileWallet(e.target.value)}
+          />
+          <input
+            type="text"
+            className="rounded-lg border border-border bg-black/20 px-3 py-2 text-xs font-mono md:col-span-2"
+            placeholder="Arbitrum tx hash 0x…"
+            value={reconcileTx}
+            onChange={(e) => setReconcileTx(e.target.value)}
+          />
+          {!import.meta.env.VITE_BOT_ADMIN_SECRET ? (
+            <input
+              type="password"
+              className="rounded-lg border border-border bg-black/20 px-3 py-2 text-xs font-mono md:col-span-2"
+              placeholder="BOT_ADMIN_SECRET"
+              value={reconcileSecret}
+              onChange={(e) => setReconcileSecret(e.target.value)}
+            />
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+            disabled={reconcileBusy}
+            onClick={() => void handleReconcile()}
+          >
+            {reconcileBusy ? 'Reconciling…' : 'Reconcile payment'}
+          </button>
+          {reconcileMsg ? (
+            <span className={`text-xs ${reconcileMsg.startsWith('Settled') ? 'text-green-400' : 'text-amber-400'}`}>
+              {reconcileMsg}
+            </span>
+          ) : null}
+        </div>
+      </div>
       <div className="rounded-xl border border-border bg-card-dark p-4 text-sm">
         <p className="text-primary font-medium">Platform success fees & HL builder fees</p>
         <p className="text-secondary mt-1">

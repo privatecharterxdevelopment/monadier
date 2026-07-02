@@ -2,7 +2,7 @@
  * Entry location gate — resistance/support awareness before HL bot opens.
  *
  * Blocks LONG into a ceiling that already rejected price multiple times.
- * Allows LONG only on confirmed breakout above resistance or pullback toward support.
+ * Blocks SHORT at range lows when overhead resistance structure is intact.
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
@@ -14,6 +14,7 @@ export type SrZoneAnalysis = {
   pricePosition: number;
   resistanceTouches: number;
   resistanceRejections: number;
+  resistanceLevelCount: number;
   supportTouches: number;
   supportRejections: number;
   confirmedBreakoutUp: boolean;
@@ -76,6 +77,45 @@ function resolveResistanceLevel(candles: Candle[], clusterPct: number): number {
     }
   }
   return bestLevel;
+}
+
+/** Distinct resistance clusters with meaningful tests (multi-touch structure). */
+export function countResistanceStructureLevels(
+  candles: Candle[],
+  clusterPct: number,
+  touchTol: number
+): number {
+  const swings: number[] = [];
+  for (let i = 2; i < candles.length - 2; i += 1) {
+    if (isSwingHigh(candles, i)) swings.push(candles[i].high);
+  }
+  if (swings.length === 0) return 0;
+
+  const sorted = [...swings].sort((a, b) => b - a);
+  const claimed: boolean[] = swings.map(() => false);
+  let levels = 0;
+
+  for (const seed of sorted) {
+    const seedIdx = swings.findIndex((h, i) => h === seed && !claimed[i]);
+    if (seedIdx < 0) continue;
+
+    const clusterIdx: number[] = [];
+    for (let i = 0; i < swings.length; i += 1) {
+      if (claimed[i]) continue;
+      if (Math.abs(swings[i] - seed) / seed <= clusterPct) clusterIdx.push(i);
+    }
+    if (clusterIdx.length === 0) continue;
+
+    const level = clusterIdx.reduce((s, i) => s + swings[i], 0) / clusterIdx.length;
+    clusterIdx.forEach((i) => {
+      claimed[i] = true;
+    });
+
+    const tests = countLevelTests(candles, level, 'resistance', touchTol);
+    if (tests.touches >= 2 || tests.rejections >= 1) levels += 1;
+  }
+
+  return levels;
 }
 
 function resolveSupportLevel(candles: Candle[], clusterPct: number): number {
@@ -160,6 +200,12 @@ export function analyzeSrZones(candles15: Candle[], candles1h: Candle[]): SrZone
 
   const resTests = countLevelTests(candles15, resistance, 'resistance', cfg.touchTolerancePct);
   const supTests = countLevelTests(candles15, support, 'support', cfg.touchTolerancePct);
+  const resistanceLevelCount = Math.max(
+    countResistanceStructureLevels(candles15, cfg.swingClusterPct, cfg.touchTolerancePct),
+    candles1h.length >= 12
+      ? countResistanceStructureLevels(candles1h, cfg.swingClusterPct, cfg.touchTolerancePct)
+      : 0
+  );
 
   const pos = pricePosition(price, support, resistance);
   const distToResPct = resistance > 0 ? (resistance - price) / resistance : 1;
@@ -182,6 +228,7 @@ export function analyzeSrZones(candles15: Candle[], candles1h: Candle[]): SrZone
     pricePosition: pos,
     resistanceTouches: resTests.touches,
     resistanceRejections: resTests.rejections,
+    resistanceLevelCount,
     supportTouches: supTests.touches,
     supportRejections: supTests.rejections,
     confirmedBreakoutUp: confirmedBreakoutUp(
@@ -205,6 +252,56 @@ function fmtLevel(n: number): string {
   if (n >= 100) return n.toFixed(2);
   if (n >= 1) return n.toFixed(4);
   return n.toFixed(6);
+}
+
+function emptyAnalysis(): SrZoneAnalysis {
+  return {
+    support: 0,
+    resistance: 0,
+    price: 0,
+    pricePosition: 0.5,
+    resistanceTouches: 0,
+    resistanceRejections: 0,
+    resistanceLevelCount: 0,
+    supportTouches: 0,
+    supportRejections: 0,
+    confirmedBreakoutUp: false,
+    confirmedBreakdown: false,
+    nearResistance: false,
+    nearSupport: false,
+  };
+}
+
+/** Overhead resistance still intact — do not short the range low. */
+export function hasOverheadResistanceStructure(analysis: SrZoneAnalysis): boolean {
+  const cfg = config.hyperliquid.entryLocation;
+  if (analysis.resistance <= analysis.price) return false;
+  return (
+    analysis.resistanceRejections >= cfg.minRejectionsToBlock ||
+    analysis.resistanceLevelCount >= 2 ||
+    (analysis.resistanceTouches >= 2 && analysis.resistanceRejections >= 1)
+  );
+}
+
+function shortChaseLowBlockReason(analysis: SrZoneAnalysis): string | null {
+  const cfg = config.hyperliquid.entryLocation;
+  if (analysis.confirmedBreakdown) return null;
+  if (analysis.nearResistance) return null;
+  if (analysis.pricePosition >= 1 - cfg.pullbackMaxPosition) return null;
+
+  const lowInRange = analysis.pricePosition <= cfg.pullbackMaxPosition;
+  if (!lowInRange && !analysis.nearSupport) return null;
+
+  if (!hasOverheadResistanceStructure(analysis)) return null;
+
+  const parts = [
+    `${analysis.resistanceRejections}× rejections at ${fmtLevel(analysis.resistance)}`,
+  ];
+  if (analysis.resistanceLevelCount >= 2) {
+    parts.push(`${analysis.resistanceLevelCount} resistance levels`);
+  }
+
+  return `SHORT blocked — price low in range (${(analysis.pricePosition * 100).toFixed(0)}%) with overhead resistance (${parts.join(', ')}) — fade rally at resistance, not chase lows`;
 }
 
 export function evaluateEntryLocation(
@@ -261,6 +358,11 @@ export function evaluateEntryLocation(
     };
   }
 
+  const chaseBlock = shortChaseLowBlockReason(analysis);
+  if (chaseBlock) {
+    return { ok: false, analysis, reason: chaseBlock };
+  }
+
   if (analysis.confirmedBreakdown) {
     return {
       ok: true,
@@ -286,27 +388,18 @@ export function evaluateEntryLocation(
         reason: `SHORT blocked — support ${fmtLevel(analysis.support)} held ${failedTests}× (need break below or rally off support)`,
       };
     }
-    if (!analysis.confirmedBreakdown && analysis.pricePosition <= cfg.rangeBottomBlock) {
-      return {
-        ok: false,
-        analysis,
-        reason: `SHORT blocked — price at support ${fmtLevel(analysis.support)} without breakdown`,
-      };
-    }
-  }
-
-  if (analysis.pricePosition < cfg.rangeBottomBlock) {
-    if (analysis.confirmedBreakdown || analysis.supportRejections === 0) {
-      return {
-        ok: true,
-        analysis,
-        reason: `Trend SHORT — ${(analysis.pricePosition * 100).toFixed(0)}% of range (downtrend continuation)`,
-      };
-    }
     return {
       ok: false,
       analysis,
-      reason: `SHORT blocked — ${(analysis.pricePosition * 100).toFixed(0)}% of range (support still holding)`,
+      reason: `SHORT blocked — price at support ${fmtLevel(analysis.support)} without breakdown`,
+    };
+  }
+
+  if (analysis.pricePosition < cfg.rangeBottomBlock) {
+    return {
+      ok: false,
+      analysis,
+      reason: `SHORT blocked — ${(analysis.pricePosition * 100).toFixed(0)}% of range (need breakdown below ${fmtLevel(analysis.support)} or rally to resistance)`,
     };
   }
 
@@ -322,31 +415,17 @@ export async function validateEntryLocation(opts: {
   coin?: string;
   direction: 'LONG' | 'SHORT';
 }): Promise<EntryLocationResult> {
-  // Scalp S/R — ~4h on 5m + ~6h on 15m (not 24–72h 1h charts).
-  const candles5 = await signalEngine.fetchCandles(opts.symbol, '5m', 48);
   const candles15 = await signalEngine.fetchCandles(opts.symbol, '15m', 48);
+  const candles1h = await signalEngine.fetchCandles(opts.symbol, '1h', 48);
 
-  if (candles15.length < 12 || candles5.length < 12) {
+  if (candles15.length < 12) {
     return {
       ok: true,
       reason: 'insufficient candle history — location check skipped',
-      analysis: {
-        support: 0,
-        resistance: 0,
-        price: 0,
-        pricePosition: 0.5,
-        resistanceTouches: 0,
-        resistanceRejections: 0,
-        supportTouches: 0,
-        supportRejections: 0,
-        confirmedBreakoutUp: false,
-        confirmedBreakdown: false,
-        nearResistance: false,
-        nearSupport: false,
-      },
+      analysis: emptyAnalysis(),
     };
   }
 
-  const sr = analyzeSrZones(candles5, candles15);
+  const sr = analyzeSrZones(candles15, candles1h);
   return evaluateEntryLocation(opts.direction, sr);
 }

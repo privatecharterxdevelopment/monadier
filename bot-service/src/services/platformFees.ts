@@ -5,8 +5,9 @@ import { notionalBuilderFeeUsd } from './hlBuilderFee';
 import { recordHlChartMarker } from './hlChartMarkers';
 import { accrueReferralEarning, tryQualifyReferral } from './referralAffiliate';
 import { isFeeExemptWallet, waivedPlatformFeeStatus } from './feeExempt';
-import { verifyArbitrumUsdcFeePayment } from './arbitrumFeeVerify';
+import { verifyArbitrumUsdcFeePayment, verifyArbitrumUsdcTreasuryReceipt, parseArbitrumUsdcTransfer } from './arbitrumFeeVerify';
 import { fetchHlRecentCloseFillSummaryWithRetry } from './hlInfo';
+import { subscriptionService } from './subscription';
 
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 
@@ -722,6 +723,330 @@ export async function listAccruedFeeTrades(
   }));
 }
 
+async function getLinkedPayerWallets(walletAddress: string): Promise<string[]> {
+  const wallet = walletAddress.toLowerCase();
+  const out = new Set<string>([wallet]);
+  const userId = await subscriptionService.getUserIdFromWallet(wallet);
+  if (!userId) return [...out];
+
+  const { data: linked } = await supabase
+    .from('user_wallets')
+    .select('wallet_address')
+    .eq('user_id', userId);
+  for (const row of linked ?? []) {
+    const w = String(row.wallet_address ?? '').toLowerCase();
+    if (w) out.add(w);
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('wallet_address')
+    .eq('id', userId)
+    .maybeSingle();
+  const profileWallet = String(profile?.wallet_address ?? '').toLowerCase();
+  if (profileWallet) out.add(profileWallet);
+
+  return [...out];
+}
+
+async function verifyOnChainFeePayment(
+  wallet: string,
+  minUsd: number,
+  txHash: string
+): Promise<boolean> {
+  const treasury = config.platformFeeTreasuryAddress?.toLowerCase() ?? '';
+  if (!treasury) return false;
+
+  const payers = await getLinkedPayerWallets(wallet);
+  for (const payer of payers) {
+    const ok = await verifyArbitrumUsdcFeePayment({
+      payerWallet: payer,
+      treasuryAddress: treasury,
+      minUsd,
+      txHash,
+    });
+    if (ok) return true;
+  }
+
+  const receipt = await verifyArbitrumUsdcTreasuryReceipt({
+    treasuryAddress: treasury,
+    minUsd,
+    txHash,
+    allowedPayers: payers,
+  });
+  return receipt.ok;
+}
+
+async function resolveVaultWalletForUser(
+  userId: string,
+  profileWallet?: string | null
+): Promise<string | null> {
+  const profileW = String(profileWallet ?? '').toLowerCase();
+  if (/^0x[a-f0-9]{40}$/.test(profileW)) return profileW;
+
+  const { data: vs } = await supabase
+    .from('vault_settings')
+    .select('wallet_address')
+    .eq('user_id', userId)
+    .eq('chain_id', config.arbitrum.chainId)
+    .order('auto_trade_enabled', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const vaultWallet = String(vs?.wallet_address ?? '').toLowerCase();
+  return /^0x[a-f0-9]{40}$/.test(vaultWallet) ? vaultWallet : null;
+}
+
+async function findWalletByEmail(email: string): Promise<string | null> {
+  const raw = email.trim().toLowerCase();
+  if (!raw) return null;
+
+  const patterns = new Set<string>();
+  if (raw.endsWith('@')) {
+    patterns.add(`${raw}%`);
+  } else if (raw.includes('@')) {
+    patterns.add(raw);
+    patterns.add(`${raw.split('@')[0]}@%`);
+  } else {
+    patterns.add(`${raw}@%`);
+    patterns.add(raw);
+  }
+
+  for (const pattern of patterns) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, wallet_address, email')
+      .ilike('email', pattern)
+      .limit(8);
+    for (const profile of profiles ?? []) {
+      const wallet = await resolveVaultWalletForUser(profile.id, profile.wallet_address);
+      if (wallet) return wallet;
+    }
+  }
+  return null;
+}
+
+/** Map on-chain payer → vault wallet with accrued fees (admin recovery). */
+async function findVaultWalletForFeePayer(payer: string): Promise<string | null> {
+  const from = payer.toLowerCase();
+  if (!/^0x[a-f0-9]{40}$/.test(from)) return null;
+
+  const { data: vsDirect } = await supabase
+    .from('vault_settings')
+    .select('wallet_address')
+    .eq('wallet_address', from)
+    .eq('chain_id', config.arbitrum.chainId)
+    .limit(1)
+    .maybeSingle();
+  if (vsDirect?.wallet_address) return String(vsDirect.wallet_address).toLowerCase();
+
+  const { data: uw } = await supabase
+    .from('user_wallets')
+    .select('user_id')
+    .eq('wallet_address', from)
+    .limit(1)
+    .maybeSingle();
+  if (uw?.user_id) {
+    const vault = await resolveVaultWalletForUser(uw.user_id, from);
+    if (vault) return vault;
+  }
+
+  const { data: prof } = await supabase
+    .from('profiles')
+    .select('id, wallet_address')
+    .eq('wallet_address', from)
+    .limit(1)
+    .maybeSingle();
+  if (prof?.id) {
+    const vault = await resolveVaultWalletForUser(prof.id, from);
+    if (vault) return vault;
+  }
+
+  const { data: accruedRows } = await supabase
+    .from('hl_fee_ledger')
+    .select('wallet_address')
+    .eq('status', 'accrued')
+    .gt('success_fee_usd', 0)
+    .limit(200);
+  for (const row of accruedRows ?? []) {
+    const vault = String(row.wallet_address ?? '').toLowerCase();
+    if (!/^0x[a-f0-9]{40}$/.test(vault)) continue;
+    const linked = await getLinkedPayerWallets(vault);
+    if (linked.includes(from)) return vault;
+  }
+
+  return null;
+}
+
+async function applyFeeSettlement(
+  wallet: string,
+  paidUsd: number,
+  paymentRef: string
+): Promise<{ settledUsd: number; ok: boolean }> {
+  const status = await getPlatformFeeStatus(wallet);
+  if (status.accruedUsd <= 0) {
+    await resetPlatformFeeCycle(wallet);
+    return { settledUsd: 0, ok: true };
+  }
+
+  const now = new Date().toISOString();
+  const { data: existingPay } = await supabase
+    .from('platform_fee_payments')
+    .select('id')
+    .eq('payment_ref', paymentRef)
+    .maybeSingle();
+
+  if (!existingPay) {
+    const { error: payErr } = await supabase.from('platform_fee_payments').insert({
+      wallet_address: wallet,
+      amount_usd: paidUsd,
+      payment_ref: paymentRef,
+    });
+    if (payErr) {
+      logger.warn('platform fee payment insert failed', {
+        wallet: wallet.slice(0, 10),
+        error: payErr.message,
+      });
+      return { settledUsd: 0, ok: false };
+    }
+  }
+
+  const { error: ledgerErr } = await supabase
+    .from('hl_fee_ledger')
+    .update({
+      status: 'settled',
+      settled_at: now,
+      settlement_ref: paymentRef,
+    })
+    .eq('wallet_address', wallet)
+    .eq('status', 'accrued');
+
+  if (ledgerErr) {
+    logger.warn('platform fee ledger settle failed', { wallet: wallet.slice(0, 10) });
+    return { settledUsd: 0, ok: false };
+  }
+
+  await supabase
+    .from('trade_history')
+    .update({ platform_fee_status: 'settled' })
+    .eq('wallet_address', wallet)
+    .eq('platform_fee_status', 'accrued');
+
+  await resetPlatformFeeCycle(wallet);
+
+  logger.info('platform fees settled', {
+    wallet: wallet.slice(0, 10),
+    paid: paidUsd.toFixed(4),
+    accrued: status.accruedUsd.toFixed(4),
+    paymentRef: paymentRef.slice(0, 32),
+  });
+
+  return { settledUsd: status.accruedUsd, ok: true };
+}
+
+/** Admin / recovery — settle from an on-chain Arbitrum USDC tx hash. */
+export async function reconcilePlatformFeeByTxHash(opts: {
+  walletAddress?: string;
+  email?: string;
+  txHash: string;
+}): Promise<{
+  ok: boolean;
+  settledUsd: number;
+  wallet?: string;
+  amountUsd?: number;
+  payer?: string;
+  error?: string;
+}> {
+  const txHash = opts.txHash.trim().toLowerCase();
+  if (!/^0x[a-f0-9]{64}$/.test(txHash)) {
+    return { ok: false, settledUsd: 0, error: 'Invalid tx hash' };
+  }
+
+  const treasury = config.platformFeeTreasuryAddress?.toLowerCase() ?? '';
+  if (!treasury) {
+    return { ok: false, settledUsd: 0, error: 'Treasury not configured' };
+  }
+
+  const paymentRef = `arbitrum_usdc:${txHash}`;
+  const { data: existingPay } = await supabase
+    .from('platform_fee_payments')
+    .select('wallet_address, amount_usd')
+    .eq('payment_ref', paymentRef)
+    .maybeSingle();
+
+  if (existingPay) {
+    const existingWallet = String(existingPay.wallet_address).toLowerCase();
+    const result = await applyFeeSettlement(
+      existingWallet,
+      Number(existingPay.amount_usd) || 0,
+      paymentRef
+    );
+    return {
+      ...result,
+      wallet: existingWallet,
+      amountUsd: Number(existingPay.amount_usd) || 0,
+    };
+  }
+
+  const transfer = await parseArbitrumUsdcTransfer(txHash);
+  if (!transfer || transfer.to !== treasury) {
+    return { ok: false, settledUsd: 0, error: 'Tx not found or not a USDC transfer to treasury' };
+  }
+
+  let wallet = opts.walletAddress?.trim().toLowerCase() ?? '';
+  if (!/^0x[a-f0-9]{40}$/.test(wallet) && opts.email?.trim()) {
+    const fromEmail = await findWalletByEmail(opts.email);
+    if (fromEmail) wallet = fromEmail;
+  }
+  if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+    const fromPayer = await findVaultWalletForFeePayer(transfer.from);
+    if (fromPayer) wallet = fromPayer;
+  }
+  if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+    return {
+      ok: false,
+      settledUsd: 0,
+      payer: transfer.from,
+      amountUsd: transfer.amountUsd,
+      error: 'Could not match payer to a vault wallet — pass email or 0x wallet',
+    };
+  }
+
+  const status = await getPlatformFeeStatus(wallet);
+  const minUsd = status.accruedUsd > 0 ? status.accruedUsd : 0.01;
+  const payers = await getLinkedPayerWallets(wallet);
+  const receipt = await verifyArbitrumUsdcTreasuryReceipt({
+    treasuryAddress: treasury,
+    minUsd,
+    txHash,
+    allowedPayers: payers,
+  });
+
+  if (!receipt.transfer) {
+    return { ok: false, settledUsd: 0, wallet, error: 'Tx not found or not a USDC transfer to treasury' };
+  }
+
+  if (!receipt.ok && status.accruedUsd > 0) {
+    return {
+      ok: false,
+      settledUsd: 0,
+      wallet,
+      payer: receipt.transfer.from,
+      amountUsd: receipt.transfer.amountUsd,
+      error: `Payment ${receipt.transfer.amountUsd.toFixed(4)} USDC — accrued ${status.accruedUsd.toFixed(4)}`,
+    };
+  }
+
+  const paidUsd = Math.max(receipt.transfer.amountUsd, status.accruedUsd);
+  const result = await applyFeeSettlement(wallet, paidUsd, paymentRef);
+  return {
+    ...result,
+    wallet,
+    amountUsd: receipt.transfer.amountUsd,
+    payer: receipt.transfer.from,
+    error: result.ok ? undefined : 'Ledger settlement failed',
+  };
+}
+
 export async function settleAccruedFees(
   walletAddress: string,
   paidUsd: number,
@@ -743,13 +1068,13 @@ export async function settleAccruedFees(
   const treasury = config.platformFeeTreasuryAddress?.toLowerCase() ?? '';
   if (paymentRef?.startsWith('arbitrum_usdc:')) {
     const txHash = paymentRef.slice('arbitrum_usdc:'.length).trim();
-    const verified = await verifyArbitrumUsdcFeePayment({
-      payerWallet: wallet,
-      treasuryAddress: treasury,
-      minUsd: status.accruedUsd,
-      txHash,
-    });
+    const verified = await verifyOnChainFeePayment(wallet, status.accruedUsd, txHash);
     if (!verified) {
+      logger.warn('platform fee on-chain verify failed', {
+        wallet: wallet.slice(0, 10),
+        accrued: status.accruedUsd.toFixed(4),
+        tx: txHash.slice(0, 14),
+      });
       return { settledUsd: 0, ok: false };
     }
   } else if (paymentRef?.startsWith('hl_usd_send:')) {
@@ -760,14 +1085,22 @@ export async function settleAccruedFees(
   }
 
   const now = new Date().toISOString();
-  const { error: payErr } = await supabase.from('platform_fee_payments').insert({
-    wallet_address: wallet,
-    amount_usd: paidUsd,
-    payment_ref: paymentRef ?? null,
-  });
-  if (payErr) {
-    logger.warn('platform fee payment insert failed', { wallet: wallet.slice(0, 10) });
-    return { settledUsd: 0, ok: false };
+  const { data: existingPay } = await supabase
+    .from('platform_fee_payments')
+    .select('id')
+    .eq('payment_ref', paymentRef ?? '')
+    .maybeSingle();
+
+  if (!existingPay) {
+    const { error: payErr } = await supabase.from('platform_fee_payments').insert({
+      wallet_address: wallet,
+      amount_usd: paidUsd,
+      payment_ref: paymentRef ?? null,
+    });
+    if (payErr) {
+      logger.warn('platform fee payment insert failed', { wallet: wallet.slice(0, 10) });
+      return { settledUsd: 0, ok: false };
+    }
   }
 
   const { error: ledgerErr } = await supabase

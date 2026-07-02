@@ -48,8 +48,10 @@ import {
 } from './marketRegime';
 import { validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
 import { validateEntryMomentum } from './entryMomentumGate';
+import { validateEntryLocation } from './entryLocationGate';
 import { validatePerpFundingAtOpen } from './perpFundingGate';
 import { validateScanPriceDrift } from './priceValidityGate';
+import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { buildHlOpenReasonDoc } from './openReasonBuilder';
 import { FUNNEL } from './pipelineFunnelReasons';
 import {
@@ -1164,6 +1166,22 @@ export class HyperliquidTradingService {
           reason: priceGate.reason,
         });
         return { success: false, error: priceGate.reason };
+      }
+
+      const locationGate = await validateEntryLocation({
+        symbol: hlCoinToBinanceSymbol(coin),
+        coin,
+        direction: opts.direction,
+      });
+      if (!locationGate.ok) {
+        logOpen(false, FUNNEL.open.location);
+        logger.info('HL open blocked — entry location', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          reason: locationGate.reason,
+        });
+        return { success: false, error: locationGate.reason };
       }
 
       const momentumGate = await validateEntryMomentum({ coin, direction: opts.direction });

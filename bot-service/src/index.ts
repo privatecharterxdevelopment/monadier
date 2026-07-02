@@ -60,6 +60,7 @@ import {
   listAccruedFeeTrades,
   recordProfitableClose,
   settleAccruedFees,
+  reconcilePlatformFeeByTxHash,
   PLATFORM_FEE_WINS_BEFORE_BLOCK,
 } from './services/platformFees';
 import { processPendingTradeCloseEmails } from './services/tradeCloseEmail';
@@ -900,6 +901,33 @@ const healthServer = http.createServer(async (req, res) => {
       logger.error('API: news failed', { error: msg });
       res.writeHead(500, corsHeaders);
       res.end(JSON.stringify({ success: false, error: msg || 'news failed' }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/admin/reconcile-platform-fee' && req.method === 'POST') {
+    const adminSecret = process.env.BOT_ADMIN_SECRET;
+    const provided =
+      req.headers['x-bot-admin-secret']?.toString() ||
+      '';
+    if (adminSecret && provided !== adminSecret) {
+      res.writeHead(401, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: 'Unauthorized' }));
+      return;
+    }
+    try {
+      const body = await readJsonBody();
+      const txHash = String(body.txHash ?? '').trim();
+      const wallet = body.wallet != null ? String(body.wallet).toLowerCase() : undefined;
+      const email = body.email != null ? String(body.email).trim() : undefined;
+      const result = await reconcilePlatformFeeByTxHash({ txHash, walletAddress: wallet, email });
+      res.writeHead(result.ok ? 200 : 400, corsHeaders);
+      res.end(JSON.stringify({ success: result.ok, ...result }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'reconcile-platform-fee failed';
+      logger.error('API: admin reconcile platform fee failed', { error: msg });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
     }
     return;
   }
