@@ -31,11 +31,11 @@ export async function waitForHlPositionFlat(
   opts?: { maxMs?: number; intervalMs?: number }
 ): Promise<boolean> {
   const coinUpper = coin.toUpperCase();
-  const deadline = Date.now() + (opts?.maxMs ?? 14_000);
-  const intervalMs = opts?.intervalMs ?? 450;
+  const deadline = Date.now() + (opts?.maxMs ?? 16_000);
+  const intervalMs = opts?.intervalMs ?? 1_400;
 
   while (Date.now() < deadline) {
-    const state = await fetchHlClearinghouseState(userAddress as `0x${string}`);
+    const state = await fetchHlClearinghouseState(userAddress as `0x${string}`, { fresh: true });
     const row = state?.assetPositions?.find(
       (p) => p.position?.coin?.toUpperCase() === coinUpper
     )?.position;

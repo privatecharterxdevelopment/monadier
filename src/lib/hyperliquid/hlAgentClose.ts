@@ -3,14 +3,16 @@ import { isHlRateLimitError } from '../devLog';
 import { clearHlInfoCache } from './hlInfoClient';
 
 function closeAgentError(res: Response, json: { error?: string | null }): Error {
-  if (res.status === 429 || isHlRateLimitError(json.error)) {
-    return new Error('Too many requests — wait ~30 seconds and retry close.');
+  const raw =
+    json.error?.trim() ||
+    (res.status > 0
+      ? `${res.status}${res.statusText ? ` ${res.statusText}` : ''}`.trim()
+      : '');
+  const cleaned = raw.replace(/\s*-\s*null\s*$/i, '').trim();
+  if (res.status === 429 || isHlRateLimitError(cleaned) || /429|too many requests/i.test(cleaned)) {
+    return new Error('Hyperliquid rate limit — wait ~30 seconds and retry close.');
   }
-  const detail = json.error?.trim();
-  if (detail) return new Error(detail);
-  if (res.status > 0) {
-    return new Error(`Close failed (HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ''}).`);
-  }
+  if (cleaned) return new Error(cleaned);
   return new Error('Close failed — try again.');
 }
 

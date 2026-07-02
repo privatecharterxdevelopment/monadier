@@ -8,7 +8,7 @@ import {
 export function useHlBotTrailSnapshots(
   wallet: string | null | undefined,
   enabled = true,
-  pollMs = 3000
+  pollMs = 8_000
 ): Record<string, HlBotTrailSnapshot> {
   const [byCoin, setByCoin] = useState<Record<string, HlBotTrailSnapshot>>({});
 

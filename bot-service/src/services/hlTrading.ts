@@ -21,6 +21,8 @@ import {
   hlFreeMarginUsd,
   hlOpenPerpCoins,
   fetchHlRecentCloseFillSummaryWithRetry,
+  sanitizeHlApiError,
+  invalidateHlClearinghouseCache,
 } from './hlInfo';
 import { checkHlBuilderFeeApproved } from './hlBuilder';
 import {
@@ -1903,6 +1905,7 @@ export class HyperliquidTradingService {
         viaHlBuilder,
       });
       hlLastCloseAt.set(userAddress.toLowerCase(), Date.now());
+      invalidateHlClearinghouseCache(userAddress);
       rememberCoinClose(userAddress, coinUpper, isLong ? 'LONG' : 'SHORT');
       return {
         success: true,
@@ -1910,7 +1913,7 @@ export class HyperliquidTradingService {
         viaHlBuilder,
       };
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = sanitizeHlApiError(err instanceof Error ? err.message : String(err));
       logger.warn('HL close failed', { user: userAddress.slice(0, 10), error: msg });
       return { success: false, error: msg };
     }

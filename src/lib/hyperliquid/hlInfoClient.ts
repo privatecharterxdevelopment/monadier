@@ -5,11 +5,11 @@ type CacheEntry = { at: number; data: unknown };
 const META_TTL_MS = 8_000;
 const CANDLE_TTL_MS = 6_000;
 const DEFAULT_TTL_MS = 3_000;
-const USER_STATE_TTL_MS = 8_000;
+const USER_STATE_TTL_MS = 12_000;
 const USER_FILLS_TTL_MS = 45_000;
 const MAX_RETRIES = 3;
-const MIN_REQUEST_GAP_MS = 280;
-const RATE_LIMIT_PAUSE_MS = 25_000;
+const MIN_REQUEST_GAP_MS = 400;
+const RATE_LIMIT_PAUSE_MS = 30_000;
 
 const inflight = new Map<string, Promise<unknown>>();
 const cache = new Map<string, CacheEntry>();

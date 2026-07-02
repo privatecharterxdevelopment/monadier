@@ -1,6 +1,63 @@
 import { config } from '../config';
 import { logger } from '../utils/logger';
 
+/** User-facing copy when HL /info or exchange returns 429. */
+export function sanitizeHlApiError(message: string): string {
+  const cleaned = message.replace(/\s*-\s*null\s*$/i, '').trim();
+  if (/429|too many requests/i.test(cleaned)) {
+    return 'Hyperliquid rate limit — wait ~30 seconds and retry.';
+  }
+  return cleaned || 'Hyperliquid request failed — try again.';
+}
+
+let hlInfoQueue: Promise<void> = Promise.resolve();
+let lastHlInfoAt = 0;
+let hlRateLimitUntil = 0;
+const HL_INFO_GAP_MS = 150;
+const HL_RATE_LIMIT_PAUSE_MS = 28_000;
+
+const chStateCache = new Map<string, { at: number; data: HlClearinghouseState | null }>();
+const CH_STATE_TTL_MS = 3_500;
+
+let metaCache: { at: number; data: Awaited<ReturnType<typeof fetchHlMetaUncached>> } | null = null;
+const META_TTL_MS = 45_000;
+
+let midsCache: { at: number; data: Record<string, string> } | null = null;
+const MIDS_TTL_MS = 2_500;
+
+async function throttleHlInfo<T>(run: () => Promise<T>): Promise<T> {
+  const scheduled = hlInfoQueue.then(async () => {
+    const wait = Math.max(
+      0,
+      hlRateLimitUntil - Date.now(),
+      HL_INFO_GAP_MS - (Date.now() - lastHlInfoAt)
+    );
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    lastHlInfoAt = Date.now();
+    return run();
+  });
+  hlInfoQueue = scheduled.then(
+    () => undefined,
+    () => undefined
+  );
+  return scheduled;
+}
+
+async function hlInfoPostRaw(body: Record<string, unknown>): Promise<Response> {
+  return throttleHlInfo(() =>
+    fetch(config.hyperliquid.infoUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  );
+}
+
+function retryDelayMs(attempt: number, status: number): number {
+  if (status === 429) return 1_500 * 2 ** attempt;
+  return 350 * (attempt + 1);
+}
+
 export type HlClearinghouseState = {
   marginSummary?: {
     accountValue?: string;
@@ -103,24 +160,32 @@ export async function fetchHlUserAbstraction(
 }
 
 export async function fetchHlClearinghouseState(
-  userAddress: string
+  userAddress: string,
+  opts?: { fresh?: boolean }
 ): Promise<HlClearinghouseState | null> {
   const user = userAddress.toLowerCase();
+  if (!opts?.fresh) {
+    const hit = chStateCache.get(user);
+    if (hit && Date.now() - hit.at < CH_STATE_TTL_MS) return hit.data;
+  }
   for (let attempt = 0; attempt < 4; attempt += 1) {
     try {
-      const res = await fetch(config.hyperliquid.infoUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'clearinghouseState',
-          user,
-        }),
+      const res = await hlInfoPostRaw({
+        type: 'clearinghouseState',
+        user,
       });
-      if (!res.ok) {
-        if (attempt < 3) await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+      if (res.status === 429) {
+        hlRateLimitUntil = Date.now() + HL_RATE_LIMIT_PAUSE_MS;
+        if (attempt < 3) await new Promise((r) => setTimeout(r, retryDelayMs(attempt, 429)));
         continue;
       }
-      return (await res.json()) as HlClearinghouseState;
+      if (!res.ok) {
+        if (attempt < 3) await new Promise((r) => setTimeout(r, retryDelayMs(attempt, res.status)));
+        continue;
+      }
+      const data = (await res.json()) as HlClearinghouseState;
+      chStateCache.set(user, { at: Date.now(), data });
+      return data;
     } catch (err: unknown) {
       if (attempt === 3) {
         logger.debug('HL clearinghouseState failed', {
@@ -128,11 +193,16 @@ export async function fetchHlClearinghouseState(
           error: err instanceof Error ? err.message : String(err),
         });
       } else {
-        await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+        await new Promise((r) => setTimeout(r, retryDelayMs(attempt, 0)));
       }
     }
   }
   return null;
+}
+
+/** Bust cached clearinghouse reads after a confirmed close. */
+export function invalidateHlClearinghouseCache(userAddress: string): void {
+  chStateCache.delete(userAddress.toLowerCase());
 }
 
 /** USDC sitting in HL spot — on unified accounts this is the tradable perp balance too. */
@@ -455,18 +525,19 @@ export function isHlExtraAgentActive(agent: HlExtraAgent): boolean {
   return agent.validUntil > Date.now();
 }
 
-export async function fetchHlMeta(): Promise<{
+async function fetchHlMetaUncached(): Promise<{
   universe: { name: string; szDecimals: number; maxLeverage?: number; isDelisted?: boolean }[];
 }> {
   for (let attempt = 0; attempt < 4; attempt += 1) {
     try {
-      const res = await fetch(config.hyperliquid.infoUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'meta' }),
-      });
+      const res = await hlInfoPostRaw({ type: 'meta' });
+      if (res.status === 429) {
+        hlRateLimitUntil = Date.now() + HL_RATE_LIMIT_PAUSE_MS;
+        if (attempt < 3) await new Promise((r) => setTimeout(r, retryDelayMs(attempt, 429)));
+        continue;
+      }
       if (!res.ok) {
-        if (attempt < 3) await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+        if (attempt < 3) await new Promise((r) => setTimeout(r, retryDelayMs(attempt, res.status)));
         continue;
       }
       return res.json();
@@ -476,11 +547,20 @@ export async function fetchHlMeta(): Promise<{
           error: err instanceof Error ? err.message : String(err),
         });
       } else {
-        await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+        await new Promise((r) => setTimeout(r, retryDelayMs(attempt, 0)));
       }
     }
   }
   throw new Error('HL meta fetch failed');
+}
+
+export async function fetchHlMeta(): Promise<{
+  universe: { name: string; szDecimals: number; maxLeverage?: number; isDelisted?: boolean }[];
+}> {
+  if (metaCache && Date.now() - metaCache.at < META_TTL_MS) return metaCache.data;
+  const data = await fetchHlMetaUncached();
+  metaCache = { at: Date.now(), data };
+  return data;
 }
 
 export type HlUserFill = {
@@ -586,28 +666,33 @@ export async function fetchHlRecentCloseFillSummaryWithRetry(
 }
 
 export async function fetchHlAllMids(): Promise<Record<string, string>> {
+  if (midsCache && Date.now() - midsCache.at < MIDS_TTL_MS) return midsCache.data;
   for (let attempt = 0; attempt < 4; attempt += 1) {
     try {
-      const res = await fetch(config.hyperliquid.infoUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'allMids' }),
-      });
-      if (!res.ok) {
-        if (attempt < 3) await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+      const res = await hlInfoPostRaw({ type: 'allMids' });
+      if (res.status === 429) {
+        hlRateLimitUntil = Date.now() + HL_RATE_LIMIT_PAUSE_MS;
+        if (attempt < 3) await new Promise((r) => setTimeout(r, retryDelayMs(attempt, 429)));
         continue;
       }
-      return res.json();
+      if (!res.ok) {
+        if (attempt < 3) await new Promise((r) => setTimeout(r, retryDelayMs(attempt, res.status)));
+        continue;
+      }
+      const data = (await res.json()) as Record<string, string>;
+      midsCache = { at: Date.now(), data };
+      return data;
     } catch (err: unknown) {
       if (attempt === 3) {
         logger.debug('HL allMids failed', {
           error: err instanceof Error ? err.message : String(err),
         });
       } else {
-        await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+        await new Promise((r) => setTimeout(r, retryDelayMs(attempt, 0)));
       }
     }
   }
+  if (midsCache) return midsCache.data;
   throw new Error('HL allMids fetch failed');
 }
 

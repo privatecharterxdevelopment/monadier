@@ -12,9 +12,18 @@ async function postHlTradeApi<T>(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  const json = (await res.json()) as { success?: boolean; error?: string };
+  let json: { success?: boolean; error?: string | null } = {};
+  try {
+    json = (await res.json()) as { success?: boolean; error?: string | null };
+  } catch {
+    json = {};
+  }
   if (!res.ok || !json.success) {
-    throw new Error(json.error || 'Hyperliquid request failed');
+    const raw = (json.error ?? '').replace(/\s*-\s*null\s*$/i, '').trim();
+    if (res.status === 429 || /429|too many requests/i.test(raw)) {
+      throw new Error('Hyperliquid rate limit — wait ~30 seconds and retry.');
+    }
+    throw new Error(raw || 'Hyperliquid request failed');
   }
   return json as T;
 }

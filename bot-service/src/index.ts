@@ -44,7 +44,7 @@ import {
 } from './services/userBatchProcessor';
 import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './services/hlAgent';
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
-import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker } from './services/hlInfo';
+import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker, sanitizeHlApiError, invalidateHlClearinghouseCache } from './services/hlInfo';
 import {
   buildNotionalBelowFloorError,
   getLastHlOpenError,
@@ -342,10 +342,17 @@ const healthServer = http.createServer(async (req, res) => {
         reason
       );
       if (!result.success) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: result.error || 'Close failed' }));
+        res.writeHead(/429|too many requests/i.test(result.error ?? '') ? 429 : 400, corsHeaders);
+        res.end(
+          JSON.stringify({
+            success: false,
+            error: sanitizeHlApiError(result.error || 'Close failed'),
+          })
+        );
         return;
       }
+
+      invalidateHlClearinghouseCache(wallet);
 
       res.writeHead(200, corsHeaders);
       res.end(
@@ -359,8 +366,9 @@ const healthServer = http.createServer(async (req, res) => {
       );
     } catch (err: any) {
       logger.error('API: hl-close failed', { error: err.message });
-      res.writeHead(500, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: err.message || 'hl-close failed' }));
+      const msg = sanitizeHlApiError(err.message || 'hl-close failed');
+      res.writeHead(/429|too many requests/i.test(msg) ? 429 : 500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
     }
     return;
   }
