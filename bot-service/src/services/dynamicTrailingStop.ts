@@ -237,7 +237,7 @@ export function shouldExecuteProfitTrailClose(
   return true;
 }
 
-/** Close in green only after a real pullback from peak — not every tick of noise. */
+/** Close in green: S2 hard exit on stop/lock breach; S1 on stop only; soft S2 pullback optional. */
 export function shouldCloseProfitTrailInGreen(
   rec: DynamicTrailRecord,
   input: Pick<
@@ -258,16 +258,8 @@ export function shouldCloseProfitTrailInGreen(
   const cfg = config.hyperliquid.dynamicTrail;
   const armedMs =
     rec.trailArmedAt != null ? input.nowMs - rec.trailArmedAt : 0;
-  if (armedMs < cfg.armMinProfitHoldMs) return false;
-  if (armedMs < cfg.trailMinActiveBeforeCloseMs) return false;
 
   const peak = rec.highestPnlSinceEntry;
-  const minRetraceUsd = Math.max(
-    cfg.profitTrailMinClosePnlUsd,
-    peak * config.hyperliquid.profitTrailMinPeakFraction
-  );
-  const retraceUsd = Math.max(0, peak - input.pnlUsd);
-
   const gapMult = input.trailDistanceMult ?? 1;
   const lockRoe = resolveProfitTrailLockRoe(
     rec.phase,
@@ -276,21 +268,31 @@ export function shouldCloseProfitTrailInGreen(
     gapMult,
     { notionalUsd: input.notionalUsd, coin: input.coin }
   );
+  const stopCrossed =
+    rec.currentTrailStop != null &&
+    isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop);
+  const currentRoe = roePct(input.pnlUsd, input.collateralUsd);
+
+  // Stage 2 hard exit: ratchet stop or locked ROE breach — no arm-hold or retrace gate.
+  if (rec.phase === 'trailing' && (stopCrossed || currentRoe <= lockRoe)) {
+    return true;
+  }
+
+  if (armedMs < cfg.armMinProfitHoldMs) return false;
+  if (armedMs < cfg.trailMinActiveBeforeCloseMs) return false;
 
   // Stage 1: breakeven lock only — close on price stop, not ROE noise.
   if (rec.phase === 'profit_lock') {
-    if (rec.currentTrailStop == null) return false;
-    return isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop);
+    return stopCrossed;
   }
 
-  // Stage 2: need meaningful retrace from peak before ratchet exit.
-  if (retraceUsd < minRetraceUsd) return false;
-
-  const currentRoe = roePct(input.pnlUsd, input.collateralUsd);
-  if (currentRoe <= lockRoe) return true;
-
-  if (rec.currentTrailStop == null) return false;
-  return isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop);
+  // Stage 2 soft exit: pullback from peak without stop cross yet (noise filter).
+  const minRetraceUsd = Math.max(
+    cfg.profitTrailMinClosePnlUsd,
+    peak * config.hyperliquid.profitTrailMinPeakFraction
+  );
+  const retraceUsd = Math.max(0, peak - input.pnlUsd);
+  return retraceUsd >= minRetraceUsd;
 }
 
 /** @deprecated */
