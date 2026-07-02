@@ -237,7 +237,7 @@ export function shouldExecuteProfitTrailClose(
   return true;
 }
 
-/** Close in green: S2 hard exit on stop/lock breach; S1 on stop only; soft S2 pullback optional. */
+/** Close in green: hard exit on stop/lock; soft exit uses net gate + arm hold. */
 export function shouldCloseProfitTrailInGreen(
   rec: DynamicTrailRecord,
   input: Pick<
@@ -253,7 +253,6 @@ export function shouldCloseProfitTrailInGreen(
   >
 ): boolean {
   if (rec.phase !== 'profit_lock' && rec.phase !== 'trailing') return false;
-  if (!shouldExecuteProfitTrailClose(input.pnlUsd, input.notionalUsd, input.coin)) return false;
 
   const cfg = config.hyperliquid.dynamicTrail;
   const armedMs =
@@ -272,27 +271,36 @@ export function shouldCloseProfitTrailInGreen(
     rec.currentTrailStop != null &&
     isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop);
   const currentRoe = roePct(input.pnlUsd, input.collateralUsd);
+  const grossGreen =
+    input.pnlUsd > 0 &&
+    (cfg.profitTrailMinClosePnlUsd <= 0 ||
+      input.pnlUsd >= cfg.profitTrailMinClosePnlUsd);
 
-  // Stage 2 hard exit: ratchet stop or locked ROE breach — no arm-hold or retrace gate.
-  if (rec.phase === 'trailing' && (stopCrossed || currentRoe <= lockRoe)) {
+  // Hard trail exit — stop/lock hit closes any gross green (skip net gate + arm hold).
+  if (
+    grossGreen &&
+    ((rec.phase === 'trailing' && (stopCrossed || currentRoe <= lockRoe)) ||
+      (rec.phase === 'profit_lock' && stopCrossed))
+  ) {
     return true;
   }
+
+  if (!shouldExecuteProfitTrailClose(input.pnlUsd, input.notionalUsd, input.coin)) return false;
 
   if (armedMs < cfg.armMinProfitHoldMs) return false;
   if (armedMs < cfg.trailMinActiveBeforeCloseMs) return false;
 
-  // Stage 1: breakeven lock only — close on price stop, not ROE noise.
-  if (rec.phase === 'profit_lock') {
-    return stopCrossed;
+  // Stage 2 soft exit: pullback from peak without stop cross yet (noise filter).
+  if (rec.phase === 'trailing') {
+    const minRetraceUsd = Math.max(
+      cfg.profitTrailMinClosePnlUsd,
+      peak * config.hyperliquid.profitTrailMinPeakFraction
+    );
+    const retraceUsd = Math.max(0, peak - input.pnlUsd);
+    return retraceUsd >= minRetraceUsd;
   }
 
-  // Stage 2 soft exit: pullback from peak without stop cross yet (noise filter).
-  const minRetraceUsd = Math.max(
-    cfg.profitTrailMinClosePnlUsd,
-    peak * config.hyperliquid.profitTrailMinPeakFraction
-  );
-  const retraceUsd = Math.max(0, peak - input.pnlUsd);
-  return retraceUsd >= minRetraceUsd;
+  return false;
 }
 
 /** @deprecated */

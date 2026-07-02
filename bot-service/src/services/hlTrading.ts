@@ -171,6 +171,10 @@ function rejectProfitExit(
     });
     return { blocked: true, error: 'Profit exit only closes in green' };
   }
+  // Ratchet trail — lock gross green on stop cross; do not block on thin net after pullback.
+  if (reason === 'trailing_stop') {
+    return { blocked: false };
+  }
   if (!passesProfitExitNetGate(pnlUsd, notionalUsd, coin)) {
     const net = expectedNetPnlUsd(pnlUsd, notionalUsd, coin);
     const floor = minNetProfitFloorUsd(notionalUsd);

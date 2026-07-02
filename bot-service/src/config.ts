@@ -137,7 +137,7 @@ export const config = {
       /** Switch to peak ratchet after this peak ROE. */
       fullTrailArmRoePct: Number(process.env.HL_TRAIL_FULL_ARM_ROE_PCT || 2.5),
       /** No wait — arm as soon as ROE + USD peaks pass thresholds. */
-      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 15_000),
+      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 3_000),
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
       /** Peak uPnL > $0 required — no USD floor beyond green (default $0). */
       armMinProfitUsd: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_USD || 0),
@@ -153,7 +153,7 @@ export const config = {
       exitSlippageBpsCautious: Number(process.env.HL_TRAIL_EXIT_SLIP_BPS_CAUTIOUS || 20),
       /** Legacy default slippage when coin tier unknown. */
       estimatedSlippageBps: Number(process.env.HL_TRAIL_EST_SLIPPAGE_BPS || 20),
-      trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 10_000),
+      trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 2_000),
       armFeesMultiplier: Number(process.env.HL_TRAIL_ARM_FEES_MULT || 2),
       breakevenBufferPct: Number(process.env.HL_TRAIL_BE_BUFFER_PCT || 0.02),
       breakevenBufferFeesMult: Number(process.env.HL_TRAIL_BE_BUFFER_FEES_MULT || 0.5),
