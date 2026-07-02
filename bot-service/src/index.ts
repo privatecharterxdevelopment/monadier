@@ -44,7 +44,7 @@ import {
 } from './services/userBatchProcessor';
 import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './services/hlAgent';
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
-import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker, sanitizeHlApiError, invalidateHlClearinghouseCache } from './services/hlInfo';
+import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker, sanitizeHlApiError, invalidateHlClearinghouseCache, warmHlMetaCache } from './services/hlInfo';
 import {
   buildNotionalBelowFloorError,
   getLastHlOpenError,
@@ -1279,6 +1279,7 @@ async function main(): Promise<void> {
   logStartupInfo();
   await validateProductionEnvironment();
   await bootstrapProfitTrailStateFromDb();
+  await warmHlMetaCache();
 
   if (process.env.ENABLE_ARBITRUM_PAYMENT_MONITOR !== 'false') {
     await paymentService.startMonitoring();

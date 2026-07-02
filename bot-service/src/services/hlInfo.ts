@@ -7,6 +7,9 @@ export function sanitizeHlApiError(message: string): string {
   if (/429|too many requests/i.test(cleaned)) {
     return 'Hyperliquid rate limit — wait ~30 seconds and retry.';
   }
+  if (/meta fetch failed|allmids fetch failed/i.test(cleaned)) {
+    return 'Hyperliquid temporarily unavailable — wait ~30 seconds and retry.';
+  }
   return cleaned || 'Hyperliquid request failed — try again.';
 }
 
@@ -19,11 +22,22 @@ const HL_RATE_LIMIT_PAUSE_MS = 28_000;
 const chStateCache = new Map<string, { at: number; data: HlClearinghouseState | null }>();
 const CH_STATE_TTL_MS = 3_500;
 
-let metaCache: { at: number; data: Awaited<ReturnType<typeof fetchHlMetaUncached>> } | null = null;
+let metaCache: { at: number; data: HlMetaResponse } | null = null;
 const META_TTL_MS = 45_000;
+const META_STALE_MAX_MS = 600_000;
 
 let midsCache: { at: number; data: Record<string, string> } | null = null;
 const MIDS_TTL_MS = 2_500;
+const MIDS_STALE_MAX_MS = 120_000;
+
+export type HlMetaResponse = {
+  universe: { name: string; szDecimals: number; maxLeverage?: number; isDelisted?: boolean }[];
+};
+
+async function waitHlRateLimitClear(): Promise<void> {
+  const wait = hlRateLimitUntil - Date.now();
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+}
 
 async function throttleHlInfo<T>(run: () => Promise<T>): Promise<T> {
   const scheduled = hlInfoQueue.then(async () => {
@@ -525,25 +539,30 @@ export function isHlExtraAgentActive(agent: HlExtraAgent): boolean {
   return agent.validUntil > Date.now();
 }
 
-async function fetchHlMetaUncached(): Promise<{
-  universe: { name: string; szDecimals: number; maxLeverage?: number; isDelisted?: boolean }[];
-}> {
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+async function fetchHlMetaUncached(): Promise<HlMetaResponse> {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
     try {
+      if (attempt > 0) await waitHlRateLimitClear();
       const res = await hlInfoPostRaw({ type: 'meta' });
       if (res.status === 429) {
         hlRateLimitUntil = Date.now() + HL_RATE_LIMIT_PAUSE_MS;
-        if (attempt < 3) await new Promise((r) => setTimeout(r, retryDelayMs(attempt, 429)));
+        logger.warn('HL meta rate limited', { attempt: attempt + 1 });
+        await new Promise((r) => setTimeout(r, retryDelayMs(attempt, 429)));
         continue;
       }
       if (!res.ok) {
-        if (attempt < 3) await new Promise((r) => setTimeout(r, retryDelayMs(attempt, res.status)));
+        logger.warn('HL meta HTTP error', { status: res.status, attempt: attempt + 1 });
+        if (attempt < 5) await new Promise((r) => setTimeout(r, retryDelayMs(attempt, res.status)));
         continue;
       }
-      return res.json();
+      const data = (await res.json()) as HlMetaResponse;
+      if (!Array.isArray(data?.universe) || data.universe.length === 0) {
+        throw new Error('HL meta invalid response');
+      }
+      return data;
     } catch (err: unknown) {
-      if (attempt === 3) {
-        logger.debug('HL meta failed', {
+      if (attempt >= 5) {
+        logger.warn('HL meta fetch failed', {
           error: err instanceof Error ? err.message : String(err),
         });
       } else {
@@ -554,13 +573,37 @@ async function fetchHlMetaUncached(): Promise<{
   throw new Error('HL meta fetch failed');
 }
 
-export async function fetchHlMeta(): Promise<{
-  universe: { name: string; szDecimals: number; maxLeverage?: number; isDelisted?: boolean }[];
-}> {
+export async function fetchHlMeta(): Promise<HlMetaResponse> {
   if (metaCache && Date.now() - metaCache.at < META_TTL_MS) return metaCache.data;
-  const data = await fetchHlMetaUncached();
-  metaCache = { at: Date.now(), data };
-  return data;
+  try {
+    const data = await fetchHlMetaUncached();
+    metaCache = { at: Date.now(), data };
+    return data;
+  } catch (err: unknown) {
+    if (metaCache && Date.now() - metaCache.at < META_STALE_MAX_MS) {
+      logger.warn('HL meta fetch failed — using stale cache', {
+        ageSec: Math.round((Date.now() - metaCache.at) / 1000),
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return metaCache.data;
+    }
+    throw err instanceof Error ? err : new Error('HL meta fetch failed');
+  }
+}
+
+/** Warm HL meta cache on startup so close/order paths never hit cold fetch. */
+export async function warmHlMetaCache(): Promise<void> {
+  try {
+    await fetchHlMeta();
+    await fetchHlAllMids().catch(() => undefined);
+    logger.info('HL meta/mids cache warmed', {
+      coins: metaCache?.data.universe.length ?? 0,
+    });
+  } catch (err: unknown) {
+    logger.warn('HL meta warm failed (will retry on demand)', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 export type HlUserFill = {
@@ -667,33 +710,39 @@ export async function fetchHlRecentCloseFillSummaryWithRetry(
 
 export async function fetchHlAllMids(): Promise<Record<string, string>> {
   if (midsCache && Date.now() - midsCache.at < MIDS_TTL_MS) return midsCache.data;
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    try {
-      const res = await hlInfoPostRaw({ type: 'allMids' });
-      if (res.status === 429) {
-        hlRateLimitUntil = Date.now() + HL_RATE_LIMIT_PAUSE_MS;
-        if (attempt < 3) await new Promise((r) => setTimeout(r, retryDelayMs(attempt, 429)));
-        continue;
-      }
-      if (!res.ok) {
-        if (attempt < 3) await new Promise((r) => setTimeout(r, retryDelayMs(attempt, res.status)));
-        continue;
-      }
-      const data = (await res.json()) as Record<string, string>;
-      midsCache = { at: Date.now(), data };
-      return data;
-    } catch (err: unknown) {
-      if (attempt === 3) {
-        logger.debug('HL allMids failed', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      } else {
+  try {
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      try {
+        if (attempt > 0) await waitHlRateLimitClear();
+        const res = await hlInfoPostRaw({ type: 'allMids' });
+        if (res.status === 429) {
+          hlRateLimitUntil = Date.now() + HL_RATE_LIMIT_PAUSE_MS;
+          if (attempt < 5) await new Promise((r) => setTimeout(r, retryDelayMs(attempt, 429)));
+          continue;
+        }
+        if (!res.ok) {
+          if (attempt < 5) await new Promise((r) => setTimeout(r, retryDelayMs(attempt, res.status)));
+          continue;
+        }
+        const data = (await res.json()) as Record<string, string>;
+        midsCache = { at: Date.now(), data };
+        return data;
+      } catch (err: unknown) {
+        if (attempt >= 5) throw err;
         await new Promise((r) => setTimeout(r, retryDelayMs(attempt, 0)));
       }
     }
+    throw new Error('HL allMids fetch failed');
+  } catch (err: unknown) {
+    if (midsCache && Date.now() - midsCache.at < MIDS_STALE_MAX_MS) {
+      logger.warn('HL allMids fetch failed — using stale cache', {
+        ageSec: Math.round((Date.now() - midsCache.at) / 1000),
+      });
+      return midsCache.data;
+    }
+    if (midsCache) return midsCache.data;
+    throw err instanceof Error ? err : new Error('HL allMids fetch failed');
   }
-  if (midsCache) return midsCache.data;
-  throw new Error('HL allMids fetch failed');
 }
 
 export function maxLeverageForCoin(
