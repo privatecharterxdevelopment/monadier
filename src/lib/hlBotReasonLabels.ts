@@ -90,6 +90,9 @@ export function isBotScanNoiseDetail(detail: string): boolean {
     /Checking your Hyperliquid balance/i.test(d) ||
     /HL balance check failed/i.test(d) ||
     /Could not read Hyperliquid balance/i.test(d) ||
+    /HL account equity/i.test(d) ||
+    /free margin \$0\.00 · perp/i.test(d) ||
+    /Waiting for pullback to buy low/i.test(d) ||
     / ‖ /.test(d)
   );
 }

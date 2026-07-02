@@ -47,7 +47,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     ? { headline: 'Connect wallet', detail: 'Connect your wallet to scan HL perps' }
     : !botRunning &&
         !hlSetup.unifiedAccount &&
-        hlSetup.perpUsd < MIN_HL_BOT_USD &&
+        hlSetup.accountUsd < MIN_HL_BOT_USD &&
         hlSetup.spotUsdcUsd >= MIN_HL_BOT_USD
       ? {
           headline: 'Funds on HL Spot',
@@ -62,7 +62,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     metrics,
     openPositionsCount,
     maxConcurrentPositions: maxSlots,
-    vaultUsd: hlSetup.perpUsd > 0 ? hlSetup.perpUsd : hlBalanceUsd,
+    vaultUsd: Math.max(hlBalanceUsd, hlSetup.perpUsd, hlSetup.spotUsdcUsd),
     vaultWallet: effectiveVaultWallet,
     openPositionCoins,
     symbol,

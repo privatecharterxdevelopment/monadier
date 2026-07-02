@@ -100,23 +100,33 @@ async function fetchHlFundingSnapshotOnce(wallet: string): Promise<HlFundingSnap
     fetchHlSpotBalances(wallet),
     fetchHlUserAbstraction(wallet),
   ]);
-  const perpUsd = toNum(account?.margin?.accountValue);
+  const perpUsd = Math.max(
+    toNum(account?.margin?.accountValue),
+    toNum(account?.crossMargin?.accountValue),
+    toNum(account?.margin?.totalRawUsd),
+    toNum(account?.crossMargin?.totalRawUsd)
+  );
   const crossAccountValueUsd = toNum(account?.crossMargin?.accountValue);
   const spotUsdcUsd = toNum(
     spotBalances.find((b) => b.coin.toUpperCase() === 'USDC')?.total
   );
-  const unifiedAccount = inferHlUnifiedMargin(perpUsd, spotUsdcUsd, abstraction);
-  const tradablePerpUsd = hlTradablePerpUsd(perpUsd, spotUsdcUsd, unifiedAccount);
-  const accountEquityUsd = hlTotalAccountEquityUsd(
+  const unifiedAccount =
+    isHlUnifiedMargin(abstraction) || inferHlUnifiedMargin(perpUsd, spotUsdcUsd, abstraction);
+  let tradablePerpUsd = hlTradablePerpUsd(perpUsd, spotUsdcUsd, unifiedAccount);
+  let accountEquityUsd = hlTotalAccountEquityUsd(
     perpUsd,
     spotUsdcUsd,
     unifiedAccount,
     crossAccountValueUsd,
     account
   );
+  if (unifiedAccount) {
+    accountEquityUsd = Math.max(spotUsdcUsd, accountEquityUsd, perpUsd, crossAccountValueUsd);
+    tradablePerpUsd = Math.max(spotUsdcUsd, perpUsd);
+  }
   const perpWithdrawable = toNum(account?.withdrawable);
   const withdrawableUsd = unifiedAccount
-    ? Math.max(perpWithdrawable, spotUsdcUsd)
+    ? Math.max(perpWithdrawable, spotUsdcUsd, tradablePerpUsd)
     : perpWithdrawable;
   const totalUsd = accountEquityUsd;
   return {

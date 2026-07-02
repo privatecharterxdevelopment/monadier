@@ -9,6 +9,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { isBotScanNoiseDetail } from '../lib/hlBotReasonLabels';
 import { HL_MAX_CONCURRENT_POSITIONS, HL_SCAN_ROTATION_COINS, HL_SCAN_UNIVERSE_SIZE, HL_MIN_SIGNAL_CONFIDENCE } from '../lib/hlBotConstants';
 import { MIN_HL_BOT_USD } from '../lib/hyperliquid/hlBotAgent';
+import {
+  filterStaleHlBalanceBlockers,
+  shouldHideLastOpenError,
+} from '../lib/hyperliquid/balanceGate';
 import { getBotApiBase, type Timeframe } from '../lib/signalService';
 import { binanceSymbolToHlCoin, hlCoinToBotSymbol, isBotExcludedHlCoin } from '../lib/botTradingPairs';
 import { normalizeHlBotStrategy, type HlBotStrategy } from '../lib/hlBotStrategy';
@@ -366,19 +370,32 @@ export function useTerminalBotAnalysis({
           openCoins
         );
         if (data.lastOpenError?.error) {
-          const marginStale =
-            /free margin too low|margin too small/i.test(data.lastOpenError.error) &&
-            vaultUsd >= MIN_HL_BOT_USD &&
-            openCoins.length === 0;
-          if (!marginStale) {
-            blockers.push(
-              data.lastOpenError.coin
-                ? `Last open attempt (${data.lastOpenError.coin}): ${data.lastOpenError.error}`
-                : data.lastOpenError.error
-            );
+          const hideLastOpen = shouldHideLastOpenError(
+            data.lastOpenError.error,
+            vaultUsd,
+            MIN_HL_BOT_USD
+          );
+          if (!hideLastOpen) {
+            const marginStale =
+              /free margin too low|margin too small/i.test(data.lastOpenError.error) &&
+              vaultUsd >= MIN_HL_BOT_USD &&
+              openCoins.length === 0;
+            if (!marginStale) {
+              blockers.push(
+                data.lastOpenError.coin
+                  ? `Last open attempt (${data.lastOpenError.coin}): ${data.lastOpenError.error}`
+                  : data.lastOpenError.error
+              );
+            }
           }
         }
-        setServerBlockers(filterUserBlockers(blockers, { exemptFromFees: feeExempt }));
+        setServerBlockers(
+          filterStaleHlBalanceBlockers(
+            filterUserBlockers(blockers, { exemptFromFees: feeExempt }),
+            vaultUsd,
+            MIN_HL_BOT_USD
+          )
+        );
         setPumpSweepLines(
           Array.isArray(data.pumpSweep?.lines)
             ? data.pumpSweep.lines.filter((line) => typeof line === 'string' && line.trim())

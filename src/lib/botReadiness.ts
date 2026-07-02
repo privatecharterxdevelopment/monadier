@@ -118,7 +118,7 @@ function formatBlocker(blocker: string): string {
     }
   }
   if (/Perp margin \$|HL perp balance|HL account equity/i.test(blocker)) {
-    return blocker;
+    return '';
   }
   return blocker;
 }

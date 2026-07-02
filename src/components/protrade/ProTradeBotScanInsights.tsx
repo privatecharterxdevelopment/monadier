@@ -45,7 +45,7 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
     metrics,
     openPositionsCount: metrics.openPositionsCount,
     maxConcurrentPositions: HL_MAX_CONCURRENT_POSITIONS,
-    vaultUsd: hlBalanceUsd,
+    vaultUsd: Math.max(hlBalanceUsd, hlSetup.perpUsd, hlSetup.spotUsdcUsd),
     vaultWallet,
     openPositionCoins,
     symbol,

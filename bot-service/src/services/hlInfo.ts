@@ -5,10 +5,12 @@ export type HlClearinghouseState = {
   marginSummary?: {
     accountValue?: string;
     totalMarginUsed?: string;
+    totalRawUsd?: string;
   };
   crossMarginSummary?: {
     accountValue?: string;
     totalMarginUsed?: string;
+    totalRawUsd?: string;
   };
   withdrawable?: string;
   assetPositions?: Array<{
@@ -63,10 +65,22 @@ export function inferHlUnifiedMargin(
   abstraction: HlUserAbstraction | null
 ): boolean {
   if (isHlUnifiedMargin(abstraction)) return true;
-  // Spot holds most USDC — perp marginSummary alone is not the account total.
   if (spotUsdcUsd >= 1 && spotUsdcUsd > perpUsd + 1) return true;
+  // HL default / unified: spot can read $0 while perp summary is partial — trust abstraction.
+  if (abstraction === null && perpUsd >= 0.01 && spotUsdcUsd < 1) {
+    return false;
+  }
   if (perpUsd >= 0.01 && spotUsdcUsd < 1) return false;
   return abstraction == null;
+}
+
+function hlSummaryAccountValueUsd(state: HlClearinghouseState | null): number {
+  const margin = state?.marginSummary?.accountValue;
+  const cross = state?.crossMarginSummary?.accountValue;
+  const marginRaw = state?.marginSummary?.totalRawUsd;
+  const crossRaw = state?.crossMarginSummary?.totalRawUsd;
+  const values = [margin, cross, marginRaw, crossRaw].map((v) => Number(v ?? 0));
+  return Math.max(0, ...values.filter((n) => Number.isFinite(n)));
 }
 
 export async function fetchHlUserAbstraction(
@@ -144,6 +158,15 @@ export async function fetchHlSpotUsdcUsd(userAddress: string): Promise<number> {
   }
 }
 
+async function fetchHlSpotUsdcUsdWithRetry(userAddress: string): Promise<number> {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const n = await fetchHlSpotUsdcUsd(userAddress);
+    if (n > 0) return n;
+    if (attempt < 3) await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+  }
+  return 0;
+}
+
 export type HlPerpFundingSnapshot = {
   perpUsd: number;
   spotUsdcUsd: number;
@@ -211,20 +234,26 @@ async function fetchHlPerpFundingSnapshotOnce(
 ): Promise<HlPerpFundingSnapshot> {
   const [state, spotUsdcUsd, abstraction] = await Promise.all([
     fetchHlClearinghouseState(userAddress),
-    fetchHlSpotUsdcUsd(userAddress),
+    fetchHlSpotUsdcUsdWithRetry(userAddress),
     fetchHlUserAbstraction(userAddress),
   ]);
   const perpUsd = hlAccountValueUsd(state);
   const crossUsd = hlCrossAccountValueUsd(state);
-  const unifiedAccount = inferHlUnifiedMargin(perpUsd, spotUsdcUsd, abstraction);
-  const tradablePerpUsd = hlTradablePerpUsd(perpUsd, spotUsdcUsd, unifiedAccount);
-  const accountEquityUsd = hlTotalAccountEquityUsd(
+  const unifiedAccount =
+    isHlUnifiedMargin(abstraction) || inferHlUnifiedMargin(perpUsd, spotUsdcUsd, abstraction);
+  let tradablePerpUsd = hlTradablePerpUsd(perpUsd, spotUsdcUsd, unifiedAccount);
+  let accountEquityUsd = hlTotalAccountEquityUsd(
     perpUsd,
     spotUsdcUsd,
     unifiedAccount,
     crossUsd,
     state
   );
+  if (unifiedAccount) {
+    // HL unified/PM: spot clearinghouse is the trading balance source of truth.
+    accountEquityUsd = Math.max(spotUsdcUsd, accountEquityUsd, perpUsd, crossUsd);
+    tradablePerpUsd = Math.max(spotUsdcUsd, perpUsd);
+  }
   const perpWithdrawable = hlWithdrawableUsd(state);
   return {
     perpUsd,
@@ -233,7 +262,7 @@ async function fetchHlPerpFundingSnapshotOnce(
     accountEquityUsd,
     unifiedAccount,
     withdrawableUsd: unifiedAccount
-      ? Math.max(perpWithdrawable, spotUsdcUsd)
+      ? Math.max(perpWithdrawable, spotUsdcUsd, tradablePerpUsd)
       : perpWithdrawable,
     stateLoaded: state != null || spotUsdcUsd >= 0.01,
   };
@@ -244,10 +273,10 @@ export async function fetchHlPerpFundingSnapshot(
   userAddress: string
 ): Promise<HlPerpFundingSnapshot> {
   let snapshot = await fetchHlPerpFundingSnapshotOnce(userAddress);
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 4; attempt++) {
     const needsRetry =
       !snapshot.stateLoaded ||
-      (snapshot.stateLoaded &&
+      (snapshot.accountEquityUsd < 0.01 &&
         snapshot.tradablePerpUsd < 0.01 &&
         snapshot.perpUsd < 0.01 &&
         snapshot.spotUsdcUsd < 0.01);
@@ -285,15 +314,7 @@ export function describeHlPerpBalanceBlocker(
 }
 
 export function hlAccountValueUsd(state: HlClearinghouseState | null): number {
-  const margin = state?.marginSummary?.accountValue;
-  const cross = state?.crossMarginSummary?.accountValue;
-  const marginN = margin != null ? Number(margin) : 0;
-  const crossN = cross != null ? Number(cross) : 0;
-  const best = Math.max(
-    Number.isFinite(marginN) ? marginN : 0,
-    Number.isFinite(crossN) ? crossN : 0
-  );
-  return best;
+  return hlSummaryAccountValueUsd(state);
 }
 
 export function hlWithdrawableUsd(state: HlClearinghouseState | null): number {
@@ -323,8 +344,14 @@ export function hlTradableFreeMarginUsd(
   if (!funding.stateLoaded) return 0;
   if (funding.unifiedAccount) {
     const marginUsed = hlMarginUsedUsd(state);
-    const derived = Math.max(0, funding.tradablePerpUsd - marginUsed);
-    return Math.max(0, Math.min(derived, funding.withdrawableUsd) - 1);
+    const base = Math.max(
+      funding.tradablePerpUsd,
+      funding.spotUsdcUsd,
+      funding.accountEquityUsd
+    );
+    const derived = Math.max(0, base - marginUsed);
+    const cap = Math.max(funding.withdrawableUsd, derived);
+    return Math.max(0, Math.min(derived, cap) - 1);
   }
   return hlFreeMarginUsd(state);
 }

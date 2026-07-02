@@ -864,10 +864,6 @@ export class HyperliquidTradingService {
         config.hyperliquid.minAccountUsd
       );
       if (balanceBlocker) {
-        lastHlOpenError.set(userAddress.toLowerCase(), {
-          at: new Date().toISOString(),
-          error: balanceBlocker,
-        });
         logger.info('HL open skip: balance gate', {
           user: userAddress.slice(0, 10),
           reason: balanceBlocker,
@@ -875,6 +871,8 @@ export class HyperliquidTradingService {
         });
         break;
       }
+
+      lastHlOpenError.delete(userAddress.toLowerCase());
 
       const slotsLeft = maxPositions - coinsOpen.length;
       const balance = funding.accountEquityUsd;
