@@ -126,6 +126,11 @@ export let lastHlGlobalScanStats: HlGlobalScanStats = {
 
 export let lastGlobalScanResult: GlobalScanResult = { standard: [], aggressive: [] };
 
+/** API handlers — use last background scan only (never block 30s+ on full universe scan). */
+export function getCachedGlobalScanForApi(): GlobalScanResult {
+  return lastGlobalScanResult;
+}
+
 let cachedGlobalScan: { result: GlobalScanResult; at: number; universeAt: number } | null = null;
 
 function logScanCacheHits(funnel: PipelineFunnelRecorder | undefined, result: GlobalScanResult): void {

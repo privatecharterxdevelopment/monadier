@@ -22,6 +22,7 @@ import {
   diagnoseWalletTradingBatch,
 } from './services/walletTradeDiagnosis';
 import {
+  getCachedGlobalScanForApi,
   lastHlGlobalScanStats,
   lastGlobalScanResult,
   scanGlobalHlSignals,
@@ -651,41 +652,18 @@ const healthServer = http.createServer(async (req, res) => {
 
       const userAddress = wallet.toLowerCase() as `0x${string}`;
       const chainId = 42161;
-
-      const userId = await subscriptionService.getUserIdFromWallet(userAddress);
-      const dbSettings = await subscriptionService.getUserTradingSettings(userAddress, chainId);
-      const banStatus = await subscriptionService.getBotBanStatus(userAddress, chainId);
-      const winRateGate = await checkWinRateGate(
-        userAddress,
-        chainId,
-        dbSettings.minWinRatePercent,
-        dbSettings.minTradesForWinRateGate
-      );
-
-      const hlState = await fetchHlClearinghouseState(userAddress);
-      const hlFunding = await fetchHlPerpFundingSnapshot(userAddress);
-      const hlBalanceUsd = hlFunding.accountEquityUsd;
-      const hlWithdrawable = hlFunding.withdrawableUsd;
-      const hlFreeMargin = hlTradableFreeMarginUsd(hlFunding, hlState);
+      const globalScan = getCachedGlobalScanForApi();
       const hlAgentAddr = deriveUserHlAgentAddress(userAddress);
-      const hlAgentOk = await hlAgentApprovalService.isApproved(userAddress, hlAgentAddr);
-      const hlAgentBlocker = hlAgentOk
-        ? null
-        : await hlAgentApprovalService.describeAgentBlocker(userAddress, hlAgentAddr);
-      const builderGate = await checkHlBuilderFeeApproved(userAddress);
-      const feeSummary = await getPlatformFeeStatus(userAddress);
-      const hlOpenCoins = hlOpenPerpCoins(hlState);
 
-      const collateralForSignal = BigInt(Math.floor(Math.max(hlBalanceUsd, 0) * 1e6));
+      const [userId, dbSettings, builderGate, feeSummary, tradeDiagnosis] = await Promise.all([
+        subscriptionService.getUserIdFromWallet(userAddress),
+        subscriptionService.getUserTradingSettings(userAddress, chainId),
+        checkHlBuilderFeeApproved(userAddress),
+        getPlatformFeeStatus(userAddress),
+        diagnoseWalletTrading(userAddress, { globalScan }),
+      ]);
 
-      const globalScan =
-        lastGlobalScanResult.standard.length + lastGlobalScanResult.aggressive.length > 0
-          ? lastGlobalScanResult
-          : await scanGlobalHlSignals();
-      const rawUserSignals = globalSignalsForBotMode(
-        globalScan,
-        dbSettings.hlBotStrategy
-      );
+      const rawUserSignals = globalSignalsForBotMode(globalScan, dbSettings.hlBotStrategy);
       const {
         signals: userSignals,
         dropped: filteredSignalCount,
@@ -693,140 +671,12 @@ const healthServer = http.createServer(async (req, res) => {
       } = applyOpenUniverseFilters(rawUserSignals, globalScan);
       const openUniverse = describeOpenUniverseForClient(globalScan);
       const bestGlobal = userSignals[0] ?? null;
+      const hlOpenCoins = tradeDiagnosis.hyperliquid.openCoins;
       const openCoinSet = new Set(hlOpenCoins.map((c) => c.toUpperCase()));
       const bestAvailable =
         userSignals.find((s) => !openCoinSet.has(s.coin.toUpperCase())) ?? null;
-
-      const ethSignal = await marketService.getSignal(
-        chainId,
-        ARBITRUM_SIGNAL_TOKENS.WETH,
-        collateralForSignal,
-        10000,
-        DEFAULT_STRATEGY
-      );
-      const btcSignal = await marketService.getSignal(
-        chainId,
-        ARBITRUM_SIGNAL_TOKENS.WBTC,
-        collateralForSignal,
-        10000,
-        DEFAULT_STRATEGY
-      );
-
-      const openDb = await positionService.getOpenPositions(userAddress, chainId);
-
-      const megaPumpSweep = await fetchMegaPairPumpSweep();
-      const pumpSweepLines = [megaPumpSweep.BTC, megaPumpSweep.ETH]
-        .filter((row): row is NonNullable<typeof row> => Boolean(row))
-        .map(formatPumpSweepLine);
-
-      const blockers: string[] = [];
-      const userBlockers: string[] = [];
-      const marketBlockers: string[] = [];
-
-      const pushUser = (msg: string) => {
-        userBlockers.push(msg);
-        blockers.push(msg);
-      };
-      const pushMarket = (msg: string) => {
-        marketBlockers.push(msg);
-        blockers.push(msg);
-      };
-
-      if (!hlAgentOk) {
-        pushUser(hlAgentBlocker ?? 'HL agent not approved — enable bot in app');
-      }
-      if (feeSummary.opensBlocked) {
-        pushUser(
-          `PLATFORM_FEES_DUE — pay ${feeSummary.accruedUsd.toFixed(2)} USDC after ${feeSummary.successWinCount} winning closes (this wallet only)`
-        );
-      }
-      const balanceBlocker =
-        hlAgentOk || hlFunding.stateLoaded
-          ? describeHlPerpBalanceBlocker(hlFunding, config.hyperliquid.minAccountUsd)
-          : null;
-      const balanceReadFlake =
-        balanceBlocker != null && /HL balance check failed/i.test(balanceBlocker);
-      if (balanceBlocker && !balanceReadFlake) {
-        pushUser(balanceBlocker);
-      }
-      const maxPositions = config.hyperliquid.maxConcurrentPositions;
-      if (!dbSettings.autoTradeEnabled) pushUser('auto-trade disabled in settings');
-      if (hlOpenCoins.length >= maxPositions) {
-        pushUser(
-          `HL max positions (${maxPositions}/${maxPositions}): ${hlOpenCoins.join(', ')}`
-        );
-      }
-      if (banStatus.isBanned) {
-        pushUser(
-          `bot banned until ${banStatus.bannedUntil?.toISOString() ?? 'unknown'}`
-        );
-      }
-      if (!winRateGate.allowed) pushUser(winRateGate.reason || 'win rate gate');
-      const tradePerm = await subscriptionService.canTrade(userAddress);
-      if (!tradePerm.allowed) {
-        pushUser(`subscription: ${tradePerm.reason || 'not allowed'}`);
-      }
-
-      const balanceGateOpen = !balanceBlocker || balanceReadFlake;
-      if (balanceGateOpen && userSignals.length === 0 && hlOpenCoins.length < maxPositions) {
-        pushMarket(
-          describeNoTradeableSetupBlocker(rawUserSignals.length, filterReasons)
-        );
-      }
-      if (balanceGateOpen && !bestAvailable && userSignals.length > 0 && hlOpenCoins.length < maxPositions) {
-        pushMarket('all tradeable pairs already have open positions or are blocked');
-      }
-      if (balanceGateOpen && !bestAvailable && userSignals.length === 0 && rawUserSignals.length > 0 && hlOpenCoins.length < maxPositions) {
-        pushMarket(
-          `scan found ${rawUserSignals.length} raw signal(s) but 0 passed open filters — ${openUniverse.summary}`
-        );
-      }
-      if (balanceGateOpen && bestAvailable && hlOpenCoins.length < maxPositions && dbSettings.autoTradeEnabled) {
-        const balance = hlBalanceUsd;
-        let perSlot = resolveHlMarginPerSlot(
-          balance,
-          dbSettings.riskLevelBps,
-          hlOpenCoins.length,
-          hlFreeMargin
-        );
-        const lev = Math.max(1, Math.floor(dbSettings.leverageMultiplier || 10));
-        const minNotional = config.hyperliquid.minNotionalUsd;
-        const slotsLeft = maxPositions - hlOpenCoins.length;
-        const marginHeadroom = Math.min(
-          hlFreeMargin / Math.max(1, slotsLeft),
-          balance * config.hyperliquid.maxMarginPctPerSlot,
-          balance / maxPositions
-        );
-        const minCollateral = minHlMarginForNotionalFloor(perSlot, lev, minNotional);
-        if (balance >= config.hyperliquid.minAccountUsd && marginHeadroom >= minCollateral) {
-          perSlot = Math.min(Math.max(perSlot, minCollateral), marginHeadroom);
-        }
-        if (perSlot < 1) {
-          pushUser(
-            hlOpenCoins.length > 0
-              ? `free margin too low for slot 2 ($${hlFreeMargin.toFixed(2)} free from $${balance.toFixed(2)} balance, $${hlWithdrawable.toFixed(2)} withdrawable, ${hlOpenCoins.length}/${maxPositions} open)`
-              : `margin too small for slot ($${perSlot.toFixed(2)} from $${balance.toFixed(2)} balance, ${hlOpenCoins.length}/${maxPositions} open)`
-          );
-        } else {
-          const previewLev = resolveHlOrderLeverage(perSlot, lev, 50, minNotional);
-          if (previewLev.notionalUsd < minNotional) {
-            pushUser(
-              buildNotionalBelowFloorError(
-                previewLev.notionalUsd,
-                minNotional,
-                perSlot,
-                previewLev.leverage,
-                lev
-              )
-            );
-          }
-        }
-      }
-
-      const userReady = userBlockers.length === 0;
-      const marketReady = Boolean(bestAvailable) || hlOpenCoins.length > 0;
-
-      const tradeDiagnosis = await diagnoseWalletTrading(userAddress, { globalScan });
+      const hl = tradeDiagnosis.hyperliquid;
+      const maxPositions = hl.maxConcurrentPositions;
 
       res.writeHead(200, corsHeaders);
       res.end(JSON.stringify({
@@ -834,28 +684,28 @@ const healthServer = http.createServer(async (req, res) => {
         wallet: userAddress,
         userId: userId ? `${userId.slice(0, 8)}…` : null,
         executionVenue: 'hyperliquid',
-        canTrade: userReady && marketReady,
-        userReady,
-        marketReady,
-        blockers,
-        userBlockers,
-        marketBlockers,
+        canTrade: tradeDiagnosis.canTrade,
+        userReady: tradeDiagnosis.userReady,
+        marketReady: tradeDiagnosis.marketReady,
+        blockers: tradeDiagnosis.blockers,
+        userBlockers: tradeDiagnosis.userBlockers,
+        marketBlockers: tradeDiagnosis.marketBlockers,
         tradeDiagnosis,
         summary: tradeDiagnosis.summary,
         wouldProcessOpens: tradeDiagnosis.wouldProcessOpens,
         runnable: tradeDiagnosis.runnable,
         gates: tradeDiagnosis.gates,
         hyperliquid: {
-          balanceUsd: hlBalanceUsd,
-          perpUsd: hlFunding.perpUsd,
-          accountEquityUsd: hlFunding.accountEquityUsd,
-          tradablePerpUsd: hlFunding.tradablePerpUsd,
-          spotUsdcUsd: hlFunding.spotUsdcUsd,
-          unifiedAccount: hlFunding.unifiedAccount,
-          withdrawableUsd: hlWithdrawable,
-          freeMarginUsd: hlFreeMargin,
+          balanceUsd: hl.accountEquityUsd,
+          perpUsd: hl.perpUsd,
+          accountEquityUsd: hl.accountEquityUsd,
+          tradablePerpUsd: hl.tradablePerpUsd,
+          spotUsdcUsd: hl.spotUsdcUsd,
+          withdrawableUsd: hl.withdrawableUsd,
+          unifiedAccount: hl.unifiedAccount,
+          freeMarginUsd: hl.freeMarginUsd,
           agentAddress: hlAgentAddr,
-          agentApproved: hlAgentOk,
+          agentApproved: hl.agentApproved,
           builderFeeApproved: builderGate.approved,
           builderFeeRequired: builderGate.required,
           builderPlatformReady: builderGate.platformReady,
@@ -863,8 +713,8 @@ const healthServer = http.createServer(async (req, res) => {
           builderPlatformMinUsd: builderGate.platformMinUsd,
           openCoins: hlOpenCoins,
           maxConcurrentPositions: maxPositions,
-          minNotionalUsd: config.hyperliquid.minNotionalUsd,
-          minAccountUsd: config.hyperliquid.minAccountUsd,
+          minNotionalUsd: hl.minNotionalUsd,
+          minAccountUsd: hl.minAccountUsd,
         },
         dbSettings: {
           autoTradeEnabled: dbSettings.autoTradeEnabled,
@@ -924,29 +774,17 @@ const healthServer = http.createServer(async (req, res) => {
         },
         megaPairVolume: getMegaPairVolumeSnapshot(),
         pumpSweep: {
-          btc: megaPumpSweep.BTC ?? null,
-          eth: megaPumpSweep.ETH ?? null,
-          lines: pumpSweepLines,
+          btc: null,
+          eth: null,
+          lines: [],
         },
-        sampleSignal: ethSignal
-          ? {
-              direction: ethSignal.direction,
-              confidence: ethSignal.confidence,
-              reason: ethSignal.reason,
-            }
-          : null,
-        btcSignal: btcSignal
-          ? {
-              direction: btcSignal.direction,
-              confidence: btcSignal.confidence,
-              reason: btcSignal.reason,
-            }
-          : null,
+        sampleSignal: null,
+        btcSignal: null,
         openPositionCounts: {
-          dbOpenPositions: openDb.length,
+          dbOpenPositions: 0,
           onChainOpenTokens: hlOpenCoins,
         },
-        lastOpenError: getLastHlOpenErrorForClient(userAddress),
+        lastOpenError: tradeDiagnosis.lastOpenError,
         tradeCycleSec: config.trading.checkIntervalMs / 1000,
         successFees: {
           accruedUsd: feeSummary.accruedUsd,
@@ -1073,10 +911,7 @@ const healthServer = http.createServer(async (req, res) => {
 
   if (url.pathname === '/api/global-signals') {
     try {
-      const scan =
-        lastGlobalScanResult.standard.length + lastGlobalScanResult.aggressive.length > 0
-          ? lastGlobalScanResult
-          : await scanGlobalHlSignals();
+      const scan = getCachedGlobalScanForApi();
       const tradeableResult = applyOpenUniverseFilters(
         [...scan.standard, ...scan.aggressive],
         scan
@@ -1102,6 +937,7 @@ const healthServer = http.createServer(async (req, res) => {
         })
       );
     } catch (err: any) {
+      logger.error('API: global-signals failed', { error: err.message });
       res.writeHead(500, corsHeaders);
       res.end(JSON.stringify({ success: false, error: err.message || 'global-signals failed' }));
     }

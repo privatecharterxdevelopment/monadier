@@ -21,8 +21,7 @@ import {
 } from './marketRegime';
 import {
   globalSignalsForBotMode,
-  lastGlobalScanResult,
-  scanGlobalHlSignals,
+  getCachedGlobalScanForApi,
   type GlobalScanResult,
 } from './globalMarketScan';
 import {
@@ -62,6 +61,8 @@ export type WalletTradeDiagnosis = {
     perpUsd: number;
     spotUsdcUsd: number;
     tradablePerpUsd: number;
+    withdrawableUsd: number;
+    unifiedAccount: boolean;
     freeMarginUsd: number;
     openCoins: string[];
     maxConcurrentPositions: number;
@@ -209,11 +210,7 @@ export async function diagnoseWalletTrading(
     );
   }
 
-  const globalScan =
-    opts?.globalScan ??
-    (lastGlobalScanResult.standard.length + lastGlobalScanResult.aggressive.length > 0
-      ? lastGlobalScanResult
-      : await scanGlobalHlSignals());
+  const globalScan = opts?.globalScan ?? getCachedGlobalScanForApi();
 
   const rawUserSignals = globalSignalsForBotMode(globalScan, dbSettings.hlBotStrategy);
   const { signals: userSignals, reasons: filterReasons } = applyOpenUniverseFilters(
@@ -356,6 +353,8 @@ export async function diagnoseWalletTrading(
       perpUsd: hlFunding.perpUsd,
       spotUsdcUsd: hlFunding.spotUsdcUsd,
       tradablePerpUsd: hlFunding.tradablePerpUsd,
+      withdrawableUsd: hlFunding.withdrawableUsd,
+      unifiedAccount: hlFunding.unifiedAccount,
       freeMarginUsd: hlFreeMargin,
       openCoins: hlOpenCoins,
       maxConcurrentPositions: maxPositions,
@@ -382,10 +381,7 @@ export async function diagnoseWalletTrading(
 export async function diagnoseWalletTradingBatch(
   wallets: `0x${string}`[]
 ): Promise<Record<string, WalletTradeDiagnosis>> {
-  const globalScan =
-    lastGlobalScanResult.standard.length + lastGlobalScanResult.aggressive.length > 0
-      ? lastGlobalScanResult
-      : await scanGlobalHlSignals();
+  const globalScan = getCachedGlobalScanForApi();
 
   const unique = [...new Set(wallets.map((w) => w.toLowerCase() as `0x${string}`))];
   const entries = await Promise.all(
