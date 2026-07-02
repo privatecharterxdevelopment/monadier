@@ -24,7 +24,7 @@ export const HL_DYNAMIC_TRAIL = {
   /** Min locked ROE% once armed (floor; may scale up with minNet). */
   armMinRoePct: 0.4,
   /** Peak ROE minus this gap when ratcheting (stage 2). */
-  trailGapRoePct: 0.1,
+  trailGapRoePct: 0.65,
   /** Stage 2 arms when peak ROE ≥ this. */
   fullTrailArmRoePct: 2.5,
   armFeesMultiplier: 2,

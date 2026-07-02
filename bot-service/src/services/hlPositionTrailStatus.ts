@@ -75,21 +75,36 @@ export async function getHlPositionTrailSnapshots(
     const stateTracked = Boolean(
       rec && (rec.phase === 'trailing' || rec.phase === 'profit_lock')
     );
+    const direction = szi >= 0 ? ('LONG' as const) : ('SHORT' as const);
 
-    const peakPnlUsd = Math.max(rec?.highestPnlSinceEntry ?? currentPnlUsd, currentPnlUsd);
+    const peakFromExtreme =
+      rec?.highestPriceSinceEntry != null && absSize > 0
+        ? direction === 'LONG'
+          ? (rec.highestPriceSinceEntry - entryPx) * absSize
+          : (entryPx - rec.highestPriceSinceEntry) * absSize
+        : 0;
+    const peakPnlUsd = Math.max(
+      rec?.highestPnlSinceEntry ?? currentPnlUsd,
+      currentPnlUsd,
+      peakFromExtreme
+    );
     const peakRoePct = roePct(peakPnlUsd, collateral);
     const armed =
       rec?.phase === 'profit_lock' ||
       rec?.phase === 'trailing' ||
       shouldArmProfitTrail(peakPnlUsd, collateral);
-    const trailPhase: TrailPhase =
+    const storedPhase: TrailPhase =
       rec?.phase === 'trailing' || rec?.phase === 'profit_lock'
         ? rec.phase
         : armed
-          ? shouldUpgradeToFullTrail(peakPnlUsd, collateral)
-            ? 'trailing'
-            : 'profit_lock'
+          ? 'profit_lock'
           : 'idle';
+    // Display/monitor truth: peak may qualify for S2 even if persisted phase lags at S1.
+    const trailPhase: TrailPhase =
+      storedPhase === 'trailing' ||
+      (armed && shouldUpgradeToFullTrail(peakPnlUsd, collateral))
+        ? 'trailing'
+        : storedPhase;
     const lockRoePct = armed
       ? resolveProfitTrailLockRoe(trailPhase, peakPnlUsd, collateral, 1, {
           notionalUsd: notional,
@@ -97,7 +112,6 @@ export async function getHlPositionTrailSnapshots(
         })
       : 0;
     const lockPnlUsd = armed ? collateral * (lockRoePct / 100) : 0;
-    const direction = szi >= 0 ? ('LONG' as const) : ('SHORT' as const);
     const candidateStop =
       armed && collateral > 0
         ? stopPxForRoePct(direction, entryPx, absSize, collateral, lockRoePct)
@@ -106,10 +120,14 @@ export async function getHlPositionTrailSnapshots(
       armed && candidateStop != null
         ? ratchetStop(direction, rec?.currentTrailStop ?? null, candidateStop)
         : null;
+    const evalRec =
+      rec != null
+        ? ({ ...rec, phase: trailPhase } as DynamicTrailRecord)
+        : null;
     const wouldCloseNow =
       armed &&
-      rec != null &&
-      shouldCloseProfitTrailInGreen(rec as DynamicTrailRecord, {
+      evalRec != null &&
+      shouldCloseProfitTrailInGreen(evalRec, {
         coin,
         pnlUsd: currentPnlUsd,
         collateralUsd: collateral,

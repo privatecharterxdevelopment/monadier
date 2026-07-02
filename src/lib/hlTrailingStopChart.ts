@@ -291,18 +291,6 @@ export function trailStopForOpenPosition(opts: {
     };
   }
 
-  if (server?.stopPx != null && server.lockRoePct > 0) {
-    return {
-      stopPx: server.stopPx,
-      armed: true,
-      kind: 'profit',
-      label: fmtStopPx(server.stopPx),
-      title: server.stateTracked
-        ? `Bot profit SL at ${fmtStopPx(server.stopPx)} — stop only moves up with peak uPnL.`
-        : `Profit SL at ${fmtStopPx(server.stopPx)} — bot peak state was reset (redeploy).`,
-    };
-  }
-
   const trail = computeDynamicTrailStopPx({
     entryPx: opts.entryPx,
     szi: opts.szi,
@@ -312,6 +300,38 @@ export function trailStopForOpenPosition(opts: {
     notionalUsd: notional,
     collateralUsd: collateral,
   });
+
+  if (server?.stopPx != null && server.lockRoePct > 0) {
+    const isLong = side === 'long';
+    let displayStop = server.stopPx;
+    if (trail.armed && trail.stopPx != null) {
+      // Server can lag at stage-1 lock — ratchet display to stage-2 when peak qualifies.
+      displayStop = isLong
+        ? Math.max(server.stopPx, trail.stopPx)
+        : Math.min(server.stopPx, trail.stopPx);
+    }
+    const breached =
+      displayStop > 0 &&
+      (isLong ? opts.markPx <= displayStop : opts.markPx >= displayStop);
+    if (breached) {
+      return {
+        stopPx: displayStop,
+        armed: true,
+        kind: 'close_now',
+        label: fmtStopPx(displayStop),
+        title: `Price crossed profit SL at ${fmtStopPx(displayStop)} — bot should close in profit.`,
+      };
+    }
+    return {
+      stopPx: displayStop,
+      armed: true,
+      kind: 'profit',
+      label: fmtStopPx(displayStop),
+      title: server.stateTracked
+        ? `Bot profit SL at ${fmtStopPx(displayStop)} — trails below peak (peak − ${HL_DYNAMIC_TRAIL.trailGapRoePct}% ROE).`
+        : `Profit SL at ${fmtStopPx(displayStop)} — bot peak state was reset (redeploy).`,
+    };
+  }
 
   if (trail.armed && trail.stopPx != null) {
     return {

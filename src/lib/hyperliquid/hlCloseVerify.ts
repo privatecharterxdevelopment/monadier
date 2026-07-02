@@ -1,3 +1,4 @@
+import { isHlRateLimitError } from '../devLog';
 import { fetchHlAccountState } from './user';
 import { toNum } from './parse';
 import { clearHlInfoCache } from './hlInfoClient';
@@ -14,15 +15,27 @@ export async function waitForHlPositionClosed(
 ): Promise<boolean> {
   const coinUpper = coin.toUpperCase();
   const deadline = Date.now() + (opts?.maxMs ?? 16_000);
-  const intervalMs = opts?.intervalMs ?? 500;
+  const intervalMs = opts?.intervalMs ?? 1_200;
 
   while (Date.now() < deadline) {
-    clearHlInfoCache();
-    const account = await fetchHlAccountState(wallet);
-    const row = account.positions.find((p) => p.coin.toUpperCase() === coinUpper);
-    const size = Math.abs(toNum(row?.szi));
-    if (!row || size < 1e-12) return true;
+    try {
+      const account = await fetchHlAccountState(wallet);
+      const row = account.positions.find((p) => p.coin.toUpperCase() === coinUpper);
+      const size = Math.abs(toNum(row?.szi));
+      if (!row || size < 1e-12) return true;
+    } catch (err) {
+      if (isHlRateLimitError(err)) {
+        await sleep(Math.max(intervalMs, 2_500));
+        continue;
+      }
+      throw err;
+    }
     await sleep(intervalMs);
   }
   return false;
+}
+
+/** One-shot cache bust after a confirmed close (UI refresh). */
+export function refreshHlAccountAfterClose(): void {
+  clearHlInfoCache();
 }
