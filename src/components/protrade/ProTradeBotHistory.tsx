@@ -107,45 +107,45 @@ const ProTradeBotHistory: React.FC<Props> = ({
 
           {showOverview ? (
             <div className="hl-history-overview" aria-label="Bot trading totals">
-              <div className="hl-history-overview-card">
-                <span className="hl-history-overview-label">Total gain</span>
-                <span className="hl-history-overview-value hl-up">
-                  {fillsLoading && pnlSummary.closedCount === 0
-                    ? '…'
-                    : fmtUsdSymbol(pnlSummary.totalGain)}
-                </span>
-              </div>
-              <div className="hl-history-overview-card">
-                <span className="hl-history-overview-label">Total loss</span>
-                <span className="hl-history-overview-value hl-down">
-                  {fillsLoading && pnlSummary.closedCount === 0
-                    ? '…'
-                    : fmtUsdSymbol(Math.abs(pnlSummary.totalLoss))}
-                </span>
-              </div>
-              <div className="hl-history-overview-card">
-                <span className="hl-history-overview-label">Timeline</span>
-                <span className="hl-history-overview-value hl-history-overview-value--sm">
-                  {fillsLoading && tradingSinceMs == null
-                    ? '…'
-                    : fmtTradingSince(tradingSinceMs)}
-                </span>
-              </div>
-              <div className="hl-history-overview-card">
-                <span className="hl-history-overview-label">Active uPnL</span>
-                <span
-                  className={`hl-history-overview-value ${
-                    activeUpnl >= 0 ? 'hl-up' : 'hl-down'
-                  }`}
-                >
-                  {account == null && fillsLoading ? '…' : fmtClosedPnl(activeUpnl)}
-                </span>
-                {botPositions.length > 0 ? (
-                  <span className="hl-history-overview-sub">
-                    {botPositions.length} open position{botPositions.length === 1 ? '' : 's'}
+              <div className="hl-history-overview-strip">
+                <div className="hl-history-overview-stat">
+                  <span className="hl-history-overview-k">Gain</span>
+                  <span className="hl-history-overview-v hl-up">
+                    {fillsLoading && pnlSummary.closedCount === 0
+                      ? '…'
+                      : fmtUsdSymbol(pnlSummary.totalGain)}
                   </span>
-                ) : null}
+                </div>
+                <div className="hl-history-overview-stat">
+                  <span className="hl-history-overview-k">Loss</span>
+                  <span className="hl-history-overview-v hl-down">
+                    {fillsLoading && pnlSummary.closedCount === 0
+                      ? '…'
+                      : fmtUsdSymbol(Math.abs(pnlSummary.totalLoss))}
+                  </span>
+                </div>
+                <div className="hl-history-overview-stat">
+                  <span className="hl-history-overview-k">uPnL</span>
+                  <span
+                    className={`hl-history-overview-v ${
+                      activeUpnl >= 0 ? 'hl-up' : 'hl-down'
+                    }`}
+                  >
+                    {account == null && fillsLoading ? '…' : fmtClosedPnl(activeUpnl)}
+                    {botPositions.length > 0 ? (
+                      <span className="hl-history-overview-meta">
+                        {' · '}
+                        {botPositions.length} open
+                      </span>
+                    ) : null}
+                  </span>
+                </div>
               </div>
+              <p className="hl-history-overview-since">
+                {fillsLoading && tradingSinceMs == null
+                  ? '…'
+                  : fmtTradingSince(tradingSinceMs)}
+              </p>
             </div>
           ) : null}
 

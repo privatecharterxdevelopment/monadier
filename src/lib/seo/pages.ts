@@ -38,6 +38,16 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     priority: 1.0,
     sitemap: true,
   },
+  '/leaderboard': {
+    path: '/leaderboard',
+    title: `Leaderboard On Chain | Verified Bot Wins — ${SITE_NAME}`,
+    description:
+      'Live on-chain leaderboard of profitable Hyperliquid bot trades. Masked wallets, open and close times, P/L — verify every win on HypurrScan. A bot for the people: no keys, fees only on successful closes.',
+    keywords: `hyperliquid bot leaderboard, on-chain trading wins, hypurrscan verify, ${BOT_KEYWORDS}`,
+    changefreq: 'weekly',
+    priority: 0.9,
+    sitemap: true,
+  },
   '/how-it-works': {
     path: '/how-it-works',
     title: `How the Hyperliquid Bot Works | ${SITE_NAME}`,

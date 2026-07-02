@@ -9,18 +9,21 @@ import {
   type ProTradeProfileTab,
 } from './proTradeProfileTypes';
 import ProTradeBotHistory from './ProTradeBotHistory';
+import HlFundsOverviewPanel from './HlFundsOverviewPanel';
 import ProTradePageShell from './ProTradePageShell';
 
 type Props = {
   activeTab?: ProTradeProfileTab;
   onTabChange?: (tab: ProTradeProfileTab) => void;
   botHistoryRefreshKey?: number;
+  onRequireSignIn?: (reason: string) => void;
 };
 
 const ProTradeProfile: React.FC<Props> = ({
   activeTab: controlledTab,
   onTabChange,
   botHistoryRefreshKey = 0,
+  onRequireSignIn,
 }) => {
   const { user, profile } = useAuth();
   const { address, isConnected } = useMonadierWallet();
@@ -62,6 +65,13 @@ const ProTradeProfile: React.FC<Props> = ({
           ))}
         </nav>
       </div>
+
+      <HlFundsOverviewPanel
+        walletAddress={address ?? undefined}
+        onRequireSignIn={onRequireSignIn}
+        className="hl-funds-overview--profile"
+        title="Hyperliquid account"
+      />
 
       <div
         className={`hl-profile-body hl-profile-scope${tab === 'botTrades' ? ' hl-profile-body--bot-trades' : ''}`}

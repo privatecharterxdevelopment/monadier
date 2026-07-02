@@ -6,6 +6,7 @@ import { logger } from '../utils/logger';
 import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { evaluateMacroBetaAlignment } from './macroBetaGate';
+import { analyzeSrZones, evaluateEntryLocation, isPressingTestedResistance, lacksResistanceEntryConfirmation } from './entryLocationGate';
 
 export type EntryMomentumResult = {
   ok: boolean;
@@ -148,6 +149,23 @@ export async function validateEntryMomentum(opts: {
     let reason = '';
 
     if (opts.direction === 'LONG') {
+      const sr = analyzeSrZones(c15m, c1h);
+      if (
+        isPressingTestedResistance(sr) &&
+        lacksResistanceEntryConfirmation(sr, 'LONG') &&
+        !sr.confirmedBreakoutUp
+      ) {
+        const loc = evaluateEntryLocation('LONG', sr);
+        return {
+          ok: false,
+          reason: loc.reason,
+          change5mPct,
+          change15mPct,
+          change1hPct,
+          momentumAligned: false,
+        };
+      }
+
       if (change15mPct >= cfg.maxChase15mPct && change1hPct >= cfg.maxChase1hPct) {
         reason =
           `LONG blocked — ${coin} already extended (15m +${change15mPct.toFixed(2)}%, 1h +${change1hPct.toFixed(2)}%) — wait for pullback, buy low`;
@@ -184,6 +202,18 @@ export async function validateEntryMomentum(opts: {
           `Dip-buy OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · 5m +${change5mPct.toFixed(2)}% bounce · 15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}%`;
       }
     } else {
+      const loc = evaluateEntryLocation('SHORT', analyzeSrZones(c15m, c1h));
+      if (!loc.ok) {
+        return {
+          ok: false,
+          reason: loc.reason,
+          change5mPct,
+          change15mPct,
+          change1hPct,
+          momentumAligned: false,
+        };
+      }
+
       const macroDown = isMacroDowntrend(c1h, change15mPct, change1hPct);
       const pushDown = fade5m || change5mPct <= -min5;
       const driftDown = change5mPct <= 0.08 && change15mPct <= -0.05;

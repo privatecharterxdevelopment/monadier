@@ -64,6 +64,44 @@ export async function confirmPlatformFeePayment(opts: {
   return { success: Boolean(data.success), status: data.status };
 }
 
+export async function adminReconcilePlatformFee(opts: {
+  txHash: string;
+  wallet?: string;
+  email?: string;
+  adminSecret: string;
+}): Promise<{
+  success: boolean;
+  error?: string;
+  wallet?: string;
+  amountUsd?: number;
+  payer?: string;
+  settledUsd?: number;
+}> {
+  const base = getBotApiBase();
+  if (!base) return { success: false, error: 'Bot API not configured' };
+  const res = await fetch(`${base}/api/admin/reconcile-platform-fee`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-bot-admin-secret': opts.adminSecret,
+    },
+    body: JSON.stringify({
+      txHash: opts.txHash,
+      wallet: opts.wallet,
+      email: opts.email,
+    }),
+  });
+  const data = (await res.json()) as {
+    success: boolean;
+    error?: string;
+    wallet?: string;
+    amountUsd?: number;
+    payer?: string;
+    settledUsd?: number;
+  };
+  return data;
+}
+
 export async function recordBettingPlatformFee(opts: {
   wallet: string;
   profitUsd: number;

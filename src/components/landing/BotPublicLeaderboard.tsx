@@ -15,7 +15,19 @@ function fmtUsd(n: number): string {
   return `${sign}$${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function fmtWhen(iso: string): string {
+function fmtWhen(iso: string | null): string {
+  if (!iso) return '—';
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return '—';
+  return new Date(ms).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function fmtRelative(iso: string): string {
   const ms = Date.parse(iso);
   if (!Number.isFinite(ms)) return '—';
   const mins = Math.floor((Date.now() - ms) / 60_000);
@@ -97,6 +109,8 @@ const BotPublicLeaderboard: React.FC = () => {
                     <th scope="col">Wallet</th>
                     <th scope="col">Pair</th>
                     <th scope="col">Side</th>
+                    <th scope="col">Opened</th>
+                    <th scope="col">Closed</th>
                     <th scope="col" className="is-num">
                       P/L
                     </th>
@@ -108,7 +122,7 @@ const BotPublicLeaderboard: React.FC = () => {
                 <tbody>
                   {topTrades.map((trade) => (
                     <tr key={trade.id}>
-                      <td className="is-mono">{trade.walletLabel}</td>
+                      <td className="is-mono">0x{trade.walletLabel}</td>
                       <td>{trade.pair}</td>
                       <td>
                         <span
@@ -117,6 +131,8 @@ const BotPublicLeaderboard: React.FC = () => {
                           {trade.direction}
                         </span>
                       </td>
+                      <td>{fmtWhen(trade.openedAt)}</td>
+                      <td>{fmtWhen(trade.closedAt)}</td>
                       <td className="is-num is-profit">{fmtUsd(trade.profitUsd)}</td>
                       <td className="is-action">
                         <a
@@ -153,7 +169,7 @@ const BotPublicLeaderboard: React.FC = () => {
               {(showLive ? liveTrades : []).map((trade) => (
                 <li key={`live-${trade.id}`} className="landing-bot-leaderboard-live-row">
                   <div className="landing-bot-leaderboard-live-main">
-                    <span className="is-mono">{trade.walletLabel}</span>
+                    <span className="is-mono">0x{trade.walletLabel}</span>
                     <span className="landing-bot-leaderboard-live-pair">
                       {trade.pair} {trade.direction}
                     </span>
@@ -163,7 +179,7 @@ const BotPublicLeaderboard: React.FC = () => {
                   </div>
                   <div className="landing-bot-leaderboard-live-side">
                     <strong className="is-profit">{fmtUsd(trade.profitUsd)}</strong>
-                    <span className="landing-bot-leaderboard-live-when">{fmtWhen(trade.closedAt)}</span>
+                    <span className="landing-bot-leaderboard-live-when">{fmtRelative(trade.closedAt)}</span>
                     <a
                       href={trade.verifyUrl}
                       target="_blank"

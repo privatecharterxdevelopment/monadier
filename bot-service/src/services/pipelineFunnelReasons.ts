@@ -59,6 +59,7 @@ export const FUNNEL = {
     megaFlow: 'open.5.3_mega_flow',
     funding: 'open.5.4_funding',
     momentum: 'open.5.5_momentum',
+    location: 'open.5.5b_location',
     priceDrift: 'open.5.6_price_drift',
     notional: 'open.5.7_notional',
     orderError: 'open.5.8_order_error',

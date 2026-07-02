@@ -18,6 +18,7 @@ import SiteRootRoute from './components/app/SiteRootRoute';
 import HowItWorksPage from './pages/HowItWorksPage';
 import CardPage from './pages/CardPage';
 import BotTradingPage from './pages/BotTradingPage';
+import LeaderboardLandingPage from './pages/LeaderboardLandingPage';
 import SportsBettingPage from './pages/SportsBettingPage';
 import ForexPage from './pages/ForexPage';
 import AboutPage from './pages/AboutPage';
@@ -83,6 +84,11 @@ function App() {
           <Route path="/trading-bot" element={
             <PageTransition>
               <BotTradingPage />
+            </PageTransition>
+          } />
+          <Route path="/leaderboard" element={
+            <PageTransition>
+              <LeaderboardLandingPage />
             </PageTransition>
           } />
           <Route path="/sports-betting" element={

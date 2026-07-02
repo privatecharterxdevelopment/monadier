@@ -672,7 +672,7 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
       wins_until_fee: Math.max(0, FEE_WINS_BEFORE_BLOCK - feeWinCount),
       fee_opens_blocked: fees.accrued > 0.000_001 && feeWinCount >= FEE_WINS_BEFORE_BLOCK,
       fee_payment_status:
-        feesPaid > 0 && fees.accrued <= feesPaid
+        feesOwed <= 0.000_001 && (feesPaid > 0 || fees.settled > 0)
           ? ('paid' as const)
           : fees.accrued > 0.000_001
             ? ('owed' as const)

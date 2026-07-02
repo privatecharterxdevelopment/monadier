@@ -8,6 +8,7 @@ import ProTradeBettingTables from './ProTradeBettingTables';
 import { useBettingPortfolio } from '../../hooks/useBettingPortfolio';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
 import ProTradePageShell from './ProTradePageShell';
+import HlFundsOverviewPanel from './HlFundsOverviewPanel';
 
 type Props = {
   account: HlAccountState | null;
@@ -20,6 +21,7 @@ type Props = {
   onNavigateSpot?: (coin: string) => void;
   onNavigateBetting?: () => void;
   onNavigateAffiliate?: () => void;
+  onRequireSignIn?: (reason: string) => void;
 };
 
 function spotUsdValue(b: HlSpotBalance, prices: Record<string, number>): number {
@@ -42,6 +44,7 @@ const ProTradePortfolio: React.FC<Props> = ({
   onNavigateSpot,
   onNavigateBetting,
   onNavigateAffiliate,
+  onRequireSignIn,
 }) => {
   const { t } = useTranslation();
   const betting = useBettingPortfolio({
@@ -127,6 +130,12 @@ const ProTradePortfolio: React.FC<Props> = ({
           <span className="hl-portfolio-card-sub">{t('app.portfolio.perpsPlusSpot')}</span>
         </article>
       </div>
+
+      <HlFundsOverviewPanel
+        walletAddress={walletAddress}
+        onRequireSignIn={onRequireSignIn}
+        title="Hyperliquid account"
+      />
 
       {onNavigateAffiliate ? (
         <button type="button" className="hl-portfolio-affiliate-btn" onClick={onNavigateAffiliate}>

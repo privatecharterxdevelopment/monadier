@@ -224,7 +224,7 @@ export const config = {
       /** Price within this % of level = "at" resistance/support. */
       nearLevelPct: Number(process.env.HL_ENTRY_NEAR_LEVEL || 0.0035),
       /** Block long at ceiling after this many rejections at resistance. */
-      minRejectionsToBlock: Number(process.env.HL_ENTRY_MIN_REJECTIONS || 3),
+      minRejectionsToBlock: Number(process.env.HL_ENTRY_MIN_REJECTIONS || 2),
     },
     /** BTC/ETH beta — block counter-trend alt entries (SHORT while pumping, LONG while dumping). */
     macroBeta: {
