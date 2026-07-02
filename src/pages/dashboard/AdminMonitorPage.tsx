@@ -9,6 +9,7 @@ import {
   DollarSign,
   ExternalLink,
   Lock,
+  MessageCircle,
   RefreshCw,
   Server,
   TrendingUp,
@@ -36,6 +37,12 @@ import { fmtPrice, fmtSize } from '../../lib/hyperliquid/format';
 import { countAdminPositionsByCoin } from '../../lib/adminHlLivePositions';
 import AdminAffiliateOps from '../../components/admin/AdminAffiliateOps';
 import { BotTradeDiagnosisPanel } from '../../components/admin/BotTradeDiagnosisPanel';
+import {
+  fetchAdminSupportRequests,
+  resolveSupportRequest,
+  reopenSupportRequest,
+  type SupportRequestRow,
+} from '../../lib/adminSupportRequests';
 
 type Section =
   | 'overview'
@@ -248,7 +255,7 @@ const AdminMonitorPage: React.FC = () => {
       </nav>
 
       {section === 'overview' && stats && (
-        <OverviewPanel stats={stats} live={live} events={mergedEvents} />
+        <OverviewPanel stats={stats} live={live} events={mergedEvents} refreshAt={lastRefresh} />
       )}
 
       {section === 'bots' && dash && (
@@ -298,6 +305,7 @@ function OverviewPanel({
   stats,
   live,
   events,
+  refreshAt,
 }: {
   stats: NonNullable<AdminHlDashboard['stats']>;
   live: AdminLiveContext | null;
@@ -311,6 +319,7 @@ function OverviewPanel({
     pnl: number;
     emailSent: boolean;
   }[];
+  refreshAt: Date;
 }) {
   return (
     <div className="space-y-6">
@@ -342,7 +351,7 @@ function OverviewPanel({
           activeBots={stats.hl_bots_runnable ?? stats.hl_bots_active}
           toggleOn={stats.hl_bots_toggle_on}
         />
-        <BuilderCard live={live} pendingEmail={stats.notifications_pending_email} />
+        <SupportRequestsCard refreshAt={refreshAt} />
       </div>
 
       <div className="bg-card-dark rounded-xl border border-border overflow-hidden">
@@ -470,84 +479,188 @@ function BotServiceCard({
   );
 }
 
-function BuilderCard({
-  live,
-  pendingEmail,
-}: {
-  live: AdminLiveContext | null;
-  pendingEmail: number;
-}) {
-  const b = live?.builder;
-  const ready = b?.ready;
-  const feeRatePct = 10;
-  const fetchFailed = Boolean(b?.fetchError);
+function SupportRequestsCard({ refreshAt }: { refreshAt: Date }) {
+  const [filter, setFilter] = useState<'open' | 'all'>('open');
+  const [rows, setRows] = useState<SupportRequestRow[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    const result = await fetchAdminSupportRequests({ status: filter, limit: 50 });
+    if (result.error) {
+      setLoadError(result.error);
+      setRows([]);
+    } else {
+      setRows(result.rows);
+    }
+    setLoading(false);
+  }, [filter]);
+
+  useEffect(() => {
+    void load();
+  }, [load, refreshAt]);
+
+  const openCount = rows.filter((r) => r.status === 'open').length;
+
+  const handleResolve = async (id: string) => {
+    setBusyId(id);
+    const result = await resolveSupportRequest(id);
+    if (!result.ok) {
+      setLoadError(result.error ?? 'Could not resolve');
+    } else {
+      await load();
+    }
+    setBusyId(null);
+  };
+
+  const handleReopen = async (id: string) => {
+    setBusyId(id);
+    const result = await reopenSupportRequest(id);
+    if (!result.ok) {
+      setLoadError(result.error ?? 'Could not reopen');
+    } else {
+      await load();
+    }
+    setBusyId(null);
+  };
 
   return (
-    <div
-      className={`rounded-xl border p-5 ${
-        fetchFailed
-          ? 'border-amber-500/40'
-          : ready
-            ? 'border-green-500/30'
-            : 'border-red-500/40'
-      } bg-card-dark`}
-    >
-      <div className="flex items-center gap-2 mb-3">
-        <Coins size={20} className={ready && !fetchFailed ? 'text-green-400' : 'text-amber-400'} />
-        <h3 className="font-semibold text-primary">Builder wallet — fee destination</h3>
-        <span
-          className={`ml-auto text-xs px-2 py-0.5 rounded-full ${
-            fetchFailed
-              ? 'bg-amber-500/20 text-amber-400'
-              : ready
-                ? 'bg-green-500/20 text-green-400'
-                : 'bg-red-500/20 text-red-400'
-          }`}
-        >
-          {fetchFailed ? 'fetch failed' : ready ? 'auto fee collection ON' : 'underfunded'}
+    <div className="rounded-xl border border-border bg-card-dark p-5">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <MessageCircle size={20} className="text-cyan-400" />
+        <h3 className="font-semibold text-primary">Support requests</h3>
+        <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400">
+          {filter === 'open' ? `${openCount} open` : `${rows.length} shown`}
         </span>
       </div>
-      <p className="text-2xl font-bold text-primary">{fmtUsd(b?.accountUsd ?? 0)}</p>
-      {b?.unifiedAccount && (b.spotUsdcUsd > 0 || b.perpUsd >= 0) ? (
-        <p className="text-xs text-secondary mt-1">
-          Unified HL · spot USDC {fmtUsd(b.spotUsdcUsd)} · perp {fmtUsd(b.perpUsd)}
-        </p>
-      ) : null}
-      <p className="text-xs text-secondary mt-1 break-all font-mono">{b?.builderAddress}</p>
-      {fetchFailed ? (
-        <p className="text-xs text-amber-400 mt-2">
-          Could not load builder balance ({b?.fetchError}). Check /bot-service proxy and Railway.
-        </p>
-      ) : null}
-      <dl className="mt-4 grid grid-cols-1 gap-2 text-sm">
-        <div className="flex justify-between gap-4">
-          <dt className="text-secondary">Success fee rate</dt>
-          <dd className="text-primary font-medium">{feeRatePct}% of profit on every winning close</dd>
-        </div>
-        <div className="flex justify-between gap-4">
-          <dt className="text-secondary">Collection</dt>
-          <dd className="text-primary">
-            {b?.feeCollectionActive
-              ? 'Active via HL builder'
-              : 'Inactive until wallet ≥ $100 on HL'}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-4">
-          <dt className="text-secondary">HL minimum</dt>
-          <dd className="text-primary">{fmtUsd(b?.minUsd ?? 100)} tradable on HL</dd>
-        </div>
-      </dl>
-      <p className="text-xs text-secondary mt-3">{pendingEmail} trade emails pending</p>
-      {b?.builderAddress && (
-        <a
-          href={`https://app.hyperliquid.xyz/explorer/address/${b.builderAddress}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-blue-400 text-sm mt-3"
+      <p className="text-xs text-secondary mb-3">
+        Messages from the in-app support form — each ticket is linked to the user profile.
+      </p>
+
+      <div className="flex gap-2 mb-3">
+        <button
+          type="button"
+          className={`text-xs px-2.5 py-1 rounded-md border ${
+            filter === 'open'
+              ? 'border-cyan-500/50 text-cyan-400 bg-cyan-500/10'
+              : 'border-border text-secondary'
+          }`}
+          onClick={() => setFilter('open')}
         >
-          Hyperliquid explorer <ExternalLink size={12} />
-        </a>
-      )}
+          Open
+        </button>
+        <button
+          type="button"
+          className={`text-xs px-2.5 py-1 rounded-md border ${
+            filter === 'all'
+              ? 'border-cyan-500/50 text-cyan-400 bg-cyan-500/10'
+              : 'border-border text-secondary'
+          }`}
+          onClick={() => setFilter('all')}
+        >
+          All
+        </button>
+      </div>
+
+      {loadError ? (
+        <p className="text-xs text-amber-400 mb-2" role="alert">
+          {loadError}
+          {loadError.includes('support_requests') ? (
+            <span> — run Supabase migration for support_requests.</span>
+          ) : null}
+        </p>
+      ) : null}
+
+      <div className="max-h-[340px] overflow-y-auto divide-y divide-border -mx-1">
+        {loading ? (
+          <p className="text-sm text-secondary py-6 text-center">Loading…</p>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-secondary py-6 text-center">
+            {filter === 'open' ? 'No open support requests.' : 'No support requests yet.'}
+          </p>
+        ) : (
+          rows.map((row) => {
+            const expanded = expandedId === row.id;
+            const userLabel =
+              row.user_email ||
+              row.user_username ||
+              row.user_full_name ||
+              shortWallet(row.wallet_address ?? '', 6);
+            return (
+              <div key={row.id} className="py-3 px-1 text-sm">
+                <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
+                  <span className="text-secondary text-xs whitespace-nowrap w-16 shrink-0">
+                    {formatTimeAgo(row.created_at)}
+                  </span>
+                  <div className="flex-1 min-w-[180px]">
+                    <p className="font-medium text-primary">{row.subject}</p>
+                    <p className="text-xs text-secondary mt-0.5">
+                      {userLabel}
+                      {row.user_full_name && row.user_email ? ` · ${row.user_full_name}` : ''}
+                    </p>
+                    {row.wallet_address ? (
+                      <p className="text-[10px] font-mono text-secondary/80 mt-0.5 break-all">
+                        {row.wallet_address}
+                      </p>
+                    ) : null}
+                    <p className="text-[10px] text-secondary/70 mt-0.5 font-mono">
+                      user {shortWallet(row.user_id, 8)}
+                    </p>
+                  </div>
+                  <span
+                    className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                      row.status === 'open'
+                        ? 'bg-amber-500/15 text-amber-400'
+                        : 'bg-green-500/15 text-green-400'
+                    }`}
+                  >
+                    {row.status}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="text-xs text-cyan-400 mt-1 hover:underline"
+                  onClick={() => setExpandedId(expanded ? null : row.id)}
+                >
+                  {expanded ? 'Hide message' : 'Show message'}
+                </button>
+                {expanded ? (
+                  <p className="mt-2 text-xs text-primary/90 whitespace-pre-wrap rounded-lg bg-black/20 p-2 border border-border">
+                    {row.message}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-secondary line-clamp-2">{row.message}</p>
+                )}
+                <div className="mt-2 flex gap-2">
+                  {row.status === 'open' ? (
+                    <button
+                      type="button"
+                      disabled={busyId === row.id}
+                      className="text-xs px-2.5 py-1 rounded-md bg-green-500/15 text-green-400 border border-green-500/30 disabled:opacity-50"
+                      onClick={() => void handleResolve(row.id)}
+                    >
+                      {busyId === row.id ? '…' : 'Mark resolved'}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={busyId === row.id}
+                      className="text-xs px-2.5 py-1 rounded-md border border-border text-secondary disabled:opacity-50"
+                      onClick={() => void handleReopen(row.id)}
+                    >
+                      Reopen
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }

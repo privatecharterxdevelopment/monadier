@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import LandingNav from './LandingNav';
 import LandingHeroLines from './LandingHeroLines';
 import LandingBotPitchSection from './LandingBotPitchSection';
+import BotPublicLeaderboard from './BotPublicLeaderboard';
 import LandingProductCarouselSection from './LandingProductCarouselSection';
 import LandingSleepEarningsSection from './LandingSleepEarningsSection';
 import LandingAgentFeatureSections from './LandingAgentFeatureSections';
@@ -433,6 +434,7 @@ const GmxStyleLanding: React.FC = () => {
       <LandingAgentFeatureSections />
       <LandingHomeBentoCards />
       <LandingBotPitchSection />
+      <BotPublicLeaderboard />
       <LandingFaqSection />
       <LandingFooter />
     </div>

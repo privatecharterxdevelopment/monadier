@@ -7,6 +7,7 @@ import BotTextHero from '../components/landing/BotTextHero';
 import BotCapabilityCards from '../components/landing/BotCapabilityCards';
 import BotAudienceVideoBanner from '../components/landing/BotAudienceVideoBanner';
 import BotLandingFeatureBanners from '../components/landing/BotLandingFeatureBanners';
+import BotPublicLeaderboard from '../components/landing/BotPublicLeaderboard';
 import BotFaqSection from '../components/landing/BotFaqSection';
 import MarketingSeo from '../components/seo/MarketingSeo';
 import { TRADING_BOT_FAQS } from '../lib/seo/tradingBotContent';
@@ -25,6 +26,7 @@ const BotTradingPage: React.FC = () => {
       <BotCapabilityCards />
       <BotAudienceVideoBanner />
       <BotLandingFeatureBanners />
+      <BotPublicLeaderboard />
       <BotFaqSection />
 
       <MarketingPageBottomCta />

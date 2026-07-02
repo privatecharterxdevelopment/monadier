@@ -119,6 +119,29 @@ serve(async (req: Request) => {
     const username = profile?.username || '';
     const walletAddress = profile?.wallet_address || '';
 
+    const { data: ticket, error: insertErr } = await supabase
+      .from('support_requests')
+      .insert({
+        user_id: user.id,
+        subject,
+        message,
+        user_email: userEmail,
+        user_full_name: fullName || null,
+        user_username: username || null,
+        wallet_address: walletAddress || null,
+        status: 'open',
+      })
+      .select('id')
+      .single();
+
+    if (insertErr) {
+      console.error('[send-support-message] DB insert error:', insertErr);
+      return new Response(JSON.stringify({ error: 'Failed to save support request' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const mailSubject = `[${BRAND_NAME}] ${subject}`;
     const html = supportEmailHtml({
       subject,
@@ -155,7 +178,7 @@ serve(async (req: Request) => {
       });
     }
 
-    return new Response(JSON.stringify({ ok: true, id: data.id }), {
+    return new Response(JSON.stringify({ ok: true, id: data.id, ticketId: ticket?.id }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
