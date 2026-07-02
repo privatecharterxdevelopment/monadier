@@ -24,8 +24,14 @@ export type SrZoneAnalysis = {
   confirmedBreakdown: boolean;
   nearResistance: boolean;
   nearSupport: boolean;
-  /** Last 15m bar closed bearish after testing resistance. */
+  /** Last 15m bar closed bearish after testing resistance from below. */
   resistanceRejectionBar: boolean;
+  /** Price approached resistance from below vs above (retest after breakout). */
+  resistanceApproach: 'from_below' | 'from_above' | 'mixed';
+  /** Last bar held former resistance as support (bullish bounce from above). */
+  resistanceSupportHoldBar: boolean;
+  /** Last bar failed resistance-as-support (bearish close back below level). */
+  resistanceSupportFailBar: boolean;
 };
 
 export type EntryLocationResult = {
@@ -174,8 +180,8 @@ export function resolveActiveResistanceNearPrice(
     if (tests.touches < 2) continue;
 
     const distBelowPct = (level - price) / level;
-    // Price at or slightly below the cluster (not far under support of range).
-    if (distBelowPct < -touchTol * 0.5 || distBelowPct > Math.max(0.02, touchTol * 6)) continue;
+    // Price at, slightly below, or slightly above the cluster (retest from either side).
+    if (distBelowPct < -touchTol * 2 || distBelowPct > Math.max(0.02, touchTol * 6)) continue;
 
     const score = tests.rejections * 10 + tests.touches;
     if (!best || score > best.score) {
@@ -194,6 +200,53 @@ function lastBarRejectsResistance(
   const c = candles[candles.length - 1];
   if (!c || level <= 0) return false;
   const tested = c.high >= level * (1 - touchTol);
+  const closedBelow = c.close < level * (1 - touchTol * 0.35);
+  return tested && closedBelow && c.close <= c.open * 1.0001;
+}
+
+/** Price was mostly above the level before the current bar — retest from above. */
+function detectResistanceApproach(
+  candles: Candle[],
+  level: number,
+  touchTol: number
+): 'from_below' | 'from_above' | 'mixed' {
+  if (level <= 0 || candles.length < 5) return 'mixed';
+  const prior = candles.slice(-7, -1);
+  if (prior.length < 3) return 'mixed';
+
+  const aboveBand = level * (1 + touchTol * 0.35);
+  const belowBand = level * (1 - touchTol * 0.35);
+  const aboveCount = prior.filter((c) => c.close > aboveBand).length;
+  const belowCount = prior.filter((c) => c.close < belowBand).length;
+  const threshold = Math.ceil(prior.length * 0.55);
+
+  if (aboveCount >= threshold) return 'from_above';
+  if (belowCount >= threshold) return 'from_below';
+  return 'mixed';
+}
+
+/** Bullish hold — price dipped to tested resistance from above and closed back above. */
+function lastBarHoldsResistanceAsSupport(
+  candles: Candle[],
+  level: number,
+  touchTol: number
+): boolean {
+  const c = candles[candles.length - 1];
+  if (!c || level <= 0) return false;
+  const tested = c.low <= level * (1 + touchTol);
+  const closedAbove = c.close > level * (1 + touchTol * 0.35);
+  return tested && closedAbove && c.close >= c.open * 0.9999;
+}
+
+/** Bearish fail — retest from above: level did not hold as support. */
+function lastBarFailsResistanceAsSupport(
+  candles: Candle[],
+  level: number,
+  touchTol: number
+): boolean {
+  const c = candles[candles.length - 1];
+  if (!c || level <= 0) return false;
+  const tested = c.low <= level * (1 + touchTol);
   const closedBelow = c.close < level * (1 - touchTol * 0.35);
   return tested && closedBelow && c.close <= c.open * 1.0001;
 }
@@ -327,6 +380,14 @@ export function analyzeSrZones(candles15: Candle[], candles1h: Candle[]): SrZone
     ? lastBarRejectsResistance(candles15, activeResistance.level, cfg.touchTolerancePct)
     : lastBarRejectsResistance(candles15, resistanceLevel, cfg.touchTolerancePct);
 
+  const resistanceApproach = detectResistanceApproach(candles15, resistanceLevel, cfg.touchTolerancePct);
+  const resistanceSupportHoldBar = activeResistance
+    ? lastBarHoldsResistanceAsSupport(candles15, activeResistance.level, cfg.touchTolerancePct)
+    : lastBarHoldsResistanceAsSupport(candles15, resistanceLevel, cfg.touchTolerancePct);
+  const resistanceSupportFailBar = activeResistance
+    ? lastBarFailsResistanceAsSupport(candles15, activeResistance.level, cfg.touchTolerancePct)
+    : lastBarFailsResistanceAsSupport(candles15, resistanceLevel, cfg.touchTolerancePct);
+
   return {
     support,
     resistance: resistanceLevel,
@@ -354,6 +415,9 @@ export function analyzeSrZones(candles15: Candle[], candles1h: Candle[]): SrZone
     nearResistance,
     nearSupport,
     resistanceRejectionBar,
+    resistanceApproach,
+    resistanceSupportHoldBar,
+    resistanceSupportFailBar,
   };
 }
 
@@ -381,6 +445,9 @@ function emptyAnalysis(): SrZoneAnalysis {
     nearResistance: false,
     nearSupport: false,
     resistanceRejectionBar: false,
+    resistanceApproach: 'mixed',
+    resistanceSupportHoldBar: false,
+    resistanceSupportFailBar: false,
   };
 }
 
@@ -404,10 +471,57 @@ function resistanceBlockReason(analysis: SrZoneAnalysis, direction: 'LONG' | 'SH
   const rejections = Math.max(analysis.resistanceRejections, analysis.activeResistanceRejections);
   const level = fmtLevel(analysis.activeResistance ?? analysis.resistance);
   const touches = analysis.resistanceTouches;
+  const side =
+    analysis.resistanceApproach === 'from_above'
+      ? 'retest from above'
+      : analysis.resistanceApproach === 'from_below'
+        ? 'approach from below'
+        : 'at resistance';
+
   if (direction === 'LONG') {
-    return `LONG blocked — pressing resistance ${level} (${rejections}× rejections, ${touches} touches${analysis.resistanceLevelCount >= 2 ? `, ${analysis.resistanceLevelCount} levels` : ''}) — need confirmed breakout above`;
+    if (analysis.resistanceApproach === 'from_above') {
+      return `LONG blocked — resistance ${level} retest from above (${rejections}× rejections) — need support-hold candle or confirmed breakout`;
+    }
+    return `LONG blocked — pressing resistance ${level} (${rejections}× rejections, ${touches} touches${analysis.resistanceLevelCount >= 2 ? `, ${analysis.resistanceLevelCount} levels` : ''}, ${side}) — need confirmed breakout above`;
   }
-  return `SHORT blocked — at resistance ${level} (${rejections}× rejections) without fresh rejection candle — wait for fade after touch`;
+
+  if (analysis.resistanceApproach === 'from_above') {
+    return `SHORT blocked — resistance ${level} holding as support (${rejections}× prior rejections, ${side}) — need support-fail candle before short`;
+  }
+  return `SHORT blocked — at resistance ${level} (${rejections}× rejections, ${side}) without fresh rejection candle — wait for fade after touch`;
+}
+
+/** At tested resistance — block unless direction-specific confirmation bar matches approach side. */
+export function lacksResistanceEntryConfirmation(
+  analysis: SrZoneAnalysis,
+  direction: 'LONG' | 'SHORT'
+): boolean {
+  if (!isPressingTestedResistance(analysis)) return false;
+  if (analysis.confirmedBreakdown && direction === 'SHORT') return false;
+  if (analysis.confirmedBreakoutUp && direction === 'LONG') return false;
+
+  const fromAbove = analysis.resistanceApproach === 'from_above';
+  const fromBelow =
+    analysis.resistanceApproach === 'from_below' || analysis.resistanceApproach === 'mixed';
+
+  if (direction === 'SHORT') {
+    if (fromAbove) {
+      return !analysis.resistanceSupportFailBar;
+    }
+    if (fromBelow) {
+      return !analysis.resistanceRejectionBar;
+    }
+    return !analysis.resistanceRejectionBar && !analysis.resistanceSupportFailBar;
+  }
+
+  // LONG
+  if (fromAbove) {
+    return !analysis.resistanceSupportHoldBar;
+  }
+  if (fromBelow) {
+    return true;
+  }
+  return !analysis.resistanceSupportHoldBar;
 }
 
 /** Overhead resistance still intact — do not short the range low. */
@@ -451,7 +565,7 @@ export function evaluateEntryLocation(
   const cfg = config.hyperliquid.entryLocation;
 
   if (direction === 'LONG') {
-    if (isPressingTestedResistance(analysis) && !analysis.confirmedBreakoutUp) {
+    if (isPressingTestedResistance(analysis) && lacksResistanceEntryConfirmation(analysis, 'LONG')) {
       return { ok: false, analysis, reason: resistanceBlockReason(analysis, 'LONG') };
     }
 
@@ -464,7 +578,7 @@ export function evaluateEntryLocation(
     }
 
     if (analysis.pricePosition <= cfg.pullbackMaxPosition) {
-      if (isPressingTestedResistance(analysis)) {
+      if (isPressingTestedResistance(analysis) && lacksResistanceEntryConfirmation(analysis, 'LONG')) {
         return { ok: false, analysis, reason: resistanceBlockReason(analysis, 'LONG') };
       }
       return {
@@ -505,7 +619,7 @@ export function evaluateEntryLocation(
     };
   }
 
-  if (isPressingTestedResistance(analysis) && !analysis.resistanceRejectionBar && !analysis.confirmedBreakdown) {
+  if (isPressingTestedResistance(analysis) && lacksResistanceEntryConfirmation(analysis, 'SHORT')) {
     return { ok: false, analysis, reason: resistanceBlockReason(analysis, 'SHORT') };
   }
 
@@ -523,7 +637,7 @@ export function evaluateEntryLocation(
   }
 
   if (analysis.pricePosition >= 1 - cfg.pullbackMaxPosition) {
-    if (!analysis.resistanceRejectionBar && isPressingTestedResistance(analysis)) {
+    if (isPressingTestedResistance(analysis) && lacksResistanceEntryConfirmation(analysis, 'SHORT')) {
       return { ok: false, analysis, reason: resistanceBlockReason(analysis, 'SHORT') };
     }
     return {

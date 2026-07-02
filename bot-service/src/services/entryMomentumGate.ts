@@ -6,7 +6,7 @@ import { logger } from '../utils/logger';
 import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { evaluateMacroBetaAlignment } from './macroBetaGate';
-import { analyzeSrZones, evaluateEntryLocation, isPressingTestedResistance } from './entryLocationGate';
+import { analyzeSrZones, evaluateEntryLocation, isPressingTestedResistance, lacksResistanceEntryConfirmation } from './entryLocationGate';
 
 export type EntryMomentumResult = {
   ok: boolean;
@@ -150,7 +150,11 @@ export async function validateEntryMomentum(opts: {
 
     if (opts.direction === 'LONG') {
       const sr = analyzeSrZones(c15m, c1h);
-      if (isPressingTestedResistance(sr) && !sr.confirmedBreakoutUp) {
+      if (
+        isPressingTestedResistance(sr) &&
+        lacksResistanceEntryConfirmation(sr, 'LONG') &&
+        !sr.confirmedBreakoutUp
+      ) {
         const loc = evaluateEntryLocation('LONG', sr);
         return {
           ok: false,
