@@ -13,6 +13,7 @@ import {
 import { useHyperliquidBuilderFee } from '../../hooks/useHyperliquidBuilderFee';
 import { fetchHlAssetLeverage, leverageOptionsForMax } from '../../lib/hyperliquid/assetLeverage';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
+import { formatHlWalletSignError } from '../../lib/hyperliquid/walletAdapter';
 import { toNum } from '../../lib/hyperliquid/parse';
 import type { HlTwapOrder } from '../../lib/hyperliquid/user';
 import { useLegalAcceptance } from '../../contexts/LegalAcceptanceContext';
@@ -294,7 +295,8 @@ const ProTradeOrderPanel: React.FC<Props> = ({
         showSuccess(t('trading.order.successTwap'));
       }
     } catch (err: unknown) {
-      if (err instanceof Error && !error) setLocalError(err.message);
+      const msg = formatHlWalletSignError(err);
+      if (!error) setLocalError(msg);
     }
   };
 

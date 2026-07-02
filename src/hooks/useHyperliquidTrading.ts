@@ -30,6 +30,11 @@ import { getHlBuilderConfig } from '../lib/hyperliquid/builderConfig';
 import { proratePositionProfitUsd } from '../lib/hyperliquid/proTradeBuilderFee';
 import { closeHlPositionViaAgent } from '../lib/hyperliquid/hlAgentClose';
 import { fetchHlAccountState } from '../lib/hyperliquid/user';
+import { ensureHlAgentForTrading } from '../lib/hyperliquid/ensureHlAgentForTrading';
+import {
+  placeHlManualPerpOrderViaAgent,
+  updateHlManualPerpLeverageViaAgent,
+} from '../lib/hyperliquid/hlManualOrder';
 
 export type { OrderSide, SimpleOrderKind as OrderKind };
 
@@ -90,12 +95,15 @@ export function useHyperliquidTrading() {
   const applyTradeSettings = useCallback(
     async (coin: string, settings?: TradeSettings, marketKind: HlMarketKind = 'perp') => {
       if (marketKind === 'spot' || !settings?.leverage || settings.leverage <= 0) return;
-      const client = createHlExchangeClient(await resolveWallet());
-      const assetIndex = await getHlAssetIndex(coin);
-      await client.updateLeverage({
-        asset: assetIndex,
-        isCross: settings.marginMode === 'cross',
+      const wallet = await resolveWallet();
+      const user = wallet.account?.address;
+      if (!user) throw new Error('Connect wallet first');
+      await ensureHlAgentForTrading(wallet);
+      await updateHlManualPerpLeverageViaAgent({
+        walletAddress: user,
+        coin,
         leverage: settings.leverage,
+        marginMode: settings.marginMode ?? 'isolated',
       });
     },
     [resolveWallet]
@@ -189,6 +197,27 @@ export function useHyperliquidTrading() {
       profitUsd?: number;
     }) => {
       const marketKind = opts.marketKind ?? 'perp';
+
+      if (marketKind === 'perp') {
+        const wallet = await resolveWallet();
+        const user = wallet.account?.address;
+        if (!user) throw new Error('Connect wallet first');
+        await ensureHlAgentForTrading(wallet);
+        await placeHlManualPerpOrderViaAgent({
+          walletAddress: user,
+          coin: opts.coin,
+          side: opts.side,
+          kind: opts.kind,
+          size: opts.size,
+          price: opts.price,
+          markPx: opts.markPx,
+          leverage: opts.settings?.leverage,
+          marginMode: opts.settings?.marginMode,
+          reduceOnly: opts.reduceOnly,
+        });
+        return;
+      }
+
       const { index: assetIndex, meta } = await resolveAsset(opts.coin, marketKind);
       const leg = buildSimpleOrderLeg({
         assetIndex,
@@ -198,7 +227,7 @@ export function useHyperliquidTrading() {
         price: opts.price ?? opts.markPx,
         markPx: opts.markPx,
         meta,
-        reduceOnly: marketKind === 'spot' ? false : opts.reduceOnly,
+        reduceOnly: false,
       });
       return submitOrders(
         opts.coin,
@@ -209,12 +238,12 @@ export function useHyperliquidTrading() {
           side: opts.side,
           size: opts.size,
           markPx: opts.markPx,
-          reduceOnly: marketKind === 'spot' ? false : opts.reduceOnly,
+          reduceOnly: false,
           profitUsd: opts.profitUsd,
         }
       );
     },
-    [resolveAsset, submitOrders]
+    [resolveAsset, resolveWallet, submitOrders]
   );
 
   const withBusy = useCallback(

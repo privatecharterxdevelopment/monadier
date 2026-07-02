@@ -134,11 +134,13 @@ function buildTypedDataPayload(params: {
   };
 }
 
-function unwrapError(err: unknown): string {
+function unwrapError(err: unknown, depth = 0): string {
+  if (depth > 6) return String(err);
   if (err instanceof Error) {
     const cause = (err as Error & { cause?: unknown }).cause;
-    if (cause instanceof Error && cause.message && cause.message !== err.message) {
-      return `${err.message} (${cause.message})`;
+    if (cause) {
+      const causeMsg = unwrapError(cause, depth + 1);
+      if (causeMsg && causeMsg !== err.message) return causeMsg;
     }
     return err.message;
   }

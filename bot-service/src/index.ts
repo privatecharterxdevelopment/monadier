@@ -364,6 +364,121 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  // API: Manual perp order via Monadier HL agent (L1 chainId 1337 — cannot sign in browser wallet)
+  if (url.pathname === '/api/hl-order' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody();
+      const wallet = String(body.wallet ?? '').toLowerCase();
+      const coin = String(body.coin ?? '').trim().toUpperCase();
+      const sideRaw = String(body.side ?? '').toLowerCase();
+      const kindRaw = String(body.kind ?? 'limit').toLowerCase();
+      const size = Number(body.size);
+      const price = body.price != null ? Number(body.price) : undefined;
+      const markPx = Number(body.markPx);
+      const leverage = body.leverage != null ? Number(body.leverage) : undefined;
+      const marginModeRaw = String(body.marginMode ?? 'isolated').toLowerCase();
+      const reduceOnly = Boolean(body.reduceOnly);
+
+      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
+        return;
+      }
+      if (!coin || coin.length > 16) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'coin required' }));
+        return;
+      }
+      const side = sideRaw === 'short' ? 'SHORT' : sideRaw === 'long' ? 'LONG' : null;
+      if (!side) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'side must be long or short' }));
+        return;
+      }
+      const kind = kindRaw === 'market' ? 'market' : kindRaw === 'limit' ? 'limit' : null;
+      if (!kind) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'kind must be limit or market' }));
+        return;
+      }
+      const marginMode = marginModeRaw === 'cross' ? 'cross' : 'isolated';
+
+      const result = await hyperliquidTradingService.placeManualPerpOrder({
+        userAddress: wallet as `0x${string}`,
+        coin,
+        side,
+        kind,
+        size,
+        price: Number.isFinite(price) ? price : undefined,
+        markPx,
+        leverage: Number.isFinite(leverage) ? leverage : undefined,
+        marginMode,
+        reduceOnly,
+      });
+      if (!result.success) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: result.error || 'Order failed' }));
+        return;
+      }
+
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, wallet, coin, side, kind }));
+    } catch (err: any) {
+      logger.error('API: hl-order failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'hl-order failed' }));
+    }
+    return;
+  }
+
+  // API: Manual perp leverage via Monadier HL agent
+  if (url.pathname === '/api/hl-leverage' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody();
+      const wallet = String(body.wallet ?? '').toLowerCase();
+      const coin = String(body.coin ?? '').trim().toUpperCase();
+      const leverage = Number(body.leverage);
+      const marginModeRaw = String(body.marginMode ?? 'isolated').toLowerCase();
+      const marginMode = marginModeRaw === 'cross' ? 'cross' : 'isolated';
+
+      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
+        return;
+      }
+      if (!coin || coin.length > 16) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'coin required' }));
+        return;
+      }
+      if (!Number.isFinite(leverage) || leverage <= 0) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'leverage required' }));
+        return;
+      }
+
+      const result = await hyperliquidTradingService.updateManualPerpLeverage({
+        userAddress: wallet as `0x${string}`,
+        coin,
+        leverage,
+        marginMode,
+      });
+      if (!result.success) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: result.error || 'Leverage update failed' }));
+        return;
+      }
+
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, wallet, coin, leverage, marginMode }));
+    } catch (err: any) {
+      logger.error('API: hl-leverage failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'hl-leverage failed' }));
+    }
+    return;
+  }
+
   if (url.pathname === '/api/referral/try-qualify' && req.method === 'POST') {
     try {
       const body = await readJsonBody();
@@ -1086,6 +1201,8 @@ healthServer.listen(PORT, () => {
   logger.info('  GET /api/hl-agent?wallet=0x… - Per-user HL agent address');
   logger.info('  POST /api/hl-agent/approval - Save HL agent approval (service role)');
   logger.info('  POST /api/hl-close - Close HL position via Monadier agent');
+  logger.info('  POST /api/hl-order - Place manual perp order via Monadier agent');
+  logger.info('  POST /api/hl-leverage - Update perp leverage via Monadier agent');
   logger.info('  POST /api/referral/try-qualify - Qualify referral after HL fund + bot activity');
   logger.info('  GET /api/bot-status?wallet=0x… - Wallet bot diagnostics');
   logger.info('  GET /api/hl-position-trails?wallet=0x… - Live profit-trail stop truth');
