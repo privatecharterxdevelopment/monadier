@@ -6,7 +6,7 @@ import { logger } from '../utils/logger';
 import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { evaluateMacroBetaAlignment } from './macroBetaGate';
-import { analyzeSrZones, evaluateEntryLocation } from './entryLocationGate';
+import { analyzeSrZones, evaluateEntryLocation, isPressingTestedResistance } from './entryLocationGate';
 
 export type EntryMomentumResult = {
   ok: boolean;
@@ -149,6 +149,19 @@ export async function validateEntryMomentum(opts: {
     let reason = '';
 
     if (opts.direction === 'LONG') {
+      const sr = analyzeSrZones(c15m, c1h);
+      if (isPressingTestedResistance(sr) && !sr.confirmedBreakoutUp) {
+        const loc = evaluateEntryLocation('LONG', sr);
+        return {
+          ok: false,
+          reason: loc.reason,
+          change5mPct,
+          change15mPct,
+          change1hPct,
+          momentumAligned: false,
+        };
+      }
+
       if (change15mPct >= cfg.maxChase15mPct && change1hPct >= cfg.maxChase1hPct) {
         reason =
           `LONG blocked — ${coin} already extended (15m +${change15mPct.toFixed(2)}%, 1h +${change1hPct.toFixed(2)}%) — wait for pullback, buy low`;
