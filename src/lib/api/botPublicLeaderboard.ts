@@ -1,5 +1,6 @@
-import { supabase } from '../supabaseClient';
-import { hlTxExplorerUrl, hlWalletExplorerUrl } from '../hyperliquid/hlApp';
+import { fetchBotApi } from './botApiFetch';
+import { supabase } from './supabaseClient';
+import { hlTxExplorerUrl, hlWalletExplorerUrl } from './hyperliquid/hlApp';
 
 export type BotPublicTradeRow = {
   id: string;
@@ -26,7 +27,7 @@ type RpcRow = {
   exit_tx_hash: string | null;
 };
 
-function mapRow(row: RpcRow): BotPublicTradeRow | null {
+export function mapBotPublicLeaderboardRow(row: RpcRow): BotPublicTradeRow | null {
   const profit = Number(row.profit_usd);
   if (!Number.isFinite(profit)) return null;
 
@@ -68,16 +69,42 @@ async function fetchViaRpc(
   }
 
   return (data ?? [])
-    .map((row) => mapRow(row as RpcRow))
+    .map((row) => mapBotPublicLeaderboardRow(row as RpcRow))
     .filter((row): row is BotPublicTradeRow => row != null);
 }
 
-/** Public HL wins — top by profit (RPC, anon-safe). */
+async function fetchViaBotApi(
+  sort: 'top' | 'recent',
+  limit: number
+): Promise<BotPublicTradeRow[]> {
+  const res = await fetchBotApi(
+    `/api/public-leaderboard?sort=${sort}&limit=${limit}`,
+    { timeoutMs: 20_000, retries: 1 }
+  );
+  if (!res.ok) {
+    throw new Error(`leaderboard ${res.status}`);
+  }
+  const body = (await res.json()) as { rows?: RpcRow[] };
+  return (body.rows ?? [])
+    .map((row) => mapBotPublicLeaderboardRow(row))
+    .filter((row): row is BotPublicTradeRow => row != null);
+}
+
+async function fetchLeaderboard(sort: 'top' | 'recent', limit: number): Promise<BotPublicTradeRow[]> {
+  try {
+    return await fetchViaBotApi(sort, limit);
+  } catch (err) {
+    console.warn('[botPublicLeaderboard] bot API fallback to RPC', err);
+    return fetchViaRpc(sort, limit);
+  }
+}
+
+/** Public HL wins — top by profit (live HL + DB). */
 export async function fetchBotPublicLeaderboard(limit = 10): Promise<BotPublicTradeRow[]> {
-  return fetchViaRpc('top', limit);
+  return fetchLeaderboard('top', limit);
 }
 
 /** Recent profitable closes — live activity strip. */
 export async function fetchBotPublicLiveWins(limit = 8): Promise<BotPublicTradeRow[]> {
-  return fetchViaRpc('recent', limit);
+  return fetchLeaderboard('recent', limit);
 }

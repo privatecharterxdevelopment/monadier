@@ -631,6 +631,7 @@ export type HlUserFill = {
   closedPnl: string;
   fee: string;
   dir?: string;
+  hash?: string;
 };
 
 export async function fetchHlUserFills(userAddress: string): Promise<HlUserFill[]> {

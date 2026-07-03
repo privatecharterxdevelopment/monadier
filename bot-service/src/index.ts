@@ -78,6 +78,7 @@ import {
   recordBettingFeeEvent,
   settleBettingFees,
 } from './services/bettingFees';
+import { getPublicLeaderboard } from './services/publicLeaderboard';
 
 // Health check server for Railway/cloud deployments
 const PORT = process.env.PORT || 3001;
@@ -756,6 +757,35 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  // API: Public bot win leaderboard — DB + live HL fills for active auto-trade wallets
+  // Usage: /api/public-leaderboard?sort=recent|top&limit=20
+  if (url.pathname === '/api/public-leaderboard' && req.method === 'GET') {
+    try {
+      const sortParam = url.searchParams.get('sort')?.toLowerCase();
+      const sort = sortParam === 'top' ? 'top' : 'recent';
+      const limit = Number(url.searchParams.get('limit') ?? 20);
+      const force = url.searchParams.get('force') === '1';
+      const result = await getPublicLeaderboard({ sort, limit, force });
+      res.writeHead(200, { ...corsHeaders, 'Cache-Control': 'no-store' });
+      res.end(
+        JSON.stringify({
+          success: true,
+          sort,
+          limit: Math.max(1, Math.min(limit, 50)),
+          botWalletCount: result.botWalletCount,
+          fetchedAt: result.fetchedAt,
+          rows: result.rows,
+        })
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'public-leaderboard failed';
+      logger.warn('API: public-leaderboard failed', { error: msg });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
+    }
+    return;
+  }
+
   // API: Diagnose why bot is not trading for a wallet
   // Usage: /api/bot-status?wallet=0x...
   if (url.pathname === '/api/bot-status') {
@@ -1159,6 +1189,7 @@ healthServer.listen(PORT, () => {
   logger.info('  POST /api/hl-order - Place manual perp order via Monadier agent');
   logger.info('  POST /api/hl-leverage - Update perp leverage via Monadier agent');
   logger.info('  POST /api/referral/try-qualify - Qualify referral after HL fund + bot activity');
+  logger.info('  GET /api/public-leaderboard?sort=recent|top - Live HL bot win leaderboard');
   logger.info('  GET /api/bot-status?wallet=0x… - Wallet bot diagnostics');
   logger.info('  GET /api/hl-position-trails?wallet=0x… - Live profit-trail stop truth');
   logger.info('  GET /api/global-signals - Top HL perp signals from last scan');

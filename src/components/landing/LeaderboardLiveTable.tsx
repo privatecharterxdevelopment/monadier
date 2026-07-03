@@ -1,11 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { ExternalLink } from 'lucide-react';
-import {
-  fetchBotPublicLiveWins,
-  type BotPublicTradeRow,
-} from '../../lib/api/botPublicLeaderboard';
-
-const REFRESH_MS = 30_000;
+import { useBotPublicLiveWins } from '../../hooks/useBotPublicLeaderboard';
 
 function fmtUsd(n: number): string {
   const sign = n >= 0 ? '+' : '';
@@ -37,26 +32,7 @@ const LeaderboardLiveTable: React.FC<Props> = ({
   loadingMessage = 'Loading verified trades…',
   className = '',
 }) => {
-  const [rows, setRows] = useState<BotPublicTradeRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      const live = await fetchBotPublicLiveWins(limit);
-      if (cancelled) return;
-      setRows(live);
-      setLoading(false);
-    };
-
-    void load();
-    const id = window.setInterval(() => void load(), REFRESH_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, [limit]);
+  const { rows, loading } = useBotPublicLiveWins(limit);
 
   if (loading && rows.length === 0) {
     return <p className="landing-leaderboard-table-empty">{loadingMessage}</p>;

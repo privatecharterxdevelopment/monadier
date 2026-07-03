@@ -1,13 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { ExternalLink, Loader2, Trophy } from 'lucide-react';
-import {
-  fetchBotPublicLeaderboard,
-  fetchBotPublicLiveWins,
-  type BotPublicTradeRow,
-} from '../../lib/api/botPublicLeaderboard';
+import type { BotPublicTradeRow } from '../../lib/api/botPublicLeaderboard';
+import { useBotPublicLeaderboardData } from '../../hooks/useBotPublicLeaderboard';
 import ProTradePageShell from './ProTradePageShell';
-
-const REFRESH_MS = 30_000;
 
 function fmtUsd(n: number): string {
   const sign = n >= 0 ? '+' : '';
@@ -92,31 +87,10 @@ function TradeTable({ trades }: { trades: BotPublicTradeRow[] }) {
 }
 
 const ProTradeLeaderboard: React.FC = () => {
-  const [topTrades, setTopTrades] = useState<BotPublicTradeRow[]>([]);
-  const [liveTrades, setLiveTrades] = useState<BotPublicTradeRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      const [top, live] = await Promise.all([
-        fetchBotPublicLeaderboard(TOP_LIMIT),
-        fetchBotPublicLiveWins(RECENT_LIMIT),
-      ]);
-      if (cancelled) return;
-      setTopTrades(top);
-      setLiveTrades(live);
-      setLoading(false);
-    };
-
-    void load();
-    const id = window.setInterval(() => void load(), REFRESH_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, []);
+  const { topTrades, liveTrades, loading } = useBotPublicLeaderboardData({
+    topLimit: TOP_LIMIT,
+    recentLimit: RECENT_LIMIT,
+  });
 
   return (
     <ProTradePageShell className="hl-leaderboard-page">
@@ -156,7 +130,7 @@ const ProTradeLeaderboard: React.FC = () => {
           <div className="hl-leaderboard-panel__head">
             <span className="hl-leaderboard-live-dot" aria-hidden />
             <h2>Top wins</h2>
-            <span>Recent · 30s refresh</span>
+            <span>Recent · 10s refresh · live HL</span>
           </div>
           {loading && liveTrades.length === 0 ? (
             <div className="hl-leaderboard-state hl-leaderboard-state--compact">

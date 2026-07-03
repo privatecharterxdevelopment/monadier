@@ -5,7 +5,7 @@ export const LEADERBOARD_PAGE = {
   tagline: 'A bot for the people.',
   description:
     'No hidden tricks. No custody of your keys. Simple technology — platform fees only when a bot trade closes in profit. Every win below is a real Hyperliquid close you can verify on HypurrScan.',
-  tableMeta: 'Live · refreshes every 30s',
+  tableMeta: 'Live · refreshes every 10s from Hyperliquid',
   tableEmpty: 'Profitable bot closes will appear here as users win — all verifiable on HypurrScan.',
   tableLoading: 'Loading verified trades…',
 } as const;

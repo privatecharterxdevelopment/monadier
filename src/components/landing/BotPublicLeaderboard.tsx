@@ -1,14 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { ExternalLink } from 'lucide-react';
-import {
-  fetchBotPublicLeaderboard,
-  fetchBotPublicLiveWins,
-  type BotPublicTradeRow,
-} from '../../lib/api/botPublicLeaderboard';
+import { useBotPublicLeaderboardData } from '../../hooks/useBotPublicLeaderboard';
 import { BOT_PAGE_LEADERBOARD } from '../../lib/seo/tradingBotContent';
 
-const REFRESH_MS = 30_000;
+const REFRESH_MS = 10_000;
 
 function fmtUsd(n: number): string {
   const sign = n >= 0 ? '+' : '';
@@ -46,31 +42,11 @@ const fadeUp = (delay = 0) => ({
 });
 
 const BotPublicLeaderboard: React.FC = () => {
-  const [topTrades, setTopTrades] = useState<BotPublicTradeRow[]>([]);
-  const [liveTrades, setLiveTrades] = useState<BotPublicTradeRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      const [top, live] = await Promise.all([
-        fetchBotPublicLeaderboard(8),
-        fetchBotPublicLiveWins(6),
-      ]);
-      if (cancelled) return;
-      setTopTrades(top);
-      setLiveTrades(live);
-      setLoading(false);
-    };
-
-    void load();
-    const id = window.setInterval(() => void load(), REFRESH_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, []);
+  const { topTrades, liveTrades, loading } = useBotPublicLeaderboardData({
+    topLimit: 8,
+    recentLimit: 6,
+    refreshMs: REFRESH_MS,
+  });
 
   const showTop = topTrades.length > 0;
   const showLive = liveTrades.length > 0;
@@ -157,7 +133,7 @@ const BotPublicLeaderboard: React.FC = () => {
           <div className="landing-bot-leaderboard-live-head">
             <span className="landing-bot-leaderboard-live-dot" aria-hidden />
             <h3 className="landing-bot-leaderboard-live-title">Live wins</h3>
-            <span className="landing-bot-leaderboard-live-meta">Recent profitable closes</span>
+            <span className="landing-bot-leaderboard-live-meta">Recent profitable closes · live HL</span>
           </div>
 
           {!showLive && !loading ? (
