@@ -71,6 +71,7 @@ import {
 import { useBettingUi } from '../../contexts/BettingUiContext';
 import { useLegalAcceptance } from '../../contexts/LegalAcceptanceContext';
 import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
+import { useWithdrawFeeGate } from '../../hooks/useWithdrawFeeGate';
 import { BRAND_NAME } from '../../lib/brand';
 type PanelTab = 'bot' | 'lvrg' | 'funds';
 
@@ -133,6 +134,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   const builderConfig = getHlBuilderConfig();
   const botSuccessFeeLabel = hlBotSuccessFeeStepButtonLabel(2);
   const platformFees = usePlatformFeeGate();
+  const withdrawGate = useWithdrawFeeGate();
   const [showFundsModal, setShowFundsModal] = useState(false);
   const [fundsModalTab, setFundsModalTab] = useState<'deposit' | 'withdraw'>('deposit');
   const [showSettings, setShowSettings] = useState(false);
@@ -918,12 +920,12 @@ const TerminalTradePanel: React.FC<Props> = ({
               type="button"
               className="term-btn-sm w-full justify-center"
               disabled={
-                (walletReady && hlSetup.withdrawableUsd <= 0) || platformFees.withdrawBlocked
+                (walletReady && hlSetup.withdrawableUsd <= 0) || withdrawGate.withdrawBlocked
               }
               onClick={() =>
                 requireAccount('Sign in before withdrawing.', () =>
-                  platformFees.withdrawBlocked
-                    ? platformFees.openPayModal()
+                  withdrawGate.withdrawBlocked
+                    ? withdrawGate.openPayModal()
                     : openFunds('withdraw')
                 )
               }
@@ -935,10 +937,11 @@ const TerminalTradePanel: React.FC<Props> = ({
             <p className="term-hint">
               Non-custodial: USDC stays on Hyperliquid. Deposit only <strong>native USDC on Arbitrum</strong>{' '}
               (not BNB/BSC or other networks). The bot agent cannot withdraw.
-              {platformFees.withdrawBlocked ? (
+              {withdrawGate.withdrawBlocked ? (
                 <>
                   {' '}
-                  <strong>Platform fees are due</strong> — pay via Monadier to unlock in-app withdrawal.
+                  <strong>Fees are due</strong> — pay bot and/or betting fees on-chain to unlock
+                  in-app withdrawal.
                 </>
               ) : (
                 <>

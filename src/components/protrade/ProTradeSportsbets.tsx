@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useAuth } from '../../contexts/AuthContext';
-import { BettingFeeProvider } from '../../contexts/BettingFeeContext';
 import { useUserLocale } from '../../hooks/useUserLocale';
 import { canAccessSportsbets } from '../../lib/compliance/predictionMarketAccess';
 import { supabase } from '../../lib/supabase';
@@ -83,17 +82,15 @@ const ProTradeSportsbets: React.FC<Props> = ({
   }
 
   return (
-    <BettingFeeProvider wallet={resolvedAddress ?? null} enabled={walletConnected}>
-      <div className="hl-terminal hl-terminal--sb">
-        <SportsbetsTerminal
-          walletAddress={resolvedAddress}
-          walletConnected={walletConnected}
-          signedIn={Boolean(user)}
-          userId={user?.id}
-          onRequireSignIn={onRequireSignIn}
-        />
-      </div>
-    </BettingFeeProvider>
+    <div className="hl-terminal hl-terminal--sb">
+      <SportsbetsTerminal
+        walletAddress={resolvedAddress}
+        walletConnected={walletConnected}
+        signedIn={Boolean(user)}
+        userId={user?.id}
+        onRequireSignIn={onRequireSignIn}
+      />
+    </div>
   );
 };
 

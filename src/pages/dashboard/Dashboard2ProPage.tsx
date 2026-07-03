@@ -68,6 +68,7 @@ import { useHlBotChartMarkers } from '../../hooks/useHlBotChartMarkers';
 import { useHlBotMinBalanceGuard } from '../../hooks/useHlBotMinBalanceGuard';
 import { getProTradeChartColors } from '../../lib/proTradeTheme';
 import { PlatformFeeProvider } from '../../contexts/PlatformFeeContext';
+import { BettingFeeProvider } from '../../contexts/BettingFeeContext';
 
 const PROFILE_TABS = new Set<ProTradeProfileTab>([
   'identity',
@@ -772,6 +773,7 @@ const Dashboard2ProPageContent: React.FC = () => {
 
   return (
     <PlatformFeeProvider wallet={address ?? null} enabled={isConnected}>
+      <BettingFeeProvider wallet={address ?? null} enabled={isConnected}>
       <>
       <ProTradeTopNav
         section={section}
@@ -925,6 +927,7 @@ const Dashboard2ProPageContent: React.FC = () => {
         />
       ) : null}
       </>
+      </BettingFeeProvider>
     </PlatformFeeProvider>
   );
 };

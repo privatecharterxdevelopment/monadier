@@ -181,7 +181,7 @@ const BettingFeePayModal: React.FC<Props> = ({
               <CheckCircle size={56} strokeWidth={1.5} />
             </div>
             <h2 id="hl-bet-fee-success">Betting fees paid</h2>
-            <p>You can place your next bet. Bot trading is unaffected.</p>
+            <p>Withdraw unlocked and you can place your next bet. Bot trading is unaffected.</p>
           </div>
         </div>
       </div>

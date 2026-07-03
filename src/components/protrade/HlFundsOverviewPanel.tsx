@@ -1,7 +1,9 @@
 import React from 'react';
 import { ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import { useBettingUi } from '../../contexts/BettingUiContext';
+import { useBettingFeeGate } from '../../contexts/BettingFeeContext';
 import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
+import { useWithdrawFeeGate } from '../../hooks/useWithdrawFeeGate';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
@@ -25,6 +27,8 @@ const HlFundsOverviewPanel: React.FC<Props> = ({
 }) => {
   const { openFunds } = useBettingUi();
   const platformFees = usePlatformFeeGate();
+  const bettingFees = useBettingFeeGate();
+  const withdrawGate = useWithdrawFeeGate();
   const { isDemoUser, user } = useAuth();
   const { isConnected, address } = useMonadierWallet();
   const { metrics } = useDashboard2Metrics();
@@ -84,6 +88,19 @@ const HlFundsOverviewPanel: React.FC<Props> = ({
               </span>
             </button>
           </div>
+          {!bettingFees.feesWaived ? (
+            <div className="hl-funds-overview__row hl-funds-overview__row--fee">
+              <span>Betting fees owed</span>
+              <button
+                type="button"
+                className="hl-funds-overview__fee-btn"
+                onClick={() => bettingFees.openPayModal()}
+              >
+                <strong>{fmt(bettingFees.accruedUsd)}</strong>
+                <span>0.5% buy · 2.5% cash-out</span>
+              </button>
+            </div>
+          ) : null}
           {hasOpenPosition && marginLocked > 0.01 ? (
             <div className="hl-funds-overview__row hl-funds-overview__row--hint">
               <span>Margin in open trade</span>
@@ -106,11 +123,11 @@ const HlFundsOverviewPanel: React.FC<Props> = ({
           <button
             type="button"
             className="hl-funds-overview__btn"
-            disabled={withdrawable <= 0 && !platformFees.withdrawBlocked}
+            disabled={withdrawable <= 0 && !withdrawGate.withdrawBlocked}
             onClick={() =>
               requireAccount('Sign in before withdrawing.', () =>
-                platformFees.withdrawBlocked
-                  ? platformFees.openPayModal()
+                withdrawGate.withdrawBlocked
+                  ? withdrawGate.openPayModal()
                   : openFunds('withdraw')
               )
             }
@@ -121,10 +138,16 @@ const HlFundsOverviewPanel: React.FC<Props> = ({
         </div>
 
         <p className="hl-funds-overview__hint">
-          {platformFees.withdrawBlocked ? (
+          {withdrawGate.withdrawBlocked ? (
             <>
-              <strong>Platform fees are due</strong> — pay to unlock in-app withdrawal. Bot trading
-              continues until {platformFees.winsBeforeBlock} unpaid wins.
+              <strong>Fees are due</strong> — pay bot and/or betting fees on-chain to unlock
+              in-app withdrawal.
+              {withdrawGate.platformWithdrawBlocked ? (
+                <> Bot: {fmt(withdrawGate.platformAccruedUsd)}.</>
+              ) : null}
+              {withdrawGate.bettingWithdrawBlocked ? (
+                <> Betting: {fmt(withdrawGate.bettingAccruedUsd)}.</>
+              ) : null}
             </>
           ) : (
             <>

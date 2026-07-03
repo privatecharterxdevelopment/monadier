@@ -71,7 +71,7 @@ export const BettingFeeProvider: React.FC<{
   }, [feeExempt]);
 
   const handlePaymentSuccess = useCallback(() => {
-    showToast('Betting fees paid — you can place your next bet', 3200);
+    showToast('Betting fees paid — withdraw unlocked, you can place your next bet', 3200);
     void fees.refresh();
   }, [showToast, fees.refresh]);
 

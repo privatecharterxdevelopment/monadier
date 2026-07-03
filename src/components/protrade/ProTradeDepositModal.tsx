@@ -22,7 +22,7 @@ import {
 import { USDC_ADDRESSES, USDC_DECIMALS } from '../../lib/usdcArbitrum';
 import { ERC20_ABI } from '../../lib/dex/router';
 import { useProTradeThemeOptional } from '../../contexts/ProTradeThemeContext';
-import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
+import { useWithdrawFeeGate } from '../../hooks/useWithdrawFeeGate';
 
 const ARBITRUM_USDC_E = '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8' as const;
 
@@ -46,7 +46,15 @@ const ProTradeDepositModal: React.FC<Props> = ({
   onTransfer,
 }) => {
   const { open } = useMonadierAppKit();
-  const { withdrawBlocked, accruedUsd, openPayModal } = usePlatformFeeGate();
+  const {
+    withdrawBlocked,
+    platformWithdrawBlocked,
+    bettingWithdrawBlocked,
+    platformAccruedUsd,
+    bettingAccruedUsd,
+    openPlatformPayModal,
+    openBettingPayModal,
+  } = useWithdrawFeeGate();
   const { address, isConnected } = useMonadierWallet();
   const { publicClient, walletClient } = useWeb3();
   const chainId = useChainId();
@@ -533,10 +541,24 @@ const ProTradeDepositModal: React.FC<Props> = ({
                 </p>
                 {withdrawBlocked ? (
                   <p className="term-profile-err hl-funds-inline-err">
-                    Platform fees due ({fmtUsdSymbol(accruedUsd)}) — pay to unlock withdrawal in Monadier.{' '}
-                    <button type="button" className="hl-fee-inline-pay" onClick={openPayModal}>
-                      Pay now
-                    </button>
+                    {platformWithdrawBlocked ? (
+                      <>
+                        Bot fees due ({fmtUsdSymbol(platformAccruedUsd)}) —{' '}
+                        <button type="button" className="hl-fee-inline-pay" onClick={openPlatformPayModal}>
+                          Pay bot fees
+                        </button>
+                        {bettingWithdrawBlocked ? ' · ' : ' '}
+                      </>
+                    ) : null}
+                    {bettingWithdrawBlocked ? (
+                      <>
+                        Betting fees due ({fmtUsdSymbol(bettingAccruedUsd)}) —{' '}
+                        <button type="button" className="hl-fee-inline-pay" onClick={openBettingPayModal}>
+                          Pay betting fees
+                        </button>{' '}
+                      </>
+                    ) : null}
+                    Pay on-chain to unlock withdrawal in Monadier.
                   </p>
                 ) : null}
                 <label className="term-profile-label hl-funds-amount-label">Amount (USDC)</label>
