@@ -8,6 +8,7 @@ import { findOutcomeMarket } from '../../../lib/hyperliquid/outcomes/meta';
 import type { HlOutcomePosition } from '../../../lib/hyperliquid/outcomes/types';
 import type { OutcomeSideIndex } from '../../../lib/hyperliquid/outcomes/types';
 import { useSportsbetsSession } from '../../../hooks/useSportsbetsSession';
+import { useBettingFeeGate } from '../../../contexts/BettingFeeContext';
 import { useBettingUi } from '../../../contexts/BettingUiContext';
 import { BETTING_MOBILE_MQ, useMediaQuery } from '../../../hooks/useMediaQuery';
 import SportsbetsHero from './SportsbetsHero';
@@ -37,6 +38,7 @@ const SportsbetsTerminal: React.FC<Props> = ({
   const { registerActions, openOrderSheet, closeOrderSheet, orderSheetOpen } = useBettingUi();
   const isMobileBetting = useMediaQuery(BETTING_MOBILE_MQ);
   const session = useSportsbetsSession(walletAddress, true, userId);
+  const bettingFees = useBettingFeeGate();
   const [legQuotes, setLegQuotes] = useState<Record<number, OutcomeLegQuote>>({});
   const [quotesLoading, setQuotesLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -224,8 +226,12 @@ const SportsbetsTerminal: React.FC<Props> = ({
       onRequireSignIn={onRequireSignIn}
       trading={session.trading}
       positionSize={positionSize}
-      onSuccess={() => {
-        void session.refreshAll();
+      onSuccess={async () => {
+        await session.refreshAll();
+        const feeStatus = await bettingFees.refresh();
+        if (feeStatus?.bettingBlocked) {
+          bettingFees.openPayModal();
+        }
         if (isMobileBetting) closeOrderSheet();
       }}
       orderAction={orderAction}

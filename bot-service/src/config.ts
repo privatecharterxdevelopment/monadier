@@ -412,6 +412,8 @@ export const config = {
     successFeeEnabled: process.env.HL_SUCCESS_FEE_ENABLED !== 'false',
     successFeeBps: Number(process.env.HL_SUCCESS_FEE_BPS || 1000),
     bettingSuccessFeeBps: Number(process.env.HL_BETTING_SUCCESS_FEE_BPS || 300),
+    /** Unpaid win fees block the next bet after this many wins (default 1). */
+    bettingWinsBeforeBlock: Number(process.env.HL_BETTING_WINS_BEFORE_BLOCK || 1),
     /** Accrued per bet buy — 50 bps = 0.5% of stake (hl_betting_fee_ledger, not bot fees). */
     bettingBuyFeeBps: Number(process.env.HL_BETTING_BUY_FEE_BPS || 50),
     /** Accrued per cash-out — 250 bps = 2.5% of sell notional. */

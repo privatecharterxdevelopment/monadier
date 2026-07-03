@@ -3,8 +3,7 @@ import { CheckCircle, Loader2, Wallet } from 'lucide-react';
 import { usePublicClient, useSwitchChain, useWalletClient } from 'wagmi';
 import type { BettingFeeEvent } from '../../lib/betting/bettingFeesApi';
 import {
-  BETTING_BUY_FEE_LABEL,
-  BETTING_CASHOUT_FEE_LABEL,
+  BETTING_WIN_FEE_LABEL,
 } from '../../lib/betting/bettingAccruedFees';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { fireProfileOnboardingConfetti } from '../../lib/confettiCelebration';
@@ -23,6 +22,8 @@ type Props = {
   onClose: () => void;
   payerWallet?: string | null;
   accruedUsd: number;
+  successWinCount?: number;
+  winsBeforeBlock?: number;
   treasuryAddress: string;
   events: BettingFeeEvent[];
   onPaid: (amountUsd: number, paymentRef?: string) => Promise<boolean>;
@@ -31,8 +32,8 @@ type Props = {
 
 const SUCCESS_CLOSE_MS = 2400;
 
-function eventFeeLabel(event: BettingFeeEvent): string {
-  return event.eventType === 'buy' ? BETTING_BUY_FEE_LABEL : BETTING_CASHOUT_FEE_LABEL;
+function eventFeeLabel(_event: BettingFeeEvent): string {
+  return BETTING_WIN_FEE_LABEL;
 }
 
 const BettingFeePayModal: React.FC<Props> = ({
@@ -40,6 +41,8 @@ const BettingFeePayModal: React.FC<Props> = ({
   onClose,
   payerWallet,
   accruedUsd,
+  successWinCount = 0,
+  winsBeforeBlock = 1,
   treasuryAddress,
   events = [],
   onPaid,
@@ -216,9 +219,9 @@ const BettingFeePayModal: React.FC<Props> = ({
         </header>
 
         <p className="hl-fee-modal-lead">
-          Pay {fmtUsdSymbol(accruedUsd)} to place your next bet. Fees are{' '}
-          {BETTING_BUY_FEE_LABEL} on stake and {BETTING_CASHOUT_FEE_LABEL} on cash-out — separate
-          from bot trading fees.
+          You won {successWinCount}/{winsBeforeBlock} — pay {fmtUsdSymbol(accruedUsd)} on-chain to
+          place your next bet. Fee is {BETTING_WIN_FEE_LABEL} on winning cash-outs only (separate
+          from bot trading fees).
         </p>
 
         <p className="hl-fee-modal-hint">

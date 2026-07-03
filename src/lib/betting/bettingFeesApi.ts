@@ -17,7 +17,11 @@ export type BettingFeeEvent = {
 export type BettingFeeStatus = {
   accruedUsd: number;
   settledUsd: number;
+  successWinCount: number;
+  winsBeforeBlock: number;
+  winsUntilBlock: number;
   bettingBlocked: boolean;
+  withdrawBlocked: boolean;
   buyFeeBps: number;
   cashoutFeeBps: number;
   feesWaived?: boolean;
@@ -50,6 +54,7 @@ export async function recordBettingFeeEvent(opts: {
   outcomeId?: number;
   notionalUsd: number;
   externalRef: string;
+  realizedPnlUsd?: number;
 }): Promise<{ success: boolean; feeUsd?: number; status?: BettingFeeStatus }> {
   const base = getBotApiBase();
   if (!base) return { success: false };

@@ -23,11 +23,19 @@ export type BettingFeeEvent = {
 export type BettingFeeStatus = {
   accruedUsd: number;
   settledUsd: number;
+  successWinCount: number;
+  winsBeforeBlock: number;
+  winsUntilBlock: number;
   bettingBlocked: boolean;
+  withdrawBlocked: boolean;
   buyFeeBps: number;
   cashoutFeeBps: number;
   feesWaived?: boolean;
 };
+
+function winsBeforeBlock(): number {
+  return Math.max(1, Math.round(config.hyperliquid.bettingWinsBeforeBlock || 1));
+}
 
 function feeBpsForEvent(eventType: BettingFeeEventType): number {
   return eventType === 'buy'
@@ -48,10 +56,15 @@ export function calculateBettingEventFee(
 }
 
 function waivedBettingFeeStatus(): BettingFeeStatus {
+  const cap = winsBeforeBlock();
   return {
     accruedUsd: 0,
     settledUsd: 0,
+    successWinCount: 0,
+    winsBeforeBlock: cap,
+    winsUntilBlock: cap,
     bettingBlocked: false,
+    withdrawBlocked: false,
     buyFeeBps: config.hyperliquid.bettingBuyFeeBps,
     cashoutFeeBps: config.hyperliquid.bettingCashoutFeeBps,
     feesWaived: true,
@@ -64,9 +77,11 @@ export async function getBettingFeeStatus(walletAddress: string): Promise<Bettin
     return waivedBettingFeeStatus();
   }
 
+  const cap = winsBeforeBlock();
+
   const { data: rows, error } = await supabase
     .from('hl_betting_fee_ledger')
-    .select('fee_usd, status')
+    .select('fee_usd, status, event_type')
     .eq('wallet_address', wallet);
 
   if (error) {
@@ -75,16 +90,27 @@ export async function getBettingFeeStatus(walletAddress: string): Promise<Bettin
 
   let accruedUsd = 0;
   let settledUsd = 0;
+  let successWinCount = 0;
   for (const row of rows ?? []) {
     const fee = Number(row.fee_usd) || 0;
     if (row.status === 'settled') settledUsd += fee;
-    else if (row.status === 'accrued') accruedUsd += fee;
+    else if (row.status === 'accrued') {
+      accruedUsd += fee;
+      if (row.event_type === 'sell') successWinCount += 1;
+    }
   }
+
+  const winsUntilBlock = Math.max(0, cap - successWinCount);
+  const hasOwed = accruedUsd > 0.000_001;
 
   return {
     accruedUsd: Math.round(accruedUsd * 1e4) / 1e4,
     settledUsd: Math.round(settledUsd * 1e4) / 1e4,
-    bettingBlocked: accruedUsd > 0.000_001,
+    successWinCount,
+    winsBeforeBlock: cap,
+    winsUntilBlock,
+    bettingBlocked: successWinCount >= cap && hasOwed,
+    withdrawBlocked: hasOwed,
     buyFeeBps: config.hyperliquid.bettingBuyFeeBps,
     cashoutFeeBps: config.hyperliquid.bettingCashoutFeeBps,
   };
@@ -130,6 +156,8 @@ export async function recordBettingFeeEvent(opts: {
   outcomeId?: number;
   notionalUsd: number;
   externalRef: string;
+  /** Win-only model — fees accrue on profitable cash-outs only. */
+  realizedPnlUsd?: number;
 }): Promise<{ feeUsd: number; status: BettingFeeStatus }> {
   const wallet = opts.walletAddress.toLowerCase();
   const notionalUsd = Number(opts.notionalUsd);
@@ -139,6 +167,17 @@ export async function recordBettingFeeEvent(opts: {
   }
 
   if (await isFeeExemptWallet(wallet)) {
+    const status = await getBettingFeeStatus(wallet);
+    return { feeUsd: 0, status };
+  }
+
+  if (opts.eventType === 'buy') {
+    const status = await getBettingFeeStatus(wallet);
+    return { feeUsd: 0, status };
+  }
+
+  const realized = opts.realizedPnlUsd;
+  if (realized != null && (!Number.isFinite(realized) || realized <= 0)) {
     const status = await getBettingFeeStatus(wallet);
     return { feeUsd: 0, status };
   }
@@ -158,8 +197,8 @@ export async function recordBettingFeeEvent(opts: {
     return { feeUsd: 0, status };
   }
 
-  const feeBps = feeBpsForEvent(opts.eventType);
-  const feeUsd = calculateBettingEventFee(notionalUsd, opts.eventType);
+  const feeBps = feeBpsForEvent('sell');
+  const feeUsd = calculateBettingEventFee(notionalUsd, 'sell');
   if (feeUsd <= 0) {
     const status = await getBettingFeeStatus(wallet);
     return { feeUsd: 0, status };
@@ -167,7 +206,7 @@ export async function recordBettingFeeEvent(opts: {
 
   const { error } = await supabase.from('hl_betting_fee_ledger').insert({
     wallet_address: wallet,
-    event_type: opts.eventType,
+    event_type: 'sell',
     market_name: opts.marketName.slice(0, 240),
     outcome_id: opts.outcomeId ?? null,
     notional_usd: notionalUsd,
@@ -185,11 +224,11 @@ export async function recordBettingFeeEvent(opts: {
     throw new Error(error.message);
   }
 
-  logger.info('betting fee accrued', {
+  logger.info('betting win fee accrued', {
     wallet: wallet.slice(0, 10),
-    event: opts.eventType,
     notional: notionalUsd.toFixed(2),
     fee: feeUsd.toFixed(4),
+    pnl: realized != null ? realized.toFixed(4) : '—',
   });
 
   const status = await getBettingFeeStatus(wallet);

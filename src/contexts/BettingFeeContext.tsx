@@ -5,34 +5,33 @@ import { useTermAuthToast } from '../components/terminal/TermAuthToast';
 import { useAuth } from './AuthContext';
 import { isFeeExemptUser } from '../lib/admin';
 import { useBettingFees } from '../hooks/useBettingFees';
-import { recordBettingFeeEvent, type BettingFeeEventType } from '../lib/betting/bettingFeesApi';
 import { BETTING_ACCRUED_FEES_ENABLED } from '../lib/betting/bettingAccruedFees';
+import type { BettingFeeStatus } from '../lib/betting/bettingFeesApi';
 
 type BettingFeeCtx = {
   accruedUsd: number;
+  successWinCount: number;
+  winsBeforeBlock: number;
   bettingBlocked: boolean;
+  withdrawBlocked: boolean;
   feesWaived: boolean;
   feesDue: boolean;
   events: ReturnType<typeof useBettingFees>['events'];
-  refresh: () => void;
+  refresh: () => Promise<BettingFeeStatus | void>;
   openPayModal: () => void;
-  recordEventFee: (opts: {
-    eventType: BettingFeeEventType;
-    marketName: string;
-    outcomeId?: number;
-    notionalUsd: number;
-  }) => Promise<void>;
 };
 
 const DISABLED_CTX: BettingFeeCtx = {
   accruedUsd: 0,
+  successWinCount: 0,
+  winsBeforeBlock: 1,
   bettingBlocked: false,
+  withdrawBlocked: false,
   feesWaived: true,
   feesDue: false,
   events: [],
-  refresh: () => undefined,
+  refresh: () => Promise.resolve(undefined),
   openPayModal: () => undefined,
-  recordEventFee: async () => undefined,
 };
 
 const Ctx = createContext<BettingFeeCtx | null>(null);
@@ -62,7 +61,10 @@ export const BettingFeeProvider: React.FC<{
 
   const feesWaived = feeExempt || fees.status.feesWaived || !BETTING_ACCRUED_FEES_ENABLED;
   const accruedUsd = feesWaived ? 0 : fees.status.accruedUsd;
+  const successWinCount = feesWaived ? 0 : fees.status.successWinCount;
+  const winsBeforeBlock = feesWaived ? 1 : fees.status.winsBeforeBlock;
   const bettingBlocked = !feesWaived && fees.status.bettingBlocked;
+  const withdrawBlocked = !feesWaived && fees.status.withdrawBlocked;
   const feesDue = !feesWaived && accruedUsd > 0.000_001;
 
   const openPayModal = useCallback(() => {
@@ -75,47 +77,20 @@ export const BettingFeeProvider: React.FC<{
     void fees.refresh();
   }, [showToast, fees.refresh]);
 
-  const recordEventFee = useCallback(
-    async (opts: {
-      eventType: BettingFeeEventType;
-      marketName: string;
-      outcomeId?: number;
-      notionalUsd: number;
-    }) => {
-      if (!wallet || feesWaived || !BETTING_ACCRUED_FEES_ENABLED) return;
-      const externalRef = `betting:${opts.eventType}:${wallet.toLowerCase()}:${crypto.randomUUID()}`;
-      const result = await recordBettingFeeEvent({
-        wallet,
-        eventType: opts.eventType,
-        marketName: opts.marketName,
-        outcomeId: opts.outcomeId,
-        notionalUsd: opts.notionalUsd,
-        externalRef,
-      });
-      if (result.status) {
-        await fees.refresh();
-      }
-      if ((result.feeUsd ?? 0) > 0) {
-        setModalOpen(true);
-      }
-    },
-    [wallet, feesWaived, fees.refresh]
-  );
-
   useEffect(() => {
     if (feeExempt || !BETTING_ACCRUED_FEES_ENABLED) {
       setModalOpen(false);
       setAutoPrompted(false);
       return;
     }
-    if (feesDue && !autoPrompted) {
+    if (feesDue && bettingBlocked && !autoPrompted) {
       setModalOpen(true);
       setAutoPrompted(true);
     }
     if (!feesDue) {
       setAutoPrompted(false);
     }
-  }, [feeExempt, feesDue, autoPrompted]);
+  }, [feeExempt, feesDue, bettingBlocked, autoPrompted]);
 
   useEffect(() => {
     if (feeExempt || fees.loading || !BETTING_ACCRUED_FEES_ENABLED) return;
@@ -130,15 +105,28 @@ export const BettingFeeProvider: React.FC<{
   const value = useMemo<BettingFeeCtx>(
     () => ({
       accruedUsd,
+      successWinCount,
+      winsBeforeBlock,
       bettingBlocked,
+      withdrawBlocked,
       feesWaived,
       feesDue,
       events: fees.events,
       refresh: fees.refresh,
       openPayModal,
-      recordEventFee,
     }),
-    [accruedUsd, bettingBlocked, feesWaived, feesDue, fees.events, fees.refresh, openPayModal, recordEventFee]
+    [
+      accruedUsd,
+      successWinCount,
+      winsBeforeBlock,
+      bettingBlocked,
+      withdrawBlocked,
+      feesWaived,
+      feesDue,
+      fees.events,
+      fees.refresh,
+      openPayModal,
+    ]
   );
 
   if (!BETTING_ACCRUED_FEES_ENABLED || feeExempt) {
@@ -153,6 +141,8 @@ export const BettingFeeProvider: React.FC<{
         onClose={() => setModalOpen(false)}
         payerWallet={wallet}
         accruedUsd={fees.status.accruedUsd}
+        successWinCount={fees.status.successWinCount}
+        winsBeforeBlock={fees.status.winsBeforeBlock}
         treasuryAddress={fees.treasuryAddress}
         events={fees.events}
         onPaid={fees.confirmPayment}

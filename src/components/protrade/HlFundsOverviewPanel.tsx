@@ -97,7 +97,9 @@ const HlFundsOverviewPanel: React.FC<Props> = ({
                 onClick={() => bettingFees.openPayModal()}
               >
                 <strong>{fmt(bettingFees.accruedUsd)}</strong>
-                <span>0.5% buy · 2.5% cash-out</span>
+                <span>
+                  {bettingFees.successWinCount}/{bettingFees.winsBeforeBlock} win · pay before next bet
+                </span>
               </button>
             </div>
           ) : null}

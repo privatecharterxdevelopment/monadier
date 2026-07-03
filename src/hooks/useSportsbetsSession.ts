@@ -123,7 +123,7 @@ export function useSportsbetsSession(walletAddress?: string, enabled = true, use
       refreshPositions(),
     ]);
     if (userId && walletAddress && catalog) {
-      void syncBettingTradesToSupabase(userId, walletAddress, catalog);
+      await syncBettingTradesToSupabase(userId, walletAddress, catalog);
     }
   }, [refreshCatalog, refreshAccount, refreshQuote, refreshPositions, userId, walletAddress, catalog]);
 

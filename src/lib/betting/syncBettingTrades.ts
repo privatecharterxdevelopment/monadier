@@ -120,6 +120,8 @@ export async function syncBettingTradesToSupabase(
       if (closeErr) devError('[betting sync] closes upsert', closeErr);
       else if (BETTING_ACCRUED_FEES_ENABLED) {
         for (const row of withTid) {
+          const pnl = Number(row.realized_pnl) || 0;
+          if (pnl <= 0) continue;
           const size = Number(row.size) || 0;
           const px = Number(row.exit_px) || 0;
           const notionalUsd = size * px;
@@ -131,6 +133,7 @@ export async function syncBettingTradesToSupabase(
             marketName: String(row.market_name ?? 'Bet'),
             outcomeId: Number(row.outcome_id) || undefined,
             notionalUsd,
+            realizedPnlUsd: pnl,
             externalRef: fillTid != null ? `betting:sell:tid:${fillTid}` : `betting:sell:sync:${row.closed_at}`,
           });
         }

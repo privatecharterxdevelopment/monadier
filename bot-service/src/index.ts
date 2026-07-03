@@ -662,6 +662,8 @@ const healthServer = http.createServer(async (req, res) => {
       const outcomeId = body.outcomeId != null ? Number(body.outcomeId) : undefined;
       const notionalUsd = Number(body.notionalUsd);
       const externalRef = String(body.externalRef ?? '').trim();
+      const realizedPnlUsd =
+        body.realizedPnlUsd != null ? Number(body.realizedPnlUsd) : undefined;
 
       if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
         res.writeHead(400, corsHeaders);
@@ -686,6 +688,7 @@ const healthServer = http.createServer(async (req, res) => {
         outcomeId: Number.isFinite(outcomeId) ? outcomeId : undefined,
         notionalUsd,
         externalRef,
+        realizedPnlUsd: Number.isFinite(realizedPnlUsd) ? realizedPnlUsd : undefined,
       });
       res.writeHead(200, corsHeaders);
       res.end(JSON.stringify({ success: true, feeUsd: result.feeUsd, status: result.status }));

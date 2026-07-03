@@ -8,7 +8,7 @@ export function useWithdrawFeeGate() {
   const betting = useBettingFeeGate();
 
   const platformWithdrawBlocked = platform.withdrawBlocked;
-  const bettingWithdrawBlocked = !betting.feesWaived && betting.bettingBlocked;
+  const bettingWithdrawBlocked = !betting.feesWaived && betting.withdrawBlocked;
   const withdrawBlocked = platformWithdrawBlocked || bettingWithdrawBlocked;
 
   const openPayModal = useCallback(() => {

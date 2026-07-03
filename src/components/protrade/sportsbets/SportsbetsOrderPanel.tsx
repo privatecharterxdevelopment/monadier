@@ -24,8 +24,7 @@ import { useBettingBuilderFee } from '../../../hooks/useBettingBuilderFee';
 import { useBettingFeeGate } from '../../../contexts/BettingFeeContext';
 import {
   BETTING_ACCRUED_FEES_ENABLED,
-  BETTING_BUY_FEE_LABEL,
-  BETTING_CASHOUT_FEE_LABEL,
+  BETTING_WIN_FEE_LABEL,
 } from '../../../lib/betting/bettingAccruedFees';
 import { useBettingUi } from '../../../contexts/BettingUiContext';
 import { useLegalAcceptance } from '../../../contexts/LegalAcceptanceContext';
@@ -188,8 +187,6 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
     if (!market || !quote || !payoutPreview) return;
     setLocalMsg(null);
     const size = payoutPreview.contracts;
-    const marketName = pickDisplay?.eventTitle ?? market.name;
-    const notionalUsd = payoutPreview.stakeUsd;
     try {
       if (effectiveAction === 'buy') {
         await trading.buyOutcome({
@@ -202,14 +199,6 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
         });
         setLocalMsg(t('betting.betPlaced'));
         setAction('buy');
-        if (useAccruedBettingFees && walletAddress) {
-          await bettingFees.recordEventFee({
-            eventType: 'buy',
-            marketName,
-            outcomeId: market.outcomeId,
-            notionalUsd,
-          });
-        }
       } else {
         if (size > positionSize) {
           throw new Error(`You only hold ${Math.floor(positionSize)} contracts`);
@@ -225,15 +214,6 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
         });
         setLocalMsg(t('betting.cashOutSubmitted'));
         setAction('buy');
-        if (useAccruedBettingFees && walletAddress) {
-          const sellNotional = size * orderPrice;
-          await bettingFees.recordEventFee({
-            eventType: 'sell',
-            marketName,
-            outcomeId: market.outcomeId,
-            notionalUsd: sellNotional,
-          });
-        }
       }
       onSuccess?.();
     } catch {
@@ -430,7 +410,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
                 className="hl-sb-order-context-banner hl-sb-order-context-banner--err hl-sb-order-fee-due"
                 onClick={bettingFees.openPayModal}
               >
-                Pay {fmtUsdSymbol(bettingFees.accruedUsd)} betting fee to continue
+                Pay {fmtUsdSymbol(bettingFees.accruedUsd)} after your win to place the next bet
               </button>
             ) : null}
 
@@ -443,8 +423,8 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
               </p>
             ) : useAccruedBettingFees && canBet ? (
               <p className="hl-sb-order-context-fee">
-                Platform fee: {BETTING_BUY_FEE_LABEL} per bet · {BETTING_CASHOUT_FEE_LABEL} on cash-out
-                (pay after each event via Arbitrum USDC).
+                {BETTING_WIN_FEE_LABEL} platform fee on winning cash-outs only — pay on-chain after
+                your first win to unlock the next bet (losses are free).
               </p>
             ) : null}
           </div>

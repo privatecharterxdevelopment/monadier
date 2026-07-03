@@ -1,6 +1,6 @@
-import { fetchBotApi } from './botApiFetch';
-import { supabase } from './supabaseClient';
-import { hlTxExplorerUrl, hlWalletExplorerUrl } from './hyperliquid/hlApp';
+import { fetchBotApi } from '../botApiFetch';
+import { supabase } from '../supabaseClient';
+import { hlTxExplorerUrl, hlWalletExplorerUrl } from '../hyperliquid/hlApp';
 
 export type BotPublicTradeRow = {
   id: string;

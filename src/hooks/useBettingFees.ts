@@ -9,7 +9,11 @@ import {
 const EMPTY_STATUS: BettingFeeStatus = {
   accruedUsd: 0,
   settledUsd: 0,
+  successWinCount: 0,
+  winsBeforeBlock: 1,
+  winsUntilBlock: 1,
   bettingBlocked: false,
+  withdrawBlocked: false,
   buyFeeBps: 50,
   cashoutFeeBps: 250,
 };
@@ -20,27 +24,32 @@ export function useBettingFees(wallet: string | null | undefined, enabled = true
   const [treasuryAddress, setTreasuryAddress] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<BettingFeeStatus> => {
     if (!enabled || !wallet) {
       setStatus(EMPTY_STATUS);
       setEvents([]);
-      return;
+      return EMPTY_STATUS;
     }
     setLoading(true);
     try {
       const json = await fetchBettingFees(wallet);
       if (json?.success) {
-        setStatus(json.status ?? EMPTY_STATUS);
+        const next = json.status ?? EMPTY_STATUS;
+        setStatus(next);
         setEvents(json.events ?? []);
         setTreasuryAddress(json.treasuryAddress ?? '');
+        return next;
       }
     } finally {
       setLoading(false);
     }
+    return EMPTY_STATUS;
   }, [enabled, wallet]);
 
   useEffect(() => {
     void refresh();
+    const id = window.setInterval(() => void refresh(), 30_000);
+    return () => window.clearInterval(id);
   }, [refresh]);
 
   const confirmPayment = useCallback(
