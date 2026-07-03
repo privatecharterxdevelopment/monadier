@@ -21,6 +21,12 @@ import { fmtUsdSymbol } from '../../../lib/hyperliquid/format';
 import type { HlOutcomeMarket, HlOutcomeQuestion, OutcomeLegQuote, OutcomeSideIndex } from '../../../lib/hyperliquid/outcomes/types';
 import type { useHyperliquidOutcomeTrading } from '../../../hooks/useHyperliquidOutcomeTrading';
 import { useBettingBuilderFee } from '../../../hooks/useBettingBuilderFee';
+import { useBettingFeeGate } from '../../../contexts/BettingFeeContext';
+import {
+  BETTING_ACCRUED_FEES_ENABLED,
+  BETTING_BUY_FEE_LABEL,
+  BETTING_CASHOUT_FEE_LABEL,
+} from '../../../lib/betting/bettingAccruedFees';
 import { useBettingUi } from '../../../contexts/BettingUiContext';
 import { useLegalAcceptance } from '../../../contexts/LegalAcceptanceContext';
 import { BETTING_MOBILE_MQ } from '../../../hooks/useMediaQuery';
@@ -87,6 +93,8 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   const [localMsg, setLocalMsg] = useState<string | null>(null);
   const [showBuilderModal, setShowBuilderModal] = useState(false);
   const builderFee = useBettingBuilderFee(walletAddress);
+  const bettingFees = useBettingFeeGate();
+  const useAccruedBettingFees = BETTING_ACCRUED_FEES_ENABLED && !bettingFees.feesWaived;
   const { openFunds, openOrderSheet, closeOrderSheet } = useBettingUi();
   const { ensureAccepted } = useLegalAcceptance();
 
@@ -169,13 +177,19 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
       handleGate();
       return;
     }
-    if (builderFee.enabled && builderFee.needsApproval) {
+    if (useAccruedBettingFees && bettingFees.bettingBlocked) {
+      bettingFees.openPayModal();
+      return;
+    }
+    if (!useAccruedBettingFees && builderFee.enabled && builderFee.needsApproval) {
       setShowBuilderModal(true);
       return;
     }
     if (!market || !quote || !payoutPreview) return;
     setLocalMsg(null);
     const size = payoutPreview.contracts;
+    const marketName = pickDisplay?.eventTitle ?? market.name;
+    const notionalUsd = payoutPreview.stakeUsd;
     try {
       if (effectiveAction === 'buy') {
         await trading.buyOutcome({
@@ -188,6 +202,14 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
         });
         setLocalMsg(t('betting.betPlaced'));
         setAction('buy');
+        if (useAccruedBettingFees && walletAddress) {
+          await bettingFees.recordEventFee({
+            eventType: 'buy',
+            marketName,
+            outcomeId: market.outcomeId,
+            notionalUsd,
+          });
+        }
       } else {
         if (size > positionSize) {
           throw new Error(`You only hold ${Math.floor(positionSize)} contracts`);
@@ -203,6 +225,15 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
         });
         setLocalMsg(t('betting.cashOutSubmitted'));
         setAction('buy');
+        if (useAccruedBettingFees && walletAddress) {
+          const sellNotional = size * orderPrice;
+          await bettingFees.recordEventFee({
+            eventType: 'sell',
+            marketName,
+            outcomeId: market.outcomeId,
+            notionalUsd: sellNotional,
+          });
+        }
       }
       onSuccess?.();
     } catch {
@@ -393,19 +424,34 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
               </div>
             ) : null}
 
-            {builderFee.enabled && canBet ? (
+            {useAccruedBettingFees && bettingFees.feesDue ? (
+              <button
+                type="button"
+                className="hl-sb-order-context-banner hl-sb-order-context-banner--err hl-sb-order-fee-due"
+                onClick={bettingFees.openPayModal}
+              >
+                Pay {fmtUsdSymbol(bettingFees.accruedUsd)} betting fee to continue
+              </button>
+            ) : null}
+
+            {!useAccruedBettingFees && builderFee.enabled && canBet ? (
               <p className="hl-sb-order-context-fee">
                 {t('betting.platformFee', {
                   buyFee: builderFee.buyFeeLabel,
                   cashoutFee: builderFee.cashoutFeeLabel,
                 })}
               </p>
+            ) : useAccruedBettingFees && canBet ? (
+              <p className="hl-sb-order-context-fee">
+                Platform fee: {BETTING_BUY_FEE_LABEL} per bet · {BETTING_CASHOUT_FEE_LABEL} on cash-out
+                (pay after each event via Arbitrum USDC).
+              </p>
             ) : null}
           </div>
 
           <button
             type="button"
-            className={`hl-sb-order-submit ${isCashOut ? 'hl-sb-order-submit--sell' : ''} ${showDepositCta ? 'hl-sb-order-submit--deposit' : ''}`}
+            className={`hl-sb-order-submit ${isCashOut ? 'hl-sb-order-submit--sell' : ''} ${showDepositCta ? 'hl-sb-order-submit--deposit' : ''}${useAccruedBettingFees && bettingFees.bettingBlocked ? ' hl-sb-order-submit--fee' : ''}`}
             disabled={
               showDepositCta
                 ? trading.busy
@@ -417,9 +463,14 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
                     !payoutPreview ||
                     Boolean(validation) ||
                     notional < OUTCOME_MIN_NOTIONAL_USD ||
-                    (isCashOut && payoutPreview.contracts > positionSize))
+                    (isCashOut && payoutPreview.contracts > positionSize) ||
+                    (useAccruedBettingFees && bettingFees.bettingBlocked))
             }
             onClick={() => {
+              if (useAccruedBettingFees && bettingFees.bettingBlocked) {
+                bettingFees.openPayModal();
+                return;
+              }
               if (showDepositCta) {
                 closeOrderSheet();
                 openFunds('deposit');
@@ -435,13 +486,15 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
                 : t('common.signIn')
               : showDepositCta
                 ? t('betting.depositNow')
+                : useAccruedBettingFees && bettingFees.bettingBlocked
+                  ? `Pay ${fmtUsdSymbol(bettingFees.accruedUsd)} fee`
                 : isCashOut
                   ? t('betting.cashOutSide', { side: sideLabel })
                   : t('betting.betSide', { side: sideLabel })}
           </button>
         </>
       )}
-      {showBuilderModal ? (
+      {!useAccruedBettingFees && showBuilderModal ? (
         <BettingBuilderFeeModal
           buyFeeLabel={builderFee.buyFeeLabel}
           cashoutFeeLabel={builderFee.cashoutFeeLabel}

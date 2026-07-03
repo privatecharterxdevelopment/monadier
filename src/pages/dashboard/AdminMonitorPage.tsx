@@ -23,6 +23,7 @@ import {
   fetchAdminHlDashboard,
   fetchAdminHlTradeHistory,
   fetchAdminLiveContext,
+  fetchAdminWalletFeeAudit,
   fmtUsd,
   fmtUsdTrade,
   formatTimeAgo,
@@ -32,6 +33,7 @@ import {
   type AdminTradeClose,
   type AdminTradeHistoryUserStats,
   type AdminWalletFee,
+  type AdminWalletFeeAudit,
 } from '../../lib/adminDashboard';
 import { fmtPrice, fmtSize } from '../../lib/hyperliquid/format';
 import { countAdminPositionsByCoin } from '../../lib/adminHlLivePositions';
@@ -673,6 +675,9 @@ function BotsPanel({
   runnableCount?: number;
 }) {
   const [page, setPage] = useState(0);
+  const [auditWallet, setAuditWallet] = useState<string | null>(null);
+  const [auditData, setAuditData] = useState<AdminWalletFeeAudit | null>(null);
+  const [auditLoading, setAuditLoading] = useState(false);
   const runnable = runnableCount ?? bots.filter((b) => b.bot_runnable).length;
   const toggleOn = bots.filter((b) => b.auto_trade_enabled).length;
   const { pageRows, totalPages, safePage, total } = useMemo(
@@ -680,9 +685,78 @@ function BotsPanel({
     [bots, page]
   );
 
+  const openAudit = async (wallet: string) => {
+    setAuditWallet(wallet);
+    setAuditData(null);
+    setAuditLoading(true);
+    try {
+      setAuditData(await fetchAdminWalletFeeAudit(wallet));
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
   return (
     <>
       <BotTradeDiagnosisPanel bots={bots} />
+      {auditWallet ? (
+        <div className="rounded-xl border border-border bg-card-dark p-4 space-y-3 mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-medium">
+              Fee audit · {shortWallet(auditWallet, 8)}
+              {auditData?.profile?.email ? (
+                <span className="text-secondary font-normal"> · {auditData.profile.email}</span>
+              ) : null}
+            </h3>
+            <button
+              type="button"
+              className="text-xs text-secondary hover:text-primary"
+              onClick={() => {
+                setAuditWallet(null);
+                setAuditData(null);
+              }}
+            >
+              Close
+            </button>
+          </div>
+          {auditLoading ? (
+            <p className="text-sm text-secondary">Loading audit…</p>
+          ) : auditData ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 text-xs">
+              <Kpi
+                label="Bot closes"
+                value={String(auditData.trade_history?.closed_count ?? 0)}
+                sub={`${auditData.trade_history?.profitable_count ?? 0} profitable · P/L ${fmtUsdTrade(Number(auditData.trade_history?.closed_pnl_usd ?? 0), true)}`}
+              />
+              <Kpi
+                label="Unpaid wins (gate)"
+                value={`${auditData.fee_ledger?.unpaid_bot_wins ?? 0} / 20`}
+                sub="opens block at 20 if fees owed"
+              />
+              <Kpi
+                label="Lifetime fee wins"
+                value={String(auditData.fee_ledger?.lifetime_bot_wins ?? 0)}
+                sub={`${auditData.fee_ledger?.settled_bot_wins ?? 0} settled on-chain`}
+              />
+              <Kpi label="Fees accrued" value={fmtUsd(auditData.fee_ledger?.fees_accrued_usd ?? 0)} />
+              <Kpi label="Fees paid" value={fmtUsd(auditData.fees_paid_usd ?? 0)} />
+              <Kpi
+                label="Fee exempt"
+                value={auditData.fee_exempt ? 'yes' : 'no'}
+                sub={
+                  auditData.cache_state?.success_win_count != null
+                    ? `cache ${auditData.cache_state.success_win_count}`
+                    : undefined
+                }
+              />
+            </div>
+          ) : (
+            <p className="text-sm text-amber-400">
+              Audit RPC unavailable — apply migration 20260703160000_admin_wallet_fee_audit.sql
+            </p>
+          )}
+        </div>
+      ) : null}
       <TableShell
         title={`HL bot configs (${total})`}
         subtitle={`${runnable} runnable (Railway cycle) · ${toggleOn} toggle on · chain 42161 + agent required`}
@@ -702,12 +776,19 @@ function BotsPanel({
           <th className="px-4 py-3">Toggle</th>
           <th className="px-4 py-3">Agent</th>
           <th className="px-4 py-3">Chain</th>
+          <th className="px-4 py-3" title="Closed HL bot trades in trade_history">Bot closes</th>
           <th className="px-4 py-3">Fees owed</th>
           <th className="px-4 py-3">Fees paid</th>
-          <th className="px-4 py-3">Unpaid wins</th>
+          <th className="px-4 py-3" title="Unpaid profitable closes toward 20-win block (hl_fee_ledger accrued)">
+            Unpaid / 20
+          </th>
+          <th className="px-4 py-3" title="All-time profitable bot closes with platform fee">
+            Lifetime wins
+          </th>
           <th className="px-4 py-3">Blockers</th>
           <th className="px-4 py-3">Lev</th>
           <th className="px-4 py-3">Strategy</th>
+          <th className="px-4 py-3">Audit</th>
         </tr>
       </thead>
       <tbody>
@@ -725,6 +806,14 @@ function BotsPanel({
               <StatusPill on={b.agent_approved} onLabel="yes" offLabel="no" />
             </td>
             <td className="px-4 py-2 text-xs font-mono">{b.chain_id ?? '—'}</td>
+            <td className="px-4 py-2 text-xs">
+              {b.bot_closed_trades_count ?? '—'}
+              {(b.bot_profitable_closes ?? 0) > 0 ? (
+                <span className="block text-[10px] text-secondary">
+                  {b.bot_profitable_closes} win
+                </span>
+              ) : null}
+            </td>
             <td className="px-4 py-2 font-mono text-xs">
               <span className={(b.fees_owed_usd ?? 0) > 0 ? 'text-amber-400' : 'text-secondary'}>
                 {fmtUsd(b.fees_owed_usd ?? 0)}
@@ -739,11 +828,28 @@ function BotsPanel({
               </span>
               <span className="text-secondary"> / 20</span>
             </td>
+            <td className="px-4 py-2 text-xs font-mono">
+              {b.lifetime_bot_fee_wins ?? '—'}
+              {(b.fees_settled_usd ?? 0) > 0 ? (
+                <span className="block text-[10px] text-secondary">
+                  {fmtUsd(b.fees_settled_usd ?? 0)} settled
+                </span>
+              ) : null}
+            </td>
             <td className="px-4 py-2 text-xs text-amber-400/90 max-w-[200px]">
               {b.blockers || '—'}
             </td>
             <td className="px-4 py-2">{b.leverage_multiplier}x</td>
             <td className="px-4 py-2 text-xs">{b.hl_bot_strategy ?? '—'}</td>
+            <td className="px-4 py-2">
+              <button
+                type="button"
+                className="text-xs text-cyan-400 hover:underline"
+                onClick={() => void openAudit(b.wallet_address)}
+              >
+                Audit
+              </button>
+            </td>
           </tr>
         ))}
       </tbody>
@@ -989,6 +1095,11 @@ function TradesPanel({
                 ? 'opens blocked until fees paid'
                 : `${userStats.wins_until_fee ?? 20} until block`
             }
+          />
+          <Kpi
+            label="Lifetime fee wins"
+            value={String(userStats.lifetime_bot_fee_wins ?? 0)}
+            sub="all hl_fee_ledger bot wins"
           />
           <Kpi
             label="User"
@@ -1655,6 +1766,11 @@ function UsersPanel({
                 <span className={feeWins >= 20 ? 'text-amber-400 font-medium' : 'text-secondary'}>
                   {feeWins} / 20
                 </span>
+                {(u.lifetime_bot_fee_wins ?? 0) > 0 ? (
+                  <span className="block text-[10px] text-secondary">
+                    {u.lifetime_bot_fee_wins} lifetime
+                  </span>
+                ) : null}
                 {feeWins >= 20 && feesOwed > 0 ? (
                   <span className="block text-[10px] text-amber-400">blocked</span>
                 ) : (

@@ -19,6 +19,10 @@ export interface TradeSignal {
 import { positionService } from './positions';
 import { signalEngine, UnifiedSignal, Timeframe } from './signalEngine';
 import { isTrendOnlyLongAllowed, isTrendOnlyShortAllowed, trendOnlyBlockReason, computeTradeTrend } from './trendOnly';
+import {
+  h1TrendFromTradeTrend,
+  passesMtfAlignmentGate,
+} from './mtfTimeframeWeight';
 
 // Candle data structure
 interface Candle {
@@ -1391,14 +1395,23 @@ export async function analyzeMarketMTFBySymbol(
       }
     }
 
-    const directionalTfCount = signal.timeframes.filter(
-      (tf) => tf.direction === finalDirection
-    ).length;
+    const h1TrendDir = h1TrendFromTradeTrend(trend);
+    const tfVotes = signal.timeframes.map((tf) => ({
+      timeframe: tf.timeframe,
+      direction: tf.direction,
+    }));
+    const mtfGate = passesMtfAlignmentGate({
+      timeframes: tfVotes,
+      tradeDirection: finalDirection,
+      htfTrend1h: h1TrendDir,
+      minDirectionalTfs: config.hyperliquid.minDirectionalTfs,
+    });
+    const weightedDirectionalTfCount = mtfGate.directionalTfCount;
     const counterTrend =
       (finalDirection === 'LONG' && !isTrendOnlyLongAllowed(trend)) ||
       (finalDirection === 'SHORT' && !isTrendOnlyShortAllowed(trend));
     const trendAligned =
-      directionalTfCount >= config.hyperliquid.minDirectionalTfs &&
+      mtfGate.ok &&
       signal.trendAlignment >= config.hyperliquid.minTrendAlignment &&
       !counterTrend;
 
@@ -1467,7 +1480,7 @@ export async function analyzeMarketMTFBySymbol(
         volumeRatio: '1.0',
         conditionsMet: Math.round(signal.trendAlignment / 20),
         trendAlignment: Math.round(signal.trendAlignment),
-        directionalTfCount,
+        directionalTfCount: weightedDirectionalTfCount,
         h1Trend: trend,
         riskReward: (suggestedTP / suggestedSL).toFixed(2),
         trend:

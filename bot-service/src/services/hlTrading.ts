@@ -113,8 +113,8 @@ const hlPositionCloseInFlight = new Set<string>();
 let fastPositionMonitorRunning = false;
 
 /**
- * Profit-only mode (default): NEVER auto-close in red.
- * Loss exits only when Railway sets HL_LOSS_CAP_ENFORCE=true (opt-in).
+ * Profit-only mode (default): no thesis/signal loss closes in red.
+ * User stop_loss_percent > 0 always allows stop_loss closes.
  */
 function mayAutoCloseInRed(
   reason: string,
@@ -1614,12 +1614,17 @@ export class HyperliquidTradingService {
         const lastLog = hlHoldRedLogAt.get(lockKey) ?? 0;
         if (nowMs - lastLog >= 120_000) {
           hlHoldRedLogAt.set(lockKey, nowMs);
-          logger.info('HL hold in red — waiting for profit (no auto loss close)', {
+          const slNote =
+            enforcedSlPct > 0
+              ? `user SL −${enforcedSlPct}% margin (cap −$${computeMaxLossCapUsd(collateralEst, enforcedSlPct).toFixed(2)})`
+              : 'no user SL — profit-only hold';
+          logger.info('HL hold in red — waiting for user SL or profit', {
             user: userAddress.slice(0, 10),
             coin: pos.coin,
             direction: positionDirection,
             pnlUsd: pnl.toFixed(4),
             holdMin: Math.round(holdMs / 60_000),
+            slNote,
             trailPhase: trailResult.record.phase,
             trailStop: trailResult.record.currentTrailStop?.toFixed(6),
             highestPnl: trailResult.record.highestPnlSinceEntry.toFixed(4),
@@ -1724,12 +1729,15 @@ export class HyperliquidTradingService {
       const markPxFromRow = markFromPosition(entryPx, size, pnlUsd);
       let notionalUsd = absSize * markPxFromRow;
 
+      const userSlPct = closeCtx?.userStopLossPct ?? 0;
+      const userStopLossActive = userSlPct > 0 && effectiveStopLossPct(userSlPct) > 0;
       if (
         config.hyperliquid.profitOnlyExits &&
         pnlUsd < 0 &&
         reason !== 'manual' &&
+        !(reason === 'stop_loss' && userStopLossActive) &&
         !mayAutoCloseInRed(reason, closeCtx?.holdMs ?? 0, {
-          userStopLossPct: closeCtx?.userStopLossPct,
+          userStopLossPct: userSlPct,
         })
       ) {
         logger.warn('HL close rejected — never close in red', {
@@ -1737,6 +1745,7 @@ export class HyperliquidTradingService {
           coin: coinUpper,
           reason,
           pnlUsd: pnlUsd.toFixed(4),
+          userSlPct,
         });
         return { success: false, error: 'Bot does not close in red (profitOnlyExits)' };
       }

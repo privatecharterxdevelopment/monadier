@@ -5,6 +5,7 @@ import { pairLabel } from '../../lib/botTradingPairs';
 import { resolveBotAnalysisWhyLine } from '../../lib/botAnalysisDisplay';
 import type { BotReadiness } from '../../lib/botReadiness';
 import type { UnifiedSignal } from '../../lib/signalService';
+import { fiveMinTooltip } from '../../lib/mtfTimeframeWeight';
 
 type DbAnalysis = {
   signal: string;
@@ -42,6 +43,41 @@ const TF_LINE_RE = /^(1m|5m|15m|1h|4h): /i;
 
 function formatTfLine(tf: UnifiedSignal['timeframes'][number]) {
   return `${tf.timeframe} ${tf.direction} ${Math.round(tf.confidence)}%`;
+}
+
+function TfIndicator({
+  tf,
+  signal,
+}: {
+  tf: UnifiedSignal['timeframes'][number];
+  signal: UnifiedSignal;
+}) {
+  const is5m = tf.timeframe === '5m';
+  const tf5Role = signal.mtfAlignment?.tf5mRole;
+  const timingOnly = is5m && (tf5Role === 'timing_boost' || signal.mtfContext === 'trend_following');
+  const required = is5m && (tf5Role === 'required' || signal.mtfContext === 'reversal');
+  const tooltip = is5m ? fiveMinTooltip(signal.mtfContext, tf5Role) : undefined;
+  const className = [
+    'term-tf-chip',
+    is5m && timingOnly ? 'term-tf-chip--5m-timing' : '',
+    is5m && required ? 'term-tf-chip--5m-required' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <span className={className} title={tooltip}>
+      {formatTfLine(tf)}
+    </span>
+  );
+}
+
+function tfIndicatorsFromSignal(signal: UnifiedSignal | null) {
+  if (!signal?.timeframes?.length) return [];
+  const order = ['5m', '15m', '1h', '1m', '4h'];
+  return [...signal.timeframes].sort(
+    (a, b) => order.indexOf(a.timeframe) - order.indexOf(b.timeframe)
+  );
 }
 
 function slidesFromSignal(signal: UnifiedSignal | null): string[] {
@@ -89,6 +125,7 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
   const activeLabel = activeSymbol ? pairLabel(activeSymbol) : null;
 
   const tfSlides = useMemo(() => slidesFromSignal(signal), [signal]);
+  const tfIndicators = useMemo(() => tfIndicatorsFromSignal(signal), [signal]);
   const loadingSlides = useMemo(() => ANALYSIS_STEPS.map((s) => s.label), []);
   const cycleSlides = isLoading && !hasData ? loadingSlides : tfSlides;
   const slideCount = cycleSlides.length;
@@ -217,6 +254,13 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
                 </span>
               </div>
             ) : null}
+            {tfIndicators.length > 0 ? (
+              <div className="hl-bot-analyzer-tf-row">
+                {tfIndicators.map((tf) => (
+                  <TfIndicator key={tf.timeframe} tf={tf} signal={signal!} />
+                ))}
+              </div>
+            ) : null}
             {currentTf ? (
               <div className="hl-bot-analyzer-pill">
                 <span className="hl-bot-analyzer-pill__label">TF</span>
@@ -280,6 +324,13 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
             </>
           ) : null}
         </div>
+        {tfIndicators.length > 0 && signal ? (
+          <div className="term-tf-row term-tf-row--overlay">
+            {tfIndicators.map((tf) => (
+              <TfIndicator key={tf.timeframe} tf={tf} signal={signal} />
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   );

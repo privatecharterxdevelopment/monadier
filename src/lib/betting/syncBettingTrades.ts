@@ -1,6 +1,7 @@
 import { supabase } from '../supabase';
 import { devError } from '../devLog';
-import { recordBettingPlatformFee } from '../platformFeesApi';
+import { recordBettingFeeEvent } from '../betting/bettingFeesApi';
+import { BETTING_ACCRUED_FEES_ENABLED } from '../betting/bettingAccruedFees';
 import { fetchHlOutcomePositions } from '../hyperliquid/outcomes/positions';
 import { fetchHlUserFills } from '../hyperliquid/user';
 import {
@@ -117,19 +118,20 @@ export async function syncBettingTradesToSupabase(
         .from('hl_betting_closes')
         .upsert(withTid, { onConflict: 'hl_fill_tid', ignoreDuplicates: true });
       if (closeErr) devError('[betting sync] closes upsert', closeErr);
-      else {
+      else if (BETTING_ACCRUED_FEES_ENABLED) {
         for (const row of withTid) {
-          const pnl = Number(row.realized_pnl) || 0;
-          if (pnl <= 0) continue;
           const size = Number(row.size) || 0;
           const px = Number(row.exit_px) || 0;
-          void recordBettingPlatformFee({
+          const notionalUsd = size * px;
+          if (notionalUsd <= 0) continue;
+          const fillTid = row.hl_fill_tid;
+          void recordBettingFeeEvent({
             wallet,
-            profitUsd: pnl,
-            notionalUsd: size * px,
-            coin: String(row.market_name ?? 'BET'),
-            fillTid: row.hl_fill_tid as string | number,
-            builderFeeUsd: toNum(row.fee),
+            eventType: 'sell',
+            marketName: String(row.market_name ?? 'Bet'),
+            outcomeId: Number(row.outcome_id) || undefined,
+            notionalUsd,
+            externalRef: fillTid != null ? `betting:sell:tid:${fillTid}` : `betting:sell:sync:${row.closed_at}`,
           });
         }
       }

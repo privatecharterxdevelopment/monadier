@@ -62,6 +62,12 @@ export interface UnifiedSignal {
   suggestedSL: number;
   reasons: string[];
   warnings: string[];
+  mtfContext?: 'trend_following' | 'reversal';
+  mtfAlignment?: {
+    weightedCount: number;
+    requiredSlots: number;
+    tf5mRole: 'vote' | 'timing_boost' | 'required';
+  };
   timestamp: number;
 }
 

@@ -72,6 +72,12 @@ import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 import { fetchMappedTokenPrices } from './services/tokenPrices';
 import { getHlPositionTrailSnapshots } from './services/hlPositionTrailStatus';
 import { bootstrapProfitTrailStateFromDb } from './services/profitTrailState';
+import {
+  getBettingFeeStatus,
+  listAccruedBettingFeeEvents,
+  recordBettingFeeEvent,
+  settleBettingFees,
+} from './services/bettingFees';
 
 // Health check server for Railway/cloud deployments
 const PORT = process.env.PORT || 3001;
@@ -611,6 +617,109 @@ const healthServer = http.createServer(async (req, res) => {
       logger.error('API: platform-fees record-betting failed', { error: err.message });
       res.writeHead(500, corsHeaders);
       res.end(JSON.stringify({ success: false, error: err.message || 'record-betting failed' }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/betting-fees' && req.method === 'GET') {
+    try {
+      const wallet = url.searchParams.get('wallet')?.trim().toLowerCase();
+      if (!wallet || !/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet query required (0x…)' }));
+        return;
+      }
+      const status = await getBettingFeeStatus(wallet);
+      const events = await listAccruedBettingFeeEvents(wallet, 50);
+      res.writeHead(200, corsHeaders);
+      res.end(
+        JSON.stringify({
+          success: true,
+          wallet,
+          status,
+          treasuryAddress: config.platformFeeTreasuryAddress,
+          paymentChain: 'arbitrum',
+          paymentToken: 'USDC',
+          events,
+          timestamp: new Date().toISOString(),
+        })
+      );
+    } catch (err: any) {
+      logger.error('API: betting-fees GET failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'betting-fees failed' }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/betting-fees/record' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody();
+      const wallet = String(body.wallet ?? '').toLowerCase();
+      const eventType = String(body.eventType ?? '').toLowerCase();
+      const marketName = String(body.marketName ?? 'Bet').trim();
+      const outcomeId = body.outcomeId != null ? Number(body.outcomeId) : undefined;
+      const notionalUsd = Number(body.notionalUsd);
+      const externalRef = String(body.externalRef ?? '').trim();
+
+      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
+        return;
+      }
+      if (eventType !== 'buy' && eventType !== 'sell') {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'eventType must be buy or sell' }));
+        return;
+      }
+      if (!externalRef) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'externalRef required' }));
+        return;
+      }
+
+      const result = await recordBettingFeeEvent({
+        walletAddress: wallet,
+        eventType,
+        marketName,
+        outcomeId: Number.isFinite(outcomeId) ? outcomeId : undefined,
+        notionalUsd,
+        externalRef,
+      });
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, feeUsd: result.feeUsd, status: result.status }));
+    } catch (err: any) {
+      logger.error('API: betting-fees record failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'record failed' }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/betting-fees/confirm-payment' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody();
+      const wallet = String(body.wallet ?? '').toLowerCase();
+      const amountUsd = Number(body.amountUsd);
+      const paymentRef = body.paymentRef != null ? String(body.paymentRef) : undefined;
+      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
+        return;
+      }
+      if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'amountUsd required' }));
+        return;
+      }
+      const result = await settleBettingFees(wallet, amountUsd, paymentRef);
+      const status = await getBettingFeeStatus(wallet);
+      res.writeHead(result.ok ? 200 : 400, corsHeaders);
+      res.end(JSON.stringify({ success: result.ok, settledUsd: result.settledUsd, status }));
+    } catch (err: any) {
+      logger.error('API: betting-fees confirm failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'confirm-payment failed' }));
     }
     return;
   }

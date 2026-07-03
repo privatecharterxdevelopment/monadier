@@ -8,6 +8,15 @@
 
 import { logger } from '../utils/logger';
 import { normalizeH1Trend, trendOnlyBlockReason, computeTradeTrend } from './trendOnly';
+import {
+  applyTrendFollow5mConfidenceBoost,
+  computeDirectionalTfCount,
+  fiveMinEntryWeightMultiplier,
+  h1TrendFrom1hBar,
+  isTrendFollowing,
+  meetsReversalTfRequirement,
+  passesMtfAlignmentGate,
+} from './mtfTimeframeWeight';
 
 // ============================================================================
 // TYPES
@@ -77,6 +86,14 @@ export interface UnifiedSignal {
   // Reasoning
   reasons: string[];
   warnings: string[];
+
+  /** Trend-follow vs counter-trend — controls 5m vote vs timing-only role */
+  mtfContext?: 'trend_following' | 'reversal';
+  mtfAlignment?: {
+    weightedCount: number;
+    requiredSlots: number;
+    tf5mRole: 'vote' | 'timing_boost' | 'required';
+  };
 
   timestamp: number;
 }
@@ -755,6 +772,10 @@ export class SignalEngine {
     const maxTrendCount = Math.max(...Object.values(trendCounts));
     const trendAlignment = (maxTrendCount / analyses.length) * 100;
 
+    const tf1h = analyses.find((a) => a.timeframe === '1h');
+    const tf15m = analyses.find((a) => a.timeframe === '15m');
+    const h1TrendDir = h1TrendFrom1hBar(tf1h);
+
     // Calculate weighted direction
     let weightedBullish = 0;
     let weightedBearish = 0;
@@ -762,8 +783,19 @@ export class SignalEngine {
 
     for (const analysis of analyses) {
       const weight = TIMEFRAME_WEIGHTS[analysis.timeframe];
-      const trendWeight = weight.trend;
-      const entryWeight = weight.entry;
+      let trendWeight = weight.trend;
+      let entryWeight = weight.entry;
+      if (analysis.timeframe === '5m') {
+        if (analysis.direction === 'LONG') {
+          const mult = fiveMinEntryWeightMultiplier('LONG', h1TrendDir);
+          entryWeight *= mult;
+          trendWeight *= mult;
+        } else if (analysis.direction === 'SHORT') {
+          const mult = fiveMinEntryWeightMultiplier('SHORT', h1TrendDir);
+          entryWeight *= mult;
+          trendWeight *= mult;
+        }
+      }
       const combinedWeight = (trendWeight + entryWeight) / 2;
 
       totalWeight += combinedWeight;
@@ -784,10 +816,11 @@ export class SignalEngine {
     const bullishScore = totalWeight > 0 ? (weightedBullish / totalWeight) * 100 : 0;
     const bearishScore = totalWeight > 0 ? (weightedBearish / totalWeight) * 100 : 0;
 
-    const tf1h = analyses.find((a) => a.timeframe === '1h');
-    const tf15m = analyses.find((a) => a.timeframe === '15m');
+    const tfVoteList = analyses.map((a) => ({ timeframe: a.timeframe, direction: a.direction }));
     const shortTfVotes = analyses.filter((a) => a.direction === 'SHORT').length;
     const longTfVotes = analyses.filter((a) => a.direction === 'LONG').length;
+    const longAligned = computeDirectionalTfCount(tfVoteList, 'LONG', h1TrendDir);
+    const shortAligned = computeDirectionalTfCount(tfVoteList, 'SHORT', h1TrendDir);
     const tradeTrend = computeTradeTrend({
       h1Trend: tf1h?.trend,
       m15Trend: tf15m?.trend,
@@ -819,11 +852,11 @@ export class SignalEngine {
           bullishScore + (trendAlignment > 75 ? 10 : 0) + (patternStrength > 50 ? 10 : 0)
         );
         reasons.push('Uptrend — LONG from bullish score');
-      } else if (longTfVotes >= 2 && longTfVotes >= shortTfVotes) {
+      } else if (longAligned >= 2 && longAligned >= shortAligned) {
         direction = 'LONG';
         confidence = Math.max(minDirectionScore, Math.round(bullishScore || 48));
         reasons.push('Uptrend — LONG from aligned timeframes');
-      } else if (longTfVotes >= 2 || bullishScore >= minDirectionScore - 6) {
+      } else if (longAligned >= 2 || bullishScore >= minDirectionScore - 6) {
         direction = 'LONG';
         confidence = Math.max(minDirectionScore, Math.round(Math.max(bullishScore, 46)));
         reasons.push('Uptrend — macro LONG (trade with BTC pump, not SHORT fade)');
@@ -840,11 +873,11 @@ export class SignalEngine {
           bearishScore + (trendAlignment > 75 ? 10 : 0) + (patternStrength > 50 ? 10 : 0)
         );
         reasons.push('Downtrend — SHORT from bearish score');
-      } else if (shortTfVotes >= 2 && shortTfVotes > longTfVotes) {
+      } else if (shortAligned >= 2 && shortAligned > longAligned) {
         direction = 'SHORT';
         confidence = Math.max(minDirectionScore, Math.round(bearishScore || 48));
         reasons.push('Downtrend — SHORT from aligned timeframes');
-      } else if (shortTfVotes >= 2 || bearishScore >= minDirectionScore - 6) {
+      } else if (shortAligned >= 2 || bearishScore >= minDirectionScore - 6) {
         direction = 'SHORT';
         confidence = Math.max(minDirectionScore, Math.round(Math.max(bearishScore, 46)));
         reasons.push('Downtrend — macro SHORT');
@@ -891,15 +924,27 @@ export class SignalEngine {
         } else if (direction === 'LONG' && tradeTrend === 'UP' && bullishScore >= bearishScore) {
           reasons.push('Uptrend — trend LONG');
         } else if (direction === 'SHORT' && tradeTrend === 'UP') {
-          if (longTfVotes >= 2 || bullishScore >= minDirectionScore - 8) {
+          if (longAligned >= 2 || bullishScore >= minDirectionScore - 8) {
             direction = 'LONG';
             confidence = Math.max(minDirectionScore, Math.round(Math.max(bullishScore, 48)));
             reasons.push('Uptrend — redirected counter-trend SHORT to macro LONG');
+          } else if (
+            meetsReversalTfRequirement(tfVoteList, 'SHORT') &&
+            shortAligned >= 2
+          ) {
+            reasons.push('Uptrend — counter-trend SHORT (5m+15m reversal confirmed)');
           } else {
             direction = 'HOLD';
             confidence = Math.max(25, confidence - 15);
             warnings.push(block);
           }
+        } else if (
+          direction === 'LONG' &&
+          tradeTrend === 'DOWN' &&
+          meetsReversalTfRequirement(tfVoteList, 'LONG') &&
+          longAligned >= 2
+        ) {
+          reasons.push('Downtrend — counter-trend LONG (5m+15m reversal confirmed)');
         } else {
           direction = 'HOLD';
           confidence = Math.max(25, confidence - 15);
@@ -915,6 +960,38 @@ export class SignalEngine {
     if (hasLong && hasShort) {
       warnings.push('Conflicting signals: Some timeframes show LONG, others SHORT');
       confidence = Math.max(25, confidence - 10); // Softer penalty — was -20
+    }
+
+    let mtfContext: 'trend_following' | 'reversal' | undefined;
+    let mtfAlignment: UnifiedSignal['mtfAlignment'];
+    if (direction === 'LONG' || direction === 'SHORT') {
+      mtfContext = isTrendFollowing(direction, h1TrendDir) ? 'trend_following' : 'reversal';
+      const tf5 = analyses.find((a) => a.timeframe === '5m');
+      if (mtfContext === 'trend_following') {
+        confidence = applyTrendFollow5mConfidenceBoost(confidence, tf5, direction);
+      } else if (!meetsReversalTfRequirement(tfVoteList, direction)) {
+        confidence = Math.min(confidence, 48);
+        warnings.push('Counter-trend: 5m+15m must confirm reversal before entry');
+      }
+      const gate = passesMtfAlignmentGate({
+        timeframes: tfVoteList,
+        tradeDirection: direction,
+        htfTrend1h: h1TrendDir,
+        minDirectionalTfs: 2,
+      });
+      if (!gate.ok) {
+        confidence = Math.min(confidence, 50);
+        if (gate.trendFollowing) {
+          warnings.push('15m/1h must align — 5m is entry timing only in trend-follow setups');
+        } else {
+          warnings.push('Counter-trend: need 5m+15m alignment (mandatory for reversal timing)');
+        }
+      }
+      mtfAlignment = {
+        weightedCount: gate.directionalTfCount,
+        requiredSlots: 2,
+        tf5mRole: gate.trendFollowing ? 'timing_boost' : 'required',
+      };
     }
 
     // Calculate entry/exit levels
@@ -951,6 +1028,8 @@ export class SignalEngine {
       suggestedSL,
       reasons,
       warnings,
+      mtfContext,
+      mtfAlignment,
       timestamp: Date.now(),
     };
 

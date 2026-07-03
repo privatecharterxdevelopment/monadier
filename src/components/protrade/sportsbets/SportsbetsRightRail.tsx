@@ -1,6 +1,7 @@
 import React from 'react';
 import SportsbetsOrderPanel from './SportsbetsOrderPanel';
 import SportsbetsBetSlip from './SportsbetsBetSlip';
+import BettingAutoAgentPanel from './BettingAutoAgentPanel';
 import type { HlOpenOrder, HlUserFill } from '../../../lib/hyperliquid/user';
 import type { HlOutcomeMarket, HlOutcomeQuestion, HlOutcomePosition, OutcomeLegQuote, OutcomeSideIndex } from '../../../lib/hyperliquid/outcomes/types';
 import type { useHyperliquidOutcomeTrading } from '../../../hooks/useHyperliquidOutcomeTrading';
@@ -62,6 +63,12 @@ const SportsbetsRightRail: React.FC<Props> = ({
 }) => (
   <div className={`hl-sb-rail${hideOrderPanel ? ' hl-sb-rail--slip-only' : ''}`}>
     <div className="hl-sb-rail-scroll">
+      <BettingAutoAgentPanel
+        walletAddress={walletAddress}
+        walletConnected={walletConnected}
+        signedIn={signedIn}
+        onRequireSignIn={onRequireSignIn}
+      />
       {!hideOrderPanel ? (
         orderPanel ?? (
           <SportsbetsOrderPanel

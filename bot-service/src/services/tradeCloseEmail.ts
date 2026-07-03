@@ -94,7 +94,7 @@ function tradeCloseEmailHtml(params: {
       : 'Trade closed in profit';
   const historyUrl =
     kind === 'betting'
-      ? `${APP_TRADE_HISTORY_URL.replace(/\/$/, '')}/?section=sportsbets`
+      ? `${APP_TRADE_HISTORY_URL.replace(/\/$/, '')}/?section=sportsbets&payBettingFees=1`
       : tradeHistoryDeepLink();
   const unsubscribeUrl = notificationEmailUnsubscribeUrl(APP_TRADE_HISTORY_URL);
 

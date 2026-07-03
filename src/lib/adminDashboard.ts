@@ -59,6 +59,12 @@ export type AdminHlBot = {
   fees_owed_usd?: number;
   fee_win_count?: number;
   fee_opens_blocked?: boolean;
+  /** Display-only — all-time profitable bot closes in hl_fee_ledger */
+  lifetime_bot_fee_wins?: number;
+  /** Display-only — closed HL bot trades in trade_history */
+  bot_closed_trades_count?: number;
+  bot_profitable_closes?: number;
+  bot_closed_pnl_usd?: number;
 };
 
 export type AdminWalletFee = {
@@ -126,6 +132,8 @@ export type AdminTradeHistoryUserStats = {
   fees_paid_usd: number;
   fee_win_count: number;
   wins_until_fee: number;
+  lifetime_bot_fee_wins?: number;
+  bot_closed_trades_count?: number;
 };
 
 export type AdminHlTradeHistoryPage = {
@@ -208,6 +216,7 @@ export type AdminUserRow = {
   fees_paid_usd?: number;
   fee_win_count?: number;
   wins_until_fee?: number;
+  lifetime_bot_fee_wins?: number;
 };
 
 export type AdminSubscriptionRow = {
@@ -955,6 +964,131 @@ function mergeAdminUserFeeFields(dash: AdminHlDashboard): AdminHlDashboard {
   return { ...dash, users };
 }
 
+type AdminWalletBotStatsRow = {
+  wallet_address: string;
+  bot_closed_trades_count: number;
+  bot_profitable_closes: number;
+  bot_closed_pnl_usd: number;
+  lifetime_bot_fee_wins: number;
+  unpaid_bot_fee_wins: number;
+  fees_accrued_usd: number;
+  fees_settled_usd: number;
+  fees_paid_usd: number;
+};
+
+async function fetchAdminWalletBotStats(
+  wallets: string[]
+): Promise<Map<string, AdminWalletBotStatsRow>> {
+  const unique = [...new Set(wallets.map((w) => w.trim().toLowerCase()).filter(Boolean))];
+  const out = new Map<string, AdminWalletBotStatsRow>();
+  if (unique.length === 0) return out;
+
+  const { data, error } = await supabase.rpc('get_admin_wallet_bot_stats', {
+    p_wallets: unique,
+  });
+  if (error) {
+    console.warn('[adminDashboard] get_admin_wallet_bot_stats unavailable', error.message);
+    return out;
+  }
+
+  for (const row of (data ?? []) as AdminWalletBotStatsRow[]) {
+    const w = String(row.wallet_address ?? '').toLowerCase();
+    if (w) out.set(w, row);
+  }
+  return out;
+}
+
+function mergeWalletBotStatsIntoDashboard(
+  dash: AdminHlDashboard,
+  statsByWallet: Map<string, AdminWalletBotStatsRow>
+): AdminHlDashboard {
+  if (statsByWallet.size === 0) return dash;
+
+  const active_bots = dash.active_bots.map((b) => {
+    const s = statsByWallet.get(b.wallet_address.toLowerCase());
+    if (!s) return b;
+    return {
+      ...b,
+      bot_closed_trades_count: s.bot_closed_trades_count,
+      bot_profitable_closes: s.bot_profitable_closes,
+      bot_closed_pnl_usd: s.bot_closed_pnl_usd,
+      lifetime_bot_fee_wins: s.lifetime_bot_fee_wins,
+      fee_win_count: s.unpaid_bot_fee_wins,
+      fees_accrued_usd: s.fees_accrued_usd,
+      fees_settled_usd: s.fees_settled_usd,
+      fees_paid_usd: s.fees_paid_usd,
+      fees_owed_usd: Math.max(0, s.fees_accrued_usd - s.fees_paid_usd),
+    };
+  });
+
+  const botByUserId = new Map(
+    active_bots.filter((b) => b.user_id).map((b) => [b.user_id as string, b])
+  );
+  const botByWallet = new Map(active_bots.map((b) => [b.wallet_address.toLowerCase(), b]));
+
+  const users = dash.users.map((u) => {
+    const w = u.wallet_address?.trim().toLowerCase() ?? '';
+    const bot = (u.id ? botByUserId.get(u.id) : undefined) ?? (w ? botByWallet.get(w) : undefined);
+    const effectiveWallet = bot?.wallet_address ?? w;
+    const s = effectiveWallet ? statsByWallet.get(effectiveWallet) : undefined;
+    if (!s && !bot) return u;
+    return {
+      ...u,
+      wallet_address: effectiveWallet || u.wallet_address,
+      closed_trades_count: s?.bot_closed_trades_count ?? u.closed_trades_count,
+      closed_pnl_total: s?.bot_closed_pnl_usd ?? u.closed_pnl_total,
+      fees_accrued_usd: s?.fees_accrued_usd ?? u.fees_accrued_usd,
+      fees_settled_usd: s?.fees_settled_usd ?? u.fees_settled_usd,
+      fees_paid_usd: s?.fees_paid_usd ?? u.fees_paid_usd,
+      fee_win_count: s?.unpaid_bot_fee_wins ?? u.fee_win_count,
+      wins_until_fee: Math.max(0, 20 - (s?.unpaid_bot_fee_wins ?? u.fee_win_count ?? 0)),
+      lifetime_bot_fee_wins: s?.lifetime_bot_fee_wins,
+    };
+  });
+
+  return { ...dash, active_bots, users };
+}
+
+export type AdminWalletFeeAudit = {
+  wallet_address: string;
+  generated_at: string;
+  fee_exempt?: boolean;
+  profile?: { email?: string | null; wallet_address?: string | null } | null;
+  trade_history?: {
+    closed_count?: number;
+    profitable_count?: number;
+    closed_pnl_usd?: number;
+    last_closed_at?: string | null;
+  };
+  fee_ledger?: {
+    unpaid_bot_wins?: number;
+    lifetime_bot_wins?: number;
+    settled_bot_wins?: number;
+    fees_accrued_usd?: number;
+    fees_settled_usd?: number;
+    fees_total_usd?: number;
+  };
+  fees_paid_usd?: number;
+  cache_state?: { success_win_count?: number; updated_at?: string } | null;
+  wallet_mismatch?: Record<string, unknown>;
+  recent_closes?: Array<Record<string, unknown>>;
+  recent_ledger_rows?: Array<Record<string, unknown>>;
+};
+
+/** Read-only per-wallet audit (admin RPC). Does not change fee gates. */
+export async function fetchAdminWalletFeeAudit(
+  wallet: string
+): Promise<AdminWalletFeeAudit | null> {
+  const w = wallet.trim().toLowerCase();
+  if (!/^0x[a-f0-9]{40}$/.test(w)) return null;
+  const { data, error } = await supabase.rpc('get_admin_wallet_fee_audit', { p_wallet: w });
+  if (error) {
+    console.error('[adminDashboard] get_admin_wallet_fee_audit failed', error.message);
+    return null;
+  }
+  return data as AdminWalletFeeAudit;
+}
+
 /** Overlay live HL perps + authoritative HL close P/L stats onto the DB snapshot. */
 export async function enrichAdminHlDashboard(
   dash: AdminHlDashboard
@@ -971,23 +1105,34 @@ export async function enrichAdminHlDashboard(
   );
   const openUpnl = sumAdminOpenUpnl(hlLive);
 
-  return mergeAdminUserFeeFields({
-    ...dash,
-    open_positions: hlLive,
-    recent_closes: hlCloses,
-    stats: {
-      ...dash.stats,
-      open_positions: hlLive.length,
-      open_upnl_total: openUpnl,
-      closed_trades_24h: pnl24h.count,
-      closed_trades_total: pnlAll.count,
-      total_pnl: pnlAll.sum,
-      pnl_24h: pnl24h.sum,
-      win_rate:
-        pnlAll.count > 0 ? Math.round((pnlAll.wins / pnlAll.count) * 1000) / 10 : 0,
-    },
-    generated_at: new Date().toISOString(),
-  });
+  const walletList = [
+    ...dash.active_bots.map((b) => b.wallet_address),
+    ...dash.users.map((u) => u.wallet_address ?? ''),
+  ];
+  const statsByWallet = await fetchAdminWalletBotStats(walletList);
+
+  return mergeAdminUserFeeFields(
+    mergeWalletBotStatsIntoDashboard(
+      {
+        ...dash,
+        open_positions: hlLive,
+        recent_closes: hlCloses,
+        stats: {
+          ...dash.stats,
+          open_positions: hlLive.length,
+          open_upnl_total: openUpnl,
+          closed_trades_24h: pnl24h.count,
+          closed_trades_total: pnlAll.count,
+          total_pnl: pnlAll.sum,
+          pnl_24h: pnl24h.sum,
+          win_rate:
+            pnlAll.count > 0 ? Math.round((pnlAll.wins / pnlAll.count) * 1000) / 10 : 0,
+        },
+        generated_at: new Date().toISOString(),
+      },
+      statsByWallet
+    )
+  );
 }
 
 function mapAdminTradeCloseRow(raw: Record<string, unknown>): AdminTradeClose {
@@ -1054,6 +1199,7 @@ function parseAdminHlTradeHistoryPayload(
         fees_paid_usd: num(rawStats.fees_paid_usd),
         fee_win_count: Number(rawStats.fee_win_count) || 0,
         wins_until_fee: Number(rawStats.wins_until_fee) || 0,
+        lifetime_bot_fee_wins: Number(rawStats.lifetime_bot_fee_wins) || 0,
       }
     : null;
 

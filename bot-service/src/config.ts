@@ -352,7 +352,7 @@ export const config = {
       midBlock4hPct: Number(process.env.HL_FRESH_PUMP_MID_4H || 1.0),
       midNearRangeHigh: Number(process.env.HL_FRESH_PUMP_MID_NEAR_HIGH || 0.88),
     },
-    /** Bot NEVER auto-closes in red — profit-only exits. */
+    /** No thesis/signal loss closes in red; user SL% (stop_loss_percent) still enforced. */
     profitOnlyExits: process.env.HL_PROFIT_ONLY_EXITS !== 'false',
     /** BTC/ETH live volume flow for alt entry gate + open reasons. */
     megaPairVolume: {
@@ -412,6 +412,10 @@ export const config = {
     successFeeEnabled: process.env.HL_SUCCESS_FEE_ENABLED !== 'false',
     successFeeBps: Number(process.env.HL_SUCCESS_FEE_BPS || 1000),
     bettingSuccessFeeBps: Number(process.env.HL_BETTING_SUCCESS_FEE_BPS || 300),
+    /** Accrued per bet buy — 50 bps = 0.5% of stake (hl_betting_fee_ledger, not bot fees). */
+    bettingBuyFeeBps: Number(process.env.HL_BETTING_BUY_FEE_BPS || 50),
+    /** Accrued per cash-out — 250 bps = 2.5% of sell notional. */
+    bettingCashoutFeeBps: Number(process.env.HL_BETTING_CASHOUT_FEE_BPS || 250),
     minSuccessFeeUsd: Number(process.env.HL_MIN_SUCCESS_FEE_USD || 0.01),
     infoUrl: process.env.HL_INFO_URL || 'https://api.hyperliquid.xyz/info',
     builderAddress: process.env.HL_BUILDER_ADDRESS as `0x${string}`,

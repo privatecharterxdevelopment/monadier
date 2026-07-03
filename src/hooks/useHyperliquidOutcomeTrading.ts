@@ -17,6 +17,7 @@ import {
   outcomeSellReferencePx,
   type OutcomeLegQuote,
 } from '../lib/hyperliquid/outcomes';
+import { BETTING_ACCRUED_FEES_ENABLED } from '../lib/betting/bettingAccruedFees';
 import {
   isBuilderOrderError,
   resolveOutcomeBuilderParam,
@@ -105,7 +106,7 @@ export function useHyperliquidOutcomeTrading() {
       const config = getHlBuilderConfig();
       let builder = undefined as ReturnType<typeof resolveOutcomeBuilderParam> | undefined;
 
-      if (config.enabled) {
+      if (config.enabled && !BETTING_ACCRUED_FEES_ENABLED) {
         const user = requireWallet().account?.address;
         if (!user) throw new Error('Connect wallet first');
 
