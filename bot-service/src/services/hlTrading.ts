@@ -50,6 +50,10 @@ import {
 } from './marketRegime';
 import { validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
 import { validateEntryMomentum } from './entryMomentumGate';
+import {
+  validatePreOpenAnalyticsAtOpen,
+  validateTrendDirectionAtOpen,
+} from './trendDirectionOpenGate';
 import { validateEntryLocation } from './entryLocationGate';
 import { validatePerpFundingAtOpen } from './perpFundingGate';
 import { validateScanPriceDrift } from './priceValidityGate';
@@ -1170,6 +1174,38 @@ export class HyperliquidTradingService {
           reason: priceGate.reason,
         });
         return { success: false, error: priceGate.reason };
+      }
+
+      const trendGate = await validateTrendDirectionAtOpen({
+        coin,
+        direction: opts.direction,
+        botMode: opts.pick.botMode,
+      });
+      if (!trendGate.ok) {
+        logOpen(false, FUNNEL.open.trend);
+        logger.info('HL open blocked — live trend direction', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          reason: trendGate.reason,
+        });
+        return { success: false, error: trendGate.reason };
+      }
+
+      const preOpenGate = await validatePreOpenAnalyticsAtOpen({
+        coin,
+        direction: opts.direction,
+        botMode: opts.pick.botMode,
+      });
+      if (!preOpenGate.ok) {
+        logOpen(false, FUNNEL.open.preOpenCandles);
+        logger.info('HL open blocked — 20-candle analytics', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          reason: preOpenGate.reason,
+        });
+        return { success: false, error: preOpenGate.reason };
       }
 
       const locationGate = await validateEntryLocation({

@@ -8,6 +8,7 @@ import {
   validateMegaPairVolumeForDirection,
 } from './megaPairVolumeMonitor';
 import { computeAltUniverseBlock, type MacroRegime } from './universeFilterSymmetry';
+import { liveMegaMajorDirections } from './btcMacroShortGate';
 
 export type { MacroRegime };
 
@@ -38,8 +39,15 @@ export function resolveMacroRegime(): { regime: MacroRegime; reason: string } {
   const snap = getMegaPairVolumeSnapshot();
   if (snap?.pairs.length) {
     const inflow = snap.pairs.filter((p) => p.flow === 'INFLOW').length;
+    const btc = snap.pairs.find((p) => p.coin === 'BTC');
     if (inflow >= 2) {
       return { regime: 'risk_on', reason: `BTC+ETH INFLOW — ${snap.summary}` };
+    }
+    if (
+      btc?.flow === 'INFLOW' &&
+      (btc.change15mPct >= 0.08 || btc.change5mPct >= 0.06)
+    ) {
+      return { regime: 'risk_on', reason: `BTC-led INFLOW — ${snap.summary}` };
     }
   }
 
@@ -65,7 +73,8 @@ export type UniverseFilterDrop = {
 function altUniverseBlockReason(
   signal: GlobalSignalCandidate,
   regime: MacroRegime,
-  majors: ReturnType<typeof majorScanBias>,
+  btcDirection: 'LONG' | 'SHORT' | undefined,
+  ethDirection: 'LONG' | 'SHORT' | undefined,
   megaLongBlock: boolean,
   megaShortBlock: boolean
 ): string | null {
@@ -73,8 +82,8 @@ function altUniverseBlockReason(
     coin: signal.coin,
     direction: signal.direction,
     regime,
-    btcDirection: majors.btc?.direction,
-    ethDirection: majors.eth?.direction,
+    btcDirection,
+    ethDirection,
     megaLongBlock,
     megaShortBlock,
   });
@@ -130,17 +139,27 @@ export function applyOpenUniverseFilters(
   }
 
   const majors = scan ? majorScanBias(scan) : {};
-  const btcLong = majors.btc?.direction === 'LONG';
-  const ethLong = majors.eth?.direction === 'LONG';
-  const btcShort = majors.btc?.direction === 'SHORT';
-  const ethShort = majors.eth?.direction === 'SHORT';
+  const liveMajors = liveMegaMajorDirections();
+  const btcDirection = liveMajors.btc ?? majors.btc?.direction;
+  const ethDirection = liveMajors.eth ?? majors.eth?.direction;
+  const btcLong = btcDirection === 'LONG';
+  const ethLong = ethDirection === 'LONG';
+  const btcShort = btcDirection === 'SHORT';
+  const ethShort = ethDirection === 'SHORT';
   const megaLongBlock = !validateMegaPairVolumeForDirection('LONG').ok;
   const megaShortBlock = !validateMegaPairVolumeForDirection('SHORT').ok;
 
   const beforeMacro = filtered.length;
   const macroKept: GlobalSignalCandidate[] = [];
   for (const s of filtered) {
-    const skipReason = altUniverseBlockReason(s, regime, majors, megaLongBlock, megaShortBlock);
+    const skipReason = altUniverseBlockReason(
+      s,
+      regime,
+      btcDirection,
+      ethDirection,
+      megaLongBlock,
+      megaShortBlock
+    );
     if (skipReason) {
       droppedDetails.push({ coin: s.coin, direction: s.direction, skipReason });
       funnel?.log({
@@ -168,9 +187,9 @@ export function applyOpenUniverseFilters(
     dropped += macroDropped;
     const dirHint =
       btcShort || ethShort
-        ? ` · BTC ${majors.btc?.direction ?? '—'} · ETH ${majors.eth?.direction ?? '—'}`
+        ? ` · BTC ${btcDirection ?? '—'} · ETH ${ethDirection ?? '—'}`
         : btcLong || ethLong
-          ? ` · BTC ${majors.btc?.direction ?? '—'} · ETH ${majors.eth?.direction ?? '—'}`
+          ? ` · BTC ${btcDirection ?? '—'} · ETH ${ethDirection ?? '—'}`
           : '';
     reasons.push(`Universe filter — ${regimeReason}${dirHint}`);
   }
@@ -201,7 +220,9 @@ export function macroAlignedPickBonus(
   if (regime === 'risk_off' && signal.direction === 'SHORT') bonus += 55;
   if (regime === 'risk_off' && signal.direction === 'LONG' && !MAJOR_COINS.has(coin)) bonus -= 120;
   if (regime === 'risk_on' && signal.direction === 'LONG' && MAJOR_COINS.has(coin)) bonus += 25;
-  if (regime === 'risk_on' && signal.direction === 'SHORT' && !MAJOR_COINS.has(coin)) bonus -= 55;
+  if (regime === 'risk_on' && signal.direction === 'LONG' && !MAJOR_COINS.has(coin)) bonus += 45;
+  if (regime === 'risk_on' && signal.direction === 'SHORT' && !MAJOR_COINS.has(coin)) bonus -= 80;
+  if (regime === 'risk_on' && signal.direction === 'SHORT' && MAJOR_COINS.has(coin)) bonus -= 120;
   return bonus;
 }
 

@@ -33,7 +33,7 @@ type State = {
 const BALANCE_POLL_MS = 20_000;
 const POSITION_POLL_MS = 12_000;
 const HEAVY_REFRESH_MS = 120_000;
-const FILLS_LIMIT = 500;
+const FILLS_LIMIT = 2000;
 
 function isTabVisible(): boolean {
   return typeof document === 'undefined' || document.visibilityState !== 'hidden';

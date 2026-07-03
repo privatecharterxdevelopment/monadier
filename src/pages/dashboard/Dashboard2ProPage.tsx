@@ -153,7 +153,7 @@ const Dashboard2ProPageContent: React.FC = () => {
     [fills]
   );
 
-  const { coins: botManagedCoins, refresh: refreshBotManagedCoins } = useHlBotManagedCoins(
+  const { coins: botManagedCoins, loading: botManagedCoinsLoading, refresh: refreshBotManagedCoins } = useHlBotManagedCoins(
     (hlActiveWallet ?? address)?.toLowerCase(),
     botSyncTick + perpFills.length
   );
@@ -754,6 +754,7 @@ const Dashboard2ProPageContent: React.FC = () => {
             analysisSymbol={hlCoinToBotSymbol(botScanCoin)}
             openPositionCoins={botOpenPositionCoins}
             botManagedCoins={botManagedCoins}
+            botManagedCoinsLoading={botManagedCoinsLoading}
             onCoinClick={selectChartCoin}
             onDeposit={() => setFundsModal('deposit')}
           />

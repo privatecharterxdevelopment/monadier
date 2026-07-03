@@ -807,11 +807,53 @@ export class SignalEngine {
     }
     patternStrength = Math.min(100, patternStrength);
 
-    // Determine final direction
+    // Determine final direction — macro trend first (pump = LONG, dump = SHORT, not fade).
     let direction: SignalDirection = 'HOLD';
     let confidence = 0;
 
-    if (bullishScore > bearishScore && bullishScore > minDirectionScore) {
+    if (tradeTrend === 'UP') {
+      if (bullishScore > bearishScore && bullishScore > minDirectionScore) {
+        direction = 'LONG';
+        confidence = Math.min(
+          100,
+          bullishScore + (trendAlignment > 75 ? 10 : 0) + (patternStrength > 50 ? 10 : 0)
+        );
+        reasons.push('Uptrend — LONG from bullish score');
+      } else if (longTfVotes >= 2 && longTfVotes >= shortTfVotes) {
+        direction = 'LONG';
+        confidence = Math.max(minDirectionScore, Math.round(bullishScore || 48));
+        reasons.push('Uptrend — LONG from aligned timeframes');
+      } else if (longTfVotes >= 2 || bullishScore >= minDirectionScore - 6) {
+        direction = 'LONG';
+        confidence = Math.max(minDirectionScore, Math.round(Math.max(bullishScore, 46)));
+        reasons.push('Uptrend — macro LONG (trade with BTC pump, not SHORT fade)');
+      } else {
+        direction = 'HOLD';
+        confidence = Math.max(30, Math.round(bullishScore || 40));
+        warnings.push('Uptrend — no SHORT fade; waiting for clearer LONG entry');
+      }
+    } else if (tradeTrend === 'DOWN') {
+      if (bearishScore > bullishScore && bearishScore > minDirectionScore) {
+        direction = 'SHORT';
+        confidence = Math.min(
+          100,
+          bearishScore + (trendAlignment > 75 ? 10 : 0) + (patternStrength > 50 ? 10 : 0)
+        );
+        reasons.push('Downtrend — SHORT from bearish score');
+      } else if (shortTfVotes >= 2 && shortTfVotes > longTfVotes) {
+        direction = 'SHORT';
+        confidence = Math.max(minDirectionScore, Math.round(bearishScore || 48));
+        reasons.push('Downtrend — SHORT from aligned timeframes');
+      } else if (shortTfVotes >= 2 || bearishScore >= minDirectionScore - 6) {
+        direction = 'SHORT';
+        confidence = Math.max(minDirectionScore, Math.round(Math.max(bearishScore, 46)));
+        reasons.push('Downtrend — macro SHORT');
+      } else {
+        direction = 'HOLD';
+        confidence = Math.max(30, Math.round(bearishScore || 40));
+        warnings.push('Downtrend — no LONG dip-buy; waiting for clearer SHORT');
+      }
+    } else if (bullishScore > bearishScore && bullishScore > minDirectionScore) {
       direction = 'LONG';
       confidence = Math.min(100, bullishScore + (trendAlignment > 75 ? 10 : 0) + (patternStrength > 50 ? 10 : 0));
 
@@ -829,18 +871,6 @@ export class SignalEngine {
       if (bearishPatterns.length > 0) {
         reasons.push(`Bearish patterns: ${bearishPatterns.map((p) => p.type.replace('_', ' ')).join(', ')}`);
       }
-    } else if (tradeTrend === 'DOWN' && shortTfVotes >= 2 && shortTfVotes > longTfVotes) {
-      direction = 'SHORT';
-      confidence = Math.max(minDirectionScore, Math.round(bearishScore || 45));
-      reasons.push('Downtrend — SHORT from aligned lower timeframes');
-    } else if (tradeTrend === 'UP' && longTfVotes >= 2 && longTfVotes > shortTfVotes) {
-      direction = 'LONG';
-      confidence = Math.max(minDirectionScore, Math.round(bullishScore || 45));
-      reasons.push('Uptrend — LONG from aligned lower timeframes');
-    } else if (tradeTrend === 'UP' && bearishScore > bullishScore) {
-      direction = 'HOLD';
-      confidence = Math.max(25, Math.round(bearishScore * 0.5));
-      warnings.push('1h uptrend — no counter-trend SHORT on RSI fade');
     } else {
       direction = 'HOLD';
       confidence = 50;
@@ -860,6 +890,16 @@ export class SignalEngine {
           reasons.push('Downtrend — trend SHORT');
         } else if (direction === 'LONG' && tradeTrend === 'UP' && bullishScore >= bearishScore) {
           reasons.push('Uptrend — trend LONG');
+        } else if (direction === 'SHORT' && tradeTrend === 'UP') {
+          if (longTfVotes >= 2 || bullishScore >= minDirectionScore - 8) {
+            direction = 'LONG';
+            confidence = Math.max(minDirectionScore, Math.round(Math.max(bullishScore, 48)));
+            reasons.push('Uptrend — redirected counter-trend SHORT to macro LONG');
+          } else {
+            direction = 'HOLD';
+            confidence = Math.max(25, confidence - 15);
+            warnings.push(block);
+          }
         } else {
           direction = 'HOLD';
           confidence = Math.max(25, confidence - 15);

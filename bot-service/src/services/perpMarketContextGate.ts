@@ -158,6 +158,13 @@ export async function validatePerpMarketContext(opts: {
         };
       }
     } else {
+      if (ctx.change24hPct >= cfg.maxLong24hUpPct) {
+        return {
+          ok: false,
+          reason: `SHORT blocked — ${ctx.coin} +${ctx.change24hPct.toFixed(2)}% 24h (macro pump — no counter-trend short) · ${summary}`,
+          ctx,
+        };
+      }
       if (ctx.rangePosition <= 1 - cfg.maxLongRangePosition) {
         return {
           ok: false,

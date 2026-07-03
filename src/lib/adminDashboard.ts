@@ -659,7 +659,6 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
     const feesPaid = paidByWallet.get(w) ?? 0;
     const feesOwed = Math.max(0, fees.accrued - feesPaid);
     const feeWinCount = feeWinByWallet.get(w) ?? 0;
-    if (fees.accrued <= 0 && feesPaid <= 0 && !v.auto_trade_enabled) continue;
     walletFeesByWallet.set(w, {
       wallet_address: w,
       email: profile?.email ?? null,
@@ -914,6 +913,48 @@ function dedupeAdminTradeCloses(rows: AdminTradeClose[]): AdminTradeClose[] {
   return out;
 }
 
+/** Ensure user rows always carry fee-cycle fields from wallet_fees / active_bots. */
+function mergeAdminUserFeeFields(dash: AdminHlDashboard): AdminHlDashboard {
+  const FEE_WINS_BEFORE_BLOCK = 20;
+  const feeByWallet = new Map<string, AdminWalletFee>();
+  for (const w of dash.wallet_fees ?? []) {
+    feeByWallet.set(w.wallet_address.toLowerCase(), w);
+  }
+
+  const openByWallet = new Map<string, number>();
+  for (const p of dash.open_positions ?? []) {
+    const w = p.wallet_address.toLowerCase();
+    openByWallet.set(w, (openByWallet.get(w) ?? 0) + 1);
+  }
+
+  const users = dash.users.map((u) => {
+    const w = u.wallet_address?.trim().toLowerCase();
+    if (!w) return u;
+
+    const fee = feeByWallet.get(w);
+    const bot = dash.active_bots.find((b) => b.wallet_address === w);
+    const feeWinCount =
+      fee?.fee_win_count ?? bot?.fee_win_count ?? u.fee_win_count ?? 0;
+    const feesAccrued =
+      fee?.fees_accrued_usd ?? bot?.fees_accrued_usd ?? u.fees_accrued_usd ?? 0;
+    const feesPaid = fee?.fees_paid_usd ?? bot?.fees_paid_usd ?? u.fees_paid_usd ?? 0;
+    const feesSettled =
+      fee?.fees_settled_usd ?? bot?.fees_settled_usd ?? u.fees_settled_usd ?? 0;
+
+    return {
+      ...u,
+      open_positions_count: openByWallet.get(w) ?? u.open_positions_count ?? 0,
+      fees_accrued_usd: feesAccrued,
+      fees_settled_usd: feesSettled,
+      fees_paid_usd: feesPaid,
+      fee_win_count: feeWinCount,
+      wins_until_fee: Math.max(0, FEE_WINS_BEFORE_BLOCK - feeWinCount),
+    };
+  });
+
+  return { ...dash, users };
+}
+
 /** Overlay live HL perps + authoritative HL close P/L stats onto the DB snapshot. */
 export async function enrichAdminHlDashboard(
   dash: AdminHlDashboard
@@ -930,7 +971,7 @@ export async function enrichAdminHlDashboard(
   );
   const openUpnl = sumAdminOpenUpnl(hlLive);
 
-  return {
+  return mergeAdminUserFeeFields({
     ...dash,
     open_positions: hlLive,
     recent_closes: hlCloses,
@@ -946,7 +987,7 @@ export async function enrichAdminHlDashboard(
         pnlAll.count > 0 ? Math.round((pnlAll.wins / pnlAll.count) * 1000) / 10 : 0,
     },
     generated_at: new Date().toISOString(),
-  };
+  });
 }
 
 function mapAdminTradeCloseRow(raw: Record<string, unknown>): AdminTradeClose {

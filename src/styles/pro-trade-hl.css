@@ -1657,7 +1657,7 @@
 }
 
 .hl-terminal--bot .hl-bot-dock.hl-bot-dock--history-tab {
-  max-height: min(42vh, 480px);
+  max-height: min(68vh, 720px);
 }
 
 .hl-terminal--bot .hl-bot-dock > .hl-dock,
@@ -1684,7 +1684,7 @@
 }
 
 .hl-terminal--bot .hl-bot-dock.hl-bot-dock--history-tab .hl-bot-dock-inner {
-  max-height: min(42vh, 480px);
+  max-height: min(68vh, 720px);
 }
 
 .hl-terminal--bot .hl-bot-dock .hl-dock-body,
@@ -8207,7 +8207,7 @@
 }
 
 .hl-terminal--bot .hl-bot-dock.hl-bot-dock--history-tab .hl-bot-dock-inner {
-  max-height: min(42vh, 480px);
+  max-height: min(68vh, 720px);
 }
 
 .hl-bot-dock--history-only .hl-bot-dock-inner,
@@ -11583,7 +11583,7 @@
   }
 
   .hl-terminal--bot .hl-bot-dock.hl-bot-dock--history-tab {
-    max-height: min(50vh, 400px);
+    max-height: min(62vh, 560px);
   }
 
   .hl-terminal--bot .hl-bot-dock .hl-bot-dock-inner {
@@ -11966,7 +11966,7 @@
 
   .hl-terminal--bot .hl-bot-dock.hl-bot-dock--history-tab,
   .hl-terminal--bot .hl-bot-dock.hl-bot-dock--history-tab .hl-bot-dock-inner {
-    max-height: min(48vh, 340px);
+    max-height: min(58vh, 480px);
   }
 
   .hl-order-panel,

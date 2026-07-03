@@ -38,7 +38,7 @@ export function useHlBotManagedCoins(wallet: string | undefined, refreshKey = 0)
       setCoins(open);
     } catch (e) {
       console.warn('[useHlBotManagedCoins]', e);
-      setCoins(new Set());
+      // Keep last known managed coins — clearing on poll errors hid open bot positions.
     } finally {
       setLoading(false);
     }

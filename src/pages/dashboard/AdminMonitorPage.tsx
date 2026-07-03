@@ -703,6 +703,8 @@ function BotsPanel({
           <th className="px-4 py-3">Agent</th>
           <th className="px-4 py-3">Chain</th>
           <th className="px-4 py-3">Fees owed</th>
+          <th className="px-4 py-3">Fees paid</th>
+          <th className="px-4 py-3">Unpaid wins</th>
           <th className="px-4 py-3">Blockers</th>
           <th className="px-4 py-3">Lev</th>
           <th className="px-4 py-3">Strategy</th>
@@ -724,11 +726,18 @@ function BotsPanel({
             </td>
             <td className="px-4 py-2 text-xs font-mono">{b.chain_id ?? '—'}</td>
             <td className="px-4 py-2 font-mono text-xs">
-              {(b.fees_owed_usd ?? 0) > 0 ? (
-                <span className="text-amber-400">{fmtUsd(b.fees_owed_usd)}</span>
-              ) : (
-                <span className="text-secondary">—</span>
-              )}
+              <span className={(b.fees_owed_usd ?? 0) > 0 ? 'text-amber-400' : 'text-secondary'}>
+                {fmtUsd(b.fees_owed_usd ?? 0)}
+              </span>
+            </td>
+            <td className="px-4 py-2 font-mono text-xs text-green-400/90">
+              {fmtUsd(b.fees_paid_usd ?? 0)}
+            </td>
+            <td className="px-4 py-2 text-xs">
+              <span className={(b.fee_win_count ?? 0) >= 20 ? 'text-amber-400 font-medium' : ''}>
+                {b.fee_win_count ?? 0}
+              </span>
+              <span className="text-secondary"> / 20</span>
             </td>
             <td className="px-4 py-2 text-xs text-amber-400/90 max-w-[200px]">
               {b.blockers || '—'}
@@ -1345,10 +1354,10 @@ function FeesPanel({
                 <FeeStatusPill status={w.fee_payment_status} />
               </td>
               <td className="px-4 py-2 font-mono text-amber-400">
-                {w.fees_owed_usd > 0 ? fmtUsd(w.fees_owed_usd) : '—'}
+                {fmtUsd(w.fees_owed_usd ?? 0)}
               </td>
               <td className="px-4 py-2 font-mono text-green-400">
-                {w.fees_paid_usd > 0 ? fmtUsd(w.fees_paid_usd) : '—'}
+                {fmtUsd(w.fees_paid_usd ?? 0)}
               </td>
               <td className="px-4 py-2 font-mono">{fmtUsd(w.fees_accrued_usd)}</td>
               <td className="px-4 py-2 font-mono text-secondary">{fmtUsd(w.fees_settled_usd)}</td>
@@ -1592,9 +1601,10 @@ function UsersPanel({
           const openCount = u.open_positions_count ?? positions.length;
           const openUpnl = positions.reduce((sum, p) => sum + (p.profit_loss ?? 0), 0);
           const closedPnl = u.closed_pnl_total ?? 0;
-          const feesOwed = u.fees_accrued_usd ?? 0;
+          const feesAccrued = u.fees_accrued_usd ?? 0;
           const feesPaid = u.fees_paid_usd ?? 0;
-          const winsUntil = u.wins_until_fee ?? 20;
+          const feesOwed = Math.max(0, feesAccrued - feesPaid);
+          const winsUntil = u.wins_until_fee ?? Math.max(0, 20 - (u.fee_win_count ?? 0));
           const feeWins = u.fee_win_count ?? 0;
 
           return (
@@ -1634,14 +1644,12 @@ function UsersPanel({
                 {openCount > 0 ? fmtUsdTrade(openUpnl, true) : '—'}
               </td>
               <td className="px-4 py-2 font-mono text-xs">
-                {feesOwed > 0 ? (
-                  <span className="text-amber-400">{fmtUsd(feesOwed)} pending</span>
-                ) : (
-                  <span className="text-secondary">—</span>
-                )}
+                <span className={feesOwed > 0 ? 'text-amber-400' : 'text-secondary'}>
+                  {fmtUsd(feesOwed)}
+                </span>
               </td>
               <td className="px-4 py-2 font-mono text-xs text-green-400/90">
-                {feesPaid > 0 ? fmtUsd(feesPaid) : '—'}
+                {fmtUsd(feesPaid)}
               </td>
               <td className="px-4 py-2 text-xs">
                 <span className={feeWins >= 20 ? 'text-amber-400 font-medium' : 'text-secondary'}>

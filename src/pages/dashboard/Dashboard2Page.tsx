@@ -25,6 +25,7 @@ import type { BotSetupPhase } from '../../components/terminal/TerminalBotSetting
 import { displayHandle } from '../../lib/username';
 import { useProfileOnboarding } from '../../hooks/useProfileOnboarding';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
+import { useHlBotManagedCoins } from '../../hooks/useHlBotManagedCoins';
 import { hlCoinToBotSymbol } from '../../lib/botTradingPairs';
 import { MIN_HL_BOT_USD, disableHlBotExecution } from '../../lib/hyperliquid/hlBotAgent';
 import { useHlBotRunning } from '../../hooks/useHlBotRunning';
@@ -83,6 +84,11 @@ const Dashboard2Page: React.FC = () => {
   const walletReady = isConnected || isDemoUser;
 
   const { botRunning } = useHlBotRunning({ metricsAutoTrade: metrics.autoTradeEnabled });
+
+  const { coins: botManagedCoins, loading: botManagedCoinsLoading } = useHlBotManagedCoins(
+    (address ?? botSettings.wallet)?.toLowerCase(),
+    historyTick
+  );
 
   const handleRefresh = () => {
     refresh();
@@ -383,6 +389,8 @@ const Dashboard2Page: React.FC = () => {
               botAnalysisMetrics={metrics}
               botAnalysisSymbol={chartSymbol}
               botAnalysisWallet={address ?? botSettings.wallet ?? null}
+              botManagedCoins={botManagedCoins}
+              botManagedCoinsLoading={botManagedCoinsLoading}
             />
           ) : (
             <>
@@ -409,6 +417,8 @@ const Dashboard2Page: React.FC = () => {
                   botAnalysisWallet={address ?? botSettings.wallet ?? null}
                   onPositionChange={handleRefresh}
                   onCoinClick={(coin) => setChartSymbol(hlCoinToBotSymbol(coin))}
+                  botManagedCoins={botManagedCoins}
+                  botManagedCoinsLoading={botManagedCoinsLoading}
                 />
               </div>
 

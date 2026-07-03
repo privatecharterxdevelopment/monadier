@@ -1223,6 +1223,44 @@ export async function analyzeMarketMTFBySymbol(
     });
 
     let finalDirection: 'LONG' | 'SHORT' = signal.direction as 'LONG' | 'SHORT';
+    if (trend === 'UP' && finalDirection === 'SHORT') {
+      if (longVotes >= 2 || longVotes > shortVotes) {
+        finalDirection = 'LONG';
+        logger.debug('MTF redirect — macro UP, SHORT→LONG', { symbol, longVotes, shortVotes });
+      } else {
+        return {
+          direction: 'SHORT',
+          confidence: Math.round(signal.confidence),
+          reason: `Blocked — ${longVotes} LONG / ${shortVotes} SHORT in uptrend (no counter-trend SHORT)`,
+          indicators: indicators.slice(0, 3),
+          isReversalSignal: false,
+          suggestedTP: 5,
+          suggestedSL: 1.5,
+          isOverheated: rsi > 75 || rsi < 25,
+          isWeekendWarning: weekendAlertLevel !== 'none',
+          weekendAlertLevel,
+          scalpingRecommended: false,
+          marketWarning,
+          isWeak: true,
+          metrics: {
+            rsi: Math.round(rsi),
+            macd: macdSignal,
+            priceChange1h: '0.00',
+            volumeRatio: '1.0',
+            conditionsMet: 0,
+            trendAlignment: Math.round(signal.trendAlignment),
+            directionalTfCount: longVotes,
+            h1Trend: trend,
+            riskReward: '0',
+            trend: 'STRONG_UPTREND',
+            dayOfWeek: dayNames[dayOfWeek],
+          },
+        };
+      }
+    } else if (trend === 'DOWN' && finalDirection === 'LONG' && shortVotes >= 2 && shortVotes > longVotes) {
+      finalDirection = 'SHORT';
+      logger.debug('MTF redirect — macro DOWN, LONG→SHORT', { symbol, longVotes, shortVotes });
+    }
     if (signal.direction === 'HOLD') {
       const higherTFs = signal.timeframes;
       const minVotes = Math.max(2, config.hyperliquid.minDirectionalTfs);

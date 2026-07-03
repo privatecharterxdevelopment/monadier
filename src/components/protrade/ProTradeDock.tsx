@@ -125,6 +125,7 @@ type Props = {
   /** Perps = manual only; bot = bot-managed coins from hl_bot_chart_markers. */
   positionScope?: 'manual' | 'bot';
   botManagedCoins?: ReadonlySet<string>;
+  botManagedCoinsLoading?: boolean;
 };
 
 const ProTradeDock: React.FC<Props> = ({
@@ -165,6 +166,7 @@ const ProTradeDock: React.FC<Props> = ({
   onDeposit,
   positionScope,
   botManagedCoins,
+  botManagedCoinsLoading = false,
 }) => {
   const isSpot = variant === 'spot';
   const isBotMode = mode === 'bot';
@@ -221,6 +223,12 @@ const ProTradeDock: React.FC<Props> = ({
       return scope === 'bot' ? isBot : !isBot;
     });
   }, [account?.positions, managedCoins, scope]);
+
+  const hlOpenPositionCount = useMemo(
+    () =>
+      (account?.positions ?? []).filter((p) => Math.abs(toNum(p.szi)) > 1e-12).length,
+    [account?.positions]
+  );
 
   const positionCount = scopedPositions.length;
   const positionCoins = useMemo(
@@ -565,6 +573,10 @@ const ProTradeDock: React.FC<Props> = ({
                 {platformFees.successWinCount}/{platformFees.winsBeforeBlock} wins).
               </p>
             </div>
+          ) : isBotMode && botManagedCoinsLoading && hlOpenPositionCount > 0 ? (
+            <p className="hl-dock-empty" role="status">
+              Loading open positions…
+            </p>
           ) : isBotMode && botRunning && !botNeedsDeposit ? (
             <div className="hl-dock-empty hl-dock-empty--bot-scan" role="status">
               <div className="hl-dock-bot-scan-row">
