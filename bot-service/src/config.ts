@@ -386,17 +386,17 @@ export const config = {
     emergencyMaxLossUsdFloor: Number(process.env.HL_EMERGENCY_MAX_LOSS_FLOOR_USD || 2.5),
     /** Min ms open before signal_reversal loss close when HL_LOSS_THESIS_CLOSE=true. */
     thesisMinHoldBeforeLossCloseMs: Number(process.env.HL_THESIS_MIN_HOLD_MS || 600_000),
-    /** HL funding, 24h change, mark/oracle — anti-chase before opens. */
+    /** HL funding, 24h change, mark/oracle — anti-chase before opens (SHORT mirrors range via 1 − maxLongRangePosition). */
     perpContext: {
-      /** Block LONG above this fraction of 24h range (0.68 = top third). */
-      maxLongRangePosition: Number(process.env.HL_PERP_MAX_LONG_RANGE || 0.68),
+      /** Block LONG above this fraction of 24h range — loosened for macro pump trend-follow. */
+      maxLongRangePosition: Number(process.env.HL_PERP_MAX_LONG_RANGE || 0.84),
       /** Block LONG if 24h already up this much AND still in upper range. */
-      maxLong24hUpPct: Number(process.env.HL_PERP_MAX_LONG_24H || 1.2),
-      maxLong24hRangePosition: Number(process.env.HL_PERP_MAX_LONG_24H_RANGE || 0.55),
+      maxLong24hUpPct: Number(process.env.HL_PERP_MAX_LONG_24H || 3.0),
+      maxLong24hRangePosition: Number(process.env.HL_PERP_MAX_LONG_24H_RANGE || 0.78),
       /** HL funding rate — block LONG when longs pay above this (decimal). */
-      maxLongFunding: Number(process.env.HL_PERP_MAX_LONG_FUNDING || 0.00012),
+      maxLongFunding: Number(process.env.HL_PERP_MAX_LONG_FUNDING || 0.0002),
       /** Block LONG when mark trades this % above oracle. */
-      maxLongMarkPremiumPct: Number(process.env.HL_PERP_MAX_MARK_PREMIUM || 0.08),
+      maxLongMarkPremiumPct: Number(process.env.HL_PERP_MAX_MARK_PREMIUM || 0.12),
     },
     /** Pump apex line + liquidity sweep / turnaround zone (1h swings). */
     pumpSweep: {
