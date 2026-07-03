@@ -90,6 +90,12 @@ function aggregateHlCloseFills(fills: HlUserFill[]): Array<{
 function rowDedupeKey(row: Pick<PublicLeaderboardRow, 'wallet_address' | 'token_symbol' | 'direction' | 'closed_at' | 'profit_usd' | 'exit_tx_hash'>): string {
   const hash = row.exit_tx_hash?.trim().toLowerCase();
   if (hash) return `hash:${hash}`;
+  return rowBucketKey(row);
+}
+
+function rowBucketKey(
+  row: Pick<PublicLeaderboardRow, 'wallet_address' | 'token_symbol' | 'direction' | 'closed_at' | 'profit_usd'>
+): string {
   const closedMs = Date.parse(row.closed_at);
   const bucket = Number.isFinite(closedMs) ? Math.floor(closedMs / 120_000) : 0;
   return [
@@ -106,9 +112,9 @@ function mergeLeaderboardRows(dbRows: PublicLeaderboardRow[], hlRows: PublicLead
   const merged: PublicLeaderboardRow[] = [];
 
   for (const row of [...hlRows, ...dbRows]) {
-    const key = rowDedupeKey(row);
-    if (seen.has(key)) continue;
-    seen.add(key);
+    const keys = [rowDedupeKey(row), rowBucketKey(row)];
+    if (keys.some((key) => seen.has(key))) continue;
+    for (const key of keys) seen.add(key);
     merged.push(row);
   }
 
@@ -226,5 +232,6 @@ export const __test = {
   aggregateHlCloseFills,
   mergeLeaderboardRows,
   rowDedupeKey,
+  rowBucketKey,
   maskWalletLabel,
 };
