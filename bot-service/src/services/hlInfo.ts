@@ -440,6 +440,22 @@ export function hlTradableFreeMarginUsd(
   return hlFreeMarginUsd(state);
 }
 
+/**
+ * Deployable balance for entry margin sizing — capped to HL free/tradable USDC per user.
+ * Risk % and slot caps use this, not mark-to-market equity alone (avoids oversizing on uPnL).
+ */
+export function hlEntrySizingBalanceUsd(
+  funding: HlPerpFundingSnapshot,
+  state: HlClearinghouseState | null
+): number {
+  const free = hlTradableFreeMarginUsd(funding, state);
+  const equity = funding.accountEquityUsd;
+  const deployableBase = funding.unifiedAccount
+    ? Math.max(funding.spotUsdcUsd, funding.tradablePerpUsd, funding.withdrawableUsd)
+    : Math.max(funding.withdrawableUsd, funding.perpUsd, free);
+  return Math.max(0, Math.min(equity, free, deployableBase));
+}
+
 export function hlOpenPerpCoins(state: HlClearinghouseState | null): string[] {
   const coins: string[] = [];
   for (const row of state?.assetPositions ?? []) {

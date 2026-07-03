@@ -9,6 +9,7 @@ import {
   fetchHlClearinghouseState,
   fetchHlPerpFundingSnapshot,
   describeHlPerpBalanceBlocker,
+  hlEntrySizingBalanceUsd,
   hlTradableFreeMarginUsd,
   hlOpenPerpCoins,
 } from './hlInfo';
@@ -26,6 +27,7 @@ import {
 } from './globalMarketScan';
 import {
   buildNotionalBelowFloorError,
+  capHlEntryCollateralToAvailable,
   getLastHlOpenErrorForClient,
   minHlMarginForNotionalFloor,
   resolveHlMarginPerSlot,
@@ -58,6 +60,7 @@ export type WalletTradeDiagnosis = {
   hyperliquid: {
     agentApproved: boolean;
     accountEquityUsd: number;
+    sizingBalanceUsd: number;
     perpUsd: number;
     spotUsdcUsd: number;
     tradablePerpUsd: number;
@@ -128,6 +131,7 @@ export async function diagnoseWalletTrading(
   const hlState = await fetchHlClearinghouseState(walletAddress);
   const hlFunding = await fetchHlPerpFundingSnapshot(walletAddress);
   const hlBalanceUsd = hlFunding.accountEquityUsd;
+  const hlSizingBalance = hlEntrySizingBalanceUsd(hlFunding, hlState);
   const hlFreeMargin = hlTradableFreeMarginUsd(hlFunding, hlState);
   const hlAgentAddr = deriveUserHlAgentAddress(walletAddress);
   const hlAgentOk = await hlAgentApprovalService.isApproved(walletAddress, hlAgentAddr);
@@ -251,22 +255,29 @@ export async function diagnoseWalletTrading(
 
   if (balanceGateOpen && bestAvailable && hlOpenCoins.length < maxPositions && dbSettings.autoTradeEnabled) {
     let perSlot = resolveHlMarginPerSlot(
-      hlBalanceUsd,
+      hlSizingBalance,
       dbSettings.riskLevelBps,
       hlOpenCoins.length,
-      hlFreeMargin
+      hlFreeMargin,
+      hlBalanceUsd
     );
     const lev = Math.max(1, Math.floor(dbSettings.leverageMultiplier || 10));
     const minNotional = config.hyperliquid.minNotionalUsd;
     const slotsLeft = maxPositions - hlOpenCoins.length;
     const marginHeadroom = Math.min(
       hlFreeMargin / Math.max(1, slotsLeft),
-      hlBalanceUsd * config.hyperliquid.maxMarginPctPerSlot,
-      hlBalanceUsd / maxPositions
+      hlSizingBalance * config.hyperliquid.maxMarginPctPerSlot,
+      hlSizingBalance / maxPositions
     );
     const minCollateral = minHlMarginForNotionalFloor(perSlot, lev, minNotional);
     if (hlBalanceUsd >= config.hyperliquid.minAccountUsd && marginHeadroom >= minCollateral) {
-      perSlot = Math.min(Math.max(perSlot, minCollateral), marginHeadroom);
+      perSlot = capHlEntryCollateralToAvailable(
+        Math.min(Math.max(perSlot, minCollateral), marginHeadroom),
+        hlFreeMargin,
+        slotsLeft
+      );
+    } else {
+      perSlot = capHlEntryCollateralToAvailable(perSlot, hlFreeMargin, slotsLeft);
     }
     if (perSlot < 1) {
       pushUser(
@@ -350,6 +361,7 @@ export async function diagnoseWalletTrading(
     hyperliquid: {
       agentApproved: hlAgentOk,
       accountEquityUsd: hlBalanceUsd,
+      sizingBalanceUsd: hlSizingBalance,
       perpUsd: hlFunding.perpUsd,
       spotUsdcUsd: hlFunding.spotUsdcUsd,
       tradablePerpUsd: hlFunding.tradablePerpUsd,

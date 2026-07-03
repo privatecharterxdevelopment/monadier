@@ -44,7 +44,7 @@ import {
 } from './services/userBatchProcessor';
 import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './services/hlAgent';
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
-import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker, sanitizeHlApiError, invalidateHlClearinghouseCache, warmHlMetaCache } from './services/hlInfo';
+import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlEntrySizingBalanceUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker, sanitizeHlApiError, invalidateHlClearinghouseCache, warmHlMetaCache } from './services/hlInfo';
 import {
   buildNotionalBelowFloorError,
   getLastHlOpenError,
@@ -816,6 +816,7 @@ const healthServer = http.createServer(async (req, res) => {
           balanceUsd: hl.accountEquityUsd,
           perpUsd: hl.perpUsd,
           accountEquityUsd: hl.accountEquityUsd,
+          sizingBalanceUsd: hl.sizingBalanceUsd,
           tradablePerpUsd: hl.tradablePerpUsd,
           spotUsdcUsd: hl.spotUsdcUsd,
           withdrawableUsd: hl.withdrawableUsd,

@@ -17,6 +17,7 @@ import {
   formatHlPrice,
   formatHlSize,
   hlAccountValueUsd,
+  hlEntrySizingBalanceUsd,
   hlTradableFreeMarginUsd,
   hlFreeMarginUsd,
   hlOpenPerpCoins,
@@ -342,27 +343,30 @@ function saveTrailRecord(lockKey: string, rec: DynamicTrailRecord): void {
 }
 
 function resolveMarginPerSlot(
-  balance: number,
+  sizingBalanceUsd: number,
   freeMarginUsd: number,
   riskLevelBps: number,
   openCount: number,
-  maxSlots: number
+  maxSlots: number,
+  accountEquityUsd?: number
 ): number {
   if (openCount >= maxSlots) return 0;
 
   const slotsRemaining = maxSlots - openCount;
   const minMargin = config.hyperliquid.minMarginUsd;
   const effectiveRiskBps = Math.min(riskLevelBps, config.hyperliquid.maxRiskLevelBps);
-  const totalRiskUsd = (balance * effectiveRiskBps) / 10000;
+  const deployable = Math.max(0, Math.min(sizingBalanceUsd, freeMarginUsd));
+  const equityForGate = accountEquityUsd ?? sizingBalanceUsd;
+  const totalRiskUsd = (deployable * effectiveRiskBps) / 10000;
   const perSlot = totalRiskUsd / Math.max(1, maxSlots);
 
   let collateral = perSlot >= minMargin ? perSlot : 0;
 
   if (collateral < minMargin) {
-    const slotFloor = Math.min(minMargin, balance * 0.1);
-    if (balance >= config.hyperliquid.minAccountUsd && slotFloor >= 1) {
+    const slotFloor = Math.min(minMargin, deployable * 0.1);
+    if (equityForGate >= config.hyperliquid.minAccountUsd && slotFloor >= 1) {
       collateral = slotFloor;
-    } else if (openCount === 0 && balance < config.hyperliquid.minAccountUsd) {
+    } else if (openCount === 0 && equityForGate < config.hyperliquid.minAccountUsd) {
       collateral = perSlot;
     } else {
       collateral = perSlot >= 1 ? perSlot : 0;
@@ -370,8 +374,8 @@ function resolveMarginPerSlot(
   }
 
   const maxFromFree = freeMarginUsd / slotsRemaining;
-  const slotPctCap = balance * config.hyperliquid.maxMarginPctPerSlot;
-  const equalSlotCap = balance / maxSlots;
+  const slotPctCap = deployable * config.hyperliquid.maxMarginPctPerSlot;
+  const equalSlotCap = deployable / maxSlots;
   collateral = Math.min(collateral, maxFromFree, slotPctCap, equalSlotCap);
 
   return collateral >= 1 ? collateral : 0;
@@ -379,18 +383,34 @@ function resolveMarginPerSlot(
 
 /** Exported for /api/bot-status diagnostics. */
 export function resolveHlMarginPerSlot(
-  balance: number,
+  sizingBalanceUsd: number,
   riskLevelBps: number,
   openCount: number,
-  freeMarginUsd?: number
+  freeMarginUsd?: number,
+  accountEquityUsd?: number
 ): number {
+  const free = freeMarginUsd ?? sizingBalanceUsd;
   return resolveMarginPerSlot(
-    balance,
-    freeMarginUsd ?? balance,
+    sizingBalanceUsd,
+    free,
     riskLevelBps,
     openCount,
-    config.hyperliquid.maxConcurrentPositions
+    config.hyperliquid.maxConcurrentPositions,
+    accountEquityUsd
   );
+}
+
+/** Final collateral cap before HL order — never exceed remaining free margin for this slot. */
+export function capHlEntryCollateralToAvailable(
+  collateralUsd: number,
+  freeMarginUsd: number,
+  slotsRemaining: number
+): number {
+  const headroom = Math.min(
+    freeMarginUsd / Math.max(1, slotsRemaining),
+    freeMarginUsd
+  );
+  return Math.max(0, Math.min(collateralUsd, headroom));
 }
 
 /** When user LVRG cap cannot hit HL min notional, auto-bump within this band. */
@@ -885,27 +905,30 @@ export class HyperliquidTradingService {
       lastHlOpenError.delete(userAddress.toLowerCase());
 
       const slotsLeft = maxPositions - coinsOpen.length;
-      const balance = funding.accountEquityUsd;
+      const accountEquity = funding.accountEquityUsd;
       const freeMargin = hlTradableFreeMarginUsd(funding, stateRef);
+      const sizingBalance = hlEntrySizingBalanceUsd(funding, stateRef);
       let collateral = resolveMarginPerSlot(
-        balance,
+        sizingBalance,
         freeMargin,
         settings.riskLevelBps,
         coinsOpen.length,
-        maxPositions
+        maxPositions,
+        accountEquity
       );
       if (collateral < 1) {
         const err =
           coinsOpen.length > 0
             ? `free margin too low for slot ${coinsOpen.length + 1} ($${freeMargin.toFixed(2)} free)`
-            : `margin too small for slot ($${collateral.toFixed(2)} from $${balance.toFixed(2)} balance)`;
+            : `margin too small for slot ($${collateral.toFixed(2)} from $${sizingBalance.toFixed(2)} available / $${accountEquity.toFixed(2)} equity)`;
         lastHlOpenError.set(userAddress.toLowerCase(), {
           at: new Date().toISOString(),
           error: err,
         });
         logger.info('HL open skip: margin too small for slot', {
           user: userAddress.slice(0, 10),
-          balance,
+          accountEquity,
+          sizingBalance,
           freeMargin,
           collateral,
           openCount: coinsOpen.length,
@@ -959,8 +982,8 @@ export class HyperliquidTradingService {
       const slotsRemaining = maxPositions - coinsOpen.length;
       const marginHeadroom = Math.min(
         freeMargin / Math.max(1, slotsRemaining),
-        balance * config.hyperliquid.maxMarginPctPerSlot,
-        balance / maxPositions
+        sizingBalance * config.hyperliquid.maxMarginPctPerSlot,
+        sizingBalance / maxPositions
       );
       // Funded accounts: bump margin to clear HL min notional (user LVRG or 5–15× auto band).
       const minCollateralForNotional = minHlMarginForNotionalFloor(
@@ -969,13 +992,16 @@ export class HyperliquidTradingService {
         minNotional
       );
       if (
-        balance >= config.hyperliquid.minAccountUsd &&
+        accountEquity >= config.hyperliquid.minAccountUsd &&
         marginHeadroom >= minCollateralForNotional
       ) {
-        collateral = Math.min(
-          Math.max(collateral, minCollateralForNotional),
-          marginHeadroom
+        collateral = capHlEntryCollateralToAvailable(
+          Math.min(Math.max(collateral, minCollateralForNotional), marginHeadroom),
+          freeMargin,
+          slotsRemaining
         );
+      } else {
+        collateral = capHlEntryCollateralToAvailable(collateral, freeMargin, slotsRemaining);
       }
       let openedThisSlot = false;
 
@@ -1234,6 +1260,26 @@ export class HyperliquidTradingService {
           reason: momentumGate.reason,
         });
         return { success: false, error: momentumGate.reason };
+      }
+
+      invalidateHlClearinghouseCache(opts.userAddress);
+      const preOpenFunding = await fetchHlPerpFundingSnapshot(opts.userAddress);
+      const preOpenState = await fetchHlClearinghouseState(opts.userAddress);
+      const preOpenFree = hlTradableFreeMarginUsd(preOpenFunding, preOpenState);
+      const requiredCollateral = opts.notionalUsd / Math.max(1, effectiveLeverage);
+      if (requiredCollateral > preOpenFree + 0.25) {
+        const err =
+          `insufficient free margin ($${preOpenFree.toFixed(2)} available, need $${requiredCollateral.toFixed(2)} margin at ${effectiveLeverage}x)`;
+        logOpen(false, FUNNEL.open.notional);
+        logger.info('HL open blocked — margin exceeds available balance', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          notionalUsd: opts.notionalUsd.toFixed(2),
+          requiredCollateral: requiredCollateral.toFixed(2),
+          preOpenFree: preOpenFree.toFixed(2),
+          leverage: effectiveLeverage,
+        });
+        return { success: false, error: err };
       }
 
       logOpen(true);
