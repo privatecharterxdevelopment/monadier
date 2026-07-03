@@ -5,25 +5,9 @@
  * ensuring frontend and bot use the SAME signal logic.
  */
 
-/**
- * Same-origin /bot-service proxy (Vite dev + Vercel prod) → Railway bot.
- * In the browser we always use the proxy so admin/trading never hit CORS or a stale VITE_BOT_API_URL.
- * Override with VITE_BOT_API_URL only for local dev when bot-service runs on another port.
- */
-export function getBotApiBase(): string {
-  if (typeof window !== 'undefined') {
-    if (import.meta.env.DEV) {
-      const local = import.meta.env.VITE_BOT_API_URL?.replace(/\/$/, '') ?? '';
-      if (local) return local;
-    }
-    return `${window.location.origin}/bot-service`;
-  }
-  const fromEnv = import.meta.env.VITE_BOT_API_URL?.replace(/\/$/, '') ?? '';
-  if (fromEnv) return fromEnv;
-  return import.meta.env.DEV
-    ? 'http://localhost:3001'
-    : 'https://monadier-production.up.railway.app';
-}
+import { fetchBotApi, getBotApiBase, isTransientFetchError } from './botApiFetch';
+
+export { getBotApiBase, fetchBotApi, isTransientFetchError } from './botApiFetch';
 
 // Types matching the SignalEngine output
 export type Timeframe = '1m' | '5m' | '15m' | '1h' | '4h';
@@ -91,34 +75,37 @@ interface TimeframeResponse {
  */
 export async function fetchUnifiedSignal(
   symbol: string = 'ETHUSDT',
-  timeframes: Timeframe[] = ['5m', '15m', '1h']
+  timeframes: Timeframe[] = ['5m', '15m', '1h'],
+  opts?: { signal?: AbortSignal }
 ): Promise<UnifiedSignal | null> {
-  const base = getBotApiBase();
-  if (!base) {
+  if (!getBotApiBase()) {
     console.warn('[signalService] Bot API base URL missing');
     return null;
   }
   try {
-    const url = `${base}/api/signal?symbol=${symbol}&timeframes=${timeframes.join(',')}`;
-    const response = await fetch(url, {
+    const url = `/api/signal?symbol=${encodeURIComponent(symbol)}&timeframes=${timeframes.join(',')}`;
+    const response = await fetchBotApi(url, {
       mode: 'cors',
-      cache: 'no-store',
-      signal: AbortSignal.timeout(25000),
+      signal: opts?.signal,
+      retries: 2,
     });
     if (!response.ok) {
-      console.error('Signal fetch HTTP', response.status, response.statusText);
+      console.warn('Signal fetch HTTP', response.status, symbol);
       return null;
     }
     const data: SignalResponse = await response.json();
 
     if (!data.success || !data.signal) {
-      console.error('Signal fetch failed:', data.error);
+      console.warn('Signal fetch empty:', data.error ?? symbol);
       return null;
     }
 
     return data.signal;
   } catch (err) {
-    console.error('Failed to fetch unified signal:', err);
+    if (opts?.signal?.aborted) return null;
+    if (!isTransientFetchError(err)) {
+      console.warn('Failed to fetch unified signal:', symbol, err);
+    }
     return null;
   }
 }
@@ -128,24 +115,23 @@ export async function fetchUnifiedSignal(
  */
 export async function fetchTimeframeAnalysis(
   symbol: string = 'ETHUSDT',
-  timeframe: Timeframe = '15m'
+  timeframe: Timeframe = '15m',
+  opts?: { signal?: AbortSignal }
 ): Promise<TimeframeAnalysis | null> {
-  const base = getBotApiBase();
-  if (!base) return null;
+  if (!getBotApiBase()) return null;
   try {
-    const url = `${base}/api/timeframe?symbol=${symbol}&tf=${timeframe}`;
-    const response = await fetch(url, { mode: 'cors', cache: 'no-store' });
+    const url = `/api/timeframe?symbol=${encodeURIComponent(symbol)}&tf=${timeframe}`;
+    const response = await fetchBotApi(url, { mode: 'cors', signal: opts?.signal, retries: 1 });
     if (!response.ok) return null;
     const data: TimeframeResponse = await response.json();
 
     if (!data.success || !data.analysis) {
-      console.error('Timeframe analysis failed:', data.error);
       return null;
     }
 
     return data.analysis;
   } catch (err) {
-    console.error('Failed to fetch timeframe analysis:', err);
+    if (opts?.signal?.aborted) return null;
     return null;
   }
 }

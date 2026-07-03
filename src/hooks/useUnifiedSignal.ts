@@ -68,24 +68,52 @@ export function useUnifiedSignal(options: UseUnifiedSignalOptions = {}): UseUnif
         setLastUpdated(new Date());
         setError(null);
       } else if (!silent) {
-        setError('Failed to fetch signal');
+        setError('Signal temporarily unavailable');
       }
-    } catch (err: any) {
-      if (!silent) setError(err.message || 'Unknown error');
+    } catch (err: unknown) {
+      if (!silent) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      }
     } finally {
       if (!silent) setIsLoading(false);
     }
   }, [enabled, symbol, timeframes.join(',')]);
 
-  // Initial fetch
+  // Initial fetch + abort stale requests when symbol changes
   useEffect(() => {
     if (!enabled || !symbol) {
       setSignal(null);
       setIsLoading(false);
       return;
     }
-    refresh(false);
-  }, [refresh, enabled, symbol]);
+    const controller = new AbortController();
+    let cancelled = false;
+
+    (async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const result = await fetchUnifiedSignal(symbol, timeframes, {
+          signal: controller.signal,
+        });
+        if (cancelled || controller.signal.aborted) return;
+        if (result) {
+          setSignal(result);
+          setLastUpdated(new Date());
+          setError(null);
+        } else {
+          setError('Signal temporarily unavailable');
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [enabled, symbol, timeframes.join(',')]);
 
   // Auto-refresh without flashing "Loading…" UI
   useEffect(() => {

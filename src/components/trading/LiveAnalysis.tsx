@@ -1,14 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Activity, TrendingUp, TrendingDown, Minus, RefreshCw, Loader2, AlertCircle, Clock } from 'lucide-react';
-import { useUnifiedSignal } from '../../hooks/useUnifiedSignal';
 import {
   formatPatternName,
-  Timeframe,
-  UnifiedSignal,
-  TimeframeAnalysis
+  fetchUnifiedSignal,
+  type UnifiedSignal,
 } from '../../lib/signalService';
-
-// Tokens to analyze - matching bot-service
 const TOKENS = [
   { symbol: 'ETH', binanceSymbol: 'ETHUSDT' },
   { symbol: 'ARB', binanceSymbol: 'ARBUSDT' },
@@ -215,40 +211,33 @@ export default function LiveAnalysis() {
   const fetchAllSignals = useCallback(async () => {
     setIsRefreshing(true);
 
-    const BOT_API_URL = import.meta.env.VITE_BOT_API_URL || 'http://localhost:3001';
-
     const newSignals = await Promise.all(
       TOKENS.map(async (token) => {
         try {
-          const response = await fetch(
-            `${BOT_API_URL}/api/signal?symbol=${token.binanceSymbol}&timeframes=1m,5m,15m,1h`
-          );
-          const data = await response.json();
-
-          if (data.success && data.signal) {
+          const signal = await fetchUnifiedSignal(token.binanceSymbol, ['1m', '5m', '15m', '1h']);
+          if (signal) {
             return {
               symbol: token.symbol,
               binanceSymbol: token.binanceSymbol,
-              signal: data.signal as UnifiedSignal,
+              signal,
               isLoading: false,
-              error: null
-            };
-          } else {
-            return {
-              symbol: token.symbol,
-              binanceSymbol: token.binanceSymbol,
-              signal: null,
-              isLoading: false,
-              error: data.error || 'Failed to fetch'
+              error: null,
             };
           }
-        } catch (err: any) {
           return {
             symbol: token.symbol,
             binanceSymbol: token.binanceSymbol,
             signal: null,
             isLoading: false,
-            error: err.message || 'Network error'
+            error: 'Signal temporarily unavailable',
+          };
+        } catch (err: unknown) {
+          return {
+            symbol: token.symbol,
+            binanceSymbol: token.binanceSymbol,
+            signal: null,
+            isLoading: false,
+            error: err instanceof Error ? err.message : 'Network error',
           };
         }
       })

@@ -33,7 +33,16 @@ export async function ensureUserProfile(user: User): Promise<void> {
     username: meta.username ? normalizeUsernameInput(String(meta.username)) : null,
   });
 
-  if (error && !error.message.includes('duplicate')) {
+  if (error) {
+    const code = String((error as { code?: string }).code ?? '');
+    if (
+      code === '23505' ||
+      error.message.includes('duplicate') ||
+      error.message.includes('unique constraint') ||
+      error.message.includes('409')
+    ) {
+      return;
+    }
     throw error;
   }
 }

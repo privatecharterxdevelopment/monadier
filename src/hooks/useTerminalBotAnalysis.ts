@@ -13,6 +13,7 @@ import {
   filterStaleHlBalanceBlockers,
   shouldHideLastOpenError,
 } from '../lib/hyperliquid/balanceGate';
+import { fetchBotApi } from '../lib/botApiFetch';
 import { getBotApiBase, type Timeframe } from '../lib/signalService';
 import { binanceSymbolToHlCoin, hlCoinToBotSymbol, isBotExcludedHlCoin } from '../lib/botTradingPairs';
 import { normalizeHlBotStrategy, type HlBotStrategy } from '../lib/hlBotStrategy';
@@ -173,7 +174,7 @@ export function useTerminalBotAnalysis({
   const { signal, isLoading } = useUnifiedSignal({
     symbol: scanSymbol ?? 'ETHUSDT',
     timeframes: MTF_TIMEFRAMES,
-    refreshInterval: 2500,
+    refreshInterval: 5000,
     autoRefresh: signalEnabled,
     enabled: signalEnabled,
   });
@@ -248,7 +249,7 @@ export function useTerminalBotAnalysis({
       if (cancelled) return;
       let ok = false;
       try {
-        const res = await fetch(`${getBotApiBase()}/api/global-signals`);
+        const res = await fetchBotApi('/api/global-signals', { retries: 2 });
         ok = res.ok;
         if (!res.ok) return;
         const data = (await res.json()) as {
@@ -313,8 +314,9 @@ export function useTerminalBotAnalysis({
       if (cancelled) return;
       let ok = false;
       try {
-        const res = await fetch(
-          `${getBotApiBase()}/api/bot-status?wallet=${encodeURIComponent(vaultWallet)}`
+        const res = await fetchBotApi(
+          `/api/bot-status?wallet=${encodeURIComponent(vaultWallet)}`,
+          { retries: 2, timeoutMs: 30_000 }
         );
         ok = res.ok;
         if (!res.ok) return;

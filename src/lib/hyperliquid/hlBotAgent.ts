@@ -1,7 +1,7 @@
 import { ExchangeClient, HttpTransport } from '@nktkas/hyperliquid';
 import type { WalletClient } from 'viem';
 import { walletClientToHlWallet } from './walletAdapter';
-import { getBotApiBase } from '../signalService';
+import { fetchBotApi, getBotApiBase } from '../botApiFetch';
 import { supabase } from '../supabase';
 import { getAuthUserId, registerMyWalletQuiet } from '../userWallets';
 import {
@@ -69,9 +69,9 @@ export type HlAgentAddressResponse = {
 export async function fetchHlAgentAddress(
   wallet: string
 ): Promise<HlAgentAddressResponse> {
-  const base = getBotApiBase();
-  const res = await fetch(
-    `${base}/api/hl-agent?wallet=${encodeURIComponent(wallet)}`
+  const res = await fetchBotApi(
+    `/api/hl-agent?wallet=${encodeURIComponent(wallet)}`,
+    { retries: 2 }
   );
   return res.json() as Promise<HlAgentAddressResponse>;
 }
@@ -104,8 +104,7 @@ async function saveHlAgentApprovalViaBotApi(params: {
       ? meta.agentAddress.toLowerCase()
       : params.agentAddress.toLowerCase();
 
-  const base = getBotApiBase();
-  const res = await fetch(`${base}/api/hl-agent/approval`, {
+  const res = await fetchBotApi('/api/hl-agent/approval', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -114,6 +113,7 @@ async function saveHlAgentApprovalViaBotApi(params: {
       agentName: params.agentName,
       expiresAt: params.expiresAt ?? null,
     }),
+    retries: 2,
   });
   const json = (await res.json()) as { success?: boolean; error?: string };
   if (!res.ok || !json.success) {
@@ -335,12 +335,12 @@ export async function enableHlBotExecution(walletAddress: string): Promise<void>
   );
   if (error) throw new Error(error.message);
 
-  const base = getBotApiBase();
-  if (base) {
-    void fetch(`${base}/api/referral/try-qualify`, {
+  if (getBotApiBase()) {
+    void fetchBotApi('/api/referral/try-qualify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ wallet: walletAddress.toLowerCase(), botStarted: true }),
+      retries: 1,
     }).catch(() => undefined);
   }
 }

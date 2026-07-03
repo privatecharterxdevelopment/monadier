@@ -3,7 +3,7 @@ import { pickNextScanCandidate } from '../lib/botScanCandidate';
 import { isFeeExemptWallet } from '../lib/admin';
 import { filterUserBlockers } from '../lib/hyperliquid/builderPlatform';
 import { isBotScanNoiseDetail } from '../lib/hlBotReasonLabels';
-import { getBotApiBase } from '../lib/signalService';
+import { fetchBotApi } from '../lib/botApiFetch';
 import { HL_MAX_CONCURRENT_POSITIONS } from '../lib/hlBotConstants';
 
 export type BotServerSetup = {
@@ -37,8 +37,9 @@ export function useBotServerBlockers(wallet: string | undefined, enabled: boolea
     }
     const load = async () => {
       try {
-        const res = await fetch(
-          `${getBotApiBase()}/api/bot-status?wallet=${encodeURIComponent(wallet)}`
+        const res = await fetchBotApi(
+          `/api/bot-status?wallet=${encodeURIComponent(wallet)}`,
+          { retries: 2 }
         );
         if (!res.ok) return;
         const data = (await res.json()) as {
