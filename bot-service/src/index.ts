@@ -838,6 +838,7 @@ const healthServer = http.createServer(async (req, res) => {
           autoTradeEnabled: dbSettings.autoTradeEnabled,
           leverage: dbSettings.leverageMultiplier,
           riskBps: dbSettings.riskLevelBps,
+          riskPct: dbSettings.riskLevelBps / 100,
           tp: dbSettings.takeProfitPercent,
           sl: dbSettings.stopLossPercent,
           dynamicTrail: {

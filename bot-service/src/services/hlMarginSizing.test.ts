@@ -39,7 +39,21 @@ describe('resolveHlMarginPerSlot', () => {
     const free = 38;
     const perSlot = resolveHlMarginPerSlot(available, 3000, 0, free, equity);
     assert.ok(perSlot <= free / 2 + 0.01);
-    assert.ok(perSlot <= available * 0.22 + 0.01);
+    assert.ok(perSlot <= available * 0.15 + 0.01);
+  });
+
+  it('100% user risk splits across 2 slots (~50% each), not hardcoded 30%', async () => {
+    const { resolveHlMarginPerSlot } = await import('./hlTrading.js');
+    const deployable = 146.3;
+    const perSlot = resolveHlMarginPerSlot(deployable, 10_000, 0, deployable, deployable);
+    assert.ok(Math.abs(perSlot - 73.15) < 1, `expected ~50% per slot, got ${perSlot}`);
+  });
+
+  it('30% user risk is honored when explicitly set (15% per slot with 2 max)', async () => {
+    const { resolveHlMarginPerSlot } = await import('./hlTrading.js');
+    const deployable = 100;
+    const perSlot = resolveHlMarginPerSlot(deployable, 3000, 0, deployable, deployable);
+    assert.ok(Math.abs(perSlot - 15) < 0.01, `expected 15 per slot, got ${perSlot}`);
   });
 
   it('second slot uses remaining free margin only', async () => {

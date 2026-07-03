@@ -342,6 +342,40 @@ function saveTrailRecord(lockKey: string, rec: DynamicTrailRecord): void {
   setDynamicTrailRecord(lockKey, rec);
 }
 
+/** Total margin budget from user risk % (vault_settings risk_level_bps). */
+export function userTotalRiskMarginUsd(
+  deployableUsd: number,
+  riskLevelBps: number
+): number {
+  const riskFrac = Math.max(0, Math.min(1, riskLevelBps / 10_000));
+  const userCap = deployableUsd * riskFrac;
+  const platformCap = deployableUsd * config.hyperliquid.maxMarginPctPerSlot;
+  return Math.min(userCap, platformCap);
+}
+
+/** Per-slot margin — user total risk split across max concurrent positions (typically 2). */
+export function userRiskMarginPerSlotUsd(
+  deployableUsd: number,
+  riskLevelBps: number,
+  maxSlots: number
+): number {
+  return userTotalRiskMarginUsd(deployableUsd, riskLevelBps) / Math.max(1, maxSlots);
+}
+
+/** Max collateral for the next open slot (user risk per slot + free margin headroom). */
+export function marginHeadroomForSlot(
+  sizingBalanceUsd: number,
+  freeMarginUsd: number,
+  riskLevelBps: number,
+  slotsRemaining: number,
+  maxSlots: number = config.hyperliquid.maxConcurrentPositions
+): number {
+  return Math.min(
+    freeMarginUsd / Math.max(1, slotsRemaining),
+    userRiskMarginPerSlotUsd(sizingBalanceUsd, riskLevelBps, maxSlots)
+  );
+}
+
 function resolveMarginPerSlot(
   sizingBalanceUsd: number,
   freeMarginUsd: number,
@@ -357,26 +391,23 @@ function resolveMarginPerSlot(
   const effectiveRiskBps = Math.min(riskLevelBps, config.hyperliquid.maxRiskLevelBps);
   const deployable = Math.max(0, Math.min(sizingBalanceUsd, freeMarginUsd));
   const equityForGate = accountEquityUsd ?? sizingBalanceUsd;
-  const totalRiskUsd = (deployable * effectiveRiskBps) / 10000;
-  const perSlot = totalRiskUsd / Math.max(1, maxSlots);
+  const targetMargin = userRiskMarginPerSlotUsd(deployable, effectiveRiskBps, maxSlots);
 
-  let collateral = perSlot >= minMargin ? perSlot : 0;
+  let collateral = targetMargin >= minMargin ? targetMargin : 0;
 
   if (collateral < minMargin) {
     const slotFloor = Math.min(minMargin, deployable * 0.1);
     if (equityForGate >= config.hyperliquid.minAccountUsd && slotFloor >= 1) {
       collateral = slotFloor;
     } else if (openCount === 0 && equityForGate < config.hyperliquid.minAccountUsd) {
-      collateral = perSlot;
+      collateral = targetMargin;
     } else {
-      collateral = perSlot >= 1 ? perSlot : 0;
+      collateral = targetMargin >= 1 ? targetMargin : 0;
     }
   }
 
   const maxFromFree = freeMarginUsd / slotsRemaining;
-  const slotPctCap = deployable * config.hyperliquid.maxMarginPctPerSlot;
-  const equalSlotCap = deployable / maxSlots;
-  collateral = Math.min(collateral, maxFromFree, slotPctCap, equalSlotCap);
+  collateral = Math.min(collateral, maxFromFree);
 
   return collateral >= 1 ? collateral : 0;
 }
@@ -400,7 +431,7 @@ export function resolveHlMarginPerSlot(
   );
 }
 
-/** Final collateral cap before HL order — never exceed remaining free margin for this slot. */
+/** Final collateral cap before HL order — never exceed free margin for this slot. */
 export function capHlEntryCollateralToAvailable(
   collateralUsd: number,
   freeMarginUsd: number,
@@ -980,10 +1011,12 @@ export class HyperliquidTradingService {
       const leverageCap = Math.max(1, Math.floor(settings.leverageMultiplier || 10));
       const minNotional = config.hyperliquid.minNotionalUsd;
       const slotsRemaining = maxPositions - coinsOpen.length;
-      const marginHeadroom = Math.min(
-        freeMargin / Math.max(1, slotsRemaining),
-        sizingBalance * config.hyperliquid.maxMarginPctPerSlot,
-        sizingBalance / maxPositions
+      const marginHeadroom = marginHeadroomForSlot(
+        sizingBalance,
+        freeMargin,
+        settings.riskLevelBps,
+        slotsRemaining,
+        maxPositions
       );
       // Funded accounts: bump margin to clear HL min notional (user LVRG or 5–15× auto band).
       const minCollateralForNotional = minHlMarginForNotionalFloor(

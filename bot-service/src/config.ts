@@ -102,10 +102,10 @@ export const config = {
     maxConcurrentPositions: Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 2),
     /** Minimum order notional — skips sloppy micro-trades. */
     minNotionalUsd: Number(process.env.HL_MIN_NOTIONAL_USD || 20),
-    /** Cap user risk % — 3000 = 30% of balance max (split across slots). */
-    maxRiskLevelBps: Number(process.env.HL_MAX_RISK_LEVEL_BPS || 3000),
-    /** Never allocate more than this fraction of balance to one HL slot. */
-    maxMarginPctPerSlot: Number(process.env.HL_MAX_MARGIN_PCT_PER_SLOT || 0.22),
+    /** Platform ceiling for user risk % — 10000 = 100% (matches vault_settings RPC). */
+    maxRiskLevelBps: Number(process.env.HL_MAX_RISK_LEVEL_BPS || 10_000),
+    /** Optional hard cap per slot as fraction of deployable balance (1 = honor user risk only). */
+    maxMarginPctPerSlot: Number(process.env.HL_MAX_MARGIN_PCT_PER_SLOT || 1),
     /** Auto stop-loss ceiling on margin — tightens user SL above this (e.g. 50% → 18%). */
     maxAutoStopLossPct: Number(process.env.HL_MAX_AUTO_SL_PCT || 18),
     /** Used only when HL_LOSS_CAP_ENFORCE=true — 0 = no default loss exit. */

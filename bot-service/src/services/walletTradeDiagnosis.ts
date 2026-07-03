@@ -28,6 +28,7 @@ import {
 import {
   buildNotionalBelowFloorError,
   capHlEntryCollateralToAvailable,
+  marginHeadroomForSlot,
   getLastHlOpenErrorForClient,
   minHlMarginForNotionalFloor,
   resolveHlMarginPerSlot,
@@ -264,10 +265,12 @@ export async function diagnoseWalletTrading(
     const lev = Math.max(1, Math.floor(dbSettings.leverageMultiplier || 10));
     const minNotional = config.hyperliquid.minNotionalUsd;
     const slotsLeft = maxPositions - hlOpenCoins.length;
-    const marginHeadroom = Math.min(
-      hlFreeMargin / Math.max(1, slotsLeft),
-      hlSizingBalance * config.hyperliquid.maxMarginPctPerSlot,
-      hlSizingBalance / maxPositions
+    const marginHeadroom = marginHeadroomForSlot(
+      hlSizingBalance,
+      hlFreeMargin,
+      dbSettings.riskLevelBps,
+      slotsLeft,
+      maxPositions
     );
     const minCollateral = minHlMarginForNotionalFloor(perSlot, lev, minNotional);
     if (hlBalanceUsd >= config.hyperliquid.minAccountUsd && marginHeadroom >= minCollateral) {

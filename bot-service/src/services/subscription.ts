@@ -15,6 +15,15 @@ function normalizeHlTakeProfitPercent(raw: number | null | undefined): number {
   return v;
 }
 
+/** Matches save_vault_trading_settings RPC — 1% min, 100% max per user. */
+function normalizeHlRiskLevelBps(raw: number | null | undefined): number {
+  if (raw == null || !Number.isFinite(Number(raw))) {
+    return 500;
+  }
+  const v = Math.round(Number(raw));
+  return Math.max(100, Math.min(10_000, v));
+}
+
 /** 0 = disabled — bot never auto-closes at a loss unless user sets SL %. */
 function normalizeHlStopLossPercent(raw: number | null | undefined): number {
   if (raw == null || !Number.isFinite(Number(raw))) {
@@ -547,10 +556,7 @@ export class SubscriptionService {
         leverageMultiplier: normalizeHlLeverage(
           data.leverage_multiplier != null ? Number(data.leverage_multiplier) : null
         ),
-        riskLevelBps: Math.min(
-          data.risk_level_bps || 500,
-          config.hyperliquid.maxRiskLevelBps
-        ),
+        riskLevelBps: normalizeHlRiskLevelBps(data.risk_level_bps),
         autoTradeEnabled: Boolean(data.auto_trade_enabled),
         minWinRatePercent: Number(data.min_win_rate_percent) || 0,
         minTradesForWinRateGate: Number(data.min_trades_for_win_rate_gate) || 5,
