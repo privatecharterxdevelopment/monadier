@@ -209,11 +209,11 @@ export const config = {
     blockOppositeSameCoinMs: Number(process.env.HL_BLOCK_OPPOSITE_SAME_COIN_MS || 900_000),
     /** Resistance/support gate before opens (Standard + Aggressive scan + final open check). */
     entryLocation: {
-      /** Price in top X of range = near resistance. */
-      rangeTopBlock: Number(process.env.HL_ENTRY_RANGE_TOP || 0.65),
-      rangeBottomBlock: Number(process.env.HL_ENTRY_RANGE_BOTTOM || 0.35),
-      /** Pullback entry threshold — symmetric distance from range midpoint (0.50 = exact mid). */
-      pullbackMaxPosition: Number(process.env.HL_ENTRY_PULLBACK_MAX || 0.5),
+      /** Price in top X of range = near resistance (SHORT mirror: rangeBottomBlock = 1 − this). */
+      rangeTopBlock: Number(process.env.HL_ENTRY_RANGE_TOP || 0.72),
+      rangeBottomBlock: Number(process.env.HL_ENTRY_RANGE_BOTTOM || 0.28),
+      /** Pullback entry threshold — symmetric: SHORT uses (1 − this) as rally-fade floor. */
+      pullbackMaxPosition: Number(process.env.HL_ENTRY_PULLBACK_MAX || 0.58),
       /** Close must exceed resistance by this fraction to count as breakout. */
       breakoutBufferPct: Number(process.env.HL_ENTRY_BREAKOUT_BUFFER || 0.0015),
       breakoutConfirmBars: Number(process.env.HL_ENTRY_BREAKOUT_BARS || 2),
@@ -343,10 +343,10 @@ export const config = {
     /** Skip pair (LONG + SHORT) after a fat pump — mass alts retest highs. */
     freshPump: {
       cooldownMs: Number(process.env.HL_FRESH_PUMP_COOLDOWN_MS || 2 * 60 * 60 * 1000),
-      cautiousBlock15mPct: Number(process.env.HL_FRESH_PUMP_15M || 0.22),
+      cautiousBlock15mPct: Number(process.env.HL_FRESH_PUMP_15M || 0.28),
       cautiousBlock1hPct: Number(process.env.HL_FRESH_PUMP_1H || 0.4),
       cautiousBlock4hPct: Number(process.env.HL_FRESH_PUMP_4H || 0.75),
-      cautiousNearRangeHigh: Number(process.env.HL_FRESH_PUMP_NEAR_HIGH || 0.82),
+      cautiousNearRangeHigh: Number(process.env.HL_FRESH_PUMP_NEAR_HIGH || 0.88),
       midBlock15mPct: Number(process.env.HL_FRESH_PUMP_MID_15M || 0.35),
       midBlock1hPct: Number(process.env.HL_FRESH_PUMP_MID_1H || 0.55),
       midBlock4hPct: Number(process.env.HL_FRESH_PUMP_MID_4H || 1.0),
