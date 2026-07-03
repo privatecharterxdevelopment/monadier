@@ -1405,6 +1405,13 @@ export async function analyzeMarketMTFBySymbol(
       tradeDirection: finalDirection,
       htfTrend1h: h1TrendDir,
       minDirectionalTfs: config.hyperliquid.minDirectionalTfs,
+      macroTrend: trend,
+      h1Confidence: tf1h?.confidence,
+      h1Direction: tf1h?.direction,
+      settings: {
+        ...config.hyperliquid.macroMtfAnchor,
+        minDirectionalTfs: config.hyperliquid.minDirectionalTfs,
+      },
     });
     const weightedDirectionalTfCount = mtfGate.directionalTfCount;
     const counterTrend =

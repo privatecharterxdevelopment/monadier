@@ -6,6 +6,7 @@
  * to generate high-confidence trading signals.
  */
 
+import { config } from '../config';
 import { logger } from '../utils/logger';
 import { normalizeH1Trend, trendOnlyBlockReason, computeTradeTrend } from './trendOnly';
 import {
@@ -13,7 +14,9 @@ import {
   computeDirectionalTfCount,
   fiveMinEntryWeightMultiplier,
   h1TrendFrom1hBar,
+  isMacroTrendAnchor,
   isTrendFollowing,
+  macroTrendWeightMultipliers,
   meetsReversalTfRequirement,
   passesMtfAlignmentGate,
 } from './mtfTimeframeWeight';
@@ -776,6 +779,44 @@ export class SignalEngine {
     const tf15m = analyses.find((a) => a.timeframe === '15m');
     const h1TrendDir = h1TrendFrom1hBar(tf1h);
 
+    const tfVoteList = analyses.map((a) => ({ timeframe: a.timeframe, direction: a.direction }));
+    const shortTfVotes = analyses.filter((a) => a.direction === 'SHORT').length;
+    const longTfVotes = analyses.filter((a) => a.direction === 'LONG').length;
+    const tradeTrend = computeTradeTrend({
+      h1Trend: tf1h?.trend,
+      m15Trend: tf15m?.trend,
+      shortTfVotes,
+      longTfVotes,
+      change1hPct: tf1h?.priceChangePct,
+      change15mPct: tf15m?.priceChangePct,
+    });
+
+    const macroMtf = {
+      ...config.hyperliquid.macroMtfAnchor,
+      minDirectionalTfs: config.hyperliquid.minDirectionalTfs,
+    };
+    const macroMtfCtx = {
+      macroTrend: tradeTrend,
+      h1Confidence: tf1h?.confidence,
+      h1Direction: tf1h?.direction,
+    };
+    const macroAnchorLong = isMacroTrendAnchor({
+      tradeDirection: 'LONG',
+      htfTrend1h: h1TrendDir,
+      macroTrend: tradeTrend,
+      h1Direction: tf1h?.direction,
+      h1Confidence: tf1h?.confidence,
+      settings: macroMtf,
+    });
+    const macroAnchorShort = isMacroTrendAnchor({
+      tradeDirection: 'SHORT',
+      htfTrend1h: h1TrendDir,
+      macroTrend: tradeTrend,
+      h1Direction: tf1h?.direction,
+      h1Confidence: tf1h?.confidence,
+      settings: macroMtf,
+    });
+
     // Calculate weighted direction
     let weightedBullish = 0;
     let weightedBearish = 0;
@@ -795,6 +836,27 @@ export class SignalEngine {
           entryWeight *= mult;
           trendWeight *= mult;
         }
+      }
+      if (macroAnchorLong) {
+        const m = macroTrendWeightMultipliers({
+          timeframe: analysis.timeframe,
+          tfDirection: analysis.direction,
+          tradeDirection: 'LONG',
+          macroAnchor: true,
+          settings: macroMtf,
+        });
+        trendWeight *= m.trendMult;
+        entryWeight *= m.entryMult;
+      } else if (macroAnchorShort) {
+        const m = macroTrendWeightMultipliers({
+          timeframe: analysis.timeframe,
+          tfDirection: analysis.direction,
+          tradeDirection: 'SHORT',
+          macroAnchor: true,
+          settings: macroMtf,
+        });
+        trendWeight *= m.trendMult;
+        entryWeight *= m.entryMult;
       }
       const combinedWeight = (trendWeight + entryWeight) / 2;
 
@@ -816,19 +878,8 @@ export class SignalEngine {
     const bullishScore = totalWeight > 0 ? (weightedBullish / totalWeight) * 100 : 0;
     const bearishScore = totalWeight > 0 ? (weightedBearish / totalWeight) * 100 : 0;
 
-    const tfVoteList = analyses.map((a) => ({ timeframe: a.timeframe, direction: a.direction }));
-    const shortTfVotes = analyses.filter((a) => a.direction === 'SHORT').length;
-    const longTfVotes = analyses.filter((a) => a.direction === 'LONG').length;
-    const longAligned = computeDirectionalTfCount(tfVoteList, 'LONG', h1TrendDir);
-    const shortAligned = computeDirectionalTfCount(tfVoteList, 'SHORT', h1TrendDir);
-    const tradeTrend = computeTradeTrend({
-      h1Trend: tf1h?.trend,
-      m15Trend: tf15m?.trend,
-      shortTfVotes,
-      longTfVotes,
-      change1hPct: tf1h?.priceChangePct,
-      change15mPct: tf15m?.priceChangePct,
-    });
+    const longAligned = computeDirectionalTfCount(tfVoteList, 'LONG', h1TrendDir, macroMtfCtx, macroMtf);
+    const shortAligned = computeDirectionalTfCount(tfVoteList, 'SHORT', h1TrendDir, macroMtfCtx, macroMtf);
 
     const minDirectionScore = tradeTrend === 'DOWN' ? 36 : tradeTrend === 'UP' ? 36 : 40;
 
@@ -957,15 +1008,20 @@ export class SignalEngine {
     const tfDirections = analyses.map(a => a.direction);
     const hasLong = tfDirections.includes('LONG');
     const hasShort = tfDirections.includes('SHORT');
+    const macroAnchorActive =
+      (direction === 'LONG' && macroAnchorLong) || (direction === 'SHORT' && macroAnchorShort);
     if (hasLong && hasShort) {
       warnings.push('Conflicting signals: Some timeframes show LONG, others SHORT');
-      confidence = Math.max(25, confidence - 10); // Softer penalty — was -20
+      const pen = macroAnchorActive ? macroMtf.conflictingPenalty : 10;
+      confidence = Math.max(25, confidence - pen);
     }
 
     let mtfContext: 'trend_following' | 'reversal' | undefined;
     let mtfAlignment: UnifiedSignal['mtfAlignment'];
     if (direction === 'LONG' || direction === 'SHORT') {
       mtfContext = isTrendFollowing(direction, h1TrendDir) ? 'trend_following' : 'reversal';
+      const macroAnchor =
+        (direction === 'LONG' && macroAnchorLong) || (direction === 'SHORT' && macroAnchorShort);
       const tf5 = analyses.find((a) => a.timeframe === '5m');
       if (mtfContext === 'trend_following') {
         confidence = applyTrendFollow5mConfidenceBoost(confidence, tf5, direction);
@@ -978,14 +1034,27 @@ export class SignalEngine {
         tradeDirection: direction,
         htfTrend1h: h1TrendDir,
         minDirectionalTfs: 2,
+        macroTrend: tradeTrend,
+        h1Confidence: tf1h?.confidence,
+        h1Direction: tf1h?.direction,
+        settings: macroMtf,
       });
       if (!gate.ok) {
-        confidence = Math.min(confidence, 50);
+        if (!macroAnchor) {
+          confidence = Math.min(confidence, 50);
+        }
         if (gate.trendFollowing) {
           warnings.push('15m/1h must align — 5m is entry timing only in trend-follow setups');
         } else {
           warnings.push('Counter-trend: need 5m+15m alignment (mandatory for reversal timing)');
         }
+      } else if (macroAnchor) {
+        confidence = Math.min(100, confidence + macroMtf.confidenceBoost);
+        reasons.push(
+          direction === 'LONG'
+            ? 'Macro pump — 1h anchor outweighs 5m/15m pullback noise'
+            : 'Macro dump — 1h anchor outweighs 5m/15m bounce noise'
+        );
       }
       mtfAlignment = {
         weightedCount: gate.directionalTfCount,

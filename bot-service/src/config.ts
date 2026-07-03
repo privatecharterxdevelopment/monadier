@@ -98,6 +98,17 @@ export const config = {
     minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 2),
     /** Global scan — min % of TFs sharing the dominant trend (0–100). */
     minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 50),
+    /** Macro pump/dump — 1h anchor outweighs 5m/15m pullback noise (symmetric LONG/SHORT). */
+    macroMtfAnchor: {
+      minH1Confidence: Number(process.env.HL_MACRO_MTF_MIN_H1_CONF || 65),
+      h1WeightBoost: Number(process.env.HL_MACRO_MTF_H1_BOOST || 1.75),
+      counter15mWeight: Number(process.env.HL_MACRO_MTF_COUNTER_15M || 0.25),
+      counter5mWeight: Number(process.env.HL_MACRO_MTF_COUNTER_5M || 0.08),
+      aligned5mWeight: Number(process.env.HL_MACRO_MTF_ALIGNED_5M || 0.2),
+      confidenceBoost: Number(process.env.HL_MACRO_MTF_CONF_BOOST || 8),
+      conflictingPenalty: Number(process.env.HL_MACRO_MTF_CONFLICT_PEN || 3),
+      minDirectionalTfs: Number(process.env.HL_MACRO_MTF_MIN_TFS || 2),
+    },
     /** Max independent HL perp positions per wallet (different coins). */
     maxConcurrentPositions: Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 2),
     /** Minimum order notional — skips sloppy micro-trades. */
