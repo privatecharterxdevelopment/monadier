@@ -33,7 +33,9 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
   });
   const effectiveVaultWallet = tradingWallet ?? vaultWallet ?? null;
   const botRunning = botRunningHint ?? resolvedRunning;
-  const openPositionsCount = metrics.openPositionsCount;
+  const botOpenCount = openPositionCoins.length;
+  const openPositionsCount =
+    botOpenCount > 0 ? botOpenCount : metrics.openPositionsCount;
   const maxSlots = HL_MAX_CONCURRENT_POSITIONS;
   const slotsFull = openPositionsCount >= maxSlots;
 
@@ -83,8 +85,8 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     if (slotsFull) {
       return {
         ...analysis.readiness,
-        headline: 'Slots full',
-        detail: `${openPositionsCount}/${maxSlots} positions open — monitoring exits`,
+        headline: `${openPositionsCount}/${maxSlots} · all slots filled`,
+        detail: 'Monitoring open positions — scan pauses until a slot opens',
       };
     }
     return { ...analysis.readiness, headline: scanHeadline };

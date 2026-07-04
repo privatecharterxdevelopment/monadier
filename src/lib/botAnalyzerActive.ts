@@ -27,20 +27,34 @@ export function botAnalyzerStatusCopy(opts: {
   botRunning: boolean;
   blockers: string[];
   lastOpenError?: string | null;
+  slotsFull?: boolean;
+  openCount?: number;
+  maxSlots?: number;
 }): { title: string; detail: string } {
   if (!opts.botRunning) {
     return { title: 'Bot off', detail: 'Press Start bot to scan markets.' };
+  }
+
+  if (opts.slotsFull) {
+    const n = opts.openCount ?? opts.maxSlots ?? 2;
+    const max = opts.maxSlots ?? n;
+    return {
+      title: `${n}/${max} · all slots filled`,
+      detail: 'Monitoring open positions — scan pauses until a slot opens.',
+    };
   }
 
   const formatted = [...opts.blockers, ...(opts.lastOpenError ? [`Last open: ${opts.lastOpenError}`] : [])]
     .map(formatUserBlocker)
     .filter(Boolean);
   const unique = [...new Set(formatted)];
-  const hard = unique.filter((b) => HARD_BLOCKER.test(b) || /^Last open:/i.test(b));
+  const hard = unique.filter((b) => HARD_BLOCKER.test(b));
 
   if (hard.length > 0) {
     return { title: 'Bot waiting', detail: hard.join(' · ') };
   }
 
-  return { title: 'Bot is reading market…', detail: '' };
+  const soft = unique.filter((b) => !HARD_BLOCKER.test(b));
+  const detail = soft.join(' · ');
+  return { title: 'Bot is reading market…', detail };
 }

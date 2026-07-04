@@ -41,10 +41,14 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
   const hlBalanceUsd =
     hlSetup.accountUsd > 0 || !hlSetup.loading ? hlSetup.accountUsd : metrics.hlBalanceUsd;
 
+  const botOpenCount = openPositionCoins.length;
+  const slotOpenCount =
+    botOpenCount > 0 ? botOpenCount : metrics.openPositionsCount;
+
   const analysis = useTerminalBotAnalysis({
     walletConnected: hasWallet,
     metrics,
-    openPositionsCount: metrics.openPositionsCount,
+    openPositionsCount: slotOpenCount,
     maxConcurrentPositions: HL_MAX_CONCURRENT_POSITIONS,
     vaultUsd: Math.max(hlBalanceUsd, hlSetup.perpUsd, hlSetup.spotUsdcUsd),
     vaultWallet,
@@ -63,7 +67,7 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
       globalBest: analysis.scanCandidate ?? analysis.globalBest,
       readiness: analysis.readiness,
       hasTfConflict,
-      openPositionsCount: metrics.openPositionsCount,
+      openPositionsCount: slotOpenCount,
       maxConcurrentPositions: HL_MAX_CONCURRENT_POSITIONS,
       pumpSweepLines: analysis.pumpSweepLines,
       signal: analysis.signal,
@@ -98,7 +102,7 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
     analysis.currentlyScanningCoin,
     analysis.globalCoinsScanned,
     analysis.globalScanCount,
-    metrics.openPositionsCount,
+    slotOpenCount,
   ]);
 
   if (feeGateActive) {
@@ -112,10 +116,11 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
     );
   }
 
-  const showSpinner = analysis.analyzerActive;
-  const scanTitle =
-    analysis.readiness.headline ||
-    (botRunning ? 'Bot is reading market…' : 'Bot off');
+  const showSpinner = analysis.analyzerActive && !analysis.slotsFull;
+  const scanTitle = analysis.slotsFull
+    ? analysis.readiness.headline
+    : analysis.readiness.headline ||
+      (botRunning ? 'Bot is reading market…' : 'Bot off');
 
   return (
     <>

@@ -123,8 +123,16 @@ export function useTerminalBotAnalysis({
   const [coinRotationIndex, setCoinRotationIndex] = useState(0);
   const [progress, setProgress] = useState(ANALYSIS_STEPS[0].progress);
 
-  const slotsLeft = openPositionsCount < serverMaxSlots;
-  const slotsFull = openPositionsCount >= serverMaxSlots;
+  const effectiveOpenCount = useMemo(() => {
+    const merged = new Set<string>();
+    for (const coin of openPositionCoins) merged.add(coin.toUpperCase());
+    for (const coin of serverOpenCoins) merged.add(coin.toUpperCase());
+    if (merged.size > 0) return merged.size;
+    return openPositionsCount;
+  }, [openPositionCoins, serverOpenCoins, openPositionsCount]);
+
+  const slotsLeft = effectiveOpenCount < serverMaxSlots;
+  const slotsFull = effectiveOpenCount >= serverMaxSlots;
 
   const entryBlocked = useMemo(
     () =>
@@ -137,7 +145,8 @@ export function useTerminalBotAnalysis({
     [botRunning, serverBlockers, lastOpenErrorText, slotsFull]
   );
 
-  const analyzerActive = botRunning && (analysisActive ?? false) && !entryBlocked && slotsLeft;
+  /** 0/N or 1/N open → full scan; N/N → pause scan (monitor exits only). */
+  const analyzerActive = botRunning && (analysisActive ?? false) && slotsLeft;
   const active = analyzerActive;
   const scanning = active;
 
@@ -169,7 +178,7 @@ export function useTerminalBotAnalysis({
 
   const chartCoin = binanceSymbolToHlCoin(symbol).toUpperCase();
   const chartIsOpenPair =
-    openPositionsCount > 0 && effectiveOpenCoins.includes(chartCoin);
+    effectiveOpenCount > 0 && effectiveOpenCoins.includes(chartCoin);
 
   /** MTF symbol for the next free slot — never the already-open pair. */
   const scanSymbol = useMemo(() => {
@@ -474,8 +483,18 @@ export function useTerminalBotAnalysis({
       botRunning,
       blockers: serverBlockers,
       lastOpenError: lastOpenErrorText,
+      slotsFull,
+      openCount: effectiveOpenCount,
+      maxSlots: serverMaxSlots,
     });
     if (status.title === 'Bot waiting') {
+      return {
+        canEnter: false,
+        headline: status.title,
+        detail: status.detail,
+      };
+    }
+    if (slotsFull) {
       return {
         canEnter: false,
         headline: status.title,
@@ -485,7 +504,7 @@ export function useTerminalBotAnalysis({
 
     const local = evaluateBotReadiness(signal, {
       autoTradeEnabled: botRunning,
-      openPositionsCount,
+      openPositionsCount: effectiveOpenCount,
       maxConcurrentPositions: serverMaxSlots,
       vaultUsd,
       nextSetup: scanCandidate,
@@ -533,7 +552,9 @@ export function useTerminalBotAnalysis({
     botRunning,
     lastOpenErrorText,
     openPositionsCount,
+    effectiveOpenCount,
     serverMaxSlots,
+    slotsFull,
     vaultUsd,
     serverBlockers,
     scanCandidate,
@@ -565,7 +586,7 @@ export function useTerminalBotAnalysis({
     scanCoinIndex: scanning ? scanCoinIndex : 0,
     scanCoinTotal: scanning ? scanCoinTotal : 0,
     readiness,
-    openPositionsCount,
+    openPositionsCount: effectiveOpenCount,
     maxConcurrentPositions: serverMaxSlots,
     slotsFull,
     currentlyScanningCoin,
