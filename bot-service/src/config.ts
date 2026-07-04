@@ -280,9 +280,13 @@ export const config = {
     },
     /** Alts — never SHORT into a fresh pump / higher-TF rally. */
     pumpShort: {
-      block1hPct: Number(process.env.HL_PUMP_SHORT_BLOCK_1H || 0.15),
-      block4hPct: Number(process.env.HL_PUMP_SHORT_BLOCK_4H || 0.35),
-      min15mRolloverPct: Number(process.env.HL_PUMP_SHORT_15M_ROLL || 0.08),
+      block1hPct: Number(process.env.HL_PUMP_SHORT_BLOCK_1H || 0.25),
+      block4hPct: Number(process.env.HL_PUMP_SHORT_BLOCK_4H || 0.45),
+      min15mRolloverPct: Number(process.env.HL_PUMP_SHORT_15M_ROLL || 0.22),
+      /** Extra rollover required when coin is green on the day (HL 24h). */
+      min15mRolloverGreenDayPct: Number(process.env.HL_PUMP_SHORT_15M_GREEN || 0.38),
+      greenDay24hPct: Number(process.env.HL_PUMP_SHORT_GREEN_DAY || 1.0),
+      blockNet5mPct: Number(process.env.HL_PUMP_SHORT_BLOCK_NET5M || 0.12),
       minHigherTfLongBlock: Number(process.env.HL_PUMP_SHORT_HTF_LONG || 2),
     },
     /** Cautious alts (UNI/SUI/CELO-style) — news check before open. */
@@ -392,6 +396,8 @@ export const config = {
       maxLongRangePosition: Number(process.env.HL_PERP_MAX_LONG_RANGE || 0.93),
       /** Block LONG if 24h already up this much AND still in upper range. */
       maxLong24hUpPct: Number(process.env.HL_PERP_MAX_LONG_24H || 6.0),
+      /** Block alt SHORT when HL 24h change is at or above this (counter-trend short). */
+      maxShortBlock24hUpPct: Number(process.env.HL_PERP_MAX_SHORT_24H || 2.5),
       maxLong24hRangePosition: Number(process.env.HL_PERP_MAX_LONG_24H_RANGE || 0.9),
       /** HL funding rate — block LONG when longs pay above this (decimal). */
       maxLongFunding: Number(process.env.HL_PERP_MAX_LONG_FUNDING || 0.0004),

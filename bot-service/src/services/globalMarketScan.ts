@@ -7,6 +7,7 @@ import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { sortGlobalSignals } from './marketRegime';
 import { validateNoAltPumpShort } from './pumpShortGate';
+import { validatePerpMarketContext } from './perpMarketContextGate';
 import { classifyCoinTier, isBotExcludedCoin, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
@@ -172,6 +173,12 @@ async function applyScanTrendAndPumpGates(opts: {
     if (!pumpGate.ok) {
       logger.debug('HL scan skip: pump-short gate', { coin, reason: pumpGate.reason });
       logScanFail(funnel, coin, direction, FUNNEL.scan.pumpShort);
+      return { ok: false };
+    }
+    const perp = await validatePerpMarketContext({ coin, direction: 'SHORT' });
+    if (!perp.ok) {
+      logger.debug('HL scan skip: perp context', { coin, reason: perp.reason });
+      logScanFail(funnel, coin, direction, FUNNEL.scan.perpContext);
       return { ok: false };
     }
   }

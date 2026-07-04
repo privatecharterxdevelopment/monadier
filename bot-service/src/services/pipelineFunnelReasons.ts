@@ -16,6 +16,7 @@ export const FUNNEL = {
     trend1h: 'scan.1.8_trend_1h',
     pumpShort: 'scan.1.9_pump_short',
     btcMacroPump: 'scan.1.9b_btc_macro_pump',
+    perpContext: 'scan.1.9c_perp_context',
     htfBias: 'scan.1.10_htf_bias',
     location: 'scan.1.11_location',
     error: 'scan.error',
