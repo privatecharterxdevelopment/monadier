@@ -146,12 +146,10 @@ export function inferHlUnifiedMargin(
 }
 
 function hlSummaryAccountValueUsd(state: HlClearinghouseState | null): number {
-  const margin = state?.marginSummary?.accountValue;
-  const cross = state?.crossMarginSummary?.accountValue;
-  const marginRaw = state?.marginSummary?.totalRawUsd;
-  const crossRaw = state?.crossMarginSummary?.totalRawUsd;
-  const values = [margin, cross, marginRaw, crossRaw].map((v) => Number(v ?? 0));
-  return Math.max(0, ...values.filter((n) => Number.isFinite(n)));
+  const margin = Number(state?.marginSummary?.accountValue ?? 0);
+  const cross = Number(state?.crossMarginSummary?.accountValue ?? 0);
+  const values = [margin, cross].filter((n) => Number.isFinite(n) && n > 0);
+  return values.length > 0 ? Math.max(...values) : 0;
 }
 
 export async function fetchHlUserAbstraction(

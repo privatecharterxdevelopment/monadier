@@ -100,11 +100,10 @@ async function fetchHlFundingSnapshotOnce(wallet: string): Promise<HlFundingSnap
     fetchHlSpotBalances(wallet),
     fetchHlUserAbstraction(wallet),
   ]);
+  /** accountValue only — totalRawUsd double-counts isolated position collateral. */
   const perpUsd = Math.max(
     toNum(account?.margin?.accountValue),
-    toNum(account?.crossMargin?.accountValue),
-    toNum(account?.margin?.totalRawUsd),
-    toNum(account?.crossMargin?.totalRawUsd)
+    toNum(account?.crossMargin?.accountValue)
   );
   const crossAccountValueUsd = toNum(account?.crossMargin?.accountValue);
   const spotUsdcUsd = toNum(

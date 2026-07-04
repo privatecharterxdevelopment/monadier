@@ -60,7 +60,9 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
     [scopedHlPositions]
   );
 
-  const balanceUsd = snapshot?.totalUsd ?? snapshot?.tradablePerpUsd ?? betStats.balanceUsd ?? 0;
+  /** Match HL “available to trade” — not totalRawUsd locked in isolated margin. */
+  const balanceUsd =
+    snapshot?.tradablePerpUsd ?? snapshot?.totalUsd ?? betStats.balanceUsd ?? 0;
   const showExtended = !compact && section !== 'other';
 
   const balancePill = (
