@@ -388,15 +388,15 @@ export const config = {
     thesisMinHoldBeforeLossCloseMs: Number(process.env.HL_THESIS_MIN_HOLD_MS || 600_000),
     /** HL funding, 24h change, mark/oracle — anti-chase before opens (SHORT mirrors range via 1 − maxLongRangePosition). */
     perpContext: {
-      /** Block LONG above this fraction of 24h range — loosened for macro pump trend-follow. */
-      maxLongRangePosition: Number(process.env.HL_PERP_MAX_LONG_RANGE || 0.84),
+      /** Block LONG above this fraction of 24h range — loosened again for trend-follow alts (Package 5). */
+      maxLongRangePosition: Number(process.env.HL_PERP_MAX_LONG_RANGE || 0.93),
       /** Block LONG if 24h already up this much AND still in upper range. */
-      maxLong24hUpPct: Number(process.env.HL_PERP_MAX_LONG_24H || 3.0),
-      maxLong24hRangePosition: Number(process.env.HL_PERP_MAX_LONG_24H_RANGE || 0.78),
+      maxLong24hUpPct: Number(process.env.HL_PERP_MAX_LONG_24H || 6.0),
+      maxLong24hRangePosition: Number(process.env.HL_PERP_MAX_LONG_24H_RANGE || 0.9),
       /** HL funding rate — block LONG when longs pay above this (decimal). */
-      maxLongFunding: Number(process.env.HL_PERP_MAX_LONG_FUNDING || 0.0002),
+      maxLongFunding: Number(process.env.HL_PERP_MAX_LONG_FUNDING || 0.0004),
       /** Block LONG when mark trades this % above oracle. */
-      maxLongMarkPremiumPct: Number(process.env.HL_PERP_MAX_MARK_PREMIUM || 0.12),
+      maxLongMarkPremiumPct: Number(process.env.HL_PERP_MAX_MARK_PREMIUM || 0.2),
     },
     /** Pump apex line + liquidity sweep / turnaround zone (1h swings). */
     pumpSweep: {
