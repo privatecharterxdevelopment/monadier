@@ -19,6 +19,7 @@ import { binanceSymbolToHlCoin, hlCoinToBotSymbol, isBotExcludedHlCoin } from '.
 import { normalizeHlBotStrategy, type HlBotStrategy } from '../lib/hlBotStrategy';
 import { pickNextScanCandidate } from '../lib/botScanCandidate';
 import { isBotEntryBlocked, botAnalyzerPausedCopy } from '../lib/botAnalyzerActive';
+import { nextPollDelayMs } from '../lib/pollBackoff';
 
 export const ANALYSIS_STEPS = [
   { label: 'Scanning all HL perps', progress: 15 },
@@ -122,16 +123,6 @@ export function useTerminalBotAnalysis({
   const [coinRotationIndex, setCoinRotationIndex] = useState(0);
   const [progress, setProgress] = useState(ANALYSIS_STEPS[0].progress);
 
-  const active = analyzerActive;
-  const scanning = active;
-
-  const effectiveOpenCoins = useMemo(() => {
-    const merged = new Set<string>();
-    for (const coin of openPositionCoins) merged.add(coin.toUpperCase());
-    for (const coin of serverOpenCoins) merged.add(coin.toUpperCase());
-    return [...merged];
-  }, [openPositionCoins, serverOpenCoins]);
-
   const slotsLeft = openPositionsCount < serverMaxSlots;
   const slotsFull = openPositionsCount >= serverMaxSlots;
 
@@ -148,6 +139,15 @@ export function useTerminalBotAnalysis({
   );
 
   const analyzerActive = botRunning && (analysisActive ?? false) && !entryBlocked && slotsLeft;
+  const active = analyzerActive;
+  const scanning = active;
+
+  const effectiveOpenCoins = useMemo(() => {
+    const merged = new Set<string>();
+    for (const coin of openPositionCoins) merged.add(coin.toUpperCase());
+    for (const coin of serverOpenCoins) merged.add(coin.toUpperCase());
+    return [...merged];
+  }, [openPositionCoins, serverOpenCoins]);
 
   const scanCandidate = useMemo(
     () =>
