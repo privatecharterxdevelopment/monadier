@@ -64,3 +64,10 @@ export function formatHlSlCapUsd(
   if (cap == null) return null;
   return `−$${cap.toFixed(2)}`;
 }
+
+/** Compact label under Start bot / parameters strip. */
+export function formatHlSlStripLabel(stopLoss: number): string {
+  const pct = effectiveStopLossPct(stopLoss);
+  if (pct <= 0) return 'Off';
+  return `−${pct}%`;
+}
