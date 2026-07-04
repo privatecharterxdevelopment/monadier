@@ -10,6 +10,8 @@ import {
   approveAndSaveHlBotAgent,
   fetchHlAgentAddress,
   findActiveHlAgent,
+  findActiveMonadierHlAgent,
+  saveHlAgentApproval,
 } from './hlBotAgent';
 
 export type HlBotApprovalResult = {
@@ -96,6 +98,18 @@ export async function approveHlBotAgentRequired(opts: {
   userId?: string;
 }): Promise<boolean> {
   const { walletClient, walletAddress } = opts;
+
+  const monadierLive = await findActiveMonadierHlAgent(walletAddress);
+  if (monadierLive) {
+    await saveHlAgentApproval({
+      walletAddress,
+      agentAddress: monadierLive.address,
+      agentName: monadierLive.name,
+      expiresAt: new Date(monadierLive.validUntil).toISOString(),
+      userId: opts.userId,
+    });
+    return false;
+  }
 
   const meta = await fetchHlAgentAddress(walletAddress);
   if (!meta.success || !meta.agentAddress) {

@@ -53,6 +53,8 @@ export function useHlBotSetup(walletAddress: string | undefined) {
   const refreshInFlightRef = useRef(false);
   const accountUsdRef = useRef(0);
   const tradableUsdRef = useRef(0);
+  const agentApprovedStickyRef = useRef(false);
+  const builderFeeApprovedStickyRef = useRef(false);
   const metaRef = useRef({
     agentApproved: false,
     builderFeeEnabled: false,
@@ -118,9 +120,20 @@ export function useHlBotSetup(walletAddress: string | undefined) {
       balance = accountUsdRef.current;
 
       if (agentCheck.loaded) {
-        setAgentApproved(agentCheck.approved);
         setAgentExpiresAt(agentCheck.expiresAt);
-        metaRef.current.agentApproved = agentCheck.approved;
+        if (agentCheck.approved) {
+          agentApprovedStickyRef.current = true;
+          setAgentApproved(true);
+          metaRef.current.agentApproved = true;
+        } else {
+          const expired =
+            agentCheck.expiresAt != null && Date.parse(agentCheck.expiresAt) < Date.now();
+          if (expired || !agentApprovedStickyRef.current) {
+            agentApprovedStickyRef.current = false;
+            setAgentApproved(false);
+            metaRef.current.agentApproved = false;
+          }
+        }
       }
       setAgentAddress(agentMeta.agentAddress ?? null);
 
@@ -136,15 +149,18 @@ export function useHlBotSetup(walletAddress: string | undefined) {
         const maxFee = await fetchMaxBuilderFee(walletAddress, builderConfig.address);
         builderOk = isBuilderApprovalSufficient(maxFee);
       }
-      setBuilderFeeApproved(builderOk);
+      if (builderOk) {
+        builderFeeApprovedStickyRef.current = true;
+        setBuilderFeeApproved(true);
+      } else if (!builderFeeApprovedStickyRef.current) {
+        setBuilderFeeApproved(false);
+      }
 
       metaRef.current = {
-        agentApproved: agentCheck.loaded
-          ? agentCheck.approved
-          : metaRef.current.agentApproved,
+        agentApproved: metaRef.current.agentApproved,
         builderFeeEnabled: builderConfig.enabled,
         builderPlatformReady: platform.ready,
-        builderFeeApproved: builderOk,
+        builderFeeApproved: builderOk || builderFeeApprovedStickyRef.current,
       };
 
       if (hasSnapshotRef.current) {
@@ -154,7 +170,7 @@ export function useHlBotSetup(walletAddress: string | undefined) {
             metaRef.current.agentApproved,
             builderConfig.enabled,
             platform.ready,
-            builderOk,
+            metaRef.current.builderFeeApproved,
             true
           )
         );
@@ -192,6 +208,8 @@ export function useHlBotSetup(walletAddress: string | undefined) {
 
   useEffect(() => {
     hasSnapshotRef.current = false;
+    agentApprovedStickyRef.current = false;
+    builderFeeApprovedStickyRef.current = false;
     setHlLoaded(false);
     setAgentLoaded(false);
   }, [walletAddress]);

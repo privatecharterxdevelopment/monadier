@@ -47,6 +47,40 @@ export async function findActiveHlAgent(
   );
 }
 
+/** Any active Monadier-named HL extra agent — survives bot-API outages on stop/start. */
+export async function findActiveMonadierHlAgent(wallet: string): Promise<HlExtraAgent | null> {
+  const agents = await fetchHlExtraAgents(wallet);
+  return (
+    agents.find(
+      (a) => isHlExtraAgentActive(a) && a.name.toLowerCase().startsWith(HL_AGENT_NAME)
+    ) ?? null
+  );
+}
+
+function syncAgentApprovalFromChain(wallet: string, live: HlExtraAgent): void {
+  const agentAddress = live.address.toLowerCase();
+  const saveKey = approvalSaveKey(wallet, agentAddress);
+  if (approvalSaveAttempted.has(saveKey)) return;
+  void saveHlAgentApproval({
+    walletAddress: wallet,
+    agentAddress,
+    agentName: live.name,
+    expiresAt: new Date(live.validUntil).toISOString(),
+  }).catch(() => undefined);
+}
+
+function agentApprovedFromChain(
+  wallet: string,
+  live: HlExtraAgent
+): { approved: boolean; expiresAt: string | null; loaded: boolean } {
+  syncAgentApprovalFromChain(wallet, live);
+  return {
+    approved: true,
+    expiresAt: new Date(live.validUntil).toISOString(),
+    loaded: true,
+  };
+}
+
 function formatHlAgentApproveError(err: unknown, agents: HlExtraAgent[]): string {
   const msg = err instanceof Error ? err.message : String(err);
   if (!/extra agent already used|agent already/i.test(msg)) return msg;
@@ -279,7 +313,7 @@ export async function resolveHlAgentApproval(
   return db;
 }
 
-/** On-chain agent check with bot-API fallback — returns loaded=false on network errors. */
+/** On-chain agent check — bot API optional; Monadier extraAgents on HL are source of truth. */
 export async function checkHlBotAgentApproved(
   walletAddress: string
 ): Promise<{ approved: boolean; expiresAt: string | null; loaded: boolean }> {
@@ -297,25 +331,17 @@ export async function checkHlBotAgentApproved(
 
     if (agentAddress) {
       const live = await findActiveHlAgent(wallet, agentAddress);
-      if (live) {
-        const expiresAt = new Date(live.validUntil).toISOString();
-        const saveKey = approvalSaveKey(wallet, agentAddress);
-        if (!approvalSaveAttempted.has(saveKey)) {
-          void saveHlAgentApproval({
-            walletAddress: wallet,
-            agentAddress,
-            agentName: live.name,
-            expiresAt,
-          }).catch(() => undefined);
-        }
-        return { approved: true, expiresAt, loaded: true };
-      }
+      if (live) return agentApprovedFromChain(wallet, live);
+      const monadierLive = await findActiveMonadierHlAgent(wallet);
+      if (monadierLive) return agentApprovedFromChain(wallet, monadierLive);
       const result = await resolveHlAgentApproval(wallet, agentAddress);
       return { approved: result.approved, expiresAt: result.expiresAt, loaded: true };
     }
 
-    // Without the bot API agent address we cannot trust DB-only approval.
-    return { approved: false, expiresAt: null, loaded: false };
+    const monadierLive = await findActiveMonadierHlAgent(wallet);
+    if (monadierLive) return agentApprovedFromChain(wallet, monadierLive);
+
+    return { approved: false, expiresAt: null, loaded: true };
   } catch {
     return { approved: false, expiresAt: null, loaded: false };
   }

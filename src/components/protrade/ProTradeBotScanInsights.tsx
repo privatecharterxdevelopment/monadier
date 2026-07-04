@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { Loader2 } from 'lucide-react';
 import { useTerminalBotAnalysis } from '../../hooks/useTerminalBotAnalysis';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
@@ -111,14 +112,30 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
     );
   }
 
+  const showSpinner = analysis.analyzerActive;
+  const scanTitle = analysis.readiness.headline || (showSpinner ? 'Bot is reading market…' : 'Bot paused');
+
   return (
-    <div className="hl-dock-bot-scan-insights" aria-live="polite">
-      {insightLines.map((line) => (
-        <p key={line} className="hl-dock-bot-scan-detail">
-          {line}
-        </p>
-      ))}
-    </div>
+    <>
+      <div className="hl-dock-bot-scan-row">
+        {showSpinner ? (
+          <Loader2 size={14} className="hl-dock-bot-scan-loader animate-spin" aria-hidden />
+        ) : null}
+        <span className="hl-dock-bot-scan-title">{scanTitle}</span>
+      </div>
+      <div className="hl-dock-bot-scan-insights" aria-live="polite">
+        {!showSpinner && analysis.entryBlocked && botRunning ? (
+          <p className="hl-dock-bot-scan-detail">{analysis.readiness.detail}</p>
+        ) : null}
+        {showSpinner
+          ? insightLines.map((line) => (
+              <p key={line} className="hl-dock-bot-scan-detail">
+                {line}
+              </p>
+            ))
+          : null}
+      </div>
+    </>
   );
 };
 

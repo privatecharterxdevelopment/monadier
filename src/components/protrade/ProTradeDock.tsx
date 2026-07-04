@@ -579,10 +579,6 @@ const ProTradeDock: React.FC<Props> = ({
             </p>
           ) : isBotMode && botRunning && !botNeedsDeposit ? (
             <div className="hl-dock-empty hl-dock-empty--bot-scan" role="status">
-              <div className="hl-dock-bot-scan-row">
-                <Loader2 size={14} className="hl-dock-bot-scan-loader animate-spin" aria-hidden />
-                <span className="hl-dock-bot-scan-title">Bot is reading market…</span>
-              </div>
               {botScanMetrics ? (
                 <ProTradeBotScanInsights
                   walletConnected={Boolean(walletAddress)}
@@ -593,7 +589,13 @@ const ProTradeDock: React.FC<Props> = ({
                   botRunning={botRunning}
                 />
               ) : (
-                <p className="hl-dock-bot-scan-sub">Loading analyzer…</p>
+                <>
+                  <div className="hl-dock-bot-scan-row">
+                    <Loader2 size={14} className="hl-dock-bot-scan-loader animate-spin" aria-hidden />
+                    <span className="hl-dock-bot-scan-title">Bot is reading market…</span>
+                  </div>
+                  <p className="hl-dock-bot-scan-sub">Loading analyzer…</p>
+                </>
               )}
             </div>
           ) : (

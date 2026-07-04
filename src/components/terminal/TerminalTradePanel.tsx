@@ -25,8 +25,7 @@ import {
 import { registerWalletsForHistory } from '../../lib/userWallets';
 import {
   approveHlBuilderFeeRequired,
-  completeHlBotApprovals,
-  verifyHlBuilderFeeOnChain,
+  approveHlBotAgentRequired,
 } from '../../lib/hyperliquid/hlBotApprovals';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import { getHlBuilderConfig } from '../../lib/hyperliquid/builderConfig';
@@ -384,7 +383,11 @@ const TerminalTradePanel: React.FC<Props> = ({
       }
       if (
         hlSetup.builderFeeEnabled &&
-        !(await verifyHlBuilderFeeOnChain(wallet))
+        !isHlBuilderFeeGateSatisfied(
+          hlSetup.builderFeeEnabled,
+          hlSetup.builderFeeApproved,
+          hlSetup.builderPlatformReady
+        )
       ) {
         throw new Error(
           'Approve the platform fee on Hyperliquid before starting the bot.'
@@ -437,8 +440,8 @@ const TerminalTradePanel: React.FC<Props> = ({
     setBotError(null);
     setBotBusy(true);
     try {
-      // Agent + platform fee in one flow — two wallet signatures, no per-close prompts.
-      await completeHlBotApprovals({
+      // One-time agent approval only — platform fee has its own button; start/stop is DB-only.
+      await approveHlBotAgentRequired({
         walletClient,
         walletAddress: address,
         userId: user?.id,
@@ -519,7 +522,7 @@ const TerminalTradePanel: React.FC<Props> = ({
       return;
     }
     setBotError(null);
-    if (!isDemoUser && (!publicClient || !walletClient)) {
+    if (!isDemoUser && hlNeedsSpotTransfer && (!publicClient || !walletClient)) {
       setBotError('Wallet not ready — unlock your wallet and try again.');
       return;
     }

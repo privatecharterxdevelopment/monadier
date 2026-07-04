@@ -70,7 +70,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     botRunning,
   });
 
-  const activeCandidate = botRunning ? (analysis.scanCandidate ?? analysis.globalBest) : null;
+  const activeCandidate = analysis.scanning ? (analysis.scanCandidate ?? analysis.globalBest) : null;
   const hasBestCandidate = Boolean(activeCandidate?.coin);
   const scanHeadline = hasBestCandidate
     ? analysis.readiness.headline
@@ -97,7 +97,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     scanHeadline,
   ]);
 
-  const keepScanning = botRunning && !slotsFull;
+  const keepScanning = !idleReadiness && analysis.scanning;
 
   if (placement === 'chart' && !showLiveAnalysis) return null;
 

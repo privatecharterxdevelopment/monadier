@@ -18,7 +18,7 @@ import { getBotApiBase, type Timeframe } from '../lib/signalService';
 import { binanceSymbolToHlCoin, hlCoinToBotSymbol, isBotExcludedHlCoin } from '../lib/botTradingPairs';
 import { normalizeHlBotStrategy, type HlBotStrategy } from '../lib/hlBotStrategy';
 import { pickNextScanCandidate } from '../lib/botScanCandidate';
-import { nextPollDelayMs } from '../lib/pollBackoff';
+import { isBotEntryBlocked, botAnalyzerPausedCopy } from '../lib/botAnalyzerActive';
 
 export const ANALYSIS_STEPS = [
   { label: 'Scanning all HL perps', progress: 15 },
@@ -116,11 +116,13 @@ export function useTerminalBotAnalysis({
   const [openUniverseSummary, setOpenUniverseSummary] = useState<string | null>(null);
   const [rawScanCandidateCount, setRawScanCandidateCount] = useState(0);
   const [pumpSweepLines, setPumpSweepLines] = useState<string[]>([]);
+  const [serverCanTrade, setServerCanTrade] = useState<boolean | null>(null);
+  const [lastOpenErrorText, setLastOpenErrorText] = useState<string | null>(null);
   const [step, setStep] = useState(0);
   const [coinRotationIndex, setCoinRotationIndex] = useState(0);
   const [progress, setProgress] = useState(ANALYSIS_STEPS[0].progress);
 
-  const active = botRunning && (analysisActive ?? false);
+  const active = analyzerActive;
   const scanning = active;
 
   const effectiveOpenCoins = useMemo(() => {
@@ -131,6 +133,21 @@ export function useTerminalBotAnalysis({
   }, [openPositionCoins, serverOpenCoins]);
 
   const slotsLeft = openPositionsCount < serverMaxSlots;
+  const slotsFull = openPositionsCount >= serverMaxSlots;
+
+  const entryBlocked = useMemo(
+    () =>
+      isBotEntryBlocked({
+        botRunning,
+        canTrade: serverCanTrade,
+        blockers: serverBlockers,
+        lastOpenError: lastOpenErrorText,
+        slotsFull,
+      }),
+    [botRunning, serverCanTrade, serverBlockers, lastOpenErrorText, slotsFull]
+  );
+
+  const analyzerActive = botRunning && (analysisActive ?? false) && !entryBlocked && slotsLeft;
 
   const scanCandidate = useMemo(
     () =>
@@ -225,13 +242,13 @@ export function useTerminalBotAnalysis({
   }, []);
 
   useEffect(() => {
-    if (!walletConnected || !active) {
+    if (!walletConnected || !analyzerActive) {
       setGlobalBest(null);
       setGlobalCandidates([]);
       setGlobalScanCount(0);
       setGlobalCoinsScanned(0);
       setScanUniverseCoins([]);
-      setServerBlockers([]);
+      if (!botRunning) setServerBlockers([]);
       setStep(0);
       setCoinRotationIndex(0);
       setProgress(ANALYSIS_STEPS[0].progress);
@@ -294,12 +311,14 @@ export function useTerminalBotAnalysis({
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [walletConnected, active, effectiveOpenCoins, botMode]);
+  }, [walletConnected, analyzerActive, botRunning, effectiveOpenCoins, botMode]);
 
   useEffect(() => {
     if (!vaultWallet || !botRunning) {
       setServerBlockers([]);
       setPumpSweepLines([]);
+      setServerCanTrade(null);
+      setLastOpenErrorText(null);
       return;
     }
     let cancelled = false;
@@ -321,6 +340,7 @@ export function useTerminalBotAnalysis({
         ok = res.ok;
         if (!res.ok) return;
         const data = (await res.json()) as {
+          canTrade?: boolean;
           blockers?: string[];
           userBlockers?: string[];
           marketBlockers?: string[];
@@ -338,6 +358,9 @@ export function useTerminalBotAnalysis({
           pumpSweep?: { lines?: string[] };
           lastOpenError?: { error: string; coin?: string; at: string } | null;
         };
+        if (typeof data.canTrade === 'boolean') {
+          setServerCanTrade(data.canTrade);
+        }
         const apiUserBlockers = Array.isArray(data.userBlockers) ? data.userBlockers : [];
         const apiMarketBlockers = Array.isArray(data.marketBlockers) ? data.marketBlockers : [];
         const blockers =
@@ -383,13 +406,19 @@ export function useTerminalBotAnalysis({
               vaultUsd >= MIN_HL_BOT_USD &&
               openCoins.length === 0;
             if (!marginStale) {
-              blockers.push(
-                data.lastOpenError.coin
-                  ? `Last open attempt (${data.lastOpenError.coin}): ${data.lastOpenError.error}`
-                  : data.lastOpenError.error
-              );
+              const openMsg = data.lastOpenError.coin
+                ? `Last open attempt (${data.lastOpenError.coin}): ${data.lastOpenError.error}`
+                : data.lastOpenError.error;
+              blockers.push(openMsg);
+              setLastOpenErrorText(data.lastOpenError.error);
+            } else {
+              setLastOpenErrorText(null);
             }
+          } else {
+            setLastOpenErrorText(null);
           }
+        } else {
+          setLastOpenErrorText(null);
         }
         setServerBlockers(
           filterStaleHlBalanceBlockers(
@@ -437,6 +466,30 @@ export function useTerminalBotAnalysis({
   }, [vaultWallet, botRunning, vaultUsd, feeExempt]);
 
   const readiness = useMemo(() => {
+    const paused = botAnalyzerPausedCopy({
+      botRunning,
+      entryBlocked,
+      blockers: serverBlockers,
+      lastOpenError: lastOpenErrorText,
+    });
+    if (!botRunning) {
+      return {
+        canEnter: false,
+        headline: 'Bot off',
+        detail:
+          vaultUsd >= MIN_HL_BOT_USD
+            ? 'Press Start bot to trade on these signals.'
+            : `At least $${MIN_HL_BOT_USD} USDC on Hyperliquid to trade.`,
+      };
+    }
+    if (entryBlocked) {
+      return {
+        canEnter: false,
+        headline: paused.title,
+        detail: paused.detail,
+      };
+    }
+
     const local = evaluateBotReadiness(signal, {
       autoTradeEnabled: botRunning,
       openPositionsCount,
@@ -444,13 +497,6 @@ export function useTerminalBotAnalysis({
       vaultUsd,
       nextSetup: scanCandidate,
     });
-    if (!botRunning && vaultUsd >= MIN_HL_BOT_USD) {
-      return {
-        canEnter: false,
-        headline: 'Bot off',
-        detail: 'Press Start bot to trade on these signals.',
-      };
-    }
     if (serverBlockers.length === 0) {
       if (
         botRunning &&
@@ -483,6 +529,8 @@ export function useTerminalBotAnalysis({
   }, [
     signal,
     botRunning,
+    entryBlocked,
+    lastOpenErrorText,
     openPositionsCount,
     serverMaxSlots,
     vaultUsd,
@@ -494,8 +542,6 @@ export function useTerminalBotAnalysis({
     rawScanCandidateCount,
   ]);
 
-  const slotsFull = openPositionsCount >= serverMaxSlots;
-
   const displaySymbol = useMemo(() => {
     if (scanCandidate?.coin) return hlCoinToBotSymbol(scanCandidate.coin);
     return hlCoinToBotSymbol(currentlyScanningCoin);
@@ -503,6 +549,8 @@ export function useTerminalBotAnalysis({
 
   return {
     scanning,
+    analyzerActive,
+    entryBlocked,
     step: scanning ? step : 0,
     progress: scanning ? progress : ANALYSIS_STEPS[0].progress,
     signal: scanning ? signal : null,
