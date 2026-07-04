@@ -44,7 +44,7 @@ import {
 } from './services/userBatchProcessor';
 import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './services/hlAgent';
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
-import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlEntrySizingBalanceUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker, sanitizeHlApiError, invalidateHlClearinghouseCache, warmHlMetaCache } from './services/hlInfo';
+import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker, sanitizeHlApiError, invalidateHlClearinghouseCache, warmHlMetaCache } from './services/hlInfo';
 import {
   buildNotionalBelowFloorError,
   getLastHlOpenError,
@@ -72,13 +72,6 @@ import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 import { fetchMappedTokenPrices } from './services/tokenPrices';
 import { getHlPositionTrailSnapshots } from './services/hlPositionTrailStatus';
 import { bootstrapProfitTrailStateFromDb } from './services/profitTrailState';
-import {
-  getBettingFeeStatus,
-  listAccruedBettingFeeEvents,
-  recordBettingFeeEvent,
-  settleBettingFees,
-} from './services/bettingFees';
-import { getPublicLeaderboard } from './services/publicLeaderboard';
 
 // Health check server for Railway/cloud deployments
 const PORT = process.env.PORT || 3001;
@@ -622,112 +615,6 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
-  if (url.pathname === '/api/betting-fees' && req.method === 'GET') {
-    try {
-      const wallet = url.searchParams.get('wallet')?.trim().toLowerCase();
-      if (!wallet || !/^0x[a-f0-9]{40}$/.test(wallet)) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'wallet query required (0x…)' }));
-        return;
-      }
-      const status = await getBettingFeeStatus(wallet);
-      const events = await listAccruedBettingFeeEvents(wallet, 50);
-      res.writeHead(200, corsHeaders);
-      res.end(
-        JSON.stringify({
-          success: true,
-          wallet,
-          status,
-          treasuryAddress: config.platformFeeTreasuryAddress,
-          paymentChain: 'arbitrum',
-          paymentToken: 'USDC',
-          events,
-          timestamp: new Date().toISOString(),
-        })
-      );
-    } catch (err: any) {
-      logger.error('API: betting-fees GET failed', { error: err.message });
-      res.writeHead(500, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: err.message || 'betting-fees failed' }));
-    }
-    return;
-  }
-
-  if (url.pathname === '/api/betting-fees/record' && req.method === 'POST') {
-    try {
-      const body = await readJsonBody();
-      const wallet = String(body.wallet ?? '').toLowerCase();
-      const eventType = String(body.eventType ?? '').toLowerCase();
-      const marketName = String(body.marketName ?? 'Bet').trim();
-      const outcomeId = body.outcomeId != null ? Number(body.outcomeId) : undefined;
-      const notionalUsd = Number(body.notionalUsd);
-      const externalRef = String(body.externalRef ?? '').trim();
-      const realizedPnlUsd =
-        body.realizedPnlUsd != null ? Number(body.realizedPnlUsd) : undefined;
-
-      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
-        return;
-      }
-      if (eventType !== 'buy' && eventType !== 'sell') {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'eventType must be buy or sell' }));
-        return;
-      }
-      if (!externalRef) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'externalRef required' }));
-        return;
-      }
-
-      const result = await recordBettingFeeEvent({
-        walletAddress: wallet,
-        eventType,
-        marketName,
-        outcomeId: Number.isFinite(outcomeId) ? outcomeId : undefined,
-        notionalUsd,
-        externalRef,
-        realizedPnlUsd: Number.isFinite(realizedPnlUsd) ? realizedPnlUsd : undefined,
-      });
-      res.writeHead(200, corsHeaders);
-      res.end(JSON.stringify({ success: true, feeUsd: result.feeUsd, status: result.status }));
-    } catch (err: any) {
-      logger.error('API: betting-fees record failed', { error: err.message });
-      res.writeHead(500, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: err.message || 'record failed' }));
-    }
-    return;
-  }
-
-  if (url.pathname === '/api/betting-fees/confirm-payment' && req.method === 'POST') {
-    try {
-      const body = await readJsonBody();
-      const wallet = String(body.wallet ?? '').toLowerCase();
-      const amountUsd = Number(body.amountUsd);
-      const paymentRef = body.paymentRef != null ? String(body.paymentRef) : undefined;
-      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
-        return;
-      }
-      if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'amountUsd required' }));
-        return;
-      }
-      const result = await settleBettingFees(wallet, amountUsd, paymentRef);
-      const status = await getBettingFeeStatus(wallet);
-      res.writeHead(result.ok ? 200 : 400, corsHeaders);
-      res.end(JSON.stringify({ success: result.ok, settledUsd: result.settledUsd, status }));
-    } catch (err: any) {
-      logger.error('API: betting-fees confirm failed', { error: err.message });
-      res.writeHead(500, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: err.message || 'confirm-payment failed' }));
-    }
-    return;
-  }
-
   // API: Batch live trade diagnosis for admin (all gates + funnel IDs)
   if (url.pathname === '/api/admin/bot-diagnosis-batch' && req.method === 'POST') {
     try {
@@ -754,35 +641,6 @@ const healthServer = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ success: true, diagnoses, timestamp: new Date().toISOString() }));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'bot-diagnosis-batch failed';
-      res.writeHead(500, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: msg }));
-    }
-    return;
-  }
-
-  // API: Public bot win leaderboard — DB + live HL fills for active auto-trade wallets
-  // Usage: /api/public-leaderboard?sort=recent|top&limit=20
-  if (url.pathname === '/api/public-leaderboard' && req.method === 'GET') {
-    try {
-      const sortParam = url.searchParams.get('sort')?.toLowerCase();
-      const sort = sortParam === 'top' ? 'top' : 'recent';
-      const limit = Number(url.searchParams.get('limit') ?? 20);
-      const force = url.searchParams.get('force') === '1';
-      const result = await getPublicLeaderboard({ sort, limit, force });
-      res.writeHead(200, { ...corsHeaders, 'Cache-Control': 'no-store' });
-      res.end(
-        JSON.stringify({
-          success: true,
-          sort,
-          limit: Math.max(1, Math.min(limit, 50)),
-          botWalletCount: result.botWalletCount,
-          fetchedAt: result.fetchedAt,
-          rows: result.rows,
-        })
-      );
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'public-leaderboard failed';
-      logger.warn('API: public-leaderboard failed', { error: msg });
       res.writeHead(500, corsHeaders);
       res.end(JSON.stringify({ success: false, error: msg }));
     }
@@ -849,7 +707,6 @@ const healthServer = http.createServer(async (req, res) => {
           balanceUsd: hl.accountEquityUsd,
           perpUsd: hl.perpUsd,
           accountEquityUsd: hl.accountEquityUsd,
-          sizingBalanceUsd: hl.sizingBalanceUsd,
           tradablePerpUsd: hl.tradablePerpUsd,
           spotUsdcUsd: hl.spotUsdcUsd,
           withdrawableUsd: hl.withdrawableUsd,
@@ -871,7 +728,6 @@ const healthServer = http.createServer(async (req, res) => {
           autoTradeEnabled: dbSettings.autoTradeEnabled,
           leverage: dbSettings.leverageMultiplier,
           riskBps: dbSettings.riskLevelBps,
-          riskPct: dbSettings.riskLevelBps / 100,
           tp: dbSettings.takeProfitPercent,
           sl: dbSettings.stopLossPercent,
           dynamicTrail: {
@@ -1192,7 +1048,6 @@ healthServer.listen(PORT, () => {
   logger.info('  POST /api/hl-order - Place manual perp order via Monadier agent');
   logger.info('  POST /api/hl-leverage - Update perp leverage via Monadier agent');
   logger.info('  POST /api/referral/try-qualify - Qualify referral after HL fund + bot activity');
-  logger.info('  GET /api/public-leaderboard?sort=recent|top - Live HL bot win leaderboard');
   logger.info('  GET /api/bot-status?wallet=0x… - Wallet bot diagnostics');
   logger.info('  GET /api/hl-position-trails?wallet=0x… - Live profit-trail stop truth');
   logger.info('  GET /api/global-signals - Top HL perp signals from last scan');

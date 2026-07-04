@@ -182,19 +182,6 @@ export function validateMegaPairVolumeForDirection(direction: 'LONG' | 'SHORT'):
       reason: `Mega pair INFLOW blocks SHORT — ${snap.summary}`,
     };
   }
-
-  const btc = snap.pairs.find((p) => p.coin === 'BTC');
-  if (
-    direction === 'SHORT' &&
-    btc?.flow === 'INFLOW' &&
-    (btc.change15mPct >= 0.06 || btc.change5mPct >= 0.05)
-  ) {
-    return {
-      ok: false,
-      reason: `BTC INFLOW blocks SHORT — ${snap.summary}`,
-    };
-  }
-
   if (direction === 'LONG' && outflow.length >= 2) {
     const meaningful = outflow.every(
       (p) => p.change15mPct <= -0.12 || p.change5mPct <= -0.1

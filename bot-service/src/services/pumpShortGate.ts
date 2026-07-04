@@ -5,7 +5,6 @@
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { signalEngine, type Candle } from './signalEngine';
-import { fetchPerpMarketContext } from './perpMarketContextGate';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { STANDARD_MTF_TIMEFRAMES } from '../lib/mtfTimeframes';
 
@@ -56,36 +55,12 @@ export async function validateNoAltPumpShort(opts: {
   const symbol = hlCoinToBinanceSymbol(coin);
 
   try {
-    const [signal, c5m, c15m, c1h, perpCtx] = await Promise.all([
+    const [signal, c5m, c15m, c1h] = await Promise.all([
       signalEngine.generateSignal(symbol, [...STANDARD_MTF_TIMEFRAMES]),
       signalEngine.fetchCandles(symbol, '5m', 24),
       signalEngine.fetchCandles(symbol, '15m', 16),
       signalEngine.fetchCandles(symbol, '1h', 8),
-      fetchPerpMarketContext(coin),
     ]);
-
-    if (perpCtx) {
-      const short24hCap =
-        config.hyperliquid.perpContext.maxShortBlock24hUpPct ??
-        config.hyperliquid.perpContext.maxLong24hUpPct;
-      if (perpCtx.change24hPct >= short24hCap) {
-        const reason =
-          `SHORT blocked — ${coin} +${perpCtx.change24hPct.toFixed(2)}% 24h (HL) — no counter-trend short during pump`;
-        logger.info('Pump-short gate blocked — green 24h', { coin, change24h: perpCtx.change24hPct });
-        return { ok: false, reason };
-      }
-      if (perpCtx.change24hPct > 0 && perpCtx.rangePosition >= 0.52) {
-        const reason =
-          `SHORT blocked — ${coin} green day (+${perpCtx.change24hPct.toFixed(2)}% 24h, ` +
-          `${(perpCtx.rangePosition * 100).toFixed(0)}% of range) — wait for real rollover`;
-        logger.info('Pump-short gate blocked — upper range on green day', {
-          coin,
-          change24h: perpCtx.change24hPct,
-          rangePosition: perpCtx.rangePosition,
-        });
-        return { ok: false, reason };
-      }
-    }
 
     const live5m = pctChangeLive(c5m, 1);
     const live15m = pctChangeLive(c15m, 1);
@@ -104,16 +79,10 @@ export async function validateNoAltPumpShort(opts: {
       logger.info('Pump-short gate blocked — green streak', { coin, green5m, live5m });
       return { ok: false, reason };
     }
-    if (net5x5m >= cfg.blockNet5mPct) {
+    if (net5x5m >= 0.35) {
       const reason =
         `SHORT blocked — ${coin} +${net5x5m.toFixed(2)}% over last 5×5m — pair still pumping`;
       logger.info('Pump-short gate blocked — 5m net pump', { coin, net5x5m });
-      return { ok: false, reason };
-    }
-    if (net5x5m > 0 && live5m > 0 && live15m > -cfg.min15mRolloverPct) {
-      const reason =
-        `SHORT blocked — ${coin} 5m momentum still up (net +${net5x5m.toFixed(2)}%, live 5m +${live5m.toFixed(2)}%)`;
-      logger.info('Pump-short gate blocked — positive 5m drift', { coin, net5x5m, live5m, live15m });
       return { ok: false, reason };
     }
 
@@ -149,14 +118,11 @@ export async function validateNoAltPumpShort(opts: {
       return { ok: false, reason };
     }
 
-    const greenDay = (perpCtx?.change24hPct ?? 0) >= cfg.greenDay24hPct;
-    const min15mRoll = greenDay ? cfg.min15mRolloverGreenDayPct : cfg.min15mRolloverPct;
-    if (ch15m > -min15mRoll || live15m > -min15mRoll) {
+    if (ch15m > -cfg.min15mRolloverPct || live15m > -cfg.min15mRolloverPct) {
       const reason =
         `SHORT blocked — ${coin} 15m not rolling over (closed ${ch15m >= 0 ? '+' : ''}${ch15m.toFixed(2)}%, ` +
-        `live ${live15m >= 0 ? '+' : ''}${live15m.toFixed(2)}%, need −${min15mRoll.toFixed(2)}%` +
-        `${greenDay ? ' on green day' : ''}) — need clear fade, not a heated pump`;
-      logger.info('Pump-short gate blocked', { coin, ch15m, live15m, min15mRoll, greenDay });
+        `live ${live15m >= 0 ? '+' : ''}${live15m.toFixed(2)}%) — need clear fade, not a heated pump`;
+      logger.info('Pump-short gate blocked', { coin, ch15m, live15m });
       return { ok: false, reason };
     }
 

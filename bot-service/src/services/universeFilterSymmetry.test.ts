@@ -81,21 +81,6 @@ describe('universe filter symmetry', () => {
     assert.equal(shortBlock, FUNNEL.universe.btcLong);
   });
 
-  it('blocks alt SHORT when BTC mega marks LONG on any positive tick', () => {
-    assert.equal(
-      computeAltUniverseBlock({
-        coin: 'DOGE',
-        direction: 'SHORT',
-        regime: 'neutral',
-        btcDirection: 'LONG',
-        ethDirection: undefined,
-        megaLongBlock: false,
-        megaShortBlock: false,
-      }),
-      FUNNEL.universe.btcLong
-    );
-  });
-
   it('mega flow blocks mirror OUTFLOW/LONG vs INFLOW/SHORT', () => {
     assert.equal(
       computeAltUniverseBlock({

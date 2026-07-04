@@ -98,25 +98,14 @@ export const config = {
     minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 2),
     /** Global scan — min % of TFs sharing the dominant trend (0–100). */
     minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 50),
-    /** Macro pump/dump — 1h anchor outweighs 5m/15m pullback noise (symmetric LONG/SHORT). */
-    macroMtfAnchor: {
-      minH1Confidence: Number(process.env.HL_MACRO_MTF_MIN_H1_CONF || 65),
-      h1WeightBoost: Number(process.env.HL_MACRO_MTF_H1_BOOST || 1.75),
-      counter15mWeight: Number(process.env.HL_MACRO_MTF_COUNTER_15M || 0.25),
-      counter5mWeight: Number(process.env.HL_MACRO_MTF_COUNTER_5M || 0.08),
-      aligned5mWeight: Number(process.env.HL_MACRO_MTF_ALIGNED_5M || 0.2),
-      confidenceBoost: Number(process.env.HL_MACRO_MTF_CONF_BOOST || 8),
-      conflictingPenalty: Number(process.env.HL_MACRO_MTF_CONFLICT_PEN || 3),
-      minDirectionalTfs: Number(process.env.HL_MACRO_MTF_MIN_TFS || 2),
-    },
     /** Max independent HL perp positions per wallet (different coins). */
     maxConcurrentPositions: Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 2),
     /** Minimum order notional — skips sloppy micro-trades. */
     minNotionalUsd: Number(process.env.HL_MIN_NOTIONAL_USD || 20),
-    /** Platform ceiling for user risk % — 10000 = 100% (matches vault_settings RPC). */
-    maxRiskLevelBps: Number(process.env.HL_MAX_RISK_LEVEL_BPS || 10_000),
-    /** Optional hard cap per slot as fraction of deployable balance (1 = honor user risk only). */
-    maxMarginPctPerSlot: Number(process.env.HL_MAX_MARGIN_PCT_PER_SLOT || 1),
+    /** Cap user risk % — 3000 = 30% of balance max (split across slots). */
+    maxRiskLevelBps: Number(process.env.HL_MAX_RISK_LEVEL_BPS || 3000),
+    /** Never allocate more than this fraction of balance to one HL slot. */
+    maxMarginPctPerSlot: Number(process.env.HL_MAX_MARGIN_PCT_PER_SLOT || 0.22),
     /** Auto stop-loss ceiling on margin — tightens user SL above this (e.g. 50% → 18%). */
     maxAutoStopLossPct: Number(process.env.HL_MAX_AUTO_SL_PCT || 18),
     /** Used only when HL_LOSS_CAP_ENFORCE=true — 0 = no default loss exit. */
@@ -220,11 +209,11 @@ export const config = {
     blockOppositeSameCoinMs: Number(process.env.HL_BLOCK_OPPOSITE_SAME_COIN_MS || 900_000),
     /** Resistance/support gate before opens (Standard + Aggressive scan + final open check). */
     entryLocation: {
-      /** Price in top X of range = near resistance (SHORT mirror: rangeBottomBlock = 1 − this). */
-      rangeTopBlock: Number(process.env.HL_ENTRY_RANGE_TOP || 0.72),
-      rangeBottomBlock: Number(process.env.HL_ENTRY_RANGE_BOTTOM || 0.28),
-      /** Pullback entry threshold — symmetric: SHORT uses (1 − this) as rally-fade floor. */
-      pullbackMaxPosition: Number(process.env.HL_ENTRY_PULLBACK_MAX || 0.58),
+      /** Price in top X of range = near resistance. */
+      rangeTopBlock: Number(process.env.HL_ENTRY_RANGE_TOP || 0.65),
+      rangeBottomBlock: Number(process.env.HL_ENTRY_RANGE_BOTTOM || 0.35),
+      /** Pullback entry threshold — symmetric distance from range midpoint (0.50 = exact mid). */
+      pullbackMaxPosition: Number(process.env.HL_ENTRY_PULLBACK_MAX || 0.5),
       /** Close must exceed resistance by this fraction to count as breakout. */
       breakoutBufferPct: Number(process.env.HL_ENTRY_BREAKOUT_BUFFER || 0.0015),
       breakoutConfirmBars: Number(process.env.HL_ENTRY_BREAKOUT_BARS || 2),
@@ -280,13 +269,9 @@ export const config = {
     },
     /** Alts — never SHORT into a fresh pump / higher-TF rally. */
     pumpShort: {
-      block1hPct: Number(process.env.HL_PUMP_SHORT_BLOCK_1H || 0.25),
-      block4hPct: Number(process.env.HL_PUMP_SHORT_BLOCK_4H || 0.45),
-      min15mRolloverPct: Number(process.env.HL_PUMP_SHORT_15M_ROLL || 0.22),
-      /** Extra rollover required when coin is green on the day (HL 24h). */
-      min15mRolloverGreenDayPct: Number(process.env.HL_PUMP_SHORT_15M_GREEN || 0.38),
-      greenDay24hPct: Number(process.env.HL_PUMP_SHORT_GREEN_DAY || 1.0),
-      blockNet5mPct: Number(process.env.HL_PUMP_SHORT_BLOCK_NET5M || 0.12),
+      block1hPct: Number(process.env.HL_PUMP_SHORT_BLOCK_1H || 0.15),
+      block4hPct: Number(process.env.HL_PUMP_SHORT_BLOCK_4H || 0.35),
+      min15mRolloverPct: Number(process.env.HL_PUMP_SHORT_15M_ROLL || 0.08),
       minHigherTfLongBlock: Number(process.env.HL_PUMP_SHORT_HTF_LONG || 2),
     },
     /** Cautious alts (UNI/SUI/CELO-style) — news check before open. */
@@ -358,16 +343,16 @@ export const config = {
     /** Skip pair (LONG + SHORT) after a fat pump — mass alts retest highs. */
     freshPump: {
       cooldownMs: Number(process.env.HL_FRESH_PUMP_COOLDOWN_MS || 2 * 60 * 60 * 1000),
-      cautiousBlock15mPct: Number(process.env.HL_FRESH_PUMP_15M || 0.28),
+      cautiousBlock15mPct: Number(process.env.HL_FRESH_PUMP_15M || 0.22),
       cautiousBlock1hPct: Number(process.env.HL_FRESH_PUMP_1H || 0.4),
       cautiousBlock4hPct: Number(process.env.HL_FRESH_PUMP_4H || 0.75),
-      cautiousNearRangeHigh: Number(process.env.HL_FRESH_PUMP_NEAR_HIGH || 0.88),
+      cautiousNearRangeHigh: Number(process.env.HL_FRESH_PUMP_NEAR_HIGH || 0.82),
       midBlock15mPct: Number(process.env.HL_FRESH_PUMP_MID_15M || 0.35),
       midBlock1hPct: Number(process.env.HL_FRESH_PUMP_MID_1H || 0.55),
       midBlock4hPct: Number(process.env.HL_FRESH_PUMP_MID_4H || 1.0),
       midNearRangeHigh: Number(process.env.HL_FRESH_PUMP_MID_NEAR_HIGH || 0.88),
     },
-    /** No thesis/signal loss closes in red; user SL% (stop_loss_percent) still enforced. */
+    /** Bot NEVER auto-closes in red — profit-only exits. */
     profitOnlyExits: process.env.HL_PROFIT_ONLY_EXITS !== 'false',
     /** BTC/ETH live volume flow for alt entry gate + open reasons. */
     megaPairVolume: {
@@ -390,19 +375,17 @@ export const config = {
     emergencyMaxLossUsdFloor: Number(process.env.HL_EMERGENCY_MAX_LOSS_FLOOR_USD || 2.5),
     /** Min ms open before signal_reversal loss close when HL_LOSS_THESIS_CLOSE=true. */
     thesisMinHoldBeforeLossCloseMs: Number(process.env.HL_THESIS_MIN_HOLD_MS || 600_000),
-    /** HL funding, 24h change, mark/oracle — anti-chase before opens (SHORT mirrors range via 1 − maxLongRangePosition). */
+    /** HL funding, 24h change, mark/oracle — anti-chase before opens. */
     perpContext: {
-      /** Block LONG above this fraction of 24h range — loosened again for trend-follow alts (Package 5). */
-      maxLongRangePosition: Number(process.env.HL_PERP_MAX_LONG_RANGE || 0.93),
+      /** Block LONG above this fraction of 24h range (0.68 = top third). */
+      maxLongRangePosition: Number(process.env.HL_PERP_MAX_LONG_RANGE || 0.68),
       /** Block LONG if 24h already up this much AND still in upper range. */
-      maxLong24hUpPct: Number(process.env.HL_PERP_MAX_LONG_24H || 6.0),
-      /** Block alt SHORT when HL 24h change is at or above this (counter-trend short). */
-      maxShortBlock24hUpPct: Number(process.env.HL_PERP_MAX_SHORT_24H || 2.5),
-      maxLong24hRangePosition: Number(process.env.HL_PERP_MAX_LONG_24H_RANGE || 0.9),
+      maxLong24hUpPct: Number(process.env.HL_PERP_MAX_LONG_24H || 1.2),
+      maxLong24hRangePosition: Number(process.env.HL_PERP_MAX_LONG_24H_RANGE || 0.55),
       /** HL funding rate — block LONG when longs pay above this (decimal). */
-      maxLongFunding: Number(process.env.HL_PERP_MAX_LONG_FUNDING || 0.0004),
+      maxLongFunding: Number(process.env.HL_PERP_MAX_LONG_FUNDING || 0.00012),
       /** Block LONG when mark trades this % above oracle. */
-      maxLongMarkPremiumPct: Number(process.env.HL_PERP_MAX_MARK_PREMIUM || 0.2),
+      maxLongMarkPremiumPct: Number(process.env.HL_PERP_MAX_MARK_PREMIUM || 0.08),
     },
     /** Pump apex line + liquidity sweep / turnaround zone (1h swings). */
     pumpSweep: {
@@ -429,12 +412,6 @@ export const config = {
     successFeeEnabled: process.env.HL_SUCCESS_FEE_ENABLED !== 'false',
     successFeeBps: Number(process.env.HL_SUCCESS_FEE_BPS || 1000),
     bettingSuccessFeeBps: Number(process.env.HL_BETTING_SUCCESS_FEE_BPS || 300),
-    /** Unpaid win fees block the next bet after this many wins (default 1). */
-    bettingWinsBeforeBlock: Number(process.env.HL_BETTING_WINS_BEFORE_BLOCK || 1),
-    /** Accrued per bet buy — 50 bps = 0.5% of stake (hl_betting_fee_ledger, not bot fees). */
-    bettingBuyFeeBps: Number(process.env.HL_BETTING_BUY_FEE_BPS || 50),
-    /** Accrued per cash-out — 250 bps = 2.5% of sell notional. */
-    bettingCashoutFeeBps: Number(process.env.HL_BETTING_CASHOUT_FEE_BPS || 250),
     minSuccessFeeUsd: Number(process.env.HL_MIN_SUCCESS_FEE_USD || 0.01),
     infoUrl: process.env.HL_INFO_URL || 'https://api.hyperliquid.xyz/info',
     builderAddress: process.env.HL_BUILDER_ADDRESS as `0x${string}`,

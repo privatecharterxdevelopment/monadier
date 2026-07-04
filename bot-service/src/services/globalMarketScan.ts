@@ -7,13 +7,11 @@ import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { sortGlobalSignals } from './marketRegime';
 import { validateNoAltPumpShort } from './pumpShortGate';
-import { validatePerpMarketContext } from './perpMarketContextGate';
 import { classifyCoinTier, isBotExcludedCoin, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
 import { validateEntryLocation } from './entryLocationGate';
 import { evaluateScanTrendAlignment } from './higherTfAlignment';
-import { validateBtcMacroAllowsShort } from './btcMacroShortGate';
 import type { PipelineFunnelRecorder } from './pipelineFunnelLog';
 import { FUNNEL } from './pipelineFunnelReasons';
 
@@ -101,103 +99,6 @@ async function validateScanEntryLocation(
   return { ok: true, locationReason: loc.reason };
 }
 
-type MtfScanAnalysis = NonNullable<Awaited<ReturnType<typeof analyzeMarketMTFBySymbol>>>;
-
-/** Trend + pump + location — required for every standard scan candidate (including fallbacks). */
-async function applyScanTrendAndPumpGates(opts: {
-  coin: string;
-  symbol: string;
-  direction: 'LONG' | 'SHORT';
-  analysis: MtfScanAnalysis;
-  baseConfidence: number;
-  minConf: number;
-  funnel?: PipelineFunnelRecorder;
-}): Promise<
-  | {
-      ok: true;
-      signalConfidence: number;
-      resolvedDirection: 'LONG' | 'SHORT';
-      macroReason?: string;
-      locationReason?: string;
-      redirectedFrom?: 'SHORT';
-    }
-  | { ok: false }
-> {
-  const { coin, symbol, direction, analysis, baseConfidence, minConf, funnel } = opts;
-
-  if (direction === 'SHORT') {
-    const btcMacro = await validateBtcMacroAllowsShort({ coin });
-    if (!btcMacro.ok) {
-      const longAnalysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
-      if (longAnalysis && !longAnalysis.isWeak && longAnalysis.direction === 'LONG') {
-        logger.info('HL scan redirect SHORT→LONG (BTC macro pump)', {
-          coin,
-          was: analysis.direction,
-          conf: longAnalysis.confidence,
-        });
-        const redirected = await applyScanTrendAndPumpGates({
-          coin,
-          symbol,
-          direction: 'LONG',
-          analysis: longAnalysis,
-          baseConfidence: longAnalysis.confidence,
-          minConf,
-          funnel,
-        });
-        if (redirected.ok) {
-          return { ...redirected, redirectedFrom: 'SHORT' };
-        }
-      }
-      logger.debug('HL scan skip: BTC macro pump', { coin, reason: btcMacro.reason });
-      logScanFail(funnel, coin, direction, FUNNEL.scan.btcMacroPump);
-      return { ok: false };
-    }
-  }
-
-  const trend = await evaluateScanTrendAlignment({
-    coin,
-    direction,
-    baseConfidence,
-    minConfidence: minConf,
-    h1Trend: analysis.metrics?.h1Trend,
-    directionalTfCount: analysis.metrics?.directionalTfCount,
-  });
-  if (!trend.ok) {
-    logger.debug('HL scan skip: trend alignment', { coin, reason: trend.reason });
-    logScanFail(funnel, coin, direction, trend.skipReason ?? FUNNEL.scan.htfBias);
-    return { ok: false };
-  }
-
-  if (direction === 'SHORT') {
-    const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
-    if (!pumpGate.ok) {
-      logger.debug('HL scan skip: pump-short gate', { coin, reason: pumpGate.reason });
-      logScanFail(funnel, coin, direction, FUNNEL.scan.pumpShort);
-      return { ok: false };
-    }
-    const perp = await validatePerpMarketContext({ coin, direction: 'SHORT' });
-    if (!perp.ok) {
-      logger.debug('HL scan skip: perp context', { coin, reason: perp.reason });
-      logScanFail(funnel, coin, direction, FUNNEL.scan.perpContext);
-      return { ok: false };
-    }
-  }
-
-  const location = await validateScanEntryLocation(coin, symbol, direction);
-  if (!location.ok) {
-    logScanFail(funnel, coin, direction, FUNNEL.scan.location);
-    return { ok: false };
-  }
-
-  return {
-    ok: true,
-    signalConfidence: trend.adjustedConfidence,
-    resolvedDirection: direction,
-    macroReason: trend.reason,
-    locationReason: location.locationReason,
-  };
-}
-
 export type HlGlobalScanStats = {
   coinsScanned: number;
   liquidUniverse: number;
@@ -276,28 +177,14 @@ async function scanMajorChartFallback(
       return null;
     }
 
-    const gates = await applyScanTrendAndPumpGates({
-      coin,
-      symbol,
-      direction: analysis.direction,
-      analysis,
-      baseConfidence: analysis.confidence,
-      minConf: 48,
-      funnel,
-    });
-    if (!gates.ok) return null;
-
-    const resolvedDirection = gates.resolvedDirection;
     const markPx = resolveScanMarkPx(coin, liq, mids);
     const candidate = withScanReference(
       {
         coin,
         symbol,
-        direction: resolvedDirection,
-        confidence: gates.signalConfidence,
-        reason: gates.redirectedFrom
-          ? `${analysis.reason} · redirected ${gates.redirectedFrom}→${resolvedDirection} (BTC pump)`
-          : `${analysis.reason} · major ${resolvedDirection} fallback (${gates.signalConfidence}% / ${tfs} TFs)`,
+        direction: analysis.direction,
+        confidence: analysis.confidence,
+        reason: `${analysis.reason} · major ${analysis.direction} fallback (${analysis.confidence}% / ${tfs} TFs)`,
         dayVolumeUsd: liq.dayVolumeUsd,
         openInterestUsd: liq.openInterestUsd,
         botMode: 'standard',
@@ -307,8 +194,6 @@ async function scanMajorChartFallback(
         h1Trend: analysis.metrics?.h1Trend,
         signalReasons: analysis.signalReasons,
         indicators: analysis.indicators,
-        locationReason: gates.locationReason,
-        macroReason: gates.macroReason,
       },
       markPx
     );
@@ -429,33 +314,48 @@ async function scanStandardCoin(
 
     let signalConfidence = analysis.confidence;
     let macroReason: string | undefined;
-    let locationReason: string | undefined;
 
-    const gates = await applyScanTrendAndPumpGates({
-      coin,
-      symbol,
-      direction,
-      analysis,
-      baseConfidence: analysis.confidence,
-      minConf,
-      funnel,
-    });
-    if (!gates.ok) return null;
-    signalConfidence = gates.signalConfidence;
-    macroReason = gates.macroReason;
-    locationReason = gates.locationReason;
-    const resolvedDirection = gates.resolvedDirection;
+    if (!relaxed) {
+      const trend = await evaluateScanTrendAlignment({
+        coin,
+        direction,
+        baseConfidence: analysis.confidence,
+        minConfidence: minConf,
+        h1Trend: analysis.metrics?.h1Trend,
+        directionalTfCount: analysis.metrics?.directionalTfCount,
+      });
+      if (!trend.ok) {
+        logger.debug('HL scan skip: trend alignment', { coin, reason: trend.reason });
+        logScanFail(funnel, coin, direction, trend.skipReason ?? FUNNEL.scan.htfBias);
+        return null;
+      }
+      signalConfidence = trend.adjustedConfidence;
+      macroReason = trend.reason;
+    }
+
+    if (direction === 'SHORT') {
+      const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
+      if (!pumpGate.ok) {
+        logger.debug('HL scan skip: pump-short gate', { coin, reason: pumpGate.reason });
+        logScanFail(funnel, coin, direction, FUNNEL.scan.pumpShort);
+        return null;
+      }
+    }
+
+    const location = await validateScanEntryLocation(coin, symbol, direction);
+    if (!location.ok) {
+      logScanFail(funnel, coin, direction, FUNNEL.scan.location);
+      return null;
+    }
 
     const markPx = resolveScanMarkPx(coin, liq, mids);
     const candidate = withScanReference(
       {
         coin,
         symbol,
-        direction: resolvedDirection,
+        direction,
         confidence: signalConfidence,
-        reason: gates.redirectedFrom
-          ? `${analysis.reason} · redirected ${gates.redirectedFrom}→${resolvedDirection} (BTC pump)`
-          : relaxed
+        reason: relaxed
           ? `${analysis.reason} · top-pairs fallback (${signalConfidence}% / ${analysis.metrics?.directionalTfCount} TFs)`
           : analysis.reason,
         dayVolumeUsd: liq.dayVolumeUsd,
@@ -467,7 +367,7 @@ async function scanStandardCoin(
         h1Trend: analysis.metrics?.h1Trend,
         signalReasons: analysis.signalReasons,
         indicators: analysis.indicators,
-        locationReason: locationReason || undefined,
+        locationReason: location.locationReason || undefined,
         macroReason,
       },
       markPx

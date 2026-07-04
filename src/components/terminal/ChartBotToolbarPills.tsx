@@ -1,11 +1,6 @@
 import React from 'react';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
-import {
-  effectiveHlBotSettings,
-  effectiveStopLossPct,
-  formatHlSlCapUsd,
-  formatHlSlLabel,
-} from '../../lib/hlBotEffectiveSettings';
+import { effectiveHlBotSettings, formatHlSlLabel } from '../../lib/hlBotEffectiveSettings';
 import { HL_DYNAMIC_TRAIL } from '../../lib/hlBotStrategy';
 import BotMetricPill from './BotMetricPill';
 
@@ -19,7 +14,7 @@ const DESCRIPTIONS = {
   risk: 'Share of your HL balance used as margin per trade — not the same as leverage.',
   lvrg: 'Hyperliquid multiplier on that margin. Bot clamps to each market’s max leverage.',
   trail: `Stage 1: +${HL_DYNAMIC_TRAIL.breakevenArmRoePct}% ROE locks +${HL_DYNAMIC_TRAIL.armMinRoePct}%. Stage 2: peak ≥+${HL_DYNAMIC_TRAIL.fullTrailArmRoePct}% → trail +${HL_DYNAMIC_TRAIL.trailGapRoePct}% from peak.`,
-  sl: '0% = bot decides exits (profit trail, no auto-close in red). Above 0% = bot closes at your margin SL cap.',
+  sl: 'Max loss on margin while red — set in Settings. Off = profit trail only on winners.',
 } as const;
 
 function fmtUsd(n: number) {
@@ -53,13 +48,6 @@ const ChartBotToolbarPills: React.FC<Props> = ({ hlBalanceUsd = 0, variant = 'li
         variant={variant}
         label="SL"
         value={formatHlSlLabel(settings.stopLoss)}
-        meta={
-          marginUsd != null && marginUsd > 0 && effectiveStopLossPct(settings.stopLoss) > 0
-            ? formatHlSlCapUsd(settings.stopLoss, marginUsd) ?? undefined
-            : effectiveStopLossPct(settings.stopLoss) <= 0
-              ? 'Bot exits'
-              : undefined
-        }
         description={DESCRIPTIONS.sl}
       />
       <BotMetricPill

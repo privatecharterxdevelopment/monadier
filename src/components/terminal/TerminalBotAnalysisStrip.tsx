@@ -33,9 +33,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
   });
   const effectiveVaultWallet = tradingWallet ?? vaultWallet ?? null;
   const botRunning = botRunningHint ?? resolvedRunning;
-  const botOpenCount = openPositionCoins.length;
-  const openPositionsCount =
-    botOpenCount > 0 ? botOpenCount : metrics.openPositionsCount;
+  const openPositionsCount = metrics.openPositionsCount;
   const maxSlots = HL_MAX_CONCURRENT_POSITIONS;
   const slotsFull = openPositionsCount >= maxSlots;
 
@@ -72,7 +70,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     botRunning,
   });
 
-  const activeCandidate = analysis.scanning ? (analysis.scanCandidate ?? analysis.globalBest) : null;
+  const activeCandidate = botRunning ? (analysis.scanCandidate ?? analysis.globalBest) : null;
   const hasBestCandidate = Boolean(activeCandidate?.coin);
   const scanHeadline = hasBestCandidate
     ? analysis.readiness.headline
@@ -85,8 +83,8 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     if (slotsFull) {
       return {
         ...analysis.readiness,
-        headline: `${openPositionsCount}/${maxSlots} · all slots filled`,
-        detail: 'Monitoring open positions — scan pauses until a slot opens',
+        headline: 'Slots full',
+        detail: `${openPositionsCount}/${maxSlots} positions open — monitoring exits`,
       };
     }
     return { ...analysis.readiness, headline: scanHeadline };
@@ -99,7 +97,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     scanHeadline,
   ]);
 
-  const keepScanning = !idleReadiness && analysis.scanning;
+  const keepScanning = botRunning && !slotsFull;
 
   if (placement === 'chart' && !showLiveAnalysis) return null;
 

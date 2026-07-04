@@ -18,16 +18,6 @@ export function effectiveStopLossPct(stopLoss: number): number {
   return stopLoss > 0 ? stopLoss : 0;
 }
 
-/** Max loss USD cap from user SL% on estimated trade margin (matches bot-service). */
-export function computeUserStopLossCapUsd(
-  collateralUsd: number,
-  stopLossPct: number
-): number | null {
-  const pct = effectiveStopLossPct(stopLossPct);
-  if (pct <= 0 || !Number.isFinite(collateralUsd) || collateralUsd <= 0) return null;
-  return collateralUsd * (pct / 100);
-}
-
 export function effectiveHlBotSettings(
   raw: VaultSettingsSnapshot
 ): HlBotEffectiveSettings {
@@ -53,21 +43,5 @@ export function formatHlSlLabel(
   _strategy: HlBotStrategy = 'standard'
 ): string {
   const pct = effectiveStopLossPct(stopLoss);
-  return pct > 0 ? `Max −${pct}%` : 'Bot decides';
-}
-
-export function formatHlSlCapUsd(
-  stopLoss: number,
-  collateralUsd: number
-): string | null {
-  const cap = computeUserStopLossCapUsd(collateralUsd, stopLoss);
-  if (cap == null) return null;
-  return `−$${cap.toFixed(2)}`;
-}
-
-/** Compact label under Start bot / parameters strip. */
-export function formatHlSlStripLabel(stopLoss: number): string {
-  const pct = effectiveStopLossPct(stopLoss);
-  if (pct <= 0) return 'Off';
-  return `−${pct}%`;
+  return pct > 0 ? `Max −${pct}%` : 'Profit trail';
 }

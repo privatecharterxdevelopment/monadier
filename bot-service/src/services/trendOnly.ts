@@ -19,25 +19,19 @@ export function computeTradeTrend(opts: {
   change15mPct?: number;
 }): 'UP' | 'DOWN' | 'SIDEWAYS' {
   const h1 = normalizeH1Trend(opts.h1Trend);
-  // 1h macro trend is authoritative — never fade a pump or catch a falling knife on lower-TF noise.
-  if (h1 === 'UP') return 'UP';
-  if (h1 === 'DOWN') return 'DOWN';
+  if (h1 !== 'SIDEWAYS') return h1;
 
   const m15 = normalizeH1Trend(opts.m15Trend);
   const shortVotes = opts.shortTfVotes ?? 0;
   const longVotes = opts.longTfVotes ?? 0;
+
+  if (m15 === 'DOWN' && shortVotes >= longVotes && shortVotes >= 2) return 'DOWN';
+  if (m15 === 'UP' && longVotes >= shortVotes && longVotes >= 2) return 'UP';
+
   const c1h = opts.change1hPct ?? 0;
   const c15 = opts.change15mPct ?? 0;
-
-  if (c1h > 0.12 && c15 > -0.06) return 'UP';
-  if (c1h < -0.12 && c15 < 0.06) return 'DOWN';
-
-  if (m15 === 'DOWN' && shortVotes >= longVotes && shortVotes >= 2 && c1h <= 0.08 && c15 <= 0.04) {
-    return 'DOWN';
-  }
-  if (m15 === 'UP' && longVotes >= shortVotes && longVotes >= 2 && c1h >= -0.08 && c15 >= -0.04) {
-    return 'UP';
-  }
+  if (c1h < -0.12 && c15 < -0.05) return 'DOWN';
+  if (c1h > 0.12 && c15 > 0.05) return 'UP';
 
   return 'SIDEWAYS';
 }

@@ -214,19 +214,6 @@ export async function validateEntryMomentum(opts: {
         };
       }
 
-      if (isMacroUptrend(c1h, change15mPct, change1hPct)) {
-        return {
-          ok: false,
-          reason:
-            `SHORT blocked — ${coin} macro uptrend (5m ${change5mPct >= 0 ? '+' : ''}${change5mPct.toFixed(2)}%, ` +
-            `15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}%, 1h ${change1hPct >= 0 ? '+' : ''}${change1hPct.toFixed(2)}%) — no short into pump`,
-          change5mPct,
-          change15mPct,
-          change1hPct,
-          momentumAligned: false,
-        };
-      }
-
       const macroDown = isMacroDowntrend(c1h, change15mPct, change1hPct);
       const pushDown = fade5m || change5mPct <= -min5;
       const driftDown = change5mPct <= 0.08 && change15mPct <= -0.05;

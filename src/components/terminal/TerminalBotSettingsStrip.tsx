@@ -1,6 +1,6 @@
 import React from 'react';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
-import { effectiveHlBotSettings, formatHlSlStripLabel } from '../../lib/hlBotEffectiveSettings';
+import { effectiveHlBotSettings, formatHlSlLabel } from '../../lib/hlBotEffectiveSettings';
 import { HL_DYNAMIC_TRAIL } from '../../lib/hlBotStrategy';
 
 type Props = {
@@ -18,7 +18,7 @@ const METRICS = [
 
 const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disabled }) => {
   const eff = effectiveHlBotSettings(settings);
-  const sl = formatHlSlStripLabel(settings.stopLoss);
+  const sl = formatHlSlLabel(settings.stopLoss).replace(/^Max /, '');
   const trail = `+${HL_DYNAMIC_TRAIL.breakevenArmRoePct}→+${HL_DYNAMIC_TRAIL.armMinRoePct}%`;
 
   const values: Record<(typeof METRICS)[number]['key'], string> = {

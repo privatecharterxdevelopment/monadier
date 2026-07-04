@@ -19,10 +19,6 @@ export interface TradeSignal {
 import { positionService } from './positions';
 import { signalEngine, UnifiedSignal, Timeframe } from './signalEngine';
 import { isTrendOnlyLongAllowed, isTrendOnlyShortAllowed, trendOnlyBlockReason, computeTradeTrend } from './trendOnly';
-import {
-  h1TrendFromTradeTrend,
-  passesMtfAlignmentGate,
-} from './mtfTimeframeWeight';
 
 // Candle data structure
 interface Candle {
@@ -1227,44 +1223,6 @@ export async function analyzeMarketMTFBySymbol(
     });
 
     let finalDirection: 'LONG' | 'SHORT' = signal.direction as 'LONG' | 'SHORT';
-    if (trend === 'UP' && finalDirection === 'SHORT') {
-      if (longVotes >= 2 || longVotes > shortVotes) {
-        finalDirection = 'LONG';
-        logger.debug('MTF redirect — macro UP, SHORT→LONG', { symbol, longVotes, shortVotes });
-      } else {
-        return {
-          direction: 'SHORT',
-          confidence: Math.round(signal.confidence),
-          reason: `Blocked — ${longVotes} LONG / ${shortVotes} SHORT in uptrend (no counter-trend SHORT)`,
-          indicators: indicators.slice(0, 3),
-          isReversalSignal: false,
-          suggestedTP: 5,
-          suggestedSL: 1.5,
-          isOverheated: rsi > 75 || rsi < 25,
-          isWeekendWarning: weekendAlertLevel !== 'none',
-          weekendAlertLevel,
-          scalpingRecommended: false,
-          marketWarning,
-          isWeak: true,
-          metrics: {
-            rsi: Math.round(rsi),
-            macd: macdSignal,
-            priceChange1h: '0.00',
-            volumeRatio: '1.0',
-            conditionsMet: 0,
-            trendAlignment: Math.round(signal.trendAlignment),
-            directionalTfCount: longVotes,
-            h1Trend: trend,
-            riskReward: '0',
-            trend: 'STRONG_UPTREND',
-            dayOfWeek: dayNames[dayOfWeek],
-          },
-        };
-      }
-    } else if (trend === 'DOWN' && finalDirection === 'LONG' && shortVotes >= 2 && shortVotes > longVotes) {
-      finalDirection = 'SHORT';
-      logger.debug('MTF redirect — macro DOWN, LONG→SHORT', { symbol, longVotes, shortVotes });
-    }
     if (signal.direction === 'HOLD') {
       const higherTFs = signal.timeframes;
       const minVotes = Math.max(2, config.hyperliquid.minDirectionalTfs);
@@ -1395,30 +1353,14 @@ export async function analyzeMarketMTFBySymbol(
       }
     }
 
-    const h1TrendDir = h1TrendFromTradeTrend(trend);
-    const tfVotes = signal.timeframes.map((tf) => ({
-      timeframe: tf.timeframe,
-      direction: tf.direction,
-    }));
-    const mtfGate = passesMtfAlignmentGate({
-      timeframes: tfVotes,
-      tradeDirection: finalDirection,
-      htfTrend1h: h1TrendDir,
-      minDirectionalTfs: config.hyperliquid.minDirectionalTfs,
-      macroTrend: trend,
-      h1Confidence: tf1h?.confidence,
-      h1Direction: tf1h?.direction,
-      settings: {
-        ...config.hyperliquid.macroMtfAnchor,
-        minDirectionalTfs: config.hyperliquid.minDirectionalTfs,
-      },
-    });
-    const weightedDirectionalTfCount = mtfGate.directionalTfCount;
+    const directionalTfCount = signal.timeframes.filter(
+      (tf) => tf.direction === finalDirection
+    ).length;
     const counterTrend =
       (finalDirection === 'LONG' && !isTrendOnlyLongAllowed(trend)) ||
       (finalDirection === 'SHORT' && !isTrendOnlyShortAllowed(trend));
     const trendAligned =
-      mtfGate.ok &&
+      directionalTfCount >= config.hyperliquid.minDirectionalTfs &&
       signal.trendAlignment >= config.hyperliquid.minTrendAlignment &&
       !counterTrend;
 
@@ -1487,7 +1429,7 @@ export async function analyzeMarketMTFBySymbol(
         volumeRatio: '1.0',
         conditionsMet: Math.round(signal.trendAlignment / 20),
         trendAlignment: Math.round(signal.trendAlignment),
-        directionalTfCount: weightedDirectionalTfCount,
+        directionalTfCount,
         h1Trend: trend,
         riskReward: (suggestedTP / suggestedSL).toFixed(2),
         trend:

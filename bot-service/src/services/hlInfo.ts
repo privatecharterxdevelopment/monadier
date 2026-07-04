@@ -146,10 +146,12 @@ export function inferHlUnifiedMargin(
 }
 
 function hlSummaryAccountValueUsd(state: HlClearinghouseState | null): number {
-  const margin = Number(state?.marginSummary?.accountValue ?? 0);
-  const cross = Number(state?.crossMarginSummary?.accountValue ?? 0);
-  const values = [margin, cross].filter((n) => Number.isFinite(n) && n > 0);
-  return values.length > 0 ? Math.max(...values) : 0;
+  const margin = state?.marginSummary?.accountValue;
+  const cross = state?.crossMarginSummary?.accountValue;
+  const marginRaw = state?.marginSummary?.totalRawUsd;
+  const crossRaw = state?.crossMarginSummary?.totalRawUsd;
+  const values = [margin, cross, marginRaw, crossRaw].map((v) => Number(v ?? 0));
+  return Math.max(0, ...values.filter((n) => Number.isFinite(n)));
 }
 
 export async function fetchHlUserAbstraction(
@@ -438,22 +440,6 @@ export function hlTradableFreeMarginUsd(
   return hlFreeMarginUsd(state);
 }
 
-/**
- * Deployable balance for entry margin sizing — capped to HL free/tradable USDC per user.
- * Risk % and slot caps use this, not mark-to-market equity alone (avoids oversizing on uPnL).
- */
-export function hlEntrySizingBalanceUsd(
-  funding: HlPerpFundingSnapshot,
-  state: HlClearinghouseState | null
-): number {
-  const free = hlTradableFreeMarginUsd(funding, state);
-  const equity = funding.accountEquityUsd;
-  const deployableBase = funding.unifiedAccount
-    ? Math.max(funding.spotUsdcUsd, funding.tradablePerpUsd, funding.withdrawableUsd)
-    : Math.max(funding.withdrawableUsd, funding.perpUsd, free);
-  return Math.max(0, Math.min(equity, free, deployableBase));
-}
-
 export function hlOpenPerpCoins(state: HlClearinghouseState | null): string[] {
   const coins: string[] = [];
   for (const row of state?.assetPositions ?? []) {
@@ -629,7 +615,6 @@ export type HlUserFill = {
   closedPnl: string;
   fee: string;
   dir?: string;
-  hash?: string;
 };
 
 export async function fetchHlUserFills(userAddress: string): Promise<HlUserFill[]> {
