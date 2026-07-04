@@ -113,7 +113,9 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
   }
 
   const showSpinner = analysis.analyzerActive;
-  const scanTitle = analysis.readiness.headline || (showSpinner ? 'Bot is reading market…' : 'Bot paused');
+  const scanTitle =
+    analysis.readiness.headline ||
+    (botRunning ? 'Bot is reading market…' : 'Bot off');
 
   return (
     <>
@@ -124,7 +126,7 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
         <span className="hl-dock-bot-scan-title">{scanTitle}</span>
       </div>
       <div className="hl-dock-bot-scan-insights" aria-live="polite">
-        {!showSpinner && analysis.entryBlocked && botRunning ? (
+        {analysis.readiness.detail ? (
           <p className="hl-dock-bot-scan-detail">{analysis.readiness.detail}</p>
         ) : null}
         {showSpinner

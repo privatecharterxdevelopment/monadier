@@ -93,6 +93,10 @@ export function isBotScanNoiseDetail(detail: string): boolean {
     /HL account equity/i.test(d) ||
     /free margin \$0\.00 · perp/i.test(d) ||
     /Waiting for pullback to buy low/i.test(d) ||
+    /Neutral — \d+ LONG/i.test(d) ||
+    /trend-only/i.test(d) ||
+    /No aligned setup in global scan/i.test(d) ||
+    /BTC 24h \$|ETH 24h \$/i.test(d) ||
     / ‖ /.test(d)
   );
 }

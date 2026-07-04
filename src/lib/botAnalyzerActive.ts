@@ -1,38 +1,46 @@
-/** When false, chart/dock analyzer must not spin or show live MTF signals. */
+import { formatUserBlocker } from './botReadiness';
+
+const HARD_BLOCKER =
+  /trading agent|platform fee|Bot fees due|Approve the|Must deposit|margin too small|free margin too low|notional.*below min|linked to another/i;
+
+const TRANSIENT_OPEN_RETRY =
+  /Funding\/24h range|Price at bad level|Chart still trending|Pair still pumping|Volume gate blocked|needs live momentum|Dip-buy|Rally-fade/i;
+
+/** Only stop the live analyzer for off-state or hard user gates — not “no setup yet”. */
 export function isBotEntryBlocked(opts: {
   botRunning: boolean;
-  canTrade?: boolean | null;
   blockers: string[];
   lastOpenError?: string | null;
   slotsFull?: boolean;
 }): boolean {
   if (!opts.botRunning) return true;
   if (opts.slotsFull) return false;
-  if (opts.canTrade === false) return true;
-  if (opts.lastOpenError?.trim()) return true;
-  return opts.blockers.some((b) =>
-    /Last open attempt|Last open:|Entry blocked|Funding\/24h range|Price at bad level|Chart still trending|Pair still pumping|Volume gate blocked|BTC\+ETH outflow blocks|No tradeable setup|Bot fees due|Approve the trading agent|platform fee/i.test(
-      b
-    )
-  );
+
+  const last = opts.lastOpenError?.trim();
+  if (last && !TRANSIENT_OPEN_RETRY.test(last)) return true;
+
+  return opts.blockers.some((b) => HARD_BLOCKER.test(b));
 }
 
-export function botAnalyzerPausedCopy(opts: {
+/** One consistent status line while the bot is on. */
+export function botAnalyzerStatusCopy(opts: {
   botRunning: boolean;
-  entryBlocked: boolean;
   blockers: string[];
   lastOpenError?: string | null;
 }): { title: string; detail: string } {
   if (!opts.botRunning) {
     return { title: 'Bot off', detail: 'Press Start bot to scan markets.' };
   }
-  if (!opts.entryBlocked) {
-    return { title: 'Bot is reading market…', detail: '' };
+
+  const formatted = [...opts.blockers, ...(opts.lastOpenError ? [`Last open: ${opts.lastOpenError}`] : [])]
+    .map(formatUserBlocker)
+    .filter(Boolean);
+  const unique = [...new Set(formatted)];
+  const hard = unique.filter((b) => HARD_BLOCKER.test(b) || /^Last open:/i.test(b));
+
+  if (hard.length > 0) {
+    return { title: 'Bot waiting', detail: hard.join(' · ') };
   }
-  const last =
-    opts.lastOpenError?.trim() ||
-    opts.blockers.find((b) => /Last open attempt|Last open:/i.test(b)) ||
-    opts.blockers.find((b) => b.trim()) ||
-    'Entry blocked — bot waits before scanning again.';
-  return { title: 'Bot paused', detail: last.replace(/^Last open attempt \(\w+\):\s*/i, 'Last open: ') };
+
+  return { title: 'Bot is reading market…', detail: '' };
 }

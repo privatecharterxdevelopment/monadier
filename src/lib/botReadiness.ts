@@ -17,6 +17,14 @@ export type BotReadiness = {
 function formatBlocker(blocker: string): string {
   if (isInternalPlatformOpsMessage(blocker)) return '';
   if (isBotScanNoiseDetail(blocker)) return '';
+  if (/Neutral — \d+ LONG.*SHORT/i.test(blocker)) return '';
+  if (/trend-only/i.test(blocker)) return '';
+  if (/No aligned setup in global scan/i.test(blocker)) return '';
+  if (/user\.3\.9_no_signals|market\.no_setup/i.test(blocker)) return '';
+  if (/BTC 24h \$|ETH 24h \$|weekendMajorsOnly|Scan BTC .* · ETH/i.test(blocker)) return '';
+  if (/Funding\/24h range blocks chasing|LONG blocked — .*24h range/i.test(blocker)) {
+    return 'Last open skipped — price extended on 24h range; bot keeps scanning';
+  }
   if (/HL agent not approved|Trading agent not approved/i.test(blocker)) {
     return 'Approve the trading agent in the Bot panel';
   }
@@ -123,6 +131,11 @@ function formatBlocker(blocker: string): string {
   return blocker;
 }
 
+/** User-facing blocker text — strips internal MTF / scan engine noise. */
+export function formatUserBlocker(blocker: string): string {
+  return formatBlocker(blocker);
+}
+
 export function readinessFromServerBlockers(blockers: string[]): BotReadiness {
   const formatted = blockers.map((b) => formatBlocker(b)).filter(Boolean);
   const unique = [...new Set(formatted)];
@@ -137,7 +150,7 @@ export function readinessFromServerBlockers(blockers: string[]): BotReadiness {
   ).join(' · ');
   return {
     canEnter: false,
-    headline: detail ? 'Bot waiting' : 'Scanning markets',
+    headline: detail ? 'Bot waiting' : 'Bot is reading market…',
     detail,
   };
 }

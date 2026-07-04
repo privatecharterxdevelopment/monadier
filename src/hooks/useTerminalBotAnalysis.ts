@@ -18,7 +18,7 @@ import { getBotApiBase, type Timeframe } from '../lib/signalService';
 import { binanceSymbolToHlCoin, hlCoinToBotSymbol, isBotExcludedHlCoin } from '../lib/botTradingPairs';
 import { normalizeHlBotStrategy, type HlBotStrategy } from '../lib/hlBotStrategy';
 import { pickNextScanCandidate } from '../lib/botScanCandidate';
-import { isBotEntryBlocked, botAnalyzerPausedCopy } from '../lib/botAnalyzerActive';
+import { isBotEntryBlocked, botAnalyzerStatusCopy } from '../lib/botAnalyzerActive';
 import { nextPollDelayMs } from '../lib/pollBackoff';
 
 export const ANALYSIS_STEPS = [
@@ -130,12 +130,11 @@ export function useTerminalBotAnalysis({
     () =>
       isBotEntryBlocked({
         botRunning,
-        canTrade: serverCanTrade,
         blockers: serverBlockers,
         lastOpenError: lastOpenErrorText,
         slotsFull,
       }),
-    [botRunning, serverCanTrade, serverBlockers, lastOpenErrorText, slotsFull]
+    [botRunning, serverBlockers, lastOpenErrorText, slotsFull]
   );
 
   const analyzerActive = botRunning && (analysisActive ?? false) && !entryBlocked && slotsLeft;
@@ -379,12 +378,6 @@ export function useTerminalBotAnalysis({
         const candidates = Array.isArray(data.globalScan?.candidates)
           ? [...data.globalScan.candidates].sort((a, b) => b.confidence - a.confidence)
           : [];
-        if (data.globalScan?.openUniverse?.summary) {
-          const summary = data.globalScan.openUniverse.summary;
-          if (!blockers.some((b) => b.includes(summary.slice(0, 24)))) {
-            blockers.push(summary);
-          }
-        }
         for (const reason of data.globalScan?.filterReasons ?? []) {
           if (reason && !blockers.includes(reason)) blockers.push(reason);
         }
@@ -466,12 +459,6 @@ export function useTerminalBotAnalysis({
   }, [vaultWallet, botRunning, vaultUsd, feeExempt]);
 
   const readiness = useMemo(() => {
-    const paused = botAnalyzerPausedCopy({
-      botRunning,
-      entryBlocked,
-      blockers: serverBlockers,
-      lastOpenError: lastOpenErrorText,
-    });
     if (!botRunning) {
       return {
         canEnter: false,
@@ -482,11 +469,17 @@ export function useTerminalBotAnalysis({
             : `At least $${MIN_HL_BOT_USD} USDC on Hyperliquid to trade.`,
       };
     }
-    if (entryBlocked) {
+
+    const status = botAnalyzerStatusCopy({
+      botRunning,
+      blockers: serverBlockers,
+      lastOpenError: lastOpenErrorText,
+    });
+    if (status.title === 'Bot waiting') {
       return {
         canEnter: false,
-        headline: paused.title,
-        detail: paused.detail,
+        headline: status.title,
+        detail: status.detail,
       };
     }
 
@@ -497,39 +490,47 @@ export function useTerminalBotAnalysis({
       vaultUsd,
       nextSetup: scanCandidate,
     });
+
     if (serverBlockers.length === 0) {
-      if (
-        botRunning &&
-        globalScanCount === 0 &&
-        globalCoinsScanned > 0 &&
-        !scanCandidate
-      ) {
-        const regime = openUniverseSummary?.trim();
+      if (globalScanCount === 0 && globalCoinsScanned > 0 && !scanCandidate) {
         const rawHint =
           rawScanCandidateCount === 0
             ? `Scanned ${globalCoinsScanned} HL perps — no pair meets ${HL_MIN_SIGNAL_CONFIDENCE}%+ MTF right now`
             : `Scanned ${globalCoinsScanned} HL perps — macro filters removed all ${rawScanCandidateCount} raw setup(s)`;
         return {
           canEnter: false,
-          headline: 'No tradeable setup',
-          detail: regime ? `${rawHint}. ${regime}` : rawHint,
+          headline: 'Bot is reading market…',
+          detail: rawHint,
         };
       }
-      return local;
+      return {
+        ...local,
+        headline: local.headline === 'Scanning markets' ? 'Bot is reading market…' : local.headline,
+      };
     }
+
     const server = readinessFromServerBlockers(serverBlockers);
     if (local.canEnter && server.detail) {
       return {
         canEnter: false,
-        headline: 'Entry blocked',
+        headline: 'Bot is reading market…',
         detail: server.detail,
       };
     }
-    return server;
+    if (server.detail) {
+      return {
+        canEnter: false,
+        headline: 'Bot is reading market…',
+        detail: server.detail,
+      };
+    }
+    return {
+      ...local,
+      headline: local.headline === 'Scanning markets' ? 'Bot is reading market…' : local.headline,
+    };
   }, [
     signal,
     botRunning,
-    entryBlocked,
     lastOpenErrorText,
     openPositionsCount,
     serverMaxSlots,
@@ -538,7 +539,6 @@ export function useTerminalBotAnalysis({
     scanCandidate,
     globalScanCount,
     globalCoinsScanned,
-    openUniverseSummary,
     rawScanCandidateCount,
   ]);
 
