@@ -662,10 +662,14 @@
     "closedTradesGate": "Geschlossene Trades bevor Gate greift",
     "fewerTrades": "Weniger Trades",
     "moreTrades": "Mehr Trades",
-    "exitsHint": "<strong>Exits:</strong> Bot zieht Stop-Loss automatisch in den Gewinn — kein manuelles TP/SL. Standard aktiviert bei +$0.06 uPnL (Min. Lock +$0.03). Aggressiv bei +$0.02 (Lock +$0.01).",
+    "exitsHint": "<strong>Exits:</strong> SL 0% = Bot entscheidet (Profit-Trail im Plus, kein Auto-Close im Minus). SL &gt; 0% = Bot schließt bei deinem Max-Verlust auf der Margin.",
     "stopLossTitle": "Stop loss",
     "stopLossHint": "Max. Verlust auf die Margin, solange die Position im Minus ist. Aus = nur Profit-Trail (kein Auto-Close im Rot).",
-    "stopLossOff": "Aus",
+    "stopLossHintOff": "0% — Bot entscheidet: Profit-Trail im Plus, nie automatisch im Minus schließen.",
+    "stopLossHintOn": "Bei −{{pct}}% auf der Margin schließt der Bot automatisch, solange die Position rot ist.",
+    "stopLossCapFoot": "≈ −${{cap}} Max-Verlust pro Trade ({{pct}}% × ~${{margin}} Margin bei deinem aktuellen Risk).",
+    "stopLossBotFoot": "Bot verwaltet Exits — Trail im Plus, Verlierer halten bis du SL über 0% setzt.",
+    "stopLossOff": "Aus (Bot entscheidet)",
     "stopLossCustom": "Eigener %"
   },
   "trading": {

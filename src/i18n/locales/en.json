@@ -668,10 +668,14 @@
     "closedTradesGateShort": "After this many closed trades",
     "fewerTrades": "Fewer trades",
     "moreTrades": "More trades",
-    "exitsHint": "<strong>Exits:</strong> SL % in settings = max loss on margin while red. In profit the bot sets a <strong>profit SL</strong> automatically (green → +0.1% ROE arm → +0.1% lock; closes only ≥ $0.01 uPnL).",
+    "exitsHint": "<strong>Exits:</strong> SL 0% = bot decides (profit trail in green, no auto-close in red). SL &gt; 0% = bot closes at your max loss on margin.",
     "stopLossTitle": "Stop loss",
     "stopLossHint": "Max loss on margin while the position is in the red. Off = profit trail only (no auto close in red).",
-    "stopLossOff": "Off",
+    "stopLossHintOff": "0% — bot decides exits: profit trail when green, never auto-closes in the red.",
+    "stopLossHintOn": "At −{{pct}}% on margin the bot closes automatically while the position is in loss.",
+    "stopLossCapFoot": "≈ −${{cap}} max loss per trade ({{pct}}% × ~${{margin}} margin at your current risk).",
+    "stopLossBotFoot": "Bot manages exits — trail in profit, hold losers until you set an SL above 0%.",
+    "stopLossOff": "Off (bot decides)",
     "stopLossCustom": "Custom %"
   },
   "trading": {

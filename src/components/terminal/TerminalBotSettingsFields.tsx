@@ -1,6 +1,10 @@
 import React from 'react';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { Trans, useTranslation } from 'react-i18next';
+import {
+  computeUserStopLossCapUsd,
+  effectiveStopLossPct,
+} from '../../lib/hlBotEffectiveSettings';
 import { getMaxLeverageLabel } from '../../lib/leverageLimits';
 import LeverageRangeSlider from './LeverageRangeSlider';
 
@@ -88,6 +92,8 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
   const inputClass = isModal ? 'term-modal-input' : 'term-panel-input';
   const collateralUsd = (hlBalanceUsd * riskLevel) / 100;
   const notionalUsd = collateralUsd * leverage;
+  const slPct = effectiveStopLossPct(stopLoss);
+  const slCapUsd = computeUserStopLossCapUsd(collateralUsd, stopLoss);
   const winRateGateOn = minWinRate > 0;
 
   if (isLvrg) {
@@ -161,7 +167,22 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
               {stopLoss > 0 ? `−${stopLoss}%` : t('bot.stopLossOff')}
             </span>
           </div>
-          <p className="term-lvrg-setting-desc">{t('bot.stopLossHint')}</p>
+          <p className="term-lvrg-setting-desc">
+            {slPct > 0 ? t('bot.stopLossHintOn', { pct: slPct }) : t('bot.stopLossHintOff')}
+          </p>
+          {slPct > 0 && slCapUsd != null && slCapUsd > 0 ? (
+            <p className="term-lvrg-setting-foot term-lvrg-setting-foot--sl">
+              {t('bot.stopLossCapFoot', {
+                cap: slCapUsd.toFixed(2),
+                pct: slPct,
+                margin: collateralUsd.toFixed(2),
+              })}
+            </p>
+          ) : slPct <= 0 ? (
+            <p className="term-lvrg-setting-foot term-lvrg-setting-foot--sl">
+              {t('bot.stopLossBotFoot')}
+            </p>
+          ) : null}
           <div className={chipRowClass}>
             <button
               type="button"
