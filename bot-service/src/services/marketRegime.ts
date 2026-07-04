@@ -1,4 +1,4 @@
-import { isStrongMtfPick, isWeekendThinLiquidityWindow, MAJOR_COINS } from './analysisFirstOpen';
+import { isStrongMtfPick, MAJOR_COINS } from './analysisFirstOpen';
 import type { GlobalSignalCandidate, GlobalScanResult } from './globalMarketScan';
 import type { PipelineFunnelRecorder } from './pipelineFunnelLog';
 import { FUNNEL } from './pipelineFunnelReasons';
@@ -108,36 +108,6 @@ export function applyOpenUniverseFilters(
   const { regime, reason: regimeReason } = resolveMacroRegime();
   funnel?.setMacroRegime(regime);
 
-  if (isWeekendThinLiquidityWindow()) {
-    const before = filtered.length;
-    const kept: GlobalSignalCandidate[] = [];
-    for (const s of filtered) {
-      const coin = s.coin.toUpperCase();
-      if (MAJOR_COINS.has(coin)) {
-        kept.push(s);
-      } else {
-        droppedDetails.push({
-          coin,
-          direction: s.direction,
-          skipReason: FUNNEL.universe.weekendAlt,
-        });
-        funnel?.log({
-          coin,
-          stage: 'universe',
-          direction: s.direction,
-          passed: false,
-          skip_reason: FUNNEL.universe.weekendAlt,
-        });
-      }
-    }
-    filtered = kept;
-    const n = before - filtered.length;
-    if (n > 0) {
-      dropped += n;
-      reasons.push(`Weekend — no alt perps (${n} setup(s) skipped)`);
-    }
-  }
-
   const majors = scan ? majorScanBias(scan) : {};
   const liveMajors = liveMegaMajorDirections();
   const btcDirection = liveMajors.btc ?? majors.btc?.direction;
@@ -232,26 +202,23 @@ export function describeOpenUniverseForClient(scan?: GlobalScanResult): {
   summary: string;
 } {
   const { regime, reason } = resolveMacroRegime();
-  const weekendMajorsOnly = isWeekendThinLiquidityWindow();
-  const parts: string[] = [];
-  if (weekendMajorsOnly) parts.push('Weekend — BTC/ETH only (no alt perps)');
-  parts.push(reason);
+  const parts: string[] = [reason];
   if (scan) {
     const { btc, eth } = majorScanBias(scan);
     if (btc || eth) {
       parts.push(`Scan BTC ${btc?.direction ?? '—'} · ETH ${eth?.direction ?? '—'}`);
     }
   }
-  return { regime, weekendMajorsOnly, summary: parts.join(' · ') };
+  return { regime, weekendMajorsOnly: false, summary: parts.join(' · ') };
 }
 
-/** Human blocker when no tradeable signal — never blame weekend on weekdays. */
+/** Human blocker when no tradeable signal after global scan. */
 export function describeNoTradeableSetupBlocker(
   rawCount: number,
   filterReasons: string[]
 ): string {
   if (rawCount === 0) {
-    return 'No aligned setup in global scan (174 perps) — waiting for BTC/ETH momentum or MTF signal';
+    return 'No setup passed scan gates yet (175 perps) — need aligned MTF + entry location';
   }
   if (filterReasons.length > 0) return filterReasons.join(' · ');
   return `Scan found ${rawCount} setup(s) but none passed macro filters`;
