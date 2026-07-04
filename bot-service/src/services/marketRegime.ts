@@ -104,28 +104,28 @@ export function applyOpenUniverseFilters(
     const kept: GlobalSignalCandidate[] = [];
     for (const s of filtered) {
       const coin = s.coin.toUpperCase();
-      if (MAJOR_COINS.has(coin)) {
+      if (MAJOR_COINS.has(coin) || s.direction === 'LONG') {
         kept.push(s);
-      } else {
-        droppedDetails.push({
-          coin,
-          direction: s.direction,
-          skipReason: FUNNEL.universe.weekendAlt,
-        });
-        funnel?.log({
-          coin,
-          stage: 'universe',
-          direction: s.direction,
-          passed: false,
-          skip_reason: FUNNEL.universe.weekendAlt,
-        });
+        continue;
       }
+      droppedDetails.push({
+        coin,
+        direction: s.direction,
+        skipReason: FUNNEL.universe.weekendAlt,
+      });
+      funnel?.log({
+        coin,
+        stage: 'universe',
+        direction: s.direction,
+        passed: false,
+        skip_reason: FUNNEL.universe.weekendAlt,
+      });
     }
     filtered = kept;
     const n = before - filtered.length;
     if (n > 0) {
       dropped += n;
-      reasons.push(`Weekend — no alt perps (${n} setup(s) skipped)`);
+      reasons.push(`Weekend — alt SHORT blocked (${n} setup(s) skipped)`);
     }
   }
 
@@ -213,7 +213,7 @@ export function describeOpenUniverseForClient(scan?: GlobalScanResult): {
   const { regime, reason } = resolveMacroRegime();
   const weekendMajorsOnly = isWeekendThinLiquidityWindow();
   const parts: string[] = [];
-  if (weekendMajorsOnly) parts.push('Weekend — BTC/ETH only (no alt perps)');
+  if (weekendMajorsOnly) parts.push('Weekend — alt LONGs OK, alt SHORTs blocked');
   parts.push(reason);
   if (scan) {
     const { btc, eth } = majorScanBias(scan);

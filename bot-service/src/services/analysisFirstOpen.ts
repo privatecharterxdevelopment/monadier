@@ -44,7 +44,7 @@ export function mtfOverridesTrendOnlyFilter(
   return false;
 }
 
-/** Sat 00:00 UTC → Mon 08:00 UTC — thin liquidity; no alt perps (majors only). */
+/** Sat 00:00 UTC → Mon 08:00 UTC — thin liquidity window. */
 export function isWeekendThinLiquidityWindow(now = new Date()): boolean {
   const utcDay = now.getUTCDay();
   const utcHour = now.getUTCHours();
@@ -53,16 +53,17 @@ export function isWeekendThinLiquidityWindow(now = new Date()): boolean {
   return false;
 }
 
-/** Weekend open policy — majors only; direction-neutral (no SHORT-only exception). */
+/** Weekend open policy — alt LONGs allowed; alt SHORTs blocked (majors both directions). */
 export function weekendOpenBlocked(
   coin: string,
-  _direction: 'LONG' | 'SHORT'
+  direction: 'LONG' | 'SHORT'
 ): { blocked: boolean; reason?: string } {
   if (!isWeekendThinLiquidityWindow()) return { blocked: false };
   if (MAJOR_COINS.has(coin.toUpperCase())) return { blocked: false };
+  if (direction === 'LONG') return { blocked: false };
   return {
     blocked: true,
-    reason: 'Weekend — no alt perps (thin liquidity)',
+    reason: 'Weekend — alt SHORT blocked (thin liquidity)',
   };
 }
 
