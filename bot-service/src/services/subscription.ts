@@ -18,7 +18,7 @@ function normalizeHlTakeProfitPercent(raw: number | null | undefined): number {
 /** 0 = disabled — bot never auto-closes at a loss unless user sets SL %. */
 function normalizeHlStopLossPercent(raw: number | null | undefined): number {
   if (raw == null || !Number.isFinite(Number(raw))) {
-    return config.hyperliquid.defaultStopLossPercent;
+    return 0;
   }
   const v = Number(raw);
   if (v <= 0) return 0;
@@ -512,7 +512,7 @@ export class SubscriptionService {
         });
         return {
           takeProfitPercent: config.hyperliquid.defaultTakeProfitPercent,
-          stopLossPercent: config.hyperliquid.defaultStopLossPercent,
+          stopLossPercent: 0,
           profitLockPercent: config.hyperliquid.defaultProfitLockPercent,
           askPermission: false,
           leverageMultiplier: 5.0,
@@ -559,7 +559,7 @@ export class SubscriptionService {
       logger.error('Failed to get user trading settings', { walletAddress, error: err });
       return {
         takeProfitPercent: config.hyperliquid.defaultTakeProfitPercent,
-        stopLossPercent: config.hyperliquid.defaultStopLossPercent,
+        stopLossPercent: 0,
         profitLockPercent: config.hyperliquid.defaultProfitLockPercent,
         askPermission: false,
         leverageMultiplier: 5.0,
@@ -778,7 +778,7 @@ export class SubscriptionService {
           risk_level: settings.riskLevel || 100,
           // Default TP/SL
           take_profit_percent: 5,
-          stop_loss_percent: 1.5,
+          stop_loss_percent: 0,
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'wallet_address,chain_id'
