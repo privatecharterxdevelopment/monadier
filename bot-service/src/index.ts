@@ -12,17 +12,6 @@ import { validateProductionEnvironment } from './startup/validateProduction';
 import { checkWinRateGate } from './services/tradeGates';
 import { buildTradingCycleContext } from './services/tradingCycleContext';
 import {
-  createTradingCycleId,
-  insertTradingCycleStart,
-  PipelineFunnelRecorder,
-  queryPipelineFunnelStats,
-} from './services/pipelineFunnelLog';
-import {
-  diagnoseWalletTrading,
-  diagnoseWalletTradingBatch,
-} from './services/walletTradeDiagnosis';
-import {
-  getCachedGlobalScanForApi,
   lastHlGlobalScanStats,
   lastGlobalScanResult,
   scanGlobalHlSignals,
@@ -30,11 +19,6 @@ import {
   type GlobalSignalCandidate,
 } from './services/globalMarketScan';
 import { getMegaPairVolumeSnapshot } from './services/megaPairVolumeMonitor';
-import {
-  applyOpenUniverseFilters,
-  describeNoTradeableSetupBlocker,
-  describeOpenUniverseForClient,
-} from './services/marketRegime';
 import { fetchMegaPairPumpSweep, formatPumpSweepLine } from './services/pumpSweepAnalytics';
 import { buildCryptoNewsFeed } from './services/newsImpactGate';
 import { fetchAnalyzedSportsNews } from './services/sportsNewsService';
@@ -44,34 +28,15 @@ import {
 } from './services/userBatchProcessor';
 import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './services/hlAgent';
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
-import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker, sanitizeHlApiError, invalidateHlClearinghouseCache, warmHlMetaCache } from './services/hlInfo';
-import {
-  buildNotionalBelowFloorError,
-  getLastHlOpenError,
-  getLastHlOpenErrorForClient,
-  hyperliquidTradingService,
-  minHlMarginForNotionalFloor,
-  resolveHlMarginPerSlot,
-  resolveHlOrderLeverage,
-} from './services/hlTrading';
+import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker } from './services/hlInfo';
+import { getLastHlOpenError, getLastHlOpenErrorForClient, hyperliquidTradingService, resolveHlMarginPerSlot } from './services/hlTrading';
 import { releaseHlBotTradingPauses } from './services/dailyLossGate';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
-import {
-  getPlatformFeeStatus,
-  listAccruedFeeTrades,
-  recordProfitableClose,
-  settleAccruedFees,
-  reconcilePlatformFeeByTxHash,
-  PLATFORM_FEE_WINS_BEFORE_BLOCK,
-} from './services/platformFees';
-import { processPendingTradeCloseEmails } from './services/tradeCloseEmail';
-import { processPendingPlatformFeeDueEmails } from './services/platformFeeDueEmail';
-import { reconcilePendingFillCloses } from './services/platformFees';
+import { getHlFeeSummary } from './services/hlSuccessFees';
 import { tryQualifyReferral } from './services/referralAffiliate';
+import { isOpenDirectionAllowed, weekendShortOnlyLabel } from './services/weekendTradingRules';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 import { fetchMappedTokenPrices } from './services/tokenPrices';
-import { getHlPositionTrailSnapshots } from './services/hlPositionTrailStatus';
-import { bootstrapProfitTrailStateFromDb } from './services/profitTrailState';
 
 // Health check server for Railway/cloud deployments
 const PORT = process.env.PORT || 3001;
@@ -139,11 +104,11 @@ const healthServer = http.createServer(async (req, res) => {
   }
 
   // API: Get unified MTF signal
-  // Usage: /api/signal?symbol=ETHUSDT&timeframes=5m,15m,1h
+  // Usage: /api/signal?symbol=ETHUSDT&timeframes=1m,5m,15m,1h
   if (url.pathname === '/api/signal') {
     try {
       const symbol = url.searchParams.get('symbol') || 'ETHUSDT';
-      const tfParam = url.searchParams.get('timeframes') || '5m,15m,1h';
+      const tfParam = url.searchParams.get('timeframes') || '1m,5m,15m,1h';
       const timeframes = tfParam.split(',') as Timeframe[];
 
       logger.info('API: Fetching MTF signal', { symbol, timeframes });
@@ -207,7 +172,7 @@ const healthServer = http.createServer(async (req, res) => {
         return;
       }
 
-      const { agents, loaded } = await fetchHlExtraAgents(wallet);
+      const agents = await fetchHlExtraAgents(wallet);
       const live = agents.find(
         (a) => a.address.toLowerCase() === agentAddress && isHlExtraAgentActive(a)
       );
@@ -216,9 +181,7 @@ const healthServer = http.createServer(async (req, res) => {
         res.end(
           JSON.stringify({
             success: false,
-            error: loaded
-              ? 'Agent not approved on Hyperliquid yet — complete the wallet signature first'
-              : 'Could not verify agent on Hyperliquid — wait a moment and try again',
+            error: 'Agent not approved on Hyperliquid yet — complete the wallet signature first',
           })
         );
         return;
@@ -252,15 +215,12 @@ const healthServer = http.createServer(async (req, res) => {
           ready: platform.ready,
           feeCollectionActive: platform.ready,
           builderAddress: platform.builderAddress,
-          platformWallet: config.platformWalletAddress,
+          treasuryAddress: config.treasuryAddress,
           accountUsd: platform.accountUsd,
-          perpUsd: platform.perpUsd,
-          spotUsdcUsd: platform.spotUsdcUsd,
-          unifiedAccount: platform.unifiedAccount,
           minUsd: platform.minUsd,
           note: platform.ready
-            ? 'Builder wallet funded on Hyperliquid — fees collect when users approve builder fee.'
-            : `Deposit at least $${platform.minUsd} USDC on Hyperliquid for the builder wallet (unified accounts: spot USDC counts).`,
+            ? 'Builder wallet funded — success fees collect on profitable bot closes when users approve builder fee.'
+            : `Deposit at least $${platform.minUsd} USDC to the builder address on Hyperliquid perps to activate fee collection.`,
         })
       );
     } catch (err: any) {
@@ -299,7 +259,7 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // API: Manual close via Monadier HL agent (no MetaMask — approved once at Start bot)
+  // API: Manual close via Monadier HL agent (MetaMask cannot sign L1 chainId 1337)
   if (url.pathname === '/api/hl-close' && req.method === 'POST') {
     try {
       const body = await readJsonBody();
@@ -319,21 +279,20 @@ const healthServer = http.createServer(async (req, res) => {
       }
 
       const agentAddr = deriveUserHlAgentAddress(wallet);
-      const approved = await hlAgentApprovalService.isApproved(wallet, agentAddr);
-      if (!approved) {
-        const blocker = await hlAgentApprovalService.describeAgentBlocker(wallet, agentAddr);
-        const transientHlRead = /temporarily unreachable/i.test(blocker ?? '');
-        if (blocker && !transientHlRead) {
-          res.writeHead(400, corsHeaders);
-          res.end(
-            JSON.stringify({
-              success: false,
-              error: blocker,
-            })
-          );
-          return;
-        }
-        // HL /info flake — attempt close anyway; exchange rejects if agent truly missing.
+      const agents = await fetchHlExtraAgents(wallet);
+      const live = agents.find(
+        (a) => a.address.toLowerCase() === agentAddr.toLowerCase() && isHlExtraAgentActive(a)
+      );
+      if (!live) {
+        res.writeHead(400, corsHeaders);
+        res.end(
+          JSON.stringify({
+            success: false,
+            error:
+              'HL trading agent not approved on Hyperliquid — press Start bot and approve in MetaMask first.',
+          })
+        );
+        return;
       }
 
       const result = await hyperliquidTradingService.closeMarketPosition(
@@ -342,148 +301,17 @@ const healthServer = http.createServer(async (req, res) => {
         reason
       );
       if (!result.success) {
-        res.writeHead(/429|too many requests/i.test(result.error ?? '') ? 429 : 400, corsHeaders);
-        res.end(
-          JSON.stringify({
-            success: false,
-            error: sanitizeHlApiError(result.error || 'Close failed'),
-          })
-        );
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: result.error || 'Close failed' }));
         return;
       }
 
-      invalidateHlClearinghouseCache(wallet);
-
       res.writeHead(200, corsHeaders);
-      res.end(
-        JSON.stringify({
-          success: true,
-          wallet,
-          coin,
-          successFeeUsd: result.successFeeUsd ?? 0,
-          viaHlBuilder: Boolean(result.viaHlBuilder),
-        })
-      );
+      res.end(JSON.stringify({ success: true, wallet, coin }));
     } catch (err: any) {
       logger.error('API: hl-close failed', { error: err.message });
-      const msg = sanitizeHlApiError(err.message || 'hl-close failed');
-      res.writeHead(/429|too many requests/i.test(msg) ? 429 : 500, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: msg }));
-    }
-    return;
-  }
-
-  // API: Manual perp order via Monadier HL agent (L1 chainId 1337 — cannot sign in browser wallet)
-  if (url.pathname === '/api/hl-order' && req.method === 'POST') {
-    try {
-      const body = await readJsonBody();
-      const wallet = String(body.wallet ?? '').toLowerCase();
-      const coin = String(body.coin ?? '').trim().toUpperCase();
-      const sideRaw = String(body.side ?? '').toLowerCase();
-      const kindRaw = String(body.kind ?? 'limit').toLowerCase();
-      const size = Number(body.size);
-      const price = body.price != null ? Number(body.price) : undefined;
-      const markPx = Number(body.markPx);
-      const leverage = body.leverage != null ? Number(body.leverage) : undefined;
-      const marginModeRaw = String(body.marginMode ?? 'isolated').toLowerCase();
-      const reduceOnly = Boolean(body.reduceOnly);
-
-      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
-        return;
-      }
-      if (!coin || coin.length > 16) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'coin required' }));
-        return;
-      }
-      const side = sideRaw === 'short' ? 'SHORT' : sideRaw === 'long' ? 'LONG' : null;
-      if (!side) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'side must be long or short' }));
-        return;
-      }
-      const kind = kindRaw === 'market' ? 'market' : kindRaw === 'limit' ? 'limit' : null;
-      if (!kind) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'kind must be limit or market' }));
-        return;
-      }
-      const marginMode = marginModeRaw === 'cross' ? 'cross' : 'isolated';
-
-      const result = await hyperliquidTradingService.placeManualPerpOrder({
-        userAddress: wallet as `0x${string}`,
-        coin,
-        side,
-        kind,
-        size,
-        price: Number.isFinite(price) ? price : undefined,
-        markPx,
-        leverage: Number.isFinite(leverage) ? leverage : undefined,
-        marginMode,
-        reduceOnly,
-      });
-      if (!result.success) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: result.error || 'Order failed' }));
-        return;
-      }
-
-      res.writeHead(200, corsHeaders);
-      res.end(JSON.stringify({ success: true, wallet, coin, side, kind }));
-    } catch (err: any) {
-      logger.error('API: hl-order failed', { error: err.message });
       res.writeHead(500, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: err.message || 'hl-order failed' }));
-    }
-    return;
-  }
-
-  // API: Manual perp leverage via Monadier HL agent
-  if (url.pathname === '/api/hl-leverage' && req.method === 'POST') {
-    try {
-      const body = await readJsonBody();
-      const wallet = String(body.wallet ?? '').toLowerCase();
-      const coin = String(body.coin ?? '').trim().toUpperCase();
-      const leverage = Number(body.leverage);
-      const marginModeRaw = String(body.marginMode ?? 'isolated').toLowerCase();
-      const marginMode = marginModeRaw === 'cross' ? 'cross' : 'isolated';
-
-      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
-        return;
-      }
-      if (!coin || coin.length > 16) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'coin required' }));
-        return;
-      }
-      if (!Number.isFinite(leverage) || leverage <= 0) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'leverage required' }));
-        return;
-      }
-
-      const result = await hyperliquidTradingService.updateManualPerpLeverage({
-        userAddress: wallet as `0x${string}`,
-        coin,
-        leverage,
-        marginMode,
-      });
-      if (!result.success) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: result.error || 'Leverage update failed' }));
-        return;
-      }
-
-      res.writeHead(200, corsHeaders);
-      res.end(JSON.stringify({ success: true, wallet, coin, leverage, marginMode }));
-    } catch (err: any) {
-      logger.error('API: hl-leverage failed', { error: err.message });
-      res.writeHead(500, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: err.message || 'hl-leverage failed' }));
+      res.end(JSON.stringify({ success: false, error: err.message || 'hl-close failed' }));
     }
     return;
   }
@@ -512,141 +340,6 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
-  if (url.pathname === '/api/platform-fees' && req.method === 'GET') {
-    try {
-      const wallet = url.searchParams.get('wallet')?.trim().toLowerCase();
-      if (!wallet || !/^0x[a-f0-9]{40}$/.test(wallet)) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'wallet query required (0x…)' }));
-        return;
-      }
-      const status = await getPlatformFeeStatus(wallet);
-      const trades = await listAccruedFeeTrades(wallet, 50);
-      const recentWins = trades.filter((t) => t.totalFeeUsd > 0);
-      res.writeHead(200, corsHeaders);
-      res.end(
-        JSON.stringify({
-          success: true,
-          wallet,
-          status,
-          winsBeforeBlock: PLATFORM_FEE_WINS_BEFORE_BLOCK,
-          treasuryAddress: config.platformFeeTreasuryAddress,
-          builderAddress: config.hyperliquid.builderAddress,
-          paymentChain: 'arbitrum',
-          paymentToken: 'USDC',
-          trades: recentWins,
-          timestamp: new Date().toISOString(),
-        })
-      );
-    } catch (err: any) {
-      logger.error('API: platform-fees GET failed', { error: err.message });
-      res.writeHead(500, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: err.message || 'platform-fees failed' }));
-    }
-    return;
-  }
-
-  if (url.pathname === '/api/platform-fees/confirm-payment' && req.method === 'POST') {
-    try {
-      const body = await readJsonBody();
-      const wallet = String(body.wallet ?? '').toLowerCase();
-      const amountUsd = Number(body.amountUsd);
-      const paymentRef = body.paymentRef != null ? String(body.paymentRef) : undefined;
-      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
-        return;
-      }
-      if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'amountUsd required' }));
-        return;
-      }
-      const result = await settleAccruedFees(wallet, amountUsd, paymentRef);
-      const status = await getPlatformFeeStatus(wallet);
-      res.writeHead(result.ok ? 200 : 400, corsHeaders);
-      res.end(JSON.stringify({ success: result.ok, settledUsd: result.settledUsd, status }));
-    } catch (err: any) {
-      logger.error('API: platform-fees confirm failed', { error: err.message });
-      res.writeHead(500, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: err.message || 'confirm-payment failed' }));
-    }
-    return;
-  }
-
-  if (url.pathname === '/api/platform-fees/record-betting' && req.method === 'POST') {
-    try {
-      const body = await readJsonBody();
-      const wallet = String(body.wallet ?? '').toLowerCase();
-      const profitUsd = Number(body.profitUsd);
-      const notionalUsd = Number(body.notionalUsd ?? 0);
-      const coin = String(body.coin ?? 'BET').trim();
-      const fillTid = body.fillTid != null ? String(body.fillTid) : undefined;
-      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
-        return;
-      }
-      if (!Number.isFinite(profitUsd) || profitUsd <= 0) {
-        res.writeHead(200, corsHeaders);
-        res.end(JSON.stringify({ success: true, skipped: true }));
-        return;
-      }
-      await recordProfitableClose({
-        walletAddress: wallet,
-        coin,
-        direction: 'LONG',
-        profitUsd,
-        notionalUsd: Number.isFinite(notionalUsd) && notionalUsd > 0 ? notionalUsd : profitUsd * 10,
-        closeReason: String(body.reason ?? 'betting_cashout'),
-        source: 'betting',
-        builderFeeUsd: Number(body.builderFeeUsd) > 0 ? Number(body.builderFeeUsd) : undefined,
-        builderTenthsBps: 1000,
-        externalRef: fillTid ? `betting:${fillTid}` : undefined,
-      });
-      const status = await getPlatformFeeStatus(wallet);
-      res.writeHead(200, corsHeaders);
-      res.end(JSON.stringify({ success: true, status }));
-    } catch (err: any) {
-      logger.error('API: platform-fees record-betting failed', { error: err.message });
-      res.writeHead(500, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: err.message || 'record-betting failed' }));
-    }
-    return;
-  }
-
-  // API: Batch live trade diagnosis for admin (all gates + funnel IDs)
-  if (url.pathname === '/api/admin/bot-diagnosis-batch' && req.method === 'POST') {
-    try {
-      let body = '';
-      for await (const chunk of req) {
-        body += chunk;
-      }
-      const parsed = JSON.parse(body || '{}') as { wallets?: string[] };
-      const wallets = (parsed.wallets ?? [])
-        .map((w) => w?.toLowerCase?.())
-        .filter((w): w is string => typeof w === 'string' && /^0x[a-f0-9]{40}$/.test(w));
-      if (wallets.length === 0) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'wallets[] required' }));
-        return;
-      }
-      if (wallets.length > 50) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'max 50 wallets per batch' }));
-        return;
-      }
-      const diagnoses = await diagnoseWalletTradingBatch(wallets as `0x${string}`[]);
-      res.writeHead(200, corsHeaders);
-      res.end(JSON.stringify({ success: true, diagnoses, timestamp: new Date().toISOString() }));
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'bot-diagnosis-batch failed';
-      res.writeHead(500, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: msg }));
-    }
-    return;
-  }
-
   // API: Diagnose why bot is not trading for a wallet
   // Usage: /api/bot-status?wallet=0x...
   if (url.pathname === '/api/bot-status') {
@@ -660,31 +353,126 @@ const healthServer = http.createServer(async (req, res) => {
 
       const userAddress = wallet.toLowerCase() as `0x${string}`;
       const chainId = 42161;
-      const globalScan = getCachedGlobalScanForApi();
+
+      const userId = await subscriptionService.getUserIdFromWallet(userAddress);
+      const dbSettings = await subscriptionService.getUserTradingSettings(userAddress, chainId);
+      const banStatus = await subscriptionService.getBotBanStatus(userAddress, chainId);
+      const winRateGate = await checkWinRateGate(
+        userAddress,
+        chainId,
+        dbSettings.minWinRatePercent,
+        dbSettings.minTradesForWinRateGate
+      );
+
+      const hlState = await fetchHlClearinghouseState(userAddress);
+      const hlFunding = await fetchHlPerpFundingSnapshot(userAddress);
+      const hlBalanceUsd = hlFunding.tradablePerpUsd;
+      const hlWithdrawable = hlFunding.withdrawableUsd;
+      const hlFreeMargin = hlTradableFreeMarginUsd(hlFunding, hlState);
       const hlAgentAddr = deriveUserHlAgentAddress(userAddress);
+      const hlAgentOk = await hlAgentApprovalService.isApproved(userAddress, hlAgentAddr);
+      const builderGate = await checkHlBuilderFeeApproved(userAddress);
+      const feeSummary = await getHlFeeSummary(userAddress);
+      const hlOpenCoins = hlOpenPerpCoins(hlState);
 
-      const [userId, dbSettings, builderGate, feeSummary, tradeDiagnosis] = await Promise.all([
-        subscriptionService.getUserIdFromWallet(userAddress),
-        subscriptionService.getUserTradingSettings(userAddress, chainId),
-        checkHlBuilderFeeApproved(userAddress),
-        getPlatformFeeStatus(userAddress),
-        diagnoseWalletTrading(userAddress, { globalScan }),
-      ]);
+      const collateralForSignal = BigInt(Math.floor(Math.max(hlBalanceUsd, 0) * 1e6));
 
-      const rawUserSignals = globalSignalsForBotMode(globalScan, dbSettings.hlBotStrategy);
-      const {
-        signals: userSignals,
-        dropped: filteredSignalCount,
-        reasons: filterReasons,
-      } = applyOpenUniverseFilters(rawUserSignals, globalScan);
-      const openUniverse = describeOpenUniverseForClient(globalScan);
+      const globalScan =
+        lastGlobalScanResult.standard.length + lastGlobalScanResult.aggressive.length > 0
+          ? lastGlobalScanResult
+          : await scanGlobalHlSignals();
+      const userSignals = globalSignalsForBotMode(
+        globalScan,
+        dbSettings.hlBotStrategy
+      );
       const bestGlobal = userSignals[0] ?? null;
-      const hlOpenCoins = tradeDiagnosis.hyperliquid.openCoins;
       const openCoinSet = new Set(hlOpenCoins.map((c) => c.toUpperCase()));
       const bestAvailable =
-        userSignals.find((s) => !openCoinSet.has(s.coin.toUpperCase())) ?? null;
-      const hl = tradeDiagnosis.hyperliquid;
-      const maxPositions = hl.maxConcurrentPositions;
+        userSignals.find(
+          (s) =>
+            !openCoinSet.has(s.coin.toUpperCase()) &&
+            isOpenDirectionAllowed(s.direction)
+        ) ?? null;
+      const weekendRule = weekendShortOnlyLabel();
+
+      const ethSignal = await marketService.getSignal(
+        chainId,
+        ARBITRUM_SIGNAL_TOKENS.WETH,
+        collateralForSignal,
+        10000,
+        DEFAULT_STRATEGY
+      );
+      const btcSignal = await marketService.getSignal(
+        chainId,
+        ARBITRUM_SIGNAL_TOKENS.WBTC,
+        collateralForSignal,
+        10000,
+        DEFAULT_STRATEGY
+      );
+
+      const openDb = await positionService.getOpenPositions(userAddress, chainId);
+
+      const megaPumpSweep = await fetchMegaPairPumpSweep();
+      const pumpSweepLines = [megaPumpSweep.BTC, megaPumpSweep.ETH]
+        .filter((row): row is NonNullable<typeof row> => Boolean(row))
+        .map(formatPumpSweepLine);
+
+      const blockers: string[] = [];
+      if (!hlAgentOk) blockers.push('HL agent not approved — enable bot in app');
+      if (builderGate.required && !builderGate.approved) {
+        blockers.push('HL builder fee not approved — approve platform fee in Bot panel');
+      }
+      const balanceBlocker = describeHlPerpBalanceBlocker(
+        hlFunding,
+        config.hyperliquid.minAccountUsd
+      );
+      if (balanceBlocker) {
+        blockers.push(balanceBlocker);
+      }
+      const maxPositions = config.hyperliquid.maxConcurrentPositions;
+      if (!dbSettings.autoTradeEnabled) blockers.push('auto-trade disabled in settings');
+      if (hlOpenCoins.length >= maxPositions) {
+        blockers.push(
+          `HL max positions (${maxPositions}/${maxPositions}): ${hlOpenCoins.join(', ')}`
+        );
+      }
+      if (banStatus.isBanned) {
+        blockers.push(
+          `bot banned until ${banStatus.bannedUntil?.toISOString() ?? 'unknown'}`
+        );
+      }
+      if (!winRateGate.allowed) blockers.push(winRateGate.reason || 'win rate gate');
+      if (!bestAvailable && hlOpenCoins.length < maxPositions) {
+        blockers.push(
+          weekendRule
+            ? `${weekendRule} — no eligible SHORT on another pair yet`
+            : `no HL perp passed global scan (min ${config.hyperliquid.minSignalConfidence}% conf, ${config.hyperliquid.minDirectionalTfs} TFs, ${config.hyperliquid.minTrendAlignment}% align)`
+        );
+      }
+      if (bestAvailable && hlOpenCoins.length < maxPositions && dbSettings.autoTradeEnabled) {
+        const balance = hlBalanceUsd;
+        const perSlot = resolveHlMarginPerSlot(
+          balance,
+          dbSettings.riskLevelBps,
+          hlOpenCoins.length,
+          hlFreeMargin
+        );
+        if (perSlot < 1) {
+          blockers.push(
+            hlOpenCoins.length > 0
+              ? `free margin too low for slot 2 ($${hlFreeMargin.toFixed(2)} free from $${balance.toFixed(2)} balance, $${hlWithdrawable.toFixed(2)} withdrawable, ${hlOpenCoins.length}/${maxPositions} open)`
+              : `margin too small for slot ($${perSlot.toFixed(2)} from $${balance.toFixed(2)} balance, ${hlOpenCoins.length}/${maxPositions} open)`
+          );
+        } else {
+          const lev = Math.max(1, Math.floor(dbSettings.leverageMultiplier || 10));
+          const notional = perSlot * lev;
+          if (notional < config.hyperliquid.minNotionalUsd) {
+            blockers.push(
+              `notional $${notional.toFixed(2)} below min $${config.hyperliquid.minNotionalUsd} (raise risk % or leverage)`
+            );
+          }
+        }
+      }
 
       res.writeHead(200, corsHeaders);
       res.end(JSON.stringify({
@@ -692,28 +480,18 @@ const healthServer = http.createServer(async (req, res) => {
         wallet: userAddress,
         userId: userId ? `${userId.slice(0, 8)}…` : null,
         executionVenue: 'hyperliquid',
-        canTrade: tradeDiagnosis.canTrade,
-        userReady: tradeDiagnosis.userReady,
-        marketReady: tradeDiagnosis.marketReady,
-        blockers: tradeDiagnosis.blockers,
-        userBlockers: tradeDiagnosis.userBlockers,
-        marketBlockers: tradeDiagnosis.marketBlockers,
-        tradeDiagnosis,
-        summary: tradeDiagnosis.summary,
-        wouldProcessOpens: tradeDiagnosis.wouldProcessOpens,
-        runnable: tradeDiagnosis.runnable,
-        gates: tradeDiagnosis.gates,
+        canTrade: blockers.length === 0,
+        blockers,
         hyperliquid: {
-          balanceUsd: hl.accountEquityUsd,
-          perpUsd: hl.perpUsd,
-          accountEquityUsd: hl.accountEquityUsd,
-          tradablePerpUsd: hl.tradablePerpUsd,
-          spotUsdcUsd: hl.spotUsdcUsd,
-          withdrawableUsd: hl.withdrawableUsd,
-          unifiedAccount: hl.unifiedAccount,
-          freeMarginUsd: hl.freeMarginUsd,
+          balanceUsd: hlBalanceUsd,
+          perpUsd: hlFunding.perpUsd,
+          tradablePerpUsd: hlFunding.tradablePerpUsd,
+          spotUsdcUsd: hlFunding.spotUsdcUsd,
+          unifiedAccount: hlFunding.unifiedAccount,
+          withdrawableUsd: hlWithdrawable,
+          freeMarginUsd: hlFreeMargin,
           agentAddress: hlAgentAddr,
-          agentApproved: hl.agentApproved,
+          agentApproved: hlAgentOk,
           builderFeeApproved: builderGate.approved,
           builderFeeRequired: builderGate.required,
           builderPlatformReady: builderGate.platformReady,
@@ -721,8 +499,8 @@ const healthServer = http.createServer(async (req, res) => {
           builderPlatformMinUsd: builderGate.platformMinUsd,
           openCoins: hlOpenCoins,
           maxConcurrentPositions: maxPositions,
-          minNotionalUsd: hl.minNotionalUsd,
-          minAccountUsd: hl.minAccountUsd,
+          minNotionalUsd: config.hyperliquid.minNotionalUsd,
+          minAccountUsd: config.hyperliquid.minAccountUsd,
         },
         dbSettings: {
           autoTradeEnabled: dbSettings.autoTradeEnabled,
@@ -733,8 +511,6 @@ const healthServer = http.createServer(async (req, res) => {
           dynamicTrail: {
             breakevenArmRoePct: config.hyperliquid.dynamicTrail.breakevenArmRoePct,
             armMinRoePct: config.hyperliquid.dynamicTrail.armMinRoePct,
-            trailGapRoePct: config.hyperliquid.dynamicTrail.trailGapRoePct,
-            fullTrailArmRoePct: config.hyperliquid.dynamicTrail.fullTrailArmRoePct,
             armFeesMultiplier: config.hyperliquid.dynamicTrail.armFeesMultiplier,
             majorTrailPct: config.hyperliquid.dynamicTrail.majorTrailPct,
             midTrailPct: config.hyperliquid.dynamicTrail.midTrailPct,
@@ -745,16 +521,17 @@ const healthServer = http.createServer(async (req, res) => {
           minTrendAlignment: config.hyperliquid.minTrendAlignment,
           newsTradeMode: dbSettings.newsTradeMode,
         },
+        globalGates: {
+          minSignalConfidence: config.hyperliquid.minSignalConfidence,
+          minDirectionalTfs: config.hyperliquid.minDirectionalTfs,
+          minTrendAlignment: config.hyperliquid.minTrendAlignment,
+          weekendShortOnly: weekendRule,
+        },
         globalScan: {
           coinsScanned: lastHlGlobalScanStats.coinsScanned,
-          scanUniverseCoins: lastHlGlobalScanStats.scanUniverseCoins,
           standardCandidates: globalScan.standard.length,
           aggressiveCandidates: globalScan.aggressive.length,
-          rawCandidateCount: rawUserSignals.length,
           candidateCount: userSignals.length,
-          filteredSignalCount,
-          filterReasons,
-          openUniverse,
           botMode: dbSettings.hlBotStrategy,
           candidates: userSignals.slice(0, 8).map((s) => ({
             coin: s.coin,
@@ -782,30 +559,40 @@ const healthServer = http.createServer(async (req, res) => {
         },
         megaPairVolume: getMegaPairVolumeSnapshot(),
         pumpSweep: {
-          btc: null,
-          eth: null,
-          lines: [],
+          btc: megaPumpSweep.BTC ?? null,
+          eth: megaPumpSweep.ETH ?? null,
+          lines: pumpSweepLines,
         },
-        sampleSignal: null,
-        btcSignal: null,
-        openPositionCounts: {
-          dbOpenPositions: 0,
+        sampleSignal: ethSignal
+          ? {
+              direction: ethSignal.direction,
+              confidence: ethSignal.confidence,
+              reason: ethSignal.reason,
+            }
+          : null,
+        btcSignal: btcSignal
+          ? {
+              direction: btcSignal.direction,
+              confidence: btcSignal.confidence,
+              reason: btcSignal.reason,
+            }
+          : null,
+        gates: {
+          dbOpenPositions: openDb.length,
           onChainOpenTokens: hlOpenCoins,
         },
-        lastOpenError: tradeDiagnosis.lastOpenError,
+        lastOpenError: getLastHlOpenErrorForClient(userAddress),
         tradeCycleSec: config.trading.checkIntervalMs / 1000,
         successFees: {
           accruedUsd: feeSummary.accruedUsd,
           settledUsd: feeSummary.settledUsd,
-          builderSettledUsd: feeSummary.builderSettledUsd,
-          successWinCount: feeSummary.successWinCount,
-          opensBlocked: feeSummary.opensBlocked,
-          withdrawBlocked: feeSummary.withdrawBlocked,
-          winsUntilBlock: feeSummary.winsUntilBlock,
-          winsBeforeBlock: PLATFORM_FEE_WINS_BEFORE_BLOCK,
+          tradeCount: feeSummary.tradeCount,
           ratePercent: config.hyperliquid.successFeeBps / 100,
+          treasury: config.treasuryAddress,
           builderAddress: config.hyperliquid.builderAddress,
           feeCollectionActive: builderGate.feeCollectionActive,
+          note: '10% of profit on winning closes — collected via HL builder fee when platform wallet is funded and user approved.',
+          autoCollect: builderGate.feeCollectionActive,
         },
         timestamp: new Date().toISOString(),
       }));
@@ -813,25 +600,6 @@ const healthServer = http.createServer(async (req, res) => {
       logger.error('API: bot-status failed', { error: err.message });
       res.writeHead(500, corsHeaders);
       res.end(JSON.stringify({ success: false, error: err.message || 'bot-status failed' }));
-    }
-    return;
-  }
-
-  if (url.pathname === '/api/hl-position-trails') {
-    try {
-      const wallet = url.searchParams.get('wallet')?.trim();
-      if (!wallet || !/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'wallet query required (0x…)' }));
-        return;
-      }
-      const trails = await getHlPositionTrailSnapshots(wallet as `0x${string}`);
-      res.writeHead(200, corsHeaders);
-      res.end(JSON.stringify({ success: true, wallet, trails, timestamp: new Date().toISOString() }));
-    } catch (err: any) {
-      logger.error('API: hl-position-trails failed', { error: err.message });
-      res.writeHead(500, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: err.message || 'hl-position-trails failed' }));
     }
     return;
   }
@@ -866,86 +634,27 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
-  if (url.pathname === '/api/admin/reconcile-platform-fee' && req.method === 'POST') {
-    const adminSecret = process.env.BOT_ADMIN_SECRET;
-    const provided =
-      req.headers['x-bot-admin-secret']?.toString() ||
-      '';
-    if (adminSecret && provided !== adminSecret) {
-      res.writeHead(401, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: 'Unauthorized' }));
-      return;
-    }
-    try {
-      const body = await readJsonBody();
-      const txHash = String(body.txHash ?? '').trim();
-      const wallet = body.wallet != null ? String(body.wallet).toLowerCase() : undefined;
-      const email = body.email != null ? String(body.email).trim() : undefined;
-      const result = await reconcilePlatformFeeByTxHash({ txHash, walletAddress: wallet, email });
-      res.writeHead(result.ok ? 200 : 400, corsHeaders);
-      res.end(JSON.stringify({ success: result.ok, ...result }));
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'reconcile-platform-fee failed';
-      logger.error('API: admin reconcile platform fee failed', { error: msg });
-      res.writeHead(500, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: msg }));
-    }
-    return;
-  }
-
-  if (url.pathname === '/api/pipeline-funnel-stats' && req.method === 'GET') {
-    const adminSecret = process.env.BOT_ADMIN_SECRET;
-    const provided =
-      url.searchParams.get('secret') ||
-      req.headers['x-bot-admin-secret']?.toString() ||
-      '';
-    if (adminSecret && provided !== adminSecret) {
-      res.writeHead(401, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: 'Unauthorized' }));
-      return;
-    }
-    try {
-      const sinceHours = Number(url.searchParams.get('hours') || 24);
-      const stats = await queryPipelineFunnelStats({ sinceHours });
-      res.writeHead(200, corsHeaders);
-      res.end(JSON.stringify({ success: true, sinceHours, ...stats }));
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'pipeline-funnel-stats failed';
-      res.writeHead(500, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: msg }));
-    }
-    return;
-  }
-
   if (url.pathname === '/api/global-signals') {
     try {
-      const scan = getCachedGlobalScanForApi();
-      const tradeableResult = applyOpenUniverseFilters(
-        [...scan.standard, ...scan.aggressive],
-        scan
-      );
-      const tradeable = tradeableResult.signals.slice(0, 8);
-      const openUniverse = describeOpenUniverseForClient(scan);
+      const scan =
+        lastGlobalScanResult.standard.length + lastGlobalScanResult.aggressive.length > 0
+          ? lastGlobalScanResult
+          : await scanGlobalHlSignals();
       res.writeHead(200, corsHeaders);
       res.end(
         JSON.stringify({
           success: true,
           coinsScanned: lastHlGlobalScanStats.coinsScanned,
-          scanUniverseCoins: lastHlGlobalScanStats.scanUniverseCoins,
           standard: scan.standard.length,
           aggressive: scan.aggressive.length,
-          count: tradeable.length,
-          standardCandidates: tradeable.filter((s) => s.botMode === 'standard').slice(0, 8),
-          aggressiveCandidates: tradeable.filter((s) => s.botMode === 'aggressive').slice(0, 8),
-          tradeableCandidates: tradeable,
-          openUniverse,
-          filterReasons: tradeableResult.reasons,
+          count: scan.standard.length + scan.aggressive.length,
+          standardCandidates: scan.standard.slice(0, 8),
+          aggressiveCandidates: scan.aggressive.slice(0, 8),
           scannedAt: lastHlGlobalScanStats.scannedAt || lastCycleStats?.at || new Date().toISOString(),
           minConfidence: config.hyperliquid.minSignalConfidence,
         })
       );
     } catch (err: any) {
-      logger.error('API: global-signals failed', { error: err.message });
       res.writeHead(500, corsHeaders);
       res.end(JSON.stringify({ success: false, error: err.message || 'global-signals failed' }));
     }
@@ -969,20 +678,6 @@ const healthServer = http.createServer(async (req, res) => {
   if (url.pathname === '/api/service-status') {
     try {
       const activeWallets = await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId);
-      const diagnoses = await diagnoseWalletTradingBatch(activeWallets as `0x${string}`[]);
-      const walletStatus = activeWallets.map((w) => {
-        const d = diagnoses[w.toLowerCase()];
-        const blocking = (d?.gates ?? []).filter((g) => g.blocking).map((g) => g.id);
-        return {
-          wallet: w,
-          canTrade: Boolean(d?.canTrade),
-          wouldProcessOpens: Boolean(d?.wouldProcessOpens),
-          summary: d?.summary ?? 'unknown',
-          blockingGates: blocking.slice(0, 4),
-          equityUsd: d?.hyperliquid.accountEquityUsd ?? null,
-          openCoins: d?.hyperliquid.openCoins ?? [],
-        };
-      });
       res.writeHead(200, corsHeaders);
       res.end(
         JSON.stringify({
@@ -990,8 +685,6 @@ const healthServer = http.createServer(async (req, res) => {
           service: 'healthy',
           executionVenue: config.executionVenue,
           activeAutoTradeWallets: activeWallets.length,
-          activeWallets,
-          walletStatus,
           sampleWallets: activeWallets.slice(0, 5).map((w) => `${w.slice(0, 6)}…${w.slice(-4)}`),
           lastCycle: lastCycleStats,
           tradeIntervalSec: config.trading.checkIntervalMs / 1000,
@@ -1041,15 +734,12 @@ healthServer.listen(PORT, () => {
   logger.info(`API server running on port ${PORT}`);
   logger.info('Available endpoints:');
   logger.info('  GET /health - Health check');
-  logger.info('  GET /api/signal?symbol=ETHUSDT&timeframes=5m,15m,1h - MTF Signal');
+  logger.info('  GET /api/signal?symbol=ETHUSDT&timeframes=1m,5m,15m,1h - MTF Signal');
   logger.info('  GET /api/hl-agent?wallet=0x… - Per-user HL agent address');
   logger.info('  POST /api/hl-agent/approval - Save HL agent approval (service role)');
   logger.info('  POST /api/hl-close - Close HL position via Monadier agent');
-  logger.info('  POST /api/hl-order - Place manual perp order via Monadier agent');
-  logger.info('  POST /api/hl-leverage - Update perp leverage via Monadier agent');
   logger.info('  POST /api/referral/try-qualify - Qualify referral after HL fund + bot activity');
   logger.info('  GET /api/bot-status?wallet=0x… - Wallet bot diagnostics');
-  logger.info('  GET /api/hl-position-trails?wallet=0x… - Live profit-trail stop truth');
   logger.info('  GET /api/global-signals - Top HL perp signals from last scan');
   logger.info('  GET /api/token-prices - Spot prices for vault PnL (Binance proxy)');
   logger.info('  GET /api/timeframe?symbol=ETHUSDT&tf=15m - Single timeframe analysis');
@@ -1191,15 +881,14 @@ async function runTradingCycle(): Promise<void> {
   logger.info('Starting trading cycle');
 
   try {
-    // Dashboard MTF display — separate from trade cycle (was blocking opens every tick).
+    // First, process any approved trades
     await processApprovedTrades();
+
+    // UPDATE ANALYSIS FOR ALL USERS TO SEE (before checking individual users)
+    await updateBotAnalysis();
 
     try {
       const cycleStarted = Date.now();
-      const cycleId = createTradingCycleId();
-      const funnel = new PipelineFunnelRecorder(cycleId);
-      await insertTradingCycleStart(cycleId);
-
       const allUsers = await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId);
       const { wallets, total, offset } = sliceUsersForCycle(allUsers);
 
@@ -1207,19 +896,12 @@ async function runTradingCycle(): Promise<void> {
         activeBots: total,
         processing: wallets.length,
         roundRobinOffset: offset,
-        cycleId: cycleId.slice(0, 8),
       });
 
-      const ctx = await buildTradingCycleContext(cycleId, funnel);
+      const ctx = await buildTradingCycleContext();
       lastGlobalSignals = ctx.globalSignals;
 
       const stats = await processUserBatch(wallets, ctx, total);
-
-      await funnel.flush({
-        activeBots: total,
-        globalSignals: ctx.globalScan.standard.length + ctx.globalScan.aggressive.length,
-        durationMs: Date.now() - cycleStarted,
-      });
 
       lastTradeCheck = Date.now();
       lastCycleStats = {
@@ -1278,17 +960,10 @@ function logStartupInfo(): void {
 async function main(): Promise<void> {
   logStartupInfo();
   await validateProductionEnvironment();
-  await bootstrapProfitTrailStateFromDb();
-  await warmHlMetaCache();
 
-  if (process.env.ENABLE_ARBITRUM_PAYMENT_MONITOR !== 'false') {
-    await paymentService.startMonitoring();
-    logger.info('Subscription payment monitor: Arbitrum USDC → HL builder wallet', {
-      wallet: config.platformWalletAddress,
-    });
-  } else {
-    logger.info('Arbitrum subscription payment monitor disabled');
-  }
+  // Start payment monitoring (listens for USDC transfers to treasury)
+  await paymentService.startMonitoring();
+  logger.info('Payment monitoring started - watching treasury for incoming USDC');
 
   if (!config.scaling.skipSubscriptionBootstrap) {
     await subscriptionService.ensureFreeSubscriptionsForMissingUsers();
@@ -1300,7 +975,6 @@ async function main(): Promise<void> {
 
   // Run immediately on startup
   await runTradingCycle();
-  void updateBotAnalysis().catch((err) => logger.error('Initial bot analysis update failed', { error: err }));
   void hyperliquidTradingService.runFastPositionMonitor();
 
   const tradeIntervalSeconds = Math.floor(config.trading.checkIntervalMs / 1000);
@@ -1308,14 +982,6 @@ async function main(): Promise<void> {
 
   cron.schedule(tradeCronExpression, async () => {
     await runTradingCycle();
-  });
-
-  cron.schedule('*/20 * * * * *', async () => {
-    try {
-      await updateBotAnalysis();
-    } catch (err) {
-      logger.error('Bot analysis dashboard update failed', { error: err });
-    }
   });
 
   const positionMonitorMs = config.hyperliquid.positionMonitorMs;
@@ -1332,33 +998,9 @@ async function main(): Promise<void> {
   }
 
   logger.info(`Bot service started.`);
-  logger.info(
-    `- Subscription payments: ${process.env.ENABLE_ARBITRUM_PAYMENT_MONITOR !== 'false' ? 'Arbitrum USDC → builder wallet' : 'OFF'}`
-  );
+  logger.info(`- Payment monitoring: ACTIVE (treasury watched)`);
   logger.info(`- HL trading cycle: every ${tradeIntervalSeconds}s`);
-  logger.info('- Dashboard bot_analysis refresh: every 20s');
   logger.info(`- HL position monitor: every ${positionMonitorMs}ms (fast profit grab)`);
-
-  setInterval(() => {
-    void processPendingTradeCloseEmails(40);
-  }, 15_000);
-  void processPendingTradeCloseEmails(40).catch(() => undefined);
-  logger.info('- Trade close emails: every 15s (1 email per profitable trade)');
-
-  setInterval(() => {
-    void processPendingPlatformFeeDueEmails(20);
-  }, 30_000);
-  void processPendingPlatformFeeDueEmails(20).catch(() => undefined);
-  logger.info('- Platform fee due emails: every 30s (20/20 win gate)');
-
-  setInterval(() => {
-    void reconcilePendingFillCloses(40).catch((err) => {
-      logger.debug('pending_fill reconcile tick failed', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    });
-  }, 12_000);
-  logger.info('- HL fill reconcile: every 12s (pending_fill queue)');
 
   if (process.env.ENABLE_DEMO_SIMULATOR === 'true') {
     startDemoSimulator().catch((err) => {

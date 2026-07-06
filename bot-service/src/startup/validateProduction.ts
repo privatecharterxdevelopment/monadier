@@ -1,14 +1,14 @@
 import { privateKeyToAccount } from 'viem/accounts';
 import { config } from '../config';
 import { logger } from '../utils/logger';
-import { BRAND_DOMAIN } from '../brand';
+import { MONADIER_VAULT_V11_TREASURY_ADDRESS } from '../monadierVault';
 import { fetchHlBuilderPlatformReady } from '../services/hlBuilder';
 
 const EXPECTED_BOT_ADDRESS = process.env.EXPECTED_BOT_ADDRESS as `0x${string}` | undefined;
 
 /**
  * Fail fast on misconfiguration before any trading loop runs.
- * Hyperliquid-only — no Arbitrum vault contract checks.
+ * Hyperliquid-only: no GMX vault contract checks.
  */
 export async function validateProductionEnvironment(): Promise<void> {
   const botAccount = privateKeyToAccount(config.botPrivateKey);
@@ -19,8 +19,17 @@ export async function validateProductionEnvironment(): Promise<void> {
     );
   }
 
+  const envTreasuryLower = config.treasuryAddress.toLowerCase();
+  if (envTreasuryLower !== MONADIER_VAULT_V11_TREASURY_ADDRESS.toLowerCase()) {
+    logger.warn('TREASURY_ADDRESS differs from canonical Monadier treasury', {
+      env: config.treasuryAddress,
+      canonical: MONADIER_VAULT_V11_TREASURY_ADDRESS,
+    });
+  }
+
   logger.info('Production startup check (Hyperliquid bot)', {
     botWallet: botAccount.address,
+    treasury: config.treasuryAddress,
     hlBuilder: config.hyperliquid.builderAddress,
     hlMinAccountUsd: config.hyperliquid.minAccountUsd,
   });
@@ -33,7 +42,7 @@ export async function validateProductionEnvironment(): Promise<void> {
         builderAddress: platform.builderAddress,
         accountUsd: platform.accountUsd,
         requiredUsd: platform.minUsd,
-        action: `Deposit at least $${platform.minUsd} USDC on Hyperliquid for the builder wallet (spot counts on unified accounts).`,
+        action: `Deposit at least $${platform.minUsd} USDC to this address on Hyperliquid (perps account, not Arbitrum).`,
       });
     } else {
       logger.info('HL builder wallet ready — fee collection active', {
@@ -47,34 +56,5 @@ export async function validateProductionEnvironment(): Promise<void> {
 
   if (process.env.NODE_ENV === 'production' && process.env.ENABLE_DEMO_SIMULATOR === 'true') {
     logger.warn('ENABLE_DEMO_SIMULATOR=true in production — demo trades will run in Supabase only');
-  }
-
-  if (!config.email.resendApiKey) {
-    logger.warn('RESEND_API_KEY not set — trade close emails will NOT send');
-  } else {
-    const from = config.email.from;
-    logger.info('Trade close emails enabled (Resend)', { from });
-    try {
-      const res = await fetch('https://api.resend.com/domains', {
-        headers: { Authorization: `Bearer ${config.email.resendApiKey}` },
-      });
-      if (res.ok) {
-        const body = (await res.json()) as { data?: Array<{ name: string; status: string }> };
-        const domain = from.replace(/^.*@/, '').replace(/[> ].*$/, '').trim();
-        const match = body.data?.find((d) => d.name === domain);
-        if (!match || match.status !== 'verified') {
-          logger.error(
-            'RESEND DOMAIN NOT VERIFIED — trade close emails will fail until DNS is configured',
-            {
-              domain,
-              status: match?.status ?? 'not_found',
-              action: `Verify ${BRAND_DOMAIN} at https://resend.com/domains and set RESEND_FROM to a verified address.`,
-            }
-          );
-        }
-      }
-    } catch {
-      // non-fatal — email loop will log per-send failures
-    }
   }
 }

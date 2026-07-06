@@ -34,17 +34,6 @@ export const CAUTIOUS_ALTS = new Set([
 
 export const MAJOR_COINS = new Set(['BTC', 'ETH']);
 
-/** Bot never opens these HL perps. Open positions are still managed (trail/close). */
-export const BOT_EXCLUDED_COINS = new Set(['CRV']);
-
-export function normalizeHlCoinKey(coin: string): string {
-  return coin.trim().toUpperCase().replace(/-PERP$/i, '');
-}
-
-export function isBotExcludedCoin(coin: string): boolean {
-  return BOT_EXCLUDED_COINS.has(normalizeHlCoinKey(coin));
-}
-
 /** Top HL perps by 24h volume — standard technical path, no mandatory news. */
 export const MID_CAP_MIN_DAY_VOLUME_USD = 35_000_000;
 export const MID_CAP_MAX_VOLUME_RANK = 18;

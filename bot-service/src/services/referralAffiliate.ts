@@ -172,7 +172,7 @@ export async function tryQualifyReferral(
   await advanceQualificationState(referredUserId, 'wallet_connected');
 
   const funding = await fetchHlPerpFundingSnapshot(wallet);
-  if (funding.accountEquityUsd < MIN_REFERRAL_QUALIFY_USD) {
+  if (funding.tradablePerpUsd < MIN_REFERRAL_QUALIFY_USD) {
     return false;
   }
 

@@ -1,12 +1,11 @@
 /**
- * Perp SHORT timing — all coins (ZEC, alts, majors). Only after higher-TF rollover.
+ * Alt SHORT timing — only after higher-TF rollover (not a blanket ban).
  * Pair may still be skipped earlier by freshPumpGate if recently pumped.
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
-import { STANDARD_MTF_TIMEFRAMES } from '../lib/mtfTimeframes';
 
 export type PumpShortResult = {
   ok: boolean;
@@ -50,13 +49,16 @@ export async function validateNoAltPumpShort(opts: {
   }
 
   const coin = opts.coin.toUpperCase();
+  if (coin === 'BTC' || coin === 'ETH') {
+    return { ok: true, reason: 'Pump-short gate — majors use macro beta only' };
+  }
 
   const cfg = config.hyperliquid.pumpShort;
   const symbol = hlCoinToBinanceSymbol(coin);
 
   try {
     const [signal, c5m, c15m, c1h] = await Promise.all([
-      signalEngine.generateSignal(symbol, [...STANDARD_MTF_TIMEFRAMES]),
+      signalEngine.generateSignal(symbol, ['1m', '5m', '15m', '1h']),
       signalEngine.fetchCandles(symbol, '5m', 24),
       signalEngine.fetchCandles(symbol, '15m', 16),
       signalEngine.fetchCandles(symbol, '1h', 8),
@@ -129,14 +131,14 @@ export async function validateNoAltPumpShort(opts: {
     if (tf15?.direction !== 'SHORT' && tf1h?.direction !== 'SHORT') {
       return {
         ok: false,
-        reason: `SHORT blocked — ${coin}: need 15m or 1h SHORT confirmation before entry`,
+        reason: `SHORT blocked — ${coin}: need 15m or 1h SHORT confirmation before alt short`,
       };
     }
 
     return {
       ok: true,
       reason:
-        `SHORT ok ${coin} — higher TFs faded (15m ${ch15m.toFixed(2)}%, 1h ${ch1h.toFixed(2)}%)`,
+        `Alt SHORT ok ${coin} — higher TFs faded (15m ${ch15m.toFixed(2)}%, 1h ${ch1h.toFixed(2)}%)`,
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

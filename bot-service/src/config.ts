@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { MONADIER_VAULT_V11_ADDRESS } from './monadierVault';
 
 dotenv.config();
 
@@ -7,7 +8,7 @@ const requiredEnvVars = [
   'BOT_PRIVATE_KEY',
   'SUPABASE_URL',
   'SUPABASE_SERVICE_KEY',
-  'HL_BUILDER_ADDRESS',
+  'TREASURY_ADDRESS'
 ];
 
 for (const envVar of requiredEnvVars) {
@@ -24,23 +25,18 @@ export const config = {
   supabaseUrl: process.env.SUPABASE_URL!,
   supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
 
-  /** MetaMask / Arbitrum USDC — bot success-fee payments (10% profit share). */
-  platformFeeTreasuryAddress: (
-    process.env.PLATFORM_FEE_TREASURY_ADDRESS || process.env.HL_BUILDER_ADDRESS
-  ) as `0x${string}`,
-  /** @deprecated Legacy alias — use platformFeeTreasuryAddress for success-fee payouts. */
-  platformWalletAddress: (
-    process.env.PLATFORM_FEE_TREASURY_ADDRESS || process.env.HL_BUILDER_ADDRESS
-  ) as `0x${string}`,
-  /** @deprecated Use platformFeeTreasuryAddress */
-  get treasuryAddress(): `0x${string}` {
-    return this.platformFeeTreasuryAddress;
-  },
+  // Treasury
+  treasuryAddress: process.env.TREASURY_ADDRESS as `0x${string}`,
 
-  /** Arbitrum — optional USDC subscription deposits to platform wallet (no vault). */
+  // ============================================
+  // ARBITRUM ONLY - V11 GMX VAULT (RECONCILE FIX)
+  // ============================================
   arbitrum: {
     chainId: 42161,
     rpcUrl: process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc',
+    // V11 vault — override only when deploying a new contract
+    vaultAddress: (process.env.ARBITRUM_VAULT_ADDRESS ||
+      MONADIER_VAULT_V11_ADDRESS) as `0x${string}`,
     usdcAddress: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' as `0x${string}`,
   },
 
@@ -70,7 +66,7 @@ export const config = {
   // Platform fees
   fees: {
     baseBps: 10,      // 0.1% on total position
-    successBps: 0, // disabled — HL builder max is 0.1% on notional, not % of profit
+    successBps: 1000, // 10% of profit
   },
 
   // Leverage limits
@@ -86,15 +82,15 @@ export const config = {
     /** Seeds per-user agent keys — never expose to frontend */
     agentMasterSecret:
       process.env.HL_AGENT_MASTER_SECRET || process.env.BOT_PRIVATE_KEY!,
-    agentName: process.env.HL_AGENT_NAME || 'hypergain',
+    agentName: process.env.HL_AGENT_NAME || 'monadier',
     /** Agent approval validity (days) */
     agentValidityDays: Number(process.env.HL_AGENT_VALIDITY_DAYS || 90),
     minAccountUsd: Number(process.env.HL_MIN_BOT_ACCOUNT_USD || 20),
     /** Parallel MTF scans per trading cycle (all HL perps). */
     scanConcurrency: Number(process.env.HL_SCAN_CONCURRENCY || 8),
-    /** Global scan — min combined MTF confidence (5m/15m/1h). */
-    minSignalConfidence: Number(process.env.HL_MIN_SIGNAL_CONFIDENCE || 52),
-    /** Global scan — min timeframes pointing same direction (of 5m/15m/1h). */
+    /** Global scan — min combined MTF confidence to qualify. */
+    minSignalConfidence: Number(process.env.HL_MIN_SIGNAL_CONFIDENCE || 55),
+    /** Global scan — min timeframes pointing same direction (of 1m/5m/15m/1h). */
     minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 2),
     /** Global scan — min % of TFs sharing the dominant trend (0–100). */
     minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 50),
@@ -102,63 +98,37 @@ export const config = {
     maxConcurrentPositions: Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 2),
     /** Minimum order notional — skips sloppy micro-trades. */
     minNotionalUsd: Number(process.env.HL_MIN_NOTIONAL_USD || 20),
-    /** Cap user risk % — 3000 = 30% of balance max (split across slots). */
-    maxRiskLevelBps: Number(process.env.HL_MAX_RISK_LEVEL_BPS || 3000),
-    /** Never allocate more than this fraction of balance to one HL slot. */
-    maxMarginPctPerSlot: Number(process.env.HL_MAX_MARGIN_PCT_PER_SLOT || 0.22),
-    /** Auto stop-loss ceiling on margin — tightens user SL above this (e.g. 50% → 18%). */
-    maxAutoStopLossPct: Number(process.env.HL_MAX_AUTO_SL_PCT || 18),
-    /** Used only when HL_LOSS_CAP_ENFORCE=true — 0 = no default loss exit. */
-    defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 0),
     /** Bot open floor — 0 = scan all HL perps; only applied at order time if > 0. */
     minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 0),
     minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 0),
     /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all listed HL perps. */
-    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 0),
+    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 18),
     liquidUniverseCacheMs: Number(process.env.HL_LIQUID_UNIVERSE_CACHE_MS || 60_000),
-    /** Reuse last global signal scan when younger than this (ms) — faster cycles, same picks. */
-    globalScanCacheMs: Number(process.env.HL_GLOBAL_SCAN_CACHE_MS || 3000),
-    /** Max % mark-price move since scan before open is blocked (chase protection). */
-    openPriceMaxDriftPct: Number(process.env.HL_OPEN_PRICE_MAX_DRIFT_PCT || 1.5),
     /** Close HL perps at this % gain on margin (user DB setting overrides). */
     /** 0 = user disabled TP. */
     defaultTakeProfitPercent: Number(process.env.HL_DEFAULT_TP_PERCENT || 0),
+    /** 0 = user disabled SL in DB — do NOT override with default in monitor. */
+    defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 4),
     defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 2),
     /** Min uPnL before any profit exit (legacy — dynamic trail uses ROE/fees arm). */
     minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
     /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
     dynamicTrail: {
-      /** Arm stage-1 profit lock at +1.5% ROE (was 1% — avoids micro-scratch on small alts). */
-      breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 1.5),
-      /** Stage-1 floor lock (breakeven+) — not peak ratchet yet; also floor vs minNet. */
-      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 0.4),
-      /** Stage-2 ratchet gap from peak ROE (wider = more room to run). */
-      trailGapRoePct: Number(process.env.HL_TRAIL_GAP_ROE_PCT || 0.65),
-      /** Switch to peak ratchet after this peak ROE. */
-      fullTrailArmRoePct: Number(process.env.HL_TRAIL_FULL_ARM_ROE_PCT || 2.5),
-      /** No wait — arm as soon as ROE + USD peaks pass thresholds. */
-      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 3_000),
+      /** Min ms in profit before arming breakeven / trail SL (2 min default). */
+      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 120_000),
+      /** Max ms from open — force SL trail arm (profit BE or loss SL%). */
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
-      /** Peak uPnL > $0 required — no USD floor beyond green (default $0). */
-      armMinProfitUsd: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_USD || 0),
-      /** Gross uPnL floor before trail close (secondary to min net). */
-      profitTrailMinClosePnlUsd: Number(process.env.HL_TRAIL_MIN_CLOSE_PNL_USD || 0.01),
-      /** Min expected net after exit fee + slippage before profit exit (floor; see minNetNotionalPct). */
-      profitTrailMinNetPnlUsd: Number(process.env.HL_TRAIL_MIN_NET_PNL_USD || 0.08),
-      /** Dynamic min-net floor: max(fees×2, this × notional, profitTrailMinNetPnlUsd). */
-      minNetNotionalPct: Number(process.env.HL_TRAIL_MIN_NET_NOTIONAL_PCT || 0.0025),
-      /** Tier slippage estimates (bps on notional) for exit-cost / net gate. */
-      exitSlippageBpsMajor: Number(process.env.HL_TRAIL_EXIT_SLIP_BPS_MAJOR || 8),
-      exitSlippageBpsMid: Number(process.env.HL_TRAIL_EXIT_SLIP_BPS_MID || 15),
-      exitSlippageBpsCautious: Number(process.env.HL_TRAIL_EXIT_SLIP_BPS_CAUTIOUS || 20),
-      /** Legacy default slippage when coin tier unknown. */
-      estimatedSlippageBps: Number(process.env.HL_TRAIL_EST_SLIPPAGE_BPS || 20),
-      trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 2_000),
+      /** Min ROE before breakeven+fees lock (~2.5% — stage 1). */
+      breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 2.5),
+      /** Min ROE before full ATR/% trail ratchet (~5% — stage 2). */
+      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 5),
+      /** After trail arms — min ms before trail/peak can close. */
+      trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 60_000),
       armFeesMultiplier: Number(process.env.HL_TRAIL_ARM_FEES_MULT || 2),
       breakevenBufferPct: Number(process.env.HL_TRAIL_BE_BUFFER_PCT || 0.02),
       breakevenBufferFeesMult: Number(process.env.HL_TRAIL_BE_BUFFER_FEES_MULT || 0.5),
       estimatedFeeBpsPerSide: Number(process.env.HL_TRAIL_FEE_BPS_SIDE || 3.5),
-      useAtr: process.env.HL_TRAIL_USE_ATR === 'true',
+      useAtr: process.env.HL_TRAIL_USE_ATR !== 'false',
       atrPeriod: Number(process.env.HL_TRAIL_ATR_PERIOD || 14),
       atrMultiplier: Number(process.env.HL_TRAIL_ATR_MULT || 2),
       atrTimeframe: (process.env.HL_TRAIL_ATR_TF || '5m') as '1m' | '5m' | '15m',
@@ -176,26 +146,28 @@ export const config = {
     /** After min hold — trail floor ≈ breakeven + ~0.1% margin on typical slot. */
     profitLockFloorUsd: Number(process.env.HL_PROFIT_LOCK_FLOOR_USD || 0.02),
     profitLockTrailBufferUsd: Number(process.env.HL_PROFIT_LOCK_TRAIL_BUFFER_USD || 0.045),
-    /** Min trail distance as fraction of peak uPnL (0.22 = need 22% retrace from peak). */
-    profitTrailMinPeakFraction: Number(process.env.HL_PROFIT_TRAIL_MIN_PEAK_FRAC || 0.22),
+    /** Min trail distance as fraction of peak uPnL (0.28 = need 28% retrace from peak). */
+    profitTrailMinPeakFraction: Number(process.env.HL_PROFIT_TRAIL_MIN_PEAK_FRAC || 0.28),
     /** Widen trail buffer when MTF/volume say strong run. */
     profitTrailStrongRunMult: Number(process.env.HL_PROFIT_TRAIL_STRONG_MULT || 1.65),
     /** uPnL must stay at/below trail floor this long before profit_lock (ms). */
     profitTrailFloorBreachMs: Number(process.env.HL_PROFIT_TRAIL_BREACH_MS || 2_500),
-    /** After trail armed: defer floor close if sweep+volume confirm rebound (still in profit only). */
-    trailSweepDeferMs: Number(process.env.HL_TRAIL_SWEEP_DEFER_MS || 45_000),
-    /** Max defer attempts per floor level before forced profit_lock close. 0 = never defer — close on trail cross. */
-    trailSweepDeferMax: Number(process.env.HL_TRAIL_SWEEP_DEFER_MAX || 0),
+    /** After trail armed: defer floor close this long if sweep+volume confirm rebound (still in profit only). */
+    trailSweepDeferMs: Number(process.env.HL_TRAIL_SWEEP_DEFER_MS || 120_000),
+    /** Max defer attempts per floor level before forced profit_lock close. */
+    trailSweepDeferMax: Number(process.env.HL_TRAIL_SWEEP_DEFER_MAX || 4),
     /** If uPnL falls this far below trail floor during defer → close anyway. */
     trailSweepDeferGiveUpUsd: Number(process.env.HL_TRAIL_SWEEP_GIVEUP_USD || 0.02),
-    /** Disabled — simple ROE trail closes on cross. */
-    profitPeakDropFraction: Number(process.env.HL_PROFIT_PEAK_DROP_FRAC || 0),
+    /** Fraction of peak uPnL retrace before peak-grab close (0.5 = 50%). */
+    profitPeakDropFraction: Number(process.env.HL_PROFIT_PEAK_DROP_FRAC || 0.42),
     /** Min peak (× round-trip fees) before peak-grab can fire. */
     profitPeakMinFeesMult: Number(process.env.HL_PROFIT_PEAK_MIN_FEES_MULT || 8),
     positionMonitorMs: Number(process.env.HL_POSITION_MONITOR_MS || 250),
     /** 0 = disabled — no forced close just for being in profit N ms. */
     profitGrabMaxHoldMs: Number(process.env.HL_PROFIT_GRAB_MAX_HOLD_MS || 0),
     profitHoldMaxMs: Number(process.env.HL_PROFIT_HOLD_MAX_MS || 0),
+    /** Fri 18:00 UTC through Fri 23:59 — new opens SHORT only when signaled. */
+    fridayShortOnlyUtcHour: Number(process.env.HL_FRIDAY_SHORT_ONLY_UTC_HOUR || 18),
     /** Pre-trade: min recent candle vol vs lookback avg (no sweep pattern required). */
     minTradeVolumeRatio: Number(process.env.HL_MIN_TRADE_VOLUME_RATIO || 1.05),
     /** Legacy — sweep pattern no longer required to open; kept for env compat. */
@@ -212,8 +184,8 @@ export const config = {
       /** Price in top X of range = near resistance. */
       rangeTopBlock: Number(process.env.HL_ENTRY_RANGE_TOP || 0.65),
       rangeBottomBlock: Number(process.env.HL_ENTRY_RANGE_BOTTOM || 0.35),
-      /** Pullback entry threshold — symmetric distance from range midpoint (0.50 = exact mid). */
-      pullbackMaxPosition: Number(process.env.HL_ENTRY_PULLBACK_MAX || 0.5),
+      /** Pullback long allowed below this position in range (0.52 = lower half). */
+      pullbackMaxPosition: Number(process.env.HL_ENTRY_PULLBACK_MAX || 0.52),
       /** Close must exceed resistance by this fraction to count as breakout. */
       breakoutBufferPct: Number(process.env.HL_ENTRY_BREAKOUT_BUFFER || 0.0015),
       breakoutConfirmBars: Number(process.env.HL_ENTRY_BREAKOUT_BARS || 2),
@@ -224,7 +196,7 @@ export const config = {
       /** Price within this % of level = "at" resistance/support. */
       nearLevelPct: Number(process.env.HL_ENTRY_NEAR_LEVEL || 0.0035),
       /** Block long at ceiling after this many rejections at resistance. */
-      minRejectionsToBlock: Number(process.env.HL_ENTRY_MIN_REJECTIONS || 2),
+      minRejectionsToBlock: Number(process.env.HL_ENTRY_MIN_REJECTIONS || 3),
     },
     /** BTC/ETH beta — block counter-trend alt entries (SHORT while pumping, LONG while dumping). */
     macroBeta: {
@@ -256,17 +228,6 @@ export const config = {
       /** SHORT rally-fade: price must be in upper X of 1h range unless breakdown. */
       shortMinRangePosition: Number(process.env.HL_ENTRY_SHORT_MIN_RANGE || 0.32),
     },
-    /** Alt SHORT — soft 4h/24h bias (penalty in macro UP, bonus in macro DOWN; never hard-ban). */
-    higherTfShort: {
-      enabled: process.env.HL_HIGHER_TF_SHORT_BIAS !== 'false',
-      strongUp4hPct: Number(process.env.HL_HTF_SHORT_UP_4H || 2.5),
-      strongDown4hPct: Number(process.env.HL_HTF_SHORT_DOWN_4H || -2.5),
-      strongUp24hPct: Number(process.env.HL_HTF_SHORT_UP_24H || 6),
-      strongDown24hPct: Number(process.env.HL_HTF_SHORT_DOWN_24H || -6),
-      shortConfPenaltyStrongUp: Number(process.env.HL_HTF_SHORT_PENALTY || 10),
-      shortMinConfBumpStrongUp: Number(process.env.HL_HTF_SHORT_MIN_BUMP || 8),
-      shortConfBonusStrongDown: Number(process.env.HL_HTF_SHORT_BONUS || 5),
-    },
     /** Alts — never SHORT into a fresh pump / higher-TF rally. */
     pumpShort: {
       block1hPct: Number(process.env.HL_PUMP_SHORT_BLOCK_1H || 0.15),
@@ -282,10 +243,8 @@ export const config = {
       cryptopanicToken: process.env.CRYPTOPANIC_AUTH_TOKEN || '',
       blockUnknownHeadlines: process.env.HL_NEWS_BLOCK_UNKNOWN !== 'false',
     },
-    /** News feed + AI analysis for /api/news UI only — never blocks bot opens by default. */
+    /** News feed + AI analysis (crypto + sports UI, bot safety). */
     news: {
-      /** Set HL_NEWS_GATE_ON_OPENS=true to re-enable headline blocks on trade opens (not recommended). */
-      gateOnOpens: process.env.HL_NEWS_GATE_ON_OPENS === 'true',
       lookbackMs: Number(process.env.HL_NEWS_LOOKBACK_MS || 48 * 60 * 60 * 1000),
       cacheMs: Number(process.env.HL_NEWS_CACHE_MS || 600_000),
       analysisCacheMs: Number(process.env.HL_NEWS_ANALYSIS_CACHE_MS || 900_000),
@@ -293,8 +252,6 @@ export const config = {
       maxFeedItems: Number(process.env.HL_NEWS_MAX_FEED || 24),
       cryptopanicToken: process.env.CRYPTOPANIC_AUTH_TOKEN || '',
       blockUnknownHeadlines: process.env.HL_NEWS_BLOCK_UNKNOWN !== 'false',
-      /** When false (default), generic macro RSS does not block alt opens — only coin-tagged headlines. */
-      blockAltsOnGenericMacro: process.env.HL_NEWS_BLOCK_ALTS_MACRO === 'true',
       openaiApiKey: process.env.OPENAI_API_KEY || '',
       openaiModel: process.env.OPENAI_NEWS_MODEL || 'gpt-4o-mini',
       analysisConcurrency: Number(process.env.HL_NEWS_ANALYSIS_CONCURRENCY || 4),
@@ -302,8 +259,7 @@ export const config = {
     },
     /** Scalp opens — top liquid pairs only, fast TF alignment. */
     scalpOpen: {
-      /** 0 = no rank cap — any scannable HL perp can open. */
-      maxVolumeRank: Number(process.env.HL_OPEN_MAX_VOLUME_RANK || 0),
+      maxVolumeRank: Number(process.env.HL_OPEN_MAX_VOLUME_RANK || 18),
       allowCautiousAlts: process.env.HL_ALLOW_CAUTIOUS_OPENS !== 'false',
       require1m5mAlign: process.env.HL_SCALP_REQUIRE_1M5M !== 'false',
       minTfConfidence: Number(process.env.HL_SCALP_MIN_TF_CONF || 52),
@@ -312,15 +268,15 @@ export const config = {
     /** Mandatory last-N candle read immediately before every open. */
     preOpenCandles: {
       enabled: process.env.HL_PRE_OPEN_20_CANDLES !== 'false',
-      candleCount: Number(process.env.HL_PRE_OPEN_CANDLE_COUNT || 12),
-      timeframe: (process.env.HL_PRE_OPEN_CANDLE_TF || '5m') as '1m' | '5m',
+      candleCount: Number(process.env.HL_PRE_OPEN_CANDLE_COUNT || 20),
+      timeframe: (process.env.HL_PRE_OPEN_CANDLE_TF || '1m') as '1m' | '5m',
       minNetMovePct: Number(process.env.HL_PRE_OPEN_MIN_NET_PCT || 0.04),
       minDirectionalCandleRatio: Number(process.env.HL_PRE_OPEN_MIN_DIR_RATIO || 0.52),
       maxRangePositionLong: Number(process.env.HL_PRE_OPEN_MAX_RANGE_LONG || 0.58),
       maxRangePositionShort: Number(process.env.HL_PRE_OPEN_MAX_RANGE_SHORT || 0.42),
       breakoutRecentMovePct: Number(process.env.HL_PRE_OPEN_BREAKOUT_RECENT_PCT || 0.06),
       maxRejectionsAtLevel: Number(process.env.HL_PRE_OPEN_MAX_REJECTIONS || 2),
-      minVolumeRatio: Number(process.env.HL_PRE_OPEN_MIN_VOL_RATIO || 0.72),
+      minVolumeRatio: Number(process.env.HL_PRE_OPEN_MIN_VOL_RATIO || 0.85),
     },
     /** Pause new opens after today's realized loss exceeds cap (off by default). */
     dailyLoss: {
@@ -331,11 +287,11 @@ export const config = {
     },
     /** Stricter scan thresholds for mass-driven alts. */
     cautiousScan: {
-      minSignalConfidence: Number(process.env.HL_CAUTIOUS_MIN_CONF || 68),
-      minDirectionalTfs: Number(process.env.HL_CAUTIOUS_MIN_TFS || 2),
-      minTrendAlignment: Number(process.env.HL_CAUTIOUS_MIN_ALIGN || 55),
+      minSignalConfidence: Number(process.env.HL_CAUTIOUS_MIN_CONF || 74),
+      minDirectionalTfs: Number(process.env.HL_CAUTIOUS_MIN_TFS || 3),
+      minTrendAlignment: Number(process.env.HL_CAUTIOUS_MIN_ALIGN || 62),
     },
-    /** Loss exits — SL% only when user set stop_loss_percent > 0; thesis/signal loss optional. */
+    /** Loss exits — OFF by default; bot never auto-closes red (profitOnlyExits). */
     lossProtection: {
       enforceHardCap: process.env.HL_LOSS_CAP_ENFORCE === 'true',
       closeOnThesisBreak: process.env.HL_LOSS_THESIS_CLOSE === 'true',
@@ -366,13 +322,10 @@ export const config = {
     thesisMaxLossSlMultiple: Number(process.env.HL_THESIS_MAX_LOSS_SL_MULT || 2.5),
     /** Optional USD loss ceiling (0 = use bot SL% only — no flat $2.50 cap). */
     thesisMaxLossUsd: Number(process.env.HL_THESIS_MAX_LOSS_USD || 0),
-    /** Flat USD uPnL stop — off by default; use SL% in user settings instead. */
-    hardStopLossUsd: Number(process.env.HL_HARD_STOP_USD || 0),
-    /** Catastrophic loss USD — per-position floor (also % of account in code). */
+    /** Flat USD uPnL stop — always auto-close (default $20). Set 0 to disable. */
+    hardStopLossUsd: Number(process.env.HL_HARD_STOP_USD || 20),
+    /** Catastrophic loss USD — optional escape hatch while profitOnlyExits (0 = disabled). */
     thesisEmergencyMaxLossUsd: Number(process.env.HL_EMERGENCY_MAX_LOSS_USD || 0),
-    /** Per-position loss cap as fraction of account balance (e.g. 0.07 = 7%). */
-    emergencyMaxLossAccountPct: Number(process.env.HL_EMERGENCY_MAX_LOSS_ACCOUNT_PCT || 0.07),
-    emergencyMaxLossUsdFloor: Number(process.env.HL_EMERGENCY_MAX_LOSS_FLOOR_USD || 2.5),
     /** Min ms open before signal_reversal loss close when HL_LOSS_THESIS_CLOSE=true. */
     thesisMinHoldBeforeLossCloseMs: Number(process.env.HL_THESIS_MIN_HOLD_MS || 600_000),
     /** HL funding, 24h change, mark/oracle — anti-chase before opens. */
@@ -408,25 +361,17 @@ export const config = {
     },
     /** Minimum margin USD per HL open slot (split across max concurrent positions). */
     minMarginUsd: Number(process.env.HL_MIN_MARGIN_USD || 8),
-    /** Success fee on profitable closes — 10% of profit; paid via Arbitrum USDC treasury. */
-    successFeeEnabled: process.env.HL_SUCCESS_FEE_ENABLED !== 'false',
+    /** Success fee on profitable bot closes — 1000 = 10% of realized profit. */
     successFeeBps: Number(process.env.HL_SUCCESS_FEE_BPS || 1000),
-    bettingSuccessFeeBps: Number(process.env.HL_BETTING_SUCCESS_FEE_BPS || 300),
     minSuccessFeeUsd: Number(process.env.HL_MIN_SUCCESS_FEE_USD || 0.01),
     infoUrl: process.env.HL_INFO_URL || 'https://api.hyperliquid.xyz/info',
-    builderAddress: process.env.HL_BUILDER_ADDRESS as `0x${string}`,
+    builderAddress: (process.env.HL_BUILDER_ADDRESS ||
+      process.env.TREASURY_ADDRESS) as `0x${string}`,
     builderFeePerp: Number(process.env.HL_BUILDER_FEE_PERP || 30),
-    /** Flat builder on bot opens — 0 = no HL builder fee on opens. */
+    /** Flat builder on bot opens — 0 = fee only on profitable closes (auto success fee). */
     openBuilderFeePerp: Number(process.env.HL_OPEN_BUILDER_FEE_PERP || 0),
-    /** HL builder on profitable closes — off by default; fees accrue and settle via Arbitrum USDC. */
-    builderFeeOnCloseEnabled: process.env.HL_BUILDER_FEE_ON_CLOSE === 'true',
     /** Must be ≥ worst-case success-fee-as-builder on close (default 0.1%). */
     builderMaxApprovalRate: process.env.HL_BUILDER_MAX_APPROVAL || '0.1%',
-  },
-
-  email: {
-    resendApiKey: process.env.RESEND_API_KEY || '',
-    from: process.env.RESEND_FROM || 'HyperGain <hello@hypergain.io>',
   },
 
   /** Multi-user scale — 1M+ signups, thousands of concurrent bots */

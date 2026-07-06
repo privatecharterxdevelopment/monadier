@@ -138,54 +138,14 @@ export function computeMaxLossCapUsd(collateralUsd: number, slPct: number): numb
   return Math.min(fromSl, absCap);
 }
 
-/** Bot-enforced SL — 0 in profit-only mode unless HL_LOSS_CAP_ENFORCE. */
-export function effectiveStopLossPct(userSlPct: number): number {
-  const cfg = config.hyperliquid;
-  if (cfg.profitOnlyExits && !cfg.lossProtection.enforceHardCap) {
-    return 0;
-  }
-  const ceiling = cfg.maxAutoStopLossPct;
-  if (userSlPct <= 0) return 0;
-  return Math.min(userSlPct, ceiling);
-}
-
-/** Hard USD loss cap per position — min(collateral SL, % of account). */
-export function perPositionEmergencyLossUsd(
-  accountBalanceUsd: number,
-  collateralUsd: number,
-  userSlPct: number
-): number {
-  const cfg = config.hyperliquid;
-  const fromSl = computeMaxLossCapUsd(collateralUsd, effectiveStopLossPct(userSlPct));
-  const fromAccount = Math.max(
-    cfg.emergencyMaxLossUsdFloor,
-    accountBalanceUsd * cfg.emergencyMaxLossAccountPct
-  );
-  const envCap = cfg.thesisEmergencyMaxLossUsd;
-  const caps = [fromSl, fromAccount];
-  if (envCap > 0) caps.push(envCap);
-  return Math.min(...caps.filter((n) => n > 0));
-}
-
 export function shouldHardLossClose(
   pnlUsd: number,
   collateralUsd: number,
   slPct: number
 ): boolean {
   if (pnlUsd >= 0) return false;
-  const cap = computeMaxLossCapUsd(collateralUsd, effectiveStopLossPct(slPct));
-  return cap > 0 && pnlUsd <= -cap;
-}
-
-export function shouldEmergencyLossClose(
-  pnlUsd: number,
-  accountBalanceUsd: number,
-  collateralUsd: number,
-  userSlPct: number
-): boolean {
-  if (pnlUsd >= 0) return false;
-  const cap = perPositionEmergencyLossUsd(accountBalanceUsd, collateralUsd, userSlPct);
-  return cap > 0 && pnlUsd <= -cap;
+  const cap = computeMaxLossCapUsd(collateralUsd, slPct);
+  return pnlUsd <= -cap;
 }
 
 export function logThesisDeferStopLoss(

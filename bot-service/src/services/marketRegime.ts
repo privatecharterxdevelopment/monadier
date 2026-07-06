@@ -1,15 +1,12 @@
-import { isStrongMtfPick, isWeekendThinLiquidityWindow, MAJOR_COINS } from './analysisFirstOpen';
+import { isWeekendThinLiquidityWindow, MAJOR_COINS } from './analysisFirstOpen';
 import type { GlobalSignalCandidate, GlobalScanResult } from './globalMarketScan';
-import type { PipelineFunnelRecorder } from './pipelineFunnelLog';
-import { FUNNEL } from './pipelineFunnelReasons';
 import {
   getMegaPairVolumeSnapshot,
   isMacroRiskOffEnvironment,
   validateMegaPairVolumeForDirection,
 } from './megaPairVolumeMonitor';
-import { computeAltUniverseBlock, type MacroRegime } from './universeFilterSymmetry';
 
-export type { MacroRegime };
+export type MacroRegime = 'risk_off' | 'risk_on' | 'neutral';
 
 export function rankGlobalSignal(a: GlobalSignalCandidate, b: GlobalSignalCandidate): number {
   const tfsA = a.directionalTfCount ?? 0;
@@ -56,126 +53,58 @@ function majorScanBias(
   };
 }
 
-export type UniverseFilterDrop = {
-  coin: string;
-  direction: 'LONG' | 'SHORT';
-  skipReason: string;
-};
-
-function altUniverseBlockReason(
-  signal: GlobalSignalCandidate,
-  regime: MacroRegime,
-  majors: ReturnType<typeof majorScanBias>,
-  megaLongBlock: boolean,
-  megaShortBlock: boolean
-): string | null {
-  return computeAltUniverseBlock({
-    coin: signal.coin,
-    direction: signal.direction,
-    regime,
-    btcDirection: majors.btc?.direction,
-    ethDirection: majors.eth?.direction,
-    megaLongBlock,
-    megaShortBlock,
-  });
-}
-
-/** Signals the bot is allowed to open — symmetric default-allow with OR blockers per direction. */
+/** Signals the bot is allowed to open — same list the UI must show. */
 export function applyOpenUniverseFilters(
   signals: GlobalSignalCandidate[],
-  scan?: GlobalScanResult,
-  funnel?: PipelineFunnelRecorder
-): {
-  signals: GlobalSignalCandidate[];
-  dropped: number;
-  reasons: string[];
-  droppedDetails: UniverseFilterDrop[];
-} {
+  scan?: GlobalScanResult
+): { signals: GlobalSignalCandidate[]; dropped: number; reasons: string[] } {
   const reasons: string[] = [];
-  const droppedDetails: UniverseFilterDrop[] = [];
   let filtered = sortGlobalSignals(signals);
   let dropped = 0;
 
-  const { regime, reason: regimeReason } = resolveMacroRegime();
-  funnel?.setMacroRegime(regime);
-
   if (isWeekendThinLiquidityWindow()) {
     const before = filtered.length;
-    const kept: GlobalSignalCandidate[] = [];
-    for (const s of filtered) {
+    filtered = filtered.filter((s) => {
       const coin = s.coin.toUpperCase();
-      if (MAJOR_COINS.has(coin) || s.direction === 'LONG') {
-        kept.push(s);
-        continue;
-      }
-      droppedDetails.push({
-        coin,
-        direction: s.direction,
-        skipReason: FUNNEL.universe.weekendAlt,
-      });
-      funnel?.log({
-        coin,
-        stage: 'universe',
-        direction: s.direction,
-        passed: false,
-        skip_reason: FUNNEL.universe.weekendAlt,
-      });
-    }
-    filtered = kept;
+      if (s.direction === 'LONG') return false;
+      return MAJOR_COINS.has(coin);
+    });
     const n = before - filtered.length;
     if (n > 0) {
       dropped += n;
-      reasons.push(`Weekend — alt SHORT blocked (${n} setup(s) skipped)`);
+      reasons.push(`Weekend — no LONGs · BTC/ETH SHORT only (${n} setup(s) skipped)`);
     }
   }
 
+  const { regime, reason: regimeReason } = resolveMacroRegime();
   const majors = scan ? majorScanBias(scan) : {};
   const btcLong = majors.btc?.direction === 'LONG';
   const ethLong = majors.eth?.direction === 'LONG';
   const btcShort = majors.btc?.direction === 'SHORT';
   const ethShort = majors.eth?.direction === 'SHORT';
   const megaLongBlock = !validateMegaPairVolumeForDirection('LONG').ok;
-  const megaShortBlock = !validateMegaPairVolumeForDirection('SHORT').ok;
 
   const beforeMacro = filtered.length;
-  const macroKept: GlobalSignalCandidate[] = [];
-  for (const s of filtered) {
-    const skipReason = altUniverseBlockReason(s, regime, majors, megaLongBlock, megaShortBlock);
-    if (skipReason) {
-      droppedDetails.push({ coin: s.coin, direction: s.direction, skipReason });
-      funnel?.log({
-        coin: s.coin,
-        stage: 'universe',
-        direction: s.direction,
-        passed: false,
-        skip_reason: skipReason,
-      });
-      continue;
-    }
-    macroKept.push(s);
-    funnel?.log({
-      coin: s.coin,
-      stage: 'universe',
-      direction: s.direction,
-      passed: true,
-      skip_reason: null,
-    });
-  }
-  filtered = macroKept;
+  filtered = filtered.filter((s) => {
+    const coin = s.coin.toUpperCase();
+    if (MAJOR_COINS.has(coin)) return true;
+    if (s.direction === 'SHORT') return true;
 
+    if (regime === 'risk_off') return false;
+    if (megaLongBlock) return false;
+    if (btcShort || ethShort) return false;
+    if (!(btcLong && ethLong && regime === 'risk_on')) return false;
+    return true;
+  });
   const macroDropped = beforeMacro - filtered.length;
   if (macroDropped > 0) {
     dropped += macroDropped;
-    const dirHint =
-      btcShort || ethShort
-        ? ` · BTC ${majors.btc?.direction ?? '—'} · ETH ${majors.eth?.direction ?? '—'}`
-        : btcLong || ethLong
-          ? ` · BTC ${majors.btc?.direction ?? '—'} · ETH ${majors.eth?.direction ?? '—'}`
-          : '';
-    reasons.push(`Universe filter — ${regimeReason}${dirHint}`);
+    reasons.push(
+      `No alt LONGs — ${regimeReason}${btcShort || ethShort ? ` · BTC ${majors.btc?.direction ?? '—'} · ETH ${majors.eth?.direction ?? '—'}` : ''}`
+    );
   }
 
-  return { signals: filtered, dropped, reasons, droppedDetails };
+  return { signals: filtered, dropped, reasons };
 }
 
 /** @deprecated use applyOpenUniverseFilters */
@@ -201,7 +130,6 @@ export function macroAlignedPickBonus(
   if (regime === 'risk_off' && signal.direction === 'SHORT') bonus += 55;
   if (regime === 'risk_off' && signal.direction === 'LONG' && !MAJOR_COINS.has(coin)) bonus -= 120;
   if (regime === 'risk_on' && signal.direction === 'LONG' && MAJOR_COINS.has(coin)) bonus += 25;
-  if (regime === 'risk_on' && signal.direction === 'SHORT' && !MAJOR_COINS.has(coin)) bonus -= 55;
   return bonus;
 }
 
@@ -212,9 +140,8 @@ export function describeOpenUniverseForClient(scan?: GlobalScanResult): {
 } {
   const { regime, reason } = resolveMacroRegime();
   const weekendMajorsOnly = isWeekendThinLiquidityWindow();
-  const parts: string[] = [];
-  if (weekendMajorsOnly) parts.push('Weekend — alt LONGs OK, alt SHORTs blocked');
-  parts.push(reason);
+  const parts = [reason];
+  if (weekendMajorsOnly) parts.unshift('Weekend — no LONGs · BTC/ETH SHORT only');
   if (scan) {
     const { btc, eth } = majorScanBias(scan);
     if (btc || eth) {
@@ -223,17 +150,3 @@ export function describeOpenUniverseForClient(scan?: GlobalScanResult): {
   }
   return { regime, weekendMajorsOnly, summary: parts.join(' · ') };
 }
-
-/** Human blocker when no tradeable signal — never blame weekend on weekdays. */
-export function describeNoTradeableSetupBlocker(
-  rawCount: number,
-  filterReasons: string[]
-): string {
-  if (rawCount === 0) {
-    return 'No aligned setup in global scan (174 perps) — waiting for BTC/ETH momentum or MTF signal';
-  }
-  if (filterReasons.length > 0) return filterReasons.join(' · ');
-  return `Scan found ${rawCount} setup(s) but none passed macro filters`;
-}
-
-export { isStrongMtfPick };

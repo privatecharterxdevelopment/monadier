@@ -33,79 +33,19 @@ class HlAgentApprovalService {
     return data as HlAgentApproval | null;
   }
 
-  private isDbApprovalActive(
-    row: HlAgentApproval | null,
-    expectedAgent: string
-  ): boolean {
-    if (!row) return false;
-    if (row.agent_address.toLowerCase() !== expectedAgent.toLowerCase()) return false;
-    if (row.expires_at && Date.parse(row.expires_at) <= Date.now()) return false;
-    return true;
-  }
-
-  private findActiveOnChain(
-    walletAddress: string,
-    expectedAgent: string
-  ): Promise<{ active: boolean; loaded: boolean }> {
-    return fetchHlExtraAgents(walletAddress).then(({ agents, loaded }) => ({
-      loaded,
-      active: agents.some(
-        (a) =>
-          a.address.toLowerCase() === expectedAgent.toLowerCase() && isHlExtraAgentActive(a)
-      ),
-    }));
-  }
-
-  async isApprovedOnChain(walletAddress: string, expectedAgent: string): Promise<boolean> {
-    const { active } = await this.findActiveOnChain(walletAddress, expectedAgent);
-    return active;
-  }
-
-  /** On-chain HL extraAgents, with DB fallback when HL /info read fails. */
   async isApproved(walletAddress: string, expectedAgent: string): Promise<boolean> {
-    const { active, loaded } = await this.findActiveOnChain(walletAddress, expectedAgent);
-    if (active) return true;
-    if (!loaded) {
-      const row = await this.getApproval(walletAddress);
-      return this.isDbApprovalActive(row, expectedAgent);
-    }
-    return false;
-  }
-
-  /** Why agent cannot trade — for API errors. */
-  async describeAgentBlocker(
-    walletAddress: string,
-    expectedAgent: string
-  ): Promise<string | null> {
-    const { agents, loaded } = await fetchHlExtraAgents(walletAddress);
-    const ours = agents.find(
-      (a) => a.address.toLowerCase() === expectedAgent.toLowerCase()
+    const agents = await fetchHlExtraAgents(walletAddress);
+    const onChain = agents.find(
+      (a) =>
+        a.address.toLowerCase() === expectedAgent.toLowerCase() && isHlExtraAgentActive(a)
     );
-    if (ours && isHlExtraAgentActive(ours)) return null;
-    if (ours && !isHlExtraAgentActive(ours)) {
-      const when = new Date(ours.validUntil).toLocaleString();
-      return `HL trading agent expired (${when}) — Bot tab → Approve trading agent once.`;
-    }
+    if (onChain) return true;
 
     const row = await this.getApproval(walletAddress);
-    const dbActive = this.isDbApprovalActive(row, expectedAgent);
-
-    if (!loaded) {
-      if (dbActive) return null;
-      return 'Hyperliquid temporarily unreachable — try again in a moment.';
-    }
-
-    if (agents.length === 0) {
-      if (dbActive) {
-        return 'Trading agent not active on Hyperliquid — Bot tab → Approve trading agent once.';
-      }
-      return 'Trading agent not approved — Bot tab → Approve trading agent once, then Start bot.';
-    }
-
-    if (dbActive) {
-      return 'Trading agent not active on Hyperliquid — Bot tab → Approve trading agent once.';
-    }
-    return 'Trading agent not approved — Bot tab → Approve trading agent once, then Start bot.';
+    if (!row) return false;
+    if (row.agent_address.toLowerCase() !== expectedAgent.toLowerCase()) return false;
+    if (row.expires_at && Date.parse(row.expires_at) < Date.now()) return false;
+    return true;
   }
 
   async saveApproval(params: {

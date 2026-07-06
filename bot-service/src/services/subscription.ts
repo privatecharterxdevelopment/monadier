@@ -547,10 +547,7 @@ export class SubscriptionService {
         leverageMultiplier: normalizeHlLeverage(
           data.leverage_multiplier != null ? Number(data.leverage_multiplier) : null
         ),
-        riskLevelBps: Math.min(
-          data.risk_level_bps || 500,
-          config.hyperliquid.maxRiskLevelBps
-        ),
+        riskLevelBps: data.risk_level_bps || 500,
         autoTradeEnabled: Boolean(data.auto_trade_enabled),
         minWinRatePercent: Number(data.min_win_rate_percent) || 0,
         minTradesForWinRateGate: Number(data.min_trades_for_win_rate_gate) || 5,
@@ -781,7 +778,7 @@ export class SubscriptionService {
           risk_level: settings.riskLevel || 100,
           // Default TP/SL
           take_profit_percent: 5,
-          stop_loss_percent: 0,
+          stop_loss_percent: 1.5,
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'wallet_address,chain_id'

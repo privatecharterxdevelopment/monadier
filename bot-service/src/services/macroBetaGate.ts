@@ -1,6 +1,6 @@
 /**
- * BTC/ETH beta gate — all perps. Blocks counter-momentum entries
- * (e.g. SHORT ZEC while coin/BTC/ETH are still pumping).
+ * BTC/ETH beta gate — alts move with their anchor.
+ * Blocks counter-beta entries (e.g. SHORT WLD while BTC/ETH/coin are pumping).
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
@@ -163,33 +163,9 @@ export async function evaluateMacroBetaAlignment(opts: {
   };
 
   if (anchor === 'SELF') {
-    const mom = coin === 'BTC' ? btc : eth;
-    const cfg = config.hyperliquid.macroBeta;
-    const pump15 = cfg.pumpBlock15mPct;
-    const pump1h = cfg.pumpBlock1hPct;
-    const minGreen = cfg.minConsecutiveGreen15m;
-
-    if (opts.direction === 'SHORT') {
-      const blockers: string[] = [];
-      if (mom.change15mPct >= pump15) {
-        blockers.push(`${coin} 15m +${mom.change15mPct.toFixed(2)}%`);
-      }
-      if (mom.consecutiveGreen15m >= minGreen) {
-        blockers.push(`${coin} ${mom.consecutiveGreen15m}× green 15m`);
-      }
-      if (mom.change1hPct >= pump1h && (mom.trend15m === 'UP' || mom.change15mPct >= pump15 * 0.5)) {
-        blockers.push(`${coin} 1h +${mom.change1hPct.toFixed(2)}%`);
-      }
-      if (blockers.length > 0) {
-        const reason = `Major ${coin} SHORT blocked — still pumping (${blockers.join('; ')})`;
-        logger.info('Macro beta gate blocked major SHORT', { coin, blockers });
-        return { ok: false, reason, snapshot, blockers };
-      }
-    }
-
     return {
       ok: true,
-      reason: `Major ${coin} — macro beta ${opts.direction} OK`,
+      reason: `Major ${coin} — macro beta gate skipped`,
       snapshot,
       blockers: [],
     };
@@ -241,41 +217,31 @@ export async function evaluateMacroBetaAlignment(opts: {
 
   if (opts.direction === 'SHORT') {
     blockers.push(...isPumping(snapshot.coinMom, coin, true));
-    blockers.push(...isPumping(btc, 'BTC', false));
-    blockers.push(...isPumping(eth, 'ETH', false));
   } else {
     blockers.push(...isDumping(snapshot.coinMom, coin, true));
-    blockers.push(...isDumping(btc, 'BTC', false));
-    blockers.push(...isDumping(eth, 'ETH', false));
   }
 
-  const uniqueBlockers = [...new Set(blockers)];
+  const macroSummary = [fmtMom(coin, snapshot.coinMom)];
 
-  const macroSummary = [
-    fmtMom(coin, snapshot.coinMom),
-    fmtMom('BTC', btc),
-    fmtMom('ETH', eth),
-  ];
-
-  if (uniqueBlockers.length > 0) {
+  if (blockers.length > 0) {
     const reason =
-      `Macro momentum BLOCK ${opts.direction} ${coin} — ` +
-      `${uniqueBlockers.join('; ')} ‖ ${macroSummary.join(' ‖ ')}`;
+      `Per-coin momentum BLOCK ${opts.direction} ${coin} — ` +
+      `${blockers.join('; ')} ‖ ${macroSummary.join(' ‖ ')}`;
     logger.info('Macro beta gate blocked entry', {
       coin,
       direction: opts.direction,
       anchor,
-      blockers: uniqueBlockers,
+      blockers,
       btc15m: btc.change15mPct,
       eth15m: eth.change15mPct,
       coin15m: snapshot.coinMom.change15mPct,
     });
-    return { ok: false, reason, snapshot, blockers: uniqueBlockers };
+    return { ok: false, reason, snapshot, blockers };
   }
 
   const reason =
-    `Macro momentum OK ${opts.direction} ${coin} — ` +
-    `coin + BTC + ETH not opposing ‖ ${macroSummary.join(' ‖ ')}`;
+    `Per-coin momentum OK ${opts.direction} ${coin} — ` +
+    `${coin} chart not ${opts.direction === 'SHORT' ? 'pumping' : 'dumping'} ‖ ${macroSummary.join(' ‖ ')}`;
 
   return { ok: true, reason, snapshot, blockers: [] };
 }
@@ -294,21 +260,6 @@ export async function validateMacroBetaAlignment(opts: {
       error: msg,
     });
     const coin = opts.coin.toUpperCase();
-    if (opts.direction === 'SHORT') {
-      return {
-        ok: false,
-        reason: `Macro beta check failed — SHORT blocked (${msg.slice(0, 80)})`,
-        snapshot: {
-          coin,
-          anchor: classifyAnchor(coin),
-          btc: buildMomentum([], 0.1),
-          eth: buildMomentum([], 0.1),
-          coinMom: buildMomentum([], 0.1),
-          checkedAt: new Date().toISOString(),
-        },
-        blockers: ['macro data unavailable'],
-      };
-    }
     if (coin === 'BTC' || coin === 'ETH') {
       return {
         ok: true,

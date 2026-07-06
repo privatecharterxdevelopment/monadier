@@ -1,8 +1,7 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
-# Install all deps (incl. typescript) even when Railway sets NODE_ENV=production at build time
-RUN npm ci --include=dev
+RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build

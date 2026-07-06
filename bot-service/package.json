@@ -7,7 +7,6 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "npm run build && node --test dist/services/universeFilterSymmetry.test.js",
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
