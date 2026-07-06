@@ -1021,28 +1021,20 @@ function mergeWalletBotStatsIntoDashboard(
     };
   });
 
-  const botByUserId = new Map(
-    active_bots.filter((b) => b.user_id).map((b) => [b.user_id as string, b])
-  );
-  const botByWallet = new Map(active_bots.map((b) => [b.wallet_address.toLowerCase(), b]));
-
   const users = dash.users.map((u) => {
     const w = u.wallet_address?.trim().toLowerCase() ?? '';
-    const bot = (u.id ? botByUserId.get(u.id) : undefined) ?? (w ? botByWallet.get(w) : undefined);
-    const effectiveWallet = bot?.wallet_address ?? w;
-    const s = effectiveWallet ? statsByWallet.get(effectiveWallet) : undefined;
-    if (!s && !bot) return u;
+    const s = w ? statsByWallet.get(w) : undefined;
+    if (!s) return u;
     return {
       ...u,
-      wallet_address: effectiveWallet || u.wallet_address,
-      closed_trades_count: s?.bot_closed_trades_count ?? u.closed_trades_count,
-      closed_pnl_total: s?.bot_closed_pnl_usd ?? u.closed_pnl_total,
-      fees_accrued_usd: s?.fees_accrued_usd ?? u.fees_accrued_usd,
-      fees_settled_usd: s?.fees_settled_usd ?? u.fees_settled_usd,
-      fees_paid_usd: s?.fees_paid_usd ?? u.fees_paid_usd,
-      fee_win_count: s?.unpaid_bot_fee_wins ?? u.fee_win_count,
-      wins_until_fee: Math.max(0, 20 - (s?.unpaid_bot_fee_wins ?? u.fee_win_count ?? 0)),
-      lifetime_bot_fee_wins: s?.lifetime_bot_fee_wins,
+      closed_trades_count: s.bot_closed_trades_count ?? u.closed_trades_count,
+      closed_pnl_total: s.bot_closed_pnl_usd ?? u.closed_pnl_total,
+      fees_accrued_usd: s.fees_accrued_usd ?? u.fees_accrued_usd,
+      fees_settled_usd: s.fees_settled_usd ?? u.fees_settled_usd,
+      fees_paid_usd: s.fees_paid_usd ?? u.fees_paid_usd,
+      fee_win_count: s.unpaid_bot_fee_wins ?? u.fee_win_count,
+      wins_until_fee: Math.max(0, 20 - (s.unpaid_bot_fee_wins ?? u.fee_win_count ?? 0)),
+      lifetime_bot_fee_wins: s.lifetime_bot_fee_wins,
     };
   });
 
@@ -1175,6 +1167,263 @@ function isMissingAdminTradeHistoryRpc(error: {
   );
 }
 
+const ADMIN_TRADE_HISTORY_SELECT =
+  'id,wallet_address,token_symbol,direction,leverage,entry_price,exit_price,entry_amount,exit_amount,profit_loss,profit_loss_percent,snapshot_pnl_usd,close_reason,execution_venue,platform_success_fee,platform_fee_status,closed_at';
+
+function isFullEthWallet(wallet: string): boolean {
+  return /^0x[a-f0-9]{40}$/i.test(wallet.trim());
+}
+
+async function resolveAdminTradeHistoryWallets(
+  wallet: string | null,
+  email: string | null
+): Promise<string[] | null> {
+  const walletNeedle = wallet?.trim().toLowerCase() || null;
+  const emailNeedle = email?.trim() || null;
+  if (!walletNeedle && !emailNeedle) return null;
+  if (walletNeedle && isFullEthWallet(walletNeedle) && !emailNeedle) {
+    return [walletNeedle];
+  }
+
+  let profileQuery = supabase
+    .from('profiles')
+    .select('wallet_address')
+    .not('wallet_address', 'is', null);
+  if (emailNeedle) profileQuery = profileQuery.ilike('email', `%${emailNeedle}%`);
+  if (walletNeedle) profileQuery = profileQuery.ilike('wallet_address', `%${walletNeedle}%`);
+
+  const { data, error } = await profileQuery.limit(100);
+  if (error) {
+    console.error('[adminDashboard] trade history profile filter failed', error);
+    return walletNeedle ? [walletNeedle] : [];
+  }
+
+  const wallets = [
+    ...new Set(
+      (data ?? [])
+        .map((row) => String(row.wallet_address ?? '').trim().toLowerCase())
+        .filter(Boolean)
+    ),
+  ];
+  if (wallets.length === 0) {
+    if (emailNeedle) return [];
+    if (walletNeedle) return null;
+  }
+  return wallets;
+}
+
+async function fetchAdminTradeHistoryUserStats(
+  wallets: string[] | null,
+  walletNeedle: string | null,
+  emailNeedle: string | null
+): Promise<AdminTradeHistoryUserStats | null> {
+  if (!wallets?.length && !walletNeedle && !emailNeedle) return null;
+
+  const targetWallets =
+    wallets ??
+    (walletNeedle && isFullEthWallet(walletNeedle) ? [walletNeedle.toLowerCase()] : null);
+  if (!targetWallets?.length) return null;
+
+  const primaryWallet =
+    targetWallets.length === 1
+      ? targetWallets[0]!
+      : walletNeedle && isFullEthWallet(walletNeedle)
+        ? walletNeedle.toLowerCase()
+        : targetWallets[0]!;
+
+  const [tradesRes, profileRes, openRes, feeAccruedRes, feePaidRes, feeStateRes, lifetimeRes] =
+    await Promise.all([
+      supabase
+        .from('trade_history')
+        .select('profit_loss')
+        .not('closed_at', 'is', null)
+        .or('execution_venue.is.null,execution_venue.eq.hyperliquid')
+        .in('wallet_address', targetWallets),
+      supabase
+        .from('profiles')
+        .select('email,wallet_address')
+        .ilike('wallet_address', primaryWallet)
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('positions')
+        .select('id', { count: 'exact', head: true })
+        .in('wallet_address', targetWallets)
+        .in('status', ['open', 'closing']),
+      supabase
+        .from('hl_fee_ledger')
+        .select('accrued_fee_usd,success_fee_usd')
+        .in('wallet_address', targetWallets)
+        .eq('status', 'accrued'),
+      supabase
+        .from('platform_fee_payments')
+        .select('amount_usd')
+        .in('wallet_address', targetWallets),
+      supabase
+        .from('wallet_platform_fee_state')
+        .select('success_win_count')
+        .ilike('wallet_address', primaryWallet)
+        .maybeSingle(),
+      supabase
+        .from('hl_fee_ledger')
+        .select('id', { count: 'exact', head: true })
+        .in('wallet_address', targetWallets)
+        .eq('fee_source', 'bot')
+        .eq('status', 'accrued')
+        .gt('success_fee_usd', 0),
+    ]);
+
+  const closedPnl = (tradesRes.data ?? []).reduce((sum, row) => sum + num(row.profit_loss), 0);
+  const feesAccrued = (feeAccruedRes.data ?? []).reduce(
+    (sum, row) => sum + num(row.accrued_fee_usd ?? row.success_fee_usd),
+    0
+  );
+  const feesPaid = (feePaidRes.data ?? []).reduce((sum, row) => sum + num(row.amount_usd), 0);
+  const feeWinCount = Number(feeStateRes.data?.success_win_count) || 0;
+
+  return {
+    wallet_address: primaryWallet,
+    email: profileRes.data?.email != null ? String(profileRes.data.email) : null,
+    closed_pnl_total: closedPnl,
+    closed_trades_count: tradesRes.data?.length ?? 0,
+    open_positions_count: openRes.count ?? 0,
+    fees_accrued_usd: feesAccrued,
+    fees_paid_usd: feesPaid,
+    fee_win_count: feeWinCount,
+    wins_until_fee: Math.max(0, FEE_WINS_BEFORE_BLOCK - feeWinCount),
+    lifetime_bot_fee_wins: lifetimeRes.count ?? 0,
+  };
+}
+
+/** Direct table query when RPC is missing or filter RPC is stale. */
+async function fetchAdminHlTradeHistoryViaTables(
+  opts: {
+    limit: number;
+    offset: number;
+    wallet: string | null;
+    email: string | null;
+  }
+): Promise<AdminHlTradeHistoryPage | null> {
+  const { limit: pageSize, offset, wallet, email } = opts;
+  const walletNeedle = wallet?.trim().toLowerCase() || null;
+  const emailNeedle = email?.trim() || null;
+  const wallets = await resolveAdminTradeHistoryWallets(wallet, email);
+
+  if (wallets && wallets.length === 0) {
+    return { total: 0, limit: pageSize, offset, rows: [], user_stats: null };
+  }
+
+  let countQuery = supabase
+    .from('trade_history')
+    .select('id', { count: 'exact', head: true })
+    .not('closed_at', 'is', null)
+    .or('execution_venue.is.null,execution_venue.eq.hyperliquid');
+
+  if (wallets?.length === 1) {
+    countQuery = countQuery.ilike('wallet_address', wallets[0]!);
+  } else if (wallets && wallets.length > 1) {
+    countQuery = countQuery.in('wallet_address', wallets);
+  } else if (walletNeedle) {
+    countQuery = countQuery.ilike('wallet_address', `%${walletNeedle}%`);
+  }
+
+  let query = supabase
+    .from('trade_history')
+    .select(ADMIN_TRADE_HISTORY_SELECT, { count: 'exact' })
+    .not('closed_at', 'is', null)
+    .or('execution_venue.is.null,execution_venue.eq.hyperliquid')
+    .order('closed_at', { ascending: false })
+    .range(offset, offset + pageSize - 1);
+
+  if (wallets?.length === 1) {
+    query = query.ilike('wallet_address', wallets[0]!);
+  } else if (wallets && wallets.length > 1) {
+    query = query.in('wallet_address', wallets);
+  } else if (walletNeedle) {
+    query = query.ilike('wallet_address', `%${walletNeedle}%`);
+  }
+
+  const [{ data, error }, { count, error: countError }] = await Promise.all([
+    query,
+    countQuery,
+  ]);
+  if (error) {
+    console.error('[adminDashboard] trade history table fallback failed', error);
+    return null;
+  }
+  if (countError) {
+    console.error('[adminDashboard] trade history count failed', countError);
+  }
+
+  const walletSet = new Set(
+    (data ?? []).map((row) => String(row.wallet_address ?? '').toLowerCase()).filter(Boolean)
+  );
+  const profileByWallet = new Map<string, string | null>();
+  if (walletSet.size > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('wallet_address,email')
+      .in('wallet_address', [...walletSet]);
+    for (const profile of profiles ?? []) {
+      const key = String(profile.wallet_address ?? '').toLowerCase();
+      if (key) profileByWallet.set(key, profile.email != null ? String(profile.email) : null);
+    }
+    if (emailNeedle) {
+      for (const key of walletSet) {
+        if (profileByWallet.has(key)) continue;
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('email')
+          .ilike('wallet_address', key)
+          .ilike('email', `%${emailNeedle}%`)
+          .limit(1)
+          .maybeSingle();
+        if (profile) profileByWallet.set(key, profile.email != null ? String(profile.email) : null);
+      }
+    }
+  }
+
+  const rows = (data ?? []).map((row) =>
+    mapAdminTradeCloseRow({
+      ...row,
+      email: profileByWallet.get(String(row.wallet_address ?? '').toLowerCase()) ?? null,
+    })
+  );
+
+  let filteredRows = rows;
+  if (emailNeedle) {
+    filteredRows = rows.filter((row) =>
+      (row.email ?? '').toLowerCase().includes(emailNeedle.toLowerCase())
+    );
+  }
+
+  const userStats = await fetchAdminTradeHistoryUserStats(wallets, walletNeedle, emailNeedle);
+
+  let total = count ?? filteredRows.length;
+  if (emailNeedle) {
+    const allWallets = wallets ?? [];
+    if (allWallets.length > 0) {
+      const { count: emailTotal } = await supabase
+        .from('trade_history')
+        .select('id', { count: 'exact', head: true })
+        .not('closed_at', 'is', null)
+        .or('execution_venue.is.null,execution_venue.eq.hyperliquid')
+        .in('wallet_address', allWallets);
+      total = emailTotal ?? filteredRows.length;
+    } else {
+      total = filteredRows.length;
+    }
+  }
+
+  return {
+    total,
+    limit: pageSize,
+    offset,
+    rows: filteredRows,
+    user_stats: userStats,
+  };
+}
+
 function parseAdminHlTradeHistoryPayload(
   data: unknown,
   pageSize: number
@@ -1212,6 +1461,28 @@ function parseAdminHlTradeHistoryPayload(
   };
 }
 
+function tradeHistoryRpcIgnoredFilter(
+  rows: AdminTradeClose[],
+  wallet: string | null,
+  email: string | null
+): boolean {
+  const walletNeedle = wallet?.trim().toLowerCase() || null;
+  const emailNeedle = email?.trim().toLowerCase() || null;
+  if (!walletNeedle && !emailNeedle) return false;
+  if (rows.length === 0) return false;
+
+  if (walletNeedle && isFullEthWallet(walletNeedle)) {
+    return rows.some((r) => r.wallet_address.toLowerCase() !== walletNeedle);
+  }
+  if (walletNeedle) {
+    return rows.some((r) => !r.wallet_address.toLowerCase().includes(walletNeedle));
+  }
+  if (emailNeedle) {
+    return rows.some((r) => !(r.email ?? '').toLowerCase().includes(emailNeedle));
+  }
+  return false;
+}
+
 /** Full paginated HL trade_history for admin History tab. */
 export async function fetchAdminHlTradeHistory(
   opts: {
@@ -1225,6 +1496,18 @@ export async function fetchAdminHlTradeHistory(
   const offset = Math.max(0, opts.offset ?? 0);
   const wallet = opts.wallet?.trim() || null;
   const email = opts.email?.trim() || null;
+  const hasFilter = Boolean(wallet || email);
+
+  // Filtered queries: table path resolves profiles → wallets reliably (RPC may be stale).
+  if (hasFilter) {
+    const tableFiltered = await fetchAdminHlTradeHistoryViaTables({
+      limit: pageSize,
+      offset,
+      wallet,
+      email,
+    });
+    if (tableFiltered) return tableFiltered;
+  }
 
   const { data, error } = await supabase.rpc('get_admin_hl_trade_history', {
     p_limit: pageSize,
@@ -1234,34 +1517,34 @@ export async function fetchAdminHlTradeHistory(
   });
 
   if (!error) {
-    return parseAdminHlTradeHistoryPayload(data, pageSize);
+    const parsed = parseAdminHlTradeHistoryPayload(data, pageSize);
+    if (!hasFilter || !tradeHistoryRpcIgnoredFilter(parsed.rows, wallet, email)) {
+      return parsed;
+    }
+    console.warn('[adminDashboard] trade history RPC ignored filter — using table fallback');
+  } else if (!isMissingAdminTradeHistoryRpc(error)) {
+    console.error('[adminDashboard] get_admin_hl_trade_history failed', error);
   }
 
-  if (isMissingAdminTradeHistoryRpc(error)) {
+  if (isMissingAdminTradeHistoryRpc(error) && !hasFilter) {
     const legacy = await supabase.rpc('get_admin_hl_trade_history', {
       p_limit: pageSize,
       p_offset: offset,
     });
     if (!legacy.error) {
-      const page = parseAdminHlTradeHistoryPayload(legacy.data, pageSize);
-      if (!wallet && !email) return page;
-
-      const walletNeedle = wallet?.toLowerCase() ?? '';
-      const emailNeedle = email?.toLowerCase() ?? '';
-      const rows = page.rows.filter((row) => {
-        const walletMatch =
-          !walletNeedle || row.wallet_address.toLowerCase().includes(walletNeedle);
-        const emailMatch =
-          !emailNeedle || (row.email ?? '').toLowerCase().includes(emailNeedle);
-        return walletMatch && emailMatch;
-      });
-      return { ...page, rows, user_stats: null };
+      return parseAdminHlTradeHistoryPayload(legacy.data, pageSize);
     }
     console.error('[adminDashboard] get_admin_hl_trade_history legacy failed', legacy.error);
-    return { total: 0, limit: pageSize, offset, rows: [], user_stats: null };
   }
 
-  console.error('[adminDashboard] get_admin_hl_trade_history failed', error);
+  const tableFallback = await fetchAdminHlTradeHistoryViaTables({
+    limit: pageSize,
+    offset,
+    wallet,
+    email,
+  });
+  if (tableFallback) return tableFallback;
+
   return { total: 0, limit: pageSize, offset, rows: [], user_stats: null };
 }
 

@@ -74,7 +74,7 @@ export function snapshotFromVaultSettingsRow(row: VaultSettingsRow): VaultSettin
   return resolveVaultSettingsSnapshot(row, {
     riskLevelPercent: 5,
     takeProfitPercent: 0,
-    stopLossPercent: 4,
+    stopLossPercent: 0,
     maxLeverage: 5,
     autoTradeEnabled: false,
   });

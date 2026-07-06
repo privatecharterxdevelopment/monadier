@@ -1646,6 +1646,7 @@ function UsersPanel({
   onViewHistory: (wallet: string, email: string | null) => void;
 }) {
   const [page, setPage] = useState(0);
+  const [search, setSearch] = useState('');
   const positionsByWallet = useMemo(() => {
     const map = new Map<string, AdminHlDashboard['open_positions']>();
     for (const p of openPositions) {
@@ -1657,8 +1658,25 @@ function UsersPanel({
     return map;
   }, [openPositions]);
 
+  const filteredRows = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return rows;
+    return rows.filter((u) => {
+      const email = (u.email ?? '').toLowerCase();
+      const wallet = (u.wallet_address ?? '').toLowerCase();
+      const username = (u.username ?? '').toLowerCase();
+      const name = (u.full_name ?? '').toLowerCase();
+      return (
+        email.includes(needle) ||
+        wallet.includes(needle) ||
+        username.includes(needle) ||
+        name.includes(needle)
+      );
+    });
+  }, [rows, search]);
+
   const sortedRows = useMemo(() => {
-    return [...rows].sort((a, b) => {
+    return [...filteredRows].sort((a, b) => {
       const aOpen = a.open_positions_count ?? (a.wallet_address
         ? (positionsByWallet.get(a.wallet_address.toLowerCase())?.length ?? 0)
         : 0);
@@ -1667,7 +1685,7 @@ function UsersPanel({
         : 0);
       return bOpen - aOpen || (a.email ?? '').localeCompare(b.email ?? '');
     });
-  }, [rows, positionsByWallet]);
+  }, [filteredRows, positionsByWallet]);
 
   const { pageRows, totalPages, safePage, total } = useMemo(
     () => paginate(sortedRows, page),
@@ -1675,17 +1693,45 @@ function UsersPanel({
   );
 
   return (
-    <TableShell
-      title={`Users (${total})`}
-      subtitle="profiles · closed P/L · fees · open positions"
-      scrollable
-      pagination={{
-        page: safePage,
-        totalPages,
-        total,
-        onPageChange: setPage,
-      }}
-    >
+    <div className="space-y-4">
+      <div className="rounded-xl border border-border bg-card-dark p-4 flex flex-wrap gap-3 items-end">
+        <label className="flex flex-col gap-1 text-xs text-secondary min-w-[240px] flex-1">
+          Search users
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(0);
+            }}
+            placeholder="email, wallet, username, name…"
+            className="px-3 py-2 rounded-lg bg-black/30 border border-border text-sm text-primary"
+          />
+        </label>
+        {search.trim() ? (
+          <button
+            type="button"
+            onClick={() => {
+              setSearch('');
+              setPage(0);
+            }}
+            className="px-4 py-2 rounded-lg border border-border text-sm text-secondary hover:text-primary"
+          >
+            Clear
+          </button>
+        ) : null}
+      </div>
+      <TableShell
+        title={`Users (${total}${search.trim() ? ` · filtered from ${rows.length}` : ''})`}
+        subtitle="profiles · closed P/L · fees · open positions"
+        scrollable
+        pagination={{
+          page: safePage,
+          totalPages,
+          total,
+          onPageChange: setPage,
+        }}
+      >
       <thead>
         <tr className="text-left text-secondary text-xs">
           <th className="px-4 py-3">Email</th>
@@ -1798,6 +1844,7 @@ function UsersPanel({
         })}
       </tbody>
     </TableShell>
+    </div>
   );
 }
 

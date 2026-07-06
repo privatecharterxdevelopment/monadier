@@ -47,7 +47,7 @@ export async function saveNewsTradeMode(
     risk_level_bps: row?.risk_level_bps ?? 500,
     leverage_multiplier: row?.leverage_multiplier ?? 5,
     take_profit_percent: row?.take_profit_percent ?? 0,
-    stop_loss_percent: row?.stop_loss_percent ?? 4,
+    stop_loss_percent: row?.stop_loss_percent ?? 0,
     ask_permission: row?.ask_permission ?? false,
     min_win_rate_percent: row?.min_win_rate_percent ?? 0,
     min_trades_for_win_rate_gate: row?.min_trades_for_win_rate_gate ?? 5,

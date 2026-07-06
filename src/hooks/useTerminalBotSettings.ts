@@ -107,8 +107,8 @@ export function useTerminalBotSettings(refreshKey = 0) {
 
       const snapshot = resolveVaultSettingsSnapshot(row, {
         riskLevelPercent: (row?.risk_level_bps ?? 500) / 100,
-        takeProfitPercent: Number(row?.take_profit_percent ?? 5),
-        stopLossPercent: Number(row?.stop_loss_percent ?? 3),
+        takeProfitPercent: Number(row?.take_profit_percent ?? 0),
+        stopLossPercent: Number(row?.stop_loss_percent ?? 0),
         maxLeverage: Number(row?.leverage_multiplier ?? 10),
         autoTradeEnabled: Boolean(row?.auto_trade_enabled),
       });
