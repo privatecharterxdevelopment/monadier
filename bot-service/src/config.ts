@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { MONADIER_VAULT_V11_ADDRESS } from './monadierVault';
+import { MONADIER_VAULT_V11_ADDRESS, MONADIER_VAULT_V11_TREASURY_ADDRESS } from './monadierVault';
 
 dotenv.config();
 
@@ -8,7 +8,6 @@ const requiredEnvVars = [
   'BOT_PRIVATE_KEY',
   'SUPABASE_URL',
   'SUPABASE_SERVICE_KEY',
-  'TREASURY_ADDRESS'
 ];
 
 for (const envVar of requiredEnvVars) {
@@ -25,8 +24,9 @@ export const config = {
   supabaseUrl: process.env.SUPABASE_URL!,
   supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
 
-  // Treasury
-  treasuryAddress: process.env.TREASURY_ADDRESS as `0x${string}`,
+  // Treasury — optional on Railway; defaults to canonical Monadier treasury.
+  treasuryAddress: (process.env.TREASURY_ADDRESS ||
+    MONADIER_VAULT_V11_TREASURY_ADDRESS) as `0x${string}`,
 
   // ============================================
   // ARBITRUM ONLY - V11 GMX VAULT (RECONCILE FIX)
