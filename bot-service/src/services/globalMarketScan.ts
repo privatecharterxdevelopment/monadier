@@ -37,6 +37,31 @@ export type GlobalSignalCandidate = {
 
 const STANDARD_STRATEGY: TradingStrategy = 'normal';
 
+/** Match DOWN / STRONG_DOWNTREND / bearish labels from signalEngine + market MTF. */
+function isH1DownTrend(h1Trend: string | undefined | null): boolean {
+  const t = String(h1Trend ?? '');
+  return /DOWN/i.test(t) || /DOWNTREND/i.test(t);
+}
+
+/** Match UP / STRONG_UPTREND — keep SHORT blocks symmetric. */
+function isH1UpTrend(h1Trend: string | undefined | null): boolean {
+  const t = String(h1Trend ?? '');
+  return /UP/i.test(t) || /UPTREND/i.test(t);
+}
+
+/**
+ * Hard counter-trend veto — never open LONG into a 1h downtrend (or SHORT into up).
+ * Applies on every scan path including relaxed + major fallback.
+ */
+export function counterTrendBlocked(
+  direction: 'LONG' | 'SHORT',
+  h1Trend: string | undefined | null
+): boolean {
+  if (direction === 'LONG' && isH1DownTrend(h1Trend)) return true;
+  if (direction === 'SHORT' && isH1UpTrend(h1Trend)) return true;
+  return false;
+}
+
 export type HlGlobalScanStats = {
   coinsScanned: number;
   liquidUniverse: number;
@@ -76,6 +101,14 @@ async function scanMajorChartFallback(
     if (analysis.confidence < 48) return null;
     const tfs = analysis.metrics?.directionalTfCount ?? 0;
     if (tfs < 1) return null;
+    if (counterTrendBlocked(analysis.direction, analysis.metrics?.h1Trend)) {
+      logger.debug('HL major fallback skip: 1h counter-trend', {
+        coin,
+        direction: analysis.direction,
+        h1Trend: analysis.metrics?.h1Trend,
+      });
+      return null;
+    }
 
     return {
       coin,
@@ -148,15 +181,14 @@ async function scanStandardCoin(
     }
     if ((analysis.metrics?.directionalTfCount ?? 0) < minTfs) return null;
     if ((analysis.metrics?.trendAlignment ?? 0) < minAlign) return null;
-    if (
-      !relaxed &&
-      (
-        (analysis.direction === 'LONG' && analysis.metrics?.h1Trend === 'DOWN') ||
-        (analysis.direction === 'SHORT' &&
-          (/UP/i.test(String(analysis.metrics?.h1Trend ?? '')) ||
-            analysis.metrics?.h1Trend === 'STRONG_UPTREND'))
-      )
-    ) {
+    // Always enforce — relaxed fallback previously skipped this and opened LONGs in dumps.
+    if (counterTrendBlocked(analysis.direction, analysis.metrics?.h1Trend)) {
+      logger.debug('HL scan skip: 1h counter-trend', {
+        coin,
+        direction: analysis.direction,
+        h1Trend: analysis.metrics?.h1Trend,
+        relaxed,
+      });
       return null;
     }
     if (analysis.direction === 'SHORT') {
@@ -214,20 +246,20 @@ async function scanAggressiveCoin(
 
     const h1Check = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
     if (h1Check) {
+      if (counterTrendBlocked(scalp.direction, h1Check.metrics?.h1Trend)) {
+        logger.debug('HL agg scan skip: 1h counter-trend', {
+          coin,
+          direction: scalp.direction,
+          h1Trend: h1Check.metrics?.h1Trend,
+        });
+        return null;
+      }
       if (scalp.direction === 'SHORT') {
-        if (/UP/i.test(String(h1Check.metrics?.h1Trend ?? ''))) {
-          logger.debug('HL agg scan skip: 1h trend UP blocks SHORT', { coin });
-          return null;
-        }
         const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
         if (!pumpGate.ok) {
           logger.debug('HL agg scan skip: pump-short gate', { coin, reason: pumpGate.reason });
           return null;
         }
-      }
-      if (scalp.direction === 'LONG' && h1Check.metrics?.h1Trend === 'DOWN') {
-        logger.debug('HL agg scan skip: 1h trend DOWN blocks LONG', { coin });
-        return null;
       }
     }
 

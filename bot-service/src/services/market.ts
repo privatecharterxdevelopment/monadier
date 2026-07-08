@@ -1207,8 +1207,8 @@ export async function analyzeMarketMTFBySymbol(
       (tf) => tf.direction === finalDirection
     ).length;
     const counterTrend =
-      (finalDirection === 'LONG' && trend === 'DOWN') ||
-      (finalDirection === 'SHORT' && trend === 'UP');
+      (finalDirection === 'LONG' && (trend === 'DOWN' || trend.includes('DOWNTREND'))) ||
+      (finalDirection === 'SHORT' && (trend === 'UP' || trend.includes('UPTREND')));
     const trendAligned =
       directionalTfCount >= config.hyperliquid.minDirectionalTfs &&
       signal.trendAlignment >= config.hyperliquid.minTrendAlignment &&
