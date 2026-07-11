@@ -12,8 +12,8 @@ export function getSiteOrigin(): string {
   return configured || FALLBACK_SITE_ORIGIN;
 }
 
-/** @deprecated use getSiteOrigin() — build-time fallback only */
-export const SITE_ORIGIN = getSiteOrigin();
+/** @deprecated use getSiteOrigin() — build-time / SSR fallback only */
+export const SITE_ORIGIN = BRAND_SITE_URL;
 
 export const SITE_NAME = BRAND_NAME;
 

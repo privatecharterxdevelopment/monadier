@@ -27,10 +27,11 @@ source <(grep -E '^VITE_' .env.local | sed 's/^/export /')
 : "${VITE_SUPABASE_URL:?Set VITE_SUPABASE_URL in .env.local}"
 : "${VITE_SUPABASE_ANON_KEY:?Set VITE_SUPABASE_ANON_KEY in .env.local}"
 
-# Use monadier.vercel.app until monadier.io is added in Vercel Domains + DNS (avoid cert/HSTS errors).
+# Keep monadier.vercel.app until hypergain.io DNS is verified (do not break testing).
 VITE_SITE_URL="${VITE_SITE_URL:-https://monadier.vercel.app}"
 VITE_APP_URL="${VITE_APP_URL:-https://monadier.vercel.app}"
 VITE_BOT_API_URL="${VITE_BOT_API_URL:-https://monadier-production.up.railway.app}"
+VITE_SPLIT_DOMAINS="${VITE_SPLIT_DOMAINS:-false}"
 
 add_env() {
   local name="$1"
@@ -51,6 +52,7 @@ add_env VITE_SUPABASE_ANON_KEY "$VITE_SUPABASE_ANON_KEY"
 add_env VITE_SITE_URL "$VITE_SITE_URL"
 add_env VITE_APP_URL "$VITE_APP_URL"
 add_env VITE_BOT_API_URL "$VITE_BOT_API_URL"
+add_env VITE_SPLIT_DOMAINS "$VITE_SPLIT_DOMAINS"
 
 if [[ -n "${VITE_WALLETCONNECT_PROJECT_ID:-}" && "$VITE_WALLETCONNECT_PROJECT_ID" != *your-* ]]; then
   add_env VITE_WALLETCONNECT_PROJECT_ID "$VITE_WALLETCONNECT_PROJECT_ID"

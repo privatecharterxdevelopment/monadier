@@ -66,12 +66,14 @@ const ProTradeProfile: React.FC<Props> = ({
         </nav>
       </div>
 
-      <HlFundsOverviewPanel
-        walletAddress={address ?? undefined}
-        onRequireSignIn={onRequireSignIn}
-        className="hl-funds-overview--profile"
-        title="Hyperliquid account"
-      />
+      {tab === 'identity' ? (
+        <HlFundsOverviewPanel
+          walletAddress={address ?? undefined}
+          onRequireSignIn={onRequireSignIn}
+          className="hl-funds-overview--profile"
+          title="Hyperliquid account"
+        />
+      ) : null}
 
       <div
         className={`hl-profile-body hl-profile-scope${tab === 'botTrades' ? ' hl-profile-body--bot-trades' : ''}`}

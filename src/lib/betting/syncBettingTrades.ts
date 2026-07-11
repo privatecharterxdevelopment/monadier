@@ -198,5 +198,22 @@ export async function recordBettingOpenAfterOrder(
       .from('hl_betting_positions')
       .upsert(rowPayload, { onConflict: 'user_id,wallet_address,balance_coin' }));
   }
-  if (error) devError('[betting sync] open after order', error);
+  if (error) {
+    devError('[betting sync] open after order', error);
+    return;
+  }
+
+  if (BETTING_ACCRUED_FEES_ENABLED) {
+    const notionalUsd = Number(row.entryNtl) || Number(row.size) * Number(row.avgEntryPx);
+    if (notionalUsd > 0) {
+      void recordBettingFeeEvent({
+        wallet,
+        eventType: 'buy',
+        marketName: String(row.marketName ?? 'Bet'),
+        outcomeId: row.outcomeId,
+        notionalUsd,
+        externalRef: `betting:buy:${wallet}:${row.balanceCoin}`,
+      });
+    }
+  }
 }

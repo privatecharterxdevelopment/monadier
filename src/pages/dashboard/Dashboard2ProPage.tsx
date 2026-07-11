@@ -58,7 +58,7 @@ import { readNum, toNum } from '../../lib/hyperliquid/parse';
 import { hlCoinToBotSymbol, normalizeHlPerpCoin } from '../../lib/botTradingPairs';
 import { filterHlPositions } from '../../lib/hyperliquid/splitHlPositions';
 import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
-import { HL_MAX_CONCURRENT_POSITIONS } from '../../lib/hlBotConstants';
+import { HL_DEFAULT_CONCURRENT_POSITIONS } from '../../lib/hlBotConstants';
 import { useBotServerBlockers } from '../../hooks/useBotServerBlockers';
 import { useBotPositionBadge } from '../../hooks/useBotPositionBadge';
 import { useAuth } from '../../contexts/AuthContext';
@@ -251,7 +251,13 @@ const Dashboard2ProPageContent: React.FC = () => {
     section === 'bot' && botVaultSettings.autoTradeEnabled
   );
   const botScanCoin = useMemo(() => {
-    if (botOpenPositionCount >= HL_MAX_CONCURRENT_POSITIONS) {
+    const maxSlots =
+      botVaultSettings.maxConcurrentPositions >= 3
+        ? 3
+        : botVaultSettings.maxConcurrentPositions >= 2
+          ? 2
+          : HL_DEFAULT_CONCURRENT_POSITIONS;
+    if (botOpenPositionCount >= maxSlots) {
       return botOpenPosition?.coin ?? perpCoin;
     }
     const next = botServerStatus.nextSetup?.coin?.toUpperCase();
@@ -261,6 +267,7 @@ const Dashboard2ProPageContent: React.FC = () => {
     botOpenPositionCount,
     botOpenPosition?.coin,
     botServerStatus.nextSetup?.coin,
+    botVaultSettings.maxConcurrentPositions,
     perpCoin,
   ]);
 

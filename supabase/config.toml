@@ -1,4 +1,5 @@
-# Supabase Configuration for Monadier
+# Supabase Configuration for HyperGain
+# site_url stays on the live test host until hypergain.io DNS is verified.
 
 [api]
 enabled = true
@@ -25,16 +26,23 @@ file_size_limit = "50MiB"
 
 [auth]
 enabled = true
+# Keep vercel as Site URL so current testing keeps working.
 site_url = "https://monadier.vercel.app"
 additional_redirect_urls = [
-  "https://monadier.vercel.app/reset-password",
   "https://monadier.vercel.app/auth/callback",
-  "https://app.monadier.io/reset-password",
+  "https://monadier.vercel.app/reset-password",
+  "https://hypergain.io/auth/callback",
+  "https://hypergain.io/reset-password",
+  "https://www.hypergain.io/auth/callback",
+  "https://www.hypergain.io/reset-password",
+  "https://app.hypergain.io/auth/callback",
+  "https://app.hypergain.io/reset-password",
   "https://app.monadier.io/auth/callback",
-  "https://www.monadier.io/reset-password",
+  "https://app.monadier.io/reset-password",
   "https://www.monadier.io/auth/callback",
-  "http://localhost:5173/reset-password",
+  "https://www.monadier.io/reset-password",
   "http://localhost:5173/auth/callback",
+  "http://localhost:5173/reset-password",
 ]
 jwt_expiry = 3600
 enable_signup = true
@@ -42,8 +50,8 @@ enable_signup = true
 [auth.email]
 enable_confirmations = true
 
-[auth.external.google]
-enabled = false
+# Google Client ID/Secret live only in the Supabase Dashboard — omit provider
+# block here so `config push` does not disable Google.
 
 [auth.external.discord]
 enabled = false

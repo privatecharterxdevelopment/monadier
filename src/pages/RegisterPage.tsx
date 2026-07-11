@@ -1,137 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
 import Logo from '../components/ui/Logo';
-import {
-  signUp,
-  signInWithGoogle,
-  sendWelcomeEmail,
-  supabase,
-  isUsernameAvailable,
-} from '../lib/supabase';
-import { validateUsername } from '../lib/username';
-import { Gift } from 'lucide-react';
-import { useNotifications } from '../contexts/NotificationContext';
 import MarketingSeo from '../components/seo/MarketingSeo';
+import RegisterForm from '../components/auth/RegisterForm';
 import { afterAuthGo, getOpenAppPath } from '../lib/appUrls';
-import {
-  applyStoredReferralForUser,
-  captureReferralFromSearch,
-  getStoredReferralCode,
-} from '../lib/referralCapture';
+import { queueAuthToast } from '../lib/authToast';
+import { captureReferralFromSearch } from '../lib/referralCapture';
 
 const RegisterPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { addNotification } = useNotifications();
-
-  const [fullName, setFullName] = useState('');
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [country, setCountry] = useState('');
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [referralCode, setReferralCode] = useState('');
-
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [awaitingEmailConfirm, setAwaitingEmailConfirm] = useState(false);
 
   useEffect(() => {
     const ref = searchParams.get('ref') ?? searchParams.get('referral');
-    if (ref) {
-      captureReferralFromSearch(`?ref=${ref}`);
-    }
-    const stored = getStoredReferralCode();
-    if (stored) setReferralCode(stored);
+    if (ref) captureReferralFromSearch(`?ref=${ref}`);
   }, [searchParams]);
-
-  const handleGoogleSignIn = async () => {
-    setError('');
-    try {
-      const { error } = await signInWithGoogle();
-      if (error) throw error;
-    } catch (error: any) {
-      setError(error.message || t('auth.googleSignInFailed'));
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError('');
-    setIsLoading(true);
-
-    if (!acceptedTerms) {
-      setError(t('auth.register.acceptTermsRequired'));
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      const usernameErr = validateUsername(username);
-      if (usernameErr) {
-        setError(usernameErr);
-        setIsLoading(false);
-        return;
-      }
-
-      const available = await isUsernameAvailable(username);
-      if (!available) {
-        setError(t('auth.register.usernameTaken'));
-        setIsLoading(false);
-        return;
-      }
-
-      const { data, error } = await signUp(email, password, fullName, country, username);
-
-      if (error) {
-        throw error;
-      }
-
-      if (data?.session) {
-        const { ensureFreeSubscription } = await import('../lib/ensureSubscription');
-        void ensureFreeSubscription().catch(console.error);
-        const { acceptUserLegalTerms } = await import('../lib/legalAcceptance');
-        void acceptUserLegalTerms().catch(console.error);
-      }
-
-      sendWelcomeEmail(email, fullName).catch(console.error);
-
-      if (data?.user?.id && getStoredReferralCode()) {
-        try {
-          const result = await applyStoredReferralForUser(data.user.id);
-          if (result.success) {
-            addNotification({
-              type: 'info',
-              title: t('auth.register.referralNotificationTitle'),
-              message: t('auth.register.referralNotificationMessage'),
-            });
-          }
-        } catch (refError) {
-          console.error('Referral code error:', refError);
-        }
-      }
-
-      if (data?.session) {
-        queueAuthToast('signed_in');
-        const returnTo = searchParams.get('from');
-        afterAuthGo(
-          returnTo && returnTo.startsWith('/') ? returnTo : getOpenAppPath(),
-          navigate
-        );
-      } else {
-        setAwaitingEmailConfirm(true);
-      }
-    } catch (error: any) {
-      console.error('Registration error:', error);
-      setError(error.message || t('auth.register.createFailed'));
-      setIsLoading(false);
-    }
-  };
 
   return (
     <div className="auth-page auth-page--register">
@@ -147,173 +33,19 @@ const RegisterPage: React.FC = () => {
             <div className="auth-card-brand">
               <Logo size="sm" theme="light" />
             </div>
-
             <h1 className="auth-card-title">{t('auth.register.title')}</h1>
-
-            {awaitingEmailConfirm ? (
-              <div className="text-center py-2">
-                <p className="text-green-700 font-medium mb-2">{t('auth.register.checkEmail')}</p>
-                <p className="text-secondary text-sm mb-5">
-                  {t('auth.register.checkEmailDesc', { email })}
-                </p>
-                <Link to="/login" className="text-accent hover:underline text-sm">
-                  {t('auth.register.goToSignIn')}
-                </Link>
-              </div>
-            ) : (
-              <>
-                {referralCode && (
-                  <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2.5">
-                    <Gift className="w-4 h-4 text-green-700 flex-shrink-0" />
-                    <div>
-                      <p className="text-green-800 font-medium text-sm">{t('auth.register.referralLinked')}</p>
-                      <p className="text-xs text-secondary">{t('auth.register.referralDesc')}</p>
-                    </div>
-                  </div>
-                )}
-
-                {error && (
-                  <div className="mb-3 p-2.5 bg-error/10 border border-error/30 rounded-md text-error text-sm">
-                    {error}
-                  </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="auth-form-grid">
-                  <Input
-                    label={t('auth.register.fullName')}
-                    type="text"
-                    id="fullName"
-                    placeholder={t('auth.register.fullNamePlaceholder')}
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                  />
-
-                  <Input
-                    label={t('auth.register.username')}
-                    type="text"
-                    id="username"
-                    placeholder={t('auth.register.usernamePlaceholder')}
-                    value={username}
-                    onChange={(e) =>
-                      setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))
-                    }
-                    minLength={3}
-                    maxLength={20}
-                    required
-                  />
-
-                  <p className="auth-form-span-2 auth-form-hint">
-                    {t('auth.register.usernameHint')}
-                  </p>
-
-                  <Input
-                    label={t('auth.email')}
-                    type="email"
-                    id="email"
-                    placeholder={t('auth.emailPlaceholder')}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-
-                  <Input
-                    label={t('auth.password')}
-                    type="password"
-                    id="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    minLength={8}
-                    required
-                  />
-
-                  <div className="auth-form-span-2">
-                    <Input
-                      label={t('auth.register.country')}
-                      type="text"
-                      id="country"
-                      placeholder={t('auth.register.countryPlaceholder')}
-                      value={country}
-                      onChange={(e) => setCountry(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="auth-form-span-2 auth-form-terms">
-                    <label>
-                      <input
-                        type="checkbox"
-                        className="mt-0.5"
-                        checked={acceptedTerms}
-                        onChange={(e) => setAcceptedTerms(e.target.checked)}
-                        required
-                      />
-                      <span>
-                        {t('auth.register.acceptTerms')}{' '}
-                        <Link to="/terms" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">
-                          {t('auth.register.terms')}
-                        </Link>{' '}
-                        {t('auth.register.and')}{' '}
-                        <Link to="/privacy" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">
-                          {t('auth.register.privacy')}
-                        </Link>
-                      </span>
-                    </label>
-                  </div>
-
-                  <div className="auth-form-span-2 auth-form-actions">
-                    <Button type="submit" variant="primary" fullWidth isLoading={isLoading}>
-                      {t('auth.register.createAccount')}
-                    </Button>
-                  </div>
-                </form>
-
-                <div className="auth-divider">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-black/[0.08]" />
-                  </div>
-                  <div className="relative flex justify-center text-xs">
-                    <span className="px-3 bg-white/80 text-secondary">{t('auth.orContinueWith')}</span>
-                  </div>
-                </div>
-
-                <button type="button" onClick={handleGoogleSignIn} className="btn-oauth">
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden>
-                    <path
-                      fill="#4285F4"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    />
-                  </svg>
-                  <span className="text-[#0a0a0a] text-sm font-medium">{t('auth.continueGoogle')}</span>
-                </button>
-
-                <div className="auth-footer-links">
-                  <span>{t('auth.register.alreadyHaveAccount')}</span>
-                  <Link to="/login" className="text-accent hover:underline">
-                    {t('auth.register.signInLink')}
-                  </Link>
-                </div>
-
-                <p className="auth-footer-meta">
-                  <Link to="/how-it-works#funds" className="hover:text-accent underline">
-                    {t('auth.fundsLink')}
-                  </Link>
-                </p>
-              </>
-            )}
+            <RegisterForm
+              idPrefix="page-reg"
+              signInHref="/login"
+              onSessionCreated={() => {
+                queueAuthToast('signed_in');
+                const returnTo = searchParams.get('from');
+                afterAuthGo(
+                  returnTo && returnTo.startsWith('/') ? returnTo : getOpenAppPath(),
+                  navigate
+                );
+              }}
+            />
           </div>
         </motion.div>
       </div>

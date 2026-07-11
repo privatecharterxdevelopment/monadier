@@ -9,7 +9,7 @@ import { logger } from '../utils/logger';
 import { deriveUserHlAgent } from './hlAgent';
 import { hlAgentApprovalService } from './hlAgentApprovals';
 import { fetchHlSpotUsdcUsd } from './hlInfo';
-import { getBettingFeeStatus } from './bettingFees';
+import { getBettingFeeStatus, recordBettingFeeEvent } from './bettingFees';
 import { fetchAnalyzedSportsNews } from './sportsNewsService';
 import { queueBettingOpenNotification } from './tradeCloseEmail';
 import {
@@ -360,6 +360,16 @@ async function placeBet(user: AutoBettingUser, candidate: Candidate): Promise<bo
     size,
     entryPx: refPx,
     entryNtl: notional,
+  });
+
+  const balanceCoin = outcomeBalanceCoin(candidate.outcomeId, candidate.side);
+  await recordBettingFeeEvent({
+    walletAddress: user.wallet,
+    eventType: 'buy',
+    marketName: candidate.marketName,
+    outcomeId: candidate.outcomeId,
+    notionalUsd: notional,
+    externalRef: `betting:buy:${user.wallet}:${balanceCoin}`,
   });
 
   await queueBettingOpenNotification({

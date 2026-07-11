@@ -24,8 +24,11 @@ import { useBettingBuilderFee } from '../../../hooks/useBettingBuilderFee';
 import { useBettingFeeGate } from '../../../contexts/BettingFeeContext';
 import {
   BETTING_ACCRUED_FEES_ENABLED,
+  BETTING_BUY_FEE_LABEL,
   BETTING_WIN_FEE_LABEL,
 } from '../../../lib/betting/bettingAccruedFees';
+import { recordBettingFeeEvent } from '../../../lib/betting/bettingFeesApi';
+import { outcomeBalanceCoin } from '../../../lib/hyperliquid/outcomes/encoding';
 import { useBettingUi } from '../../../contexts/BettingUiContext';
 import { useLegalAcceptance } from '../../../contexts/LegalAcceptanceContext';
 import { BETTING_MOBILE_MQ } from '../../../hooks/useMediaQuery';
@@ -197,6 +200,18 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
           limitPrice: effectiveMode === 'limit' ? parsedLimit : undefined,
           quote,
         });
+        if (useAccruedBettingFees && walletAddress && notional > 0) {
+          const wallet = walletAddress.trim().toLowerCase();
+          const balanceCoin = outcomeBalanceCoin(market.outcomeId, side);
+          await recordBettingFeeEvent({
+            wallet,
+            eventType: 'buy',
+            marketName: market.name,
+            outcomeId: market.outcomeId,
+            notionalUsd: notional,
+            externalRef: `betting:buy:${wallet}:${balanceCoin}`,
+          });
+        }
         setLocalMsg(t('betting.betPlaced'));
         setAction('buy');
       } else {
@@ -410,7 +425,7 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
                 className="hl-sb-order-context-banner hl-sb-order-context-banner--err hl-sb-order-fee-due"
                 onClick={bettingFees.openPayModal}
               >
-                Pay {fmtUsdSymbol(bettingFees.accruedUsd)} after your win to place the next bet
+                Pay {fmtUsdSymbol(bettingFees.accruedUsd)} to place the next bet
               </button>
             ) : null}
 
@@ -423,8 +438,8 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
               </p>
             ) : useAccruedBettingFees && canBet ? (
               <p className="hl-sb-order-context-fee">
-                {BETTING_WIN_FEE_LABEL} platform fee on winning cash-outs only — pay on-chain after
-                your first win to unlock the next bet (losses are free).
+                {BETTING_BUY_FEE_LABEL} when you place · {BETTING_WIN_FEE_LABEL} on winning cash-outs —
+                pay on-chain to unlock the next bet.
               </p>
             ) : null}
           </div>

@@ -8,6 +8,7 @@ import { resolveHlTradingWallet } from '../lib/hlTradingWallet';
 import { resolveVaultSettingsSnapshot } from '../lib/vaultSettingsSnapshot';
 import { snapLeverageToStep } from '../lib/leverageLimits';
 import {
+  isMissingMaxConcurrentPositionsSchema,
   isMissingNewsTradeModeSchema,
   VAULT_SETTINGS_COLUMNS_BASE,
   VAULT_SETTINGS_COLUMNS_WITH_NEWS,
@@ -30,6 +31,7 @@ const defaultSettings: VaultSettingsSnapshot = {
   autoTradeEnabled: false,
   hlBotStrategy: 'standard' as const,
   newsTradeMode: 'filter' as const,
+  maxConcurrentPositions: 2,
 };
 
 export type TerminalBotSettings = {
@@ -103,14 +105,30 @@ export function useTerminalBotSettings(refreshKey = 0) {
         error = legacy.error;
       }
 
+      if (error && isMissingMaxConcurrentPositionsSchema(error.message)) {
+        const withoutSlots = VAULT_SETTINGS_COLUMNS_WITH_NEWS.replace(
+          ', max_concurrent_positions',
+          ''
+        ).replace('max_concurrent_positions, ', '');
+        const legacy = await supabase
+          .from('vault_settings')
+          .select(withoutSlots)
+          .eq('wallet_address', wallet.toLowerCase())
+          .eq('chain_id', BOT_SETTINGS_CHAIN_ID)
+          .maybeSingle();
+        row = legacy.data;
+        error = legacy.error;
+      }
+
       if (error) throw error;
 
-      const snapshot = resolveVaultSettingsSnapshot(row, {
-        riskLevelPercent: (row?.risk_level_bps ?? 500) / 100,
-        takeProfitPercent: Number(row?.take_profit_percent ?? 0),
-        stopLossPercent: Number(row?.stop_loss_percent ?? 0),
-        maxLeverage: Number(row?.leverage_multiplier ?? 10),
-        autoTradeEnabled: Boolean(row?.auto_trade_enabled),
+      const vaultRow = (row ?? null) as import('../lib/vaultSettingsSnapshot').VaultSettingsRow | null;
+      const snapshot = resolveVaultSettingsSnapshot(vaultRow, {
+        riskLevelPercent: (vaultRow?.risk_level_bps ?? 500) / 100,
+        takeProfitPercent: Number(vaultRow?.take_profit_percent ?? 0),
+        stopLossPercent: Number(vaultRow?.stop_loss_percent ?? 0),
+        maxLeverage: Number(vaultRow?.leverage_multiplier ?? 10),
+        autoTradeEnabled: Boolean(vaultRow?.auto_trade_enabled),
       });
 
       setData({

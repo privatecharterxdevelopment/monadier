@@ -73,6 +73,21 @@ export interface UserTradingSettings {
   minWinRatePercent: number;
   minTradesForWinRateGate: number;
   promptWithdrawAfterClose: boolean;
+  /** Concurrent HL bot slots (2 or 3). Risk % split across slots. */
+  maxConcurrentPositions: number;
+  /** Spot USDC reserved for AI betting; 0 = trading uses full balance. */
+  autoBettingBudgetUsd: number;
+}
+
+/** Clamp user slot preference to 2–3 within platform ceiling. */
+export function normalizeMaxConcurrentPositions(
+  raw: number | null | undefined,
+  platformMax = config.hyperliquid.maxConcurrentPositions
+): number {
+  const ceiling = Math.max(2, Math.min(3, Math.floor(platformMax) || 3));
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 2) return 2;
+  return Math.min(ceiling, Math.max(2, Math.floor(n)));
 }
 
 export class SubscriptionService {
@@ -495,13 +510,50 @@ export class SubscriptionService {
       const { data, error } = await this.supabase
         .from('vault_settings')
         .select(
-          'auto_trade_enabled, take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier, risk_level_bps, min_win_rate_percent, min_trades_for_win_rate_gate, prompt_withdraw_after_close, hl_bot_strategy, news_trade_mode'
+          'auto_trade_enabled, take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier, risk_level_bps, min_win_rate_percent, min_trades_for_win_rate_gate, prompt_withdraw_after_close, hl_bot_strategy, news_trade_mode, max_concurrent_positions, auto_betting_budget_usd'
         )
         .eq('wallet_address', walletAddress.toLowerCase())
         .eq('chain_id', chainId)
         .single();
 
       if (error || !data) {
+        // Column may be missing pre-migration — retry without new fields.
+        if (error?.message && /max_concurrent_positions|auto_betting_budget_usd/i.test(error.message)) {
+          const legacy = await this.supabase
+            .from('vault_settings')
+            .select(
+              'auto_trade_enabled, take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier, risk_level_bps, min_win_rate_percent, min_trades_for_win_rate_gate, prompt_withdraw_after_close, hl_bot_strategy, news_trade_mode'
+            )
+            .eq('wallet_address', walletAddress.toLowerCase())
+            .eq('chain_id', chainId)
+            .maybeSingle();
+          if (legacy.data) {
+            const row = legacy.data;
+            const slPct = normalizeHlStopLossPercent(
+              row.stop_loss_percent != null ? Number(row.stop_loss_percent) : null
+            );
+            return {
+              takeProfitPercent: normalizeHlTakeProfitPercent(
+                row.take_profit_percent != null ? Number(row.take_profit_percent) : null
+              ),
+              stopLossPercent: slPct,
+              profitLockPercent: normalizeHlProfitLockPercent(null),
+              askPermission: row.ask_permission || false,
+              leverageMultiplier: normalizeHlLeverage(
+                row.leverage_multiplier != null ? Number(row.leverage_multiplier) : null
+              ),
+              riskLevelBps: row.risk_level_bps || 500,
+              autoTradeEnabled: Boolean(row.auto_trade_enabled),
+              minWinRatePercent: Number(row.min_win_rate_percent) || 0,
+              minTradesForWinRateGate: Number(row.min_trades_for_win_rate_gate) || 5,
+              promptWithdrawAfterClose: Boolean(row.prompt_withdraw_after_close),
+              hlBotStrategy: normalizeHlBotStrategy(row.hl_bot_strategy as string | null),
+              newsTradeMode: normalizeNewsTradeMode(row.news_trade_mode as string | null),
+              maxConcurrentPositions: 2,
+              autoBettingBudgetUsd: 0,
+            };
+          }
+        }
         // Return defaults if not found
         logger.warn('⚠️ No vault_settings found - using DEFAULTS', {
           wallet: walletAddress.slice(0, 10),
@@ -525,6 +577,8 @@ export class SubscriptionService {
           promptWithdrawAfterClose: false,
           hlBotStrategy: 'standard',
           newsTradeMode: 'filter',
+          maxConcurrentPositions: 2,
+          autoBettingBudgetUsd: 0,
         };
       }
 
@@ -538,7 +592,11 @@ export class SubscriptionService {
         TP: data.take_profit_percent + '%',
         SL: slPct + '%',
         leverage: (data.leverage_multiplier || 1.0) + 'x',
-        risk: (data.risk_level_bps || 500) / 100 + '%'
+        risk: (data.risk_level_bps || 500) / 100 + '%',
+        maxSlots: normalizeMaxConcurrentPositions(
+          (data as { max_concurrent_positions?: number }).max_concurrent_positions
+        ),
+        bettingBudget: Number((data as { auto_betting_budget_usd?: number }).auto_betting_budget_usd) || 0,
       });
 
       return {
@@ -558,6 +616,13 @@ export class SubscriptionService {
         promptWithdrawAfterClose: Boolean(data.prompt_withdraw_after_close),
         hlBotStrategy: normalizeHlBotStrategy(data.hl_bot_strategy as string | null),
         newsTradeMode: normalizeNewsTradeMode(data.news_trade_mode as string | null),
+        maxConcurrentPositions: normalizeMaxConcurrentPositions(
+          (data as { max_concurrent_positions?: number }).max_concurrent_positions
+        ),
+        autoBettingBudgetUsd: Math.max(
+          0,
+          Number((data as { auto_betting_budget_usd?: number }).auto_betting_budget_usd) || 0
+        ),
       };
     } catch (err) {
       logger.error('Failed to get user trading settings', { walletAddress, error: err });
@@ -574,6 +639,8 @@ export class SubscriptionService {
         promptWithdrawAfterClose: false,
         hlBotStrategy: 'standard',
         newsTradeMode: 'filter',
+        maxConcurrentPositions: 2,
+        autoBettingBudgetUsd: 0,
       };
     }
   }

@@ -1,47 +1,65 @@
-# Supabase auth URLs (password reset, email confirm, Google)
+# Supabase auth URLs — HyperGain (safe cutover)
 
-If reset emails open **localhost**, fix **both** the app (VITE_SITE_URL) and Supabase dashboard.
+**Site URL stays `https://monadier.vercel.app` until hypergain.io DNS is live.**  
+Redirect URLs are **additive** — old hosts keep working so you can keep testing.
 
-## 1. Vercel production env
+## Already pushed to Supabase (project `gbgafseabgqinnvlfslc`)
 
-```env
-VITE_SITE_URL=https://monadier.vercel.app
-VITE_APP_URL=https://monadier.vercel.app
+**Site URL:** `https://monadier.vercel.app` (unchanged)
+
+**Redirect URLs (all allowed):**
+
+```
+https://monadier.vercel.app/auth/callback
+https://monadier.vercel.app/reset-password
+https://hypergain.io/auth/callback
+https://hypergain.io/reset-password
+https://www.hypergain.io/auth/callback
+https://www.hypergain.io/reset-password
+https://app.hypergain.io/auth/callback
+https://app.hypergain.io/reset-password
+https://app.monadier.io/auth/callback
+https://app.monadier.io/reset-password
+https://www.monadier.io/auth/callback
+https://www.monadier.io/reset-password
+http://localhost:5173/auth/callback
+http://localhost:5173/reset-password
 ```
 
-(Or `https://www.monadier.io` / `https://app.monadier.io` when custom domains are live.)
+Google provider Client ID/Secret were **not** touched by config push.
 
-Redeploy frontend after changing env.
+## App behavior (keeps testing intact)
 
-## 2. Supabase → Authentication → URL Configuration
+OAuth `redirectTo` = **current browser origin** + `/auth/callback`  
+→ Works on `monadier.vercel.app`, `localhost`, and later `hypergain.io` without changing Vercel env.
 
-**Site URL** (must NOT be localhost in production):
+## Still you (Google Cloud only)
+
+[Google Cloud Console](https://console.cloud.google.com/) → OAuth Web client → **Authorized JavaScript origins** — **add** (do not remove existing):
+
+```
+https://hypergain.io
+https://www.hypergain.io
+https://app.hypergain.io
+```
+
+Keep existing:
 
 ```
 https://monadier.vercel.app
+http://localhost:5173
 ```
 
-**Redirect URLs** — add every host users can land on:
+**Authorized redirect URI** (unchanged — Supabase only):
 
 ```
-https://monadier.vercel.app/reset-password
-https://monadier.vercel.app/auth/callback
-https://app.monadier.io/reset-password
-https://app.monadier.io/auth/callback
-https://www.monadier.io/reset-password
-https://www.monadier.io/auth/callback
-http://localhost:5173/reset-password
-http://localhost:5173/auth/callback
+https://gbgafseabgqinnvlfslc.supabase.co/auth/v1/callback
 ```
 
-## 3. Email template
+## When hypergain.io DNS is live
 
-**Authentication → Email Templates → Reset password**
+1. Vercel: set `VITE_SITE_URL=https://hypergain.io`, `VITE_APP_URL=https://app.hypergain.io`, optional `VITE_SPLIT_DOMAINS=true`
+2. Supabase Site URL → `https://hypergain.io` (redirect list already has it)
+3. Redeploy
 
-Link should use `{{ .ConfirmationURL }}` (default). Do not hardcode `{{ .SiteURL }}` alone.
-
-## 4. Test
-
-1. Open **production** `/forgot-password` (not localhost).
-2. Request reset → new email.
-3. Link should start with `https://monadier.vercel.app/reset-password` or your production domain — never `localhost`.
+Until then: keep testing on **https://monadier.vercel.app/login** → Continue with Google.

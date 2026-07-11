@@ -1,62 +1,74 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://www.monadier.io/trading-bot</loc>
-    <lastmod>2026-06-02</lastmod>
+    <loc>https://hypergain.io/</loc>
+    <lastmod>2026-07-11</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://www.monadier.io/</loc>
-    <lastmod>2026-06-02</lastmod>
+    <loc>https://hypergain.io/trading-bot</loc>
+    <lastmod>2026-07-11</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.98</priority>
+    <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://www.monadier.io/how-it-works</loc>
-    <lastmod>2026-06-02</lastmod>
+    <loc>https://hypergain.io/ai-sports-betting</loc>
+    <lastmod>2026-07-11</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.95</priority>
+  </url>
+  <url>
+    <loc>https://hypergain.io/how-it-works</loc>
+    <lastmod>2026-07-11</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
-    <loc>https://www.monadier.io/pricing</loc>
-    <lastmod>2026-06-02</lastmod>
+    <loc>https://hypergain.io/pricing</loc>
+    <lastmod>2026-07-11</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://www.monadier.io/sports-betting</loc>
-    <lastmod>2026-06-02</lastmod>
-    <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
-    <loc>https://www.monadier.io/technology</loc>
-    <lastmod>2026-06-02</lastmod>
+    <loc>https://app.hypergain.io/</loc>
+    <lastmod>2026-07-11</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://hypergain.io/leaderboard</loc>
+    <lastmod>2026-07-11</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.75</priority>
+  </url>
+  <url>
+    <loc>https://hypergain.io/technology</loc>
+    <lastmod>2026-07-11</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://www.monadier.io/about</loc>
-    <lastmod>2026-06-02</lastmod>
+    <loc>https://hypergain.io/about</loc>
+    <lastmod>2026-07-11</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.65</priority>
   </url>
   <url>
-    <loc>https://www.monadier.io/support</loc>
-    <lastmod>2026-06-02</lastmod>
+    <loc>https://hypergain.io/support</loc>
+    <lastmod>2026-07-11</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://www.monadier.io/terms</loc>
-    <lastmod>2026-06-02</lastmod>
+    <loc>https://hypergain.io/terms</loc>
+    <lastmod>2026-07-11</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://www.monadier.io/privacy</loc>
-    <lastmod>2026-06-02</lastmod>
+    <loc>https://hypergain.io/privacy</loc>
+    <lastmod>2026-07-11</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>

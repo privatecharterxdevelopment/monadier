@@ -14,6 +14,10 @@
   },
   "nav": {
     "howItWorks": "Cómo funciona",
+    "aiTradingBot": "AI Trading Bot",
+    "aiSportsBetting": "AI Sports Betting",
+    "aiAutoBetting": "AI Sports Betting",
+    "perpsTrading": "Perps Trading",
     "bot": "Bot",
     "leaderboard": "Leaderboard",
     "betting": "Apuestas",

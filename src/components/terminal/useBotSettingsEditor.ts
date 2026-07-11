@@ -6,7 +6,7 @@ import { useSubscription } from '../../contexts/SubscriptionContext';
 import { persistVaultSettings } from '../../lib/syncVaultSettings';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
 import { snapLeverageToStep } from '../../lib/leverageLimits';
-import { HL_DEFAULT_STOP_LOSS_PERCENT } from '../../lib/hlBotConstants';
+import type { HlBotStrategy } from '../../lib/hlBotStrategy';
 
 export type BotSettingsEditorOptions = {
   settings: VaultSettingsSnapshot;
@@ -18,6 +18,12 @@ export type BotSettingsEditorOptions = {
   profitOnlyHoldLosers?: boolean;
   onSaved: () => void;
 };
+
+function clampSlots(raw: unknown): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 2) return 2;
+  return Math.min(3, Math.max(2, Math.floor(n)));
+}
 
 function applySnapshotToState(
   snapshot: VaultSettingsSnapshot,
@@ -34,6 +40,7 @@ function applySnapshotToState(
     setMinWinRate: (v: number) => void;
     setMinTradesForWinRate: (v: number) => void;
     setHlBotStrategy: (v: HlBotStrategy) => void;
+    setMaxConcurrentPositions: (v: number) => void;
   }
 ) {
   setters.setRiskLevel(snapshot.riskPct);
@@ -45,6 +52,7 @@ function applySnapshotToState(
   setters.setMinWinRate(snapshot.minWinRate);
   setters.setMinTradesForWinRate(snapshot.minTradesForWinRate);
   setters.setHlBotStrategy(snapshot.hlBotStrategy);
+  setters.setMaxConcurrentPositions(clampSlots(snapshot.maxConcurrentPositions));
 }
 
 export function useBotSettingsEditor({
@@ -59,7 +67,8 @@ export function useBotSettingsEditor({
   const { open } = useMonadierAppKit();
   const { address, publicClient, walletClient } = useWeb3();
   const { isDemoUser } = useAuth();
-  const { linkWallet, planTier } = useSubscription();
+  const { linkWallet, planTier: planTierRaw } = useSubscription();
+  const planTier = planTierRaw ?? 'free';
 
   const saveWallet = (walletAddress ?? address)?.toLowerCase();
   const walletConnected = Boolean(saveWallet);
@@ -75,6 +84,9 @@ export function useBotSettingsEditor({
   const [minWinRate, setMinWinRate] = useState(settings.minWinRate);
   const [minTradesForWinRate, setMinTradesForWinRate] = useState(settings.minTradesForWinRate);
   const [hlBotStrategy, setHlBotStrategy] = useState<HlBotStrategy>(settings.hlBotStrategy);
+  const [maxConcurrentPositions, setMaxConcurrentPositions] = useState(
+    clampSlots(settings.maxConcurrentPositions)
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -123,6 +135,10 @@ export function useBotSettingsEditor({
     markEdited();
     setHlBotStrategy(v);
   }, [markEdited]);
+  const setMaxConcurrentPositionsTracked = useCallback((v: number) => {
+    markEdited();
+    setMaxConcurrentPositions(clampSlots(v));
+  }, [markEdited]);
 
   const applySavedSnapshot = useCallback(
     (snapshot: VaultSettingsSnapshot) => {
@@ -136,6 +152,7 @@ export function useBotSettingsEditor({
         setMinWinRate,
         setMinTradesForWinRate,
         setHlBotStrategy,
+        setMaxConcurrentPositions,
       });
       baselineRef.current = snapshot;
       userEditedRef.current = false;
@@ -169,7 +186,8 @@ export function useBotSettingsEditor({
     askPermission !== baseline.askPermission ||
     minWinRate !== baseline.minWinRate ||
     minTradesForWinRate !== baseline.minTradesForWinRate ||
-    hlBotStrategy !== baseline.hlBotStrategy;
+    hlBotStrategy !== baseline.hlBotStrategy ||
+    maxConcurrentPositions !== clampSlots(baseline.maxConcurrentPositions);
 
   const save = useCallback(async (): Promise<{ ok: boolean; notice?: string | null }> => {
     if (!walletConnected || !saveWallet) {
@@ -204,6 +222,7 @@ export function useBotSettingsEditor({
           minWinRate,
           minTradesForWinRate,
           hlBotStrategy,
+          maxConcurrentPositions,
         },
         planTier,
         publicClient,
@@ -252,6 +271,7 @@ export function useBotSettingsEditor({
     minWinRate,
     minTradesForWinRate,
     hlBotStrategy,
+    maxConcurrentPositions,
     planTier,
     hlSliderMax,
     tradingParamsChanged,
@@ -285,6 +305,8 @@ export function useBotSettingsEditor({
     setMinTradesForWinRate: setMinTradesForWinRateTracked,
     hlBotStrategy,
     setHlBotStrategy: setHlBotStrategyTracked,
+    maxConcurrentPositions,
+    setMaxConcurrentPositions: setMaxConcurrentPositionsTracked,
     isLoading,
     error,
     notice,

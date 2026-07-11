@@ -95,7 +95,11 @@ export const config = {
     /** Global scan — min % of TFs sharing the dominant trend (0–100). */
     minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 50),
     /** Max independent HL perp positions per wallet (different coins). */
-    maxConcurrentPositions: Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 2),
+    /** Platform ceiling for concurrent HL bot positions (users choose 2 or 3, capped here). */
+    maxConcurrentPositions: Math.max(
+      2,
+      Math.min(3, Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 3))
+    ),
     /** Minimum order notional — skips sloppy micro-trades. */
     minNotionalUsd: Number(process.env.HL_MIN_NOTIONAL_USD || 20),
     /** Bot open floor — 0 = scan all HL perps; only applied at order time if > 0. */
@@ -359,9 +363,9 @@ export const config = {
     minMarginUsd: Number(process.env.HL_MIN_MARGIN_USD || 8),
     /** Success fee on profitable bot closes — 1000 = 10% of realized profit. */
     successFeeBps: Number(process.env.HL_SUCCESS_FEE_BPS || 1000),
-    /** Unpaid win fees block the next bet after this many wins (default 1). */
+    /** Unpaid fee events (place + win) block the next bet after this many (default 1). */
     bettingWinsBeforeBlock: Number(process.env.HL_BETTING_WINS_BEFORE_BLOCK || 1),
-    /** Accrued per bet buy — unused in win-only model (kept for API compatibility). */
+    /** Accrued on every bet place — 50 bps = 0.5% of buy notional. */
     bettingBuyFeeBps: Number(process.env.HL_BETTING_BUY_FEE_BPS || 50),
     /** Accrued on profitable cash-out — 250 bps = 2.5% of sell notional. */
     bettingCashoutFeeBps: Number(process.env.HL_BETTING_CASHOUT_FEE_BPS || 250),

@@ -91,11 +91,12 @@ function App() {
               <LeaderboardLandingPage />
             </PageTransition>
           } />
-          <Route path="/sports-betting" element={
+          <Route path="/ai-sports-betting" element={
             <PageTransition>
               <SportsBettingPage />
             </PageTransition>
           } />
+          <Route path="/sports-betting" element={<Navigate to="/ai-sports-betting" replace />} />
           <Route path="/forex" element={
             <PageTransition>
               <ForexPage />

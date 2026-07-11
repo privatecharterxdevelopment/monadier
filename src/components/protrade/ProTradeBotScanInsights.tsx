@@ -5,7 +5,7 @@ import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import { useHlBotRunning } from '../../hooks/useHlBotRunning';
 import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
-import { HL_MAX_CONCURRENT_POSITIONS } from '../../lib/hlBotConstants';
+import { HL_DEFAULT_CONCURRENT_POSITIONS } from '../../lib/hlBotConstants';
 import { resolveBotAnalysisWhyLine } from '../../lib/botAnalysisDisplay';
 import { isBotScanNoiseDetail } from '../../lib/hlBotReasonLabels';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
@@ -45,12 +45,18 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
   const botOpenCount = openPositionCoins.length;
   const slotOpenCount =
     botOpenCount > 0 ? botOpenCount : metrics.openPositionsCount;
+  const maxSlots =
+    botSettings.maxConcurrentPositions >= 3
+      ? 3
+      : botSettings.maxConcurrentPositions >= 2
+        ? 2
+        : HL_DEFAULT_CONCURRENT_POSITIONS;
 
   const analysis = useTerminalBotAnalysis({
     walletConnected: hasWallet,
     metrics,
     openPositionsCount: slotOpenCount,
-    maxConcurrentPositions: HL_MAX_CONCURRENT_POSITIONS,
+    maxConcurrentPositions: maxSlots,
     vaultUsd: Math.max(hlBalanceUsd, hlSetup.perpUsd, hlSetup.spotUsdcUsd),
     vaultWallet,
     openPositionCoins,
@@ -72,7 +78,7 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
       readiness: analysis.readiness,
       hasTfConflict,
       openPositionsCount: slotOpenCount,
-      maxConcurrentPositions: HL_MAX_CONCURRENT_POSITIONS,
+      maxConcurrentPositions: analysis.maxConcurrentPositions || maxSlots,
       signal: analysis.signal,
       scanningCoin: analysis.currentlyScanningCoin,
     });

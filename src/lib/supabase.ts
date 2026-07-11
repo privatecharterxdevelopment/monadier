@@ -4,7 +4,7 @@ import { ensureUserProfile, patchUserProfile } from './profile';
 
 export { supabase };
 
-/** Production password-reset landing — never localhost (Supabase Site URL may still be wrong). */
+/** Production password-reset landing — never localhost. Keep vercel until DNS cutover. */
 export const PRODUCTION_PASSWORD_RESET_URL = 'https://monadier.vercel.app/reset-password';
 
 function passwordResetRedirectUrl(): string {
@@ -13,6 +13,8 @@ function passwordResetRedirectUrl(): string {
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return `${origin}/reset-password`;
     }
+    // Same-origin as the tab (must match Supabase allowlist).
+    return `${origin}/reset-password`;
   }
   if (import.meta.env.DEV) {
     return `${getAuthRedirectBase()}/reset-password`;
@@ -79,7 +81,7 @@ export const signInWithGoogle = async () => {
       skipBrowserRedirect: false,
       queryParams: {
         access_type: 'offline',
-        prompt: 'consent',
+        prompt: 'select_account',
       },
     },
   });

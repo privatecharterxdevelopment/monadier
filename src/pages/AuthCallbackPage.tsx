@@ -63,7 +63,7 @@ const AuthCallbackPage: React.FC = () => {
         }
 
         if (result === 'error') {
-          fail('This reset link is invalid or expired. Request a new one from the login page.');
+          fail('Sign-in could not be completed. The link may be invalid or expired — try Google again from the login page.');
           return;
         }
 
@@ -95,8 +95,15 @@ const AuthCallbackPage: React.FC = () => {
         <p className="mt-6 text-red-400 text-sm text-center max-w-md">{error}</p>
         <button
           type="button"
-          onClick={() => navigate('/forgot-password', { replace: true })}
+          onClick={() => navigate('/login', { replace: true })}
           className="mt-4 text-accent hover:underline text-sm"
+        >
+          Back to sign in
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/forgot-password', { replace: true })}
+          className="mt-2 text-secondary hover:underline text-sm"
         >
           Request new reset link
         </button>

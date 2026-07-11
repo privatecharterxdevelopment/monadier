@@ -45,7 +45,7 @@ const SportsBettingPage: React.FC = () => {
 
   return (
     <div className="landing-gmx">
-      <MarketingSeo path="/sports-betting" faqs={BETTING_FAQS} />
+      <MarketingSeo path="/ai-sports-betting" faqs={BETTING_FAQS} />
       <LandingNav variant="light" layout="gmx" />
 
       <BettingVideoHero />

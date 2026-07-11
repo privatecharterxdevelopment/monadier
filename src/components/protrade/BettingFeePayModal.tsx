@@ -3,6 +3,7 @@ import { CheckCircle, Loader2, Wallet } from 'lucide-react';
 import { usePublicClient, useSwitchChain, useWalletClient } from 'wagmi';
 import type { BettingFeeEvent } from '../../lib/betting/bettingFeesApi';
 import {
+  BETTING_BUY_FEE_LABEL,
   BETTING_WIN_FEE_LABEL,
 } from '../../lib/betting/bettingAccruedFees';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
@@ -32,8 +33,8 @@ type Props = {
 
 const SUCCESS_CLOSE_MS = 2400;
 
-function eventFeeLabel(_event: BettingFeeEvent): string {
-  return BETTING_WIN_FEE_LABEL;
+function eventFeeLabel(event: BettingFeeEvent): string {
+  return event.eventType === 'buy' ? BETTING_BUY_FEE_LABEL : BETTING_WIN_FEE_LABEL;
 }
 
 const BettingFeePayModal: React.FC<Props> = ({
@@ -219,9 +220,11 @@ const BettingFeePayModal: React.FC<Props> = ({
         </header>
 
         <p className="hl-fee-modal-lead">
-          You won {successWinCount}/{winsBeforeBlock} — pay {fmtUsdSymbol(accruedUsd)} on-chain to
-          place your next bet. Fee is {BETTING_WIN_FEE_LABEL} on winning cash-outs only (separate
-          from bot trading fees).
+          Pay {fmtUsdSymbol(accruedUsd)} on-chain to place your next bet. Fees: {BETTING_BUY_FEE_LABEL}{' '}
+          on place · {BETTING_WIN_FEE_LABEL} on winning cash-outs (separate from bot trading fees).
+          Unpaid fees block the next bet after {winsBeforeBlock} event
+          {winsBeforeBlock === 1 ? '' : 's'}
+          {successWinCount > 0 ? ` · ${successWinCount} unpaid win fee${successWinCount === 1 ? '' : 's'}` : ''}.
         </p>
 
         <p className="hl-fee-modal-hint">

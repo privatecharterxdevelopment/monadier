@@ -1,4 +1,5 @@
 import { OG_IMAGE, SITE_NAME, SITE_ORIGIN, SUPPORT_EMAIL } from './site';
+import { GOOGLE_SITELINKS, sitelinkUrl } from './sitelinks';
 
 export function organizationSchema() {
   return {
@@ -18,6 +19,7 @@ export function webSiteSchema() {
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
+    '@id': `${SITE_ORIGIN}/#website`,
     name: SITE_NAME,
     url: SITE_ORIGIN,
     description:
@@ -27,6 +29,26 @@ export function webSiteSchema() {
       name: SITE_NAME,
       url: SITE_ORIGIN,
     },
+    hasPart: GOOGLE_SITELINKS.map((link) => ({
+      '@type': 'WebPage',
+      name: link.name,
+      url: sitelinkUrl(link),
+    })),
+  };
+}
+
+/** Helps Google understand primary destination pages (sitelink candidates). */
+export function siteNavigationSchema() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: `${SITE_NAME} primary links`,
+    itemListElement: GOOGLE_SITELINKS.map((link, i) => ({
+      '@type': 'SiteNavigationElement',
+      position: i + 1,
+      name: link.name,
+      url: sitelinkUrl(link),
+    })),
   };
 }
 

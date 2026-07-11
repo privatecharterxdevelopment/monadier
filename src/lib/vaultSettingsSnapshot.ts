@@ -14,6 +14,8 @@ export type VaultSettingsSnapshot = {
   autoTradeEnabled: boolean;
   hlBotStrategy: HlBotStrategy;
   newsTradeMode: NewsTradeMode;
+  /** Concurrent HL bot slots (2 or 3). */
+  maxConcurrentPositions: number;
 };
 
 export type VaultSettingsRow = {
@@ -27,7 +29,14 @@ export type VaultSettingsRow = {
   auto_trade_enabled?: boolean | null;
   hl_bot_strategy?: string | null;
   news_trade_mode?: string | null;
+  max_concurrent_positions?: number | null;
 };
+
+function normalizeMaxConcurrentPositions(raw: unknown): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 2) return 2;
+  return Math.min(3, Math.max(2, Math.floor(n)));
+}
 
 export type OnChainVaultSettingsFallback = {
   riskLevelPercent: number;
@@ -54,6 +63,7 @@ export function resolveVaultSettingsSnapshot(
       autoTradeEnabled: onChain.autoTradeEnabled,
       hlBotStrategy: 'standard',
       newsTradeMode: 'filter',
+      maxConcurrentPositions: 2,
     };
   }
 
@@ -68,6 +78,7 @@ export function resolveVaultSettingsSnapshot(
     autoTradeEnabled: Boolean(row.auto_trade_enabled),
     hlBotStrategy: normalizeHlBotStrategy(row.hl_bot_strategy),
     newsTradeMode: normalizeNewsTradeMode(row.news_trade_mode),
+    maxConcurrentPositions: normalizeMaxConcurrentPositions(row.max_concurrent_positions),
   };
 }
 

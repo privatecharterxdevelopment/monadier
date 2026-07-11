@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { FALLBACK_SITE_ORIGIN } from './seo/site';
+import { BRAND_SITE_URL } from './brand';
 
 function requireEnv(name: string, value: string | undefined, hint?: string): string {
   if (!value || value.includes('your-') || value.includes('example')) {
@@ -22,7 +22,7 @@ export function getSupabaseClient(): SupabaseClient {
   if (!url || url.includes('your-')) {
     url = DEFAULT_SUPABASE_URL;
     if (import.meta.env.DEV) {
-      console.warn('VITE_SUPABASE_URL missing — using Monadier Supabase URL');
+      console.warn('VITE_SUPABASE_URL missing — using HyperGain Supabase URL');
     }
   }
 
@@ -54,7 +54,11 @@ export const supabase: SupabaseClient = new Proxy({} as SupabaseClient, {
   },
 });
 
-/** Live deploy origin until monadier.io custom domain + DNS are verified on Vercel. */
+/**
+ * Fallback only when there is no browser origin and no VITE_* URL.
+ * Prefer the current test host so local/preview deploys keep working until
+ * hypergain.io DNS is live.
+ */
 export const FALLBACK_SITE_ORIGIN = 'https://monadier.vercel.app';
 
 function isLocalhostOrigin(url: string): boolean {
@@ -67,10 +71,17 @@ function isLocalhostOrigin(url: string): boolean {
 }
 
 /**
- * Origin for Supabase auth email links (reset password, confirm email, OAuth).
- * Production bundles must NEVER send localhost — even if VITE_SITE_URL is missing.
+ * Origin for Supabase OAuth / email redirects.
+ *
+ * In the browser this MUST be the current origin (PKCE code verifier is
+ * origin-scoped). That keeps Google login working on vercel.app, localhost,
+ * and hypergain.io without rewriting env.
  */
 export function getAuthRedirectBase(): string {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin.replace(/\/$/, '');
+  }
+
   const fromEnv = [
     import.meta.env.VITE_SITE_URL,
     import.meta.env.VITE_APP_URL,
@@ -85,12 +96,16 @@ export function getAuthRedirectBase(): string {
     return FALLBACK_SITE_ORIGIN;
   }
 
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin;
-  }
-
   return 'http://localhost:5173';
 }
 
-/** Production Supabase project (Monadier). Used when env is missing in local preview. */
+/** Hosts to allowlist in Supabase Redirect URLs + Google JS origins (additive). */
+export const AUTH_PRODUCTION_ORIGINS = [
+  'https://monadier.vercel.app',
+  BRAND_SITE_URL,
+  'https://www.hypergain.io',
+  'https://app.hypergain.io',
+] as const;
+
+/** Production Supabase project. Used when env is missing in local preview. */
 export const DEFAULT_SUPABASE_URL = 'https://gbgafseabgqinnvlfslc.supabase.co';

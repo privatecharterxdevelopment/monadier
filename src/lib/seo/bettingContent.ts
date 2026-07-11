@@ -1,4 +1,4 @@
-/** SEO content for /sports-betting — English marketing copy only. */
+/** SEO content for /ai-sports-betting — English marketing copy only. */
 
 export type BettingFaq = { q: string; a: string };
 

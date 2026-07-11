@@ -37,6 +37,8 @@ export type BotSettingsFieldsProps = {
   setMinWinRate: (v: number) => void;
   minTradesForWinRate: number;
   setMinTradesForWinRate: (v: number) => void;
+  maxConcurrentPositions?: number;
+  setMaxConcurrentPositions?: (v: number) => void;
   disabled?: boolean;
   variant?: 'panel' | 'modal' | 'lvrg';
   showAutoTrade?: boolean;
@@ -67,10 +69,12 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
   setMinWinRate,
   minTradesForWinRate,
   setMinTradesForWinRate,
+  maxConcurrentPositions = 2,
+  setMaxConcurrentPositions,
   disabled,
   variant = 'panel',
   showAutoTrade = true,
-  walletConnected = true,
+  walletConnected: _walletConnected = true,
   notice,
   error,
   hlBalanceUsd = 0,
@@ -86,7 +90,9 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
     : 'term-modal-chip-row term-modal-chip-row--wrap';
   const rangeClass = isModal ? 'term-modal-range' : 'term-modal-range';
   const inputClass = isModal ? 'term-modal-input' : 'term-panel-input';
-  const collateralUsd = (hlBalanceUsd * riskLevel) / 100;
+  const slots = maxConcurrentPositions >= 3 ? 3 : 2;
+  const totalRiskUsd = (hlBalanceUsd * riskLevel) / 100;
+  const collateralUsd = totalRiskUsd / slots;
   const notionalUsd = collateralUsd * leverage;
   const winRateGateOn = minWinRate > 0;
 
@@ -149,10 +155,38 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
           />
           {hlBalanceUsd > 0 ? (
             <p className="term-lvrg-setting-foot">
-              ~${collateralUsd.toFixed(2)} margin · ~${notionalUsd.toFixed(0)} notional
+              ~${collateralUsd.toFixed(2)} / slot ({slots} slots) · ~${notionalUsd.toFixed(0)} notional
             </p>
           ) : null}
         </div>
+
+        {setMaxConcurrentPositions ? (
+          <div className="term-lvrg-setting-card">
+            <div className="term-lvrg-setting-head">
+              <p className="term-lvrg-setting-title">{t('bot.concurrentSlotsTitle')}</p>
+              <span className="term-lvrg-setting-value">{slots}</span>
+            </div>
+            <p className="term-lvrg-setting-desc">{t('bot.concurrentSlotsHint')}</p>
+            <div className={chipRowClass} role="group" aria-label={t('bot.concurrentSlotsTitle')}>
+              <button
+                type="button"
+                className={`term-modal-chip ${slots === 2 ? 'term-modal-chip--on' : ''}`}
+                onClick={() => setMaxConcurrentPositions(2)}
+                disabled={disabled}
+              >
+                {t('bot.concurrentSlotsTwo')}
+              </button>
+              <button
+                type="button"
+                className={`term-modal-chip ${slots === 3 ? 'term-modal-chip--on' : ''}`}
+                onClick={() => setMaxConcurrentPositions(3)}
+                disabled={disabled}
+              >
+                {t('bot.concurrentSlotsThree')}
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <div className="term-lvrg-setting-card">
           <div className="term-lvrg-setting-head">
@@ -360,6 +394,31 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
         disabled={disabled}
         aria-label={t('bot.riskAria')}
       />
+
+      {setMaxConcurrentPositions ? (
+        <>
+          <p className={labelClass}>{t('bot.concurrentSlotsTitle')}</p>
+          <p className={`${hintClass} ${isModal ? 'mb-1' : ''}`}>{t('bot.concurrentSlotsHint')}</p>
+          <div className={chipRowClass} role="group" aria-label={t('bot.concurrentSlotsTitle')}>
+            <button
+              type="button"
+              className={`term-modal-chip ${slots === 2 ? 'term-modal-chip--on' : ''}`}
+              onClick={() => setMaxConcurrentPositions(2)}
+              disabled={disabled}
+            >
+              {t('bot.concurrentSlotsTwo')}
+            </button>
+            <button
+              type="button"
+              className={`term-modal-chip ${slots === 3 ? 'term-modal-chip--on' : ''}`}
+              onClick={() => setMaxConcurrentPositions(3)}
+              disabled={disabled}
+            >
+              {t('bot.concurrentSlotsThree')}
+            </button>
+          </div>
+        </>
+      ) : null}
 
       <p className={labelClass}>{t('bot.leverage')}</p>
       <p className={`${hintClass} ${isModal ? 'mb-2' : ''}`}>

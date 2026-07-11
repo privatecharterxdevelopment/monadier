@@ -936,17 +936,22 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  /* Fill leftover viewport under hero / funds — was a ~320px stub. */
+  min-height: min(72vh, 780px);
 }
 
 .hl-profile-page .hl-profile-body--bot-trades .hl-history-page--embedded,
 .hl-profile-page .hl-profile-body--bot-trades .hl-history-page {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .hl-profile-page .hl-profile-body--bot-trades .hl-history-body {
-  flex: 1;
-  min-height: 0;
+  flex: 1 1 auto;
+  min-height: min(58vh, 620px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -1017,11 +1022,15 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  min-height: min(72vh, 780px);
 }
 
 .hl-profile-body--bot-trades .hl-history-page {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .hl-history-page--embedded {
@@ -1033,8 +1042,8 @@
 }
 
 .hl-history-page--embedded .hl-history-body {
-  flex: 1;
-  min-height: 0;
+  flex: 1 1 auto;
+  min-height: min(58vh, 620px);
 }
 
 .hl-history-page--embedded .hl-history-head {
@@ -1043,7 +1052,7 @@
 
 .hl-bot-dock--history-only {
   flex: 1;
-  min-height: 0;
+  min-height: min(58vh, 620px);
   display: flex;
   flex-direction: column;
 }
@@ -1060,7 +1069,7 @@
 
 .hl-bot-dock--history-only .hl-dock-body {
   flex: 1;
-  min-height: 0;
+  min-height: min(48vh, 520px);
   overflow: auto;
 }
 
@@ -3229,6 +3238,11 @@
 
 .hl-funds-overview--profile {
   margin: 0 16px 12px;
+  flex-shrink: 0;
+}
+
+.hl-profile-page .hl-funds-overview--profile {
+  margin: 0;
 }
 
 .hl-profile-page .hl-funds-overview--profile .hl-funds-overview__card {
@@ -11782,8 +11796,8 @@
 
   .hl-profile-body--bot-trades .hl-history-page,
   .hl-profile-body--bot-trades .hl-history-body {
-    flex: 1;
-    min-height: 0;
+    flex: 1 1 auto;
+    min-height: min(62vh, 640px);
     overflow: hidden;
   }
 
@@ -11803,10 +11817,14 @@
     overflow: visible;
   }
 
+  .hl-profile-body--bot-trades {
+    min-height: min(75vh, 820px);
+  }
+
   .hl-profile-body--bot-trades .hl-history-body {
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
+    flex: 1 1 auto;
+    min-height: min(62vh, 640px);
+    overflow: auto;
   }
 
   .hl-profile-toolbar {
@@ -12983,8 +13001,8 @@
 }
 
 .hl-profile-body--bot-trades {
-  flex: 1;
-  min-height: 320px;
+  flex: 1 1 auto;
+  min-height: min(72vh, 780px);
   background: var(--hl-studio-card-bg, var(--hl-bg-elevated));
   border: 1px solid var(--hl-studio-card-border, var(--hl-border));
   border-radius: 12px;

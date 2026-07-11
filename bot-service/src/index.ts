@@ -29,7 +29,7 @@ import {
 import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './services/hlAgent';
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
 import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker } from './services/hlInfo';
-import { getLastHlOpenError, getLastHlOpenErrorForClient, hyperliquidTradingService, resolveHlMarginPerSlot } from './services/hlTrading';
+import { getLastHlOpenError, getLastHlOpenErrorForClient, hyperliquidTradingService, resolveHlMarginPerSlot, balanceForTradingRisk } from './services/hlTrading';
 import { releaseHlBotTradingPauses } from './services/dailyLossGate';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
 import { getHlFeeSummary } from './services/hlSuccessFees';
@@ -437,7 +437,10 @@ const healthServer = http.createServer(async (req, res) => {
       if (balanceBlocker) {
         blockers.push(balanceBlocker);
       }
-      const maxPositions = config.hyperliquid.maxConcurrentPositions;
+      const maxPositions = Math.max(
+        2,
+        Math.min(3, Math.floor(dbSettings.maxConcurrentPositions) || 2)
+      );
       if (!dbSettings.autoTradeEnabled) blockers.push('auto-trade disabled in settings');
       if (hlOpenCoins.length >= maxPositions) {
         blockers.push(
@@ -458,18 +461,28 @@ const healthServer = http.createServer(async (req, res) => {
         );
       }
       if (bestAvailable && hlOpenCoins.length < maxPositions && dbSettings.autoTradeEnabled) {
-        const balance = hlBalanceUsd;
+        const reservedBudget = Math.max(0, Number(dbSettings.autoBettingBudgetUsd) || 0);
+        const balance = balanceForTradingRisk(
+          hlBalanceUsd,
+          reservedBudget,
+          hlFunding.unifiedAccount
+        );
+        const freeForTrading =
+          reservedBudget > 0 && hlFunding.unifiedAccount
+            ? Math.max(0, hlFreeMargin - reservedBudget)
+            : hlFreeMargin;
         const perSlot = resolveHlMarginPerSlot(
           balance,
           dbSettings.riskLevelBps,
           hlOpenCoins.length,
-          hlFreeMargin
+          freeForTrading,
+          maxPositions
         );
         if (perSlot < 1) {
           blockers.push(
             hlOpenCoins.length > 0
-              ? `free margin too low for slot 2 ($${hlFreeMargin.toFixed(2)} free from $${balance.toFixed(2)} balance, $${hlWithdrawable.toFixed(2)} withdrawable, ${hlOpenCoins.length}/${maxPositions} open)`
-              : `margin too small for slot ($${perSlot.toFixed(2)} from $${balance.toFixed(2)} balance, ${hlOpenCoins.length}/${maxPositions} open)`
+              ? `free margin too low for slot ${hlOpenCoins.length + 1} ($${freeForTrading.toFixed(2)} free from $${balance.toFixed(2)} balance, $${hlWithdrawable.toFixed(2)} withdrawable, ${hlOpenCoins.length}/${maxPositions} open)`
+              : `margin too small for slot ($${perSlot.toFixed(2)} from $${balance.toFixed(2)} balance, ${hlOpenCoins.length}/${maxPositions} open${reservedBudget > 0 ? `, $${reservedBudget.toFixed(0)} AI betting reserve` : ''})`
           );
         } else {
           const lev = Math.max(1, Math.floor(dbSettings.leverageMultiplier || 10));
@@ -507,6 +520,7 @@ const healthServer = http.createServer(async (req, res) => {
           builderPlatformMinUsd: builderGate.platformMinUsd,
           openCoins: hlOpenCoins,
           maxConcurrentPositions: maxPositions,
+          autoBettingBudgetUsd: Math.max(0, Number(dbSettings.autoBettingBudgetUsd) || 0),
           minNotionalUsd: config.hyperliquid.minNotionalUsd,
           minAccountUsd: config.hyperliquid.minAccountUsd,
         },
@@ -516,6 +530,7 @@ const healthServer = http.createServer(async (req, res) => {
           riskBps: dbSettings.riskLevelBps,
           tp: dbSettings.takeProfitPercent,
           sl: dbSettings.stopLossPercent,
+          maxConcurrentPositions: maxPositions,
           dynamicTrail: {
             breakevenArmRoePct: config.hyperliquid.dynamicTrail.breakevenArmRoePct,
             armMinRoePct: config.hyperliquid.dynamicTrail.armMinRoePct,

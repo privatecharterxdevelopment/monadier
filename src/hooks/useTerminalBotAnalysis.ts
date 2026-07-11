@@ -108,6 +108,11 @@ export function useTerminalBotAnalysis({
   const [dbAnalysis, setDbAnalysis] = useState<DbAnalysis | null>(null);
   const [serverBlockers, setServerBlockers] = useState<string[]>([]);
   const [serverMaxSlots, setServerMaxSlots] = useState(maxConcurrentPositions);
+
+  useEffect(() => {
+    setServerMaxSlots(maxConcurrentPositions);
+  }, [maxConcurrentPositions]);
+
   const [globalBest, setGlobalBest] = useState<GlobalScanCandidate | null>(null);
   const [globalCandidates, setGlobalCandidates] = useState<GlobalScanCandidate[]>([]);
   const [serverOpenCoins, setServerOpenCoins] = useState<string[]>([]);

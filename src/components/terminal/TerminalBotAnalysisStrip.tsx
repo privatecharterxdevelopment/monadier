@@ -2,7 +2,8 @@ import React, { useMemo } from 'react';
 import { useTerminalBotAnalysis } from '../../hooks/useTerminalBotAnalysis';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import { useHlBotRunning } from '../../hooks/useHlBotRunning';
-import { HL_MAX_CONCURRENT_POSITIONS } from '../../lib/hlBotConstants';
+import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
+import { HL_DEFAULT_CONCURRENT_POSITIONS } from '../../lib/hlBotConstants';
 import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import TerminalChartAnalysisOverlay from './TerminalChartAnalysisOverlay';
@@ -28,14 +29,19 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
   botRunningHint,
 }) => {
   const hlSetup = useHlBotSetup(vaultWallet ?? undefined);
+  const { settings: botSettings } = useTerminalBotSettings();
   const { botRunning: resolvedRunning, wallet: tradingWallet } = useHlBotRunning({
     metricsAutoTrade: metrics.autoTradeEnabled,
   });
   const effectiveVaultWallet = tradingWallet ?? vaultWallet ?? null;
   const botRunning = botRunningHint ?? resolvedRunning;
   const openPositionsCount = metrics.openPositionsCount;
-  const maxSlots = HL_MAX_CONCURRENT_POSITIONS;
-  const slotsFull = openPositionsCount >= maxSlots;
+  const maxSlots =
+    botSettings.maxConcurrentPositions >= 3
+      ? 3
+      : botSettings.maxConcurrentPositions >= 2
+        ? 2
+        : HL_DEFAULT_CONCURRENT_POSITIONS;
 
   const hasWallet = walletConnected || Boolean(vaultWallet);
   const showLiveAnalysis = hasWallet && botRunning;
@@ -68,7 +74,12 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     symbol,
     analysisActive: hasWallet && botRunning,
     botRunning,
+    hlBotStrategy: botSettings.hlBotStrategy,
   });
+
+  const slotsFull = analysis.slotsFull;
+  const slotCount = analysis.maxConcurrentPositions || maxSlots;
+  const openCount = analysis.openPositionsCount;
 
   const activeCandidate = botRunning ? (analysis.scanCandidate ?? analysis.globalBest) : null;
   const hasBestCandidate = Boolean(activeCandidate?.coin);
@@ -84,7 +95,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
       return {
         ...analysis.readiness,
         headline: 'Slots full',
-        detail: `${openPositionsCount}/${maxSlots} positions open — monitoring exits`,
+        detail: `${openCount}/${slotCount} positions open — monitoring exits`,
       };
     }
     return { ...analysis.readiness, headline: scanHeadline };
@@ -92,8 +103,8 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
     idleReadiness,
     slotsFull,
     analysis.readiness,
-    openPositionsCount,
-    maxSlots,
+    openCount,
+    slotCount,
     scanHeadline,
   ]);
 

@@ -12,6 +12,7 @@ import {
   softwareApplicationSchema,
   webPageSchema,
   webSiteSchema,
+  siteNavigationSchema,
 } from '../../lib/seo/schema';
 
 type Props = {
@@ -31,7 +32,7 @@ const MarketingSeo: React.FC<Props> = ({ path: pathOverride, faqs }) => {
     faqs ??
     (path === '/trading-bot'
       ? TRADING_BOT_FAQS
-      : path === '/sports-betting'
+      : path === '/ai-sports-betting'
         ? BETTING_FAQS
         : undefined);
 
@@ -39,7 +40,7 @@ const MarketingSeo: React.FC<Props> = ({ path: pathOverride, faqs }) => {
     const blocks: object[] = [webPageSchema({ path: seo.path, title: seo.title, description: seo.description })];
 
     if (path === '/') {
-      blocks.push(organizationSchema(), webSiteSchema(), softwareApplicationSchema());
+      blocks.push(organizationSchema(), webSiteSchema(), siteNavigationSchema(), softwareApplicationSchema());
     } else if (path === '/trading-bot') {
       blocks.push(
         softwareApplicationSchema({
@@ -52,11 +53,11 @@ const MarketingSeo: React.FC<Props> = ({ path: pathOverride, faqs }) => {
           { name: 'Hyperliquid Trading Bot', path: '/trading-bot' },
         ])
       );
-    } else if (path === '/sports-betting') {
+    } else if (path === '/ai-sports-betting') {
       blocks.push(
         breadcrumbSchema([
           { name: 'Home', path: '/' },
-          { name: 'Sports Betting', path: '/sports-betting' },
+          { name: 'AI Sports Betting', path: '/ai-sports-betting' },
         ])
       );
     } else {

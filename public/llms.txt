@@ -1,50 +1,45 @@
-# Monadier
+# HyperGain
 
 > Full auto Hyperliquid trading bot — non-custodial, 24/7 automated perpetuals execution across 200+ markets.
 
-Monadier is automated trading software for Hyperliquid. Users deposit USDC on their own Hyperliquid account, approve a trading agent once, and run a full auto trading bot that scans markets 24/7. Monadier never holds private keys or custodies funds.
+HyperGain is automated trading software for Hyperliquid. Users deposit USDC on their own Hyperliquid account, approve a trading agent once, and run a full auto trading bot that scans markets 24/7. HyperGain never holds private keys or custodies funds.
 
-## Primary pages
+## Primary pages (Google sitelink candidates)
 
-- Home: https://www.monadier.io/
-- Hyperliquid trading bot: https://www.monadier.io/trading-bot
-- How it works: https://www.monadier.io/how-it-works
-- Pricing & fees: https://www.monadier.io/pricing
-- Support & FAQ: https://www.monadier.io/support
-- Technology: https://www.monadier.io/technology
-- About: https://www.monadier.io/about
-- Sports betting (Hyperliquid outcome markets): https://www.monadier.io/sports-betting
+- Home: https://hypergain.io/
+- AI Trading Bot: https://hypergain.io/trading-bot
+- AI Sports Betting: https://hypergain.io/ai-sports-betting
+- Perps Trading (app): https://app.hypergain.io/?section=perps
+- How it works: https://hypergain.io/how-it-works
+- Pricing: https://hypergain.io/pricing
+- Open App: https://app.hypergain.io/
+
+## Other pages
+
+- Leaderboard: https://hypergain.io/leaderboard
+- Technology: https://hypergain.io/technology
+- About: https://hypergain.io/about
+- Support & FAQ: https://hypergain.io/support
 
 ## Product summary
 
-- **Product**: Full auto Hyperliquid trading bot (web terminal)
+- **Product**: Full auto Hyperliquid trading bot + perps terminal + AI auto betting
 - **Custody**: Non-custodial — USDC stays on the user's Hyperliquid account
 - **Minimum deposit**: $20 USDC on Hyperliquid (deposits via Arbitrum One native USDC)
 - **Markets**: 200+ Hyperliquid perpetual pairs
 - **Automation**: 24/7 server-side bot; user starts/stops via dashboard
-- **Fees**: No platform subscription; no Monadier success fee on closes; Hyperliquid trading fees apply
+- **Fees**: Transparent platform fees on winning closes / place bets; Hyperliquid trading fees apply
 
 ## Keywords
 
-hyperliquid bot, hyperliquid trading bot, full auto trading bot, automated trading bot, passive income bot, crypto trading bot, non-custodial hyperliquid bot
-
-## FAQ topics (see landing page)
-
-- What is Monadier?
-- Is Monadier non-custodial?
-- How does the trading bot work?
-- Can the bot trade 24/7?
-- How much USDC do I need to start?
-- What fees does the bot charge?
-- How do I deposit USDC on Hyperliquid?
+hyperliquid bot, AI trading bot, AI auto betting, hyperliquid perps, full auto trading bot, non-custodial hyperliquid bot
 
 ## Contact
 
-- Email: support@monadier.io
-- Website: https://www.monadier.io
+- Email: support@hypergain.io
+- Website: https://hypergain.io
 
-## Optional
+## Legal
 
-- Terms: https://www.monadier.io/terms
-- Privacy: https://www.monadier.io/privacy
-- App (trading terminal): https://app.monadier.io/
+- Terms: https://hypergain.io/terms
+- Privacy: https://hypergain.io/privacy

@@ -1,74 +1,68 @@
-# Deploy Monadier (you only do steps marked **YOU**)
+# Deploy HyperGain — Google login + live domain
 
-Code fixes are in this repo. Two things only you can do in browsers: **Google OAuth** and **Vercel env**.
+Code is ready. You must finish **Vercel env**, **Supabase Auth URLs**, and **Google Cloud OAuth** for `hypergain.io`.
 
 ---
 
-## YOU — Vercel (5 min)
-
-Project → Settings → Environment Variables → Production:
+## YOU — Vercel (production)
 
 | Name | Value |
 |------|--------|
 | `VITE_SUPABASE_URL` | `https://gbgafseabgqinnvlfslc.supabase.co` |
 | `VITE_SUPABASE_ANON_KEY` | Supabase → Settings → API → `anon` `public` |
-| `VITE_SITE_URL` | `https://monadier.vercel.app` |
-| `VITE_WALLETCONNECT_PROJECT_ID` | your Reown project id |
+| `VITE_SITE_URL` | `https://hypergain.io` |
+| `VITE_APP_URL` | `https://app.hypergain.io` |
+| `VITE_SPLIT_DOMAINS` | `true` (when marketing + app are separate hosts) |
+| `VITE_WALLETCONNECT_PROJECT_ID` | Reown project id |
 
-Deployments → **Redeploy** latest `main`.
+Add domains in Vercel: `hypergain.io`, `www.hypergain.io`, `app.hypergain.io` → then DNS at registrar. Redeploy after env + DNS.
+
+Until DNS is live, keep using `https://monadier.vercel.app` for `VITE_SITE_URL` / `VITE_APP_URL` and include that host in Supabase + Google origins.
 
 ---
 
-## YOU — Supabase Auth URLs (5 min)
+## YOU — Supabase Auth URLs
 
-Dashboard → Authentication → URL configuration:
+**Authentication → URL configuration**
 
-- **Site URL:** `https://monadier.vercel.app` (not `http://localhost:3000`)
-- **Redirect URLs** (add every host you use):
+- **Site URL:** `https://hypergain.io`
+- **Redirect URLs:**
 
 ```
+https://hypergain.io/auth/callback
+https://hypergain.io/reset-password
+https://www.hypergain.io/auth/callback
+https://www.hypergain.io/reset-password
+https://app.hypergain.io/auth/callback
+https://app.hypergain.io/reset-password
 https://monadier.vercel.app/auth/callback
-https://monadier.vercel.app/**
-https://*.vercel.app/auth/callback
+https://monadier.vercel.app/reset-password
 http://localhost:5173/auth/callback
+http://localhost:5173/reset-password
 ```
 
-If Google login sends you to `localhost:3000/?code=...`, Site URL or Redirect URLs are wrong — fix here, then try again.
+Full guide: [docs/SUPABASE_AUTH_URLS.md](docs/SUPABASE_AUTH_URLS.md)
 
 ---
 
-## YOU — Google login (10 min)
+## YOU — Google login
 
 1. [Google Cloud](https://console.cloud.google.com/) → Credentials → OAuth Web client  
-2. Redirect URI: `https://gbgafseabgqinnvlfslc.supabase.co/auth/v1/callback`  
-3. Origin: `https://monadier.vercel.app`  
-4. Paste Client ID + Secret into Supabase → Authentication → Google → Enable  
-
----
-
-## Already done via CLI (migrations on remote)
-
-- `gmx_execution_requests`
-- `trade_history` (deploy migration)
-- `positions` RLS (users see only their wallets)
+2. **Redirect URI:** `https://gbgafseabgqinnvlfslc.supabase.co/auth/v1/callback`  
+3. **JS origins:** `https://hypergain.io`, `https://www.hypergain.io`, `https://app.hypergain.io`, `https://monadier.vercel.app`, `http://localhost:5173`  
+4. Paste Client ID + Secret → Supabase → Authentication → Google → **Enable**
 
 ---
 
 ## Test after redeploy
 
-1. https://monadier.vercel.app/login → Google → **/dashboard2** (not legacy glass UI)  
-2. Profile: `/dashboard2/profile` → save name/avatar → back to trade → greeting updates  
-3. History dock: open position → **Close** → status `closing` → bot settles  
-4. Forgot password → email → reset works  
-5. https://monadier.vercel.app/your-funds — vault explanation  
+1. `/login` → **Continue with Google** → `/auth/callback` → Pro Trade app  
+2. `/register` → **Continue with Google** (same OAuth; profile auto-created)  
+3. Sign out / sign in again  
+4. Forgot password → email → `/reset-password` (not localhost)
 
 ---
 
-## Bot service (required — Railway or Render)
+## Bot service
 
-Without a running bot: no auto-trading, no live signals in dashboard.
-
-1. Deploy `bot-service` — see **[docs/BOT_DEPLOY.md](docs/BOT_DEPLOY.md)** (Render / Fly / VPS).
-2. Railway: `docs/RAILWAY.md` — root dir `bot-service`, redeploy, `./scripts/verify-bot-api.sh <url>`
-3. Vercel: optional `VITE_BOT_API_URL` — production uses `/bot-service` proxy in `vercel.json` → Railway. Redeploy after pull.
-3. Redeploy frontend after bot is up (`curl YOUR-BOT-URL/health`).
+See **[docs/RAILWAY.md](docs/RAILWAY.md)**. Frontend may use `/bot-service` proxy or `VITE_BOT_API_URL`.

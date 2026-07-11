@@ -30,27 +30,27 @@ export const PAGE_SEO: Record<string, PageSeo> = {
   },
   '/trading-bot': {
     path: '/trading-bot',
-    title: `Hyperliquid Trading Bot | Full Auto 24/7 — ${SITE_NAME}`,
+    title: `AI Trading Bot | Full Auto Hyperliquid — ${SITE_NAME}`,
     description:
-      'Automated Hyperliquid trading bot that executes 24/7 across 200+ perp markets. Connect wallet, fund HL with USDC, approve agent, start bot — full auto trading with you in control.',
-    keywords: `${BOT_KEYWORDS}, 24/7 crypto bot, algorithmic Hyperliquid trading`,
+      'AI trading bot for Hyperliquid: full auto 24/7 across 200+ perp markets. Connect wallet, fund HL with USDC, approve agent, start bot — non-custodial automation.',
+    keywords: `${BOT_KEYWORDS}, AI trading bot, 24/7 crypto bot, algorithmic Hyperliquid trading`,
     changefreq: 'weekly',
     priority: 1.0,
     sitemap: true,
   },
-  '/leaderboard': {
-    path: '/leaderboard',
-    title: `Leaderboard On Chain | Verified Bot Wins — ${SITE_NAME}`,
+  '/ai-sports-betting': {
+    path: '/ai-sports-betting',
+    title: `AI Sports Betting | Hyperliquid Sports Markets — ${SITE_NAME}`,
     description:
-      'Live on-chain leaderboard of profitable Hyperliquid bot trades. Masked wallets, open and close times, P/L — verify every win on HypurrScan. A bot for the people: no keys, fees only on successful closes.',
-    keywords: `hyperliquid bot leaderboard, on-chain trading wins, hypurrscan verify, ${BOT_KEYWORDS}`,
+      'AI sports betting on Hyperliquid HIP-4 sports and prediction markets. Non-custodial on-chain bets with live odds, wallet-signed orders, and transparent settlement.',
+    keywords: `${BETTING_KEYWORDS}, AI sports betting, AI auto betting, hyperliquid prediction markets, on-chain betting platform, HyperGain`,
     changefreq: 'weekly',
-    priority: 0.9,
+    priority: 0.95,
     sitemap: true,
   },
   '/how-it-works': {
     path: '/how-it-works',
-    title: `How the Hyperliquid Bot Works | ${SITE_NAME}`,
+    title: `How it works | Hyperliquid Bot Setup — ${SITE_NAME}`,
     description:
       "Learn how HyperGain's non-custodial Hyperliquid trading bot works: wallet connect, USDC deposit on Arbitrum, agent approval, and 24/7 full auto execution on Hyperliquid.",
     keywords: `how hyperliquid bot works, hyperliquid agent approval, USDC Arbitrum Hyperliquid, ${BOT_KEYWORDS}`,
@@ -60,22 +60,32 @@ export const PAGE_SEO: Record<string, PageSeo> = {
   },
   '/pricing': {
     path: '/pricing',
-    title: `Trading Bot Pricing & Fees | ${SITE_NAME}`,
+    title: `Pricing | Bot Fees & Plans — ${SITE_NAME}`,
     description:
-      'No platform subscription for the Hyperliquid trading bot. Gas covered on Arbitrum; no HyperGain success fee on closes. Transparent pricing for full auto trading.',
-    keywords: `hyperliquid bot fees, trading bot pricing, no subscription trading bot, ${BOT_KEYWORDS}`,
+      'Transparent HyperGain pricing for the Hyperliquid trading bot and AI auto betting. See platform fees and how success fees work.',
+    keywords: `hyperliquid bot fees, trading bot pricing, AI betting fees, ${BOT_KEYWORDS}`,
     changefreq: 'monthly',
-    priority: 0.8,
+    priority: 0.85,
     sitemap: true,
   },
-  '/sports-betting': {
-    path: '/sports-betting',
-    title: `Hyperliquid Sports Betting & Prediction Markets | ${SITE_NAME}`,
+  '/app': {
+    path: '/app',
+    title: `Open App | HyperGain Trading Terminal`,
     description:
-      'Bet on sports, World Cup, basketball, and crypto events on Hyperliquid HIP-4 outcome markets. Non-custodial on-chain sports betting with live odds, wallet-signed orders, and transparent settlement.',
-    keywords: `${BETTING_KEYWORDS}, hyperliquid prediction markets, on-chain betting platform, HyperGain`,
+      'Open the HyperGain app — AI trading bot, Hyperliquid perps terminal, and AI auto betting in one place.',
+    keywords: `open HyperGain app, hyperliquid trading terminal, ${BOT_KEYWORDS}`,
     changefreq: 'weekly',
-    priority: 0.85,
+    priority: 0.9,
+    sitemap: true,
+  },
+  '/leaderboard': {
+    path: '/leaderboard',
+    title: `Leaderboard On Chain | Verified Bot Wins — ${SITE_NAME}`,
+    description:
+      'Live on-chain leaderboard of profitable Hyperliquid bot trades. Masked wallets, open and close times, P/L — verify every win on HypurrScan. A bot for the people: no keys, fees only on successful closes.',
+    keywords: `hyperliquid bot leaderboard, on-chain trading wins, hypurrscan verify, ${BOT_KEYWORDS}`,
+    changefreq: 'weekly',
+    priority: 0.75,
     sitemap: true,
   },
   '/technology': {

@@ -1,5 +1,7 @@
-/** Keep in sync with bot-service global scan defaults. */
-export const HL_MAX_CONCURRENT_POSITIONS = 2;
+/** Platform ceiling (users pick 2 or 3 in bot settings). Keep in sync with bot-service. */
+export const HL_MAX_CONCURRENT_POSITIONS = 3;
+/** Default when vault_settings has no preference yet. */
+export const HL_DEFAULT_CONCURRENT_POSITIONS = 2;
 export const HL_MIN_SIGNAL_CONFIDENCE = 52;
 export const HL_MIN_TREND_ALIGNMENT = 50;
 export const HL_MIN_DIRECTIONAL_TFS = 2;

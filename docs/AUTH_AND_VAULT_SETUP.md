@@ -16,20 +16,28 @@ This is **custodial pooled vault** (like a small exchange), not MetaMask self-cu
 
 ### Step 1 — Supabase Dashboard
 
-Project: `gbgafseabgqinnvlfslc` (Monadier)
+Project: `gbgafseabgqinnvlfslc` (HyperGain)
 
 1. **Authentication → Providers → Google** → Enable ON
 2. Copy **Client ID** and **Client Secret** from Google (step 2)
 3. **Authentication → URL Configuration**
-   - **Site URL**: `https://monadier.vercel.app`
+   - **Site URL**: `https://hypergain.io`
    - **Redirect URLs** (add all lines):
 
 ```
+https://hypergain.io/auth/callback
+https://hypergain.io/reset-password
+https://www.hypergain.io/auth/callback
+https://www.hypergain.io/reset-password
+https://app.hypergain.io/auth/callback
+https://app.hypergain.io/reset-password
 https://monadier.vercel.app/auth/callback
 https://monadier.vercel.app/reset-password
 http://localhost:5173/auth/callback
 http://localhost:5173/reset-password
 ```
+
+See also [SUPABASE_AUTH_URLS.md](./SUPABASE_AUTH_URLS.md).
 
 ### Step 2 — Google Cloud Console
 
@@ -38,6 +46,9 @@ http://localhost:5173/reset-password
 3. **Authorized JavaScript origins**:
 
 ```
+https://hypergain.io
+https://www.hypergain.io
+https://app.hypergain.io
 https://monadier.vercel.app
 http://localhost:5173
 ```
@@ -53,7 +64,9 @@ https://gbgafseabgqinnvlfslc.supabase.co/auth/v1/callback
 ```env
 VITE_SUPABASE_URL=https://gbgafseabgqinnvlfslc.supabase.co
 VITE_SUPABASE_ANON_KEY=<anon key from Supabase → Settings → API>
-VITE_SITE_URL=https://monadier.vercel.app
+VITE_SITE_URL=https://hypergain.io
+VITE_APP_URL=https://app.hypergain.io
+VITE_SPLIT_DOMAINS=true
 ```
 
 Redeploy frontend after changing env.
@@ -61,7 +74,7 @@ Redeploy frontend after changing env.
 ### Step 4 — Test
 
 1. Open `/login` → **Continue with Google**
-2. You should land on `/auth/callback` briefly, then `/dashboard`
+2. You should land on `/auth/callback` briefly, then the Pro Trade app
 3. If error: browser DevTools → Network → look for redirect URL mismatch
 
 ---

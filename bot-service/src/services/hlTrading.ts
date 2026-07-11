@@ -24,7 +24,7 @@ import {
 } from './hlInfo';
 import { checkHlBuilderFeeApproved } from './hlBuilder';
 import { checkWinRateGate } from './tradeGates';
-import { subscriptionService } from './subscription';
+import { subscriptionService, normalizeMaxConcurrentPositions } from './subscription';
 import type { TradingCycleContext } from './tradingCycleContext';
 import {
   normalizeHlBotStrategy,
@@ -209,6 +209,21 @@ function saveTrailRecord(lockKey: string, rec: DynamicTrailRecord): void {
   setDynamicTrailRecord(lockKey, rec);
 }
 
+/** Balance used for risk % — full tradable unless AI betting budget is reserved.
+ * Non-unified: betting uses spot USDC, bot uses perp — do not shrink perp.
+ * Unified: same collateral pool — subtract reserved betting budget.
+ */
+export function balanceForTradingRisk(
+  tradablePerpUsd: number,
+  autoBettingBudgetUsd: number,
+  unifiedAccount = true
+): number {
+  const reserved = Math.max(0, Number(autoBettingBudgetUsd) || 0);
+  if (reserved <= 0) return Math.max(0, tradablePerpUsd);
+  if (!unifiedAccount) return Math.max(0, tradablePerpUsd);
+  return Math.max(0, tradablePerpUsd - reserved);
+}
+
 function resolveMarginPerSlot(
   balance: number,
   freeMarginUsd: number,
@@ -248,14 +263,15 @@ export function resolveHlMarginPerSlot(
   balance: number,
   riskLevelBps: number,
   openCount: number,
-  freeMarginUsd?: number
+  freeMarginUsd?: number,
+  maxSlots: number = config.hyperliquid.maxConcurrentPositions
 ): number {
   return resolveMarginPerSlot(
     balance,
     freeMarginUsd ?? balance,
     riskLevelBps,
     openCount,
-    config.hyperliquid.maxConcurrentPositions
+    Math.max(2, Math.min(3, Math.floor(maxSlots) || 2))
   );
 }
 
@@ -351,7 +367,7 @@ export class HyperliquidTradingService {
     if (!state) return 'skip';
 
     const openCoins = hlOpenPerpCoins(state);
-    const maxPositions = config.hyperliquid.maxConcurrentPositions;
+    const maxPositions = normalizeMaxConcurrentPositions(settings.maxConcurrentPositions);
 
     if (openCoins.length > 0) {
       await this.monitorOpenPositions(userAddress, state, settings, { fast: false });
@@ -511,7 +527,7 @@ export class HyperliquidTradingService {
   ): Promise<UserProcessResult> {
     const strategy = normalizeHlBotStrategy(settings.hlBotStrategy);
     const signals = globalSignalsForBotMode(ctx.globalScan, strategy);
-    const maxPositions = config.hyperliquid.maxConcurrentPositions;
+    const maxPositions = normalizeMaxConcurrentPositions(settings.maxConcurrentPositions);
 
     if (signals.length === 0) {
       logger.debug('HL open skip: no signals for mode', {
@@ -539,8 +555,17 @@ export class HyperliquidTradingService {
 
     while (coinsOpen.length < maxPositions) {
       const slotsLeft = maxPositions - coinsOpen.length;
-      const balance = funding.tradablePerpUsd;
-      const freeMargin = hlTradableFreeMarginUsd(funding, stateRef);
+      const reservedBudget = Math.max(0, Number(settings.autoBettingBudgetUsd) || 0);
+      const balance = balanceForTradingRisk(
+        funding.tradablePerpUsd,
+        reservedBudget,
+        funding.unifiedAccount
+      );
+      const freeRaw = hlTradableFreeMarginUsd(funding, stateRef);
+      const freeMargin =
+        reservedBudget > 0 && funding.unifiedAccount
+          ? Math.max(0, freeRaw - reservedBudget)
+          : freeRaw;
       const collateral = resolveMarginPerSlot(
         balance,
         freeMargin,
@@ -552,7 +577,7 @@ export class HyperliquidTradingService {
         const err =
           coinsOpen.length > 0
             ? `free margin too low for slot ${coinsOpen.length + 1} ($${freeMargin.toFixed(2)} free)`
-            : `margin too small for slot ($${collateral.toFixed(2)} from $${balance.toFixed(2)} balance)`;
+            : `margin too small for slot ($${collateral.toFixed(2)} from $${balance.toFixed(2)} balance${reservedBudget > 0 ? `, $${reservedBudget.toFixed(2)} reserved for AI betting` : ''})`;
         lastHlOpenError.set(userAddress.toLowerCase(), {
           at: new Date().toISOString(),
           error: err,
@@ -560,6 +585,8 @@ export class HyperliquidTradingService {
         logger.info('HL open skip: margin too small for slot', {
           user: userAddress.slice(0, 10),
           balance,
+          tradablePerpUsd: funding.tradablePerpUsd,
+          reservedBudget,
           freeMargin,
           collateral,
           openCount: coinsOpen.length,

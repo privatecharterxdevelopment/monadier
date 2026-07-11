@@ -14,6 +14,10 @@
   },
   "nav": {
     "howItWorks": "工作原理",
+    "aiTradingBot": "AI交易机器人",
+    "aiSportsBetting": "AI体育投注",
+    "aiAutoBetting": "AI体育投注",
+    "perpsTrading": "永续交易",
     "bot": "机器人",
     "leaderboard": "排行榜",
     "betting": "投注",

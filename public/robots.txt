@@ -9,4 +9,4 @@ Disallow: /forgot-password
 Disallow: /reset-password
 Disallow: /kyc
 
-Sitemap: https://www.monadier.io/sitemap.xml
+Sitemap: https://hypergain.io/sitemap.xml
