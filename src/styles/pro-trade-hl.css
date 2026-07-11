@@ -13786,110 +13786,169 @@
   flex-direction: column;
 }
 
-/* —— Sports betting: AI agent + accrued fees —— */
-.hl-sb-agent-panel {
-  margin-bottom: 12px;
-  padding: 14px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--hl-border, #2a2a2e) 80%, transparent);
-  background: color-mix(in srgb, var(--hl-panel, #141416) 92%, #1a1a1f);
-}
-
-.hl-root--light .hl-sb-agent-panel {
-  background: #f8f8fa;
-  border-color: rgba(0, 0, 0, 0.08);
-}
-
-.hl-sb-agent-head {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  margin-bottom: 10px;
-}
-
-.hl-sb-agent-head-text {
-  flex: 1;
-  min-width: 0;
-}
-
-.hl-sb-agent-title-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+/* —— Sports betting: AI agent (matches manual order toolbar) —— */
+.hl-sb-agent {
   margin-bottom: 4px;
+  border-bottom: 1px solid var(--hl-border);
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
 }
 
-.hl-sb-agent-head h3 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.hl-sb-agent-head p {
-  margin: 0;
-  font-size: 11px;
-  color: var(--hl-muted, #9ca3af);
-  line-height: 1.4;
-}
-
-.hl-sb-agent-info-btn {
-  display: inline-flex;
+.hl-sb-agent-toggle {
+  width: 100%;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--hl-border, #2a2a2e) 90%, transparent);
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
   background: transparent;
-  color: var(--hl-muted, #9ca3af);
-  cursor: help;
+  color: var(--hl-text);
+  cursor: pointer;
+  text-align: left;
 }
 
-.hl-sb-agent-info-btn:hover,
-.hl-sb-agent-info-btn:focus-visible {
-  color: var(--hl-text, #f3f4f6);
-  border-color: color-mix(in srgb, var(--hl-accent, #60a5fa) 50%, transparent);
+.hl-sb-agent-toggle:hover,
+.hl-sb-agent-toggle:focus-visible {
+  background: var(--hl-bg-hover);
   outline: none;
 }
 
-.hl-sb-agent-info-popover {
-  width: min(320px, calc(100vw - 24px));
-  max-width: 320px;
+.hl-sb-agent-toggle--open {
+  background: var(--hl-bg-hover);
 }
 
-.hl-sb-agent-info-list {
-  margin: 0;
-  padding-left: 16px;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--hl-muted, #d1d5db);
-}
-
-.hl-sb-agent-info-list li + li {
-  margin-top: 6px;
-}
-
-.hl-sb-agent-budget-row {
-  display: flex;
-  gap: 8px;
+.hl-sb-agent-toggle-left {
+  display: inline-flex;
   align-items: center;
-}
-
-.hl-sb-agent-budget-input {
-  flex: 1;
+  gap: 6px;
   min-width: 0;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--hl-border, #2a2a2e) 90%, transparent);
-  background: color-mix(in srgb, var(--hl-panel, #141416) 80%, #0a0a0c);
-  color: inherit;
-  font-size: 13px;
 }
 
-.hl-sb-agent-budget-row .hl-sb-agent-btn {
+.hl-sb-agent-toggle-title {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hl-sb-agent-rainbow-text {
+  background: linear-gradient(
+    90deg,
+    #ff0080,
+    #ff8c00,
+    #ffe600,
+    #00ff88,
+    #00cfff,
+    #7b61ff,
+    #ff0080
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: hl-sb-agent-rainbow-shift 3s linear infinite;
+}
+
+.hl-sb-agent-rainbow-icon {
   flex-shrink: 0;
-  padding: 8px 12px;
+  animation: hl-sb-agent-icon-rainbow 2.4s linear infinite;
+}
+
+@keyframes hl-sb-agent-rainbow-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 300% 50%;
+  }
+}
+
+@keyframes hl-sb-agent-icon-rainbow {
+  0% {
+    color: #ff0080;
+  }
+  16% {
+    color: #ff8c00;
+  }
+  33% {
+    color: #ffe600;
+  }
+  50% {
+    color: #00ff88;
+  }
+  66% {
+    color: #00cfff;
+  }
+  83% {
+    color: #7b61ff;
+  }
+  100% {
+    color: #ff0080;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hl-sb-agent-rainbow-text {
+    animation: none;
+    background: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+    color: var(--hl-text);
+  }
+
+  .hl-sb-agent-rainbow-icon {
+    animation: none;
+    color: var(--hl-text);
+  }
+}
+
+.hl-sb-agent-toggle-live {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #fff;
+  background: #26a69a;
+}
+
+.hl-sb-agent-toggle-chevron {
+  flex-shrink: 0;
+  color: var(--hl-text-muted);
+  transition: transform 0.15s ease;
+}
+
+.hl-sb-agent-toggle-chevron--open {
+  transform: rotate(180deg);
+}
+
+.hl-sb-agent-video-box {
+  padding: 0;
+  overflow: hidden;
+}
+
+.hl-sb-agent-video {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 160px;
+  object-fit: cover;
+  vertical-align: middle;
+  background: #0a0a0c;
+}
+
+.hl-sb-agent-fee-btn {
+  width: 100%;
+  margin-bottom: 8px;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
 }
 
 .hl-betting-reason {
@@ -13910,130 +13969,6 @@
 .hl-betting-leg-kind {
   font-size: 11px;
   color: var(--hl-muted, #9ca3af);
-}
-
-.hl-sb-agent-prefs {
-  margin: 0 0 12px;
-}
-
-.hl-sb-agent-prefs-label {
-  margin: 0 0 6px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--hl-muted, #9ca3af);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.hl-sb-agent-prefs-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.hl-sb-agent-pref-chip {
-  padding: 5px 10px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--hl-border, #2a2a2e) 90%, transparent);
-  background: transparent;
-  color: var(--hl-muted, #9ca3af);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.hl-sb-agent-pref-chip--on {
-  color: var(--hl-text, #f3f4f6);
-  border-color: color-mix(in srgb, #22c55e 55%, transparent);
-  background: color-mix(in srgb, #22c55e 14%, transparent);
-}
-
-.hl-sb-agent-pref-chip:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.hl-sb-agent-prefs-hint {
-  margin: 8px 0 0;
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--hl-muted, #9ca3af);
-}
-
-.hl-sb-agent-fee-banner {
-  width: 100%;
-  margin-bottom: 10px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid color-mix(in srgb, #f59e0b 40%, transparent);
-  background: color-mix(in srgb, #f59e0b 12%, transparent);
-  color: inherit;
-  font-size: 12px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.hl-sb-agent-status {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.hl-sb-agent-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--hl-muted, #9ca3af);
-  background: color-mix(in srgb, var(--hl-muted, #9ca3af) 12%, transparent);
-}
-
-.hl-sb-agent-pill--on {
-  color: #4ade80;
-  background: color-mix(in srgb, #4ade80 14%, transparent);
-}
-
-.hl-sb-agent-error {
-  margin: 0 0 8px;
-  font-size: 11px;
-  color: #f87171;
-}
-
-.hl-sb-agent-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.hl-sb-agent-btn {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: none;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.hl-sb-agent-btn--primary {
-  color: #fff;
-  background: #0a0a0a;
-}
-
-.hl-root--light .hl-sb-agent-btn--primary {
-  background: #111;
-}
-
-.hl-sb-agent-btn--danger {
-  color: #fff;
-  background: #b91c1c;
 }
 
 .hl-sb-order-fee-due {

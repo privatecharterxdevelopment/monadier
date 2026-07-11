@@ -1,8 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { Info, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ChevronDown, Loader2, Sparkles } from 'lucide-react';
 import { useWalletClient } from 'wagmi';
-import { useAuth } from '../../../contexts/AuthContext';
 import { useBettingFeeGate } from '../../../contexts/BettingFeeContext';
 import { fmtUsdSymbol } from '../../../lib/hyperliquid/format';
 import { checkHlBotAgentApproved } from '../../../lib/hyperliquid/hlBotAgent';
@@ -13,98 +11,13 @@ import {
 } from '../../../lib/betting/saveAutoBettingEnabled';
 import type { AutoBettingResultPrefs } from '../../../lib/betting/autoBettingPrefs';
 
+const AI_BETTING_VIDEO = '/videos/ai-betting-agent.mp4';
+
 type Props = {
   walletAddress?: string;
   walletConnected: boolean;
   signedIn: boolean;
   onRequireSignIn?: (reason: string) => void;
-};
-
-const AGENT_INFO_LINES = [
-  'Same Hyperliquid agent as the trading bot — separate on/off switch.',
-  'Bot auto-trading and AI betting can run together on one HL account.',
-  '0.5% fee per bet · 2.5% on cash-out — pay after each event before the next bet.',
-  'Auto-betting places orders via your approved agent when enabled.',
-] as const;
-
-const BettingAgentInfoHint: React.FC = () => {
-  const anchorRef = useRef<HTMLButtonElement>(null);
-  const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number; placement: 'top' | 'bottom' } | null>(
-    null
-  );
-
-  const updatePos = useCallback(() => {
-    const el = anchorRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const gap = 10;
-    const estHeight = 200;
-    const spaceAbove = rect.top;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const placement: 'top' | 'bottom' =
-      spaceAbove >= estHeight + gap || spaceAbove >= spaceBelow ? 'top' : 'bottom';
-    setPos({
-      top: placement === 'top' ? rect.top - gap : rect.bottom + gap,
-      left: rect.left + rect.width / 2,
-      placement,
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    updatePos();
-    const onScroll = () => updatePos();
-    window.addEventListener('scroll', onScroll, true);
-    window.addEventListener('resize', onScroll);
-    return () => {
-      window.removeEventListener('scroll', onScroll, true);
-      window.removeEventListener('resize', onScroll);
-    };
-  }, [open, updatePos]);
-
-  const show = () => {
-    setOpen(true);
-    updatePos();
-  };
-  const hide = () => setOpen(false);
-
-  const popover =
-    open && pos
-      ? createPortal(
-          <div
-            className={`term-trade-reason-popover term-trade-reason-popover--${pos.placement} hl-sb-agent-info-popover`}
-            style={{ top: pos.top, left: pos.left }}
-            role="tooltip"
-          >
-            <strong className="term-trade-reason-popover__title">AI betting agent</strong>
-            <ul className="hl-sb-agent-info-list">
-              {AGENT_INFO_LINES.map((line) => (
-                <li key={line}>{line}</li>
-              ))}
-            </ul>
-          </div>,
-          document.body
-        )
-      : null;
-
-  return (
-    <>
-      <button
-        ref={anchorRef}
-        type="button"
-        className="hl-sb-agent-info-btn"
-        aria-label="AI betting agent info"
-        onMouseEnter={show}
-        onMouseLeave={hide}
-        onFocus={show}
-        onBlur={hide}
-      >
-        <Info size={14} strokeWidth={2} aria-hidden />
-      </button>
-      {popover}
-    </>
-  );
 };
 
 const BettingAutoAgentPanel: React.FC<Props> = ({
@@ -113,9 +26,9 @@ const BettingAutoAgentPanel: React.FC<Props> = ({
   signedIn,
   onRequireSignIn,
 }) => {
-  const { user } = useAuth();
   const { data: walletClient } = useWalletClient();
   const bettingFees = useBettingFeeGate();
+  const [panelOpen, setPanelOpen] = useState(false);
   const [autoEnabled, setAutoEnabled] = useState(false);
   const [prefs, setPrefs] = useState<AutoBettingResultPrefs>({
     allowWin: true,
@@ -126,11 +39,26 @@ const BettingAutoAgentPanel: React.FC<Props> = ({
   const [budgetDraft, setBudgetDraft] = useState('0');
   const [agentApproved, setAgentApproved] = useState(false);
   const [agentLoading, setAgentLoading] = useState(false);
-  const [settingsLoading, setSettingsLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const wallet = walletAddress?.trim().toLowerCase();
+
+  const requireReady = useCallback(
+    (reason: string): boolean => {
+      if (!signedIn) {
+        onRequireSignIn?.(reason);
+        return false;
+      }
+      if (!wallet || !walletConnected) {
+        setError('Connect your wallet first');
+        return false;
+      }
+      return true;
+    },
+    [onRequireSignIn, signedIn, wallet, walletConnected]
+  );
 
   const refresh = useCallback(async () => {
     if (!wallet) {
@@ -138,7 +66,6 @@ const BettingAutoAgentPanel: React.FC<Props> = ({
       setAgentApproved(false);
       return;
     }
-    setSettingsLoading(true);
     try {
       const [settings, agent] = await Promise.all([
         loadAutoBettingSettings(wallet),
@@ -153,8 +80,8 @@ const BettingAutoAgentPanel: React.FC<Props> = ({
       setBudgetUsd(settings.budgetUsd);
       setBudgetDraft(String(settings.budgetUsd > 0 ? settings.budgetUsd : 0));
       setAgentApproved(agent.approved);
-    } finally {
-      setSettingsLoading(false);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Could not load AI betting settings');
     }
   }, [wallet]);
 
@@ -163,11 +90,8 @@ const BettingAutoAgentPanel: React.FC<Props> = ({
   }, [refresh]);
 
   const handleApproveAgent = async () => {
-    if (!signedIn) {
-      onRequireSignIn?.('Sign in to enable AI betting');
-      return;
-    }
-    if (!walletConnected || !walletClient) {
+    if (!requireReady('Sign in to enable AI betting')) return;
+    if (!walletClient) {
       setError('Connect your wallet first');
       return;
     }
@@ -184,10 +108,7 @@ const BettingAutoAgentPanel: React.FC<Props> = ({
   };
 
   const handleToggleAuto = async () => {
-    if (!signedIn) {
-      onRequireSignIn?.('Sign in to enable AI betting');
-      return;
-    }
+    if (!requireReady('Sign in to enable AI betting')) return;
     if (!wallet) return;
     if (bettingFees.bettingBlocked) {
       bettingFees.openPayModal();
@@ -210,17 +131,15 @@ const BettingAutoAgentPanel: React.FC<Props> = ({
     }
   };
 
-  const saveBudget = async () => {
-    if (!signedIn) {
-      onRequireSignIn?.('Sign in to set betting budget');
-      return;
-    }
+  const persistBudget = async (raw: string) => {
+    if (!requireReady('Sign in to set betting budget')) return;
     if (!wallet) return;
-    const n = Math.max(0, Math.round(Number.parseFloat(budgetDraft) * 100) / 100);
+    const n = Math.max(0, Math.round(Number.parseFloat(raw) * 100) / 100);
     if (!Number.isFinite(n)) {
       setError('Enter a valid budget in USD');
       return;
     }
+    setSaving(true);
     setError(null);
     try {
       await saveAutoBettingSettings(wallet, { budgetUsd: n });
@@ -228,15 +147,15 @@ const BettingAutoAgentPanel: React.FC<Props> = ({
       setBudgetDraft(String(n));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Could not save budget');
+    } finally {
+      setSaving(false);
     }
   };
 
   const togglePref = async (key: keyof AutoBettingResultPrefs) => {
-    if (!signedIn) {
-      onRequireSignIn?.('Sign in to change AI betting options');
-      return;
-    }
+    if (!requireReady('Sign in to change AI betting options')) return;
     if (!wallet) return;
+    const prev = prefs;
     const next = { ...prefs, [key]: !prefs[key] };
     if (!next.allowWin && !next.allowDraw && !next.allowLoss) {
       setError('Keep at least one of Win, Draw, or Loss enabled.');
@@ -244,135 +163,182 @@ const BettingAutoAgentPanel: React.FC<Props> = ({
     }
     setPrefs(next);
     setError(null);
+    setSaving(true);
     try {
       await saveAutoBettingSettings(wallet, next);
     } catch (err: unknown) {
-      setPrefs(prefs);
+      setPrefs(prev);
       setError(err instanceof Error ? err.message : 'Could not save options');
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
-    <section className="hl-sb-agent-panel" aria-label="AI betting agent">
-      <header className="hl-sb-agent-head">
-        <Sparkles size={16} aria-hidden />
-        <div className="hl-sb-agent-head-text">
-          <div className="hl-sb-agent-title-row">
-            <h3>AI betting agent</h3>
-            <BettingAgentInfoHint />
+    <aside className="hl-sb-order hl-sb-agent" aria-label="AI betting">
+      <button
+        type="button"
+        className={`hl-sb-agent-toggle${panelOpen ? ' hl-sb-agent-toggle--open' : ''}${autoEnabled ? ' hl-sb-agent-toggle--live' : ''}`}
+        aria-expanded={panelOpen}
+        onClick={() => setPanelOpen((v) => !v)}
+      >
+        <span className="hl-sb-agent-toggle-left">
+          <Sparkles size={14} className="hl-sb-agent-rainbow-icon" aria-hidden />
+          <span className="hl-sb-agent-toggle-title hl-sb-agent-rainbow-text">AI betting</span>
+          {autoEnabled ? <span className="hl-sb-agent-toggle-live">On</span> : null}
+        </span>
+        <ChevronDown
+          size={16}
+          className={`hl-sb-agent-toggle-chevron${panelOpen ? ' hl-sb-agent-toggle-chevron--open' : ''}`}
+          aria-hidden
+        />
+      </button>
+
+      {panelOpen ? (
+        <>
+          <div className="hl-sb-order-head">
+            <div className="hl-sb-order-pick-box hl-sb-agent-video-box">
+              <video
+                className="hl-sb-agent-video"
+                src={AI_BETTING_VIDEO}
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="metadata"
+                aria-label="AI betting"
+              />
+            </div>
           </div>
-          <p>Same agent as the trading bot — separate on/off.</p>
-        </div>
-      </header>
 
-      {bettingFees.feesDue ? (
-        <button
-          type="button"
-          className="hl-sb-agent-fee-banner"
-          onClick={bettingFees.openPayModal}
-        >
-          Betting fees due: <strong>{fmtUsdSymbol(bettingFees.accruedUsd)}</strong> — pay to bet again
-        </button>
-      ) : null}
-
-      <div className="hl-sb-agent-status">
-        <span className={`hl-sb-agent-pill${agentApproved ? ' hl-sb-agent-pill--on' : ''}`}>
-          <ShieldCheck size={12} aria-hidden />
-          Agent {agentApproved ? 'approved' : 'not approved'}
-        </span>
-        <span className={`hl-sb-agent-pill${autoEnabled ? ' hl-sb-agent-pill--on' : ''}`}>
-          Auto-betting {autoEnabled ? 'on' : 'off'}
-        </span>
-      </div>
-
-      <div className="hl-sb-agent-prefs" aria-label="Betting budget">
-        <p className="hl-sb-agent-prefs-label">Betting budget (USDC)</p>
-        <div className="hl-sb-agent-budget-row">
-          <input
-            type="number"
-            min={0}
-            step={1}
-            className="hl-sb-agent-budget-input"
-            value={budgetDraft}
-            disabled={!wallet || settingsLoading || !user}
-            onChange={(e) => setBudgetDraft(e.target.value)}
-            onBlur={() => void saveBudget()}
-            aria-label="Max USDC for AI betting"
-          />
-          <button
-            type="button"
-            className="hl-sb-agent-btn hl-sb-agent-btn--primary"
-            disabled={!wallet || settingsLoading || !user}
-            onClick={() => void saveBudget()}
-          >
-            Save
-          </button>
-        </div>
-        <p className="hl-sb-agent-prefs-hint">
-          Caps how much of your Hyperliquid spot USDC the betting agent may use (e.g. $50 of
-          $150). Perp bot risk % is unchanged. Current budget:{' '}
-          <strong>{fmtUsdSymbol(budgetUsd)}</strong>
-          {budgetUsd < 10 ? ' — set at least $10 to allow AI bets.' : ''}.
-        </p>
-      </div>
-
-      <div className="hl-sb-agent-prefs" aria-label="Bet on result types">
-        <p className="hl-sb-agent-prefs-label">Bot may bet on</p>
-        <div className="hl-sb-agent-prefs-row">
-          {(
-            [
-              ['allowWin', 'Win'],
-              ['allowDraw', 'Draw'],
-              ['allowLoss', 'Loss'],
-            ] as const
-          ).map(([key, label]) => (
+          {bettingFees.feesDue ? (
             <button
-              key={key}
               type="button"
-              className={`hl-sb-agent-pref-chip${prefs[key] ? ' hl-sb-agent-pref-chip--on' : ''}`}
-              aria-pressed={prefs[key]}
-              disabled={!wallet || settingsLoading || !user}
-              onClick={() => void togglePref(key)}
+              className="hl-sb-order-context-banner hl-sb-order-context-banner--warn hl-sb-agent-fee-btn"
+              onClick={bettingFees.openPayModal}
             >
-              {label}
+              Betting fees due: <strong>{fmtUsdSymbol(bettingFees.accruedUsd)}</strong> — pay to bet
+              again
             </button>
-          ))}
-        </div>
-        <p className="hl-sb-agent-prefs-hint">
-          Yes/No markets: Win = Yes, Loss = No. Draw applies when the event has a Draw leg.
-        </p>
-      </div>
+          ) : null}
 
-      {error ? (
-        <p className="hl-sb-agent-error" role="alert">
-          {error}
-        </p>
+          <label className="hl-sb-field hl-sb-field--stake">
+            <span>Betting budget (USDC)</span>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={budgetDraft}
+              onChange={(e) => setBudgetDraft(e.target.value)}
+              onBlur={() => void persistBudget(budgetDraft)}
+              placeholder="50"
+              aria-label="Max USDC for AI betting"
+            />
+          </label>
+
+          <div className="hl-sb-quick-stakes" role="group" aria-label="Save budget">
+            <button
+              type="button"
+              className="hl-sb-quick-stake hl-sb-quick-stake--on"
+              disabled={saving}
+              onClick={() => void persistBudget(budgetDraft)}
+            >
+              Save
+            </button>
+            {([10, 25, 50, 100] as const).map((amt) => (
+              <button
+                key={amt}
+                type="button"
+                className={
+                  Number(budgetDraft) === amt ? 'hl-sb-quick-stake hl-sb-quick-stake--on' : 'hl-sb-quick-stake'
+                }
+                disabled={saving}
+                onClick={() => {
+                  setBudgetDraft(String(amt));
+                  void persistBudget(String(amt));
+                }}
+              >
+                ${amt}
+              </button>
+            ))}
+          </div>
+
+          <div
+            className="hl-sb-order-controls hl-sb-order-controls--compact"
+            role="group"
+            aria-label="Bot may bet on"
+          >
+            {(
+              [
+                ['allowWin', 'Win'],
+                ['allowDraw', 'Draw'],
+                ['allowLoss', 'Loss'],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                className={prefs[key] ? 'hl-sb-pill hl-sb-pill--on' : 'hl-sb-pill'}
+                aria-pressed={prefs[key]}
+                disabled={saving}
+                onClick={() => void togglePref(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="hl-sb-order-context">
+            <div className="hl-sb-order-context-stats">
+              <div className="hl-sb-order-context-stat">
+                <span className="hl-sb-order-context-label">Agent</span>
+                <strong>{agentApproved ? 'Yes' : 'No'}</strong>
+              </div>
+              <div className="hl-sb-order-context-stat">
+                <span className="hl-sb-order-context-label">Auto</span>
+                <strong>{autoEnabled ? 'On' : 'Off'}</strong>
+              </div>
+              <div className="hl-sb-order-context-stat">
+                <span className="hl-sb-order-context-label">Budget</span>
+                <strong>{fmtUsdSymbol(budgetUsd)}</strong>
+              </div>
+            </div>
+
+            {error ? (
+              <div className="hl-sb-order-context-banner hl-sb-order-context-banner--err" role="alert">
+                {error}
+              </div>
+            ) : budgetUsd < 10 ? (
+              <p className="hl-sb-order-context-fee">
+                Set at least $10 to allow AI bets.
+              </p>
+            ) : null}
+          </div>
+
+          {!agentApproved ? (
+            <button
+              type="button"
+              className="hl-sb-order-submit"
+              onClick={() => void handleApproveAgent()}
+              disabled={busy}
+            >
+              {busy ? <Loader2 size={16} className="hl-spin" aria-hidden /> : null}
+              Approve agent
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={`hl-sb-order-submit${autoEnabled ? ' hl-sb-order-submit--sell' : ''}`}
+              onClick={() => void handleToggleAuto()}
+              disabled={agentLoading || bettingFees.bettingBlocked}
+            >
+              {agentLoading ? <Loader2 size={16} className="hl-spin" aria-hidden /> : null}
+              {autoEnabled ? 'Turn off AI betting' : 'Enable AI betting'}
+            </button>
+          )}
+        </>
       ) : null}
-
-      <div className="hl-sb-agent-actions">
-        {!agentApproved ? (
-          <button
-            type="button"
-            className="hl-sb-agent-btn hl-sb-agent-btn--primary"
-            onClick={() => void handleApproveAgent()}
-            disabled={busy || !walletConnected}
-          >
-            {busy ? <Loader2 size={14} className="hl-spin" aria-hidden /> : null}
-            Approve trading agent
-          </button>
-        ) : (
-          <button
-            type="button"
-            className={`hl-sb-agent-btn${autoEnabled ? ' hl-sb-agent-btn--danger' : ' hl-sb-agent-btn--primary'}`}
-            onClick={() => void handleToggleAuto()}
-            disabled={agentLoading || settingsLoading || bettingFees.bettingBlocked}
-          >
-            {agentLoading ? <Loader2 size={14} className="hl-spin" aria-hidden /> : null}
-            {autoEnabled ? 'Turn off AI betting' : 'Enable AI betting'}
-          </button>
-        )}
-      </div>
-    </section>
+    </aside>
   );
 };
 
