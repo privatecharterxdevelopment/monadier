@@ -9,6 +9,8 @@ const ARBITRUM_CHAIN_ID = 42161;
 
 export type AutoBettingSettings = AutoBettingResultPrefs & {
   enabled: boolean;
+  /** Max spot USDC for AI betting agent. 0 = paused until set. */
+  budgetUsd: number;
 };
 
 export async function loadAutoBettingSettings(
@@ -16,13 +18,13 @@ export async function loadAutoBettingSettings(
 ): Promise<AutoBettingSettings> {
   const wallet = walletAddress.trim().toLowerCase();
   if (!wallet) {
-    return { enabled: false, ...DEFAULT_AUTO_BETTING_RESULT_PREFS };
+    return { enabled: false, budgetUsd: 0, ...DEFAULT_AUTO_BETTING_RESULT_PREFS };
   }
 
   const full = await supabase
     .from('vault_settings')
     .select(
-      'auto_betting_enabled, auto_betting_allow_win, auto_betting_allow_draw, auto_betting_allow_loss'
+      'auto_betting_enabled, auto_betting_allow_win, auto_betting_allow_draw, auto_betting_allow_loss, auto_betting_budget_usd'
     )
     .eq('wallet_address', wallet)
     .eq('chain_id', ARBITRUM_CHAIN_ID)
@@ -37,6 +39,7 @@ export async function loadAutoBettingSettings(
       .maybeSingle();
     return {
       enabled: Boolean(legacy.data?.auto_betting_enabled),
+      budgetUsd: 0,
       ...DEFAULT_AUTO_BETTING_RESULT_PREFS,
     };
   }
@@ -47,6 +50,7 @@ export async function loadAutoBettingSettings(
     allowWin: data?.auto_betting_allow_win !== false,
     allowDraw: data?.auto_betting_allow_draw !== false,
     allowLoss: data?.auto_betting_allow_loss !== false,
+    budgetUsd: Math.max(0, Number(data?.auto_betting_budget_usd) || 0),
   };
 }
 
@@ -85,17 +89,16 @@ export async function saveAutoBettingSettings(
   if (patch.allowWin != null) row.auto_betting_allow_win = patch.allowWin;
   if (patch.allowDraw != null) row.auto_betting_allow_draw = patch.allowDraw;
   if (patch.allowLoss != null) row.auto_betting_allow_loss = patch.allowLoss;
+  if (patch.budgetUsd != null) {
+    row.auto_betting_budget_usd = Math.max(0, Math.min(1_000_000, Number(patch.budgetUsd) || 0));
+  }
 
   const { error } = await supabase.from('vault_settings').upsert(row, {
     onConflict: 'wallet_address,chain_id',
   });
   if (error) {
-    // Pref columns may not exist until migration — still save enabled flag.
-    if (
-      patch.enabled != null &&
-      (patch.allowWin != null || patch.allowDraw != null || patch.allowLoss != null)
-    ) {
-      const fallback = {
+    if (patch.enabled != null) {
+      const fallback: Record<string, unknown> = {
         wallet_address: wallet,
         chain_id: ARBITRUM_CHAIN_ID,
         user_id: userId,
@@ -107,6 +110,9 @@ export async function saveAutoBettingSettings(
         .from('vault_settings')
         .upsert(fallback, { onConflict: 'wallet_address,chain_id' });
       if (err2) throw new Error(err2.message);
+      if (patch.budgetUsd != null || patch.allowWin != null) {
+        throw new Error('Apply DB migration for betting budget / prefs, then retry.');
+      }
       return;
     }
     throw new Error(error.message);

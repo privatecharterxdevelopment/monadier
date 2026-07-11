@@ -10,6 +10,8 @@ export type UserTradeNotificationRow = {
   wallet_address: string;
   kind: 'bot' | 'manual' | 'betting';
   headline: string;
+  detail: string | null;
+  event_type: 'open' | 'close' | null;
   profit_loss: number;
   profit_loss_percent: number | null;
   closed_at: string;
@@ -21,6 +23,8 @@ export function userTradeNotificationToActivity(row: UserTradeNotificationRow): 
     id: `un-${row.id}`,
     kind: row.kind === 'betting' ? 'betting' : 'bot',
     headline: row.headline,
+    detail: row.detail,
+    eventType: row.event_type === 'open' ? 'open' : 'close',
     profitLoss: Number(row.profit_loss) || 0,
     profitLossPercent:
       row.profit_loss_percent != null ? Number(row.profit_loss_percent) : null,
@@ -38,15 +42,33 @@ export async function fetchUserTradeNotifications(limit = 100): Promise<Activity
   const { data, error } = await supabase
     .from('user_trade_notifications')
     .select(
-      'id, user_id, trade_history_id, wallet_address, kind, headline, profit_loss, profit_loss_percent, closed_at, read_at'
+      'id, user_id, trade_history_id, wallet_address, kind, headline, detail, event_type, profit_loss, profit_loss_percent, closed_at, read_at'
     )
     .eq('user_id', userId)
     .order('closed_at', { ascending: false })
     .limit(limit);
 
   if (error) {
-    devError('[fetchUserTradeNotifications]', error);
-    return [];
+    // detail/event_type may be missing pre-migration
+    const legacy = await supabase
+      .from('user_trade_notifications')
+      .select(
+        'id, user_id, trade_history_id, wallet_address, kind, headline, profit_loss, profit_loss_percent, closed_at, read_at'
+      )
+      .eq('user_id', userId)
+      .order('closed_at', { ascending: false })
+      .limit(limit);
+    if (legacy.error) {
+      devError('[fetchUserTradeNotifications]', legacy.error);
+      return [];
+    }
+    return (legacy.data ?? []).map((row) =>
+      userTradeNotificationToActivity({
+        ...(row as UserTradeNotificationRow),
+        detail: null,
+        event_type: 'close',
+      })
+    );
   }
 
   return (data ?? []).map((row) =>

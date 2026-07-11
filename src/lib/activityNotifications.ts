@@ -24,6 +24,8 @@ export type ActivityNotification = {
   /** Server-persisted notification row */
   dbId?: string | null;
   readAt?: string | null;
+  /** open = AI bet opened; close = settled */
+  eventType?: 'open' | 'close' | null;
 };
 
 export function botTradeToNotification(row: ClosedTradeRow): ActivityNotification {
@@ -86,10 +88,14 @@ export function toastMessageForNotification(n: ActivityNotification): string {
       : '';
 
   if (n.kind === 'betting') {
+    if (n.eventType === 'open') {
+      const pick = n.detail?.split('\n')[0]?.replace(/^Pick:\s*/i, '') ?? '';
+      return pick ? `AI bet opened · ${pick} · ${n.headline}` : `AI bet opened · ${n.headline}`;
+    }
     const won = n.profitLoss > 0;
     const lost = n.profitLoss < 0;
     const prefix = won ? 'Bet won' : lost ? 'Bet lost' : 'Bet settled';
-    const side = n.detail ? ` · ${n.detail}` : '';
+    const side = n.detail && !n.detail.includes('\n') ? ` · ${n.detail}` : '';
     return `${prefix}${side} ${sign}$${amount}${roi}`;
   }
 

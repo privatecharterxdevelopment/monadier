@@ -13870,6 +13870,48 @@
   margin-top: 6px;
 }
 
+.hl-sb-agent-budget-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.hl-sb-agent-budget-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--hl-border, #2a2a2e) 90%, transparent);
+  background: color-mix(in srgb, var(--hl-panel, #141416) 80%, #0a0a0c);
+  color: inherit;
+  font-size: 13px;
+}
+
+.hl-sb-agent-budget-row .hl-sb-agent-btn {
+  flex-shrink: 0;
+  padding: 8px 12px;
+}
+
+.hl-betting-reason {
+  max-width: 220px;
+  font-size: 11px;
+  color: var(--hl-muted, #9ca3af);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hl-betting-ai-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: #60a5fa;
+}
+
+.hl-betting-leg-kind {
+  font-size: 11px;
+  color: var(--hl-muted, #9ca3af);
+}
+
 .hl-sb-agent-prefs {
   margin: 0 0 12px;
 }

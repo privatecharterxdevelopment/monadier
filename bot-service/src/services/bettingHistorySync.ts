@@ -186,6 +186,27 @@ export async function syncBettingClosesForEmails(limit = 25): Promise<number> {
 
       if (closeRows.length === 0) continue;
 
+      // Preserve AI open reasons from open positions when possible.
+      const { data: openPos } = await supabase
+        .from('hl_betting_positions')
+        .select('outcome_id, side, open_reason, leg_kind, source')
+        .eq('wallet_address', wallet);
+      const reasonByKey = new Map<string, { open_reason: string | null; leg_kind: string | null; source: string }>();
+      for (const p of openPos ?? []) {
+        reasonByKey.set(`${p.outcome_id}:${p.side}`, {
+          open_reason: p.open_reason != null ? String(p.open_reason) : null,
+          leg_kind: p.leg_kind != null ? String(p.leg_kind) : null,
+          source: String(p.source ?? 'manual'),
+        });
+      }
+      for (const row of closeRows) {
+        const meta = reasonByKey.get(`${row.outcome_id}:${row.side}`);
+        if (!meta) continue;
+        row.open_reason = meta.open_reason;
+        row.leg_kind = meta.leg_kind;
+        row.source = meta.source;
+      }
+
       const { error, count } = await supabase
         .from('hl_betting_closes')
         .upsert(closeRows, {

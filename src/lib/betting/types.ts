@@ -15,6 +15,9 @@ export type HlBettingPositionRow = {
   unrealized_pnl: number | null;
   opened_at: string;
   updated_at: string;
+  open_reason: string | null;
+  leg_kind: string | null;
+  source: string | null;
 };
 
 export type HlBettingCloseRow = {
@@ -33,6 +36,9 @@ export type HlBettingCloseRow = {
   hl_fill_tid: number | null;
   closed_at: string;
   created_at: string;
+  open_reason: string | null;
+  leg_kind: string | null;
+  source: string | null;
 };
 
 function readNum(v: unknown): number {
@@ -59,6 +65,9 @@ export function mapBettingPositionRow(raw: Record<string, unknown>): HlBettingPo
     unrealized_pnl: raw.unrealized_pnl != null ? readNum(raw.unrealized_pnl) : null,
     opened_at: String(raw.opened_at ?? ''),
     updated_at: String(raw.updated_at ?? ''),
+    open_reason: raw.open_reason != null ? String(raw.open_reason) : null,
+    leg_kind: raw.leg_kind != null ? String(raw.leg_kind) : null,
+    source: raw.source != null ? String(raw.source) : null,
   };
 }
 
@@ -79,5 +88,8 @@ export function mapBettingCloseRow(raw: Record<string, unknown>): HlBettingClose
     hl_fill_tid: raw.hl_fill_tid != null ? readNum(raw.hl_fill_tid) : null,
     closed_at: String(raw.closed_at ?? ''),
     created_at: String(raw.created_at ?? ''),
+    open_reason: raw.open_reason != null ? String(raw.open_reason) : null,
+    leg_kind: raw.leg_kind != null ? String(raw.leg_kind) : null,
+    source: raw.source != null ? String(raw.source) : null,
   };
 }

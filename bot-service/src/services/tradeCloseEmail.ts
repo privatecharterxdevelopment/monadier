@@ -22,10 +22,12 @@ type PendingRow = {
   trade_history_id: string | null;
   hl_betting_close_id: string | null;
   headline: string;
+  detail: string | null;
   profit_loss: number | string;
   profit_loss_percent: number | string | null;
   closed_at: string;
   kind: string;
+  event_type: string | null;
   trade_history: TradeHistoryJoin | TradeHistoryJoin[] | null;
 };
 
@@ -129,6 +131,130 @@ function tradeCloseEmailHtml(params: {
 </table>
 </td></tr></table>
 </body></html>`;
+}
+
+function bettingOpenEmailHtml(params: {
+  headline: string;
+  detail: string;
+  pickLabel: string;
+  stakeUsd: number;
+  openedAt: string;
+}): string {
+  const { headline, detail, pickLabel, stakeUsd, openedAt } = params;
+  const when = new Date(openedAt).toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+  const historyUrl = `${APP_TRADE_HISTORY_URL.replace(/\/$/, '')}/?section=profile&tab=betting`;
+  const unsubscribeUrl = notificationEmailUnsubscribeUrl(APP_TRADE_HISTORY_URL);
+  const stake = `$${stakeUsd.toFixed(2)}`;
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;padding:40px 20px;">
+<tr><td align="center">
+<table width="100%" style="max-width:480px;">
+<tr><td align="center" style="padding-bottom:32px;">
+<span style="font-size:24px;font-weight:600;color:#0a0a0a;">${BRAND_NAME}</span>
+</td></tr>
+<tr><td style="background:#f5f5f5;border-radius:16px;padding:32px;">
+<h1 style="margin:0 0 8px;font-size:20px;font-weight:500;color:#0a0a0a;text-align:center;">AI bet opened</h1>
+<p style="margin:0 0 16px;font-size:15px;color:#525252;text-align:center;">${headline}</p>
+<table width="100%" style="background:#fff;border-radius:12px;margin-bottom:16px;">
+<tr><td style="padding:16px 20px;">
+<p style="margin:0 0 8px;font-size:12px;color:#737373;text-transform:uppercase;letter-spacing:0.5px;">Pick</p>
+<p style="margin:0 0 16px;font-size:18px;font-weight:600;color:#0a0a0a;">${pickLabel}</p>
+<p style="margin:0 0 8px;font-size:12px;color:#737373;text-transform:uppercase;letter-spacing:0.5px;">Stake</p>
+<p style="margin:0 0 16px;font-size:18px;font-weight:600;color:#0a0a0a;">${stake}</p>
+<p style="margin:0 0 8px;font-size:12px;color:#737373;text-transform:uppercase;letter-spacing:0.5px;">Reason</p>
+<p style="margin:0;font-size:14px;color:#525252;line-height:1.45;">${detail}</p>
+</td></tr></table>
+<p style="margin:0 0 24px;font-size:13px;color:#888;text-align:center;">Opened ${when}</p>
+<a href="${historyUrl}" style="display:block;text-align:center;padding:14px 24px;background:#0a0a0a;color:#fff;text-decoration:none;border-radius:50px;font-size:14px;font-weight:500;">View betting history</a>
+</td></tr>
+<tr><td style="padding-top:24px;text-align:center;">
+<p style="margin:0;font-size:12px;color:#888;">
+<a href="${unsubscribeUrl}" style="color:#525252;text-decoration:underline;">Unsubscribe</a>
+ in your ${BRAND_NAME} dashboard (Profile → Security).
+</p>
+</td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
+}
+
+/**
+ * Queue in-app + email notification when the AI betting agent opens a position.
+ */
+export async function queueBettingOpenNotification(opts: {
+  userId: string;
+  wallet: string;
+  marketName: string;
+  sideLabel: string;
+  legKind: string;
+  stakeUsd: number;
+  entryPx: number;
+  size: number;
+  reason: string;
+}): Promise<void> {
+  const now = new Date().toISOString();
+  const headline = `${opts.marketName} · ${opts.sideLabel}`;
+  const detail = [
+    `Pick: ${opts.legKind}`,
+    `Bid: ${opts.sideLabel}`,
+    `Stake: $${opts.stakeUsd.toFixed(2)} @ ${opts.entryPx.toFixed(4)}`,
+    `Size: ${opts.size}`,
+    `Reason: ${opts.reason}`,
+  ].join('\n');
+
+  const { data, error } = await supabase
+    .from('user_trade_notifications')
+    .insert({
+      user_id: opts.userId,
+      wallet_address: opts.wallet.toLowerCase(),
+      kind: 'betting',
+      event_type: 'open',
+      headline,
+      detail,
+      profit_loss: 0,
+      profit_loss_percent: null,
+      closed_at: now,
+    })
+    .select('id')
+    .maybeSingle();
+
+  if (error) {
+    logger.warn('queueBettingOpenNotification failed', { error: error.message });
+    // Still try to email immediately if insert failed due to missing columns.
+  }
+
+  const { email, emailEnabled } = await resolveUserEmail(opts.userId);
+  if (!emailEnabled || !email) {
+    if (data?.id) await markNotificationEmailHandled(String(data.id));
+    return;
+  }
+
+  const ok = await sendResendEmail(
+    email,
+    `${BRAND_NAME} · AI bet opened · ${opts.legKind} · ${opts.marketName}`,
+    bettingOpenEmailHtml({
+      headline,
+      detail: opts.reason,
+      pickLabel: `${opts.legKind} · ${opts.sideLabel}`,
+      stakeUsd: opts.stakeUsd,
+      openedAt: now,
+    })
+  );
+
+  if (ok && data?.id) {
+    await markNotificationEmailHandled(String(data.id));
+    logger.info('Betting open email sent', {
+      userId: opts.userId.slice(0, 8),
+      market: opts.marketName.slice(0, 40),
+      pick: opts.legKind,
+    });
+  }
 }
 
 function normalizeResendFrom(raw: string): string {
@@ -237,10 +363,12 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
       trade_history_id,
       hl_betting_close_id,
       headline,
+      detail,
       profit_loss,
       profit_loss_percent,
       closed_at,
       kind,
+      event_type,
       trade_history (
         profit_loss,
         profit_loss_percent,
@@ -264,6 +392,12 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
 
   for (const row of rows) {
     try {
+      // AI bet opens — already emailed in queueBettingOpenNotification; mark handled if pending.
+      if (row.event_type === 'open' || /^OPEN\b/i.test(row.headline)) {
+        await markNotificationEmailHandled(row.id);
+        continue;
+      }
+
       const th = asTradeHistory(row);
       if (th?.platform_fee_status === 'pending_fill') {
         continue;

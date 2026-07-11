@@ -122,6 +122,8 @@ const BettingAutoAgentPanel: React.FC<Props> = ({
     allowDraw: true,
     allowLoss: true,
   });
+  const [budgetUsd, setBudgetUsd] = useState(0);
+  const [budgetDraft, setBudgetDraft] = useState('0');
   const [agentApproved, setAgentApproved] = useState(false);
   const [agentLoading, setAgentLoading] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(false);
@@ -148,6 +150,8 @@ const BettingAutoAgentPanel: React.FC<Props> = ({
         allowDraw: settings.allowDraw,
         allowLoss: settings.allowLoss,
       });
+      setBudgetUsd(settings.budgetUsd);
+      setBudgetDraft(String(settings.budgetUsd > 0 ? settings.budgetUsd : 0));
       setAgentApproved(agent.approved);
     } finally {
       setSettingsLoading(false);
@@ -206,6 +210,27 @@ const BettingAutoAgentPanel: React.FC<Props> = ({
     }
   };
 
+  const saveBudget = async () => {
+    if (!signedIn) {
+      onRequireSignIn?.('Sign in to set betting budget');
+      return;
+    }
+    if (!wallet) return;
+    const n = Math.max(0, Math.round(Number.parseFloat(budgetDraft) * 100) / 100);
+    if (!Number.isFinite(n)) {
+      setError('Enter a valid budget in USD');
+      return;
+    }
+    setError(null);
+    try {
+      await saveAutoBettingSettings(wallet, { budgetUsd: n });
+      setBudgetUsd(n);
+      setBudgetDraft(String(n));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Could not save budget');
+    }
+  };
+
   const togglePref = async (key: keyof AutoBettingResultPrefs) => {
     if (!signedIn) {
       onRequireSignIn?.('Sign in to change AI betting options');
@@ -258,6 +283,37 @@ const BettingAutoAgentPanel: React.FC<Props> = ({
         <span className={`hl-sb-agent-pill${autoEnabled ? ' hl-sb-agent-pill--on' : ''}`}>
           Auto-betting {autoEnabled ? 'on' : 'off'}
         </span>
+      </div>
+
+      <div className="hl-sb-agent-prefs" aria-label="Betting budget">
+        <p className="hl-sb-agent-prefs-label">Betting budget (USDC)</p>
+        <div className="hl-sb-agent-budget-row">
+          <input
+            type="number"
+            min={0}
+            step={1}
+            className="hl-sb-agent-budget-input"
+            value={budgetDraft}
+            disabled={!wallet || settingsLoading || !user}
+            onChange={(e) => setBudgetDraft(e.target.value)}
+            onBlur={() => void saveBudget()}
+            aria-label="Max USDC for AI betting"
+          />
+          <button
+            type="button"
+            className="hl-sb-agent-btn hl-sb-agent-btn--primary"
+            disabled={!wallet || settingsLoading || !user}
+            onClick={() => void saveBudget()}
+          >
+            Save
+          </button>
+        </div>
+        <p className="hl-sb-agent-prefs-hint">
+          Caps how much of your Hyperliquid spot USDC the betting agent may use (e.g. $50 of
+          $150). Perp bot risk % is unchanged. Current budget:{' '}
+          <strong>{fmtUsdSymbol(budgetUsd)}</strong>
+          {budgetUsd < 10 ? ' — set at least $10 to allow AI bets.' : ''}.
+        </p>
       </div>
 
       <div className="hl-sb-agent-prefs" aria-label="Bet on result types">

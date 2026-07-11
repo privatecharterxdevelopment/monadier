@@ -102,19 +102,33 @@ const ProTradeBettingTables: React.FC<Props> = ({
                 <th>Mark</th>
                 <th>Stake</th>
                 <th>uPnL</th>
+                <th>Reason</th>
               </tr>
             </thead>
             <tbody>
               {openBets.map((b) => (
                 <tr key={b.id}>
-                  <td>{b.market_name}</td>
-                  <td>{b.side_label}</td>
+                  <td>
+                    {b.market_name}
+                    {b.source === 'ai_agent' ? (
+                      <span className="hl-betting-ai-badge"> AI</span>
+                    ) : null}
+                  </td>
+                  <td>
+                    {b.side_label}
+                    {b.leg_kind ? (
+                      <span className="hl-betting-leg-kind"> · {b.leg_kind}</span>
+                    ) : null}
+                  </td>
                   <td>{Math.floor(b.size)}</td>
                   <td>{b.entry_px.toFixed(4)}</td>
                   <td>{b.mark_px != null ? b.mark_px.toFixed(4) : '—'}</td>
                   <td>{fmtUsdSymbol(b.entry_ntl)}</td>
                   <td className={(b.unrealized_pnl ?? 0) >= 0 ? 'hl-up' : 'hl-down'}>
                     {fmtClosedPnl(b.unrealized_pnl ?? 0)}
+                  </td>
+                  <td className="hl-betting-reason" title={b.open_reason ?? undefined}>
+                    {b.open_reason?.trim() || '—'}
                   </td>
                 </tr>
               ))}
@@ -137,18 +151,32 @@ const ProTradeBettingTables: React.FC<Props> = ({
                 <th>Size</th>
                 <th>Exit</th>
                 <th>P/L</th>
+                <th>Reason</th>
               </tr>
             </thead>
             <tbody>
               {closedBets.map((b) => (
                 <tr key={b.id}>
                   <td>{fmtTimeMs(Date.parse(b.closed_at))}</td>
-                  <td>{b.market_name}</td>
-                  <td>{b.side_label}</td>
+                  <td>
+                    {b.market_name}
+                    {b.source === 'ai_agent' ? (
+                      <span className="hl-betting-ai-badge"> AI</span>
+                    ) : null}
+                  </td>
+                  <td>
+                    {b.side_label}
+                    {b.leg_kind ? (
+                      <span className="hl-betting-leg-kind"> · {b.leg_kind}</span>
+                    ) : null}
+                  </td>
                   <td>{Math.floor(b.size)}</td>
                   <td>{b.exit_px.toFixed(4)}</td>
                   <td className={b.realized_pnl >= 0 ? 'hl-up' : 'hl-down'}>
                     {fmtClosedPnl(b.realized_pnl)}
+                  </td>
+                  <td className="hl-betting-reason" title={b.open_reason ?? undefined}>
+                    {b.open_reason?.trim() || '—'}
                   </td>
                 </tr>
               ))}
