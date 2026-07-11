@@ -554,6 +554,58 @@ export class SubscriptionService {
             };
           }
         }
+
+        // No canonical-chain row — fall back to any HL row (legacy Base 8453 settings).
+        const fallback = await this.supabase
+          .from('vault_settings')
+          .select(
+            'auto_trade_enabled, take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier, risk_level_bps, min_win_rate_percent, min_trades_for_win_rate_gate, prompt_withdraw_after_close, hl_bot_strategy, news_trade_mode, max_concurrent_positions, auto_betting_budget_usd, chain_id'
+          )
+          .eq('wallet_address', walletAddress.toLowerCase())
+          .or('execution_venue.eq.hyperliquid,execution_venue.is.null')
+          .order('auto_trade_enabled', { ascending: false })
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (fallback.data) {
+          const row = fallback.data;
+          const slPct = normalizeHlStopLossPercent(
+            row.stop_loss_percent != null ? Number(row.stop_loss_percent) : null
+          );
+          logger.info('✅ Loaded user vault_settings from sibling chain (legacy)', {
+            wallet: walletAddress.slice(0, 10),
+            requestedChainId: chainId,
+            fromChain: row.chain_id,
+            autoTrade: Boolean(row.auto_trade_enabled),
+          });
+          return {
+            takeProfitPercent: normalizeHlTakeProfitPercent(
+              row.take_profit_percent != null ? Number(row.take_profit_percent) : null
+            ),
+            stopLossPercent: slPct,
+            profitLockPercent: normalizeHlProfitLockPercent(null),
+            askPermission: row.ask_permission || false,
+            leverageMultiplier: normalizeHlLeverage(
+              row.leverage_multiplier != null ? Number(row.leverage_multiplier) : null
+            ),
+            riskLevelBps: row.risk_level_bps || 500,
+            autoTradeEnabled: Boolean(row.auto_trade_enabled),
+            minWinRatePercent: Number(row.min_win_rate_percent) || 0,
+            minTradesForWinRateGate: Number(row.min_trades_for_win_rate_gate) || 5,
+            promptWithdrawAfterClose: Boolean(row.prompt_withdraw_after_close),
+            hlBotStrategy: normalizeHlBotStrategy(row.hl_bot_strategy as string | null),
+            newsTradeMode: normalizeNewsTradeMode(row.news_trade_mode as string | null),
+            maxConcurrentPositions: normalizeMaxConcurrentPositions(
+              (row as { max_concurrent_positions?: number }).max_concurrent_positions
+            ),
+            autoBettingBudgetUsd: Math.max(
+              0,
+              Number((row as { auto_betting_budget_usd?: number }).auto_betting_budget_usd) || 0
+            ),
+          };
+        }
+
         // Return defaults if not found
         logger.warn('⚠️ No vault_settings found - using DEFAULTS', {
           wallet: walletAddress.slice(0, 10),
@@ -910,39 +962,197 @@ export class SubscriptionService {
   }
 
   /**
+   * Legacy Base (8453) / other-chain rows sometimes still have auto_trade=true while the
+   * HL bot only reads Arbitrum (42161). Promote orphan ON flags to 42161, then clear
+   * sibling-chain ON so discovery and UI agree.
+   */
+  async healHlAutoTradeChainSplit(canonicalChainId = 42161): Promise<{
+    promoted: number;
+    cleared: number;
+  }> {
+    let promoted = 0;
+    let cleared = 0;
+    try {
+      const { data: strayOn, error } = await this.supabase
+        .from('vault_settings')
+        .select(
+          'wallet_address, chain_id, execution_venue, take_profit_percent, stop_loss_percent, ask_permission, leverage_multiplier, risk_level_bps, min_win_rate_percent, min_trades_for_win_rate_gate, hl_bot_strategy, news_trade_mode, max_concurrent_positions, user_id, auto_betting_budget_usd'
+        )
+        .eq('auto_trade_enabled', true)
+        .neq('chain_id', canonicalChainId)
+        .or('execution_venue.eq.hyperliquid,execution_venue.is.null');
+
+      if (error) {
+        logger.warn('healHlAutoTradeChainSplit: stray query failed', { error: error.message });
+        return { promoted, cleared };
+      }
+
+      for (const row of strayOn ?? []) {
+        const wallet = String(row.wallet_address ?? '').toLowerCase();
+        if (!wallet) continue;
+
+        const { data: canonical } = await this.supabase
+          .from('vault_settings')
+          .select('wallet_address, auto_trade_enabled')
+          .eq('wallet_address', wallet)
+          .eq('chain_id', canonicalChainId)
+          .maybeSingle();
+
+        // Only promote when there is no canonical row — if canonical exists (even OFF),
+        // it is the source of truth and the stray ON is stale.
+        if (!canonical) {
+          const payload: Record<string, unknown> = {
+            wallet_address: wallet,
+            chain_id: canonicalChainId,
+            execution_venue: 'hyperliquid',
+            auto_trade_enabled: true,
+            take_profit_percent: row.take_profit_percent,
+            stop_loss_percent: row.stop_loss_percent,
+            ask_permission: row.ask_permission ?? false,
+            leverage_multiplier: row.leverage_multiplier ?? 5,
+            risk_level_bps: row.risk_level_bps ?? 500,
+            min_win_rate_percent: row.min_win_rate_percent ?? 0,
+            min_trades_for_win_rate_gate: row.min_trades_for_win_rate_gate ?? 5,
+            hl_bot_strategy: row.hl_bot_strategy ?? 'standard',
+            news_trade_mode: row.news_trade_mode ?? 'filter',
+            updated_at: new Date().toISOString(),
+            synced_at: new Date().toISOString(),
+          };
+          if (row.user_id) payload.user_id = row.user_id;
+          if (row.max_concurrent_positions != null) {
+            payload.max_concurrent_positions = row.max_concurrent_positions;
+          }
+          if (row.auto_betting_budget_usd != null) {
+            payload.auto_betting_budget_usd = row.auto_betting_budget_usd;
+          }
+
+          const { error: upsertErr } = await this.supabase
+            .from('vault_settings')
+            .upsert(payload, { onConflict: 'wallet_address,chain_id' });
+          if (upsertErr) {
+            logger.warn('healHlAutoTradeChainSplit: promote failed', {
+              wallet: wallet.slice(0, 10),
+              error: upsertErr.message,
+            });
+          } else {
+            promoted += 1;
+            logger.info('healHlAutoTradeChainSplit: promoted auto-trade to canonical chain', {
+              wallet: wallet.slice(0, 10),
+              fromChain: row.chain_id,
+              toChain: canonicalChainId,
+            });
+          }
+        }
+      }
+
+      const { data: clearedRows, error: clearErr } = await this.supabase
+        .from('vault_settings')
+        .update({
+          auto_trade_enabled: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('auto_trade_enabled', true)
+        .neq('chain_id', canonicalChainId)
+        .select('wallet_address');
+
+      if (clearErr) {
+        logger.warn('healHlAutoTradeChainSplit: clear failed', { error: clearErr.message });
+      } else {
+        cleared = clearedRows?.length ?? 0;
+        if (cleared > 0) {
+          logger.info('healHlAutoTradeChainSplit: cleared sibling-chain auto-trade flags', {
+            cleared,
+            canonicalChainId,
+          });
+        }
+      }
+    } catch (err) {
+      logger.warn('healHlAutoTradeChainSplit failed', { error: err });
+    }
+    return { promoted, cleared };
+  }
+
+  private hlAutoTradeHealAt = 0;
+
+  /**
    * Wallets with auto-trade ON only (Hyperliquid path).
    * Does not include inactive subscribers — critical at 1M+ signups.
+   *
+   * Canonical chain is Arbitrum (42161). Legacy Base (8453) ON flags are healed into
+   * 42161 when no canonical row exists; if 42161 exists it wins (even when OFF).
    */
   async getAutoTradeUsers(chainId?: number): Promise<string[]> {
     try {
+      const canonicalChainId = chainId ?? 42161;
+
+      // Self-heal at most once per 5 minutes so stray Base ON rows cannot hide forever.
+      const now = Date.now();
+      if (now - this.hlAutoTradeHealAt > 5 * 60_000) {
+        this.hlAutoTradeHealAt = now;
+        void this.healHlAutoTradeChainSplit(canonicalChainId);
+      }
+
       // Treat NULL venue as hyperliquid (legacy rows) — .eq('hyperliquid') alone drops them.
-      let query = this.supabase
+      const { data, error } = await this.supabase
         .from('vault_settings')
-        .select('wallet_address, execution_venue')
+        .select('wallet_address, chain_id, auto_trade_enabled, execution_venue')
         .eq('auto_trade_enabled', true)
         .or('execution_venue.eq.hyperliquid,execution_venue.is.null');
 
-      if (chainId) {
-        query = query.eq('chain_id', chainId);
-      }
-
-      const { data, error } = await query;
       if (error) {
         logger.error('Failed to get auto-trade users', { error });
         return [];
       }
 
-      const addresses = [
-        ...new Set(
-          (data ?? [])
-            .map((d) => d.wallet_address?.toLowerCase())
-            .filter((w): w is string => Boolean(w))
-        ),
-      ];
+      const onByWallet = new Map<string, { canonicalOn: boolean; hasCanonical: boolean; otherOn: boolean }>();
+      for (const row of data ?? []) {
+        const w = row.wallet_address?.toLowerCase();
+        if (!w) continue;
+        const cur = onByWallet.get(w) ?? {
+          canonicalOn: false,
+          hasCanonical: false,
+          otherOn: false,
+        };
+        if (Number(row.chain_id) === canonicalChainId) {
+          cur.hasCanonical = true;
+          cur.canonicalOn = true;
+        } else {
+          cur.otherOn = true;
+        }
+        onByWallet.set(w, cur);
+      }
+
+      // Wallets with canonical OFF also need to suppress stray other-chain ON.
+      // Re-check canonical rows for wallets that only appeared via other chains.
+      const maybeStale = [...onByWallet.entries()]
+        .filter(([, v]) => v.otherOn && !v.hasCanonical)
+        .map(([w]) => w);
+
+      if (maybeStale.length > 0) {
+        const { data: canonicalRows } = await this.supabase
+          .from('vault_settings')
+          .select('wallet_address, auto_trade_enabled')
+          .eq('chain_id', canonicalChainId)
+          .in('wallet_address', maybeStale);
+
+        for (const row of canonicalRows ?? []) {
+          const w = row.wallet_address?.toLowerCase();
+          if (!w) continue;
+          const cur = onByWallet.get(w);
+          if (!cur) continue;
+          cur.hasCanonical = true;
+          cur.canonicalOn = Boolean(row.auto_trade_enabled);
+          onByWallet.set(w, cur);
+        }
+      }
+
+      const addresses = [...onByWallet.entries()]
+        .filter(([, v]) => (v.hasCanonical ? v.canonicalOn : v.otherOn))
+        .map(([w]) => w);
 
       if (addresses.length > 0) {
         logger.info('Active HL auto-trade wallets', {
-          chainId,
+          chainId: canonicalChainId,
           count: addresses.length,
         });
       }

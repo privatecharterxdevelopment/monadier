@@ -347,11 +347,27 @@ export async function checkHlBotAgentApproved(
   }
 }
 
+const HL_BOT_SETTINGS_CHAIN_ID = 42161;
+
+/** Clear legacy Base/other-chain auto_trade flags so only Arbitrum (42161) is authoritative. */
+async function clearSiblingChainAutoTrade(wallet: string): Promise<void> {
+  await supabase
+    .from('vault_settings')
+    .update({
+      auto_trade_enabled: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('wallet_address', wallet)
+    .eq('auto_trade_enabled', true)
+    .neq('chain_id', HL_BOT_SETTINGS_CHAIN_ID);
+}
+
 export async function enableHlBotExecution(walletAddress: string): Promise<void> {
+  const wallet = walletAddress.toLowerCase();
   const { error } = await supabase.from('vault_settings').upsert(
     {
-      wallet_address: walletAddress.toLowerCase(),
-      chain_id: 42161,
+      wallet_address: wallet,
+      chain_id: HL_BOT_SETTINGS_CHAIN_ID,
       execution_venue: 'hyperliquid',
       auto_trade_enabled: true,
       updated_at: new Date().toISOString(),
@@ -360,12 +376,13 @@ export async function enableHlBotExecution(walletAddress: string): Promise<void>
     { onConflict: 'wallet_address,chain_id' }
   );
   if (error) throw new Error(error.message);
+  await clearSiblingChainAutoTrade(wallet);
 
   if (getBotApiBase()) {
     void fetchBotApi('/api/referral/try-qualify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ wallet: walletAddress.toLowerCase(), botStarted: true }),
+      body: JSON.stringify({ wallet, botStarted: true }),
       retries: 1,
     }).catch(() => undefined);
   }
@@ -373,10 +390,11 @@ export async function enableHlBotExecution(walletAddress: string): Promise<void>
 
 /** Tell Railway to skip this wallet — HL stop is DB-only (no MetaMask tx). */
 export async function disableHlBotExecution(walletAddress: string): Promise<void> {
+  const wallet = walletAddress.toLowerCase();
   const { error } = await supabase.from('vault_settings').upsert(
     {
-      wallet_address: walletAddress.toLowerCase(),
-      chain_id: 42161,
+      wallet_address: wallet,
+      chain_id: HL_BOT_SETTINGS_CHAIN_ID,
       execution_venue: 'hyperliquid',
       auto_trade_enabled: false,
       updated_at: new Date().toISOString(),
@@ -385,4 +403,5 @@ export async function disableHlBotExecution(walletAddress: string): Promise<void
     { onConflict: 'wallet_address,chain_id' }
   );
   if (error) throw new Error(error.message);
+  await clearSiblingChainAutoTrade(wallet);
 }

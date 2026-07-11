@@ -588,9 +588,29 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
     (agentsRes.data ?? []).map((a) => [String(a.wallet_address).toLowerCase(), a])
   );
 
-  const hlVaults = (vaultRes.data ?? []).filter(
-    (v) => !v.execution_venue || v.execution_venue === 'hyperliquid'
-  );
+  // One row per wallet — prefer Arbitrum (42161). Legacy Base (8453) ON flags must not
+  // inflate "bots ON" or hide that the bot only runs on the canonical chain.
+  const hlVaultByWallet = new Map<string, (typeof vaultRes.data)[number]>();
+  for (const v of vaultRes.data ?? []) {
+    if (v.execution_venue && v.execution_venue !== 'hyperliquid') continue;
+    const w = String(v.wallet_address ?? '').toLowerCase();
+    if (!w) continue;
+    const prev = hlVaultByWallet.get(w);
+    if (!prev) {
+      hlVaultByWallet.set(w, v);
+      continue;
+    }
+    const prevCanonical = Number(prev.chain_id) === HL_BOT_CHAIN_ID;
+    const nextCanonical = Number(v.chain_id) === HL_BOT_CHAIN_ID;
+    if (nextCanonical && !prevCanonical) {
+      hlVaultByWallet.set(w, v);
+    } else if (nextCanonical === prevCanonical) {
+      const prevT = Date.parse(String(prev.updated_at ?? '')) || 0;
+      const nextT = Date.parse(String(v.updated_at ?? '')) || 0;
+      if (nextT >= prevT) hlVaultByWallet.set(w, v);
+    }
+  }
+  const hlVaults = [...hlVaultByWallet.values()];
 
   const feesByWallet = new Map<string, { accrued: number; settled: number }>();
   for (const row of feeRes.data ?? []) {

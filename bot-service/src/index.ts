@@ -1077,6 +1077,11 @@ async function main(): Promise<void> {
     logger.info('Subscription bootstrap skipped (BOT_SKIP_SUB_BOOTSTRAP=true)');
   }
 
+  const heal = await subscriptionService.healHlAutoTradeChainSplit(config.arbitrum.chainId);
+  if (heal.promoted > 0 || heal.cleared > 0) {
+    logger.info('Healed HL auto-trade chain split', heal);
+  }
+
   await releaseHlBotTradingPauses();
 
   // Run immediately on startup
