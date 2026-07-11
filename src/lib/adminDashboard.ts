@@ -360,7 +360,6 @@ function botBlockers(
   const parts: string[] = [];
   if (!v.auto_trade_enabled) parts.push('toggle off');
   if (v.chain_id != null && v.chain_id !== HL_BOT_CHAIN_ID) parts.push(`chain ${v.chain_id}`);
-  if (v.execution_venue == null) parts.push('venue null');
   if (v.execution_venue && v.execution_venue !== 'hyperliquid') parts.push(`venue ${v.execution_venue}`);
   if (!agentApproved) parts.push('no agent');
   if (feesAccrued > 0.000_001 && feeWinCount >= FEE_WINS_BEFORE_BLOCK) {
@@ -379,10 +378,11 @@ function isBotRunnable(
   feesAccrued: number,
   feeWinCount: number
 ): boolean {
+  const venueOk = !v.execution_venue || v.execution_venue === 'hyperliquid';
   return (
     Boolean(v.auto_trade_enabled) &&
     v.chain_id === HL_BOT_CHAIN_ID &&
-    v.execution_venue === 'hyperliquid' &&
+    venueOk &&
     agentApproved &&
     !(feesAccrued > 0.000_001 && feeWinCount >= FEE_WINS_BEFORE_BLOCK)
   );

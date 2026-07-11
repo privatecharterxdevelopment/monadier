@@ -848,11 +848,12 @@ export class SubscriptionService {
    */
   async getAutoTradeUsers(chainId?: number): Promise<string[]> {
     try {
+      // Treat NULL venue as hyperliquid (legacy rows) — .eq('hyperliquid') alone drops them.
       let query = this.supabase
         .from('vault_settings')
-        .select('wallet_address')
+        .select('wallet_address, execution_venue')
         .eq('auto_trade_enabled', true)
-        .eq('execution_venue', 'hyperliquid');
+        .or('execution_venue.eq.hyperliquid,execution_venue.is.null');
 
       if (chainId) {
         query = query.eq('chain_id', chainId);
