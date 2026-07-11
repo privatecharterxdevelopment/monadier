@@ -22,6 +22,8 @@ function normalizeHlStopLossPercent(raw: number | null | undefined): number {
   }
   const v = Number(raw);
   if (v <= 0) return 0;
+  // Legacy DB: save RPC wrote GREATEST(0.1, 0) when user picked "Off".
+  if (Math.abs(v - 0.1) < 1e-9) return 0;
   return v;
 }
 
@@ -526,11 +528,15 @@ export class SubscriptionService {
         };
       }
 
+      const slPct = normalizeHlStopLossPercent(
+        data.stop_loss_percent != null ? Number(data.stop_loss_percent) : null
+      );
+
       logger.info('✅ Loaded user vault_settings from DB', {
         wallet: walletAddress.slice(0, 10),
         chainId,
         TP: data.take_profit_percent + '%',
-        SL: data.stop_loss_percent + '%',
+        SL: slPct + '%',
         leverage: (data.leverage_multiplier || 1.0) + 'x',
         risk: (data.risk_level_bps || 500) / 100 + '%'
       });
@@ -539,9 +545,7 @@ export class SubscriptionService {
         takeProfitPercent: normalizeHlTakeProfitPercent(
           data.take_profit_percent != null ? Number(data.take_profit_percent) : null
         ),
-        stopLossPercent: normalizeHlStopLossPercent(
-          data.stop_loss_percent != null ? Number(data.stop_loss_percent) : null
-        ),
+        stopLossPercent: slPct,
         profitLockPercent: normalizeHlProfitLockPercent(null),
         askPermission: data.ask_permission || false,
         leverageMultiplier: normalizeHlLeverage(

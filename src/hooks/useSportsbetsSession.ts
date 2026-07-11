@@ -16,7 +16,12 @@ import {
 import { isOutcomeOrderCoin, parseOutcomeOrderCoin } from '../lib/hyperliquid/outcomes/encoding';
 import type { HlOutcomePosition, HlOutcomeQuestion, OutcomeSideIndex } from '../lib/hyperliquid/outcomes/types';
 
-export function useSportsbetsSession(walletAddress?: string, enabled = true, userId?: string) {
+export function useSportsbetsSession(
+  walletAddress?: string,
+  enabled = true,
+  userId?: string,
+  focusOutcomeId?: number | null
+) {
   const {
     catalog,
     questions,
@@ -126,6 +131,15 @@ export function useSportsbetsSession(walletAddress?: string, enabled = true, use
       await syncBettingTradesToSupabase(userId, walletAddress, catalog);
     }
   }, [refreshCatalog, refreshAccount, refreshQuote, refreshPositions, userId, walletAddress, catalog]);
+
+  useEffect(() => {
+    if (!enabled || focusOutcomeId == null || questions.length === 0) return;
+    const q = questions.find((item) => item.legs.some((leg) => leg.outcomeId === focusOutcomeId));
+    if (!q) return;
+    setSelectedQuestionId(q.questionId);
+    setSelectedOutcomeId(focusOutcomeId);
+    setSelectedSide(0);
+  }, [enabled, focusOutcomeId, questions]);
 
   useEffect(() => {
     void refreshPositions();

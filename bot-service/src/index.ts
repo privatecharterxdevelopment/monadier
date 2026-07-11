@@ -37,6 +37,15 @@ import { tryQualifyReferral } from './services/referralAffiliate';
 import { isOpenDirectionAllowed, weekendShortOnlyLabel } from './services/weekendTradingRules';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 import { fetchMappedTokenPrices } from './services/tokenPrices';
+import { processPendingTradeCloseEmails } from './services/tradeCloseEmail';
+import { syncBettingClosesForEmails } from './services/bettingHistorySync';
+import { runAutoBettingCycle } from './services/autoBetting';
+import {
+  getBettingFeeStatus,
+  listAccruedBettingFeeEvents,
+  recordBettingFeeEvent,
+  settleBettingFees,
+} from './services/bettingFees';
 
 // Health check server for Railway/cloud deployments
 const PORT = process.env.PORT || 3001;
@@ -633,6 +642,89 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/betting-fees' && req.method === 'GET') {
+    try {
+      const wallet = url.searchParams.get('wallet')?.trim().toLowerCase();
+      if (!wallet || !/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required' }));
+        return;
+      }
+      const [status, events] = await Promise.all([
+        getBettingFeeStatus(wallet),
+        listAccruedBettingFeeEvents(wallet),
+      ]);
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, status, events }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'betting-fees failed';
+      logger.error('API: betting-fees GET failed', { error: msg });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/betting-fees/record' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody();
+      const wallet = String(body.wallet ?? '')
+        .trim()
+        .toLowerCase();
+      if (!wallet || !/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required' }));
+        return;
+      }
+      const result = await recordBettingFeeEvent({
+        walletAddress: wallet,
+        eventType: body.eventType === 'buy' ? 'buy' : 'sell',
+        marketName: String(body.marketName ?? 'Bet'),
+        outcomeId: body.outcomeId != null ? Number(body.outcomeId) : undefined,
+        notionalUsd: Number(body.notionalUsd),
+        externalRef: String(body.externalRef ?? ''),
+        realizedPnlUsd:
+          body.realizedPnlUsd != null ? Number(body.realizedPnlUsd) : undefined,
+      });
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, feeUsd: result.feeUsd, status: result.status }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'record failed';
+      logger.error('API: betting-fees record failed', { error: msg });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/betting-fees/confirm-payment' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody();
+      const wallet = String(body.wallet ?? '')
+        .trim()
+        .toLowerCase();
+      if (!wallet || !/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required' }));
+        return;
+      }
+      const result = await settleBettingFees(
+        wallet,
+        Number(body.amountUsd),
+        body.paymentRef != null ? String(body.paymentRef) : undefined
+      );
+      const status = await getBettingFeeStatus(wallet);
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: result.ok, settledUsd: result.settledUsd, status }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'confirm failed';
+      logger.error('API: betting-fees confirm failed', { error: msg });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
+    }
+    return;
+  }
+
   if (url.pathname === '/api/global-signals') {
     try {
       const scan =
@@ -996,10 +1088,33 @@ async function main(): Promise<void> {
     });
   }
 
+  setInterval(() => {
+    void processPendingTradeCloseEmails(40);
+  }, 15_000);
+  void processPendingTradeCloseEmails(40).catch(() => undefined);
+
+  setInterval(() => {
+    void syncBettingClosesForEmails(25).catch(() => undefined);
+  }, 60_000);
+  void syncBettingClosesForEmails(25).catch(() => undefined);
+
+  const autoBetMs = Math.max(30_000, config.hyperliquid.autoBettingIntervalMs);
+  setInterval(() => {
+    void runAutoBettingCycle().catch((err) => {
+      logger.warn('Auto-betting cycle error', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+  }, autoBetMs);
+  void runAutoBettingCycle().catch(() => undefined);
+
   logger.info(`Bot service started.`);
   logger.info(`- Payment monitoring: ACTIVE (treasury watched)`);
   logger.info(`- HL trading cycle: every ${tradeIntervalSeconds}s`);
   logger.info(`- HL position monitor: every ${positionMonitorMs}ms (fast profit grab)`);
+  logger.info(`- Trade/bet win emails: every 15s`);
+  logger.info(`- Betting history sync: every 60s`);
+  logger.info(`- AI auto-betting: every ${Math.round(autoBetMs / 1000)}s`);
 
   if (process.env.ENABLE_DEMO_SIMULATOR === 'true') {
     startDemoSimulator().catch((err) => {

@@ -36,7 +36,7 @@ export async function syncBettingTradesToSupabase(
   const openCoins = new Set(positions.map((p) => p.balanceCoin));
 
   if (positions.length > 0) {
-    const rows = positions.map((p) => ({
+    const baseRows = positions.map((p) => ({
       user_id: userId,
       wallet_address: wallet,
       outcome_id: p.outcomeId,
@@ -53,10 +53,17 @@ export async function syncBettingTradesToSupabase(
       updated_at: now,
     }));
 
-    const { error: upsertErr } = await supabase
+    let { error: upsertErr } = await supabase
       .from('hl_betting_positions')
-      .upsert(rows, { onConflict: 'user_id,wallet_address,balance_coin' });
-
+      .upsert(
+        baseRows.map((r) => ({ ...r, source: 'manual' })),
+        { onConflict: 'user_id,wallet_address,balance_coin' }
+      );
+    if (upsertErr) {
+      ({ error: upsertErr } = await supabase
+        .from('hl_betting_positions')
+        .upsert(baseRows, { onConflict: 'user_id,wallet_address,balance_coin' }));
+    }
     if (upsertErr) devError('[betting sync] positions upsert', upsertErr);
   }
 
@@ -108,15 +115,22 @@ export async function syncBettingTradesToSupabase(
       fee: toNum(f.fee),
       hl_fill_tid: f.tid ?? null,
       closed_at: new Date(f.time).toISOString(),
+      source: 'manual',
     });
   }
 
   if (closeRows.length > 0) {
     const withTid = closeRows.filter((r) => r.hl_fill_tid != null);
     if (withTid.length > 0) {
-      const { error: closeErr } = await supabase
+      let { error: closeErr } = await supabase
         .from('hl_betting_closes')
         .upsert(withTid, { onConflict: 'hl_fill_tid', ignoreDuplicates: true });
+      if (closeErr) {
+        const withoutSource = withTid.map(({ source: _s, ...rest }) => rest);
+        ({ error: closeErr } = await supabase
+          .from('hl_betting_closes')
+          .upsert(withoutSource, { onConflict: 'hl_fill_tid', ignoreDuplicates: true }));
+      }
       if (closeErr) devError('[betting sync] closes upsert', closeErr);
       else if (BETTING_ACCRUED_FEES_ENABLED) {
         for (const row of withTid) {
@@ -158,24 +172,31 @@ export async function recordBettingOpenAfterOrder(
   if (!row) return;
 
   const now = new Date().toISOString();
-  await supabase.from('hl_betting_positions').upsert(
-    {
-      user_id: userId,
-      wallet_address: wallet,
-      outcome_id: row.outcomeId,
-      side: row.side,
-      side_label: row.sideLabel,
-      market_name: row.marketName,
-      category: findCategoryForOutcome(catalog, row.outcomeId),
-      balance_coin: row.balanceCoin,
-      size: row.size,
-      entry_px: row.avgEntryPx,
-      entry_ntl: row.entryNtl,
-      mark_px: row.markPx,
-      unrealized_pnl: row.unrealizedPnl,
-      opened_at: now,
-      updated_at: now,
-    },
+  const rowPayload = {
+    user_id: userId,
+    wallet_address: wallet,
+    outcome_id: row.outcomeId,
+    side: row.side,
+    side_label: row.sideLabel,
+    market_name: row.marketName,
+    category: findCategoryForOutcome(catalog, row.outcomeId),
+    balance_coin: row.balanceCoin,
+    size: row.size,
+    entry_px: row.avgEntryPx,
+    entry_ntl: row.entryNtl,
+    mark_px: row.markPx,
+    unrealized_pnl: row.unrealizedPnl,
+    opened_at: now,
+    updated_at: now,
+  };
+  let { error } = await supabase.from('hl_betting_positions').upsert(
+    { ...rowPayload, source: 'manual' },
     { onConflict: 'user_id,wallet_address,balance_coin' }
   );
+  if (error) {
+    ({ error } = await supabase
+      .from('hl_betting_positions')
+      .upsert(rowPayload, { onConflict: 'user_id,wallet_address,balance_coin' }));
+  }
+  if (error) devError('[betting sync] open after order', error);
 }

@@ -359,6 +359,20 @@ export const config = {
     minMarginUsd: Number(process.env.HL_MIN_MARGIN_USD || 8),
     /** Success fee on profitable bot closes — 1000 = 10% of realized profit. */
     successFeeBps: Number(process.env.HL_SUCCESS_FEE_BPS || 1000),
+    /** Unpaid win fees block the next bet after this many wins (default 1). */
+    bettingWinsBeforeBlock: Number(process.env.HL_BETTING_WINS_BEFORE_BLOCK || 1),
+    /** Accrued per bet buy — unused in win-only model (kept for API compatibility). */
+    bettingBuyFeeBps: Number(process.env.HL_BETTING_BUY_FEE_BPS || 50),
+    /** Accrued on profitable cash-out — 250 bps = 2.5% of sell notional. */
+    bettingCashoutFeeBps: Number(process.env.HL_BETTING_CASHOUT_FEE_BPS || 250),
+    /** AI auto-betting cycle interval (ms). */
+    autoBettingIntervalMs: Number(process.env.HL_AUTO_BETTING_INTERVAL_MS || 90_000),
+    /** Max stake per AI bet as fraction of spot USDC (default 5%). */
+    autoBettingRiskFraction: Number(process.env.HL_AUTO_BETTING_RISK_FRAC || 0.05),
+    /** Max concurrent open AI/manual outcome positions per wallet. */
+    autoBettingMaxOpen: Number(process.env.HL_AUTO_BETTING_MAX_OPEN || 3),
+    /** Min AI lean % before placing a bet. */
+    autoBettingMinLeanPct: Number(process.env.HL_AUTO_BETTING_MIN_LEAN || 55),
     minSuccessFeeUsd: Number(process.env.HL_MIN_SUCCESS_FEE_USD || 0.01),
     infoUrl: process.env.HL_INFO_URL || 'https://api.hyperliquid.xyz/info',
     builderAddress: (process.env.HL_BUILDER_ADDRESS ||
@@ -368,6 +382,11 @@ export const config = {
     openBuilderFeePerp: Number(process.env.HL_OPEN_BUILDER_FEE_PERP || 0),
     /** Must be ≥ worst-case success-fee-as-builder on close (default 0.1%). */
     builderMaxApprovalRate: process.env.HL_BUILDER_MAX_APPROVAL || '0.1%',
+  },
+
+  email: {
+    resendApiKey: process.env.RESEND_API_KEY || '',
+    from: process.env.RESEND_FROM || 'HyperGain <hello@hypergain.io>',
   },
 
   /** Multi-user scale — 1M+ signups, thousands of concurrent bots */

@@ -38,6 +38,11 @@ export type AnalyzedNewsItem = NewsItem & {
 export type SportsPrognosis = {
   eventName: string;
   favoredLeg: string;
+  /** Yes (0) or No (1) on the favored outcome leg. */
+  side?: 0 | 1;
+  sideLabel?: string;
+  /** win | draw | loss | yes_no */
+  marketKind?: string;
   prognosisPct: number;
   reasoning: string;
   outcomeId?: number;

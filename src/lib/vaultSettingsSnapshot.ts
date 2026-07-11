@@ -1,4 +1,5 @@
 import { normalizeHlBotStrategy } from './hlBotStrategy';
+import { normalizeVaultStopLossPct } from './normalizeVaultStopLossPct';
 import type { HlBotStrategy } from './hlBotStrategy';
 import { normalizeNewsTradeMode, type NewsTradeMode } from './newsTradeMode';
 
@@ -59,7 +60,7 @@ export function resolveVaultSettingsSnapshot(
   return {
     riskPct: (row.risk_level_bps ?? 500) / 100,
     takeProfit: Math.max(0, Number(row.take_profit_percent ?? 0)),
-    stopLoss: Math.max(0, Number(row.stop_loss_percent ?? 0)),
+    stopLoss: normalizeVaultStopLossPct(Number(row.stop_loss_percent ?? 0)),
     leverage: Number(row.leverage_multiplier ?? 5),
     askPermission: Boolean(row.ask_permission),
     minWinRate: Number(row.min_win_rate_percent ?? 0),

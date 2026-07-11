@@ -12,12 +12,16 @@ type Props = {
   walletConnected: boolean;
   walletAddress?: string;
   onRequireSignIn?: (reason: string) => void;
+  focusOutcomeId?: number | null;
+  onFocusOutcomeConsumed?: () => void;
 };
 
 const ProTradeSportsbets: React.FC<Props> = ({
   walletConnected,
   walletAddress,
   onRequireSignIn,
+  focusOutcomeId = null,
+  onFocusOutcomeConsumed,
 }) => {
   const { user } = useAuth();
   const { address } = useMonadierWallet();
@@ -89,6 +93,8 @@ const ProTradeSportsbets: React.FC<Props> = ({
         signedIn={Boolean(user)}
         userId={user?.id}
         onRequireSignIn={onRequireSignIn}
+        focusOutcomeId={focusOutcomeId}
+        onFocusOutcomeConsumed={onFocusOutcomeConsumed}
       />
     </div>
   );

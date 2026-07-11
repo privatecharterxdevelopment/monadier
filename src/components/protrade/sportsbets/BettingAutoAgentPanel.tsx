@@ -1,23 +1,110 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Loader2, ShieldCheck, Sparkles } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Info, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
 import { useWalletClient } from 'wagmi';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useBettingFeeGate } from '../../../contexts/BettingFeeContext';
 import { fmtUsdSymbol } from '../../../lib/hyperliquid/format';
-import {
-  checkHlBotAgentApproved,
-} from '../../../lib/hyperliquid/hlBotAgent';
+import { checkHlBotAgentApproved } from '../../../lib/hyperliquid/hlBotAgent';
 import { ensureHlAgentForTrading } from '../../../lib/hyperliquid/ensureHlAgentForTrading';
 import {
-  loadAutoBettingEnabled,
-  saveAutoBettingEnabled,
+  loadAutoBettingSettings,
+  saveAutoBettingSettings,
 } from '../../../lib/betting/saveAutoBettingEnabled';
+import type { AutoBettingResultPrefs } from '../../../lib/betting/autoBettingPrefs';
 
 type Props = {
   walletAddress?: string;
   walletConnected: boolean;
   signedIn: boolean;
   onRequireSignIn?: (reason: string) => void;
+};
+
+const AGENT_INFO_LINES = [
+  'Same Hyperliquid agent as the trading bot — separate on/off switch.',
+  'Bot auto-trading and AI betting can run together on one HL account.',
+  '0.5% fee per bet · 2.5% on cash-out — pay after each event before the next bet.',
+  'Auto-betting places orders via your approved agent when enabled.',
+] as const;
+
+const BettingAgentInfoHint: React.FC = () => {
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number; placement: 'top' | 'bottom' } | null>(
+    null
+  );
+
+  const updatePos = useCallback(() => {
+    const el = anchorRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const gap = 10;
+    const estHeight = 200;
+    const spaceAbove = rect.top;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const placement: 'top' | 'bottom' =
+      spaceAbove >= estHeight + gap || spaceAbove >= spaceBelow ? 'top' : 'bottom';
+    setPos({
+      top: placement === 'top' ? rect.top - gap : rect.bottom + gap,
+      left: rect.left + rect.width / 2,
+      placement,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    updatePos();
+    const onScroll = () => updatePos();
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [open, updatePos]);
+
+  const show = () => {
+    setOpen(true);
+    updatePos();
+  };
+  const hide = () => setOpen(false);
+
+  const popover =
+    open && pos
+      ? createPortal(
+          <div
+            className={`term-trade-reason-popover term-trade-reason-popover--${pos.placement} hl-sb-agent-info-popover`}
+            style={{ top: pos.top, left: pos.left }}
+            role="tooltip"
+          >
+            <strong className="term-trade-reason-popover__title">AI betting agent</strong>
+            <ul className="hl-sb-agent-info-list">
+              {AGENT_INFO_LINES.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </div>,
+          document.body
+        )
+      : null;
+
+  return (
+    <>
+      <button
+        ref={anchorRef}
+        type="button"
+        className="hl-sb-agent-info-btn"
+        aria-label="AI betting agent info"
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        onFocus={show}
+        onBlur={hide}
+      >
+        <Info size={14} strokeWidth={2} aria-hidden />
+      </button>
+      {popover}
+    </>
+  );
 };
 
 const BettingAutoAgentPanel: React.FC<Props> = ({
@@ -30,6 +117,11 @@ const BettingAutoAgentPanel: React.FC<Props> = ({
   const { data: walletClient } = useWalletClient();
   const bettingFees = useBettingFeeGate();
   const [autoEnabled, setAutoEnabled] = useState(false);
+  const [prefs, setPrefs] = useState<AutoBettingResultPrefs>({
+    allowWin: true,
+    allowDraw: true,
+    allowLoss: true,
+  });
   const [agentApproved, setAgentApproved] = useState(false);
   const [agentLoading, setAgentLoading] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(false);
@@ -46,11 +138,16 @@ const BettingAutoAgentPanel: React.FC<Props> = ({
     }
     setSettingsLoading(true);
     try {
-      const [enabled, agent] = await Promise.all([
-        loadAutoBettingEnabled(wallet),
+      const [settings, agent] = await Promise.all([
+        loadAutoBettingSettings(wallet),
         checkHlBotAgentApproved(wallet),
       ]);
-      setAutoEnabled(enabled);
+      setAutoEnabled(settings.enabled);
+      setPrefs({
+        allowWin: settings.allowWin,
+        allowDraw: settings.allowDraw,
+        allowLoss: settings.allowLoss,
+      });
       setAgentApproved(agent.approved);
     } finally {
       setSettingsLoading(false);
@@ -100,7 +197,7 @@ const BettingAutoAgentPanel: React.FC<Props> = ({
     setError(null);
     try {
       const next = !autoEnabled;
-      await saveAutoBettingEnabled(wallet, next);
+      await saveAutoBettingSettings(wallet, { enabled: next });
       setAutoEnabled(next);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Could not save setting');
@@ -109,21 +206,39 @@ const BettingAutoAgentPanel: React.FC<Props> = ({
     }
   };
 
+  const togglePref = async (key: keyof AutoBettingResultPrefs) => {
+    if (!signedIn) {
+      onRequireSignIn?.('Sign in to change AI betting options');
+      return;
+    }
+    if (!wallet) return;
+    const next = { ...prefs, [key]: !prefs[key] };
+    if (!next.allowWin && !next.allowDraw && !next.allowLoss) {
+      setError('Keep at least one of Win, Draw, or Loss enabled.');
+      return;
+    }
+    setPrefs(next);
+    setError(null);
+    try {
+      await saveAutoBettingSettings(wallet, next);
+    } catch (err: unknown) {
+      setPrefs(prefs);
+      setError(err instanceof Error ? err.message : 'Could not save options');
+    }
+  };
+
   return (
     <section className="hl-sb-agent-panel" aria-label="AI betting agent">
       <header className="hl-sb-agent-head">
         <Sparkles size={16} aria-hidden />
-        <div>
-          <h3>AI betting agent</h3>
-          <p>Same Hyperliquid agent as the trading bot — separate on/off switch.</p>
+        <div className="hl-sb-agent-head-text">
+          <div className="hl-sb-agent-title-row">
+            <h3>AI betting agent</h3>
+            <BettingAgentInfoHint />
+          </div>
+          <p>Same agent as the trading bot — separate on/off.</p>
         </div>
       </header>
-
-      <ul className="hl-sb-agent-points">
-        <li>Bot auto-trading and AI betting can run together on one HL account.</li>
-        <li>0.5% fee per bet · 2.5% on cash-out — pay after each event before the next bet.</li>
-        <li>Auto-betting places orders via your approved agent (coming soon).</li>
-      </ul>
 
       {bettingFees.feesDue ? (
         <button
@@ -143,6 +258,33 @@ const BettingAutoAgentPanel: React.FC<Props> = ({
         <span className={`hl-sb-agent-pill${autoEnabled ? ' hl-sb-agent-pill--on' : ''}`}>
           Auto-betting {autoEnabled ? 'on' : 'off'}
         </span>
+      </div>
+
+      <div className="hl-sb-agent-prefs" aria-label="Bet on result types">
+        <p className="hl-sb-agent-prefs-label">Bot may bet on</p>
+        <div className="hl-sb-agent-prefs-row">
+          {(
+            [
+              ['allowWin', 'Win'],
+              ['allowDraw', 'Draw'],
+              ['allowLoss', 'Loss'],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              className={`hl-sb-agent-pref-chip${prefs[key] ? ' hl-sb-agent-pref-chip--on' : ''}`}
+              aria-pressed={prefs[key]}
+              disabled={!wallet || settingsLoading || !user}
+              onClick={() => void togglePref(key)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="hl-sb-agent-prefs-hint">
+          Yes/No markets: Win = Yes, Loss = No. Draw applies when the event has a Draw leg.
+        </p>
       </div>
 
       {error ? (

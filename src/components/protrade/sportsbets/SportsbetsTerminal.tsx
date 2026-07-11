@@ -25,6 +25,8 @@ type Props = {
   signedIn: boolean;
   userId?: string;
   onRequireSignIn?: (reason: string) => void;
+  focusOutcomeId?: number | null;
+  onFocusOutcomeConsumed?: () => void;
 };
 
 const SportsbetsTerminal: React.FC<Props> = ({
@@ -33,16 +35,24 @@ const SportsbetsTerminal: React.FC<Props> = ({
   signedIn,
   userId,
   onRequireSignIn,
+  focusOutcomeId = null,
+  onFocusOutcomeConsumed,
 }) => {
   const { t } = useTranslation();
   const { registerActions, openOrderSheet, closeOrderSheet, orderSheetOpen } = useBettingUi();
   const isMobileBetting = useMediaQuery(BETTING_MOBILE_MQ);
-  const session = useSportsbetsSession(walletAddress, true, userId);
+  const session = useSportsbetsSession(walletAddress, true, userId, focusOutcomeId);
   const bettingFees = useBettingFeeGate();
   const [legQuotes, setLegQuotes] = useState<Record<number, OutcomeLegQuote>>({});
   const [quotesLoading, setQuotesLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [orderAction, setOrderAction] = useState<'buy' | 'sell'>('buy');
+
+  useEffect(() => {
+    if (focusOutcomeId == null) return;
+    if (session.selectedOutcomeId !== focusOutcomeId) return;
+    onFocusOutcomeConsumed?.();
+  }, [focusOutcomeId, session.selectedOutcomeId, onFocusOutcomeConsumed]);
 
   const categoryCounts = useMemo(
     () => countByCategory(session.questions),

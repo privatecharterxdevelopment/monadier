@@ -39,7 +39,7 @@ const ProfileTradeEmailToggle: React.FC = () => {
         <div>
           <p className="term-profile-notify-email-title">Trade close emails</p>
           <p className="term-profile-muted term-profile-notify-email-desc">
-            Get an email for every closed trade with P/L and ROI
+            Get an email when a bot trade or betting position closes in profit
             {email ? ` at ${email}` : ''}.
           </p>
         </div>

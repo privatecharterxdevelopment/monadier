@@ -107,6 +107,7 @@ const Dashboard2ProPageContent: React.FC = () => {
   const [perpDockTab, setPerpDockTab] = useState<ProTradeDockTab>('positions');
   const [botDockTab, setBotDockTab] = useState<HlBotDockTab>('positions');
   const [toast, setToast] = useState<string | null>(null);
+  const [focusBettingOutcomeId, setFocusBettingOutcomeId] = useState<number | null>(null);
   const [authModal, setAuthModal] = useState<'signin' | 'register' | null>(null);
   const [signInReason, setSignInReason] = useState<string | undefined>();
   const [botSyncTick, setBotSyncTick] = useState(0);
@@ -811,6 +812,8 @@ const Dashboard2ProPageContent: React.FC = () => {
           walletConnected={isConnected}
           walletAddress={address ?? undefined}
           onRequireSignIn={promptSignIn}
+          focusOutcomeId={focusBettingOutcomeId}
+          onFocusOutcomeConsumed={() => setFocusBettingOutcomeId(null)}
         />
       ) : null}
       {section === 'perps' || section === 'bot' ? (
@@ -852,9 +855,16 @@ const Dashboard2ProPageContent: React.FC = () => {
               selectChartCoin(coin);
               handleSectionChange('perps');
             }}
-            onTradeSports={() => {
+            onTradeSports={(outcomeId, eventName) => {
+              if (outcomeId != null && Number.isFinite(outcomeId)) {
+                setFocusBettingOutcomeId(outcomeId);
+              }
               handleSectionChange('sportsbets');
-              setToast('Open the matched event in Betting');
+              setToast(
+                eventName
+                  ? `Opened ${eventName} in Betting`
+                  : 'Opened matched event in Betting'
+              );
               window.setTimeout(() => setToast(null), 4000);
             }}
           />

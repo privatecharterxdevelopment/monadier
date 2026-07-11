@@ -1,4 +1,5 @@
 import type { VaultSettingsSnapshot } from './vaultSettingsSnapshot';
+import { normalizeVaultStopLossPct } from './normalizeVaultStopLossPct';
 import { HL_DYNAMIC_TRAIL, type HlBotStrategy } from './hlBotStrategy';
 
 /** Dynamic trail defaults (must match bot-service config). */
@@ -15,7 +16,7 @@ export type HlBotEffectiveSettings = VaultSettingsSnapshot & {
 
 /** 0 = no max-loss cap shown or enforced until user sets SL. */
 export function effectiveStopLossPct(stopLoss: number): number {
-  return stopLoss > 0 ? stopLoss : 0;
+  return normalizeVaultStopLossPct(stopLoss);
 }
 
 export function effectiveHlBotSettings(

@@ -1,9 +1,9 @@
 import { config } from '../config';
 import { fetchSportsRssHeadlines } from './newsFeedService';
 import { analyzeNewsItem, INJURY_RE, WIN_RE } from './newsAnalyzerService';
-import type { AnalyzedSportsNewsItem, NewsItem, SportsPrognosis } from './newsTypes';
+import type { AnalyzedSportsNewsItem, SportsPrognosis } from './newsTypes';
 
-type HlOutcomeLeg = { outcomeId: number; name: string };
+type HlOutcomeLeg = { outcomeId: number; name: string; yesLabel: string; noLabel: string };
 type HlBetQuestion = {
   questionId: number;
   name: string;
@@ -14,6 +14,11 @@ type HlBetQuestion = {
 type CatalogCache = { at: number; questions: HlBetQuestion[] };
 
 let catalogCache: CatalogCache | null = null;
+
+const DRAW_RE = /\b(draw|tie|x\b|empate|unentschieden|nul)\b/i;
+const YES_NO_NAME_RE = /^(yes|no|oui|non|ja|nein)$/i;
+
+type LegKind = 'win' | 'draw' | 'loss' | 'yes_no' | 'other';
 
 function tokenize(text: string): string[] {
   return text
@@ -32,6 +37,23 @@ function overlapScore(a: string, b: string): number {
     if (tb.has(t)) hit += 1;
   }
   return hit / Math.max(ta.size, tb.size);
+}
+
+function classifyLeg(leg: HlOutcomeLeg, index: number, legCount: number): LegKind {
+  const n = leg.name.trim();
+  if (DRAW_RE.test(n)) return 'draw';
+  if (YES_NO_NAME_RE.test(n) || legCount === 1) return 'yes_no';
+  if (legCount >= 2 && index === 0) return 'win';
+  if (legCount >= 2 && index === legCount - 1) return 'loss';
+  if (legCount === 3 && index === 1) return 'draw';
+  return 'other';
+}
+
+function isYesNoQuestion(q: HlBetQuestion): boolean {
+  if (q.legs.length === 1) return true;
+  const yes = q.legs[0]?.yesLabel?.toLowerCase() ?? '';
+  const no = q.legs[0]?.noLabel?.toLowerCase() ?? '';
+  return yes === 'yes' && no === 'no' && q.legs.length <= 2;
 }
 
 async function fetchBettingQuestions(): Promise<HlBetQuestion[]> {
@@ -55,12 +77,22 @@ async function fetchBettingQuestions(): Promise<HlBetQuestion[]> {
         description: string;
         namedOutcomes: number[];
       }[];
-      outcomes?: { outcome: number; name: string; description: string }[];
+      outcomes?: {
+        outcome: number;
+        name: string;
+        description: string;
+        sideSpecs?: { name: string }[];
+      }[];
     };
 
     const outcomeById = new Map<number, HlOutcomeLeg>();
     for (const o of raw.outcomes ?? []) {
-      outcomeById.set(o.outcome, { outcomeId: o.outcome, name: o.name });
+      outcomeById.set(o.outcome, {
+        outcomeId: o.outcome,
+        name: o.name,
+        yesLabel: o.sideSpecs?.[0]?.name ?? 'Yes',
+        noLabel: o.sideSpecs?.[1]?.name ?? 'No',
+      });
     }
 
     const questions: HlBetQuestion[] = [];
@@ -70,7 +102,7 @@ async function fetchBettingQuestions(): Promise<HlBetQuestion[]> {
       const legs = (q.namedOutcomes ?? [])
         .map((id) => outcomeById.get(id))
         .filter((l): l is HlOutcomeLeg => Boolean(l));
-      if (legs.length < 2) continue;
+      if (legs.length < 1) continue;
       questions.push({
         questionId: q.question,
         name: q.name,
@@ -80,7 +112,10 @@ async function fetchBettingQuestions(): Promise<HlBetQuestion[]> {
     }
 
     const sports = questions.filter(
-      (q) => q.category === 'sports' || /\bvs\b|world cup|champions|nations|cup\b/i.test(q.name)
+      (q) =>
+        q.category === 'sports' ||
+        q.category === 'crypto' ||
+        /\bvs\b|world cup|champions|nations|cup\b|above\b/i.test(q.name)
     );
     catalogCache = { at: Date.now(), questions: sports };
     return sports;
@@ -107,43 +142,108 @@ function matchQuestion(headline: string, questions: HlBetQuestion[]): HlBetQuest
 function buildPrognosis(headline: string, question: HlBetQuestion): SportsPrognosis {
   const text = headline.toLowerCase();
   const legs = question.legs;
-
-  let favored = legs[0];
-  let shift = 0;
+  const yesNo = isYesNoQuestion(question);
   const reasons: string[] = [];
 
-  for (const leg of legs) {
-    const name = leg.name.toLowerCase();
-    if (name.length >= 3 && text.includes(name)) {
-      if (INJURY_RE.test(headline)) {
-        const other = legs.find((l) => l.outcomeId !== leg.outcomeId) ?? leg;
-        favored = other;
-        shift = -12;
-        reasons.push(`${leg.name} injury/news negative — ${other.name} more likely`);
-      } else if (WIN_RE.test(headline)) {
-        favored = leg;
-        shift = 10;
-        reasons.push(`${leg.name} momentum / result signal`);
-      } else {
-        favored = leg;
-        shift = 4;
-        reasons.push(`Headline references ${leg.name}`);
+  let favored = legs[0];
+  let side: 0 | 1 = 0;
+  let shift = 0;
+  let marketKind: string = yesNo ? 'yes_no' : 'match';
+
+  if (yesNo) {
+    // Binary Yes/No (crypto price targets, props): understand Yes vs No from headline.
+    const neg =
+      /\b(miss|below|under|fail|reject|no\b|won't|will not|unlikely)\b/i.test(headline) ||
+      INJURY_RE.test(headline);
+    const pos = WIN_RE.test(headline) || /\b(above|over|hit|reach|break|yes\b|likely)\b/i.test(headline);
+    side = neg && !pos ? 1 : 0;
+    shift = side === 0 ? 8 : -8;
+    reasons.push(
+      side === 0
+        ? `Yes/No market — lean Yes (${favored.yesLabel}) from headline`
+        : `Yes/No market — lean No (${favored.noLabel}) from headline`
+    );
+    marketKind = 'yes_no';
+  } else {
+    // 1X2 / multi-leg: pick Win, Draw, or Loss leg.
+    for (let i = 0; i < legs.length; i++) {
+      const leg = legs[i];
+      const kind = classifyLeg(leg, i, legs.length);
+      const name = leg.name.toLowerCase();
+      if (name.length < 3 || !text.includes(name)) continue;
+
+      if (kind === 'draw' || DRAW_RE.test(headline)) {
+        const drawLeg = legs.find((l, idx) => classifyLeg(l, idx, legs.length) === 'draw') ?? leg;
+        favored = drawLeg;
+        side = 0;
+        shift = 6;
+        marketKind = 'draw';
+        reasons.push(`Draw lean — headline references ${leg.name}`);
+        break;
       }
+
+      if (INJURY_RE.test(headline)) {
+        const other =
+          legs.find((l, idx) => l.outcomeId !== leg.outcomeId && classifyLeg(l, idx, legs.length) !== 'draw') ??
+          leg;
+        favored = other;
+        side = 0;
+        shift = -10;
+        marketKind = classifyLeg(
+          other,
+          legs.findIndex((l) => l.outcomeId === other.outcomeId),
+          legs.length
+        );
+        reasons.push(`${leg.name} injury/news negative — ${other.name} more likely`);
+        break;
+      }
+
+      if (WIN_RE.test(headline)) {
+        favored = leg;
+        side = 0;
+        shift = 10;
+        marketKind = kind;
+        reasons.push(`${leg.name} momentum / result signal (${kind})`);
+        break;
+      }
+
+      favored = leg;
+      side = 0;
+      shift = 4;
+      marketKind = kind;
+      reasons.push(`Headline references ${leg.name} (${kind})`);
       break;
+    }
+
+    if (reasons.length === 0 && DRAW_RE.test(headline)) {
+      const drawLeg = legs.find((l, idx) => classifyLeg(l, idx, legs.length) === 'draw');
+      if (drawLeg) {
+        favored = drawLeg;
+        side = 0;
+        shift = 5;
+        marketKind = 'draw';
+        reasons.push('Headline suggests draw / stalemate');
+      }
     }
   }
 
   if (reasons.length === 0) {
     favored = legs[0];
-    reasons.push(`Matched event "${question.name}" — baseline lean from headline context`);
+    side = 0;
+    marketKind = yesNo ? 'yes_no' : classifyLeg(legs[0], 0, legs.length);
+    reasons.push(`Matched event "${question.name}" — baseline lean`);
   }
 
   const base = 50 + shift;
   const prognosisPct = Math.max(38, Math.min(72, base + (INJURY_RE.test(headline) ? 8 : 0)));
+  const sideLabel = side === 0 ? favored.yesLabel : favored.noLabel;
 
   return {
     eventName: question.name,
-    favoredLeg: favored.name,
+    favoredLeg: yesNo ? `${sideLabel} · ${favored.name}` : favored.name,
+    side,
+    sideLabel,
+    marketKind,
     prognosisPct,
     reasoning: reasons.join(' · '),
     outcomeId: favored.outcomeId,
