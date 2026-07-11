@@ -46,6 +46,14 @@ import {
   recordBettingFeeEvent,
   settleBettingFees,
 } from './services/bettingFees';
+import {
+  getPlatformFeeStatus,
+  listAccruedFeeTrades,
+  settleAccruedFees,
+  recordProfitableClose,
+  PLATFORM_FEE_WINS_BEFORE_BLOCK,
+} from './services/platformFees';
+import { getHlPositionTrailSnapshots } from './services/hlPositionTrailStatus';
 
 // Health check server for Railway/cloud deployments
 const PORT = process.env.PORT || 3001;
@@ -320,6 +328,243 @@ const healthServer = http.createServer(async (req, res) => {
       logger.error('API: hl-close failed', { error: err.message });
       res.writeHead(500, corsHeaders);
       res.end(JSON.stringify({ success: false, error: err.message || 'hl-close failed' }));
+    }
+    return;
+  }
+
+  // API: Manual perp order via Monadier HL agent
+  if (url.pathname === '/api/hl-order' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody();
+      const wallet = String(body.wallet ?? '').toLowerCase();
+      const coin = String(body.coin ?? '').trim().toUpperCase();
+      const sideRaw = String(body.side ?? '').toLowerCase();
+      const kindRaw = String(body.kind ?? 'limit').toLowerCase();
+      const size = Number(body.size);
+      const price = body.price != null ? Number(body.price) : undefined;
+      const markPx = Number(body.markPx);
+      const leverage = body.leverage != null ? Number(body.leverage) : undefined;
+      const marginModeRaw = String(body.marginMode ?? 'isolated').toLowerCase();
+      const reduceOnly = Boolean(body.reduceOnly);
+
+      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
+        return;
+      }
+      if (!coin || coin.length > 16) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'coin required' }));
+        return;
+      }
+      const side = sideRaw === 'short' ? 'SHORT' : sideRaw === 'long' ? 'LONG' : null;
+      if (!side) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'side must be long or short' }));
+        return;
+      }
+      const kind = kindRaw === 'market' ? 'market' : kindRaw === 'limit' ? 'limit' : null;
+      if (!kind) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'kind must be limit or market' }));
+        return;
+      }
+      const marginMode = marginModeRaw === 'cross' ? 'cross' : 'isolated';
+
+      const result = await hyperliquidTradingService.placeManualPerpOrder({
+        userAddress: wallet as `0x${string}`,
+        coin,
+        side,
+        kind,
+        size,
+        price: Number.isFinite(price) ? price : undefined,
+        markPx,
+        leverage: Number.isFinite(leverage) ? leverage : undefined,
+        marginMode,
+        reduceOnly,
+      });
+      if (!result.success) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: result.error || 'Order failed' }));
+        return;
+      }
+
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, wallet, coin, side, kind }));
+    } catch (err: any) {
+      logger.error('API: hl-order failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'hl-order failed' }));
+    }
+    return;
+  }
+
+  // API: Manual perp leverage via Monadier HL agent
+  if (url.pathname === '/api/hl-leverage' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody();
+      const wallet = String(body.wallet ?? '').toLowerCase();
+      const coin = String(body.coin ?? '').trim().toUpperCase();
+      const leverage = Number(body.leverage);
+      const marginModeRaw = String(body.marginMode ?? 'isolated').toLowerCase();
+      const marginMode = marginModeRaw === 'cross' ? 'cross' : 'isolated';
+
+      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
+        return;
+      }
+      if (!coin || coin.length > 16) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'coin required' }));
+        return;
+      }
+      if (!Number.isFinite(leverage) || leverage <= 0) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'leverage required' }));
+        return;
+      }
+
+      const result = await hyperliquidTradingService.updateManualPerpLeverage({
+        userAddress: wallet as `0x${string}`,
+        coin,
+        leverage,
+        marginMode,
+      });
+      if (!result.success) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: result.error || 'Leverage update failed' }));
+        return;
+      }
+
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, wallet, coin, leverage, marginMode }));
+    } catch (err: any) {
+      logger.error('API: hl-leverage failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'hl-leverage failed' }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/platform-fees' && req.method === 'GET') {
+    try {
+      const wallet = url.searchParams.get('wallet')?.trim().toLowerCase();
+      if (!wallet || !/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet query required (0x…)' }));
+        return;
+      }
+      const status = await getPlatformFeeStatus(wallet);
+      const trades = await listAccruedFeeTrades(wallet, 50);
+      const recentWins = trades.filter((t) => t.totalFeeUsd > 0);
+      res.writeHead(200, corsHeaders);
+      res.end(
+        JSON.stringify({
+          success: true,
+          wallet,
+          status,
+          winsBeforeBlock: PLATFORM_FEE_WINS_BEFORE_BLOCK,
+          treasuryAddress: config.treasuryAddress,
+          builderAddress: config.hyperliquid.builderAddress,
+          paymentChain: 'arbitrum',
+          paymentToken: 'USDC',
+          trades: recentWins,
+          timestamp: new Date().toISOString(),
+        })
+      );
+    } catch (err: any) {
+      logger.error('API: platform-fees GET failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'platform-fees failed' }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/platform-fees/confirm-payment' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody();
+      const wallet = String(body.wallet ?? '').toLowerCase();
+      const amountUsd = Number(body.amountUsd);
+      const paymentRef = body.paymentRef != null ? String(body.paymentRef) : undefined;
+      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
+        return;
+      }
+      if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'amountUsd required' }));
+        return;
+      }
+      const result = await settleAccruedFees(wallet, amountUsd, paymentRef);
+      const status = await getPlatformFeeStatus(wallet);
+      res.writeHead(result.ok ? 200 : 400, corsHeaders);
+      res.end(JSON.stringify({ success: result.ok, settledUsd: result.settledUsd, status }));
+    } catch (err: any) {
+      logger.error('API: platform-fees confirm failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'confirm-payment failed' }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/platform-fees/record-betting' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody();
+      const wallet = String(body.wallet ?? '').toLowerCase();
+      const profitUsd = Number(body.profitUsd);
+      const notionalUsd = Number(body.notionalUsd ?? 0);
+      const coin = String(body.coin ?? 'BET').trim();
+      const fillTid = body.fillTid != null ? String(body.fillTid) : undefined;
+      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
+        return;
+      }
+      if (!Number.isFinite(profitUsd) || profitUsd <= 0) {
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ success: true, skipped: true }));
+        return;
+      }
+      await recordProfitableClose({
+        walletAddress: wallet,
+        coin,
+        direction: 'LONG',
+        profitUsd,
+        notionalUsd: Number.isFinite(notionalUsd) && notionalUsd > 0 ? notionalUsd : profitUsd * 10,
+        closeReason: String(body.reason ?? 'betting_cashout'),
+        source: 'betting',
+        builderFeeUsd: Number(body.builderFeeUsd) > 0 ? Number(body.builderFeeUsd) : undefined,
+        builderTenthsBps: 1000,
+        externalRef: fillTid ? `betting:${fillTid}` : undefined,
+      });
+      const status = await getPlatformFeeStatus(wallet);
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, status }));
+    } catch (err: any) {
+      logger.error('API: platform-fees record-betting failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'record-betting failed' }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/hl-position-trails') {
+    try {
+      const wallet = url.searchParams.get('wallet')?.trim();
+      if (!wallet || !/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet query required (0x…)' }));
+        return;
+      }
+      const trails = await getHlPositionTrailSnapshots(wallet as `0x${string}`);
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, wallet, trails, timestamp: new Date().toISOString() }));
+    } catch (err: any) {
+      logger.error('API: hl-position-trails failed', { error: err.message });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'hl-position-trails failed' }));
     }
     return;
   }
@@ -844,6 +1089,10 @@ healthServer.listen(PORT, () => {
   logger.info('  GET /api/hl-agent?wallet=0x… - Per-user HL agent address');
   logger.info('  POST /api/hl-agent/approval - Save HL agent approval (service role)');
   logger.info('  POST /api/hl-close - Close HL position via Monadier agent');
+  logger.info('  POST /api/hl-order - Place manual perp order via Monadier agent');
+  logger.info('  POST /api/hl-leverage - Update perp leverage via Monadier agent');
+  logger.info('  GET /api/hl-position-trails?wallet=0x… - Live profit-trail stop truth');
+  logger.info('  GET /api/platform-fees?wallet=0x… - Accrued success fees');
   logger.info('  POST /api/referral/try-qualify - Qualify referral after HL fund + bot activity');
   logger.info('  GET /api/bot-status?wallet=0x… - Wallet bot diagnostics');
   logger.info('  GET /api/global-signals - Top HL perp signals from last scan');

@@ -1,0 +1,159 @@
+import { createClient } from '@supabase/supabase-js';
+import { config } from '../config';
+import { logger } from '../utils/logger';
+import { getHlFeeSummary } from './hlSuccessFees';
+import { isFeeExemptWallet } from './feeExempt';
+
+const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
+
+export const PLATFORM_FEE_WINS_BEFORE_BLOCK = Number(
+  process.env.HL_FEE_WINS_BEFORE_BLOCK || 20
+);
+
+export type PlatformFeeStatus = {
+  accruedUsd: number;
+  settledUsd: number;
+  builderSettledUsd: number;
+  successWinCount: number;
+  opensBlocked: boolean;
+  withdrawBlocked: boolean;
+  winsUntilBlock: number;
+  successFeeBps: number;
+};
+
+export async function getPlatformFeeStatus(walletAddress: string): Promise<PlatformFeeStatus> {
+  const wallet = walletAddress.toLowerCase();
+  if (await isFeeExemptWallet(wallet)) {
+    return {
+      accruedUsd: 0,
+      settledUsd: 0,
+      builderSettledUsd: 0,
+      successWinCount: 0,
+      opensBlocked: false,
+      withdrawBlocked: false,
+      winsUntilBlock: PLATFORM_FEE_WINS_BEFORE_BLOCK,
+      successFeeBps: config.hyperliquid.successFeeBps,
+    };
+  }
+
+  const summary = await getHlFeeSummary(wallet);
+  const { count } = await supabase
+    .from('trade_history')
+    .select('id', { count: 'exact', head: true })
+    .eq('wallet_address', wallet)
+    .eq('execution_venue', 'hyperliquid')
+    .eq('platform_fee_status', 'accrued')
+    .gt('platform_success_fee', 0);
+
+  const successWinCount = count ?? 0;
+  const opensBlocked =
+    summary.accruedUsd > 0.000_001 && successWinCount >= PLATFORM_FEE_WINS_BEFORE_BLOCK;
+
+  return {
+    accruedUsd: summary.accruedUsd,
+    settledUsd: summary.settledUsd,
+    builderSettledUsd: 0,
+    successWinCount,
+    opensBlocked,
+    withdrawBlocked: opensBlocked,
+    winsUntilBlock: Math.max(0, PLATFORM_FEE_WINS_BEFORE_BLOCK - successWinCount),
+    successFeeBps: config.hyperliquid.successFeeBps,
+  };
+}
+
+export async function listAccruedFeeTrades(walletAddress: string, limit = 50) {
+  const wallet = walletAddress.toLowerCase();
+  const { data, error } = await supabase
+    .from('trade_history')
+    .select(
+      'id, token_symbol, profit_loss, platform_success_fee, close_reason, created_at, platform_fee_status, closed_at'
+    )
+    .eq('wallet_address', wallet)
+    .eq('execution_venue', 'hyperliquid')
+    .gt('platform_success_fee', 0)
+    .order('closed_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    logger.warn('listAccruedFeeTrades failed', { error: error.message });
+    return [];
+  }
+
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    coin: String(row.token_symbol ?? ''),
+    grossProfitUsd: Number(row.profit_loss) || 0,
+    totalFeeUsd: Number(row.platform_success_fee) || 0,
+    builderFeeUsd: 0,
+    accruedFeeUsd:
+      row.platform_fee_status === 'accrued' ? Number(row.platform_success_fee) || 0 : 0,
+    closeReason: (row.close_reason as string | null) ?? null,
+    feeSource: 'bot',
+    createdAt: String(row.closed_at ?? row.created_at ?? ''),
+    status: String(row.platform_fee_status ?? 'none'),
+  }));
+}
+
+export async function settleAccruedFees(
+  walletAddress: string,
+  amountUsd: number,
+  paymentRef?: string
+): Promise<{ ok: boolean; settledUsd: number }> {
+  const wallet = walletAddress.toLowerCase();
+  if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
+    return { ok: false, settledUsd: 0 };
+  }
+
+  const { data: accrued, error } = await supabase
+    .from('hl_fee_ledger')
+    .select('id, success_fee_usd')
+    .eq('wallet_address', wallet)
+    .eq('status', 'accrued')
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    logger.warn('settleAccruedFees ledger query failed', { error: error.message });
+    return { ok: false, settledUsd: 0 };
+  }
+
+  let remaining = amountUsd;
+  let settledUsd = 0;
+  for (const row of accrued ?? []) {
+    const fee = Number(row.success_fee_usd) || 0;
+    if (fee <= 0 || remaining + 1e-9 < fee) continue;
+    const { error: updErr } = await supabase
+      .from('hl_fee_ledger')
+      .update({
+        status: 'settled',
+        payment_ref: paymentRef ?? null,
+        settled_at: new Date().toISOString(),
+      })
+      .eq('id', row.id);
+    if (updErr) continue;
+    remaining -= fee;
+    settledUsd += fee;
+  }
+
+  await supabase
+    .from('trade_history')
+    .update({ platform_fee_status: 'settled' })
+    .eq('wallet_address', wallet)
+    .eq('platform_fee_status', 'accrued');
+
+  return { ok: settledUsd > 0 || amountUsd > 0, settledUsd };
+}
+
+export async function recordProfitableClose(_opts: {
+  walletAddress: string;
+  coin: string;
+  direction: 'LONG' | 'SHORT';
+  profitUsd: number;
+  notionalUsd: number;
+  closeReason: string;
+  source: string;
+  builderFeeUsd?: number;
+  builderTenthsBps?: number;
+  externalRef?: string;
+}): Promise<void> {
+  // Bot closes already record via recordHlBotClose. Manual betting fees use bettingFees.
+}

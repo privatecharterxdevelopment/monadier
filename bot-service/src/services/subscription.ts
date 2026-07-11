@@ -277,109 +277,13 @@ export class SubscriptionService {
   }
 
   /**
-   * Check if user can make a trade
+   * Subscriptions are retired. Trading is gated by HL agent approval + balance only.
    */
-  async canTrade(walletAddress: string): Promise<TradePermission> {
-    const wallet = walletAddress.toLowerCase();
-    let subscription = await this.getSubscription(wallet);
-
-    if (!subscription) {
-      const userId = await this.getUserIdFromWallet(wallet);
-      if (userId) {
-        await this.ensureActiveSubscriptionForUser(userId, wallet);
-        subscription = await this.getSubscription(wallet);
-      }
-    }
-
-    // No subscription found
-    if (!subscription) {
-      return {
-        allowed: false,
-        reason: 'No active subscription found',
-        dailyTradesRemaining: 0,
-        planTier: 'none'
-      };
-    }
-
-    // Check if subscription is active
-    if (subscription.status !== 'active') {
-      return {
-        allowed: false,
-        reason: `Subscription is ${subscription.status}`,
-        dailyTradesRemaining: 0,
-        planTier: subscription.planTier
-      };
-    }
-
-    // Check if subscription is expired
-    const now = new Date();
-    if (now > subscription.endDate) {
-      return {
-        allowed: false,
-        reason: 'Subscription has expired',
-        dailyTradesRemaining: 0,
-        planTier: subscription.planTier
-      };
-    }
-
-    // Free tier: check total trades limit (2 trades total, then subscription required)
-    if (subscription.planTier === 'free') {
-      const FREE_TIER_TOTAL_LIMIT = 2;
-      const totalUsed = subscription.totalTradesUsed || 0;
-
-      if (totalUsed >= FREE_TIER_TOTAL_LIMIT) {
-        return {
-          allowed: false,
-          reason: `Free trial ended. You've used your ${FREE_TIER_TOTAL_LIMIT} free trades. Subscribe to continue!`,
-          dailyTradesRemaining: 0,
-          planTier: subscription.planTier
-        };
-      }
-
-      // Free tier can trade (within limit)
-      return {
-        allowed: true,
-        dailyTradesRemaining: FREE_TIER_TOTAL_LIMIT - totalUsed,
-        planTier: subscription.planTier
-      };
-    }
-
-    // Get trade limits for this tier
-    const limits = config.subscriptionLimits[subscription.planTier];
-    if (!limits) {
-      return {
-        allowed: false,
-        reason: 'Invalid subscription tier',
-        dailyTradesRemaining: 0,
-        planTier: subscription.planTier
-      };
-    }
-
-    // Reset daily trades if needed
-    if (now > subscription.dailyTradesResetAt) {
-      await this.resetDailyTrades(subscription.userId, subscription.timezone);
-      subscription.dailyTradesUsed = 0;
-    }
-
-    // Check daily trade limit (unlimited = -1)
-    const dailyLimit = limits.dailyTrades;
-    const dailyTradesRemaining = dailyLimit === -1
-      ? -1 // Unlimited
-      : Math.max(0, dailyLimit - subscription.dailyTradesUsed);
-
-    if (dailyLimit !== -1 && dailyTradesRemaining <= 0) {
-      return {
-        allowed: false,
-        reason: 'Daily trade limit reached',
-        dailyTradesRemaining: 0,
-        planTier: subscription.planTier
-      };
-    }
-
+  async canTrade(_walletAddress: string): Promise<TradePermission> {
     return {
       allowed: true,
-      dailyTradesRemaining,
-      planTier: subscription.planTier
+      dailyTradesRemaining: -1,
+      planTier: 'free',
     };
   }
 

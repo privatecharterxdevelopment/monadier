@@ -400,14 +400,7 @@ export class HyperliquidTradingService {
       return 'skip';
     }
 
-    const tradePerm = await subscriptionService.canTrade(userAddress);
-    if (!tradePerm.allowed) {
-      logger.debug('HL user skip: subscription', {
-        user: userAddress.slice(0, 10),
-        reason: tradePerm.reason,
-      });
-      return 'skip';
-    }
+    // Subscriptions are retired — agent approval + auto_trade + balance gates only.
 
     const winRateGate = await checkWinRateGate(
       userAddress,
@@ -1618,6 +1611,137 @@ export class HyperliquidTradingService {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.warn('HL close failed', { user: userAddress.slice(0, 10), error: msg });
+      return { success: false, error: msg };
+    }
+  }
+
+  async updateManualPerpLeverage(opts: {
+    userAddress: `0x${string}`;
+    coin: string;
+    leverage: number;
+    marginMode: 'cross' | 'isolated';
+  }): Promise<{ success: boolean; error?: string }> {
+    try {
+      const coin = opts.coin.toUpperCase();
+      const agentAddr = await this.getAgentAddress(opts.userAddress);
+      const approved = await hlAgentApprovalService.isApproved(opts.userAddress, agentAddr);
+      if (!approved) {
+        return {
+          success: false,
+          error: 'Trading agent not approved — approve once in the app.',
+        };
+      }
+
+      const meta = await fetchHlMeta();
+      const assetIndex = coinToAssetIndex(meta, coin);
+      const client = createAgentClient(opts.userAddress);
+      await client.updateLeverage({
+        asset: assetIndex,
+        isCross: opts.marginMode === 'cross',
+        leverage: Math.max(1, Math.floor(opts.leverage)),
+      });
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: msg };
+    }
+  }
+
+  async placeManualPerpOrder(opts: {
+    userAddress: `0x${string}`;
+    coin: string;
+    side: 'LONG' | 'SHORT';
+    kind: 'limit' | 'market';
+    size: number;
+    price?: number;
+    markPx: number;
+    leverage?: number;
+    marginMode?: 'cross' | 'isolated';
+    reduceOnly?: boolean;
+  }): Promise<{ success: boolean; error?: string }> {
+    try {
+      const coin = opts.coin.toUpperCase();
+      const agentAddr = await this.getAgentAddress(opts.userAddress);
+      const approved = await hlAgentApprovalService.isApproved(opts.userAddress, agentAddr);
+      if (!approved) {
+        return {
+          success: false,
+          error: 'Trading agent not approved — approve once in the app.',
+        };
+      }
+
+      if (!Number.isFinite(opts.size) || opts.size <= 0) {
+        return { success: false, error: 'Invalid order size' };
+      }
+      const markPx = opts.markPx;
+      if (!Number.isFinite(markPx) || markPx <= 0) {
+        return { success: false, error: 'Mark price unavailable' };
+      }
+
+      const meta = await fetchHlMeta();
+      const assetIndex = coinToAssetIndex(meta, coin);
+      const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
+      const client = createAgentClient(opts.userAddress);
+
+      if (opts.leverage && opts.leverage > 0) {
+        await client.updateLeverage({
+          asset: assetIndex,
+          isCross: opts.marginMode === 'cross',
+          leverage: Math.max(1, Math.floor(opts.leverage)),
+        });
+      }
+
+      const isLong = opts.side === 'LONG';
+      const limitPx =
+        opts.kind === 'market'
+          ? isLong
+            ? markPx * 1.05
+            : markPx * 0.95
+          : (opts.price ?? markPx);
+      const notionalUsd = opts.size * markPx;
+      const builderGate = await checkHlBuilderFeeApproved(opts.userAddress);
+      const builder = resolveHlOrderBuilder({
+        notionalUsd,
+        isClose: false,
+        approvedMaxTenthsBps: builderGate.approvedMax,
+      });
+
+      const result = await client.order({
+        orders: [
+          {
+            a: assetIndex,
+            b: isLong,
+            p: formatHlPrice(limitPx, szDecimals),
+            s: formatHlSize(opts.size, szDecimals),
+            r: opts.reduceOnly ?? false,
+            t:
+              opts.kind === 'market'
+                ? { limit: { tif: 'FrontendMarket' } }
+                : { limit: { tif: 'Gtc' } },
+          },
+        ],
+        grouping: 'na',
+        ...(builder ? { builder } : {}),
+      });
+
+      const status = result.response?.data?.statuses?.[0] as
+        | { filled?: unknown; error?: string }
+        | undefined;
+      if (status && 'error' in status && status.error) {
+        return { success: false, error: String(status.error) };
+      }
+
+      logger.info('HL manual order placed', {
+        user: opts.userAddress.slice(0, 10),
+        coin,
+        side: opts.side,
+        kind: opts.kind,
+        size: opts.size,
+      });
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn('HL manual order failed', { user: opts.userAddress.slice(0, 10), error: msg });
       return { success: false, error: msg };
     }
   }
