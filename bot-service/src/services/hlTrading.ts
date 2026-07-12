@@ -1230,6 +1230,23 @@ export class HyperliquidTradingService {
             peakUsd: trailRecord.highestPnlSinceEntry.toFixed(4),
           });
         } else if (trailExitReason === 'trailing_stop') {
+          const stopPx = trailRecord.currentTrailStop;
+          const overshootPx =
+            stopPx != null && Number.isFinite(stopPx)
+              ? positionDirection === 'LONG'
+                ? stopPx - markPrice
+                : markPrice - stopPx
+              : 0;
+          const deepPastStop =
+            overshootPx >
+            Math.max(
+              (trailRecord.lastTrailDistancePx || 0) * 0.25,
+              markPrice * 0.0002
+            );
+          const gaveBackHalf =
+            trailRecord.highestPnlSinceEntry > 0 &&
+            pnl < trailRecord.highestPnlSinceEntry * 0.5;
+
           const verdict = await evaluateTrailPullbackAnalysis({
             coin: pos.coin,
             direction: positionDirection,
@@ -1238,6 +1255,8 @@ export class HyperliquidTradingService {
             peakUsd: trailRecord.highestPnlSinceEntry,
           });
           const canDefer =
+            !deepPastStop &&
+            !gaveBackHalf &&
             verdict.deferClose &&
             (trailRecord.trailCloseDeferCount ?? 0) < deferMax;
           logTrailPullbackAnalysis(userAddress, pos.coin, verdict, canDefer);

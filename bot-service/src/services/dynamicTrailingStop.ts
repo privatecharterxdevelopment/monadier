@@ -426,35 +426,94 @@ export async function evaluateDynamicTrail(
   // Phase 3 — ratchet trail (only moves in profit direction).
   if (rec.phase === 'trailing' && rec.currentTrailStop != null) {
     const trailMult = Math.max(0.75, Math.min(2, input.trailDistanceMult ?? 1));
-    const trailDist =
+    let trailDist =
       (await resolveTrailDistancePx(input.coin, input.markPrice)) * trailMult;
+
+    // ATR/% on BTC can be $800–$1500 while a 5–10% ROE winner only moved $50–$150.
+    // Cap trail gap to a fraction of the favorable excursion so the stop actually
+    // locks peak profit instead of sitting at breakeven forever.
+    const excursionPx =
+      input.direction === 'LONG'
+        ? Math.max(0, rec.highestPriceSinceEntry - input.entryPrice)
+        : Math.max(0, input.entryPrice - rec.highestPriceSinceEntry);
+    if (excursionPx > 0) {
+      const maxGapPx = Math.max(
+        excursionPx * config.hyperliquid.profitTrailMinPeakFraction,
+        input.markPrice * 0.00015 // ~0.015% noise floor
+      );
+      if (trailDist > maxGapPx) {
+        logger.debug('HL trail distance capped to peak excursion', {
+          coin: input.coin,
+          atrDist: trailDist.toFixed(4),
+          capped: maxGapPx.toFixed(4),
+          excursionPx: excursionPx.toFixed(4),
+        });
+        trailDist = maxGapPx;
+      }
+    }
+
     rec.lastTrailDistancePx = trailDist;
     const trailCandidate =
       input.direction === 'LONG'
         ? rec.highestPriceSinceEntry - trailDist
         : rec.highestPriceSinceEntry + trailDist;
+
+    // Also ratchet a peak-PnL lock: keep (1 - peakDropFrac) of peak uPnL.
+    const peakFrac = config.hyperliquid.profitPeakDropFraction;
+    const lockPnlUsd = Math.max(
+      0,
+      rec.highestPnlSinceEntry * (1 - Math.max(0.2, Math.min(0.6, peakFrac)))
+    );
+    const peakLockStop =
+      input.absSize > 0 && lockPnlUsd > 0
+        ? input.direction === 'LONG'
+          ? input.entryPrice + lockPnlUsd / input.absSize
+          : input.entryPrice - lockPnlUsd / input.absSize
+        : null;
+
+    let candidate = trailCandidate;
+    if (peakLockStop != null && Number.isFinite(peakLockStop)) {
+      candidate =
+        input.direction === 'LONG'
+          ? Math.max(trailCandidate, peakLockStop)
+          : Math.min(trailCandidate, peakLockStop);
+    }
+
     rec.currentTrailStop = ratchetStop(
       input.direction,
       rec.currentTrailStop,
-      trailCandidate
+      candidate
     );
 
     if (input.trailCloseDeferred) {
-      return {
-        record: rec,
-        shouldClose: false,
-        exitReason: '',
-        closeDetail: '',
-      };
+      // Hard overshoot past stop — do not keep deferring into a scratch win.
+      const stop = rec.currentTrailStop;
+      const overshootPx =
+        stop != null && Number.isFinite(stop)
+          ? input.direction === 'LONG'
+            ? stop - input.markPrice
+            : input.markPrice - stop
+          : 0;
+      const deepPastStop = overshootPx > Math.max(trailDist * 0.25, input.markPrice * 0.0002);
+      const gaveBackHalf =
+        rec.highestPnlSinceEntry > 0 &&
+        input.pnlUsd < rec.highestPnlSinceEntry * 0.5;
+      if (!deepPastStop && !gaveBackHalf) {
+        return {
+          record: rec,
+          shouldClose: false,
+          exitReason: '',
+          closeDetail: '',
+        };
+      }
     }
 
-    const peakFrac = config.hyperliquid.profitPeakDropFraction;
     const peakMinFees = config.hyperliquid.profitPeakMinFeesMult;
     const runWiden =
       trailMult >= 1.12 ? (trailMult >= 1.5 ? 1.45 : 1.2) : 1;
     if (
-      rec.highestPnlSinceEntry >= feesUsd * peakMinFees &&
-      rec.highestPnlSinceEntry >= Math.max(input.collateralUsd * 0.02, feesUsd * 15) &&
+      rec.highestPnlSinceEntry >= feesUsd * Math.min(peakMinFees, 3) &&
+      rec.highestPnlSinceEntry >= Math.max(input.collateralUsd * 0.015, feesUsd * 2) &&
       input.pnlUsd > 0 &&
       peakFrac > 0 &&
       rec.timeInProfitMs >= cfg.armMinProfitHoldMs &&
