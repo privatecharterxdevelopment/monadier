@@ -149,6 +149,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
             minTradesForWinRate: botSettingsSnapshot.minTradesForWinRate,
             hlBotStrategy: botSettingsSnapshot.hlBotStrategy,
             newsTradeMode: botSettingsSnapshot.newsTradeMode,
+            maxConcurrentPositions: botSettingsSnapshot.maxConcurrentPositions,
           },
           planTier,
           publicClient,

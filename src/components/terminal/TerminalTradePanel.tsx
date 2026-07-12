@@ -421,6 +421,7 @@ const TerminalTradePanel: React.FC<Props> = ({
         askPermission: s.askPermission,
         minWinRate: s.minWinRate,
         minTradesForWinRate: s.minTradesForWinRate,
+        maxConcurrentPositions: s.maxConcurrentPositions,
       },
       planTier,
       publicClient: publicClient ?? null,

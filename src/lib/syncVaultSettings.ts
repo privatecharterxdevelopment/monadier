@@ -77,9 +77,10 @@ async function saveVaultSettingsToDatabase(
   settings: VaultSettingsWrite,
   leverage: number
 ): Promise<import('./vaultSettingsSnapshot').VaultSettingsSnapshot> {
-  const maxConcurrentPositions = clampMaxConcurrentPositions(
-    settings.maxConcurrentPositions ?? 2
-  );
+  const slotsProvided = settings.maxConcurrentPositions != null;
+  const maxConcurrentPositions = slotsProvided
+    ? clampMaxConcurrentPositions(settings.maxConcurrentPositions)
+    : null;
   const rpcPayload = {
     p_wallet_address: wallet,
     p_chain_id: ARBITRUM_ONE_CHAIN_ID,
@@ -109,15 +110,19 @@ async function saveVaultSettingsToDatabase(
         legacyRpc
       );
       if (!legacyRpcError && legacyData) {
-        await patchMaxConcurrentPositions(wallet, maxConcurrentPositions);
+        if (maxConcurrentPositions != null) {
+          await patchMaxConcurrentPositions(wallet, maxConcurrentPositions);
+        }
         return snapshotFromVaultSettingsRow({
           ...(legacyData as VaultSettingsRow),
           news_trade_mode: settings.newsTradeMode ?? 'filter',
-          max_concurrent_positions: maxConcurrentPositions,
+          ...(maxConcurrentPositions != null
+            ? { max_concurrent_positions: maxConcurrentPositions }
+            : {}),
         });
       }
 
-      const payload = {
+      const payload: Record<string, unknown> = {
         wallet_address: wallet,
         chain_id: ARBITRUM_ONE_CHAIN_ID,
         auto_trade_enabled: settings.autoTradeEnabled,
@@ -129,10 +134,12 @@ async function saveVaultSettingsToDatabase(
         min_win_rate_percent: settings.minWinRate ?? 0,
         min_trades_for_win_rate_gate: settings.minTradesForWinRate ?? 5,
         hl_bot_strategy: settings.hlBotStrategy ?? 'standard',
-        max_concurrent_positions: maxConcurrentPositions,
         updated_at: new Date().toISOString(),
         synced_at: new Date().toISOString(),
       };
+      if (maxConcurrentPositions != null) {
+        payload.max_concurrent_positions = maxConcurrentPositions;
+      }
       const { data: upserted, error: upsertError } = await supabase
         .from('vault_settings')
         .upsert(payload, { onConflict: 'wallet_address,chain_id' })
@@ -157,7 +164,7 @@ async function saveVaultSettingsToDatabase(
           return snapshotFromVaultSettingsRow({
             ...(upserted2 as VaultSettingsRow),
             news_trade_mode: settings.newsTradeMode ?? 'filter',
-            max_concurrent_positions: 2,
+            max_concurrent_positions: maxConcurrentPositions ?? 2,
           });
         }
         throw new Error(`Could not save settings: ${upsertError.message}`);
@@ -174,10 +181,14 @@ async function saveVaultSettingsToDatabase(
     throw new Error('Settings save returned no data — try again.');
   }
 
-  await patchMaxConcurrentPositions(wallet, maxConcurrentPositions);
+  if (maxConcurrentPositions != null) {
+    await patchMaxConcurrentPositions(wallet, maxConcurrentPositions);
+  }
   return snapshotFromVaultSettingsRow({
     ...(data as VaultSettingsRow),
-    max_concurrent_positions: maxConcurrentPositions,
+    ...(maxConcurrentPositions != null
+      ? { max_concurrent_positions: maxConcurrentPositions }
+      : {}),
   });
 }
 

@@ -31,6 +31,7 @@ export async function saveHlBotStrategyMode(
       minWinRate: snapshot.minWinRate,
       minTradesForWinRate: snapshot.minTradesForWinRate,
       hlBotStrategy: next,
+      maxConcurrentPositions: snapshot.maxConcurrentPositions,
     },
     planTier: opts.planTier,
     publicClient: opts.publicClient,
