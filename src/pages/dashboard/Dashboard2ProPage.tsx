@@ -171,14 +171,6 @@ const Dashboard2ProPageContent: React.FC = () => {
     () => filterHlPositions(account?.positions, botManagedCoins, 'manual'),
     [account?.positions, botManagedCoins]
   );
-  const allPerpPositions = useMemo(
-    () => (account?.positions ?? []).filter((p) => Math.abs(toNum(p.szi)) > 1e-12),
-    [account?.positions]
-  );
-  const allPerpUpnl = useMemo(
-    () => allPerpPositions.reduce((s, p) => s + toNum(p.unrealizedPnl), 0),
-    [allPerpPositions]
-  );
 
   const botChartCoin = section === 'bot' ? perpCoin : undefined;
   const { seriesMarkers: botTradeMarkers } = useHlBotChartMarkers(
@@ -636,7 +628,7 @@ const Dashboard2ProPageContent: React.FC = () => {
             />
           </div>
               <div className="hl-dock hl-hl-dock">
-                <div className="hl-dock-mode-label">Hyperliquid · Perps account</div>
+                <div className="hl-dock-mode-label">Manual Perps · your trades only</div>
                 <ProTradeDock
                   account={account}
                   spotBalances={spotBalances}
@@ -668,7 +660,7 @@ const Dashboard2ProPageContent: React.FC = () => {
                     await handleRefreshAll();
                   }}
                   onClosePosition={(p) => void handleClosePosition(p)}
-                  positionScope="all"
+                  positionScope="manual"
                   botManagedCoins={botManagedCoins}
                 />
               </div>
@@ -709,8 +701,8 @@ const Dashboard2ProPageContent: React.FC = () => {
         walletConnected={isConnected}
         wsLive={perpMarket.wsConnected}
         openOrders={perpOpenOrders}
-        positions={allPerpPositions}
-        totalUpnl={allPerpUpnl}
+        positions={manualPositions}
+        totalUpnl={totalUpnl}
       />
     </div>
   );

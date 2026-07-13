@@ -30,6 +30,12 @@ import { aggregateHlCloseFills, type AggregatedHlCloseFill } from '../../lib/hyp
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
+import { useHlBotTradeWindows } from '../../hooks/useHlBotTradeWindows';
+import {
+  filterFillsByScope,
+  filterFundingByScope,
+  filterOrdersByScope,
+} from '../../lib/hyperliquid/splitHlActivity';
 import { trailStopForOpenPosition, type ActiveSlDisplay } from '../../lib/hlTrailingStopChart';
 import { useHlPositionPeakPnl } from '../../hooks/useHlPositionPeakPnl';
 import { useHlBotTrailSnapshots } from '../../hooks/useHlBotTrailSnapshots';
@@ -122,8 +128,8 @@ type Props = {
   botOpenPositionCoins?: string[];
   botHlBalanceUsd?: number;
   onDeposit?: () => void;
-  /** Perps = full account; bot = bot-managed coins from hl_bot_chart_markers. */
-  positionScope?: 'manual' | 'bot' | 'all';
+  /** Perps = manual-only; bot = bot-managed coins / bot-attributed fills. */
+  positionScope?: 'manual' | 'bot';
   botManagedCoins?: ReadonlySet<string>;
   botManagedCoinsLoading?: boolean;
 };
@@ -174,6 +180,28 @@ const ProTradeDock: React.FC<Props> = ({
   const managedCoins = botManagedCoins ?? new Set<string>();
   const positionOpenSinceRef = useRef<Map<string, number>>(new Map());
   const dockWallet = walletAddress?.toLowerCase();
+  const { windows: botWindows, fillTids: botFillTids, markers: botMarkers } = useHlBotTradeWindows(
+    dockWallet,
+    reasonRefreshKey
+  );
+  const scopedFills = useMemo(
+    () =>
+      isSpot
+        ? fills
+        : filterFillsByScope(fills, scope, botWindows, botFillTids, botMarkers),
+    [fills, isSpot, scope, botWindows, botFillTids, botMarkers]
+  );
+  const scopedFunding = useMemo(
+    () => (isSpot ? funding : filterFundingByScope(funding, scope, botWindows)),
+    [funding, isSpot, scope, botWindows]
+  );
+  const scopedOrderHistory = useMemo(
+    () =>
+      isSpot
+        ? orderHistory
+        : filterOrdersByScope(orderHistory, scope, botWindows, botMarkers),
+    [orderHistory, isSpot, scope, botWindows, botMarkers]
+  );
   const platformFees = usePlatformFeeGate();
   const platformFeeLedger = usePlatformFees(dockWallet, Boolean(dockWallet));
   const { snapshot: hlSnap } = useHlAccountSnapshot(dockWallet);
@@ -218,7 +246,6 @@ const ProTradeDock: React.FC<Props> = ({
     const list = account?.positions ?? [];
     return list.filter((p) => {
       if (Math.abs(toNum(p.szi)) <= 1e-12) return false;
-      if (scope !== 'bot' && scope !== 'manual') return true;
       const coin = normalizeHlPerpCoin(p.coin);
       const isBot = managedCoins.has(coin);
       return scope === 'bot' ? isBot : !isBot;
@@ -248,11 +275,11 @@ const ProTradeDock: React.FC<Props> = ({
   }, [positionCoins]);
   const historyCoins = useMemo(() => {
     const set = new Set<string>(positionCoins);
-    for (const f of fills) {
+    for (const f of scopedFills) {
       if (isHlFillClose(f.dir, f.closedPnl)) set.add(f.coin);
     }
     return [...set];
-  }, [positionCoins, fills]);
+  }, [positionCoins, scopedFills]);
   const { closeReasonForFill } = useHlTradeReasonMarkers(
     isBotMode ? (walletAddress ?? undefined) : undefined,
     historyCoins,
@@ -277,8 +304,8 @@ const ProTradeDock: React.FC<Props> = ({
   const botUnderfunded = botNeedsDeposit;
 
   const closeFills = useMemo(
-    () => aggregateHlCloseFills(fills),
-    [fills]
+    () => aggregateHlCloseFills(scopedFills),
+    [scopedFills]
   );
 
   const tabSuffix = (id: TabId) => {
@@ -799,7 +826,7 @@ const ProTradeDock: React.FC<Props> = ({
             <p className="hl-dock-empty">No platform fees recorded yet.</p>
           )
         ) : tab === 'fundingHistory' ? (
-          funding.length > 0 ? (
+          scopedFunding.length > 0 ? (
             <table className="hl-table">
               <thead>
                 <tr>
@@ -810,7 +837,7 @@ const ProTradeDock: React.FC<Props> = ({
                 </tr>
               </thead>
               <tbody>
-                {funding.map((f, i) => (
+                {scopedFunding.map((f, i) => (
                   <tr key={`${f.time}-${i}`}>
                     <td>{fmtTimeMs(f.time)}</td>
                     <td>{f.coin}</td>
@@ -826,7 +853,7 @@ const ProTradeDock: React.FC<Props> = ({
             <p className="hl-dock-empty">No funding history.</p>
           )
         ) : tab === 'orderHistory' ? (
-          orderHistory.length > 0 ? (
+          scopedOrderHistory.length > 0 ? (
             <table className="hl-table">
               <thead>
                 <tr>
@@ -840,7 +867,7 @@ const ProTradeDock: React.FC<Props> = ({
                 </tr>
               </thead>
               <tbody>
-                {orderHistory.map((o) => (
+                {scopedOrderHistory.map((o) => (
                   <tr key={o.oid}>
                     <td>{fmtTimeMs(o.statusTimestamp || o.timestamp)}</td>
                     <td>
@@ -852,7 +879,7 @@ const ProTradeDock: React.FC<Props> = ({
                       {o.side === 'B' ? 'Buy' : 'Sell'}
                     </td>
                     <td>{o.orderType}</td>
-                    <td>{o.sz}</td>
+                    <td>{toNum(o.sz) > 0 ? o.sz : o.origSz || o.sz}</td>
                     <td>{fmtPrice(o.limitPx)}</td>
                     <td>{o.status}</td>
                   </tr>

@@ -73,6 +73,8 @@ export type HlHistoricalOrder = {
   side: string;
   limitPx: string;
   sz: string;
+  /** Original order size — filled orders often have remaining sz = 0. */
+  origSz: string;
   oid: number;
   timestamp: number;
   orderType: string;
@@ -352,12 +354,17 @@ export function normalizeHlUserAbstraction(raw: unknown): HlUserAbstraction | nu
 export async function fetchHlUserFunding(user: string, limit = 50): Promise<HlFundingPayment[]> {
   const rows = await hlInfo<Array<Record<string, unknown>>>({ type: 'userFunding', user });
   if (!Array.isArray(rows)) return [];
-  return rows.slice(0, limit).map((r) => ({
-    coin: String(r.coin ?? ''),
-    usdc: String(r.usdc ?? r.payment ?? '0'),
-    time: toNum(r.time),
-    fundingRate: String(r.fundingRate ?? '0'),
-  }));
+  return rows.slice(0, limit).map((r) => {
+    // HL nests payment fields under `delta` (ledger shape).
+    const delta =
+      r.delta && typeof r.delta === 'object' ? (r.delta as Record<string, unknown>) : r;
+    return {
+      coin: String(delta.coin ?? r.coin ?? ''),
+      usdc: String(delta.usdc ?? delta.payment ?? r.usdc ?? '0'),
+      time: toNum(r.time ?? delta.time),
+      fundingRate: String(delta.fundingRate ?? r.fundingRate ?? '0'),
+    };
+  });
 }
 
 export async function fetchHlSpotBalances(user: string): Promise<HlSpotBalance[]> {
@@ -382,17 +389,30 @@ export async function fetchHlHistoricalOrders(user: string, limit = 50): Promise
   if (!Array.isArray(rows)) return [];
   return rows.slice(0, limit).map((r) => {
     const order = (r.order ?? r) as Record<string, unknown>;
-    const status = (r.status ?? r) as Record<string, unknown>;
+    const statusRaw = r.status;
+    const status =
+      typeof statusRaw === 'string'
+        ? statusRaw
+        : statusRaw && typeof statusRaw === 'object'
+          ? String((statusRaw as Record<string, unknown>).status ?? 'unknown')
+          : 'unknown';
+    const statusTimestamp =
+      typeof statusRaw === 'object' && statusRaw
+        ? toNum((statusRaw as Record<string, unknown>).timestamp ?? r.statusTimestamp)
+        : toNum(r.statusTimestamp ?? order.timestamp);
+    const remaining = String(order.sz ?? '0');
+    const origSz = String(order.origSz ?? remaining);
     return {
       coin: String(order.coin ?? ''),
       side: String(order.side ?? ''),
       limitPx: String(order.limitPx ?? '0'),
-      sz: String(order.sz ?? '0'),
+      sz: remaining,
+      origSz,
       oid: toNum(order.oid),
       timestamp: toNum(order.timestamp),
       orderType: String(order.orderType ?? 'Limit'),
-      status: String(status.status ?? r.status ?? 'filled'),
-      statusTimestamp: toNum(status.timestamp ?? r.statusTimestamp ?? order.timestamp),
+      status,
+      statusTimestamp: statusTimestamp || toNum(order.timestamp),
     };
   });
 }

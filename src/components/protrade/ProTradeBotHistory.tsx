@@ -3,11 +3,13 @@ import { Download } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useHyperliquidAccount } from '../../hooks/useHyperliquidAccount';
 import { useHlBotManagedCoins } from '../../hooks/useHlBotManagedCoins';
+import { useHlBotTradeWindows } from '../../hooks/useHlBotTradeWindows';
 import { exportBotTradesPdf } from '../../lib/exportBotTradesPdf';
 import { fmtClosedPnl, fmtTradingSince, fmtUsdSymbol, isHlFillOpen } from '../../lib/hyperliquid/format';
 import { summarizeHlClosedPnlFromFills } from '../../lib/hyperliquid/hlPnl';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { filterHlPositions } from '../../lib/hyperliquid/splitHlPositions';
+import { filterFillsByScope } from '../../lib/hyperliquid/splitHlActivity';
 import { displayHandle } from '../../lib/username';
 import ProTradeHlBotDock from './ProTradeHlBotDock';
 
@@ -32,13 +34,21 @@ const ProTradeBotHistory: React.FC<Props> = ({
   const wallet = walletAddress?.trim() || undefined;
   const { account, fills, fillsLoading } = useHyperliquidAccount(wallet);
   const { coins: botManagedCoins } = useHlBotManagedCoins(wallet, refreshKey + fills.length);
-
-  const closeFills = useMemo(
-    () => fills.filter((f) => !isHlFillOpen(f.dir)),
-    [fills]
+  const { windows: botWindows, fillTids: botFillTids, markers: botMarkers } = useHlBotTradeWindows(
+    wallet,
+    refreshKey + fills.length
+  );
+  const botFills = useMemo(
+    () => filterFillsByScope(fills, 'bot', botWindows, botFillTids, botMarkers),
+    [fills, botWindows, botFillTids, botMarkers]
   );
 
-  const pnlSummary = useMemo(() => summarizeHlClosedPnlFromFills(fills), [fills]);
+  const closeFills = useMemo(
+    () => botFills.filter((f) => !isHlFillOpen(f.dir)),
+    [botFills]
+  );
+
+  const pnlSummary = useMemo(() => summarizeHlClosedPnlFromFills(botFills), [botFills]);
 
   const botPositions = useMemo(
     () => filterHlPositions(account?.positions, botManagedCoins, 'bot'),
@@ -69,7 +79,7 @@ const ProTradeBotHistory: React.FC<Props> = ({
     setExporting(true);
     try {
       await exportBotTradesPdf({
-        fills,
+        fills: botFills,
         walletAddress: wallet,
         userId,
         username,
@@ -81,7 +91,7 @@ const ProTradeBotHistory: React.FC<Props> = ({
     } finally {
       setExporting(false);
     }
-  }, [wallet, closeFills.length, exporting, fills, userId, username, displayName]);
+  }, [wallet, closeFills.length, exporting, botFills, userId, username, displayName]);
 
   const showPdfExport = embedded && Boolean(wallet) && closeFills.length > 0;
   const accountLine = username ? `@${username}` : displayName;
@@ -94,7 +104,7 @@ const ProTradeBotHistory: React.FC<Props> = ({
           <div className="hl-history-head-main">
             <h1 className="hl-history-title">Bot trade history</h1>
             <p className="hl-history-sub">
-              Hyperliquid perps — fills and closed P/L from your HL account.
+              Bot trades only — manual Perps fills are listed under the Perps tab.
             </p>
             {embedded && (accountLine || userId) ? (
               <p className="hl-history-meta">
