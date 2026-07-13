@@ -60,7 +60,6 @@ interface MarketAnalysis {
     trendAlignment?: number;
     directionalTfCount?: number;
     h1Trend?: string;
-    tf5mTrend?: string;
     tf15mTrend?: string;
   };
 }
@@ -1188,7 +1187,6 @@ export async function analyzeMarketMTFBySymbol(
 
     const tf1h = signal.timeframes.find((t) => t.timeframe === '1h');
     const tf15m = signal.timeframes.find((t) => t.timeframe === '15m');
-    const tf5m = signal.timeframes.find((t) => t.timeframe === '5m');
     const rsi = tf15m?.rsi || 50;
     const macdSignal = tf15m?.macdSignal || 'neutral';
     const trend = tf1h?.trend || tf15m?.trend || 'SIDEWAYS';
@@ -1196,27 +1194,25 @@ export async function analyzeMarketMTFBySymbol(
     const isDown = (t?: string) => Boolean(t && (t === 'DOWN' || t.includes('DOWNTREND')));
 
     // Mixed MTF = no trade. Do NOT invent SHORT/LONG from 1h alone
-    // (that opened BTC SHORT into a rising 5m/15m).
+    // (that opened BTC SHORT into a rising 15m).
     if (signal.direction !== 'LONG' && signal.direction !== 'SHORT') {
       return null;
     }
 
     const finalDirection: 'LONG' | 'SHORT' = signal.direction;
 
-    // Never open against active lower-TF momentum.
-    if (finalDirection === 'SHORT' && (isUp(tf15m?.trend) || isUp(tf5m?.trend))) {
-      logger.info('MTF skip: SHORT blocked — 5m/15m still UP', {
+    // Chart veto: 15m + 1h only (never 1m/5m).
+    if (finalDirection === 'SHORT' && (isUp(tf15m?.trend) || isUp(tf1h?.trend))) {
+      logger.info('MTF skip: SHORT blocked — 15m/1h still UP', {
         symbol,
-        tf5m: tf5m?.trend,
         tf15m: tf15m?.trend,
         h1: tf1h?.trend,
       });
       return null;
     }
-    if (finalDirection === 'LONG' && (isDown(tf15m?.trend) || isDown(tf5m?.trend))) {
-      logger.info('MTF skip: LONG blocked — 5m/15m still DOWN', {
+    if (finalDirection === 'LONG' && (isDown(tf15m?.trend) || isDown(tf1h?.trend))) {
+      logger.info('MTF skip: LONG blocked — 15m/1h still DOWN', {
         symbol,
-        tf5m: tf5m?.trend,
         tf15m: tf15m?.trend,
         h1: tf1h?.trend,
       });
@@ -1301,7 +1297,6 @@ export async function analyzeMarketMTFBySymbol(
         trendAlignment: Math.round(signal.trendAlignment),
         directionalTfCount,
         h1Trend: trend,
-        tf5mTrend: tf5m?.trend,
         tf15mTrend: tf15m?.trend,
         riskReward: (suggestedTP / suggestedSL).toFixed(2),
         trend:

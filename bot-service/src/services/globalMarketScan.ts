@@ -26,7 +26,6 @@ export type GlobalSignalCandidate = {
   trendAlignment?: number;
   directionalTfCount?: number;
   h1Trend?: string;
-  tf5mTrend?: string;
   tf15mTrend?: string;
   liquidityReason?: string;
   locationReason?: string;
@@ -52,22 +51,20 @@ function isH1UpTrend(h1Trend: string | undefined | null): boolean {
 }
 
 /**
- * Hard counter-trend veto — never open LONG into a 1h downtrend (or SHORT into up).
- * Also never fade active 5m/15m momentum (BTC SHORT into rising greens).
- * Applies on every scan path including relaxed + major fallback.
+ * Hard counter-trend veto — 15m + 1h only (never 1m/5m).
+ * SHORT blocked if 15m UP or 1h UP; LONG blocked if 15m DOWN or 1h DOWN.
  */
 export function counterTrendBlocked(
   direction: 'LONG' | 'SHORT',
   h1Trend: string | undefined | null,
-  tf5mTrend?: string | null,
   tf15mTrend?: string | null
 ): boolean {
   if (direction === 'LONG' && isH1DownTrend(h1Trend)) return true;
   if (direction === 'SHORT' && isH1UpTrend(h1Trend)) return true;
   const isUp = (t?: string | null) => Boolean(t && (t === 'UP' || t.includes('UPTREND')));
   const isDown = (t?: string | null) => Boolean(t && (t === 'DOWN' || t.includes('DOWNTREND')));
-  if (direction === 'SHORT' && (isUp(tf15mTrend) || isUp(tf5mTrend))) return true;
-  if (direction === 'LONG' && (isDown(tf15mTrend) || isDown(tf5mTrend))) return true;
+  if (direction === 'SHORT' && isUp(tf15mTrend)) return true;
+  if (direction === 'LONG' && isDown(tf15mTrend)) return true;
   return false;
 }
 
@@ -115,7 +112,6 @@ async function scanMajorChartFallback(
       counterTrendBlocked(
         analysis.direction,
         analysis.metrics?.h1Trend,
-        analysis.metrics?.tf5mTrend,
         analysis.metrics?.tf15mTrend
       )
     ) {
@@ -123,7 +119,6 @@ async function scanMajorChartFallback(
         coin,
         direction: analysis.direction,
         h1Trend: analysis.metrics?.h1Trend,
-        tf5mTrend: analysis.metrics?.tf5mTrend,
         tf15mTrend: analysis.metrics?.tf15mTrend,
       });
       return null;
@@ -142,7 +137,6 @@ async function scanMajorChartFallback(
       trendAlignment: analysis.metrics?.trendAlignment,
       directionalTfCount: analysis.metrics?.directionalTfCount,
       h1Trend: analysis.metrics?.h1Trend,
-      tf5mTrend: analysis.metrics?.tf5mTrend,
       tf15mTrend: analysis.metrics?.tf15mTrend,
       signalReasons: analysis.signalReasons,
       indicators: analysis.indicators,
@@ -207,7 +201,6 @@ async function scanStandardCoin(
       counterTrendBlocked(
         analysis.direction,
         analysis.metrics?.h1Trend,
-        analysis.metrics?.tf5mTrend,
         analysis.metrics?.tf15mTrend
       )
     ) {
@@ -215,7 +208,6 @@ async function scanStandardCoin(
         coin,
         direction: analysis.direction,
         h1Trend: analysis.metrics?.h1Trend,
-        tf5mTrend: analysis.metrics?.tf5mTrend,
         tf15mTrend: analysis.metrics?.tf15mTrend,
         relaxed,
       });
@@ -243,7 +235,6 @@ async function scanStandardCoin(
       trendAlignment: analysis.metrics?.trendAlignment,
       directionalTfCount: analysis.metrics?.directionalTfCount,
       h1Trend: analysis.metrics?.h1Trend,
-      tf5mTrend: analysis.metrics?.tf5mTrend,
       tf15mTrend: analysis.metrics?.tf15mTrend,
       signalReasons: analysis.signalReasons,
       indicators: analysis.indicators,
@@ -282,7 +273,6 @@ async function scanAggressiveCoin(
         counterTrendBlocked(
           scalp.direction,
           h1Check.metrics?.h1Trend,
-          h1Check.metrics?.tf5mTrend,
           h1Check.metrics?.tf15mTrend
         )
       ) {
@@ -290,7 +280,6 @@ async function scanAggressiveCoin(
           coin,
           direction: scalp.direction,
           h1Trend: h1Check.metrics?.h1Trend,
-          tf5mTrend: h1Check.metrics?.tf5mTrend,
           tf15mTrend: h1Check.metrics?.tf15mTrend,
         });
         return null;
@@ -317,7 +306,6 @@ async function scanAggressiveCoin(
       trendAlignment: h1Check?.metrics?.trendAlignment,
       directionalTfCount: h1Check?.metrics?.directionalTfCount,
       h1Trend: h1Check?.metrics?.h1Trend,
-      tf5mTrend: h1Check?.metrics?.tf5mTrend,
       tf15mTrend: h1Check?.metrics?.tf15mTrend,
       signalReasons: [
         `Agg 1m ${scalp.trend1m} · next-3 ${scalp.predictedNext3} · 5m ${scalp.trend5m} · mom ${scalp.momentumPct.toFixed(2)}% · ${scalp.greenCount}/6 green`,
