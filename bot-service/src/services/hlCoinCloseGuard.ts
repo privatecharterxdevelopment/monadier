@@ -99,7 +99,7 @@ function evaluateBlock(
         : `~${Math.max(1, Math.ceil(remainMs / 60_000))}m`;
     return {
       blocked: true,
-      reason: `${coin} — blocked ${waitLabel} after close (6h per-pair cooldown)`,
+      reason: `${coin} — blocked ${waitLabel} after close (per-pair cooldown)`,
     };
   }
   if (
@@ -116,7 +116,7 @@ function evaluateBlock(
       blocked: true,
       reason:
         `${coin} — no ${direction} for ${waitLabel} after ${mem.direction} close ` +
-        `(6h per-pair cooldown; other pairs OK)`,
+        `(per-pair cooldown; other pairs OK)`,
     };
   }
   return { blocked: false };
