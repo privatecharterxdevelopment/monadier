@@ -11,9 +11,13 @@ import {
 import { supabase } from '../../lib/supabase';
 import {
   approveTwitterPost,
+  DEFAULT_TWEET_TEMPLATE,
+  TWEET_TEMPLATE_PLACEHOLDERS,
   fetchTwitterPosts,
   fetchTwitterSettings,
+  getBotAdminSecret,
   rejectTwitterPost,
+  setBotAdminSecretSession,
   twitterCredentialsStatus,
   twitterGenerateDraft,
   twitterPublishNow,
@@ -64,26 +68,29 @@ const AdminTwitterSocial: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [credsOk, setCredsOk] = useState<boolean | null>(null);
   const [hoursDraft, setHoursDraft] = useState('10, 18');
+  const [templateDraft, setTemplateDraft] = useState('');
+  const [adminSecretDraft, setAdminSecretDraft] = useState('');
   const [bodyDrafts, setBodyDrafts] = useState<Record<string, string>>({});
   const [adminEmail, setAdminEmail] = useState('admin');
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setAdminSecretDraft(getBotAdminSecret());
     try {
       const [{ data: userData }, s, p, cred] = await Promise.all([
         supabase.auth.getUser(),
         fetchTwitterSettings(),
         fetchTwitterPosts(40),
-        twitterCredentialsStatus().catch(() => ({ ok: false as const, configured: false })),
+        twitterCredentialsStatus().catch(() => ({ ok: false as const, configured: false, error: undefined as string | undefined })),
       ]);
       if (userData.user?.email) setAdminEmail(userData.user.email);
       setSettings(s);
       setPosts(p);
       if (s?.post_hours_utc?.length) setHoursDraft(hoursToInput(s.post_hours_utc));
+      setTemplateDraft(s?.tweet_template?.trim() ? s.tweet_template : DEFAULT_TWEET_TEMPLATE);
       setCredsOk(cred.ok ? Boolean(cred.configured) : null);
       if (!cred.ok && cred.error) {
-        // Soft — settings still load from Supabase
         console.warn(cred.error);
       }
       const drafts: Record<string, string> = {};
@@ -92,7 +99,7 @@ const AdminTwitterSocial: React.FC = () => {
     } catch (err) {
       console.error(err);
       setError(
-        'Could not load Twitter settings — apply migration 20270113200000_twitter_social_posts.sql'
+        'Could not load Twitter settings — apply migration 20270113200000 / 20270113210000'
       );
     } finally {
       setLoading(false);
@@ -137,6 +144,21 @@ const AdminTwitterSocial: React.FC = () => {
       post_hours_utc: hours,
       posts_per_day: Math.min(6, Math.max(1, hours.length)),
     });
+  };
+
+  const onSaveTemplate = async () => {
+    const trimmed = templateDraft.trim();
+    if (trimmed.length > 500) {
+      setError('Template too long (max 500 chars — keep final tweet ≤280 after fill).');
+      return;
+    }
+    await saveSettings({ tweet_template: trimmed || null });
+  };
+
+  const onSaveAdminSecret = () => {
+    setBotAdminSecretSession(adminSecretDraft);
+    setError(null);
+    void load();
   };
 
   const onGenerate = async () => {
@@ -385,11 +407,81 @@ const AdminTwitterSocial: React.FC = () => {
             ? new Date(settings.last_posted_at).toLocaleString()
             : '—'}
         </p>
+      </div>
+
+      <div className="bg-card-dark rounded-xl border border-border p-4 space-y-3">
+        <h3 className="text-sm font-semibold text-primary">Tweet template</h3>
+        <p className="text-secondary text-xs">
+          Exact text with placeholders. When saved, drafts use this (no free AI rewrite). Leave empty
+          after clear to fall back to AI/default.
+        </p>
+        <textarea
+          value={templateDraft}
+          onChange={(e) => setTemplateDraft(e.target.value)}
+          rows={5}
+          className="w-full px-3 py-2 rounded-lg border border-border bg-transparent text-primary text-sm font-mono resize-y"
+          placeholder={DEFAULT_TWEET_TEMPLATE}
+        />
+        <p className="text-secondary text-xs">
+          Placeholders:{' '}
+          <code className="text-primary">{TWEET_TEMPLATE_PLACEHOLDERS}</code>
+        </p>
+        <p className="text-secondary text-xs">
+          <code className="text-primary">{'{{hypurrscan}}'}</code> is filled only for the top
+          profitable 24h close when that row has a matching wallet (or exit tx). Otherwise it is
+          omitted — never a guessed link.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void onSaveTemplate()}
+            className="px-4 py-2 rounded-lg bg-white text-black text-sm font-medium"
+          >
+            Save template
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setTemplateDraft(DEFAULT_TWEET_TEMPLATE)}
+            className="px-4 py-2 rounded-lg border border-border text-primary text-sm"
+          >
+            Reset example
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-card-dark rounded-xl border border-border p-4 space-y-3">
+        <h3 className="text-sm font-semibold text-primary">Admin secret</h3>
+        <p className="text-secondary text-xs">
+          Same value as Railway <code className="text-primary">BOT_ADMIN_SECRET</code>. Prefer
+          Vercel env <code className="text-primary">VITE_BOT_ADMIN_SECRET</code>; or paste here for
+          this browser session.
+        </p>
+        <div className="flex flex-wrap gap-2 items-end">
+          <label className="flex flex-col gap-1 text-xs text-secondary flex-1 min-w-[220px]">
+            BOT_ADMIN_SECRET
+            <input
+              type="password"
+              autoComplete="off"
+              value={adminSecretDraft}
+              onChange={(e) => setAdminSecretDraft(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-border bg-transparent text-primary text-sm"
+              placeholder="paste Railway secret"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={onSaveAdminSecret}
+            className="px-4 py-2 rounded-lg border border-border text-primary text-sm"
+          >
+            Save for session
+          </button>
+        </div>
         <div className="text-secondary text-xs space-y-1 border-t border-border pt-3">
           <p className="font-medium text-primary">Railway env (bot-service)</p>
           <code className="block">X_API_KEY · X_API_SECRET · X_ACCESS_TOKEN · X_ACCESS_TOKEN_SECRET</code>
-          <code className="block">BOT_ADMIN_SECRET · OPENAI_API_KEY (optional, better drafts)</code>
-          <code className="block">Vercel: VITE_BOT_ADMIN_SECRET = same BOT_ADMIN_SECRET</code>
+          <code className="block">BOT_ADMIN_SECRET · OPENAI_API_KEY (optional if template set)</code>
         </div>
       </div>
 

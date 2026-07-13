@@ -63,6 +63,7 @@ const ProTradeRegisterModal: React.FC<Props> = ({
           <RegisterForm
             idPrefix="modal-reg"
             onSwitchToSignIn={onSwitchToSignIn}
+            onToast={showToast}
             onSessionCreated={() => {
               showToast(t('auth.register.accountCreatedWelcome'), 3000);
               onClose();

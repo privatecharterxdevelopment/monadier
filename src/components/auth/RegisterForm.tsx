@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Gift, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,8 @@ export type RegisterFormProps = {
   signInHref?: string;
   idPrefix?: string;
   className?: string;
+  /** Optional parent toast (e.g. TermAuthToast). Local toast always works as fallback. */
+  onToast?: (message: string, durationMs?: number) => void;
 };
 
 /** Single register form for /register and in-app auth modal. */
@@ -22,6 +24,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   signInHref,
   idPrefix = 'auth-reg',
   className = '',
+  onToast,
 }) => {
   const { t } = useTranslation();
   const [fullName, setFullName] = useState('');
@@ -35,11 +38,33 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
   const [awaitingEmailConfirm, setAwaitingEmailConfirm] = useState(false);
+  const [localToast, setLocalToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const stored = getStoredReferralCode();
     if (stored) setReferralCode(stored);
   }, []);
+
+  useEffect(
+    () => () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    },
+    []
+  );
+
+  const showTermsToast = useCallback(
+    (message: string) => {
+      if (onToast) {
+        onToast(message, 3200);
+        return;
+      }
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      setLocalToast(message);
+      toastTimerRef.current = setTimeout(() => setLocalToast(null), 3200);
+    },
+    [onToast]
+  );
 
   const messages = {
     acceptTermsRequired: t('auth.register.acceptTermsRequired'),
@@ -48,8 +73,16 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     googleFailed: t('auth.googleSignInFailed'),
   };
 
+  const requireTerms = (): boolean => {
+    if (acceptedTerms) return true;
+    showTermsToast(messages.acceptTermsRequired);
+    setError(messages.acceptTermsRequired);
+    return false;
+  };
+
   const handleGoogle = async () => {
     setError('');
+    if (!requireTerms()) return;
     setGoogleLoading(true);
     const result = await startGoogleAuth(messages);
     if (!result.ok) {
@@ -61,6 +94,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (!requireTerms()) return;
     setIsLoading(true);
     try {
       const result = await submitRegister(
@@ -68,6 +102,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
         messages
       );
       if (!result.ok) {
+        if (result.error === messages.acceptTermsRequired) {
+          showTermsToast(messages.acceptTermsRequired);
+        }
         setError(result.error);
         return;
       }
@@ -107,6 +144,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
 
   return (
     <div className={`auth-shared-form ${className}`.trim()}>
+      {localToast ? (
+        <div className="auth-form-toast-wrap" role="status" aria-live="assertive">
+          <div className="auth-form-toast">{localToast}</div>
+        </div>
+      ) : null}
+
       {referralCode ? (
         <div className="hl-auth-referral">
           <Gift size={14} aria-hidden />
@@ -116,7 +159,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
 
       {error ? <p className="hl-signin-error">{error}</p> : null}
 
-      <form className="hl-register-form" onSubmit={(e) => void handleSubmit(e)}>
+      <form className="hl-register-form" onSubmit={(e) => void handleSubmit(e)} noValidate>
         <div className="hl-register-grid">
           <label className="term-profile-label" htmlFor={`${idPrefix}-name`}>
             {t('auth.register.fullNameLabel')}
@@ -188,12 +231,13 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
             required
           />
 
-          <label className="hl-register-terms hl-register-span-2">
+          <label className="hl-register-terms hl-register-span-2" htmlFor={`${idPrefix}-terms`}>
             <input
+              id={`${idPrefix}-terms`}
               type="checkbox"
               checked={acceptedTerms}
               onChange={(e) => setAcceptedTerms(e.target.checked)}
-              required
+              aria-required="true"
             />
             <span>
               {t('auth.register.acceptTerms')}{' '}
@@ -204,6 +248,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               <Link to="/privacy" target="_blank" rel="noopener noreferrer">
                 {t('auth.register.privacy')}
               </Link>
+              {t('auth.register.acceptTermsMarketing')}
             </span>
           </label>
 

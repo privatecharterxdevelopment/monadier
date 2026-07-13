@@ -504,7 +504,39 @@ export const HYPERGAIN_TERMS_SECTIONS: LegalSection[] = [
     ),
   },
   {
-    title: '15. Intellectual property',
+    title: '15. Public trade outcomes and marketing',
+    body: (
+      <>
+        {ol([
+          <>
+            <strong>Scope.</strong> By creating an Account and accepting these Terms, you authorise
+            the Operator to use outcomes of your bot-executed Hyperliquid trades (including coin,
+            direction, open/close times, realised P/L, and public explorer verification links such as
+            HypurrScan) for marketing, social media, leaderboards, case studies, and similar
+            promotional purposes.
+          </>,
+          <>
+            <strong>Public data only.</strong> Such use is limited to trade results and links to
+            publicly viewable on-chain or explorer records associated with those trades. It does{' '}
+            <strong>not</strong> grant the Operator any right to withdraw funds, control your Wallet,
+            request seed phrases, or exploit your Wallet beyond the Agent trading authorisations you
+            separately approve on Hyperliquid.
+          </>,
+          <>
+            <strong>Display.</strong> We may mask wallet addresses in our interfaces while providing
+            a verification link to the corresponding public explorer page. We will not invent or
+            fabricate explorer links that do not correspond to a recorded trade.
+          </>,
+          <>
+            <strong>No performance guarantee.</strong> Published trade outcomes are illustrative of
+            past activity only and do not promise future results.
+          </>,
+        ])}
+      </>
+    ),
+  },
+  {
+    title: '16. Intellectual property',
     body: (
       <>
         {ol([
@@ -530,7 +562,7 @@ export const HYPERGAIN_TERMS_SECTIONS: LegalSection[] = [
     ),
   },
   {
-    title: '16. Third-party services and open protocols',
+    title: '17. Third-party services and open protocols',
     body: (
       <>
         {ol([
@@ -543,7 +575,7 @@ export const HYPERGAIN_TERMS_SECTIONS: LegalSection[] = [
     ),
   },
   {
-    title: '17. Privacy',
+    title: '18. Privacy',
     body: (
       <>
         {p(
@@ -557,7 +589,7 @@ export const HYPERGAIN_TERMS_SECTIONS: LegalSection[] = [
     ),
   },
   {
-    title: '18. Disclaimers of warranties',
+    title: '19. Disclaimers of warranties',
     body: (
       <>
         {p(
@@ -570,7 +602,7 @@ export const HYPERGAIN_TERMS_SECTIONS: LegalSection[] = [
     ),
   },
   {
-    title: '19. Limitation of liability',
+    title: '20. Limitation of liability',
     body: (
       <>
         {ol([
@@ -602,7 +634,7 @@ export const HYPERGAIN_TERMS_SECTIONS: LegalSection[] = [
     ),
   },
   {
-    title: '20. Indemnification',
+    title: '21. Indemnification',
     body: (
       <>
         {p(
@@ -624,7 +656,7 @@ export const HYPERGAIN_TERMS_SECTIONS: LegalSection[] = [
     ),
   },
   {
-    title: '21. Suspension and termination',
+    title: '22. Suspension and termination',
     body: (
       <>
         {ol([
@@ -653,7 +685,7 @@ export const HYPERGAIN_TERMS_SECTIONS: LegalSection[] = [
     ),
   },
   {
-    title: '22. Force majeure',
+    title: '23. Force majeure',
     body: (
       <>
         {p(
@@ -663,7 +695,7 @@ export const HYPERGAIN_TERMS_SECTIONS: LegalSection[] = [
     ),
   },
   {
-    title: '23. Assignment',
+    title: '24. Assignment',
     body: (
       <>
         {p(
@@ -673,7 +705,7 @@ export const HYPERGAIN_TERMS_SECTIONS: LegalSection[] = [
     ),
   },
   {
-    title: '24. Severability; waiver; entire agreement',
+    title: '25. Severability; waiver; entire agreement',
     body: (
       <>
         {ol([
@@ -696,7 +728,7 @@ export const HYPERGAIN_TERMS_SECTIONS: LegalSection[] = [
     ),
   },
   {
-    title: '25. Changes to these Terms',
+    title: '26. Changes to these Terms',
     body: (
       <>
         {ol([
@@ -709,7 +741,7 @@ export const HYPERGAIN_TERMS_SECTIONS: LegalSection[] = [
     ),
   },
   {
-    title: '26. Governing law and dispute resolution',
+    title: '27. Governing law and dispute resolution',
     body: (
       <>
         {ol([
@@ -740,7 +772,7 @@ export const HYPERGAIN_TERMS_SECTIONS: LegalSection[] = [
     ),
   },
   {
-    title: '27. Contact',
+    title: '28. Contact',
     body: (
       <>
         {p(

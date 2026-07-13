@@ -14,6 +14,7 @@ export type TwitterSettings = {
   post_hours_utc: number[];
   brand_handle: string | null;
   site_url: string | null;
+  tweet_template: string | null;
   last_generated_at: string | null;
   last_posted_at: string | null;
   updated_at: string;
@@ -84,7 +85,11 @@ export async function generateTwitterDraft(opts?: {
     if (existing?.id) return { ok: true, skipped: true };
   }
 
-  const composed = await composeBotTweet({ siteUrl: settings.site_url });
+  const composed = await composeBotTweet({
+    siteUrl: settings.site_url,
+    brandHandle: settings.brand_handle,
+    tweetTemplate: settings.tweet_template,
+  });
   const requireApproval = settings.require_approval;
   const status = requireApproval ? 'draft' : 'approved';
   const nowIso = new Date().toISOString();

@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import QRCode from 'qrcode';
 import type { HlUserFill } from './hyperliquid/user';
 import { aggregateHlCloseFills } from './hyperliquid/hlFillAggregate';
 import {
@@ -12,6 +13,8 @@ import {
   isHlFillClose,
 } from './hyperliquid/format';
 import { toNum } from './hyperliquid/parse';
+import { BRAND_NAME } from './brand';
+import { getOpenAppPath } from './appUrls';
 
 export type BotTradesPdfOptions = {
   fills: HlUserFill[];
@@ -34,6 +37,23 @@ const LINE = [220, 222, 228] as const;
 const HEAD_BG = [242, 243, 246] as const;
 const ROW_ALT = [250, 250, 252] as const;
 
+/**
+ * Live dashboard until hypergain.io / app.hypergain.io DNS + split domains are on.
+ * Do not hardcode app.hypergain.io yet — it is not the active app host.
+ */
+const LIVE_APP_FALLBACK = 'https://monadier.vercel.app/app';
+
+/** QR target: same host the user exports from, else the live Vercel app entry. */
+function pdfQrTargetUrl(): string {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    const origin = window.location.origin.replace(/\/$/, '');
+    const entry = getOpenAppPath();
+    const path = entry === '/' ? '' : entry;
+    return `${origin}${path}?section=bot`;
+  }
+  return `${LIVE_APP_FALLBACK}?section=bot`;
+}
+
 function fmtPdfTime(ms: number): string {
   const date = new Date(ms);
   if (Number.isNaN(date.getTime())) return '—';
@@ -46,7 +66,7 @@ function fmtPdfTime(ms: number): string {
   });
 }
 
-function drawMonadierMark(doc: jsPDF, x: number, y: number, size = 7): void {
+function drawBrandMark(doc: jsPDF, x: number, y: number, size = 7): void {
   doc.setFillColor(HEAD_BG[0], HEAD_BG[1], HEAD_BG[2]);
   doc.setDrawColor(LINE[0], LINE[1], LINE[2]);
   doc.setLineWidth(0.2);
@@ -64,9 +84,10 @@ function pdfFilename(username?: string | null): string {
   const d = new Date();
   const stamp = d.toISOString().slice(0, 10);
   const slug = username?.trim().toLowerCase().replace(/[^a-z0-9_]+/g, '-');
+  const brandSlug = BRAND_NAME.toLowerCase().replace(/[^a-z0-9]+/g, '');
   return slug
-    ? `monadier-bot-trades-${slug}-${stamp}.pdf`
-    : `monadier-bot-trades-${stamp}.pdf`;
+    ? `${brandSlug}-bot-trades-${slug}-${stamp}.pdf`
+    : `${brandSlug}-bot-trades-${stamp}.pdf`;
 }
 
 function accountLabel(opts: {
@@ -77,6 +98,30 @@ function accountLabel(opts: {
   if (username) return `@${username}`;
   const name = opts.displayName?.trim();
   return name || null;
+}
+
+async function drawAppQr(
+  doc: jsPDF,
+  pageWidth: number,
+  marginX: number,
+  topY: number
+): Promise<void> {
+  const qrSize = 18;
+  const x = pageWidth - marginX - qrSize;
+  const targetUrl = pdfQrTargetUrl();
+  const dataUrl = await QRCode.toDataURL(targetUrl, {
+    margin: 1,
+    width: 160,
+    errorCorrectionLevel: 'M',
+    color: { dark: '#1a1a1a', light: '#ffffff' },
+  });
+  doc.addImage(dataUrl, 'PNG', x, topY - 1, qrSize, qrSize);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6);
+  doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+  doc.text(`Scan · ${BRAND_NAME}`, x + qrSize / 2, topY - 1 + qrSize + 3.2, {
+    align: 'center',
+  });
 }
 
 export async function exportBotTradesPdf({
@@ -96,14 +141,17 @@ export async function exportBotTradesPdf({
 
   try {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
     const marginX = 14;
     let y = 14;
 
-    drawMonadierMark(doc, marginX, y - 1);
+    drawBrandMark(doc, marginX, y - 1);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
     doc.setTextColor(INK[0], INK[1], INK[2]);
-    doc.text('monadier', marginX + 9, y + 4.5);
+    doc.text(BRAND_NAME, marginX + 9, y + 4.5);
+
+    await drawAppQr(doc, pageWidth, marginX, y);
 
     y += 11;
     doc.setFontSize(12);
@@ -133,6 +181,9 @@ export async function exportBotTradesPdf({
     y += 4.5;
     doc.setFont('helvetica', 'bold');
     doc.text(`Net closed P/L: ${fmtClosedPnl(netPnl)}`, marginX, y);
+
+    // Keep table clear of the QR block on the first page header.
+    y = Math.max(y, 36);
 
     const head = [
       'Time',
@@ -200,7 +251,7 @@ export async function exportBotTradesPdf({
     doc.setFontSize(7.5);
     doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
     doc.text(
-      'Hyperliquid perps fills from your connected wallet. Not financial advice.',
+      `${BRAND_NAME} · Hyperliquid perps fills from your connected wallet. Not financial advice.`,
       marginX,
       Math.min(finalY + 8, 285)
     );

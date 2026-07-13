@@ -1,6 +1,8 @@
 import { fetchBotApi } from './botApiFetch';
 import { supabase } from './supabase';
 
+const BOT_ADMIN_SECRET_SESSION_KEY = 'hg_bot_admin_secret';
+
 export type TwitterSettings = {
   id: number;
   enabled: boolean;
@@ -9,6 +11,7 @@ export type TwitterSettings = {
   post_hours_utc: number[];
   brand_handle: string | null;
   site_url: string | null;
+  tweet_template: string | null;
   last_generated_at: string | null;
   last_posted_at: string | null;
   updated_at: string;
@@ -30,8 +33,28 @@ export type TwitterPost = {
   created_at: string;
 };
 
-function adminSecret(): string {
-  return (import.meta.env.VITE_BOT_ADMIN_SECRET as string | undefined)?.trim() ?? '';
+/** Example template shown in Admin → X / Twitter. */
+export const DEFAULT_TWEET_TEMPLATE = `{{brand}} — AI trading on Hyperliquid.
+24h: {{closes24h}} closes · {{winRate24h}}% WR · {{topCoins}}
+{{activeBots}} bots live.
+{{hypurrscan}}
+{{site}}`;
+
+export const TWEET_TEMPLATE_PLACEHOLDERS =
+  '{{brand}} {{site}} {{handle}} {{activeBots}} {{closes24h}} {{wins24h}} {{winRate24h}} {{grossPnl24h}} {{topCoins}} {{hypurrscan}}';
+
+export function getBotAdminSecret(): string {
+  const fromEnv = (import.meta.env.VITE_BOT_ADMIN_SECRET as string | undefined)?.trim() ?? '';
+  if (fromEnv) return fromEnv;
+  if (typeof sessionStorage === 'undefined') return '';
+  return sessionStorage.getItem(BOT_ADMIN_SECRET_SESSION_KEY)?.trim() ?? '';
+}
+
+export function setBotAdminSecretSession(secret: string): void {
+  if (typeof sessionStorage === 'undefined') return;
+  const trimmed = secret.trim();
+  if (!trimmed) sessionStorage.removeItem(BOT_ADMIN_SECRET_SESSION_KEY);
+  else sessionStorage.setItem(BOT_ADMIN_SECRET_SESSION_KEY, trimmed);
 }
 
 export async function fetchTwitterSettings(): Promise<TwitterSettings | null> {
@@ -64,6 +87,7 @@ export async function updateTwitterSettings(
       | 'post_hours_utc'
       | 'brand_handle'
       | 'site_url'
+      | 'tweet_template'
     >
   >
 ): Promise<void> {
@@ -119,9 +143,14 @@ async function adminTwitterFetch<T>(
   path: string,
   init?: RequestInit
 ): Promise<{ ok: boolean; data: T; error?: string }> {
-  const secret = adminSecret();
+  const secret = getBotAdminSecret();
   if (!secret) {
-    return { ok: false, data: {} as T, error: 'Set VITE_BOT_ADMIN_SECRET (same as Railway BOT_ADMIN_SECRET)' };
+    return {
+      ok: false,
+      data: {} as T,
+      error:
+        'Set VITE_BOT_ADMIN_SECRET on Vercel (same as Railway BOT_ADMIN_SECRET), or paste it below for this session.',
+    };
   }
   const res = await fetchBotApi(path, {
     ...init,

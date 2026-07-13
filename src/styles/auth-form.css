@@ -229,3 +229,49 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Fixed toast for /register (marketing) — mobile + desktop */
+.auth-form-toast-wrap {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10150;
+  pointer-events: none;
+  padding: 0 16px;
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  justify-content: center;
+}
+
+.auth-form-toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #18181b;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.12);
+  animation: auth-form-toast-in 0.28s ease;
+  text-align: center;
+}
+
+@keyframes auth-form-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
