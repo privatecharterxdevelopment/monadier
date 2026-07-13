@@ -122,8 +122,8 @@ type Props = {
   botOpenPositionCoins?: string[];
   botHlBalanceUsd?: number;
   onDeposit?: () => void;
-  /** Perps = manual only; bot = bot-managed coins from hl_bot_chart_markers. */
-  positionScope?: 'manual' | 'bot';
+  /** Perps = full account; bot = bot-managed coins from hl_bot_chart_markers. */
+  positionScope?: 'manual' | 'bot' | 'all';
   botManagedCoins?: ReadonlySet<string>;
   botManagedCoinsLoading?: boolean;
 };
@@ -218,6 +218,7 @@ const ProTradeDock: React.FC<Props> = ({
     const list = account?.positions ?? [];
     return list.filter((p) => {
       if (Math.abs(toNum(p.szi)) <= 1e-12) return false;
+      if (scope !== 'bot' && scope !== 'manual') return true;
       const coin = normalizeHlPerpCoin(p.coin);
       const isBot = managedCoins.has(coin);
       return scope === 'bot' ? isBot : !isBot;

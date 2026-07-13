@@ -155,3 +155,50 @@ export function orderResponseError(result: unknown): string | null {
   }
   return firstOrderError(extractOrderStatuses(result));
 }
+
+/** Outcome of a successful HL order batch (no error statuses). */
+export type OrderPlacementOutcome = 'filled' | 'resting' | 'mixed' | 'submitted';
+
+export function classifyOrderPlacement(result: unknown): OrderPlacementOutcome {
+  const statuses = extractOrderStatuses(result);
+  if (statuses.length === 0) return 'submitted';
+
+  let filled = 0;
+  let resting = 0;
+  for (const status of statuses) {
+    if (!status || typeof status !== 'object') continue;
+    const row = status as Record<string, unknown>;
+    if (row.filled != null) filled += 1;
+    else if (row.resting != null) resting += 1;
+  }
+
+  if (filled > 0 && resting > 0) return 'mixed';
+  if (filled > 0) return 'filled';
+  if (resting > 0) return 'resting';
+  return 'submitted';
+}
+
+/** Map raw Hyperliquid / wallet errors to short user-facing toasts. */
+export function humanizeHlTradeError(raw: string): string {
+  const msg = (raw || '').replace(/\s*-\s*null\s*$/i, '').trim();
+  if (!msg) return 'Order failed';
+  if (/insufficient.*margin|not enough.*margin|margin.*insufficient|Insufficient margin/i.test(msg)) {
+    return 'Insufficient margin — reduce size or deposit USDC.';
+  }
+  if (/insufficient.*balance|not enough.*balance|balance.*insufficient/i.test(msg)) {
+    return 'Insufficient balance for this order.';
+  }
+  if (/liquidity|could not.*match|would not immediately|Unable to fill|no liquidity/i.test(msg)) {
+    return 'Not enough liquidity — try a smaller size or a different price.';
+  }
+  if (/minimum|Order must have minimum|too small|Invalid size/i.test(msg)) {
+    return 'Order size too small for this market.';
+  }
+  if (/reduce.?only/i.test(msg)) {
+    return 'Reduce-only rejected — no matching open position.';
+  }
+  if (/Price too far|oracle|slippage/i.test(msg)) {
+    return 'Price rejected by Hyperliquid — refresh mark and retry.';
+  }
+  return msg;
+}

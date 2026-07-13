@@ -106,7 +106,9 @@ const Dashboard2ProPageContent: React.FC = () => {
   const [transferOpen, setTransferOpen] = useState(false);
   const [perpDockTab, setPerpDockTab] = useState<ProTradeDockTab>('positions');
   const [botDockTab, setBotDockTab] = useState<HlBotDockTab>('positions');
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; variant: 'ok' | 'err' | 'info' } | null>(
+    null
+  );
   const [focusBettingOutcomeId, setFocusBettingOutcomeId] = useState<number | null>(null);
   const [authModal, setAuthModal] = useState<'signin' | 'register' | null>(null);
   const [signInReason, setSignInReason] = useState<string | undefined>();
@@ -168,6 +170,14 @@ const Dashboard2ProPageContent: React.FC = () => {
   const manualPositions = useMemo(
     () => filterHlPositions(account?.positions, botManagedCoins, 'manual'),
     [account?.positions, botManagedCoins]
+  );
+  const allPerpPositions = useMemo(
+    () => (account?.positions ?? []).filter((p) => Math.abs(toNum(p.szi)) > 1e-12),
+    [account?.positions]
+  );
+  const allPerpUpnl = useMemo(
+    () => allPerpPositions.reduce((s, p) => s + toNum(p.unrealizedPnl), 0),
+    [allPerpPositions]
   );
 
   const botChartCoin = section === 'bot' ? perpCoin : undefined;
@@ -530,9 +540,9 @@ const Dashboard2ProPageContent: React.FC = () => {
     handleSectionChange('affiliate');
   };
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    window.setTimeout(() => setToast(null), 4000);
+  const showToast = (msg: string, variant: 'ok' | 'err' | 'info' = 'info') => {
+    setToast({ message: msg, variant });
+    window.setTimeout(() => setToast(null), 4200);
   };
 
   const onBotMinBalanceStopped = useCallback(() => {
@@ -658,7 +668,7 @@ const Dashboard2ProPageContent: React.FC = () => {
                     await handleRefreshAll();
                   }}
                   onClosePosition={(p) => void handleClosePosition(p)}
-                  positionScope="manual"
+                  positionScope="all"
                   botManagedCoins={botManagedCoins}
                 />
               </div>
@@ -675,10 +685,12 @@ const Dashboard2ProPageContent: React.FC = () => {
             accountValue={perpTradableUsd}
             limitPrice={limitPrice}
             onLimitPriceChange={setLimitPrice}
-            onSuccess={() => {
-              showToast('Order submitted');
+            onSuccess={(info) => {
+              showToast(info.message, 'ok');
+              setPerpDockTab(info.dockTab);
               void handleRefreshAll();
             }}
+            onErrorToast={(msg) => showToast(msg, 'err')}
             onDeposit={() => setFundsModal('deposit')}
             onWithdraw={() => setFundsModal('withdraw')}
             onTransfer={() => setTransferOpen(true)}
@@ -697,8 +709,8 @@ const Dashboard2ProPageContent: React.FC = () => {
         walletConnected={isConnected}
         wsLive={perpMarket.wsConnected}
         openOrders={perpOpenOrders}
-        positions={manualPositions}
-        totalUpnl={totalUpnl}
+        positions={allPerpPositions}
+        totalUpnl={allPerpUpnl}
       />
     </div>
   );
@@ -867,11 +879,12 @@ const Dashboard2ProPageContent: React.FC = () => {
                 setFocusBettingOutcomeId(outcomeId);
               }
               handleSectionChange('sportsbets');
-              setToast(
-                eventName
+              setToast({
+                message: eventName
                   ? `Opened ${eventName} in Betting`
-                  : 'Opened matched event in Betting'
-              );
+                  : 'Opened matched event in Betting',
+                variant: 'info',
+              });
               window.setTimeout(() => setToast(null), 4000);
             }}
           />
@@ -888,7 +901,13 @@ const Dashboard2ProPageContent: React.FC = () => {
         </div>
       ) : null}
 
-      {toast ? <div className="hl-toast">{toast}</div> : null}
+      {toast ? (
+        <div className={`hl-toast hl-toast--${toast.variant}`} role="status">
+          {toast.variant === 'ok' ? <span className="hl-toast__mark" aria-hidden>✓</span> : null}
+          {toast.variant === 'err' ? <span className="hl-toast__mark" aria-hidden>!</span> : null}
+          <span>{toast.message}</span>
+        </div>
+      ) : null}
 
       {fundsModal ? (
         <ProTradeDepositModal

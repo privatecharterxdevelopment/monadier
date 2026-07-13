@@ -7913,6 +7913,34 @@
   line-height: 1.4;
   box-shadow: var(--hl-shadow-dropdown);
   pointer-events: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.hl-toast__mark {
+  flex-shrink: 0;
+  width: 1.15em;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.hl-toast--ok {
+  border-color: color-mix(in srgb, #22c55e 55%, var(--hl-border-strong));
+  background: color-mix(in srgb, #22c55e 14%, var(--hl-bg-elevated));
+}
+
+.hl-toast--ok .hl-toast__mark {
+  color: #22c55e;
+}
+
+.hl-toast--err {
+  border-color: color-mix(in srgb, #ef4444 55%, var(--hl-border-strong));
+  background: color-mix(in srgb, #ef4444 12%, var(--hl-bg-elevated));
+}
+
+.hl-toast--err .hl-toast__mark {
+  color: #ef4444;
 }
 
 /* ── GMX Bot mode (Option B) ── */

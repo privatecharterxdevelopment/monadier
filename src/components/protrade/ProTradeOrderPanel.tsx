@@ -7,6 +7,7 @@ import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import {
   useHyperliquidTrading,
   type MarginMode,
+  type ManualOrderResult,
   type OrderKind,
   type OrderSide,
 } from '../../hooks/useHyperliquidTrading';
@@ -14,13 +15,20 @@ import { useHyperliquidBuilderFee } from '../../hooks/useHyperliquidBuilderFee';
 import { fetchHlAssetLeverage, leverageOptionsForMax } from '../../lib/hyperliquid/assetLeverage';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { formatHlWalletSignError } from '../../lib/hyperliquid/walletAdapter';
+import { humanizeHlTradeError } from '../../lib/hyperliquid/orders';
 import { toNum } from '../../lib/hyperliquid/parse';
 import type { HlTwapOrder } from '../../lib/hyperliquid/user';
 import { useLegalAcceptance } from '../../contexts/LegalAcceptanceContext';
 import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
+import type { ProTradeDockTab } from './ProTradeDock';
 
 type OrderMode = 'basic' | 'scale' | 'tpsl' | 'twap';
 type SizeUnit = 'coin' | 'usd';
+
+export type ManualOrderSuccessInfo = {
+  message: string;
+  dockTab: ProTradeDockTab;
+};
 
 type Props = {
   coin: string;
@@ -29,7 +37,8 @@ type Props = {
   accountValue: number;
   limitPrice: string;
   onLimitPriceChange: (price: string) => void;
-  onSuccess?: () => void;
+  onSuccess?: (info: ManualOrderSuccessInfo) => void;
+  onErrorToast?: (message: string) => void;
   onDeposit?: () => void;
   onWithdraw?: () => void;
   onTransfer?: () => void;
@@ -55,6 +64,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
   limitPrice,
   onLimitPriceChange,
   onSuccess,
+  onErrorToast,
   onDeposit,
   onWithdraw,
   onTransfer,
@@ -213,10 +223,41 @@ const ProTradeOrderPanel: React.FC<Props> = ({
     return usd / markPx;
   };
 
-  const showSuccess = (msg: string) => {
-    setSuccess(msg);
-    onSuccess?.();
+  const showSuccess = (info: ManualOrderSuccessInfo) => {
+    setSuccess(info.message);
+    onSuccess?.(info);
     window.setTimeout(() => setSuccess(null), 4000);
+  };
+
+  const successFromResult = (
+    mode: OrderMode,
+    kind: OrderKind | undefined,
+    result: ManualOrderResult | void
+  ): ManualOrderSuccessInfo => {
+    const outcome = result?.outcome ?? 'submitted';
+    if (mode === 'twap' || outcome === 'twap') {
+      return { message: 'TWAP started — see TWAP tab', dockTab: 'twap' };
+    }
+    if (mode === 'tpsl' || outcome === 'tpsl') {
+      return { message: 'TP/SL set — see Trailing / Open Orders', dockTab: 'trailing' };
+    }
+    if (mode === 'scale') {
+      if (outcome === 'filled') {
+        return { message: 'Scale orders filled — see Positions', dockTab: 'positions' };
+      }
+      return { message: 'Scale orders placed — see Open Orders', dockTab: 'orders' };
+    }
+    // basic limit / market
+    if (kind === 'market' || outcome === 'filled') {
+      return { message: 'Order filled — see Positions', dockTab: 'positions' };
+    }
+    if (outcome === 'resting' || outcome === 'mixed') {
+      return { message: 'Limit order placed — see Open Orders', dockTab: 'orders' };
+    }
+    return {
+      message: kind === 'limit' ? 'Limit order submitted — see Open Orders' : 'Order submitted — see Positions',
+      dockTab: kind === 'limit' ? 'orders' : 'positions',
+    };
   };
 
   const submitOrder = async () => {
@@ -233,7 +274,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
     }
     try {
       if (mode === 'basic') {
-        await placeOrder({
+        const result = await placeOrder({
           coin,
           side,
           kind,
@@ -244,12 +285,12 @@ const ProTradeOrderPanel: React.FC<Props> = ({
           settings: isSpot ? undefined : settings,
           marketKind,
         });
-        showSuccess(t('trading.order.successOrder'));
+        showSuccess(successFromResult('basic', kind, result));
         return;
       }
 
       if (mode === 'scale') {
-        await placeScaleOrder({
+        const result = await placeScaleOrder({
           coin,
           side,
           totalSize: resolveSize(),
@@ -259,7 +300,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
           settings: isSpot ? undefined : settings,
           marketKind,
         });
-        showSuccess(t('trading.order.successScale'));
+        showSuccess(successFromResult('scale', undefined, result));
         return;
       }
 
@@ -268,7 +309,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
         const tp = tpPrice ? parsePositive(tpPrice, 'TP price') : undefined;
         const sl = slPrice ? parsePositive(slPrice, 'SL price') : undefined;
         const closeSide: OrderSide = side === 'long' ? 'short' : 'long';
-        await placeTpSlOrders({
+        const result = await placeTpSlOrders({
           coin,
           side: closeSide,
           size: sizeNum,
@@ -277,12 +318,12 @@ const ProTradeOrderPanel: React.FC<Props> = ({
           markPx,
           marketKind,
         });
-        showSuccess(t('trading.order.successTpsl'));
+        showSuccess(successFromResult('tpsl', undefined, result));
         return;
       }
 
       if (mode === 'twap') {
-        await startTwap({
+        const result = await startTwap({
           coin,
           side,
           totalSize: resolveSize(),
@@ -292,11 +333,12 @@ const ProTradeOrderPanel: React.FC<Props> = ({
           settings: isSpot ? undefined : settings,
           marketKind,
         });
-        showSuccess(t('trading.order.successTwap'));
+        showSuccess(successFromResult('twap', undefined, result));
       }
     } catch (err: unknown) {
-      const msg = formatHlWalletSignError(err);
+      const msg = humanizeHlTradeError(formatHlWalletSignError(err) || (err instanceof Error ? err.message : 'Order failed'));
       if (!error) setLocalError(msg);
+      onErrorToast?.(msg);
     }
   };
 
