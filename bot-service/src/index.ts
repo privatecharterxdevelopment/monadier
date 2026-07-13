@@ -111,6 +111,11 @@ const healthServer = http.createServer(async (req, res) => {
         lossCapEnforce: config.hyperliquid.lossProtection.enforceHardCap,
         dailyLossGate: config.hyperliquid.dailyLoss.enabled,
         reentryCooldownMs: config.hyperliquid.reentryCooldownMs,
+        sameCoinReentryMinMs: config.hyperliquid.sameCoinReentryMinMs,
+        sameCoinReentryHours: Number(
+          (config.hyperliquid.sameCoinReentryMinMs / 3_600_000).toFixed(2)
+        ),
+        blockOppositeSameCoinMs: config.hyperliquid.blockOppositeSameCoinMs,
       },
       lastCycle: lastCycleStats,
     };
@@ -1083,6 +1088,11 @@ const healthServer = http.createServer(async (req, res) => {
 
 healthServer.listen(PORT, () => {
   logger.info(`API server running on port ${PORT}`);
+  logger.info('HL same-coin reopen policy', {
+    sameCoinReentryMinMs: config.hyperliquid.sameCoinReentryMinMs,
+    sameCoinReentryHours: config.hyperliquid.sameCoinReentryMinMs / 3_600_000,
+    blockOppositeSameCoinMs: config.hyperliquid.blockOppositeSameCoinMs,
+  });
   logger.info('Available endpoints:');
   logger.info('  GET /health - Health check');
   logger.info('  GET /api/signal?symbol=ETHUSDT&timeframes=1m,5m,15m,1h - MTF Signal');
