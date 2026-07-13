@@ -96,6 +96,8 @@ let fastPositionMonitorRunning = false;
  */
 function mayAutoCloseInRed(reason: string): boolean {
   const cfg = config.hyperliquid;
+  // User clicked Close — never block; profitOnlyExits only gates bot auto-exits.
+  if (reason === 'manual') return true;
   if (reason === 'emergency_close') return true;
   if (!cfg.profitOnlyExits) {
     return reason === 'stop_loss' || reason === 'signal_reversal' || reason === 'trailing_stop';
