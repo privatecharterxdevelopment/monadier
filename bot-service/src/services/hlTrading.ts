@@ -858,13 +858,17 @@ export class HyperliquidTradingService {
       }
 
       const pickH1 = opts.pick?.h1Trend;
-      if (counterTrendBlocked(opts.direction, pickH1)) {
-        const reason = `Open blocked — ${coin} ${opts.direction} against 1h trend (${pickH1 ?? 'unknown'})`;
-        logger.info('HL open blocked — 1h counter-trend', {
+      const pick5 = opts.pick?.tf5mTrend;
+      const pick15 = opts.pick?.tf15mTrend;
+      if (counterTrendBlocked(opts.direction, pickH1, pick5, pick15)) {
+        const reason = `Open blocked — ${coin} ${opts.direction} against chart trend (1h=${pickH1 ?? '?'} 5m=${pick5 ?? '?'} 15m=${pick15 ?? '?'})`;
+        logger.info('HL open blocked — counter-trend', {
           user: opts.userAddress.slice(0, 10),
           coin,
           direction: opts.direction,
           h1Trend: pickH1,
+          tf5mTrend: pick5,
+          tf15mTrend: pick15,
           reason,
         });
         return { success: false, error: reason };

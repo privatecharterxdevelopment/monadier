@@ -60,6 +60,8 @@ interface MarketAnalysis {
     trendAlignment?: number;
     directionalTfCount?: number;
     h1Trend?: string;
+    tf5mTrend?: string;
+    tf15mTrend?: string;
   };
 }
 
@@ -1186,21 +1188,39 @@ export async function analyzeMarketMTFBySymbol(
 
     const tf1h = signal.timeframes.find((t) => t.timeframe === '1h');
     const tf15m = signal.timeframes.find((t) => t.timeframe === '15m');
+    const tf5m = signal.timeframes.find((t) => t.timeframe === '5m');
     const rsi = tf15m?.rsi || 50;
     const macdSignal = tf15m?.macdSignal || 'neutral';
     const trend = tf1h?.trend || tf15m?.trend || 'SIDEWAYS';
+    const isUp = (t?: string) => Boolean(t && (t === 'UP' || t.includes('UPTREND')));
+    const isDown = (t?: string) => Boolean(t && (t === 'DOWN' || t.includes('DOWNTREND')));
 
-    let finalDirection: 'LONG' | 'SHORT' = signal.direction as 'LONG' | 'SHORT';
-    if (signal.direction === 'HOLD') {
-      const higherTFs = signal.timeframes.filter((tf) => tf.timeframe !== '1m');
-      const longVotes = higherTFs.filter((tf) => tf.direction === 'LONG').length;
-      const shortVotes = higherTFs.filter((tf) => tf.direction === 'SHORT').length;
-      const isBullishTrend = trend === 'UP' || trend.includes('UPTREND');
-      const isBearishTrend = trend === 'DOWN' || trend.includes('DOWNTREND');
+    // Mixed MTF = no trade. Do NOT invent SHORT/LONG from 1h alone
+    // (that opened BTC SHORT into a rising 5m/15m).
+    if (signal.direction !== 'LONG' && signal.direction !== 'SHORT') {
+      return null;
+    }
 
-      if (isBullishTrend) finalDirection = 'LONG';
-      else if (isBearishTrend) finalDirection = 'SHORT';
-      else finalDirection = longVotes >= shortVotes ? 'LONG' : 'SHORT';
+    const finalDirection: 'LONG' | 'SHORT' = signal.direction;
+
+    // Never open against active lower-TF momentum.
+    if (finalDirection === 'SHORT' && (isUp(tf15m?.trend) || isUp(tf5m?.trend))) {
+      logger.info('MTF skip: SHORT blocked — 5m/15m still UP', {
+        symbol,
+        tf5m: tf5m?.trend,
+        tf15m: tf15m?.trend,
+        h1: tf1h?.trend,
+      });
+      return null;
+    }
+    if (finalDirection === 'LONG' && (isDown(tf15m?.trend) || isDown(tf5m?.trend))) {
+      logger.info('MTF skip: LONG blocked — 5m/15m still DOWN', {
+        symbol,
+        tf5m: tf5m?.trend,
+        tf15m: tf15m?.trend,
+        h1: tf1h?.trend,
+      });
+      return null;
     }
 
     const directionalTfCount = signal.timeframes.filter(
@@ -1281,6 +1301,8 @@ export async function analyzeMarketMTFBySymbol(
         trendAlignment: Math.round(signal.trendAlignment),
         directionalTfCount,
         h1Trend: trend,
+        tf5mTrend: tf5m?.trend,
+        tf15mTrend: tf15m?.trend,
         riskReward: (suggestedTP / suggestedSL).toFixed(2),
         trend:
           trend === 'UP' ? 'STRONG_UPTREND' : trend === 'DOWN' ? 'STRONG_DOWNTREND' : 'NEUTRAL',
