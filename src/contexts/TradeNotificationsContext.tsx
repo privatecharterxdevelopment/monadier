@@ -29,6 +29,7 @@ import {
 } from '../lib/activityNotifications';
 import {
   fetchUserTradeNotifications,
+  isBellEligibleNotification,
   markAllUserTradeNotificationsRead,
   markUserTradeNotificationsReadThrough,
   userTradeNotificationToActivity,
@@ -149,25 +150,24 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
 
         await syncBettingForWallets(!silent);
 
-        let botRows: ActivityNotification[] = [];
+        let merged: ActivityNotification[] = [];
 
         if (user && !isDemoUser) {
-          botRows = await fetchUserTradeNotifications(100);
+          // Single source of truth — same rows that drive close emails.
+          merged = await fetchUserTradeNotifications(100);
         } else {
           const closed = await fetchClosedTrades({
             isDemoUser,
             wallets: isDemoUser ? [DEMO_WALLET_ADDRESS] : wallets,
             limit: 100,
           });
-          botRows = ensureArray(closed).map(botTradeToNotification);
+          const botRows = ensureArray(closed).map(botTradeToNotification);
+          const bettingRowsRaw = isDemoUser
+            ? []
+            : await fetchBettingCloseNotifications(50);
+          const bettingRows = ensureArray(bettingRowsRaw).map(bettingCloseToNotification);
+          merged = mergeActivityNotifications(botRows, bettingRows, 100);
         }
-
-        const bettingRowsRaw = isDemoUser
-          ? []
-          : await fetchBettingCloseNotifications(50);
-        const bettingRows = ensureArray(bettingRowsRaw).map(bettingCloseToNotification);
-
-        const merged = mergeActivityNotifications(botRows, bettingRows, 100);
 
         const prevIds = knownIdsRef.current;
         if (silent && bootstrappedRef.current && prevIds.size > 0) {
@@ -215,21 +215,30 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
         },
         (payload) => {
           const row = payload.new as UserTradeNotificationRow | undefined;
-          if (row?.id) {
+          if (row?.id && isBellEligibleNotification(row)) {
             const fresh = userTradeNotificationToActivity(row);
-            if (!knownIdsRef.current.has(fresh.id) && fresh.profitLoss > 0) {
+            if (!knownIdsRef.current.has(fresh.id)) {
               knownIdsRef.current.add(fresh.id);
-              showToast(toastMessageForNotification(fresh), 4500);
-              setNotifications((prev) =>
-                mergeActivityNotifications([fresh, ...prev], [], 100)
-              );
-            } else if (!knownIdsRef.current.has(fresh.id)) {
-              knownIdsRef.current.add(fresh.id);
+              if (fresh.profitLoss > 0 || fresh.eventType === 'open') {
+                showToast(toastMessageForNotification(fresh), 4500);
+              }
               setNotifications((prev) =>
                 mergeActivityNotifications([fresh, ...prev], [], 100)
               );
             }
           }
+          void load(true);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'user_trade_notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
           void load(true);
         }
       )
@@ -256,6 +265,10 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
     const latest = notifications[0]?.closedAt ?? new Date().toISOString();
     saveLastSeenAt(storageKey, latest);
     setLastSeenAt(latest);
+    const nowIso = new Date().toISOString();
+    setNotifications((prev) =>
+      prev.map((n) => (n.readAt ? n : { ...n, readAt: nowIso }))
+    );
     if (user && !isDemoUser) {
       void markAllUserTradeNotificationsRead();
     }
@@ -269,6 +282,17 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
         saveLastSeenAt(storageKey, closedAt);
         setLastSeenAt(closedAt);
       }
+      const cutoff = new Date(closedAt).getTime();
+      const nowIso = new Date().toISOString();
+      setNotifications((prev) =>
+        prev.map((n) => {
+          if (n.readAt) return n;
+          if (new Date(n.closedAt).getTime() <= cutoff) {
+            return { ...n, readAt: nowIso };
+          }
+          return n;
+        })
+      );
       if (user && !isDemoUser) {
         void markUserTradeNotificationsReadThrough(closedAt);
       }

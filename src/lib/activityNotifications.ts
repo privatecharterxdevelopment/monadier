@@ -74,6 +74,10 @@ export function isActivityUnread(
   notification: ActivityNotification,
   lastSeenAt: string | null
 ): boolean {
+  // Server rows: DB read_at is the source of truth (matches email queue rows).
+  if (notification.dbId) {
+    return !notification.readAt;
+  }
   if (notification.readAt) return false;
   if (!lastSeenAt) return true;
   return new Date(notification.closedAt).getTime() > new Date(lastSeenAt).getTime();
