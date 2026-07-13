@@ -121,8 +121,8 @@ export const config = {
     minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
     /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
     dynamicTrail: {
-    /** Min ms in profit before arming breakeven / trail SL (5 min default). */
-      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 420_000),
+    /** Min ms in profit before arming breakeven / trail SL (2 min default). */
+      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 120_000),
       /** Min ROE before breakeven+fees lock (~2.5% — stage 1). */
       breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 2.5),
       /** Min ROE before full ATR/% trail ratchet (~5% — stage 2). */
