@@ -32,8 +32,14 @@ type State = {
 
 const BALANCE_POLL_MS = 20_000;
 const POSITION_POLL_MS = 12_000;
-const HEAVY_REFRESH_MS = 120_000;
+/** Background fills poll — closes still force an immediate heavy refresh. */
+const HEAVY_REFRESH_MS = 60_000;
 const FILLS_LIMIT = 2000;
+
+export type HlAccountRefreshOpts = {
+  /** Always refetch fills/history (after close / WS fill). */
+  forceHeavy?: boolean;
+};
 
 function isTabVisible(): boolean {
   return typeof document === 'undefined' || document.visibilityState !== 'hidden';
@@ -93,36 +99,39 @@ export function useHyperliquidAccount(address: string | undefined) {
     }
   }, []);
 
-  const refresh = useCallback(async () => {
-    if (!address) {
-      setState({
-        account: null,
-        spotBalances: [],
-        openOrders: [],
-        fills: [],
-        funding: [],
-        orderHistory: [],
-        twapOrders: [],
-        loading: false,
-        fillsLoading: false,
-        error: null,
-      });
-      return;
-    }
-    try {
-      await refreshCore(address);
-      const staleHeavy = Date.now() - lastHeavyAtRef.current > HEAVY_REFRESH_MS;
-      if (staleHeavy || lastHeavyAtRef.current === 0) {
-        await refreshHeavy(address);
+  const refresh = useCallback(
+    async (opts?: HlAccountRefreshOpts) => {
+      if (!address) {
+        setState({
+          account: null,
+          spotBalances: [],
+          openOrders: [],
+          fills: [],
+          funding: [],
+          orderHistory: [],
+          twapOrders: [],
+          loading: false,
+          fillsLoading: false,
+          error: null,
+        });
+        return;
       }
-    } catch (err: unknown) {
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        error: err instanceof Error ? err.message : 'Account sync failed',
-      }));
-    }
-  }, [address, refreshCore, refreshHeavy]);
+      try {
+        await refreshCore(address);
+        const staleHeavy = Date.now() - lastHeavyAtRef.current > HEAVY_REFRESH_MS;
+        if (opts?.forceHeavy || staleHeavy || lastHeavyAtRef.current === 0) {
+          await refreshHeavy(address);
+        }
+      } catch (err: unknown) {
+        setState((prev) => ({
+          ...prev,
+          loading: false,
+          error: err instanceof Error ? err.message : 'Account sync failed',
+        }));
+      }
+    },
+    [address, refreshCore, refreshHeavy]
+  );
 
   useEffect(() => {
     if (!address) {
@@ -141,7 +150,7 @@ export function useHyperliquidAccount(address: string | undefined) {
       return;
     }
     setState((prev) => ({ ...prev, loading: true }));
-    void refresh();
+    void refresh({ forceHeavy: true });
   }, [address, refresh]);
 
   useEffect(() => {
@@ -158,7 +167,8 @@ export function useHyperliquidAccount(address: string | undefined) {
       if (channel !== 'userFills' && channel !== 'orderUpdates') return;
       if (!isTabVisible()) return;
       if (debounce) clearTimeout(debounce);
-      debounce = setTimeout(() => void refresh(), 800);
+      // Force fills — plain refresh() used to skip heavy for up to HEAVY_REFRESH_MS.
+      debounce = setTimeout(() => void refresh({ forceHeavy: true }), 400);
     });
 
     return () => {

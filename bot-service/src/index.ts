@@ -38,6 +38,7 @@ import { isOpenDirectionAllowed, weekendShortOnlyLabel } from './services/weeken
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 import { fetchMappedTokenPrices } from './services/tokenPrices';
 import { processPendingTradeCloseEmails } from './services/tradeCloseEmail';
+import { reconcilePendingFillCloses } from './services/hlSuccessFees';
 import { syncBettingClosesForEmails } from './services/bettingHistorySync';
 import { runAutoBettingCycle } from './services/autoBetting';
 import {
@@ -54,6 +55,14 @@ import {
   PLATFORM_FEE_WINS_BEFORE_BLOCK,
 } from './services/platformFees';
 import { getHlPositionTrailSnapshots } from './services/hlPositionTrailStatus';
+import {
+  generateTwitterDraft,
+  getTwitterAdminStatus,
+  loadTwitterSettings,
+  publishTwitterPost,
+  runTwitterSocialTick,
+} from './services/twitterScheduler';
+import { twitterCredentialsConfigured } from './services/twitterClient';
 
 // Health check server for Railway/cloud deployments
 const PORT = process.env.PORT || 3001;
@@ -79,8 +88,8 @@ let lastGlobalSignals: GlobalSignalCandidate[] = [];
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Content-Type': 'application/json'
+  'Access-Control-Allow-Headers': 'Content-Type, x-bot-admin-secret',
+  'Content-Type': 'application/json',
 };
 
 const healthServer = http.createServer(async (req, res) => {
@@ -162,6 +171,27 @@ const healthServer = http.createServer(async (req, res) => {
     const raw = Buffer.concat(chunks).toString('utf8').trim();
     if (!raw) return {};
     return JSON.parse(raw) as Record<string, unknown>;
+  };
+
+  const requireBotAdmin = (): boolean => {
+    const expected = config.botAdminSecret;
+    if (!expected) {
+      res.writeHead(503, corsHeaders);
+      res.end(
+        JSON.stringify({
+          success: false,
+          error: 'BOT_ADMIN_SECRET not set on bot-service',
+        })
+      );
+      return false;
+    }
+    const got = String(req.headers['x-bot-admin-secret'] ?? '');
+    if (got !== expected) {
+      res.writeHead(401, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: 'Unauthorized' }));
+      return false;
+    }
+    return true;
   };
 
   // API: Persist HL agent approval after on-chain approveAgent (service role — bypasses RLS)
@@ -1041,6 +1071,77 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  // Admin: X / Twitter social status + generate / publish
+  if (url.pathname === '/api/admin/twitter/status' && req.method === 'GET') {
+    if (!requireBotAdmin()) return;
+    try {
+      const status = await getTwitterAdminStatus();
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, ...status }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'twitter status failed';
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/admin/twitter/generate' && req.method === 'POST') {
+    if (!requireBotAdmin()) return;
+    try {
+      const result = await generateTwitterDraft({ source: 'manual', force: true });
+      res.writeHead(result.ok ? 200 : 400, corsHeaders);
+      res.end(JSON.stringify({ success: result.ok, post: result.post, error: result.error }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'twitter generate failed';
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/admin/twitter/publish' && req.method === 'POST') {
+    if (!requireBotAdmin()) return;
+    try {
+      const body = await readJsonBody();
+      const postId = String(body.postId ?? '');
+      if (!postId) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'postId required' }));
+        return;
+      }
+      const result = await publishTwitterPost(postId);
+      res.writeHead(result.ok ? 200 : 400, corsHeaders);
+      res.end(
+        JSON.stringify({
+          success: result.ok,
+          twitterId: result.twitterId,
+          error: result.error,
+        })
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'twitter publish failed';
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/admin/twitter/credentials' && req.method === 'GET') {
+    if (!requireBotAdmin()) return;
+    const settings = await loadTwitterSettings();
+    res.writeHead(200, corsHeaders);
+    res.end(
+      JSON.stringify({
+        success: true,
+        configured: twitterCredentialsConfigured(),
+        enabled: Boolean(settings?.enabled),
+        requireApproval: Boolean(settings?.require_approval ?? true),
+      })
+    );
+    return;
+  }
+
   if (url.pathname === '/api/service-status') {
     try {
       const activeWallets = await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId);
@@ -1383,6 +1484,25 @@ async function main(): Promise<void> {
   void processPendingTradeCloseEmails(40).catch(() => undefined);
 
   setInterval(() => {
+    void reconcilePendingFillCloses(40).catch((err) => {
+      logger.debug('pending_fill reconcile tick failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+  }, 12_000);
+  void reconcilePendingFillCloses(40).catch(() => undefined);
+
+  const twitterTickMs = Math.max(30_000, config.twitter.tickMs);
+  setInterval(() => {
+    void runTwitterSocialTick().catch((err) => {
+      logger.debug('twitter social tick failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+  }, twitterTickMs);
+  void runTwitterSocialTick().catch(() => undefined);
+
+  setInterval(() => {
     void syncBettingClosesForEmails(25).catch(() => undefined);
   }, 60_000);
   void syncBettingClosesForEmails(25).catch(() => undefined);
@@ -1402,6 +1522,8 @@ async function main(): Promise<void> {
   logger.info(`- HL trading cycle: every ${tradeIntervalSeconds}s`);
   logger.info(`- HL position monitor: every ${positionMonitorMs}ms (fast profit grab)`);
   logger.info(`- Trade/bet win emails: every 15s`);
+  logger.info(`- HL fill reconcile: every 12s (pending_fill → closedPnl)`);
+  logger.info(`- X social tick: every ${Math.round(twitterTickMs / 1000)}s`);
   logger.info(`- Betting history sync: every 60s`);
   logger.info(`- AI auto-betting: every ${Math.round(autoBetMs / 1000)}s`);
 

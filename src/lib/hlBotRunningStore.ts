@@ -28,6 +28,7 @@ export function getLastKnownHlBotAutoTrade(): boolean | null {
 
 export function setLastKnownHlBotAutoTrade(enabled: boolean): void {
   lastKnownAutoTrade = enabled;
+  emit();
 }
 
 export function setOptimisticHlBotRunning(enabled: boolean | null): void {
@@ -41,6 +42,7 @@ export function bumpHlBotSettings(): void {
 }
 
 export function notifyHlBotRunningChange(enabled: boolean): void {
+  setLastKnownHlBotAutoTrade(enabled);
   setOptimisticHlBotRunning(enabled);
   bumpHlBotSettings();
 }

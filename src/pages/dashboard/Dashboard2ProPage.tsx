@@ -517,7 +517,7 @@ const Dashboard2ProPageContent: React.FC = () => {
   const handleRefreshAll = async () => {
     await Promise.all([
       perpMarket.refresh(),
-      refreshAccount(),
+      refreshAccount({ forceHeavy: true }),
       refreshPerpMarkets(),
       refreshHlSnapshot(),
       refreshBotManagedCoins(),

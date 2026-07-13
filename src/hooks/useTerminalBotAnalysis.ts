@@ -247,6 +247,10 @@ export function useTerminalBotAnalysis({
   }, [scanning, scanRotationCoins]);
 
   useEffect(() => {
+    if (!botRunning) {
+      setDbAnalysis(null);
+      return;
+    }
     const load = async () => {
       const { data } = await supabase
         .from('bot_analysis')
@@ -260,7 +264,7 @@ export function useTerminalBotAnalysis({
     load();
     const id = setInterval(load, 20000);
     return () => clearInterval(id);
-  }, []);
+  }, [botRunning]);
 
   useEffect(() => {
     if (!walletConnected || !analyzerActive) {

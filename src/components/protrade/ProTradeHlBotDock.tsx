@@ -7,8 +7,8 @@ import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
 import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { useHlActiveWallet } from '../../hooks/useHlActiveWallet';
+import { useHlBotRunning } from '../../hooks/useHlBotRunning';
 import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
-import { isHlBotEnabled } from '../../lib/hlBotGates';
 import { persistVaultSettings } from '../../lib/syncVaultSettings';
 import { snapLeverageToStep } from '../../lib/leverageLimits';
 import { toNum } from '../../lib/hyperliquid/parse';
@@ -92,9 +92,9 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   const configuredStopLoss = botEff.stopLoss;
   const [stopLossOverride, setStopLossOverride] = useState<number | null>(null);
   const stopLossMarginPct = stopLossOverride ?? configuredStopLoss;
-  const botRunning = isHlBotEnabled(
-    Boolean(botAnalysisMetrics?.autoTradeEnabled) || botSettingsSnapshot.autoTradeEnabled
-  );
+  const { botRunning } = useHlBotRunning({
+    metricsAutoTrade: botAnalysisMetrics?.autoTradeEnabled,
+  });
 
   const {
     account,
@@ -122,7 +122,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   }, [closeError]);
 
   useEffect(() => {
-    void refreshAccount();
+    void refreshAccount({ forceHeavy: true });
   }, [refreshAccount, refreshKey]);
 
   useEffect(() => {
@@ -205,7 +205,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
           walletAddress: hlWallet,
         });
         setCloseNotice(null);
-        await refreshAccount();
+        await refreshAccount({ forceHeavy: true });
         onPositionChange?.();
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Close failed';
@@ -218,7 +218,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   const handleDockTabChange = useCallback(
     (tab: ProTradeDockTab) => {
       onTabChange?.(normalizeHlBotDockTab(tab));
-      if (tab === 'tradeHistory') void refreshAccount();
+      if (tab === 'tradeHistory') void refreshAccount({ forceHeavy: true });
     },
     [onTabChange, refreshAccount]
   );

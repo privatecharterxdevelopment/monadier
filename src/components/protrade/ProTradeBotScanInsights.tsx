@@ -27,7 +27,7 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
   vaultWallet,
   symbol = 'BTCUSDT',
   openPositionCoins = [],
-  botRunning: botRunningProp,
+  botRunning: _botRunningProp,
 }) => {
   const platformFees = usePlatformFeeGate();
   const hlSetup = useHlBotSetup(vaultWallet ?? undefined);
@@ -36,7 +36,7 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
     metricsAutoTrade: metrics.autoTradeEnabled,
   });
   const hasWallet = walletConnected || Boolean(vaultWallet);
-  const botRunning = botRunningProp ?? resolvedRunning;
+  const botRunning = resolvedRunning;
   const feeGateActive = platformFees.botTradingBlocked;
 
   const hlBalanceUsd =
@@ -67,6 +67,8 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
   });
 
   const primaryLine = useMemo(() => {
+    if (!botRunning) return 'Press Start bot to scan markets';
+
     const detail = analysis.readiness?.detail?.trim();
     if (detail && !isBotScanNoiseDetail(detail)) return detail;
 
@@ -97,6 +99,7 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
 
     return 'Scanning all HL perps for MTF alignment…';
   }, [
+    botRunning,
     analysis.globalBest,
     analysis.scanCandidate,
     analysis.readiness,
@@ -105,7 +108,22 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
     analysis.globalCoinsScanned,
     analysis.globalScanCount,
     slotOpenCount,
+    maxSlots,
+    analysis.maxConcurrentPositions,
   ]);
+
+  if (!botRunning) {
+    return (
+      <>
+        <div className="hl-dock-bot-scan-row">
+          <span className="hl-dock-bot-scan-title">Bot off</span>
+        </div>
+        <div className="hl-dock-bot-scan-insights" role="status">
+          <p className="hl-dock-bot-scan-detail">{primaryLine}</p>
+        </div>
+      </>
+    );
+  }
 
   if (feeGateActive) {
     return (
@@ -121,8 +139,7 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
   const showSpinner = analysis.analyzerActive && !analysis.slotsFull;
   const scanTitle = analysis.slotsFull
     ? analysis.readiness.headline
-    : analysis.readiness.headline ||
-      (botRunning ? 'Bot is reading market…' : 'Bot off');
+    : analysis.readiness.headline || 'Bot is reading market…';
 
   return (
     <>

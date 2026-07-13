@@ -15,7 +15,7 @@ type Props = {
   openPositionCoins?: string[];
   symbol?: string;
   placement?: 'chart' | 'dock';
-  /** @deprecated useHlBotRunning — kept for parent override during migration */
+  /** @deprecated Ignored — useHlBotRunning (optimistic stop) is source of truth */
   botRunningHint?: boolean;
 };
 
@@ -26,15 +26,15 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
   openPositionCoins = [],
   symbol = 'ETHUSDT',
   placement = 'dock',
-  botRunningHint,
 }) => {
   const hlSetup = useHlBotSetup(vaultWallet ?? undefined);
   const { settings: botSettings } = useTerminalBotSettings();
+  // Optimistic Stop/Start wins — never OR with stale metrics (that kept scanning after pause).
   const { botRunning: resolvedRunning, wallet: tradingWallet } = useHlBotRunning({
     metricsAutoTrade: metrics.autoTradeEnabled,
   });
   const effectiveVaultWallet = tradingWallet ?? vaultWallet ?? null;
-  const botRunning = botRunningHint ?? resolvedRunning;
+  const botRunning = resolvedRunning;
   const openPositionsCount = metrics.openPositionsCount;
   const maxSlots =
     botSettings.maxConcurrentPositions >= 3
@@ -112,28 +112,55 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
 
   if (placement === 'chart' && !showLiveAnalysis) return null;
 
-  return (
-    <TerminalChartAnalysisOverlay
+  // Bot paused: only the idle line — no KAITO/signal/TF leftovers from last scan.
+  if (!botRunning) {
+    return (
+      <TerminalChartAnalysisOverlay
         placement={placement}
         visible
-        step={analysis.step}
-        progress={analysis.progress}
-        signal={analysis.signal}
-        dbAnalysis={analysis.dbAnalysis}
-        activeSymbol={analysis.activeSymbol ?? symbol}
-        globalBest={activeCandidate}
-        globalScanCount={analysis.globalScanCount}
-        globalCoinsScanned={analysis.globalCoinsScanned}
-        currentlyScanningCoin={analysis.currentlyScanningCoin}
-        scanCoinIndex={analysis.scanCoinIndex}
-        scanCoinTotal={analysis.scanCoinTotal}
+        step={0}
+        progress={0}
+        signal={null}
+        dbAnalysis={null}
+        activeSymbol={symbol}
+        globalBest={null}
+        globalScanCount={0}
+        globalCoinsScanned={0}
+        currentlyScanningCoin={undefined}
+        scanCoinIndex={0}
+        scanCoinTotal={0}
         readiness={readiness}
-        scanning={idleReadiness ? false : keepScanning}
-        isLoading={idleReadiness ? false : analysis.isLoading}
-        openPositionsCount={analysis.openPositionsCount}
-        maxConcurrentPositions={analysis.maxConcurrentPositions}
-        pumpSweepLines={analysis.pumpSweepLines}
+        scanning={false}
+        isLoading={false}
+        openPositionsCount={openCount}
+        maxConcurrentPositions={slotCount}
+        pumpSweepLines={[]}
       />
+    );
+  }
+
+  return (
+    <TerminalChartAnalysisOverlay
+      placement={placement}
+      visible
+      step={analysis.step}
+      progress={analysis.progress}
+      signal={analysis.signal}
+      dbAnalysis={analysis.dbAnalysis}
+      activeSymbol={analysis.activeSymbol ?? symbol}
+      globalBest={activeCandidate}
+      globalScanCount={analysis.globalScanCount}
+      globalCoinsScanned={analysis.globalCoinsScanned}
+      currentlyScanningCoin={analysis.currentlyScanningCoin}
+      scanCoinIndex={analysis.scanCoinIndex}
+      scanCoinTotal={analysis.scanCoinTotal}
+      readiness={readiness}
+      scanning={keepScanning}
+      isLoading={analysis.isLoading}
+      openPositionsCount={analysis.openPositionsCount}
+      maxConcurrentPositions={analysis.maxConcurrentPositions}
+      pumpSweepLines={analysis.pumpSweepLines}
+    />
   );
 };
 

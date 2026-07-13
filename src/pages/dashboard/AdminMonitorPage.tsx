@@ -38,6 +38,7 @@ import {
 import { fmtPrice, fmtSize } from '../../lib/hyperliquid/format';
 import { countAdminPositionsByCoin } from '../../lib/adminHlLivePositions';
 import AdminAffiliateOps from '../../components/admin/AdminAffiliateOps';
+import AdminTwitterSocial from '../../components/admin/AdminTwitterSocial';
 import { BotTradeDiagnosisPanel } from '../../components/admin/BotTradeDiagnosisPanel';
 import {
   fetchAdminSupportRequests,
@@ -56,7 +57,8 @@ type Section =
   | 'betting'
   | 'users'
   | 'subscriptions'
-  | 'affiliate';
+  | 'affiliate'
+  | 'twitter';
 
 const SECTIONS: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <Activity size={16} /> },
@@ -69,6 +71,7 @@ const SECTIONS: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'users', label: 'Users', icon: <Users size={16} /> },
   { id: 'subscriptions', label: 'Plans', icon: <CreditCard size={16} /> },
   { id: 'affiliate', label: 'Affiliate', icon: <Users size={16} /> },
+  { id: 'twitter', label: 'X / Twitter', icon: <MessageCircle size={16} /> },
 ];
 
 const SECTION_IDS = new Set<Section>(SECTIONS.map((s) => s.id));
@@ -295,8 +298,9 @@ const AdminMonitorPage: React.FC = () => {
       )}
       {section === 'subscriptions' && dash && <SubsPanel rows={dash.subscriptions} />}
       {section === 'affiliate' && <AdminAffiliateOps />}
+      {section === 'twitter' && <AdminTwitterSocial />}
 
-      {!dash && !loading && section !== 'affiliate' && (
+      {!dash && !loading && section !== 'affiliate' && section !== 'twitter' && (
         <p className="text-secondary text-sm py-8 text-center">No dashboard data yet.</p>
       )}
     </div>

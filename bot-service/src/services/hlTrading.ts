@@ -15,6 +15,7 @@ import {
   describeHlPerpBalanceBlocker,
   fetchHlAllMids,
   fetchHlMeta,
+  fetchHlRecentCloseFillSummaryWithRetry,
   formatHlPrice,
   formatHlSize,
   hlAccountValueUsd,
@@ -807,8 +808,11 @@ export class HyperliquidTradingService {
       }
 
       const strongMtf = isStrongGlobalScanPick(opts.pick);
-      const relaxSecondaryGates =
-        strongMtf || opts.pick.confidence >= 48 || MAJOR_COINS.has(coin);
+      // BTC/ETH: never relax secondary gates — majors need full precision
+      // (momentum / scalp / S/R / pump-sweep / 20-candle). Alts unchanged.
+      const relaxSecondaryGates = MAJOR_COINS.has(coin)
+        ? false
+        : strongMtf || opts.pick.confidence >= 48;
 
       const candleAnalytics = relaxSecondaryGates
           ? {
@@ -1615,11 +1619,22 @@ export class HyperliquidTradingService {
         collateralUsd,
       };
 
+      // Prefer fill closedPnl (same source as dock history) over pre-close uPnL.
+      const fill = await fetchHlRecentCloseFillSummaryWithRetry(
+        userAddress,
+        coinUpper,
+        Date.now() - 90_000,
+        { attempts: 5, delayMs: 350 }
+      );
+      const realizedPnl = fill?.closedPnlUsd;
+      const profitForFee =
+        realizedPnl != null && Number.isFinite(realizedPnl) ? realizedPnl : pnlUsd;
+
       const collectedFee =
-        pnlUsd > 0
+        profitForFee > 0
           ? viaHlBuilder && closeBuilder
-            ? estimateCollectedSuccessFee(pnlUsd, notionalUsd, closeBuilder.f)
-            : calculateHlSuccessFee(pnlUsd)
+            ? estimateCollectedSuccessFee(profitForFee, notionalUsd, closeBuilder.f)
+            : calculateHlSuccessFee(profitForFee)
           : 0;
 
       await recordHlBotClose({
@@ -1628,6 +1643,10 @@ export class HyperliquidTradingService {
         snapshot,
         collectedFeeUsd: collectedFee,
         viaHlBuilder,
+        realizedPnlUsd: realizedPnl,
+        exitPxOverride: fill?.exitPx ?? null,
+        sizeOverride: fill?.size ?? null,
+        pendingFill: fill == null,
       });
 
       logger.info('HL position closed', {
@@ -1635,6 +1654,10 @@ export class HyperliquidTradingService {
         coin: coinUpper,
         reason,
         pnl: pnlUsd.toFixed(4),
+        realizedPnl:
+          realizedPnl != null && Number.isFinite(realizedPnl)
+            ? realizedPnl.toFixed(4)
+            : 'pending_fill',
         successFee: collectedFee > 0 ? collectedFee.toFixed(4) : '0',
         viaHlBuilder,
       });

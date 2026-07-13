@@ -233,7 +233,7 @@ export const config = {
       /** SHORT rally-fade: price must be in upper X of 1h range unless breakdown. */
       shortMinRangePosition: Number(process.env.HL_ENTRY_SHORT_MIN_RANGE || 0.32),
     },
-    /** Alts — never SHORT into a fresh pump / higher-TF rally. */
+    /** SHORT after pump — BTC/ETH included (same rollover rules as alts). */
     pumpShort: {
       block1hPct: Number(process.env.HL_PUMP_SHORT_BLOCK_1H || 0.15),
       block4hPct: Number(process.env.HL_PUMP_SHORT_BLOCK_4H || 0.35),
@@ -395,6 +395,20 @@ export const config = {
     resendApiKey: process.env.RESEND_API_KEY || '',
     from: process.env.RESEND_FROM || 'HyperGain <hello@hypergain.io>',
   },
+
+  /** X / Twitter auto-posts (admin Social tab). Secrets only — never expose to Vite. */
+  twitter: {
+    apiKey: process.env.X_API_KEY || process.env.TWITTER_API_KEY || '',
+    apiSecret: process.env.X_API_SECRET || process.env.TWITTER_API_SECRET || '',
+    accessToken: process.env.X_ACCESS_TOKEN || process.env.TWITTER_ACCESS_TOKEN || '',
+    accessSecret:
+      process.env.X_ACCESS_TOKEN_SECRET || process.env.TWITTER_ACCESS_TOKEN_SECRET || '',
+    openaiModel: process.env.OPENAI_TWITTER_MODEL || process.env.OPENAI_NEWS_MODEL || 'gpt-4o-mini',
+    tickMs: Number(process.env.X_SOCIAL_TICK_MS || 60_000),
+  },
+
+  /** Protects /api/admin/* from the dashboard (Fees reconcile + Twitter). */
+  botAdminSecret: process.env.BOT_ADMIN_SECRET || '',
 
   /** Multi-user scale — 1M+ signups, thousands of concurrent bots */
   scaling: {
