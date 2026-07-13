@@ -15,15 +15,15 @@ import {
 } from '../lib/hyperliquid/balanceGate';
 import { fetchBotApi } from '../lib/botApiFetch';
 import { getBotApiBase, type Timeframe } from '../lib/signalService';
-import { binanceSymbolToHlCoin, hlCoinToBotSymbol, isBotExcludedHlCoin } from '../lib/botTradingPairs';
+import { binanceSymbolToHlCoin, hlCoinToBotSymbol, isBotTradeableHlCoin } from '../lib/botTradingPairs';
 import { normalizeHlBotStrategy, type HlBotStrategy } from '../lib/hlBotStrategy';
 import { pickNextScanCandidate } from '../lib/botScanCandidate';
 import { isBotEntryBlocked, botAnalyzerStatusCopy } from '../lib/botAnalyzerActive';
 import { nextPollDelayMs } from '../lib/pollBackoff';
 
 export const ANALYSIS_STEPS = [
-  { label: 'Scanning all HL perps', progress: 15 },
-  { label: 'Analyzing 5m / 15m charts', progress: 35 },
+  { label: 'Scanning liquid HL perps ($5M+ vol)', progress: 15 },
+  { label: 'Analyzing 15m / 1h charts', progress: 35 },
   { label: 'Checking 15m patterns', progress: 55 },
   { label: 'Evaluating 1h momentum', progress: 75 },
   { label: 'Picking best setup', progress: 95 },
@@ -54,15 +54,18 @@ function mergeGlobalScanCandidates(
     candidates?: GlobalScanCandidate[];
     standardCandidates?: GlobalScanCandidate[];
     aggressiveCandidates?: GlobalScanCandidate[];
+    botUniverse?: string[];
+    scanUniverseCoins?: string[];
   },
   botStrategy: 'standard' | 'profit_grabber' = 'standard'
 ): GlobalScanCandidate[] {
   const standard = Array.isArray(data.standardCandidates) ? data.standardCandidates : [];
   const aggressive = Array.isArray(data.aggressiveCandidates) ? data.aggressiveCandidates : [];
   const modeList = botStrategy === 'profit_grabber' ? aggressive : standard;
+  const liveUniverse = data.botUniverse ?? data.scanUniverseCoins ?? null;
   const allowed = (list: GlobalScanCandidate[]) =>
     list
-      .filter((c) => c?.coin && !isBotExcludedHlCoin(c.coin))
+      .filter((c) => c?.coin && isBotTradeableHlCoin(c.coin, liveUniverse))
       .sort((a, b) => b.confidence - a.confidence);
   if (modeList.length > 0) return allowed(modeList);
   if (Array.isArray(data.candidates) && data.candidates.length > 0) {
@@ -164,8 +167,13 @@ export function useTerminalBotAnalysis({
 
   const scanCandidate = useMemo(
     () =>
-      pickNextScanCandidate(globalCandidates, globalBest, effectiveOpenCoins),
-    [globalCandidates, globalBest, effectiveOpenCoins]
+      pickNextScanCandidate(
+        globalCandidates,
+        globalBest,
+        effectiveOpenCoins,
+        scanUniverseCoins
+      ),
+    [globalCandidates, globalBest, effectiveOpenCoins, scanUniverseCoins]
   );
 
   const scanRotationCoins = useMemo(() => {
@@ -290,21 +298,27 @@ export function useTerminalBotAnalysis({
           count?: number;
           coinsScanned?: number;
           scanUniverseCoins?: string[];
+          botUniverse?: string[];
           standard?: number;
           aggressive?: number;
           openUniverse?: { summary?: string };
         };
+        const liveUniverse = data.botUniverse ?? data.scanUniverseCoins ?? null;
         const rawList =
           Array.isArray(data.tradeableCandidates) && data.tradeableCandidates.length > 0
             ? data.tradeableCandidates
             : mergeGlobalScanCandidates(data, botMode);
-        const list = [...rawList].sort((a, b) => b.confidence - a.confidence);
+        const list = [...rawList]
+          .filter((c) => c?.coin && isBotTradeableHlCoin(c.coin, liveUniverse))
+          .sort((a, b) => b.confidence - a.confidence);
         setGlobalCandidates(list);
-        const next = pickNextScanCandidate(list, list[0] ?? null, effectiveOpenCoins);
+        const next = pickNextScanCandidate(list, list[0] ?? null, effectiveOpenCoins, liveUniverse);
         setGlobalBest(next);
         setGlobalScanCount(typeof data.count === 'number' ? data.count : list.length);
         setGlobalCoinsScanned(typeof data.coinsScanned === 'number' ? data.coinsScanned : 0);
-        if (Array.isArray(data.scanUniverseCoins) && data.scanUniverseCoins.length > 0) {
+        if (liveUniverse && liveUniverse.length > 0) {
+          setScanUniverseCoins(liveUniverse.map((c) => c.toUpperCase()));
+        } else if (Array.isArray(data.scanUniverseCoins) && data.scanUniverseCoins.length > 0) {
           setScanUniverseCoins(data.scanUniverseCoins.map((c) => c.toUpperCase()));
         }
         setOpenUniverseSummary(data.openUniverse?.summary ?? null);
@@ -395,11 +409,17 @@ export function useTerminalBotAnalysis({
         for (const reason of data.globalScan?.filterReasons ?? []) {
           if (reason && !blockers.includes(reason)) blockers.push(reason);
         }
+        const liveUniverse =
+          Array.isArray(data.globalScan?.scanUniverseCoins) &&
+          data.globalScan.scanUniverseCoins.length > 0
+            ? data.globalScan.scanUniverseCoins
+            : scanUniverseCoins;
         setGlobalCandidates(candidates);
         const nextCandidate = pickNextScanCandidate(
           candidates,
           data.globalScan?.best ?? null,
-          openCoins
+          openCoins,
+          liveUniverse
         );
         if (data.lastOpenError?.error) {
           const hideLastOpen = shouldHideLastOpenError(

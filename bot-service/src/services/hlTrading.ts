@@ -728,6 +728,18 @@ export class HyperliquidTradingService {
     try {
       const { meta, mids } = opts.ctx;
       const coin = opts.coin.toUpperCase();
+      if (!isHlCoinLiquid(opts.ctx.liquidUniverse, coin)) {
+        const liq = getHlLiquidityForCoin(opts.ctx.liquidUniverse, coin);
+        const reason = `Bot blocked — ${coin} below $${(config.hyperliquid.minDayVolumeUsd / 1e6).toFixed(0)}M 24h volume (manual trading still allowed)`;
+        logger.info('HL open blocked — bot liquidity universe', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          dayVolumeUsd: liq?.dayVolumeUsd,
+          reason,
+        });
+        return { success: false, error: reason };
+      }
+
       const flipGate = await isSameCoinOpenBlocked(opts.userAddress, coin, opts.direction);
       if (flipGate.blocked) {
         logger.info('HL open blocked — same-coin anti-flip', {

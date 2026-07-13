@@ -1,4 +1,4 @@
-import { isBotExcludedHlCoin } from './botTradingPairs';
+import { isBotTradeableHlCoin } from './botTradingPairs';
 
 export type BotScanCandidate = {
   coin: string;
@@ -15,7 +15,8 @@ function rankCandidate(a: BotScanCandidate, b: BotScanCandidate): number {
 export function pickNextScanCandidate(
   candidates: BotScanCandidate[],
   best: BotScanCandidate | null | undefined,
-  openCoins: string[]
+  openCoins: string[],
+  liveUniverse?: readonly string[] | null
 ): BotScanCandidate | null {
   const openSet = new Set(openCoins.map((c) => c.toUpperCase()));
   const sorted = [...candidates].sort(rankCandidate);
@@ -23,10 +24,14 @@ export function pickNextScanCandidate(
     (c) =>
       c?.coin &&
       !openSet.has(c.coin.toUpperCase()) &&
-      !isBotExcludedHlCoin(c.coin)
+      isBotTradeableHlCoin(c.coin, liveUniverse)
   );
   if (fromList) return fromList;
-  if (best && !openSet.has(best.coin.toUpperCase()) && !isBotExcludedHlCoin(best.coin)) {
+  if (
+    best &&
+    !openSet.has(best.coin.toUpperCase()) &&
+    isBotTradeableHlCoin(best.coin, liveUniverse)
+  ) {
     return best;
   }
   return null;

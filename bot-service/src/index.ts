@@ -116,6 +116,7 @@ const healthServer = http.createServer(async (req, res) => {
           (config.hyperliquid.sameCoinReentryMinMs / 3_600_000).toFixed(2)
         ),
         blockOppositeSameCoinMs: config.hyperliquid.blockOppositeSameCoinMs,
+        botMinDayVolumeUsd: config.hyperliquid.minDayVolumeUsd,
       },
       lastCycle: lastCycleStats,
     };
@@ -639,6 +640,8 @@ const healthServer = http.createServer(async (req, res) => {
         lastGlobalScanResult.standard.length + lastGlobalScanResult.aggressive.length > 0
           ? lastGlobalScanResult
           : await scanGlobalHlSignals();
+      const { fetchHlLiquidUniverse } = await import('./services/hlLiquidity');
+      const botUniverse = await fetchHlLiquidUniverse();
       const userSignals = globalSignalsForBotMode(
         globalScan,
         dbSettings.hlBotStrategy
@@ -806,6 +809,8 @@ const healthServer = http.createServer(async (req, res) => {
           aggressiveCandidates: globalScan.aggressive.length,
           candidateCount: userSignals.length,
           botMode: dbSettings.hlBotStrategy,
+          botMinDayVolumeUsd: config.hyperliquid.minDayVolumeUsd,
+          scanUniverseCoins: botUniverse.coins,
           candidates: userSignals.slice(0, 8).map((s) => ({
             coin: s.coin,
             direction: s.direction,
@@ -996,6 +1001,8 @@ const healthServer = http.createServer(async (req, res) => {
         lastGlobalScanResult.standard.length + lastGlobalScanResult.aggressive.length > 0
           ? lastGlobalScanResult
           : await scanGlobalHlSignals();
+      const { fetchHlLiquidUniverse } = await import('./services/hlLiquidity');
+      const universe = await fetchHlLiquidUniverse();
       res.writeHead(200, corsHeaders);
       res.end(
         JSON.stringify({
@@ -1008,6 +1015,9 @@ const healthServer = http.createServer(async (req, res) => {
           aggressiveCandidates: scan.aggressive.slice(0, 8),
           scannedAt: lastHlGlobalScanStats.scannedAt || lastCycleStats?.at || new Date().toISOString(),
           minConfidence: config.hyperliquid.minSignalConfidence,
+          botMinDayVolumeUsd: config.hyperliquid.minDayVolumeUsd,
+          botUniverse: universe.coins,
+          scanUniverseCoins: universe.coins,
         })
       );
     } catch (err: any) {

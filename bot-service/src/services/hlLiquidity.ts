@@ -1,6 +1,9 @@
 import { config } from '../config';
 import { logger } from '../utils/logger';
 
+/** Bot trade universe floor — 24h HL notional USD. Manual perps ignore this. */
+export const BOT_MIN_DAY_VOLUME_USD = 5_000_000;
+
 export type HlPerpLiquidity = {
   coin: string;
   markPx: number;
@@ -9,7 +12,7 @@ export type HlPerpLiquidity = {
 };
 
 export type HlLiquidUniverse = {
-  /** All active HL perps in scan universe, sorted by 24h notional volume (desc). */
+  /** Bot-eligible HL perps (volume floor), sorted by 24h notional volume (desc). */
   coins: string[];
   markets: HlPerpLiquidity[];
   fetchedAt: number;
@@ -34,22 +37,29 @@ function toNum(raw: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-/** Every listed HL perp with a live mark — full scan universe. */
-function passesScanUniverse(m: HlPerpLiquidity): boolean {
-  return m.markPx > 0;
+function botMinDayVolumeUsd(): number {
+  const configured = config.hyperliquid.minDayVolumeUsd;
+  if (Number.isFinite(configured) && configured > 0) return configured;
+  return BOT_MIN_DAY_VOLUME_USD;
 }
 
-/** Optional open-time floor — only when env sets minDayVolumeUsd / minOpenInterestUsd > 0. */
+/** Bot scan universe — live mark + 24h volume floor (never illiquids like AXS). */
+function passesBotScanUniverse(m: HlPerpLiquidity): boolean {
+  if (m.markPx <= 0) return false;
+  return m.dayVolumeUsd >= botMinDayVolumeUsd();
+}
+
+/** Bot open floor — same $5M rule as scan. */
 export function passesOpenLiquidityGate(m: HlPerpLiquidity): boolean {
-  const minVol = config.hyperliquid.minDayVolumeUsd;
+  const minVol = botMinDayVolumeUsd();
   const minOi = config.hyperliquid.minOpenInterestUsd;
   if (m.markPx <= 0) return false;
-  if (minVol > 0 && m.dayVolumeUsd < minVol) return false;
+  if (m.dayVolumeUsd < minVol) return false;
   if (minOi > 0 && m.openInterestUsd < minOi) return false;
   return true;
 }
 
-/** HL perps — scan universe is all listed coins; open floors are optional. */
+/** HL perps — bot scan/open universe is ≥ $5M 24h volume only. Manual trading unrestricted. */
 export async function fetchHlLiquidUniverse(force = false): Promise<HlLiquidUniverse> {
   const ttl = config.hyperliquid.liquidUniverseCacheMs;
   if (!force && cached && Date.now() - cached.fetchedAt < ttl) {
@@ -95,15 +105,15 @@ export async function fetchHlLiquidUniverse(force = false): Promise<HlLiquidUniv
   });
 
   const scannable = all
-    .filter(passesScanUniverse)
+    .filter(passesBotScanUniverse)
     .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd);
 
   const maxScan = config.hyperliquid.maxLiquidScanUniverse;
   const trimmed = maxScan > 0 ? scannable.slice(0, maxScan) : scannable;
 
   const universe: HlLiquidUniverse = {
-    coins: trimmed.map((m) => m.coin),
-    markets: trimmed,
+    coins: trimmed.map((m) => m.coin.toUpperCase()),
+    markets: trimmed.map((m) => ({ ...m, coin: m.coin.toUpperCase() })),
     fetchedAt: Date.now(),
   };
 
@@ -111,13 +121,14 @@ export async function fetchHlLiquidUniverse(force = false): Promise<HlLiquidUniv
 
   const openEligible = trimmed.filter(passesOpenLiquidityGate).length;
 
-  logger.info('HL liquid universe built', {
+  logger.info('HL bot trade universe built', {
     listed: all.length,
-    scanning: trimmed.length,
+    botEligible: trimmed.length,
     openEligible,
-    minDayVolumeUsd: config.hyperliquid.minDayVolumeUsd,
+    minDayVolumeUsd: botMinDayVolumeUsd(),
     minOpenInterestUsd: config.hyperliquid.minOpenInterestUsd,
-    topCoin: trimmed[0]?.coin,
+    coins: universe.coins,
+    topCoin: universe.coins[0],
     topVolM: trimmed[0] ? (trimmed[0].dayVolumeUsd / 1e6).toFixed(1) : '0',
   });
 

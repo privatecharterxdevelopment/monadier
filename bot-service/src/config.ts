@@ -102,11 +102,14 @@ export const config = {
     ),
     /** Minimum order notional — skips sloppy micro-trades. */
     minNotionalUsd: Number(process.env.HL_MIN_NOTIONAL_USD || 20),
-    /** Bot open floor — 0 = scan all HL perps; only applied at order time if > 0. */
-    minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 0),
+    /** Bot-only open/scan floor — $5M 24h notional. Manual trading ignores this. */
+    minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 5_000_000),
     minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 0),
-    /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all listed HL perps. */
-    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 18),
+    /**
+     * Max coins to MTF-scan per cycle after volume floor.
+     * 0 = every coin that passes minDayVolumeUsd (recommended with $5M floor).
+     */
+    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 0),
     liquidUniverseCacheMs: Number(process.env.HL_LIQUID_UNIVERSE_CACHE_MS || 60_000),
     /** Close HL perps at this % gain on margin (user DB setting overrides). */
     /** 0 = user disabled TP. */
