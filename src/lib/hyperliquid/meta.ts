@@ -35,8 +35,11 @@ export async function getHlAssetMeta(coin: string): Promise<HlAssetMeta> {
 }
 
 export function formatHlSize(size: number, szDecimals: number): string {
+  if (!Number.isFinite(size) || size <= 0) return '0';
   const factor = 10 ** szDecimals;
-  const rounded = Math.floor(size * factor) / factor;
+  // Math.round — bare Math.floor truncates float noise (0.5105*1e4 → 5104.999… → 0.5104)
+  // and leaves residual open size after reduce-only closes.
+  const rounded = Math.round(size * factor) / factor;
   return rounded.toFixed(szDecimals).replace(/\.?0+$/, '') || '0';
 }
 
