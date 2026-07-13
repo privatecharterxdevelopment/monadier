@@ -157,11 +157,14 @@ export const MktFeeVisual: React.FC = () => (
 export const MktTeamVisual: React.FC = () => (
   <div className="mkt-illus mkt-illus--team" aria-hidden>
     <div className="mkt-illus-team-grid">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <span key={i} className="mkt-illus-team-dot" />
+      {Array.from({ length: 3 }).map((_, i) => (
+        <span
+          key={i}
+          className={`mkt-illus-team-dot${i === 0 ? ' mkt-illus-team-dot--solid' : ''}`}
+        />
       ))}
     </div>
-    <p className="mkt-illus-team-label">6 engineers · ETH Zurich</p>
+    <p className="mkt-illus-team-label">Built in Zug · Growing the team</p>
   </div>
 );
 

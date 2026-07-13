@@ -6289,6 +6289,104 @@
   grid-column: 1 / -1;
 }
 
+.mkt-about-team {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.mkt-about-team-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 800px) {
+  .mkt-about-team-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+}
+
+.mkt-about-team-card {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  padding: 26px 28px;
+  border-radius: 28px;
+  min-height: 0;
+}
+
+.mkt-about-team-avatar {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--lg-text);
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.mkt-about-team-avatar--open {
+  color: var(--lg-faint);
+  background: rgba(255, 255, 255, 0.55);
+  border-style: dashed;
+}
+
+.mkt-about-team-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mkt-about-team-name {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--lg-text);
+}
+
+.mkt-about-team-name-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.mkt-about-team-name-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.mkt-about-team-linkedin {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+.mkt-about-team-role {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lg-faint);
+}
+
+.mkt-about-team-bio {
+  margin: 4px 0 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--lg-muted);
+}
+
+.mkt-about-team-apply {
+  align-self: flex-start;
+  margin-top: 8px;
+}
+
 .mkt-about-philosophy {
   margin: 8px 0 0;
   padding: 0;
@@ -7190,6 +7288,11 @@
   background: rgba(255, 255, 255, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.72);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+}
+
+.mkt-illus-team-dot--solid {
+  background: rgba(0, 0, 0, 0.12);
+  border-color: rgba(0, 0, 0, 0.14);
 }
 
 .mkt-illus-team-label {

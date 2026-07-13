@@ -6,6 +6,13 @@ import MarketingSeo from '../components/seo/MarketingSeo';
 import MarketingPageBottomCta from '../components/marketing/MarketingPageBottomCta';
 import { MarketingPageHero } from '../components/marketing/MarketingInnerPage';
 import { MktTeamVisual } from '../components/marketing/MarketingIllustrations';
+import { BRAND_NAME, SUPPORT_EMAIL } from '../lib/brand';
+
+const APPLY_MAILTO = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
+  `${BRAND_NAME} — Team application`
+)}`;
+
+const LORENZO_LINKEDIN = 'https://www.linkedin.com/in/lorenzo-vanza-1894b1187';
 
 const AboutPage: React.FC = () => {
   return (
@@ -18,28 +25,98 @@ const AboutPage: React.FC = () => {
           <div className="mkt-page">
             <MarketingPageHero
               eyebrow="Company"
-              title="About Monadier"
-              lead="Six IT engineers from Switzerland — ETH Zurich alumni — who turned a hedge-fund strategy into a fully automated trading bot."
-              sub="We built Monadier to make institutional-style execution accessible through a simple Hyperliquid dashboard."
+              title={`About ${BRAND_NAME}`}
+              lead={`We help people around the world generate passive income — non-custodial Hyperliquid automation you control from your own wallet.`}
+              sub="Built in Zug. Simple to run. Designed so the bot works while you live your life."
               aside={<MktTeamVisual />}
             />
 
             <div className="mkt-prose-grid">
               <div className="mkt-prose-block landing-glass-card">
                 <p>
-                  There is no glossy &ldquo;about us&rdquo; story — we are builders who packaged a proven
-                  quantitative approach into self-developed software. The bot analyzes markets, enters Hyperliquid
-                  perpetuals, and targets roughly a 70% win rate while you control risk and capital.
+                  {BRAND_NAME} exists for one reason: give anyone with a wallet a clear path to
+                  automated trading income — without handing keys to a fund or babysitting charts
+                  all day. Connect, fund your Hyperliquid account, set your risk, and let the bot
+                  run.
                 </p>
               </div>
               <div className="mkt-prose-block landing-glass-card">
                 <p>
-                  Monadier is non-custodial: your wallet signs deposits and withdrawals. You start the bot,
-                  set take profit and stop loss, and optionally leverage — leverage is for experienced
-                  traders only. No PhD required to get started.
+                  Non-custodial by design: you keep control of deposits and withdrawals. Start the
+                  bot, set take profit and stop loss, and optionally use leverage if you know what
+                  you&rsquo;re doing. Crypto trading is risky — only use capital you can afford to
+                  lose.
                 </p>
               </div>
             </div>
+
+            <section className="mkt-about-team" aria-labelledby="mkt-about-team-title">
+              <div className="mkt-section-heading">
+                <h2 id="mkt-about-team-title" className="mkt-section-title">
+                  Team
+                </h2>
+                <p className="mkt-section-sub">
+                  Small team, clear ownership. More faces will be announced as we grow —
+                  we&rsquo;re still looking for one more teammate.
+                </p>
+              </div>
+
+              <div className="mkt-about-team-grid">
+                <article className="mkt-about-team-card landing-glass-card">
+                  <div className="mkt-about-team-avatar" aria-hidden>
+                    LV
+                  </div>
+                  <div className="mkt-about-team-copy">
+                    <h3 className="mkt-about-team-name">
+                      <a
+                        href={LORENZO_LINKEDIN}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mkt-about-team-name-link"
+                      >
+                        Mr Lorenzo Vanza
+                      </a>
+                    </h3>
+                    <p className="mkt-about-team-role">
+                      Founder of {BRAND_NAME} · Head of Development
+                    </p>
+                    <p className="mkt-about-team-bio">
+                      Based in Zug, Switzerland — building in crypto for years. Before{' '}
+                      {BRAND_NAME}, Lorenzo founded PrivateCharterX, a Web3 luxury travel platform
+                      with its own AI at the core: jets, charters, and itineraries that feel
+                      personal instead of complicated. Same idea here — useful software that runs
+                      for people, not a pitch deck.
+                    </p>
+                    <a
+                      href={LORENZO_LINKEDIN}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mkt-cta-secondary mkt-about-team-linkedin"
+                    >
+                      LinkedIn →
+                    </a>
+                  </div>
+                </article>
+
+                <article className="mkt-about-team-card mkt-about-team-card--open landing-glass-card">
+                  <div className="mkt-about-team-avatar mkt-about-team-avatar--open" aria-hidden>
+                    ?
+                  </div>
+                  <div className="mkt-about-team-copy">
+                    <h3 className="mkt-about-team-name">Open role</h3>
+                    <p className="mkt-about-team-role">To be announced · We&rsquo;re hiring</p>
+                    <p className="mkt-about-team-bio">
+                      Additional team members will be introduced over time. If you want to help
+                      more people earn passively through Hyperliquid automation — and you like
+                      shipping with a small team in Zug — get in touch.
+                    </p>
+                    <a href={APPLY_MAILTO} className="mkt-cta-primary mkt-about-team-apply">
+                      Apply to join us
+                    </a>
+                  </div>
+                </article>
+              </div>
+            </section>
           </div>
         </div>
       </main>
@@ -53,9 +130,9 @@ const AboutPage: React.FC = () => {
             Philosophy
           </h2>
           <p className="mkt-about-philosophy-text">
-            Connect your wallet, fund your HL account, and let the terminal run. You are the
-            administrator — we provide the infrastructure and automation. Crypto trading carries
-            substantial risk; only use capital you can afford to lose.
+            Passive income should be accessible globally — not locked behind a trading desk. You
+            stay in control of your wallet; we provide the automation. Markets move fast and
+            losses are real; only trade what you can afford to lose.
           </p>
         </div>
       </section>

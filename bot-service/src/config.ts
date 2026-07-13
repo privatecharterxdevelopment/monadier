@@ -177,10 +177,10 @@ export const config = {
     /** Bars (excl. last 3) used for swing high/low in sweep detection. */
     sweepLookbackBars: Number(process.env.HL_SWEEP_LOOKBACK_BARS || 15),
     reentryCooldownMs: Number(process.env.HL_REENTRY_COOLDOWN_MS || 0),
-    /** Min ms before any re-open on a coin after it was closed (anti instant flip; default 15 min). */
-    sameCoinReentryMinMs: Number(process.env.HL_SAME_COIN_REENTRY_MS || 900_000),
-    /** Min ms before opposite direction on same coin after close (default 15 min). */
-    blockOppositeSameCoinMs: Number(process.env.HL_BLOCK_OPPOSITE_SAME_COIN_MS || 900_000),
+    /** Min ms before any re-open on a coin after it was closed (default 6h). */
+    sameCoinReentryMinMs: Number(process.env.HL_SAME_COIN_REENTRY_MS || 21_600_000),
+    /** Min ms before opposite direction on same coin after close (default 6h). */
+    blockOppositeSameCoinMs: Number(process.env.HL_BLOCK_OPPOSITE_SAME_COIN_MS || 21_600_000),
     /** Resistance/support gate before opens (Standard + Aggressive scan + final open check). */
     entryLocation: {
       /** Price in top X of range = near resistance. */
