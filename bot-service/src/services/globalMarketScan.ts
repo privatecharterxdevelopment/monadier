@@ -26,7 +26,6 @@ export type GlobalSignalCandidate = {
   trendAlignment?: number;
   directionalTfCount?: number;
   h1Trend?: string;
-  tf15mTrend?: string;
   liquidityReason?: string;
   locationReason?: string;
   macroReason?: string;
@@ -51,20 +50,15 @@ function isH1UpTrend(h1Trend: string | undefined | null): boolean {
 }
 
 /**
- * Hard counter-trend veto — 15m + 1h only (never 1m/5m).
- * SHORT blocked if 15m UP or 1h UP; LONG blocked if 15m DOWN or 1h DOWN.
+ * Hard counter-trend veto — never open LONG into a 1h downtrend (or SHORT into up).
+ * Applies on every scan path including relaxed + major fallback.
  */
 export function counterTrendBlocked(
   direction: 'LONG' | 'SHORT',
-  h1Trend: string | undefined | null,
-  tf15mTrend?: string | null
+  h1Trend: string | undefined | null
 ): boolean {
   if (direction === 'LONG' && isH1DownTrend(h1Trend)) return true;
   if (direction === 'SHORT' && isH1UpTrend(h1Trend)) return true;
-  const isUp = (t?: string | null) => Boolean(t && (t === 'UP' || t.includes('UPTREND')));
-  const isDown = (t?: string | null) => Boolean(t && (t === 'DOWN' || t.includes('DOWNTREND')));
-  if (direction === 'SHORT' && isUp(tf15mTrend)) return true;
-  if (direction === 'LONG' && isDown(tf15mTrend)) return true;
   return false;
 }
 
@@ -106,20 +100,12 @@ async function scanMajorChartFallback(
     if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
     if (analysis.confidence < 48) return null;
     const tfs = analysis.metrics?.directionalTfCount ?? 0;
-    // Same bar as normal scan — 1-TF major fallback opened BTC SHORT into rising 15m.
-    if (tfs < 2) return null;
-    if (
-      counterTrendBlocked(
-        analysis.direction,
-        analysis.metrics?.h1Trend,
-        analysis.metrics?.tf15mTrend
-      )
-    ) {
-      logger.debug('HL major fallback skip: counter-trend', {
+    if (tfs < 1) return null;
+    if (counterTrendBlocked(analysis.direction, analysis.metrics?.h1Trend)) {
+      logger.debug('HL major fallback skip: 1h counter-trend', {
         coin,
         direction: analysis.direction,
         h1Trend: analysis.metrics?.h1Trend,
-        tf15mTrend: analysis.metrics?.tf15mTrend,
       });
       return null;
     }
@@ -137,7 +123,6 @@ async function scanMajorChartFallback(
       trendAlignment: analysis.metrics?.trendAlignment,
       directionalTfCount: analysis.metrics?.directionalTfCount,
       h1Trend: analysis.metrics?.h1Trend,
-      tf15mTrend: analysis.metrics?.tf15mTrend,
       signalReasons: analysis.signalReasons,
       indicators: analysis.indicators,
     };
@@ -197,18 +182,11 @@ async function scanStandardCoin(
     if ((analysis.metrics?.directionalTfCount ?? 0) < minTfs) return null;
     if ((analysis.metrics?.trendAlignment ?? 0) < minAlign) return null;
     // Always enforce — relaxed fallback previously skipped this and opened LONGs in dumps.
-    if (
-      counterTrendBlocked(
-        analysis.direction,
-        analysis.metrics?.h1Trend,
-        analysis.metrics?.tf15mTrend
-      )
-    ) {
-      logger.debug('HL scan skip: counter-trend', {
+    if (counterTrendBlocked(analysis.direction, analysis.metrics?.h1Trend)) {
+      logger.debug('HL scan skip: 1h counter-trend', {
         coin,
         direction: analysis.direction,
         h1Trend: analysis.metrics?.h1Trend,
-        tf15mTrend: analysis.metrics?.tf15mTrend,
         relaxed,
       });
       return null;
@@ -235,7 +213,6 @@ async function scanStandardCoin(
       trendAlignment: analysis.metrics?.trendAlignment,
       directionalTfCount: analysis.metrics?.directionalTfCount,
       h1Trend: analysis.metrics?.h1Trend,
-      tf15mTrend: analysis.metrics?.tf15mTrend,
       signalReasons: analysis.signalReasons,
       indicators: analysis.indicators,
     };
@@ -269,18 +246,11 @@ async function scanAggressiveCoin(
 
     const h1Check = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
     if (h1Check) {
-      if (
-        counterTrendBlocked(
-          scalp.direction,
-          h1Check.metrics?.h1Trend,
-          h1Check.metrics?.tf15mTrend
-        )
-      ) {
-        logger.debug('HL agg scan skip: counter-trend', {
+      if (counterTrendBlocked(scalp.direction, h1Check.metrics?.h1Trend)) {
+        logger.debug('HL agg scan skip: 1h counter-trend', {
           coin,
           direction: scalp.direction,
           h1Trend: h1Check.metrics?.h1Trend,
-          tf15mTrend: h1Check.metrics?.tf15mTrend,
         });
         return null;
       }
@@ -306,7 +276,6 @@ async function scanAggressiveCoin(
       trendAlignment: h1Check?.metrics?.trendAlignment,
       directionalTfCount: h1Check?.metrics?.directionalTfCount,
       h1Trend: h1Check?.metrics?.h1Trend,
-      tf15mTrend: h1Check?.metrics?.tf15mTrend,
       signalReasons: [
         `Agg 1m ${scalp.trend1m} · next-3 ${scalp.predictedNext3} · 5m ${scalp.trend5m} · mom ${scalp.momentumPct.toFixed(2)}% · ${scalp.greenCount}/6 green`,
         ...(h1Check?.signalReasons ?? []),

@@ -632,16 +632,6 @@ export class SignalEngine {
       }
     }
 
-    // Hard chart veto — never fade an active TF trend with RSI/S-R noise.
-    // (BTC SHORT while 15m is printing greens was exactly this bug.)
-    if (trend === 'UP' && direction === 'SHORT') {
-      direction = 'HOLD';
-      confidence = 50;
-    } else if (trend === 'DOWN' && direction === 'LONG') {
-      direction = 'HOLD';
-      confidence = 50;
-    }
-
     return {
       timeframe,
       direction,
