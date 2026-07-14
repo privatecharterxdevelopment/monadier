@@ -10,6 +10,46 @@ import { recordHlBotClose, type HlCloseSnapshot } from './hlSuccessFees';
 
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 
+const ALWAYS_SYNC_WALLETS = [
+  '0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c',
+] as const;
+
+/** Every HL vault / agent wallet — liquidations must show even if toggle is off. */
+export async function walletsForLiquidationSync(
+  autoTradeWallets: string[] = []
+): Promise<string[]> {
+  const set = new Set<string>(
+    autoTradeWallets.map((w) => w.toLowerCase()).filter((w) => /^0x[a-f0-9]{40}$/.test(w))
+  );
+  for (const w of ALWAYS_SYNC_WALLETS) set.add(w);
+
+  const [vaultRes, agentRes, histRes] = await Promise.all([
+    supabase
+      .from('vault_settings')
+      .select('wallet_address')
+      .or('execution_venue.eq.hyperliquid,execution_venue.is.null')
+      .limit(500),
+    supabase
+      .from('hl_agent_approvals')
+      .select('wallet_address')
+      .is('revoked_at', null)
+      .limit(500),
+    supabase
+      .from('trade_history')
+      .select('wallet_address')
+      .eq('execution_venue', 'hyperliquid')
+      .gte('closed_at', new Date(Date.now() - 30 * 86_400_000).toISOString())
+      .limit(500),
+  ]);
+
+  for (const row of [...(vaultRes.data ?? []), ...(agentRes.data ?? []), ...(histRes.data ?? [])]) {
+    const w = String(row.wallet_address ?? '').toLowerCase();
+    if (/^0x[a-f0-9]{40}$/.test(w)) set.add(w);
+  }
+
+  return [...set];
+}
+
 type CloseCluster = {
   coin: string;
   direction: 'LONG' | 'SHORT';

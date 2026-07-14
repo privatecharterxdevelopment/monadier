@@ -34,7 +34,7 @@ import { releaseHlBotTradingPauses } from './services/dailyLossGate';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
 import { getHlFeeSummary } from './services/hlSuccessFees';
 import { tryQualifyReferral } from './services/referralAffiliate';
-import { backfillExternalHlClosesForWallets } from './services/hlExternalCloseSync';
+import { backfillExternalHlClosesForWallets, walletsForLiquidationSync } from './services/hlExternalCloseSync';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 import { fetchMappedTokenPrices } from './services/tokenPrices';
 import { processPendingTradeCloseEmails } from './services/tradeCloseEmail';
@@ -1486,16 +1486,17 @@ async function main(): Promise<void> {
 
   const syncExternalCloses = async () => {
     try {
-      const wallets = await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId);
-      // Always include fee-exempt trading wallet so liquidations backfill even if toggle flapped
-      const set = new Set(wallets.map((w) => w.toLowerCase()));
-      set.add('0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c');
-      const n = await backfillExternalHlClosesForWallets([...set], 120);
+      const auto = await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId);
+      const wallets = await walletsForLiquidationSync(auto);
+      const n = await backfillExternalHlClosesForWallets(wallets, 168);
       if (n > 0) {
-        logger.info('HL liquidation/external closes backfilled', { inserted: n });
+        logger.info('HL liquidations backfilled into trade_history', {
+          inserted: n,
+          wallets: wallets.length,
+        });
       }
     } catch (err: unknown) {
-      logger.debug('HL external close sync failed', {
+      logger.warn('HL liquidation sync failed', {
         error: err instanceof Error ? err.message : String(err),
       });
     }
