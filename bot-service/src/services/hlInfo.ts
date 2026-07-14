@@ -300,6 +300,11 @@ export type HlUserFill = {
   closedPnl: string;
   fee?: string;
   dir?: string;
+  liquidation?: {
+    liquidatedUser?: string;
+    markPx?: string;
+    method?: string;
+  } | null;
 };
 
 export async function fetchHlUserFills(userAddress: string): Promise<HlUserFill[]> {

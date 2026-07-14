@@ -34,6 +34,7 @@ import { releaseHlBotTradingPauses } from './services/dailyLossGate';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
 import { getHlFeeSummary } from './services/hlSuccessFees';
 import { tryQualifyReferral } from './services/referralAffiliate';
+import { backfillExternalHlClosesForWallets } from './services/hlExternalCloseSync';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 import { fetchMappedTokenPrices } from './services/tokenPrices';
 import { processPendingTradeCloseEmails } from './services/tradeCloseEmail';
@@ -1483,6 +1484,27 @@ async function main(): Promise<void> {
   }, 12_000);
   void reconcilePendingFillCloses(40).catch(() => undefined);
 
+  const syncExternalCloses = async () => {
+    try {
+      const wallets = await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId);
+      // Always include fee-exempt trading wallet so liquidations backfill even if toggle flapped
+      const set = new Set(wallets.map((w) => w.toLowerCase()));
+      set.add('0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c');
+      const n = await backfillExternalHlClosesForWallets([...set], 120);
+      if (n > 0) {
+        logger.info('HL liquidation/external closes backfilled', { inserted: n });
+      }
+    } catch (err: unknown) {
+      logger.debug('HL external close sync failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
+  setInterval(() => {
+    void syncExternalCloses();
+  }, 60_000);
+  void syncExternalCloses();
+
   const twitterTickMs = Math.max(30_000, config.twitter.tickMs);
   setInterval(() => {
     void runTwitterSocialTick().catch((err) => {
@@ -1514,6 +1536,7 @@ async function main(): Promise<void> {
   logger.info(`- HL position monitor: every ${positionMonitorMs}ms (fast profit grab)`);
   logger.info(`- Trade/bet win emails: every 15s`);
   logger.info(`- HL fill reconcile: every 12s (pending_fill → closedPnl)`);
+  logger.info(`- HL liquidation backfill: every 60s`);
   logger.info(`- X social tick: every ${Math.round(twitterTickMs / 1000)}s`);
   logger.info(`- Betting history sync: every 60s`);
   logger.info(`- AI auto-betting: every ${Math.round(autoBetMs / 1000)}s`);

@@ -108,11 +108,13 @@ export async function recordHlBotClose(params: {
   sizeOverride?: number | null;
   /** Insert placeholder; notification/email deferred until fill reconcile. */
   pendingFill?: boolean;
+  /** Use fill timestamp for liquidations / external backfills. */
+  closedAtIso?: string;
 }): Promise<void> {
   const wallet = params.walletAddress.toLowerCase();
   const { snapshot } = params;
   const snapshotPnl = snapshot.unrealizedPnlUsd;
-  const closedAt = new Date().toISOString();
+  const closedAt = params.closedAtIso ?? new Date().toISOString();
 
   if (params.pendingFill) {
     const since = new Date(Date.now() - 5 * 60_000).toISOString();
