@@ -177,7 +177,8 @@ export async function validatePreOpenCandleAnalytics(opts: {
 
     if (dir === 'LONG') {
       const greenRatio = greens / window.length;
-      if (net < minNet && greenRatio < minRatio) {
+      // Only block when 1m is meaningfully bearish — flat noise must not veto a MTF long.
+      if (net <= -minNet && greenRatio < minRatio) {
         const reason = `Open blocked — ${coin} LONG: last ${window.length}×${tf} bearish (net ${net.toFixed(2)}%, ${greens}G/${reds}R)`;
         logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
@@ -199,7 +200,8 @@ export async function validatePreOpenCandleAnalytics(opts: {
       }
     } else {
       const redRatio = reds / window.length;
-      if (net > -minNet && redRatio < minRatio) {
+      // Only block when 1m is meaningfully bullish — +0.07% / 11G9R chop must not veto MTF shorts.
+      if (net >= minNet && redRatio < minRatio) {
         const reason = `Open blocked — ${coin} SHORT: last ${window.length}×${tf} bullish (net ${net >= 0 ? '+' : ''}${net.toFixed(2)}%, ${greens}G/${reds}R)`;
         logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });

@@ -325,13 +325,14 @@ export const config = {
       enabled: process.env.HL_PRE_OPEN_20_CANDLES !== 'false',
       candleCount: Number(process.env.HL_PRE_OPEN_CANDLE_COUNT || 20),
       timeframe: (process.env.HL_PRE_OPEN_CANDLE_TF || '1m') as '1m' | '5m',
-      minNetMovePct: Number(process.env.HL_PRE_OPEN_MIN_NET_PCT || 0.04),
-      minDirectionalCandleRatio: Number(process.env.HL_PRE_OPEN_MIN_DIR_RATIO || 0.52),
+      minNetMovePct: Number(process.env.HL_PRE_OPEN_MIN_NET_PCT || 0.15),
+      minDirectionalCandleRatio: Number(process.env.HL_PRE_OPEN_MIN_DIR_RATIO || 0.55),
       maxRangePositionLong: Number(process.env.HL_PRE_OPEN_MAX_RANGE_LONG || 0.58),
       maxRangePositionShort: Number(process.env.HL_PRE_OPEN_MAX_RANGE_SHORT || 0.42),
       breakoutRecentMovePct: Number(process.env.HL_PRE_OPEN_BREAKOUT_RECENT_PCT || 0.06),
       maxRejectionsAtLevel: Number(process.env.HL_PRE_OPEN_MAX_REJECTIONS || 2),
-      minVolumeRatio: Number(process.env.HL_PRE_OPEN_MIN_VOL_RATIO || 0.85),
+      /** Quiet 1m volume must not veto an otherwise aligned MTF entry. */
+      minVolumeRatio: Number(process.env.HL_PRE_OPEN_MIN_VOL_RATIO || 0.45),
     },
     /** Pause new opens after today's realized loss exceeds cap (off by default). */
     dailyLoss: {
