@@ -43,10 +43,7 @@ const BotSettingsStopFirstModal: React.FC<Props> = ({ open, onClose, onStopBot, 
         </div>
       }
     >
-      <p
-        className="term-modal-hint"
-        dangerouslySetInnerHTML={{ __html: t('tradePanel.stopFirstHint') }}
-      />
+      <p className="term-modal-hint">{t('tradePanel.stopFirstHint')}</p>
       <p className="term-modal-hint" style={{ marginTop: 12 }}>
         {t('tradePanel.stopFirstNote')}
       </p>

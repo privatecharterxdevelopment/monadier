@@ -857,7 +857,7 @@
     "stopFirstTitle": "Stop bot first",
     "stopFirstSubtitle": "Leverage and risk are locked while the bot is running",
     "keepRunning": "Keep running",
-    "stopFirstHint": "<strong>1.</strong> Stop the bot · <strong>2.</strong> Change settings · <strong>3.</strong> Press <strong>Start bot</strong> again.",
+    "stopFirstHint": "1. Stop the bot · 2. Change settings · 3. Press Start bot again.",
     "stopFirstNote": "Applies to leverage and risk — not while the bot is active."
   },
   "dock": {

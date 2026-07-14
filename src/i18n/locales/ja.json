@@ -745,7 +745,7 @@
     "stopFirstTitle": "先にボットを停止",
     "stopFirstSubtitle": "ボット稼働中はレバレッジとリスクがロックされます",
     "keepRunning": "稼働を続ける",
-    "stopFirstHint": "<strong>1.</strong> ボット停止 · <strong>2.</strong> 設定変更 · <strong>3.</strong> もう一度<strong>ボット開始</strong>。",
+    "stopFirstHint": "1. ボット停止 · 2. 設定変更 · 3. もう一度ボット開始。",
     "stopFirstNote": "レバレッジとリスクに適用 — 稼働中は変更できません。"
   },
   "dock": {

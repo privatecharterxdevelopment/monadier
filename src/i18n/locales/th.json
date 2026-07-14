@@ -745,7 +745,7 @@
     "stopFirstTitle": "หยุดบอทก่อน",
     "stopFirstSubtitle": "เลเวอเรจและความเสี่ยงถูกล็อกขณะบอททำงาน",
     "keepRunning": "ทำงานต่อ",
-    "stopFirstHint": "<strong>1.</strong> หยุดบอท · <strong>2.</strong> เปลี่ยนการตั้งค่า · <strong>3.</strong> กด<strong>เริ่มบอท</strong>อีกครั้ง",
+    "stopFirstHint": "1. หยุดบอท · 2. เปลี่ยนการตั้งค่า · 3. กดเริ่มบอทอีกครั้ง",
     "stopFirstNote": "ใช้กับเลเวอเรจและความเสี่ยง — ไม่ได้ขณะบอททำงาน"
   },
   "dock": {

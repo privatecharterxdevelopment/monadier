@@ -745,7 +745,7 @@
     "stopFirstTitle": "请先停止机器人",
     "stopFirstSubtitle": "机器人运行时杠杆和风险已锁定",
     "keepRunning": "继续运行",
-    "stopFirstHint": "<strong>1.</strong> 停止机器人 · <strong>2.</strong> 更改设置 · <strong>3.</strong> 再次按下<strong>启动机器人</strong>。",
+    "stopFirstHint": "1. 停止机器人 · 2. 更改设置 · 3. 再次按下启动机器人。",
     "stopFirstNote": "适用于杠杆和风险 — 机器人运行时不可更改。"
   },
   "dock": {

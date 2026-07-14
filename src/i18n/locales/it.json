@@ -745,7 +745,7 @@
     "stopFirstTitle": "Ferma prima il bot",
     "stopFirstSubtitle": "Leva e rischio sono bloccati mentre il bot è attivo",
     "keepRunning": "Continua",
-    "stopFirstHint": "<strong>1.</strong> Ferma il bot · <strong>2.</strong> Cambia impostazioni · <strong>3.</strong> Premi di nuovo <strong>Avvia bot</strong>.",
+    "stopFirstHint": "1. Ferma il bot · 2. Cambia impostazioni · 3. Premi di nuovo Avvia bot.",
     "stopFirstNote": "Vale per leva e rischio — non mentre il bot è attivo."
   },
   "dock": {

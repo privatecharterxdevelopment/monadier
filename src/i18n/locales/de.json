@@ -847,7 +847,7 @@
     "stopFirstTitle": "Zuerst Bot stoppen",
     "stopFirstSubtitle": "Hebel und Risiko sind gesperrt, solange der Bot läuft",
     "keepRunning": "Weiterlaufen lassen",
-    "stopFirstHint": "<strong>1.</strong> Bot stoppen · <strong>2.</strong> Einstellungen ändern · <strong>3.</strong> Erneut <strong>Bot starten</strong>.",
+    "stopFirstHint": "1. Bot stoppen · 2. Einstellungen ändern · 3. Erneut Bot starten.",
     "stopFirstNote": "Gilt für Hebel und Risiko — nicht während der Bot aktiv ist."
   },
   "dock": {

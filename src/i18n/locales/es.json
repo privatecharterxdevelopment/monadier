@@ -745,7 +745,7 @@
     "stopFirstTitle": "Detén el bot primero",
     "stopFirstSubtitle": "Apalancamiento y riesgo están bloqueados mientras el bot está activo",
     "keepRunning": "Seguir en marcha",
-    "stopFirstHint": "<strong>1.</strong> Detén el bot · <strong>2.</strong> Cambia ajustes · <strong>3.</strong> Pulsa <strong>Iniciar bot</strong> de nuevo.",
+    "stopFirstHint": "1. Detén el bot · 2. Cambia ajustes · 3. Pulsa Iniciar bot de nuevo.",
     "stopFirstNote": "Aplica a apalancamiento y riesgo — no mientras el bot está activo."
   },
   "dock": {
