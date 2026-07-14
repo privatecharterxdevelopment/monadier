@@ -38,6 +38,7 @@ import { validateEntryLocation } from './entryLocationGate';
 import { validateMacroBetaAlignment } from './macroBetaGate';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
+import { validateNoDumpBottomShort } from './dumpBottomShortGate';
 import { classifyCoinTier, MAJOR_COINS, needsCautionPath, volumeRankForCoin } from './coinTier';
 import { validateCoinNews } from './coinNewsGate';
 import type { NewsTradeMode } from './newsTradeMode';
@@ -902,6 +903,20 @@ export class HyperliquidTradingService {
         return { success: false, error: pumpShortGate.reason };
       }
 
+      const dumpBottomGate = await validateNoDumpBottomShort({
+        coin,
+        direction: opts.direction,
+      });
+      if (!dumpBottomGate.ok) {
+        logger.info('HL open blocked — dump/swing-low short gate', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          reason: dumpBottomGate.reason,
+        });
+        return { success: false, error: dumpBottomGate.reason };
+      }
+
       const megaGate =
         opts.direction === 'LONG'
           ? validateMegaPairVolumeForDirection('LONG')
@@ -1027,6 +1042,7 @@ export class HyperliquidTradingService {
         macroGate,
         momentumGate,
         pumpShortGate,
+        dumpBottomGate,
         newsGate,
         freshPumpGate,
         pumpSweepGate,

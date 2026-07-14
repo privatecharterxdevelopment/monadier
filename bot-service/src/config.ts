@@ -240,6 +240,19 @@ export const config = {
       min15mRolloverPct: Number(process.env.HL_PUMP_SHORT_15M_ROLL || 0.08),
       minHigherTfLongBlock: Number(process.env.HL_PUMP_SHORT_HTF_LONG || 2),
     },
+    /**
+     * No SHORT into flush lows — wait for bounce confirmation after a sharp dump /
+     * when price sits on a fresh 15m swing low (XRP bottom-short class).
+     */
+    dumpBottomShort: {
+      swingLookback15m: Number(process.env.HL_DUMP_SHORT_SWING_BARS || 12),
+      nearSwingLowPct: Number(process.env.HL_DUMP_SHORT_NEAR_LOW_PCT || 0.4),
+      minBounceBeforeShortPct: Number(process.env.HL_DUMP_SHORT_MIN_BOUNCE_PCT || 0.35),
+      dumpLookback15mBars: Number(process.env.HL_DUMP_SHORT_15M_BARS || 4),
+      dumpLookback1hBars: Number(process.env.HL_DUMP_SHORT_1H_BARS || 3),
+      sharpDump15mPct: Number(process.env.HL_DUMP_SHORT_SHARP_15M || 0.9),
+      sharpDump1hPct: Number(process.env.HL_DUMP_SHORT_SHARP_1H || 1.4),
+    },
     /** Cautious alts (UNI/SUI/CELO-style) — news check before open. */
     cautiousNews: {
       lookbackMs: Number(process.env.HL_NEWS_LOOKBACK_MS || 48 * 60 * 60 * 1000),
