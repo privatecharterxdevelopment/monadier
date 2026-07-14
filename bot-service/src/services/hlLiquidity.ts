@@ -2,7 +2,7 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 
 /** Bot trade universe floor — 24h HL notional USD. Manual perps ignore this. */
-export const BOT_MIN_DAY_VOLUME_USD = 5_000_000;
+export const BOT_MIN_DAY_VOLUME_USD = 2_500_000;
 
 export type HlPerpLiquidity = {
   coin: string;
@@ -49,7 +49,7 @@ function passesBotScanUniverse(m: HlPerpLiquidity): boolean {
   return m.dayVolumeUsd >= botMinDayVolumeUsd();
 }
 
-/** Bot open floor — same $5M rule as scan. */
+/** Bot open floor — same volume rule as scan. */
 export function passesOpenLiquidityGate(m: HlPerpLiquidity): boolean {
   const minVol = botMinDayVolumeUsd();
   const minOi = config.hyperliquid.minOpenInterestUsd;
@@ -59,7 +59,7 @@ export function passesOpenLiquidityGate(m: HlPerpLiquidity): boolean {
   return true;
 }
 
-/** HL perps — bot scan/open universe is ≥ $5M 24h volume only. Manual trading unrestricted. */
+/** HL perps — bot scan/open universe is ≥ $2.5M 24h volume. Manual trading unrestricted. */
 export async function fetchHlLiquidUniverse(force = false): Promise<HlLiquidUniverse> {
   const ttl = config.hyperliquid.liquidUniverseCacheMs;
   if (!force && cached && Date.now() - cached.fetchedAt < ttl) {

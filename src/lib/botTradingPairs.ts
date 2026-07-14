@@ -1,8 +1,8 @@
 /**
- * Hyperliquid bot scans only liquid HL perps (≥ $5M 24h notional).
+ * Hyperliquid bot scans liquid HL perps (≥ $2.5M 24h notional).
  * Manual trading can still use any HL perp — this allowlist is bot-only.
  * Live universe comes from bot-service `/api/global-signals` → `botUniverse`.
- * Fallback list = last known ≥$5M set (updated when liquidity regime shifts).
+ * Fallback list = last known ≥$2.5M set (updated when liquidity regime shifts).
  */
 export function hlCoinToBinanceSymbol(coin: string): string {
   const base = coin.toUpperCase().replace(/-PERP$/i, '');
@@ -31,11 +31,11 @@ export function normalizeHlPerpCoin(coin: string): string {
 }
 
 /** Keep in sync with bot-service `BOT_MIN_DAY_VOLUME_USD` / `HL_MIN_DAY_VOLUME_USD`. */
-export const BOT_MIN_DAY_VOLUME_USD = 5_000_000;
+export const BOT_MIN_DAY_VOLUME_USD = 2_500_000;
 
 /**
  * Fallback bot universe when `/api/global-signals` has not returned `botUniverse` yet.
- * Must only contain names that typically clear the $5M floor — never AXS/PAXG/etc.
+ * Live snapshot ≥$2.5M (excl. hard-banned CRV).
  */
 export const BOT_TRADE_FALLBACK_COINS = [
   'BTC',
@@ -43,20 +43,38 @@ export const BOT_TRADE_FALLBACK_COINS = [
   'HYPE',
   'SOL',
   'ZEC',
-  'CASHCAT',
   'LIT',
   'XRP',
   'WLD',
-  'FARTCOIN',
-  'PUMP',
-  'ARB',
-  'AAVE',
   'NEAR',
+  'CASHCAT',
+  'PUMP',
+  'AAVE',
+  'FARTCOIN',
+  'ARB',
   'UNI',
   'SUI',
-  'BNB',
-  'ADA',
+  'JTO',
+  'TAO',
+  'ENA',
+  'AVAX',
+  'KAITO',
   'XPL',
+  'TIA',
+  'JUP',
+  'ADA',
+  'kBONK',
+  'PAXG',
+  'XMR',
+  'LINK',
+  'DOGE',
+  'BNB',
+  'kPEPE',
+  'VIRTUAL',
+  'VVV',
+  'TRUMP',
+  'TRB',
+  'ZRO',
 ] as const;
 
 const BOT_TRADE_FALLBACK_SET = new Set<string>(BOT_TRADE_FALLBACK_COINS);

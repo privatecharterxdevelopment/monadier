@@ -22,7 +22,7 @@ import { isBotEntryBlocked, botAnalyzerStatusCopy } from '../lib/botAnalyzerActi
 import { nextPollDelayMs } from '../lib/pollBackoff';
 
 export const ANALYSIS_STEPS = [
-  { label: 'Scanning liquid HL perps ($5M+ vol)', progress: 15 },
+  { label: 'Scanning liquid HL perps ($2.5M+ vol)', progress: 15 },
   { label: 'Analyzing 15m / 1h charts', progress: 35 },
   { label: 'Checking 15m patterns', progress: 55 },
   { label: 'Evaluating 1h momentum', progress: 75 },

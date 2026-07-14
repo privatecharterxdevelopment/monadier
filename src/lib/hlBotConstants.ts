@@ -10,7 +10,7 @@ export const HL_MIN_DIRECTIONAL_TFS = 2;
 export const HL_STANDARD_MTF_COUNT = 3;
 export const HL_STANDARD_MTF_TIMEFRAMES = ['5m', '15m', '1h'] as const;
 
-/** Bot analyzer rotation — only ≥$5M 24h volume coins (fallback until live botUniverse loads). */
+/** Bot analyzer rotation — only ≥$2.5M 24h volume coins (fallback until live botUniverse loads). */
 export const HL_SCAN_UNIVERSE_SIZE = BOT_TRADE_FALLBACK_COINS.length;
 export const HL_SCAN_ROTATION_COINS = BOT_TRADE_FALLBACK_COINS;
 
