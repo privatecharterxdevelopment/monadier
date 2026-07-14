@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Loader2,
   Play,
   Square,
-  Settings,
   Wallet,
   ArrowDownLeft,
   ArrowUpRight,
@@ -106,6 +106,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   onRequireSignIn,
   useGlobalFundsModal = false,
 }) => {
+  const { t } = useTranslation();
   const { open } = useMonadierAppKit();
   const { isConnected, address, publicClient, walletClient } = useWeb3();
   const { address: monadierAddress } = useMonadierWallet();
@@ -616,20 +617,25 @@ const TerminalTradePanel: React.FC<Props> = ({
     <aside className="term-trade-panel">
       <div className="term-trade-header">
         <div className="term-trade-header-top">
-          <p className="term-trade-title">{BRAND_NAME} bot</p>
+          <p className="term-trade-title">{t('tradePanel.title', { brand: BRAND_NAME })}</p>
           <div className="term-trade-header-actions">
             {setupGuideComplete && walletReady && (
               <button
                 type="button"
                 className="term-icon-btn term-icon-btn--subtle"
                 onClick={() => setShowSetupGuide(true)}
-                title="How the bot works"
-                aria-label="How the bot works"
+                title={t('tradePanel.howBotWorks')}
+                aria-label={t('tradePanel.howBotWorks')}
               >
                 <Info size={14} />
               </button>
             )}
-            <button type="button" className="term-icon-btn" onClick={refreshAll} title="Refresh">
+            <button
+              type="button"
+              className="term-icon-btn"
+              onClick={refreshAll}
+              title={t('tradePanel.refresh')}
+            >
               <RefreshCw
                 size={14}
                 className={metrics.isLoading && !metrics.hasHlSnapshot ? 'animate-spin' : ''}
@@ -642,18 +648,18 @@ const TerminalTradePanel: React.FC<Props> = ({
       <div className="term-panel-tabs">
         {(
           [
-            { id: 'bot' as const, label: 'Bot' },
-            { id: 'lvrg' as const, label: 'Settings' },
-            { id: 'funds' as const, label: 'Funds' },
+            { id: 'bot' as const, label: t('tradePanel.tabBot') },
+            { id: 'lvrg' as const, label: t('tradePanel.tabSettings') },
+            { id: 'funds' as const, label: t('tradePanel.tabFunds') },
           ] as const
-        ).map((t) => (
+        ).map((tab) => (
           <button
-            key={t.id}
+            key={tab.id}
             type="button"
-            className={`term-panel-tab ${panelTab === t.id ? 'term-panel-tab--on' : ''}`}
-            onClick={() => (t.id === 'lvrg' ? requestLvrgAccess() : setPanelTab(t.id))}
+            className={`term-panel-tab ${panelTab === tab.id ? 'term-panel-tab--on' : ''}`}
+            onClick={() => (tab.id === 'lvrg' ? requestLvrgAccess() : setPanelTab(tab.id))}
           >
-            {t.label}
+            {tab.label}
           </button>
         ))}
       </div>
@@ -672,7 +678,7 @@ const TerminalTradePanel: React.FC<Props> = ({
                   onClick={() => open()}
                 >
                   <Wallet size={14} />
-                  Connect wallet
+                  {t('tradePanel.connectWallet')}
                 </button>
               </div>
             ) : (
@@ -680,13 +686,16 @@ const TerminalTradePanel: React.FC<Props> = ({
                 <div
                   className={`term-panel-card term-panel-card--muted term-panel-card--compact hl-bot-status-card hl-bot-status-card--${sidebarStatus.tone}`}
                 >
-                  <span className="term-panel-card-label">Status</span>
+                  <span className="term-panel-card-label">{t('tradePanel.status')}</span>
                   <strong
                     className={`term-panel-card-value hl-bot-status-headline ${
                       botRunning ? 'term-pnl-pos' : ''
                     }`}
                   >
-                    {sidebarStatus.headline}
+                    {t(`tradePanel.statusHeadline.${sidebarStatus.statusKey}`, {
+                      timer: sidebarStatus.statusParams?.timer ?? '',
+                      defaultValue: sidebarStatus.headline,
+                    })}
                   </strong>
                   {sidebarStatus.detail && !isBotScanNoiseDetail(sidebarStatus.detail) ? (
                     <p className="hl-bot-status-detail">{sidebarStatus.detail}</p>
@@ -716,7 +725,7 @@ const TerminalTradePanel: React.FC<Props> = ({
                   onClick={() => void handleStopBot()}
                 >
                   {botBusy ? <Loader2 size={14} className="animate-spin" /> : <Square size={14} />}
-                  {botBusy ? 'Stopping…' : 'Stop bot'}
+                  {botBusy ? t('tradePanel.stopping') : t('tradePanel.stopBot')}
                 </button>
               ) : needsAccountSignIn ? (
                 <button
@@ -726,7 +735,7 @@ const TerminalTradePanel: React.FC<Props> = ({
                     onRequireSignIn?.('Sign in to Monadier, then press Start bot.')
                   }
                 >
-                  Sign in
+                  {t('tradePanel.signIn')}
                 </button>
               ) : !walletReady ? (
                 <button
@@ -735,7 +744,7 @@ const TerminalTradePanel: React.FC<Props> = ({
                   onClick={() => open()}
                 >
                   <Wallet size={14} />
-                  Connect wallet
+                  {t('tradePanel.connectWallet')}
                 </button>
               ) : (
                 <>
@@ -782,7 +791,7 @@ const TerminalTradePanel: React.FC<Props> = ({
                       ) : (
                         <Play size={14} />
                       )}
-                      {botBusy ? 'Starting…' : 'Start bot'}
+                      {botBusy ? t('tradePanel.starting') : t('tradePanel.startBot')}
                     </button>
                   ) : null}
                 </>
@@ -809,13 +818,13 @@ const TerminalTradePanel: React.FC<Props> = ({
                 onClick={() => openFunds('deposit')}
               >
                 <ArrowDownLeft size={14} />
-                Deposit USDC
+                {t('tradePanel.depositUsdc')}
               </button>
             )}
 
             {onOpenHistory && (
               <button type="button" className="term-bot-positions-row" onClick={onOpenHistory}>
-                <span>Open positions</span>
+                <span>{t('tradePanel.openPositions')}</span>
                 <span className="term-bot-positions-chevron" aria-hidden>
                   ›
                 </span>
@@ -846,7 +855,7 @@ const TerminalTradePanel: React.FC<Props> = ({
         {panelTab === 'funds' && (
           <div className="term-panel-stack">
             <div className="term-panel-card term-panel-card--muted">
-              <span className="term-panel-card-label">Hyperliquid account</span>
+              <span className="term-panel-card-label">{t('tradePanel.hyperliquidAccount')}</span>
               {hlBalanceWallet ? (
                 <a
                   className="term-hint hl-funds-wallet-link"
@@ -859,7 +868,11 @@ const TerminalTradePanel: React.FC<Props> = ({
               ) : null}
               <div className="term-funds-breakdown">
                 <div className="term-field-row">
-                  <span>{hlUnifiedAccount ? 'Trading balance' : 'Total balance'}</span>
+                  <span>
+                    {hlUnifiedAccount
+                      ? t('tradePanel.tradingBalance')
+                      : t('tradePanel.totalBalance')}
+                  </span>
                   <strong>{fmt(hlPerpUsd)}</strong>
                 </div>
                 {!hlUnifiedAccount ? (
@@ -875,7 +888,7 @@ const TerminalTradePanel: React.FC<Props> = ({
                   </>
                 ) : null}
                 <div className="term-field-row">
-                  <span>Withdrawable</span>
+                  <span>{t('tradePanel.withdrawable')}</span>
                   <strong>{fmt(metrics.hlWithdrawableUsd)}</strong>
                 </div>
                 <div className="term-field-row term-field-row--fee">
@@ -917,7 +930,7 @@ const TerminalTradePanel: React.FC<Props> = ({
               }
             >
               <ArrowDownLeft size={14} />
-              Deposit USDC
+              {t('tradePanel.depositUsdc')}
             </button>
 
             <button
@@ -935,7 +948,7 @@ const TerminalTradePanel: React.FC<Props> = ({
               }
             >
               <ArrowUpRight size={14} />
-              Withdraw USDC
+              {t('tradePanel.withdrawUsdc')}
             </button>
 
             <p className="term-hint">
@@ -960,21 +973,21 @@ const TerminalTradePanel: React.FC<Props> = ({
 
       <div className="term-trade-footer term-trade-footer--stable">
         <div className="term-field-row">
-          <span>HL balance</span>
+          <span>{t('tradePanel.hlBalance')}</span>
           <strong>{fmt(metrics.hlBalanceUsd)}</strong>
         </div>
         <div className="term-field-row">
-          <span>Withdrawable</span>
+          <span>{t('tradePanel.withdrawable')}</span>
           <strong>{fmt(metrics.hlWithdrawableUsd)}</strong>
         </div>
         {hasOpenPosition && marginLockedUsd > 0.01 ? (
           <div className="term-field-row term-field-row--hint">
-            <span>Margin locked</span>
+            <span>{t('tradePanel.marginLocked')}</span>
             <strong>{fmt(marginLockedUsd)}</strong>
           </div>
         ) : null}
         <div className="term-field-row">
-          <span>uPnL</span>
+          <span>{t('tradePanel.upnl')}</span>
           <strong
             className={
               metrics.unrealizedPnlUsd >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'
@@ -984,7 +997,7 @@ const TerminalTradePanel: React.FC<Props> = ({
           </strong>
         </div>
         <div className="term-field-row">
-          <span>Total P/L</span>
+          <span>{t('tradePanel.totalPnl')}</span>
           <strong
             className={
               metrics.totalPnlUsd >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'
@@ -994,7 +1007,7 @@ const TerminalTradePanel: React.FC<Props> = ({
           </strong>
         </div>
         <div className="term-field-row">
-          <span>Open</span>
+          <span>{t('tradePanel.open')}</span>
           <strong>{metrics.openPositionsCount}</strong>
         </div>
       </div>

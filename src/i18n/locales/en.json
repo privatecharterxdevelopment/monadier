@@ -280,7 +280,7 @@
             "muted": true
           },
           {
-            "text": "making\u00A0money\u00A0now"
+            "text": "making money now"
           }
         ]
       ]
@@ -807,5 +807,57 @@
       "tradePerpsInstead": "Trade perps instead",
       "footnote": "Perps trading and the HyperGain bot remain available. Outcome markets follow regional compliance rules."
     }
+  },
+  "tradePanel": {
+    "title": "{{brand}} bot",
+    "tabBot": "Bot",
+    "tabSettings": "Settings",
+    "tabFunds": "Funds",
+    "status": "Status",
+    "statusHeadline": {
+      "connectWallet": "Connect wallet",
+      "signInRequired": "Sign in required",
+      "loading": "Loading…",
+      "fundAccount": "Fund your account",
+      "moveUsdc": "Move USDC to Perps",
+      "oneTimeApproval": "One-time approval",
+      "platformFee": "Platform builder fee",
+      "ready": "Ready",
+      "running": "Running{{timer}}"
+    },
+    "stopBot": "Stop bot",
+    "stopping": "Stopping…",
+    "startBot": "Start bot",
+    "starting": "Starting…",
+    "parameters": "Parameters",
+    "parametersAria": "Bot parameters",
+    "adjust": "Adjust",
+    "risk": "Risk",
+    "lvrg": "LVRG",
+    "sl": "SL",
+    "trail": "Trail",
+    "profitTrail": "Profit trail",
+    "maxSl": "Max −{{pct}}%",
+    "openPositions": "Open positions",
+    "hlBalance": "HL balance",
+    "withdrawable": "Withdrawable",
+    "marginLocked": "Margin locked",
+    "upnl": "uPnL",
+    "totalPnl": "Total P/L",
+    "open": "Open",
+    "howBotWorks": "How the bot works",
+    "refresh": "Refresh",
+    "connectWallet": "Connect wallet",
+    "signIn": "Sign in",
+    "depositUsdc": "Deposit USDC",
+    "withdrawUsdc": "Withdraw USDC",
+    "tradingBalance": "Trading balance",
+    "totalBalance": "Total balance",
+    "hyperliquidAccount": "Hyperliquid account",
+    "stopFirstTitle": "Stop bot first",
+    "stopFirstSubtitle": "Leverage and risk are locked while the bot is running",
+    "keepRunning": "Keep running",
+    "stopFirstHint": "<strong>1.</strong> Stop the bot · <strong>2.</strong> Change settings · <strong>3.</strong> Press <strong>Start bot</strong> again.",
+    "stopFirstNote": "Applies to leverage and risk — not while the bot is active."
   }
 }

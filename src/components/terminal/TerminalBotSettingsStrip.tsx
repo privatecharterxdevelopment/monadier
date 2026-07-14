@@ -1,6 +1,7 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
-import { effectiveHlBotSettings, formatHlSlLabel } from '../../lib/hlBotEffectiveSettings';
+import { effectiveHlBotSettings, effectiveStopLossPct } from '../../lib/hlBotEffectiveSettings';
 import { HL_DYNAMIC_TRAIL } from '../../lib/hlBotStrategy';
 
 type Props = {
@@ -9,49 +10,45 @@ type Props = {
   disabled?: boolean;
 };
 
-const METRICS = [
-  { key: 'risk', label: 'Risk' },
-  { key: 'lvrg', label: 'LVRG' },
-  { key: 'sl', label: 'SL' },
-  { key: 'trail', label: 'Trail' },
-] as const;
-
 const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disabled }) => {
+  const { t } = useTranslation();
   const eff = effectiveHlBotSettings(settings);
-  const sl = formatHlSlLabel(settings.stopLoss).replace(/^Max /, '');
+  const slPct = effectiveStopLossPct(settings.stopLoss);
+  const sl =
+    slPct > 0 ? t('tradePanel.maxSl', { pct: slPct }) : t('tradePanel.profitTrail');
   const trail = `+${HL_DYNAMIC_TRAIL.breakevenArmRoePct}→+${HL_DYNAMIC_TRAIL.armMinRoePct}%`;
 
-  const values: Record<(typeof METRICS)[number]['key'], string> = {
-    risk: `${eff.riskPct}%`,
-    lvrg: `${eff.leverage}x`,
-    sl,
-    trail,
-  };
+  const metrics = [
+    { key: 'risk' as const, label: t('tradePanel.risk'), value: `${eff.riskPct}%` },
+    { key: 'lvrg' as const, label: t('tradePanel.lvrg'), value: `${eff.leverage}x` },
+    { key: 'sl' as const, label: t('tradePanel.sl'), value: sl },
+    { key: 'trail' as const, label: t('tradePanel.trail'), value: trail },
+  ];
 
   return (
     <section
       className={`term-bot-settings term-bot-settings--grid ${disabled ? 'term-bot-settings--disabled' : ''}`}
-      aria-label="Bot parameters"
+      aria-label={t('tradePanel.parametersAria')}
     >
       <div className="term-bot-settings-head">
-        <h3 className="term-bot-settings-head-title">Parameters</h3>
+        <h3 className="term-bot-settings-head-title">{t('tradePanel.parameters')}</h3>
         <button
           type="button"
           className="term-bot-settings-head-adjust"
           onClick={onAdjust}
           disabled={disabled}
         >
-          Adjust
+          {t('tradePanel.adjust')}
           <span className="term-bot-settings-head-chevron" aria-hidden>
             ›
           </span>
         </button>
       </div>
       <div className="term-bot-settings-grid">
-        {METRICS.map((m) => (
+        {metrics.map((m) => (
           <div key={m.key} className="term-bot-settings-cell">
             <span className="term-bot-settings-cell-k">{m.label}</span>
-            <span className="term-bot-settings-cell-v">{values[m.key]}</span>
+            <span className="term-bot-settings-cell-v">{m.value}</span>
           </div>
         ))}
       </div>

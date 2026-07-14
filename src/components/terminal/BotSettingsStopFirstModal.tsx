@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Square } from 'lucide-react';
 import TerminalModalFrame from './TerminalModalFrame';
 
@@ -10,12 +11,13 @@ type Props = {
 };
 
 const BotSettingsStopFirstModal: React.FC<Props> = ({ open, onClose, onStopBot, stopBusy }) => {
+  const { t } = useTranslation();
   if (!open) return null;
 
   return (
     <TerminalModalFrame
-      title="Stop bot first"
-      subtitle="Leverage and risk are locked while the bot is running"
+      title={t('tradePanel.stopFirstTitle')}
+      subtitle={t('tradePanel.stopFirstSubtitle')}
       icon={<AlertTriangle size={20} />}
       onClose={onClose}
       closeDisabled={stopBusy}
@@ -27,7 +29,7 @@ const BotSettingsStopFirstModal: React.FC<Props> = ({ open, onClose, onStopBot, 
             onClick={onClose}
             disabled={stopBusy}
           >
-            Keep running
+            {t('tradePanel.keepRunning')}
           </button>
           <button
             type="button"
@@ -36,20 +38,17 @@ const BotSettingsStopFirstModal: React.FC<Props> = ({ open, onClose, onStopBot, 
             disabled={stopBusy}
           >
             <Square size={14} />
-            Stop bot
+            {t('tradePanel.stopBot')}
           </button>
         </div>
       }
     >
-      <p className="term-modal-hint">
-        <strong>1.</strong> Stop the bot · <strong>2.</strong> Change settings · <strong>3.</strong>{' '}
-        Press <strong>Start bot</strong> again.
-      </p>
+      <p
+        className="term-modal-hint"
+        dangerouslySetInnerHTML={{ __html: t('tradePanel.stopFirstHint') }}
+      />
       <p className="term-modal-hint" style={{ marginTop: 12 }}>
-        Applies to leverage and risk — not while the bot is active.
-      </p>
-      <p className="term-modal-hint term-modal-hint--ok" style={{ marginTop: 12 }}>
-        Exits are automatic: the bot trails stop loss into profit (no manual TP/SL needed).
+        {t('tradePanel.stopFirstNote')}
       </p>
     </TerminalModalFrame>
   );

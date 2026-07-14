@@ -6,7 +6,22 @@ import { isInternalPlatformOpsMessage } from './hyperliquid/builderPlatform';
 
 export type HlSetupPhase = 'connect' | 'loading' | 'approve' | 'fund' | 'ready';
 
+/** Stable id for i18n — mapped in UI via `tradePanel.statusHeadline.*`. */
+export type HlBotSidebarStatusKey =
+  | 'connectWallet'
+  | 'signInRequired'
+  | 'loading'
+  | 'fundAccount'
+  | 'moveUsdc'
+  | 'oneTimeApproval'
+  | 'platformFee'
+  | 'ready'
+  | 'running';
+
 export type HlBotSidebarStatus = {
+  statusKey: HlBotSidebarStatusKey;
+  /** e.g. ` · 23h 1m` for running — prefix with space+middot when set */
+  statusParams?: { timer?: string };
   headline: string;
   detail: string;
   tone: 'neutral' | 'warn' | 'ok' | 'active';
@@ -108,6 +123,7 @@ export function getHlBotSidebarStatus(opts: {
 
   if (!walletReady) {
     return {
+      statusKey: 'connectWallet',
       headline: 'Connect wallet',
       detail: 'Use the same wallet you use on Hyperliquid.',
       tone: 'neutral',
@@ -118,6 +134,7 @@ export function getHlBotSidebarStatus(opts: {
 
   if (!accountSignedIn) {
     return {
+      statusKey: 'signInRequired',
       headline: 'Sign in required',
       detail: 'Sign in to your HyperGain account, then press Start bot. Your wallet is already connected.',
       tone: 'warn',
@@ -128,6 +145,7 @@ export function getHlBotSidebarStatus(opts: {
 
   if (phase === 'loading') {
     return {
+      statusKey: 'loading',
       headline: 'Loading…',
       detail: 'Checking your Hyperliquid account.',
       tone: 'neutral',
@@ -148,6 +166,7 @@ export function getHlBotSidebarStatus(opts: {
   if (!botRunning) {
     if (needsDeposit) {
       return {
+        statusKey: 'fundAccount',
         headline: 'Fund your account',
         detail: `Deposit at least $${MIN_HL_BOT_USD} native USDC on Arbitrum only (not BNB or other chains). Funds stay on Hyperliquid — only your wallet can withdraw.`,
         tone: 'warn',
@@ -157,6 +176,7 @@ export function getHlBotSidebarStatus(opts: {
     }
     if (needsSpotTransfer) {
       return {
+        statusKey: 'moveUsdc',
         headline: 'Move USDC to Perps',
         detail: `$${spotUsdcUsd.toFixed(2)} is on HL Spot — deposit again to auto-move on standard accounts, or use Funds → Transfer.`,
         tone: 'warn',
@@ -178,6 +198,7 @@ export function getHlBotSidebarStatus(opts: {
             ? 'Approve the trading agent, then press Start bot.'
             : 'Approve the trading agent before starting the bot.';
       return {
+        statusKey: needsBuilderFee && !needsAgent ? 'platformFee' : 'oneTimeApproval',
         headline: needsBuilderFee && !needsAgent ? 'Platform builder fee' : 'One-time approval',
         detail,
         tone: 'ok',
@@ -186,6 +207,7 @@ export function getHlBotSidebarStatus(opts: {
       };
     }
     return {
+      statusKey: 'ready',
       headline: 'Ready',
       detail: `Balance ${hlBalanceUsd.toFixed(2)} — press Start bot.`,
       tone: 'ok',
@@ -197,6 +219,8 @@ export function getHlBotSidebarStatus(opts: {
   const timer = runtimeLabel ? ` · ${runtimeLabel}` : '';
 
   return {
+    statusKey: 'running',
+    statusParams: { timer },
     headline: `Running${timer}`,
     detail: '',
     tone: 'active',
