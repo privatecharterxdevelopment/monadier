@@ -7,6 +7,7 @@
  */
 
 import { logger } from '../utils/logger';
+import { isImpulseBounceLongCandles } from './bounceLongCandles';
 
 // ============================================================================
 // TYPES
@@ -582,11 +583,17 @@ export class SignalEngine {
     let bullishPoints = 0;
     let bearishPoints = 0;
 
-    // RSI
-    if (rsi < 30) bullishPoints += 2; // Oversold
-    else if (rsi < 40) bullishPoints += 1;
-    else if (rsi > 70) bearishPoints += 2; // Overbought
-    else if (rsi > 60) bearishPoints += 1;
+    // RSI — overbought alone must NOT force SHORT on impulse bounce off a dump low
+    const impulseBounce = isImpulseBounceLongCandles(candles);
+    if (impulseBounce) {
+      if (rsi >= 55) bullishPoints += 2; // momentum continuation, not fade
+      else if (rsi < 45) bullishPoints += 1;
+    } else {
+      if (rsi < 30) bullishPoints += 2; // Oversold
+      else if (rsi < 40) bullishPoints += 1;
+      else if (rsi > 70) bearishPoints += 2; // Overbought
+      else if (rsi > 60) bearishPoints += 1;
+    }
 
     // MACD
     if (macd.histogram > 0 && macd.macd > macd.signal) bullishPoints += 2;

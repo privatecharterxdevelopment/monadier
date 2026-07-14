@@ -254,19 +254,27 @@ export const config = {
       minHigherTfLongBlock: Number(process.env.HL_PUMP_SHORT_HTF_LONG || 2),
     },
     /**
-     * LONG-only: boost scan confidence after dump + bounce near swing-low.
-     * Does not block SHORT opens.
+     * LONG-only: boost / unlock after dump + bounce near swing-low.
+     * Does not block SHORT opens. Impulse path covers monster-green continuation.
      */
     preferLongAfterDump: {
       swingLookback15m: Number(process.env.HL_PREF_LONG_SWING_BARS || 12),
       nearSwingLowPct: Number(process.env.HL_PREF_LONG_NEAR_LOW_PCT || 0.55),
       minBouncePct: Number(process.env.HL_PREF_LONG_MIN_BOUNCE || 0.12),
-      maxBouncePct: Number(process.env.HL_PREF_LONG_MAX_BOUNCE || 1.25),
+      /** Early bounce ceiling (tight). */
+      maxBouncePct: Number(process.env.HL_PREF_LONG_MAX_BOUNCE || 1.8),
+      /** Impulse continuation still valid — covers monster greens off the low. */
+      impulseMaxBouncePct: Number(process.env.HL_PREF_LONG_IMPULSE_MAX_BOUNCE || 5.5),
+      impulseMaxBarsSinceLow: Number(process.env.HL_PREF_LONG_IMPULSE_MAX_BARS || 8),
+      impulseMinDumpPct: Number(process.env.HL_PREF_LONG_IMPULSE_MIN_DUMP || 0.85),
+      impulseMinBodyRatio: Number(process.env.HL_PREF_LONG_IMPULSE_BODY || 0.55),
       dumpLookback15mBars: Number(process.env.HL_PREF_LONG_15M_BARS || 4),
       dumpLookback1hBars: Number(process.env.HL_PREF_LONG_1H_BARS || 3),
       sharpDump15mPct: Number(process.env.HL_PREF_LONG_SHARP_15M || 0.7),
       sharpDump1hPct: Number(process.env.HL_PREF_LONG_SHARP_1H || 1.1),
-      confidenceBoost: Number(process.env.HL_PREF_LONG_CONF_BOOST || 14),
+      confidenceBoost: Number(process.env.HL_PREF_LONG_CONF_BOOST || 18),
+      /** Floor conf when injecting a precision bounce LONG candidate. */
+      impulseCandidateConf: Number(process.env.HL_PREF_LONG_IMPULSE_CONF || 62),
     },
     /**
      * @deprecated Dump-bottom SHORT block removed — shorts stay free.

@@ -6,6 +6,7 @@
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
+import { evaluateBounceLongSetup } from './bounceLongSetup';
 
 export type SrZoneAnalysis = {
   support: number;
@@ -343,5 +344,24 @@ export async function validateEntryLocation(opts: {
   }
 
   const sr = analyzeSrZones(candles5, candles15);
-  return evaluateEntryLocation(opts.direction, sr);
+  const base = evaluateEntryLocation(opts.direction, sr);
+  if (base.ok || opts.direction !== 'LONG') return base;
+
+  // Precision: mid-range after dump→impulse greens — only with confirmed bounce setup,
+  // and never through a multi-rejection hard ceiling.
+  const coin = opts.coin?.toUpperCase();
+  if (!coin) return base;
+  const bounce = await evaluateBounceLongSetup(coin);
+  if (!bounce.ok || !bounce.grade) return base;
+
+  const cfg = config.hyperliquid.entryLocation;
+  const hardCeiling = sr.resistanceRejections >= cfg.minRejectionsToBlock;
+  const jammedAtTop = sr.pricePosition > 0.88;
+  if (hardCeiling || jammedAtTop) return base;
+
+  return {
+    ok: true,
+    analysis: sr,
+    reason: `${bounce.reason} · location OK (${(sr.pricePosition * 100).toFixed(0)}% of range)`,
+  };
 }

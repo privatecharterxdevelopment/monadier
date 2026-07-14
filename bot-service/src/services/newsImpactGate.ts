@@ -13,6 +13,7 @@ import {
 import { isMacroRiskOffEnvironment, validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
 import { normalizeNewsTradeMode, type NewsTradeMode } from './newsTradeMode';
 import type { NewsBias, NewsGateResult, NewsImpact } from './newsTypes';
+import { evaluateBounceLongSetup } from './bounceLongSetup';
 
 export type { CoinNewsResult } from './coinNewsGate';
 
@@ -109,29 +110,36 @@ export async function validateNewsImpact(opts: {
   if (opts.direction === 'LONG') {
     const macroRisk = isMacroRiskOffEnvironment();
     if (macroRisk.active) {
-      return {
-        ok: false,
-        reason: `LONG blocked — macro risk-off (${macroRisk.reason})`,
-        headlines: [],
-        sentiment: 'risk_off',
-        impact: 'high',
-        confidence: 78,
-        boostConfidence: 0,
-        criticalMacro: true,
-      };
+      const bounce = await evaluateBounceLongSetup(coin);
+      if (!(bounce.ok && bounce.grade)) {
+        return {
+          ok: false,
+          reason: `LONG blocked — macro risk-off (${macroRisk.reason})`,
+          headlines: [],
+          sentiment: 'risk_off',
+          impact: 'high',
+          confidence: 78,
+          boostConfidence: 0,
+          criticalMacro: true,
+        };
+      }
+      // Precision bounce through volume risk-off (dump→reclaim). Critical headlines still block below.
     }
     const megaLong = validateMegaPairVolumeForDirection('LONG');
     if (!megaLong.ok) {
-      return {
-        ok: false,
-        reason: megaLong.reason,
-        headlines: [],
-        sentiment: 'risk_off',
-        impact: 'medium',
-        confidence: 72,
-        boostConfidence: 0,
-        criticalMacro: false,
-      };
+      const bounce = await evaluateBounceLongSetup(coin);
+      if (!(bounce.ok && bounce.grade)) {
+        return {
+          ok: false,
+          reason: megaLong.reason,
+          headlines: [],
+          sentiment: 'risk_off',
+          impact: 'medium',
+          confidence: 70,
+          boostConfidence: 0,
+          criticalMacro: false,
+        };
+      }
     }
   }
 

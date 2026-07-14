@@ -4,6 +4,7 @@
 import { config } from '../config';
 import { signalEngine } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
+import { evaluateBounceLongSetup } from './bounceLongSetup';
 
 export type PerpMarketContext = {
   coin: string;
@@ -129,14 +130,28 @@ export async function validatePerpMarketContext(opts: {
     ].join(' · ');
 
     if (opts.direction === 'LONG') {
-      if (ctx.rangePosition >= cfg.maxLongRangePosition) {
+      const bounce = await evaluateBounceLongSetup(opts.coin);
+      const bounceOk =
+        bounce.ok &&
+        bounce.grade != null &&
+        ctx.rangePosition < 0.9 &&
+        bounce.bouncePct <=
+          (bounce.grade === 'impulse'
+            ? config.hyperliquid.preferLongAfterDump.impulseMaxBouncePct
+            : config.hyperliquid.preferLongAfterDump.maxBouncePct);
+
+      if (ctx.rangePosition >= cfg.maxLongRangePosition && !bounceOk) {
         return {
           ok: false,
           reason: `LONG blocked — ${ctx.coin} at ${(ctx.rangePosition * 100).toFixed(0)}% of 24h range (buy high, need pullback) · ${summary}`,
           ctx,
         };
       }
-      if (ctx.change24hPct >= cfg.maxLong24hUpPct && ctx.rangePosition >= cfg.maxLong24hRangePosition) {
+      if (
+        ctx.change24hPct >= cfg.maxLong24hUpPct &&
+        ctx.rangePosition >= cfg.maxLong24hRangePosition &&
+        !bounceOk
+      ) {
         return {
           ok: false,
           reason: `LONG blocked — ${ctx.coin} already +${ctx.change24hPct.toFixed(2)}% 24h near highs · ${summary}`,
@@ -154,6 +169,13 @@ export async function validatePerpMarketContext(opts: {
         return {
           ok: false,
           reason: `LONG blocked — ${ctx.coin} mark ${ctx.markOracleSpreadPct.toFixed(3)}% above oracle (chasing premium) · ${summary}`,
+          ctx,
+        };
+      }
+      if (bounceOk) {
+        return {
+          ok: true,
+          reason: `${bounce.reason} · perp context OK · ${summary}`,
           ctx,
         };
       }

@@ -141,7 +141,8 @@ async function scanStandardCoin(
     const symbol = hlCoinToBinanceSymbol(coin);
     const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
     if (!analysis) return null;
-    if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
+    const dir = analysis.direction;
+    if (dir !== 'LONG' && dir !== 'SHORT') return null;
     const tierInfo = classifyCoinTier(coin, preloadedUniverse);
     const cautious = needsCautionPath(tierInfo.tier) && !relaxed;
     const minConf = cautious
@@ -149,7 +150,14 @@ async function scanStandardCoin(
       : relaxed
         ? Math.max(52, config.hyperliquid.minSignalConfidence - 5)
         : config.hyperliquid.minSignalConfidence;
-    if (analysis.confidence < minConf) return null;
+    const bouncePeek = await preferLongAfterDumpBoost({
+      coin,
+      direction: dir,
+      confidence: analysis.confidence,
+    });
+    const bounceBypass =
+      bouncePeek.forceLongCandidate && bouncePeek.setup?.ok === true;
+    if (analysis.confidence < minConf && !bounceBypass) return null;
     const minTfs = relaxed
       ? 2
       : cautious
@@ -160,7 +168,7 @@ async function scanStandardCoin(
       : cautious
         ? config.hyperliquid.cautiousScan.minTrendAlignment
         : config.hyperliquid.minTrendAlignment;
-    if (cautious) {
+    if (cautious && !bounceBypass) {
       const pumpSkip = await validateNotFreshlyPumped({ coin, tier: tierInfo.tier });
       if (!pumpSkip.ok) {
         logger.debug('HL scan skip: fresh pump cooldown', { coin, reason: pumpSkip.reason });
@@ -179,10 +187,54 @@ async function scanStandardCoin(
         return null;
       }
     }
-    if ((analysis.metrics?.directionalTfCount ?? 0) < minTfs) return null;
-    if ((analysis.metrics?.trendAlignment ?? 0) < minAlign) return null;
+    if (
+      !bounceBypass &&
+      (analysis.metrics?.directionalTfCount ?? 0) < minTfs
+    )
+      return null;
+    if (!bounceBypass && (analysis.metrics?.trendAlignment ?? 0) < minAlign)
+      return null;
+
+    const longBoost = bouncePeek;
+
+    // Precision bounce: dump→impulse greens → LONG candidate (even if MTF said HOLD/weak SHORT).
+    if (longBoost.forceLongCandidate && longBoost.setup?.ok) {
+      const conf = Math.max(
+        config.hyperliquid.preferLongAfterDump.impulseCandidateConf,
+        longBoost.setup.confidence
+      );
+      logger.info('HL scan — precision bounce LONG candidate', {
+        coin,
+        grade: longBoost.setup.grade,
+        prior: analysis.direction,
+        conf,
+      });
+      return {
+        coin,
+        symbol,
+        direction: 'LONG' as const,
+        confidence: Math.min(100, conf),
+        reason: `${longBoost.setup.reason}${relaxed ? ' · relaxed scan' : ''}`,
+        dayVolumeUsd: liq.dayVolumeUsd,
+        openInterestUsd: liq.openInterestUsd,
+        botMode: 'standard',
+        mtfBreakdown: analysis.mtfBreakdown,
+        trendAlignment: analysis.metrics?.trendAlignment,
+        directionalTfCount: analysis.metrics?.directionalTfCount,
+        h1Trend: analysis.metrics?.h1Trend,
+        signalReasons: analysis.signalReasons,
+        indicators: analysis.indicators,
+      };
+    }
+
+    if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
+
     // Always enforce — relaxed fallback previously skipped this and opened LONGs in dumps.
-    if (counterTrendBlocked(analysis.direction, analysis.metrics?.h1Trend)) {
+    // Exception: confirmed dump→bounce LONG (counter-trend 1h dump is expected into the low).
+    if (
+      counterTrendBlocked(analysis.direction, analysis.metrics?.h1Trend) &&
+      !(longBoost.setup?.ok && analysis.direction === 'LONG')
+    ) {
       logger.debug('HL scan skip: 1h counter-trend', {
         coin,
         direction: analysis.direction,
@@ -198,10 +250,6 @@ async function scanStandardCoin(
         return null;
       }
     }
-    const longBoost = await preferLongAfterDumpBoost({
-      coin,
-      direction: analysis.direction,
-    });
     const confidence = Math.min(100, analysis.confidence + longBoost.boostConfidence);
     return {
       coin,
@@ -342,8 +390,9 @@ export async function scanGlobalHlSignals(
 
   let aggressiveFiltered = aggressive;
   let finalStandard = standard;
+
   if (standard.length === 0) {
-    const topCoins = coins.slice(0, 10);
+    const topCoins = coins.slice(0, 12);
     const relaxedRaw = await mapPool(topCoins, concurrency, async (coin) => {
       const liq = liqByCoin.get(coin);
       if (!liq) return null;
@@ -362,35 +411,82 @@ export async function scanGlobalHlSignals(
     }
   }
 
-  if (finalStandard.length === 0) {
-    const majorCoins = ['BTC', 'ETH'].filter((c) => coins.includes(c));
-    const majorRaw = await mapPool(majorCoins, 2, async (coin) => {
-      const liq = liqByCoin.get(coin);
-      if (!liq) return null;
-      return scanMajorChartFallback(coin, liq, universe);
-    });
-    finalStandard = majorRaw
-      .filter((c): c is GlobalSignalCandidate => c !== null)
-      .sort((a, b) => b.confidence - a.confidence);
-    if (finalStandard.length > 0) {
-      logger.info('Global HL scan — major chart fallback used', {
-        count: finalStandard.length,
-        top: finalStandard[0]?.coin,
-        direction: finalStandard[0]?.direction,
-        conf: finalStandard[0]?.confidence,
+  const onlyWeakShorts =
+    finalStandard.length > 0 &&
+    finalStandard.every((c) => c.direction === 'SHORT' && c.confidence < 55);
+  const bounceLongs = finalStandard
+    .filter((c) => c.direction === 'LONG' && /Bounce LONG/i.test(c.reason))
+    .sort((a, b) => b.confidence - a.confidence);
+
+  if (finalStandard.length === 0 || onlyWeakShorts) {
+    // Extra pass: top volume coins for precision bounce LONGs when scan is empty/weak-short.
+    if (bounceLongs.length === 0) {
+      const topVol = coins.slice(0, 15);
+      const bounceRaw = await mapPool(topVol, concurrency, async (coin) => {
+        const liq = liqByCoin.get(coin);
+        if (!liq) return null;
+        return scanStandardCoin(coin, liq, universe, true);
       });
+      const found = bounceRaw
+        .filter((c): c is GlobalSignalCandidate => c !== null)
+        .filter((c) => c.direction === 'LONG' && /Bounce LONG/i.test(c.reason))
+        .sort((a, b) => b.confidence - a.confidence);
+      if (found.length > 0) {
+        finalStandard = found;
+        logger.info('Global HL scan — precision bounce LONGs (dedicated pass)', {
+          count: found.length,
+          top: found[0]?.coin,
+          conf: found[0]?.confidence,
+        });
+      }
+    } else if (onlyWeakShorts) {
+      finalStandard = bounceLongs;
+      logger.info('Global HL scan — precision bounce LONGs prefer over weak SHORT fallback', {
+        count: bounceLongs.length,
+        top: bounceLongs[0]?.coin,
+        conf: bounceLongs[0]?.confidence,
+      });
+    }
+
+    if (finalStandard.length === 0) {
+      const majorCoins = ['BTC', 'ETH'].filter((c) => coins.includes(c));
+      const majorRaw = await mapPool(majorCoins, 2, async (coin) => {
+        const liq = liqByCoin.get(coin);
+        if (!liq) return null;
+        return scanMajorChartFallback(coin, liq, universe);
+      });
+      finalStandard = majorRaw
+        .filter((c): c is GlobalSignalCandidate => c !== null)
+        .sort((a, b) => {
+          if (a.direction !== b.direction) return a.direction === 'LONG' ? -1 : 1;
+          return b.confidence - a.confidence;
+        });
+      if (finalStandard.length > 0) {
+        logger.info('Global HL scan — major chart fallback used', {
+          count: finalStandard.length,
+          top: finalStandard[0]?.coin,
+          direction: finalStandard[0]?.direction,
+          conf: finalStandard[0]?.confidence,
+        });
+      }
     }
   }
 
   const macroRisk = isMacroRiskOffEnvironment();
   if (macroRisk.active) {
     const before = finalStandard.length;
-    finalStandard = finalStandard.filter((c) => c.direction !== 'LONG');
-    aggressiveFiltered = aggressiveFiltered.filter((c) => c.direction !== 'LONG');
+    // Keep precision bounce LONGs — dumps that create risk-off are exactly when bounce setups appear.
+    finalStandard = finalStandard.filter(
+      (c) => c.direction !== 'LONG' || /Bounce LONG/i.test(c.reason)
+    );
+    aggressiveFiltered = aggressiveFiltered.filter(
+      (c) => c.direction !== 'LONG' || /Bounce LONG/i.test(c.reason)
+    );
     if (before > finalStandard.length) {
       logger.info('Global HL scan — LONG candidates removed (macro risk-off)', {
         reason: macroRisk.reason,
         removed: before - finalStandard.length,
+        bounceLongsKept: finalStandard.filter((c) => c.direction === 'LONG').length,
       });
     }
   }
