@@ -1,15 +1,30 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { normalizeHlPerpCoin } from '../lib/botTradingPairs';
+import { isHlFillOpen } from '../lib/hyperliquid/format';
+import { toNum } from '../lib/hyperliquid/parse';
+import type { HlUserFill } from '../lib/hyperliquid/user';
 import { supabase } from '../lib/supabase';
 
-/** Coins whose latest hl_bot_chart_markers event is an open (bot-managed). */
-export function useHlBotManagedCoins(wallet: string | undefined, refreshKey = 0) {
-  const [coins, setCoins] = useState<Set<string>>(new Set());
+type LatestMarker = { type: 'open' | 'close'; ms: number };
+
+/**
+ * Coins the bot is managing for live Positions.
+ * Primary: latest hl_bot_chart_markers event is open.
+ * Fallback: still-open HL size after a close marker when a later Open fill exists
+ * (reopen without open marker — previously hid the live position under “scanning”).
+ */
+export function useHlBotManagedCoins(
+  wallet: string | undefined,
+  refreshKey = 0,
+  openPositionCoins: readonly string[] = [],
+  fills: readonly HlUserFill[] = []
+) {
+  const [latestByCoin, setLatestByCoin] = useState<Map<string, LatestMarker>>(new Map());
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!wallet) {
-      setCoins(new Set());
+      setLatestByCoin(new Map());
       return;
     }
     setLoading(true);
@@ -24,21 +39,20 @@ export function useHlBotManagedCoins(wallet: string | undefined, refreshKey = 0)
 
       if (error) throw error;
 
-      const latest = new Map<string, 'open' | 'close'>();
+      const latest = new Map<string, LatestMarker>();
       for (const row of data ?? []) {
         const coin = normalizeHlPerpCoin(String(row.coin));
         if (!coin || latest.has(coin)) continue;
-        latest.set(coin, row.event_type as 'open' | 'close');
+        const ms = Date.parse(String(row.event_ts)) || 0;
+        latest.set(coin, {
+          type: row.event_type as 'open' | 'close',
+          ms,
+        });
       }
-
-      const open = new Set<string>();
-      for (const [coin, type] of latest) {
-        if (type === 'open') open.add(coin);
-      }
-      setCoins(open);
+      setLatestByCoin(latest);
     } catch (e) {
       console.warn('[useHlBotManagedCoins]', e);
-      // Keep last known managed coins — clearing on poll errors hid open bot positions.
+      // Keep last known markers — clearing on poll errors hid open bot positions.
     } finally {
       setLoading(false);
     }
@@ -53,6 +67,30 @@ export function useHlBotManagedCoins(wallet: string | undefined, refreshKey = 0)
     const id = window.setInterval(() => void refresh(), 20_000);
     return () => window.clearInterval(id);
   }, [wallet, refresh]);
+
+  const coins = useMemo(() => {
+    const open = new Set<string>();
+    for (const [coin, row] of latestByCoin) {
+      if (row.type === 'open') open.add(coin);
+    }
+
+    // Reconcile: HL still has size, markers say closed, but a later Open fill exists
+    // (bot reopened without a recorded open marker).
+    for (const raw of openPositionCoins) {
+      const coin = normalizeHlPerpCoin(raw);
+      if (!coin || open.has(coin)) continue;
+      const latest = latestByCoin.get(coin);
+      if (!latest || latest.type !== 'close' || latest.ms <= 0) continue;
+      const reopen = fills.some((f) => {
+        if (normalizeHlPerpCoin(f.coin) !== coin) return false;
+        if (!isHlFillOpen(f.dir)) return false;
+        return toNum(f.time) > latest.ms;
+      });
+      if (reopen) open.add(coin);
+    }
+
+    return open;
+  }, [latestByCoin, openPositionCoins, fills]);
 
   const has = useCallback((coin: string) => coins.has(normalizeHlPerpCoin(coin)), [coins]);
 

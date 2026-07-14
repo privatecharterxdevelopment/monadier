@@ -33,7 +33,19 @@ const ProTradeBotHistory: React.FC<Props> = ({
   const userId = user?.id ?? null;
   const wallet = walletAddress?.trim() || undefined;
   const { account, fills, fillsLoading } = useHyperliquidAccount(wallet);
-  const { coins: botManagedCoins } = useHlBotManagedCoins(wallet, refreshKey + fills.length);
+  const openCoins = useMemo(
+    () =>
+      (account?.positions ?? [])
+        .filter((p) => Math.abs(toNum(p.szi)) > 1e-12)
+        .map((p) => p.coin),
+    [account?.positions]
+  );
+  const { coins: botManagedCoins } = useHlBotManagedCoins(
+    wallet,
+    refreshKey + fills.length,
+    openCoins,
+    fills
+  );
   const { windows: botWindows, fillTids: botFillTids, markers: botMarkers } = useHlBotTradeWindows(
     wallet,
     refreshKey + fills.length

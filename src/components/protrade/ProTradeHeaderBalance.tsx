@@ -37,9 +37,19 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
   const signedIn = Boolean(user);
   const enabled = signedIn && walletConnected;
   const { snapshot } = useHlAccountSnapshot(enabled ? walletAddress : undefined);
-  const { account } = useHyperliquidAccount(enabled ? walletAddress : undefined);
+  const { account, fills } = useHyperliquidAccount(enabled ? walletAddress : undefined);
+  const openCoins = useMemo(
+    () =>
+      (account?.positions ?? [])
+        .filter((p) => Math.abs(toNum(p.szi)) > 1e-12)
+        .map((p) => p.coin),
+    [account?.positions]
+  );
   const { coins: botManagedCoins } = useHlBotManagedCoins(
-    enabled && section !== 'betting' ? walletAddress : undefined
+    enabled && section !== 'betting' ? walletAddress : undefined,
+    0,
+    openCoins,
+    fills
   );
   const betStats = useBettingHeaderBalance(walletAddress, enabled && section === 'betting');
   const platformFees = usePlatformFeeGate();

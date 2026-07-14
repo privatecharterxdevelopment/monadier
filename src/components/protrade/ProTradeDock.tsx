@@ -607,6 +607,11 @@ const ProTradeDock: React.FC<Props> = ({
             <p className="hl-dock-empty" role="status">
               Loading open positions…
             </p>
+          ) : isBotMode && hlOpenPositionCount > 0 && scopedPositions.length === 0 ? (
+            <p className="hl-dock-empty" role="status">
+              {hlOpenPositionCount} open on Hyperliquid — not tagged as bot yet (syncing markers). Check
+              Perps → Positions, or refresh in a few seconds.
+            </p>
           ) : isBotMode && botRunning && !botNeedsDeposit ? (
             <div className="hl-dock-empty hl-dock-empty--bot-scan" role="status">
               {botScanMetrics ? (

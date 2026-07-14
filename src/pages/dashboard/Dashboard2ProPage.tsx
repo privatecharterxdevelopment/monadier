@@ -159,9 +159,19 @@ const Dashboard2ProPageContent: React.FC = () => {
     [fills]
   );
 
+  const openPerpCoins = useMemo(
+    () =>
+      (account?.positions ?? [])
+        .filter((p) => Math.abs(toNum(p.szi)) > 1e-12)
+        .map((p) => p.coin),
+    [account?.positions]
+  );
+
   const { coins: botManagedCoins, loading: botManagedCoinsLoading, refresh: refreshBotManagedCoins } = useHlBotManagedCoins(
     (hlActiveWallet ?? address)?.toLowerCase(),
-    botSyncTick + perpFills.length
+    botSyncTick + perpFills.length,
+    openPerpCoins,
+    perpFills
   );
 
   const botPositions = useMemo(
