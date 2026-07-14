@@ -447,11 +447,13 @@ export class HyperliquidTradingService {
       }
 
       const rank = volumeRankForCoin(liquidUniverse, signal.coin);
-      if (rank > config.hyperliquid.scalpOpen.maxVolumeRank) {
+      const maxRank = config.hyperliquid.scalpOpen.maxVolumeRank;
+      // 0 = no top-N cut — every coin above minDayVolumeUsd may open
+      if (maxRank > 0 && rank > maxRank) {
         logger.debug('HL signal skip: outside top liquid universe', {
           coin: signal.coin,
           volumeRank: rank,
-          maxRank: config.hyperliquid.scalpOpen.maxVolumeRank,
+          maxRank,
         });
         continue;
       }

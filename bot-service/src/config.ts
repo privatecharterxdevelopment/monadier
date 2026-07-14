@@ -313,7 +313,8 @@ export const config = {
     },
     /** Scalp opens — top liquid pairs only, fast TF alignment. */
     scalpOpen: {
-      maxVolumeRank: Number(process.env.HL_OPEN_MAX_VOLUME_RANK || 18),
+      /** 0 = all coins above minDayVolumeUsd may open (no top-N cut). */
+      maxVolumeRank: Number(process.env.HL_OPEN_MAX_VOLUME_RANK || 0),
       allowCautiousAlts: process.env.HL_ALLOW_CAUTIOUS_OPENS !== 'false',
       require1m5mAlign: process.env.HL_SCALP_REQUIRE_1M5M !== 'false',
       minTfConfidence: Number(process.env.HL_SCALP_MIN_TF_CONF || 52),
