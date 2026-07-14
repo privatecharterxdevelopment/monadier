@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
@@ -96,11 +97,12 @@ export const ProTradeBotPanelSlot: React.FC<PanelProps> = ({
   onOpenHistory,
   onRequireSignIn,
 }) => {
+  const { i18n } = useTranslation();
   const { metrics, refresh } = useProTradeBot();
   const [fundsAction, setFundsAction] = useState<'deposit' | 'withdraw' | null>(null);
 
   return (
-    <div id="hl-trade-panel" className="hl-bot-panel-wrap">
+    <div id="hl-trade-panel" className="hl-bot-panel-wrap" key={i18n.resolvedLanguage ?? i18n.language}>
       <TerminalTradePanel
         metrics={metrics}
         onRefresh={refresh}

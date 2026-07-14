@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Check, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { APP_LANGUAGES, type AppLanguage } from '../../i18n/languages';
+import { APP_LANGUAGES, LANGUAGE_STORAGE_KEY, type AppLanguage } from '../../i18n/languages';
 
 export type LanguageSwitcherVariant = 'landing-light' | 'landing-dark' | 'app';
 
@@ -38,6 +38,12 @@ const LanguageSwitcher: React.FC<Props> = ({ variant = 'landing-light', classNam
   }, [open, close]);
 
   const pick = (code: AppLanguage) => {
+    try {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, code);
+    } catch {
+      /* private mode */
+    }
+    document.documentElement.lang = code;
     void i18n.changeLanguage(code);
     close();
   };

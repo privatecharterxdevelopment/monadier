@@ -30,6 +30,11 @@ void i18n
     supportedLngs,
     fallbackLng: DEFAULT_LANGUAGE,
     defaultNS: 'translation',
+    /** Re-render every bound hook when language flips (app shell + bot panel). */
+    react: {
+      bindI18n: 'languageChanged loaded',
+      useSuspense: false,
+    },
     interpolation: { escapeValue: false },
     detection: {
       order: ['localStorage', 'navigator'],
