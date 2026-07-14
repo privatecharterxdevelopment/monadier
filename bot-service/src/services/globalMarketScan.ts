@@ -8,6 +8,7 @@ import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { refreshMegaPairVolumeMonitor, isMacroRiskOffEnvironment } from './megaPairVolumeMonitor';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { preferLongAfterDumpBoost } from './preferLongAfterDump';
+import { evaluateBounceLongSetup } from './bounceLongSetup';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 
@@ -153,11 +154,8 @@ async function scanStandardCoin(
     const bouncePeek = await preferLongAfterDumpBoost({
       coin,
       direction: dir,
-      confidence: analysis.confidence,
     });
-    const bounceBypass =
-      bouncePeek.forceLongCandidate && bouncePeek.setup?.ok === true;
-    if (analysis.confidence < minConf && !bounceBypass) return null;
+    if (analysis.confidence < minConf) return null;
     const minTfs = relaxed
       ? 2
       : cautious
@@ -168,7 +166,7 @@ async function scanStandardCoin(
       : cautious
         ? config.hyperliquid.cautiousScan.minTrendAlignment
         : config.hyperliquid.minTrendAlignment;
-    if (cautious && !bounceBypass) {
+    if (cautious) {
       const pumpSkip = await validateNotFreshlyPumped({ coin, tier: tierInfo.tier });
       if (!pumpSkip.ok) {
         logger.debug('HL scan skip: fresh pump cooldown', { coin, reason: pumpSkip.reason });
@@ -187,50 +185,15 @@ async function scanStandardCoin(
         return null;
       }
     }
-    if (
-      !bounceBypass &&
-      (analysis.metrics?.directionalTfCount ?? 0) < minTfs
-    )
-      return null;
-    if (!bounceBypass && (analysis.metrics?.trendAlignment ?? 0) < minAlign)
-      return null;
+    if ((analysis.metrics?.directionalTfCount ?? 0) < minTfs) return null;
+    if ((analysis.metrics?.trendAlignment ?? 0) < minAlign) return null;
 
     const longBoost = bouncePeek;
-
-    // Precision bounce: dump→impulse greens → LONG candidate (even if MTF said HOLD/weak SHORT).
-    if (longBoost.forceLongCandidate && longBoost.setup?.ok) {
-      const conf = Math.max(
-        config.hyperliquid.preferLongAfterDump.impulseCandidateConf,
-        longBoost.setup.confidence
-      );
-      logger.info('HL scan — precision bounce LONG candidate', {
-        coin,
-        grade: longBoost.setup.grade,
-        prior: analysis.direction,
-        conf,
-      });
-      return {
-        coin,
-        symbol,
-        direction: 'LONG' as const,
-        confidence: Math.min(100, conf),
-        reason: `${longBoost.setup.reason}${relaxed ? ' · relaxed scan' : ''}`,
-        dayVolumeUsd: liq.dayVolumeUsd,
-        openInterestUsd: liq.openInterestUsd,
-        botMode: 'standard',
-        mtfBreakdown: analysis.mtfBreakdown,
-        trendAlignment: analysis.metrics?.trendAlignment,
-        directionalTfCount: analysis.metrics?.directionalTfCount,
-        h1Trend: analysis.metrics?.h1Trend,
-        signalReasons: analysis.signalReasons,
-        indicators: analysis.indicators,
-      };
-    }
 
     if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
 
     // Always enforce — relaxed fallback previously skipped this and opened LONGs in dumps.
-    // Exception: confirmed dump→bounce LONG (counter-trend 1h dump is expected into the low).
+    // Bounce setup may unlock LONG into a still-soft 1h dump (LONG path only).
     if (
       counterTrendBlocked(analysis.direction, analysis.metrics?.h1Trend) &&
       !(longBoost.setup?.ok && analysis.direction === 'LONG')
@@ -270,6 +233,33 @@ async function scanStandardCoin(
       h1Trend: analysis.metrics?.h1Trend,
       signalReasons: analysis.signalReasons,
       indicators: analysis.indicators,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** LONG-only extra candidate — bounce candle math; does not alter SHORT candidates. */
+async function scanBounceLongOnly(
+  coin: string,
+  liq: { dayVolumeUsd: number; openInterestUsd: number }
+): Promise<GlobalSignalCandidate | null> {
+  try {
+    const setup = await evaluateBounceLongSetup(coin);
+    if (!setup.ok || !setup.grade) return null;
+    const conf = Math.max(
+      config.hyperliquid.preferLongAfterDump.impulseCandidateConf,
+      setup.confidence
+    );
+    return {
+      coin: coin.toUpperCase(),
+      symbol: hlCoinToBinanceSymbol(coin),
+      direction: 'LONG',
+      confidence: Math.min(100, conf),
+      reason: setup.reason ?? 'Bounce LONG',
+      dayVolumeUsd: liq.dayVolumeUsd,
+      openInterestUsd: liq.openInterestUsd,
+      botMode: 'standard',
     };
   } catch {
     return null;
@@ -411,64 +401,50 @@ export async function scanGlobalHlSignals(
     }
   }
 
-  const onlyWeakShorts =
-    finalStandard.length > 0 &&
-    finalStandard.every((c) => c.direction === 'SHORT' && c.confidence < 55);
-  const bounceLongs = finalStandard
-    .filter((c) => c.direction === 'LONG' && /Bounce LONG/i.test(c.reason))
+  // LONG-only: discover bounce setups and merge — never remove or demote SHORT candidates.
+  // Skip coins that already have any candidate (keeps existing SHORT/LONG untouched).
+  const existingCoins = new Set(finalStandard.map((c) => c.coin.toUpperCase()));
+  const topVol = coins.slice(0, 15);
+  const bounceRaw = await mapPool(topVol, concurrency, async (coin) => {
+    if (existingCoins.has(coin.toUpperCase())) return null;
+    const liq = liqByCoin.get(coin);
+    if (!liq) return null;
+    return scanBounceLongOnly(coin, liq);
+  });
+  const foundBounce = bounceRaw
+    .filter((c): c is GlobalSignalCandidate => c !== null)
     .sort((a, b) => b.confidence - a.confidence);
+  if (foundBounce.length > 0) {
+    finalStandard = [...finalStandard, ...foundBounce].sort(
+      (a, b) => b.confidence - a.confidence || b.dayVolumeUsd - a.dayVolumeUsd
+    );
+    logger.info('Global HL scan — bounce LONGs merged (SHORT candidates untouched)', {
+      count: foundBounce.length,
+      top: foundBounce[0]?.coin,
+      conf: foundBounce[0]?.confidence,
+    });
+  }
 
-  if (finalStandard.length === 0 || onlyWeakShorts) {
-    // Extra pass: top volume coins for precision bounce LONGs when scan is empty/weak-short.
-    if (bounceLongs.length === 0) {
-      const topVol = coins.slice(0, 15);
-      const bounceRaw = await mapPool(topVol, concurrency, async (coin) => {
-        const liq = liqByCoin.get(coin);
-        if (!liq) return null;
-        return scanStandardCoin(coin, liq, universe, true);
+  if (finalStandard.length === 0) {
+    const majorCoins = ['BTC', 'ETH'].filter((c) => coins.includes(c));
+    const majorRaw = await mapPool(majorCoins, 2, async (coin) => {
+      const liq = liqByCoin.get(coin);
+      if (!liq) return null;
+      return scanMajorChartFallback(coin, liq, universe);
+    });
+    finalStandard = majorRaw
+      .filter((c): c is GlobalSignalCandidate => c !== null)
+      .sort((a, b) => {
+        if (a.direction !== b.direction) return a.direction === 'LONG' ? -1 : 1;
+        return b.confidence - a.confidence;
       });
-      const found = bounceRaw
-        .filter((c): c is GlobalSignalCandidate => c !== null)
-        .filter((c) => c.direction === 'LONG' && /Bounce LONG/i.test(c.reason))
-        .sort((a, b) => b.confidence - a.confidence);
-      if (found.length > 0) {
-        finalStandard = found;
-        logger.info('Global HL scan — precision bounce LONGs (dedicated pass)', {
-          count: found.length,
-          top: found[0]?.coin,
-          conf: found[0]?.confidence,
-        });
-      }
-    } else if (onlyWeakShorts) {
-      finalStandard = bounceLongs;
-      logger.info('Global HL scan — precision bounce LONGs prefer over weak SHORT fallback', {
-        count: bounceLongs.length,
-        top: bounceLongs[0]?.coin,
-        conf: bounceLongs[0]?.confidence,
+    if (finalStandard.length > 0) {
+      logger.info('Global HL scan — major chart fallback used', {
+        count: finalStandard.length,
+        top: finalStandard[0]?.coin,
+        direction: finalStandard[0]?.direction,
+        conf: finalStandard[0]?.confidence,
       });
-    }
-
-    if (finalStandard.length === 0) {
-      const majorCoins = ['BTC', 'ETH'].filter((c) => coins.includes(c));
-      const majorRaw = await mapPool(majorCoins, 2, async (coin) => {
-        const liq = liqByCoin.get(coin);
-        if (!liq) return null;
-        return scanMajorChartFallback(coin, liq, universe);
-      });
-      finalStandard = majorRaw
-        .filter((c): c is GlobalSignalCandidate => c !== null)
-        .sort((a, b) => {
-          if (a.direction !== b.direction) return a.direction === 'LONG' ? -1 : 1;
-          return b.confidence - a.confidence;
-        });
-      if (finalStandard.length > 0) {
-        logger.info('Global HL scan — major chart fallback used', {
-          count: finalStandard.length,
-          top: finalStandard[0]?.coin,
-          direction: finalStandard[0]?.direction,
-          conf: finalStandard[0]?.confidence,
-        });
-      }
     }
   }
 
