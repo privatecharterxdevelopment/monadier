@@ -794,7 +794,18 @@ export class HyperliquidTradingService {
         return { success: false, error: newsGate.reason };
       }
 
-      const freshPumpGate = await validateNotFreshlyPumped({ coin, tier: coinTier });
+      const strongMtf = isStrongGlobalScanPick(opts.pick);
+      // Live scan signal present → don't sit on post-pump timer (esp. BTC/ETH shorts).
+      const signalUnlocksPump =
+        MAJOR_COINS.has(coin) ||
+        strongMtf ||
+        opts.pick.confidence >= config.hyperliquid.minSignalConfidence;
+      const freshPumpGate = signalUnlocksPump
+        ? {
+            ok: true as const,
+            reason: `Fresh pump skipped — scan signal ${opts.direction} ${opts.pick.confidence.toFixed(0)}%`,
+          }
+        : await validateNotFreshlyPumped({ coin, tier: coinTier });
       if (!freshPumpGate.ok) {
         logger.info('HL open blocked — fresh pump skip (step 2)', {
           user: opts.userAddress.slice(0, 10),
@@ -805,7 +816,6 @@ export class HyperliquidTradingService {
         return { success: false, error: freshPumpGate.reason };
       }
 
-      const strongMtf = isStrongGlobalScanPick(opts.pick);
       // BTC/ETH: never relax secondary gates — majors need full precision
       // (momentum / scalp / S/R / pump-sweep / 20-candle). Alts unchanged.
       const relaxSecondaryGates = MAJOR_COINS.has(coin)

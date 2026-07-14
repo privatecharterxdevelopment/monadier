@@ -353,7 +353,7 @@ export const config = {
     /** Skip pair (LONG + SHORT) after a fat pump — mass alts retest highs. */
     freshPump: {
       /** Blind timer after pump detect — live re-check clears early if trigger fades. */
-      cooldownMs: Number(process.env.HL_FRESH_PUMP_COOLDOWN_MS || 30 * 60 * 1000),
+      cooldownMs: Number(process.env.HL_FRESH_PUMP_COOLDOWN_MS || 15 * 60 * 1000),
       cautiousBlock15mPct: Number(process.env.HL_FRESH_PUMP_15M || 0.22),
       cautiousBlock1hPct: Number(process.env.HL_FRESH_PUMP_1H || 0.4),
       cautiousBlock4hPct: Number(process.env.HL_FRESH_PUMP_4H || 0.75),
