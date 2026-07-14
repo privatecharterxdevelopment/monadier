@@ -1,11 +1,15 @@
 import { supabase } from './supabase';
 import { getBotApiBase } from './signalService';
+import { isFeeExemptWallet } from './admin';
 import { fetchHlBuilderPlatformStatus, type HlBuilderPlatformStatus } from './hyperliquid/builderPlatform';
 import {
   fetchAdminHlLiveOpenPositions,
   sumAdminOpenUpnl,
   countAdminPositionsByCoin,
 } from './adminHlLivePositions';
+
+const HL_BOT_CHAIN_ID = 42161;
+const FEE_WINS_BEFORE_BLOCK = 20;
 
 export type AdminHlStats = {
   total_users: number;
@@ -344,9 +348,6 @@ export async function fetchAdminSessionCheck(): Promise<AdminSessionCheck | null
   return data as AdminSessionCheck;
 }
 
-const HL_BOT_CHAIN_ID = 42161;
-const FEE_WINS_BEFORE_BLOCK = 20;
-
 function botBlockers(
   v: {
     auto_trade_enabled?: boolean | null;
@@ -355,14 +356,17 @@ function botBlockers(
   },
   agentApproved: boolean,
   feesAccrued: number,
-  feeWinCount: number
+  feeWinCount: number,
+  feeExempt = false
 ): string {
   const parts: string[] = [];
   if (!v.auto_trade_enabled) parts.push('toggle off');
   if (v.chain_id != null && v.chain_id !== HL_BOT_CHAIN_ID) parts.push(`chain ${v.chain_id}`);
   if (v.execution_venue && v.execution_venue !== 'hyperliquid') parts.push(`venue ${v.execution_venue}`);
   if (!agentApproved) parts.push('no agent');
-  if (feesAccrued > 0.000_001 && feeWinCount >= FEE_WINS_BEFORE_BLOCK) {
+  if (feeExempt) {
+    parts.push('fee exempt');
+  } else if (feesAccrued > 0.000_001 && feeWinCount >= FEE_WINS_BEFORE_BLOCK) {
     parts.push(`fees due (${feeWinCount}/20 wins)`);
   }
   return parts.join(' · ');
@@ -376,15 +380,18 @@ function isBotRunnable(
   },
   agentApproved: boolean,
   feesAccrued: number,
-  feeWinCount: number
+  feeWinCount: number,
+  feeExempt = false
 ): boolean {
   const venueOk = !v.execution_venue || v.execution_venue === 'hyperliquid';
+  const feeBlocked =
+    !feeExempt && feesAccrued > 0.000_001 && feeWinCount >= FEE_WINS_BEFORE_BLOCK;
   return (
     Boolean(v.auto_trade_enabled) &&
     v.chain_id === HL_BOT_CHAIN_ID &&
     venueOk &&
     agentApproved &&
-    !(feesAccrued > 0.000_001 && feeWinCount >= FEE_WINS_BEFORE_BLOCK)
+    !feeBlocked
   );
 }
 
@@ -651,7 +658,8 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
     const feesPaid = paidByWallet.get(w) ?? 0;
     const feeWinCount = feeWinByWallet.get(w) ?? 0;
     const agentApproved = Boolean(agent);
-    const bot_runnable = isBotRunnable(v, agentApproved, fees.accrued, feeWinCount);
+    const feeExempt = isFeeExemptWallet(w);
+    const bot_runnable = isBotRunnable(v, agentApproved, fees.accrued, feeWinCount, feeExempt);
     return {
       wallet_address: w,
       user_id: v.user_id ?? null,
@@ -669,13 +677,15 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
       agent_approved_at: agent?.approved_at ?? null,
       agent_expires_at: agent?.expires_at ?? null,
       bot_runnable,
-      blockers: botBlockers(v, agentApproved, fees.accrued, feeWinCount),
-      fees_accrued_usd: fees.accrued,
+      blockers: botBlockers(v, agentApproved, fees.accrued, feeWinCount, feeExempt),
+      fees_accrued_usd: feeExempt ? 0 : fees.accrued,
       fees_settled_usd: fees.settled,
       fees_paid_usd: feesPaid,
-      fees_owed_usd: Math.max(0, fees.accrued - feesPaid),
-      fee_win_count: feeWinCount,
-      fee_opens_blocked: fees.accrued > 0.000_001 && feeWinCount >= FEE_WINS_BEFORE_BLOCK,
+      fees_owed_usd: feeExempt ? 0 : Math.max(0, fees.accrued - feesPaid),
+      fee_win_count: feeExempt ? 0 : feeWinCount,
+      fee_opens_blocked: feeExempt
+        ? false
+        : fees.accrued > 0.000_001 && feeWinCount >= FEE_WINS_BEFORE_BLOCK,
     };
   });
 
@@ -1101,36 +1111,89 @@ export async function fetchAdminWalletFeeAudit(
   return data as AdminWalletFeeAudit;
 }
 
+/** Fix inverted SQL waiver logic + hard-coded fee-exempt wallets. */
+function reconcileAdminBotRunnable(dash: AdminHlDashboard): AdminHlDashboard {
+  const bots = (dash.active_bots ?? []).map((b) => {
+    const w = b.wallet_address.toLowerCase();
+    const feeExempt =
+      isFeeExemptWallet(w) || /fee waived|fee exempt/i.test(b.blockers ?? '');
+    const feeBlocked =
+      !feeExempt &&
+      (b.fees_accrued_usd ?? 0) > 0.000_001 &&
+      (b.fee_win_count ?? 0) >= FEE_WINS_BEFORE_BLOCK;
+    const venueOk = !b.execution_venue || b.execution_venue === 'hyperliquid';
+    const bot_runnable =
+      Boolean(b.auto_trade_enabled) &&
+      b.chain_id === HL_BOT_CHAIN_ID &&
+      venueOk &&
+      Boolean(b.agent_approved) &&
+      !feeBlocked;
+
+    const blockers = botBlockers(
+      {
+        auto_trade_enabled: b.auto_trade_enabled,
+        chain_id: b.chain_id,
+        execution_venue: b.execution_venue,
+      },
+      Boolean(b.agent_approved),
+      b.fees_accrued_usd ?? 0,
+      b.fee_win_count ?? 0,
+      feeExempt
+    );
+
+    return {
+      ...b,
+      bot_runnable,
+      fee_opens_blocked: feeBlocked,
+      fees_owed_usd: feeExempt ? 0 : b.fees_owed_usd,
+      fee_win_count: feeExempt ? 0 : b.fee_win_count,
+      blockers,
+    };
+  });
+
+  const runnable = bots.filter((b) => b.bot_runnable).length;
+  return {
+    ...dash,
+    active_bots: bots,
+    stats: {
+      ...dash.stats,
+      hl_bots_runnable: runnable,
+      hl_bots_active: runnable,
+    },
+  };
+}
+
 /** Overlay live HL perps + authoritative HL close P/L stats onto the DB snapshot. */
 export async function enrichAdminHlDashboard(
   dash: AdminHlDashboard
 ): Promise<AdminHlDashboard> {
+  const reconciled = reconcileAdminBotRunnable(dash);
   const dayAgo = new Date(Date.now() - 86_400_000).toISOString();
   const [hlLive, pnlAll, pnl24h] = await Promise.all([
-    fetchAdminHlLiveOpenPositions(dash),
+    fetchAdminHlLiveOpenPositions(reconciled),
     aggregateHlTradeHistoryPnl(),
     aggregateHlTradeHistoryPnl(dayAgo),
   ]);
 
   const hlCloses = dedupeAdminTradeCloses(
-    dash.recent_closes.filter((t) => isHlBotCloseVenue(t.execution_venue))
+    reconciled.recent_closes.filter((t) => isHlBotCloseVenue(t.execution_venue))
   );
   const openUpnl = sumAdminOpenUpnl(hlLive);
 
   const walletList = [
-    ...dash.active_bots.map((b) => b.wallet_address),
-    ...dash.users.map((u) => u.wallet_address ?? ''),
+    ...reconciled.active_bots.map((b) => b.wallet_address),
+    ...reconciled.users.map((u) => u.wallet_address ?? ''),
   ];
   const statsByWallet = await fetchAdminWalletBotStats(walletList);
 
   return mergeAdminUserFeeFields(
     mergeWalletBotStatsIntoDashboard(
       {
-        ...dash,
+        ...reconciled,
         open_positions: hlLive,
         recent_closes: hlCloses,
         stats: {
-          ...dash.stats,
+          ...reconciled.stats,
           open_positions: hlLive.length,
           open_upnl_total: openUpnl,
           closed_trades_24h: pnl24h.count,

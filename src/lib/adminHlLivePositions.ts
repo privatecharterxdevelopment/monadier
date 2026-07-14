@@ -1,5 +1,6 @@
 import { hlInfoPost } from './hyperliquid/hlInfoClient';
 import { fetchHlAccountState, type HlPosition } from './hyperliquid/user';
+import { FEE_EXEMPT_WALLETS } from './admin';
 import type { AdminHlBot, AdminHlDashboard, AdminOpenPosition, AdminUserRow } from './adminDashboard';
 
 const WALLET_RE = /^0x[a-f0-9]{40}$/i;
@@ -32,10 +33,10 @@ export function collectAdminHlWalletAddresses(dash: AdminHlDashboard): string[] 
     if (w && WALLET_RE.test(w)) set.add(w);
   };
 
-  // Canonical HL wallets only — avoid polling every historic address from fees/closes/events
-  // (was inflating open-position counts with stale or duplicate legs).
+  // Canonical HL wallets + always poll fee-exempt trading wallets.
   for (const b of dash.active_bots ?? []) add(b.wallet_address);
   for (const u of dash.users ?? []) add(u.wallet_address);
+  for (const w of FEE_EXEMPT_WALLETS) add(w);
 
   return [...set];
 }

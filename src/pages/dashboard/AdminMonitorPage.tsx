@@ -118,8 +118,8 @@ const AdminMonitorPage: React.FC = () => {
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [historyFilter, setHistoryFilter] = useState<HistoryUserFilter>(null);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     setRpcError(null);
     const [snapshotResult, ctx] = await Promise.all([
       fetchAdminHlDashboard(),
@@ -162,7 +162,7 @@ const AdminMonitorPage: React.FC = () => {
   useEffect(() => {
     if (!isAdmin) return;
     void refresh();
-    const poll = setInterval(refresh, 60_000);
+    const poll = setInterval(() => void refresh({ silent: true }), 60_000);
     return () => clearInterval(poll);
   }, [isAdmin, refresh]);
 
@@ -174,7 +174,7 @@ const AdminMonitorPage: React.FC = () => {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'user_trade_notifications' },
         () => {
-          void refresh();
+          void refresh({ silent: true });
         }
       )
       .subscribe();
