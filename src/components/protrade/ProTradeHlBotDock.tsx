@@ -11,6 +11,7 @@ import { useHlBotRunning } from '../../hooks/useHlBotRunning';
 import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
 import { persistVaultSettings } from '../../lib/syncVaultSettings';
 import { snapLeverageToStep } from '../../lib/leverageLimits';
+import { registerBotStopSaver } from '../../lib/botStopSaver';
 import { toNum } from '../../lib/hyperliquid/parse';
 import type { HlPosition } from '../../lib/hyperliquid/user';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
@@ -179,6 +180,8 @@ const ProTradeHlBotDock: React.FC<Props> = ({
       reloadBotSettings,
     ]
   );
+
+  useEffect(() => registerBotStopSaver(handleSaveStopLoss), [handleSaveStopLoss]);
 
   const handleClosePosition = useCallback(
     async (position: HlPosition) => {

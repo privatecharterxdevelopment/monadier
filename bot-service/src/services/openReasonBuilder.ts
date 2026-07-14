@@ -3,7 +3,6 @@ import type { EntryLocationResult } from './entryLocationGate';
 import type { MacroBetaResult } from './macroBetaGate';
 import type { EntryMomentumResult } from './entryMomentumGate';
 import type { PumpShortResult } from './pumpShortGate';
-import type { DumpBottomShortResult } from './dumpBottomShortGate';
 import type { CoinNewsResult } from './coinNewsGate';
 import type { FreshPumpResult } from './freshPumpGate';
 import type { PumpSweepGateResult } from './pumpSweepGate';
@@ -20,7 +19,6 @@ export type OpenReasonParts = {
   macroGate: MacroBetaResult;
   momentumGate?: EntryMomentumResult;
   pumpShortGate?: PumpShortResult;
-  dumpBottomGate?: DumpBottomShortResult;
   newsGate?: CoinNewsResult;
   freshPumpGate?: FreshPumpResult;
   pumpSweepGate?: PumpSweepGateResult;
@@ -52,10 +50,6 @@ export function buildHlOpenReasonDoc(parts: OpenReasonParts): string {
 
   if (parts.pumpShortGate) {
     lines.push(`── Pump / fade ── ${parts.pumpShortGate.reason}`);
-  }
-
-  if (parts.dumpBottomGate) {
-    lines.push(`── Dump / swing-low ── ${parts.dumpBottomGate.reason}`);
   }
 
   if (parts.newsGate) {
@@ -131,7 +125,7 @@ export function buildHlOpenReasonDoc(parts: OpenReasonParts): string {
     lines.push(`── Location scan ── ${pick.locationReason}`);
   }
 
-  lines.push(`── Gates passed ── news · pump-cooldown · macro · short-timing · dump-bottom · mega · perp · pump-sweep · momentum · location · MTF`);
+  lines.push(`── Gates passed ── news · pump-cooldown · macro · short-timing · mega · perp · pump-sweep · momentum · location · MTF`);
 
   return lines.join(SECTION);
 }

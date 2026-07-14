@@ -43,6 +43,8 @@ import { useHlBotManagedCoins } from '../../hooks/useHlBotManagedCoins';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { setLastKnownHlBotAutoTrade } from '../../lib/hlBotRunningStore';
+import { commitBotStopLossPct } from '../../lib/botStopSaver';
+import { marginPctFromStopPrice } from '../../lib/hlTrailingStopChart';
 import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
 import { useHyperliquidMarkets } from '../../hooks/useHyperliquidMarkets';
 import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
@@ -286,6 +288,28 @@ const Dashboard2ProPageContent: React.FC = () => {
       stopLossMarginPct: botEffSettings.stopLoss,
       takeProfitMarginPct: botEffSettings.takeProfit,
     }
+  );
+
+  const handleChartCommitStopPrice = useCallback(
+    async (stopPx: number) => {
+      const pos = botChartPosition;
+      if (!pos) return;
+      const entryPx = toNum(pos.entryPx);
+      const szi = toNum(pos.szi);
+      const absSize = Math.abs(szi);
+      const side = szi >= 0 ? ('long' as const) : ('short' as const);
+      const mark = toNum(pos.positionValue) > 0 && absSize > 0
+        ? toNum(pos.positionValue) / absSize
+        : entryPx;
+      const lev = Math.max(1, toNum(pos.leverage?.value) || botEffSettings.leverage);
+      const notional = absSize * (mark > 0 ? mark : entryPx);
+      const collateral = notional / lev;
+      const pct = marginPctFromStopPrice(side, entryPx, absSize, collateral, stopPx);
+      if (pct == null || pct < 0.1 || pct > 50) return;
+      const result = await commitBotStopLossPct(Math.round(pct * 100) / 100);
+      if (result.ok) void reloadBotSettings();
+    },
+    [botChartPosition, botEffSettings.leverage, reloadBotSettings]
   );
 
   /** User picked a position coin — don't auto-switch chart away from it. */
@@ -745,6 +769,7 @@ const Dashboard2ProPageContent: React.FC = () => {
                 wsConnected={perpMarket.wsConnected}
                 chartError={perpMarket.error}
                 fetchAttempts={perpMarket.fetchAttempts}
+                onCommitStopPrice={(px) => void handleChartCommitStopPrice(px)}
               />
               <ProTradeBotAnalysis
                 walletConnected={isConnected}

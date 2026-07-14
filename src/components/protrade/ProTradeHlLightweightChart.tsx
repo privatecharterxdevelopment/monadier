@@ -66,6 +66,11 @@ type Props = {
   wsConnected?: boolean;
   chartError?: string | null;
   fetchAttempts?: number;
+  /**
+   * Click Liq (or SL) once to select, drag to set bot max-loss stop.
+   * Does not move Hyperliquid exchange liquidation — saves vault stopLoss %.
+   */
+  onCommitStopPrice?: (stopPx: number) => void | Promise<void>;
 };
 
 function safeChartOp(fn: () => void) {
@@ -86,6 +91,8 @@ function applyPositionPriceLines(
     overlayCoin: string;
     positionOverlay?: OverlayProps;
     chartColors: ReturnType<typeof getProTradeChartColors>;
+    draftStopPx?: number | null;
+    stopLineSelected?: boolean;
   }
 ) {
   for (const line of priceLinesRef.current) {
@@ -93,7 +100,8 @@ function applyPositionPriceLines(
   }
   priceLinesRef.current = [];
 
-  const { openOrders, overlayCoin, positionOverlay, chartColors } = opts;
+  const { openOrders, overlayCoin, positionOverlay, chartColors, draftStopPx, stopLineSelected } =
+    opts;
   const coinOrders = openOrders.filter((o) => o.coin === overlayCoin);
   for (const o of coinOrders) {
     const px = toNum(o.limitPx);
@@ -122,15 +130,17 @@ function applyPositionPriceLines(
       })
     );
   }
+
+  // Exchange Liq stays fixed — drag never moves HL liquidation, only "Your stop".
   if (positionOverlay?.liqPx && positionOverlay.liqPx > 0) {
     priceLinesRef.current.push(
       series.createPriceLine({
         price: positionOverlay.liqPx,
         color: '#ff9800',
-        lineWidth: 1,
+        lineWidth: stopLineSelected ? 2 : 1,
         lineStyle: LineStyle.Dotted,
         axisLabelVisible: true,
-        title: 'Liq',
+        title: stopLineSelected ? 'Liq ★' : 'Liq',
       })
     );
   }
@@ -151,8 +161,10 @@ function applyPositionPriceLines(
     );
   }
 
+  const skipStaticSl =
+    stopLineSelected && draftStopPx != null && Number.isFinite(draftStopPx);
   const slPx = positionOverlay?.stopLossPx;
-  if (slPx != null && slPx > 0) {
+  if (!skipStaticSl && slPx != null && slPx > 0) {
     const slPct = positionOverlay.stopLossMarginPct ?? 0;
     priceLinesRef.current.push(
       series.createPriceLine({
@@ -162,6 +174,19 @@ function applyPositionPriceLines(
         lineStyle: LineStyle.Dashed,
         axisLabelVisible: true,
         title: slPct > 0 ? `SL −${slPct}%` : 'SL',
+      })
+    );
+  }
+
+  if (skipStaticSl && draftStopPx != null && draftStopPx > 0) {
+    priceLinesRef.current.push(
+      series.createPriceLine({
+        price: draftStopPx,
+        color: '#ff6d00',
+        lineWidth: 3,
+        lineStyle: LineStyle.Solid,
+        axisLabelVisible: true,
+        title: 'Your stop',
       })
     );
   }
@@ -203,6 +228,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
   wsConnected,
   chartError,
   fetchAttempts,
+  onCommitStopPrice,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -215,6 +241,11 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
   const followLiveRef = useRef(true);
   const suppressFollowDetectRef = useRef(false);
   const aliveRef = useRef(true);
+  const stopSelectedRef = useRef(false);
+  const draftStopPxRef = useRef<number | null>(null);
+  const dragStartPxRef = useRef<number | null>(null);
+  const stopDragMovedRef = useRef(false);
+  const draggingStopRef = useRef(false);
   const overlayCoin = orderCoin ?? coin;
   const chartColors = getProTradeChartColors(theme);
   const overlayRef = useRef(positionOverlay);
@@ -223,6 +254,8 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
   markPxRef.current = markPx;
   const onFollowLiveChangeRef = useRef(onFollowLiveChange);
   onFollowLiveChangeRef.current = onFollowLiveChange;
+  const onCommitStopPriceRef = useRef(onCommitStopPrice);
+  onCommitStopPriceRef.current = onCommitStopPrice;
   const themeRef = useRef(theme);
   const prevThemeForDataRef = useRef(theme);
   const prevCoinForDataRef = useRef(coin);
@@ -445,6 +478,8 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         overlayCoin,
         positionOverlay: overlayRef.current,
         chartColors: getProTradeChartColors(themeRef.current),
+        draftStopPx: draftStopPxRef.current,
+        stopLineSelected: stopSelectedRef.current,
       });
       if (candlesRef.current.length > 0) {
         applyChartZoom(chart, candlesRef.current.length);
@@ -720,9 +755,157 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         overlayCoin,
         positionOverlay,
         chartColors,
+        draftStopPx: draftStopPxRef.current,
+        stopLineSelected: stopSelectedRef.current,
       });
     });
   }, [openOrders, overlayCoin, theme, positionOverlay, chartColors]);
+
+  useEffect(() => {
+    stopSelectedRef.current = false;
+    draftStopPxRef.current = null;
+    dragStartPxRef.current = null;
+    stopDragMovedRef.current = false;
+    draggingStopRef.current = false;
+  }, [coin, layoutKey]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || !onCommitStopPrice) return;
+
+    const redraw = () => {
+      const s = seriesRef.current;
+      if (!s || !aliveRef.current) return;
+      safeChartOp(() => {
+        applyPositionPriceLines(s, priceLinesRef, {
+          openOrders,
+          overlayCoin,
+          positionOverlay: overlayRef.current,
+          chartColors: getProTradeChartColors(themeRef.current),
+          draftStopPx: draftStopPxRef.current,
+          stopLineSelected: stopSelectedRef.current,
+        });
+      });
+    };
+
+    const priceNear = (a: number, b: number) => {
+      if (a <= 0 || b <= 0) return false;
+      return Math.abs(a - b) / a <= 0.004;
+    };
+
+    const yToPrice = (clientY: number): number | null => {
+      const s = seriesRef.current;
+      if (!s || !el) return null;
+      const rect = el.getBoundingClientRect();
+      const y = clientY - rect.top;
+      const px = s.coordinateToPrice(y);
+      return px != null && Number.isFinite(px) && px > 0 ? px : null;
+    };
+
+    const beginDrag = (ev: PointerEvent, startPx: number) => {
+      draggingStopRef.current = true;
+      stopDragMovedRef.current = false;
+      dragStartPxRef.current = startPx;
+      draftStopPxRef.current = startPx;
+      el.setPointerCapture(ev.pointerId);
+      el.style.cursor = 'ns-resize';
+      redraw();
+      ev.preventDefault();
+    };
+
+    const onPointerDown = (ev: PointerEvent) => {
+      const overlay = overlayRef.current;
+      if (!overlay?.entryPx) return;
+      const price = yToPrice(ev.clientY);
+      if (price == null) return;
+
+      const liq = overlay.liqPx ?? 0;
+      const sl = overlay.stopLossPx ?? 0;
+      const hitLiq = liq > 0 && priceNear(price, liq);
+      const hitSl = sl > 0 && priceNear(price, sl);
+      const hitDraft =
+        stopSelectedRef.current &&
+        draftStopPxRef.current != null &&
+        priceNear(price, draftStopPxRef.current);
+
+      // 1× click on Liq/SL selects; same gesture can continue into drag.
+      if (!stopSelectedRef.current) {
+        if (hitLiq || hitSl) {
+          stopSelectedRef.current = true;
+          const start = hitSl && sl > 0 ? sl : liq > 0 ? liq : price;
+          beginDrag(ev, start);
+        }
+        return;
+      }
+
+      if (hitDraft || hitLiq || hitSl) {
+        const start =
+          draftStopPxRef.current && draftStopPxRef.current > 0
+            ? draftStopPxRef.current
+            : hitSl && sl > 0
+              ? sl
+              : liq > 0
+                ? liq
+                : price;
+        beginDrag(ev, start);
+      } else {
+        stopSelectedRef.current = false;
+        draftStopPxRef.current = null;
+        dragStartPxRef.current = null;
+        stopDragMovedRef.current = false;
+        draggingStopRef.current = false;
+        el.style.cursor = '';
+        redraw();
+      }
+    };
+
+    const onPointerMove = (ev: PointerEvent) => {
+      if (!draggingStopRef.current || !stopSelectedRef.current) return;
+      const price = yToPrice(ev.clientY);
+      if (price == null) return;
+      const overlay = overlayRef.current;
+      if (!overlay) return;
+      // Keep stop on loss side of entry.
+      if (overlay.side === 'long' && price >= overlay.entryPx) return;
+      if (overlay.side === 'short' && price <= overlay.entryPx) return;
+      const start = dragStartPxRef.current;
+      if (start != null && Math.abs(price - start) / start > 0.0008) {
+        stopDragMovedRef.current = true;
+      }
+      draftStopPxRef.current = price;
+      redraw();
+      ev.preventDefault();
+    };
+
+    const onPointerUp = (ev: PointerEvent) => {
+      if (!draggingStopRef.current) return;
+      draggingStopRef.current = false;
+      el.style.cursor = stopSelectedRef.current ? 'ns-resize' : '';
+      try {
+        el.releasePointerCapture(ev.pointerId);
+      } catch {
+        /* ignore */
+      }
+      const px = draftStopPxRef.current;
+      const moved = stopDragMovedRef.current;
+      stopDragMovedRef.current = false;
+      // Pure select click does not save — only a real drag commits bot stop %.
+      if (moved && px != null && px > 0 && onCommitStopPriceRef.current) {
+        void onCommitStopPriceRef.current(px);
+      }
+    };
+
+    el.addEventListener('pointerdown', onPointerDown);
+    el.addEventListener('pointermove', onPointerMove);
+    el.addEventListener('pointerup', onPointerUp);
+    el.addEventListener('pointercancel', onPointerUp);
+    return () => {
+      el.removeEventListener('pointerdown', onPointerDown);
+      el.removeEventListener('pointermove', onPointerMove);
+      el.removeEventListener('pointerup', onPointerUp);
+      el.removeEventListener('pointercancel', onPointerUp);
+    };
+  }, [onCommitStopPrice, openOrders, overlayCoin]);
 
   useEffect(() => {
     const series = seriesRef.current;

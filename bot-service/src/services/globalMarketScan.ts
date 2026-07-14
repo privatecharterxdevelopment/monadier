@@ -8,6 +8,7 @@ import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { filterWeekendShortOnly, isWeekendShortOnlyWindow } from './weekendTradingRules';
 import { refreshMegaPairVolumeMonitor, isMacroRiskOffEnvironment } from './megaPairVolumeMonitor';
 import { validateNoAltPumpShort } from './pumpShortGate';
+import { preferLongAfterDumpBoost } from './preferLongAfterDump';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 
@@ -198,14 +199,21 @@ async function scanStandardCoin(
         return null;
       }
     }
+    const longBoost = await preferLongAfterDumpBoost({
+      coin,
+      direction: analysis.direction,
+    });
+    const confidence = Math.min(100, analysis.confidence + longBoost.boostConfidence);
     return {
       coin,
       symbol,
       direction: analysis.direction,
-      confidence: analysis.confidence,
-      reason: relaxed
-        ? `${analysis.reason} · relaxed scan (${analysis.confidence}% / ${analysis.metrics?.directionalTfCount} TFs)`
-        : analysis.reason,
+      confidence,
+      reason: longBoost.reason
+        ? `${relaxed ? `${analysis.reason} · relaxed scan (${analysis.confidence}% / ${analysis.metrics?.directionalTfCount} TFs)` : analysis.reason} · ${longBoost.reason}`
+        : relaxed
+          ? `${analysis.reason} · relaxed scan (${analysis.confidence}% / ${analysis.metrics?.directionalTfCount} TFs)`
+          : analysis.reason,
       dayVolumeUsd: liq.dayVolumeUsd,
       openInterestUsd: liq.openInterestUsd,
       botMode: 'standard',

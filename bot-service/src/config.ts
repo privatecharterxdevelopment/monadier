@@ -151,10 +151,16 @@ export const config = {
     /** After min hold — trail floor ≈ breakeven + ~0.1% margin on typical slot. */
     profitLockFloorUsd: Number(process.env.HL_PROFIT_LOCK_FLOOR_USD || 0.02),
     profitLockTrailBufferUsd: Number(process.env.HL_PROFIT_LOCK_TRAIL_BUFFER_USD || 0.045),
-    /** Min trail distance as fraction of peak uPnL (0.28 = need 28% retrace from peak). */
+    /** Min trail distance as fraction of peak excursion (SHORT / default). */
     profitTrailMinPeakFraction: Number(process.env.HL_PROFIT_TRAIL_MIN_PEAK_FRAC || 0.28),
-    /** Widen trail buffer when MTF/volume say strong run. */
+    /** LONG-only looser trail — more retrace room before stop tightens. */
+    profitTrailMinPeakFractionLong: Number(
+      process.env.HL_PROFIT_TRAIL_MIN_PEAK_FRAC_LONG || 0.42
+    ),
+    /** Widen trail buffer when MTF/volume say strong run (SHORT / default). */
     profitTrailStrongRunMult: Number(process.env.HL_PROFIT_TRAIL_STRONG_MULT || 1.65),
+    /** LONG-only wider strong-run trail. */
+    profitTrailStrongRunMultLong: Number(process.env.HL_PROFIT_TRAIL_STRONG_MULT_LONG || 2),
     /** uPnL must stay at/below trail floor this long before profit_lock (ms). */
     profitTrailFloorBreachMs: Number(process.env.HL_PROFIT_TRAIL_BREACH_MS || 2_500),
     /** After trail armed: defer floor close this long if sweep+volume confirm rebound (still in profit only). */
@@ -163,8 +169,10 @@ export const config = {
     trailSweepDeferMax: Number(process.env.HL_TRAIL_SWEEP_DEFER_MAX || 4),
     /** If uPnL falls this far below trail floor during defer → close anyway. */
     trailSweepDeferGiveUpUsd: Number(process.env.HL_TRAIL_SWEEP_GIVEUP_USD || 0.02),
-    /** Fraction of peak uPnL retrace before peak-grab close (0.5 = 50%). */
+    /** Fraction of peak uPnL retrace before peak-grab close — SHORT / default. */
     profitPeakDropFraction: Number(process.env.HL_PROFIT_PEAK_DROP_FRAC || 0.42),
+    /** LONG-only later peak-grab (larger giveback allowed). */
+    profitPeakDropFractionLong: Number(process.env.HL_PROFIT_PEAK_DROP_FRAC_LONG || 0.55),
     /** Min peak (× round-trip fees) before peak-grab can fire. */
     profitPeakMinFeesMult: Number(process.env.HL_PROFIT_PEAK_MIN_FEES_MULT || 8),
     positionMonitorMs: Number(process.env.HL_POSITION_MONITOR_MS || 250),
@@ -241,8 +249,23 @@ export const config = {
       minHigherTfLongBlock: Number(process.env.HL_PUMP_SHORT_HTF_LONG || 2),
     },
     /**
-     * No SHORT into flush lows — wait for bounce confirmation after a sharp dump /
-     * when price sits on a fresh 15m swing low (XRP bottom-short class).
+     * LONG-only: boost scan confidence after dump + bounce near swing-low.
+     * Does not block SHORT opens.
+     */
+    preferLongAfterDump: {
+      swingLookback15m: Number(process.env.HL_PREF_LONG_SWING_BARS || 12),
+      nearSwingLowPct: Number(process.env.HL_PREF_LONG_NEAR_LOW_PCT || 0.55),
+      minBouncePct: Number(process.env.HL_PREF_LONG_MIN_BOUNCE || 0.12),
+      maxBouncePct: Number(process.env.HL_PREF_LONG_MAX_BOUNCE || 1.25),
+      dumpLookback15mBars: Number(process.env.HL_PREF_LONG_15M_BARS || 4),
+      dumpLookback1hBars: Number(process.env.HL_PREF_LONG_1H_BARS || 3),
+      sharpDump15mPct: Number(process.env.HL_PREF_LONG_SHARP_15M || 0.7),
+      sharpDump1hPct: Number(process.env.HL_PREF_LONG_SHARP_1H || 1.1),
+      confidenceBoost: Number(process.env.HL_PREF_LONG_CONF_BOOST || 14),
+    },
+    /**
+     * @deprecated Dump-bottom SHORT block removed — shorts stay free.
+     * Kept env keys for backwards compat; unused by open path.
      */
     dumpBottomShort: {
       swingLookback15m: Number(process.env.HL_DUMP_SHORT_SWING_BARS || 12),

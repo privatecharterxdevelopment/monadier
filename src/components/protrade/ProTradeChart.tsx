@@ -77,6 +77,7 @@ type Props = {
   wsConnected?: boolean;
   chartError?: string | null;
   fetchAttempts?: number;
+  onCommitStopPrice?: (stopPx: number) => void | Promise<void>;
 };
 
 const CHART_ENGINE_STORAGE = 'monadier-hl-chart-engine';
@@ -112,6 +113,7 @@ const ProTradeChartInner: React.FC<Props> = ({
   wsConnected,
   chartError,
   fetchAttempts,
+  onCommitStopPrice,
 }) => {
   const { theme } = useProTradeTheme();
   const [engine, setEngine] = useState<ChartEngine>(() => readStoredEngine(defaultEngine));
@@ -173,7 +175,9 @@ const ProTradeChartInner: React.FC<Props> = ({
             <span className="hl-chart-legend__item hl-chart-legend__item--trail">Profit SL</span>
           ) : null}
           {positionOverlay.liqPx ? (
-            <span className="hl-chart-legend__item hl-chart-legend__item--liq">Liq</span>
+            <span className="hl-chart-legend__item hl-chart-legend__item--liq">
+              Liq · click then drag = your stop
+            </span>
           ) : null}
         </div>
       ) : null}
@@ -199,6 +203,7 @@ const ProTradeChartInner: React.FC<Props> = ({
               wsConnected={wsConnected}
               chartError={chartError}
               fetchAttempts={fetchAttempts}
+              onCommitStopPrice={onCommitStopPrice}
             />
           ) : (
             <ProTradeTradingViewChart

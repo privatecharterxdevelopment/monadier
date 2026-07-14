@@ -425,7 +425,8 @@ export async function evaluateDynamicTrail(
 
   // Phase 3 — ratchet trail (only moves in profit direction).
   if (rec.phase === 'trailing' && rec.currentTrailStop != null) {
-    const trailMult = Math.max(0.75, Math.min(2, input.trailDistanceMult ?? 1));
+    const trailCap = input.direction === 'LONG' ? 2.25 : 2;
+    const trailMult = Math.max(0.75, Math.min(trailCap, input.trailDistanceMult ?? 1));
     let trailDist =
       (await resolveTrailDistancePx(input.coin, input.markPrice)) * trailMult;
 
@@ -437,8 +438,12 @@ export async function evaluateDynamicTrail(
         ? Math.max(0, rec.highestPriceSinceEntry - input.entryPrice)
         : Math.max(0, input.entryPrice - rec.highestPriceSinceEntry);
     if (excursionPx > 0) {
+      const peakFrac =
+        input.direction === 'LONG'
+          ? config.hyperliquid.profitTrailMinPeakFractionLong
+          : config.hyperliquid.profitTrailMinPeakFraction;
       const maxGapPx = Math.max(
-        excursionPx * config.hyperliquid.profitTrailMinPeakFraction,
+        excursionPx * peakFrac,
         input.markPrice * 0.00015 // ~0.015% noise floor
       );
       if (trailDist > maxGapPx) {
@@ -459,10 +464,13 @@ export async function evaluateDynamicTrail(
         : rec.highestPriceSinceEntry + trailDist;
 
     // Also ratchet a peak-PnL lock: keep (1 - peakDropFrac) of peak uPnL.
-    const peakFrac = config.hyperliquid.profitPeakDropFraction;
+    const peakFrac =
+      input.direction === 'LONG'
+        ? config.hyperliquid.profitPeakDropFractionLong
+        : config.hyperliquid.profitPeakDropFraction;
     const lockPnlUsd = Math.max(
       0,
-      rec.highestPnlSinceEntry * (1 - Math.max(0.2, Math.min(0.6, peakFrac)))
+      rec.highestPnlSinceEntry * (1 - Math.max(0.2, Math.min(0.65, peakFrac)))
     );
     const peakLockStop =
       input.absSize > 0 && lockPnlUsd > 0
