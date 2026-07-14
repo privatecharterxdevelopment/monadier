@@ -7,6 +7,8 @@
  */
 
 import { logger } from '../utils/logger';
+import { config } from '../config';
+import { binanceSymbolToHlCoin } from './hlSymbols';
 
 // ============================================================================
 // TYPES
@@ -211,7 +213,79 @@ export class SignalEngine {
         return candles;
       }
     } catch (err: any) {
-      logger.error('All APIs failed in signalEngine', { symbol, timeframe, error: err.message?.slice(0, 40) });
+      logger.warn('OKX failed in signalEngine, trying Hyperliquid', {
+        symbol,
+        error: err.message?.slice(0, 40),
+      });
+    }
+
+    // Fallback: Hyperliquid candleSnapshot — HL-only perps (CASHCAT, etc.) have no CEX listing
+    try {
+      const coin = binanceSymbolToHlCoin(symbol);
+      const endTime = Date.now();
+      const stepMs =
+        interval === '1m'
+          ? 60_000
+          : interval === '5m'
+            ? 300_000
+            : interval === '15m'
+              ? 900_000
+              : interval === '1h'
+                ? 3_600_000
+                : 14_400_000;
+      const startTime = endTime - Math.ceil(limit * 1.25) * stepMs;
+      const response = await fetch(config.hyperliquid.infoUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'candleSnapshot',
+          req: { coin, interval, startTime, endTime },
+        }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      const rows = (await response.json()) as Array<{
+        t?: number;
+        o?: string | number;
+        h?: string | number;
+        l?: string | number;
+        c?: string | number;
+        v?: string | number;
+      }>;
+      if (Array.isArray(rows) && rows.length > 0) {
+        const candles: Candle[] = rows
+          .map((k) => ({
+            time: Number(k.t) || 0,
+            open: Number(k.o),
+            high: Number(k.h),
+            low: Number(k.l),
+            close: Number(k.c),
+            volume: Number(k.v) || 0,
+          }))
+          .filter(
+            (c) =>
+              c.time > 0 &&
+              Number.isFinite(c.open) &&
+              Number.isFinite(c.high) &&
+              Number.isFinite(c.low) &&
+              Number.isFinite(c.close)
+          )
+          .sort((a, b) => a.time - b.time);
+        if (candles.length > 0) {
+          logger.info('SignalEngine using Hyperliquid candles', {
+            coin,
+            timeframe,
+            count: candles.length,
+          });
+          this.cache.set(cacheKey, { data: candles, timestamp: Date.now() });
+          return candles;
+        }
+      }
+    } catch (err: any) {
+      logger.error('All candle APIs failed in signalEngine (incl. Hyperliquid)', {
+        symbol,
+        timeframe,
+        error: err.message?.slice(0, 60),
+      });
     }
 
     return cached?.data || [];
