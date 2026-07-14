@@ -36,6 +36,8 @@ const MUTED = [82, 82, 90] as const;
 const LINE = [220, 222, 228] as const;
 const HEAD_BG = [242, 243, 246] as const;
 const ROW_ALT = [250, 250, 252] as const;
+const PNL_GREEN = [22, 163, 74] as const;
+const PNL_RED = [220, 38, 38] as const;
 
 /**
  * Live dashboard until hypergain.io / app.hypergain.io DNS + split domains are on.
@@ -180,7 +182,11 @@ export async function exportBotTradesPdf({
     const netPnl = closeFills.reduce((sum, f) => sum + toNum(f.closedPnl), 0);
     y += 4.5;
     doc.setFont('helvetica', 'bold');
+    if (netPnl > 0) doc.setTextColor(PNL_GREEN[0], PNL_GREEN[1], PNL_GREEN[2]);
+    else if (netPnl < 0) doc.setTextColor(PNL_RED[0], PNL_RED[1], PNL_RED[2]);
+    else doc.setTextColor(INK[0], INK[1], INK[2]);
     doc.text(`Net closed P/L: ${fmtClosedPnl(netPnl)}`, marginX, y);
+    doc.setTextColor(INK[0], INK[1], INK[2]);
 
     // Keep table clear of the QR block on the first page header.
     y = Math.max(y, 36);
@@ -239,9 +245,17 @@ export async function exportBotTradesPdf({
       },
       columnStyles: {
         0: { cellWidth: 30 },
-        8: { halign: 'right' },
+        8: { halign: 'right', fontStyle: 'bold' },
       },
       margin: { left: marginX, right: marginX },
+      didParseCell: (data) => {
+        if (data.section !== 'body') return;
+        // Result (7) + Closed P/L (8) — green wins / red losses
+        if (data.column.index !== 7 && data.column.index !== 8) return;
+        const pnl = toNum(closeFills[data.row.index]?.closedPnl);
+        if (pnl > 0) data.cell.styles.textColor = [...PNL_GREEN];
+        else if (pnl < 0) data.cell.styles.textColor = [...PNL_RED];
+      },
     });
 
     const finalY =

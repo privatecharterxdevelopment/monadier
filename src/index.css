@@ -828,10 +828,39 @@ wui-overlay {
   z-index: 1;
   width: 100%;
   max-width: 480px;
+  max-height: min(92dvh, 720px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 20px 20px calc(20px + env(safe-area-inset-bottom, 0px));
   border-radius: 16px 16px 0 0;
   background: #fff;
   box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.12);
+}
+
+/* Desktop / laptop: centered dialog so Deposit + Disconnect aren't clipped */
+@media (min-width: 768px) {
+  .mobile-wallet-sheet {
+    align-items: center;
+    padding: 24px;
+  }
+
+  .mobile-wallet-sheet__panel {
+    width: min(100%, 400px);
+    max-height: min(85dvh, 560px);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.16);
+  }
+
+  .monadier-wallet-account__balance {
+    padding: 16px;
+  }
+
+  .monadier-wallet-account__balance-value {
+    font-size: 24px;
+  }
 }
 
 .mobile-wallet-sheet__head {
