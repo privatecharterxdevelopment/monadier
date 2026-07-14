@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ExternalLink, Loader2, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type {
@@ -69,15 +70,15 @@ function livePositionPnl(position: HlPosition, markPx: number): number {
 }
 
 const TABS = [
-  { id: 'balances', label: 'Balances' },
-  { id: 'positions', label: 'Positions' },
-  { id: 'orders', label: 'Open Orders' },
-  { id: 'twap', label: 'TWAP' },
-  { id: 'trailing', label: 'Trailing' },
-  { id: 'tradeHistory', label: 'Trade History' },
-  { id: 'feeHistory', label: 'Fee History' },
-  { id: 'fundingHistory', label: 'Funding History' },
-  { id: 'orderHistory', label: 'Order History' },
+  { id: 'balances', labelKey: 'dock.tabs.balances' },
+  { id: 'positions', labelKey: 'dock.tabs.positions' },
+  { id: 'orders', labelKey: 'dock.tabs.orders' },
+  { id: 'twap', labelKey: 'dock.tabs.twap' },
+  { id: 'trailing', labelKey: 'dock.tabs.trailing' },
+  { id: 'tradeHistory', labelKey: 'dock.tabs.tradeHistory' },
+  { id: 'feeHistory', labelKey: 'dock.tabs.feeHistory' },
+  { id: 'fundingHistory', labelKey: 'dock.tabs.fundingHistory' },
+  { id: 'orderHistory', labelKey: 'dock.tabs.orderHistory' },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -174,6 +175,7 @@ const ProTradeDock: React.FC<Props> = ({
   botManagedCoins,
   botManagedCoinsLoading = false,
 }) => {
+  const { t } = useTranslation();
   const isSpot = variant === 'spot';
   const isBotMode = mode === 'bot';
   const scope: 'manual' | 'bot' = positionScope ?? (isBotMode ? 'bot' : 'manual');
@@ -365,21 +367,21 @@ const ProTradeDock: React.FC<Props> = ({
     <section className={`hl-dock${isBotMode ? ' hl-bot-dock-inner' : ''}`}>
       <div className={`hl-dock-head${historyOnly ? ' hl-dock-head--history-only' : ''}`}>
         {!historyOnly ? (
-          <nav className="hl-dock-tabs" aria-label="Account panels">
-            {visibleTabs.map(({ id, label }) => (
+          <nav className="hl-dock-tabs" aria-label={t('dock.ariaPanels')}>
+            {visibleTabs.map(({ id, labelKey }) => (
               <button
                 key={id}
                 type="button"
                 className={`hl-dock-tab ${tab === id ? 'hl-dock-tab--on' : ''}`}
                 onClick={() => setTab(id)}
               >
-                {label}
+                {t(labelKey)}
                 {tabSuffix(id)}
               </button>
             ))}
           </nav>
         ) : (
-          <p className="hl-dock-history-only-label">Closed fills &amp; P/L</p>
+          <p className="hl-dock-history-only-label">{t('dock.closedFillsLabel')}</p>
         )}
         <div className="hl-dock-tools">
           {isBotMode && tab === 'tradeHistory' && !historyOnly ? (
@@ -387,12 +389,12 @@ const ProTradeDock: React.FC<Props> = ({
               to={getAppQueryLink('section=profile&tab=botTrades')}
               className="hl-dock-full-history-link"
             >
-              See complete history →
+              {t('dock.seeCompleteHistory')}
             </Link>
           ) : null}
           <input
             className="hl-dock-search"
-            placeholder="Coins…"
+            placeholder={t('dock.coinsPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -403,7 +405,7 @@ const ProTradeDock: React.FC<Props> = ({
               disabled={actionBusy}
               onClick={onCancelAllOrders}
             >
-              Cancel All
+              {t('dock.cancelAll')}
             </button>
           ) : null}
         </div>
@@ -411,10 +413,10 @@ const ProTradeDock: React.FC<Props> = ({
 
       <div className="hl-dock-body">
         {!connected ? (
-          <p className="hl-dock-empty">Connect wallet to view account data.</p>
+          <p className="hl-dock-empty">{t('dock.connectWallet')}</p>
         ) : loading && !account ? (
           <p className="hl-dock-empty">
-            <Loader2 size={14} className="animate-spin inline" /> Syncing…
+            <Loader2 size={14} className="animate-spin inline" /> {t('dock.syncing')}
           </p>
         ) : tab === 'balances' ? (
           isSpot ? (
@@ -422,9 +424,9 @@ const ProTradeDock: React.FC<Props> = ({
               <table className="hl-table">
                 <thead>
                   <tr>
-                    <th>Token</th>
-                    <th>Total</th>
-                    <th>On hold</th>
+                    <th>{t('dock.cols.token')}</th>
+                    <th>{t('dock.cols.total')}</th>
+                    <th>{t('dock.cols.onHold')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -438,33 +440,33 @@ const ProTradeDock: React.FC<Props> = ({
                 </tbody>
               </table>
             ) : (
-              <p className="hl-dock-empty">No spot balances.</p>
+              <p className="hl-dock-empty">{t('dock.noSpotBalances')}</p>
             )
           ) : (
             <table className="hl-table">
               <thead>
                 <tr>
-                  <th>Asset</th>
-                  <th>Total</th>
-                  <th>Available</th>
+                  <th>{t('dock.cols.asset')}</th>
+                  <th>{t('dock.cols.total')}</th>
+                  <th>{t('dock.cols.available')}</th>
                 </tr>
               </thead>
               <tbody>
                 {unifiedAccount ? (
                   <tr>
-                    <td>USDC (unified)</td>
+                    <td>{t('dock.usdcUnified')}</td>
                     <td>{fmtUsdSymbol(tradableHlUsd)}</td>
                     <td>{fmtUsdSymbol(hlWithdrawableUsd)}</td>
                   </tr>
                 ) : (
                   <>
                     <tr>
-                      <td>USDC (Perp)</td>
+                      <td>{t('dock.usdcPerp')}</td>
                       <td>{fmtUsdSymbol(rawPerpUsd)}</td>
                       <td>{fmtUsdSymbol(hlWithdrawableUsd)}</td>
                     </tr>
                     <tr>
-                      <td>USDC (Spot)</td>
+                      <td>{t('dock.usdcSpot')}</td>
                       <td>{fmtUsdSymbol(spotUsdcUsd)}</td>
                       <td>
                         {fmtUsdSymbol(
@@ -476,11 +478,11 @@ const ProTradeDock: React.FC<Props> = ({
                   </>
                 )}
                 <tr>
-                  <td>Margin used</td>
+                  <td>{t('dock.marginUsed')}</td>
                   <td colSpan={2}>{fmtUsdSymbol(account?.margin?.totalMarginUsed)}</td>
                 </tr>
                 <tr>
-                  <td>Notional</td>
+                  <td>{t('dock.notional')}</td>
                   <td colSpan={2}>{fmtUsdSymbol(account?.margin?.totalNtlPos)}</td>
                 </tr>
               </tbody>
@@ -492,15 +494,15 @@ const ProTradeDock: React.FC<Props> = ({
             <table className="hl-table">
               <thead>
                 <tr>
-                  <th>Coin</th>
-                  <th>Side</th>
-                  <th>Size</th>
-                  <th>Value</th>
-                  <th>Entry</th>
-                  <th>Mark</th>
-                  <th>PnL</th>
-                  <th>Lev</th>
-                  {isBotMode ? <th>Stop</th> : null}
+                  <th>{t('dock.cols.coin')}</th>
+                  <th>{t('dock.cols.side')}</th>
+                  <th>{t('dock.cols.size')}</th>
+                  <th>{t('dock.cols.value')}</th>
+                  <th>{t('dock.cols.entry')}</th>
+                  <th>{t('dock.cols.mark')}</th>
+                  <th>{t('dock.cols.pnl')}</th>
+                  <th>{t('dock.cols.lev')}</th>
+                  {isBotMode ? <th>{t('dock.cols.stop')}</th> : null}
                   <th />
                 </tr>
               </thead>
@@ -629,8 +631,8 @@ const ProTradeDock: React.FC<Props> = ({
           ) : (
             <p className="hl-dock-empty">
               {scope === 'manual' && managedCoins.size > 0
-                ? 'No manual perp positions — open trades here or check Bot for automated positions.'
-                : 'No open positions.'}
+                ? t('dock.noManualPositions')
+                : t('dock.noOpenPositions')}
             </p>
           )}
             {botUnderfunded ? (
@@ -640,7 +642,7 @@ const ProTradeDock: React.FC<Props> = ({
                 </span>
                 {onDeposit ? (
                   <button type="button" className="hl-dock-fund-nudge-link" onClick={onDeposit}>
-                    Deposit
+                    {t('tradePanel.depositUsdc')}
                   </button>
                 ) : null}
               </p>
@@ -651,13 +653,13 @@ const ProTradeDock: React.FC<Props> = ({
             <table className="hl-table">
               <thead>
                 <tr>
-                  <th>Time</th>
-                  <th>Type</th>
-                  <th>Coin</th>
-                  <th>Direction</th>
-                  <th>Size</th>
-                  <th>Price</th>
-                  <th>Reduce</th>
+                  <th>{t('dock.cols.time')}</th>
+                  <th>{t('dock.cols.type')}</th>
+                  <th>{t('dock.cols.coin')}</th>
+                  <th>{t('dock.cols.direction')}</th>
+                  <th>{t('dock.cols.size')}</th>
+                  <th>{t('dock.cols.price')}</th>
+                  <th>{t('dock.cols.reduce')}</th>
                   <th />
                 </tr>
               </thead>
@@ -683,7 +685,7 @@ const ProTradeDock: React.FC<Props> = ({
                         className="hl-cancel-btn"
                         disabled={actionBusy}
                         onClick={() => onCancelOrder?.(o.coin, o.oid)}
-                        aria-label="Cancel"
+                        aria-label={t('dock.cancel')}
                       >
                         <X size={12} />
                       </button>
@@ -693,30 +695,30 @@ const ProTradeDock: React.FC<Props> = ({
               </tbody>
             </table>
           ) : (
-            <p className="hl-dock-empty">No open orders.</p>
+            <p className="hl-dock-empty">{t('dock.noOpenOrders')}</p>
           )
         ) : tab === 'tradeHistory' ? (
           fillsLoading && closeFills.length === 0 ? (
             <p className="hl-dock-empty">
-              <Loader2 size={14} className="animate-spin inline" /> Loading trade history…
+              <Loader2 size={14} className="animate-spin inline" /> {t('dock.syncing')}
             </p>
           ) : closeFills.length > 0 ? (
             filteredCloseFills.length > 0 ? (
             <table className="hl-table">
               <thead>
                 <tr>
-                  <th>Time</th>
-                  <th>Coin</th>
-                  <th>Action</th>
-                  <th>Side</th>
-                  <th>Size</th>
-                  <th>Price</th>
-                  <th>Fee</th>
-                  <th>Platform</th>
-                  <th>Result</th>
-                  <th>Closed PnL</th>
+                  <th>{t('dock.cols.time')}</th>
+                  <th>{t('dock.cols.coin')}</th>
+                  <th>{t('dock.cols.action')}</th>
+                  <th>{t('dock.cols.side')}</th>
+                  <th>{t('dock.cols.size')}</th>
+                  <th>{t('dock.cols.price')}</th>
+                  <th>{t('dock.cols.fee')}</th>
+                  <th>{t('dock.cols.platform')}</th>
+                  <th>{t('dock.cols.result')}</th>
+                  <th>{t('dock.cols.closedPnl')}</th>
                   {isBotMode ? <th className="term-hl-open-reason-col">Why</th> : null}
-                  {walletAddress ? <th>Verify</th> : null}
+                  {walletAddress ? <th>{t('dock.cols.verify')}</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -787,53 +789,53 @@ const ProTradeDock: React.FC<Props> = ({
               </tbody>
             </table>
             ) : (
-              <p className="hl-dock-empty">No trades match &ldquo;{search.trim()}&rdquo;.</p>
+              <p className="hl-dock-empty">{t('dock.noTradesMatch', { query: search.trim() })}</p>
             )
           ) : (
-            <p className="hl-dock-empty">No trade history yet.</p>
+            <p className="hl-dock-empty">{t('dock.noTradeHistory')}</p>
           )
         ) : tab === 'feeHistory' ? (
           platformFeeLedger.trades.length > 0 ? (
             <table className="hl-table">
               <thead>
                 <tr>
-                  <th>Time</th>
-                  <th>Asset</th>
-                  <th>Source</th>
-                  <th>Profit</th>
-                  <th>Fee (10%)</th>
-                  <th>HL paid</th>
-                  <th>Owed</th>
-                  <th>Status</th>
+                  <th>{t('dock.cols.time')}</th>
+                  <th>{t('dock.cols.asset')}</th>
+                  <th>{t('dock.cols.source')}</th>
+                  <th>{t('dock.cols.profit')}</th>
+                  <th>{t('dock.cols.feeTenPct')}</th>
+                  <th>{t('dock.cols.hlPaid')}</th>
+                  <th>{t('dock.cols.owed')}</th>
+                  <th>{t('dock.cols.status')}</th>
                 </tr>
               </thead>
               <tbody>
-                {platformFeeLedger.trades.map((t) => (
-                  <tr key={t.id}>
-                    <td>{fmtTimeMs(new Date(t.createdAt).getTime())}</td>
-                    <td>{t.coin}</td>
-                    <td>{t.feeSource}</td>
-                    <td className="hl-up">{fmtUsdSymbol(t.grossProfitUsd)}</td>
-                    <td>{fmtUsdSymbol(t.totalFeeUsd)}</td>
-                    <td>{fmtUsdSymbol(t.builderFeeUsd)}</td>
-                    <td>{fmtUsdSymbol(t.accruedFeeUsd)}</td>
-                    <td>{t.status}</td>
+                {platformFeeLedger.trades.map((fee) => (
+                  <tr key={fee.id}>
+                    <td>{fmtTimeMs(new Date(fee.createdAt).getTime())}</td>
+                    <td>{fee.coin}</td>
+                    <td>{fee.feeSource}</td>
+                    <td className="hl-up">{fmtUsdSymbol(fee.grossProfitUsd)}</td>
+                    <td>{fmtUsdSymbol(fee.totalFeeUsd)}</td>
+                    <td>{fmtUsdSymbol(fee.builderFeeUsd)}</td>
+                    <td>{fmtUsdSymbol(fee.accruedFeeUsd)}</td>
+                    <td>{fee.status}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           ) : (
-            <p className="hl-dock-empty">No platform fees recorded yet.</p>
+            <p className="hl-dock-empty">{t('dock.noPlatformFees')}</p>
           )
         ) : tab === 'fundingHistory' ? (
           scopedFunding.length > 0 ? (
             <table className="hl-table">
               <thead>
                 <tr>
-                  <th>Time</th>
-                  <th>Coin</th>
-                  <th>Payment</th>
-                  <th>Rate</th>
+                  <th>{t('dock.cols.time')}</th>
+                  <th>{t('dock.cols.coin')}</th>
+                  <th>{t('dock.cols.payment')}</th>
+                  <th>{t('dock.cols.rate')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -850,20 +852,20 @@ const ProTradeDock: React.FC<Props> = ({
               </tbody>
             </table>
           ) : (
-            <p className="hl-dock-empty">No funding history.</p>
+            <p className="hl-dock-empty">{t('dock.noFundingHistory')}</p>
           )
         ) : tab === 'orderHistory' ? (
           scopedOrderHistory.length > 0 ? (
             <table className="hl-table">
               <thead>
                 <tr>
-                  <th>Time</th>
-                  <th>Coin</th>
-                  <th>Side</th>
-                  <th>Type</th>
-                  <th>Size</th>
-                  <th>Price</th>
-                  <th>Status</th>
+                  <th>{t('dock.cols.time')}</th>
+                  <th>{t('dock.cols.coin')}</th>
+                  <th>{t('dock.cols.side')}</th>
+                  <th>{t('dock.cols.type')}</th>
+                  <th>{t('dock.cols.size')}</th>
+                  <th>{t('dock.cols.price')}</th>
+                  <th>{t('dock.cols.status')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -887,53 +889,53 @@ const ProTradeDock: React.FC<Props> = ({
               </tbody>
             </table>
           ) : (
-            <p className="hl-dock-empty">No order history.</p>
+            <p className="hl-dock-empty">{t('dock.noOrderHistory')}</p>
           )
         ) : tab === 'twap' ? (
           twapOrders.length > 0 ? (
             <table className="hl-table">
               <thead>
                 <tr>
-                  <th>Time</th>
-                  <th>Coin</th>
-                  <th>Side</th>
-                  <th>Size</th>
-                  <th>Filled</th>
-                  <th>Duration</th>
-                  <th>Status</th>
+                  <th>{t('dock.cols.time')}</th>
+                  <th>{t('dock.cols.coin')}</th>
+                  <th>{t('dock.cols.side')}</th>
+                  <th>{t('dock.cols.size')}</th>
+                  <th>{t('dock.cols.filled')}</th>
+                  <th>{t('dock.cols.duration')}</th>
+                  <th>{t('dock.cols.status')}</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
-                {twapOrders.map((t) => (
-                  <tr key={`${t.twapId}-${t.time}`}>
-                    <td>{fmtTimeMs(t.time)}</td>
+                {twapOrders.map((twap) => (
+                  <tr key={`${twap.twapId}-${twap.time}`}>
+                    <td>{fmtTimeMs(twap.time)}</td>
                     <td>
-                      <button type="button" className="hl-coin-link" onClick={() => onCoinClick?.(t.coin)}>
-                        {t.coin}
+                      <button type="button" className="hl-coin-link" onClick={() => onCoinClick?.(twap.coin)}>
+                        {twap.coin}
                       </button>
                     </td>
-                    <td className={t.side === 'B' ? 'hl-up' : 'hl-down'}>
-                      {t.side === 'B' ? 'Buy' : 'Sell'}
+                    <td className={twap.side === 'B' ? 'hl-up' : 'hl-down'}>
+                      {twap.side === 'B' ? 'Buy' : 'Sell'}
                     </td>
-                    <td>{t.sz}</td>
+                    <td>{twap.sz}</td>
                     <td>
-                      {t.executedSz} ({fmtUsdSymbol(t.executedNtl)})
+                      {twap.executedSz} ({fmtUsdSymbol(twap.executedNtl)})
                     </td>
-                    <td>{t.minutes}m{t.randomize ? ' · rand' : ''}</td>
+                    <td>{twap.minutes}m{twap.randomize ? ' · rand' : ''}</td>
                     <td>
-                      {t.status}
-                      {t.statusDetail ? ` — ${t.statusDetail}` : ''}
+                      {twap.status}
+                      {twap.statusDetail ? ` — ${twap.statusDetail}` : ''}
                     </td>
                     <td>
-                      {t.status === 'activated' ? (
+                      {twap.status === 'activated' ? (
                         <button
                           type="button"
                           className="hl-dock-action"
                           disabled={actionBusy}
-                          onClick={() => onCancelTwap?.(t.coin, t.twapId)}
+                          onClick={() => onCancelTwap?.(twap.coin, twap.twapId)}
                         >
-                          Cancel
+                          {t('dock.cancel')}
                         </button>
                       ) : null}
                     </td>
@@ -942,20 +944,20 @@ const ProTradeDock: React.FC<Props> = ({
               </tbody>
             </table>
           ) : (
-            <p className="hl-dock-empty">No TWAP orders.</p>
+            <p className="hl-dock-empty">{t('dock.noTwap')}</p>
           )
         ) : tab === 'trailing' ? (
           triggerOrders.length > 0 ? (
             <table className="hl-table">
               <thead>
                 <tr>
-                  <th>Time</th>
-                  <th>Coin</th>
-                  <th>Type</th>
-                  <th>Side</th>
-                  <th>Size</th>
-                  <th>Trigger</th>
-                  <th>Condition</th>
+                  <th>{t('dock.cols.time')}</th>
+                  <th>{t('dock.cols.coin')}</th>
+                  <th>{t('dock.cols.type')}</th>
+                  <th>{t('dock.cols.side')}</th>
+                  <th>{t('dock.cols.size')}</th>
+                  <th>{t('dock.cols.trigger')}</th>
+                  <th>{t('dock.cols.condition')}</th>
                   <th />
                 </tr>
               </thead>
@@ -981,7 +983,7 @@ const ProTradeDock: React.FC<Props> = ({
                         className="hl-cancel-btn"
                         disabled={actionBusy}
                         onClick={() => onCancelOrder?.(o.coin, o.oid)}
-                        aria-label="Cancel"
+                        aria-label={t('dock.cancel')}
                       >
                         <X size={12} />
                       </button>
@@ -991,10 +993,10 @@ const ProTradeDock: React.FC<Props> = ({
               </tbody>
             </table>
           ) : (
-            <p className="hl-dock-empty">No trigger or stop orders.</p>
+            <p className="hl-dock-empty">{t('dock.noTriggers')}</p>
           )
         ) : (
-          <p className="hl-dock-empty">No data.</p>
+          <p className="hl-dock-empty">{t('dock.noData')}</p>
         )}
       </div>
       {stopEdit && onSaveStopLoss ? (
