@@ -102,8 +102,13 @@ export const config = {
     ),
     /** Minimum order notional — skips sloppy micro-trades. */
     minNotionalUsd: Number(process.env.HL_MIN_NOTIONAL_USD || 20),
-    /** Bot-only open/scan floor — $2.5M 24h notional. Manual trading ignores this. */
-    minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 2_500_000),
+    /** Bot-only open/scan floor — $2.5M 24h notional. Manual trading ignores this.
+     * Stale Railway HL_MIN_DAY_VOLUME_USD=5e6 is ignored (only lower/eq 2.5M env allowed). */
+    minDayVolumeUsd: (() => {
+      const n = Number(process.env.HL_MIN_DAY_VOLUME_USD);
+      if (Number.isFinite(n) && n > 0 && n <= 2_500_000) return n;
+      return 2_500_000;
+    })(),
     minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 0),
     /**
      * Max coins to MTF-scan per cycle after volume floor.
