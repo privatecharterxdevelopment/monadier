@@ -180,6 +180,11 @@ export const config = {
     profitPeakDropFractionLong: Number(process.env.HL_PROFIT_PEAK_DROP_FRAC_LONG || 0.55),
     /** Min peak (× round-trip fees) before peak-grab can fire. */
     profitPeakMinFeesMult: Number(process.env.HL_PROFIT_PEAK_MIN_FEES_MULT || 8),
+    /**
+     * Soft profit exits (peak grab / trailing / TP) need uPnL ≥ exitFee × this.
+     * Prevents +$0.01 closes that realize red after HL taker/builder fees.
+     */
+    softExitMinExitFeesMult: Number(process.env.HL_SOFT_EXIT_MIN_EXIT_FEES_MULT || 1.5),
     positionMonitorMs: Number(process.env.HL_POSITION_MONITOR_MS || 250),
     /** 0 = disabled — no forced close just for being in profit N ms. */
     profitGrabMaxHoldMs: Number(process.env.HL_PROFIT_GRAB_MAX_HOLD_MS || 0),

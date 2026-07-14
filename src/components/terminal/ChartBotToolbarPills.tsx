@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { effectiveHlBotSettings, formatHlSlLabel } from '../../lib/hlBotEffectiveSettings';
 import { HL_DYNAMIC_TRAIL } from '../../lib/hlBotStrategy';
@@ -23,6 +24,7 @@ function fmtUsd(n: number) {
 
 /** Bot risk / leverage / trail — grey pills for chart toolbar (right). */
 const ChartBotToolbarPills: React.FC<Props> = ({ hlBalanceUsd = 0, variant = 'light' }) => {
+  const { t } = useTranslation();
   const { settings } = useTerminalBotSettings();
   const eff = effectiveHlBotSettings(settings);
   const marginUsd = hlBalanceUsd > 0 ? (hlBalanceUsd * eff.riskPct) / 100 : null;
@@ -30,29 +32,29 @@ const ChartBotToolbarPills: React.FC<Props> = ({ hlBalanceUsd = 0, variant = 'li
   const rootClass = variant === 'dark' ? 'hl-chart-bot-pills' : 'term-chart-bot-pills';
 
   return (
-    <div className={rootClass} role="group" aria-label="Bot settings">
+    <div className={rootClass} role="group" aria-label={t('tradePanel.parametersAria')}>
       <BotMetricPill
         variant={variant}
-        label="Risk"
+        label={t('tradePanel.risk')}
         value={`${eff.riskPct}%`}
         meta={marginUsd != null && marginUsd > 0 ? `~${fmtUsd(marginUsd)}` : undefined}
         description={DESCRIPTIONS.risk}
       />
       <BotMetricPill
         variant={variant}
-        label="LVRG"
+        label={t('tradePanel.lvrg')}
         value={`${eff.leverage}x`}
         description={DESCRIPTIONS.lvrg}
       />
       <BotMetricPill
         variant={variant}
-        label="SL"
+        label={t('tradePanel.sl')}
         value={formatHlSlLabel(settings.stopLoss)}
         description={DESCRIPTIONS.sl}
       />
       <BotMetricPill
         variant={variant}
-        label="Trail"
+        label={t('tradePanel.trail')}
         value={`+${HL_DYNAMIC_TRAIL.breakevenArmRoePct}%→+${HL_DYNAMIC_TRAIL.armMinRoePct}%`}
         description={DESCRIPTIONS.trail}
       />

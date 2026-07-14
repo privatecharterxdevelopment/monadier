@@ -65,6 +65,8 @@ import { hlCoinToBinanceSymbol } from './hlSymbols';
 import {
   evaluateDynamicTrail,
   markFromPosition,
+  softExitCoversFees,
+  estimateExitFeesUsd,
   type DynamicTrailRecord,
 } from './dynamicTrailingStop';
 import {
@@ -1309,27 +1311,27 @@ export class HyperliquidTradingService {
       };
 
       if (shouldCloseTrail) {
-        clearTrailState(lockKey);
-        await this.closeMarketPosition(
+        const closed = await this.closeMarketPosition(
           userAddress,
           pos.coin,
           trailExitReason,
           closeCtx,
           trailCloseDetail
         );
+        if (closed.success) clearTrailState(lockKey);
         continue;
       }
 
       const roePct = collateralEst > 0 ? (pnl / collateralEst) * 100 : 0;
       if (shouldTakeProfitOnPnl(roePct, settings.takeProfitPercent)) {
-        clearTrailState(lockKey);
-        await this.closeMarketPosition(
+        const closed = await this.closeMarketPosition(
           userAddress,
           pos.coin,
           'take_profit',
           closeCtx,
           `TAKE PROFIT — ${pos.coin} ROE ${roePct.toFixed(2)}% ≥ ${settings.takeProfitPercent}%`
         );
+        if (closed.success) clearTrailState(lockKey);
         continue;
       }
 
@@ -1525,6 +1527,32 @@ export class HyperliquidTradingService {
       if (!Number.isFinite(markPx) || markPx <= 0) {
         return { success: false, error: 'Could not read mark price — try again' };
       }
+
+      const softFeeExit =
+        reason === 'profit_grab_peak' ||
+        reason === 'profit_grab_timeout' ||
+        reason === 'trailing_stop' ||
+        reason === 'take_profit';
+      if (softFeeExit && !softExitCoversFees(pnlUsd, absSize * markPx)) {
+        const exitFees = estimateExitFeesUsd(absSize * markPx);
+        const need = Math.max(
+          exitFees * config.hyperliquid.softExitMinExitFeesMult,
+          config.hyperliquid.minProfitCloseUsd
+        );
+        logger.info('HL soft exit skipped — uPnL below exit-fee buffer', {
+          user: userAddress.slice(0, 10),
+          coin: coinUpper,
+          reason,
+          pnlUsd: pnlUsd.toFixed(4),
+          exitFeesEst: exitFees.toFixed(4),
+          minRequired: need.toFixed(4),
+        });
+        return {
+          success: false,
+          error: 'Soft exit needs uPnL above exit-fee buffer',
+        };
+      }
+
       const isLong = size > 0;
       const limitPx = isLong ? markPx * 0.95 : markPx * 1.05;
 

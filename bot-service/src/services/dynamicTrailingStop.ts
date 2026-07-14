@@ -81,8 +81,25 @@ function emptyRecord(
 }
 
 export function estimateRoundTripFeesUsd(notionalUsd: number): number {
+  return estimateExitFeesUsd(notionalUsd) * 2;
+}
+
+/** One-side HL close fee estimate (exchange + builder bps). */
+export function estimateExitFeesUsd(notionalUsd: number): number {
   const bps = config.hyperliquid.dynamicTrail.estimatedFeeBpsPerSide;
-  return notionalUsd * (bps / 10_000) * 2;
+  if (!Number.isFinite(notionalUsd) || notionalUsd <= 0) return 0;
+  return notionalUsd * (bps / 10_000);
+}
+
+/**
+ * Soft exits must clear estimated close fees (plus buffer) or the fill
+ * realizes red even though uPnL snapshot looked green.
+ */
+export function softExitCoversFees(pnlUsd: number, notionalUsd: number): boolean {
+  const exitFees = estimateExitFeesUsd(notionalUsd);
+  const minFromFees = exitFees * config.hyperliquid.softExitMinExitFeesMult;
+  const minPnl = Math.max(minFromFees, config.hyperliquid.minProfitCloseUsd);
+  return Number.isFinite(pnlUsd) && pnlUsd >= minPnl;
 }
 
 export function markFromPosition(entryPx: number, szi: number, pnlUsd: number): number {
@@ -522,7 +539,7 @@ export async function evaluateDynamicTrail(
     if (
       rec.highestPnlSinceEntry >= feesUsd * Math.min(peakMinFees, 3) &&
       rec.highestPnlSinceEntry >= Math.max(input.collateralUsd * 0.015, feesUsd * 2) &&
-      input.pnlUsd > 0 &&
+      softExitCoversFees(input.pnlUsd, input.notionalUsd) &&
       peakFrac > 0 &&
       rec.timeInProfitMs >= cfg.armMinProfitHoldMs &&
       !trailTooYoungToClose(rec, input.nowMs, trailMult)
@@ -543,7 +560,7 @@ export async function evaluateDynamicTrail(
     if (
       isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop) &&
       !trailTooYoungToClose(rec, input.nowMs, trailMult) &&
-      input.pnlUsd > 0
+      softExitCoversFees(input.pnlUsd, input.notionalUsd)
     ) {
       const detail = `TRAILING STOP · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
       return {

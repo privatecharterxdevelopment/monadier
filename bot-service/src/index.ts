@@ -117,6 +117,7 @@ const healthServer = http.createServer(async (req, res) => {
         null,
       policy: {
         profitOnlyExits: config.hyperliquid.profitOnlyExits,
+        softExitMinExitFeesMult: config.hyperliquid.softExitMinExitFeesMult,
         lossCapEnforce: config.hyperliquid.lossProtection.enforceHardCap,
         dailyLossGate: config.hyperliquid.dailyLoss.enabled,
         reentryCooldownMs: config.hyperliquid.reentryCooldownMs,
