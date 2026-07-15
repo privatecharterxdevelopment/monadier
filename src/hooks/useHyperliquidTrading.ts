@@ -16,6 +16,7 @@ import {
   isHlUnifiedMargin,
   isHlUnifiedTransferDisabledError,
 } from '../lib/hyperliquid/funding';
+import { isBotExcludedHlCoin } from '../lib/botTradingPairs';
 import {
   buildScaleLegs,
   buildSimpleOrderLeg,
@@ -199,6 +200,13 @@ export function useHyperliquidTrading() {
     }): Promise<ManualOrderResult> => {
       // Manual Perps + Spot: wallet-signed only — never the bot agent /api/hl-order path.
       const marketKind = opts.marketKind ?? 'perp';
+      if (
+        marketKind === 'perp' &&
+        !opts.reduceOnly &&
+        isBotExcludedHlCoin(opts.coin)
+      ) {
+        throw new Error(`${opts.coin} is delisted — no new opens (Close only).`);
+      }
       const { index: assetIndex, meta } = await resolveAsset(opts.coin, marketKind);
       const leg = buildSimpleOrderLeg({
         assetIndex,
@@ -304,6 +312,9 @@ export function useHyperliquidTrading() {
     }) =>
       withBusy(async (): Promise<ManualOrderResult> => {
         const marketKind = opts.marketKind ?? 'perp';
+        if (marketKind === 'perp' && isBotExcludedHlCoin(opts.coin)) {
+          throw new Error(`${opts.coin} is delisted — no new opens (Close only).`);
+        }
         const { index: assetIndex, meta } = await resolveAsset(opts.coin, marketKind);
         const legs = buildScaleLegs({ ...opts, assetIndex, meta });
         const result = await submitOrders(opts.coin, legs, opts.settings, marketKind);

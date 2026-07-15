@@ -17,7 +17,6 @@ const TV_SYMBOL_OVERRIDES: Record<string, string> = {
  * HL-native — no liquid Binance USDT. External TV widget is blank/wrong for these.
  */
 const TV_UNSUPPORTED_COINS = new Set([
-  'CASHCAT',
   'PURR', // was wrongly mapped to BTCUSDT
   'KBONK',
   'KPEPE',

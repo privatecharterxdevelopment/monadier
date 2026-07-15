@@ -46,13 +46,13 @@ export function chartSanitizeRef(candles: HlCandleBar[], markPx?: number): numbe
   return fromBar;
 }
 
-/**
- * Drop corrupt / wrong-asset bars only (e.g. BTC ~70k injected into CASHCAT ~0.1).
- * Band is intentionally wide — tight ±45% nuked real meme history (CASHCAT 1h lost ~2/3 bars).
- */
+/** Drop corrupt / wrong-asset bars only (e.g. BTC ~70k injected into a micro-priced alt). */
 const SANITIZE_BAND_LO = 0.01;
 const SANITIZE_BAND_HI = 100;
 
+/**
+ * Band is intentionally wide — a tight ±45% band nuked meme/alt history on big dumps.
+ */
 export function sanitizeChartCandles(
   candles: HlCandleBar[],
   refPx?: number

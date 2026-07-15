@@ -1,6 +1,5 @@
 /**
  * Hyperliquid bot scans liquid HL perps (≥ $2.5M 24h notional).
- * Manual trading can still use any HL perp — this allowlist is bot-only.
  * Live universe comes from bot-service `/api/global-signals` → `botUniverse`.
  * Fallback list = last known ≥$2.5M set (updated when liquidity regime shifts).
  */
@@ -78,12 +77,19 @@ export const BOT_TRADE_FALLBACK_COINS = [
 
 const BOT_TRADE_FALLBACK_SET = new Set<string>(BOT_TRADE_FALLBACK_COINS);
 
-/** Hard excludes — bot never scans/opens these even if volume spikes. */
+/**
+ * Platform hard-delist — bot never scans/opens; markets ticker / pair picker hide them.
+ * Open positions for these still show so the user can Close.
+ * Keep in sync with bot-service `BOT_EXCLUDED_HL_COINS`.
+ */
 export const BOT_EXCLUDED_HL_COINS = new Set(['CRV', 'CASHCAT']);
 
 export function isBotExcludedHlCoin(coin: string): boolean {
   return BOT_EXCLUDED_HL_COINS.has(normalizeHlPerpCoin(coin));
 }
+
+/** Alias for market/UI delist checks (same set as bot ban). */
+export const isHlPlatformBannedCoin = isBotExcludedHlCoin;
 
 /** Bot-only: coin must be in live allowlist (or fallback) and not hard-excluded. */
 export function isBotTradeableHlCoin(

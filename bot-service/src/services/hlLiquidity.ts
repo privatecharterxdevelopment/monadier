@@ -5,8 +5,8 @@ import { logger } from '../utils/logger';
 export const BOT_MIN_DAY_VOLUME_USD = 2_500_000;
 
 /**
- * Hard ban — never scan or open, even if 24h volume clears the floor.
- * Keep in sync with frontend `BOT_EXCLUDED_HL_COINS`.
+ * Platform hard-delist — never scan or open, even if 24h volume clears the floor.
+ * Keep in sync with frontend `BOT_EXCLUDED_HL_COINS` (CRV, CASHCAT).
  */
 export const BOT_EXCLUDED_HL_COINS = new Set(['CRV', 'CASHCAT']);
 

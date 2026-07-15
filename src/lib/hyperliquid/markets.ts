@@ -2,6 +2,7 @@ import { hlInfoPost } from './hlInfoClient';
 import { warmHlMetaCache } from './meta';
 import { toNum } from './parse';
 import type { HlAssetCtx, HlAssetMeta } from './types';
+import { isBotExcludedHlCoin } from '../botTradingPairs';
 
 export type HlMarket = {
   name: string;
@@ -22,6 +23,7 @@ async function hlInfo<T>(body: Record<string, unknown>): Promise<T> {
 
 function buildMarket(asset: HlAssetMeta, ctx: HlAssetCtx | undefined): HlMarket | null {
   if (!asset?.name || asset.isDelisted || !ctx) return null;
+  if (isBotExcludedHlCoin(asset.name)) return null;
   const markPx = toNum(ctx.markPx);
   const prevDayPx = toNum(ctx.prevDayPx);
   const change24hPct = prevDayPx > 0 ? ((markPx - prevDayPx) / prevDayPx) * 100 : 0;
