@@ -317,7 +317,7 @@ const Dashboard2ProPageContent: React.FC = () => {
       const notional = absSize * (mark > 0 ? mark : entryPx);
       const collateral = notional / lev;
       const pct = marginPctFromStopPrice(side, entryPx, absSize, collateral, stopPx);
-      if (pct == null || pct < 0.1 || pct > 50) return;
+      if (pct == null || pct < 0.1 || pct > 95) return;
       const result = await commitBotStopLossPct(Math.round(pct * 100) / 100);
       if (result.ok) void reloadBotSettings();
     },
