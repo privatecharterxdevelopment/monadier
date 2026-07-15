@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { outcomeListDisplayPx } from '../../../lib/hyperliquid/outcomes/book';
 import {
   formatOutcomeBetCellParts,
@@ -35,63 +36,69 @@ const SportsbetsMarketTable: React.FC<Props> = ({
   selectedSide,
   onSelectLeg,
   compact = false,
-}) => (
-  <div className={`hl-sb-market-table ${compact ? 'hl-sb-market-table--compact' : ''}`}>
-    <div className="hl-sb-market-head">
-      <span className="hl-sb-market-head-selection">Selection</span>
-      <span className="hl-sb-market-head-odds">Yes</span>
-      <span className="hl-sb-market-head-odds">No</span>
-    </div>
+}) => {
+  const { t } = useTranslation();
+  const yesLabel = t('betting.yes');
+  const noLabel = t('betting.no');
 
-    {question.legs.map((leg) => {
-      const quote = legQuotes[leg.outcomeId];
-      const indicative = isIndicativeOutcomeQuote(quote);
-      const yesPx = legDisplayPrice(quote, 0);
-      const noPx = legDisplayPrice(quote, 1);
-      const yesParts =
-        yesPx > 0 ? formatOutcomeBetCellParts(yesPx, OUTCOME_PREVIEW_STAKE_USD, { indicative }) : null;
-      const noParts =
-        noPx > 0 ? formatOutcomeBetCellParts(noPx, OUTCOME_PREVIEW_STAKE_USD, { indicative }) : null;
-      const yesSelected = selectedOutcomeId === leg.outcomeId && selectedSide === 0;
-      const noSelected = selectedOutcomeId === leg.outcomeId && selectedSide === 1;
+  return (
+    <div className={`hl-sb-market-table ${compact ? 'hl-sb-market-table--compact' : ''}`}>
+      <div className="hl-sb-market-head">
+        <span className="hl-sb-market-head-selection">{t('betting.selection')}</span>
+        <span className="hl-sb-market-head-odds">{yesLabel}</span>
+        <span className="hl-sb-market-head-odds">{noLabel}</span>
+      </div>
 
-      const legLabel = formatBettingLegName(leg);
-      const legBadge = parsePriceBinaryMeta(leg.description)?.underlying ?? leg.name;
+      {question.legs.map((leg) => {
+        const quote = legQuotes[leg.outcomeId];
+        const indicative = isIndicativeOutcomeQuote(quote);
+        const yesPx = legDisplayPrice(quote, 0);
+        const noPx = legDisplayPrice(quote, 1);
+        const yesParts =
+          yesPx > 0 ? formatOutcomeBetCellParts(yesPx, OUTCOME_PREVIEW_STAKE_USD, { indicative }) : null;
+        const noParts =
+          noPx > 0 ? formatOutcomeBetCellParts(noPx, OUTCOME_PREVIEW_STAKE_USD, { indicative }) : null;
+        const yesSelected = selectedOutcomeId === leg.outcomeId && selectedSide === 0;
+        const noSelected = selectedOutcomeId === leg.outcomeId && selectedSide === 1;
 
-      return (
-        <div
-          key={leg.outcomeId}
-          className={`hl-sb-market-row${yesSelected || noSelected ? ' hl-sb-market-row--picked' : ''}`}
-        >
-          <div className="hl-sb-market-team">
-            <TeamBadge name={legBadge} size={compact ? 24 : 28} />
-            <div className="hl-sb-market-team-copy">
-              <strong>{legLabel}</strong>
-              {quotesLoading && !quote ? (
-                <span className="hl-sb-leg-implied">Loading…</span>
-              ) : null}
+        const legLabel = formatBettingLegName(leg);
+        const legBadge = parsePriceBinaryMeta(leg.description)?.underlying ?? leg.name;
+
+        return (
+          <div
+            key={leg.outcomeId}
+            className={`hl-sb-market-row${yesSelected || noSelected ? ' hl-sb-market-row--picked' : ''}`}
+          >
+            <div className="hl-sb-market-team">
+              <TeamBadge name={legBadge} size={compact ? 24 : 28} />
+              <div className="hl-sb-market-team-copy">
+                <strong>{legLabel}</strong>
+                {quotesLoading && !quote ? (
+                  <span className="hl-sb-leg-implied">{t('betting.loadingShort')}</span>
+                ) : null}
+              </div>
             </div>
+
+            <SportsbetsOddsButton
+              side={yesLabel}
+              parts={yesParts}
+              picked={yesSelected}
+              variant="yes"
+              onClick={() => onSelectLeg(leg.outcomeId, 0)}
+            />
+
+            <SportsbetsOddsButton
+              side={noLabel}
+              parts={noParts}
+              picked={noSelected}
+              variant="no"
+              onClick={() => onSelectLeg(leg.outcomeId, 1)}
+            />
           </div>
-
-          <SportsbetsOddsButton
-            side="Yes"
-            parts={yesParts}
-            picked={yesSelected}
-            variant="yes"
-            onClick={() => onSelectLeg(leg.outcomeId, 0)}
-          />
-
-          <SportsbetsOddsButton
-            side="No"
-            parts={noParts}
-            picked={noSelected}
-            variant="no"
-            onClick={() => onSelectLeg(leg.outcomeId, 1)}
-          />
-        </div>
-      );
-    })}
-  </div>
-);
+        );
+      })}
+    </div>
+  );
+};
 
 export default SportsbetsMarketTable;

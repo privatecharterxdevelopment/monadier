@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
+  BETTING_CATEGORY_TABS,
   categoryLabel,
   formatBettingQuestionTitle,
   orderQuestionsForAllView,
@@ -28,19 +30,22 @@ const SportsbetsAllMarketsView: React.FC<Props> = ({
   selectedSide,
   onSelectLeg,
 }) => {
+  const { t } = useTranslation();
   const ordered = useMemo(() => orderQuestionsForAllView(questions), [questions]);
 
   return (
     <section className="hl-sb-detail hl-sb-all-markets">
       <div className="hl-sb-detail-head hl-sb-detail-head--all">
-        <h2 className="hl-sb-detail-title">All markets</h2>
-        <p className="hl-sb-detail-summary">Sports, crypto &amp; macro — pick any row to bet</p>
+        <h2 className="hl-sb-detail-title">{t('betting.allMarkets')}</h2>
+        <p className="hl-sb-detail-summary">{t('betting.allMarketsLead')}</p>
       </div>
 
       <div className="hl-sb-all-markets-scroll">
         {ordered.map((question) => {
           const cat = resolveBettingCategory(question);
           const activeBlock = question.questionId === selectedQuestionId;
+          const catTab = BETTING_CATEGORY_TABS.find((tab) => tab.id === cat);
+          const catDisplay = catTab ? t(catTab.labelKey) : categoryLabel(cat);
 
           return (
             <article
@@ -53,7 +58,7 @@ const SportsbetsAllMarketsView: React.FC<Props> = ({
                   <h3 className="hl-sb-all-market-title">{formatBettingQuestionTitle(question)}</h3>
                   <p className="hl-sb-all-market-meta">{questionListSubtitle(question)}</p>
                 </div>
-                <span className="hl-sb-all-market-cat">{categoryLabel(cat)}</span>
+                <span className="hl-sb-all-market-cat">{catDisplay}</span>
               </header>
 
               <SportsbetsMarketTable

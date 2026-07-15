@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { patchUserProfile } from '../../lib/profile';
 
 const ProfileTradeEmailToggle: React.FC = () => {
+  const { t } = useTranslation();
   const { user, profile, refreshProfile } = useAuth();
   const [enabled, setEnabled] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -25,22 +27,22 @@ const ProfileTradeEmailToggle: React.FC = () => {
       await refreshProfile();
     } catch (err) {
       setEnabled(!next);
-      setError(err instanceof Error ? err.message : 'Could not save');
+      setError(err instanceof Error ? err.message : t('profile.tradeEmail.saveFailed'));
     } finally {
       setBusy(false);
     }
-  }, [user?.id, busy, enabled, refreshProfile]);
+  }, [user?.id, busy, enabled, refreshProfile, t]);
 
   const email = profile?.email || user?.email;
+  const at = email ? t('profile.tradeEmail.atEmail', { email }) : '';
 
   return (
     <div id="profile-trade-email" className="term-profile-notify-email">
       <div className="term-profile-notify-email-row">
         <div>
-          <p className="term-profile-notify-email-title">Trade close emails</p>
+          <p className="term-profile-notify-email-title">{t('profile.tradeEmail.title')}</p>
           <p className="term-profile-muted term-profile-notify-email-desc">
-            Get an email when a bot trade or betting position closes in profit
-            {email ? ` at ${email}` : ''}.
+            {t('profile.tradeEmail.desc', { at })}
           </p>
         </div>
         <button
@@ -51,7 +53,13 @@ const ProfileTradeEmailToggle: React.FC = () => {
           disabled={busy || !user}
           onClick={() => void onToggle()}
         >
-          {busy ? <Loader2 size={14} className="animate-spin" /> : enabled ? 'On' : 'Off'}
+          {busy ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : enabled ? (
+            t('profile.tradeEmail.on')
+          ) : (
+            t('profile.tradeEmail.off')
+          )}
         </button>
       </div>
       {error ? <p className="term-profile-err">{error}</p> : null}

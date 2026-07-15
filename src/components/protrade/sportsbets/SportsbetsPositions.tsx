@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { fmtClosedPnl, fmtUsdSymbol, fmtTimeMs } from '../../../lib/hyperliquid/format';
 import { parseOutcomeOrderCoin } from '../../../lib/hyperliquid/outcomes/encoding';
 import type { HlOpenOrder, HlUserFill } from '../../../lib/hyperliquid/user';
@@ -21,28 +22,29 @@ const SportsbetsPositions: React.FC<Props> = ({
   onCancelOrder,
   cancelBusy,
 }) => {
+  const { t } = useTranslation();
   const recentFills = fills.slice(0, 12);
 
   return (
     <section className="hl-sb-dock">
       <div className="hl-sb-dock-grid">
         <div className="hl-sb-dock-panel">
-          <h3 className="hl-sb-dock-title">Your bets</h3>
+          <h3 className="hl-sb-dock-title">{t('betting.yourBets')}</h3>
           {loading && positions.length === 0 ? (
-            <p className="hl-sb-muted">Loading…</p>
+            <p className="hl-sb-muted">{t('betting.loadingShort')}</p>
           ) : positions.length === 0 ? (
-            <p className="hl-sb-muted">No open bets yet.</p>
+            <p className="hl-sb-muted">{t('betting.noOpenBets')}</p>
           ) : (
             <table className="hl-sb-table">
               <thead>
                 <tr>
-                  <th>Market</th>
-                  <th>Side</th>
-                  <th>Size</th>
-                  <th>Avg</th>
-                  <th>Mark</th>
-                  <th>Value</th>
-                  <th>PnL</th>
+                  <th>{t('betting.market')}</th>
+                  <th>{t('betting.side')}</th>
+                  <th>{t('betting.size')}</th>
+                  <th>{t('betting.avg')}</th>
+                  <th>{t('betting.mark')}</th>
+                  <th>{t('betting.value')}</th>
+                  <th>{t('betting.pnl')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -65,17 +67,17 @@ const SportsbetsPositions: React.FC<Props> = ({
         </div>
 
         <div className="hl-sb-dock-panel">
-          <h3 className="hl-sb-dock-title">Open bets</h3>
+          <h3 className="hl-sb-dock-title">{t('betting.openBets')}</h3>
           {openOrders.length === 0 ? (
-            <p className="hl-sb-muted">No pending bets.</p>
+            <p className="hl-sb-muted">{t('betting.noPendingBets')}</p>
           ) : (
             <table className="hl-sb-table">
               <thead>
                 <tr>
-                  <th>Coin</th>
-                  <th>Side</th>
+                  <th>{t('betting.coin')}</th>
+                  <th>{t('betting.side')}</th>
                   <th>Price</th>
-                  <th>Size</th>
+                  <th>{t('betting.size')}</th>
                   <th />
                 </tr>
               </thead>
@@ -96,7 +98,7 @@ const SportsbetsPositions: React.FC<Props> = ({
                             disabled={cancelBusy}
                             onClick={() => onCancelOrder(parsed.outcomeId, parsed.side, o.oid)}
                           >
-                            Cancel
+                            {t('betting.cancel')}
                           </button>
                         ) : null}
                       </td>
@@ -109,7 +111,7 @@ const SportsbetsPositions: React.FC<Props> = ({
         </div>
 
         <div className="hl-sb-dock-panel hl-sb-dock-panel--wide">
-          <h3 className="hl-sb-dock-title">Recent results</h3>
+          <h3 className="hl-sb-dock-title">{t('betting.recentResults')}</h3>
           {recentFills.length === 0 ? (
             <p className="hl-sb-muted">No settled activity yet.</p>
           ) : (
@@ -117,10 +119,10 @@ const SportsbetsPositions: React.FC<Props> = ({
               <thead>
                 <tr>
                   <th>Time</th>
-                  <th>Market</th>
-                  <th>Side</th>
+                  <th>{t('betting.market')}</th>
+                  <th>{t('betting.side')}</th>
                   <th>Price</th>
-                  <th>Size</th>
+                  <th>{t('betting.size')}</th>
                   <th>Fee</th>
                 </tr>
               </thead>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { ExternalLink, Loader2, Trophy } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { BotPublicTradeRow } from '../../lib/api/botPublicLeaderboard';
 import { useBotPublicLeaderboardData } from '../../hooks/useBotPublicLeaderboard';
 import ProTradePageShell from './ProTradePageShell';
@@ -21,33 +22,34 @@ function fmtWhen(iso: string | null): string {
   });
 }
 
-function fmtRelative(iso: string): string {
+function fmtRelative(iso: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const ms = Date.parse(iso);
   if (!Number.isFinite(ms)) return '—';
   const mins = Math.floor((Date.now() - ms) / 60_000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return t('leaderboard.justNow');
+  if (mins < 60) return t('leaderboard.minsAgo', { n: mins });
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  if (hrs < 24) return t('leaderboard.hoursAgo', { n: hrs });
+  return t('leaderboard.daysAgo', { n: Math.floor(hrs / 24) });
 }
 
 const TOP_LIMIT = 10;
 const RECENT_LIMIT = 10;
 
 function TradeTable({ trades }: { trades: BotPublicTradeRow[] }) {
+  const { t } = useTranslation();
   return (
     <div className="hl-leaderboard-table-wrap">
       <table className="hl-dock-table hl-leaderboard-table">
         <thead>
           <tr>
-            <th>Wallet</th>
-            <th>Pair</th>
-            <th>Side</th>
-            <th className="is-hide-narrow">Opened</th>
-            <th className="is-hide-narrow">Closed</th>
-            <th className="is-num">P/L</th>
-            <th className="is-action">Verify</th>
+            <th>{t('leaderboard.wallet')}</th>
+            <th>{t('leaderboard.pair')}</th>
+            <th>{t('leaderboard.side')}</th>
+            <th className="is-hide-narrow">{t('leaderboard.opened')}</th>
+            <th className="is-hide-narrow">{t('leaderboard.closed')}</th>
+            <th className="is-num">{t('leaderboard.pnl')}</th>
+            <th className="is-action">{t('leaderboard.verify')}</th>
           </tr>
         </thead>
         <tbody>
@@ -74,7 +76,7 @@ function TradeTable({ trades }: { trades: BotPublicTradeRow[] }) {
                   rel="noopener noreferrer"
                   className="hl-leaderboard-verify"
                 >
-                  HypurrScan
+                  {t('leaderboard.hypurrScan')}
                   <ExternalLink size={12} aria-hidden />
                 </a>
               </td>
@@ -87,6 +89,7 @@ function TradeTable({ trades }: { trades: BotPublicTradeRow[] }) {
 }
 
 const ProTradeLeaderboard: React.FC = () => {
+  const { t } = useTranslation();
   const { topTrades, liveTrades, loading } = useBotPublicLeaderboardData({
     topLimit: TOP_LIMIT,
     recentLimit: RECENT_LIMIT,
@@ -99,28 +102,24 @@ const ProTradeLeaderboard: React.FC = () => {
           <Trophy size={20} />
         </div>
         <div>
-          <h1 className="hl-leaderboard-hero__title">Leaderboard</h1>
-          <p className="hl-leaderboard-hero__lead">
-            Real Hyperliquid bot wins from our users — wallet masked, verify every close on HypurrScan.
-          </p>
+          <h1 className="hl-leaderboard-hero__title">{t('leaderboard.title')}</h1>
+          <p className="hl-leaderboard-hero__lead">{t('leaderboard.lead')}</p>
         </div>
       </header>
 
       <div className="hl-leaderboard-grid">
         <section className="hl-leaderboard-panel hl-leaderboard-panel--positions">
           <div className="hl-leaderboard-panel__head">
-            <h2>Best positions</h2>
-            <span>Top {TOP_LIMIT} by P/L · HypurrScan</span>
+            <h2>{t('leaderboard.bestPositions')}</h2>
+            <span>{t('leaderboard.topByPnl', { n: TOP_LIMIT })}</span>
           </div>
           {loading && topTrades.length === 0 ? (
             <div className="hl-leaderboard-state">
               <Loader2 size={20} className="animate-spin" aria-hidden />
-              <span>Loading verified trades…</span>
+              <span>{t('leaderboard.loading')}</span>
             </div>
           ) : topTrades.length === 0 ? (
-            <p className="hl-leaderboard-empty">
-              Profitable bot closes will appear here once users start winning — all verifiable on HypurrScan.
-            </p>
+            <p className="hl-leaderboard-empty">{t('leaderboard.emptyTop')}</p>
           ) : (
             <TradeTable trades={topTrades} />
           )}
@@ -129,15 +128,15 @@ const ProTradeLeaderboard: React.FC = () => {
         <section className="hl-leaderboard-panel hl-leaderboard-panel--wins">
           <div className="hl-leaderboard-panel__head">
             <span className="hl-leaderboard-live-dot" aria-hidden />
-            <h2>Top wins</h2>
-            <span>Recent · 10s refresh · live HL</span>
+            <h2>{t('leaderboard.topWins')}</h2>
+            <span>{t('leaderboard.recentRefresh')}</span>
           </div>
           {loading && liveTrades.length === 0 ? (
             <div className="hl-leaderboard-state hl-leaderboard-state--compact">
               <Loader2 size={18} className="animate-spin" aria-hidden />
             </div>
           ) : liveTrades.length === 0 ? (
-            <p className="hl-leaderboard-empty">No recent wins yet.</p>
+            <p className="hl-leaderboard-empty">{t('leaderboard.emptyRecent')}</p>
           ) : (
             <ul className="hl-leaderboard-live-list">
               {liveTrades.map((trade) => (
@@ -147,18 +146,20 @@ const ProTradeLeaderboard: React.FC = () => {
                     <span>
                       {trade.pair} {trade.direction}
                     </span>
-                    {trade.isLive ? <span className="hl-leaderboard-live-badge">LIVE</span> : null}
+                    {trade.isLive ? (
+                      <span className="hl-leaderboard-live-badge">{t('leaderboard.live')}</span>
+                    ) : null}
                   </div>
                   <div className="hl-leaderboard-live-side">
                     <strong className="hl-up">{fmtUsd(trade.profitUsd)}</strong>
-                    <span>{fmtRelative(trade.closedAt)}</span>
+                    <span>{fmtRelative(trade.closedAt, t)}</span>
                     <a
                       href={trade.verifyUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="hl-leaderboard-verify"
                     >
-                      Verify
+                      {t('leaderboard.verify')}
                       <ExternalLink size={11} aria-hidden />
                     </a>
                   </div>

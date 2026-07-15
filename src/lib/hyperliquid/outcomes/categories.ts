@@ -8,17 +8,26 @@ export type BettingCategoryId = 'all' | 'sports' | 'crypto' | 'macro' | 'other';
 
 export type BettingCategoryTab = {
   id: BettingCategoryId;
-  label: string;
+  labelKey: string;
   emoji: string;
 };
 
 export const BETTING_CATEGORY_TABS: BettingCategoryTab[] = [
-  { id: 'all', label: 'All', emoji: '' },
-  { id: 'sports', label: 'Sports', emoji: '⚽' },
-  { id: 'crypto', label: 'Crypto', emoji: '₿' },
-  { id: 'macro', label: 'Macro', emoji: '' },
-  { id: 'other', label: 'More', emoji: '' },
+  { id: 'all', labelKey: 'betting.catAll', emoji: '' },
+  { id: 'sports', labelKey: 'betting.catSports', emoji: '⚽' },
+  { id: 'crypto', labelKey: 'betting.catCrypto', emoji: '₿' },
+  { id: 'macro', labelKey: 'betting.catMacro', emoji: '' },
+  { id: 'other', labelKey: 'betting.catMore', emoji: '' },
 ];
+
+/** English fallbacks for non-React / badge contexts (mirrors en.json). */
+const CATEGORY_LABEL_EN: Record<BettingCategoryId, string> = {
+  all: 'All',
+  sports: 'Sports',
+  crypto: 'Crypto',
+  macro: 'Macro',
+  other: 'More',
+};
 
 const MACRO_KEYWORDS = ['fed', 'cpi', 'inflation', 'interest rate', 'gdp', 'unemployment', 'fomc'];
 const CRYPTO_KEYWORDS = ['btc', 'bitcoin', 'eth', 'ethereum', 'sol', 'hype', 'pricebinary', 'recurring'];
@@ -58,7 +67,7 @@ export function resolveBettingCategory(question: HlOutcomeQuestion): BettingCate
 }
 
 export function categoryLabel(id: BettingCategoryId): string {
-  return BETTING_CATEGORY_TABS.find((t) => t.id === id)?.label ?? id;
+  return CATEGORY_LABEL_EN[id] ?? id;
 }
 
 export function categoryEmoji(id: BettingCategoryId): string {

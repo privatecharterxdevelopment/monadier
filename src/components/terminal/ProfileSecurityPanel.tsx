@@ -13,6 +13,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchLoginActivity, type LoginEvent } from '../../lib/loginActivity';
 import {
@@ -29,8 +30,8 @@ type Props = {
   mode?: 'all' | 'credentials';
 };
 
-function fmtWhen(iso: string) {
-  return new Date(iso).toLocaleString(undefined, {
+function fmtWhen(iso: string, locale?: string) {
+  return new Date(iso).toLocaleString(locale || undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -39,14 +40,14 @@ function fmtWhen(iso: string) {
   });
 }
 
-function parseDevice(ua: string | null): string {
-  if (!ua) return 'Unknown device';
+function parseDevice(ua: string | null, t: (key: string) => string): string {
+  if (!ua) return t('profile.loginHistory.unknownDevice');
   if (/iPhone|iPad/i.test(ua)) return 'iOS';
   if (/Android/i.test(ua)) return 'Android';
   if (/Mac OS/i.test(ua)) return 'Mac';
   if (/Windows/i.test(ua)) return 'Windows';
   if (/Linux/i.test(ua)) return 'Linux';
-  return 'Browser';
+  return t('profile.loginHistory.browser');
 }
 
 const ProfileSecurityPanel: React.FC<Props> = ({
@@ -54,6 +55,7 @@ const ProfileSecurityPanel: React.FC<Props> = ({
   onForgotPasswordClick,
   mode = 'all',
 }) => {
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const [events, setEvents] = useState<LoginEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
@@ -94,7 +96,7 @@ const ProfileSecurityPanel: React.FC<Props> = ({
 
   const handleResetEmail = async () => {
     if (!user?.email) {
-      setPasswordError('No email on this account.');
+      setPasswordError(t('profile.security.noEmail'));
       return;
     }
     setPasswordBusy(true);
@@ -105,7 +107,7 @@ const ProfileSecurityPanel: React.FC<Props> = ({
     if (error) {
       setPasswordError(
         error.message.includes('rate')
-          ? 'Too many requests — wait a few minutes and try again.'
+          ? t('profile.security.rateLimited')
           : error.message
       );
       return;
@@ -118,18 +120,18 @@ const ProfileSecurityPanel: React.FC<Props> = ({
     setPasswordError(null);
     setPasswordSuccess(false);
     if (newPassword.length < 8) {
-      setPasswordError('Use at least 8 characters.');
+      setPasswordError(t('profile.security.minChars'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordError('Passwords do not match.');
+      setPasswordError(t('profile.security.mismatch'));
       return;
     }
     setPasswordBusy(true);
     const { data: sessionData } = await supabase.auth.getSession();
     if (!sessionData.session) {
       setPasswordBusy(false);
-      setPasswordError('Session expired — sign in again, then retry.');
+      setPasswordError(t('profile.security.sessionExpired'));
       return;
     }
     const { error } = await updatePassword(newPassword);
@@ -137,11 +139,11 @@ const ProfileSecurityPanel: React.FC<Props> = ({
     if (error) {
       const msg = error.message.toLowerCase();
       if (msg.includes('same') || msg.includes('different')) {
-        setPasswordError('Choose a different password than your current one.');
+        setPasswordError(t('profile.security.samePassword'));
       } else if (msg.includes('weak') || msg.includes('password')) {
         setPasswordError(error.message);
       } else {
-        setPasswordError(error.message || 'Could not update password. Try the email reset link.');
+        setPasswordError(error.message || t('profile.security.updateFailed'));
       }
       return;
     }
@@ -173,21 +175,20 @@ const ProfileSecurityPanel: React.FC<Props> = ({
         <span className="term-security-account-email">{maskedEmail}</span>
         <div className="term-security-badges">
           {hasGoogle && <span className="term-security-badge">Google</span>}
-          {hasEmailProvider && <span className="term-security-badge">Email</span>}
+          {hasEmailProvider && <span className="term-security-badge">{t('profile.security.emailBadge')}</span>}
         </div>
       </div>
 
       <section className="term-security-block">
         {compact ? (
-          <h3 className="term-security-block-title">Reset by email</h3>
+          <h3 className="term-security-block-title">{t('profile.security.resetByEmail')}</h3>
         ) : (
           <div className="term-security-block-head">
             <KeyRound size={18} aria-hidden />
             <div>
-              <h3 className="term-security-block-title">Reset password by email</h3>
+              <h3 className="term-security-block-title">{t('profile.security.resetPasswordByEmail')}</h3>
               <p className="term-security-block-desc">
-                We send a secure link to <strong>{maskedEmail}</strong>. Open it on this device,
-                then set a new password on the reset page.
+                {t('profile.security.resetDesc', { email: maskedEmail })}
               </p>
             </div>
           </div>
@@ -197,10 +198,9 @@ const ProfileSecurityPanel: React.FC<Props> = ({
           <div className="term-security-success-box" role="status">
             <CheckCircle size={20} aria-hidden />
             <div>
-              <p className="term-security-success-title">Check your inbox</p>
+              <p className="term-security-success-title">{t('profile.security.checkInbox')}</p>
               <p className="term-security-success-text">
-                If you don&apos;t see it within a few minutes, check spam. The link expires after a
-                short time.
+                {t('profile.security.checkInboxText')}
               </p>
             </div>
           </div>
@@ -214,17 +214,17 @@ const ProfileSecurityPanel: React.FC<Props> = ({
         >
           {passwordBusy ? (
             <>
-              <Loader2 size={16} className="animate-spin" /> Sending…
+              <Loader2 size={16} className="animate-spin" /> {t('profile.security.sending')}
             </>
           ) : resetResendSec > 0 ? (
-            `Resend available in ${resetResendSec}s`
+            t('profile.security.resendIn', { sec: resetResendSec })
           ) : resetEmailSent ? (
             <>
-              <Mail size={16} /> Send another link
+              <Mail size={16} /> {t('profile.security.sendAnother')}
             </>
           ) : (
             <>
-              <Mail size={16} /> Send password reset email
+              <Mail size={16} /> {t('profile.security.sendReset')}
             </>
           )}
         </button>
@@ -232,16 +232,16 @@ const ProfileSecurityPanel: React.FC<Props> = ({
 
       <section className="term-security-block">
         {compact ? (
-          <h3 className="term-security-block-title">Change password</h3>
+          <h3 className="term-security-block-title">{t('profile.security.changePassword')}</h3>
         ) : (
           <div className="term-security-block-head">
             <Lock size={18} aria-hidden />
             <div>
-              <h3 className="term-security-block-title">Change password now</h3>
+              <h3 className="term-security-block-title">{t('profile.security.changePasswordNow')}</h3>
               <p className="term-security-block-desc">
                 {hasGoogle && !hasEmailProvider
-                  ? 'You sign in with Google. Use the email reset above to add or change a password.'
-                  : 'Update immediately while you are signed in (no email required).'}
+                  ? t('profile.security.changeDescGoogle')
+                  : t('profile.security.changeDesc')}
               </p>
             </div>
           </div>
@@ -249,7 +249,7 @@ const ProfileSecurityPanel: React.FC<Props> = ({
 
         <div className="term-security-fields">
           <label className="term-profile-label" htmlFor={`${idPrefix}-new-pw`}>
-            New password
+            {t('profile.security.newPassword')}
           </label>
           <div className="term-profile-input-wrap">
             <input
@@ -257,7 +257,7 @@ const ProfileSecurityPanel: React.FC<Props> = ({
               className="term-profile-input"
               type={showPasswords ? 'text' : 'password'}
               autoComplete="new-password"
-              placeholder="At least 8 characters"
+              placeholder={t('profile.security.pwPlaceholder')}
               value={newPassword}
               onChange={(e) => {
                 setNewPassword(e.target.value);
@@ -268,21 +268,25 @@ const ProfileSecurityPanel: React.FC<Props> = ({
               type="button"
               className="term-profile-eye"
               onClick={() => setShowPasswords((v) => !v)}
-              aria-label={showPasswords ? 'Hide password' : 'Show password'}
+              aria-label={
+                showPasswords
+                  ? t('profile.security.hidePassword')
+                  : t('profile.security.showPassword')
+              }
             >
               {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
 
           <label className="term-profile-label" htmlFor={`${idPrefix}-confirm-pw`}>
-            Confirm password
+            {t('profile.security.confirmPassword')}
           </label>
           <input
             id={`${idPrefix}-confirm-pw`}
             className="term-profile-input"
             type={showPasswords ? 'text' : 'password'}
             autoComplete="new-password"
-            placeholder="Repeat new password"
+            placeholder={t('profile.security.pwRepeat')}
             value={confirmPassword}
             onChange={(e) => {
               setConfirmPassword(e.target.value);
@@ -305,10 +309,10 @@ const ProfileSecurityPanel: React.FC<Props> = ({
               <Loader2 size={16} className="animate-spin" />
             ) : passwordSuccess ? (
               <>
-                <CheckCircle size={16} /> Password updated
+                <CheckCircle size={16} /> {t('profile.security.passwordUpdated')}
               </>
             ) : (
-              'Save new password'
+              t('profile.security.savePassword')
             )}
           </button>
         </div>
@@ -322,33 +326,29 @@ const ProfileSecurityPanel: React.FC<Props> = ({
 
       {mode === 'all' ? (
         <section className="term-security-block term-security-block--muted">
-          <h3 className="term-security-block-title">Login history</h3>
-          <p className="term-security-block-desc">
-            Recent sign-ins on this account. Contact{' '}
-            <a href="mailto:support@monadier.io" className="term-security-inline-link">
-              support@monadier.io
-            </a>{' '}
-            if you see activity you don&apos;t recognize.
-          </p>
+          <h3 className="term-security-block-title">{t('profile.loginHistoryTitle')}</h3>
+          <p className="term-security-block-desc">{t('profile.security.loginHistoryDesc')}</p>
 
           {eventsLoading ? (
             <div className="term-security-loading">
-              <Loader2 size={16} className="animate-spin" /> Loading activity…
+              <Loader2 size={16} className="animate-spin" /> {t('profile.loginHistory.loading')}
             </div>
           ) : displayEvents.length === 0 ? (
-            <p className="term-modal-hint">No sessions logged yet.</p>
+            <p className="term-modal-hint">{t('profile.loginHistory.empty')}</p>
           ) : (
             <ul className="term-security-session-list">
               {displayEvents.map((ev) => (
                 <li key={ev.id} className="term-security-session-item">
                   <div className="term-security-session-main">
                     <Monitor size={14} aria-hidden />
-                    <span>{parseDevice(ev.user_agent)}</span>
-                    <span className="term-security-session-time">{fmtWhen(ev.logged_in_at)}</span>
+                    <span>{parseDevice(ev.user_agent, t)}</span>
+                    <span className="term-security-session-time">
+                      {fmtWhen(ev.logged_in_at, i18n.language)}
+                    </span>
                   </div>
                   <div className="term-security-session-meta">
                     <Globe size={12} aria-hidden />
-                    <span>{ev.ip_address || 'IP unavailable'}</span>
+                    <span>{ev.ip_address || t('profile.loginHistory.ipUnavailable')}</span>
                   </div>
                 </li>
               ))}
@@ -356,23 +356,20 @@ const ProfileSecurityPanel: React.FC<Props> = ({
           )}
 
           {events.length === 0 && user?.last_sign_in_at && (
-            <p className="term-modal-hint">
-              Showing your last account sign-in. Full history appears after the security database
-              migration is applied.
-            </p>
+            <p className="term-modal-hint">{t('profile.loginHistory.fallbackNote')}</p>
           )}
         </section>
       ) : null}
 
       {!compact ? (
         <p className="term-security-foot">
-          Forgot how you signed up?{' '}
+          {t('profile.security.forgotHow')}{' '}
           <Link
             to="/forgot-password"
             className="term-security-inline-link"
             onClick={onForgotPasswordClick}
           >
-            Reset from login page
+            {t('profile.security.resetFromLogin')}
             <ExternalLink size={12} className="inline ml-0.5" />
           </Link>
         </p>

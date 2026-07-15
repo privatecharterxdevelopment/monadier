@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Bell } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useTradeNotifications } from '../../contexts/TradeNotificationsContext';
 import type { ActivityNotification } from '../../lib/activityNotifications';
 
@@ -20,6 +21,7 @@ type Props = {
 };
 
 const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
+  const { t } = useTranslation();
   const { notifications, unreadCount, isLoading, markAllRead, markReadThrough, isUnread } =
     useTradeNotifications();
   const [open, setOpen] = useState(false);
@@ -43,7 +45,11 @@ const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
       <button
         type="button"
         className="hl-topnav-icon-btn hl-notif-bell-btn"
-        aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
+        aria-label={
+          unreadCount
+            ? t('notifications.unreadAria', { count: unreadCount })
+            : t('notifications.aria')
+        }
         onClick={() => setOpen((v) => !v)}
       >
         <Bell size={15} />
@@ -53,64 +59,65 @@ const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
       </button>
 
       {open ? (
-        <div className="hl-notif-panel" role="dialog" aria-label="Trade notifications">
+        <div className="hl-notif-panel" role="dialog" aria-label={t('notifications.dialogAria')}>
           <div className="hl-notif-panel-head">
-            <span className="hl-notif-panel-title">Activity</span>
+            <span className="hl-notif-panel-title">{t('notifications.title')}</span>
             {unreadCount > 0 ? (
               <button type="button" className="hl-notif-mark-read" onClick={markAllRead}>
-                Mark read
+                {t('notifications.markRead')}
               </button>
             ) : null}
           </div>
 
           {isLoading ? (
-            <p className="hl-notif-empty">Loading…</p>
+            <p className="hl-notif-empty">{t('notifications.loading')}</p>
           ) : preview.length === 0 ? (
-            <p className="hl-notif-empty">No activity yet</p>
+            <p className="hl-notif-empty">{t('notifications.empty')}</p>
           ) : (
             <ul className="hl-notif-list">
-              {preview.map((t) => {
-                const { date, time } = fmtWhen(t.closedAt);
-                const unread = isUnread(t);
-                const isBetting = t.kind === 'betting';
+              {preview.map((n) => {
+                const { date, time } = fmtWhen(n.closedAt);
+                const unread = isUnread(n);
+                const isBetting = n.kind === 'betting';
                 return (
-                  <li key={t.id}>
+                  <li key={n.id}>
                     <button
                       type="button"
                       className={`hl-notif-item ${unread ? 'hl-notif-item--unread' : ''}`}
                       onClick={() => {
-                        markReadThrough(t.closedAt);
+                        markReadThrough(n.closedAt);
                         setOpen(false);
-                        onViewHistory(t);
+                        onViewHistory(n);
                       }}
                     >
                       <span className="hl-notif-item-top">
                         <span>
                           {isBetting ? (
                             <>
-                              <span className="hl-notif-kind">Bet</span> {t.headline}
-                              {t.detail ? ` · ${t.detail}` : ''}
+                              <span className="hl-notif-kind">{t('notifications.kindBet')}</span>{' '}
+                              {n.headline}
+                              {n.detail ? ` · ${n.detail}` : ''}
                             </>
                           ) : (
-                            t.headline
+                            n.headline
                           )}
                         </span>
-                        <span className={t.profitLoss >= 0 ? 'hl-up' : 'hl-down'}>
-                          {t.profitLoss >= 0 ? '+' : ''}
-                          {fmtUsd(t.profitLoss)}
-                          {t.profitLossPercent != null && Number.isFinite(t.profitLossPercent) ? (
+                        <span className={n.profitLoss >= 0 ? 'hl-up' : 'hl-down'}>
+                          {n.profitLoss >= 0 ? '+' : ''}
+                          {fmtUsd(n.profitLoss)}
+                          {n.profitLossPercent != null && Number.isFinite(n.profitLossPercent) ? (
                             <span className="hl-notif-roi">
                               {' '}
-                              · {t.profitLossPercent >= 0 ? '+' : ''}
-                              {t.profitLossPercent.toFixed(2)}%
+                              · {n.profitLossPercent >= 0 ? '+' : ''}
+                              {n.profitLossPercent.toFixed(2)}%
                             </span>
                           ) : null}
                         </span>
                       </span>
                       <span className="hl-notif-item-meta">
                         {date} {time}
-                        {!isBetting && t.highlightId ? (
-                          <span className="hl-notif-kind">Bot</span>
+                        {!isBetting && n.highlightId ? (
+                          <span className="hl-notif-kind">{t('notifications.kindBot')}</span>
                         ) : null}
                       </span>
                     </button>
@@ -128,7 +135,7 @@ const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
               onViewHistory();
             }}
           >
-            View history
+            {t('notifications.viewHistory')}
           </button>
         </div>
       ) : null}

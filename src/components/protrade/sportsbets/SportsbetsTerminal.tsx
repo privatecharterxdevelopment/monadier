@@ -305,7 +305,7 @@ const SportsbetsTerminal: React.FC<Props> = ({
                   <Loader2 size={18} className="hl-spin" aria-hidden /> Loading markets…
                 </p>
               ) : (
-                <p className="hl-sb-muted">Pick a category or search to start betting.</p>
+                <p className="hl-sb-muted">{t('betting.emptyPick')}</p>
               )}
             </div>
           )}

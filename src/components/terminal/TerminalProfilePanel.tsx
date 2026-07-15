@@ -9,6 +9,7 @@ import {
   Upload,
   ImageIcon,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import ProfileSecurityPanel from './ProfileSecurityPanel';
 import ProfileTradeEmailToggle from './ProfileTradeEmailToggle';
 import ProfileLoginHistoryPanel from './ProfileLoginHistoryPanel';
@@ -45,6 +46,7 @@ const TerminalProfilePanel: React.FC<Props> = ({
   activeSection = 'all',
   variant = 'terminal',
 }) => {
+  const { t } = useTranslation();
   const { user, profile, refreshProfile } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -99,7 +101,7 @@ const TerminalProfilePanel: React.FC<Props> = ({
 
   const handleSaveProfile = async () => {
     if (!user?.id || !fullName.trim() || !country.trim()) {
-      setProfileSaveError('Name and country are required');
+      setProfileSaveError(t('profile.identity.nameCountryRequired'));
       return;
     }
     setIsSavingProfile(true);
@@ -115,7 +117,7 @@ const TerminalProfilePanel: React.FC<Props> = ({
         }
         const available = await isUsernameAvailable(usernameInput);
         if (!available) {
-          setProfileSaveError('That username is already taken');
+          setProfileSaveError(t('profile.identity.usernameTaken'));
           return;
         }
         await setUsernameOnce(usernameInput);
@@ -131,7 +133,7 @@ const TerminalProfilePanel: React.FC<Props> = ({
       setTimeout(() => setProfileSaveSuccess(false), 3000);
       await refreshProfile();
     } catch (err: unknown) {
-      setProfileSaveError(err instanceof Error ? err.message : 'Save failed');
+      setProfileSaveError(err instanceof Error ? err.message : t('profile.identity.saveFailed'));
     } finally {
       setIsSavingProfile(false);
     }
@@ -146,7 +148,7 @@ const TerminalProfilePanel: React.FC<Props> = ({
       if (error) throw error;
       await refreshProfile();
     } catch (err: unknown) {
-      setAvatarError(err instanceof Error ? err.message : 'Could not save emoji');
+      setAvatarError(err instanceof Error ? err.message : t('profile.identity.emojiFailed'));
     }
   };
 
@@ -160,7 +162,7 @@ const TerminalProfilePanel: React.FC<Props> = ({
       await uploadProfileAvatar(user, file);
       await refreshProfile();
     } catch (err: unknown) {
-      setAvatarError(err instanceof Error ? err.message : 'Upload failed');
+      setAvatarError(err instanceof Error ? err.message : t('profile.identity.uploadFailed'));
     } finally {
       setAvatarBusy(false);
     }
@@ -176,7 +178,7 @@ const TerminalProfilePanel: React.FC<Props> = ({
       setAvatarSuccess(true);
       setTimeout(() => setAvatarSuccess(false), 4000);
     } catch (err: unknown) {
-      setAvatarError(err instanceof Error ? err.message : 'Remove failed');
+      setAvatarError(err instanceof Error ? err.message : t('profile.identity.removeFailed'));
     } finally {
       setAvatarBusy(false);
     }
@@ -186,11 +188,11 @@ const TerminalProfilePanel: React.FC<Props> = ({
     if (!user?.id) return;
     const addr = newWalletInput.trim().toLowerCase();
     if (!isValidAddress(addr)) {
-      setWalletError('Invalid address');
+      setWalletError(t('profile.wallets.invalidAddress'));
       return;
     }
     if (linkedWallets.includes(addr)) {
-      setWalletError('Already linked');
+      setWalletError(t('profile.wallets.alreadyLinked'));
       return;
     }
     setWalletBusy(true);
@@ -204,7 +206,7 @@ const TerminalProfilePanel: React.FC<Props> = ({
       setLinkedWallets((prev) => [...prev, addr]);
       setNewWalletInput('');
     } catch (err: unknown) {
-      setWalletError(err instanceof Error ? err.message : 'Failed to add');
+      setWalletError(err instanceof Error ? err.message : t('profile.wallets.addFailed'));
     } finally {
       setWalletBusy(false);
     }
@@ -221,7 +223,7 @@ const TerminalProfilePanel: React.FC<Props> = ({
       if (error) throw error;
       setLinkedWallets((prev) => prev.filter((w) => w !== wallet.toLowerCase()));
     } catch (err: unknown) {
-      setWalletError(err instanceof Error ? err.message : 'Failed to remove');
+      setWalletError(err instanceof Error ? err.message : t('profile.wallets.removeFailed'));
     }
   };
 
@@ -241,7 +243,7 @@ const TerminalProfilePanel: React.FC<Props> = ({
       <div className={layoutClass}>
         {show('identity') ? (
         <section id="profile-identity" className="term-profile-card term-profile-card--section">
-          {isPro ? <h2 className="term-profile-card-title">Profile details</h2> : null}
+          {isPro ? <h2 className="term-profile-card-title">{t('profile.detailsTitle')}</h2> : null}
           <div className="term-profile-avatar-row">
             <ProfileAvatar profile={profile} userId={user?.id} size="md" />
             <div className="term-profile-avatar-actions">
@@ -263,7 +265,7 @@ const TerminalProfilePanel: React.FC<Props> = ({
                 ) : (
                   <Upload size={14} />
                 )}
-                Upload logo
+                {t('profile.identity.uploadLogo')}
               </button>
               {hasPhoto && (
                 <button
@@ -273,14 +275,14 @@ const TerminalProfilePanel: React.FC<Props> = ({
                   onClick={handleRemoveAvatar}
                 >
                   <ImageIcon size={14} />
-                  Remove photo
+                  {t('profile.identity.removePhoto')}
                 </button>
               )}
             </div>
           </div>
           {avatarSuccess && (
             <p className="term-profile-ok">
-              <CheckCircle size={14} /> Photo saved to your profile
+              <CheckCircle size={14} /> {t('profile.identity.photoSaved')}
             </p>
           )}
           {avatarError && (
@@ -303,7 +305,7 @@ const TerminalProfilePanel: React.FC<Props> = ({
               ))}
             </div>
           )}
-          <label className="term-profile-label">Username</label>
+          <label className="term-profile-label">{t('profile.identity.username')}</label>
           {hasUsername ? (
             <p className="term-profile-username-locked">@{profile?.username}</p>
           ) : (
@@ -322,21 +324,21 @@ const TerminalProfilePanel: React.FC<Props> = ({
           )}
           <div className="term-profile-field-row">
             <div>
-              <label className="term-profile-label">Full name</label>
+              <label className="term-profile-label">{t('profile.identity.fullName')}</label>
               <input
                 className="term-profile-input"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Your name"
+                placeholder={t('profile.identity.namePlaceholder')}
               />
             </div>
             <div>
-              <label className="term-profile-label">Country</label>
+              <label className="term-profile-label">{t('profile.identity.country')}</label>
               <input
                 className="term-profile-input"
                 value={country}
                 onChange={(e) => setCountry(e.target.value)}
-                placeholder="Switzerland"
+                placeholder={t('profile.identity.countryPlaceholder')}
               />
             </div>
           </div>
@@ -350,11 +352,11 @@ const TerminalProfilePanel: React.FC<Props> = ({
               <Loader2 size={16} className="animate-spin" />
             ) : profileSaveSuccess ? (
               <>
-                <CheckCircle size={16} /> Saved
+                <CheckCircle size={16} /> {t('profile.identity.saved')}
               </>
             ) : (
               <>
-                <Save size={16} /> Save profile
+                <Save size={16} /> {t('profile.identity.save')}
               </>
             )}
           </button>
@@ -372,7 +374,7 @@ const TerminalProfilePanel: React.FC<Props> = ({
           id="profile-security"
           className="term-profile-card term-profile-card--section term-profile-card--security"
         >
-          <h2 className="term-profile-card-title">Security &amp; credentials</h2>
+          <h2 className="term-profile-card-title">{t('profile.securityTitle')}</h2>
           <ProfileTradeEmailToggle />
           <ProfileSecurityPanel idPrefix="profile-sec" mode="credentials" />
         </section>
@@ -380,7 +382,7 @@ const TerminalProfilePanel: React.FC<Props> = ({
 
         {show('wallets') ? (
         <section id="profile-wallets" className="term-profile-card term-profile-card--section">
-          <h2 className="term-profile-card-title">Wallets</h2>
+          <h2 className="term-profile-card-title">{t('profile.walletsTitle')}</h2>
           <ul className="term-profile-wallet-list">
             {linkedWallets.map((w) => (
               <li key={w}>
@@ -389,7 +391,7 @@ const TerminalProfilePanel: React.FC<Props> = ({
                   type="button"
                   className="term-profile-wallet-remove"
                   onClick={() => handleRemoveWallet(w)}
-                  aria-label="Remove"
+                  aria-label={t('profile.wallets.removeAria')}
                 >
                   <X size={14} />
                 </button>
@@ -409,7 +411,7 @@ const TerminalProfilePanel: React.FC<Props> = ({
               disabled={walletBusy}
               onClick={handleAddWallet}
             >
-              <Plus size={14} /> Add
+              <Plus size={14} /> {t('profile.wallets.add')}
             </button>
           </div>
           {walletError && (
@@ -425,9 +427,9 @@ const TerminalProfilePanel: React.FC<Props> = ({
           id="profile-betting"
           className="term-profile-card term-profile-card--section term-profile-card--betting"
         >
-          <h2 className="term-profile-card-title">Betting</h2>
+          <h2 className="term-profile-card-title">{t('profile.bettingTitle')}</h2>
           <p className="term-profile-muted" style={{ marginBottom: 12 }}>
-            Open and closed bets with profit/loss — saved to your account.
+            {t('profile.bettingLead')}
           </p>
           <ProfileBettingPanel />
         </section>
@@ -438,7 +440,7 @@ const TerminalProfilePanel: React.FC<Props> = ({
           id="profile-login-history"
           className="term-profile-card term-profile-card--section term-profile-card--history"
         >
-          <h2 className="term-profile-card-title">Login history</h2>
+          <h2 className="term-profile-card-title">{t('profile.loginHistoryTitle')}</h2>
           <ProfileLoginHistoryPanel />
         </section>
         ) : null}

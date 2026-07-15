@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Loader2, Newspaper, RefreshCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { fetchNewsFeed, type NewsItemDto } from '../../lib/newsFeed';
 import NewsCard from './news/NewsCard';
 import ProTradePageShell from './ProTradePageShell';
@@ -13,6 +14,7 @@ type Props = {
 };
 
 const ProTradeNews: React.FC<Props> = ({ onTradeCrypto, onTradeSports }) => {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('crypto');
   const [items, setItems] = useState<NewsItemDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,12 +27,12 @@ const ProTradeNews: React.FC<Props> = ({ onTradeCrypto, onTradeSports }) => {
       const { items: rows } = await fetchNewsFeed(tab, 28);
       setItems(rows);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load news');
+      setError(e instanceof Error ? e.message : t('news.loadError'));
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [tab]);
+  }, [tab, t]);
 
   useEffect(() => {
     void load();
@@ -45,14 +47,12 @@ const ProTradeNews: React.FC<Props> = ({ onTradeCrypto, onTradeSports }) => {
           <div className="hl-studio-card__head-text">
             <Newspaper size={18} aria-hidden />
             <div>
-              <h1 className="hl-studio-card__title">News</h1>
-              <p className="hl-studio-card__sub">
-                CNBC, Reuters, Bloomberg, CoinDesk &amp; more — scanned for market impact.
-              </p>
+              <h1 className="hl-studio-card__title">{t('news.title')}</h1>
+              <p className="hl-studio-card__sub">{t('news.subtitle')}</p>
             </div>
           </div>
           <div className="hl-news-toolbar">
-            <div className="hl-news-tabs" role="tablist" aria-label="News category">
+            <div className="hl-news-tabs" role="tablist" aria-label={t('news.categoryAria')}>
               <button
                 type="button"
                 role="tab"
@@ -60,7 +60,7 @@ const ProTradeNews: React.FC<Props> = ({ onTradeCrypto, onTradeSports }) => {
                 className={`hl-news-tab ${tab === 'crypto' ? 'hl-news-tab--on' : ''}`}
                 onClick={() => setTab('crypto')}
               >
-                Crypto
+                {t('news.crypto')}
               </button>
               <button
                 type="button"
@@ -69,7 +69,7 @@ const ProTradeNews: React.FC<Props> = ({ onTradeCrypto, onTradeSports }) => {
                 className={`hl-news-tab ${tab === 'sports' ? 'hl-news-tab--on' : ''}`}
                 onClick={() => setTab('sports')}
               >
-                Sports
+                {t('news.sports')}
               </button>
             </div>
             <button
@@ -77,10 +77,10 @@ const ProTradeNews: React.FC<Props> = ({ onTradeCrypto, onTradeSports }) => {
               className="hl-news-refresh"
               onClick={() => void load()}
               disabled={loading}
-              aria-label="Refresh news"
+              aria-label={t('news.refreshAria')}
             >
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} aria-hidden />
-              Refresh
+              {t('news.refresh')}
             </button>
           </div>
         </header>
@@ -89,13 +89,13 @@ const ProTradeNews: React.FC<Props> = ({ onTradeCrypto, onTradeSports }) => {
       <section className="hl-studio-card">
         <header className="hl-studio-card__head">
           <Newspaper size={18} aria-hidden />
-          <span>Headlines</span>
+          <span>{t('news.headlines')}</span>
         </header>
         <div className="hl-studio-card__body hl-studio-card__body--flush">
           {loading && items.length === 0 ? (
             <div className="hl-news-loading">
               <Loader2 size={20} className="animate-spin" aria-hidden />
-              <span>Loading headlines…</span>
+              <span>{t('news.loading')}</span>
             </div>
           ) : null}
 
@@ -114,7 +114,7 @@ const ProTradeNews: React.FC<Props> = ({ onTradeCrypto, onTradeSports }) => {
           </div>
 
           {!loading && items.length === 0 && !error ? (
-            <p className="hl-news-empty">No headlines in the last 48h — check back soon.</p>
+            <p className="hl-news-empty">{t('news.empty')}</p>
           ) : null}
         </div>
       </section>

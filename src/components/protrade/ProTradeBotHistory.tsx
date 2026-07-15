@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Download } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useHyperliquidAccount } from '../../hooks/useHyperliquidAccount';
 import { useHlBotManagedCoins } from '../../hooks/useHlBotManagedCoins';
@@ -27,6 +28,7 @@ const ProTradeBotHistory: React.FC<Props> = ({
   walletConnected = false,
   embedded = false,
 }) => {
+  const { t } = useTranslation();
   const { user, profile } = useAuth();
   const displayName = displayHandle(profile, user?.email);
   const username = profile?.username?.trim() || null;
@@ -98,12 +100,12 @@ const ProTradeBotHistory: React.FC<Props> = ({
         displayName,
       });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'PDF export failed.';
+      const msg = err instanceof Error ? err.message : t('profile.botHistory.exportFailed');
       setExportError(msg);
     } finally {
       setExporting(false);
     }
-  }, [wallet, closeFills.length, exporting, botFills, userId, username, displayName]);
+  }, [wallet, closeFills.length, exporting, botFills, userId, username, displayName, t]);
 
   const showPdfExport = embedded && Boolean(wallet) && closeFills.length > 0;
   const accountLine = username ? `@${username}` : displayName;
@@ -114,24 +116,24 @@ const ProTradeBotHistory: React.FC<Props> = ({
       <header className="hl-history-head">
         <div className="hl-history-head-row">
           <div className="hl-history-head-main">
-            <h1 className="hl-history-title">Bot trade history</h1>
-            <p className="hl-history-sub">
-              Bot trades only — manual Perps fills are listed under the Perps tab.
-            </p>
+            <h1 className="hl-history-title">{t('profile.botHistory.title')}</h1>
+            <p className="hl-history-sub">{t('profile.botHistory.subtitle')}</p>
             {embedded && (accountLine || userId) ? (
               <p className="hl-history-meta">
-                {accountLine ? <span>Account: {accountLine}</span> : null}
+                {accountLine ? (
+                  <span>{t('profile.botHistory.account', { name: accountLine })}</span>
+                ) : null}
                 {accountLine && userId ? <span className="hl-history-meta-sep">·</span> : null}
-                {userId ? <span>User ID: {userId}</span> : null}
+                {userId ? <span>{t('profile.botHistory.userId', { id: userId })}</span> : null}
               </p>
             ) : null}
           </div>
 
           {showOverview ? (
-            <div className="hl-history-overview" aria-label="Bot trading totals">
+            <div className="hl-history-overview" aria-label={t('profile.botHistory.totalsAria')}>
               <div className="hl-history-overview-strip">
                 <div className="hl-history-overview-stat">
-                  <span className="hl-history-overview-k">Gain</span>
+                  <span className="hl-history-overview-k">{t('profile.botHistory.gain')}</span>
                   <span className="hl-history-overview-v hl-up">
                     {fillsLoading && pnlSummary.closedCount === 0
                       ? '…'
@@ -139,7 +141,7 @@ const ProTradeBotHistory: React.FC<Props> = ({
                   </span>
                 </div>
                 <div className="hl-history-overview-stat">
-                  <span className="hl-history-overview-k">Loss</span>
+                  <span className="hl-history-overview-k">{t('profile.botHistory.loss')}</span>
                   <span className="hl-history-overview-v hl-down">
                     {fillsLoading && pnlSummary.closedCount === 0
                       ? '…'
@@ -147,7 +149,7 @@ const ProTradeBotHistory: React.FC<Props> = ({
                   </span>
                 </div>
                 <div className="hl-history-overview-stat">
-                  <span className="hl-history-overview-k">uPnL</span>
+                  <span className="hl-history-overview-k">{t('profile.botHistory.upnl')}</span>
                   <span
                     className={`hl-history-overview-v ${
                       activeUpnl >= 0 ? 'hl-up' : 'hl-down'
@@ -157,7 +159,7 @@ const ProTradeBotHistory: React.FC<Props> = ({
                     {botPositions.length > 0 ? (
                       <span className="hl-history-overview-meta">
                         {' · '}
-                        {botPositions.length} open
+                        {t('profile.botHistory.openCount', { count: botPositions.length })}
                       </span>
                     ) : null}
                   </span>
@@ -178,10 +180,12 @@ const ProTradeBotHistory: React.FC<Props> = ({
                 className="hl-history-pdf-btn"
                 onClick={() => void handleDownloadPdf()}
                 disabled={exporting}
-                aria-label="Download bot trade history as PDF"
+                aria-label={t('profile.botHistory.pdfAria')}
               >
                 <Download size={14} aria-hidden />
-                {exporting ? 'Exporting…' : 'Download PDF'}
+                {exporting
+                  ? t('profile.botHistory.exporting')
+                  : t('profile.botHistory.downloadPdf')}
               </button>
               {exportError ? (
                 <p className="hl-history-pdf-error" role="alert">

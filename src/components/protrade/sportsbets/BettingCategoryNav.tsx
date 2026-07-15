@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import type { BettingCategoryId, BettingCategoryTab } from '../../../lib/hyperliquid/outcomes/categories';
 
 type Props = {
@@ -10,10 +11,12 @@ type Props = {
 };
 
 const BettingCategoryNav: React.FC<Props> = ({ tabs, active, counts, onChange, variant = 'default' }) => {
+  const { t } = useTranslation();
+
   return (
     <nav
       className={`hl-bet-cats ${variant === 'banner' ? 'hl-bet-cats--banner' : ''}`}
-      aria-label="Betting categories"
+      aria-label={t('betting.categoriesAria')}
     >
       {tabs.map((tab) => {
         const count = counts[tab.id] ?? 0;
@@ -31,7 +34,7 @@ const BettingCategoryNav: React.FC<Props> = ({ tabs, active, counts, onChange, v
                 {tab.emoji}
               </span>
             ) : null}
-            <span className="hl-bet-cat-label">{tab.label}</span>
+            <span className="hl-bet-cat-label">{t(tab.labelKey)}</span>
             <span className="hl-bet-cat-count">{count}</span>
           </button>
         );

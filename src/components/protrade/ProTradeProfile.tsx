@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useAuth } from '../../contexts/AuthContext';
 import ProfileAvatar from '../profile/ProfileAvatar';
@@ -25,6 +26,7 @@ const ProTradeProfile: React.FC<Props> = ({
   botHistoryRefreshKey = 0,
   onRequireSignIn,
 }) => {
+  const { t } = useTranslation();
   const { user, profile } = useAuth();
   const { address, isConnected } = useMonadierWallet();
   const [internalTab, setInternalTab] = useState<ProTradeProfileTab>('identity');
@@ -52,15 +54,15 @@ const ProTradeProfile: React.FC<Props> = ({
       </header>
 
       <div className="hl-profile-toolbar">
-        <nav className="hl-dock-tabs hl-profile-tabs" aria-label="Profile sections">
-          {PRO_TRADE_PROFILE_TABS.map(({ id, label }) => (
+        <nav className="hl-dock-tabs hl-profile-tabs" aria-label={t('profile.tabsAria')}>
+          {PRO_TRADE_PROFILE_TABS.map(({ id, labelKey }) => (
             <button
               key={id}
               type="button"
               className={`hl-dock-tab ${tab === id ? 'hl-dock-tab--on' : ''}`}
               onClick={() => setTab(id)}
             >
-              {label}
+              {t(labelKey)}
             </button>
           ))}
         </nav>
@@ -71,7 +73,7 @@ const ProTradeProfile: React.FC<Props> = ({
           walletAddress={address ?? undefined}
           onRequireSignIn={onRequireSignIn}
           className="hl-funds-overview--profile"
-          title="Hyperliquid account"
+          title={t('profile.hyperliquidAccount')}
         />
       ) : null}
 

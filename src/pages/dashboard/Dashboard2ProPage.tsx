@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useHlActiveWallet } from '../../hooks/useHlActiveWallet';
 import ProTradeShell from '../../components/protrade/ProTradeShell';
@@ -89,6 +90,7 @@ function parseProfileTab(raw: string | null): ProTradeProfileTab {
 }
 
 const Dashboard2ProPageContent: React.FC = () => {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, sessionReady } = useAuth();
   const { address, isConnected } = useMonadierWallet();
@@ -662,7 +664,7 @@ const Dashboard2ProPageContent: React.FC = () => {
             />
           </div>
               <div className="hl-dock hl-hl-dock">
-                <div className="hl-dock-mode-label">Manual Perps · your trades only</div>
+                <div className="hl-dock-mode-label">{t('trading.manualMode')}</div>
                 <ProTradeDock
                   account={account}
                   spotBalances={spotBalances}

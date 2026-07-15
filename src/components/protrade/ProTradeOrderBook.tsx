@@ -1,4 +1,5 @@
 import React, { memo, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ensureArray } from '../../lib/ensureArray';
 import type { HlL2Book, HlRecentTrade } from '../../lib/hyperliquid/types';
 import { fmtMarketPrice, fmtSize, fmtTimeMs } from '../../lib/hyperliquid/format';
@@ -56,6 +57,7 @@ const ProTradeOrderBook: React.FC<Props> = ({
   coin,
   onPriceClick,
 }) => {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<'book' | 'trades'>('book');
 
   const tape = useMemo(
@@ -110,23 +112,23 @@ const ProTradeOrderBook: React.FC<Props> = ({
           className={`hl-book-tab ${tab === 'book' ? 'hl-book-tab--on' : ''}`}
           onClick={() => setTab('book')}
         >
-          Order Book
+          {t('trading.book.orderBook')}
         </button>
         <button
           type="button"
           className={`hl-book-tab ${tab === 'trades' ? 'hl-book-tab--on' : ''}`}
           onClick={() => setTab('trades')}
         >
-          Recent trades
+          {t('trading.book.recentTrades')}
         </button>
       </div>
 
       {tab === 'book' ? (
         <>
           <div className="hl-book-cols">
-            <span>Price</span>
-            <span>Amount ({coin})</span>
-            <span>Total</span>
+            <span>{t('trading.order.price')}</span>
+            <span>{t('trading.book.amount', { coin })}</span>
+            <span>{t('trading.book.total')}</span>
           </div>
           <div className="hl-book-scroll">
             <div className="hl-book-side hl-book-side--asks">
@@ -143,7 +145,9 @@ const ProTradeOrderBook: React.FC<Props> = ({
             <div className="hl-book-mid">
               {markPx > 0 ? fmtMarketPrice(markPx) : '—'}
               {spread != null ? (
-                <span className="hl-book-spread">Spread {spread.toFixed(2)}%</span>
+                <span className="hl-book-spread">
+                  {t('trading.book.spread', { pct: spread.toFixed(2) })}
+                </span>
               ) : null}
             </div>
             <div className="hl-book-side hl-book-side--bids">
@@ -159,31 +163,31 @@ const ProTradeOrderBook: React.FC<Props> = ({
             </div>
           </div>
           <div className="hl-book-foot">
-            <span>ALL</span>
-            <span>BUYS</span>
-            <span>SELLS</span>
+            <span>{t('trading.book.all')}</span>
+            <span>{t('trading.book.buys')}</span>
+            <span>{t('trading.book.sells')}</span>
             <span className="hl-book-foot-coin">{coin}</span>
           </div>
         </>
       ) : (
         <>
           <div className="hl-book-cols">
-            <span>Price</span>
-            <span>Size</span>
-            <span>Time</span>
+            <span>{t('trading.order.price')}</span>
+            <span>{t('trading.order.size')}</span>
+            <span>{t('dock.cols.time')}</span>
           </div>
           <div className="hl-book-scroll hl-book-scroll--tape">
             {tape.length === 0 ? (
-              <p className="hl-dock-empty">No recent market trades</p>
+              <p className="hl-dock-empty">{t('trading.book.noTrades')}</p>
             ) : (
-              tape.map((t, i) => (
+              tape.map((tr, i) => (
                 <div
-                  key={`${t.time}-${i}`}
-                  className={`hl-book-row hl-book-row--static ${t.side === 'B' ? 'hl-book-row--bid' : 'hl-book-row--ask'}`}
+                  key={`${tr.time}-${i}`}
+                  className={`hl-book-row hl-book-row--static ${tr.side === 'B' ? 'hl-book-row--bid' : 'hl-book-row--ask'}`}
                 >
-                  <span>{fmtMarketPrice(t.px)}</span>
-                  <span>{fmtSize(t.sz)}</span>
-                  <span className="hl-book-time-muted">{fmtTimeMs(t.time)}</span>
+                  <span>{fmtMarketPrice(tr.px)}</span>
+                  <span>{fmtSize(tr.sz)}</span>
+                  <span className="hl-book-time-muted">{fmtTimeMs(tr.time)}</span>
                 </div>
               ))
             )}

@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   filterBettingQuestions,
   formatBettingQuestionTitle,
@@ -23,11 +24,13 @@ function MarketRow({
   question,
   active,
   featured,
+  featuredLabel,
   onSelect,
 }: {
   question: HlOutcomeQuestion;
   active: boolean;
   featured?: boolean;
+  featuredLabel: string;
   onSelect: (question: HlOutcomeQuestion) => void;
 }) {
   const visuals = eventVisual(formatBettingQuestionTitle(question), question.category);
@@ -55,7 +58,7 @@ function MarketRow({
         <span className="hl-sb-event-copy">
           <span className="hl-sb-event-name">
             <span className="hl-sb-event-name-text">{formatBettingQuestionTitle(question)}</span>
-            {featured ? <span className="hl-sb-event-pin">Featured</span> : null}
+            {featured ? <span className="hl-sb-event-pin">{featuredLabel}</span> : null}
           </span>
           <span className="hl-sb-event-meta">{questionListSubtitle(question)}</span>
         </span>
@@ -72,6 +75,9 @@ const BettingMarketList: React.FC<Props> = ({
   onSelect,
   loading,
 }) => {
+  const { t } = useTranslation();
+  const featuredLabel = t('betting.featured');
+
   const filtered = useMemo(
     () => filterBettingQuestions(questions, category, searchQuery),
     [questions, category, searchQuery]
@@ -90,33 +96,35 @@ const BettingMarketList: React.FC<Props> = ({
     allSplit.others.length > 0;
 
   return (
-    <aside className="hl-sb-events" aria-label="Betting markets">
+    <aside className="hl-sb-events" aria-label={t('betting.marketsAria')}>
       <div className="hl-sb-events-list" role="listbox">
         {loading && questions.length === 0 ? (
-          <p className="hl-sb-muted">Loading markets…</p>
+          <p className="hl-sb-muted">{t('betting.loadingMarkets')}</p>
         ) : null}
         {!loading && filtered.length === 0 ? (
-          <p className="hl-sb-muted">No markets in this category. Try All or another filter.</p>
+          <p className="hl-sb-muted">{t('betting.noMarkets')}</p>
         ) : null}
 
         {showAllSections ? (
           <>
-            <p className="hl-sb-events-section">Featured</p>
+            <p className="hl-sb-events-section">{t('betting.featured')}</p>
             {allSplit!.featured.map((question) => (
               <MarketRow
                 key={question.questionId}
                 question={question}
                 active={question.questionId === selectedQuestionId}
                 featured
+                featuredLabel={featuredLabel}
                 onSelect={onSelect}
               />
             ))}
-            <p className="hl-sb-events-section">All markets</p>
+            <p className="hl-sb-events-section">{t('betting.allMarkets')}</p>
             {allSplit!.others.map((question) => (
               <MarketRow
                 key={question.questionId}
                 question={question}
                 active={question.questionId === selectedQuestionId}
+                featuredLabel={featuredLabel}
                 onSelect={onSelect}
               />
             ))}
@@ -128,6 +136,7 @@ const BettingMarketList: React.FC<Props> = ({
               question={question}
               active={question.questionId === selectedQuestionId}
               featured={category === 'all' && isFeaturedBettingQuestion(question)}
+              featuredLabel={featuredLabel}
               onSelect={onSelect}
             />
           ))

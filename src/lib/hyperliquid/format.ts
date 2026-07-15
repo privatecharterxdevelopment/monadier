@@ -1,4 +1,5 @@
 import { toNum } from './parse';
+import i18n from '../../i18n';
 
 /** Never call `.toLocaleString` on a value that might not be a finite number. */
 function localeNumber(value: unknown, options?: Intl.NumberFormatOptions): string {
@@ -159,18 +160,22 @@ export function fmtTradingSince(ms: unknown): string {
   const date = new Date(n);
   if (Number.isNaN(date.getTime())) return '—';
 
-  const dateStr = date.toLocaleDateString(undefined, {
+  const dateStr = date.toLocaleDateString(i18n.language || undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
   });
   const days = Math.max(0, Math.floor((Date.now() - n) / 86_400_000));
-  if (days < 1) return `Since today · ${dateStr}`;
-  if (days < 30) return `Since ${dateStr} · ${days}d`;
+  if (days < 1) return i18n.t('profile.botHistory.sinceToday', { date: dateStr });
+  if (days < 30) {
+    return i18n.t('profile.botHistory.sinceDays', { date: dateStr, count: days });
+  }
   const months = Math.floor(days / 30);
-  if (months < 12) return `Since ${dateStr} · ${months} mo`;
+  if (months < 12) {
+    return i18n.t('profile.botHistory.sinceMonths', { date: dateStr, count: months });
+  }
   const years = Math.floor(months / 12);
-  return `Since ${dateStr} · ${years} yr`;
+  return i18n.t('profile.botHistory.sinceYears', { date: dateStr, count: years });
 }
 
 export function fmtLeverage(value: unknown): string {
