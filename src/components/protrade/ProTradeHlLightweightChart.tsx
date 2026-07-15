@@ -245,6 +245,8 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
   const stopSelectedRef = useRef(false);
   const draftStopPxRef = useRef<number | null>(null);
   const dragStartPxRef = useRef<number | null>(null);
+  /** True once draft differs from the price at select/drag-start — needs Enter / click-away to fix. */
+  const draftDirtyRef = useRef(false);
   const stopDragMovedRef = useRef(false);
   const draggingStopRef = useRef(false);
   const overlayCoin = orderCoin ?? coin;
@@ -797,47 +799,16 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     stopSelectedRef.current = false;
     draftStopPxRef.current = null;
     dragStartPxRef.current = null;
+    draftDirtyRef.current = false;
     stopDragMovedRef.current = false;
     draggingStopRef.current = false;
   }, [coin, layoutKey]);
-
-  // Always arm a grabable "Your stop" when a bot position is on the chart.
-  useEffect(() => {
-    if (draggingStopRef.current) return;
-    const series = seriesRef.current;
-    const sl = positionOverlay?.stopLossPx;
-    const liq = positionOverlay?.liqPx;
-    let armed = false;
-    if (sl != null && sl > 0) {
-      stopSelectedRef.current = true;
-      draftStopPxRef.current = sl;
-      armed = true;
-    } else if (liq != null && liq > 0) {
-      stopSelectedRef.current = true;
-      if (draftStopPxRef.current == null || draftStopPxRef.current <= 0) {
-        draftStopPxRef.current = liq;
-      }
-      armed = true;
-    }
-    if (!armed || !series || !aliveRef.current) return;
-    safeChartOp(() => {
-      applyPositionPriceLines(series, priceLinesRef, {
-        openOrders,
-        overlayCoin,
-        positionOverlay: overlayRef.current,
-        chartColors: getProTradeChartColors(themeRef.current),
-        draftStopPx: draftStopPxRef.current,
-        stopLineSelected: stopSelectedRef.current,
-      });
-    });
-  }, [positionOverlay?.stopLossPx, positionOverlay?.liqPx, coin, openOrders, overlayCoin]);
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el || !onCommitStopPrice) return;
 
-    // Fat hit zone — stop must grab on first contact, every time.
-    const HIT_PX = 36;
+    const HIT_PX = 28;
 
     const redraw = () => {
       const s = seriesRef.current;
@@ -889,7 +860,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       const liq = overlay.liqPx ?? 0;
       const sl = overlay.stopLossPx ?? 0;
       const draft = draftStopPxRef.current ?? 0;
-      const hitDraft = nearLinePx(price, draft);
+      const hitDraft = stopSelectedRef.current && nearLinePx(price, draft);
       const hitSl = nearLinePx(price, sl);
       const hitLiq = nearLinePx(price, liq);
       if (!hitDraft && !hitSl && !hitLiq) return { hit: false, start: 0 };
@@ -904,12 +875,67 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       return { hit: true, start };
     };
 
+    const clampToLossSide = (price: number): number | null => {
+      const overlay = overlayRef.current;
+      if (!overlay?.entryPx) return null;
+      if (overlay.side === 'long' && price >= overlay.entryPx) return null;
+      if (overlay.side === 'short' && price <= overlay.entryPx) return null;
+      return price;
+    };
+
+    /** Trading-app confirm: Enter or click-away saves + deselects. */
+    const fixStopLine = () => {
+      if (!stopSelectedRef.current) return;
+      const px = draftStopPxRef.current;
+      const dirty = draftDirtyRef.current;
+      const commitPx = dirty && px != null && px > 0 ? px : null;
+
+      draggingStopRef.current = false;
+      stopSelectedRef.current = false;
+      draftStopPxRef.current = null;
+      draftDirtyRef.current = false;
+      stopDragMovedRef.current = false;
+      dragStartPxRef.current = null;
+      setChartInteraction(true);
+      el.style.cursor = '';
+      redraw();
+
+      if (commitPx != null && onCommitStopPriceRef.current) {
+        void Promise.resolve(onCommitStopPriceRef.current(commitPx));
+      }
+    };
+
+    const cancelStopLine = () => {
+      if (!stopSelectedRef.current) return;
+      draggingStopRef.current = false;
+      stopSelectedRef.current = false;
+      draftStopPxRef.current = null;
+      draftDirtyRef.current = false;
+      stopDragMovedRef.current = false;
+      dragStartPxRef.current = null;
+      setChartInteraction(true);
+      el.style.cursor = '';
+      redraw();
+    };
+
+    const selectStop = (startPx: number) => {
+      stopSelectedRef.current = true;
+      draftStopPxRef.current = startPx;
+      dragStartPxRef.current = startPx;
+      draftDirtyRef.current = false;
+      stopDragMovedRef.current = false;
+      el.style.cursor = 'ns-resize';
+      redraw();
+    };
+
     const beginDrag = (ev: PointerEvent, startPx: number) => {
       draggingStopRef.current = true;
       stopSelectedRef.current = true;
       stopDragMovedRef.current = false;
       dragStartPxRef.current = startPx;
-      draftStopPxRef.current = startPx;
+      if (draftStopPxRef.current == null || draftStopPxRef.current <= 0) {
+        draftStopPxRef.current = startPx;
+      }
       setChartInteraction(false);
       try {
         el.setPointerCapture(ev.pointerId);
@@ -931,27 +957,32 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
 
       const { hit, start } = hitAnyStop(price);
       if (hit) {
-        beginDrag(ev, start);
+        if (!stopSelectedRef.current) {
+          // 1× click = select (★). Same press can continue into drag.
+          selectStop(start);
+          beginDrag(ev, start);
+        } else {
+          beginDrag(ev, draftStopPxRef.current && draftStopPxRef.current > 0 ? draftStopPxRef.current : start);
+        }
         return;
       }
 
+      // Click anywhere else while selected = FIX (commit if moved).
       if (stopSelectedRef.current && !draggingStopRef.current) {
-        // Keep stop armed if we have a saved SL — only clear hover cursor.
-        el.style.cursor = '';
+        fixStopLine();
       }
     };
 
     const onPointerMove = (ev: PointerEvent) => {
       if (draggingStopRef.current) {
-        const price = yToPrice(ev.clientY);
+        const raw = yToPrice(ev.clientY);
+        if (raw == null) return;
+        const price = clampToLossSide(raw);
         if (price == null) return;
-        const overlay = overlayRef.current;
-        if (!overlay) return;
-        if (overlay.side === 'long' && price >= overlay.entryPx) return;
-        if (overlay.side === 'short' && price <= overlay.entryPx) return;
         const start = dragStartPxRef.current;
         if (start != null && Math.abs(price - start) / start > 0.0003) {
           stopDragMovedRef.current = true;
+          draftDirtyRef.current = true;
         }
         draftStopPxRef.current = price;
         stopSelectedRef.current = true;
@@ -961,13 +992,12 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         return;
       }
 
-      // Hover cue — ns-resize as soon as pointer is near the line.
       const price = yToPrice(ev.clientY);
       if (price == null) {
-        el.style.cursor = '';
+        el.style.cursor = stopSelectedRef.current ? 'ns-resize' : '';
         return;
       }
-      el.style.cursor = hitAnyStop(price).hit ? 'ns-resize' : '';
+      el.style.cursor = hitAnyStop(price).hit || stopSelectedRef.current ? 'ns-resize' : '';
     };
 
     const endDrag = (ev: PointerEvent) => {
@@ -979,31 +1009,29 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       } catch {
         /* ignore */
       }
-
-      const px = draftStopPxRef.current;
-      const moved = stopDragMovedRef.current;
-      stopDragMovedRef.current = false;
+      // Stay selected — do NOT auto-save. Enter / click-away fixes the line.
       stopSelectedRef.current = true;
       el.style.cursor = 'ns-resize';
+      stopDragMovedRef.current = false;
+      redraw();
+    };
 
-      if (moved && px != null && px > 0 && onCommitStopPriceRef.current) {
-        void Promise.resolve(onCommitStopPriceRef.current(px)).finally(() => {
-          if (!draggingStopRef.current) {
-            stopSelectedRef.current = true;
-            draftStopPxRef.current = px;
-            redraw();
-          }
-        });
-      } else {
-        redraw();
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (!stopSelectedRef.current) return;
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        fixStopLine();
+      } else if (ev.key === 'Escape') {
+        ev.preventDefault();
+        cancelStopLine();
       }
     };
 
-    // Capture phase — beat lightweight-charts canvas so the line grabs first.
     el.addEventListener('pointerdown', onPointerDown, true);
     el.addEventListener('pointermove', onPointerMove, true);
     el.addEventListener('pointerup', endDrag, true);
     el.addEventListener('pointercancel', endDrag, true);
+    window.addEventListener('keydown', onKeyDown);
     el.style.touchAction = 'none';
     return () => {
       setChartInteraction(true);
@@ -1011,6 +1039,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       el.removeEventListener('pointermove', onPointerMove, true);
       el.removeEventListener('pointerup', endDrag, true);
       el.removeEventListener('pointercancel', endDrag, true);
+      window.removeEventListener('keydown', onKeyDown);
       el.style.touchAction = '';
     };
   }, [onCommitStopPrice, openOrders, overlayCoin]);
