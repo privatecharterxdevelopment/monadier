@@ -311,7 +311,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         secondsVisible: chartSecondsVisible(interval),
         barSpacing: 14,
         minBarSpacing: chartMinBarSpacing(),
-        rightOffset: 4,
+        rightOffset: 0,
         shiftVisibleRangeOnNewBar: true,
         fixLeftEdge: false,
         fixRightEdge: false,
@@ -479,9 +479,14 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       });
       if (barCount <= visibleBars + 24) {
         chart.timeScale().fitContent();
+        // Kill residual right padding fitContent sometimes leaves.
+        chart.timeScale().applyOptions({ rightOffset: 0 });
+        chart.timeScale().scrollToRealTime();
       } else {
         const from = Math.max(0, barCount - visibleBars);
-        chart.timeScale().setVisibleLogicalRange({ from, to: barCount + 2 });
+        // `to` = last bar index — no +N empty slots on the right.
+        chart.timeScale().setVisibleLogicalRange({ from, to: barCount - 1 });
+        chart.timeScale().applyOptions({ rightOffset: 0 });
       }
       followLiveRef.current = true;
     } finally {
