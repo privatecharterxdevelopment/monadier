@@ -188,7 +188,7 @@ const ProTradeChartInner: React.FC<Props> = ({
           ) : null}
           {positionOverlay.liqPx ? (
             <span className="hl-chart-legend__item hl-chart-legend__item--liq">
-              Liq · click then drag = your stop
+              Liq / Your stop · drag freely
             </span>
           ) : null}
         </div>
