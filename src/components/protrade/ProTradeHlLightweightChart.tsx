@@ -677,13 +677,15 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     safeChartOp(() => {
       applyChartPriceAxis(chart, series, axisRefPx);
 
+      // Autoscale reads candlesRef — keep it in sync BEFORE setData.
+      candlesRef.current = clean;
+
       if (fullReset) {
         const data = clean.map(toCandle);
         const volData = clean.filter((c) => (c.volume ?? 0) > 0).map(toVol);
         series.setData(data);
         volumeSeries.setData(volData);
         showLatestBars(chart, data.length);
-        candlesRef.current = clean;
         return;
       }
 
@@ -708,10 +710,32 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       if (followLiveRef.current && newBar) {
         scrollLive(chart);
       }
-
-      candlesRef.current = clean;
     });
-  }, [candles, coin, interval, theme, markPx, loading, chartError, wsConnected, fetchAttempts]);
+  }, [candles, coin, interval, theme]);
+
+  // Live mark → forming bar wick only (avoid full setData on every mid tick).
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series || !aliveRef.current) return;
+    if (markPx == null || !(markPx > 0)) return;
+    const prev = candlesRef.current;
+    if (prev.length === 0) return;
+    const patched = patchFormingCandleWithMark(prev, markPx);
+    const last = patched[patched.length - 1];
+    const prevLast = prev[prev.length - 1];
+    if (!last || last === prevLast) return;
+    candlesRef.current = patched;
+    safeChartOp(() => {
+      series.update({
+        time: last.time as CandlestickData['time'],
+        open: last.open,
+        high: last.high,
+        low: last.low,
+        close: last.close,
+      });
+      series.applyOptions({ autoscaleInfoProvider: buildAutoscaleProvider() });
+    });
+  }, [markPx]);
 
   useEffect(() => {
     const series = seriesRef.current;

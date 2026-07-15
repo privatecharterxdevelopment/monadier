@@ -45,7 +45,10 @@ type State = {
 const SNAPSHOT_POLL_MS = 10_000;
 const BOOK_FALLBACK_POLL_MS = 2_000;
 const EMPTY_CANDLE_RETRY_MS = 900;
-const MAX_EMPTY_CANDLE_RETRIES = 4;
+/** Keep retrying — never “give up” into WS-only (1 bar = blank chart with a single spike). */
+const MAX_EMPTY_CANDLE_RETRIES = 24;
+/** Below this, REST history is not trusted as “ready” (WS alone must not paint the chart). */
+const MIN_HISTORY_BARS = 24;
 const BOOK_THROTTLE_MS = 16;
 const TRADES_THROTTLE_MS = 48;
 const CANDLE_THROTTLE_MS = 50;
@@ -165,8 +168,13 @@ export function useHyperliquidMarket(
   const scheduleEmptyRetry = useCallback(
     (reason: string, run: () => Promise<void>) => {
       if (emptyRetryRef.current >= MAX_EMPTY_CANDLE_RETRIES) {
-        chartDebugWarn('market', 'empty-candles-gave-up', { coin, interval, reason });
-        historyReadyRef.current = true;
+        // Stay WS-blocked — a single live bar is the “empty chart / one red spike” bug.
+        chartDebugWarn('market', 'empty-candles-gave-up-still-blocked', {
+          coin,
+          interval,
+          reason,
+        });
+        historyReadyRef.current = false;
         return;
       }
       emptyRetryRef.current += 1;
@@ -175,7 +183,7 @@ export function useHyperliquidMarket(
       emptyRetryTimerRef.current = setTimeout(() => {
         emptyRetryTimerRef.current = null;
         void run();
-      }, EMPTY_CANDLE_RETRY_MS * attempt);
+      }, Math.min(12_000, EMPTY_CANDLE_RETRY_MS * attempt));
     },
     [coin, interval]
   );
@@ -238,12 +246,17 @@ export function useHyperliquidMarket(
       let shouldRetry = false;
       setState((prev) => {
         if (normCoin(coin) !== requestedCoin) return prev;
-        if (candles.length === 0) {
+        if (candles.length < MIN_HISTORY_BARS) {
           shouldRetry = true;
+          historyReadyRef.current = false;
           return {
             ...prev,
+            // Keep prior history for this market if we already had it — never replace with a stub.
             loading: false,
-            error: prev.candles.length > 0 ? null : 'No candle data from Hyperliquid',
+            error:
+              prev.candles.length >= MIN_HISTORY_BARS
+                ? null
+                : 'No candle data from Hyperliquid',
             fetchAttempts: attempt,
           };
         }
@@ -270,7 +283,7 @@ export function useHyperliquidMarket(
         };
       });
       if (shouldRetry) {
-        scheduleEmptyRetry('empty-response', refreshCandles);
+        scheduleEmptyRetry('empty-or-thin-response', refreshCandles);
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Chart data unavailable';
@@ -284,11 +297,12 @@ export function useHyperliquidMarket(
       });
       setState((prev) => {
         if (normCoin(coin) !== requestedCoin) return prev;
-        shouldRetry = !isRateLimit || prev.candles.length === 0;
+        shouldRetry = !isRateLimit || prev.candles.length < MIN_HISTORY_BARS;
         return {
           ...prev,
           loading: false,
-          error: isRateLimit && prev.candles.length > 0 ? null : message,
+          error:
+            isRateLimit && prev.candles.length >= MIN_HISTORY_BARS ? null : message,
           fetchAttempts: attempt,
         };
       });
@@ -316,8 +330,9 @@ export function useHyperliquidMarket(
       setState((prev) => {
         if (normCoin(coin) !== requestedCoin) return prev;
         bookKeyRef.current = bookLevelsKey(book);
-        if (candles.length === 0) {
+        if (candles.length < MIN_HISTORY_BARS) {
           shouldRetry = true;
+          historyReadyRef.current = false;
           return {
             ...prev,
             book,
@@ -326,7 +341,10 @@ export function useHyperliquidMarket(
               recentTrades.filter((t) => coinMatches(t.coin, requestedCoin))
             ),
             loading: false,
-            error: prev.candles.length > 0 ? null : 'No candle data from Hyperliquid',
+            error:
+              prev.candles.length >= MIN_HISTORY_BARS
+                ? null
+                : 'No candle data from Hyperliquid',
             wsConnected: false,
             fetchAttempts: attempt,
           };
@@ -360,7 +378,7 @@ export function useHyperliquidMarket(
         };
       });
       if (shouldRetry) {
-        scheduleEmptyRetry('empty-response', refreshCandles);
+        scheduleEmptyRetry('empty-or-thin-response', refreshCandles);
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Market data unavailable';
@@ -368,7 +386,7 @@ export function useHyperliquidMarket(
       let shouldRetry = false;
       setState((prev) => {
         if (normCoin(coin) !== requestedCoin) return prev;
-        shouldRetry = prev.candles.length === 0;
+        shouldRetry = prev.candles.length < MIN_HISTORY_BARS;
         return {
           ...prev,
           loading: false,
