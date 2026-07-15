@@ -68,7 +68,7 @@ type Props = {
   chartError?: string | null;
   fetchAttempts?: number;
   /**
-   * Click Liq (or SL) once to select, drag to set bot max-loss stop.
+   * Click Stop once to select, drag to set bot max-loss stop, Enter / click-away to fix.
    * Does not move Hyperliquid exchange liquidation — saves vault stopLoss %.
    */
   onCommitStopPrice?: (stopPx: number) => void | Promise<void>;
@@ -132,19 +132,8 @@ function applyPositionPriceLines(
     );
   }
 
-  // Exchange Liq stays fixed — drag never moves HL liquidation, only "Your stop".
-  if (positionOverlay?.liqPx && positionOverlay.liqPx > 0) {
-    priceLinesRef.current.push(
-      series.createPriceLine({
-        price: positionOverlay.liqPx,
-        color: '#ff9800',
-        lineWidth: stopLineSelected ? 2 : 1,
-        lineStyle: LineStyle.Dotted,
-        axisLabelVisible: true,
-        title: stopLineSelected ? 'Liq ★' : 'Liq',
-      })
-    );
-  }
+  // Exchange liquidation is NOT drawn — one Stop line only (TradingView-style).
+  // Liq px is only used as a hit-seed when the user first picks a stop.
 
   const trailPx = positionOverlay?.trailStopPx;
   if (trailPx != null && trailPx > 0) {
@@ -162,32 +151,32 @@ function applyPositionPriceLines(
     );
   }
 
-  const skipStaticSl =
-    stopLineSelected && draftStopPx != null && Number.isFinite(draftStopPx);
   const slPx = positionOverlay?.stopLossPx;
-  if (!skipStaticSl && slPx != null && slPx > 0) {
-    const slPct = positionOverlay.stopLossMarginPct ?? 0;
+  const liqPx = positionOverlay?.liqPx;
+  const draft =
+    stopLineSelected && draftStopPx != null && Number.isFinite(draftStopPx) && draftStopPx > 0
+      ? draftStopPx
+      : null;
+  // One line only: draft → saved stop → else liq as seed (never draw Liq + Stop together).
+  const singleStopPx =
+    draft ??
+    (slPx != null && slPx > 0 ? slPx : null) ??
+    (liqPx != null && liqPx > 0 ? liqPx : null);
+  if (singleStopPx != null) {
+    const slPct = positionOverlay?.stopLossMarginPct ?? 0;
+    const selected = stopLineSelected === true;
     priceLinesRef.current.push(
       series.createPriceLine({
-        price: slPx,
-        color: '#ef4444',
-        lineWidth: 1,
-        lineStyle: LineStyle.Dashed,
+        price: singleStopPx,
+        color: selected ? '#ff6d00' : '#ef4444',
+        lineWidth: selected ? 3 : 2,
+        lineStyle: selected ? LineStyle.Solid : LineStyle.Dashed,
         axisLabelVisible: true,
-        title: slPct > 0 ? `SL −${slPct}%` : 'SL',
-      })
-    );
-  }
-
-  if (skipStaticSl && draftStopPx != null && draftStopPx > 0) {
-    priceLinesRef.current.push(
-      series.createPriceLine({
-        price: draftStopPx,
-        color: '#ff6d00',
-        lineWidth: 3,
-        lineStyle: LineStyle.Solid,
-        axisLabelVisible: true,
-        title: 'Your stop',
+        title: selected
+          ? 'Stop ★'
+          : slPct > 0
+            ? `Stop −${slPct}%`
+            : 'Stop',
       })
     );
   }
