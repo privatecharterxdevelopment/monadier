@@ -19,7 +19,6 @@ import {
   type GlobalSignalCandidate,
 } from './services/globalMarketScan';
 import { getMegaPairVolumeSnapshot } from './services/megaPairVolumeMonitor';
-import { isBotExcludedHlCoin } from './services/hlLiquidity';
 import { fetchMegaPairPumpSweep, formatPumpSweepLine } from './services/pumpSweepAnalytics';
 import { buildCryptoNewsFeed } from './services/newsImpactGate';
 import { fetchAnalyzedSportsNews } from './services/sportsNewsService';
@@ -35,6 +34,7 @@ import { releaseHlBotTradingPauses } from './services/dailyLossGate';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
 import { getHlFeeSummary } from './services/hlSuccessFees';
 import { tryQualifyReferral } from './services/referralAffiliate';
+import { isOpenDirectionAllowed, weekendShortOnlyLabel } from './services/weekendTradingRules';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 import { fetchMappedTokenPrices } from './services/tokenPrices';
 import { processPendingTradeCloseEmails } from './services/tradeCloseEmail';
@@ -679,7 +679,12 @@ const healthServer = http.createServer(async (req, res) => {
       const bestGlobal = userSignals[0] ?? null;
       const openCoinSet = new Set(hlOpenCoins.map((c) => c.toUpperCase()));
       const bestAvailable =
-        userSignals.find((s) => !openCoinSet.has(s.coin.toUpperCase())) ?? null;
+        userSignals.find(
+          (s) =>
+            !openCoinSet.has(s.coin.toUpperCase()) &&
+            isOpenDirectionAllowed(s.direction)
+        ) ?? null;
+      const weekendRule = weekendShortOnlyLabel();
 
       const ethSignal = await marketService.getSignal(
         chainId,
@@ -733,7 +738,9 @@ const healthServer = http.createServer(async (req, res) => {
       if (!winRateGate.allowed) blockers.push(winRateGate.reason || 'win rate gate');
       if (!bestAvailable && hlOpenCoins.length < maxPositions) {
         blockers.push(
-          `no HL perp passed global scan (min ${config.hyperliquid.minSignalConfidence}% conf, ${config.hyperliquid.minDirectionalTfs} TFs, ${config.hyperliquid.minTrendAlignment}% align)`
+          weekendRule
+            ? `${weekendRule} — no eligible SHORT on another pair yet`
+            : `no HL perp passed global scan (min ${config.hyperliquid.minSignalConfidence}% conf, ${config.hyperliquid.minDirectionalTfs} TFs, ${config.hyperliquid.minTrendAlignment}% align)`
         );
       }
       if (bestAvailable && hlOpenCoins.length < maxPositions && dbSettings.autoTradeEnabled) {
@@ -824,6 +831,7 @@ const healthServer = http.createServer(async (req, res) => {
           minSignalConfidence: config.hyperliquid.minSignalConfidence,
           minDirectionalTfs: config.hyperliquid.minDirectionalTfs,
           minTrendAlignment: config.hyperliquid.minTrendAlignment,
+          weekendShortOnly: weekendRule,
         },
         globalScan: {
           coinsScanned: lastHlGlobalScanStats.coinsScanned,
@@ -832,18 +840,15 @@ const healthServer = http.createServer(async (req, res) => {
           candidateCount: userSignals.length,
           botMode: dbSettings.hlBotStrategy,
           botMinDayVolumeUsd: config.hyperliquid.minDayVolumeUsd,
-          scanUniverseCoins: botUniverse.coins.filter((c) => !isBotExcludedHlCoin(c)),
-          candidates: userSignals
-            .filter((s) => !isBotExcludedHlCoin(s.coin))
-            .slice(0, 8)
-            .map((s) => ({
+          scanUniverseCoins: botUniverse.coins,
+          candidates: userSignals.slice(0, 8).map((s) => ({
             coin: s.coin,
             direction: s.direction,
             confidence: s.confidence,
             reason: s.reason,
             mode: s.botMode,
           })),
-          best: bestAvailable && !isBotExcludedHlCoin(bestAvailable.coin)
+          best: bestAvailable
             ? {
                 coin: bestAvailable.coin,
                 direction: bestAvailable.direction,
@@ -851,7 +856,7 @@ const healthServer = http.createServer(async (req, res) => {
                 reason: bestAvailable.reason,
               }
             : null,
-          topGlobal: bestGlobal && !isBotExcludedHlCoin(bestGlobal.coin)
+          topGlobal: bestGlobal
             ? {
                 coin: bestGlobal.coin,
                 direction: bestGlobal.direction,
