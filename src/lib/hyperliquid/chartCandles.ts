@@ -114,10 +114,11 @@ export function candlePriceRange(
     maxV = Math.max(maxV, c.high);
   }
   for (const px of extraPx) {
-    if (px > 0) {
-      minV = Math.min(minV, px);
-      maxV = Math.max(maxV, px);
-    }
+    if (!(px > 0)) continue;
+    // Ignore stray overlays that sit far from the candle band (ghost stops, wrong-coin mark).
+    if (ref > 0 && (px < ref * 0.7 || px > ref * 1.3)) continue;
+    minV = Math.min(minV, px);
+    maxV = Math.max(maxV, px);
   }
 
   if (!Number.isFinite(minV) || !Number.isFinite(maxV) || maxV <= minV) return null;

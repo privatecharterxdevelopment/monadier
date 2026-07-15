@@ -154,14 +154,19 @@ function applyPositionPriceLines(
   const slPx = positionOverlay?.stopLossPx;
   const liqPx = positionOverlay?.liqPx;
   const draft =
-    stopLineSelected && draftStopPx != null && Number.isFinite(draftStopPx) && draftStopPx > 0
+    positionOverlay &&
+    stopLineSelected &&
+    draftStopPx != null &&
+    Number.isFinite(draftStopPx) &&
+    draftStopPx > 0
       ? draftStopPx
       : null;
-  // One line only: draft → saved stop → else liq as seed (never draw Liq + Stop together).
-  const singleStopPx =
-    draft ??
-    (slPx != null && slPx > 0 ? slPx : null) ??
-    (liqPx != null && liqPx > 0 ? liqPx : null);
+  // One Stop line only while a position exists for this coin — never orphan drafts.
+  const singleStopPx = positionOverlay
+    ? draft ??
+      (slPx != null && slPx > 0 ? slPx : null) ??
+      (liqPx != null && liqPx > 0 ? liqPx : null)
+    : null;
   if (singleStopPx != null) {
     const slPct = positionOverlay?.stopLossMarginPct ?? 0;
     const selected = stopLineSelected === true;
@@ -259,16 +264,12 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
 
   const buildAutoscaleProvider = () => {
     return () => {
-      const overlay = overlayRef.current;
-      const extra: number[] = [];
-      if (overlay?.entryPx && overlay.entryPx > 0) extra.push(overlay.entryPx);
-      if (overlay?.liqPx && overlay.liqPx > 0) extra.push(overlay.liqPx);
-      if (overlay?.trailStopPx && overlay.trailStopPx > 0) extra.push(overlay.trailStopPx);
-      if (overlay?.stopLossPx && overlay.stopLossPx > 0) extra.push(overlay.stopLossPx);
-      if (overlay?.takeProfitPx && overlay.takeProfitPx > 0) extra.push(overlay.takeProfitPx);
+      // Autoscale from candles + live mark ONLY.
+      // Overlay Stop/TP/Liq must not stretch the scale — orphan drafts / max-loss lines
+      // squash candles to a flat strip at the bottom (classic empty chart look).
       const liveMark = markPxRef.current;
+      const extra: number[] = [];
       if (liveMark != null && liveMark > 0) extra.push(liveMark);
-
       const range = candlePriceRange(candlesRef.current, liveMark ?? undefined, extra);
       if (range) return { priceRange: range };
       return null;
@@ -792,6 +793,30 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     stopDragMovedRef.current = false;
     draggingStopRef.current = false;
   }, [coin, layoutKey]);
+
+  // Position gone (SOL closed) → clear provisional Stop so it can't ghost-scale the chart.
+  useEffect(() => {
+    if (positionOverlay) return;
+    if (!stopSelectedRef.current && draftStopPxRef.current == null) return;
+    stopSelectedRef.current = false;
+    draftStopPxRef.current = null;
+    dragStartPxRef.current = null;
+    draftDirtyRef.current = false;
+    stopDragMovedRef.current = false;
+    draggingStopRef.current = false;
+    const series = seriesRef.current;
+    if (!series || !aliveRef.current) return;
+    safeChartOp(() => {
+      applyPositionPriceLines(series, priceLinesRef, {
+        openOrders,
+        overlayCoin,
+        positionOverlay: undefined,
+        chartColors: getProTradeChartColors(themeRef.current),
+        draftStopPx: null,
+        stopLineSelected: false,
+      });
+    });
+  }, [positionOverlay, openOrders, overlayCoin]);
 
   useEffect(() => {
     const el = containerRef.current;
