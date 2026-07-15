@@ -5,7 +5,6 @@ import { analyzeMarketMTFBySymbol, type TradingStrategy } from './market';
 import { analyzeAggressiveScalpBySymbol } from './aggressiveScalpAnalysis';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
-import { filterWeekendShortOnly, isWeekendShortOnlyWindow } from './weekendTradingRules';
 import { refreshMegaPairVolumeMonitor, isMacroRiskOffEnvironment } from './megaPairVolumeMonitor';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
@@ -333,22 +332,18 @@ export async function scanGlobalHlSignals(
     .filter((c): c is GlobalSignalCandidate => c !== null)
     .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence);
 
-  const standardFiltered = filterWeekendShortOnly(standard);
-  let aggressiveFiltered = filterWeekendShortOnly(aggressive);
-
-  let finalStandard = standardFiltered;
-  if (standardFiltered.length === 0) {
+  let aggressiveFiltered = aggressive;
+  let finalStandard = standard;
+  if (standard.length === 0) {
     const topCoins = coins.slice(0, 10);
     const relaxedRaw = await mapPool(topCoins, concurrency, async (coin) => {
       const liq = liqByCoin.get(coin);
       if (!liq) return null;
       return scanStandardCoin(coin, liq, universe, true);
     });
-    finalStandard = filterWeekendShortOnly(
-      relaxedRaw
-        .filter((c): c is GlobalSignalCandidate => c !== null)
-        .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence)
-    );
+    finalStandard = relaxedRaw
+      .filter((c): c is GlobalSignalCandidate => c !== null)
+      .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence);
     if (finalStandard.length > 0) {
       logger.info('Global HL scan — relaxed fallback used', {
         count: finalStandard.length,
@@ -366,11 +361,9 @@ export async function scanGlobalHlSignals(
       if (!liq) return null;
       return scanMajorChartFallback(coin, liq, universe);
     });
-    finalStandard = filterWeekendShortOnly(
-      majorRaw
-        .filter((c): c is GlobalSignalCandidate => c !== null)
-        .sort((a, b) => b.confidence - a.confidence)
-    );
+    finalStandard = majorRaw
+      .filter((c): c is GlobalSignalCandidate => c !== null)
+      .sort((a, b) => b.confidence - a.confidence);
     if (finalStandard.length > 0) {
       logger.info('Global HL scan — major chart fallback used', {
         count: finalStandard.length,
@@ -408,7 +401,6 @@ export async function scanGlobalHlSignals(
     liquidCoins: coins.length,
     standard: finalStandard.length,
     aggressive: aggressiveFiltered.length,
-    weekendShortOnly: isWeekendShortOnlyWindow(),
     topStandard: finalStandard[0]?.coin,
     topAggressive: aggressiveFiltered[0]?.coin,
     ms: Date.now() - started,
