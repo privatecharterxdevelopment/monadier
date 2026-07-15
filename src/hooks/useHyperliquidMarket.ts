@@ -77,8 +77,8 @@ function sortTapeTrades(trades: HlRecentTrade[]): HlRecentTrade[] {
     .slice(0, MAX_TAPE_TRADES);
 }
 
-/** Soft memory cap — must exceed deepest REST lookback (~10k of 1m / ~4k of 1h). */
-const MAX_LIVE_CANDLES = 12_000;
+/** Soft memory cap — must hold Jan 1 2026 → now even on 1m (~300k bars). */
+const MAX_LIVE_CANDLES = 400_000;
 
 function mergeCandle(candles: HlCandleBar[], bar: HlCandleBar): HlCandleBar[] {
   if (candles.length === 0) return [bar];

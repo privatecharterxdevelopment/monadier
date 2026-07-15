@@ -1,6 +1,6 @@
 import type { HlInterval } from './types';
 
-/** Bars on screen when user follows live (recent window). */
+/** Bars on screen when user follows live (recent window). Full history still loads and is scrollable. */
 export const CHART_VISIBLE_BARS: Record<HlInterval, number> = {
   '1m': 96,
   '3m': 100,
@@ -20,37 +20,24 @@ export const CHART_VISIBLE_BARS: Record<HlInterval, number> = {
 
 const DAY = 24 * 60 * 60 * 1000;
 
-/** HL candleSnapshot lookback — deep history; paginated in fetchHlCandles when > ~4.5k bars. */
-export function chartLookbackMs(interval: HlInterval): number {
-  switch (interval) {
-    case '1m':
-      return 7 * DAY;
-    case '3m':
-      return 14 * DAY;
-    case '5m':
-      return 30 * DAY;
-    case '15m':
-      return 90 * DAY;
-    case '30m':
-      return 120 * DAY;
-    case '1h':
-      return 180 * DAY;
-    case '2h':
-      return 270 * DAY;
-    case '4h':
-      return 365 * DAY;
-    case '8h':
-      return 400 * DAY;
-    case '12h':
-      return 450 * DAY;
-    case '1d':
-    case '3d':
-    case '1w':
-    case '1M':
-      return 2 * 365 * DAY;
-    default:
-      return 2 * 365 * DAY;
-  }
+/** Hard floor for every HL chart TF — Jan 1 2026 00:00 UTC → now. */
+export const CHART_HISTORY_START_MS = Date.UTC(2026, 0, 1);
+
+export function chartHistoryStartMs(): number {
+  return CHART_HISTORY_START_MS;
+}
+
+/**
+ * Lookback so candleSnapshot covers CHART_HISTORY_START_MS → now for every interval.
+ * (Interval arg kept so callers stay unchanged.)
+ */
+export function chartLookbackMs(_interval?: HlInterval): number {
+  return Math.max(DAY, Date.now() - CHART_HISTORY_START_MS);
+}
+
+/** Allow zooming out far enough to see the full Jan→now history. */
+export function chartMinBarSpacing(): number {
+  return 0.5;
 }
 
 export function chartIntervalMs(interval: HlInterval): number {

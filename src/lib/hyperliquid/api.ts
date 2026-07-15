@@ -26,19 +26,24 @@ export function candleToBar(c: HlCandle): HlCandleBar {
   };
 }
 
-import { chartIntervalMs } from './chartZoom';
+import { chartHistoryStartMs, chartIntervalMs } from './chartZoom';
 
 const HL_CANDLE_PAGE_BARS = 4500;
+/** Safety — 1m from Jan 1 ≈ ~60 pages; never infinite-loop the info API. */
+const HL_CANDLE_MAX_PAGES = 80;
 
 export async function fetchHlCandles(
   coin: string,
   interval: HlInterval,
-  lookbackMs = 7 * 24 * 60 * 60 * 1000
+  lookbackMs?: number
 ): Promise<HlCandleBar[]> {
   const stepMs = chartIntervalMs(interval);
   const endTime = Date.now();
-  const startTime = endTime - lookbackMs;
-  const estimatedBars = Math.ceil(lookbackMs / stepMs);
+  // Always cover Jan 1 2026 → now; optional lookback only extends further back.
+  const startFromLookback =
+    lookbackMs != null && lookbackMs > 0 ? endTime - lookbackMs : chartHistoryStartMs();
+  const startTime = Math.min(chartHistoryStartMs(), startFromLookback);
+  const estimatedBars = Math.ceil(Math.max(0, endTime - startTime) / stepMs);
 
   if (estimatedBars <= HL_CANDLE_PAGE_BARS) {
     const rows = await hlInfo<HlCandle[]>({
@@ -50,8 +55,10 @@ export async function fetchHlCandles(
 
   const byTime = new Map<number, HlCandleBar>();
   let chunkEnd = endTime;
+  let pages = 0;
 
-  while (chunkEnd > startTime) {
+  while (chunkEnd > startTime && pages < HL_CANDLE_MAX_PAGES) {
+    pages += 1;
     const chunkStart = Math.max(startTime, chunkEnd - HL_CANDLE_PAGE_BARS * stepMs);
     const rows = await hlInfo<HlCandle[]>({
       type: 'candleSnapshot',
@@ -63,7 +70,12 @@ export async function fetchHlCandles(
       byTime.set(bar.time, bar);
     }
     const earliest = Math.min(...rows.map((r) => r.t));
-    if (earliest <= chunkStart + stepMs) break;
+    if (earliest <= chunkStart + stepMs) {
+      // HL returned the oldest available for this coin — stop.
+      if (earliest <= startTime + stepMs) break;
+      chunkEnd = earliest - 1;
+      continue;
+    }
     chunkEnd = earliest - 1;
     if (chunkEnd <= startTime) break;
   }

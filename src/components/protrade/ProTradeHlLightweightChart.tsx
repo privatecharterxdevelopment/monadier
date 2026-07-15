@@ -23,6 +23,7 @@ import { getProTradeChartColors } from '../../lib/proTradeTheme';
 import {
   CHART_VISIBLE_BARS,
   chartBarSpacing,
+  chartMinBarSpacing,
   chartSecondsVisible,
 } from '../../lib/hyperliquid/chartZoom';
 import { candlePriceRange, chartSanitizeRef, patchFormingCandleWithMark, resolveChartCandlesForDisplay } from '../../lib/hyperliquid/chartCandles';
@@ -371,7 +372,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         timeVisible: true,
         secondsVisible: chartSecondsVisible(interval),
         barSpacing: 14,
-        minBarSpacing: 10,
+        minBarSpacing: chartMinBarSpacing(),
         rightOffset: 4,
         shiftVisibleRangeOnNewBar: true,
         fixLeftEdge: false,
@@ -444,7 +445,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         const spacing = chartBarSpacing(w, intervalRef.current);
         chart.timeScale().applyOptions({
           barSpacing: spacing,
-          minBarSpacing: Math.max(6, spacing - 4),
+          minBarSpacing: chartMinBarSpacing(),
         });
       });
     });
@@ -479,7 +480,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     safeChartOp(() => {
       chart.timeScale().applyOptions({
         barSpacing: spacing,
-        minBarSpacing: Math.max(6, spacing - 4),
+        minBarSpacing: chartMinBarSpacing(),
         secondsVisible: chartSecondsVisible(interval),
       });
       applyPositionPriceLines(series, priceLinesRef, {
@@ -504,7 +505,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     safeChartOp(() => {
       chart.timeScale().applyOptions({
         barSpacing: spacing,
-        minBarSpacing: Math.max(6, spacing - 4),
+        minBarSpacing: chartMinBarSpacing(),
         secondsVisible: chartSecondsVisible(interval),
       });
       if (candlesRef.current.length > 0) {
@@ -537,7 +538,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     try {
       chart.timeScale().applyOptions({
         barSpacing: spacing,
-        minBarSpacing: Math.max(6, spacing - 4),
+        minBarSpacing: chartMinBarSpacing(),
         secondsVisible: chartSecondsVisible(interval),
       });
       if (barCount <= visibleBars + 24) {
