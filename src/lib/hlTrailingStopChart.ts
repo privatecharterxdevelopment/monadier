@@ -170,13 +170,11 @@ export function computeHlChartPositionOverlay(opts: {
     collateralUsd: collateral,
   });
 
-  const slPct = effectiveStopLossPct(opts.stopLossMarginPct ?? 0);
   const tpPct = opts.takeProfitMarginPct ?? 0;
-  const hideLossSl = trail.armed;
 
   return {
     entryPx,
-    liqPx: opts.liqPx,
+    liqPx: undefined,
     side,
     trailStopPx: trail.stopPx ?? undefined,
     trailStopLocked: trail.armed,
@@ -185,12 +183,9 @@ export function computeHlChartPositionOverlay(opts: {
     trailBreached: trail.breached,
     unrealizedPnlUsd: opts.unrealizedPnlUsd,
     peakPnlUsd: peak,
-    stopLossPx:
-      !hideLossSl && slPct > 0
-        ? lossStopPricePx(side, entryPx, absSize, collateral, slPct) ?? undefined
-        : undefined,
+    stopLossPx: undefined,
     takeProfitPx: marginTakeProfitPx(entryPx, opts.szi, lev, tpPct) ?? undefined,
-    stopLossMarginPct: !hideLossSl && slPct > 0 ? slPct : undefined,
+    stopLossMarginPct: undefined,
     takeProfitMarginPct: tpPct > 0 ? tpPct : undefined,
   };
 }
