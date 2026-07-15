@@ -382,10 +382,13 @@ const Dashboard2ProPageContent: React.FC = () => {
     const norm = normalizeHlPerpCoin(perpCoin);
     const valid = new Set(perpMarkets.map((m) => normalizeHlPerpCoin(m.name)));
     if (valid.has(norm)) return;
-    const openMatch = manualPositions.find((p) => normalizeHlPerpCoin(p.coin) === norm);
+    // Keep chart on any open HL bag (bot OR manual) — even delisted tickers like CASHCAT.
+    const openMatch = (account?.positions ?? []).some(
+      (p) => Math.abs(toNum(p.szi)) > 1e-12 && normalizeHlPerpCoin(p.coin) === norm
+    );
     if (openMatch) return;
     setPerpCoin(DEFAULT_PRO_COIN);
-  }, [perpMarkets, perpCoin, manualPositions]);
+  }, [perpMarkets, perpCoin, account?.positions]);
 
   const closeAuthModal = useCallback(() => {
     setAuthModal(null);
