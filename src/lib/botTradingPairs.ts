@@ -91,13 +91,23 @@ export function isBotExcludedHlCoin(coin: string): boolean {
 /** Alias for market/UI delist checks (same set as bot ban). */
 export const isHlPlatformBannedCoin = isBotExcludedHlCoin;
 
+/** Hide from analyzer/scan/ticker — hard ban names + aliases. */
+export function isHiddenFromBotUi(coin: string): boolean {
+  const key = normalizeHlPerpCoin(coin);
+  if (!key) return true;
+  if (BOT_EXCLUDED_HL_COINS.has(key)) return true;
+  // Catch hyphen/space variants like "CASH CAT"
+  const compact = key.replace(/[^A-Z0-9]/g, '');
+  return compact === 'CASHCAT' || compact === 'CRV';
+}
+
 /** Bot-only: coin must be in live allowlist (or fallback) and not hard-excluded. */
 export function isBotTradeableHlCoin(
   coin: string,
   liveUniverse?: readonly string[] | null
 ): boolean {
   const key = normalizeHlPerpCoin(coin);
-  if (!key || BOT_EXCLUDED_HL_COINS.has(key)) return false;
+  if (!key || isHiddenFromBotUi(key)) return false;
   if (liveUniverse && liveUniverse.length > 0) {
     return liveUniverse.some((c) => normalizeHlPerpCoin(c) === key);
   }

@@ -3,7 +3,7 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { deriveUserHlAgent } from './hlAgent';
 import { hlAgentApprovalService } from './hlAgentApprovals';
-import { getHlLiquidityForCoin, isHlCoinLiquid, type HlLiquidUniverse } from './hlLiquidity';
+import { getHlLiquidityForCoin, isBotExcludedHlCoin, isHlCoinLiquid, type HlLiquidUniverse } from './hlLiquidity';
 import { globalSignalsForBotMode, counterTrendBlocked, type GlobalSignalCandidate } from './globalMarketScan';
 import { validatePreTradeLiquidity } from './liquiditySweepGate';
 import {
@@ -434,6 +434,7 @@ export class HyperliquidTradingService {
 
     for (const signal of signals) {
       if (excluded.has(signal.coin.toUpperCase())) continue;
+      if (isBotExcludedHlCoin(signal.coin)) continue;
       if (!isHlCoinLiquid(liquidUniverse, signal.coin)) continue;
 
       const flipGate = isSameCoinOpenBlockedSync(userAddress, signal.coin, signal.direction);
@@ -729,6 +730,9 @@ export class HyperliquidTradingService {
     try {
       const { meta, mids } = opts.ctx;
       const coin = opts.coin.toUpperCase();
+      if (isBotExcludedHlCoin(coin)) {
+        return { success: false, error: `${coin} is delisted from the bot — no opens` };
+      }
       if (!isHlCoinLiquid(opts.ctx.liquidUniverse, coin)) {
         const liq = getHlLiquidityForCoin(opts.ctx.liquidUniverse, coin);
         const reason = `Bot blocked — ${coin} below $${(config.hyperliquid.minDayVolumeUsd / 1e6).toFixed(0)}M 24h volume (manual trading still allowed)`;

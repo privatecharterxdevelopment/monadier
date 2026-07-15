@@ -15,7 +15,7 @@ import {
 } from '../lib/hyperliquid/balanceGate';
 import { fetchBotApi } from '../lib/botApiFetch';
 import { getBotApiBase, type Timeframe } from '../lib/signalService';
-import { binanceSymbolToHlCoin, hlCoinToBotSymbol, isBotTradeableHlCoin } from '../lib/botTradingPairs';
+import { binanceSymbolToHlCoin, hlCoinToBotSymbol, isBotTradeableHlCoin, isHiddenFromBotUi } from '../lib/botTradingPairs';
 import { normalizeHlBotStrategy, type HlBotStrategy } from '../lib/hlBotStrategy';
 import { pickNextScanCandidate } from '../lib/botScanCandidate';
 import { isBotEntryBlocked, botAnalyzerStatusCopy } from '../lib/botAnalyzerActive';
@@ -407,17 +407,24 @@ export function useTerminalBotAnalysis({
           ? data.hyperliquid.openCoins
           : [];
         setServerOpenCoins(openCoins);
+        const liveUniverse =
+          Array.isArray(data.globalScan?.scanUniverseCoins) &&
+          data.globalScan.scanUniverseCoins.length > 0
+            ? data.globalScan.scanUniverseCoins.filter((c) => !isHiddenFromBotUi(c))
+            : scanUniverseCoins.filter((c) => !isHiddenFromBotUi(c));
         const candidates = Array.isArray(data.globalScan?.candidates)
-          ? [...data.globalScan.candidates].sort((a, b) => b.confidence - a.confidence)
+          ? [...data.globalScan.candidates]
+              .filter(
+                (c) =>
+                  c?.coin &&
+                  !isHiddenFromBotUi(c.coin) &&
+                  isBotTradeableHlCoin(c.coin, liveUniverse)
+              )
+              .sort((a, b) => b.confidence - a.confidence)
           : [];
         for (const reason of data.globalScan?.filterReasons ?? []) {
           if (reason && !blockers.includes(reason)) blockers.push(reason);
         }
-        const liveUniverse =
-          Array.isArray(data.globalScan?.scanUniverseCoins) &&
-          data.globalScan.scanUniverseCoins.length > 0
-            ? data.globalScan.scanUniverseCoins
-            : scanUniverseCoins;
         setGlobalCandidates(candidates);
         const nextCandidate = pickNextScanCandidate(
           candidates,

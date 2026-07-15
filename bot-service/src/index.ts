@@ -19,6 +19,7 @@ import {
   type GlobalSignalCandidate,
 } from './services/globalMarketScan';
 import { getMegaPairVolumeSnapshot } from './services/megaPairVolumeMonitor';
+import { isBotExcludedHlCoin } from './services/hlLiquidity';
 import { fetchMegaPairPumpSweep, formatPumpSweepLine } from './services/pumpSweepAnalytics';
 import { buildCryptoNewsFeed } from './services/newsImpactGate';
 import { fetchAnalyzedSportsNews } from './services/sportsNewsService';
@@ -831,15 +832,18 @@ const healthServer = http.createServer(async (req, res) => {
           candidateCount: userSignals.length,
           botMode: dbSettings.hlBotStrategy,
           botMinDayVolumeUsd: config.hyperliquid.minDayVolumeUsd,
-          scanUniverseCoins: botUniverse.coins,
-          candidates: userSignals.slice(0, 8).map((s) => ({
+          scanUniverseCoins: botUniverse.coins.filter((c) => !isBotExcludedHlCoin(c)),
+          candidates: userSignals
+            .filter((s) => !isBotExcludedHlCoin(s.coin))
+            .slice(0, 8)
+            .map((s) => ({
             coin: s.coin,
             direction: s.direction,
             confidence: s.confidence,
             reason: s.reason,
             mode: s.botMode,
           })),
-          best: bestAvailable
+          best: bestAvailable && !isBotExcludedHlCoin(bestAvailable.coin)
             ? {
                 coin: bestAvailable.coin,
                 direction: bestAvailable.direction,
@@ -847,7 +851,7 @@ const healthServer = http.createServer(async (req, res) => {
                 reason: bestAvailable.reason,
               }
             : null,
-          topGlobal: bestGlobal
+          topGlobal: bestGlobal && !isBotExcludedHlCoin(bestGlobal.coin)
             ? {
                 coin: bestGlobal.coin,
                 direction: bestGlobal.direction,

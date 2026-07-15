@@ -1,4 +1,4 @@
-import { isBotTradeableHlCoin } from './botTradingPairs';
+import { isBotTradeableHlCoin, isHiddenFromBotUi } from './botTradingPairs';
 
 export type BotScanCandidate = {
   coin: string;
@@ -23,12 +23,14 @@ export function pickNextScanCandidate(
   const fromList = sorted.find(
     (c) =>
       c?.coin &&
+      !isHiddenFromBotUi(c.coin) &&
       !openSet.has(c.coin.toUpperCase()) &&
       isBotTradeableHlCoin(c.coin, liveUniverse)
   );
   if (fromList) return fromList;
   if (
     best &&
+    !isHiddenFromBotUi(best.coin) &&
     !openSet.has(best.coin.toUpperCase()) &&
     isBotTradeableHlCoin(best.coin, liveUniverse)
   ) {

@@ -358,7 +358,7 @@ const Dashboard2ProPageContent: React.FC = () => {
     const norm = normalizeHlPerpCoin(perpCoin);
     const valid = new Set(perpMarkets.map((m) => normalizeHlPerpCoin(m.name)));
     if (valid.has(norm)) return;
-    // Keep chart on any open HL bag (bot OR manual) — even delisted tickers like CASHCAT.
+    // Keep chart on any open HL bag (bot OR manual) — even platform-banned tickers.
     const openMatch = (account?.positions ?? []).some(
       (p) => Math.abs(toNum(p.szi)) > 1e-12 && normalizeHlPerpCoin(p.coin) === norm
     );
