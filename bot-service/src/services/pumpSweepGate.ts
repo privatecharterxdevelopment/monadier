@@ -8,7 +8,6 @@ import {
   fetchMegaPairPumpSweep,
   type PumpSweepAnalysis,
 } from './pumpSweepAnalytics';
-import { evaluateBounceLongSetup } from './bounceLongSetup';
 
 export type PumpSweepGateResult = {
   ok: boolean;
@@ -112,32 +111,7 @@ export async function validatePumpSweepGate(opts: {
     }
 
     const verdict = gateForDirection(opts.direction, analysis);
-    if (verdict.ok || opts.direction !== 'LONG') {
-      return { ok: verdict.ok, reason: `${verdict.reason} · ${analysis.summary}`, analysis, macro };
-    }
-
-    // Precision bounce: allow LONG mid-fade / post-dump reclaim — never at apex.
-    if (analysis.phase === 'at_apex') {
-      return { ok: false, reason: `${verdict.reason} · ${analysis.summary}`, analysis, macro };
-    }
-    const bounce = await evaluateBounceLongSetup(coin);
-    if (
-      bounce.ok &&
-      bounce.grade &&
-      (analysis.phase === 'at_sweep_low' ||
-        analysis.phase === 'near_turnaround' ||
-        analysis.phase === 'post_dump_bounce' ||
-        (analysis.phase === 'post_pump_fade' && analysis.positionInSweep <= 0.55))
-    ) {
-      return {
-        ok: true,
-        reason: `${bounce.reason} · pump-sweep allow (${analysis.phase}) · ${analysis.summary}`,
-        analysis,
-        macro,
-      };
-    }
-
-    return { ok: false, reason: `${verdict.reason} · ${analysis.summary}`, analysis, macro };
+    return { ok: verdict.ok, reason: `${verdict.reason} · ${analysis.summary}`, analysis, macro };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return { ok: true, reason: `Pump sweep skipped (${msg.slice(0, 40)})`, analysis: null };

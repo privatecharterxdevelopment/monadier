@@ -1,26 +1,34 @@
-/**
- * Friday SHORT-only window — DISABLED / removed.
- * Kept as no-op stubs so old imports keep compiling; never filters LONGs.
- */
+import { config } from '../config';
 
-export function isWeekendShortOnlyWindow(_now: Date = new Date()): boolean {
-  return false;
+/**
+ * Fri 18:00 UTC → end of Fri: HL liquidity thins — bot may only OPEN shorts on signal.
+ * Saturday/Sunday resume normal long/short from signals.
+ */
+export function isWeekendShortOnlyWindow(now: Date = new Date()): boolean {
+  const dow = now.getUTCDay();
+  const hour = now.getUTCHours();
+  const startHour = config.hyperliquid.fridayShortOnlyUtcHour;
+
+  return dow === 5 && hour >= startHour;
 }
 
 export function filterWeekendShortOnly<T extends { direction: 'LONG' | 'SHORT' }>(
   signals: T[],
-  _now?: Date
+  now: Date = new Date()
 ): T[] {
-  return signals;
+  if (!isWeekendShortOnlyWindow(now)) return signals;
+  return signals.filter((s) => s.direction === 'SHORT');
 }
 
 export function isOpenDirectionAllowed(
-  _direction: 'LONG' | 'SHORT',
-  _now?: Date
+  direction: 'LONG' | 'SHORT',
+  now: Date = new Date()
 ): boolean {
-  return true;
+  if (!isWeekendShortOnlyWindow(now)) return true;
+  return direction === 'SHORT';
 }
 
-export function weekendShortOnlyLabel(_now?: Date): string | null {
-  return null;
+export function weekendShortOnlyLabel(now: Date = new Date()): string | null {
+  if (!isWeekendShortOnlyWindow(now)) return null;
+  return 'Weekend liquidity rule: SHORT opens only (Fri 18:00 UTC → midnight)';
 }

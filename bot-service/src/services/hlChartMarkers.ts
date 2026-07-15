@@ -37,35 +37,12 @@ export async function recordHlChartMarker(params: {
   );
 
   if (error) {
-    logger.warn('HL chart marker insert failed — retrying once', {
+    logger.warn('HL chart marker insert failed', {
       wallet: wallet.slice(0, 10),
       coin,
       eventType: params.eventType,
       error: error.message,
     });
-    const retry = await supabase.from('hl_bot_chart_markers').upsert(
-      {
-        wallet_address: wallet,
-        coin,
-        event_type: params.eventType,
-        direction: params.direction,
-        price: params.price,
-        pnl_usd: params.pnlUsd ?? null,
-        event_ts: params.eventTs ?? new Date().toISOString(),
-        close_reason: params.closeReason ?? null,
-        source: params.source ?? 'bot',
-        fill_tid: params.fillTid ?? null,
-      },
-      { onConflict: 'wallet_address,coin,event_type,event_ts,price', ignoreDuplicates: true }
-    );
-    if (retry.error) {
-      logger.warn('HL chart marker insert failed', {
-        wallet: wallet.slice(0, 10),
-        coin,
-        eventType: params.eventType,
-        error: retry.error.message,
-      });
-    }
   }
 }
 

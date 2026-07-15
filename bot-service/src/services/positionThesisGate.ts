@@ -192,15 +192,9 @@ function deriveProfitRunBias(
   return 'neutral';
 }
 
-/** Widen trail on strong runs, tighten when thesis fades. LONG uses looser strong-run mult. */
-export function trailDistanceMultFromBias(
-  bias: ProfitRunBias,
-  direction: 'LONG' | 'SHORT' = 'SHORT'
-): number {
-  const strong =
-    direction === 'LONG'
-      ? config.hyperliquid.profitTrailStrongRunMultLong
-      : config.hyperliquid.profitTrailStrongRunMult;
+/** Widen trail on strong runs, tighten when thesis fades. */
+export function trailDistanceMultFromBias(bias: ProfitRunBias): number {
+  const strong = config.hyperliquid.profitTrailStrongRunMult;
   if (bias === 'strong_run') return strong;
   if (bias === 'run') return Math.max(1.12, strong * 0.72);
   if (bias === 'reversal') return 0.92;

@@ -229,14 +229,14 @@ export async function queueBettingOpenNotification(opts: {
     // Still try to email immediately if insert failed due to missing columns.
   }
 
-  const { email, recipients, emailEnabled } = await resolveUserEmail(opts.userId);
-  if (!emailEnabled || recipients.length === 0) {
+  const { email, emailEnabled } = await resolveUserEmail(opts.userId);
+  if (!emailEnabled || !email) {
     if (data?.id) await markNotificationEmailHandled(String(data.id));
     return;
   }
 
   const ok = await sendResendEmail(
-    recipients,
+    email,
     `${BRAND_NAME} · AI bet opened · ${opts.legKind} · ${opts.marketName}`,
     bettingOpenEmailHtml({
       headline,
@@ -264,44 +264,12 @@ function normalizeResendFrom(raw: string): string {
   return `${BRAND_NAME} <${trimmed}>`;
 }
 
-/**
- * Same person, two logins — mirror trade emails only.
- * Does not change wallets, profiles, vault_settings, or notification ownership.
- */
-const TRADE_EMAIL_MIRROR: Record<string, string[]> = {
-  // lorenzo.vanza@hotmail.com → also gmail
-  'd9e105ed-231d-4be4-93d3-713dbc509d4d': ['ipsunlorem@gmail.com'],
-  // ipsunlorem@gmail.com → also hotmail (if any leftovers)
-  '0a436884-82e5-47b4-8400-e28a14ca48c7': ['lorenzo.vanza@hotmail.com'],
-};
-
-function recipientsForUser(userId: string, primary: string | null): string[] {
-  if (!primary?.trim()) return [];
-  const extras = TRADE_EMAIL_MIRROR[userId] ?? [];
-  return [
-    ...new Set(
-      [primary, ...extras]
-        .map((e) => e.trim().toLowerCase())
-        .filter(Boolean)
-    ),
-  ];
-}
-
-async function sendResendEmail(
-  to: string | string[],
-  subject: string,
-  html: string
-): Promise<boolean> {
+async function sendResendEmail(to: string, subject: string, html: string): Promise<boolean> {
   const apiKey = config.email.resendApiKey;
   if (!apiKey) {
     logger.warn('RESEND_API_KEY missing — trade close email skipped');
     return false;
   }
-
-  const recipients = (Array.isArray(to) ? to : [to])
-    .map((e) => e.trim())
-    .filter(Boolean);
-  if (recipients.length === 0) return false;
 
   const from = normalizeResendFrom(config.email.from);
   const res = await fetch('https://api.resend.com/emails', {
@@ -312,7 +280,7 @@ async function sendResendEmail(
     },
     body: JSON.stringify({
       from,
-      to: recipients,
+      to,
       subject,
       html,
     }),
@@ -323,7 +291,6 @@ async function sendResendEmail(
     logger.warn('Resend trade close email failed', {
       status: res.status,
       from,
-      to: recipients,
       body: body.slice(0, 300),
     });
     return false;
@@ -333,7 +300,6 @@ async function sendResendEmail(
 
 async function resolveUserEmail(userId: string): Promise<{
   email: string | null;
-  recipients: string[];
   emailEnabled: boolean;
 }> {
   const { data: profile } = await supabase
@@ -358,7 +324,6 @@ async function resolveUserEmail(userId: string): Promise<{
 
   return {
     email,
-    recipients: recipientsForUser(userId, email),
     emailEnabled: profile?.trade_close_email_enabled !== false,
   };
 }
@@ -456,14 +421,14 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
         await syncNotificationProfitFromTradeHistory(row.id, profitUsd, roiPct);
       }
 
-      const { email, recipients, emailEnabled } = await resolveUserEmail(row.user_id);
+      const { email, emailEnabled } = await resolveUserEmail(row.user_id);
 
       if (!emailEnabled) {
         await markNotificationEmailHandled(row.id);
         continue;
       }
 
-      if (recipients.length === 0) {
+      if (!email) {
         logger.warn('Trade close email skipped — no email for user', {
           userId: row.user_id,
           notificationId: row.id,
@@ -478,7 +443,7 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
       const subject = `${BRAND_NAME} · ${subjectPrefix} · ${row.headline} (${winLabel})`;
 
       const ok = await sendResendEmail(
-        recipients,
+        email,
         subject,
         tradeCloseEmailHtml({
           headline: row.headline,
@@ -497,8 +462,6 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
           notificationId: row.id,
           tradeHistoryId: row.trade_history_id,
           profitUsd: profitUsd.toFixed(6),
-          to: recipients,
-          primary: email,
         });
       }
     } catch (err) {

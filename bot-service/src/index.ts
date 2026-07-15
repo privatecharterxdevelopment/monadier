@@ -34,7 +34,7 @@ import { releaseHlBotTradingPauses } from './services/dailyLossGate';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
 import { getHlFeeSummary } from './services/hlSuccessFees';
 import { tryQualifyReferral } from './services/referralAffiliate';
-import { backfillExternalHlClosesForWallets, walletsForLiquidationSync } from './services/hlExternalCloseSync';
+import { isOpenDirectionAllowed, weekendShortOnlyLabel } from './services/weekendTradingRules';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 import { fetchMappedTokenPrices } from './services/tokenPrices';
 import { processPendingTradeCloseEmails } from './services/tradeCloseEmail';
@@ -117,7 +117,6 @@ const healthServer = http.createServer(async (req, res) => {
         null,
       policy: {
         profitOnlyExits: config.hyperliquid.profitOnlyExits,
-        softExitMinExitFeesMult: config.hyperliquid.softExitMinExitFeesMult,
         lossCapEnforce: config.hyperliquid.lossProtection.enforceHardCap,
         dailyLossGate: config.hyperliquid.dailyLoss.enabled,
         reentryCooldownMs: config.hyperliquid.reentryCooldownMs,
@@ -680,7 +679,12 @@ const healthServer = http.createServer(async (req, res) => {
       const bestGlobal = userSignals[0] ?? null;
       const openCoinSet = new Set(hlOpenCoins.map((c) => c.toUpperCase()));
       const bestAvailable =
-        userSignals.find((s) => !openCoinSet.has(s.coin.toUpperCase())) ?? null;
+        userSignals.find(
+          (s) =>
+            !openCoinSet.has(s.coin.toUpperCase()) &&
+            isOpenDirectionAllowed(s.direction)
+        ) ?? null;
+      const weekendRule = weekendShortOnlyLabel();
 
       const ethSignal = await marketService.getSignal(
         chainId,
@@ -734,7 +738,9 @@ const healthServer = http.createServer(async (req, res) => {
       if (!winRateGate.allowed) blockers.push(winRateGate.reason || 'win rate gate');
       if (!bestAvailable && hlOpenCoins.length < maxPositions) {
         blockers.push(
-          `no HL perp passed global scan (min ${config.hyperliquid.minSignalConfidence}% conf, ${config.hyperliquid.minDirectionalTfs} TFs, ${config.hyperliquid.minTrendAlignment}% align)`
+          weekendRule
+            ? `${weekendRule} — no eligible SHORT on another pair yet`
+            : `no HL perp passed global scan (min ${config.hyperliquid.minSignalConfidence}% conf, ${config.hyperliquid.minDirectionalTfs} TFs, ${config.hyperliquid.minTrendAlignment}% align)`
         );
       }
       if (bestAvailable && hlOpenCoins.length < maxPositions && dbSettings.autoTradeEnabled) {
@@ -825,6 +831,7 @@ const healthServer = http.createServer(async (req, res) => {
           minSignalConfidence: config.hyperliquid.minSignalConfidence,
           minDirectionalTfs: config.hyperliquid.minDirectionalTfs,
           minTrendAlignment: config.hyperliquid.minTrendAlignment,
+          weekendShortOnly: weekendRule,
         },
         globalScan: {
           coinsScanned: lastHlGlobalScanStats.coinsScanned,
@@ -1485,28 +1492,6 @@ async function main(): Promise<void> {
   }, 12_000);
   void reconcilePendingFillCloses(40).catch(() => undefined);
 
-  const syncExternalCloses = async () => {
-    try {
-      const auto = await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId);
-      const wallets = await walletsForLiquidationSync(auto);
-      const n = await backfillExternalHlClosesForWallets(wallets, 168);
-      if (n > 0) {
-        logger.info('HL liquidations backfilled into trade_history', {
-          inserted: n,
-          wallets: wallets.length,
-        });
-      }
-    } catch (err: unknown) {
-      logger.warn('HL liquidation sync failed', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  };
-  setInterval(() => {
-    void syncExternalCloses();
-  }, 60_000);
-  void syncExternalCloses();
-
   const twitterTickMs = Math.max(30_000, config.twitter.tickMs);
   setInterval(() => {
     void runTwitterSocialTick().catch((err) => {
@@ -1538,7 +1523,6 @@ async function main(): Promise<void> {
   logger.info(`- HL position monitor: every ${positionMonitorMs}ms (fast profit grab)`);
   logger.info(`- Trade/bet win emails: every 15s`);
   logger.info(`- HL fill reconcile: every 12s (pending_fill → closedPnl)`);
-  logger.info(`- HL liquidation backfill: every 60s`);
   logger.info(`- X social tick: every ${Math.round(twitterTickMs / 1000)}s`);
   logger.info(`- Betting history sync: every 60s`);
   logger.info(`- AI auto-betting: every ${Math.round(autoBetMs / 1000)}s`);

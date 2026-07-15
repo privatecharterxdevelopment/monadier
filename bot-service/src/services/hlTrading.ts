@@ -3,8 +3,9 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { deriveUserHlAgent } from './hlAgent';
 import { hlAgentApprovalService } from './hlAgentApprovals';
-import { getHlLiquidityForCoin, isBotExcludedHlCoin, isHlCoinLiquid, type HlLiquidUniverse } from './hlLiquidity';
+import { getHlLiquidityForCoin, isHlCoinLiquid, type HlLiquidUniverse } from './hlLiquidity';
 import { globalSignalsForBotMode, counterTrendBlocked, type GlobalSignalCandidate } from './globalMarketScan';
+import { isOpenDirectionAllowed } from './weekendTradingRules';
 import { validatePreTradeLiquidity } from './liquiditySweepGate';
 import {
   coinToAssetIndex,
@@ -65,8 +66,6 @@ import { hlCoinToBinanceSymbol } from './hlSymbols';
 import {
   evaluateDynamicTrail,
   markFromPosition,
-  softExitCoversFees,
-  estimateExitFeesUsd,
   type DynamicTrailRecord,
 } from './dynamicTrailingStop';
 import {
@@ -436,11 +435,8 @@ export class HyperliquidTradingService {
 
     for (const signal of signals) {
       if (excluded.has(signal.coin.toUpperCase())) continue;
-      if (isBotExcludedHlCoin(signal.coin)) {
-        logger.debug('HL signal skip: hard-banned coin', { coin: signal.coin });
-        continue;
-      }
       if (!isHlCoinLiquid(liquidUniverse, signal.coin)) continue;
+      if (!isOpenDirectionAllowed(signal.direction)) continue;
 
       const flipGate = isSameCoinOpenBlockedSync(userAddress, signal.coin, signal.direction);
       if (flipGate.blocked) {
@@ -453,13 +449,11 @@ export class HyperliquidTradingService {
       }
 
       const rank = volumeRankForCoin(liquidUniverse, signal.coin);
-      const maxRank = config.hyperliquid.scalpOpen.maxVolumeRank;
-      // 0 = no top-N cut — every coin above minDayVolumeUsd may open
-      if (maxRank > 0 && rank > maxRank) {
+      if (rank > config.hyperliquid.scalpOpen.maxVolumeRank) {
         logger.debug('HL signal skip: outside top liquid universe', {
           coin: signal.coin,
           volumeRank: rank,
-          maxRank,
+          maxRank: config.hyperliquid.scalpOpen.maxVolumeRank,
         });
         continue;
       }
@@ -802,18 +796,7 @@ export class HyperliquidTradingService {
         return { success: false, error: newsGate.reason };
       }
 
-      const strongMtf = isStrongGlobalScanPick(opts.pick);
-      // Live scan signal present → don't sit on post-pump timer (esp. BTC/ETH shorts).
-      const signalUnlocksPump =
-        MAJOR_COINS.has(coin) ||
-        strongMtf ||
-        opts.pick.confidence >= config.hyperliquid.minSignalConfidence;
-      const freshPumpGate = signalUnlocksPump
-        ? {
-            ok: true as const,
-            reason: `Fresh pump skipped — scan signal ${opts.direction} ${opts.pick.confidence.toFixed(0)}%`,
-          }
-        : await validateNotFreshlyPumped({ coin, tier: coinTier });
+      const freshPumpGate = await validateNotFreshlyPumped({ coin, tier: coinTier });
       if (!freshPumpGate.ok) {
         logger.info('HL open blocked — fresh pump skip (step 2)', {
           user: opts.userAddress.slice(0, 10),
@@ -824,6 +807,7 @@ export class HyperliquidTradingService {
         return { success: false, error: freshPumpGate.reason };
       }
 
+      const strongMtf = isStrongGlobalScanPick(opts.pick);
       // BTC/ETH: never relax secondary gates — majors need full precision
       // (momentum / scalp / S/R / pump-sweep / 20-candle). Alts unchanged.
       const relaxSecondaryGates = MAJOR_COINS.has(coin)
@@ -1220,7 +1204,7 @@ export class HyperliquidTradingService {
           profitHoldMs: profitHoldMsForAnalysis,
           pnlUsd: pnl,
         });
-        trailDistanceMult = trailDistanceMultFromBias(runAnalysis.bias, positionDirection);
+        trailDistanceMult = trailDistanceMultFromBias(runAnalysis.bias);
         logProfitRunAnalysis(userAddress, pos.coin, runAnalysis, false);
       }
 
@@ -1315,27 +1299,27 @@ export class HyperliquidTradingService {
       };
 
       if (shouldCloseTrail) {
-        const closed = await this.closeMarketPosition(
+        clearTrailState(lockKey);
+        await this.closeMarketPosition(
           userAddress,
           pos.coin,
           trailExitReason,
           closeCtx,
           trailCloseDetail
         );
-        if (closed.success) clearTrailState(lockKey);
         continue;
       }
 
       const roePct = collateralEst > 0 ? (pnl / collateralEst) * 100 : 0;
       if (shouldTakeProfitOnPnl(roePct, settings.takeProfitPercent)) {
-        const closed = await this.closeMarketPosition(
+        clearTrailState(lockKey);
+        await this.closeMarketPosition(
           userAddress,
           pos.coin,
           'take_profit',
           closeCtx,
           `TAKE PROFIT — ${pos.coin} ROE ${roePct.toFixed(2)}% ≥ ${settings.takeProfitPercent}%`
         );
-        if (closed.success) clearTrailState(lockKey);
         continue;
       }
 
@@ -1531,32 +1515,6 @@ export class HyperliquidTradingService {
       if (!Number.isFinite(markPx) || markPx <= 0) {
         return { success: false, error: 'Could not read mark price — try again' };
       }
-
-      const softFeeExit =
-        reason === 'profit_grab_peak' ||
-        reason === 'profit_grab_timeout' ||
-        reason === 'trailing_stop' ||
-        reason === 'take_profit';
-      if (softFeeExit && !softExitCoversFees(pnlUsd, absSize * markPx)) {
-        const exitFees = estimateExitFeesUsd(absSize * markPx);
-        const need = Math.max(
-          exitFees * config.hyperliquid.softExitMinExitFeesMult,
-          config.hyperliquid.minProfitCloseUsd
-        );
-        logger.info('HL soft exit skipped — uPnL below exit-fee buffer', {
-          user: userAddress.slice(0, 10),
-          coin: coinUpper,
-          reason,
-          pnlUsd: pnlUsd.toFixed(4),
-          exitFeesEst: exitFees.toFixed(4),
-          minRequired: need.toFixed(4),
-        });
-        return {
-          success: false,
-          error: 'Soft exit needs uPnL above exit-fee buffer',
-        };
-      }
-
       const isLong = size > 0;
       const limitPx = isLong ? markPx * 0.95 : markPx * 1.05;
 

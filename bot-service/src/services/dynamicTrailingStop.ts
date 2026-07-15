@@ -81,25 +81,8 @@ function emptyRecord(
 }
 
 export function estimateRoundTripFeesUsd(notionalUsd: number): number {
-  return estimateExitFeesUsd(notionalUsd) * 2;
-}
-
-/** One-side HL close fee estimate (exchange + builder bps). */
-export function estimateExitFeesUsd(notionalUsd: number): number {
   const bps = config.hyperliquid.dynamicTrail.estimatedFeeBpsPerSide;
-  if (!Number.isFinite(notionalUsd) || notionalUsd <= 0) return 0;
-  return notionalUsd * (bps / 10_000);
-}
-
-/**
- * Soft exits must clear estimated close fees (plus buffer) or the fill
- * realizes red even though uPnL snapshot looked green.
- */
-export function softExitCoversFees(pnlUsd: number, notionalUsd: number): boolean {
-  const exitFees = estimateExitFeesUsd(notionalUsd);
-  const minFromFees = exitFees * config.hyperliquid.softExitMinExitFeesMult;
-  const minPnl = Math.max(minFromFees, config.hyperliquid.minProfitCloseUsd);
-  return Number.isFinite(pnlUsd) && pnlUsd >= minPnl;
+  return notionalUsd * (bps / 10_000) * 2;
 }
 
 export function markFromPosition(entryPx: number, szi: number, pnlUsd: number): number {
@@ -442,8 +425,7 @@ export async function evaluateDynamicTrail(
 
   // Phase 3 — ratchet trail (only moves in profit direction).
   if (rec.phase === 'trailing' && rec.currentTrailStop != null) {
-    const trailCap = input.direction === 'LONG' ? 2.25 : 2;
-    const trailMult = Math.max(0.75, Math.min(trailCap, input.trailDistanceMult ?? 1));
+    const trailMult = Math.max(0.75, Math.min(2, input.trailDistanceMult ?? 1));
     let trailDist =
       (await resolveTrailDistancePx(input.coin, input.markPrice)) * trailMult;
 
@@ -455,12 +437,8 @@ export async function evaluateDynamicTrail(
         ? Math.max(0, rec.highestPriceSinceEntry - input.entryPrice)
         : Math.max(0, input.entryPrice - rec.highestPriceSinceEntry);
     if (excursionPx > 0) {
-      const peakFrac =
-        input.direction === 'LONG'
-          ? config.hyperliquid.profitTrailMinPeakFractionLong
-          : config.hyperliquid.profitTrailMinPeakFraction;
       const maxGapPx = Math.max(
-        excursionPx * peakFrac,
+        excursionPx * config.hyperliquid.profitTrailMinPeakFraction,
         input.markPrice * 0.00015 // ~0.015% noise floor
       );
       if (trailDist > maxGapPx) {
@@ -481,13 +459,10 @@ export async function evaluateDynamicTrail(
         : rec.highestPriceSinceEntry + trailDist;
 
     // Also ratchet a peak-PnL lock: keep (1 - peakDropFrac) of peak uPnL.
-    const peakFrac =
-      input.direction === 'LONG'
-        ? config.hyperliquid.profitPeakDropFractionLong
-        : config.hyperliquid.profitPeakDropFraction;
+    const peakFrac = config.hyperliquid.profitPeakDropFraction;
     const lockPnlUsd = Math.max(
       0,
-      rec.highestPnlSinceEntry * (1 - Math.max(0.2, Math.min(0.65, peakFrac)))
+      rec.highestPnlSinceEntry * (1 - Math.max(0.2, Math.min(0.6, peakFrac)))
     );
     const peakLockStop =
       input.absSize > 0 && lockPnlUsd > 0
@@ -539,7 +514,7 @@ export async function evaluateDynamicTrail(
     if (
       rec.highestPnlSinceEntry >= feesUsd * Math.min(peakMinFees, 3) &&
       rec.highestPnlSinceEntry >= Math.max(input.collateralUsd * 0.015, feesUsd * 2) &&
-      softExitCoversFees(input.pnlUsd, input.notionalUsd) &&
+      input.pnlUsd > 0 &&
       peakFrac > 0 &&
       rec.timeInProfitMs >= cfg.armMinProfitHoldMs &&
       !trailTooYoungToClose(rec, input.nowMs, trailMult)
@@ -560,7 +535,7 @@ export async function evaluateDynamicTrail(
     if (
       isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop) &&
       !trailTooYoungToClose(rec, input.nowMs, trailMult) &&
-      softExitCoversFees(input.pnlUsd, input.notionalUsd)
+      input.pnlUsd > 0
     ) {
       const detail = `TRAILING STOP · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
       return {
