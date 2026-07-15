@@ -1,4 +1,5 @@
 import { fetchHlCandles } from './api';
+import { chartLookbackMs } from './chartZoom';
 import { fetchHlSpotCandles, isHlSpotCoin } from './spot';
 import { getHlWsClient } from './ws';
 import type { HlCandleBar, HlInterval } from './types';
@@ -78,9 +79,14 @@ function pricescaleForCoin(coin: string): number {
   return 10_000;
 }
 
+function coinMatches(a: string, b: string): boolean {
+  return a.trim().toUpperCase() === b.trim().toUpperCase();
+}
+
 async function fetchBars(coin: string, interval: HlInterval): Promise<HlCandleBar[]> {
+  const lookback = chartLookbackMs(interval);
   if (isHlSpotCoin(coin)) return fetchHlSpotCandles(coin, interval);
-  return fetchHlCandles(coin, interval);
+  return fetchHlCandles(coin, interval, lookback);
 }
 
 /** TradingView Charting Library datafeed backed by Hyperliquid APIs. */
@@ -195,6 +201,10 @@ export class HyperliquidTvDatafeed {
       const rows = Array.isArray(data) ? data : [data];
       for (const row of rows) {
         const raw = row as Record<string, unknown>;
+        const candleCoin = String(raw.s ?? raw.coin ?? '');
+        if (candleCoin && !coinMatches(candleCoin, coin)) continue;
+        const candleInterval = String(raw.i ?? '');
+        if (candleInterval && candleInterval !== interval) continue;
         const t = Number(raw.t);
         if (!Number.isFinite(t) || t <= 0) continue;
         onTick({

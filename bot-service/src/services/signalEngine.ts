@@ -219,7 +219,7 @@ export class SignalEngine {
       });
     }
 
-    // Fallback: Hyperliquid candleSnapshot — HL-only perps (CASHCAT, etc.) have no CEX listing
+    // Fallback: Hyperliquid candleSnapshot — HL-only perps (no CEX listing)
     try {
       const coin = binanceSymbolToHlCoin(symbol);
       const endTime = Date.now();

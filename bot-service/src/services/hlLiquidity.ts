@@ -4,6 +4,16 @@ import { logger } from '../utils/logger';
 /** Bot trade universe floor — 24h HL notional USD. Manual perps ignore this. */
 export const BOT_MIN_DAY_VOLUME_USD = 2_500_000;
 
+/**
+ * Hard ban — never scan or open, even if 24h volume clears the floor.
+ * Keep in sync with frontend `BOT_EXCLUDED_HL_COINS`.
+ */
+export const BOT_EXCLUDED_HL_COINS = new Set(['CRV', 'CASHCAT']);
+
+export function isBotExcludedHlCoin(coin: string): boolean {
+  return BOT_EXCLUDED_HL_COINS.has(coin.trim().toUpperCase().replace(/-PERP$/i, ''));
+}
+
 export type HlPerpLiquidity = {
   coin: string;
   markPx: number;
@@ -45,12 +55,14 @@ function botMinDayVolumeUsd(): number {
 
 /** Bot scan universe — live mark + 24h volume floor (never illiquids like AXS). */
 function passesBotScanUniverse(m: HlPerpLiquidity): boolean {
+  if (isBotExcludedHlCoin(m.coin)) return false;
   if (m.markPx <= 0) return false;
   return m.dayVolumeUsd >= botMinDayVolumeUsd();
 }
 
 /** Bot open floor — same volume rule as scan. */
 export function passesOpenLiquidityGate(m: HlPerpLiquidity): boolean {
+  if (isBotExcludedHlCoin(m.coin)) return false;
   const minVol = botMinDayVolumeUsd();
   const minOi = config.hyperliquid.minOpenInterestUsd;
   if (m.markPx <= 0) return false;

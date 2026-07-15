@@ -77,6 +77,9 @@ function sortTapeTrades(trades: HlRecentTrade[]): HlRecentTrade[] {
     .slice(0, MAX_TAPE_TRADES);
 }
 
+/** Soft memory cap — must exceed deepest REST lookback (~10k of 1m / ~4k of 1h). */
+const MAX_LIVE_CANDLES = 12_000;
+
 function mergeCandle(candles: HlCandleBar[], bar: HlCandleBar): HlCandleBar[] {
   if (candles.length === 0) return [bar];
   const last = candles[candles.length - 1];
@@ -84,7 +87,8 @@ function mergeCandle(candles: HlCandleBar[], bar: HlCandleBar): HlCandleBar[] {
     return [...candles.slice(0, -1), bar];
   }
   if (bar.time > last.time) {
-    return [...candles, bar].slice(-500);
+    const next = [...candles, bar];
+    return next.length > MAX_LIVE_CANDLES ? next.slice(-MAX_LIVE_CANDLES) : next;
   }
   return candles;
 }
@@ -454,11 +458,15 @@ export function useHyperliquidMarket(
     pendingCandleRef.current = null;
     if (!historyReadyRef.current) return;
     if (marketKeyRef.current !== marketKey) return;
-    setState((prev) => ({
-      ...prev,
-      candles: mergeCandle(prev.candles, bar),
-      wsConnected: true,
-    }));
+    setState((prev) => {
+      const next = mergeCandle(prev.candles, bar);
+      candleCacheRef.current.set(marketKey, next);
+      return {
+        ...prev,
+        candles: next,
+        wsConnected: true,
+      };
+    });
   }, [marketKey]);
 
   const scheduleCandle = useCallback(
@@ -575,6 +583,9 @@ export function useHyperliquidMarket(
           const raw = row as Record<string, unknown>;
           const candleCoin = String(raw.s ?? raw.coin ?? coin);
           if (!coinMatches(candleCoin, coin)) continue;
+          // Shared WS fans out every candle sub — reject other TFs (1m into 1h = wrong chart).
+          const candleInterval = String(raw.i ?? '');
+          if (candleInterval && candleInterval !== interval) continue;
           const bar = parseWsCandle(raw);
           if (!bar) continue;
           scheduleCandle(bar);

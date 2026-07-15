@@ -3,7 +3,7 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { deriveUserHlAgent } from './hlAgent';
 import { hlAgentApprovalService } from './hlAgentApprovals';
-import { getHlLiquidityForCoin, isHlCoinLiquid, type HlLiquidUniverse } from './hlLiquidity';
+import { getHlLiquidityForCoin, isBotExcludedHlCoin, isHlCoinLiquid, type HlLiquidUniverse } from './hlLiquidity';
 import { globalSignalsForBotMode, counterTrendBlocked, type GlobalSignalCandidate } from './globalMarketScan';
 import { validatePreTradeLiquidity } from './liquiditySweepGate';
 import {
@@ -436,6 +436,10 @@ export class HyperliquidTradingService {
 
     for (const signal of signals) {
       if (excluded.has(signal.coin.toUpperCase())) continue;
+      if (isBotExcludedHlCoin(signal.coin)) {
+        logger.debug('HL signal skip: hard-banned coin', { coin: signal.coin });
+        continue;
+      }
       if (!isHlCoinLiquid(liquidUniverse, signal.coin)) continue;
 
       const flipGate = isSameCoinOpenBlockedSync(userAddress, signal.coin, signal.direction);

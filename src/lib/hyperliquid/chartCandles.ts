@@ -46,7 +46,13 @@ export function chartSanitizeRef(candles: HlCandleBar[], markPx?: number): numbe
   return fromBar;
 }
 
-/** Drop corrupt OHLC bars (wrong coin / bad WS) that flatten the chart to 0–70k. */
+/**
+ * Drop corrupt / wrong-asset bars only (e.g. BTC ~70k injected into CASHCAT ~0.1).
+ * Band is intentionally wide — tight ±45% nuked real meme history (CASHCAT 1h lost ~2/3 bars).
+ */
+const SANITIZE_BAND_LO = 0.01;
+const SANITIZE_BAND_HI = 100;
+
 export function sanitizeChartCandles(
   candles: HlCandleBar[],
   refPx?: number
@@ -59,8 +65,8 @@ export function sanitizeChartCandles(
       : candles[candles.length - 1]?.close ?? candles[candles.length - 1]?.open ?? 0;
   if (!ref || ref <= 0) return candles;
 
-  const lo = ref * 0.55;
-  const hi = ref * 1.45;
+  const lo = ref * SANITIZE_BAND_LO;
+  const hi = ref * SANITIZE_BAND_HI;
 
   const inBand = (v: number) => Number.isFinite(v) && v >= lo && v <= hi;
 

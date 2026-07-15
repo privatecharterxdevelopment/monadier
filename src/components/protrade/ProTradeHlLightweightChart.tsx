@@ -260,6 +260,10 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
   const prevThemeForDataRef = useRef(theme);
   const prevCoinForDataRef = useRef(coin);
   const prevIntervalForDataRef = useRef(interval);
+  const intervalRef = useRef(interval);
+  intervalRef.current = interval;
+  const lastChartSizeRef = useRef({ w: 0, h: 0 });
+  const lastAxisRefPxRef = useRef(0);
 
   const buildAutoscaleProvider = () => {
     return () => {
@@ -285,13 +289,17 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     refPx: number
   ) => {
     const px = refPx > 0 ? refPx : 1;
+    // Skip noise — tiny ref swings flip priceFormat digits and resize the right axis → L/R shake.
+    const prev = lastAxisRefPxRef.current;
+    if (prev > 0 && Math.abs(px - prev) / prev < 0.002) return;
+    lastAxisRefPxRef.current = px;
     chart.applyOptions({
       localization: {
         priceFormatter: buildChartPriceFormatter(px),
         tickmarksPriceFormatter: buildChartTickmarksFormatter(px),
       },
       rightPriceScale: {
-        minimumWidth: 84,
+        minimumWidth: 88,
         ticksVisible: true,
         alignLabels: true,
       },
@@ -354,7 +362,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         borderColor: colors.border,
         scaleMargins: { top: 0.04, bottom: 0.2 },
         autoScale: true,
-        minimumWidth: 84,
+        minimumWidth: 88,
         ticksVisible: true,
         alignLabels: true,
       },
@@ -419,30 +427,31 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         followLiveRef.current = following;
         onFollowLiveChangeRef.current?.(following);
       }
-      const ref =
-        candlesRef.current[candlesRef.current.length - 1]?.close ??
-        markPxRef.current ??
-        1;
-      applyChartPriceAxis(chart, series, ref);
+      // Do not re-apply price axis here — digit jumps change axis width and shake L/R.
     });
 
     const ro = new ResizeObserver(() => {
       if (!aliveRef.current) return;
       const w = el.clientWidth;
       const h = el.clientHeight;
-      if (w < 2 || h < 2) {
-        /* wait for layout */
-      }
+      if (w < 2 || h < 2) return;
+      const prev = lastChartSizeRef.current;
+      if (Math.abs(prev.w - w) < 1 && Math.abs(prev.h - h) < 1) return;
+      lastChartSizeRef.current = { w, h };
       safeChartOp(() => {
+        // Resize only — never reset visible range (that caused L/R shake).
         chart.applyOptions({ width: w, height: h });
-        if (candlesRef.current.length > 0) {
-          applyChartZoom(chart, candlesRef.current.length);
-        }
+        const spacing = chartBarSpacing(w, intervalRef.current);
+        chart.timeScale().applyOptions({
+          barSpacing: spacing,
+          minBarSpacing: Math.max(6, spacing - 4),
+        });
       });
     });
     ro.observe(el);
     safeChartOp(() => {
       chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
+      lastChartSizeRef.current = { w: el.clientWidth, h: el.clientHeight };
     });
 
     return () => {
@@ -481,11 +490,28 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         draftStopPx: draftStopPxRef.current,
         stopLineSelected: stopSelectedRef.current,
       });
+    });
+  }, [openOrders, overlayCoin]);
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    const series = seriesRef.current;
+    if (!chart || !series || !aliveRef.current) return;
+
+    const el = containerRef.current;
+    const width = el?.clientWidth ?? 800;
+    const spacing = chartBarSpacing(width, interval);
+    safeChartOp(() => {
+      chart.timeScale().applyOptions({
+        barSpacing: spacing,
+        minBarSpacing: Math.max(6, spacing - 4),
+        secondsVisible: chartSecondsVisible(interval),
+      });
       if (candlesRef.current.length > 0) {
         applyChartZoom(chart, candlesRef.current.length);
       }
     });
-  }, [interval, openOrders, overlayCoin]);
+  }, [interval]);
 
   useEffect(() => {
     themeRef.current = theme;
@@ -561,6 +587,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     prevCoinForDataRef.current = '';
     prevIntervalForDataRef.current = '';
     followLiveRef.current = true;
+    lastAxisRefPxRef.current = 0;
 
     safeChartOp(() => {
       series.setData([]);
@@ -595,6 +622,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     if (!el || !aliveRef.current) return undefined;
     let attempts = 0;
     let raf = 0;
+    let didInitialZoom = false;
     const ensureSize = () => {
       if (!aliveRef.current) return;
       const w = el.clientWidth;
@@ -608,8 +636,10 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       if (chart && w >= 2 && h >= 2) {
         safeChartOp(() => {
           chart.applyOptions({ width: w, height: h });
-          if (candlesRef.current.length > 0) {
+          lastChartSizeRef.current = { w, h };
+          if (candlesRef.current.length > 0 && !didInitialZoom) {
             applyChartZoom(chart, candlesRef.current.length);
+            didInitialZoom = true;
           }
         });
       }
@@ -737,7 +767,8 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         }
       }
 
-      if (followLiveRef.current) {
+      // Only snap on a new bar — per-tick scrollToRealTime fights the live range and shakes L/R.
+      if (followLiveRef.current && newBar) {
         scrollLive(chart);
       }
 

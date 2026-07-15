@@ -1,8 +1,9 @@
-import React, { Component, useState } from 'react';
+import React, { Component, useEffect, useState } from 'react';
 import type { SeriesMarker, UTCTimestamp } from 'lightweight-charts';
 import type { HlCandleBar, HlInterval } from '../../lib/hyperliquid/types';
 import type { HlOpenOrder } from '../../lib/hyperliquid/user';
 import { PRO_TRADE_INTERVALS } from '../../lib/hyperliquid/constants';
+import { isTradingViewSupported } from '../../lib/hyperliquid/tradingView';
 import ProTradeTradingViewChart from './ProTradeTradingViewChart';
 import ProTradeHlLightweightChart from './ProTradeHlLightweightChart';
 import { useProTradeTheme } from '../../contexts/ProTradeThemeContext';
@@ -117,8 +118,14 @@ const ProTradeChartInner: React.FC<Props> = ({
 }) => {
   const { theme } = useProTradeTheme();
   const [engine, setEngine] = useState<ChartEngine>(() => readStoredEngine(defaultEngine));
+  const tvOk = isTradingViewSupported(coin);
+
+  useEffect(() => {
+    if (!tvOk && engine === 'tv') setEngine('hl');
+  }, [tvOk, engine]);
 
   const switchEngine = (next: ChartEngine) => {
+    if (next === 'tv' && !tvOk) return;
     if (next === engine) return;
     setEngine(next);
     try {
@@ -156,7 +163,12 @@ const ProTradeChartInner: React.FC<Props> = ({
             type="button"
             className={`hl-chart-tf ${engine === 'tv' ? 'hl-chart-tf--on' : ''}`}
             onClick={() => switchEngine('tv')}
-            title="TradingView — indicators & drawings"
+            disabled={!tvOk}
+            title={
+              tvOk
+                ? 'TradingView — indicators & drawings'
+                : `${coin} is HL-only — use HL chart (no Binance TV feed)`
+            }
           >
             TV
           </button>

@@ -35,7 +35,7 @@ export const BOT_MIN_DAY_VOLUME_USD = 2_500_000;
 
 /**
  * Fallback bot universe when `/api/global-signals` has not returned `botUniverse` yet.
- * Live snapshot ≥$2.5M (excl. hard-banned CRV).
+ * Live snapshot ≥$2.5M (excl. hard-banned coins).
  */
 export const BOT_TRADE_FALLBACK_COINS = [
   'BTC',
@@ -47,7 +47,6 @@ export const BOT_TRADE_FALLBACK_COINS = [
   'XRP',
   'WLD',
   'NEAR',
-  'CASHCAT',
   'PUMP',
   'AAVE',
   'FARTCOIN',
@@ -79,8 +78,8 @@ export const BOT_TRADE_FALLBACK_COINS = [
 
 const BOT_TRADE_FALLBACK_SET = new Set<string>(BOT_TRADE_FALLBACK_COINS);
 
-/** Hard excludes even if volume spikes (mirrors legacy bot-service bans). */
-export const BOT_EXCLUDED_HL_COINS = new Set(['CRV']);
+/** Hard excludes — bot never scans/opens these even if volume spikes. */
+export const BOT_EXCLUDED_HL_COINS = new Set(['CRV', 'CASHCAT']);
 
 export function isBotExcludedHlCoin(coin: string): boolean {
   return BOT_EXCLUDED_HL_COINS.has(normalizeHlPerpCoin(coin));
