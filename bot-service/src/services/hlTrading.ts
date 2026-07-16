@@ -15,7 +15,6 @@ import {
   describeHlPerpBalanceBlocker,
   fetchHlAllMids,
   fetchHlMeta,
-  fetchHlRecentCloseFillSummaryWithRetry,
   formatHlPrice,
   formatHlSize,
   hlAccountValueUsd,
@@ -97,8 +96,6 @@ let fastPositionMonitorRunning = false;
  */
 function mayAutoCloseInRed(reason: string): boolean {
   const cfg = config.hyperliquid;
-  // User clicked Close — never block; profitOnlyExits only gates bot auto-exits.
-  if (reason === 'manual') return true;
   if (reason === 'emergency_close') return true;
   if (!cfg.profitOnlyExits) {
     return reason === 'stop_loss' || reason === 'signal_reversal' || reason === 'trailing_stop';
@@ -731,18 +728,6 @@ export class HyperliquidTradingService {
     try {
       const { meta, mids } = opts.ctx;
       const coin = opts.coin.toUpperCase();
-      if (!isHlCoinLiquid(opts.ctx.liquidUniverse, coin)) {
-        const liq = getHlLiquidityForCoin(opts.ctx.liquidUniverse, coin);
-        const reason = `Bot blocked — ${coin} below $${(config.hyperliquid.minDayVolumeUsd / 1e6).toFixed(0)}M 24h volume (manual trading still allowed)`;
-        logger.info('HL open blocked — bot liquidity universe', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          dayVolumeUsd: liq?.dayVolumeUsd,
-          reason,
-        });
-        return { success: false, error: reason };
-      }
-
       const flipGate = await isSameCoinOpenBlocked(opts.userAddress, coin, opts.direction);
       if (flipGate.blocked) {
         logger.info('HL open blocked — same-coin anti-flip', {
@@ -808,11 +793,8 @@ export class HyperliquidTradingService {
       }
 
       const strongMtf = isStrongGlobalScanPick(opts.pick);
-      // BTC/ETH: never relax secondary gates — majors need full precision
-      // (momentum / scalp / S/R / pump-sweep / 20-candle). Alts unchanged.
-      const relaxSecondaryGates = MAJOR_COINS.has(coin)
-        ? false
-        : strongMtf || opts.pick.confidence >= 48;
+      const relaxSecondaryGates =
+        strongMtf || opts.pick.confidence >= 48 || MAJOR_COINS.has(coin);
 
       const candleAnalytics = relaxSecondaryGates
           ? {
@@ -1619,22 +1601,11 @@ export class HyperliquidTradingService {
         collateralUsd,
       };
 
-      // Prefer fill closedPnl (same source as dock history) over pre-close uPnL.
-      const fill = await fetchHlRecentCloseFillSummaryWithRetry(
-        userAddress,
-        coinUpper,
-        Date.now() - 90_000,
-        { attempts: 5, delayMs: 350 }
-      );
-      const realizedPnl = fill?.closedPnlUsd;
-      const profitForFee =
-        realizedPnl != null && Number.isFinite(realizedPnl) ? realizedPnl : pnlUsd;
-
       const collectedFee =
-        profitForFee > 0
+        pnlUsd > 0
           ? viaHlBuilder && closeBuilder
-            ? estimateCollectedSuccessFee(profitForFee, notionalUsd, closeBuilder.f)
-            : calculateHlSuccessFee(profitForFee)
+            ? estimateCollectedSuccessFee(pnlUsd, notionalUsd, closeBuilder.f)
+            : calculateHlSuccessFee(pnlUsd)
           : 0;
 
       await recordHlBotClose({
@@ -1643,10 +1614,6 @@ export class HyperliquidTradingService {
         snapshot,
         collectedFeeUsd: collectedFee,
         viaHlBuilder,
-        realizedPnlUsd: realizedPnl,
-        exitPxOverride: fill?.exitPx ?? null,
-        sizeOverride: fill?.size ?? null,
-        pendingFill: fill == null,
       });
 
       logger.info('HL position closed', {
@@ -1654,10 +1621,6 @@ export class HyperliquidTradingService {
         coin: coinUpper,
         reason,
         pnl: pnlUsd.toFixed(4),
-        realizedPnl:
-          realizedPnl != null && Number.isFinite(realizedPnl)
-            ? realizedPnl.toFixed(4)
-            : 'pending_fill',
         successFee: collectedFee > 0 ? collectedFee.toFixed(4) : '0',
         viaHlBuilder,
       });

@@ -292,107 +292,6 @@ export async function fetchHlAllMids(): Promise<Record<string, string>> {
   return res.json();
 }
 
-export type HlUserFill = {
-  coin: string;
-  px: string;
-  sz: string;
-  time: number;
-  closedPnl: string;
-  fee?: string;
-  dir?: string;
-};
-
-export async function fetchHlUserFills(userAddress: string): Promise<HlUserFill[]> {
-  const user = userAddress.toLowerCase();
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    try {
-      const res = await fetch(config.hyperliquid.infoUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'userFills', user }),
-      });
-      if (!res.ok) {
-        if (attempt < 3) await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
-        continue;
-      }
-      const rows = (await res.json()) as HlUserFill[];
-      return Array.isArray(rows) ? rows : [];
-    } catch (err: unknown) {
-      if (attempt === 3) {
-        logger.debug('HL userFills failed', {
-          user: user.slice(0, 10),
-          error: err instanceof Error ? err.message : String(err),
-        });
-      } else {
-        await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
-      }
-    }
-  }
-  return [];
-}
-
-/** Sum close fills for a coin since timestamp — HL may split one close into legs. */
-export async function fetchHlRecentCloseFillSummary(
-  userAddress: string,
-  coin: string,
-  sinceMs: number
-): Promise<{
-  closedPnlUsd: number;
-  exitPx: number;
-  size: number;
-  fillCount: number;
-} | null> {
-  const fills = await fetchHlUserFills(userAddress);
-  const coinUpper = coin.toUpperCase();
-  const relevant = fills.filter((f) => {
-    if (f.coin.toUpperCase() !== coinUpper || f.time < sinceMs) return false;
-    const dir = (f.dir ?? '').toLowerCase();
-    return dir.includes('close');
-  });
-  if (relevant.length === 0) return null;
-
-  let totalSz = 0;
-  let totalPnl = 0;
-  let wPxSum = 0;
-  for (const f of relevant) {
-    const sz = Number(f.sz) || 0;
-    const px = Number(f.px) || 0;
-    totalSz += sz;
-    totalPnl += Number(f.closedPnl) || 0;
-    wPxSum += px * sz;
-  }
-  return {
-    closedPnlUsd: totalPnl,
-    exitPx: totalSz > 0 ? wPxSum / totalSz : Number(relevant[0].px) || 0,
-    size: totalSz,
-    fillCount: relevant.length,
-  };
-}
-
-/** Poll HL fills after close — avoids recording snapshot uPnL when fills lag. */
-export async function fetchHlRecentCloseFillSummaryWithRetry(
-  userAddress: string,
-  coin: string,
-  sinceMs: number,
-  opts?: { attempts?: number; delayMs?: number }
-): Promise<{
-  closedPnlUsd: number;
-  exitPx: number;
-  size: number;
-  fillCount: number;
-} | null> {
-  const attempts = opts?.attempts ?? 5;
-  const delayMs = opts?.delayMs ?? 400;
-  for (let i = 0; i < attempts; i += 1) {
-    const summary = await fetchHlRecentCloseFillSummary(userAddress, coin, sinceMs);
-    if (summary) return summary;
-    if (i < attempts - 1) {
-      await new Promise((r) => setTimeout(r, delayMs * (i + 1)));
-    }
-  }
-  return null;
-}
-
 export function maxLeverageForCoin(
   meta: { universe: { name: string; maxLeverage?: number }[] },
   coin: string
@@ -411,11 +310,8 @@ export function coinToAssetIndex(meta: { universe: { name: string }[] }, coin: s
 }
 
 export function formatHlSize(size: number, szDecimals: number): string {
-  if (!Number.isFinite(size) || size <= 0) return '0';
   const factor = 10 ** szDecimals;
-  // Math.round — bare Math.floor truncates float noise (0.5105*1e4 → 5104.999… → 0.5104)
-  // and leaves residual open size after reduce-only closes.
-  const rounded = Math.round(size * factor) / factor;
+  const rounded = Math.floor(size * factor) / factor;
   return rounded.toFixed(szDecimals).replace(/\.?0+$/, '') || '0';
 }
 

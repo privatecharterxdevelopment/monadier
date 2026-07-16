@@ -1,6 +1,5 @@
 /**
- * SHORT timing after pump — alts and majors (BTC/ETH).
- * Block shorts while higher TFs are still LONG or price has not rolled over.
+ * Alt SHORT timing — only after higher-TF rollover (not a blanket ban).
  * Pair may still be skipped earlier by freshPumpGate if recently pumped.
  */
 import { config } from '../config';
@@ -31,6 +30,10 @@ export async function validateNoAltPumpShort(opts: {
   }
 
   const coin = opts.coin.toUpperCase();
+  if (coin === 'BTC' || coin === 'ETH') {
+    return { ok: true, reason: 'Pump-short gate — majors use macro beta only' };
+  }
+
   const cfg = config.hyperliquid.pumpShort;
   const symbol = hlCoinToBinanceSymbol(coin);
 
@@ -47,7 +50,7 @@ export async function validateNoAltPumpShort(opts: {
     const higherLong = higher.filter((t) => t.direction === 'LONG').length;
     if (higherLong >= cfg.minHigherTfLongBlock) {
       const reason =
-        `SHORT blocked — ${coin}: ${higherLong}/3 higher TFs still LONG (no short into pump)`;
+        `SHORT blocked — ${coin}: ${higherLong}/3 higher TFs still LONG (no short after pump on alts)`;
       logger.info('Pump-short gate blocked', { coin, higherLong });
       return { ok: false, reason };
     }
@@ -84,18 +87,18 @@ export async function validateNoAltPumpShort(opts: {
     if (tf15?.direction !== 'SHORT' && tf1h?.direction !== 'SHORT') {
       return {
         ok: false,
-        reason: `SHORT blocked — ${coin}: need 15m or 1h SHORT confirmation before short`,
+        reason: `SHORT blocked — ${coin}: need 15m or 1h SHORT confirmation before alt short`,
       };
     }
 
     return {
       ok: true,
       reason:
-        `SHORT ok ${coin} — higher TFs faded (15m ${ch15m.toFixed(2)}%, 1h ${ch1h.toFixed(2)}%)`,
+        `Alt SHORT ok ${coin} — higher TFs faded (15m ${ch15m.toFixed(2)}%, 1h ${ch1h.toFixed(2)}%)`,
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    logger.warn('Pump-short gate error — fail closed', { coin, error: msg });
+    logger.warn('Pump-short gate error — fail closed for alts', { coin, error: msg });
     return {
       ok: false,
       reason: `SHORT blocked — ${coin} pump check failed (${msg.slice(0, 60)})`,

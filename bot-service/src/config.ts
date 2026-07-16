@@ -102,14 +102,11 @@ export const config = {
     ),
     /** Minimum order notional — skips sloppy micro-trades. */
     minNotionalUsd: Number(process.env.HL_MIN_NOTIONAL_USD || 20),
-    /** Bot-only open/scan floor — $5M 24h notional. Manual trading ignores this. */
-    minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 5_000_000),
+    /** Bot open floor — 0 = scan all HL perps; only applied at order time if > 0. */
+    minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 0),
     minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 0),
-    /**
-     * Max coins to MTF-scan per cycle after volume floor.
-     * 0 = every coin that passes minDayVolumeUsd (recommended with $5M floor).
-     */
-    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 0),
+    /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all listed HL perps. */
+    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 18),
     liquidUniverseCacheMs: Number(process.env.HL_LIQUID_UNIVERSE_CACHE_MS || 60_000),
     /** Close HL perps at this % gain on margin (user DB setting overrides). */
     /** 0 = user disabled TP. */
@@ -121,8 +118,8 @@ export const config = {
     minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
     /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
     dynamicTrail: {
-    /** Min ms in profit before arming breakeven / trail SL (2 min default). */
-      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 120_000),
+    /** Min ms in profit before arming breakeven / trail SL (5 min default). */
+      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 420_000),
       /** Min ROE before breakeven+fees lock (~2.5% — stage 1). */
       breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 2.5),
       /** Min ROE before full ATR/% trail ratchet (~5% — stage 2). */
@@ -180,10 +177,10 @@ export const config = {
     /** Bars (excl. last 3) used for swing high/low in sweep detection. */
     sweepLookbackBars: Number(process.env.HL_SWEEP_LOOKBACK_BARS || 15),
     reentryCooldownMs: Number(process.env.HL_REENTRY_COOLDOWN_MS || 0),
-    /** Min ms before any re-open on a coin after it was closed (anti instant flip; default 30 min). */
-    sameCoinReentryMinMs: Number(process.env.HL_SAME_COIN_REENTRY_MS || 1_800_000),
-    /** Min ms before opposite direction on same coin after close (default 30 min). */
-    blockOppositeSameCoinMs: Number(process.env.HL_BLOCK_OPPOSITE_SAME_COIN_MS || 1_800_000),
+    /** Min ms before any re-open on a coin after it was closed (anti instant flip; default 15 min). */
+    sameCoinReentryMinMs: Number(process.env.HL_SAME_COIN_REENTRY_MS || 900_000),
+    /** Min ms before opposite direction on same coin after close (default 15 min). */
+    blockOppositeSameCoinMs: Number(process.env.HL_BLOCK_OPPOSITE_SAME_COIN_MS || 900_000),
     /** Resistance/support gate before opens (Standard + Aggressive scan + final open check). */
     entryLocation: {
       /** Price in top X of range = near resistance. */
@@ -233,7 +230,7 @@ export const config = {
       /** SHORT rally-fade: price must be in upper X of 1h range unless breakdown. */
       shortMinRangePosition: Number(process.env.HL_ENTRY_SHORT_MIN_RANGE || 0.32),
     },
-    /** SHORT after pump — BTC/ETH included (same rollover rules as alts). */
+    /** Alts — never SHORT into a fresh pump / higher-TF rally. */
     pumpShort: {
       block1hPct: Number(process.env.HL_PUMP_SHORT_BLOCK_1H || 0.15),
       block4hPct: Number(process.env.HL_PUMP_SHORT_BLOCK_4H || 0.35),
@@ -395,20 +392,6 @@ export const config = {
     resendApiKey: process.env.RESEND_API_KEY || '',
     from: process.env.RESEND_FROM || 'HyperGain <hello@hypergain.io>',
   },
-
-  /** X / Twitter auto-posts (admin Social tab). Secrets only — never expose to Vite. */
-  twitter: {
-    apiKey: process.env.X_API_KEY || process.env.TWITTER_API_KEY || '',
-    apiSecret: process.env.X_API_SECRET || process.env.TWITTER_API_SECRET || '',
-    accessToken: process.env.X_ACCESS_TOKEN || process.env.TWITTER_ACCESS_TOKEN || '',
-    accessSecret:
-      process.env.X_ACCESS_TOKEN_SECRET || process.env.TWITTER_ACCESS_TOKEN_SECRET || '',
-    openaiModel: process.env.OPENAI_TWITTER_MODEL || process.env.OPENAI_NEWS_MODEL || 'gpt-4o-mini',
-    tickMs: Number(process.env.X_SOCIAL_TICK_MS || 60_000),
-  },
-
-  /** Protects /api/admin/* from the dashboard (Fees reconcile + Twitter). */
-  botAdminSecret: process.env.BOT_ADMIN_SECRET || '',
 
   /** Multi-user scale — 1M+ signups, thousands of concurrent bots */
   scaling: {

@@ -92,14 +92,10 @@ function evaluateBlock(
   const blockOpposite = config.hyperliquid.blockOppositeSameCoinMs;
 
   if (minReentry > 0 && elapsed < minReentry) {
-    const remainMs = minReentry - elapsed;
-    const waitLabel =
-      remainMs >= 3_600_000
-        ? `~${Math.max(1, Math.ceil(remainMs / 3_600_000))}h`
-        : `~${Math.max(1, Math.ceil(remainMs / 60_000))}m`;
+    const waitMin = Math.max(1, Math.ceil((minReentry - elapsed) / 60_000));
     return {
       blocked: true,
-      reason: `${coin} — blocked ${waitLabel} after close (per-pair cooldown)`,
+      reason: `${coin} — blocked ~${waitMin}m after close (pick another pair)`,
     };
   }
   if (
@@ -107,16 +103,12 @@ function evaluateBlock(
     mem.direction !== direction &&
     elapsed < blockOpposite
   ) {
-    const remainMs = blockOpposite - elapsed;
-    const waitLabel =
-      remainMs >= 3_600_000
-        ? `~${Math.max(1, Math.ceil(remainMs / 3_600_000))}h`
-        : `~${Math.max(1, Math.ceil(remainMs / 60_000))}m`;
+    const waitMin = Math.ceil((blockOpposite - elapsed) / 60_000);
     return {
       blocked: true,
       reason:
-        `${coin} — no ${direction} for ${waitLabel} after ${mem.direction} close ` +
-        `(per-pair cooldown; other pairs OK)`,
+        `${coin} — no ${direction} for ~${waitMin}m after ${mem.direction} close ` +
+        `(anti-flip; other pairs OK)`,
     };
   }
   return { blocked: false };
