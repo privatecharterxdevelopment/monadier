@@ -6,8 +6,7 @@ import { analyzeAggressiveScalpBySymbol } from './aggressiveScalpAnalysis';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { filterWeekendShortOnly, isWeekendShortOnlyWindow } from './weekendTradingRules';
-import { refreshMegaPairVolumeMonitor, isMacroRiskOffEnvironment } from './megaPairVolumeMonitor';
-import { evaluateBearMarketRegime } from './bearMarketRegime';
+import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
@@ -37,31 +36,6 @@ export type GlobalSignalCandidate = {
 };
 
 const STANDARD_STRATEGY: TradingStrategy = 'normal';
-
-/** Match DOWN / STRONG_DOWNTREND / bearish labels from signalEngine + market MTF. */
-function isH1DownTrend(h1Trend: string | undefined | null): boolean {
-  const t = String(h1Trend ?? '');
-  return /DOWN/i.test(t) || /DOWNTREND/i.test(t);
-}
-
-/** Match UP / STRONG_UPTREND — keep SHORT blocks symmetric. */
-function isH1UpTrend(h1Trend: string | undefined | null): boolean {
-  const t = String(h1Trend ?? '');
-  return /UP/i.test(t) || /UPTREND/i.test(t);
-}
-
-/**
- * Hard counter-trend veto — never open LONG into a 1h downtrend (or SHORT into up).
- * Applies on every scan path including relaxed + major fallback.
- */
-export function counterTrendBlocked(
-  direction: 'LONG' | 'SHORT',
-  h1Trend: string | undefined | null
-): boolean {
-  if (direction === 'LONG' && isH1DownTrend(h1Trend)) return true;
-  if (direction === 'SHORT' && isH1UpTrend(h1Trend)) return true;
-  return false;
-}
 
 export type HlGlobalScanStats = {
   coinsScanned: number;
@@ -98,18 +72,11 @@ async function scanMajorChartFallback(
     const symbol = hlCoinToBinanceSymbol(coin);
     const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
     if (!analysis) return null;
+    if (analysis.isWeak) return null;
     if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
     if (analysis.confidence < 48) return null;
     const tfs = analysis.metrics?.directionalTfCount ?? 0;
     if (tfs < 1) return null;
-    if (counterTrendBlocked(analysis.direction, analysis.metrics?.h1Trend)) {
-      logger.debug('HL major fallback skip: 1h counter-trend', {
-        coin,
-        direction: analysis.direction,
-        h1Trend: analysis.metrics?.h1Trend,
-      });
-      return null;
-    }
 
     return {
       coin,
@@ -142,6 +109,7 @@ async function scanStandardCoin(
     const symbol = hlCoinToBinanceSymbol(coin);
     const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
     if (!analysis) return null;
+    if (analysis.isWeak) return null;
     if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
     const tierInfo = classifyCoinTier(coin, preloadedUniverse);
     const cautious = needsCautionPath(tierInfo.tier) && !relaxed;
@@ -182,14 +150,15 @@ async function scanStandardCoin(
     }
     if ((analysis.metrics?.directionalTfCount ?? 0) < minTfs) return null;
     if ((analysis.metrics?.trendAlignment ?? 0) < minAlign) return null;
-    // Always enforce — relaxed fallback previously skipped this and opened LONGs in dumps.
-    if (counterTrendBlocked(analysis.direction, analysis.metrics?.h1Trend)) {
-      logger.debug('HL scan skip: 1h counter-trend', {
-        coin,
-        direction: analysis.direction,
-        h1Trend: analysis.metrics?.h1Trend,
-        relaxed,
-      });
+    if (
+      !relaxed &&
+      (
+        (analysis.direction === 'LONG' && analysis.metrics?.h1Trend === 'DOWN') ||
+        (analysis.direction === 'SHORT' &&
+          (/UP/i.test(String(analysis.metrics?.h1Trend ?? '')) ||
+            analysis.metrics?.h1Trend === 'STRONG_UPTREND'))
+      )
+    ) {
       return null;
     }
     if (analysis.direction === 'SHORT') {
@@ -247,20 +216,20 @@ async function scanAggressiveCoin(
 
     const h1Check = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
     if (h1Check) {
-      if (counterTrendBlocked(scalp.direction, h1Check.metrics?.h1Trend)) {
-        logger.debug('HL agg scan skip: 1h counter-trend', {
-          coin,
-          direction: scalp.direction,
-          h1Trend: h1Check.metrics?.h1Trend,
-        });
-        return null;
-      }
       if (scalp.direction === 'SHORT') {
+        if (/UP/i.test(String(h1Check.metrics?.h1Trend ?? ''))) {
+          logger.debug('HL agg scan skip: 1h trend UP blocks SHORT', { coin });
+          return null;
+        }
         const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
         if (!pumpGate.ok) {
           logger.debug('HL agg scan skip: pump-short gate', { coin, reason: pumpGate.reason });
           return null;
         }
+      }
+      if (scalp.direction === 'LONG' && h1Check.metrics?.h1Trend === 'DOWN') {
+        logger.debug('HL agg scan skip: 1h trend DOWN blocks LONG', { coin });
+        return null;
       }
     }
 
@@ -378,36 +347,6 @@ export async function scanGlobalHlSignals(
         top: finalStandard[0]?.coin,
         direction: finalStandard[0]?.direction,
         conf: finalStandard[0]?.confidence,
-      });
-    }
-  }
-
-  const macroRisk = isMacroRiskOffEnvironment();
-  if (macroRisk.active) {
-    const before = finalStandard.length;
-    finalStandard = finalStandard.filter((c) => c.direction !== 'LONG');
-    aggressiveFiltered = aggressiveFiltered.filter((c) => c.direction !== 'LONG');
-    if (before > finalStandard.length) {
-      logger.info('Global HL scan — LONG candidates removed (macro risk-off)', {
-        reason: macroRisk.reason,
-        removed: before - finalStandard.length,
-      });
-    }
-  }
-
-  // Top-level regime gate: SHORT-only unless BTC + ETH clearly UP on 15m + 1h.
-  const regime = await evaluateBearMarketRegime();
-  if (!regime.longsAllowed) {
-    const beforeStd = finalStandard.length;
-    const beforeAgg = aggressiveFiltered.length;
-    finalStandard = finalStandard.filter((c) => c.direction !== 'LONG');
-    aggressiveFiltered = aggressiveFiltered.filter((c) => c.direction !== 'LONG');
-    const removed = beforeStd - finalStandard.length + (beforeAgg - aggressiveFiltered.length);
-    if (removed > 0) {
-      logger.info('Global HL scan — LONG candidates removed (bear regime, SHORT-only)', {
-        reason: regime.reason,
-        detail: regime.detail,
-        removed,
       });
     }
   }

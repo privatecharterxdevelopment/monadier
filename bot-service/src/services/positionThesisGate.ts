@@ -145,59 +145,7 @@ export function shouldHardLossClose(
 ): boolean {
   if (pnlUsd >= 0) return false;
   const cap = computeMaxLossCapUsd(collateralUsd, slPct);
-  // Cap 0 must NOT mean "close any red" — that would spam-exit every dip.
-  if (!(cap > 0)) return false;
   return pnlUsd <= -cap;
-}
-
-/**
- * Force-close before Hyperliquid liquidation.
- * Uses exchange liquidationPx when present — always safe vs profitOnlyExits via emergency_close.
- */
-export function shouldEmergencyCloseNearLiquidation(opts: {
-  direction: 'LONG' | 'SHORT';
-  markPrice: number;
-  entryPx: number;
-  liquidationPx: number | null | undefined;
-}): { close: boolean; reason: string } {
-  const liq = opts.liquidationPx != null ? Number(opts.liquidationPx) : NaN;
-  const mark = opts.markPrice;
-  const entry = opts.entryPx;
-  if (!Number.isFinite(liq) || liq <= 0) return { close: false, reason: '' };
-  if (!Number.isFinite(mark) || mark <= 0) return { close: false, reason: '' };
-
-  // Sanity: LONG liq below mark, SHORT liq above mark.
-  if (opts.direction === 'LONG' && liq >= mark) return { close: false, reason: '' };
-  if (opts.direction === 'SHORT' && liq <= mark) return { close: false, reason: '' };
-
-  const cfg = config.hyperliquid.liquidation;
-  const distToLiqPct = Math.abs(mark - liq) / mark;
-  if (distToLiqPct <= cfg.closeWhenWithinPct) {
-    return {
-      close: true,
-      reason:
-        `NEAR LIQUIDATION — ${opts.direction} mark $${mark.toFixed(6)} within ` +
-        `${(distToLiqPct * 100).toFixed(3)}% of liq $${liq.toFixed(6)}`,
-    };
-  }
-
-  if (Number.isFinite(entry) && entry > 0) {
-    const entryToLiq = Math.abs(entry - liq);
-    if (entryToLiq > 0) {
-      const remaining = Math.abs(mark - liq);
-      const frac = remaining / entryToLiq;
-      if (frac <= cfg.closeWhenRemainingFrac) {
-        return {
-          close: true,
-          reason:
-            `NEAR LIQUIDATION — ${opts.direction} only ${(frac * 100).toFixed(1)}% of ` +
-            `entry→liq distance left (mark $${mark.toFixed(6)} · liq $${liq.toFixed(6)})`,
-        };
-      }
-    }
-  }
-
-  return { close: false, reason: '' };
 }
 
 export function logThesisDeferStopLoss(

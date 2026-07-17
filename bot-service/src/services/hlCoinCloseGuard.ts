@@ -92,10 +92,10 @@ function evaluateBlock(
   const blockOpposite = config.hyperliquid.blockOppositeSameCoinMs;
 
   if (minReentry > 0 && elapsed < minReentry) {
-    const waitMin = Math.max(1, Math.ceil((minReentry - elapsed) / 60_000));
+    const waitSec = Math.ceil((minReentry - elapsed) / 1000);
     return {
       blocked: true,
-      reason: `${coin} — blocked ~${waitMin}m after close (pick another pair)`,
+      reason: `${coin} — re-entry blocked ${waitSec}s after close (anti-churn)`,
     };
   }
   if (
