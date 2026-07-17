@@ -1259,6 +1259,7 @@ export class HyperliquidTradingService {
         collateralUsd: collateralEst,
         nowMs,
         record: trailRecord,
+        leverage: lev,
         trailDistanceMult,
         trailCloseDeferred,
       });

@@ -20,6 +20,7 @@ import {
 } from './services/globalMarketScan';
 import { getMegaPairVolumeSnapshot } from './services/megaPairVolumeMonitor';
 import { getLastBearRegimeVerdict } from './services/bearMarketRegime';
+import { resolveEffectiveTrailProfile } from './services/dynamicTrailingStop';
 import { fetchMegaPairPumpSweep, formatPumpSweepLine } from './services/pumpSweepAnalytics';
 import { buildCryptoNewsFeed } from './services/newsImpactGate';
 import { fetchAnalyzedSportsNews } from './services/sportsNewsService';
@@ -782,14 +783,19 @@ const healthServer = http.createServer(async (req, res) => {
           tp: dbSettings.takeProfitPercent,
           sl: dbSettings.stopLossPercent,
           maxConcurrentPositions: maxPositions,
-          dynamicTrail: {
-            breakevenArmRoePct: config.hyperliquid.dynamicTrail.breakevenArmRoePct,
-            armMinRoePct: config.hyperliquid.dynamicTrail.armMinRoePct,
-            armFeesMultiplier: config.hyperliquid.dynamicTrail.armFeesMultiplier,
-            majorTrailPct: config.hyperliquid.dynamicTrail.majorTrailPct,
-            midTrailPct: config.hyperliquid.dynamicTrail.midTrailPct,
-            cautiousTrailPct: config.hyperliquid.dynamicTrail.cautiousTrailPct,
-          },
+          dynamicTrail: (() => {
+            const trail = resolveEffectiveTrailProfile(dbSettings.leverageMultiplier);
+            return {
+              breakevenArmRoePct: trail.breakevenArmRoePct,
+              armMinRoePct: trail.armMinRoePct,
+              armFeesMultiplier: trail.armFeesMultiplier,
+              majorTrailPct: trail.majorTrailPct,
+              midTrailPct: trail.midTrailPct,
+              cautiousTrailPct: trail.cautiousTrailPct,
+              highLev: trail.highLev,
+              profileLeverage: trail.leverage,
+            };
+          })(),
           minSignalConfidence: config.hyperliquid.minSignalConfidence,
           minDirectionalTfs: config.hyperliquid.minDirectionalTfs,
           minTrendAlignment: config.hyperliquid.minTrendAlignment,

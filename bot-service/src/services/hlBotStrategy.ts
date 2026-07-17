@@ -1,4 +1,4 @@
-import { config } from '../config';
+import { resolveEffectiveTrailProfile } from './dynamicTrailingStop';
 
 export type HlBotStrategy = 'standard' | 'profit_grabber';
 
@@ -8,17 +8,20 @@ export function normalizeHlBotStrategy(raw: string | null | undefined): HlBotStr
 }
 
 export type HlExitPolicy = {
-  /** Stage 1 — breakeven lock at this ROE (default ~2%). */
+  /** Stage 1 — breakeven lock at this ROE. */
   breakevenArmRoePct: number;
-  /** Stage 2 — full trail at this ROE (default ~4.5%). */
+  /** Stage 2 — full trail at this ROE. */
   armMinRoePct: number;
   armFeesMultiplier: number;
   useTakeProfitPercent: boolean;
 };
 
-/** Exit policy — price-based dynamic trailing (no fixed USD floors). */
-export function resolveHlExitPolicy(_strategy: HlBotStrategy): HlExitPolicy {
-  const trail = config.hyperliquid.dynamicTrail;
+/** Exit policy — price-based dynamic trailing; 40×+ uses loosened high-lev profile. */
+export function resolveHlExitPolicy(
+  _strategy: HlBotStrategy,
+  leverage = 1
+): HlExitPolicy {
+  const trail = resolveEffectiveTrailProfile(leverage);
   return {
     breakevenArmRoePct: trail.breakevenArmRoePct,
     armMinRoePct: trail.armMinRoePct,

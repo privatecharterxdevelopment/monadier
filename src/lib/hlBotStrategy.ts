@@ -8,32 +8,45 @@ export const HL_BOT_STRATEGY_LABELS: Record<HlBotStrategy, string> = {
 
 export const HL_BOT_STRATEGY_HINTS: Record<HlBotStrategy, string> = {
   standard:
-    'Standard: MTF trend-only. Stage 1: +8% ROE arms breakeven lock. Stage 2: peak ≥+12% ROE → wider trail.',
+    'Standard: MTF trend-only. Trail: +2.5%→+5% ROE (≤39×); +8%→+12% at 40×.',
   profit_grabber:
-    'Aggressive: 1m scalp entries. Same two-stage profit SL (+8% arm, +12% full trail).',
+    'Aggressive: 1m scalp entries. Same leverage-aware trail (+2.5%/+5%, or +8%/+12% at 40×).',
 };
 
-/** Must match bot-service config.hyperliquid.dynamicTrail defaults (40×-loosened). */
+/** Must match bot-service base dynamicTrail (≤39×). 40× uses high-lev profile. */
 export const HL_DYNAMIC_TRAIL = {
-  armMinProfitHoldMs: 720_000,
+  armMinProfitHoldMs: 420_000,
   maxHoldBeforeSlTrailMs: 120_000,
-  trailMinActiveBeforeCloseMs: 480_000,
-  /** Arm stage-1 profit lock at +8% ROE. */
-  breakevenArmRoePct: 8,
+  trailMinActiveBeforeCloseMs: 300_000,
+  breakevenArmRoePct: 2.5,
   armMinProfitUsd: 0,
-  /** Min locked ROE% once armed (stage 1 floor display). */
-  armMinRoePct: 8,
-  /** Peak ROE minus this gap when ratcheting (stage 2). */
-  trailGapRoePct: 4,
-  /** Stage 2 arms when peak ROE ≥ this. */
-  fullTrailArmRoePct: 12,
+  armMinRoePct: 2.5,
+  trailGapRoePct: 1.5,
+  fullTrailArmRoePct: 5,
   armFeesMultiplier: 2,
   estimatedFeeBpsPerSide: 3.5,
+  majorTrailPct: 0.028,
+  midTrailPct: 0.024,
+  cautiousTrailPct: 0.038,
+  breakevenBufferPct: 0.02,
+} as const;
+
+/** 40×+ trail profile — matches bot-service dynamicTrailHighLev. */
+export const HL_DYNAMIC_TRAIL_40X = {
+  breakevenArmRoePct: 8,
+  armMinRoePct: 8,
+  fullTrailArmRoePct: 12,
+  trailGapRoePct: 4,
   majorTrailPct: 0.035,
   midTrailPct: 0.03,
   cautiousTrailPct: 0.045,
-  breakevenBufferPct: 0.02,
+  armMinProfitHoldMs: 720_000,
+  trailMinActiveBeforeCloseMs: 480_000,
 } as const;
+
+export function trailProfileForLeverage(leverage: number) {
+  return leverage >= 40 ? { ...HL_DYNAMIC_TRAIL, ...HL_DYNAMIC_TRAIL_40X } : HL_DYNAMIC_TRAIL;
+}
 
 export function normalizeHlBotStrategy(raw: string | null | undefined): HlBotStrategy {
   if (raw === 'profit_grabber') return 'profit_grabber';

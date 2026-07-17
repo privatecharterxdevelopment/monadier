@@ -116,16 +116,16 @@ export const config = {
     defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 2),
     /** Min uPnL before any profit exit (legacy — dynamic trail uses ROE/fees arm). */
     minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
-    /** Dynamic price-based trailing stop — loosened for high leverage (40×). */
+    /** Dynamic trailing stop — base profile (≤39×). 40×+ uses dynamicTrailHighLev. */
     dynamicTrail: {
-      /** Min ms in profit before arming breakeven / trail SL (12 min — avoid scratch exits). */
-      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 720_000),
-      /** Min ROE before breakeven+fees lock (~8% — stage 1; was 2.5%, too tight at 40×). */
-      breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 8),
-      /** Min ROE before full ATR/% trail ratchet (~12% — stage 2; was 5%). */
-      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 12),
-      /** After trail arms — min ms before trail/peak can close (8 min). */
-      trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 480_000),
+      /** Min ms in profit before arming breakeven / trail SL. */
+      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 420_000),
+      /** Min ROE before breakeven+fees lock (stage 1). */
+      breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 2.5),
+      /** Min ROE before full ATR/% trail ratchet (stage 2). */
+      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 5),
+      /** After trail arms — min ms before trail/peak can close. */
+      trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 300_000),
       armFeesMultiplier: Number(process.env.HL_TRAIL_ARM_FEES_MULT || 2),
       breakevenBufferPct: Number(process.env.HL_TRAIL_BE_BUFFER_PCT || 0.02),
       breakevenBufferFeesMult: Number(process.env.HL_TRAIL_BE_BUFFER_FEES_MULT || 0.5),
@@ -136,20 +136,38 @@ export const config = {
       atrTimeframe: (process.env.HL_TRAIL_ATR_TF || '5m') as '1m' | '5m' | '15m',
       atrCacheMs: Number(process.env.HL_TRAIL_ATR_CACHE_MS || 60_000),
       atrMinPctOfFallback: Number(process.env.HL_TRAIL_ATR_MIN_PCT_FALLBACK || 0.5),
-      majorTrailPct: Number(process.env.HL_TRAIL_MAJOR_PCT || 0.035),
-      midTrailPct: Number(process.env.HL_TRAIL_MID_PCT || 0.03),
-      cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.045),
+      majorTrailPct: Number(process.env.HL_TRAIL_MAJOR_PCT || 0.028),
+      midTrailPct: Number(process.env.HL_TRAIL_MID_PCT || 0.024),
+      cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.038),
       neverRedAfterArm: process.env.HL_TRAIL_NEVER_RED_AFTER_ARM !== 'false',
     },
+    /**
+     * High-leverage trail overrides — applied only when position leverage ≥ threshold (default 40).
+     * Prevents scratch exits at 40× while keeping tighter trail at lower leverage.
+     */
+    dynamicTrailHighLev: {
+      minLeverage: Number(process.env.HL_TRAIL_HIGH_LEV_MIN || 40),
+      armMinProfitHoldMs: Number(process.env.HL_TRAIL_HIGH_LEV_ARM_HOLD_MS || 720_000),
+      breakevenArmRoePct: Number(process.env.HL_TRAIL_HIGH_LEV_BE_ROE || 8),
+      armMinRoePct: Number(process.env.HL_TRAIL_HIGH_LEV_ARM_ROE || 12),
+      trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_HIGH_LEV_MIN_ACTIVE_MS || 480_000),
+      majorTrailPct: Number(process.env.HL_TRAIL_HIGH_LEV_MAJOR_PCT || 0.035),
+      midTrailPct: Number(process.env.HL_TRAIL_HIGH_LEV_MID_PCT || 0.03),
+      cautiousTrailPct: Number(process.env.HL_TRAIL_HIGH_LEV_CAUTIOUS_PCT || 0.045),
+      profitTrailMinPeakFraction: Number(process.env.HL_TRAIL_HIGH_LEV_PEAK_FRAC || 0.5),
+      profitPeakDropFraction: Number(process.env.HL_TRAIL_HIGH_LEV_PEAK_DROP || 0.55),
+      profitPeakMinFeesMult: Number(process.env.HL_TRAIL_HIGH_LEV_PEAK_FEES_MULT || 10),
+      profitMinHoldBeforeExitMs: Number(process.env.HL_TRAIL_HIGH_LEV_PROFIT_HOLD_MS || 480_000),
+    },
     /** Legacy profit-lock USD fields — analyze window before trail (aligned with arm hold). */
-    profitMinHoldBeforeExitMs: Number(process.env.HL_PROFIT_MIN_HOLD_MS || 480_000),
+    profitMinHoldBeforeExitMs: Number(process.env.HL_PROFIT_MIN_HOLD_MS || 300_000),
     /** After analyze phase — arm in-profit SL at this uPnL floor (~0.1% margin). */
     profitLockActivateUsd: Number(process.env.HL_PROFIT_LOCK_ACTIVATE_USD || 0.05),
     /** After min hold — trail floor ≈ breakeven + ~0.1% margin on typical slot. */
     profitLockFloorUsd: Number(process.env.HL_PROFIT_LOCK_FLOOR_USD || 0.02),
     profitLockTrailBufferUsd: Number(process.env.HL_PROFIT_LOCK_TRAIL_BUFFER_USD || 0.045),
-    /** Min trail distance as fraction of peak excursion (0.50 = need 50% retrace). */
-    profitTrailMinPeakFraction: Number(process.env.HL_PROFIT_TRAIL_MIN_PEAK_FRAC || 0.5),
+    /** Min trail distance as fraction of peak excursion (base ≤39×). */
+    profitTrailMinPeakFraction: Number(process.env.HL_PROFIT_TRAIL_MIN_PEAK_FRAC || 0.28),
     /** Widen trail buffer when MTF/volume say strong run. */
     profitTrailStrongRunMult: Number(process.env.HL_PROFIT_TRAIL_STRONG_MULT || 1.65),
     /** uPnL must stay at/below trail floor this long before profit_lock (ms). */
@@ -160,10 +178,10 @@ export const config = {
     trailSweepDeferMax: Number(process.env.HL_TRAIL_SWEEP_DEFER_MAX || 4),
     /** If uPnL falls this far below trail floor during defer → close anyway. */
     trailSweepDeferGiveUpUsd: Number(process.env.HL_TRAIL_SWEEP_GIVEUP_USD || 0.02),
-    /** Fraction of peak uPnL retrace before peak-grab close (0.55 = 55%). */
-    profitPeakDropFraction: Number(process.env.HL_PROFIT_PEAK_DROP_FRAC || 0.55),
-    /** Min peak (× round-trip fees) before peak-grab can fire. */
-    profitPeakMinFeesMult: Number(process.env.HL_PROFIT_PEAK_MIN_FEES_MULT || 10),
+    /** Fraction of peak uPnL retrace before peak-grab close (base ≤39×). */
+    profitPeakDropFraction: Number(process.env.HL_PROFIT_PEAK_DROP_FRAC || 0.42),
+    /** Min peak (× round-trip fees) before peak-grab can fire (base ≤39×). */
+    profitPeakMinFeesMult: Number(process.env.HL_PROFIT_PEAK_MIN_FEES_MULT || 8),
     positionMonitorMs: Number(process.env.HL_POSITION_MONITOR_MS || 250),
     /** 0 = disabled — no forced close just for being in profit N ms. */
     profitGrabMaxHoldMs: Number(process.env.HL_PROFIT_GRAB_MAX_HOLD_MS || 0),
