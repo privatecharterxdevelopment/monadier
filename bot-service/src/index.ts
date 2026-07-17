@@ -31,6 +31,7 @@ import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './se
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
 import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker } from './services/hlInfo';
 import { getLastHlOpenError, getLastHlOpenErrorForClient, hyperliquidTradingService, resolveHlMarginPerSlot, balanceForTradingRisk } from './services/hlTrading';
+import { fetchRecentHlOpenBlocks } from './services/hlOpenBlocks';
 import { releaseHlBotTradingPauses } from './services/dailyLossGate';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
 import { getHlFeeSummary } from './services/hlSuccessFees';
@@ -858,6 +859,7 @@ const healthServer = http.createServer(async (req, res) => {
           onChainOpenTokens: hlOpenCoins,
         },
         lastOpenError: getLastHlOpenErrorForClient(userAddress),
+        recentOpenBlocks: await fetchRecentHlOpenBlocks(userAddress, 25),
         tradeCycleSec: config.trading.checkIntervalMs / 1000,
         successFees: {
           accruedUsd: feeSummary.accruedUsd,
@@ -876,6 +878,43 @@ const healthServer = http.createServer(async (req, res) => {
       logger.error('API: bot-status failed', { error: err.message });
       res.writeHead(500, corsHeaders);
       res.end(JSON.stringify({ success: false, error: err.message || 'bot-status failed' }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/hl-open-blocks' && req.method === 'GET') {
+    try {
+      const wallet = url.searchParams.get('wallet')?.trim().toLowerCase();
+      if (!wallet || !/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
+        return;
+      }
+      const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') || 40)));
+      const gate = url.searchParams.get('gate')?.trim() || null;
+      const rows = await fetchRecentHlOpenBlocks(wallet, limit);
+      const filtered = gate ? rows.filter((r) => r.gate === gate) : rows;
+      const byGate: Record<string, number> = {};
+      for (const r of rows) {
+        byGate[r.gate] = (byGate[r.gate] || 0) + 1;
+      }
+      res.writeHead(200, corsHeaders);
+      res.end(
+        JSON.stringify({
+          success: true,
+          wallet,
+          count: filtered.length,
+          byGate,
+          blocks: filtered,
+          note:
+            'Durable open-gate blocks (debounced ~5m per wallet+coin+gate). Filter ?gate=long_confirmation for the SIDEWAYS LONG monitor.',
+        })
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error('API: hl-open-blocks failed', { error: msg });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
     }
     return;
   }
