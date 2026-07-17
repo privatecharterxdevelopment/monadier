@@ -93,9 +93,10 @@ const hlLastCloseAt = new Map<string, number>();
 let fastPositionMonitorRunning = false;
 
 /**
- * Profit-only mode (default): hold small losers until green.
- * Hard SL + near-liquidation emergency closes always bypass via enforceHardCap / emergency_close.
- * Thesis flip loss exits remain opt-in: HL_LOSS_THESIS_CLOSE=true.
+ * Profit-only mode (default): NEVER auto-close in red.
+ * - emergency_close (near-liq, only when user SL > 0) always allowed
+ * - stop_loss in red ONLY if HL_LOSS_CAP_ENFORCE=true (off by default — user rage: SL% closes = catastrophe)
+ * - thesis flip loss exits: HL_LOSS_THESIS_CLOSE=true
  */
 function mayAutoCloseInRed(reason: string): boolean {
   const cfg = config.hyperliquid;

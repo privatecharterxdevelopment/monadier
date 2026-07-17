@@ -319,11 +319,12 @@ export const config = {
     },
     /**
      * Loss exits with profitOnlyExits:
-     * - enforceHardCap ON by default — honor user SL% / max margin loss before HL liquidates.
+     * - enforceHardCap OFF by default — profit-only holds until green (SL% alone must not cut losers).
+     * - Set HL_LOSS_CAP_ENFORCE=true only if you explicitly want bot to honor user SL% in red.
      * - closeOnThesisBreak still opt-in (HL_LOSS_THESIS_CLOSE=true).
      */
     lossProtection: {
-      enforceHardCap: process.env.HL_LOSS_CAP_ENFORCE !== 'false',
+      enforceHardCap: process.env.HL_LOSS_CAP_ENFORCE === 'true',
       closeOnThesisBreak: process.env.HL_LOSS_THESIS_CLOSE === 'true',
     },
     /**
