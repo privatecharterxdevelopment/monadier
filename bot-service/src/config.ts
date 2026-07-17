@@ -293,10 +293,26 @@ export const config = {
       minDirectionalTfs: Number(process.env.HL_CAUTIOUS_MIN_TFS || 3),
       minTrendAlignment: Number(process.env.HL_CAUTIOUS_MIN_ALIGN || 62),
     },
-    /** Loss exits — OFF by default; bot never auto-closes red (profitOnlyExits). */
+    /**
+     * Loss exits with profitOnlyExits:
+     * - enforceHardCap ON by default — honor user SL% / max margin loss before HL liquidates.
+     * - closeOnThesisBreak still opt-in (HL_LOSS_THESIS_CLOSE=true).
+     */
     lossProtection: {
-      enforceHardCap: process.env.HL_LOSS_CAP_ENFORCE === 'true',
+      enforceHardCap: process.env.HL_LOSS_CAP_ENFORCE !== 'false',
       closeOnThesisBreak: process.env.HL_LOSS_THESIS_CLOSE === 'true',
+    },
+    /**
+     * Never let margin drawdown exceed this % before force-close (even if user SL is higher).
+     * At 40×, ~100% margin ≈ liquidation — keep a hard buffer under that.
+     */
+    maxMarginLossPctBeforeForceClose: Number(process.env.HL_MAX_MARGIN_LOSS_PCT || 55),
+    /** Close before exchange liquidation — always allowed (emergency_close). */
+    liquidation: {
+      /** Mark within this fraction of entry→liq distance remaining → force close. */
+      closeWhenRemainingFrac: Number(process.env.HL_LIQ_CLOSE_REMAINING_FRAC || 0.28),
+      /** Absolute: mark within this % of liquidationPx → force close. */
+      closeWhenWithinPct: Number(process.env.HL_LIQ_CLOSE_WITHIN_PCT || 0.004),
     },
     /** Skip pair (LONG + SHORT) after a fat pump — mass alts retest highs. */
     freshPump: {
@@ -324,8 +340,11 @@ export const config = {
     thesisMaxLossSlMultiple: Number(process.env.HL_THESIS_MAX_LOSS_SL_MULT || 2.5),
     /** Optional USD loss ceiling (0 = use bot SL% only — no flat $2.50 cap). */
     thesisMaxLossUsd: Number(process.env.HL_THESIS_MAX_LOSS_USD || 0),
-    /** Catastrophic loss USD — optional escape hatch while profitOnlyExits (0 = disabled). */
-    thesisEmergencyMaxLossUsd: Number(process.env.HL_EMERGENCY_MAX_LOSS_USD || 0),
+    /**
+     * Catastrophic USD loss — escape hatch while profitOnlyExits (emergency_close).
+     * Default $8 so 40× bags cannot sit until HL wipe; set 0 to disable USD ceiling.
+     */
+    thesisEmergencyMaxLossUsd: Number(process.env.HL_EMERGENCY_MAX_LOSS_USD || 8),
     /** Min ms open before signal_reversal loss close when HL_LOSS_THESIS_CLOSE=true. */
     thesisMinHoldBeforeLossCloseMs: Number(process.env.HL_THESIS_MIN_HOLD_MS || 600_000),
     /** HL funding, 24h change, mark/oracle — anti-chase before opens. */

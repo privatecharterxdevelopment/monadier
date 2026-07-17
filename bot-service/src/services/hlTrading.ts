@@ -56,6 +56,7 @@ import {
   trailDistanceMultFromBias,
   shouldHardLossClose,
   computeMaxLossCapUsd,
+  shouldEmergencyCloseNearLiquidation,
   evaluatePositionThesis,
   evaluateTrailPullbackAnalysis,
   logTrailPullbackAnalysis,
@@ -91,8 +92,9 @@ const hlLastCloseAt = new Map<string, number>();
 let fastPositionMonitorRunning = false;
 
 /**
- * Profit-only mode (default): hold losers until green — no tight stop or MTF flip exit.
- * Opt-in via env: HL_LOSS_CAP_ENFORCE (stop_loss), HL_LOSS_THESIS_CLOSE (signal_reversal).
+ * Profit-only mode (default): hold small losers until green.
+ * Hard SL + near-liquidation emergency closes always bypass via enforceHardCap / emergency_close.
+ * Thesis flip loss exits remain opt-in: HL_LOSS_THESIS_CLOSE=true.
  */
 function mayAutoCloseInRed(reason: string): boolean {
   const cfg = config.hyperliquid;
@@ -1144,9 +1146,16 @@ export class HyperliquidTradingService {
       const pnl = Number(pos.unrealizedPnl ?? 0);
       const lev = Math.max(1, pos.leverage?.value ?? 10);
       const absSize = Math.abs(size);
-      const notional = Math.abs(Number((pos as { positionValue?: string }).positionValue ?? 0));
+      const notional = Math.abs(Number(pos.positionValue ?? 0));
+      const marginUsed = Number(pos.marginUsed ?? 0);
       const collateralEst =
-        notional > 0 ? notional / lev : entry > 0 ? (absSize * entry) / lev : 0;
+        marginUsed > 0
+          ? marginUsed
+          : notional > 0
+            ? notional / lev
+            : entry > 0
+              ? (absSize * entry) / lev
+              : 0;
 
       const lockKey = positionKey(userAddress, pos.coin);
       if (!hlPositionOpenedAt.has(lockKey)) {
@@ -1155,6 +1164,32 @@ export class HyperliquidTradingService {
       const holdMs = nowMs - (hlPositionOpenedAt.get(lockKey) ?? nowMs);
       const positionDirection: 'LONG' | 'SHORT' = size > 0 ? 'LONG' : 'SHORT';
       const markPrice = markFromPosition(entry, size, pnl);
+      const liquidationPxRaw = pos.liquidationPx != null ? Number(pos.liquidationPx) : NaN;
+      const liquidationPx = Number.isFinite(liquidationPxRaw) ? liquidationPxRaw : null;
+
+      // Always: close before exchange wipe — emergency_close bypasses profitOnlyExits.
+      const nearLiq = shouldEmergencyCloseNearLiquidation({
+        direction: positionDirection,
+        markPrice,
+        entryPx: entry,
+        liquidationPx,
+      });
+      if (nearLiq.close) {
+        clearTrailState(lockKey);
+        await this.closeMarketPosition(
+          userAddress,
+          pos.coin,
+          'emergency_close',
+          {
+            entryPx: entry,
+            unrealizedPnlUsd: pnl,
+            size,
+            leverage: lev,
+          },
+          nearLiq.reason
+        );
+        continue;
+      }
 
       if (!fast && meta) {
         const targetLev = Math.min(configuredLev, maxLeverageForCoin(meta, pos.coin));
@@ -1305,19 +1340,27 @@ export class HyperliquidTradingService {
         continue;
       }
 
-      const slPct = settings.stopLossPercent;
+      // Clamp user SL so it cannot sit past the liquidation zone (e.g. 42% ok, 95% not).
+      const maxSlPct = config.hyperliquid.maxMarginLossPctBeforeForceClose;
+      const rawSlPct = settings.stopLossPercent;
+      const slPct =
+        rawSlPct > 0 ? Math.min(rawSlPct, maxSlPct) : 0;
+      // When user SL is off, still force a margin buffer so 40× cannot sit until wipe.
+      const effectiveSlPct = slPct > 0 ? slPct : maxSlPct;
       if (
         mayAutoCloseInRed('stop_loss') &&
-        shouldHardLossClose(pnl, collateralEst, slPct)
+        shouldHardLossClose(pnl, collateralEst, effectiveSlPct)
       ) {
-        const capUsd = computeMaxLossCapUsd(collateralEst, slPct);
+        const capUsd = computeMaxLossCapUsd(collateralEst, effectiveSlPct);
         clearTrailState(lockKey);
         await this.closeMarketPosition(
           userAddress,
           pos.coin,
           'stop_loss',
           closeCtx,
-          `STOP LOSS — ${pos.coin} uPnL $${pnl.toFixed(2)} ≤ −$${capUsd.toFixed(2)} (${slPct > 0 ? `${slPct}% margin` : 'max loss cap'})`
+          `STOP LOSS — ${pos.coin} uPnL $${pnl.toFixed(2)} ≤ −$${capUsd.toFixed(2)} (${
+            slPct > 0 ? `${slPct}% margin` : `default ${maxSlPct}% margin cap`
+          })`
         );
         continue;
       }
@@ -1346,7 +1389,15 @@ export class HyperliquidTradingService {
         }
       }
 
-      const emergencyCap = config.hyperliquid.thesisEmergencyMaxLossUsd;
+      const emergencyCapUsd = config.hyperliquid.thesisEmergencyMaxLossUsd;
+      const emergencyCapPct =
+        collateralEst > 0 ? collateralEst * (maxSlPct / 100) : 0;
+      const emergencyCap =
+        emergencyCapUsd > 0 && emergencyCapPct > 0
+          ? Math.min(emergencyCapUsd, emergencyCapPct)
+          : emergencyCapUsd > 0
+            ? emergencyCapUsd
+            : emergencyCapPct;
       if (pnl < 0 && emergencyCap > 0 && pnl <= -emergencyCap) {
         clearTrailState(lockKey);
         await this.closeMarketPosition(
