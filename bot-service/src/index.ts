@@ -19,6 +19,7 @@ import {
   type GlobalSignalCandidate,
 } from './services/globalMarketScan';
 import { getMegaPairVolumeSnapshot } from './services/megaPairVolumeMonitor';
+import { getLastBearRegimeVerdict } from './services/bearMarketRegime';
 import { fetchMegaPairPumpSweep, formatPumpSweepLine } from './services/pumpSweepAnalytics';
 import { buildCryptoNewsFeed } from './services/newsImpactGate';
 import { fetchAnalyzedSportsNews } from './services/sportsNewsService';
@@ -112,6 +113,8 @@ const healthServer = http.createServer(async (req, res) => {
         emergencyMaxLossUsd: config.hyperliquid.thesisEmergencyMaxLossUsd,
         maxMarginLossPct: config.hyperliquid.maxMarginLossPctBeforeForceClose,
         liqCloseRemainingFrac: config.hyperliquid.liquidation.closeWhenRemainingFrac,
+        bearRegimeShortOnly: config.hyperliquid.bearRegime.enabled,
+        bearRegime: getLastBearRegimeVerdict(),
         dailyLossGate: config.hyperliquid.dailyLoss.enabled,
         reentryCooldownMs: config.hyperliquid.reentryCooldownMs,
       },

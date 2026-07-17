@@ -5,6 +5,7 @@ import { deriveUserHlAgent } from './hlAgent';
 import { hlAgentApprovalService } from './hlAgentApprovals';
 import { getHlLiquidityForCoin, isHlCoinLiquid, type HlLiquidUniverse } from './hlLiquidity';
 import { globalSignalsForBotMode, counterTrendBlocked, type GlobalSignalCandidate } from './globalMarketScan';
+import { evaluateBearMarketRegime } from './bearMarketRegime';
 import { isOpenDirectionAllowed } from './weekendTradingRules';
 import { validatePreTradeLiquidity } from './liquiditySweepGate';
 import {
@@ -857,6 +858,21 @@ export class HyperliquidTradingService {
           reason: macroGate.reason,
         });
         return { success: false, error: macroGate.reason };
+      }
+
+      // Bear regime: hard SHORT-only unless BTC + ETH clearly UP on 15m + 1h.
+      if (opts.direction === 'LONG') {
+        const regime = await evaluateBearMarketRegime();
+        if (!regime.longsAllowed) {
+          const reason = `Open blocked — ${coin} LONG in bear/chop regime (SHORT-only). ${regime.detail}`;
+          logger.info('HL open blocked — bear regime SHORT-only', {
+            user: opts.userAddress.slice(0, 10),
+            coin,
+            direction: opts.direction,
+            detail: regime.detail,
+          });
+          return { success: false, error: reason };
+        }
       }
 
       const pickH1 = opts.pick?.h1Trend;

@@ -326,6 +326,14 @@ export const config = {
       midBlock4hPct: Number(process.env.HL_FRESH_PUMP_MID_4H || 1.0),
       midNearRangeHigh: Number(process.env.HL_FRESH_PUMP_MID_NEAR_HIGH || 0.88),
     },
+    /**
+     * Bear-market regime: LONGs only when BTC + ETH are clearly UP on 15m AND 1h.
+     * Otherwise the bot is SHORT-only. ON by default.
+     */
+    bearRegime: {
+      enabled: process.env.HL_BEAR_REGIME_ENABLED !== 'false',
+      cacheMs: Number(process.env.HL_BEAR_REGIME_CACHE_MS || 20_000),
+    },
     /** Bot NEVER auto-closes in red — profit-only exits. */
     profitOnlyExits: process.env.HL_PROFIT_ONLY_EXITS !== 'false',
     /** BTC/ETH live volume flow for alt entry gate + open reasons. */

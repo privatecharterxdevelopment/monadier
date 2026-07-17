@@ -7,6 +7,7 @@ import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { filterWeekendShortOnly, isWeekendShortOnlyWindow } from './weekendTradingRules';
 import { refreshMegaPairVolumeMonitor, isMacroRiskOffEnvironment } from './megaPairVolumeMonitor';
+import { evaluateBearMarketRegime } from './bearMarketRegime';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
@@ -390,6 +391,23 @@ export async function scanGlobalHlSignals(
       logger.info('Global HL scan — LONG candidates removed (macro risk-off)', {
         reason: macroRisk.reason,
         removed: before - finalStandard.length,
+      });
+    }
+  }
+
+  // Top-level regime gate: SHORT-only unless BTC + ETH clearly UP on 15m + 1h.
+  const regime = await evaluateBearMarketRegime();
+  if (!regime.longsAllowed) {
+    const beforeStd = finalStandard.length;
+    const beforeAgg = aggressiveFiltered.length;
+    finalStandard = finalStandard.filter((c) => c.direction !== 'LONG');
+    aggressiveFiltered = aggressiveFiltered.filter((c) => c.direction !== 'LONG');
+    const removed = beforeStd - finalStandard.length + (beforeAgg - aggressiveFiltered.length);
+    if (removed > 0) {
+      logger.info('Global HL scan — LONG candidates removed (bear regime, SHORT-only)', {
+        reason: regime.reason,
+        detail: regime.detail,
+        removed,
       });
     }
   }
