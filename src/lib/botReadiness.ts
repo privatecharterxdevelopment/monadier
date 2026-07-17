@@ -75,9 +75,6 @@ function formatBlocker(blocker: string): string {
   if (/no trade signal|MTF|bot conf/i.test(blocker)) {
     return 'No strong trade setup yet — bot keeps scanning';
   }
-  if (/short-window|SHORT only|Fri \d{1,2}:00 MES/i.test(blocker)) {
-    return '';
-  }
   if (/HL max positions/i.test(blocker)) {
     return blocker.replace(/HL max positions/i, 'All bot slots in use');
   }
