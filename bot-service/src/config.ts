@@ -108,7 +108,8 @@ export const config = {
     /** 0 = user disabled TP. */
     defaultTakeProfitPercent: Number(process.env.HL_DEFAULT_TP_PERCENT || 0),
     /** 0 = user disabled SL in DB — do NOT override with default in monitor. */
-    defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 4),
+    /** 0 = no SL until user sets one in bot settings (bot decides / profit-only). */
+    defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 0),
     defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 2),
     /** Min uPnL before any profit exit (legacy — dynamic trail uses ROE/fees arm). */
     minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
@@ -327,8 +328,11 @@ export const config = {
     thesisMaxLossSlMultiple: Number(process.env.HL_THESIS_MAX_LOSS_SL_MULT || 2.5),
     /** Optional USD loss ceiling (0 = use bot SL% only — no flat $2.50 cap). */
     thesisMaxLossUsd: Number(process.env.HL_THESIS_MAX_LOSS_USD || 0),
-    /** Flat USD uPnL stop — always auto-close (default $20). Set 0 to disable. */
-    hardStopLossUsd: Number(process.env.HL_HARD_STOP_USD || 20),
+    /**
+     * Optional flat USD hard stop. Default OFF (0) — user SL% / profit-only decides exits.
+     * Set HL_HARD_STOP_USD > 0 only for an explicit platform-wide USD cap.
+     */
+    hardStopLossUsd: Number(process.env.HL_HARD_STOP_USD || 0),
     /** Catastrophic loss USD — optional escape hatch while profitOnlyExits (0 = disabled). */
     thesisEmergencyMaxLossUsd: Number(process.env.HL_EMERGENCY_MAX_LOSS_USD || 0),
     /** Min ms open before signal_reversal loss close when HL_LOSS_THESIS_CLOSE=true. */

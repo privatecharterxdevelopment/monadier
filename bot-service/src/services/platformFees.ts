@@ -46,8 +46,11 @@ export async function getPlatformFeeStatus(walletAddress: string): Promise<Platf
     .gt('platform_success_fee', 0);
 
   const successWinCount = count ?? 0;
-  const opensBlocked =
-    summary.accruedUsd > 0.000_001 && successWinCount >= PLATFORM_FEE_WINS_BEFORE_BLOCK;
+  const hasOwed = summary.accruedUsd > 0.000_001;
+  // Bot opens blocked only after N unpaid win fees (default 20).
+  const opensBlocked = hasOwed && successWinCount >= PLATFORM_FEE_WINS_BEFORE_BLOCK;
+  // Withdraw blocked as soon as any success fee is owed (first winning close).
+  const withdrawBlocked = hasOwed;
 
   return {
     accruedUsd: summary.accruedUsd,
@@ -55,7 +58,7 @@ export async function getPlatformFeeStatus(walletAddress: string): Promise<Platf
     builderSettledUsd: 0,
     successWinCount,
     opensBlocked,
-    withdrawBlocked: opensBlocked,
+    withdrawBlocked,
     winsUntilBlock: Math.max(0, PLATFORM_FEE_WINS_BEFORE_BLOCK - successWinCount),
     successFeeBps: config.hyperliquid.successFeeBps,
   };
@@ -106,7 +109,7 @@ export async function settleAccruedFees(
 
   const { data: accrued, error } = await supabase
     .from('hl_fee_ledger')
-    .select('id, success_fee_usd')
+    .select('id, success_fee_usd, trade_history_id')
     .eq('wallet_address', wallet)
     .eq('status', 'accrued')
     .order('created_at', { ascending: true });
@@ -118,6 +121,7 @@ export async function settleAccruedFees(
 
   let remaining = amountUsd;
   let settledUsd = 0;
+  const settledTradeIds: string[] = [];
   for (const row of accrued ?? []) {
     const fee = Number(row.success_fee_usd) || 0;
     if (fee <= 0 || remaining + 1e-9 < fee) continue;
@@ -132,13 +136,23 @@ export async function settleAccruedFees(
     if (updErr) continue;
     remaining -= fee;
     settledUsd += fee;
+    const tradeId = (row as { trade_history_id?: string | null }).trade_history_id;
+    if (tradeId) settledTradeIds.push(String(tradeId));
   }
 
-  await supabase
-    .from('trade_history')
-    .update({ platform_fee_status: 'settled' })
-    .eq('wallet_address', wallet)
-    .eq('platform_fee_status', 'accrued');
+  if (settledTradeIds.length > 0) {
+    await supabase
+      .from('trade_history')
+      .update({ platform_fee_status: 'settled' })
+      .in('id', settledTradeIds);
+  } else if (settledUsd > 0) {
+    // Fallback when ledger rows lack trade_history_id
+    await supabase
+      .from('trade_history')
+      .update({ platform_fee_status: 'settled' })
+      .eq('wallet_address', wallet)
+      .eq('platform_fee_status', 'accrued');
+  }
 
   return { ok: settledUsd > 0 || amountUsd > 0, settledUsd };
 }

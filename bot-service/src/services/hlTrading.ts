@@ -24,13 +24,14 @@ import {
 } from './hlInfo';
 import { checkHlBuilderFeeApproved } from './hlBuilder';
 import { checkWinRateGate } from './tradeGates';
-import { subscriptionService } from './subscription';
+import { subscriptionService, normalizeMaxConcurrentPositions } from './subscription';
 import type { TradingCycleContext } from './tradingCycleContext';
 import {
   normalizeHlBotStrategy,
 } from './hlBotStrategy';
 import { resolveHlOrderBuilder, estimateCollectedSuccessFee } from './hlBuilderFee';
 import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from './hlSuccessFees';
+import { getPlatformFeeStatus, PLATFORM_FEE_WINS_BEFORE_BLOCK } from './platformFees';
 import { recordHlBotOpenMarker } from './hlChartMarkers';
 import { shouldTakeProfitOnPnl } from './pnlExits';
 import { validateEntryLocation } from './entryLocationGate';
@@ -332,6 +333,14 @@ export class HyperliquidTradingService {
       };
     }
 
+    const feeStatus = await getPlatformFeeStatus(userAddress);
+    if (feeStatus.opensBlocked) {
+      return {
+        ok: false,
+        reason: `Bot fees due — pay $${feeStatus.accruedUsd.toFixed(2)} after ${feeStatus.successWinCount}/${PLATFORM_FEE_WINS_BEFORE_BLOCK} wins to continue opens`,
+      };
+    }
+
     const funding = await fetchHlPerpFundingSnapshot(userAddress);
     const balanceBlocker = describeHlPerpBalanceBlocker(
       funding,
@@ -383,7 +392,7 @@ export class HyperliquidTradingService {
     if (!state) return 'skip';
 
     const openCoins = hlOpenPerpCoins(state);
-    const maxPositions = config.hyperliquid.maxConcurrentPositions;
+    const maxPositions = normalizeMaxConcurrentPositions(settings.maxConcurrentPositions);
 
     if (openCoins.length > 0) {
       await this.monitorOpenPositions(userAddress, state, settings, { fast: false });
@@ -543,7 +552,7 @@ export class HyperliquidTradingService {
   ): Promise<UserProcessResult> {
     const strategy = normalizeHlBotStrategy(settings.hlBotStrategy);
     const signals = globalSignalsForBotMode(ctx.globalScan, strategy);
-    const maxPositions = config.hyperliquid.maxConcurrentPositions;
+    const maxPositions = normalizeMaxConcurrentPositions(settings.maxConcurrentPositions);
 
     if (signals.length === 0) {
       logger.debug('HL open skip: no signals for mode', {
@@ -1636,16 +1645,39 @@ export class HyperliquidTradingService {
     }
   }
 
-  async updateManualPerpLeverage(_opts: {
+  async updateManualPerpLeverage(opts: {
     userAddress: `0x${string}`;
     coin: string;
     leverage: number;
     marginMode: 'cross' | 'isolated';
   }): Promise<{ success: boolean; error?: string }> {
-    return { success: false, error: 'Manual leverage update unavailable on Jun-26 engine build' };
+    try {
+      const coin = opts.coin.toUpperCase();
+      const agentAddr = await this.getAgentAddress(opts.userAddress);
+      const approved = await hlAgentApprovalService.isApproved(opts.userAddress, agentAddr);
+      if (!approved) {
+        return {
+          success: false,
+          error: 'Trading agent not approved — approve once in the app.',
+        };
+      }
+
+      const meta = await fetchHlMeta();
+      const assetIndex = coinToAssetIndex(meta, coin);
+      const client = createAgentClient(opts.userAddress);
+      await client.updateLeverage({
+        asset: assetIndex,
+        isCross: opts.marginMode === 'cross',
+        leverage: Math.max(1, Math.floor(opts.leverage)),
+      });
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: msg };
+    }
   }
 
-  async placeManualPerpOrder(_opts: {
+  async placeManualPerpOrder(opts: {
     userAddress: `0x${string}`;
     coin: string;
     side: 'LONG' | 'SHORT';
@@ -1657,9 +1689,92 @@ export class HyperliquidTradingService {
     marginMode?: 'cross' | 'isolated';
     reduceOnly?: boolean;
   }): Promise<{ success: boolean; error?: string }> {
-    return { success: false, error: 'Manual perp order unavailable on Jun-26 engine build' };
-  }
+    try {
+      const coin = opts.coin.toUpperCase();
+      const agentAddr = await this.getAgentAddress(opts.userAddress);
+      const approved = await hlAgentApprovalService.isApproved(opts.userAddress, agentAddr);
+      if (!approved) {
+        return {
+          success: false,
+          error: 'Trading agent not approved — approve once in the app.',
+        };
+      }
 
+      if (!Number.isFinite(opts.size) || opts.size <= 0) {
+        return { success: false, error: 'Invalid order size' };
+      }
+      const markPx = opts.markPx;
+      if (!Number.isFinite(markPx) || markPx <= 0) {
+        return { success: false, error: 'Mark price unavailable' };
+      }
+
+      const meta = await fetchHlMeta();
+      const assetIndex = coinToAssetIndex(meta, coin);
+      const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
+      const client = createAgentClient(opts.userAddress);
+
+      if (opts.leverage && opts.leverage > 0) {
+        await client.updateLeverage({
+          asset: assetIndex,
+          isCross: opts.marginMode === 'cross',
+          leverage: Math.max(1, Math.floor(opts.leverage)),
+        });
+      }
+
+      const isLong = opts.side === 'LONG';
+      const limitPx =
+        opts.kind === 'market'
+          ? isLong
+            ? markPx * 1.05
+            : markPx * 0.95
+          : (opts.price ?? markPx);
+      const notionalUsd = opts.size * markPx;
+      const builderGate = await checkHlBuilderFeeApproved(opts.userAddress);
+      const builder = resolveHlOrderBuilder({
+        notionalUsd,
+        isClose: false,
+        approvedMaxTenthsBps: builderGate.approvedMax,
+      });
+
+      const result = await client.order({
+        orders: [
+          {
+            a: assetIndex,
+            b: isLong,
+            p: formatHlPrice(limitPx, szDecimals),
+            s: formatHlSize(opts.size, szDecimals),
+            r: opts.reduceOnly ?? false,
+            t:
+              opts.kind === 'market'
+                ? { limit: { tif: 'FrontendMarket' } }
+                : { limit: { tif: 'Gtc' } },
+          },
+        ],
+        grouping: 'na',
+        ...(builder ? { builder } : {}),
+      });
+
+      const status = result.response?.data?.statuses?.[0] as
+        | { filled?: unknown; error?: string }
+        | undefined;
+      if (status && 'error' in status && status.error) {
+        return { success: false, error: String(status.error) };
+      }
+
+      logger.info('HL manual order placed', {
+        user: opts.userAddress.slice(0, 10),
+        coin,
+        side: opts.side,
+        kind: opts.kind,
+        size: opts.size,
+      });
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn('HL manual order failed', { user: opts.userAddress.slice(0, 10), error: msg });
+      return { success: false, error: msg };
+    }
+  }
 }
 
 export const hyperliquidTradingService = new HyperliquidTradingService();

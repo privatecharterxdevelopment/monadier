@@ -631,6 +631,7 @@ const healthServer = http.createServer(async (req, res) => {
       const hlAgentAddr = deriveUserHlAgentAddress(userAddress);
       const hlAgentOk = await hlAgentApprovalService.isApproved(userAddress, hlAgentAddr);
       const builderGate = await checkHlBuilderFeeApproved(userAddress);
+      const feeStatus = await getPlatformFeeStatus(userAddress);
       const feeSummary = await getHlFeeSummary(userAddress);
       const hlOpenCoins = hlOpenPerpCoins(hlState);
 
@@ -680,6 +681,11 @@ const healthServer = http.createServer(async (req, res) => {
       if (!hlAgentOk) blockers.push('HL agent not approved — enable bot in app');
       if (builderGate.required && !builderGate.approved) {
         blockers.push('HL builder fee not approved — approve platform fee in Bot panel');
+      }
+      if (feeStatus.opensBlocked) {
+        blockers.push(
+          `Bot fees due — pay $${feeStatus.accruedUsd.toFixed(2)} (${feeStatus.successWinCount}/${PLATFORM_FEE_WINS_BEFORE_BLOCK} wins)`
+        );
       }
       const balanceBlocker = describeHlPerpBalanceBlocker(
         hlFunding,
