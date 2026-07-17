@@ -798,8 +798,12 @@ export class HyperliquidTradingService {
       const strongMtf = isStrongGlobalScanPick(opts.pick);
       const relaxSecondaryGates =
         strongMtf || opts.pick.confidence >= 48 || MAJOR_COINS.has(coin);
+      // Never bypass entry timing for SHORTs. A strong trend signal can arrive
+      // after the dump and must not override support/range/momentum protection.
+      const bypassSecondaryGates =
+        relaxSecondaryGates && opts.direction !== 'SHORT';
 
-      const candleAnalytics = relaxSecondaryGates
+      const candleAnalytics = bypassSecondaryGates
           ? {
               ok: true as const,
               reason: `Scan pick — 20-candle check skipped (${opts.pick.confidence}%)`,
@@ -829,7 +833,7 @@ export class HyperliquidTradingService {
         return { success: false, error: candleAnalytics.reason };
       }
 
-      const scalpGate = relaxSecondaryGates
+      const scalpGate = bypassSecondaryGates
           ? {
               ok: true as const,
               reason: `Scan pick — scalp confirm skipped (${opts.pick.confidence}%, ${opts.pick.directionalTfCount} TFs)`,
@@ -921,7 +925,7 @@ export class HyperliquidTradingService {
         return { success: false, error: megaGate.reason };
       }
 
-      const perpCtxGate = relaxSecondaryGates
+      const perpCtxGate = bypassSecondaryGates
         ? {
             ok: true as const,
             reason: `Strong MTF scan — perp context skipped (${opts.pick.confidence}%)`,
@@ -941,7 +945,7 @@ export class HyperliquidTradingService {
         return { success: false, error: perpCtxGate.reason };
       }
 
-      const pumpSweepGate = relaxSecondaryGates
+      const pumpSweepGate = bypassSecondaryGates
         ? {
             ok: true as const,
             reason: `Scan pick — pump sweep skipped (${opts.pick.confidence}%)`,
@@ -962,7 +966,7 @@ export class HyperliquidTradingService {
         return { success: false, error: pumpSweepGate.reason };
       }
 
-      const locationGate = relaxSecondaryGates
+      const locationGate = bypassSecondaryGates
           ? {
               ok: true as const,
               reason: `Scan pick — S/R gate skipped (${opts.pick.confidence}%)`,
@@ -998,7 +1002,7 @@ export class HyperliquidTradingService {
         return { success: false, error: locationGate.reason };
       }
 
-      const momentumGate = relaxSecondaryGates
+      const momentumGate = bypassSecondaryGates
           ? {
               ok: true as const,
               reason: `Scan pick — momentum confirm skipped (${opts.pick.confidence}%)`,

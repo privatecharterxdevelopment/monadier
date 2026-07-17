@@ -118,6 +118,8 @@ const healthServer = http.createServer(async (req, res) => {
         bearRegime: getLastBearRegimeVerdict(),
         dailyLossGate: config.hyperliquid.dailyLoss.enabled,
         reentryCooldownMs: config.hyperliquid.reentryCooldownMs,
+        sameCoinReentryMinMs: config.hyperliquid.sameCoinReentryMinMs,
+        blockOppositeSameCoinMs: config.hyperliquid.blockOppositeSameCoinMs,
       },
       lastCycle: lastCycleStats,
     };
