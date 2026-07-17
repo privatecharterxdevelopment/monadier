@@ -5,7 +5,6 @@ import { deriveUserHlAgent } from './hlAgent';
 import { hlAgentApprovalService } from './hlAgentApprovals';
 import { getHlLiquidityForCoin, isHlCoinLiquid, type HlLiquidUniverse } from './hlLiquidity';
 import { globalSignalsForBotMode, type GlobalSignalCandidate } from './globalMarketScan';
-import { isOpenDirectionAllowed } from './weekendTradingRules';
 import { validatePreTradeLiquidity } from './liquiditySweepGate';
 import {
   coinToAssetIndex,
@@ -465,7 +464,6 @@ export class HyperliquidTradingService {
     for (const signal of signals) {
       if (excluded.has(signal.coin.toUpperCase())) continue;
       if (!isHlCoinLiquid(liquidUniverse, signal.coin)) continue;
-      if (!isOpenDirectionAllowed(signal.direction)) continue;
 
       const flipGate = isSameCoinOpenBlockedSync(userAddress, signal.coin, signal.direction);
       if (flipGate.blocked) {
