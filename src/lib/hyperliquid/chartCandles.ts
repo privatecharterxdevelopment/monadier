@@ -8,16 +8,29 @@ export type ChartCandleResolve = {
   usedFallback: boolean;
 };
 
+/** Drop duplicate timestamps (HL pages / WS races) — LWC setData throws on duplicates. */
+export function dedupeChartCandles(candles: HlCandleBar[]): HlCandleBar[] {
+  if (candles.length <= 1) return candles;
+  const byTime = new Map<number, HlCandleBar>();
+  for (const c of candles) {
+    if (!Number.isFinite(c.time) || c.time <= 0) continue;
+    byTime.set(c.time, c);
+  }
+  if (byTime.size === candles.length) return candles;
+  return [...byTime.values()].sort((a, b) => a.time - b.time);
+}
+
 /** Sanitize for display; if band filter removes everything, keep raw bars so chart never goes blank. */
 export function resolveChartCandlesForDisplay(
   candles: HlCandleBar[],
   refPx?: number
 ): ChartCandleResolve {
-  const rawCount = candles.length;
+  const deduped = dedupeChartCandles(candles);
+  const rawCount = deduped.length;
   if (rawCount === 0) {
     return { candles: [], rawCount: 0, cleanCount: 0, dropped: 0, usedFallback: false };
   }
-  const clean = sanitizeChartCandles(candles, refPx);
+  const clean = sanitizeChartCandles(deduped, refPx);
   if (clean.length > 0) {
     return {
       candles: clean,
@@ -28,7 +41,7 @@ export function resolveChartCandlesForDisplay(
     };
   }
   return {
-    candles,
+    candles: deduped,
     rawCount,
     cleanCount: rawCount,
     dropped: 0,

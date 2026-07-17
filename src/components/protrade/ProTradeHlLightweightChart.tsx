@@ -26,12 +26,19 @@ import {
   chartMinBarSpacing,
   chartSecondsVisible,
 } from '../../lib/hyperliquid/chartZoom';
-import { candlePriceRange, chartSanitizeRef, patchFormingCandleWithMark, resolveChartCandlesForDisplay } from '../../lib/hyperliquid/chartCandles';
+import {
+  candlePriceRange,
+  chartSanitizeRef,
+  patchFormingCandleWithMark,
+  resolveChartCandlesForDisplay,
+} from '../../lib/hyperliquid/chartCandles';
 import {
   buildChartPriceFormatter,
   buildChartTickmarksFormatter,
   buildSeriesPriceFormat,
 } from '../../lib/hyperliquid/chartPriceAxis';
+import { normalizeHlPerpCoin } from '../../lib/botTradingPairs';
+import { chartDebugWarn } from '../../lib/hyperliquid/chartDebug';
 
 type Props = {
   coin: string;
@@ -79,6 +86,12 @@ function safeChartOp(fn: () => void) {
 
 type OverlayProps = NonNullable<Props['positionOverlay']>;
 
+/** Reject ghost limit lines far from the chart (wrong-coin / corrupt px). */
+function priceInChartBand(px: number, refPx: number): boolean {
+  if (!(px > 0) || !(refPx > 0)) return false;
+  return px >= refPx * 0.5 && px <= refPx * 1.5;
+}
+
 function applyPositionPriceLines(
   series: ISeriesApi<'Candlestick'>,
   priceLinesRef: React.MutableRefObject<IPriceLine[]>,
@@ -87,6 +100,7 @@ function applyPositionPriceLines(
     overlayCoin: string;
     positionOverlay?: OverlayProps;
     chartColors: ReturnType<typeof getProTradeChartColors>;
+    bandRefPx?: number;
   }
 ) {
   for (const line of priceLinesRef.current) {
@@ -94,11 +108,18 @@ function applyPositionPriceLines(
   }
   priceLinesRef.current = [];
 
-  const { openOrders, overlayCoin, positionOverlay, chartColors } = opts;
-  const coinOrders = openOrders.filter((o) => o.coin === overlayCoin);
+  const { openOrders, overlayCoin, positionOverlay, chartColors, bandRefPx } = opts;
+  const coinKey = normalizeHlPerpCoin(overlayCoin);
+  const refPx =
+    (bandRefPx && bandRefPx > 0 ? bandRefPx : 0) ||
+    (positionOverlay && positionOverlay.entryPx > 0 ? positionOverlay.entryPx : 0);
+  const coinOrders = openOrders.filter(
+    (o) => normalizeHlPerpCoin(o.coin) === coinKey
+  );
   for (const o of coinOrders) {
     const px = toNum(o.limitPx);
     if (px <= 0) continue;
+    if (refPx > 0 && !priceInChartBand(px, refPx)) continue;
     const isBuy = o.side === 'B';
     const line = series.createPriceLine({
       price: px,
@@ -127,7 +148,7 @@ function applyPositionPriceLines(
   // Max-loss / liquidation are settings-only — never drawn or dragged on the chart.
 
   const trailPx = positionOverlay?.trailStopPx;
-  if (trailPx != null && trailPx > 0) {
+  if (trailPx != null && trailPx > 0 && (refPx <= 0 || priceInChartBand(trailPx, refPx))) {
     const locked = positionOverlay.trailStopLocked === true;
     const breached = positionOverlay.trailBreached === true;
     priceLinesRef.current.push(
@@ -143,7 +164,7 @@ function applyPositionPriceLines(
   }
 
   const tpPx = positionOverlay?.takeProfitPx;
-  if (tpPx != null && tpPx > 0) {
+  if (tpPx != null && tpPx > 0 && (refPx <= 0 || priceInChartBand(tpPx, refPx))) {
     const tpPct = positionOverlay.takeProfitMarginPct ?? 0;
     priceLinesRef.current.push(
       series.createPriceLine({
@@ -331,6 +352,8 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       wickUpColor: colors.up,
       wickDownColor: colors.down,
       wickVisible: true,
+      lastValueVisible: true,
+      priceLineVisible: false,
     });
 
     series.applyOptions({
@@ -346,6 +369,9 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     const volumeSeries = chart.addSeries(HistogramSeries, {
       priceFormat: { type: 'volume' },
       priceScaleId: 'volume',
+      // Volume ~15k on SOL looks like a bogus price on the axis (classic "14,754" ghost).
+      lastValueVisible: false,
+      priceLineVisible: false,
     });
     volumeSeries.priceScale().applyOptions({
       scaleMargins: { top: 0.82, bottom: 0.02 },
@@ -385,6 +411,31 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
           barSpacing: spacing,
           minBarSpacing: chartMinBarSpacing(),
         });
+        // Some GPU/canvas paths wipe the candle bitmap on resize — repaint from ref.
+        const bars = candlesRef.current;
+        if (bars.length > 0 && seriesRef.current && volumeRef.current) {
+          seriesRef.current.setData(
+            bars.map((c) => ({
+              time: c.time as CandlestickData['time'],
+              open: c.open,
+              high: c.high,
+              low: c.low,
+              close: c.close,
+            }))
+          );
+          volumeRef.current.setData(
+            bars
+              .filter((c) => (c.volume ?? 0) > 0)
+              .map((c) => ({
+                time: c.time as HistogramData['time'],
+                value: c.volume ?? 0,
+                color:
+                  c.close >= c.open
+                    ? getProTradeChartColors(themeRef.current).volumeUp
+                    : getProTradeChartColors(themeRef.current).volumeDown,
+              }))
+          );
+        }
       });
     });
     ro.observe(el);
@@ -426,6 +477,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         overlayCoin,
         positionOverlay: overlayRef.current,
         chartColors: getProTradeChartColors(themeRef.current),
+        bandRefPx: markPxRef.current ?? overlayRef.current?.entryPx,
       });
     });
   }, [openOrders, overlayCoin]);
@@ -679,18 +731,24 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     const axisRefPx =
       refPx ?? clean[clean.length - 1]?.close ?? markPxRef.current ?? 1;
 
-    safeChartOp(() => {
+    const paintSeries = (bars: HlCandleBar[], forceFull: boolean) => {
+      const data = bars.map(toCandle);
+      const volData = bars.filter((c) => (c.volume ?? 0) > 0).map(toVol);
+      // priceFormat changes require a full setData — update() alone can leave an empty pane.
       applyChartPriceAxis(chart, series, axisRefPx);
-
-      // Autoscale reads candlesRef — keep it in sync BEFORE setData.
-      candlesRef.current = clean;
-
-      if (fullReset) {
-        const data = clean.map(toCandle);
-        const volData = clean.filter((c) => (c.volume ?? 0) > 0).map(toVol);
-        series.setData(data);
-        volumeSeries.setData(volData);
+      candlesRef.current = bars;
+      series.setData(data);
+      volumeSeries.setData(volData);
+      series.applyOptions({ autoscaleInfoProvider: buildAutoscaleProvider() });
+      if (forceFull || followLiveRef.current) {
         showLatestBars(chart, data.length);
+      }
+    };
+
+    safeChartOp(() => {
+      // Autoscale reads candlesRef — keep it in sync BEFORE setData.
+      if (fullReset) {
+        paintSeries(clean, true);
         return;
       }
 
@@ -698,6 +756,24 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       const prevLast = prev[prev.length - 1];
       const newBar = last.time !== prevLast?.time && clean.length > prev.length;
 
+      // If series was cleared (resize/race) but we still have history, full repaint.
+      let seriesEmpty = false;
+      try {
+        seriesEmpty = series.dataByIndex(0) == null && clean.length > 0;
+      } catch {
+        seriesEmpty = clean.length > 0;
+      }
+      if (seriesEmpty) {
+        chartDebugWarn('hl-chart', 'repaint-empty-series', {
+          coin,
+          interval,
+          bars: clean.length,
+        });
+        paintSeries(clean, true);
+        return;
+      }
+
+      candlesRef.current = clean;
       series.update(toCandle(last));
       if ((last.volume ?? 0) > 0) {
         volumeSeries.update(toVol(last));
@@ -752,6 +828,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         overlayCoin,
         positionOverlay,
         chartColors,
+        bandRefPx: markPxRef.current ?? positionOverlay?.entryPx,
       });
     });
   }, [openOrders, overlayCoin, theme, positionOverlay, chartColors]);
