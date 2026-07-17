@@ -187,6 +187,9 @@ function formatOpenErrorForClient(error: string): string {
   if (/anti-flip|anti-churn|re-entry blocked/i.test(error)) {
     return 'Just closed this pair — bot waits before re-entering (no instant reverse)';
   }
+  if (/Long confirmation|1h trend is/i.test(error)) {
+    return 'LONG needs 1h trend UP — SIDEWAYS gap closed (DOWN already blocked at scan)';
+  }
   return error.length > 120 ? `${error.slice(0, 117)}…` : error;
 }
 
@@ -753,6 +756,24 @@ export class HyperliquidTradingService {
           reason: flipGate.reason,
         });
         return { success: false, error: flipGate.reason ?? 'Same-coin re-entry blocked' };
+      }
+
+      // Gate 0.5 — Long Confirmation: h1Trend must be UP, not just "not DOWN".
+      // Empirical basis: open-reason logs, 8 losing vs 12 winning LONGs
+      // (subset of 56 total LONG trades w/ full open-reason text).
+      // 7/8 losers had h1Trend=SIDEWAYS; 10/12 winners had h1Trend=UP.
+      // Scan-level filter only blocks LONG when h1Trend=DOWN — this closes
+      // the SIDEWAYS gap for LONG entries only. SHORT untouched.
+      // Caveat: sample 20/56 LONGs — plausible correlation, not full significance.
+      if (opts.direction === 'LONG' && opts.pick.h1Trend !== 'UP') {
+        const reason = `Long confirmation: 1h trend is ${opts.pick.h1Trend ?? 'unknown'}, need UP`;
+        logger.info('HL open blocked — long confirmation gate', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          h1Trend: opts.pick.h1Trend,
+          reason,
+        });
+        return { success: false, error: reason };
       }
 
       const assetIndex = coinToAssetIndex(meta, coin);
