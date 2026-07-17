@@ -50,7 +50,12 @@ export async function fetchHlCandles(
       type: 'candleSnapshot',
       req: { coin, interval, startTime, endTime },
     });
-    return rows.map(candleToBar).sort((a, b) => a.time - b.time);
+    const byTime = new Map<number, HlCandleBar>();
+    for (const row of rows) {
+      const bar = candleToBar(row);
+      byTime.set(bar.time, bar);
+    }
+    return [...byTime.values()].sort((a, b) => a.time - b.time);
   }
 
   const byTime = new Map<number, HlCandleBar>();
