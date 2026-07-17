@@ -145,6 +145,9 @@ export function shouldHardLossClose(
 ): boolean {
   if (pnlUsd >= 0) return false;
   const cap = computeMaxLossCapUsd(collateralUsd, slPct);
+  // SL off (0%) and no absolute USD cap → never treat red as "hit stop".
+  // Otherwise cap=0 made `pnl <= 0` true for every loser after the 2m hold window.
+  if (!(cap > 0)) return false;
   return pnlUsd <= -cap;
 }
 
