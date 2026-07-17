@@ -19,7 +19,6 @@ import {
   type GlobalSignalCandidate,
 } from './services/globalMarketScan';
 import { getMegaPairVolumeSnapshot } from './services/megaPairVolumeMonitor';
-import { getLastBearRegimeVerdict } from './services/bearMarketRegime';
 import { resolveEffectiveTrailProfile } from './services/dynamicTrailingStop';
 import { fetchMegaPairPumpSweep, formatPumpSweepLine } from './services/pumpSweepAnalytics';
 import { buildCryptoNewsFeed } from './services/newsImpactGate';
@@ -114,8 +113,6 @@ const healthServer = http.createServer(async (req, res) => {
         emergencyMaxLossUsd: config.hyperliquid.thesisEmergencyMaxLossUsd,
         maxMarginLossPct: config.hyperliquid.maxMarginLossPctBeforeForceClose,
         liqCloseRemainingFrac: config.hyperliquid.liquidation.closeWhenRemainingFrac,
-        bearRegimeShortOnly: config.hyperliquid.bearRegime.enabled,
-        bearRegime: getLastBearRegimeVerdict(),
         dailyLossGate: config.hyperliquid.dailyLoss.enabled,
         reentryCooldownMs: config.hyperliquid.reentryCooldownMs,
         sameCoinReentryMinMs: config.hyperliquid.sameCoinReentryMinMs,
@@ -634,6 +631,7 @@ const healthServer = http.createServer(async (req, res) => {
       const hlAgentAddr = deriveUserHlAgentAddress(userAddress);
       const hlAgentOk = await hlAgentApprovalService.isApproved(userAddress, hlAgentAddr);
       const builderGate = await checkHlBuilderFeeApproved(userAddress);
+      const feeStatus = await getPlatformFeeStatus(userAddress);
       const feeSummary = await getHlFeeSummary(userAddress);
       const hlOpenCoins = hlOpenPerpCoins(hlState);
 
@@ -683,6 +681,11 @@ const healthServer = http.createServer(async (req, res) => {
       if (!hlAgentOk) blockers.push('HL agent not approved — enable bot in app');
       if (builderGate.required && !builderGate.approved) {
         blockers.push('HL builder fee not approved — approve platform fee in Bot panel');
+      }
+      if (feeStatus.opensBlocked) {
+        blockers.push(
+          `Bot fees due — pay $${feeStatus.accruedUsd.toFixed(2)} (${feeStatus.successWinCount}/${PLATFORM_FEE_WINS_BEFORE_BLOCK} wins)`
+        );
       }
       const balanceBlocker = describeHlPerpBalanceBlocker(
         hlFunding,

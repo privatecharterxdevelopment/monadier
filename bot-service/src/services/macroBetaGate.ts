@@ -216,45 +216,16 @@ export async function evaluateMacroBetaAlignment(opts: {
   };
 
   if (opts.direction === 'SHORT') {
-    const strongCross = cfg.strongCrossAnchor15mPct ?? 0.5;
-    if (anchor === 'ETH') {
-      blockers.push(...isPumping(eth, 'ETH', true));
-      blockers.push(...isPumping(snapshot.coinMom, coin, true));
-      if (btc.change15mPct >= strongCross || btc.consecutiveGreen15m >= minGreen) {
-        blockers.push(...isPumping(btc, 'BTC', true));
-      }
-    } else {
-      blockers.push(...isPumping(btc, 'BTC', true));
-      blockers.push(...isPumping(snapshot.coinMom, coin, true));
-      if (eth.change15mPct >= strongCross || eth.consecutiveGreen15m >= minGreen) {
-        blockers.push(...isPumping(eth, 'ETH', true));
-      }
-    }
+    blockers.push(...isPumping(snapshot.coinMom, coin, true));
   } else {
-    const strongCross = cfg.strongCrossAnchor15mPct ?? 0.5;
-    if (anchor === 'ETH') {
-      blockers.push(...isDumping(eth, 'ETH', true));
-      blockers.push(...isDumping(snapshot.coinMom, coin, true));
-      if (btc.change15mPct <= -strongCross || btc.consecutiveRed15m >= minRed) {
-        blockers.push(...isDumping(btc, 'BTC', true));
-      }
-    } else {
-      blockers.push(...isDumping(btc, 'BTC', true));
-      blockers.push(...isDumping(snapshot.coinMom, coin, true));
-      if (eth.change15mPct <= -strongCross || eth.consecutiveRed15m >= minRed) {
-        blockers.push(...isDumping(eth, 'ETH', true));
-      }
-    }
+    blockers.push(...isDumping(snapshot.coinMom, coin, true));
   }
 
-  const macroSummary = [fmtMom('BTC', btc), fmtMom('ETH', eth)];
-  if (coin !== 'BTC' && coin !== 'ETH') {
-    macroSummary.push(fmtMom(coin, snapshot.coinMom));
-  }
+  const macroSummary = [fmtMom(coin, snapshot.coinMom)];
 
   if (blockers.length > 0) {
     const reason =
-      `Macro beta BLOCK ${opts.direction} ${coin} (${anchor}-beta) — ` +
+      `Per-coin momentum BLOCK ${opts.direction} ${coin} — ` +
       `${blockers.join('; ')} ‖ ${macroSummary.join(' ‖ ')}`;
     logger.info('Macro beta gate blocked entry', {
       coin,
@@ -269,8 +240,8 @@ export async function evaluateMacroBetaAlignment(opts: {
   }
 
   const reason =
-    `Macro beta OK ${opts.direction} ${coin} (${anchor}-beta) — ` +
-    `anchors not ${opts.direction === 'SHORT' ? 'pumping' : 'dumping'} ‖ ${macroSummary.join(' ‖ ')}`;
+    `Per-coin momentum OK ${opts.direction} ${coin} — ` +
+    `${coin} chart not ${opts.direction === 'SHORT' ? 'pumping' : 'dumping'} ‖ ${macroSummary.join(' ‖ ')}`;
 
   return { ok: true, reason, snapshot, blockers: [] };
 }
