@@ -123,7 +123,7 @@ const PositionStopEditModal: React.FC<Props> = ({
 
       {previewPct != null && !validationError ? (
         <p className="term-modal-hint term-modal-hint--ok">
-          ≈ {previewPct.toFixed(2)}% of margin — saved to bot settings
+          ≈ {previewPct.toFixed(2)}% of margin — saved to YOUR bot settings (this wallet only)
         </p>
       ) : null}
 

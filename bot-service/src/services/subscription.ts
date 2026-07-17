@@ -515,14 +515,14 @@ export class SubscriptionService {
           wallet: walletAddress.slice(0, 10),
           chainId,
           defaultTP: '0% (off)',
-          defaultSL: '4%',
+          defaultSL: '0% (off — per-user, user can set)',
           defaultLeverage: '5x',
           defaultRisk: '5%',
           error: error?.message
         });
         return {
           takeProfitPercent: config.hyperliquid.defaultTakeProfitPercent,
-          stopLossPercent: 0,
+          stopLossPercent: config.hyperliquid.defaultStopLossPercent,
           profitLockPercent: config.hyperliquid.defaultProfitLockPercent,
           askPermission: false,
           leverageMultiplier: 5.0,

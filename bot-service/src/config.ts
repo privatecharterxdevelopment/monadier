@@ -319,8 +319,8 @@ export const config = {
     },
     /**
      * Loss exits with profitOnlyExits:
-     * - enforceHardCap OFF by default — profit-only holds until green (SL% alone must not cut losers).
-     * - Set HL_LOSS_CAP_ENFORCE=true only if you explicitly want bot to honor user SL% in red.
+     * - Per-user vault_settings.stop_loss_percent is the source of truth (default 0 = off).
+     * - enforceHardCap is legacy/no-op for SL gating — kept for env compat only.
      * - closeOnThesisBreak still opt-in (HL_LOSS_THESIS_CLOSE=true).
      */
     lossProtection: {
