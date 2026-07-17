@@ -88,24 +88,21 @@ const hlLastCloseAt = new Map<string, number>();
 let fastPositionMonitorRunning = false;
 
 /**
- * Profit-only mode (default): hold losers until green — no tight stop or MTF flip exit.
- * Opt-in via env: HL_LOSS_CAP_ENFORCE (stop_loss), HL_LOSS_THESIS_CLOSE (signal_reversal).
+ * Profit-only mode (default): hold losers until green — no MTF flip exit by default.
+ * User SL% still works via shouldHardLossClose (cap > 0). SL% = 0 → never red stop.
+ * Opt-in: HL_LOSS_CAP_ENFORCE, HL_LOSS_THESIS_CLOSE.
  */
 function mayAutoCloseInRed(reason: string, holdMs = 0): boolean {
   const cfg = config.hyperliquid;
   if (reason === 'hard_stop_usd' || reason === 'emergency_close') return true;
-  const maxSlMs = cfg.dynamicTrail.maxHoldBeforeSlTrailMs;
-  if (
-    holdMs >= maxSlMs &&
-    (reason === 'stop_loss' || reason === 'trailing_stop')
-  ) {
-    return true;
-  }
   if (!cfg.profitOnlyExits) {
     return reason === 'stop_loss' || reason === 'signal_reversal' || reason === 'trailing_stop';
   }
-  if (reason === 'stop_loss' && cfg.lossProtection.enforceHardCap) return true;
+  // stop_loss path always allowed to evaluate — shouldHardLossClose requires a real cap (SL% > 0).
+  if (reason === 'stop_loss') return true;
   if (reason === 'signal_reversal' && cfg.lossProtection.closeOnThesisBreak) return true;
+  const maxSlMs = cfg.dynamicTrail.maxHoldBeforeSlTrailMs;
+  if (holdMs >= maxSlMs && reason === 'trailing_stop') return true;
   return false;
 }
 
