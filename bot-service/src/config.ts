@@ -341,10 +341,10 @@ export const config = {
     /** Optional USD loss ceiling (0 = use bot SL% only — no flat $2.50 cap). */
     thesisMaxLossUsd: Number(process.env.HL_THESIS_MAX_LOSS_USD || 0),
     /**
-     * Catastrophic USD loss — escape hatch while profitOnlyExits (emergency_close).
-     * Default $8 so 40× bags cannot sit until HL wipe; set 0 to disable USD ceiling.
+     * Optional catastrophic USD loss (emergency_close). Default OFF (0) —
+     * without a user SL, profit-only holds until green (or exchange liquidation).
      */
-    thesisEmergencyMaxLossUsd: Number(process.env.HL_EMERGENCY_MAX_LOSS_USD || 8),
+    thesisEmergencyMaxLossUsd: Number(process.env.HL_EMERGENCY_MAX_LOSS_USD || 0),
     /** Min ms open before signal_reversal loss close when HL_LOSS_THESIS_CLOSE=true. */
     thesisMinHoldBeforeLossCloseMs: Number(process.env.HL_THESIS_MIN_HOLD_MS || 600_000),
     /** HL funding, 24h change, mark/oracle — anti-chase before opens. */
