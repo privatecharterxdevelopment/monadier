@@ -32,6 +32,7 @@ import { resolveHlOrderBuilder, estimateCollectedSuccessFee } from './hlBuilderF
 import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from './hlSuccessFees';
 import { getPlatformFeeStatus, PLATFORM_FEE_WINS_BEFORE_BLOCK } from './platformFees';
 import { recordHlBotOpenMarker } from './hlChartMarkers';
+import { recordHlOpenBlock, type HlOpenBlockGate } from './hlOpenBlocks';
 import { shouldTakeProfitOnPnl } from './pnlExits';
 import { validateEntryLocation } from './entryLocationGate';
 import { validateMacroBetaAlignment } from './macroBetaGate';
@@ -596,6 +597,15 @@ export class HyperliquidTradingService {
           at: new Date().toISOString(),
           error: err,
         });
+        void recordHlOpenBlock({
+          walletAddress: userAddress,
+          coin: signals[0]?.coin ?? 'N/A',
+          direction: signals[0]?.direction ?? 'LONG',
+          gate: 'margin',
+          reason: err,
+          confidence: signals[0]?.confidence,
+          h1Trend: signals[0]?.h1Trend,
+        });
         logger.info('HL open skip: margin too small for slot', {
           user: userAddress.slice(0, 10),
           balance,
@@ -620,11 +630,23 @@ export class HyperliquidTradingService {
         const top = signals.find(
           (s) => !coinsOpen.some((c) => c.toUpperCase() === s.coin.toUpperCase())
         );
+        const err = `Pre-trade gate blocked ${signals.length} scan candidate(s) — volume/liquidity check`;
         lastHlOpenError.set(userAddress.toLowerCase(), {
           at: new Date().toISOString(),
           coin: top?.coin,
-          error: `Pre-trade gate blocked ${signals.length} scan candidate(s) — volume/liquidity check`,
+          error: err,
         });
+        if (top) {
+          void recordHlOpenBlock({
+            walletAddress: userAddress,
+            coin: top.coin,
+            direction: top.direction,
+            gate: 'liquidity',
+            reason: err,
+            confidence: top.confidence,
+            h1Trend: top.h1Trend,
+          });
+        }
         logger.debug('HL open skip: no signal passed volume/sweep gate', {
           user: userAddress.slice(0, 10),
           candidates: signals.length,
@@ -653,6 +675,17 @@ export class HyperliquidTradingService {
             at: new Date().toISOString(),
             coin: pick.coin,
             error: err,
+          });
+          void recordHlOpenBlock({
+            walletAddress: userAddress,
+            coin: pick.coin,
+            direction: pick.direction,
+            gate: 'notional',
+            reason: err,
+            confidence: pick.confidence,
+            h1Trend: pick.h1Trend,
+            notionalUsd,
+            leverage,
           });
           logger.debug('HL open skip: notional below floor', {
             user: userAddress.slice(0, 10),
@@ -747,15 +780,41 @@ export class HyperliquidTradingService {
     try {
       const { meta, mids } = opts.ctx;
       const coin = opts.coin.toUpperCase();
-      const flipGate = await isSameCoinOpenBlocked(opts.userAddress, coin, opts.direction);
-      if (flipGate.blocked) {
-        logger.info('HL open blocked — same-coin anti-flip', {
+
+      const rejectOpen = (
+        gate: HlOpenBlockGate,
+        reason: string,
+        logLabel: string,
+        extra?: Record<string, unknown>
+      ): { success: false; error: string } => {
+        logger.info(`HL open blocked — ${logLabel}`, {
           user: opts.userAddress.slice(0, 10),
           coin,
           direction: opts.direction,
-          reason: flipGate.reason,
+          reason,
+          ...extra,
         });
-        return { success: false, error: flipGate.reason ?? 'Same-coin re-entry blocked' };
+        void recordHlOpenBlock({
+          walletAddress: opts.userAddress,
+          coin,
+          direction: opts.direction,
+          gate,
+          reason,
+          h1Trend: opts.pick.h1Trend,
+          confidence: opts.pick.confidence,
+          notionalUsd: opts.notionalUsd,
+          leverage: opts.leverage,
+        });
+        return { success: false, error: reason };
+      };
+
+      const flipGate = await isSameCoinOpenBlocked(opts.userAddress, coin, opts.direction);
+      if (flipGate.blocked) {
+        return rejectOpen(
+          'anti_flip',
+          flipGate.reason ?? 'Same-coin re-entry blocked',
+          'same-coin anti-flip'
+        );
       }
 
       // Gate 0.5 — Long Confirmation: h1Trend must be UP, not just "not DOWN".
@@ -765,15 +824,14 @@ export class HyperliquidTradingService {
       // Scan-level filter only blocks LONG when h1Trend=DOWN — this closes
       // the SIDEWAYS gap for LONG entries only. SHORT untouched.
       // Caveat: sample 20/56 LONGs — plausible correlation, not full significance.
+      // Backtest in-sample (same period as hypothesis) — live monitor via hl_open_blocks.
       if (opts.direction === 'LONG' && opts.pick.h1Trend !== 'UP') {
-        const reason = `Long confirmation: 1h trend is ${opts.pick.h1Trend ?? 'unknown'}, need UP`;
-        logger.info('HL open blocked — long confirmation gate', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          h1Trend: opts.pick.h1Trend,
-          reason,
-        });
-        return { success: false, error: reason };
+        return rejectOpen(
+          'long_confirmation',
+          `Long confirmation: 1h trend is ${opts.pick.h1Trend ?? 'unknown'}, need UP`,
+          'long confirmation gate',
+          { h1Trend: opts.pick.h1Trend }
+        );
       }
 
       const assetIndex = coinToAssetIndex(meta, coin);
@@ -781,24 +839,23 @@ export class HyperliquidTradingService {
       const effectiveLeverage = Math.min(opts.leverage, maxLeverageForCoin(meta, coin));
       const markPx = Number(mids[coin] ?? mids[`${coin}-PERP`] ?? 0);
       if (!markPx || !Number.isFinite(markPx)) {
-        return { success: false, error: 'No HL mark price' };
+        return rejectOpen('no_mark_price', 'No HL mark price', 'no mark price');
       }
 
       const size = opts.notionalUsd / markPx;
-      if (size <= 0) return { success: false, error: 'Invalid size' };
+      if (size <= 0) {
+        return rejectOpen('invalid_size', 'Invalid size', 'invalid size');
+      }
 
       const symbol = hlCoinToBinanceSymbol(coin);
       const { tier: coinTier } = classifyCoinTier(coin, opts.ctx.liquidUniverse);
 
       if (needsCautionPath(coinTier) && opts.pick.confidence < config.hyperliquid.cautiousScan.minSignalConfidence) {
-        const reason = `Cautious alt ${coin}: confidence ${opts.pick.confidence}% below ${config.hyperliquid.cautiousScan.minSignalConfidence}%`;
-        logger.info('HL open blocked — cautious confidence', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          reason,
-        });
-        return { success: false, error: reason };
+        return rejectOpen(
+          'cautious_confidence',
+          `Cautious alt ${coin}: confidence ${opts.pick.confidence}% below ${config.hyperliquid.cautiousScan.minSignalConfidence}%`,
+          'cautious confidence'
+        );
       }
 
       const newsGate = await validateCoinNews({
@@ -808,25 +865,12 @@ export class HyperliquidTradingService {
         newsTradeMode: opts.newsTradeMode,
       });
       if (!newsGate.ok) {
-        logger.info('HL open blocked — news gate (step 1)', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          tier: coinTier,
-          reason: newsGate.reason,
-        });
-        return { success: false, error: newsGate.reason };
+        return rejectOpen('news', newsGate.reason, 'news gate (step 1)', { tier: coinTier });
       }
 
       const freshPumpGate = await validateNotFreshlyPumped({ coin, tier: coinTier });
       if (!freshPumpGate.ok) {
-        logger.info('HL open blocked — fresh pump skip (step 2)', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          reason: freshPumpGate.reason,
-        });
-        return { success: false, error: freshPumpGate.reason };
+        return rejectOpen('fresh_pump', freshPumpGate.reason, 'fresh pump skip (step 2)');
       }
 
       const strongMtf = isStrongGlobalScanPick(opts.pick);
@@ -856,14 +900,9 @@ export class HyperliquidTradingService {
               direction: opts.direction,
             });
       if (!candleAnalytics.ok) {
-        logger.info('HL open blocked — 20-candle analytics', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          reason: candleAnalytics.reason,
+        return rejectOpen('pre_open_candles', candleAnalytics.reason, '20-candle analytics', {
           summary: candleAnalytics.summary,
         });
-        return { success: false, error: candleAnalytics.reason };
       }
 
       const scalpGate = relaxSecondaryGates
@@ -873,13 +912,7 @@ export class HyperliquidTradingService {
             }
           : await validateScalpAlignment({ coin, direction: opts.direction });
       if (!scalpGate.ok) {
-        logger.info('HL open blocked — scalp 1m/5m align', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          reason: scalpGate.reason,
-        });
-        return { success: false, error: scalpGate.reason };
+        return rejectOpen('scalp_align', scalpGate.reason, 'scalp 1m/5m align');
       }
 
       const macroGate = await validateMacroBetaAlignment({
@@ -887,14 +920,9 @@ export class HyperliquidTradingService {
         direction: opts.direction,
       });
       if (!macroGate.ok) {
-        logger.info('HL open blocked — macro beta gate', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
+        return rejectOpen('macro_beta', macroGate.reason, 'macro beta gate', {
           blockers: macroGate.blockers,
-          reason: macroGate.reason,
         });
-        return { success: false, error: macroGate.reason };
       }
 
       const pumpShortGate = await validateNoAltPumpShort({
@@ -902,13 +930,7 @@ export class HyperliquidTradingService {
         direction: opts.direction,
       });
       if (!pumpShortGate.ok) {
-        logger.info('HL open blocked — pump-short gate', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          reason: pumpShortGate.reason,
-        });
-        return { success: false, error: pumpShortGate.reason };
+        return rejectOpen('pump_short', pumpShortGate.reason, 'pump-short gate');
       }
 
       const megaGate = {
@@ -916,13 +938,7 @@ export class HyperliquidTradingService {
         reason: `${coin} — per-coin chart/macro beta only (no global flow override)`,
       };
       if (!megaGate.ok) {
-        logger.info('HL open blocked — mega pair volume', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          reason: megaGate.reason,
-        });
-        return { success: false, error: megaGate.reason };
+        return rejectOpen('mega_pair', megaGate.reason, 'mega pair volume');
       }
 
       const perpCtxGate = relaxSecondaryGates
@@ -936,13 +952,7 @@ export class HyperliquidTradingService {
             direction: opts.direction,
           });
       if (!perpCtxGate.ok) {
-        logger.info('HL open blocked — perp context (funding/24h/range)', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          reason: perpCtxGate.reason,
-        });
-        return { success: false, error: perpCtxGate.reason };
+        return rejectOpen('perp_context', perpCtxGate.reason, 'perp context (funding/24h/range)');
       }
 
       const pumpSweepGate = relaxSecondaryGates
@@ -956,14 +966,9 @@ export class HyperliquidTradingService {
             direction: opts.direction,
           });
       if (!pumpSweepGate.ok) {
-        logger.info('HL open blocked — pump apex / sweep gate', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          reason: pumpSweepGate.reason,
+        return rejectOpen('pump_sweep', pumpSweepGate.reason, 'pump apex / sweep gate', {
           phase: pumpSweepGate.analysis?.phase,
         });
-        return { success: false, error: pumpSweepGate.reason };
       }
 
       const locationGate = relaxSecondaryGates
@@ -991,15 +996,10 @@ export class HyperliquidTradingService {
               direction: opts.direction,
             });
       if (!locationGate.ok) {
-        logger.info('HL open blocked — resistance/support gate', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          reason: locationGate.reason,
+        return rejectOpen('entry_location', locationGate.reason, 'resistance/support gate', {
           resistance: locationGate.analysis.resistance,
           rejections: locationGate.analysis.resistanceRejections,
         });
-        return { success: false, error: locationGate.reason };
       }
 
       const momentumGate = relaxSecondaryGates
@@ -1013,13 +1013,7 @@ export class HyperliquidTradingService {
             }
           : await validateEntryMomentum({ coin, direction: opts.direction });
       if (!momentumGate.ok) {
-        logger.info('HL open blocked — entry momentum', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          reason: momentumGate.reason,
-        });
-        return { success: false, error: momentumGate.reason };
+        return rejectOpen('entry_momentum', momentumGate.reason, 'entry momentum');
       }
 
       const openReasonDoc = buildHlOpenReasonDoc({
@@ -1075,7 +1069,7 @@ export class HyperliquidTradingService {
         | { filled?: unknown; error?: string }
         | undefined;
       if (status && 'error' in status && status.error) {
-        return { success: false, error: String(status.error) };
+        return rejectOpen('order_error', String(status.error), 'order error');
       }
 
       logger.info('HL position opened', {
@@ -1103,6 +1097,17 @@ export class HyperliquidTradingService {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.warn('HL open failed', { user: opts.userAddress.slice(0, 10), error: msg });
+      void recordHlOpenBlock({
+        walletAddress: opts.userAddress,
+        coin: opts.coin,
+        direction: opts.direction,
+        gate: 'open_exception',
+        reason: msg,
+        h1Trend: opts.pick.h1Trend,
+        confidence: opts.pick.confidence,
+        notionalUsd: opts.notionalUsd,
+        leverage: opts.leverage,
+      });
       return { success: false, error: msg };
     }
   }
