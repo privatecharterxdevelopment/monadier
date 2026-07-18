@@ -9408,6 +9408,139 @@
   font-weight: 600;
 }
 
+.hl-modal .hl-funds-chain__balance--btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--hl-border) 80%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--hl-bg) 70%, transparent);
+  color: var(--hl-text-muted);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.hl-modal .hl-funds-chain__balance--btn:hover,
+.hl-modal .hl-funds-chain__balance--btn.is-open {
+  border-color: color-mix(in srgb, #12aaff 40%, var(--hl-border));
+  background: color-mix(in srgb, #12aaff 8%, var(--hl-bg));
+}
+
+.hl-modal .hl-funds-chain__balance-chevron {
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+}
+
+.hl-modal .hl-funds-chain__balance--btn.is-open .hl-funds-chain__balance-chevron {
+  transform: rotate(180deg);
+}
+
+.hl-modal .hl-funds-chain__stranded-hint {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+.hl-modal .hl-funds-chain-balances {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, #f59e0b 35%, var(--hl-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, #f59e0b 6%, var(--hl-bg-panel));
+}
+
+.hl-modal .hl-funds-chain-balances__intro {
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--hl-text-muted);
+}
+
+.hl-modal .hl-funds-chain-balances__intro strong {
+  color: var(--hl-text);
+}
+
+.hl-modal .hl-funds-chain-balances__loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--hl-text-muted);
+}
+
+.hl-modal .hl-funds-chain-balances__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hl-modal .hl-funds-chain-balances__row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--hl-bg) 55%, transparent);
+  font-size: 12px;
+}
+
+.hl-modal .hl-funds-chain-balances__row--ok {
+  background: color-mix(in srgb, #14b8a6 12%, var(--hl-bg));
+}
+
+.hl-modal .hl-funds-chain-balances__row--warn {
+  background: color-mix(in srgb, #f59e0b 14%, var(--hl-bg));
+}
+
+.hl-modal .hl-funds-chain-balances__chain {
+  font-weight: 600;
+  color: var(--hl-text);
+}
+
+.hl-modal .hl-funds-chain-balances__amt {
+  font-variant-numeric: tabular-nums;
+  color: var(--hl-text);
+}
+
+.hl-modal .hl-funds-chain-balances__tag {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--hl-text-muted);
+}
+
+.hl-modal .hl-funds-chain-balances__row--ok .hl-funds-chain-balances__tag {
+  color: #14b8a6;
+}
+
+.hl-modal .hl-funds-chain-balances__row--warn .hl-funds-chain-balances__tag {
+  color: #f59e0b;
+}
+
+.hl-modal .hl-funds-chain-balances__tip {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #f59e0b;
+}
+
+.hl-modal .hl-funds-chain-balances__tip strong {
+  color: #fbbf24;
+}
+
 .hl-modal .hl-funds-chain__action {
   display: inline-flex;
   align-items: center;

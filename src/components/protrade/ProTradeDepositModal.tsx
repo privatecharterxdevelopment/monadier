@@ -473,6 +473,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
                   usdcBalance={usdcNum}
                   balanceLoading={balanceLoading}
                   showBalance={isConnected}
+                  walletAddress={address}
                 />
 
                 <label className="term-profile-label hl-funds-amount-label">Amount (USDC)</label>
