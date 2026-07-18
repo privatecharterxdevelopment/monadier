@@ -19,6 +19,20 @@ export type HlPosition = {
   liquidationPx: string | null;
 };
 
+/**
+ * Live uPnL for one position from the current mark price — the single source of
+ * truth so the status-bar header and the positions table can never diverge.
+ * Falls back to Hyperliquid's snapshot unrealizedPnl when no mark is available.
+ */
+export function livePositionUpnl(position: HlPosition, markPx: number): number {
+  const szi = toNum(position.szi);
+  const entry = toNum(position.entryPx);
+  if (markPx > 0 && entry > 0 && szi !== 0) {
+    return szi > 0 ? (markPx - entry) * szi : (entry - markPx) * Math.abs(szi);
+  }
+  return toNum(position.unrealizedPnl);
+}
+
 export type HlOpenOrder = {
   coin: string;
   side: string;

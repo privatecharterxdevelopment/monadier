@@ -12,7 +12,7 @@ import type {
   HlTwapOrder,
   HlUserFill,
 } from '../../lib/hyperliquid/user';
-import { isHlTriggerOrder } from '../../lib/hyperliquid/user';
+import { isHlTriggerOrder, livePositionUpnl } from '../../lib/hyperliquid/user';
 import {
   fmtLeverage,
   fmtPrice,
@@ -60,14 +60,8 @@ function platformFeeFromPnl(closedPnl: string | number): number {
   return Math.round(((pnl * PLATFORM_FEE_BPS) / 10_000) * 1e6) / 1e6;
 }
 
-function livePositionPnl(position: HlPosition, markPx: number): number {
-  const szi = toNum(position.szi);
-  const entry = toNum(position.entryPx);
-  if (markPx > 0 && entry > 0 && szi !== 0) {
-    return szi > 0 ? (markPx - entry) * szi : (entry - markPx) * Math.abs(szi);
-  }
-  return toNum(position.unrealizedPnl);
-}
+// Shared with the status-bar header so both always agree — see livePositionUpnl.
+const livePositionPnl = livePositionUpnl;
 
 const TABS = [
   { id: 'balances', labelKey: 'dock.tabs.balances' },
