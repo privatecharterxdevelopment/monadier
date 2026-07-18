@@ -1128,8 +1128,16 @@ const healthServer = http.createServer(async (req, res) => {
   res.end(JSON.stringify({ error: 'Not found' }));
 });
 
-healthServer.listen(PORT, () => {
-  logger.info(`API server running on port ${PORT}`);
+// Bind explicitly to 0.0.0.0 (all IPv4). Node's default listen(PORT) can bind
+// IPv6-only (::) inside alpine/Docker containers, which Railway's IPv4 healthcheck
+// cannot reach -> "service unavailable" with zero app logs. This is the fix.
+const HOST = process.env.HOST || '0.0.0.0';
+healthServer.on('error', (err) => {
+  logger.error('Health server failed to bind', { port: PORT, host: HOST, error: err });
+  process.exit(1);
+});
+healthServer.listen(Number(PORT), HOST, () => {
+  logger.info(`API server running on ${HOST}:${PORT}`);
   logger.info('Available endpoints:');
   logger.info('  GET /health - Health check');
   logger.info('  GET /api/signal?symbol=ETHUSDT&timeframes=1m,5m,15m,1h - MTF Signal');
