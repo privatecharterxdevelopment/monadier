@@ -35,6 +35,7 @@ import { recordHlBotOpenMarker } from './hlChartMarkers';
 import { recordHlOpenBlock, type HlOpenBlockGate } from './hlOpenBlocks';
 import { shouldTakeProfitOnPnl } from './pnlExits';
 import { validateEntryLocation } from './entryLocationGate';
+import { validateHtfSr } from './htfSrGate';
 import { validateMacroBetaAlignment } from './macroBetaGate';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
@@ -190,6 +191,9 @@ function formatOpenErrorForClient(error: string): string {
   }
   if (/Long confirmation|1h trend is/i.test(error)) {
     return 'LONG needs 1h trend UP — SIDEWAYS gap closed (DOWN already blocked at scan)';
+  }
+  if (/HTF (support|resistance)|SHADOW: would block/i.test(error)) {
+    return 'Entry too close to a strong 1h/4h support or resistance (ATR gate)';
   }
   return error.length > 120 ? `${error.slice(0, 117)}…` : error;
 }
@@ -1000,6 +1004,49 @@ export class HyperliquidTradingService {
           resistance: locationGate.analysis.resistance,
           rejections: locationGate.analysis.resistanceRejections,
         });
+      }
+
+      // Gate HTF S/R — 1h/4h strong levels, ATR proximity, level decay.
+      // Default shadow: always log would-blocks to hl_open_blocks; only reject when
+      // HL_HTF_SR_ENFORCE=true (after 24–48h of shadow evidence).
+      const htfSrGate = await validateHtfSr({
+        symbol,
+        coin,
+        direction: opts.direction,
+      });
+      if (htfSrGate.wouldBlock) {
+        logger.info(
+          htfSrGate.shadow
+            ? 'HL open SHADOW — HTF S/R would block'
+            : 'HL open blocked — HTF S/R gate',
+          {
+            user: opts.userAddress.slice(0, 10),
+            coin,
+            direction: opts.direction,
+            reason: htfSrGate.reason,
+            atr1h: htfSrGate.atr1h,
+            atrThreshold: htfSrGate.atrThreshold,
+            level: htfSrGate.nearestLevel?.price,
+            levelTf: htfSrGate.nearestLevel?.timeframe,
+            rejections: htfSrGate.nearestLevel?.rejections,
+            ageH: htfSrGate.nearestLevel?.lastTouchAgeHours,
+            shadow: htfSrGate.shadow,
+          }
+        );
+        void recordHlOpenBlock({
+          walletAddress: opts.userAddress,
+          coin,
+          direction: opts.direction,
+          gate: 'htf_sr',
+          reason: htfSrGate.reason,
+          h1Trend: opts.pick.h1Trend,
+          confidence: opts.pick.confidence,
+          notionalUsd: opts.notionalUsd,
+          leverage: opts.leverage,
+        });
+        if (!htfSrGate.ok) {
+          return { success: false, error: htfSrGate.reason };
+        }
       }
 
       const momentumGate = relaxSecondaryGates

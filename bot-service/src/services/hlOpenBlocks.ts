@@ -30,6 +30,7 @@ export type HlOpenBlockGate =
   | 'pump_sweep'
   | 'entry_location'
   | 'entry_momentum'
+  | 'htf_sr'
   | 'order_error'
   | 'open_exception'
   | 'margin'

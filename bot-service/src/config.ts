@@ -203,6 +203,27 @@ export const config = {
       /** Block long at ceiling after this many rejections at resistance. */
       minRejectionsToBlock: Number(process.env.HL_ENTRY_MIN_REJECTIONS || 3),
     },
+    /**
+     * Higher-TF S/R gate (1h + 4h) — blocks SHORT into strong support / LONG into
+     * strong resistance. ATR-based proximity, min-rejection strength, level decay.
+     * Default: enabled + shadow (log to hl_open_blocks, do NOT block). Flip
+     * HL_HTF_SR_ENFORCE=true after 24–48h of shadow evidence.
+     */
+    htfSr: {
+      enabled: process.env.HL_HTF_SR !== 'false',
+      enforce: process.env.HL_HTF_SR_ENFORCE === 'true',
+      atrPeriod: Number(process.env.HL_HTF_SR_ATR_PERIOD || 14),
+      /** Block when entry is within this × ATR(1h) of a strong opposite level. */
+      atrMult: Number(process.env.HL_HTF_SR_ATR_MULT || 0.5),
+      /** Level is "strong" only after this many wick-rejections. */
+      minRejections: Number(process.env.HL_HTF_SR_MIN_REJECTIONS || 2),
+      /** Drop levels whose last touch is older than this (hours). */
+      maxLevelAgeHours: Number(process.env.HL_HTF_SR_MAX_AGE_H || 72),
+      h1Bars: Number(process.env.HL_HTF_SR_H1_BARS || 72),
+      h4Bars: Number(process.env.HL_HTF_SR_H4_BARS || 42),
+      swingClusterPct: Number(process.env.HL_HTF_SR_CLUSTER || 0.005),
+      touchTolerancePct: Number(process.env.HL_HTF_SR_TOUCH_TOL || 0.003),
+    },
     /** BTC/ETH beta — block counter-trend alt entries (SHORT while pumping, LONG while dumping). */
     macroBeta: {
       /** 15m % move that counts as "pumping" (blocks alt SHORT). */
