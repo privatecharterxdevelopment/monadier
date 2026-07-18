@@ -79,12 +79,19 @@ export interface UserTradingSettings {
   autoBettingBudgetUsd: number;
 }
 
-/** Clamp user slot preference to 2–3 within platform ceiling. */
+/** Product hard cap for concurrent HL perp slots — a user may always pick up to this. */
+export const HL_SLOTS_HARD_CAP = 3;
+
+/**
+ * Clamp a user's slot preference to the supported 2–3 range.
+ * Ceiling is the product hard cap (3), NOT the env default — a stale
+ * HL_MAX_CONCURRENT_POSITIONS=2 must never silently cap a user who chose 3.
+ */
 export function normalizeMaxConcurrentPositions(
   raw: number | null | undefined,
-  platformMax = config.hyperliquid.maxConcurrentPositions
+  platformMax: number = HL_SLOTS_HARD_CAP
 ): number {
-  const ceiling = Math.max(2, Math.min(3, Math.floor(platformMax) || 3));
+  const ceiling = Math.max(2, Math.min(HL_SLOTS_HARD_CAP, Math.floor(platformMax) || HL_SLOTS_HARD_CAP));
   const n = Number(raw);
   if (!Number.isFinite(n) || n < 2) return 2;
   return Math.min(ceiling, Math.max(2, Math.floor(n)));

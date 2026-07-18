@@ -36,6 +36,10 @@ import {
   type AdminWalletFeeAudit,
 } from '../../lib/adminDashboard';
 import { fmtPrice, fmtSize } from '../../lib/hyperliquid/format';
+import {
+  fetchHlBotTrailSnapshots,
+  type HlBotTrailSnapshot,
+} from '../../lib/hlBotTrailStatus';
 import { countAdminPositionsByCoin } from '../../lib/adminHlLivePositions';
 import AdminAffiliateOps from '../../components/admin/AdminAffiliateOps';
 import AdminTwitterSocial from '../../components/admin/AdminTwitterSocial';
@@ -864,6 +868,7 @@ function BotsPanel({
 
 function PositionsPanel({ rows }: { rows: AdminHlDashboard['open_positions'] }) {
   const [page, setPage] = useState(0);
+  const [trails, setTrails] = useState<Record<string, HlBotTrailSnapshot>>({});
   const totalUpnl = rows.reduce((s, p) => s + (p.profit_loss ?? 0), 0);
   const { pageRows, totalPages, safePage, total } = useMemo(
     () => paginate(rows, page),
@@ -876,6 +881,42 @@ function PositionsPanel({ rows }: { rows: AdminHlDashboard['open_positions'] }) 
       .map(([coin, n]) => (n > 1 ? `${coin}×${n}` : coin))
       .join(' · ');
   }, [rows]);
+  const trailWallets = useMemo(
+    () => [...new Set(rows.map((p) => p.wallet_address.toLowerCase()))].sort(),
+    [rows]
+  );
+  const trailWalletKey = trailWallets.join(',');
+
+  useEffect(() => {
+    if (!trailWalletKey) {
+      setTrails({});
+      return;
+    }
+    let cancelled = false;
+    const wallets = trailWalletKey.split(',');
+    const load = async () => {
+      const batches = await Promise.all(
+        wallets.map(async (wallet) => ({
+          wallet,
+          rows: await fetchHlBotTrailSnapshots(wallet),
+        }))
+      );
+      if (cancelled) return;
+      const next: Record<string, HlBotTrailSnapshot> = {};
+      for (const batch of batches) {
+        for (const trail of batch.rows) {
+          next[`${batch.wallet}:${trail.coin.toUpperCase()}`] = trail;
+        }
+      }
+      setTrails(next);
+    };
+    void load();
+    const id = window.setInterval(() => void load(), 8_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [trailWalletKey]);
 
   return (
     <TableShell
@@ -902,17 +943,23 @@ function PositionsPanel({ rows }: { rows: AdminHlDashboard['open_positions'] }) 
           <th className="px-4 py-3">Lev</th>
           <th className="px-4 py-3">uPnL</th>
           <th className="px-4 py-3">ROE</th>
+          <th className="px-4 py-3">Trail stop</th>
         </tr>
       </thead>
       <tbody>
         {rows.length === 0 ? (
           <tr>
-            <td colSpan={11} className="px-4 py-8 text-center text-secondary text-sm">
+            <td colSpan={12} className="px-4 py-8 text-center text-secondary text-sm">
               No open perps on tracked wallets
             </td>
           </tr>
         ) : (
-          pageRows.map((p) => (
+          pageRows.map((p) => {
+            const trail =
+              trails[
+                `${p.wallet_address.toLowerCase()}:${p.token_symbol.toUpperCase()}`
+              ];
+            return (
             <tr key={p.id} className="border-t border-border text-sm hover:bg-black/[0.03]">
               <td className="px-4 py-2 text-xs text-secondary max-w-[140px] truncate">
                 {p.email ?? '—'}
@@ -949,8 +996,28 @@ function PositionsPanel({ rows }: { rows: AdminHlDashboard['open_positions'] }) 
                   ? `${p.profit_loss_percent >= 0 ? '+' : ''}${p.profit_loss_percent.toFixed(2)}%`
                   : '—'}
               </td>
+              <td
+                className="px-4 py-2 font-mono text-xs"
+                title={
+                  trail
+                    ? `phase=${trail.phase} · peak=${fmtUsdTrade(trail.peakPnlUsd, true)} · extreme=${trail.favorableExtremePx != null ? fmtPrice(trail.favorableExtremePx) : '—'} · distance=${trail.trailDistancePx != null ? fmtPrice(trail.trailDistancePx) : '—'}`
+                    : 'No live trail snapshot'
+                }
+              >
+                {trail?.stopPx != null ? (
+                  <span className={trail.wouldCloseNow ? 'text-red-400' : 'text-green-400'}>
+                    {fmtPrice(trail.stopPx)}
+                    <span className="ml-1 text-secondary">({trail.phase})</span>
+                  </span>
+                ) : trail ? (
+                  <span className="text-amber-400">Arming ({trail.phase})</span>
+                ) : (
+                  '—'
+                )}
+              </td>
             </tr>
-          ))
+            );
+          })
         )}
       </tbody>
     </TableShell>

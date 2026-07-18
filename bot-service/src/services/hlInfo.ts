@@ -13,6 +13,7 @@ export type HlClearinghouseState = {
       szi?: string;
       entryPx?: string;
       unrealizedPnl?: string;
+      positionValue?: string;
       leverage?: { value?: number; type?: 'cross' | 'isolated' };
     };
   }>;

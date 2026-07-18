@@ -13,6 +13,8 @@ export type HlBotTrailSnapshot = {
   stopPx: number | null;
   markPx: number;
   entryPx: number;
+  favorableExtremePx: number | null;
+  trailDistancePx: number | null;
   wouldCloseNow: boolean;
   stateTracked: boolean;
 };
@@ -20,11 +22,15 @@ export type HlBotTrailSnapshot = {
 export async function fetchHlBotTrailSnapshots(
   wallet: string
 ): Promise<HlBotTrailSnapshot[]> {
-  const base = getBotApiBase();
-  const res = await fetch(
-    `${base}/api/hl-position-trails?wallet=${encodeURIComponent(wallet)}`
-  );
-  if (!res.ok) return [];
-  const json = (await res.json()) as { success?: boolean; trails?: HlBotTrailSnapshot[] };
-  return json.success && Array.isArray(json.trails) ? json.trails : [];
+  try {
+    const base = getBotApiBase();
+    const res = await fetch(
+      `${base}/api/hl-position-trails?wallet=${encodeURIComponent(wallet)}`
+    );
+    if (!res.ok) return [];
+    const json = (await res.json()) as { success?: boolean; trails?: HlBotTrailSnapshot[] };
+    return json.success && Array.isArray(json.trails) ? json.trails : [];
+  } catch {
+    return [];
+  }
 }
