@@ -100,8 +100,13 @@ export const config = {
     minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 2),
     /** Global scan — min % of TFs sharing the dominant trend (0–100). */
     minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 50),
-    /** Max independent HL perp positions per wallet (different coins). */
-    maxConcurrentPositions: Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 2),
+    /**
+     * Platform ceiling for concurrent HL perp slots per wallet (different coins).
+     * Must be 3 so a user who selects 3 slots is respected — normalizeMaxConcurrentPositions
+     * clamps each user's own preference (2 or 3) against this ceiling. A ceiling of 2
+     * silently capped every 3-slot user back to 2.
+     */
+    maxConcurrentPositions: Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 3),
     /** Minimum order notional — skips sloppy micro-trades. */
     minNotionalUsd: Number(process.env.HL_MIN_NOTIONAL_USD || 20),
     /** Bot open floor — 0 = scan all HL perps; only applied at order time if > 0. */

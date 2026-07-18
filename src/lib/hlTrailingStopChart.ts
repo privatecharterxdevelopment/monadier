@@ -239,6 +239,7 @@ export type ActiveSlDisplay = {
 };
 
 export type BotTrailServerTruth = {
+  phase?: 'idle' | 'armed' | 'trailing' | 'unknown';
   peakPnlUsd: number;
   lockPnlUsd: number;
   lockRoePct: number;
@@ -286,25 +287,10 @@ export function trailStopForOpenPosition(opts: {
     };
   }
 
-  const trail = computeDynamicTrailStopPx({
-    entryPx: opts.entryPx,
-    szi: opts.szi,
-    unrealizedPnlUsd: opts.unrealizedPnlUsd,
-    peakPnlUsd: peak,
-    coin: opts.coin,
-    notionalUsd: notional,
-    collateralUsd: collateral,
-  });
-
-  if (server?.stopPx != null && server.lockRoePct > 0) {
+  if (server?.stateTracked && server.stopPx != null) {
     const isLong = side === 'long';
-    let displayStop = server.stopPx;
-    if (trail.armed && trail.stopPx != null) {
-      // Server can lag at stage-1 lock — ratchet display to stage-2 when peak qualifies.
-      displayStop = isLong
-        ? Math.max(server.stopPx, trail.stopPx)
-        : Math.min(server.stopPx, trail.stopPx);
-    }
+    const displayStop = server.stopPx;
+    const locksProfit = server.lockPnlUsd > 0;
     const breached =
       displayStop > 0 &&
       (isLong ? opts.markPx <= displayStop : opts.markPx >= displayStop);
@@ -320,13 +306,35 @@ export function trailStopForOpenPosition(opts: {
     return {
       stopPx: displayStop,
       armed: true,
-      kind: 'profit',
+      kind: locksProfit ? 'profit' : 'loss_cap',
       label: fmtStopPx(displayStop),
-      title: server.stateTracked
-        ? `Bot profit SL at ${fmtStopPx(displayStop)} — trails below peak (peak − ${HL_DYNAMIC_TRAIL.trailGapRoePct}% ROE).`
-        : `Profit SL at ${fmtStopPx(displayStop)} — bot peak state was reset (redeploy).`,
+      title: locksProfit
+        ? `Exact bot trailing stop at ${fmtStopPx(displayStop)} (live server state).`
+        : `Exact bot loss stop at ${fmtStopPx(displayStop)} (live server state).`,
     };
   }
+
+  // A successful server snapshot with no stop means the bot truly has no active
+  // trail yet. Do not replace that truth with the legacy frontend estimator.
+  if (server) {
+    return {
+      stopPx: null,
+      armed: false,
+      kind: 'arming',
+      label: 'Arming',
+      title: `Bot trail phase: ${server.phase ?? 'idle'} — no active server stop yet.`,
+    };
+  }
+
+  const trail = computeDynamicTrailStopPx({
+    entryPx: opts.entryPx,
+    szi: opts.szi,
+    unrealizedPnlUsd: opts.unrealizedPnlUsd,
+    peakPnlUsd: peak,
+    coin: opts.coin,
+    notionalUsd: notional,
+    collateralUsd: collateral,
+  });
 
   if (trail.armed && trail.stopPx != null) {
     return {

@@ -522,6 +522,7 @@ const ProTradeDock: React.FC<Props> = ({
                     holdMs: Date.now() - (positionOpenSinceRef.current.get(p.coin) ?? Date.now()),
                     serverTrail: botTrail
                       ? {
+                          phase: botTrail.phase,
                           peakPnlUsd: botTrail.peakPnlUsd,
                           lockPnlUsd: botTrail.lockPnlUsd,
                           lockRoePct: botTrail.lockRoePct,
