@@ -258,17 +258,23 @@ export const config = {
     },
     /** Scalp opens — top liquid pairs only, fast TF alignment. */
     scalpOpen: {
-      maxVolumeRank: Number(process.env.HL_OPEN_MAX_VOLUME_RANK || 18),
+      // Hard universe cap. 18 was too tight: HL's top-18 by volume is dominated by
+      // BTC/ETH/HYPE/SOL + memecoins (CASHCAT/PUMP/VVV), which DROPPED real large-caps
+      // like LINK(#20)/ADA(#22)/BNB(#23)/AVAX(#24)/ARB/DOT entirely. 40 lets them in;
+      // ranks 19-40 stay "cautious" tier (news + stricter conf via caution path),
+      // so the universe widens without loosening per-trade quality.
+      maxVolumeRank: Number(process.env.HL_OPEN_MAX_VOLUME_RANK || 40),
       allowCautiousAlts: process.env.HL_ALLOW_CAUTIOUS_OPENS !== 'false',
       require1m5mAlign: process.env.HL_SCALP_REQUIRE_1M5M !== 'false',
       minTfConfidence: Number(process.env.HL_SCALP_MIN_TF_CONF || 52),
       minConfirm1mCandles: Number(process.env.HL_SCALP_1M_CONFIRM || 2),
     },
     /** Mandatory last-N candle read immediately before every open. */
+    /** 5m default: 20 bars = 100 min window — stable entry timing, no 1m second-to-second noise. */
     preOpenCandles: {
       enabled: process.env.HL_PRE_OPEN_20_CANDLES !== 'false',
       candleCount: Number(process.env.HL_PRE_OPEN_CANDLE_COUNT || 20),
-      timeframe: (process.env.HL_PRE_OPEN_CANDLE_TF || '1m') as '1m' | '5m',
+      timeframe: (process.env.HL_PRE_OPEN_CANDLE_TF || '5m') as '1m' | '5m',
       minNetMovePct: Number(process.env.HL_PRE_OPEN_MIN_NET_PCT || 0.04),
       minDirectionalCandleRatio: Number(process.env.HL_PRE_OPEN_MIN_DIR_RATIO || 0.52),
       maxRangePositionLong: Number(process.env.HL_PRE_OPEN_MAX_RANGE_LONG || 0.58),
