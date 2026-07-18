@@ -90,6 +90,25 @@ const hlLastCloseAt = new Map<string, number>();
 let fastPositionMonitorRunning = false;
 
 /**
+ * User-initiated closes (the manual "Close" button) must ALWAYS execute
+ * immediately — profitOnlyExits only governs the bot's *automatic* exits.
+ * The frontend sends reason 'manual'; keep synonyms robust so a red position
+ * can never get stuck open when the user asks to close it.
+ */
+const USER_INITIATED_CLOSE_REASONS = new Set([
+  'manual',
+  'manual_close',
+  'user',
+  'user_close',
+  'panic_close',
+  'close',
+]);
+
+function isUserInitiatedClose(reason: string): boolean {
+  return USER_INITIATED_CLOSE_REASONS.has(reason.trim().toLowerCase());
+}
+
+/**
  * Profit-only mode (default): hold losers until green — no MTF flip exit by default.
  * User SL% still works via shouldHardLossClose (cap > 0). SL% = 0 → never red stop.
  * Opt-in: HL_LOSS_CAP_ENFORCE, HL_LOSS_THESIS_CLOSE.
@@ -1530,7 +1549,15 @@ export class HyperliquidTradingService {
       const leverage = closeCtx?.leverage ?? row.leverage?.value ?? 10;
       const absSize = Math.abs(size);
 
-      if (config.hyperliquid.profitOnlyExits && pnlUsd < 0 && !mayAutoCloseInRed(reason, closeCtx?.holdMs ?? 0)) {
+      // profitOnlyExits governs the bot's AUTO exits only. A user clicking "Close"
+      // must always execute immediately, red or green — never block a manual close.
+      const userInitiated = isUserInitiatedClose(reason);
+      if (
+        config.hyperliquid.profitOnlyExits &&
+        pnlUsd < 0 &&
+        !userInitiated &&
+        !mayAutoCloseInRed(reason, closeCtx?.holdMs ?? 0)
+      ) {
         logger.warn('HL close rejected — never close in red', {
           user: userAddress.slice(0, 10),
           coin: coinUpper,
