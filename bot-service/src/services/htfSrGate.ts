@@ -38,6 +38,41 @@ export type HtfSrResult = {
   shadow: boolean;
 };
 
+export type NearbyHtfSupport = {
+  level: HtfSrLevel;
+  distance: number;
+  distanceAtr: number;
+};
+
+/**
+ * Confirm a range-LONG location: a strong, non-stale HTF support must sit at or
+ * just below the entry and be within the configured ATR proximity threshold.
+ * `result.levels` already excludes levels older than maxLevelAgeHours.
+ */
+export function findNearbyStrongHtfSupport(
+  result: HtfSrResult,
+  price: number
+): NearbyHtfSupport | null {
+  if (price <= 0 || result.atr1h <= 0 || result.atrThreshold <= 0) return null;
+
+  let nearest: NearbyHtfSupport | null = null;
+  for (const level of result.levels) {
+    if (level.side !== 'support' || !level.strong) continue;
+    // Match nearestRelevant's small tolerance for candle-close vs live-mark drift.
+    if (level.price > price * 1.002) continue;
+    const distance = Math.abs(price - level.price);
+    if (distance > result.atrThreshold) continue;
+    if (!nearest || distance < nearest.distance) {
+      nearest = {
+        level,
+        distance,
+        distanceAtr: distance / result.atr1h,
+      };
+    }
+  }
+  return nearest;
+}
+
 function isSwingHigh(candles: Candle[], i: number): boolean {
   if (i < 2 || i >= candles.length - 2) return false;
   const h = candles[i].high;
@@ -121,13 +156,16 @@ function countTests(
 
   for (const c of candles) {
     if (side === 'resistance') {
-      const tested = c.high >= level * (1 - touchTol);
+      // Count a real wick touch near the level, not every candle that traded far
+      // beyond it; otherwise old breakouts inflate resistance strength.
+      const tested = Math.abs(c.high - level) / level <= touchTol;
       if (!tested) continue;
       touches += 1;
       lastTouchTime = Math.max(lastTouchTime, c.time);
       if (c.close < level * (1 - touchTol * 0.35)) rejections += 1;
     } else {
-      const tested = c.low <= level * (1 + touchTol);
+      // Symmetric support rule: the wick low itself must be near the level.
+      const tested = Math.abs(c.low - level) / level <= touchTol;
       if (!tested) continue;
       touches += 1;
       lastTouchTime = Math.max(lastTouchTime, c.time);
