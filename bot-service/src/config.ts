@@ -224,6 +224,9 @@ export const config = {
     htfSr: {
       enabled: process.env.HL_HTF_SR !== 'false',
       enforce: process.env.HL_HTF_SR_ENFORCE === 'true',
+      /** Permit SIDEWAYS LONG only when this gate confirms nearby strong support. */
+      sidewaysLongSupportException:
+        process.env.HL_SIDEWAYS_LONG_SUPPORT_EXCEPTION !== 'false',
       atrPeriod: Number(process.env.HL_HTF_SR_ATR_PERIOD || 14),
       /** Block when entry is within this × ATR(1h) of a strong opposite level. */
       atrMult: Number(process.env.HL_HTF_SR_ATR_MULT || 0.5),

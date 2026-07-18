@@ -35,7 +35,11 @@ import { recordHlBotOpenMarker } from './hlChartMarkers';
 import { recordHlOpenBlock, type HlOpenBlockGate } from './hlOpenBlocks';
 import { shouldTakeProfitOnPnl } from './pnlExits';
 import { validateEntryLocation } from './entryLocationGate';
-import { validateHtfSr } from './htfSrGate';
+import {
+  findNearbyStrongHtfSupport,
+  validateHtfSr,
+  type HtfSrResult,
+} from './htfSrGate';
 import { validateMacroBetaAlignment } from './macroBetaGate';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
@@ -840,37 +844,85 @@ export class HyperliquidTradingService {
         );
       }
 
-      // Gate 0.5 — Long Confirmation: h1Trend must be UP, not just "not DOWN".
-      // Empirical basis: open-reason logs, 8 losing vs 12 winning LONGs
-      // (subset of 56 total LONG trades w/ full open-reason text).
-      // 7/8 losers had h1Trend=SIDEWAYS; 10/12 winners had h1Trend=UP.
-      // Scan-level filter only blocks LONG when h1Trend=DOWN — this closes
-      // the SIDEWAYS gap for LONG entries only. SHORT untouched.
-      // Caveat: sample 20/56 LONGs — plausible correlation, not full significance.
-      // Backtest in-sample (same period as hypothesis) — live monitor via hl_open_blocks.
-      if (opts.direction === 'LONG' && opts.pick.h1Trend !== 'UP') {
-        return rejectOpen(
-          'long_confirmation',
-          `Long confirmation: 1h trend is ${opts.pick.h1Trend ?? 'unknown'}, need UP`,
-          'long confirmation gate',
-          { h1Trend: opts.pick.h1Trend }
-        );
-      }
-
       const assetIndex = coinToAssetIndex(meta, coin);
-      const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
-      const effectiveLeverage = Math.min(opts.leverage, maxLeverageForCoin(meta, coin));
       const markPx = Number(mids[coin] ?? mids[`${coin}-PERP`] ?? 0);
       if (!markPx || !Number.isFinite(markPx)) {
         return rejectOpen('no_mark_price', 'No HL mark price', 'no mark price');
       }
 
+      const symbol = hlCoinToBinanceSymbol(coin);
+      let htfSrGate: HtfSrResult | null = null;
+
+      // Gate 0.5 — LONG confirmation:
+      // - UP: regular trend-following LONG is allowed.
+      // - DOWN / missing: always block.
+      // - SIDEWAYS: allow only a range-bounce entry at fresh, strong HTF support
+      //   (≥ configured rejections, within ATR threshold), and never near HTF resistance.
+      if (opts.direction === 'LONG' && opts.pick.h1Trend !== 'UP') {
+        if (
+          opts.pick.h1Trend !== 'SIDEWAYS' ||
+          !config.hyperliquid.htfSr.sidewaysLongSupportException
+        ) {
+          return rejectOpen(
+            'long_confirmation',
+            `Long confirmation: 1h trend is ${opts.pick.h1Trend ?? 'unknown'}, need UP or strong HTF support in SIDEWAYS`,
+            'long confirmation gate',
+            { h1Trend: opts.pick.h1Trend }
+          );
+        }
+
+        try {
+          htfSrGate = await validateHtfSr({
+            symbol,
+            coin,
+            direction: opts.direction,
+          });
+        } catch (err) {
+          const detail = err instanceof Error ? err.message : String(err);
+          return rejectOpen(
+            'long_confirmation',
+            `SIDEWAYS LONG support confirmation unavailable: ${detail}`,
+            'long confirmation support check',
+            { h1Trend: opts.pick.h1Trend }
+          );
+        }
+
+        const nearbySupport = findNearbyStrongHtfSupport(htfSrGate, markPx);
+        if (!nearbySupport || htfSrGate.wouldBlock) {
+          const reason = htfSrGate.wouldBlock
+            ? `SIDEWAYS LONG blocked: strong HTF resistance is also nearby — ${htfSrGate.reason}`
+            : `SIDEWAYS LONG blocked: no strong HTF support within ${config.hyperliquid.htfSr.atrMult}×ATR(1h)`;
+          return rejectOpen(
+            'long_confirmation',
+            reason,
+            'long confirmation support check',
+            {
+              h1Trend: opts.pick.h1Trend,
+              atr1h: htfSrGate.atr1h,
+              atrThreshold: htfSrGate.atrThreshold,
+            }
+          );
+        }
+
+        logger.info('HL SIDEWAYS LONG allowed — strong HTF support confirmed', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          confidence: opts.pick.confidence,
+          support: nearbySupport.level.price,
+          supportTf: nearbySupport.level.timeframe,
+          rejections: nearbySupport.level.rejections,
+          ageH: nearbySupport.level.lastTouchAgeHours,
+          distanceAtr: nearbySupport.distanceAtr,
+        });
+      }
+
+      const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
+      const effectiveLeverage = Math.min(opts.leverage, maxLeverageForCoin(meta, coin));
       const size = opts.notionalUsd / markPx;
       if (size <= 0) {
         return rejectOpen('invalid_size', 'Invalid size', 'invalid size');
       }
 
-      const symbol = hlCoinToBinanceSymbol(coin);
       const { tier: coinTier } = classifyCoinTier(coin, opts.ctx.liquidUniverse);
 
       if (needsCautionPath(coinTier) && opts.pick.confidence < config.hyperliquid.cautiousScan.minSignalConfidence) {
@@ -1028,7 +1080,7 @@ export class HyperliquidTradingService {
       // Gate HTF S/R — 1h/4h strong levels, ATR proximity, level decay.
       // Default shadow: always log would-blocks to hl_open_blocks; only reject when
       // HL_HTF_SR_ENFORCE=true (after 24–48h of shadow evidence).
-      const htfSrGate = await validateHtfSr({
+      htfSrGate ??= await validateHtfSr({
         symbol,
         coin,
         direction: opts.direction,
