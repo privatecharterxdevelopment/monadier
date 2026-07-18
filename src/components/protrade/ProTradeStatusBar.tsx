@@ -96,6 +96,10 @@ const ProTradeStatusBar: React.FC<Props> = ({
     const running = botRunning;
     const totalPnl = botMetrics.totalPnlUsd;
     const pnlUp = totalPnl >= 0;
+    // Prefer the live mark-based uPnL (same source as the positions table) so the
+    // header matches the rows tick-for-tick; fall back to the snapshot aggregate.
+    const openCount = positions.length > 0 ? positions.length : botMetrics.openPositionsCount;
+    const botUpnl = positions.length > 0 ? upnl : botMetrics.unrealizedPnlUsd;
     return (
       <footer className="hl-status">
         <div className="hl-status-left">
@@ -114,9 +118,9 @@ const ProTradeStatusBar: React.FC<Props> = ({
           </span>
           <span>HL {fmtUsd(botMetrics.hlBalanceUsd)}</span>
           <span>Withdraw {fmtUsd(botMetrics.hlWithdrawableUsd)}</span>
-          <span>Open {botMetrics.openPositionsCount}</span>
-          <span className={botMetrics.unrealizedPnlUsd >= 0 ? 'hl-up' : 'hl-down'}>
-            uPnL {fmtUpnl(botMetrics.unrealizedPnlUsd)}
+          <span>Open {openCount}</span>
+          <span className={botUpnl >= 0 ? 'hl-up' : 'hl-down'}>
+            uPnL {fmtUpnl(botUpnl)}
           </span>
           <span className={pnlUp ? 'hl-up' : 'hl-down'}>
             Total P/L {fmtUpnl(totalPnl)}

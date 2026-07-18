@@ -1,7 +1,10 @@
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
+import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
+import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
+import { livePositionUpnl } from '../../lib/hyperliquid/user';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import type { HlBotDockTab } from '../protrade/ProTradeHlBotDock';
 import TerminalTradePanel from '../terminal/TerminalTradePanel';
@@ -125,13 +128,28 @@ export const ProTradeBotStatusBar: React.FC<StatusProps> = ({
 }) => {
   const { metrics } = useProTradeBot();
   const { wallet } = useTerminalBotSettings();
+  // Compute the header uPnL from the same live positions + mark prices the
+  // positions table uses, so both numbers always match (no more 15s-snapshot lag).
+  const { snapshot } = useHlAccountSnapshot(wallet);
+  const positions = snapshot?.positions ?? [];
+  const coins = useMemo(() => positions.map((p) => p.coin), [positions]);
+  const { prices: markPrices } = useHyperliquidMarkPrices(coins, 5000);
+  const liveUpnl = useMemo(
+    () =>
+      positions.reduce(
+        (sum, p) => sum + livePositionUpnl(p, markPrices[p.coin] ?? 0),
+        0
+      ),
+    [positions, markPrices]
+  );
   return (
     <ProTradeStatusBar
       mode="bot"
       walletConnected={walletConnected}
       wsLive={wsLive}
       openOrders={[]}
-      positions={[]}
+      positions={positions}
+      totalUpnl={liveUpnl}
       botMetrics={metrics}
       botWallet={wallet}
     />

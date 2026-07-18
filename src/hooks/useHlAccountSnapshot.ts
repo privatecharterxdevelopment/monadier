@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchHlFundingSnapshot } from '../lib/hyperliquid/funding';
-import { fetchHlAccountState } from '../lib/hyperliquid/user';
+import { fetchHlAccountState, type HlPosition } from '../lib/hyperliquid/user';
 import { MIN_HL_BOT_USD } from '../lib/hyperliquid/hlBotAgent';
 
 export type HlAccountSnapshot = {
@@ -18,6 +18,8 @@ export type HlAccountSnapshot = {
   openPositionsCount: number;
   openNotionalUsd: number;
   unrealizedPnlUsd: number;
+  /** Open positions — shared so the header can compute live uPnL like the table. */
+  positions: HlPosition[];
   updatedAt: number;
 };
 
@@ -61,6 +63,9 @@ async function pollOnce(wallet: string, fresh = false): Promise<void> {
       unrealizedPnlUsd: (acct?.positions ?? []).reduce(
         (sum, p) => sum + (Number.parseFloat(p.unrealizedPnl || '0') || 0),
         0
+      ),
+      positions: (acct?.positions ?? []).filter(
+        (p) => Math.abs(Number.parseFloat(p.szi || '0')) > 1e-12
       ),
       updatedAt: Date.now(),
     };
