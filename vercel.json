@@ -23,6 +23,16 @@
       "source": "/sports-betting/:path*",
       "destination": "/ai-sports-betting",
       "permanent": true
+    },
+    {
+      "source": "/about",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/about/:path*",
+      "destination": "/",
+      "permanent": true
     }
   ],
   "rewrites": [

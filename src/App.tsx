@@ -21,7 +21,6 @@ import BotTradingPage from './pages/BotTradingPage';
 import LeaderboardLandingPage from './pages/LeaderboardLandingPage';
 import SportsBettingPage from './pages/SportsBettingPage';
 import ForexPage from './pages/ForexPage';
-import AboutPage from './pages/AboutPage';
 import TechnologyPage from './pages/TechnologyPage';
 import SupportPage from './pages/SupportPage';
 import PricingPage from './pages/PricingPage';
@@ -100,11 +99,6 @@ function App() {
           <Route path="/forex" element={
             <PageTransition>
               <ForexPage />
-            </PageTransition>
-          } />
-          <Route path="/about" element={
-            <PageTransition>
-              <AboutPage />
             </PageTransition>
           } />
           <Route path="/technology" element={

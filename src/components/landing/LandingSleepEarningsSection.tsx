@@ -20,7 +20,7 @@ const WIN_NOTIFICATIONS: WinNotification[] = [
 
 const PILL_KEYS = ['run247'] as const;
 
-const NOTIF_STEP_MS = 1650;
+const NOTIF_STEP_MS = 1050;
 const NOTIF_EASE = [0.22, 1, 0.36, 1] as const;
 const LOCK_SCREEN_TIME = '9:41';
 
@@ -146,8 +146,8 @@ const LandingSleepEarningsSection: React.FC = () => {
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: -12, scale: 0.98 }}
                           transition={{
-                            layout: { duration: 0.42, ease: NOTIF_EASE },
-                            duration: 0.52,
+                            layout: { duration: 0.3, ease: NOTIF_EASE },
+                            duration: 0.36,
                             ease: NOTIF_EASE,
                           }}
                         >
@@ -177,7 +177,7 @@ const LandingSleepEarningsSection: React.FC = () => {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.65, ease: NOTIF_EASE }}
+                  transition={{ duration: 0.45, ease: NOTIF_EASE }}
                 >
                   <div className="landing-sleep-overlay-inner">
                     <div className="landing-sleep-overlay-title-wrap">
@@ -187,7 +187,7 @@ const LandingSleepEarningsSection: React.FC = () => {
                         initial={{ opacity: 0, y: 28, filter: 'blur(10px)' }}
                         animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                         exit={{ opacity: 0, filter: 'blur(6px)' }}
-                        transition={{ duration: 0.78, delay: 0.06, ease: NOTIF_EASE }}
+                        transition={{ duration: 0.55, delay: 0.04, ease: NOTIF_EASE }}
                         onAnimationComplete={() => {
                           if (showOverlay) setTitleDone(true);
                         }}
@@ -202,7 +202,7 @@ const LandingSleepEarningsSection: React.FC = () => {
                           initial={{ opacity: 0, filter: 'blur(6px)' }}
                           animate={{ opacity: 1, filter: 'blur(0px)' }}
                           exit={{ opacity: 0, filter: 'blur(4px)' }}
-                          transition={{ duration: 0.58, delay: 0.04, ease: NOTIF_EASE }}
+                          transition={{ duration: 0.4, delay: 0.03, ease: NOTIF_EASE }}
                           onAnimationComplete={() => {
                             if (showOverlay && titleDone) setDescriptionDone(true);
                           }}

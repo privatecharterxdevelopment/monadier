@@ -1,7 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { goToOpenApp } from '../../lib/appUrls';
 import { useLandingAutoSequence } from './useLandingAutoSequence';
 import LandingProductWidgetCard from './LandingProductWidgetCard';
 
@@ -30,8 +36,10 @@ const LandingProductCarouselSection: React.FC = () => {
   const { t } = useTranslation();
   const laneRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
-  const finalScrollRef = useRef(0);
+  const dragRef = useRef({ active: false, startX: 0, startScroll: 0, moved: false });
+  const suppressClickRef = useRef(false);
   const [rotateIndex, setRotateIndex] = useState(0);
+  const [dragging, setDragging] = useState(false);
 
   const rotateWordsRaw = t('landing.carousel.rotateWords', { returnObjects: true });
   const rotateWords = Array.isArray(rotateWordsRaw)
@@ -57,7 +65,7 @@ const LandingProductCarouselSection: React.FC = () => {
     return () => window.clearInterval(id);
   }, [rotateWords.length]);
 
-  const { sectionRef, progress } = useLandingAutoSequence({
+  const { sectionRef, progress, complete } = useLandingAutoSequence({
     durationMs: CAROUSEL_AUTO_MS,
     visibilityThreshold: 0.25,
   });
@@ -76,7 +84,6 @@ const LandingProductCarouselSection: React.FC = () => {
 
       const travel = measureCarouselTravel(lane, track);
       const offset = Math.min(travel, p * travel);
-      finalScrollRef.current = offset;
       applyCarouselOffset(offset);
     },
     [applyCarouselOffset]
@@ -89,10 +96,62 @@ const LandingProductCarouselSection: React.FC = () => {
     return () => window.removeEventListener('resize', onResize);
   }, [progress, syncFromProgress]);
 
+  useLayoutEffect(() => {
+    if (!complete) return;
+    const lane = laneRef.current;
+    const track = trackRef.current;
+    if (!lane || !track) return;
+    const finalOffset = measureCarouselTravel(lane, track);
+    lane.scrollLeft = finalOffset;
+  }, [complete]);
+
+  const finishPointerDrag = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current.active || event.pointerType !== 'mouse') return;
+    dragRef.current.active = false;
+    setDragging(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    if (dragRef.current.moved) {
+      suppressClickRef.current = true;
+      window.setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 250);
+    }
+  }, []);
+
+  const onPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!complete || event.pointerType !== 'mouse' || event.button !== 0) return;
+      const lane = event.currentTarget;
+      dragRef.current = {
+        active: true,
+        startX: event.clientX,
+        startScroll: lane.scrollLeft,
+        moved: false,
+      };
+      lane.setPointerCapture(event.pointerId);
+      setDragging(true);
+    },
+    [complete]
+  );
+
+  const onPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag.active || event.pointerType !== 'mouse') return;
+    const delta = event.clientX - drag.startX;
+    if (Math.abs(delta) > 4) drag.moved = true;
+    if (!drag.moved) return;
+    event.preventDefault();
+    event.currentTarget.scrollLeft = drag.startScroll - delta;
+  }, []);
+
   return (
     <section
       ref={sectionRef}
-      className="landing-gmx-section landing-gmx-product-carousel-section landing-gmx-section--auto-play"
+      className={`landing-gmx-section landing-gmx-product-carousel-section landing-gmx-section--auto-play${
+        complete ? ' landing-gmx-product-carousel-section--unlocked' : ''
+      }`}
       aria-labelledby="landing-product-carousel-title"
     >
       <div className="landing-gmx-product-carousel-sticky">
@@ -127,7 +186,19 @@ const LandingProductCarouselSection: React.FC = () => {
               </h2>
             </div>
 
-            <div ref={laneRef} className="landing-gmx-product-carousel-lane">
+            <div
+              ref={laneRef}
+              className={`landing-gmx-product-carousel-lane${dragging ? ' is-dragging' : ''}`}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={finishPointerDrag}
+              onPointerCancel={finishPointerDrag}
+              onClickCapture={(event) => {
+                if (!suppressClickRef.current) return;
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+            >
               <div ref={trackRef} className="landing-gmx-product-carousel-track">
                 {productCards.map((card) => (
                   <LandingProductWidgetCard

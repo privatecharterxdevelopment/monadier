@@ -1767,6 +1767,16 @@
   filter: saturate(1.12) contrast(1.08);
 }
 
+@media (max-width: 767px) {
+  /* Mobile Safari can decode VP9 while ignoring its alpha plane. The mobile
+     source is MP4, so screen blend removes the opaque black video background. */
+  .landing-gmx-bot-pitch-video {
+    mix-blend-mode: screen;
+    opacity: 0.92;
+    filter: saturate(1.12) contrast(1.08);
+  }
+}
+
 .landing-gmx-pitch-stage {
   position: relative;
   z-index: 1;
@@ -2154,6 +2164,11 @@
 
 .landing-gmx-product-carousel-section--unlocked .landing-gmx-product-carousel-lane:active {
   cursor: grabbing;
+}
+
+.landing-gmx-product-carousel-section--unlocked .landing-gmx-product-carousel-lane.is-dragging {
+  cursor: grabbing;
+  user-select: none;
 }
 
 .landing-gmx-product-carousel-section--unlocked .landing-gmx-product-carousel-track {
@@ -2720,6 +2735,10 @@
     padding: 13px 18px;
     font-size: 14px;
     white-space: normal;
+  }
+
+  .landing-sleep-pill--register {
+    display: none;
   }
 
   .landing-sleep-pill-rainbow-link {

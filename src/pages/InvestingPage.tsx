@@ -17,7 +17,6 @@ const InvestingPage: React.FC = () => {
             <Link to="/banking" className="text-secondary hover:text-primary transition-colors">Banking</Link>
             <Link to="/saving" className="text-secondary hover:text-primary transition-colors">Saving</Link>
             <Link to="/investing" className="text-primary hover:text-primary transition-colors">Investing</Link>
-            <Link to="/about" className="text-secondary hover:text-primary transition-colors">About</Link>
             <Link to="/register">
               <Button variant="primary" size="md">Open an account</Button>
             </Link>

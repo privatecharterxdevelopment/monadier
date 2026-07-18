@@ -16,5 +16,4 @@ export const LANDING_FOOTER_LINKS = [
   { to: '/terms', labelKey: 'footer.terms' },
   { to: '/privacy', labelKey: 'footer.privacy' },
   { to: '/support', labelKey: 'footer.support' },
-  { to: '/about', labelKey: 'footer.about' },
 ] as const;

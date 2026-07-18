@@ -123,7 +123,6 @@ const MARKETING_EXACT_PATHS = [
   '/trading-bot',
   '/sports-betting',
   '/ai-sports-betting',
-  '/about',
   '/technology',
   '/support',
   '/pricing',

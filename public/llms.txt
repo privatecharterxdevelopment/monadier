@@ -18,7 +18,6 @@ HyperGain is automated trading software for Hyperliquid. Users deposit USDC on t
 
 - Leaderboard: https://hypergain.io/leaderboard
 - Technology: https://hypergain.io/technology
-- About: https://hypergain.io/about
 - Support & FAQ: https://hypergain.io/support
 
 ## Product summary
