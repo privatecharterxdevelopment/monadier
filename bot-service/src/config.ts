@@ -126,14 +126,21 @@ export const config = {
     minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
     /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
     dynamicTrail: {
-      /** Min ms in profit before arming breakeven / trail SL (2 min default). */
-      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 120_000),
+      /** Min continuous ms in profit before arming profit protection (30s default). */
+      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 30_000),
       /** Max ms from open — force SL trail arm (profit BE or loss SL%). */
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
-      /** Min ROE before breakeven+fees lock (~2.5% — stage 1). */
-      breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 2.5),
+      /** Min ROE before breakeven+fees lock (~1.5% — stage 1, arms profit floor early). */
+      breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 1.5),
       /** Min ROE before full ATR/% trail ratchet (~5% — stage 2). */
       armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 5),
+      /**
+       * Hard profit-lock floor = peak uPnL × (1 − dropFrac), ratchets up with the peak.
+       * Scales with peak size (leverage-agnostic), so a $22 peak locks ~$15.4 at 0.30.
+       * Only engages once peak ROE reaches breakevenArmRoePct. Non-deferrable — this is
+       * the guarantee that a peak can't erode back (e.g. the $22 → $8 case).
+       */
+      profitFloorPeakDropFrac: Number(process.env.HL_TRAIL_FLOOR_PEAK_DROP_FRAC || 0.3),
       /** After trail arms — min ms before trail/peak can close. */
       trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 60_000),
       armFeesMultiplier: Number(process.env.HL_TRAIL_ARM_FEES_MULT || 2),

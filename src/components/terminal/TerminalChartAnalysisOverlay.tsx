@@ -57,8 +57,16 @@ function TfIndicator({
   const timingOnly = is5m && (tf5Role === 'timing_boost' || signal.mtfContext === 'trend_following');
   const required = is5m && (tf5Role === 'required' || signal.mtfContext === 'reversal');
   const tooltip = is5m ? fiveMinTooltip(signal.mtfContext, tf5Role) : undefined;
+  const dir = tf.direction?.toUpperCase();
+  const dirClass =
+    dir === 'LONG'
+      ? 'term-tf-chip--long'
+      : dir === 'SHORT'
+        ? 'term-tf-chip--short'
+        : 'term-tf-chip--flat';
   const className = [
     'term-tf-chip',
+    dirClass,
     is5m && timingOnly ? 'term-tf-chip--5m-timing' : '',
     is5m && required ? 'term-tf-chip--5m-required' : '',
   ]

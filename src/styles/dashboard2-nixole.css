@@ -1858,11 +1858,30 @@
 
 .term-tf-chip {
   font-size: 10px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   padding: 1px 5px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--term-text, #e4e4e7);
+}
+
+.term-tf-chip--long {
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.35);
+  background: rgba(74, 222, 128, 0.1);
+}
+
+.term-tf-chip--short {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.term-tf-chip--flat {
   color: var(--term-text-muted, #a1a1aa);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .term-tf-chip--5m-timing {
