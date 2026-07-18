@@ -224,6 +224,21 @@ export const config = {
       swingClusterPct: Number(process.env.HL_HTF_SR_CLUSTER || 0.005),
       touchTolerancePct: Number(process.env.HL_HTF_SR_TOUCH_TOL || 0.003),
     },
+    /**
+     * Per-gate enforce for the direction/location overlap set.
+     * Default TRUE = current live blocking (except htf_sr, which stays shadow).
+     * Set HL_*_ENFORCE=false to shadow that gate alone without a code deploy.
+     * All six are always evaluated + logged to hl_gate_evaluations for overlap.
+     */
+    gateEnforce: {
+      longConfirmation: process.env.HL_LONG_CONFIRMATION_ENFORCE !== 'false',
+      scalpAlign: process.env.HL_SCALP_ALIGN_ENFORCE !== 'false',
+      macroBeta: process.env.HL_MACRO_BETA_ENFORCE !== 'false',
+      entryLocation: process.env.HL_ENTRY_LOCATION_ENFORCE !== 'false',
+      /** Mirrors htfSr.enforce — keep false until shadow evidence. */
+      htfSr: process.env.HL_HTF_SR_ENFORCE === 'true',
+      entryMomentum: process.env.HL_ENTRY_MOMENTUM_ENFORCE !== 'false',
+    },
     /** BTC/ETH beta — block counter-trend alt entries (SHORT while pumping, LONG while dumping). */
     macroBeta: {
       /** 15m % move that counts as "pumping" (blocks alt SHORT). */

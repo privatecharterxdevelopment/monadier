@@ -34,19 +34,16 @@ import { getPlatformFeeStatus, PLATFORM_FEE_WINS_BEFORE_BLOCK } from './platform
 import { recordHlBotOpenMarker } from './hlChartMarkers';
 import { recordHlOpenBlock, type HlOpenBlockGate } from './hlOpenBlocks';
 import { shouldTakeProfitOnPnl } from './pnlExits';
-import { validateEntryLocation } from './entryLocationGate';
-import { validateHtfSr } from './htfSrGate';
-import { validateMacroBetaAlignment } from './macroBetaGate';
-import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, MAJOR_COINS, needsCautionPath, volumeRankForCoin } from './coinTier';
 import { validateCoinNews } from './coinNewsGate';
 import type { NewsTradeMode } from './newsTradeMode';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import { validatePumpSweepGate } from './pumpSweepGate';
-import { validateScalpAlignment } from './scalpAlignGate';
 import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
 import { validatePerpMarketContext } from './perpMarketContextGate';
+import { evaluateDirectionLocationOverlap } from './directionLocationOverlap';
+import { recordGateEvaluationBatch } from './hlGateEvaluations';
 import { buildHlOpenReasonDoc } from './openReasonBuilder';
 import {
   evaluateProfitRunAnalysis,
@@ -821,23 +818,6 @@ export class HyperliquidTradingService {
         );
       }
 
-      // Gate 0.5 — Long Confirmation: h1Trend must be UP, not just "not DOWN".
-      // Empirical basis: open-reason logs, 8 losing vs 12 winning LONGs
-      // (subset of 56 total LONG trades w/ full open-reason text).
-      // 7/8 losers had h1Trend=SIDEWAYS; 10/12 winners had h1Trend=UP.
-      // Scan-level filter only blocks LONG when h1Trend=DOWN — this closes
-      // the SIDEWAYS gap for LONG entries only. SHORT untouched.
-      // Caveat: sample 20/56 LONGs — plausible correlation, not full significance.
-      // Backtest in-sample (same period as hypothesis) — live monitor via hl_open_blocks.
-      if (opts.direction === 'LONG' && opts.pick.h1Trend !== 'UP') {
-        return rejectOpen(
-          'long_confirmation',
-          `Long confirmation: 1h trend is ${opts.pick.h1Trend ?? 'unknown'}, need UP`,
-          'long confirmation gate',
-          { h1Trend: opts.pick.h1Trend }
-        );
-      }
-
       const assetIndex = coinToAssetIndex(meta, coin);
       const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
       const effectiveLeverage = Math.min(opts.leverage, maxLeverageForCoin(meta, coin));
@@ -909,26 +889,6 @@ export class HyperliquidTradingService {
         });
       }
 
-      const scalpGate = relaxSecondaryGates
-          ? {
-              ok: true as const,
-              reason: `Scan pick — scalp confirm skipped (${opts.pick.confidence}%, ${opts.pick.directionalTfCount} TFs)`,
-            }
-          : await validateScalpAlignment({ coin, direction: opts.direction });
-      if (!scalpGate.ok) {
-        return rejectOpen('scalp_align', scalpGate.reason, 'scalp 1m/5m align');
-      }
-
-      const macroGate = await validateMacroBetaAlignment({
-        coin,
-        direction: opts.direction,
-      });
-      if (!macroGate.ok) {
-        return rejectOpen('macro_beta', macroGate.reason, 'macro beta gate', {
-          blockers: macroGate.blockers,
-        });
-      }
-
       const pumpShortGate = await validateNoAltPumpShort({
         coin,
         direction: opts.direction,
@@ -975,93 +935,74 @@ export class HyperliquidTradingService {
         });
       }
 
-      const locationGate = relaxSecondaryGates
-          ? {
-              ok: true as const,
-              reason: `Scan pick — S/R gate skipped (${opts.pick.confidence}%)`,
-              analysis: {
-                support: 0,
-                resistance: 0,
-                price: markPx,
-                pricePosition: 0.5,
-                resistanceTouches: 0,
-                resistanceRejections: 0,
-                supportTouches: 0,
-                supportRejections: 0,
-                confirmedBreakoutUp: false,
-                confirmedBreakdown: false,
-                nearResistance: false,
-                nearSupport: false,
-              },
-            }
-          : await validateEntryLocation({
-              symbol,
-              coin,
-              direction: opts.direction,
-            });
-      if (!locationGate.ok) {
-        return rejectOpen('entry_location', locationGate.reason, 'resistance/support gate', {
-          resistance: locationGate.analysis.resistance,
-          rejections: locationGate.analysis.resistanceRejections,
-        });
-      }
-
-      // Gate HTF S/R — 1h/4h strong levels, ATR proximity, level decay.
-      // Default shadow: always log would-blocks to hl_open_blocks; only reject when
-      // HL_HTF_SR_ENFORCE=true (after 24–48h of shadow evidence).
-      const htfSrGate = await validateHtfSr({
-        symbol,
+      // Direction/location overlap set — evaluate ALL six, log under one evaluation_id,
+      // then enforce per-gate flags (defaults = current live blocking; htf_sr shadow).
+      // Counterfactual PnL intentionally deferred to a separate PR.
+      const overlap = await evaluateDirectionLocationOverlap({
+        pick: opts.pick,
         coin,
+        symbol,
         direction: opts.direction,
       });
-      if (htfSrGate.wouldBlock) {
-        logger.info(
-          htfSrGate.shadow
-            ? 'HL open SHADOW — HTF S/R would block'
-            : 'HL open blocked — HTF S/R gate',
-          {
-            user: opts.userAddress.slice(0, 10),
-            coin,
-            direction: opts.direction,
-            reason: htfSrGate.reason,
-            atr1h: htfSrGate.atr1h,
-            atrThreshold: htfSrGate.atrThreshold,
-            level: htfSrGate.nearestLevel?.price,
-            levelTf: htfSrGate.nearestLevel?.timeframe,
-            rejections: htfSrGate.nearestLevel?.rejections,
-            ageH: htfSrGate.nearestLevel?.lastTouchAgeHours,
-            shadow: htfSrGate.shadow,
-          }
-        );
+      void recordGateEvaluationBatch({
+        evaluationId: overlap.evaluationId,
+        walletAddress: opts.userAddress,
+        coin,
+        direction: opts.direction,
+        h1Trend: opts.pick.h1Trend,
+        confidence: opts.pick.confidence,
+        notionalUsd: opts.notionalUsd,
+        leverage: opts.leverage,
+        rows: overlap.rows,
+      });
+      if (overlap.wouldBlockGates.length > 0) {
+        logger.info('HL open gate overlap', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          evaluationId: overlap.evaluationId.slice(0, 8),
+          wouldBlock: overlap.wouldBlockGates,
+          blockingGate: overlap.blockingGate,
+          h1Trend: opts.pick.h1Trend,
+        });
+      }
+      // Keep hl_open_blocks rows for any would-block (incl. shadow) so admin/history
+      // still sees each gate; did_block gate also gets the rejectOpen path below.
+      for (const row of overlap.rows) {
+        if (!row.wouldBlock) continue;
+        if (row.didBlock) continue; // rejectOpen logs it
         void recordHlOpenBlock({
           walletAddress: opts.userAddress,
           coin,
           direction: opts.direction,
-          gate: 'htf_sr',
-          reason: htfSrGate.reason,
+          gate: row.gate,
+          reason: row.enforced
+            ? row.reason
+            : `SHADOW: would block — ${row.reason}`,
           h1Trend: opts.pick.h1Trend,
           confidence: opts.pick.confidence,
           notionalUsd: opts.notionalUsd,
           leverage: opts.leverage,
         });
-        if (!htfSrGate.ok) {
-          return { success: false, error: htfSrGate.reason };
-        }
+      }
+      if (overlap.blockingGate && overlap.blockingReason) {
+        return rejectOpen(
+          overlap.blockingGate,
+          overlap.blockingReason,
+          `${overlap.blockingGate} gate`,
+          {
+            evaluationId: overlap.evaluationId.slice(0, 8),
+            wouldBlockAlso: overlap.wouldBlockGates.filter((g) => g !== overlap.blockingGate),
+          }
+        );
       }
 
-      const momentumGate = relaxSecondaryGates
-          ? {
-              ok: true as const,
-              reason: `Scan pick — momentum confirm skipped (${opts.pick.confidence}%)`,
-              change5mPct: 0,
-              change15mPct: 0,
-              change1hPct: 0,
-              momentumAligned: true,
-            }
-          : await validateEntryMomentum({ coin, direction: opts.direction });
-      if (!momentumGate.ok) {
-        return rejectOpen('entry_momentum', momentumGate.reason, 'entry momentum');
-      }
+      const {
+        scalpGate,
+        macroGate,
+        locationGate,
+        momentumGate,
+      } = overlap;
 
       const openReasonDoc = buildHlOpenReasonDoc({
         mode: opts.botModeLabel,

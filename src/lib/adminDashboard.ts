@@ -324,10 +324,65 @@ export type BotServiceStatus = {
   error?: string;
 };
 
+export type BotGlobalSignalCandidate = {
+  coin: string;
+  symbol?: string;
+  direction: 'LONG' | 'SHORT';
+  confidence: number;
+  h1Trend?: string | null;
+  trendAlignment?: number;
+  directionalTfCount?: number;
+  dayVolumeUsd?: number;
+  botMode?: string;
+  mtfBreakdown?: string;
+  reason?: string;
+};
+
+export type BotGlobalSignals = {
+  success: boolean;
+  coinsScanned?: number;
+  standard?: number;
+  aggressive?: number;
+  count?: number;
+  minConfidence?: number;
+  scannedAt?: string;
+  standardCandidates?: BotGlobalSignalCandidate[];
+  aggressiveCandidates?: BotGlobalSignalCandidate[];
+};
+
+export type CandidateOpenDecision = {
+  status: 'eligible' | 'blocked';
+  gate: string | null;
+  reason: string;
+};
+
+/**
+ * Mirror the deterministic scan→open gates we can evaluate client-side from a
+ * candidate. The only 100%-known-from-candidate blocker is long_confirmation
+ * (LONG needs h1=UP). Everything else is per-wallet/live, so we mark eligible
+ * and point to the live gates.
+ */
+export function candidateOpenDecision(c: BotGlobalSignalCandidate): CandidateOpenDecision {
+  const h1 = String(c.h1Trend ?? '').toUpperCase();
+  if (c.direction === 'LONG' && h1 !== 'UP') {
+    return {
+      status: 'blocked',
+      gate: 'long_confirmation',
+      reason: `LONG needs 1h trend UP — h1 is ${c.h1Trend ?? 'unknown'}`,
+    };
+  }
+  return {
+    status: 'eligible',
+    gate: null,
+    reason: 'Passes scan — subject to live per-wallet gates (location · momentum · pump · HTF-S/R shadow)',
+  };
+}
+
 export type AdminLiveContext = {
   builder: HlBuilderPlatformStatus;
   health: BotServiceHealth | null;
   serviceStatus: BotServiceStatus | null;
+  globalSignals: BotGlobalSignals | null;
 };
 
 export type AdminSessionCheck = {
@@ -913,11 +968,13 @@ export async function fetchAdminLiveContext(): Promise<AdminLiveContext> {
 
   let health: BotServiceHealth | null = null;
   let serviceStatus: BotServiceStatus | null = null;
+  let globalSignals: BotGlobalSignals | null = null;
 
   try {
-    const [healthRes, statusRes] = await Promise.all([
+    const [healthRes, statusRes, signalsRes] = await Promise.all([
       fetch(`${base}/health`),
       fetch(`${base}/api/service-status`),
+      fetch(`${base}/api/global-signals`).catch(() => null),
     ]);
     if (healthRes.ok) {
       health = (await healthRes.json()) as BotServiceHealth;
@@ -925,11 +982,14 @@ export async function fetchAdminLiveContext(): Promise<AdminLiveContext> {
     if (statusRes.ok) {
       serviceStatus = (await statusRes.json()) as BotServiceStatus;
     }
+    if (signalsRes && signalsRes.ok) {
+      globalSignals = (await signalsRes.json()) as BotGlobalSignals;
+    }
   } catch (e) {
     console.warn('[adminDashboard] bot-service unreachable', e);
   }
 
-  return { builder, health, serviceStatus };
+  return { builder, health, serviceStatus, globalSignals };
 }
 
 function closeReasonStem(reason: string | null | undefined): string {

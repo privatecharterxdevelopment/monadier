@@ -20,6 +20,7 @@ import { supabase } from '../../lib/supabase';
 import { isAdminEmail } from '../../lib/admin';
 import { adminReconcilePlatformFee } from '../../lib/platformFeesApi';
 import {
+  candidateOpenDecision,
   fetchAdminHlDashboard,
   fetchAdminHlTradeHistory,
   fetchAdminLiveContext,
@@ -30,6 +31,7 @@ import {
   shortWallet,
   type AdminHlDashboard,
   type AdminLiveContext,
+  type BotGlobalSignals,
   type AdminTradeClose,
   type AdminTradeHistoryUserStats,
   type AdminWalletFee,
@@ -480,6 +482,101 @@ function BotServiceCard({
         <pre className="mt-3 text-[10px] text-secondary bg-black/20 rounded p-2 overflow-x-auto max-h-24">
           {JSON.stringify(health.lastCycle, null, 0)}
         </pre>
+      )}
+      <BotAnalyzePanel signals={live?.globalSignals ?? null} />
+    </div>
+  );
+}
+
+/**
+ * Live scan / analyze view: what the bot is looking at right now and, per
+ * candidate, whether it would open or which gate blocks it. Answers
+ * "which pair is blocked, why, and why nothing opens".
+ */
+function BotAnalyzePanel({ signals }: { signals: BotGlobalSignals | null }) {
+  const candidates = useMemo(
+    () => [
+      ...(signals?.standardCandidates ?? []),
+      ...(signals?.aggressiveCandidates ?? []),
+    ],
+    [signals]
+  );
+
+  if (!signals) return null;
+
+  const scanned = signals.coinsScanned ?? 0;
+  const eligible = candidates.filter((c) => candidateOpenDecision(c).status === 'eligible').length;
+  const blocked = candidates.length - eligible;
+
+  return (
+    <div className="mt-4 border-t border-border pt-3">
+      <div className="flex flex-wrap items-center gap-2 mb-2">
+        <p className="text-xs text-secondary">
+          Bot analyze — live scan{' '}
+          <span className="text-primary">{scanned}</span> coins ·{' '}
+          <span className="text-primary">{candidates.length}</span> candidates ·{' '}
+          <span className="text-green-400">{eligible} eligible</span>{' '}
+          <span className="text-amber-400">/ {blocked} blocked</span>
+        </p>
+        <span className="ml-auto text-[10px] text-secondary">
+          min conf {signals.minConfidence ?? '—'}%
+          {signals.scannedAt ? ` · ${formatTimeAgo(signals.scannedAt)}` : ''}
+        </span>
+      </div>
+      {candidates.length === 0 ? (
+        <p className="text-xs text-secondary">
+          No candidates passed the scan this cycle — nothing to open (market has no
+          signal that clears min confidence / trend filters).
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left text-secondary">
+                <th className="py-1 pr-2">Coin</th>
+                <th className="py-1 pr-2">Dir</th>
+                <th className="py-1 pr-2">Conf</th>
+                <th className="py-1 pr-2">1h</th>
+                <th className="py-1 pr-2">TFs</th>
+                <th className="py-1 pr-2">Open?</th>
+                <th className="py-1">Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {candidates.map((c) => {
+                const d = candidateOpenDecision(c);
+                const blockedRow = d.status === 'blocked';
+                return (
+                  <tr key={`${c.coin}-${c.direction}`} className="border-t border-border/50">
+                    <td className="py-1 pr-2 font-mono text-primary">{c.coin}</td>
+                    <td
+                      className={`py-1 pr-2 font-medium ${
+                        c.direction === 'LONG' ? 'text-green-400' : 'text-red-400'
+                      }`}
+                    >
+                      {c.direction}
+                    </td>
+                    <td className="py-1 pr-2 font-mono">{c.confidence}%</td>
+                    <td className="py-1 pr-2">{c.h1Trend ?? '—'}</td>
+                    <td className="py-1 pr-2 font-mono">{c.directionalTfCount ?? '—'}/4</td>
+                    <td className={`py-1 pr-2 ${blockedRow ? 'text-red-400' : 'text-green-400'}`}>
+                      {blockedRow ? 'NO' : 'maybe'}
+                    </td>
+                    <td className={`py-1 ${blockedRow ? 'text-amber-400/90' : 'text-secondary'}`}>
+                      {blockedRow && d.gate ? `${d.gate}: ` : ''}
+                      {d.reason}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <p className="mt-2 text-[10px] text-secondary">
+            "maybe" = clears scan-level gates; final open still depends on live
+            per-wallet gates (entry location · momentum · fresh-pump · HTF-S/R
+            shadow · margin). See the per-wallet "Blocking" table above.
+          </p>
+        </div>
       )}
     </div>
   );
