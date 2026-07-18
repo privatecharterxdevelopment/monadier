@@ -51,6 +51,28 @@ export interface TimeframeAnalysis {
   currentPrice: number;
 }
 
+export function rsiDirectionalPoints(
+  rsi: number,
+  trend: TimeframeAnalysis['trend']
+): { bullish: number; bearish: number } {
+  let bullish = 0;
+  let bearish = 0;
+
+  // RSI extremes are reversal evidence in ranges, but often indicate momentum
+  // inside a confirmed trend. Do not manufacture a counter-trend signal merely
+  // because an uptrend is overbought or a downtrend is oversold.
+  if (trend !== 'DOWN') {
+    if (rsi < 30) bullish = 2;
+    else if (rsi < 40) bullish = 1;
+  }
+  if (trend !== 'UP') {
+    if (rsi > 70) bearish = 2;
+    else if (rsi > 60) bearish = 1;
+  }
+
+  return { bullish, bearish };
+}
+
 export interface UnifiedSignal {
   symbol: string;
   direction: SignalDirection;
@@ -582,11 +604,10 @@ export class SignalEngine {
     let bullishPoints = 0;
     let bearishPoints = 0;
 
-    // RSI
-    if (rsi < 30) bullishPoints += 2; // Oversold
-    else if (rsi < 40) bullishPoints += 1;
-    else if (rsi > 70) bearishPoints += 2; // Overbought
-    else if (rsi > 60) bearishPoints += 1;
+    // RSI — counter-trend extremes are ignored in confirmed trends.
+    const rsiPoints = rsiDirectionalPoints(rsi, trend);
+    bullishPoints += rsiPoints.bullish;
+    bearishPoints += rsiPoints.bearish;
 
     // MACD
     if (macd.histogram > 0 && macd.macd > macd.signal) bullishPoints += 2;
