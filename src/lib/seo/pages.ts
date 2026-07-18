@@ -98,16 +98,6 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     priority: 0.7,
     sitemap: true,
   },
-  '/about': {
-    path: '/about',
-    title: `About ${SITE_NAME} | Hyperliquid Automated Trading`,
-    description:
-      'HyperGain builds non-custodial automated trading tools for Hyperliquid — full auto trading bot, live terminal, and on-chain sports markets in one platform.',
-    keywords: `about HyperGain, hyperliquid trading platform, ${BOT_KEYWORDS}`,
-    changefreq: 'monthly',
-    priority: 0.65,
-    sitemap: true,
-  },
   '/support': {
     path: '/support',
     title: `Support & FAQ | ${SITE_NAME} Trading Bot`,

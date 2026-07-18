@@ -99,7 +99,8 @@ const LandingBotPitchSection: React.FC = () => {
             playsInline
             preload="auto"
           >
-            <source src={PITCH_VIDEO_WEBM} type="video/webm" />
+            <source src={PITCH_VIDEO_MP4} type="video/mp4" media="(max-width: 767px)" />
+            <source src={PITCH_VIDEO_WEBM} type="video/webm" media="(min-width: 768px)" />
             <source src={PITCH_VIDEO_MP4} type="video/mp4" />
           </video>
         </div>
