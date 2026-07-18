@@ -1,14 +1,19 @@
 import dotenv from 'dotenv';
-import { MONADIER_VAULT_V11_ADDRESS } from './monadierVault';
+import {
+  MONADIER_VAULT_V11_ADDRESS,
+  MONADIER_VAULT_V11_TREASURY_ADDRESS,
+} from './monadierVault';
 
 dotenv.config();
 
-// Validate required environment variables
+// Only genuine secrets are required — no safe in-repo default exists for these.
+// TREASURY_ADDRESS is intentionally NOT here: it's a public, canonical constant
+// (MONADIER_VAULT_V11_TREASURY_ADDRESS) and defaults below, so a missing/removed
+// Railway var can never again crash-loop the whole bot at startup.
 const requiredEnvVars = [
   'BOT_PRIVATE_KEY',
   'SUPABASE_URL',
   'SUPABASE_SERVICE_KEY',
-  'TREASURY_ADDRESS'
 ];
 
 for (const envVar of requiredEnvVars) {
@@ -25,8 +30,9 @@ export const config = {
   supabaseUrl: process.env.SUPABASE_URL!,
   supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
 
-  // Treasury
-  treasuryAddress: process.env.TREASURY_ADDRESS as `0x${string}`,
+  // Treasury — defaults to canonical V11 treasury when the env var is absent.
+  treasuryAddress: (process.env.TREASURY_ADDRESS ||
+    MONADIER_VAULT_V11_TREASURY_ADDRESS) as `0x${string}`,
 
   // ============================================
   // ARBITRUM ONLY - V11 GMX VAULT (RECONCILE FIX)
