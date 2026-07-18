@@ -67,9 +67,11 @@ function headerContentBox(viewportW: number) {
 
 function computeHeroLayout(progress: number, viewportW: number, viewportH: number): HeroLayout {
   const p = Math.min(1, Math.max(0, progress));
-  const margin = HERO_MARGIN_PX;
   const header = headerContentBox(viewportW);
   const isMobile = viewportW < 640;
+  // Mobile skips the intro and opens directly as a true full-viewport video.
+  // Desktop keeps the small framed edge at the end of its expand animation.
+  const margin = isMobile ? 0 : HERO_MARGIN_PX;
 
   let startW: number;
   let startLeft: number;
@@ -107,7 +109,7 @@ function computeHeroLayout(progress: number, viewportW: number, viewportH: numbe
     frameLeft: startLeft + (endLeft - startLeft) * p,
     frameWidth: startW + (endW - startW) * p,
     frameHeight: startH + (endH - startH) * p,
-    videoRadius: 14 + 6 * p,
+    videoRadius: isMobile ? 14 * (1 - p) : 14 + 6 * p,
   };
 }
 
@@ -134,19 +136,20 @@ const GmxStyleLanding: React.FC = () => {
   const rotateLines = Array.isArray(rotateLinesRaw)
     ? (rotateLinesRaw as string[])
     : [...LANDING_ROTATE_LINES_FALLBACK];
+  const initialProgress = isMobileHero ? 1 : 0;
 
-  const expandRef = useRef(0);
-  const targetExpandRef = useRef(0);
+  const expandRef = useRef(initialProgress);
+  const targetExpandRef = useRef(initialProgress);
   const smoothRafRef = useRef<number | null>(null);
-  const unlockedRef = useRef(false);
+  const unlockedRef = useRef(isMobileHero);
   const touchYRef = useRef<number | null>(null);
   const lockSnapshotRef = useRef<{ scrollY: number } | null>(null);
 
-  const [expand, setExpand] = useState(0);
-  const [scrollUnlocked, setScrollUnlocked] = useState(false);
-  const [heroRevealed, setHeroRevealed] = useState(false);
+  const [expand, setExpand] = useState(initialProgress);
+  const [scrollUnlocked, setScrollUnlocked] = useState(isMobileHero);
+  const [heroRevealed, setHeroRevealed] = useState(isMobileHero);
   const [layout, setLayout] = useState<HeroLayout>(() =>
-    computeHeroLayout(0, window.innerWidth, viewportHeight())
+    computeHeroLayout(initialProgress, window.innerWidth, viewportHeight())
   );
 
   const applyProgress = (next: number) => {
@@ -378,55 +381,38 @@ const GmxStyleLanding: React.FC = () => {
     <div className="landing-gmx">
       <LandingNav variant="light" layout="gmx" />
 
-      {isMobileHero ? (
-        <section className="landing-gmx-hero landing-gmx-hero--centered landing-gmx-hero--static landing-gmx-hero--revealed">
-          <div className="landing-gmx-hero-static-frame">
-            <div className="landing-gmx-hero-video-wrap landing-gmx-hero-video-wrap--ready" aria-hidden>
+      <section
+        className={`landing-gmx-hero landing-gmx-hero--centered landing-gmx-hero--scroll-expand${
+          heroRevealed ? ' landing-gmx-hero--revealed' : ''
+        }${locked ? ' landing-gmx-hero--scroll-locked' : ''}${
+          ctaReveal > 0.02 ? ' landing-gmx-hero--cta-visible' : ''
+        }${expand >= 0.98 ? ' landing-gmx-hero--fullscreen-cta' : ''}`}
+        style={
+          {
+            '--hero-video-expand': expand,
+            '--hero-cta-reveal': ctaReveal,
+          } as React.CSSProperties
+        }
+      >
+        <div className="landing-gmx-hero-sticky">
+          <div className="landing-gmx-hero-viewport">
+            <div className="landing-gmx-hero-video-zoom" style={frameBox} aria-hidden>
               {heroVideo}
             </div>
-            <div className="landing-gmx-hero-chrome landing-gmx-hero-chrome--static">
+            <div className="landing-gmx-hero-chrome">
+              <div className="landing-gmx-hero-chrome-spacer" aria-hidden />
               <div className="landing-gmx-hero-chrome-title">{heroTitle}</div>
-              <div className="landing-gmx-hero-cta-slot">{heroCta(true)}</div>
-              <p className="landing-gmx-hero-disclaimer landing-gmx-hero-disclaimer--static">
+              <div className="landing-gmx-hero-cta-slot">{heroCta(false)}</div>
+              <p
+                className="landing-gmx-hero-disclaimer"
+                style={{ color: heroDisclaimerColor(expand) }}
+              >
                 {t('landing.hero.disclaimer')}
               </p>
             </div>
           </div>
-        </section>
-      ) : (
-        <section
-          className={`landing-gmx-hero landing-gmx-hero--centered landing-gmx-hero--scroll-expand${
-            heroRevealed ? ' landing-gmx-hero--revealed' : ''
-          }${locked ? ' landing-gmx-hero--scroll-locked' : ''}${
-            ctaReveal > 0.02 ? ' landing-gmx-hero--cta-visible' : ''
-          }${expand >= 0.98 ? ' landing-gmx-hero--fullscreen-cta' : ''}`}
-          style={
-            {
-              '--hero-video-expand': expand,
-              '--hero-cta-reveal': ctaReveal,
-            } as React.CSSProperties
-          }
-        >
-          <div className="landing-gmx-hero-sticky">
-            <div className="landing-gmx-hero-viewport">
-              <div className="landing-gmx-hero-video-zoom" style={frameBox} aria-hidden>
-                {heroVideo}
-              </div>
-              <div className="landing-gmx-hero-chrome">
-                <div className="landing-gmx-hero-chrome-spacer" aria-hidden />
-                <div className="landing-gmx-hero-chrome-title">{heroTitle}</div>
-                <div className="landing-gmx-hero-cta-slot">{heroCta(false)}</div>
-                <p
-                  className="landing-gmx-hero-disclaimer"
-                  style={{ color: heroDisclaimerColor(expand) }}
-                >
-                  {t('landing.hero.disclaimer')}
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
+        </div>
+      </section>
 
       <LandingProductCarouselSection />
       <LandingSleepEarningsSection />
