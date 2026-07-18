@@ -1,6 +1,6 @@
 /**
  * Price-based dynamic trailing stop — 4 phases:
- * 1 idle, 2 armed (breakeven+fees only ~2% ROE), 3 trailing (ATR/% ratchet ~4.5% ROE).
+ * 1 idle, 2 armed (breakeven+fees from 1.5% ROE), 3 trailing (ATR/% ratchet from 5% ROE).
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
@@ -173,6 +173,28 @@ function breakevenPlusFeesStopPx(
   return direction === 'LONG' ? entryPrice + move : entryPrice - move;
 }
 
+/**
+ * Hard profit-lock floor — guaranteed floor price at peak uPnL × (1 − dropFrac).
+ * Scales with the peak (leverage-agnostic), ratchets up only. Returns null until the
+ * peak ROE reaches the breakeven arm level so tiny noise peaks don't scratch.
+ */
+function peakProfitFloorStopPx(
+  direction: 'LONG' | 'SHORT',
+  entryPrice: number,
+  absSize: number,
+  collateralUsd: number,
+  peakPnlUsd: number
+): number | null {
+  const cfg = config.hyperliquid.dynamicTrail;
+  if (collateralUsd <= 0 || absSize <= 0 || peakPnlUsd <= 0) return null;
+  const peakRoe = (peakPnlUsd / collateralUsd) * 100;
+  if (peakRoe < cfg.breakevenArmRoePct) return null;
+  const dropFrac = Math.min(0.95, Math.max(0.05, cfg.profitFloorPeakDropFrac));
+  const floorPnlUsd = peakPnlUsd * (1 - dropFrac);
+  const move = floorPnlUsd / absSize;
+  return direction === 'LONG' ? entryPrice + move : entryPrice - move;
+}
+
 function updateFavorableExtreme(
   direction: 'LONG' | 'SHORT',
   current: number,
@@ -325,7 +347,8 @@ export async function evaluateDynamicTrail(
     rec.timeInProfitMs = 0;
   }
 
-  // Phase 1 — idle: arm breakeven trail in profit or loss SL% after max hold (2 min default).
+  // Phase 1 — idle: arm profit protection after 30s continuously profitable, or arm
+  // the loss SL% after the separate max-hold threshold (2 min default).
   if (rec.phase === 'idle') {
     const maxSlDue = input.totalHoldMs >= cfg.maxHoldBeforeSlTrailMs;
 
@@ -458,7 +481,41 @@ export async function evaluateDynamicTrail(
     };
   }
 
-  // Phase 2 — breakeven only: fixed stop, no tight trail until ~5% ROE.
+  // Hard peak profit-lock floor — evaluated before ATR trail / peak-grab and NOT subject
+  // to trailSweep defer. Guarantees peak × (1 − dropFrac) is locked once the position
+  // reached the arm ROE. This catches a peak that erodes (e.g. $22 → $8) which the wide
+  // ATR trail and high fee-gated peak-grab both miss.
+  if (rec.phase === 'armed' || rec.phase === 'trailing') {
+    const floorStop = peakProfitFloorStopPx(
+      input.direction,
+      input.entryPrice,
+      input.absSize,
+      input.collateralUsd,
+      rec.highestPnlSinceEntry
+    );
+    if (floorStop != null) {
+      rec.currentTrailStop = ratchetStop(
+        input.direction,
+        rec.currentTrailStop ?? floorStop,
+        floorStop
+      );
+      if (
+        input.pnlUsd > 0 &&
+        isTrailStopCrossed(input.direction, input.markPrice, floorStop)
+      ) {
+        const lockPct = (1 - Math.min(0.95, Math.max(0.05, cfg.profitFloorPeakDropFrac))) * 100;
+        const detail = `PEAK PROFIT FLOOR · ${input.direction} ${input.coin} · lock ${lockPct.toFixed(0)}% of peak · peak $${rec.highestPnlSinceEntry.toFixed(4)} → $${input.pnlUsd.toFixed(4)} · ${formatAnalytics(rec, input.markPrice)}`;
+        return {
+          record: rec,
+          shouldClose: true,
+          exitReason: 'profit_lock',
+          closeDetail: detail,
+        };
+      }
+    }
+  }
+
+  // Phase 2 — breakeven lock: fixed stop, no tight ATR trail until ~5% ROE.
   if (rec.phase === 'armed' && rec.currentTrailStop != null) {
     const beStop = breakevenPlusFeesStopPx(
       input.direction,
@@ -486,8 +543,13 @@ export async function evaluateDynamicTrail(
         feesUsd * 12,
         input.collateralUsd * (cfg.breakevenArmRoePct / 100) * 1.1
       );
-      // Don't scratch tiny winners on breakeven noise — let trends develop to full trail.
-      if (rec.highestPnlSinceEntry < minPeakUsd && peakRoe < cfg.armMinRoePct) {
+      // Once peak ROE reached the arm level, honor the breakeven lock (user wants early
+      // profit protection). Only skip locking for winners that never reached the arm ROE.
+      if (
+        peakRoe < cfg.breakevenArmRoePct &&
+        rec.highestPnlSinceEntry < minPeakUsd &&
+        peakRoe < cfg.armMinRoePct
+      ) {
         logger.info('HL breakeven lock skipped — winner too small to lock', {
           coin: input.coin,
           direction: input.direction,
@@ -603,10 +665,10 @@ export function trailRecordToLegacyPeak(rec: DynamicTrailRecord): number {
 /** Compatibility for bot-status trail readout (Jun-26 engine has a single trail profile). */
 export function resolveEffectiveTrailProfile(leverage = 1) {
   return {
-    breakevenArmRoePct: 2.5,
+    breakevenArmRoePct: 1.5,
     armMinRoePct: 5,
     armFeesMultiplier: 2,
-    armMinProfitHoldMs: 120_000,
+    armMinProfitHoldMs: 30_000,
     trailMinActiveBeforeCloseMs: 60_000,
     majorTrailPct: 0.02,
     midTrailPct: 0.025,
