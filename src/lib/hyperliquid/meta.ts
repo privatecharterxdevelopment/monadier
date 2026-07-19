@@ -3,6 +3,8 @@ import type { HlAssetMeta } from './types';
 
 let assetIndexCache: Map<string, number> | null = null;
 let assetMetaCache: HlAssetMeta[] | null = null;
+/** UPPERCASE perp name → HL's canonical name (e.g. "KBONK" → "kBONK"). */
+let canonicalNameCache: Map<string, string> | null = null;
 
 const transport = new HttpTransport();
 const info = new InfoClient({ transport });
@@ -12,24 +14,46 @@ export function warmHlMetaCache(universe: HlAssetMeta[] | undefined | null) {
   if (!Array.isArray(universe)) return;
   assetMetaCache = universe;
   assetIndexCache = new Map();
+  canonicalNameCache = new Map();
   universe.forEach((a, i) => {
-    if (a?.name) assetIndexCache!.set(a.name, i);
+    if (a?.name) {
+      assetIndexCache!.set(a.name, i);
+      // k-prefixed perps (kBONK, kPEPE, kSHIB…) break under blanket toUpperCase()
+      // upstream. Keep a case-insensitive index so "KBONK" still resolves to "kBONK".
+      canonicalNameCache!.set(a.name.toUpperCase(), a.name);
+    }
   });
 }
 
-export async function getHlAssetIndex(coin: string): Promise<number> {
-  if (!assetIndexCache) {
+async function ensureMetaCache(): Promise<void> {
+  if (!assetIndexCache || !canonicalNameCache) {
     const meta = await info.meta();
     warmHlMetaCache(meta.universe);
   }
-  const idx = assetIndexCache.get(coin);
+}
+
+/** Resolve a UI/user coin symbol to HL's canonical perp name (handles k-prefix / casing). */
+export function resolveHlCoinName(coin: string): string | null {
+  if (!canonicalNameCache) return null;
+  if (assetIndexCache?.has(coin)) return coin;
+  return canonicalNameCache.get(coin.trim().toUpperCase()) ?? null;
+}
+
+export async function getHlAssetIndex(coin: string): Promise<number> {
+  await ensureMetaCache();
+  let idx = assetIndexCache!.get(coin);
+  if (idx === undefined) {
+    const canonical = canonicalNameCache!.get(coin.trim().toUpperCase());
+    if (canonical) idx = assetIndexCache!.get(canonical);
+  }
   if (idx === undefined) throw new Error(`Unknown perp: ${coin}`);
   return idx;
 }
 
 export async function getHlAssetMeta(coin: string): Promise<HlAssetMeta> {
   await getHlAssetIndex(coin);
-  const meta = assetMetaCache?.find((a) => a.name === coin);
+  const canonical = canonicalNameCache!.get(coin.trim().toUpperCase()) ?? coin;
+  const meta = assetMetaCache?.find((a) => a.name === canonical);
   if (!meta || meta.isDelisted) throw new Error(`Unknown perp: ${coin}`);
   return meta;
 }
