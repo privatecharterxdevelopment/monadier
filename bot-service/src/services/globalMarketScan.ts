@@ -367,10 +367,30 @@ export async function scanGlobalHlSignals(
   return lastGlobalScanResult;
 }
 
+/**
+ * Liquid aggressive scalps the Standard bot may borrow when MTF is thin.
+ * Keeps Standard from idling while XRP/LINK/etc. print clear scalp direction.
+ * Env: HL_STD_BORROW_AGG_MIN_CONF (default 80), HL_STD_BORROW_AGG_MIN_VOL (default $1M).
+ */
+const STD_BORROW_AGG_MIN_CONF = Number(process.env.HL_STD_BORROW_AGG_MIN_CONF || 80);
+const STD_BORROW_AGG_MIN_VOL = Number(process.env.HL_STD_BORROW_AGG_MIN_VOL || 1_000_000);
+
 export function globalSignalsForBotMode(
   scan: GlobalScanResult,
   hlBotStrategy: string | null | undefined
 ): GlobalSignalCandidate[] {
   if (hlBotStrategy === 'profit_grabber') return scan.aggressive;
-  return scan.standard;
+
+  const seen = new Set(scan.standard.map((c) => c.coin.toUpperCase()));
+  const borrowed = scan.aggressive.filter((c) => {
+    if (seen.has(c.coin.toUpperCase())) return false;
+    if (c.confidence < STD_BORROW_AGG_MIN_CONF) return false;
+    if ((c.dayVolumeUsd || 0) < STD_BORROW_AGG_MIN_VOL) return false;
+    return true;
+  });
+  if (borrowed.length === 0) return scan.standard;
+
+  return [...scan.standard, ...borrowed].sort(
+    (a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence
+  );
 }
