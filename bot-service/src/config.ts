@@ -340,6 +340,14 @@ export const config = {
       breakoutRecentMovePct: Number(process.env.HL_PRE_OPEN_BREAKOUT_RECENT_PCT || 0.06),
       maxRejectionsAtLevel: Number(process.env.HL_PRE_OPEN_MAX_REJECTIONS || 2),
       minVolumeRatio: Number(process.env.HL_PRE_OPEN_MIN_VOL_RATIO || 0.85),
+      /**
+       * Reversal veto (structure flipping / active dump against the trade). ATR-normalized
+       * so a sluggish −0.15% drift over 100min (noise inside a confirmed uptrend) never
+       * blocks, while a genuine flush does. Threshold = max(reversalMinNetPct, avg 5m bar
+       * range% × reversalAtrMult). Replaces the old fixed −0.06% which vetoed pure noise.
+       */
+      reversalMinNetPct: Number(process.env.HL_PRE_OPEN_REVERSAL_MIN_PCT || 0.8),
+      reversalAtrMult: Number(process.env.HL_PRE_OPEN_REVERSAL_ATR_MULT || 2),
     },
     /** Pause new opens after today's realized loss exceeds cap (off by default). */
     dailyLoss: {
