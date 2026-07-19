@@ -134,16 +134,55 @@ function buildTypedDataPayload(params: {
   };
 }
 
+function safeStringify(value: unknown): string {
+  try {
+    const json = JSON.stringify(value);
+    if (json && json !== '{}' && json !== '[]') return json;
+  } catch {
+    /* circular or non-serializable */
+  }
+  return Object.prototype.toString.call(value);
+}
+
 function unwrapError(err: unknown, depth = 0): string {
-  if (depth > 6) return String(err);
+  if (depth > 6) return safeStringify(err);
+  if (err == null) return '';
+  if (typeof err === 'string') return err;
+  if (typeof err === 'number' || typeof err === 'boolean') return String(err);
+
   if (err instanceof Error) {
     const cause = (err as Error & { cause?: unknown }).cause;
     if (cause) {
       const causeMsg = unwrapError(cause, depth + 1);
       if (causeMsg && causeMsg !== err.message) return causeMsg;
     }
-    return err.message;
+    // viem attaches richer fields than the generic Error.message.
+    const rich = err as Error & { shortMessage?: unknown; details?: unknown };
+    if (typeof rich.shortMessage === 'string' && rich.shortMessage) return rich.shortMessage;
+    if (typeof rich.details === 'string' && rich.details) return rich.details;
+    return err.message || safeStringify(err);
   }
+
+  if (typeof err === 'object') {
+    const o = err as Record<string, unknown>;
+    // Unwrap common nested wallet/RPC error shapes first.
+    for (const key of ['cause', 'error', 'data'] as const) {
+      const nested = o[key];
+      if (nested && typeof nested === 'object') {
+        const msg = unwrapError(nested, depth + 1);
+        if (msg && msg !== '[object Object]') return msg;
+      }
+    }
+    for (const key of ['shortMessage', 'details', 'message', 'reason', 'statusText'] as const) {
+      const v = o[key];
+      if (typeof v === 'string' && v) return v;
+    }
+    if (typeof o.code === 'string' || typeof o.code === 'number') {
+      return `wallet error code ${String(o.code)}`;
+    }
+    return safeStringify(o);
+  }
+
   return String(err);
 }
 
