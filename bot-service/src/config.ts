@@ -110,12 +110,22 @@ export const config = {
     /** Minimum order notional — skips sloppy micro-trades. */
     minNotionalUsd: Number(process.env.HL_MIN_NOTIONAL_USD || 20),
     /**
-     * Bot open floor. Code default $1M is sane for Hyperliquid (where only a
-     * handful of perps clear $5M/24h). It is additionally clamped at runtime so a
-     * stale/too-high value can never exclude the top `minTradableUniverse` perps.
+     * Bot open floor. Default 0 = trade every listed HL perp (June behavior);
+     * ugly/untradeable pairs are removed explicitly via BOT_EXCLUDED_HL_COINS
+     * instead of a blanket volume floor that also killed legit mid-caps.
+     * NOTE: env HL_MIN_DAY_VOLUME_USD overrides this — set it to 0 on Railway too.
      */
-    minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 1_000_000),
+    minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 0),
     minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 0),
+    /**
+     * Hard-delist — bot never scans/opens these (ugly/untradeable pairs). With the
+     * volume floor at 0 this replaces the blanket filter: remove specific junk by name.
+     * Add more via HL_EXCLUDED_COINS="CASHCAT,CRV,FOO" (comma-separated, case-insensitive).
+     */
+    excludedCoins: (process.env.HL_EXCLUDED_COINS || 'CASHCAT,CRV')
+      .split(',')
+      .map((s) => s.trim().toUpperCase())
+      .filter(Boolean),
     /**
      * Anti-starvation floor for the day-volume gate: the enforced floor is clamped so
      * it never leaves FEWER than this many perps tradable. Set to 40 so the top ~40

@@ -262,7 +262,8 @@ export async function scanGlobalHlSignals(
 ): Promise<GlobalScanResult> {
   const started = Date.now();
   const universe = preloadedUniverse ?? (await fetchHlLiquidUniverse());
-  const coins = universe.coins;
+  const excludedCoins = new Set(config.hyperliquid.excludedCoins);
+  const coins = universe.coins.filter((c) => !excludedCoins.has(c.toUpperCase()));
   const concurrency = config.scaling.globalScanConcurrency;
   const liqByCoin = new Map(universe.markets.map((m) => [m.coin, m]));
 
