@@ -165,13 +165,18 @@ function bypassesLiquidityGate(signal: GlobalSignalCandidate): boolean {
   return signal.confidence >= 65 && tfs >= 2;
 }
 
-/** Every open runs full per-pair chart gates — scan never replaces live analysis. */
+/**
+ * A strong global MTF pick already proved direction across multiple timeframes.
+ * Do not require it to pass six overlapping direction/location checks again.
+ * Hard safety gates (liquidity universe, anti-flip, LONG confirmation, fresh pump,
+ * macro beta, pump-short, mega flow and order safety) still run.
+ */
 function shouldRelaxSecondaryGates(
-  _pick: GlobalSignalCandidate,
+  pick: GlobalSignalCandidate,
   _coin: string,
   _direction: 'LONG' | 'SHORT'
 ): boolean {
-  return false;
+  return isStrongGlobalScanPick(pick);
 }
 
 /** Global scan already proved multi-TF alignment — skip redundant live re-checks. */
