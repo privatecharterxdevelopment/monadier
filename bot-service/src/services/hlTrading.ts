@@ -1134,30 +1134,14 @@ export class HyperliquidTradingService {
         });
       }
 
-      const locationGate = relaxSecondaryGates
-          ? {
-              ok: true as const,
-              reason: `Scan pick — S/R gate skipped (${opts.pick.confidence}%)`,
-              analysis: {
-                support: 0,
-                resistance: 0,
-                price: markPx,
-                pricePosition: 0.5,
-                resistanceTouches: 0,
-                resistanceRejections: 0,
-                supportTouches: 0,
-                supportRejections: 0,
-                confirmedBreakoutUp: false,
-                confirmedBreakdown: false,
-                nearResistance: false,
-                nearSupport: false,
-              },
-            }
-          : await validateEntryLocation({
-              symbol,
-              coin,
-              direction: opts.direction,
-            });
+      // entry_location is NOT a redundant direction check — it guards the ENTRY PLACE
+      // (LONG into resistance / SHORT into support). It stays enforced even for strong
+      // MTF picks; relaxing it let SUI LONG open at 78% of range, ~0.4% under resistance.
+      const locationGate = await validateEntryLocation({
+        symbol,
+        coin,
+        direction: opts.direction,
+      });
       if (!locationGate.ok) {
         return rejectOpen('entry_location', locationGate.reason, 'resistance/support gate', {
           resistance: locationGate.analysis.resistance,
