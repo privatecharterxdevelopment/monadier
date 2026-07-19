@@ -44,7 +44,7 @@ import { validateMacroBetaAlignment } from './macroBetaGate';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, MAJOR_COINS, needsCautionPath, volumeRankForCoin } from './coinTier';
-import { validateCoinNews } from './coinNewsGate';
+import { validateCoinNews, type CoinNewsResult } from './coinNewsGate';
 import type { NewsTradeMode } from './newsTradeMode';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import { validatePumpSweepGate } from './pumpSweepGate';
@@ -933,13 +933,23 @@ export class HyperliquidTradingService {
         );
       }
 
-      const newsGate = await validateCoinNews({
-        coin,
-        direction: opts.direction,
-        tier: coinTier,
-        newsTradeMode: opts.newsTradeMode,
-      });
-      if (!newsGate.ok) {
+      // News gate removed as an open blocker. It stays fully non-blocking by
+      // default; set HL_NEWS_ENFORCE=true only to bring back news-based blocks.
+      const newsGate: CoinNewsResult = config.hyperliquid.news.enforce
+        ? await validateCoinNews({
+            coin,
+            direction: opts.direction,
+            tier: coinTier,
+            newsTradeMode: opts.newsTradeMode,
+          })
+        : {
+            ok: true,
+            reason: 'News gate disabled',
+            tier: coinTier,
+            headlines: [],
+            sentiment: 'neutral',
+          };
+      if (config.hyperliquid.news.enforce && !newsGate.ok) {
         return rejectOpen('news', newsGate.reason, 'news gate (step 1)', { tier: coinTier });
       }
 

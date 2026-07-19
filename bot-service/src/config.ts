@@ -292,6 +292,8 @@ export const config = {
       maxHeadlines: Number(process.env.HL_NEWS_MAX_HEADLINES || 8),
       maxFeedItems: Number(process.env.HL_NEWS_MAX_FEED || 24),
       cryptopanicToken: process.env.CRYPTOPANIC_AUTH_TOKEN || '',
+      /** News is NOT an open gate anymore — set HL_NEWS_ENFORCE=true to re-enable blocking. */
+      enforce: process.env.HL_NEWS_ENFORCE === 'true',
       blockUnknownHeadlines: process.env.HL_NEWS_BLOCK_UNKNOWN !== 'false',
       openaiApiKey: process.env.OPENAI_API_KEY || '',
       openaiModel: process.env.OPENAI_NEWS_MODEL || 'gpt-4o-mini',
