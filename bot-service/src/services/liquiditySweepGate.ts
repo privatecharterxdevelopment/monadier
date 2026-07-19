@@ -94,7 +94,7 @@ export async function validatePreTradeLiquidity(opts: {
   symbol: string;
   direction: 'LONG' | 'SHORT';
   dayVolumeUsd: number;
-  timeframe: '1m' | '5m';
+  timeframe: '1m' | '5m' | '15m';
   candleLimit?: number;
 }): Promise<PreTradeLiquidityResult> {
   const minDayVol = config.hyperliquid.minDayVolumeUsd;

@@ -1156,10 +1156,14 @@ function getSymbolForToken(chainId: number, tokenAddress: string): string | null
  */
 export async function analyzeMarketMTFBySymbol(
   symbol: string,
-  strategy: TradingStrategy = 'normal'
+  strategy: TradingStrategy = 'normal',
+  requestedTimeframes?: Timeframe[]
 ): Promise<MarketAnalysis | null> {
   try {
-    const timeframes: Timeframe[] = ['1m', '5m', '15m', '1h'];
+    const timeframes: Timeframe[] =
+      requestedTimeframes && requestedTimeframes.length > 0
+        ? requestedTimeframes
+        : ['1m', '5m', '15m', '1h'];
     const rawSignal = await signalEngine.generateSignal(symbol, timeframes);
     const boosted = applyAggressiveTfBoost(rawSignal, strategy);
     const signal = { ...rawSignal, direction: boosted.direction, confidence: boosted.confidence };

@@ -9,6 +9,7 @@ import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
+import type { Timeframe } from './signalEngine';
 
 export type BotSignalMode = 'standard' | 'aggressive';
 
@@ -35,6 +36,52 @@ export type GlobalSignalCandidate = {
 };
 
 const STANDARD_STRATEGY: TradingStrategy = 'normal';
+
+function profileAnalysisTimeframes(): Timeframe[] {
+  return [...config.hyperliquid.directionProfile.analysisTimeframes] as Timeframe[];
+}
+
+function isActiveProfileDirection(direction: 'LONG' | 'SHORT'): boolean {
+  return direction === config.hyperliquid.directionProfile.primaryDirection;
+}
+
+function rulesFor(direction: 'LONG' | 'SHORT') {
+  return direction === 'LONG'
+    ? config.hyperliquid.directionProfile.long
+    : config.hyperliquid.directionProfile.short;
+}
+
+function isTrustedProfileCandidate(
+  direction: 'LONG' | 'SHORT',
+  confidence: number,
+  directionalTfCount: number
+): boolean {
+  const rules = rulesFor(direction);
+  return (
+    rules.trustMtfScan &&
+    confidence >= rules.minConfidence &&
+    directionalTfCount >= rules.minDirectionalTfs
+  );
+}
+
+function passesProfileThresholds(direction: 'LONG' | 'SHORT', opts: {
+  confidence: number;
+  directionalTfCount: number;
+  trendAlignment: number;
+  h1Trend?: string;
+}): boolean {
+  const rules = rulesFor(direction);
+  if (opts.confidence < rules.minConfidence) return false;
+  if (opts.directionalTfCount < rules.minDirectionalTfs) return false;
+  if (opts.trendAlignment < rules.minTrendAlignment) return false;
+  if (
+    rules.requiredH1Trend &&
+    String(opts.h1Trend ?? '').toUpperCase() !== rules.requiredH1Trend
+  ) {
+    return false;
+  }
+  return true;
+}
 
 export type HlGlobalScanStats = {
   coinsScanned: number;
@@ -69,13 +116,28 @@ async function scanMajorChartFallback(
 ): Promise<GlobalSignalCandidate | null> {
   try {
     const symbol = hlCoinToBinanceSymbol(coin);
-    const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
+    const analysis = await analyzeMarketMTFBySymbol(
+      symbol,
+      STANDARD_STRATEGY,
+      profileAnalysisTimeframes()
+    );
     if (!analysis) return null;
     if (analysis.isWeak) return null;
     if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
+    if (!isActiveProfileDirection(analysis.direction)) return null;
     if (analysis.confidence < 48) return null;
     const tfs = analysis.metrics?.directionalTfCount ?? 0;
     if (tfs < 1) return null;
+    if (
+      !passesProfileThresholds(analysis.direction, {
+        confidence: analysis.confidence,
+        directionalTfCount: tfs,
+        trendAlignment: analysis.metrics?.trendAlignment ?? 0,
+        h1Trend: analysis.metrics?.h1Trend,
+      })
+    ) {
+      return null;
+    }
 
     return {
       coin,
@@ -106,10 +168,15 @@ async function scanStandardCoin(
 ): Promise<GlobalSignalCandidate | null> {
   try {
     const symbol = hlCoinToBinanceSymbol(coin);
-    const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
+    const analysis = await analyzeMarketMTFBySymbol(
+      symbol,
+      STANDARD_STRATEGY,
+      profileAnalysisTimeframes()
+    );
     if (!analysis) return null;
     if (analysis.isWeak) return null;
     if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
+    if (!isActiveProfileDirection(analysis.direction)) return null;
     const tierInfo = classifyCoinTier(coin, preloadedUniverse);
     const cautious = needsCautionPath(tierInfo.tier) && !relaxed;
     const minConf = cautious
@@ -149,18 +216,37 @@ async function scanStandardCoin(
     }
     if ((analysis.metrics?.directionalTfCount ?? 0) < minTfs) return null;
     if ((analysis.metrics?.trendAlignment ?? 0) < minAlign) return null;
+    const directionalTfCount = analysis.metrics?.directionalTfCount ?? 0;
+    const trustedDirection = isTrustedProfileCandidate(
+      analysis.direction,
+      analysis.confidence,
+      directionalTfCount
+    );
+    if (
+      !passesProfileThresholds(analysis.direction, {
+        confidence: analysis.confidence,
+        directionalTfCount,
+        trendAlignment: analysis.metrics?.trendAlignment ?? 0,
+        h1Trend: analysis.metrics?.h1Trend,
+      })
+    ) {
+      return null;
+    }
     if (
       !relaxed &&
       (
-        (analysis.direction === 'LONG' && analysis.metrics?.h1Trend === 'DOWN') ||
+        (analysis.direction === 'LONG' &&
+          !trustedDirection &&
+          analysis.metrics?.h1Trend === 'DOWN') ||
         (analysis.direction === 'SHORT' &&
+          !trustedDirection &&
           (/UP/i.test(String(analysis.metrics?.h1Trend ?? '')) ||
             analysis.metrics?.h1Trend === 'STRONG_UPTREND'))
       )
     ) {
       return null;
     }
-    if (analysis.direction === 'SHORT') {
+    if (analysis.direction === 'SHORT' && !trustedDirection) {
       const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
       if (!pumpGate.ok) {
         logger.debug('HL scan skip: pump-short gate', { coin, reason: pumpGate.reason });
@@ -204,6 +290,7 @@ async function scanAggressiveCoin(
       ? config.hyperliquid.cautiousScan.minSignalConfidence
       : Math.max(60, config.hyperliquid.minSignalConfidence - 2);
     if (!scalp || scalp.confidence < minConf) return null;
+    if (!isActiveProfileDirection(scalp.direction)) return null;
 
     if (cautious) {
       const pumpSkip = await validateNotFreshlyPumped({ coin, tier: tierInfo.tier });
@@ -213,23 +300,53 @@ async function scanAggressiveCoin(
       }
     }
 
-    const h1Check = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
+    const h1Check = await analyzeMarketMTFBySymbol(
+      symbol,
+      STANDARD_STRATEGY,
+      profileAnalysisTimeframes()
+    );
     if (h1Check) {
+      const directionalTfCount = h1Check.metrics?.directionalTfCount ?? 0;
+      const trustedDirection = isTrustedProfileCandidate(
+        scalp.direction,
+        scalp.confidence,
+        directionalTfCount
+      );
       if (scalp.direction === 'SHORT') {
-        if (/UP/i.test(String(h1Check.metrics?.h1Trend ?? ''))) {
+        if (!trustedDirection && /UP/i.test(String(h1Check.metrics?.h1Trend ?? ''))) {
           logger.debug('HL agg scan skip: 1h trend UP blocks SHORT', { coin });
           return null;
         }
-        const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
-        if (!pumpGate.ok) {
-          logger.debug('HL agg scan skip: pump-short gate', { coin, reason: pumpGate.reason });
+        if (!trustedDirection) {
+          const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
+          if (!pumpGate.ok) {
+            logger.debug('HL agg scan skip: pump-short gate', { coin, reason: pumpGate.reason });
+            return null;
+          }
+        }
+      }
+      if (scalp.direction === 'LONG') {
+        if (
+          !passesProfileThresholds(scalp.direction, {
+            confidence: scalp.confidence,
+            directionalTfCount,
+            trendAlignment: h1Check.metrics?.trendAlignment ?? 0,
+            h1Trend: h1Check.metrics?.h1Trend,
+          })
+        ) {
+          logger.debug('HL agg scan skip: LONG below direction-profile thresholds', {
+            coin,
+            profile: config.hyperliquid.directionProfile.name,
+          });
+          return null;
+        }
+        if (!trustedDirection && h1Check.metrics?.h1Trend === 'DOWN') {
+          logger.debug('HL agg scan skip: 1h trend DOWN blocks LONG', { coin });
           return null;
         }
       }
-      if (scalp.direction === 'LONG' && h1Check.metrics?.h1Trend === 'DOWN') {
-        logger.debug('HL agg scan skip: 1h trend DOWN blocks LONG', { coin });
-        return null;
-      }
+    } else if (rulesFor(scalp.direction).requiredH1Trend) {
+      return null;
     }
 
     return {
@@ -380,10 +497,15 @@ export function globalSignalsForBotMode(
   scan: GlobalScanResult,
   hlBotStrategy: string | null | undefined
 ): GlobalSignalCandidate[] {
-  const directionAllowed = (candidate: GlobalSignalCandidate) =>
-    config.hyperliquid.longOpensEnabled || candidate.direction !== 'LONG';
-  const standard = scan.standard.filter(directionAllowed);
-  const aggressive = scan.aggressive.filter(directionAllowed);
+  const primaryDirection = config.hyperliquid.directionProfile.primaryDirection;
+  const standard = scan.standard.filter((candidate) => candidate.direction === primaryDirection);
+  const aggressive = scan.aggressive.filter((candidate) => candidate.direction === primaryDirection);
+
+  // Regime profiles are 15m/1h/4h systems. Do not leak 1m/5m aggressive
+  // candidates back into Standard (or profit_grabber) while a regime is active.
+  if (!config.hyperliquid.directionProfile.useAggressiveScalpSignals) {
+    return standard;
+  }
 
   if (hlBotStrategy === 'profit_grabber') return aggressive;
 

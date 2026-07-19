@@ -54,13 +54,12 @@ export async function validateEntryMomentum(opts: {
   const symbol = hlCoinToBinanceSymbol(coin);
 
   try {
-    const [c5m, c15m, c1h] = await Promise.all([
-      signalEngine.fetchCandles(symbol, '5m', 20),
+    const [c15m, c1h] = await Promise.all([
       signalEngine.fetchCandles(symbol, '15m', 20),
       signalEngine.fetchCandles(symbol, '1h', 26),
     ]);
 
-    const change5mPct = pctChangeClosed(c5m, 1);
+    const change5mPct = 0;
     const change15mPct = pctChangeClosed(c15m, 1);
     const change1hPct = pctChangeClosed(c1h, 1);
     const rangePos = rangePosition(c1h);
@@ -77,9 +76,11 @@ export async function validateEntryMomentum(opts: {
       };
     }
 
-    const min5 = cfg.minMove5mPct;
-    const bounce5m = change5mPct >= min5 && lastNCandlesMove(c5m, cfg.minConfirmCandles5m, 'LONG');
-    const fade5m = change5mPct <= -min5 && lastNCandlesMove(c5m, cfg.minConfirmCandles5m, 'SHORT');
+    const min15 = cfg.minMove15mPct;
+    const bounce15m =
+      change15mPct >= min15 && lastNCandlesMove(c15m, 1, 'LONG');
+    const fade15m =
+      change15mPct <= -min15 && lastNCandlesMove(c15m, 1, 'SHORT');
 
     let momentumAligned = false;
     let reason = '';
@@ -91,23 +92,23 @@ export async function validateEntryMomentum(opts: {
       } else if (rangePos > cfg.longMaxRangePosition) {
         reason =
           `LONG blocked — ${coin} at ${(rangePos * 100).toFixed(0)}% of 1h range (buy low, not at highs)`;
-      } else if (!bounce5m) {
+      } else if (!bounce15m) {
         const inLowerRange = rangePos <= cfg.longMaxRangePosition;
-        const smallDip = change5mPct <= 0 && change5mPct > -0.3;
+        const smallDip = change15mPct <= 0 && change15mPct > -0.6;
         if (inLowerRange && smallDip) {
           momentumAligned = true;
           reason =
-            `Dip-buy OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · small 5m dip ${change5mPct.toFixed(2)}% to buy`;
+            `Dip-buy OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · small 15m dip ${change15mPct.toFixed(2)}% to buy`;
         } else {
           reason =
-            `LONG blocked — ${coin} needs 5m bounce from dip (5m ${change5mPct >= 0 ? '+' : ''}${change5mPct.toFixed(2)}%, range ${(rangePos * 100).toFixed(0)}%)`;
+            `LONG blocked — ${coin} needs 15m bounce from dip (15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}%, range ${(rangePos * 100).toFixed(0)}%)`;
         }
       } else if (change1hPct < -cfg.maxCounter1hPct) {
         reason = `LONG blocked — ${coin} 1h still dumping (${change1hPct.toFixed(2)}%) — wait for higher-low`;
       } else {
         momentumAligned = true;
         reason =
-          `Dip-buy OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · 5m +${change5mPct.toFixed(2)}% bounce · 15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}%`;
+          `Dip-buy OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · 15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}% bounce`;
       }
     } else {
       if (change15mPct <= cfg.maxChaseShort15mPct && change1hPct <= cfg.maxChaseShort1hPct) {
@@ -116,23 +117,23 @@ export async function validateEntryMomentum(opts: {
       } else if (rangePos < cfg.shortMinRangePosition) {
         reason =
           `SHORT blocked — ${coin} at ${(rangePos * 100).toFixed(0)}% of 1h range (sell high, not at lows)`;
-      } else if (!fade5m) {
+      } else if (!fade15m) {
         const inUpperRange = rangePos >= cfg.shortMinRangePosition;
-        const smallRally = change5mPct >= 0 && change5mPct < 0.3;
+        const smallRally = change15mPct >= 0 && change15mPct < 0.6;
         if (inUpperRange && smallRally) {
           momentumAligned = true;
           reason =
-            `Rally-fade OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · small 5m bounce +${change5mPct.toFixed(2)}% to fade`;
+            `Rally-fade OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · small 15m bounce +${change15mPct.toFixed(2)}% to fade`;
         } else {
           reason =
-            `SHORT blocked — ${coin} needs 5m rejection from rally (5m ${change5mPct >= 0 ? '+' : ''}${change5mPct.toFixed(2)}%, range ${(rangePos * 100).toFixed(0)}%)`;
+            `SHORT blocked — ${coin} needs 15m rejection from rally (15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}%, range ${(rangePos * 100).toFixed(0)}%)`;
         }
       } else if (change1hPct > cfg.maxCounter1hPct) {
         reason = `SHORT blocked — ${coin} 1h still ripping (+${change1hPct.toFixed(2)}%) — wait for lower-high`;
       } else {
         momentumAligned = true;
         reason =
-          `Rally-fade OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · 5m ${change5mPct.toFixed(2)}% fade · 15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}%`;
+          `Rally-fade OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · 15m ${change15mPct.toFixed(2)}% fade`;
       }
     }
 

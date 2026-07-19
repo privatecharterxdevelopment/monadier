@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   CandlestickSeries,
   ColorType,
@@ -213,7 +213,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
   const suppressFollowDetectRef = useRef(false);
   const aliveRef = useRef(true);
   const overlayCoin = orderCoin ?? coin;
-  const chartColors = getProTradeChartColors(theme);
+  const chartColors = useMemo(() => getProTradeChartColors(theme), [theme]);
   const overlayRef = useRef(positionOverlay);
   overlayRef.current = positionOverlay;
   const markPxRef = useRef(markPx);
@@ -411,10 +411,13 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
           barSpacing: spacing,
           minBarSpacing: chartMinBarSpacing(),
         });
-        // Some GPU/canvas paths wipe the candle bitmap on resize — repaint from ref.
+        // Repaint only if the series actually vanished. Re-running setData for every
+        // ResizeObserver tick resets internal coordinates and makes the chart jump.
         const bars = candlesRef.current;
-        if (bars.length > 0 && seriesRef.current && volumeRef.current) {
-          seriesRef.current.setData(
+        const candleSeries = seriesRef.current;
+        const volume = volumeRef.current;
+        if (bars.length > 0 && candleSeries && volume && candleSeries.dataByIndex(0) == null) {
+          candleSeries.setData(
             bars.map((c) => ({
               time: c.time as CandlestickData['time'],
               open: c.open,
@@ -423,7 +426,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
               close: c.close,
             }))
           );
-          volumeRef.current.setData(
+          volume.setData(
             bars
               .filter((c) => (c.volume ?? 0) > 0)
               .map((c) => ({
@@ -739,7 +742,6 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       candlesRef.current = bars;
       series.setData(data);
       volumeSeries.setData(volData);
-      series.applyOptions({ autoscaleInfoProvider: buildAutoscaleProvider() });
       if (forceFull || followLiveRef.current) {
         showLatestBars(chart, data.length);
       }
@@ -814,7 +816,6 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         low: last.low,
         close: last.close,
       });
-      series.applyOptions({ autoscaleInfoProvider: buildAutoscaleProvider() });
     });
   }, [markPx]);
 
@@ -836,33 +837,31 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
   useEffect(() => {
     const series = seriesRef.current;
     if (!series || !aliveRef.current) return;
-    safeChartOp(() => {
-      series.applyOptions({ autoscaleInfoProvider: buildAutoscaleProvider() });
-    });
-  }, [positionOverlay, markPx, interval]);
-
-
-  useEffect(() => {
-    const series = seriesRef.current;
-    if (!series || !aliveRef.current) return;
 
     safeChartOp(() => {
-      if (markLineRef.current) {
+      if (markPx != null && markPx > 0) {
+        if (markLineRef.current) {
+          // Updating the existing line avoids remove/create flicker on every mid tick.
+          markLineRef.current.applyOptions({
+            price: markPx,
+            color: chartColors.crosshair,
+          });
+        } else {
+          markLineRef.current = series.createPriceLine({
+            price: markPx,
+            color: chartColors.crosshair,
+            lineWidth: 1,
+            lineStyle: LineStyle.Dotted,
+            axisLabelVisible: true,
+            title: 'Mark',
+          });
+        }
+      } else if (markLineRef.current) {
         series.removePriceLine(markLineRef.current);
         markLineRef.current = null;
       }
-      if (markPx != null && markPx > 0) {
-        markLineRef.current = series.createPriceLine({
-          price: markPx,
-          color: chartColors.crosshair,
-          lineWidth: 1,
-          lineStyle: LineStyle.Dotted,
-          axisLabelVisible: true,
-          title: 'Mark',
-        });
-      }
     });
-  }, [markPx, theme]);
+  }, [markPx, chartColors.crosshair]);
 
   const isBlank = !loading && candles.length === 0;
 

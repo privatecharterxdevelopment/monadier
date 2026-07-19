@@ -63,7 +63,8 @@ const TerminalHlLiveChartInner: React.FC<Props> = ({
     walletAddress?.toLowerCase(),
     coin,
     { up: chartColors.up, down: chartColors.down },
-    markerRefreshKey
+    markerRefreshKey,
+    interval
   );
 
   const markPx = toNum(market.snapshot?.markPx);

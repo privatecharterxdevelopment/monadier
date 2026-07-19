@@ -3,8 +3,11 @@ import {
   MONADIER_VAULT_V11_ADDRESS,
   MONADIER_VAULT_V11_TREASURY_ADDRESS,
 } from './monadierVault';
+import { resolveDirectionProfile } from './config/directionProfiles';
 
 dotenv.config();
+
+const activeDirectionProfile = resolveDirectionProfile(process.env.HL_DIRECTION_PROFILE);
 
 // Only genuine secrets are required — no safe in-repo default exists for these.
 // TREASURY_ADDRESS is intentionally NOT here: it's a public, canonical constant
@@ -96,10 +99,12 @@ export const config = {
     scanConcurrency: Number(process.env.HL_SCAN_CONCURRENCY || 8),
     /** Global scan — min combined MTF confidence to qualify. */
     minSignalConfidence: Number(process.env.HL_MIN_SIGNAL_CONFIDENCE || 55),
-    /** Global scan — min timeframes pointing same direction (of 1m/5m/15m/1h). */
+    /** Global scan — min profile timeframes pointing in the same direction. */
     minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 2),
     /** Global scan — min % of TFs sharing the dominant trend (0–100). */
     minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 50),
+    /** One-switch market regime; defaults to June-style SHORT-first bear_market. */
+    directionProfile: activeDirectionProfile,
     /**
      * Platform ceiling for concurrent HL perp slots per wallet (different coins).
      * Must be 3 so a user who selects 3 slots is respected — normalizeMaxConcurrentPositions
@@ -107,12 +112,6 @@ export const config = {
      * silently capped every 3-slot user back to 2.
      */
     maxConcurrentPositions: Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 3),
-    /**
-     * Emergency direction switch. Default OFF for new LONG entries while the current
-     * SOL/DOGE/SUI cohort is reviewed. Existing LONGs remain fully managed and closable.
-     * Re-enable explicitly with HL_LONG_OPENS_ENABLED=true.
-     */
-    longOpensEnabled: process.env.HL_LONG_OPENS_ENABLED === 'true',
     /** Minimum order notional — skips sloppy micro-trades. */
     minNotionalUsd: Number(process.env.HL_MIN_NOTIONAL_USD || 20),
     /**
@@ -253,9 +252,6 @@ export const config = {
     htfSr: {
       enabled: process.env.HL_HTF_SR !== 'false',
       enforce: process.env.HL_HTF_SR_ENFORCE === 'true',
-      /** Permit SIDEWAYS LONG only when this gate confirms nearby strong support. */
-      sidewaysLongSupportException:
-        process.env.HL_SIDEWAYS_LONG_SUPPORT_EXCEPTION !== 'false',
       atrPeriod: Number(process.env.HL_HTF_SR_ATR_PERIOD || 14),
       /** Block when entry is within this × ATR(1h) of a strong opposite level. */
       atrMult: Number(process.env.HL_HTF_SR_ATR_MULT || 0.5),
@@ -337,19 +333,22 @@ export const config = {
       // set of tradable mid-caps (INJ #42, VIRTUAL #52, JUP #53 were being blocked at 40);
       // ranks 19-60 stay "cautious" tier (news + stricter conf via caution path), so the
       // universe widens without loosening per-trade quality.
-      maxVolumeRank: Number(process.env.HL_OPEN_MAX_VOLUME_RANK || 60),
+      maxVolumeRank: Number(
+        process.env.HL_OPEN_MAX_VOLUME_RANK || activeDirectionProfile.maxVolumeRank
+      ),
       allowCautiousAlts: process.env.HL_ALLOW_CAUTIOUS_OPENS !== 'false',
       require1m5mAlign: process.env.HL_SCALP_REQUIRE_1M5M !== 'false',
       minTfConfidence: Number(process.env.HL_SCALP_MIN_TF_CONF || 52),
       minConfirm1mCandles: Number(process.env.HL_SCALP_1M_CONFIRM || 2),
     },
-    /** Mandatory last-N candle read immediately before every open. */
-    /** 5m default: 8 bars = 40 min window — enough structure without needing deep history
-     *  the CEX fetch often can't supply (rate-limited bursts left majors at 9/20 → blocked). */
+    /** Mandatory profile-specific structure read immediately before every open. */
     preOpenCandles: {
       enabled: process.env.HL_PRE_OPEN_20_CANDLES !== 'false',
-      candleCount: Number(process.env.HL_PRE_OPEN_CANDLE_COUNT || 8),
-      timeframe: (process.env.HL_PRE_OPEN_CANDLE_TF || '5m') as '1m' | '5m',
+      candleCount: Number(
+        process.env.HL_PRE_OPEN_CANDLE_COUNT || activeDirectionProfile.preOpenCandleCount
+      ),
+      timeframe: (process.env.HL_PRE_OPEN_CANDLE_TF ||
+        activeDirectionProfile.preOpenTimeframe) as '1m' | '5m' | '15m',
       minNetMovePct: Number(process.env.HL_PRE_OPEN_MIN_NET_PCT || 0.04),
       minDirectionalCandleRatio: Number(process.env.HL_PRE_OPEN_MIN_DIR_RATIO || 0.52),
       maxRangePositionLong: Number(process.env.HL_PRE_OPEN_MAX_RANGE_LONG || 0.58),

@@ -15,6 +15,7 @@ const lastWriteAt = new Map<string, number>();
 
 export type HlOpenBlockGate =
   | 'anti_flip'
+  | 'direction_profile'
   | 'long_confirmation'
   | 'no_mark_price'
   | 'invalid_size'

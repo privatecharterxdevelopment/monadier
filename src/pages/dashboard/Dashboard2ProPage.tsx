@@ -189,7 +189,8 @@ const Dashboard2ProPageContent: React.FC = () => {
     hlActiveWallet ?? address,
     botChartCoin,
     chartMarkerColors,
-    botSyncTick + perpFills.length
+    botSyncTick + perpFills.length,
+    interval
   );
   const positionCoins = useMemo(
     () => (account?.positions ?? []).map((p) => p.coin),

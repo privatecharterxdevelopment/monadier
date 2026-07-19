@@ -45,11 +45,25 @@ export function fillToChartMarker(fill: HlUserFill): HlChartMarker | null {
   };
 }
 
+/**
+ * Snap a fill time to the open of the candle that contains it. LWC positions a
+ * marker at the bar whose time exactly matches; a raw fill second falls between
+ * two interval-aligned candles, so the arrow snaps to a neighbour and appears to
+ * "jump" whenever the forming bar repaints. Bucketing to the interval start
+ * pins each arrow onto its own candle.
+ */
+function bucketMarkerTimeSec(eventMs: number, intervalSeconds?: number): number {
+  const sec = Math.floor(eventMs / 1000);
+  if (!intervalSeconds || intervalSeconds <= 0) return sec;
+  return Math.floor(sec / intervalSeconds) * intervalSeconds;
+}
+
 export function hlChartMarkerToSeriesMarker(
   m: HlChartMarker,
-  colors: ChartMarkerColors
+  colors: ChartMarkerColors,
+  intervalSeconds?: number
 ): SeriesMarker<UTCTimestamp> {
-  const time = Math.floor(m.eventMs / 1000) as UTCTimestamp;
+  const time = bucketMarkerTimeSec(m.eventMs, intervalSeconds) as UTCTimestamp;
 
   if (m.eventType === 'open') {
     const isLong = m.direction === 'LONG';

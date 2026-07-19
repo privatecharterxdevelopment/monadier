@@ -190,6 +190,7 @@ export function useHyperliquidMarket(
 
   const refreshSnapshot = useCallback(async () => {
     if (!enabled) return;
+    const requestedCoinKey = coinKey;
     try {
       const [snapshot, recentTrades] = await Promise.all([
         kind === 'spot'
@@ -197,6 +198,7 @@ export function useHyperliquidMarket(
           : fetchHlMarketSnapshot(coin),
         kind === 'spot' ? fetchHlSpotRecentTrades(coin) : fetchHlRecentTrades(coin),
       ]);
+      if (coinKeyRef.current !== requestedCoinKey) return;
       setState((prev) => ({
         ...prev,
         snapshot,
@@ -207,17 +209,18 @@ export function useHyperliquidMarket(
     } catch {
       /* keep last snapshot */
     }
-  }, [coin, kind, enabled]);
+  }, [coin, coinKey, kind, enabled]);
 
   const refreshBook = useCallback(async () => {
     if (!enabled) return;
-    const requestedCoin = normCoin(coin);
+    const requestedCoinKey = coinKey;
     try {
       const book =
         kind === 'spot' ? await fetchHlSpotOrderBook(coin) : await fetchHlOrderBook(coin);
+      if (coinKeyRef.current !== requestedCoinKey) return;
       const key = bookLevelsKey(book);
       setState((prev) => {
-        if (normCoin(coin) !== requestedCoin) return prev;
+        if (coinKeyRef.current !== requestedCoinKey) return prev;
         if (key === bookKeyRef.current) {
           return { ...prev, wsConnected: getHlWsClient().isLive() };
         }
@@ -231,11 +234,12 @@ export function useHyperliquidMarket(
     } catch {
       /* keep last book */
     }
-  }, [coin, kind, enabled]);
+  }, [coin, coinKey, kind, enabled]);
 
   const refreshCandles = useCallback(async () => {
     if (!enabled) return;
     const requestedCoin = normCoin(coin);
+    const requestedMarketKey = marketKey;
     const attempt = emptyRetryRef.current + 1;
     chartDebugLog('market', 'fetch-candles-start', { coin: requestedCoin, interval, attempt });
     try {
@@ -243,9 +247,10 @@ export function useHyperliquidMarket(
         kind === 'spot'
           ? await fetchHlSpotCandles(coin, interval, chartLookbackMs(interval))
           : await fetchHlCandles(coin, interval, chartLookbackMs(interval));
+      if (marketKeyRef.current !== requestedMarketKey) return;
       let shouldRetry = false;
       setState((prev) => {
-        if (normCoin(coin) !== requestedCoin) return prev;
+        if (marketKeyRef.current !== requestedMarketKey) return prev;
         if (candles.length < MIN_HISTORY_BARS) {
           shouldRetry = true;
           historyReadyRef.current = false;
@@ -267,7 +272,7 @@ export function useHyperliquidMarket(
           const oldest = cache.keys().next().value;
           if (oldest) cache.delete(oldest);
         }
-        cache.set(`${normCoin(coin)}:${interval}:${kind}`, candles);
+        cache.set(requestedMarketKey, candles);
         chartDebugLog('market', 'fetch-candles-ok', {
           coin: requestedCoin,
           interval,
@@ -282,7 +287,7 @@ export function useHyperliquidMarket(
           fetchAttempts: attempt,
         };
       });
-      if (shouldRetry) {
+      if (shouldRetry && marketKeyRef.current === requestedMarketKey) {
         scheduleEmptyRetry('empty-or-thin-response', refreshCandles);
       }
     } catch (err: unknown) {
@@ -296,7 +301,7 @@ export function useHyperliquidMarket(
         attempt,
       });
       setState((prev) => {
-        if (normCoin(coin) !== requestedCoin) return prev;
+        if (marketKeyRef.current !== requestedMarketKey) return prev;
         shouldRetry = !isRateLimit || prev.candles.length < MIN_HISTORY_BARS;
         return {
           ...prev,
@@ -306,15 +311,16 @@ export function useHyperliquidMarket(
           fetchAttempts: attempt,
         };
       });
-      if (shouldRetry) {
+      if (shouldRetry && marketKeyRef.current === requestedMarketKey) {
         scheduleEmptyRetry('fetch-error', refreshCandles);
       }
     }
-  }, [coin, interval, kind, enabled, clearEmptyRetry, scheduleEmptyRetry]);
+  }, [coin, interval, kind, enabled, marketKey, clearEmptyRetry, scheduleEmptyRetry]);
 
   const refresh = useCallback(async () => {
     if (!enabled) return;
     const requestedCoin = normCoin(coin);
+    const requestedMarketKey = marketKey;
     const attempt = emptyRetryRef.current + 1;
     chartDebugLog('market', 'refresh-start', { coin: requestedCoin, interval, kind, attempt });
     try {
@@ -326,9 +332,10 @@ export function useHyperliquidMarket(
         kind === 'spot' ? fetchHlSpotMarketSnapshot(coin) : fetchHlMarketSnapshot(coin),
         kind === 'spot' ? fetchHlSpotRecentTrades(coin) : fetchHlRecentTrades(coin),
       ]);
+      if (marketKeyRef.current !== requestedMarketKey) return;
       let shouldRetry = false;
       setState((prev) => {
-        if (normCoin(coin) !== requestedCoin) return prev;
+        if (marketKeyRef.current !== requestedMarketKey) return prev;
         bookKeyRef.current = bookLevelsKey(book);
         if (candles.length < MIN_HISTORY_BARS) {
           shouldRetry = true;
@@ -351,13 +358,12 @@ export function useHyperliquidMarket(
         }
         clearEmptyRetry();
         historyReadyRef.current = true;
-        const cacheKey = `${normCoin(coin)}:${interval}:${kind}`;
         const cache = candleCacheRef.current;
         if (cache.size >= CANDLE_CACHE_MAX) {
           const oldest = cache.keys().next().value;
           if (oldest) cache.delete(oldest);
         }
-        cache.set(cacheKey, candles);
+        cache.set(requestedMarketKey, candles);
         chartDebugLog('market', 'refresh-ok', {
           coin: requestedCoin,
           interval,
@@ -377,7 +383,7 @@ export function useHyperliquidMarket(
           fetchAttempts: attempt,
         };
       });
-      if (shouldRetry) {
+      if (shouldRetry && marketKeyRef.current === requestedMarketKey) {
         scheduleEmptyRetry('empty-or-thin-response', refreshCandles);
       }
     } catch (err: unknown) {
@@ -385,7 +391,7 @@ export function useHyperliquidMarket(
       chartDebugWarn('market', 'refresh-fail', { coin: requestedCoin, interval, message, attempt });
       let shouldRetry = false;
       setState((prev) => {
-        if (normCoin(coin) !== requestedCoin) return prev;
+        if (marketKeyRef.current !== requestedMarketKey) return prev;
         shouldRetry = prev.candles.length < MIN_HISTORY_BARS;
         return {
           ...prev,
@@ -394,11 +400,20 @@ export function useHyperliquidMarket(
           fetchAttempts: attempt,
         };
       });
-      if (shouldRetry) {
+      if (shouldRetry && marketKeyRef.current === requestedMarketKey) {
         scheduleEmptyRetry('refresh-error', refreshCandles);
       }
     }
-  }, [coin, interval, kind, enabled, clearEmptyRetry, scheduleEmptyRetry, refreshCandles]);
+  }, [
+    coin,
+    interval,
+    kind,
+    enabled,
+    marketKey,
+    clearEmptyRetry,
+    scheduleEmptyRetry,
+    refreshCandles,
+  ]);
 
   useEffect(() => {
     if (!enabled) {
@@ -440,7 +455,7 @@ export function useHyperliquidMarket(
       marketKey,
     });
     void refresh();
-  }, [coin, interval, kind, enabled, marketKey, clearEmptyRetry, refresh]);
+  }, [coin, interval, kind, enabled, marketKey, coinKey, clearEmptyRetry, refresh]);
 
   useEffect(() => () => clearEmptyRetry(), [clearEmptyRetry]);
 

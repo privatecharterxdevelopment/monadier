@@ -858,6 +858,15 @@ const healthServer = http.createServer(async (req, res) => {
           dbOpenPositions: openDb.length,
           onChainOpenTokens: hlOpenCoins,
         },
+        directionProfile: {
+          name: config.hyperliquid.directionProfile.name,
+          description: config.hyperliquid.directionProfile.description,
+          primaryDirection: config.hyperliquid.directionProfile.primaryDirection,
+          analysisTimeframes: config.hyperliquid.directionProfile.analysisTimeframes,
+          entryTimeframe: config.hyperliquid.directionProfile.entryTimeframe,
+          aggressiveScalpSignals:
+            config.hyperliquid.directionProfile.useAggressiveScalpSignals,
+        },
         lastOpenError: getLastHlOpenErrorForClient(userAddress),
         recentOpenBlocks: await fetchRecentHlOpenBlocks(userAddress, 25),
         tradeCycleSec: config.trading.checkIntervalMs / 1000,

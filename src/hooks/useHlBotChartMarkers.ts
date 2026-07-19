@@ -7,15 +7,20 @@ import {
   type ChartMarkerColors,
 } from '../lib/hyperliquid/chartMarkers';
 import { fetchHlUserFills } from '../lib/hyperliquid/user';
+import { chartIntervalMs } from '../lib/hyperliquid/chartZoom';
+import type { HlInterval } from '../lib/hyperliquid/types';
 
 export function useHlBotChartMarkers(
   wallet: string | undefined,
   coin: string | undefined,
   colors: ChartMarkerColors,
-  refreshKey = 0
+  refreshKey = 0,
+  interval?: HlInterval
 ) {
   const [seriesMarkers, setSeriesMarkers] = useState<SeriesMarker<UTCTimestamp>[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const intervalSeconds = interval ? Math.floor(chartIntervalMs(interval) / 1000) : undefined;
 
   const refresh = useCallback(async () => {
     if (!wallet || !coin) {
@@ -34,14 +39,22 @@ export function useHlBotChartMarkers(
           .map(fillToChartMarker)
           .filter((m): m is NonNullable<typeof m> => m != null)
       );
-      setSeriesMarkers(merged.map((m) => hlChartMarkerToSeriesMarker(m, colors)));
+      setSeriesMarkers(
+        merged.map((m) =>
+          hlChartMarkerToSeriesMarker(
+            m,
+            { up: colors.up, down: colors.down },
+            intervalSeconds
+          )
+        )
+      );
     } catch (e) {
       console.warn('[useHlBotChartMarkers]', e);
       setSeriesMarkers([]);
     } finally {
       setLoading(false);
     }
-  }, [wallet, coin, colors.up, colors.down]);
+  }, [wallet, coin, colors.up, colors.down, intervalSeconds]);
 
   useEffect(() => {
     void refresh();

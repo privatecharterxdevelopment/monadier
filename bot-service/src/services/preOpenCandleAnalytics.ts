@@ -1,6 +1,6 @@
 /**
  * Pre-open analytics — read last N closed candles before any HL market open.
- * Blocks trades that fight visible 1m structure (wrong side of range, wrong momentum).
+ * Blocks trades that fight the active regime's entry structure (5m SHORT / 15m LONG).
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';

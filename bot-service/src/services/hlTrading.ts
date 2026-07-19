@@ -39,11 +39,7 @@ import { recordHlBotOpenMarker } from './hlChartMarkers';
 import { recordHlOpenBlock, type HlOpenBlockGate } from './hlOpenBlocks';
 import { shouldTakeProfitOnPnl } from './pnlExits';
 import { validateEntryLocation } from './entryLocationGate';
-import {
-  findNearbyStrongHtfSupport,
-  validateHtfSr,
-  type HtfSrResult,
-} from './htfSrGate';
+import { validateHtfSr, type HtfSrResult } from './htfSrGate';
 import { validateMacroBetaAlignment } from './macroBetaGate';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
@@ -174,9 +170,25 @@ function bypassesLiquidityGate(signal: GlobalSignalCandidate): boolean {
 function shouldRelaxSecondaryGates(
   pick: GlobalSignalCandidate,
   _coin: string,
-  _direction: 'LONG' | 'SHORT'
+  direction: 'LONG' | 'SHORT'
 ): boolean {
-  return isStrongGlobalScanPick(pick);
+  const rules =
+    direction === 'LONG'
+      ? config.hyperliquid.directionProfile.long
+      : config.hyperliquid.directionProfile.short;
+  return rules.relaxSecondaryGates && trustsDirectionProfile(pick);
+}
+
+function trustsDirectionProfile(pick: GlobalSignalCandidate): boolean {
+  const rules =
+    pick.direction === 'LONG'
+      ? config.hyperliquid.directionProfile.long
+      : config.hyperliquid.directionProfile.short;
+  return (
+    rules.trustMtfScan &&
+    pick.confidence >= rules.minConfidence &&
+    (pick.directionalTfCount ?? 0) >= rules.minDirectionalTfs
+  );
 }
 
 /** Global scan already proved multi-TF alignment — skip redundant live re-checks. */
@@ -583,6 +595,10 @@ export class HyperliquidTradingService {
       }
 
       const liq = getHlLiquidityForCoin(liquidUniverse, signal.coin);
+      const liquidityTf =
+        signal.botMode === 'aggressive'
+          ? ('1m' as const)
+          : config.hyperliquid.directionProfile.entryTimeframe;
       const gate = bypassesLiquidityGate(signal)
         ? {
             ok: true as const,
@@ -599,16 +615,15 @@ export class HyperliquidTradingService {
             symbol: signal.symbol,
             direction: signal.direction,
             dayVolumeUsd: liq?.dayVolumeUsd ?? signal.dayVolumeUsd,
-            timeframe: signal.botMode === 'aggressive' ? '1m' : '5m',
+            timeframe: liquidityTf,
           });
 
       if (!gate.ok) {
-        const tf = signal.botMode === 'aggressive' ? '1m' : '5m';
         addSkip(
           signal,
           'liquidity',
-          `${signal.coin}: ${tf} volume/sweep — ${gate.reason}`,
-          `${tf} volume`
+          `${signal.coin}: ${liquidityTf} volume/sweep — ${gate.reason}`,
+          `${liquidityTf} volume`
         );
         continue;
       }
@@ -921,16 +936,6 @@ export class HyperliquidTradingService {
         );
       }
 
-      // Temporary hard direction stop: existing LONG positions remain managed by the
-      // close/trail path, but no new LONG order can pass even if a scan leaks one through.
-      if (opts.direction === 'LONG' && !config.hyperliquid.longOpensEnabled) {
-        return rejectOpen(
-          'long_confirmation',
-          'New LONG entries are temporarily disabled pending review of the current LONG cohort',
-          'LONG opens disabled'
-        );
-      }
-
       const assetIndex = coinToAssetIndex(meta, coin);
       const markPx = Number(mids[coin] ?? mids[`${coin}-PERP`] ?? 0);
       if (!markPx || !Number.isFinite(markPx)) {
@@ -939,68 +944,41 @@ export class HyperliquidTradingService {
 
       const symbol = hlCoinToBinanceSymbol(coin);
       let htfSrGate: HtfSrResult | null = null;
-
-      // Gate 0.5 — LONG confirmation:
-      // - UP: regular trend-following LONG is allowed.
-      // - DOWN / missing: always block.
-      // - SIDEWAYS: allow only a range-bounce entry at fresh, strong HTF support
-      //   (≥ configured rejections, within ATR threshold), and never near HTF resistance.
-      if (opts.direction === 'LONG' && opts.pick.h1Trend !== 'UP') {
-        if (
-          opts.pick.h1Trend !== 'SIDEWAYS' ||
-          !config.hyperliquid.htfSr.sidewaysLongSupportException
-        ) {
-          return rejectOpen(
-            'long_confirmation',
-            `Long confirmation: 1h trend is ${opts.pick.h1Trend ?? 'unknown'}, need UP or strong HTF support in SIDEWAYS`,
-            'long confirmation gate',
-            { h1Trend: opts.pick.h1Trend }
-          );
-        }
-
-        try {
-          htfSrGate = await validateHtfSr({
-            symbol,
-            coin,
-            direction: opts.direction,
-          });
-        } catch (err) {
-          const detail = err instanceof Error ? err.message : String(err);
-          return rejectOpen(
-            'long_confirmation',
-            `SIDEWAYS LONG support confirmation unavailable: ${detail}`,
-            'long confirmation support check',
-            { h1Trend: opts.pick.h1Trend }
-          );
-        }
-
-        const nearbySupport = findNearbyStrongHtfSupport(htfSrGate, markPx);
-        if (!nearbySupport || htfSrGate.wouldBlock) {
-          const reason = htfSrGate.wouldBlock
-            ? `SIDEWAYS LONG blocked: strong HTF resistance is also nearby — ${htfSrGate.reason}`
-            : `SIDEWAYS LONG blocked: no strong HTF support within ${config.hyperliquid.htfSr.atrMult}×ATR(1h)`;
-          return rejectOpen(
-            'long_confirmation',
-            reason,
-            'long confirmation support check',
-            {
-              h1Trend: opts.pick.h1Trend,
-              atr1h: htfSrGate.atr1h,
-              atrThreshold: htfSrGate.atrThreshold,
-            }
-          );
-        }
-
-        logger.info('HL SIDEWAYS LONG allowed — strong HTF support confirmed', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          confidence: opts.pick.confidence,
-          support: nearbySupport.level.price,
-          supportTf: nearbySupport.level.timeframe,
-          rejections: nearbySupport.level.rejections,
-          ageH: nearbySupport.level.lastTouchAgeHours,
-          distanceAtr: nearbySupport.distanceAtr,
-        });
+      const directionProfile = config.hyperliquid.directionProfile;
+      if (opts.direction !== directionProfile.primaryDirection) {
+        return rejectOpen(
+          'direction_profile',
+          `${opts.direction} disabled while ${directionProfile.name} is active; switch HL_DIRECTION_PROFILE in the backend`,
+          'inactive market-regime direction',
+          {
+            profile: directionProfile.name,
+            primaryDirection: directionProfile.primaryDirection,
+          }
+        );
+      }
+      const directionRules =
+        opts.direction === 'LONG' ? directionProfile.long : directionProfile.short;
+      const directionalTfs = opts.pick.directionalTfCount ?? 0;
+      const trendAlignment = opts.pick.trendAlignment ?? 0;
+      const h1Trend = String(opts.pick.h1Trend ?? '').toUpperCase();
+      const h1Matches =
+        !directionRules.requiredH1Trend ||
+        h1Trend.includes(directionRules.requiredH1Trend);
+      if (
+        opts.pick.confidence < directionRules.minConfidence ||
+        directionalTfs < directionRules.minDirectionalTfs ||
+        trendAlignment < directionRules.minTrendAlignment ||
+        !h1Matches
+      ) {
+        return rejectOpen(
+          'direction_profile',
+          `${opts.direction} blocked by ${directionProfile.name}: ${opts.pick.confidence}% confidence, ${directionalTfs} TFs, ${trendAlignment}% alignment, h1 ${h1Trend || 'unknown'}`,
+          'market-regime thresholds',
+          {
+            profile: directionProfile.name,
+            primaryDirection: directionProfile.primaryDirection,
+          }
+        );
       }
 
       const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
@@ -1040,12 +1018,18 @@ export class HyperliquidTradingService {
         return rejectOpen('news', newsGate.reason, 'news gate (step 1)', { tier: coinTier });
       }
 
-      const freshPumpGate = await validateNotFreshlyPumped({ coin, tier: coinTier });
+      const trustedDirection = trustsDirectionProfile(opts.pick);
+      const freshPumpGate =
+        trustedDirection && directionRules.bypassFreshPumpWhenTrusted
+          ? {
+              ok: true as const,
+              reason: `${directionProfile.name}: trusted MTF ${opts.direction} skips fresh-pump cooldown`,
+            }
+          : await validateNotFreshlyPumped({ coin, tier: coinTier });
       if (!freshPumpGate.ok) {
         return rejectOpen('fresh_pump', freshPumpGate.reason, 'fresh pump skip (step 2)');
       }
 
-      const strongMtf = isStrongGlobalScanPick(opts.pick);
       const relaxSecondaryGates = shouldRelaxSecondaryGates(
         opts.pick,
         coin,
@@ -1078,30 +1062,72 @@ export class HyperliquidTradingService {
         });
       }
 
-      const scalpGate = relaxSecondaryGates
+      const scalpGate = relaxSecondaryGates || !directionProfile.useScalpAlignment
           ? {
               ok: true as const,
-              reason: `Scan pick — scalp confirm skipped (${opts.pick.confidence}%, ${opts.pick.directionalTfCount} TFs)`,
+              reason: `${directionProfile.name} — 1m/5m scalp confirm disabled; 15m regime structure is authoritative`,
             }
           : await validateScalpAlignment({ coin, direction: opts.direction });
       if (!scalpGate.ok) {
         return rejectOpen('scalp_align', scalpGate.reason, 'scalp 1m/5m align');
       }
 
-      const macroGate = await validateMacroBetaAlignment({
-        coin,
-        direction: opts.direction,
-      });
+      const macroGate =
+        trustedDirection && directionRules.bypassMacroBetaWhenTrusted
+          ? {
+              ok: true as const,
+              reason: `${directionProfile.name}: trusted MTF ${opts.direction} skips duplicate macro re-check`,
+              snapshot: {
+                coin,
+                anchor: MAJOR_COINS.has(coin) ? ('SELF' as const) : ('BTC' as const),
+                btc: {
+                  change15mPct: 0,
+                  change1hPct: 0,
+                  trend15m: 'FLAT' as const,
+                  trend1h: 'FLAT' as const,
+                  consecutiveGreen15m: 0,
+                  consecutiveRed15m: 0,
+                },
+                eth: {
+                  change15mPct: 0,
+                  change1hPct: 0,
+                  trend15m: 'FLAT' as const,
+                  trend1h: 'FLAT' as const,
+                  consecutiveGreen15m: 0,
+                  consecutiveRed15m: 0,
+                },
+                coinMom: {
+                  change15mPct: 0,
+                  change1hPct: 0,
+                  trend15m: 'FLAT' as const,
+                  trend1h: 'FLAT' as const,
+                  consecutiveGreen15m: 0,
+                  consecutiveRed15m: 0,
+                },
+                checkedAt: new Date().toISOString(),
+              },
+              blockers: [] as string[],
+            }
+          : await validateMacroBetaAlignment({
+              coin,
+              direction: opts.direction,
+            });
       if (!macroGate.ok) {
         return rejectOpen('macro_beta', macroGate.reason, 'macro beta gate', {
           blockers: macroGate.blockers,
         });
       }
 
-      const pumpShortGate = await validateNoAltPumpShort({
-        coin,
-        direction: opts.direction,
-      });
+      const pumpShortGate =
+        trustedDirection && directionRules.bypassPumpShortWhenTrusted
+          ? {
+              ok: true as const,
+              reason: `${directionProfile.name}: trusted MTF ${opts.direction} skips duplicate pump-short re-check`,
+            }
+          : await validateNoAltPumpShort({
+              coin,
+              direction: opts.direction,
+            });
       if (!pumpShortGate.ok) {
         return rejectOpen('pump_short', pumpShortGate.reason, 'pump-short gate');
       }
@@ -1144,14 +1170,33 @@ export class HyperliquidTradingService {
         });
       }
 
-      // entry_location is NOT a redundant direction check — it guards the ENTRY PLACE
-      // (LONG into resistance / SHORT into support). It stays enforced even for strong
-      // MTF picks; relaxing it let SUI LONG open at 78% of range, ~0.4% under resistance.
-      const locationGate = await validateEntryLocation({
-        symbol,
-        coin,
-        direction: opts.direction,
-      });
+      // The active regime may trust an already aligned MTF primary-direction setup
+      // instead of vetoing it again with opposite-side mean-reversion logic.
+      const locationGate =
+        trustedDirection && directionRules.bypassEntryLocationWhenTrusted
+          ? {
+              ok: true as const,
+              reason: `${directionProfile.name}: trusted MTF ${opts.direction} skips duplicate S/R re-check`,
+              analysis: {
+                support: 0,
+                resistance: 0,
+                price: markPx,
+                pricePosition: 0.5,
+                resistanceTouches: 0,
+                resistanceRejections: 0,
+                supportTouches: 0,
+                supportRejections: 0,
+                confirmedBreakoutUp: false,
+                confirmedBreakdown: false,
+                nearResistance: false,
+                nearSupport: false,
+              },
+            }
+          : await validateEntryLocation({
+              symbol,
+              coin,
+              direction: opts.direction,
+            });
       if (!locationGate.ok) {
         return rejectOpen('entry_location', locationGate.reason, 'resistance/support gate', {
           resistance: locationGate.analysis.resistance,
@@ -1160,14 +1205,17 @@ export class HyperliquidTradingService {
       }
 
       // Gate HTF S/R — 1h/4h strong levels, ATR proximity, level decay.
-      // Default shadow: always log would-blocks to hl_open_blocks; only reject when
-      // HL_HTF_SR_ENFORCE=true (after 24–48h of shadow evidence).
-      htfSrGate ??= await validateHtfSr({
-        symbol,
-        coin,
-        direction: opts.direction,
-      });
-      if (htfSrGate.wouldBlock) {
+      // Skipped entirely when the active profile disables it (bear_market/June-26
+      // replica never had this gate). Otherwise shadow by default: always log
+      // would-blocks; only reject when the profile's rules enforce it.
+      if (directionProfile.enableHtfSr) {
+        htfSrGate ??= await validateHtfSr({
+          symbol,
+          coin,
+          direction: opts.direction,
+        });
+      }
+      if (htfSrGate?.wouldBlock) {
         logger.info(
           htfSrGate.shadow
             ? 'HL open SHADOW — HTF S/R would block'
@@ -1197,7 +1245,10 @@ export class HyperliquidTradingService {
           notionalUsd: opts.notionalUsd,
           leverage: opts.leverage,
         });
-        if (!htfSrGate.ok) {
+        if (
+          !htfSrGate.ok ||
+          directionRules.enforceHtfSr
+        ) {
           return { success: false, error: htfSrGate.reason };
         }
       }
