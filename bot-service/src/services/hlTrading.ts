@@ -141,6 +141,18 @@ function isInternalOpenDiagnostic(error: string): boolean {
   return /Volume 0\.00x/i.test(error) || / ‖ /.test(error);
 }
 
+/** Precise pre-trade skip record — surfaced to hl_open_blocks so the admin panel
+ *  shows the exact liquidity sub-reason instead of a generic bucket. */
+type LiquiditySkip = {
+  coin: string;
+  direction: 'LONG' | 'SHORT';
+  gate: 'liquidity' | 'anti_flip';
+  reason: string;
+  shortReason: string;
+  confidence?: number;
+  h1Trend?: string | null;
+};
+
 /** BTC/ETH, strong MTF picks, and liquid mid-caps — skip thin 1m volume re-check. */
 function bypassesLiquidityGate(signal: GlobalSignalCandidate): boolean {
   if (MAJOR_COINS.has(signal.coin.toUpperCase())) return true;
@@ -485,37 +497,78 @@ export class HyperliquidTradingService {
     liquidUniverse: HlLiquidUniverse,
     excludeCoins: string[],
     limit: number
-  ): Promise<GlobalSignalCandidate[]> {
+  ): Promise<{ picks: GlobalSignalCandidate[]; skips: LiquiditySkip[] }> {
     const excluded = new Set(excludeCoins.map((c) => c.toUpperCase()));
     const passing: Array<{ signal: GlobalSignalCandidate; score: number }> = [];
+    const skips: LiquiditySkip[] = [];
+
+    const addSkip = (
+      signal: GlobalSignalCandidate,
+      gate: LiquiditySkip['gate'],
+      reason: string,
+      shortReason: string
+    ) => {
+      logger.debug('HL signal skip', {
+        coin: signal.coin,
+        direction: signal.direction,
+        gate,
+        reason,
+      });
+      skips.push({
+        coin: signal.coin,
+        direction: signal.direction,
+        gate,
+        reason,
+        shortReason,
+        confidence: signal.confidence,
+        h1Trend: signal.h1Trend,
+      });
+    };
 
     for (const signal of signals) {
       if (excluded.has(signal.coin.toUpperCase())) continue;
-      if (!isHlCoinLiquid(liquidUniverse, signal.coin)) continue;
+
+      if (!isHlCoinLiquid(liquidUniverse, signal.coin)) {
+        addSkip(
+          signal,
+          'liquidity',
+          `${signal.coin}: not in HL liquid universe`,
+          'not liquid'
+        );
+        continue;
+      }
 
       const flipGate = isSameCoinOpenBlockedSync(userAddress, signal.coin, signal.direction);
       if (flipGate.blocked) {
-        logger.debug('HL signal skip: same-coin anti-flip', {
-          coin: signal.coin,
-          direction: signal.direction,
-          reason: flipGate.reason,
-        });
+        addSkip(
+          signal,
+          'anti_flip',
+          flipGate.reason ?? `${signal.coin}: same-coin re-entry blocked`,
+          'anti-flip cooldown'
+        );
         continue;
       }
 
       const rank = volumeRankForCoin(liquidUniverse, signal.coin);
-      if (rank > config.hyperliquid.scalpOpen.maxVolumeRank) {
-        logger.debug('HL signal skip: outside top liquid universe', {
-          coin: signal.coin,
-          volumeRank: rank,
-          maxRank: config.hyperliquid.scalpOpen.maxVolumeRank,
-        });
+      const maxRank = config.hyperliquid.scalpOpen.maxVolumeRank;
+      if (rank > maxRank) {
+        addSkip(
+          signal,
+          'liquidity',
+          `${signal.coin}: volume rank ${rank} > cap ${maxRank}`,
+          `rank ${rank}>${maxRank}`
+        );
         continue;
       }
 
       const tier = classifyCoinTier(signal.coin, liquidUniverse).tier;
       if (needsCautionPath(tier) && !config.hyperliquid.scalpOpen.allowCautiousAlts) {
-        logger.debug('HL signal skip: cautious alt (scalp whitelist off)', { coin: signal.coin });
+        addSkip(
+          signal,
+          'liquidity',
+          `${signal.coin}: cautious alt (${tier}) — scalp whitelist off`,
+          'cautious alt'
+        );
         continue;
       }
 
@@ -540,11 +593,13 @@ export class HyperliquidTradingService {
           });
 
       if (!gate.ok) {
-        logger.debug('HL signal skip: volume/sweep gate', {
-          coin: signal.coin,
-          direction: signal.direction,
-          reason: gate.reason,
-        });
+        const tf = signal.botMode === 'aggressive' ? '1m' : '5m';
+        addSkip(
+          signal,
+          'liquidity',
+          `${signal.coin}: ${tf} volume/sweep — ${gate.reason}`,
+          `${tf} volume`
+        );
         continue;
       }
 
@@ -563,10 +618,12 @@ export class HyperliquidTradingService {
       });
     }
 
-    return passing
+    const picks = passing
       .sort((a, b) => b.score - a.score || b.signal.confidence - a.signal.confidence)
       .slice(0, limit)
       .map((row) => row.signal);
+
+    return { picks, skips };
   }
 
   private async tryOpenFromGlobalSignals(
@@ -646,7 +703,7 @@ export class HyperliquidTradingService {
 
       const pickLimit = Math.max(slotsLeft, 8);
       await warmCoinCloseCacheForWallet(userAddress);
-      const picks = await this.pickBestSignalsPassingLiquidityGate(
+      const { picks, skips } = await this.pickBestSignalsPassingLiquidityGate(
         userAddress,
         signals,
         ctx.liquidUniverse,
@@ -657,26 +714,36 @@ export class HyperliquidTradingService {
         const top = signals.find(
           (s) => !coinsOpen.some((c) => c.toUpperCase() === s.coin.toUpperCase())
         );
-        const err = `Pre-trade gate blocked ${signals.length} scan candidate(s) — volume/liquidity check`;
+        // Persist the EXACT per-candidate reason (rank>cap / not liquid / Nm volume /
+        // cautious alt / anti-flip) so hl_open_blocks + admin show why, not a generic
+        // "volume/liquidity check". Debounced per wallet+coin+direction+gate.
+        for (const s of skips) {
+          void recordHlOpenBlock({
+            walletAddress: userAddress,
+            coin: s.coin,
+            direction: s.direction,
+            gate: s.gate,
+            reason: s.reason,
+            confidence: s.confidence,
+            h1Trend: s.h1Trend,
+          });
+        }
+        const breakdown = skips
+          .slice(0, 5)
+          .map((s) => `${s.coin} (${s.shortReason})`)
+          .join(', ');
+        const err = breakdown
+          ? `Pre-trade gate blocked ${skips.length} candidate(s): ${breakdown}`
+          : `Pre-trade gate blocked ${signals.length} scan candidate(s) — volume/liquidity check`;
         lastHlOpenError.set(userAddress.toLowerCase(), {
           at: new Date().toISOString(),
           coin: top?.coin,
           error: err,
         });
-        if (top) {
-          void recordHlOpenBlock({
-            walletAddress: userAddress,
-            coin: top.coin,
-            direction: top.direction,
-            gate: 'liquidity',
-            reason: err,
-            confidence: top.confidence,
-            h1Trend: top.h1Trend,
-          });
-        }
-        logger.debug('HL open skip: no signal passed volume/sweep gate', {
+        logger.info('HL open skip: no signal passed pre-trade gate', {
           user: userAddress.slice(0, 10),
           candidates: signals.length,
+          skips: skips.map((s) => `${s.coin}:${s.shortReason}`),
           openCoins: coinsOpen,
           slot: coinsOpen.length + 1,
         });
