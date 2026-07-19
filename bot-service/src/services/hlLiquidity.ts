@@ -139,3 +139,56 @@ export function isHlCoinLiquid(
   const row = getHlLiquidityForCoin(universe, coin);
   return row != null && passesOpenLiquidityGate(row);
 }
+
+export type HlLiquidityStatus =
+  | { liquid: true; reason: string }
+  | { liquid: false; kind: 'missing' | 'below_floor'; reason: string };
+
+/**
+ * Precise liquidity verdict — separates a data/mapping miss ("missing": no HL row
+ * or no mark) from an env-floor rejection ("below_floor": real volume/OI under the
+ * configured minimum). Surfaces the exact configured floor so a stale Railway
+ * HL_MIN_DAY_VOLUME_USD is visible in the block log, not hidden behind a generic bucket.
+ */
+export function hlCoinLiquidityStatus(
+  universe: HlLiquidUniverse,
+  coin: string
+): HlLiquidityStatus {
+  const key = coin.toUpperCase();
+  const row = getHlLiquidityForCoin(universe, coin);
+  if (row == null) {
+    return {
+      liquid: false,
+      kind: 'missing',
+      reason: `${key}: no HL perp row in scan universe (mapping/listing miss)`,
+    };
+  }
+  if (row.markPx <= 0) {
+    return {
+      liquid: false,
+      kind: 'missing',
+      reason: `${key}: no live HL mark price (data miss)`,
+    };
+  }
+
+  const minVol = config.hyperliquid.minDayVolumeUsd;
+  const minOi = config.hyperliquid.minOpenInterestUsd;
+  const volM = row.dayVolumeUsd / 1e6;
+
+  if (minVol > 0 && row.dayVolumeUsd < minVol) {
+    return {
+      liquid: false,
+      kind: 'below_floor',
+      reason: `${key}: 24h volume $${volM.toFixed(2)}M below floor $${(minVol / 1e6).toFixed(2)}M (HL_MIN_DAY_VOLUME_USD)`,
+    };
+  }
+  if (minOi > 0 && row.openInterestUsd < minOi) {
+    return {
+      liquid: false,
+      kind: 'below_floor',
+      reason: `${key}: open interest $${(row.openInterestUsd / 1e6).toFixed(2)}M below floor $${(minOi / 1e6).toFixed(2)}M (HL_MIN_OPEN_INTEREST_USD)`,
+    };
+  }
+
+  return { liquid: true, reason: `${key}: liquid ($${volM.toFixed(2)}M/24h)` };
+}

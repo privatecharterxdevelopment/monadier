@@ -3,7 +3,11 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { deriveUserHlAgent } from './hlAgent';
 import { hlAgentApprovalService } from './hlAgentApprovals';
-import { getHlLiquidityForCoin, isHlCoinLiquid, type HlLiquidUniverse } from './hlLiquidity';
+import {
+  getHlLiquidityForCoin,
+  hlCoinLiquidityStatus,
+  type HlLiquidUniverse,
+} from './hlLiquidity';
 import { globalSignalsForBotMode, type GlobalSignalCandidate } from './globalMarketScan';
 import { validatePreTradeLiquidity } from './liquiditySweepGate';
 import {
@@ -528,12 +532,13 @@ export class HyperliquidTradingService {
     for (const signal of signals) {
       if (excluded.has(signal.coin.toUpperCase())) continue;
 
-      if (!isHlCoinLiquid(liquidUniverse, signal.coin)) {
+      const liqStatus = hlCoinLiquidityStatus(liquidUniverse, signal.coin);
+      if (!liqStatus.liquid) {
         addSkip(
           signal,
           'liquidity',
-          `${signal.coin}: not in HL liquid universe`,
-          'not liquid'
+          liqStatus.reason,
+          liqStatus.kind === 'missing' ? 'missing data' : 'below floor'
         );
         continue;
       }
