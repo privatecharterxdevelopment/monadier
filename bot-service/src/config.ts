@@ -412,7 +412,13 @@ export const config = {
     pumpSweep: {
       enabled: process.env.HL_PUMP_SWEEP_ENABLED !== 'false',
       majorsOnly: process.env.HL_PUMP_SWEEP_MAJORS_ONLY === 'true',
-      blockAltsOnMegaFade: process.env.HL_PUMP_SWEEP_BLOCK_ALTS !== 'false',
+      /**
+       * OFF by default: blanket-blocking every alt LONG whenever BTC/ETH is within
+       * ~0.4% of its 72h high killed trend-following alt LONGs in normal grind-ups.
+       * The per-coin apex/fade check still applies. Set HL_PUMP_SWEEP_BLOCK_ALTS=true
+       * to restore the majors-sweep blanket block.
+       */
+      blockAltsOnMegaFade: process.env.HL_PUMP_SWEEP_BLOCK_ALTS === 'true',
       lookbackBars1h: Number(process.env.HL_PUMP_SWEEP_LOOKBACK || 72),
       apexMaxAgeBars: Number(process.env.HL_PUMP_SWEEP_APEX_AGE || 36),
       nearApexPct: Number(process.env.HL_PUMP_SWEEP_NEAR_APEX || 0.004),
