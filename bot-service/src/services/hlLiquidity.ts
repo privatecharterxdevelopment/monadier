@@ -13,6 +13,13 @@ export type HlLiquidUniverse = {
   coins: string[];
   markets: HlPerpLiquidity[];
   fetchedAt: number;
+  /**
+   * The day-volume floor actually enforced this cycle. Equals the configured
+   * HL_MIN_DAY_VOLUME_USD, but clamped down whenever that value would exclude the
+   * top HL_MIN_TRADABLE_UNIVERSE perps — a stale/too-high Railway floor (e.g. $5M,
+   * which nukes everything but BTC/ETH/SOL) can never silently kill the universe.
+   */
+  minDayVolumeUsdEffective: number;
 };
 
 type AssetMeta = {
@@ -40,13 +47,29 @@ function passesScanUniverse(m: HlPerpLiquidity): boolean {
 }
 
 /** Optional open-time floor — only when env sets minDayVolumeUsd / minOpenInterestUsd > 0. */
-export function passesOpenLiquidityGate(m: HlPerpLiquidity): boolean {
-  const minVol = config.hyperliquid.minDayVolumeUsd;
+export function passesOpenLiquidityGate(m: HlPerpLiquidity, minVolOverride?: number): boolean {
+  const minVol = minVolOverride ?? config.hyperliquid.minDayVolumeUsd;
   const minOi = config.hyperliquid.minOpenInterestUsd;
   if (m.markPx <= 0) return false;
   if (minVol > 0 && m.dayVolumeUsd < minVol) return false;
   if (minOi > 0 && m.openInterestUsd < minOi) return false;
   return true;
+}
+
+/**
+ * Clamp the configured day-volume floor so it never excludes the top `minKeep`
+ * most-liquid perps. `scannable` must be sorted by 24h volume descending.
+ */
+export function resolveEffectiveDayVolumeFloor(
+  scannable: HlPerpLiquidity[],
+  configuredFloor: number,
+  minKeep: number
+): number {
+  if (configuredFloor <= 0 || minKeep <= 0 || scannable.length < minKeep) {
+    return Math.max(0, configuredFloor);
+  }
+  const keepFloor = scannable[minKeep - 1]?.dayVolumeUsd ?? 0;
+  return configuredFloor > keepFloor ? keepFloor : configuredFloor;
 }
 
 /** HL perps — scan universe is all listed coins; open floors are optional. */
@@ -101,21 +124,42 @@ export async function fetchHlLiquidUniverse(force = false): Promise<HlLiquidUniv
   const maxScan = config.hyperliquid.maxLiquidScanUniverse;
   const trimmed = maxScan > 0 ? scannable.slice(0, maxScan) : scannable;
 
+  const configuredFloor = config.hyperliquid.minDayVolumeUsd;
+  const minKeep = config.hyperliquid.minTradableUniverse;
+  const minDayVolumeUsdEffective = resolveEffectiveDayVolumeFloor(
+    scannable,
+    configuredFloor,
+    minKeep
+  );
+
   const universe: HlLiquidUniverse = {
     coins: trimmed.map((m) => m.coin),
     markets: trimmed,
     fetchedAt: Date.now(),
+    minDayVolumeUsdEffective,
   };
 
   cached = universe;
 
-  const openEligible = trimmed.filter(passesOpenLiquidityGate).length;
+  const openEligible = trimmed.filter((m) =>
+    passesOpenLiquidityGate(m, minDayVolumeUsdEffective)
+  ).length;
+
+  if (minDayVolumeUsdEffective < configuredFloor) {
+    logger.warn('HL day-volume floor clamped — configured value would starve the universe', {
+      configuredFloorM: (configuredFloor / 1e6).toFixed(2),
+      effectiveFloorM: (minDayVolumeUsdEffective / 1e6).toFixed(2),
+      minKeep,
+      openEligible,
+    });
+  }
 
   logger.info('HL liquid universe built', {
     listed: all.length,
     scanning: trimmed.length,
     openEligible,
-    minDayVolumeUsd: config.hyperliquid.minDayVolumeUsd,
+    minDayVolumeUsd: configuredFloor,
+    minDayVolumeUsdEffective,
     minOpenInterestUsd: config.hyperliquid.minOpenInterestUsd,
     topCoin: trimmed[0]?.coin,
     topVolM: trimmed[0] ? (trimmed[0].dayVolumeUsd / 1e6).toFixed(1) : '0',
@@ -137,7 +181,7 @@ export function isHlCoinLiquid(
   coin: string
 ): boolean {
   const row = getHlLiquidityForCoin(universe, coin);
-  return row != null && passesOpenLiquidityGate(row);
+  return row != null && passesOpenLiquidityGate(row, universe.minDayVolumeUsdEffective);
 }
 
 export type HlLiquidityStatus =
@@ -171,7 +215,7 @@ export function hlCoinLiquidityStatus(
     };
   }
 
-  const minVol = config.hyperliquid.minDayVolumeUsd;
+  const minVol = universe.minDayVolumeUsdEffective;
   const minOi = config.hyperliquid.minOpenInterestUsd;
   const volM = row.dayVolumeUsd / 1e6;
 

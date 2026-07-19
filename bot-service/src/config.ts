@@ -109,9 +109,20 @@ export const config = {
     maxConcurrentPositions: Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 3),
     /** Minimum order notional — skips sloppy micro-trades. */
     minNotionalUsd: Number(process.env.HL_MIN_NOTIONAL_USD || 20),
-    /** Bot open floor — 0 = scan all HL perps; only applied at order time if > 0. */
-    minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 0),
+    /**
+     * Bot open floor. Code default $1M is sane for Hyperliquid (where only a
+     * handful of perps clear $5M/24h). It is additionally clamped at runtime so a
+     * stale/too-high value can never exclude the top `minTradableUniverse` perps.
+     */
+    minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 1_000_000),
     minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 0),
+    /**
+     * Emergency minimum for the day-volume gate: the enforced floor is clamped only
+     * when it would leave FEWER than this many perps tradable. Kept small (12) so a
+     * deliberate moderate floor (e.g. $1M) is respected, but a stale/too-high value
+     * (e.g. $5M leaving only BTC/ETH/SOL) can never starve the bot.
+     */
+    minTradableUniverse: Number(process.env.HL_MIN_TRADABLE_UNIVERSE || 12),
     /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all listed HL perps. */
     maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 18),
     liquidUniverseCacheMs: Number(process.env.HL_LIQUID_UNIVERSE_CACHE_MS || 60_000),
