@@ -380,18 +380,23 @@ export function globalSignalsForBotMode(
   scan: GlobalScanResult,
   hlBotStrategy: string | null | undefined
 ): GlobalSignalCandidate[] {
-  if (hlBotStrategy === 'profit_grabber') return scan.aggressive;
+  const directionAllowed = (candidate: GlobalSignalCandidate) =>
+    config.hyperliquid.longOpensEnabled || candidate.direction !== 'LONG';
+  const standard = scan.standard.filter(directionAllowed);
+  const aggressive = scan.aggressive.filter(directionAllowed);
 
-  const seen = new Set(scan.standard.map((c) => c.coin.toUpperCase()));
-  const borrowed = scan.aggressive.filter((c) => {
+  if (hlBotStrategy === 'profit_grabber') return aggressive;
+
+  const seen = new Set(standard.map((c) => c.coin.toUpperCase()));
+  const borrowed = aggressive.filter((c) => {
     if (seen.has(c.coin.toUpperCase())) return false;
     if (c.confidence < STD_BORROW_AGG_MIN_CONF) return false;
     if ((c.dayVolumeUsd || 0) < STD_BORROW_AGG_MIN_VOL) return false;
     return true;
   });
-  if (borrowed.length === 0) return scan.standard;
+  if (borrowed.length === 0) return standard;
 
-  return [...scan.standard, ...borrowed].sort(
+  return [...standard, ...borrowed].sort(
     (a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence
   );
 }

@@ -921,6 +921,16 @@ export class HyperliquidTradingService {
         );
       }
 
+      // Temporary hard direction stop: existing LONG positions remain managed by the
+      // close/trail path, but no new LONG order can pass even if a scan leaks one through.
+      if (opts.direction === 'LONG' && !config.hyperliquid.longOpensEnabled) {
+        return rejectOpen(
+          'long_confirmation',
+          'New LONG entries are temporarily disabled pending review of the current LONG cohort',
+          'LONG opens disabled'
+        );
+      }
+
       const assetIndex = coinToAssetIndex(meta, coin);
       const markPx = Number(mids[coin] ?? mids[`${coin}-PERP`] ?? 0);
       if (!markPx || !Number.isFinite(markPx)) {

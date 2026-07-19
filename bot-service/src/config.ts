@@ -107,6 +107,12 @@ export const config = {
      * silently capped every 3-slot user back to 2.
      */
     maxConcurrentPositions: Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 3),
+    /**
+     * Emergency direction switch. Default OFF for new LONG entries while the current
+     * SOL/DOGE/SUI cohort is reviewed. Existing LONGs remain fully managed and closable.
+     * Re-enable explicitly with HL_LONG_OPENS_ENABLED=true.
+     */
+    longOpensEnabled: process.env.HL_LONG_OPENS_ENABLED === 'true',
     /** Minimum order notional — skips sloppy micro-trades. */
     minNotionalUsd: Number(process.env.HL_MIN_NOTIONAL_USD || 20),
     /**
