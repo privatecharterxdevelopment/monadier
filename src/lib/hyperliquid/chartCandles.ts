@@ -94,6 +94,16 @@ export function sanitizeChartCandles(
     .filter((c): c is HlCandleBar => c != null);
 }
 
+/**
+ * On a coin switch the incoming markPx can briefly belong to the previous pair
+ * (e.g. BTC ~64k patched onto an ETH ~1870 bar) — Math.max/min then stretches the
+ * forming candle across the whole chart. Reject any mark that deviates wildly from
+ * the last close: a same-coin bar never moves this much within one candle, while a
+ * wrong-coin/stale mark is always far outside the band.
+ */
+const FORMING_MARK_BAND_LO = 0.5;
+const FORMING_MARK_BAND_HI = 2;
+
 /** Live mark patches the forming bar (TradingView-style wick/close). */
 export function patchFormingCandleWithMark(
   candles: HlCandleBar[],
@@ -101,6 +111,11 @@ export function patchFormingCandleWithMark(
 ): HlCandleBar[] {
   if (!markPx || markPx <= 0 || candles.length === 0) return candles;
   const last = candles[candles.length - 1];
+  const ref = last.close > 0 ? last.close : last.open;
+  if (ref > 0) {
+    const ratio = markPx / ref;
+    if (ratio < FORMING_MARK_BAND_LO || ratio > FORMING_MARK_BAND_HI) return candles;
+  }
   const close = markPx;
   const high = Math.max(last.high, markPx);
   const low = Math.min(last.low, markPx);

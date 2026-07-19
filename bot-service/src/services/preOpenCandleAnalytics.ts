@@ -106,6 +106,11 @@ function buildSummary(
 export async function validatePreOpenCandleAnalytics(opts: {
   coin: string;
   direction: 'LONG' | 'SHORT';
+  /** HTF (1h) trend label from the scan. When it confirms the trade direction the
+   *  mean-reversion guards below are skipped — a confirmed uptrend LONG is *supposed*
+   *  to sit high in its range and ride shallow pullbacks; blocking that strangles the
+   *  momentum signal. Only active reversal / volume fade still blocks in that case. */
+  h1Trend?: string;
 }): Promise<PreOpenCandleAnalytics> {
   const cfg = config.hyperliquid.preOpenCandles;
   const fail = (partial: Omit<PreOpenCandleAnalytics, 'ok'>): PreOpenCandleAnalytics => ({
@@ -175,19 +180,27 @@ export async function validatePreOpenCandleAnalytics(opts: {
     const minNet = cfg.minNetMovePct;
     const dir = opts.direction;
 
+    // HTF trend confirms the trade direction → this is a momentum entry, not a chop
+    // guess. Skip the mean-reversion guards (net-flat/bearish, buy-low range position,
+    // rejections at range high) that would otherwise strangle a strong trending signal.
+    // Active reversal (structure flipping) and volume fade still block below.
+    const t = (opts.h1Trend ?? '').toUpperCase();
+    const trendConfirms =
+      (dir === 'LONG' && /UP/.test(t)) || (dir === 'SHORT' && /DOWN/.test(t));
+
     if (dir === 'LONG') {
       const greenRatio = greens / window.length;
-      if (net < minNet && greenRatio < minRatio) {
+      if (!trendConfirms && net < minNet && greenRatio < minRatio) {
         const reason = `Open blocked — ${coin} LONG: last ${window.length}×${tf} bearish (net ${net.toFixed(2)}%, ${greens}G/${reds}R)`;
         logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
-      if (pos >= cfg.maxRangePositionLong && recent5 < cfg.breakoutRecentMovePct) {
+      if (!trendConfirms && pos >= cfg.maxRangePositionLong && recent5 < cfg.breakoutRecentMovePct) {
         const reason = `Open blocked — ${coin} LONG: price at ${(pos * 100).toFixed(0)}% of ${window.length}-bar range (buy low — wait for pullback)`;
         logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
-      if (rejH >= cfg.maxRejectionsAtLevel && recent5 < minNet) {
+      if (!trendConfirms && rejH >= cfg.maxRejectionsAtLevel && recent5 < minNet) {
         const reason = `Open blocked — ${coin} LONG: ${rejH} rejections at range high in last 8 bars`;
         logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
@@ -199,17 +212,17 @@ export async function validatePreOpenCandleAnalytics(opts: {
       }
     } else {
       const redRatio = reds / window.length;
-      if (net > -minNet && redRatio < minRatio) {
+      if (!trendConfirms && net > -minNet && redRatio < minRatio) {
         const reason = `Open blocked — ${coin} SHORT: last ${window.length}×${tf} bullish (net ${net >= 0 ? '+' : ''}${net.toFixed(2)}%, ${greens}G/${reds}R)`;
         logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
-      if (pos <= cfg.maxRangePositionShort && recent5 > -cfg.breakoutRecentMovePct) {
+      if (!trendConfirms && pos <= cfg.maxRangePositionShort && recent5 > -cfg.breakoutRecentMovePct) {
         const reason = `Open blocked — ${coin} SHORT: price at ${(pos * 100).toFixed(0)}% of ${window.length}-bar range (shorting lows)`;
         logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
-      if (rejL >= cfg.maxRejectionsAtLevel && recent5 > -minNet) {
+      if (!trendConfirms && rejL >= cfg.maxRejectionsAtLevel && recent5 > -minNet) {
         const reason = `Open blocked — ${coin} SHORT: ${rejL} rejections at range low in last 8 bars`;
         logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });

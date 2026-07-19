@@ -117,12 +117,14 @@ export const config = {
     minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 1_000_000),
     minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 0),
     /**
-     * Emergency minimum for the day-volume gate: the enforced floor is clamped only
-     * when it would leave FEWER than this many perps tradable. Kept small (12) so a
-     * deliberate moderate floor (e.g. $1M) is respected, but a stale/too-high value
-     * (e.g. $5M leaving only BTC/ETH/SOL) can never starve the bot.
+     * Anti-starvation floor for the day-volume gate: the enforced floor is clamped so
+     * it never leaves FEWER than this many perps tradable. Set to 40 so the top ~40
+     * most-liquid HL perps (DOT, APT, LINK, SUSHI, INJ, …) always stay tradable even
+     * when a too-high Railway floor (e.g. $0.65M) would otherwise exclude legit mid-caps.
+     * On HL many real coins trade well under $1M/24h, so a high raw floor must not decide
+     * the universe on its own.
      */
-    minTradableUniverse: Number(process.env.HL_MIN_TRADABLE_UNIVERSE || 12),
+    minTradableUniverse: Number(process.env.HL_MIN_TRADABLE_UNIVERSE || 40),
     /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all listed HL perps. */
     maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 18),
     liquidUniverseCacheMs: Number(process.env.HL_LIQUID_UNIVERSE_CACHE_MS || 60_000),
@@ -315,10 +317,11 @@ export const config = {
     scalpOpen: {
       // Hard universe cap. 18 was too tight: HL's top-18 by volume is dominated by
       // BTC/ETH/HYPE/SOL + memecoins (CASHCAT/PUMP/VVV), which DROPPED real large-caps
-      // like LINK(#20)/ADA(#22)/BNB(#23)/AVAX(#24)/ARB/DOT entirely. 40 lets them in;
-      // ranks 19-40 stay "cautious" tier (news + stricter conf via caution path),
-      // so the universe widens without loosening per-trade quality.
-      maxVolumeRank: Number(process.env.HL_OPEN_MAX_VOLUME_RANK || 40),
+      // like LINK(#20)/ADA(#22)/BNB(#23)/AVAX(#24)/ARB/DOT entirely. 60 lets in the full
+      // set of tradable mid-caps (INJ #42, VIRTUAL #52, JUP #53 were being blocked at 40);
+      // ranks 19-60 stay "cautious" tier (news + stricter conf via caution path), so the
+      // universe widens without loosening per-trade quality.
+      maxVolumeRank: Number(process.env.HL_OPEN_MAX_VOLUME_RANK || 60),
       allowCautiousAlts: process.env.HL_ALLOW_CAUTIOUS_OPENS !== 'false',
       require1m5mAlign: process.env.HL_SCALP_REQUIRE_1M5M !== 'false',
       minTfConfidence: Number(process.env.HL_SCALP_MIN_TF_CONF || 52),
