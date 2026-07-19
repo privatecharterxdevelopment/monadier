@@ -219,7 +219,7 @@ export function evaluateBotReadiness(
       headline: openCount > 0 ? `Slot ${openCount + 1} scan` : 'Bot active',
       detail:
         openCount > 0
-          ? 'Scanning all HL perps for an independent 2nd trade…'
+          ? `Scanning all HL perps for an independent trade (slot ${openCount + 1}/${maxSlots})…`
           : 'Loading market data…',
     };
   }
