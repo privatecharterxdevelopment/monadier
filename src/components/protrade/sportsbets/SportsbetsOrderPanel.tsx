@@ -124,7 +124,15 @@ const SportsbetsOrderPanel: React.FC<Props> = ({
   const contractSize = useMemo(() => {
     if (!Number.isFinite(parsedStake) || parsedStake <= 0 || orderPrice <= 0) return 0;
     if (effectiveStakeMode === 'contracts') return Math.floor(parsedStake);
-    return Math.floor(parsedStake / orderPrice);
+    let n = Math.floor(parsedStake / orderPrice);
+    // Contracts are whole numbers, so flooring a USD stake can land the actual notional
+    // below the exchange minimum even when the user typed >= the minimum (e.g. $10 at
+    // 0.593 -> 16 contracts = $9.49 < $10, wrongly blocked as "Minimum bet is $10").
+    // Bump to the smallest valid size so an at-least-minimum stake is always accepted.
+    if (parsedStake >= OUTCOME_MIN_NOTIONAL_USD && n * orderPrice < OUTCOME_MIN_NOTIONAL_USD) {
+      n = Math.ceil(OUTCOME_MIN_NOTIONAL_USD / orderPrice);
+    }
+    return n;
   }, [parsedStake, orderPrice, effectiveStakeMode]);
 
   const payoutPreview = useMemo(

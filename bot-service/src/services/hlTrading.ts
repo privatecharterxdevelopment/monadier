@@ -1055,6 +1055,7 @@ export class HyperliquidTradingService {
           : await validatePreOpenCandleAnalytics({
               coin,
               direction: opts.direction,
+              h1Trend: opts.pick.h1Trend,
             });
       if (!candleAnalytics.ok) {
         return rejectOpen('pre_open_candles', candleAnalytics.reason, '20-candle analytics', {

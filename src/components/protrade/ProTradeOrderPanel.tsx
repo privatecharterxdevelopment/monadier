@@ -145,7 +145,27 @@ const ProTradeOrderPanel: React.FC<Props> = ({
     [leverage, marginMode]
   );
 
+  // Coin switched: the limit price belongs to the previous pair. Leaving e.g. a BTC
+  // ~64k price on an ETH order makes HL reject it (price far outside the oracle band,
+  // surfaced as "not enough liquidity"). Clear it so the fill-from-mark effect below
+  // repopulates with THIS coin's price.
+  const prevCoinRef = useRef(coin);
+  const awaitingMarkResetRef = useRef(false);
   useEffect(() => {
+    if (prevCoinRef.current === coin) return;
+    prevCoinRef.current = coin;
+    onLimitPriceChange('');
+    // For one render the market hook still exposes the previous pair's mark before it
+    // resets to 0 and loads the new coin. Ignore mark until that reset is observed.
+    awaitingMarkResetRef.current = true;
+  }, [coin, onLimitPriceChange]);
+
+  useEffect(() => {
+    if (awaitingMarkResetRef.current) {
+      if (markPx > 0) return; // still the stale old-coin mark, wait for the reset
+      awaitingMarkResetRef.current = false; // reset observed (markPx == 0), safe to fill
+      return;
+    }
     if (markPx > 0 && kind === 'limit' && !limitPrice) {
       onLimitPriceChange(String(markPx));
     }
@@ -204,15 +224,23 @@ const ProTradeOrderPanel: React.FC<Props> = ({
     return sizeInCoin * markPx;
   }, [sizeInCoin, markPx]);
 
-  const applyNotional = (notional: number, pct: number, marginUsd: number) => {
-    setSizePct(pct);
-    setAmountUsd(marginUsd > 0 ? marginUsd.toFixed(2) : '');
-    if (markPx <= 0 || notional <= 0) return;
+  const setSizeFromNotional = (notional: number) => {
+    if (markPx <= 0 || notional <= 0) {
+      setSize('');
+      return;
+    }
     if (sizeUnit === 'usd') {
       setSize(notional.toFixed(2));
     } else {
       setSize((notional / markPx).toFixed(6).replace(/\.?0+$/, '') || '0');
     }
+  };
+
+  // Preset / slider path: safe to reformat the USDC field (user clicked, not typing).
+  const applyNotional = (notional: number, pct: number, marginUsd: number) => {
+    setSizePct(pct);
+    setAmountUsd(marginUsd > 0 ? marginUsd.toFixed(2) : '');
+    setSizeFromNotional(notional);
   };
 
   const applySizePreset = (pct: number, levOverride?: number) => {
@@ -247,7 +275,10 @@ const ProTradeOrderPanel: React.FC<Props> = ({
     const marginUsd = Math.min(usd, accountValue);
     const pct = accountValue > 0 ? Math.min(100, (marginUsd / accountValue) * 100) : 0;
     const notional = isSpot ? marginUsd : marginUsd * leverage;
-    applyNotional(notional, pct, marginUsd);
+    // Do NOT round the USDC field here  reformatting on every keystroke makes free
+    // entry impossible ("46.88" jumps to "46.00"). Only size/% derive from the amount.
+    setSizePct(pct);
+    setSizeFromNotional(notional);
     // Keep the typed string while editing; snap to capped value only if over balance.
     if (usd > accountValue) setAmountUsd(marginUsd.toFixed(2));
   };
