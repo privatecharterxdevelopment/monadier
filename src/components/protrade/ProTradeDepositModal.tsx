@@ -22,6 +22,8 @@ import {
 import { USDC_ADDRESSES, USDC_DECIMALS } from '../../lib/usdcArbitrum';
 import { ERC20_ABI } from '../../lib/dex/router';
 import { useProTradeThemeOptional } from '../../contexts/ProTradeThemeContext';
+import { useBettingFeeGate } from '../../contexts/BettingFeeContext';
+import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
 import { useWithdrawFeeGate } from '../../hooks/useWithdrawFeeGate';
 
 const ARBITRUM_USDC_E = '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8' as const;
@@ -55,6 +57,8 @@ const ProTradeDepositModal: React.FC<Props> = ({
     openPlatformPayModal,
     openBettingPayModal,
   } = useWithdrawFeeGate();
+  const platformFees = usePlatformFeeGate();
+  const bettingFees = useBettingFeeGate();
   const { address, isConnected } = useMonadierWallet();
   const { publicClient, walletClient } = useWeb3();
   const chainId = useChainId();
@@ -443,6 +447,62 @@ const ProTradeDepositModal: React.FC<Props> = ({
               <div className="hl-funds-summary__sub">
                 Withdrawable {fmtUsdSymbol(withdrawable)} · perps, bot &amp; betting
               </div>
+
+              {!platformFees.feesWaived ? (
+                <div
+                  className={`hl-funds-summary__fee${
+                    platformAccruedUsd > 0.000_001 ? ' hl-funds-summary__fee--due' : ''
+                  }`}
+                >
+                  <div className="hl-funds-summary__fee-copy">
+                    <span>Bot / trading fees owed</span>
+                    <em>
+                      {platformFees.successWinCount}/{platformFees.winsBeforeBlock} win closes
+                      {platformFees.opensBlocked ? ' · opens blocked until paid' : ''}
+                    </em>
+                  </div>
+                  {platformAccruedUsd > 0.000_001 ? (
+                    <button
+                      type="button"
+                      className="hl-funds-summary__fee-pay"
+                      onClick={openPlatformPayModal}
+                    >
+                      {fmtUsdSymbol(platformAccruedUsd)} · Pay
+                    </button>
+                  ) : (
+                    <strong className="hl-funds-summary__fee-zero">{fmtUsdSymbol(0)}</strong>
+                  )}
+                </div>
+              ) : null}
+
+              {!bettingFees.feesWaived ? (
+                <div
+                  className={`hl-funds-summary__fee${
+                    bettingAccruedUsd > 0.000_001 ? ' hl-funds-summary__fee--due' : ''
+                  }`}
+                >
+                  <div className="hl-funds-summary__fee-copy">
+                    <span>Betting fees owed</span>
+                    <em>
+                      {bettingFees.successWinCount}/{bettingFees.winsBeforeBlock} win bets
+                      {bettingFees.bettingBlocked || bettingFees.withdrawBlocked
+                        ? ' · pay before next bet / withdraw'
+                        : ''}
+                    </em>
+                  </div>
+                  {bettingAccruedUsd > 0.000_001 ? (
+                    <button
+                      type="button"
+                      className="hl-funds-summary__fee-pay"
+                      onClick={openBettingPayModal}
+                    >
+                      {fmtUsdSymbol(bettingAccruedUsd)} · Pay
+                    </button>
+                  ) : (
+                    <strong className="hl-funds-summary__fee-zero">{fmtUsdSymbol(0)}</strong>
+                  )}
+                </div>
+              ) : null}
             </div>
 
             {fundsPlacementHint && tab === 'deposit' ? (

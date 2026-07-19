@@ -9028,6 +9028,62 @@
   color: var(--hl-text-muted);
 }
 
+.hl-funds-summary__fee {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--hl-border);
+}
+
+.hl-funds-summary__fee-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.hl-funds-summary__fee-copy span {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--hl-text);
+}
+
+.hl-funds-summary__fee-copy em {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--hl-text-muted);
+}
+
+.hl-funds-summary__fee-zero {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--hl-text-muted);
+}
+
+.hl-funds-summary__fee-pay {
+  flex-shrink: 0;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.12);
+  color: #fca5a5;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.hl-funds-summary__fee-pay:hover {
+  background: rgba(248, 113, 113, 0.2);
+}
+
+.hl-funds-summary__fee--due .hl-funds-summary__fee-copy span {
+  color: #fca5a5;
+}
+
 .hl-funds-deposit-rules--compact .hl-funds-chain {
   padding: 8px;
   gap: 8px;
