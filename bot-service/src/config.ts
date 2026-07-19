@@ -328,10 +328,11 @@ export const config = {
       minConfirm1mCandles: Number(process.env.HL_SCALP_1M_CONFIRM || 2),
     },
     /** Mandatory last-N candle read immediately before every open. */
-    /** 5m default: 20 bars = 100 min window — stable entry timing, no 1m second-to-second noise. */
+    /** 5m default: 8 bars = 40 min window — enough structure without needing deep history
+     *  the CEX fetch often can't supply (rate-limited bursts left majors at 9/20 → blocked). */
     preOpenCandles: {
       enabled: process.env.HL_PRE_OPEN_20_CANDLES !== 'false',
-      candleCount: Number(process.env.HL_PRE_OPEN_CANDLE_COUNT || 20),
+      candleCount: Number(process.env.HL_PRE_OPEN_CANDLE_COUNT || 8),
       timeframe: (process.env.HL_PRE_OPEN_CANDLE_TF || '5m') as '1m' | '5m',
       minNetMovePct: Number(process.env.HL_PRE_OPEN_MIN_NET_PCT || 0.04),
       minDirectionalCandleRatio: Number(process.env.HL_PRE_OPEN_MIN_DIR_RATIO || 0.52),
