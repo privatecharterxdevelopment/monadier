@@ -117,6 +117,8 @@ const ProTradeOrderPanel: React.FC<Props> = ({
   const [scaleOrders, setScaleOrders] = useState('10');
   const [scaleSkew, setScaleSkew] = useState('1');
   const [sizePct, setSizePct] = useState(0);
+  /** Margin (perp) / spend (spot) in USDC ù synced with the % slider. */
+  const [amountUsd, setAmountUsd] = useState('');
   const [tpPrice, setTpPrice] = useState('');
   const [slPrice, setSlPrice] = useState('');
   const [twapMinutes, setTwapMinutes] = useState('10');
@@ -202,18 +204,65 @@ const ProTradeOrderPanel: React.FC<Props> = ({
     return sizeInCoin * markPx;
   }, [sizeInCoin, markPx]);
 
-  const applySizePreset = (pct: number) => {
+  const applyNotional = (notional: number, pct: number, marginUsd: number) => {
     setSizePct(pct);
-    if (accountValue <= 0 || markPx <= 0) return;
-    if (!isSpot && leverage <= 0) return;
-    const notional = isSpot
-      ? (accountValue * pct) / 100
-      : (accountValue * leverage * pct) / 100;
+    setAmountUsd(marginUsd > 0 ? marginUsd.toFixed(2) : '');
+    if (markPx <= 0 || notional <= 0) return;
     if (sizeUnit === 'usd') {
       setSize(notional.toFixed(2));
     } else {
       setSize((notional / markPx).toFixed(6).replace(/\.?0+$/, '') || '0');
     }
+  };
+
+  const applySizePreset = (pct: number, levOverride?: number) => {
+    const lev = levOverride ?? leverage;
+    if (accountValue <= 0 || markPx <= 0) {
+      setSizePct(pct);
+      return;
+    }
+    if (!isSpot && lev <= 0) {
+      setSizePct(pct);
+      return;
+    }
+    const clamped = Math.max(0, Math.min(100, pct));
+    const marginUsd = (accountValue * clamped) / 100;
+    const notional = isSpot ? marginUsd : marginUsd * lev;
+    applyNotional(notional, clamped, marginUsd);
+  };
+
+  /** Type a USDC amount (margin for perps, spend for spot) ? sync % + size. */
+  const applyAmountUsd = (raw: string) => {
+    setAmountUsd(raw);
+    const cleaned = raw.replace(/,/g, '').trim();
+    if (cleaned === '' || cleaned === '.') {
+      setSizePct(0);
+      setSize('');
+      return;
+    }
+    const usd = Number(cleaned);
+    if (!Number.isFinite(usd) || usd < 0) return;
+    if (accountValue <= 0 || markPx <= 0) return;
+    if (!isSpot && leverage <= 0) return;
+    const marginUsd = Math.min(usd, accountValue);
+    const pct = accountValue > 0 ? Math.min(100, (marginUsd / accountValue) * 100) : 0;
+    const notional = isSpot ? marginUsd : marginUsd * leverage;
+    applyNotional(notional, pct, marginUsd);
+    // Keep the typed string while editing; snap to capped value only if over balance.
+    if (usd > accountValue) setAmountUsd(marginUsd.toFixed(2));
+  };
+
+  /** Manual size edit ? reverse-sync % slider + USDC amount. */
+  const onSizeInputChange = (raw: string) => {
+    setSize(raw);
+    const n = Number(raw.replace(/,/g, ''));
+    if (!Number.isFinite(n) || n <= 0 || markPx <= 0 || accountValue <= 0) return;
+    if (!isSpot && leverage <= 0) return;
+    const notional = sizeUnit === 'usd' ? n : n * markPx;
+    const marginUsd = isSpot ? notional : notional / leverage;
+    const pct = Math.min(100, Math.max(0, (marginUsd / accountValue) * 100));
+    setSizePct(pct);
+    setAmountUsd(marginUsd > 0 ? marginUsd.toFixed(2) : '');
   };
 
   const resolveSize = (): number => {
@@ -236,26 +285,26 @@ const ProTradeOrderPanel: React.FC<Props> = ({
   ): ManualOrderSuccessInfo => {
     const outcome = result?.outcome ?? 'submitted';
     if (mode === 'twap' || outcome === 'twap') {
-      return { message: 'TWAP started ‚Äî see TWAP tab', dockTab: 'twap' };
+      return { message: 'TWAP started ù see TWAP tab', dockTab: 'twap' };
     }
     if (mode === 'tpsl' || outcome === 'tpsl') {
-      return { message: 'TP/SL set ‚Äî see Trailing / Open Orders', dockTab: 'trailing' };
+      return { message: 'TP/SL set ù see Trailing / Open Orders', dockTab: 'trailing' };
     }
     if (mode === 'scale') {
       if (outcome === 'filled') {
-        return { message: 'Scale orders filled ‚Äî see Positions', dockTab: 'positions' };
+        return { message: 'Scale orders filled ù see Positions', dockTab: 'positions' };
       }
-      return { message: 'Scale orders placed ‚Äî see Open Orders', dockTab: 'orders' };
+      return { message: 'Scale orders placed ù see Open Orders', dockTab: 'orders' };
     }
     // basic limit / market
     if (kind === 'market' || outcome === 'filled') {
-      return { message: 'Order filled ‚Äî see Positions', dockTab: 'positions' };
+      return { message: 'Order filled ù see Positions', dockTab: 'positions' };
     }
     if (outcome === 'resting' || outcome === 'mixed') {
-      return { message: 'Limit order placed ‚Äî see Open Orders', dockTab: 'orders' };
+      return { message: 'Limit order placed ù see Open Orders', dockTab: 'orders' };
     }
     return {
-      message: kind === 'limit' ? 'Limit order submitted ‚Äî see Open Orders' : 'Order submitted ‚Äî see Positions',
+      message: kind === 'limit' ? 'Limit order submitted ù see Open Orders' : 'Order submitted ù see Positions',
       dockTab: kind === 'limit' ? 'orders' : 'positions',
     };
   };
@@ -391,6 +440,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
                 const lev = Number(e.target.value);
                 setLeverage(lev);
                 void pushTradeSettings({ leverage: lev, marginMode });
+                if (sizePct > 0) applySizePreset(sizePct, lev);
               }}
             >
               {leverageOptionsForMax(levMax).map((n) => (
@@ -466,6 +516,23 @@ const ProTradeOrderPanel: React.FC<Props> = ({
               {pct}%
             </button>
           ))}
+        </div>
+
+        <div>
+          <div className="hl-entry-label-row">
+            <span className="hl-entry-label" style={{ marginBottom: 0 }}>
+              {t(isSpot ? 'trading.order.amountUsd' : 'trading.order.marginUsd')}
+            </span>
+            <span className="hl-entry-amount-suffix">USDC</span>
+          </div>
+          <input
+            className="hl-entry-input"
+            value={amountUsd}
+            onChange={(e) => applyAmountUsd(e.target.value)}
+            placeholder="50"
+            inputMode="decimal"
+            aria-label={t(isSpot ? 'trading.order.amountUsd' : 'trading.order.marginUsd')}
+          />
         </div>
 
         {mode === 'basic' && kind === 'limit' ? (
@@ -580,7 +647,7 @@ const ProTradeOrderPanel: React.FC<Props> = ({
           <input
             className="hl-entry-input"
             value={size}
-            onChange={(e) => setSize(e.target.value)}
+            onChange={(e) => onSizeInputChange(e.target.value)}
             placeholder={sizeUnit === 'usd' ? '100' : '0.01'}
             inputMode="decimal"
           />

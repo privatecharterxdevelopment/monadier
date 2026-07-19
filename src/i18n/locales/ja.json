@@ -596,6 +596,8 @@
       "sellLimit": "売り / 指値",
       "availableToTrade": "取引可能額",
       "sizePercent": "サイズ％",
+      "marginUsd": "証拠金 (USDC)",
+      "amountUsd": "金額 (USDC)",
       "price": "価格",
       "startPrice": "開始価格",
       "endPrice": "終了価格",

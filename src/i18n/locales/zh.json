@@ -596,6 +596,8 @@
       "sellLimit": "卖出 / 限价",
       "availableToTrade": "可交易余额",
       "sizePercent": "仓位比例",
+      "marginUsd": "保证金 (USDC)",
+      "amountUsd": "金额 (USDC)",
       "price": "价格",
       "startPrice": "起始价",
       "endPrice": "结束价",

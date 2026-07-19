@@ -596,6 +596,8 @@
       "sellLimit": "Vendi / Limit",
       "availableToTrade": "Disponibile per tradare",
       "sizePercent": "Percentuale size",
+      "marginUsd": "Margine (USDC)",
+      "amountUsd": "Importo (USDC)",
       "price": "Prezzo",
       "startPrice": "Prezzo iniziale",
       "endPrice": "Prezzo finale",

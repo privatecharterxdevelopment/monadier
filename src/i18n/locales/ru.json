@@ -596,6 +596,8 @@
       "sellLimit": "Продать / Лимит",
       "availableToTrade": "Доступно для торговли",
       "sizePercent": "Процент размера",
+      "marginUsd": "Маржа (USDC)",
+      "amountUsd": "Сумма (USDC)",
       "price": "Цена",
       "startPrice": "Стартовая цена",
       "endPrice": "Конечная цена",

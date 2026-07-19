@@ -706,6 +706,8 @@
       "sellLimit": "Sell / Limit",
       "availableToTrade": "Available to Trade",
       "sizePercent": "Size percent",
+      "marginUsd": "Margin (USDC)",
+      "amountUsd": "Amount (USDC)",
       "price": "Price",
       "startPrice": "Start Price",
       "endPrice": "End Price",

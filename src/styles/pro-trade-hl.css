@@ -2343,6 +2343,13 @@
   cursor: pointer;
 }
 
+.hl-entry-amount-suffix {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--hl-text-faint);
+  letter-spacing: 0.02em;
+}
+
 .hl-entry-unit-btn--on {
   background: var(--hl-bg-hover);
   color: var(--hl-text);

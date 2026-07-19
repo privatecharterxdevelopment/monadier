@@ -596,6 +596,8 @@
       "sellLimit": "ขาย / Limit",
       "availableToTrade": "ยอดที่ใช้เทรดได้",
       "sizePercent": "เปอร์เซ็นต์ขนาด",
+      "marginUsd": "มาร์จิ้น (USDC)",
+      "amountUsd": "จำนวน (USDC)",
       "price": "ราคา",
       "startPrice": "ราคาเริ่ม",
       "endPrice": "ราคาจบ",
