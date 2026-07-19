@@ -625,12 +625,17 @@ export class SignalEngine {
       else bearishPoints += weight * 3;
     }
 
-    // Price position relative to S/R — strong penalty near wrong side of range
-    const pricePosition = (currentPrice - support) / (resistance - support);
-    if (pricePosition < 0.3) bullishPoints += 1; // Near support
-    if (pricePosition > 0.7) bearishPoints += 1; // Near resistance
-    if (pricePosition > 0.72) bullishPoints = Math.max(0, bullishPoints - 2);
-    if (pricePosition < 0.28) bearishPoints = Math.max(0, bearishPoints - 2);
+    // Price position relative to S/R — mean-reversion evidence, RANGE ONLY.
+    // In a confirmed trend "near support/resistance" must NOT flip the bias: support
+    // breaks in downtrends, resistance breaks in uptrends. The old code zeroed the
+    // trend's own points here, manufacturing LONG-100% signals on coins falling toward
+    // support (catch-a-falling-knife) — the #1 source of bad LONG entries.
+    const srRange = resistance - support;
+    const pricePosition = srRange > 0 ? (currentPrice - support) / srRange : 0.5;
+    if (trend === 'SIDEWAYS' && Number.isFinite(pricePosition)) {
+      if (pricePosition < 0.3) bullishPoints += 1; // near support inside a range
+      if (pricePosition > 0.7) bearishPoints += 1; // near resistance inside a range
+    }
 
     // Calculate direction and confidence
     const totalPoints = bullishPoints + bearishPoints;

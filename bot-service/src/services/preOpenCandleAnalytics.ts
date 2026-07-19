@@ -33,6 +33,19 @@ function avgVolume(candles: Candle[]): number {
   return candles.reduce((s, c) => s + c.volume, 0) / candles.length;
 }
 
+/** Avg per-bar range as % of close — cheap ATR proxy for volatility normalization. */
+function avgRangePct(candles: Candle[]): number {
+  let sum = 0;
+  let n = 0;
+  for (const c of candles) {
+    if (c.close > 0 && c.high >= c.low) {
+      sum += (c.high - c.low) / c.close;
+      n += 1;
+    }
+  }
+  return n > 0 ? (sum / n) * 100 : 0;
+}
+
 function netMovePct(candles: Candle[]): number {
   if (candles.length < 2) return 0;
   const start = candles[0].close;
@@ -173,6 +186,10 @@ export async function validatePreOpenCandleAnalytics(opts: {
     const structure = detectStructure(window);
     const rejH = countRejections(window.slice(-8), 'high');
     const rejL = countRejections(window.slice(-8), 'low');
+    // ATR-normalized reversal threshold: a real trend-break/flush must clear typical
+    // per-bar noise, not a −0.15% drift over the full window. Floor keeps calm majors sane.
+    const atrPct = avgRangePct(window);
+    const reversalPct = Math.max(cfg.reversalMinNetPct, atrPct * cfg.reversalAtrMult);
 
     const summary = buildSummary(tf, window.length, net, greens, reds, pos, recent5, volR, structure, rejH, rejL);
 
@@ -205,8 +222,14 @@ export async function validatePreOpenCandleAnalytics(opts: {
         logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
-      if (structure === 'down' && net <= -minNet * 1.5) {
-        const reason = `Open blocked — ${coin} LONG: ${window.length}×${tf} structure still down (net ${net.toFixed(2)}%)`;
+      // Reversal veto — only a MEANINGFUL down-move against the LONG blocks: a sustained
+      // down-structure past the ATR threshold, OR an active fresh dump in the last 5 bars.
+      // A sluggish net drift (e.g. −0.15% over 100min) inside a confirmed uptrend is noise.
+      const sustainedDown = structure === 'down' && net <= -reversalPct;
+      const activeDump = recent5 <= -reversalPct;
+      if (sustainedDown || activeDump) {
+        const kind = activeDump ? 'active dump' : 'structure still down';
+        const reason = `Open blocked — ${coin} LONG: ${kind} (net ${net.toFixed(2)}%, recent5 ${recent5.toFixed(2)}%, thr −${reversalPct.toFixed(2)}%)`;
         logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
@@ -227,8 +250,13 @@ export async function validatePreOpenCandleAnalytics(opts: {
         logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
-      if (structure === 'up' && net >= minNet * 1.5) {
-        const reason = `Open blocked — ${coin} SHORT: ${window.length}×${tf} structure still up (net +${net.toFixed(2)}%)`;
+      // Reversal veto (mirror of LONG): sustained up-structure past the ATR threshold, or
+      // an active fresh pump in the last 5 bars. A slow drift up is noise, not a trend break.
+      const sustainedUp = structure === 'up' && net >= reversalPct;
+      const activePump = recent5 >= reversalPct;
+      if (sustainedUp || activePump) {
+        const kind = activePump ? 'active pump' : 'structure still up';
+        const reason = `Open blocked — ${coin} SHORT: ${kind} (net +${net.toFixed(2)}%, recent5 ${recent5.toFixed(2)}%, thr +${reversalPct.toFixed(2)}%)`;
         logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
