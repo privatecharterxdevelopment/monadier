@@ -78,6 +78,29 @@ function isTrustedProfileCandidate(
   );
 }
 
+function h1TrendMatchesRequired(
+  h1Trend: string | undefined,
+  required: 'UP' | 'DOWN' | null
+): boolean {
+  if (!required) return true;
+  const raw = String(h1Trend ?? '').toUpperCase();
+  if (!raw) return false;
+  if (required === 'UP') {
+    return (
+      raw === 'UP' ||
+      raw.includes('UP') ||
+      raw.includes('LONG') ||
+      raw === 'STRONG_UPTREND'
+    );
+  }
+  return (
+    raw === 'DOWN' ||
+    raw.includes('DOWN') ||
+    raw.includes('SHORT') ||
+    raw === 'STRONG_DOWNTREND'
+  );
+}
+
 function passesProfileThresholds(direction: 'LONG' | 'SHORT', opts: {
   confidence: number;
   directionalTfCount: number;
@@ -89,12 +112,7 @@ function passesProfileThresholds(direction: 'LONG' | 'SHORT', opts: {
   if (opts.confidence < rules.minConfidence) return false;
   if (opts.directionalTfCount < rules.minDirectionalTfs) return false;
   if (opts.trendAlignment < rules.minTrendAlignment) return false;
-  if (
-    rules.requiredH1Trend &&
-    String(opts.h1Trend ?? '').toUpperCase() !== rules.requiredH1Trend
-  ) {
-    return false;
-  }
+  if (!h1TrendMatchesRequired(opts.h1Trend, rules.requiredH1Trend)) return false;
   return true;
 }
 

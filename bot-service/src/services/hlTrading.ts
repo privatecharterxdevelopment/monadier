@@ -981,9 +981,14 @@ export class HyperliquidTradingService {
       const directionalTfs = opts.pick.directionalTfCount ?? 0;
       const trendAlignment = opts.pick.trendAlignment ?? 0;
       const h1Trend = String(opts.pick.h1Trend ?? '').toUpperCase();
+      const required = directionRules.requiredH1Trend;
       const h1Matches =
-        !directionRules.requiredH1Trend ||
-        h1Trend.includes(directionRules.requiredH1Trend);
+        !required ||
+        (required === 'UP'
+          ? h1Trend.includes('UP') || h1Trend.includes('LONG') || h1Trend === 'STRONG_UPTREND'
+          : h1Trend.includes('DOWN') ||
+            h1Trend.includes('SHORT') ||
+            h1Trend === 'STRONG_DOWNTREND');
       if (
         opts.pick.confidence < directionRules.minConfidence ||
         directionalTfs < directionRules.minDirectionalTfs ||
