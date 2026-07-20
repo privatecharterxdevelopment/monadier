@@ -2,7 +2,7 @@
  * Google Authenticator (TOTP) gate for admin panel.
  * Requires Supabase MFA AAL2 before admin data loads.
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Shield } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
@@ -10,6 +10,41 @@ type Props = {
   email: string;
   onVerified: () => void;
 };
+
+type TotpFactor = {
+  id: string;
+  status: string;
+  friendly_name?: string;
+  factor_type?: string;
+};
+
+function totpFromList(factors: {
+  all?: TotpFactor[];
+  totp?: TotpFactor[];
+}): TotpFactor[] {
+  const fromAll = (factors.all || []).filter((f) => {
+    const t = (f.factor_type || 'totp').toLowerCase();
+    return t === 'totp';
+  });
+  const map = new Map<string, TotpFactor>();
+  for (const f of [...fromAll, ...(factors.totp || [])]) {
+    map.set(f.id, f);
+  }
+  return [...map.values()];
+}
+
+async function listAllTotp(): Promise<TotpFactor[]> {
+  const { data, error } = await supabase.auth.mfa.listFactors();
+  if (error || !data) return [];
+  return totpFromList(data as { all?: TotpFactor[]; totp?: TotpFactor[] });
+}
+
+async function unenrollAllTotp(): Promise<void> {
+  const factors = await listAllTotp();
+  for (const f of factors) {
+    await supabase.auth.mfa.unenroll({ factorId: f.id });
+  }
+}
 
 const AdminMfaGate: React.FC<Props> = ({ email, onVerified }) => {
   const [phase, setPhase] = useState<'loading' | 'enroll' | 'verify' | 'done'>('loading');
@@ -19,10 +54,12 @@ const AdminMfaGate: React.FC<Props> = ({ email, onVerified }) => {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const started = useRef(false);
 
   const ensureAal2 = useCallback(async () => {
     setError('');
     setPhase('loading');
+
     const { data: aal, error: aalErr } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aalErr) {
       setError(aalErr.message);
@@ -35,43 +72,53 @@ const AdminMfaGate: React.FC<Props> = ({ email, onVerified }) => {
       return;
     }
 
-    const { data: factors, error: listErr } = await supabase.auth.mfa.listFactors();
-    if (listErr) {
-      setError(listErr.message);
-      setPhase('verify');
-      return;
-    }
-    const verified = factors.totp.find((f) => f.status === 'verified');
+    const allTotp = await listAllTotp();
+    const verified = allTotp.find((f) => f.status === 'verified');
     if (verified) {
       setFactorId(verified.id);
+      setQr(null);
+      setSecret(null);
       setPhase('verify');
       return;
     }
 
-    // Drop unfinished enrollments so we don't stack unverified factors
-    for (const f of factors.totp) {
-      if (f.status !== 'verified') {
-        await supabase.auth.mfa.unenroll({ factorId: f.id });
-      }
+    // Wipe unfinished factors (friendly-name collisions live here)
+    for (const f of allTotp) {
+      await supabase.auth.mfa.unenroll({ factorId: f.id });
     }
 
-    // Enroll new TOTP (Google Authenticator / Authy)
-    const { data: enrolled, error: enrollErr } = await supabase.auth.mfa.enroll({
+    const friendlyName = `hg-admin-${Date.now().toString(36)}`;
+    let { data: enrolled, error: enrollErr } = await supabase.auth.mfa.enroll({
       factorType: 'totp',
-      friendlyName: `HyperGain Admin (${email})`,
+      friendlyName,
     });
+
+    if (enrollErr || !enrolled) {
+      await unenrollAllTotp();
+      const retry = await supabase.auth.mfa.enroll({
+        factorType: 'totp',
+        friendlyName: `hg-admin-${Date.now().toString(36)}`,
+      });
+      enrolled = retry.data;
+      enrollErr = retry.error;
+    }
+
     if (enrollErr || !enrolled) {
       setError(enrollErr?.message || 'Could not start authenticator setup');
+      setFactorId(null);
       setPhase('verify');
       return;
     }
+
     setFactorId(enrolled.id);
     setQr(enrolled.totp.qr_code);
     setSecret(enrolled.totp.secret);
     setPhase('enroll');
-  }, [email, onVerified]);
+  }, [onVerified]);
 
   useEffect(() => {
+    if (started.current) return;
+    started.current = true;
     void ensureAal2();
   }, [ensureAal2]);
 
@@ -104,6 +151,25 @@ const AdminMfaGate: React.FC<Props> = ({ email, onVerified }) => {
     }
   };
 
+  const resetAuthenticator = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await unenrollAllTotp();
+      setFactorId(null);
+      setQr(null);
+      setSecret(null);
+      setCode('');
+      started.current = false;
+      started.current = true;
+      await ensureAal2();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Could not reset authenticator');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (phase === 'done' || phase === 'loading') {
     return (
       <div className="flex items-center justify-center h-64">
@@ -121,7 +187,9 @@ const AdminMfaGate: React.FC<Props> = ({ email, onVerified }) => {
       <p className="text-sm text-secondary">
         {phase === 'enroll'
           ? 'Scan the QR with Google Authenticator (or Authy), then enter the 6-digit code.'
-          : 'Enter the 6-digit code from Google Authenticator to open the admin panel.'}
+          : factorId
+            ? 'Enter the 6-digit code from Google Authenticator to open the admin panel.'
+            : 'Authenticator setup failed. Reset below and try again.'}
       </p>
       {phase === 'enroll' && qr ? (
         <div className="flex flex-col items-center gap-2">
@@ -133,24 +201,37 @@ const AdminMfaGate: React.FC<Props> = ({ email, onVerified }) => {
           ) : null}
         </div>
       ) : null}
-      <input
-        className="term-profile-input w-full text-center tracking-widest text-lg"
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        placeholder="000000"
-        maxLength={8}
-        value={code}
-        onChange={(e) => setCode(e.target.value.replace(/\s/g, ''))}
-      />
+      {factorId ? (
+        <input
+          className="term-profile-input w-full text-center tracking-widest text-lg"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          placeholder="000000"
+          maxLength={8}
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\s/g, ''))}
+        />
+      ) : null}
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {factorId ? (
+        <button
+          type="button"
+          className="hl-signin-google w-full"
+          disabled={busy}
+          onClick={() => void submitCode()}
+        >
+          {busy ? <Loader2 className="animate-spin inline" size={16} /> : null} Verify
+        </button>
+      ) : null}
       <button
         type="button"
-        className="hl-signin-google w-full"
+        className="text-xs text-secondary underline"
         disabled={busy}
-        onClick={() => void submitCode()}
+        onClick={() => void resetAuthenticator()}
       >
-        {busy ? <Loader2 className="animate-spin inline" size={16} /> : null} Verify
+        Reset authenticator &amp; show new QR
       </button>
+      <p className="text-[11px] text-secondary">{email}</p>
     </div>
   );
 };
