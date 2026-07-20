@@ -1755,6 +1755,24 @@ export class HyperliquidTradingService {
       let trailCloseDetail = trailResult.closeDetail;
 
       if (shouldCloseTrail && pnl > 0) {
+        // LONGs: once green, force at least ~2m in profit before any winning trail exit.
+        if (
+          positionDirection === 'LONG' &&
+          (trailRecord.timeInProfitMs ?? 0) <
+            (config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 120_000)
+        ) {
+          shouldCloseTrail = false;
+          logger.info('HL LONG green hold — defer profit close', {
+            user: userAddress.slice(0, 10),
+            coin: pos.coin,
+            timeInProfitMs: trailRecord.timeInProfitMs,
+            pnlUsd: pnl.toFixed(4),
+            exitReason: trailExitReason,
+          });
+        }
+      }
+
+      if (shouldCloseTrail && pnl > 0) {
         const deferMax = config.hyperliquid.trailSweepDeferMax;
         const deferMs = config.hyperliquid.trailSweepDeferMs;
         const strongRun =
@@ -1815,7 +1833,15 @@ export class HyperliquidTradingService {
       }
 
       const roePct = collateralEst > 0 ? (pnl / collateralEst) * 100 : 0;
-      if (shouldTakeProfitOnPnl(roePct, settings.takeProfitPercent)) {
+      const longGreenHoldMs = config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 120_000;
+      const longStillBreathing =
+        positionDirection === 'LONG' &&
+        pnl > 0 &&
+        (trailRecord.timeInProfitMs ?? 0) < longGreenHoldMs;
+      if (
+        !longStillBreathing &&
+        shouldTakeProfitOnPnl(roePct, settings.takeProfitPercent)
+      ) {
         clearTrailState(lockKey);
         await this.closeMarketPosition(
           userAddress,

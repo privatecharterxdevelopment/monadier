@@ -196,6 +196,11 @@ export const config = {
       ),
       /** Stretch min-active time before a LONG trail/floor close can fire. */
       longTrailMinActiveMult: Number(process.env.HL_TRAIL_LONG_MIN_ACTIVE_MULT || 1.35),
+      /**
+       * Once a LONG is green, do not profit-close for this long (trail / floor / peak / TP).
+       * LONGs grind slower — SHORTs keep base timing.
+       */
+      longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 120_000),
     },
     /** Legacy profit-lock USD fields — analyze window before trail (aligned with arm hold). */
     profitMinHoldBeforeExitMs: Number(process.env.HL_PROFIT_MIN_HOLD_MS || 120_000),

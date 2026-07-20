@@ -322,6 +322,13 @@ function trailTooYoungToClose(
   return false;
 }
 
+/** LONGs: once green, breathe for longMinGreenHoldMs before any profit exit. */
+function longGreenTooYoungToClose(rec: DynamicTrailRecord, pnlUsd: number): boolean {
+  if (rec.direction !== 'LONG' || pnlUsd <= 0) return false;
+  const minMs = Math.max(0, config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 0);
+  return minMs > 0 && rec.timeInProfitMs < minMs;
+}
+
 function directionTrailDistanceMult(direction: 'LONG' | 'SHORT', biasMult: number): number {
   const cfg = config.hyperliquid.dynamicTrail;
   const longRoom =
@@ -522,7 +529,9 @@ export async function evaluateDynamicTrail(
       );
       if (
         input.pnlUsd > 0 &&
-        isTrailStopCrossed(input.direction, input.markPrice, floorStop)
+        isTrailStopCrossed(input.direction, input.markPrice, floorStop) &&
+        !longGreenTooYoungToClose(rec, input.pnlUsd) &&
+        !trailTooYoungToClose(rec, input.nowMs, 1)
       ) {
         const dropUsed =
           input.direction === 'LONG'
@@ -561,7 +570,8 @@ export async function evaluateDynamicTrail(
       });
     } else if (
       input.pnlUsd > 0 &&
-      isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop)
+      isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop) &&
+      !longGreenTooYoungToClose(rec, input.pnlUsd)
     ) {
       const peakRoe = roePct(rec.highestPnlSinceEntry, input.collateralUsd);
       const minPeakUsd = Math.max(
@@ -652,7 +662,8 @@ export async function evaluateDynamicTrail(
       input.pnlUsd > 0 &&
       peakFrac > 0 &&
       rec.timeInProfitMs >= cfg.armMinProfitHoldMs &&
-      !trailTooYoungToClose(rec, input.nowMs, trailMult)
+      !trailTooYoungToClose(rec, input.nowMs, trailMult) &&
+      !longGreenTooYoungToClose(rec, input.pnlUsd)
     ) {
       const drop = rec.highestPnlSinceEntry - input.pnlUsd;
       const minDrop = Math.max(feesUsd, rec.highestPnlSinceEntry * peakFrac * runWiden);
@@ -670,7 +681,8 @@ export async function evaluateDynamicTrail(
     if (
       isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop) &&
       !trailTooYoungToClose(rec, input.nowMs, trailMult) &&
-      input.pnlUsd > 0
+      input.pnlUsd > 0 &&
+      !longGreenTooYoungToClose(rec, input.pnlUsd)
     ) {
       const detail = `TRAILING STOP · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
       return {
