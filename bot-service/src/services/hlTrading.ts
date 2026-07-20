@@ -1088,10 +1088,19 @@ export class HyperliquidTradingService {
         });
       }
 
-      const scalpGate = relaxSecondaryGates || !directionProfile.useScalpAlignment
+      // June SHORT pack uses 1m/5m scalp timing — only for SHORT opens.
+      // Strong LONGs under bear are MTF (5m/15m/1h) conviction, not scalp entries.
+      const scalpApplies =
+        directionProfile.useScalpAlignment &&
+        opts.direction === 'SHORT' &&
+        !relaxSecondaryGates;
+      const scalpGate = !scalpApplies
           ? {
               ok: true as const,
-              reason: `${directionProfile.name} — 1m/5m scalp confirm disabled; 15m regime structure is authoritative`,
+              reason:
+                opts.direction === 'LONG'
+                  ? `${directionProfile.name} — LONG skips 1m/5m scalp; MTF structure is authoritative`
+                  : `${directionProfile.name} — 1m/5m scalp confirm disabled; 15m regime structure is authoritative`,
             }
           : await validateScalpAlignment({ coin, direction: opts.direction });
       if (!scalpGate.ok) {

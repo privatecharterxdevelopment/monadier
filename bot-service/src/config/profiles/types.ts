@@ -48,7 +48,11 @@ export type HlDirectionProfile = {
   preOpenMinVolumeRatio: number;
   /** Hard universe cap by volume rank for opens. June-26 short regime used 18. */
   maxVolumeRank: number;
-  /** June-26 short regime relied on 1m/5m scalp alignment; long regime does not. */
+  /**
+   * June-26 short regime: 1m/5m scalp alignment for SHORT opens.
+   * LONGs never use this gate (MTF structure), even under bear_market.
+   * Bull long regime keeps this false entirely.
+   */
   useScalpAlignment: boolean;
   useAggressiveScalpSignals: boolean;
   /** Post-June gate. Off in the June short replica, on (shadow) in long regime. */

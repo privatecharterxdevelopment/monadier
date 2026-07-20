@@ -58,6 +58,7 @@ export const BEAR_MARKET: HlDirectionProfile = {
   preOpenCandleCount: 20,
   preOpenMinVolumeRatio: 0.85,
   maxVolumeRank: 18,
+  /** 1m/5m scalp confirm — applied to SHORT opens only (see hlTrading). */
   useScalpAlignment: true,
   useAggressiveScalpSignals: true,
   enableHtfSr: false,
