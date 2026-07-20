@@ -198,9 +198,9 @@ export const config = {
       longTrailMinActiveMult: Number(process.env.HL_TRAIL_LONG_MIN_ACTIVE_MULT || 5),
       /**
        * Once a LONG is green, do not profit-close for this long (trail / floor / peak / TP).
-       * Default 15m — 3m still sniped ETH winners right after the hold expired.
+       * Default 5m — enough breathe room without babysitting a full 15m scalp.
        */
-      longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 900_000),
+      longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 300_000),
       /**
        * LONGs never exit on the stage-1 breakeven lock — only after trailing is armed
        * (and green-hold elapsed). Prevents “green → BE tick → closed” scalp exits.

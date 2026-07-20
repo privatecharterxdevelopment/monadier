@@ -1755,7 +1755,7 @@ export class HyperliquidTradingService {
       let trailCloseDetail = trailResult.closeDetail;
 
       if (shouldCloseTrail && pnl > 0) {
-        const greenHoldMs = config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 900_000;
+        const greenHoldMs = config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 300_000;
         const minPeakRoe =
           config.hyperliquid.dynamicTrail.longMinPeakRoePctBeforeTrailClose || 12;
         const peakRoe =
@@ -1848,7 +1848,7 @@ export class HyperliquidTradingService {
       }
 
       const roePct = collateralEst > 0 ? (pnl / collateralEst) * 100 : 0;
-      const longGreenHoldMs = config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 900_000;
+      const longGreenHoldMs = config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 300_000;
       const longStillBreathing =
         positionDirection === 'LONG' &&
         pnl > 0 &&
