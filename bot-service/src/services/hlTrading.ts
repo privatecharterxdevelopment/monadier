@@ -1065,7 +1065,7 @@ export class HyperliquidTradingService {
       const candleAnalytics = relaxSecondaryGates
           ? {
               ok: true as const,
-              reason: `Scan pick — 20-candle check skipped (${opts.pick.confidence}%)`,
+              reason: `Scan pick — pre-open candle check skipped (${opts.pick.confidence}%)`,
               summary: `scan ${opts.pick.confidence}%`,
               netMovePct: 0,
               greenCount: 0,
@@ -1083,7 +1083,7 @@ export class HyperliquidTradingService {
               h1Trend: opts.pick.h1Trend,
             });
       if (!candleAnalytics.ok) {
-        return rejectOpen('pre_open_candles', candleAnalytics.reason, '20-candle analytics', {
+        return rejectOpen('pre_open_candles', candleAnalytics.reason, 'pre-open candle analytics', {
           summary: candleAnalytics.summary,
         });
       }

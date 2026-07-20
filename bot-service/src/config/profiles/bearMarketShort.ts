@@ -55,7 +55,7 @@ export const BEAR_MARKET: HlDirectionProfile = {
   analysisTimeframes: ['1m', '5m', '15m', '1h'],
   entryTimeframe: '5m',
   preOpenTimeframe: '1m',
-  preOpenCandleCount: 20,
+  preOpenCandleCount: 10,
   preOpenMinVolumeRatio: 0.85,
   maxVolumeRank: 18,
   /** 1m/5m scalp confirm — applied to SHORT opens only (see hlTrading). */

@@ -137,7 +137,7 @@ export async function validatePreOpenCandleAnalytics(opts: {
 
   if (!cfg.enabled) {
     return pass({
-      reason: '20-candle pre-open analytics disabled',
+      reason: 'pre-open candle analytics disabled',
       summary: 'disabled',
       netMovePct: 0,
       greenCount: 0,
@@ -159,7 +159,7 @@ export async function validatePreOpenCandleAnalytics(opts: {
   try {
     const raw = await signalEngine.fetchCandles(symbol, tf, n + 2);
     const window = closedCandles(raw, n);
-    if (window.length < Math.min(n, 12)) {
+    if (window.length < n) {
       return fail({
         reason: `Open blocked — ${coin}: only ${window.length}/${n} ${tf} candles (need history)`,
         summary: `insufficient ${tf} data`,
@@ -209,17 +209,17 @@ export async function validatePreOpenCandleAnalytics(opts: {
       const greenRatio = greens / window.length;
       if (!trendConfirms && net < minNet && greenRatio < minRatio) {
         const reason = `Open blocked — ${coin} LONG: last ${window.length}×${tf} bearish (net ${net.toFixed(2)}%, ${greens}G/${reds}R)`;
-        logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
+        logger.info('Pre-open candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
       if (!trendConfirms && pos >= cfg.maxRangePositionLong && recent5 < cfg.breakoutRecentMovePct) {
         const reason = `Open blocked — ${coin} LONG: price at ${(pos * 100).toFixed(0)}% of ${window.length}-bar range (buy low — wait for pullback)`;
-        logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
+        logger.info('Pre-open candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
       if (!trendConfirms && rejH >= cfg.maxRejectionsAtLevel && recent5 < minNet) {
         const reason = `Open blocked — ${coin} LONG: ${rejH} rejections at range high in last 8 bars`;
-        logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
+        logger.info('Pre-open candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
       // Reversal veto — only a MEANINGFUL down-move against the LONG blocks: a sustained
@@ -230,24 +230,24 @@ export async function validatePreOpenCandleAnalytics(opts: {
       if (sustainedDown || activeDump) {
         const kind = activeDump ? 'active dump' : 'structure still down';
         const reason = `Open blocked — ${coin} LONG: ${kind} (net ${net.toFixed(2)}%, recent5 ${recent5.toFixed(2)}%, thr −${reversalPct.toFixed(2)}%)`;
-        logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
+        logger.info('Pre-open candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
     } else {
       const redRatio = reds / window.length;
       if (!trendConfirms && net > -minNet && redRatio < minRatio) {
         const reason = `Open blocked — ${coin} SHORT: last ${window.length}×${tf} bullish (net ${net >= 0 ? '+' : ''}${net.toFixed(2)}%, ${greens}G/${reds}R)`;
-        logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
+        logger.info('Pre-open candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
       if (!trendConfirms && pos <= cfg.maxRangePositionShort && recent5 > -cfg.breakoutRecentMovePct) {
         const reason = `Open blocked — ${coin} SHORT: price at ${(pos * 100).toFixed(0)}% of ${window.length}-bar range (shorting lows)`;
-        logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
+        logger.info('Pre-open candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
       if (!trendConfirms && rejL >= cfg.maxRejectionsAtLevel && recent5 > -minNet) {
         const reason = `Open blocked — ${coin} SHORT: ${rejL} rejections at range low in last 8 bars`;
-        logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
+        logger.info('Pre-open candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
       // Reversal veto (mirror of LONG): sustained up-structure past the ATR threshold, or
@@ -257,19 +257,19 @@ export async function validatePreOpenCandleAnalytics(opts: {
       if (sustainedUp || activePump) {
         const kind = activePump ? 'active pump' : 'structure still up';
         const reason = `Open blocked — ${coin} SHORT: ${kind} (net +${net.toFixed(2)}%, recent5 ${recent5.toFixed(2)}%, thr +${reversalPct.toFixed(2)}%)`;
-        logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
+        logger.info('Pre-open candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
     }
 
     if (volR < cfg.minVolumeRatio) {
       const reason = `Open blocked — ${coin} ${dir}: volume fading (recent/base ${volR.toFixed(2)}×)`;
-      logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
+      logger.info('Pre-open candle block', { coin, direction: dir, summary });
       return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
     }
 
-    const reason = `20-candle OK — ${coin} ${dir} · ${summary}`;
-    logger.info('Pre-open 20-candle pass', { coin, direction: dir, summary });
+    const reason = `${n}-candle OK — ${coin} ${dir} · ${summary}`;
+    logger.info('Pre-open candle pass', { coin, direction: dir, summary });
     return pass({
       reason,
       summary,
@@ -286,7 +286,7 @@ export async function validatePreOpenCandleAnalytics(opts: {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return fail({
-      reason: `Open blocked — ${coin} 20-candle analytics failed (${msg.slice(0, 60)})`,
+      reason: `Open blocked — ${coin} pre-open candle analytics failed (${msg.slice(0, 60)})`,
       summary: 'fetch error',
       netMovePct: 0,
       greenCount: 0,

@@ -80,7 +80,7 @@ export function buildHlOpenReasonDoc(parts: OpenReasonParts): string {
   }
 
   if (parts.candleAnalyticsLine) {
-    lines.push(`── Last 20 candles ── ${parts.candleAnalyticsLine}`);
+    lines.push(`── Pre-open candles ── ${parts.candleAnalyticsLine}`);
   }
 
   if (pick.mtfBreakdown) {
