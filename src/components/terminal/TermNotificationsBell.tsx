@@ -3,10 +3,7 @@ import { Bell, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTradeNotifications } from '../../contexts/TradeNotificationsContext';
 import type { ActivityNotification } from '../../lib/activityNotifications';
-
-function fmtUsd(n: number) {
-  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+import { fmtClosedPnl } from '../../lib/hyperliquid/format';
 
 function fmtWhen(iso: string) {
   const d = new Date(iso);
@@ -109,8 +106,7 @@ const TermNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                                 : 'term-notif-item-pnl term-pnl-neg'
                             }
                           >
-                            {n.profitLoss >= 0 ? '+' : ''}
-                            {fmtUsd(n.profitLoss)}
+                            {fmtClosedPnl(n.profitLoss)}
                           </span>
                         </div>
                         <div className="term-notif-item-meta">

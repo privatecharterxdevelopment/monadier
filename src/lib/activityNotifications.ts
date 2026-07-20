@@ -4,6 +4,7 @@ import { mapBettingCloseRow, type HlBettingCloseRow } from './betting/types';
 import { getAuthUserId } from './userWallets';
 import { supabase } from './supabase';
 import { devError } from './devLog';
+import { fmtClosedPnl } from './hyperliquid/format';
 
 export type ActivityNotificationKind = 'bot' | 'betting';
 
@@ -84,8 +85,7 @@ export function isActivityUnread(
 }
 
 export function toastMessageForNotification(n: ActivityNotification): string {
-  const sign = n.profitLoss >= 0 ? '+' : '-';
-  const amount = Math.abs(n.profitLoss).toFixed(2);
+  const amount = fmtClosedPnl(n.profitLoss);
   const roi =
     n.profitLossPercent != null && Number.isFinite(n.profitLossPercent)
       ? ` · ${n.profitLossPercent >= 0 ? '+' : ''}${n.profitLossPercent.toFixed(2)}% ROI`
@@ -100,10 +100,10 @@ export function toastMessageForNotification(n: ActivityNotification): string {
     const lost = n.profitLoss < 0;
     const prefix = won ? 'Bet won' : lost ? 'Bet lost' : 'Bet settled';
     const side = n.detail && !n.detail.includes('\n') ? ` · ${n.detail}` : '';
-    return `${prefix}${side} ${sign}$${amount}${roi}`;
+    return `${prefix}${side} ${amount}${roi}`;
   }
 
-  return `Trade closed · ${n.headline} ${sign}$${amount}${roi}`;
+  return `Trade closed · ${n.headline} ${amount}${roi}`;
 }
 
 /** Load recent closed bets for the signed-in user (Supabase RLS). */

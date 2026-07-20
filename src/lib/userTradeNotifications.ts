@@ -17,19 +17,47 @@ export type UserTradeNotificationRow = {
   profit_loss_percent: number | null;
   closed_at: string;
   read_at: string | null;
+  /** Joined when present — source of truth for closed PnL (matches email). */
+  trade_history?:
+    | {
+        profit_loss: number | string | null;
+        profit_loss_percent: number | string | null;
+      }
+    | Array<{
+        profit_loss: number | string | null;
+        profit_loss_percent: number | string | null;
+      }>
+    | null;
 };
+
+function realizedPnlFromRow(row: UserTradeNotificationRow): {
+  profitLoss: number;
+  profitLossPercent: number | null;
+} {
+  const thRaw = row.trade_history;
+  const th = Array.isArray(thRaw) ? thRaw[0] ?? null : thRaw ?? null;
+  const fromTh =
+    th?.profit_loss != null && Number.isFinite(Number(th.profit_loss))
+      ? Number(th.profit_loss)
+      : null;
+  const profitLoss = fromTh != null ? fromTh : Number(row.profit_loss) || 0;
+  const pctRaw = th?.profit_loss_percent ?? row.profit_loss_percent;
+  const profitLossPercent =
+    pctRaw != null && Number.isFinite(Number(pctRaw)) ? Number(pctRaw) : null;
+  return { profitLoss, profitLossPercent };
+}
 
 export function userTradeNotificationToActivity(row: UserTradeNotificationRow): ActivityNotification {
   const isBetting = row.kind === 'betting';
+  const { profitLoss, profitLossPercent } = realizedPnlFromRow(row);
   return {
     id: `un-${row.id}`,
     kind: isBetting ? 'betting' : 'bot',
     headline: row.headline,
     detail: row.detail,
     eventType: row.event_type === 'open' ? 'open' : 'close',
-    profitLoss: Number(row.profit_loss) || 0,
-    profitLossPercent:
-      row.profit_loss_percent != null ? Number(row.profit_loss_percent) : null,
+    profitLoss,
+    profitLossPercent,
     closedAt: row.closed_at,
     highlightId: row.trade_history_id ?? row.hl_betting_close_id ?? null,
     dbId: row.id,
@@ -50,7 +78,7 @@ export async function fetchUserTradeNotifications(limit = 100): Promise<Activity
   if (!userId) return [];
 
   const cols =
-    'id, user_id, trade_history_id, hl_betting_close_id, wallet_address, kind, headline, detail, event_type, profit_loss, profit_loss_percent, closed_at, read_at';
+    'id, user_id, trade_history_id, hl_betting_close_id, wallet_address, kind, headline, detail, event_type, profit_loss, profit_loss_percent, closed_at, read_at, trade_history ( profit_loss, profit_loss_percent )';
 
   const { data, error } = await supabase
     .from('user_trade_notifications')

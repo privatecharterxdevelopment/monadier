@@ -3,10 +3,7 @@ import { Bell } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTradeNotifications } from '../../contexts/TradeNotificationsContext';
 import type { ActivityNotification } from '../../lib/activityNotifications';
-
-function fmtUsd(n: number) {
-  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+import { fmtClosedPnl } from '../../lib/hyperliquid/format';
 
 function fmtWhen(iso: string) {
   const d = new Date(iso);
@@ -103,8 +100,7 @@ const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                           )}
                         </span>
                         <span className={n.profitLoss >= 0 ? 'hl-up' : 'hl-down'}>
-                          {n.profitLoss >= 0 ? '+' : ''}
-                          {fmtUsd(n.profitLoss)}
+                          {fmtClosedPnl(n.profitLoss)}
                           {n.profitLossPercent != null && Number.isFinite(n.profitLossPercent) ? (
                             <span className="hl-notif-roi">
                               {' '}

@@ -1,7 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 import { config } from '../config';
 import { logger } from '../utils/logger';
-import { BRAND_NAME, BRAND_SITE_URL, EMAIL_FROM, notificationEmailUnsubscribeUrl } from '../brand';
+import {
+  BRAND_LOGO_URL,
+  BRAND_NAME,
+  BRAND_SITE_URL,
+  EMAIL_FROM,
+  notificationEmailUnsubscribeUrl,
+} from '../brand';
 
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 
@@ -57,13 +63,21 @@ function resolveRoiPct(row: PendingRow): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Format exact win amount — enough precision for small bot profits. */
+/**
+ * Same precision as in-app trading history / notification bell (`fmtClosedPnl`):
+ * 3 decimals normally, 4 when |pnl| < 0.001 — never round small HL closes to 2 dp.
+ */
 function fmtExactWinUsd(n: number): string {
-  if (!Number.isFinite(n) || n <= 0) return '$0.00';
-  const abs = Math.abs(n);
-  if (abs < 0.01) return `+$${n.toFixed(4)}`;
-  if (abs < 1) return `+$${n.toFixed(3)}`;
-  return `+$${n.toFixed(2)}`;
+  if (!Number.isFinite(n) || n <= 0) return '$0.000';
+  const digits = Math.abs(n) < 0.001 ? 4 : 3;
+  return `+$${n.toFixed(digits)}`;
+}
+
+function emailBrandHeaderHtml(): string {
+  return `<tr><td align="center" style="padding-bottom:28px;">
+<img src="${BRAND_LOGO_URL}" width="48" height="48" alt="${BRAND_NAME}" style="display:block;border:0;border-radius:12px;margin:0 auto 12px;" />
+<span style="font-size:22px;font-weight:600;color:#0a0a0a;letter-spacing:-0.02em;">${BRAND_NAME}</span>
+</td></tr>`;
 }
 
 function fmtPct(n: number | null | undefined): string {
@@ -106,9 +120,7 @@ function tradeCloseEmailHtml(params: {
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;padding:40px 20px;">
 <tr><td align="center">
 <table width="100%" style="max-width:480px;">
-<tr><td align="center" style="padding-bottom:32px;">
-<span style="font-size:24px;font-weight:600;color:#0a0a0a;">${BRAND_NAME}</span>
-</td></tr>
+${emailBrandHeaderHtml()}
 <tr><td style="background:#f5f5f5;border-radius:16px;padding:32px;">
 <h1 style="margin:0 0 8px;font-size:20px;font-weight:500;color:#0a0a0a;text-align:center;">${title}</h1>
 <p style="margin:0 0 24px;font-size:15px;color:#525252;text-align:center;">${headline}</p>
@@ -155,9 +167,7 @@ function bettingOpenEmailHtml(params: {
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;padding:40px 20px;">
 <tr><td align="center">
 <table width="100%" style="max-width:480px;">
-<tr><td align="center" style="padding-bottom:32px;">
-<span style="font-size:24px;font-weight:600;color:#0a0a0a;">${BRAND_NAME}</span>
-</td></tr>
+${emailBrandHeaderHtml()}
 <tr><td style="background:#f5f5f5;border-radius:16px;padding:32px;">
 <h1 style="margin:0 0 8px;font-size:20px;font-weight:500;color:#0a0a0a;text-align:center;">AI bet opened</h1>
 <p style="margin:0 0 16px;font-size:15px;color:#525252;text-align:center;">${headline}</p>
@@ -441,19 +451,25 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
       const profitUsd = resolveWinUsd(row);
       const roiPct = resolveRoiPct(row);
 
+      // Keep bell + email + trade_history on the same realized PnL.
+      const notifProfit = Number(row.profit_loss);
+      const notifRoi =
+        row.profit_loss_percent != null ? Number(row.profit_loss_percent) : null;
+      const profitDrift =
+        Number.isFinite(notifProfit) && Math.abs(notifProfit - profitUsd) > 0.000_001;
+      const roiDrift =
+        roiPct != null &&
+        (notifRoi == null ||
+          !Number.isFinite(notifRoi) ||
+          Math.abs(notifRoi - roiPct) > 0.000_001);
+      if (th && (profitDrift || roiDrift)) {
+        await syncNotificationProfitFromTradeHistory(row.id, profitUsd, roiPct);
+      }
+
       // Loss / break-even — in-app only.
       if (profitUsd <= 0) {
         await markNotificationEmailHandled(row.id);
         continue;
-      }
-
-      const notifProfit = Number(row.profit_loss);
-      if (
-        th &&
-        Number.isFinite(notifProfit) &&
-        Math.abs(notifProfit - profitUsd) > 0.000_001
-      ) {
-        await syncNotificationProfitFromTradeHistory(row.id, profitUsd, roiPct);
       }
 
       const { email, recipients, emailEnabled } = await resolveUserEmail(row.user_id);
