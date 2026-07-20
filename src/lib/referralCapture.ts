@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { getSiteOrigin } from './seo/site';
+import { getAbsoluteAppUrl } from './appUrls';
 
 export const REFERRAL_CODE_STORAGE_KEY = 'referral_code';
 
@@ -38,9 +38,11 @@ export function clearStoredReferralCode(): void {
   }
 }
 
-/** Share link — works on any page; ?ref= is captured globally before signup. */
+/** Share link lands on app host so signup stays in the trading app. */
 export function buildReferralShareUrl(code: string): string {
-  return `${getSiteOrigin()}/?ref=${encodeURIComponent(normalizeReferralCode(code) ?? code)}`;
+  const normalized = normalizeReferralCode(code) ?? code;
+  const base = getAbsoluteAppUrl().replace(/\/$/, '');
+  return `${base}/?ref=${encodeURIComponent(normalized)}`;
 }
 
 const PERMANENT_REFERRAL_ERRORS = new Set([

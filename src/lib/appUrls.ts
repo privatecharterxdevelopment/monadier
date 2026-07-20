@@ -78,13 +78,29 @@ function usesSplitDomainSetup(): boolean {
   return Boolean(siteHost && appHost && siteHost !== appHost);
 }
 
-/** Current page is the configured production marketing host. */
+/** Current page is the configured production marketing host (apex or www). */
 function isOnMarketingHost(): boolean {
   if (typeof window === 'undefined') return false;
   if (isUnifiedOriginHost()) return false;
   const siteHost = getSiteHostname();
   if (!siteHost) return false;
-  return window.location.hostname === siteHost;
+  const h = window.location.hostname.toLowerCase();
+  const site = siteHost.toLowerCase();
+  if (h === site) return true;
+  if (h === `www.${site}`) return true;
+  if (site.startsWith('www.') && h === site.slice(4)) return true;
+  return false;
+}
+
+/** True when this host should treat marketing/app as split (www + apex both count). */
+export function isMarketingHostname(hostname?: string): boolean {
+  const h = (hostname ?? (typeof window !== 'undefined' ? window.location.hostname : '')).toLowerCase();
+  if (!h) return false;
+  const site = getSiteHostname()?.toLowerCase();
+  if (!site) return false;
+  if (h === site || h === `www.${site}`) return true;
+  if (site.startsWith('www.') && h === site.slice(4)) return true;
+  return false;
 }
 
 /** Hard-navigate marketing → app subdomain (only when split domains are live). */
@@ -149,17 +165,41 @@ export function getAppQueryLink(search: string): string {
   return `${getOpenAppPath()}${q}`;
 }
 
+/** Absolute Pro Trade URL (split: app.hypergain.io, unified: /app). */
+export function getAbsoluteAppUrl(search = ''): string {
+  const q = !search ? '' : search.startsWith('?') ? search : `?${search}`;
+  const appBase = configuredAppBase();
+  if (splitDomainsEnabled() && appBase) {
+    return q ? `${appBase}${q}` : `${appBase}/`;
+  }
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}${getOpenAppPath()}${q}`;
+  }
+  return `${appBase || ''}${DEV_APP_PATH}${q}`;
+}
+
 /** Navigate to Pro Trade (hard navigation — reliable from marketing CTAs). */
 export function goToOpenApp(search = '', replace = false): void {
-  const appBase = effectiveAppBase();
-  if (shouldCrossNavigateToApp() && appBase) {
-    const url = `${appBase}${OPEN_APP_PATH}${search}`;
-    if (replace) window.location.replace(url);
-    else window.location.assign(url);
+  const q = !search ? '' : search.startsWith('?') ? search : `?${search}`;
+  const appBase = configuredAppBase();
+
+  // Marketing www/apex → app subdomain when split is enabled.
+  if (splitDomainsEnabled() && isOnMarketingHost() && appBase) {
+    const finalUrl = q ? `${appBase}${q}` : `${appBase}/`;
+    if (replace) window.location.replace(finalUrl);
+    else window.location.assign(finalUrl);
     return;
   }
 
-  const path = getOpenAppPath() + search;
+  if (shouldCrossNavigateToApp() && effectiveAppBase()) {
+    const base = effectiveAppBase();
+    const finalUrl = q ? `${base}${q}` : `${base}/`;
+    if (replace) window.location.replace(finalUrl);
+    else window.location.assign(finalUrl);
+    return;
+  }
+
+  const path = getOpenAppPath() + q;
   if (replace) window.location.replace(path);
   else window.location.assign(path);
 }

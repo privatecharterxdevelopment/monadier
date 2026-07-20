@@ -40,12 +40,11 @@ const PNL_GREEN = [22, 163, 74] as const;
 const PNL_RED = [220, 38, 38] as const;
 
 /**
- * Live dashboard until hypergain.io / app.hypergain.io DNS + split domains are on.
- * Do not hardcode app.hypergain.io yet — it is not the active app host.
+ * Live dashboard URL for PDF QR (app subdomain when split domains are on).
  */
-const LIVE_APP_FALLBACK = 'https://monadier.vercel.app/app';
+const LIVE_APP_FALLBACK = 'https://app.hypergain.io';
 
-/** QR target: same host the user exports from, else the live Vercel app entry. */
+/** QR target: same host the user exports from, else the live app entry. */
 function pdfQrTargetUrl(): string {
   if (typeof window !== 'undefined' && window.location?.origin) {
     const origin = window.location.origin.replace(/\/$/, '');
@@ -53,7 +52,7 @@ function pdfQrTargetUrl(): string {
     const path = entry === '/' ? '' : entry;
     return `${origin}${path}?section=bot`;
   }
-  return `${LIVE_APP_FALLBACK}?section=bot`;
+  return `${LIVE_APP_FALLBACK}/?section=bot`;
 }
 
 function fmtPdfTime(ms: number): string {

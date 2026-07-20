@@ -33,6 +33,54 @@
       "source": "/about/:path*",
       "destination": "/",
       "permanent": true
+    },
+    {
+      "source": "/app",
+      "has": [{ "type": "host", "value": "www.hypergain.io" }],
+      "destination": "https://app.hypergain.io/",
+      "permanent": true
+    },
+    {
+      "source": "/app/(.*)",
+      "has": [{ "type": "host", "value": "www.hypergain.io" }],
+      "destination": "https://app.hypergain.io/$1",
+      "permanent": true
+    },
+    {
+      "source": "/app",
+      "has": [{ "type": "host", "value": "hypergain.io" }],
+      "destination": "https://app.hypergain.io/",
+      "permanent": true
+    },
+    {
+      "source": "/app/(.*)",
+      "has": [{ "type": "host", "value": "hypergain.io" }],
+      "destination": "https://app.hypergain.io/$1",
+      "permanent": true
+    },
+    {
+      "source": "/dashboard",
+      "has": [{ "type": "host", "value": "www.hypergain.io" }],
+      "destination": "https://app.hypergain.io/",
+      "permanent": true
+    },
+    {
+      "source": "/dashboard/(.*)",
+      "has": [{ "type": "host", "value": "www.hypergain.io" }],
+      "destination": "https://app.hypergain.io/",
+      "permanent": true
+    },
+    {
+      "source": "/dashboard2",
+      "has": [{ "type": "host", "value": "www.hypergain.io" }],
+      "destination": "https://app.hypergain.io/",
+      "permanent": true
+    },
+    {
+      "source": "/dashboard2/(.*)",
+      "has": [{ "type": "host", "value": "www.hypergain.io" }],
+      "destination": "https://app.hypergain.io/",
+      "permanent": true
     }
   ],
   "rewrites": [
