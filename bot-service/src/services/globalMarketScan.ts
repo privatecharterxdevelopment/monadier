@@ -1,4 +1,5 @@
 import { config } from '../config';
+import { PRIMARY_RULES } from '../config/profiles/types';
 import { logger } from '../utils/logger';
 import { mapPool } from '../utils/asyncPool';
 import { analyzeMarketMTFBySymbol, type TradingStrategy } from './market';
@@ -9,6 +10,7 @@ import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
+import { resolvePeakAwareDirection } from './peakShortLiquidity';
 import type { Timeframe } from './signalEngine';
 
 export type BotSignalMode = 'standard' | 'aggressive';
@@ -33,6 +35,8 @@ export type GlobalSignalCandidate = {
   megaPairReason?: string;
   signalReasons?: string[];
   indicators?: string[];
+  /** Forced SHORT at pump apex — liquidity grab override. */
+  peakLiquidityGrab?: boolean;
 };
 
 const STANDARD_STRATEGY: TradingStrategy = 'normal';
@@ -41,11 +45,15 @@ function profileAnalysisTimeframes(): Timeframe[] {
   return [...config.hyperliquid.directionProfile.analysisTimeframes] as Timeframe[];
 }
 
-function isActiveProfileDirection(direction: 'LONG' | 'SHORT'): boolean {
+function isActiveProfileDirection(direction: 'LONG' | 'SHORT', peakLiquidityGrab = false): boolean {
+  if (peakLiquidityGrab && direction === 'SHORT') return true;
   return direction === config.hyperliquid.directionProfile.primaryDirection;
 }
 
-function rulesFor(direction: 'LONG' | 'SHORT') {
+function rulesFor(direction: 'LONG' | 'SHORT', peakLiquidityGrab = false) {
+  // Peak shorts must use aggressive primary thresholds — counter-trend SHORT
+  // rules (h1 DOWN + 80%) would kill the exact apex liquidity-grab setups.
+  if (peakLiquidityGrab && direction === 'SHORT') return PRIMARY_RULES;
   return direction === 'LONG'
     ? config.hyperliquid.directionProfile.long
     : config.hyperliquid.directionProfile.short;
@@ -54,9 +62,10 @@ function rulesFor(direction: 'LONG' | 'SHORT') {
 function isTrustedProfileCandidate(
   direction: 'LONG' | 'SHORT',
   confidence: number,
-  directionalTfCount: number
+  directionalTfCount: number,
+  peakLiquidityGrab = false
 ): boolean {
-  const rules = rulesFor(direction);
+  const rules = rulesFor(direction, peakLiquidityGrab);
   return (
     rules.trustMtfScan &&
     confidence >= rules.minConfidence &&
@@ -69,8 +78,9 @@ function passesProfileThresholds(direction: 'LONG' | 'SHORT', opts: {
   directionalTfCount: number;
   trendAlignment: number;
   h1Trend?: string;
+  peakLiquidityGrab?: boolean;
 }): boolean {
-  const rules = rulesFor(direction);
+  const rules = rulesFor(direction, opts.peakLiquidityGrab);
   if (opts.confidence < rules.minConfidence) return false;
   if (opts.directionalTfCount < rules.minDirectionalTfs) return false;
   if (opts.trendAlignment < rules.minTrendAlignment) return false;
@@ -124,16 +134,20 @@ async function scanMajorChartFallback(
     if (!analysis) return null;
     if (analysis.isWeak) return null;
     if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
-    if (!isActiveProfileDirection(analysis.direction)) return null;
+    const peak = await resolvePeakAwareDirection(coin, analysis.direction);
+    const direction = peak.direction;
+    const peakLiquidityGrab = peak.peakLiquidityGrab;
+    if (!isActiveProfileDirection(direction, peakLiquidityGrab)) return null;
     if (analysis.confidence < 48) return null;
     const tfs = analysis.metrics?.directionalTfCount ?? 0;
     if (tfs < 1) return null;
     if (
-      !passesProfileThresholds(analysis.direction, {
+      !passesProfileThresholds(direction, {
         confidence: analysis.confidence,
         directionalTfCount: tfs,
         trendAlignment: analysis.metrics?.trendAlignment ?? 0,
         h1Trend: analysis.metrics?.h1Trend,
+        peakLiquidityGrab,
       })
     ) {
       return null;
@@ -142,9 +156,11 @@ async function scanMajorChartFallback(
     return {
       coin,
       symbol,
-      direction: analysis.direction,
+      direction,
       confidence: analysis.confidence,
-      reason: `${analysis.reason} · major ${analysis.direction} fallback (${analysis.confidence}% / ${tfs} TFs)`,
+      reason: peakLiquidityGrab
+        ? `${analysis.reason} · PEAK→SHORT liquidity grab @$${peak.analysis?.pumpApex.toFixed(2)} (${analysis.confidence}% / ${tfs} TFs)`
+        : `${analysis.reason} · major ${direction} fallback (${analysis.confidence}% / ${tfs} TFs)`,
       dayVolumeUsd: liq.dayVolumeUsd,
       openInterestUsd: liq.openInterestUsd,
       botMode: 'standard',
@@ -154,6 +170,7 @@ async function scanMajorChartFallback(
       h1Trend: analysis.metrics?.h1Trend,
       signalReasons: analysis.signalReasons,
       indicators: analysis.indicators,
+      peakLiquidityGrab,
     };
   } catch {
     return null;
@@ -176,7 +193,10 @@ async function scanStandardCoin(
     if (!analysis) return null;
     if (analysis.isWeak) return null;
     if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
-    if (!isActiveProfileDirection(analysis.direction)) return null;
+    const peak = await resolvePeakAwareDirection(coin, analysis.direction);
+    const direction = peak.direction;
+    const peakLiquidityGrab = peak.peakLiquidityGrab;
+    if (!isActiveProfileDirection(direction, peakLiquidityGrab)) return null;
     const tierInfo = classifyCoinTier(coin, preloadedUniverse);
     const cautious = needsCautionPath(tierInfo.tier) && !relaxed;
     const minConf = cautious
@@ -218,27 +238,30 @@ async function scanStandardCoin(
     if ((analysis.metrics?.trendAlignment ?? 0) < minAlign) return null;
     const directionalTfCount = analysis.metrics?.directionalTfCount ?? 0;
     const trustedDirection = isTrustedProfileCandidate(
-      analysis.direction,
+      direction,
       analysis.confidence,
-      directionalTfCount
+      directionalTfCount,
+      peakLiquidityGrab
     );
     if (
-      !passesProfileThresholds(analysis.direction, {
+      !passesProfileThresholds(direction, {
         confidence: analysis.confidence,
         directionalTfCount,
         trendAlignment: analysis.metrics?.trendAlignment ?? 0,
         h1Trend: analysis.metrics?.h1Trend,
+        peakLiquidityGrab,
       })
     ) {
       return null;
     }
     if (
       !relaxed &&
+      !peakLiquidityGrab &&
       (
-        (analysis.direction === 'LONG' &&
+        (direction === 'LONG' &&
           !trustedDirection &&
           analysis.metrics?.h1Trend === 'DOWN') ||
-        (analysis.direction === 'SHORT' &&
+        (direction === 'SHORT' &&
           !trustedDirection &&
           (/UP/i.test(String(analysis.metrics?.h1Trend ?? '')) ||
             analysis.metrics?.h1Trend === 'STRONG_UPTREND'))
@@ -246,7 +269,7 @@ async function scanStandardCoin(
     ) {
       return null;
     }
-    if (analysis.direction === 'SHORT' && !trustedDirection) {
+    if (direction === 'SHORT' && !trustedDirection && !peakLiquidityGrab) {
       const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
       if (!pumpGate.ok) {
         logger.debug('HL scan skip: pump-short gate', { coin, reason: pumpGate.reason });
@@ -256,11 +279,13 @@ async function scanStandardCoin(
     return {
       coin,
       symbol,
-      direction: analysis.direction,
+      direction,
       confidence: analysis.confidence,
-      reason: relaxed
-        ? `${analysis.reason} · relaxed scan (${analysis.confidence}% / ${analysis.metrics?.directionalTfCount} TFs)`
-        : analysis.reason,
+      reason: peakLiquidityGrab
+        ? `${analysis.reason} · PEAK→SHORT liquidity grab @$${peak.analysis?.pumpApex.toFixed(2)}`
+        : relaxed
+          ? `${analysis.reason} · relaxed scan (${analysis.confidence}% / ${analysis.metrics?.directionalTfCount} TFs)`
+          : analysis.reason,
       dayVolumeUsd: liq.dayVolumeUsd,
       openInterestUsd: liq.openInterestUsd,
       botMode: 'standard',
@@ -270,6 +295,7 @@ async function scanStandardCoin(
       h1Trend: analysis.metrics?.h1Trend,
       signalReasons: analysis.signalReasons,
       indicators: analysis.indicators,
+      peakLiquidityGrab,
     };
   } catch {
     return null;
@@ -290,7 +316,10 @@ async function scanAggressiveCoin(
       ? config.hyperliquid.cautiousScan.minSignalConfidence
       : Math.max(60, config.hyperliquid.minSignalConfidence - 2);
     if (!scalp || scalp.confidence < minConf) return null;
-    if (!isActiveProfileDirection(scalp.direction)) return null;
+    const peak = await resolvePeakAwareDirection(coin, scalp.direction);
+    const direction = peak.direction;
+    const peakLiquidityGrab = peak.peakLiquidityGrab;
+    if (!isActiveProfileDirection(direction, peakLiquidityGrab)) return null;
 
     if (cautious) {
       const pumpSkip = await validateNotFreshlyPumped({ coin, tier: tierInfo.tier });
@@ -308,16 +337,21 @@ async function scanAggressiveCoin(
     if (h1Check) {
       const directionalTfCount = h1Check.metrics?.directionalTfCount ?? 0;
       const trustedDirection = isTrustedProfileCandidate(
-        scalp.direction,
+        direction,
         scalp.confidence,
-        directionalTfCount
+        directionalTfCount,
+        peakLiquidityGrab
       );
-      if (scalp.direction === 'SHORT') {
-        if (!trustedDirection && /UP/i.test(String(h1Check.metrics?.h1Trend ?? ''))) {
+      if (direction === 'SHORT') {
+        if (
+          !peakLiquidityGrab &&
+          !trustedDirection &&
+          /UP/i.test(String(h1Check.metrics?.h1Trend ?? ''))
+        ) {
           logger.debug('HL agg scan skip: 1h trend UP blocks SHORT', { coin });
           return null;
         }
-        if (!trustedDirection) {
+        if (!trustedDirection && !peakLiquidityGrab) {
           const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
           if (!pumpGate.ok) {
             logger.debug('HL agg scan skip: pump-short gate', { coin, reason: pumpGate.reason });
@@ -325,13 +359,14 @@ async function scanAggressiveCoin(
           }
         }
       }
-      if (scalp.direction === 'LONG') {
+      if (direction === 'LONG') {
         if (
-          !passesProfileThresholds(scalp.direction, {
+          !passesProfileThresholds(direction, {
             confidence: scalp.confidence,
             directionalTfCount,
             trendAlignment: h1Check.metrics?.trendAlignment ?? 0,
             h1Trend: h1Check.metrics?.h1Trend,
+            peakLiquidityGrab,
           })
         ) {
           logger.debug('HL agg scan skip: LONG below direction-profile thresholds', {
@@ -344,17 +379,29 @@ async function scanAggressiveCoin(
           logger.debug('HL agg scan skip: 1h trend DOWN blocks LONG', { coin });
           return null;
         }
+      } else if (
+        !passesProfileThresholds(direction, {
+          confidence: scalp.confidence,
+          directionalTfCount,
+          trendAlignment: h1Check.metrics?.trendAlignment ?? 0,
+          h1Trend: h1Check.metrics?.h1Trend,
+          peakLiquidityGrab,
+        })
+      ) {
+        return null;
       }
-    } else if (rulesFor(scalp.direction).requiredH1Trend) {
+    } else if (rulesFor(direction, peakLiquidityGrab).requiredH1Trend) {
       return null;
     }
 
     return {
       coin,
       symbol,
-      direction: scalp.direction,
+      direction,
       confidence: scalp.confidence,
-      reason: scalp.reason,
+      reason: peakLiquidityGrab
+        ? `${scalp.reason} · PEAK→SHORT liquidity grab @$${peak.analysis?.pumpApex.toFixed(2)}`
+        : scalp.reason,
       dayVolumeUsd: liq.dayVolumeUsd,
       openInterestUsd: liq.openInterestUsd,
       botMode: 'aggressive',
@@ -367,6 +414,7 @@ async function scanAggressiveCoin(
         ...(h1Check?.signalReasons ?? []),
       ],
       indicators: h1Check?.indicators,
+      peakLiquidityGrab,
     };
   } catch {
     return null;
@@ -498,8 +546,11 @@ export function globalSignalsForBotMode(
   hlBotStrategy: string | null | undefined
 ): GlobalSignalCandidate[] {
   const primaryDirection = config.hyperliquid.directionProfile.primaryDirection;
-  const standard = scan.standard.filter((candidate) => candidate.direction === primaryDirection);
-  const aggressive = scan.aggressive.filter((candidate) => candidate.direction === primaryDirection);
+  const keep = (candidate: GlobalSignalCandidate) =>
+    candidate.direction === primaryDirection ||
+    (candidate.direction === 'SHORT' && candidate.peakLiquidityGrab === true);
+  const standard = scan.standard.filter(keep);
+  const aggressive = scan.aggressive.filter(keep);
 
   // Regime profiles are 15m/1h/4h systems. Do not leak 1m/5m aggressive
   // candidates back into Standard (or profit_grabber) while a regime is active.

@@ -284,7 +284,7 @@ export function formatPumpSweepLine(a: PumpSweepAnalysis): string {
       : a.phase === 'post_pump_fade'
         ? `fading from apex — turnaround est. $${a.turnaroundEstimate.toFixed(0)} (${distTurn >= 0 ? '+' : ''}${distTurn.toFixed(1)}% away)`
         : a.phase === 'at_apex'
-          ? 'at pump high — do not chase LONG'
+          ? 'at pump high — SHORT liquidity grab'
           : a.phase.replace(/_/g, ' ');
   return `${a.coin} pump line $${a.pumpApex.toFixed(0)} · avg low $${a.avgSwingLow.toFixed(0)} · ${turnNote}`;
 }

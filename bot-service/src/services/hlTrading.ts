@@ -48,6 +48,13 @@ import { validateCoinNews, type CoinNewsResult } from './coinNewsGate';
 import type { NewsTradeMode } from './newsTradeMode';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import { validatePumpSweepGate } from './pumpSweepGate';
+import {
+  fetchPumpSweepAnalysis,
+} from './pumpSweepAnalytics';
+import {
+  isPeakShortOverride,
+} from './peakShortLiquidity';
+import { PRIMARY_RULES } from '../config/profiles/types';
 import { validateScalpAlignment } from './scalpAlignGate';
 import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
 import { validatePerpMarketContext } from './perpMarketContextGate';
@@ -173,17 +180,21 @@ function shouldRelaxSecondaryGates(
   direction: 'LONG' | 'SHORT'
 ): boolean {
   const rules =
-    direction === 'LONG'
-      ? config.hyperliquid.directionProfile.long
-      : config.hyperliquid.directionProfile.short;
+    pick.peakLiquidityGrab && direction === 'SHORT'
+      ? PRIMARY_RULES
+      : direction === 'LONG'
+        ? config.hyperliquid.directionProfile.long
+        : config.hyperliquid.directionProfile.short;
   return rules.relaxSecondaryGates && trustsDirectionProfile(pick);
 }
 
 function trustsDirectionProfile(pick: GlobalSignalCandidate): boolean {
   const rules =
-    pick.direction === 'LONG'
-      ? config.hyperliquid.directionProfile.long
-      : config.hyperliquid.directionProfile.short;
+    pick.peakLiquidityGrab && pick.direction === 'SHORT'
+      ? PRIMARY_RULES
+      : pick.direction === 'LONG'
+        ? config.hyperliquid.directionProfile.long
+        : config.hyperliquid.directionProfile.short;
   return (
     rules.trustMtfScan &&
     pick.confidence >= rules.minConfidence &&
@@ -945,7 +956,25 @@ export class HyperliquidTradingService {
       const symbol = hlCoinToBinanceSymbol(coin);
       let htfSrGate: HtfSrResult | null = null;
       const directionProfile = config.hyperliquid.directionProfile;
-      if (opts.direction !== directionProfile.primaryDirection) {
+      const peakAnalysis = await fetchPumpSweepAnalysis(coin);
+      const peakLiquidityGrab =
+        opts.pick.peakLiquidityGrab === true ||
+        isPeakShortOverride(opts.direction, peakAnalysis);
+
+      // Peak = SHORT liquidity grab. Never open LONG at apex; allow SHORT even
+      // when the active regime is LONG-primary (bull_market).
+      if (opts.direction === 'LONG' && peakAnalysis?.phase === 'at_apex') {
+        return rejectOpen(
+          'pump_sweep',
+          `LONG blocked — ${coin} at pump apex $${peakAnalysis.pumpApex.toFixed(2)} — peak is a SHORT liquidity grab`,
+          'peak blocks LONG'
+        );
+      }
+
+      if (
+        opts.direction !== directionProfile.primaryDirection &&
+        !peakLiquidityGrab
+      ) {
         return rejectOpen(
           'direction_profile',
           `${opts.direction} disabled while ${directionProfile.name} is active; switch HL_DIRECTION_PROFILE in the backend`,
@@ -956,8 +985,11 @@ export class HyperliquidTradingService {
           }
         );
       }
-      const directionRules =
-        opts.direction === 'LONG' ? directionProfile.long : directionProfile.short;
+      const directionRules = peakLiquidityGrab
+        ? PRIMARY_RULES
+        : opts.direction === 'LONG'
+          ? directionProfile.long
+          : directionProfile.short;
       const directionalTfs = opts.pick.directionalTfCount ?? 0;
       const trendAlignment = opts.pick.trendAlignment ?? 0;
       const h1Trend = String(opts.pick.h1Trend ?? '').toUpperCase();
@@ -977,6 +1009,7 @@ export class HyperliquidTradingService {
           {
             profile: directionProfile.name,
             primaryDirection: directionProfile.primaryDirection,
+            peakLiquidityGrab,
           }
         );
       }
