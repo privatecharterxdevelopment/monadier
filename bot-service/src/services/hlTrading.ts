@@ -106,6 +106,23 @@ const hlLastCloseAt = new Map<string, number>();
 let fastPositionMonitorRunning = false;
 
 /**
+ * Wallets that still have open HL perps and must stay on the trail/SL loop
+ * even when auto_trade_enabled is false (manual opens, user paused new entries).
+ * Seeded from agent approvals + open clearinghouse state; pruned when flat.
+ */
+const openPositionMonitorWallets = new Set<string>();
+let openPositionMonitorRefreshAt = 0;
+const OPEN_POSITION_MONITOR_REFRESH_MS = 60_000;
+
+function rememberOpenPositionMonitor(wallet: string): void {
+  openPositionMonitorWallets.add(wallet.toLowerCase());
+}
+
+function forgetOpenPositionMonitor(wallet: string): void {
+  openPositionMonitorWallets.delete(wallet.toLowerCase());
+}
+
+/**
  * User-initiated closes (the manual "Close" button) must ALWAYS execute
  * immediately — profitOnlyExits only governs the bot's *automatic* exits.
  * The frontend sends reason 'manual'; keep synonyms robust so a red position
@@ -431,16 +448,38 @@ export class HyperliquidTradingService {
     userAddress: `0x${string}`,
     ctx: TradingCycleContext
   ): Promise<UserProcessResult> {
-    const gate = await this.canTrade(userAddress);
-    if (!gate.ok) {
-      logger.debug('HL user skip: gate', { user: userAddress.slice(0, 10), reason: gate.reason });
-      return 'skip';
-    }
-
     const settings = await subscriptionService.getUserTradingSettings(
       userAddress,
       config.arbitrum.chainId
     );
+
+    const state = await fetchHlClearinghouseState(userAddress);
+    if (!state) return 'skip';
+
+    const openCoins = hlOpenPerpCoins(state);
+    const maxPositions = normalizeMaxConcurrentPositions(settings.maxConcurrentPositions);
+
+    // Always trail/SL open perps first — never strand positions because auto-trade
+    // is off or new-open gates (fees/balance) failed.
+    if (openCoins.length > 0) {
+      rememberOpenPositionMonitor(userAddress);
+      await this.monitorOpenPositions(userAddress, state, settings, { fast: false });
+    } else {
+      forgetOpenPositionMonitor(userAddress);
+    }
+
+    const gate = await this.canTrade(userAddress);
+    if (!gate.ok) {
+      if (openCoins.length > 0) {
+        logger.debug('HL user: monitoring only (new-open gate blocked)', {
+          user: userAddress.slice(0, 10),
+          reason: gate.reason,
+        });
+        return 'ok';
+      }
+      logger.debug('HL user skip: gate', { user: userAddress.slice(0, 10), reason: gate.reason });
+      return 'skip';
+    }
 
     let autoTradeEnabled = settings.autoTradeEnabled;
     if (autoTradeEnabled) {
@@ -460,16 +499,6 @@ export class HyperliquidTradingService {
           stateLoaded: funding.stateLoaded,
         });
       }
-    }
-
-    const state = await fetchHlClearinghouseState(userAddress);
-    if (!state) return 'skip';
-
-    const openCoins = hlOpenPerpCoins(state);
-    const maxPositions = normalizeMaxConcurrentPositions(settings.maxConcurrentPositions);
-
-    if (openCoins.length > 0) {
-      await this.monitorOpenPositions(userAddress, state, settings, { fast: false });
     }
 
     if (!autoTradeEnabled) {
@@ -1942,13 +1971,73 @@ export class HyperliquidTradingService {
     }
   }
 
+  /**
+   * Auto-trade ON ∪ wallets with open perps (agent-approved).
+   * Trail/SL must run for every open position — pausing auto-trade only blocks new opens.
+   */
+  async resolvePositionMonitorWallets(chainId?: number): Promise<string[]> {
+    const canonical = chainId ?? config.arbitrum.chainId;
+    const now = Date.now();
+    if (now - openPositionMonitorRefreshAt >= OPEN_POSITION_MONITOR_REFRESH_MS) {
+      await this.refreshOpenPositionMonitorFromApprovals();
+    }
+
+    const auto = await subscriptionService.getAutoTradeUsers(canonical);
+    const merged = new Set(auto.map((w) => w.toLowerCase()));
+    for (const w of openPositionMonitorWallets) merged.add(w);
+    return [...merged];
+  }
+
+  /** Scan agent-approved wallets for open perps and keep them on the trail loop. */
+  async refreshOpenPositionMonitorFromApprovals(): Promise<void> {
+    openPositionMonitorRefreshAt = Date.now();
+    try {
+      const approved = await hlAgentApprovalService.listApprovedWallets();
+      if (approved.length === 0) return;
+
+      const concurrency = Math.min(16, config.scaling.userProcessConcurrency);
+      let idx = 0;
+      let withOpen = 0;
+      const workers = Array.from({ length: concurrency }, async () => {
+        while (idx < approved.length) {
+          const wallet = approved[idx++]!;
+          try {
+            const state = await fetchHlClearinghouseState(wallet as `0x${string}`);
+            const open = state ? hlOpenPerpCoins(state) : [];
+            if (open.length > 0) {
+              rememberOpenPositionMonitor(wallet);
+              withOpen += 1;
+            } else {
+              forgetOpenPositionMonitor(wallet);
+            }
+          } catch {
+            // Keep prior sticky entry; next refresh retries.
+          }
+        }
+      });
+      await Promise.all(workers);
+
+      if (withOpen > 0 || openPositionMonitorWallets.size > 0) {
+        logger.info('HL open-position monitor set refreshed', {
+          approved: approved.length,
+          withOpen,
+          sticky: openPositionMonitorWallets.size,
+        });
+      }
+    } catch (err) {
+      logger.warn('HL open-position monitor refresh failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   /** Fast loop — open positions only, no global scan (runs every ~250ms). */
   async runFastPositionMonitor(): Promise<void> {
     if (fastPositionMonitorRunning) return;
     fastPositionMonitorRunning = true;
     const started = Date.now();
     try {
-      const wallets = await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId);
+      const wallets = await this.resolvePositionMonitorWallets(config.arbitrum.chainId);
       if (wallets.length === 0) return;
 
       const concurrency = Math.min(32, config.scaling.userProcessConcurrency);
@@ -1958,7 +2047,12 @@ export class HyperliquidTradingService {
           const wallet = wallets[idx++] as `0x${string}`;
           try {
             const state = await fetchHlClearinghouseState(wallet);
-            if (!state || hlOpenPerpCoins(state).length === 0) continue;
+            const openCoins = state ? hlOpenPerpCoins(state) : [];
+            if (!state || openCoins.length === 0) {
+              forgetOpenPositionMonitor(wallet);
+              continue;
+            }
+            rememberOpenPositionMonitor(wallet);
             const settings = await subscriptionService.getUserTradingSettings(
               wallet,
               config.arbitrum.chainId
@@ -2350,6 +2444,9 @@ export class HyperliquidTradingService {
       if (status && 'error' in status && status.error) {
         return { success: false, error: String(status.error) };
       }
+
+      // Manual opens must stay on the trail loop even if auto-trade is off.
+      rememberOpenPositionMonitor(opts.userAddress);
 
       logger.info('HL manual order placed', {
         user: opts.userAddress.slice(0, 10),

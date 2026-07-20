@@ -1321,7 +1321,9 @@ async function runTradingCycle(): Promise<void> {
 
     try {
       const cycleStarted = Date.now();
-      const allUsers = await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId);
+      const allUsers = await hyperliquidTradingService.resolvePositionMonitorWallets(
+        config.arbitrum.chainId
+      );
       const { wallets, total, offset } = sliceUsersForCycle(allUsers);
 
       logger.info('HL bot cycle: building shared market context', {
@@ -1410,6 +1412,9 @@ async function main(): Promise<void> {
 
   await releaseHlBotTradingPauses();
 
+  // Trail/SL for open perps even when auto-trade is paused (manual opens, etc.).
+  await hyperliquidTradingService.refreshOpenPositionMonitorFromApprovals();
+
   // Run immediately on startup
   await runTradingCycle();
   void hyperliquidTradingService.runFastPositionMonitor();
@@ -1433,6 +1438,10 @@ async function main(): Promise<void> {
       await hyperliquidTradingService.runFastPositionMonitor();
     });
   }
+
+  setInterval(() => {
+    void hyperliquidTradingService.refreshOpenPositionMonitorFromApprovals();
+  }, 60_000);
 
   setInterval(() => {
     void processPendingTradeCloseEmails(40);
