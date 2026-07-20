@@ -1715,7 +1715,6 @@
   height: 100svh;
   padding: 0;
   overflow: hidden;
-  isolation: isolate;
   background: var(--lg-bg, #f5f5f7);
 }
 
@@ -1732,7 +1731,6 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  isolation: isolate;
 }
 
 .landing-gmx-bot-pitch-video-wrap {
@@ -1758,22 +1756,36 @@
   height: 100%;
   object-fit: contain;
   object-position: center;
+  background: transparent;
 }
 
-/* MP4/H.264 has no alpha — screen-blend hides black on legacy browsers only. */
-.landing-gmx-bot-pitch-video--blend-fallback {
+/* MP4/H.264 has no alpha — screen-blend keys out the baked black plate. */
+.landing-gmx-bot-pitch-video--blend-fallback,
+.landing-gmx-bot-pitch-video-wrap--blend {
   mix-blend-mode: screen;
+}
+
+.landing-gmx-bot-pitch-video--blend-fallback {
   opacity: 0.92;
   filter: saturate(1.12) contrast(1.08);
 }
 
 @media (max-width: 767px) {
-  /* Mobile Safari can decode VP9 while ignoring its alpha plane. The mobile
-     source is MP4, so screen blend removes the opaque black video background. */
+  /*
+   * Mobile always uses opaque MP4. Do NOT use isolation:isolate here — it breaks
+   * mix-blend-mode:screen against the page background (black box bug).
+   * Blend on the wrap (more reliable than on <video> in Mobile Safari).
+   */
+  .landing-gmx-bot-pitch-video-wrap {
+    mix-blend-mode: screen;
+    background: transparent;
+  }
+
   .landing-gmx-bot-pitch-video {
     mix-blend-mode: screen;
     opacity: 0.92;
     filter: saturate(1.12) contrast(1.08);
+    background: transparent;
   }
 }
 

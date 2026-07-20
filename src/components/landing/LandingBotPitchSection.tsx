@@ -40,6 +40,7 @@ const LandingBotPitchSection: React.FC = () => {
   const lastStep = Math.max(0, pitchLines.length - 1);
   const pitchVideoRef = useRef<HTMLVideoElement>(null);
   const [mp4BlendFallback, setMp4BlendFallback] = useState(false);
+  const [isMobilePitch, setIsMobilePitch] = useState(false);
   const [ctaRevealed, setCtaRevealed] = useState(false);
 
   const { sectionRef, stepIndex, complete } = useLandingAutoSequence({
@@ -52,10 +53,21 @@ const LandingBotPitchSection: React.FC = () => {
   const onLastStep = stepIndex === lastStep;
 
   useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const sync = () => setIsMobilePitch(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+
+  useEffect(() => {
     const probe = document.createElement('video');
     const canWebmVp9 = probe.canPlayType('video/webm; codecs="vp9"');
-    setMp4BlendFallback(canWebmVp9 !== 'probably' && canWebmVp9 !== 'maybe');
-  }, []);
+    // Mobile always needs screen-blend (opaque MP4). Desktop only when VP9 missing.
+    setMp4BlendFallback(
+      isMobilePitch || (canWebmVp9 !== 'probably' && canWebmVp9 !== 'maybe')
+    );
+  }, [isMobilePitch]);
 
   useEffect(() => {
     if (!onLastStep) {
@@ -71,12 +83,20 @@ const LandingBotPitchSection: React.FC = () => {
     const video = pitchVideoRef.current;
     if (!video) return;
 
+    // Force the correct source — some browsers ignore <source media="…">.
+    const nextSrc = isMobilePitch ? PITCH_VIDEO_MP4 : PITCH_VIDEO_WEBM;
+    const absolute = new URL(nextSrc, window.location.origin).href;
+    if (video.currentSrc !== absolute) {
+      video.src = nextSrc;
+      video.load();
+    }
     void video.play().catch(() => {});
-  }, [stepIndex, mp4BlendFallback]);
+  }, [stepIndex, mp4BlendFallback, isMobilePitch]);
 
   const showCtaVisible = onLastStep && (ctaRevealed || complete);
 
   const activeLine = pitchLines[stepIndex] ?? pitchLines[0] ?? [];
+  const useBlend = mp4BlendFallback || isMobilePitch;
 
   return (
     <section
@@ -88,21 +108,22 @@ const LandingBotPitchSection: React.FC = () => {
       aria-label="Trading bot highlights"
     >
       <div className="landing-gmx-bot-pitch-sticky">
-        <div className="landing-gmx-bot-pitch-video-wrap landing-gmx-bot-pitch-video-wrap--visible" aria-hidden>
+        <div
+          className={`landing-gmx-bot-pitch-video-wrap landing-gmx-bot-pitch-video-wrap--visible${
+            useBlend ? ' landing-gmx-bot-pitch-video-wrap--blend' : ''
+          }`}
+          aria-hidden
+        >
           <video
             ref={pitchVideoRef}
             className={`landing-gmx-bot-pitch-video${
-              mp4BlendFallback ? ' landing-gmx-bot-pitch-video--blend-fallback' : ''
+              useBlend ? ' landing-gmx-bot-pitch-video--blend-fallback' : ''
             }`}
             muted
             loop
             playsInline
             preload="auto"
-          >
-            <source src={PITCH_VIDEO_MP4} type="video/mp4" media="(max-width: 767px)" />
-            <source src={PITCH_VIDEO_WEBM} type="video/webm" media="(min-width: 768px)" />
-            <source src={PITCH_VIDEO_MP4} type="video/mp4" />
-          </video>
+          />
         </div>
         <div className="landing-gmx-pitch-stage">
           <div className="landing-gmx-bot-pitch-lines" aria-live="polite">

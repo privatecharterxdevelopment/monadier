@@ -35,7 +35,7 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
-const AUTH_SESSION_TIMEOUT_MS = 12_000;
+const AUTH_SESSION_TIMEOUT_MS = 25_000;
 const PROFILE_TIMEOUT_MS = 15_000;
 const PROFILE_RETRY_MS = 3_000;
 const MAX_PROFILE_RETRIES = 3;

@@ -383,12 +383,25 @@ export function goToMarketing(path = LANDING_PATH, replace = false): string | nu
 }
 
 export function getLoginUrl(returnToApp = true): string {
+  // Prefer app host when split — session + PKCE stay where Pro Trade lives.
+  const appBase = configuredAppBase();
+  if (splitDomainsEnabled() && appBase && !isUnifiedOriginHost()) {
+    const base = `${appBase}/login`;
+    if (!returnToApp) return base;
+    return `${base}?from=${encodeURIComponent('/')}`;
+  }
   const base = getMarketingUrl('/login');
   if (!returnToApp) return base;
   return `${base}?from=${encodeURIComponent(getOpenAppPath())}`;
 }
 
 export function getRegisterUrl(returnToApp = true): string {
+  const appBase = configuredAppBase();
+  if (splitDomainsEnabled() && appBase && !isUnifiedOriginHost()) {
+    const base = `${appBase}/register`;
+    if (!returnToApp) return base;
+    return `${base}?from=${encodeURIComponent('/')}`;
+  }
   const base = getMarketingUrl('/register');
   if (!returnToApp) return base;
   return `${base}?from=${encodeURIComponent(getOpenAppPath())}`;

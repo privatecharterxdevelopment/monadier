@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { BRAND_SITE_URL } from './brand';
+import { authCookieStorage } from './authCookieStorage';
 
 function requireEnv(name: string, value: string | undefined, hint?: string): string {
   if (!value || value.includes('your-') || value.includes('example')) {
@@ -40,6 +41,8 @@ export function getSupabaseClient(): SupabaseClient {
       detectSessionInUrl: true,
       persistSession: true,
       autoRefreshToken: true,
+      // Shared across www / apex / app.hypergain.io (cookie domain .hypergain.io).
+      storage: authCookieStorage,
     },
   });
   return client;
