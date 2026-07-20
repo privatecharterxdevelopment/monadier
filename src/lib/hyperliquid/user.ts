@@ -73,6 +73,8 @@ export type HlUserFill = {
   fee: string;
   dir?: string;
   tid?: number;
+  /** Parent order id — same oid = same market close when HL splits fills. */
+  oid?: number;
 };
 
 export type HlFundingPayment = {
@@ -315,7 +317,13 @@ export async function fetchHlTwapHistory(user: string, limit = 50): Promise<HlTw
 }
 
 export async function fetchHlUserFills(user: string, limit = 50): Promise<HlUserFill[]> {
-  const fills = await hlInfo<HlUserFill[]>({ type: 'userFills', user });
+  // aggregateByTime merges same-timestamp partial fills from one crossing order.
+  // Cross-second closes are still merged client-side in aggregateHlCloseFills.
+  const fills = await hlInfo<Array<HlUserFill & { oid?: number }>>({
+    type: 'userFills',
+    user,
+    aggregateByTime: true,
+  });
   if (!Array.isArray(fills)) return [];
   return fills.slice(0, limit).map((f) => ({
     coin: String(f.coin ?? ''),
@@ -327,6 +335,7 @@ export async function fetchHlUserFills(user: string, limit = 50): Promise<HlUser
     fee: String(f.fee ?? '0'),
     dir: f.dir != null ? String(f.dir) : undefined,
     tid: f.tid != null ? toNum(f.tid) : undefined,
+    oid: f.oid != null ? toNum(f.oid) : undefined,
   }));
 }
 

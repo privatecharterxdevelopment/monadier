@@ -4,47 +4,67 @@ import type { HlUserFill } from './user';
 
 export type AggregatedHlCloseFill = HlUserFill & { fillCount: number };
 
+/**
+ * Market closes often span multiple seconds / order ids. Merge window keeps one
+ * history row for one logical close (PUMP 5-fill example) without glueing
+ * unrelated closes minutes apart.
+ */
+export const HL_CLOSE_FILL_MERGE_GAP_MS = 8_000;
+
 export function aggregatedCloseFillKey(f: AggregatedHlCloseFill): string {
-  // time is already second-bucketed by aggregateHlCloseFills grouping.
-  return `${f.time}|${f.coin}|${fillPositionDirection(f)}`;
+  return `${f.time}|${f.coin}|${fillPositionDirection(f)}|${f.oid ?? 'x'}|${f.fillCount}`;
+}
+
+function sameCloseGroup(a: AggregatedHlCloseFill, b: HlUserFill): boolean {
+  if (a.coin.toUpperCase() !== b.coin.toUpperCase()) return false;
+  if (fillPositionDirection(a) !== fillPositionDirection(b)) return false;
+  const aOid = a.oid != null && Number.isFinite(a.oid) ? a.oid : null;
+  const bOid = b.oid != null && Number.isFinite(b.oid) ? b.oid : null;
+  if (aOid != null && bOid != null && aOid === bOid) return true;
+  // Chain fills: each new fill within gap of the group's latest timestamp.
+  return Math.abs(b.time - a.time) <= HL_CLOSE_FILL_MERGE_GAP_MS;
+}
+
+function mergeFill(existing: AggregatedHlCloseFill, f: HlUserFill): AggregatedHlCloseFill {
+  const sz = toNum(f.sz);
+  const px = toNum(f.px);
+  const fee = toNum(f.fee);
+  const pnl = toNum(f.closedPnl);
+  const prevSz = toNum(existing.sz);
+  const totalSz = prevSz + sz;
+  const wPx = totalSz > 0 ? (toNum(existing.px) * prevSz + px * sz) / totalSz : px;
+  return {
+    ...existing,
+    // Keep the latest fill timestamp so consecutive gap chaining works.
+    time: Math.max(existing.time, f.time),
+    sz: String(totalSz),
+    px: String(wPx),
+    fee: String(toNum(existing.fee) + fee),
+    closedPnl: String(toNum(existing.closedPnl) + pnl),
+    fillCount: existing.fillCount + 1,
+    oid: existing.oid ?? f.oid,
+    tid: f.tid ?? existing.tid,
+  };
 }
 
 /** HL often splits one market close into multiple fills — sum them for one history row. */
 export function aggregateHlCloseFills(fills: HlUserFill[]): AggregatedHlCloseFill[] {
-  const groups = new Map<string, AggregatedHlCloseFill>();
+  const closes = fills
+    .filter((f) => isHlFillClose(f.dir, f.closedPnl))
+    .slice()
+    .sort((a, b) => a.time - b.time || (a.tid ?? 0) - (b.tid ?? 0));
 
-  for (const f of fills) {
-    if (!isHlFillClose(f.dir, f.closedPnl)) continue;
-    const sec = Math.floor(f.time / 1000);
-    const dir = fillPositionDirection(f);
-    const key = `${f.coin}|${sec}|${dir}`;
-    const sz = toNum(f.sz);
-    const px = toNum(f.px);
-    const fee = toNum(f.fee);
-    const pnl = toNum(f.closedPnl);
-    const existing = groups.get(key);
-
-    if (!existing) {
-      groups.set(key, { ...f, fillCount: 1 });
+  const groups: AggregatedHlCloseFill[] = [];
+  for (const f of closes) {
+    const last = groups[groups.length - 1];
+    if (last && sameCloseGroup(last, f)) {
+      groups[groups.length - 1] = mergeFill(last, f);
       continue;
     }
-
-    const prevSz = toNum(existing.sz);
-    const totalSz = prevSz + sz;
-    const wPx =
-      totalSz > 0 ? (toNum(existing.px) * prevSz + px * sz) / totalSz : px;
-
-    groups.set(key, {
-      ...existing,
-      sz: String(totalSz),
-      px: String(wPx),
-      fee: String(toNum(existing.fee) + fee),
-      closedPnl: String(toNum(existing.closedPnl) + pnl),
-      fillCount: existing.fillCount + 1,
-    });
+    groups.push({ ...f, fillCount: 1 });
   }
 
-  return Array.from(groups.values()).sort((a, b) => b.time - a.time);
+  return groups.sort((a, b) => b.time - a.time);
 }
 
 /**

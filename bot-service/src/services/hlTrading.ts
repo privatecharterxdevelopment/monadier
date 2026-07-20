@@ -18,6 +18,7 @@ import {
   describeHlPerpBalanceBlocker,
   fetchHlAllMids,
   fetchHlMeta,
+  fetchHlCloseRealizedPnlUsd,
   formatHlPrice,
   formatHlSize,
   hlAccountValueUsd,
@@ -2106,6 +2107,34 @@ export class HyperliquidTradingService {
 
       const collateralUsd =
         entryPx > 0 ? (absSize * entryPx) / leverage : 0;
+
+      // Prefer HL fill closedPnl (matches trade history) over clearinghouse uPnL
+      // which emails/notifications were using and can diverge on multi-fill closes.
+      const closeStartedMs = Date.now();
+      let realizedPnlUsd = pnlUsd;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        if (attempt > 0) {
+          await new Promise((r) => setTimeout(r, 350 * attempt));
+        }
+        const fromFills = await fetchHlCloseRealizedPnlUsd({
+          userAddress,
+          coin: coinUpper,
+          sinceMs: closeStartedMs,
+        });
+        if (fromFills != null) {
+          realizedPnlUsd = fromFills;
+          break;
+        }
+      }
+      if (Math.abs(realizedPnlUsd - pnlUsd) > 0.02) {
+        logger.info('HL close pnl reconciled to fills', {
+          user: userAddress.slice(0, 10),
+          coin: coinUpper,
+          upnl: pnlUsd.toFixed(4),
+          realized: realizedPnlUsd.toFixed(4),
+        });
+      }
+
       const snapshot: HlCloseSnapshot = {
         coin: coinUpper,
         direction: isLong ? 'LONG' : 'SHORT',
@@ -2113,15 +2142,15 @@ export class HyperliquidTradingService {
         exitPx: markPx,
         size: absSize,
         leverage,
-        unrealizedPnlUsd: pnlUsd,
+        unrealizedPnlUsd: realizedPnlUsd,
         collateralUsd,
       };
 
       const collectedFee =
-        pnlUsd > 0
+        realizedPnlUsd > 0
           ? viaHlBuilder && closeBuilder
-            ? estimateCollectedSuccessFee(pnlUsd, notionalUsd, closeBuilder.f)
-            : calculateHlSuccessFee(pnlUsd)
+            ? estimateCollectedSuccessFee(realizedPnlUsd, notionalUsd, closeBuilder.f)
+            : calculateHlSuccessFee(realizedPnlUsd)
           : 0;
 
       await recordHlBotClose({
@@ -2136,7 +2165,7 @@ export class HyperliquidTradingService {
         user: userAddress.slice(0, 10),
         coin: coinUpper,
         reason,
-        pnl: pnlUsd.toFixed(4),
+        pnl: realizedPnlUsd.toFixed(4),
         successFee: collectedFee > 0 ? collectedFee.toFixed(4) : '0',
         viaHlBuilder,
       });

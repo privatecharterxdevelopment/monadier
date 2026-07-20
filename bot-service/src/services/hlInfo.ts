@@ -293,6 +293,69 @@ export async function fetchHlAllMids(): Promise<Record<string, string>> {
   return res.json();
 }
 
+type HlRawFill = {
+  coin?: string;
+  closedPnl?: string | number;
+  time?: number;
+  dir?: string;
+};
+
+/**
+ * Sum HL fill `closedPnl` for a coin close — source of truth for emails /
+ * notifications / success fees (uPnL at trigger time can diverge from fills).
+ */
+export async function fetchHlCloseRealizedPnlUsd(opts: {
+  userAddress: string;
+  coin: string;
+  /** Only fills at/after this ms (close order time − small slack). */
+  sinceMs: number;
+  lookbackMs?: number;
+}): Promise<number | null> {
+  try {
+    const res = await fetch(config.hyperliquid.infoUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'userFills',
+        user: opts.userAddress.toLowerCase(),
+        aggregateByTime: true,
+      }),
+    });
+    if (!res.ok) return null;
+    const fills = (await res.json()) as HlRawFill[];
+    if (!Array.isArray(fills)) return null;
+
+    const coin = opts.coin.toUpperCase();
+    const since = opts.sinceMs - (opts.lookbackMs ?? 15_000);
+    let sum = 0;
+    let matched = 0;
+    for (const f of fills) {
+      if (String(f.coin ?? '').toUpperCase() !== coin) continue;
+      const t = Number(f.time ?? 0);
+      if (!Number.isFinite(t) || t < since) continue;
+      const dir = String(f.dir ?? '');
+      const pnl = Number(f.closedPnl ?? 0);
+      const isClose =
+        /^close/i.test(dir) ||
+        /long\s*>\s*short|short\s*>\s*long/i.test(dir) ||
+        (Number.isFinite(pnl) && pnl !== 0 && !/^open/i.test(dir));
+      if (!isClose) continue;
+      if (!Number.isFinite(pnl)) continue;
+      sum += pnl;
+      matched += 1;
+    }
+    if (matched === 0) return null;
+    return Math.round(sum * 1e6) / 1e6;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.warn('HL close realized pnl fetch failed', {
+      coin: opts.coin,
+      error: msg.slice(0, 160),
+    });
+    return null;
+  }
+}
+
 export function maxLeverageForCoin(
   meta: { universe: { name: string; maxLeverage?: number }[] },
   coin: string
