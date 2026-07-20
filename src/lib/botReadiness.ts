@@ -109,12 +109,22 @@ function formatBlocker(blocker: string): string {
   if (/Must deposit before performing actions/i.test(blocker)) {
     return 'Deposit USDC on Hyperliquid first (min $20)';
   }
-  if (/margin too small|free margin too low/i.test(blocker)) {
+  if (/margin too small|free margin too low|insufficient margin/i.test(blocker)) {
+    const usedFree = blocker.match(
+      /\$([\d.]+) free · \$([\d.]+) in use \((\d+)\/(\d+) slots/i
+    );
+    if (usedFree) {
+      return `Insufficient margin — $${usedFree[1]} free · $${usedFree[2]} in use (${usedFree[3]}/${usedFree[4]} slots)`;
+    }
     const m = blocker.match(/\$([\d.]+).*balance \$([\d.]+)/i);
     if (m) {
-      return `Waiting for margin — ~$${m[1]} usable from $${m[2]} on HL (lower Risk % in LVRG or deposit more for a 2nd trade)`;
+      return `Insufficient margin — ~$${m[1]} free from $${m[2]} on HL`;
     }
-    return 'Not enough free margin for another trade — lower Risk % in LVRG or deposit more USDC';
+    const freeOnly = blocker.match(/\$([\d.]+) free/i);
+    if (freeOnly) {
+      return `Insufficient margin — $${freeOnly[1]} free`;
+    }
+    return 'Insufficient margin — not enough free collateral for another trade';
   }
   if (/HL balance \$([\d.]+).*min \$([\d.]+)/i.test(blocker)) {
     const m = blocker.match(/HL balance \$([\d.]+).*min \$([\d.]+)/i);

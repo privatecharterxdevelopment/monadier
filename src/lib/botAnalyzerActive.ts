@@ -1,10 +1,22 @@
 import { formatUserBlocker } from './botReadiness';
 
 const HARD_BLOCKER =
-  /trading agent|platform fee|Bot fees due|Approve the|Must deposit|margin too small|free margin too low|notional.*below min|linked to another/i;
+  /trading agent|platform fee|Bot fees due|Approve the|Must deposit|margin too small|free margin too low|insufficient margin|notional.*below min|linked to another/i;
+
+const MARGIN_BLOCKER =
+  /margin too small|free margin too low|insufficient margin|notional.*below min/i;
 
 const TRANSIENT_OPEN_RETRY =
   /Funding\/24h range|Price at bad level|Chart still trending|Pair still pumping|Volume gate blocked|needs live momentum|Dip-buy|Rally-fade/i;
+
+export function isMarginEntryBlocked(
+  blockers: string[],
+  lastOpenError?: string | null
+): boolean {
+  if (blockers.some((b) => MARGIN_BLOCKER.test(b))) return true;
+  const last = lastOpenError?.trim();
+  return Boolean(last && MARGIN_BLOCKER.test(last));
+}
 
 /** Only stop the live analyzer for off-state or hard user gates — not “no setup yet”. */
 export function isBotEntryBlocked(opts: {
@@ -41,6 +53,20 @@ export function botAnalyzerStatusCopy(opts: {
     return {
       title: `${n}/${max} · all slots filled`,
       detail: 'Monitoring open positions — scan pauses until a slot opens.',
+    };
+  }
+
+  if (isMarginEntryBlocked(opts.blockers, opts.lastOpenError)) {
+    const formatted = [...opts.blockers, ...(opts.lastOpenError ? [opts.lastOpenError] : [])]
+      .map(formatUserBlocker)
+      .filter(Boolean);
+    const marginLine =
+      formatted.find((b) => /margin|notional|free \$|in use/i.test(b)) ??
+      formatted[0] ??
+      'Not enough free margin for another trade.';
+    return {
+      title: 'Insufficient margin',
+      detail: `${marginLine} Scan pauses until more margin is free.`,
     };
   }
 

@@ -29,7 +29,7 @@ import {
 } from './services/userBatchProcessor';
 import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './services/hlAgent';
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
-import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker } from './services/hlInfo';
+import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlMarginUsedUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker } from './services/hlInfo';
 import { getLastHlOpenError, getLastHlOpenErrorForClient, hyperliquidTradingService, resolveHlMarginPerSlot, balanceForTradingRisk } from './services/hlTrading';
 import { fetchRecentHlOpenBlocks } from './services/hlOpenBlocks';
 import { getLastLlmTradeConfirmVerdict } from './services/llmTradeConfirmGate';
@@ -706,12 +706,10 @@ const healthServer = http.createServer(async (req, res) => {
         );
       }
       if (!winRateGate.allowed) blockers.push(winRateGate.reason || 'win rate gate');
-      if (!bestAvailable && hlOpenCoins.length < maxPositions) {
-        blockers.push(
-          `no HL perp passed global scan (min ${config.hyperliquid.minSignalConfidence}% conf, ${config.hyperliquid.minDirectionalTfs} TFs, ${config.hyperliquid.minTrendAlignment}% align)`
-        );
-      }
-      if (bestAvailable && hlOpenCoins.length < maxPositions && dbSettings.autoTradeEnabled) {
+      // Margin gate runs whenever a slot is free — independent of scan hits.
+      // Otherwise users with open positions + no free margin still see "scanning…".
+      let marginBlocksNewOpen = false;
+      if (hlOpenCoins.length < maxPositions && dbSettings.autoTradeEnabled) {
         const reservedBudget = Math.max(0, Number(dbSettings.autoBettingBudgetUsd) || 0);
         const balance = balanceForTradingRisk(
           hlBalanceUsd,
@@ -722,6 +720,7 @@ const healthServer = http.createServer(async (req, res) => {
           reservedBudget > 0 && hlFunding.unifiedAccount
             ? Math.max(0, hlFreeMargin - reservedBudget)
             : hlFreeMargin;
+        const marginUsed = hlMarginUsedUsd(hlState);
         const perSlot = resolveHlMarginPerSlot(
           balance,
           dbSettings.riskLevelBps,
@@ -730,20 +729,31 @@ const healthServer = http.createServer(async (req, res) => {
           maxPositions
         );
         if (perSlot < 1) {
+          marginBlocksNewOpen = true;
           blockers.push(
             hlOpenCoins.length > 0
-              ? `free margin too low for slot ${hlOpenCoins.length + 1} ($${freeForTrading.toFixed(2)} free from $${balance.toFixed(2)} balance, $${hlWithdrawable.toFixed(2)} withdrawable, ${hlOpenCoins.length}/${maxPositions} open)`
-              : `margin too small for slot ($${perSlot.toFixed(2)} from $${balance.toFixed(2)} balance, ${hlOpenCoins.length}/${maxPositions} open${reservedBudget > 0 ? `, $${reservedBudget.toFixed(0)} AI betting reserve` : ''})`
+              ? `insufficient margin — $${freeForTrading.toFixed(2)} free · $${marginUsed.toFixed(2)} in use (${hlOpenCoins.length}/${maxPositions} slots open)`
+              : `insufficient margin — $${freeForTrading.toFixed(2)} free from $${balance.toFixed(2)} balance${reservedBudget > 0 ? ` ($${reservedBudget.toFixed(0)} AI betting reserve)` : ''}`
           );
         } else {
           const lev = Math.max(1, Math.floor(dbSettings.leverageMultiplier || 10));
           const notional = perSlot * lev;
           if (notional < config.hyperliquid.minNotionalUsd) {
+            marginBlocksNewOpen = true;
             blockers.push(
               `notional $${notional.toFixed(2)} below min $${config.hyperliquid.minNotionalUsd} (raise risk % or leverage)`
             );
           }
         }
+      }
+      if (
+        !marginBlocksNewOpen &&
+        !bestAvailable &&
+        hlOpenCoins.length < maxPositions
+      ) {
+        blockers.push(
+          `no HL perp passed global scan (min ${config.hyperliquid.minSignalConfidence}% conf, ${config.hyperliquid.minDirectionalTfs} TFs, ${config.hyperliquid.minTrendAlignment}% align)`
+        );
       }
 
       res.writeHead(200, corsHeaders);

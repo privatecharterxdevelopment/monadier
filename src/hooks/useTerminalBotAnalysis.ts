@@ -18,7 +18,7 @@ import { getBotApiBase, type Timeframe } from '../lib/signalService';
 import { binanceSymbolToHlCoin, hlCoinToBotSymbol, isBotTradeableHlCoin, isHiddenFromBotUi } from '../lib/botTradingPairs';
 import { normalizeHlBotStrategy, type HlBotStrategy } from '../lib/hlBotStrategy';
 import { pickNextScanCandidate } from '../lib/botScanCandidate';
-import { isBotEntryBlocked, botAnalyzerStatusCopy } from '../lib/botAnalyzerActive';
+import { isBotEntryBlocked, botAnalyzerStatusCopy, isMarginEntryBlocked } from '../lib/botAnalyzerActive';
 import { nextPollDelayMs } from '../lib/pollBackoff';
 
 export const ANALYSIS_STEPS = [
@@ -155,8 +155,14 @@ export function useTerminalBotAnalysis({
     [botRunning, serverBlockers, lastOpenErrorText, slotsFull]
   );
 
-  /** 0/N or 1/N open → full scan; N/N → pause scan (monitor exits only). */
-  const analyzerActive = botRunning && (analysisActive ?? false) && slotsLeft;
+  const marginBlocked = useMemo(
+    () => !slotsFull && isMarginEntryBlocked(serverBlockers, lastOpenErrorText),
+    [slotsFull, serverBlockers, lastOpenErrorText]
+  );
+
+  /** 0/N or 1/N open → full scan; N/N or no free margin → pause scan (monitor exits only). */
+  const analyzerActive =
+    botRunning && (analysisActive ?? false) && slotsLeft && !marginBlocked;
   const active = analyzerActive;
   const scanning = active;
 
@@ -440,7 +446,9 @@ export function useTerminalBotAnalysis({
           );
           if (!hideLastOpen) {
             const marginStale =
-              /free margin too low|margin too small/i.test(data.lastOpenError.error) &&
+              /free margin too low|margin too small|insufficient margin/i.test(
+                data.lastOpenError.error
+              ) &&
               vaultUsd >= MIN_HL_BOT_USD &&
               openCoins.length === 0;
             if (!marginStale) {
@@ -523,7 +531,7 @@ export function useTerminalBotAnalysis({
       openCount: effectiveOpenCount,
       maxSlots: serverMaxSlots,
     });
-    if (status.title === 'Bot waiting') {
+    if (status.title === 'Insufficient margin' || status.title === 'Bot waiting') {
       return {
         canEnter: false,
         headline: status.title,
@@ -608,6 +616,7 @@ export function useTerminalBotAnalysis({
     scanning,
     analyzerActive,
     entryBlocked,
+    marginBlocked,
     step: scanning ? step : 0,
     progress: scanning ? progress : ANALYSIS_STEPS[0].progress,
     signal: scanning ? signal : null,

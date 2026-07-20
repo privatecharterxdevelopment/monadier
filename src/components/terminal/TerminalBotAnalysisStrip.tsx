@@ -78,6 +78,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
   });
 
   const slotsFull = analysis.slotsFull;
+  const marginBlocked = analysis.marginBlocked;
   const slotCount = analysis.maxConcurrentPositions || maxSlots;
   const openCount = analysis.openPositionsCount;
 
@@ -98,17 +99,24 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
         detail: `${openCount}/${slotCount} positions open — monitoring exits`,
       };
     }
+    if (marginBlocked) {
+      return {
+        ...analysis.readiness,
+        headline: analysis.readiness.headline || 'Insufficient margin',
+      };
+    }
     return { ...analysis.readiness, headline: scanHeadline };
   }, [
     idleReadiness,
     slotsFull,
+    marginBlocked,
     analysis.readiness,
     openCount,
     slotCount,
     scanHeadline,
   ]);
 
-  const keepScanning = botRunning && !slotsFull;
+  const keepScanning = botRunning && !slotsFull && !marginBlocked;
 
   if (placement === 'chart' && !showLiveAnalysis) return null;
 

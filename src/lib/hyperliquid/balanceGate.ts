@@ -14,8 +14,6 @@ export function isStaleHlBalanceBlocker(
     /HL perp balance/i.test(t) ||
     /HL balance \$/i.test(t) ||
     /Perp margin \$/i.test(t) ||
-    /free margin too low/i.test(t) ||
-    /margin too small/i.test(t) ||
     /Must deposit before performing actions/i.test(t)
   );
 }

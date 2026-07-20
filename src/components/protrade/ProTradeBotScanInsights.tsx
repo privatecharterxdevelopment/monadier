@@ -136,10 +136,12 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
     );
   }
 
-  const showSpinner = analysis.analyzerActive && !analysis.slotsFull;
+  const showSpinner = analysis.analyzerActive && !analysis.slotsFull && !analysis.marginBlocked;
   const scanTitle = analysis.slotsFull
     ? analysis.readiness.headline
-    : analysis.readiness.headline || 'Bot is reading market…';
+    : analysis.marginBlocked
+      ? analysis.readiness.headline || 'Insufficient margin'
+      : analysis.readiness.headline || 'Bot is reading market…';
 
   return (
     <>
