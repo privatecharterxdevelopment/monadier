@@ -4,6 +4,11 @@ import type { HlUserFill } from './user';
 
 export type AggregatedHlCloseFill = HlUserFill & { fillCount: number };
 
+export function aggregatedCloseFillKey(f: AggregatedHlCloseFill): string {
+  // time is already second-bucketed by aggregateHlCloseFills grouping.
+  return `${f.time}|${f.coin}|${fillPositionDirection(f)}`;
+}
+
 /** HL often splits one market close into multiple fills — sum them for one history row. */
 export function aggregateHlCloseFills(fills: HlUserFill[]): AggregatedHlCloseFill[] {
   const groups = new Map<string, AggregatedHlCloseFill>();
@@ -40,4 +45,29 @@ export function aggregateHlCloseFills(fills: HlUserFill[]): AggregatedHlCloseFil
   }
 
   return Array.from(groups.values()).sort((a, b) => b.time - a.time);
+}
+
+/**
+ * Reconstruct equity immediately after each close, walking backward from the
+ * current flat account value (accountValue − open uPnL).
+ *
+ * Uses HL trading fee only. Platform success fee (10%) is accrued separately and
+ * is not deducted from Hyperliquid equity at close time.
+ *
+ * Deposits/withdrawals between fills make older rows approximate.
+ */
+export function balanceAfterByCloseFill(
+  closesNewestFirst: AggregatedHlCloseFill[],
+  flatEquityNow: number
+): Map<string, number> {
+  const map = new Map<string, number>();
+  if (!Number.isFinite(flatEquityNow)) return map;
+
+  let running = flatEquityNow;
+  for (const f of closesNewestFirst) {
+    map.set(aggregatedCloseFillKey(f), running);
+    // Undo this close: equity previously excluded its realized pnl and still held its fee.
+    running = running - toNum(f.closedPnl) + toNum(f.fee);
+  }
+  return map;
 }

@@ -863,7 +863,9 @@
       "filled": "Исполнено",
       "duration": "Длительность",
       "trigger": "Триггер",
-      "condition": "Условие"
+      "condition": "Условие",
+      "balanceAfter": "Баланс после",
+      "balanceAfterHint": "Estimated wallet equity right after this close (reconstructs from current balance; deposits/withdrawals make older rows approximate)."
     },
     "usdcUnified": "USDC (unified)",
     "usdcPerp": "USDC (Perp)",

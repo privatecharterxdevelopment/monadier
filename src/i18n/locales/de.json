@@ -964,7 +964,9 @@
       "filled": "Gefüllt",
       "duration": "Dauer",
       "trigger": "Trigger",
-      "condition": "Bedingung"
+      "condition": "Bedingung",
+      "balanceAfter": "Zwischenbalance",
+      "balanceAfterHint": "Geschätzter Kontostand direkt nach diesem Close (rekonstruiert vom aktuellen Stand; Ein-/Auszahlungen machen ältere Zeilen ungenau)."
     },
     "usdcUnified": "USDC (unified)",
     "usdcPerp": "USDC (Perp)",

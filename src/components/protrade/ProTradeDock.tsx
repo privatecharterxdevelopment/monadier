@@ -27,7 +27,12 @@ import {
   isHlFillClose,
 } from '../../lib/hyperliquid/format';
 import { hlWalletExplorerUrl } from '../../lib/hyperliquid/hlApp';
-import { aggregateHlCloseFills, type AggregatedHlCloseFill } from '../../lib/hyperliquid/hlFillAggregate';
+import {
+  aggregateHlCloseFills,
+  aggregatedCloseFillKey,
+  balanceAfterByCloseFill,
+  type AggregatedHlCloseFill,
+} from '../../lib/hyperliquid/hlFillAggregate';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { useHlTradeReasonMarkers } from '../../hooks/useHlTradeReasonMarkers';
@@ -302,6 +307,25 @@ const ProTradeDock: React.FC<Props> = ({
   const closeFills = useMemo(
     () => aggregateHlCloseFills(scopedFills),
     [scopedFills]
+  );
+  /** Wallet-wide closes — Zwischenbalance must track real equity, not bot-scoped subset. */
+  const allCloseFills = useMemo(() => aggregateHlCloseFills(fills), [fills]);
+  const accountOpenUpnl = useMemo(
+    () =>
+      (account?.positions ?? []).reduce((sum, p) => sum + toNum(p.unrealizedPnl), 0),
+    [account?.positions]
+  );
+  const flatEquityNow = useMemo(() => {
+    const accountValue = toNum(account?.margin?.accountValue);
+    if (!Number.isFinite(accountValue) || accountValue <= 0) return null;
+    return accountValue - accountOpenUpnl;
+  }, [account?.margin?.accountValue, accountOpenUpnl]);
+  const balanceAfterByFill = useMemo(
+    () =>
+      flatEquityNow == null
+        ? new Map<string, number>()
+        : balanceAfterByCloseFill(allCloseFills, flatEquityNow),
+    [allCloseFills, flatEquityNow]
   );
 
   const tabSuffix = (id: TabId) => {
@@ -714,9 +738,10 @@ const ProTradeDock: React.FC<Props> = ({
                   <th>{t('dock.cols.size')}</th>
                   <th>{t('dock.cols.price')}</th>
                   <th>{t('dock.cols.fee')}</th>
-                  <th>{t('dock.cols.platform')}</th>
+                  <th>{t('dock.cols.feeTenPct')}</th>
                   <th>{t('dock.cols.result')}</th>
                   <th>{t('dock.cols.closedPnl')}</th>
+                  <th>{t('dock.cols.balanceAfter')}</th>
                   {isBotMode ? <th className="term-hl-open-reason-col">Why</th> : null}
                   {walletAddress ? <th>{t('dock.cols.verify')}</th> : null}
                 </tr>
@@ -726,6 +751,8 @@ const ProTradeDock: React.FC<Props> = ({
                   const result = hlFillResultLabel(f.closedPnl);
                   const pnl = toNum(f.closedPnl);
                   const positionDir = fillPositionDirection(f);
+                  const platformFee = platformFeeFromPnl(f.closedPnl);
+                  const balanceAfter = balanceAfterByFill.get(aggregatedCloseFillKey(f));
                   const closeWhy = isBotMode
                     ? closeReasonForFill(f.coin, f.time)
                     : undefined;
@@ -745,7 +772,7 @@ const ProTradeDock: React.FC<Props> = ({
                     <td>{f.fillCount > 1 ? `${f.sz} (${f.fillCount} fills)` : f.sz}</td>
                     <td>{fmtPrice(f.px)}</td>
                     <td>{fmtUsdSymbol(f.fee, 4)}</td>
-                    <td>{fmtUsdSymbol(platformFeeFromPnl(f.closedPnl), 4)}</td>
+                    <td>{fmtUsdSymbol(platformFee, 4)}</td>
                     <td
                       className={
                         result === 'Win'
@@ -759,6 +786,9 @@ const ProTradeDock: React.FC<Props> = ({
                     </td>
                     <td className={pnl > 0 ? 'hl-up' : pnl < 0 ? 'hl-down' : ''}>
                       {fmtClosedPnl(f.closedPnl)}
+                    </td>
+                    <td title={t('dock.cols.balanceAfterHint')}>
+                      {balanceAfter != null ? fmtUsdSymbol(balanceAfter) : '—'}
                     </td>
                     {isBotMode ? (
                       <td className="term-hl-open-reason-col">
