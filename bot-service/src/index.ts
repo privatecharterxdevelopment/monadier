@@ -867,6 +867,10 @@ const healthServer = http.createServer(async (req, res) => {
           entryTimeframe: config.hyperliquid.directionProfile.entryTimeframe,
           aggressiveScalpSignals:
             config.hyperliquid.directionProfile.useAggressiveScalpSignals,
+          enableHtfSr: config.hyperliquid.directionProfile.enableHtfSr,
+          enableLlmConfirm: config.hyperliquid.directionProfile.enableLlmConfirm,
+          shortRelaxSecondaryGates:
+            config.hyperliquid.directionProfile.short.relaxSecondaryGates,
         },
         llmTradeConfirm: {
           enabled: config.hyperliquid.llmTradeConfirm.enabled,

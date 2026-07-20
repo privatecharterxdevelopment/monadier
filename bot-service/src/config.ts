@@ -358,7 +358,10 @@ export const config = {
       // Volume-fade veto: only a genuine collapse (recent 5 bars < 50% of base) blocks.
       // 0.85 vetoed liquid majors during quiet hours (Sunday BTC 0.54×) — the trades we
       // actually want. Real dumps (<0.5×, e.g. XLM 0.17×) still block.
-      minVolumeRatio: Number(process.env.HL_PRE_OPEN_MIN_VOL_RATIO || 0.5),
+      minVolumeRatio: Number(
+        process.env.HL_PRE_OPEN_MIN_VOL_RATIO ||
+          activeDirectionProfile.preOpenMinVolumeRatio
+      ),
       /**
        * Reversal veto (structure flipping / active dump against the trade). ATR-normalized
        * so a sluggish −0.15% drift over 100min (noise inside a confirmed uptrend) never
@@ -469,7 +472,9 @@ export const config = {
      * Default shadow: log allow/block/flip only. Set HL_LLM_GATE_MODE=enforce to apply.
      */
     llmTradeConfirm: {
-      enabled: process.env.HL_LLM_GATE_ENABLED !== 'false',
+      enabled:
+        activeDirectionProfile.enableLlmConfirm &&
+        process.env.HL_LLM_GATE_ENABLED !== 'false',
       mode: (process.env.HL_LLM_GATE_MODE === 'enforce' ? 'enforce' : 'shadow') as
         | 'shadow'
         | 'enforce',

@@ -26,6 +26,9 @@ export type HlDirectionRules = {
  * A full market-regime profile. Selected by the single `HL_DIRECTION_PROFILE`
  * env var. Only ONE profile is ever active per process, so global config values
  * (maxVolumeRank, preOpenCandles) can safely read from the active profile.
+ *
+ * SHORT regime = `bearMarketShort.ts` (June 26–Jul 13 engine).
+ * LONG regime  = `bullMarketLong.ts` (current long stack).
  */
 export type HlDirectionProfile = {
   name: HlDirectionProfileName;
@@ -38,6 +41,11 @@ export type HlDirectionProfile = {
   /** Structural pre-open micro-check (candle count + timeframe). */
   preOpenTimeframe: HlPreOpenTimeframe;
   preOpenCandleCount: number;
+  /**
+   * Pre-open volume ratio floor. June short used 0.85; long regime kept later 0.5.
+   * Env HL_PRE_OPEN_MIN_VOL_RATIO still wins when set.
+   */
+  preOpenMinVolumeRatio: number;
   /** Hard universe cap by volume rank for opens. June-26 short regime used 18. */
   maxVolumeRank: number;
   /** June-26 short regime relied on 1m/5m scalp alignment; long regime does not. */
@@ -45,6 +53,11 @@ export type HlDirectionProfile = {
   useAggressiveScalpSignals: boolean;
   /** Post-June gate. Off in the June short replica, on (shadow) in long regime. */
   enableHtfSr: boolean;
+  /**
+   * Gemini / LLM pre-trade confirm. Off for June short replica (did not exist);
+   * on for long regime when HL_LLM_GATE_ENABLED is not false.
+   */
+  enableLlmConfirm: boolean;
   long: HlDirectionRules;
   short: HlDirectionRules;
 };

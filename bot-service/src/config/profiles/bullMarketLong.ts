@@ -26,10 +26,12 @@ export const BULL_MARKET: HlDirectionProfile = {
   entryTimeframe: '15m',
   preOpenTimeframe: '15m',
   preOpenCandleCount: 8,
+  preOpenMinVolumeRatio: 0.5,
   maxVolumeRank: 60,
   useScalpAlignment: false,
   useAggressiveScalpSignals: false,
   enableHtfSr: true,
+  enableLlmConfirm: true,
   long: { ...PRIMARY_RULES },
   short: COUNTER_TREND_RULES('DOWN'),
 };

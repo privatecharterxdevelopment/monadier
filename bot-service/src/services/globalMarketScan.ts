@@ -1,5 +1,4 @@
 import { config } from '../config';
-import { PRIMARY_RULES } from '../config/profiles/types';
 import { logger } from '../utils/logger';
 import { mapPool } from '../utils/asyncPool';
 import { analyzeMarketMTFBySymbol, type TradingStrategy } from './market';
@@ -46,8 +45,8 @@ function profileAnalysisTimeframes(): Timeframe[] {
 }
 
 /**
- * Both sides stay eligible under every regime. Primary gets aggressive
- * PRIMARY_RULES; the opposite side uses COUNTER_TREND_RULES (stricter)
+ * Both sides stay eligible under every regime. Primary gets that profile's
+ * primary-side rules; the opposite side uses COUNTER_TREND_RULES (stricter)
  * via passesProfileThresholds / rulesFor. Peak→SHORT is always allowed.
  */
 function isActiveProfileDirection(
@@ -57,10 +56,9 @@ function isActiveProfileDirection(
   return true;
 }
 
-function rulesFor(direction: 'LONG' | 'SHORT', peakLiquidityGrab = false) {
-  // Peak shorts must use aggressive primary thresholds — counter-trend SHORT
-  // rules (h1 DOWN + 80%) would kill the exact apex liquidity-grab setups.
-  if (peakLiquidityGrab && direction === 'SHORT') return PRIMARY_RULES;
+function rulesFor(direction: 'LONG' | 'SHORT', _peakLiquidityGrab = false) {
+  // Peak shorts use the active profile's SHORT rules (June pack = no relax).
+  // Never swap onto shared PRIMARY_RULES — that silently skipped June gates.
   return direction === 'LONG'
     ? config.hyperliquid.directionProfile.long
     : config.hyperliquid.directionProfile.short;

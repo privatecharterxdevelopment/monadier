@@ -17,11 +17,11 @@ export { BULL_MARKET } from './profiles/bullMarketLong';
  * One-switch market-regime selector.
  *
  * Two fully separate profile files, one env var to swap between them:
- *   HL_DIRECTION_PROFILE=bull_market  → current LIVE long logic (DEFAULT)
- *   HL_DIRECTION_PROFILE=bear_market  → June-26 SHORT replica
+ *   HL_DIRECTION_PROFILE=bull_market  → profiles/bullMarketLong.ts (LONG stack)
+ *   HL_DIRECTION_PROFILE=bear_market  → profiles/bearMarketShort.ts (June-26 SHORT engine)
  *
- * DEFAULT is bull_market on purpose: it mirrors the long logic currently running
- * in production, so a deploy without the env set does NOT change live behavior.
+ * DEFAULT is bull_market in code so a deploy without the env set does not
+ * change long behavior. Live red markets set bear_market on Railway.
  * Switching profiles only affects NEW opens — existing positions keep being
  * managed by the close/trail path regardless of the active profile.
  *

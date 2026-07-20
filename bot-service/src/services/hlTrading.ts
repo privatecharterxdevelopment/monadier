@@ -59,7 +59,6 @@ import {
   getPendingLlmDisagreement,
   resolveLlmDisagreementGate,
 } from './llmDisagreementCycle';
-import { PRIMARY_RULES } from '../config/profiles/types';
 import { validateScalpAlignment } from './scalpAlignGate';
 import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
 import { validatePerpMarketContext } from './perpMarketContextGate';
@@ -184,22 +183,20 @@ function shouldRelaxSecondaryGates(
   _coin: string,
   direction: 'LONG' | 'SHORT'
 ): boolean {
+  // Always use the active profile's side rules — peak shorts must NOT swap onto
+  // PRIMARY_RULES (that re-enabled relax and broke the June short replica).
   const rules =
-    pick.peakLiquidityGrab && direction === 'SHORT'
-      ? PRIMARY_RULES
-      : direction === 'LONG'
-        ? config.hyperliquid.directionProfile.long
-        : config.hyperliquid.directionProfile.short;
+    direction === 'LONG'
+      ? config.hyperliquid.directionProfile.long
+      : config.hyperliquid.directionProfile.short;
   return rules.relaxSecondaryGates && trustsDirectionProfile(pick);
 }
 
 function trustsDirectionProfile(pick: GlobalSignalCandidate): boolean {
   const rules =
-    pick.peakLiquidityGrab && pick.direction === 'SHORT'
-      ? PRIMARY_RULES
-      : pick.direction === 'LONG'
-        ? config.hyperliquid.directionProfile.long
-        : config.hyperliquid.directionProfile.short;
+    pick.direction === 'LONG'
+      ? config.hyperliquid.directionProfile.long
+      : config.hyperliquid.directionProfile.short;
   return (
     rules.trustMtfScan &&
     pick.confidence >= rules.minConfidence &&
@@ -976,13 +973,10 @@ export class HyperliquidTradingService {
         );
       }
 
-      // Both sides allowed: primary = aggressive rules, opposite = COUNTER_TREND_RULES.
-      // No hard "only primary direction" kill-switch — that blocked valid LONGs in bear_market.
-      const directionRules = peakLiquidityGrab
-        ? PRIMARY_RULES
-        : opts.direction === 'LONG'
-          ? directionProfile.long
-          : directionProfile.short;
+      // Profile side rules only — June short pack keeps relaxSecondaryGates=false
+      // so every secondary gate runs. Peak→SHORT must not swap onto PRIMARY_RULES.
+      const directionRules =
+        opts.direction === 'LONG' ? directionProfile.long : directionProfile.short;
       const directionalTfs = opts.pick.directionalTfCount ?? 0;
       const trendAlignment = opts.pick.trendAlignment ?? 0;
       const h1Trend = String(opts.pick.h1Trend ?? '').toUpperCase();
