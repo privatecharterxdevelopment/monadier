@@ -54,6 +54,11 @@ import {
 import {
   isPeakShortOverride,
 } from './peakShortLiquidity';
+import { confirmTradeWithLlm } from './llmTradeConfirmGate';
+import {
+  getPendingLlmDisagreement,
+  resolveLlmDisagreementGate,
+} from './llmDisagreementCycle';
 import { PRIMARY_RULES } from '../config/profiles/types';
 import { validateScalpAlignment } from './scalpAlignGate';
 import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
@@ -1301,24 +1306,226 @@ export class HyperliquidTradingService {
         return rejectOpen('entry_momentum', momentumGate.reason, 'entry momentum');
       }
 
+      // LLM / Gemini Vision second opinion + disagreement cycle.
+      // Agree → proceed (shadow/enforce as configured).
+      // Disagree → defer until next closed candle, re-check both, log under evaluation_id.
+      // Peak-short agreement on re-check is SHADOW-ONLY (never auto-open from that path).
+      let tradeDirection: 'LONG' | 'SHORT' = opts.direction;
+      let locationGateForOpen = locationGate;
+      let pumpSweepGateForOpen = pumpSweepGate;
+      let htfSrForOpen = htfSrGate;
+
+      const llmInput = {
+        coin,
+        direction: opts.direction,
+        confidence: opts.pick.confidence,
+        mtfBreakdown: opts.pick.mtfBreakdown,
+        h1Trend: opts.pick.h1Trend,
+        directionalTfCount: opts.pick.directionalTfCount,
+        trendAlignment: opts.pick.trendAlignment,
+        profileName: directionProfile.name,
+        primaryDirection: directionProfile.primaryDirection,
+        pumpPhase: peakAnalysis?.phase ?? pumpSweepGate.analysis?.phase,
+        pumpApex: peakAnalysis?.pumpApex ?? pumpSweepGate.analysis?.pumpApex,
+        positionInSweep:
+          peakAnalysis?.positionInSweep ?? pumpSweepGate.analysis?.positionInSweep,
+        pumpSummary: peakAnalysis?.summary ?? pumpSweepGate.analysis?.summary,
+        htfSrReason: htfSrGate?.reason ?? null,
+        candleSummary: candleAnalytics.summary,
+        netMovePct: candleAnalytics.netMovePct,
+        rangePosition: candleAnalytics.rangePosition,
+      };
+
+      // Don't burn Gemini while waiting; on wait expiry the cycle helper re-calls Gemini once.
+      const pendingDisagreement = getPendingLlmDisagreement(opts.userAddress, coin);
+      let disagreement: Awaited<ReturnType<typeof resolveLlmDisagreementGate>>;
+
+      if (pendingDisagreement && pendingDisagreement.phase === 'awaiting_recheck') {
+        if (Date.now() < pendingDisagreement.waitUntilMs) {
+          const secs = Math.ceil((pendingDisagreement.waitUntilMs - Date.now()) / 1000);
+          return rejectOpen(
+            'llm_disagreement',
+            `LLM disagreement ${pendingDisagreement.evaluationId}: waiting for next closed ${pendingDisagreement.waitTf} candle (~${secs}s)`,
+            'LLM disagreement wait',
+            {
+              evaluationId: pendingDisagreement.evaluationId,
+              phase: 'awaiting_recheck',
+              waitUntilMs: pendingDisagreement.waitUntilMs,
+            }
+          );
+        }
+        // Wait done → re-check path inside resolve (single Gemini call there).
+        disagreement = await resolveLlmDisagreementGate({
+          walletAddress: opts.userAddress,
+          coin,
+          botDirection: opts.direction,
+          llmInput,
+          llm: {
+            ok: true,
+            verdict: 'allow',
+            direction: opts.direction,
+            enforce: false,
+            shadow: true,
+            confidence: 0,
+            reason: 'recheck-path placeholder — cycle helper runs fresh Gemini',
+            latencyMs: 0,
+            provider: 'gemini',
+            model: '',
+            hardRuleApplied: false,
+            timedOut: false,
+          },
+        });
+      } else {
+        const llmConfirm = await confirmTradeWithLlm(llmInput, peakAnalysis);
+        disagreement = await resolveLlmDisagreementGate({
+          walletAddress: opts.userAddress,
+          coin,
+          botDirection: opts.direction,
+          llmInput,
+          llm: llmConfirm,
+        });
+      }
+
+      if (disagreement.action === 'defer' || disagreement.action === 'shadow_peak_short') {
+        return rejectOpen(
+          'llm_disagreement',
+          disagreement.reason,
+          disagreement.action === 'shadow_peak_short'
+            ? 'LLM disagreement shadow peak-short'
+            : 'LLM disagreement defer',
+          {
+            evaluationId: disagreement.evaluationId,
+            phase: disagreement.phase,
+            waitUntilMs:
+              disagreement.action === 'defer' ? disagreement.waitUntilMs : undefined,
+          }
+        );
+      }
+
+      // Agreement path — only apply block/flip when global enforce is on (Railway stays shadow).
+      const llmAgreed = disagreement.llm;
+
+      if (llmAgreed.verdict === 'block' || llmAgreed.verdict === 'flip') {
+        const shadowPrefix = llmAgreed.shadow ? 'SHADOW: ' : '';
+        void recordHlOpenBlock({
+          walletAddress: opts.userAddress,
+          coin,
+          direction: opts.direction,
+          gate: 'llm_confirm',
+          reason: `${shadowPrefix}${llmAgreed.verdict.toUpperCase()} → ${llmAgreed.direction}: ${llmAgreed.reason} [evaluation_id=${disagreement.evaluationId}]`,
+          h1Trend: opts.pick.h1Trend,
+          confidence: opts.pick.confidence,
+          notionalUsd: opts.notionalUsd,
+          leverage: opts.leverage,
+        });
+      }
+
+      if (llmAgreed.enforce && llmAgreed.verdict === 'block') {
+        return rejectOpen('llm_confirm', llmAgreed.reason, 'LLM confirm blocked');
+      }
+
+      if (
+        llmAgreed.enforce &&
+        llmAgreed.verdict === 'flip' &&
+        llmAgreed.direction !== tradeDirection
+      ) {
+        tradeDirection = llmAgreed.direction;
+        opts.pick.direction = tradeDirection;
+        if (tradeDirection === 'SHORT') {
+          opts.pick.peakLiquidityGrab = true;
+        }
+
+        pumpSweepGateForOpen = await validatePumpSweepGate({
+          coin,
+          direction: tradeDirection,
+        });
+        if (!pumpSweepGateForOpen.ok) {
+          return rejectOpen(
+            'pump_sweep',
+            pumpSweepGateForOpen.reason,
+            'pump apex after LLM flip',
+            { phase: pumpSweepGateForOpen.analysis?.phase }
+          );
+        }
+
+        locationGateForOpen = await validateEntryLocation({
+          symbol,
+          coin,
+          direction: tradeDirection,
+        });
+        if (!locationGateForOpen.ok) {
+          return rejectOpen(
+            'entry_location',
+            locationGateForOpen.reason,
+            'S/R after LLM flip',
+            {
+              resistance: locationGateForOpen.analysis.resistance,
+              rejections: locationGateForOpen.analysis.resistanceRejections,
+            }
+          );
+        }
+
+        if (directionProfile.enableHtfSr) {
+          htfSrForOpen = await validateHtfSr({
+            symbol,
+            coin,
+            direction: tradeDirection,
+          });
+          if (htfSrForOpen.wouldBlock) {
+            const hardBlockLong =
+              tradeDirection === 'LONG' ||
+              !htfSrForOpen.ok ||
+              directionRules.enforceHtfSr;
+            void recordHlOpenBlock({
+              walletAddress: opts.userAddress,
+              coin,
+              direction: tradeDirection,
+              gate: 'htf_sr',
+              reason: htfSrForOpen.reason.replace(/^SHADOW:\s*/i, ''),
+              h1Trend: opts.pick.h1Trend,
+              confidence: opts.pick.confidence,
+              notionalUsd: opts.notionalUsd,
+              leverage: opts.leverage,
+            });
+            if (hardBlockLong) {
+              return rejectOpen(
+                'htf_sr',
+                htfSrForOpen.reason.replace(/^SHADOW:\s*/i, ''),
+                'HTF S/R after LLM flip'
+              );
+            }
+          }
+        }
+
+        logger.info('HL open direction flipped by LLM confirm', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          from: opts.direction,
+          to: tradeDirection,
+          reason: llmAgreed.reason,
+          hardRuleApplied: llmAgreed.hardRuleApplied,
+          evaluationId: disagreement.evaluationId,
+        });
+      }
+
       const openReasonDoc = buildHlOpenReasonDoc({
         mode: opts.botModeLabel,
         pick: opts.pick,
         notionalUsd: opts.notionalUsd,
         leverage: effectiveLeverage,
-        locationGate,
+        locationGate: locationGateForOpen,
         macroGate,
         momentumGate,
         pumpShortGate,
         newsGate,
         freshPumpGate,
-        pumpSweepGate,
+        pumpSweepGate: pumpSweepGateForOpen,
         megaPairLine: megaGate.reason,
         liquidityReason: opts.pick.liquidityReason,
         scalpAlignLine: scalpGate.reason,
         candleAnalyticsLine: candleAnalytics.summary,
       });
-      const openReasonFull = openReasonDoc;
+      const openReasonFull = `${openReasonDoc}\n── LLM confirm (${llmAgreed.shadow ? 'shadow' : 'enforce'}) eval=${disagreement.evaluationId} ── ${llmAgreed.verdict} → ${llmAgreed.direction}: ${llmAgreed.reason}`;
 
       const client = createAgentClient(opts.userAddress);
       await client.updateLeverage({
@@ -1327,7 +1534,7 @@ export class HyperliquidTradingService {
         leverage: effectiveLeverage,
       });
 
-      const isLong = opts.direction === 'LONG';
+      const isLong = tradeDirection === 'LONG';
       const limitPx = isLong ? markPx * 1.05 : markPx * 0.95;
 
       const builder = resolveHlOrderBuilder({
@@ -1360,18 +1567,20 @@ export class HyperliquidTradingService {
       logger.info('HL position opened', {
         user: opts.userAddress.slice(0, 10),
         coin,
-        direction: opts.direction,
+        direction: tradeDirection,
         leverage: effectiveLeverage,
         notionalUsd: opts.notionalUsd.toFixed(2),
         openReason: openReasonFull,
         macroBlockers: macroGate.blockers,
         openSlot: 'multi',
+        llmVerdict: llmAgreed.verdict,
+        evaluationId: disagreement.evaluationId,
       });
 
       await recordHlBotOpenMarker({
         walletAddress: opts.userAddress,
         coin,
-        direction: opts.direction,
+        direction: tradeDirection,
         entryPx: markPx,
         reason: openReasonFull,
       });

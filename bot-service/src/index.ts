@@ -32,6 +32,7 @@ import { hlAgentApprovalService } from './services/hlAgentApprovals';
 import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker } from './services/hlInfo';
 import { getLastHlOpenError, getLastHlOpenErrorForClient, hyperliquidTradingService, resolveHlMarginPerSlot, balanceForTradingRisk } from './services/hlTrading';
 import { fetchRecentHlOpenBlocks } from './services/hlOpenBlocks';
+import { getLastLlmTradeConfirmVerdict } from './services/llmTradeConfirmGate';
 import { releaseHlBotTradingPauses } from './services/dailyLossGate';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
 import { getHlFeeSummary } from './services/hlSuccessFees';
@@ -866,6 +867,14 @@ const healthServer = http.createServer(async (req, res) => {
           entryTimeframe: config.hyperliquid.directionProfile.entryTimeframe,
           aggressiveScalpSignals:
             config.hyperliquid.directionProfile.useAggressiveScalpSignals,
+        },
+        llmTradeConfirm: {
+          enabled: config.hyperliquid.llmTradeConfirm.enabled,
+          mode: config.hyperliquid.llmTradeConfirm.mode,
+          provider: config.hyperliquid.llmTradeConfirm.provider,
+          model: config.hyperliquid.llmTradeConfirm.model,
+          hasApiKey: Boolean(config.hyperliquid.llmTradeConfirm.apiKey),
+          lastVerdict: getLastLlmTradeConfirmVerdict(),
         },
         lastOpenError: getLastHlOpenErrorForClient(userAddress),
         recentOpenBlocks: await fetchRecentHlOpenBlocks(userAddress, 25),

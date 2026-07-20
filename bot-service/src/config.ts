@@ -463,6 +463,29 @@ export const config = {
       longBlockAbovePosition: Number(process.env.HL_PUMP_SWEEP_LONG_BLOCK || 0.52),
       shortAllowAbovePosition: Number(process.env.HL_PUMP_SWEEP_SHORT_ALLOW || 0.58),
     },
+    /**
+     * Gemini Vision second-opinion before every HL open.
+     * LONG charts: 15m + 1h only. SHORT charts: 1m + 5m only.
+     * Default shadow: log allow/block/flip only. Set HL_LLM_GATE_MODE=enforce to apply.
+     */
+    llmTradeConfirm: {
+      enabled: process.env.HL_LLM_GATE_ENABLED !== 'false',
+      mode: (process.env.HL_LLM_GATE_MODE === 'enforce' ? 'enforce' : 'shadow') as
+        | 'shadow'
+        | 'enforce',
+      provider: (process.env.HL_LLM_PROVIDER || 'gemini').toLowerCase(),
+      model: process.env.HL_LLM_MODEL || 'gemini-2.0-flash',
+      apiKey:
+        process.env.GEMINI_API_KEY ||
+        process.env.GOOGLE_API_KEY ||
+        process.env.DEEPSEEK_API_KEY ||
+        '',
+      baseUrl:
+        process.env.HL_LLM_BASE_URL ||
+        'https://generativelanguage.googleapis.com/v1beta',
+      // Vision + candle fetch needs more headroom than text-only.
+      timeoutMs: Number(process.env.HL_LLM_TIMEOUT_MS || 8000),
+    },
     /** Minimum margin USD per HL open slot (split across max concurrent positions). */
     minMarginUsd: Number(process.env.HL_MIN_MARGIN_USD || 8),
     /** AI sports auto-betting cycle (HIP-4). */
