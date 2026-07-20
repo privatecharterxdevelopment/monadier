@@ -1154,16 +1154,12 @@ export class HyperliquidTradingService {
         return rejectOpen('perp_context', perpCtxGate.reason, 'perp context (funding/24h/range)');
       }
 
-      const pumpSweepGate = relaxSecondaryGates
-        ? {
-            ok: true as const,
-            reason: `Scan pick — pump sweep skipped (${opts.pick.confidence}%)`,
-            analysis: null,
-          }
-        : await validatePumpSweepGate({
-            coin,
-            direction: opts.direction,
-          });
+      // Peak / pump-apex protection is NEVER skipped — even for 100% MTF scan picks.
+      // relaxSecondaryGates may skip chop filters; it must not allow LONGs at the apex.
+      const pumpSweepGate = await validatePumpSweepGate({
+        coin,
+        direction: opts.direction,
+      });
       if (!pumpSweepGate.ok) {
         return rejectOpen('pump_sweep', pumpSweepGate.reason, 'pump apex / sweep gate', {
           phase: pumpSweepGate.analysis?.phase,
@@ -1172,11 +1168,15 @@ export class HyperliquidTradingService {
 
       // The active regime may trust an already aligned MTF primary-direction setup
       // instead of vetoing it again with opposite-side mean-reversion logic.
+      // Exception: LONGs never skip entry location — longing into resistance is how
+      // BTC/ETH/HYPE got opened at the peak.
       const locationGate =
-        trustedDirection && directionRules.bypassEntryLocationWhenTrusted
+        opts.direction === 'SHORT' &&
+        trustedDirection &&
+        directionRules.bypassEntryLocationWhenTrusted
           ? {
               ok: true as const,
-              reason: `${directionProfile.name}: trusted MTF ${opts.direction} skips duplicate S/R re-check`,
+              reason: `${directionProfile.name}: trusted MTF SHORT skips duplicate S/R re-check`,
               analysis: {
                 support: 0,
                 resistance: 0,
@@ -1206,8 +1206,8 @@ export class HyperliquidTradingService {
 
       // Gate HTF S/R — 1h/4h strong levels, ATR proximity, level decay.
       // Skipped entirely when the active profile disables it (bear_market/June-26
-      // replica never had this gate). Otherwise shadow by default: always log
-      // would-blocks; only reject when the profile's rules enforce it.
+      // replica never had this gate). Otherwise always evaluate; LONGs near HTF
+      // resistance always hard-block (shadow alone let peak LONGs through).
       if (directionProfile.enableHtfSr) {
         htfSrGate ??= await validateHtfSr({
           symbol,
@@ -1216,10 +1216,12 @@ export class HyperliquidTradingService {
         });
       }
       if (htfSrGate?.wouldBlock) {
+        const hardBlockLong =
+          opts.direction === 'LONG' || !htfSrGate.ok || directionRules.enforceHtfSr;
         logger.info(
-          htfSrGate.shadow
-            ? 'HL open SHADOW — HTF S/R would block'
-            : 'HL open blocked — HTF S/R gate',
+          hardBlockLong
+            ? 'HL open blocked — HTF S/R gate'
+            : 'HL open SHADOW — HTF S/R would block',
           {
             user: opts.userAddress.slice(0, 10),
             coin,
@@ -1231,7 +1233,7 @@ export class HyperliquidTradingService {
             levelTf: htfSrGate.nearestLevel?.timeframe,
             rejections: htfSrGate.nearestLevel?.rejections,
             ageH: htfSrGate.nearestLevel?.lastTouchAgeHours,
-            shadow: htfSrGate.shadow,
+            shadow: !hardBlockLong,
           }
         );
         void recordHlOpenBlock({
@@ -1239,17 +1241,16 @@ export class HyperliquidTradingService {
           coin,
           direction: opts.direction,
           gate: 'htf_sr',
-          reason: htfSrGate.reason,
+          reason: hardBlockLong
+            ? htfSrGate.reason.replace(/^SHADOW:\s*/i, '')
+            : htfSrGate.reason,
           h1Trend: opts.pick.h1Trend,
           confidence: opts.pick.confidence,
           notionalUsd: opts.notionalUsd,
           leverage: opts.leverage,
         });
-        if (
-          !htfSrGate.ok ||
-          directionRules.enforceHtfSr
-        ) {
-          return { success: false, error: htfSrGate.reason };
+        if (hardBlockLong) {
+          return { success: false, error: htfSrGate.reason.replace(/^SHADOW:\s*/i, '') };
         }
       }
 
