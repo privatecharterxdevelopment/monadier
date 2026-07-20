@@ -142,10 +142,17 @@ const AdminMfaGate: React.FC<Props> = ({ email, onVerified }) => {
       });
       if (vErr) throw vErr;
 
+      await supabase.auth.refreshSession();
       setPhase('done');
       onVerified();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Invalid code');
+      const msg = err instanceof Error ? err.message : 'Invalid code';
+      // Stale unfinished factor — offer reset path via message
+      if (/already exists|422|factor/i.test(msg)) {
+        setError(`${msg} — tap “Reset authenticator” below.`);
+      } else {
+        setError(msg);
+      }
     } finally {
       setBusy(false);
     }

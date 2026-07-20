@@ -847,7 +847,16 @@ function isStaleAdminRpc(dash: Partial<AdminHlDashboard> | null | undefined): bo
 }
 
 export async function fetchAdminHlDashboard(): Promise<AdminHlDashboardResult> {
-  const { data, error } = await supabase.rpc('get_admin_hl_dashboard');
+  const runRpc = () => supabase.rpc('get_admin_hl_dashboard');
+
+  let { data, error } = await runRpc();
+
+  // After MFA / domain hop the JWT can lag — refresh once and retry.
+  if (error && /admin access required|42501|jwt|not admin/i.test(error.message || '')) {
+    await supabase.auth.refreshSession();
+    ({ data, error } = await runRpc());
+  }
+
   if (!error && data && !isStaleAdminRpc(data as Partial<AdminHlDashboard>)) {
     const enriched = await enrichAdminHlDashboard(
       normalizeAdminHlDashboard(data as Partial<AdminHlDashboard>)
@@ -856,7 +865,12 @@ export async function fetchAdminHlDashboard(): Promise<AdminHlDashboardResult> {
   }
 
   if (error) {
-    console.error('[adminDashboard] rpc failed', error);
+    console.error('[adminDashboard] rpc failed', {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
   } else if (data) {
     console.warn('[adminDashboard] rpc schema stale — using table fallback');
   }
