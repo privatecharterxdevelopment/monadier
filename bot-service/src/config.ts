@@ -185,6 +185,17 @@ export const config = {
       midTrailPct: Number(process.env.HL_TRAIL_MID_PCT || 0.024),
       cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.038),
       neverRedAfterArm: process.env.HL_TRAIL_NEVER_RED_AFTER_ARM !== 'false',
+      /**
+       * LONGs often need a touch more breathing room than SHORTs (slower grind up).
+       * Applied only when direction === LONG — SHORTs keep the base trail.
+       */
+      longTrailDistanceMult: Number(process.env.HL_TRAIL_LONG_DIST_MULT || 1.2),
+      /** Peak floor drop for LONGs (base profitFloorPeakDropFrac is for SHORT / default). */
+      longProfitFloorPeakDropFrac: Number(
+        process.env.HL_TRAIL_LONG_FLOOR_DROP_FRAC || 0.38
+      ),
+      /** Stretch min-active time before a LONG trail/floor close can fire. */
+      longTrailMinActiveMult: Number(process.env.HL_TRAIL_LONG_MIN_ACTIVE_MULT || 1.35),
     },
     /** Legacy profit-lock USD fields — analyze window before trail (aligned with arm hold). */
     profitMinHoldBeforeExitMs: Number(process.env.HL_PROFIT_MIN_HOLD_MS || 120_000),

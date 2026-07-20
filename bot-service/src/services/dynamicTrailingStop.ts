@@ -189,7 +189,10 @@ function peakProfitFloorStopPx(
   if (collateralUsd <= 0 || absSize <= 0 || peakPnlUsd <= 0) return null;
   const peakRoe = (peakPnlUsd / collateralUsd) * 100;
   if (peakRoe < cfg.breakevenArmRoePct) return null;
-  const dropFrac = Math.min(0.95, Math.max(0.05, cfg.profitFloorPeakDropFrac));
+  const baseDrop = cfg.profitFloorPeakDropFrac;
+  const dropRaw =
+    direction === 'LONG' ? cfg.longProfitFloorPeakDropFrac || baseDrop : baseDrop;
+  const dropFrac = Math.min(0.95, Math.max(0.05, dropRaw));
   const floorPnlUsd = peakPnlUsd * (1 - dropFrac);
   const move = floorPnlUsd / absSize;
   return direction === 'LONG' ? entryPrice + move : entryPrice - move;
@@ -302,13 +305,28 @@ function formatAnalytics(rec: DynamicTrailRecord, mark: number): string {
   ].join(' · ');
 }
 
-function trailTooYoungToClose(rec: DynamicTrailRecord, nowMs: number, trailMult: number): boolean {
-  const minMs = config.hyperliquid.dynamicTrail.trailMinActiveBeforeCloseMs;
+function trailTooYoungToClose(
+  rec: DynamicTrailRecord,
+  nowMs: number,
+  trailMult: number
+): boolean {
+  const cfg = config.hyperliquid.dynamicTrail;
+  let minMs = cfg.trailMinActiveBeforeCloseMs;
+  if (rec.direction === 'LONG') {
+    minMs = Math.round(minMs * Math.max(1, cfg.longTrailMinActiveMult || 1));
+  }
   if (!rec.trailArmedAt || minMs <= 0) return false;
   if (nowMs - rec.trailArmedAt < minMs) {
     return trailMult >= 0.95;
   }
   return false;
+}
+
+function directionTrailDistanceMult(direction: 'LONG' | 'SHORT', biasMult: number): number {
+  const cfg = config.hyperliquid.dynamicTrail;
+  const longRoom =
+    direction === 'LONG' ? Math.max(1, cfg.longTrailDistanceMult || 1) : 1;
+  return Math.max(0.75, Math.min(2.4, biasMult * longRoom));
 }
 
 export async function evaluateDynamicTrail(
@@ -447,7 +465,10 @@ export async function evaluateDynamicTrail(
 
   // Loss SL trail — ratchet stop on bounces, close when SL crossed (after min active ms).
   if (rec.phase === 'armed' && rec.lossSlArmed && rec.currentTrailStop != null) {
-    const trailMult = Math.max(0.75, Math.min(2, input.trailDistanceMult ?? 1));
+    const trailMult = directionTrailDistanceMult(
+      input.direction,
+      input.trailDistanceMult ?? 1
+    );
     const trailDist =
       (await resolveTrailDistancePx(input.coin, input.markPrice)) * trailMult;
     rec.lastTrailDistancePx = trailDist;
@@ -503,7 +524,11 @@ export async function evaluateDynamicTrail(
         input.pnlUsd > 0 &&
         isTrailStopCrossed(input.direction, input.markPrice, floorStop)
       ) {
-        const lockPct = (1 - Math.min(0.95, Math.max(0.05, cfg.profitFloorPeakDropFrac))) * 100;
+        const dropUsed =
+          input.direction === 'LONG'
+            ? cfg.longProfitFloorPeakDropFrac || cfg.profitFloorPeakDropFrac
+            : cfg.profitFloorPeakDropFrac;
+        const lockPct = (1 - Math.min(0.95, Math.max(0.05, dropUsed))) * 100;
         const detail = `PEAK PROFIT FLOOR · ${input.direction} ${input.coin} · lock ${lockPct.toFixed(0)}% of peak · peak $${rec.highestPnlSinceEntry.toFixed(4)} → $${input.pnlUsd.toFixed(4)} · ${formatAnalytics(rec, input.markPrice)}`;
         return {
           record: rec,
@@ -587,7 +612,10 @@ export async function evaluateDynamicTrail(
 
   // Phase 3 — ratchet trail (only moves in profit direction).
   if (rec.phase === 'trailing' && rec.currentTrailStop != null) {
-    const trailMult = Math.max(0.75, Math.min(2, input.trailDistanceMult ?? 1));
+    const trailMult = directionTrailDistanceMult(
+      input.direction,
+      input.trailDistanceMult ?? 1
+    );
     const trailDist =
       (await resolveTrailDistancePx(input.coin, input.markPrice)) * trailMult;
     rec.lastTrailDistancePx = trailDist;
@@ -610,7 +638,11 @@ export async function evaluateDynamicTrail(
       };
     }
 
-    const peakFrac = config.hyperliquid.profitPeakDropFraction;
+    const peakFracBase = config.hyperliquid.profitPeakDropFraction;
+    const peakFrac =
+      input.direction === 'LONG'
+        ? Math.min(0.65, peakFracBase * 1.15)
+        : peakFracBase;
     const peakMinFees = config.hyperliquid.profitPeakMinFeesMult;
     const runWiden =
       trailMult >= 1.12 ? (trailMult >= 1.5 ? 1.45 : 1.2) : 1;
