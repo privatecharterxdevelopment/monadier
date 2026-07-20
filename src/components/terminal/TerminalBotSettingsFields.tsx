@@ -39,6 +39,8 @@ export type BotSettingsFieldsProps = {
   setMinTradesForWinRate: (v: number) => void;
   maxConcurrentPositions?: number;
   setMaxConcurrentPositions?: (v: number) => void;
+  /** When set, only the concurrent-slots control uses this (risk/leverage can stay locked). */
+  slotsDisabled?: boolean;
   disabled?: boolean;
   variant?: 'panel' | 'modal' | 'lvrg';
   showAutoTrade?: boolean;
@@ -71,6 +73,7 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
   setMinTradesForWinRate,
   maxConcurrentPositions = 2,
   setMaxConcurrentPositions,
+  slotsDisabled,
   disabled,
   variant = 'panel',
   showAutoTrade = true,
@@ -95,6 +98,7 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
   const collateralUsd = totalRiskUsd / slots;
   const notionalUsd = collateralUsd * leverage;
   const winRateGateOn = minWinRate > 0;
+  const slotsControlDisabled = slotsDisabled ?? disabled;
 
   if (isLvrg) {
     return (
@@ -172,7 +176,7 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
                 type="button"
                 className={`term-modal-chip ${slots === 2 ? 'term-modal-chip--on' : ''}`}
                 onClick={() => setMaxConcurrentPositions(2)}
-                disabled={disabled}
+                disabled={slotsControlDisabled}
               >
                 {t('bot.concurrentSlotsTwo')}
               </button>
@@ -180,7 +184,7 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
                 type="button"
                 className={`term-modal-chip ${slots === 3 ? 'term-modal-chip--on' : ''}`}
                 onClick={() => setMaxConcurrentPositions(3)}
-                disabled={disabled}
+                disabled={slotsControlDisabled}
               >
                 {t('bot.concurrentSlotsThree')}
               </button>
@@ -404,7 +408,7 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
               type="button"
               className={`term-modal-chip ${slots === 2 ? 'term-modal-chip--on' : ''}`}
               onClick={() => setMaxConcurrentPositions(2)}
-              disabled={disabled}
+              disabled={slotsControlDisabled}
             >
               {t('bot.concurrentSlotsTwo')}
             </button>
@@ -412,7 +416,7 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
               type="button"
               className={`term-modal-chip ${slots === 3 ? 'term-modal-chip--on' : ''}`}
               onClick={() => setMaxConcurrentPositions(3)}
-              disabled={disabled}
+              disabled={slotsControlDisabled}
             >
               {t('bot.concurrentSlotsThree')}
             </button>

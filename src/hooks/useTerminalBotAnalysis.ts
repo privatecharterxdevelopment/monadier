@@ -116,6 +116,8 @@ export function useTerminalBotAnalysis({
     setServerMaxSlots(maxConcurrentPositions);
   }, [maxConcurrentPositions]);
 
+  // Vault settings are the source of truth for slot count. Bot-status can lag
+  // a few seconds after save and was overwriting a just-saved 3 back to 2.
   const [globalBest, setGlobalBest] = useState<GlobalScanCandidate | null>(null);
   const [globalCandidates, setGlobalCandidates] = useState<GlobalScanCandidate[]>([]);
   const [serverOpenCoins, setServerOpenCoins] = useState<string[]>([]);
@@ -400,9 +402,7 @@ export function useTerminalBotAnalysis({
             : Array.isArray(data.blockers)
               ? [...data.blockers]
               : [];
-        if (typeof data.hyperliquid?.maxConcurrentPositions === 'number') {
-          setServerMaxSlots(data.hyperliquid.maxConcurrentPositions);
-        }
+        // Do not overwrite slot count from bot-status — vault settings prop is authoritative.
         const openCoins = Array.isArray(data.hyperliquid?.openCoins)
           ? data.hyperliquid.openCoins
           : [];

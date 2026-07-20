@@ -40,13 +40,7 @@ const TerminalLvrgPanel: React.FC<Props> = ({
 
   return (
     <div className="term-panel-stack">
-      <div
-        className={
-          settingsLocked
-            ? 'term-lvrg-locked-section term-lvrg-locked-section--dim'
-            : 'term-lvrg-locked-section'
-        }
-      >
+      <div className="term-lvrg-locked-section">
         <TerminalBotSettingsFields
           variant="lvrg"
           planTier={editor.planTier}
@@ -73,6 +67,7 @@ const TerminalLvrgPanel: React.FC<Props> = ({
           maxConcurrentPositions={editor.maxConcurrentPositions}
           setMaxConcurrentPositions={editor.setMaxConcurrentPositions}
           disabled={disabled || settingsLocked || editor.isLoading}
+          slotsDisabled={disabled || editor.isLoading}
           walletConnected={editor.walletConnected}
           notice={editor.notice}
           error={editor.error}
@@ -80,18 +75,21 @@ const TerminalLvrgPanel: React.FC<Props> = ({
         />
 
         <p className="term-hint term-lvrg-save-hint">
-          Saves risk, leverage, stop loss, and win-rate gate for the {BRAND_NAME} bot. Start/stop
-          trading in the <strong>Bot</strong> tab.
+          Saves risk, leverage, stop loss, slots, and win-rate gate for the {BRAND_NAME} bot.
+          Start/stop trading in the <strong>Bot</strong> tab.
         </p>
 
         <button
           type="button"
           className="term-btn-sm flex-1 justify-center w-full"
           disabled={
-            editor.isLoading || (settingsLocked && editor.tradingParamsChanged) || (disabled && editor.walletConnected)
+            editor.isLoading ||
+            (settingsLocked && editor.tradingParamsChanged) ||
+            (disabled && editor.walletConnected)
           }
           onClick={() => {
-            if (settingsLocked) {
+            // Slot-only saves are allowed while the bot runs.
+            if (settingsLocked && editor.tradingParamsChanged) {
               onBlockedSave?.();
               return;
             }
@@ -113,12 +111,10 @@ const TerminalLvrgPanel: React.FC<Props> = ({
         </button>
 
         {settingsLocked ? (
-          <button
-            type="button"
-            className="term-lvrg-section-blocker"
-            aria-label="Stop bot to change leverage, risk, stop loss, or win-rate gate"
-            onClick={() => onBlockedSave?.()}
-          />
+          <p className="term-hint term-lvrg-save-hint">
+            Bot is running — you can still change <strong>slots</strong> and save. Stop the bot to
+            edit leverage, risk, or stop loss.
+          </p>
         ) : null}
       </div>
     </div>
