@@ -1755,20 +1755,25 @@ export class HyperliquidTradingService {
       let trailCloseDetail = trailResult.closeDetail;
 
       if (shouldCloseTrail && pnl > 0) {
-        // LONGs: once green, force at least ~2m in profit before any winning trail exit.
-        if (
-          positionDirection === 'LONG' &&
-          (trailRecord.timeInProfitMs ?? 0) <
-            (config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 120_000)
-        ) {
-          shouldCloseTrail = false;
-          logger.info('HL LONG green hold — defer profit close', {
-            user: userAddress.slice(0, 10),
-            coin: pos.coin,
-            timeInProfitMs: trailRecord.timeInProfitMs,
-            pnlUsd: pnl.toFixed(4),
-            exitReason: trailExitReason,
-          });
+        const greenHoldMs = config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 180_000;
+        // LONGs: never sniper-close on stage-1 breakeven lock; wait green hold for all profit exits.
+        if (positionDirection === 'LONG') {
+          const beSniper =
+            trailExitReason === 'profit_lock' &&
+            /BREAKEVEN LOCK/i.test(trailCloseDetail || '');
+          const tooYoung = (trailRecord.timeInProfitMs ?? 0) < greenHoldMs;
+          if (beSniper || tooYoung) {
+            shouldCloseTrail = false;
+            logger.info('HL LONG profit exit blocked — let winner run', {
+              user: userAddress.slice(0, 10),
+              coin: pos.coin,
+              timeInProfitMs: trailRecord.timeInProfitMs,
+              pnlUsd: pnl.toFixed(4),
+              exitReason: trailExitReason,
+              beSniper,
+              tooYoung,
+            });
+          }
         }
       }
 
@@ -1833,7 +1838,7 @@ export class HyperliquidTradingService {
       }
 
       const roePct = collateralEst > 0 ? (pnl / collateralEst) * 100 : 0;
-      const longGreenHoldMs = config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 120_000;
+      const longGreenHoldMs = config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 180_000;
       const longStillBreathing =
         positionDirection === 'LONG' &&
         pnl > 0 &&

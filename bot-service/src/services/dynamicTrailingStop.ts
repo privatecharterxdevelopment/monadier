@@ -329,6 +329,14 @@ function longGreenTooYoungToClose(rec: DynamicTrailRecord, pnlUsd: number): bool
   return minMs > 0 && rec.timeInProfitMs < minMs;
 }
 
+/** LONGs must not die on the stage-1 breakeven sniper. */
+function longBlocksBreakevenLockClose(direction: 'LONG' | 'SHORT'): boolean {
+  return (
+    direction === 'LONG' &&
+    config.hyperliquid.dynamicTrail.longSkipBreakevenLockClose !== false
+  );
+}
+
 function directionTrailDistanceMult(direction: 'LONG' | 'SHORT', biasMult: number): number {
   const cfg = config.hyperliquid.dynamicTrail;
   const longRoom =
@@ -509,18 +517,22 @@ export async function evaluateDynamicTrail(
     };
   }
 
-  // Hard peak profit-lock floor — evaluated before ATR trail / peak-grab and NOT subject
-  // to trailSweep defer. Guarantees peak × (1 − dropFrac) is locked once the position
-  // reached the arm ROE. This catches a peak that erodes (e.g. $22 → $8) which the wide
-  // ATR trail and high fee-gated peak-grab both miss.
+  // Hard peak profit-lock floor — SHORTs keep tight lock; LONGs only after a real run
+  // (peak ROE ≥ trail arm) so tiny BE wiggles do not floor-close the winner.
   if (rec.phase === 'armed' || rec.phase === 'trailing') {
-    const floorStop = peakProfitFloorStopPx(
-      input.direction,
-      input.entryPrice,
-      input.absSize,
-      input.collateralUsd,
-      rec.highestPnlSinceEntry
-    );
+    const peakRoeNow = roePct(rec.highestPnlSinceEntry, input.collateralUsd);
+    const longFloorOk =
+      input.direction !== 'LONG' ||
+      (peakRoeNow >= cfg.armMinRoePct && rec.phase === 'trailing');
+    const floorStop = longFloorOk
+      ? peakProfitFloorStopPx(
+          input.direction,
+          input.entryPrice,
+          input.absSize,
+          input.collateralUsd,
+          rec.highestPnlSinceEntry
+        )
+      : null;
     if (floorStop != null) {
       rec.currentTrailStop = ratchetStop(
         input.direction,
@@ -569,6 +581,7 @@ export async function evaluateDynamicTrail(
         peakPnlUsd: rec.highestPnlSinceEntry.toFixed(4),
       });
     } else if (
+      !longBlocksBreakevenLockClose(input.direction) &&
       input.pnlUsd > 0 &&
       isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop) &&
       !longGreenTooYoungToClose(rec, input.pnlUsd)

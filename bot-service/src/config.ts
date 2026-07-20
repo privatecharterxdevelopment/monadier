@@ -189,18 +189,23 @@ export const config = {
        * LONGs often need a touch more breathing room than SHORTs (slower grind up).
        * Applied only when direction === LONG — SHORTs keep the base trail.
        */
-      longTrailDistanceMult: Number(process.env.HL_TRAIL_LONG_DIST_MULT || 1.2),
+      longTrailDistanceMult: Number(process.env.HL_TRAIL_LONG_DIST_MULT || 1.45),
       /** Peak floor drop for LONGs (base profitFloorPeakDropFrac is for SHORT / default). */
       longProfitFloorPeakDropFrac: Number(
-        process.env.HL_TRAIL_LONG_FLOOR_DROP_FRAC || 0.38
+        process.env.HL_TRAIL_LONG_FLOOR_DROP_FRAC || 0.45
       ),
       /** Stretch min-active time before a LONG trail/floor close can fire. */
-      longTrailMinActiveMult: Number(process.env.HL_TRAIL_LONG_MIN_ACTIVE_MULT || 1.35),
+      longTrailMinActiveMult: Number(process.env.HL_TRAIL_LONG_MIN_ACTIVE_MULT || 2),
       /**
        * Once a LONG is green, do not profit-close for this long (trail / floor / peak / TP).
        * LONGs grind slower — SHORTs keep base timing.
        */
-      longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 120_000),
+      longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 180_000),
+      /**
+       * LONGs never exit on the stage-1 breakeven lock — only after trailing is armed
+       * (and green-hold elapsed). Prevents “green → BE tick → closed” scalp exits.
+       */
+      longSkipBreakevenLockClose: process.env.HL_TRAIL_LONG_SKIP_BE_CLOSE !== 'false',
     },
     /** Legacy profit-lock USD fields — analyze window before trail (aligned with arm hold). */
     profitMinHoldBeforeExitMs: Number(process.env.HL_PROFIT_MIN_HOLD_MS || 120_000),
