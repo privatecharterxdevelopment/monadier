@@ -1755,23 +1755,33 @@ export class HyperliquidTradingService {
       let trailCloseDetail = trailResult.closeDetail;
 
       if (shouldCloseTrail && pnl > 0) {
-        const greenHoldMs = config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 180_000;
-        // LONGs: never sniper-close on stage-1 breakeven lock; wait green hold for all profit exits.
+        const greenHoldMs = config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 900_000;
+        const minPeakRoe =
+          config.hyperliquid.dynamicTrail.longMinPeakRoePctBeforeTrailClose || 12;
+        const peakRoe =
+          collateralEst > 0
+            ? (trailRecord.highestPnlSinceEntry / collateralEst) * 100
+            : 0;
+        // LONGs: never sniper-close early — wait green hold + real peak ROE.
         if (positionDirection === 'LONG') {
           const beSniper =
             trailExitReason === 'profit_lock' &&
             /BREAKEVEN LOCK/i.test(trailCloseDetail || '');
           const tooYoung = (trailRecord.timeInProfitMs ?? 0) < greenHoldMs;
-          if (beSniper || tooYoung) {
+          const peakTooSmall = peakRoe < minPeakRoe;
+          if (beSniper || tooYoung || peakTooSmall) {
             shouldCloseTrail = false;
             logger.info('HL LONG profit exit blocked — let winner run', {
               user: userAddress.slice(0, 10),
               coin: pos.coin,
               timeInProfitMs: trailRecord.timeInProfitMs,
               pnlUsd: pnl.toFixed(4),
+              peakRoe: peakRoe.toFixed(2),
+              minPeakRoe,
               exitReason: trailExitReason,
               beSniper,
               tooYoung,
+              peakTooSmall,
             });
           }
         }
@@ -1838,7 +1848,7 @@ export class HyperliquidTradingService {
       }
 
       const roePct = collateralEst > 0 ? (pnl / collateralEst) * 100 : 0;
-      const longGreenHoldMs = config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 180_000;
+      const longGreenHoldMs = config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 900_000;
       const longStillBreathing =
         positionDirection === 'LONG' &&
         pnl > 0 &&
@@ -2081,6 +2091,8 @@ export class HyperliquidTradingService {
       let viaHlBuilder = false;
       let closeBuilder: { b: `0x${string}`; f: number } | undefined;
       let feeSkipReason: string | null = null;
+      // Capture before order so fill closedPnl lookup includes the close fills.
+      const closeStartedMs = Date.now();
       if (pnlUsd > 0) {
         const builderGate = await checkHlBuilderFeeApproved(userAddress);
         if (!builderGate.platformReady) {
@@ -2155,7 +2167,6 @@ export class HyperliquidTradingService {
 
       // Prefer HL fill closedPnl (matches trade history) over clearinghouse uPnL
       // which emails/notifications were using and can diverge on multi-fill closes.
-      const closeStartedMs = Date.now();
       let realizedPnlUsd = pnlUsd;
       for (let attempt = 0; attempt < 4; attempt++) {
         if (attempt > 0) {

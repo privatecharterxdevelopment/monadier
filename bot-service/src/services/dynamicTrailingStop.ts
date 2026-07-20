@@ -131,10 +131,28 @@ export function lossStopPricePx(
 
 export function shouldUpgradeToTrailing(
   pnlUsd: number,
-  collateralUsd: number
+  collateralUsd: number,
+  direction: 'LONG' | 'SHORT' = 'SHORT'
 ): boolean {
   if (pnlUsd <= 0 || collateralUsd <= 0) return false;
-  return roePct(pnlUsd, collateralUsd) >= config.hyperliquid.dynamicTrail.armMinRoePct;
+  const cfg = config.hyperliquid.dynamicTrail;
+  const need =
+    direction === 'LONG'
+      ? Math.max(cfg.armMinRoePct, cfg.longTrailArmRoePct || cfg.armMinRoePct)
+      : cfg.armMinRoePct;
+  return roePct(pnlUsd, collateralUsd) >= need;
+}
+
+/** LONGs: trail / peak-floor / peak-grab only after a real run (peak ROE). */
+function longPeakTooSmallToTrailClose(
+  direction: 'LONG' | 'SHORT',
+  peakPnlUsd: number,
+  collateralUsd: number
+): boolean {
+  if (direction !== 'LONG') return false;
+  const minRoe = config.hyperliquid.dynamicTrail.longMinPeakRoePctBeforeTrailClose || 0;
+  if (minRoe <= 0) return false;
+  return roePct(peakPnlUsd, collateralUsd) < minRoe;
 }
 
 /** @deprecated use shouldArmBreakevenProtection / shouldUpgradeToTrailing */
@@ -144,7 +162,10 @@ export function shouldArmProfitProtection(
   _feesUsd: number,
   timeInProfitMs: number
 ): boolean {
-  return shouldUpgradeToTrailing(pnlUsd, collateralUsd) && timeInProfitMs >= config.hyperliquid.dynamicTrail.armMinProfitHoldMs;
+  return (
+    shouldUpgradeToTrailing(pnlUsd, collateralUsd) &&
+    timeInProfitMs >= config.hyperliquid.dynamicTrail.armMinProfitHoldMs
+  );
 }
 
 function hasBreakevenLock(
@@ -341,7 +362,8 @@ function directionTrailDistanceMult(direction: 'LONG' | 'SHORT', biasMult: numbe
   const cfg = config.hyperliquid.dynamicTrail;
   const longRoom =
     direction === 'LONG' ? Math.max(1, cfg.longTrailDistanceMult || 1) : 1;
-  return Math.max(0.75, Math.min(2.4, biasMult * longRoom));
+  const cap = direction === 'LONG' ? 3.2 : 2.4;
+  return Math.max(0.75, Math.min(cap, biasMult * longRoom));
 }
 
 export async function evaluateDynamicTrail(
@@ -518,12 +540,16 @@ export async function evaluateDynamicTrail(
   }
 
   // Hard peak profit-lock floor — SHORTs keep tight lock; LONGs only after a real run
-  // (peak ROE ≥ trail arm) so tiny BE wiggles do not floor-close the winner.
+  // (peak ROE ≥ longMinPeak…) so early green ticks do not floor-close the winner.
   if (rec.phase === 'armed' || rec.phase === 'trailing') {
     const peakRoeNow = roePct(rec.highestPnlSinceEntry, input.collateralUsd);
+    const longFloorNeed = Math.max(
+      cfg.armMinRoePct,
+      cfg.longMinPeakRoePctBeforeTrailClose || cfg.armMinRoePct
+    );
     const longFloorOk =
       input.direction !== 'LONG' ||
-      (peakRoeNow >= cfg.armMinRoePct && rec.phase === 'trailing');
+      (peakRoeNow >= longFloorNeed && rec.phase === 'trailing');
     const floorStop = longFloorOk
       ? peakProfitFloorStopPx(
           input.direction,
@@ -543,7 +569,12 @@ export async function evaluateDynamicTrail(
         input.pnlUsd > 0 &&
         isTrailStopCrossed(input.direction, input.markPrice, floorStop) &&
         !longGreenTooYoungToClose(rec, input.pnlUsd) &&
-        !trailTooYoungToClose(rec, input.nowMs, 1)
+        !trailTooYoungToClose(rec, input.nowMs, 1) &&
+        !longPeakTooSmallToTrailClose(
+          input.direction,
+          rec.highestPnlSinceEntry,
+          input.collateralUsd
+        )
       ) {
         const dropUsed =
           input.direction === 'LONG'
@@ -571,7 +602,7 @@ export async function evaluateDynamicTrail(
     );
     rec.currentTrailStop = ratchetStop(input.direction, rec.currentTrailStop, beStop);
 
-    if (shouldUpgradeToTrailing(input.pnlUsd, input.collateralUsd)) {
+    if (shouldUpgradeToTrailing(input.pnlUsd, input.collateralUsd, input.direction)) {
       rec.phase = 'trailing';
       logger.info('HL trailing stop armed (stage 2)', {
         coin: input.coin,
@@ -676,7 +707,12 @@ export async function evaluateDynamicTrail(
       peakFrac > 0 &&
       rec.timeInProfitMs >= cfg.armMinProfitHoldMs &&
       !trailTooYoungToClose(rec, input.nowMs, trailMult) &&
-      !longGreenTooYoungToClose(rec, input.pnlUsd)
+      !longGreenTooYoungToClose(rec, input.pnlUsd) &&
+      !longPeakTooSmallToTrailClose(
+        input.direction,
+        rec.highestPnlSinceEntry,
+        input.collateralUsd
+      )
     ) {
       const drop = rec.highestPnlSinceEntry - input.pnlUsd;
       const minDrop = Math.max(feesUsd, rec.highestPnlSinceEntry * peakFrac * runWiden);
@@ -695,7 +731,12 @@ export async function evaluateDynamicTrail(
       isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop) &&
       !trailTooYoungToClose(rec, input.nowMs, trailMult) &&
       input.pnlUsd > 0 &&
-      !longGreenTooYoungToClose(rec, input.pnlUsd)
+      !longGreenTooYoungToClose(rec, input.pnlUsd) &&
+      !longPeakTooSmallToTrailClose(
+        input.direction,
+        rec.highestPnlSinceEntry,
+        input.collateralUsd
+      )
     ) {
       const detail = `TRAILING STOP · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
       return {

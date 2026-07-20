@@ -186,26 +186,38 @@ export const config = {
       cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.038),
       neverRedAfterArm: process.env.HL_TRAIL_NEVER_RED_AFTER_ARM !== 'false',
       /**
-       * LONGs often need a touch more breathing room than SHORTs (slower grind up).
+       * LONGs need much more breathing room than SHORTs (grind up, early wicks).
        * Applied only when direction === LONG — SHORTs keep the base trail.
        */
-      longTrailDistanceMult: Number(process.env.HL_TRAIL_LONG_DIST_MULT || 1.45),
+      longTrailDistanceMult: Number(process.env.HL_TRAIL_LONG_DIST_MULT || 2.1),
       /** Peak floor drop for LONGs (base profitFloorPeakDropFrac is for SHORT / default). */
       longProfitFloorPeakDropFrac: Number(
-        process.env.HL_TRAIL_LONG_FLOOR_DROP_FRAC || 0.45
+        process.env.HL_TRAIL_LONG_FLOOR_DROP_FRAC || 0.55
       ),
       /** Stretch min-active time before a LONG trail/floor close can fire. */
-      longTrailMinActiveMult: Number(process.env.HL_TRAIL_LONG_MIN_ACTIVE_MULT || 2),
+      longTrailMinActiveMult: Number(process.env.HL_TRAIL_LONG_MIN_ACTIVE_MULT || 5),
       /**
        * Once a LONG is green, do not profit-close for this long (trail / floor / peak / TP).
-       * LONGs grind slower — SHORTs keep base timing.
+       * Default 15m — 3m still sniped ETH winners right after the hold expired.
        */
-      longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 180_000),
+      longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 900_000),
       /**
        * LONGs never exit on the stage-1 breakeven lock — only after trailing is armed
        * (and green-hold elapsed). Prevents “green → BE tick → closed” scalp exits.
        */
       longSkipBreakevenLockClose: process.env.HL_TRAIL_LONG_SKIP_BE_CLOSE !== 'false',
+      /**
+       * Stage-2 ATR trail for LONGs only after this peak ROE (SHORTs keep armMinRoePct).
+       * Stops “barely 5% ROE → trail sniper” on fresh LONGs.
+       */
+      longTrailArmRoePct: Number(process.env.HL_TRAIL_LONG_ARM_ROE_PCT || 10),
+      /**
+       * Do not trail-/floor-/peak-close a LONG until peak ROE reached this level.
+       * Lets winners run past the first green scalp tick.
+       */
+      longMinPeakRoePctBeforeTrailClose: Number(
+        process.env.HL_TRAIL_LONG_MIN_PEAK_ROE_PCT || 12
+      ),
     },
     /** Legacy profit-lock USD fields — analyze window before trail (aligned with arm hold). */
     profitMinHoldBeforeExitMs: Number(process.env.HL_PROFIT_MIN_HOLD_MS || 120_000),
