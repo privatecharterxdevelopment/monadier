@@ -509,17 +509,19 @@ const ProTradeDock: React.FC<Props> = ({
         ) : tab === 'positions' ? (
           <div className="hl-dock-positions-pane">
             {filteredPositions.length > 0 ? (
-            <table className="hl-table">
+            <>
+            <div className="hl-dock-table-scroll">
+            <table className="hl-table hl-table--positions">
               <thead>
                 <tr>
                   <th>{t('dock.cols.coin')}</th>
                   <th>{t('dock.cols.side')}</th>
                   <th>{t('dock.cols.size')}</th>
-                  <th>{t('dock.cols.value')}</th>
-                  <th>{t('dock.cols.entry')}</th>
-                  <th>{t('dock.cols.mark')}</th>
+                  <th className="hl-col-optional">{t('dock.cols.value')}</th>
+                  <th className="hl-col-optional">{t('dock.cols.entry')}</th>
+                  <th className="hl-col-optional">{t('dock.cols.mark')}</th>
                   <th>{t('dock.cols.pnl')}</th>
-                  <th>{t('dock.cols.lev')}</th>
+                  <th className="hl-col-optional">{t('dock.cols.lev')}</th>
                   {isBotMode ? <th>{t('dock.cols.stop')}</th> : null}
                   <th />
                 </tr>
@@ -565,13 +567,13 @@ const ProTradeDock: React.FC<Props> = ({
                       </td>
                       <td className={isLong ? 'hl-up' : 'hl-down'}>{isLong ? 'LONG' : 'SHORT'}</td>
                       <td>{fmtSize(Math.abs(toNum(p.szi)))}</td>
-                      <td>{fmtUsdSymbol(p.positionValue)}</td>
-                      <td>{fmtPrice(p.entryPx)}</td>
-                      <td>{mark > 0 ? fmtPrice(mark) : '—'}</td>
+                      <td className="hl-col-optional">{fmtUsdSymbol(p.positionValue)}</td>
+                      <td className="hl-col-optional">{fmtPrice(p.entryPx)}</td>
+                      <td className="hl-col-optional">{mark > 0 ? fmtPrice(mark) : '—'}</td>
                       <td className={upnl >= 0 ? 'hl-up' : 'hl-down'}>
                         {fmtTradeUsdSymbol(upnl)}
                       </td>
-                      <td>{fmtLeverage(lev)}</td>
+                      <td className="hl-col-optional">{fmtLeverage(lev)}</td>
                       {isBotMode ? (
                         <td className={`hl-active-sl hl-active-sl--${activeSl.kind}`}>
                           {onSaveStopLoss ? (
@@ -614,6 +616,117 @@ const ProTradeDock: React.FC<Props> = ({
                 })}
               </tbody>
             </table>
+            </div>
+            <div className="hl-pos-cards" aria-hidden={false}>
+              {filteredPositions.map((p) => {
+                const isLong = toNum(p.szi) >= 0;
+                const mark = markPrices[p.coin] ?? 0;
+                const upnl = livePositionPnl(p, mark);
+                const lev = isBotMode
+                  ? resolveDisplayLeverage(configuredLeverage, p.leverage?.value)
+                  : Math.max(1, toNum(p.leverage?.value));
+                const peakPnl = peakPnlFor(p.coin, toNum(p.entryPx), toNum(p.szi), upnl);
+                const botTrail = botTrailByCoin[p.coin];
+                const activeSl = trailStopForOpenPosition({
+                  entryPx: toNum(p.entryPx),
+                  szi: toNum(p.szi),
+                  markPx: mark > 0 ? mark : toNum(p.entryPx),
+                  unrealizedPnlUsd: upnl,
+                  leverage: lev,
+                  coin: p.coin,
+                  peakPnlUsd: peakPnl,
+                  stopLossMarginPct,
+                  holdMs: Date.now() - (positionOpenSinceRef.current.get(p.coin) ?? Date.now()),
+                  serverTrail: botTrail
+                    ? {
+                        phase: botTrail.phase,
+                        peakPnlUsd: botTrail.peakPnlUsd,
+                        lockPnlUsd: botTrail.lockPnlUsd,
+                        lockRoePct: botTrail.lockRoePct,
+                        stopPx: botTrail.stopPx,
+                        wouldCloseNow: botTrail.wouldCloseNow,
+                        stateTracked: botTrail.stateTracked,
+                      }
+                    : undefined,
+                });
+                return (
+                  <article key={`card-${p.coin}`} className="hl-pos-card">
+                    <header className="hl-pos-card__head">
+                      <button
+                        type="button"
+                        className="hl-coin-link"
+                        onClick={() => onCoinClick?.(p.coin)}
+                      >
+                        {p.coin}
+                      </button>
+                      <span className={isLong ? 'hl-up' : 'hl-down'}>
+                        {isLong ? 'LONG' : 'SHORT'} · {fmtLeverage(lev)}
+                      </span>
+                      <span className={upnl >= 0 ? 'hl-up' : 'hl-down'}>
+                        {fmtTradeUsdSymbol(upnl)}
+                      </span>
+                    </header>
+                    <dl className="hl-pos-card__grid">
+                      <div>
+                        <dt>{t('dock.cols.size')}</dt>
+                        <dd>{fmtSize(Math.abs(toNum(p.szi)))}</dd>
+                      </div>
+                      <div>
+                        <dt>{t('dock.cols.value')}</dt>
+                        <dd>{fmtUsdSymbol(p.positionValue)}</dd>
+                      </div>
+                      <div>
+                        <dt>{t('dock.cols.entry')}</dt>
+                        <dd>{fmtPrice(p.entryPx)}</dd>
+                      </div>
+                      <div>
+                        <dt>{t('dock.cols.mark')}</dt>
+                        <dd>{mark > 0 ? fmtPrice(mark) : '—'}</dd>
+                      </div>
+                      {isBotMode ? (
+                        <div className="hl-pos-card__stop">
+                          <dt>{t('dock.cols.stop')}</dt>
+                          <dd className={`hl-active-sl hl-active-sl--${activeSl.kind}`}>
+                            {onSaveStopLoss ? (
+                              <button
+                                type="button"
+                                className="hl-active-sl__btn"
+                                title={activeSl.title ?? 'Edit stop loss'}
+                                onClick={() =>
+                                  setStopEdit({
+                                    position: p,
+                                    activeSl,
+                                    entryPx: toNum(p.entryPx),
+                                    szi: toNum(p.szi),
+                                    markPx: mark > 0 ? mark : toNum(p.entryPx),
+                                    leverage: lev,
+                                  })
+                                }
+                              >
+                                <span className="hl-active-sl__price">{activeSl.label}</span>
+                              </button>
+                            ) : (
+                              <span className="hl-active-sl__price" title={activeSl.title}>
+                                {activeSl.label}
+                              </span>
+                            )}
+                          </dd>
+                        </div>
+                      ) : null}
+                    </dl>
+                    <button
+                      type="button"
+                      className="hl-dock-action hl-pos-card__close"
+                      disabled={actionBusy}
+                      onClick={() => onClosePosition?.(p)}
+                    >
+                      Close
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+            </>
           ) : isBotMode && platformFees.botTradingBlocked ? (
             <div className="hl-dock-empty hl-dock-empty--bot-scan" role="status">
               <span className="hl-dock-bot-scan-title">Bot fees due</span>
