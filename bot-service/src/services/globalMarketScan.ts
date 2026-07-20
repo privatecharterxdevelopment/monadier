@@ -45,9 +45,16 @@ function profileAnalysisTimeframes(): Timeframe[] {
   return [...config.hyperliquid.directionProfile.analysisTimeframes] as Timeframe[];
 }
 
-function isActiveProfileDirection(direction: 'LONG' | 'SHORT', peakLiquidityGrab = false): boolean {
-  if (peakLiquidityGrab && direction === 'SHORT') return true;
-  return direction === config.hyperliquid.directionProfile.primaryDirection;
+/**
+ * Both sides stay eligible under every regime. Primary gets aggressive
+ * PRIMARY_RULES; the opposite side uses COUNTER_TREND_RULES (stricter)
+ * via passesProfileThresholds / rulesFor. Peak→SHORT is always allowed.
+ */
+function isActiveProfileDirection(
+  _direction: 'LONG' | 'SHORT',
+  _peakLiquidityGrab = false
+): boolean {
+  return true;
 }
 
 function rulesFor(direction: 'LONG' | 'SHORT', peakLiquidityGrab = false) {
@@ -545,12 +552,9 @@ export function globalSignalsForBotMode(
   scan: GlobalScanResult,
   hlBotStrategy: string | null | undefined
 ): GlobalSignalCandidate[] {
-  const primaryDirection = config.hyperliquid.directionProfile.primaryDirection;
-  const keep = (candidate: GlobalSignalCandidate) =>
-    candidate.direction === primaryDirection ||
-    (candidate.direction === 'SHORT' && candidate.peakLiquidityGrab === true);
-  const standard = scan.standard.filter(keep);
-  const aggressive = scan.aggressive.filter(keep);
+  // Both sides stay — counter-trend setups already cleared profile thresholds in scan.
+  const standard = scan.standard;
+  const aggressive = scan.aggressive;
 
   // Regime profiles are 15m/1h/4h systems. Do not leak 1m/5m aggressive
   // candidates back into Standard (or profit_grabber) while a regime is active.

@@ -976,20 +976,8 @@ export class HyperliquidTradingService {
         );
       }
 
-      if (
-        opts.direction !== directionProfile.primaryDirection &&
-        !peakLiquidityGrab
-      ) {
-        return rejectOpen(
-          'direction_profile',
-          `${opts.direction} disabled while ${directionProfile.name} is active; switch HL_DIRECTION_PROFILE in the backend`,
-          'inactive market-regime direction',
-          {
-            profile: directionProfile.name,
-            primaryDirection: directionProfile.primaryDirection,
-          }
-        );
-      }
+      // Both sides allowed: primary = aggressive rules, opposite = COUNTER_TREND_RULES.
+      // No hard "only primary direction" kill-switch — that blocked valid LONGs in bear_market.
       const directionRules = peakLiquidityGrab
         ? PRIMARY_RULES
         : opts.direction === 'LONG'
