@@ -1,5 +1,5 @@
 # Supabase Configuration for HyperGain
-# site_url stays on the live test host until hypergain.io DNS is verified.
+# Production Site URL — hypergain.io (www redirects here via apex→www in Vercel).
 
 [api]
 enabled = true
@@ -26,21 +26,17 @@ file_size_limit = "50MiB"
 
 [auth]
 enabled = true
-# Keep vercel as Site URL so current testing keeps working.
-site_url = "https://monadier.vercel.app"
+# Canonical production host (apex). www + app + legacy vercel stay as redirects.
+site_url = "https://hypergain.io"
 additional_redirect_urls = [
-  "https://monadier.vercel.app/auth/callback",
-  "https://monadier.vercel.app/reset-password",
   "https://hypergain.io/auth/callback",
   "https://hypergain.io/reset-password",
   "https://www.hypergain.io/auth/callback",
   "https://www.hypergain.io/reset-password",
   "https://app.hypergain.io/auth/callback",
   "https://app.hypergain.io/reset-password",
-  "https://app.monadier.io/auth/callback",
-  "https://app.monadier.io/reset-password",
-  "https://www.monadier.io/auth/callback",
-  "https://www.monadier.io/reset-password",
+  "https://monadier.vercel.app/auth/callback",
+  "https://monadier.vercel.app/reset-password",
   "http://localhost:5173/auth/callback",
   "http://localhost:5173/reset-password",
 ]

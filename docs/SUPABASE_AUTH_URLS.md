@@ -1,51 +1,43 @@
-# Supabase auth URLs — HyperGain (safe cutover)
+# Supabase auth URLs — HyperGain
 
-**Site URL stays `https://monadier.vercel.app` until hypergain.io DNS is live.**  
-Redirect URLs are **additive** — old hosts keep working so you can keep testing.
+**Site URL (canonical):** `https://hypergain.io`
 
-## Already pushed to Supabase (project `gbgafseabgqinnvlfslc`)
+Redirect URLs are **additive** — old hosts keep working for testing.
 
-**Site URL:** `https://monadier.vercel.app` (unchanged)
+## Production (project `gbgafseabgqinnvlfslc`)
+
+**Site URL:** `https://hypergain.io`
 
 **Redirect URLs (all allowed):**
 
 ```
-https://monadier.vercel.app/auth/callback
-https://monadier.vercel.app/reset-password
 https://hypergain.io/auth/callback
 https://hypergain.io/reset-password
 https://www.hypergain.io/auth/callback
 https://www.hypergain.io/reset-password
 https://app.hypergain.io/auth/callback
 https://app.hypergain.io/reset-password
-https://app.monadier.io/auth/callback
-https://app.monadier.io/reset-password
-https://www.monadier.io/auth/callback
-https://www.monadier.io/reset-password
+https://monadier.vercel.app/auth/callback
+https://monadier.vercel.app/reset-password
 http://localhost:5173/auth/callback
 http://localhost:5173/reset-password
 ```
 
-Google provider Client ID/Secret were **not** touched by config push.
+Google provider Client ID/Secret live only in the Supabase Dashboard (do not push via `config.toml`).
 
-## App behavior (keeps testing intact)
+## App behavior
 
 OAuth `redirectTo` = **current browser origin** + `/auth/callback`  
-→ Works on `monadier.vercel.app`, `localhost`, and later `hypergain.io` without changing Vercel env.
+→ Works on `www.hypergain.io`, `hypergain.io`, `app.hypergain.io`, `monadier.vercel.app`, and `localhost`.
 
-## Still you (Google Cloud only)
+## Google Cloud — Authorized JavaScript origins
 
-[Google Cloud Console](https://console.cloud.google.com/) → OAuth Web client → **Authorized JavaScript origins** — **add** (do not remove existing):
+[Google Cloud Console](https://console.cloud.google.com/) → OAuth Web client → **add** (do not remove existing):
 
 ```
 https://hypergain.io
 https://www.hypergain.io
 https://app.hypergain.io
-```
-
-Keep existing:
-
-```
 https://monadier.vercel.app
 http://localhost:5173
 ```
@@ -56,10 +48,20 @@ http://localhost:5173
 https://gbgafseabgqinnvlfslc.supabase.co/auth/v1/callback
 ```
 
-## When hypergain.io DNS is live
+## Vercel env (production)
 
-1. Vercel: set `VITE_SITE_URL=https://hypergain.io`, `VITE_APP_URL=https://app.hypergain.io`, optional `VITE_SPLIT_DOMAINS=true`
-2. Supabase Site URL → `https://hypergain.io` (redirect list already has it)
-3. Redeploy
+| Name | Value |
+|------|--------|
+| `VITE_SITE_URL` | `https://hypergain.io` |
+| `VITE_APP_URL` | `https://app.hypergain.io` |
+| `VITE_SPLIT_DOMAINS` | `false` until `app.hypergain.io` DNS is live, then `true` |
 
-Until then: keep testing on **https://monadier.vercel.app/login** → Continue with Google.
+## Cloudflare DNS for `app.hypergain.io`
+
+One CNAME (DNS only / grey cloud — proxy off):
+
+| Type | Name | Target |
+|------|------|--------|
+| CNAME | `app` | `df5efc46150c433d.vercel-dns-016.com` |
+
+Then: `vercel domains verify app.hypergain.io` → set `VITE_SPLIT_DOMAINS=true` → redeploy.
